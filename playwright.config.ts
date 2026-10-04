@@ -14,8 +14,8 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   webServer: {
-    command: 'bun scripts/e2e-host.ts',
-    url: `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}/healthz`,
+    command: `bun node_modules/vite/bin/vite.js preview --config apps/web/vite.config.ts --host 127.0.0.1 --port ${process.env.HBAR_E2E_PORT ?? 4329} --strictPort`,
+    url: `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`,
     reuseExistingServer: false,
     timeout: 30_000,
   },

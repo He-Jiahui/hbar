@@ -18,19 +18,23 @@ import {
   themeProfileSchema,
 } from '@hbar/contracts'
 import type {
+  ApprovalMode,
   Approval,
   ArtifactRef,
   Bootstrap,
   ContentBlock,
+  ToolOutcome,
   HostInfo,
   LiveStream,
   ModelInfo,
   ProviderConfig,
   ProviderInput,
   Run,
+  RunFailure,
   SessionEvent,
   SessionSnapshot,
   SessionSummary,
+  Workspace,
   UserInputRequest,
   UserInputResponse,
   UserInput,
@@ -41,7 +45,7 @@ import type {
   AutomationState,
   TaskNotificationKind,
 } from '@hbar/contracts'
-import { definePlugin, provide } from '@hbar/plugin-sdk'
+import { definePlugin, prependModelInstructions, provide } from '@hbar/plugin-sdk'
 import type {
   CompactionProvider,
   BudgetService,
@@ -53,27 +57,130 @@ import type {
   ModeService,
   PolicyProvider,
   ToolContext,
+  ToolDefinition,
   ToolResult,
   UserInputService,
 } from '@hbar/plugin-sdk'
 import { Storage, ensurePathLayout, resolvePathLayout, validatePathRoots, writePathPointer } from '@hbar/storage'
-import type { PathLayout, StoragePort } from '@hbar/storage'
+import type {
+  PathLayout,
+  SessionLaunchTargetMutationInput,
+  SessionLaunchTargetPreparationStartMutationInput,
+  StoragePort,
+} from '@hbar/storage'
+import type {
+  SessionLaunchTargetPreparationOperationInput,
+  SessionLaunchTargetPreparationSnapshot,
+  SessionLaunchTargetPreparationStartReceipt,
+} from '@hbar/contracts/commands/session-launch-target'
 import type { HbarPlugin } from '@hbar/plugin-sdk'
 import { buildSettingsCatalog, resolveSettings, searchSettings, settingDescriptors, validateSettingValue } from './settings.ts'
+import type {
+  QueuedRunEditTextInput,
+  QueuedRunGuideInput,
+  QueuedRunGuideReceipt,
+  QueuedRunRemoveInput,
+  RunCommandRecord,
+} from '@hbar/contracts/commands/run'
 import piPlugin from '@hbar/pi-driver'
-import localTools, { executionPlugin, LocalExecution } from '@hbar/local-tools'
+import localTools, { localExecutionPlugin } from '@hbar/local-tools'
 import goalPlugin from '@hbar/goal'
 import planPlugin from '@hbar/plan'
 import budgetPlugin from '@hbar/budget'
 import gitPlugin from '@hbar/git'
 import browserPlugin from '@hbar/browser-use'
 import computerPlugin from '@hbar/computer-use'
+import agentPlugin from '@hbar/agent'
+import workflowPlugin from '@hbar/workflow'
 import { Hooks, PluginManager, Tools } from './plugins.ts'
 import type { RuntimeScope } from './plugins.ts'
 export type { RuntimeScope } from './plugins.ts'
+export { createBudgetCommands } from './budget-commands'
+export { createRunCommands } from './run-commands'
+export { createInteractionCommands } from './interaction-commands'
+export { createGoalPlanCommands } from './goal-plan-commands'
+export { createModelCommands, createModelSettingsValidator } from './model-commands'
+export { createFileCommands } from './file-commands'
+export { createAgentCommands } from './agent-commands'
+export { createBrowserCommands } from './browser-commands'
+export { createComputerCommands } from './computer-commands'
+export { createConfigurationCommands, HBAR_PROVIDER_EDITOR_DESCRIPTION } from './configuration-commands'
+export { createGitCommands } from './git-commands'
+export { createWorkspaceSessionCommands } from './workspace-session-commands'
+export { createSessionLaunchTargetCommands } from './session-launch-target-commands'
+export { createSessionLaunchBranchesCommands } from './session-launch-branches-commands'
+export { SessionLaunchTargetService } from './session-launch-target-service'
+import { SessionLaunchTargetService } from './session-launch-target-service'
+export { SessionLaunchTargetPreparationService } from './session-launch-target-preparation-service'
+import { SessionLaunchTargetPreparationService } from './session-launch-target-preparation-service'
+export { createSettingsCommands } from './settings-commands'
+export { createSandboxCommands } from './sandbox-commands'
+export { createSandboxSettingsValidator } from './sandbox-settings'
+export { SandboxProfileService } from './sandbox-service'
+export type { SandboxProfileStoragePort, SandboxWriteIdentity } from './sandbox-service'
+export { createUsageCommands } from './usage-commands'
+export { createWorkflowCommands } from './workflow-commands'
+export {
+  createScheduleCommands,
+  createPromptTemplateCommands,
+  createNotificationCommands,
+  createRunBoardCommands,
+} from './feature-commands'
+export { createScheduleService } from './schedule-service'
+export type { ScheduleService } from './schedule-service'
+export { previewSchedule } from './schedule-service'
+export { latestDueSchedule } from './schedule-service'
+export { createScheduleDueReader } from './schedule-due-reader'
+export type { ScheduleDueReaderPort } from './schedule-due-reader'
+export { createPromptTemplateService } from './prompt-template-service'
+export {
+  BUILTIN_SANDBOX_PROFILES,
+  evaluateSandbox,
+  isBuiltinSandboxProfileId,
+  normalizeSandboxAbsolutePath,
+  parseSandboxCommand,
+  resolveSandboxProfile,
+} from './sandbox-policy'
+export type {
+  ParsedSandboxCommand,
+  SandboxEvaluationOptions,
+  SandboxPathTarget,
+  SandboxProfileLookup,
+  SandboxReason,
+  SandboxToolCall,
+  SandboxVerdict,
+} from './sandbox-policy'
+export { createNotificationService } from './notification-service'
+export { createScheduleRunner, ScheduleRunFailure } from './schedule-runner'
+export type { ScheduleExecutionPort } from './schedule-runner'
+export {
+  SettingsService,
+  HBAR_SETTINGS_DEFINITIONS,
+  HBAR_SETTINGS_DESCRIPTION,
+  HBAR_SETTINGS_SCHEMA_VERSION,
+} from './settings-service'
+import { createDirectoryQueries } from './directory-queries'
+import { createSchemaCallbackRegistry, encodePath } from '@hbar/schema-core'
+import { createUsageFact, describeUsageAttempt } from '@hbar/usage'
+import { classifyRunFailure } from './run-failure.ts'
+import { hostAbortToolOutcome } from './tool-outcome'
+import { captureToolPresentations, enrichToolCallPresentations } from './tool-presentation'
+import { SessionWakeups } from './session-wakeups.ts'
+import { createToolSequenceExecutor } from './tool-sequence'
+import { buildSteeringContext, type RunSteeringContext, type SteeringDelivery } from './run-steering-context'
+import {
+  SettingsService,
+  SESSION_APPROVAL_SETTING_PATH,
+  SESSION_SANDBOX_PROFILE_SETTING_PATH,
+} from './settings-service'
+import { SandboxProfileService } from './sandbox-service'
+import { describeSandboxReason, evaluateSandboxCall } from './sandbox-gate'
+import { isBuiltinSandboxProfileId } from './sandbox-policy'
+import { sandboxProfileIdSchema } from '@hbar/contracts/sandbox'
 
 const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024
 const MAX_ATTACHMENTS = 12
+const SESSION_ACTIVITY_EVENT_TYPES = new Set(['run.queued', 'run.status', 'run.settled', 'run.cancelRequested'])
 const MAX_FILE_TEXT = 120_000
 const IMAGE_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const
 const TEXT_EXTENSIONS = new Set([
@@ -129,6 +236,34 @@ function isTextArtifact(mime: string, name: string): boolean {
   return dot >= 0 && TEXT_EXTENSIONS.has(name.slice(dot).toLowerCase())
 }
 
+function waitForSessionLaunchTargetLock(previous: Promise<void>, signal?: AbortSignal): Promise<void> {
+  if (!signal) return previous
+  if (signal.aborted)
+    return Promise.reject(
+      signal.reason instanceof HbarError ? signal.reason : new HbarError('USER_CANCELLED', 'Request was cancelled'),
+    )
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      signal.removeEventListener('abort', onAbort)
+      reject(
+        signal.reason instanceof HbarError ? signal.reason : new HbarError('USER_CANCELLED', 'Request was cancelled'),
+      )
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+    previous.then(
+      () => {
+        signal.removeEventListener('abort', onAbort)
+        resolve()
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', onAbort)
+        reject(error)
+      },
+    )
+    if (signal.aborted) onAbort()
+  })
+}
+
 export interface SecretStore {
   get(id: string): Promise<string | null>
   set(id: string, value: string): Promise<void>
@@ -182,13 +317,22 @@ export interface KernelProfile {
 interface ActiveRun {
   run: Run
   controller: AbortController
-  context: { dispose(): Promise<void> }
+  context: RuntimeScope
+  steeringReady?: boolean
 }
+type ApprovalResolution =
+  | { source: 'approval'; status: 'allowed' | 'denied' | 'cancelled'; feedback?: string }
+  | { source: 'abort'; reason: unknown }
 
 export class Kernel {
+  readonly directoryQueries: ReturnType<typeof createDirectoryQueries>
   readonly storage: StoragePort
+  readonly sessionLaunchTargets: SessionLaunchTargetService
+  readonly sessionLaunchPreparations: SessionLaunchTargetPreparationService
+  readonly sandboxProfiles: SandboxProfileService
   readonly tools = new Tools()
   readonly hooks = new Hooks()
+  readonly schemaCallbacks = createSchemaCallbackRegistry()
   readonly plugins: PluginManager
   readonly instanceId = crypto.randomUUID()
   readonly secrets: SecretStore
@@ -196,9 +340,10 @@ export class Kernel {
   private streamPublished = new Map<string, { text: string; thinking: string; version: number }>()
   readonly active = new Map<string, ActiveRun>()
   private drains = new Map<string, Promise<void>>()
+  private scheduledWakeups = new SessionWakeups((sessionId) => this.kick(sessionId))
   private wakeups = new Set<string>()
   private listeners = new Set<(event: WireNotification) => void>()
-  private approvals = new Map<string, (allowed: boolean) => void>()
+  private approvals = new Map<string, (resolution: ApprovalResolution) => void>()
   private userInputs = new Map<
     string,
     { request: UserInputRequest; settle: (response?: UserInputResponse, error?: unknown) => Promise<boolean> }
@@ -208,16 +353,67 @@ export class Kernel {
   private summaryTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private summaryPending = new Map<string, { activity?: SessionSummary['activity']; activeRunId?: string | null }>()
   private maintenance = false
-  private permissionModeValue: 'deny' | 'allow' | 'ask' = 'ask'
+  private permissionModeValue: ApprovalMode = 'ask'
+  private readonly permissionSettings: SettingsService
   private admissions = 0
+  private readonly sessionLaunchTargetLocks = new Map<string, Promise<void>>()
+  private readonly sharedCheckoutLocks = new Map<string, Promise<void>>()
+  private sharedCheckoutWaiters = 0
   private closing = false
   private automation = new Map<string, { unattended: boolean; goalEnabled: boolean }>()
+  private readyForRuns = false
   recovered = 0
   private constructor(
     readonly options: ResolvedKernelOptions,
     storage?: StoragePort,
   ) {
     this.storage = storage ?? new Storage(options.layout.database, options.layout)
+    this.sessionLaunchTargets = new SessionLaunchTargetService(
+      this.storage,
+      options.layout,
+      undefined,
+      (_sessionId, targetPath, signal) => this.assertSharedCheckoutIdle(targetPath, signal),
+    )
+    this.sessionLaunchPreparations = new SessionLaunchTargetPreparationService(
+      this.storage,
+      {
+        prepare: (sessionId, revision, signal) => this.prepareSessionLaunchTarget(sessionId, revision, signal),
+        reconcile: (sessionId, revision, signal) => this.reconcileSessionLaunchTarget(sessionId, revision, signal),
+        reconcileCancellation: (sessionId, revision, signal) =>
+          this.withSharedCheckoutLock(
+            sessionId,
+            () => this.sessionLaunchTargets.reconcileCancelledPreparation(sessionId, revision, signal),
+            signal,
+          ),
+        readTarget: (sessionId) => this.getSessionLaunchTarget(sessionId),
+      },
+      () => this.changed('session-launch-target'),
+    )
+    this.permissionSettings = new SettingsService(this.storage)
+    this.sandboxProfiles = new SandboxProfileService(
+      {
+        list: () => this.storage.call('sandboxProfiles'),
+        get: (id) => this.storage.call('sandboxProfile', id),
+        save: (input, identity) => this.storage.call('saveSandboxProfile', input, identity),
+        delete: (input, identity) => this.storage.call('deleteSandboxProfile', input, identity),
+        receipt: (commandId, input, identity) => this.storage.call('sandboxProfileReceipt', commandId, input, identity),
+        putSnapshot: (record) => this.storage.call('putSandboxSnapshot', record),
+        snapshot: (digest) => this.storage.call('sandboxSnapshot', digest),
+      },
+      () => this.changed('sandbox-profiles'),
+    )
+    this.directoryQueries = createDirectoryQueries({
+      workspacePage: (input) => this.storage.call('workspacePage', input),
+      workspaceSidebarPage: (input) => this.storage.call('workspaceSidebarPage', input),
+      globalSessionActivityPage: (input) => this.storage.call('globalSessionActivityPage', input),
+      sessionExecutionSnapshot: (input) => this.storage.call('sessionExecutionSnapshot', input),
+      workspaceActivityPage: (input) => this.storage.call('workspaceActivityPage', input),
+      sessionActivityPage: (input) => this.storage.call('sessionActivityPage', input),
+      sidebarSessionActivityPage: (input) => this.storage.call('sidebarSessionActivityPage', input),
+      sessionPage: (input) => this.storage.call('sessionPage', input),
+      findWorkspace: (id) => this.storage.call('findWorkspace', id),
+      findSession: (id) => this.storage.call('findSession', id),
+    })
     this.secrets =
       options.secrets ??
       new NativeSecrets(`hbar.${createHash('sha256').update(options.home).digest('hex').slice(0, 20)}`)
@@ -232,11 +428,15 @@ export class Kernel {
             const sessions = await this.storage.call('sessions')
             return workspaceId ? sessions.filter((session) => session.workspaceId === workspaceId) : sessions
           },
+          children: (parentId, after, limit) => this.storage.call('childSessions', parentId, after, limit),
           events: (id, after, limit) => this.storage.call('events', id, after ?? 0, limit),
-          create: (id, title) => this.createSession(id, title),
+          create: (id, title, parentId) => this.createSession(id, title, parentId),
           submit: (...args) => this.submit(...args),
+          wake: (id) => this.kick(id),
           cancel: (id) => this.cancel(id),
           snapshot: (id) => this.snapshot(id),
+          workspace: (id) => this.storage.call('workspace', id),
+          createWorkspace: (path) => this.createWorkspace(path),
           append: (id, type, data, runId, stepId) => this.append(id, type, data, runId, stepId),
         },
         userInput: {
@@ -253,6 +453,95 @@ export class Kernel {
         pluginExtract: options.layout.cache.pluginExtract,
       },
     )
+    this.registerSettingsSchemaCallbacks()
+  }
+
+  private registerSettingsSchemaCallbacks(): void {
+    const modelPath = encodePath([{ kind: 'field', name: 'provider.model' }])
+    const revision = (value: unknown): string =>
+      `models:${createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 16)}`
+    this.schemaCallbacks.registerQuery('settings.getModels', {
+      version: 1,
+      valueType: 'string',
+      execute: async (request) => {
+        const models = (await this.models()).sort((left, right) => left.id.localeCompare(right.id))
+        const search = request.search?.trim().toLocaleLowerCase()
+        const filtered = search
+          ? models.filter((model) =>
+              `${model.providerName}\n${model.modelName}\n${model.id}`.toLocaleLowerCase().includes(search),
+            )
+          : models
+        const offset = request.cursor === undefined ? 0 : Number(request.cursor)
+        if (!Number.isSafeInteger(offset) || offset < 0 || offset > filtered.length)
+          throw new HbarError('INVALID_CURSOR', 'Model option cursor is invalid')
+        const page = filtered.slice(offset, offset + 200)
+        return {
+          kind: 'options',
+          status: 'ready',
+          options: page.map((model) => ({
+            value: model.id,
+            label: { kind: 'literal' as const, text: `${model.providerName} · ${model.modelName}` },
+            disabled: false,
+          })),
+          dependencyFingerprint: request.dependencyFingerprint,
+          capabilityRevision: revision(
+            models.map(({ id, providerId, modelId, thinkingLevels }) => ({
+              id,
+              providerId,
+              modelId,
+              thinkingLevels,
+            })),
+          ),
+          ...(offset + page.length < filtered.length ? { nextCursor: String(offset + page.length) } : {}),
+        }
+      },
+    })
+    this.schemaCallbacks.registerQuery('settings.getThinkingLevels', {
+      version: 1,
+      valueType: 'string',
+      execute: async (request) => {
+        const modelId = request.dependencies[modelPath]
+        if (typeof modelId !== 'string' || !modelId)
+          return { kind: 'options', status: 'unavailable', reasonCode: 'missing_model' }
+        const model = (await this.models()).find((candidate) => candidate.id === modelId)
+        if (!model) return { kind: 'options', status: 'unavailable', reasonCode: 'model_unavailable' }
+        return {
+          kind: 'options',
+          status: 'ready',
+          options: model.thinkingLevels.map((level) => ({
+            value: level,
+            label: { kind: 'i18n' as const, key: `settings.thinkingLevels.${level}` },
+            disabled: false,
+          })),
+          dependencyFingerprint: request.dependencyFingerprint,
+          capabilityRevision: revision({ id: model.id, levels: model.thinkingLevels }),
+        }
+      },
+    })
+    this.schemaCallbacks.registerQuery('settings.getSandboxProfiles', {
+      version: 1,
+      valueType: 'string',
+      execute: async (request) => {
+        const profiles = await this.sandboxProfiles.list()
+        return {
+          kind: 'options',
+          status: 'ready',
+          options: profiles.map((profile) => ({
+            value: profile.id,
+            // Clients localize built-ins; stored profiles show their own name.
+            label: isBuiltinSandboxProfileId(profile.id)
+              ? { kind: 'i18n' as const, key: `i18n:settings.sandboxProfiles.${profile.id.slice(1)}` }
+              : { kind: 'literal' as const, text: profile.name },
+            disabled: false,
+          })),
+          dependencyFingerprint: request.dependencyFingerprint,
+          capabilityRevision: `sandbox:${createHash('sha256')
+            .update(JSON.stringify(profiles.map(({ id, revision: profileRevision }) => [id, profileRevision])))
+            .digest('hex')
+            .slice(0, 16)}`,
+        }
+      },
+    })
   }
   static async create(options: KernelOptions): Promise<Kernel> {
     const layout =
@@ -291,7 +580,11 @@ export class Kernel {
             reasoning: true,
           }),
         )
-      for (const sessionId of await kernel.storage.call('queuedSessions')) kernel.kick(sessionId)
+      kernel.readyForRuns = true
+      await kernel.sessionLaunchPreparations.resumePending()
+      // Only persisted continuation intents can start new work. Old active
+      // Goals without an intent remain inert during this startup scan.
+      for (const session of await kernel.storage.call('sessions')) kernel.kick(session.id)
       return kernel
     } catch (error) {
       await kernel.storage.close()
@@ -320,7 +613,11 @@ export class Kernel {
         if (!provider) throw new HbarError('MODEL_NOT_FOUND', `Model ${id} not found`)
         if (provider.protocol === 'mock' && !this.options.demo)
           throw new HbarError('DEMO_DISABLED', 'Fixture models are disabled')
-        if (!direct && provider.models.length > 1 && !provider.models.some((model) => `${provider.id}/${model.id}` === id))
+        if (
+          !direct &&
+          provider.models.length > 1 &&
+          !provider.models.some((model) => `${provider.id}/${model.id}` === id)
+        )
           throw new HbarError('MODEL_NOT_FOUND', `Model ${id} not found`)
         return resolveProviderModel(provider, id)
       },
@@ -365,10 +662,13 @@ export class Kernel {
       }),
     )
     this.plugins.add(piPlugin)
-    this.plugins.add({
-      ...executionPlugin,
-      apply: (ctx) => provide(ctx, 'execution', new LocalExecution([this.options.layout.dataRoot])),
-    })
+    this.plugins.add(
+      localExecutionPlugin([this.options.layout.dataRoot], {
+        root: this.options.layout.worktrees,
+        protectedRoot: this.options.layout.dataRoot,
+        verify: (workspace) => this.sessionLaunchTargets.isBoundWorktreeExecutionRoot(workspace),
+      }),
+    )
     this.plugins.add(
       definePlugin({
         manifest: {
@@ -419,6 +719,8 @@ export class Kernel {
     this.plugins.add(goalPlugin)
     this.plugins.add(planPlugin)
     this.plugins.add(budgetPlugin)
+    this.plugins.add(agentPlugin)
+    this.plugins.add(workflowPlugin)
     this.plugins.add(gitPlugin)
     this.plugins.add(browserPlugin)
     this.plugins.add(computerPlugin)
@@ -443,13 +745,13 @@ export class Kernel {
   }
   async append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string) {
     const event = await this.storage.call('append', sessionId, type, data, runId, stepId)
-    this.publish({ method: 'session.event', params: event })
-    this.scheduleSessionSummary(sessionId)
+    this.publishEvent(event)
     return event
   }
   private publishEvent(event: SessionEvent) {
     this.publish({ method: 'session.event', params: event })
     this.scheduleSessionSummary(event.sessionId)
+    if (SESSION_ACTIVITY_EVENT_TYPES.has(event.type)) this.changed('session-activity')
   }
   private scheduleSessionSummary(
     sessionId: string,
@@ -486,22 +788,30 @@ export class Kernel {
       console.error('Session summary failed:', error)
     }
   }
-  async createWorkspace(path: string, name?: string) {
-    const resolved = await realpath(path)
-    if (!(await stat(resolved)).isDirectory())
-      throw new HbarError('INVALID_WORKSPACE', 'Workspace must be an existing directory')
-    const workspace = await this.storage.call('createWorkspace', resolved, name?.trim() || basename(resolved) || resolved)
+  async createWorkspace(path: string) {
+    let resolved: string
+    let isDirectory: boolean
+    try {
+      resolved = await realpath(path)
+      isDirectory = (await stat(resolved)).isDirectory()
+    } catch {
+      // Path validation is read-only. Do not include the storage mutation in
+      // this catch: its failure may leave a successfully registered workspace.
+      throw new HbarError('INVALID_WORKSPACE', 'Workspace must be an existing accessible directory')
+    }
+    if (!isDirectory) throw new HbarError('INVALID_WORKSPACE', 'Workspace must be an existing directory')
+    const workspace = await this.storage.call('createWorkspace', resolved, basename(resolved) || resolved)
     this.changed('workspaces')
     return workspace
   }
-  async createSession(workspaceId: string, title?: string) {
-    const session = await this.storage.call('createSession', workspaceId, title)
+  async createSession(workspaceId: string, title?: string, parentId?: string) {
+    const session = await this.storage.call('createSession', workspaceId, title, parentId)
     this.changed('sessions')
     return session
   }
-  async updateSession(id: string, update: { title?: string; archived?: boolean }) {
+  async updateSession(id: string, update: { title?: string; archived?: boolean; expectedTitle?: string }) {
     const { session, event } = await this.storage.call('updateSession', id, update)
-    this.publishEvent(event)
+    if (event) this.publishEvent(event)
     this.changed('sessions')
     return session
   }
@@ -515,24 +825,44 @@ export class Kernel {
     return this.storage.call('sessionSummaries', ids)
   }
   async models(): Promise<ModelInfo[]> {
+  async models(options: { includeHidden?: boolean } = {}): Promise<ModelInfo[]> {
+    const providers = (await this.storage.call('providers')).filter(
+      (provider) => (provider.protocol !== 'mock' || this.options.demo) && (options.includeHidden || provider.visible),
+    )
+    return (
+      await Promise.all(
+        providers.map(async (provider) => {
+          const hasKey = provider.protocol === 'mock' ? false : Boolean(await this.secrets.get(provider.id))
+          return provider.models
+            .filter((model) => options.includeHidden || model.visible)
+            .map((model) => ({
+              ...provider,
+              ...model,
+              id: modelSelectionId(provider.id, model.id, provider.models.length),
+              name: provider.name,
+              visible: provider.visible,
+              model: model.id,
+              providerId: provider.id,
+              providerName: provider.name,
+              providerVisible: provider.visible,
+              modelId: model.id,
+              modelName: model.name,
+              modelVisible: model.visible,
+              hasKey,
+              canExecute: provider.protocol === 'mock' ? this.options.demo === true : hasKey,
+            }))
+        }),
+      )
+    ).flat()
+  }
+  async providerProfiles() {
     const providers = (await this.storage.call('providers')).filter((p) => p.protocol !== 'mock' || this.options.demo)
-    return (await Promise.all(
-      providers.map(async (provider) => {
-        const hasKey = provider.protocol === 'mock' ? false : Boolean(await this.secrets.get(provider.id))
-        return provider.models.map((model) => ({
-          ...provider,
-          ...model,
-          id: modelSelectionId(provider.id, model.id, provider.models.length),
-          name: provider.name,
-          model: model.id,
-          providerId: provider.id,
-          providerName: provider.name,
-          modelId: model.id,
-          modelName: model.name,
-          hasKey,
-        }))
-      }),
-    )).flat()
+    return Promise.all(
+      providers.map(async (provider) => ({
+        provider,
+        hasKey: provider.protocol === 'mock' ? false : Boolean(await this.secrets.get(provider.id)),
+      })),
+    )
   }
   async saveProvider(config: ProviderInput, apiKey?: string) {
     this.assertIdle()
@@ -555,12 +885,16 @@ export class Kernel {
         ...selected,
         id: modelSelectionId(provider.id, selected.id, provider.models.length),
         name: provider.name,
+        visible: provider.visible,
         model: selected.id,
         providerId: provider.id,
         providerName: provider.name,
+        providerVisible: provider.visible,
         modelId: selected.id,
         modelName: selected.name,
+        modelVisible: selected.visible,
         hasKey: provider.protocol === 'mock' ? false : Boolean(await this.secrets.get(provider.id)),
+        canExecute: provider.protocol === 'mock' ? this.options.demo === true : Boolean(await this.secrets.get(provider.id)),
       }
     } finally {
       this.maintenance = false
@@ -569,7 +903,35 @@ export class Kernel {
   permissionMode() {
     return this.permissionModeValue
   }
-  async setPermissionMode(mode: 'deny' | 'allow' | 'ask') {
+  /** The session setting is an override; its absence retains the existing Host-wide default. */
+  async sessionPermissionMode(sessionId: string): Promise<ApprovalMode> {
+    const snapshot = await this.permissionSettings.get({ kind: 'session', targetId: sessionId })
+    const report = snapshot.resolution.reports[encodePath(SESSION_APPROVAL_SETTING_PATH)]
+    if (!report) throw new HbarError('SETTING_NOT_FOUND', 'Session approval setting is unavailable')
+    const override = approvalModeSchema.nullable().safeParse(report.effectiveValue)
+    if (!override.success) throw new HbarError('INVALID_SETTING', 'Session approval setting is invalid')
+    return override.data ?? this.permissionModeValue
+  }
+  async sessionSandboxProfileId(sessionId: string) {
+    const snapshot = await this.permissionSettings.get({ kind: 'session', targetId: sessionId })
+    const report = snapshot.resolution.reports[encodePath(SESSION_SANDBOX_PROFILE_SETTING_PATH)]
+    if (!report) throw new HbarError('SETTING_NOT_FOUND', 'Session sandbox profile setting is unavailable')
+    const id = sandboxProfileIdSchema.safeParse(report.effectiveValue)
+    if (!id.success) throw new HbarError('INVALID_SETTING', 'Session sandbox profile setting is invalid')
+    return id.data
+  }
+  /** Pin the sandbox rules a Run is admitted with; other approval modes never carry them. */
+  private async admitSandbox(sessionId: string, input: UserInput): Promise<UserInput> {
+    const { sandbox, ...rest } = input
+    if (input.approval !== 'sandbox') return rest
+    // A caller may pin an existing Host snapshot, e.g. a child Agent inheriting its parent Run.
+    if (sandbox) {
+      await this.sandboxProfiles.loadSnapshot(sandbox)
+      return input
+    }
+    return { ...rest, sandbox: await this.sandboxProfiles.createSnapshot(await this.sessionSandboxProfileId(sessionId)) }
+  }
+  async setPermissionMode(mode: ApprovalMode) {
     const next = approvalModeSchema.parse(mode)
     await this.storage.call('setSetting', 'permission.mode', next)
     this.permissionModeValue = next
@@ -745,13 +1107,163 @@ export class Kernel {
       .map(({ request }) => request)
     return snapshot
   }
-  async submit(sessionId: string, requestId: string, input: UserInput, modelId: string) {
+  private async withSessionLaunchTargetLock<Value>(
+    sessionId: string,
+    action: () => Promise<Value>,
+    signal?: AbortSignal,
+  ): Promise<Value> {
+    signal?.throwIfAborted()
+    const previous = this.sessionLaunchTargetLocks.get(sessionId) ?? Promise.resolve()
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const tail = previous.then(() => gate)
+    this.sessionLaunchTargetLocks.set(sessionId, tail)
+    try {
+      await waitForSessionLaunchTargetLock(previous, signal)
+      signal?.throwIfAborted()
+      return await action()
+    } finally {
+      release()
+      void tail.then(
+        () => {
+          if (this.sessionLaunchTargetLocks.get(sessionId) === tail) this.sessionLaunchTargetLocks.delete(sessionId)
+        },
+        () => {
+          if (this.sessionLaunchTargetLocks.get(sessionId) === tail) this.sessionLaunchTargetLocks.delete(sessionId)
+        },
+      )
+    }
+  }
+  private sharedCheckoutKey(path: string): string {
+    const normalized = path.replace(/\\/g, '/').replace(/\/+$/, '')
+    return process.platform === 'win32' ? normalized.toLowerCase() : normalized
+  }
+
+  /** One checkout lock covers both preparation and bind+enqueue, including sibling sessions. */
+  private async withSharedCheckoutLock<Value>(
+    sessionId: string,
+    action: () => Promise<Value>,
+    signal?: AbortSignal,
+  ): Promise<Value> {
+    signal?.throwIfAborted()
+    const session = await this.storage.call('session', sessionId)
+    const workspace = await this.storage.call('workspace', session.workspaceId)
+    const root = await this.sessionLaunchTargets.checkoutRootForWorkspace(workspace.path, signal)
+    const key = this.sharedCheckoutKey(root)
+    if (this.sharedCheckoutWaiters >= 64) throw new HbarError('BUSY', 'Shared checkout admission capacity is full')
+    this.sharedCheckoutWaiters++
+    const previous = this.sharedCheckoutLocks.get(key) ?? Promise.resolve()
+    let release!: () => void
+    const gate = new Promise<void>((resolveGate) => {
+      release = resolveGate
+    })
+    const tail = previous.then(() => gate)
+    this.sharedCheckoutLocks.set(key, tail)
+    try {
+      await waitForSessionLaunchTargetLock(previous, signal)
+      signal?.throwIfAborted()
+      return await action()
+    } finally {
+      this.sharedCheckoutWaiters--
+      release()
+      void tail.then(
+        () => {
+          if (this.sharedCheckoutLocks.get(key) === tail) this.sharedCheckoutLocks.delete(key)
+        },
+        () => {
+          if (this.sharedCheckoutLocks.get(key) === tail) this.sharedCheckoutLocks.delete(key)
+        },
+      )
+    }
+  }
+
+  private async assertSharedCheckoutIdle(targetPath: string, signal: AbortSignal): Promise<void> {
+    const root = this.sharedCheckoutKey(await this.sessionLaunchTargets.checkoutRootForWorkspace(targetPath, signal))
+    for (const path of await this.storage.call('activeSharedCheckoutPaths')) {
+      signal.throwIfAborted()
+      const activeRoot = await this.sessionLaunchTargets.checkoutRootForWorkspace(path, signal)
+      if (this.sharedCheckoutKey(activeRoot) === root)
+        throw new HbarError('BUSY', 'Wait for shared checkout tasks to finish before switching branches')
+    }
+  }
+
+  async getSessionLaunchTarget(sessionId: string) {
+    return this.sessionLaunchTargets.get(sessionId)
+  }
+  async setSessionLaunchTarget(input: SessionLaunchTargetMutationInput) {
+    return this.withSessionLaunchTargetLock(input.sessionId, () => this.sessionLaunchTargets.set(input))
+  }
+  async prepareSessionLaunchTarget(sessionId: string, revision: number, signal?: AbortSignal) {
+    return this.withSessionLaunchTargetLock(
+      sessionId,
+      () =>
+        this.withSharedCheckoutLock(
+          sessionId,
+          () => this.sessionLaunchTargets.prepare(sessionId, revision, signal),
+          signal,
+        ),
+      signal,
+    )
+  }
+  async reconcileSessionLaunchTarget(sessionId: string, revision: number, signal?: AbortSignal) {
+    return this.withSessionLaunchTargetLock(
+      sessionId,
+      () =>
+        this.withSharedCheckoutLock(
+          sessionId,
+          () => this.sessionLaunchTargets.reconcile(sessionId, revision, signal),
+          signal,
+        ),
+      signal,
+    )
+  }
+  async cancelSessionLaunchTarget(sessionId: string, revision: number) {
+    return this.sessionLaunchTargets.cancel(sessionId, revision)
+  }
+  async startSessionLaunchTargetPreparation(
+    input: SessionLaunchTargetPreparationStartMutationInput,
+  ): Promise<SessionLaunchTargetPreparationStartReceipt> {
+    return this.sessionLaunchPreparations.start(input)
+  }
+  readSessionLaunchTargetPreparation(
+    input: SessionLaunchTargetPreparationOperationInput,
+  ): Promise<SessionLaunchTargetPreparationSnapshot> {
+    return this.sessionLaunchPreparations.read(input)
+  }
+  cancelSessionLaunchTargetPreparation(
+    input: SessionLaunchTargetPreparationOperationInput,
+  ): Promise<SessionLaunchTargetPreparationSnapshot> {
+    return this.sessionLaunchPreparations.cancel(input)
+  }
+  reconcileSessionLaunchTargetPreparation(
+    input: SessionLaunchTargetPreparationOperationInput,
+  ): Promise<SessionLaunchTargetPreparationSnapshot> {
+    return this.sessionLaunchPreparations.reconcile(input)
+  }
+  async submit(
+    sessionId: string,
+    requestId: string,
+    input: UserInput,
+    modelId: string,
+    command?: RunCommandRecord,
+    signal?: AbortSignal,
+    expectedLaunchTargetRevision?: number,
+  ) {
     input = inputSchema.parse(input)
     const files = input.files ?? []
     if (input.images.length + files.length > MAX_ATTACHMENTS)
       throw new HbarError('FILE_LIMIT', `A message can include at most ${MAX_ATTACHMENTS} attachments`)
     await this.plugins.get<BudgetService>('budget').assertCanStart(sessionId, input.source)
     input = { ...input, files }
+    if (expectedLaunchTargetRevision !== undefined) {
+      const target = await this.getSessionLaunchTarget(sessionId)
+      if (target.revision !== expectedLaunchTargetRevision)
+        throw new HbarError('COMMAND_CONFLICT', 'Session launch target revision changed')
+      if (target.resolution.status !== 'ready')
+        throw new HbarError('SESSION_LAUNCH_TARGET_UNRESOLVED', 'Prepare the selected worktree before accepting a Run')
+    }
     const mode = input.mode ?? (await this.plugins.get<ModeService>('mode').get(sessionId)).mode
     const goal = await this.plugins.get<GoalService>('goal').get(sessionId)
     if (goal.goal && ['budget_limited', 'complete', 'blocked', 'usage_limited'].includes(goal.goal.status) && input.source === 'goal')
@@ -768,6 +1280,8 @@ export class Kernel {
         throw new HbarError('EMPTY_INPUT', 'Enter a message or attach an image or file')
       const model = await this.plugins.get<ModelRegistry>('models').get(modelId)
       input = { ...input, thinking: normalizeThinkingLevel(model, input.thinking, mode === 'plan') }
+      input = { ...input, approval: input.approval ?? (await this.sessionPermissionMode(sessionId)) }
+      input = await this.admitSandbox(sessionId, input)
       if (input.images.length && !model.imageInput)
         throw new HbarError('UNSUPPORTED_IMAGE', 'Selected model does not accept images')
       const imageArtifacts = await Promise.all(input.images.map((image) => this.storage.call('artifact', image.id)))
@@ -778,12 +1292,31 @@ export class Kernel {
         images: imageArtifacts,
         files: await Promise.all(files.map((file) => this.storage.call('artifact', file.id))),
       }
-      // A new turn clears unresolved interactive requests, matching Codex's
-      // turn-start lifecycle and preventing stale prompts from blocking work.
-      await this.clearPendingUserInputs(sessionId, new HbarError('USER_INPUT_CANCELLED', 'A new turn started'))
-      const run = await this.storage.call('enqueue', sessionId, requestId, input, modelId)
+      const run = await this.withSessionLaunchTargetLock(
+        sessionId,
+        () =>
+          this.withSharedCheckoutLock(
+            sessionId,
+            async () => {
+              const binding = await this.sessionLaunchTargets.bindForRun(
+                sessionId,
+                signal,
+                expectedLaunchTargetRevision,
+              )
+              signal?.throwIfAborted()
+              return this.storage.call('enqueue', sessionId, requestId, input, modelId, command, binding)
+            },
+            signal,
+          ),
+        signal,
+      )
       if (run.status === 'queued') {
-        if (run.queuedEvent) this.publishEvent(run.queuedEvent)
+        if (run.queuedEvent) {
+          // Only a newly accepted turn clears unresolved interactive requests.
+          if (input.source !== 'goal')
+            await this.clearPendingUserInputs(sessionId, new HbarError('USER_INPUT_CANCELLED', 'A new turn started'))
+          this.publishEvent(run.queuedEvent)
+        }
         this.kick(sessionId)
       }
       this.changed('sessions')
@@ -793,8 +1326,9 @@ export class Kernel {
     }
   }
   private kick(sessionId: string) {
+    this.scheduledWakeups.cancel(sessionId)
     this.wakeups.add(sessionId)
-    if (this.drains.has(sessionId) || this.closing) return
+    if (this.drains.has(sessionId) || this.closing || this.maintenance || !this.readyForRuns) return
     const drain = this.drain(sessionId)
       .catch((error) => {
         console.error('Session driver failed:', error)
@@ -809,7 +1343,44 @@ export class Kernel {
     while (!this.closing) {
       this.wakeups.delete(sessionId)
       const run = await this.storage.call('claim', sessionId)
-      if (!run) return
+      if (!run) {
+        if (
+          this.active.has(sessionId) ||
+          [...this.userInputs.values()].some(({ request }) => request.sessionId === sessionId)
+        )
+          return
+        const idle = await this.hooks.dispatch('session.idle', { sessionId })
+        if (this.closing) return
+        if (!idle.submission) {
+          if (idle.wakeAt !== undefined) this.scheduledWakeups.schedule(sessionId, idle.wakeAt)
+          return
+        }
+        let submitted: Run
+        try {
+          submitted = await this.submit(
+            sessionId,
+            idle.submission.requestId,
+            idle.submission.input,
+            idle.submission.modelId,
+          )
+        } catch (error) {
+          // Admission may have committed before its acknowledgement was lost.
+          // Reconcile the same request identity, never generate a replacement.
+          const found = await this.storage.call('runByRequest', sessionId, idle.submission.requestId)
+          if (found) submitted = found.run
+          else {
+            await this.hooks.dispatch('session.continuationFailed', {
+              sessionId,
+              requestId: idle.submission.requestId,
+              unknown: !(error instanceof HbarError) || error.code === 'RESULT_UNKNOWN',
+            })
+            return
+          }
+        }
+        if (submitted.status !== 'queued') return
+        continue
+      }
+      this.changed('session-activity')
       if (this.cancelled.has(run.id)) {
         this.publishEvent(await this.storage.call('setRun', run.id, 'cancelled'))
         this.cancelled.delete(run.id)
@@ -829,6 +1400,7 @@ export class Kernel {
             run.id,
             'failed',
             `Plugin scope failed: ${error instanceof Error ? error.message : String(error)}`,
+            classifyRunFailure(error),
           ),
         )
         this.changed('sessions')
@@ -836,19 +1408,27 @@ export class Kernel {
       }
       scope.ctx.effect(() => () => controller.abort())
       this.active.set(sessionId, { run, controller, context: scope })
-      if (this.cancelled.has(run.id)) controller.abort(new Error('Cancelled by user'))
-      const timer = setTimeout(() => controller.abort(new Error('Run exceeded its 20-minute limit')), 20 * 60_000)
+      if (this.cancelled.has(run.id)) controller.abort(new HbarError('USER_CANCELLED', 'Cancelled by user'))
+      const timer = setTimeout(
+        () => controller.abort(new HbarError('RUN_TIMEOUT', 'Run exceeded its 20-minute limit')),
+        20 * 60_000,
+      )
       let status: Run['status'] = 'completed',
-        failure: string | undefined
+        failure: string | undefined,
+        failureDetails: RunFailure | undefined
       try {
         this.publishEvent(await this.storage.call('setRun', run.id, 'running'))
-        await scope.hooks
-          .dispatch('run.start', { sessionId, runId: run.id, run: await this.storage.call('run', run.id) })
-          .catch((error) => {
-            console.error('Run start observer failed:', error)
-          })
+        await scope.hooks.dispatch('run.start', {
+          sessionId,
+          runId: run.id,
+          run: await this.storage.call('run', run.id),
+        })
         const session = await this.storage.call('session', sessionId)
         const workspace = await this.storage.call('workspace', session.workspaceId)
+        const workspaceForRun: Workspace = {
+          ...workspace,
+          path: await this.sessionLaunchTargets.workspaceForRun(sessionId, workspace.path, controller.signal),
+        }
         const model = await this.plugins.get<ModelRegistry>('models').get(run.modelId)
         const apiKey = model.protocol === 'mock' ? null : await this.secrets.get(model.id)
         const content: ContentBlock[] = [
@@ -856,7 +1436,8 @@ export class Kernel {
           ...run.input.images.map((artifact) => ({ type: 'image' as const, artifact })),
           ...(run.input.files ?? []).map((artifact) => ({ type: 'file' as const, artifact })),
         ]
-        this.publishEvent((await this.storage.call('commit', sessionId, run.id, 'user', content)).event)
+        const initialCommit = await this.storage.call('commit', sessionId, run.id, 'user', content)
+        this.publishEvent(initialCommit.event)
         if (session.title === 'New session')
           await this.updateSession(sessionId, {
             title: (
@@ -867,14 +1448,33 @@ export class Kernel {
             ).slice(0, 80),
           })
         const driver = this.plugins.get<HarnessDriver>('driver')
+        const supportsSteering =
+          driver.supportsCanonicalSteering === true && driver.supportsSteeringAdmissionClosure === true
+        const steeringDeliveries: SteeringDelivery[] = []
+        const steeringContext: RunSteeringContext | undefined = supportsSteering
+          ? { runId: run.id, initialUserMessageId: initialCommit.message.id, deliveries: steeringDeliveries }
+          : undefined
+        let steeringAfterSeq = initialCommit.message.seq
+        const closeSteering = async () => {
+          const active = this.active.get(sessionId)
+          if (active?.run.id === run.id) active.steeringReady = false
+          if (supportsSteering) await this.storage.call('closeRunSteering', sessionId, run.id)
+        }
+        const selectedTools = await scope.hooks.dispatch('tools.select', {
+          sessionId,
+          runId: run.id,
+          tools: scope.tools.list(),
+        })
+        const selectedNames = new Set(selectedTools.tools.map((tool) => tool.name))
+        const toolPresentations = captureToolPresentations(selectedNames, scope.tools)
         const input: DriverInput = {
           session,
-          workspace,
+          workspace: workspaceForRun,
           run,
-          request: await this.buildRequest(sessionId, model, scope.hooks, run),
+          request: await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext),
           apiKey,
           signal: controller.signal,
-          tools: scope.tools.list(),
+          tools: selectedTools.tools,
           resolveKey: (id) => this.plugins.get<ModelRegistry>('models').secret(id),
           readImage: async (id) => {
             const artifact = await this.storage.call('artifact', id)
@@ -906,22 +1506,60 @@ export class Kernel {
               truncated,
             }
           },
-          emit: (type, data, stepId) => this.append(sessionId, type, data, run.id, stepId),
+          emit: (type, data, stepId) => {
+            if (type === 'message.committed')
+              return Promise.reject(
+                new HbarError('RESERVED_EVENT', 'Drivers must commit canonical messages through commit'),
+              )
+            return this.append(sessionId, type, data, run.id, stepId)
+          },
           commit: async (role, blocks, messageId, providerData) => {
-            const result = await this.storage.call('commit', sessionId, run.id, role, blocks, messageId, providerData)
+            if (supportsSteering && role === 'user')
+              throw new HbarError('RESERVED_EVENT', 'Live user messages are owned by Host queue guidance')
+            const content = enrichToolCallPresentations(role, blocks, toolPresentations)
+            const result = await this.storage.call('commit', sessionId, run.id, role, content, messageId, providerData)
             if (messageId) this.clearStream(messageId)
             this.publishEvent(result.event)
             return result.message
           },
           stream: (id, text, thinking) => this.updateStream({ id, sessionId, runId: run.id, text, thinking }),
-          execute: (name, args, callId) =>
-            this.execute(name, args, { session, workspace, run, signal: controller.signal, callId }, scope),
+          execute: async (name, args, callId) => {
+            const effectiveMode = this.plugins.get<ModeService>('mode').effectiveMode(run)
+            const effectiveRun =
+              effectiveMode === run.input.mode ? run : { ...run, input: { ...run.input, mode: effectiveMode } }
+            const context: ToolContext = {
+              session,
+              workspace: workspaceForRun,
+              run: effectiveRun,
+              signal: controller.signal,
+              callId,
+            }
+            const sequence = createToolSequenceExecutor(
+              context,
+              selectedTools.tools,
+              name,
+              (childName, childArgs, childContext) => this.execute(childName, childArgs, childContext, scope),
+              (type, data) => this.append(sessionId, type, data, run.id),
+            )
+            try {
+              return await this.execute(name, args, { ...context, executeSequence: sequence.execute }, scope)
+            } finally {
+              sequence.dispose()
+            }
+          },
           beforeRequest: async (_request, stepId) => {
             controller.signal.throwIfAborted()
-            let request = await this.buildRequest(sessionId, model, scope.hooks, run)
+            let request = await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext)
             if (this.plugins.get<CompactionProvider>('compaction').shouldCompact(request)) {
-              await this.compactInternal(sessionId, model, controller.signal, run.id)
-              request = await this.buildRequest(sessionId, model, scope.hooks, run)
+              await this.compactInternal(
+                sessionId,
+                model,
+                controller.signal,
+                run.id,
+                workspaceForRun,
+                supportsSteering ? initialCommit.message.seq : undefined,
+              )
+              request = await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext)
             }
             request = await scope.hooks.dispatch('model.request', request)
             const registered = await this.plugins.get<ModelRegistry>('models').get(request.model.id)
@@ -931,14 +1569,33 @@ export class Kernel {
               request.model.model !== registered.model
             )
               throw new HbarError('INVALID_MODEL_OVERRIDE', 'Model hooks must select a registered provider endpoint')
+            const advertised = await scope.hooks.dispatch('tools.advertise', {
+              sessionId,
+              runId: run.id,
+              tools: [...input.tools],
+            })
+            if (
+              advertised.tools.some((tool) => !input.tools.includes(tool)) ||
+              new Set(advertised.tools.map((tool) => tool.name)).size !== advertised.tools.length ||
+              (advertised.instructions !== undefined &&
+                !z.string().max(16_000).safeParse(advertised.instructions).success)
+            )
+              throw new HbarError(
+                'INVALID_TOOL_ADVERTISEMENT',
+                'Tool advertisements must be a unique subset of Run tools with at most 16000 instruction characters',
+              )
+            request = {
+              ...prependModelInstructions(request, advertised.instructions ?? ''),
+              toolNames: advertised.tools.map((tool) => tool.name),
+            }
             controller.signal.throwIfAborted()
             await this.append(
               sessionId,
               'request.started',
               {
-                attemptId: crypto.randomUUID(),
+                ...describeUsageAttempt(stepId, 'model', request.model),
                 request,
-                tools: input.tools.map((tool) => ({
+                tools: advertised.tools.map((tool) => ({
                   name: tool.name,
                   description: tool.description,
                   schema: z.toJSONSchema(tool.inputSchema),
@@ -949,16 +1606,70 @@ export class Kernel {
             )
             return request
           },
-          stepEnded: (stepId) => scope.hooks.dispatch('step.end', { sessionId, runId: run.id, stepId }).then(() => {}),
+          stepEnded: async (stepId) => {
+            const settled = await scope.hooks.dispatch('step.end', { sessionId, runId: run.id, stepId })
+            if (settled.stop) await closeSteering()
+            return settled.stop ? { stop: settled.stop } : undefined
+          },
+          ...(supportsSteering
+            ? {
+                getSteeringMessages: async (target) => {
+                  if (target.sessionId !== sessionId || target.runId !== run.id)
+                    throw new HbarError('COMMAND_CONFLICT', 'Steering source belongs to the original Run')
+                  target.signal.throwIfAborted()
+                  controller.signal.throwIfAborted()
+                  const page = await this.storage.call('readRunSteering', {
+                    sessionId,
+                    runId: run.id,
+                    afterSeq: steeringAfterSeq,
+                    ...(target.closeWhenEmpty ? { closeWhenEmpty: true } : {}),
+                  })
+                  target.signal.throwIfAborted()
+                  controller.signal.throwIfAborted()
+                  if (page.messages.length) {
+                    const context = await this.storage.call('context', sessionId)
+                    target.signal.throwIfAborted()
+                    controller.signal.throwIfAborted()
+                    const insertionAfterSeq = context.messages.at(-1)?.seq ?? initialCommit.message.seq
+                    for (const message of page.messages) steeringDeliveries.push({ message, insertionAfterSeq })
+                  }
+                  steeringAfterSeq = page.nextSeq
+                  if (page.closed) {
+                    const active = this.active.get(sessionId)
+                    if (active?.run.id === run.id) active.steeringReady = false
+                  }
+                  return page.messages
+                },
+                closeSteeringAdmission: closeSteering,
+              }
+            : {}),
+        }
+        if (supportsSteering) {
+          controller.signal.throwIfAborted()
+          await this.storage.call('openRunSteering', sessionId, run.id)
+          const active = this.active.get(sessionId)
+          if (active?.run.id === run.id) active.steeringReady = true
         }
         await driver.run(input)
       } catch (error) {
-        status = controller.signal.aborted ? 'cancelled' : 'failed'
-        failure = error instanceof Error ? error.message : String(error)
+        const cause: unknown = controller.signal.aborted ? controller.signal.reason : error
+        failureDetails = classifyRunFailure(cause)
+        status =
+          failureDetails.category === 'cancelled'
+            ? 'cancelled'
+            : failureDetails.category === 'interrupted'
+              ? 'interrupted'
+              : 'failed'
+        failure = cause instanceof Error ? cause.message : String(cause)
       } finally {
         clearTimeout(timer)
+        const active = this.active.get(sessionId)
+        if (active?.run.id === run.id && active.steeringReady) {
+          active.steeringReady = false
+          await this.storage.call('closeRunSteering', sessionId, run.id)
+        }
         for (const stream of this.streams.values()) if (stream.runId === run.id) this.clearStream(stream.id)
-        const settledEvent = await this.storage.call('setRun', run.id, status, failure)
+        const settledEvent = await this.storage.call('setRun', run.id, status, failure, failureDetails)
         this.publishEvent(settledEvent)
         this.active.delete(sessionId)
         this.cancelled.delete(run.id)
@@ -991,18 +1702,20 @@ export class Kernel {
     model: ProviderConfig,
     hooks = this.hooks,
     run?: Run,
+    workspaceOverride?: Workspace,
+    steering?: RunSteeringContext,
   ): Promise<ModelRequest> {
     const context = await this.storage.call('context', sessionId)
     const session = await this.storage.call('session', sessionId)
-    const workspace = await this.storage.call('workspace', session.workspaceId)
+    const workspace = workspaceOverride ?? (await this.storage.call('workspace', session.workspaceId))
     return hooks.dispatch('context.build', {
       system: `You are hbar, a coding assistant. Work in ${workspace.path}. Use the available tools. Respect approval results. Report uncertainty and errors accurately.${context.summary ? `\n\nEarlier conversation summary:\n${context.summary}` : ''}`,
-      messages: context.messages,
+      messages: steering ? buildSteeringContext(context.messages, steering) : context.messages,
       model,
       context: {
         sessionId,
         ...(run ? { runId: run.id } : {}),
-        ...(run?.input.mode ? { mode: run.input.mode } : {}),
+        ...(run ? { mode: this.plugins.get<ModeService>('mode').effectiveMode(run) } : {}),
         ...(run?.input.source ? { source: run.input.source } : {}),
       },
     })
@@ -1057,12 +1770,23 @@ export class Kernel {
     context: ToolContext,
     scope: RuntimeScope,
   ): Promise<ToolResult> {
+    // Plugin hooks receive a mutable ToolContext. Classification and approval
+    // cancellation must retain the original Host-owned signal independently.
+    const hostSignal = context.signal
     const tool = scope.tools.get(name)
     if (!tool) throw new HbarError('TOOL_NOT_FOUND', name)
     let result: ToolResult,
-      started = false
+      started = false,
+      executedArgs: Record<string, unknown> | undefined
+    let hostFailure: ToolResult['hostFailure']
+    let outcome: ToolOutcome | undefined
+    const assertNotAborted = () => {
+      if (!hostSignal.aborted) return
+      outcome = hostAbortToolOutcome(hostSignal.reason, started)
+      hostSignal.throwIfAborted()
+    }
     try {
-      context.signal.throwIfAborted()
+      assertNotAborted()
       const initial = tool.inputSchema.parse(rawArgs) as Record<string, unknown>
       const transformed = await scope.hooks.dispatch('tool.before', {
         name,
@@ -1071,24 +1795,77 @@ export class Kernel {
         tool,
       })
       const args = tool.inputSchema.parse(transformed.args) as Record<string, unknown>
-      const decision = await this.plugins.get<PolicyProvider>('policy').decide(tool, args, context)
+      executedArgs = args
       const mode = context.run.input.approval ?? this.permissionModeValue
-      if (decision === 'deny' || (decision === 'ask' && mode === 'deny'))
-        throw new HbarError('DENIED', 'Tool denied by policy')
-      if (decision === 'ask' && mode === 'ask' && !(await this.requestApproval(name, args, context)))
-        throw new HbarError('DENIED', 'User denied the tool call')
-      context.signal.throwIfAborted()
+      let decision = await this.plugins.get<PolicyProvider>('policy').decide(tool, args, context)
+      let denial = 'Tool denied by policy'
+      let environment: Readonly<Record<string, string>> | undefined
+      let osConfinement: import('@hbar/plugin-sdk').OsConfinementOptions | undefined
+      // A policy plugin may still forbid a call; otherwise the Run's sandbox profile decides.
+      if (mode === 'sandbox' && decision !== 'deny') {
+        const sandbox = await this.sandboxDecision(tool, args, context)
+        decision = sandbox.decision
+        denial = sandbox.denial
+        environment = sandbox.environment
+        osConfinement = sandbox.osConfinement
+      }
+      // The sandbox has already decided which calls need the user, so they are asked like `ask` mode.
+      const gate = mode === 'sandbox' ? 'ask' : mode
+      if (decision === 'deny' || (decision === 'ask' && gate === 'deny' && tool.humanApproval !== 'required')) {
+        outcome = { kind: 'denied', executionStarted: false }
+        throw new HbarError('DENIED', denial)
+      }
+      if (tool.humanApproval === 'required' || (decision === 'ask' && gate === 'ask')) {
+        const resolution = await this.requestApproval(name, args, context, hostSignal)
+        if (resolution.source === 'abort') {
+          outcome = hostAbortToolOutcome(resolution.reason, false)
+          throw resolution.reason
+        }
+        if (resolution.status === 'cancelled') {
+          assertNotAborted()
+          outcome = { kind: 'cancelled', executionStarted: false }
+          throw new HbarError('APPROVAL_CANCELLED', 'Tool approval was cancelled')
+        }
+        if (resolution.status === 'denied') {
+          outcome = { kind: 'denied', executionStarted: false }
+          throw new HbarError(
+            'DENIED',
+            resolution.feedback
+              ? `User requested further planning: ${resolution.feedback}`
+              : 'User denied the tool call',
+          )
+        }
+      }
+      assertNotAborted()
       this.publishEvent(
         await this.storage.call('toolStart', context.session.id, context.run.id, context.callId, name, args),
       )
       started = true
-      result = await tool.execute(args, context)
+      await scope.hooks.dispatch('tool.executing', { name, args: structuredClone(args), context, tool })
+      assertNotAborted()
+      // The environment is Host-owned: drop any value a hook placed on the mutable context and
+      // give only the executing tool the sandbox profile's variables.
+      const { environment: _hookEnvironment, ...plain } = context
+      const execOverrides = {
+        ...(environment ? { environment } : {}),
+        ...(osConfinement ? { osConfinement } : {}),
+      }
+      result = await tool.execute(args, Object.keys(execOverrides).length ? { ...plain, ...execOverrides } : plain)
       result = (await scope.hooks.dispatch('tool.after', { name, result, context })).result
+      outcome = { kind: result.isError ? 'failed' : 'succeeded', executionStarted: started }
     } catch (error) {
       result = { text: error instanceof Error ? error.message : String(error), isError: true }
+      hostFailure = { code: error instanceof HbarError ? error.code : 'TOOL_FAILED', executionStarted: started }
+      // A plugin may throw a same-named error or fail after an unrelated abort. Only
+      // the exact Host signal reason establishes cancellation outside explicit gates.
+      outcome ??=
+        hostSignal.aborted && error === hostSignal.reason
+          ? hostAbortToolOutcome(hostSignal.reason, started)
+          : { kind: 'failed', executionStarted: started }
     }
+    result = { ...result, hostFailure }
     if (result.text.length > 128_000) result = { ...result, text: `${result.text.slice(0, 128_000)}\n[truncated]` }
-    const { event } = await this.storage.call('commit', context.session.id, context.run.id, 'tool', [
+    const content: ContentBlock[] = [
       {
         type: 'tool_result',
         callId: context.callId,
@@ -1096,13 +1873,90 @@ export class Kernel {
         text: result.text,
         isError: Boolean(result.isError),
         details: result.details,
+        outcome,
       },
-    ])
-    if (started) await this.storage.call('toolEnd', context.session.id, context.run.id, context.callId)
+    ]
+    const event = context.parentCallId
+      ? await this.storage.call(
+          'append',
+          context.session.id,
+          'tool.sequence_result',
+          { parentCallId: context.parentCallId, content },
+          context.run.id,
+        )
+      : (await this.storage.call('commit', context.session.id, context.run.id, 'tool', content)).event
+    const settled = started
+      ? await this.storage.call('toolEnd', context.session.id, context.run.id, context.callId, Boolean(result.isError))
+      : null
     this.publishEvent(event)
+    if (settled) this.publishEvent(settled)
+    if (settled && executedArgs)
+      await scope.hooks
+        .dispatch('tool.settled', { name, args: executedArgs, result, context, tool })
+        .catch((error) => console.error('Tool settlement observer failed:', error))
     return result
   }
-  private async requestApproval(tool: string, args: Record<string, unknown>, context: ToolContext) {
+  private async sandboxDecision(
+    tool: ToolDefinition,
+    args: Record<string, unknown>,
+    context: ToolContext,
+  ): Promise<{
+    decision: 'allow' | 'ask' | 'deny'
+    denial: string
+    environment?: Readonly<Record<string, string>> | undefined
+    osConfinement?: import('@hbar/plugin-sdk').OsConfinementOptions | undefined
+  }> {
+    const ref = context.run.input.sandbox
+    let profile: Awaited<ReturnType<SandboxProfileService['loadSnapshot']>>
+    try {
+      if (!ref) throw new HbarError('SANDBOX_SNAPSHOT_NOT_FOUND', 'The Run has no sandbox snapshot')
+      profile = await this.sandboxProfiles.loadSnapshot(ref)
+    } catch (error) {
+      if (!(error instanceof HbarError)) throw error
+      return { decision: 'deny', denial: `Denied: ${error.message}` }
+    }
+    const verdict = await evaluateSandboxCall(profile, { tool, args, workspace: context.workspace.path })
+    const result: {
+      decision: 'allow' | 'ask' | 'deny'
+      denial: string
+      environment?: Readonly<Record<string, string>>
+      osConfinement?: import('@hbar/plugin-sdk').OsConfinementOptions
+    } = {
+      decision: verdict.decision,
+      denial: `Denied by sandbox profile ${profile.profileId}: ${describeSandboxReason(verdict.reason)}`,
+    }
+    if (Object.keys(profile.environment.set).length) result.environment = profile.environment.set
+    if (profile.osConfinement?.enabled) {
+      const writableRoots = profile.filesystem.grants
+        .filter((g) => g.access === 'write')
+        .map((g) =>
+          g.path.startsWith('/') || /^[A-Za-z]:/.test(g.path)
+            ? g.path
+            : `${context.workspace.path}/${g.path}`,
+        )
+      const readableRoots = profile.filesystem.grants
+        .filter((g) => g.access === 'read')
+        .map((g) =>
+          g.path.startsWith('/') || /^[A-Za-z]:/.test(g.path)
+            ? g.path
+            : `${context.workspace.path}/${g.path}`,
+        )
+      result.osConfinement = {
+        level: profile.osConfinement.mode,
+        writableRoots,
+        readableRoots,
+        networkEnabled: profile.network.enabled,
+        envOverrides: profile.environment.set,
+      }
+    }
+    return result
+  }
+  private async requestApproval(
+    tool: string,
+    args: Record<string, unknown>,
+    context: ToolContext,
+    hostSignal: AbortSignal,
+  ) {
     const approval: Approval = {
       id: crypto.randomUUID(),
       sessionId: context.session.id,
@@ -1113,25 +1967,41 @@ export class Kernel {
       status: 'pending',
       createdAt: Date.now(),
     }
-    let resolve!: (value: boolean) => void
-    const outcome = new Promise<boolean>((done) => {
+    let resolve!: (value: ApprovalResolution) => void
+    const outcome = new Promise<ApprovalResolution>((done) => {
       resolve = done
     })
     this.approvals.set(approval.id, resolve)
     const onAbort = () => {
-      void this.resolveApproval(approval.id, 'cancelled').catch((error) => {
-        console.error(error)
-        resolve(false)
-      })
+      void this.resolveApproval(approval.id, 'cancelled')
+        .catch(async (error: unknown) => {
+          console.error(error)
+          // An ambiguous storage failure must not hide an already-winning decision.
+          // This is one read, not a replay of cancellation or a fabricated resolution.
+          try {
+            const recorded = await this.storage.call('approval', approval.id)
+            if (recorded.status !== 'pending')
+              resolve({
+                source: 'approval',
+                status: recorded.status,
+                ...(recorded.feedback ? { feedback: recorded.feedback } : {}),
+              })
+          } catch (readError) {
+            console.error('Approval outcome could not be read after cancellation:', readError)
+          }
+        })
+        // Persistence failure still ends the aborted wait, but it is not a
+        // fabricated persisted approval. An earlier winning resolution remains first.
+        .finally(() => resolve({ source: 'abort', reason: hostSignal.reason }))
     }
     try {
       this.publishEvent(await this.storage.call('createApproval', approval))
       this.publishEvent(await this.storage.call('setRun', context.run.id, 'waiting_approval'))
-      context.signal.addEventListener('abort', onAbort, { once: true })
-      if (context.signal.aborted) onAbort()
+      hostSignal.addEventListener('abort', onAbort, { once: true })
+      if (hostSignal.aborted) onAbort()
       return await outcome
     } finally {
-      context.signal.removeEventListener('abort', onAbort)
+      hostSignal.removeEventListener('abort', onAbort)
       this.approvals.delete(approval.id)
       this.publishEvent(await this.storage.call('setRun', context.run.id, 'running'))
     }
@@ -1150,12 +2020,18 @@ export class Kernel {
     const run = await this.storage.call('run', request.runId)
     if (run.sessionId !== request.sessionId)
       throw new HbarError('USER_INPUT_INVALID', 'User input request does not belong to the current session')
-    if (request.questions.some((question, index) => request.questions.findIndex((item) => item.id === question.id) !== index))
+    if (
+      request.questions.some(
+        (question, index) => request.questions.findIndex((item) => item.id === question.id) !== index,
+      )
+    )
       throw new HbarError('USER_INPUT_INVALID', 'Question ids must be unique')
-    if (request.questions.some((question) => {
-      const labels = (question.options ?? []).map((option) => option.label.toLocaleLowerCase())
-      return new Set(labels).size !== labels.length
-    }))
+    if (
+      request.questions.some((question) => {
+        const labels = (question.options ?? []).map((option) => option.label.toLocaleLowerCase())
+        return new Set(labels).size !== labels.length
+      })
+    )
       throw new HbarError('USER_INPUT_INVALID', 'Question option labels must be unique')
     if (request.questions.some((question) => (question.options ?? []).filter((option) => option.recommended).length > 1))
       throw new HbarError('USER_INPUT_INVALID', 'Each question can have at most one recommended option')
@@ -1194,7 +2070,8 @@ export class Kernel {
         console.error('Failed to persist user input resolution:', appendError)
       }
       this.publish({ method: 'user_input.resolved', params: data })
-      if (response === undefined) reject(error ?? new HbarError('USER_INPUT_CANCELLED', 'User input request was cancelled'))
+      if (response === undefined)
+        reject(error ?? new HbarError('USER_INPUT_CANCELLED', 'User input request was cancelled'))
       else resolve(response)
       return true
     }
@@ -1236,24 +2113,111 @@ export class Kernel {
     return true
   }
 
+  pendingUserInput(requestId: string) {
+    return this.userInputs.get(requestId)?.request ?? null
+  }
+
   private async clearPendingUserInputs(sessionId: string, reason: unknown) {
     const pending = [...this.userInputs.values()].filter(({ request }) => request.sessionId === sessionId)
     for (const entry of pending) await entry.settle(undefined, reason)
   }
   async resolveApproval(id: string, decision: Approval['status']) {
+    if (decision !== 'cancelled' && (await this.storage.call('approval', id)).tool === 'exit_plan_mode')
+      throw new HbarError('PLAN_EXIT_DECISION_REQUIRED', 'Use the Plan exit decision for this request')
     const result = await this.storage.call('resolveApproval', id, decision)
-    if (result) {
-      this.publishEvent(result.event)
-      this.approvals.get(id)?.(decision === 'allowed')
+    if (result) this.publishEvent(result.event)
+    // A concurrent decision may have won. Resolve from storage, never the losing argument.
+    const approval = result?.approval ?? (await this.storage.call('approval', id))
+    if (approval.status !== 'pending')
+      this.approvals.get(id)?.({
+        source: 'approval',
+        status: approval.status,
+        ...(approval.feedback ? { feedback: approval.feedback } : {}),
+      })
+  }
+  async resolvePlanExit(input: {
+    sessionId: string
+    approvalId: string
+    runId: string
+    callId: string
+    decision: 'implement' | 'continue'
+    feedback?: string
+    actorId: string
+  }) {
+    const recorded = await this.storage.call('approval', input.approvalId)
+    if (
+      recorded.tool !== 'exit_plan_mode' ||
+      recorded.sessionId !== input.sessionId ||
+      recorded.runId !== input.runId ||
+      recorded.callId !== input.callId
+    )
+      throw new HbarError('PLAN_EXIT_TARGET', 'Plan decision does not match the original request')
+    if (recorded.status !== 'pending') {
+      const status = input.decision === 'implement' ? 'allowed' : 'denied'
+      if (
+        recorded.status === status &&
+        recorded.decidedBy === input.actorId &&
+        (recorded.feedback ?? '') === (input.feedback?.trim() ?? '')
+      )
+        return recorded
+      throw new HbarError('PLAN_EXIT_UNAVAILABLE', 'The original Plan request has already been resolved')
     }
+    const active = this.active.get(input.sessionId)
+    if (!active || active.run.id !== input.runId || !this.approvals.has(input.approvalId))
+      throw new HbarError('PLAN_EXIT_UNAVAILABLE', 'The original Plan request is no longer active')
+    active.controller.signal.throwIfAborted()
+    const commit = () =>
+      this.storage.call(
+        'resolvePlanExit',
+        input.approvalId,
+        input.sessionId,
+        input.runId,
+        input.callId,
+        input.decision,
+        input.feedback,
+        input.actorId,
+      )
+    const resolved =
+      input.decision === 'implement'
+        ? await this.plugins.get<ModeService>('mode').commitExit(input.sessionId, async () => {
+            active.controller.signal.throwIfAborted()
+            return commit()
+          })
+        : await commit()
+    this.publishEvent(resolved.event)
+    if (resolved.modeEvent) {
+      if (resolved.modeEvent.eventId !== resolved.event.eventId) this.publishEvent(resolved.modeEvent)
+      try {
+        const run = await this.storage.call('run', input.runId)
+        await active.context.hooks.dispatch('run.modeChanged', {
+          sessionId: input.sessionId,
+          runId: input.runId,
+          run,
+          mode: 'default',
+        })
+      } catch (error) {
+        active.controller.abort(error)
+        throw error
+      }
+    }
+    if (resolved.approval.status === 'pending')
+      throw new HbarError('INVALID_OUTPUT', 'Plan exit resolution is still pending')
+    this.approvals.get(input.approvalId)?.({
+      source: 'approval',
+      status: resolved.approval.status,
+      ...(resolved.approval.feedback ? { feedback: resolved.approval.feedback } : {}),
+    })
+    return resolved.approval
   }
   async cancel(runId: string) {
-    this.cancelled.add(runId)
-    for (const active of this.active.values())
-      if (active.run.id === runId) active.controller.abort(new Error('Cancelled by user'))
-    const run = await this.storage.call('run', runId)
-    if (run.status === 'queued') this.publishEvent(await this.storage.call('setRun', runId, 'cancelled'))
-    else if (!['running', 'waiting_approval'].includes(run.status)) this.cancelled.delete(runId)
+    const { run, event } = await this.storage.call('requestCancel', runId)
+    if (event) this.publishEvent(event)
+    if (['running', 'waiting_approval'].includes(run.status)) {
+      this.cancelled.add(runId)
+      for (const active of this.active.values())
+        if (active.run.id === runId) active.controller.abort(new HbarError('USER_CANCELLED', 'Cancelled by user'))
+    } else this.cancelled.delete(runId)
+    if (event) await this.hooks.dispatch('run.cancelRequested', { sessionId: run.sessionId, runId, run })
   }
   async reorderQueued(sessionId: string, runIds: string[]) {
     const events = await this.storage.call('reorderQueued', sessionId, runIds)
@@ -1261,23 +2225,74 @@ export class Kernel {
     if (events.length) this.changed('sessions')
   }
   async compact(sessionId: string, modelId: string) {
+  async removeQueuedRun(request: QueuedRunRemoveInput, actorId: string, idempotencyKey: string) {
+    const { receipt, event } = await this.storage.call('removeQueuedRun', { request, actorId, idempotencyKey })
+    // Replaying the same committed event is safe: session subscribers deduplicate by seq/eventId.
+    this.publishEvent(event)
+    return receipt
+  }
+  async editQueuedRunText(request: QueuedRunEditTextInput, actorId: string, idempotencyKey: string) {
+    const { receipt, event } = await this.storage.call('editQueuedRunText', { request, actorId, idempotencyKey })
+    this.publishEvent(event)
+    return receipt
+  }
+  async guideQueuedRun(input: {
+    actorId: string
+    idempotencyKey: string
+    request: QueuedRunGuideInput
+  }): Promise<QueuedRunGuideReceipt> {
+    // Durable replay is valid even after the original driver has settled.
+    // The storage transaction verifies the exact input hash and actor/key.
+    const prior = await this.storage.call(
+      'queuedRunGuideReceipt',
+      input.actorId,
+      input.idempotencyKey,
+      input.request.sessionId,
+    )
+    if (!prior) {
+      const active = this.active.get(input.request.sessionId)
+      if (
+        this.closing ||
+        !active?.steeringReady ||
+        active.run.id !== input.request.activeRunId ||
+        active.controller.signal.aborted
+      )
+        throw new HbarError('COMMAND_CONFLICT', 'The original Run is not accepting live guidance')
+    }
+    const result = await this.storage.call('guideQueuedRun', input)
+    this.publishEvent(result.event)
+    this.changed('session-activity')
+    return result.receipt
+  }
+  async compact(sessionId: string, modelId: string, signal?: AbortSignal) {
     this.assertIdle()
     this.maintenance = true
     try {
       return await this.compactInternal(
         sessionId,
         await this.plugins.get<ModelRegistry>('models').get(modelId),
-        AbortSignal.timeout(120_000),
+        signal ? AbortSignal.any([signal, AbortSignal.timeout(120_000)]) : AbortSignal.timeout(120_000),
       )
     } finally {
       this.maintenance = false
     }
   }
-  private async compactInternal(sessionId: string, model: ProviderConfig, signal: AbortSignal, runId?: string) {
-    const request = await this.buildRequest(sessionId, model)
+  private async compactInternal(
+    sessionId: string,
+    model: ProviderConfig,
+    signal: AbortSignal,
+    runId?: string,
+    workspaceOverride?: Workspace,
+    protectedInitialSeq?: number,
+  ) {
+    const request = await this.buildRequest(sessionId, model, this.hooks, undefined, workspaceOverride)
     const retain = this.plugins.get<CompactionProvider>('compaction').retainMessages
     let boundary = -1
-    for (let i = 1; i <= request.messages.length - retain; i++) if (request.messages[i]?.role === 'user') boundary = i
+    for (let i = 1; i <= request.messages.length - retain; i++) {
+      const message = request.messages[i]
+      if (message?.role === 'user' && (protectedInitialSeq === undefined || message.seq <= protectedInitialSeq))
+        boundary = i
+    }
     if (boundary < 1) {
       if (!runId) throw new HbarError('NOTHING_TO_COMPACT', 'More completed conversation history is needed')
       return { summary: '' }
@@ -1288,11 +2303,24 @@ export class Kernel {
       system: `Summarize the conversation faithfully. Preserve objectives, files, tool outcomes, constraints, and unresolved work. Do not execute tools.\n${request.system}`,
       messages: older,
     }
-    await this.append(sessionId, 'compaction.request', { request: summarization }, runId)
+    const attemptId = crypto.randomUUID()
+    await this.append(
+      sessionId,
+      'compaction.request',
+      { ...describeUsageAttempt(attemptId, 'compaction', model), request: summarization },
+      runId,
+      attemptId,
+    )
     const result = await this.plugins
       .get<HarnessDriver>('driver')
       .summarize(summarization, model.protocol === 'mock' ? null : await this.secrets.get(model.id), signal)
-    await this.append(sessionId, 'usage.recorded', result.usage, runId)
+    await this.append(
+      sessionId,
+      'usage.recorded',
+      createUsageFact({ usage: result.usage, runId, attemptId, source: 'compaction', model }),
+      runId,
+      attemptId,
+    )
     signal.throwIfAborted()
     if (!result.text.trim()) throw new HbarError('COMPACTION_FAILED', 'Provider returned an empty summary')
     this.publishEvent(await this.storage.call('compact', sessionId, older.at(-1)!.seq, result.text, model.id))
@@ -1412,6 +2440,7 @@ export class Kernel {
       return plugins
     } finally {
       this.maintenance = false
+      for (const sessionId of this.wakeups) this.kick(sessionId)
     }
   }
   async installPlugin(path: string, projectId?: string) {
@@ -1427,14 +2456,21 @@ export class Kernel {
     }
   }
   async waitForIdle() {
-    while (this.drains.size) await Promise.all([...this.drains.values()])
+    while (this.drains.size || this.scheduledWakeups.waiting.length)
+      await Promise.all([...this.drains.values(), ...this.scheduledWakeups.waiting])
   }
   async close() {
     this.closing = true
     for (const timer of this.summaryTimers.values()) clearTimeout(timer)
     this.summaryTimers.clear()
     this.summaryPending.clear()
-    for (const active of this.active.values()) active.controller.abort(new Error('Host shutting down'))
+    this.scheduledWakeups.close()
+    this.schemaCallbacks.dispose()
+    this.directoryQueries.dispose()
+    for (const active of this.active.values())
+      active.controller.abort(new HbarError('HOST_SHUTTING_DOWN', 'Host shutting down'))
+    await this.sessionLaunchPreparations.close()
+    await this.sessionLaunchTargets.close()
     await this.waitForIdle()
     for (const pending of this.userInputs.values())
       await pending.settle(undefined, new HbarError('USER_INPUT_CANCELLED', 'Host shutting down'))

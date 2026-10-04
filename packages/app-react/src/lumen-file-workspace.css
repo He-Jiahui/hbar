@@ -1,0 +1,330 @@
+.hbar-app-react-file-workspace > .lumen-tool-pane-body {
+  overflow: hidden;
+}
+
+.hbar-app-react-file-workbench {
+  background: var(--lumen-frost);
+}
+
+.hbar-app-react-file-workbench > .lumen-tool-pane-toolbar {
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-app-react-file-layout,
+.hbar-app-react-file-browser,
+.hbar-file-reader {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hbar-app-react-file-layout [hidden] {
+  display: none;
+}
+
+.hbar-app-react-file-layout[data-two-pane='true'] {
+  flex-direction: row;
+}
+
+.hbar-app-react-file-layout[data-two-pane='true'] > .hbar-app-react-file-browser {
+  flex: 0 0 19rem;
+  border-inline-start: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-file-reader > .lumen-file-document {
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1;
+}
+
+.hbar-file-tree {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hbar-file-tree-controls,
+.hbar-file-tree-breadcrumbs,
+.hbar-file-tree-feedback {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  flex-wrap: wrap;
+}
+
+.hbar-file-tree-controls input {
+  min-inline-size: 0;
+  flex: 1 1 8rem;
+}
+
+.hbar-file-tree-controls {
+  flex-wrap: nowrap;
+}
+
+.hbar-file-tree-breadcrumbs button {
+  min-inline-size: 0;
+  block-size: auto;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.hbar-file-tree-scope,
+.hbar-file-tree > p,
+.hbar-file-tree-scroll > p,
+.hbar-file-tree-children > p {
+  margin: 0;
+  padding: 0.35rem 0.75rem;
+  color: var(--lumen-muted);
+  overflow-wrap: anywhere;
+}
+
+.hbar-file-tree-scroll {
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+.hbar-file-tree-list {
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  list-style: none;
+}
+
+.hbar-file-tree-children {
+  min-inline-size: 0;
+  margin-inline-start: 0.75rem;
+  border-inline-start: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-file-tree-list .hbar-file-tree-row {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  block-size: auto;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.4rem;
+  padding: 0.4rem;
+  text-align: start;
+  white-space: normal;
+}
+
+.hbar-file-tree-row > span:last-child {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.hbar-file-tree-row[aria-current='page'],
+.hbar-file-change[aria-current='page'],
+.hbar-file-search-row[data-selected='true'] {
+  background: color-mix(in srgb, var(--lumen-ink) 8%, var(--lumen-frost));
+}
+
+.hbar-file-search-path {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow-wrap: anywhere;
+}
+
+.hbar-file-search-path small {
+  color: var(--lumen-muted);
+}
+
+.hbar-file-tree-children > button,
+.hbar-file-tree-scroll > button {
+  margin: 0.5rem;
+}
+
+.hbar-app-react-file-layout > .lumen-file-document {
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+
+.hbar-app-react-file-editor {
+  box-sizing: border-box;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  resize: none;
+  font-family: ui-monospace, 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+  line-height: 1.5;
+}
+
+.lumen-file-document-body footer {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.75rem;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-file-browser-mode,
+.hbar-file-document-modes,
+.hbar-file-changes-controls,
+.hbar-file-diff-toolbar,
+.hbar-file-changes-pagination {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  flex-wrap: wrap;
+}
+
+.hbar-file-add-to-chat {
+  margin-inline-start: auto;
+}
+
+.hbar-file-add-feedback {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.25rem 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.hbar-file-browser-mode select {
+  max-inline-size: 100%;
+}
+
+.hbar-file-changes,
+.hbar-file-diff {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hbar-file-changes-controls input {
+  min-inline-size: 0;
+  flex: 1 1 8rem;
+}
+
+.hbar-file-changes-list {
+  min-block-size: 0;
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 0 0.5rem;
+  overflow: auto;
+  list-style: none;
+}
+
+.hbar-file-change {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  block-size: auto;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  text-align: start;
+  white-space: normal;
+}
+
+.hbar-file-change-path {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow-wrap: anywhere;
+}
+
+.hbar-file-change-status {
+  flex: 0 1 7rem;
+  overflow-wrap: anywhere;
+  color: var(--lumen-muted);
+}
+
+.hbar-file-change-path small,
+.hbar-file-diff-caption {
+  color: var(--lumen-muted);
+}
+
+.hbar-file-diff-heading {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 100%;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hbar-file-diff-path {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+
+.hbar-file-diff > p,
+.hbar-file-changes > p,
+.hbar-file-diff-caption,
+.hbar-file-diff-feedback {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.hbar-file-diff-content,
+.hbar-file-text-preview {
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 0.75rem;
+  overflow: auto;
+  font-family: ui-monospace, 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.hbar-file-diff-row[data-kind='addition'] {
+  color: var(--lumen-success);
+}
+
+.hbar-file-diff-row[data-kind='deletion'] {
+  color: var(--lumen-danger);
+}
+
+.hbar-file-diff-row[data-kind='hunk'] {
+  color: var(--lumen-primary);
+}
+
+.lumen-file-document-body footer [role='status'] {
+  min-inline-size: 0;
+  overflow: hidden;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-react-file-reload-description {
+  margin: 0;
+  padding: 1rem;
+  color: var(--lumen-muted);
+}
+
+.hbar-app-react-file-reload-target {
+  margin: 0;
+  padding: 1rem 1rem 0;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+}

@@ -1,0 +1,67 @@
+@import '../../tokens.css';
+.hbar-app-ui-session-navigator {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+.hbar-app-ui-session-navigator header,
+.hbar-app-ui-session-search,
+.hbar-app-ui-session-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-session-navigator header {
+  padding: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-session-navigator header strong {
+  flex: 1 1 auto;
+}
+.hbar-app-ui-session-search {
+  margin: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-session-search input {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+.hbar-app-ui-session-navigator .session-list {
+  padding: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-session-navigator .session-item {
+  display: flex;
+  flex-direction: column;
+  padding: var(--hbar-app-ui-space-sm);
+  margin-block-end: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-session-navigator .session-select {
+  display: flex;
+  align-items: flex-start;
+  text-align: start;
+  inline-size: 100%;
+}
+.hbar-app-ui-session-navigator .session-select span {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+.hbar-app-ui-session-navigator .session-select strong {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.hbar-app-ui-session-navigator small {
+  color: var(--hbar-app-ui-muted);
+}
+.hbar-app-ui-session-actions {
+  justify-content: flex-end;
+}
+.hbar-app-ui-session-navigator form input {
+  inline-size: 100%;
+}
+.hbar-app-ui-session-navigator p {
+  overflow-wrap: anywhere;
+}
+.hbar-app-ui-session-navigator footer {
+  flex: 0 0 auto;
+}

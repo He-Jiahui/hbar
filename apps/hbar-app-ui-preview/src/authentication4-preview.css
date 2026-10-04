@@ -1,0 +1,27 @@
+.hbar-app-ui-authentication4-preview-host {
+  display: contents;
+}
+
+.hbar-app-ui-isolated-canvas:has([data-hbar-app-ui-component='hbar-app-ui-authentication-4']) {
+  display: flex;
+  flex-direction: column;
+  block-size: auto;
+  min-block-size: 100dvh;
+  overflow: visible;
+}
+
+.hbar-app-ui-isolated-canvas:has([data-hbar-app-ui-component='hbar-app-ui-authentication-4'])
+  > .hbar-app-ui-authentication4-preview-host
+  > .lumen-authentication-root-surface {
+  inline-size: 100%;
+  flex: 1 0 auto;
+  min-block-size: 100dvh;
+}
+
+.hbar-app-ui-isolated-canvas:has([data-hbar-app-ui-component='hbar-app-ui-authentication-4'])
+  .hbar-app-ui-auth-two-step-surface {
+  block-size: auto;
+  min-block-size: 0;
+  align-self: stretch;
+  overflow: visible;
+}

@@ -1,0 +1,5 @@
+.hbar-app-ui-isolated-canvas:has([data-lumen-component='monitoring']) {
+  block-size: auto;
+  min-block-size: 100vh;
+  overflow: visible;
+}

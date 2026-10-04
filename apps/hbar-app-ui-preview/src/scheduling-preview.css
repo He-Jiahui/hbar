@@ -1,0 +1,1 @@
+.hbar-app-ui-isolated-canvas:has(:is([data-hbar-app-ui-component='hbar-app-ui-scheduling-1'],[data-hbar-app-ui-component='hbar-app-ui-scheduling-2'],[data-hbar-app-ui-component='hbar-app-ui-scheduling-3'])) { background: light-dark(#fff, #0a0a0a); }

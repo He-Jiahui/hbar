@@ -1,0 +1,78 @@
+@import '../../tokens.css';
+
+.hbar-app-ui-action-menu {
+  position: relative;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+}
+
+.hbar-app-ui-action-menu > summary {
+  display: inline-flex;
+  inline-size: var(--hbar-app-ui-control-compact);
+  min-inline-size: var(--hbar-app-ui-control-compact);
+  block-size: var(--hbar-app-ui-control-compact);
+  align-items: center;
+  justify-content: center;
+  border: var(--hbar-app-ui-divider) solid transparent;
+  border-radius: var(--hbar-app-ui-control-radius);
+  outline: 0;
+  color: var(--hbar-app-ui-muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+.hbar-app-ui-action-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.hbar-app-ui-action-menu > summary:hover,
+.hbar-app-ui-action-menu > summary:focus-visible,
+.hbar-app-ui-action-menu[open] > summary {
+  border-color: var(--hbar-app-ui-border);
+  background: var(--hbar-app-ui-surface-2);
+  color: var(--hbar-app-ui-text);
+}
+
+.hbar-app-ui-action-menu > .hbar-app-ui-dialog-menu {
+  position: absolute;
+  z-index: 40;
+  inset-block-start: calc(100% + var(--hbar-app-ui-space-xs));
+  inset-inline-end: 0;
+  display: flex;
+  min-inline-size: 9rem;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: var(--hbar-app-ui-space-xs);
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border-strong);
+  border-radius: var(--hbar-app-ui-control-radius);
+  background: var(--hbar-app-ui-surface-0);
+  box-shadow: var(--hbar-app-ui-shadow);
+}
+
+.hbar-app-ui-action-menu [role='menuitem'] {
+  min-block-size: var(--hbar-app-ui-control-compact);
+  padding: var(--hbar-app-ui-space-xs) var(--hbar-app-ui-space-sm);
+  border: 0;
+  border-radius: calc(var(--hbar-app-ui-control-radius) - 0.125rem);
+  outline: 0;
+  background: transparent;
+  color: var(--hbar-app-ui-text);
+  cursor: pointer;
+  font: inherit;
+  text-align: start;
+  white-space: nowrap;
+}
+
+.hbar-app-ui-action-menu [role='menuitem']:hover,
+.hbar-app-ui-action-menu [role='menuitem']:focus-visible {
+  background: var(--hbar-app-ui-surface-2);
+}
+
+.hbar-app-ui-action-menu [role='menuitem'][data-tone='danger'] {
+  color: var(--hbar-app-ui-danger);
+}
+
+.hbar-app-ui-action-menu [role='menuitem']:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}

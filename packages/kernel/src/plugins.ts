@@ -16,7 +16,7 @@ import type {
   ToolRegistry,
 } from '@hbar/plugin-sdk'
 import type { PluginInfo, UIContribution } from '@hbar/contracts'
-import { HbarError, settingsContributionSchema, terminalCommandSchema, themeContributionSchema, toolWindowContributionSchema } from '@hbar/contracts'
+import { HbarError, settingsContributionSchema, terminalCommandSchema, themeContributionSchema, toolWindowContributionSchema, toolPresentationDeclarationSchema } from '@hbar/contracts'
 import { satisfies, valid } from 'semver'
 import { z } from 'zod'
 import type { StoragePort } from '@hbar/storage'
@@ -35,9 +35,24 @@ export class Tools implements ToolRegistry {
   register(tool: ToolDefinition): Disposer {
     if (!/^[a-zA-Z][a-zA-Z0-9_]{0,63}$/.test(tool.name)) throw new Error(`Invalid tool name: ${tool.name}`)
     if (this.entries.has(tool.name)) throw new Error(`Duplicate tool: ${tool.name}`)
-    this.entries.set(tool.name, tool)
+    const parsed =
+      tool.presentation === undefined ? undefined : toolPresentationDeclarationSchema.safeParse(tool.presentation)
+    if (parsed && !parsed.success)
+      throw new HbarError('INVALID_TOOL_PRESENTATION', 'Tool presentation declaration is invalid')
+    const registered: ToolDefinition = {
+      ...tool,
+      ...(parsed?.success ? { presentation: Object.freeze(parsed.data) } : {}),
+    }
+    Object.defineProperty(registered, 'presentation', {
+      value: registered.presentation,
+      enumerable: parsed !== undefined,
+      writable: false,
+      configurable: false,
+    })
+    const registeredName = tool.name
+    this.entries.set(registeredName, registered)
     return () => {
-      if (this.entries.get(tool.name) === tool) this.entries.delete(tool.name)
+      if (this.entries.get(registeredName) === registered) this.entries.delete(registeredName)
     }
   }
   get(name: string) {

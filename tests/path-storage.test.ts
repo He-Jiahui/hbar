@@ -122,6 +122,7 @@ test('session logs shard by local event date while sequence numbers remain conti
 test('user input request and resolution events are durable session facts', () => {
   expect(isDurableSessionEvent('user_input.requested')).toBeTrue()
   expect(isDurableSessionEvent('user_input.resolved')).toBeTrue()
+  expect(isDurableSessionEvent('agent.created')).toBeTrue()
   expect(isDurableSessionEvent('diagnostic.note')).toBeFalse()
 })
 

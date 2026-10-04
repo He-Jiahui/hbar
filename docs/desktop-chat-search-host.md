@@ -1,0 +1,23 @@
+# Search chats: Host read contract and index projection
+
+The desktop Search chats entry uses two authenticated, API-only Host queries over `command.execute`. It does not reuse the Commands palette, the current-session Find action, or the per-workspace exact-title `session.list` query.
+
+## Public contract
+
+`createSessionSearchCommandClient(client)` exports typed `execute('session.recent', {})` and `execute('session.search', { query, limit?, matchesPerSession? })`. The former returns up to 8 unarchived sessions in current `updatedAt DESC, id` order. The latter accepts a trimmed 1–160-UTF-16-unit query, returns at most 50 sessions and at most 3 snippets per session, and searches only committed `user`/`assistant` text blocks. A title is display metadata, not a match source. Thinking, tool, system and provider data are not indexed.
+
+Each row carries canonical `sessionId` and `workspaceId`, current title and workspace display name, current `updatedAt`, a bounded matching-message count and pure-text `{ before, hit, after }` snippet parts. Consumers render these as text, not HTML. `messageId` identifies the snippet source but the current action only opens the session; it does not seek to that message. Selection must pass both IDs to navigation and handle a session that was archived or changed since the query.
+
+`incompleteReason: 'indexing'` means the index is not caught up; `items` is empty but must **not** be presented as “no results.” The Host continues indexing independently after the modal closes. `incompleteReason: 'scan_cap'` means only the first 4000 candidate text segments were examined; results and counts can be incomplete, so the UI should ask for a more specific query. `truncated` separately means more than the requested 50-or-fewer session rows were found among examined candidates. A row's `matchCountCapped` marks a lower-bound count, either because it exceeds 999 or because candidate scanning stopped at the cap.
+
+## Durability, privacy, and work bounds
+
+SQLite FTS5 trigram is a **disposable projection**, not a new authority. The canonical message event is written to JSONL first. Normal message commits, recovered `message.committed` events, and Fork copies enqueue only eligible text. Migration to database version 9 creates the projection transactionally, then existing messages are discovered 8 at a time. Each indexing step processes at most 8 segments with 4096 core Unicode code points plus a 160-point overlap. Progress and queue offsets are durable; SQLite deletion/rebuild from canonical JSONL recreates search. New search requests share at most one in-flight step with a Host-owned yielding background drain. Host close stops that drain and awaits its current step; background failures have a three-attempt bound.
+
+Three-or-more-code-point queries use parameterized, escaped FTS candidates followed by exact normalized substring verification. One- and two-point queries inspect a bounded document prefix instead of an unbounded full-table search. Each query considers at most 4000 candidate segments before declaring `scan_cap`; session output and snippet sizes have separate schema bounds. The current `StoragePort` and synchronous SQLite Worker do not support interrupting an individual SQL operation after it starts; client AbortSignal is checked before dispatch and stale UI responses can be ignored, but this is **not physical Host cancellation**. No cancellation of an already running Worker step is claimed.
+
+Eligibility is evaluated from current `sessions.archived=0` during every query, so archive hides hits immediately and restore makes existing hits eligible without reindexing. Hidden workspaces are included: current workspace hiding is navigation presentation, not a per-workspace authorization rule, and an explicitly opened hidden workspace is revealed. Every WebSocket request revalidates the paired device credential. hbar currently has no session hard-delete operation; any future deletion must remove its derived search rows as part of that feature.
+
+## Verification boundary
+
+Focused real Storage Worker tests cover user/assistant-only body hits across workspaces, title-only and private-block exclusion, Chinese and punctuation queries, archive/restore, 4001 one-character candidates with explicit `scan_cap`, version-8 migration/backfill, and SQLite deletion followed by JSONL recovery. Paired real Host/client tests cover catalog/read behavior, unauthenticated denial, and 120 queued messages becoming indexed without client polling. The existing v6/v7 two-Worker migration regressions also verify the version-9 migration can race safely. Browser layout, keyboard navigation, and native visual evidence belong to the separate Search chats UI acceptance unit.

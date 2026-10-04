@@ -9,12 +9,31 @@ import {
   type KeyEvent,
 } from '@opentui/core'
 import { randomUUID } from 'node:crypto'
-import { readdir, writeFile } from 'node:fs/promises'
+import { writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import type { Message, Run, Session, SessionEvent, SessionSnapshot, ThinkingLevel } from '@hbar/contracts'
-import { BUILTIN_TERMINAL_COMMANDS, parseTerminalInput } from '@hbar/terminal'
+import { approvalModeSchema } from '@hbar/contracts'
+import type { Message, PluginInfo, Run, Session, SessionEvent, SessionSnapshot, ThinkingLevel } from '@hbar/contracts'
+import {
+  createInteractionCommandClient,
+  createModelCommandClient,
+  createRunCommandClient,
+  createConfigurationCommandClient,
+  createExtensionCommandClient,
+  createSystemCommandClient,
+  createWorkspaceSessionCommandClient,
+  exportSessionEvents,
+} from '@hbar/client'
+import {
+  BUILTIN_TERMINAL_COMMANDS,
+  TERMINAL_APPLICATION_ALIASES,
+  createTerminalApplicationCommands,
+  isTerminalApplicationCommand,
+  parseTerminalInput,
+} from '@hbar/terminal'
 import type { CliRuntime } from './runtime.ts'
 import { selectModel, waitForRun } from './runtime.ts'
+import { executeCommandLine } from './command-line.ts'
+import type { CliArgs } from './args.ts'
 
 export const SLASH_COMMANDS = BUILTIN_TERMINAL_COMMANDS.map((command) => command.usage)
 
@@ -50,7 +69,7 @@ function eventStatus(event: SessionEvent) {
   return event.type
 }
 
-export async function runTui(runtime: CliRuntime, prefill?: string) {
+export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: CliArgs) {
   const renderer = await createCliRenderer({
     targetFps: 30,
     maxFps: 60,
@@ -143,9 +162,10 @@ export async function runTui(runtime: CliRuntime, prefill?: string) {
 
   let session = runtime.session
   let modelId = runtime.modelId
-  let thinking: ThinkingLevel = 'off'
+  let thinking: ThinkingLevel = runtime.thinkingLevel
+  const modelCommands = createModelCommandClient(runtime.client)
+  const entityCommands = createWorkspaceSessionCommandClient(runtime.client)
   const runs = new Map<string, Run>()
-  const lastInputs = new Map<string, string>()
   const streams = new Map<string, { text: string; thinking: string }>()
   let base = ''
   let closed = false
@@ -173,7 +193,12 @@ export async function runTui(runtime: CliRuntime, prefill?: string) {
   }
   const load = async (next: Session) => {
     session = next
-    const snapshot = await runtime.client.call('session.snapshot', { sessionId: session.id })
+    const [snapshot, modelConfiguration] = await Promise.all([
+      runtime.client.call('session.snapshot', { sessionId: session.id }),
+      modelCommands.execute('session.getModel', { sessionId: session.id }),
+    ])
+    modelId = modelConfiguration.modelId ?? selectModel(runtime.bootstrap)
+    thinking = modelConfiguration.thinkingLevel ?? 'off'
     base = transcript(snapshot)
     const activeRun = runs.get(session.id)
     const live = activeRun ? snapshot.streams.find((stream) => stream.runId === activeRun.id) : snapshot.streams.at(-1)
@@ -195,28 +220,27 @@ export async function runTui(runtime: CliRuntime, prefill?: string) {
     syntax.destroy()
     resolveClosed()
   }
+  const terminalApplication = createTerminalApplicationCommands({
+    clearTranscript() {
+      base = ''
+      render()
+    },
+    closeTerminal: close,
+  })
   const resolveApproval = async (decision: 'allowed' | 'denied', id?: string) => {
     const snapshot = await runtime.client.call('session.snapshot', { sessionId: session.id })
     const approval = id
       ? snapshot.approvals.find((item) => item.id === id)
       : snapshot.approvals.find((item) => item.status === 'pending')
     if (!approval) throw new Error('No pending approval found')
-    await runtime.client.call('approval.resolve', { approvalId: approval.id, decision })
+    await createInteractionCommandClient(runtime.client).execute('approval.resolve', {
+      sessionId: session.id,
+      approvalId: approval.id,
+      decision,
+    })
     status.content = decision === 'allowed' ? 'Approved' : 'Denied'
   }
-  const send = async (text: string) => {
-    const target = session
-    if (runs.has(target.id)) throw new Error('This session already has an active run; use /stop or switch sessions')
-    lastInputs.set(target.id, text)
-    base = `${base}${base ? '\n\n---\n\n' : ''}### You\n\n${text}`
-    streams.set(target.id, { text: '', thinking: '' })
-    render()
-    const run = await runtime.client.call('run.start', {
-      sessionId: target.id,
-      requestId: randomUUID(),
-      input: { text, images: [], thinking, approval: 'ask' },
-      modelId,
-    })
+  const watchRun = async (target: Session, run: Run) => {
     runs.set(target.id, run)
     status.content = 'Running · Ctrl+C to stop'
     try {
@@ -247,6 +271,26 @@ export async function runTui(runtime: CliRuntime, prefill?: string) {
       input.focus()
     }
   }
+  const send = async (text: string) => {
+    const target = session
+    if (runs.has(target.id)) throw new Error('This session already has an active run; use /stop or switch sessions')
+    base = `${base}${base ? '\n\n---\n\n' : ''}### You\n\n${text}`
+    streams.set(target.id, { text: '', thinking: '' })
+    render()
+    const accepted = await createRunCommandClient(runtime.client).execute(
+      'run.submit',
+      {
+        sessionId: target.id,
+        input: { text, images: [], thinking, approval: 'ask' },
+        modelId,
+      },
+      { idempotencyKey: randomUUID() },
+    )
+    const snapshot = await runtime.client.call('session.snapshot', { sessionId: target.id })
+    const run = snapshot.runs.find((item) => item.id === accepted.operationId)
+    if (!run) throw new Error('Accepted run is unavailable from the session snapshot')
+    return watchRun(target, run)
+  }
   const switchSession = async (selector: string) => {
     await refreshCatalog()
     const next = runtime.bootstrap.sessions.find(
@@ -255,15 +299,48 @@ export async function runTui(runtime: CliRuntime, prefill?: string) {
     if (!next) throw new Error(`Session not found: ${selector}`)
     await load(next)
   }
-  const slash = async (command: string, args: string[]) => {
+  const slash = async (command: string, args: string[], source: string) => {
     const argument = args.join(' ')
-    if (command === 'quit' || command === 'q') return close()
+    const applicationCommand = TERMINAL_APPLICATION_ALIASES[command]
+    if (applicationCommand) return terminalApplication.commands.execute(applicationCommand, {})
     if (command === 'help') return render(`### Commands\n\n${SLASH_COMMANDS.map((item) => `- \`${item}\``).join('\n')}`)
-    if (command === 'clear') {
-      base = ''
-      return render()
+    if (command === 'exec') {
+      if (isTerminalApplicationCommand(args[0])) return terminalApplication.commands.execute(args[0], {})
+      const output: unknown[] = []
+      const previous = session.id
+      await executeCommandLine(
+        source,
+        runtime,
+        defaults ?? {
+          commandArgs: [],
+          headless: false,
+          help: false,
+          thinking: 'off',
+          thinkingExplicit: false,
+          approval: 'ask',
+          outputFormat: 'text',
+          demo: false,
+          fullPage: false,
+          includeDescendants: false,
+        },
+        (value) => output.push(value),
+      )
+      await refreshCatalog()
+      if (runtime.session.id !== previous) return load(runtime.session)
+      return render(
+        `### Command result\n\n\`\`\`json\n${output
+          .map((value) => (typeof value === 'string' ? value : JSON.stringify(value, null, 2)))
+          .join('\n')}\n\`\`\``,
+      )
     }
-    if (command === 'new') return load(await runtime.client.call('session.create', { workspaceId: runtime.project.id }))
+    if (command === 'new')
+      return load(
+        await entityCommands.execute(
+          'session.create',
+          { workspaceId: runtime.project.id },
+          { idempotencyKey: randomUUID() },
+        ),
+      )
     if (command === 'sessions') {
       await refreshCatalog()
       const rows = runtime.bootstrap.sessions
@@ -274,30 +351,59 @@ export async function runTui(runtime: CliRuntime, prefill?: string) {
       return render(`### Sessions\n\n| ID | Title | State |\n| --- | --- | --- |\n${rows.join('\n')}`)
     }
     if (command === 'switch' || command === 'resume') return switchSession(argument)
-    if (command === 'fork') return load(await runtime.client.call('session.fork', { sessionId: session.id }))
+    if (command === 'fork')
+      return load(
+        await entityCommands.execute('session.fork', { sessionId: session.id }, { idempotencyKey: randomUUID() }),
+      )
     if (command === 'archive') {
-      session = await runtime.client.call('session.archive', { sessionId: session.id, archived: true })
+      session = await entityCommands.execute('session.archive', { sessionId: session.id, archived: true })
       status.content = 'Session archived'
       return refreshCatalog()
     }
     if (command === 'model') {
       await refreshCatalog()
-      if (!argument)
+      if (!argument) {
+        const models = await modelCommands.execute('model.list', {})
         return render(
-          `### Models\n\n${runtime.bootstrap.models.map((item) => `- \`${item.id}\` · ${item.name} · ${item.model}`).join('\n')}`,
+          `### Models\n\n${models.map((item) => `- \`${item.id}\` · ${item.providerName} · ${item.modelName}`).join('\n')}`,
         )
-      modelId = selectModel(runtime.bootstrap, argument)
+      }
+      const before = await modelCommands.execute('session.getModel', { sessionId: session.id })
+      const result = await modelCommands.execute(
+        'session.setModel',
+        {
+          sessionId: session.id,
+          modelId: selectModel(runtime.bootstrap, argument),
+          baselineRevisions: before.revisions,
+        },
+        { idempotencyKey: crypto.randomUUID() },
+      )
+      modelId = result.modelId ?? modelId
+      thinking = result.thinkingLevel ?? thinking
       return updateHeader()
     }
     if (command === 'thinking') {
       if (!['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(argument))
         throw new Error('Thinking must be off|minimal|low|medium|high|xhigh|max')
-      thinking = argument as ThinkingLevel
+      const before = await modelCommands.execute('session.getModel', { sessionId: session.id })
+      const result = await modelCommands.execute(
+        'session.setThinkingLevel',
+        {
+          sessionId: session.id,
+          thinkingLevel: argument as ThinkingLevel,
+          baselineRevisions: before.revisions,
+        },
+        { idempotencyKey: crypto.randomUUID() },
+      )
+      thinking = result.thinkingLevel ?? thinking
       return updateHeader()
     }
     if (command === 'compact') {
       status.content = 'Compacting context...'
-      const result = await runtime.client.call('context.compact', { sessionId: session.id, modelId })
+      const result = await createRunCommandClient(runtime.client).execute('context.compact', {
+        sessionId: session.id,
+        modelId,
+      })
       status.content = 'Context compacted'
       return render(`### Context summary\n\n${result.summary}`)
     }
@@ -306,56 +412,76 @@ export async function runTui(runtime: CliRuntime, prefill?: string) {
     if (command === 'stop') {
       const run = runs.get(session.id)
       if (!run) throw new Error('No active run in this session')
-      await runtime.client.call('run.cancel', { runId: run.id })
+      await createRunCommandClient(runtime.client).execute('operation.cancel', { operationId: run.id })
       return
     }
     if (command === 'retry') {
-      const lastInput = lastInputs.get(session.id)
-      if (!lastInput) throw new Error('No prior input to retry')
-      return send(lastInput)
+      if (runs.has(session.id)) throw new Error('This session already has an active run; use /stop first')
+      const target = session
+      const before = await runtime.client.call('session.snapshot', { sessionId: target.id })
+      const prior = before.runs[0]
+      if (!prior) throw new Error('No prior operation to retry')
+      if (['queued', 'running', 'waiting_approval'].includes(prior.status))
+        throw new Error('Wait for the prior operation to settle before retrying')
+      streams.set(target.id, { text: '', thinking: '' })
+      const accepted = await createRunCommandClient(runtime.client).execute(
+        'run.retry',
+        { sessionId: target.id, operationId: prior.id },
+        { idempotencyKey: randomUUID() },
+      )
+      const after = await runtime.client.call('session.snapshot', { sessionId: target.id })
+      const run = after.runs.find((item) => item.id === accepted.operationId)
+      if (!run) throw new Error('Accepted retry is unavailable from the session snapshot')
+      return watchRun(target, run)
     }
     if (command === 'export') {
-      const events = await runtime.client.call('session.export', { sessionId: session.id })
+      const events = await exportSessionEvents(runtime.client, session.id)
       const path = resolve(argument || `hbar-${session.id}.jsonl`)
       await writeFile(path, `${events.map((event) => JSON.stringify(event)).join('\n')}\n`, 'utf8')
       return render(`Exported to \`${path}\``)
     }
     if (command === 'plugins') {
       const [action = 'list', idOrPath] = args
+      const extensions = createExtensionCommandClient(runtime.client)
+      let plugins: PluginInfo[]
       if (action === 'install' && idOrPath)
-        await runtime.client.call('plugin.install', { path: idOrPath, projectId: runtime.project.id })
-      else if (action === 'enable' && idOrPath) await runtime.client.call('plugin.enable', { id: idOrPath })
-      else if (action === 'disable' && idOrPath) await runtime.client.call('plugin.disable', { id: idOrPath })
+        plugins = await extensions.execute('plugin.install', { path: idOrPath, projectId: runtime.project.id })
+      else if (action === 'enable' && idOrPath) plugins = await extensions.execute('plugin.enable', { id: idOrPath })
+      else if (action === 'disable' && idOrPath) plugins = await extensions.execute('plugin.disable', { id: idOrPath })
       else if (action === 'doctor')
-        return render(`\`\`\`json\n${JSON.stringify(await runtime.client.call('plugin.doctor', {}), null, 2)}\n\`\`\``)
+        return render(`\`\`\`json\n${JSON.stringify(await extensions.execute('plugin.doctor', {}), null, 2)}\n\`\`\``)
       else if (action !== 'list') throw new Error('Use /plugins list|install|enable|disable|doctor')
+      else plugins = await extensions.execute('plugin.list', {})
       await refreshCatalog()
       return render(
-        `### Plugins\n\n${runtime.bootstrap.plugins.map((item) => `- \`${item.id}\` · ${item.version} · ${item.status}`).join('\n')}`,
+        `### Plugins\n\n${plugins.map((item) => `- \`${item.id}\` · ${item.version} · ${item.status}`).join('\n')}`,
       )
     }
     if (command === 'skills') {
-      const skills = await readdir(resolve(runtime.layout.skills, 'global'), { withFileTypes: true }).catch(() => [])
+      const skills = await createExtensionCommandClient(runtime.client).execute('skill.list', {})
       return render(
         `### Global skills\n\n${
-          skills
-            .filter((item) => item.isDirectory())
-            .map((item) => `- ${item.name}`)
-            .join('\n') || 'No skills installed.'
+          skills.map((item) => `- ${item.id}`).join('\n') || 'No skills installed.'
         }`,
       )
     }
     if (command === 'settings') {
-      if (args[0] === 'approval' && ['deny', 'ask', 'allow'].includes(args[1] ?? '')) {
-        await runtime.client.call('permission.set', { mode: args[1] as 'deny' | 'ask' | 'allow' })
-        return render(`Default approval mode: \`${args[1]}\``)
+      const settings = createConfigurationCommandClient(runtime.client)
+      const mode = args[0] === 'approval' ? approvalModeSchema.safeParse(args[1]) : null
+      if (mode?.success) {
+        await settings.execute('permission.set', { mode: mode.data })
+        return render(`Default approval mode: \`${mode.data}\``)
       }
-      return render(`\`\`\`json\n${JSON.stringify(await runtime.client.call('permission.get', {}), null, 2)}\n\`\`\``)
+      return render(`\`\`\`json\n${JSON.stringify(await settings.execute('permission.get', {}), null, 2)}\n\`\`\``)
     }
     if (command === 'paths')
-      return render(`\`\`\`json\n${JSON.stringify(await runtime.client.call('system.paths.get', {}), null, 2)}\n\`\`\``)
+      return render(
+        `\`\`\`json\n${JSON.stringify(await createSystemCommandClient(runtime.client).execute('system.paths.get', {}), null, 2)}\n\`\`\``,
+      )
     if (command === 'diagnose')
-      return render(`\`\`\`json\n${JSON.stringify(await runtime.client.call('system.diagnose', {}), null, 2)}\n\`\`\``)
+      return render(
+        `\`\`\`json\n${JSON.stringify(await createSystemCommandClient(runtime.client).execute('system.diagnose', {}), null, 2)}\n\`\`\``,
+      )
     throw new Error(`Unknown command: /${command}`)
   }
   const submit = async () => {
@@ -364,7 +490,8 @@ export async function runTui(runtime: CliRuntime, prefill?: string) {
     input.value = ''
     try {
       const parsed = parseTerminalInput(value)
-      if (parsed.kind === 'command') await slash(parsed.invocation.command, parsed.invocation.args)
+      if (parsed.kind === 'command')
+        await slash(parsed.invocation.command, parsed.invocation.args, parsed.invocation.source)
       else await send(parsed.text)
     } catch (error) {
       status.content = error instanceof Error ? error.message : String(error)
@@ -378,13 +505,17 @@ export async function runTui(runtime: CliRuntime, prefill?: string) {
     if (key.ctrl && key.name === 'c') {
       key.preventDefault()
       const run = runs.get(session.id)
-      if (run) void runtime.client.call('run.cancel', { runId: run.id })
+      if (run) void createRunCommandClient(runtime.client).execute('operation.cancel', { operationId: run.id })
       else if (input.value) input.value = ''
-      else void close()
+      else
+        void terminalApplication.commands.execute('app.closeTerminal', {}).catch((error: unknown) => {
+          status.content = error instanceof Error ? error.message : String(error)
+        })
     } else if (key.ctrl && key.name === 'l') {
       key.preventDefault()
-      base = ''
-      render()
+      void terminalApplication.commands.execute('app.clearTranscript', {}).catch((error: unknown) => {
+        status.content = error instanceof Error ? error.message : String(error)
+      })
     } else if (key.ctrl && key.name === 'p') {
       key.preventDefault()
       void refreshCatalog().then(async () => {
@@ -403,6 +534,7 @@ export async function runTui(runtime: CliRuntime, prefill?: string) {
   renderer.requestRender()
   await closedPromise.finally(() => {
     renderer.keyInput.off('keypress', keypress)
+    terminalApplication.dispose()
     runtime.close()
   })
 }

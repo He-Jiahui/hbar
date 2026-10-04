@@ -1,0 +1,139 @@
+.hbar-composer-mention-root {
+  position: relative;
+  min-inline-size: 0;
+  inline-size: 100%;
+}
+
+.hbar-composer-mention-editor {
+  min-inline-size: 0;
+  min-block-size: 4.5rem;
+  max-block-size: min(35vh, 16rem);
+  overflow: auto;
+}
+
+.hbar-composer-mention-editor .cm-editor {
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.hbar-composer-mention-editor .cm-scroller {
+  font-family: inherit;
+}
+
+.hbar-composer-mention-editor .cm-content {
+  min-block-size: 4.5rem;
+  padding: 0.75rem;
+  font: inherit;
+  overflow-wrap: anywhere;
+}
+
+.hbar-composer-mention-editor .cm-focused {
+  outline: none;
+}
+
+.hbar-composer-mention-editor .cm-placeholder {
+  color: var(--lumen-muted);
+}
+
+.hbar-composer-mention-pill {
+  display: inline-flex;
+  max-inline-size: 16rem;
+  padding: 0.0625rem 0.35rem;
+  border-radius: 0.3rem;
+  background: var(--lumen-reading);
+  color: var(--lumen-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+
+.hbar-composer-mention-menu {
+  position: absolute;
+  z-index: 12;
+  inset-inline: -0.625rem;
+  bottom: calc(100% + 0.4rem);
+  display: flex;
+  min-inline-size: 0;
+  max-block-size: min(45vh, 19rem);
+  flex-direction: column;
+  overflow: hidden;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.65rem;
+  background: var(--lumen-contrast);
+  box-shadow: 0 0.65rem 1.75rem rgb(0 0 0 / 18%);
+}
+
+.hbar-composer-mention-heading,
+.hbar-composer-mention-row {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.hbar-composer-mention-heading {
+  padding: 0.4rem 0.65rem;
+  border-bottom: 0.0625rem solid var(--lumen-edge);
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+
+.hbar-composer-mention-heading > :nth-child(2) {
+  min-inline-size: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-composer-mention-results {
+  min-block-size: 0;
+  overflow: auto;
+  padding: 0.25rem;
+}
+
+.hbar-composer-mention-choice {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  overflow: hidden;
+  text-align: start;
+}
+
+.hbar-composer-mention-choice > :nth-child(2) {
+  flex: 0 0 auto;
+  max-inline-size: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-composer-mention-choice[aria-selected='true'] {
+  background: var(--lumen-reading);
+}
+
+.hbar-composer-mention-path {
+  min-inline-size: 0;
+  overflow: hidden;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-composer-mention-feedback,
+.hbar-composer-mention-footer {
+  padding: 0.5rem 0.7rem;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.hbar-composer-mention-footer {
+  border-top: 0.0625rem solid var(--lumen-edge);
+}

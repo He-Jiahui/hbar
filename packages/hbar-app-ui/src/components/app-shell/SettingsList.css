@@ -1,0 +1,221 @@
+.hbar-app-ui-settings-list,
+.hbar-app-ui-settings-list > header > div:first-child,
+.hbar-app-ui-settings-list ol,
+.hbar-app-ui-settings-list-copy,
+.hbar-app-ui-settings-list-metadata {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+}
+
+.hbar-app-ui-settings-list {
+  gap: var(--hbar-app-ui-space-md);
+}
+
+.hbar-app-ui-settings-list > header,
+.hbar-app-ui-settings-list-header-actions,
+.hbar-app-ui-settings-list li,
+.hbar-app-ui-settings-list-row,
+.hbar-app-ui-settings-list-menu > summary,
+.hbar-app-ui-settings-list-menu [role='menu'] > button {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+}
+
+.hbar-app-ui-settings-list > header {
+  justify-content: space-between;
+  gap: var(--hbar-app-ui-space-md);
+}
+
+.hbar-app-ui-settings-list > header > div:first-child {
+  flex: 1 1 auto;
+  gap: var(--hbar-app-ui-space-xs);
+}
+
+.hbar-app-ui-settings-list h2,
+.hbar-app-ui-settings-list p {
+  margin: 0;
+}
+
+.hbar-app-ui-settings-list h2 {
+  font-size: var(--hbar-app-ui-font-section);
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.hbar-app-ui-settings-list > header p,
+.hbar-app-ui-settings-list-empty {
+  color: var(--hbar-app-ui-subtle);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.hbar-app-ui-settings-list-header-actions {
+  flex: 0 0 auto;
+  gap: var(--hbar-app-ui-space-xs);
+}
+
+.hbar-app-ui-settings-list ol {
+  gap: var(--hbar-app-ui-space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hbar-app-ui-settings-list li {
+  position: relative;
+  gap: var(--hbar-app-ui-space-xs);
+  padding: var(--hbar-app-ui-space-xs);
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+  border-radius: var(--hbar-app-ui-control-radius);
+  background: var(--hbar-app-ui-surface-0);
+}
+
+.hbar-app-ui-settings-list-row {
+  min-block-size: 3.25rem;
+  flex: 1 1 auto;
+  justify-content: space-between;
+  gap: var(--hbar-app-ui-space-md);
+  padding: var(--hbar-app-ui-space-xs) var(--hbar-app-ui-space-sm);
+  border: 0;
+  border-radius: calc(var(--hbar-app-ui-control-radius) - 0.125rem);
+  outline: 0;
+  background: transparent;
+  color: var(--hbar-app-ui-text);
+  cursor: pointer;
+  font: inherit;
+  text-align: start;
+}
+
+.hbar-app-ui-settings-list-row:hover,
+.hbar-app-ui-settings-list-row:focus-visible {
+  background: var(--hbar-app-ui-surface-2);
+}
+
+.hbar-app-ui-settings-list-row:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.hbar-app-ui-settings-list-copy {
+  flex: 1 1 auto;
+  gap: 3px;
+}
+
+.hbar-app-ui-settings-list-copy > strong {
+  overflow: hidden;
+  font-size: 0.875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-ui-settings-list-metadata {
+  flex-flow: row wrap;
+  gap: var(--hbar-app-ui-space-xs);
+}
+
+.hbar-app-ui-settings-list-metadata small {
+  max-inline-size: 100%;
+  overflow: hidden;
+  color: var(--hbar-app-ui-muted);
+  font-size: 0.6875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-ui-settings-list-metadata small + small {
+  padding-inline-start: var(--hbar-app-ui-space-xs);
+  border-inline-start: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+}
+
+.hbar-app-ui-settings-list-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.hbar-app-ui-settings-list-menu > summary {
+  inline-size: var(--hbar-app-ui-control-min);
+  min-block-size: var(--hbar-app-ui-control-min);
+  justify-content: center;
+  border: var(--hbar-app-ui-divider) solid transparent;
+  border-radius: var(--hbar-app-ui-control-radius);
+  color: var(--hbar-app-ui-muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+.hbar-app-ui-settings-list-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.hbar-app-ui-settings-list-menu > summary:hover,
+.hbar-app-ui-settings-list-menu > summary:focus-visible,
+.hbar-app-ui-settings-list-menu[open] > summary {
+  border-color: var(--hbar-app-ui-border);
+  outline: 0;
+  background: var(--hbar-app-ui-surface-2);
+  color: var(--hbar-app-ui-text);
+}
+
+.hbar-app-ui-settings-list-menu > .hbar-app-ui-dialog-menu {
+  position: absolute;
+  z-index: 20;
+  inset-block-start: calc(100% + var(--hbar-app-ui-space-xs));
+  inset-inline-end: 0;
+  min-inline-size: 11rem;
+  padding: var(--hbar-app-ui-space-xs);
+  border: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border-strong);
+  border-radius: var(--hbar-app-ui-control-radius);
+  background: var(--hbar-app-ui-surface-0);
+  box-shadow: 0 0.75rem 2rem color-mix(in srgb, var(--hbar-app-ui-bg) 72%, transparent);
+}
+
+.hbar-app-ui-settings-list-menu .hbar-app-ui-dialog-menu > button {
+  inline-size: 100%;
+  min-block-size: var(--hbar-app-ui-control-compact);
+  gap: var(--hbar-app-ui-space-sm);
+  padding: var(--hbar-app-ui-space-xs) var(--hbar-app-ui-space-sm);
+  border: 0;
+  border-radius: calc(var(--hbar-app-ui-control-radius) - 0.125rem);
+  background: transparent;
+  color: var(--hbar-app-ui-danger);
+  cursor: pointer;
+  font: inherit;
+  text-align: start;
+}
+
+.hbar-app-ui-settings-list-menu [role='menu'] > button:hover,
+.hbar-app-ui-settings-list-menu [role='menu'] > button:focus-visible {
+  outline: 0;
+  background: color-mix(in srgb, var(--hbar-app-ui-danger) 10%, transparent);
+}
+
+.hbar-app-ui-settings-list-empty {
+  min-block-size: 10rem;
+  padding: var(--hbar-app-ui-space-xl);
+  border: var(--hbar-app-ui-divider) dashed var(--hbar-app-ui-border);
+  border-radius: var(--hbar-app-ui-control-radius);
+  text-align: center;
+}
+
+@media (max-width: 32rem) {
+  .hbar-app-ui-settings-list > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .hbar-app-ui-settings-list-header-actions {
+    inline-size: 100%;
+  }
+
+  .hbar-app-ui-settings-list-header-actions > .hbar-app-ui-button:last-child {
+    flex: 1 1 auto;
+  }
+
+  .hbar-app-ui-settings-list-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--hbar-app-ui-space-xs);
+  }
+}

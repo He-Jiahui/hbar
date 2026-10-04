@@ -3,13 +3,47 @@ import { randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { resolve } from 'node:path'
 import { createInterface } from 'node:readline/promises'
+import { CommandError } from '@hbar/commands'
+import { createRunCommandClient } from '@hbar/client'
+import { HbarError } from '@hbar/contracts'
 import { parseCli, HELP, type CliArgs } from './args.ts'
-import { runCliCommand } from './commands.ts'
-import { openAttachedRuntime, openRuntime, waitForRun } from './runtime.ts'
+import {
+  isSurfaceCommand,
+  isSystemCommand,
+  isExtensionCommand,
+  isConnectionCommand,
+  isFileCommand,
+  isSettingsCommand,
+  runModelListCommand,
+  runApplicationCommand,
+  runWorkspaceOpenCommand,
+  runCatalogCommand,
+  runCliCommand,
+  runFileCommand,
+  runOperationCommand,
+  runSurfaceRelayCommand,
+  runSystemCommand,
+  runExtensionCommand,
+  runConnectionCommand,
+  runSettingsCommand,
+} from './commands.ts'
+import { openAttachedRuntime, openCatalogClient, openRuntime, selectProject, waitForRun } from './runtime.ts'
 import { runTui } from './tui.ts'
+import { runRepl } from './repl.ts'
+import { hostProcessCommand, internalHostCommand, INTERNAL_HOST_ROLE } from './host-process.ts'
 
 function exitCode(error: unknown, usage = false) {
   if (usage) return 2
+  if (error instanceof CommandError) {
+    if (['INVALID_SYNTAX', 'INVALID_INPUT', 'COMMAND_NOT_FOUND'].includes(error.code)) return 2
+    if (error.code === 'RESULT_UNKNOWN') return 8
+    if (['REVISION_CONFLICT', 'IDEMPOTENCY_CONFLICT', 'FILE_CONFLICT'].includes(error.code)) return 9
+  }
+  if (error instanceof HbarError) {
+    if (['INVALID_SYNTAX', 'INVALID_INPUT', 'COMMAND_NOT_FOUND'].includes(error.code)) return 2
+    if (['RESULT_UNKNOWN', 'DISCONNECTED', 'TIMEOUT'].includes(error.code)) return 8
+    if (['REVISION_CONFLICT', 'IDEMPOTENCY_CONFLICT', 'FILE_CONFLICT'].includes(error.code)) return 9
+  }
   const message = error instanceof Error ? error.message : String(error)
   if (/approval|denied/i.test(message)) return 3
   if (/model|provider|configured/i.test(message)) return 4
@@ -20,23 +54,21 @@ function exitCode(error: unknown, usage = false) {
 
 function completion(shell: string | undefined) {
   if (shell === 'powershell')
-    return `Register-ArgumentCompleter -Native -CommandName hbar -ScriptBlock { param($wordToComplete) 'session','model','plugins','skills','config','diagnose','version' | Where-Object { $_ -like "$wordToComplete*" } }`
+    return `Register-ArgumentCompleter -Native -CommandName hbar -ScriptBlock { param($wordToComplete) 'commands','exec','repl','session','model','plugins','skills','config','diagnose','version' | Where-Object { $_ -like "$wordToComplete*" } }`
   if (shell === 'bash' || shell === 'zsh')
-    return `complete -W "session model plugins skills config diagnose version" hbar`
+    return `complete -W "commands exec repl session model plugins skills config diagnose version" hbar`
   throw new Error('Usage: hbar completion <powershell|bash|zsh>')
 }
 
 async function serve(args: CliArgs) {
-  const host = resolve(import.meta.dir, '../../host/src/main.ts')
-  const command = [
-    process.execPath,
-    host,
+  const command = hostProcessCommand([
+    '--supervisor',
     '--desktop',
     ...(args.dataRoot ? ['--data-root', args.dataRoot] : []),
     ...(args.cacheRoot ? ['--cache-root', args.cacheRoot] : []),
     ...(args.project ? ['--workspace', resolve(args.project)] : []),
     ...(args.demo ? ['--demo'] : []),
-  ]
+  ])
   const child = spawn(command[0]!, command.slice(1), { stdio: 'inherit', windowsHide: false })
   return new Promise<number>((resolveExit, reject) => {
     child.once('error', reject)
@@ -60,7 +92,13 @@ async function attached(args: CliArgs) {
       prompt.close()
     }
   }
-  await runTui(runtime, args.message)
+  await runTui(runtime, args.message, args)
+}
+
+if (Bun.argv[2] === INTERNAL_HOST_ROLE) {
+  const { runHost } = await import('@hbar/host')
+  await runHost(Bun.argv.slice(3), internalHostCommand())
+  await new Promise<never>(() => {})
 }
 
 let parsed: CliArgs | undefined
@@ -90,40 +128,209 @@ try {
     await attached(args)
     process.exit(0)
   }
-  if (args.headless && !args.message && !process.stdin.isTTY) args.message = (await Bun.stdin.text()).trim()
-  if (args.headless && !args.message) {
+  if (args.command === 'commands') {
+    const { client } = await openCatalogClient(args)
+    try {
+      await runCatalogCommand(args, client)
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (args.command === 'exec' && isConnectionCommand(args.commandArgs[0])) {
+    const { client } = await openCatalogClient(args)
+    try {
+      await runConnectionCommand(args, client)
+    } finally {
+      if (client.connectionStatus() !== 'disconnected') client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (
+    (args.command === 'exec' && isExtensionCommand(args.commandArgs[0])) ||
+    args.command === 'plugins' ||
+    args.command === 'skills'
+  ) {
+    const { client } = await openCatalogClient(args)
+    try {
+      const action = args.commandArgs[0]
+      let commandArgs: string[]
+      if (args.command === 'skills') {
+        if (action && action !== 'list') throw new Error('Usage: hbar skills list')
+        commandArgs = ['skill.list']
+      } else if (args.command === 'plugins') {
+        const command =
+          !action || action === 'list'
+            ? 'plugin.list'
+            : action === 'install'
+              ? 'plugin.install'
+              : action === 'enable'
+                ? 'plugin.enable'
+                : action === 'disable'
+                  ? 'plugin.disable'
+                  : action === 'remove'
+                    ? 'plugin.remove'
+                    : action === 'inspect'
+                      ? 'plugin.inspect'
+                      : action === 'doctor'
+                        ? 'plugin.doctor'
+                        : action === 'lock'
+                          ? 'plugin.lock'
+                          : undefined
+        if (!command) throw new Error('Usage: hbar plugins list|install|enable|disable|remove|inspect|doctor|lock')
+        commandArgs = [command, ...args.commandArgs.slice(1)]
+      } else commandArgs = args.commandArgs
+      let projectId: string | undefined
+      if (commandArgs[0] === 'plugin.install') {
+        const bootstrap = await client.call('system.bootstrap', {})
+        projectId = (await selectProject(client, bootstrap, args.workspace ?? args.project)).id
+      }
+      await runExtensionCommand({ ...args, commandArgs }, client, projectId)
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (
+    (args.command === 'exec' && isSystemCommand(args.commandArgs[0])) ||
+    args.command === 'diagnose' ||
+    (args.command === 'config' && (!args.commandArgs[0] || ['show', 'paths'].includes(args.commandArgs[0])))
+  ) {
+    const { client } = await openCatalogClient(args)
+    try {
+      const commandArgs =
+        args.command === 'diagnose'
+          ? ['system.diagnose']
+          : args.command === 'config'
+            ? ['system.paths.get']
+            : args.commandArgs
+      await runSystemCommand({ ...args, commandArgs }, client)
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (
+    (args.command === 'exec' && args.commandArgs[0] === 'model.list') ||
+    (args.command === 'model' && (!args.commandArgs[0] || args.commandArgs[0] === 'list'))
+  ) {
+    const { client } = await openCatalogClient(args)
+    try {
+      await runModelListCommand(client)
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (args.command === 'exec' && ['operation.get', 'operation.cancel'].includes(args.commandArgs[0] ?? '')) {
+    const { client } = await openCatalogClient(args)
+    try {
+      await runOperationCommand(args, client)
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (args.command === 'exec' && args.commandArgs[0] === 'app.setSession') {
+    const { client, layout } = await openCatalogClient(args)
+    try {
+      await runApplicationCommand(args, client, layout.dataRoot)
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (args.command === 'exec' && args.commandArgs[0] === 'workspace.open') {
+    const { client } = await openCatalogClient(args)
+    try {
+      await runWorkspaceOpenCommand(args, client)
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (args.command === 'exec' && isSurfaceCommand(args.commandArgs[0])) {
+    const { client } = await openCatalogClient(args)
+    try {
+      await runSurfaceRelayCommand(args, client)
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (args.command === 'exec' && isSettingsCommand(args.commandArgs[0])) {
+    const { client } = await openCatalogClient(args)
+    try {
+      await runSettingsCommand(args, client)
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (args.command === 'exec' && isFileCommand(args.commandArgs[0])) {
+    const { client } = await openCatalogClient(args)
+    try {
+      const bootstrap = await client.call('system.bootstrap', {})
+      const project = await selectProject(client, bootstrap, args.workspace ?? args.project)
+      await runFileCommand(args, { client, project })
+    } finally {
+      client.disconnect()
+    }
+    process.exit(0)
+  }
+  if (args.headless && !args.command && !args.message && !process.stdin.isTTY)
+    args.message = (await Bun.stdin.text()).trim()
+  if (args.headless && !args.command && !args.message) {
     usageError = true
     throw new Error('--message is required (or pipe one message on stdin)')
   }
   if (args.headless && args.approval === 'ask' && (!process.stdin.isTTY || !process.stdout.isTTY))
     throw new Error('--approval ask requires an interactive terminal')
-  const runtime = await openRuntime(args)
+  const runtime = await openRuntime({
+    ...args,
+    modelRequired:
+      (args.command !== 'exec' && args.command !== 'model') ||
+      ['run.submit', 'agent.create'].includes(args.commandArgs[0] ?? ''),
+    createSession: args.command !== 'exec' || args.commandArgs[0] === 'run.submit',
+  })
   try {
+    if (args.command === 'repl') {
+      await runRepl(runtime, args)
+      runtime.close()
+      process.exit(0)
+    }
     const handled = await runCliCommand(args, runtime)
     if (!handled && args.headless) {
-      let activeRunId = ''
+      const runs = createRunCommandClient(runtime.client)
+      let activeOperationId = ''
       const interrupt = () => {
-        if (activeRunId) void runtime.client.call('run.cancel', { runId: activeRunId })
+        if (activeOperationId) void runs.execute('operation.cancel', { operationId: activeOperationId }).catch(() => {})
       }
       process.once('SIGINT', interrupt)
       try {
-        const run = await runtime.client.call('run.start', {
-          sessionId: runtime.session.id,
-          requestId: randomUUID(),
-          input: {
-            text: args.message!,
-            images: [],
-            thinking: args.thinking,
-            approval: args.approval,
+        const accepted = await runs.execute(
+          'run.submit',
+          {
+            sessionId: runtime.session.id,
+            input: {
+              text: args.message!,
+              images: [],
+              thinking: args.thinkingExplicit ? args.thinking : runtime.thinkingLevel,
+              approval: args.approval,
+            },
+            modelId: runtime.modelId,
           },
-          modelId: runtime.modelId,
-        })
-        activeRunId = run.id
+          { idempotencyKey: randomUUID() },
+        )
+        activeOperationId = accepted.operationId
+        const snapshot = await runtime.client.call('session.snapshot', { sessionId: runtime.session.id })
+        const run = snapshot.runs.find((item) => item.id === accepted.operationId)
+        if (!run) throw new Error('Accepted run is unavailable from the session snapshot')
         await waitForRun(runtime.client, runtime.session, run, args.outputFormat, args.approval)
       } finally {
         process.off('SIGINT', interrupt)
       }
-    } else if (!handled) await runTui(runtime, args.message)
+    } else if (!handled) await runTui(runtime, args.message, args)
   } finally {
     runtime.close()
   }

@@ -11,7 +11,8 @@ export interface SessionLogLocation {
   hash: string
 }
 
-const durableEvent = /^(message\.committed|run\.|tool\.started|tool\.unknown|approval\.|context\.compacted|session\.|goal\.|plan\.|mode\.|budget\.|automation\.|user_input\.)/
+const durableEvent =
+  /^(message\.committed|run\.|tool\.(?:started|settled|unknown)|approval\.|plan_exit\.resolved$|context\.compacted|session\.|goal\.|plan\.|mode\.|budget\.|automation\.|agent\.|user_input\.)/
 
 /** Events whose acknowledgement must include the canonical log on disk. */
 export function isDurableSessionEvent(type: string) {
@@ -20,7 +21,11 @@ export function isDurableSessionEvent(type: string) {
 
 function dayParts(time: number) {
   const date = new Date(time)
-  return [String(date.getFullYear()), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')]
+  return [
+    String(date.getFullYear()),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ]
 }
 
 export class SessionLogWriter {

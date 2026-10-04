@@ -1,0 +1,57 @@
+.hbar-composer-add-root {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.hbar-composer-add-popover {
+  position: absolute;
+  z-index: 12;
+  inset-block-end: calc(100% + 0.5rem);
+  inset-inline-start: 0;
+  display: flex;
+  flex-direction: column;
+  inline-size: min(15rem, calc(100vw - 2rem));
+  gap: 0.125rem;
+  padding: 0.5rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-contrast);
+  box-shadow: 0 0.75rem 2rem rgb(0 0 0 / 0.12);
+}
+
+.hbar-composer-add-popover[hidden],
+.hbar-composer-add-goal-slot:empty {
+  display: none;
+}
+
+.hbar-composer-add-choice {
+  inline-size: 100%;
+  min-inline-size: 0;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  text-align: start;
+  white-space: normal;
+}
+
+.hbar-composer-add-hint {
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.hbar-composer-add-goal-slot,
+.hbar-composer-add-goal-slot .hbar-composer-intents,
+.hbar-composer-add-goal-slot .hbar-composer-intents > button {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.hbar-composer-add-goal-slot .hbar-composer-intents > button {
+  justify-content: flex-start;
+  gap: 0.75rem;
+  text-align: start;
+  white-space: normal;
+}

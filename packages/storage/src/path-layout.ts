@@ -23,6 +23,8 @@ export interface PathLayout {
   diagnostics: string
   databases: string
   artifacts: string
+  /** Host-managed Git worktrees, kept outside project checkouts. */
+  worktrees: string
   database: string
   pluginLock: string
   settingsFile: string
@@ -86,6 +88,7 @@ export function createPathLayout(dataRoot: string, cacheRoot: string, pointerFil
     diagnostics: join(data, 'diagnostics'),
     databases: join(data, 'databases'),
     artifacts: join(data, 'artifacts'),
+    worktrees: join(data, 'worktrees'),
     database: join(data, 'databases', 'hbar.sqlite'),
     pluginLock: join(plugins, 'lock.json'),
     settingsFile: join(settings, 'settings.json'),
@@ -126,6 +129,7 @@ export async function ensurePathLayout(layout: PathLayout): Promise<void> {
     layout.diagnostics,
     layout.databases,
     layout.artifacts,
+    layout.worktrees,
     ...Object.values(layout.cache),
   ].map((path) => mkdir(path, { recursive: true })))
   for (const [path, initial] of [

@@ -1,0 +1,31 @@
+.hbar-app-ui-event-log {
+  display: flex;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-event-log header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-xs);
+  padding: var(--hbar-app-ui-space-sm);
+}
+.hbar-app-ui-event-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--hbar-app-ui-space-sm);
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding: var(--hbar-app-ui-space-sm);
+  text-align: start;
+}
+.hbar-app-ui-event-row code {
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+  min-inline-size: 0;
+}
+.hbar-app-ui-event-row time {
+  margin-inline-start: auto;
+}

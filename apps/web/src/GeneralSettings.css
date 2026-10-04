@@ -1,0 +1,173 @@
+.hbar-web-general-settings {
+  display: flex;
+  min-inline-size: 0;
+  inline-size: min(100%, 54rem);
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-inline: auto;
+  padding-block-start: 1rem;
+}
+
+.hbar-web-general-heading {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.hbar-web-general-heading > div {
+  min-inline-size: 0;
+  flex: 1 1 20rem;
+}
+
+.hbar-web-general-settings p,
+.hbar-web-general-settings h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.hbar-web-general-heading > div > p {
+  margin-block-start: 0.25rem;
+}
+
+.hbar-web-general-language {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.hbar-web-general-sending {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.hbar-web-general-zoom {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.hbar-web-general-zoom legend {
+  padding: 0;
+  margin-block-end: 0.25rem;
+}
+
+.hbar-web-general-zoom-control,
+.hbar-web-general-zoom-range {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hbar-web-general-zoom-control {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.hbar-web-general-zoom-range > .lumen-range {
+  flex: 1 1 auto;
+  min-inline-size: 4rem;
+}
+
+.hbar-web-general-zoom-range > small {
+  flex: 0 0 auto;
+}
+
+.hbar-web-general-sending legend {
+  padding: 0;
+  margin-block-end: 0.25rem;
+}
+
+/* Send behavior: LumenButton handles selection via aria-pressed/variant. */
+.hbar-web-general-send-choices {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.hbar-web-general-send-choice {
+  display: flex;
+  flex: 1 1 10rem;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.hbar-web-general-send-choice[data-lumen-variant='outlined'][aria-pressed='true'],
+.hbar-web-general-send-choice[data-lumen-variant='outlined'][aria-pressed='true']:hover,
+.hbar-web-general-send-choice[data-lumen-variant='outlined'][aria-pressed='true']:active {
+  border-color: var(--lumen-accent);
+  background: color-mix(in srgb, var(--lumen-accent) 10%, transparent);
+}
+
+.hbar-web-general-send-choice:focus-visible {
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: 0.125rem;
+}
+
+.hbar-web-general-send-title {
+  font-weight: 600;
+}
+
+.hbar-web-general-language legend {
+  padding: 0;
+  margin-block-end: 0.25rem;
+}
+
+/* Language choice group: LumenButton handles selection via aria-checked/variant. */
+.hbar-web-general-choices,
+.hbar-web-general-feedback {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hbar-web-general-choices > button {
+  max-inline-size: 100%;
+  border: 0.0625rem solid var(--lumen-edge);
+  overflow-wrap: anywhere;
+}
+
+.hbar-web-general-choices > button[aria-checked='true'],
+.hbar-web-general-choices > button[aria-checked='true']:hover,
+.hbar-web-general-choices > button[aria-checked='true']:active {
+  --lumen-action-color: var(--lumen-contrast);
+  border-color: var(--lumen-ink);
+  background: var(--lumen-ink);
+  box-shadow: none;
+}
+
+.hbar-web-general-choices > button:focus-visible {
+  outline: 0.125rem solid var(--lumen-ink);
+  outline-offset: 0.125rem;
+}
+
+.hbar-web-general-feedback > p {
+  min-inline-size: 0;
+  flex: 1 1 20rem;
+}

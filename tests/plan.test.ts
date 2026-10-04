@@ -18,7 +18,12 @@ afterEach(async () => {
 
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), 'hbar-plan-'))
-  const kernel = await Kernel.create({ home: join(root, 'data'), workspace: root, demo: true, secrets: new MemorySecrets() })
+  const kernel = await Kernel.create({
+    home: join(root, 'data'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
   resources.push({ root, kernel })
   const workspace = (await kernel.storage.call('workspaces'))[0]!
   const session = await kernel.createSession(workspace.id)
@@ -31,9 +36,31 @@ test('plan accepts an empty update and broadcasts a clear notification', async (
   const events: unknown[] = []
   const unsubscribe = kernel.subscribe((event) => events.push(event))
   try {
-    await plans.update(session.id, [{ step: 'inspect', status: 'pending' }])
-    expect((await plans.update(session.id, [])).plan).toEqual([])
-    expect(await plans.clear(session.id)).toEqual({ cleared: true })
+    const first = await plans.update(session.id, [{ step: 'inspect', status: 'pending' }])
+    expect(first.revision).toBe(1)
+    try {
+      await plans.update(
+        session.id,
+        [
+          { step: 'first', status: 'in_progress' },
+          { step: 'second', status: 'in_progress' },
+        ],
+        null,
+        null,
+        1,
+      )
+      throw new Error('Expected multiple in-progress steps to reject')
+    } catch (error) {
+      expect(error).toMatchObject({ code: 'PLAN_INVALID' })
+    }
+    expect((await plans.update(session.id, [], null, null, 1)).revision).toBe(2)
+    try {
+      await plans.update(session.id, [], null, null, 1)
+      throw new Error('Expected stale plan update to reject')
+    } catch (error) {
+      expect(error).toMatchObject({ code: 'PLAN_REVISION_CONFLICT' })
+    }
+    expect(await plans.clear(session.id, 2)).toEqual({ cleared: true })
     expect(events.some((event) => (event as { method?: string }).method === 'plan.updated')).toBeTrue()
     expect(events.some((event) => (event as { method?: string }).method === 'plan.cleared')).toBeTrue()
   } finally {
@@ -43,7 +70,10 @@ test('plan accepts an empty update and broadcasts a clear notification', async (
 
 test('plan mode state survives a host restart', async () => {
   const { root, kernel, session } = await fixture()
-  const mode = kernel.plugins.get<{ set(id: string, value: 'plan' | 'default'): Promise<{ mode: 'plan' | 'default' }>; get(id: string): Promise<{ mode: 'plan' | 'default' }> }>('mode')
+  const mode = kernel.plugins.get<{
+    set(id: string, value: 'plan' | 'default'): Promise<{ mode: 'plan' | 'default' }>
+    get(id: string): Promise<{ mode: 'plan' | 'default' }>
+  }>('mode')
   await mode.set(session.id, 'plan')
   await kernel.close()
   const index = resources.findIndex((entry) => entry.kernel === kernel)
@@ -53,13 +83,36 @@ test('plan mode state survives a host restart', async () => {
   expect((await restarted.plugins.get<typeof mode>('mode').get(session.id)).mode).toBe('plan')
 })
 
+test('legacy plan events recover with monotonic revisions', async () => {
+  const { root, kernel, session } = await fixture()
+  await kernel.append(session.id, 'plan.updated', {
+    plan: {
+      sessionId: session.id,
+      turnId: null,
+      explanation: 'Legacy plan without a revision',
+      plan: [{ step: 'Recover the plan', status: 'in_progress' }],
+      updatedAt: 1,
+    },
+  })
+  await kernel.close()
+  const index = resources.findIndex((entry) => entry.kernel === kernel)
+  if (index >= 0) resources.splice(index, 1)
+  const restarted = await Kernel.create({ home: join(root, 'data'), demo: true, secrets: new MemorySecrets() })
+  resources.push({ root, kernel: restarted })
+  const plans = restarted.plugins.get<PlanService>('plan')
+  expect(await plans.get(session.id)).toMatchObject({ revision: 1, explanation: 'Legacy plan without a revision' })
+  expect((await plans.update(session.id, [{ step: 'Continue', status: 'in_progress' }])).revision).toBe(2)
+})
+
 test('plan mode exposes the Codex collaboration rules separately from update_plan', () => {
   expect(PLAN_MODE_INSTRUCTIONS).toContain('Plan Mode')
-  expect(PLAN_MODE_INSTRUCTIONS).toContain('developer message explicitly ends it.')
+  expect(PLAN_MODE_INSTRUCTIONS).toContain('approves your `exit_plan_mode` request')
   expect(PLAN_MODE_INSTRUCTIONS).toContain('update_plan')
   expect(PLAN_MODE_INSTRUCTIONS).toContain('does not enter or exit Plan Mode')
   expect(PLAN_MODE_INSTRUCTIONS).toContain('mutating')
   expect(PLAN_MODE_INSTRUCTIONS).toContain('<proposed_plan>')
+  expect(PLAN_MODE_INSTRUCTIONS).not.toContain('save_workflow_plan')
+  expect(PLAN_MODE_INSTRUCTIONS).toContain('final acceptance checklist')
 })
 
 test('request user input contracts preserve free-text wire questions and answer-only responses', () => {
@@ -94,7 +147,12 @@ test('plan mode uses medium reasoning unless the caller explicitly chooses an ef
   const inherited = await kernel.submit(session.id, 'plan-medium', { text: 'inspect', images: [] }, 'local-fixture')
   expect((await kernel.storage.call('run', inherited.id)).input.thinking).toBe('medium')
   await kernel.waitForIdle()
-  const explicit = await kernel.submit(session.id, 'plan-high', { text: 'inspect', images: [], thinking: 'high' }, 'local-fixture')
+  const explicit = await kernel.submit(
+    session.id,
+    'plan-high',
+    { text: 'inspect', images: [], thinking: 'high' },
+    'local-fixture',
+  )
   expect((await kernel.storage.call('run', explicit.id)).input.thinking).toBe('high')
   await kernel.waitForIdle()
 })
@@ -102,7 +160,9 @@ test('plan mode uses medium reasoning unless the caller explicitly chooses an ef
 test('plan mode request_user_input pauses the run and resumes with validated answers', async () => {
   const { kernel, session } = await fixture()
   await kernel.setPermissionMode('allow')
-  const mode = kernel.plugins.get<{ set(id: string, value: 'default' | 'plan'): Promise<{ mode: 'default' | 'plan' }> }>('mode')
+  const mode = kernel.plugins.get<{
+    set(id: string, value: 'default' | 'plan'): Promise<{ mode: 'default' | 'plan' }>
+  }>('mode')
   await mode.set(session.id, 'plan')
   const run = await kernel.submit(
     session.id,
@@ -126,7 +186,13 @@ test('plan mode request_user_input pauses the run and resumes with validated ans
   await kernel.waitForIdle()
   const snapshot = await kernel.snapshot(session.id)
   expect(snapshot.userInputs).toHaveLength(0)
-  expect(snapshot.messages.flatMap((message) => message.content).some((block) => block.type === 'tool_result' && block.name === 'request_user_input' && block.text.includes('App'))).toBeTrue()
+  expect(
+    snapshot.messages
+      .flatMap((message) => message.content)
+      .some(
+        (block) => block.type === 'tool_result' && block.name === 'request_user_input' && block.text.includes('App'),
+      ),
+  ).toBeTrue()
   const responseBlock = snapshot.messages
     .flatMap((message) => message.content)
     .find((block) => block.type === 'tool_result' && block.name === 'request_user_input')

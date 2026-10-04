@@ -1,0 +1,12 @@
+/* Content owns its height; declared panes alone bound scrolling. */
+.hbar-app-ui-isolated-canvas:has(.lumen-agent-approval-preview-root) {
+  display: flex;
+  flex-direction: column;
+  block-size: auto;
+  overflow: visible;
+}
+
+.hbar-app-ui-preview-component-canvas:has(.lumen-agent-approval-preview-root) {
+  display: flex;
+  flex-direction: column;
+}

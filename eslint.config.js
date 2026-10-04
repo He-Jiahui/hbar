@@ -8,12 +8,19 @@ export default tseslint.config(
     ignores: [
       'node_modules/**',
       'dist/**',
-      'artifacts/**',
+      '**/dist/**',
+      '**/artifacts/**',
       '.dev/**',
       'test-results/**',
       'playwright-report/**',
       'apps/desktop/src-tauri/target/**',
       'apps/desktop/src-tauri/gen/**',
+      // This submodule also vendors the upstream MUI monorepo. Only its
+      // declared hbar workspace belongs to this repository's lint project.
+      'hbar-ui/*',
+      '!hbar-ui/packages/',
+      'hbar-ui/packages/*',
+      '!hbar-ui/packages/lumen-app-ui/',
     ],
   },
   eslint.configs.recommended,
@@ -22,7 +29,7 @@ export default tseslint.config(
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
-        projectService: true,
+        project: './tsconfig.eslint.json',
         tsconfigRootDir: import.meta.dirname,
       },
     },

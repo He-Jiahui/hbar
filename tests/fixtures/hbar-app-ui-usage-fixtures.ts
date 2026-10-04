@@ -1,0 +1,181 @@
+import type { HbarAppUiUsageContent, UsageMeter } from '../../packages/hbar-app-ui/src/ai-usage'
+import { USAGE_OVERVIEW_FIXTURE } from './hbar-app-ui-usage-overview-fixtures'
+import { USAGE_MODEL_FIXTURE } from './hbar-app-ui-usage-model-fixtures'
+import { USAGE_LIMIT_FIXTURE } from './hbar-app-ui-usage-limit-fixtures'
+const noop = () => {}
+const tiers = [
+  { id: 'starter', label: 'Starter' },
+  { id: 'team', label: 'Team' },
+  { id: 'enterprise', label: 'Enterprise' },
+]
+const meter = (id: string, label: string, value: string, progress: number, detail = ''): UsageMeter => ({
+  id,
+  label,
+  value,
+  progress,
+  detail,
+  progressLabel: `${label} utilisation`,
+  tone: 'accent',
+})
+export const USAGE_FIXTURES: {
+  [K in Exclude<keyof HbarAppUiUsageContent, 'presentation'>]-?: NonNullable<HbarAppUiUsageContent[K]>
+} = {
+  overview: USAGE_OVERVIEW_FIXTURE,
+  modelSpend: USAGE_MODEL_FIXTURE,
+  rateLimits: USAGE_LIMIT_FIXTURE,
+  seats: {
+    title: 'Per-seat usage',
+    description: 'Team filters and individual caps',
+    emptyLabel: 'No matching people',
+    strategy: 'content-grown',
+    query: '',
+    searchLabel: 'Search people',
+    onQueryChange: noop,
+    filter: { label: 'Team filter', onInvoke: noop },
+    rows: [
+      {
+        id: 'avery',
+        initials: 'AC',
+        name: 'Avery Chen',
+        detail: 'Product · cap $20',
+        progress: 34,
+        progressLabel: 'Avery usage',
+        spend: '$8.20',
+      },
+      {
+        id: 'mina',
+        initials: 'MP',
+        name: 'Mina Patel',
+        detail: 'Engineering · cap $30',
+        progress: 45,
+        progressLabel: 'Mina usage',
+        spend: '$10.60',
+      },
+      {
+        id: 'jon',
+        initials: 'JB',
+        name: 'Jon Bell',
+        detail: 'Product · cap $40',
+        progress: 56,
+        progressLabel: 'Jon usage',
+        spend: '$13.00',
+      },
+      {
+        id: 'sam',
+        initials: 'SR',
+        name: 'Sam Rivera',
+        detail: 'Engineering · cap $50',
+        progress: 67,
+        progressLabel: 'Sam usage',
+        spend: '$15.40',
+      },
+      {
+        id: 'lee',
+        initials: 'LW',
+        name: 'Lee Wong',
+        detail: 'Product · cap $60',
+        progress: 78,
+        progressLabel: 'Lee usage',
+        spend: '$17.80',
+      },
+    ],
+  },
+  budget: {
+    title: 'Budget settings',
+    description: 'Monthly cap and alert thresholds',
+    labels: { cap: 'Monthly cap', save: 'Save budget', saving: 'Saving budget' },
+    cap: { value: '60', display: '$60', input: 'range', minimum: 10, maximum: 100, step: 1 },
+    status: { label: 'Within budget', tone: 'positive' },
+    threshold: {
+      label: 'Alert threshold',
+      value: '80',
+      options: [
+        { id: '60', label: '60%' },
+        { id: '80', label: '80%' },
+        { id: '95', label: '95%' },
+      ],
+      onChange: noop,
+    },
+    hardStop: { label: 'Hard stop at cap', checked: true, onChange: noop },
+    busy: false,
+    canSave: true,
+    onCapChange: noop,
+    onSave: noop,
+  },
+  overage: {
+    title: 'Usage overage',
+    description: 'Included versus billed',
+    status: 'Review required',
+    meters: [
+      { ...meter('included', 'Included', '100k tokens', 100, 'Used 100%'), tone: 'positive' },
+      { ...meter('billed', 'Billed overage', '24k tokens', 24, '$4.80 estimated'), tone: 'warning' },
+    ],
+    plan: {
+      label: 'Upgrade plan',
+      value: 'pro',
+      options: [{ id: 'pro', label: 'Pro' }, ...tiers.slice(1)],
+      onChange: noop,
+    },
+    review: { label: 'Review Pro', onInvoke: noop },
+  },
+  requests: {
+    title: 'Request log',
+    description: 'Tokens · latency · cost',
+    strategy: 'content-grown',
+    emptyLabel: 'No requests',
+    filter: { label: 'Filter log', onInvoke: noop },
+    rows: [
+      {
+        id: 'req_91a2',
+        tokens: '420 tokens',
+        latency: '180ms',
+        cost: '$0.03',
+        details: 'model=balanced\ninput=240\noutput=180',
+        expandLabel: 'Expand request req_91a2',
+      },
+      {
+        id: 'req_91a3',
+        tokens: '508 tokens',
+        latency: '214ms',
+        cost: '$0.04',
+        details: 'model=balanced\ninput=260\noutput=192',
+        expandLabel: 'Expand request req_91a3',
+      },
+      {
+        id: 'req_91a4',
+        tokens: '596 tokens',
+        latency: '248ms',
+        cost: '$0.05',
+        details: 'model=balanced\ninput=280\noutput=204',
+        expandLabel: 'Expand request req_91a4',
+      },
+      {
+        id: 'req_91a5',
+        tokens: '684 tokens',
+        latency: '282ms',
+        cost: '$0.06',
+        details: 'model=balanced\ninput=300\noutput=216',
+        expandLabel: 'Expand request req_91a5',
+      },
+    ],
+  },
+  compact: {
+    title: 'Plan usage',
+    description: 'Compact overview',
+    value: '64%',
+    detail: 'of monthly allowance',
+    progress: 64,
+    progressLabel: 'Plan usage',
+    tone: 'accent',
+    sparklineLabel: 'Daily usage trend',
+    sparkline: [0.3, 0.5, 0.7, 0.4, 0.2, 0.8, 0.6, 0.7, 0.9, 0.5, 0.8, 0.9].map((value, index) => ({
+      id: `day-${index}`,
+      value,
+    })),
+    metrics: [
+      { id: 'requests', label: 'Requests', value: '2,482' },
+      { id: 'seats', label: 'Seats', value: '8 / 12' },
+    ],
+    action: { label: 'Upgrade', onInvoke: noop },
+  },
+}

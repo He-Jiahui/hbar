@@ -5,6 +5,7 @@
   "private": true,
   "exports": "./src/index.ts",
   "dependencies": {
+    "@hbar/commands": "workspace:*",
     "@hbar/contracts": "workspace:*"
   }
 }

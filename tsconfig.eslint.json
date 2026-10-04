@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "apps/**/*.ts",
+    "apps/**/*.tsx",
+    "packages/**/*.ts",
+    "packages/**/*.tsx",
+    "plugins/**/*.ts",
+    "scripts/**/*.ts",
+    "tests/**/*.ts",
+    "tests/**/*.tsx",
+    "e2e/**/*.ts",
+    "e2e/**/*.tsx",
+    "examples/**/*.ts",
+    "playwright.config.ts",
+    "hbar-ui/packages/lumen-app-ui/**/*.ts",
+    "hbar-ui/packages/lumen-app-ui/**/*.tsx"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/dist",
+    "**/artifacts/**",
+    "apps/desktop/src-tauri/target",
+    "apps/desktop/src-tauri/gen"
+  ]
+}

@@ -1,0 +1,26 @@
+.hbar-app-react-plugin-actions {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-block: 0.75rem;
+  border-block: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-app-react-plugin-actions > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hbar-app-react-plugin-actions > p {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-react-plugin-actions > p[role='alert'] {
+  color: var(--lumen-danger);
+}

@@ -1,0 +1,1953 @@
+import { expect, test, type Locator, type WebSocketRoute } from '@playwright/test'
+import { HbarClient, createModelCommandClient, createWorkspaceSessionCommandClient } from '@hbar/client'
+import { existsSync } from 'node:fs'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { delimiter, join } from 'node:path'
+import { spawn, type ChildProcess } from 'node:child_process'
+import { createInterface } from 'node:readline'
+import { getShellCopy } from '../apps/web/src/shell-copy'
+
+async function startSessionHost(root: string, sessionCount = 1, historyCount = 0) {
+  const bun =
+    process.platform === 'win32'
+      ? (process.env.PATH ?? '')
+          .split(delimiter)
+          .flatMap((directory) => [
+            join(directory, 'bun.exe'),
+            join(directory, 'node_modules', 'bun', 'bin', 'bun.exe'),
+          ])
+          .find(existsSync)
+      : 'bun'
+  if (!bun) throw new Error('Bun executable is unavailable for the E2E Host fixture')
+  const child = spawn(bun, ['scripts/e2e-session-host.ts'], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      HBAR_E2E_DATA_ROOT: root,
+      HBAR_E2E_HOST_PORT: process.env.HBAR_E2E_HOST_PORT ?? '4317',
+      HBAR_E2E_WEB_ORIGIN: `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`,
+      HBAR_E2E_SESSION_COUNT: String(sessionCount),
+      HBAR_E2E_HISTORY_COUNT: String(historyCount),
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  })
+  let errors = ''
+  child.stderr!.on('data', (chunk) => {
+    errors += String(chunk)
+  })
+  const output = createInterface({ input: child.stdout! })
+  type Ready = {
+    token: string
+    workspaceId: string
+    workspaceName: string
+    sessionId: string
+    sessionTitle: string
+  }
+  const ready = await new Promise<Ready>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`E2E Host did not start: ${errors}`)), 20_000)
+    output.on('line', (line) => {
+      try {
+        const value = JSON.parse(line) as Partial<Ready>
+        if (value.token && value.workspaceId && value.workspaceName && value.sessionId && value.sessionTitle) {
+          clearTimeout(timer)
+          resolve(value as Ready)
+        }
+      } catch {
+        // Ignore non-protocol diagnostics; stderr is included in startup failures.
+      }
+    })
+    child.once('exit', (code) => {
+      clearTimeout(timer)
+      reject(new Error(`E2E Host exited with ${code}: ${errors}`))
+    })
+  })
+  output.close()
+  return { child, ready }
+}
+
+async function stopSessionHost(child: ChildProcess) {
+  if (child.exitCode !== null) return
+  const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()))
+  child.kill()
+  await Promise.race([exited, new Promise<void>((resolve) => setTimeout(resolve, 5_000))])
+  if (child.exitCode === null) child.kill('SIGKILL')
+}
+
+for (const locale of ['zh-CN', 'en-US'] as const) {
+  for (const viewport of [
+    { width: 1440, height: 960 },
+    { width: 900, height: 600 },
+    { width: 390, height: 844 },
+  ]) {
+    test(`command shell without a Host: ${locale} ${viewport.width}`, async ({ browser }) => {
+      const context = await browser.newContext({ locale, viewport })
+      const page = await context.newPage()
+      const errors: string[] = []
+      const businessRequests: string[] = []
+      page.on('pageerror', (error) => errors.push(error.message))
+      page.on('websocket', (socket) => {
+        if (new URL(socket.url()).pathname === '/rpc') businessRequests.push(socket.url())
+      })
+      page.on('request', (request) => {
+        if (/\/(rpc|auth|api|healthz)(?:[/?]|$)/.test(new URL(request.url()).pathname))
+          businessRequests.push(request.url())
+      })
+      await page.addInitScript(() => localStorage.setItem('hbar.workbench.v1', '{broken legacy state'))
+      try {
+        await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
+        const navigationName = locale === 'zh-CN' ? '工程与会话' : 'Projects and sessions'
+        await expect(page.locator('[data-hbar-app-ui-shell="app"]')).toBeVisible()
+        await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+          locale === 'zh-CN' ? '选择一个会话' : 'Select a session',
+        )
+        await expect(page.locator('html')).toHaveAttribute('lang', locale)
+        if (viewport.width < 1024) {
+          const frameBefore = await page.locator('.hbar-app-ui-app-frame').boundingBox()
+          await expect(page.getByRole('complementary', { name: navigationName })).toBeHidden()
+          await page.screenshot({
+            path: `artifacts/ui-redesign/shell/content-${locale}-${viewport.width}.png`,
+            fullPage: true,
+          })
+          await expect(
+            page.getByRole('button', {
+              name: locale === 'zh-CN' ? '显示工程与会话侧栏' : 'Show projects and sessions sidebar',
+            }),
+          ).toBeVisible()
+          await page
+            .getByRole('button', {
+              name: locale === 'zh-CN' ? '显示工程与会话侧栏' : 'Show projects and sessions sidebar',
+            })
+            .click()
+          await expect(page.getByRole('complementary', { name: navigationName })).toBeVisible()
+          if (viewport.width >= 768) {
+            const [sidebar, separator, frame] = await Promise.all([
+              page.locator('.hbar-app-ui-app-sidebar-drawer').boundingBox(),
+              page
+                .getByRole('separator', { name: getShellCopy(locale).sidebarLayout.resize, exact: true })
+                .boundingBox(),
+              page.locator('.hbar-app-ui-app-frame').boundingBox(),
+            ])
+            expect(frameBefore).not.toBeNull()
+            expect(sidebar).not.toBeNull()
+            expect(separator).not.toBeNull()
+            expect(frame).not.toBeNull()
+            expect(separator!.width).toBeGreaterThan(0)
+            expect(sidebar!.x + sidebar!.width).toBeCloseTo(separator!.x, 0)
+            expect(separator!.x + separator!.width).toBeCloseTo(frame!.x, 0)
+            expect(frame!.width).toBeLessThan(frameBefore!.width)
+            await expect(page.locator('.hbar-app-ui-app-sidebar-backdrop')).toBeHidden()
+          } else {
+            await expect(page.locator('.hbar-app-ui-app-frame')).toBeHidden()
+          }
+          await page.screenshot({
+            path: `artifacts/ui-redesign/shell/drawer-${locale}-${viewport.width}.png`,
+            fullPage: true,
+          })
+        } else {
+          await expect(page.getByRole('complementary', { name: navigationName })).toBeVisible()
+          await page.screenshot({
+            path: `artifacts/ui-redesign/shell/sidebar-${locale}-${viewport.width}.png`,
+            fullPage: true,
+          })
+        }
+        await expect(page.getByRole('complementary', { name: navigationName }).locator('footer')).toContainText(
+          locale === 'zh-CN' ? '未连接' : 'Disconnected',
+        )
+        await expect(page.getByRole('button', { name: locale === 'zh-CN' ? '命令' : 'Commands' })).toBeVisible()
+        await page.keyboard.press('Control+K')
+        const commandDialog = page.getByRole('dialog', { name: locale === 'zh-CN' ? '命令目录' : 'Command catalog' })
+        await expect(commandDialog.getByRole('heading', { level: 1 })).toHaveText(
+          locale === 'zh-CN' ? '命令目录' : 'Command catalog',
+        )
+        await expect(
+          commandDialog.getByRole('searchbox', { name: locale === 'zh-CN' ? '搜索命令' : 'Search commands' }),
+        ).toBeVisible()
+        if (viewport.width < 1024)
+          await page.screenshot({
+            path: `artifacts/ui-redesign/outlets/command-${locale}-${viewport.width}.png`,
+            fullPage: true,
+          })
+        await commandDialog
+          .getByRole('button', { name: locale === 'zh-CN' ? '关闭命令目录' : 'Close command catalog' })
+          .click()
+        if (viewport.width < 1024)
+          await page
+            .getByRole('button', {
+              name: locale === 'zh-CN' ? '显示工程与会话侧栏' : 'Show projects and sessions sidebar',
+            })
+            .click()
+        await page.getByRole('button', { name: locale === 'zh-CN' ? '设置' : 'Settings' }).click()
+        await expect(page.getByRole('heading', { level: 1 })).toHaveText(locale === 'zh-CN' ? '设置' : 'Settings')
+        await expect(page.getByText(locale === 'zh-CN' ? /设置操作失败/ : /Settings action failed/)).toBeVisible()
+        const emptyProjects = page.getByText(locale === 'zh-CN' ? '尚无工程' : 'No projects yet')
+        if (viewport.width < 1024) await expect(emptyProjects).toBeAttached()
+        else await expect(emptyProjects).toBeVisible()
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+        await page.screenshot({ path: `artifacts/web-b1/shell-${locale}-${viewport.width}.png`, fullPage: true })
+        await page.reload()
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+        expect(await page.evaluate(() => localStorage.getItem('hbar.workbench.v1'))).toBe('{broken legacy state')
+        expect(businessRequests.length).toBeGreaterThan(0)
+        expect(errors).toEqual([])
+      } finally {
+        await context.close()
+      }
+    })
+  }
+}
+
+test('session tree paginates the 101st row inside its sidebar pane', async ({ browser }) => {
+  test.setTimeout(60_000)
+  const root = await mkdtemp(join(tmpdir(), 'hbar-web-directory-'))
+  let fixture: Awaited<ReturnType<typeof startSessionHost>> | undefined
+  const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 960 } })
+  try {
+    fixture = await startSessionHost(root, 101)
+    const authenticate = await context.request.post(
+      `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}/auth/token`,
+      { data: { token: fixture.ready.token } },
+    )
+    expect(authenticate.ok()).toBe(true)
+    const page = await context.newPage()
+    await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
+    await expect(page.locator('footer')).toContainText('Connected')
+    const sidebar = page.getByRole('complementary', { name: 'Projects and sessions' })
+    const sessionRows = sidebar.getByRole('button', { name: /^Open session Session / })
+    await expect(sessionRows).toHaveCount(100)
+    const firstPageNames = await sessionRows.evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label')))
+    expect(new Set(firstPageNames).size).toBe(100)
+    const selectedName = firstPageNames[0]
+    if (!selectedName) throw new Error('The first session page is empty')
+    const selectedRow = sidebar.getByRole('button', { name: selectedName })
+    await selectedRow.click()
+    await expect(selectedRow).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByRole('heading', { level: 1, name: selectedName.replace('Open session ', '') })).toBeVisible()
+    const loadMore = sidebar.getByRole('button', { name: 'Load more' })
+    await loadMore.scrollIntoViewIfNeeded()
+    await page.screenshot({ path: 'artifacts/ui-redesign/shell/capacity-100.png', fullPage: true })
+    await loadMore.click()
+    await expect(sessionRows).toHaveCount(101)
+    const allNames = await sessionRows.evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label')))
+    expect(allNames.filter((name) => !firstPageNames.includes(name))).toHaveLength(1)
+    await expect(selectedRow).toHaveAttribute('aria-current', 'page')
+    expect(
+      await sidebar
+        .locator('.lumen-app-sidebar-content')
+        .evaluate((element) => element.scrollHeight > element.clientHeight),
+    ).toBe(true)
+    await page.screenshot({ path: 'artifacts/ui-redesign/shell/capacity-101.png', fullPage: true })
+  } finally {
+    await context.close()
+    if (fixture) await stopSessionHost(fixture.child)
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('long session history preserves reading anchors, follows new content on demand, and survives reconnect', async ({
+  browser,
+}) => {
+  test.setTimeout(90_000)
+  const root = await mkdtemp(join(tmpdir(), 'hbar-web-history-'))
+  let fixture: Awaited<ReturnType<typeof startSessionHost>> | undefined
+  const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 960 } })
+  try {
+    fixture = await startSessionHost(root, 2, 180)
+    const authenticate = await context.request.post(
+      `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}/auth/token`,
+      { data: { token: fixture.ready.token } },
+    )
+    expect(authenticate.ok()).toBe(true)
+    const page = await context.newPage()
+    let browserSocket: WebSocketRoute | undefined
+    await page.routeWebSocket('**/rpc', (socket) => {
+      browserSocket = socket
+      socket.connectToServer()
+    })
+    await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
+    await expect(page.locator('footer')).toContainText('Connected')
+    await page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` }).click()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+
+    const viewport = page.locator('.lumen-conversation-messages')
+    const serverFooter = page.getByRole('complementary', { name: 'Projects and sessions' }).locator('footer')
+    const virtual = page.locator('[data-hbar-app-ui-list-strategy="virtualized"]')
+    await expect(virtual).toHaveAttribute('data-hbar-app-ui-message-count', '60')
+    await expect(page.locator('[data-message-id="history-180"]')).toBeVisible()
+    expect(await page.locator('[data-message-id]').count()).toBeLessThan(50)
+
+    await viewport.evaluate((element) => {
+      element.scrollTop = 0
+      element.dispatchEvent(new Event('scroll'))
+    })
+    const anchor = page.locator('[data-message-id="history-121"]')
+    await expect(anchor).toBeVisible()
+    const anchorTop = await anchor.evaluate((element) => element.getBoundingClientRect().top)
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/long-history-page-1440.png', fullPage: true })
+    await page.getByRole('button', { name: 'Load earlier messages' }).click()
+    await expect(virtual).toHaveAttribute('data-hbar-app-ui-message-count', '120')
+    await expect(anchor).toBeVisible()
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+    )
+    await expect
+      .poll(async () => Math.abs((await anchor.evaluate((element) => element.getBoundingClientRect().top)) - anchorTop))
+      .toBeLessThan(16)
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/long-history-anchor-1440.png', fullPage: true })
+
+    await viewport.evaluate((element) => {
+      element.scrollTop = 0
+      element.dispatchEvent(new Event('scroll'))
+    })
+    await page.getByRole('button', { name: 'Load earlier messages' }).click()
+    await expect(virtual).toHaveAttribute('data-hbar-app-ui-message-count', '180')
+    await page.waitForTimeout(300)
+    await viewport.evaluate((element) => {
+      element.scrollTop = 0
+      element.dispatchEvent(new Event('scroll'))
+    })
+    await expect(page.locator('[data-message-id="history-1"]')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Load earlier messages' })).toHaveCount(0)
+    expect(await page.locator('[data-message-id]').count()).toBeLessThan(50)
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/long-history-top-1440.png', fullPage: true })
+
+    await viewport.evaluate((element) => {
+      element.scrollTop = element.scrollHeight / 2
+      element.dispatchEvent(new Event('scroll'))
+    })
+    const readingOffset = await viewport.evaluate((element) => element.scrollTop)
+    const prompt = page.getByRole('textbox', { name: 'Prompt' })
+    await prompt.fill('new while reading history')
+    await page.getByRole('button', { name: 'Send' }).click()
+    const latest = page.getByRole('button', { name: 'View latest messages' })
+    await expect(latest).toBeVisible()
+    expect(Math.abs((await viewport.evaluate((element) => element.scrollTop)) - readingOffset)).toBeLessThan(16)
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/long-history-new-1440.png', fullPage: true })
+    await latest.click()
+    await expect(latest).toHaveCount(0)
+    await expect(page.getByText('new while reading history', { exact: true })).toBeVisible()
+    expect(
+      await viewport.evaluate((element) => element.scrollHeight - element.scrollTop - element.clientHeight),
+    ).toBeLessThan(32)
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/long-history-latest-1440.png', fullPage: true })
+
+    await viewport.evaluate((element) => {
+      element.scrollTop = element.scrollHeight * 0.35
+      element.dispatchEvent(new Event('scroll'))
+    })
+    const savedOffset = await viewport.evaluate((element) => element.scrollTop)
+    const savedReadingAnchor = await viewport.evaluate((element) => {
+      const top = element.getBoundingClientRect().top
+      const message = [...element.querySelectorAll<HTMLElement>('[data-message-id]')].find(
+        (row) => row.getBoundingClientRect().bottom > top,
+      )
+      if (!message) throw new Error('No reading anchor is visible before switching sessions')
+      return { id: message.dataset.messageId, offset: message.getBoundingClientRect().top - top }
+    })
+    await page.getByRole('button', { name: 'Open session Session 001' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Session 001' })).toBeVisible()
+    await page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` }).click()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+    await expect(virtual).toHaveAttribute('data-hbar-app-ui-message-count', '182')
+    await expect
+      .poll(async () => Math.abs((await viewport.evaluate((element) => element.scrollTop)) - savedOffset))
+      .toBeLessThan(32)
+    await expect
+      .poll(() =>
+        viewport.evaluate((element, saved) => {
+          const message = [...element.querySelectorAll<HTMLElement>('[data-message-id]')].find(
+            (row) => row.dataset.messageId === saved.id,
+          )
+          return message
+            ? Math.abs(message.getBoundingClientRect().top - element.getBoundingClientRect().top - saved.offset)
+            : Number.POSITIVE_INFINITY
+        }, savedReadingAnchor),
+      )
+      .toBeLessThan(4)
+
+    await prompt.fill('draft preserved through reconnect')
+    if (!browserSocket) throw new Error('The browser RPC WebSocket was not routed')
+    const disconnectedSocket = browserSocket
+    await disconnectedSocket.close({ code: 1012, reason: 'E2E connection interruption' })
+    await expect(serverFooter).toContainText('Disconnected')
+    await expect(prompt).toHaveValue('draft preserved through reconnect')
+    await expect(
+      page.getByText('Connection lost. Existing history, draft, and attachments are preserved.'),
+    ).toBeAttached()
+    await viewport.evaluate((element) => {
+      element.scrollTop = 0
+      element.dispatchEvent(new Event('scroll'))
+    })
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/disconnected-1440.png', fullPage: true })
+    await page.getByRole('button', { name: 'Reconnect' }).click()
+    await expect(serverFooter).toContainText('Connected')
+    await expect.poll(() => browserSocket !== disconnectedSocket).toBe(true)
+    await expect(prompt).toHaveValue('draft preserved through reconnect')
+    await expect(virtual).toHaveAttribute('data-hbar-app-ui-message-count', '182')
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/reconnected-1440.png', fullPage: true })
+    await page.setViewportSize({ width: 390, height: 844 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/long-history-mobile-390.png', fullPage: true })
+  } finally {
+    await context.close()
+    if (fixture) await stopSessionHost(fixture.child)
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('agent plans stay attached to the run that created them', async ({ browser }) => {
+  test.setTimeout(60_000)
+  const root = await mkdtemp(join(tmpdir(), 'hbar-web-run-plan-'))
+  let fixture: Awaited<ReturnType<typeof startSessionHost>> | undefined
+  const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 960 } })
+  try {
+    fixture = await startSessionHost(root)
+    const authenticate = await context.request.post(
+      `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}/auth/token`,
+      { data: { token: fixture.ready.token } },
+    )
+    expect(authenticate.ok()).toBe(true)
+
+    const page = await context.newPage()
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
+    await expect(page.locator('footer')).toContainText('Connected')
+    await page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` }).click()
+
+    const prompt = page.getByRole('textbox', { name: 'Prompt' })
+    await prompt.fill(
+      '/tool update_plan {"explanation":"Verify the session workspace in order.","plan":[{"step":"Inspect the timeline","status":"completed"},{"step":"Verify responsive layout","status":"in_progress"},{"step":"Record evidence","status":"pending"}]}',
+    )
+    await page.getByRole('button', { name: 'Send' }).click()
+    const activity = page.getByRole('region', { name: 'Agent activity' })
+    await expect(activity.getByText('Completed', { exact: true }).first()).toBeVisible()
+    await expect(activity.getByText('Agent plan', { exact: true })).toBeVisible()
+    await expect(activity.getByText('1 of 3 completed', { exact: true })).toBeVisible()
+    const plan = activity.locator('.hbar-session-run-plan')
+    await expect(plan).toHaveCount(1)
+    expect(await plan.evaluate((element) => Boolean(element.parentElement?.getAttribute('data-run-id')))).toBe(true)
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/plan-summary-1440.png', fullPage: true })
+
+    await plan.getByText('Agent plan', { exact: true }).click()
+    await expect(plan.getByRole('button').first()).toHaveAttribute('aria-expanded', 'true')
+    await expect(plan.getByText('Verify the session workspace in order.', { exact: true })).toBeVisible()
+    await expect(plan.getByText('Inspect the timeline', { exact: true })).toBeVisible()
+    await expect(plan.getByText('Verify responsive layout', { exact: true })).toBeVisible()
+    await expect(plan.getByText('Record evidence', { exact: true })).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/plan-expanded-1440.png', fullPage: true })
+
+    await page.reload()
+    await expect(page.locator('footer')).toContainText('Connected')
+    await page.getByRole('button', { name: /^Open session / }).click()
+    await expect(activity.getByText('Agent plan', { exact: true })).toBeVisible()
+    await expect(activity.getByText('1 of 3 completed', { exact: true })).toBeVisible()
+    await plan.getByText('Agent plan', { exact: true }).click()
+    await expect(plan.getByText('Verify the session workspace in order.', { exact: true })).toBeVisible()
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    expect(
+      await plan.evaluate((element) => {
+        const planBox = element.getBoundingClientRect()
+        const runBox = element.parentElement?.getBoundingClientRect()
+        return Boolean(runBox && planBox.left >= runBox.left && planBox.right <= runBox.right)
+      }),
+    ).toBe(true)
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/plan-expanded-mobile-390.png', fullPage: true })
+    expect(errors).toEqual([])
+  } finally {
+    await context.close()
+    if (fixture) await stopSessionHost(fixture.child)
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('failed session runs expose a command retry without breaking narrow layouts', async ({ browser }) => {
+  test.setTimeout(60_000)
+  const root = await mkdtemp(join(tmpdir(), 'hbar-web-run-retry-'))
+  let fixture: Awaited<ReturnType<typeof startSessionHost>> | undefined
+  const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 960 } })
+  try {
+    fixture = await startSessionHost(root)
+    const authenticate = await context.request.post(
+      `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}/auth/token`,
+      { data: { token: fixture.ready.token } },
+    )
+    expect(authenticate.ok()).toBe(true)
+
+    const page = await context.newPage()
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
+    await expect(page.locator('footer')).toContainText('Connected')
+    await page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` }).click()
+
+    const prompt = page.getByRole('textbox', { name: 'Prompt' })
+    await prompt.fill('/fail')
+    await page.getByRole('button', { name: 'Send' }).click()
+    const activity = page.getByRole('region', { name: 'Agent activity' })
+    const runLabels = getShellCopy('en-US').session.runs
+    await expect(activity.getByRole('button', { name: runLabels.details(1), exact: true })).toBeVisible()
+    await expect(activity.getByText('Failed', { exact: true })).toHaveCount(1)
+    const retry = activity.getByRole('button', { name: 'Retry run' })
+    await expect(retry).toHaveCount(1)
+    await expect(activity.locator('.hbar-session-run-current').getByRole('alert')).toHaveText(
+      'Fixture provider failure',
+    )
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/run-failed-1440.png', fullPage: true })
+
+    await retry.click()
+    const history = activity.getByRole('button', { name: runLabels.details(2), exact: true })
+    await expect(history).toBeVisible()
+    await history.click()
+    await expect(activity.getByText('Failed', { exact: true })).toHaveCount(2)
+    await expect(activity.getByRole('button', { name: 'Retry run' })).toHaveCount(2)
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/run-retried-1440.png', fullPage: true })
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    expect(
+      await activity.locator('[data-run-id]').evaluateAll(
+        (items) =>
+          items.length === 2 &&
+          items.every((item) => {
+            const row = item.getBoundingClientRect()
+            const retryButton = item.querySelector<HTMLElement>('button')?.getBoundingClientRect()
+            return Boolean(retryButton && retryButton.left >= row.left && retryButton.right <= row.right)
+          }),
+      ),
+    ).toBe(true)
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/run-retried-mobile-390.png', fullPage: true })
+    expect(errors).toEqual([])
+  } finally {
+    await context.close()
+    if (fixture) await stopSessionHost(fixture.child)
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('connected session workspace sends, approves, cancels, and updates usage', async ({ browser }) => {
+  test.setTimeout(180_000)
+  const root = await mkdtemp(join(tmpdir(), 'hbar-web-session-'))
+  let fixture: Awaited<ReturnType<typeof startSessionHost>> | undefined
+  let navigationClient: HbarClient | undefined
+  const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 960 } })
+  try {
+    fixture = await startSessionHost(root)
+    navigationClient = new HbarClient(`http://127.0.0.1:${process.env.HBAR_E2E_HOST_PORT ?? 4317}`, fixture.ready.token)
+    await navigationClient.connect()
+    const navigationCommands = createWorkspaceSessionCommandClient(navigationClient)
+    // New sessions use the Host's default title; give the original fixture a stable, unambiguous UI identity.
+    fixture.ready.sessionTitle = (
+      await navigationCommands.execute('session.rename', {
+        sessionId: fixture.ready.sessionId,
+        title: 'Original connected regression session',
+      })
+    ).title
+    const authenticate = await context.request.post(
+      `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}/auth/token`,
+      {
+        data: { token: fixture.ready.token },
+      },
+    )
+    expect(authenticate.ok()).toBe(true)
+
+    const page = await context.newPage()
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    const expectNoHorizontalOverflow = async () =>
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
+    await expect(page.locator('footer')).toContainText('Connected')
+    const workspaceId = fixture.ready.workspaceId
+    const createAndOpenSession = async (trigger: Locator) => {
+      const before = await navigationCommands.execute('session.list', { workspaceId, limit: 100 })
+      const previousIds = new Set(before.items.map((session) => session.id))
+      await trigger.click()
+      await expect
+        .poll(async () => (await navigationCommands.execute('session.list', { workspaceId, limit: 100 })).items.length)
+        .toBe(before.items.length + 1)
+      const after = await navigationCommands.execute('session.list', { workspaceId, limit: 100 })
+      const created = after.items.filter((session) => !previousIds.has(session.id))
+      expect(created).toHaveLength(1)
+      expect(created[0]?.workspaceId).toBe(workspaceId)
+      await expect(page.getByRole('dialog', { name: 'Command catalog' })).toHaveCount(0)
+      await expect(page.getByRole('heading', { level: 1, name: created[0]!.title, exact: true })).toBeVisible()
+      await expect(page.locator('.hbar-app-react-session-row[data-selected="true"]')).toHaveCount(1)
+    }
+    const returnToOriginalSession = async (title = fixture!.ready.sessionTitle) => {
+      const sidebar = page.getByRole('complementary', { name: 'Projects and sessions' })
+      if (!(await sidebar.isVisible()))
+        await page.getByRole('button', { name: 'Show projects and sessions sidebar', exact: true }).click()
+      await sidebar.getByRole('button', { name: `Open session ${title}`, exact: true }).click()
+      await expect(page.getByRole('heading', { level: 1, name: title, exact: true })).toBeVisible()
+    }
+    expect(
+      await page.locator('[data-hbar-app-ui-shell="app"]').evaluate((element) => {
+        const styles = getComputedStyle(element)
+        return {
+          sidebar: styles.getPropertyValue('--lumen-sidebar-size').trim(),
+          tool: styles.getPropertyValue('--lumen-tool-size').trim(),
+        }
+      }),
+    ).toEqual({ sidebar: '17rem', tool: '24rem' })
+    await expect(page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` })).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/shell/connected-sidebar-1440.png', fullPage: true })
+    await page.getByRole('button', { name: `Open session ${fixture.ready.sessionTitle}` }).click()
+    await expect(
+      page
+        .getByRole('main', { name: 'Workspace' })
+        .getByRole('heading', { level: 1, name: fixture.ready.sessionTitle }),
+    ).toBeVisible()
+    const workspaceActions = page.getByTitle(`Actions for project ${fixture.ready.workspaceName}`)
+    await workspaceActions.click()
+    const workspaceMenu = page.getByRole('menu', {
+      name: `Actions for project ${fixture.ready.workspaceName}`,
+    })
+    await expect(workspaceMenu.getByRole('menuitem', { name: 'New session in this project' })).toHaveCount(0)
+    await page.screenshot({ path: 'artifacts/ui-redesign/shell/workspace-actions-1440.png', fullPage: true })
+    await page.keyboard.press('Escape')
+    await createAndOpenSession(
+      page.getByRole('button', { name: `Create a session in project ${fixture.ready.workspaceName}`, exact: true }),
+    )
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/shell/workspace-new-session-1440.png',
+      fullPage: true,
+    })
+    await returnToOriginalSession()
+    const sessionActions = page.getByTitle(`Actions for ${fixture.ready.sessionTitle}`)
+    await sessionActions.click()
+    const sessionMenu = page.getByRole('menu', { name: `Actions for ${fixture.ready.sessionTitle}` })
+    await expect(sessionMenu.getByRole('menuitem', { name: 'Rename' })).toBeVisible()
+    await expect(sessionMenu.getByRole('menuitem', { name: 'Archive' })).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/shell/session-actions-1440.png', fullPage: true })
+    await sessionMenu.getByRole('menuitem', { name: 'Rename' }).click()
+    const renameRow = page.locator(`[data-session-id="${fixture.ready.sessionId}"]`)
+    const renameInput = renameRow.getByRole('textbox', { name: 'Session title', exact: true })
+    await expect(renameInput).toHaveValue(fixture.ready.sessionTitle)
+    await expect(renameInput).toBeFocused()
+    await expect(page.getByRole('dialog', { name: 'Command catalog' })).toHaveCount(0)
+    await page.screenshot({ path: 'artifacts/ui-redesign/shell/session-rename-1440.png', fullPage: true })
+    await page.keyboard.press('Escape')
+    await expect(renameInput).toHaveCount(0)
+    await expect(renameRow.locator('.hbar-app-react-session-target')).toBeFocused()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+    await createAndOpenSession(page.getByRole('button', { name: 'New session', exact: true }))
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/session-create/after/desktop-1440.png', fullPage: true })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/session-create/after/mobile-390.png', fullPage: true })
+    await page.setViewportSize({ width: 1440, height: 960 })
+    await returnToOriginalSession()
+    const expectSessionLayout = async () =>
+      expect(
+        await page.evaluate(() => {
+          const header = document.querySelector<HTMLElement>('.lumen-page-header')
+          const actions = [...document.querySelectorAll<HTMLElement>('.lumen-page-actions > *')]
+          const sessionMain = document.querySelector<HTMLElement>('.hbar-app-react-session-main')
+          const conversation = document.querySelector<HTMLElement>('.lumen-conversation')
+          const timeline = document.querySelector<HTMLElement>('.lumen-conversation-content')
+          const composer = document.querySelector<HTMLElement>('.hbar-app-react-session-footer')
+          const usage = document.querySelector<HTMLElement>('.hbar-session-usage-trigger')
+          if (!header || actions.length !== 5 || !sessionMain || !conversation || !timeline || !composer || !usage)
+            return false
+          const headerRect = header.getBoundingClientRect()
+          const actionRects = actions.map((action) => action.getBoundingClientRect())
+          const sessionMainRect = sessionMain.getBoundingClientRect()
+          const conversationRect = conversation.getBoundingClientRect()
+          const timelineRect = timeline.getBoundingClientRect()
+          const composerRect = composer.getBoundingClientRect()
+          return (
+            header.scrollWidth <= header.clientWidth &&
+            actionRects.every((rect, index) => {
+              const previous = actionRects[index - 1]
+              return (
+                rect.left >= headerRect.left - 1 &&
+                rect.right <= headerRect.right + 1 &&
+                rect.top >= headerRect.top - 1 &&
+                rect.bottom <= headerRect.bottom + 1 &&
+                (!previous || rect.top >= previous.bottom - 1 || rect.left >= previous.right - 1)
+              )
+            }) &&
+            actions.every((action) => getComputedStyle(action).writingMode === 'horizontal-tb') &&
+            getComputedStyle(conversation).display === 'flex' &&
+            Math.abs(sessionMainRect.left - conversationRect.left) <= 1 &&
+            Math.abs(sessionMainRect.right - conversationRect.right) <= 1 &&
+            Math.abs(conversationRect.bottom - composerRect.bottom) <= 1 &&
+            timelineRect.left <= composerRect.left + 1 &&
+            timelineRect.right >= composerRect.right - 1 &&
+            Math.abs(timelineRect.left - conversationRect.left - (conversationRect.right - timelineRect.right)) <= 1 &&
+            composerRect.width >= Math.min(conversationRect.width, 800) &&
+            usage.getBoundingClientRect().height > 0 &&
+            usage.getBoundingClientRect().height <= 48
+          )
+        }),
+      ).toBe(true)
+    await expectSessionLayout()
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/desktop-1440-empty.png', fullPage: true })
+    await page.setViewportSize({ width: 900, height: 600 })
+    await expect(page.getByRole('button', { name: 'Show projects and sessions sidebar' })).toBeVisible()
+    await expectSessionLayout()
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/desktop-900-empty.png', fullPage: true })
+    await page.setViewportSize({ width: 1440, height: 960 })
+    const restoreNavigationAfterLayout = page.getByRole('button', { name: 'Show projects and sessions sidebar' })
+    if (await restoreNavigationAfterLayout.isVisible()) await restoreNavigationAfterLayout.click()
+    const prompt = page.getByRole('textbox', { name: 'Prompt' })
+    await expect(prompt).toBeEnabled()
+
+    await page.getByRole('button', { name: 'Files', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'File manager' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+    const configuredToolWidth = await page
+      .locator('.hbar-app-ui-app-tool-drawer')
+      .evaluate((element) => element.getBoundingClientRect().width)
+    expect(configuredToolWidth).toBeGreaterThanOrEqual(383)
+    expect(configuredToolWidth).toBeLessThanOrEqual(385)
+    const expectFileToolLayout = async (view: 'browser' | 'document') =>
+      expect(
+        await page.evaluate((expectedView) => {
+          const drawer = document.querySelector<HTMLElement>('.hbar-app-ui-app-tool-drawer')
+          const workspace = document.querySelector<HTMLElement>('.hbar-app-react-file-workspace')
+          const layout = document.querySelector<HTMLElement>('.hbar-app-react-file-layout')
+          const header = workspace?.querySelector<HTMLElement>('[data-tool-pane-slot="header"]')
+          const body = workspace?.querySelector<HTMLElement>('[data-tool-pane-slot="body"]')
+          if (!drawer || !workspace || !layout || !header || !body) return false
+          const drawerRect = drawer.getBoundingClientRect()
+          const workspaceRect = workspace.getBoundingClientRect()
+          const headerRect = header.getBoundingClientRect()
+          const bodyRect = body.getBoundingClientRect()
+          return (
+            layout.dataset.view === expectedView &&
+            Math.abs(drawerRect.left - workspaceRect.left) <= 1 &&
+            Math.abs(drawerRect.right - workspaceRect.right) <= 1 &&
+            Math.abs(drawerRect.height - workspaceRect.height) <= 1 &&
+            Math.abs(headerRect.top - workspaceRect.top) <= 1 &&
+            headerRect.bottom <= bodyRect.top + 1 &&
+            Math.abs(bodyRect.bottom - workspaceRect.bottom) <= 1 &&
+            workspace.scrollWidth <= workspace.clientWidth
+          )
+        }, view),
+      ).toBe(true)
+    await expectFileToolLayout('browser')
+    await expect(page.locator('.hbar-app-react-file-workspace .lumen-tool-pane-heading h2')).toHaveText('File manager')
+    await page.screenshot({ path: 'artifacts/ui-redesign/file-tool/after/list-1440.png', fullPage: true })
+    await page.getByRole('button', { name: 'browser-e2e.md' }).click()
+    await expectFileToolLayout('document')
+    const fileEditor = page.getByRole('textbox', { name: 'browser-e2e.md' })
+    await page.locator('.hbar-app-react-file-workspace').getByRole('button', { name: 'Edit', exact: true }).click()
+    await expect(fileEditor).toHaveValue('# Browser file\n')
+    await fileEditor.fill('# Browser file\n\nEdited from the file panel.\n')
+    await page.getByRole('button', { name: 'Save file' }).click()
+    await expect(page.getByText('File saved.')).toBeVisible()
+    await page.screenshot({ path: 'artifacts/web-b5/file-manager.png', fullPage: true })
+    await page.screenshot({ path: 'artifacts/ui-redesign/file-tool/after/document-1440.png', fullPage: true })
+    await page.getByRole('button', { name: 'Back to files' }).click()
+    await expectFileToolLayout('browser')
+    await page.getByRole('button', { name: 'Close file manager' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await page.getByRole('button', { name: 'Extensions and skills', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'Extensions and skills' })).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Extensions and skills' })).toHaveCount(0)
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeHidden()
+    await expect(page.getByRole('heading', { level: 3, name: 'Plugins' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 3, name: 'Skills' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Open system and diagnostic commands' })).toBeVisible()
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/extensions/after/desktop-1440.png', fullPage: true })
+    const extensionHeading = page.getByRole('heading', { level: 2, name: 'Extensions and skills' })
+    const skillsHeading = page.getByRole('heading', { level: 3, name: 'Skills' })
+    await skillsHeading.evaluate((element) => element.scrollIntoView({ block: 'start' }))
+    await page.screenshot({ path: 'artifacts/ui-redesign/extensions/after/desktop-1440-skills.png', fullPage: true })
+    await extensionHeading.scrollIntoViewIfNeeded()
+    await page.getByRole('button', { name: 'Open system and diagnostic commands' }).click()
+    await expect(page.getByRole('dialog', { name: 'Command catalog' })).toBeVisible()
+    await expect(page.getByRole('searchbox', { name: 'Search commands' })).toHaveValue('system.')
+    await page.getByRole('button', { name: 'Close command catalog' }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'Extensions and skills' })).toBeVisible()
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/extensions/after/tablet-1024.png', fullPage: true })
+    await page.setViewportSize({ width: 1440, height: 960 })
+    await page.getByRole('button', { name: 'Back to session' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Status center', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Status center' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeHidden()
+    await expect(page.getByRole('button', { name: 'Performance' })).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByRole('heading', { level: 2, name: 'Compute and memory' })).toBeVisible()
+    const systemCpuChart = page.getByRole('img', { name: 'System CPU' })
+    const hostCpuChart = page.getByRole('img', { name: 'Host CPU' })
+    await expect(systemCpuChart).toBeVisible()
+    await expect(hostCpuChart).toBeVisible()
+    expect(
+      await systemCpuChart
+        .locator('i')
+        .evaluateAll((bars) => bars.some((bar) => Number.parseFloat(getComputedStyle(bar).blockSize) > 0)),
+    ).toBe(true)
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/web-b6/performance.png', fullPage: true })
+    await page.screenshot({ path: 'artifacts/ui-redesign/performance/after/desktop-1440.png', fullPage: true })
+    await page.getByText('Host process', { exact: true }).click()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/performance/after/desktop-1440-process.png',
+      fullPage: true,
+    })
+    await page.getByText('Host process', { exact: true }).click()
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/performance/after/tablet-1024.png', fullPage: true })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expectNoHorizontalOverflow()
+    await expect(systemCpuChart).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/performance/after/mobile-390.png', fullPage: true })
+    await systemCpuChart.evaluate((element) => element.scrollIntoView({ block: 'start' }))
+    await page.screenshot({ path: 'artifacts/ui-redesign/performance/after/mobile-390-chart.png', fullPage: true })
+    await page.setViewportSize({ width: 1440, height: 960 })
+    await page.getByRole('button', { name: 'Close status center' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+    const restoreShellNavigation = page.getByRole('button', { name: 'Show projects and sessions sidebar' })
+    if (await restoreShellNavigation.isVisible()) await restoreShellNavigation.click()
+
+    await page.keyboard.press('Control+K')
+    const commandDialog = page.getByRole('dialog', { name: 'Command catalog' })
+    await expect(commandDialog.getByRole('heading', { level: 1, name: 'Command catalog' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+    await expect(commandDialog.getByText('Agents, goals, and plans', { exact: true })).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/commands/after/desktop-1440-search.png', fullPage: true })
+    await page.getByRole('searchbox', { name: 'Search commands' }).fill('session.setBudget')
+    await page.getByRole('option', { name: /Set session token budget/ }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Set session token budget' })).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Session ID' })).toHaveValue(fixture.ready.sessionId)
+    const tokenLimit = page.getByRole('spinbutton', { name: 'Token limit' })
+    await tokenLimit.fill('120000')
+    await expect(tokenLimit).toHaveValue('120000')
+    await page.screenshot({ path: 'artifacts/ui-redesign/commands/after/desktop-1440-parameters.png', fullPage: true })
+    await page.getByRole('button', { name: 'Execute command' }).click()
+    await expect(page.getByText('Command succeeded')).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Command result' })).toBeVisible()
+    await page.screenshot({ path: 'artifacts/web-b4/command-palette.png', fullPage: true })
+    await page.screenshot({ path: 'artifacts/ui-redesign/commands/after/desktop-1440-result.png', fullPage: true })
+    await page.getByText('Technical details', { exact: true }).click()
+    await expect(page.getByText(/"budget"/)).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/commands/after/desktop-1440-details.png', fullPage: true })
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('heading', { level: 1, name: 'Set session token budget' })).toBeVisible()
+    await expect(tokenLimit).toHaveValue('120000')
+    await page.keyboard.press('Escape')
+    await expect(commandDialog.getByRole('heading', { level: 1, name: 'Command catalog' })).toBeVisible()
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/commands/after/tablet-1024-search.png', fullPage: true })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/commands/after/mobile-390-search.png', fullPage: true })
+    await page.getByRole('option', { name: /Set session token budget/ }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Set session token budget' })).toBeVisible()
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/commands/after/mobile-390-parameters.png', fullPage: true })
+    await page.keyboard.press('Escape')
+    await expect(commandDialog.getByRole('heading', { level: 1, name: 'Command catalog' })).toBeVisible()
+    await page.getByRole('button', { name: 'Close command catalog' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+    await page.setViewportSize({ width: 1440, height: 960 })
+    const restoreNavigationAfterCommands = page.getByRole('button', { name: 'Show projects and sessions sidebar' })
+    if (await restoreNavigationAfterCommands.isVisible()) await restoreNavigationAfterCommands.click()
+
+    await prompt.fill('hello from browser')
+    await expect(prompt).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+    await page.screenshot({ path: 'artifacts/ui-redesign/prompt/production-session.png', fullPage: true })
+    await page.getByRole('button', { name: 'Send' }).click()
+    await expect(page.getByText('hello from browser', { exact: true })).toBeVisible()
+    await expect(page.getByText('Completed').first()).toBeVisible()
+    await page.locator('.hbar-session-usage-trigger').click()
+    const usagePopover = page.getByRole('dialog', { name: 'Usage and budget', exact: true })
+    await expect(
+      usagePopover.getByRole('region', { name: 'Usage and budget' }).getByText(/^[1-9][\d,.]* tokens$/),
+    ).toBeVisible()
+    await usagePopover.getByRole('button', { name: 'Close usage and budget' }).click()
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/desktop-1440.png', fullPage: true })
+
+    await page.getByRole('button', { name: 'Monitoring', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'Session monitoring' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+    const expectMonitoringLayout = async () =>
+      page
+        .evaluate(() => {
+          const drawer = document.querySelector<HTMLElement>('.hbar-app-ui-app-tool-drawer')
+          const monitoring = document.querySelector<HTMLElement>('.hbar-app-react-session-monitoring')
+          const bars = [...document.querySelectorAll<HTMLElement>('.lumen-bar-series i')]
+          const header = monitoring?.querySelector<HTMLElement>('[data-tool-pane-slot="header"]')
+          const body = monitoring?.querySelector<HTMLElement>('[data-tool-pane-slot="body"]')
+          if (!drawer || !monitoring || !header || !body || !bars.length) return null
+          const drawerRect = drawer.getBoundingClientRect()
+          const monitoringRect = monitoring.getBoundingClientRect()
+          const headerRect = header.getBoundingClientRect()
+          const bodyRect = body.getBoundingClientRect()
+          const barRects = bars.map((bar) => bar.getBoundingClientRect())
+          return {
+            fillsDrawer:
+              Math.abs(drawerRect.left - monitoringRect.left) <= 1 &&
+              Math.abs(drawerRect.right - monitoringRect.right) <= 1 &&
+              Math.abs(drawerRect.height - monitoringRect.height) <= 1,
+            noOverflow: monitoring.scrollWidth <= monitoring.clientWidth,
+            fixedChrome:
+              Math.abs(headerRect.top - monitoringRect.top) <= 1 &&
+              headerRect.bottom <= bodyRect.top + 1 &&
+              Math.abs(bodyRect.bottom - monitoringRect.bottom) <= 1,
+            bodyOwnsScroll: getComputedStyle(body).overflowY === 'auto',
+            barCount: bars.length,
+            minimumBarWidth: Math.min(...barRects.map((rect) => rect.width)),
+            maximumBarHeight: Math.max(...barRects.map((rect) => rect.height)),
+          }
+        })
+        .then((geometry) => {
+          expect(geometry).not.toBeNull()
+          expect(geometry).toMatchObject({
+            fillsDrawer: true,
+            noOverflow: true,
+            fixedChrome: true,
+            bodyOwnsScroll: true,
+          })
+          if (geometry!.minimumBarWidth < 1 || geometry!.maximumBarHeight < 8)
+            throw new Error(`Monitoring bar geometry: ${JSON.stringify(geometry)}`)
+        })
+    const expectAgentLayout = async (view: 'list' | 'create' | 'detail') =>
+      expect(
+        await page.evaluate((expectedView) => {
+          const drawer = document.querySelector<HTMLElement>('.hbar-app-ui-app-tool-drawer')
+          const workspace = document.querySelector<HTMLElement>('.hbar-app-react-agent-workspace')
+          const header = workspace?.querySelector<HTMLElement>('[data-tool-pane-slot="header"]')
+          const body = workspace?.querySelector<HTMLElement>('[data-tool-pane-slot="body"]')
+          if (!drawer || !workspace || !header || !body) return null
+          const drawerRect = drawer.getBoundingClientRect()
+          const workspaceRect = workspace.getBoundingClientRect()
+          const headerRect = header.getBoundingClientRect()
+          const bodyRect = body.getBoundingClientRect()
+          const actualView = workspace.querySelector('.hbar-app-react-agent-create-view')
+            ? 'create'
+            : workspace.querySelector('.hbar-app-react-agent-detail')
+              ? 'detail'
+              : workspace.querySelector('.hbar-app-react-agent-list')
+                ? 'list'
+                : null
+          return {
+            view: actualView,
+            fillsDrawer:
+              Math.abs(drawerRect.left - workspaceRect.left) <= 1 &&
+              Math.abs(drawerRect.right - workspaceRect.right) <= 1 &&
+              Math.abs(drawerRect.height - workspaceRect.height) <= 1,
+            noOverflow: workspace.scrollWidth <= workspace.clientWidth,
+            fixedChrome:
+              Math.abs(headerRect.top - workspaceRect.top) <= 1 &&
+              headerRect.bottom <= bodyRect.top + 1 &&
+              Math.abs(bodyRect.bottom - workspaceRect.bottom) <= 1,
+            bodyOwnsScroll: getComputedStyle(body).overflowY === 'auto',
+            expectedView,
+          }
+        }, view),
+      ).toMatchObject({
+        view,
+        expectedView: view,
+        fillsDrawer: true,
+        noOverflow: true,
+        fixedChrome: true,
+        bodyOwnsScroll: true,
+      })
+    const expectGoalPlanLayout = async (view: 'overview' | 'goal' | 'plan') =>
+      expect(
+        await page.evaluate((expectedView) => {
+          const drawer = document.querySelector<HTMLElement>('.hbar-app-ui-app-tool-drawer')
+          const workspace = document.querySelector<HTMLElement>('.hbar-app-react-goal-plan-workspace')
+          const header = workspace?.querySelector<HTMLElement>('[data-tool-pane-slot="header"]')
+          const body = workspace?.querySelector<HTMLElement>('[data-tool-pane-slot="body"]')
+          if (!drawer || !workspace || !header || !body) return null
+          const drawerRect = drawer.getBoundingClientRect()
+          const workspaceRect = workspace.getBoundingClientRect()
+          const headerRect = header.getBoundingClientRect()
+          const bodyRect = body.getBoundingClientRect()
+          const actualView = workspace.querySelector('.hbar-app-react-goal-editor-view')
+            ? 'goal'
+            : workspace.querySelector('.hbar-app-react-plan-editor-view')
+              ? 'plan'
+              : workspace.querySelector('.hbar-app-react-goal-plan-overview')
+                ? 'overview'
+                : null
+          return {
+            view: actualView,
+            fillsDrawer:
+              Math.abs(drawerRect.left - workspaceRect.left) <= 1 &&
+              Math.abs(drawerRect.right - workspaceRect.right) <= 1 &&
+              Math.abs(drawerRect.height - workspaceRect.height) <= 1,
+            noOverflow: workspace.scrollWidth <= workspace.clientWidth,
+            fixedChrome:
+              Math.abs(headerRect.top - workspaceRect.top) <= 1 &&
+              headerRect.bottom <= bodyRect.top + 1 &&
+              Math.abs(bodyRect.bottom - workspaceRect.bottom) <= 1,
+            bodyOwnsScroll: getComputedStyle(body).overflowY === 'auto',
+            expectedView,
+          }
+        }, view),
+      ).toMatchObject({
+        view,
+        expectedView: view,
+        fillsDrawer: true,
+        noOverflow: true,
+        fixedChrome: true,
+        bodyOwnsScroll: true,
+      })
+    await expectMonitoringLayout()
+    await expect(page.locator('.hbar-app-react-session-monitoring .lumen-tool-pane-heading h2')).toHaveText(
+      'Session monitoring',
+    )
+    await expect(page.getByText('Total tokens')).toBeVisible()
+    await expect(page.getByText('Token timeline')).toBeVisible()
+    await page.screenshot({ path: 'artifacts/web-b5/session-monitoring.png', fullPage: true })
+    await page.screenshot({ path: 'artifacts/ui-redesign/monitoring/after/desktop-1440.png', fullPage: true })
+    await page.getByRole('button', { name: 'Execution statistics', exact: true }).click()
+    await expect(page.getByText('Peak request concurrency')).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/monitoring/after/desktop-1440-expanded.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close session monitoring' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Status center', exact: true }).click()
+    await page.getByRole('button', { name: 'Usage', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'AI usage' })).toBeVisible()
+    const usageExecution = page.getByText('Execution statistics', { exact: true })
+    await expect(usageExecution).toBeAttached()
+    await expect(page.getByText('More filters', { exact: true })).toBeVisible()
+    await expect(page.locator('summary[aria-label="Export"]')).toBeVisible()
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/web-b6/usage.png', fullPage: true })
+    await page.screenshot({ path: 'artifacts/ui-redesign/usage/after/desktop-1440.png', fullPage: true })
+    await page.getByText('More filters', { exact: true }).click()
+    await expect(page.getByText('Aggregation', { exact: true })).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/usage/after/desktop-1440-filters.png', fullPage: true })
+    await page.getByText('More filters', { exact: true }).click()
+    await page.locator('summary[aria-label="Export"]').click()
+    await expect(page.getByRole('menuitem', { name: 'Export JSON' })).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/usage/after/desktop-1440-export.png', fullPage: true })
+    await page.keyboard.press('Escape')
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/usage/after/tablet-1024.png', fullPage: true })
+    await page.setViewportSize({ width: 1440, height: 960 })
+    await usageExecution.evaluate((element) => element.scrollIntoView({ block: 'start' }))
+    await usageExecution.click()
+    await expect(page.getByText('Peak request concurrency')).toBeVisible()
+    await page.screenshot({ path: 'artifacts/web-b6/usage-details.png', fullPage: true })
+    await page.screenshot({ path: 'artifacts/ui-redesign/usage/after/desktop-1440-details.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close status center' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Status center', exact: true }).click()
+    await page.getByRole('button', { name: 'Git', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'Git repository' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'Activity summary' })).toBeVisible()
+    await expect(page.locator('.lumen-compact-metrics').getByText('Automatic commits', { exact: true })).toBeVisible()
+    await expect(page.getByText('More filters', { exact: true })).toBeVisible()
+    await expect(page.getByText('Repository and accounting details', { exact: true })).toBeAttached()
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/web-b6/git.png', fullPage: true })
+    await page.screenshot({ path: 'artifacts/ui-redesign/git/after/desktop-1440.png', fullPage: true })
+    await page.getByText('More filters', { exact: true }).click()
+    await expect(page.getByRole('checkbox', { name: 'Automatic commits' })).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/git/after/desktop-1440-filters.png', fullPage: true })
+    await page.getByText('More filters', { exact: true }).click()
+    const commitBuckets = page.locator('.hbar-app-react-git-charts .is-commits .lumen-bar-series button')
+    await commitBuckets.last().dispatchEvent('click')
+    await expect(commitBuckets.last()).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByText(/Showing 1 commits from the .* bucket\./)).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/git/after/desktop-1440-selected.png', fullPage: true })
+    await page.getByRole('button', { name: 'Show all commits' }).click()
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/git/after/tablet-1024.png', fullPage: true })
+    await page.setViewportSize({ width: 1440, height: 960 })
+    await page.getByText('Repository and accounting details', { exact: true }).click()
+    await expect(page.getByText('History policy', { exact: true })).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/git/after/desktop-1440-details.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close status center' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Child agents', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'Child agent management' })).toBeVisible()
+    await expectAgentLayout('list')
+    await expect(page.locator('.hbar-app-react-agent-workspace .lumen-tool-pane-heading h2')).toHaveText(
+      'Child agent management',
+    )
+    await page.screenshot({ path: 'artifacts/ui-redesign/agents/after/desktop-1440-empty.png', fullPage: true })
+    await page.getByRole('button', { name: 'Create child agent' }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'Create child agent' })).toBeVisible()
+    await expectAgentLayout('create')
+    await page.getByRole('textbox', { name: 'Objective' }).fill('Verify the browser workflow')
+    await expect(page.getByRole('textbox', { name: 'Model' })).toHaveValue('local-fixture')
+    await page.getByRole('spinbutton', { name: 'Token budget' }).fill('5000')
+    await page.screenshot({ path: 'artifacts/ui-redesign/agents/after/desktop-1440-create.png', fullPage: true })
+    await page.getByRole('button', { name: 'Create and run' }).click()
+    await expect(page.getByText('Child agent created.')).toBeVisible()
+    await expect(page.getByText('Verify the browser workflow')).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'Child agent details' })).toBeVisible()
+    await expectAgentLayout('detail')
+    await page.screenshot({ path: 'artifacts/ui-redesign/agents/after/desktop-1440-detail.png', fullPage: true })
+    await page.getByRole('button', { name: 'Back to child agents' }).click()
+    await expectAgentLayout('list')
+    await page.screenshot({ path: 'artifacts/web-b5/child-agents.png', fullPage: true })
+    await page.screenshot({ path: 'artifacts/ui-redesign/agents/after/desktop-1440-list.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close child agent management' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Goals and plans', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'Goals and plans' })).toBeVisible()
+    await expectGoalPlanLayout('overview')
+    await expect(page.locator('.hbar-app-react-goal-plan-workspace .lumen-tool-pane-heading h2')).toHaveText(
+      'Goals and plans',
+    )
+    await page.screenshot({ path: 'artifacts/ui-redesign/goals/after/desktop-1440-empty.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close goals and plans' }).click()
+    await prompt.fill('Complete the browser verification')
+    await page.locator('.hbar-composer-intents').getByRole('button', { name: 'Goal', exact: true }).click()
+    await page.getByRole('button', { name: 'Send', exact: true }).click()
+    const goalStrip = page.locator('.hbar-composer-goal-strip')
+    await expect(goalStrip).toContainText('Complete the browser verification')
+    await expect(prompt).toHaveValue('')
+    await goalStrip.getByRole('button', { name: 'Pause goal continuation', exact: true }).click()
+    await expect(goalStrip).toContainText('Paused')
+    await goalStrip.getByRole('button', { name: 'Expand goal document', exact: true }).click()
+    await expect(page.getByRole('textbox', { name: 'Goal objective' })).toHaveValue('Complete the browser verification')
+    await expectGoalPlanLayout('goal')
+    await page.getByRole('button', { name: 'Budget and execution details', exact: true }).click()
+    await page.getByRole('spinbutton', { name: 'Goal token budget' }).fill('16000')
+    await page.getByRole('button', { name: 'Save goal' }).click()
+    await expect(page.getByText('Goal saved.')).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/goals/after/desktop-1440-goal.png', fullPage: true })
+    await page.getByRole('button', { name: 'Back to goals and plans' }).click()
+    await expectGoalPlanLayout('overview')
+    await expect(page.getByRole('button', { name: 'Edit plan' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Clear plan' })).toHaveCount(0)
+    await prompt.fill(
+      '/tool update_plan {"explanation":"Keep the browser flow reviewable.","plan":[{"step":"Verify the connected workbench","status":"in_progress"}]}',
+    )
+    await page.getByRole('button', { name: 'Send', exact: true }).click()
+    await expect(
+      page.locator('.hbar-app-react-goal-plan-workspace').getByText('Verify the connected workbench', { exact: true }),
+    ).toBeVisible()
+    await expect(
+      page
+        .locator('.hbar-app-react-goal-plan-workspace')
+        .getByText('Keep the browser flow reviewable.', { exact: true }),
+    ).toBeVisible()
+    fixture.ready.sessionTitle = await page.getByRole('heading', { level: 1 }).innerText()
+    await page.screenshot({ path: 'artifacts/ui-redesign/goals/after/desktop-1440-plan.png', fullPage: true })
+    await expectGoalPlanLayout('overview')
+    await page.screenshot({ path: 'artifacts/web-b5/goals-and-plans.png', fullPage: true })
+    await page.screenshot({ path: 'artifacts/ui-redesign/goals/after/desktop-1440-overview.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close goals and plans' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await expectSessionLayout()
+    await page.screenshot({ path: 'artifacts/ui-redesign/shell/connected-sidebar-1024.png', fullPage: true })
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/tablet-1024.png', fullPage: true })
+    await page.getByRole('button', { name: 'Files', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'File manager' })).toBeVisible()
+    await expectFileToolLayout('browser')
+    await page.screenshot({ path: 'artifacts/ui-redesign/outlets/files-1024.png', fullPage: true })
+    await page.getByRole('button', { name: 'browser-e2e.md' }).click()
+    await expectFileToolLayout('document')
+    await page.screenshot({ path: 'artifacts/ui-redesign/file-tool/after/document-1024.png', fullPage: true })
+    await page.getByRole('button', { name: 'Back to files' }).click()
+    await page.getByRole('button', { name: 'Close file manager' }).click()
+    await page.getByRole('button', { name: 'Monitoring', exact: true }).click()
+    await expectMonitoringLayout()
+    await page.screenshot({ path: 'artifacts/ui-redesign/monitoring/after/tablet-1024.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close session monitoring' }).click()
+    await page.getByRole('button', { name: 'Child agents', exact: true }).click()
+    await expectAgentLayout('list')
+    await page.screenshot({ path: 'artifacts/ui-redesign/agents/after/tablet-1024-list.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close child agent management' }).click()
+    await page.getByRole('button', { name: 'Goals and plans', exact: true }).click()
+    await expectGoalPlanLayout('overview')
+    await page.screenshot({ path: 'artifacts/ui-redesign/goals/after/tablet-1024-overview.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close goals and plans' }).click()
+    await page.setViewportSize({ width: 390, height: 844 })
+    const openShellNavigation = async () => {
+      const trigger = page.getByRole('button', { name: 'Show projects and sessions sidebar' })
+      if (await trigger.isVisible()) await trigger.click()
+      await expect(page.getByRole('complementary', { name: 'Projects and sessions' })).toBeVisible()
+    }
+    const expectShellPanesDoNotOverlap = async () =>
+      expect(
+        await page.evaluate(() => {
+          const sidebar = document.querySelector('aside')?.getBoundingClientRect()
+          const main = document.querySelector('main[aria-label="Workspace"]')?.getBoundingClientRect()
+          return Boolean(sidebar && main && sidebar.bottom <= main.top + 1)
+        }),
+      ).toBe(true)
+    await expectNoHorizontalOverflow()
+    await expectShellPanesDoNotOverlap()
+    await expectSessionLayout()
+    await page.screenshot({ path: 'artifacts/ui-redesign/shell/connected-content-390.png', fullPage: true })
+    await page.screenshot({ path: 'artifacts/ui-redesign/session/after/mobile-390.png', fullPage: true })
+    await openShellNavigation()
+    await page.screenshot({ path: 'artifacts/ui-redesign/shell/connected-drawer-390.png', fullPage: true })
+    await page.getByRole('button', { name: 'Hide projects and sessions sidebar' }).first().click()
+
+    await page.getByRole('button', { name: 'Files', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'File manager' })).toBeVisible()
+    await expectFileToolLayout('browser')
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/outlets/files-390.png', fullPage: true })
+    await page.getByRole('button', { name: 'browser-e2e.md' }).click()
+    await expectFileToolLayout('document')
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/file-tool/after/document-390.png', fullPage: true })
+    await page.getByRole('button', { name: 'Back to files' }).click()
+    await page.getByRole('button', { name: 'Close file manager' }).click()
+
+    await page.getByRole('button', { name: 'Monitoring', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'Session monitoring' })).toBeVisible()
+    await expectMonitoringLayout()
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/monitoring/after/mobile-390.png', fullPage: true })
+    await page.getByRole('button', { name: 'Execution statistics', exact: true }).click()
+    await expect(page.getByText('Peak request concurrency')).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/monitoring/after/mobile-390-expanded.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close session monitoring' }).click()
+
+    await page.getByRole('button', { name: 'Child agents', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'Child agent management' })).toBeVisible()
+    await expectAgentLayout('list')
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/agents/after/mobile-390-list.png', fullPage: true })
+    await page.getByRole('button', { name: 'View details for Verify the browser workflow' }).click()
+    await expectAgentLayout('detail')
+    await page.screenshot({ path: 'artifacts/ui-redesign/agents/after/mobile-390-detail.png', fullPage: true })
+    await page.getByRole('button', { name: 'Back to child agents' }).click()
+    await page.getByRole('button', { name: 'Create child agent' }).click()
+    await expectAgentLayout('create')
+    await page.screenshot({ path: 'artifacts/ui-redesign/agents/after/mobile-390-create.png', fullPage: true })
+    await page.getByRole('button', { name: 'Back to child agents' }).click()
+    await page.getByRole('button', { name: 'Close child agent management' }).click()
+
+    await page.getByRole('button', { name: 'Goals and plans', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'Goals and plans' })).toBeVisible()
+    await expectGoalPlanLayout('overview')
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/goals/after/mobile-390-overview.png', fullPage: true })
+    await page.getByRole('button', { name: 'Edit goal' }).click()
+    await expectGoalPlanLayout('goal')
+    await page.screenshot({ path: 'artifacts/ui-redesign/goals/after/mobile-390-goal.png', fullPage: true })
+    await page.getByRole('button', { name: 'Back to goals and plans' }).click()
+    await expect(page.getByRole('button', { name: 'Edit plan' })).toHaveCount(0)
+    await expect(
+      page.locator('.hbar-app-react-goal-plan-workspace').getByText('Verify the connected workbench', { exact: true }),
+    ).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/goals/after/mobile-390-plan.png', fullPage: true })
+    await expect(page.getByRole('button', { name: 'Clear plan' })).toHaveCount(0)
+    await page.getByRole('button', { name: 'Close goals and plans' }).click()
+    await goalStrip.getByRole('button', { name: 'Clear goal', exact: true }).click()
+    await page
+      .getByRole('group', { name: 'Clear goal', exact: true })
+      .getByRole('button', { name: 'Clear goal', exact: true })
+      .click()
+    await expect(goalStrip).toHaveCount(0)
+    await page.getByRole('button', { name: 'Goals and plans', exact: true }).click()
+    await expect(
+      page.locator('.hbar-app-react-goal-plan-workspace').getByText('No plan steps yet.', { exact: true }),
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Close goals and plans' }).click()
+
+    await openShellNavigation()
+    await expect(page.getByRole('button', { name: 'Extensions', exact: true })).toHaveCount(0)
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await page.getByRole('combobox', { name: 'Settings groups' }).selectOption('extensions')
+    await expect(page.getByRole('heading', { level: 2, name: 'Extensions and skills' })).toBeVisible()
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/extensions/after/mobile-390.png', fullPage: true })
+    await page
+      .getByRole('heading', { level: 3, name: 'Skills' })
+      .evaluate((element) => element.scrollIntoView({ block: 'start' }))
+    await page.screenshot({ path: 'artifacts/ui-redesign/extensions/after/mobile-390-skills.png', fullPage: true })
+    await page.getByRole('button', { name: 'Back to session' }).click()
+
+    await openShellNavigation()
+    await page.getByRole('button', { name: 'Status center', exact: true }).click()
+    await page.getByRole('button', { name: 'Usage', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'AI usage' })).toBeVisible()
+    await expectNoHorizontalOverflow()
+    await expectShellPanesDoNotOverlap()
+    await page.screenshot({ path: 'artifacts/web-b7/connected-status-narrow.png', fullPage: true })
+    await page.screenshot({ path: 'artifacts/ui-redesign/usage/after/mobile-390.png', fullPage: true })
+    await page.getByText('More filters', { exact: true }).click()
+    await expect(page.getByText('Aggregation', { exact: true })).toBeVisible()
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/usage/after/mobile-390-filters.png', fullPage: true })
+    await page.getByText('More filters', { exact: true }).click()
+    const mobileUsageTimeline = page.getByRole('img', { name: 'Token timeline' })
+    await mobileUsageTimeline.evaluate((element) => element.scrollIntoView({ block: 'start' }))
+    await page.screenshot({ path: 'artifacts/ui-redesign/usage/after/mobile-390-chart.png', fullPage: true })
+    await page.getByRole('button', { name: 'Git', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'Git repository' })).toBeVisible()
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/git/after/mobile-390.png', fullPage: true })
+    const mobileGitTimeline = page.getByRole('heading', { level: 2, name: 'Commit and line-change timeline' })
+    await mobileGitTimeline.evaluate((element) => element.scrollIntoView({ block: 'start' }))
+    await page.screenshot({ path: 'artifacts/ui-redesign/git/after/mobile-390-charts.png', fullPage: true })
+    await page.getByText('More filters', { exact: true }).click()
+    await expect(page.getByRole('checkbox', { name: 'External commits' })).toBeVisible()
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/git/after/mobile-390-filters.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close status center' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+    await page.setViewportSize({ width: 1440, height: 960 })
+    await openShellNavigation()
+
+    await prompt.fill('/tool write_file {"path":"browser-e2e.txt","text":"approved"}')
+    await page.getByRole('button', { name: 'Send' }).click()
+    const decisionLabels = getShellCopy('en-US').session.decisions
+    const approvalCard = page.getByRole('region', { name: decisionLabels.approval, exact: true })
+    await expect(approvalCard).toBeVisible()
+    await approvalCard.getByRole('button', { name: decisionLabels.allow, exact: true }).click()
+    await expect(approvalCard.getByRole('status')).toHaveText(decisionLabels.allowed)
+    const runAuditClient = new HbarClient(
+      `http://127.0.0.1:${process.env.HBAR_E2E_HOST_PORT ?? 4317}`,
+      fixture.ready.token,
+    )
+    try {
+      await runAuditClient.connect()
+      const snapshot = await runAuditClient.call('session.snapshot', { sessionId: fixture.ready.sessionId })
+      expect(snapshot.runs.length).toBeGreaterThanOrEqual(3)
+      await expect(
+        page.getByRole('region', { name: 'Agent activity' }).getByRole('button', {
+          name: getShellCopy('en-US').session.runs.details(snapshot.runs.length),
+          exact: true,
+        }),
+      ).toBeVisible()
+    } finally {
+      runAuditClient.disconnect()
+    }
+
+    await page.getByRole('button', { name: 'Status center', exact: true }).click()
+    await page.getByRole('button', { name: 'Usage', exact: true }).click()
+    const executionDetails = page.getByText('Execution statistics', { exact: true })
+    await executionDetails.evaluate((element) => element.scrollIntoView({ block: 'start' }))
+    await executionDetails.click()
+    const toolCalls = page.locator('.lumen-compact-metrics > div').filter({ hasText: 'Tool calls' })
+    await expect(toolCalls).toContainText('2')
+    await expect(toolCalls).toContainText('2 succeeded · 0 failed · 0 unknown')
+    await expect(page.getByText('Peak request concurrency')).toBeVisible()
+    await expect(page.getByText('Total Run time')).toBeVisible()
+    await page.locator('.hbar-app-react-status-workspace > main').evaluate((element) => {
+      element.scrollTop = element.scrollHeight
+    })
+    await page.screenshot({ path: 'artifacts/web-b6/execution-usage.png', fullPage: true })
+    await page.getByRole('button', { name: 'Close status center' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+
+    await prompt.fill('/slow')
+    await page.getByRole('button', { name: 'Send' }).click()
+    await expect(page.getByText('/slow')).toBeVisible()
+    await page.getByRole('button', { name: 'Stop the current run' }).click()
+    await expect(page.getByText('Cancelled', { exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible()
+    // Fixed Host groups intentionally have no layered scope selector.
+    await page.getByRole('button', { name: 'Model', exact: true }).click()
+    const settingsScope = page.getByRole('combobox', { name: 'Settings scope' })
+    await settingsScope.selectOption('session')
+    await expect(page.locator('.lumen-page-heading p')).toHaveText(`Session settings · ${fixture.ready.sessionTitle}`)
+    const settingsModel = page.getByRole('combobox', { name: 'Model' })
+    await expect(settingsModel).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Thinking level' })).toBeVisible()
+    const expectSettingsLayout = async (mode: 'sidebar' | 'select') =>
+      expect(
+        await page.locator('.hbar-app-react-settings-workspace').evaluate((element, expectedMode) => {
+          const root = element.getBoundingClientRect()
+          const footer = element.querySelector('.hbar-app-react-settings-footer')?.getBoundingClientRect()
+          const groups = element.querySelector('.hbar-app-react-settings-groups')
+          const mobile = element.querySelector('.hbar-app-react-settings-mobile-group')
+          return {
+            mode:
+              groups && getComputedStyle(groups).display !== 'none'
+                ? 'sidebar'
+                : mobile && getComputedStyle(mobile).display !== 'none'
+                  ? 'select'
+                  : 'missing',
+            footerAligned: Boolean(footer && Math.abs(root.bottom - footer.bottom) <= 1),
+            noOverflow: element.scrollWidth <= element.clientWidth,
+            expectedMode,
+          }
+        }, mode),
+      ).toMatchObject({ mode, expectedMode: mode, footerAligned: true, noOverflow: true })
+    await expectSettingsLayout('sidebar')
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings/after/desktop-1440-model.png',
+      fullPage: true,
+    })
+    await settingsModel.click()
+    await expect(page.getByRole('listbox')).toBeVisible()
+    await expect(page.getByRole('option')).not.toHaveCount(0)
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings/after/desktop-1440-model-open.png',
+      fullPage: true,
+    })
+    await page.keyboard.press('Escape')
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await expectSettingsLayout('sidebar')
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings/after/tablet-1024-model.png',
+      fullPage: true,
+    })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(page.getByRole('button', { name: 'Show projects and sessions sidebar' }).first()).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Settings groups' })).toBeVisible()
+    await expectSettingsLayout('select')
+    await expectNoHorizontalOverflow()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings/after/mobile-390-model.png',
+      fullPage: true,
+    })
+    await page.setViewportSize({ width: 320, height: 720 })
+    await expectSettingsLayout('select')
+    await expectNoHorizontalOverflow()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings/after/mobile-320-model.png',
+      fullPage: true,
+    })
+    await page.setViewportSize({ width: 1440, height: 960 })
+    await page.getByRole('button', { name: 'Restore inheritance' }).click()
+    await page.getByRole('button', { name: 'Save changes' }).click()
+    await expect(page.getByText('Settings saved.')).toBeVisible()
+
+    await settingsScope.selectOption('global')
+    await page.getByRole('button', { name: 'Providers', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 2, name: 'Provider configurations' })).toBeVisible()
+    await expect(page.getByText('Local mock', { exact: true })).toBeVisible()
+    await expect(page.getByText('Default: fixture', { exact: true })).toBeVisible()
+    await expect(page.getByText('No credential', { exact: true })).toBeVisible()
+    const providerActions = page.getByTitle('Actions for Local fixture', { exact: true })
+    await providerActions.click()
+    const providerMenu = page.getByRole('menu', { name: 'Actions for Local fixture' })
+    await expect(providerMenu).toBeVisible()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings/after/desktop-1440-provider-menu.png',
+      fullPage: true,
+    })
+    await page.getByRole('menuitem', { name: 'Delete Local fixture' }).click()
+    const listDeleteDialog = page.getByRole('dialog', { name: 'Delete provider “Local fixture”?' })
+    await expect(listDeleteDialog).toBeVisible()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings/after/desktop-1440-provider-delete.png',
+      fullPage: true,
+    })
+    await page.keyboard.press('Escape')
+    await expect(listDeleteDialog).toBeHidden()
+    await page.keyboard.press('Escape')
+    await expect(providerMenu).toBeHidden()
+    await expect(providerActions).toBeFocused()
+    await page.getByRole('button', { name: 'Add provider', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Add provider' })).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Add provider' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible()
+    const preset = page.getByRole('combobox', { name: 'Provider preset' })
+    await page.screenshot({ path: 'artifacts/ui-redesign/provider-editor/after/add-desktop-1440.png', fullPage: true })
+    await preset.fill('OpenAI')
+    const presetPopup = page.locator('.lumen-combobox-popup:popover-open')
+    await expect(presetPopup).toBeVisible()
+    await expect(presetPopup).toHaveCSS('position', 'fixed')
+    const presetBounds = await presetPopup.boundingBox()
+    const presetViewport = page.viewportSize()
+    expect(presetBounds).not.toBeNull()
+    expect(presetViewport).not.toBeNull()
+    expect(presetBounds!.x).toBeGreaterThanOrEqual(0)
+    expect(presetBounds!.y).toBeGreaterThanOrEqual(0)
+    expect(presetBounds!.x + presetBounds!.width).toBeLessThanOrEqual(presetViewport!.width)
+    expect(presetBounds!.y + presetBounds!.height).toBeLessThanOrEqual(presetViewport!.height)
+    await expect(page.getByRole('option').filter({ has: page.getByText('OpenAI', { exact: true }) })).toBeVisible()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/provider-editor/after/add-preset-open-1440.png',
+      fullPage: true,
+    })
+    await page
+      .getByRole('option')
+      .filter({ has: page.getByText('OpenAI', { exact: true }) })
+      .click()
+    await page.getByRole('textbox', { name: 'Provider ID' }).fill('browser-provider')
+    await page.getByRole('textbox', { name: 'Display name' }).first().fill('Browser provider')
+    const modelCatalog = page.getByRole('combobox', { name: 'Add from preset catalog' })
+    await modelCatalog.fill('gpt-5.4')
+    await page
+      .getByRole('option')
+      .filter({ has: page.getByText('GPT-5.4', { exact: true }) })
+      .click()
+    await page.getByRole('button', { name: 'Set as default' }).click()
+    await page.getByLabel('API key').fill('browser-secret')
+    await page.getByRole('button', { name: 'Save provider' }).click()
+    await expect(page.locator('.hbar-app-react-provider-dialog')).toHaveCount(0)
+    const savedProviderActions = page.getByTitle('Actions for Browser provider', { exact: true })
+    await savedProviderActions.click()
+    await page.getByRole('menuitem', { name: 'Delete Browser provider' }).click()
+    const deleteDialog = page.getByRole('dialog', { name: 'Delete provider “Browser provider”?' })
+    await expect(deleteDialog).toBeVisible()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/provider-editor/after/delete-confirm-1440.png',
+      fullPage: true,
+    })
+    await page.keyboard.press('Escape')
+    await expect(deleteDialog).toBeHidden()
+    await page.keyboard.press('Escape')
+    await expect(savedProviderActions).toBeFocused()
+    await page.getByRole('button', { name: 'Edit Browser provider', exact: true }).click()
+    await expect(page.getByLabel('API key')).toHaveValue('')
+    const providerMain = page.locator('.hbar-app-react-provider-dialog > main')
+    const providerFooter = page.locator('.hbar-app-react-provider-dialog > footer')
+    const expectProviderRegionsSeparated = async () => {
+      const [mainBox, footerBox] = await Promise.all([providerMain.boundingBox(), providerFooter.boundingBox()])
+      expect(mainBox).not.toBeNull()
+      expect(footerBox).not.toBeNull()
+      expect(mainBox!.y + mainBox!.height).toBeLessThanOrEqual(footerBox!.y + 1)
+    }
+    await providerMain.evaluate((element) => {
+      element.scrollTop = 0
+    })
+    await expectProviderRegionsSeparated()
+    await page.screenshot({ path: 'artifacts/ui-redesign/provider-editor/after/desktop-1440.png', fullPage: true })
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await expectNoHorizontalOverflow()
+    await providerMain.evaluate((element) => {
+      element.scrollTop = 0
+    })
+    await expectProviderRegionsSeparated()
+    await page.screenshot({ path: 'artifacts/ui-redesign/provider-editor/after/tablet-1024.png', fullPage: true })
+    await page.getByRole('button', { name: 'Advanced model parameters', exact: true }).click()
+    await page.getByText('Available thinking levels', { exact: true }).scrollIntoViewIfNeeded()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/provider-editor/after/tablet-1024-models.png',
+      fullPage: true,
+    })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expectNoHorizontalOverflow()
+    await providerMain.evaluate((element) => {
+      element.scrollTop = 0
+    })
+    await expectProviderRegionsSeparated()
+    await page.screenshot({ path: 'artifacts/ui-redesign/provider-editor/after/mobile-390.png', fullPage: true })
+    await page.getByText('Available thinking levels', { exact: true }).scrollIntoViewIfNeeded()
+    await page.screenshot({ path: 'artifacts/ui-redesign/provider-editor/after/mobile-390-models.png', fullPage: true })
+    await page.setViewportSize({ width: 1440, height: 960 })
+    await page.getByRole('button', { name: 'Back to settings' }).click()
+    await expect(page.getByRole('dialog', { name: /provider/i })).toBeHidden()
+    await expect(page.getByRole('button', { name: 'Edit Browser provider' })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.screenshot({ path: 'artifacts/web-b3/settings-workspace.png', fullPage: true })
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings/after/desktop-1440-providers.png',
+      fullPage: true,
+    })
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await expect(page.getByRole('button', { name: 'Edit Browser provider' })).toBeVisible()
+    await expectNoHorizontalOverflow()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings/after/tablet-1024-providers.png',
+      fullPage: true,
+    })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(page.getByRole('button', { name: 'Show projects and sessions sidebar' }).first()).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Settings groups' })).toHaveValue('providers')
+    await expect(page.getByRole('button', { name: 'Edit Browser provider' })).toBeVisible()
+    await expectNoHorizontalOverflow()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings/after/mobile-390-providers.png',
+      fullPage: true,
+    })
+    await page.setViewportSize({ width: 1440, height: 960 })
+    await page.getByRole('button', { name: 'Back to session' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: fixture.ready.sessionTitle })).toBeVisible()
+    const restoreNavigationForCreation = page.getByRole('button', { name: 'Show projects and sessions sidebar' })
+    if (await restoreNavigationForCreation.isVisible()) await restoreNavigationForCreation.click()
+    await page.getByTitle(`Actions for ${fixture.ready.sessionTitle}`).click()
+    await page
+      .getByRole('menu', { name: `Actions for ${fixture.ready.sessionTitle}` })
+      .getByRole('menuitem', { name: 'Rename' })
+      .click()
+    const executionRow = page.locator(`[data-session-id="${fixture.ready.sessionId}"]`)
+    const inlineRenameInput = executionRow.getByRole('textbox', { name: 'Session title', exact: true })
+    const renamedTitle = 'Renamed by UI'
+    await inlineRenameInput.fill(renamedTitle)
+    await inlineRenameInput.press('Enter')
+    await expect(inlineRenameInput).toHaveCount(0)
+    await expect(page.getByRole('heading', { level: 1, name: renamedTitle })).toBeVisible()
+    await expect(page.getByRole('button', { name: `Open session ${renamedTitle}` })).toBeVisible()
+    await page.screenshot({ path: 'artifacts/ui-redesign/shell/session-renamed-1440.png', fullPage: true })
+    await expect(executionRow.locator('.hbar-app-react-session-target')).toBeFocused()
+    await createAndOpenSession(page.getByRole('button', { name: 'New session', exact: true }))
+    await expectNoHorizontalOverflow()
+    await page.screenshot({ path: 'artifacts/ui-redesign/session-create/after/executed-1440.png', fullPage: true })
+    await returnToOriginalSession(renamedTitle)
+    expect(errors).toEqual([])
+  } finally {
+    navigationClient?.disconnect()
+    await context.close()
+    if (fixture) await stopSessionHost(fixture.child)
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('provider presets persist custom models, thinking levels, and independent visibility', async ({ browser }) => {
+  test.setTimeout(120_000)
+  const root = await mkdtemp(join(tmpdir(), 'hbar-web-provider-editor-'))
+  let fixture: Awaited<ReturnType<typeof startSessionHost>> | undefined
+  const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 960 } })
+  try {
+    fixture = await startSessionHost(root)
+    const authenticate = await context.request.post(
+      `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}/auth/token`,
+      { data: { token: fixture.ready.token } },
+    )
+    expect(authenticate.ok()).toBe(true)
+
+    const page = await context.newPage()
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    const expectNoHorizontalOverflow = async () =>
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
+    await expect(page.getByRole('complementary', { name: 'Projects and sessions' }).locator('footer')).toContainText(
+      'Connected',
+    )
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible()
+    const settingsScope = page.getByRole('combobox', { name: 'Settings scope' })
+    if (await settingsScope.count()) await settingsScope.selectOption('global')
+    await page.getByRole('button', { name: 'Providers', exact: true }).click()
+    await page.getByRole('button', { name: 'Add provider', exact: true }).click()
+
+    const preset = page.getByRole('combobox', { name: 'Provider preset' })
+    await preset.fill('OpenAI')
+    await page
+      .getByRole('option')
+      .filter({ has: page.getByText('OpenAI', { exact: true }) })
+      .click()
+    await page.getByRole('textbox', { name: 'Provider ID' }).fill('browser-provider')
+    await page.getByRole('textbox', { name: 'Display name' }).first().fill('Browser provider')
+
+    const modelCatalog = page.getByRole('combobox', { name: 'Add from preset catalog' })
+    await modelCatalog.fill('gpt-5.4')
+    await page
+      .getByRole('option')
+      .filter({ has: page.getByText('GPT-5.4', { exact: true }) })
+      .click()
+    await expect(page.getByRole('button', { name: 'Select GPT-5.4' })).toHaveAttribute('aria-current', 'page')
+    await page.getByRole('button', { name: 'Set as default' }).click()
+
+    const providerPrimaryColumn = page.locator('.hbar-app-react-provider-primary-column')
+    const providerModelDetails = page.getByRole('region', { name: 'Model details' })
+    const providerVisibility = providerPrimaryColumn.getByRole('checkbox', { name: 'Show in model selection' })
+    const selectedModelVisibility = providerModelDetails.getByRole('checkbox', {
+      name: 'Show in model selection',
+    })
+    await page.getByRole('button', { name: 'Advanced provider options', exact: true }).click()
+    await page.getByRole('button', { name: 'Advanced model parameters', exact: true }).click()
+    await providerVisibility.uncheck()
+    await selectedModelVisibility.uncheck()
+    await providerModelDetails.getByRole('button', { name: 'Remove thinking level Extra high' }).click()
+    const thinkingLevels = providerModelDetails.getByRole('combobox', { name: 'Available thinking levels' })
+    await thinkingLevels.fill('Maximum')
+    await page.getByRole('option', { name: 'Maximum', exact: true }).click()
+
+    await page.getByRole('textbox', { name: 'Custom model ID' }).fill('browser-custom')
+    await page.getByRole('button', { name: 'Add custom model' }).click()
+    await expect(page.getByRole('button', { name: 'Select browser-custom' })).toHaveAttribute('aria-current', 'page')
+    await page.getByRole('button', { name: 'Advanced model parameters', exact: true }).click()
+    await expect(providerModelDetails.getByRole('button', { name: 'Remove thinking level Off' })).toBeVisible()
+    await thinkingLevels.fill('High')
+    await page.getByRole('option', { name: 'High', exact: true }).click()
+    await providerModelDetails.getByRole('button', { name: 'Set as default' }).click()
+    await page.getByLabel('API key').fill('browser-provider-secret')
+    await page.getByRole('button', { name: 'Save provider' }).click()
+    await expect(page.locator('.hbar-app-react-provider-dialog')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Edit Browser provider', exact: true }).click()
+    await page.getByRole('button', { name: 'Advanced provider options', exact: true }).click()
+    await page.getByRole('button', { name: 'Advanced model parameters', exact: true }).click()
+    await expect(page.getByLabel('API key')).toHaveValue('')
+    await expect(providerVisibility).not.toBeChecked()
+    await expect(selectedModelVisibility).toBeChecked()
+    await expect(providerModelDetails.getByRole('button', { name: 'Remove thinking level High' })).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: 'Select GPT-5.4' }).getByLabel('Hidden', { exact: true }),
+    ).toBeVisible()
+
+    const providerMain = page.locator('.hbar-app-react-provider-dialog > main')
+    const providerFooter = page.locator('.hbar-app-react-provider-dialog > footer')
+    const expectProviderRegionsSeparated = async () => {
+      const [mainBox, footerBox] = await Promise.all([providerMain.boundingBox(), providerFooter.boundingBox()])
+      expect(mainBox).not.toBeNull()
+      expect(footerBox).not.toBeNull()
+      expect(mainBox!.y + mainBox!.height).toBeLessThanOrEqual(footerBox!.y + 1)
+    }
+    await providerMain.evaluate((element) => {
+      element.scrollTop = 0
+    })
+    await expectProviderRegionsSeparated()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/provider-editor/after/visibility-thinking-desktop-1440.png',
+      fullPage: true,
+    })
+
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await expectNoHorizontalOverflow()
+    await page.getByText('Available thinking levels', { exact: true }).scrollIntoViewIfNeeded()
+    await expectProviderRegionsSeparated()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/provider-editor/after/visibility-thinking-tablet-1024.png',
+      fullPage: true,
+    })
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expectNoHorizontalOverflow()
+    await page.getByText('Available thinking levels', { exact: true }).scrollIntoViewIfNeeded()
+    await expectProviderRegionsSeparated()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/provider-editor/after/visibility-thinking-mobile-390.png',
+      fullPage: true,
+    })
+
+    await page.setViewportSize({ width: 1440, height: 960 })
+    await page.getByRole('button', { name: 'Back to settings' }).click()
+    await expect(page.getByRole('button', { name: 'Edit Browser provider' })).toBeVisible()
+    await expect(page.getByText('Primary model: browser-custom', { exact: true })).toBeVisible()
+    await expect(page.getByText('3 models', { exact: true })).toBeVisible()
+    await expect(page.getByText('Hidden', { exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Edit Browser provider' }).click()
+    await expect(page.getByRole('heading', { level: 1, name: 'Edit provider · Browser provider' })).toBeVisible()
+    await page.getByRole('button', { name: 'Advanced provider options', exact: true }).click()
+    await page.getByRole('button', { name: 'Advanced model parameters', exact: true }).click()
+    await expect(providerPrimaryColumn.getByRole('checkbox', { name: 'Show in model selection' })).not.toBeChecked()
+    await expect(page.getByRole('button', { name: 'Select browser-custom' })).toHaveAttribute('aria-current', 'page')
+    await expect(
+      page.getByRole('button', { name: 'Select GPT-5.4' }).getByLabel('Hidden', { exact: true }),
+    ).toBeVisible()
+    await expect(providerModelDetails.getByRole('button', { name: 'Remove thinking level High' })).toBeVisible()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/provider-editor/after/visibility-thinking-reopened-1440.png',
+      fullPage: true,
+    })
+
+    await providerPrimaryColumn.getByRole('checkbox', { name: 'Show in model selection' }).check()
+    await expect(page.getByText('1 unsaved change', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Save provider' }).click()
+    await expect(page.locator('.hbar-app-react-provider-dialog')).toHaveCount(0)
+    await expect(page.getByText('Hidden', { exact: true })).toHaveCount(0)
+    const directClient = new HbarClient(
+      `http://127.0.0.1:${process.env.HBAR_E2E_HOST_PORT ?? 4317}`,
+      fixture.ready.token,
+    )
+    await directClient.connect()
+    try {
+      const visibleModels = await createModelCommandClient(directClient).execute('model.list', {})
+      expect(visibleModels.map((model) => model.modelId)).toContain('browser-custom')
+      expect(visibleModels.map((model) => model.modelId)).not.toContain('gpt-5.4')
+    } finally {
+      directClient.disconnect()
+    }
+    await page.getByRole('button', { name: 'Model', exact: true }).click()
+    const settingsModel = page.getByRole('combobox', { name: 'Model' })
+    await settingsModel.click()
+    await expect(page.getByRole('option', { name: /browser-custom/i })).toBeVisible()
+    await expect(page.getByRole('option', { name: /gpt-5\.4/i })).toHaveCount(0)
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/settings/after/provider-model-visibility-1440.png',
+      fullPage: true,
+    })
+    expect(errors).toEqual([])
+  } finally {
+    await context.close()
+    if (fixture) await stopSessionHost(fixture.child)
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('global appearance saves through preferences, survives reload, and restores defaults', async ({ browser }) => {
+  test.setTimeout(60_000)
+  const root = await mkdtemp(join(tmpdir(), 'hbar-web-appearance-'))
+  let fixture: Awaited<ReturnType<typeof startSessionHost>> | undefined
+  const context = await browser.newContext({
+    locale: 'en-US',
+    colorScheme: 'dark',
+    viewport: { width: 1440, height: 960 },
+  })
+  try {
+    fixture = await startSessionHost(root)
+    const authenticate = await context.request.post(
+      `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}/auth/token`,
+      { data: { token: fixture.ready.token } },
+    )
+    expect(authenticate.ok()).toBe(true)
+
+    const page = await context.newPage()
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    const expectAppearance = async (expected: { readonly theme: 'light' | 'dark'; readonly size: 's' | 'm' | 'l' }) => {
+      const html = page.locator('html')
+      await expect(html).toHaveAttribute('data-lumen-mode', expected.theme)
+      await expect(html).toHaveAttribute('data-lumen-control-size', expected.size)
+      await expect(html).toHaveAttribute('data-lumen-text-size', expected.size)
+      await expect(html).toHaveAttribute('data-lumen-corner-size', expected.size)
+      expect(
+        await page.evaluate(() => ({
+          inline: document.documentElement.style.colorScheme,
+          computed: getComputedStyle(document.documentElement).colorScheme,
+          overflow: document.documentElement.scrollWidth <= window.innerWidth,
+        })),
+      ).toEqual({ inline: expected.theme, computed: expected.theme, overflow: true })
+    }
+
+    await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
+    await expect(page.locator('footer')).toContainText('Connected')
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await page.getByRole('button', { name: 'Appearance', exact: true }).click()
+    const theme = page.getByRole('combobox', { name: 'Theme' })
+    const controlSize = page.getByRole('combobox', { name: 'Control size' })
+    const textSize = page.getByRole('combobox', { name: 'Text size' })
+    const cornerSize = page.getByRole('combobox', { name: 'Corner size' })
+    await expect(theme).toHaveValue('system')
+    await expect(controlSize).toHaveValue('m')
+    await expect(textSize).toHaveValue('m')
+    await expect(cornerSize).toHaveValue('m')
+    await expectAppearance({ theme: 'dark', size: 'm' })
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/appearance/after/settings-system-m-1440.png',
+      fullPage: true,
+    })
+
+    await theme.selectOption('light')
+    await controlSize.selectOption('l')
+    await textSize.selectOption('l')
+    await cornerSize.selectOption('l')
+    await expect(page.getByText('Appearance changes are not saved', { exact: true })).toBeVisible()
+    await expectAppearance({ theme: 'dark', size: 'm' })
+    const preview = page.getByRole('region', { name: 'Live preview' })
+    await expect(preview).toHaveAttribute('data-lumen-mode', 'light')
+    await expect(preview).toHaveAttribute('data-lumen-control-size', 'l')
+    await expect(preview).toHaveAttribute('data-lumen-text-size', 'l')
+    await expect(preview).toHaveAttribute('data-lumen-corner-size', 'l')
+
+    await page.getByRole('button', { name: 'Save appearance' }).click()
+    await expect(page.getByText('Appearance preferences saved', { exact: true })).toBeVisible()
+    await expectAppearance({ theme: 'light', size: 'l' })
+    const geometry = await page.evaluate(() => {
+      const select = document.querySelector<HTMLSelectElement>('#hbar-appearance-controlSize')
+      const label = document.querySelector<HTMLElement>('label[for="hbar-appearance-controlSize"]')
+      const button = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+        (candidate) => candidate.textContent?.trim() === 'Save appearance',
+      )
+      if (!select || !label || !button) throw new Error('Appearance controls are missing')
+      const selectStyle = getComputedStyle(select)
+      return {
+        selectHeight: Math.round(select.getBoundingClientRect().height),
+        buttonHeight: Math.round(button.getBoundingClientRect().height),
+        labelFontSize: getComputedStyle(label).fontSize,
+        selectRadius: selectStyle.borderRadius,
+      }
+    })
+    expect(geometry).toEqual({ selectHeight: 42, buttonHeight: 42, labelFontSize: '16px', selectRadius: '8px' })
+    const savedEnvelope = await page.evaluate(() => {
+      const key = Object.keys(localStorage).find((candidate) => candidate.endsWith(':preferences'))
+      const parsed: unknown = key ? JSON.parse(localStorage.getItem(key) ?? 'null') : null
+      return parsed
+    })
+    expect(savedEnvelope).toMatchObject({
+      revision: 4,
+      value: {
+        theme: 'light',
+        'appearance.controlSize': 'l',
+        'appearance.textSize': 'l',
+        'appearance.cornerSize': 'l',
+      },
+    })
+    expect(
+      await page.evaluate(() => JSON.parse(localStorage.getItem('hbar:web:appearance') ?? 'null') as unknown),
+    ).toEqual({ controlSize: 'l', textSize: 'l', cornerSize: 'l' })
+    await page.screenshot({ path: 'artifacts/ui-redesign/appearance/after/settings-light-l-1440.png', fullPage: true })
+
+    await page.setViewportSize({ width: 320, height: 720 })
+    await expect(page.getByText('Current client settings', { exact: true })).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Settings scope' })).toHaveCount(0)
+    await page.getByRole('combobox', { name: 'Settings groups', exact: true }).selectOption('model')
+    await expect(page.getByRole('combobox', { name: 'Settings scope' })).toBeVisible()
+    await page.getByRole('combobox', { name: 'Settings groups', exact: true }).selectOption('appearance')
+    await expect(theme).toBeVisible()
+    await expectAppearance({ theme: 'light', size: 'l' })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.screenshot({ path: 'artifacts/ui-redesign/appearance/after/settings-light-l-320.png', fullPage: true })
+    await page.getByRole('button', { name: 'Restore defaults' }).scrollIntoViewIfNeeded()
+    await expect(page.getByRole('button', { name: 'Restore defaults' })).toBeVisible()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/appearance/after/settings-light-l-actions-320.png',
+      fullPage: true,
+    })
+
+    await page.setViewportSize({ width: 1440, height: 960 })
+    await page.reload()
+    await expectAppearance({ theme: 'light', size: 'l' })
+    await expect(page.locator('footer')).toContainText('Connected')
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await page.getByRole('button', { name: 'Appearance', exact: true }).click()
+    const restoredTheme = page.getByRole('combobox', { name: 'Theme' })
+    await expect(restoredTheme).toHaveValue('light')
+    await expect(page.getByRole('combobox', { name: 'Control size' })).toHaveValue('l')
+    await expect(page.getByRole('combobox', { name: 'Text size' })).toHaveValue('l')
+    await expect(page.getByRole('combobox', { name: 'Corner size' })).toHaveValue('l')
+
+    await page.getByRole('button', { name: 'Restore defaults' }).click()
+    await expect(page.getByText('Appearance preferences saved', { exact: true })).toBeVisible()
+    await expect(restoredTheme).toHaveValue('system')
+    await expect(page.getByRole('combobox', { name: 'Control size' })).toHaveValue('m')
+    await expectAppearance({ theme: 'dark', size: 'm' })
+    const resetEnvelope = await page.evaluate(() => {
+      const key = Object.keys(localStorage).find((candidate) => candidate.endsWith(':preferences'))
+      const parsed: unknown = key ? JSON.parse(localStorage.getItem(key) ?? 'null') : null
+      return parsed
+    })
+    expect(resetEnvelope).toMatchObject({ revision: 8, value: {} })
+    await page.emulateMedia({ colorScheme: 'light' })
+    await expectAppearance({ theme: 'light', size: 'm' })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(page.getByRole('button', { name: 'Show projects and sessions sidebar' }).first()).toBeVisible()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/appearance/after/settings-reset-system-m-390.png',
+      fullPage: true,
+    })
+
+    await page.evaluate(() => {
+      const setItem = Storage.prototype.setItem
+      Storage.prototype.setItem = function setItemWithPreferenceFailure(key: string, value: string) {
+        if (key.endsWith(':preferences')) throw new DOMException('Storage unavailable', 'QuotaExceededError')
+        setItem.call(this, key, value)
+      }
+    })
+    await page.getByRole('combobox', { name: 'Control size' }).selectOption('l')
+    await page.getByRole('button', { name: 'Save appearance' }).click()
+    await expect(page.getByRole('alert')).toHaveText('Could not save appearance preferences: EXECUTION_FAILED')
+    await expectAppearance({ theme: 'light', size: 'm' })
+    await page.getByRole('alert').scrollIntoViewIfNeeded()
+    await page.screenshot({
+      path: 'artifacts/ui-redesign/appearance/after/settings-save-failure-390.png',
+      fullPage: true,
+    })
+    expect(errors).toEqual([])
+  } finally {
+    await context.close()
+    if (fixture) await stopSessionHost(fixture.child)
+    await rm(root, { recursive: true, force: true })
+  }
+})

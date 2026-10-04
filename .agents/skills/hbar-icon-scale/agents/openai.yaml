@@ -1,0 +1,4 @@
+interface:
+  display_name: "Hbar Icon Scale"
+  short_description: "Use semantic icon size tiers"
+  default_prompt: "Use $hbar-icon-scale to choose and audit shared icon size tiers for an hbar component."

@@ -17,18 +17,26 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["bun", "vite/client"]
+    "types": ["bun", "vite/client"],
+    "paths": {
+      "@lumen/app-ui": ["./hbar-ui/packages/lumen-app-ui/src/index.ts"],
+      "@lumen/app-ui/catalog": ["./hbar-ui/packages/lumen-app-ui/src/catalog.ts"],
+      "@lumen/app-ui/variants": ["./hbar-ui/packages/lumen-app-ui/src/variants/index.ts"]
+    }
   },
   "include": [
     "apps/**/*.ts",
     "apps/**/*.tsx",
     "packages/**/*.ts",
+    "packages/**/*.tsx",
     "plugins/**/*.ts",
     "scripts/**/*.ts",
     "tests/**/*.ts",
+    "tests/**/*.tsx",
     "e2e/**/*.ts",
+    "e2e/**/*.tsx",
     "examples/**/*.ts",
     "playwright.config.ts"
   ],
-  "exclude": ["node_modules", "dist", "apps/desktop/src-tauri/target"]
+  "exclude": ["node_modules", "dist", "**/artifacts/**", "apps/desktop/src-tauri/target"]
 }

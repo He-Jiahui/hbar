@@ -1,0 +1,107 @@
+:root {
+  /* Keep the spelling required by the shared icon-scale validator. */
+  /* prettier-ignore */
+  --hbar-app-ui-icon-xs: .75rem;
+  /* prettier-ignore */
+  --hbar-app-ui-icon-sm: .875rem;
+  --hbar-app-ui-icon-md: 1rem;
+  --hbar-app-ui-icon-lg: 1.25rem;
+  --hbar-app-ui-icon-xl: 1.5rem;
+  --hbar-app-ui-space-xs: 0.25rem;
+  --hbar-app-ui-space-sm: 0.5rem;
+  --hbar-app-ui-space-md: 0.75rem;
+  --hbar-app-ui-space-lg: 1rem;
+  --hbar-app-ui-space-xl: 1.5rem;
+  --hbar-app-ui-font-size-s: 0.75rem;
+  --hbar-app-ui-font-size-m: 0.8125rem;
+  --hbar-app-ui-font-size-l: 0.875rem;
+  --hbar-app-ui-line-height-s: 1.25;
+  --hbar-app-ui-line-height-m: 1.35;
+  --hbar-app-ui-line-height-l: 1.45;
+  --hbar-app-ui-control-height-s: 2rem;
+  --hbar-app-ui-control-height-m: 2.25rem;
+  --hbar-app-ui-control-height-l: 2.75rem;
+  --hbar-app-ui-control-padding-inline-s: 0.5rem;
+  --hbar-app-ui-control-padding-inline-m: 0.75rem;
+  --hbar-app-ui-control-padding-inline-l: 1rem;
+  --hbar-app-ui-radius-s: 0.25rem;
+  --hbar-app-ui-radius-m: 0.375rem;
+  --hbar-app-ui-radius-l: 0.5rem;
+  --hbar-app-ui-text-body-size: var(--hbar-app-ui-font-size-m);
+  --hbar-app-ui-text-label-size: var(--hbar-app-ui-font-size-m);
+  --hbar-app-ui-text-supporting-size: var(--hbar-app-ui-font-size-m);
+  --hbar-app-ui-text-line-height: var(--hbar-app-ui-line-height-m);
+  --hbar-app-ui-control-height: var(--hbar-app-ui-control-height-m);
+  --hbar-app-ui-control-padding-inline: var(--hbar-app-ui-control-padding-inline-m);
+  --hbar-app-ui-component-radius: var(--hbar-app-ui-radius-m);
+  --hbar-app-ui-focus-ring-width: 0.125rem;
+  --hbar-app-ui-control-min: var(--hbar-app-ui-control-height);
+  --hbar-app-ui-control-compact: var(--hbar-app-ui-control-height-s);
+  --hbar-app-ui-control-focal: var(--hbar-app-ui-control-height-l);
+  --hbar-app-ui-avatar-small: 1.5rem;
+  --hbar-app-ui-avatar-medium: 1.75rem;
+  --hbar-app-ui-avatar-large: 2.75rem;
+  --hbar-app-ui-control-radius: var(--hbar-app-ui-component-radius);
+  --hbar-app-ui-font-title: 1.25rem;
+  --hbar-app-ui-font-section: 1rem;
+  --hbar-app-ui-switch-width: 2.25rem;
+  --hbar-app-ui-switch-height: 1.25rem;
+  --hbar-app-ui-switch-thumb: 0.875rem;
+  --hbar-app-ui-divider: 0.0625rem;
+  --hbar-app-ui-accent-soft: var(--hbar-app-ui-accent-bg);
+  --hbar-app-ui-dialog-width: 40rem;
+  --hbar-app-ui-auth-card-width: 28rem;
+  --hbar-app-ui-command-viewport: 60dvh;
+  --hbar-app-ui-command-list-width: 36rem;
+  --hbar-app-ui-command-search-width: 42rem;
+  --hbar-app-ui-command-room-width: 24rem;
+  --hbar-app-ui-overlay-gap: 1rem;
+}
+
+[data-hbar-app-ui-control-size='s'] {
+  --hbar-app-ui-control-height: var(--hbar-app-ui-control-height-s);
+  --hbar-app-ui-control-padding-inline: var(--hbar-app-ui-control-padding-inline-s);
+}
+
+[data-hbar-app-ui-control-size='m'] {
+  --hbar-app-ui-control-height: var(--hbar-app-ui-control-height-m);
+  --hbar-app-ui-control-padding-inline: var(--hbar-app-ui-control-padding-inline-m);
+}
+
+[data-hbar-app-ui-control-size='l'] {
+  --hbar-app-ui-control-height: var(--hbar-app-ui-control-height-l);
+  --hbar-app-ui-control-padding-inline: var(--hbar-app-ui-control-padding-inline-l);
+}
+
+[data-hbar-app-ui-text-size='s'] {
+  --hbar-app-ui-text-body-size: var(--hbar-app-ui-font-size-s);
+  --hbar-app-ui-text-label-size: var(--hbar-app-ui-font-size-s);
+  --hbar-app-ui-text-supporting-size: var(--hbar-app-ui-font-size-s);
+  --hbar-app-ui-text-line-height: var(--hbar-app-ui-line-height-s);
+}
+
+[data-hbar-app-ui-text-size='m'] {
+  --hbar-app-ui-text-body-size: var(--hbar-app-ui-font-size-m);
+  --hbar-app-ui-text-label-size: var(--hbar-app-ui-font-size-m);
+  --hbar-app-ui-text-supporting-size: var(--hbar-app-ui-font-size-m);
+  --hbar-app-ui-text-line-height: var(--hbar-app-ui-line-height-m);
+}
+
+[data-hbar-app-ui-text-size='l'] {
+  --hbar-app-ui-text-body-size: var(--hbar-app-ui-font-size-l);
+  --hbar-app-ui-text-label-size: var(--hbar-app-ui-font-size-l);
+  --hbar-app-ui-text-supporting-size: var(--hbar-app-ui-font-size-l);
+  --hbar-app-ui-text-line-height: var(--hbar-app-ui-line-height-l);
+}
+
+[data-hbar-app-ui-corner-size='s'] {
+  --hbar-app-ui-component-radius: var(--hbar-app-ui-radius-s);
+}
+
+[data-hbar-app-ui-corner-size='m'] {
+  --hbar-app-ui-component-radius: var(--hbar-app-ui-radius-m);
+}
+
+[data-hbar-app-ui-corner-size='l'] {
+  --hbar-app-ui-component-radius: var(--hbar-app-ui-radius-l);
+}

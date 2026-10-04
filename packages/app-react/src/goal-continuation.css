@@ -1,0 +1,41 @@
+.hbar-goal-continuation {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 12px;
+  margin-block: 12px;
+  color: var(--lumen-muted);
+}
+
+.hbar-goal-continuation-rule {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  border-block-start: 0.0625rem solid var(--lumen-line);
+}
+
+.hbar-goal-continuation-label {
+  display: flex;
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  max-inline-size: 85%;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.hbar-goal-continuation-title,
+.hbar-goal-continuation-status {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.hbar-goal-continuation-title {
+  font-weight: 500;
+}
+
+.hbar-goal-continuation-status {
+  font-size: 0.75rem;
+}

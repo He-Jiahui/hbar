@@ -1,0 +1,593 @@
+import { CommandError, type CommandRegistry, type ExecuteOptions } from '@hbar/commands'
+import type { Message } from '@hbar/contracts'
+import {
+  draftCommands,
+  promptWorkspaceContextInputSchema,
+  promptWorkspaceContextSchema,
+  promptWorkspaceContextsSchema,
+  MAX_PROMPT_WORKSPACE_CONTEXTS,
+  type PromptAttachment,
+  type PromptWorkspaceContext,
+} from '@hbar/contracts/commands/draft'
+import {
+  retryRunInputSchema,
+  runAcceptedSchema,
+  type RunAccepted,
+  type SubmitRunInput,
+} from '@hbar/contracts/commands/run'
+import type { SessionExecutionPreparationPort } from './session-execution-preparation'
+import { createState } from './state'
+import { registerDraftAttachments } from './draft-attachments'
+import { serializeMentions, validateMentions } from './composer-mentions'
+import {
+  serializeComposerModelText,
+  validateWorkspaceContexts,
+  workspaceContextSemanticKey,
+} from './composer-workspace-contexts'
+import type { DraftsState, RunActionsState, RunActionState, RunCommandPort, SessionDraftState } from './types'
+import type { CommandExecutor } from '@hbar/commands'
+import { createRunCancellation } from './run-cancellation'
+
+const MAX_DRAFTS = 100
+export { restoreSessionDrafts, serializeSessionDrafts } from './session-draft-persistence'
+// Public Run ports are not required to be the SDK adapter. Once dispatched, these
+// errors cannot prove rejection; preserve the same key until its receipt is read.
+const UNCERTAIN_SUBMIT_CODES = new Set([
+  'RESULT_UNKNOWN',
+  'TIMEOUT',
+  'TIMED_OUT',
+  'DISCONNECTED',
+  'CONNECTION_CLOSED',
+  'CANCELLED',
+  'INVALID_OUTPUT',
+  'EXECUTION_FAILED',
+])
+
+interface PendingSubmission {
+  readonly key: string
+  readonly revision: number
+  readonly matchesDraft: boolean
+  readonly detached: boolean
+}
+
+export type ConversationMessageReader = (sessionId: string, messageId: string) => Readonly<Message> | null
+
+function initial(sessionId: string): SessionDraftState {
+  return {
+    sessionId,
+    text: '',
+    mentions: [],
+    workspaceContexts: [],
+    attachments: [],
+    attachmentTransfers: [],
+    uploading: 0,
+    uploadError: null,
+    revision: 0,
+    status: 'idle',
+    error: null,
+    lastOperationId: null,
+  }
+}
+
+function errorCode(error: unknown): string | null {
+  if (error && typeof error === 'object' && 'code' in error && typeof error.code === 'string') return error.code
+  return null
+}
+
+function attachmentKey(attachment: PromptAttachment): string {
+  return `${attachment.kind}:${attachment.artifact.id}`
+}
+
+function matchesInput(draft: SessionDraftState, input: SubmitRunInput): boolean {
+  const expected = [
+    ...input.input.images.map((artifact) => ({ kind: 'image' as const, artifact })),
+    ...(input.input.files ?? []).map((artifact) => ({ kind: 'file' as const, artifact })),
+  ]
+  // Intake keeps the user's material order; the Run contract groups images and
+  // files. Match identities without treating that wire grouping as an edit.
+  const expectedKeys = expected.map(attachmentKey).sort()
+  const draftKeys = draft.attachments.map(attachmentKey).sort()
+  return (
+    serializeComposerModelText(draft.text, draft.mentions, draft.workspaceContexts ?? []) === input.input.text &&
+    draft.attachments.length === expected.length &&
+    draftKeys.every((key, index) => key === expectedKeys[index])
+  )
+}
+
+export function createDrafts(
+  local: CommandRegistry,
+  run: RunCommandPort | undefined,
+  attachmentCommands: CommandExecutor | undefined,
+  onSubscriberError: (error: unknown) => void,
+  isDisposed: () => boolean,
+  attachmentQueries?: CommandExecutor,
+  preparation?: SessionExecutionPreparationPort,
+  readConversationMessage?: ConversationMessageReader,
+  initialDrafts?: DraftsState,
+) {
+  const state = createState<DraftsState>(initialDrafts ?? {}, onSubscriberError)
+  const actions = createState<RunActionsState>({}, onSubscriberError)
+  const pending = new Map<string, PendingSubmission>()
+  const retryKeys = new Map<string, { readonly key: string; readonly sessionId: string }>()
+  const settledReceipts = new Map<string, RunAccepted>()
+  const receiptKey = (sessionId: string, key: string) => JSON.stringify([sessionId, key])
+  for (const [sessionId, draft] of Object.entries(initialDrafts ?? {})) {
+    const persisted = draft.pendingSubmission
+    if (persisted && ['submitting', 'unknown'].includes(draft.status)) pending.set(sessionId, { ...persisted })
+  }
+
+  const replaceAction = (operationId: string, action: RunActionState) => {
+    if (isDisposed()) return
+    const current = actions.reader.getSnapshot()
+    const next: Record<string, RunActionState> = { ...current }
+    if (!next[operationId] && Object.keys(next).length >= 100) {
+      const settled = Object.entries(next).find(
+        ([, item]) => !item.requestInFlight && ['failed', 'succeeded'].includes(item.status),
+      )
+      if (!settled) throw new CommandError('BUSY', 'Too many run actions are pending')
+      delete next[settled[0]]
+    }
+    next[operationId] = action
+    actions.replace(next)
+  }
+
+  const entry = (sessionId: string): SessionDraftState => state.reader.getSnapshot()[sessionId] ?? initial(sessionId)
+  const cancellation = createRunCancellation({
+    local,
+    run,
+    actions: actions.reader,
+    replace: replaceAction,
+    isDisposed,
+  })
+  const replace = (sessionId: string, value: SessionDraftState): void => {
+    if (isDisposed()) return
+    const current = state.reader.getSnapshot()
+    if (!current[sessionId] && Object.keys(current).length >= MAX_DRAFTS)
+      throw new CommandError('BUSY', 'Too many session drafts are open')
+    state.replace({ ...current, [sessionId]: value })
+  }
+  const checkRevision = (current: SessionDraftState, expected: number | undefined) => {
+    if (expected !== undefined && expected !== current.revision)
+      throw new CommandError('VERSION_CONFLICT', 'The session draft changed before this edit')
+  }
+  const editedStatus = (current: SessionDraftState): Pick<SessionDraftState, 'status' | 'error'> =>
+    current.status === 'failed' ? { status: 'idle', error: null } : { status: current.status, error: current.error }
+  const assertDraftModelTextFits = (
+    text: string,
+    mentions: SessionDraftState['mentions'],
+    workspaceContexts: readonly PromptWorkspaceContext[],
+  ) => {
+    serializeComposerModelText(text, mentions, workspaceContexts)
+  }
+  const authoredMessageText = (message: Readonly<Message>): string => {
+    const textBlocks: string[] = []
+    for (const block of message.content) if (block.type === 'text') textBlocks.push(block.text)
+    return textBlocks.join('\n\n')
+  }
+
+  local.register(draftCommands['draft.setText'], ({ sessionId, text, expectedRevision }) => {
+    const current = entry(sessionId)
+    checkRevision(current, expectedRevision)
+    const mentions = text === current.text ? current.mentions : []
+    assertDraftModelTextFits(text, mentions, current.workspaceContexts ?? [])
+    const next = {
+      ...current,
+      ...editedStatus(current),
+      text,
+      mentions,
+      revision: current.revision + 1,
+    }
+    replace(sessionId, next)
+    return { sessionId, revision: next.revision }
+  })
+
+  local.register(draftCommands['draft.setContent'], ({ sessionId, text, mentions, expectedRevision }) => {
+    const current = entry(sessionId)
+    checkRevision(current, expectedRevision)
+    validateMentions(text, mentions)
+    assertDraftModelTextFits(text, mentions, current.workspaceContexts ?? [])
+    const next = {
+      ...current,
+      ...editedStatus(current),
+      text,
+      mentions: mentions.map((item) => ({ ...item })),
+      revision: current.revision + 1,
+    }
+    replace(sessionId, next)
+    return { sessionId, revision: next.revision }
+  })
+
+  local.register(
+    draftCommands['draft.addWorkspaceContext'],
+    ({ sessionId, context: inputContext, expectedRevision }) => {
+      const current = entry(sessionId)
+      checkRevision(current, expectedRevision)
+      const context = promptWorkspaceContextSchema.parse({
+        ...promptWorkspaceContextInputSchema.parse(inputContext),
+        id: crypto.randomUUID(),
+      })
+      const contexts = current.workspaceContexts ?? []
+      const semanticKey = workspaceContextSemanticKey(context)
+      const existing = contexts.find((item) => workspaceContextSemanticKey(item) === semanticKey)
+      if (existing)
+        return {
+          sessionId,
+          revision: current.revision,
+          added: false,
+          context: { ...existing },
+        }
+      if (contexts.length >= MAX_PROMPT_WORKSPACE_CONTEXTS)
+        throw new CommandError('BUSY', 'The composer has reached its workspace context limit')
+      const workspaceContexts = [...contexts, context]
+      validateWorkspaceContexts(workspaceContexts)
+      assertDraftModelTextFits(current.text, current.mentions, workspaceContexts)
+      const next = {
+        ...current,
+        ...editedStatus(current),
+        workspaceContexts,
+        revision: current.revision + 1,
+      }
+      replace(sessionId, next)
+      return { sessionId, revision: next.revision, added: true, context }
+    },
+  )
+
+  local.register(
+    draftCommands['draft.addConversationSelection'],
+    ({ sessionId, messageId, expectedText, quote, expectedRevision }) => {
+      const current = entry(sessionId)
+      checkRevision(current, expectedRevision)
+      if (!readConversationMessage)
+        throw new CommandError('CAPABILITY_UNAVAILABLE', 'Conversation selection is unavailable')
+      const message = readConversationMessage(sessionId, messageId)
+      if (!message || message.sessionId !== sessionId || message.id !== messageId)
+        throw new CommandError('STALE_TARGET', 'The selected conversation message is no longer available')
+      if (message.role !== 'user' && message.role !== 'assistant')
+        throw new CommandError(
+          'INVALID_INPUT',
+          'Conversation context is only available for user and assistant messages',
+        )
+      const sourceText = authoredMessageText(message)
+      if (!sourceText || sourceText !== expectedText)
+        throw new CommandError('STALE_TARGET', 'The selected conversation message changed before it was added')
+
+      const context = promptWorkspaceContextSchema.parse({
+        kind: 'chat-selection',
+        sourceSessionId: message.sessionId,
+        messageId: message.id,
+        sourceRole: message.role,
+        quote,
+        id: crypto.randomUUID(),
+      })
+      const contexts = current.workspaceContexts ?? []
+      const semanticKey = workspaceContextSemanticKey(context)
+      const existing = contexts.find((item) => workspaceContextSemanticKey(item) === semanticKey)
+      if (existing)
+        return {
+          sessionId,
+          revision: current.revision,
+          added: false,
+          context: { ...existing },
+        }
+      if (contexts.length >= MAX_PROMPT_WORKSPACE_CONTEXTS)
+        throw new CommandError('BUSY', 'The composer has reached its workspace context limit')
+      const workspaceContexts = [...contexts, context]
+      validateWorkspaceContexts(workspaceContexts)
+      assertDraftModelTextFits(current.text, current.mentions, workspaceContexts)
+      const next = {
+        ...current,
+        ...editedStatus(current),
+        workspaceContexts,
+        revision: current.revision + 1,
+      }
+      replace(sessionId, next)
+      return { sessionId, revision: next.revision, added: true, context }
+    },
+  )
+
+  local.register(draftCommands['draft.removeWorkspaceContext'], ({ sessionId, contextId, expectedRevision }) => {
+    const current = entry(sessionId)
+    checkRevision(current, expectedRevision)
+    const contexts = current.workspaceContexts ?? []
+    const workspaceContexts = contexts.filter((context) => context.id !== contextId)
+    if (workspaceContexts.length === contexts.length) return { sessionId, revision: current.revision, removed: false }
+    assertDraftModelTextFits(current.text, current.mentions, workspaceContexts)
+    const next = {
+      ...current,
+      ...editedStatus(current),
+      workspaceContexts,
+      revision: current.revision + 1,
+    }
+    replace(sessionId, next)
+    return { sessionId, revision: next.revision, removed: true }
+  })
+
+  local.register(
+    draftCommands['draft.setWorkspaceContexts'],
+    ({ sessionId, workspaceContexts: inputContexts, expectedRevision }) => {
+      const current = entry(sessionId)
+      checkRevision(current, expectedRevision)
+      const workspaceContexts = promptWorkspaceContextsSchema.parse(inputContexts)
+      validateWorkspaceContexts(workspaceContexts)
+      assertDraftModelTextFits(current.text, current.mentions, workspaceContexts)
+      const previous = current.workspaceContexts ?? []
+      if (JSON.stringify(previous) === JSON.stringify(workspaceContexts))
+        return { sessionId, revision: current.revision }
+      const next = {
+        ...current,
+        ...editedStatus(current),
+        workspaceContexts: workspaceContexts.map((context) => ({ ...context })),
+        revision: current.revision + 1,
+      }
+      replace(sessionId, next)
+      return { sessionId, revision: next.revision }
+    },
+  )
+
+  local.register(draftCommands['draft.setAttachments'], ({ sessionId, attachments, expectedRevision }) => {
+    const current = entry(sessionId)
+    checkRevision(current, expectedRevision)
+    const keys = attachments.map(attachmentKey)
+    if (new Set(keys).size !== keys.length) throw new CommandError('INVALID_INPUT', 'Draft attachments must be unique')
+    if (attachments.length + current.attachmentTransfers.length > 12)
+      throw new CommandError('BUSY', 'Pending uploads reserve the remaining attachment slots')
+    const next = {
+      ...current,
+      ...editedStatus(current),
+      attachments: attachments.map((attachment) => ({ ...attachment, artifact: { ...attachment.artifact } })),
+      revision: current.revision + 1,
+    }
+    replace(sessionId, next)
+    return { sessionId, revision: next.revision }
+  })
+
+  local.register(draftCommands['draft.reportAttachmentError'], ({ sessionId, error }) => {
+    const current = entry(sessionId)
+    replace(sessionId, { ...current, uploadError: error })
+    return { sessionId, revision: current.revision }
+  })
+
+  registerDraftAttachments(local, {
+    read: entry,
+    replace,
+    uploads: attachmentCommands,
+    queries: attachmentQueries,
+    isDisposed,
+    preparation,
+  })
+
+  const settle = (sessionId: string, submission: PendingSubmission, accepted: RunAccepted): void => {
+    if (pending.get(sessionId) !== submission) return
+    if (accepted.sessionId === sessionId && accepted.idempotencyKey === submission.key) {
+      const key = receiptKey(sessionId, submission.key)
+      settledReceipts.delete(key)
+      if (settledReceipts.size >= MAX_DRAFTS) {
+        const oldest = settledReceipts.keys().next().value
+        if (oldest !== undefined) settledReceipts.delete(oldest)
+      }
+      settledReceipts.set(key, { ...accepted })
+    }
+    const current = entry(sessionId)
+    const { pendingSubmission: _pendingSubmission, ...withoutPendingSubmission } = current
+    const clear = submission.matchesDraft && current.revision === submission.revision
+    replace(sessionId, {
+      ...withoutPendingSubmission,
+      ...(clear
+        ? { text: '', mentions: [], workspaceContexts: [], attachments: [], revision: current.revision + 1 }
+        : {}),
+      status: 'idle',
+      error: null,
+      lastOperationId: accepted.operationId,
+    })
+    pending.delete(sessionId)
+  }
+
+  local.register(draftCommands['draft.reconcileSubmission'], async ({ sessionId }) => {
+    const submission = pending.get(sessionId)
+    const current = entry(sessionId)
+    if (!run || !submission || current.status !== 'unknown')
+      throw new CommandError('INVALID_INPUT', 'The session draft has no unknown submission to reconcile')
+    const receipt = await run.getReceipt(sessionId, submission.key, 'run.submit')
+    if (
+      receipt &&
+      (!runAcceptedSchema.safeParse(receipt).success ||
+        receipt.sessionId !== sessionId ||
+        receipt.idempotencyKey !== submission.key)
+    )
+      throw new CommandError('RESULT_UNKNOWN', 'Run receipt does not match its original request')
+    if (receipt) settle(sessionId, submission, receipt)
+    return receipt
+  })
+
+  const submitRun = async (
+    submit: SubmitRunInput,
+    options: ExecuteOptions,
+    detached: boolean,
+  ): Promise<RunAccepted> => {
+    if (!run) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Run commands are unavailable in this runtime')
+    const current = entry(submit.sessionId)
+    if (current.status === 'submitting' || current.status === 'unknown')
+      throw new CommandError('BUSY', 'The session draft already has a pending submission')
+    const submission: PendingSubmission = {
+      key: options.idempotencyKey ?? crypto.randomUUID(),
+      revision: current.revision,
+      matchesDraft: !detached && matchesInput(current, submit),
+      detached,
+    }
+    replace(submit.sessionId, {
+      ...current,
+      status: 'submitting',
+      error: null,
+      pendingSubmission: {
+        key: submission.key,
+        revision: submission.revision,
+        matchesDraft: submission.matchesDraft,
+        detached,
+      },
+    })
+    pending.set(submit.sessionId, submission)
+    let dispatched = false
+    try {
+      const target = await preparation?.capture(submit.sessionId, options.signal)
+      if (target) preparation?.assertCanPrepare(target)
+      if (isDisposed()) throw new CommandError('DISPOSED', 'Run preparation was disposed')
+      options.signal?.throwIfAborted()
+      dispatched = true
+      const parsed = runAcceptedSchema.safeParse(
+        await run.execute('run.submit', submit, { ...options, idempotencyKey: submission.key }),
+      )
+      if (!parsed.success) {
+        throw new CommandError('RESULT_UNKNOWN', 'Run acceptance could not be verified')
+      }
+      const accepted = parsed.data
+      if (accepted.sessionId !== submit.sessionId || accepted.idempotencyKey !== submission.key)
+        throw new CommandError('RESULT_UNKNOWN', 'Run receipt does not match its original request')
+      settle(submit.sessionId, submission, accepted)
+      return accepted
+    } catch (error) {
+      const unknown = dispatched && UNCERTAIN_SUBMIT_CODES.has(errorCode(error) ?? 'EXECUTION_FAILED')
+      if (pending.get(submit.sessionId) === submission) {
+        const latest = entry(submit.sessionId)
+        const { pendingSubmission: _pendingSubmission, ...withoutPendingSubmission } = latest
+        replace(submit.sessionId, {
+          ...withoutPendingSubmission,
+          status: unknown ? 'unknown' : 'failed',
+          error: errorCode(error) ?? (error instanceof Error ? error.message : 'EXECUTION_FAILED'),
+          ...(unknown ? { pendingSubmission: submission } : {}),
+        })
+        if (!unknown) pending.delete(submit.sessionId)
+      }
+      if (unknown && errorCode(error) !== 'RESULT_UNKNOWN')
+        throw new CommandError(
+          'RESULT_UNKNOWN',
+          'Run acceptance is uncertain; reconcile the original submission receipt',
+        )
+      throw error
+    }
+  }
+
+  return {
+    reader: state.reader,
+    serializeSubmission(sessionId: string, expectedRevision: number, workspaceId: string, displayText: string): string {
+      const current = entry(sessionId)
+      checkRevision(current, expectedRevision)
+      if (current.text !== displayText)
+        throw new CommandError('VERSION_CONFLICT', 'The session draft changed before submission')
+      return serializeComposerModelText(current.text, current.mentions, current.workspaceContexts ?? [], workspaceId)
+    },
+    serializeGoalObjective(
+      sessionId: string,
+      expectedRevision: number,
+      workspaceId: string,
+      displayText: string,
+    ): string {
+      const current = entry(sessionId)
+      checkRevision(current, expectedRevision)
+      if (current.text !== displayText)
+        throw new CommandError('VERSION_CONFLICT', 'The session draft changed before Goal validation')
+      return serializeMentions(current.text, current.mentions, workspaceId)
+    },
+    actions: actions.reader,
+    /** Recent confirmed receipts remain readable after either UI entry reconciles their single owner. */
+    getSettledReceipt(sessionId: string, key: string): RunAccepted | null {
+      const receipt = settledReceipts.get(receiptKey(sessionId, key))
+      return receipt ? { ...receipt } : null
+    },
+    /** A user action outside the composer shares its receipt owner but never consumes the draft. */
+    executeDetachedRun(input: SubmitRunInput, options: ExecuteOptions = {}): Promise<RunAccepted> {
+      return submitRun(input, options, true)
+    },
+    async executeRun(name: string, input: unknown, options: ExecuteOptions = {}): Promise<unknown> {
+      if (!run) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Run commands are unavailable in this runtime')
+      if (name === 'operation.cancel') {
+        return cancellation.cancel(input, options)
+      }
+      if (name === 'run.retry') {
+        const retry = retryRunInputSchema.parse(input)
+        const sourceOperationId = retry.operationId
+        const current = actions.reader.getSnapshot()[sourceOperationId]
+        if (current?.commandId === 'operation.cancel' && (current.requestInFlight || current.status === 'unknown'))
+          throw new CommandError('BUSY', 'The original cancellation must be reconciled before retrying')
+        if (current?.status === 'submitting') throw new CommandError('BUSY', 'Run retry is already pending')
+        const original = retryKeys.get(sourceOperationId)
+        if (original && original.sessionId !== retry.sessionId)
+          throw new CommandError('STALE_TARGET', 'Retry belongs to another captured Session')
+        if (original && current?.status === 'unknown') {
+          // An unknown retry is an existing request, not permission to enqueue again.
+          replaceAction(sourceOperationId, { ...current, phase: 'receipt', status: 'submitting', error: null })
+          try {
+            const receipt = await run.getReceipt(original.sessionId, original.key, 'run.retry')
+            const parsed = runAcceptedSchema.safeParse(receipt)
+            if (
+              !parsed.success ||
+              parsed.data.sessionId !== original.sessionId ||
+              parsed.data.idempotencyKey !== original.key
+            )
+              throw new CommandError('RESULT_UNKNOWN', 'The original retry has no confirmed receipt')
+            if (retryKeys.get(sourceOperationId) === original) {
+              retryKeys.delete(sourceOperationId)
+              replaceAction(sourceOperationId, { ...current, phase: 'receipt', status: 'succeeded', error: null })
+            }
+            return parsed.data
+          } catch (error) {
+            if (retryKeys.get(sourceOperationId) === original)
+              replaceAction(sourceOperationId, {
+                ...current,
+                status: 'unknown',
+                error: errorCode(error) ?? 'RESULT_UNKNOWN',
+              })
+            throw error
+          }
+        }
+        const key = options.idempotencyKey ?? crypto.randomUUID()
+        const action: RunActionState = {
+          operationId: sourceOperationId,
+          commandId: 'run.retry',
+          phase: 'request',
+          status: 'submitting',
+          error: null,
+        }
+        replaceAction(sourceOperationId, action)
+        retryKeys.set(sourceOperationId, { key, sessionId: retry.sessionId })
+        let dispatched = false
+        try {
+          const target = await preparation?.capture(retry.sessionId, options.signal)
+          if (target) preparation?.assertCanPrepare(target)
+          if (isDisposed()) throw new CommandError('DISPOSED', 'Retry preparation was disposed')
+          options.signal?.throwIfAborted()
+          dispatched = true
+          const parsed = runAcceptedSchema.safeParse(
+            await run.execute(name, retry, { ...options, idempotencyKey: key }),
+          )
+          if (!parsed.success) throw new CommandError('RESULT_UNKNOWN', 'Retry acceptance could not be verified')
+          const result = parsed.data
+          if (result.sessionId !== retry.sessionId || result.idempotencyKey !== key)
+            throw new CommandError('RESULT_UNKNOWN', 'Retry receipt does not match the captured request')
+          retryKeys.delete(sourceOperationId)
+          replaceAction(sourceOperationId, { ...action, status: 'succeeded' })
+          return result
+        } catch (error) {
+          const value = errorCode(error) ?? (error instanceof Error ? error.message : 'EXECUTION_FAILED')
+          const unknown = dispatched && UNCERTAIN_SUBMIT_CODES.has(value)
+          if (!unknown) retryKeys.delete(sourceOperationId)
+          replaceAction(sourceOperationId, {
+            ...action,
+            status: unknown ? 'unknown' : 'failed',
+            error: value,
+          })
+          throw error
+        }
+      }
+      if (name !== 'run.submit') return run.execute(name, input, options)
+      return submitRun(input as SubmitRunInput, options, false)
+    },
+    dispose() {
+      cancellation.dispose()
+      pending.clear()
+      retryKeys.clear()
+      settledReceipts.clear()
+      state.dispose()
+      actions.dispose()
+    },
+  }
+}

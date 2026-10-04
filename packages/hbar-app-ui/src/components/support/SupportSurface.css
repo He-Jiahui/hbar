@@ -1,0 +1,1615 @@
+/* Support surfaces follow the reference's document flow: page wrappers own
+ * width and responsive columns; cards, forms, messages and actions remain in
+ * flex/grid flow without coordinate placement. */
+.hbar-app-ui-variant.hbar-app-ui-support-surface {
+    display: block !important;
+    min-block-size: 100dvh;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    background: #0b0b0b !important;
+    color: #f5f5f5 !important;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-support-help,
+.hbar-app-ui-variant.hbar-app-ui-support-ticket,
+.hbar-app-ui-variant.hbar-app-ui-support-requests {
+    display: flex !important;
+    block-size: 100%;
+    min-block-size: 0;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 1.5rem 1rem !important;
+}
+
+.hbar-app-ui-support-surface :is(h1, h2, h3, p, dl, dd, ol) {
+    margin: 0;
+}
+
+.hbar-app-ui-support-surface :is(button, input, select, textarea) {
+    font-family: inherit;
+}
+
+.hbar-app-ui-support-surface button {
+    cursor: pointer;
+}
+
+.hbar-app-ui-support-surface :is(input, select, textarea) {
+    inline-size: 100%;
+    min-inline-size: 0;
+    border: 1px solid #303030;
+    border-radius: .625rem;
+    padding: .5rem .75rem;
+    outline: 0;
+    background: #191919;
+    color: #f5f5f5;
+    font-size: .8125rem;
+    line-height: 1.21875rem;
+}
+
+.hbar-app-ui-support-surface :is(input, select, textarea):focus {
+    border-color: #777;
+}
+
+.hbar-app-ui-support-surface textarea {
+    resize: vertical;
+}
+
+.hbar-app-ui-support-surface :is(strong, small, span, p, time, code) {
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-support-surface strong {
+    color: #f5f5f5 !important;
+    font-weight: 500;
+}
+
+.hbar-app-ui-support-surface small,
+.hbar-app-ui-support-surface p,
+.hbar-app-ui-support-surface time {
+    color: #858585 !important;
+}
+
+.hbar-app-ui-support-button {
+    display: inline-flex;
+    min-block-size: 2.25rem;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    border: 1px solid #303030;
+    border-radius: .625rem;
+    padding: 0 .75rem;
+    background: transparent;
+    color: #d4d4d4;
+    font-size: .8125rem;
+    line-height: 1.21875rem;
+}
+
+.hbar-app-ui-support-button:hover,
+.hbar-app-ui-support-button:focus-visible {
+    border-color: #555;
+    background: #202020;
+    color: #fff;
+    outline: 0;
+}
+
+.hbar-app-ui-support-button-light {
+    border-color: #f5f5f5;
+    background: #f5f5f5;
+    color: #171717;
+}
+
+.hbar-app-ui-support-button-light:hover,
+.hbar-app-ui-support-button-light:focus-visible {
+    border-color: #fff;
+    background: #fff;
+    color: #0b0b0b;
+}
+
+.hbar-app-ui-support-button-light:disabled {
+    border-color: #666;
+    background: #858585;
+    color: #292929;
+    cursor: not-allowed;
+}
+
+.hbar-app-ui-support-button-quiet {
+    border-color: transparent;
+    background: transparent;
+}
+
+.hbar-app-ui-support-icon-button {
+    display: inline-flex;
+    inline-size: 2rem;
+    block-size: 2rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: .5rem;
+    padding: 0;
+    background: transparent;
+    color: #858585;
+}
+
+.hbar-app-ui-support-icon-button:hover,
+.hbar-app-ui-support-icon-button:focus-visible {
+    background: #292929;
+    color: #f5f5f5;
+    outline: 0;
+}
+
+.hbar-app-ui-support-chip {
+    display: inline-flex;
+    inline-size: fit-content;
+    align-items: center;
+    border: 1px solid #444;
+    border-radius: .3125rem;
+    padding: .125rem .4375rem;
+    color: #d4d4d4;
+    font-size: .6875rem;
+    font-weight: 500;
+    line-height: 1rem;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-support-chip-light {
+    border-color: #f5f5f5;
+    background: #f5f5f5;
+    color: #171717;
+}
+
+.hbar-app-ui-support-chip-warning {
+    border-color: #e3b568;
+    color: #e3b568;
+}
+
+/* Help center ----------------------------------------------------------- */
+.hbar-app-ui-support-help-page {
+    display: grid;
+    inline-size: min(100%, 49.5rem);
+    min-block-size: 0;
+    flex: 1 1 auto;
+    gap: 1rem;
+    margin-inline: auto;
+    overflow: auto;
+    padding: 0;
+    scrollbar-width: none;
+}
+
+.hbar-app-ui-support-help-page::-webkit-scrollbar,
+.hbar-app-ui-support-thread-layout::-webkit-scrollbar {
+    display: none;
+}
+
+.hbar-app-ui-support-help-heading {
+    display: grid;
+    justify-items: center;
+    gap: .375rem;
+    padding-block-start: .125rem;
+    text-align: center;
+}
+
+.hbar-app-ui-support-help-heading h1 {
+    color: #f5f5f5;
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 2rem;
+}
+
+.hbar-app-ui-support-help-heading p {
+    max-inline-size: 30rem;
+    font-size: .8125rem !important;
+    line-height: 1.25rem !important;
+}
+
+.hbar-app-ui-support-search {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 2.75rem;
+    align-items: center;
+    gap: .625rem;
+    border: 1px solid #303030;
+    border-radius: .75rem;
+    padding-inline: .875rem;
+    background: #191919;
+    color: #a3a3a3;
+}
+
+.hbar-app-ui-support-help-page > .hbar-app-ui-support-search {
+    inline-size: min(100%, 32.5rem);
+    margin-inline: auto;
+}
+
+.hbar-app-ui-support-search input {
+    min-block-size: 0;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    background: transparent;
+    color: #f5f5f5;
+}
+
+.hbar-app-ui-support-topic-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .25rem;
+    border: 1px solid #303030;
+    border-radius: .875rem;
+    padding: .25rem;
+    margin-block-start: .25rem;
+}
+
+.hbar-app-ui-support-topic-grid button {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    gap: .75rem;
+    border: 1px solid #303030;
+    border-radius: .625rem;
+    padding: 1rem;
+    background: #191919;
+    color: #f5f5f5;
+    text-align: start;
+}
+
+.hbar-app-ui-support-topic-grid button:hover,
+.hbar-app-ui-support-topic-grid button:focus-visible {
+    border-color: #555;
+    background: #202020;
+    outline: 0;
+}
+
+.hbar-app-ui-support-topic-icon {
+    display: inline-flex;
+    inline-size: 2rem;
+    block-size: 2rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #333;
+    border-radius: .5rem;
+    color: #d4d4d4;
+}
+
+.hbar-app-ui-support-topic-grid button > span:nth-child(2) {
+    display: grid;
+    min-inline-size: 0;
+    flex: 1 1 auto;
+    gap: .25rem;
+}
+
+.hbar-app-ui-support-topic-grid strong {
+    font-size: .875rem;
+    line-height: 1.3125rem;
+}
+
+.hbar-app-ui-support-topic-grid small {
+    font-size: .75rem;
+    line-height: 1.125rem;
+}
+
+.hbar-app-ui-support-topic-grid em {
+    color: #a3a3a3;
+    font-size: .75rem;
+    font-style: normal;
+    line-height: 1.125rem;
+}
+
+.hbar-app-ui-support-articles {
+    display: grid;
+    gap: .625rem;
+    margin-block-start: .375rem;
+}
+
+.hbar-app-ui-support-articles h2,
+.hbar-app-ui-support-ticket-aside h2,
+.hbar-app-ui-support-suggestions h2,
+.hbar-app-ui-support-thread-aside h2 {
+    color: #a3a3a3;
+    font-size: .6875rem;
+    font-weight: 500;
+    letter-spacing: .06em;
+    line-height: 1rem;
+    text-transform: uppercase;
+}
+
+.hbar-app-ui-support-articles > div {
+    display: grid;
+    gap: .25rem;
+    border: 1px solid #303030;
+    border-radius: .875rem;
+    padding: .25rem;
+}
+
+.hbar-app-ui-support-articles button {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 2.75rem;
+    align-items: center;
+    gap: .75rem;
+    border: 1px solid #303030;
+    border-radius: .625rem;
+    padding: .625rem .75rem;
+    background: #191919;
+    color: #f5f5f5;
+    text-align: start;
+}
+
+.hbar-app-ui-support-articles button:hover,
+.hbar-app-ui-support-articles button:focus-visible {
+    border-color: #555;
+    background: #202020;
+    outline: 0;
+}
+
+.hbar-app-ui-support-articles button strong {
+    min-inline-size: 0;
+    flex: 1 1 auto;
+    font-size: .8125rem;
+    line-height: 1.21875rem;
+}
+
+.hbar-app-ui-support-articles button > span {
+    color: #a3a3a3;
+    font-size: .75rem;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-support-articles button svg {
+    flex: 0 0 auto;
+    color: #666;
+}
+
+.hbar-app-ui-support-contact {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    gap: .75rem;
+    border: 1px solid #303030;
+    border-radius: .875rem;
+    padding: 1rem;
+}
+
+.hbar-app-ui-support-contact > span:nth-child(2) {
+    display: grid;
+    min-inline-size: 0;
+    flex: 1 1 auto;
+    gap: .25rem;
+}
+
+.hbar-app-ui-support-contact strong {
+    font-size: .875rem;
+    line-height: 1.3125rem;
+}
+
+.hbar-app-ui-support-contact small {
+    font-size: .75rem;
+    line-height: 1.125rem;
+}
+
+/* Ticket form ----------------------------------------------------------- */
+.hbar-app-ui-support-ticket-page {
+    inline-size: min(100%, 53.25rem);
+    min-block-size: 0;
+    overflow: auto;
+    margin-inline: auto;
+    padding: 0;
+}
+
+.hbar-app-ui-support-ticket-heading {
+    display: grid;
+    gap: .25rem;
+    margin-block-end: 1rem;
+}
+
+.hbar-app-ui-support-ticket-heading h1,
+.hbar-app-ui-support-requests-heading h1 {
+    color: #f5f5f5;
+    font-size: 1.125rem;
+    font-weight: 500;
+    line-height: 1.59375rem;
+}
+
+.hbar-app-ui-support-ticket-heading p,
+.hbar-app-ui-support-requests-heading p {
+    font-size: .8125rem !important;
+    line-height: 1.21875rem !important;
+}
+
+.hbar-app-ui-support-ticket-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 16.25rem);
+    align-items: start;
+    gap: .75rem;
+}
+
+.hbar-app-ui-support-ticket-form {
+    display: grid;
+    min-inline-size: 0;
+    gap: 1rem;
+    border: 1px solid #303030;
+    border-radius: .875rem;
+    padding: 1.5rem;
+}
+
+.hbar-app-ui-support-ticket-form > label,
+.hbar-app-ui-support-ticket-selects > label {
+    display: grid;
+    gap: .375rem;
+    color: #f5f5f5;
+    font-size: .75rem;
+    font-weight: 500;
+    line-height: 1.125rem;
+}
+
+.hbar-app-ui-support-ticket-selects {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.hbar-app-ui-support-ticket-form textarea {
+    min-block-size: 6.625rem;
+}
+
+.hbar-app-ui-support-suggestions {
+    display: grid;
+    gap: .625rem;
+    border-radius: .625rem;
+    padding: .75rem;
+    background: #0b0b0b;
+}
+
+.hbar-app-ui-support-suggestions button {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    gap: .5rem;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: #d4d4d4;
+    font-size: .8125rem;
+    line-height: 1.21875rem;
+    text-align: start;
+}
+
+.hbar-app-ui-support-suggestions button:hover,
+.hbar-app-ui-support-suggestions button:focus-visible {
+    color: #fff;
+    outline: 0;
+}
+
+.hbar-app-ui-support-suggestions svg {
+    flex: 0 0 auto;
+    color: #858585;
+}
+
+.hbar-app-ui-support-priority {
+    display: grid;
+    gap: .5rem;
+    min-inline-size: 0;
+    margin: 0;
+    border: 0;
+    padding: 0;
+}
+
+.hbar-app-ui-support-priority legend {
+    color: #f5f5f5;
+    font-size: .75rem;
+    font-weight: 500;
+    line-height: 1.125rem;
+}
+
+.hbar-app-ui-support-priority > div {
+    display: flex;
+    gap: .25rem;
+    border-radius: .625rem;
+    padding: .25rem;
+    background: #292929;
+}
+
+.hbar-app-ui-support-priority button {
+    min-inline-size: 0;
+    min-block-size: 2rem;
+    flex: 1 1 0;
+    border: 0;
+    border-radius: .5rem;
+    padding: 0 .5rem;
+    background: transparent;
+    color: #a3a3a3;
+    font-size: .8125rem;
+}
+
+.hbar-app-ui-support-priority button.is-selected {
+    background: #0b0b0b;
+    color: #f5f5f5;
+}
+
+.hbar-app-ui-support-attachments {
+    display: flex;
+    min-inline-size: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem;
+}
+
+.hbar-app-ui-support-attachments > span {
+    display: inline-flex;
+    align-items: center;
+    gap: .375rem;
+    border-radius: .625rem;
+    padding: .5rem .625rem;
+    background: #292929;
+    color: #d4d4d4;
+    font-size: .75rem;
+    line-height: 1.125rem;
+}
+
+.hbar-app-ui-support-attachments > span button {
+    display: inline-flex;
+    align-items: center;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: #858585;
+}
+
+.hbar-app-ui-support-ticket-form footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: .5rem;
+}
+
+.hbar-app-ui-support-ticket-aside {
+    display: grid;
+    min-inline-size: 0;
+    gap: .25rem;
+    border: 1px solid #303030;
+    border-radius: .875rem;
+    padding: .25rem;
+}
+
+.hbar-app-ui-support-ticket-aside section {
+    display: grid;
+    gap: .625rem;
+    border: 1px solid #303030;
+    border-radius: .625rem;
+    padding: 1rem;
+    background: #191919;
+}
+
+.hbar-app-ui-support-ticket-aside section > strong {
+    font-size: 1.125rem;
+    line-height: 1.59375rem;
+}
+
+.hbar-app-ui-support-ticket-aside p {
+    font-size: .75rem !important;
+    line-height: 1.125rem !important;
+}
+
+.hbar-app-ui-support-ticket-aside dl,
+.hbar-app-ui-support-thread-aside dl {
+    display: grid;
+    gap: .375rem;
+}
+
+.hbar-app-ui-support-ticket-aside dl > div,
+.hbar-app-ui-support-thread-aside dl > div {
+    display: flex;
+    min-inline-size: 0;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .75rem;
+}
+
+.hbar-app-ui-support-ticket-aside dt,
+.hbar-app-ui-support-thread-aside dt {
+    color: #a3a3a3;
+    font-size: .75rem;
+    line-height: 1.125rem;
+}
+
+.hbar-app-ui-support-ticket-aside dd,
+.hbar-app-ui-support-thread-aside dd {
+    color: #f5f5f5;
+    font-size: .75rem;
+    font-weight: 500;
+    line-height: 1.125rem;
+    text-align: end;
+}
+
+.hbar-app-ui-support-recent-ticket {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    color: #d4d4d4;
+    font-size: .75rem;
+    line-height: 1.125rem;
+}
+
+/* Ticket thread --------------------------------------------------------- */
+.hbar-app-ui-support-thread {
+    display: flex !important;
+    block-size: 100%;
+    min-block-size: 0;
+    overflow: hidden;
+    flex-direction: column;
+    gap: 1rem !important;
+    padding: 1.5rem !important;
+}
+
+.hbar-app-ui-support-thread .hbar-app-ui-support-messages {
+    min-block-size: 0;
+}
+
+.hbar-app-ui-support-thread .hbar-app-ui-support-reply {
+    min-block-size: 0;
+}
+
+.hbar-app-ui-support-thread-heading {
+    display: flex;
+    min-inline-size: 0;
+    flex: 0 0 auto;
+    align-items: start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.hbar-app-ui-support-thread-title {
+    display: flex;
+    min-inline-size: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem;
+}
+
+.hbar-app-ui-support-thread-title h1 {
+    color: #f5f5f5;
+    font-size: .9375rem;
+    font-weight: 500;
+    line-height: 1.40625rem;
+}
+
+.hbar-app-ui-support-thread-heading p {
+    margin-block-start: .25rem;
+    font-size: .75rem !important;
+    line-height: 1.125rem !important;
+}
+
+.hbar-app-ui-support-thread-layout {
+    display: grid;
+    min-block-size: 0;
+    flex: 1 1 auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 15rem);
+    gap: .25rem;
+    overflow: hidden;
+    border: 1px solid #303030;
+    border-radius: .875rem;
+    padding: .25rem;
+}
+
+.hbar-app-ui-support-thread-main {
+    display: grid;
+    min-block-size: 0;
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: .25rem;
+}
+
+.hbar-app-ui-support-messages {
+    display: grid;
+    align-content: start;
+    gap: .875rem;
+    min-block-size: 0;
+    overflow: auto;
+    border: 1px solid #303030;
+    border-radius: .875rem;
+    padding: 1rem;
+    list-style: none;
+    scrollbar-width: none;
+}
+
+.hbar-app-ui-support-messages::-webkit-scrollbar {
+    display: none;
+}
+
+.hbar-app-ui-support-messages article {
+    display: flex;
+    min-inline-size: 0;
+    align-items: start;
+    gap: .75rem;
+}
+
+.hbar-app-ui-support-message-avatar {
+    display: inline-flex;
+    inline-size: 1.75rem;
+    block-size: 1.75rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: .5rem;
+    background: #292929;
+    color: #d4d4d4;
+    font-size: .625rem;
+    line-height: 1rem;
+}
+
+.hbar-app-ui-support-message-avatar.is-you {
+    background: #f5f5f5;
+    color: #171717;
+}
+
+.hbar-app-ui-support-messages article > div {
+    display: grid;
+    min-inline-size: 0;
+    flex: 1 1 auto;
+    gap: .375rem;
+}
+
+.hbar-app-ui-support-messages article header {
+    display: flex;
+    min-inline-size: 0;
+    align-items: baseline;
+    gap: .5rem;
+}
+
+.hbar-app-ui-support-messages article header strong {
+    font-size: .8125rem;
+    line-height: 1.21875rem;
+}
+
+.hbar-app-ui-support-messages article header small,
+.hbar-app-ui-support-messages article header time {
+    font-size: .6875rem;
+    line-height: 1rem;
+}
+
+.hbar-app-ui-support-messages article header time {
+    margin-inline-start: auto;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-support-messages article p {
+    color: #d4d4d4 !important;
+    font-size: .8125rem !important;
+    line-height: 1.21875rem !important;
+}
+
+.hbar-app-ui-support-file {
+    display: inline-flex;
+    inline-size: fit-content;
+    align-items: center;
+    gap: .375rem;
+    border: 1px solid #303030;
+    border-radius: .5rem;
+    padding: .375rem .5rem;
+    color: #a3a3a3;
+    font-size: .75rem;
+    line-height: 1.125rem;
+}
+
+.hbar-app-ui-support-reply {
+    display: grid;
+    gap: .5rem;
+    border: 1px solid #303030;
+    border-radius: .875rem;
+    padding: .75rem;
+}
+
+.hbar-app-ui-support-reply textarea {
+    min-block-size: 3.5rem;
+    border: 0;
+    padding: 0;
+    background: transparent;
+}
+
+.hbar-app-ui-support-reply footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+}
+
+.hbar-app-ui-support-icon-plain {
+    display: inline-flex;
+    align-items: center;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: #858585;
+}
+
+.hbar-app-ui-support-thread-aside {
+    display: grid;
+    min-block-size: 0;
+    align-content: start;
+    gap: .25rem;
+}
+
+.hbar-app-ui-support-thread-aside section {
+    display: grid;
+    gap: .75rem;
+    border: 1px solid #303030;
+    border-radius: .875rem;
+    padding: 1rem;
+    background: #191919;
+}
+
+.hbar-app-ui-support-thread-aside section > strong {
+    font-size: .8125rem;
+    line-height: 1.25rem;
+}
+
+.hbar-app-ui-support-thread-aside .hbar-app-ui-support-button {
+    justify-self: start;
+}
+
+.hbar-app-ui-support-thread-access {
+    display: flex !important;
+    align-items: start;
+    gap: .625rem;
+}
+
+.hbar-app-ui-support-thread-access svg {
+    flex: 0 0 auto;
+    color: #858585;
+}
+
+.hbar-app-ui-support-thread-access p {
+    font-size: .75rem !important;
+    line-height: 1.125rem !important;
+}
+
+/* Assistant ------------------------------------------------------------- */
+.hbar-app-ui-variant.hbar-app-ui-support-assistant {
+    display: flex !important;
+    block-size: 100%;
+    min-block-size: 0;
+    overflow: hidden;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 2.5rem 1rem !important;
+    background: #1b1b1b !important;
+}
+
+.hbar-app-ui-support-assistant-panel {
+    display: grid;
+    inline-size: min(100%, 26.25rem);
+    block-size: min(35rem, calc(100dvh - 5rem));
+    min-block-size: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 0;
+    border: 1px solid #303030;
+    border-radius: 1rem;
+    padding: .25rem;
+    background: #0b0b0b;
+    box-shadow: 0 1.5rem 3rem rgb(0 0 0 / 25%);
+}
+
+.hbar-app-ui-support-assistant-panel > header {
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 3.5rem;
+    align-items: center;
+    gap: .625rem;
+    padding: .625rem .75rem;
+}
+
+.hbar-app-ui-support-assistant-mark {
+    display: inline-flex;
+    inline-size: 2rem;
+    block-size: 2rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: .625rem;
+    background: #f5f5f5;
+    color: #171717;
+}
+
+.hbar-app-ui-support-assistant-panel > header > span:nth-child(2) {
+    display: grid;
+    min-inline-size: 0;
+    flex: 1 1 auto;
+    gap: .125rem;
+}
+
+.hbar-app-ui-support-assistant-panel > header strong {
+    font-size: .875rem;
+    line-height: 1.3125rem;
+}
+
+.hbar-app-ui-support-assistant-panel > header small {
+    font-size: .6875rem;
+    line-height: 1rem;
+}
+
+.hbar-app-ui-support-assistant-panel > main {
+    display: flex;
+    min-block-size: 0;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: .75rem;
+    padding: .75rem;
+    background: #191919;
+}
+
+.hbar-app-ui-support-assistant-transcript {
+    display: grid;
+    min-block-size: 0;
+    flex: 1 1 auto;
+    align-content: start;
+    gap: .625rem;
+    overflow: auto;
+    padding: .75rem;
+}
+
+.hbar-app-ui-support-assistant-actions {
+    display: grid;
+    flex: 0 0 auto;
+    gap: .5rem;
+    padding: .25rem;
+}
+
+.hbar-app-ui-support-chat-bubble {
+    max-inline-size: 90%;
+    border-radius: .75rem;
+    padding: .625rem .75rem;
+    font-size: .8125rem;
+    line-height: 1.3125rem;
+}
+
+.hbar-app-ui-support-chat-bubble.is-assistant {
+    justify-self: start;
+    background: #292929;
+    color: #f5f5f5;
+}
+
+.hbar-app-ui-support-chat-bubble.is-user {
+    justify-self: end;
+    background: #f5f5f5;
+    color: #171717;
+}
+
+.hbar-app-ui-support-chat-related,
+.hbar-app-ui-support-chat-actions {
+    display: grid;
+    gap: .375rem;
+}
+
+.hbar-app-ui-support-chat-related button,
+.hbar-app-ui-support-chat-actions button {
+    display: inline-flex;
+    inline-size: fit-content;
+    max-inline-size: 100%;
+    align-items: center;
+    gap: .375rem;
+    border: 0;
+    border-radius: .375rem;
+    padding: .1875rem .375rem;
+    background: transparent;
+    color: #d4d4d4;
+    font-size: .75rem;
+    line-height: 1.125rem;
+    text-align: start;
+}
+
+.hbar-app-ui-support-chat-related button:hover,
+.hbar-app-ui-support-chat-related button:focus-visible,
+.hbar-app-ui-support-chat-actions button:hover,
+.hbar-app-ui-support-chat-actions button:focus-visible {
+    background: #292929;
+    color: #fff;
+    outline: 0;
+}
+
+.hbar-app-ui-support-chat-actions {
+    display: flex;
+    min-inline-size: 0;
+    flex-wrap: wrap;
+}
+
+.hbar-app-ui-support-chat-actions button {
+    border: 1px solid #303030;
+}
+
+.hbar-app-ui-support-assistant-handoff {
+    color: #e3b568 !important;
+    font-size: .75rem !important;
+    line-height: 1.125rem !important;
+}
+
+.hbar-app-ui-support-assistant-composer {
+    display: grid;
+    gap: .5rem;
+    border: 1px solid #303030;
+    border-radius: .625rem;
+    padding: 0;
+}
+
+.hbar-app-ui-support-assistant-composer textarea {
+    min-block-size: 3.25rem;
+    border: 0;
+    padding: 0;
+    background: transparent;
+}
+
+.hbar-app-ui-support-assistant-composer footer {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    min-block-size: 2.5rem;
+    padding: 0 .5rem .5rem;
+}
+
+.hbar-app-ui-support-assistant-composer footer small {
+    font-size: .625rem;
+    line-height: 1rem;
+}
+
+.hbar-app-ui-support-assistant-composer footer button {
+    display: inline-flex;
+    inline-size: 2rem;
+    block-size: 2rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: .5rem;
+    padding: 0;
+    background: #858585;
+    color: #171717;
+}
+
+.hbar-app-ui-support-assistant-composer footer button:disabled {
+    opacity: .6;
+}
+
+.hbar-app-ui-support-assistant-trigger {
+    margin-inline: auto;
+}
+
+/* Requests -------------------------------------------------------------- */
+.hbar-app-ui-support-requests-page {
+    display: grid;
+    block-size: 100%;
+    min-block-size: 0;
+    inline-size: min(100%, 53.75rem);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    gap: 1rem;
+    margin-inline: auto;
+    padding: 0;
+}
+
+.hbar-app-ui-support-requests-heading {
+    display: flex;
+    min-inline-size: 0;
+    align-items: start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.hbar-app-ui-support-requests-heading > span {
+    display: grid;
+    gap: .125rem;
+}
+
+.hbar-app-ui-support-requests-tools {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.hbar-app-ui-support-requests-tools [role='tablist'] {
+    display: flex;
+    gap: .25rem;
+    border-radius: .625rem;
+    padding: .25rem;
+    background: #292929;
+}
+
+.hbar-app-ui-support-requests-tools [role='tab'] {
+    min-block-size: 2rem;
+    border: 0;
+    border-radius: .5rem;
+    padding: 0 .625rem;
+    background: transparent;
+    color: #a3a3a3;
+    font-size: .8125rem;
+    line-height: 1.21875rem;
+}
+
+.hbar-app-ui-support-requests-tools [role='tab'].is-selected {
+    background: #0b0b0b;
+    color: #f5f5f5;
+}
+
+.hbar-app-ui-support-requests-tools .hbar-app-ui-support-search {
+    inline-size: min(100%, 15rem);
+    min-block-size: 2.25rem;
+}
+
+.hbar-app-ui-support-request-table {
+    min-block-size: 0;
+    overflow: auto;
+    border: 1px solid #303030;
+    border-radius: .875rem;
+    padding: .25rem;
+}
+
+.hbar-app-ui-support-request-table > header,
+.hbar-app-ui-support-request-table li button {
+    display: grid;
+    min-inline-size: 0;
+    grid-template-columns: 4.25rem minmax(0, 1fr) 11.25rem 6rem 1rem;
+    align-items: center;
+    gap: .75rem;
+}
+
+.hbar-app-ui-support-request-table > header {
+    padding: .5rem .75rem;
+    color: #a3a3a3;
+    font-size: .625rem;
+    letter-spacing: .06em;
+    line-height: 1rem;
+    text-transform: uppercase;
+}
+
+.hbar-app-ui-support-request-table > header span:nth-child(3),
+.hbar-app-ui-support-request-table > header span:nth-child(4) {
+    justify-self: start;
+}
+
+.hbar-app-ui-support-request-table ol {
+    display: grid;
+    gap: .125rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.hbar-app-ui-support-request-table li button {
+    inline-size: 100%;
+    min-block-size: 3.625rem;
+    border: 0;
+    border-radius: .625rem;
+    padding: .5rem .75rem;
+    background: transparent;
+    color: #f5f5f5;
+    text-align: start;
+}
+
+.hbar-app-ui-support-request-table li button:hover,
+.hbar-app-ui-support-request-table li button:focus-visible {
+    background: #191919;
+    outline: 0;
+}
+
+.hbar-app-ui-support-request-table code {
+    color: #a3a3a3;
+    font: .75rem/1.125rem ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.hbar-app-ui-support-request-table li button > span {
+    display: grid;
+    min-inline-size: 0;
+    gap: .125rem;
+}
+
+.hbar-app-ui-support-request-table li strong {
+    overflow: hidden;
+    font-size: .8125rem;
+    line-height: 1.21875rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-support-request-table li small {
+    overflow: hidden;
+    font-size: .75rem;
+    line-height: 1.125rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-support-request-table li time {
+    font-size: .75rem;
+    line-height: 1.125rem;
+}
+
+.hbar-app-ui-support-request-table li svg {
+    color: #666;
+}
+
+.hbar-app-ui-support-requests-note {
+    font-size: .75rem !important;
+    line-height: 1.125rem !important;
+}
+
+@media (max-width: 44rem) {
+    .hbar-app-ui-support-ticket-layout,
+    .hbar-app-ui-support-thread-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .hbar-app-ui-support-thread-main {
+        min-block-size: 0;
+    }
+}
+
+@media (max-width: 40rem) {
+    .hbar-app-ui-variant.hbar-app-ui-support-help,
+    .hbar-app-ui-variant.hbar-app-ui-support-ticket,
+    .hbar-app-ui-variant.hbar-app-ui-support-requests {
+        padding: 1rem !important;
+    }
+
+    .hbar-app-ui-support-help-page,
+    .hbar-app-ui-support-ticket-page,
+    .hbar-app-ui-support-requests-page {
+        inline-size: 100%;
+    }
+
+    .hbar-app-ui-support-help-heading h1 {
+        font-size: 1.25rem;
+        line-height: 1.875rem;
+    }
+
+    .hbar-app-ui-support-topic-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .hbar-app-ui-support-ticket-form {
+        padding: 1.25rem;
+    }
+
+    .hbar-app-ui-support-ticket-selects {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .hbar-app-ui-variant.hbar-app-ui-support-thread {
+        block-size: 100%;
+        min-block-size: 0;
+        gap: .75rem !important;
+        padding: 1rem !important;
+    }
+
+    .hbar-app-ui-support-thread-heading {
+        flex-wrap: wrap;
+    }
+
+    .hbar-app-ui-support-thread-main {
+        min-block-size: 0;
+    }
+
+    .hbar-app-ui-support-messages {
+        padding: 1rem;
+    }
+
+    .hbar-app-ui-support-requests-heading,
+    .hbar-app-ui-support-requests-tools {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .hbar-app-ui-support-requests-heading .hbar-app-ui-support-button {
+        align-self: start;
+    }
+
+    .hbar-app-ui-support-requests-tools .hbar-app-ui-support-search {
+        inline-size: 100%;
+    }
+
+    .hbar-app-ui-support-request-table > header {
+        display: none;
+    }
+
+    .hbar-app-ui-support-requests-tools [role='tab'] {
+        min-block-size: 1.75rem;
+    }
+
+    .hbar-app-ui-support-requests-tools .hbar-app-ui-support-search {
+        min-block-size: 2.25rem;
+    }
+
+    .hbar-app-ui-support-request-table ol {
+        padding: .3125rem;
+    }
+
+    .hbar-app-ui-support-request-table li button {
+        min-block-size: 0;
+        grid-template-columns: minmax(0, 1fr);
+        gap: .375rem;
+        padding: .875rem;
+    }
+
+    .hbar-app-ui-support-request-table li button > span {
+        grid-row: 2;
+    }
+
+    .hbar-app-ui-support-request-table li button .hbar-app-ui-support-chip {
+        grid-row: 3;
+        justify-self: start;
+    }
+
+    .hbar-app-ui-support-request-table li button time {
+        grid-row: 4;
+    }
+
+    .hbar-app-ui-support-request-table li button > svg {
+        display: none;
+    }
+}
+
+/* The catalog theme applies broad native-button defaults. Keep these controls
+ * scoped to their real support surface so their visual state remains local. */
+.hbar-app-ui-variant.hbar-app-ui-support-surface .hbar-app-ui-support-button {
+    display: inline-flex;
+    min-block-size: 2.25rem;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    border: 1px solid #303030;
+    border-radius: .625rem;
+    padding: 0 .75rem;
+    background: transparent;
+    color: #d4d4d4;
+    font: .8125rem/1.21875rem ui-sans-serif, system-ui, sans-serif;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-support-surface .hbar-app-ui-support-button-light {
+    border-color: #f5f5f5;
+    background: #f5f5f5;
+    color: #171717;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-support-surface .hbar-app-ui-support-icon-button {
+    display: inline-flex;
+    inline-size: 2rem;
+    block-size: 2rem;
+    min-block-size: 2rem;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: .5rem;
+    padding: 0;
+    background: transparent;
+    color: #858585;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-support-surface .hbar-app-ui-support-topic-grid button {
+    display: flex;
+    border: 1px solid #303030;
+    border-radius: .625rem;
+    padding: 1rem;
+    background: #191919;
+    color: #f5f5f5;
+    font: inherit;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-support-surface .hbar-app-ui-support-articles button {
+    border: 1px solid #303030;
+    border-radius: .625rem;
+    padding: .625rem .75rem;
+    background: #191919;
+    color: #f5f5f5;
+    font: inherit;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-support-surface .hbar-app-ui-support-suggestions button {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: #d4d4d4;
+    font: .8125rem/1.21875rem ui-sans-serif, system-ui, sans-serif;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-support-surface .hbar-app-ui-support-priority button,
+.hbar-app-ui-variant.hbar-app-ui-support-surface .hbar-app-ui-support-requests-tools [role='tab'] {
+    border: 0;
+    background: transparent;
+    color: #a3a3a3;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-support-surface .hbar-app-ui-support-priority button.is-selected,
+.hbar-app-ui-variant.hbar-app-ui-support-surface .hbar-app-ui-support-requests-tools [role='tab'].is-selected {
+    background: #0b0b0b;
+    color: #f5f5f5;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-support-surface .hbar-app-ui-support-attachments > span button,
+.hbar-app-ui-variant.hbar-app-ui-support-surface .hbar-app-ui-support-icon-plain {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: #858585;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-support-thread {
+    display: flex !important;
+    block-size: 100%;
+    min-block-size: 0;
+    overflow: hidden;
+    flex-direction: column;
+    gap: 1rem !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 1.5rem !important;
+    background: #0b0b0b !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-support-surface .hbar-app-ui-support-request-table li button {
+    border: 0;
+    border-radius: .625rem;
+    padding: .5rem .75rem;
+    background: transparent;
+    color: #f5f5f5;
+    font: inherit;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-support-surface .hbar-app-ui-support-request-table li button:hover,
+.hbar-app-ui-variant.hbar-app-ui-support-surface .hbar-app-ui-support-request-table li button:focus-visible {
+    background: #191919;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-support-assistant .hbar-app-ui-support-chat-related button,
+.hbar-app-ui-variant.hbar-app-ui-support-assistant .hbar-app-ui-support-chat-actions button {
+    border: 1px solid #303030;
+    border-radius: .375rem;
+    padding: .1875rem .375rem;
+    background: transparent;
+    color: #d4d4d4;
+    font: .75rem/1.125rem ui-sans-serif, system-ui, sans-serif;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-support-assistant .hbar-app-ui-support-chat-related button {
+    border-color: transparent;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-support-assistant .hbar-app-ui-support-assistant-composer footer button {
+    display: inline-flex;
+    inline-size: 2rem;
+    block-size: 2rem;
+    min-block-size: 2rem;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: .5rem;
+    padding: 0;
+    background: #858585;
+    color: #171717;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-support-surface :is(input, select, textarea) {
+    box-sizing: border-box;
+    font: .8125rem/1.3125rem ui-sans-serif, system-ui, sans-serif;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-support-surface textarea {
+    min-block-size: 3.25rem;
+    padding: .625rem .75rem 0;
+}
+
+.hbar-app-ui-support-thread .hbar-app-ui-support-reply,
+.hbar-app-ui-support-assistant .hbar-app-ui-support-assistant-composer {
+    gap: .375rem;
+    padding: 0;
+}
+
+.hbar-app-ui-support-thread .hbar-app-ui-support-reply footer,
+.hbar-app-ui-support-assistant .hbar-app-ui-support-assistant-composer footer {
+    box-sizing: border-box;
+    block-size: 2.5rem;
+    min-block-size: 2.5rem;
+    padding: 0 .5rem .5rem;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-support-thread {
+    gap: .75rem !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-support-thread .hbar-app-ui-support-button {
+    min-block-size: 2rem;
+    padding-inline: .625rem;
+    font: .75rem/1.125rem ui-sans-serif, system-ui, sans-serif;
+}
+
+.hbar-app-ui-support-assistant-panel > header small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-support-assistant-panel > header > span:nth-child(2) {
+    gap: 0;
+}
+
+.hbar-app-ui-support-assistant-panel > header strong {
+    font-size: .8125rem;
+    line-height: 1.21875rem;
+}
+
+.hbar-app-ui-support-assistant-panel > main {
+    padding: 0;
+}
+
+.hbar-app-ui-support-assistant-actions {
+    gap: 0;
+}
+
+.hbar-app-ui-support-assistant .hbar-app-ui-support-chat-actions {
+    padding: 0 .25rem .5rem;
+}
+
+.hbar-app-ui-support-assistant .hbar-app-ui-support-chat-actions button {
+    min-block-size: 1.75rem;
+    padding: 0 .5rem;
+}
+
+@media (min-width: 40.0625rem) {
+    .hbar-app-ui-variant.hbar-app-ui-support-thread .hbar-app-ui-support-thread-heading p {
+        margin-block-start: .125rem;
+    }
+}
+
+@media (max-width: 40rem) {
+    .hbar-app-ui-variant.hbar-app-ui-support-thread {
+        gap: .75rem !important;
+        padding: 1rem !important;
+    }
+
+    .hbar-app-ui-variant.hbar-app-ui-support-thread .hbar-app-ui-support-thread-heading {
+        gap: .5rem;
+    }
+
+    .hbar-app-ui-support-thread-layout {
+        grid-template-rows: minmax(0, 1fr) 0;
+        overflow: auto;
+        scrollbar-width: none;
+    }
+
+    .hbar-app-ui-support-thread-aside {
+        min-block-size: 0;
+        overflow: visible;
+    }
+
+    .hbar-app-ui-variant.hbar-app-ui-support-requests {
+        block-size: 100%;
+    }
+
+    .hbar-app-ui-support-requests-page {
+        row-gap: .75rem;
+    }
+
+    .hbar-app-ui-support-requests-heading {
+        gap: .75rem;
+        margin-block-end: .25rem;
+    }
+
+    .hbar-app-ui-support-requests-tools {
+        gap: .5rem;
+    }
+
+    .hbar-app-ui-support-requests-tools [role='tab'] {
+        min-block-size: 1.75rem;
+    }
+
+    .hbar-app-ui-support-requests .hbar-app-ui-support-search {
+        min-block-size: 2.25rem;
+    }
+
+    .hbar-app-ui-variant.hbar-app-ui-support-requests .hbar-app-ui-support-request-table li button {
+        padding: .625rem .75rem;
+    }
+}

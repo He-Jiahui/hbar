@@ -1,9 +1,19 @@
 import { openSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, stat } from 'node:fs/promises'
 import { resolve, join } from 'node:path'
 import { spawn } from 'node:child_process'
-import { HbarClient } from '@hbar/client'
+import {
+  HbarClient,
+  createConnectionCommands,
+  createInteractionCommandClient,
+  createModelCommandClient,
+  createWorkspaceSessionCommandClient,
+} from '@hbar/client'
+import { NamedContextStore } from './context.ts'
 import { resolvePathLayout } from '@hbar/storage'
+import { hostProcessCommand } from './host-process.ts'
+import { queuedRunGuidedOperationId } from '@hbar/contracts/commands/run'
 import type {
   ApprovalMode,
   Bootstrap,
@@ -23,6 +33,7 @@ export interface CliRuntime {
   project: Bootstrap['workspaces'][number]
   session: Session
   modelId: string
+  thinkingLevel: ThinkingLevel
   close(): void
 }
 
@@ -76,29 +87,28 @@ async function connection(layout: CliRuntime['layout']): Promise<ConnectionFile 
 
 async function startHost(layout: CliRuntime['layout'], project: string, demo: boolean) {
   await mkdir(layout.dataRoot, { recursive: true })
-  const hostScript = resolve(import.meta.dir, '../../host/src/main.ts')
   const logPath = join(layout.diagnostics, 'host.log')
   await mkdir(layout.diagnostics, { recursive: true })
   const log = openSync(logPath, 'a', 0o600)
-  const child = spawn(
-    process.execPath,
-    [
-      hostScript,
-      '--desktop',
-      '--host',
-      '127.0.0.1',
-      '--port',
-      '0',
-      '--data-root',
-      layout.dataRoot,
-      '--cache-root',
-      layout.cacheRoot,
-      '--workspace',
-      project,
-      ...(demo ? ['--demo'] : []),
-    ],
-    { detached: true, stdio: ['ignore', log, log], windowsHide: true },
-  )
+  const command = hostProcessCommand([
+    '--desktop',
+    '--host',
+    '127.0.0.1',
+    '--port',
+    '0',
+    '--data-root',
+    layout.dataRoot,
+    '--cache-root',
+    layout.cacheRoot,
+    '--workspace',
+    project,
+    ...(demo ? ['--demo'] : []),
+  ])
+  const child = spawn(command[0], command.slice(1), {
+    detached: true,
+    stdio: ['ignore', log, log],
+    windowsHide: true,
+  })
   child.unref()
   const until = Date.now() + 30_000
   while (Date.now() < until) {
@@ -129,7 +139,7 @@ export async function selectProject(
   if (existing) return existing
   if (!allowCreate) throw new Error(`Project not found on the attached Host: ${selector ?? 'default'}`)
   if (!(await isDirectory(path))) throw new Error(`Project not found by path, id, or name: ${selector}`)
-  return client.call('workspace.create', { path })
+  return createWorkspaceSessionCommandClient(client).execute('workspace.create', { path })
 }
 
 export async function openAttachedRuntime(
@@ -140,11 +150,16 @@ export async function openAttachedRuntime(
 ): Promise<CliRuntime> {
   const layout = await resolvePathLayout()
   const client = new HbarClient(url, token)
+  const connection = createConnectionCommands(client)
   try {
-    await client.connect()
-  } catch (error) {
-    if (!pairingCode) throw error
-    await client.pair(pairingCode, 'hbar CLI')
+    try {
+      await connection.execute('connection.connect', {})
+    } catch (error) {
+      if (!pairingCode) throw error
+      await connection.execute('pairing.accept', { code: pairingCode, name: 'hbar CLI' })
+    }
+  } finally {
+    connection.dispose()
   }
   const bootstrap = await client.call('system.bootstrap', {})
   const project = options.project
@@ -152,13 +167,15 @@ export async function openAttachedRuntime(
     : bootstrap.workspaces[0]
   if (!project) throw new Error('The attached Host has no projects')
   const session = await selectSession(client, bootstrap, project.id, options.session)
+  const configured = await createModelCommandClient(client).execute('session.getModel', { sessionId: session.id })
   return {
     client,
     layout,
     bootstrap,
     project,
     session,
-    modelId: selectModel(bootstrap, options.model),
+    modelId: options.model ? selectModel(bootstrap, options.model) : (configured.modelId ?? selectModel(bootstrap)),
+    thinkingLevel: configured.thinkingLevel ?? 'off',
     close: () => client.disconnect(),
   }
 }
@@ -168,11 +185,21 @@ export async function selectSession(
   bootstrap: Bootstrap,
   projectId: string,
   selector?: string,
+  allowCreate = true,
 ) {
   const candidates = bootstrap.sessions.filter((session) => session.workspaceId === projectId)
-  const chosen = selector ? candidates.find((session) => session.id === selector || session.title === selector) : undefined
+  const chosen = selector
+    ? candidates.find((session) => session.id === selector || session.title === selector)
+    : undefined
   if (selector && !chosen) throw new Error(`Session not found in this project: ${selector}`)
-  return chosen ?? candidates.find((session) => !session.archived) ?? client.call('session.create', { workspaceId: projectId })
+  const selected = chosen ?? candidates.find((session) => !session.archived)
+  if (selected) return selected
+  if (!allowCreate) throw new Error('Session not found in this project')
+  return createWorkspaceSessionCommandClient(client).execute(
+    'session.create',
+    { workspaceId: projectId },
+    { idempotencyKey: randomUUID() },
+  )
 }
 
 export function selectModel(bootstrap: Bootstrap, selector?: string) {
@@ -192,14 +219,49 @@ export function selectModel(bootstrap: Bootstrap, selector?: string) {
 
 export async function openRuntime(options: {
   project?: string | undefined
+  context?: string | undefined
   session?: string | undefined
   model?: string | undefined
   dataRoot?: string | undefined
   cacheRoot?: string | undefined
   demo?: boolean | undefined
   thinking?: ThinkingLevel | undefined
+  thinkingExplicit?: boolean | undefined
   approval?: ApprovalMode | undefined
+  modelRequired?: boolean | undefined
+  createSession?: boolean | undefined
 }): Promise<CliRuntime> {
+  const { client, layout } = await openCatalogClient(options)
+  let bootstrap = await client.call('system.bootstrap', {})
+  const saved = options.context ? await new NamedContextStore(layout.dataRoot).get(options.context) : null
+  const project = await selectProject(client, bootstrap, options.project ?? saved?.workspaceId)
+  bootstrap = await client.call('system.bootstrap', {})
+  const session = await selectSession(
+    client,
+    bootstrap,
+    project.id,
+    options.session ?? (options.project ? undefined : saved?.sessionId),
+    options.createSession !== false,
+  )
+  const configured = await createModelCommandClient(client).execute('session.getModel', { sessionId: session.id })
+  const modelId =
+    options.modelRequired === false
+      ? (configured.modelId ?? '')
+      : options.model
+        ? selectModel(bootstrap, options.model)
+        : (configured.modelId ?? selectModel(bootstrap))
+  const thinkingLevel = options.thinkingExplicit
+    ? (options.thinking ?? 'off')
+    : (configured.thinkingLevel ?? options.thinking ?? 'off')
+  return { client, layout, bootstrap, project, session, modelId, thinkingLevel, close: () => client.disconnect() }
+}
+
+export async function openCatalogClient(options: {
+  project?: string | undefined
+  dataRoot?: string | undefined
+  cacheRoot?: string | undefined
+  demo?: boolean | undefined
+}) {
   const initialProject = resolve(options.project ?? process.cwd())
   const layout = await resolvePathLayout({ dataRoot: options.dataRoot, cacheRoot: options.cacheRoot })
   if (!(await connection(layout)))
@@ -208,12 +270,7 @@ export async function openRuntime(options: {
   if (!file) throw new Error('Host connection is unavailable')
   const client = new HbarClient(file.url, file.token)
   await client.connect()
-  let bootstrap = await client.call('system.bootstrap', {})
-  const project = await selectProject(client, bootstrap, options.project)
-  bootstrap = await client.call('system.bootstrap', {})
-  const session = await selectSession(client, bootstrap, project.id, options.session)
-  const modelId = selectModel(bootstrap, options.model)
-  return { client, layout, bootstrap, project, session, modelId, close: () => client.disconnect() }
+  return { client, layout }
 }
 
 function jsonLine(value: unknown) {
@@ -222,6 +279,7 @@ function jsonLine(value: unknown) {
 
 function eventLine(event: SessionEvent, run: Run) {
   const base = { runId: run.id, sessionId: run.sessionId }
+  if (queuedRunGuidedOperationId(event) === run.id) return { type: 'run.guided', ...base, guidance: event.data }
   if (event.type === 'tool.started') {
     const data = event.data as { callId?: unknown; name?: unknown }
     return { type: 'tool.started', ...base, callId: data.callId, tool: data.name }
@@ -246,6 +304,7 @@ export async function waitForRun(
   approval: ApprovalMode | 'defer',
   observer: RunObserver = {},
 ): Promise<RunResult> {
+  const interactions = createInteractionCommandClient(client)
   const events: SessionEvent[] = []
   const seen = new Set<string>()
   const approvals = new Set<string>()
@@ -279,8 +338,10 @@ export async function waitForRun(
         }
         return
       }
-      if (notification.method !== 'session.event' || notification.params.runId !== run.id) return
+      if (notification.method !== 'session.event') return
       const event = notification.params
+      const guided = queuedRunGuidedOperationId(event) === run.id
+      if (event.runId !== run.id && !guided) return
       if (seen.has(event.eventId)) return
       seen.add(event.eventId)
       events.push(event)
@@ -295,8 +356,9 @@ export async function waitForRun(
         if (approvals.has(item.id)) return
         approvals.add(item.id)
         if (approval === 'allow' || approval === 'deny')
-          void client
-            .call('approval.resolve', {
+          void interactions
+            .execute('approval.resolve', {
+              sessionId: run.sessionId,
               approvalId: item.id,
               decision: approval === 'allow' ? 'allowed' : 'denied',
             })
@@ -307,8 +369,9 @@ export async function waitForRun(
         else {
           process.stderr.write(`\nApprove ${item.tool ?? 'tool'}? [y/N] `)
           process.stdin.once('data', (answer) => {
-            void client
-              .call('approval.resolve', {
+            void interactions
+              .execute('approval.resolve', {
+                sessionId: run.sessionId,
                 approvalId: item.id,
                 decision: String(answer).trim().toLowerCase().startsWith('y') ? 'allowed' : 'denied',
               })
@@ -316,7 +379,7 @@ export async function waitForRun(
           })
         }
       }
-      if (event.type === 'run.settled') {
+      if (event.type === 'run.settled' || guided) {
         settled = true
         resolveDone()
       }
@@ -346,6 +409,7 @@ export async function waitForRun(
     process.stdout.write('\n')
   }
   const finalRun = snapshot.runs.find((item) => item.id === run.id) ?? run
-  if (finalRun.status !== 'completed') throw new Error(`Run ${finalRun.status}: ${finalRun.error ?? 'no details'}`)
+  if (finalRun.status !== 'completed' && finalRun.status !== 'guided')
+    throw new Error(`Run ${finalRun.status}: ${finalRun.error ?? 'no details'}`)
   return { run: finalRun, snapshot, assistant, events }
 }

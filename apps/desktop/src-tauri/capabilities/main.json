@@ -2,7 +2,25 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
   "description": "Desktop window lifecycle; business operations use the authenticated Host protocol.",
-  "windows": ["main"],
+  "webviews": ["main"],
   "remote": { "urls": ["http://127.0.0.1:*"] },
-  "permissions": ["core:default", "allow-connection-info", "core:window:allow-close", "core:window:allow-is-visible"]
+  "permissions": [
+    "core:default",
+    "notification:default",
+    "allow-connection-info",
+    "allow-read-ui-zoom",
+    "allow-write-ui-zoom",
+    "allow-native-notification-permission",
+    "allow-request-native-notification-permission",
+    "allow-send-native-notification",
+    "allow-native-notification-delivery-status",
+    "core:webview:allow-set-webview-zoom",
+    "core:window:allow-close",
+    "core:window:allow-show",
+    "core:window:allow-is-visible",
+    "core:window:allow-minimize",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-size",
+    "core:window:allow-toggle-maximize"
+  ]
 }

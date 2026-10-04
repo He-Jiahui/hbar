@@ -1,0 +1,269 @@
+.hbar-session-message-blocks,
+.hbar-session-activity,
+.hbar-session-activity-steps,
+.hbar-session-disclosure,
+.hbar-session-disclosure-content,
+.hbar-session-tool-section,
+.hbar-session-detail-text {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+}
+
+.hbar-session-message-blocks {
+  gap: 12px;
+}
+.hbar-session-disclosure-heading {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.hbar-session-disclosure-heading > .hbar-session-disclosure-trigger {
+  flex: 1 1 14rem;
+  inline-size: auto;
+}
+.hbar-session-message-prose {
+  min-inline-size: 0;
+  font-size: 0.90625rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.hbar-session-message-literal {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.hbar-session-message-prose > :first-child,
+.hbar-session-thinking-content > :first-child {
+  margin-block-start: 0;
+}
+.hbar-session-message-prose > :last-child,
+.hbar-session-thinking-content > :last-child {
+  margin-block-end: 0;
+}
+.hbar-session-message-prose pre {
+  max-inline-size: 100%;
+  overflow: auto;
+  font-size: 0.8125rem;
+}
+.hbar-session-message-prose img {
+  max-inline-size: 100%;
+  block-size: auto;
+}
+.hbar-session-message-prose table {
+  display: block;
+  max-inline-size: 100%;
+  overflow: auto;
+}
+
+.hbar-session-activity-summary,
+.hbar-session-disclosure-trigger {
+  inline-size: 100%;
+  min-inline-size: 0;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 4px 0;
+  color: var(--lumen-muted);
+  font-size: 0.78125rem;
+  font-weight: 400;
+  text-align: start;
+  white-space: normal;
+}
+
+.hbar-session-activity-summary {
+  font-size: 0.75rem;
+}
+.hbar-session-activity-summary > span {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.hbar-session-disclosure-label {
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.hbar-session-disclosure-identity {
+  display: flex;
+  flex: 1 1 0;
+  min-inline-size: 0;
+  align-items: baseline;
+  gap: 8px;
+}
+.hbar-session-disclosure-preview {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hbar-session-disclosure-preview[data-format='code'] {
+  font-family: ui-monospace, monospace;
+}
+.hbar-session-disclosure-status {
+  flex: 0 1 auto;
+  max-inline-size: 45%;
+  margin-inline-start: auto;
+  font-size: 0.6875rem;
+  overflow-wrap: anywhere;
+}
+.hbar-session-tool .hbar-session-disclosure-label {
+  max-inline-size: 50%;
+}
+.hbar-session-tool .hbar-session-disclosure-label:only-child {
+  max-inline-size: 100%;
+}
+.hbar-session-disclosure-content[hidden],
+.hbar-session-activity-steps[hidden] {
+  display: none;
+}
+.hbar-session-disclosure-trigger > :last-child {
+  margin-inline-start: auto;
+}
+.hbar-session-thinking > .hbar-session-disclosure-trigger {
+  font-style: italic;
+}
+.hbar-session-activity-steps {
+  border-inline-start: 0.0625rem solid var(--lumen-edge);
+  margin-inline-start: 4px;
+  padding-inline-start: 12px;
+}
+.hbar-session-disclosure-content {
+  gap: 8px;
+  margin-block: 4px 8px;
+  margin-inline-start: 20px;
+}
+.hbar-session-thinking-content {
+  max-block-size: 18.75rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  padding: 10px 12px;
+  color: var(--lumen-muted);
+  font-size: 0.78125rem;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.hbar-session-thinking-content pre {
+  max-inline-size: 100%;
+  overflow: auto;
+}
+.hbar-session-tool-section {
+  gap: 4px;
+}
+.hbar-session-tool-result-heading {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 8px;
+}
+.hbar-session-tool-result-copy-action {
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-inline-start: auto;
+  gap: 4px;
+}
+.hbar-session-tool-result-copy {
+  max-inline-size: 100%;
+  padding: 4px 6px;
+  gap: 4px;
+  color: var(--lumen-muted);
+  font-size: 0.6875rem;
+  white-space: normal;
+  text-align: start;
+}
+.hbar-session-tool-result-copy > span,
+.hbar-session-tool-result-copy-notice {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.hbar-session-tool-result-copy-notice {
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+.hbar-session-tool-result-copy-notice[role='alert'] {
+  color: var(--lumen-danger);
+}
+.hbar-session-tool-heading,
+.hbar-session-tool-status {
+  color: var(--lumen-muted);
+  font-size: 0.6875rem;
+}
+.hbar-session-tool-status[data-failed='true'],
+.hbar-session-tool[data-failed='true'] > .hbar-session-disclosure-trigger {
+  color: var(--lumen-danger);
+}
+.hbar-session-detail-text {
+  align-items: flex-start;
+  gap: 4px;
+}
+.hbar-session-detail-text > pre {
+  inline-size: 100%;
+  max-block-size: 18.75rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  padding: 10px 12px;
+  background: var(--lumen-reading);
+  color: var(--lumen-ink);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.hbar-session-detail-text[data-format='command'] > pre {
+  background: var(--lumen-ink);
+  color: var(--lumen-contrast);
+}
+.hbar-session-message-attachment,
+.hbar-session-message-actions {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.hbar-session-message-action {
+  padding: 6px;
+}
+.hbar-session-message-actions [role='alert'] {
+  color: var(--lumen-danger);
+}
+.hbar-session-message-metadata {
+  margin-inline-start: 8px;
+}
+
+@media (max-width: 40rem) {
+  .hbar-session-disclosure-preview {
+    flex-basis: 35%;
+  }
+  .hbar-session-disclosure-content {
+    margin-inline-start: 12px;
+  }
+  .hbar-session-tool .hbar-session-disclosure-identity {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+  }
+  .hbar-session-tool .hbar-session-disclosure-label {
+    max-inline-size: 100%;
+  }
+  .hbar-session-tool .hbar-session-disclosure-preview {
+    flex: 0 1 auto;
+  }
+}

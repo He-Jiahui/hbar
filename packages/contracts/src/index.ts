@@ -7,9 +7,38 @@ export * from './theme.ts'
 export * from './tool-windows.ts'
 import type { ToolWindowContribution } from './tool-windows.ts'
 import type { ThemeContribution } from './theme.ts'
+import { sandboxSnapshotRefSchema } from './sandbox'
+import { toolOutcomeSchema } from './tool-outcome'
+export { toolOutcomeSchema, type ToolOutcome } from './tool-outcome'
+import { toolCallPresentationSchema } from './tool-presentation'
+export {
+  toolPresentationFieldSchema,
+  toolPresentationDeclarationSchema,
+  toolCallPresentationSchema,
+  type ToolPresentationDeclaration,
+  type ToolCallPresentation,
+} from './tool-presentation'
+
+export { LEGACY_WRITE_RPC_METHODS, type LegacyWriteRpcMethod } from './legacy-rpc'
+import { invocationSchema } from '@hbar/commands/protocol'
+import {
+  workspaceListInputSchema,
+  workspaceGetInputSchema,
+  sessionListInputSchema,
+  sessionGetInputSchema,
+} from './state/directory'
+import type { Workspace, Session, WorkspacePage, SessionPage } from './state/directory'
+import { MAX_PLAN_STEPS, planStepSchema } from './plan'
+import type { PlanState } from './plan'
+export * from './state/directory'
+export * from './plan'
+export type { GoalHistorySnapshot, GoalHistoryFact, GoalHistoryInput, GoalHistoryPage } from './commands/goal-history'
 
 export const PROTOCOL_VERSION = 1
 export const APP_VERSION = '0.1.0'
+export const PAIRING_CODE_LENGTH = 8
+export const DEVICE_NAME_MAX_LENGTH = 100
+export const MAX_GOAL_OBJECTIVE_LENGTH = 4_000
 export const idSchema = z.string().min(1).max(160)
 export const artifactSchema = z.object({
   id: z.string().regex(/^[a-f0-9]{64}$/),
@@ -28,15 +57,21 @@ export const contentBlockSchema = z.discriminatedUnion('type', [
     callId: idSchema,
     name: z.string(),
     args: z.record(z.string(), z.unknown()),
+    presentation: toolCallPresentationSchema.optional(),
   }),
-  z.object({
-    type: z.literal('tool_result'),
-    callId: idSchema,
-    name: z.string(),
-    text: z.string(),
-    isError: z.boolean(),
-    details: z.unknown().optional(),
-  }),
+  z
+    .object({
+      type: z.literal('tool_result'),
+      callId: idSchema,
+      name: z.string(),
+      text: z.string(),
+      isError: z.boolean(),
+      details: z.unknown().optional(),
+      outcome: toolOutcomeSchema.optional(),
+    })
+    .refine((result) => !result.outcome || (result.outcome.kind === 'succeeded') === !result.isError, {
+      message: 'Tool outcome must agree with the result error flag',
+    }),
 ])
 export type ContentBlock = z.infer<typeof contentBlockSchema>
 export const thinkingLevelSchema = z.enum(['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
@@ -50,7 +85,7 @@ export const DEFAULT_THINKING_LEVELS: readonly ThinkingLevel[] = [
   'xhigh',
   'max',
 ]
-export const approvalModeSchema = z.enum(['deny', 'allow', 'ask'])
+export const approvalModeSchema = z.enum(['deny', 'allow', 'ask', 'sandbox'])
 export type ApprovalMode = z.infer<typeof approvalModeSchema>
 export const permissionModeSchema = approvalModeSchema
 export type PermissionMode = ApprovalMode
@@ -60,35 +95,68 @@ export const runSourceSchema = z.enum(['user', 'goal', 'system'])
 export type RunSource = z.infer<typeof runSourceSchema>
 export const goalStatusSchema = z.enum(['active', 'paused', 'blocked', 'usage_limited', 'budget_limited', 'complete'])
 export type GoalStatus = z.infer<typeof goalStatusSchema>
+/** Explicit user controls, excluding Host-derived allowance and blocker states. */
+export const goalControlStatusSchema = z.enum(['active', 'paused', 'complete'])
+export const executionBudgetSchema = z.object({
+  goalRemainingTokens: z.number().int().nonnegative().nullable(),
+  sessionRemainingTokens: z.number().int().nonnegative().nullable(),
+  effectiveRemainingTokens: z.number().int().nonnegative().nullable(),
+  limitingSource: z.enum(['goal', 'session', 'both']).nullable(),
+})
+export type ExecutionBudget = z.infer<typeof executionBudgetSchema>
+export const goalContinuationSchema = z.object({
+  intentId: idSchema,
+  phase: z.enum(['pending', 'queued', 'running', 'waiting', 'stopped']),
+  reason: z.enum([
+    'goal_active',
+    'workflow_wait',
+    'plan_mode',
+    'budget_exhausted',
+    'paused',
+    'complete',
+    'blocked',
+    'usage_limited',
+    'no_tool_calls',
+    'no_progress',
+    'continuation_limit',
+    'disabled',
+    'interrupted',
+    'result_unknown',
+    'stale_goal',
+    'user_turn',
+    'run_failed',
+    'repair',
+    'repair_exhausted',
+    'retry_wait',
+    'retry_exhausted',
+  ]),
+  trigger: z.string().min(1).max(200),
+  retryAt: z.number().int().nonnegative().optional(),
+  updatedAt: z.number().int().nonnegative(),
+})
+export type GoalContinuation = z.infer<typeof goalContinuationSchema>
 export const threadGoalSchema = z.object({
   threadId: idSchema,
   /** Internal identity used to reject stale external mutations. */
   goalId: idSchema.optional(),
-  objective: z.string().min(1).max(4_000),
+  objective: z.string().min(1).max(MAX_GOAL_OBJECTIVE_LENGTH),
   status: goalStatusSchema,
   tokenBudget: z.number().int().positive().nullable(),
   tokensUsed: z.number().int().nonnegative(),
   timeUsedSeconds: z.number().int().nonnegative(),
   createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),
+  executionBudget: executionBudgetSchema.optional(),
+  continuation: goalContinuationSchema.optional(),
+  blockerAudit: z
+    .object({
+      reason: z.string().min(1).max(2000),
+      consecutiveTurns: z.number().int().nonnegative(),
+      requiredTurns: z.literal(3),
+    })
+    .optional(),
 })
 export type ThreadGoal = z.infer<typeof threadGoalSchema>
-export const planStepStatusSchema = z.enum(['pending', 'in_progress', 'completed'])
-export type PlanStepStatus = z.infer<typeof planStepStatusSchema>
-export const planStepSchema = z.object({
-  step: z.string().min(1).max(4_000),
-  status: planStepStatusSchema,
-})
-export type PlanStep = z.infer<typeof planStepSchema>
-export const planStateSchema = z.object({
-  sessionId: idSchema,
-  turnId: idSchema.nullable(),
-  explanation: z.string().max(4_000).nullable(),
-  plan: z.array(planStepSchema).max(100),
-  updatedAt: z.number().int().nonnegative(),
-})
-export type PlanState = z.infer<typeof planStateSchema>
-
 const userInputIdSchema = z.string().regex(/^[a-z][a-z0-9_]{0,63}$/)
 export const userInputOptionSchema = z.object({
   label: z.string().trim().min(1).max(80),
@@ -201,14 +269,72 @@ export const gitDiffSchema = z.object({
   truncated: z.boolean(),
 })
 export type GitDiff = z.infer<typeof gitDiffSchema>
+export const gitCommitSourceSchema = z.enum(['auto', 'manual', 'external'])
+export type GitCommitSource = z.infer<typeof gitCommitSourceSchema>
+export const gitCommitProvenanceSchema = z.object({
+  source: gitCommitSourceSchema,
+  recordedAt: z.number().int().nonnegative().nullable(),
+  sessionId: z.string().min(1).max(128).nullable(),
+  runId: z.string().min(1).max(128).nullable(),
+  operationId: z.string().min(1).max(128).nullable(),
+})
+export type GitCommitProvenance = z.infer<typeof gitCommitProvenanceSchema>
 export const gitCommitInfoSchema = z.object({
   sha: z.string().regex(/^[0-9a-f]{7,64}$/i),
   shortSha: z.string().regex(/^[0-9a-f]{7,64}$/i),
   author: z.string().max(1_000),
   authoredAt: z.string().max(100),
+  committedAt: z.string().max(100).optional(),
   subject: z.string().max(4_000),
+  provenance: gitCommitProvenanceSchema,
 })
 export type GitCommitInfo = z.infer<typeof gitCommitInfoSchema>
+export const gitStatsCountSchema = z.object({
+  commits: z.number().int().nonnegative(),
+  autoCommits: z.number().int().nonnegative(),
+  manualCommits: z.number().int().nonnegative(),
+  externalCommits: z.number().int().nonnegative(),
+  filesChanged: z.number().int().nonnegative(),
+  additions: z.number().int().nonnegative(),
+  deletions: z.number().int().nonnegative(),
+  renames: z.number().int().nonnegative(),
+  binaryFiles: z.number().int().nonnegative(),
+})
+export type GitStatsCount = z.infer<typeof gitStatsCountSchema>
+export const gitStatsBucketSchema = gitStatsCountSchema.extend({
+  start: z.number().int().nonnegative(),
+  end: z.number().int().positive(),
+})
+export type GitStatsBucket = z.infer<typeof gitStatsBucketSchema>
+export const gitStatsReportSchema = z.object({
+  accountingVersion: z.literal('git-stats-v1'),
+  repoId: z.string().min(1).max(4_000),
+  head: z
+    .string()
+    .regex(/^[0-9a-f]{40}$/i)
+    .nullable(),
+  observedAt: z.number().int().nonnegative(),
+  from: z.number().int().nonnegative(),
+  to: z.number().int().positive(),
+  bucketMs: z.number().int().positive(),
+  sources: z.array(gitCommitSourceSchema).min(1).max(3),
+  timeBasis: z.literal('committer'),
+  timezone: z.literal('UTC'),
+  historyPolicy: z.literal('first-parent'),
+  renamePolicy: z.literal('separate'),
+  binaryLineChanges: z.object({
+    value: z.literal(0).nullable(),
+    availability: z.enum(['available', 'unavailable']),
+    reason: z.literal('BINARY_CONTENT').nullable(),
+  }),
+  totals: gitStatsCountSchema,
+  points: z.array(gitStatsBucketSchema).max(1_000),
+  scannedCommits: z.number().int().nonnegative(),
+  indexMode: z.enum(['empty', 'full', 'incremental', 'hit', 'reindexed']),
+  indexComplete: z.boolean(),
+  gap: z.boolean(),
+})
+export type GitStatsReport = z.infer<typeof gitStatsReportSchema>
 export const gitBranchInfoSchema = z.object({
   name: z.string().min(1).max(1_000),
   current: z.boolean(),
@@ -330,8 +456,11 @@ export const inputSchema = z.object({
   files: z.array(artifactSchema).max(12).optional(),
   thinking: thinkingLevelSchema.optional(),
   approval: approvalModeSchema.optional(),
+  /** Host-created rules for `approval: 'sandbox'`; the Host strips it for other modes. */
+  sandbox: sandboxSnapshotRefSchema.optional(),
   mode: runModeSchema.optional(),
   source: runSourceSchema.optional(),
+  continuation: z.object({ goalId: idSchema, intentId: idSchema }).optional(),
 })
 export type UserInput = z.infer<typeof inputSchema>
 export const usageSchema = z.object({
@@ -343,12 +472,6 @@ export const usageSchema = z.object({
 })
 export type Usage = z.infer<typeof usageSchema>
 export const emptyUsage = (): Usage => ({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 })
-export interface Workspace {
-  id: string
-  path: string
-  name: string
-  createdAt: number
-}
 export interface FileEntry {
   name: string
   path: string
@@ -389,19 +512,48 @@ export const sessionSummarySchema = z.object({
   seq: z.number().int().nonnegative(),
 })
 export type SessionSummary = z.infer<typeof sessionSummarySchema>
-export type RunStatus = 'queued' | 'running' | 'waiting_approval' | 'completed' | 'cancelled' | 'failed' | 'interrupted'
-export interface Run {
-  id: string
-  sessionId: string
-  requestId: string
-  input: UserInput
-  modelId: string
-  status: RunStatus
-  createdAt: number
-  startedAt: number | null
-  endedAt: number | null
-  error: string | null
-}
+export const runStatusSchema = z.enum([
+  'queued',
+  'running',
+  'waiting_approval',
+  'guided',
+  'completed',
+  'cancelled',
+  'failed',
+  'interrupted',
+])
+export type RunStatus = z.infer<typeof runStatusSchema>
+export const runFailureSchema = z.object({
+  code: z.string().min(1).max(160),
+  category: z.enum([
+    'budget',
+    'usage_limit',
+    'cancelled',
+    'timeout',
+    'interrupted',
+    'result_unknown',
+    'transient',
+    'execution',
+  ]),
+  retryable: z.boolean(),
+  budgetSource: z.enum(['goal', 'session', 'both']).optional(),
+})
+export type RunFailure = z.infer<typeof runFailureSchema>
+export const runSchema = z.object({
+  id: idSchema,
+  sessionId: idSchema,
+  requestId: idSchema,
+  input: inputSchema,
+  modelId: idSchema,
+  status: runStatusSchema,
+  createdAt: z.number().int().nonnegative(),
+  startedAt: z.number().int().nonnegative().nullable(),
+  endedAt: z.number().int().nonnegative().nullable(),
+  error: z.string().nullable(),
+  failure: runFailureSchema.optional(),
+})
+export type Run = z.infer<typeof runSchema>
+export interface Message {
 export interface Message {
   id: string
   sessionId: string
@@ -433,6 +585,9 @@ export interface Approval {
   args: Record<string, unknown>
   status: 'pending' | 'allowed' | 'denied' | 'cancelled'
   createdAt: number
+  /** Present only after a Plan-exit decision; never part of the model-supplied tool input. */
+  feedback?: string
+  decidedBy?: string
 }
 export interface LiveStream {
   id: string
@@ -468,8 +623,10 @@ export interface SessionSnapshot {
 const providerModelInputSchema = z.object({
   id: z.string().min(1).max(160),
   name: z.string().min(1).max(160).optional(),
+  description: z.string().trim().max(160).optional(),
+  visible: z.boolean().optional(),
   contextWindow: z.number().int().min(1024).max(10_000_000).optional(),
-  maxOutput: z.number().int().min(64).max(1_000_000).optional(),
+  maxOutput: z.number().int().min(64).max(10_000_000).optional(),
   imageInput: z.boolean().optional(),
   reasoning: z.boolean().optional(),
   inputPrice: z.number().nonnegative().optional(),
@@ -484,6 +641,8 @@ const providerModelInputSchema = z.object({
 export interface ProviderModelConfig {
   id: string
   name: string
+  description?: string
+  visible: boolean
   contextWindow: number
   maxOutput: number
   imageInput: boolean
@@ -500,6 +659,7 @@ export interface ProviderModelConfig {
 export interface ProviderConfig {
   id: string
   name: string
+  visible: boolean
   protocol: 'openai-completions' | 'openai-responses' | 'anthropic-messages' | 'mock'
   baseUrl: string
   /** The model used when a legacy model-only selection names this provider. */
@@ -518,16 +678,17 @@ export interface ProviderConfig {
   supportedReasoningEfforts: ThinkingLevel[]
 }
 
-const providerInputSchema = z
+export const providerInputSchema = z
   .object({
     id: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/),
     name: z.string().min(1).max(100),
+    visible: z.boolean().optional(),
     protocol: z.enum(['openai-completions', 'openai-responses', 'anthropic-messages', 'mock']),
     baseUrl: z.string().url(),
     model: z.string().min(1).max(160).optional(),
     models: z.array(providerModelInputSchema).max(256).optional(),
     contextWindow: z.number().int().min(1024).max(10_000_000).optional(),
-    maxOutput: z.number().int().min(64).max(1_000_000).optional(),
+    maxOutput: z.number().int().min(64).max(10_000_000).optional(),
     imageInput: z.boolean().optional(),
     reasoning: z.boolean().optional(),
     inputPrice: z.number().nonnegative().optional(),
@@ -540,12 +701,20 @@ const providerInputSchema = z
   })
   .superRefine((value, context) => {
     if (!value.model && !value.models?.length)
-      context.addIssue({ code: z.ZodIssueCode.custom, path: ['models'], message: 'A provider needs at least one model' })
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['models'],
+        message: 'A provider needs at least one model',
+      })
     if (value.models) {
       const seen = new Set<string>()
       for (const [index, model] of value.models.entries()) {
         if (seen.has(model.id))
-          context.addIssue({ code: z.ZodIssueCode.custom, path: ['models', index, 'id'], message: 'Model ids must be unique within a provider' })
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['models', index, 'id'],
+            message: 'Model ids must be unique within a provider',
+          })
         seen.add(model.id)
       }
     }
@@ -573,10 +742,13 @@ function normalizeProviderModel(
   const normalizedLevels: ThinkingLevel[] = levels.length > 0 ? levels : ['off']
   const requestedDefault = value.defaultThinkingLevel ?? value.defaultReasoningEffort ?? fallback.defaultThinkingLevel
   const defaultThinkingLevel = normalizedLevels.includes(requestedDefault) ? requestedDefault : normalizedLevels[0]!
-  const reasoning = value.reasoning ?? (declaredLevels ? normalizedLevels.some((level) => level !== 'off') : fallback.reasoning)
+  const reasoning =
+    value.reasoning ?? (declaredLevels ? normalizedLevels.some((level) => level !== 'off') : fallback.reasoning)
   return {
     id: value.id,
     name: value.name ?? value.id,
+    ...(value.description ? { description: value.description } : {}),
+    visible: value.visible ?? true,
     contextWindow: value.contextWindow ?? fallback.contextWindow,
     maxOutput: value.maxOutput ?? fallback.maxOutput,
     imageInput: value.imageInput ?? fallback.imageInput,
@@ -593,7 +765,9 @@ function normalizeProviderModel(
 
 export const providerSchema = providerInputSchema.transform((value): ProviderConfig => {
   const providerThinkingLevels = uniqueThinkingLevels(
-    value.thinkingLevels ?? value.supportedThinkingLevels ?? value.supportedReasoningEfforts ??
+    value.thinkingLevels ??
+      value.supportedThinkingLevels ??
+      value.supportedReasoningEfforts ??
       (value.reasoning ? DEFAULT_THINKING_LEVELS : ['off']),
   )
   const fallback = {
@@ -604,29 +778,35 @@ export const providerSchema = providerInputSchema.transform((value): ProviderCon
     inputPrice: value.inputPrice ?? 0,
     outputPrice: value.outputPrice ?? 0,
     thinkingLevels: providerThinkingLevels,
-    defaultThinkingLevel: value.defaultThinkingLevel ?? value.defaultReasoningEffort ?? (providerThinkingLevels.includes('medium') ? 'medium' : providerThinkingLevels[0] ?? 'off'),
+    defaultThinkingLevel:
+      value.defaultThinkingLevel ??
+      value.defaultReasoningEffort ??
+      (providerThinkingLevels.includes('medium') ? 'medium' : (providerThinkingLevels[0] ?? 'off')),
   }
   const rawModels = value.models?.length
     ? value.models
-    : [{
-        id: value.model!,
-        contextWindow: value.contextWindow,
-        maxOutput: value.maxOutput,
-        imageInput: value.imageInput,
-        reasoning: value.reasoning,
-        inputPrice: value.inputPrice,
-        outputPrice: value.outputPrice,
-        thinkingLevels: value.thinkingLevels,
-        supportedThinkingLevels: value.supportedThinkingLevels,
-        defaultThinkingLevel: value.defaultThinkingLevel,
-        defaultReasoningEffort: value.defaultReasoningEffort,
-        supportedReasoningEfforts: value.supportedReasoningEfforts,
-      }]
+    : [
+        {
+          id: value.model!,
+          contextWindow: value.contextWindow,
+          maxOutput: value.maxOutput,
+          imageInput: value.imageInput,
+          reasoning: value.reasoning,
+          inputPrice: value.inputPrice,
+          outputPrice: value.outputPrice,
+          thinkingLevels: value.thinkingLevels,
+          supportedThinkingLevels: value.supportedThinkingLevels,
+          defaultThinkingLevel: value.defaultThinkingLevel,
+          defaultReasoningEffort: value.defaultReasoningEffort,
+          supportedReasoningEfforts: value.supportedReasoningEfforts,
+        },
+      ]
   const models = rawModels.map((model) => normalizeProviderModel(model, fallback))
   const selected = models.find((model) => model.id === value.model) ?? models[0]!
   return {
     id: value.id,
     name: value.name,
+    visible: value.visible ?? true,
     protocol: value.protocol,
     baseUrl: value.baseUrl,
     model: selected.id,
@@ -688,17 +868,23 @@ export function normalizeThinkingLevel(
 ): ThinkingLevel {
   const levels: ThinkingLevel[] = model.thinkingLevels.length > 0 ? model.thinkingLevels : ['off']
   const wanted = requested ?? (planMode ? 'medium' : model.defaultThinkingLevel)
-  return levels.includes(wanted) ? wanted : model.defaultThinkingLevel && levels.includes(model.defaultThinkingLevel)
-    ? model.defaultThinkingLevel
-    : levels[0]!
+  return levels.includes(wanted)
+    ? wanted
+    : model.defaultThinkingLevel && levels.includes(model.defaultThinkingLevel)
+      ? model.defaultThinkingLevel
+      : levels[0]!
 }
 
 export interface ModelInfo extends ProviderConfig {
   hasKey: boolean
+  canExecute?: boolean
   providerId: string
   providerName: string
+  providerVisible: boolean
   modelId: string
   modelName: string
+  description?: string
+  modelVisible: boolean
 }
 export interface Device {
   id: string
@@ -842,14 +1028,20 @@ export interface Bootstrap {
   panels: UIContribution[]
 }
 export type WireNotification =
+  | { method: 'notifications.created'; params: import('./commands/notifications').NotificationFreshEvent }
   | { method: 'session.event'; params: SessionEvent }
   | { method: 'session.summary'; params: SessionSummary }
   | { method: 'stream.update'; params: StreamDelta }
+  | { method: 'metrics.sample'; params: import('./metrics').PerformanceSample }
   | { method: 'host.changed'; params: { kind: string } }
-  | { method: 'goal.updated'; params: { sessionId: string; runId: string | null; goal: ThreadGoal } }
-  | { method: 'goal.cleared'; params: { sessionId: string } }
-  | { method: 'plan.updated'; params: PlanState }
-  | { method: 'plan.cleared'; params: { sessionId: string } }
+  | { method: 'goal.updated'; params: { sessionId: string; runId: string | null; goal: ThreadGoal; seq?: number } }
+  | { method: 'goal.cleared'; params: { sessionId: string; seq?: number } }
+  | { method: 'plan.updated'; params: PlanState & { seq?: number } }
+  | { method: 'plan.cleared'; params: { sessionId: string; seq?: number } }
+  | {
+      method: 'workflow.updated'
+      params: { sessionId: string; snapshot: import('./workflow').WorkflowSnapshot }
+    }
   | { method: 'mode.changed'; params: { sessionId: string; mode: RunMode } }
   | { method: 'budget.updated'; params: { sessionId: string; runId: string | null; budget: SessionBudget } }
   | { method: 'budget.cleared'; params: { sessionId: string } }
@@ -863,12 +1055,104 @@ export type WireNotification =
   | { method: 'browser.changed'; params: { sessionId: string; contextId: string } }
   | { method: 'computer.changed'; params: { sessionId: string } }
   | { method: 'user_input.requested'; params: UserInputRequest }
-  | { method: 'user_input.resolved'; params: { requestId: string; sessionId: string; cancelled: boolean; response?: UserInputResponse } }
+  | {
+      method: 'user_input.resolved'
+      params: { requestId: string; sessionId: string; cancelled: boolean; response?: UserInputResponse }
+    }
   | { method: 'auth.revoked'; params: { reason: string } }
   | { method: 'terminal.output'; params: { terminalId: string; data: string } }
   | { method: 'terminal.exit'; params: { terminalId: string; code: number | null; signal: string | null } }
+  | {
+      method: 'surface.invoke'
+      params: {
+        relayId: string
+        invocationId: string
+        commandId: string
+        input: unknown
+        generation: number
+      }
+    }
 
 export const rpcSchemas = {
+  'command.execute': invocationSchema,
+  'command.catalog': z.strictObject({
+    category: z.string().min(1).max(128).optional(),
+    after: z.string().max(128).optional(),
+    limit: z.number().int().min(1).max(200).default(100),
+  }),
+  'command.describe': z.strictObject({ commandId: z.string().min(1).max(128) }),
+  'command.getReceipt': z.strictObject({
+    commandId: z.enum([
+      'session.setBudget',
+      'run.submit',
+      'run.retry',
+      'queuedRun.editText',
+      'queuedRun.remove',
+      'queuedRun.guide',
+    ]),
+    sessionId: idSchema,
+    idempotencyKey: z.string().min(1).max(128),
+  }),
+  'operation.watch': z.strictObject({
+    operationId: idSchema,
+    cursor: z.number().int().nonnegative().default(0),
+  }),
+  'operation.unwatch': z.strictObject({ operationId: idSchema }),
+  'metrics.watch': z.strictObject({ cursor: z.number().int().nonnegative().default(0) }),
+  'metrics.unwatch': z.strictObject({}),
+  'surface.register': z.strictObject({
+    clientId: idSchema,
+    generation: z.number().int().positive(),
+    commands: z.array(z.string().min(1).max(128)).max(64),
+  }),
+  'surface.unregister': z.strictObject({ clientId: idSchema, generation: z.number().int().positive() }),
+  'surface.list': z.strictObject({}),
+  'surface.invoke': z.strictObject({
+    clientId: idSchema,
+    invocationId: z.string().min(1).max(128),
+    commandId: z.string().min(1).max(128),
+    input: z.unknown(),
+    timeoutMs: z.number().int().min(100).max(30_000).default(5_000),
+  }),
+  'surface.resolve': z.discriminatedUnion('ok', [
+    z.strictObject({
+      clientId: idSchema,
+      generation: z.number().int().positive(),
+      relayId: idSchema,
+      ok: z.literal(true),
+      result: z.unknown(),
+    }),
+    z.strictObject({
+      clientId: idSchema,
+      generation: z.number().int().positive(),
+      relayId: idSchema,
+      ok: z.literal(false),
+      error: z.strictObject({ code: z.string().min(1).max(128), message: z.string().max(2000) }),
+    }),
+  ]),
+  'schema.content.query': z.strictObject({
+    queryId: idSchema,
+    callbackId: z.string().min(1).max(128),
+    request: z.strictObject({
+      schemaId: z.string().min(1).max(128),
+      schemaVersion: z.number().int().positive(),
+      scope: z.strictObject({ kind: z.string().min(1).max(64), id: idSchema.optional() }),
+      formId: idSchema,
+      formRevision: z.number().int().nonnegative(),
+      path: z.string().min(1).max(12_000),
+      callbackVersion: z.number().int().positive(),
+      valueType: z.enum(['string', 'number', 'boolean']),
+      dependencies: z.record(z.string().min(1).max(12_000), z.unknown()),
+      dependencyFingerprint: z.string().min(1).max(128),
+      search: z.string().max(500).optional(),
+      cursor: z.string().max(500).optional(),
+    }),
+  }),
+  'schema.content.cancel': z.strictObject({ queryId: idSchema }),
+  'workspace.list': workspaceListInputSchema,
+  'workspace.get': workspaceGetInputSchema,
+  'session.list': sessionListInputSchema,
+  'session.get': sessionGetInputSchema,
   'system.hello': z.object({ protocol: z.literal(PROTOCOL_VERSION), token: z.string().max(512).optional() }),
   'system.bootstrap': z.object({}),
   'system.diagnose': z.object({}),
@@ -900,13 +1184,13 @@ export const rpcSchemas = {
   'goal.get': z.object({ sessionId: idSchema }),
   'goal.create': z.object({
     sessionId: idSchema,
-    objective: z.string().trim().min(1).max(4_000),
+    objective: z.string().trim().min(1).max(MAX_GOAL_OBJECTIVE_LENGTH),
     tokenBudget: z.number().int().positive().optional(),
   }),
   'goal.update': z.object({ sessionId: idSchema, status: z.enum(['complete', 'blocked']) }),
   'goal.set': z.object({
     sessionId: idSchema,
-    objective: z.string().trim().min(1).max(4_000).nullable().optional(),
+    objective: z.string().trim().min(1).max(MAX_GOAL_OBJECTIVE_LENGTH).nullable().optional(),
     status: goalStatusSchema.nullable().optional(),
     tokenBudget: z.number().int().positive().nullable().optional(),
     expectedGoalId: idSchema.optional(),
@@ -918,7 +1202,7 @@ export const rpcSchemas = {
     sessionId: idSchema,
     turnId: idSchema.nullable().optional(),
     explanation: z.string().max(4_000).nullable().optional(),
-    plan: z.array(planStepSchema).max(100),
+    plan: z.array(planStepSchema).max(MAX_PLAN_STEPS),
   }),
   'plan.clear': z.object({ sessionId: idSchema }),
   'mode.get': z.object({ sessionId: idSchema }),
@@ -942,6 +1226,8 @@ export const rpcSchemas = {
     message: z.string().trim().min(1).max(4_000),
     paths: z.array(z.string().min(1).max(4_000)).max(100).default([]),
     stage: z.boolean().default(false),
+    sessionId: idSchema.optional(),
+    runId: idSchema.optional(),
   }),
   'git.stage': z.object({
     cwd: z.string().min(1).max(4_000).optional(),
@@ -1116,6 +1402,35 @@ export const rpcSchemas = {
 export type RpcMethod = keyof typeof rpcSchemas
 export type RpcParams<M extends RpcMethod> = z.input<(typeof rpcSchemas)[M]>
 export interface RpcResults {
+  'command.execute': unknown
+  'command.catalog': {
+    revision: number
+    items: import('@hbar/commands/protocol').CommandDescriptor[]
+    nextCursor?: string
+  }
+  'command.describe': import('@hbar/commands/protocol').CommandDescriptor
+  'command.getReceipt':
+    | import('./commands/budget').BudgetReceipt
+    | import('./commands/run').RunAccepted
+    | import('./commands/run').QueuedRunEditTextReceipt
+    | import('./commands/run').QueuedRunRemoveReceipt
+    | import('./commands/run').QueuedRunGuideReceipt
+    | null
+  'operation.watch': import('./commands/run').OperationWatchResult
+  'operation.unwatch': null
+  'metrics.watch': import('./commands/metrics').MetricsWatchResult
+  'metrics.unwatch': null
+  'surface.register': { clientId: string; generation: number; commands: string[] }
+  'surface.unregister': null
+  'surface.list': { items: { clientId: string; generation: number; commands: string[] }[] }
+  'surface.invoke': unknown
+  'surface.resolve': null
+  'schema.content.query': import('@hbar/schema-core').OptionContentReport
+  'schema.content.cancel': { cancelled: boolean }
+  'workspace.list': WorkspacePage
+  'workspace.get': Workspace | null
+  'session.list': SessionPage
+  'session.get': Session | null
   'system.hello': HostInfo
   'system.bootstrap': Bootstrap
   'system.diagnose': Record<string, unknown>
@@ -1254,3 +1569,5 @@ export class HbarError extends Error {
     this.name = 'HbarError'
   }
 }
+
+export * from './workflow'

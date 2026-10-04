@@ -1,0 +1,123 @@
+.hbar-app-react-workspace-header-sort-menu {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.hbar-app-react-workspace-menu-trigger {
+  inline-size: 1.875rem;
+  block-size: 1.875rem;
+  min-block-size: 1.875rem;
+  padding: 0;
+  border-color: transparent;
+  color: var(--lumen-muted);
+}
+
+.hbar-app-react-workspace-menu-trigger:hover,
+.hbar-app-react-workspace-menu-trigger:focus-visible,
+.hbar-app-react-workspace-menu-trigger[aria-expanded='true'] {
+  border-color: var(--lumen-edge);
+  background: color-mix(in srgb, var(--lumen-ink) 10%, transparent);
+  color: var(--lumen-ink);
+}
+
+.hbar-app-react-workspace-sort-pending {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+}
+
+.hbar-app-react-workspace-header-menu-popover,
+.hbar-app-react-workspace-sort-submenu {
+  box-sizing: border-box;
+  max-block-size: calc(100dvh - 1.25rem);
+  margin: 0;
+  padding: 0.375rem;
+  overflow-y: auto;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.5rem;
+  background: var(--lumen-contrast);
+  color: var(--lumen-ink);
+  box-shadow: 0 0.5rem 1.5rem color-mix(in srgb, var(--lumen-ink) 18%, transparent);
+}
+
+.hbar-app-react-workspace-header-menu-popover {
+  inline-size: min(16.875rem, calc(100vw - 1.25rem));
+}
+
+.hbar-app-react-workspace-sort-submenu {
+  inline-size: min(14.375rem, calc(100vw - 1.25rem));
+}
+
+.hbar-app-react-workspace-sort-submenu[data-organization='true'] {
+  inline-size: min(16.875rem, calc(100vw - 1.25rem));
+}
+
+.hbar-app-react-workspace-header-menu-popover:popover-open,
+.hbar-app-react-workspace-sort-submenu:popover-open {
+  position: fixed;
+  inset: auto;
+  z-index: 50;
+  top: var(--workspace-sort-menu-top);
+  left: var(--workspace-sort-menu-left);
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.hbar-app-react-workspace-header-menu-popover > button,
+.hbar-app-react-workspace-organization-group > button,
+.hbar-app-react-workspace-sort-condition-group > button,
+.hbar-app-react-workspace-sort-submenu > button {
+  inline-size: 100%;
+  min-block-size: 2.5rem;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  padding-inline: 0.75rem;
+  text-align: start;
+  white-space: normal;
+}
+
+.hbar-app-react-workspace-header-menu-popover > button[aria-expanded='true'],
+.hbar-app-react-workspace-sort-condition-group > button[aria-expanded='true'],
+.hbar-app-react-workspace-sort-submenu > button[aria-checked='true'] {
+  color: var(--lumen-ink);
+}
+
+.hbar-app-react-workspace-sort-condition-group {
+  display: flex;
+  min-inline-size: 0;
+  inline-size: 100%;
+  flex-direction: column;
+}
+
+.hbar-app-react-workspace-organization-group {
+  display: flex;
+  min-inline-size: 0;
+  inline-size: 100%;
+  flex-direction: column;
+}
+
+.hbar-app-react-workspace-sort-chevron,
+.hbar-app-react-workspace-sort-submenu > button > .lumen-icon[data-tier='sm'] {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+}
+
+.hbar-app-react-workspace-sort-menu-label {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+@media (pointer: coarse), (hover: none) {
+  .hbar-app-react-workspace-menu-trigger {
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+    min-block-size: 2.75rem;
+  }
+}

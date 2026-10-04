@@ -1,0 +1,135 @@
+.hbar-app-react-run-board {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+  gap: 0.75rem;
+  color: var(--lumen-text, inherit);
+}
+
+.hbar-app-react-run-board h2,
+.hbar-app-react-run-board h3,
+.hbar-app-react-run-board p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-react-run-board h2 {
+  font-size: 1rem;
+}
+.hbar-app-react-run-board h3 {
+  font-size: 0.875rem;
+}
+
+.hbar-app-react-run-board-header,
+.hbar-app-react-run-board-pagination,
+.hbar-app-react-run-board-column > header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.hbar-app-react-run-board-header > div {
+  min-inline-size: 0;
+  flex: 1 1 14rem;
+}
+.hbar-app-react-run-board-header p,
+.hbar-app-react-run-board-pagination,
+.hbar-app-react-run-board-column > header > span,
+.hbar-app-react-run-board-column > p {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.hbar-app-react-run-board-scroll {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow: auto;
+}
+
+.hbar-app-react-run-board-columns {
+  display: flex;
+  align-items: stretch;
+  min-inline-size: 0;
+  gap: 0.75rem;
+}
+
+.hbar-app-react-run-board-column {
+  display: flex;
+  flex: 1 0 15rem;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 0.0625rem solid var(--lumen-border, #ffffff18);
+  border-radius: 0.5rem;
+  background: var(--lumen-surface, #ffffff04);
+}
+
+.hbar-app-react-run-board-column > ul {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  gap: 0.5rem;
+}
+
+.hbar-app-react-run-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 0.0625rem solid var(--lumen-border, #ffffff18);
+  border-radius: 0.375rem;
+  background: var(--lumen-surface-raised, #ffffff08);
+}
+
+.hbar-app-react-run-card[data-selected='true'] {
+  border-color: var(--lumen-primary, #9690ff);
+}
+.hbar-app-react-run-card-open {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-inline-size: 0;
+  gap: 0.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.hbar-app-react-run-card-open:focus-visible {
+  outline: 0.125rem solid var(--lumen-primary, #9690ff);
+  outline-offset: 0.25rem;
+}
+.hbar-app-react-run-card-open > strong {
+  font-size: 0.875rem;
+}
+.hbar-app-react-run-card-open > span,
+.hbar-app-react-run-card > p {
+  font-size: 0.75rem;
+}
+.hbar-app-react-run-card footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+@media (max-width: 40rem) {
+  .hbar-app-react-run-board-columns {
+    flex-direction: column;
+  }
+  .hbar-app-react-run-board-column {
+    flex: 0 0 auto;
+  }
+}

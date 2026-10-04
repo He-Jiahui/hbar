@@ -1,0 +1,34 @@
+# Current Goal execution status
+
+The header Goal strip distinguishes the persistent Goal lifecycle from current-session activity. A confirmed nonterminal Run overrides the displayed lifecycle label while it is queued, running, or waiting for approval. Pausing Goal continuation does not stop that Run: Pause/Resume still follow the canonical Goal status, and Stop remains the current Run action. Once the Run settles, the strip returns to the canonical paused/active/budget label.
+
+## Reference and boundary
+
+The original CC `desktop/src/pages/ActiveSession.tsx` computes activity from preparation, non-idle chat state, and visible background tasks. Its `ActiveGoalStrip` displays `chat.activeGoal.running` ahead of the paused/active label. An isolated original-page fixture confirms a paused Goal displays “自循环运行中” while streaming, and “已暂停” when idle; CC source and CSS are unchanged.
+
+The initial slice used the existing selected-session timeline projection, connected and fenced by the timeline Session identity, for the current Session's own nonterminal Runs. The subsequent background-work extension also uses the exact public [selected Session execution summary](selected-session-execution.md), not a partially loaded sidebar prefix or Agent-private event. It counts own/direct non-fork child activity with the same existing sidebar semantics. Complete Goals remain hidden, and Goal control commands and identity guards are unchanged.
+
+The strip already identifies its content as “Current goal,” so its status copy is compact (“Running,” “Paused,” “Budget exhausted”) rather than repeating “goal” in each label. Chinese follows the same rule. This gives the objective more space, especially in a narrow column, without hiding the state or changing its meaning. Goal document/history copy is unaffected.
+
+## Verification
+
+- `e2e/goal-running-status.spec.ts`: temporary real Host with the local provider; active Goal → approval-held Run → Pause continuation → Stop Run → paused display. It also verifies draft preservation, a long objective with naturally wrapping narrow layout, and switching to an independent Goal. The pending write is never approved.
+- The focused browser flow passed in 4.4 seconds (7.1 seconds including setup). Earlier attempts passed the execution assertions but timed out at the final navigation because the sidebar remained hidden after narrowing the viewport; the final test explicitly reopens it before navigation.
+- The compact bilingual-copy follow-up rebuild and the same focused browser flow pass in 7.8 seconds (12.6 seconds including setup); updated screenshots were inspected.
+- Scoped strict TypeScript, zero-warning ESLint, content/icon/flow guards, formatting and Web build are checked for this slice. Native desktop packaging and an installed-app smoke test are not run.
+- The two focused composer-intent runtime/reconciliation test files pass: 42 tests, 359 assertions, exit 0.
+- Existing SSR tests cannot start because the workspace lacks `prop-types`/`react-is`; no dependency installation or unrelated repair is included.
+
+Local visual evidence is generated under the ignored `artifacts/goal-running-reference-v12/`: `zh-paused-running.png`, `zh-paused-idle.png`, `hbar-paused-running.png`, and `hbar-paused-idle-narrow.png`. The reference fixture uses synthetic stores and blocks Host/provider traffic; hbar screenshots use the real temporary demo Host. The capture maps four observed malformed Windows font URLs to the same bundled CC font files, without changing reference files or downloading assets.
+
+## Background-work extension
+
+A fresh original `ActiveSession` render adds foreground `idle` plus a visible `local_agent` background task while the Goal remains canonically paused. CC still renders “自循环运行中”; root inspected `zh-paused-background.png` and its manifest. No CC source changes, reference Host/provider traffic or real profile are involved. This proves the reference presentation, not Hbar's backend state policy.
+
+Before the repair, the extended real-Host test reproduced “已暂停” instead of “运行中” with zero active parent Runs and an approval-held child. The new O(1)-retained Runtime owner reads only the visible current Goal target, coalesces existing activity invalidations for 300 ms, times out logically at eight seconds and retains at most two physical executor requests even if a transport ignores abort. Session/page/disconnect changes clear the projection and fence late results. Loading renders host-owned “Checking activity”; a read failure drops the stale active snapshot and exposes a local read-only retry. Neither the projection nor retry controls Runs or changes Goal continuation.
+
+This owner uses the Runtime-injected public Directory executor through a typed command client, not View-side transport. It intentionally retains that executor's real promise until settlement: wrapping it in the Directory command registry would settle logical abort early and incorrectly release the owner's physical-read budget while an ignored-abort transport was still running. The owner performs its own schema, target, revision and generation checks. The normal public Runtime Directory facade remains registered for other callers.
+
+The one continuous browser flow now also checks background child activity while continuation is paused, a failed read and successful local retry, another Session's independent Goal, returning to the original Session, cancelling the child, paused display restoration, draft retention and unapproved file absence. Wide/narrow captures are `hbar-paused-background.png` and `hbar-paused-background-narrow.png`; root inspected both after correcting the narrow screenshot to await the actual running label. The final test pins the production asset. A prior diagnostic attempt passed the background assertion but used the parent's obsolete pre-first-Run title for return navigation; using its stable Session ID fixes the test without a product workaround.
+
+The owner/composer suite passes 31 tests / 191 assertions, including bilingual command/recovery copy, ignored-abort reads, stale revisions, timeout, bounded physical occupancy, disconnect/reconnect and local failure recovery. Four existing sidebar Runtime tests also pass / 36 assertions. The focused real temporary Host browser flow passes 1/1 in 6.6 seconds (9.5 seconds including setup) on final `index-CVP113fn.js`; no per-button or repeated size matrix is added. Scoped strict types, zero-warning ESLint, content/icon/flow guards and changed-file formatting pass. The existing SSR test was attempted but cannot load the pre-existing missing `prop-types` dependency; it is not counted as passing. Native/full-repository checks and overall CC parity remain unverified. Temporary fixture cleanup and stopped preview ports are checked; teardown-only `ECONNRESET` is separate from the empty browser page-error assertion.

@@ -1,0 +1,16 @@
+.hbar-app-ui-isolated-canvas:has([data-hbar-app-ui-component='hbar-app-ui-onboarding-3']) {
+  block-size: auto;
+  height: auto;
+  min-block-size: 100vh;
+  overflow: visible;
+  align-items: flex-start;
+}
+
+.hbar-app-ui-isolated-canvas:has([data-hbar-app-ui-component='hbar-app-ui-onboarding-3']) > .lumen-onboarding3-surface {
+  inline-size: min(100%, 42rem);
+  block-size: auto;
+  min-block-size: 0;
+  flex: 0 1 auto;
+  overflow: visible;
+  margin-inline: auto;
+}

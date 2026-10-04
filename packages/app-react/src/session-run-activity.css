@@ -1,0 +1,72 @@
+.hbar-session-run-activity {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--lumen-muted);
+  font-size: 0.8125rem;
+}
+
+.hbar-session-run-current,
+.hbar-session-run-row {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hbar-session-run-current > .lumen-button,
+.hbar-session-run-row > .lumen-button {
+  margin-inline-start: auto;
+}
+
+.hbar-session-run-error {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--lumen-danger);
+  overflow-wrap: anywhere;
+}
+
+.hbar-session-run-list {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hbar-session-run-list > [role='listitem'] {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 4px;
+  padding-block: 8px;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+  overflow-wrap: anywhere;
+}
+
+.hbar-session-run-metadata {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.hbar-session-run-plan-label {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hbar-session-run-history .hbar-lumen-disclosure-content,
+.hbar-session-run-plan .hbar-lumen-disclosure-content {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hbar-session-run-activity [hidden] {
+  display: none;
+}

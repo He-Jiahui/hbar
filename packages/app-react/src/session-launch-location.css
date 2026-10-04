@@ -1,0 +1,26 @@
+.hbar-session-launch-location-status {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.hbar-session-launch-location-status > p {
+  flex: 1 1 14rem;
+  min-inline-size: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--lumen-muted);
+}
+
+.hbar-session-workspace-move-status {
+  padding-block: 0.5rem;
+}
+
+.hbar-pre-session-location-popover > .hbar-session-workspace-move-status {
+  flex: 0 0 auto;
+  padding: 0.5rem 0.75rem;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}

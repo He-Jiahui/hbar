@@ -1,0 +1,4 @@
+{
+  "scrollingPaneBlockSize": "70dvh",
+  "commandOverlayBlockSize": "min(100dvh, 40rem)"
+}

@@ -1,0 +1,67 @@
+.hbar-app-ui-navigation-button {
+  justify-content: flex-start;
+  text-align: start;
+}
+
+.hbar-app-ui-text,
+.hbar-app-ui-label {
+  margin: 0;
+  color: var(--hbar-app-ui-text);
+  font-family: inherit;
+  font-size: var(--hbar-app-ui-text-body-size);
+  line-height: var(--hbar-app-ui-text-line-height);
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-text {
+  font-weight: 400;
+}
+
+.hbar-app-ui-label,
+.hbar-app-ui-text[data-variant='label'] {
+  font-size: var(--hbar-app-ui-text-label-size);
+  font-weight: 600;
+}
+
+.hbar-app-ui-text[data-variant='supporting'] {
+  font-size: var(--hbar-app-ui-text-supporting-size);
+}
+
+.hbar-app-ui-text[data-variant='code'] {
+  font-family: var(--hbar-app-ui-mono);
+}
+
+:is(.hbar-app-ui-text, .hbar-app-ui-label)[data-size='s'] {
+  font-size: var(--hbar-app-ui-font-size-s);
+  line-height: var(--hbar-app-ui-line-height-s);
+}
+
+:is(.hbar-app-ui-text, .hbar-app-ui-label)[data-size='m'] {
+  font-size: var(--hbar-app-ui-font-size-m);
+  line-height: var(--hbar-app-ui-line-height-m);
+}
+
+:is(.hbar-app-ui-text, .hbar-app-ui-label)[data-size='l'] {
+  font-size: var(--hbar-app-ui-font-size-l);
+  line-height: var(--hbar-app-ui-line-height-l);
+}
+
+:is(.hbar-app-ui-text, .hbar-app-ui-label)[data-tone='muted'] {
+  color: var(--hbar-app-ui-muted);
+}
+
+:is(.hbar-app-ui-text, .hbar-app-ui-label)[data-tone='subtle'] {
+  color: var(--hbar-app-ui-subtle);
+}
+
+:is(.hbar-app-ui-text, .hbar-app-ui-label)[data-tone='positive'] {
+  color: var(--hbar-app-ui-positive);
+}
+
+:is(.hbar-app-ui-text, .hbar-app-ui-label)[data-tone='warning'] {
+  color: var(--hbar-app-ui-warning);
+}
+
+:is(.hbar-app-ui-text, .hbar-app-ui-label)[data-tone='danger'] {
+  color: var(--hbar-app-ui-danger);
+}

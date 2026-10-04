@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { providerSchema } from '@hbar/contracts'
+import type { BudgetService } from '@hbar/plugin-sdk'
 
 test('real pi-ai OpenAI transport streams tool calls and usage through a local HTTP provider', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-provider-'))
@@ -15,8 +16,18 @@ test('real pi-ai OpenAI transport streams tool calls and usage through a local H
     async fetch(request) {
       expect(request.headers.get('authorization')).toBe('Bearer fixture-credential')
       expect(new URL(request.url).pathname).toBe('/v1/chat/completions')
-      const body = (await request.json()) as { messages: { role: string; content: unknown }[] }
+      const body = (await request.json()) as {
+        messages: { role: string; content: unknown }[]
+        tools: { function: { name: string; parameters: Record<string, unknown> } }[]
+      }
       const first = requests++ === 0
+      if (first) {
+        const update = body.tools.find((tool) => tool.function.name === 'workflow_update')?.function.parameters
+        expect(update?.type).toBe('object')
+        expect(update?.properties).toHaveProperty('action')
+        expect(update?.properties).toHaveProperty('scope')
+        expect(update?.oneOf).toBeUndefined()
+      }
       if (!first)
         expect(body.messages.some((message) => message.role === 'tool' && message.content === 'from file')).toBeTrue()
       const chunk = (delta: unknown, finish_reason: string | null = null, usage?: unknown) =>
@@ -37,7 +48,12 @@ test('real pi-ai OpenAI transport streams tool calls and usage through a local H
               }
             : { role: 'assistant', content: 'Network adapter completed' },
         ) +
-        chunk({}, first ? 'tool_calls' : 'stop', { prompt_tokens: 20, completion_tokens: 5, total_tokens: 25 }) +
+        chunk({}, first ? 'tool_calls' : 'stop', {
+          prompt_tokens: 20,
+          prompt_tokens_details: { cached_tokens: 7 },
+          completion_tokens: 5,
+          total_tokens: 25,
+        }) +
         'data: [DONE]\n\n'
       return new Response(text, { headers: { 'Content-Type': 'text/event-stream' } })
     },
@@ -55,12 +71,16 @@ test('real pi-ai OpenAI transport streams tool calls and usage through a local H
       'fixture-credential',
     )
     const session = await kernel.createSession((await kernel.storage.call('workspaces'))[0]!.id)
+    const budgets = kernel.plugins.get<BudgetService>('budget')
+    await budgets.set(session.id, 100)
     await kernel.submit(session.id, 'network', { text: 'Read source.txt', images: [] }, 'network-test')
     await kernel.waitForIdle()
     const snapshot = await kernel.snapshot(session.id)
     expect(snapshot.runs[0]?.status).toBe('completed')
     expect(snapshot.messages.at(-1)?.content).toEqual([{ type: 'text', text: 'Network adapter completed' }])
     expect(snapshot.usage.input).toBe(40)
+    expect(snapshot.usage.cacheRead).toBe(14)
+    expect((await budgets.get(session.id))?.usedTokens).toBe(36)
     expect(requests).toBe(2)
     expect(JSON.stringify(await kernel.storage.call('events', session.id, 0))).not.toContain('fixture-credential')
   } finally {
@@ -97,7 +117,9 @@ test('read_file sends images to the model without persisting binary data in sess
         receivedImage =
           Array.isArray(attachment?.content) &&
           attachment.content.some(
-            (block) => block.type === 'image_url' && block.image_url?.url === `data:image/png;base64,${image.toString('base64')}`,
+            (block) =>
+              block.type === 'image_url' &&
+              block.image_url?.url === `data:image/png;base64,${image.toString('base64')}`,
           )
       }
       const chunk = (delta: unknown, finishReason: string | null = null) =>

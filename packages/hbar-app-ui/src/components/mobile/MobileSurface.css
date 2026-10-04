@@ -1,0 +1,859 @@
+/*
+ * The phone shell is a real bounded mobile viewport. Its contents remain in
+ * flex/grid document flow; the only overlap is the reference's floating dock,
+ * expressed by a shared grid cell rather than coordinate placement.
+ */
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface {
+    display: flex !important;
+    min-block-size: 100dvh;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 1.25rem !important;
+    background: #0a0a0a !important;
+    color: #f7f7f7 !important;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.hbar-app-ui-mobile-phone {
+    display: flex;
+    inline-size: min(100%, 24.375rem);
+    block-size: min(40rem, calc(100dvh - 2.5rem));
+    min-inline-size: 0;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid #292929;
+    border-radius: 1.75rem;
+    background: #0b0b0b;
+    color: #f7f7f7;
+}
+
+.hbar-app-ui-mobile-phone :is(button, input) {
+    font-family: inherit;
+}
+
+.hbar-app-ui-mobile-phone-header {
+    display: flex;
+    min-block-size: 3.5rem;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: .5rem;
+    padding-inline: 1rem;
+}
+
+.hbar-app-ui-mobile-phone-title {
+    min-inline-size: 0;
+    margin: 0 !important;
+    color: #f7f7f7 !important;
+    font-size: .9375rem !important;
+    font-weight: 500;
+    line-height: 1.5rem !important;
+    overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-mobile-header-actions {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
+    gap: .25rem;
+    margin-inline-start: auto;
+}
+
+.hbar-app-ui-mobile-icon-button {
+    display: inline-flex;
+    inline-size: 2.25rem;
+    block-size: 2.25rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: .625rem;
+    padding: 0;
+    background: transparent;
+    color: #a3a3a3;
+    cursor: pointer;
+}
+
+.hbar-app-ui-mobile-icon-button:hover,
+.hbar-app-ui-mobile-icon-button:focus-visible,
+.hbar-app-ui-mobile-icon-button[aria-pressed='true'] {
+    background: #262626;
+    color: #f7f7f7;
+    outline: 0;
+}
+
+.hbar-app-ui-mobile-avatar {
+    display: inline-flex;
+    inline-size: 2rem;
+    block-size: 2rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999rem;
+    background: #262626;
+    color: #e5e5e5;
+    font-size: .6875rem;
+    line-height: 1rem;
+}
+
+.hbar-app-ui-mobile-phone-content {
+    min-inline-size: 0;
+    min-block-size: 0;
+    flex: 1 1 auto;
+    overflow: auto;
+    scrollbar-width: none;
+}
+
+.hbar-app-ui-mobile-phone-content::-webkit-scrollbar {
+    display: none;
+}
+
+.hbar-app-ui-mobile-phone :is(ul, ol) {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.hbar-app-ui-mobile-phone :is(strong, small, span) {
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-mobile-phone strong {
+    color: #f7f7f7 !important;
+    font-weight: 500;
+}
+
+.hbar-app-ui-mobile-phone small,
+.hbar-app-ui-mobile-phone .hbar-app-ui-mobile-card-description {
+    color: #858585 !important;
+}
+
+.hbar-app-ui-mobile-bottom-tabs {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: .125rem;
+    border-block-start: 1px solid #292929;
+    padding: .75rem;
+}
+
+.hbar-app-ui-mobile-bottom-tabs button {
+    display: flex;
+    min-inline-size: 0;
+    block-size: 3rem;
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .25rem;
+    border: 0;
+    border-radius: .875rem;
+    padding-inline: .25rem;
+    background: transparent;
+    color: #858585;
+    cursor: pointer;
+    font-size: .625rem;
+    line-height: .625rem;
+}
+
+.hbar-app-ui-mobile-bottom-tabs button:hover,
+.hbar-app-ui-mobile-bottom-tabs button:focus-visible,
+.hbar-app-ui-mobile-bottom-tabs button.is-selected {
+    background: #1a1a1a;
+    color: #f7f7f7;
+    outline: 0;
+}
+
+.hbar-app-ui-mobile-tab-icon {
+    display: grid;
+    min-inline-size: 0;
+    min-block-size: 1.125rem;
+    place-items: center;
+}
+
+.hbar-app-ui-mobile-tab-icon > * {
+    grid-area: 1 / 1;
+}
+
+.hbar-app-ui-mobile-tab-icon small {
+    align-self: start;
+    justify-self: end;
+    min-inline-size: .875rem;
+    border-radius: 999rem;
+    padding: .0625rem .1875rem;
+    background: #f7f7f7;
+    color: #171717 !important;
+    font-size: .5625rem;
+    font-weight: 600;
+    line-height: .75rem;
+    margin-block-start: -.3125rem;
+    margin-inline-end: -.4375rem;
+}
+
+.hbar-app-ui-mobile-eyebrow {
+    margin: 0 !important;
+    color: #a3a3a3 !important;
+    font-size: .625rem !important;
+    font-weight: 600;
+    letter-spacing: .08em;
+    line-height: 1rem !important;
+    text-transform: uppercase;
+}
+
+.hbar-app-ui-mobile-route-empty {
+    display: grid;
+    align-content: start;
+    gap: .5rem;
+    padding: 1.25rem;
+}
+
+.hbar-app-ui-mobile-route-empty h1 {
+    margin: 0 !important;
+    color: #f7f7f7;
+    font-size: 1.25rem;
+    line-height: 1.5rem;
+}
+
+.hbar-app-ui-mobile-route-empty p,
+.hbar-app-ui-mobile-no-results {
+    margin: 0 !important;
+    color: #858585 !important;
+    font-size: .8125rem !important;
+    line-height: 1.21875rem !important;
+}
+
+/* Activity feed --------------------------------------------------------- */
+.hbar-app-ui-mobile-activity-content {
+    padding: 0 1rem 1rem;
+}
+
+.hbar-app-ui-mobile-activity-heading {
+    display: grid;
+    gap: .25rem;
+}
+
+.hbar-app-ui-mobile-activity-heading h1 {
+    margin: 0 !important;
+    color: #f7f7f7;
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.875rem;
+}
+
+.hbar-app-ui-mobile-activity-heading p {
+    margin: 0 !important;
+    color: #858585 !important;
+    font-size: .8125rem !important;
+    line-height: 1.21875rem !important;
+}
+
+.hbar-app-ui-mobile-activity-list {
+    display: grid;
+    gap: .25rem;
+    margin-block-start: 1rem !important;
+}
+
+.hbar-app-ui-mobile-activity-list button {
+    display: flex;
+    inline-size: 100%;
+    align-items: center;
+    gap: .75rem;
+    border: 0;
+    border-radius: .75rem;
+    padding: .625rem .75rem;
+    background: transparent;
+    color: #f7f7f7;
+    cursor: pointer;
+    text-align: start;
+}
+
+.hbar-app-ui-mobile-activity-list button:hover,
+.hbar-app-ui-mobile-activity-list button:focus-visible {
+    background: #171717;
+    outline: 0;
+}
+
+.hbar-app-ui-mobile-activity-list button > span {
+    display: grid;
+    min-inline-size: 0;
+    flex: 1 1 auto;
+    gap: .125rem;
+}
+
+.hbar-app-ui-mobile-activity-list strong {
+    font-size: .875rem;
+    line-height: 1.3125rem;
+}
+
+.hbar-app-ui-mobile-activity-list small {
+    font-size: .75rem;
+    line-height: 1.125rem;
+}
+
+.hbar-app-ui-mobile-activity-list svg {
+    flex: 0 0 auto;
+    color: #666;
+}
+
+/* Task inbox ------------------------------------------------------------ */
+.hbar-app-ui-mobile-task-content {
+    padding: 0 1rem;
+}
+
+.hbar-app-ui-mobile-task-search {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin-block-end: .5rem;
+    border: 1px solid #303030;
+    border-radius: .625rem;
+    padding: .5rem .625rem;
+    color: #858585;
+}
+
+.hbar-app-ui-mobile-task-search input {
+    min-inline-size: 0;
+    flex: 1 1 auto;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #f7f7f7;
+    font-size: .8125rem;
+    line-height: 1.21875rem;
+}
+
+.hbar-app-ui-mobile-task-list {
+    display: grid;
+    gap: .125rem;
+    margin-block-start: .625rem !important;
+}
+
+.hbar-app-ui-mobile-task-list button {
+    display: flex;
+    inline-size: 100%;
+    align-items: center;
+    gap: .75rem;
+    border: 0;
+    border-radius: .75rem;
+    padding: .625rem .75rem;
+    background: transparent;
+    color: #f7f7f7;
+    cursor: pointer;
+    text-align: start;
+}
+
+.hbar-app-ui-mobile-task-list button:hover,
+.hbar-app-ui-mobile-task-list button:focus-visible {
+    background: #171717;
+    outline: 0;
+}
+
+.hbar-app-ui-mobile-task-check {
+    inline-size: 1.25rem;
+    block-size: 1.25rem;
+    flex: 0 0 auto;
+    border: 1px solid #555;
+    border-radius: 999rem;
+}
+
+.hbar-app-ui-mobile-task-list button[aria-pressed='true'] .hbar-app-ui-mobile-task-check {
+    border-color: #f7f7f7;
+    background: #f7f7f7;
+}
+
+.hbar-app-ui-mobile-task-list button > span:last-child {
+    display: grid;
+    min-inline-size: 0;
+    gap: .125rem;
+}
+
+.hbar-app-ui-mobile-task-list strong {
+    font-size: .875rem;
+    line-height: 1.3125rem;
+}
+
+.hbar-app-ui-mobile-task-list small {
+    font-size: .75rem;
+    line-height: 1.125rem;
+}
+
+.hbar-app-ui-mobile-task-footer {
+    display: flex;
+    flex: 0 0 auto;
+    justify-content: flex-end;
+    padding: 1.25rem;
+}
+
+.hbar-app-ui-mobile-primary-round {
+    display: inline-flex;
+    inline-size: 3.5rem;
+    block-size: 3.5rem;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 999rem;
+    padding: 0;
+    background: #f7f7f7;
+    color: #171717;
+    cursor: pointer;
+}
+
+.hbar-app-ui-mobile-primary-round:hover,
+.hbar-app-ui-mobile-primary-round:focus-visible {
+    background: #fff;
+    outline: 0;
+}
+
+/* Card feed ------------------------------------------------------------- */
+.hbar-app-ui-mobile-home-phone {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+}
+
+.hbar-app-ui-mobile-home-content {
+    grid-row: 2;
+    grid-column: 1;
+    padding: 0 1.25rem 1.25rem;
+}
+
+.hbar-app-ui-mobile-home-list {
+    display: grid;
+    gap: .5rem;
+}
+
+.hbar-app-ui-mobile-home-list button {
+    display: grid;
+    inline-size: 100%;
+    gap: 0;
+    border: 1px solid #303030;
+    border-radius: .875rem;
+    padding: 1rem;
+    background: #191919;
+    color: #f7f7f7;
+    cursor: pointer;
+    text-align: start;
+}
+
+.hbar-app-ui-mobile-home-list button:hover,
+.hbar-app-ui-mobile-home-list button:focus-visible {
+    border-color: #4a4a4a;
+    background: #202020;
+    outline: 0;
+}
+
+.hbar-app-ui-mobile-card-title {
+    display: flex;
+    min-inline-size: 0;
+    align-items: start;
+    justify-content: space-between;
+    gap: .75rem;
+    margin-block-end: .375rem;
+}
+
+.hbar-app-ui-mobile-card-title strong {
+    font-size: .875rem;
+    line-height: 1.3125rem;
+}
+
+.hbar-app-ui-mobile-card-title svg {
+    flex: 0 0 auto;
+    color: #666;
+}
+
+.hbar-app-ui-mobile-card-description {
+    font-size: .8125rem;
+    line-height: 1.3203125rem;
+    margin-block-end: .625rem;
+}
+
+.hbar-app-ui-mobile-home-list small {
+    color: #b0a18b !important;
+    font-size: .75rem;
+    line-height: 1.125rem;
+}
+
+.hbar-app-ui-mobile-home-dock {
+    display: flex;
+    grid-row: 2;
+    grid-column: 1;
+    inline-size: fit-content;
+    align-self: end;
+    justify-self: center;
+    align-items: center;
+    gap: .25rem;
+    z-index: 1;
+    margin-block-end: 1.625rem;
+    border: 1px solid #303030;
+    border-radius: 999rem;
+    padding: .25rem;
+    background: #151515;
+}
+
+.hbar-app-ui-mobile-home-dock .hbar-app-ui-mobile-icon-button {
+    inline-size: 2.25rem;
+    block-size: 2.25rem;
+    border-radius: 999rem;
+}
+
+.hbar-app-ui-mobile-home-dock .hbar-app-ui-mobile-icon-button[aria-pressed='true'] {
+    background: #f7f7f7;
+    color: #171717;
+}
+
+/* Orders ---------------------------------------------------------------- */
+.hbar-app-ui-mobile-orders-content {
+    padding: 0 1.25rem 1.25rem;
+}
+
+.hbar-app-ui-mobile-orders-list {
+    display: grid;
+    gap: .25rem;
+    margin-block-start: .625rem !important;
+}
+
+.hbar-app-ui-mobile-orders-list button {
+    display: flex;
+    inline-size: 100%;
+    align-items: center;
+    gap: .75rem;
+    border: 1px solid #303030;
+    border-radius: .875rem;
+    padding: .75rem .875rem;
+    background: #191919;
+    color: #f7f7f7;
+    cursor: pointer;
+    text-align: start;
+}
+
+.hbar-app-ui-mobile-orders-list button:hover,
+.hbar-app-ui-mobile-orders-list button:focus-visible {
+    border-color: #4a4a4a;
+    background: #202020;
+    outline: 0;
+}
+
+.hbar-app-ui-mobile-orders-list button > span {
+    display: grid;
+    min-inline-size: 0;
+    flex: 1 1 auto;
+    gap: .125rem;
+}
+
+.hbar-app-ui-mobile-orders-list strong {
+    font-size: .875rem;
+    line-height: 1.3125rem;
+}
+
+.hbar-app-ui-mobile-orders-list small {
+    overflow: hidden;
+    font-size: .75rem;
+    line-height: 1.125rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-mobile-orders-list svg {
+    flex: 0 0 auto;
+    color: #666;
+}
+
+/* Runs ------------------------------------------------------------------ */
+.hbar-app-ui-mobile-runs-phone {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.hbar-app-ui-mobile-runs-header {
+    grid-row: 1;
+    grid-column: 1;
+    justify-content: space-between;
+}
+
+.hbar-app-ui-mobile-runs-header .hbar-app-ui-mobile-phone-title {
+    flex: 1 1 auto;
+    text-align: center;
+}
+
+.hbar-app-ui-mobile-runs-header .hbar-app-ui-mobile-icon-button {
+    background: #f7f7f7;
+    color: #171717;
+}
+
+.hbar-app-ui-mobile-runs-header .hbar-app-ui-mobile-icon-button:first-child {
+    background: transparent;
+    color: #d4d4d4;
+}
+
+.hbar-app-ui-mobile-run-tabs {
+    display: flex;
+    grid-row: 2;
+    grid-column: 1;
+    gap: .125rem;
+    margin-inline: 1rem;
+    border-radius: .875rem;
+    padding: .25rem;
+    background: #171717;
+}
+
+.hbar-app-ui-mobile-run-tabs button {
+    min-inline-size: 0;
+    block-size: 2.25rem;
+    flex: 1 1 0;
+    border: 0;
+    border-radius: .625rem;
+    padding: 0 .5rem;
+    background: transparent;
+    color: #858585;
+    cursor: pointer;
+    font-size: .8125rem;
+    line-height: 1.21875rem;
+}
+
+.hbar-app-ui-mobile-run-tabs button:hover,
+.hbar-app-ui-mobile-run-tabs button:focus-visible,
+.hbar-app-ui-mobile-run-tabs button.is-selected {
+    background: #292929;
+    color: #f7f7f7;
+    outline: 0;
+}
+
+.hbar-app-ui-mobile-runs-content {
+    grid-row: 3;
+    grid-column: 1;
+    padding: .75rem 1rem 1rem;
+}
+
+.hbar-app-ui-mobile-runs-list {
+    display: grid;
+    gap: .25rem;
+}
+
+.hbar-app-ui-mobile-runs-list button {
+    display: flex;
+    inline-size: 100%;
+    align-items: center;
+    gap: .75rem;
+    border: 1px solid #303030;
+    border-radius: .875rem;
+    padding: .75rem .875rem;
+    background: #191919;
+    color: #f7f7f7;
+    cursor: pointer;
+    text-align: start;
+}
+
+.hbar-app-ui-mobile-runs-list button:hover,
+.hbar-app-ui-mobile-runs-list button:focus-visible {
+    border-color: #4a4a4a;
+    background: #202020;
+    outline: 0;
+}
+
+.hbar-app-ui-mobile-run-icon {
+    display: inline-flex;
+    inline-size: 2rem;
+    block-size: 2rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: .625rem;
+    background: #292929;
+    color: #d4d4d4;
+}
+
+.hbar-app-ui-mobile-runs-list button > span:last-child {
+    display: grid;
+    min-inline-size: 0;
+    gap: .125rem;
+}
+
+.hbar-app-ui-mobile-runs-list strong {
+    font-size: .875rem;
+    line-height: 1.3125rem;
+}
+
+.hbar-app-ui-mobile-runs-list small {
+    display: inline-flex;
+    align-items: center;
+    gap: .375rem;
+    font-size: .75rem;
+    line-height: 1.125rem;
+}
+
+.hbar-app-ui-mobile-runs-list small i {
+    inline-size: .375rem;
+    block-size: .375rem;
+    flex: 0 0 auto;
+    border-radius: 999rem;
+    background: #f7f7f7;
+}
+
+.hbar-app-ui-mobile-runs-menu {
+    display: grid;
+    grid-row: 1 / -1;
+    grid-column: 1;
+    align-content: start;
+    z-index: 2;
+    background: #0b0b0b;
+}
+
+.hbar-app-ui-mobile-runs-menu header {
+    display: flex;
+    min-block-size: 3.5rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    border-block-end: 1px solid #292929;
+    padding-inline: 1rem;
+}
+
+.hbar-app-ui-mobile-runs-menu > div {
+    display: grid;
+    gap: .25rem;
+    padding: 1rem;
+}
+
+.hbar-app-ui-mobile-runs-menu > div button {
+    min-block-size: 2.75rem;
+    border: 0;
+    border-radius: .625rem;
+    padding: .625rem .75rem;
+    background: transparent;
+    color: #d4d4d4;
+    cursor: pointer;
+    font-size: .875rem;
+    line-height: 1.3125rem;
+    text-align: start;
+}
+
+.hbar-app-ui-mobile-runs-menu > div button:hover,
+.hbar-app-ui-mobile-runs-menu > div button:focus-visible {
+    background: #202020;
+    color: #f7f7f7;
+    outline: 0;
+}
+
+@media (max-width: 24rem) {
+    .hbar-app-ui-variant.hbar-app-ui-mobile-surface {
+        padding-inline: 1.25rem !important;
+    }
+
+    .hbar-app-ui-mobile-phone {
+        border-radius: 1.25rem;
+    }
+
+    .hbar-app-ui-mobile-bottom-tabs {
+        padding-inline: .75rem;
+    }
+}
+
+/* The package theme has broad catalog defaults for native buttons. These
+ * component-scoped rules keep the reference controls in their own flow. */
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-bottom-tabs button {
+    min-block-size: 3rem;
+    border: 0;
+    border-radius: .875rem;
+    padding: 0 .25rem;
+    background: transparent;
+    color: #858585;
+    font: .625rem/.625rem ui-sans-serif, system-ui, sans-serif;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-bottom-tabs button:hover,
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-bottom-tabs button:focus-visible,
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-bottom-tabs button.is-selected {
+    background: #1a1a1a;
+    color: #f7f7f7;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-task-list button,
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-activity-list button {
+    border: 0;
+    border-radius: .75rem;
+    background: transparent;
+    color: #f7f7f7;
+    font: inherit;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-primary-round {
+    display: inline-flex;
+    inline-size: 3.5rem;
+    block-size: 3.5rem;
+    min-block-size: 3.5rem;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 999rem;
+    padding: 0;
+    background: #f7f7f7;
+    color: #171717;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-primary-round:hover,
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-primary-round:focus-visible {
+    background: #fff;
+    color: #171717;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-task-list strong,
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-activity-list strong,
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-orders-list strong,
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-runs-list strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-home-list button,
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-orders-list button,
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-runs-list button {
+    border: 1px solid #303030;
+    border-radius: .875rem;
+    background: #191919;
+    color: #f7f7f7;
+    font: inherit;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-home-list button:hover,
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-home-list button:focus-visible,
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-orders-list button:hover,
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-orders-list button:focus-visible,
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-runs-list button:hover,
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-runs-list button:focus-visible {
+    border-color: #4a4a4a;
+    background: #202020;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-run-tabs button {
+    border: 0;
+    border-radius: .625rem;
+    background: transparent;
+    color: #858585;
+    font: .8125rem/1.21875rem ui-sans-serif, system-ui, sans-serif;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-run-tabs button:hover,
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-run-tabs button:focus-visible,
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-run-tabs button.is-selected {
+    background: #292929;
+    color: #f7f7f7;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-runs-header .hbar-app-ui-mobile-icon-button {
+    inline-size: 2.5rem;
+    block-size: 2.5rem;
+    min-block-size: 2.5rem;
+    border: 0;
+    border-radius: .875rem;
+    padding: 0;
+    background: #f7f7f7;
+    color: #171717;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-mobile-surface .hbar-app-ui-mobile-phone .hbar-app-ui-mobile-runs-header .hbar-app-ui-mobile-icon-button:first-child {
+    background: transparent;
+    color: #d4d4d4;
+}

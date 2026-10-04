@@ -2,13 +2,71 @@ import { networkInterfaces } from 'node:os'
 import { createHash } from 'node:crypto'
 import { resolve, relative, isAbsolute, join } from 'node:path'
 import { readFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
 import type { HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
 import type { ServerWebSocket } from 'bun'
-import { Kernel } from '@hbar/kernel'
+import {
+  Kernel,
+  SettingsService,
+  createAgentCommands,
+  createBrowserCommands,
+  createComputerCommands,
+  createConfigurationCommands,
+  createGitCommands,
+  createWorkspaceSessionCommands,
+  createSessionLaunchTargetCommands,
+  createSessionLaunchBranchesCommands,
+  createBudgetCommands,
+  createFileCommands,
+  createGoalPlanCommands,
+  createInteractionCommands,
+  createModelCommands,
+  createModelSettingsValidator,
+  createRunCommands,
+  createSettingsCommands,
+  createUsageCommands,
+  createWorkflowCommands,
+  createScheduleCommands,
+  createPromptTemplateCommands,
+  createSandboxCommands,
+  createSandboxSettingsValidator,
+  createNotificationCommands,
+  createRunBoardCommands,
+  createScheduleDueReader,
+} from '@hbar/kernel'
+import { budgetCommands as budgetDefinitions } from '@hbar/contracts/commands/budget'
+import { agentCommands as agentDefinitions } from '@hbar/contracts/commands/agents'
+import { browserCommands as browserDefinitions } from '@hbar/contracts/commands/browser'
+import { computerCommands as computerDefinitions } from '@hbar/contracts/commands/computer'
+import { configurationCommands as configurationDefinitions } from '@hbar/contracts/commands/configuration'
+import { gitCommands as gitDefinitions } from '@hbar/contracts/commands/git'
+import { workspaceSessionCommands as workspaceSessionDefinitions } from '@hbar/contracts/commands/workspaces'
+import { sessionLaunchTargetCommands as sessionLaunchTargetDefinitions } from '@hbar/contracts/commands/session-launch-target'
+import { sessionLaunchBranchesCommands as sessionLaunchBranchesDefinitions } from '@hbar/contracts/commands/session-launch-branches'
+import { fileCommands as fileDefinitions } from '@hbar/contracts/commands/files'
+import { extensionCommands as extensionDefinitions } from '@hbar/contracts/commands/extensions'
+import { goalPlanCommands as goalPlanDefinitions } from '@hbar/contracts/commands/goals'
+import { interactionCommands as interactionDefinitions } from '@hbar/contracts/commands/interaction'
+import { modelCommands as modelDefinitions } from '@hbar/contracts/commands/models'
+import {
+  queuedRunGuidedOperationId as guidedOperationId,
+  runCommands as runDefinitions,
+} from '@hbar/contracts/commands/run'
+import { settingsCommands as settingsDefinitions } from '@hbar/contracts/commands/settings'
+import { systemCommands as systemDefinitions } from '@hbar/contracts/commands/system'
+import { usageCommands as usageDefinitions } from '@hbar/contracts/commands/usage'
+import { workflowCommands as workflowDefinitions } from '@hbar/contracts/commands/workflows'
+import { metricsCommands as metricsDefinitions } from '@hbar/contracts/commands/metrics'
+import {
+  directoryCommands as directoryDefinitions,
+  surfaceCommands as surfaceDefinitions,
+} from '@hbar/contracts/commands'
+import { CommandError } from '@hbar/commands/protocol'
 import type {
   BrowserUseService,
+  AgentService,
   BudgetService,
   ComputerUseService,
   ExecutionProvider,
@@ -16,16 +74,37 @@ import type {
   GoalService,
   ModeService,
   PlanService,
+  WorkspaceQueryProvider,
+  WorkflowService,
 } from '@hbar/plugin-sdk'
 import { Auth, requestToken } from './auth.ts'
+import { createSystemCommands } from './system-commands.ts'
+import { createExtensionCommands } from './extension-commands.ts'
+import { createSkillInspectionService } from './skill-inspection.ts'
 import type { RuntimeScope } from '@hbar/kernel'
 import { SystemTerminalManager } from './system-terminal'
+import { UsageService } from '@hbar/usage'
+import { PerformanceCollector } from '@hbar/metrics'
+import { createHostPerformanceProvider } from './performance-provider.ts'
+import { createMetricsCommands } from './metrics-commands.ts'
+import { createSessionSearchCommands } from '@hbar/kernel/session-search-commands'
+import { sessionSearchCommands as sessionSearchDefinitions } from '@hbar/contracts/commands/session-search'
+import { scheduleCommands as scheduleDefinitions } from '@hbar/contracts/commands/schedules'
+import { promptTemplateCommands as promptTemplateDefinitions } from '@hbar/contracts/commands/prompt-templates'
+import { sandboxCommands as sandboxDefinitions } from '@hbar/contracts/commands/sandbox'
+import { notificationCommands as notificationDefinitions } from '@hbar/contracts/commands/notifications'
+import { runBoardCommands as runBoardDefinitions } from '@hbar/contracts/commands/run-board'
+import { submitRunInputSchema } from '@hbar/contracts/commands/run'
+import { createScheduleService, createNotificationService } from '@hbar/kernel'
+import { createScheduleHostController } from './schedule-host-controller.ts'
 
 interface SocketData {
   token?: string | undefined
   deviceId?: string | undefined
   initialized: boolean
   follows: Set<string>
+  operationFollows: Set<string>
+  metricsFollowing: boolean
   pending: number
   terminals: Set<string>
   terminalCallbacks?: {
@@ -34,6 +113,9 @@ interface SocketData {
   }
   timer?: ReturnType<typeof setTimeout> | undefined
   scope?: RuntimeScope | undefined
+  surfaceClientId?: string | undefined
+  surfaceGeneration?: number | undefined
+  schemaQueries: Map<string, AbortController>
 }
 export interface ServerOptions {
   hostname?: string
@@ -43,13 +125,311 @@ export interface ServerOptions {
   staticRoot?: string
   cert?: string
   key?: string
+  metricsIntervalMs?: number
+  restart?: () => boolean | Promise<boolean>
 }
+
+function resolveModeService(kernel: Kernel): ModeService {
+  return {
+    get: (sessionId) => kernel.plugins.get<ModeService>('mode').get(sessionId),
+    set: (sessionId, mode) => kernel.plugins.get<ModeService>('mode').set(sessionId, mode),
+    effectiveMode: (run) => kernel.plugins.get<ModeService>('mode').effectiveMode(run),
+    commitExit: (sessionId, commit) => kernel.plugins.get<ModeService>('mode').commitExit(sessionId, commit),
+  }
+}
+
+function resolveGoalService(kernel: Kernel): GoalService {
+  return {
+    snapshot: (sessionId) => kernel.plugins.get<GoalService>('goal').snapshot(sessionId),
+    get: (sessionId) => kernel.plugins.get<GoalService>('goal').get(sessionId),
+    create: (sessionId, objective, tokenBudget, runId, startedAt) =>
+      kernel.plugins.get<GoalService>('goal').create(sessionId, objective, tokenBudget, runId, startedAt),
+    set: (sessionId, input) => kernel.plugins.get<GoalService>('goal').set(sessionId, input),
+    update: (sessionId, status, runId, reason) =>
+      kernel.plugins.get<GoalService>('goal').update(sessionId, status, runId, reason),
+    clear: (sessionId, expectedGoalId) => kernel.plugins.get<GoalService>('goal').clear(sessionId, expectedGoalId),
+    requestContinuation: (sessionId, input) =>
+      kernel.plugins.get<GoalService>('goal').requestContinuation(sessionId, input),
+  }
+}
+
+function resolvePlanService(kernel: Kernel): PlanService {
+  return {
+    snapshot: (sessionId) => kernel.plugins.get<PlanService>('plan').snapshot(sessionId),
+    get: (sessionId) => kernel.plugins.get<PlanService>('plan').get(sessionId),
+    withRevision: (sessionId, revision, commit) =>
+      kernel.plugins.get<PlanService>('plan').withRevision(sessionId, revision, commit),
+    update: (sessionId, plan, explanation, turnId, expectedRevision) =>
+      kernel.plugins.get<PlanService>('plan').update(sessionId, plan, explanation, turnId, expectedRevision),
+    clear: (sessionId, expectedRevision) => kernel.plugins.get<PlanService>('plan').clear(sessionId, expectedRevision),
+  }
+}
+
+function resolveExecutionProvider(kernel: Kernel): ExecutionProvider {
+  return {
+    list: (workspace, path) => kernel.plugins.get<ExecutionProvider>('execution').list(workspace, path),
+    read: (workspace, path) => kernel.plugins.get<ExecutionProvider>('execution').read(workspace, path),
+    readBytes: (workspace, path) => kernel.plugins.get<ExecutionProvider>('execution').readBytes(workspace, path),
+    write: (workspace, path, text) => kernel.plugins.get<ExecutionProvider>('execution').write(workspace, path, text),
+    exec: (workspace, command, signal) =>
+      kernel.plugins.get<ExecutionProvider>('execution').exec(workspace, command, signal),
+    get workspaceQuery(): WorkspaceQueryProvider {
+      const query = kernel.plugins.get<ExecutionProvider>('execution').workspaceQuery
+      if (!query) throw new HbarError('CAPABILITY_UNAVAILABLE', 'Workspace path search is unavailable')
+      return query
+    },
+  }
+}
+
 export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
+  const performance = new PerformanceCollector(
+    createHostPerformanceProvider(async () => ({
+      activeRuns: kernel.active.size,
+      queuedRuns: (await kernel.storage.call('queuedSessions')).length,
+      managedChildProcesses: null,
+    })),
+    { intervalMs: options.metricsIntervalMs },
+  )
+  await performance.start()
+  const metricsCommands = createMetricsCommands(performance)
+  const agentCommands = createAgentCommands(kernel.plugins.get<AgentService>('agent'))
+  const browserCommands = createBrowserCommands(kernel.plugins.get<BrowserUseService>('browser'))
+  const computerCommands = createComputerCommands(kernel.plugins.get<ComputerUseService>('computer'))
+  const configurationCommands = createConfigurationCommands(kernel, resolveModeService(kernel))
+  const skillInspection = createSkillInspectionService(resolve(kernel.options.layout.skills, 'global'))
+  const extensionCommands = createExtensionCommands({
+    list: () => kernel.plugins.list(),
+    set: (id, enabled, config) => kernel.changePlugin(id, enabled, config),
+    install: (path, projectId) => kernel.installPlugin(path, projectId),
+    async remove(id) {
+      kernel.assertIdle()
+      const result = await kernel.plugins.remove(id)
+      kernel.changed('plugins')
+      return result
+    },
+    resolve: (id) => kernel.plugins.resolve(id),
+    graph: () => kernel.plugins.graph(),
+    lock: () => kernel.plugins.lock(),
+    doctor: () => kernel.plugins.doctor(),
+    skills: (signal) => skillInspection.list(signal),
+    skillInspection,
+  })
+  const gitCommands = createGitCommands(kernel.plugins.get<GitService>('git'), {
+    storage: kernel.storage,
+    resolveSessionPath: (sessionId, workspacePath, signal) =>
+      kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
+  })
+  const workspaceSessionCommands = createWorkspaceSessionCommands(kernel)
+  const sessionLaunchTargetCommands = createSessionLaunchTargetCommands(kernel, () =>
+    kernel.changed('session-launch-target'),
+  )
+  const sessionLaunchBranchesCommands = createSessionLaunchBranchesCommands(
+    kernel.storage,
+    kernel.plugins.get<GitService>('git'),
+  )
+  const budgetCommands = createBudgetCommands(kernel.plugins.get<BudgetService>('budget'))
+  const fileCommands = createFileCommands(kernel.storage, resolveExecutionProvider(kernel), {
+    resolveSessionPath: (sessionId, workspacePath, signal) =>
+      kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
+  })
+  const goalPlanCommands = createGoalPlanCommands(
+    resolveGoalService(kernel),
+    resolvePlanService(kernel),
+    kernel.storage,
+  )
+  const interactionCommands = createInteractionCommands(kernel)
+  const validateModelSettings = createModelSettingsValidator(kernel)
+  const validateSandboxSettings = createSandboxSettingsValidator(kernel.sandboxProfiles)
+  const settingsService = new SettingsService(
+    kernel.storage,
+    async (candidate) => {
+      await validateModelSettings(candidate)
+      await validateSandboxSettings(candidate)
+    },
+    () => kernel.changed('settings'),
+  )
+  const modelCommands = createModelCommands(kernel, settingsService)
+  const runCommands = createRunCommands(kernel)
+  const settingsCommands = createSettingsCommands(settingsService)
+  const usageCommands = createUsageCommands(
+    new UsageService({ read: (input) => kernel.storage.call('usageEvents', input) }),
+  )
+  const workflowCommands = createWorkflowCommands(kernel.plugins.get<WorkflowService>('workflow'))
+  const sessionSearchCommands = createSessionSearchCommands(kernel.storage)
+  const scheduleService = createScheduleService({
+    list: (workspaceId, after, limit) => kernel.storage.call('schedulePage', workspaceId, after, limit),
+    get: (scheduleId) => kernel.storage.call('schedule', scheduleId),
+    create: (input, identity) => kernel.storage.call('createSchedule', input, identity),
+    update: (input, identity) => kernel.storage.call('updateSchedule', input, identity),
+    delete: (scheduleId, expectedRevision, identity) =>
+      kernel.storage.call('deleteSchedule', scheduleId, expectedRevision, identity),
+    occurrences: (scheduleId, after, limit) => kernel.storage.call('scheduleOccurrences', scheduleId, after, limit),
+    claim: (scheduleId, dueAt, now) => kernel.storage.call('claimScheduleOccurrence', scheduleId, dueAt, now),
+    transition: (id, status, runId, error, sessionId) =>
+      kernel.storage.call('transitionScheduleOccurrence', id, status, runId, error, sessionId),
+  })
+  const scheduleCommands = createScheduleCommands(scheduleService, {
+    lookup: (commandId, input, identity) => kernel.storage.call('scheduleReceipt', commandId, input, identity),
+  })
+  const sandboxCommandService = createSandboxCommands(kernel.sandboxProfiles)
+  const promptTemplateCommands = createPromptTemplateCommands({
+    list: (input) => kernel.storage.call('promptTemplatePage', input),
+    get: (id) => kernel.storage.call('promptTemplate', id),
+    save: (input, identity) => kernel.storage.call('savePromptTemplate', input, identity),
+    delete: (input, identity) => kernel.storage.call('deletePromptTemplate', input, identity),
+    receipt: (commandId, input, identity) => kernel.storage.call('promptTemplateReceipt', commandId, input, identity),
+  })
+  const notificationService = createNotificationService({
+    storage: {
+      insertNotification: (record) => kernel.storage.call('insertNotification', record),
+      notificationPage: (input) => kernel.storage.call('notificationPage', input),
+      notificationBySourceEvent: (sourceEventId) => kernel.storage.call('notificationBySourceEvent', sourceEventId),
+      markNotificationRead: (id, readAt, identity) => kernel.storage.call('markNotificationRead', id, readAt, identity),
+      markAllNotificationsRead: (readAt, identity) => kernel.storage.call('markAllNotificationsRead', readAt, identity),
+      notificationPreferences: () => kernel.storage.call('notificationPreferences'),
+      setNotificationPreferences: (input, identity) =>
+        kernel.storage.call('setNotificationPreferences', input, identity),
+      notificationReceipt: (commandId, input, identity) =>
+        kernel.storage.call('notificationReceipt', commandId, input, identity),
+    },
+    publish: (event) => kernel.changed(event.params.kind),
+    publishFresh: (event) => broadcastFresh(event),
+  })
+  const notificationCommands = createNotificationCommands(notificationService)
+  const runBoardCommands = createRunBoardCommands(kernel.storage)
+  const readDueSchedules = createScheduleDueReader({
+    enabledPage: (after, limit) => kernel.storage.call('enabledSchedules', after, limit),
+    runtime: (id) => kernel.storage.call('scheduleRuntime', id),
+    recordCandidate: (id, dueAt, now) => kernel.storage.call('recordScheduleCandidate', id, dueAt, now),
+  })
+  const scheduleController = createScheduleHostController({
+    service: scheduleService,
+    actorId: 'hbar:scheduler',
+    runCommands: {
+      execute: (id, input, options) =>
+        id === 'run.submit'
+          ? runCommands.execute(id, submitRunInputSchema.parse(input), options)
+          : runCommands.execute(id, z.strictObject({ operationId: z.string().min(1) }).parse(input), options),
+      getReceipt: (_commandId, sessionId, actorId, idempotencyKey) =>
+        runCommands.getReceipt('run.submit', sessionId, actorId, idempotencyKey),
+    },
+    prepareSession: async (input) => {
+      if (input.sessionId || input.target === 'existing-session') {
+        if (!input.sessionId) throw new HbarError('INVALID_INPUT', 'Scheduled target session is required')
+        const session = await kernel.storage.call('session', input.sessionId)
+        if (session.workspaceId !== input.workspaceId || session.archived)
+          throw new HbarError('COMMAND_CONFLICT', 'Scheduled target session is unavailable')
+        return { sessionId: session.id }
+      }
+      const created = await kernel.storage.call('createSessionCommand', {
+        actorId: 'hbar:scheduler',
+        idempotencyKey: `schedule-session:${input.occurrenceId}`,
+        workspaceId: input.workspaceId,
+        title: 'Scheduled run',
+      })
+      kernel.changed('sessions')
+      return { sessionId: created.id }
+    },
+    reader: {
+      enabledSchedules: async (after: string | null, limit: number) =>
+        (await kernel.storage.call('enabledSchedules', after, limit)).items,
+      activeScheduleOccurrences: (limit, after) => kernel.storage.call('activeScheduleOccurrences', limit, after),
+      dueScheduleOccurrences: readDueSchedules,
+    },
+    onFailure: ({ occurrenceId }) => notificationService.publishSource(`schedule:${occurrenceId}:failed`),
+  })
+  const commandServices = [
+    { definitions: agentDefinitions, service: agentCommands },
+    { definitions: browserDefinitions, service: browserCommands },
+    { definitions: computerDefinitions, service: computerCommands },
+    { definitions: configurationDefinitions, service: configurationCommands },
+    { definitions: extensionDefinitions, service: extensionCommands },
+    { definitions: gitDefinitions, service: gitCommands },
+    { definitions: directoryDefinitions, service: kernel.directoryQueries },
+    { definitions: sessionSearchDefinitions, service: sessionSearchCommands },
+    { definitions: workspaceSessionDefinitions, service: workspaceSessionCommands },
+    { definitions: sessionLaunchTargetDefinitions, service: sessionLaunchTargetCommands },
+    { definitions: sessionLaunchBranchesDefinitions, service: sessionLaunchBranchesCommands },
+    { definitions: budgetDefinitions, service: budgetCommands },
+    { definitions: fileDefinitions, service: fileCommands },
+    { definitions: goalPlanDefinitions, service: goalPlanCommands },
+    { definitions: interactionDefinitions, service: interactionCommands },
+    { definitions: modelDefinitions, service: modelCommands },
+    { definitions: metricsDefinitions, service: metricsCommands },
+    { definitions: runDefinitions, service: runCommands },
+    { definitions: settingsDefinitions, service: settingsCommands },
+    { definitions: usageDefinitions, service: usageCommands },
+    { definitions: workflowDefinitions, service: workflowCommands },
+    { definitions: scheduleDefinitions, service: scheduleCommands },
+    { definitions: promptTemplateDefinitions, service: promptTemplateCommands },
+    { definitions: sandboxDefinitions, service: sandboxCommandService },
+    { definitions: notificationDefinitions, service: notificationCommands },
+    { definitions: runBoardDefinitions, service: runBoardCommands },
+  ]
+  const commandDispatchers = new Map<string, (value: unknown, actorId: string) => Promise<unknown>>(
+    commandServices.flatMap(({ definitions, service }) =>
+      Object.keys(definitions).map((id) => [id, service.dispatch] as const),
+    ),
+  )
+  const commandDescribers = new Map(
+    commandServices.flatMap(({ definitions, service }) =>
+      Object.keys(definitions).map((id) => [id, () => service.describe(id)] as const),
+    ),
+  )
   const hostname = options.hostname ?? '127.0.0.1'
   const auth = new Auth(kernel.storage)
   const pairing = auth.createPairing()
   const sockets = new Set<ServerWebSocket<SocketData>>()
   const systemTerminals = new SystemTerminalManager()
+  let broadcastFresh: (event: import('@hbar/contracts/commands/notifications').NotificationFreshEvent) => void = () =>
+    undefined
+  const notificationTasks = new Set<Promise<void>>()
+  const notificationQueue: Array<() => Promise<void>> = []
+  let notificationActive = 0
+  const enqueueNotification = (task: () => Promise<void>) => {
+    if (notificationQueue.length + notificationActive >= 256) {
+      kernel.changed('notifications')
+      return
+    }
+    notificationQueue.push(task)
+    const pump = () => {
+      while (notificationActive < 4 && notificationQueue.length) {
+        const next = notificationQueue.shift()!
+        notificationActive++
+        const promise = next()
+          .catch((error) => {
+            console.error('Notification publication failed:', error)
+            kernel.changed('notifications')
+          })
+          .finally(() => {
+            notificationActive--
+            notificationTasks.delete(promise)
+            pump()
+          })
+        notificationTasks.add(promise)
+      }
+    }
+    pump()
+  }
+  const surfaceClients = new Map<
+    string,
+    { socket: ServerWebSocket<SocketData>; generation: number; commands: Set<string> }
+  >()
+  type SurfaceOutcome = { ok: true; result: unknown } | { ok: false; code: string; message: string }
+  interface PendingSurfaceInvocation {
+    key: string
+    signature: string
+    relayId: string
+    targetId: string
+    generation: number
+    promise: Promise<SurfaceOutcome>
+    resolve(outcome: SurfaceOutcome): void
+    timer?: ReturnType<typeof setTimeout>
+  }
+  const pendingSurfaceByRelay = new Map<string, PendingSurfaceInvocation>()
+  const pendingSurfaceByKey = new Map<string, PendingSurfaceInvocation>()
+  const completedSurfaces = new Map<string, { signature: string; outcome: SurfaceOutcome; expiresAt: number }>()
+  const allowedSurfaceCommands = new Set(Object.keys(surfaceDefinitions))
   const addresses = [
     ...new Set(
       Object.values(networkInterfaces()).flatMap((list) =>
@@ -115,8 +495,316 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     }
     socket.send(JSON.stringify(value))
   }
-  async function invoke(method: RpcMethod, raw: unknown, socket: ServerWebSocket<SocketData>): Promise<unknown> {
+  broadcastFresh = (event) => {
+    for (const socket of sockets)
+      if (socket.data.initialized) send(socket, { jsonrpc: '2.0', method: 'notifications.created', params: event })
+  }
+  const systemCommands = createSystemCommands({
+    hostInfo,
+    async diagnose() {
+      return {
+        database: await kernel.storage.call('stats'),
+        recoveredRuns: kernel.recovered,
+        plugins: kernel.plugins.list(),
+        tools: kernel.tools.list().map((tool) => tool.name),
+        streams: kernel.streams.size,
+      }
+    },
+    paths: () => kernel.paths(),
+    validatePaths: (dataRoot, cacheRoot) => kernel.validatePaths(dataRoot, cacheRoot),
+    setPaths: (dataRoot, cacheRoot) => kernel.setPaths(dataRoot, cacheRoot),
+    devices: () => kernel.storage.call('devices'),
+    async revokeDevice(id) {
+      const revoked = (await kernel.storage.call('devices')).some((device) => device.id === id)
+      if (!revoked) return { revoked: false }
+      await kernel.storage.call('revokeDevice', id)
+      for (const peer of sockets)
+        if (peer.data.deviceId === id) {
+          send(peer, { jsonrpc: '2.0', method: 'auth.revoked', params: { reason: 'Device access revoked' } })
+          peer.close(4001, 'Revoked')
+        }
+      return { revoked: true }
+    },
+    createPairing: () => auth.createPairing(),
+    ...(options.restart ? { restart: options.restart } : {}),
+  })
+  for (const id of Object.keys(systemDefinitions)) {
+    commandDispatchers.set(id, systemCommands.dispatch)
+    commandDescribers.set(id, () => systemCommands.describe(id))
+  }
+  function finishSurface(pending: PendingSurfaceInvocation, outcome: SurfaceOutcome) {
+    if (pendingSurfaceByRelay.get(pending.relayId) !== pending) return
+    clearTimeout(pending.timer)
+    pendingSurfaceByRelay.delete(pending.relayId)
+    pendingSurfaceByKey.delete(pending.key)
+    completedSurfaces.set(pending.key, { signature: pending.signature, outcome, expiresAt: Date.now() + 60_000 })
+    while (completedSurfaces.size > 1000) completedSurfaces.delete(completedSurfaces.keys().next().value!)
+    pending.resolve(outcome)
+  }
+  function rejectSurfaceTarget(clientId: string, generation: number, message: string) {
+    for (const pending of [...pendingSurfaceByRelay.values()])
+      if (pending.targetId === clientId && pending.generation === generation)
+        finishSurface(pending, { ok: false, code: 'CAPABILITY_UNAVAILABLE', message })
+  }
+  function legacyCommandOptions(
+    method: RpcMethod,
+    rpcId: string | number,
+    socket: ServerWebSocket<SocketData>,
+    idempotent = false,
+  ) {
+    const requestId = `legacy-${createHash('sha256')
+      .update(`${method}:${String(rpcId)}`)
+      .digest('hex')
+      .slice(0, 32)}`
+    return {
+      actorId: socket.data.deviceId!,
+      requestId,
+      ...(idempotent ? { idempotencyKey: requestId } : {}),
+    }
+  }
+
+  async function invoke(
+    method: RpcMethod,
+    raw: unknown,
+    socket: ServerWebSocket<SocketData>,
+    rpcId: string | number,
+  ): Promise<unknown> {
     switch (method) {
+      case 'command.execute': {
+        const invocation = rpcSchemas[method].parse(raw)
+        if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
+        const dispatch = commandDispatchers.get(invocation.commandId)
+        if (!dispatch) throw new HbarError('COMMAND_NOT_FOUND', 'Command is not registered on this Host')
+        return dispatch(invocation, socket.data.deviceId)
+      }
+      case 'command.catalog': {
+        const filter = rpcSchemas[method].parse(raw)
+        const catalogs = [...commandServices.map(({ service }) => service.list()), systemCommands.list()]
+        const descriptors = catalogs
+          .flatMap(({ items }) => items)
+          .filter(
+            ({ metadata }) =>
+              !filter.category ||
+              metadata.category === filter.category ||
+              metadata.category.startsWith(`${filter.category}.`),
+          )
+          .filter(({ metadata }) => !filter.after || metadata.id > filter.after)
+          .sort((a, b) => a.metadata.id.localeCompare(b.metadata.id))
+        const items = descriptors.slice(0, filter.limit)
+        return {
+          revision: catalogs.reduce((total, catalog) => total + catalog.revision, 0),
+          items,
+          ...(descriptors.length > filter.limit ? { nextCursor: items.at(-1)!.metadata.id } : {}),
+        }
+      }
+      case 'command.describe': {
+        const input = rpcSchemas[method].parse(raw)
+        const describe = commandDescribers.get(input.commandId)
+        if (!describe) throw new HbarError('COMMAND_NOT_FOUND', 'Command is not registered on this Host')
+        return describe()
+      }
+      case 'command.getReceipt': {
+        const input = rpcSchemas[method].parse(raw)
+        if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
+        if (input.commandId === 'run.submit' || input.commandId === 'run.retry')
+          return runCommands.getReceipt(input.commandId, input.sessionId, socket.data.deviceId, input.idempotencyKey)
+        if (input.commandId === 'queuedRun.editText')
+          return runCommands.getQueuedEditTextReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
+        if (input.commandId === 'queuedRun.remove')
+          return runCommands.getQueuedRemoveReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
+        if (input.commandId === 'queuedRun.guide')
+          return runCommands.getQueuedRunGuideReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
+        return budgetCommands.getReceipt(input.sessionId, socket.data.deviceId, input.idempotencyKey)
+      }
+      case 'operation.watch': {
+        const input = rpcSchemas[method].parse(raw)
+        const snapshot = await runCommands.execute('operation.get', { operationId: input.operationId })
+        const session = await kernel.storage.call('session', snapshot.sessionId)
+        if (!socket.data.operationFollows.has(input.operationId) && socket.data.operationFollows.size >= 128)
+          throw new HbarError('BUSY', 'Too many watched operations')
+        socket.data.operationFollows.add(input.operationId)
+        const events = await kernel.storage.call('events', snapshot.sessionId, input.cursor, 201)
+        const reset = events.length > 200 || input.cursor > session.seq
+        return {
+          snapshot,
+          events: reset
+            ? []
+            : events.filter(
+                (event) => event.runId === input.operationId || guidedOperationId(event) === input.operationId,
+              ),
+          cursor: session.seq,
+          reset,
+        }
+      }
+      case 'operation.unwatch': {
+        const input = rpcSchemas[method].parse(raw)
+        socket.data.operationFollows.delete(input.operationId)
+        return null
+      }
+      case 'metrics.watch': {
+        const input = rpcSchemas[method].parse(raw)
+        socket.data.metricsFollowing = true
+        return performance.samplesAfter(input.cursor)
+      }
+      case 'metrics.unwatch': {
+        rpcSchemas[method].parse(raw)
+        socket.data.metricsFollowing = false
+        return null
+      }
+      case 'surface.register': {
+        const input = rpcSchemas[method].parse(raw)
+        if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
+        const commands = new Set(input.commands)
+        if ([...commands].some((command) => !allowedSurfaceCommands.has(command)))
+          throw new HbarError('INVALID_INPUT', 'Client published an unknown surface command')
+        const previous = surfaceClients.get(input.clientId)
+        if (!previous || previous.socket !== socket || previous.generation !== input.generation)
+          for (const pending of [...pendingSurfaceByRelay.values()])
+            if (pending.targetId === input.clientId)
+              finishSurface(pending, {
+                ok: false,
+                code: 'CAPABILITY_UNAVAILABLE',
+                message: 'Target client generation was replaced',
+              })
+        if (socket.data.surfaceClientId && socket.data.surfaceClientId !== input.clientId)
+          throw new HbarError('COMMAND_CONFLICT', 'Connection already registered another surface client')
+        socket.data.surfaceClientId = input.clientId
+        socket.data.surfaceGeneration = input.generation
+        surfaceClients.set(input.clientId, { socket, generation: input.generation, commands })
+        return { clientId: input.clientId, generation: input.generation, commands: [...commands].sort() }
+      }
+      case 'surface.unregister': {
+        const input = rpcSchemas[method].parse(raw)
+        const target = surfaceClients.get(input.clientId)
+        if (target?.socket === socket && target.generation === input.generation) {
+          surfaceClients.delete(input.clientId)
+          socket.data.surfaceClientId = undefined
+          socket.data.surfaceGeneration = undefined
+          rejectSurfaceTarget(input.clientId, input.generation, 'Target client unregistered')
+        }
+        return null
+      }
+      case 'surface.list':
+        return {
+          items: [...surfaceClients.entries()]
+            .map(([clientId, target]) => ({
+              clientId,
+              generation: target.generation,
+              commands: [...target.commands].sort(),
+            }))
+            .sort((a, b) => a.clientId.localeCompare(b.clientId)),
+        }
+      case 'surface.invoke': {
+        const input = rpcSchemas[method].parse(raw)
+        if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
+        if (!allowedSurfaceCommands.has(input.commandId))
+          throw new HbarError('COMMAND_NOT_FOUND', 'Surface command is not registered')
+        const key = `${socket.data.deviceId}:${input.invocationId}`
+        const signature = JSON.stringify([input.clientId, input.commandId, input.input])
+        const completed = completedSurfaces.get(key)
+        if (completed && completed.expiresAt <= Date.now()) completedSurfaces.delete(key)
+        else if (completed) {
+          if (completed.signature !== signature)
+            throw new HbarError('IDEMPOTENCY_CONFLICT', 'Invocation ID was already used with another target or input')
+          if (!completed.outcome.ok) throw new HbarError(completed.outcome.code, completed.outcome.message)
+          return completed.outcome.result
+        }
+        const existing = pendingSurfaceByKey.get(key)
+        if (existing) {
+          if (existing.signature !== signature)
+            throw new HbarError('IDEMPOTENCY_CONFLICT', 'Invocation ID is active with another target or input')
+          const outcome = await existing.promise
+          if (!outcome.ok) throw new HbarError(outcome.code, outcome.message)
+          return outcome.result
+        }
+        const target = surfaceClients.get(input.clientId)
+        if (!target || target.socket.readyState !== 1)
+          throw new HbarError('CAPABILITY_UNAVAILABLE', 'Target GUI client is not connected')
+        if (!target.commands.has(input.commandId))
+          throw new HbarError('CAPABILITY_UNAVAILABLE', 'Target GUI client did not publish this capability')
+        if ([...pendingSurfaceByRelay.values()].filter((pending) => pending.targetId === input.clientId).length >= 32)
+          throw new HbarError('BUSY', 'Target GUI client has too many pending commands')
+        const relayId = crypto.randomUUID()
+        let resolveOutcome: (outcome: SurfaceOutcome) => void = () => undefined
+        const promise = new Promise<SurfaceOutcome>((resolve) => {
+          resolveOutcome = resolve
+        })
+        const pending: PendingSurfaceInvocation = {
+          key,
+          signature,
+          relayId,
+          targetId: input.clientId,
+          generation: target.generation,
+          promise,
+          resolve: resolveOutcome,
+        }
+        pending.timer = setTimeout(
+          () => finishSurface(pending, { ok: false, code: 'TIMED_OUT', message: 'Target GUI client timed out' }),
+          input.timeoutMs,
+        )
+        pendingSurfaceByRelay.set(relayId, pending)
+        pendingSurfaceByKey.set(key, pending)
+        send(target.socket, {
+          jsonrpc: '2.0',
+          method: 'surface.invoke',
+          params: {
+            relayId,
+            invocationId: input.invocationId,
+            commandId: input.commandId,
+            input: input.input,
+            generation: target.generation,
+          },
+        })
+        const outcome = await promise
+        if (!outcome.ok) throw new HbarError(outcome.code, outcome.message)
+        return outcome.result
+      }
+      case 'surface.resolve': {
+        const input = rpcSchemas[method].parse(raw)
+        const target = surfaceClients.get(input.clientId)
+        const pending = pendingSurfaceByRelay.get(input.relayId)
+        if (
+          !target ||
+          target.socket !== socket ||
+          target.generation !== input.generation ||
+          !pending ||
+          pending.targetId !== input.clientId ||
+          pending.generation !== input.generation
+        )
+          throw new HbarError('FORBIDDEN', 'Surface result does not belong to this client generation')
+        finishSurface(
+          pending,
+          input.ok
+            ? { ok: true, result: input.result }
+            : { ok: false, code: input.error.code, message: input.error.message },
+        )
+        return null
+      }
+      case 'schema.content.query': {
+        const input = rpcSchemas[method].parse(raw)
+        if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
+        if (socket.data.schemaQueries.has(input.queryId))
+          throw new HbarError('COMMAND_CONFLICT', 'Schema content query ID is already active')
+        if (socket.data.schemaQueries.size >= 16) throw new HbarError('BUSY', 'Too many active schema content queries')
+        const controller = new AbortController()
+        socket.data.schemaQueries.set(input.queryId, controller)
+        try {
+          return await kernel.schemaCallbacks.query(input.callbackId, input.request, { signal: controller.signal })
+        } catch (error) {
+          if (error && typeof error === 'object' && 'code' in error && typeof error.code === 'string')
+            throw new HbarError(error.code, error instanceof Error ? error.message : String(error))
+          throw error
+        } finally {
+          if (socket.data.schemaQueries.get(input.queryId) === controller)
+            socket.data.schemaQueries.delete(input.queryId)
+        }
+      }
+      case 'schema.content.cancel': {
+        const input = rpcSchemas[method].parse(raw)
+        const controller = socket.data.schemaQueries.get(input.queryId)
+        controller?.abort(new HbarError('CANCELLED', 'Schema content query was cancelled'))
+        return { cancelled: Boolean(controller) }
+      }
       case 'system.hello': {
         const params = rpcSchemas[method].parse(raw)
         if (socket.data.initialized) throw new HbarError('ALREADY_INITIALIZED', 'Connection already initialized')
@@ -137,40 +825,37 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         clearTimeout(socket.data.timer)
         return hostInfo()
       }
+      case 'workspace.list':
+        return kernel.directoryQueries.execute('workspace.list', rpcSchemas['workspace.list'].parse(raw))
+      case 'workspace.get':
+        return kernel.directoryQueries.execute('workspace.get', rpcSchemas['workspace.get'].parse(raw))
+      case 'session.list':
+        return kernel.directoryQueries.execute('session.list', rpcSchemas['session.list'].parse(raw))
+      case 'session.get':
+        return kernel.directoryQueries.execute('session.get', rpcSchemas['session.get'].parse(raw))
       case 'system.bootstrap':
         return kernel.bootstrap(hostInfo())
       case 'system.diagnose':
-        return {
-          host: hostInfo(),
-          database: await kernel.storage.call('stats'),
-          recoveredRuns: kernel.recovered,
-          plugins: kernel.plugins.list(),
-          tools: kernel.tools.list().map((tool) => tool.name),
-          streams: kernel.streams.size,
-        }
+        return systemCommands.execute('system.diagnose', {})
       case 'system.skills.list':
         return kernel.skills()
       case 'system.paths.get':
-        return kernel.paths()
+        return systemCommands.execute('system.paths.get', {})
       case 'system.paths.validate': {
-        const p = z.object({ dataRoot: z.string().min(1), cacheRoot: z.string().min(1) }).parse(raw)
-        return kernel.validatePaths(p.dataRoot, p.cacheRoot)
+        const p = rpcSchemas[method].parse(raw)
+        return systemCommands.execute('system.paths.validate', p, { actorId: socket.data.deviceId! })
       }
       case 'system.paths.set': {
-        const p = z.object({ dataRoot: z.string().min(1), cacheRoot: z.string().min(1) }).parse(raw)
-        return {
-          ...(await kernel.setPaths(p.dataRoot, p.cacheRoot)),
-          restartRequired: true,
-          restartMessage: 'Please exit and restart the Host to apply the new paths',
-        }
+        const p = rpcSchemas[method].parse(raw)
+        return systemCommands.execute('system.paths.set', p, { actorId: socket.data.deviceId! })
       }
       case 'system.restart':
-        throw new HbarError('RESTART_UNSUPPORTED', 'The Host cannot restart itself; restart the Host process manually')
+        return systemCommands.execute('system.restart', {})
       case 'permission.get':
         return { mode: kernel.permissionMode() }
       case 'permission.set': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.setPermissionMode(p.mode)
+        return configurationCommands.execute('permission.set', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'settings.catalog':
         return kernel.settingsCatalog()
@@ -204,19 +889,19 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'goal.create': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GoalService>('goal').create(p.sessionId, p.objective, p.tokenBudget)
+        return goalPlanCommands.execute('goal.create', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'goal.update': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GoalService>('goal').update(p.sessionId, p.status)
+        return goalPlanCommands.execute('goal.update', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'goal.set': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GoalService>('goal').set(p.sessionId, p)
+        return goalPlanCommands.execute('goal.set', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'goal.clear': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GoalService>('goal').clear(p.sessionId)
+        return goalPlanCommands.execute('goal.clear', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'plan.get': {
         const p = rpcSchemas[method].parse(raw)
@@ -224,11 +909,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'plan.update': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<PlanService>('plan').update(p.sessionId, p.plan, p.explanation, p.turnId)
+        return goalPlanCommands.execute('plan.update', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'plan.clear': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<PlanService>('plan').clear(p.sessionId)
+        return goalPlanCommands.execute('plan.clear', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'mode.get': {
         const p = rpcSchemas[method].parse(raw)
@@ -236,7 +921,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'mode.set': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ModeService>('mode').set(p.sessionId, p.mode)
+        return configurationCommands.execute('mode.set', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'budget.get': {
         const p = rpcSchemas[method].parse(raw)
@@ -244,11 +929,16 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'budget.set': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BudgetService>('budget').set(p.sessionId, p.limit)
+        const receipt = await budgetCommands.execute(
+          'session.setBudget',
+          { sessionId: p.sessionId, tokens: p.limit },
+          legacyCommandOptions(method, rpcId, socket, true),
+        )
+        return receipt.budget
       }
       case 'budget.clear': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BudgetService>('budget').clear(p.sessionId)
+        return budgetCommands.execute('session.clearBudget', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'git.status': {
         const p = rpcSchemas[method].parse(raw)
@@ -268,7 +958,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'git.commit': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GitService>('git').commit(p.cwd, p)
+        return gitCommands.execute('git.commit', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'git.stage': {
         const p = rpcSchemas[method].parse(raw)
@@ -280,18 +970,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'git.branch': {
         const p = rpcSchemas[method].parse(raw)
-        const operation = p.operation === 'list' ? {} : { operation: p.operation, name: p.name!, force: p.force }
-        return kernel.plugins.get<GitService>('git').branch(p.cwd, operation)
+        return gitCommands.execute('git.branch', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'git.worktree': {
         const p = rpcSchemas[method].parse(raw)
-        const operation =
-          p.operation === 'list'
-            ? {}
-            : p.operation === 'add'
-              ? { operation: 'add' as const, path: p.path!, branch: p.branch, createBranch: p.createBranch }
-              : { operation: 'remove' as const, path: p.path!, force: p.force }
-        return kernel.plugins.get<GitService>('git').worktree(p.cwd, operation)
+        return gitCommands.execute('git.worktree', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'git.diff_to_remote': {
         const p = rpcSchemas[method].parse(raw)
@@ -299,11 +982,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'workspace.create': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.createWorkspace(p.path, p.name)
+        return workspaceSessionCommands.execute('workspace.create', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'session.create': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.createSession(p.workspaceId, p.title)
+        return workspaceSessionCommands.execute('session.create', p, legacyCommandOptions(method, rpcId, socket, true))
       }
       case 'session.move': {
         const p = rpcSchemas[method].parse(raw)
@@ -338,18 +1021,15 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'session.rename': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.updateSession(p.sessionId, { title: p.title })
+        return workspaceSessionCommands.execute('session.rename', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'session.archive': {
         const p = rpcSchemas[method].parse(raw)
-        if (kernel.active.has(p.sessionId)) throw new HbarError('BUSY', 'Stop the active run before archiving')
-        return kernel.updateSession(p.sessionId, { archived: p.archived })
+        return workspaceSessionCommands.execute('session.archive', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'session.fork': {
         const p = rpcSchemas[method].parse(raw)
-        const session = await kernel.storage.call('fork', p.sessionId, p.atSeq)
-        kernel.changed('sessions')
-        return session
+        return workspaceSessionCommands.execute('session.fork', p, legacyCommandOptions(method, rpcId, socket, true))
       }
       case 'session.export': {
         const p = rpcSchemas[method].parse(raw)
@@ -357,11 +1037,23 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'run.start': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.submit(p.sessionId, p.requestId, p.input, p.modelId)
+        const accepted = await runCommands.execute(
+          'run.submit',
+          { sessionId: p.sessionId, input: p.input, modelId: p.modelId },
+          {
+            ...legacyCommandOptions(method, rpcId, socket),
+            idempotencyKey: p.requestId,
+          },
+        )
+        return kernel.storage.call('run', accepted.operationId)
       }
       case 'run.cancel': {
         const p = rpcSchemas[method].parse(raw)
-        await kernel.cancel(p.runId)
+        await runCommands.execute(
+          'operation.cancel',
+          { operationId: p.runId },
+          legacyCommandOptions(method, rpcId, socket),
+        )
         return null
       }
       case 'run.reorder': {
@@ -399,76 +1091,78 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         return systemTerminals.list(socket.data.deviceId!)
       case 'approval.resolve': {
         const p = rpcSchemas[method].parse(raw)
-        await kernel.resolveApproval(p.approvalId, p.decision)
+        const approval = await kernel.storage.call('approval', p.approvalId)
+        await interactionCommands.execute(
+          'approval.resolve',
+          { sessionId: approval.sessionId, approvalId: p.approvalId, decision: p.decision },
+          legacyCommandOptions(method, rpcId, socket),
+        )
         return null
       }
       case 'user_input.resolve': {
         const p = rpcSchemas[method].parse(raw)
-        return { accepted: await kernel.resolveUserInput(p.requestId, p.answers) }
+        const request = kernel.pendingUserInput(p.requestId)
+        if (!request) return { accepted: false }
+        const result = await interactionCommands.execute(
+          'questionnaire.answer',
+          { sessionId: request.sessionId, requestId: p.requestId, answers: p.answers },
+          legacyCommandOptions(method, rpcId, socket),
+        )
+        return { accepted: result.accepted }
       }
       case 'context.compact': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.compact(p.sessionId, p.modelId)
+        return runCommands.execute('context.compact', p, { actorId: socket.data.deviceId! })
       }
       case 'provider.save': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.saveProvider(p.provider, p.apiKey)
+        return configurationCommands.execute('provider.save', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'provider.delete': {
         const p = rpcSchemas[method].parse(raw)
-        await kernel.deleteProvider(p.id)
+        await configurationCommands.execute('provider.delete', p, legacyCommandOptions(method, rpcId, socket))
         return null
       }
       case 'plugin.set': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.changePlugin(p.id, p.enabled, p.config, p.projectId)
+        return extensionCommands.execute('plugin.set', p, { actorId: socket.data.deviceId! })
       }
       case 'plugin.install': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.installPlugin(p.path, p.projectId)
+        return extensionCommands.execute('plugin.install', p, { actorId: socket.data.deviceId! })
       }
       case 'plugin.scan':
-        return kernel.plugins.list()
+        return extensionCommands.execute('plugin.scan', {})
       case 'plugin.remove': {
         const p = rpcSchemas[method].parse(raw)
-        kernel.assertIdle()
-        const result = await kernel.plugins.remove(p.id, p.projectId)
-        kernel.changed('plugins')
-        return result
+        return extensionCommands.execute('plugin.remove', p, { actorId: socket.data.deviceId! })
       }
       case 'plugin.enable': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.changePlugin(p.id, true, undefined, p.projectId)
+        return extensionCommands.execute('plugin.enable', p, { actorId: socket.data.deviceId! })
       }
       case 'plugin.disable': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.changePlugin(p.id, false, undefined, p.projectId)
+        return extensionCommands.execute('plugin.disable', p, { actorId: socket.data.deviceId! })
       }
-      case 'plugin.disableTree': {
-        const p = rpcSchemas[method].parse(raw)
-        return kernel.changePluginTree(p.id, p.projectId)
       }
       case 'plugin.resolve': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.resolve(p.id)
+        return extensionCommands.execute('plugin.resolve', p)
       }
-      case 'plugin.graph': {
-        const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.graph(p.projectId)
-      }
-      case 'plugin.lock': {
-        const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.lock(p.projectId)
-      }
+      case 'plugin.graph':
+        return extensionCommands.execute('plugin.graph', {})
+      case 'plugin.lock':
+        return extensionCommands.execute('plugin.lock', {})
       case 'plugin.doctor':
-        return kernel.plugins.doctor()
+        return extensionCommands.execute('plugin.doctor', {})
       case 'browser.status': {
         const p = rpcSchemas[method].parse(raw)
         return kernel.plugins.get<BrowserUseService>('browser').status(p.sessionId)
       }
       case 'browser.navigate': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BrowserUseService>('browser').navigate(p.sessionId, p.url, p.contextId, p.pageId)
+        return browserCommands.execute('browser.navigate', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'browser.go': {
         const p = rpcSchemas[method].parse(raw)
@@ -480,19 +1174,15 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'browser.click': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BrowserUseService>('browser').click(p.sessionId, p.selector, p.contextId, p.pageId)
+        return browserCommands.execute('browser.click', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'browser.type': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins
-          .get<BrowserUseService>('browser')
-          .type(p.sessionId, p.selector, p.text, p.contextId, p.pageId)
+        return browserCommands.execute('browser.type', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'browser.press': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins
-          .get<BrowserUseService>('browser')
-          .press(p.sessionId, p.key, p.selector, p.contextId, p.pageId)
+        return browserCommands.execute('browser.press', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'browser.screenshot': {
         const p = rpcSchemas[method].parse(raw)
@@ -502,13 +1192,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'browser.evaluate': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins
-          .get<BrowserUseService>('browser')
-          .evaluate(p.sessionId, p.expression, p.contextId, p.pageId)
+        return browserCommands.execute('browser.evaluate', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'browser.close': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BrowserUseService>('browser').close(p.sessionId, p.contextId, p.pageId)
+        return browserCommands.execute('browser.close', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'browser.history': {
         const p = rpcSchemas[method].parse(raw)
@@ -524,50 +1212,45 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'computer.click': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ComputerUseService>('computer').click(p.sessionId, p.x, p.y, p.appId)
+        return computerCommands.execute('computer.click', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'computer.double_click': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ComputerUseService>('computer').doubleClick(p.sessionId, p.x, p.y, p.appId)
+        return computerCommands.execute('computer.doubleClick', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'computer.type': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ComputerUseService>('computer').type(p.sessionId, p.text, p.appId)
+        return computerCommands.execute('computer.type', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'computer.key': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ComputerUseService>('computer').key(p.sessionId, p.key, p.appId)
+        return computerCommands.execute('computer.key', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'computer.scroll': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ComputerUseService>('computer').scroll(p.sessionId, p.deltaX, p.deltaY, p.appId)
+        return computerCommands.execute('computer.scroll', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'computer.move': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ComputerUseService>('computer').move(p.sessionId, p.x, p.y, p.appId)
+        return computerCommands.execute('computer.move', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'computer.wait': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ComputerUseService>('computer').wait(p.sessionId, p.milliseconds, p.appId)
+        return computerCommands.execute('computer.wait', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'computer.launch': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ComputerUseService>('computer').launch(p.sessionId, p.appId)
+        return computerCommands.execute('computer.launch', p, legacyCommandOptions(method, rpcId, socket))
       }
       case 'device.list':
-        return kernel.storage.call('devices')
+        return systemCommands.execute('device.list', {})
       case 'device.revoke': {
         const p = rpcSchemas[method].parse(raw)
-        await kernel.storage.call('revokeDevice', p.id)
-        for (const peer of sockets)
-          if (peer.data.deviceId === p.id) {
-            send(peer, { jsonrpc: '2.0', method: 'auth.revoked', params: { reason: 'Device access revoked' } })
-            peer.close(4001, 'Revoked')
-          }
+        await systemCommands.execute('device.revoke', p, { actorId: socket.data.deviceId! })
         return null
       }
       case 'pairing.create':
-        return auth.createPairing()
+        return systemCommands.execute('pairing.create', {}, { actorId: socket.data.deviceId! })
       case 'file.read': {
         const p = rpcSchemas[method].parse(raw)
         const workspace = await kernel.storage.call('workspace', p.workspaceId)
@@ -636,7 +1319,16 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         if (url.pathname === '/rpc') {
           if (
             host.upgrade(request, {
-              data: { token: requestToken(request), initialized: false, follows: new Set(), terminals: new Set(), pending: 0 },
+              data: {
+                token: requestToken(request),
+                initialized: false,
+                follows: new Set(),
+                operationFollows: new Set(),
+                metricsFollowing: false,
+                schemaQueries: new Map(),
+                pending: 0,
+                terminals: new Set(),
+              },
             })
           )
             return undefined
@@ -709,36 +1401,40 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
           if (!socket.data.initialized) socket.close(4001, 'Handshake required')
         }, 10_000)
       },
-      async message(socket, payload) {
-        let id: string | number | null = null
-        let admitted = false
-        try {
-          if (socket.data.pending >= 32) throw new HbarError('OVERLOADED', 'Too many pending requests')
-          socket.data.pending++
-          admitted = true
-          const request = rpcRequestSchema.parse(JSON.parse(typeof payload === 'string' ? payload : payload.toString()))
-          id = request.id
-          if (!Object.hasOwn(rpcSchemas, request.method)) throw new HbarError('METHOD_NOT_FOUND', request.method)
-          if (request.method !== 'system.hello') {
-            if (!socket.data.initialized) throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
-            await auth.authenticate(socket.data.token)
+      message(socket, payload) {
+        void (async () => {
+          let id: string | number | null = null
+          let admitted = false
+          try {
+            if (socket.data.pending >= 32) throw new HbarError('OVERLOADED', 'Too many pending requests')
+            socket.data.pending++
+            admitted = true
+            const request = rpcRequestSchema.parse(
+              JSON.parse(typeof payload === 'string' ? payload : payload.toString()),
+            )
+            id = request.id
+            if (!Object.hasOwn(rpcSchemas, request.method)) throw new HbarError('METHOD_NOT_FOUND', request.method)
+            if (request.method !== 'system.hello') {
+              if (!socket.data.initialized) throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
+              await auth.authenticate(socket.data.token)
+            }
+            const method = request.method as RpcMethod
+            const params = rpcSchemas[method].parse(request.params)
+            send(socket, { jsonrpc: '2.0', id, result: await invoke(method, params, socket, request.id) })
+          } catch (error) {
+            send(socket, {
+              jsonrpc: '2.0',
+              id,
+              error: {
+                code: -32000,
+                data: error instanceof HbarError || error instanceof CommandError ? error.code : 'INVALID_REQUEST',
+                message: error instanceof Error ? error.message : String(error),
+              },
+            })
+          } finally {
+            if (admitted) socket.data.pending--
           }
-          const method = request.method as RpcMethod
-          const params = rpcSchemas[method].parse(request.params)
-          send(socket, { jsonrpc: '2.0', id, result: await invoke(method, params, socket) })
-        } catch (error) {
-          send(socket, {
-            jsonrpc: '2.0',
-            id,
-            error: {
-              code: -32000,
-              data: error instanceof HbarError ? error.code : 'INVALID_REQUEST',
-              message: error instanceof Error ? error.message : String(error),
-            },
-          })
-        } finally {
-          if (admitted) socket.data.pending--
-        }
+        })()
       },
       close(socket) {
         clearTimeout(socket.data.timer)
@@ -746,29 +1442,90 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
           systemTerminals.detach(socket.data.deviceId, socket.data.terminalCallbacks)
         socket.data.terminals.clear()
         sockets.delete(socket)
+        for (const controller of socket.data.schemaQueries.values())
+          controller.abort(new HbarError('CANCELLED', 'Schema content client disconnected'))
+        socket.data.schemaQueries.clear()
+        if (socket.data.surfaceClientId && socket.data.surfaceGeneration) {
+          const target = surfaceClients.get(socket.data.surfaceClientId)
+          if (target?.socket === socket && target.generation === socket.data.surfaceGeneration) {
+            surfaceClients.delete(socket.data.surfaceClientId)
+            rejectSurfaceTarget(
+              socket.data.surfaceClientId,
+              socket.data.surfaceGeneration,
+              'Target GUI client disconnected',
+            )
+          }
+        }
         void socket.data.scope?.dispose().catch(console.error)
       },
     },
   })
   const unsubscribe = kernel.subscribe((event: WireNotification) => {
+    if (
+      event.method === 'session.event' &&
+      (event.params.type === 'run.settled' || event.params.type === 'approval.requested')
+    ) {
+      enqueueNotification(() => notificationService.publishSource(event.params.eventId))
+    }
     for (const socket of sockets) {
       if (!socket.data.initialized) continue
-      if (
-        (event.method === 'session.event' || event.method === 'stream.update') &&
-        !socket.data.follows.has(event.params.sessionId)
-      )
-        continue
+      if (event.method === 'session.event' || event.method === 'stream.update') {
+        const bySession = socket.data.follows.has(event.params.sessionId)
+        const byOperation = Boolean(event.params.runId && socket.data.operationFollows.has(event.params.runId))
+        const guidedId = event.method === 'session.event' ? guidedOperationId(event.params) : null
+        const byGuidedOperation = guidedId !== null && socket.data.operationFollows.has(guidedId)
+        if (!bySession && !byOperation && !byGuidedOperation) continue
+      }
       send(socket, { jsonrpc: '2.0', ...event })
     }
   })
+  const unsubscribeMetrics = performance.subscribe((sample) => {
+    for (const socket of sockets)
+      if (socket.data.initialized && socket.data.metricsFollowing)
+        send(socket, { jsonrpc: '2.0', method: 'metrics.sample', params: sample })
+  })
+  await scheduleController.start()
   return {
     server,
     auth,
     pairing,
     info: hostInfo,
     async close() {
+      agentCommands.dispose()
+      browserCommands.dispose()
+      computerCommands.dispose()
+      configurationCommands.dispose()
+      extensionCommands.dispose()
+      gitCommands.dispose()
+      workspaceSessionCommands.dispose()
+      sessionLaunchTargetCommands.dispose()
+      sessionLaunchBranchesCommands.dispose()
+      await sessionSearchCommands.dispose()
+      budgetCommands.dispose()
+      fileCommands.dispose()
+      goalPlanCommands.dispose()
+      workflowCommands.dispose()
+      interactionCommands.dispose()
+      modelCommands.dispose()
+      metricsCommands.dispose()
+      performance.stop()
+      runCommands.dispose()
+      settingsCommands.dispose()
+      usageCommands.dispose()
+      await scheduleController.close()
       unsubscribe()
       systemTerminals.closeAll()
+      while (notificationTasks.size) await Promise.allSettled([...notificationTasks])
+      scheduleCommands.dispose()
+      promptTemplateCommands.dispose()
+      sandboxCommandService.dispose()
+      notificationCommands.dispose()
+      runBoardCommands.dispose()
+      systemCommands.dispose()
+      unsubscribeMetrics()
+      for (const pending of [...pendingSurfaceByRelay.values()])
+        finishSurface(pending, { ok: false, code: 'CAPABILITY_UNAVAILABLE', message: 'Host is shutting down' })
+      surfaceClients.clear()
       for (const socket of sockets) socket.close()
       await server.stop(true)
     },

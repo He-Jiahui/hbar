@@ -2,31 +2,20 @@ import { cp, mkdir, copyFile, rm, stat } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { resolve, join, relative } from 'node:path'
 import './icons'
+import './build-native-tools'
+import { copyBuildArtifact } from './copy-build-artifact'
+import { buildHostBundle } from './build-host-bundle'
 
 const project = resolve(import.meta.dir, '..')
 const output = resolve(project, 'dist/desktop-resources')
+const nativeOutput = resolve(project, 'dist/native')
 // Playwright loads these optional BiDi mappers only for BiDi connections.
-const external = [
-  '@aws-sdk/client-s3',
-  'chromium-bidi/lib/cjs/bidiMapper/BidiMapper',
-  'chromium-bidi/lib/cjs/cdp/CdpConnection',
-]
 await mkdir(output, { recursive: true })
 for (const [entry, name] of [
   ['apps/host/src/main.ts', 'host.js'],
   ['packages/storage/src/worker.ts', 'storage-worker.js'],
 ] as const) {
-  const build = await Bun.build({
-    entrypoints: [entry],
-    outdir: output,
-    naming: name,
-    target: 'bun',
-    packages: 'bundle',
-    external,
-    minify: false,
-    sourcemap: 'external',
-  })
-  if (!build.success) throw new AggregateError(build.logs, `Failed to build ${entry}`)
+  await buildHostBundle(entry, name, output)
 }
 const runtimePath = join(output, process.platform === 'win32' ? 'bun.exe' : 'bun')
 const forceRuntimeCopy = process.env.HBAR_FORCE_RUNTIME_COPY === '1'
@@ -55,6 +44,11 @@ if (forceRuntimeCopy) {
     console.log(`Reusing existing Bun runtime: ${runtimePath}`)
   }
 }
+await mkdir(nativeOutput, { recursive: true })
+await copyBuildArtifact(
+  resolve(project, 'plugins/local-tools/native/hbar_workspace_query.node'),
+  join(nativeOutput, 'hbar_workspace_query.node'),
+)
 const webOutput = join(output, 'web')
 if (relative(output, webOutput) !== 'web') throw new Error('Invalid generated asset path')
 await rm(webOutput, { recursive: true, force: true })

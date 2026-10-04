@@ -1,0 +1,12 @@
+.preview-isolated-canvas:has(.lumen-agent-plan-preview-root),
+.preview-component-canvas:has(.lumen-agent-plan-preview-root) {
+  display: flex;
+  flex-direction: column;
+  block-size: auto;
+  min-block-size: 0;
+  overflow: visible;
+}
+
+.preview-component-canvas:has(.lumen-agent-plan-preview-root) {
+  align-items: stretch;
+}

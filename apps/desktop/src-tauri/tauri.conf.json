@@ -8,7 +8,10 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
-    "resources": { "../../../dist/desktop-resources/": "runtime/" },
+    "resources": {
+      "../../../dist/desktop-resources/": "runtime/",
+      "../../../dist/native/": "native/"
+    },
     "windows": { "nsis": { "installMode": "currentUser" } }
   }
 }

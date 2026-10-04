@@ -18,7 +18,7 @@ async function fixture() {
   await store.call('ready')
   const workspace = await store.call('createWorkspace', root, 'test')
   const session = await store.call('createSession', workspace.id)
-  return { root, store, session }
+  return { root, store, workspace, session }
 }
 test('committed messages, events, and pagination share a monotonic cursor', async () => {
   const { store, session } = await fixture()
@@ -56,6 +56,29 @@ test('queued runs can be reordered and claim follows the visible queue order', a
   await store.call('reorderQueued', session.id, [third.id, first.id, second.id])
   expect((await store.call('claim', session.id))?.id).toBe(third.id)
 })
+
+test('run board pages real names, stable cursors, and null usage', async () => {
+  const { store, workspace, session } = await fixture()
+  const first = await store.call('enqueue', session.id, 'board-1', { text: 'one', images: [] }, 'test')
+  await store.call('enqueue', session.id, 'board-2', { text: 'two', images: [] }, 'test')
+  const page = await store.call('runBoard', { workspaceId: workspace.id, limit: 1 })
+  expect(page.items).toHaveLength(1)
+  expect(page.items[0]?.run.workspaceName).toBe('test')
+  expect(page.items[0]?.run.sessionTitle).toBe('New session')
+  expect(page.items[0]?.usage).toBeNull()
+  expect(page.nextCursor).not.toBeNull()
+  const next = await store.call('runBoard', { workspaceId: workspace.id, limit: 1, cursor: page.nextCursor! })
+  expect(next.items).toHaveLength(1)
+  expect(next.items[0]?.run.id).not.toBe(page.items[0]?.run.id)
+  await store.call('setRun', first.id, 'completed')
+  let cursorError: unknown
+  try {
+    await store.call('runBoard', { workspaceId: workspace.id, limit: 1, cursor: page.nextCursor! })
+  } catch (error) {
+    cursorError = error
+  }
+  expect(cursorError).toMatchObject({ code: 'INVALID_CURSOR' })
+})
 test('recovery preserves an unknown tool outcome without replaying it', async () => {
   const { store, session } = await fixture()
   const run = await store.call('enqueue', session.id, 'request', { text: 'write', images: [] }, 'test')
@@ -63,6 +86,11 @@ test('recovery preserves an unknown tool outcome without replaying it', async ()
   await store.call('toolStart', session.id, run.id, 'call', 'write_file', { path: 'output.txt' })
   expect(await store.call('recover')).toBe(1)
   expect((await store.call('run', run.id)).status).toBe('interrupted')
+  expect((await store.call('run', run.id)).failure).toEqual({
+    code: 'EFFECT_UNKNOWN',
+    category: 'result_unknown',
+    retryable: false,
+  })
   expect((await store.call('snapshot', session.id)).messages[0]?.content[0]).toMatchObject({
     type: 'tool_result',
     isError: true,
@@ -122,4 +150,55 @@ test('session summaries prioritize waiting approval across concurrent runs', asy
   expect(summary.activity).toBe('waiting_approval')
   expect(summary.activeRunId).toBe(waiting.id)
   await store.call('setRun', waiting.id, 'cancelled')
+})
+
+test('settled tools append one durable execution timing fact', async () => {
+  const { store, session } = await fixture()
+  const run = await store.call('enqueue', session.id, 'tool-timing', { text: 'tool', images: [] }, 'test')
+  await store.call('claim', session.id)
+  await store.call('toolStart', session.id, run.id, 'timed-call', 'read_file', { path: 'input.txt' })
+  const settled = await store.call('toolEnd', session.id, run.id, 'timed-call', false)
+  expect(settled).toMatchObject({
+    sessionId: session.id,
+    runId: run.id,
+    type: 'tool.settled',
+    data: { callId: 'timed-call', failed: false },
+  })
+  expect(await store.call('toolEnd', session.id, run.id, 'timed-call', true)).toBeNull()
+  expect((await store.call('events', session.id, 0)).filter((event) => event.type === 'tool.settled')).toHaveLength(1)
+})
+
+test('entity command receipts make session creation and forks durable across retries and restart', async () => {
+  const resource = await fixture()
+  const { root, workspace, session } = resource
+  const createInput = {
+    actorId: 'device-1',
+    idempotencyKey: 'create-session',
+    workspaceId: workspace.id,
+    title: 'Idempotent session',
+  }
+  const created = await resource.store.call('createSessionCommand', createInput)
+  expect(await resource.store.call('createSessionCommand', createInput)).toEqual(created)
+  let conflict: unknown
+  try {
+    await resource.store.call('createSessionCommand', { ...createInput, title: 'Different session' })
+  } catch (error) {
+    conflict = error
+  }
+  expect(conflict).toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' })
+  const forkInput = {
+    actorId: 'device-1',
+    idempotencyKey: 'fork-session',
+    sessionId: session.id,
+  }
+  const forked = await resource.store.call('forkSessionCommand', forkInput)
+  expect(await resource.store.call('forkSessionCommand', forkInput)).toEqual(forked)
+  expect((await resource.store.call('childSessions', session.id)).map((item) => item.id)).toEqual([forked.id])
+
+  await resource.store.close()
+  resource.store = new Storage(join(root, 'test.sqlite'))
+  resources.find((item) => item.root === root)!.store = resource.store
+  await resource.store.call('ready')
+  expect(await resource.store.call('createSessionCommand', createInput)).toEqual(created)
+  expect(await resource.store.call('forkSessionCommand', forkInput)).toEqual(forked)
 })

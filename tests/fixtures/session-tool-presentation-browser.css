@@ -1,0 +1,32 @@
+.tool-presentation-fixture,
+.tool-presentation-fixture-messages {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: 1rem;
+}
+
+.tool-presentation-fixture {
+  padding: 1rem;
+}
+
+.tool-presentation-fixture > h1,
+.tool-presentation-fixture > p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.tool-presentation-fixture > button {
+  align-self: flex-start;
+  max-inline-size: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.tool-presentation-fixture-messages > * {
+  min-inline-size: 0;
+}
+
+body {
+  margin: 0;
+}

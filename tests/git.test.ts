@@ -2,7 +2,9 @@ import { afterEach, expect, test } from 'bun:test'
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { GitRuntime, gitConfigSchema } from '../plugins/git/src/index.ts'
+import type { GitCommitInfo } from '@hbar/contracts'
+import type { ToolContext } from '@hbar/plugin-sdk'
+import { GitRuntime, ProcessGitRunner, gitConfigSchema, gitTools } from '../plugins/git/src/index.ts'
 
 const roots: string[] = []
 afterEach(async () => {
@@ -52,7 +54,58 @@ test('Git status, history, and remote metadata are bounded and sanitized', async
     branch: status.branch,
     originUrl: status.originUrl,
   })
-  expect((await runtime.log(root, 1))[0]?.subject).toBe('initial')
+  expect((await runtime.log(root, 1))[0]).toMatchObject({
+    subject: 'initial',
+    provenance: { source: 'external', recordedAt: null },
+  })
+})
+
+test('truncated Git status output fails rather than returning a partial dirty projection', async () => {
+  const { root } = await fixture()
+  const processRunner = new ProcessGitRunner()
+  const runtime = new GitRuntime(root, gitConfigSchema.parse({}), {
+    run(cwd, args, signal, limits) {
+      if (args[0] === 'status')
+        return Promise.resolve({ stdout: '## main\0?? partial', stderr: '', code: 0, truncated: true })
+      return processRunner.run(cwd, args, signal, limits)
+    },
+  })
+  await expect(runtime.status(root)).rejects.toMatchObject({ code: 'GIT_OUTPUT_LIMIT' })
+})
+
+test('execution-root diff strategy uses literal scoped paths without changing generic diff behavior', async () => {
+  const { root, runtime } = await fixture()
+  const scope = join(root, 'scope')
+  const outside = join(root, 'outside')
+  await mkdir(scope)
+  await mkdir(outside)
+  await writeFile(join(scope, '[ab].txt'), 'bracket baseline\n')
+  await writeFile(join(scope, 'a.txt'), 'a baseline\n')
+  await writeFile(join(outside, 'outside.txt'), 'outside baseline\n')
+  await runGit(root, ['add', 'scope', 'outside'])
+  await runGit(root, ['commit', '-q', '-m', 'scoped diff baseline'])
+
+  await writeFile(join(scope, '[ab].txt'), 'bracket literal marker\n')
+  await writeFile(join(scope, 'a.txt'), 'glob a marker\n')
+  await writeFile(join(outside, 'outside.txt'), 'outside secret marker\n')
+
+  const scoped = await runtime.diff(scope, { scope: 'execution-root' })
+  expect(scoped.diff).toContain('bracket literal marker')
+  expect(scoped.diff).toContain('glob a marker')
+  expect(scoped.diff).not.toContain('outside secret marker')
+  expect(scoped.diff).not.toContain('outside/')
+  expect(scoped.diff).toContain('b/[ab].txt')
+
+  const literalBracket = await runtime.diff(scope, { scope: 'execution-root', paths: ['[ab].txt'] })
+  expect(literalBracket.diff).toContain('bracket literal marker')
+  expect(literalBracket.diff).not.toContain('glob a marker')
+
+  expect((await runtime.diff(scope, { scope: 'execution-root', paths: ['*.txt'] })).diff).toBe('')
+  expect((await runtime.diff(scope, { scope: 'execution-root', paths: [':(top)outside/outside.txt'] })).diff).toBe('')
+
+  const generic = await runtime.diff(root)
+  expect(generic.diff).toContain('outside secret marker')
+  expect(generic.diff).toContain('scope/[ab].txt')
 })
 
 test('Git mutations emit an observational change notification after success', async () => {
@@ -62,7 +115,12 @@ test('Git mutations emit an observational change notification after success', as
     changed.push(cwd)
   })
   await writeFile(join(root, 'notify.txt'), 'change\n')
-  await runtime.commit(root, { message: 'notify', paths: ['notify.txt'], stage: true })
+  await runtime.commit(root, {
+    message: 'notify',
+    paths: ['notify.txt'],
+    stage: true,
+    provenance: { source: 'manual', operationId: 'notify-operation' },
+  })
   expect(changed).toHaveLength(1)
   expect(changed[0]?.replaceAll('\\', '/')).toBe(root.replaceAll('\\', '/'))
 })
@@ -70,9 +128,27 @@ test('Git mutations emit an observational change notification after success', as
 test('Git commit, branch, and worktree operations use validated paths', async () => {
   const { root, runtime } = await fixture()
   await writeFile(join(root, 'change.txt'), 'change\n')
-  const commit = await runtime.commit(root, { message: 'add change', paths: ['change.txt'], stage: true })
+  const commit = await runtime.commit(root, {
+    message: 'add change',
+    paths: ['change.txt'],
+    stage: true,
+    provenance: {
+      source: 'auto',
+      sessionId: 'session-1',
+      runId: 'run-1',
+      operationId: 'tool-call-1',
+    },
+  })
   expect(commit.subject).toBe('add change')
   expect((await runtime.log(root, 20)).map((entry) => entry.subject)).toEqual(['add change', 'initial'])
+  expect(commit.committedAt).toMatch(/T/)
+  expect(commit.provenance).toMatchObject({
+    source: 'auto',
+    sessionId: 'session-1',
+    runId: 'run-1',
+    operationId: 'tool-call-1',
+  })
+  expect((await runtime.log(root, 2)).map((entry) => entry.provenance.source)).toEqual(['auto', 'external'])
   const baseBranch = await runGit(root, ['branch', '--show-current'])
   const created = await runtime.branch(root, { operation: 'create', name: 'feature/hbar' })
   expect(Array.isArray(created)).toBeFalse()
@@ -158,6 +234,140 @@ test('Git rejects overlong or NUL-containing worktree targets before filesystem 
   roots.push(parent)
   await expect(runtime.worktree(root, { operation: 'add', path: `${parent}-${'x'.repeat(4_001)}`, branch })).rejects.toThrow('characters')
   await expect(runtime.worktree(root, { operation: 'add', path: `${parent}\u0000target`, branch })).rejects.toThrow('NUL')
+})
+
+test('AI Git commits persist tool-owned session, run, and operation provenance', async () => {
+  const { root, runtime } = await fixture()
+  await writeFile(join(root, 'automatic.txt'), 'automatic\n')
+  const tool = gitTools(runtime).find((candidate) => candidate.name === 'git_commit')
+  expect(tool).toBeDefined()
+  const result = await tool!.execute(
+    { message: 'automatic commit', paths: ['automatic.txt'], stage: true },
+    {
+      session: { id: 'session-tool' },
+      workspace: { id: 'workspace-tool', path: root },
+      run: { id: 'run-tool' },
+      signal: new AbortController().signal,
+      callId: 'call-tool',
+    } as ToolContext,
+  )
+  expect((result.details as GitCommitInfo).provenance).toMatchObject({
+    source: 'auto',
+    sessionId: 'session-tool',
+    runId: 'run-tool',
+    operationId: 'call-tool',
+  })
+  expect((await runtime.log(root, 1))[0]?.provenance.source).toBe('auto')
+})
+
+test('Git statistics use first-parent history, explicit sources, and refresh after fast-forward and rewrite', async () => {
+  const { root, runtime } = await fixture()
+  const baseBranch = await runGit(root, ['branch', '--show-current'])
+  await writeFile(join(root, 'manual.txt'), 'one\ntwo\n')
+  await runtime.commit(root, {
+    message: 'manual statistics commit',
+    paths: ['manual.txt'],
+    stage: true,
+    provenance: { source: 'manual', operationId: 'stats-manual' },
+  })
+  await runGit(root, ['mv', 'README.md', 'README-renamed.md'])
+  await runGit(root, ['commit', '-q', '-m', 'rename readme'])
+  await writeFile(join(root, 'binary.dat'), Uint8Array.from([0, 1, 2, 3]))
+  await runGit(root, ['add', 'binary.dat'])
+  await runGit(root, ['commit', '-q', '-m', 'binary data'])
+  await runGit(root, ['switch', '-q', '-c', 'statistics-feature'])
+  await writeFile(join(root, 'feature.txt'), 'feature\n')
+  await runGit(root, ['add', 'feature.txt'])
+  await runGit(root, ['commit', '-q', '-m', 'feature side commit'])
+  await runGit(root, ['switch', '-q', baseBranch])
+  await writeFile(join(root, 'main.txt'), 'main\n')
+  await runGit(root, ['add', 'main.txt'])
+  await runGit(root, ['commit', '-q', '-m', 'main commit'])
+  await runGit(root, ['merge', '-q', '--no-ff', 'statistics-feature', '-m', 'merge feature'])
+
+  const now = Date.now()
+  const options = {
+    from: now - 86_400_000,
+    to: now + 86_400_000,
+    bucketMs: 3_600_000,
+    maxBuckets: 48,
+    sources: ['auto', 'manual', 'external'] as ('auto' | 'manual' | 'external')[],
+  }
+  const initial = await runtime.stats(root, options)
+  expect(initial).toMatchObject({
+    indexMode: 'full',
+    indexComplete: true,
+    gap: false,
+    historyPolicy: 'first-parent',
+    renamePolicy: 'separate',
+    totals: {
+      commits: 6,
+      autoCommits: 0,
+      manualCommits: 1,
+      externalCommits: 5,
+      renames: 1,
+      binaryFiles: 1,
+    },
+    binaryLineChanges: { value: null, availability: 'unavailable', reason: 'BINARY_CONTENT' },
+  })
+  expect(initial.totals.filesChanged).toBeGreaterThanOrEqual(6)
+  expect(initial.points.reduce((sum, point) => sum + point.commits, 0)).toBe(6)
+  expect((await runtime.stats(root, options)).indexMode).toBe('hit')
+  const manualOnly = await runtime.stats(root, { ...options, sources: ['manual'] })
+  expect(manualOnly.totals).toMatchObject({ commits: 1, manualCommits: 1, externalCommits: 0 })
+
+  await writeFile(join(root, 'fast-forward.txt'), 'fast forward\n')
+  await runGit(root, ['add', 'fast-forward.txt'])
+  await runGit(root, ['commit', '-q', '-m', 'fast forward commit'])
+  const incremental = await runtime.stats(root, options)
+  expect(incremental.indexMode).toBe('incremental')
+  expect(incremental.totals.commits).toBe(7)
+
+  await runGit(root, ['commit', '--amend', '-q', '-m', 'rewritten commit'])
+  const reindexed = await runtime.stats(root, options)
+  expect(reindexed.indexMode).toBe('reindexed')
+  expect(reindexed.totals.commits).toBe(7)
+  expect(reindexed.totals.externalCommits).toBe(6)
+
+  const bounded = new GitRuntime(root, gitConfigSchema.parse({ maxStatsCommits: 2 }))
+  expect(await bounded.stats(root, options)).toMatchObject({
+    scannedCommits: 2,
+    indexComplete: false,
+    gap: true,
+  })
+})
+
+test('Git statistics scan observes cancellation after its managed process starts', async () => {
+  const { root } = await fixture()
+  const entered = Promise.withResolvers<void>()
+  const processRunner = new ProcessGitRunner()
+  const runtime = new GitRuntime(root, gitConfigSchema.parse({}), {
+    run(cwd, args, signal, limits) {
+      if (args[0] === 'log' && args.includes('--numstat')) {
+        entered.resolve()
+        return new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+        })
+      }
+      return processRunner.run(cwd, args, signal, limits)
+    },
+  })
+  const controller = new AbortController()
+  const now = Date.now()
+  const pending = runtime.stats(
+    root,
+    {
+      from: now - 60_000,
+      to: now + 60_000,
+      bucketMs: 60_000,
+      maxBuckets: 2,
+      sources: ['external'],
+    },
+    controller.signal,
+  )
+  await entered.promise
+  controller.abort()
+  await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
 })
 
 test('Git command runner never turns a path into shell syntax', async () => {

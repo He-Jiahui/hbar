@@ -1,0 +1,187 @@
+import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
+import { HbarError } from '@hbar/contracts'
+import { gitCommands, sessionGitDiffSchema } from '@hbar/contracts/commands/git'
+import type { SessionGitTarget } from '@hbar/contracts/commands/git'
+import type { GitBranchOperation, GitService, GitWorktreeOperation } from '@hbar/plugin-sdk'
+import type { StoragePort } from '@hbar/storage'
+import { assertSessionGitExecutionRoot, projectSessionGitStatus } from './session-git-projection'
+import { createSessionWorkspaceContext } from './session-workspace-context'
+import type { SessionWorkspaceResolver } from './session-workspace-context'
+
+export interface SessionGitWorkspaceResolver extends SessionWorkspaceResolver {
+  readonly storage: StoragePort
+}
+
+export function createGitCommands(service: GitService, sessionWorkspace?: SessionGitWorkspaceResolver) {
+  const registry = new CommandRegistry({ execution: 'host' })
+  const sessionContext = sessionWorkspace
+    ? createSessionWorkspaceContext(sessionWorkspace.storage, sessionWorkspace)
+    : null
+  const translate = async <Value>(operation: () => Promise<Value>): Promise<Value> => {
+    try {
+      return await operation()
+    } catch (error) {
+      if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+      throw error
+    }
+  }
+  const translateExternal = async <Value>(operation: () => Promise<Value>): Promise<Value> => {
+    try {
+      return await translate(operation)
+    } catch (error) {
+      if (error instanceof CommandError && ['ABORT_ERR', 'GIT_TIMEOUT'].includes(error.code))
+        throw new CommandError('RESULT_UNKNOWN', 'Git mutation may have completed; inspect repository state')
+      throw error
+    }
+  }
+  const branchOperation = (input: {
+    operation: 'list' | 'create' | 'switch' | 'delete'
+    name?: string | undefined
+    force: boolean
+  }): GitBranchOperation => {
+    if (input.operation === 'list') return { operation: 'list' }
+    if (!input.name) throw new CommandError('INVALID_INPUT', 'Branch name is required for mutations')
+    return { operation: input.operation, name: input.name, force: input.force }
+  }
+  const worktreeOperation = (input: {
+    operation: 'list' | 'add' | 'remove'
+    path?: string | undefined
+    branch?: string | undefined
+    createBranch: boolean
+    force: boolean
+  }): GitWorktreeOperation => {
+    if (input.operation === 'list') return { operation: 'list' }
+    if (!input.path) throw new CommandError('INVALID_INPUT', 'Worktree path is required for mutations')
+    return input.operation === 'add'
+      ? { operation: 'add', path: input.path, branch: input.branch, createBranch: input.createBranch }
+      : { operation: 'remove', path: input.path, force: input.force }
+  }
+  const resolveSession = async (input: SessionGitTarget, signal: AbortSignal) => {
+    const context = sessionContext
+    if (!context) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Session Git contexts are unavailable')
+    const request = {
+      workspaceId: input.workspaceId,
+      sessionTarget: { sessionId: input.sessionId, expectedRevision: input.expectedRevision },
+    }
+    const target = await context.resolve(request, signal)
+    return {
+      path: target.path,
+      async assertCurrent() {
+        signal.throwIfAborted()
+        await context.assertCurrent(request)
+        signal.throwIfAborted()
+      },
+    }
+  }
+
+  registry.register(gitCommands['sessionGit.info'], (input, context) =>
+    translate(async () => {
+      const target = await resolveSession(input, context.signal)
+      const info = await service.info(target.path, context.signal)
+      await target.assertCurrent()
+      return info
+    }),
+  )
+  registry.register(gitCommands['sessionGit.status'], (input, context) =>
+    translate(async () => {
+      const target = await resolveSession(input, context.signal)
+      const status = await service.status(target.path, context.signal)
+      await target.assertCurrent()
+      return projectSessionGitStatus(input, status, target.path)
+    }),
+  )
+  registry.register(gitCommands['sessionGit.diff'], (input, context) =>
+    translate(async () => {
+      const target = await resolveSession(input, context.signal)
+      const result = await service.diff(
+        target.path,
+        { cached: input.cached, paths: input.paths, scope: 'execution-root' },
+        context.signal,
+      )
+      await target.assertCurrent()
+      assertSessionGitExecutionRoot(target.path, result.cwd)
+      return sessionGitDiffSchema.parse({
+        target: {
+          workspaceId: input.workspaceId,
+          sessionId: input.sessionId,
+          expectedRevision: input.expectedRevision,
+        },
+        diff: result.diff,
+        cached: result.cached,
+        truncated: result.truncated,
+      })
+    }),
+  )
+
+  registry.register(gitCommands['git.info'], (input, context) =>
+    translate(() => service.info(input.cwd, context.signal)),
+  )
+  registry.register(gitCommands['git.status'], (input, context) =>
+    translate(() => service.status(input.cwd, context.signal)),
+  )
+  registry.register(gitCommands['git.diff'], (input, context) =>
+    translate(() => service.diff(input.cwd, { cached: input.cached, paths: input.paths }, context.signal)),
+  )
+  registry.register(gitCommands['git.log'], (input, context) =>
+    translate(() => service.log(input.cwd, input.limit, context.signal)),
+  )
+  registry.register(gitCommands['git.stats'], (input, context) =>
+    translate(() =>
+      service.stats(
+        input.cwd,
+        {
+          from: input.from,
+          to: input.to,
+          bucketMs: input.bucketMs,
+          maxBuckets: input.maxBuckets,
+          sources: input.sources,
+        },
+        context.signal,
+      ),
+    ),
+  )
+  registry.register(
+    gitCommands['git.commit'],
+    (input, context) =>
+      translateExternal(() =>
+        service.commit(
+          input.cwd,
+          {
+            message: input.message,
+            paths: input.paths,
+            stage: input.stage,
+            provenance: {
+              source: 'manual',
+              sessionId: input.sessionId,
+              runId: input.runId,
+              operationId: context.requestId,
+            },
+          },
+          context.signal,
+        ),
+      ),
+    { durable: true },
+  )
+  registry.register(
+    gitCommands['git.branch'],
+    (input, context) => translateExternal(() => service.branch(input.cwd, branchOperation(input), context.signal)),
+    { durable: true },
+  )
+  registry.register(
+    gitCommands['git.worktree'],
+    (input, context) => translateExternal(() => service.worktree(input.cwd, worktreeOperation(input), context.signal)),
+    { durable: true },
+  )
+  registry.register(gitCommands['git.diffToRemote'], (input, context) =>
+    translate(() => service.diffToRemote(input.cwd, context.signal)),
+  )
+  return {
+    ...createCommandClient(gitCommands, registry),
+    dispatch(value: unknown, actorId: string) {
+      return registry.dispatch(value, { actorId })
+    },
+    describe: (id: string) => registry.describe(id),
+    list: () => registry.list({ limit: 500 }),
+    dispose: () => registry.dispose(),
+  }
+}

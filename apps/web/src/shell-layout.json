@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 3,
+  "id": "app",
+  "type": "app-shell",
+  "modules": [
+    {
+      "moduleId": "projects",
+      "outlet": "sidebar",
+      "region": "left",
+      "order": 0,
+      "visible": true,
+      "size": { "minRem": 12, "preferredRem": 17, "maxRem": 24, "collapsedRem": 4.5 },
+      "config": { "narrowPresentation": "drawer" }
+    },
+    {
+      "moduleId": "workspace",
+      "outlet": "page",
+      "region": "center",
+      "order": 1,
+      "visible": true,
+      "size": { "minRem": 20, "grow": 1 },
+      "config": {
+        "narrowPresentation": "page",
+        "tabs": { "visible": true, "placement": "before-content", "maxOpen": 32 }
+      }
+    },
+    {
+      "moduleId": "session-tool",
+      "outlet": "tool",
+      "region": "right",
+      "order": 2,
+      "visible": true,
+      "size": { "minRem": 20, "preferredRem": 24, "maxRem": 36 },
+      "config": { "constrainedPresentation": "page", "resizable": true }
+    }
+  ]
+}

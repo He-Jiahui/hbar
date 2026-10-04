@@ -1,0 +1,102 @@
+.hbar-proposed-plan,
+.hbar-proposed-plan-feedback {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+}
+.hbar-proposed-plan {
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  overflow: hidden;
+  background: var(--lumen-contrast);
+}
+.hbar-proposed-plan-heading,
+.hbar-proposed-plan-actions {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px;
+  background: var(--lumen-reading);
+}
+.hbar-proposed-plan-heading {
+  font-size: 0.8125rem;
+}
+.hbar-proposed-plan-document {
+  min-inline-size: 0;
+  max-block-size: 32.5rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 16px;
+  border-block: 0.0625rem solid var(--lumen-edge);
+  font-size: 0.875rem;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  background: var(--lumen-glass);
+}
+.hbar-proposed-plan-document h1 {
+  font-size: 1.25rem;
+  line-height: 1.4;
+}
+.hbar-proposed-plan-document h2,
+.hbar-proposed-plan-document h3,
+.hbar-proposed-plan-document h4,
+.hbar-proposed-plan-document h5,
+.hbar-proposed-plan-document h6 {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+.hbar-proposed-plan-document :is(h1, h2, h3, h4, h5, h6) {
+  margin-block: 12px 6px;
+}
+.hbar-proposed-plan-document :is(p, ul, ol) {
+  margin-block: 6px;
+}
+.hbar-proposed-plan-document > :first-child {
+  margin-block-start: 0;
+}
+.hbar-proposed-plan-document > :last-child {
+  margin-block-end: 0;
+}
+.hbar-proposed-plan-document pre {
+  max-inline-size: 100%;
+  overflow: auto;
+  font-size: 0.8125rem;
+}
+.hbar-proposed-plan-document img {
+  max-inline-size: 100%;
+  block-size: auto;
+}
+.hbar-proposed-plan-document table {
+  display: block;
+  max-inline-size: 100%;
+  overflow: auto;
+}
+.hbar-proposed-plan-feedback {
+  gap: 6px;
+  padding: 12px;
+}
+.hbar-proposed-plan-feedback-input {
+  inline-size: 100%;
+  min-inline-size: 0;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-contrast);
+  padding: 10px 12px;
+  resize: vertical;
+}
+.hbar-proposed-plan-actions > button {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.hbar-proposed-plan-actions {
+  justify-content: space-between;
+}
+.hbar-proposed-plan-status,
+.hbar-proposed-plan-scope {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}

@@ -16,8 +16,11 @@ import { streamSimple as openaiResponses } from '@earendil-works/pi-ai/api/opena
 import { streamSimple as anthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages'
 import { z } from 'zod'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
+import { createUsageFact } from '@hbar/usage'
 import type { DriverInput, HarnessDriver, ModelRequest, ToolResultContent } from '@hbar/plugin-sdk'
 import type { ContentBlock, Message, ProviderConfig, ThinkingLevel, Usage } from '@hbar/contracts'
+import { appendProviderContext, splitModelContext } from './model-context'
+import { createDriverSteeringReader } from './steering'
 
 const piUsage = (): PiUsage => ({
   input: 0,
@@ -28,7 +31,9 @@ const piUsage = (): PiUsage => ({
   cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
 })
 const normalizeUsage = (usage: PiUsage): Usage => ({
-  input: usage.input,
+  // Pi separates uncached, cache-read and cache-write buckets. Hbar's input is
+  // inclusive; its budget layer subtracts cache reads exactly once.
+  input: usage.input + usage.cacheRead + usage.cacheWrite,
   output: usage.output,
   cacheRead: usage.cacheRead,
   cacheWrite: usage.cacheWrite,
@@ -182,6 +187,8 @@ function streamProvider(
   apiKey: string | null,
   signal: AbortSignal,
   thinking: ThinkingLevel = 'off',
+  runtimeContext = '',
+  sessionId?: string,
 ): AssistantMessageEventStream {
   const model = modelOf(config)
   const options: SimpleStreamOptions = {
@@ -189,7 +196,21 @@ function streamProvider(
     signal,
     maxTokens: config.maxOutput,
     maxRetries: 0,
+    ...(sessionId ? { sessionId } : {}),
+    ...(config.protocol === 'openai-responses' || config.protocol === 'openai-completions'
+      ? { samplingParams: { parallel_tool_calls: true } }
+      : {}),
     ...(thinking !== 'off' ? { reasoning: thinking as Exclude<ThinkingLevel, 'off'> } : {}),
+    ...(runtimeContext && (config.protocol === 'openai-responses' || config.protocol === 'openai-completions')
+      ? {
+          onPayload: (payload: unknown) =>
+            appendProviderContext(
+              payload,
+              runtimeContext,
+              config.protocol === 'openai-responses' ? 'openai-responses' : 'openai-completions',
+            ),
+        }
+      : {}),
   }
   try {
     switch (config.protocol) {
@@ -299,12 +320,37 @@ function contentOf(message: AssistantMessage): ContentBlock[] {
 }
 
 export class PiDriver implements HarnessDriver {
+  readonly supportsCanonicalSteering = true
+  readonly supportsSteeringAdmissionClosure = true
   async run(input: DriverInput) {
     let stepId = '',
       streamId = '',
       stepCount = 0,
-      failure: string | undefined
+      failure: string | undefined,
+      attemptModel = input.request.model,
+      firstThinking = false,
+      firstText = false
     const completedTools = new Set<string>()
+    let goalCompleted = false
+    let requestFailure: unknown
+    const readSteering = createDriverSteeringReader(input)
+    const pollSteering = async (closeWhenEmpty?: true) => {
+      if (input.signal.aborted || goalCompleted || requestFailure !== undefined) return []
+      try {
+        // These entries only wake the loop. The provider payload is rebuilt by
+        // beforeRequest, with its actual model, including attachment hydration.
+        return (await readSteering(closeWhenEmpty ? { closeWhenEmpty } : {})).map((message) => ({
+          role: 'user' as const,
+          content: message.content.filter((block) => block.type === 'text'),
+          timestamp: message.createdAt,
+        }))
+      } catch (error) {
+        // Pi requires polling not to reject. Retain the cause and fail before
+        // another provider request instead of silently dropping admitted input.
+        requestFailure = error ?? new Error('Run steering source failed')
+        return []
+      }
+    }
     const transientToolContent = new Map<string, ToolResultContent[]>()
     const tools: AgentTool[] = input.tools.map((tool) => ({
       name: tool.name,
@@ -323,13 +369,24 @@ export class PiDriver implements HarnessDriver {
     const emit = async (event: AgentEvent) => {
       if (event.type === 'turn_start') {
         stepId = crypto.randomUUID()
+        firstThinking = false
+        firstText = false
         stepCount++
         if (stepCount > 64) throw new Error('Run reached the 64-step limit')
         await input.emit('step.started', { step: stepCount }, stepId)
       } else if (event.type === 'message_start' && event.message.role === 'assistant') {
         streamId = crypto.randomUUID()
+        await input.emit('attempt.providerStarted', { attemptId: stepId }, stepId)
       } else if (event.type === 'message_update' && event.message.role === 'assistant') {
         const content = event.message.content
+        if (!firstThinking && content.some((block) => block.type === 'thinking' && block.thinking.length > 0)) {
+          firstThinking = true
+          await input.emit('attempt.firstThinking', { attemptId: stepId }, stepId)
+        }
+        if (!firstText && content.some((block) => block.type === 'text' && block.text.length > 0)) {
+          firstText = true
+          await input.emit('attempt.firstText', { attemptId: stepId }, stepId)
+        }
         input.stream(
           streamId,
           content
@@ -344,7 +401,17 @@ export class PiDriver implements HarnessDriver {
       } else if (event.type === 'message_end') {
         if (event.message.role === 'assistant') {
           const message = event.message
-          await input.emit('usage.recorded', normalizeUsage(message.usage), stepId)
+          await input.emit(
+            'usage.recorded',
+            createUsageFact({
+              usage: normalizeUsage(message.usage),
+              runId: input.run.id,
+              attemptId: stepId,
+              source: 'model',
+              model: attemptModel,
+            }),
+            stepId,
+          )
           if (message.stopReason === 'error' || message.stopReason === 'aborted') {
             failure = message.errorMessage ?? message.stopReason
             await input.emit(
@@ -370,16 +437,24 @@ export class PiDriver implements HarnessDriver {
         }
       } else if (event.type === 'turn_end') {
         await input.emit('step.ended', {}, stepId)
-        await input.stepEnded(stepId)
+        goalCompleted = (await input.stepEnded(stepId))?.stop === 'goal_complete'
       }
     }
     const streamFn: StreamFn = async () => {
       try {
+        if (requestFailure !== undefined) throw requestFailure
+        input.signal.throwIfAborted()
         const request = await input.beforeRequest(input.request, stepId)
+        attemptModel = request.model
+        const toolNames = request.toolNames
+        const context =
+          request.model.protocol === 'openai-responses' || request.model.protocol === 'openai-completions'
+            ? splitModelContext(request)
+            : { instructions: request.system, context: '' }
         return streamProvider(
           request.model,
           {
-            systemPrompt: request.system,
+            systemPrompt: context.instructions,
             messages: await toPiMessages(
               request.messages,
               request.model,
@@ -387,35 +462,51 @@ export class PiDriver implements HarnessDriver {
               input.readFile,
               transientToolContent,
             ),
-            tools,
+            tools: toolNames ? tools.filter((tool) => toolNames.includes(tool.name)) : tools,
           },
           await input.resolveKey(request.model.id),
           input.signal,
           input.run.input.thinking,
+          context.context,
+          input.session.id,
         )
       } catch (error) {
+        requestFailure = error
         return failedStream(modelOf(input.request.model), error, input.signal.aborted)
       }
     }
-    await runAgentLoop(
-      [],
-      {
-        systemPrompt: input.request.system,
-        messages: await toPiMessages(input.request.messages, input.request.model, input.readImage, input.readFile),
-        tools,
-      },
-      {
-        model: modelOf(input.request.model),
-        convertToLlm: (messages) => messages as PiMessage[],
-        toolExecution: 'sequential',
-        shouldStopAfterTurn: () => input.signal.aborted,
-      },
-      emit,
-      input.signal,
-      streamFn,
-    )
-    input.signal.throwIfAborted()
-    if (failure) throw new Error(failure)
+    try {
+      await runAgentLoop(
+        [],
+        {
+          systemPrompt: input.request.system,
+          messages: await toPiMessages(input.request.messages, input.request.model, input.readImage, input.readFile),
+          tools,
+        },
+        {
+          model: modelOf(input.request.model),
+          convertToLlm: (messages) => messages as PiMessage[],
+          toolExecution: 'sequential',
+          shouldStopAfterTurn: () => input.signal.aborted || goalCompleted,
+          ...(input.getSteeringMessages
+            ? {
+                getSteeringMessages: () => pollSteering(),
+                // Only the outer-loop natural-stop probe seals an empty source.
+                // Ordinary empty polls must not close admission during tool work.
+                getFollowUpMessages: () => pollSteering(true),
+              }
+            : {}),
+        },
+        emit,
+        input.signal,
+        streamFn,
+      )
+      input.signal.throwIfAborted()
+      if (requestFailure !== undefined) throw requestFailure
+      if (failure) throw new Error(failure)
+    } finally {
+      await input.closeSteeringAdmission?.()
+    }
   }
   async summarize(request: ModelRequest, apiKey: string | null, signal: AbortSignal) {
     const stream = streamProvider(
@@ -426,6 +517,9 @@ export class PiDriver implements HarnessDriver {
       },
       apiKey,
       signal,
+      'off',
+      '',
+      request.context?.sessionId,
     )
     for await (const event of stream) {
       void event

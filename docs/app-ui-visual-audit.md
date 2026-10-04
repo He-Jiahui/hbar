@@ -1,0 +1,1506 @@
+# App UI 真实参考视觉审计
+
+`hbar-app-ui` 的 300 个注册项不是验收结果。以 React Bits Pro 的真实 Application UI
+预览作为结构与功能参考，保留 Lumen 的黑白、玻璃、边缘光和主题 token。
+
+2026-09-29 用户再次调整：当前交付以主要功能可用、正常流布局合理、关键内容可达为准。
+只检查不同的核心状态机制，共享行为结合实现和代表案例推导；不再逐按钮、逐布局组合或
+微小像素差异校验。相关类型/lint、核心行为和明显溢出仍检查。完整 strict 配对工具保留为
+可选精细诊断，不阻塞当前进度；功能/布局通过与 strict 审计通过分别登记，均不代表远端
+业务已经接入。具体策略见 [当前交付标准](reactbits-pro-visual-audit.md)。
+
+## 可选严格审计运行矩阵
+
+2026-09-24 用户调整：交互改按变化机制选样，不再逐按钮、逐输入方式和逐布局切换穷举；结构覆盖仍遍及全部变体。集中检查修复结果，关键状态保存真实原版/本地截图，等价行为记录依据并标注“推断、未逐项回放”。具体选样计划与流程见 [当前审计策略](reactbits-pro-visual-audit.md)。协议 25 默认要求逐变体的已审阅选样计划；尚未配置的变体先做结构/行为分析，不自动启动旧穷举任务。
+
+```powershell
+bun run app-ui:reactbits:discover -- --output artifacts/reactbits-pro-visual-audit/all
+bun run app-ui:reactbits:audit -- --output artifacts/reactbits-pro-visual-audit/all --workers 2 --strict
+```
+
+默认矩阵为 38 个分类、300 个变体、4 个视口（1440×900、1024×768、390×844、320×720）
+和 dark/light 两种主题，即 2400 组静态 source/local 配对。开发期可以使用
+`--variants`、`--categories`、`--viewports`、`--themes` 缩小范围；缩小范围不能称为 strict 全量验收，
+但上述全矩阵不是当前功能/布局交付的前置要求。
+调试单个真实动作可对 `interactions` 加 `--cases <完整案例 ID[,其他 ID]>`；报告标记为
+`selected-cases`，`compare` 不把随意缩小的调试集当作已审阅选样计划的完整通过证据。
+必须等待静态捕获完成后再启动交互回放，不要并发启动这两个有前后依赖的阶段。
+交互重放优先读取同一输出目录的 `capture-manifest.json` 画布尺寸；若调试结果另存目录，可用
+`--source-output <静态捕获目录>` 指向对应的真实 source 清单。站点重载时 iframe 高度可能变化，
+动作前会强制回到静态参考画布；目录哈希、画布指纹或源/本地实现不一致时不能复用旧案例。
+浏览器外窗尺寸不等于原版 iframe 内容画布尺寸（例如 390 宽外窗中的 iframe 可能只有 356 宽）。
+每次 live 捕获会记录 iframe 实际宽高与参考舞台 padding，并在本地隔离预览中复用相同可用空间；
+本地组件自身已有的内边距会从舞台 padding 中扣除，避免同一空间重复计算。
+显式声明 `hbar-app-ui-full-canvas-owner` 的组件已经拥有整个 iframe
+画布的布局和滚动，其隔离画布外层不再注入任何参考 padding；组件自身的真实留白仍保留在截图中，
+不能由捕获器补齐或掩盖。其他组件继续使用已有的内边距扣除规则。缺少这些元数据的
+旧 source 缓存不能用于 `--local-only` 几何验收，必须重新捕获原版。
+
+live 参考可通过以下变量配置：
+
+- `HBAR_APP_UI_REFERENCE_URL`：React Bits Pro App UI 目录；
+- `HBAR_APP_UI_REFERENCE_ROOT`：offline 清单和静态变体缓存根目录；
+- `HBAR_APP_UI_SOURCE_INVENTORY` / `--source-inventory`：仅开发期复用已校验的 38/300 URL 清单，仍实时打开各变体原版 iframe；完整 `audit` 总是重新发现线上目录；
+- `HBAR_APP_UI_AUDIT_OUTPUT_ROOT`：报告输出目录；
+- `HBAR_APP_UI_VIEWPORTS` / `HBAR_APP_UI_THEMES`：开发期矩阵过滤；
+- `HBAR_APP_UI_AUDIT_WORKERS`：有界并发；
+- 单变体交互也按此上限并行重放不同动作，每个动作仍拥有独立浏览器上下文；多变体时按变体分配工作者，不叠乘并发数。
+- `HBAR_APP_UI_CHROME_PATH`：Windows Chrome 路径；
+- `HBAR_APP_UI_OFFLINE=1`：只使用已保存的 source inventory/cache，不猜测缺失映射。
+
+offline 缓存必须包含 `source-inventory.json`，并可以按 `<source-id>.html` 或
+`<source-id>/index.html` 提供变体页面。缺少缓存时命令失败，不回退到伪造组件或猜测 URL。
+
+## 证据和门禁
+
+当前捕获协议为 17、交互协议为 37；两侧 Chrome 统一使用 `--disable-lcd-text`，避免同一段未改动的
+文字在 React 更新前后切换 LCD/灰度抗锯齿，被误算为业务反馈。历史 13/27 产物仍保留为旧证据，不能与当前协议混用。该参数由
+[Chromium 定义](https://chromium.googlesource.com/chromium/src/+/lkgr/content/public/common/content_switches.cc)；
+它不修改组件 DOM、文本、尺寸或交互。旧协议的证据保留，但不能与新协议混用或直接续跑；需用新目录重新捕获。
+隔离 iframe 前先等待真实组件和字体完成加载，再观察 iframe 自身尺寸稳定 500ms；不把文档页的初始
+600px 占位高度提前固定下来，也不从内容高度猜测或强制拉高参考画布。
+
+每次运行都写入被 Git 忽略的 `artifacts/reactbits-pro-visual-audit/<run-id>/`：
+
+- `manifest.json`：参考 URL、源目录哈希、视口/主题矩阵和静态/交互计数；
+- `source-inventory.json` / `local-inventory.json`：38/300 发现与本地映射；
+- `capture-manifest.json`：每个 source/local 截图、上下文截图和语义快照；
+- `structure-report.json`：DOM/ARIA/几何/文本容量/溢出/截断/控件形状；
+- `interaction-report.json`：已审阅选样计划中每个实际动作的操作前后状态；访问状态的完整控件清单保存在语义快照中，未回放的等价项单列推断依据；
+- `interaction-run.json`：所选变体、视口、主题、源目录与本地实现代码/fixture 的续跑指纹；同一输出目录仅在指纹一致时复用。每个动作在全新浏览器上下文中重放，只有源/本地截图和快照均完整、且动作/画布指纹未变化的 `comparison.json` 才能续用；错误和残缺案例重新测试。静态清单也记录实现指纹；代码变化后的旧截图不能标记为验收通过。
+- `visual-report.json`：静态和交互截图差异、尺寸差、MAE/RMSE、变化像素和反馈幅度；
+- `review-ledger.json`：逐变体、逐交互的 passed/needs-fix 记录；
+- `report.html`：可人工浏览的汇总表。
+
+交互必须从 React Bits Pro iframe 真实 DOM 发现，不能只读取本地 `profile.controls`。即使
+多个控件有相同 `tag/type/role`，仍保留各自稳定 ID；是否需要单独回放按行为差异判断，不仅按控件形状合并。每个选中的真实动作保存
+`before.png`、`after.png`、`source-state.json`、
+`lumen-state.json` 和 `comparison.json`。结果分类为 `matched`、`lumen-different`、
+`missing`、`source-no-op`、`blocked`、`not-applicable` 或 `error`。旧的
+`semantic-shape-representatives` 报告只可用于定位问题，不能用于全量验收。
+
+`--strict` 至少阻断以下情况：缺失 source/local 配对、控件数量或类型不一致、横向溢出、文本
+截断、未分类交互和缺少交互反馈。原版文档页的导航/浮层在捕获时隐藏，iframe 保留原始内容画布；
+每一条交互还需要完整的前后截图，并比较原版与本地的变化像素比例（容差取 2 个百分点与原版
+变化幅度的 35% 中较大者）。仅 DOM 不变的 `source-no-op` 不能豁免视觉反馈差异；局部视口/
+主题的调试报告也不能标记为全矩阵 `passed`。Lumen token 的颜色、玻璃背景和阴影不作为通过
+依据，也不能屏蔽几何差异。
+
+### 公开报告契约
+
+`HbarAppUiAuditManifest` 是总览，不重复内嵌 discovery、capture、structure、visual 和 review
+的整份 JSON；各报告的来源、截图、指标和人工状态按上述文件路径关联。
+其 `variants` 表示发现目录，`selected` 表示实际运行子集。当前 `errors` 保留
+`id/theme/viewport/reason`，同时兼容旧字符串输入；读方须缩窄这两种错误形状。
+`HbarAppUiInteractionResult<State>` 保留归一化的操作前后状态 API，可携带有类型的 DOM/AX
+状态；实际 runner 行使用 `HbarAppUiInteractionRecord<Control>`，明确记录两侧 PNG、
+DOM/AX 快照路径、捕获失败原因和状态差量。runner 写入时用公开类型核对，防止类型声明与
+产物形状再次分离。契约测试只验证序列化、反馈和失败门禁，不新增来源捕获或交互矩阵。
+
+## 类别修复边界
+
+App Shell 7 的作用域工作台采用 8 组真实 iframe/本地静态对照与 16 个机制样本：组织菜单只变更组织；
+项目菜单更换数据库名前缀而不改变指标；生产、预发、预览三个环境带来不同的记录、连接数和系统状态。
+分别抽样状态详情、Data 折叠、提示卡关闭、账号菜单、搜索输入、创建演示无反馈，以及窄屏抽屉、合并作用域菜单与数据库卡片。
+Data 收起后原版仍保留隐藏的子链接，Lumen 也保留节点；搜索框保留输入但不筛选演示记录。
+相同选择器的重复点击、其余导航链接与账号选项、各视口/主题下相同业务转换均记为 `inferred-not-replayed`，
+不宣称逐个按钮验收。记录由宿主类型化提供，当前预览页 14/13/13 行，100 行以内面板滚动，更多行交由宿主分页；
+101 行压力 fixture 用于确认可达性。德语长文案、空/单行、重复 ID、失效选择均有本地测试。
+
+原版在 286 宽度下的合并作用域菜单保留 240 宽，从 56 位置展开，右侧超出 iframe 10；
+Lumen 将菜单宽度限制在可用区域内，仍保留相同条目、顺序与反馈。这是可见的非主题几何差异，
+需在本地审计报告保留说明与人工复核状态，不得视作颜色/token 差异或声称已逐按钮通过。
+
+App Shell 6 的文档工作台使用 16 个代表案例覆盖目录展开/收起、文件选择、标题三处同步、
+文本与块格式开关、树焦点移动、菜单关闭和窄屏抽屉；不逐个点击 19 个文件或每个格式按钮。
+正文、文件树、元数据、字数和文案由宿主提供，100 条以内由导航面板滚动，超过该量由宿主分组/分页；
+101 条输入仍保留可达性。方向键仅移动树焦点，确认才选择；窄屏选择文件保持抽屉打开。
+原版窄屏“更多格式”的菜单项只关闭菜单，并不复用桌面块格式的状态开关。
+仅 `Webhook retry schedule` 与 `API versioning` 的元数据经过真实选择验证，其余记录的元数据是代表性宿主 fixture，
+不能冒充逐条核验的原版内容。
+
+该变体原版的窄屏“更多格式”菜单右对齐在第二个工具栏控件下，菜单左侧越出 iframe，导致文字被裁切。
+Lumen 保持同一菜单内容、顺序和关闭反馈，但将覆盖层约束在所属工具栏内；这属于明确的非主题差异，
+不是颜色/token 白名单。保留真实源/本地截图和 `needs-fix`/待复核状态，不放宽视觉门禁，也不把它登记为完整审计通过。
+本地 `bun scripts/verify-hbar-app-ui-app-shell-documents.ts` 检查九个宽度、短宿主、德语长文案、空树、101 条文档、
+树键盘操作、标题同步、菜单焦点返回及窄屏菜单边界。
+
+AI Usage 8 以五例覆盖 Details/Upgrade 两个独立动作、两种按钮 hover 与窄屏原生 Space 激活。
+原版两个动作都不改变业务状态，不虚构弹窗或升级成功；Enter 与其他视口的等价激活明确记录为推理覆盖。
+趋势条与四项用量均是被动展示，不逐条点击。主值和限额必须保持同一段落的内联文字流，
+尤其注意不同字号继承绝对行高会撑高行盒。`--compact-only` 验证精确卡片几何、六宽度、短宿主、
+空态、德语长文案、禁用与容量边界；次级指标自然生长，趋势点缩小间距以容纳超过建议上限的输入。
+
+AI Usage 7 以七例覆盖状态筛选、汇总、互斥展开、错误详情、返回全部、窄屏键盘收起和代表行 hover。
+各行详情从真实渲染内容读取，但同类行不生成重复交互矩阵。筛选暂时隐藏的展开 ID 保留，返回全部后恢复；
+删除的 ID 才清除。结果区原版保留 21.25rem 最小高度，行与详情仍由内容自然生长。
+`--requests-only` 检查 640/639 断点、短宿主、长译文、空态和 50 条分页；200 条历史通过四页访问，
+这是宿主容量扩展，不宣称原版提供了分页。原版窄屏居中裁切标题和筛选器，本地保证它们可滚动访问，
+此差异单列待复核。请求行 hover 是轻微阅读高亮，深浅主题强度分别匹配，不能直接套用普通按钮的大面积填充。
+
+AI Usage 6 按套餐单选、Enter/Space、两个独立底部动作和卡片 hover 选样，共六例。
+原版卡片是 `button[role=radio]`，没有方向键游标切换；被动分段条与权益文本不点击。
+`Upgrade`、`Stay on overage` 和卡片 hover 在公开预览中均没有业务/选中状态变化；
+其中 hover 也不改变卡片填充，不套用普通按钮的整块 hover 填充反馈。
+`--overage-only` 检查 640/639 断点、短宿主键盘可达性、德语长文案与七张套餐/七条权益。
+桌面/平板四个控件的几何与源捕获逐项对齐；不等长卡片的内部内容按原生按钮行为垂直居中。
+窄屏源顶部裁切、极窄源底部按钮越出内面板，
+与本地安全滚动/按钮换行的差异单列待复核，不归为 Lumen 主题差异。
+
+AI Usage 5 按两类预算预测结果、阈值添加/移除和两个独立开关选样，共六例。
+原版没有保存按钮；不制造额外提交成功提示。键盘案例从焦点就绪态开始按键，获取焦点
+可能引起的原生滚动另存 `focus-before/after.png`、对应 JSON 与 `focus-preparation.json`，
+不删除、不位移这些证据。极窄原版顶部裁切和本地安全滚动仍须人工复核；不能以键盘准备
+拆分替代对该几何差异的验收。`--budget-only` 检查预算联动、阈值独立性、窄屏及长文案。
+
+AI Usage 4 的人员用量按六个机制选样：团队筛选、团队内姓名匹配、无结果、清空恢复、
+极窄屏键盘返回全部团队，以及搜索焦点反馈。成员行是被动内容，不生成“逐人点击”；
+其它团队值通过相同筛选投影的单元测试检查，等价手势与其它主题/宽度明确记为推断。
+`bun scripts/verify-hbar-app-ui-usage.ts --members-only` 检查 640/639 断点、短宿主、
+长文案及 50 人分页边界。原版结果区有 20rem 最小高度，过滤后保留该空间；普通成员行
+始终自然生长。超过 50 人的分页是宿主容量扩展，不宣称来自原版。极窄原版标签越出卡片
+与本地标签横向滚动的差异须单列人工复核，不能归为材质差异。
+
+AI Usage 1 的选样示例已固化在 `scripts/reactbits-audit-sampling.ts`：30d／90d 两种数据投影、
+代表日柱 hover、另一日柱 focus、失焦恢复提示、切换后的周柱明细，以及极窄屏键盘返回 7d。
+共七个真实源／本地案例，不重复每根柱子的所有手势。其余同类点、主题与宽度标为
+`inferred-not-replayed`；该选样计划不能代替其它七个 Usage 变体的独立结构分析。
+本地 `bun scripts/verify-hbar-app-ui-usage.ts --overview-only` 额外检查断点、德语长文案、
+空态、32 点溢出与短宿主可达性。原版短预览的顶部裁切须单列人工差异，不能伪装成主题差异。
+
+Comments 类别在 2026-09-27 对实现提交 `f20ee42` 重新绑定证据，报告位于
+`artifacts/reactbits-pro-visual-audit/comments-category-final-v1/`。六个变体共有 48 组静态截图对、
+46 个源/本地交互样例（各变体依次 8、8、6、8、9、7）：27 个 `matched`、19 个 `source-no-op`，
+缺失 0；语义、状态及浏览器错误机器门禁无失败。当前截图与状态机制复核后，Comments 1–5 为 `passed`，
+Comments 6 仍为 `needs-review`；类别严格门禁只报告第 6 个的 `manual-review-required`，
+因此不能将 Comments 整类登记为全部验收。其余重复手势、记录、主题和宽度保留 `inferred-not-replayed`，
+不以机制选样代替其它变体的独立结构分析。此处是提交绑定的证据快照；修改共享实现后应重新绑定，
+正式 Host/桌面业务与整个 300 变体目标仍须单独验收。
+
+Comments 6 按选中标记、定位、解决、输入、Send 无业务反馈和两种窄屏原生 Space 操作选取七例，
+不对每个标记重放所有主题/视口。三个标记是真实覆盖在画布上的对象，位置是宿主提供的画布百分比；
+定位例外仅允许该 marker 容器，线框装饰与评论正文保持 flex 流。解决后保留评论和标记，
+更新全局未解决数、划线及可恢复动作；选中/定位不清空草稿。Send 始终可用但公开源不提交、不清空，
+不制造发送成功。正常三条评论在桌面自然生长，紧凑布局评论历史上限 13.75rem，
+显式 pane-scroll 集合由评论栏滚动承载，头部和输入留在该滚动区之外。
+
+2026-09-27 的 Comments 6 原版在 670px 的 Preview iframe 内将标题置于约 -21.5px，
+356px/286px 内约 -43.5px；根容器居中超过其高度的内容，导致顶部文字裁切。
+本地安全居中保证标题可从滚动起点访问，因此平板/窄屏默认几何存在差异。这不是 Lumen token 差异，
+不能因为语义/状态机器门禁通过就签署完整视觉验收。该变体保留 `needs-review`，不写人工通过签名；
+其它主题/宽度的同类操作标为 `inferred-not-replayed`，不拿推理覆盖消除这一待复核项。
+`bun scripts/verify-hbar-app-ui-comments.ts` 覆盖六个变体的本地功能，并额外检查 Comments 6 的
+全解决/恢复、草稿保留、长译文、超容量历史与原目标键盘动作。旧 `canvas` 契约仍可独立使用。
+
+Scheduling 1 在 2026-09-27 的证据位于
+`artifacts/reactbits-pro-visual-audit/scheduling-1-final-v2/`：8 组静态截图对、8 个代表性交互案例，
+其中 5 个 `matched`、3 个 `source-no-op`，缺失 0；机器门禁、当前截图人工复核和严格比较均通过。
+平均归一化像素 MAE 为 0.001982，仅作定位辅助，不替代语义、状态与人工验收。
+七列日期与事件元数据使用 flex 正常流；1024px 以下堆叠，640px 以下隐藏原生筛选框。
+选择日期只更新选中项与标题中的日期，保留原版固定 Wednesday/June 前缀与六条事件；
+月份、年份及筛选选项仅更新各自原生值。前后月与 Add 在源预览没有业务结果，不制造计算、筛选或弹窗。
+日期按钮、三个选择框、无操作按钮、hover 和窄屏 Space 分别选样，其余等价日期、值、手势和
+主题/宽度登记为 `inferred-not-replayed`，不做逐日期乘视口的重复重放。
+`bun scripts/verify-hbar-app-ui-scheduling.ts` 补充检查两侧断点、长中文、43 个日期与 7 条事件、
+显式 pane-scroll、元数据换行及键盘可达性；空态、边界与重复/失效 ID 另有单元测试。
+新 `referenceMonth` 由宿主提供受控数据与文案，旧 `month` 契约仍可独立使用。
+Scheduling 2–7 在 Scheduling 1 完成时仅有源/旧本地基线；以下第 2 个独立验收记录更新此状态，
+不把第 1 个的通过扩展到整类或正式宿主业务。
+
+Scheduling 2 的 2026-09-27 证据位于
+`artifacts/reactbits-pro-visual-audit/scheduling-2-final-v2/`：8 组静态截图对、8 个机制交互，
+4 个 `matched`、4 个 `source-no-op`，缺失 0；结构和状态门禁、当前截图人工复核及严格比较通过。
+平均归一化像素 MAE 0.00089 仅供定位，不代替语义与交互复核。
+该变体是自然高度居中的人员时间卡：人物信息为被动段落，开始/结束是同排独立原生选择框，
+10 个时长为同一 `radiogroup` 中的按钮，已选时长在底部说明句内联强调，Cancel/Apply 保持原顺序。
+时长选中改变单选状态和说明；起止时间只改自己的值，即使结束早于开始也不制造验证。
+Custom 不出现编辑器；More、Cancel、Apply 在公开源预览无业务状态结果，不制造菜单、重置或提交成功。
+选样覆盖三种独立状态变化、三个无结果动作、hover 和极窄屏原生 Space；其他选项与手势标为
+`inferred-not-replayed`。现有 `timeRange` 契约仍独立可用；新增 `referenceRange` 的文案、人物、
+选项和受控 ID 由宿主提供。相关单元测试和 `bun scripts/verify-hbar-app-ui-scheduling.ts`
+覆盖旧契约、空态、重复/失效 ID、10/11 项容量、长中文、超容量 pane-scroll 和短宿主键盘可达性。
+Scheduling 3–7 仍未完成对齐，不因前两个通过而登记整类通过。
+
+Scheduling 3 在 2026-09-27 的当前源／本地证据位于
+`artifacts/reactbits-pro-visual-audit/scheduling-3-final-v4/`：8 组静态截图对、12 个机制交互，
+9 个 `matched`、3 个 `source-no-op`，缺失 0；结构与状态硬门禁、当前截图人工复核及严格比较通过。
+平均归一化像素 MAE 为 0.001483，仅供定位。表单卡的标题和页脚始终在独立滚动字段区之外；
+人物标签自然换行，名称、添加人员、日期、链接和 Notes 是受控文本输入，起止时间为原生选择框。
+添加人员按 Enter 不增加记录；移除按钮只作用原始人员 ID。日期不是原生日期选择器，Attach 没有文件选择结果；
+空名称时 Create 仍可点击，空态及编辑后 Create、Cancel 均无业务反馈，不制造保存成功、重置或验证错误。
+内容、可访问名称、人员记录及草稿值由宿主 `referenceForm` 契约提供；原 `form` 契约保留。
+复核包括滚动上下边缘淡化、短宿主页脚、长中文、0/1/2/3 人和显式 7 人 pane-scroll、失效及重复 ID。
+其余同类输入值、手势、人员和视口组合标为 `inferred-not-replayed`，不将这 12 例冒充整个 Scheduling 类别验收。
+Notes 审计发现原始控件 `value` 与 React 受控 `textarea.textContent` 的表示差异；审计器提交 `568fdc0`
+将值与静态文案分开归一化，保留原生值、AX、标签与可见正文比较，并升级源／交互协议。
+Scheduling 4 在 2026-09-27 的当前证据位于
+`artifacts/reactbits-pro-visual-audit/scheduling-4-final-v5/`：8 组静态截图对、10 个机制交互，
+6 个 `matched`、4 个 `source-no-op`，缺失 0；结构与状态门禁通过，但仍为 `needs-review`，未签署视觉验收。
+新增宿主 `referenceDeadline` 契约提供时区、五个独立预设、原生月份选择、七列日期与二十个滚动时段；
+日期改变时间栏标题和摘要，时间仅改变单选与摘要。预设只改变高亮，No date 不清空日期；
+月份仅改变选择值，前后月、Cancel、Apply 无业务状态结果，也不重置草稿。
+保持原有 `deadline` API；空态、重复/失效 ID、边界与边界加一、长中文、超容量 pane-scroll 和短宿主键盘可达性有定向测试。
+桌面/平板面板自然高度、日历和时段对齐；窄屏堆叠后源预览仍强制居中，顶部时区及首个预设被裁到 iframe 外，
+本地保留安全滚动。该非主题几何冲突不能用颜色白名单或低像素误差掩盖，严格比较仍会因未人工签署而失败。
+2026-09-27 再次从真实 iframe 捕获 `scheduling-4-revisit/`，极窄亮色复现相同裁切：源时区标题
+`y=-100.25`、首个 Today 预设 `y=-55.25`，外层 flex 容器高 640、内容滚高 769、初始
+`scrollTop=0`。将根、body、内部可滚动节点归零后仍保持负坐标；聚焦 Today 也不会滚回可见区域。
+来源不是可通过普通滚动找回的另一个合法视口状态，不能要求本地照抄该不可达状态，同时宣称
+“窄屏关键内容不遮挡”。保留当前 `needs-review`，本地顶部安全可达，不扩大颜色/像素例外，
+该诊断不作为通过的静态或交互证据。
+另存 `scheduling-4-final-v2/` 的极窄时段 Enter 诊断：DOM 状态一致，但裁切位置与另一预设 hover 带来的像素变化
+不满足视觉反馈门禁；不计入匹配样本，不通过删除截图或放宽阈值将其当作通过。
+保留这份诊断，最终选样采用桌面时段选择与极窄日期 Space；时段 Enter/Space 和全部时段滚动可达性在本地验证，
+其余同类手势/布局标为 `inferred-not-replayed`。Scheduling 5–7 仍待对齐，整类未验收。
+
+Scheduling 5 在 2026-09-27 的当前证据位于
+`artifacts/reactbits-pro-visual-audit/scheduling-5-final/`：8 组静态截图对、10 个按状态机制选样的交互，
+7 个 `matched`、3 个 `source-no-op`，缺失 0。结构与状态硬门禁、桌面及窄屏当前截图复核、严格比较均通过；
+平均归一化像素 MAE 0.002713 仅作定位。宿主 `referenceAvailability` 契约提供时区、7 天、逐日开关、
+稳定 ID 时段、8 项起止选择与全部可见文案；旧 `availability` API 独立保留。
+开关即时改变标题中的可预约天数；关闭再开启会重置为 09:00–17:00 的一个时段，不保留原来的两个；
+添加会追加 13:00–17:00，可重复；移除只作用指定时段，最后一项禁用。原生起止选项独立，结束早于开始不制造校验。
+Copy 与 Save 在原版预览没有可见业务结果，本地也不制造复制提示或保存成功；这不代表正式产品保存链路已交付。
+选样覆盖时区、两种起止选择、开关、添加、移除、Copy、Save、hover 与极窄键盘 Space。
+其余日／时段、手势和视口主题组合明确标记 `inferred-not-replayed`；本地另外验证关闭恢复、连续增删、
+原始 ID、长中文反序、空／单项／边界及超容量日列表与时段 pane-scroll、窄屏长文案和页脚可达性。
+Scheduling 4 的窄屏几何仍待复核，Scheduling 6–7 仍待对齐，不登记整个 Scheduling 类别通过。
+
+Scheduling 6 在 2026-09-27 的当前证据位于
+`artifacts/reactbits-pro-visual-audit/scheduling-6-final-v6/`：8 组静态对、9 个机制样本，
+7 个 `matched`、2 个 `source-no-op`，缺失 0；结构/状态/溢出硬门禁、人工签署和严格比较通过。
+平均归一化像素 MAE 0.004966 仅辅助定位。`referenceTimeline` 的宿主契约提供标题、日期、
+小时轴、时长选项、事件 ID/日期/起点分钟/时长及所有文案，旧 `timeline` API 保留。
+时间跨度是数据驱动的时间轴刻度，不是截图坐标；间隔和事件在 flex 文档流中顺序排列，
+重叠组按可复用泳道分配。时间轴承担垂直滚动，编辑底栏留在外部，不使用绝对定位或 CSS Grid。
+前后周改变日期与事件投影；Day/Week 与日按钮改变范围；Today 在初始周无状态变化。
+事件选择打开就近底栏，标题/时长直接修改，关闭保留，删除仅移除选中的原始 ID；New 默认在活动日创建事件。
+来源实测确认跨日移动、底边调整时长与空白时间段创建；本地生产浏览器覆盖三种指针机制、
+日/周导航、CRUD、Space、长中文反序、空/单项/边界/超界及短高度时间轴和页脚可达性。
+极窄日期头采用紧凑字号和圆点，避免来源相邻标签挤压；键盘焦点仍可见。
+该明确的小幅几何取舍以及刻度线和来源暂态 hover 拖动点差异已写入人工说明，未用主题白名单掩盖。
+其余事件/日期、编辑与拖动组合及主题/视口排列标为 `inferred-not-replayed`。
+这些是可注入宿主状态的来源预览闭环，不宣称正式日历持久化或远程创建/删除服务已交付。
+Scheduling 4 的窄屏几何仍待复核，Scheduling 7 待对齐，整类尚未验收。
+
+Scheduling 7 在 2026-09-27 的当前证据位于
+`artifacts/reactbits-pro-visual-audit/scheduling-7-final-v2/`：8 组静态对、6 个机制样本，
+4 个 `matched`、2 个 `source-no-op`，缺失 0；结构/状态/溢出门禁、当前人工签署和严格比较通过。
+平均归一化像素 MAE 0.006581 仅用于诊断。`referenceBooking` 接收宿主人物摘要、3 项语义详情、
+8 个日期及 9 个时段、原始 ID、受控选择、日期/时间格式化文案与明确容量策略，旧 `booking` 独立保留。
+人物/选择区域以 flex 两列并在窄屏上下流；时间选择以 flex 自然换行为三/两列；日期带横向滚动，
+边缘渐隐随真实滚动位置切换，末端选中日期不再被右侧渐隐遮住。短高度由组件拥有纵向滚动，页脚可达。
+日期选择只更新 checked 状态、时段标题和摘要，来源不会按容量数字过滤九个时间；时间选择保持日期。
+满额日为禁用 radio；Confirm 在原版无可见预约成功、导航或提示，本地不虚构服务结果。
+本地生产浏览器覆盖独立选择、禁用日、原始 ID、键盘、末端日期横向滚动、窄屏页脚、短高度、中文反序与超界数据。
+空/单项/默认上限/上限加一、重复和失效选择有单测；其余等价手势与视口主题组合标为 `inferred-not-replayed`。
+这些是来源预览对齐和可注入宿主状态，不代表远程预约/日历持久化业务已交付。
+Scheduling 1–3、5–7 的预览已逐变体签署；Scheduling 4 非主题窄屏几何仍未签署，整类不登记完成。
+
+Editor 1 在 2026-09-27 的当前证据位于
+`artifacts/reactbits-pro-visual-audit/editor-1-final-v5/`：8 组静态对、8 个机制样本，
+7 个 `matched`、1 个 `source-no-op`，缺失 0；结构/状态/溢出门禁、当前人工签署和严格比较通过。
+平均归一化像素 MAE 0.003083 只用于诊断，不能替代语义和交互结果。
+`referenceRichText` 提供宿主文档 ID、标题、正文、元数据、6 个段落样式、独立格式状态、
+所有可见/可访问文案、占位符、统计 formatter 和保存状态；旧 `richText` API 保留。
+格式按钮和 Undo/Redo 使用共享 `md` 图标等级，菜单/触发器使用 `sm`，复用 Lucide 图标并声明 peer 契约。
+原版展开的段落菜单实际参与工具栏文档流：标题区域增高，其他工具垂直居中，正文随之下移；
+本地保持 flex 流，不使用 menu overlay、绝对定位、Grid 或截图坐标。扩展菜单超过预期 6 项时滚动，
+默认短菜单仍自然生长；原生 textarea 拥有观察到的 20rem 编辑视口，外部正文区域承担短高度滚动，页脚保留。
+标题/正文由预览宿主 Zustand 管理，按原始文档 ID 更新；迟到的旧目标和旧保存 revision 不会覆盖新草稿。
+来源编辑后短暂显示 Saving，再恢复 Saved；预览只复现这段标签状态，不宣称远程或磁盘保存已完成。
+正文统计使用宿主空白分词、UTF-16 字符长度和 `max(1, round(words / 220))` 阅读分钟 formatter；
+来源 329/330 词边界、空正文和编辑后的统计已查证。五个格式动作只切换独立 pressed 状态，
+段落样式只改变选项标签，均不格式化正文；Undo/Redo 在真实编辑后无来源历史恢复，不伪造富文本引擎。
+保留的原生字段焦点边框是明确的焦点装饰差异，不改变盒子、换行、操作状态，也未用几何豁免掩盖。
+本地生产浏览器覆盖编辑反馈、独立格式状态、菜单选择/End/Space/Escape、焦点返回、
+长正文及菜单末项原生滚动、短高度页脚、德语长文案反序和稳定 ID；空/单项/边界/超界、
+重复/失效 ID、只读、宿主失败/恢复标签及旧 revision 有单测。
+相关 Editor/兼容/审计单测 100 项通过；根目录完整 lint、根目录/Lumen 类型检查、生产构建、
+内容/图标/流式 guard 和新文件格式检查通过。构建仍有既有大 chunk 警告；未重排历史全量清单表格。
+其余等价按钮/记录/手势/主题与视口排列明确标为 `inferred-not-replayed`。
+Editor 2 在 2026-09-27 的当前证据位于
+`artifacts/reactbits-pro-visual-audit/editor-2-final-v3/`：8 组静态对、7 个机制样本，
+6 个 `matched`、1 个 `source-no-op`，缺失 0；结构/状态/溢出门禁、当前人工签署和严格比较通过。
+平均归一化像素 MAE 0.001187 只辅助定位。`referenceMarkdown` 是独立的宿主受控契约，
+提供原始文档 ID、标题、原始 Markdown、模式、所有文案和单词统计 formatter；旧 `markdown` API 保留。
+宿主 Zustand 保存草稿和 Write/Split/Preview 模式，来源文本、统计和预览由同一草稿派生；
+迟到的旧文档 ID 回调不能覆盖当前草稿。统计按原始文本空白分词，包含 Markdown 标记，
+不宣称完整 Markdown/GFM 引擎：只呈现来源确认的标题、段落、列表、引用与简单行内强调/代码，
+未知语法及 HTML 保持普通安全文本。组件采用语义标题、tablist、原生 textarea 和预览文档，
+两栏 flex 正常流且各自滚动；小于 768px 的 Split 仍保持选中，但预览栏隐藏，Preview 可单独查看。
+标题与模式栏在窄屏自然换行，长本地化标签横向滚动；短高度、长内容、空/单项/上限/超界、
+失效 ID 与只读/错误恢复在生产浏览器或单测按不同机制验证。来源焦点截图未画轮廓，
+本地保留原生 textarea/tab 的可见键盘焦点线；它不改变布局或选中状态，未以主题豁免掩盖。
+其余等价文本、tab 手势和主题/视口排列标为 `inferred-not-replayed`，不做按钮 × 布局笛卡尔积。
+相关专项单测 99 项、Editor 2 生产浏览器检查、根目录完整 lint、根目录/Lumen 类型检查、
+生产构建、内容/图标/流式 guard 与新文件格式检查通过；构建仍有既有大 chunk 警告。
+这些是来源预览与可注入宿主草稿对齐，不代表磁盘持久化、协同编辑或完整 Markdown 业务交付。
+Editor 3 在 2026-09-27 的当前证据位于
+`artifacts/reactbits-pro-visual-audit/editor-3-final-v3/`：8 组静态对、5 个机制样本，
+4 个 `matched`、1 个 `source-no-op`，缺失 0；结构/状态/溢出门禁、人工签署和严格比较通过。
+平均归一化像素 MAE 0.006246 只辅助诊断，微小高亮颜色与 minimap 笔画差异已记入签署说明。
+`referenceCode` 以宿主提供的原始文件 ID、文件名、源码、dirty 状态、全部文案、状态栏、初始光标和
+pane-scroll 容量策略展示只读 TypeScript 预览，旧 `code` API 保留。有限词法着色不解析/执行代码，
+不假称正式 IDE 或语言服务。宿主 Zustand 管理文件选择/关闭与行光标；关闭活动文件选首个剩余项，
+关闭非活动文件保留选中项，最后一项不可关闭，失效 ID 与越界行/列回调无效。Run 在来源预览无可见
+运行反馈，本地不虚构执行结果。文件栏和代码内容各自横向滚动，代码区可纵向滚动，minimap 在窄屏隐藏；
+状态栏用 flex 自然换行且短高度可达。主题/视口静态矩阵以来源预览的第 12 行默认光标为基线：
+隔离 iframe 时指针曾暂时落在窄屏第 3 行，抓取前用来源本身的空行交互恢复默认行并复位代码横向滚动，
+未把该暂态误当响应式规则。本地生产浏览器另验行点击反馈、活动/非活动与最后页签、Run 无反馈、
+长内容双向滚动、窄屏后部页签与页脚、长德语文案；空/单项/重复/上限/超界及失效状态有单测。
+聚合复核又发现来源活动文件按钮具有 `aria-current="true"`，本地现已对同一稳定 ID 补齐该状态。
+来源代码最初短暂显示未着色文本，约 650ms 后异步出现语法 token；抓取与动作前截图现在等待来源
+实际产生 token，避免把异步着色误判为关闭非活动页签的反馈，不关闭视觉门禁。
+其余等价文件、手势和主题/视口组合标为 `inferred-not-replayed`，不做控件 × 布局笛卡尔积。
+生产构建、完整 lint、根目录/Lumen 类型检查、内容/图标/流式 guard 和新文件格式检查通过；
+构建仍有既有大 chunk 警告。此结论仅覆盖来源预览及可注入宿主状态，不代表运行 TypeScript、
+磁盘保存或真正可编辑的代码工作台已交付。
+Editor 4 在 2026-09-27 的当前证据位于
+`artifacts/reactbits-pro-visual-audit/editor-4-final-v7/`：8 组静态对、7 个不同机制样本，
+6 个 `matched`、1 个 `source-no-op`，缺失 0；结构/状态/溢出门禁、人工审阅与严格比较通过。
+平均归一化像素 MAE 0.058115 只作诊断：桌面接近，差异主要来自来源窄屏自身的标题、
+Suggestions 工具栏和卡片重叠。来源在 286px 的首卡从约 y65 开始压住文档标题；本地刻意保留
+两个正常流式 flex 行与滚动卡片列表，不以绝对定位或裁剪复制不可用状态，人工签署明确记载此偏差。
+`referenceSuggestions` 由宿主提供文档 ID、段落、内联建议、作者、卡片、动作/完成/恢复文案、
+选中 ID、决策记录与 pane-scroll 容量契约；旧 `suggestions` API 保留。宿主 Zustand 以稳定 ID
+管理选中、Accept 替换原句、Resolve/Dismiss 保留原句、Accept all 完成与 Restore 复位；
+失效文档/建议回调不改动现有状态。焦点单测覆盖空/单/重复/边界/24 项溢出、长德语文案、
+过期回调及旧契约；生产浏览器验证窄屏 670/356/286、完成恢复、滚动和可见操作。
+生产构建、完整 lint、根目录/Lumen 类型检查、内容/图标/流式 guard 与新文件格式检查通过；
+构建仍有既有大 chunk 警告。
+其余等价卡片 ID、操作顺序、主题/视口/动作组合标为 `inferred-not-replayed`，不做笛卡尔积。
+这仅是参考预览中的审阅行为，不代表后端持久化或协作修订已实现。
+Editor 5 在 2026-09-27 的当前证据位于
+`artifacts/reactbits-pro-visual-audit/editor-5-final-v2/`：8 组静态对、5 个不同机制样本全部
+`matched`，缺失 0；语义树、可见控件状态、正文长度/截断、溢出门禁、人工签署和严格比较通过。
+平均归一化像素 MAE 0.006801 仅供视觉诊断。`referenceReader` 保留旧 `reader` API，
+以宿主提供的文档 ID、h2/h3 章节、目录/面包屑/Focus 文案、选中章节、目录与 Focus 状态及
+pane-scroll 容量策略呈现阅读器；宿主 Zustand 以稳定 ID 管理目录选择与独立的 Focus/目录状态。
+来源目录选择只切换当前项与正文明暗，不自动滚动；手动滚动也不改变选中项。桌面目录可收起并恢复，
+窄屏来源隐藏目录及其开关，本地亦由正常 flex 文档流占满宽度，不把目录改为覆盖层。
+来源 `aria-current` 原先未纳入审计反馈，曾把实际目录切换误报为 `source-no-op`；
+本次补充其状态快照、比较与回归测试后，目录切换正确判为 `matched`。
+专项单测覆盖空/单/重复/7 项边界/28 项溢出、旧契约、失效文档与章节 ID、长德语文案；
+生产浏览器验证 Focus 双向切换、目录收合恢复、晚章节选中不滚动、手动滚动保留选中、
+670/356/286 窄屏及短高度可达性。其余同机制的章节 ID、操作顺序和主题/视口排列标为
+`inferred-not-replayed`。这些是来源预览的阅读状态，不代表文档远端同步或持久化。
+Editor 整类于 2026-09-27 在
+`artifacts/reactbits-pro-visual-audit/editor-category-aggregate-v3/` 完成同一批次复核：
+5/5 变体通过，40 组来源/本地静态对、32 个按不同机制选取的交互样本，缺失 0；
+每变体人工签署、结构/状态/溢出硬门禁与整类严格比较通过。平均归一化像素 MAE 0.015087
+仅辅助定位，包含 Editor 4 窄屏来源自身重叠与本地有意保持可用流式布局的偏差。
+等价按钮、文件/章节/卡片 ID、手势及布局排列依各变体 `inferred-not-replayed`，没有做笛卡尔积。
+这证明 Editor 来源预览对齐，不代表五个编辑器的持久化、协同或后端业务闭环；
+38 类/300 变体计划仍未完成。
+
+Feedback 1 于 2026-09-27 的证据位于
+`artifacts/reactbits-pro-visual-audit/feedback-1-final-v2/`：8 组来源/本地静态对、8 个按不同
+状态机制选取的交互样本，7 个 `matched`、1 个来源 `source-no-op`，缺失 0；结构/控件状态、
+溢出、视觉反馈、人工审阅与严格比较均通过。平均归一化像素 MAE 0.010020 仅作视觉诊断。
+`referenceWidget` 保留旧 `widget` API，由宿主提供稳定 widget ID、所有文案、三个带各自占位文案的
+反馈类型、草稿、截图状态、提交阶段、400 字上限及 pane-scroll 容量契约。宿主 Zustand 按 ID
+管理选择、草稿长度和剩余数、附件开关、演示提交与 Send another；后者清空草稿，保留类型和截图
+状态。来源 Cancel/Close/Escape 在预览内无可见结果，本地不虚构关闭或持久化。桌面弹窗与窄屏
+正常流居中并以组件自身拥有完整画布留白；隐私说明、输入和操作可随内容换行，不用截图坐标摆放。
+焦点测试覆盖空/单/重复/失效类型、400/401 字边界、过期 widget ID、长德语文案及再次发送；
+Feedback 1 专项生产浏览器验证类型、截图、草稿、提交/重开、本地化与 320px 无横向溢出。
+等价按钮手势、更多文本长度和主题/视口交叉组合按选样计划标为 `inferred-not-replayed`，
+并非逐项回放。完整 lint、根目录/Lumen 类型检查、生产构建、内容/图标/流式 guard 通过；
+构建仍有既有大 chunk 警告。旧的整类生产浏览器脚本在 Feedback 2/3 的重复确认文案断言、
+Feedback 5 的旧选择器处失败，属于未迁移兄弟变体，不能据此宣称 Feedback 整类通过。
+这只是来源预览状态与可注入宿主数据的对齐，不代表消息真实发送或后端持久化。
+Feedback 2 于 2026-09-27 的证据位于
+`artifacts/reactbits-pro-visual-audit/feedback-2-final-v2/`：8 组静态对、9 个按状态机制选取的
+真实交互样本（7 `matched`、2 `source-no-op`），缺失 0；结构/控件状态、溢出、视觉反馈、人工审阅
+和严格比较通过。平均归一化像素 MAE 0.018613 仅作诊断。`referenceSurvey` 保留旧 `survey` API，
+由宿主提供稳定 ID、11 个评分、6 个原因、三个分数区间追问、全套本地化文案与容量策略。
+未选分时追问及评论仍在正常文档流中灰显且不可操作；评分后按 0–6、7–8、9–10 显示不同追问，
+原因可多选，评论为独立草稿，提交转为带分数的确认卡。Ask me later、Dismiss 和 Escape 在来源
+预览中没有可见结果，本地不虚构业务后果。短画布中的长表单以内容居中呈现，局部初始裁剪与来源
+对齐但保留原生纵向滚动；容器随宽度换行，不用绝对坐标排列普通内容。测试覆盖空/单/重复、
+上限/超界、失效评分/原因/问卷 ID、长德语文案、选分前不可编辑、终态与键盘 Space，
+生产浏览器另验窄屏滚动与无横向溢出。其他分值、等价原因芯片和主题/视口乘积标为
+`inferred-not-replayed`，并非逐项回放。根目录/Lumen 类型检查、完整 lint、生产构建、
+内容/图标/流式 guard 通过；构建仍有既有大 chunk 警告。该确认仅模拟本地预览提交，
+不代表正式问卷远端保存或 Feedback 整类验收。
+Feedback 3 于 2026-09-27 的证据位于
+`artifacts/reactbits-pro-visual-audit/feedback-3-final-v3/`：8 组静态对、8 个按评分、悬停、
+原因、评论和演示无结果动作选取的交互样本（6 `matched`、2 `source-no-op`），缺失 0；
+语义树、控件状态、溢出、视觉反馈、人工审阅和严格比较通过。平均归一化像素 MAE 0.016561
+仅作诊断。`referenceRating` 保留旧 `postResolution` API，票据 ID、头像缩写、标题/摘要、
+5 个星级标签、两个原因集合、评分提示、评论和容量均由宿主提供；装饰性缩写不重复朗读。
+星级悬停预览填充与提示但不提交，选中后 1–3 星显示待改进原因、4–5 星显示正面原因；
+切换星级清除旧原因但保留评论草稿。原版 Send rating 与 No thanks 点击后均无可见业务结果，
+本地只发宿主回调，不虚构确认卡或远端发送。窄屏表单维持正常流，短视口可纵向滚动。
+专项测试覆盖空/单/重复/越界评分、16 条正面原因容量、失效票据/原因 ID、长德语文案与
+切换重置；生产浏览器验证悬停回退、正负分支、键盘 Space、评论、演示无结果及窄屏滚动。
+其余星级数字、相同原因芯片、手势和视口/主题排列标为 `inferred-not-replayed`。
+根目录/Lumen 类型检查、完整 lint、生产构建与内容/图标/流式 guard 通过；既有大 chunk
+警告不等于构建失败。此结论不表示真实支持工单或反馈传输已经接入。
+Feedback 4 于 2026-09-27 的证据位于
+`artifacts/reactbits-pro-visual-audit/feedback-4-final-v3/`：8 组静态对、8 个按投票、排序、
+搜索和演示无结果机制选取的样本（7 `matched`、1 `source-no-op`），缺失 0；
+语义树/显式搜索标签、状态、容量、溢出、视觉反馈、人工审阅与严格比较通过。
+平均归一化像素 MAE 0.032577 仅作诊断。`referenceBoard` 保留旧 `featureBoard` API，
+宿主提供稳定请求 ID、五条标题/描述/票数/状态/标签、Top/New/Shipped 排序与 pane-scroll 容量。
+Top 按原票数、New 按宿主新旧排序、Shipped 只保留已交付卡；投票切换按下状态并为首次投票
+加一，取消初始预投票时来源保留基础票数。原版搜索只保留输入但不筛卡，New request 在演示中
+也没有新表单或可见结果，本地不创造这些业务结果。卡片列表在有界面板内独立滚动，标题栏、
+排序和搜索留在外层；窄屏正常堆叠并保留文章语义及键盘可达投票。
+专项测试覆盖空/单/重复/边界与 19 项溢出、过期看板/请求 ID、票数回转、长德语文案；
+生产浏览器检查排序两分支、投票正反、搜索无筛选、新建无结果、本地化及窄屏列表滚动。
+等价请求、查询字符串、按钮手势和视口/主题乘积标为 `inferred-not-replayed`。
+根目录/Lumen 类型检查、完整 lint、生产构建与内容/图标/流式 guard 通过；
+构建仍有既有大 chunk 警告。正式投票与请求创建的远端持久化不在本预览对齐结论内。
+
+按 38 个类别逐类修复，每一类包含该类所有变体。先记录源 iframe 的语义父子关系、区域、
+控件顺序、状态和响应式流，再用 flex/正常文档流实现；只有真实 dialog/menu/drawer/
+popover overlay 才能使用定位。内容、文案、集合和容量继续由宿主 contract 提供，不能在可复用
+组件中硬编码源文案或伪造记录。图标使用共享语义尺寸等级；每个类别通过后独立提交子模块、
+wrapper、fixture、测试和审计证据。
+
+变体清单中的“注册”“功能与布局通过”和“完整视觉/交互审计通过”分别记录。只有
+`review-ledger.json` 中静态矩阵、真实交互、page/console error、溢出、结构硬门禁全部通过，
+才允许称为 strict 审计通过；功能/布局结论按本页顶部的最新交付标准维护。
+
+Feedback 5 于 2026-09-28 的证据位于
+`artifacts/reactbits-pro-visual-audit/feedback-5-final-v7/`：8 组静态对、9 个按线程选择、
+备注草稿及来源无结果动作选取的真实交互样本（5 `matched`、4 `source-no-op`），缺失 0；
+语义树、13 个控件名称/状态、独立列表与详情滚动、窄屏截断、视觉人工复核和严格比较通过。
+归一化像素 MAE 0.038602 仅作辅助诊断。`referenceInbox` 保留旧 `inbox` API，
+七条线程及各自正文、标签、指标和相关意见由宿主提供；稳定 ID 控制选中线程，备注草稿
+按来源行为跨线程保留。Archive read、Add tag、Reply、Create issue、Archive 在来源演示均无
+可见结果，本地只发回调而不虚构远端操作。专项测试覆盖空/重复/失效线程、25 条溢出与
+长德语文案；生产浏览器验证选择、备注、演示无结果、本地化和双滚动区域。
+其余线程 ID、等价按钮手势以及主题/视口乘积标为 `inferred-not-replayed`，未逐项回放。
+根目录及 Lumen 类型检查、完整 lint、生产构建与内容/图标/流式 guard 通过；构建仍有
+既有大 chunk 警告。此结论不表示反馈已远端存储。
+
+Feedback 6 于 2026-09-28 的证据位于
+`artifacts/reactbits-pro-visual-audit/feedback-6-final-r5/`：8 组静态对、3 个按周期切换与
+键盘机制选取的真实交互样本均 `matched`，缺失 0；AX 语义树、控件状态、溢出与根几何
+均无硬门禁失败，人工复核与严格比较通过。`referenceInsights` 保留旧 `insights` API，
+宿主为 30 天、90 天、12 个月分别提供指标、情绪比例、主题、20 日柱图和本地化文案；
+切换周期由稳定 ID 的宿主状态联动。来源三个周期共用柱图高度；12 个月的 4,630、4.1
+与 55/27/18 情绪比例来自实时 iframe，趋势箭头为装饰性 SVG，不误入 AX 文本。
+专题测试覆盖空/重复/失效周期、22 条主题容量、长德语文案，响应式主题区独立滚动；
+其他相同按钮手势及主题/视口乘积标为 `inferred-not-replayed`，不声称逐项回放。
+这仅证明预览与来源一致，不代表真实分析后端已接入。
+
+Feedback 六个变体的单变体账本合计 48 组静态对、45 个按机制抽样的交互例，
+均有来源/本地前后状态，缺失 0；六个 `review-ledger.json` 均为 `passed` 且有人工签署。
+2026-09-28 更新后的 `scripts/verify-hbar-app-ui-feedback.ts` 生产浏览器总脚本另检
+六变体关键反馈、4/5/6 有界列表滚动、320px 无横向溢出、本地化和 page error（0），
+已通过。该合计不意味着每个按钮与视口/主题的笛卡尔积被逐一回放；等价机制依
+`inferred-not-replayed` 记录推理依据，真实远端发送、投票和数据持久化不在预览验证范围。
+
+Settings Form 1 于 2026-09-28 的证据位于
+`artifacts/reactbits-pro-visual-audit/settings-form-1-acceptance/`：8 组静态来源/本地对、
+4 个按分区切换、取消、保存悬停与窄屏导航选取的交互样本，缺失 0；结构、控件形状/状态、
+溢出门槛和人工看图均通过，账本为 `passed`。宿主提供五个分区、稳定字段 ID、编辑草稿、
+取消还原与异步保存反馈；320px 下导航、主体滚动、第七行说明与保存栏均可达且无横向溢出。
+来源 iframe 的窄屏导航存在截断，本地使用正常流换行确保可达；差异在人工复核中记录。
+独立计时器的保存完成帧不做伪精确像素配对：宿主测试覆盖失败后重试，生产浏览器脚本
+`scripts/verify-hbar-app-ui-settings-form.ts` 覆盖保存完成、取消与各类代表控件，并通过六变体
+320px 溢出/本地化/page error 检查。等价字段、手势及视口/主题乘积标为
+`inferred-not-replayed`；真实远端保存不在预览验证范围。类型检查、局部 lint、专项测试与
+生产构建通过，构建仍有既有大 chunk 警告；此结论不扩展到 Settings Form 2–6 的来源验收。
+
+Settings Form 2 于 2026-09-28 的最终证据位于
+`artifacts/reactbits-pro-visual-audit/settings-form-2-audit-v13/`：8 组静态来源/本地对、
+2 个分别覆盖用户名可用性与 Bio 超限的实时来源交互对均 `matched`，缺失 0；AX 语义、
+控件形状/状态、溢出硬门槛均无失败，人工复核及严格比较通过。静态来源复用已授权缓存，
+两项交互为实时回放。宿主掌管五个资料字段、初始被占用的用户名、160 字边界、取消还原及
+照片/保存回调；Bio 第 161 字保留输入值并以错误提示取代计数，不虚构上传或远端保存成功。
+来源 320px iframe 会裁切底部，本地正常滚动可触达 Cancel/Save；截图与判断记录在审计的
+`manual/` 下。生产浏览器总脚本覆盖 Form 1/2 代表动作、六变体 320px 无横向溢出与
+page error（0）；类型检查、局部 lint、18 个 Form 1/2/旧契约专项测试和生产构建通过。
+构建仍有既有大 chunk 警告，Lumen 旧 `settings-form.tsx` 全文件 lint 有 10 项既有错误；
+本次新增组件及根目录改动的 scoped lint 通过。其他等价按钮/视口/主题组合标为
+`inferred-not-replayed`，不能据此宣称 Settings Form 3–6 来源验收。
+
+Settings Form 3 于 2026-09-28 的证据位于
+`artifacts/reactbits-pro-visual-audit/settings-form-3-final-v2/`：8 组静态对、6 个按主题、
+密度、开关、复选框、取消、保存分别选取的交互样本，缺失 0；语义与控件硬门槛零失败，
+账本 `passed` 且人工复核已签署。来源初始草稿为 Dark/Comment replies 开，而已保存基线
+为 System/Comment replies 关；Cancel 还原后显示 `Preferences saved`。保存中的状态行仍为
+`Unsaved preferences`、按钮为 `Saving`；实时来源补测发现此时修改 Mentions 会使待保存操作
+失效并恢复可编辑的未保存状态，宿主用状态转移与失效计时器避免旧请求覆盖新草稿。
+来源 320px 固定 iframe 会裁掉底部控件，本地让内容自然增长，滚动后 Save 可见且无横向溢出。
+人工审阅接受了 Lumen 暗色填充与 select/button 材质的非结构性残差，不把它记作逐像素复刻。
+整类生产浏览器脚本覆盖 Form 1–3 代表动作、六变体 320px 无横溢与 page error（0）；
+类型检查、局部 lint、6 项 Form 3 专项测试（71 条断言）和生产构建通过，构建仍有既有大
+chunk 警告。等价选项与主题/视口乘积标为 `inferred-not-replayed`；真实远端偏好保存和
+Settings Form 4–6 的来源验收不在此结论内。
+
+Settings Form 4 于 2026-09-28 的证据位于
+`artifacts/reactbits-pro-visual-audit/settings-form-4-integrated-r4/`：8 组静态来源/本地对、
+3 个按成员角色、操作菜单与邀请输入机制选取的实时交互对均 `matched`，缺失 0；语义树、
+控件形状/状态和溢出硬门槛零失败，账本 `passed` 且人工复核完成。宿主保留来源的 6 位成员、
+6/10 席位、Owner 不可分配角色、其余 5 位独立角色选择、上下文菜单和邀请草稿；复制邮箱
+使用剪贴板结果反馈，移除仅回调，不擅自删除成员。来源预览的邀请成功仅是本地状态，
+不推断远端已发出邀请。菜单确属锚定覆盖层，流式布局 guard 只为该菜单容器加入精确路径/
+选择器例外及自测，其余成员内容保持自然流。320px 成员内容区可独立滚动，席位信息
+和角色全称可达且无横向溢出。整类生产浏览器脚本覆盖 Form 1–4 代表机制、六变体窄屏
+溢出与 page error（0）；类型检查、局部 lint、8 项专项测试（61 条断言）与生产构建通过，
+构建仍有既有大 chunk 警告。等价菜单/角色/视口组合标为 `inferred-not-replayed`；
+真实远端角色写入、邀请或移除和 Settings Form 5–6 的来源验收不在此结论内。
+
+Settings Form 5 于 2026-09-28 的最终证据位于
+`artifacts/reactbits-pro-visual-audit/settings-form-5-integrated-r4/`：8 组静态来源/本地对、
+2 个安全的实时交互样本（操作菜单展开、Slack 开关），缺失 0；AX/控件硬门槛零失败，
+账本 `passed` 且人工复核已签署。宿主提供三把脱敏密钥、Reveal/Hide 的安全占位、
+Rotate/Revoke 的请求回调及 Slack/GitHub/Linear 受控开关。**来源明文密钥与后缀不读取、
+不记录，也不宣称逐字 parity**；本地 Reveal 只显示明确的安全占位，Copy 不在界面解密，
+Rotate/Revoke 不伪造完成或远端变更。桌面/平板审计说明在首屏内，320px 以文档正常滚动
+可达且无横向溢出；人工复核记录了 Lumen 按钮/字重/图标短横线的材质残差。
+整类浏览器脚本验证安全的 Reveal/Hide、脱敏 Copy、菜单与集成开关，覆盖六变体
+320px 溢出及 page error（0）；类型检查、局部 lint、5 项专项测试（32 条断言）和构建通过，
+构建仍有既有大 chunk 警告。其他相同开关手势及主题/视口乘积标为
+`inferred-not-replayed`；真实密钥值、远端写入和 Settings Form 6 的来源验收不在此结论内。
+
+Settings Form 6 于 2026-09-28 的**受限**证据位于
+`artifacts/reactbits-pro-visual-audit/settings-form-6-integrated-r3/`：8 组静态结构/控件对
+和 1 个确认文本安全填入交互对匹配，缺失 0；本地 320px 正常文档流可滚到危险区底栏，
+整类浏览器脚本的六变体窄屏/页面错误检查通过。宿主掌管确认草稿，Transfer、Archive、
+Cancel、Delete 仅发送类型化回调；不会自行删除、归档、重置或显示成功。来源按钮初始启用，
+不凭确认框空值臆造禁用规则。公开来源中安全填入并点击 Cancel 后出现 `Review deletion`，
+该后续语义未证；来源 Transfer/Archive/Delete 均未触发，iframe 滚动归属亦未核实。
+因此账本刻意保持 `needs-review`，没有人工签署全变体通过；本地对 Cancel 的 callback-only
+处理不宣称与来源后续相符。类型检查、6 项 F6 专项测试（29 条断言）、局部 lint 和构建
+通过，构建仍有既有大 chunk 警告。此静态/安全输入实现可用，但完整来源动作验收仍待证。
+
+Forms 1（Survey deployment）于 2026-09-28 的受限证据位于
+`artifacts/reactbits-pro-visual-audit/forms-form-1-integrated-r1/`：授权缓存的 8 组 AX 快照
+与本地结构一致；宿主掌管 11 行字段、两条采样方法、完成率、Revert 和有限选项。
+此前公开来源实时观察到 Station code 清空、双方法移除后从 100% 到 90%、Revert 还原，
+以及选择/开关编辑；本地生产浏览器脚本 `scripts/verify-hbar-app-ui-forms-1.ts` 抽样验证
+进度/Revert、宿主本地化、320px 文档滚动至页脚与 page error（0）。Save 与照片移除仅回调，
+不冒称远端结果。人工图审记录了来源白色平面与本地 Lumen 浅灰填充/分隔线的视觉残差。
+本轮官方 iframe 为 `about:blank`，旧授权缓存的 capture protocol 与当前严格 runner 不兼容；
+因此**未签署 strict 视觉/实时交互审计，也未把旧来源实测冒充本轮回放**。类型检查、
+5 项专项测试（65 条断言）、局部 lint/guard 和生产构建通过，构建仍有既有大 chunk 警告。
+此实现可继续迭代，但 Forms 1 的完整来源验收仍待可用 iframe 或兼容捕获证据。
+
+Forms 2（Submit a session）的实时来源/本地证据位于
+`artifacts/reactbits-pro-visual-audit/forms-2-integrated-r6/`：8 组双主题/四视口静态对、
+5 种按标题、摘要、无效提交、格式时长与 Track 展开选择的安全机制样本，缺失 0。
+来源与本地的 AX 语义树、控件形状和标签关联已对齐；样本中的完成度 0→1/4、
+摘要 120 字后剩余 480、空提交的四项错误、Workshop 90 分钟及 Track 选项可见状态一致。
+宿主掌管草稿、8/120 字边界、邮件校验和时长联动；有效提交只发类型化请求回调，
+不宣称远端成功。独立浏览器脚本 `scripts/verify-hbar-app-ui-forms-2.ts` 验证完成度、
+无效提交、时长、德语文案、320px 页脚可达且 page error 为 0；Forms 1 回归、
+7 项专项测试（55 条断言）、Lumen 与根类型检查、局部 lint 均通过。
+**严格账本仍为 `needs-fix`，未人工签署通过**：来源 iframe 为固定 1280px 高，
+本地窄屏与平板采用可达的正常文档流，根高度因此不等；五项交互的可见目标状态虽相符，
+审计 runner 的 consent 控件 `name` 元数据签名及三项视觉反馈阈值仍报差异。
+未安全点击来源的 consent，也未提交有效提案；这些结果与其他按钮/布局乘积不作推断。
+
+Forms 3（New freight booking）以
+`artifacts/reactbits-pro-visual-audit/full-audit-v1/source/hbar-app-ui-forms-3/` 的授权
+8 组静态截图/快照为来源边界：宿主草稿与 Lumen 表单保留 Consignor、Route and terms、
+Cargo lines、操作页脚，三条货物金额为 803.25、860.16、1,274.40，初始总额为
+EUR 2,937.81；`Book shipment` 初始禁用。数量/单价/税率派生金额与 Add/Remove 属
+本地草稿行为，Save 只发类型化回调，不显示未经确认的远端成功。独立浏览器脚本
+`scripts/verify-hbar-app-ui-forms-3.ts` 验证初始金额、数量变更、增删、德语文案和
+320px 页脚可达，页面错误 0；另行浏览器抽测确认货物行独立横向滚动。Forms 1/2 回归、6 项专项测试、
+类型检查、局部 lint、flow/content/icon guard 与构建通过，构建仍有既有大 chunk 提示。
+**本轮官方 iframe 为 `about:blank`，未签 strict 或实时来源交互账本**；不能以本地
+Add/Remove、Save、Book 的行为推断来源，也不进行所有按钮×布局的重复回放。
+
+Forms 4（Equipment record）的实时配对位于
+`artifacts/reactbits-pro-visual-audit/forms-4-integrated-r5/`：8 组静态对、3 个按属性
+编辑/取消、Condition 选择与 Condition tracking 开关抽样的交互例，缺失 0。
+AX 语义树、控件数量/形状/状态、标签关联、截断和横向溢出均对齐；来源桌面约 760px
+面板宽度已用该变体局部 max-width 对齐。Asset tag 的 Cancel 还原与开关反馈两项
+`matched`；Condition 选择两侧均显示 Excellent，但来源是自定义 button/combobox +
+listbox，本地为原生 select，展开形态与审计原始 delta 不等。
+**严格账本保持 `needs-fix`，未人工签署通过**：上述选择器交互仍是
+`lumen-different`；移动和 320px 的来源固定画布裁掉下部属性，本地正常文档流保留末行
+可达，因此有四个 root-height 差异。没有为改善分数调整比较阈值或做结果归一化。
+本地独立浏览器脚本 `scripts/verify-hbar-app-ui-forms-4.ts` 验证编辑/取消、开关、
+德语文案、320px 末行可达且 page error 0；专项 store/audit 测试 95 项、类型检查、
+局部 lint 和构建通过，构建仍有既有大 chunk 提示。Save 与 Add note 来源结果未点验，
+宿主只转发类型化请求，不虚构保存或笔记；等价行与布局乘积不逐一回放。
+
+Forms 5（Provision a workspace）的实时证据位于
+`artifacts/reactbits-pro-visual-audit/forms5-integration-20260928-r3/`：8 组静态来源/本地对，
+5 个按地址填入、密码显隐、Region 展开、Plan 选择与 consent 切换的安全机制样本。
+修正来源可证的 plan/consent/Region 标注与 Region 锚定覆盖层后，静态语义、控件形状、
+标签和溢出硬门槛无失败；其中四种机制的语义差量对齐。来源安全填入可见地址
+`Available`，补齐字段和同意后 Create 可启用，但未点击 Create。宿主异步可用反馈
+按当前地址拒绝过期回写；有效创建仅发类型化请求，不模拟远端结果。
+**严格账本仍为 `needs-fix`，未人工签署通过**：采样时来源地址已经显示 Available，
+本地延时反馈还在检查阶段；Region 展开和 consent 的视觉反馈阈值亦有残差。
+未把本地计时器缩到迎合某一截帧，也未修改比较阈值。独立浏览器脚本
+`scripts/verify-hbar-app-ui-forms-5.ts` 验证默认禁用、密码显隐、Plan、德语文案、
+320px 表单区独立滚动与 page error（0）；7 项 store 测试（60 条断言）、Lumen 类型检查、
+局部 lint/flow/content/icon guards 和构建通过，构建仍有既有大 chunk 提示。
+根类型检查本轮被无关的 `packages/app-runtime/src/agent-composer.ts:663` 类型错误阻断，
+不得记为通过；真实创建结果与其他按钮/布局乘积仍待证。
+
+Forms 6（Checkout）的实时来源/本地证据位于
+`artifacts/reactbits-pro-visual-audit/forms-6-integrated-r3/`：8 组静态对和 1 次桌面浅色
+Billing address matches delivery 切换配对，缺失 0。来源视觉表明勾选时 Billing 子表单
+隐藏、取消勾选时展开；旧只读观察与此矛盾，以新鲜截图和交互前后图为准。来源勾选态
+的 AX/控件列表却仍包含视觉隐藏的输入；本地隐藏时将其移出可访问树和 Tab 顺序，
+不复刻这项来源缺陷，因此**严格账本保持 `needs-fix` 且无人工签核**。来源自定义
+combobox/本地原生 select 的形状、窄屏源画布裁切/本地正常文档流高度，以及该 checkbox
+的截图差量亦保留在原始报告；细节见同目录 `source-gap-notes.md`。
+宿主掌管三件商品、运费和税费金额，初始总额 $275.59；较早安全来源探测曾确认
+Canada→Province 及 Express→$289.59，本轮仅配对 Billing 机制，不把它们冒称同轮回放。
+独立脚本 `scripts/verify-hbar-app-ui-forms-6.ts` 验证这些本地金额/地址转移、Billing
+显隐、320px 文档滚动到底栏、Pay 禁用、本地化与 page error（0）。8 项专项测试
+（77 条断言）、根与 Lumen 类型检查、局部 lint/guards 和构建通过，构建仍有既有大 chunk
+提示。没有填写或触发支付，Back 也仅为宿主回调；不声称远端付款/导航结果。
+
+Forms 7（Community arts fund application）的来源边界为授权静态缓存
+`artifacts/reactbits-pro-visual-audit/full-audit-v1/source/hbar-app-ui-forms-7/`，
+以及**不同 hash** 的安全交互缓存 `full-interactions-v3/interactions/hbar-app-ui-forms-7/`。
+最新实现的 8 张本地视口/主题图位于
+`artifacts/reactbits-pro-visual-audit/forms-7-integrated-manual-cache-r2/`；桌面浅色 AX
+标题/说明/进度顺序与静态缓存一致。缓存可见摘要填入 `audit sample` 后 388 left、
+13%，或只勾确认后 13%；Focus 展开列出五项。本地独立脚本
+`scripts/verify-hbar-app-ui-forms-7.ts` 验证上述两种进度、初始两份附件、Focus 选项、
+Submit 禁用、德语文案和 320px 底栏可达且 page error 0。
+**未生成或签署 fresh strict 通过账本**：两份来源缓存的 hash 不同，旧 capture manifest
+也缺当前协议字段，不能把静态图和旧交互拼接成同轮回放。窄屏来源图有裁切，滚动 owner
+未证；本地保留正文滚动与可见底栏。Tag、附件、Save draft 和 Submit 的远端结果没有
+来源证据，宿主只发类型化请求，不伪造上传/保存/提交成功。8 项 focused store 测试
+（59 条断言）、audit 合约测试 90 项、根与 Lumen 类型检查、局部 lint/guards、构建均通过，
+构建仍有既有大 chunk 提示。等价按钮/布局不作笛卡尔回放。
+
+Forms 8（Inbound pallet routing rule）的实时证据位于
+`artifacts/reactbits-pro-visual-audit/forms-8-final-v4/`：8 组双主题/四视口静态对和
+3 种安全机制（Match any、条件字段菜单、Add condition）同一实现/来源 hash，缺失 0。
+静态语义、控件与溢出硬门槛无差异；前两项交互 `matched`。Add 后来源/本地均出现
+空条件、`Fill in every condition value`，Test/Save 变为禁用；严格 `needs-fix` 仍来自
+来源每个图标 Remove 按钮含隐藏 `Remove condition` 文本节点，而本地用等价
+`aria-label`：新行的 body text 增量为源 +66、本地 +50，虽 AX 名与可见状态一致，
+机器差量与视觉阈值未过。未为隐藏节点额外重抓或修改比较器，也**未签署通过**。
+宿主提供类型化条件/动作与稳定 ID，字段/运算符决定值控件；部分来源未证目录明确标为
+partial/unobserved。Route-to-zone 菜单虽观察到 Bay 1–4、Cold store、Overflow，
+本轮未选其结果，本地仍回调请求；Save/Test 没有触发，不声称远端结果。
+独立 `scripts/verify-hbar-app-ui-forms-8.ts` 验证默认 3 条件/2 动作、模式/新增/字段形状、
+德语、320px 底栏可达且无横溢/page error（0）；7 项 focused tests、Lumen 类型检查、
+局部 lint/guards 和构建通过，仍有大 chunk 提示。根类型检查在此轮被并行
+`tests/pre-session-drafts-runtime.test.ts:296` 的 TS2339 阻断，不能记为通过。
+其他按钮×布局组合不逐项回放，推理边界见采样计划。
+
+Forms 9（Opening hours）由宿主 Zustand 草稿提供稳定的七天/时段 ID、时区与文案；
+初始周合计 49h，复制周一到工作日仍为 49h 但标记未保存，关闭周一派生 40h，
+节假日开关只改草稿。Add/Remove/Save 仅发类型化宿主请求，Reset 是本地恢复；
+来源对这些结果未充分点验，不模拟远端持久化。时间/时区选项目录明确为 partial。
+独立 `scripts/verify-hbar-app-ui-forms-9.ts` 验证七天、默认禁用、上述三种变化机制、
+德语文案、320px 周日与底栏可达、无横向溢出及 page error（0）。13 项专项 store 测试、
+Lumen 类型检查、flow/content/icon guards 和预览构建通过；构建仍有既有大 chunk 提示。
+根类型检查曾在接线时通过，最终复跑被并行修改的
+`packages/app-runtime/src/index.ts:689` 与 `pre-session-drafts.ts:557,831,834`
+类型错误阻断，不能记为最终通过；未改动那些文件。
+
+来源 `artifacts/reactbits-pro-visual-audit/forms-9-r1/` 的官方导航中途 30s 超时，
+仅留下 3/8 组来源/本地图，没有完整 capture manifest；授权 `full-static-v9` 缓存
+又是旧协议，不能拼成同一实现 hash 的 8 静态/3 交互严格账本。修正局部面板几何后，
+本地八组图和滚动指标在 `forms-9-local-review-r4/`：桌面 760×659、平板 590×659、
+移动 292×742、320 压力视口 286×800，均有七行独立滚动且无横溢；320px 文档
+自然增长到底栏。人工复核读序和可见内容接近授权源图，剩余控件材质与弹层选项
+仍有未证差异。**严格 live ledger 为来源受限、未签核**；本地图、旧缓存和不完整
+实时图不互相冒充，也不逐一重放等价日期行与布局的笛卡尔组合。
+
+Forms 10（Guest survey）的宿主草稿提供类型化双语文案、partial Property 目录、
+11 档 NPS、4×5 评分矩阵、六项亮点和派生进度，预约编号可选。初始 `0 / 7`、
+Submit 禁用；本地选 NPS 0 后出现旧缓存旁证的必填追问与 `1 / 8`，选择一个矩阵格
+到 `2 / 8`、一个亮点到 `3 / 8`。独立
+`scripts/verify-hbar-app-ui-forms-10.ts` 验证这些代表性机制、320px 底栏可达、
+文档无横溢、德语长文案与 page error（0），从未点击 Submit。提交启用条件是宿主
+本地必答模型的推导，成功/失败仍由真实宿主决定，不模拟远端响应。8 项专项 store
+测试（97 条断言）、根与 Lumen 类型检查、scoped ESLint、flow/content/icon guards
+和预览构建通过；构建仍有非阻断大 chunk 提示。
+
+授权 `full-static-v10` 缓存的来源 hash 为 `5336fea7…c49ed45ef3`，有八张静态源图；
+同 hash 的 `full-interactions-v4` 无有效状态变化。Property 四项选项、低分追问、
+动态分母和评分/勾选变化只见于**不同 hash** 的旧 `full-interactions-v3`，
+不能写成当前版本的 fresh matched。最终本地八图/指标位于
+`artifacts/reactbits-pro-visual-audit/forms-10-local-review-r1/`：面板桌面 760×953.6、
+平板 590×1041.2、移动 356×1174、320 压力视口 320×1210.4；八组均无
+page error/文档横溢。来源窄屏矩阵滚动 owner 未捕获，本地把五列留在独立横滚区
+（356px 可滚 158px、320px 可滚 194px），页脚正常文档流可达。来源截图顶部受
+站点导航遮挡但语义树仍有标题，本地保留标题；桌面亮点的孤项保持半宽、末项全宽。
+Property 锚定菜单仅用旧缓存的覆盖层几何作局部实现/guard 例外，目录仍 partial。
+**没有同轮严格交互账本或人工签核**；八张本地图不冒充八组实时来源对，
+不把矩阵 20 格、NPS 11 档、六项亮点与四种布局做笛卡尔回放。
+
+Forms 11（New environment）的宿主提供类型化草稿、双语文案与 Region 四项；
+初始 Preview、Auto-deploy 开启、Create 禁用。授权同 hash 旧缓存可见填写
+`audit sample` 后派生 `audit-sample.yourapp.dev` 并启用 Create，Region 展开四项，
+Auto-deploy 从勾选到关闭，Description 的 12 字符计数为 `12 / 160`。
+`scripts/verify-hbar-app-ui-forms-11.ts` 独立验证上述四种本地机制、德语、320px
+底栏可达、无横溢与 page error（0）；从未点击 Create。Store 的 slug 规则和必填
+门槛只由有限样本推导，slug 可用性、其他 kind 描述、变量来源菜单/选中结果均未证；
+Create/Cancel/Close 只发类型化请求，不显示未经确认的远端成功。
+
+源缓存 `full-static-v10` 与 `full-interactions-v4` 的 Forms 11 hash 同为
+`8293f152…1db0e34a0023d2`，但两者均无当前 protocolVersion，
+源站本轮也不可访问；**没有 fresh strict 账本或人工签核**。最终八张本地双主题/四视口图和
+`capture-summary.json` 在 `artifacts/reactbits-pro-visual-audit/forms11-local-only-r2/`：
+桌面/平板面板 560×574、390 和 320 视口下分别 390×574/320×574；表单正文独立
+滚动，320px `clientHeight 415`、`scrollHeight 717`，Description 与页脚均可达，
+八组无 page error/横向溢出。缓存来源窄屏 iframe 仅 292/222px，滚动 owner 未捕获；
+本地使用完整可用视口，未复刻站点外层裁切。9 项专项测试（63 条断言）、Lumen
+类型检查、scoped lint/format、flow/content/icon guards 和预览构建通过（仍有既有
+大 chunk 提示）；根类型检查被并行 `apps/web/src/PreSessionLanding.tsx` 的缺失
+导出阻断，不能记为通过。等价按钮与布局不逐一回放。
+
+Forms 12（Multi-step quote review）由宿主提供四步列表、四个 Review section 与
+GBP Premium 静态快照（初始年费 £4,088.50），两项 consent 初始未选，
+`Request bound quote` 禁用。旧同 hash 缓存的 Business Edit 键盘激活可见三个编辑控件、
+Cancel/Save，自己的 Edit 隐藏、其他三项 Edit 禁用；本地草稿与汇总/保费隔离。
+其他 section 的编辑形状、Save/Cancel 后果、保费重算及 Request 启用/远端结果
+均未证，宿主只产生类型化请求。独立 `scripts/verify-hbar-app-ui-forms-12.ts`
+仅抽 Business Edit 和首项 consent，确认 Premium 不变、德语与 page error（0）；
+没有点击 Save/Request。320px 用真实鼠标滚轮使文档 `scrollTop=698`，Request
+位于视口底部可达、无文档横溢；可见判断只容许 1px 子像素舍入。
+
+授权 `full-static-v9` 与 `full-interactions-v4` 的 Forms 12 sourceHash 同为
+`4434587bef024bb8048a3da8db49fbdf684e151e82fc4b1f4985a62a3ab1d863`，
+但交互缓存为旧 schemaVersion 1、无当前协议，本轮官方页面不可用，**未签 fresh strict**。
+其中 consent 的 source-after 显示 checked，旧比较器却记 `sourceChanged=false` 且
+本地控件索引不符，不能把该机制写成严格匹配。终版八张本地双主题/四视口图在
+`artifacts/reactbits-pro-visual-audit/forms-12-local-review-r3/`：desktop 1022×775、
+tablet 670×1142、mobile 356×1400、320 为 320×1418；八组无横溢，
+窄屏采用正常文档流，源窄屏的纵向滚动 owner 未证。7 项专项测试（71 条断言）、
+根与 Lumen 类型检查、scoped lint、flow/content/icon guards、预览构建通过，构建
+仍有大 chunk 提示。design-system-boundaries 全局检查另有六项不在 Forms 12 文件中
+的既有失败，不记为通过；静态图不冒充实时来源对，四个 Edit×四布局不逐一回放。
+
+Onboarding 1（Set up your profile）改为宿主提供英文/德语类型化文案、四个时区选项、
+Sam Rivera / Product Engineer / Berlin 初值和更新订阅草稿；Lumen 专用表单保留原生
+textbox、select、checkbox、Upload photo 与 Continue，右侧 Directory preview 只在桌面
+显示。Photo/Continue 只发类型化请求，不模拟文件选择、校验、上传或导航。缓存只有暗色
+mobile 下姓名填入、时区选到 placeholder、更新订阅 checked→unchecked；mobile 预览被
+隐藏，因此桌面编辑后预览联动只是宿主投影推导，不能宣称来源前后态匹配。
+
+授权 `full-static-v10` 与 `full-interactions-v4` 的 sourceHash 同为
+`2d34fb8f19ec4c1e4934800f987b1f426aea8446c744372cc4b4a1ef1b665a4a`，
+但二者为旧 schemaVersion 1，缺当前采集协议；本轮官方页不可达，**未签 fresh strict**。
+独立 `scripts/verify-hbar-app-ui-onboarding-1.ts` 抽桌面默认与一次姓名投影、mobile
+checkbox 与原生 timezone placeholder，德语和页面错误 0；286×640 Continue 在
+y532–572 可见、无横溢，320×420 的真实鼠标滚轮使 documentScrollTop=176，Continue
+在 y356–396 可达。其它城市、Upload、Continue 不逐项跨布局点击。来源缓存无窄屏
+scroll owner 数据，短高的文档滚动只是本地可达性保证。
+`artifacts/onboarding1-local-review/` 留有最终双主题四视口八张本地图，另有桌面姓名
+草稿投影与 320×420 滚动截图。桌面 1086×640 分栏约 x500、右预览标题 x633/y210；
+手机 356×640 的 Continue y532–572。它们只作本地结构/主题复核，不冒充同轮原版配对。
+8 项专项测试（60 条断言）、根与 Lumen 类型检查、scoped lint、内容/图标/流布局
+守卫、预览构建与浏览器脚本通过；构建仍报告大 chunk 提示。
+
+Onboarding 2（six-step vertical stepper）宿主提供六个稳定步骤 ID、英文/德语 rail 文案、
+Profile 的 Sam Rivera/Product Lead 草稿及 Role 的四个 radio 选项。来源旧同 hash 缓存
+只证实 Profile 的输入草稿和 Continue→Role，进入 Role 时 Product 预选、Profile 标为
+complete、窄屏进度变为 Step 2 of 6。Back、改选角色、点击其他步骤和后四步 body／
+完成结果均无可靠前后态；实现只发类型化请求，不跳到不存在的页面。
+
+授权 `full-static-v10` 与 `full-interactions-v4` 的目标 sourceHash 为
+`e37748d4786df18d23b5ce09479762a71c405d2c007d43bf583b75f984e24747`，
+交互缓存为旧 schemaVersion 1、无当前协议，官方文档页文字可见但 iframe 未暴露，
+**未签 fresh strict**。独立 `scripts/verify-hbar-app-ui-onboarding-2.ts` 用桌面一次
+Profile 填写/Continue 与 mobile 一次 Continue 覆盖状态机制，检查六项 rail、Role 四
+radio/Product checked、德语及 page errors=0；不逐步、逐按钮、逐布局重复点击。静态
+本地对照中桌面卡 x280–1062、Continue y338；356px 手机 Profile Continue y354，
+dark mobile Role 四选择项与 footer 和来源几何仅有约 1–2px 差异。320×420 Profile
+按钮初始可见；Role 按钮初始底部约 y436，真实 wheel 后文档 scrollTop=49、按钮
+y347–387 可达，无水平溢出。初次 wheel 检查若在动画首帧读取会出现 0–1px 的
+暂态误报；脚本现等待目标按钮进入视口。源窄屏滚动 owner 未捕获，本地使用正常
+文档流。最终 desktop/mobile 双主题四图，加 Role 状态和短高滚动图在
+`artifacts/onboarding2-local-review/`，不冒充实时来源配对。10 项专项测试（65 条
+断言）、根与 Lumen 类型检查、限定文件 lint、O2 CSS stylelint、图标守卫、预览构建
+和浏览器脚本通过；构建有大 chunk 提示。整个 `onboarding.tsx` 的 ESLint 仍有 9 个
+已有错误（HEAD 有 10 个），本增量未增加错误，不能称全文件 lint 通过。
+交付时出现并行根仓 Git 提交竞争：O2 根接线五个精确路径在暂存后曾被另一任务的
+`6953a14` 一并提交，混入其桌面模型菜单变更。另一任务随后用 `de2e098` 将这五个
+路径从自己的提交中移除并保留工作树内容；本任务将 O2 的精确 main 补丁与其余四个
+路径独立提交为 `1493bd8`。没有改写历史，也没有清理其它任务文件。
+
+Onboarding 3（getting-started checklist）六行任务由宿主提供稳定 ID、英文/德语标题、
+说明、逐项 action link 与初始完成集合；初态 Profile、Workspace 两项 checked，
+progressbar 为 2/6。旧同目标 hash 的 dark/mobile Profile checkbox 点击，来源
+`before.json`/`after.json` 与图片实际显示 checked→unchecked、2/6→1/6、进度填充
+75.95→39.13px。旧 `comparison.json` 却写 `source-no-op`，原因是其签名只比较
+bodyTextLength、overflow 和若干控件字段，没有 checkbox `checked` 或 AX 进度文案。
+初始模型提交 `0292f77` 因信任该摘要而误作 no-op；独立修复 `5c2e72d` 用原始
+前后证据改为唯一已证的本地状态转移并加回归测试。其它勾选/链接没有可靠结果，
+宿主只发类型化请求，不伪造远端进度或导航。
+
+授权 `full-static-v10` 与 `full-interactions-v4` 目标 sourceHash 同为
+`396e5c679645f9d54792a317e5899cb5b94205d54f9836d25f9f4313b2b3f0ba`，
+但旧 schemaVersion 1 无当前协议，**未签 fresh strict**。独立浏览器脚本仅抽 Profile
+一次取消勾选，验证 2/6→1/6、六个 checkbox/六链接、进度条 aria-valuenow、德语
+及 page errors=0；mobile356 无文档横溢，320×420 真实滚轮使文档 scrollTop=495，
+底部说明 y383.55–419.92 可达。来源窄屏静态缓存有 17/18 处文本截断，本地选择
+正常流保全文案，此为已记录的可读性差异而非严格像素配对。
+
+O3 宿主模型的误判修复为 `5c2e72d`，Lumen 实现为 `e50aac0`，根接线为
+`988feef`，抽样计划及浏览器脚本为 `b2e0f4e`。本地双主题 desktop/tablet/mobile/
+stress 八图及 Profile 取消勾选在 `artifacts/onboarding3-local-review/`；桌面内容
+高度约 549.4px，对照来源约 553px，但这些并非 fresh source/local 同轮配对。
+9 项专项测试（59 条断言）、根与 Lumen 类型检查、预览构建、限定文件 lint、
+stylelint、内容/图标/流式布局守卫和浏览器脚本通过。共享 `onboarding.tsx` 的
+全文件 lint 仍有既存错误，不宣称全文件通过。
+
+Onboarding 4（use-case picker）来源 `full-static-v10` 与 `full-interactions-v4`
+同目标 hash `b59ffe4e0ac59409bfbbd7e84a374f348d61f9536b4168ac63c4d8c8c64c543c`。
+来源是六个 radio 卡片、四个人数分段按钮，初态 Run sprints / 2–10。
+旧比较器把 dark/mobile Plan a roadmap 点击/Enter 误判为 `source-no-op`，但原始
+`before.json`/`after.json` 的 AX 都显示 Run sprints 由 checked 变未选、Plan a
+roadmap 由未选变 checked；Just me Space 使人数从 2–10 切换。模型初始提交
+`4234b0b` 的 request-only 假设由 `a078405` 独立修复。六 radio / 四人数同组复用
+互斥选中机制，其他选项不逐个 × 布局重播；Back、Continue、模板应用、持久化仍仅
+宿主 typed request，无可靠结果不伪造导航。
+
+Lumen `201f3a0`、根接线 `d390c4e`、浏览器抽样 `dc9125e`。本地八张 light/dark ×
+desktop/tablet/mobile/stress 图及 320×420 短高图在
+`artifacts/onboarding4-local-review-v3/`；来源 desktop 根框 720×567、卡片区
+y102/高305.5、单卡356×96.5、人数段 y459、footer y527 与本地基本对齐。
+独立浏览器检查两种状态机制、356px 六项/四项无横溢、320×420 真滚动后 Continue
+可见、德语文案及 page errors=0。10 项专项测试（76 断言）、根/Lumen 类型检查、
+预览和 Lumen Vite/declaration 直接构建、限定文件 ESLint/Prettier 通过；常规
+Lumen package build 别名因本机 pnpm 版本低于仓库要求失败，不能称它通过。
+旧交互缓存无当前协议，静态图不是同轮严格来源/本地配对，**未签 fresh strict**。
+
+Paywall 1（article content lock）来源文档说明“fade-out preview and an inline
+membership card”，`full-static-v10` 八视图可见 680px 桌面文章、三段淡出预览、
+覆盖在末段上的会员卡、三项权益和并排两按钮；窄屏卡片内按钮上下堆叠。
+旧 `full-interactions-v4` 与静态目标 hash 同为
+`2c7a0feef5f9cfa5e5426b14d1c2d5a48a9c48f74359fb32aa90c6262078c5ed`，
+但五个桌面首按钮探测为 `control-index-not-found`，仅 mobile 首按钮探测记录
+无可见变化，第二按钮及购买/登录目的地没有可靠结果。两个动作仍分别交给宿主，
+不伪造远端页面或成功状态，**未签 fresh strict**。
+
+原先 Lumen 把正文与会员卡分列、放大标题且失去淡出预览；Lumen `9140c58`
+改为正常单栏阅读流、经来源证实的卡片覆盖与有界 teaser mask，并按来源使用
+h2/h3 和语义 sm 锁图标。根仓 `ada2cab` 将宿主权益策略、空列表/21 项超容量测试、
+独立浏览器脚本及 gitlink 一并提交。代表性本地图在
+`artifacts/paywall1-local-review/`：桌面卡 x203、y320.6、宽680（来源 x203、
+y325.4、宽680）；mobile 卡 y192.6、卡标题 y253.6、按钮组 y500.6；
+320×420 真滚动后第二按钮 y354.6–390.6 可见，pane scrollTop=230，
+无横溢。超容量权益 21 项不丢、列表可获焦并通过 End 键滚动；德语和 page
+errors=0。五项专项及既有测试（50 断言）、根/Lumen 类型检查、预览构建、
+CSS stylelint、新改图标/内容守卫及浏览器脚本通过；共享 `paywall.tsx` 全文件
+ESLint 在变更前后均有 16 个既存错误，`paywall.css` flow guard 报告的 grid/
+absolute 项位于未改的其它 Paywall 变体段落。不能称这两个全文件检查通过。
+
+Onboarding 5（invite teammates）来源 `full-static-v10` 和同目标 hash 的旧
+`full-interactions-v4`：桌面根框 560×445、x263/y97.5；链接卡和两行邮箱/角色
+在边框内，底部 Skip/Send。原始 AX 前后显示第一行邮箱 `priya@northwind.co`→
+`audit sample`、role Admin→Member，旧比较器却因漏掉输入 value/选项状态写
+`sourceChanged=false`；宿主状态以稳定 invitation ID 更新该行，不变更另一行。
+Copy 的已见 click/Enter/Space 文案仍为 Copy；剪贴板、Add/Remove 行、Skip
+导航与 Send 的远端结果未可靠捕获，所以只发具名请求，不伪造结果。
+
+Lumen `f429e99`、根接线及八视图/浏览器脚本 `7caf32a`。本地桌面根框与来源
+同为 x263/y97.5/560×445，链接卡 y180、邀请卡 y284、页脚 y502.5；
+light/dark × desktop/tablet/mobile/stress 与 320×420 真滚动图保存在
+`artifacts/onboarding5-local-review/`。浏览器抽样一次独立邮箱编辑、一次原生
+role 选择；一次 Add 和 Copy 确认本地不造行/成功，390/320 窄屏无横溢、
+320×420 文档 scrollTop=160 后 Send y380–420 可达，德语/长文案及 page errors=0。
+来源窄屏有截断，本地保留正常流全文；未证明来源的短高 scroll owner。
+10 项专项测试（61 断言）、根/Lumen 类型检查、预览构建、限定文件 ESLint/
+stylelint、内容/图标/流式布局守卫和浏览器脚本通过；共享 `onboarding.tsx`
+全文件 lint 仍有 6 项既存错误（变更前 7 项）。旧缓存无当前协议且来源目录
+hash 与静态缓存不同，**未签 fresh strict**。抽样只覆盖不同状态机制，不逐个
+按钮 × 分辨率重复回放。
+
+Onboarding 6（setup-complete summary）来源 `full-static-v10` 八视图可见装饰性
+40px 完成标记、h2/说明、四组 `dl` 术语与定义、Open workspace / Take the
+two-minute tour 两 CTA、inbox 注记。旧同目标 hash `full-interactions-v4`
+第一 CTA 的 click/Enter/Space 原始 AX 前后相同，未证明实际工作区导航；Tour
+未抽样。两者都以独立 typed request 交给宿主，不伪造打开页面或启动导览。
+来源目录 hash 与静态缓存不同且旧报告无当前协议，**未签 fresh strict**。
+
+Lumen `0ce5212` 的四行正常流/语义定义对与独立主仓预览接线保留宿主英文、德语、
+长德语数值。`artifacts/onboarding6-local-review/` 有 light/dark × desktop/
+tablet/mobile/stress 八图及 320×420 短高图。代表性桌面 420px 宽时本地根框
+y34.8/高490.4，对照来源 y35.9/高488.25；摘要 y191.0 对照 y192.1，
+差异约 1–2px，主题材质可不同。浏览器一次 Open 点击确认不造本地导航，
+320×420 真实滚动 scrollTop=70 后 Tour y348.25–388.25 可达；德语长文案
+无横溢、page errors=0。七项专项测试（45 断言）、根/Lumen 类型检查、预览构建、
+限定文件 ESLint/stylelint、内容/图标/流式布局守卫和浏览器脚本通过。共享
+`onboarding.tsx` 的其它既存 lint 错误仍在，不宣称全文件通过。
+
+Authentication 4（two-step sign-in）的当前可见来源为
+`https://pro.reactbits.dev/docs/app-ui/authentication/authentication-4`。
+协议 17 的 `authentication-4-baseline-v17-r1` 保存八组实时原版初始静态记录；
+其中早先的 local 部分在本次实现变更后已过时，不能将该目录当成当前配对验收。
+实际 iframe 为 desktop 1086×560、tablet 670×560、mobile 356×560、stress
+286×560，400px 桌面卡与 222px 极窄卡均是内容流，不是 480px 固定高卡。
+
+单次安全机制观察仅以合成 `audit@example.invalid` 激活 Continue，所有非
+GET/HEAD 请求均被预先拦截，未输入密码、未激活 Sign in 或导航动作。
+`artifacts/authentication4-reference-probe/email-step-observation.json` 记录
+`2026-09-30T01:46:29.644Z` 激活后 262ms 的 Step 1/Continue disabled；
+`2026-09-30T01:46:30.332Z` 首次可见 Step 2（观测等待 679ms）。无拦截请求、
+无导航。先前 500ms 快照仅表示尚在等待，不能据此断言不会转到密码步骤；
+679ms 也不是原版固定计时规范。只证明前端步骤反馈，认证、账户查找服务、
+密码提交、邮件寄送及外部导航结果均未验证。
+
+独立 Zustand 模型 `5496591a` 用四 phase 与实例隔离 request ticket 管理草稿、
+邮箱错误和等待；Back/owner cleanup 使旧 ticket 失效，cleanup 清密码和显隐状态。
+所有通知均排除密码，并显式标记 `authentication-and-navigation-unverified`。
+Lumen `0a028eeb0f` 与根投影测试 `cef47d71` 提供可选受控视图；`0e965ae376`
+补足原版已见的 44px 密码文字留白与 32px 显隐覆盖控件关系。缺省 legacy
+API 仍保留，受控分支自身不计时。专用预览 Host 拥有可取消的等待资源、原生
+表单提交和声明式错误关系；更换语言保留两份独立草稿，更换场景退休旧 owner。
+1050/1400ms 仅沿用本地演示节奏，完成 Sign in 等待不表示认证成功。
+
+本轮按变化机制验证，而不是按钮 × 布局穷举：模型、SSR、真实双实例/StrictMode
+Host 共 18 项测试（182 个 Bun 断言），另有原生密码焦点检查；四个实际构建后
+flow/content measures 覆盖 desktop 1086×560、stress 286×560 与长德文
+320×420 的两个步骤。页脚真实可滚达，无横溢、不可达裁切或 page/console error，
+代表图和几何在 `artifacts/authentication4-local-review/`。
+
+邮件按钮断行差异来自原版 16px 横向 padding、500 字重，与旧本地 12px/400
+的文字宽度差，不是不同断词规则。当前受控分支恢复这些已观测参数，继续采用
+共享 md16 图标：原版极窄 SVG 会压成 12.4375×16，本地不仿造压缩。极窄本地
+两行邮件控件随内容自然到 42px，原版为 40px；桌面卡高度也仍有约 2px 残差。
+按最新交付标准，这些微小残差不阻塞 Authentication 4 的功能/布局通过；两步骤、校验、
+等待、取消、草稿保留与窄屏可达已有足够证据。尚无当前实现的完整配对交互和人工签核，
+**未签 fresh strict**。原版外部动作不能由本地回调测试推断为已成功或 source-no-op。
+
+根/Lumen 类型检查、限定类型感知 ESLint、Stylelint、内容/图标/流式布局守卫、
+既有 Node CLI 的 Lumen bundle/声明构建和生产预览构建通过。预览的大 chunk
+警告仍在；Lumen 全文件 Prettier 的四个修改文件在改前 HEAD 亦失败，只有改动
+区间格式已核对。根预览入口及变体清单保留各自的既有未格式化区域，不夹带整份
+重排。本机 pnpm 11.19.0 不满足子仓 12.3.4，未再安装或切换包管理器，不能称
+其标准 package-manager 工作流通过。
+
+Authentication 5 的邮件链接预览已采用 Lumen `c34dd24e01` 的可选受控契约，
+缺省 legacy API 保留。专用 Zustand owner 管理邮箱、form/sent、错误和倒计时；
+更换文案不清空草稿，替换初始场景退休原 owner，离开页面释放定时器。发送与重发
+仅记录 `mail-and-navigation-unverified` 请求，sent 面板是本地预览投影，不是邮件送达。
+三个固定摘要行和字段/按钮沿用既有 flex 自然流，不为像素差异重新建立布局。
+
+按最新交付标准，三项模型/投影测试与一次构建后邮件流程检查覆盖无效邮箱、原生
+Enter、摘要更新和倒计时结束；320px 长德语表单无横向溢出，默认桌面与窄屏代表图
+保存在 `artifacts/authentication-core-review/`。来源沿用已保存的真实可见结构，
+共享样式与其余手势直接推导；本轮没有追加源站外部动作、逐按钮或 strict 矩阵。
+
+Authentication 6–14 本轮完成预览状态归属收尾：已有受控视图与配对结构保持，
+集中 React 业务草稿改为每个预览 owner 独立的 Zustand store。文案/回调变化保留
+草稿，初始场景改变替换 owner；验证码与 SSO 采用实例隔离 ticket，模式切换或
+清理后旧结果不会回写。只有验证码实例运行其重发倒计时，不让其他变体启动无关
+计时器。清理移除内存密码/验证码及显隐状态，事件不再带验证码/恢复码秘密值。
+等待或完成状态标记为本地演示，不称真实认证、改密、邀请或审批已经成功。
+
+Lumen `f810258647` 修复恢复码、注册、企业登录及重置表单的共享 DOM ID：同页
+两个实例分别拥有 label/input/description 关系，不改变原有布局。30 项聚焦测试、
+302 个断言通过，包含 14 个独立工作流、长文案、空/容量/失效 ID 状态、ticket
+取消/隔离和双实例标签；构建后只抽查邮件机制、验证码取消/完成及 SSO 等待三个
+核心流程，page/console error 为零。执行入口是
+`bun scripts/verify-hbar-app-ui-authentication-core.ts`，默认连接已有 5193 预览。
+
+其余布局/手势从未改动的视图样式、既有配对历史（`631bc4fa` 至 `d521794f`）
+与本轮状态测试推导，不重跑十四个表面的视口/主题笛卡尔积。Authentication 全部
+14 个预览按当前功能/布局标准可继续交付；正式宿主服务与 fresh strict 全矩阵
+不在此结论内。根/子仓严格类型、限定类型感知 lint、内容/图标守卫和预览/直接
+CLI 包构建通过，既有大 chunk 警告和不兼容的 pinned-pnpm 工作流说明仍保留。
+
+Empty State 1–5 按当前功能/合理布局标准完成。参考沿用已保存的真实
+`full-static-v10` 可见结构，不重新建立逐按钮、主题和视口矩阵：首次接入的三张
+choice 卡、搜索无结果的查询/筛选/建议、收件箱清空的指标与列表、加载失败的
+诊断/重试、空文件夹的面包屑/原生文件选择分别实现，不再用同一个泛化空态替代。
+Lumen 内容契约与 provider 要求宿主提供文案和记录，旧 explicit-prop factories
+仍兼容；根入口只桥接公共组件。列表采用 content-grown、稳定 ID 去重和自然换行。
+
+独立 Zustand owner 管理查询、筛选、重试 ticket 和文件选择计数。语言改变保留
+领域草稿，初始场景改变退休 owner；清理取消未完成重试，过期 ticket 不回写。
+重试结束明确提示服务尚未验证，文件选择只反馈 metadata，不读取/上传文件内容。
+添加来源、指南、服务状态、choice 与链接导入只发具名意图，不伪造导航或业务成功。
+
+本轮 13 项 Empty State 模型/投影测试覆盖旧 API、长译文、空/单项/容量、重复与
+失效 ID、owner 隔离和取消。`bun scripts/verify-hbar-app-ui-empty-state-core.ts`
+在已有 5193 生产预览抽查五种默认结构、一个查询/筛选机制、重试与原生文件选择，
+另抽查 320px 长德语与 17 条 choice 的内容增长；无横向溢出和 page/console error。
+代表图在 `artifacts/empty-state-core-review/`，人工复核整体布局正常。其余同构
+choice、拖放/选择同回调、主题与尺寸由实现推导，不计为逐项实测或 fresh strict。
+
+根/子仓类型检查、限定 ESLint、Empty State 的 stylelint 与内容/图标/流式布局
+守卫、子包直接 CLI bundle/声明构建、生产预览构建通过。相关联合测试共 24 项、
+157 个断言通过。额外注册表测试仍有一条既存 Wizard 3 断言期待旧 plan-list 类名，
+与当前 upgrade-reference 实现不符；本轮未改 Wizard 或该测试，不宣称注册表全绿。
+
+Support 2 的 ticket 表单新增可选受控 referenceFlow，保留 legacy API 和已有布局。
+预览 Host 用独立 Zustand owner 管理领域选择、正文、附件占位和提交阶段；提交等待
+owner 回执，失败保留可编辑草稿，确认文案明确“没有创建真实支持工单”。语言更新
+不重建草稿；宿主选项变化协调失效 ID 并取消指向旧目标的等待，清理使旧 ticket
+失效。保存只发 preview-only 意图，不声明真实持久化或实际附件传输。
+
+12 项相关模型/内容/投影测试、95 个断言通过；受控实例 ID 独立，等待时禁用表单，
+失败可再提交，迟到结果与其他 owner 的 ticket 不被接收。
+`bun scripts/verify-hbar-app-ui-support-ticket-core.ts` 抽查生产预览的等待/失败草稿
+和 320px 德语确认，无横向溢出和 page/console error。样式未改，正常流布局及其余
+同构选择从已有实现推导；不扩展到 Support 3–5，不重新跑严格视觉矩阵。
+
+类型检查、限定 ESLint、Host 内容守卫与包/预览构建通过。整份 `support.tsx` 的
+内容守卫仍报告两个 HEAD 中已存在、位于 Thread 3 的 `You` 字面文案，未将这项
+既存差距伪报为全文件通过；本轮仅受控 ticket 范围闭环。
+
+Support 3 本轮按功能/合理布局标准完成参考会话：缓存 `full-static-v10` 的六条
+消息、两条附件、四组 `dl` 时间线、相关链接与权限注记由独立 Host fixture 提供。
+受控参考分支不添加原版没有的标题/解决按钮；需状态操作的显式宿主可选择显示，
+legacy API 保留。回复由 Zustand owner 管理，400ms 只模拟本地确认；等待不清草稿，
+失败仍可编辑，连续确认追加独立消息，不再覆盖上一条回复。文案/当前用户标记由
+宿主提供，语言更新不清领域草稿；上界由宿主列表容量确定，本地追加最多 20 条，
+到界明确提示。请求捕获 threadId 与 owner ticket，清理拒绝迟到确认。
+
+10 项相关模型/SSR/内容测试、92 个断言通过，覆盖失败恢复、取消、隔离、容量和
+同页标签关系。`bun scripts/verify-hbar-app-ui-support-thread-core.ts` 在已构建
+5193 预览抽查失败保留、连续两次本地确认与 320px 长德语。检查发现既存家族样式
+把窄屏 aside 排到前面，并将消息 pane 压成零高度；独立 reference CSS 改为 flex
+流、正常消息高度和“消息/回复在前，时间线在后”，没有坐标或固定内容高度。
+首条消息、发送按钮和相关链接可见/可达，无横溢和 page/console error；代表图在
+`artifacts/support-thread-core-review/`。其余同构消息和手势由实现推导，不跑逐按钮
+矩阵，未签 fresh strict，也没有真正发送消息或改变远端工单。
+
+根/子仓类型检查、限定类型感知 ESLint、样式/content/icon/flow 守卫以及包 bundle/
+声明和生产预览构建通过。此前 Thread 3 的两处 `You` 硬编码已改为宿主 metadata；
+本轮全份 support 内容守卫通过，不将其它 Support 变体业务接入一并写成完成。
+
+Chat 1–6 本轮补足共用的受控发送机制：每个预览 owner 有独立 Zustand store，按
+channel/contact/post/room/stream 的稳定目标保存草稿、捕获请求 ticket；切换目标不
+改写原目标的迟到结果，移除目标和清理取消等待。失败或零容量保留草稿，确认后才
+向正确目标追加本地消息，并明确“只加入预览，未送达”。翻译不存入领域状态，当前
+作者/时间/status 随 Host 文案投影。局部消息后缀最多 20 条，且不超过宿主期望容量
+扣除已有记录后的余量；基础记录不删除，超容量时不伪造成功。Support chat 评分与
+快捷项改为宿主 ID/domain action，仍是预览意图，不称真实支持服务。
+
+Chat 1 的原参考没有频道侧导航，本轮增加独立 referenceLayout：launch-room
+标题/说明、pin/member toolbar、Today、四条消息、typing 注记、原生单行 composer
+与附件/emoji/send 顺序。新流式 CSS 不改 legacy 分支，不用坐标、Grid 或固定内容
+高度。Chat 2 补齐五位真实联系人与五条参考消息并实测目标切换；**Chat 2–6 的
+其它结构仍部分沿用旧视图，不能据此签整类功能/布局通过**。搜索/气泡/通话、嵌套
+社交回复、支持完整历史/评价、群附件线程、无 tab 直播仍是下一批真实缺口。
+
+20 项相关模型/Host/SSR/fixture 测试、156 个断言通过；类型、限定 ESLint、content/
+icon/flow 守卫、两份新样式的 stylelint 和包/预览构建通过。
+`bun scripts/verify-hbar-app-ui-chat-core.ts` 只回放共用发送的等待/确认与失败保留，
+Direct 发送后切到另一联系人并返回、每联系人草稿，以及 320px 长德语频道；其余
+四个独立家族只检查挂载，共同 composer 行为由实现和状态测试推导。代表图在
+`artifacts/chat-core-review/`，page/console error 为零，无横溢。未重跑主题/视口/
+按钮笛卡尔积，也未签 fresh strict 或声称任何远端消息、附件或导航已成功。
+
+AI Chat 1–9 本轮按用户指定的“整体功能与合理布局”标准闭环。九个独立参考分支
+使用宿主消息、文案、附件、工件、模型与活动数据，保留 legacy 接口。共享输入草稿、
+模型/版本/来源选择、附件移除和本地语音 phase 由独立 owner 的 Zustand 管理；
+发送保留草稿，审批不伪造批准，语音不使用麦克风或虚构时间推进。行内引用绑定其
+实际编号对应的稳定来源 ID，而不是相邻文件。
+
+实用检查 `bun scripts/verify-hbar-app-ui-ai-chat-reference-core.ts` 对九种结构各
+挂载一次，抽查推理展开、保留草稿、工件模式/版本、模型菜单及审批/语音的就近
+反馈；两种窄屏检查覆盖中文工件与模型菜单，不再逐控件/主题/宽度重复验收。
+发现并修复了旧工件/嵌入式类名污染，以及窄屏工件下半部分被外壳截断的问题。
+pane-scroll 高度来自所属预览 pane 的百分比，窄屏工件采用正常流与所属面板滚动，
+实际能到达文档切换按钮。代表图位于 `artifacts/ai-chat-reference-core-review/`，
+无 page/console error、无页面横溢。
+
+23 项相关模型/SSR/兼容测试通过；根/子仓类型、限定类型感知 lint、content/icon/
+flow 守卫、Stylelint、包 bundle/声明与生产预览构建通过。来源仍为已授权缓存，
+未签 fresh strict；无源 after 证据的工件切换、request 披露与 voice phase 仅是
+明确的本地预览推导。没有真实发送、复制、下载、文件打开、审批或录音服务结果。
+
+Prompt Input 1–7 本轮采用同一实用交付标准闭环，增加独立参考内容联合类型与 View，
+保留旧接口。七个变体分别恢复富附件消息、带 Search 的长草稿、输入区后的四个
+建议、连续模板句子与变量、输入区后的上传附件、独立上下文 chip、就近的模式/
+环境/模型工具栏。文案、列表与选项由 Host 提供；Zustand 只保存 owner 的值与 ID。
+发送与 Run 不清空输入，重试不伪造上传成功，文件选择只报告数量，不读取或上传文件。
+
+`bun scripts/verify-hbar-app-ui-prompt-reference-core.ts` 对七种结构各挂载一次，
+抽查共有草稿/模型菜单、建议预填、模板验证、失败重试、上下文移除与键盘发送。
+中文变量表单与模式工具栏各跑一次窄屏，不逐按钮、主题或布局排列重复验证。
+代表图位于 `artifacts/prompt-reference-core-review/`，无 page/console error 或页面
+横溢。统一复核修正了源免责声明被临时反馈覆盖，以及短提示框顶贴预览边缘会压缩
+上方菜单空间的问题；画布用正常 flex/auto flow 居中并随内容增长，不固定正文高度。
+
+22 项参考模型/SSR/兼容测试、213 个断言通过；根/子仓类型、限定 ESLint、Stylelint、
+content/icon/flow 守卫和 flow 自测试、包 bundle/声明与生产预览构建通过。原入口
+`302f507331` 的嵌套图标条件与无括号分支作等价 lint 修正，兼容测试仍通过。
+来源使用已授权缓存：第 7 变体普通裁切只包含 footer，已从完整 context 图恢复结构；
+未将缺失的源控件截图当成无功能，也未重写或冒称 fresh strict 证据。未捕获的命令、
+强度、上下文和环境选项明确是 Host 本地预览数据，没有实际 provider、麦克风或上传服务。
+
+Agent Activity 1–7 本轮在已有七个独立结构上补齐受控边界，不重写已符合参考的内容。
+可选 `LumenAgentActivityViewModel` 接收 Host 的组展开、筛选、日志数量/阶段和停止/
+重试预览状态；旧调用保持兼容。每个预览 owner 的 Zustand 保存 ID 与值，计时器
+由 Host 持有、取消释放，最多追加已提供的两行快照，不生成日志或真实服务结果。
+Source 3 的 Stop/Run again 和 Source 7 的 Retry/Cancel retry 有实际 after 证据，
+保留它们的本地 UI 转换，同时明确“Preview stopped/Replay preview”及“本地预览请求”。
+输入、已有尝试、输出和历史事实不改变；没有真实停止、重启、重试或文件下载。
+Source 1 只有 Stop 入口，缺少来源 after，点击只报告意图，不自行把运行事实改成 Stopped。
+
+新增受控样式使用 flex/内容增长，pane-scroll 的最大范围来自当前视口可用空间，
+不把截图正文高度强加给工作台。保留原生桌面历史表格、窄屏元数据卡片和真正的
+内层日志滚动；修正共享列表规则覆盖显示断点、卡片顶部操作位置，以及旧隐藏 term
+脱离 scroll pane 后把 844px 窄屏页面撑到 1309px 的问题。隐藏标签现在属于其滚动 pane，
+实际文档恢复为 844px；不定位普通正文或牺牲可访问文本。
+
+`bun scripts/verify-hbar-app-ui-agent-activity.ts` 已收敛为实用检查：七种结构一次，
+抽查组折叠、原 run 的重跑意图、severity 筛选、冻结日志与追尾、Retry/Cancel 和
+下载意图；只追加窄屏历史卡片与德语失败详情两种布局，不做按钮/主题/宽度排列。
+代表图在 `artifacts/agent-activity-core-review/`，page/console errors 为零、无横溢。
+17 项模型/受控 SSR/兼容测试与 215 个断言通过；根/子仓类型、限定 ESLint、样式 lint、
+content/icon/flow 守卫、格式、包 bundle/声明和生产预览构建通过。历史 Stop 转换来自
+`d149f12254` / `1f219d7f84`，本轮将其归属与服务结果区分；旧严格证据不重标为本次通过。
+来源仍为授权缓存与 context 图，没有声称 fresh strict 全量或正式宿主业务已验收。
+
+Tool Calls 1–6 本轮保留六种已有结构，补齐可选 `LumenToolCallsViewModel` 与类型化意图。
+调用披露、活动筛选、文件披露、输出流和权限预览值由所属 Host 的 Zustand 管理；
+请求使用 group/item 的独立 ID，不拼接后解析目标。空白/重复 ID 被过滤，失效目标
+不改变其他记录，同 owner 刷新会清理旧状态，来源权限值变更会覆盖本地预览值。
+旧调用与薄 wrapper 继续兼容，公共新类型从 `@lumen/app-ui` 提供。
+
+授权缓存的 AX/after 证明调用互斥展开、文件收起、View request 内联 JSON 与开关变化；
+恢复参数/结果的连续阅读结构，并保留七条原生 `href="#"` 结果链接、只读活动行与
+stdout/stderr 的关联 tabpanel。来源结果链接点击没有导航，Approve/Reject 缺少 after
+证据，故审批、Stop、Retry、Copy 仅就近报告预览请求，不改变 pending/已有调用事实、
+执行工具、开启页面或写剪贴板。第二条 migration 的详情仅由预览 Host 提供已知元数据，
+不把它宣称为已捕获的原始请求 payload。
+
+受控样式采用正常 flex 流，移除受控视图中的 grid/绝对定位重试按钮和强制内容高度；
+pane-scroll 由视口范围限定，content-grown 权限列表自然增长。修正 LumenSurface
+外层/内容层的选择器归属与宽度，保证短输出也占用所属面板宽度，不靠内容长度决定。
+长代码的横向滚动属于代码行，普通标签/描述/请求 JSON 可正常换行。
+
+`bun scripts/verify-hbar-app-ui-tool-calls.ts` 对六种结构各检查一次，抽查披露、失败
+筛选、stderr、请求 JSON/本地开关及无服务结果的意图反馈；共享 pane-scroll 只取
+一个超容量样本，窄屏只取文件 diff 与德语权限列表，不逐按钮/主题/宽度重复验收。
+代表图位于 `artifacts/tool-calls-core-review/`，page/console errors 为零、无页面横溢。
+21 项相关模型/SSR/兼容测试与 167 个断言通过；根/子仓类型、限定 ESLint/Stylelint、
+content/icon/flow 守卫、变更源码格式、包 bundle/声明与生产预览构建通过。
+子仓提交 `6dbcfe0e56`，此前内容入口来自 `c684d81305`；使用授权参考缓存与 context，
+没有重跑或声称 fresh strict 全量审计，也没有真实审批、执行或重试能力的验收声明。
+
+Agent Approval 1–6 本轮保留已有六种独立结构与 queue/permission/cost/history 四个
+Host 模型，为行内删除请求和配置 diff 补齐可选受控决定。每个 owner 独立保存请求
+ID 与值，空白/失效/重复或 busy 目标不能产生决定；权威 state/busy 更新清理旧本地
+结果，避免恢复 pending 后旧决定重新出现。权限计时仅在所属待处理权限预览中运行，
+卸载释放，不为其它类别或隐藏变体分配计时器。旧 API 和默认内容继续兼容。
+
+授权缓存证明范围勾选、请求/代码披露与历史无结果恢复；批准/拒绝等转换明确是本地
+预览，不声明真实删除、配置/持久策略变更、服务授权或付费作业。Host 提供 EN/DE
+决定与反馈文案，领域模型不存翻译；Export 只记录所属历史的请求，不创建或下载文件，
+已有八条记录与费用估算不被预览反馈改写。
+
+样式采用正常 flex/内容增长，列表与 payload 只在所属 pane 内滚动。修复旧费用卡片
+在 320px 窄屏下操作区被裁切的问题：保留原卡片宽度上限，解除强制内容高度与外壳
+裁切，并让就近反馈在卡片上方自然排列，不套用截图坐标。旧提交 `91b45b7b7f`
+曾明确保留此裁切缺口，本轮代表性检查确认能滚动到完整操作区；历史列表的八条记录
+仍在所属滚动 pane 内，窄屏截图不要求一次显示全部记录。
+
+`bun scripts/verify-hbar-app-ui-agent-approval.ts` 已改为六种结构一次、共享机制抽查，
+覆盖行内决定、diff、队列推进、scope/请求、窄屏费用和历史搜索/筛选/恢复/导出意图。
+38 项核心浏览器断言通过，代表图在 `artifacts/agent-approval-core-review/`，无
+page/console error 或页面横溢。44 项相关模型/受控 SSR/兼容测试、508 个断言通过；
+根/子仓类型、限定 ESLint/Stylelint、content/icon/flow 守卫、变更源码格式、包 bundle/
+声明与生产预览构建通过。仍按用户要求不跑逐按钮/主题/宽度排列；来源为已授权缓存，
+没有重标旧严格证据或声称 fresh strict 全量验收。
+
+Agent Plan 1–6 本轮复用已有六种独立结构及四个 Zustand Host 模型；不重做已经符合
+参考的七步清单、九步审阅、四组树、耗时表、三阶段看板和摘要。预览 owner 按变体
+隔离，仅给匹配变体投影本地状态；空白 run/plan/group/step ID 与重复生成 ID 不产生
+动作，busy/权威运行目标刷新清理旧暂停或运行 phase，安全的摘要草稿继续保留。
+默认 API/内容不变，新的 presentation 仅选择自然内容流和 Host 就近反馈。
+
+完整授权缓存 `agent-plan-1-final-v26`、`agent-plan-3-reviewed-v26` 与
+`agent-plan-6-summary-flow-v26` 证明暂停/恢复、失败步骤转为 Running、目标编辑/
+保存/取消及 Run/Stop 的 UI 转换；不能仅用 full-static 裁切或误匹配的第一个控件
+快照否定这些交互。相关实现来源为 `ac9525a0`、`91a393ef`、`0d044b62` 和子仓
+`4cc8b11d00`。本轮保留转换形状，但 EN/DE 文案明确本地预览、重试请求与无工具
+启动，不伪造文件修改、测试、命令执行、真实取消或计费；进度、耗时、工具和估算
+仍由 Host 内容提供。耗时表与看板保留只读语义，不添加参考中没有的选择或拖拽。
+
+新增 preview-scoped flex 样式解除普通正文的强制 100% 高度与外壳裁切，长标题与
+状态自然换行，摘要脚注及按钮在窄屏按内容排列；仅声明 pane-scroll 的列表使用
+所属滚动范围。三阶段看板保持桌面并排、窄屏顺序堆叠，记录不因屏幕一次装不下而
+删除。保留来源已证实的边缘渐隐覆盖层，不定位普通正文，也不按截图坐标摆放。
+
+`bun scripts/verify-hbar-app-ui-agent-plan.ts` 已收敛为六种结构一次与共享机制抽查，
+两种窄屏取堆叠看板和德语摘要，超容量只取一个所属 pane 样本；未扩展按钮/主题/
+视口排列。34 条核心检查记录通过，代表图位于 `artifacts/agent-plan-core-review/`，
+无 page/console error 或页面横溢。54 项模型/SSR/兼容测试、488 个断言通过；根/子仓
+类型、限定 ESLint/Stylelint、content/icon/flow 守卫、变更源码格式、包 bundle/声明与
+生产预览构建通过。根类型检查期间其它图片任务的暂态错误已在最终检查中消失，
+本轮未修改其文件。使用授权缓存，不重标旧严格审计或声称 fresh strict 全量完成。
+
+AI Usage 1–8 本轮复用已有八种结构及 overview/model/limit/member/budget/overage/request
+七个 Zustand Host 模型。预览只在所属类别挂载，owner 按变体与夹具隔离，切换重置本地
+状态；可选 presentation 由 Host 提供 EN/DE 就近反馈，旧 API 与默认内容保持兼容。
+集合过滤空白 ID，保留有效 ID 原文与既有 last-record-wins 合并语义，初始选项和失效
+选择继续由模型归一化。新增意图模型拒绝其它 owner、空白、移除和重复的当前目标。
+
+完整授权 context 与缓存保留范围/点详情、模型排序、tier、团队搜索、预算滑块/开关、
+套餐单选和请求披露。参考中的 Request increase、Upgrade、Stay 和 Details 没有真实
+服务转换证据；本轮只报告预览请求，不伪造 quota、持久策略、导航、支付或计费成功。
+本地 tier/cap/套餐选择可供预览，原始 spend、usage 和已发生的请求事实不会因此改写。
+相关来源提交包括 `b3c167ae`、`2114d9cd`、`006fdc2d`、`8ad27c06`、`cdf12be0`、
+`aa2ba2d2`、`9e72d0f7`、`5325196d`；不把 full-static 的裁切当作结构缺失。
+
+preview-scoped flex 样式解除普通内容强制高度与外壳裁切，长标题、表内摘要、成员姓名、
+脚注和按钮按内容换行；短配额集合自然增长，不为十三条资源强造滚动容器。图表保留
+真实绘图视口及显式横向滚动，模型/成员/请求超 50 条由 Host 分页，既有原生表与窄屏
+摘要仍分工清楚。三张代表图已目视检查，没有阻断使用的布局问题。
+
+`bun scripts/verify-hbar-app-ui-usage.ts` 已收敛为八种结构各一次与核心机制抽查，窄屏
+只取德语成员列表和紧凑卡，超容量只取一个 32 点图表；未重跑按钮/主题/宽度排列。
+34 条检查记录通过，代表图位于 `artifacts/ai-usage-core-review/`，无 page/console
+error 或页面横溢。61 项模型/SSR/兼容测试、507 个断言通过；根/子仓类型、限定
+ESLint/Stylelint、content/icon/flow 守卫、变更源码格式、包 bundle/声明与生产预览
+构建通过。根测试夹具排除可选 presentation，仍专门提供八种数据契约。使用授权缓存，
+不重标旧严格审计或声称 fresh strict 全量完成，也没有真实服务验收声明。
+
+App Shell 1–9 本轮保留已有九种独立工作台结构与九个 Zustand Host 模型，修复预览
+Host 为所有类别分配隐藏状态、变体/夹具切换不隔离的问题。所属 owner 才挂载模型，
+可选 presentation 包装保留旧默认 DOM，仅提供 Host EN/DE 就近请求反馈。模型过滤
+空白 ID、验证所属导航/行/文档/附件/菜单目标，原 Map 合并语义与同 ID 草稿恢复不变；
+legacy 公共 helper 保留 first-wins。Chat 的旧发送闭包通过 store 当前草稿守卫拒绝
+被替换的 payload，不清空草稿、不添加伪造的消息或 assistant 回答。
+
+参考使用已授权缓存：1–5 的 `app-shell-N-final-v26`，6 的 `app-shell-6-reviewed-v27`，
+7 的 `app-shell-7-reviewed-v27`，8 的 `app-shell-8-verified-v37` 和 9 的
+`app-shell-9-verified-v47`。已查看九种 desktop/tablet/mobile 与可用 context；结构
+来源包括根 `b0a1d77f` 至 `a76fd550` 的逐变体实现，子仓 `dfde063f3e` 至
+`59a39ee9a7`。第 1 种搜索按来源只保留输入、不筛主表；第 7 种 Preview 环境供给
+13 条而非 Production 的 14 条；第 9 种窄屏省略顶部 thread 标题而保留正文与输入。
+不把隐藏的响应式副本、源默认 drawer 或这些变化误认成缺失功能。
+
+App Shell 属于真实有界工作台，不机械解除全部高度或 pane 滚动。新增 preview flex
+拥有层把 notice 留在滚动区之外，LumenSurface 使用剩余空间，侧栏、记录、阅读区和
+已证实的 drawer/menu 覆盖关系保持原样。短导航自然增长，长集合继续交由 Host 供给
+分页数据；本轮的 101 文档压力夹具特意验证 pane 可达性，不宣称新增分页实现。
+来源的极窄组合菜单曾有边缘裁切（`a2995d63`），本地沿用安全有界菜单，不追逐源裁切。
+分享、创建、发送、导出等仅报告请求，不导航、持久化、发信、写文件、下载或调用服务。
+
+新增 `bun scripts/verify-hbar-app-ui-app-shell.ts`，九种结构各一次；抽查分组、区域、
+合同过滤、日历、会话阅读、标题同步、scope、窄屏 queue/flag 和德语 chat/model/
+thread/composer。仅两个窄屏样本、一个文档树真实滚动样本、三张代表图，38 条检查
+记录通过，图在 `artifacts/app-shell-core-review/`，目视无阻断使用的问题，无页面
+横溢或 page/console error。78 项模型/SSR/公共契约测试、575 个断言通过；根/子仓
+类型、限定 ESLint/Stylelint、content/icon/flow 守卫、变更源码格式、包 bundle/声明
+和生产预览构建通过。新增 Inbox 测试回调修正为 fixture 的双参数契约；浏览器定位
+修正为所属响应式区域和正确环境数据，不为脚本而改变正常视图。未重跑或重标旧严格
+按钮/主题/视口排列，也不声称 fresh strict 全量或真实服务验收。
+
+App Sidebar 1–7 本轮保留已有七种独立侧栏结构，把 `main.tsx` 中跨变体存留的
+工作区/栏目 React 选择迁入所属 Zustand Host。模型只在 app-sidebar 类别挂载，
+变体与原有七种夹具参数组成拥有边界，切换重新初始化；只生成当前详细夹具。
+可选 presentation 保留旧默认 DOM，由 Host 提供 EN/DE 预览请求反馈。请求按当前
+内容的精确 action/target 对验证，栏目替换会清除旧页面意图并拒绝迟到目标；空白、
+失效、其它 owner 和当前重复请求均不接受。公共 helper 保留 first-wins 与有效 ID 原文。
+
+来源使用已授权缓存 `app-sidebar-{1..7}-iteration-v{51,62,68,75,83,89,91}`，
+查看七种 desktop/tablet/mobile 与相关 context；关联子仓结构提交包括 primary
+`731835d333`、workspace `4831a2b47e`、dual `890c503d94`、full `cb490a05ac`，
+根既有 primary/full 测试和审计提交为 `cde74f94`、`3a1f727a`。第一种无搜索，
+3–5 的搜索只保存输入、不过滤导航或文档；第三种更换工作区身份而保留原导航，
+第四种更换所属页面组。树披露与菜单、rail hover/focus 浮层、drawer 打开关闭保持
+原有局部行为。文件复制/删除/新建、账号和服务动作仅记录请求，不伪造业务成功。
+已有链接保留同页 fragment，不把无外部导航写成完全没有原生锚点行为。
+
+侧栏属于有界布局，新增 scoped flex 包装只为 notice 留出自然空间，原 pane 占据
+剩余画布；不改内部正常流或已证实覆盖层。默认短导航保持原结构，压力集合继续
+使用明确 pane-scroll；第七种 65 项的末项经实际滚动可达，footer 不被列表挤走。
+三张代表图已目视检查，没有阻断使用的布局问题。第六种只验证触发器键盘打开，
+不将现有组件没有实现的焦点陷阱/自动恢复写成完成。
+
+新增 `bun scripts/verify-hbar-app-ui-app-sidebar.ts`，七种结构各取一个核心路径，
+只取两个窄屏样本、一个真实长列表滚动样本和三张图，不扩展逐按钮/主题/视口矩阵。
+14 条核心检查记录通过，图在 `artifacts/app-sidebar-core-review/`，无 page/console
+error 或页面横溢。50 项模型/SSR/公共契约测试、339 个断言通过；根/子仓类型、
+限定 ESLint/Stylelint、content/icon/flow 守卫、变更源码格式、包 bundle/声明与
+生产预览构建通过。构建保留既有 chunk-size 警告，未升级或安装工具链，使用本地
+已装二进制，不宣称执行固定 pnpm 版本或 MUI proptypes/docs 工作流。未重跑或
+重标旧严格审计，未触碰根已有 `AppSidebarSurface.css` 与其它用户未提交改动。
+
+Command Menu 1–6 本轮达到“核心流程成立、内容变化后布局自然”的交付标准。
+原控制契约来自根 `6248a95f` 与子仓 `0120fd3017`；核对可见参考后发现子页数据、
+实体详情、确认阶段和助手匹配结果仍有缺口，原 virtual 样式也没有限制实际 DOM 行数。
+现在由当前变体的 Zustand Host 拥有查询、选中、子页、scope、邀请/动作参数、确认阶段、
+当前房间和请求意图，纯投影负责提供 EN/DE 内容。空白 ID 不进入集合，重复 ID 保留既有
+last-record-wins；失效、其它 owner、旧参数及当前重复请求被拒绝，换动作回到参数阶段。
+
+六种结构分别保留三组十命令、5/6/3/4 条嵌套页、四 scope 与八种实体结果、邀请/重跑/
+归档参数流程、无匹配助手与三条真实命令、六房间本地选择。查询位于搜索 scope 上方，
+各实体详情不再共用一份正文；邀请和其它动作的第二阶段呈现确认摘要，返回保留草稿。
+建议会进入真实匹配列表，而非仅清空查询。房间数字快捷键同步当前标记与触发器。
+公开契约保持可选扩展，确认、打开、Ask、归档等仅记录请求，不发信、调用模型、执行
+工作流、修改项目或导航真实工作区；本地房间选择不冒充外部切换成功。
+
+参考使用授权缓存 `full-audit-v1/source/hbar-app-ui-command-menu-{1..6}/light/` 的
+desktop/tablet/mobile 与既有 context，并通过公开 Preview iframe 定向核对 2/4/5/6
+的核心变化机制。第六种描述虽称 popover，可见 iframe 的 role、遮罩与几何关系实际
+为居中 dialog，故保留已证实关系；第三种窄屏省略详情，不虚构额外堆叠或打开按钮。
+未读取或提交保护源码与原始截图。取消强制内容高度、metadata grid 和普通内容定位，
+使用正常 flex 流；组标题位于选项之外。短列表自然增长；预览超过 50 条显式选择
+TanStack 虚拟 pane，正常流 spacer 承担滚动范围，不使用绝对坐标摆放记录。
+
+`bun scripts/verify-hbar-app-ui-command.ts` 六种结构各走一个核心路径，仅增加两个窄屏
+代表和一个一万项真实滚动样本。18 条检查记录通过：初始仅渲染 18 项，末项 9999 可达；
+无 page/console error 或页面横溢。三张图位于 `artifacts/command-menu-core-review/`，
+已目视检查分组桌面、德语长文案窄屏邀请和末项，无阻断使用的问题。21 项 Command
+模型/SSR/公共兼容测试、192 个断言及 9 项实际工作台 command palette 回归、99 个断言
+通过。根/子仓类型、限定 ESLint/Stylelint、content/icon/flow 守卫、变更源码格式、包
+bundle/声明与生产预览构建通过。构建保留既有 chunk-size 警告；使用已装工具链，
+不宣称运行固定 pnpm 版本、MUI proptypes/docs 或 fresh strict 全量矩阵。未逐按钮、
+逐主题或逐尺寸重放，未改旧严格审计结论，用户及其它任务改动保持原样。
+
+Navbar 1–14 本轮按实用标准完成核心功能与布局闭环。来源结构提交为子仓
+`413c073ff6`，后续 LumenSurface 迁移为 `066d31e325`；旧普通布局仍含 Grid，
+部分选择仅换样式而未投影内容。现在当前变体/夹具才挂载一个 Zustand owner，
+负责标签、依赖子标签、工作区/项目/环境、查询、收藏/书签与精确目标请求；
+公开扩展为可选契约，旧调用不强制挂载预览模型。空白、失效、其它 owner、
+当前重复请求及迟到的旧子标签/查询目标均拒绝；有效 ID 保留原文、first-wins。
+
+项目标签供给各自真实组内容；分析主标签供给各自选项与指标，切换重置不再有效
+的副标签。部署选择同步身份、项目及摘要。搜索结果属于顶部字段，不筛 Today；
+筛选标签按源只改变计数与选中，不编造五条记录的不同数据集。收藏和书签实际
+更新本地 checked 状态；目录菜单只滚动当前文章。Product/Company、Platform/
+Solutions 和商店菜单保留各自分组数据，窄屏共用具名导航披露。邀请、分享、
+外部导航、主题/账号/购物等只报告请求，不发信、调用服务、写剪贴板或下载。
+
+参考读取授权缓存 `artifacts/reactbits-reference/navbar-{1..14}/` 的 desktop/
+tablet/mobile 与可见 observation，并只通过公开 Preview iframe 定向核对会
+改变内容的流程、菜单数据和抽屉机制。不读取保护源码，不把公开 UI 数据当作
+后端能力。共享菜单/抽屉允许依据相同实现推导，没有逐个选项或逐个宽度回放。
+
+普通内容改用自然 flex 流；第十二种不再用同一 Grid 格叠压 header/main。
+有界工作台仍保留 pane 滚动。模板修正为原生 Lumen 内容选择器，控件提供已有
+canonical class 契约，让菜单显示/隐藏规则实际匹配。德语窄屏初次图曾有标题
+及 CTA 裁切，补上长词换行与动作收缩后复看；不以画布 overflow:hidden 隐藏
+内容错误。平板 Docs 侧栏收起时同时提供导航入口。flow 守卫只为本文件四个
+已证实的菜单/搜索/抽屉容器添加精确覆盖层例外，子按钮和普通内容仍受约束，
+守卫自测通过。菜单支持方向键和关闭；抽屉支持关闭与触发器恢复，但不声称
+已实现焦点陷阱。
+
+`bun scripts/verify-hbar-app-ui-navbar.ts` 每种结构各走一条核心路径，只补两个
+窄屏代表与一个 64 行真实 pane 滚动，34 条检查记录通过。三张图在
+`artifacts/navbar-core-review/`，已目视检查内容分组、长文案换行与末项可达，
+无阻断使用的问题、page/console error 或页面横溢。17 项模型/SSR/公共兼容
+测试、166 个断言通过。既有精确 class 字符串断言改为保留 selected class
+且验证 aria-selected，以兼容正确添加的 canonical 控件类。限定 lint/style、根/子仓
+类型、content/icon/flow 守卫、变更源码格式、包 bundle/声明与生产预览构建
+通过。仍保留既有 chunk-size 警告；未重标旧 strict 结论、重跑按钮/主题/视口
+全排列，未安装或升级工具链，也不声称真实服务及最终桌面验收已完成。
+
+Mobile 1–5 本轮采用同一“核心流程成立、内容变化后布局自然”的实用标准。
+先查根 `b24121b2`、`1da44bc5` 与子仓 `4e82bd66f9` 的移动布局、委托及
+数据化差异：旧夹具削减了可见记录，仍缺真实 Search 页面、快捷操作、More 和
+Navigation；React 内生成任务/运行也把示例动作误作业务成功。现在只为当前
+变体挂载一个 Zustand owner，供给标签、查询、任务显示状态、精确目标请求与
+类型化宿主文案。稳定 ID 按 first-wins 去重、空白排除；跨 owner、移除目标、
+旧标签/旧查询中的隐藏目标和当前重复请求被拒绝。
+
+授权缓存 `artifacts/reactbits-reference/mobile-{1..5}/` 的三种尺寸提供基础
+结构；`full-interactions-v3/interactions/hbar-app-ui-mobile-*` 提供已观察状态。
+Mobile1 保留七条 Home 动态，Search 实际替换为七条 Recent searches；源 Filters
+点击没有改变语义内容，预览也不编造筛选结果。Mobile2 保留七任务和四项快捷操作
+（New task/Voice note/Photo/Attach file），遮罩可关闭，选择仅报告意图、不追加任务。
+本地完成显示是明确预览扩展，不宣称源点击实测。Mobile3 保留五张非交互卡片与
+图标 dock；公开页面描述说明 dock 会变成搜索字段，因没有源搜索 after 快照，
+搜索匹配/空态只作为对宿主卡片的本地推导，不伪造源结果或外部服务。
+
+Mobile4 保留六订单，More 面板包括四个 shortcut 与三个 secondary 入口，
+Expand 实际改变所占高度，窄屏末入口可达。Mobile5 Running 八项、Queue 三项
+来自观察，Navigation 包括品牌、Workflows 四子项和个人资料；Data/Settings
+的未知子项只留具名请求，不编造数据，Done 的宿主空态不冒充源观测。运行菜单
+不再重复状态标签；新建运行不生成假记录。公开线上探测本轮 iframe 为空白，
+继续用现有授权缓存；未绕过访问控制、读取保护源码或提交原始截图。
+
+普通内容改为 flex；图标复用共享 sm/md/lg tier，标签 badge 留在流中。
+只有已证实的手机窗格、浮动 dock/FAB 和菜单层保留尺寸/定位关系；flow 守卫
+为本文件六个覆盖层容器提供精确例外，内容后代仍受约束，自测通过。长列表初检
+发现 percentage 高度在未定高度容器里变为 auto、把窗格撑长，改为实际有界手机
+画布及不收缩的自然行后，81 项通过 main pane 滚动、底部导航不被挤走。菜单
+支持就近关闭/Escape 与触发器恢复，不声称已实现完整焦点陷阱或逐控件键盘审计。
+
+`bun scripts/verify-hbar-app-ui-mobile.ts` 覆盖五结构核心流程，只补两个窄屏
+代表、一个 81 项滚动样本及三张图，16 条记录通过，无 page/console error 或
+页面横溢。图在 `artifacts/mobile-core-review/`，已目视检查导航分组、长文案
+快捷操作和 More。15 项模型/SSR/公共兼容测试、134 个断言通过；根/子仓类型、
+限定 ESLint/Stylelint、content/icon/flow 守卫、变更源码格式、包 bundle/声明与
+生产预览构建通过。仍保留既有 chunk-size 警告；未重标旧 strict 审计、重跑
+按钮/主题/视口全排列或真实服务/桌面验收。没有安装/升级工具链，用户既有
+未提交改动原样保留。
+
+Card 1–11 按实用标准完成参考结构与核心状态闭环。十种新的具名内容结构由宿主
+供给，发票延续子仓 `b944bea879` 的结构；保留旧内容 API。当前变体只挂载一个
+Zustand owner，提供成员/集成连接、步骤完成与重置、日程回应、日期范围、书签、
+文件多选和 Follow。稳定 ID、禁用项、旧 owner、刷新后移除目标及重复请求均受
+守卫。方案、链接、消息、余额动作和下载只报告目标意图，不修改真实业务数据。
+
+授权缓存的 Card1–11 桌面/平板/窄屏和可见状态提供结构证据。保留六成员、六集成、
+四步骤、六日程、三方案、四指标、六更新、八文件、完整资料、三交易与发票。
+7d/30d 指标来自观察；缓存没有 90d 数据，故呈宿主空态。柱状图形按截图趋势
+推导，不冒充精确源数据。普通内容改为 flex 流，只有真实 pane 滚动有容量限制。
+核心点击发现日程日期 `min-block-size:100%` 使行产生遮挡，移除无依据的高度后
+由父行 stretch 决定尺寸；文件按钮明确拉伸内部内容，不受基础按钮居中规则影响。
+
+`bun scripts/verify-hbar-app-ui-card.ts` 每结构一条核心流程，补两个窄屏代表和
+一个 61 项文件滚动样本；28 条记录、三张目视截图支持功能与布局结论。证据在
+`artifacts/card-core-review/`。不逐按钮、主题或尺寸排列回放；保持旧 strict
+审计与真实服务/桌面验收的独立状态。
+
+17 项模型/SSR/旧 API 测试、182 个断言通过，浏览器没有 page/console error 或
+页面横溢。限定 ESLint/Stylelint、content/icon/flow 守卫、根/子仓类型、变更源码
+格式、包 bundle/声明与生产预览构建通过；保留既有 chunk-size 提示。只提交本类
+代码与文档，原始参考截图保留在忽略目录，其他任务改动不暂存或清理。
+
+Data Table 1–8 按实用标准接入八种宿主结构。历史根 `314cf2b5` 和子仓
+`43ec914fef` 用一组泛化记录承载全部表格，预算保存只增加已保存 ID、未保留新值；
+这轮保留旧 API，新增账户、付款、预算、检查、调度、运输、来源状态与容量契约。
+Zustand owner 管理查询/过滤/排序/列与记录选择、展开、页码/容量、密度和数值草稿。
+预算 Enter/失焦提交到本地预览，Escape 取消；无效数值保留草稿和就近错误，Locked
+不可编辑。行金额和总预算均由已提交数值推导，不宣称真实业务保存。
+
+授权缓存给出十账户、十条已知付款与 28 总数、十一预算行、九检查、三个时间组的
+十订单、十一运输摘要、十一加载行和十一站点的七天数据。Columns 仅有 Owner/
+Plan/Region/Renewal 四项；账户无结果有来源 Clear filters 恢复。付款后两页和
+25行模式的额外记录、其他检查/运输详情未观察，展示明确空态，不编造数据。
+来源 Empty/Error 文案、预算提交/取消和 Compact 后态是宿主预览实现/推导，
+不冒充源站捕获。所有外部动作只报告精确意图，保留付款、余额、运输状态事实。
+
+自然 flex 流取代普通 Grid；原生表格保留表格语义，窄屏横滚只属于表格。账户
+窄屏改为卡片，运输 tablet/mobile 按来源只展示列表。flow 守卫仅放行本文件
+已观察的表头/首列 sticky 零锚点，非本文件、绝对定位和非零偏移仍拒绝，自测通过。
+`bun scripts/verify-hbar-app-ui-data-table.ts` 每变体只走一条核心路径，补两个
+窄屏代表、一个 81 行滚动和三张图，22 条记录通过且无 page/console error 或
+页面横溢。目视发现 selected 按钮对比度和 sticky 表头透底，按基础控件变体及
+不透明表头修正，不额外回放按钮/主题/视口排列。产物在 `artifacts/data-table-core-review/`。
+
+15 项模型/SSR/旧 API 测试、155 个断言通过；限定 lint/style、content/icon/flow
+守卫、根/子仓类型和包 bundle/声明、新增源码格式、生产预览构建通过。既有
+预览入口保留原格式，只改宿主接线；保留既有 chunk-size 提示。预算内容由
+所属容器自然滚动，十一行和总额均可达，不用固定内容高度遮住页尾。
+无关改动不暂存、回滚或清理。
+
+Dashboard 1–14 按实用标准恢复十四种宿主结构，保留旧 API。历史根 `804b4832`
+和子仓 `73a6d0c257` 接入泛化 fixture；这轮重新给收入/注册/页面分析/系统状态/
+用量/渠道/MRR/模块/工时/Calls/覆盖/支付/目标/服务提供真实可见信息分区。
+宿主 Zustand owner 管理选择、查询、排序、收藏、菜单、状态和精确请求意图。
+旧闭包请求必须按当前查询及所选实体重验目标；测试已证实失效行请求被拒绝。
+
+已读取十四种桌面/平板/窄屏授权可见证据。保留全部短列表、表格、队列和概要；
+Dashboard9 前一周来自真实 source after，七人小时/类型/总额/capacity 同时切换。
+Dashboard4 Refresh 显示观察到的 just now，不改变服务事实。源菜单文字被恢复；
+Refresh/Hide、Filters 状态选项和 Loading/Empty 的本地实现不写成源执行已验收。
+未观察日期/指标数据、后续周、Files/Reports、其他目标和服务详情明确 unavailable，
+图表形状按可见趋势推导，不读取受保护源码或编造远端成功。
+
+普通布局全改为 flex；原生表格自有横滚，窄屏隐藏来源已证实的辅助列。目视检查
+发现 row-action 被通用单元格列流覆盖，改为就近单行；Search 适配共享控件 wrapper。
+长列表的 pane-scroll 覆盖自然高度后没有实际滚动，修正容量容器后第81行可达。
+`bun scripts/verify-hbar-app-ui-dashboard.ts` 34条记录/0诊断，两个窄屏代表与三张图
+保存在 `artifacts/dashboard-core-review/`。不逐按钮、主题或尺寸排列反复回放。
+
+17项模型/SSR/旧 API 测试、215个断言，根/子仓类型、限定 ESLint/Stylelint、
+content/icon/flow 守卫、新增源码格式、包 bundle/声明及生产预览构建通过。
+既有预览入口只做5增7删宿主接线，保留原格式；chunk-size 提示仍在。只提交
+本类别文件，其他并行任务的共享控件、桌面与工作台改动保持原状。

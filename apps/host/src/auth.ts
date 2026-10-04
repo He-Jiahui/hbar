@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto'
-import { HbarError } from '@hbar/contracts'
+import { HbarError, PAIRING_CODE_LENGTH, DEVICE_NAME_MAX_LENGTH } from '@hbar/contracts'
 import type { Device } from '@hbar/contracts'
 import type { StoragePort } from '@hbar/storage'
 
@@ -9,7 +9,10 @@ export class Auth {
   private internalDevices = new Map<string, Device>()
   constructor(private storage: StoragePort) {}
   createPairing() {
-    this.pairing = { code: String(randomInt(10_000_000, 100_000_000)), expiresAt: Date.now() + 5 * 60_000 }
+    this.pairing = {
+      code: String(randomInt(10 ** (PAIRING_CODE_LENGTH - 1), 10 ** PAIRING_CODE_LENGTH)),
+      expiresAt: Date.now() + 5 * 60_000,
+    }
     return { ...this.pairing }
   }
   async pair(code: string, name: string, address: string) {
@@ -33,7 +36,12 @@ export class Auth {
   }
   async createDevice(name: string) {
     const token = randomBytes(32).toString('base64url')
-    const device = { id: crypto.randomUUID(), name: name.slice(0, 100), createdAt: Date.now(), lastSeenAt: Date.now() }
+    const device = {
+      id: crypto.randomUUID(),
+      name: name.slice(0, DEVICE_NAME_MAX_LENGTH),
+      createdAt: Date.now(),
+      lastSeenAt: Date.now(),
+    }
     await this.storage.call('putDevice', device, this.hash(token))
     return { token, device }
   }

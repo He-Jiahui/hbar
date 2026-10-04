@@ -1,7 +1,33 @@
 import { HbarError } from '@hbar/contracts'
 import { Worker } from 'node:worker_threads'
 import type { StorageMethods, StorageReply } from './types.ts'
-export type { StorageMethods } from './types.ts'
+export type {
+  CreateSessionCommandInput,
+  ForkSessionCommandInput,
+  ForkFromMessageCommandInput,
+  ForkFromMessageReceiptInput,
+  ForkableMessagesInput,
+  ForkableMessagesResult,
+  SettingsCommitInput,
+  SettingsCommitReceipt,
+  StoredSettingsLayer,
+  StorageMethods,
+  WorkspaceOrganizationMutationInput,
+  WorkspaceDisplayNamesMutationInput,
+  SessionLaunchTargetMutationInput,
+  SessionLaunchTargetReceiptLookup,
+  SessionLaunchTargetPreparationInput,
+  SessionLaunchTargetPreparationUpdate,
+  SessionLaunchTargetBindingInput,
+  SessionLaunchTargetBinding,
+  SessionLaunchTargetResolutionRecord,
+  SessionLaunchTargetRuntimeSnapshot,
+  SessionLaunchTargetPreparationStartMutationInput,
+  SessionLaunchTargetPreparationOperationRecord,
+  SessionLaunchTargetPreparationOperationTransitionInput,
+  GuideQueuedRunMutationInput,
+  GuideQueuedRunResult,
+} from './types.ts'
 export * from './path-layout.ts'
 export * from './session-log-writer.ts'
 export * from './session-log-recovery.ts'
@@ -22,14 +48,20 @@ export class Storage {
   private pending = new Map<number, { resolve(value: unknown): void; reject(error: Error): void }>()
   private stopped = false
   constructor(path: string, layout?: PathLayout) {
-    this.worker = new Worker(process.env.HBAR_STORAGE_WORKER ?? new URL('./worker.ts', import.meta.url), {
+    const options = {
       workerData: {
         path,
         sessions: layout?.sessions,
         diagnostics: layout?.diagnostics,
         settings: layout?.settings,
       },
-    })
+    }
+    this.worker = process.env.HBAR_STORAGE_WORKER
+      ? new Worker(process.env.HBAR_STORAGE_WORKER, options)
+      : Bun.isStandaloneExecutable
+        ? // Bun only embeds Worker entrypoints referenced by a direct path literal matching the build input.
+          new Worker('./packages/storage/src/worker.ts', options)
+        : new Worker(new URL('./worker.ts', import.meta.url), options)
     this.exited = new Promise((resolve) => {
       this.worker.once('exit', () => resolve())
     })

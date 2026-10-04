@@ -1,0 +1,336 @@
+import { z } from 'zod'
+import { budgetEditorCommands } from './budget-editor'
+import { surfaceCommands } from './surfaces'
+import { draftCommands } from './draft'
+import { preSessionDraftCommands } from './pre-session-draft'
+import { runCommands } from './run'
+import { runActionCommands } from './run-action'
+export { runActionCommands } from './run-action'
+export type { CancellationReconciliation, ObservedOperationStatus } from './run-action'
+import { interactionCommands } from './interaction'
+import { modelCommands } from './models'
+import { usageCommands } from './usage'
+import { interactionDraftCommands } from './interaction-draft'
+import { settingsEditorCommands } from './settings-editor'
+import { providerEditorCommands } from './provider-editor'
+import { configurationCommands } from './configuration'
+import { commandPaletteCommands } from './command-palette'
+import { fileWorkspaceCommands } from './file-workspace'
+import { agentWorkspaceCommands } from './agent-workspace'
+import { goalPlanWorkspaceCommands } from './goal-plan-workspace'
+export {
+  goalHistoryCommands,
+  goalHistoryInputSchema,
+  goalHistoryPageSchema,
+  goalHistoryFactSchema,
+  goalHistorySnapshotSchema,
+  parseGoalHistoryEvent,
+} from './goal-history'
+export type { GoalHistorySnapshot, GoalHistoryFact, GoalHistoryInput, GoalHistoryPage } from './goal-history'
+import { workflowWorkspaceCommands } from './workflow-workspace'
+import { extensionWorkspaceCommands } from './extension-workspace'
+import { statusWorkspaceCommands } from './status-workspace'
+import { clientPersistenceCommands } from './client-persistence'
+import { terminalApplicationCommands } from './terminal-application'
+import { sessionTimelineCommands } from './session-timeline'
+import { sessionLaunchTargetCommands } from './session-launch-target'
+import { sessionLaunchBranchesCommands } from './session-launch-branches'
+import { workspaceActivityCommands } from './workspace-activity'
+import { sessionActivityCommands } from './session-activity'
+import { sidebarDirectoryCommands } from './sidebar-directory'
+import { notificationCommands } from './notifications'
+import { promptTemplateCommands } from './prompt-templates'
+import { runBoardCommands } from './run-board'
+import { scheduleCommands } from './schedules'
+import { sandboxCommands } from './sandbox'
+import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
+import {
+  workspaceSchema,
+  sessionSchema,
+  workspaceListInputSchema,
+  workspaceGetInputSchema,
+  sessionListInputSchema,
+  sessionGetInputSchema,
+  workspacePageSchema,
+  sessionPageSchema,
+} from '../state/directory'
+
+const base = {
+  version: 1,
+  owner: 'hbar.core',
+  kind: 'query',
+  execution: 'host',
+  stateEffect: 'none',
+  category: 'workspace.session',
+  scope: 'global',
+  surfaces: ['cli', 'tui', 'api', 'palette'],
+} satisfies Partial<CommandMetadataInput>
+function query(id: string): CommandMetadataInput {
+  return { ...base, id, titleKey: `commands.${id}.title`, descriptionKey: `commands.${id}.description` }
+}
+export const directoryCommands = {
+  ...sidebarDirectoryCommands,
+  ...workspaceActivityCommands,
+  ...sessionActivityCommands,
+  'workspace.list': defineCommand(
+    {
+      ...query('workspace.list'),
+      cli: {
+        arguments: [
+          { field: 'after', type: 'string', flag: 'after' },
+          { field: 'limit', type: 'number', flag: 'limit' },
+        ],
+      },
+    },
+    workspaceListInputSchema,
+    workspacePageSchema,
+  ),
+  'workspace.get': defineCommand(
+    {
+      ...query('workspace.get'),
+      cli: { arguments: [{ field: 'workspaceId', type: 'string', position: 0, flag: 'workspace' }] },
+    },
+    workspaceGetInputSchema,
+    workspaceSchema.nullable(),
+  ),
+  'session.list': defineCommand(
+    {
+      ...query('session.list'),
+      scope: 'workspace',
+      cli: {
+        arguments: [
+          { field: 'workspaceId', type: 'string', flag: 'workspace' },
+          { field: 'after', type: 'string', flag: 'after' },
+          { field: 'title', type: 'string', flag: 'title' },
+          { field: 'includeArchived', type: 'boolean', flag: 'archived' },
+          { field: 'limit', type: 'number', flag: 'limit' },
+        ],
+      },
+    },
+    sessionListInputSchema,
+    sessionPageSchema,
+  ),
+  'session.get': defineCommand(
+    {
+      ...query('session.get'),
+      scope: 'session',
+      cli: { arguments: [{ field: 'sessionId', type: 'string', position: 0, flag: 'session' }] },
+    },
+    sessionGetInputSchema,
+    sessionSchema.nullable(),
+  ),
+}
+
+const selectionSchema = z.strictObject({
+  workspaceId: z.string().min(1).max(160).nullable(),
+  sessionId: z.string().min(1).max(160).nullable(),
+})
+export const setSessionInputSchema = z
+  .strictObject({
+    session: z.string().min(1).max(160).optional(),
+    sessionId: z.string().min(1).max(160).optional(),
+    sessionName: z.string().min(1).max(160).optional(),
+    workspaceId: z.string().min(1).max(160).optional(),
+  })
+  .refine(
+    (value) => [value.session, value.sessionId, value.sessionName].filter((item) => item !== undefined).length === 1,
+    { message: 'Provide exactly one session selector' },
+  )
+
+export const navigationCommands = {
+  'app.createSession': defineCommand(
+    {
+      ...query('app.createSession'),
+      kind: 'command',
+      execution: 'client',
+      stateEffect: 'application',
+      scope: 'workspace',
+      category: 'workspace.session',
+      cli: {
+        arguments: [
+          { field: 'title', type: 'string', position: 0, flag: 'title' },
+          { field: 'workspaceId', type: 'string', flag: 'workspace' },
+        ],
+      },
+    },
+    z.strictObject({ workspaceId: z.string().min(1).max(160), title: z.string().trim().min(1).max(160).optional() }),
+    sessionSchema,
+  ),
+  'app.renameSession': defineCommand(
+    {
+      ...query('app.renameSession'),
+      kind: 'command',
+      execution: 'client',
+      stateEffect: 'application',
+      scope: 'session',
+      category: 'workspace.session',
+      cli: {
+        arguments: [
+          { field: 'title', type: 'string', position: 0, flag: 'title' },
+          { field: 'sessionId', type: 'string', flag: 'session' },
+        ],
+      },
+    },
+    z.strictObject({
+      sessionId: z.string().min(1).max(160),
+      title: z.string().trim().min(1).max(160),
+      expectedTitle: z.string().max(160).optional(),
+    }),
+    sessionSchema,
+  ),
+  'app.archiveSession': defineCommand(
+    {
+      ...query('app.archiveSession'),
+      kind: 'command',
+      execution: 'client',
+      stateEffect: 'application',
+      scope: 'session',
+      category: 'workspace.session',
+      cli: {
+        arguments: [
+          { field: 'archived', type: 'boolean', position: 0 },
+          { field: 'sessionId', type: 'string', flag: 'session' },
+        ],
+      },
+    },
+    z.strictObject({ sessionId: z.string().min(1).max(160), archived: z.boolean().default(true) }),
+    sessionSchema,
+  ),
+  'workspace.open': defineCommand(
+    {
+      ...query('workspace.open'),
+      kind: 'command',
+      execution: 'client',
+      stateEffect: 'application',
+      scope: 'client',
+      category: 'workspace.session',
+      cli: { arguments: [{ field: 'path', type: 'string', position: 0 }] },
+    },
+    z.strictObject({ path: z.string().trim().min(1).max(4_000) }),
+    workspaceSchema,
+  ),
+  'app.setWorkspace': defineCommand(
+    {
+      ...query('app.setWorkspace'),
+      kind: 'command',
+      execution: 'client',
+      stateEffect: 'application',
+      scope: 'client',
+      category: 'app.navigation',
+      cli: { arguments: [{ field: 'workspaceId', type: 'string', position: 0, flag: 'workspace' }] },
+    },
+    workspaceGetInputSchema,
+    selectionSchema,
+  ),
+  'app.setSession': defineCommand(
+    {
+      ...query('app.setSession'),
+      kind: 'command',
+      execution: 'client',
+      stateEffect: 'application',
+      scope: 'client',
+      category: 'app.navigation',
+      cli: {
+        arguments: [
+          { field: 'session', type: 'string', position: 0 },
+          { field: 'sessionId', type: 'string', flag: 'session' },
+          { field: 'sessionName', type: 'string', flag: 'name' },
+          { field: 'workspaceId', type: 'string', flag: 'workspace' },
+        ],
+      },
+    },
+    setSessionInputSchema,
+    selectionSchema,
+  ),
+}
+export { surfaceCommands } from './surfaces'
+export { draftCommands } from './draft'
+export { preSessionDraftCommands } from './pre-session-draft'
+export { runCommands } from './run'
+export { interactionCommands } from './interaction'
+export { modelCommands } from './models'
+export { usageCommands } from './usage'
+export { interactionDraftCommands } from './interaction-draft'
+export { settingsEditorCommands } from './settings-editor'
+export { providerEditorCommands } from './provider-editor'
+export { commandPaletteCommands } from './command-palette'
+export { fileWorkspaceCommands } from './file-workspace'
+export { agentWorkspaceCommands } from './agent-workspace'
+export { goalPlanWorkspaceCommands } from './goal-plan-workspace'
+export { workflowWorkspaceCommands } from './workflow-workspace'
+export { extensionWorkspaceCommands } from './extension-workspace'
+export { statusWorkspaceCommands } from './status-workspace'
+export { notificationCommands } from './notifications'
+export { promptTemplateCommands } from './prompt-templates'
+export { runBoardCommands } from './run-board'
+export { scheduleCommands } from './schedules'
+export { sandboxCommands } from './sandbox'
+export { clientPersistenceCommands } from './client-persistence'
+export { terminalApplicationCommands } from './terminal-application'
+export { sessionTimelineCommands } from './session-timeline'
+export { sessionLaunchTargetCommands } from './session-launch-target'
+export { sessionLaunchBranchesCommands } from './session-launch-branches'
+export { workspaceActivityCommands } from './workspace-activity'
+export { sessionActivityCommands } from './session-activity'
+export type {
+  SessionLaunchBranchesInput,
+  SessionLaunchBranchesRequest,
+  SessionLaunchBranchHead,
+  SessionLaunchBranch,
+  SessionLaunchBranchesPage,
+  SessionLaunchBranchesReader,
+  SessionLaunchBranchesReadOptions,
+} from './session-launch-branches'
+export type {
+  SessionLaunchSelection,
+  SessionLaunchTarget,
+  SessionLaunchTargetResolution,
+  SessionLaunchTargetGetInput,
+  SessionLaunchTargetSetInput,
+  SessionLaunchTargetSetReceipt,
+  SessionLaunchTargetReceiptInput,
+  SessionLaunchTargetPrepareInput,
+  SessionLaunchTargetReconcileInput,
+  SessionLaunchTargetCancelInput,
+  SessionLaunchTargetPreparationStartInput,
+  SessionLaunchTargetPreparationStartReceipt,
+  SessionLaunchTargetPreparationOperationInput,
+  SessionLaunchTargetPreparationSnapshot,
+  SessionLaunchTargetWriteOptions,
+  SessionLaunchTargetPreparationManager,
+} from './session-launch-target'
+export { workflowCommands } from './workflows'
+export const applicationCommands = {
+  ...directoryCommands,
+  ...navigationCommands,
+  ...budgetEditorCommands,
+  ...surfaceCommands,
+  ...draftCommands,
+  ...preSessionDraftCommands,
+  ...runCommands,
+  ...runActionCommands,
+  ...interactionCommands,
+  ...modelCommands,
+  ...usageCommands,
+  ...interactionDraftCommands,
+  ...settingsEditorCommands,
+  ...providerEditorCommands,
+  ...configurationCommands,
+  ...commandPaletteCommands,
+  ...fileWorkspaceCommands,
+  ...agentWorkspaceCommands,
+  ...goalPlanWorkspaceCommands,
+  ...workflowWorkspaceCommands,
+  ...extensionWorkspaceCommands,
+  ...statusWorkspaceCommands,
+  ...notificationCommands,
+  ...promptTemplateCommands,
+  ...runBoardCommands,
+  ...scheduleCommands,
+  ...sandboxCommands,
+  ...clientPersistenceCommands,
+  ...terminalApplicationCommands,
+  ...sessionTimelineCommands,
+  ...sessionLaunchTargetCommands,
+  ...sessionLaunchBranchesCommands,
+}

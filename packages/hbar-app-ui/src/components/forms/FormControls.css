@@ -1,0 +1,26 @@
+@import '../../tokens.css';
+
+.hbar-app-ui-field {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: var(--hbar-app-ui-space-sm);
+}
+
+.hbar-app-ui-field > label {
+  color: var(--hbar-app-ui-text);
+}
+
+.hbar-app-ui-field > label > span {
+  margin-inline-start: var(--hbar-app-ui-space-xs);
+  color: var(--hbar-app-ui-danger);
+}
+
+.hbar-app-ui-field > p,
+.hbar-app-ui-field > small {
+  color: var(--hbar-app-ui-muted);
+}
+
+.hbar-app-ui-field > .hbar-app-ui-field-error {
+  color: var(--hbar-app-ui-danger);
+}

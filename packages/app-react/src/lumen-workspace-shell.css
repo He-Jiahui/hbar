@@ -1,0 +1,467 @@
+.hbar-app-react-tool-content {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hbar-app-react-shell-content {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hbar-app-react-shell-content > .hbar-app-react-session-workspace,
+.hbar-app-react-shell-content > [data-hbar-app-ui-component='prompt-input-04-composer'] {
+  min-block-size: 0;
+}
+
+.hbar-app-react-tool-focus-error {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  overflow-wrap: anywhere;
+  color: var(--lumen-danger);
+}
+
+.hbar-app-react-shell-header,
+.hbar-app-react-sidebar-primary,
+.hbar-app-react-project-tree,
+.hbar-app-react-project-tree section,
+.hbar-app-react-session-list,
+.hbar-app-react-sidebar-actions,
+.hbar-app-react-session-label {
+  display: flex;
+  min-inline-size: 0;
+}
+
+.hbar-app-react-shell-header {
+  min-block-size: 3rem;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+.hbar-app-react-desktop-reveal-header {
+  display: flex;
+  flex: 0 0 auto;
+}
+/* Desktop Shell09 owns one coherent header row; numbered navbar regions must
+   flow inside it instead of rendering three standalone preview cards. */
+.lumen-desktop-shell-header .hbar-app-react-shell-header > * {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.hbar-app-react-shell-header strong {
+  overflow: hidden;
+  font-size: 0.875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-react-shell-header-active-title {
+  display: none;
+}
+
+.hbar-app-react-sidebar-primary,
+.hbar-app-react-project-tree,
+.hbar-app-react-project-tree section,
+.hbar-app-react-session-list,
+.hbar-app-react-sidebar-actions,
+.hbar-app-react-session-label {
+  flex-direction: column;
+}
+
+.hbar-app-react-session-row,
+.hbar-app-react-session-target,
+.hbar-app-react-workspace-line {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+}
+
+.hbar-app-react-sidebar-primary {
+  gap: 0.125rem;
+}
+
+.hbar-app-react-sidebar-brand-actions {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.hbar-app-react-sidebar-action-error {
+  margin: 0;
+  padding: 0.25rem 0.75rem;
+  overflow-wrap: anywhere;
+  color: var(--lumen-danger);
+  font-size: 0.75rem;
+}
+
+.hbar-app-react-sidebar-query-actions {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+}
+
+.hbar-app-react-sidebar-query-actions > :first-child {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+}
+
+.hbar-app-react-roster-refresh {
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  flex: 0 0 auto;
+}
+
+.hbar-app-react-session-batch-mode {
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  flex: 0 0 auto;
+}
+
+.hbar-app-react-sidebar-query-actions > .hbar-app-react-roster-refresh,
+.hbar-app-react-sidebar-query-actions > .hbar-app-react-session-batch-mode {
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.5rem;
+  background: var(--lumen-contrast);
+}
+
+.hbar-app-react-roster-feedback {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.hbar-app-react-session-list .hbar-app-react-roster-feedback p {
+  margin: 0;
+  padding: 0.375rem 0;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-react-project-tree {
+  gap: 0.25rem;
+  padding-block-end: 1rem;
+}
+
+.hbar-app-react-workspace-row,
+.hbar-app-react-session-target {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hbar-app-react-workspace-row {
+  flex: 1 1 auto;
+}
+
+.hbar-app-react-workspace-pin {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--lumen-muted);
+}
+
+.hbar-app-react-pin-feedback {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.125rem 0.75rem 0.375rem;
+}
+
+.hbar-app-react-pin-feedback p {
+  min-inline-size: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+}
+
+.hbar-app-react-workspace-row [data-variant],
+.hbar-app-react-session-label [data-variant] {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-react-session-list {
+  gap: 0.125rem;
+  padding-inline-start: 1.5rem;
+}
+
+.hbar-app-react-session-row {
+  gap: 0.25rem;
+}
+
+.hbar-app-react-session-target {
+  flex: 1 1 auto;
+}
+
+.hbar-app-react-session-row > .lumen-action-menu {
+  margin-inline-end: 0.25rem;
+  opacity: 0;
+}
+
+.hbar-app-react-session-row > .lumen-action-menu .lumen-action-menu-popup {
+  background: var(--lumen-contrast);
+}
+
+.hbar-app-react-session-row > .lumen-action-menu .lumen-action-menu-popup button > [data-edge] {
+  display: none;
+}
+
+.hbar-app-react-workspace-line > .hbar-app-react-project-menu,
+.hbar-app-react-project-new-session {
+  margin-inline-end: 0.25rem;
+  opacity: 0;
+}
+
+.hbar-app-react-project-new-session {
+  inline-size: 2rem;
+  block-size: 2rem;
+  flex: 0 0 auto;
+}
+
+.hbar-app-react-workspace-line:hover > .hbar-app-react-project-menu,
+.hbar-app-react-workspace-line:focus-within > .hbar-app-react-project-menu,
+.hbar-app-react-workspace-line:hover > .hbar-app-react-project-new-session,
+.hbar-app-react-workspace-line:focus-within > .hbar-app-react-project-new-session,
+.hbar-app-react-project-new-session[aria-busy='true'] {
+  opacity: 1;
+}
+
+.hbar-app-react-session-row:hover > .lumen-action-menu,
+.hbar-app-react-session-row:focus-within > .lumen-action-menu,
+.hbar-app-react-session-row[data-selected='true'] > .lumen-action-menu {
+  opacity: 1;
+}
+
+.hbar-app-react-session-label {
+  flex: 1 1 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.375rem;
+  text-align: start;
+}
+
+.hbar-app-react-session-title {
+  flex: 1 1 auto;
+}
+
+.hbar-app-react-session-time {
+  flex: 0 0 auto;
+  color: var(--lumen-muted);
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+
+.hbar-app-react-session-rename {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.375rem;
+}
+
+.hbar-app-react-session-rename-label {
+  font-size: 0.75rem;
+  color: var(--lumen-muted);
+}
+
+.hbar-app-react-session-rename-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.375rem;
+}
+
+.hbar-app-react-session-list .hbar-app-react-session-rename p {
+  margin: 0;
+  padding: 0;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-react-session-rename [role='alert'] {
+  color: var(--lumen-danger);
+}
+
+.hbar-app-react-session-rename-recovery {
+  flex: 0 0 auto;
+  margin: 0.5rem;
+}
+
+.hbar-app-react-session-rename-recovery strong {
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+}
+
+.hbar-app-react-session-list p,
+.hbar-app-react-project-tree > p,
+.hbar-app-react-project-tree + [role='alert'] {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+}
+
+.hbar-app-react-project-tree + [role='alert'] {
+  color: var(--lumen-danger);
+}
+
+.hbar-app-react-sidebar-actions {
+  gap: 0.125rem;
+}
+
+.hbar-app-react-navigation-feedback {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.hbar-app-react-navigation-feedback p {
+  margin: 0;
+  padding: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+}
+
+.hbar-app-react-navigation-feedback [role='alert'] {
+  color: var(--lumen-danger);
+}
+
+.hbar-app-react-workspace-picker {
+  --lumen-dialog-width: 36rem;
+}
+
+.hbar-app-react-workspace-picker .lumen-dialog-content > header h2 {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-react-workspace-picker .lumen-dialog-body {
+  padding: 1rem;
+}
+
+.hbar-app-react-workspace-picker .lumen-dialog-body,
+.hbar-app-react-workspace-picker-list,
+.hbar-app-react-workspace-picker-form,
+.hbar-app-react-workspace-picker-item > div {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.hbar-app-react-workspace-picker-list {
+  min-block-size: 0;
+  overflow: auto;
+  gap: 0.25rem;
+}
+
+.hbar-app-react-workspace-picker-item {
+  flex: 0 0 auto;
+  justify-content: flex-start;
+  text-align: start;
+  gap: 0.75rem;
+}
+
+.hbar-app-react-workspace-picker-item > div {
+  gap: 0.125rem;
+}
+
+.hbar-app-react-workspace-picker-item strong,
+.hbar-app-react-workspace-picker-item small {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-react-workspace-picker-form {
+  flex: 0 0 auto;
+  padding-block-start: 0.75rem;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-app-react-workspace-picker-form > button {
+  align-self: flex-start;
+}
+
+@media (max-width: 63.9375rem) {
+  .hbar-app-react-shell-header {
+    min-block-size: 3.25rem;
+  }
+
+  .hbar-app-react-session-row > .lumen-action-menu {
+    opacity: 1;
+  }
+
+  .hbar-app-react-workspace-line > .hbar-app-react-project-menu,
+  .hbar-app-react-project-new-session {
+    opacity: 1;
+  }
+
+  .hbar-app-react-project-new-session,
+  .hbar-app-react-roster-refresh,
+  .hbar-app-react-session-batch-mode,
+  .hbar-app-react-workspace-line > .hbar-app-react-project-menu summary,
+  .hbar-app-react-project-organization-menu summary {
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+  }
+}
+
+@media (max-width: 47.9375rem) {
+  .hbar-app-react-shell-header {
+    inline-size: 100%;
+    max-inline-size: 100%;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+  }
+
+  .hbar-app-react-shell-header > strong {
+    display: none;
+  }
+
+  .hbar-app-react-shell-header-active-title {
+    display: block;
+    min-inline-size: 0;
+    flex: 1 1 0;
+    margin: 0;
+    color: var(--lumen-ink);
+    font-size: 0.9375rem;
+    font-weight: 650;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (hover: none) {
+  .hbar-app-react-session-row > .lumen-action-menu {
+    opacity: 1;
+  }
+
+  .hbar-app-react-workspace-line > .hbar-app-react-project-menu,
+  .hbar-app-react-project-new-session {
+    opacity: 1;
+  }
+}

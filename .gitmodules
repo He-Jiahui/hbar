@@ -1,0 +1,4 @@
+[submodule "hbar-ui"]
+	path = hbar-ui
+	url = https://github.com/He-Jiahui/hbar-ui.git
+	branch = master

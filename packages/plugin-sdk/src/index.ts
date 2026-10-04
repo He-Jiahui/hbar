@@ -1,5 +1,9 @@
 import { Context, Service } from 'cordis'
+export type { DecisionContext, DecisionService } from './decision'
+export { appendModelContext, prependModelInstructions } from './model-context'
 import type { z } from 'zod'
+import type { ToolPresentationDeclaration } from '@hbar/contracts'
+export type { ToolPresentationDeclaration } from '@hbar/contracts'
 import type {
   Approval,
   ContentBlock,
@@ -18,6 +22,7 @@ import type {
   PlanStep,
   SessionBudget,
   GitStatus,
+  GitStatsReport,
   GitDiff,
   GitInfo,
   GitCommitInfo,
@@ -36,7 +41,21 @@ import type {
   Workspace,
   SettingsContributionInput,
   TaskNotificationKind,
+  WorkflowPlanItemInput,
+  WorkflowCompletionPolicy,
+  WorkflowScope,
+  WorkflowSnapshot,
+  WorkflowStartCommand,
 } from '@hbar/contracts'
+import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
+import type { AgentCreateInput, AgentPage, AgentRecord } from '@hbar/contracts/commands/agents'
+import type {
+  ParsedWorkspaceFindInput,
+  ParsedWorkspaceSearchInput,
+  WorkspaceFindResult,
+  WorkspaceReadResult,
+  WorkspaceSearchResult,
+} from '@hbar/contracts/workspace-query'
 
 export { Context }
 export type Disposer = () => void | Promise<void>
@@ -55,6 +74,8 @@ export interface ToolResult {
   content?: ToolResultContent[]
   isError?: boolean
   details?: unknown
+  /** Host-owned failure metadata. The execution gateway overwrites any plugin-provided value. */
+  hostFailure?: { code: string; executionStarted: boolean } | undefined
 }
 export interface ToolContext {
   session: Session
@@ -62,12 +83,50 @@ export interface ToolContext {
   run: Run
   signal: AbortSignal
   callId: string
+  /** Host-owned parent identity; nested results stay out of the model's tool-call protocol. */
+  parentCallId?: string
+  /** One bounded, sequential batch through this Run's selected tools and normal execution gates. No recursion. */
+  executeSequence?: (calls: readonly ToolSequenceCall[]) => Promise<readonly ToolSequenceResult[]>
+  /** Host-owned variables for processes this call starts, from the Run's sandbox profile. */
+  environment?: Readonly<Record<string, string>>
 }
+export interface ToolSequenceCall {
+  name: string
+  arguments: Record<string, unknown>
+  continueOnScopeDenied?: boolean | undefined
+}
+export const TOOL_SEQUENCE_RESULT_CHARACTERS = 8_000
+export interface ToolSequenceResult {
+  callId: string
+  name: string
+  text: string
+  isError: boolean
+  truncated: boolean
+  continuedScopeDenial?: boolean
+}
+export type ToolWorkspaceAccess =
+  | { kind: 'none' }
+  | {
+      kind: 'paths'
+      arguments: readonly { field: string; access: 'read' | 'write' }[]
+    }
+  | { kind: 'workspace' }
 export interface ToolDefinition {
   name: string
   description: string
   inputSchema: z.ZodType
   effect: 'read' | 'write' | 'process' | 'network'
+  /** Requested-input display only; the Host captures this declaration, never localized text or execution proof. */
+  presentation?: ToolPresentationDeclaration
+  /** A dedicated user decision is required even when the Run permits ordinary tool calls. */
+  humanApproval?: 'required'
+  /** Explicit workspace access used by Workflow. Omission means no workspace path access. */
+  workspaceAccess?: ToolWorkspaceAccess
+  /**
+   * Argument holding the command line a process tool runs. Sandbox command rules apply to it;
+   * a process tool without one is always outside a sandbox profile.
+   */
+  commandArgument?: string
   execute(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult>
 }
 export interface ToolRegistry {
@@ -80,6 +139,27 @@ export interface ModelRegistry {
   get(id: string): Promise<ProviderConfig>
   secret(id: string): Promise<string | null>
 }
+export interface OsConfinementOptions {
+  readonly level: 'unelevated' | 'elevated'
+  /** Absolute paths the sandboxed process may write to. */
+  readonly writableRoots: readonly string[]
+  /** Absolute paths the sandboxed process may read from (elevated only). */
+  readonly readableRoots: readonly string[]
+  /** Whether network-blocking env vars should NOT be applied (true = allow network). */
+  readonly networkEnabled: boolean
+  /** Additional env vars to set inside the sandbox. */
+  readonly envOverrides: Readonly<Record<string, string>>
+}
+
+export interface ExecOptions {
+  /** Applied over the inherited environment; the Host never passes PATH or PATHEXT. */
+  readonly environment?: Readonly<Record<string, string>> | undefined
+  /**
+   * When present, the command is launched inside an OS-level sandbox instead of the
+   * current user's process context. Windows only; ignored on other platforms.
+   */
+  readonly osConfinement?: OsConfinementOptions | undefined
+}
 export interface ExecutionProvider {
   list(workspace: string, path: string): Promise<FileEntry[]>
   read(workspace: string, path: string): Promise<string>
@@ -90,15 +170,34 @@ export interface ExecutionProvider {
     text: string,
     options?: { expectedRevision?: string },
   ): Promise<{ before: string; after: string; path: string; revision: string }>
-  exec(workspace: string, command: string, signal: AbortSignal): Promise<ToolResult>
+  exec(workspace: string, command: string, signal: AbortSignal, options?: ExecOptions): Promise<ToolResult>
+  workspaceQuery?: WorkspaceQueryProvider
+  dispose?(): void | Promise<void>
+}
+export interface WorkspaceQueryProvider {
+  search(workspace: string, input: ParsedWorkspaceSearchInput, signal: AbortSignal): Promise<WorkspaceSearchResult>
+  find(workspace: string, input: ParsedWorkspaceFindInput, signal: AbortSignal): Promise<WorkspaceFindResult>
+  readRange(
+    workspace: string,
+    path: string,
+    startLine: number,
+    lineCount: number,
+    signal: AbortSignal,
+  ): Promise<WorkspaceReadResult>
+  invalidate(workspace: string, path: string): Promise<void>
+  dispose(): void
 }
 export interface PolicyProvider {
   decide(tool: ToolDefinition, args: Record<string, unknown>, context: ToolContext): Promise<'allow' | 'ask' | 'deny'>
 }
 export interface ModelRequest {
   system: string
+  /** UTF-16 boundary of fresh Host context in system. Drivers may move this suffix after history at the same authority. */
+  systemContextOffset?: number
   messages: Message[]
   model: ProviderConfig
+  /** Per-request advertised subset of the Run tool registry; omission preserves legacy drivers. Not an authorization grant. */
+  toolNames?: readonly string[]
   context?: {
     sessionId: string
     runId?: string | undefined
@@ -123,25 +222,58 @@ export interface DriverInput {
     text: string | null
     truncated: boolean
   }>
+  /** Ordinary driver events only; canonical message.committed is reserved for commit(). */
   emit(type: string, data: unknown, stepId?: string): Promise<SessionEvent>
   commit(role: Message['role'], content: ContentBlock[], messageId?: string, providerData?: unknown): Promise<Message>
   stream(id: string, text: string, thinking: string): void
   execute(name: string, args: Record<string, unknown>, callId: string): Promise<ToolResult>
   beforeRequest(request: ModelRequest, stepId: string): Promise<ModelRequest>
-  stepEnded(stepId: string): Promise<void>
+  stepEnded(stepId: string): Promise<{ stop: 'goal_complete' } | void>
+  /** Optional live steering source. Return the next unconsumed canonical,
+   * already committed user messages for this exact Run, in sequence order,
+   * at most 20 per read. The source owns its delivery cursor; do not rescan
+   * compacted history as fresh steering. beforeRequest must include
+   * them in authoritative history. Steering-capable drivers must not commit
+   * user messages: the Host owns both the initial input and queue guidance.
+   * Cancellation/Goal termination remain authoritative; this does not grant tool
+   * permission, change the model, or admit queued operations by itself. */
+  getSteeringMessages?(target: {
+    readonly sessionId: string
+    readonly runId: string
+    readonly signal: AbortSignal
+    /** Final natural-stop probe only. The source must atomically close this
+     * Run's admission gate if no pending message remains, so a later Guide
+     * cannot be accepted after the driver's last poll. Nonempty keeps it open. */
+    readonly closeWhenEmpty?: true
+  }): Promise<readonly Message[]>
+  /** Seal live admission before leaving the loop on an explicit terminal
+   * path (Goal, cancellation, provider/source failure). This does not replay
+   * already accepted messages or start a replacement Run. */
+  closeSteeringAdmission?(): Promise<void>
 }
 export interface HarnessDriver {
+  /** Explicit opt-in; a Host must not admit live steering to a legacy driver
+   * merely because DriverInput has an optional source callback. */
+  readonly supportsCanonicalSteering?: boolean
+  /** Also opts into closeWhenEmpty at the last natural-stop probe. Live queue
+   * admission requires both capabilities; legacy polling alone is not safe. */
+  readonly supportsSteeringAdmissionClosure?: boolean
   run(input: DriverInput): Promise<void>
   summarize(request: ModelRequest, apiKey: string | null, signal: AbortSignal): Promise<{ text: string; usage: Usage }>
 }
 export interface SessionService {
   get(id: string): Promise<Session>
   list(workspaceId?: string): Promise<Session[]>
+  children(parentId: string, after?: string, limit?: number): Promise<Session[]>
   events(id: string, after?: number, limit?: number): Promise<SessionEvent[]>
-  create(workspaceId: string, title?: string): Promise<Session>
+  create(workspaceId: string, title?: string, parentId?: string): Promise<Session>
   submit(sessionId: string, requestId: string, input: UserInput, modelId: string): Promise<Run>
+  /** Wake the Host idle dispatcher; this does not enqueue a model turn. */
+  wake(sessionId: string): void
   cancel(runId: string): Promise<void>
   snapshot(sessionId: string): Promise<SessionSnapshot>
+  workspace(workspaceId: string): Promise<Workspace>
+  createWorkspace(path: string): Promise<Workspace>
   append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string): Promise<SessionEvent>
 }
 export interface GoalSetInput {
@@ -157,35 +289,146 @@ export interface GoalToolResponse {
   completionBudgetReport?: string
 }
 export interface GoalService {
+  snapshot(sessionId: string): Promise<{ value: GoalToolResponse; seq: number }>
   get(sessionId: string): Promise<GoalToolResponse>
   create(sessionId: string, objective: string, tokenBudget?: number | null, runId?: string, startedAt?: number): Promise<GoalToolResponse>
   set(sessionId: string, input: GoalSetInput): Promise<GoalToolResponse>
-  update(sessionId: string, status: 'complete' | 'blocked', runId?: string): Promise<GoalToolResponse>
-  clear(sessionId: string): Promise<{ cleared: boolean }>
+  update(sessionId: string, status: 'complete' | 'blocked', runId?: string, reason?: string): Promise<GoalToolResponse>
+  clear(sessionId: string, expectedGoalId?: string): Promise<{ cleared: boolean }>
+  requestContinuation(
+    sessionId: string,
+    input: { goalId: string; trigger: string; modelId: string; text?: string },
+  ): Promise<void>
 }
 export interface PlanService {
+  snapshot(sessionId: string): Promise<{ value: PlanState | null; seq: number }>
   get(sessionId: string): Promise<PlanState | null>
-  update(sessionId: string, plan: PlanStep[], explanation?: string | null, turnId?: string | null): Promise<PlanState>
-  clear(sessionId: string): Promise<{ cleared: boolean }>
+  /** Hold the observed plan revision stable while committing a dependent fact. */
+  withRevision(sessionId: string, revision: number | null, commit: () => Promise<void>): Promise<void>
+  update(
+    sessionId: string,
+    plan: PlanStep[],
+    explanation?: string | null,
+    turnId?: string | null,
+    expectedRevision?: number,
+  ): Promise<PlanState>
+  clear(sessionId: string, expectedRevision?: number): Promise<{ cleared: boolean }>
+}
+export interface WorkflowService {
+  get(sessionId: string): Promise<WorkflowSnapshot>
+  focus(
+    sessionId: string,
+    stepIndex: number,
+    item: WorkflowPlanItemInput,
+    completionPolicy: WorkflowCompletionPolicy,
+    expectedPlanRevision: number,
+  ): Promise<WorkflowSnapshot>
+  savePlan(
+    sessionId: string,
+    objective: string,
+    items: WorkflowPlanItemInput[],
+    expectedRevision?: number | null,
+  ): Promise<WorkflowSnapshot>
+  start(
+    sessionId: string,
+    objective: string,
+    items: WorkflowPlanItemInput[],
+    tokenBudget?: number,
+    run?: Run,
+    command?: WorkflowStartCommand,
+  ): Promise<WorkflowSnapshot>
+  activate(sessionId: string, planRevision: number, tokenBudget?: number, run?: Run): Promise<WorkflowSnapshot>
+  expandScope(
+    sessionId: string,
+    itemId: string,
+    scope: WorkflowScope,
+    reason: string,
+    expectedRevision: number | { focusRevision: number; planRevision: number },
+  ): Promise<WorkflowSnapshot>
+  checkpoint(
+    sessionId: string,
+    itemId: string,
+    outcome: 'progress' | 'revise' | 'complete' | 'blocked',
+    summary: string,
+    nextItemId: string | null | undefined,
+    expectedRevision: number | { focusRevision: number; planRevision: number },
+    evidenceIds?: string[],
+    reviewModelId?: string,
+  ): Promise<WorkflowSnapshot>
+  delegate(
+    sessionId: string,
+    itemIds: string[],
+    modelId: string,
+    tokenBudget: number | undefined,
+    expectedRevision: number,
+  ): Promise<WorkflowSnapshot>
+  acceptCheck(
+    sessionId: string,
+    itemId: string,
+    checkId: string,
+    decision: 'accepted' | 'rejected',
+    note: string | null | undefined,
+    expectedRevision: number,
+    actorId: string,
+  ): Promise<WorkflowSnapshot>
+  complete(sessionId: string, expectedRevision: number, runId?: string): Promise<WorkflowSnapshot>
 }
 export interface ModeService {
   get(sessionId: string): Promise<{ mode: RunMode }>
   set(sessionId: string, mode: RunMode): Promise<{ mode: RunMode }>
+  effectiveMode(run: Run): RunMode
+  /** Serialize the approved Run transition with ordinary session mode writes. */
+  commitExit<T extends { modeEvent: SessionEvent | null }>(sessionId: string, commit: () => Promise<T>): Promise<T>
 }
 export interface BudgetService {
   get(sessionId: string): Promise<SessionBudget | null>
   set(sessionId: string, limit: number): Promise<SessionBudget>
+  setCommand(
+    input: SetBudgetInput,
+    context: { actorId: string; idempotencyKey: string; requestId: string },
+  ): Promise<BudgetReceipt>
+  getCommandReceipt(sessionId: string, actorId: string, idempotencyKey: string): Promise<BudgetReceipt | null>
   clear(sessionId: string): Promise<{ cleared: boolean }>
   assertCanStart(sessionId: string, source?: import('@hbar/contracts').RunSource): Promise<void>
+}
+export interface AgentService {
+  create(
+    input: AgentCreateInput,
+    context: { actorId: string; idempotencyKey: string; requestId: string },
+  ): Promise<AgentRecord>
+  list(parentSessionId: string, after?: string, limit?: number): Promise<AgentPage>
+  cancel(parentSessionId: string, agentId: string): Promise<AgentRecord>
+  result(parentSessionId: string, agentId: string): Promise<AgentRecord>
+  applyPatch(
+    parentSessionId: string,
+    agentId: string,
+    planRevision: number,
+    context: { actorId: string; idempotencyKey: string; requestId: string },
+  ): Promise<AgentRecord>
 }
 export interface GitDiffOptions {
   cached?: boolean | undefined
   paths?: string[] | undefined
+  /** Restrict the diff to the execution cwd, use literal pathspecs, and disable external rename/textconv output. */
+  scope?: 'execution-root' | undefined
 }
 export interface GitCommitOptions {
   message: string
   paths?: string[] | undefined
   stage?: boolean | undefined
+  provenance: {
+    source: 'auto' | 'manual'
+    sessionId?: string | undefined
+    runId?: string | undefined
+    operationId?: string | undefined
+  }
+}
+export interface GitStatsOptions {
+  from?: number | undefined
+  to?: number | undefined
+  bucketMs: number
+  maxBuckets: number
+  sources: ('auto' | 'manual' | 'external')[]
 }
 export interface GitPathOptions {
   paths: string[]
@@ -197,11 +440,52 @@ export type GitWorktreeOperation =
   | { operation?: 'list' | undefined }
   | { operation: 'add'; path: string; branch?: string | undefined; createBranch?: boolean | undefined }
   | { operation: 'remove'; path: string; force?: boolean | undefined }
+
+export type GitLaunchBranchHead =
+  | { kind: 'branch'; ref: string; name: string; oid: string }
+  | { kind: 'detached'; oid: string }
+  | { kind: 'unborn'; ref: string; name: string }
+  | { kind: 'symbolic'; ref: string; oid: string | null }
+
+export interface GitLaunchBranchReference {
+  readonly name: string
+  readonly ref: string
+  readonly oid: string
+  readonly current: boolean
+  readonly worktree: 'current' | 'elsewhere' | 'available' | 'unknown'
+}
+
+/** A bounded local-ref view for pre-session launch selection; it never contains filesystem paths. */
+export interface GitLaunchBranchSnapshot {
+  readonly repository:
+    | { kind: 'not-repository' }
+    | {
+        kind: 'repository'
+        /** Whether the registered workspace itself is the Git root or a subdirectory. */
+        workspaceScope: 'repository-root' | 'repository-subdirectory'
+        head: GitLaunchBranchHead
+      }
+  readonly branches: readonly GitLaunchBranchReference[]
+  readonly incomplete: boolean
+}
+
+export interface GitLaunchBranchCreateInput {
+  readonly name: string
+  readonly baseRef: string
+  readonly expectedBaseOid: string
+}
+
+export interface GitLaunchBranchCreateResult {
+  readonly ref: string
+  readonly oid: string
+}
+
 export interface GitService {
   info(cwd?: string, signal?: AbortSignal): Promise<GitInfo>
   status(cwd?: string, signal?: AbortSignal): Promise<GitStatus>
   diff(cwd?: string, options?: GitDiffOptions, signal?: AbortSignal): Promise<GitDiff>
   log(cwd?: string, limit?: number, signal?: AbortSignal): Promise<GitCommitInfo[]>
+  stats(cwd: string | undefined, options: GitStatsOptions, signal?: AbortSignal): Promise<GitStatsReport>
   commit(cwd: string | undefined, options: GitCommitOptions, signal?: AbortSignal): Promise<GitCommitInfo>
   stage(cwd: string | undefined, paths: string[], signal?: AbortSignal): Promise<GitPathOptions>
   unstage(cwd: string | undefined, paths: string[], signal?: AbortSignal): Promise<GitPathOptions>
@@ -210,15 +494,25 @@ export interface GitService {
     operation?: GitBranchOperation,
     signal?: AbortSignal,
   ): Promise<GitBranchInfo[] | GitBranchInfo>
+  /** Creates only a local branch ref from a captured local base ref/OID; does not switch HEAD. */
+  createLaunchBranch?(
+    cwd: string | undefined,
+    input: GitLaunchBranchCreateInput,
+    signal?: AbortSignal,
+  ): Promise<GitLaunchBranchCreateResult>
   worktree(
     cwd: string | undefined,
     operation?: GitWorktreeOperation,
     signal?: AbortSignal,
   ): Promise<GitWorktreeInfo[] | GitWorktreeInfo>
+  launchBranchSnapshot(cwd?: string, signal?: AbortSignal): Promise<GitLaunchBranchSnapshot>
   diffToRemote(cwd?: string, signal?: AbortSignal, paths?: string[]): Promise<{ sha: string; diff: string; truncated: boolean } | null>
 }
 export interface BrowserUseService {
-  status(sessionId: string, signal?: AbortSignal): Promise<{ available: boolean; contexts: BrowserPage[]; history: string[] }>
+  status(
+    sessionId: string,
+    signal?: AbortSignal,
+  ): Promise<{ available: boolean; contexts: BrowserPage[]; history: string[] }>
   navigate(
     sessionId: string,
     url: string,
@@ -275,7 +569,10 @@ export interface BrowserUseService {
   history(sessionId: string, contextId?: string, signal?: AbortSignal): Promise<string[]>
 }
 export interface ComputerUseService {
-  status(sessionId: string, signal?: AbortSignal): Promise<{ available: boolean; platform: string; appId: string | null }>
+  status(
+    sessionId: string,
+    signal?: AbortSignal,
+  ): Promise<{ available: boolean; platform: string; appId: string | null }>
   screenshot(sessionId: string, appId?: string, signal?: AbortSignal): Promise<ComputerScreen>
   click(sessionId: string, x: number, y: number, appId?: string, signal?: AbortSignal): Promise<ComputerAction>
   doubleClick(sessionId: string, x: number, y: number, appId?: string, signal?: AbortSignal): Promise<ComputerAction>
@@ -300,10 +597,60 @@ export interface HookEvents {
   'context.build': ModelRequest
   'model.request': ModelRequest
   'tool.before': { name: string; args: Record<string, unknown>; context: ToolContext; tool: ToolDefinition }
+  /** After approval and durable intent, before execution. Failure prevents execution; returned arguments are ignored. */
+  'tool.executing': { name: string; args: Record<string, unknown>; context: ToolContext; tool: ToolDefinition }
   'tool.after': { name: string; result: ToolResult; context: ToolContext }
-  'step.end': { sessionId: string; runId: string; stepId: string }
+  'tool.settled': {
+    name: string
+    args: Record<string, unknown>
+    result: ToolResult
+    context: ToolContext
+    tool: ToolDefinition
+  }
+  'step.end': { sessionId: string; runId: string; stepId: string; stop?: 'goal_complete' }
+  'tools.select': { sessionId: string; runId: string; tools: ToolDefinition[] }
+  /** Recomputed per request. Only omit Run tools; bounded instructions may describe access via an existing tool. */
+  'tools.advertise': { sessionId: string; runId: string; tools: ToolDefinition[]; instructions?: string }
   'run.start': { sessionId: string; runId: string; run: Run }
+  'run.modeChanged': { sessionId: string; runId: string; run: Run; mode: RunMode }
   'run.end': { sessionId: string; runId: string; status: Run['status']; run: Run }
+  'run.cancelRequested': { sessionId: string; runId: string; run: Run }
+  'session.idle': {
+    sessionId: string
+    wakeAt?: number
+    submission?: { requestId: string; input: UserInput; modelId: string }
+  }
+  'session.continuationFailed': { sessionId: string; requestId: string; unknown: boolean }
+  /** Published after the session budget fact has been committed. */
+  'budget.committed': { sessionId: string; budget: SessionBudget | null }
+  'goal.beforeComplete': {
+    sessionId: string
+    runId?: string | undefined
+    goal: ThreadGoal
+    /** Validators may wrap this commit to keep their facts stable through persistence. */
+    commit: () => Promise<void>
+  }
+  'goal.beforeContinue': {
+    sessionId: string
+    runId: string
+    goal: ThreadGoal
+    allowed: boolean
+    reason?: 'workflow_wait' | 'repair'
+    recoveryKey?: string
+  }
+  'goal.replaced': { sessionId: string; previous: ThreadGoal; goal: ThreadGoal }
+  'goal.cleared': { sessionId: string; previous: ThreadGoal }
+  'agent.patch': {
+    parentSessionId: string
+    agentId: string
+    patch: import('@hbar/contracts').AgentPatch | null
+    status: 'ready' | 'applied' | 'conflict' | 'rejected'
+  }
+  'agent.settled': {
+    parentSessionId: string
+    agentId: string
+    status: import('@hbar/contracts/commands/agents').AgentRecord['status']
+  }
 }
 export interface HookRegistry {
   on<K extends keyof HookEvents>(

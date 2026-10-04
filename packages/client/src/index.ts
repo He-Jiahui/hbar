@@ -1,12 +1,87 @@
 import { artifactSchema, HbarError, PROTOCOL_VERSION } from '@hbar/contracts'
+import { createImageArtifactReader, type ImageArtifactReadOptions, type ImageArtifactBytes } from './image-artifacts'
+export {
+  MAX_IMAGE_ARTIFACT_BYTES,
+  IMAGE_ARTIFACT_TIMEOUT_MS,
+  IMAGE_ARTIFACT_CONCURRENCY,
+  IMAGE_ARTIFACT_QUEUE_LIMIT,
+  type ImageArtifactReadOptions,
+  type ImageArtifactBytes,
+  type ImageArtifactMime,
+} from './image-artifacts'
+export { createDirectoryQueryAdapter } from './directory'
+export { createSessionSearchCommandClient } from './session-search'
+export { createNotificationCommandClient } from './notifications'
+export { createPromptTemplateCommandClient } from './prompt-templates'
+export { createSandboxCommandClient } from './sandbox'
+export { createRunBoardCommandClient } from './run-board'
+export { createScheduleCommandClient, type ScheduleCommandOptions } from './schedules'
+export { createCommandCatalogClient } from './command-catalog'
+export { createBudgetCommandClient } from './budget'
+export { createRunCommandClient } from './run'
+export { createOperationWatcher } from './run'
+export { createSessionTimelineClient, type SessionTimelineTransport } from './session-timeline'
+export { registerSurfaceClient, type SurfaceClientOptions } from './surfaces'
+export { createSchemaCallbackClient } from './schema-content'
+export { createSettingsCommandClient } from './settings'
+export { createSystemCommandClient } from './system'
+export { createUsageCommandClient } from './usage'
+export { createInteractionCommandClient, createInteractionRecoveryClient } from './interaction'
+export { createGoalPlanCommandClient } from './goals'
+export { createWorkflowCommandClient } from './workflows'
+export { createModelCommandClient } from './models'
+export { createMetricsCommandClient, createMetricsWatcher, type MetricsWatchTransport } from './metrics'
+export { createAgentCommandClient } from './agents'
+export { createBrowserCommandClient } from './browser'
+export { createComputerCommandClient } from './computer'
+export { createConnectionCommands, type ConnectionCommandPort } from './connection'
+export { createConfigurationCommandClient } from './configuration'
+export { createGitCommandClient } from './git'
+export { createSessionLaunchTargetReader, type SessionLaunchTargetReadTransport } from './session-launch-target'
+export { createSessionLaunchTargetPreparationManager } from './session-launch-target-preparation'
+export { createSessionLaunchBranchesManager, createSessionLaunchBranchesReader } from './session-launch-branches'
+export type {
+  SessionLaunchBranchCreateOptions,
+  SessionLaunchBranchCreateRequest,
+  SessionLaunchBranchCreateResult,
+  SessionLaunchBranchesManager,
+  SessionLaunchBranchesReader,
+  SessionLaunchBranchesReadOptions,
+  SessionLaunchBranchesRequest,
+  SessionLaunchBranchesPage,
+} from '@hbar/contracts/commands/session-launch-branches'
+export type {
+  SessionLaunchTargetReader,
+  SessionLaunchTargetReadOptions,
+  SessionLaunchTargetPreparationManager,
+  SessionLaunchTargetWriteOptions,
+} from '@hbar/contracts/commands/session-launch-target'
+export { createExtensionCommandClient } from './extensions'
+export { allWorkspaceSessionCommands, createWorkspaceSessionCommandClient, exportSessionEvents } from './workspaces'
+export {
+  createAttachmentCommandClient,
+  createAttachmentSourceDescriptor,
+  createFileCommandClient,
+  type AttachmentSourcePort,
+  type AttachmentUploadTransport,
+} from './files'
+export {
+  createBrowserAttachmentController,
+  type BrowserAttachmentControllerOptions,
+  type BrowserAttachmentSelection,
+} from './browser-attachments'
+export {
+  createBrowserResourcePicker,
+  type BrowserFileSelectionPort,
+  type BrowserResourcePickerOptions,
+} from './browser-resource-picker'
 import type { ArtifactRef, HostInfo, RpcMethod, RpcParams, RpcResults, WireNotification } from '@hbar/contracts'
 
-export interface ClientTransport {
-  call<M extends RpcMethod>(method: M, params: RpcParams<M>): Promise<RpcResults[M]>
-}
+import type { ClientTransport } from './transport'
+export type { ClientTransport } from './transport'
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'pairing'
 export class HbarClient implements ClientTransport {
-  private socket?: WebSocket
+  private socket: WebSocket | undefined
   private pending = new Map<
     number,
     { resolve(value: unknown): void; reject(error: Error): void; timer: ReturnType<typeof setTimeout> }
@@ -18,11 +93,22 @@ export class HbarClient implements ClientTransport {
   private retry = 0
   private retryTimer?: ReturnType<typeof setTimeout>
   private connectPromise?: Promise<HostInfo> | undefined
+  private currentStatus: ConnectionStatus = 'disconnected'
+  private currentHost: HostInfo | null = null
   private follows = new Map<string, number>()
+  private imageHostId: string | null = null
+  private imageReadsRevoked = false
+  private readonly imageArtifacts: ReturnType<typeof createImageArtifactReader>
   constructor(
     readonly baseUrl: string,
     private token?: string,
-  ) {}
+  ) {
+    this.imageArtifacts = createImageArtifactReader({
+      baseUrl,
+      token: () => this.token,
+      enabled: () => !this.closed && !this.imageReadsRevoked,
+    })
+  }
   onEvent(listener: (event: WireNotification) => void) {
     this.events.add(listener)
     return () => {
@@ -36,10 +122,24 @@ export class HbarClient implements ClientTransport {
     }
   }
   private status(status: ConnectionStatus) {
+    this.currentStatus = status
     for (const listener of this.statuses) listener(status)
   }
+  private rejectPending(error: HbarError) {
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer)
+      pending.reject(error)
+    }
+    this.pending.clear()
+  }
   connect(): Promise<HostInfo> {
-    if (this.connectPromise) return this.connectPromise
+    if (this.connectPromise && !this.closed) return this.connectPromise
+    if (this.closed) {
+      this.connectPromise = undefined
+      const previous = this.socket
+      this.socket = undefined
+      previous?.close()
+    }
     this.closed = false
     this.status('connecting')
     const url = new URL('/rpc', this.baseUrl)
@@ -48,15 +148,25 @@ export class HbarClient implements ClientTransport {
       const socket = new WebSocket(url)
       this.socket = socket
       socket.onopen = async () => {
+        if (this.socket !== socket) return socket.close()
         try {
           const host = await this.call('system.hello', { protocol: PROTOCOL_VERSION, token: this.token })
+          if (this.socket !== socket || this.closed) throw new HbarError('DISCONNECTED', 'Connection changed')
+          // The first hello also invalidates reads begun before Host identity was known.
+          if (this.imageHostId !== host.instanceId) this.imageArtifacts.invalidate()
+          this.imageHostId = host.instanceId
+          this.imageReadsRevoked = false
           this.retry = 0
+          this.currentHost = host
           this.status('connected')
           resolve(host)
           for (const [sessionId, cursor] of this.follows) await this.follow(sessionId, cursor)
         } catch (error) {
           if (error instanceof HbarError && error.code === 'UNAUTHORIZED') {
             this.closed = true
+            this.imageReadsRevoked = true
+            this.imageArtifacts.invalidate()
+            this.currentHost = null
             this.status('pairing')
           }
           reject(error)
@@ -64,6 +174,7 @@ export class HbarClient implements ClientTransport {
         }
       }
       socket.onmessage = (event) => {
+        if (this.socket !== socket) return
         try {
           const message = JSON.parse(String(event.data)) as {
             id?: number
@@ -88,6 +199,9 @@ export class HbarClient implements ClientTransport {
               )
             if (notification.method === 'auth.revoked') {
               this.closed = true
+              this.imageReadsRevoked = true
+              this.imageArtifacts.invalidate()
+              this.currentHost = null
               this.status('pairing')
             }
             for (const listener of this.events) listener(notification)
@@ -98,12 +212,11 @@ export class HbarClient implements ClientTransport {
       }
       socket.onerror = () => reject(new Error('Cannot connect to hbar host'))
       socket.onclose = () => {
+        if (this.socket !== socket) return
+        this.socket = undefined
         this.connectPromise = undefined
-        for (const pending of this.pending.values()) {
-          clearTimeout(pending.timer)
-          pending.reject(new HbarError('DISCONNECTED', 'Connection closed; reconcile using the request id'))
-        }
-        this.pending.clear()
+        this.currentHost = null
+        this.rejectPending(new HbarError('DISCONNECTED', 'Connection closed; reconcile using the request id'))
         if (!this.closed) {
           this.status('disconnected')
           this.retryTimer = setTimeout(
@@ -122,12 +235,19 @@ export class HbarClient implements ClientTransport {
       return Promise.reject(new HbarError('DISCONNECTED', 'Host is not connected'))
     return new Promise((resolve, reject) => {
       const id = ++this.nextId
+      const longRunning =
+        method === 'context.compact' ||
+        (method === 'command.execute' &&
+          typeof params === 'object' &&
+          params !== null &&
+          'commandId' in params &&
+          params.commandId === 'context.compact')
       const timer = setTimeout(
         () => {
           this.pending.delete(id)
           reject(new HbarError('TIMEOUT', 'Request timed out'))
         },
-        method === 'context.compact' ? 300_000 : 30_000,
+        longRunning ? 300_000 : 30_000,
       )
       this.pending.set(id, { resolve: (value) => resolve(value as RpcResults[M]), reject, timer })
       this.socket!.send(JSON.stringify({ jsonrpc: '2.0', id, method, params }))
@@ -165,21 +285,25 @@ export class HbarClient implements ClientTransport {
     this.follows.delete(sessionId)
     if (this.socket?.readyState === WebSocket.OPEN) await this.call('session.unfollow', { sessionId })
   }
-  async pair(code: string, name: string) {
+  async pair(code: string, name: string, signal?: AbortSignal) {
     const response = await fetch(new URL('/auth/pair', this.baseUrl), {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, name }),
+      ...(signal ? { signal } : {}),
     })
     const result = (await response.json()) as { token?: string; error?: string }
     if (!response.ok) throw new Error(result.error ?? 'Pairing failed')
+    signal?.throwIfAborted()
+    this.imageArtifacts.invalidate()
     this.token = result.token
     this.closed = false
     this.connectPromise = undefined
     return this.connect()
   }
-  async upload(file: File): Promise<ArtifactRef> {
+  async upload(file: File, signal?: AbortSignal): Promise<ArtifactRef> {
+    signal?.throwIfAborted()
     const response = await fetch(new URL('/api/artifacts', this.baseUrl), {
       method: 'POST',
       credentials: 'include',
@@ -189,10 +313,15 @@ export class HbarClient implements ClientTransport {
         ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
       },
       body: file,
+      ...(signal ? { signal } : {}),
     })
     const data: unknown = await response.json()
+    signal?.throwIfAborted()
     if (!response.ok)
-      throw new Error(
+      throw new HbarError(
+        typeof data === 'object' && data && 'code' in data && typeof data.code === 'string'
+          ? data.code
+          : 'UPLOAD_FAILED',
         typeof data === 'object' && data && 'error' in data && typeof data.error === 'string'
           ? data.error
           : 'Artifact upload failed',
@@ -202,10 +331,25 @@ export class HbarClient implements ClientTransport {
   artifactUrl(id: string) {
     return new URL(`/api/artifacts/${id}`, this.baseUrl).href
   }
+  readImageArtifact(ref: ArtifactRef, options?: ImageArtifactReadOptions): Promise<ImageArtifactBytes> {
+    return this.imageArtifacts.read(ref, options)
+  }
   disconnect() {
     this.closed = true
+    this.imageArtifacts.invalidate()
     clearTimeout(this.retryTimer)
-    this.socket?.close()
+    const socket = this.socket
+    this.socket = undefined
+    socket?.close()
     this.connectPromise = undefined
+    this.currentHost = null
+    this.rejectPending(new HbarError('DISCONNECTED', 'Connection closed; reconcile using the request id'))
+    this.status('disconnected')
+  }
+  connectionStatus() {
+    return this.currentStatus
+  }
+  connectionHost() {
+    return this.currentHost
   }
 }

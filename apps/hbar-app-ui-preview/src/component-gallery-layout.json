@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "regions": ["header", "toolbar", "catalog", "previews"],
+  "pageSize": 6,
+  "previewBlockSize": "30rem"
+}

@@ -1,0 +1,69 @@
+.hbar-pre-session-landing {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  block-size: 100%;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hbar-pre-session-landing-main {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  overflow: auto;
+}
+
+.hbar-pre-session-landing-footer {
+  display: flex;
+  inline-size: min(100%, 52rem);
+  min-inline-size: 0;
+  max-block-size: 70%;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-self: center;
+  padding: 0.5rem 1rem 1rem;
+  overflow: auto;
+}
+
+/* The slash list is an overlay above the composer; keep normal footer scrolling otherwise. */
+.hbar-pre-session-landing-footer:has(.hbar-pre-session-slash-editor .hbar-composer-slash-menu) {
+  overflow: visible;
+}
+
+.hbar-pre-session-landing-footer .lumen-prompt-composer-surface {
+  outline: 0.0625rem solid var(--lumen-edge);
+  outline-offset: -0.0625rem;
+}
+
+.hbar-pre-session-landing-footer .lumen-prompt-composer-surface:focus-within {
+  outline: 0.125rem solid color-mix(in srgb, var(--lumen-ink) 42%, transparent);
+  outline-offset: -0.125rem;
+}
+
+.hbar-pre-session-landing-footer .lumen-composer-toolbar,
+.hbar-pre-session-landing-footer .lumen-composer-toolbar > div {
+  min-inline-size: 0;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 40rem) {
+  .hbar-pre-session-landing-footer .lumen-composer-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hbar-pre-session-landing-footer .lumen-composer-toolbar > div {
+    inline-size: 100%;
+    max-inline-size: 100%;
+    justify-content: flex-end;
+  }
+
+  .hbar-pre-session-landing-footer .lumen-composer-toolbar > div:first-child {
+    justify-content: flex-start;
+  }
+}

@@ -17,6 +17,7 @@ const host = Bun.spawn(
   [
     process.execPath,
     'apps/host/src/main.ts',
+    '--supervisor',
     '--home',
     home,
     '--workspace',

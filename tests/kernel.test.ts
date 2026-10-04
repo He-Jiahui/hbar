@@ -104,10 +104,13 @@ test('cancel settles an active stream and plugin unload removes registrations', 
   expect((await kernel.storage.call('run', run.id)).status).toBe('cancelled')
   expect(kernel.streams.size).toBe(0)
   expect(kernel.tools.get('read_file')).toBeDefined()
+  expect(kernel.tools.get('search_text')).toBeDefined()
   await kernel.changePlugin('tools.workspace', false)
   expect(kernel.tools.get('read_file')).toBeUndefined()
+  expect(kernel.tools.get('search_text')).toBeUndefined()
   await kernel.changePlugin('tools.workspace', true)
   expect(kernel.tools.get('read_file')).toBeDefined()
+  expect(kernel.tools.get('search_text')).toBeDefined()
 })
 test('stream notifications carry bounded append deltas with independent offsets', async () => {
   const { kernel, session } = await fixture()

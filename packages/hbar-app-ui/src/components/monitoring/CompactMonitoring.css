@@ -1,0 +1,79 @@
+.hbar-app-ui-compact-metrics {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0 var(--hbar-app-ui-space-lg);
+  margin: 0;
+}
+
+.hbar-app-ui-compact-metrics > div {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 10rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--hbar-app-ui-space-xs) var(--hbar-app-ui-space-md);
+  padding-block: var(--hbar-app-ui-space-sm);
+  border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+}
+
+.hbar-app-ui-compact-metrics dt,
+.hbar-app-ui-compact-metrics dd {
+  min-inline-size: 0;
+  margin: 0;
+}
+
+.hbar-app-ui-compact-metrics dt,
+.hbar-app-ui-compact-metrics small {
+  color: var(--hbar-app-ui-subtle);
+  font-size: 0.75rem;
+}
+
+.hbar-app-ui-compact-metrics dd {
+  color: var(--hbar-app-ui-text);
+  font-family: var(--hbar-app-ui-mono);
+  font-weight: 600;
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-compact-metrics small {
+  inline-size: 100%;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-ui-bar-series {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 5rem;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: var(--hbar-app-ui-space-xs);
+  padding-block: var(--hbar-app-ui-space-sm);
+  border-block-end: var(--hbar-app-ui-divider) solid var(--hbar-app-ui-border);
+}
+
+.hbar-app-ui-bar-series i,
+.hbar-app-ui-bar-series button {
+  inline-size: 1rem;
+  min-inline-size: var(--hbar-app-ui-divider);
+  max-inline-size: 2rem;
+  flex: 1 1 1rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--hbar-app-ui-control-radius) var(--hbar-app-ui-control-radius) 0 0;
+  background: var(--hbar-app-ui-accent);
+}
+
+.hbar-app-ui-bar-series button {
+  cursor: pointer;
+}
+
+.hbar-app-ui-bar-series button:hover,
+.hbar-app-ui-bar-series button:focus-visible,
+.hbar-app-ui-bar-series button[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--hbar-app-ui-accent) 72%, var(--hbar-app-ui-text));
+  outline: calc(var(--hbar-app-ui-divider) * 2) solid var(--hbar-app-ui-text);
+  outline-offset: var(--hbar-app-ui-divider);
+}

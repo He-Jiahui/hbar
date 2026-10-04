@@ -1,10 +1,11 @@
 import { lstat, mkdir, readdir, realpath } from 'node:fs/promises'
-import { basename, dirname, isAbsolute, relative, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { z } from 'zod'
 import {
   HbarError,
   gitBranchInfoSchema,
   gitCommitInfoSchema,
+  gitCommitProvenanceSchema,
   gitDiffSchema,
   gitInfoSchema,
   gitStatusSchema,
@@ -13,8 +14,12 @@ import {
 import type {
   GitBranchInfo,
   GitCommitInfo,
+  GitCommitProvenance,
+  GitCommitSource,
   GitDiff,
   GitInfo,
+  GitStatsCount,
+  GitStatsReport,
   GitStatus,
   GitWorktreeInfo,
 } from '@hbar/contracts'
@@ -23,7 +28,13 @@ import type {
   GitBranchOperation,
   GitCommitOptions,
   GitDiffOptions,
+  GitLaunchBranchCreateInput,
+  GitLaunchBranchCreateResult,
+  GitLaunchBranchHead,
+  GitLaunchBranchReference,
+  GitLaunchBranchSnapshot,
   GitService,
+  GitStatsOptions,
   GitWorktreeOperation,
   ToolDefinition,
 } from '@hbar/plugin-sdk'
@@ -32,7 +43,12 @@ const MAX_PATH = 4_000
 const MAX_OUTPUT = 512_000
 const MAX_LOG = 100
 const MAX_WORKTREES = 100
+const MAX_LAUNCH_BRANCH_REFS = 5_000
 const MAX_UNTRACKED_FILES = 1_000
+const MAX_STATS_COMMITS = 20_000
+const MAX_STATS_OUTPUT = 16 * 1024 * 1024
+const PROVENANCE_NOTES_REF = 'refs/notes/hbar-provenance'
+const PROVENANCE_PREFIX = 'hbar-provenance-v1:'
 
 function samePath(left: string, right: string) {
   return resolve(left).replaceAll('\\', '/').toLocaleLowerCase() === resolve(right).replaceAll('\\', '/').toLocaleLowerCase()
@@ -42,6 +58,8 @@ export const gitConfigSchema = z.object({
   timeoutMs: z.number().int().positive().max(120_000).default(30_000),
   maxOutputBytes: z.number().int().positive().max(MAX_OUTPUT).default(MAX_OUTPUT),
   maxLogEntries: z.number().int().positive().max(MAX_LOG).default(20),
+  maxStatsCommits: z.number().int().positive().max(MAX_STATS_COMMITS).default(5_000),
+  maxStatsOutputBytes: z.number().int().positive().max(MAX_STATS_OUTPUT).default(8 * 1024 * 1024),
   worktreeRoot: z.string().min(1).max(MAX_PATH).optional(),
 })
 export type GitConfig = z.infer<typeof gitConfigSchema>
@@ -225,8 +243,8 @@ function parseStatus(output: string, cwd: string): GitStatus {
     const item = {
       index: token[0] ?? ' ',
       worktree: token[1] ?? ' ',
-      path: token.slice(3).replaceAll('\\', '/'),
-      ...(originalPath ? { originalPath: originalPath.replaceAll('\\', '/') } : {}),
+      path: token.slice(3),
+      ...(originalPath ? { originalPath } : {}),
     }
     if (item.path) entries.push(item)
   }
@@ -244,25 +262,153 @@ function parseStatus(output: string, cwd: string): GitStatus {
   })
 }
 
+function externalProvenance(): GitCommitProvenance {
+  return { source: 'external', recordedAt: null, sessionId: null, runId: null, operationId: null }
+}
+
+function parseProvenance(note: string): GitCommitProvenance {
+  if (!note) return externalProvenance()
+  if (!note.startsWith(PROVENANCE_PREFIX))
+    throw new HbarError('GIT_PROVENANCE_INVALID', 'Git commit has an unrecognized hbar provenance note')
+  try {
+    const parsed = gitCommitProvenanceSchema.parse(JSON.parse(note.slice(PROVENANCE_PREFIX.length)))
+    if (parsed.source === 'external' || parsed.recordedAt === null)
+      throw new HbarError('GIT_PROVENANCE_INVALID', 'Recorded Git provenance must identify an hbar commit source')
+    return parsed
+  } catch (error) {
+    if (error instanceof HbarError) throw error
+    throw new HbarError('GIT_PROVENANCE_INVALID', 'Git commit has an invalid hbar provenance note')
+  }
+}
+
 function parseLog(output: string): GitCommitInfo[] {
-  const fields = output.split('\0')
   const commits: GitCommitInfo[] = []
-  for (let index = 0; index + 4 < fields.length; index += 5) {
-    const [sha, shortSha, author, authoredAt, subject] = fields.slice(index, index + 5)
-    const cleanSha = sha?.trim()
-    const cleanShortSha = shortSha?.trim()
-    if (!cleanSha || !cleanShortSha) continue
+  for (const record of output.split('\x1e')) {
+    if (!record) continue
+    const [sha, shortSha, author, authoredAt, committedAt, subject, note = ''] = record.split('\0')
+    if (!sha || !shortSha) continue
     commits.push(
       gitCommitInfoSchema.parse({
-        sha: cleanSha,
-        shortSha: cleanShortSha,
+        sha,
+        shortSha,
         author: author ?? '',
-        authoredAt: authoredAt?.trim() ?? '',
+        authoredAt: authoredAt ?? '',
+        committedAt: committedAt ?? '',
         subject: subject ?? '',
+        provenance: parseProvenance(note.trim()),
       }),
     )
   }
   return commits
+}
+
+interface IndexedGitCommit {
+  readonly sha: string
+  readonly committedAt: number
+  readonly provenance: GitCommitProvenance
+  readonly filesChanged: number
+  readonly additions: number
+  readonly deletions: number
+  readonly renames: number
+  readonly binaryFiles: number
+}
+
+interface GitStatsIndex {
+  readonly repoId: string
+  readonly head: string
+  readonly commits: readonly IndexedGitCommit[]
+  readonly complete: boolean
+}
+
+interface GitStatsIndexResult {
+  readonly index: GitStatsIndex
+  readonly mode: 'full' | 'incremental' | 'hit' | 'reindexed'
+}
+
+function readNullField(record: string, cursor: { offset: number }): string {
+  const end = record.indexOf('\0', cursor.offset)
+  if (end < 0) throw new HbarError('GIT_STATS_INVALID', 'Git statistics stream ended inside a commit header')
+  const value = record.slice(cursor.offset, end)
+  cursor.offset = end + 1
+  return value
+}
+
+function parseStatsLog(output: string, signal?: AbortSignal): IndexedGitCommit[] {
+  const commits: IndexedGitCommit[] = []
+  for (const [recordIndex, record] of output.split('\x1e').entries()) {
+    if (!record) continue
+    if (recordIndex % 100 === 0) signal?.throwIfAborted()
+    const cursor = { offset: 0 }
+    const sha = readNullField(record, cursor)
+    readNullField(record, cursor) // Parent IDs are emitted to make the first-parent policy auditable.
+    const committedSeconds = Number(readNullField(record, cursor))
+    const note = readNullField(record, cursor).trim()
+    if (!/^[0-9a-f]{40}$/i.test(sha) || !Number.isSafeInteger(committedSeconds) || committedSeconds < 0)
+      throw new HbarError('GIT_STATS_INVALID', 'Git statistics stream contains an invalid commit header')
+    let filesChanged = 0
+    let additions = 0
+    let deletions = 0
+    let renames = 0
+    let binaryFiles = 0
+    const entries = record.slice(cursor.offset).replace(/^(?:\r?\n)+/, '').split('\0')
+    for (let index = 0; index < entries.length; index += 1) {
+      const entry = entries[index]?.replace(/^(?:\r?\n)+/, '') ?? ''
+      if (!entry) continue
+      const match = entry.match(/^(-|\d+)\t(-|\d+)\t(.*)$/s)
+      if (!match) throw new HbarError('GIT_STATS_INVALID', 'Git statistics stream contains an invalid numstat row')
+      const [, added = '-', deleted = '-', path = ''] = match
+      filesChanged++
+      if (added === '-' || deleted === '-') binaryFiles++
+      else {
+        additions += Number(added)
+        deletions += Number(deleted)
+      }
+      if (!path) {
+        const originalPath = entries[++index]
+        const renamedPath = entries[++index]
+        if (!originalPath || !renamedPath)
+          throw new HbarError('GIT_STATS_INVALID', 'Git rename row is missing its original or destination path')
+        renames++
+      }
+    }
+    commits.push({
+      sha,
+      committedAt: committedSeconds * 1_000,
+      provenance: parseProvenance(note),
+      filesChanged,
+      additions,
+      deletions,
+      renames,
+      binaryFiles,
+    })
+  }
+  return commits
+}
+
+function emptyStatsCount(): GitStatsCount {
+  return {
+    commits: 0,
+    autoCommits: 0,
+    manualCommits: 0,
+    externalCommits: 0,
+    filesChanged: 0,
+    additions: 0,
+    deletions: 0,
+    renames: 0,
+    binaryFiles: 0,
+  }
+}
+
+function addCommit(target: GitStatsCount, commit: IndexedGitCommit) {
+  target.commits++
+  if (commit.provenance.source === 'auto') target.autoCommits++
+  else if (commit.provenance.source === 'manual') target.manualCommits++
+  else target.externalCommits++
+  target.filesChanged += commit.filesChanged
+  target.additions += commit.additions
+  target.deletions += commit.deletions
+  target.renames += commit.renames
+  target.binaryFiles += commit.binaryFiles
 }
 
 function parseWorktrees(output: string): GitWorktreeInfo[] {
@@ -301,6 +447,94 @@ function parseWorktrees(output: string): GitWorktreeInfo[] {
   return result.slice(0, MAX_WORKTREES)
 }
 
+function isGitObjectId(value: string): boolean {
+  return /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(value)
+}
+
+function sameWorktreePath(left: string, right: string): boolean {
+  const resolvedLeft = resolve(left)
+  const resolvedRight = resolve(right)
+  return process.platform === 'win32'
+    ? resolvedLeft.toLowerCase() === resolvedRight.toLowerCase()
+    : resolvedLeft === resolvedRight
+}
+
+function stripOneTrailingLineEnding(value: string): string {
+  return value.endsWith('\n') ? value.slice(0, -1) : value
+}
+
+async function hasGitMetadataInParents(path: string): Promise<boolean> {
+  let current = resolve(path)
+  while (true) {
+    try {
+      await lstat(join(current, '.git'))
+      return true
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    }
+    const parent = dirname(current)
+    if (parent === current) return false
+    current = parent
+  }
+}
+
+function parseLaunchBranchRefs(output: string, currentRef: string | null, truncated: boolean) {
+  const branches: GitLaunchBranchReference[] = []
+  let incomplete = false
+  const lines = output.split(/\r?\n/)
+  if (truncated && !output.endsWith('\n')) lines.pop()
+  for (const line of lines) {
+    if (!line) continue
+    const fields = line.split('\0')
+    if (fields.length !== 2) {
+      incomplete = true
+      continue
+    }
+    const [name, oid] = fields
+    if (!name || !oid || !isGitObjectId(oid)) {
+      incomplete = true
+      continue
+    }
+    const ref = `refs/heads/${name}`
+    if (name.length > 1_000) {
+      incomplete = true
+      continue
+    }
+    branches.push({ name, ref, oid, current: ref === currentRef, worktree: 'unknown' })
+  }
+  return { branches, incomplete }
+}
+
+function parseLaunchWorktreeBranches(output: string, currentRoot: string) {
+  const branches = new Map<string, 'current' | 'elsewhere' | 'conflict'>()
+  let currentPath: string | null = null
+  let branchRef: string | null = null
+  let currentWorktreeFound = false
+  const flush = () => {
+    if (currentPath && sameWorktreePath(currentPath, currentRoot)) currentWorktreeFound = true
+    if (branchRef && currentPath) {
+      const location = sameWorktreePath(currentPath, currentRoot) ? 'current' : 'elsewhere'
+      const previous = branches.get(branchRef)
+      branches.set(branchRef, previous && previous !== location ? 'conflict' : location)
+    }
+    currentPath = null
+    branchRef = null
+  }
+  for (const token of output.split('\0')) {
+    if (!token) {
+      flush()
+      continue
+    }
+    const separator = token.indexOf(' ')
+    const key = separator < 0 ? token : token.slice(0, separator)
+    const value = separator < 0 ? '' : token.slice(separator + 1)
+    if (key === 'worktree') currentPath = value
+    else if (key === 'branch') branchRef = value.startsWith('refs/heads/') ? value : null
+  }
+  if (output.endsWith('\0')) flush()
+  return { branches, currentWorktreeFound }
+}
+
 export class GitRuntime implements GitService {
   private readonly rootPromise: Promise<string>
   private readonly worktreeRootPromise: Promise<string>
@@ -310,6 +544,7 @@ export class GitRuntime implements GitService {
     private readonly runner: GitRunner = new ProcessGitRunner(),
     private readonly allowExternalCwd = false,
     private readonly onChanged?: (cwd: string) => void | Promise<void>,
+    private readonly statsIndexes = new Map<string, GitStatsIndex>(),
   ) {
     this.rootPromise = realpath(root)
     this.worktreeRootPromise = config.worktreeRoot
@@ -318,7 +553,7 @@ export class GitRuntime implements GitService {
   }
 
   scoped(root: string) {
-    return new GitRuntime(root, this.config, this.runner, false, this.onChanged)
+    return new GitRuntime(root, this.config, this.runner, false, this.onChanged, this.statsIndexes)
   }
 
   private async notifyChanged(cwd: string) {
@@ -376,6 +611,83 @@ export class GitRuntime implements GitService {
     }
   }
 
+  private async runStatsLog(cwd: string, revision: string, signal?: AbortSignal) {
+    const result = await this.runner.run(
+      cwd,
+      [
+        'log',
+        '--first-parent',
+        '--diff-merges=first-parent',
+        '--root',
+        '--find-renames',
+        '--numstat',
+        '-z',
+        `--max-count=${this.config.maxStatsCommits + 1}`,
+        `--show-notes=${PROVENANCE_NOTES_REF}`,
+        '--pretty=format:%x1e%H%x00%P%x00%ct%x00%N%x00',
+        revision,
+      ],
+      signal ?? new AbortController().signal,
+      { timeoutMs: this.config.timeoutMs, maxOutputBytes: this.config.maxStatsOutputBytes },
+    )
+    if (result.timedOut) throw new HbarError('GIT_TIMEOUT', `Git command exceeded ${this.config.timeoutMs}ms`)
+    if (result.code !== 0)
+      throw new HbarError(
+        'GIT_COMMAND_FAILED',
+        result.stderr.trim() || result.stdout.trim() || `git exited with ${result.code}`,
+      )
+    const parsed = parseStatsLog(result.stdout, signal)
+    return {
+      commits: parsed.slice(0, this.config.maxStatsCommits),
+      complete: !result.truncated && parsed.length <= this.config.maxStatsCommits,
+    }
+  }
+
+  private async statsRepository(cwd: string, signal?: AbortSignal) {
+    const status = await this.status(cwd, signal)
+    if (!status.root || !status.head) return { repoId: status.root ?? cwd, head: null }
+    const common = await this.run(status.root, ['rev-parse', '--git-common-dir'], signal)
+    return {
+      repoId: resolve(status.root, common.stdout.trim()),
+      head: status.head,
+    }
+  }
+
+  private async refreshStatsIndex(
+    cwd: string,
+    repoId: string,
+    head: string,
+    signal?: AbortSignal,
+  ): Promise<GitStatsIndexResult> {
+    const cached = this.statsIndexes.get(repoId)
+    if (cached?.head === head) return { index: cached, mode: 'hit' }
+    if (cached) {
+      const descendant = await this.tryRun(cwd, ['merge-base', '--is-ancestor', cached.head, head], signal)
+      if (descendant) {
+        const scanned = await this.runStatsLog(cwd, `${cached.head}..${head}`, signal)
+        const seen = new Set<string>()
+        const commits = [...scanned.commits, ...cached.commits]
+          .filter((commit) => (seen.has(commit.sha) ? false : (seen.add(commit.sha), true)))
+          .slice(0, this.config.maxStatsCommits)
+        const index: GitStatsIndex = {
+          repoId,
+          head,
+          commits,
+          complete:
+            scanned.complete &&
+            cached.complete &&
+            scanned.commits.length + cached.commits.length <= this.config.maxStatsCommits,
+        }
+        this.statsIndexes.set(repoId, index)
+        return { index, mode: 'incremental' }
+      }
+    }
+    const scanned = await this.runStatsLog(cwd, head, signal)
+    const index: GitStatsIndex = { repoId, head, commits: scanned.commits, complete: scanned.complete }
+    this.statsIndexes.set(repoId, index)
+    return { index, mode: cached ? 'reindexed' : 'full' }
+  }
+
   private async remoteBase(cwd: string, status: GitStatus, signal?: AbortSignal) {
     let reference = status.upstream
     if (!reference && status.branch) {
@@ -423,6 +735,7 @@ export class GitRuntime implements GitService {
     const status = await this.tryRun(path, ['status', '--porcelain=v1', '-z', '--branch'], signal)
     if (!status)
       return gitStatusSchema.parse({ cwd: path, root: null, branch: null, head: null, upstream: null, ahead: 0, behind: 0, dirty: false, entries: [], originUrl: null })
+    if (status.truncated) throw new HbarError('GIT_OUTPUT_LIMIT', 'Git status output exceeded its configured limit')
     const parsed = parseStatus(status.stdout, path)
     const rootResult = await this.tryRun(path, ['rev-parse', '--show-toplevel'], signal)
     const headResult = await this.tryRun(path, ['rev-parse', 'HEAD'], signal)
@@ -438,7 +751,14 @@ export class GitRuntime implements GitService {
 
   async diff(cwd?: string, options: GitDiffOptions = {}, signal?: AbortSignal): Promise<GitDiff> {
     const path = await this.resolveWithinRoot(cwd)
-    const args = ['diff', '--no-ext-diff', ...(options.cached ? ['--cached'] : [])]
+    const scoped = options.scope === 'execution-root'
+    const args = [
+      ...(scoped ? ['--literal-pathspecs'] : []),
+      'diff',
+      '--no-ext-diff',
+      ...(scoped ? ['--relative', '--no-renames', '--no-textconv'] : []),
+      ...(options.cached ? ['--cached'] : []),
+    ]
     const paths = (options.paths ?? []).map(pathSpec)
     if (paths.length) args.push('--', ...paths)
     const result = await this.run(path, args, signal)
@@ -450,10 +770,108 @@ export class GitRuntime implements GitService {
     const bounded = Math.min(MAX_LOG, Math.max(1, Math.trunc(limit)))
     const result = await this.tryRun(
       path,
-      ['log', '-n', String(bounded), '--date=iso-strict', '--pretty=format:%H%x00%h%x00%an%x00%aI%x00%s%x00'],
+      [
+        'log',
+        '-n',
+        String(bounded),
+        '--date=iso-strict',
+        `--show-notes=${PROVENANCE_NOTES_REF}`,
+        '--pretty=format:%x1e%H%x00%h%x00%an%x00%aI%x00%cI%x00%s%x00%N',
+      ],
       signal,
     )
     return result ? parseLog(result.stdout) : []
+  }
+
+  async stats(cwd: string | undefined, options: GitStatsOptions, signal?: AbortSignal): Promise<GitStatsReport> {
+    const path = await this.resolveWithinRoot(cwd)
+    const to = options.to ?? Date.now()
+    const from = options.from ?? to - options.bucketMs * options.maxBuckets
+    if (
+      !Number.isSafeInteger(from) ||
+      !Number.isSafeInteger(to) ||
+      from < 0 ||
+      to <= from ||
+      !Number.isSafeInteger(options.bucketMs) ||
+      options.bucketMs < 60_000
+    )
+      throw new HbarError('GIT_STATS_RANGE', 'Git statistics require a valid positive time range and bucket width')
+    const bucketCount = Math.ceil((to - from) / options.bucketMs)
+    if (bucketCount < 1 || bucketCount > options.maxBuckets || bucketCount > 1_000)
+      throw new HbarError('GIT_STATS_RANGE', 'Git statistics time range exceeds the requested bucket capacity')
+    const sources = [...new Set(options.sources)]
+    if (!sources.length || sources.some((source) => !['auto', 'manual', 'external'].includes(source)))
+      throw new HbarError('GIT_STATS_SOURCE', 'Git statistics require at least one recognized commit source')
+    const repository = await this.statsRepository(path, signal)
+    const points = Array.from({ length: bucketCount }, (_, index) => ({
+      ...emptyStatsCount(),
+      start: from + index * options.bucketMs,
+      end: Math.min(to, from + (index + 1) * options.bucketMs),
+    }))
+    if (!repository.head)
+      return {
+        accountingVersion: 'git-stats-v1',
+        repoId: repository.repoId,
+        head: null,
+        observedAt: Date.now(),
+        from,
+        to,
+        bucketMs: options.bucketMs,
+        sources,
+        timeBasis: 'committer',
+        timezone: 'UTC',
+        historyPolicy: 'first-parent',
+        renamePolicy: 'separate',
+        binaryLineChanges: { value: 0, availability: 'available', reason: null },
+        totals: emptyStatsCount(),
+        points,
+        scannedCommits: 0,
+        indexMode: 'empty',
+        indexComplete: true,
+        gap: false,
+      }
+    const refreshed = await this.refreshStatsIndex(path, repository.repoId, repository.head, signal)
+    const selectedSources = new Set<GitCommitSource>(sources)
+    const totals = emptyStatsCount()
+    for (const [index, commit] of refreshed.index.commits.entries()) {
+      if (index % 100 === 0) signal?.throwIfAborted()
+      if (
+        commit.committedAt < from ||
+        commit.committedAt >= to ||
+        !selectedSources.has(commit.provenance.source)
+      )
+        continue
+      const point = points[Math.floor((commit.committedAt - from) / options.bucketMs)]
+      if (!point) continue
+      addCommit(point, commit)
+      addCommit(totals, commit)
+    }
+    const oldest = refreshed.index.commits.at(-1)?.committedAt
+    const gap = !refreshed.index.complete && (oldest === undefined || from <= oldest)
+    return {
+      accountingVersion: 'git-stats-v1',
+      repoId: refreshed.index.repoId,
+      head: refreshed.index.head,
+      observedAt: Date.now(),
+      from,
+      to,
+      bucketMs: options.bucketMs,
+      sources,
+      timeBasis: 'committer',
+      timezone: 'UTC',
+      historyPolicy: 'first-parent',
+      renamePolicy: 'separate',
+      binaryLineChanges:
+        totals.binaryFiles > 0
+          ? { value: null, availability: 'unavailable', reason: 'BINARY_CONTENT' }
+          : { value: 0, availability: 'available', reason: null },
+      totals,
+      points,
+      scannedCommits: refreshed.index.commits.length,
+      indexMode: refreshed.mode,
+      indexComplete: refreshed.index.complete,
+      gap,
+    }
   }
 
   async commit(cwd: string | undefined, options: GitCommitOptions, signal?: AbortSignal): Promise<GitCommitInfo> {
@@ -466,8 +884,30 @@ export class GitRuntime implements GitService {
     if (paths.length) args.push('--', ...paths)
     await this.run(path, args, signal)
     const head = (await this.run(path, ['rev-parse', 'HEAD'], signal)).stdout.trim()
+    const provenance = gitCommitProvenanceSchema.parse({
+      source: options.provenance.source,
+      recordedAt: Date.now(),
+      sessionId: options.provenance.sessionId ?? null,
+      runId: options.provenance.runId ?? null,
+      operationId: options.provenance.operationId ?? null,
+    })
+    await this.run(
+      path,
+      ['notes', `--ref=${PROVENANCE_NOTES_REF}`, 'add', '-f', '-m', `${PROVENANCE_PREFIX}${JSON.stringify(provenance)}`, head],
+      signal,
+    )
     const commits = await this.log(path, 1, signal)
-    const result = gitCommitInfoSchema.parse(commits[0] ?? { sha: head, shortSha: head.slice(0, 7), author: '', authoredAt: '', subject: message.split(/\r?\n/, 1)[0] })
+    const result = gitCommitInfoSchema.parse(
+      commits[0] ?? {
+        sha: head,
+        shortSha: head.slice(0, 7),
+        author: '',
+        authoredAt: '',
+        committedAt: '',
+        subject: message.split(/\r?\n/, 1)[0],
+        provenance,
+      },
+    )
     await this.notifyChanged(path)
     return result
   }
@@ -515,6 +955,61 @@ export class GitRuntime implements GitService {
     const listed = await this.branch(path, {}, signal)
     if (Array.isArray(listed)) return listed.find((item) => item.name === name) ?? listed[0] ?? gitBranchInfoSchema.parse({ name, current: false, remote: null, upstream: null, ahead: 0, behind: 0 })
     return listed
+  }
+
+  async createLaunchBranch(
+    cwd: string | undefined,
+    input: GitLaunchBranchCreateInput,
+    signal?: AbortSignal,
+  ): Promise<GitLaunchBranchCreateResult> {
+    const path = await this.resolveWithinRoot(cwd)
+    const name = branchName(input.name.trim())
+    const ref = `refs/heads/${name}`
+    const basePrefix = 'refs/heads/'
+    if (!input.baseRef.startsWith(basePrefix) || input.baseRef.length <= basePrefix.length)
+      throw new HbarError('GIT_BRANCH_BASE_NOT_FOUND', 'Launch branch base must be a local branch ref')
+    branchName(input.baseRef.slice(basePrefix.length))
+    if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(input.expectedBaseOid))
+      throw new HbarError('GIT_BRANCH_BASE_CHANGED', 'Launch branch base OID is invalid')
+
+    const validName = await this.tryRun(path, ['check-ref-format', ref], signal)
+    if (!validName) throw new HbarError('GIT_INVALID_BRANCH', 'Invalid Git branch name')
+    const validBase = await this.tryRun(path, ['check-ref-format', input.baseRef], signal)
+    if (!validBase) throw new HbarError('GIT_BRANCH_BASE_NOT_FOUND', 'Launch branch base ref is invalid')
+    const existing = await this.tryRun(path, ['show-ref', '--verify', '--quiet', ref], signal)
+    if (existing) throw new HbarError('GIT_BRANCH_EXISTS', 'Launch branch already exists')
+
+    const base = await this.tryRun(
+      path,
+      ['rev-parse', '--verify', '--quiet', '--end-of-options', `${input.baseRef}^{commit}`],
+      signal,
+    )
+    if (!base) throw new HbarError('GIT_BRANCH_BASE_NOT_FOUND', 'Launch branch base ref does not resolve to a commit')
+    const baseOid = base.stdout.trim()
+    if (baseOid.toLowerCase() !== input.expectedBaseOid.toLowerCase())
+      throw new HbarError('GIT_BRANCH_BASE_CHANGED', 'Launch branch base moved after it was selected')
+
+    try {
+      await this.run(path, ['branch', '--', name, input.expectedBaseOid], signal)
+    } catch (error) {
+      if (error instanceof HbarError && error.code === 'GIT_COMMAND_FAILED') {
+        const createdDuringRequest = await this.tryRun(path, ['show-ref', '--verify', '--quiet', ref], signal)
+        if (createdDuringRequest) throw new HbarError('GIT_BRANCH_EXISTS', 'Launch branch already exists')
+      }
+      throw error
+    }
+
+    const created = await this.tryRun(
+      path,
+      ['rev-parse', '--verify', '--quiet', '--end-of-options', `${ref}^{commit}`],
+      signal,
+    )
+    const oid = created?.stdout.trim() ?? ''
+    if (!created || oid.toLowerCase() !== baseOid.toLowerCase())
+      throw new HbarError('GIT_BRANCH_RESULT_UNKNOWN', 'Created launch branch could not be verified')
+
+    await this.notifyChanged(path)
+    return { ref, oid }
   }
 
   async worktree(cwd: string | undefined, operation: GitWorktreeOperation = {}, signal?: AbortSignal): Promise<GitWorktreeInfo[] | GitWorktreeInfo> {
@@ -574,6 +1069,99 @@ export class GitRuntime implements GitService {
     return { path: target, head: null, branch: null, bare: false, locked: false, prunable: false }
   }
 
+  async launchBranchSnapshot(cwd?: string, signal?: AbortSignal): Promise<GitLaunchBranchSnapshot> {
+    const path = await this.resolveWithinRoot(cwd)
+    const rootResult = await this.runner.run(
+      path,
+      ['rev-parse', '--show-toplevel'],
+      signal ?? new AbortController().signal,
+      { timeoutMs: this.config.timeoutMs, maxOutputBytes: this.config.maxOutputBytes },
+    )
+    if (rootResult.timedOut) throw new HbarError('GIT_TIMEOUT', `Git command exceeded ${this.config.timeoutMs}ms`)
+    if (rootResult.code !== 0) {
+      const message = `${rootResult.stderr}\n${rootResult.stdout}`
+      if (!/not a git repository/i.test(message))
+        throw new HbarError('GIT_REPOSITORY_UNAVAILABLE', 'Git could not inspect the registered workspace repository')
+      if (await hasGitMetadataInParents(path))
+        throw new HbarError('GIT_REPOSITORY_UNAVAILABLE', 'Git repository metadata exists but Git could not read it')
+      return { repository: { kind: 'not-repository' }, branches: [], incomplete: false }
+    }
+    if (rootResult.truncated)
+      throw new HbarError('GIT_OUTPUT_LIMIT', 'Git repository root output exceeded its configured limit')
+
+    const rootOutput = stripOneTrailingLineEnding(rootResult.stdout)
+    if (!rootOutput) throw new HbarError('GIT_REPOSITORY_UNAVAILABLE', 'Git returned an empty repository root')
+    const repositoryRoot = await realpath(resolve(rootOutput))
+    const canonicalWorkspace = await realpath(path)
+    if (!inside(repositoryRoot, canonicalWorkspace))
+      throw new HbarError('GIT_REPOSITORY_SCOPE', 'Git repository root is outside the registered workspace scope')
+    const [symbolicResult, headResult, refsResult, worktreesResult] = await Promise.all([
+      this.tryRun(path, ['symbolic-ref', '--quiet', 'HEAD'], signal),
+      this.tryRun(path, ['rev-parse', '--verify', '--quiet', '--end-of-options', 'HEAD^{commit}'], signal),
+      this.run(
+        path,
+        [
+          'for-each-ref',
+          `--count=${MAX_LAUNCH_BRANCH_REFS + 1}`,
+          '--sort=refname',
+          '--format=%(refname:strip=2)%00%(objectname)',
+          'refs/heads',
+        ],
+        signal,
+      ),
+      this.tryRun(path, ['worktree', 'list', '--porcelain', '-z'], signal),
+    ])
+
+    const symbolicRef = symbolicResult?.stdout.trim() || null
+    const headValue = headResult?.stdout.trim() || null
+    const headOid = headValue && isGitObjectId(headValue) ? headValue : null
+    const refsSnapshot = parseLaunchBranchRefs(refsResult.stdout, symbolicRef, refsResult.truncated)
+    const refsOverCap = refsSnapshot.branches.length > MAX_LAUNCH_BRANCH_REFS
+    const branches = refsSnapshot.branches.slice(0, MAX_LAUNCH_BRANCH_REFS)
+
+    let head: GitLaunchBranchHead
+    if (symbolicRef) {
+      if (symbolicRef.startsWith('refs/heads/')) {
+        const name = symbolicRef.slice('refs/heads/'.length)
+        if (!name || name.length > 1_000)
+          throw new HbarError('GIT_HEAD_UNRESOLVED', 'Git returned an invalid symbolic branch ref')
+        if (headOid) head = { kind: 'branch', ref: symbolicRef, name, oid: headOid }
+        else if (!refsSnapshot.branches.some((branch) => branch.ref === symbolicRef)) {
+          const existingRef = await this.tryRun(path, ['show-ref', '--verify', '--quiet', symbolicRef], signal)
+          if (existingRef) head = { kind: 'symbolic', ref: symbolicRef, oid: null }
+          else head = { kind: 'unborn', ref: symbolicRef, name }
+        } else head = { kind: 'symbolic', ref: symbolicRef, oid: null }
+      } else head = { kind: 'symbolic', ref: symbolicRef, oid: headOid }
+    } else if (headOid) head = { kind: 'detached', oid: headOid }
+    else throw new HbarError('GIT_HEAD_UNRESOLVED', 'Git could not resolve the current repository HEAD')
+
+    const worktreeComplete = Boolean(worktreesResult && !worktreesResult.truncated)
+    const worktreeState = worktreesResult
+      ? parseLaunchWorktreeBranches(worktreesResult.stdout, repositoryRoot)
+      : { branches: new Map<string, 'current' | 'elsewhere' | 'conflict'>(), currentWorktreeFound: false }
+    const projectedBranches = branches.map((branch) => {
+      const location = worktreeState.branches.get(branch.ref)
+      let worktree: GitLaunchBranchReference['worktree']
+      if (head.kind === 'branch' && branch.ref === head.ref) worktree = 'current'
+      else if (location === 'elsewhere') worktree = 'elsewhere'
+      else if (location === 'current' || location === 'conflict') worktree = 'unknown'
+      else if (worktreeComplete && worktreeState.currentWorktreeFound) worktree = 'available'
+      else worktree = 'unknown'
+      return { ...branch, worktree }
+    })
+
+    return {
+      repository: {
+        kind: 'repository',
+        workspaceScope:
+          relative(repositoryRoot, canonicalWorkspace) === '' ? 'repository-root' : 'repository-subdirectory',
+        head,
+      },
+      branches: projectedBranches,
+      incomplete: refsSnapshot.incomplete || refsOverCap || refsResult.truncated,
+    }
+  }
+
   async diffToRemote(cwd?: string, signal?: AbortSignal, paths: string[] = []) {
     const path = await this.resolveWithinRoot(cwd)
     const status = await this.status(path, signal)
@@ -608,6 +1196,13 @@ const cwdSchema = z.object({ cwd: z.string().min(1).max(MAX_PATH).optional() })
 const remoteDiffArgs = cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).max(100).default([]) })
 const diffArgs = cwdSchema.extend({ cached: z.boolean().default(false), paths: z.array(z.string().min(1).max(MAX_PATH)).max(100).default([]) })
 const logArgs = cwdSchema.extend({ limit: z.number().int().min(1).max(MAX_LOG).default(20) })
+const statsArgs = cwdSchema.extend({
+  from: z.number().int().nonnegative().optional(),
+  to: z.number().int().positive().optional(),
+  bucketMs: z.number().int().min(60_000).max(2_592_000_000).default(86_400_000),
+  maxBuckets: z.number().int().min(1).max(1_000).default(120),
+  sources: z.array(z.enum(['auto', 'manual', 'external'])).min(1).max(3).default(['auto', 'manual', 'external']),
+})
 const commitArgs = cwdSchema.extend({ message: z.string().trim().min(1).max(4_000), paths: z.array(z.string().min(1).max(MAX_PATH)).max(100).default([]), stage: z.boolean().default(false) })
 const branchArgs = cwdSchema.extend({ operation: z.enum(['list', 'create', 'switch', 'delete']).default('list'), name: z.string().trim().min(1).max(1_000).optional(), force: z.boolean().default(false) })
 const worktreeArgs = cwdSchema.extend({ operation: z.enum(['list', 'add', 'remove']).default('list'), path: z.string().min(1).max(MAX_PATH).optional(), branch: z.string().trim().min(1).max(1_000).optional(), createBranch: z.boolean().default(false), force: z.boolean().default(false) })
@@ -622,16 +1217,17 @@ function scopedTool(runtime: GitRuntime, context: { workspace: { path: string } 
 
 export function gitTools(runtime: GitRuntime): ToolDefinition[] {
   return [
-    { name: 'git_info', description: 'Read the current Git commit, branch, and sanitized origin metadata.', inputSchema: cwdSchema, effect: 'read', execute: async (args, context) => { const parsed = cwdSchema.parse(args); return toolResult(await scopedTool(runtime, context).info(parsed.cwd, context.signal)) } },
-    { name: 'git_status', description: 'Inspect the current Git repository status, branch, upstream, and sanitized origin URL.', inputSchema: cwdSchema, effect: 'read', execute: async (args, context) => { const parsed = cwdSchema.parse(args); return toolResult(await scopedTool(runtime, context).status(parsed.cwd, context.signal)) } },
-    { name: 'git_diff', description: 'Read a bounded Git diff for the workspace. Paths are relative to the workspace.', inputSchema: diffArgs, effect: 'read', execute: async (args, context) => { const parsed = diffArgs.parse(args); return toolResult(await scopedTool(runtime, context).diff(parsed.cwd, parsed, context.signal)) } },
-    { name: 'git_log', description: 'Read recent Git commits from the workspace.', inputSchema: logArgs, effect: 'read', execute: async (args, context) => { const parsed = logArgs.parse(args); return toolResult(await scopedTool(runtime, context).log(parsed.cwd, parsed.limit, context.signal)) } },
-    { name: 'git_diff_to_remote', description: 'Read the diff from the current HEAD to its configured upstream branch.', inputSchema: remoteDiffArgs, effect: 'read', execute: async (args, context) => { const parsed = remoteDiffArgs.parse(args); return toolResult(await scopedTool(runtime, context).diffToRemote(parsed.cwd, context.signal, parsed.paths)) } },
-    { name: 'git_commit', description: 'Create a Git commit. This is a write operation and requires approval.', inputSchema: commitArgs, effect: 'write', execute: async (args, context) => { const parsed = commitArgs.parse(args); return toolResult(await scopedTool(runtime, context).commit(parsed.cwd, parsed, context.signal)) } },
-    { name: 'git_stage', description: 'Stage bounded workspace paths for the next Git commit. Requires approval.', inputSchema: cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).min(1).max(100) }), effect: 'write', execute: async (args, context) => { const parsed = cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).min(1).max(100) }).parse(args); return toolResult(await scopedTool(runtime, context).stage(parsed.cwd, parsed.paths, context.signal)) } },
-    { name: 'git_unstage', description: 'Remove bounded workspace paths from the Git index. Requires approval.', inputSchema: cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).min(1).max(100) }), effect: 'write', execute: async (args, context) => { const parsed = cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).min(1).max(100) }).parse(args); return toolResult(await scopedTool(runtime, context).unstage(parsed.cwd, parsed.paths, context.signal)) } },
-    { name: 'git_branch', description: 'List or mutate Git branches. Mutations require approval.', inputSchema: branchArgs, effect: 'write', execute: async (args, context) => { const parsed = branchArgs.parse(args); if (parsed.operation !== 'list' && !parsed.name) throw new HbarError('GIT_INVALID_BRANCH', 'name is required for branch mutations'); return toolResult(await scopedTool(runtime, context).branch(parsed.cwd, parsed.operation === 'list' ? {} : { operation: parsed.operation, name: parsed.name!, force: parsed.force }, context.signal)) } },
-    { name: 'git_worktree', description: 'List, create, or remove bounded Git worktrees. Mutations require approval.', inputSchema: worktreeArgs, effect: 'write', execute: async (args, context) => { const parsed = worktreeArgs.parse(args); if (parsed.operation !== 'list' && !parsed.path) throw new HbarError('GIT_WORKTREE_PATH', 'path is required for worktree mutations'); const operation = parsed.operation === 'list' ? {} : parsed.operation === 'add' ? { operation: 'add' as const, path: parsed.path!, branch: parsed.branch, createBranch: parsed.createBranch } : { operation: 'remove' as const, path: parsed.path!, force: parsed.force }; return toolResult(await scopedTool(runtime, context).worktree(parsed.cwd, operation, context.signal)) } },
+    { name: 'git_info', description: 'Read the current Git commit, branch, and sanitized origin metadata.', inputSchema: cwdSchema, effect: 'read', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = cwdSchema.parse(args); return toolResult(await scopedTool(runtime, context).info(parsed.cwd, context.signal)) } },
+    { name: 'git_status', description: 'Inspect the current Git repository status, branch, upstream, and sanitized origin URL.', inputSchema: cwdSchema, effect: 'read', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = cwdSchema.parse(args); return toolResult(await scopedTool(runtime, context).status(parsed.cwd, context.signal)) } },
+    { name: 'git_diff', description: 'Read a bounded Git diff for the workspace. Paths are relative to the workspace.', inputSchema: diffArgs, effect: 'read', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = diffArgs.parse(args); return toolResult(await scopedTool(runtime, context).diff(parsed.cwd, parsed, context.signal)) } },
+    { name: 'git_log', description: 'Read recent Git commits from the workspace.', inputSchema: logArgs, effect: 'read', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = logArgs.parse(args); return toolResult(await scopedTool(runtime, context).log(parsed.cwd, parsed.limit, context.signal)) } },
+    { name: 'git_stats', description: 'Read bounded first-parent Git commit, file, and line statistics grouped by explicit source.', inputSchema: statsArgs, effect: 'read', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = statsArgs.parse(args); return toolResult(await scopedTool(runtime, context).stats(parsed.cwd, parsed, context.signal)) } },
+    { name: 'git_diff_to_remote', description: 'Read the diff from the current HEAD to its configured upstream branch.', inputSchema: remoteDiffArgs, effect: 'read', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = remoteDiffArgs.parse(args); return toolResult(await scopedTool(runtime, context).diffToRemote(parsed.cwd, context.signal, parsed.paths)) } },
+    { name: 'git_commit', description: 'Create a Git commit. This is a write operation and requires approval.', inputSchema: commitArgs, effect: 'write', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = commitArgs.parse(args); return toolResult(await scopedTool(runtime, context).commit(parsed.cwd, { ...parsed, provenance: { source: 'auto', sessionId: context.session.id, runId: context.run.id, operationId: context.callId } }, context.signal)) } },
+    { name: 'git_stage', description: 'Stage bounded workspace paths for the next Git commit. Requires approval.', inputSchema: cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).min(1).max(100) }), effect: 'write', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).min(1).max(100) }).parse(args); return toolResult(await scopedTool(runtime, context).stage(parsed.cwd, parsed.paths, context.signal)) } },
+    { name: 'git_unstage', description: 'Remove bounded workspace paths from the Git index. Requires approval.', inputSchema: cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).min(1).max(100) }), effect: 'write', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = cwdSchema.extend({ paths: z.array(z.string().min(1).max(MAX_PATH)).min(1).max(100) }).parse(args); return toolResult(await scopedTool(runtime, context).unstage(parsed.cwd, parsed.paths, context.signal)) } },
+    { name: 'git_branch', description: 'List or mutate Git branches. Mutations require approval.', inputSchema: branchArgs, effect: 'write', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = branchArgs.parse(args); if (parsed.operation !== 'list' && !parsed.name) throw new HbarError('GIT_INVALID_BRANCH', 'name is required for branch mutations'); return toolResult(await scopedTool(runtime, context).branch(parsed.cwd, parsed.operation === 'list' ? {} : { operation: parsed.operation, name: parsed.name!, force: parsed.force }, context.signal)) } },
+    { name: 'git_worktree', description: 'List, create, or remove bounded Git worktrees. Mutations require approval.', inputSchema: worktreeArgs, effect: 'write', workspaceAccess: { kind: 'workspace' }, execute: async (args, context) => { const parsed = worktreeArgs.parse(args); if (parsed.operation !== 'list' && !parsed.path) throw new HbarError('GIT_WORKTREE_PATH', 'path is required for worktree mutations'); const operation = parsed.operation === 'list' ? {} : parsed.operation === 'add' ? { operation: 'add' as const, path: parsed.path!, branch: parsed.branch, createBranch: parsed.createBranch } : { operation: 'remove' as const, path: parsed.path!, force: parsed.force }; return toolResult(await scopedTool(runtime, context).worktree(parsed.cwd, operation, context.signal)) } },
   ]
 }
 

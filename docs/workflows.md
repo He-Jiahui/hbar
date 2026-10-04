@@ -1,0 +1,124 @@
+# Goal、Agent Plan 与专注工作流
+
+hbar 的长任务状态与 Codex 语义保持一致，并且只存在一份执行计划。
+
+| 概念       | Host 持久事实                                                       | 不负责                       |
+| ---------- | ------------------------------------------------------------------- | ---------------------------- |
+| Goal       | 会话级 objective、停止状态、Token 预算、累计用量和耗时              | 步骤、文件范围、验收按钮     |
+| Agent Plan | 带单调 revision 的 `{ step, status }` 有序清单                      | 工具权限、路径范围、Evidence |
+| Workflow   | 当前 Plan 步骤的执行焦点、能力范围、验证策略、委派、诊断与 Evidence | 第二份 TODO 或 Goal 完成判定 |
+
+Plan Mode 只在对话中产出 proposed plan。回到 Default mode 后，Agent 使用 `update_plan` 发布或修订唯一的 Agent Plan。Goals and plans 面板只读显示这份 Plan；生产 UI 不再提供 Plan 保存、清除或排序入口。兼容 Host 命令仍保留一个版本，但不再暴露给新模型流程。
+
+## Goal 生命周期
+
+`goal.create` / `create_goal` 在任何未完成 Goal 存在时返回 `GOAL_EXISTS`。用户显式替换 objective 使用 `goal.set`，必须携带当前 `expectedGoalId`；替换生成新的 `goalId`，重置 Token/时间计量、自动续跑审计与关联 Workflow，并清除旧 Agent Plan。同一 objective 或省略 objective 时只更新状态或预算，保留累计用量。旧 Goal 已清除时，携带其身份的写入也会被拒绝，不能重新创建旧目标。
+
+`goal.set complete` 与 `goal.update complete` 使用相同的完成检查。校验与持久化期间锁定观察到的 Plan 和 Workflow 版本；并发修订会被排序或返回版本冲突，不会写入未经当前工作流验收的完成状态。创建或替换 objective 时不能同时标记完成。
+
+Workflow 完成最后一个 Plan 步骤后不会擅自完成 Goal。Agent 仍需根据 objective 的停止条件调用 `update_goal complete`。Goal 可以在没有 Workflow 时独立运行。
+
+Goal 的 Host `maxTokenBudget` 是上限；兼容 `goal.set` 参数中的同名字段只能收紧它。新建、替换和普通预算更新共用这一上限，`tokenBudget: null` 也不能取消 Host 已配置的限制。
+
+Goal 在每个模型步骤结束时结算，下一次模型请求前检查已耗尽的额度。每次 Run 的 Goal 身份、起算位置和结算游标持久化；账目与游标在同一事件中提交，重复回调或重启不会重复计费。未能证明归属的旧 Run 不会被猜测归入当前 Goal。已绑定 Run 在暂停或完成前后仍如实结算实际消耗，但不会用预算状态覆盖显式暂停。计量写入结果未知时停止后续模型请求，等待 Host 重放持久事实恢复。
+
+独立 session budget 在每个模型步骤结束时结算，并使用持久事件游标避免重复计费；下一次模型请求前检查已结算额度。单次已发出的请求可能超额，但不会在长 Run 中继续发起新的模型请求。旧的整轮账本保持已结算金额，升级和重启不会重算既有消耗；账本写入结果未知时阻止新请求，Host 恢复后回读持久事实。
+
+Goal 的可选 `executionBudget` 投影分别提供 Goal 余量、session 余量、二者较小的有效余量，以及 `goal` / `session` / `both` 限制来源；未设置的额度为 `null`，不参与取最小值。session 先耗尽也使正在执行的 Goal 成为 `budget_limited`，而不是 `blocked`。提高或清除限制后，仅恢复因预算而中断的 active 意图；显式暂停、完成、真正阻塞与没有恢复意图的旧账本不会被自动恢复。预算状态通过提交后事件刷新，重启时再次从两个账本核对。恢复 active 状态与实际续跑调度是不同阶段，后者仍由调度器决定。
+
+Run 保留兼容的 `error` 文本，并可附带 `failure`（`code`、`category`、`retryable` 和可选预算来源）。模型驱动保留 Host 请求前检查的错误码；`operation.get` 与持久事件携带相同结构。用户取消当前 Run（包括尚未执行的排队 Run）会暂停对应 Goal，预算调整不会撤销这一暂停。Host 关闭、中断、超时与用户取消使用不同原因；崩溃恢复中的未知工具效果标记 `result_unknown`，不自动重放。run.start 检查失败阻止模型请求，不再仅记录日志后继续运行。
+
+启动恢复会先补结算已写入但尚未经过 step/end 回调的 usage，再开放模型请求。Goal 仅结算具有持久归属且已经终止的 Run；session budget 则按其游标结算遗漏的会话用量。已经写入的用户取消即使遗漏 Goal 回调也会恢复为暂停。这一步只恢复账目与停止状态，不重放工具，也不凭旧的 active 状态自动启动运行。
+
+## 自动续跑调度
+
+Goal 结束一轮、reviewer 返回与预算恢复使用同一个持久化续跑意图，由 Host 在会话空闲时提交。意图绑定 `goalId`、触发事件和稳定请求 ID；同一会话只有一个待处理意图，触发去重从历史事件恢复。用户排队消息先于自动消息执行；暂停、替换和清除会在实际运行入口使旧意图失效。提交确认丢失时按原请求 ID 核对，不能生成新 ID 重放。Plan mode、Workflow 等待与预算不足保留等待原因；配置未就绪时不调度。
+
+运行中的 Goal 身份与暂停状态还会在每次工具执行和模型请求前检查，覆盖用户发起与自动发起的已绑定 Run。目标变化后，旧模型已经产生但尚未执行的工具调用不得继续产生副作用；不等到下一轮调度才生效。
+
+新配置的 `maxContinuations` 默认为 `null`，有可验证进展时不再固定停止于 8 轮。显式轮数上限仍有效，并公开 `continuation_limit`。自动轮次没有工具调用时停止为 `no_tool_calls`；新的成功工具结果和实质 Plan 更新计为进展，纯状态查询、重复同一结果或重复同一 Plan 不计为进展，连续三轮无进展停止为 `no_progress`。Host 的 `goal.continuation` 提供阶段与原因；显式恢复可生成新意图，单纯修改暂停目标的预算不能恢复执行。旧 active Goal 没有持久意图时不会在升级后自动运行。
+
+## 焦点与范围
+
+`workflow.focus.set`（模型工具 `workflow_focus`）为某个 Agent Plan 步骤设置或完整替换焦点。焦点绑定：
+
+- Agent Plan revision；
+- 步骤索引；
+- 步骤文本 SHA-256；
+- 当前读/写目录前缀与工具集合；
+- 验收检查与完成策略。
+
+路径是工作区相对文件或目录前缀，统一使用 `/`。新输入拒绝绝对路径、`..`、`*` 和 `**`。`apps/web/**` 等 v1 数据只在迁移时规范化为 `apps/web`；`**/*`、`**` 和 `*` 迁移为 `.`。
+
+工具名在持久化前与真实 ToolRegistry 核对。历史 `functions.read_file` 会在工具存在时规范化为 `read_file`；未知工具立即返回 `WORKFLOW_TOOL_UNKNOWN`。ToolDefinition 明确声明无工作区访问、结构化路径访问或 workspace-wide 访问，Workflow 不再猜测 `path`/`cwd` 字段。`shell` 与 Git 工具属于 workspace-wide；写入或进程工具必须显式拥有 `.` 写范围。
+
+`workflow.expandScope` 只接受真实增量；重复扩展返回 `WORKFLOW_SCOPE_NOOP`，不消耗 revision。普通工具连续三次遇到相同工具、路径、Plan revision 和焦点拒绝时，Workflow 进入 `needs_revision`，统一调度器安排受限修订轮次。修订时只提供 `get_goal`、`update_goal`、`get_plan`、`update_plan`、`get_workflow`、`workflow_focus`、`workflow_update`；工具执行入口也检查这一限制，不能通过构造调用绕过。焦点有效后，下一轮恢复普通工具及原有权限检查。
+
+reviewer 拒绝同样进入 `needs_revision`，不能绕过修订直接重复原执行。相同 Workflow/步骤焦点连续三个修订轮次仍未恢复时停止为 `repair_exhausted`；修订成功或显式恢复重置审计。纯状态查询、重复相同 Plan 或焦点、只变化的 revision/时间戳/证据 ID 都不构成新进展。确定性回归覆盖 14 个主 Agent 轮次与 2 个 reviewer 轮次，包括范围拒绝、过期 Plan revision、reviewer 拒绝后修订，再验证 Plan/Workflow/Goal 一致完成；此测试证明调度链路，不代表真实模型效果。
+
+## 检查点与恢复
+
+`workflow_execute` 将 1–8 个参数已知的工具调用按顺序送入同一 Run 的正常执行入口。注册表、路径、审批、取消和验收检查仍逐项执行；批次不是事务，前面已经成功的副作用不会因后续失败自动回滚。普通错误和图片结果停止批次，Agent 应先检查结果再决定后续操作。
+
+已知的范围修复路径可以在探测调用上声明 `continueOnScopeDenied: true`，但下一项必须是显式的 `workflow_expand_scope`。仅当 Host 确认该工具尚未开始执行、错误码为 `WORKFLOW_SCOPE_REQUIRED` 时才允许继续。子结果仍保留 `isError: true` 和 `continuedScopeDenial: true`，范围拒绝也保留在持久 Workflow 中；这不是忽略错误或自动扩大用户授权。权限拒绝、已开始的写入、插件伪造的错误元数据、未知效果、图片及其他错误均不得借此继续。
+
+因此，在参数和 Host 工具验收谓词已知时，可以用一次模型请求声明「范围探测 → 有界范围扩展 → 写入 → 读回 → checkpoint → Goal 完成」。Host 仍会拒绝缺少或失败的证据；需要解释结果的检查或显式人工验收不能提前完成。此机制减少控制往返，不保证任意任务都能在指定预算内完成。
+
+批次内省略的 checkpoint / scope 版本绑定到批次开始时的焦点和 Agent Plan，不会跟随子调用自动刷新。显式版本仍严格检查，旧 Plan 或被替换的焦点不能继续写入。模型工具 `workflow_expand_scope` 接受 `expectedRevision`，或完整的 `expectedFocusRevision` / `expectedPlanRevision` 二元身份，不能混用；独立调用不可省略版本。原公开 `workflow.expandScope` 命令保持数值 revision 的兼容契约。
+
+`workflow.checkpoint complete` 先写入带 operation ID 的 transition intent，再以 Plan CAS 完成当前步骤并把下一 pending 步骤设为 in_progress，最后结算 Workflow。Host 如果在任一步崩溃，恢复时会幂等补齐；若 Plan 已被其他写入改变，则进入 `needs_revision`，不会把旧结果写入新 Plan。
+
+Plan revision 或步骤文本发生变化时，旧焦点、委派与 reviewer 结果都会失效。Agent 使用 `workflow_focus` 为新 revision 建立焦点即可恢复。Workflow 最后一步完成只结算 Plan/Workflow，不修改 Goal。
+
+清除 Agent Plan 会记录 revision 墓碑；重新发布的 Plan 继续递增版本，Host 重启也不会把版本重置为 1。没有当前 Plan 时，兼容命令的 `expectedRevision: 0` 仍表示创建，但旧 Plan 的版本不能匹配新 Plan。
+
+## 验收策略
+
+`completionPolicy` 有三种：
+
+- `agent`（默认）：执行 Agent 提交结论、摘要和 Evidence 引用。Host 记录 Plan revision、Run/Call、参数/结果哈希；全过程不要求用户决断。
+- `review_agent`：Host 创建 `approval: deny` 的只读 reviewer。Reviewer 只能使用焦点允许的读工具和 `workflow_review_submit`。verdict 绑定 Plan revision、步骤哈希和 Git 工作区指纹；工作区变化后结果标记为 stale。批准推进 Plan；拒绝携带反馈自动恢复主 Agent；取消或失败也恢复主 Agent。
+- `user`：仅在用户或任务明确要求人工验收时使用。Accept/Reject 只对当前焦点且 `waiting_user` 状态有效，不能提前接受未来步骤。
+
+工具检查支持规范工具名、参数子集以及类型化结果谓词：成功、文本包含、JSON 路径等于、布尔为真。浏览器自然语言字符串包含断言只保留为 v1 历史，不再产生有效自动证明。纯视觉质量应由 Agent、review agent 或显式人工策略判断。
+
+## Evidence 与委派
+
+工具 Evidence 在工具结果结算后写入，包含 Run、Call、工具、参数哈希和结果哈希。Agent 结论、reviewer verdict 和显式用户决断使用不同 source。Evidence 最多保留 1,000 条；UI 以每页 20 条增量显示。
+
+委派补丁继续在隔离 worktree 中运行，并绑定权威 Plan revision 与焦点。写范围不得重叠；预算不得超过 Goal 余量。补丁应用后由父 Workflow 执行集成验证。Goal 替换或清除会取消未结算委派和 reviewer，并把旧 Workflow 标记为 cancelled。
+
+## 命令与模型工具
+
+| Host 命令              | 作用                                     |
+| ---------------------- | ---------------------------------------- |
+| `workflow.get`         | 读取权威 Agent Plan 与当前 Workflow 焦点 |
+| `workflow.focus.set`   | 设置或替换某个 Plan 步骤的焦点           |
+| `workflow.expandScope` | 记录真实增量范围                         |
+| `workflow.checkpoint`  | 记录进度、修订、阻塞或完成步骤           |
+| `workflow.delegate`    | 创建有界隔离委派                         |
+| `workflow.acceptCheck` | 仅写入显式 user 策略的当前人工决断       |
+| `workflow.complete`    | 兼容 Workflow 结算命令；不完成 Goal      |
+
+`workflow.plan.save`、`workflow.start` 和 `workflow.activate` 仅作为 v1 兼容入口保留；新模型提示不再暴露它们。模型侧使用 `get_workflow`、`workflow_focus`、`workflow_update`、`delegate_work`、`get_agent_result`、`apply_agent_patch` 和 reviewer 专用 `workflow_review_submit`。
+
+CLI 示例：
+
+```powershell
+hbar exec plan.update --session <Session ID> --input-json '<Agent Plan JSON>'
+hbar exec workflow.get --session <Session ID>
+hbar exec workflow.focus.set --session <Session ID> --input-json '<focus JSON>'
+hbar exec workflow.expandScope --session <Session ID> --input-json '<scope JSON>'
+hbar exec workflow.checkpoint --session <Session ID> --input-json '<checkpoint JSON>'
+```
+
+## 迁移与验证
+
+Host 不改写旧 SessionEvent，而是追加幂等 `workflow.migrated.v2`。有 Agent Plan 时以它为权威；没有时从 v1 workItems 派生一次 Plan。无法安全匹配的旧工具、范围、TODO 或提前验收会进入 `needs_revision`，不会静默扩大权限。
+
+核心回归包含目标替换、Plan CAS、工具别名、Windows 路径、glob 迁移、workspace-wide Shell、三次拒绝自愈、提前人工验收、类型化谓词、review approve/reject/stale/cancel、重启恢复、预算边界和 transition intent：
+
+```powershell
+bun test tests/goal.test.ts tests/plan.test.ts tests/workflow-v2.test.ts tests/workflow.test.ts tests/workflow-delegation.test.ts
+bunx playwright test e2e/workflow-focus.spec.ts
+```

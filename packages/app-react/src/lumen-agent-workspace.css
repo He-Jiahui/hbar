@@ -1,0 +1,163 @@
+.hbar-app-react-agent-workspace h2,
+.hbar-app-react-agent-workspace h3,
+.hbar-app-react-agent-workspace p,
+.hbar-app-react-agent-workspace dl {
+  margin: 0;
+}
+
+.hbar-app-react-agent-workspace h2 {
+  font-size: 0.875rem;
+}
+
+.hbar-app-react-agent-workspace h3,
+.hbar-app-react-agent-list small,
+.hbar-app-react-agent-list time,
+.hbar-app-react-agent-create-view > div > p {
+  color: var(--lumen-subtle);
+  font-size: 0.75rem;
+}
+
+.hbar-app-react-agent-detail > footer {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.hbar-app-react-agent-workspace .lumen-tool-pane-body > main {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 1rem;
+  overflow: visible;
+  padding: 0.75rem;
+}
+
+.hbar-app-react-agent-back {
+  align-self: flex-start;
+}
+
+.hbar-app-react-agent-back,
+.hbar-app-react-agent-detail > footer button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.hbar-app-react-agent-create,
+.hbar-app-react-agent-create fieldset {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.hbar-app-react-agent-create fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.hbar-app-react-agent-create > button {
+  align-self: stretch;
+}
+
+.hbar-app-react-agent-workspace [role='alert'] {
+  color: var(--lumen-danger);
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-react-agent-workspace [role='status'] {
+  color: var(--lumen-success);
+}
+
+.hbar-app-react-agent-list > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.hbar-app-react-agent-list ul {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hbar-app-react-agent-list li {
+  min-inline-size: 0;
+}
+
+.hbar-app-react-agent-row {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+  text-align: start;
+}
+
+.hbar-app-react-agent-row > span {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.hbar-app-react-agent-list strong,
+.hbar-app-react-agent-list small,
+.hbar-app-react-agent-list time {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-app-react-agent-list small {
+  inline-size: 100%;
+}
+
+.hbar-app-react-agent-list time {
+  color: var(--lumen-muted);
+  font-size: 0.6875rem;
+}
+
+.hbar-app-react-agent-empty {
+  display: flex;
+  min-block-size: 8rem;
+  align-items: center;
+  justify-content: center;
+  color: var(--lumen-muted);
+  text-align: center;
+}
+
+.hbar-app-react-agent-detail-heading {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.hbar-app-react-agent-detail > section {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-block: 0.5rem;
+  border-block: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-app-react-agent-detail > section p {
+  overflow-wrap: anywhere;
+}

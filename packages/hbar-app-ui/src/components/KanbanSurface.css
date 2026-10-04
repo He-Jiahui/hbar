@@ -1,0 +1,289 @@
+.hbar-app-ui-variant.hbar-app-ui-kanban-variant-1 {
+    position: relative;
+    display: block !important;
+    width: 100% !important;
+    height: 680px !important;
+    min-height: 680px !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: var(--hbar-app-ui-bg) !important;
+    box-shadow: none !important;
+    color: var(--hbar-app-ui-text) !important;
+    font-family: var(--hbar-app-ui-font) !important;
+}
+
+.hbar-app-ui-kanban-variant-1 *, .hbar-app-ui-kanban-variant-1 *::before, .hbar-app-ui-kanban-variant-1 *::after {
+    box-sizing: border-box;
+}
+
+.hbar-app-ui-kanban-variant-1 h2, .hbar-app-ui-kanban-variant-1 h3, .hbar-app-ui-kanban-variant-1 p {
+    margin: 0;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-kanban-variant-1 .hbar-app-ui-kanban-header {
+    display: flex !important;
+    height: 86px !important;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 24px 32px 16px !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-kanban-variant-1 .hbar-app-ui-kanban-header h2 {
+    height: 24px !important;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 24px;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-kanban-variant-1 .hbar-app-ui-kanban-header p {
+    max-width: 560px;
+    margin-top: 2px !important;
+    color: var(--hbar-app-ui-subtle);
+    font-size: 13px;
+    line-height: 19.5px;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-kanban-variant-1 .hbar-app-ui-kanban-people {
+    display: flex !important;
+    flex: 0 0 auto;
+    padding-top: 18px;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-kanban-variant-1 .hbar-app-ui-kanban-people i {
+    display: flex !important;
+    width: 26px;
+    height: 26px;
+    align-items: center;
+    justify-content: center;
+    margin-left: -4px;
+    border: 2px solid var(--hbar-app-ui-bg);
+    border-radius: 50%;
+    background: var(--hbar-app-ui-accent-bg);
+    color: var(--hbar-app-ui-muted);
+    font-size: 10px;
+    font-style: normal;
+}
+
+.hbar-app-ui-kanban-people i:first-child {
+    margin-left: 0;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-kanban-variant-1 .hbar-app-ui-kanban-board {
+    display: grid !important;
+    width: 1086px !important;
+    height: 570px !important;
+    grid-template-columns: repeat(4, 264px) !important;
+    gap: 10px !important;
+    margin: 0 0 0 32px !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-kanban-variant-1 .hbar-app-ui-kanban-column {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0 !important;
+    height: 570px !important;
+    overflow: hidden !important;
+    border: 1px solid var(--hbar-app-ui-border-strong) !important;
+    border-radius: 14px !important;
+    padding: 4px !important;
+    background: var(--hbar-app-ui-bg) !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-kanban-variant-1 .hbar-app-ui-kanban-column > header {
+    display: flex !important;
+    height: 32px !important;
+    align-items: center;
+    padding: 0 8px;
+}
+
+.hbar-app-ui-kanban-column h3 {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.hbar-app-ui-kanban-column > header > span {
+    margin-left: 10px;
+    color: var(--hbar-app-ui-subtle);
+    font-size: 12px;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-kanban-variant-1 .hbar-app-ui-kanban-column > header > button {
+    display: flex !important;
+    width: 24px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    border: 0 !important;
+    border-radius: 6px;
+    padding: 0 !important;
+    background: transparent;
+    color: var(--hbar-app-ui-subtle);
+}
+
+.hbar-app-ui-kanban-column > header > button:hover, .hbar-app-ui-kanban-column > header > button:focus-visible {
+    background: var(--hbar-app-ui-accent-bg);
+    color: var(--hbar-app-ui-text);
+}
+
+.hbar-app-ui-variant.hbar-app-ui-kanban-variant-1 .hbar-app-ui-kanban-cards {
+    display: grid !important;
+    gap: 4px !important;
+    margin: 0 !important;
+    padding: 0 4px 4px !important;
+    list-style: none !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-kanban-variant-1 .hbar-app-ui-kanban-cards > li {
+    display: block !important;
+    width: 246px !important;
+    height: 114.25px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-kanban-variant-1 .hbar-app-ui-kanban-card {
+    display: flex !important;
+    width: 100% !important;
+    height: 114.25px !important;
+    min-height: 114.25px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    border: 1px solid var(--hbar-app-ui-border-strong) !important;
+    border-radius: 10px !important;
+    padding: 10px !important;
+    background: var(--hbar-app-ui-surface-1) !important;
+    color: var(--hbar-app-ui-text) !important;
+    cursor: grab !important;
+    text-align: left !important;
+}
+
+.hbar-app-ui-kanban-card:hover, .hbar-app-ui-kanban-card.is-selected, .hbar-app-ui-kanban-card:focus-visible {
+    border-color: var(--hbar-app-ui-subtle);
+    outline: 0;
+}
+
+.hbar-app-ui-kanban-card:active {
+    cursor: grabbing;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-kanban-variant-1 .hbar-app-ui-kanban-card-top {
+    display: flex !important;
+    height: 18px !important;
+    align-items: center;
+    gap: 7px;
+    color: var(--hbar-app-ui-subtle);
+    font-size: 11px;
+    line-height: 16.5px;
+}
+
+.hbar-app-ui-kanban-card-top > i {
+    display: block;
+    width: 6px;
+    height: 6px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--hbar-app-ui-subtle);
+}
+
+.hbar-app-ui-kanban-card-top > i.is-current {
+    background: var(--hbar-app-ui-text);
+}
+
+.hbar-app-ui-kanban-card-top svg {
+    margin-left: auto;
+    color: var(--hbar-app-ui-subtle);
+}
+
+.hbar-app-ui-variant.hbar-app-ui-kanban-variant-1 .hbar-app-ui-kanban-card > strong {
+    min-height: 39px !important;
+    margin-top: 6px !important;
+    color: var(--hbar-app-ui-text);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 19.5px;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-kanban-variant-1 .hbar-app-ui-kanban-card footer {
+    display: flex !important;
+    height: 24px !important;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px !important;
+    color: var(--hbar-app-ui-subtle);
+    font-size: 11px;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-kanban-variant-1 .hbar-app-ui-kanban-card footer > span {
+    border-radius: 5px;
+    padding: 3px 6px !important;
+    background: var(--hbar-app-ui-accent-bg);
+    color: var(--hbar-app-ui-muted);
+}
+
+.hbar-app-ui-variant.hbar-app-ui-kanban-variant-1 .hbar-app-ui-kanban-card footer small {
+    display: flex !important;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-kanban-variant-1 .hbar-app-ui-kanban-card footer > i {
+    display: flex !important;
+    width: 24px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    border-radius: 50%;
+    background: var(--hbar-app-ui-accent-bg);
+    color: var(--hbar-app-ui-muted);
+    font-size: 10px;
+    font-style: normal;
+}
+
+.hbar-app-ui-variant.hbar-app-ui-kanban-variant-1 .hbar-app-ui-kanban-theme {
+    display: flex !important;
+    position: absolute;
+    right: 24px;
+    bottom: 24px;
+    height: 40px;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid var(--hbar-app-ui-border-strong) !important;
+    border-radius: 999px;
+    padding: 0 14px !important;
+    background: var(--hbar-app-ui-bg);
+    color: var(--hbar-app-ui-text);
+    font-size: 13px;
+}
+
+.hbar-app-ui-kanban-theme:hover, .hbar-app-ui-kanban-theme:focus-visible {
+    border-color: var(--hbar-app-ui-subtle);
+    outline: 0;
+}
+
+.hbar-app-ui-kanban-variant-1.is-subdued {
+    filter: grayscale(.58);
+}
+
+@media (max-width: 900px) {
+    .hbar-app-ui-kanban-header {
+        padding-inline: 16px;
+    }
+
+    .hbar-app-ui-kanban-board {
+        width: calc(100% - 32px);
+        overflow-x: auto;
+        grid-template-columns: repeat(4, 264px);
+        margin-left: 16px;
+    }
+
+    .hbar-app-ui-kanban-theme {
+        right: 16px;
+        bottom: 16px;
+    }
+}

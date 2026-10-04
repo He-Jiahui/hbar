@@ -1,2023 +1,1837 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { Actions, BorderNode, DockLocation, Layout, Model, TabNode } from 'flexlayout-react'
 import {
-  Activity,
-  BarChart3,
-  Brain,
-  CheckCircle2,
-  CircleHelp,
-  CircleX,
-  Clock3,
-  FileSearch,
-  Folder,
-  FolderOpen,
-  GitBranch,
-  Globe,
-  LayoutGrid,
-  MessageSquare,
-  ListChecks,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Plus,
-  Settings2,
-  TerminalSquare,
-  Target,
-  Wrench,
-  X,
-} from 'lucide-react'
-import type { GitWorktreeInfo, Session, ToolWindowDock, ToolWindowIcon } from '@hbar/contracts'
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type ComponentProps,
+} from 'react'
 import {
-  client,
-  connectHost,
-  openSession,
-  refreshCatalog,
-  report,
-  useCatalog,
-  useConnection,
-  useNotice,
-  useSessions,
-  useSessionSummaries,
-  useGitState,
-  useWorkbench,
-} from './stores'
-import { platform } from './platform'
-import Chat from './Chat'
-import Settings, { Modal } from './Settings'
-import Markdown from './Markdown'
-import { syncUIPlugins, useUIPlugins } from './ui-plugins'
-import { permissionPreset } from './permissions'
-import { defaultLayout, restoreLayout, versionedLayout } from './workbench/layout'
-import PairingPage from './PairingPage'
-import { BrowserPanel, InsightsPanel, PlanPanel, SessionInspectorPanel } from './SessionTools'
-import CommandPalette, { type PaletteCommand } from './CommandPalette'
-import Diagnose from './DiagnosePanel'
-import GlassSurface from './react-bits/GlassSurface'
-import ActivityPanel from './ActivityPanel'
-import GitPanel from './GitPanel'
-import WorkbenchHeader from './workbench/WorkbenchHeader'
-import { MobileNavigation, MobileToolMenu, WorkbenchToolRails } from './workbench/WorkbenchNavigation'
-import WorkbenchStatusBar from './workbench/WorkbenchStatusBar'
-import { FileNavigation, FileViewer } from './FileNavigation'
-import SystemTerminalPanel from './SystemTerminalPanel'
-import ThemeRuntimeSync from './ThemeRuntimeSync'
-import type { ToolWindowProps } from '@hbar/ui-sdk'
-import ReferenceGallery from './react-bits/reference/ReferenceGallery'
+  HbarCommandPalette,
+  HbarChatSearchView,
+  HbarRuntimeProvider,
+  HbarSessionLaunchLocation,
+  HbarSessionWorkspace,
+  HbarWorkspaceShell,
+  HbarNotifications,
+  HbarDesktopLayoutProjection,
+  type HbarFlexLayoutGeometry,
+  useHbarRuntime,
+  useHbarRuntimeState,
+} from '@hbar/app-react'
 import {
-  SessionSidebarSurface,
-  referenceAttributes,
-  type SessionSidebarLabels,
-  type SessionSidebarRow,
-  type SessionSidebarWorkspaceGroup,
-} from './react-bits'
-import { useLocale } from './locale'
-import 'flexlayout-react/style/dark.css'
-const DIAGNOSE_PANEL_ID = 'diagnose-right'
-const DEFAULT_TOOL_RAIL_ORDER = [
-  'browser',
-  'git',
-  'inspector',
-  'plan',
-  'insights',
-  'activity',
-  'diagnose',
-] as const
-const BUILTIN_TOOL_IDS = new Set(['browser', 'git', 'inspector', 'plan', 'insights', 'activity', 'diagnose', 'diagnose-right'])
-const TOOL_WINDOW_TAB_ICONS: Partial<Record<ToolWindowIcon, typeof LayoutGrid>> = {
-  activity: Activity,
-  'bar-chart-3': BarChart3,
-  'circle-help': CircleHelp,
-  'file-search': FileSearch,
-  folder: Folder,
-  'git-branch': GitBranch,
-  globe: Globe,
-  'layout-grid': LayoutGrid,
-  'list-checks': ListChecks,
-  'message-square': MessageSquare,
-  'terminal-square': TerminalSquare,
-  wrench: Wrench,
-}
-const SIDEBAR_MIN_WIDTH = 220
-const SIDEBAR_MAX_WIDTH = 360
-const MOBILE_VIEW_BY_COMPONENT: Record<string, string> = {
-  activity: 'activity',
-  git: 'git',
-  settings: 'settings',
-  diagnose: 'diagnose',
-  browser: 'browser',
-  inspector: 'inspector',
-  plan: 'plan',
-  insights: 'insights',
-  file: 'file',
-  plugin: 'plugin',
-}
+  createAppRuntime,
+  restoreSessionDrafts,
+  serializeSessionDrafts,
+  workspaceDisplayName,
+  type DraftsState,
+} from '@hbar/app-runtime'
+import type { GlobalSettingsStartup } from '@hbar/app-runtime'
+import { useStore } from 'zustand'
+import { CommandError } from '@hbar/commands'
+import { ArrowLeft } from 'lucide-react'
+import {
+  applyLumenAppearance,
+  LumenButton,
+  LumenDialog,
+  LumenFrame,
+  LumenIcon,
+  LumenProvider,
+  LumenText,
+  LumenWindowTitlebar,
+  LumenWorkbenchNotice,
+} from '@lumen/app-ui'
+import { getCurrentWindow } from '@tauri-apps/api/window'
+import {
+  HbarClient,
+  createBrowserAttachmentController,
+  createBrowserResourcePicker,
+  createAgentCommandClient,
+  createBudgetCommandClient,
+  createCommandCatalogClient,
+  createConnectionCommands,
+  createConfigurationCommandClient,
+  createDirectoryQueryAdapter,
+  createExtensionCommandClient,
+  createFileCommandClient,
+  createGoalPlanCommandClient,
+  createWorkflowCommandClient,
+  createGitCommandClient,
+  createRunCommandClient,
+  createRunBoardCommandClient,
+  createSessionLaunchTargetReader,
+  createSessionLaunchTargetPreparationManager,
+  createSessionLaunchBranchesManager,
+  createSessionSearchCommandClient,
+  createSessionTimelineClient,
+  createInteractionCommandClient,
+  createInteractionRecoveryClient,
+  createMetricsCommandClient,
+  createModelCommandClient,
+  createSchemaCallbackClient,
+  createSettingsCommandClient,
+  createSystemCommandClient,
+  createUsageCommandClient,
+  createWorkspaceSessionCommandClient,
+  createNotificationCommandClient,
+  createPromptTemplateCommandClient,
+  createSandboxCommandClient,
+  createScheduleCommandClient,
+} from '@hbar/client'
+import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
+import { WebAppearanceSettings } from './AppearanceSettings'
+import { WebGeneralSettings } from './GeneralSettings'
+import { WebPreSessionLanding } from './PreSessionLanding'
+import { preSessionLaunchCopy } from './pre-session-launch-copy'
+import type { WebLanguageController } from './language'
+import type { WebZoomController } from './app-zoom'
+import { createWebSendBehaviorController, type WebSendBehaviorController } from './send-behavior'
+import { createHostSendBehaviorPort } from './send-behavior-settings'
+import { createWebRuntimeCopy, type WebRuntimeCopyPort } from './runtime-copy'
+import { createBrowserImageResources } from './browser-image-resources'
+import { sessionImageCopy } from './session-image-copy'
+import { mobileShellNavigationLabel } from './mobile-shell-navigation-copy'
+import type { HbarSessionImagesOptions } from '@hbar/app-react'
+import {
+  createWebLumenAppearance,
+  readAppearanceBootstrap,
+  resetWebAppearancePreferences,
+  resolveWebAppearanceDimensions,
+  sameWebAppearanceDimensions,
+  saveWebAppearancePreferences,
+  writeAppearanceBootstrap,
+} from './appearance'
+import type { AppearanceEditor, AppearanceEditorPort } from './appearance-editor'
+import { createWebStartupRuntime } from './startup-runtime'
+import { getShellCopy, type ShellLocale } from './shell-copy'
+import { SettingsPageFocusBoundary } from './SettingsPageFocusBoundary'
+import { WEB_SETTINGS_GROUP_PRESENTATION } from './settings-group-presentation'
+import { WorkspaceTabsController } from './WorkspaceTabsController'
+import { workspaceTabsCopy } from './workspace-tabs-copy'
+import { sessionContextCopy } from './session-context-copy'
+import { sessionWorkspaceMoveCopy } from './session-workspace-move-copy'
+import { chatSearchCopy, chatSearchErrorCopy } from './chat-search-copy'
+import { createWebChatSearchController, type WebChatSearchController } from './chat-search-controller'
+import { createHostChatSearchPort } from './chat-search-port'
+import { createSessionToolPresenter } from './session-tool-presentation'
+import {
+  flexModelToShellLayout,
+  normalizeShellLayout,
+  shellLayout,
+  shellLayoutModule,
+  shellLayoutToFlexModel,
+} from './shell-layout'
+import { useSidebarLayout, useToolPaneLayout } from './tool-pane-layout'
+import { ToolPaneLayoutFeedback } from './ToolPaneLayoutFeedback'
+import { createBrowserClientPersistence } from './client-persistence'
+import { createBrowserClientExport } from './client-export'
+import { canRenderWebSurface } from './surface-manifest'
+import type { HbarNativeConnection } from './native-connection'
+import type { HbarNativeWindowContext } from './native-window'
+import { applyWebTheme, readThemeBootstrap, readThemePreference, resolveWebTheme, writeThemeBootstrap } from './theme'
+import './App.css'
+import { NotificationDesktopBridge } from './NotificationDesktopBridge'
+import { lazySurface, LazySurfaceBoundary, lazySurfaceCopy } from './lazy-surface'
+import { notificationCopy } from './notification-copy'
+import { navigateNotification } from './notification-navigation'
+const SchedulesPage = lazySurface<ComponentProps<typeof import('./schedules-page').SchedulesPage>>(() =>
+  import('./schedules-page').then((module) => ({ default: module.SchedulesPage })),
+)
+const PromptTemplatesPage = lazySurface<ComponentProps<typeof import('./prompt-templates-page').PromptTemplatesPage>>(
+  () => import('./prompt-templates-page').then((module) => ({ default: module.PromptTemplatesPage })),
+)
+const RunBoardPage = lazySurface<ComponentProps<typeof import('./run-board-page').RunBoardPage>>(() =>
+  import('./run-board-page').then((module) => ({ default: module.RunBoardPage })),
+)
+const NotificationsLazyPage = lazySurface<ComponentProps<typeof import('./notifications-page').NotificationsPage>>(() =>
+  import('./notifications-page').then((module) => ({ default: module.NotificationsPage })),
+)
+const OnboardingLazyPage = lazySurface<ComponentProps<typeof import('./onboarding-page').OnboardingPage>>(() =>
+  import('./onboarding-page').then((module) => ({ default: module.OnboardingPage })),
+)
+const FileWorkspace = lazySurface<ComponentProps<typeof import('@hbar/app-react/file-workspace').HbarFileWorkspace>>(
+  () => import('@hbar/app-react/file-workspace').then((m) => ({ default: m.HbarFileWorkspace })),
+)
+const GoalPlanWorkspace = lazySurface<ComponentProps<typeof import('@hbar/app-react/goal-plan').HbarGoalPlanWorkspace>>(
+  () => import('@hbar/app-react/goal-plan').then((m) => ({ default: m.HbarGoalPlanWorkspace })),
+)
+const SettingsWorkspace = lazySurface<ComponentProps<typeof import('@hbar/app-react/settings').HbarSettingsWorkspace>>(
+  () => import('@hbar/app-react/settings').then((m) => ({ default: m.HbarSettingsWorkspace })),
+)
+const SandboxProfileSettings = lazySurface<ComponentProps<typeof import('@hbar/app-react').HbarSandboxProfileSettings>>(
+  () => import('@hbar/app-react').then((m) => ({ default: m.HbarSandboxProfileSettings })),
+)
+const ProviderSettings = lazySurface<ComponentProps<typeof import('@hbar/app-react/providers').HbarProviderSettings>>(
+  () => import('@hbar/app-react/providers').then((m) => ({ default: m.HbarProviderSettings })),
+)
+const ProviderDialog = lazySurface<ComponentProps<typeof import('@hbar/app-react/providers').HbarProviderDialog>>(() =>
+  import('@hbar/app-react/providers').then((m) => ({ default: m.HbarProviderDialog })),
+)
+const StatusWorkspace = lazySurface<ComponentProps<typeof import('@hbar/app-react/status').HbarStatusWorkspace>>(() =>
+  import('@hbar/app-react/status').then((m) => ({ default: m.HbarStatusWorkspace })),
+)
+const UsageFeatures = lazySurface<ComponentProps<typeof import('./StatusUsageFeatures').StatusUsageFeatures>>(() =>
+  import('./StatusUsageFeatures').then((m) => ({ default: m.StatusUsageFeatures })),
+)
+const AgentWorkspace = lazySurface<ComponentProps<typeof import('@hbar/app-react/agents').HbarAgentWorkspace>>(() =>
+  import('@hbar/app-react/agents').then((m) => ({ default: m.HbarAgentWorkspace })),
+)
+const ExtensionWorkspace = lazySurface<
+  ComponentProps<typeof import('@hbar/app-react/extensions').HbarExtensionWorkspace>
+>(() => import('@hbar/app-react/extensions').then((m) => ({ default: m.HbarExtensionWorkspace })))
+const SessionMonitoring = lazySurface<
+  ComponentProps<typeof import('@hbar/app-react/monitoring').HbarSessionMonitoring>
+>(() => import('@hbar/app-react/monitoring').then((m) => ({ default: m.HbarSessionMonitoring })))
+const SessionActivityWorkspace = lazySurface<
+  ComponentProps<typeof import('@hbar/app-react/activity').HbarSessionActivityWorkspace>
+>(() => import('@hbar/app-react/activity').then((m) => ({ default: m.HbarSessionActivityWorkspace })))
+const SettingsUsage = lazySurface<ComponentProps<typeof import('@hbar/app-react/settings-usage').HbarSettingsUsage>>(
+  () => import('@hbar/app-react/settings-usage').then((m) => ({ default: m.HbarSettingsUsage })),
+)
+const SystemDiagnostics = lazySurface<
+  ComponentProps<typeof import('@hbar/app-react/diagnostics').HbarSystemDiagnostics>
+>(() => import('@hbar/app-react/diagnostics').then((m) => ({ default: m.HbarSystemDiagnostics })))
 
-function normalizeWorkspacePath(value: string): string {
-  const normalized = value.trim().replaceAll('\\', '/')
-  const driveRoot = /^[A-Za-z]:\//.test(normalized) ? normalized.slice(0, 3) : normalized.startsWith('/') ? '/' : ''
-  const body = driveRoot ? normalized.slice(driveRoot.length) : normalized
-  const segments: string[] = []
-  for (const segment of body.split('/')) {
-    if (!segment || segment === '.') continue
-    if (segment === '..') {
-      segments.pop()
-      continue
+const lastGlobalSettingsGroupKey = 'hbar:web:last-global-settings-group'
+const knownSettingsGroup = (value: string | null): value is string =>
+  value !== null && WEB_SETTINGS_GROUP_PRESENTATION.some((group) => group.id === value)
+const settingsLanding = {
+  globalGroupId: 'providers',
+  isKnownGlobalGroup: knownSettingsGroup,
+  readLastGlobalGroup: () => {
+    try {
+      const value = window.localStorage.getItem(lastGlobalSettingsGroupKey)
+      return knownSettingsGroup(value) ? value : null
+    } catch {
+      return null
     }
-    segments.push(segment)
-  }
-  const result = segments.length ? `${driveRoot}${segments.join('/')}`.replace(/\/$/, '') : driveRoot
-  return result || driveRoot || '.'
+  },
+  saveLastGlobalGroup: (groupId: string) => {
+    if (!knownSettingsGroup(groupId)) return
+    try {
+      window.localStorage.setItem(lastGlobalSettingsGroupKey, groupId)
+    } catch {
+      // A disabled storage backend does not make the Settings entry unusable.
+    }
+  },
 }
 
-function workspacePathKey(value: string): string {
-  return normalizeWorkspacePath(value).toLocaleLowerCase()
-}
-
-type SessionTabConfig = { sessionId?: string }
-
-function conversationTabs(model: Model): TabNode[] {
-  const tabs: TabNode[] = []
-  model.visitNodes((node) => {
-    if (node instanceof TabNode && node.getComponent() === 'conversation') tabs.push(node)
+function createRuntime(
+  client: HbarClient,
+  hostId: string | null,
+  copy: WebRuntimeCopyPort,
+  attachments: ReturnType<typeof createBrowserAttachmentController>['commands'],
+  resourcePicker: ReturnType<typeof createBrowserResourcePicker>,
+  initialGlobalSettings?: GlobalSettingsStartup,
+  initialDrafts?: DraftsState,
+) {
+  const goals = createGoalPlanCommandClient(client)
+  const sessionLaunchBranches = createSessionLaunchBranchesManager(client)
+  return createAppRuntime({
+    instanceId: crypto.randomUUID(),
+    hostId: hostId ?? 'pending:identity',
+    initialGlobalSettings,
+    ...(initialDrafts ? { initialDrafts } : {}),
+    directory: createDirectoryQueryAdapter(client),
+    workspaces: createWorkspaceSessionCommandClient(client),
+    sidebarActivityEvents: {
+      subscribe(listener: () => void) {
+        const off = client.onEvent((event) => {
+          if (
+            event.method === 'host.changed' &&
+            [
+              'sessions',
+              'workspaces',
+              'workspace-display-names',
+              'workspace-organization',
+              'session-activity',
+              'agents',
+              'resync',
+            ].includes(event.params.kind)
+          )
+            listener()
+        })
+        const onVisible = () => {
+          if (document.visibilityState === 'visible') listener()
+        }
+        document.addEventListener('visibilitychange', onVisible)
+        return () => {
+          off()
+          document.removeEventListener('visibilitychange', onVisible)
+        }
+      },
+      onConnection(listener: (connected: boolean) => void) {
+        const off = client.onStatus((status) => listener(status === 'connected'))
+        listener(client.connectionStatus() === 'connected')
+        return off
+      },
+    },
+    ...(hostId === null
+      ? {}
+      : {
+          workspaceOrganization: {
+            commands: createWorkspaceSessionCommandClient(client),
+            events: {
+              subscribe(listener: () => void) {
+                const off = client.onEvent((event) => {
+                  if (
+                    event.method === 'host.changed' &&
+                    ['workspace-organization', 'resync'].includes(event.params.kind)
+                  )
+                    listener()
+                })
+                const onVisible = () => {
+                  if (document.visibilityState === 'visible') listener()
+                }
+                document.addEventListener('visibilitychange', onVisible)
+                return () => {
+                  off()
+                  document.removeEventListener('visibilitychange', onVisible)
+                }
+              },
+              onConnection(listener: (connected: boolean) => void) {
+                return client.onStatus((status) => listener(status === 'connected'))
+              },
+            },
+          },
+          workspaceDisplayNames: {
+            commands: createWorkspaceSessionCommandClient(client),
+            events: {
+              subscribe(listener: () => void) {
+                const off = client.onEvent((event) => {
+                  if (
+                    event.method === 'host.changed' &&
+                    ['workspace-display-names', 'resync'].includes(event.params.kind)
+                  )
+                    listener()
+                })
+                const onVisible = () => {
+                  if (document.visibilityState === 'visible') listener()
+                }
+                document.addEventListener('visibilitychange', onVisible)
+                return () => {
+                  off()
+                  document.removeEventListener('visibilitychange', onVisible)
+                }
+              },
+              onConnection(listener: (connected: boolean) => void) {
+                const off = client.onStatus((status) => listener(status === 'connected'))
+                listener(client.connectionStatus() === 'connected')
+                return off
+              },
+            },
+          },
+        }),
+    timeline: createSessionTimelineClient(client),
+    run: createRunCommandClient(client),
+    runBoard: createRunBoardCommandClient(client),
+    notifications: createNotificationCommandClient(client),
+    promptTemplates: createPromptTemplateCommandClient(client),
+    schedules: createScheduleCommandClient(client),
+    runBoardEvents: {
+      subscribe(listener) {
+        return client.onEvent((event) => {
+          if (
+            event.method === 'host.changed' &&
+            ['runs', 'notifications', 'schedules', 'resync'].includes(event.params.kind)
+          )
+            listener()
+        })
+      },
+      onConnection(listener) {
+        const off = client.onStatus((status) => listener(status === 'connected'))
+        listener(client.connectionStatus() === 'connected')
+        return off
+      },
+    },
+    attachments,
+    resourcePicker,
+    interactions: createInteractionCommandClient(client),
+    interactionRecovery: createInteractionRecoveryClient(client),
+    models: createModelCommandClient(client),
+    modelEvents: {
+      subscribe(listener) {
+        return client.onEvent((event) => {
+          if (event.method === 'host.changed' && ['models', 'resync'].includes(event.params.kind)) listener()
+        })
+      },
+      onConnection(listener) {
+        const off = client.onStatus((status) => listener(status === 'connected'))
+        listener(client.connectionStatus() === 'connected')
+        return off
+      },
+    },
+    usage: createUsageCommandClient(client),
+    budget: createBudgetCommandClient(client),
+    settings: createSettingsCommandClient(client),
+    permissionEvents: {
+      subscribe(listener) {
+        return client.onEvent((event) => {
+          if (event.method === 'host.changed' && ['settings', 'permissions', 'resync'].includes(event.params.kind))
+            listener()
+        })
+      },
+      onConnection(listener) {
+        const off = client.onStatus((status) => listener(status === 'connected'))
+        listener(client.connectionStatus() === 'connected')
+        return off
+      },
+    },
+    settingsLanding,
+    sandbox: createSandboxCommandClient(client),
+    sandboxEvents: {
+      subscribe: (listener) =>
+        client.onEvent((event) => {
+          if (event.method === 'host.changed' && ['sandbox-profiles', 'resync'].includes(event.params.kind)) listener()
+        }),
+    },
+    configuration: createConfigurationCommandClient(client),
+    planMode: createConfigurationCommandClient(client),
+    planModeEvents: {
+      subscribe(listener) {
+        return client.onEvent((event) => {
+          if (event.method === 'mode.changed') listener(event.params.sessionId)
+        })
+      },
+      onConnection(listener) {
+        return client.onStatus((status) => listener(status === 'connected'))
+      },
+    },
+    files: createFileCommandClient(client),
+    sessionLaunchTargets: createSessionLaunchTargetReader(client),
+    sessionLaunchTargetPreparation: createSessionLaunchTargetPreparationManager(client),
+    sessionLaunchBranches,
+    sessionLaunchBranchCreation: sessionLaunchBranches,
+    agents: createAgentCommandClient(client),
+    goals,
+    goalEvents: {
+      onConnection(listener) {
+        const off = client.onStatus((status) => listener(status === 'connected'))
+        listener(client.connectionStatus() === 'connected')
+        return off
+      },
+    },
+    goalHistory: goals,
+    planProposal: copy.planProposal,
+    workflows: createWorkflowCommandClient(client),
+    workflowEvents: {
+      onConnection(listener) {
+        const off = client.onStatus((status) => listener(status === 'connected'))
+        listener(client.connectionStatus() === 'connected')
+        return off
+      },
+    },
+    extensions: createExtensionCommandClient(client),
+    system: createSystemCommandClient(client),
+    metrics: createMetricsCommandClient(client),
+    git: createGitCommandClient(client),
+    commandCatalog: createCommandCatalogClient(client),
+    commandText: copy.commandText,
+    schemaContent: createSchemaCallbackClient(client),
+    surfaces: { canRender: canRenderWebSurface },
+    defaultLayout: shellLayout,
+    layoutDescription: { normalize: normalizeShellLayout },
+    ...(hostId === null ? {} : { persistence: createBrowserClientPersistence(window.localStorage, 'hbar:web') }),
+    exporter: createBrowserClientExport(),
   })
-  return tabs
 }
 
-function sessionIdFromTab(tab: TabNode): string | undefined {
-  const config = tab.getConfig() as SessionTabConfig | undefined
-  return typeof config?.sessionId === 'string' && config.sessionId.length > 0 ? config.sessionId : undefined
+function createAppearancePortForRuntime(runtime: ReturnType<typeof createAppRuntime>): AppearanceEditorPort {
+  const state = runtime.view.state.preferences
+  const commands = runtime.view.commands
+  const mutations = {
+    set: (input: { key: string; value: string; expectedRevision: number }) =>
+      commands.execute('preferences.set', input),
+    unset: (input: { key: string; expectedRevision: number }) => commands.execute('preferences.unset', input),
+  }
+  const current = (expectedRevision: number) => {
+    const preferences = state.getSnapshot()
+    if (preferences.restoreError)
+      throw new CommandError('PERSISTENCE_RESTORE_FAILED', 'Read saved preferences before changing appearance')
+    if (preferences.revision !== expectedRevision)
+      throw new CommandError('COMMAND_CONFLICT', 'Appearance preference revision changed')
+    return preferences
+  }
+  return {
+    save: (target, expectedRevision) =>
+      saveWebAppearancePreferences(mutations, current(expectedRevision).values, target, expectedRevision),
+    reset: (expectedRevision) =>
+      resetWebAppearancePreferences(mutations, current(expectedRevision).values, expectedRevision),
+    refresh: runtime.clientPreferences.refresh,
+  }
 }
 
-function sessionTabConfig(tab: TabNode): SessionTabConfig {
-  const config = tab.getConfig() as SessionTabConfig | undefined
-  return config ?? {}
+type WorkspaceBodyProps = {
+  readonly appRuntime: ReturnType<typeof createAppRuntime>
+  readonly appearanceEditor: AppearanceEditor
+  readonly locale: ShellLocale
+  readonly language?: WebLanguageController | undefined
+  readonly sendBehavior: WebSendBehaviorController
+  readonly zoom: WebZoomController
+  readonly nativeDesktop: boolean
+  readonly connected: boolean
+  readonly prepareAttachment: (file: File) => Promise<BrowserAttachmentSelection>
+  readonly images: HbarSessionImagesOptions
+  readonly files: ReturnType<typeof createFileCommandClient>
+  readonly systemPrefersDark: boolean
+  readonly showSessionFilesInHeader: boolean
 }
 
-function ensureWelcomeTab(model: Model, label: string): string | undefined {
-  const existing = conversationTabs(model).find((tab) => !sessionIdFromTab(tab))
-  if (existing) return existing.getId()
-
-  const id = model.getNodeById('welcome') ? 'welcome:fallback' : 'welcome'
-  const parentId = model.getNodeById('main') ? 'main' : model.getActiveTabset()?.getId()
-  if (!parentId) return undefined
-  model.doAction(
-    Actions.addNode(
-      { type: 'tab', id, name: label, component: 'conversation', enableClose: false },
-      parentId,
-      DockLocation.CENTER,
-      -1,
-    ),
-  )
-  return id
+function errorCode(reason: unknown): string {
+  return reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+    ? reason.code
+    : 'EXECUTION_FAILED'
 }
 
-function selectedLayoutTab(model: Model): TabNode | undefined {
-  const active = model.getActiveTabset()?.getSelectedNode()
-  if (active instanceof TabNode) return active
-  const first = model.getFirstTabSet()?.getSelectedNode()
-  return first instanceof TabNode ? first : undefined
-}
-
-function Sessions({
-  onSelect,
-  onNew,
-  onAddWorkspace,
-  creating = false,
+function AgentChildReturn({
+  title,
+  labels,
+  busy,
+  error,
+  onReturn,
 }: {
-  onSelect(id: string): void
-  onNew(): void
-  onAddWorkspace(): void
-  creating?: boolean
+  readonly title: string
+  readonly labels: ReturnType<typeof getShellCopy>['agents']
+  readonly busy: boolean
+  readonly error: string | null
+  readonly onReturn: () => void
 }) {
-  type SessionActionKind = 'fork' | 'archive'
-  const { t } = useLocale()
-  const [search, setSearch] = useState('')
-  const [renamingId, setRenamingId] = useState<string | null>(null)
-  const [renameValue, setRenameValue] = useState('')
-  const [renameBusy, setRenameBusy] = useState(false)
-  const [sessionActions, setSessionActions] = useState<Record<string, SessionActionKind>>({})
-  const sessionActionIds = useRef(new Set<string>())
-  const data = useCatalog((state) => state.data),
-    selected = useWorkbench((state) => state.activeSession),
-    archived = useWorkbench((state) => state.showArchived),
-    pinnedSessionIds = useWorkbench((state) => state.pinnedSessionIds),
-    pinnedWorkspaceIds = useWorkbench((state) => state.pinnedWorkspaceIds)
-  const snapshots = useSessions((state) => state.snapshots)
-  const summaries = useSessionSummaries((state) => state.byId)
-  const gitRevision = useGitState((state) => state.revision)
-  const changedGitCwds = useGitState((state) => state.changedCwds)
-  const [workspaceBranches, setWorkspaceBranches] = useState<Record<string, string | null>>({})
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'workspace' | 'session'; id: string } | null>(null)
-  const sessions = data?.sessions ?? []
-  const workspaces = useMemo(() => data?.workspaces ?? [], [data?.workspaces])
-  useEffect(() => {
-    let cancelled = false
-    const connection = client()
-    const known = new Set(workspaces.map((workspace) => workspace.id))
-    const normalizePath = (path: string) => path.replaceAll('\\', '/').replace(/\/$/, '').toLocaleLowerCase()
-    const invalidated = new Set(changedGitCwds.map(normalizePath))
-    const targets = workspaces.filter(
-      (workspace) =>
-        !(workspace.id in workspaceBranches) ||
-        (gitRevision > 0 && invalidated.has(normalizePath(workspace.path))),
-    )
-    const retainKnown = (current: Record<string, string | null>) =>
-      Object.fromEntries(Object.entries(current).filter(([id]) => known.has(id)))
-    const sameBranches = (left: Record<string, string | null>, right: Record<string, string | null>) =>
-      Object.keys(left).length === Object.keys(right).length &&
-      Object.entries(left).every(([id, branch]) => right[id] === branch)
-    if (!targets.length) {
-      setWorkspaceBranches((current) => {
-        const next = retainKnown(current)
-        return sameBranches(current, next) ? current : next
-      })
-      return () => {
-        cancelled = true
-      }
-    }
-    const entries: Array<readonly [string, string | null]> = []
-    let cursor = 0
-    async function worker() {
-      while (!cancelled) {
-        const workspace = targets[cursor++]
-        if (!workspace) return
-        try {
-          const info = await connection.call('git.status', { cwd: workspace.path })
-          entries.push([workspace.id, info.root ? info.branch ?? t('detachedHead') : null])
-        } catch {
-          entries.push([workspace.id, null])
-        }
-      }
-    }
-    void Promise.all(Array.from({ length: Math.min(8, targets.length) }, () => worker())).then(() => {
-      if (cancelled || useConnection.getState().client !== connection) return
-      setWorkspaceBranches((current) => {
-        const next = {
-          ...retainKnown(current),
-        ...Object.fromEntries(entries),
-        }
-        return sameBranches(current, next) ? current : next
-      })
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [changedGitCwds, gitRevision, t, workspaces, workspaceBranches])
-  const visibleSessions = sessions.filter((s) => s.archived === archived && s.title.toLowerCase().includes(search.toLowerCase()))
-  const pinnedSessions = visibleSessions.filter((s) => pinnedSessionIds.includes(s.id))
-  const pinnedWorkspaces = workspaces.filter((workspace) => pinnedWorkspaceIds.includes(workspace.id))
-  function sessionMeta(session: Session) {
-    const snapshot = snapshots[session.id]
-    const run = snapshot?.runs.find((item) => ['running', 'waiting_approval', 'queued'].includes(item.status))
-    const summary = summaries[session.id]
-    const activity = summary?.activity ?? (run?.status === 'waiting_approval' ? 'waiting_approval' : run?.status === 'queued' ? 'queued' : run ? 'thinking' : 'idle')
-    const labels: Record<string, string> = {
-      idle: t('idleStatus'), queued: t('queuedStatus'), thinking: t('thinkingStatus'), tool: t('toolStatus'), reading: t('readingStatus'),
-      output: t('outputStatus'), goal: t('goalStatus'), plan: t('planStatus'), waiting_approval: t('waitingApprovalStatus'),
-      completed: t('completed'), failed: t('failed'), cancelled: t('cancelledStatus'),
-    }
-    const icons: Record<string, typeof Activity> = {
-      idle: Clock3, queued: Clock3, thinking: Brain, tool: Wrench, reading: FileSearch, output: MessageSquare,
-      goal: Target, plan: ListChecks, waiting_approval: Clock3, completed: CheckCircle2, failed: CircleX,
-      cancelled: CircleX,
-    }
-    return { snapshot, summary, activity, status: labels[activity] ?? t('ready'), StatusIcon: icons[activity] ?? Activity, branch: workspaceBranches[session.workspaceId] }
-  }
-  const openMenu = (event: React.MouseEvent, type: 'workspace' | 'session', id: string) => {
-    event.preventDefault()
-    event.stopPropagation()
-    setContextMenu({ x: event.clientX, y: event.clientY, type, id })
-  }
-  const togglePinned = (type: 'workspace' | 'session', id: string) => {
-    const key = type === 'workspace' ? 'pinnedWorkspaceIds' : 'pinnedSessionIds'
-    useWorkbench.setState((state) => ({ [key]: state[key].includes(id) ? state[key].filter((item) => item !== id) : [...state[key], id] }))
-    setContextMenu(null)
-  }
-  function startRename(event: React.MouseEvent, session: Session) {
-    event.preventDefault()
-    event.stopPropagation()
-    setRenamingId(session.id)
-    setRenameValue(session.title)
-  }
-  async function finishRename() {
-    const id = renamingId
-    const title = renameValue.trim()
-    if (!id || renameBusy) return
-    if (!title) {
-      setRenamingId(null)
-      setRenameValue('')
-      return
-    }
-    const session = data?.sessions.find((item) => item.id === id)
-    if (!session || title === session.title) {
-      setRenamingId(null)
-      setRenameValue('')
-      return
-    }
-    setRenameBusy(true)
-    try {
-      await client().call('session.rename', { sessionId: id, title })
-      await refreshCatalog()
-      setRenamingId(null)
-      setRenameValue('')
-    } catch (error) {
-      report(error)
-    } finally {
-      setRenameBusy(false)
-    }
-  }
-  async function fork(session: Session) {
-    if (sessionActionIds.current.has(session.id)) return
-    sessionActionIds.current.add(session.id)
-    setSessionActions((current) => ({ ...current, [session.id]: 'fork' }))
-    try {
-      const child = await client().call('session.fork', { sessionId: session.id })
-      await refreshCatalog()
-      onSelect(child.id)
-    } catch (error) {
-      report(error)
-    } finally {
-      sessionActionIds.current.delete(session.id)
-      setSessionActions((current) => {
-        if (!current[session.id]) return current
-        const next = { ...current }
-        delete next[session.id]
-        return next
-      })
-    }
-  }
-  async function toggleArchive(session: Session) {
-    if (sessionActionIds.current.has(session.id)) return
-    sessionActionIds.current.add(session.id)
-    setSessionActions((current) => ({ ...current, [session.id]: 'archive' }))
-    try {
-      await client().call('session.archive', { sessionId: session.id, archived: !archived })
-      await refreshCatalog()
-    } catch (error) {
-      report(error)
-    } finally {
-      sessionActionIds.current.delete(session.id)
-      setSessionActions((current) => {
-        if (!current[session.id]) return current
-        const next = { ...current }
-        delete next[session.id]
-        return next
-      })
-    }
-  }
-  const rowForSession = (session: Session): SessionSidebarRow => {
-    const meta = sessionMeta(session)
-    const StatusIcon = meta.StatusIcon
-    const workspace = workspaces.find((item) => item.id === session.workspaceId)
-    const responseAt = meta.summary?.lastResponseAt ?? null
-    return {
-      session,
-      workspaceName: workspace?.name ?? t('unknownWorkspace'),
-      workspacePath: workspace?.path,
-      branch: meta.branch,
-      status: meta.activity,
-      statusIcon: <StatusIcon size={13} />,
-      responseLabel: responseAt
-        ? new Date(responseAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        : t('noResponse'),
-      responseTitle: responseAt ? new Date(responseAt).toLocaleString() : undefined,
-      pinned: pinnedSessionIds.includes(session.id),
-      selected: selected === session.id,
-    }
-  }
-  const sessionRows = visibleSessions.map(rowForSession)
-  const rowsByWorkspace = new Map<string, SessionSidebarRow[]>()
-  for (const row of sessionRows) {
-    const rows = rowsByWorkspace.get(row.session.workspaceId) ?? []
-    rows.push(row)
-    rowsByWorkspace.set(row.session.workspaceId, rows)
-  }
-  const workspaceGroups: SessionSidebarWorkspaceGroup[] = workspaces
-    .map((workspace) => ({
-      workspace,
-      sessions: rowsByWorkspace.get(workspace.id) ?? [],
-      expanded: expanded[workspace.id] ?? true,
-      pinned: pinnedWorkspaceIds.includes(workspace.id),
-      branch: workspaceBranches[workspace.id],
-    }))
-    .filter((group) => !search || group.sessions.length > 0)
-  const sessionSidebarLabels: SessionSidebarLabels = {
-    archived: t('archived'),
-    sessions: t('sessions'),
-    newWorkspace: t('newWorkspace'),
-    activeSessions: t('activeSessions'),
-    archivedSessions: t('archivedSessions'),
-    searchSessions: t('searchSessions'),
-    pinnedArea: t('pinnedArea'),
-    pinned: t('pinned'),
-    pinnedWorkspace: t('pinnedWorkspace'),
-    newSession: t('newSession'),
-    newSessionInWorkspace: t('newSessionInWorkspace'),
-    pinSession: t('pinSession'),
-    unpinSession: t('unpinSession'),
-    renameSession: t('renameSession'),
-    rename: t('rename'),
-    createBranch: t('createBranch'),
-    restore: t('restore'),
-    archive: t('archive'),
-    restoreSession: t('restoreSession'),
-    archiveSession: t('archiveSession'),
-    noMatchingSessions: t('noMatchingSessions'),
-    noArchivedSessions: t('noArchivedSessions'),
-    noSessions: t('noSessions'),
-    noGitBranch: t('noGitBranch'),
-    branchLabel: t('branchLabel'),
-    lastResponse: t('lastResponse'),
-    sessionOptions: t('sessionOptions'),
-    pinWorkspace: t('pinWorkspace'),
-  }
-  const contextSession = contextMenu?.type === 'session' ? sessions.find((item) => item.id === contextMenu.id) : undefined
   return (
-    <SessionSidebarSurface
-      labels={sessionSidebarLabels}
-      archived={archived}
-      creating={creating}
-      selectedId={selected}
-      search={search}
-      renamingId={renamingId}
-      renameValue={renameValue}
-      renameBusy={renameBusy}
-      sessionActions={sessionActions}
-      workspaces={workspaceGroups}
-      pinnedWorkspaces={pinnedWorkspaces}
-      pinnedSessions={pinnedSessions.map(rowForSession)}
-      visibleSessionCount={visibleSessions.length}
-      contextMenu={contextMenu}
-      contextSession={contextSession}
-      onSearchChange={setSearch}
-      onToggleArchived={() => useWorkbench.setState({ showArchived: !archived })}
-      onAddWorkspace={onAddWorkspace}
-      onSelectSession={onSelect}
-      onSelectWorkspace={(id) => useWorkbench.setState({ workspaceId: id })}
-      onNewSession={(workspaceId) => {
-        useWorkbench.setState({ workspaceId })
-        onNew()
-      }}
-      onToggleWorkspace={(id) => setExpanded((current) => ({ ...current, [id]: !(current[id] ?? true) }))}
-      onContextMenu={openMenu}
-      onTogglePinned={togglePinned}
-      onStartRename={startRename}
-      onRenameChange={setRenameValue}
-      onFinishRename={() => void finishRename()}
-      onCancelRename={() => {
-        setRenamingId(null)
-        setRenameValue('')
-      }}
-      onFork={(session) => void fork(session)}
-      onArchive={(session) => void toggleArchive(session)}
-      onCloseContextMenu={() => setContextMenu(null)}
-      onContextRename={(id) => {
-        const session = sessions.find((item) => item.id === id)
-        if (session) {
-          setRenamingId(id)
-          setRenameValue(session.title)
+    <LumenFrame className="hbar-web-agent-return">
+      <LumenButton size="s" variant="text" indicator="none" disabled={busy} onClick={onReturn}>
+        <LumenIcon icon={ArrowLeft} tier="sm" />
+        <LumenText as="span">{busy ? labels.returningToParent : labels.returnToParent(title)}</LumenText>
+      </LumenButton>
+      {error && (
+        <LumenText as="p" role="alert">
+          {labels.returnError(error)}
+        </LumenText>
+      )}
+    </LumenFrame>
+  )
+}
+
+/** Generic expanded views release their surface; session tools keep the owner's cached surface on return. */
+function WorkbenchSurfaceCleanup({ runtime }: { readonly runtime: ReturnType<typeof createAppRuntime> }) {
+  const tabs = useHbarRuntimeState(runtime.view.state.workspaceTabs)
+  const surfaces = useHbarRuntimeState(runtime.view.state.surfaces)
+  const previous = useRef<ReadonlyMap<string, (typeof surfaces.panels)[string]>>(new Map())
+  useLayoutEffect(() => {
+    const current = new Map(
+      tabs.items
+        .filter((item) => item.kind === 'workbench')
+        .map((item) => [item.panelInstanceId, surfaces.panels[item.panelInstanceId]] as const)
+        .filter((entry): entry is readonly [string, NonNullable<(typeof entry)[1]>] => entry[1] !== undefined),
+    )
+    for (const [instanceId, panel] of previous.current) {
+      if (!panel.sessionTool && !current.has(instanceId) && surfaces.panels[instanceId] === panel)
+        void runtime.view.commands.execute('app.closePanel', { instanceId }).catch(() => undefined)
+    }
+    previous.current = current
+  }, [runtime, surfaces.panels, tabs.items])
+  return null
+}
+
+function WorkspaceBody(props: WorkspaceBodyProps) {
+  const runtime = useHbarRuntime()
+  const navigation = useHbarRuntimeState(runtime.state.navigation)
+  const directory = useHbarRuntimeState(runtime.state.directory)
+  const presentation = useHbarRuntimeState(runtime.state.presentation)
+  const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)
+  const copy = getShellCopy(props.locale)
+  const activeTab = tabs.items.find((item) => item.id === tabs.activeId)
+  const label =
+    presentation.page.kind === 'settings'
+      ? copy.settings.pageTitle
+      : presentation.page.kind === 'status'
+        ? copy.shell.status
+        : activeTab?.kind === 'workbench'
+          ? copy.files.title
+          : ((navigation.sessionId ? directory.sessions[navigation.sessionId]?.title : null) ??
+            copy.preSession.hero.title)
+  return (
+    <SettingsPageFocusBoundary
+      pageKind={presentation.page.kind}
+      sidebarOpen={presentation.sidebarOpen}
+      label={label}
+      workbench={presentation.page.kind === 'session' && activeTab?.kind === 'workbench'}
+      viewKey={JSON.stringify([activeTab?.id, activeTab?.instanceKey])}
+      toolInstanceId={presentation.toolInstanceId}
+    >
+      <LazySurfaceBoundary labels={lazySurfaceCopy(props.locale)}>
+        <WorkspaceBodyContent {...props} />
+      </LazySurfaceBoundary>
+    </SettingsPageFocusBoundary>
+  )
+}
+
+function WorkspaceBodyContent({
+  appRuntime,
+  appearanceEditor,
+  locale,
+  language,
+  sendBehavior,
+  zoom,
+  nativeDesktop,
+  connected,
+  prepareAttachment,
+  images,
+  files,
+  systemPrefersDark,
+  showSessionFilesInHeader,
+}: WorkspaceBodyProps) {
+  const copy = getShellCopy(locale)
+  const selectedSendBehavior = useStore(sendBehavior.store, (state) => state.behavior)
+  const tabCopy = workspaceTabsCopy((zh, en) => (locale === 'zh-CN' ? zh : en))
+  const runtime = useHbarRuntime()
+  const navigation = useHbarRuntimeState(runtime.state.navigation)
+  const directory = useHbarRuntimeState(runtime.state.directory)
+  const displayNames = useHbarRuntimeState(runtime.state.workspaceDisplayNameSnapshot)
+  const presentation = useHbarRuntimeState(runtime.state.presentation)
+  const surfaces = useHbarRuntimeState(runtime.state.surfaces)
+  const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)
+  const extensionCommandTrigger = useRef<HTMLButtonElement>(null)
+  const commandReturn = useRef<{
+    readonly opener: HTMLButtonElement
+    readonly settingsInstanceId: string
+    opened: boolean
+  } | null>(null)
+  const commandReturnFrame = useRef<number | null>(null)
+  useEffect(
+    () => () => {
+      if (commandReturnFrame.current !== null) cancelAnimationFrame(commandReturnFrame.current)
+      commandReturnFrame.current = null
+      commandReturn.current = null
+    },
+    [runtime],
+  )
+  useLayoutEffect(() => {
+    const lease = commandReturn.current
+    if (!lease) return
+    if (presentation.page.kind !== 'settings' || presentation.page.instanceId !== lease.settingsInstanceId) {
+      commandReturn.current = null
+      return
+    }
+    if (presentation.modalInstanceId === 'commands') {
+      lease.opened = true
+      return
+    }
+    if (presentation.modalInstanceId !== null) {
+      commandReturn.current = null
+      return
+    }
+    if (!lease.opened) return
+    commandReturn.current = null
+    // Native dialog teardown may reset focus after layout effects. The Settings
+    // group can remount on Host updates, so the ref tracks its semantic replacement.
+    commandReturnFrame.current = requestAnimationFrame(() => {
+      commandReturnFrame.current = null
+      const current = runtime.state.presentation.getSnapshot()
+      if (
+        current.page.kind !== 'settings' ||
+        current.page.instanceId !== lease.settingsInstanceId ||
+        current.modalInstanceId !== null ||
+        document.querySelector('dialog:modal')
+      )
+        return
+      const active = document.activeElement
+      if (
+        active instanceof HTMLElement &&
+        active !== document.body &&
+        active.isConnected &&
+        active.getClientRects().length
+      )
+        return
+      if (lease.opener.disabled) return
+      const opener = lease.opener.isConnected ? lease.opener : extensionCommandTrigger.current
+      if (
+        opener?.isConnected &&
+        !opener.disabled &&
+        opener.getClientRects().length &&
+        getComputedStyle(opener).visibility !== 'hidden' &&
+        !opener.closest('[hidden], [inert], [aria-hidden="true"]')
+      )
+        opener.focus({ preventScroll: true })
+    })
+  }, [presentation.modalInstanceId, presentation.page, runtime])
+  const captureCommandReturn = (opener: HTMLButtonElement) => {
+    const current = runtime.state.presentation.getSnapshot()
+    if (current.page.kind !== 'settings' || current.modalInstanceId !== null) return () => {}
+    if (commandReturnFrame.current !== null) cancelAnimationFrame(commandReturnFrame.current)
+    commandReturnFrame.current = null
+    const lease = { opener, settingsInstanceId: current.page.instanceId, opened: false }
+    commandReturn.current = lease
+    return () => {
+      if (commandReturn.current === lease) commandReturn.current = null
+    }
+  }
+  const [workbenchError, setWorkbenchError] = useState<string | null>(null)
+  const [agentReturn, setAgentReturn] = useState<{ busy: boolean; error: string | null }>({
+    busy: false,
+    error: null,
+  })
+  const landingDraftId = useRef<string | null>(null)
+  const firstSendDrafts = useHbarRuntimeState(runtime.state.preSessionDrafts)
+  useEffect(() => {
+    for (const draft of Object.values(firstSendDrafts)) {
+      if (draft.phase === 'accepted')
+        void runtime.commands.execute('preSessionDraft.close', { draftId: draft.draftId }).catch(() => undefined)
+    }
+  }, [firstSendDrafts, runtime])
+  const activeTab = tabs.items.find((item) => item.id === tabs.activeId)
+  useEffect(() => setAgentReturn({ busy: false, error: null }), [activeTab?.id, activeTab?.instanceKey])
+  useEffect(() => setWorkbenchError(null), [activeTab?.id, activeTab?.instanceKey])
+  const session = navigation.sessionId ? directory.sessions[navigation.sessionId] : undefined
+  const sessionWorkspace = session ? directory.workspaces[session.workspaceId] : undefined
+  useEffect(() => {
+    if (!session || !landingDraftId.current) return
+    const draftId = landingDraftId.current
+    landingDraftId.current = null
+    const firstSend = runtime.state.preSessionDrafts.getSnapshot()[draftId]
+    if (firstSend?.sessionId === session.id && firstSend.phase !== 'accepted') return
+    void runtime.commands.execute('preSessionDraft.close', { draftId }).catch(() => undefined)
+  }, [runtime, session])
+  if (presentation.page.kind === 'status') {
+    return (
+      <StatusWorkspace
+        labels={copy.status}
+        instanceId={presentation.page.instanceId}
+        usageDetails={<UsageFeatures locale={locale} instanceId={presentation.page.instanceId} />}
+      />
+    )
+  }
+  if (presentation.page.kind === 'settings')
+    return (
+      <SettingsWorkspace
+        labels={copy.settings}
+        connected={connected}
+        groupPresentation={WEB_SETTINGS_GROUP_PRESENTATION}
+        pendingGroups={[
+          { id: 'providers', label: copy.settings.resolve('i18n:settings.groups.providers'), order: 0 },
+          { id: 'sandbox', label: copy.settings.resolve('i18n:settings.groups.sandbox'), order: 35 },
+          { id: 'model', label: copy.settings.resolve('i18n:settings.groups.model'), order: 20 },
+          { id: 'session', label: copy.settings.resolve('i18n:settings.groups.session'), order: 30 },
+          { id: 'extensions', label: copy.settings.resolve('i18n:settings.groups.extensions'), order: 40 },
+        ]}
+        additionalGroups={[
+          ...(language ? [{ id: 'general', label: copy.general.group, order: 5 }] : []),
+          { id: 'appearance', label: copy.appearance.group, order: 0 },
+          { id: 'skills', label: copy.settings.resolve('i18n:settings.groups.skills'), order: 39 },
+          { id: 'usage', label: copy.settingsUsage.title, order: 85 },
+          { id: 'diagnostics', label: copy.diagnostics.title, order: 90 },
+        ]}
+        renderGroup={(groupId) => {
+          if (groupId === 'general' && language)
+            return (
+              <WebGeneralSettings
+                labels={copy.general}
+                language={language}
+                sendBehavior={sendBehavior}
+                zoom={zoom}
+                nativeZoom={nativeDesktop}
+                connected={connected}
+              />
+            )
+          if (groupId === 'appearance')
+            return (
+              <WebAppearanceSettings
+                labels={copy.appearance}
+                editor={appearanceEditor}
+                systemPrefersDark={systemPrefersDark}
+              />
+            )
+          if (groupId === 'providers') return <ProviderSettings labels={copy.providers.list} connected={connected} />
+          if (groupId === 'sandbox') return <SandboxProfileSettings labels={copy.sandbox} connected={connected} />
+          if ((groupId === 'extensions' || groupId === 'skills') && presentation.page.kind === 'settings')
+            return (
+              <ExtensionWorkspace
+                collection={groupId === 'skills' ? 'skills' : 'plugins'}
+                labels={copy.extensions}
+                connected={connected}
+                instanceId={presentation.page.instanceId}
+                onCommandPaletteOpen={captureCommandReturn}
+                commandPaletteTriggerRef={extensionCommandTrigger}
+              />
+            )
+          if (groupId === 'usage' && presentation.page.kind === 'settings')
+            return (
+              <SettingsUsage
+                labels={copy.settingsUsage}
+                connected={connected}
+                instanceId={presentation.page.instanceId}
+              />
+            )
+          if (groupId === 'diagnostics' && presentation.page.kind === 'settings')
+            return (
+              <SystemDiagnostics
+                labels={copy.diagnostics}
+                connected={connected}
+                instanceId={presentation.page.instanceId}
+              />
+            )
+          return null
+        }}
+      />
+    )
+  if (activeTab?.kind === 'workbench') {
+    const panel = surfaces.panels[activeTab.panelInstanceId]
+    if (!panel || panel.panelId !== 'files')
+      return <LumenWorkbenchNotice title={copy.files.title} description={tabCopy.error('PANEL_NOT_FOUND')} />
+    const workspace = directory.workspaces[activeTab.workspaceId]
+    const targetLabel = workspace ? workspaceDisplayName(workspace, displayNames) : activeTab.workspaceId
+    const reportWorkbenchError = (reason: unknown) => {
+      const current = runtime.state.workspaceTabs.getSnapshot()
+      if (
+        current.activeId === activeTab.id &&
+        current.items.some((item) => item.id === activeTab.id && item.instanceKey === activeTab.instanceKey)
+      )
+        setWorkbenchError(errorCode(reason))
+    }
+    const close = () => {
+      setWorkbenchError(null)
+      const captured = appRuntime.workspaceTabs.capture([activeTab.id])
+      void appRuntime.workspaceTabs.closeCaptured(captured, new AbortController().signal).catch(reportWorkbenchError)
+    }
+    return (
+      <FileWorkspace
+        key={activeTab.panelInstanceId}
+        labels={copy.files}
+        connected={connected}
+        instanceId={activeTab.panelInstanceId}
+        targetLabel={targetLabel}
+        mode="workbench"
+        returnLabel={activeTab.sourceSessionId ? copy.files.returnToConversation : copy.files.returnToWorkspace}
+        actionError={workbenchError ? tabCopy.error(workbenchError) : null}
+        onReturnToSource={() => {
+          setWorkbenchError(null)
+          void runtime.commands
+            .execute('workspaceTabs.returnToSource', { id: activeTab.id, instanceKey: activeTab.instanceKey })
+            .catch(reportWorkbenchError)
+        }}
+        onCloseWorkbench={close}
+      />
+    )
+  }
+  if (session)
+    return (
+      <HbarSessionWorkspace
+        sessionTitle={session.title}
+        workspaceName={sessionWorkspace ? workspaceDisplayName(sessionWorkspace, displayNames) : session.workspaceId}
+        workspacePath={sessionWorkspace?.path}
+        sessionWorkspaceId={session.workspaceId}
+        projectContextLabels={sessionContextCopy(locale)}
+        firstSendLabels={preSessionLaunchCopy(locale).status}
+        renderLaunchControls={() => (
+          <HbarSessionLaunchLocation
+            sessionId={session.id}
+            workspaceId={session.workspaceId}
+            workspaceName={
+              sessionWorkspace ? workspaceDisplayName(sessionWorkspace, displayNames) : session.workspaceId
+            }
+            workspacePath={sessionWorkspace?.path}
+            connected={connected}
+            labels={preSessionLaunchCopy(locale).location}
+            statusLabels={preSessionLaunchCopy(locale).status}
+            moveLabels={sessionWorkspaceMoveCopy(locale)}
+          />
+        )}
+        labels={copy.session}
+        describeTool={createSessionToolPresenter(locale)}
+        sendBehavior={selectedSendBehavior}
+        connected={connected}
+        prepareAttachment={prepareAttachment}
+        images={images}
+        files={files}
+        showFilesInHeader={showSessionFilesInHeader}
+        modelMenuPresentation={nativeDesktop ? 'native' : 'web'}
+        navigationAccessory={
+          activeTab?.kind === 'session' && activeTab.agentSource ? (
+            <AgentChildReturn
+              title={
+                directory.sessions[activeTab.agentSource.parentSessionId]?.title ??
+                tabCopy.unknownSession(activeTab.agentSource.parentSessionId)
+              }
+              labels={copy.agents}
+              busy={agentReturn.busy}
+              error={agentReturn.error}
+              onReturn={() => {
+                if (agentReturn.busy) return
+                const childSessionId = activeTab.sessionId
+                setAgentReturn({ busy: true, error: null })
+                void runtime.commands
+                  .execute('agentChild.return', {
+                    childSessionId,
+                    childTabInstanceKey: activeTab.instanceKey,
+                  })
+                  .then(() => {
+                    requestAnimationFrame(() =>
+                      document
+                        .querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
+                        ?.focus({ preventScroll: true }),
+                    )
+                  })
+                  .catch((reason: unknown) => {
+                    const currentTabs = runtime.state.workspaceTabs.getSnapshot()
+                    if (
+                      currentTabs.activeId !== childSessionId ||
+                      currentTabs.items.find((item) => item.id === childSessionId)?.instanceKey !==
+                        activeTab.instanceKey
+                    )
+                      return
+                    setAgentReturn({ busy: false, error: errorCode(reason) })
+                  })
+              }}
+            />
+          ) : undefined
         }
-        setContextMenu(null)
-      }}
-      onContextArchive={(id) => {
-        const session = sessions.find((item) => item.id === id)
-        if (session) void toggleArchive(session)
-        setContextMenu(null)
-      }}
+      />
+    )
+  if (!landingDraftId.current) landingDraftId.current = crypto.randomUUID()
+  return (
+    <WebPreSessionLanding
+      draftId={landingDraftId.current}
+      locale={locale}
+      connected={connected}
+      sendBehavior={selectedSendBehavior}
+      modelMenuPresentation={nativeDesktop ? 'native' : 'web'}
+      prepareAttachment={prepareAttachment}
+      images={images}
     />
   )
 }
 
-function DockTargetOverlay({ allowedDocks, onDrop }: { allowedDocks: readonly ToolWindowDock[]; onDrop(dock: ToolWindowDock): void }) {
-  const { t } = useLocale()
-  const targets: Array<{ dock: ToolWindowDock; label: string; className: string }> = [
-    { dock: 'top', label: t('dockTop'), className: 'dock-target-top' },
-    { dock: 'left', label: t('dockLeft'), className: 'dock-target-left' },
-    { dock: 'editor', label: t('dockEditor'), className: 'dock-target-editor' },
-    { dock: 'right', label: t('dockRight'), className: 'dock-target-right' },
-    { dock: 'bottom', label: t('dockBottom'), className: 'dock-target-bottom' },
-    { dock: 'window', label: t('dockWindow'), className: 'dock-target-window' },
-  ]
+function WorkspaceTool({
+  locale,
+  connected,
+  canExpand,
+}: {
+  readonly locale: ShellLocale
+  readonly connected: boolean
+  readonly canExpand: boolean
+}) {
+  const copy = getShellCopy(locale)
+  const tabCopy = workspaceTabsCopy((zh, en) => (locale === 'zh-CN' ? zh : en))
+  const runtime = useHbarRuntime()
+  const directory = useHbarRuntimeState(runtime.state.directory)
+  const displayNames = useHbarRuntimeState(runtime.state.workspaceDisplayNameSnapshot)
+  const presentation = useHbarRuntimeState(runtime.state.presentation)
+  const surfaces = useHbarRuntimeState(runtime.state.surfaces)
+  const [expandError, setExpandError] = useState<string | null>(null)
+  const expanding = useRef(false)
+  const instanceId = presentation.toolInstanceId
+  const panel = instanceId ? surfaces.panels[instanceId] : undefined
+  useEffect(() => setExpandError(null), [instanceId, panel?.workspaceId, panel?.sessionId, panel?.panelId])
+  if (!instanceId || !panel) return null
+  const workspace = panel.workspaceId ? directory.workspaces[panel.workspaceId] : undefined
+  const workspaceLabel = workspace ? workspaceDisplayName(workspace, displayNames) : (panel.workspaceId ?? undefined)
+  const targetLabel =
+    panel.panelId === 'files' && panel.workspaceId
+      ? workspaceLabel
+      : panel.sessionId
+        ? (directory.sessions[panel.sessionId]?.title ?? panel.sessionId)
+        : panel.workspaceId
+          ? workspaceLabel
+          : undefined
+  if (panel.panelId === 'files')
+    return (
+      <FileWorkspace
+        labels={copy.files}
+        connected={connected}
+        instanceId={instanceId}
+        targetLabel={targetLabel}
+        actionError={expandError ? tabCopy.error(expandError) : null}
+        onExpand={
+          canExpand && panel.workspaceId
+            ? () => {
+                if (expanding.current || !panel.workspaceId) return
+                expanding.current = true
+                setExpandError(null)
+                const originalBinding = panel.binding
+                const workspaceId = panel.workspaceId
+                const navigation = runtime.state.navigation.getSnapshot()
+                const tabs = runtime.state.workspaceTabs.getSnapshot()
+                const activeTab = tabs.items.find((item) => item.id === tabs.activeId)
+                let ownedPanel = panel
+                const ownsExpansion = () => {
+                  const currentNavigation = runtime.state.navigation.getSnapshot()
+                  const currentTabs = runtime.state.workspaceTabs.getSnapshot()
+                  return (
+                    runtime.state.presentation.getSnapshot().page.kind === 'session' &&
+                    runtime.state.presentation.getSnapshot().toolInstanceId === instanceId &&
+                    runtime.state.surfaces.getSnapshot().panels[instanceId] === ownedPanel &&
+                    currentNavigation.workspaceId === navigation.workspaceId &&
+                    currentNavigation.sessionId === navigation.sessionId &&
+                    currentTabs.activeId === tabs.activeId &&
+                    currentTabs.items.find((item) => item.id === currentTabs.activeId)?.instanceKey ===
+                      activeTab?.instanceKey
+                  )
+                }
+                void (async () => {
+                  try {
+                    if (originalBinding !== 'pinned') {
+                      const pin = runtime.commands.execute('app.openPanel', {
+                        panelId: 'files',
+                        instanceId,
+                        workspaceId,
+                        ...(panel.sessionId ? { sessionId: panel.sessionId } : {}),
+                        binding: 'pinned',
+                      })
+                      // openPanel publishes synchronously; remember that exact instance
+                      // before yielding, so a later context cannot become this owner.
+                      ownedPanel = runtime.state.surfaces.getSnapshot().panels[instanceId] ?? panel
+                      await pin
+                    }
+                    if (!ownsExpansion()) return
+                    await runtime.commands.execute('workspaceTabs.openWorkbench', {
+                      panelInstanceId: instanceId,
+                      sourceSessionId: panel.sessionId,
+                      workspaceId,
+                    })
+                  } catch (reason) {
+                    if (!ownsExpansion()) return
+                    if (originalBinding === 'followActive') {
+                      const restore = runtime.commands.execute('app.openPanel', {
+                        panelId: 'files',
+                        instanceId,
+                        workspaceId,
+                        ...(panel.sessionId ? { sessionId: panel.sessionId } : {}),
+                        binding: 'followActive',
+                      })
+                      ownedPanel = runtime.state.surfaces.getSnapshot().panels[instanceId] ?? ownedPanel
+                      await restore.catch(() => undefined)
+                    }
+                    if (ownsExpansion()) setExpandError(errorCode(reason))
+                  } finally {
+                    expanding.current = false
+                  }
+                })()
+              }
+            : undefined
+        }
+      />
+    )
+  if (panel.panelId === 'monitoring')
+    return <SessionMonitoring labels={copy.monitoring} instanceId={instanceId} targetLabel={targetLabel} />
+  if (panel.panelId === 'activity')
+    return (
+      <SessionActivityWorkspace
+        labels={copy.activity}
+        connected={connected}
+        instanceId={instanceId}
+        targetLabel={targetLabel}
+      />
+    )
+  if (panel.panelId === 'agents')
+    return (
+      <AgentWorkspace labels={copy.agents} connected={connected} instanceId={instanceId} targetLabel={targetLabel} />
+    )
+  if (panel.panelId === 'goals')
+    return (
+      <GoalPlanWorkspace labels={copy.goals} connected={connected} instanceId={instanceId} targetLabel={targetLabel} />
+    )
+  if (panel.panelId === 'run-board')
+    return (
+      <Suspense fallback={<LumenText role="status">{getShellCopy(locale).shell.loading}</LumenText>}>
+        <RunBoardPage runtime={runtime} locale={locale} instanceId={instanceId} />
+      </Suspense>
+    )
+  if (panel.panelId === 'schedules')
+    return (
+      <SchedulesTool
+        locale={locale}
+        {...(panel.workspaceId ? { workspaceId: panel.workspaceId } : {})}
+        {...(typeof panel.params.scheduleId === 'string' ? { initialScheduleId: panel.params.scheduleId } : {})}
+      />
+    )
+  if (panel.panelId === 'prompt-templates')
+    return <PromptTemplatesTool locale={locale} {...(panel.workspaceId ? { workspaceId: panel.workspaceId } : {})} />
+  if (panel.panelId === 'onboarding')
+    return (
+      <Suspense fallback={<LumenText role="status">{copy.shell.loading}</LumenText>}>
+        <OnboardingLazyPage
+          locale={locale}
+          connected={connected}
+          onOpenWorkspace={() => void runtime.commands.execute('app.back', {}).catch(() => undefined)}
+          onConfigure={(kind) =>
+            void runtime.commands
+              .execute(
+                kind === 'model' ? 'app.openSettings' : 'app.openPanel',
+                kind === 'model'
+                  ? { scope: 'global', section: 'providers' }
+                  : { panelId: 'onboarding', binding: 'followActive' },
+              )
+              .catch(() => undefined)
+          }
+        />
+      </Suspense>
+    )
+  if (panel.panelId === 'notifications' && runtime.state.notifications)
+    return (
+      <Suspense fallback={<LumenText role="status">{getShellCopy(locale).shell.loading}</LumenText>}>
+        <NotificationsLazyPage
+          runtime={runtime}
+          locale={locale}
+          onNavigate={(target) =>
+            navigateNotification(target, {
+              commands: runtime.commands,
+              sourceInstanceId: instanceId,
+              getSchedule: (scheduleId) => runtime.state.schedules?.get(scheduleId) ?? Promise.resolve(null),
+            })
+          }
+        />
+      </Suspense>
+    )
+  return null
+}
+
+function SchedulesTool({
+  locale,
+  workspaceId,
+  initialScheduleId,
+}: {
+  readonly locale: ShellLocale
+  readonly workspaceId?: string
+  readonly initialScheduleId?: string
+}) {
+  const runtime = useHbarRuntime()
+  if (!workspaceId) return null
   return (
-    <div className="dock-target-overlay" role="presentation">
-      {targets.filter((target) => allowedDocks.includes(target.dock)).map((target) => (
-        <button
-          type="button"
-          key={target.dock}
-          className={`dock-target ${target.className}`}
-          aria-label={target.label}
-          onDragOver={(event) => {
-            event.preventDefault()
-            event.dataTransfer.dropEffect = 'move'
-          }}
-          onDrop={(event) => {
-            event.preventDefault()
-            onDrop(target.dock)
-          }}
-        >
-          {target.label}
-        </button>
-      ))}
-    </div>
+    <Suspense fallback={<LumenText role="status">{getShellCopy(locale).shell.loading}</LumenText>}>
+      <SchedulesPage
+        runtime={runtime}
+        workspaceId={workspaceId}
+        locale={locale}
+        {...(initialScheduleId ? { initialScheduleId } : {})}
+      />
+    </Suspense>
   )
 }
-export default function App() {
-  const { t } = useLocale()
-  const status = useConnection((state) => state.status),
-    data = useCatalog((state) => state.data),
-    host = useConnection((state) => state.host)
-  const activeSession = useWorkbench((state) => state.activeSession),
-    workspaceId = useWorkbench((state) => state.workspaceId),
-    panel = useWorkbench((state) => state.panel),
-    approvalMode = useWorkbench((state) => state.approvalMode),
-    modelId = useWorkbench((state) => state.modelId),
-    toolPanel = useWorkbench((state) => state.toolPanel),
-    sidebarWidth = useWorkbench((state) => state.sidebarWidth)
-  const notice = useNotice((state) => state.error)
-  const taskNotice = useNotice((state) => state.notice)
-  const clientPanels = useUIPlugins((state) => state.panels)
-  const plugins = data?.plugins
-  const sessions = data?.sessions
-  const detachedPanelId = new URLSearchParams(window.location.search).get('hbarPanel')
-  const activeSnapshot = useSessions((state) => (activeSession ? state.snapshots[activeSession] : undefined))
-  const initialSelection = useRef(true)
-  const openToolIdsRef = useRef(new Set<string>())
-  const nativeToolWindows = useRef(new Map<string, { dock: ToolWindowDock; focus(): Promise<void>; close(): Promise<void> }>())
-  const switchingSession = useRef(false)
-  const lastSessionSelection = useRef<string | undefined>(undefined)
-  const creatingSession = useRef(false)
-  const [small, setSmall] = useState(window.innerWidth < 900),
-    [sidebar, setSidebar] = useState(true),
-    [mobileView, setMobileView] = useState('chat'),
-    [workspaceModal, setWorkspaceModal] = useState(false),
-    [workspacePaths, setWorkspacePaths] = useState<string[]>([]),
-    [workspaceAlias, setWorkspaceAlias] = useState('')
-  const [discoveredWorktrees, setDiscoveredWorktrees] = useState<Array<GitWorktreeInfo & { sourcePath: string }>>([])
-  const [selectedWorktreePaths, setSelectedWorktreePaths] = useState<string[]>([])
-  const [workspaceCreateErrors, setWorkspaceCreateErrors] = useState<Array<{ path: string; message: string; retryable: boolean }>>([])
-  const [workspaceCreateBusy, setWorkspaceCreateBusy] = useState(false)
-  const [isCreatingSession, setIsCreatingSession] = useState(false)
-  const [mobileFile, setMobileFile] = useState('')
-  const [mobilePanel, setMobilePanel] = useState('')
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
-  const [referenceGalleryOpen, setReferenceGalleryOpen] = useState(false)
-  const [conversationViews, setConversationViews] = useState<Record<string, 'chat' | 'console'>>({})
-  useEffect(() => {
-    let cancelled = false
-    if (!workspacePaths.length) {
-      setDiscoveredWorktrees([])
-      setSelectedWorktreePaths([])
-      return () => {
-        cancelled = true
-      }
-    }
-    const paths = [...workspacePaths]
-    const connection = client()
-    const groups: Array<Array<GitWorktreeInfo & { sourcePath: string }>> = []
-    let cursor = 0
-    async function worker() {
-      while (!cancelled) {
-        const sourcePath = paths[cursor++]
-        if (!sourcePath) return
-        try {
-          const [status, result] = await Promise.all([
-            connection.call('git.status', { cwd: sourcePath }),
-            connection.call('git.worktree', { cwd: sourcePath, operation: 'list' }),
-          ])
-          const entries = Array.isArray(result) ? result : [result]
-          const currentRoot = status.root ?? sourcePath
-          groups.push(entries
-            .filter((item) => workspacePathKey(item.path) !== workspacePathKey(currentRoot))
-            .map((item) => ({ ...item, sourcePath })))
-        } catch {
-          groups.push([])
-        }
-      }
-    }
-    void Promise.all(Array.from({ length: Math.min(8, paths.length) }, () => worker())).then(() => {
-      if (cancelled || useConnection.getState().client !== connection) return
-      const seen = new Set<string>()
-      const external = groups.flat().filter((item) => {
-        const key = workspacePathKey(item.path)
-        if (seen.has(key)) return false
-        seen.add(key)
-        return true
-      })
-      setDiscoveredWorktrees(external)
-      setSelectedWorktreePaths(external.map((item) => item.path))
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [workspacePaths])
-  const [model, setModel] = useState(() => {
-    return Model.fromJson(restoreLayout(useWorkbench.getState().layout))
-  })
-  const [draggingTool, setDraggingTool] = useState<string | null>(null)
-  const draggingToolRef = useRef<string | null>(null)
-  const setToolDragState = (id: string | null) => {
-    if (id) draggingToolRef.current = id
-    setDraggingTool(id)
-  }
-  const contributionToolIds = [...(data?.panels ?? []), ...clientPanels].map((panel) => panel.id)
-  const allToolIds = [...new Set([...DEFAULT_TOOL_RAIL_ORDER, ...contributionToolIds])]
-  const nodeIdForTool = (id: string) => (id === 'diagnose' ? DIAGNOSE_PANEL_ID : id.startsWith('plugin:') ? id : id)
-  const toolRailSides = Object.fromEntries(allToolIds.map((id) => [id, 'right'])) as Record<string, 'left' | 'right'>
-  const toolRailOrder: string[] = []
-  const orderedDockIds = (dock: 'left' | 'right') => {
-    const border = model.getNodeById(`border_${dock}`)
-    if (border instanceof BorderNode)
-      return border.getTabNodes().map((node) => {
-        if (node.getId() === DIAGNOSE_PANEL_ID) return 'diagnose'
-        return node.getId().startsWith('plugin:') ? node.getId().slice('plugin:'.length) : node.getId()
-      })
-    return []
-  }
-  for (const dock of ['left', 'right'] as const) {
-    for (const id of orderedDockIds(dock)) {
-      if (allToolIds.includes(id) && !toolRailOrder.includes(id)) {
-        toolRailOrder.push(id)
-        toolRailSides[id] = dock
-      }
-    }
-  }
-  for (const id of allToolIds) if (!toolRailOrder.includes(id)) toolRailOrder.push(id)
-  function findToolNode(id: string): TabNode | undefined {
-    const node = model.getNodeById(nodeIdForTool(id)) ?? model.getNodeById(`plugin:${id}`)
-    return node instanceof TabNode ? node : undefined
-  }
-  function moveToolRail(id: string, side: 'left' | 'right') {
-    const contribution = [...(data?.panels ?? []), ...clientPanels].find((panel) => panel.id === id)
-    if (contribution?.allowedDocks && !contribution.allowedDocks.includes(side)) return
-    let node = findToolNode(id)
-    if (!node) {
-      if (contribution) {
-        const target = model.getNodeById(`border_${side}`)
-        if (target instanceof BorderNode) {
-          model.doAction(
-            Actions.addNode(
-            {
-              type: 'tab',
-              id: `plugin:${id}`,
-              name: contribution.title,
-              component: 'plugin',
-              enableClose: contribution.closable !== false,
-              config: { panelId: id },
-              ...(contribution.canPopout === false
-                ? { enablePopout: false, enablePopoutIcon: false, enablePopoutFloatIcon: false }
-                : {}),
-            },
-            target.getId(),
-            DockLocation.CENTER,
-            -1,
-            ),
-          )
-        }
-        node = findToolNode(id)
-     }
-    }
-    const border = model.getNodeById(`border_${side}`)
-    if (!(node instanceof TabNode) || !(border instanceof BorderNode)) return
-    let source = node.getParent()
-    while (source && !(source instanceof BorderNode)) source = source.getParent()
-    const wasSelected = source instanceof BorderNode && source.getSelectedNode()?.getId() === node.getId()
-    model.doAction(Actions.updateNodeAttributes(border.getId(), { show: true }))
-    if (node.getParent()?.getId() !== border.getId())
-      model.doAction(Actions.moveNode(node.getId(), border.getId(), DockLocation.CENTER, -1, false))
-    if (source instanceof BorderNode && source.getId() !== border.getId() && wasSelected)
-      model.doAction(Actions.updateNodeAttributes(source.getId(), { show: false, selected: -1 }))
-  }
-  function reorderToolRail(source: string, target: string) {
-    const sourceNode = model.getNodeById(nodeIdForTool(source)) ?? model.getNodeById(`plugin:${source}`)
-    const targetNode = model.getNodeById(nodeIdForTool(target)) ?? model.getNodeById(`plugin:${target}`)
-    const parent = targetNode?.getParent()
-    if (!(sourceNode instanceof TabNode) || !(targetNode instanceof TabNode) || !parent) return
-    const index = parent.getChildren().indexOf(targetNode)
-    model.doAction(Actions.moveNode(sourceNode.getId(), parent.getId(), DockLocation.CENTER, index, false))
-  }
-  const [toastPaused, setToastPaused] = useState(false)
-  const sidebarDrag = useRef<{ startX: number; startWidth: number } | null>(null)
-  const closeCommandPalette = useCallback(() => setCommandPaletteOpen(false), [])
-  useEffect(() => {
-    setToastPaused(false)
-  }, [notice])
-  useEffect(() => {
-    const clearDragState = () => {
-      delete document.body.dataset.hbarDraggingTool
-      draggingToolRef.current = null
-      setDraggingTool(null)
-    }
-    const onDragEnd = () => window.setTimeout(clearDragState, 0)
-    window.addEventListener('dragend', onDragEnd)
-    window.addEventListener('drop', clearDragState)
-    return () => {
-      window.removeEventListener('dragend', onDragEnd)
-      window.removeEventListener('drop', clearDragState)
-    }
-  }, [])
-  useEffect(() => {
-    let dispose: (() => void) | undefined
-    void platform().then((adapter) => {
-      dispose = adapter.onToolWindowEvent((event) => {
-        if (event.type !== 'closed') return
-        const panelId = event.windowId
-        const previous = nativeToolWindows.current.get(panelId)
-        nativeToolWindows.current.delete(panelId)
-        const contribution = [...(useCatalog.getState().data?.panels ?? []), ...useUIPlugins.getState().panels].find((panel) => panel.id === panelId)
-        if (contribution) openPanel(`plugin:${panelId}`, contribution.title, 'plugin', { panelId }, previous?.dock ?? contribution.defaultDock)
-      })
-    })
-    return () => dispose?.()
-  // The adapter subscription is process-wide; the callback reads current stores
-  // and is intentionally installed once for this App instance.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-  useEffect(() => {
-    if (!taskNotice) return
-    const timer = window.setTimeout(() => {
-      if (useNotice.getState().notice === taskNotice) useNotice.setState({ notice: '' })
-    }, 6000)
-    return () => window.clearTimeout(timer)
-  }, [taskNotice])
-  useEffect(() => {
-    if (!notice || toastPaused) return
-    const timer = window.setTimeout(() => {
-      if (useNotice.getState().error === notice) useNotice.setState({ error: '' })
-    }, 6000)
-    return () => window.clearTimeout(timer)
-  }, [notice, toastPaused])
 
-  useEffect(() => {
-    if (!notice) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') useNotice.setState({ error: '' })
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [notice])
-  useEffect(() => {
-    const onResize = () => setSmall(window.innerWidth < 900)
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [])
-  useEffect(() => {
-    const onPointerMove = (event: PointerEvent) => {
-      const drag = sidebarDrag.current
-      if (!drag) return
-      const width = Math.min(
-        SIDEBAR_MAX_WIDTH,
-        Math.max(SIDEBAR_MIN_WIDTH, drag.startWidth + event.clientX - drag.startX),
-      )
-      useWorkbench.setState({ sidebarWidth: Math.round(width) })
-    }
-    const onPointerUp = () => {
-      sidebarDrag.current = null
-      document.body.classList.remove('resizing-sidebar')
-    }
-    window.addEventListener('pointermove', onPointerMove)
-    window.addEventListener('pointerup', onPointerUp)
-    return () => {
-      window.removeEventListener('pointermove', onPointerMove)
-      window.removeEventListener('pointerup', onPointerUp)
-    }
-  }, [])
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === '`') {
-        event.preventDefault()
-        activateConversationView('console')
-      } else if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'p') {
-        event.preventDefault()
-        setCommandPaletteOpen(true)
-      }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  })
-  useEffect(() => {
-    if (plugins) void syncUIPlugins(plugins)
-  }, [plugins])
-  useEffect(() => {
-    let mounted = true
-    void platform()
-      .then(async (adapter) => {
-        if (!mounted) return
-        const info = await adapter.connection()
-        if (info.token)
-          await fetch(new URL('/auth/token', info.url), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: info.token }),
-            credentials: 'include',
+function PromptTemplatesTool({ locale, workspaceId }: { readonly locale: ShellLocale; readonly workspaceId?: string }) {
+  const runtime = useHbarRuntime()
+  const navigation = useHbarRuntimeState(runtime.state.navigation)
+  if (!workspaceId) return null
+  return (
+    <Suspense fallback={<LumenText role="status">{getShellCopy(locale).shell.loading}</LumenText>}>
+      <PromptTemplatesPage
+        runtime={runtime}
+        workspaceId={workspaceId}
+        locale={locale}
+        {...(navigation.workspaceId === workspaceId && navigation.sessionId ? { sessionId: navigation.sessionId } : {})}
+      />
+    </Suspense>
+  )
+}
+
+function FeatureNavigation({
+  locale,
+  onOpen,
+}: {
+  readonly locale: ShellLocale
+  readonly onOpen: (panelId: 'run-board' | 'schedules' | 'prompt-templates' | 'notifications' | 'onboarding') => void
+}) {
+  const zh = locale === 'zh-CN'
+  const runtime = useHbarRuntime()
+  const notificationLabels = useMemo(() => notificationCopy(locale), [locale])
+  const items = [
+    { id: 'run-board' as const, label: zh ? '运行看板' : 'Run board' },
+    { id: 'schedules' as const, label: zh ? '排期' : 'Schedules' },
+    { id: 'prompt-templates' as const, label: zh ? '提示词模板' : 'Prompt templates' },
+    { id: 'onboarding' as const, label: zh ? '首次配置' : 'Setup' },
+  ]
+  return (
+    <LumenFrame className="hbar-web-feature-navigation">
+      {items.map((item) => (
+        <LumenButton key={item.id} variant="text" onClick={() => onOpen(item.id)}>
+          {item.label}
+        </LumenButton>
+      ))}
+      <HbarNotifications
+        runtime={runtime.state.notifications.runtime}
+        labels={notificationLabels}
+        variant={6}
+        onOpenCenter={() => onOpen('notifications')}
+        onNavigate={(target) =>
+          navigateNotification(target, {
+            commands: runtime.commands,
+            getSchedule: (id) => runtime.state.schedules?.get(id) ?? Promise.resolve(null),
           })
-        if (mounted) await connectHost(info.url, info.token)
-      })
-      .catch(report)
-    return () => {
-      mounted = false
-    }
-  }, [])
-  useEffect(() => {
-    if (!data) return
-    const restoring = initialSelection.current
-    const persistedTool = restoring ? useWorkbench.getState().toolPanel : ''
-    const hasPersistedTool = Boolean(persistedTool && model.getNodeById(persistedTool))
-    const selectedTab = restoring ? selectedLayoutTab(model) : undefined
-    const shouldSelectSession = restoring
-      ? !hasPersistedTool &&
-        (!selectedTab ||
-          (selectedTab.getComponent() === 'conversation' && sessionIdFromTab(selectedTab) !== activeSession))
-      : lastSessionSelection.current !== activeSession
-    if (!activeSession) {
-      if (!restoring) lastSessionSelection.current = activeSession
-      return
-    }
-    const session = data.sessions.find((s) => s.id === activeSession)
-    if (!session) return
-    initialSelection.current = false
-    lastSessionSelection.current = activeSession
-    const tabs = conversationTabs(model)
-    const target = tabs.find((tab) => sessionIdFromTab(tab) === session.id) ?? tabs[0]
-    if (target) {
-      const wasTarget = sessionIdFromTab(target) === session.id
-      const currentConfig = sessionTabConfig(target)
-      switchingSession.current = true
-      try {
-        if (!wasTarget || target.getName() !== session.title || !target.isEnableClose())
-          model.doAction(
-            Actions.updateNodeAttributes(target.getId(), {
-              name: session.title,
-              enableClose: true,
-              config: { ...currentConfig, sessionId: session.id },
-            }),
-          )
-        for (const extra of tabs) if (extra.getId() !== target.getId()) model.doAction(Actions.deleteTab(extra.getId()))
-        if (shouldSelectSession) model.doAction(Actions.selectTab(target.getId()))
-      } finally {
-        switchingSession.current = false
-      }
-      return
-    }
-    const id = `session:${session.id}`
-    model.doAction(
-      Actions.addNode(
-        {
-          type: 'tab',
-          id,
-          name: session.title,
-          component: 'conversation',
-          enableClose: true,
-          config: { sessionId: session.id },
-        },
-        model.getNodeById('main') ? 'main' : (model.getActiveTabset()?.getId() ?? 'main'),
-        DockLocation.CENTER,
-        -1,
-      ),
-    )
-    if (shouldSelectSession) model.doAction(Actions.selectTab(id))
-  }, [activeSession, data, model])
-  useEffect(() => {
-    for (const session of sessions ?? []) {
-      const node = conversationTabs(model).find((tab) => sessionIdFromTab(tab) === session.id)
-      if (node && node.getName() !== session.title)
-        model.doAction(Actions.updateNodeAttributes(node.getId(), { name: session.title }))
-    }
-  }, [sessions, model])
-  function openPanel(
-    id: string,
-    title: string,
-    component: string,
-    config?: Record<string, unknown>,
-    placement = 'editor',
-  ) {
-    if (component === 'system-terminal' && id === 'system-terminal') {
-      const placeholder = model.getNodeById('system-terminal-placeholder')
-      if (placeholder) model.doAction(Actions.deleteTab(placeholder.getId()))
-      id = `system-terminal:${crypto.randomUUID()}`
-      title = `${t('systemTerminalTitle')} ${systemTerminalCount(model) + 1}`
-    }
-    if (component === 'terminal') {
-      activateConversationView('console')
-      return
-    }
-    if (component !== 'conversation') useWorkbench.setState({ toolPanel: id })
-    if (component !== 'conversation') openToolIdsRef.current.add(id)
-    if (component === 'plugin') setMobilePanel(String(config?.panelId ?? ''))
-    if (small) setMobileView(MOBILE_VIEW_BY_COMPONENT[component] ?? 'chat')
-    const registeredPanels = [...(useCatalog.getState().data?.panels ?? []), ...useUIPlugins.getState().panels]
-    const panelContribution = component === 'plugin'
-      ? registeredPanels.find((panel) => panel.id === String(config?.panelId ?? ''))
-      : undefined
-    const popoutAttributes = panelContribution?.canPopout === false
-      ? { enablePopout: false, enablePopoutIcon: false, enablePopoutFloatIcon: false }
-      : {}
-    const borderId = placement === 'right'
-      ? 'border_right'
-      : placement === 'bottom'
-        ? 'border_bottom'
-        : placement === 'top'
-          ? 'border_top'
-          : placement === 'left'
-            ? 'border_left'
-            : undefined
-    const border = borderId ? model.getNodeById(borderId) : undefined
-    let skipBorderSelection = false
-    if (borderId && border instanceof BorderNode) {
-      const existing = model.getNodeById(id)
-      skipBorderSelection = existing instanceof TabNode && border.getSelectedNode()?.getId() === existing.getId()
-      if (!existing)
-        model.doAction(
-          Actions.addNode(
-            { type: 'tab', id, name: title, component, enableClose: true, config, ...popoutAttributes },
-            borderId,
-            DockLocation.CENTER,
-            -1,
-          ),
-        )
-      else if (existing instanceof TabNode && !existing.isEnableClose())
-        model.doAction(Actions.updateNodeAttributes(existing.getId(), { enableClose: true }))
-      if (existing && existing.getParent()?.getId() !== borderId)
-        model.doAction(Actions.moveNode(id, borderId, DockLocation.CENTER, -1, false))
-      model.doAction(Actions.updateNodeAttributes(borderId, { show: true }))
-    } else {
-      const existing = model.getNodeById(id)
-      if (!existing)
-        model.doAction(
-          Actions.addNode(
-            { type: 'tab', id, name: title, component, enableClose: true, config, ...popoutAttributes },
-            model.getNodeById('main') ? 'main' : (model.getActiveTabset()?.getId() ?? 'main'),
-            placement === 'bottom'
-              ? DockLocation.BOTTOM
-              : placement === 'top'
-                ? DockLocation.TOP
-              : placement === 'left'
-                ? DockLocation.LEFT
-                : DockLocation.CENTER,
-            -1,
-          ),
-        )
-      else if (existing instanceof TabNode && !existing.isEnableClose())
-        model.doAction(Actions.updateNodeAttributes(existing.getId(), { enableClose: true }))
-    }
-    if (!skipBorderSelection) {
-      const selectedNode = model.getNodeById(id)
-      if (border instanceof BorderNode && selectedNode instanceof TabNode)
-        model.doAction(
-          Actions.updateNodeAttributes(border.getId(), {
-            show: true,
-            selected: border.getTabNodes().indexOf(selectedNode),
-          }),
-        )
-      else model.doAction(Actions.selectTab(id))
-    }
-  }
+        }
+      />
+    </LumenFrame>
+  )
+}
 
-  function moveToolToDock(id: string, dock: ToolWindowDock) {
-    const contribution = [...(data?.panels ?? []), ...clientPanels].find((panel) => panel.id === id)
-    if (contribution?.allowedDocks && !contribution.allowedDocks.includes(dock)) return
-    if (dock === 'window' && contribution?.canPopout === false) return
-    const resolvedId = id === 'diagnose' ? DIAGNOSE_PANEL_ID : id
-    let node = model.getNodeById(resolvedId) ?? model.getNodeById(`plugin:${id}`)
-    if (!node && contribution) {
-      openPanel(
-        `plugin:${id}`,
-        contribution.title,
-        'plugin',
-        { panelId: id },
-        contribution.defaultDock ?? 'right',
-      )
-      node = model.getNodeById(`plugin:${id}`)
-    }
-    if (dock === 'window') {
-      if (node instanceof TabNode && contribution) {
-        void platform().then(async (adapter) => {
-          if (adapter.kind !== 'desktop') {
-            model.doAction(Actions.popoutTab(node!.getId(), 'window'))
+function WorkspaceModal({
+  locale,
+  connected,
+  chatSearch,
+}: {
+  readonly locale: ShellLocale
+  readonly connected: boolean
+  readonly chatSearch: WebChatSearchController
+}) {
+  const copy = getShellCopy(locale)
+  const runtime = useHbarRuntime()
+  const presentation = useHbarRuntimeState(runtime.state.presentation)
+  const surfaces = useHbarRuntimeState(runtime.state.surfaces)
+  const commandSearch = useRef<HTMLInputElement>(null)
+  const chatSearchInput = useRef<HTMLInputElement>(null)
+  const chatSearchState = useStore(chatSearch.store)
+  const modalInstanceId = presentation.modalInstanceId
+  const modal = modalInstanceId ? surfaces.panels[modalInstanceId] : undefined
+  const searchOpen = Boolean(modalInstanceId && modal?.panelId === 'chat-search')
+  useEffect(() => {
+    if (searchOpen) chatSearch.open()
+    else chatSearch.close()
+    return () => chatSearch.close()
+  }, [chatSearch, searchOpen])
+  const close = (instanceId: string) => {
+    void runtime.commands.execute('app.closePanel', { instanceId }).catch(() => {})
+  }
+  if (modalInstanceId && searchOpen) {
+    const labels = chatSearchCopy(locale)
+    const selectedInstanceId = modalInstanceId
+    return (
+      <LumenDialog
+        open
+        chromeless
+        appearance="panel"
+        title={labels.search}
+        closeLabel={labels.close}
+        className="hbar-app-react-workspace-modal hbar-app-react-chat-search-dialog"
+        initialFocus={chatSearchInput}
+        onClose={() => close(selectedInstanceId)}
+      >
+        <HbarChatSearchView
+          inputRef={chatSearchInput}
+          query={chatSearchState.query}
+          status={chatSearchState.status === 'closed' ? 'loading' : chatSearchState.status}
+          rows={chatSearchState.rows}
+          selectedSessionId={chatSearchState.selectedSessionId}
+          truncated={chatSearchState.truncated}
+          error={chatSearchState.error ? chatSearchErrorCopy(locale, chatSearchState.error) : null}
+          openingSessionId={chatSearchState.openingSessionId}
+          openError={
+            chatSearchState.openError
+              ? {
+                  sessionId: chatSearchState.openError.sessionId,
+                  message: chatSearchErrorCopy(locale, chatSearchState.openError.message),
+                }
+              : null
+          }
+          labels={labels}
+          onQueryChange={chatSearch.setQuery}
+          onMove={chatSearch.move}
+          onSelect={chatSearch.select}
+          onOpen={(sessionId, workspaceId) => {
+            void chatSearch
+              .openRow(sessionId, workspaceId, async (row) => {
+                await runtime.commands.execute('app.setSession', {
+                  sessionId: row.sessionId,
+                  workspaceId: row.workspaceId,
+                })
+                // A global hit may belong to a hidden project. Reveal it only after the
+                // exact session navigation succeeds; reveal failure does not undo the tab.
+                void runtime.commands
+                  .execute('workspaceSidebar.reveal', { workspaceId: row.workspaceId })
+                  .catch(() => undefined)
+              })
+              .then((opened) => {
+                if (opened && runtime.state.presentation.getSnapshot().modalInstanceId === selectedInstanceId)
+                  close(selectedInstanceId)
+              })
+          }}
+          onClose={() => close(selectedInstanceId)}
+          onCompositionStart={chatSearch.compositionStart}
+          onCompositionEnd={chatSearch.compositionEnd}
+          onRetry={chatSearch.retry}
+        />
+      </LumenDialog>
+    )
+  }
+  if (modalInstanceId && modal?.panelId === 'commands')
+    return (
+      <LumenDialog
+        open
+        chromeless
+        title={copy.commandPalette.title}
+        closeLabel={copy.commandPalette.close}
+        className="hbar-app-react-workspace-modal hbar-app-react-command-modal"
+        initialFocus={commandSearch}
+        onClose={() => {
+          if (runtime.state.commandPalette.getSnapshot().view !== 'search') {
+            void runtime.commands.execute('commandPalette.back', {}).catch(() => {})
             return
           }
-          const url = new URL(window.location.href)
-          url.searchParams.set('hbarPanel', id)
-          const handle = await adapter.openToolWindow({ windowId: id, title: contribution.title, url: url.href })
-          if (!handle) return
-          nativeToolWindows.current.set(id, {
-            dock: toolDock(id),
-            focus: () => adapter.focusToolWindow(handle.windowId),
-            close: () => adapter.closeToolWindow(handle.windowId),
-          })
-          closePanel(node!.getId())
-        }).catch(report)
-      } else if (node instanceof TabNode) model.doAction(Actions.popoutTab(node.getId(), 'window'))
-      return
-    }
-    const target = dock === 'editor' ? model.getNodeById('main') : model.getNodeById(`border_${dock}`)
-    if (!target) return
-    if (node instanceof TabNode) {
-      model.doAction(Actions.moveNode(node.getId(), target.getId(), DockLocation.CENTER, -1, true))
-      if (dock !== 'editor') model.doAction(Actions.updateNodeAttributes(target.getId(), { show: true }))
-      if (dock === 'left' || dock === 'right') {
-        moveToolRail(id, dock)
-      }
-    }
-  }
-
-  function toolDock(id: string): 'left' | 'right' | 'top' | 'bottom' | 'editor' {
-    const resolvedId = id === 'diagnose' ? DIAGNOSE_PANEL_ID : id
-    const node = model.getNodeById(resolvedId) ?? model.getNodeById(`plugin:${id}`)
-    if (!(node instanceof TabNode)) return 'right'
-    let parent = node.getParent()
-    while (parent && !(parent instanceof BorderNode)) parent = parent.getParent()
-    if (parent instanceof BorderNode) {
-      const location = parent.getLocation().getName()
-      if (location === 'left' || location === 'right' || location === 'top' || location === 'bottom') return location
-    }
-    return 'editor'
-  }
-
-  const draggedContribution = draggingTool
-    ? [...(data?.panels ?? []), ...clientPanels].find((contribution) => contribution.id === draggingTool)
-    : undefined
-  const dragAllowedDocks: readonly ToolWindowDock[] = draggedContribution?.allowedDocks
-    ? draggedContribution.allowedDocks.filter((dock) => draggedContribution.canPopout !== false || dock !== 'window')
-    : draggedContribution?.canPopout === false
-      ? ['left', 'right', 'top', 'bottom', 'editor']
-      : ['left', 'right', 'top', 'bottom', 'editor', 'window']
-
-  function handleToolRailDragOver(event: React.DragEvent<HTMLDivElement>) {
-    const target = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('.tool-rail') : null
-    if (!target) return
-    const source =
-      event.dataTransfer.getData('application/x-hbar-tool') ||
-      document.body.dataset.hbarDraggingTool ||
-      draggingToolRef.current ||
-      draggingTool
-    if (!source) return
-    event.preventDefault()
-    moveToolRail(source, target.classList.contains('left-rail') ? 'left' : 'right')
-  }
-  function handleToolRailDrop(event: React.DragEvent<HTMLDivElement>) {
-    const target = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('.tool-rail') : null
-    if (!target) return
-    const source = event.dataTransfer.getData('application/x-hbar-tool') || document.body.dataset.hbarDraggingTool || draggingToolRef.current
-    if (!source) return
-    event.preventDefault()
-    event.stopPropagation()
-    moveToolRail(source, target.classList.contains('left-rail') ? 'left' : 'right')
-    setToolDragState(null)
-  }
-
-  function systemTerminalCount(current: Model) {
-    let count = 0
-    current.visitNodes((node) => {
-      if (node instanceof TabNode && node.getComponent() === 'system-terminal') count++
-    })
-    return count
-  }
-
-  function closePanel(id: string) {
-    openToolIdsRef.current.delete(id)
-    const node = model.getNodeById(id)
-    let parent = node?.getParent()
-    while (parent && !(parent instanceof BorderNode)) parent = parent.getParent()
-    if (parent instanceof BorderNode) {
-      if (node instanceof TabNode && node.getComponent() === 'system-terminal') {
-        model.doAction(Actions.deleteTab(id))
-        const remaining = parent.getTabNodes()
-        if (remaining.length) model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: true, selected: 0 }))
-        else model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: false, selected: -1 }))
-      } else model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: false, selected: -1 }))
-    } else if (node) model.doAction(Actions.deleteTab(id))
-    if (useWorkbench.getState().toolPanel === id) useWorkbench.setState({ toolPanel: '' })
-  }
-  function clearWorkspaceSurface() {
-    const staleIds: string[] = []
-    model.visitNodes((node) => {
-      if (!(node instanceof TabNode)) return
-      if (node.getComponent() === 'file' || node.getComponent() === 'git' || node.getComponent() === 'browser' ||
-        node.getComponent() === 'inspector' || node.getComponent() === 'plan' || node.getComponent() === 'insights' ||
-        node.getComponent() === 'activity' || node.getComponent() === 'diagnose' || node.getComponent() === 'settings' ||
-        node.getComponent() === 'plugin') staleIds.push(node.getId())
-    })
-    for (const id of staleIds) closePanel(id)
-    openToolIdsRef.current.clear()
-    useWorkbench.setState({ toolPanel: '' })
-    setMobileFile('')
-    setMobilePanel('')
-    if (small) setMobileView('chat')
-  }
-  function activateConversationView(view: 'chat' | 'console') {
-    const key = activeSession || 'new'
-    setConversationViews((current) => ({ ...current, [key]: view }))
-    const target =
-      conversationTabs(model).find((tab) => sessionIdFromTab(tab) === activeSession) ?? conversationTabs(model)[0]
-    if (target) model.doAction(Actions.selectTab(target.getId()))
-    const legacyTerminal = model.getNodeById('terminal')
-    if (legacyTerminal) closePanel('terminal')
-    useWorkbench.setState({ toolPanel: '' })
-    if (small) setMobileView('chat')
-  }
-  function toggleGalleryTool(
-    id: string,
-    title: string,
-    component: string,
-    config?: Record<string, unknown>,
-    placement = 'right',
-  ) {
-    const panelId = id.startsWith('plugin:') ? id.slice('plugin:'.length) : id
-    const nativeWindow = nativeToolWindows.current.get(panelId)
-    if (nativeWindow) {
-      void nativeWindow.focus().catch(report)
-      return
-    }
-    const existing = model.getNodeById(id) ?? (id.startsWith('plugin:') ? undefined : model.getNodeById(`plugin:${id}`))
-    if (existing instanceof TabNode) {
-      // FlexLayout can keep a border tab selected while another editor tab
-      // (for example Settings) is active.  The Zustand toolPanel is the
-      // authoritative visible-tool state; the model selection alone must
-      // not turn a subsequent click into an accidental close.
-      const selected = useWorkbench.getState().toolPanel === id
-      if (selected) {
-        closePanel(id)
-        if (small) setMobileView('chat')
-        return
-      }
-      const selectedEditorTab = selectedLayoutTab(model)
-      if (selectedEditorTab?.getComponent() !== 'conversation') {
-        const conversation = conversationTabs(model)[0]
-        if (conversation) model.doAction(Actions.selectTab(conversation.getId()))
-      }
-      openPanel(id, title, component, config, placement)
-      return
-    }
-    if (openToolIdsRef.current.has(id) && existing) {
-      let parent = existing.getParent()
-      while (parent && !(parent instanceof BorderNode)) parent = parent.getParent()
-      const selected =
-        useWorkbench.getState().toolPanel === id ||
-        (parent instanceof BorderNode
-          ? parent.isShowing() && parent.getSelectedNode()?.getId() === id
-          : existing instanceof TabNode && existing.isSelected())
-      if (selected) {
-        closePanel(id)
-        if (small) setMobileView('chat')
-        return
-      }
-      if (parent instanceof BorderNode) {
-        const index = parent.getTabNodes().findIndex((tab) => tab.getId() === id)
-        model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: true, ...(index >= 0 ? { selected: index } : {}) }))
-      } else if (existing instanceof TabNode) {
-        model.doAction(Actions.selectTab(id))
-      }
-      useWorkbench.setState({ toolPanel: id })
-      if (small) setMobileView(MOBILE_VIEW_BY_COMPONENT[component] ?? 'chat')
-      return
-    }
-    let existingParent = existing?.getParent()
-    while (existingParent && !(existingParent instanceof BorderNode)) existingParent = existingParent.getParent()
-    const selectedInBorder = existing instanceof TabNode && existingParent instanceof BorderNode &&
-      existingParent.isShowing() && existingParent.getSelectedNode()?.getId() === existing.getId()
-    if (toolPanel === id || selectedInBorder || (existing instanceof TabNode && !(existingParent instanceof BorderNode) && existing.isSelected())) {
-      let parent = existing?.getParent()
-      while (parent && !(parent instanceof BorderNode)) parent = parent.getParent()
-      if (parent instanceof BorderNode)
-        {
-          model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: false, selected: -1 }))
-          const fallback = conversationTabs(model)[0]
-          if (fallback) model.doAction(Actions.selectTab(fallback.getId()))
-        }
-      else closePanel(id)
-      useWorkbench.setState({ toolPanel: '' })
-      if (small) setMobileView('chat')
-      return
-    }
-    openPanel(id, title, component, config, model.getNodeById(id) ? toolDock(id) : placement)
-  }
-  const settings = () => openPanel('settings', t('settingsTitle'), 'settings')
-  const toggleSettings = () => {
-    const existing = model.getNodeById('settings')
-    if (existing instanceof TabNode && useWorkbench.getState().toolPanel === 'settings') {
-      closePanel('settings')
-      return
-    }
-    if (existing instanceof TabNode) {
-      let parent = existing.getParent()
-      while (parent && !(parent instanceof BorderNode)) parent = parent.getParent()
-      if (parent instanceof BorderNode)
-        model.doAction(Actions.updateNodeAttributes(parent.getId(), { show: true, selected: parent.getTabNodes().indexOf(existing) }))
-      else model.doAction(Actions.selectTab(existing.getId()))
-      useWorkbench.setState({ toolPanel: 'settings' })
-      return
-    }
-    openPanel('settings', t('settingsTitle'), 'settings', undefined, 'editor')
-  }
-  function closeWorkspaceModal() {
-    setWorkspaceModal(false)
-    setWorkspacePaths([])
-    setWorkspaceAlias('')
-    setDiscoveredWorktrees([])
-    setSelectedWorktreePaths([])
-    setWorkspaceCreateErrors([])
-    setWorkspaceCreateBusy(false)
-  }
-  async function chooseWorkspaceDirectory() {
-    try {
-      const selected = await (await platform()).pickDirectory()
-      if (selected) {
-        const normalized = normalizeWorkspacePath(selected)
-        setWorkspacePaths((current) => current.some((item) => workspacePathKey(item) === workspacePathKey(normalized)) ? current : [...current, normalized])
-      }
-    } catch (error) {
-      report(error)
-    }
-  }
-  async function createWorkspaces(retryPaths?: readonly string[]) {
-    const paths = [...(retryPaths ?? workspacePaths)]
-    if (!paths.length) return
-    if (workspaceCreateBusy) return
-    setWorkspaceCreateBusy(true)
-    setWorkspaceCreateErrors([])
-    try {
-      const discovered = new Map<string, string>()
-      for (const path of retryPaths ? paths : [...paths, ...selectedWorktreePaths]) {
-        const key = workspacePathKey(path)
-        if (!discovered.has(key)) discovered.set(key, path)
-      }
-      const pathsToCreate = [...discovered.values()]
-      const alias = retryPaths ? '' : workspaceAlias.trim()
-      const created: Array<{ id: string }> = []
-      const failures: Array<{ path: string; message: string; retryable: boolean }> = []
-      for (const path of pathsToCreate) {
-        const name = alias && pathsToCreate.length === 1 ? alias : undefined
-        try {
-          created.push(await client().call('workspace.create', { path, ...(name ? { name } : {}) }))
-        } catch (error) {
-          failures.push({ path, message: error instanceof Error ? error.message : String(error), retryable: true })
-        }
-      }
-      if (created.length) {
-        try {
-          await refreshCatalog()
-          useWorkbench.setState({ workspaceId: created.at(-1)?.id ?? '' })
-        } catch (error) {
-          failures.push({ path: t('workspaceRefreshFailed'), message: error instanceof Error ? error.message : String(error), retryable: false })
-        }
-      }
-      if (failures.length) {
-        setWorkspaceCreateErrors(failures)
-        return
-      }
-      closeWorkspaceModal()
-    } catch (error) {
-      setWorkspaceCreateErrors([{ path: t('workspaceCreateFailed'), message: error instanceof Error ? error.message : String(error), retryable: false }])
-    } finally {
-      setWorkspaceCreateBusy(false)
-    }
-  }
-  async function useWorktreePath(path: string) {
-    const connection = client()
-    const startingWorkspaceId = useWorkbench.getState().workspaceId
-    const startingSessionId = useWorkbench.getState().activeSession
-    const currentData = useCatalog.getState().data
-    const normalizedPath = normalizeWorkspacePath(path)
-    const existing = currentData?.workspaces.find((workspace) => workspacePathKey(workspace.path) === workspacePathKey(normalizedPath))
-    const target = existing ?? await connection.call('workspace.create', { path: normalizedPath })
-    if (useConnection.getState().client !== connection || useWorkbench.getState().workspaceId !== startingWorkspaceId || useWorkbench.getState().activeSession !== startingSessionId)
-      throw new Error(t('worktreeContextChanged'))
-    const currentSession = currentData?.sessions.find((session) => session.id === startingSessionId)
-    if (startingSessionId && currentSession && currentSession.workspaceId !== target.id)
-      await connection.call('session.move', { sessionId: startingSessionId, workspaceId: target.id })
-    if (useConnection.getState().client !== connection) throw new Error(t('connectionChanged'))
-    await refreshCatalog()
-    if (useConnection.getState().client !== connection) throw new Error(t('connectionChanged'))
-    clearWorkspaceSurface()
-    useWorkbench.setState({ workspaceId: target.id })
-    if (startingSessionId) await openSession(startingSessionId)
-  }
-  function openSessionTab(session: Session) {
-    initialSelection.current = false
-    const tabs = conversationTabs(model)
-    const target = tabs.find((tab) => sessionIdFromTab(tab) === session.id) ?? tabs[0]
-    switchingSession.current = true
-    try {
-      if (target) {
-        const currentConfig = sessionTabConfig(target)
-        model.doAction(
-          Actions.updateNodeAttributes(target.getId(), {
-            name: session.title,
-            enableClose: true,
-            config: { ...currentConfig, sessionId: session.id },
-          }),
-        )
-        for (const extra of tabs) if (extra.getId() !== target.getId()) model.doAction(Actions.deleteTab(extra.getId()))
-        model.doAction(Actions.selectTab(target.getId()))
-      } else {
-        const id = `session:${session.id}`
-        model.doAction(
-          Actions.addNode(
-            {
-              type: 'tab',
-              id,
-              name: session.title,
-              component: 'conversation',
-              enableClose: true,
-              config: { sessionId: session.id },
-            },
-            model.getNodeById('main') ? 'main' : (model.getActiveTabset()?.getId() ?? 'main'),
-            DockLocation.CENTER,
-            -1,
-          ),
-        )
-        model.doAction(Actions.selectTab(id))
-      }
-    } finally {
-      switchingSession.current = false
-    }
-    void openSession(session.id).catch(report)
-    setMobileView('chat')
-  }
-  function clearSessionTab() {
-    const tabs = conversationTabs(model)
-    const target = tabs[0]
-    if (!target) return
-    switchingSession.current = true
-    try {
-      const config = sessionTabConfig(target)
-      const { sessionId: _sessionId, ...withoutSession } = config
-      model.doAction(
-        Actions.updateNodeAttributes(target.getId(), {
-          name: t('newSession'),
-          enableClose: false,
-          config: withoutSession,
-        }),
-      )
-      for (const extra of tabs.slice(1)) model.doAction(Actions.deleteTab(extra.getId()))
-      model.doAction(Actions.selectTab(target.getId()))
-    } finally {
-      switchingSession.current = false
-    }
-  }
-  function selectWorkspace(nextWorkspaceId: string) {
-    if (!nextWorkspaceId || nextWorkspaceId === workspaceId) return
-    const previousSession = useWorkbench.getState().activeSession
-    clearWorkspaceSurface()
-    useWorkbench.setState({ workspaceId: nextWorkspaceId, activeSession: '' })
-    if (previousSession) void client().unfollow(previousSession).catch(report)
-    clearSessionTab()
-    if (small) setMobileView('chat')
-  }
-  async function newSession() {
-    if (creatingSession.current) return
-    const targetWorkspaceId = workspaceId || data?.workspaces[0]?.id || ''
-    if (!targetWorkspaceId) {
-      setWorkspaceModal(true)
-      return
-    }
-    creatingSession.current = true
-    setIsCreatingSession(true)
-    try {
-      if (!workspaceId) useWorkbench.setState({ workspaceId: targetWorkspaceId })
-      const session = await client().call('session.create', { workspaceId: targetWorkspaceId })
-      await refreshCatalog()
-      openSessionTab(session)
-    } catch (error) {
-      report(error)
-    } finally {
-      creatingSession.current = false
-      setIsCreatingSession(false)
-    }
-  }
-  function selectSession(id: string) {
-    const session = data?.sessions.find((item) => item.id === id)
-    if (session) openSessionTab(session)
-    else void openSession(id).catch(report)
-  }
-  function openFile(path: string) {
-    setMobileFile(path)
-    openPanel(`file:${workspaceId}:${path}`, path.split('/').at(-1)!, 'file', { path, workspaceId })
-  }
-  const paletteCommands: readonly PaletteCommand[] = [
-    {
-      id: 'new-session',
-      label: t('newSession'),
-      description: t('newSessionDescription'),
-      keywords: ['session', 'create'],
-      icon: Plus,
-      group: 'actions',
-      execute: () => void newSession(),
-    },
-    {
-      id: 'toggle-sidebar',
-      label: sidebar ? t('collapseSidebar') : t('expandSidebar'),
-      keywords: ['sidebar', 'navigation'],
-      icon: sidebar ? PanelLeftClose : PanelLeftOpen,
-      group: 'navigation',
-      execute: () => {
-        if (small) setMobileView(mobileView === 'sessions' ? 'chat' : 'sessions')
-        else setSidebar((visible) => !visible)
-      },
-    },
-    {
-      id: 'open-files',
-      label: t('openFile'),
-      description: t('browseProjectFiles'),
-      keywords: ['file', 'files'],
-      icon: Folder,
-      group: 'navigation',
-      execute: () => {
-        useWorkbench.setState({ panel: 'files' })
-        if (small) setMobileView('files')
-        else setSidebar(true)
-      },
-    },
-    {
-      id: 'open-terminal',
-      label: t('openCommandConsole'),
-      description: t('commandConsoleDescription'),
-      keywords: ['terminal', 'console'],
-      icon: TerminalSquare,
-      group: 'navigation',
-      execute: () => activateConversationView('console'),
-    },
-    {
-      id: 'open-system-terminal',
-      label: t('openSystemTerminal'),
-      description: t('systemTerminalDescription'),
-      keywords: ['terminal', 'shell', 'pty'],
-      icon: TerminalSquare,
-      group: 'navigation',
-      execute: () => openPanel('system-terminal', t('systemTerminalTitle'), 'system-terminal', undefined, 'bottom'),
-    },
-    {
-      id: 'open-settings',
-      label: t('openSettings'),
-      description: t('settingsDescription'),
-      keywords: ['settings', 'preferences', 'theme'],
-      icon: Settings2,
-      group: 'navigation',
-      execute: settings,
-    },
-    {
-      id: 'open-reactbits-reference-gallery',
-      label: t('openReferenceGallery'),
-      description: t('referenceGalleryDescription'),
-      keywords: ['reactbits', 'reference', 'gallery', 'ui', 'variants'],
-      icon: LayoutGrid,
-      group: 'navigation',
-      execute: () => setReferenceGalleryOpen(true),
-    },
-    {
-      id: 'open-activity',
-      label: t('openActivity'),
-      description: t('activityDescription'),
-      keywords: ['activity', 'events', 'runs'],
-      icon: Activity,
-      group: 'navigation',
-      execute: () => openPanel('activity', t('runs'), 'activity', undefined, 'right'),
-    },
-    {
-      id: 'open-git',
-      label: t('openGit'),
-      description: t('gitDescription'),
-      keywords: ['git', 'changes', 'diff', 'branch', 'commit'],
-      icon: GitBranch,
-      group: 'navigation',
-      execute: () => openPanel('git', 'Git', 'git', undefined, 'right'),
-    },
-    {
-      id: 'restore-layout',
-      label: t('restoreLayout'),
-      description: t('restoreLayoutDescription'),
-      keywords: ['layout', 'reset', 'restore'],
-      icon: LayoutGrid,
-      group: 'actions',
-      execute: () => {
-        useWorkbench.setState({ layout: null, toolPanel: '' })
-        setModel(Model.fromJson(defaultLayout()))
-      },
-    },
-  ]
-  function factory(node: TabNode) {
-    const config = node.getConfig() as { sessionId?: string; path?: string; workspaceId?: string; panelId?: string }
-    switch (node.getComponent()) {
-      case undefined:
-        return <div className="empty-tool">{t('panelUnavailable')}</div>
-      case 'conversation': {
-        const viewKey = config?.sessionId ?? 'new'
-        return (
-          <Chat
-            {...(config?.sessionId ? { sessionId: config.sessionId } : {})}
-            onSettings={settings}
-            view={conversationViews[viewKey] ?? 'chat'}
-            onViewChange={(view) => setConversationViews((current) => ({ ...current, [viewKey]: view }))}
-            onSelectSession={(id) => {
-              setConversationViews((current) => ({ ...current, [id]: 'console' }))
-              selectSession(id)
-            }}
-            onUseWorktree={useWorktreePath}
-          />
-        )
-      }
-      case 'settings':
-        return <Settings />
-      case 'system-terminal':
-        return <SystemTerminalPanel workspaceId={workspaceId} onClose={() => closePanel(node.getId())} />
-      case 'system-terminal-placeholder':
-        return null
-      case 'activity':
-        return <ActivityPanel />
-      case 'git':
-        return (
-          <GitPanel workspacePath={data?.workspaces.find((workspace) => workspace.id === workspaceId)?.path ?? ''} />
-        )
-      case 'browser':
-        return <BrowserPanel sessionId={activeSession} />
-      case 'inspector':
-        return <SessionInspectorPanel sessionId={activeSession} />
-      case 'plan':
-        return <PlanPanel sessionId={activeSession} />
-      case 'insights':
-        return <InsightsPanel sessionId={activeSession} />
-      case 'file':
-        return <FileViewer path={config.path!} workspaceId={config.workspaceId!} />
-      case 'diagnose':
-        return <Diagnose />
-      case 'plugin':
-        return renderPlugin(config.panelId ?? '', toolDock(node.getId()), node)
-      default:
-        return <div className="empty-tool">{t('panelUnavailable')}</div>
-    }
-  }
-  function renderPlugin(
-    panelId: string,
-    dock: ToolWindowProps['dock'] = 'right',
-    node?: TabNode,
-    hostWindow?: Window,
-    hostDocument?: Document,
-  ) {
-    const panel = clientPanels.find((p) => p.id === panelId)
-    const ClientPanel = panel?.component
-    const panelWindow = hostWindow ?? node?.getWindow()
-    const panelDocument = hostDocument ?? node?.getDocument()
-    if (ClientPanel)
-      return (
-        <div
-          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-shell/app-shell-4', 'bootstrap-shell')}
-          className="plugin-panel rb-plugin-panel"
-        >
-          <GlassSurface className="plugin-panel-glass" width="100%" height="100%" aria-hidden="true" />
-          <ClientPanel
-            panelId={panelId}
-            owner={panel.owner}
-            dock={dock}
-            {...(panelWindow ? { window: panelWindow } : {})}
-            {...(panelDocument ? { document: panelDocument } : {})}
-            {...(workspaceId ? { workspaceId } : {})}
-            {...(activeSession ? { sessionId: activeSession } : {})}
-          />
-        </div>
-      )
-    const contribution = data?.panels.find((p) => p.id === panelId)
-    return contribution ? (
-      <div
-        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-shell/app-shell-4', 'bootstrap-shell')}
-        className="plugin-panel rb-plugin-panel"
+          close(modalInstanceId)
+        }}
       >
-        <GlassSurface className="plugin-panel-glass" width="100%" height="100%" aria-hidden="true" />
-        {contribution.kind === 'markdown' ? (
-          <Markdown text={contribution.content} />
-        ) : (
-          <pre>{contribution.content}</pre>
-        )}
-      </div>
-    ) : (
-      <div className="empty-tool">{t('pluginDisabled')}</div>
+        <HbarCommandPalette labels={copy.commandPalette} connected={connected} searchRef={commandSearch} />
+      </LumenDialog>
+    )
+  if (modalInstanceId && modal?.panelId === 'settings-editor') {
+    return (
+      <ProviderDialog
+        key={modalInstanceId}
+        labels={copy.providers.dialog}
+        connected={connected}
+        modalClassName="hbar-app-react-workspace-modal hbar-app-react-provider-modal"
+      />
     )
   }
-  if (status === 'pairing' || (!data && status !== 'connected')) return <><ThemeRuntimeSync /><PairingPage /></>
-  if (detachedPanelId && data) {
-    const detachedContribution = [...(data.panels ?? []), ...clientPanels].find((panel) => panel.id === detachedPanelId)
-    if (detachedContribution)
-      return <><ThemeRuntimeSync /><div {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-shell', 'bootstrap-shell')} className="detached-tool-window">{renderPlugin(detachedPanelId, 'window', undefined, window, document)}</div></>
+  return null
+}
+
+function NativeWindowTitlebar({
+  context,
+  labels,
+  title,
+}: {
+  readonly context: HbarNativeWindowContext
+  readonly labels: {
+    readonly minimize: string
+    readonly maximize: string
+    readonly restore: string
+    readonly close: string
   }
+  readonly title: string
+}) {
+  const nativeWindow = useMemo(() => getCurrentWindow(), [])
+  const [maximized, setMaximized] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    let unlisten: (() => void) | undefined
+    const syncMaximized = () => {
+      void nativeWindow
+        .isMaximized()
+        .then((value) => {
+          if (active) setMaximized(value)
+        })
+        .catch(() => undefined)
+    }
+    syncMaximized()
+    void nativeWindow
+      .onResized(syncMaximized)
+      .then((dispose) => {
+        if (active) unlisten = dispose
+        else dispose()
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+      unlisten?.()
+    }
+  }, [nativeWindow])
+
   return (
-    <>
-      <ThemeRuntimeSync />
-      <div
-        {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-shell/app-shell-4', 'bootstrap-shell')}
-        className="app-shell"
-        onDragOver={handleToolRailDragOver}
-        onDropCapture={handleToolRailDrop}
-      >
-      <WorkbenchHeader
-        status={status}
-        host={host}
-        workspaces={data?.workspaces ?? []}
-        workspaceId={workspaceId}
-        sidebarOpen={sidebar}
-        compact={small}
-        onToggleSidebar={() => {
-          if (small) setMobileView(mobileView === 'sessions' ? 'chat' : 'sessions')
-          else setSidebar((visible) => !visible)
-        }}
-        onSelectWorkspace={selectWorkspace}
-        onAddWorkspace={() => setWorkspaceModal(true)}
-        onOpenCommandPalette={() => setCommandPaletteOpen(true)}
-      />
-      <div
-        className={`main-frame ${sidebar ? '' : 'sidebar-collapsed'}`}
-        style={{ '--sidebar-width': `${sidebarWidth}px` } as CSSProperties}
-      >
-        <aside
-          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-sidebar', 'bootstrap-shell')}
-          className="sidebar"
-        >
-          <GlassSurface className="chrome-glass" width="100%" height="100%" aria-hidden="true" />
-          {panel === 'sessions' ? (
-            <Sessions onSelect={selectSession} onNew={() => void newSession()} onAddWorkspace={() => setWorkspaceModal(true)} creating={isCreatingSession} />
-          ) : (
-            <FileNavigation workspaceId={workspaceId} onOpen={openFile} />
-          )}
-          {!small && sidebar && (
-            <div
-              className="sidebar-resizer"
-              role="separator"
-              aria-label={t('resizeSidebar')}
-              aria-orientation="vertical"
-              aria-valuemin={SIDEBAR_MIN_WIDTH}
-              aria-valuemax={SIDEBAR_MAX_WIDTH}
-              aria-valuenow={sidebarWidth}
-              tabIndex={0}
-              onPointerDown={(event) => {
-                event.preventDefault()
-                sidebarDrag.current = { startX: event.clientX, startWidth: sidebarWidth }
-                document.body.classList.add('resizing-sidebar')
-                event.currentTarget.setPointerCapture?.(event.pointerId)
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-                  event.preventDefault()
-                  useWorkbench.setState({
-                    sidebarWidth: Math.min(
-                      SIDEBAR_MAX_WIDTH,
-                      Math.max(SIDEBAR_MIN_WIDTH, sidebarWidth + (event.key === 'ArrowRight' ? 8 : -8)),
-                    ),
-                  })
-                }
-              }}
-            />
-          )}
-        </aside>
-        <WorkbenchToolRails
-          side="left"
-          showPrimary={false}
-          panel={panel}
-          toolPanel={toolPanel}
-          diagnosePanelId={DIAGNOSE_PANEL_ID}
-          contributions={[...(data?.panels ?? []), ...clientPanels]}
-          onSelectPrimary={(nextPanel) => {
-            useWorkbench.setState({ panel: nextPanel })
-            setSidebar(true)
-          }}
-          onToggleTool={(id, title, component, placement, config) => toggleGalleryTool(id, title, component, config, placement)}
-          onDragState={setToolDragState}
-          toolOrder={toolRailOrder}
-          toolSides={toolRailSides}
-          onMoveTool={moveToolRail}
-          onReorderTool={reorderToolRail}
-        />
-        <main
-          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/app-shell', 'bootstrap-shell')}
-          className="workbench"
-        >
-          {small ? (
-            <>
-              {mobileView === 'sessions' ? (
-                <Sessions onSelect={selectSession} onNew={() => void newSession()} onAddWorkspace={() => setWorkspaceModal(true)} creating={isCreatingSession} />
-              ) : mobileView === 'settings' ? (
-                <Settings />
-              ) : mobileView === 'activity' ? (
-                <ActivityPanel />
-              ) : mobileView === 'git' ? (
-                <GitPanel
-                  workspacePath={data?.workspaces.find((workspace) => workspace.id === workspaceId)?.path ?? ''}
-                />
-              ) : mobileView === 'files' ? (
-                <FileNavigation workspaceId={workspaceId} onOpen={openFile} />
-              ) : mobileView === 'file' ? (
-                <FileViewer path={mobileFile} workspaceId={workspaceId} />
-              ) : mobileView === 'diagnose' ? (
-                <Diagnose />
-              ) : mobileView === 'browser' ? (
-                <BrowserPanel sessionId={activeSession} />
-              ) : mobileView === 'inspector' ? (
-                <SessionInspectorPanel sessionId={activeSession} />
-              ) : mobileView === 'plan' ? (
-                <PlanPanel sessionId={activeSession} />
-              ) : mobileView === 'insights' ? (
-                <InsightsPanel sessionId={activeSession} />
-              ) : mobileView === 'system-terminal' ? (
-                <SystemTerminalPanel workspaceId={workspaceId} onClose={() => setMobileView('chat')} />
-              ) : mobileView === 'plugin' ? (
-                renderPlugin(mobilePanel)
-              ) : mobileView === 'plugins' ? (
-                <MobileToolMenu
-                  contributions={[...(data?.panels ?? []), ...clientPanels]}
-                  onClose={() => setMobileView('chat')}
-                  onOpenTool={(id, title, component, placement, config) => {
-                    if (component === 'terminal') activateConversationView('console')
-                    else if (component === 'system-terminal') setMobileView('system-terminal')
-                    else openPanel(id, title, component, config, placement)
-                  }}
-                />
-              ) : (
-                <Chat
-                  sessionId={activeSession}
-                  onSettings={settings}
-                  view={conversationViews[activeSession || 'new'] ?? 'chat'}
-                  onViewChange={(view) =>
-                    setConversationViews((current) => ({ ...current, [activeSession || 'new']: view }))
-                  }
-                  onSelectSession={(id) => {
-                    setConversationViews((current) => ({ ...current, [id]: 'console' }))
-                    selectSession(id)
-                  }}
-                  onUseWorktree={useWorktreePath}
-                />
-              )}
-            </>
-          ) : (
-            <Layout
-              model={model}
-              factory={factory}
-              onModelChange={(next, action) => {
-                useWorkbench.setState({ layout: versionedLayout(next.toJson()) })
-                const selectedTool = useWorkbench.getState().toolPanel
-                if (selectedTool) {
-                  const selectedNode = next.getNodeById(selectedTool)
-                  let owner = selectedNode?.getParent()
-                  while (owner && !(owner instanceof BorderNode)) owner = owner.getParent()
-                  if (!selectedNode || (owner instanceof BorderNode && !owner.isShowing()))
-                    useWorkbench.setState({ toolPanel: '' })
-                }
-                const previous = useWorkbench.getState().activeSession
-                if (
-                  !switchingSession.current &&
-                  [Actions.DELETE_TAB, Actions.DELETE_TABSET].includes(action.type) &&
-                  previous &&
-                  !next.getNodeById(`session:${previous}`)
-                ) {
-                  const selected = next.getActiveTabset()?.getSelectedNode()
-                  const id =
-                    selected instanceof TabNode && selected.getComponent() === 'conversation'
-                      ? (selected.getConfig() as { sessionId?: string })?.sessionId
-                      : undefined
-                  if (id) void openSession(id).catch(report)
-                  else {
-                    useWorkbench.setState({ activeSession: '' })
-                    switchingSession.current = true
-                    try {
-                      const welcome = ensureWelcomeTab(next, t('newSession'))
-                      if (welcome) next.doAction(Actions.selectTab(welcome))
-                    } finally {
-                      switchingSession.current = false
-                    }
-                    void client().unfollow(previous).catch(report)
-                  }
-                }
-                if (!switchingSession.current && action.type === Actions.SELECT_TAB) {
-                  const tabNode = (action.data as { tabNode?: unknown }).tabNode
-                  if (typeof tabNode === 'string') {
-                    const node = next.getNodeById(tabNode)
-                    if (node instanceof TabNode && node.getComponent() === 'conversation') {
-                      initialSelection.current = false
-                      useWorkbench.setState({ toolPanel: '' })
-                      const id = (node.getConfig() as { sessionId?: string })?.sessionId
-                      if (id && id !== useWorkbench.getState().activeSession) void openSession(id).catch(report)
-                      else if (!id) {
-                        const previous = useWorkbench.getState().activeSession
-                        useWorkbench.setState({ activeSession: '' })
-                        if (previous) void client().unfollow(previous).catch(report)
-                      }
-                    } else if (node instanceof TabNode) {
-                      let owner = node.getParent()
-                      while (owner && !(owner instanceof BorderNode)) owner = owner.getParent()
-                      if (owner instanceof BorderNode || node.getComponent() !== 'conversation')
-                        useWorkbench.setState({ toolPanel: node.getId() })
-                    }
-                  }
-                }
-              }}
-              supportsPopout={!small}
-              popoutURL="/popout.html"
-              popoutWindowName="hbar Tool Window"
-              onRenderTab={(node, renderValues) => {
-                if (!node) {
-                  renderValues.leading = <LayoutGrid size={13} aria-hidden="true" />
-                  return
-                }
-                const config = (node.getConfig() ?? {}) as { panelId?: string }
-                const panelId = config.panelId
-                const contribution = panelId
-                  ? [...(data?.panels ?? []), ...clientPanels].find((panel) => panel.id === panelId)
-                  : undefined
-                const componentIcons: Record<string, typeof LayoutGrid> = {
-                  activity: Activity,
-                  browser: Globe,
-                  diagnose: CircleHelp,
-                  git: GitBranch,
-                  inspector: FileSearch,
-                  insights: BarChart3,
-                  plan: ListChecks,
-                  settings: Settings2,
-                  'system-terminal': TerminalSquare,
-                }
-                const component = node.getComponent()
-                const Icon = contribution?.icon
-                  ? TOOL_WINDOW_TAB_ICONS[contribution.icon] ?? LayoutGrid
-                  : (component ? componentIcons[component] : undefined) ?? LayoutGrid
-                renderValues.leading = <Icon size={13} aria-hidden="true" />
-              }}
-            />
-          )}
-        </main>
-        <WorkbenchToolRails
-          side="right"
-          panel={panel}
-          toolPanel={toolPanel}
-          diagnosePanelId={DIAGNOSE_PANEL_ID}
-          contributions={[...(data?.panels ?? []), ...clientPanels]}
-          onSelectPrimary={(nextPanel) => {
-            useWorkbench.setState({ panel: nextPanel })
-            setSidebar(true)
-          }}
-           onToggleTool={(id, title, component, placement, config) => toggleGalleryTool(id, title, component, config, placement)}
-          onDragState={setToolDragState}
-          toolOrder={toolRailOrder}
-          toolSides={toolRailSides}
-          onMoveTool={moveToolRail}
-          onReorderTool={reorderToolRail}
-        />
-      </div>
-      {draggingTool?.startsWith('plugin:') && !BUILTIN_TOOL_IDS.has(draggingTool.slice('plugin:'.length)) && (
-        <DockTargetOverlay
-          allowedDocks={dragAllowedDocks}
-          onDrop={(dock) => {
-            moveToolToDock(draggingTool, dock)
-            setDraggingTool(null)
-          }}
-        />
-      )}
-      <button
-        type="button"
-        className="global-settings-action"
-        title={t('settingsTitle')}
-        aria-label={t('settingsTitle')}
-        onClick={toggleSettings}
-      >
-        <Settings2 size={17} aria-hidden="true" />
-      </button>
-      <WorkbenchStatusBar
-        workspacePath={data?.workspaces.find((workspace) => workspace.id === workspaceId)?.path ?? 'Workspace'}
-        modelLabel={data?.models.find((model) => model.id === modelId)?.name ?? 'Provider'}
-        permissionLabel={permissionPreset(approvalMode).shortLabel}
-        running={Boolean(activeSnapshot?.runs.some((run) => ['running', 'waiting_approval'].includes(run.status)))}
-        contextTokens={activeSnapshot ? activeSnapshot.usage.input + activeSnapshot.usage.output : 0}
-        activeRuns={host?.activeRuns ?? 0}
-      />
-      <MobileNavigation mobileView={mobileView} onSetMobileView={setMobileView} />
-      {notice && (
-        <div
-          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/notifications', 'settings')}
-          className="toast"
-          role="alert"
-          tabIndex={0}
-          onMouseEnter={() => setToastPaused(true)}
-          onMouseLeave={() => setToastPaused(false)}
-          onFocus={() => setToastPaused(true)}
-          onBlur={() => setToastPaused(false)}
-        >
-          <GlassSurface className="toast-glass" width="100%" height="100%" aria-hidden="true" />
-          <span>{notice}</span>
-          <button title={t('closeNotification')} aria-label={t('closeNotification')} onClick={() => useNotice.setState({ error: '' })}>
-            <X size={15} />
-          </button>
-        </div>
-      )}
-      {taskNotice && !notice && (
-        <div
-          {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/notifications', 'settings')}
-          className="toast task-toast"
-          role="status"
-          tabIndex={0}
-        >
-          <GlassSurface className="toast-glass" width="100%" height="100%" aria-hidden="true" />
-          <span>{taskNotice}</span>
-          <button title={t('closeNotification')} aria-label={t('closeNotification')} onClick={() => useNotice.setState({ notice: '' })}>
-            <X size={15} />
-          </button>
-        </div>
-      )}
-      <CommandPalette open={commandPaletteOpen} commands={paletteCommands} onClose={closeCommandPalette} />
-      <ReferenceGallery open={referenceGalleryOpen} onClose={() => setReferenceGalleryOpen(false)} />
-      {workspaceModal && (
-        <Modal title={t('addWorkspace')} onClose={closeWorkspaceModal}>
-          <form
-            {...referenceAttributes('https://pro.reactbits.dev/docs/app-ui/forms', 'settings')}
-            className="settings-form"
-            onSubmit={(event) => {
-              event.preventDefault()
-              void createWorkspaces()
+    <LumenWindowTitlebar
+      title={title}
+      platform={context.platform}
+      labels={labels}
+      maximized={maximized}
+      onMinimize={() => void nativeWindow.minimize().catch(() => undefined)}
+      onToggleMaximize={() => void nativeWindow.toggleMaximize().catch(() => undefined)}
+      onClose={() => void nativeWindow.close().catch(() => undefined)}
+    />
+  )
+}
+
+export default function App({
+  locale,
+  language,
+  zoom,
+  nativeConnection,
+  nativeWindow,
+}: {
+  readonly locale: ShellLocale
+  readonly language?: WebLanguageController | undefined
+  readonly zoom: WebZoomController
+  readonly nativeConnection?: HbarNativeConnection | undefined
+  readonly nativeWindow?: HbarNativeWindowContext | undefined
+}) {
+  const copy = getShellCopy(locale)
+  const localeRef = useRef(locale)
+  const runtimeCopy = useMemo(() => createWebRuntimeCopy(() => localeRef.current), [])
+  useLayoutEffect(() => {
+    localeRef.current = locale
+    document.documentElement.lang = locale
+    runtimeCopy.refresh()
+  }, [locale, runtimeCopy])
+  const clientUrl = nativeConnection?.url ?? window.location.origin
+  const clientToken = nativeConnection?.token
+  const client = useMemo(() => new HbarClient(clientUrl, clientToken), [clientToken, clientUrl])
+  const sendBehavior = useMemo(
+    () => createWebSendBehaviorController(createHostSendBehaviorPort(createSettingsCommandClient(client))),
+    [client],
+  )
+  const attachmentController = useMemo(() => createBrowserAttachmentController(client), [client])
+  const resourcePicker = useMemo(() => createBrowserResourcePicker(client), [client])
+  const composerFiles = useMemo(() => createFileCommandClient(client), [client])
+  const chatSearch = useMemo(
+    () => createWebChatSearchController(createHostChatSearchPort(createSessionSearchCommandClient(client))),
+    [client],
+  )
+  const [bootstrapTheme, setBootstrapTheme] = useState(() => readThemeBootstrap(window.localStorage))
+  const [bootstrapAppearance, setBootstrapAppearance] = useState(() => readAppearanceBootstrap(window.localStorage))
+  const [systemPrefersDark, setSystemPrefersDark] = useState(
+    () => window.matchMedia('(prefers-color-scheme: dark)').matches,
+  )
+  const [systemPrefersReducedMotion, setSystemPrefersReducedMotion] = useState(
+    () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  )
+  const [desktopViewport, setDesktopViewport] = useState(() => window.matchMedia('(min-width: 768px)').matches)
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 768px)')
+    const update = (event: MediaQueryListEvent | MediaQueryList) => setDesktopViewport(event.matches)
+    update(media)
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+  const startup = useMemo(
+    () =>
+      createWebStartupRuntime({
+        endpointId: clientUrl,
+        isKnownSettingsGroup: knownSettingsGroup,
+        bootstrap: () => {
+          const dimensions = readAppearanceBootstrap(window.localStorage)
+          return {
+            status: 'ready',
+            revision: 0,
+            persisted: false,
+            restoreError: null,
+            values: {
+              theme: readThemeBootstrap(window.localStorage),
+              'appearance.controlSize': dimensions.controlSize,
+              'appearance.textSize': dimensions.textSize,
+              'appearance.cornerSize': dimensions.cornerSize,
+            },
+          }
+        },
+        createRuntime: (hostId, initialGlobalSettings, initialDrafts) =>
+          createRuntime(
+            client,
+            hostId,
+            runtimeCopy,
+            attachmentController.commands,
+            resourcePicker,
+            initialGlobalSettings,
+            initialDrafts,
+          ),
+        draftPersistence: {
+          read(hostId) {
+            try {
+              const raw = window.localStorage.getItem(`hbar:web:drafts:${hostId}`)
+              if (raw !== null && new TextEncoder().encode(raw).byteLength > 1_000_000) return undefined
+              return raw === null ? undefined : restoreSessionDrafts(JSON.parse(raw))
+            } catch {
+              return undefined
+            }
+          },
+          write(hostId, drafts) {
+            try {
+              const serialized = serializeSessionDrafts(drafts)
+              if (serialized !== null) window.localStorage.setItem(`hbar:web:drafts:${hostId}`, serialized)
+            } catch {
+              // Storage failures leave the in-memory draft usable.
+            }
+          },
+        },
+        appearancePort: createAppearancePortForRuntime,
+        disposeConnection: () => {
+          attachmentController.dispose()
+          resourcePicker.dispose()
+          client.disconnect()
+        },
+      }),
+    [attachmentController, client, clientUrl, runtimeCopy, resourcePicker],
+  )
+  const { runtime, appearanceEditor, binding, connection } = useStore(startup.store)
+  useEffect(() => {
+    sendBehavior.bind(binding.hostId, connection === 'connected')
+  }, [binding.hostId, connection, sendBehavior])
+  useEffect(() => {
+    chatSearch.bind(binding.hostId, connection === 'connected')
+  }, [binding.hostId, chatSearch, connection])
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void sendBehavior.refresh()
+    }
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', refresh)
+    }
+  }, [sendBehavior])
+  // Allocation performs no I/O. Each runtime/Host generation owns a distinct resource adapter.
+  const imageResources = useMemo(
+    () => ({ port: createBrowserImageResources(client), references: 0, hostIdentity: runtime.view.hostId }),
+    [client, runtime],
+  )
+  const images = useMemo<HbarSessionImagesOptions>(
+    () => ({
+      resources: imageResources.port,
+      hostIdentity:
+        connection === 'connected' && binding.hostId === imageResources.hostIdentity ? binding.hostId : null,
+      labels: sessionImageCopy(locale),
+    }),
+    [imageResources, binding.hostId, connection, locale],
+  )
+  useEffect(() => {
+    imageResources.references++
+    const off = client.onStatus((status) => {
+      if (status === 'pairing' || status === 'disconnected') imageResources.port.invalidate()
+    })
+    return () => {
+      off()
+      imageResources.references--
+      imageResources.port.invalidate()
+      // StrictMode's same-owner effect replay re-retains before this microtask.
+      queueMicrotask(() => {
+        if (imageResources.references === 0) imageResources.port.dispose()
+      })
+    }
+  }, [client, imageResources])
+  const layout = useHbarRuntimeState(runtime.view.state.layout)
+  const presentation = useHbarRuntimeState(runtime.view.state.presentation)
+  const tabs = useHbarRuntimeState(runtime.view.state.workspaceTabs)
+  const surfaces = useHbarRuntimeState(runtime.view.state.surfaces)
+  const preferences = useHbarRuntimeState(runtime.view.state.preferences)
+  const persistedTheme = readThemePreference(preferences.values.theme) ?? 'system'
+  const preferencesAvailable = binding.hostId !== null && preferences.status === 'ready' && !preferences.restoreError
+  const themePreference = preferencesAvailable ? persistedTheme : bootstrapTheme
+  const resolvedTheme = resolveWebTheme(themePreference, systemPrefersDark)
+  const persistedAppearance = useMemo(() => resolveWebAppearanceDimensions(preferences.values), [preferences.values])
+  const appearance = preferencesAvailable ? persistedAppearance : bootstrapAppearance
+  const lumenAppearance = useMemo(
+    () => createWebLumenAppearance(resolvedTheme, appearance, !systemPrefersReducedMotion),
+    [appearance, resolvedTheme, systemPrefersReducedMotion],
+  )
+  const resolvedLayout = useMemo(() => normalizeShellLayout(layout.description), [layout.description])
+  const sidebarLayout = shellLayoutModule(resolvedLayout, 'projects')
+  const toolLayout = shellLayoutModule(resolvedLayout, 'session-tool')
+  const workspaceLayout = shellLayoutModule(resolvedLayout, 'workspace')
+  const toolPanel = presentation.toolInstanceId ? surfaces.panels[presentation.toolInstanceId] : undefined
+  const sidebarLayoutController = useSidebarLayout(runtime, binding.hostId ?? 'pending', preferencesAvailable, layout)
+  const toolLayoutController = useToolPaneLayout(
+    runtime,
+    JSON.stringify([binding.hostId, presentation.toolInstanceId, toolPanel?.workspaceId, toolPanel?.sessionId]),
+    preferencesAvailable,
+    layout,
+  )
+  const layoutVisibilitySync = useRef<string | null>(null)
+  const [desktopViewportGeometry, setDesktopViewportGeometry] = useState<HbarFlexLayoutGeometry>(() => ({
+    widthPx: document.documentElement.clientWidth,
+    remPx: Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
+    splitterSizePx: 8,
+  }))
+  const [desktopLayoutGeometry, setDesktopLayoutGeometry] = useState<HbarFlexLayoutGeometry>()
+  const desktopGeometryObserver = useCallback(
+    (geometry: HbarFlexLayoutGeometry) =>
+      setDesktopLayoutGeometry((current) =>
+        current?.widthPx === geometry.widthPx &&
+        current.remPx === geometry.remPx &&
+        current.splitterSizePx === geometry.splitterSizePx
+          ? current
+          : geometry,
+      ),
+    [],
+  )
+  useEffect(() => {
+    const update = () =>
+      setDesktopViewportGeometry({
+        widthPx: document.documentElement.clientWidth,
+        remPx: Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
+        splitterSizePx: 8,
+      })
+    const observer = new ResizeObserver(update)
+    observer.observe(document.documentElement)
+    window.addEventListener('resize', update)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', update)
+    }
+  }, [])
+  const desktopLayoutModel = useMemo(
+    () =>
+      shellLayoutToFlexModel(resolvedLayout, {
+        geometry: desktopLayoutGeometry ?? desktopViewportGeometry,
+        sidebarVisible: presentation.sidebarOpen,
+        toolVisible: Boolean(toolPanel),
+      }),
+    [resolvedLayout, desktopViewportGeometry, desktopLayoutGeometry, presentation.sidebarOpen, toolPanel],
+  )
+  const openFeaturePanel = (
+    panelId: 'run-board' | 'schedules' | 'prompt-templates' | 'notifications' | 'onboarding',
+  ) => {
+    const current = runtime.view.state.navigation.getSnapshot()
+    void runtime.view.commands
+      .execute('app.openPanel', {
+        panelId,
+        ...(current.workspaceId ? { workspaceId: current.workspaceId } : {}),
+        binding: 'followActive',
+      })
+      .catch(() => undefined)
+  }
+  const renderDesktopLayout =
+    nativeWindow &&
+    desktopViewport &&
+    (!toolPanel ||
+      desktopViewportGeometry.widthPx / (desktopLayoutGeometry?.remPx ?? desktopViewportGeometry.remPx) >=
+        workspaceLayout.size.minRem +
+          toolLayout.size.minRem +
+          (presentation.sidebarOpen ? sidebarLayout.size.minRem : 0) +
+          (1 + Number(presentation.sidebarOpen)) *
+            ((desktopLayoutGeometry?.splitterSizePx ?? 8) / (desktopLayoutGeometry?.remPx ?? 16)))
+      ? (panes: Readonly<Record<'projects' | 'workspace' | 'session-tool', ReactNode>>, _shell: ReactNode) => (
+          <HbarDesktopLayoutProjection
+            model={desktopLayoutModel}
+            panes={panes}
+            onGeometryChange={desktopGeometryObserver}
+            onModelChange={(model, geometry) => {
+              const next = flexModelToShellLayout(resolvedLayout, model, geometry)
+              if (JSON.stringify(next) !== JSON.stringify(resolvedLayout))
+                void runtime.view.commands
+                  .execute('layout.commit', { description: next, expectedRevision: layout.revision })
+                  .catch(() => undefined)
             }}
-          >
-            <label>
-              {t('projectAliasOptional')}
-              <input
-                autoFocus
-                value={workspaceAlias}
-                onChange={(event) => setWorkspaceAlias(event.target.value)}
-                placeholder={t('defaultDirectoryName')}
-                maxLength={160}
+          />
+        )
+      : undefined
+
+  useEffect(() => {
+    if (layout.status !== 'ready') return
+    const syncKey = `sidebar:${layout.source}`
+    if (layoutVisibilitySync.current === syncKey) return
+    layoutVisibilitySync.current = syncKey
+    void runtime.view.commands
+      .execute('app.setSidebarVisible', { visible: sidebarLayout.visible })
+      .catch(() => undefined)
+  }, [layout.source, layout.status, runtime.view.commands, sidebarLayout.visible])
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const update = (event: MediaQueryListEvent | MediaQueryList) => setSystemPrefersDark(event.matches)
+    update(media)
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const update = (event: MediaQueryListEvent | MediaQueryList) => setSystemPrefersReducedMotion(event.matches)
+    update(media)
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+
+  useLayoutEffect(() => {
+    applyWebTheme(document.documentElement, resolvedTheme)
+    applyLumenAppearance(document.documentElement, lumenAppearance)
+    if (preferencesAvailable) {
+      writeThemeBootstrap(window.localStorage, themePreference)
+      writeAppearanceBootstrap(window.localStorage, appearance)
+    }
+  }, [appearance, lumenAppearance, preferencesAvailable, resolvedTheme, themePreference])
+
+  useEffect(() => {
+    if (preferencesAvailable && persistedTheme !== bootstrapTheme) setBootstrapTheme(persistedTheme)
+  }, [bootstrapTheme, persistedTheme, preferencesAvailable])
+
+  useEffect(() => {
+    if (preferencesAvailable && !sameWebAppearanceDimensions(bootstrapAppearance, persistedAppearance))
+      setBootstrapAppearance(persistedAppearance)
+  }, [bootstrapAppearance, persistedAppearance, preferencesAvailable])
+
+  useEffect(() => {
+    const release = startup.retain()
+    let active = true
+    const update = (status: ConnectionStatus) => {
+      if (!active) return
+      const host = client.connectionHost()
+      if (status === 'connected' && (!host || !startup.confirmHost(host.instanceId))) {
+        startup.setConnection('connecting')
+        return
+      }
+      startup.setConnection(status)
+    }
+    const offStatus = client.onStatus(update)
+    update(client.connectionStatus())
+    void client
+      .connect()
+      .then(() => update(client.connectionStatus()))
+      .catch(() => {
+        if (!active) return
+        const status = client.connectionStatus()
+        if (status === 'pairing') startup.setConnection(status)
+        else {
+          client.disconnect()
+          startup.setConnection('disconnected')
+        }
+      })
+    return () => {
+      active = false
+      offStatus()
+      release()
+    }
+  }, [client, startup])
+
+  const reconnect = () => {
+    void createConnectionCommands(client)
+      .execute('connection.connect', {})
+      .catch(() => {
+        const status = client.connectionStatus()
+        if (status === 'pairing') startup.setConnection(status)
+        else {
+          client.disconnect()
+          startup.setConnection('disconnected')
+        }
+      })
+  }
+
+  return (
+    <LumenProvider appearance={lumenAppearance}>
+      <HbarRuntimeProvider view={runtime.view}>
+        <WorkbenchSurfaceCleanup key={binding.hostId ?? 'pending'} runtime={runtime} />
+        <NotificationDesktopBridge locale={locale} connected={connection === 'connected'} />
+        <HbarWorkspaceShell
+          labels={copy.shell}
+          mobileNavigationLabel={mobileShellNavigationLabel(locale)}
+          locale={locale}
+          titlebar={
+            nativeWindow ? (
+              <NativeWindowTitlebar context={nativeWindow} labels={copy.windowControls} title={copy.shell.brand} />
+            ) : undefined
+          }
+          sidebarWidthRem={sidebarLayout.size.preferredRem}
+          sidebarRailWidthRem={sidebarLayout.size.collapsedRem}
+          sidebarLayout={{
+            minWidthRem: sidebarLayout.size.minRem,
+            maxWidthRem: sidebarLayout.size.maxRem,
+            mainMinWidthRem: workspaceLayout.size.minRem,
+            defaultWidthRem: shellLayoutModule(shellLayout, 'projects').size.preferredRem,
+          }}
+          sidebarResize={{
+            ownerKey: binding.hostId ?? 'pending',
+            label: copy.sidebarLayout.resize,
+            resetLabel: copy.sidebarLayout.reset,
+            valueText: copy.sidebarLayout.width,
+            status: sidebarLayoutController.receipt.status,
+            disabled: sidebarLayoutController.disabled,
+            onCommit: sidebarLayoutController.commit,
+          }}
+          sidebarFeedback={
+            <ToolPaneLayoutFeedback
+              surface="sidebar"
+              controller={sidebarLayoutController}
+              labels={copy.sidebarLayout}
+            />
+          }
+          featureNavigation={<FeatureNavigation locale={locale} onOpen={openFeaturePanel} />}
+          {...(renderDesktopLayout ? { renderLayout: renderDesktopLayout } : {})}
+          toolWidthRem={toolLayout.size.preferredRem}
+          toolLayout={{
+            mainMinWidthRem: workspaceLayout.size.minRem,
+            minWidthRem: toolLayout.size.minRem,
+            maxWidthRem: toolLayout.size.maxRem,
+          }}
+          toolResize={
+            toolLayout.config.resizable
+              ? {
+                  ownerKey: JSON.stringify([
+                    binding.hostId,
+                    presentation.toolInstanceId,
+                    toolPanel?.workspaceId,
+                    toolPanel?.sessionId,
+                  ]),
+                  label: copy.toolLayout.resize,
+                  valueText: copy.toolLayout.width,
+                  status: toolLayoutController.receipt.status,
+                  disabled: toolLayoutController.disabled,
+                  onCommit: toolLayoutController.commit,
+                }
+              : undefined
+          }
+          connection={connection}
+          onReconnect={reconnect}
+          toolLabel={
+            toolPanel?.panelId === 'files'
+              ? copy.files.title
+              : toolPanel?.panelId === 'monitoring'
+                ? copy.monitoring.title
+                : toolPanel?.panelId === 'activity'
+                  ? copy.activity.title
+                  : toolPanel?.panelId === 'agents'
+                    ? copy.agents.title
+                    : toolPanel?.panelId === 'goals'
+                      ? copy.goals.title
+                      : copy.session.tools.label
+          }
+          tool={
+            presentation.toolInstanceId &&
+            !tabs.items.some(
+              (item) => item.kind === 'workbench' && item.panelInstanceId === presentation.toolInstanceId,
+            ) ? (
+              <LumenFrame className="hbar-web-tool-outlet">
+                <ToolPaneLayoutFeedback controller={toolLayoutController} labels={copy.toolLayout} />
+                <LazySurfaceBoundary labels={lazySurfaceCopy(locale)}>
+                  <WorkspaceTool
+                    locale={locale}
+                    connected={connection === 'connected'}
+                    canExpand={workspaceLayout.config.tabs.visible}
+                  />
+                </LazySurfaceBoundary>
+              </LumenFrame>
+            ) : undefined
+          }
+          overlay={
+            <LazySurfaceBoundary labels={lazySurfaceCopy(locale)}>
+              <WorkspaceModal locale={locale} connected={connection === 'connected'} chatSearch={chatSearch} />
+            </LazySurfaceBoundary>
+          }
+        >
+          {workspaceLayout.config.tabs.visible && workspaceLayout.config.tabs.placement === 'before-content' ? (
+            <WorkspaceTabsController runtime={runtime} client={client} locale={locale}>
+              <WorkspaceBody
+                appRuntime={runtime}
+                appearanceEditor={appearanceEditor}
+                locale={locale}
+                language={language}
+                sendBehavior={sendBehavior}
+                zoom={zoom}
+                nativeDesktop={Boolean(nativeWindow)}
+                connected={connection === 'connected'}
+                prepareAttachment={attachmentController.prepare}
+                images={images}
+                files={composerFiles}
+                systemPrefersDark={systemPrefersDark}
+                showSessionFilesInHeader={false}
               />
-            </label>
-            <div className="workspace-picker">
-              <div className="workspace-picker-heading">
-                <span>{t('workspaceDirectory')}</span>
-                <button type="button" className="button" onClick={() => void chooseWorkspaceDirectory()}>
-                  <FolderOpen size={14} />
-                  {t('browseFolders')}
-                </button>
-              </div>
-              {workspacePaths.length ? (
-                <ul className="workspace-picker-list">
-                  {workspacePaths.map((path) => (
-                    <li key={path}>
-                      <span title={path}>{path}</span>
-                      <button
-                        type="button"
-                        title={`${t('remove')} ${path}`}
-                        aria-label={`${t('remove')} ${path}`}
-                        onClick={() => setWorkspacePaths((current) => current.filter((item) => item !== path))}
-                      >
-                        <X size={14} />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="workspace-picker-empty">{t('chooseFolders')}</p>
-              )}
-              {discoveredWorktrees.length > 0 && (
-                <div className="workspace-worktree-discovery" aria-label={t('externalWorktreesDetected')}>
-                  <strong>{t('otherWorktreesDetected')}</strong>
-                  {discoveredWorktrees.map((item) => {
-                    const checked = selectedWorktreePaths.includes(item.path)
-                    return (
-                      <label key={item.path} className="workspace-worktree-option">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => setSelectedWorktreePaths((current) => checked ? current.filter((path) => path !== item.path) : [...current, item.path])}
-                        />
-                        <span><b>{item.branch ?? t('detachedHead')}</b><small title={item.path}>{item.path}</small></span>
-                      </label>
-                    )
-                  })}
-                </div>
-              )}
-              {workspaceCreateErrors.length > 0 && (
-                <div className="workspace-create-errors" role="alert">
-                  <strong>{t('partialWorkspaceFailure')}</strong>
-                  <ul>
-                    {workspaceCreateErrors.map((failure) => (
-                      <li key={`${failure.path}:${failure.message}`}>
-                        <span title={failure.path}>{failure.path}</span>
-                        <small>{failure.message}</small>
-                      </li>
-                    ))}
-                  </ul>
-                  {workspaceCreateErrors.some((failure) => failure.retryable) && (
-                    <button
-                      type="button"
-                      className="button"
-                      disabled={workspaceCreateBusy}
-                      onClick={() => void createWorkspaces(workspaceCreateErrors.filter((failure) => failure.retryable).map((failure) => failure.path))}
-                    >
-                      {t('retryFailedItems')}
-                    </button>
-                  )}
-                </div>
-              )}
-              {workspacePaths.length > 1 && <p className="workspace-picker-hint">{t('multipleDirectoryHint')}</p>}
-            </div>
-            <footer className="modal-footer">
-              <button className="button primary" disabled={!workspacePaths.length || workspaceCreateBusy}>
-                <FolderOpen size={14} />
-                {workspaceCreateBusy ? t('joining') : t('openWorkspace')}
-              </button>
-            </footer>
-          </form>
-        </Modal>
-      )}
-      </div>
-    </>
+            </WorkspaceTabsController>
+          ) : (
+            <WorkspaceBody
+              appRuntime={runtime}
+              appearanceEditor={appearanceEditor}
+              locale={locale}
+              language={language}
+              sendBehavior={sendBehavior}
+              zoom={zoom}
+              nativeDesktop={Boolean(nativeWindow)}
+              connected={connection === 'connected'}
+              prepareAttachment={attachmentController.prepare}
+              images={images}
+              files={composerFiles}
+              systemPrefersDark={systemPrefersDark}
+              showSessionFilesInHeader={true}
+            />
+          )}
+        </HbarWorkspaceShell>
+      </HbarRuntimeProvider>
+    </LumenProvider>
   )
 }
