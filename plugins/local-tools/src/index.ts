@@ -16,6 +16,36 @@ import {
 import type { WorkspaceSearchResult } from '@hbar/contracts/workspace-query'
 import { WorkspaceQueryRuntime } from './workspace-query'
 
+// ---------------------------------------------------------------------------
+// OS-level sandbox addon (Windows-only, optional)
+// ---------------------------------------------------------------------------
+interface SandboxAddon {
+  isAvailable(): boolean
+  spawnSandboxed(profile: Record<string, unknown>, argv: string[], cwd: string): Promise<SandboxedProcess>
+}
+interface SandboxedProcess {
+  readonly pid: number
+  readonly handleId: string
+}
+function loadSandboxAddon(): SandboxAddon | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require('../sandbox/hbar_sandbox_win.node') as unknown
+    if (
+      mod !== null &&
+      typeof mod === 'object' &&
+      typeof (mod as Record<string, unknown>).isAvailable === 'function' &&
+      typeof (mod as Record<string, unknown>).spawnSandboxed === 'function'
+    ) {
+      return mod as SandboxAddon
+    }
+  } catch {
+    // Not available; fall back to plain Bun.spawn.
+  }
+  return null
+}
+const sandboxAddon = process.platform === 'win32' ? loadSandboxAddon() : null
+
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
 const MAX_TOOL_TEXT_BYTES = 64 * 1024
 const TRUNCATED_MARKER = '\n[tool output truncated]'
@@ -272,6 +302,44 @@ export class LocalExecution implements ExecutionProvider {
       process.platform === 'win32'
         ? ['powershell.exe', '-NoLogo', '-NoProfile', '-NonInteractive', '-Command', command]
         : ['/bin/sh', '-c', command]
+
+    // Route through the OS-level sandbox addon when confinement is requested.
+    if (options?.osConfinement && process.platform === 'win32') {
+      if (!sandboxAddon) {
+        // Addon missing (not built yet or build skipped). Fail loudly so the user
+        // knows confinement was requested but not applied — better than silent bypass.
+        return {
+          text: '[hbar] OS-level sandbox addon (hbar_sandbox_win.node) is not available; the command was not run.',
+          isError: true,
+          details: { code: null, truncated: false },
+        }
+      }
+      const { osConfinement } = options
+      const profile = {
+        workspaceRoot: workingDirectory,
+        writableRoots: osConfinement.writableRoots,
+        readableRoots: osConfinement.readableRoots,
+        networkEnabled: osConfinement.networkEnabled,
+        envOverrides: { ...osConfinement.envOverrides },
+        level: osConfinement.level === 'elevated' ? 'Elevated' : 'Unelevated',
+      }
+      try {
+        // spawnSandboxed currently returns a stub error (not yet implemented).
+        // When the vendor unelevated path lands, this will return stdout/stderr via
+        // channels managed by the Rust-side Tokio runtime.
+        await sandboxAddon.spawnSandboxed(profile, argv, workingDirectory)
+        // Unreachable until the vendor implementation lands.
+        return { text: '', isError: false, details: { code: 0, truncated: false } }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        return {
+          text: `[hbar] Sandboxed execution failed: ${message}`,
+          isError: true,
+          details: { code: null, truncated: false },
+        }
+      }
+    }
+
     const child = Bun.spawn(argv, {
       cwd: workingDirectory,
       env,
