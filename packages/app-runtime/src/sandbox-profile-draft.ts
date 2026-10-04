@@ -15,6 +15,8 @@ import {
   userSandboxProfileIdSchema,
   type SandboxDecision,
   type SandboxEscalation,
+  type SandboxOsConfinement,
+  type SandboxOsConfinementMode,
   type SandboxPathAccess,
   type SandboxProfile,
   type SandboxProfileId,
@@ -51,6 +53,7 @@ export interface SandboxProfileDraft {
   readonly escalation: SandboxEscalation | null
   readonly fileDefault: SandboxPathAccess | null
   readonly network: boolean | null
+  readonly osConfinement: SandboxOsConfinement | null
   readonly grants: readonly SandboxPathGrantDraft[]
   readonly commands: readonly SandboxCommandRuleDraft[]
   readonly tools: readonly SandboxToolRuleDraft[]
@@ -65,6 +68,7 @@ export type SandboxDraftEdit =
   | { readonly kind: 'escalation'; readonly value: SandboxEscalation | null }
   | { readonly kind: 'fileDefault'; readonly value: SandboxPathAccess | null }
   | { readonly kind: 'network'; readonly value: boolean | null }
+  | { readonly kind: 'osConfinement'; readonly value: SandboxOsConfinement | null }
   | { readonly kind: 'add'; readonly section: SandboxDraftSection }
   | { readonly kind: 'remove'; readonly section: SandboxDraftSection; readonly rowId: string }
   | {
@@ -117,6 +121,7 @@ export function emptySandboxDraft(basedOn: SandboxProfileId | null): SandboxProf
     escalation: null,
     fileDefault: null,
     network: null,
+    osConfinement: null,
     grants: [],
     commands: [],
     tools: [],
@@ -133,6 +138,7 @@ export function sandboxDraftFromProfile(profile: SandboxProfile, rowId: () => st
     escalation: profile.escalation,
     fileDefault: profile.filesystem.default,
     network: profile.network.enabled,
+    osConfinement: profile.osConfinement ?? null,
     grants: profile.filesystem.grants.map((grant) => ({ rowId: rowId(), ...grant })),
     commands: profile.commands.rules.map((rule) => ({ rowId: rowId(), ...rule })),
     tools: profile.tools.rules.map((rule) => ({ rowId: rowId(), ...rule })),
@@ -165,6 +171,7 @@ export function sandboxDraftToSaveInput(
     ...(draft.environment.length
       ? { environment: { set: Object.fromEntries(draft.environment.map(({ name, value }) => [name.trim(), value])) } }
       : {}),
+    ...(draft.osConfinement !== null ? { osConfinement: draft.osConfinement } : {}),
   }
 }
 
@@ -202,6 +209,8 @@ export function applySandboxDraftEdit(
       return { ...draft, fileDefault: edit.value }
     case 'network':
       return { ...draft, network: edit.value }
+    case 'osConfinement':
+      return { ...draft, osConfinement: edit.value }
     case 'add': {
       if (draft[edit.section].length >= SANDBOX_DRAFT_LIMITS[edit.section]) return draft
       const id = rowId()

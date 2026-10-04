@@ -2805,6 +2805,12 @@ function createSandboxLabels(locale: ShellLocale): HbarSandboxProfileSettingsLab
       ),
       fileDefault: choose('未授权路径', 'Unlisted paths'),
       network: choose('网络工具', 'Network tools'),
+      osConfinement: choose('系统级沙盒', 'OS-level sandbox'),
+      osConfinementHint: choose(
+        '启用后，放行的命令在受限 Windows Token（非提权）或专用沙盒账户（提权）中运行。',
+        'When enabled, allowed commands run inside a restricted Windows token (unelevated) or a dedicated sandbox account (elevated).',
+      ),
+      osConfinementMode: choose('沙盒模式', 'Sandbox mode'),
     },
     inherit: choose('继承', 'Inherit'),
     escalationOptions: { ask: choose('询问', 'Ask'), deny: choose('拒绝', 'Deny') },
@@ -2815,6 +2821,10 @@ function createSandboxLabels(locale: ShellLocale): HbarSandboxProfileSettingsLab
     },
     decisionOptions: { allow: choose('放行', 'Allow'), ask: choose('询问', 'Ask'), deny: choose('拒绝', 'Deny') },
     networkOptions: { enabled: choose('允许', 'Allowed'), disabled: choose('超出配置', 'Outside the profile') },
+    osConfinementModeOptions: {
+      unelevated: choose('非提权（受限 Token）', 'Unelevated (restricted token)'),
+      elevated: choose('提权（沙盒账户）', 'Elevated (sandbox account)'),
+    },
     grants: {
       title: choose('路径授权', 'Path grants'),
       hint: choose(

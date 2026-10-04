@@ -67,12 +67,16 @@ export interface HbarSandboxProfileSettingsLabels {
     readonly escalationHint: string
     readonly fileDefault: string
     readonly network: string
+    readonly osConfinement: string
+    readonly osConfinementHint: string
+    readonly osConfinementMode: string
   }
   readonly inherit: string
   readonly escalationOptions: Readonly<Record<SandboxEscalation, string>>
   readonly accessOptions: Readonly<Record<SandboxPathAccess, string>>
   readonly decisionOptions: Readonly<Record<SandboxDecision, string>>
   readonly networkOptions: { readonly enabled: string; readonly disabled: string }
+  readonly osConfinementModeOptions: { readonly unelevated: string; readonly elevated: string }
   readonly grants: SectionLabels & { readonly path: string; readonly pathPlaceholder: string; readonly access: string }
   readonly commands: SectionLabels & {
     readonly pattern: string
@@ -644,6 +648,47 @@ function Editor({
             <LumenOption value="disabled">{labels.networkOptions.disabled}</LumenOption>
           </LumenSelect>
         </LumenFormField>
+        <LumenFormField
+          controlId={control('osConfinement-enabled')}
+          label={labels.fields.osConfinement}
+          hint={labels.fields.osConfinementHint}
+        >
+          <LumenSelect
+            id={control('osConfinement-enabled')}
+            value={draft.osConfinement == null ? INHERIT : draft.osConfinement.enabled ? 'enabled' : 'disabled'}
+            disabled={locked}
+            onChange={(event) => {
+              const value = event.currentTarget.value
+              if (value === INHERIT) {
+                edit({ kind: 'osConfinement', value: null })
+              } else {
+                const mode = draft.osConfinement?.mode ?? 'unelevated'
+                edit({ kind: 'osConfinement', value: { enabled: value === 'enabled', mode } })
+              }
+            }}
+          >
+            <LumenOption value={INHERIT}>{labels.inherit}</LumenOption>
+            <LumenOption value="enabled">{labels.networkOptions.enabled}</LumenOption>
+            <LumenOption value="disabled">{labels.networkOptions.disabled}</LumenOption>
+          </LumenSelect>
+        </LumenFormField>
+        {draft.osConfinement != null && (
+          <LumenFormField controlId={control('osConfinement-mode')} label={labels.fields.osConfinementMode}>
+            <LumenSelect
+              id={control('osConfinement-mode')}
+              value={draft.osConfinement.mode}
+              disabled={locked}
+              onChange={(event) => {
+                const mode = event.currentTarget.value as 'unelevated' | 'elevated'
+                const enabled = draft.osConfinement?.enabled ?? true
+                edit({ kind: 'osConfinement', value: { enabled, mode } })
+              }}
+            >
+              <LumenOption value="unelevated">{labels.osConfinementModeOptions.unelevated}</LumenOption>
+              <LumenOption value="elevated">{labels.osConfinementModeOptions.elevated}</LumenOption>
+            </LumenSelect>
+          </LumenFormField>
+        )}
       </LumenFrame>
 
       {sections.map((section) => {

@@ -13,6 +13,8 @@ import {
 import {
   sandboxDecisionSchema,
   sandboxEscalationSchema,
+  sandboxOsConfinementModeSchema,
+  sandboxOsConfinementSchema,
   sandboxPathAccessSchema,
   sandboxProfileIdSchema,
   type ResolvedSandboxProfile,
@@ -58,6 +60,7 @@ const editSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('escalation'), value: sandboxEscalationSchema.nullable() }),
   z.strictObject({ kind: z.literal('fileDefault'), value: sandboxPathAccessSchema.nullable() }),
   z.strictObject({ kind: z.literal('network'), value: z.boolean().nullable() }),
+  z.strictObject({ kind: z.literal('osConfinement'), value: sandboxOsConfinementSchema.nullable() }),
   z.strictObject({ kind: z.literal('add'), section }),
   z.strictObject({ kind: z.literal('remove'), section, rowId: z.string().min(1).max(80) }),
   z.strictObject({
