@@ -119,6 +119,8 @@ export function createRunCommands(kernel: Kernel) {
           [
             'FILE_LIMIT',
             'EMPTY_INPUT',
+            'BUDGET_EXHAUSTED',
+            'GOAL_NOT_ACTIVE',
             'MODEL_NOT_FOUND',
             'DEMO_DISABLED',
             'UNSUPPORTED_IMAGE',
