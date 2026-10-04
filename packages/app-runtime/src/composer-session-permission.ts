@@ -100,7 +100,8 @@ export function createSessionComposerPermission(local: CommandRegistry, options:
     if (!report) throw new CommandError('INVALID_OUTPUT', 'Session approval report is missing')
     const raw = report.localPresence ? report.localValue : null
     if (raw === null || raw === undefined) return 'inherit'
-    const parsed = approvalModeSchema.safeParse(raw) // includes sandbox; ask/deny/allow-only parsing locked the picker
+    // d5da6ed9 added sandbox; parse with the schema so reload cannot lock the picker.
+    const parsed = approvalModeSchema.safeParse(raw)
     if (!parsed.success) throw new CommandError('INVALID_OUTPUT', 'Session approval is not a known mode')
     return parsed.data
   }
