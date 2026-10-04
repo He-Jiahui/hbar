@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./decision": "./src/decision.ts",
+    "./sandbox": "./src/sandbox.ts",
     "./commands": "./src/commands/index.ts",
     "./commands/agents": "./src/commands/agents.ts",
     "./commands/agent-workspace": "./src/commands/agent-workspace.ts",

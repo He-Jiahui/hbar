@@ -114,6 +114,23 @@ export { latestDueSchedule } from './schedule-service'
 export { createScheduleDueReader } from './schedule-due-reader'
 export type { ScheduleDueReaderPort } from './schedule-due-reader'
 export { createPromptTemplateService } from './prompt-template-service'
+export {
+  BUILTIN_SANDBOX_PROFILES,
+  evaluateSandbox,
+  isBuiltinSandboxProfileId,
+  normalizeSandboxAbsolutePath,
+  parseSandboxCommand,
+  resolveSandboxProfile,
+} from './sandbox-policy'
+export type {
+  ParsedSandboxCommand,
+  SandboxEvaluationOptions,
+  SandboxPathTarget,
+  SandboxProfileLookup,
+  SandboxReason,
+  SandboxToolCall,
+  SandboxVerdict,
+} from './sandbox-policy'
 export { createNotificationService } from './notification-service'
 export { createScheduleRunner, ScheduleRunFailure } from './schedule-runner'
 export type { ScheduleExecutionPort } from './schedule-runner'
