@@ -2851,8 +2851,8 @@ function createSandboxLabels(locale: ShellLocale): HbarSandboxProfileSettingsLab
       patternPlaceholder: choose('例如 git *', 'For example git *'),
       decision: choose('处理方式', 'Decision'),
       warning: choose(
-        'hbar 没有系统级进程沙盒：放行的命令可写入当前用户可写的任何位置。',
-        'hbar has no OS-level process sandbox: an allowed command can write anywhere the user can.',
+        '启用系统级沙盒后，放行的命令将在受限进程中运行；未启用时，命令可写入当前用户可写的任何位置。',
+        'With OS-level sandbox enabled, allowed commands run in a restricted process. Without it, a command can write anywhere the user can.',
       ),
     },
     tools: {
