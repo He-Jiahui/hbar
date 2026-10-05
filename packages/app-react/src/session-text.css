@@ -1,0 +1,149 @@
+/* Session reading roles derive from the host palette in both color schemes. */
+.hbar-session-message-blocks {
+  --hbar-session-body: color-mix(in srgb, var(--lumen-ink) 94%, var(--lumen-info));
+  --hbar-session-secondary: color-mix(in srgb, var(--lumen-ink) 68%, var(--lumen-info));
+  --hbar-session-heading: color-mix(in srgb, var(--lumen-info) 78%, var(--lumen-ink));
+  --hbar-session-emphasis: color-mix(in srgb, var(--lumen-warning) 80%, var(--lumen-ink));
+  --hbar-session-code: color-mix(in srgb, var(--lumen-success) 70%, var(--lumen-info));
+  --hbar-session-file: color-mix(in srgb, var(--lumen-info) 65%, var(--lumen-success));
+  color: var(--hbar-session-body);
+}
+.hbar-session-message-prose,
+.hbar-session-thinking-content {
+  --lumen-effect-color: var(--lumen-info);
+  --hbar-session-live-wash: color-mix(in srgb, var(--lumen-info) calc(var(--lumen-effect-level) * 10%), transparent);
+  color: var(--hbar-session-body);
+}
+.hbar-session-thinking-content {
+  color: var(--hbar-session-secondary);
+  border-color: color-mix(in srgb, var(--lumen-info) 24%, var(--lumen-edge));
+  background: color-mix(in srgb, var(--lumen-info) 3%, var(--lumen-reading));
+}
+.hbar-session-message-blocks
+  :is(.hbar-session-message-prose, .hbar-session-thinking-content)
+  :is(h1, h2, h3, h4, h5, h6, th) {
+  color: var(--hbar-session-heading);
+}
+.hbar-session-message-blocks
+  :is(.hbar-session-message-prose, .hbar-session-thinking-content, .hbar-session-inline-markdown)
+  strong {
+  color: var(--hbar-session-emphasis);
+}
+.hbar-session-message-blocks
+  :is(.hbar-session-message-prose, .hbar-session-thinking-content, .hbar-session-inline-markdown)
+  em {
+  color: var(--hbar-session-secondary);
+}
+.hbar-session-message-blocks
+  :is(.hbar-session-message-prose, .hbar-session-thinking-content, .hbar-session-inline-markdown)
+  :not(pre)
+  > code {
+  padding: 0.1em 0.3em;
+  border-radius: var(--lumen-radius-control);
+  color: var(--hbar-session-code);
+  background: color-mix(in srgb, var(--lumen-success) 7%, var(--lumen-reading));
+}
+.hbar-session-message-blocks
+  :is(.hbar-session-message-prose, .hbar-session-thinking-content)
+  :is(a, .hbar-session-inline-link) {
+  color: var(--hbar-session-heading);
+  text-underline-offset: 0.18em;
+}
+.hbar-session-message-blocks .hbar-session-inline-link {
+  color: var(--hbar-session-heading);
+}
+.hbar-session-message-blocks .hbar-message-file-link {
+  color: var(--hbar-session-file);
+}
+.hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) blockquote {
+  margin-inline: 0;
+  padding-inline-start: 12px;
+  border-inline-start: 0.1875rem solid color-mix(in srgb, var(--lumen-info) 50%, var(--lumen-edge));
+  color: var(--hbar-session-secondary);
+}
+.hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) li::marker {
+  color: var(--hbar-session-heading);
+}
+.hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) hr {
+  border-color: var(--lumen-edge);
+}
+.hbar-session-activity-summary-text {
+  color: var(--hbar-session-secondary);
+}
+.hbar-session-activity-summary-text :is([data-activity-role='thinking'], [data-activity-role='tool']) {
+  color: var(--hbar-session-heading);
+}
+.hbar-session-activity-summary-text [data-activity-role='count'] {
+  color: var(--hbar-session-emphasis);
+}
+.hbar-session-activity-summary-text [data-activity-role='danger'] {
+  color: var(--lumen-danger);
+}
+.hbar-session-activity-summary-text [data-activity-role='warning'] {
+  color: var(--lumen-warning);
+}
+.hbar-session-activity-summary-text [data-activity-role='separator'] {
+  color: var(--lumen-muted);
+}
+.hbar-session-thinking .hbar-session-disclosure-label {
+  color: var(--hbar-session-heading);
+}
+.hbar-session-thinking .hbar-session-disclosure-preview {
+  color: var(--hbar-session-secondary);
+}
+.hbar-session-tool {
+  --hbar-session-tool-color: var(--hbar-session-heading);
+}
+.hbar-session-tool:is([data-presentation-icon='file'], [data-presentation-icon='directory']) {
+  --hbar-session-tool-color: var(--hbar-session-file);
+}
+.hbar-session-tool:is([data-presentation-icon='file-write'], [data-presentation-icon='file-edit']) {
+  --hbar-session-tool-color: var(--hbar-session-emphasis);
+}
+.hbar-session-tool .hbar-session-disclosure-label {
+  color: var(--hbar-session-tool-color);
+  border-color: color-mix(in srgb, var(--hbar-session-tool-color) 30%, var(--lumen-edge));
+  background: color-mix(in srgb, var(--hbar-session-tool-color) 5%, var(--lumen-reading));
+}
+.hbar-session-tool .hbar-session-disclosure-preview {
+  color: var(--hbar-session-file);
+}
+.hbar-session-tool[data-outcome='failed'] .hbar-session-disclosure-preview {
+  color: var(--lumen-danger);
+}
+.hbar-session-tool[data-outcome='legacy-error'] .hbar-session-disclosure-preview {
+  color: var(--lumen-warning);
+}
+.hbar-session-disclosure-label-text[data-lumen-state='running'] {
+  --lumen-effect-color: currentColor;
+  text-shadow: var(--lumen-content-shadow);
+}
+.hbar-session-message-prose[data-live='true'] > :last-child {
+  background-color: var(--hbar-session-live-wash);
+  border-radius: var(--lumen-radius-control);
+  animation: hbar-session-text-arrive var(--lumen-state-duration) var(--lumen-state-easing) both;
+}
+@keyframes hbar-session-text-arrive {
+  from {
+    opacity: 0.82;
+  }
+  to {
+    opacity: 1;
+  }
+}
+[data-lumen-motion='off'] .hbar-session-message-prose[data-live='true'] > :last-child {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hbar-session-message-prose[data-live='true'] > :last-child {
+    animation: none;
+  }
+}
+@media (forced-colors: active) {
+  .hbar-session-message-blocks :is(a, .hbar-message-file-link) {
+    color: LinkText;
+  }
+  .hbar-session-disclosure-label-text {
+    text-shadow: none;
+  }
+}

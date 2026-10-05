@@ -35,6 +35,7 @@ export {
   type HbarMessageActionLabels,
   type HbarMessageToolPresentation,
   type HbarMessageActivitySummary,
+  type HbarMessageActivityPart,
 } from './session-message'
 export type { HbarCodeBlockLabels } from './code-block-copy-action'
 export { projectSessionMessages, type SessionMessageProjection } from './session-message-model'

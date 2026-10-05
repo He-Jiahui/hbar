@@ -17,7 +17,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText, LumenToolCalls } from '@lumen/app-ui'
-import { MessageMarkdown } from './message-markdown'
+import { MessageMarkdown, MessageInlineMarkdown } from './message-markdown'
 import type { MessageFileReferenceContext } from './message-file-reference'
 import { MessageLiteralText } from './message-literal-text'
 import type { HbarCodeBlockLabels } from './code-block-copy-action'
@@ -39,6 +39,7 @@ import {
   type SessionToolRow,
 } from './session-message-model'
 import './session-message.css'
+import './session-text.css'
 import {
   SessionToolDetails,
   type HbarMessageToolPresentation,
@@ -59,10 +60,15 @@ export interface HbarMessageActivitySummary {
   readonly outcomeCounts: ReturnType<typeof toolOutcomeCounts>
 }
 
+export interface HbarMessageActivityPart {
+  readonly role: 'thinking' | 'tool' | 'count' | 'danger' | 'warning' | 'separator'
+  readonly text: string
+}
+
 export interface HbarMessageBlocksLabels extends HbarToolDetailsLabels {
   readonly thinking: string
   readonly thought: string
-  readonly activity: (summary: HbarMessageActivitySummary) => string
+  readonly activity: (summary: HbarMessageActivitySummary) => string | readonly HbarMessageActivityPart[]
   readonly tool: (name: string) => string
   readonly failed: string
   readonly denied: string
@@ -164,6 +170,8 @@ function Disclosure({
   label,
   preview,
   previewFormat,
+  previewMarkdown = false,
+  live = false,
   title,
   status,
   icon,
@@ -176,6 +184,8 @@ function Disclosure({
   readonly label: string
   readonly preview?: string | undefined
   readonly previewFormat?: 'code' | 'text' | undefined
+  readonly previewMarkdown?: boolean
+  readonly live?: boolean
   readonly title?: string | undefined
   readonly status?: ReactNode
   readonly icon: typeof Brain
@@ -207,13 +217,18 @@ function Disclosure({
       <LumenText as="span" className="hbar-session-disclosure-identity">
         <LumenText as="span" className="hbar-session-disclosure-label">
           {tool ? <LumenIcon icon={icon} tier="sm" /> : null}
-          <LumenText as="span" className="hbar-session-disclosure-label-text" title={label}>
+          <LumenText
+            as="span"
+            className="lumen-effect hbar-session-disclosure-label-text"
+            data-lumen-state={live ? 'running' : 'idle'}
+            title={label}
+          >
             {label}
           </LumenText>
         </LumenText>
         {preview ? (
           <LumenText as="span" className="hbar-session-disclosure-preview" data-format={previewFormat}>
-            {preview}
+            {previewMarkdown ? <MessageInlineMarkdown text={preview} /> : preview}
           </LumenText>
         ) : null}
       </LumenText>
@@ -229,6 +244,7 @@ function Disclosure({
       data-tool-name={tool?.name}
       data-outcome={tool?.outcome}
       data-presentation-icon={tool?.icon}
+      data-live={live}
     >
       {action ? (
         <LumenFrame className="hbar-session-disclosure-heading">
@@ -317,6 +333,7 @@ function ToolRow({
       previewFormat={errorPreview ? 'text' : presentation?.summaryFormat}
       title={presentation?.title}
       status={<ToolStatus outcome={outcome} running={running} labels={labels} />}
+      live={running && outcome === 'pending'}
       icon={icon}
       className="hbar-session-tool"
       failed={outcome === 'failed'}
@@ -359,6 +376,7 @@ function Activity({
   sessionId,
   messageId,
   clipboard,
+  copyOwner,
   renderToolAction,
 }: {
   readonly rows: readonly ActivityRow[]
@@ -368,6 +386,7 @@ function Activity({
   readonly sessionId: string
   readonly messageId: string
   readonly clipboard?: HbarMessageBlocksProps['clipboard']
+  readonly copyOwner?: HbarMessageBlocksProps['copyOwner']
   readonly renderToolAction?: HbarMessageBlocksProps['renderToolAction']
 }) {
   const [pinnedOpen, setPinnedOpen] = useState<boolean | null>(null)
@@ -386,23 +405,41 @@ function Activity({
     } else toolCounts.set(row.name, { name: row.name, displayName, count: 1 })
   }
   const outcomeCounts = toolOutcomeCounts(rows.filter((row): row is SessionToolRow => row.kind === 'tool'))
-  const summary = labels.activity({
+  const activity = labels.activity({
     thinkingCount: rows.filter((row) => row.kind === 'thinking').length,
     toolCounts: [...toolCounts.values()],
     failedCount: outcomeCounts.failed,
     outcomeCounts,
   })
+  const summary = typeof activity === 'string' ? activity : activity.map((part) => part.text).join('')
   const children = rows.map((row) =>
     row.kind === 'thinking' ? (
       <Disclosure
         key={row.id}
         label={streaming ? labels.thinking : labels.thought}
         preview={thinkingPreview(row.text, streaming)}
+        previewMarkdown
+        live={streaming}
         icon={Brain}
         className="hbar-session-thinking"
       >
-        <LumenFrame className="hbar-session-thinking-content">
-          <MessageMarkdown text={row.text} />
+        <LumenFrame
+          className="lumen-effect hbar-session-thinking-content"
+          data-live={streaming}
+          data-lumen-state={streaming ? 'running' : 'idle'}
+        >
+          <MessageMarkdown
+            text={row.text}
+            code={{
+              sessionId,
+              messageId,
+              segmentId: row.id,
+              labels: labels.codeBlock,
+              streaming,
+              clipboard,
+              owner: copyOwner,
+            }}
+          />
         </LumenFrame>
       </Disclosure>
     ) : (
@@ -432,7 +469,21 @@ function Activity({
         aria-controls={contentId}
         onClick={() => setPinnedOpen(!open)}
       >
-        <LumenText as="span">{summary}</LumenText>
+        <LumenText
+          as="span"
+          className="lumen-effect hbar-session-tool-status-indicator"
+          data-lumen-state={streaming ? 'running' : 'idle'}
+          aria-hidden="true"
+        />
+        <LumenText as="span" className="hbar-session-activity-summary-text">
+          {typeof activity === 'string'
+            ? activity
+            : activity.map((part, index) => (
+                <LumenText as="span" key={index} data-activity-role={part.role}>
+                  {part.text}
+                </LumenText>
+              ))}
+        </LumenText>
         <LumenIcon icon={open ? ChevronDown : ChevronRight} tier="sm" />
       </LumenButton>
       <LumenFrame id={contentId} className="hbar-session-activity-steps" hidden={!open}>
@@ -498,7 +549,7 @@ function MessageBlocksContent({
   flush()
   flushImages()
   return (
-    <LumenFrame className="hbar-session-message-blocks">
+    <LumenFrame className="hbar-session-message-blocks" data-live={streaming}>
       {groups.map((group) =>
         'rows' in group ? (
           <Activity
@@ -510,6 +561,7 @@ function MessageBlocksContent({
             sessionId={sessionId}
             messageId={messageId}
             clipboard={clipboard}
+            copyOwner={copyOwner}
             renderToolAction={renderToolAction}
           />
         ) : group.kind === 'images' ? (
@@ -533,7 +585,9 @@ function MessageBlocksContent({
         ) : group.kind === 'text' ? (
           <LumenFrame
             key={group.id}
-            className="hbar-session-message-prose"
+            className="lumen-effect hbar-session-message-prose"
+            data-live={streaming}
+            data-lumen-state={streaming ? 'running' : 'idle'}
             data-session-find-segment={renderText ? undefined : group.id}
           >
             {renderText ? (

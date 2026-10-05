@@ -1,4 +1,13 @@
-import { createContext, useContext, useId, useLayoutEffect, useRef, useState, type ComponentProps } from 'react'
+import {
+  createContext,
+  useContext,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from 'react'
 import { flushSync } from 'react-dom'
 import ReactMarkdown, { type ExtraProps } from 'react-markdown'
 import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
@@ -163,16 +172,77 @@ function MarkdownLink({ node, ...props }: ComponentProps<'a'> & ExtraProps) {
   const compatibleRef = (node: HTMLAnchorElement | null) => {
     if (typeof anchorRef === 'function') {
       const cleanup = anchorRef(node)
-      if (typeof cleanup === 'function') return () => { cleanup() }
-    }
-    else if (anchorRef) anchorRef.current = node
+      if (typeof cleanup === 'function')
+        return () => {
+          cleanup()
+        }
+    } else if (anchorRef) anchorRef.current = node
     return undefined
   }
-  return <LumenFrame as="a" {...anchorProps} ref={anchorRef ? compatibleRef : undefined} target={external ? '_blank' : undefined} rel={external ? 'noreferrer noopener' : undefined} />
+  return (
+    <LumenFrame
+      as="a"
+      {...anchorProps}
+      ref={anchorRef ? compatibleRef : undefined}
+      target={external ? '_blank' : undefined}
+      rel={external ? 'noreferrer noopener' : undefined}
+    />
+  )
 }
 
 const linkComponents = { a: MarkdownLink }
 const components = { ...linkComponents, pre: MarkdownPre }
+
+function InlineContainer({ children }: { readonly children?: ReactNode }) {
+  return <span>{children}</span>
+}
+function InlineLink({ children }: { readonly children?: ReactNode }) {
+  return <span className="hbar-session-inline-link">{children}</span>
+}
+function InlineImage({ alt }: { readonly alt?: string | undefined }) {
+  return <span>{alt}</span>
+}
+const inlineComponents = {
+  p: InlineContainer,
+  h1: InlineContainer,
+  h2: InlineContainer,
+  h3: InlineContainer,
+  h4: InlineContainer,
+  h5: InlineContainer,
+  h6: InlineContainer,
+  pre: InlineContainer,
+  blockquote: InlineContainer,
+  ul: InlineContainer,
+  ol: InlineContainer,
+  li: InlineContainer,
+  table: InlineContainer,
+  thead: InlineContainer,
+  tbody: InlineContainer,
+  tr: InlineContainer,
+  th: InlineContainer,
+  td: InlineContainer,
+  a: InlineLink,
+  img: InlineImage,
+  input: () => null,
+  hr: () => null,
+  br: () => null,
+}
+
+/** A disclosure preview retains Markdown emphasis without nested controls or image requests. */
+export function MessageInlineMarkdown({ text }: { readonly text: string }) {
+  return (
+    <LumenText as="span" className="hbar-session-inline-markdown">
+      <ReactMarkdown
+        remarkPlugins={sessionMarkdownRemarkPlugins}
+        rehypePlugins={sessionMarkdownRehypePlugins}
+        remarkRehypeOptions={sessionMarkdownRehypeOptions}
+        components={inlineComponents}
+      >
+        {text}
+      </ReactMarkdown>
+    </LumenText>
+  )
+}
 
 /** One sanitized Markdown body shared by messages and Plan documents. */
 export function MessageMarkdown({

@@ -6,6 +6,7 @@ import { goalLifecycleCopy, goalHistoryCopy } from './goal-lifecycle-copy'
 import type { AgentProfileId } from '@hbar/contracts/commands/agents'
 import type {
   HbarAgentWorkspaceLabels,
+  HbarMessageActivityPart,
   HbarCommandPaletteLabels,
   HbarExtensionWorkspaceLabels,
   HbarFileWorkspaceLabels,
@@ -1115,30 +1116,44 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         const displayCounts = new Map<string, number>()
         for (const { displayName } of toolCounts)
           if (displayName) displayCounts.set(displayName, (displayCounts.get(displayName) ?? 0) + 1)
-        return [
-          ...(thinkingCount
-            ? [choose(`${thinkingCount} 段思考`, `${thinkingCount} ${thinkingCount === 1 ? 'thought' : 'thoughts'}`)]
-            : []),
-          ...toolCounts.map(({ name, displayName, count }) => {
-            const collision = displayName && (displayCounts.get(displayName) ?? 0) > 1
-            const title = displayName ? (collision ? `${displayName} (${name})` : displayName) : name
-            return `${title} × ${count}`
-          }),
-          ...(failedCount ? [choose(`${failedCount} 项失败`, `${failedCount} failed`)] : []),
-          ...(outcomeCounts.denied ? [choose(`${outcomeCounts.denied} 项拒绝`, `${outcomeCounts.denied} denied`)] : []),
-          ...(outcomeCounts.cancelled
-            ? [choose(`${outcomeCounts.cancelled} 项取消`, `${outcomeCounts.cancelled} cancelled`)]
-            : []),
-          ...(outcomeCounts.interrupted
-            ? [choose(`${outcomeCounts.interrupted} 项中断`, `${outcomeCounts.interrupted} interrupted`)]
-            : []),
-          ...(outcomeCounts.unknown
-            ? [choose(`${outcomeCounts.unknown} 项结果未知`, `${outcomeCounts.unknown} unknown`)]
-            : []),
-          ...(outcomeCounts['legacy-error']
-            ? [choose(`${outcomeCounts['legacy-error']} 项未完成`, `${outcomeCounts['legacy-error']} incomplete`)]
-            : []),
-        ].join(' · ')
+        const sections: HbarMessageActivityPart[][] = []
+        if (thinkingCount)
+          sections.push([
+            {
+              role: 'thinking',
+              text: choose(
+                `${thinkingCount} 段思考`,
+                `${thinkingCount} ${thinkingCount === 1 ? 'thought' : 'thoughts'}`,
+              ),
+            },
+          ])
+        for (const { name, displayName, count } of toolCounts) {
+          const collision = displayName && (displayCounts.get(displayName) ?? 0) > 1
+          const title = displayName ? (collision ? `${displayName} (${name})` : displayName) : name
+          sections.push([
+            { role: 'tool', text: title },
+            { role: 'count', text: ` × ${count}` },
+          ])
+        }
+        if (failedCount)
+          sections.push([{ role: 'danger', text: choose(`${failedCount} 项失败`, `${failedCount} failed`) }])
+        const warnings = [
+          outcomeCounts.denied ? choose(`${outcomeCounts.denied} 项拒绝`, `${outcomeCounts.denied} denied`) : '',
+          outcomeCounts.cancelled
+            ? choose(`${outcomeCounts.cancelled} 项取消`, `${outcomeCounts.cancelled} cancelled`)
+            : '',
+          outcomeCounts.interrupted
+            ? choose(`${outcomeCounts.interrupted} 项中断`, `${outcomeCounts.interrupted} interrupted`)
+            : '',
+          outcomeCounts.unknown
+            ? choose(`${outcomeCounts.unknown} 项结果未知`, `${outcomeCounts.unknown} unknown`)
+            : '',
+          outcomeCounts['legacy-error']
+            ? choose(`${outcomeCounts['legacy-error']} 项未完成`, `${outcomeCounts['legacy-error']} incomplete`)
+            : '',
+        ]
+        for (const text of warnings) if (text) sections.push([{ role: 'warning', text }])
+        return sections.flatMap((parts, index) => (index ? [{ role: 'separator', text: ' · ' }, ...parts] : parts))
       },
       tool: (name) => name,
       failed: choose('失败', 'Failed'),

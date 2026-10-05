@@ -23,6 +23,7 @@ test.beforeAll(async () => {
   await mkdir(root, { recursive: true })
   await mkdir(join(process.cwd(), 'artifacts', 'compact-tool-actions'), { recursive: true })
   await mkdir(join(process.cwd(), 'artifacts', 'tool-status-tones'), { recursive: true })
+  await mkdir(join(process.cwd(), 'artifacts', 'session-text-color'), { recursive: true })
   await writeFile(
     join(root, 'index.html'),
     '<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div><script type="module" src="../../../tests/fixtures/session-tool-presentation-browser.tsx"></script></body></html>',
@@ -243,6 +244,124 @@ async function readableSummary(tool: Locator) {
 
 for (const locale of ['en-US', 'zh-CN'] as const)
   for (const width of [1440, 320]) {
+    test(`session semantic text colors survive folding and live transitions ${locale} ${width}`, async ({
+      browser,
+    }, info) => {
+      const f = await open(browser, locale, width)
+      const { page } = f
+      const read = call(
+        'color-read',
+        { version: 1, kind: 'file-read', pathField: 'path' },
+        { path: 'composer-permission.ts' },
+      )
+      const failed = call(
+        'color-search',
+        { version: 1, kind: 'text-search', patternField: 'pattern' },
+        { pattern: 'hostDefault' },
+      )
+      const thought =
+        '**Considering tools and budget** — `composer-permission.ts` [reference](https://example.invalid)\n\n检查 **权限配置**，保留 `sandbox` 与原始输入。'
+      const text =
+        '## 会话输出 · Session output\n\n正文保留舒适对比，**重点信息**、*补充说明*、`sandbox` 与 [官方文档](https://example.invalid) 使用语义着色。\n\n> 检查配置后继续执行，保持原始输出可复制。\n\n- 保留文件与工具身份\n- 任务状态就近显示\n\n```typescript\nconst result = { enabled: true, count: 42 };\n```'
+      const content: ContentBlock[] = [
+        { type: 'thinking', text: thought },
+        read,
+        result(read),
+        failed,
+        result(failed, true, 'Workspace query exceeded 30 seconds'),
+        { type: 'text', text },
+      ]
+      try {
+        for (const theme of ['light', 'dark'] as const) {
+          await render(page, { locale, theme, messages: [message(content)] })
+          const summary = page.locator('.hbar-session-activity-summary')
+          await expect(summary).toHaveAttribute('aria-expanded', 'false')
+          const colors = await page.locator('.hbar-session-message-prose').evaluate((element) => ({
+            body: getComputedStyle(element).color,
+            heading: getComputedStyle(element.querySelector('h2') ?? element).color,
+            emphasis: getComputedStyle(element.querySelector('strong') ?? element).color,
+            code: getComputedStyle(element.querySelector('p code') ?? element).color,
+            link: getComputedStyle(element.querySelector('a') ?? element).color,
+          }))
+          expect(new Set(Object.values(colors)).size).toBeGreaterThanOrEqual(4)
+          const parts = await summary
+            .locator('[data-activity-role]')
+            .evaluateAll((elements) =>
+              elements.map((element) => ({
+                role: element.getAttribute('data-activity-role'),
+                text: element.textContent,
+                color: getComputedStyle(element).color,
+              })),
+            )
+          expect(parts.some((part) => part.role === 'count')).toBe(true)
+          expect(new Set(parts.map((part) => part.color)).size).toBeGreaterThanOrEqual(4)
+          await noOverflow(page)
+          await page.locator('[data-fixture-outside]').focus()
+          await page
+            .locator('.tool-presentation-fixture-messages')
+            .screenshot({ path: `artifacts/session-text-color/folded-${locale}-${theme}-${width}.png` })
+          await summary.focus()
+          await page.keyboard.press('Enter')
+          const thinking = page.locator('.hbar-session-thinking')
+          await expect(thinking.locator('.hbar-session-disclosure-preview strong')).toHaveText(
+            'Considering tools and budget',
+          )
+          await expect(thinking.locator('.hbar-session-disclosure-preview code')).toHaveText('composer-permission.ts')
+          await expect(thinking.locator('.hbar-session-disclosure-preview a')).toHaveCount(0)
+          const thoughtTrigger = trigger(thinking)
+          await thoughtTrigger.focus()
+          await page.keyboard.press('Enter')
+          await expect(thinking.locator('.hbar-session-thinking-content strong')).toHaveText([
+            'Considering tools and budget',
+            '权限配置',
+          ])
+          const code = page.locator('.hbar-message-code code').first()
+          await expect(code).toHaveAttribute('data-code-highlight', 'ready')
+          expect(await code.textContent()).toBe('const result = { enabled: true, count: 42 };\n')
+          await render(page, { locale, theme, motion: true, streaming: true, messages: [message(content)] })
+          await expect(thoughtTrigger).toBeFocused()
+          await expect(thoughtTrigger).toHaveAttribute('aria-expanded', 'true')
+          await expect(thinking.locator('.hbar-session-disclosure-label-text')).toHaveAttribute(
+            'data-lumen-state',
+            'running',
+          )
+          const motion = await thinking
+            .locator('.hbar-session-disclosure-label-text')
+            .evaluate((element) => ({
+              animation: getComputedStyle(element).animationName,
+              before: element.getBoundingClientRect().height,
+            }))
+          expect(motion.animation).toBe('lumen-breathe')
+          await noOverflow(page)
+          await page
+            .locator('.tool-presentation-fixture-messages')
+            .screenshot({ path: `artifacts/session-text-color/live-${locale}-${theme}-${width}.png` })
+          await page.emulateMedia({ reducedMotion: 'reduce' })
+          await expect
+            .poll(() =>
+              thinking
+                .locator('.hbar-session-disclosure-label-text')
+                .evaluate((element) => getComputedStyle(element).animationName),
+            )
+            .toBe('none')
+          await render(page, { locale, theme, messages: [message(content)] })
+          await expect(thoughtTrigger).toHaveAttribute('aria-expanded', 'true')
+          await thoughtTrigger.press('Space')
+          await summary.focus()
+          await summary.press('Space')
+          await page.emulateMedia({ reducedMotion: 'no-preference' })
+          await info.attach(`semantic-text-${theme}`, {
+            contentType: 'application/json',
+            body: Buffer.from(JSON.stringify({ colors, parts, motion })),
+          })
+        }
+        expect(f.errors).toEqual([])
+        expect(f.requests).toEqual([])
+      } finally {
+        await f.context.close()
+      }
+    })
+
     test(`result tones and blue breathing retain a stable disclosure ${locale} ${width}`, async ({ browser }, info) => {
       const f = await open(browser, locale, width)
       const { page } = f
