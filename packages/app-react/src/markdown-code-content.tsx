@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { LumenText } from '@lumen/app-ui'
 import { highlightMarkdownCode, type CodeTokenRange } from './markdown-code-highlight'
+import { plainCodeTokenRanges } from './plain-code-tokens'
 
 interface HighlightState {
   readonly source: string
@@ -47,9 +48,11 @@ export function MarkdownCodeContent({
     !streaming && highlight?.source === source && highlight.language === language && highlight.owner === owner
       ? highlight.ranges
       : null
+  const fallback = useMemo(() => (ranges ? null : plainCodeTokenRanges(source)), [ranges, source])
+  const reading = ranges ?? fallback
   const content = (start: number, end: number) =>
-    ranges
-      ? ranges.flatMap((range) => {
+    reading
+      ? reading.flatMap((range) => {
           const from = Math.max(start, range.start)
           const to = Math.min(end, range.end)
           return from < to
@@ -62,7 +65,12 @@ export function MarkdownCodeContent({
         })
       : source.slice(start, end)
   return (
-    <LumenText as="code" variant="code" data-code-highlight={ranges ? 'ready' : 'plain'}>
+    <LumenText
+      as="code"
+      variant="code"
+      data-code-highlight={ranges ? 'ready' : 'plain'}
+      data-code-fallback={!ranges && fallback ? 'lexical' : undefined}
+    >
       {content(0, previewEnd)}
       {collapsible && (
         <LumenText as="span" variant="code" data-code-tail="" hidden={!expanded}>

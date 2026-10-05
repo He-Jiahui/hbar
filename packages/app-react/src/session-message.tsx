@@ -311,6 +311,7 @@ function ToolRow({
   sessionId,
   messageId,
   clipboard,
+  copyOwner,
   renderToolAction,
 }: {
   readonly row: SessionToolRow
@@ -320,6 +321,7 @@ function ToolRow({
   readonly sessionId: string
   readonly messageId: string
   readonly clipboard?: HbarMessageBlocksProps['clipboard']
+  readonly copyOwner?: HbarMessageBlocksProps['copyOwner']
   readonly renderToolAction?: HbarMessageBlocksProps['renderToolAction']
 }) {
   const presentation = row.call && describeTool ? describeTool(row.call) : undefined
@@ -352,6 +354,7 @@ function ToolRow({
         messageId={messageId}
         labels={labels}
         clipboard={clipboard}
+        copyOwner={copyOwner}
       />
     </Disclosure>
   )
@@ -452,6 +455,7 @@ function Activity({
         sessionId={sessionId}
         messageId={messageId}
         clipboard={clipboard}
+        copyOwner={copyOwner}
         renderToolAction={renderToolAction}
       />
     ),
@@ -578,6 +582,7 @@ function MessageBlocksContent({
               sessionId={sessionId}
               messageId={messageId}
               clipboard={clipboard}
+              copyOwner={copyOwner}
               renderToolAction={renderToolAction}
             />
             {toolDecisions?.get(group.id)}

@@ -8,7 +8,7 @@ import {
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import type { SessionToolRow } from '../packages/app-react/src/session-message-model'
 
-test('command reading removes terminal progress/control frames without replacing the raw Copy source', () => {
+test('command reading removes terminal progress/control frames without replacing the raw Copy source', async () => {
   const row: SessionToolRow = {
     kind: 'tool',
     id: 'control-output',
@@ -34,8 +34,16 @@ test('command reading removes terminal progress/control frames without replacing
   )
   expect(html).not.toContain('Downloading')
   expect(html).not.toContain('[32m')
-  expect(html).toContain('100%')
-  expect(html).toContain('done')
+  const readable: string[] = []
+  await new HTMLRewriter()
+    .on('[data-command-output]', {
+      text(chunk) {
+        readable.push(chunk.text)
+      },
+    })
+    .transform(new Response(html))
+    .text()
+  expect(readable.join('')).toBe('100%\r\ndone\r\n')
 })
 
 test('success output windows twelve original lines and preserves CRLF, lone CR and Unicode boundaries', () => {

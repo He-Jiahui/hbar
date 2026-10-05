@@ -19,6 +19,8 @@ export type CodeTokenRole =
   | 'punctuation'
   | 'inserted'
   | 'deleted'
+  | 'path'
+  | 'link'
 
 export interface CodeTokenRange {
   readonly start: number

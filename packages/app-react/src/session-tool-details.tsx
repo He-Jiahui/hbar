@@ -8,6 +8,29 @@ import { sessionToolOutcome } from './session-tool-outcome-model'
 import { commandOutputWindow } from './session-command-output-model'
 import { projectCommandReading } from './session-command-reading-model'
 import './session-command-details.css'
+import { MarkdownCodeContent } from './markdown-code-content'
+import { serializedReadingLanguage } from './plain-code-tokens'
+
+function SourceText({
+  text,
+  language,
+  owner,
+}: {
+  readonly text: string
+  readonly language?: string | null | undefined
+  readonly owner?: object | undefined
+}) {
+  return (
+    <MarkdownCodeContent
+      source={text}
+      language={language ?? serializedReadingLanguage(text)}
+      owner={owner}
+      previewEnd={text.length}
+      collapsible={false}
+      expanded
+    />
+  )
+}
 
 export interface HbarToolDetailsLabels {
   readonly input: string
@@ -45,17 +68,25 @@ function DetailText({
   text,
   labels,
   command = false,
+  language,
+  owner,
 }: {
   readonly text: string
   readonly labels: HbarToolDetailsLabels
   readonly command?: boolean
+  readonly language?: string | null | undefined
+  readonly owner?: object | undefined
 }) {
   const [full, setFull] = useState(false)
   const long = text.length > DETAIL_PREVIEW_CHARACTERS
   return (
     <LumenFrame className="hbar-session-detail-text" data-format={command ? 'command' : undefined}>
       <LumenText as="pre" tabIndex={0}>
-        {long && !full ? `${text.slice(0, DETAIL_PREVIEW_CHARACTERS)}…` : text}
+        <SourceText
+          text={long && !full ? `${text.slice(0, DETAIL_PREVIEW_CHARACTERS)}…` : text}
+          language={language}
+          owner={owner}
+        />
       </LumenText>
       {long ? (
         <LumenButton variant="text" indicator="none" size="s" onClick={() => setFull(!full)} aria-expanded={full}>
@@ -73,6 +104,7 @@ function CommandDetails({
   sessionId,
   messageId,
   clipboard,
+  copyOwner,
 }: {
   readonly row: SessionToolRow
   readonly command: string
@@ -80,6 +112,7 @@ function CommandDetails({
   readonly sessionId: string
   readonly messageId: string
   readonly clipboard?: MessageClipboardPort | null | undefined
+  readonly copyOwner?: object | undefined
 }) {
   const [expanded, setExpanded] = useState(false)
   const [rawView, setRawView] = useState(false)
@@ -100,13 +133,14 @@ function CommandDetails({
         <LumenText as="span" className="hbar-session-tool-heading">
           {labels.command}
         </LumenText>
-        <DetailText text={command} labels={labels} />
+        <DetailText text={command} labels={labels} language="shellscript" owner={copyOwner} />
       </LumenFrame>
       {row.result && (
         <LumenFrame
           className="hbar-session-tool-section hbar-session-command-output"
           data-tool-call-id={row.result.callId}
           data-tool-name={row.result.name}
+          data-content-kind="output"
         >
           <LumenFrame className="hbar-session-tool-result-heading">
             <LumenText as="span" className="hbar-session-tool-heading">
@@ -148,10 +182,10 @@ function CommandDetails({
           >
             {visible ? (
               <>
-                {success ? visible.slice(0, window.previewEnd) : visible}
+                <SourceText text={success ? visible.slice(0, window.previewEnd) : visible} owner={copyOwner} />
                 {success && window.collapsible && (
                   <LumenText as="span" data-command-output-tail="" hidden={folded}>
-                    {visible.slice(window.previewEnd)}
+                    <SourceText text={visible.slice(window.previewEnd)} owner={copyOwner} />
                   </LumenText>
                 )}
               </>
@@ -183,7 +217,12 @@ function CommandDetails({
       )}
       {row.call && (
         <HbarLumenDisclosure label={labels.originalInput} className="hbar-session-command-original">
-          <DetailText text={toolInputText(row.call.args, labels.unavailableInput)} labels={labels} />
+          <DetailText
+            text={toolInputText(row.call.args, labels.unavailableInput)}
+            labels={labels}
+            language="json"
+            owner={copyOwner}
+          />
         </HbarLumenDisclosure>
       )}
     </LumenFrame>
@@ -198,6 +237,7 @@ export function SessionToolDetails({
   sessionId,
   messageId,
   clipboard,
+  copyOwner,
 }: {
   readonly row: SessionToolRow
   readonly presentation?: HbarMessageToolPresentation | undefined
@@ -205,6 +245,7 @@ export function SessionToolDetails({
   readonly sessionId: string
   readonly messageId: string
   readonly clipboard?: MessageClipboardPort | null | undefined
+  readonly copyOwner?: object | undefined
 }) {
   if (row.call && presentation?.command !== undefined)
     return (
@@ -215,12 +256,13 @@ export function SessionToolDetails({
         sessionId={sessionId}
         messageId={messageId}
         clipboard={clipboard}
+        copyOwner={copyOwner}
       />
     )
   return (
     <>
       {row.call ? (
-        <LumenFrame className="hbar-session-tool-section">
+        <LumenFrame className="hbar-session-tool-section" data-content-kind="input">
           <LumenText as="span" className="hbar-session-tool-heading">
             {labels.input}
           </LumenText>
@@ -228,6 +270,8 @@ export function SessionToolDetails({
             text={presentation?.input?.text ?? toolInputText(row.call.args, labels.unavailableInput)}
             labels={labels}
             command={presentation?.input?.format === 'command'}
+            language={presentation?.input ? (presentation.input.format === 'command' ? 'shellscript' : null) : 'json'}
+            owner={copyOwner}
           />
         </LumenFrame>
       ) : null}
@@ -236,6 +280,7 @@ export function SessionToolDetails({
           className="hbar-session-tool-section"
           data-tool-call-id={row.result.callId}
           data-tool-name={row.result.name}
+          data-content-kind="output"
         >
           <LumenFrame className="hbar-session-tool-result-heading">
             <LumenText as="span" className="hbar-session-tool-heading">
@@ -255,6 +300,7 @@ export function SessionToolDetails({
             text={row.result.text || labels.emptyOutput}
             labels={labels}
             command={presentation?.input?.format === 'command'}
+            owner={copyOwner}
           />
         </LumenFrame>
       ) : null}

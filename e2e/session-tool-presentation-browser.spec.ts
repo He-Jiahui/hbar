@@ -244,6 +244,74 @@ async function readableSummary(tool: Locator) {
 
 for (const locale of ['en-US', 'zh-CN'] as const)
   for (const width of [1440, 320]) {
+    test(`colored tool source retains exact JSON, terminal logs and Copy ${locale} ${width}`, async ({
+      browser,
+    }, info) => {
+      const f = await open(browser, locale, width)
+      const { page } = f
+      const json = call(
+        'colored-json',
+        { version: 1, kind: 'file-read', pathField: 'path' },
+        { path: 'src/settings.json', ready: true, retries: 42 },
+      )
+      const shell = call(
+        'colored-shell',
+        { version: 1, kind: 'command', commandField: 'cmd' },
+        { cmd: 'git diff -- src/composer-permission.ts' },
+      )
+      const jsonOutput = JSON.stringify({ path: 'D:/Git/资料/read.ts', ready: true, count: 42 }, null, 2)
+      const logs =
+        'INFO: reading ./src/composer-permission.ts\r\nWARN: retries=2\r\nERROR: exact raw output <script>alert(1)</script> 🐙\r\n'
+      const messages = [
+        message([json, result(json, false, jsonOutput)], 'colored-json'),
+        message([shell, result(shell, false, logs)], 'colored-shell'),
+      ]
+      try {
+        for (const theme of ['light', 'dark'] as const) {
+          await render(page, { locale, theme, messages })
+          const jsonRow = row(page, json.callId)
+          await trigger(jsonRow).focus()
+          await page.keyboard.press('Enter')
+          const input = jsonRow.locator('[data-content-kind="input"] pre')
+          const output = jsonRow.locator('[data-content-kind="output"] pre')
+          expect(await input.textContent()).toBe(JSON.stringify(json.args, null, 2))
+          expect(await output.textContent()).toBe(jsonOutput)
+          await expect(output.locator('code')).toHaveAttribute('data-code-highlight', 'ready')
+          const colors = await output
+            .locator('[data-code-token]')
+            .evaluateAll((elements) => elements.map((element) => getComputedStyle(element).color))
+          expect(new Set(colors).size).toBeGreaterThanOrEqual(3)
+          await copyOutput(page, jsonRow, locale, jsonOutput)
+          const shellRow = row(page, shell.callId)
+          await trigger(shellRow).focus()
+          await page.keyboard.press('Enter')
+          const terminal = shellRow.locator('[data-command-output]')
+          expect(await terminal.textContent()).toBe(logs)
+          await expect(terminal.locator('[data-code-token="path"]')).toHaveText('./src/composer-permission.ts')
+          await expect(terminal.locator('[data-code-token="deleted"]')).toHaveText('ERROR')
+          await expect(terminal.locator('script')).toHaveCount(0)
+          await expect(shellRow).toHaveAttribute('data-outcome', 'succeeded')
+          await copyOutput(page, shellRow, locale, logs)
+          await noOverflow(page)
+          await page
+            .locator('.tool-presentation-fixture-messages')
+            .screenshot({ path: `artifacts/session-text-color/tool-source-${locale}-${theme}-${width}.png` })
+          await trigger(shellRow).focus()
+          await page.keyboard.press('Space')
+          await trigger(jsonRow).focus()
+          await page.keyboard.press('Space')
+          await info.attach(`tool-source-colors-${theme}`, {
+            contentType: 'application/json',
+            body: Buffer.from(JSON.stringify({ colors, exactInput: true, exactOutput: true, exactCopy: true })),
+          })
+        }
+        expect(f.errors).toEqual([])
+        expect(f.requests).toEqual([])
+      } finally {
+        await f.context.close()
+      }
+    })
+
     test(`session semantic text colors survive folding and live transitions ${locale} ${width}`, async ({
       browser,
     }, info) => {
@@ -284,15 +352,13 @@ for (const locale of ['en-US', 'zh-CN'] as const)
             link: getComputedStyle(element.querySelector('a') ?? element).color,
           }))
           expect(new Set(Object.values(colors)).size).toBeGreaterThanOrEqual(4)
-          const parts = await summary
-            .locator('[data-activity-role]')
-            .evaluateAll((elements) =>
-              elements.map((element) => ({
-                role: element.getAttribute('data-activity-role'),
-                text: element.textContent,
-                color: getComputedStyle(element).color,
-              })),
-            )
+          const parts = await summary.locator('[data-activity-role]').evaluateAll((elements) =>
+            elements.map((element) => ({
+              role: element.getAttribute('data-activity-role'),
+              text: element.textContent,
+              color: getComputedStyle(element).color,
+            })),
+          )
           expect(parts.some((part) => part.role === 'count')).toBe(true)
           expect(new Set(parts.map((part) => part.color)).size).toBeGreaterThanOrEqual(4)
           await noOverflow(page)
@@ -319,18 +385,18 @@ for (const locale of ['en-US', 'zh-CN'] as const)
           await expect(code).toHaveAttribute('data-code-highlight', 'ready')
           expect(await code.textContent()).toBe('const result = { enabled: true, count: 42 };\n')
           await render(page, { locale, theme, motion: true, streaming: true, messages: [message(content)] })
+          await expect(code).toHaveAttribute('data-code-fallback', 'lexical')
+          expect(await code.locator('[data-code-token]').count()).toBeGreaterThan(2)
           await expect(thoughtTrigger).toBeFocused()
           await expect(thoughtTrigger).toHaveAttribute('aria-expanded', 'true')
           await expect(thinking.locator('.hbar-session-disclosure-label-text')).toHaveAttribute(
             'data-lumen-state',
             'running',
           )
-          const motion = await thinking
-            .locator('.hbar-session-disclosure-label-text')
-            .evaluate((element) => ({
-              animation: getComputedStyle(element).animationName,
-              before: element.getBoundingClientRect().height,
-            }))
+          const motion = await thinking.locator('.hbar-session-disclosure-label-text').evaluate((element) => ({
+            animation: getComputedStyle(element).animationName,
+            before: element.getBoundingClientRect().height,
+          }))
           expect(motion.animation).toBe('lumen-breathe')
           await noOverflow(page)
           await page

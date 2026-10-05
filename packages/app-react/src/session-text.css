@@ -114,9 +114,27 @@
 .hbar-session-tool[data-outcome='legacy-error'] .hbar-session-disclosure-preview {
   color: var(--lumen-warning);
 }
+.hbar-session-message-blocks :is(.hbar-session-tool-heading, .hbar-message-code-metadata) {
+  color: var(--hbar-session-heading);
+}
+.hbar-session-message-blocks .hbar-session-detail-text pre {
+  color: var(--hbar-session-secondary);
+}
+.hbar-session-tool[data-outcome='failed'] .hbar-session-tool-section[data-content-kind='output'] pre {
+  color: var(--lumen-danger);
+}
+.hbar-session-tool[data-outcome='legacy-error'] .hbar-session-tool-section[data-content-kind='output'] pre {
+  color: var(--lumen-warning);
+}
 .hbar-session-disclosure-label-text[data-lumen-state='running'] {
   --lumen-effect-color: currentColor;
   text-shadow: var(--lumen-content-shadow);
+}
+.hbar-session-message-prose > :last-child {
+  transition: background-color var(--lumen-state-duration) var(--lumen-state-easing);
+}
+.hbar-session-message-blocks [data-code-token] {
+  transition: color var(--lumen-state-duration) var(--lumen-state-easing);
 }
 .hbar-session-message-prose[data-live='true'] > :last-child {
   background-color: var(--hbar-session-live-wash);
