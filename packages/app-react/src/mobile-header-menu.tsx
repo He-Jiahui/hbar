@@ -12,6 +12,7 @@ import {
 } from 'react'
 import { Ellipsis, X, type LucideIcon } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { FloatingSurface, useFloatingTrigger } from './floating-surface'
 import './mobile-header-menu.css'
 
 export interface HbarMobileHeaderMenuItem {
@@ -106,10 +107,10 @@ export function useHbarMobileHeaderMenuSection(section: HbarMobileHeaderMenuSect
 
 export function HbarMobileHeaderMenu({ label }: { readonly label: string }) {
   const registry = useContext(MobileHeaderMenuContext)
-  const rootRef = useRef<HTMLDivElement | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const contentId = useId()
   const [open, setOpen] = useState(false)
+  const triggerEvents = useFloatingTrigger(open, setOpen)
   const pendingActionRef = useRef<(() => void) | null>(null)
   const dismiss = registry?.dismiss
   const registerDismiss = registry?.registerDismiss
@@ -123,20 +124,6 @@ export function HbarMobileHeaderMenu({ label }: { readonly label: string }) {
     if (!registerDismiss) return
     return registerDismiss(close)
   }, [registerDismiss, close])
-
-  useEffect(() => {
-    const root = rootRef.current
-    if (!root) return
-    const closeWhenOutside = (event: PointerEvent | FocusEvent) => {
-      if (event.target instanceof Node && !root.contains(event.target)) close(false)
-    }
-    document.addEventListener('pointerdown', closeWhenOutside, true)
-    document.addEventListener('focusin', closeWhenOutside, true)
-    return () => {
-      document.removeEventListener('pointerdown', closeWhenOutside, true)
-      document.removeEventListener('focusin', closeWhenOutside, true)
-    }
-  }, [close, sections.length])
 
   useLayoutEffect(() => {
     if (open) return
@@ -160,7 +147,6 @@ export function HbarMobileHeaderMenu({ label }: { readonly label: string }) {
 
   return (
     <LumenFrame
-      ref={rootRef}
       className="hbar-mobile-header-menu"
       data-hbar-mobile-header-menu="true"
       data-open={open ? 'true' : 'false'}
@@ -182,12 +168,19 @@ export function HbarMobileHeaderMenu({ label }: { readonly label: string }) {
         aria-controls={contentId}
         aria-expanded={open}
         title={label}
-        onClick={() => setOpen((current) => !current)}
+        {...triggerEvents}
       >
         <LumenIcon icon={Ellipsis} tier="md" />
       </LumenButton>
       {open && (
-        <LumenFrame id={contentId} className="hbar-mobile-header-menu-content" role="region" aria-label={label}>
+        <FloatingSurface
+          open={open}
+          onClose={close}
+          anchorRef={triggerRef}
+          label={label}
+          id={contentId}
+          className="hbar-mobile-header-menu-content"
+        >
           {sections.map((section) => (
             <LumenFrame
               key={section.id}
@@ -229,7 +222,7 @@ export function HbarMobileHeaderMenu({ label }: { readonly label: string }) {
               </LumenFrame>
             </LumenFrame>
           ))}
-        </LumenFrame>
+        </FloatingSurface>
       )}
     </LumenFrame>
   )

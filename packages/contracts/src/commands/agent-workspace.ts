@@ -3,7 +3,17 @@ import { defineCommand } from '@hbar/commands/protocol'
 import { idSchema } from '../index'
 
 const instanceId = z.string().min(1).max(160)
-const field = z.enum(['objective', 'profileId', 'modelId', 'title', 'tokenBudget', 'thinkingLevel', 'approval'])
+const field = z.enum([
+  'objective',
+  'profileId',
+  'modelId',
+  'title',
+  'difficulty',
+  'sandboxProfileId',
+  'tokenBudget',
+  'thinkingLevel',
+  'approval',
+])
 const summary = z.strictObject({
   instanceId,
   parentSessionId: idSchema,

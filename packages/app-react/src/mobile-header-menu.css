@@ -4,8 +4,6 @@
 
 @media (max-width: 47.9375rem) {
   .hbar-mobile-header-menu {
-    position: relative;
-    z-index: 30;
     display: flex;
     min-inline-size: 0;
     flex: 0 0 auto;
@@ -35,23 +33,12 @@
   }
 
   .hbar-mobile-header-menu-content {
-    position: absolute;
-    inset-block-start: calc(100% + 0.25rem);
-    inset-inline-end: 0;
-    display: flex;
-    inline-size: min(20rem, calc(100vw - 1rem));
-    max-block-size: min(50dvh, calc(100dvh - 4rem));
     min-inline-size: 0;
     flex-direction: column;
     gap: 0.75rem;
     overflow: auto;
     scrollbar-color: var(--lumen-muted) var(--lumen-reading);
     scrollbar-width: thin;
-    padding: 0.5rem;
-    border: 0.0625rem solid var(--lumen-edge);
-    border-radius: 0.5rem;
-    background: var(--lumen-contrast);
-    box-shadow: 0 1rem 2rem color-mix(in srgb, #000 28%, transparent);
   }
 
   .hbar-mobile-header-menu-section,
@@ -68,8 +55,6 @@
   .hbar-mobile-header-menu-section > strong {
     padding: 0.25rem 0.5rem;
     color: var(--lumen-muted);
-    font-size: 0.75rem;
-    font-weight: 650;
   }
 
   .hbar-mobile-header-menu-items {

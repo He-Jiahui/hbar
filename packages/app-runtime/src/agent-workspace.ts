@@ -50,6 +50,8 @@ function initialDraft(): AgentWorkspaceDraftState {
     objective: '',
     profileId: '',
     modelId: '',
+    difficulty: '',
+    sandboxProfileId: '',
     title: '',
     tokenBudget: '',
     thinkingLevel: '',
@@ -64,6 +66,8 @@ function draftFromCreateInput(input: AgentCreateInput, revision: number): AgentW
     objective: input.objective,
     profileId: input.profileId ?? '',
     modelId: input.modelId ?? '',
+    difficulty: input.difficulty ?? '',
+    sandboxProfileId: input.sandboxProfileId ?? '',
     title: input.title ?? '',
     tokenBudget: input.tokenBudget === undefined ? '' : String(input.tokenBudget),
     thinkingLevel: input.thinkingLevel ?? '',
@@ -84,6 +88,8 @@ function createInput(draft: AgentWorkspaceDraftState, parentSessionId: string) {
     objective: draft.objective,
     ...(draft.profileId ? { profileId: draft.profileId } : {}),
     ...(draft.modelId ? { modelId: draft.modelId } : {}),
+    ...(draft.difficulty ? { difficulty: draft.difficulty } : {}),
+    ...(draft.sandboxProfileId ? { sandboxProfileId: draft.sandboxProfileId } : {}),
     ...(draft.title.trim() ? { title: draft.title } : {}),
     ...(tokenBudget ? { tokenBudget: Number(tokenBudget) } : {}),
     ...(draft.thinkingLevel ? { thinkingLevel: draft.thinkingLevel } : {}),
@@ -433,6 +439,7 @@ export function createAgentWorkspace(
         ? { thinkingLevel: '' }
         : {}),
       revision: entry.draft.revision + 1,
+      ...(field === 'difficulty' && value ? { modelId: '', thinkingLevel: '' } : {}),
       issues,
     } as AgentWorkspaceDraftState
     const next = { ...entry, draft, creation: { status: 'idle' as const, error: null } }

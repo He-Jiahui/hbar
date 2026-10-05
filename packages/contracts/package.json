@@ -10,6 +10,7 @@
     "./commands": "./src/commands/index.ts",
     "./commands/agents": "./src/commands/agents.ts",
     "./commands/agent-workspace": "./src/commands/agent-workspace.ts",
+    "./commands/agent-policy-editor": "./src/commands/agent-policy-editor.ts",
     "./commands/budget": "./src/commands/budget.ts",
     "./commands/budget-editor": "./src/commands/budget-editor.ts",
     "./commands/browser": "./src/commands/browser.ts",

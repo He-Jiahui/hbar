@@ -36,6 +36,7 @@ export type { FileComposerContextSelection } from '@hbar/contracts/commands/file
 export { projectWorkspaceDiffRows, selectWorkspaceDiffRange } from './file-context-selection'
 export type { WorkspaceDiffRow, WorkspaceDiffRange } from './file-context-selection'
 import { agentWorkspaceCommands } from '@hbar/contracts/commands/agent-workspace'
+import { agentPolicyEditorCommands } from '@hbar/contracts/commands/agent-policy-editor'
 import { goalPlanWorkspaceCommands } from '@hbar/contracts/commands/goal-plan-workspace'
 import { workflowWorkspaceCommands } from '@hbar/contracts/commands/workflow-workspace'
 import { extensionWorkspaceCommands } from '@hbar/contracts/commands/extension-workspace'
@@ -152,6 +153,8 @@ import { createSessionFileReferenceNavigation, sessionFileReferenceCommands } fr
 export { createSessionFileReferenceNavigation, sessionFileReferenceCommands } from './session-file-reference-navigation'
 export { filteredFileChanges, FILE_CHANGES_PAGE_SIZE } from './file-workspace-changes'
 import { createAgentWorkspace } from './agent-workspace'
+import { createAgentPolicyEditor } from './agent-policy-editor'
+export type { AgentPolicyEditorState, AgentPolicyEditorEntry, AgentPolicyRow } from './agent-policy-editor'
 import { agentComposerCommands, createAgentComposer } from './agent-composer'
 export { agentComposerCommands } from './agent-composer'
 import { composerBackgroundAgentsCommands, createComposerBackgroundAgents } from './composer-background-agents'
@@ -1067,6 +1070,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
   )
+  const agentPolicies = createAgentPolicyEditor(local, options, surfaces.reader, onSubscriberError, () => disposed)
   const composerBackgroundAgents = createComposerBackgroundAgents(local, options, {
     navigation: navigation.reader,
     tabs: workspaceTabs.reader,
@@ -1261,6 +1265,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(commandPaletteCommands, name) ||
         Object.hasOwn(fileWorkspaceCommands, name) ||
         Object.hasOwn(agentWorkspaceCommands, name) ||
+        Object.hasOwn(agentPolicyEditorCommands, name) ||
         Object.hasOwn(agentComposerCommands, name) ||
         Object.hasOwn(composerBackgroundAgentsCommands, name) ||
         Object.hasOwn(agentChildNavigationCommands, name) ||
@@ -1373,6 +1378,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       commandPalette: commandPalette.reader,
       files: fileWorkspace.reader,
       agents: agentWorkspace.reader,
+      agentPolicies: agentPolicies.reader,
       composerBackgroundAgents: composerBackgroundAgents.reader,
       agentComposer: agentComposer.reader,
       goals: goalPlanWorkspace.reader,
@@ -1464,6 +1470,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       commandPalette.dispose()
       fileWorkspace.dispose()
       agentWorkspace.dispose()
+      agentPolicies.dispose()
       composerBackgroundAgents.dispose()
       offAgentModelEvents?.()
       offAgentModelConnection?.()

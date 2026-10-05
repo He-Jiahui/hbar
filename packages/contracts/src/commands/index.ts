@@ -17,6 +17,7 @@ import { configurationCommands } from './configuration'
 import { commandPaletteCommands } from './command-palette'
 import { fileWorkspaceCommands } from './file-workspace'
 import { agentWorkspaceCommands } from './agent-workspace'
+import { agentPolicyEditorCommands } from './agent-policy-editor'
 import { goalPlanWorkspaceCommands } from './goal-plan-workspace'
 export {
   goalHistoryCommands,
@@ -319,6 +320,7 @@ export const applicationCommands = {
   ...commandPaletteCommands,
   ...fileWorkspaceCommands,
   ...agentWorkspaceCommands,
+  ...agentPolicyEditorCommands,
   ...goalPlanWorkspaceCommands,
   ...workflowWorkspaceCommands,
   ...extensionWorkspaceCommands,

@@ -1,0 +1,39 @@
+.hbar-agent-policy-editor {
+  min-inline-size: 0;
+  padding: 0.75rem;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+.hbar-agent-policy-editor summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.hbar-agent-policy-editor p {
+  overflow-wrap: anywhere;
+}
+.hbar-agent-policy-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-inline-size: 0;
+}
+.hbar-agent-policy-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+  min-inline-size: 0;
+  padding: 0.5rem;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+}
+.hbar-agent-policy-row > * {
+  flex: 1 1 8rem;
+  min-inline-size: 0;
+}
+.hbar-agent-policy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding-block: 0.5rem;
+}

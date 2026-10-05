@@ -1,8 +1,9 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { useId, useRef, useState, type KeyboardEvent } from 'react'
 import { Check, ChevronDown, Search, X } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenText } from '@lumen/app-ui'
 import type { AgentWorkspaceState } from '@hbar/app-runtime'
 import { filterCatalogModels, MODEL_CATALOG_PAGE_SIZE } from './model-choice-filter'
+import { FloatingSurface, useFloatingTrigger } from './floating-surface'
 import './agent-model-picker.css'
 
 export interface AgentModelPickerLabels {
@@ -20,24 +21,6 @@ export interface AgentModelPickerLabels {
 }
 
 type Catalog = AgentWorkspaceState['catalog']
-
-function placePopover(popover: HTMLDivElement, trigger: HTMLButtonElement) {
-  const bounds = trigger.getBoundingClientRect()
-  const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
-  const margin = rem
-  const gap = rem / 2
-  const width = Math.min(22.5 * rem, Math.max(0, innerWidth - margin * 2))
-  const below = innerHeight - bounds.bottom - gap - margin
-  const above = bounds.top - gap - margin
-  const placeBelow = below >= 11.25 * rem || below >= above
-  popover.style.setProperty(
-    '--agent-model-left',
-    `${Math.min(Math.max(margin, bounds.right - width), Math.max(margin, innerWidth - width - margin))}px`,
-  )
-  popover.style.setProperty('--agent-model-top', placeBelow ? `${bounds.bottom + gap}px` : 'auto')
-  popover.style.setProperty('--agent-model-bottom', placeBelow ? 'auto' : `${innerHeight - bounds.top + gap}px`)
-  popover.style.setProperty('--agent-model-limit', `${Math.max(0, placeBelow ? below : above)}px`)
-}
 
 export function AgentModelPicker({
   id,
@@ -66,30 +49,19 @@ export function AgentModelPicker({
 }) {
   const popupId = useId()
   const trigger = useRef<HTMLButtonElement>(null)
-  const popup = useRef<HTMLDivElement>(null)
   const search = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
   const [limit, setLimit] = useState(MODEL_CATALOG_PAGE_SIZE)
   const [open, setOpen] = useState(false)
+  const triggerEvents = useFloatingTrigger(open, (value) => {
+    if (value) {
+      setQuery('')
+      setLimit(MODEL_CATALOG_PAGE_SIZE)
+    }
+    setOpen(value)
+  })
   const selected = catalog.models.find((model) => model.id === value)
   const { groups, remaining } = filterCatalogModels(catalog.models, query, limit, value)
-  const show = () => {
-    setQuery('')
-    setLimit(MODEL_CATALOG_PAGE_SIZE)
-    popup.current?.showPopover()
-  }
-  useEffect(() => {
-    if (!open) return
-    const reposition = () => {
-      if (popup.current && trigger.current) placePopover(popup.current, trigger.current)
-    }
-    window.addEventListener('scroll', reposition, true)
-    window.addEventListener('resize', reposition)
-    return () => {
-      window.removeEventListener('scroll', reposition, true)
-      window.removeEventListener('resize', reposition)
-    }
-  }, [open])
   const moveOption = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.nativeEvent.isComposing || event.altKey || event.ctrlKey || event.metaKey) return
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
@@ -122,7 +94,8 @@ export function AgentModelPicker({
         aria-describedby={describedBy}
         aria-invalid={invalid}
         disabled={disabled}
-        onClick={show}
+        {...triggerEvents}
+        aria-expanded={open}
       >
         <LumenText as="span" className="hbar-agent-model-current">
           {selected?.modelName ?? (value ? labels.unavailable(value) : labels.choose)}
@@ -144,26 +117,14 @@ export function AgentModelPicker({
           </LumenButton>
         </LumenFrame>
       )}
-      <LumenFrame
-        ref={popup}
+      <FloatingSurface
+        open={open}
+        onClose={() => setOpen(false)}
+        anchorRef={trigger}
+        initialFocusRef={search}
+        label={labels.title}
         id={popupId}
-        popover="auto"
-        role="dialog"
-        aria-label={labels.title}
         className="hbar-agent-model-popover"
-        onBeforeToggle={(event) => {
-          if (event.newState === 'open' && trigger.current) placePopover(event.currentTarget, trigger.current)
-        }}
-        onToggle={(event) => {
-          setOpen(event.newState === 'open')
-          // A narrow touch viewport shows a bottom sheet. Let users inspect
-          // choices before explicitly opening the on-screen keyboard.
-          if (event.newState === 'open') {
-            if (!window.matchMedia('(max-width: 40rem) and (pointer: coarse)').matches) search.current?.focus()
-          } else if (document.activeElement === document.body || popup.current?.contains(document.activeElement)) {
-            trigger.current?.focus()
-          }
-        }}
         onKeyDown={(event) => {
           if (event.key === 'Enter') {
             event.stopPropagation()
@@ -180,7 +141,7 @@ export function AgentModelPicker({
             variant="text"
             indicator="none"
             aria-label={labels.close}
-            onClick={() => popup.current?.hidePopover()}
+            onClick={() => setOpen(false)}
           >
             <LumenIcon icon={X} tier="sm" />
           </LumenButton>
@@ -229,7 +190,7 @@ export function AgentModelPicker({
                   disabled={!connected || catalog.status !== 'ready'}
                   onClick={() => {
                     onSelect(model.id)
-                    popup.current?.hidePopover()
+                    setOpen(false)
                   }}
                 >
                   <LumenText as="span" className="hbar-agent-model-option-text">
@@ -254,7 +215,7 @@ export function AgentModelPicker({
             </LumenButton>
           )}
         </LumenFrame>
-      </LumenFrame>
+      </FloatingSurface>
     </LumenFrame>
   )
 }

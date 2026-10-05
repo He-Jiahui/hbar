@@ -35,6 +35,7 @@ function pendingCreateJson(pending: PendingAgentCreate): ClientJsonObject {
       ...(pending.input.title ? { title: pending.input.title } : {}),
       ...(pending.input.tokenBudget === undefined ? {} : { tokenBudget: pending.input.tokenBudget }),
       ...(pending.input.thinkingLevel ? { thinkingLevel: pending.input.thinkingLevel } : {}),
+      ...(pending.input.difficulty ? { difficulty: pending.input.difficulty } : {}),
       ...(pending.input.approval ? { approval: pending.input.approval } : {}),
       ...(pending.input.sandboxProfileId ? { sandboxProfileId: pending.input.sandboxProfileId } : {}),
       ...(pending.input.sandbox ? { sandbox: { ...pending.input.sandbox } } : {}),

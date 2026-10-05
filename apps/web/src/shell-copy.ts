@@ -2321,6 +2321,63 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
       error: (code) => choose(`无法读取模型：${code}`, `Could not load models: ${code}`),
     },
     inheritModel: choose('恢复继承主 Agent 模型', 'Restore parent model inheritance'),
+    selectionMode: choose('模型选择方式', 'Model selection strategy'),
+    manualSelection: choose('继承或手动指定', 'Inherit or choose manually'),
+    sandboxProfile: choose('子 Agent 沙盒配置', 'Child sandbox profile'),
+    inheritSandbox: choose('继承主 Agent 沙盒配置', 'Inherit parent sandbox profile'),
+    configureChild: choose('修改子 Agent 设置', 'Configure child agent'),
+    configurationHint: choose(
+      '子 Agent 设置独立保存。派发后的更改用于后续执行，正在运行的任务保留派发时配置。',
+      'Child settings are independent. Later changes apply to subsequent runs; active tasks keep their dispatch configuration.',
+    ),
+    selectionSummary: (difficulty, weight) =>
+      choose(
+        `派发选型：${difficulty}，优先权重 ${weight}`,
+        `Dispatch selection: ${difficulty}, priority weight ${weight}`,
+      ),
+    policy: {
+      title: choose('子 Agent 自动选型与模型权重', 'Child agent automatic selection and model weights'),
+      description: choose(
+        '主 Agent 按任务难度派发。相同难度内优先使用权重较高的模型及指定思考等级；空档位继承主 Agent。权限不随难度升级。最多 32 个候选。',
+        'The parent dispatches by task difficulty. Higher weight wins within each tier, using the specified effort; empty tiers inherit. Permissions never increase with difficulty. Up to 32 candidates.',
+      ),
+      empty: choose('尚无候选，自动派发将继承主 Agent。', 'No candidates. Automatic dispatch inherits the parent.'),
+      model: choose('候选模型', 'Candidate model'),
+      chooseModel: choose('选择候选模型', 'Choose candidate model'),
+      difficulty: choose('任务难度', 'Task difficulty'),
+      difficulties: {
+        simple: choose('简单', 'Simple'),
+        medium: choose('中等', 'Medium'),
+        complex: choose('复杂', 'Complex'),
+      },
+      thinking: choose('候选思考等级', 'Candidate reasoning effort'),
+      chooseThinking: choose('选择思考等级', 'Choose reasoning effort'),
+      weight: choose('优先权重', 'Priority weight'),
+      add: choose('添加候选模型', 'Add candidate model'),
+      remove: (index) => choose(`移除候选 ${index}`, `Remove candidate ${index}`),
+      save: choose('保存选型策略', 'Save dispatch policy'),
+      saving: choose('正在保存选型策略…', 'Saving dispatch policy…'),
+      loading: choose('正在读取选型策略…', 'Loading dispatch policy…'),
+      retry: choose('重试并核对保存结果', 'Retry and reconcile policy save'),
+      refresh: choose('刷新已保存策略', 'Refresh saved policy'),
+      inherit: choose('恢复继承项目策略', 'Restore inherited project policy'),
+      unsaved: choose(
+        '有未保存的更改，派发仍使用已保存策略。',
+        'Unsaved changes. Dispatch still uses the saved policy.',
+      ),
+      saved: choose('当前显示已确认策略。', 'Showing the confirmed policy.'),
+      source: (layer, inherited) =>
+        choose(
+          `策略来源：${inherited ? (layer.startsWith('settings:workspace:') ? '项目' : '全局／默认') : '当前主会话'}`,
+          `Policy source: ${inherited ? (layer.startsWith('settings:workspace:') ? 'project' : 'global/default') : 'current parent session'}`,
+        ),
+      error: (code) =>
+        choose(
+          `选型策略操作失败：${code}。草稿已保留，可刷新后重试。`,
+          `Dispatch policy failed: ${code}. Draft retained; refresh and retry.`,
+        ),
+      thinkingOption: (level) => thinkingLevelLabel(locale, level),
+    },
     tokenBudget: choose('Token 预算', 'Token budget'),
     thinkingLevel: choose('思考等级', 'Thinking level'),
     thinkingDefault: (level) =>

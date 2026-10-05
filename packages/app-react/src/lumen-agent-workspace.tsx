@@ -20,6 +20,7 @@ import {
 import type { AgentWorkspaceEntryState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { AgentModelPicker, type AgentModelPickerLabels } from './agent-model-picker'
+import { AgentPolicyEditor, type AgentPolicyEditorLabels } from './agent-policy-editor'
 import './lumen-agent-workspace.css'
 
 type Agent = AgentWorkspaceEntryState['items'][number]
@@ -48,6 +49,14 @@ export interface HbarAgentWorkspaceLabels {
   readonly createdAt: string
   readonly model: string
   readonly inheritModel: string
+  readonly selectionMode: string
+  readonly manualSelection: string
+  readonly policy: AgentPolicyEditorLabels
+  readonly sandboxProfile: string
+  readonly inheritSandbox: string
+  readonly configureChild: string
+  readonly configurationHint: string
+  readonly selectionSummary: (difficulty: string, weight: number) => string
   readonly profile: string
   readonly profileOptions: Readonly<Record<'general' | AgentProfileId, string>>
   readonly exploreHint: string
@@ -110,6 +119,7 @@ export function HbarAgentWorkspace({
   const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const agents = useHbarRuntimeState(runtime.state.agents)
   const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)
+  const sandboxProfiles = useHbarRuntimeState(runtime.state.sandboxProfiles)
   const [openState, setOpenState] = useState<{
     readonly agentId: string
     readonly status: 'submitting' | 'failed'
@@ -130,6 +140,10 @@ export function HbarAgentWorkspace({
     if (instanceId && panel?.panelId === 'agents' && panel.sessionId && entry?.parentSessionId !== panel.sessionId)
       invoke('agentWorkspace.refresh', { instanceId })
   }, [entry?.parentSessionId, instanceId, invoke, panel?.panelId, panel?.sessionId])
+  useEffect(() => {
+    if (entry?.view === 'create' && sandboxProfiles.available && sandboxProfiles.list.status === 'idle')
+      invoke('sandboxProfiles.refresh', {})
+  }, [entry?.view, sandboxProfiles.available, sandboxProfiles.list.status, invoke])
   if (!instanceId || panel?.panelId !== 'agents') return null
 
   const creationBusy = entry?.creation.status === 'submitting' || entry?.creation.status === 'unknown'
@@ -142,7 +156,7 @@ export function HbarAgentWorkspace({
   const selectedModel = entry?.draft.modelId
     ? catalog.models.find((model) => model.id === entry.draft.modelId)
     : entry?.inheritedModel?.model
-  const openSession = (agent: Agent) => {
+  const openSession = (agent: Agent, configure = false) => {
     if (openState?.status === 'submitting') return
     const source = tabs.items.find((item) => item.kind === 'session' && item.sessionId === agent.parentSessionId)
     if (!source || panel.sessionId !== agent.parentSessionId) {
@@ -159,7 +173,7 @@ export function HbarAgentWorkspace({
         expectedChildSessionId: agent.sessionId,
         sourceTabInstanceKey: source.instanceKey,
       })
-      .then(() => {
+      .then(async () => {
         if (openIntent.current !== intent) return
         const latestPanel = runtime.state.surfaces.getSnapshot().panels[instanceId]
         if (
@@ -168,6 +182,18 @@ export function HbarAgentWorkspace({
         ) {
           setOpenState(null)
           return
+        }
+        if (configure) {
+          const child = runtime.state.directory.getSnapshot().sessions[agent.sessionId]
+          if (!child) throw new Error('Child Session is unavailable')
+          await runtime.commands.execute('app.openSettings', {
+            scope: 'session',
+            targetId: child.id,
+            sessionId: child.id,
+            workspaceId: child.workspaceId,
+            binding: 'pinned',
+            section: 'model',
+          })
         }
         return runtime.commands.execute('app.closePanel', { instanceId })
       })
@@ -215,6 +241,17 @@ export function HbarAgentWorkspace({
       }
       className="hbar-app-react-agent-workspace"
     >
+      {entry && (view === 'create' || view === 'list') && (
+        <AgentPolicyEditor
+          labels={labels.policy}
+          modelLabels={labels.modelPicker}
+          instanceId={instanceId}
+          parentSessionId={entry.parentSessionId}
+          catalog={catalog}
+          connected={connected}
+          refreshModels={() => invoke('agentWorkspace.refreshModels', { instanceId })}
+        />
+      )}
       {view === 'create' && entry ? (
         <LumenFrame as="main" className="hbar-app-react-agent-create-view">
           <LumenFrame>
@@ -263,27 +300,50 @@ export function HbarAgentWorkspace({
                 </LumenSelect>
               </LumenFormField>
               {entry.draft.profileId === 'explore' && <LumenText as="p">{labels.exploreHint}</LumenText>}
-              <LumenFormField
-                controlId={`${instanceId}-agent-model`}
-                label={labels.model}
-                {...(entry.draft.issues.modelId ? { error: labels.issue('modelId') } : {})}
-              >
-                <AgentModelPicker
-                  id={`${instanceId}-agent-model`}
-                  value={entry.draft.modelId}
-                  catalog={catalog}
-                  connected={connected}
-                  disabled={creationBusy}
-                  labels={labels.modelPicker}
-                  onSelect={(modelId) => setField('modelId', modelId)}
-                  onRetry={() => invoke('agentWorkspace.refreshModels', { instanceId })}
-                />
-                {entry.draft.modelId && (
-                  <LumenButton size="s" variant="text" disabled={creationBusy} onClick={() => setField('modelId', '')}>
-                    {labels.inheritModel}
-                  </LumenButton>
-                )}
+              <LumenFormField controlId={`${instanceId}-agent-selection`} label={labels.selectionMode}>
+                <LumenSelect
+                  id={`${instanceId}-agent-selection`}
+                  value={entry.draft.difficulty}
+                  onChange={(event) => setField('difficulty', event.currentTarget.value)}
+                >
+                  <LumenOption value="">{labels.manualSelection}</LumenOption>
+                  {(['simple', 'medium', 'complex'] as const).map((difficulty) => (
+                    <LumenOption key={difficulty} value={difficulty}>
+                      {labels.policy.difficulties[difficulty]}
+                    </LumenOption>
+                  ))}
+                </LumenSelect>
               </LumenFormField>
+              {!entry.draft.difficulty && (
+                <>
+                  <LumenFormField
+                    controlId={`${instanceId}-agent-model`}
+                    label={labels.model}
+                    {...(entry.draft.issues.modelId ? { error: labels.issue('modelId') } : {})}
+                  >
+                    <AgentModelPicker
+                      id={`${instanceId}-agent-model`}
+                      value={entry.draft.modelId}
+                      catalog={catalog}
+                      connected={connected}
+                      disabled={creationBusy}
+                      labels={labels.modelPicker}
+                      onSelect={(modelId) => setField('modelId', modelId)}
+                      onRetry={() => invoke('agentWorkspace.refreshModels', { instanceId })}
+                    />
+                    {entry.draft.modelId && (
+                      <LumenButton
+                        size="s"
+                        variant="text"
+                        disabled={creationBusy}
+                        onClick={() => setField('modelId', '')}
+                      >
+                        {labels.inheritModel}
+                      </LumenButton>
+                    )}
+                  </LumenFormField>
+                </>
+              )}
               <LumenFormField
                 controlId={`${instanceId}-agent-budget`}
                 label={labels.tokenBudget}
@@ -299,33 +359,35 @@ export function HbarAgentWorkspace({
                   onChange={(event) => setField('tokenBudget', event.currentTarget.value)}
                 />
               </LumenFormField>
-              <LumenFormField controlId={`${instanceId}-agent-thinking`} label={labels.thinkingLevel}>
-                <LumenSelect
-                  id={`${instanceId}-agent-thinking`}
-                  value={entry.draft.thinkingLevel}
-                  onChange={(event) => setField('thinkingLevel', event.currentTarget.value)}
-                  disabled={!selectedModel && !entry.draft.thinkingLevel}
-                >
-                  <LumenOption value="">
-                    {entry.inheritedModel?.thinkingLevel &&
-                    selectedModel &&
-                    !selectedModel.thinkingLevels.includes(entry.inheritedModel.thinkingLevel)
-                      ? labels.thinkingDefault(selectedModel.defaultThinkingLevel)
-                      : labels.thinkingInherited(entry.inheritedModel?.thinkingLevel ?? null)}
-                  </LumenOption>
-                  {selectedModel?.thinkingLevels.map((level) => (
-                    <LumenOption key={level} value={level}>
-                      {labels.thinkingOption(level)}
+              {!entry.draft.difficulty && (
+                <LumenFormField controlId={`${instanceId}-agent-thinking`} label={labels.thinkingLevel}>
+                  <LumenSelect
+                    id={`${instanceId}-agent-thinking`}
+                    value={entry.draft.thinkingLevel}
+                    onChange={(event) => setField('thinkingLevel', event.currentTarget.value)}
+                    disabled={!selectedModel && !entry.draft.thinkingLevel}
+                  >
+                    <LumenOption value="">
+                      {entry.inheritedModel?.thinkingLevel &&
+                      selectedModel &&
+                      !selectedModel.thinkingLevels.includes(entry.inheritedModel.thinkingLevel)
+                        ? labels.thinkingDefault(selectedModel.defaultThinkingLevel)
+                        : labels.thinkingInherited(entry.inheritedModel?.thinkingLevel ?? null)}
                     </LumenOption>
-                  ))}
-                  {entry.draft.thinkingLevel &&
-                    !selectedModel?.thinkingLevels.some((level) => level === entry.draft.thinkingLevel) && (
-                      <LumenOption value={entry.draft.thinkingLevel}>
-                        {labels.thinkingUnavailable(entry.draft.thinkingLevel)}
+                    {selectedModel?.thinkingLevels.map((level) => (
+                      <LumenOption key={level} value={level}>
+                        {labels.thinkingOption(level)}
                       </LumenOption>
-                    )}
-                </LumenSelect>
-              </LumenFormField>
+                    ))}
+                    {entry.draft.thinkingLevel &&
+                      !selectedModel?.thinkingLevels.some((level) => level === entry.draft.thinkingLevel) && (
+                        <LumenOption value={entry.draft.thinkingLevel}>
+                          {labels.thinkingUnavailable(entry.draft.thinkingLevel)}
+                        </LumenOption>
+                      )}
+                  </LumenSelect>
+                </LumenFormField>
+              )}
               <LumenFormField controlId={`${instanceId}-agent-approval`} label={labels.approval}>
                 <LumenSelect
                   id={`${instanceId}-agent-approval`}
@@ -339,6 +401,27 @@ export function HbarAgentWorkspace({
                   ))}
                 </LumenSelect>
               </LumenFormField>
+              {(entry.draft.approval === 'sandbox' || entry.draft.approval === 'inherit') && (
+                <LumenFormField controlId={`${instanceId}-agent-sandbox`} label={labels.sandboxProfile}>
+                  <LumenSelect
+                    id={`${instanceId}-agent-sandbox`}
+                    value={entry.draft.sandboxProfileId}
+                    onChange={(event) => setField('sandboxProfileId', event.currentTarget.value)}
+                  >
+                    <LumenOption value="">{labels.inheritSandbox}</LumenOption>
+                    {sandboxProfiles.list.items.map((profile) => (
+                      <LumenOption key={profile.id} value={profile.id}>
+                        {profile.name}
+                      </LumenOption>
+                    ))}
+                  </LumenSelect>
+                  {sandboxProfiles.list.error && (
+                    <LumenText as="p" role="alert">
+                      {labels.error(sandboxProfiles.list.error)}
+                    </LumenText>
+                  )}
+                </LumenFormField>
+              )}
             </LumenFrame>
             {entry.creation.error && (
               <LumenText as="p" role="alert">
@@ -377,7 +460,29 @@ export function HbarAgentWorkspace({
                 label: labels.parentSession,
                 value: labels.currentSession(selectedAgent.parentSessionId),
               },
-              { id: 'model', label: labels.model, value: labels.modelValue(selectedAgent.modelId) },
+              {
+                id: 'model',
+                label: labels.model,
+                value: labels.modelValue(selectedAgent.configuration?.modelId ?? selectedAgent.modelId),
+              },
+              {
+                id: 'thinking',
+                label: labels.thinkingLevel,
+                value: labels.thinkingOption(
+                  selectedAgent.configuration?.thinkingLevel ??
+                    selectedAgent.dispatchConfiguration?.thinkingLevel ??
+                    '',
+                ),
+              },
+              ...(selectedAgent.configuration
+                ? [
+                    {
+                      id: 'approval',
+                      label: labels.approval,
+                      value: labels.approvalOptions[selectedAgent.configuration.approval],
+                    },
+                  ]
+                : []),
               {
                 id: 'profile',
                 label: labels.profile,
@@ -387,6 +492,15 @@ export function HbarAgentWorkspace({
               { id: 'created', label: labels.createdAt, value: labels.timestamp(selectedAgent.createdAt) },
             ]}
           />
+          {selectedAgent.dispatchConfiguration?.selection && (
+            <LumenText as="p">
+              {labels.selectionSummary(
+                labels.policy.difficulties[selectedAgent.dispatchConfiguration.selection.difficulty],
+                selectedAgent.dispatchConfiguration.selection.weight,
+              )}
+            </LumenText>
+          )}
+          <LumenText as="p">{labels.configurationHint}</LumenText>
           {selectedAgent.error && (
             <LumenText as="p" role="alert">
               {selectedAgent.error}
@@ -403,6 +517,12 @@ export function HbarAgentWorkspace({
             </LumenText>
           )}
           <LumenFrame as="footer">
+            <LumenButton
+              disabled={!connected || openState?.status === 'submitting'}
+              onClick={() => openSession(selectedAgent, true)}
+            >
+              {labels.configureChild}
+            </LumenButton>
             <LumenButton
               tone="primary"
               disabled={!connected || openState?.status === 'submitting'}

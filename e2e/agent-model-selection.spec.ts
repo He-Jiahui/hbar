@@ -4,6 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { mobileShellNavigationLabel } from '../apps/web/src/mobile-shell-navigation-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { openSessionTool } from './support/session-tools-menu'
 
@@ -42,7 +43,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(await page.evaluate(() => matchMedia('(max-width: 40rem) and (pointer: coarse)').matches)).toBe(true)
       await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()
       await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
-      await openSessionTool(page, copy.session.tools, 'agents')
+      await page.getByRole('button', { name: mobileShellNavigationLabel(locale), exact: true }).click()
+      await page
+        .getByRole('dialog', { name: mobileShellNavigationLabel(locale), exact: true })
+        .getByRole('button', { name: copy.session.tools.agents, exact: true })
+        .click()
       await page.getByRole('button', { name: copy.agents.createTitle, exact: true }).click()
       const trigger = page.locator('.hbar-agent-model-trigger')
       await trigger.click()
@@ -142,7 +147,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       if (!triggerBounds || !pickerBounds) throw new Error('Agent model picker geometry is not measurable')
       expect(pickerBounds.height).toBeLessThanOrEqual(421)
       expect(pickerBounds.x + pickerBounds.width).toBeCloseTo(
-        Math.min(triggerBounds.x + triggerBounds.width, 1440 - 16),
+        Math.min(triggerBounds.x + pickerBounds.width, 1440 - 16),
         0,
       )
       await page.screenshot({ path: testInfo.outputPath(`agent-model-${locale}-1440.png`) })

@@ -275,6 +275,8 @@ export interface AgentWorkspaceDraftState {
   readonly profileId: '' | import('@hbar/contracts/commands/agents').AgentProfileId
   readonly modelId: string
   readonly title: string
+  readonly difficulty: '' | import('@hbar/contracts/commands/agents').AgentTaskDifficulty
+  readonly sandboxProfileId: string
   readonly tokenBudget: string
   readonly thinkingLevel: string
   readonly approval: 'inherit' | import('@hbar/contracts').ApprovalMode
