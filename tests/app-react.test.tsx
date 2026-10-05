@@ -62,6 +62,7 @@ function sessionSidebarPage(sessions: readonly (typeof session)[]): SessionSideb
 }
 
 const labels: HbarWorkspaceShellLabels = {
+  agentTree: getShellCopy('zh-CN').shell.agentTree,
   stop: getSessionStopCopy('zh-CN'),
   main: '工作台主区域',
   brand: 'hbar 测试',

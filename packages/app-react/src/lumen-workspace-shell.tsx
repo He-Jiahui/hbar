@@ -82,7 +82,8 @@ import {
   type WorkspaceDisplayNamesLabels,
 } from './workspace-display-names'
 import { useWorkspaceDisplayNameFocus } from './workspace-display-name-focus'
-import { SessionNavigationRow, SessionRenameRecovery, type SessionRenameLabels } from './session-navigation-row'
+import { SessionRenameRecovery, type SessionRenameLabels } from './session-navigation-row'
+import { SessionAgentBranch, type SessionAgentTreeLabels } from './session-agent-branch'
 import {
   ArchivedSessions,
   SessionArchiveBatchPanel,
@@ -110,6 +111,7 @@ export interface HbarSidebarTimeLabels {
 }
 
 export interface HbarWorkspaceShellLabels {
+  readonly agentTree: SessionAgentTreeLabels
   readonly stop: SessionStopLabels
   readonly main: string
   readonly brand: string
@@ -359,6 +361,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const directory = useHbarRuntimeState(runtime.state.directory)
   const workspacePins = useHbarRuntimeState(runtime.state.workspacePins)
   const workspaceActivity = useHbarRuntimeState(runtime.state.workspaceActivity)
+  const agentTree = useHbarRuntimeState(runtime.state.sessionAgentTree)
   const timeView = workspaceActivity.organization === 'time'
   const activityPreferenceBusy = ['loading', 'saving', 'submitting'].includes(
     workspaceActivity.organizationPreferenceStatus,
@@ -544,6 +547,10 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(
     () => new Set(navigation.workspaceId ? [navigation.workspaceId] : []),
   )
+  useEffect(() => {
+    const workspaceId = agentTree.revealedRoot?.workspaceId
+    if (workspaceId) setExpanded((prior) => (prior.has(workspaceId) ? prior : new Set([...prior, workspaceId])))
+  }, [agentTree.revealedRoot?.workspaceId])
   const visibleExpanded = useMemo(() => {
     const hidden = new Set(hiddenWorkspaceIds)
     return new Set([...expanded].filter((id) => !hidden.has(id)))
@@ -731,10 +738,20 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const organizationInitializing = organization.status === 'loading' && organization.snapshot === null
   const sidebarWorkspaces = useMemo(() => {
     if (organizationInitializing) return []
-    return orderWorkspaceActivityIds(workspaceActivity, workspacePins, hiddenWorkspaceIds)
+    const ids = [...orderWorkspaceActivityIds(workspaceActivity, workspacePins, hiddenWorkspaceIds)]
+    const revealed = agentTree.revealedRoot?.workspaceId
+    if (revealed && !hiddenWorkspaceIds.includes(revealed) && !ids.includes(revealed)) ids.push(revealed)
+    return ids
       .map((id) => directory.workspaces[id] ?? workspacePins.resolved[id])
       .filter((workspace) => workspace !== undefined)
-  }, [hiddenWorkspaceIds, workspaceActivity, workspacePins, directory.workspaces, organizationInitializing])
+  }, [
+    hiddenWorkspaceIds,
+    workspaceActivity,
+    workspacePins,
+    directory.workspaces,
+    organizationInitializing,
+    agentTree.revealedRoot,
+  ])
   const organizationBusy =
     organization.requestInFlight || ['submitting', 'unknown', 'reconciling'].includes(organization.action.status)
   const manualProjectView = workspaceActivity.organization === 'recentProject'
@@ -842,16 +859,39 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           return session && !session.archived && session.workspaceId === workspaceId ? [session] : []
         }),
       )
+    const root = agentTree.revealedRoot && directory.sessions[agentTree.revealedRoot.sessionId]
+    if (root && !root.archived) {
+      const items = result.get(root.workspaceId) ?? []
+      if (!items.some((item) => item.id === root.id)) result.set(root.workspaceId, [...items, root])
+    }
     return result
-  }, [directory.sessions, workspaceActivity.sessions])
-  const timelineItems = useMemo(
-    () =>
-      workspaceActivity.timeline.items.filter((item) => {
-        const session = directory.sessions[item.sessionId]
-        return session && !session.archived && !hiddenWorkspaceIds.includes(item.workspaceId)
-      }),
-    [workspaceActivity.timeline.items, directory.sessions, hiddenWorkspaceIds],
-  )
+  }, [directory.sessions, workspaceActivity.sessions, agentTree.revealedRoot])
+  const timelineItems = useMemo(() => {
+    const items = workspaceActivity.timeline.items.filter((item) => {
+      const session = directory.sessions[item.sessionId]
+      return session && !session.archived && !hiddenWorkspaceIds.includes(item.workspaceId)
+    })
+    const root = agentTree.revealedRoot
+    const session = root && directory.sessions[root.sessionId]
+    const workspace = root && directory.workspaces[root.workspaceId]
+    if (
+      root &&
+      session &&
+      !session.archived &&
+      workspace &&
+      !hiddenWorkspaceIds.includes(workspace.id) &&
+      !items.some((item) => item.sessionId === root.sessionId)
+    )
+      items.push({ ...root, displayName: workspaceDisplayName(workspace, displayNames.snapshot) })
+    return items
+  }, [
+    workspaceActivity.timeline.items,
+    directory.sessions,
+    directory.workspaces,
+    hiddenWorkspaceIds,
+    agentTree.revealedRoot,
+    displayNames,
+  ])
   const timelineById = useMemo(() => new Map(timelineItems.map((item) => [item.sessionId, item])), [timelineItems])
   const timeGroups = useMemo(
     () =>
@@ -1380,6 +1420,24 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                       onRefresh={refreshOrganization}
                       onReconcile={reconcileOrganization}
                     />
+                    {agentTree.revealError && (
+                      <LumenFrame className="hbar-app-react-organization-feedback" role="alert">
+                        <LumenText as="p">{props.labels.agentTree.error(agentTree.revealError)}</LumenText>
+                        {navigation.sessionId && (
+                          <LumenButton
+                            size="s"
+                            variant="outlined"
+                            disabled={!connected}
+                            onClick={() => {
+                              const sessionId = navigation.sessionId
+                              if (sessionId) void execute('sessionAgentTree.reveal', { sessionId }).catch(recordError)
+                            }}
+                          >
+                            {props.labels.agentTree.retry}
+                          </LumenButton>
+                        )}
+                      </LumenFrame>
+                    )}
                     {workspacePins.status === 'error' && (
                       <LumenFrame className="hbar-app-react-pin-feedback" role="alert">
                         <LumenText as="p">{props.labels.pinRestoreFailure(workspacePins.error ?? 'UNKNOWN')}</LumenText>
@@ -1431,8 +1489,10 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                             const session = directory.sessions[sessionId]
                             if (!item || !session) return null
                             return (
-                              <SessionNavigationRow
+                              <SessionAgentBranch
                                 session={session}
+                                childCount={item.agentChildCount ?? 0}
+                                treeLabels={props.labels.agentTree}
                                 connected={connected}
                                 labels={props.labels}
                                 now={sessionTimeNow}
@@ -1444,18 +1504,13 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                                   },
                                 }}
                                 batchSelecting={batchSelecting}
-                                batchSelected={batchSelection.has(`${session.workspaceId}\u0000${session.id}`)}
-                                onToggleBatchSelection={() => toggleBatchSession(session.workspaceId, session.id)}
+                                batchSelection={batchSelection}
+                                onToggleBatchSelection={(target) => toggleBatchSession(target.workspaceId, target.id)}
                                 onExitBatchSelection={() => {
                                   exitBatchSelection()
                                   batchToolbarRef.current?.focus()
                                 }}
-                                selected={
-                                  presentation.page.kind === 'session' &&
-                                  navigation.workspaceId === session.workspaceId &&
-                                  navigation.sessionId === session.id
-                                }
-                                onOpen={() => openSession(session.workspaceId, session.id)}
+                                onOpen={(target) => openSession(target.workspaceId, target.id)}
                               />
                             )
                           }}
@@ -1712,9 +1767,16 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                                   sessions.map((session) => {
                                     const execution = activitySessions?.execution[session.id]
                                     return (
-                                      <SessionNavigationRow
+                                      <SessionAgentBranch
                                         key={session.id}
                                         session={session}
+                                        childCount={
+                                          activitySessions?.agentChildCounts?.[session.id] ??
+                                          (agentTree.revealedRoot?.sessionId === session.id
+                                            ? agentTree.revealedRoot.agentChildCount
+                                            : 0)
+                                        }
+                                        treeLabels={props.labels.agentTree}
                                         connected={props.connection === 'connected'}
                                         labels={props.labels}
                                         now={sessionTimeNow}
@@ -1727,20 +1789,15 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                                             : undefined
                                         }
                                         batchSelecting={batchSelecting}
-                                        batchSelected={batchSelection.has(`${session.workspaceId}\u0000${session.id}`)}
-                                        onToggleBatchSelection={() =>
-                                          toggleBatchSession(session.workspaceId, session.id)
+                                        batchSelection={batchSelection}
+                                        onToggleBatchSelection={(target) =>
+                                          toggleBatchSession(target.workspaceId, target.id)
                                         }
                                         onExitBatchSelection={() => {
                                           exitBatchSelection()
                                           batchToolbarRef.current?.focus()
                                         }}
-                                        selected={
-                                          presentation.page.kind === 'session' &&
-                                          navigation.workspaceId === session.workspaceId &&
-                                          navigation.sessionId === session.id
-                                        }
-                                        onOpen={() => openSession(session.workspaceId, session.id)}
+                                        onOpen={(target) => openSession(target.workspaceId, target.id)}
                                       />
                                     )
                                   })

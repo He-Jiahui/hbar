@@ -108,6 +108,7 @@ export function SessionNavigationRow({
   onExitBatchSelection,
   metadata,
   execution,
+  responseTime,
 }: {
   readonly session: DirectoryState['sessions'][string]
   readonly selected: boolean
@@ -121,6 +122,7 @@ export function SessionNavigationRow({
   readonly onExitBatchSelection?: () => void
   readonly metadata?: SessionNavigationRowMetadata | undefined
   readonly execution?: SessionActivityIndicatorContent | undefined
+  readonly responseTime?: { readonly at: number | null; readonly emptyLabel: string } | undefined
 }) {
   const runtime = useHbarRuntime()
   const rename = useHbarRuntimeState(runtime.state.sessionRename)
@@ -143,25 +145,28 @@ export function SessionNavigationRow({
   const wasEditing = useRef(false)
   const restoreFocus = useRef(false)
   const copy = labels.renameEditor
+  const timestamp = responseTime ? responseTime.at : session.updatedAt
   const sessionTime =
     own && rename.status === 'succeeded' && session.title === rename.draft.trim() ? (
       <LumenText role="status" size="s" tone="subtle" className="hbar-app-react-session-time">
         {copy.saved}
+      </LumenText>
+    ) : timestamp === null ? (
+      <LumenText size="s" tone="subtle" className="hbar-app-react-session-time">
+        {responseTime?.emptyLabel}
       </LumenText>
     ) : (
       <LumenText
         as="time"
         className="hbar-app-react-session-time"
         dateTime={
-          Number.isSafeInteger(session.updatedAt) &&
-          session.updatedAt >= 0 &&
-          session.updatedAt <= 8_640_000_000_000_000
-            ? new Date(session.updatedAt).toISOString()
+          Number.isSafeInteger(timestamp) && timestamp >= 0 && timestamp <= 8_640_000_000_000_000
+            ? new Date(timestamp).toISOString()
             : undefined
         }
-        title={labels.sessionUpdatedAtFull(session.updatedAt)}
+        title={labels.sessionUpdatedAtFull(timestamp)}
       >
-        {labels.sessionUpdatedAt(session.updatedAt, now)}
+        {labels.sessionUpdatedAt(timestamp, now)}
       </LumenText>
     )
   const openActions = (): boolean => {

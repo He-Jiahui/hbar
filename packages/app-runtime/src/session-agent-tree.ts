@@ -14,30 +14,37 @@ const PAGE_SIZE = 50
 const MAX_READS = 4
 const target = z.strictObject({ parentSessionId: z.string().min(1).max(160) })
 const output = z.strictObject({ status: z.enum(['ready', 'error']), error: z.string().nullable() })
-function command(id: string) {
-  return defineCommand(
-    {
-      id,
-      version: 1,
-      owner: 'hbar.session-agent-tree',
-      kind: 'command',
-      execution: 'client',
-      stateEffect: 'application',
-      category: 'workspace.navigation',
-      scope: 'client',
-      visibility: 'internal',
-      titleKey: `commands.${id}.title`,
-      descriptionKey: `commands.${id}.description`,
-      surfaces: ['api'],
-    },
-    target,
-    output,
-  )
+function metadata(id: string) {
+  return {
+    id,
+    version: 1,
+    owner: 'hbar.session-agent-tree',
+    kind: 'command' as const,
+    execution: 'client' as const,
+    stateEffect: 'application' as const,
+    category: 'workspace.navigation',
+    scope: 'client' as const,
+    visibility: 'internal' as const,
+    titleKey: `commands.${id}.title`,
+    descriptionKey: `commands.${id}.description`,
+    surfaces: ['api'] as 'api'[],
+  }
 }
-export const sessionAgentTreeCommands = {
+function command(id: string) {
+  return defineCommand(metadata(id), target, output)
+}
+const branchCommands = {
   'sessionAgentTree.toggle': command('sessionAgentTree.toggle'),
   'sessionAgentTree.refresh': command('sessionAgentTree.refresh'),
   'sessionAgentTree.loadMore': command('sessionAgentTree.loadMore'),
+}
+export const sessionAgentTreeCommands = {
+  ...branchCommands,
+  'sessionAgentTree.reveal': defineCommand(
+    metadata('sessionAgentTree.reveal'),
+    z.strictObject({ sessionId: z.string().min(1).max(160) }),
+    output,
+  ),
 }
 export interface SessionAgentTreeRow {
   readonly sessionId: string
@@ -153,7 +160,11 @@ export function createSessionAgentTree(registry: CommandRegistry, options: Optio
       queue.push(...branch.rows.map((row) => row.sessionId))
       branches[id] = { ...emptyBranch, totalCount: branch.totalCount }
     }
-    state.replace({ ...current(), branches })
+    state.replace({
+      ...current(),
+      branches,
+      revealError: current().revealError === 'CAPACITY_EXCEEDED' ? null : current().revealError,
+    })
     retain()
   }
   function ordered(rows: readonly SessionAgentTreeRow[]): SessionAgentTreeRow[] {
@@ -167,12 +178,15 @@ export function createSessionAgentTree(registry: CommandRegistry, options: Optio
   }
   async function readBranch(parentId: string, append = false, includeSessionId?: string, execution?: ExecuteOptions) {
     if (disposed || !allocate(parentId)) return
+    const pathIndex = current().pathIds.indexOf(parentId)
+    includeSessionId ??= pathIndex < 0 ? undefined : current().pathIds[pathIndex + 1]
     const prior = current().branches[parentId]!
     if (!connected) {
       update(parentId, { ...prior, expanded: true, status: 'error', error: 'DISCONNECTED' })
       return
     }
     if (pending.has(parentId)) pending.get(parentId)?.abort()
+    pending.delete(parentId)
     if (pending.size >= MAX_READS) {
       update(parentId, { ...prior, expanded: true, status: 'error', error: 'BUSY' })
       return
@@ -417,7 +431,13 @@ export function createSessionAgentTree(registry: CommandRegistry, options: Optio
         if (selectedId) void revealSelection(selectedId)
       }
     }) ?? (() => {})
-  for (const [name, definition] of Object.entries(sessionAgentTreeCommands)) {
+  registry.register(sessionAgentTreeCommands['sessionAgentTree.reveal'], async (input) => {
+    if (selectedId !== input.sessionId) throw new CommandError('STALE_TARGET', 'Selected Session changed')
+    await revealSelection(input.sessionId)
+    const error = current().revealError
+    return { status: error ? ('error' as const) : ('ready' as const), error }
+  })
+  for (const [name, definition] of Object.entries(branchCommands)) {
     registry.register(definition, async (input, execution) => {
       const id = input.parentSessionId
       if (name === 'sessionAgentTree.toggle' && current().branches[id]?.expanded) collapse(id)

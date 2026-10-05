@@ -41,7 +41,7 @@ function fixture() {
             const items = [...(children.get(request.parentSessionId) ?? [])]
             if (delay) await delay()
             if (request.cursor && request.cursor.revision !== capturedRevision)
-            throw new CommandError('STALE_CURSOR', 'stale')
+              throw new CommandError('STALE_CURSOR', 'stale')
             const start = request.cursor
               ? items.findIndex((item) => item.session.id === request.cursor?.sessionId) + 1
               : 0
@@ -221,9 +221,49 @@ test('Selected child reveals verified parent and includes a child beyond page on
     expect(f.tree.reader.getSnapshot().revealedRoot?.sessionId).toBe('parent')
     expect(f.tree.reader.getSnapshot().branches.parent?.rows.at(-1)?.sessionId).toBe('child-60')
     expect(f.directory.reader.getSnapshot().sessions['child-60']?.parentId).toBe('parent')
+    await f.commands.execute('sessionAgentTree.refresh', { parentSessionId: 'parent' })
+    expect(f.tree.reader.getSnapshot().branches.parent?.rows.at(-1)?.sessionId).toBe('child-60')
     f.navigation.replace({ workspaceId: workspace.id, sessionId: 'fork', status: 'idle', error: null })
     await eventually(() => f.calls.at(-1)?.name === 'session.agentAncestors.get')
     expect(f.tree.reader.getSnapshot().revealedRoot).toBeNull()
+  } finally {
+    f.dispose()
+  }
+})
+
+test('Global row and branch budgets recover after collapsing; reveal retry rejects a stale navigation target', async () => {
+  const f = fixture()
+  try {
+    for (const parent of ['one', 'two']) {
+      f.children.set(
+        parent,
+        Array.from({ length: 128 }, (_, index) =>
+          row(`${parent}-${String(index).padStart(3, '0')}`, parent, 200 - index),
+        ),
+      )
+      await f.commands.execute('sessionAgentTree.toggle', { parentSessionId: parent })
+      await f.commands.execute('sessionAgentTree.loadMore', { parentSessionId: parent })
+      await f.commands.execute('sessionAgentTree.loadMore', { parentSessionId: parent })
+    }
+    f.children.set('three', [row('three-child', 'three')])
+    await f.commands.execute('sessionAgentTree.toggle', { parentSessionId: 'three' })
+    expect(f.tree.reader.getSnapshot().branches.three?.limitReached).toBe(true)
+    expect(f.tree.reader.getSnapshot().branches.three?.rows).toHaveLength(0)
+    await f.commands.execute('sessionAgentTree.toggle', { parentSessionId: 'one' })
+    await f.commands.execute('sessionAgentTree.refresh', { parentSessionId: 'three' })
+    expect(f.tree.reader.getSnapshot().branches.three?.rows).toHaveLength(1)
+    for (let index = 0; index < 30; index++)
+      await f.commands.execute('sessionAgentTree.toggle', { parentSessionId: `empty-${index}` })
+    const result = await f.commands.execute('sessionAgentTree.toggle', { parentSessionId: 'over-budget' })
+    expect(result.error).toBe('CAPACITY_EXCEEDED')
+    const stale = await f.commands.execute('sessionAgentTree.reveal', { sessionId: 'foreign' }).then(
+      () => null,
+      (error: unknown) => error,
+    )
+    expect(stale).toMatchObject({ code: 'STALE_TARGET' })
+    expect(Object.keys(f.tree.reader.getSnapshot().branches)).toHaveLength(32)
+    await f.commands.execute('sessionAgentTree.toggle', { parentSessionId: 'two' })
+    expect(f.tree.reader.getSnapshot().revealError).toBeNull()
   } finally {
     f.dispose()
   }

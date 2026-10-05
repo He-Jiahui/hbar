@@ -1,0 +1,60 @@
+.hbar-app-react-agent-branch,
+.hbar-app-react-agent-branch-children,
+.hbar-app-react-agent-branch-feedback {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+.hbar-app-react-agent-branch-line {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+}
+.hbar-app-react-agent-branch-line > .hbar-app-react-session-row {
+  min-inline-size: 0;
+  flex: 1 1 0;
+}
+.hbar-app-react-agent-branch-toggle,
+.hbar-app-react-agent-branch-spacer {
+  flex: 0 0 1.25rem;
+  inline-size: 1.25rem;
+}
+.hbar-app-react-agent-branch-toggle {
+  padding-inline: 0;
+}
+.hbar-app-react-agent-branch-count {
+  flex: 0 0 auto;
+  padding-inline: 0.25rem;
+}
+.hbar-app-react-agent-branch-children {
+  margin-inline-start: 0.625rem;
+  padding-inline-start: 0.625rem;
+  border-inline-start: 0.0625rem solid var(--lumen-edge);
+}
+/* Keep deep ancestry reachable in a narrow sidebar; semantic nesting still follows the real parent chain. */
+.hbar-app-react-agent-branch-children[data-flat-depth='true'] {
+  margin-inline-start: 0;
+  padding-inline-start: 0;
+  border-inline-start: 0;
+}
+.hbar-app-react-agent-branch-children > p,
+.hbar-app-react-agent-branch-feedback {
+  margin: 0;
+  padding: 0.25rem;
+  overflow-wrap: anywhere;
+}
+.hbar-app-react-agent-branch-children > button,
+.hbar-app-react-agent-branch-feedback > button {
+  align-self: flex-start;
+}
+@media (pointer: coarse) {
+  .hbar-app-react-agent-branch-toggle,
+  .hbar-app-react-agent-branch-spacer {
+    flex-basis: 2rem;
+    inline-size: 2rem;
+  }
+  .hbar-app-react-agent-branch-toggle {
+    min-block-size: 2.75rem;
+  }
+}
