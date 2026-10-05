@@ -73,6 +73,7 @@ export interface HbarMessageBlocksLabels extends HbarToolDetailsLabels {
   readonly incomplete: string
   readonly resultAvailable: string
   readonly awaitingResult: string
+  readonly running: string
   readonly codeBlock: HbarCodeBlockLabels
   readonly attachment: (kind: 'image' | 'file', name: string) => string
 }
@@ -176,7 +177,7 @@ function Disclosure({
   readonly preview?: string | undefined
   readonly previewFormat?: 'code' | 'text' | undefined
   readonly title?: string | undefined
-  readonly status?: string | undefined
+  readonly status?: ReactNode
   readonly icon: typeof Brain
   readonly children: ReactNode
   readonly className?: string | undefined
@@ -216,11 +217,7 @@ function Disclosure({
           </LumenText>
         ) : null}
       </LumenText>
-      {status ? (
-        <LumenText as="span" className="hbar-session-disclosure-status">
-          {status}
-        </LumenText>
-      ) : null}
+      {status}
       <LumenIcon icon={open ? ChevronDown : ChevronRight} tier="sm" />
     </LumenButton>
   )
@@ -248,8 +245,51 @@ function Disclosure({
   )
 }
 
+function ToolStatus({
+  outcome,
+  running,
+  labels,
+}: {
+  readonly outcome: ReturnType<typeof sessionToolOutcome>
+  readonly running: boolean
+  readonly labels: HbarMessageBlocksLabels
+}) {
+  const active = outcome === 'pending' && running
+  const tone = active
+    ? 'info'
+    : outcome === 'failed'
+      ? 'danger'
+      : outcome === 'succeeded' || outcome === 'legacy-result'
+        ? 'success'
+        : 'warning'
+  const label =
+    outcome === 'pending'
+      ? active
+        ? labels.running
+        : labels.awaitingResult
+      : outcome === 'succeeded' || outcome === 'legacy-result'
+        ? labels.resultAvailable
+        : outcome === 'legacy-error'
+          ? labels.incomplete
+          : labels[outcome]
+  return (
+    <LumenText as="span" className="hbar-session-disclosure-status" data-status-tone={tone}>
+      <LumenText
+        as="span"
+        className="lumen-effect hbar-session-tool-status-indicator"
+        data-lumen-state={active ? 'running' : 'idle'}
+        aria-hidden="true"
+      />
+      <LumenText as="span" className="hbar-session-disclosure-status-text" title={label}>
+        {label}
+      </LumenText>
+    </LumenText>
+  )
+}
+
 function ToolRow({
   row,
+  running,
   labels,
   describeTool,
   sessionId,
@@ -258,6 +298,7 @@ function ToolRow({
   renderToolAction,
 }: {
   readonly row: SessionToolRow
+  readonly running: boolean
   readonly labels: HbarMessageBlocksLabels
   readonly describeTool?: HbarMessageBlocksProps['describeTool'] | undefined
   readonly sessionId: string
@@ -269,21 +310,13 @@ function ToolRow({
   const icon = toolIcons[presentation?.icon ?? 'tool']
   const errorPreview = toolErrorPreview(row.result)
   const outcome = sessionToolOutcome(row.result)
-  const status =
-    outcome === 'pending'
-      ? labels.awaitingResult
-      : outcome === 'succeeded' || outcome === 'legacy-result'
-        ? labels.resultAvailable
-        : outcome === 'legacy-error'
-          ? labels.incomplete
-          : labels[outcome]
   const disclosure = (
     <Disclosure
       label={presentation?.label ?? labels.tool(row.name)}
       preview={errorPreview || presentation?.summary}
       previewFormat={errorPreview ? 'text' : presentation?.summaryFormat}
       title={presentation?.title}
-      status={status}
+      status={<ToolStatus outcome={outcome} running={running} labels={labels} />}
       icon={icon}
       className="hbar-session-tool"
       failed={outcome === 'failed'}
@@ -376,6 +409,7 @@ function Activity({
       <ToolRow
         key={row.id}
         row={row}
+        running={streaming}
         labels={labels}
         describeTool={describeTool}
         sessionId={sessionId}
@@ -486,6 +520,7 @@ function MessageBlocksContent({
           <LumenFrame key={group.id} className="hbar-session-tool-decision">
             <ToolRow
               row={group}
+              running={streaming}
               labels={labels}
               describeTool={describeTool}
               sessionId={sessionId}

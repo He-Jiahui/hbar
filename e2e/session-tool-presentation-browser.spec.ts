@@ -21,6 +21,8 @@ test.beforeAll(async () => {
     probe.listen(45572, '127.0.0.1', () => probe.close((error) => (error ? reject(error) : resolve())))
   })
   await mkdir(root, { recursive: true })
+  await mkdir(join(process.cwd(), 'artifacts', 'compact-tool-actions'), { recursive: true })
+  await mkdir(join(process.cwd(), 'artifacts', 'tool-status-tones'), { recursive: true })
   await writeFile(
     join(root, 'index.html'),
     '<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div><script type="module" src="../../../tests/fixtures/session-tool-presentation-browser.tsx"></script></body></html>',
@@ -241,6 +243,136 @@ async function readableSummary(tool: Locator) {
 
 for (const locale of ['en-US', 'zh-CN'] as const)
   for (const width of [1440, 320]) {
+    test(`result tones and blue breathing retain a stable disclosure ${locale} ${width}`, async ({ browser }, info) => {
+      const f = await open(browser, locale, width)
+      const { page } = f
+      const copy = getShellCopy(locale).session.messageBlocks
+      const calls = ['success', 'failure', 'missing', 'active'].map((id) =>
+        call(`tone-${id}`, { version: 1, kind: 'file-read', pathField: 'path' }, { path: `${id}.ts` }),
+      )
+      const [success, failure, missing, active] = calls
+      if (!success || !failure || !missing || !active) throw new Error('Tool tone fixtures are missing')
+      const messages = [
+        message([success, result(success)], 'tone-success'),
+        message([failure, result(failure, true, 'Original failed output')], 'tone-failure'),
+        message([missing], 'tone-missing'),
+        message([active], 'tone-active', { runId: 'active-run' }),
+      ]
+      const activeRow = row(page, active.callId)
+      const status = activeRow.locator('.hbar-session-disclosure-status')
+      const lamp = activeRow.locator('.hbar-session-tool-status-indicator')
+      const fixture = (theme: 'light' | 'dark', motion = true): ToolPresentationFixtureInput => ({
+        locale,
+        theme,
+        motion,
+        messages,
+        activeRunIds: ['active-run'],
+      })
+      const expectTone = async (tool: Locator, tone: string, text: string) => {
+        const state = tool.locator('.hbar-session-disclosure-status')
+        await expect(state).toHaveAttribute('data-status-tone', tone)
+        await expect(state).toHaveText(text)
+        await expect
+          .poll(() =>
+            state.evaluate((element, tone) => {
+              const probe = document.createElement('span')
+              probe.style.color = `var(--lumen-${tone})`
+              element.append(probe)
+              const expected = getComputedStyle(probe).color
+              probe.remove()
+              return getComputedStyle(element).color === expected
+            }, tone),
+          )
+          .toBe(true)
+      }
+      try {
+        for (const theme of ['light', 'dark'] as const) {
+          await page.emulateMedia({ reducedMotion: 'no-preference' })
+          await render(page, fixture(theme))
+          await page.locator('[data-fixture-outside]').focus()
+          await expectTone(row(page, success.callId), 'success', copy.resultAvailable)
+          await expectTone(row(page, failure.callId), 'danger', copy.failed)
+          await expectTone(row(page, missing.callId), 'warning', copy.awaitingResult)
+          await expectTone(activeRow, 'info', copy.running)
+          const breathing = await lamp.evaluate((element) => {
+            const animation = element
+              .getAnimations()
+              .find((candidate) => candidate instanceof CSSAnimation && candidate.animationName === 'lumen-breathe')
+            if (!animation?.effect) throw new Error('Blue progress lamp has no breathing animation')
+            const duration = animation.effect.getTiming().duration
+            if (typeof duration !== 'number') throw new Error('Breathing duration is not resolved')
+            const originalTime = animation.currentTime
+            animation.pause()
+            animation.currentTime = 0
+            const low = getComputedStyle(element).boxShadow
+            const measure = () => {
+              const rect = element.getBoundingClientRect()
+              return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+            }
+            const before = measure()
+            animation.currentTime = duration / 2
+            const high = getComputedStyle(element).boxShadow
+            const after = measure()
+            animation.currentTime = originalTime ?? 0
+            animation.play()
+            return { low, high, before, after, duration, opacity: getComputedStyle(element).opacity }
+          })
+          expect(breathing.low).not.toBe(breathing.high)
+          expect(breathing.before).toEqual(breathing.after)
+          expect(breathing.duration).toBeGreaterThan(0)
+          expect(breathing.opacity).toBe('1')
+          await noOverflow(page)
+          await page.locator('.tool-presentation-fixture-messages').screenshot({
+            path: `artifacts/tool-status-tones/status-${locale}-${theme}-${width}.png`,
+          })
+          await trigger(activeRow).focus()
+          await page.keyboard.press('Enter')
+          await expect(trigger(activeRow)).toHaveAttribute('aria-expanded', 'true')
+          const settled = {
+            ...fixture(theme),
+            messages: messages.map((item) =>
+              item.id === 'tone-active' ? { ...item, content: [active, result(active)] } : item,
+            ),
+          }
+          const transition = await status.evaluate(async (element, input) => {
+            const before = getComputedStyle(element).color
+            const height = element.getBoundingClientRect().height
+            window.toolPresentationFixture.render(input)
+            const colors: string[] = []
+            for (let frame = 0; frame < 8; frame += 1) {
+              await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+              colors.push(getComputedStyle(element).color)
+            }
+            return { before, colors, height, afterHeight: element.getBoundingClientRect().height }
+          }, settled)
+          expect(new Set(transition.colors).size).toBeGreaterThan(1)
+          expect(transition.afterHeight).toBe(transition.height)
+          await expectTone(activeRow, 'success', copy.resultAvailable)
+          await expect(trigger(activeRow)).toBeFocused()
+          await expect(trigger(activeRow)).toHaveAttribute('aria-expanded', 'true')
+          await expect(activeRow.locator('pre').first()).toHaveText(JSON.stringify(active.args, null, 2))
+          await expect.poll(() => lamp.evaluate((element) => getComputedStyle(element).opacity)).toBe('0')
+          await page.keyboard.press('Space')
+          await render(page, fixture(theme))
+          await page.emulateMedia({ reducedMotion: 'reduce' })
+          await expect.poll(() => lamp.evaluate((element) => getComputedStyle(element).animationName)).toBe('none')
+          await expectTone(activeRow, 'info', copy.running)
+          await page.emulateMedia({ reducedMotion: 'no-preference' })
+          await render(page, fixture(theme, false))
+          await expect.poll(() => lamp.evaluate((element) => getComputedStyle(element).animationName)).toBe('none')
+          await expectTone(activeRow, 'info', copy.running)
+          await info.attach(`tool-status-motion-${theme}`, {
+            contentType: 'application/json',
+            body: Buffer.from(JSON.stringify({ breathing, transition })),
+          })
+        }
+        expect(f.errors).toEqual([])
+        expect(f.requests).toEqual([])
+      } finally {
+        await f.context.close()
+      }
+    })
+
     test(`compact action tags retain descriptions and disclosure ${locale} ${width}`, async ({ browser }, info) => {
       const f = await open(browser, locale, width)
       const { page } = f

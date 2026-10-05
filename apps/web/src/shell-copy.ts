@@ -1149,6 +1149,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       incomplete: choose('未完成', 'Incomplete'),
       resultAvailable: choose('已完成', 'Completed'),
       awaitingResult: choose('尚无结果', 'No result yet'),
+      running: choose('进行中', 'In progress'),
       input: choose('输入', 'Input'),
       output: choose('输出', 'Output'),
       command: choose('命令', 'Command'),

@@ -35,6 +35,7 @@ export function messageLabels(locale: 'zh-CN' | 'en-US'): {
       incomplete: zh ? '未完成' : 'Incomplete',
       resultAvailable: zh ? '已有结果' : 'Result available',
       awaitingResult: zh ? '尚无结果' : 'No result yet',
+      running: zh ? '进行中' : 'In progress',
       input: zh ? '输入参数' : 'Input',
       output: zh ? '工具输出' : 'Output',
       command: zh ? '命令' : 'Command',

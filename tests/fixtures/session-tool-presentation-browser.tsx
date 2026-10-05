@@ -17,6 +17,8 @@ export interface ToolPresentationFixtureInput {
   readonly streaming?: boolean
   readonly longLabels?: boolean
   readonly theme?: 'light' | 'dark'
+  readonly motion?: boolean
+  readonly activeRunIds?: readonly string[]
 }
 
 declare global {
@@ -34,7 +36,11 @@ if (!container) throw new Error('Tool presentation fixture root is missing')
 const root = createRoot(container)
 
 function Fixture({ input }: { readonly input: ToolPresentationFixtureInput }) {
-  const appearance = createWebLumenAppearance(input.theme ?? 'light', DEFAULT_WEB_APPEARANCE_DIMENSIONS, false)
+  const appearance = createWebLumenAppearance(
+    input.theme ?? 'light',
+    DEFAULT_WEB_APPEARANCE_DIMENSIONS,
+    input.motion ?? false,
+  )
   const copy = getShellCopy(input.locale)
   const fixtureCopy = {
     title: input.locale === 'zh-CN' ? '工具身份：受控 React 验收' : 'Tool identity: controlled React verification',
@@ -65,7 +71,11 @@ function Fixture({ input }: { readonly input: ToolPresentationFixtureInput }) {
                 messageId={projection.message.id}
                 blocks={projection.blocks}
                 results={projection.results}
-                streaming={input.streaming ?? false}
+                streaming={
+                  input.activeRunIds
+                    ? input.activeRunIds.includes(projection.message.runId)
+                    : (input.streaming ?? false)
+                }
                 labels={copy.session.messageBlocks}
                 describeTool={(call) => {
                   const presentation = describe(call)

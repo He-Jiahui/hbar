@@ -27,6 +27,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       )
       expect(html).toContain(kind === 'succeeded' ? labels.resultAvailable : labels[kind])
       expect(html).toContain(`data-outcome="${kind}"`)
+      expect(html).toContain(
+        `data-status-tone="${kind === 'failed' ? 'danger' : kind === 'succeeded' ? 'success' : 'warning'}"`,
+      )
       expect(html).toContain(`data-tool-call-id="${kind}"`)
       expect(html).toContain('aria-expanded="false"')
       expect(html.includes('data-failed="true"')).toBe(kind === 'failed')
@@ -53,6 +56,29 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     expect(html).toContain('aria-expanded="false"')
     expect(html).not.toContain('hbar-session-tool-section')
   })
+
+  test(`active tools receive localized blue progress while settled or missing results keep their own tones: ${locale}`, () => {
+    const labels = getShellCopy(locale).session.messageBlocks
+    const call = { type: 'tool_call' as const, callId: 'active', name: 'fixture', args: {} }
+    const props = { sessionId: 's', messageId: 'm', blocks: [call], labels }
+    const idle = renderToStaticMarkup(<HbarMessageBlocks {...props} />)
+    expect(idle).toContain(labels.awaitingResult)
+    expect(idle).toContain('data-status-tone="warning"')
+    expect(idle).not.toContain('data-lumen-state="running"')
+    const active = renderToStaticMarkup(<HbarMessageBlocks {...props} streaming />)
+    expect(active).toContain(labels.running)
+    expect(active).toContain('data-status-tone="info"')
+    expect(active).toContain('data-lumen-state="running"')
+    expect(active).not.toContain(labels.awaitingResult)
+    for (const kind of ['succeeded', 'failed'] as const) {
+      const settled = renderToStaticMarkup(
+        <HbarMessageBlocks {...props} blocks={[{ ...result(kind), callId: call.callId }]} streaming />,
+      )
+      expect(settled).toContain(`data-status-tone="${kind === 'succeeded' ? 'success' : 'danger'}"`)
+      expect(settled).not.toContain('data-lumen-state="running"')
+      expect(settled).not.toContain(labels.running)
+    }
+  })
 }
 
 test('legacy error and missing result receive honest localized labels without fabricating a cause', () => {
@@ -69,6 +95,7 @@ test('legacy error and missing result receive honest localized labels without fa
   )
   expect(legacy).toContain('历史结果没有记录准确的终止原因，请展开查看原始输出')
   expect(legacy).toContain('data-outcome="legacy-error"')
+  expect(legacy).toContain('data-status-tone="warning"')
   expect(legacy).not.toContain('data-failed="true"')
   const missing = renderToStaticMarkup(
     <HbarMessageBlocks

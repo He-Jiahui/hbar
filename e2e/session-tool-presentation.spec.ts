@@ -424,6 +424,10 @@ async function verifySettled(
   await expect(trigger.locator('.hbar-session-disclosure-status')).toHaveText(
     expected.pendingApproval ? f.copy.session.messageBlocks.cancelled : f.copy.session.messageBlocks.resultAvailable,
   )
+  await expect(trigger.locator('.hbar-session-disclosure-status')).toHaveAttribute(
+    'data-status-tone',
+    expected.pendingApproval ? 'warning' : 'success',
+  )
   const geometry = await capture(f, `${phase}-compact`, call)
   const catalogBefore = f.commands.filter((name) => name === 'command.catalog').length
   await trigger.focus()
@@ -497,6 +501,14 @@ for (const locale of ['en-US', 'zh-CN'] as const)
             expect(pending.results).toEqual([])
             const { row, trigger } = await identity(f, pending.call, expected, locale)
             await expect(row).toHaveAttribute('data-outcome', 'pending')
+            await expect(trigger.locator('.hbar-session-disclosure-status')).toHaveAttribute('data-status-tone', 'info')
+            await expect(trigger.locator('.hbar-session-disclosure-status')).toHaveText(
+              f.copy.session.messageBlocks.running,
+            )
+            await expect(trigger.locator('.hbar-session-tool-status-indicator')).toHaveAttribute(
+              'data-lumen-state',
+              'running',
+            )
             await expect(trigger).toHaveAttribute('aria-expanded', 'false')
             const approval = pending.snapshot.approvals.find(
               (item) =>
