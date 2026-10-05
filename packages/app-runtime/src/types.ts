@@ -277,7 +277,7 @@ export interface AgentWorkspaceDraftState {
   readonly title: string
   readonly tokenBudget: string
   readonly thinkingLevel: string
-  readonly approval: import('@hbar/contracts').ApprovalMode
+  readonly approval: 'inherit' | import('@hbar/contracts').ApprovalMode
   readonly revision: number
   readonly issues: Readonly<Record<string, string>>
 }
@@ -290,6 +290,7 @@ export interface AgentWorkspaceActionState {
 export interface AgentWorkspaceEntryState {
   readonly instanceId: string
   readonly parentSessionId: string
+  readonly inheritedModel?: Readonly<ModelConfiguration> | null
   readonly view: 'list' | 'create' | 'detail'
   readonly selectedAgentId: string | null
   readonly status: 'loading' | 'ready' | 'error'

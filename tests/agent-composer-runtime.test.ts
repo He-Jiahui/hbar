@@ -45,7 +45,7 @@ function agent(input: AgentCreateInput, agentId: string): AgentRecord {
     requestId: `request-${agentId}`,
     objective: input.objective,
     ...(input.profileId ? { profileId: input.profileId } : {}),
-    modelId: input.modelId,
+    modelId: input.modelId ?? model.id,
     tokenBudget: input.tokenBudget ?? null,
     status: 'created',
     error: null,

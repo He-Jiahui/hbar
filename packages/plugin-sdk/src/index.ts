@@ -49,7 +49,13 @@ import type {
   WorkflowStartCommand,
 } from '@hbar/contracts'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
-import type { AgentCreateInput, AgentPage, AgentRecord } from '@hbar/contracts/commands/agents'
+import type {
+  AgentCreateInput,
+  AgentPage,
+  AgentRecord,
+  AgentSessionConfiguration,
+  AgentDispatchConfiguration,
+} from '@hbar/contracts/commands/agents'
 import type {
   ParsedWorkspaceFindInput,
   ParsedWorkspaceSearchInput,
@@ -265,6 +271,11 @@ export interface HarnessDriver {
   summarize(request: ModelRequest, apiKey: string | null, signal: AbortSignal): Promise<{ text: string; usage: Usage }>
 }
 export interface SessionService {
+  /** Host-owned layered settings bridge; plugins never reach into SettingsService or Storage internals. */
+  agentConfiguration?: {
+    read(sessionId: string, parentRunId?: string): Promise<AgentSessionConfiguration>
+    initialize(sessionId: string, configuration: AgentDispatchConfiguration, actorId: string): Promise<void>
+  }
   get(id: string): Promise<Session>
   list(workspaceId?: string): Promise<Session[]>
   children(parentId: string, after?: string, limit?: number): Promise<Session[]>
@@ -403,7 +414,7 @@ export interface BudgetService {
 export interface AgentService {
   create(
     input: AgentCreateInput,
-    context: { actorId: string; idempotencyKey: string; requestId: string },
+    context: { actorId: string; idempotencyKey: string; requestId: string; parentRunId?: string },
   ): Promise<AgentRecord>
   list(parentSessionId: string, after?: string, limit?: number): Promise<AgentPage>
   cancel(parentSessionId: string, agentId: string): Promise<AgentRecord>

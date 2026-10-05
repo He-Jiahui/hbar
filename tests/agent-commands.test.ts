@@ -192,7 +192,11 @@ test('Host-owned Explore profile keeps the exact objective and advertises only r
   ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' })
   await kernel.waitForIdle()
   const snapshot = await kernel.storage.call('snapshot', created.sessionId)
-  expect(snapshot.runs[0]?.input).toMatchObject({ text: objective, approval: 'deny', source: 'system' })
+  expect(snapshot.runs[0]?.input).toMatchObject({
+    text: objective,
+    approval: kernel.permissionMode(),
+    source: 'system',
+  })
   const requests = (await kernel.storage.call('events', created.sessionId, 0)).filter(
     (event) => event.type === 'request.started',
   )

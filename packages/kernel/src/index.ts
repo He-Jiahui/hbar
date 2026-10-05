@@ -161,6 +161,7 @@ export {
   HBAR_SETTINGS_SCHEMA_VERSION,
 } from './settings-service'
 import { createDirectoryQueries } from './directory-queries'
+import { createAgentSessionConfiguration } from './agent-session-configuration'
 import { createSchemaCallbackRegistry, encodePath } from '@hbar/schema-core'
 import { createUsageFact, describeUsageAttempt } from '@hbar/usage'
 import { classifyRunFailure } from './run-failure.ts'
@@ -424,6 +425,12 @@ export class Kernel {
         tools: this.tools,
         hooks: this.hooks,
         sessions: {
+          agentConfiguration: createAgentSessionConfiguration({
+            settings: this.permissionSettings,
+            model: (id) => this.plugins.get<ModelRegistry>('models').get(id),
+            runs: async (id) => (await this.snapshot(id)).runs,
+            permission: () => this.permissionModeValue,
+          }),
           get: (id) => this.storage.call('session', id),
           list: async (workspaceId) => {
             const sessions = await this.storage.call('sessions')

@@ -4,12 +4,19 @@ import { agentPatchSchema, HbarError } from '@hbar/contracts'
 import type { AgentPatch, Run, WorkflowScope } from '@hbar/contracts'
 import {
   agentCreateInputSchema,
+  agentDispatchConfigurationSchema,
   agentPatchTaskSchema,
   agentProfileIdSchema,
   agentRecordSchema,
   agentReviewTaskSchema,
 } from '@hbar/contracts/commands/agents'
-import type { AgentCreateInput, AgentPatchTask, AgentProfileId, AgentRecord } from '@hbar/contracts/commands/agents'
+import type {
+  AgentCreateInput,
+  AgentDispatchConfiguration,
+  AgentPatchTask,
+  AgentProfileId,
+  AgentRecord,
+} from '@hbar/contracts/commands/agents'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type {
   AgentService,
@@ -20,6 +27,7 @@ import type {
   SessionService,
   ToolContext,
   ToolDefinition,
+  ModelRegistry,
 } from '@hbar/plugin-sdk'
 import {
   applyFiles,
@@ -84,6 +92,7 @@ const createdSchema = z.strictObject({
   objective: z.string().min(1).max(4_000),
   profileId: agentProfileIdSchema.optional(),
   modelId: z.string().min(1).max(160),
+  configuration: agentDispatchConfigurationSchema.optional(),
   tokenBudget: z.number().int().positive().max(1_000_000_000).nullable(),
   patchTask: agentPatchTaskSchema.optional(),
   reviewTask: agentReviewTaskSchema.optional(),
@@ -209,6 +218,10 @@ export class AgentRuntime implements AgentService {
       patch,
       resultSummary: resultSummary || rejection?.summary || null,
       isolated: Boolean(seed.isolation),
+      ...(seed.configuration ? { dispatchConfiguration: seed.configuration } : {}),
+      ...(this.sessions.agentConfiguration
+        ? { configuration: await this.sessions.agentConfiguration.read(seed.sessionId) }
+        : {}),
       createdAt: seed.createdAt,
       updatedAt: Math.max(
         run?.endedAt ?? run?.startedAt ?? run?.createdAt ?? failed?.time ?? seed.createdAt,
@@ -239,7 +252,7 @@ export class AgentRuntime implements AgentService {
 
   async create(
     input: AgentCreateInput,
-    context: { actorId: string; idempotencyKey: string; requestId: string },
+    context: { actorId: string; idempotencyKey: string; requestId: string; parentRunId?: string },
   ): Promise<AgentRecord> {
     const parsed = agentCreateInputSchema.parse(input)
     const key = `${parsed.parentSessionId}\u0000${context.actorId}\u0000${context.idempotencyKey}`
@@ -258,7 +271,11 @@ export class AgentRuntime implements AgentService {
   }
 
   private async isolatedSeed(
-    parsed: AgentCreateInput & { patchTask: AgentPatchTask },
+    parsed: AgentCreateInput & {
+      modelId: string
+      patchTask: AgentPatchTask
+      configuration: AgentDispatchConfiguration
+    },
     context: { actorId: string; idempotencyKey: string; requestId: string },
     hash: string,
   ): Promise<CreatedAgent> {
@@ -288,6 +305,7 @@ export class AgentRuntime implements AgentService {
         objective: parsed.objective,
         ...(parsed.profileId ? { profileId: parsed.profileId } : {}),
         modelId: parsed.modelId,
+        configuration: parsed.configuration,
         tokenBudget: parsed.tokenBudget ?? null,
         patchTask: parsed.patchTask,
         isolation: {
@@ -299,7 +317,12 @@ export class AgentRuntime implements AgentService {
           baseline,
         },
         createdAt: Date.now(),
-        command: { ...context, inputHash: hash },
+        command: {
+          actorId: context.actorId,
+          idempotencyKey: context.idempotencyKey,
+          requestId: context.requestId,
+          inputHash: hash,
+        },
       })
     } catch (error) {
       await this.git
@@ -311,7 +334,7 @@ export class AgentRuntime implements AgentService {
 
   private async createLocked(
     parsed: AgentCreateInput,
-    context: { actorId: string; idempotencyKey: string; requestId: string },
+    context: { actorId: string; idempotencyKey: string; requestId: string; parentRunId?: string },
   ): Promise<AgentRecord> {
     const hash = inputHash(parsed)
     const existing = (await this.children(parsed.parentSessionId)).find(
@@ -323,8 +346,10 @@ export class AgentRuntime implements AgentService {
       if (existing.record.runId || existing.record.status === 'failed') return existing.record
       return this.start(existing.seed, parsed)
     }
+    const configuration = await this.resolveConfiguration(parsed, context.parentRunId)
+    const resolved = { ...parsed, modelId: configuration.modelId, configuration }
     let seed: CreatedAgent
-    if (parsed.patchTask) seed = await this.isolatedSeed({ ...parsed, patchTask: parsed.patchTask }, context, hash)
+    if (parsed.patchTask) seed = await this.isolatedSeed({ ...resolved, patchTask: parsed.patchTask }, context, hash)
     else {
       const parent = await this.sessions.get(parsed.parentSessionId)
       const child = await this.sessions.create(
@@ -339,11 +364,17 @@ export class AgentRuntime implements AgentService {
         requestId: `agent-${crypto.randomUUID()}`,
         objective: parsed.objective,
         ...(parsed.profileId ? { profileId: parsed.profileId } : {}),
-        modelId: parsed.modelId,
+        modelId: configuration.modelId,
+        configuration,
         tokenBudget: parsed.tokenBudget ?? null,
         reviewTask: parsed.reviewTask,
         createdAt: Date.now(),
-        command: { ...context, inputHash: hash },
+        command: {
+          actorId: context.actorId,
+          idempotencyKey: context.idempotencyKey,
+          requestId: context.requestId,
+          inputHash: hash,
+        },
       })
     }
     try {
@@ -365,6 +396,10 @@ export class AgentRuntime implements AgentService {
 
   private async start(seed: CreatedAgent, input: AgentCreateInput): Promise<AgentRecord> {
     try {
+      const configuration = seed.configuration ?? (await this.resolveConfiguration(input))
+      if (!this.sessions.agentConfiguration)
+        throw new HbarError('CAPABILITY_UNAVAILABLE', 'Host agent configuration is unavailable')
+      await this.sessions.agentConfiguration.initialize(seed.sessionId, configuration, seed.command.actorId)
       if (seed.tokenBudget !== null && !(await this.budgets.get(seed.sessionId)))
         await this.budgets.set(seed.sessionId, seed.tokenBudget)
       await this.sessions.submit(
@@ -375,9 +410,9 @@ export class AgentRuntime implements AgentService {
           images: [],
           files: [],
           source: 'system',
-          approval: input.approval,
-          ...(input.sandbox ? { sandbox: input.sandbox } : {}),
-          ...(input.thinkingLevel ? { thinking: input.thinkingLevel } : {}),
+          approval: configuration.approval,
+          ...(configuration.sandbox ? { sandbox: configuration.sandbox } : {}),
+          thinking: configuration.thinkingLevel,
         },
         seed.modelId,
       )
@@ -391,6 +426,44 @@ export class AgentRuntime implements AgentService {
       this.api.changed('agents')
       return this.record(seed)
     }
+  }
+
+  private async resolveConfiguration(
+    input: AgentCreateInput,
+    parentRunId?: string,
+  ): Promise<AgentDispatchConfiguration> {
+    const port = this.sessions.agentConfiguration
+    if (!port) throw new HbarError('CAPABILITY_UNAVAILABLE', 'Host agent configuration is unavailable')
+    const parent = await port.read(input.parentSessionId, parentRunId)
+    const modelId = input.modelId ?? parent.modelId
+    if (!modelId) throw new HbarError('MODEL_NOT_FOUND', 'Select a parent or child model before dispatch')
+    const model = await this.api.service<ModelRegistry>('models').get(modelId)
+    if (input.thinkingLevel && !model.thinkingLevels.includes(input.thinkingLevel))
+      throw new HbarError('THINKING_LEVEL_UNSUPPORTED', `${input.thinkingLevel} is unavailable for ${modelId}`)
+    const inheritedThinking =
+      parent.thinkingLevel && model.thinkingLevels.includes(parent.thinkingLevel) ? parent.thinkingLevel : null
+    const thinkingLevel = input.thinkingLevel ?? inheritedThinking ?? model.defaultThinkingLevel
+    const approval = input.approval ?? parent.approval
+    const sandboxProfileId = input.sandboxProfileId ?? input.sandbox?.profileId ?? parent.sandboxProfileId
+    const sandbox = input.sandbox ?? (input.sandboxProfileId ? undefined : parent.sandbox)
+    return agentDispatchConfigurationSchema.parse({
+      modelId,
+      thinkingLevel,
+      approval,
+      sandboxProfileId,
+      ...(approval === 'sandbox' && sandbox ? { sandbox } : {}),
+      sources: {
+        model: input.modelId && !(parentRunId && input.modelId === parent.modelId) ? 'override' : 'parent',
+        thinking:
+          input.thinkingLevel && !(parentRunId && input.thinkingLevel === parent.thinkingLevel)
+            ? 'override'
+            : inheritedThinking
+              ? 'parent'
+              : 'default',
+        approval: input.approval && !(parentRunId && input.approval === parent.approval) ? 'override' : 'parent',
+        sandbox: input.sandboxProfileId ? 'override' : 'parent',
+      },
+    })
   }
 
   private async removeWorktree(seed: CreatedAgent) {
@@ -681,7 +754,7 @@ export const agentPlugin = definePlugin({
     scope: 'host',
     required: true,
     provides: { agent: '1.0.0' },
-    requires: { budget: '^1.0.0', git: '^1.0.0' },
+    requires: { budget: '^1.0.0', git: '^1.0.0', models: '^1.0.0' },
     permissions: ['storage'],
   },
   apply(ctx) {

@@ -45,15 +45,15 @@ function commandFailure(reason: unknown): CommandError {
   return new CommandError(code(reason), reason instanceof Error ? reason.message : 'Agent operation failed')
 }
 
-function initialDraft(modelId = ''): AgentWorkspaceDraftState {
+function initialDraft(): AgentWorkspaceDraftState {
   return {
     objective: '',
     profileId: '',
-    modelId,
+    modelId: '',
     title: '',
     tokenBudget: '',
     thinkingLevel: '',
-    approval: 'deny',
+    approval: 'inherit',
     revision: 0,
     issues: {},
   }
@@ -63,11 +63,11 @@ function draftFromCreateInput(input: AgentCreateInput, revision: number): AgentW
   return {
     objective: input.objective,
     profileId: input.profileId ?? '',
-    modelId: input.modelId,
+    modelId: input.modelId ?? '',
     title: input.title ?? '',
     tokenBudget: input.tokenBudget === undefined ? '' : String(input.tokenBudget),
     thinkingLevel: input.thinkingLevel ?? '',
-    approval: input.approval,
+    approval: input.approval ?? 'inherit',
     revision,
     issues: {},
   }
@@ -83,11 +83,11 @@ function createInput(draft: AgentWorkspaceDraftState, parentSessionId: string) {
     parentSessionId,
     objective: draft.objective,
     ...(draft.profileId ? { profileId: draft.profileId } : {}),
-    modelId: draft.modelId,
+    ...(draft.modelId ? { modelId: draft.modelId } : {}),
     ...(draft.title.trim() ? { title: draft.title } : {}),
     ...(tokenBudget ? { tokenBudget: Number(tokenBudget) } : {}),
     ...(draft.thinkingLevel ? { thinkingLevel: draft.thinkingLevel } : {}),
-    approval: draft.approval,
+    ...(draft.approval === 'inherit' ? {} : { approval: draft.approval }),
   })
 }
 
@@ -285,19 +285,19 @@ export function createAgentWorkspace(
     const target = panel(instanceId)
     const previous = state.reader.getSnapshot().entries[instanceId]
     const sameTarget = previous?.parentSessionId === target.sessionId
-    const modelId =
-      controls.getSnapshot().sessionId === target.sessionId ? (controls.getSnapshot().model?.modelId ?? '') : ''
+    const inheritedModel = controls.getSnapshot().sessionId === target.sessionId ? controls.getSnapshot().model : null
     const generation = (generations.get(instanceId) ?? 0) + 1
     generations.set(instanceId, generation)
     const loading: AgentWorkspaceEntryState = {
       instanceId,
       parentSessionId: target.sessionId,
+      inheritedModel,
       view: sameTarget ? previous.view : 'list',
       selectedAgentId: sameTarget ? previous.selectedAgentId : null,
       status: 'loading',
       items: sameTarget ? previous.items : [],
       nextCursor: null,
-      draft: sameTarget ? previous.draft : initialDraft(modelId),
+      draft: sameTarget ? previous.draft : initialDraft(),
       creation: sameTarget ? previous.creation : { status: 'idle', error: null },
       actions: sameTarget ? previous.actions : {},
       error: null,
@@ -424,7 +424,10 @@ export function createAgentWorkspace(
       field === 'modelId' ? state.reader.getSnapshot().catalog.models.find((model) => model.id === value) : undefined
     const draft = {
       ...entry.draft,
-      [field]: field === 'approval' && !approvalModeSchema.safeParse(value).success ? entry.draft.approval : value,
+      [field]:
+        field === 'approval' && value !== 'inherit' && !approvalModeSchema.safeParse(value).success
+          ? entry.draft.approval
+          : value,
       ...(field === 'modelId' &&
       (!selectedModel || !selectedModel.thinkingLevels.some((level) => level === entry.draft.thinkingLevel))
         ? { thinkingLevel: '' }

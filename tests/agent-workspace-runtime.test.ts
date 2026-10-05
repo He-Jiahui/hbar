@@ -172,7 +172,9 @@ test('agent workspace owns paged drafts and retries unknown create and cancel co
     const opened = await runtime.view.commands.execute('app.openPanel', { panelId: 'agents' })
     await runtime.view.commands.execute('agentWorkspace.refresh', { instanceId: opened.instanceId })
     const loaded = runtime.view.state.agents.getSnapshot().entries[opened.instanceId]!
-    expect(loaded.draft.modelId).toBe('provider:model')
+    expect(loaded.draft.modelId).toBe('')
+    expect(loaded.inheritedModel?.modelId).toBe('provider:model')
+    expect(loaded.draft.approval).toBe('inherit')
     expect(loaded).toMatchObject({ view: 'list', selectedAgentId: null })
 
     await expect(
@@ -241,9 +243,9 @@ test('agent workspace owns paged drafts and retries unknown create and cancel co
         modelId: 'provider:model',
         title: 'Review child',
         tokenBudget: 8_000,
-        approval: 'deny',
       },
     })
+    expect(storage.values.get(pendingKey)).not.toHaveProperty('input.approval')
     await expect(
       runtime.view.commands.execute('agentWorkspace.setField', {
         instanceId: opened.instanceId,
@@ -492,7 +494,8 @@ test('unknown Agent create survives panel and runtime reload and retries the exa
       creation: { status: 'unknown' },
       draft: {
         objective: 'Recover across runtime reload',
-        modelId: primaryModel.id,
+        modelId: '',
+        approval: 'inherit',
       },
     })
     await secondRuntime.view.commands.execute('agentWorkspace.create', { instanceId: recoveredPanel.instanceId })

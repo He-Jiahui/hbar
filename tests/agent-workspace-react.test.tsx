@@ -123,7 +123,8 @@ test('child agent panel renders Host records and a command-owned creation draft'
     expect(html).toContain('Create child agent')
     expect(html).toContain('Draft child task')
     expect(html).toContain('Named model')
-    expect(html).toContain('Model default (Low)')
+    expect(html).toContain('Inherit parent (Low)')
+    expect(html).toContain('Inherit parent permissions')
     expect(html).toContain('Explore can read and search only.')
     expect(html).toContain('value="explore" selected=""')
     expect(html).toContain('Back to child agents')
@@ -133,7 +134,7 @@ test('child agent panel renders Host records and a command-owned creation draft'
         <HbarAgentWorkspace labels={getShellCopy('zh-CN').agents} connected />
       </HbarRuntimeProvider>,
     )
-    expect(chineseCreate).toContain('模型默认（低）')
+    expect(chineseCreate).toContain('继承主 Agent（低）')
     expect(chineseCreate).toContain('探索类型仅可读取和搜索')
 
     await runtime.view.commands.execute('agentWorkspace.showAgent', {

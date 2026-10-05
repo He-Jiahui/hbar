@@ -31,11 +31,13 @@ function pendingCreateJson(pending: PendingAgentCreate): ClientJsonObject {
       parentSessionId: pending.input.parentSessionId,
       objective: pending.input.objective,
       ...(pending.input.profileId ? { profileId: pending.input.profileId } : {}),
-      modelId: pending.input.modelId,
+      ...(pending.input.modelId ? { modelId: pending.input.modelId } : {}),
       ...(pending.input.title ? { title: pending.input.title } : {}),
       ...(pending.input.tokenBudget === undefined ? {} : { tokenBudget: pending.input.tokenBudget }),
       ...(pending.input.thinkingLevel ? { thinkingLevel: pending.input.thinkingLevel } : {}),
-      approval: pending.input.approval,
+      ...(pending.input.approval ? { approval: pending.input.approval } : {}),
+      ...(pending.input.sandboxProfileId ? { sandboxProfileId: pending.input.sandboxProfileId } : {}),
+      ...(pending.input.sandbox ? { sandbox: { ...pending.input.sandbox } } : {}),
     },
     ...(pending.origin
       ? {

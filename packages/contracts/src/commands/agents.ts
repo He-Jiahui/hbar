@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
 import { approvalModeSchema, idSchema, thinkingLevelSchema } from '../index'
-import { sandboxSnapshotRefSchema } from '../sandbox'
+import { sandboxProfileIdSchema, sandboxSnapshotRefSchema } from '../sandbox'
 import { agentPatchSchema, workflowAcceptanceDefinitionSchema, workflowScopeSchema } from '../workflow'
 
 export const agentStatusSchema = z.enum([
@@ -31,6 +31,25 @@ export const agentToolResultSchema = z.strictObject({
 export type AgentToolResult = z.output<typeof agentToolResultSchema>
 /** Host-advertised invocation types; the bare Agent form also supports an unprofiled general child. */
 export const agentProfileCatalogSchema = z.array(agentProfileIdSchema).max(32)
+/** Current independent Session choices; model may be unset on a legacy parent. */
+export const agentSessionConfigurationSchema = z.strictObject({
+  modelId: idSchema.nullable(),
+  thinkingLevel: thinkingLevelSchema.nullable(),
+  approval: approvalModeSchema,
+  sandboxProfileId: sandboxProfileIdSchema,
+  sandbox: sandboxSnapshotRefSchema.optional(),
+})
+/** Immutable dispatch snapshot. Later child edits apply to subsequent Runs only. */
+export const agentDispatchConfigurationSchema = agentSessionConfigurationSchema.extend({
+  modelId: idSchema,
+  thinkingLevel: thinkingLevelSchema,
+  sources: z.strictObject({
+    model: z.enum(['parent', 'override', 'policy']),
+    thinking: z.enum(['parent', 'override', 'default', 'policy']),
+    approval: z.enum(['parent', 'override']),
+    sandbox: z.enum(['parent', 'override']),
+  }),
+})
 export const agentRecordSchema = z.strictObject({
   agentId: idSchema,
   parentSessionId: idSchema,
@@ -46,6 +65,8 @@ export const agentRecordSchema = z.strictObject({
   patch: agentPatchSchema.nullable().optional(),
   resultSummary: z.string().max(4_000).nullable().optional(),
   isolated: z.boolean().optional(),
+  dispatchConfiguration: agentDispatchConfigurationSchema.optional(),
+  configuration: agentSessionConfigurationSchema.optional(),
   createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),
 })
@@ -67,11 +88,12 @@ export const agentCreateInputSchema = z
     parentSessionId: idSchema,
     objective: z.string().trim().min(1).max(4_000),
     profileId: agentProfileIdSchema.optional(),
-    modelId: idSchema,
+    modelId: idSchema.optional(),
     title: z.string().trim().min(1).max(160).optional(),
     tokenBudget: z.number().int().positive().max(1_000_000_000).optional(),
     thinkingLevel: thinkingLevelSchema.optional(),
-    approval: approvalModeSchema.default('deny'),
+    approval: approvalModeSchema.optional(),
+    sandboxProfileId: sandboxProfileIdSchema.optional(),
     /** Pin the parent Run's sandbox rules instead of resolving the child session's settings. */
     sandbox: sandboxSnapshotRefSchema.optional(),
     patchTask: agentPatchTaskSchema.optional(),
@@ -192,6 +214,8 @@ export const agentCommands = {
 }
 
 export type AgentRecord = z.output<typeof agentRecordSchema>
+export type AgentSessionConfiguration = z.output<typeof agentSessionConfigurationSchema>
+export type AgentDispatchConfiguration = z.output<typeof agentDispatchConfigurationSchema>
 export type AgentCreateInput = z.output<typeof agentCreateInputSchema>
 export type AgentPatchTask = z.output<typeof agentPatchTaskSchema>
 export type AgentReviewTask = z.output<typeof agentReviewTaskSchema>

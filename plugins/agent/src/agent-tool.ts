@@ -98,6 +98,7 @@ export function createAgentTool(agents: AgentService, sessions: SessionService):
           actorId: modelActorId(target.session.id),
           idempotencyKey: callKey(context),
           requestId: requestId(context),
+          parentRunId: target.run.id,
         },
       )
       if (

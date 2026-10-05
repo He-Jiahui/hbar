@@ -2309,7 +2309,7 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
     ),
     modelPicker: {
       title: choose('选择子 Agent 模型', 'Choose child agent model'),
-      choose: choose('选择模型', 'Choose a model'),
+      choose: choose('继承主 Agent 模型', 'Inherit parent agent model'),
       search: choose('搜索模型', 'Search models'),
       close: choose('关闭模型列表', 'Close model list'),
       loading: choose('正在读取可用模型…', 'Loading available models…'),
@@ -2320,6 +2320,7 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
       unavailable: (modelId) => choose(`不可用：${modelId}`, `Unavailable: ${modelId}`),
       error: (code) => choose(`无法读取模型：${code}`, `Could not load models: ${code}`),
     },
+    inheritModel: choose('恢复继承主 Agent 模型', 'Restore parent model inheritance'),
     tokenBudget: choose('Token 预算', 'Token budget'),
     thinkingLevel: choose('思考等级', 'Thinking level'),
     thinkingDefault: (level) =>
@@ -2328,11 +2329,19 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
             `模型默认（${thinkingLevelLabel(locale, level)}）`,
             `Model default (${thinkingLevelLabel(locale, level)})`,
           )
-        : choose('模型默认', 'Model default'),
+        : choose('继承主 Agent 思考等级', 'Inherit parent reasoning effort'),
     thinkingOption: (level) => thinkingLevelLabel(locale, level),
+    thinkingInherited: (level) =>
+      level
+        ? choose(
+            `继承主 Agent（${thinkingLevelLabel(locale, level)}）`,
+            `Inherit parent (${thinkingLevelLabel(locale, level)})`,
+          )
+        : choose('继承主 Agent 思考等级', 'Inherit parent reasoning effort'),
     thinkingUnavailable: (level) => choose(`不可用：${level}`, `Unavailable: ${level}`),
     approval: choose('工具审批', 'Tool approval'),
     approvalOptions: {
+      inherit: choose('继承主 Agent 权限', 'Inherit parent permissions'),
       deny: choose('拒绝', 'Deny'),
       ask: choose('询问', 'Ask'),
       sandbox: choose('沙盒配置', 'Sandbox'),

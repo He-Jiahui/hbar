@@ -47,6 +47,7 @@ export interface HbarAgentWorkspaceLabels {
   readonly currentSession: (sessionId: string) => string
   readonly createdAt: string
   readonly model: string
+  readonly inheritModel: string
   readonly profile: string
   readonly profileOptions: Readonly<Record<'general' | AgentProfileId, string>>
   readonly exploreHint: string
@@ -54,10 +55,11 @@ export interface HbarAgentWorkspaceLabels {
   readonly tokenBudget: string
   readonly thinkingLevel: string
   readonly thinkingDefault: (level: string | null) => string
+  readonly thinkingInherited: (level: string | null) => string
   readonly thinkingOption: (level: string) => string
   readonly thinkingUnavailable: (level: string) => string
   readonly approval: string
-  readonly approvalOptions: Readonly<Record<'deny' | 'ask' | 'sandbox' | 'allow', string>>
+  readonly approvalOptions: Readonly<Record<'inherit' | 'deny' | 'ask' | 'sandbox' | 'allow', string>>
   readonly create: string
   readonly creating: string
   readonly retryCreate: string
@@ -137,7 +139,9 @@ export function HbarAgentWorkspace({
   const selectedAction = selectedAgent ? entry?.actions[selectedAgent.agentId] : undefined
   const setField = (field: string, value: string) => invoke('agentWorkspace.setField', { instanceId, field, value })
   const catalog = agents.catalog
-  const selectedModel = catalog.models.find((model) => model.id === entry?.draft.modelId)
+  const selectedModel = entry?.draft.modelId
+    ? catalog.models.find((model) => model.id === entry.draft.modelId)
+    : entry?.inheritedModel?.model
   const openSession = (agent: Agent) => {
     if (openState?.status === 'submitting') return
     const source = tabs.items.find((item) => item.kind === 'session' && item.sessionId === agent.parentSessionId)
@@ -262,7 +266,6 @@ export function HbarAgentWorkspace({
               <LumenFormField
                 controlId={`${instanceId}-agent-model`}
                 label={labels.model}
-                required
                 {...(entry.draft.issues.modelId ? { error: labels.issue('modelId') } : {})}
               >
                 <AgentModelPicker
@@ -275,6 +278,11 @@ export function HbarAgentWorkspace({
                   onSelect={(modelId) => setField('modelId', modelId)}
                   onRetry={() => invoke('agentWorkspace.refreshModels', { instanceId })}
                 />
+                {entry.draft.modelId && (
+                  <LumenButton size="s" variant="text" disabled={creationBusy} onClick={() => setField('modelId', '')}>
+                    {labels.inheritModel}
+                  </LumenButton>
+                )}
               </LumenFormField>
               <LumenFormField
                 controlId={`${instanceId}-agent-budget`}
@@ -299,7 +307,11 @@ export function HbarAgentWorkspace({
                   disabled={!selectedModel && !entry.draft.thinkingLevel}
                 >
                   <LumenOption value="">
-                    {labels.thinkingDefault(selectedModel?.defaultThinkingLevel ?? null)}
+                    {entry.inheritedModel?.thinkingLevel &&
+                    selectedModel &&
+                    !selectedModel.thinkingLevels.includes(entry.inheritedModel.thinkingLevel)
+                      ? labels.thinkingDefault(selectedModel.defaultThinkingLevel)
+                      : labels.thinkingInherited(entry.inheritedModel?.thinkingLevel ?? null)}
                   </LumenOption>
                   {selectedModel?.thinkingLevels.map((level) => (
                     <LumenOption key={level} value={level}>
@@ -320,7 +332,7 @@ export function HbarAgentWorkspace({
                   value={entry.draft.approval}
                   onChange={(event) => setField('approval', event.currentTarget.value)}
                 >
-                  {(['deny', 'ask', 'sandbox', 'allow'] as const).map((option) => (
+                  {(['inherit', 'deny', 'ask', 'sandbox', 'allow'] as const).map((option) => (
                     <LumenOption key={option} value={option}>
                       {labels.approvalOptions[option]}
                     </LumenOption>
