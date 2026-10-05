@@ -9,6 +9,8 @@ import { Storage } from '@hbar/storage'
 import { HbarClient, createDirectoryQueryAdapter } from '@hbar/client'
 import { sessionSidebarPageSchema } from '@hbar/contracts/sidebar-directory'
 import { startServer } from '../apps/host/src/server'
+import type { AgentService } from '@hbar/plugin-sdk'
+import { sessionAgentChildrenPageSchema, sessionAgentAncestorsSchema } from '@hbar/contracts/sidebar-directory'
 
 const resources: { readonly root: string; readonly close: () => Promise<void> }[] = []
 
@@ -34,6 +36,8 @@ async function fixture() {
     workspaceActivityPage: (input) => storage.call('workspaceActivityPage', input),
     sessionActivityPage: (input) => storage.call('sessionActivityPage', input),
     sidebarSessionActivityPage: (input) => storage.call('sidebarSessionActivityPage', input),
+    sessionAgentChildren: (input) => storage.call('sessionAgentChildren', input),
+    sessionAgentAncestors: (sessionId) => storage.call('sessionAgentAncestors', sessionId),
     sessionPage: (input) => storage.call('sessionPage', input),
     findWorkspace: (id) => storage.call('findWorkspace', id),
     findSession: (id) => storage.call('findSession', id),
@@ -694,4 +698,30 @@ test('the public directory adapter routes project activity through the real Host
     'SESSION_WORKSPACE_MISMATCH',
   )
   await expectCode(adapter.execute('session.sidebar.list', { workspaceId: 'missing' }), 'WORKSPACE_NOT_FOUND')
+  const agent = await kernel.plugins
+    .get<AgentService>('agent')
+    .create(
+      {
+        parentSessionId: parent.id,
+        modelId: 'local-fixture',
+        objective: 'Real Host Agent navigation fixture',
+        approval: 'deny',
+      },
+      { actorId: 'fixture', idempotencyKey: 'real-navigation-agent', requestId: 'real-navigation-agent' },
+    )
+  await kernel.waitForIdle()
+  const agentPage = sessionAgentChildrenPageSchema.parse(
+    await adapter.execute('session.agentChildren.list', { parentSessionId: parent.id }),
+  )
+  expect(agentPage.items.map((item) => item.session.id)).toEqual([agent.sessionId])
+  expect(
+    sessionAgentAncestorsSchema
+      .parse(await adapter.execute('session.agentAncestors.get', { sessionId: agent.sessionId }))
+      .items.map((item) => item.session.id),
+  ).toEqual([parent.id, agent.sessionId])
+  const roots = sessionSidebarPageSchema.parse(
+    await adapter.execute('session.sidebar.list', { workspaceId: workspace.id }),
+  )
+  expect(roots.items.some((item) => item.session.id === agent.sessionId)).toBe(false)
+  expect(roots.items.find((item) => item.session.id === parent.id)?.agentChildCount).toBe(1)
 })

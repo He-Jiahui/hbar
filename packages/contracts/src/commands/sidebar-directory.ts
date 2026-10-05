@@ -7,6 +7,10 @@ import {
   sessionSidebarPageSchema,
   sessionExecutionGetInputSchema,
   sessionExecutionSnapshotSchema,
+  sessionAgentChildrenInputSchema,
+  sessionAgentChildrenPageSchema,
+  sessionAgentAncestorsInputSchema,
+  sessionAgentAncestorsSchema,
 } from '../state/sidebar-directory'
 import { sessionActivityListInputSchema } from '../state/directory'
 
@@ -27,6 +31,16 @@ function query(id: string) {
 }
 
 export const sidebarDirectoryCommands = {
+  'session.agentChildren.list': defineCommand(
+    { ...query('session.agentChildren.list'), scope: 'session' },
+    sessionAgentChildrenInputSchema,
+    sessionAgentChildrenPageSchema,
+  ),
+  'session.agentAncestors.get': defineCommand(
+    { ...query('session.agentAncestors.get'), scope: 'session' },
+    sessionAgentAncestorsInputSchema,
+    sessionAgentAncestorsSchema,
+  ),
   'session.execution.get': defineCommand(
     {
       ...query('session.execution.get'),

@@ -22,6 +22,7 @@ import type {
 import type { WorkspaceDisplayNamesSnapshot } from '@hbar/contracts/commands/workspace-display-names'
 import type { WorkspaceOrganizationSnapshot } from '@hbar/contracts/commands/workspace-organization'
 import { z } from 'zod'
+import { agentChildCountSql, agentMembershipSql } from './session-agent-directory'
 
 type DirectorySidebarRevisions = {
   readonly revision: number
@@ -60,6 +61,7 @@ export const SIDEBAR_DIRECTORY_SCHEMA_SQL = `
 
 /** Public parent links may change independently of timestamps; invalidate revision-bound pages. */
 export const SIDEBAR_CHILD_ACTIVITY_SCHEMA_SQL = `
+  CREATE INDEX IF NOT EXISTS messages_agent_response ON messages(sessionId,role,createdAt DESC);
   CREATE INDEX IF NOT EXISTS events_session_type ON events(sessionId,type);
   CREATE TRIGGER IF NOT EXISTS directory_activity_session_parent_update
     AFTER UPDATE OF parentId ON sessions
@@ -358,6 +360,7 @@ export function createSidebarDirectoryStorage(
         .query(
           `WITH ${RUN_ACTIVITY_CTE}, ranked AS (
              SELECT s.id AS sessionId,s.workspaceId,s.title,s.archived,s.parentId,s.createdAt,s.updatedAt,s.seq,
+               ${agentChildCountSql('s')} AS agentChildCount,
                w.id AS workspace_id,w.path AS workspace_path,w.name AS workspace_name,w.createdAt AS workspace_createdAt,
                COALESCE(a.activeCount,0) AS activeCount,COALESCE(a.queuedCount,0) AS queuedCount,
                COALESCE(a.runningCount,0) AS runningCount,COALESCE(a.waitingCount,0) AS waitingCount,
@@ -366,6 +369,7 @@ export function createSidebarDirectoryStorage(
              FROM sessions s JOIN workspaces w ON w.id=s.workspaceId
              LEFT JOIN run_activity a ON a.sessionId=s.id
              WHERE s.archived=0
+               AND NOT (${agentMembershipSql('s')})
                AND NOT EXISTS (SELECT 1 FROM json_each(?) AS hidden WHERE hidden.value=w.id)
            )
            SELECT * FROM ranked
@@ -406,6 +410,7 @@ export function createSidebarDirectoryStorage(
           workspace,
           displayName: names.get(workspace.id) ?? workspace.name,
           execution: executionFromRow(row),
+          agentChildCount: row.agentChildCount,
         }
       })
       const lastItem = pageItems.at(-1)

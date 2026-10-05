@@ -76,6 +76,7 @@ import { createNotificationStorage, NOTIFICATION_SCHEMA_SQL } from './notificati
 import { notificationFromSessionEvent, notificationFromScheduleOccurrence } from './notification-projection'
 import { createPromptTemplateStorage, PROMPT_TEMPLATES_SQL } from './prompt-templates'
 import { createScheduleStorage, SCHEDULES_SQL } from './schedules'
+import { agentChildCountSql, agentMembershipSql, createSessionAgentDirectory } from './session-agent-directory'
 import { createSandboxProfileStorage, SANDBOX_PROFILES_SQL } from './sandbox-profiles'
 import { readRunBoard } from './run-board'
 import { createWorkspaceOrganizationStorage, WORKSPACE_ORGANIZATION_SQL } from './workspace-organization.ts'
@@ -364,6 +365,7 @@ const sidebarDirectory = createSidebarDirectoryStorage(db, {
   displayNames: workspaceDisplayNames.read,
   organization: workspaceOrganization.read,
 })
+const sessionAgentDirectory = createSessionAgentDirectory(db, sidebarDirectory.executionSummaries)
 const sessionSearch = createSessionSearchStorage(
   db,
   () => new Map(workspaceDisplayNames.read().entries.map((entry) => [entry.workspaceId, entry.displayName])),
@@ -718,7 +720,7 @@ function workspaceActivityPage(input: WorkspaceActivityListInput): WorkspaceActi
   })()
 }
 
-function sessionActivityPage(input: SessionActivityListInput): SessionActivityPage {
+function sessionActivityPage(input: SessionActivityListInput, rootsOnly = false): SessionActivityPage {
   const parsedInput = sessionActivityListInputSchema.safeParse(input)
   if (!parsedInput.success) throw new HbarError('INVALID_INPUT', 'Invalid session activity query')
   const { workspaceId, sortBy, cursor, limit } = parsedInput.data
@@ -740,6 +742,7 @@ function sessionActivityPage(input: SessionActivityListInput): SessionActivityPa
         .query(
           `SELECT * FROM sessions
              WHERE workspaceId=? AND archived=0
+               ${rootsOnly ? `AND NOT (${agentMembershipSql('sessions')})` : ''}
                AND (? IS NULL OR ${selectedTimestamp}<?
                  OR (${selectedTimestamp}=? AND id>?))
              ORDER BY ${selectedTimestamp} DESC,id ASC
@@ -1072,11 +1075,13 @@ const methods: StorageMethods = {
   workspaceSidebarPage: (input) => sidebarDirectory.workspaceSidebarPage(input),
   globalSessionActivityPage: (input) => sidebarDirectory.globalSessionActivityPage(input),
   sessionExecutionSnapshot: (input) => sidebarDirectory.sessionExecutionSnapshot(input),
+  sessionAgentChildren: (input) => sessionAgentDirectory.children(input),
+  sessionAgentAncestors: (sessionId) => sessionAgentDirectory.ancestors(sessionId),
   workspaceActivityPage: (input) => workspaceActivityPage(input),
   sessionActivityPage: (input) => sessionActivityPage(input),
   sidebarSessionActivityPage(input) {
     return db.transaction(() => {
-      const page = sessionActivityPage(input)
+      const page = sessionActivityPage(input, true)
       const summaries = sidebarDirectory.executionSummaries(page.items.map((item) => item.id))
       return {
         revision: page.revision,
@@ -1084,7 +1089,10 @@ const methods: StorageMethods = {
         items: page.items.map((session) => {
           const execution = summaries.get(session.id)
           if (!execution) throw new HbarError('INVALID_STATE', 'Session execution summary is unavailable')
-          return { session, execution }
+          const counts = z
+            .object({ count: z.number().int().nonnegative().safe() })
+            .parse(db.query(`SELECT ${agentChildCountSql('s')} AS count FROM sessions s WHERE s.id=?`).get(session.id))
+          return { session, execution, agentChildCount: counts.count }
         }),
       }
     })()

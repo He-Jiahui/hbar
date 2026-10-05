@@ -154,13 +154,22 @@ export const sessionActivityGlobalItemSchema = z.strictObject({
   workspace: workspaceSchema,
   displayName,
   execution: sessionActivityExecutionSchema,
+  agentChildCount: z.number().int().nonnegative().safe().optional(),
 })
 
 /** Workspace-ordered rows and their execution summary share one revision-bound snapshot. */
 export const sessionSidebarPageSchema = z
   .strictObject({
     revision,
-    items: z.array(z.strictObject({ session: sessionSchema, execution: sessionActivityExecutionSchema })).max(200),
+    items: z
+      .array(
+        z.strictObject({
+          session: sessionSchema,
+          execution: sessionActivityExecutionSchema,
+          agentChildCount: z.number().int().nonnegative().safe().optional(),
+        }),
+      )
+      .max(200),
     nextCursor: sessionActivityPageSchema.shape.nextCursor,
   })
   .superRefine((page, context) => {
@@ -176,6 +185,100 @@ export const sessionSidebarPageSchema = z
   })
 
 export type SessionSidebarPage = z.output<typeof sessionSidebarPageSchema>
+
+export const sessionAgentChildItemSchema = z.strictObject({
+  session: sessionSchema,
+  execution: sessionActivityExecutionSchema,
+  agentChildCount: z.number().int().nonnegative().safe(),
+  lastResponseAt: timestamp.nullable(),
+})
+export const sessionAgentChildrenCursorSchema = z.strictObject({
+  parentSessionId: entityId,
+  revision,
+  responseAt: timestamp,
+  createdAt: timestamp,
+  sessionId: entityId,
+})
+export const sessionAgentChildrenInputSchema = z.strictObject({
+  parentSessionId: entityId,
+  cursor: sessionAgentChildrenCursorSchema.optional(),
+  includeSessionId: entityId.optional(),
+  limit: z.number().int().min(1).max(100).default(50),
+})
+export const sessionAgentChildrenPageSchema = z
+  .strictObject({
+    parentSessionId: entityId,
+    revision,
+    totalCount: z.number().int().nonnegative().safe(),
+    items: z.array(sessionAgentChildItemSchema).max(100),
+    includedItem: sessionAgentChildItemSchema.nullable(),
+    nextCursor: sessionAgentChildrenCursorSchema.nullable(),
+  })
+  .superRefine((page, context) => {
+    const all = [...page.items, ...(page.includedItem ? [page.includedItem] : [])]
+    if (
+      new Set(all.map((item) => item.session.id)).size !== all.length ||
+      all.some(
+        (item) =>
+          item.session.parentId !== page.parentSessionId ||
+          item.session.id === page.parentSessionId ||
+          item.session.archived,
+      )
+    )
+      context.addIssue({ code: 'custom', message: 'Agent child rows must be unique direct unarchived children' })
+    const last = page.items.at(-1)
+    if (
+      page.nextCursor &&
+      (!last ||
+        page.nextCursor.parentSessionId !== page.parentSessionId ||
+        page.nextCursor.revision !== page.revision ||
+        page.nextCursor.sessionId !== last.session.id ||
+        page.nextCursor.responseAt !== (last.lastResponseAt ?? 0) ||
+        page.nextCursor.createdAt !== last.session.createdAt)
+    )
+      context.addIssue({ code: 'custom', message: 'Agent child cursor does not match its page' })
+    if (all.length > page.totalCount) context.addIssue({ code: 'custom', message: 'Agent child count is inconsistent' })
+    if (
+      page.items.some((item, index) => {
+        const previous = page.items[index - 1]
+        if (!previous) return false
+        const response = (previous.lastResponseAt ?? 0) - (item.lastResponseAt ?? 0)
+        const creation = previous.session.createdAt - item.session.createdAt
+        return (
+          response < 0 ||
+          (response === 0 && (creation < 0 || (creation === 0 && previous.session.id > item.session.id)))
+        )
+      })
+    )
+      context.addIssue({
+        code: 'custom',
+        message: 'Agent children must be ordered by latest response, creation and stable ID',
+      })
+  })
+export const sessionAgentAncestorsInputSchema = z.strictObject({ sessionId: entityId })
+export const sessionAgentAncestorsSchema = z
+  .strictObject({
+    sessionId: entityId,
+    /** Root first, selected Session last. An ordinary fork is a root, not an Agent link. */
+    items: z
+      .array(z.strictObject({ session: sessionSchema, agentChildCount: z.number().int().nonnegative().safe() }))
+      .min(1)
+      .max(32),
+    workspace: workspaceSchema,
+  })
+  .superRefine((value, context) => {
+    if (
+      new Set(value.items.map((item) => item.session.id)).size !== value.items.length ||
+      value.items.at(-1)?.session.id !== value.sessionId ||
+      value.items[0]?.session.workspaceId !== value.workspace.id ||
+      value.items.some((item, index) => index > 0 && item.session.parentId !== value.items[index - 1]?.session.id)
+    )
+      context.addIssue({ code: 'custom', message: 'Agent ancestor path is inconsistent' })
+  })
+export type SessionAgentChildItem = z.output<typeof sessionAgentChildItemSchema>
+export type SessionAgentChildrenInput = z.input<typeof sessionAgentChildrenInputSchema>
+export type SessionAgentChildrenPage = z.output<typeof sessionAgentChildrenPageSchema>
+export type SessionAgentAncestors = z.output<typeof sessionAgentAncestorsSchema>
 
 export const sessionActivityGlobalPageSchema = z
   .strictObject({

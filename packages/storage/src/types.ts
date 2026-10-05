@@ -72,6 +72,9 @@ import type {
   SessionSidebarPage,
   SessionExecutionGetInput,
   SessionExecutionSnapshot,
+  SessionAgentChildrenInput,
+  SessionAgentChildrenPage,
+  SessionAgentAncestors,
 } from '@hbar/contracts/sidebar-directory'
 import type {
   SessionLaunchTarget,
@@ -305,6 +308,8 @@ export interface StorageMethods {
   workspaceActivityPage(input: WorkspaceActivityListInput): WorkspaceActivityPage
   sessionActivityPage(input: SessionActivityListInput): SessionActivityPage
   sidebarSessionActivityPage(input: SessionActivityListInput): SessionSidebarPage
+  sessionAgentChildren(input: SessionAgentChildrenInput): SessionAgentChildrenPage
+  sessionAgentAncestors(sessionId: string): SessionAgentAncestors
   sessionPage(input: SessionListInput): SessionPage
   findWorkspace(id: string): Workspace | null
   workspaceOrganization(): WorkspaceOrganizationSnapshot

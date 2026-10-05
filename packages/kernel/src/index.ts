@@ -412,6 +412,8 @@ export class Kernel {
       workspaceActivityPage: (input) => this.storage.call('workspaceActivityPage', input),
       sessionActivityPage: (input) => this.storage.call('sessionActivityPage', input),
       sidebarSessionActivityPage: (input) => this.storage.call('sidebarSessionActivityPage', input),
+      sessionAgentChildren: (input) => this.storage.call('sessionAgentChildren', input),
+      sessionAgentAncestors: (sessionId) => this.storage.call('sessionAgentAncestors', sessionId),
       sessionPage: (input) => this.storage.call('sessionPage', input),
       findWorkspace: (id) => this.storage.call('findWorkspace', id),
       findSession: (id) => this.storage.call('findSession', id),

@@ -21,6 +21,9 @@ import type {
   SessionSidebarPage,
   SessionExecutionGetInput,
   SessionExecutionSnapshot,
+  SessionAgentChildrenInput,
+  SessionAgentChildrenPage,
+  SessionAgentAncestors,
 } from '@hbar/contracts/sidebar-directory'
 
 export interface DirectoryRepository {
@@ -31,6 +34,8 @@ export interface DirectoryRepository {
   workspaceActivityPage(input: WorkspaceActivityListInput): Promise<WorkspaceActivityPage>
   sessionActivityPage(input: SessionActivityListInput): Promise<SessionActivityPage>
   sidebarSessionActivityPage(input: SessionActivityListInput): Promise<SessionSidebarPage>
+  sessionAgentChildren(input: SessionAgentChildrenInput): Promise<SessionAgentChildrenPage>
+  sessionAgentAncestors(sessionId: string): Promise<SessionAgentAncestors>
   sessionPage(input: SessionListInput): Promise<SessionPage>
   findWorkspace(id: string): Promise<Workspace | null>
   findSession(id: string): Promise<Session | null>
@@ -38,6 +43,22 @@ export interface DirectoryRepository {
 
 export function createDirectoryQueries(repository: DirectoryRepository) {
   const registry = new CommandRegistry({ execution: 'host' })
+  registry.register(directoryCommands['session.agentChildren.list'], async (input) => {
+    try {
+      return await repository.sessionAgentChildren(input)
+    } catch (error) {
+      if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+      throw error
+    }
+  })
+  registry.register(directoryCommands['session.agentAncestors.get'], async ({ sessionId }) => {
+    try {
+      return await repository.sessionAgentAncestors(sessionId)
+    } catch (error) {
+      if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+      throw error
+    }
+  })
   registry.register(directoryCommands['workspace.list'], (input) => repository.workspacePage(input))
   registry.register(directoryCommands['workspace.sidebar.list'], async (input) => {
     try {

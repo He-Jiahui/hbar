@@ -1,4 +1,5 @@
 import { HbarError } from '@hbar/contracts'
+import { directoryCommands } from '@hbar/contracts/commands'
 import { createWorkspaceSessionCommandClient } from './workspaces'
 import type { ClientTransport } from './transport'
 
@@ -8,6 +9,12 @@ export function createDirectoryQueryAdapter(client: ClientTransport) {
   return {
     async execute(name: string, input: unknown): Promise<unknown> {
       switch (name) {
+        case 'session.agentChildren.list':
+        case 'session.agentAncestors.get': {
+          const parsed = directoryCommands[name].input.safeParse(input)
+          if (!parsed.success) throw new HbarError('INVALID_INPUT', 'Invalid Agent directory query')
+          return commands.execute(name, parsed.data)
+        }
         case 'session.execution.get':
         case 'workspace.sidebar.list':
         case 'session.activity.global.list':
