@@ -12,6 +12,8 @@ import {
   sessionActivityGlobalPageSchema,
   sessionExecutionSnapshotSchema,
   sessionSidebarPageSchema,
+  sessionAgentChildrenPageSchema,
+  sessionAgentAncestorsSchema,
   workspaceSidebarPageSchema,
 } from '@hbar/contracts/sidebar-directory'
 import {
@@ -31,6 +33,7 @@ import { createSessionProjectionFence } from './session-projection-fence'
 
 export const MAX_RETAINED_ACTIVITY_WORKSPACES = 220
 export const MAX_RETAINED_ACTIVITY_SESSIONS = 900
+export const MAX_RETAINED_AGENT_SESSIONS = 320
 const DIRECTORY_WORKSPACE_CACHE_LIMIT = 200
 const DIRECTORY_SESSION_CACHE_LIMIT = 1000
 const DIRECTORY_WORKSPACE_TOTAL_LIMIT = DIRECTORY_WORKSPACE_CACHE_LIMIT + MAX_RETAINED_ACTIVITY_WORKSPACES
@@ -72,6 +75,7 @@ export function createDirectoryModule(
   const requests = new Map<string, number>()
   let retainedActivityWorkspaceIds = new Set<string>()
   let retainedActivitySessionIds = new Set<string>()
+  let retainedAgentSessionIds = new Set<string>()
   // Read/Archive floors live only during the captured request; cache eviction must not make its old reply new.
   const pendingSessionProjections = new Map<symbol, SessionVersionFloor>()
   function captureSessionProjection(sessionId: string) {
@@ -141,8 +145,10 @@ export function createDirectoryModule(
       }
     }
     const selected = navigation.getSnapshot().sessionId
-    while (entries.size > DIRECTORY_SESSION_CACHE_LIMIT) {
-      const candidate = [...entries.keys()].find((id) => id !== selected && !retainedActivitySessionIds.has(id))
+    while (entries.size > DIRECTORY_SESSION_CACHE_LIMIT + MAX_RETAINED_AGENT_SESSIONS) {
+      const candidate = [...entries.keys()].find(
+        (id) => id !== selected && !retainedActivitySessionIds.has(id) && !retainedAgentSessionIds.has(id),
+      )
       if (candidate === undefined) break
       entries.delete(candidate)
     }
@@ -230,6 +236,24 @@ export function createDirectoryModule(
     const response = await read('session.sidebar.list', input, context)
     return decode(sessionSidebarPageSchema, response.value)
   })
+  remote.register(directoryCommands['session.agentChildren.list'], async (input, context) => {
+    const response = await read('session.agentChildren.list', input, context)
+    const page = decode(sessionAgentChildrenPageSchema, response.value)
+    if (
+      page.parentSessionId !== input.parentSessionId ||
+      (page.includedItem && page.includedItem.session.id !== input.includeSessionId)
+    )
+      throw new CommandError('INVALID_OUTPUT', 'Agent children do not match their query')
+    return page
+  })
+  remote.register(directoryCommands['session.agentAncestors.get'], async (input, context) => {
+    const response = await read('session.agentAncestors.get', input, context)
+    const path = decode(sessionAgentAncestorsSchema, response.value)
+    if (path.sessionId !== input.sessionId)
+      throw new CommandError('INVALID_OUTPUT', 'Agent ancestry does not match its target')
+    if (response.latest) mergeWorkspaces([path.workspace])
+    return path
+  })
   remote.register(directoryCommands['workspace.get'], async (input, context) => {
     const response = await read('workspace.get', input, context)
     const item = decode(workspaceSchema.nullable(), response.value)
@@ -314,6 +338,21 @@ export function createDirectoryModule(
       observations.execute('session.get', { sessionId }, execution),
     /** Accepted Host facts, not cache absence/loading or speculative mutation intent. */
     subscribeConfirmedSessions,
+    /** Agent tree owns only bounded IDs/response metadata; Session facts stay in this canonical cache. */
+    projectAgentSessions(retainedIds: readonly string[], records: readonly Session[]): void {
+      if (disposed) return
+      if (retainedIds.length > MAX_RETAINED_AGENT_SESSIONS || new Set(retainedIds).size !== retainedIds.length)
+        throw new CommandError('CAPACITY_EXCEEDED', 'Too many retained Agent tree Sessions')
+      const retained = new Set(retainedIds)
+      const confirmed = records.map((item) => decode(sessionSchema, item))
+      if (
+        new Set(confirmed.map((item) => item.id)).size !== confirmed.length ||
+        confirmed.some((item) => !retained.has(item.id))
+      )
+        throw new CommandError('INVALID_OUTPUT', 'Agent projection does not match retained IDs')
+      retainedAgentSessionIds = retained
+      if (confirmed.length > 0) mergeSessions(confirmed)
+    },
     /**
      * Retain the bounded Workspace rows currently referenced by activity pages and pins.
      * Activity summaries live elsewhere; this map remains the canonical Workspace cache.
@@ -512,6 +551,7 @@ export function createDirectoryModule(
       requests.clear()
       retainedActivityWorkspaceIds.clear()
       retainedActivitySessionIds.clear()
+      retainedAgentSessionIds.clear()
       pendingSessionProjections.clear()
       for (const fence of pageFences) fence.dispose()
       pageFences.clear()

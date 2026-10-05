@@ -200,6 +200,9 @@ import { createSandboxProfiles, sandboxProfileEditorCommands } from './sandbox-p
 import { createClientPersistence } from './client-persistence'
 import { createWorkspacePins, workspacePinCommands } from './workspace-pins'
 import { createWorkspaceActivity, workspaceActivityCommands } from './workspace-activity'
+import { createSessionAgentTree, sessionAgentTreeCommands } from './session-agent-tree'
+export { sessionAgentTreeCommands } from './session-agent-tree'
+export type { SessionAgentTreeState, SessionAgentTreeBranch, SessionAgentTreeRow } from './session-agent-tree'
 export { workspaceActivityCommands, orderWorkspaceActivityIds } from './workspace-activity'
 export type { WorkspaceActivityState, WorkspaceActivityOptions } from './workspace-activity'
 import { createWorkspaceOrganization, workspaceOrganizationClientCommands } from './workspace-organization'
@@ -437,6 +440,7 @@ const runtimeCommands = {
   ...composerBackgroundAgentsCommands,
   ...workspacePinCommands,
   ...workspaceActivityCommands,
+  ...sessionAgentTreeCommands,
   ...workspaceOrganizationClientCommands,
   ...workspaceDisplayNamesClientCommands,
   ...agentChildNavigationCommands,
@@ -604,6 +608,15 @@ export function createAppRuntime(options: RuntimeOptions) {
     ...(options.sidebarActivityEvents ? { sidebarActivityEvents: options.sidebarActivityEvents } : {}),
     onSubscriberError,
     isDisposed: () => disposed,
+  })
+  const sessionAgentTree = createSessionAgentTree(local, {
+    queries: directory.queries,
+    directory: directory.reader,
+    navigation: navigation.reader,
+    projectSessions: directory.projectAgentSessions,
+    subscribeConfirmedSessions: directory.subscribeConfirmedSessions,
+    ...(options.sidebarActivityEvents ? { events: options.sidebarActivityEvents } : {}),
+    onSubscriberError,
   })
   const workspaceOrganization = createWorkspaceOrganization(local, {
     ...(options.workspaceOrganization
@@ -1298,6 +1311,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(sessionToolCommands, name) ||
         Object.hasOwn(workspacePinCommands, name) ||
         Object.hasOwn(workspaceActivityCommands, name) ||
+        Object.hasOwn(sessionAgentTreeCommands, name) ||
         Object.hasOwn(workspaceOrganizationClientCommands, name) ||
         Object.hasOwn(workspaceDisplayNamesClientCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
@@ -1337,6 +1351,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       workspaceTabs: workspaceTabs.reader,
       workspacePins: workspacePins.reader,
       workspaceActivity: workspaceActivity.reader,
+      sessionAgentTree: sessionAgentTree.reader,
       workspaceOrganization: workspaceOrganization.reader,
       workspaceDisplayNames: workspaceDisplayNames.reader,
       workspaceDisplayNameSnapshot: workspaceDisplayNames.snapshotReader,
@@ -1426,6 +1441,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       conversationReading.dispose()
       workspacePins.dispose()
       workspaceActivity.dispose()
+      sessionAgentTree.dispose()
       workspaceOrganization.dispose()
       workspaceDisplayNames.dispose()
 

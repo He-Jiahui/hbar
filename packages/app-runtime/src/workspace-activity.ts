@@ -170,6 +170,7 @@ export interface WorkspaceActivitySessionPage {
   readonly sortBy: WorkspaceActivitySortBy
   readonly sessionIds: readonly string[]
   readonly execution: Readonly<Record<string, Readonly<SessionActivityExecution>>>
+  readonly agentChildCounts?: Readonly<Record<string, number>>
   readonly nextCursor: SessionActivityCursor | null
   readonly hasMore: boolean
   readonly limitReached: boolean
@@ -181,6 +182,7 @@ export interface WorkspaceActivityTimelineRow {
   readonly workspaceId: string
   readonly displayName: string
   readonly execution: Readonly<SessionActivityExecution>
+  readonly agentChildCount?: number
 }
 
 export interface WorkspaceActivityTimelinePage {
@@ -881,6 +883,7 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
           workspaceId: item.session.workspaceId,
           displayName: item.displayName,
           execution: item.execution,
+          agentChildCount: item.agentChildCount ?? 0,
         })),
       ]
       const nextTimeline: WorkspaceActivityTimelinePage = {
@@ -1115,6 +1118,10 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
         execution: {
           ...(input.append ? prior?.execution : {}),
           ...Object.fromEntries(sidebarPage.items.map((item) => [item.session.id, item.execution])),
+        },
+        agentChildCounts: {
+          ...(input.append ? prior?.agentChildCounts : {}),
+          ...Object.fromEntries(sidebarPage.items.map((item) => [item.session.id, item.agentChildCount ?? 0])),
         },
         nextCursor: page.nextCursor,
         hasMore: page.nextCursor !== null,
