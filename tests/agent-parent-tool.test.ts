@@ -3,10 +3,11 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { z } from 'zod'
-import { emptyUsage } from '@hbar/contracts'
+import { emptyUsage, providerSchema } from '@hbar/contracts'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
-import type { DriverInput, HarnessDriver, ModeService, ToolContext } from '@hbar/plugin-sdk'
+import type { AgentService, DriverInput, HarnessDriver, ModeService, ToolContext } from '@hbar/plugin-sdk'
+import type { AgentTaskDifficulty } from '@hbar/contracts/commands/agents'
 
 import { AGENT_TOOL_NAME, advertiseAgentTool } from '../plugins/agent/src/agent-tool'
 
@@ -39,7 +40,7 @@ afterEach(async () => {
   }
 })
 
-async function fixture(action: Action) {
+async function fixture(action: Action, difficulty?: AgentTaskDifficulty) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-agent-parent-tool-'))
   let kernel!: Kernel
   const state: DriverState = { requests: [], results: [], directError: null }
@@ -64,7 +65,11 @@ async function fixture(action: Action) {
             ...(request.toolNames ? { toolNames: request.toolNames } : {}),
           })
           if (input.session.parentId === null) {
-            const args = { subagent_type: 'explore', prompt: 'Inspect the parent Session exactly as written.' }
+            const args = {
+              subagent_type: 'explore',
+              prompt: 'Inspect the parent Session exactly as written.',
+              ...(difficulty ? { difficulty } : {}),
+            }
             if (action === 'archive') {
               await kernel.updateSession(input.session.id, { archived: true })
               state.results.push(await input.execute(AGENT_TOOL_NAME, args, 'agent-call'))
@@ -129,6 +134,52 @@ async function fixture(action: Action) {
   resources.push({ root, kernel })
   return { root, kernel, workspace, parent, state }
 }
+
+test('the registered Agent tool uses weighted difficulty policy while preserving the parent permissions', async () => {
+  const f = await fixture('create', 'complex')
+  await f.kernel.saveProvider(
+    providerSchema.parse({
+      id: 'weighted-fixture',
+      name: 'Weighted fixture',
+      protocol: 'mock',
+      baseUrl: 'http://127.0.0.1',
+      model: 'review',
+      thinkingLevels: ['low', 'high'],
+      defaultThinkingLevel: 'low',
+    }),
+  )
+  const agents = f.kernel.plugins.get<AgentService>('agent')
+  const baseline = await agents.policy(f.parent.id)
+  await agents.setPolicy(
+    {
+      parentSessionId: f.parent.id,
+      baselineRevisions: baseline.revisions,
+      candidates: [{ difficulty: 'complex', modelId: 'weighted-fixture', thinkingLevel: 'high', weight: 100 }],
+    },
+    { actorId: 'fixture', idempotencyKey: 'weighted-policy' },
+  )
+  await f.kernel.submit(
+    f.parent.id,
+    'weighted-parent',
+    { text: 'Inspect task', images: [], thinking: 'max', approval: 'allow' },
+    'local-fixture',
+  )
+  await f.kernel.waitForIdle()
+  expect(Boolean(f.state.results[0]?.isError)).toBe(false)
+  const identity = identitySchema.passthrough().parse(JSON.parse(f.state.results[0]!.text))
+  expect(identity).toMatchObject({ modelId: 'weighted-fixture', profileId: 'explore' })
+  const child = await agents.result(f.parent.id, identity.agentId)
+  expect(child.dispatchConfiguration).toMatchObject({
+    modelId: 'weighted-fixture',
+    thinkingLevel: 'high',
+    approval: 'allow',
+    sources: { model: 'policy', approval: 'parent' },
+  })
+  expect((await f.kernel.snapshot(child.sessionId)).runs[0]?.input).toMatchObject({
+    thinking: 'high',
+    approval: 'allow',
+  })
+})
 
 test('a parent Run invokes the registered Agent tool with exact identity and advertised instructions', async () => {
   const f = await fixture('create')

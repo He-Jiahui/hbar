@@ -2,17 +2,23 @@ import { createHash } from 'node:crypto'
 import { resolve } from 'node:path'
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
-import { agentProfileIdSchema, agentToolResultSchema, type AgentProfileId } from '@hbar/contracts/commands/agents'
+import {
+  agentProfileIdSchema,
+  agentTaskDifficultySchema,
+  agentToolResultSchema,
+  type AgentProfileId,
+} from '@hbar/contracts/commands/agents'
 import type { AgentService, HookEvents, SessionService, ToolContext, ToolDefinition } from '@hbar/plugin-sdk'
 
 export const AGENT_TOOL_NAME = 'agent'
 export const AGENT_TOOL_INSTRUCTIONS =
-  'For a user `/agent <subagent_type> <prompt>` request, use the `agent` tool. Set `subagent_type` to the token after `/agent` and pass the exact remaining prompt unchanged as `prompt`.'
+  'For a user `/agent <subagent_type> <prompt>` request, use the `agent` tool. Set `subagent_type` to the token after `/agent` and pass the exact remaining prompt unchanged as `prompt`. Assess task difficulty as simple, medium, or complex. Host selects the highest-priority configured model and effort in that tier; empty tiers inherit the parent. Permissions always inherit the admitted parent Run.'
 const MAX_ADVERTISED_INSTRUCTIONS = 16_000
 
 export const agentToolInputSchema = z.strictObject({
   subagent_type: agentProfileIdSchema,
   prompt: z.string().trim().min(1).max(4_000),
+  difficulty: agentTaskDifficultySchema.optional(),
 })
 
 function digest(value: string): string {
@@ -89,8 +95,7 @@ export function createAgentTool(agents: AgentService, sessions: SessionService):
           parentSessionId: target.session.id,
           objective: args.prompt,
           profileId,
-          modelId: target.run.modelId,
-          ...(target.run.input.thinking ? { thinkingLevel: target.run.input.thinking } : {}),
+          difficulty: args.difficulty ?? 'medium',
           approval: target.run.input.approval ?? 'deny',
           ...(target.run.input.sandbox ? { sandbox: target.run.input.sandbox } : {}),
         },
@@ -105,7 +110,7 @@ export function createAgentTool(agents: AgentService, sessions: SessionService):
         record.profileId !== profileId ||
         record.parentSessionId !== target.session.id ||
         record.objective !== args.prompt ||
-        record.modelId !== target.run.modelId
+        (record.dispatchConfiguration?.sources.model !== 'policy' && record.modelId !== target.run.modelId)
       )
         throw new HbarError('INVALID_OUTPUT', 'The Agent service returned a different target or task')
       const identity = agentToolResultSchema.parse({

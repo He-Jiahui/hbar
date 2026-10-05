@@ -55,6 +55,8 @@ import type {
   AgentRecord,
   AgentSessionConfiguration,
   AgentDispatchConfiguration,
+  AgentPolicySnapshot,
+  AgentPolicySetInput,
 } from '@hbar/contracts/commands/agents'
 import type {
   ParsedWorkspaceFindInput,
@@ -275,6 +277,11 @@ export interface SessionService {
   agentConfiguration?: {
     read(sessionId: string, parentRunId?: string): Promise<AgentSessionConfiguration>
     initialize(sessionId: string, configuration: AgentDispatchConfiguration, actorId: string): Promise<void>
+    policy(sessionId: string): Promise<AgentPolicySnapshot>
+    setPolicy(
+      input: AgentPolicySetInput,
+      context: { actorId: string; idempotencyKey: string },
+    ): Promise<AgentPolicySnapshot>
   }
   get(id: string): Promise<Session>
   list(workspaceId?: string): Promise<Session[]>
@@ -412,6 +419,11 @@ export interface BudgetService {
   assertCanStart(sessionId: string, source?: import('@hbar/contracts').RunSource): Promise<void>
 }
 export interface AgentService {
+  policy(parentSessionId: string): Promise<AgentPolicySnapshot>
+  setPolicy(
+    input: AgentPolicySetInput,
+    context: { actorId: string; idempotencyKey: string },
+  ): Promise<AgentPolicySnapshot>
   create(
     input: AgentCreateInput,
     context: { actorId: string; idempotencyKey: string; requestId: string; parentRunId?: string },

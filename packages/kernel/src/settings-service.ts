@@ -182,9 +182,29 @@ function definition(field: SettingsFieldDescription): SettingDefinition {
   }
 }
 
-export const HBAR_SETTINGS_DEFINITIONS: readonly SettingDefinition[] = Object.freeze(
-  HBAR_SETTINGS_DESCRIPTION.fields.map((field) => Object.freeze(definition(field))),
-)
+export const HBAR_SETTINGS_DEFINITIONS: readonly SettingDefinition[] = Object.freeze([
+  ...HBAR_SETTINGS_DESCRIPTION.fields.map((field) => Object.freeze(definition(field))),
+  // Structured settings have their own typed command/editor contract rather than a raw JSON text field.
+  Object.freeze({
+    path: path('agent.dispatchCandidates'),
+    allowedLayers: ['global', 'workspace', 'session'],
+    applyMode: 'nextRun' as const,
+    defaultValue: [],
+    schema: {
+      kind: 'array' as const,
+      items: {
+        kind: 'object' as const,
+        required: ['difficulty', 'modelId', 'thinkingLevel', 'weight'],
+        properties: {
+          difficulty: { kind: 'string' as const, enum: ['simple', 'medium', 'complex'] },
+          modelId: { kind: 'string' as const },
+          thinkingLevel: { kind: 'string' as const, enum: ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] },
+          weight: { kind: 'integer' as const, minimum: 1, maximum: 1_000 },
+        },
+      },
+    },
+  }),
+])
 
 export type SettingsScope =
   | { readonly kind: 'global' }

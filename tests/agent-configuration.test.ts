@@ -6,6 +6,7 @@ import { Kernel, MemorySecrets, SettingsService, createModelCommands } from '@hb
 import { providerSchema } from '@hbar/contracts'
 import type { AgentService } from '@hbar/plugin-sdk'
 import { DEFAULT_SANDBOX_PROFILE_ID } from '@hbar/contracts/sandbox'
+import { agentDispatchCandidatesSchema } from '@hbar/contracts/commands/agents'
 
 async function fixture(operation: (kernel: Kernel, parentId: string, settings: SettingsService) => Promise<void>) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-agent-config-'))
@@ -44,6 +45,108 @@ async function change(settings: SettingsService, sessionId: string, values: Read
     changes: Object.entries(values).map(([name, value]) => ({ op: 'set', path: [{ kind: 'field', name }], value })),
   })
 }
+
+test('difficulty selection is deterministic, weighted and audited without widening permissions', async () => {
+  await fixture(async (kernel, parentSessionId, settings) => {
+    await kernel.saveProvider(
+      providerSchema.parse({
+        id: 'small',
+        name: 'Small fixture',
+        protocol: 'mock',
+        baseUrl: 'http://127.0.0.1',
+        model: 'small',
+        thinkingLevels: ['low', 'high'],
+        defaultThinkingLevel: 'low',
+      }),
+    )
+    await change(settings, parentSessionId, { 'session.approval': 'deny' })
+    const agents = kernel.plugins.get<AgentService>('agent')
+    const baseline = await agents.policy(parentSessionId)
+    expect(baseline).toMatchObject({ candidates: [], inherited: true })
+    const input = {
+      parentSessionId,
+      baselineRevisions: baseline.revisions,
+      candidates: [
+        { difficulty: 'simple' as const, modelId: 'small', thinkingLevel: 'low' as const, weight: 100 },
+        { difficulty: 'complex' as const, modelId: 'small', thinkingLevel: 'high' as const, weight: 20 },
+        { difficulty: 'complex' as const, modelId: 'local-fixture', thinkingLevel: 'max' as const, weight: 100 },
+      ],
+    }
+    const saved = await agents.setPolicy(input, { actorId: 'fixture', idempotencyKey: 'policy-1' })
+    expect(saved.inherited).toBe(false)
+    const conflict = await agents
+      .setPolicy({ ...input, candidates: [] }, { actorId: 'fixture', idempotencyKey: 'policy-conflict' })
+      .then(
+        () => null,
+        (error: unknown) => error,
+      )
+    expect(conflict).toMatchObject({ code: 'REVISION_CONFLICT' })
+    const child = await agents.create(
+      { parentSessionId, objective: 'Complex review', difficulty: 'complex' },
+      { actorId: 'fixture', idempotencyKey: 'weighted', requestId: 'weighted' },
+    )
+    await kernel.waitForIdle()
+    expect(child.dispatchConfiguration).toMatchObject({
+      modelId: 'local-fixture',
+      thinkingLevel: 'max',
+      approval: 'deny',
+      sources: { model: 'policy', thinking: 'policy', approval: 'parent' },
+      selection: { difficulty: 'complex', weight: 100, candidateCount: 2 },
+    })
+    const simple = await agents.create(
+      { parentSessionId, objective: 'Simple review', difficulty: 'simple' },
+      { actorId: 'fixture', idempotencyKey: 'small', requestId: 'small' },
+    )
+    await kernel.waitForIdle()
+    expect(simple.configuration).toMatchObject({ modelId: 'small', thinkingLevel: 'low', approval: 'deny' })
+    const missingTier = await agents.create(
+      { parentSessionId, objective: 'Inherit empty tier', difficulty: 'medium' },
+      { actorId: 'fixture', idempotencyKey: 'empty', requestId: 'empty' },
+    )
+    await kernel.waitForIdle()
+    expect(missingTier.dispatchConfiguration?.sources.model).toBe('parent')
+    const disabled = await agents.setPolicy(
+      { parentSessionId, candidates: [], baselineRevisions: saved.revisions },
+      { actorId: 'fixture', idempotencyKey: 'disable' },
+    )
+    expect(disabled.candidates).toEqual([])
+    expect(await agents.setPolicy(input, { actorId: 'fixture', idempotencyKey: 'policy-1' })).toEqual(saved)
+    expect((await agents.policy(parentSessionId)).candidates).toEqual([])
+    const invalid = await agents
+      .setPolicy(
+        {
+          parentSessionId,
+          baselineRevisions: disabled.revisions,
+          candidates: [{ difficulty: 'complex', modelId: 'small', thinkingLevel: 'max', weight: 100 }],
+        },
+        { actorId: 'fixture', idempotencyKey: 'invalid' },
+      )
+      .then(
+        () => null,
+        (error: unknown) => error,
+      )
+    expect(invalid).toMatchObject({ code: 'THINKING_LEVEL_UNSUPPORTED' })
+    expect((await agents.policy(parentSessionId)).candidates).toEqual([])
+    const restored = await agents.setPolicy(
+      { parentSessionId, candidates: null, baselineRevisions: disabled.revisions },
+      { actorId: 'fixture', idempotencyKey: 'restore' },
+    )
+    expect(restored.inherited).toBe(true)
+  })
+})
+
+test('candidate contracts bound capacity, reject duplicate tier models and invalid weights', () => {
+  const candidate = { difficulty: 'simple', modelId: 'fixture', thinkingLevel: 'max', weight: 100 }
+  expect(agentDispatchCandidatesSchema.safeParse([]).success).toBe(true)
+  expect(agentDispatchCandidatesSchema.safeParse([candidate]).success).toBe(true)
+  expect(agentDispatchCandidatesSchema.safeParse([candidate, candidate]).success).toBe(false)
+  expect(agentDispatchCandidatesSchema.safeParse([{ ...candidate, weight: 0 }]).success).toBe(false)
+  const boundary = Array.from({ length: 32 }, (_, index) => ({ ...candidate, modelId: `model-${index}` }))
+  expect(agentDispatchCandidatesSchema.safeParse(boundary).success).toBe(true)
+  expect(agentDispatchCandidatesSchema.safeParse([...boundary, { ...candidate, modelId: 'overflow' }]).success).toBe(
+    false,
+  )
+})
 
 test('child inherits confirmed parent choices, persists independent settings, and replay never overwrites later edits', async () => {
   await fixture(async (kernel, parentSessionId, settings) => {

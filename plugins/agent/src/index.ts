@@ -16,6 +16,7 @@ import type {
   AgentPatchTask,
   AgentProfileId,
   AgentRecord,
+  AgentPolicySetInput,
 } from '@hbar/contracts/commands/agents'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type {
@@ -151,6 +152,18 @@ export class AgentRuntime implements AgentService {
     private git: GitService,
     private api: HbarAPI,
   ) {}
+
+  async policy(parentSessionId: string) {
+    const port = this.sessions.agentConfiguration
+    if (!port) throw new HbarError('CAPABILITY_UNAVAILABLE', 'Host agent configuration is unavailable')
+    return port.policy(parentSessionId)
+  }
+
+  async setPolicy(input: AgentPolicySetInput, context: { actorId: string; idempotencyKey: string }) {
+    const port = this.sessions.agentConfiguration
+    if (!port) throw new HbarError('CAPABILITY_UNAVAILABLE', 'Host agent configuration is unavailable')
+    return port.setPolicy(input, context)
+  }
 
   private async events(sessionId: string) {
     return this.sessions.events(sessionId, 0, MAX_AGENT_EVENTS)
@@ -435,14 +448,22 @@ export class AgentRuntime implements AgentService {
     const port = this.sessions.agentConfiguration
     if (!port) throw new HbarError('CAPABILITY_UNAVAILABLE', 'Host agent configuration is unavailable')
     const parent = await port.read(input.parentSessionId, parentRunId)
-    const modelId = input.modelId ?? parent.modelId
+    const policy = input.difficulty ? await port.policy(input.parentSessionId) : null
+    const candidates = policy?.candidates.filter((candidate) => candidate.difficulty === input.difficulty) ?? []
+    const candidate = candidates.sort(
+      (left, right) =>
+        right.weight - left.weight || (left.modelId < right.modelId ? -1 : left.modelId > right.modelId ? 1 : 0),
+    )[0]
+    // An empty tier deliberately inherits. A removed/unsupported selected candidate fails closed, never silently downgrades effort.
+    const modelId = candidate?.modelId ?? input.modelId ?? parent.modelId
     if (!modelId) throw new HbarError('MODEL_NOT_FOUND', 'Select a parent or child model before dispatch')
     const model = await this.api.service<ModelRegistry>('models').get(modelId)
-    if (input.thinkingLevel && !model.thinkingLevels.includes(input.thinkingLevel))
-      throw new HbarError('THINKING_LEVEL_UNSUPPORTED', `${input.thinkingLevel} is unavailable for ${modelId}`)
+    const explicitThinking = candidate?.thinkingLevel ?? input.thinkingLevel
+    if (explicitThinking && !model.thinkingLevels.includes(explicitThinking))
+      throw new HbarError('THINKING_LEVEL_UNSUPPORTED', `${explicitThinking} is unavailable for ${modelId}`)
     const inheritedThinking =
       parent.thinkingLevel && model.thinkingLevels.includes(parent.thinkingLevel) ? parent.thinkingLevel : null
-    const thinkingLevel = input.thinkingLevel ?? inheritedThinking ?? model.defaultThinkingLevel
+    const thinkingLevel = explicitThinking ?? inheritedThinking ?? model.defaultThinkingLevel
     const approval = input.approval ?? parent.approval
     const sandboxProfileId = input.sandboxProfileId ?? input.sandbox?.profileId ?? parent.sandboxProfileId
     const sandbox = input.sandbox ?? (input.sandboxProfileId ? undefined : parent.sandbox)
@@ -452,10 +473,25 @@ export class AgentRuntime implements AgentService {
       approval,
       sandboxProfileId,
       ...(approval === 'sandbox' && sandbox ? { sandbox } : {}),
+      ...(candidate && policy
+        ? {
+            selection: {
+              difficulty: candidate.difficulty,
+              weight: candidate.weight,
+              sourceLayer: policy.sourceLayer,
+              candidateCount: candidates.length,
+            },
+          }
+        : {}),
       sources: {
-        model: input.modelId && !(parentRunId && input.modelId === parent.modelId) ? 'override' : 'parent',
-        thinking:
-          input.thinkingLevel && !(parentRunId && input.thinkingLevel === parent.thinkingLevel)
+        model: candidate
+          ? 'policy'
+          : input.modelId && !(parentRunId && input.modelId === parent.modelId)
+            ? 'override'
+            : 'parent',
+        thinking: candidate
+          ? 'policy'
+          : input.thinkingLevel && !(parentRunId && input.thinkingLevel === parent.thinkingLevel)
             ? 'override'
             : inheritedThinking
               ? 'parent'

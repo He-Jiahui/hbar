@@ -31,6 +31,35 @@ export const agentToolResultSchema = z.strictObject({
 export type AgentToolResult = z.output<typeof agentToolResultSchema>
 /** Host-advertised invocation types; the bare Agent form also supports an unprofiled general child. */
 export const agentProfileCatalogSchema = z.array(agentProfileIdSchema).max(32)
+export const agentTaskDifficultySchema = z.enum(['simple', 'medium', 'complex'])
+export const agentModelCandidateSchema = z.strictObject({
+  difficulty: agentTaskDifficultySchema,
+  modelId: idSchema,
+  thinkingLevel: thinkingLevelSchema,
+  /** Higher priority wins within a difficulty tier; ties use a stable model ID. */
+  weight: z.number().int().min(1).max(1_000),
+})
+export const agentDispatchCandidatesSchema = z
+  .array(agentModelCandidateSchema)
+  .max(32)
+  .superRefine((items, context) => {
+    const keys = items.map((item) => `${item.difficulty}\u0000${item.modelId}`)
+    if (new Set(keys).size !== keys.length)
+      context.addIssue({ code: 'custom', message: 'A model can occur only once per difficulty tier' })
+  })
+export const agentPolicySnapshotSchema = z.strictObject({
+  parentSessionId: idSchema,
+  candidates: agentDispatchCandidatesSchema,
+  revisions: z.record(z.string(), z.number().int().nonnegative()),
+  sourceLayer: z.string().min(1),
+  inherited: z.boolean(),
+})
+export const agentPolicySetInputSchema = z.strictObject({
+  parentSessionId: idSchema,
+  /** Null restores the workspace/global policy; an empty list disables automatic selection here. */
+  candidates: agentDispatchCandidatesSchema.nullable(),
+  baselineRevisions: z.record(z.string(), z.number().int().nonnegative()),
+})
 /** Current independent Session choices; model may be unset on a legacy parent. */
 export const agentSessionConfigurationSchema = z.strictObject({
   modelId: idSchema.nullable(),
@@ -43,6 +72,14 @@ export const agentSessionConfigurationSchema = z.strictObject({
 export const agentDispatchConfigurationSchema = agentSessionConfigurationSchema.extend({
   modelId: idSchema,
   thinkingLevel: thinkingLevelSchema,
+  selection: z
+    .strictObject({
+      difficulty: agentTaskDifficultySchema,
+      weight: z.number().int().min(1).max(1_000),
+      sourceLayer: z.string().min(1),
+      candidateCount: z.number().int().min(1).max(32),
+    })
+    .optional(),
   sources: z.strictObject({
     model: z.enum(['parent', 'override', 'policy']),
     thinking: z.enum(['parent', 'override', 'default', 'policy']),
@@ -89,6 +126,7 @@ export const agentCreateInputSchema = z
     objective: z.string().trim().min(1).max(4_000),
     profileId: agentProfileIdSchema.optional(),
     modelId: idSchema.optional(),
+    difficulty: agentTaskDifficultySchema.optional(),
     title: z.string().trim().min(1).max(160).optional(),
     tokenBudget: z.number().int().positive().max(1_000_000_000).optional(),
     thinkingLevel: thinkingLevelSchema.optional(),
@@ -101,6 +139,9 @@ export const agentCreateInputSchema = z
   })
   .refine((value) => !(value.patchTask && value.reviewTask), {
     message: 'patchTask and reviewTask are mutually exclusive',
+  })
+  .refine((value) => !(value.difficulty && (value.modelId || value.thinkingLevel)), {
+    message: 'Automatic difficulty selection cannot be combined with explicit model or effort',
   })
   .refine((value) => !(value.profileId && (value.patchTask || value.reviewTask)), {
     message: 'profileId cannot be combined with workflow-scoped tasks',
@@ -130,6 +171,16 @@ const metadata = (id: string, kind: 'command' | 'query') => ({
 })
 
 export const agentCommands = {
+  'agent.policy.get': defineCommand(
+    metadata('agent.policy.get', 'query'),
+    z.strictObject({ parentSessionId: idSchema }),
+    agentPolicySnapshotSchema,
+  ),
+  'agent.policy.set': defineCommand(
+    { ...metadata('agent.policy.set', 'command'), idempotency: 'required' },
+    agentPolicySetInputSchema,
+    agentPolicySnapshotSchema,
+  ),
   'agent.profiles.list': defineCommand(
     metadata('agent.profiles.list', 'query'),
     z.strictObject({}),
@@ -220,3 +271,7 @@ export type AgentCreateInput = z.output<typeof agentCreateInputSchema>
 export type AgentPatchTask = z.output<typeof agentPatchTaskSchema>
 export type AgentReviewTask = z.output<typeof agentReviewTaskSchema>
 export type AgentPage = z.output<typeof agentPageSchema>
+export type AgentModelCandidate = z.output<typeof agentModelCandidateSchema>
+export type AgentTaskDifficulty = z.output<typeof agentTaskDifficultySchema>
+export type AgentPolicySnapshot = z.output<typeof agentPolicySnapshotSchema>
+export type AgentPolicySetInput = z.output<typeof agentPolicySetInputSchema>

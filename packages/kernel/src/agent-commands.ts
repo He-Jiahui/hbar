@@ -14,6 +14,19 @@ export function createAgentCommands(service: AgentService) {
     }
   }
   registry.register(agentCommands['agent.profiles.list'], () => [...agentProfileIdSchema.options])
+  registry.register(agentCommands['agent.policy.get'], ({ parentSessionId }) =>
+    translate(() => service.policy(parentSessionId)),
+  )
+  registry.register(
+    agentCommands['agent.policy.set'],
+    (input, context) =>
+      translate(() => {
+        if (!context.actorId || !context.idempotencyKey)
+          throw new HbarError('INVALID_INPUT', 'Authenticated actor and key are required')
+        return service.setPolicy(input, { actorId: context.actorId, idempotencyKey: context.idempotencyKey })
+      }),
+    { durable: true },
+  )
   registry.register(
     agentCommands['agent.create'],
     (input, context) =>
