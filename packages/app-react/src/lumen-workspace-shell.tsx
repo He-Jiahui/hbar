@@ -75,7 +75,7 @@ import {
   type WorkspaceHeaderOrganizationLabels,
 } from './workspace-header-sort-menu'
 import { buildSidebarTimeGroups, type SidebarTimeGroupId } from './sidebar-time-groups'
-import { SidebarTimeView } from './sidebar-time-view'
+import { SidebarTimeView, type SidebarTimeProject } from './sidebar-time-view'
 import {
   WorkspaceDisplayNameDialog,
   WorkspaceDisplayNameFeedback,
@@ -1484,6 +1484,24 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                         <SidebarTimeView
                           groups={timeGroups}
                           labels={props.labels.sort.time.groups}
+                          projectForSession={(sessionId): SidebarTimeProject | null => {
+                            const item = timelineById.get(sessionId)
+                            const workspace = item ? directory.workspaces[item.workspaceId] : undefined
+                            return workspace
+                              ? {
+                                  id: workspace.id,
+                                  label: workspaceDisplayName(workspace, displayNames.snapshot),
+                                }
+                              : null
+                          }}
+                          renderProject={(project) => (
+                            <LumenFrame className="hbar-app-react-sidebar-time-project-line">
+                              <WorkspaceShellIcon name="folder" tier="sm" />
+                              <LumenText size="s" variant="label" title={project.label}>
+                                {project.label}
+                              </LumenText>
+                            </LumenFrame>
+                          )}
                           renderSession={(sessionId) => {
                             const item = timelineById.get(sessionId)
                             const session = directory.sessions[sessionId]
@@ -1578,6 +1596,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                             as="section"
                             key={workspace.id}
                             data-workspace-id={workspace.id}
+                            data-sidebar-level="project"
                             {...projectReorder.sectionProps(workspace.id)}
                           >
                             <LumenFrame className="hbar-app-react-workspace-line">
@@ -1757,7 +1776,11 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                               connected={connected}
                             />
                             {isExpanded && (
-                              <LumenFrame className="hbar-app-react-session-list">
+                              <LumenFrame
+                                className="hbar-app-react-session-list"
+                                data-sidebar-level="parent-sessions"
+                                role="group"
+                              >
                                 {(!activitySessions || activitySessions.status === 'loading') &&
                                 sessions.length === 0 ? (
                                   <LumenText as="p">{props.labels.loading}</LumenText>

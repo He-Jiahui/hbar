@@ -85,11 +85,16 @@ test('Agent branch renders localized empty, one, boundary and overflow states in
           </HbarRuntimeProvider>,
         )
         expect(html).toContain('aria-expanded="true"')
+        expect(html).toContain('data-sidebar-level="parent-session"')
+        expect(html).toContain('data-sidebar-depth="2"')
         expect(html.match(/data-agent-parent=/g)).toHaveLength(Math.min(count, 128) + 1)
         if (count === 0) expect(html).toContain(copy.agentTree.empty)
         else {
           expect(html).toContain(copy.agentTree.noResponse)
           expect(html).toContain('data-agent-parent="child-000"')
+          expect(html).toContain('data-sidebar-level="subagent-session"')
+          expect(html).toContain('data-sidebar-level="subagent-sessions"')
+          expect(html).toContain('data-sidebar-depth="3"')
           expect(html.match(/<time/g)).toHaveLength(1) // only the parent uses its ordinary update time
         }
         if (count === 129) expect(html).toContain(copy.agentTree.capacity)
@@ -156,6 +161,8 @@ test('Deep Agent ancestry retains semantic parent groups without unbounded visua
       </HbarRuntimeProvider>,
     )
     expect(html.match(/data-agent-parent=/g)).toHaveLength(32)
+    expect(html).toContain('data-sidebar-level="parent-session"')
+    expect(html).toContain('data-sidebar-level="subagent-session"')
     expect(html.match(/data-flat-depth="false"/g)).toHaveLength(3)
     expect(html.match(/data-flat-depth="true"/g)).toHaveLength(28)
     expect(html).toContain('data-agent-parent="deep-30"')

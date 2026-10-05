@@ -95,7 +95,12 @@ function Branch({
       : []
   })
   return (
-    <LumenFrame className="hbar-app-react-agent-branch" data-agent-parent={session.id}>
+    <LumenFrame
+      className="hbar-app-react-agent-branch"
+      data-agent-parent={session.id}
+      data-sidebar-level={path.length === 0 ? 'parent-session' : 'subagent-session'}
+      data-sidebar-depth={path.length + 2}
+    >
       <LumenFrame className="hbar-app-react-agent-branch-line">
         {hasChildren ? (
           <LumenButton
@@ -144,6 +149,7 @@ function Branch({
           id={groupId}
           className="hbar-app-react-agent-branch-children"
           data-flat-depth={nextPath.length >= 4}
+          data-sidebar-level="subagent-sessions"
           role="group"
           aria-label={treeLabels.children(session.title)}
         >

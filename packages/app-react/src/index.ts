@@ -11,7 +11,7 @@ export {
   type WorkspaceHeaderOrganization,
   type WorkspaceOrganizationMode,
 } from './workspace-header-sort-menu'
-export { SidebarTimeView, type SidebarTimeViewProps } from './sidebar-time-view'
+export { SidebarTimeView, type SidebarTimeProject, type SidebarTimeViewProps } from './sidebar-time-view'
 export { buildSidebarTimeGroups, type SidebarTimeGroup, type SidebarTimeGroupId } from './sidebar-time-groups'
 export { WorkspaceDisplayNameDialog, WorkspaceDisplayNameFeedback } from './workspace-display-names'
 export type {
