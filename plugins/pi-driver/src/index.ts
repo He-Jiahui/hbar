@@ -9,6 +9,7 @@ import type {
   Message as PiMessage,
   Model,
   SimpleStreamOptions,
+  ThinkingLevelMap,
   Usage as PiUsage,
 } from '@earendil-works/pi-ai'
 import { streamSimple as openaiCompletions } from '@earendil-works/pi-ai/api/openai-completions'
@@ -17,6 +18,7 @@ import { streamSimple as anthropicMessages } from '@earendil-works/pi-ai/api/ant
 import { z } from 'zod'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import { createUsageFact } from '@hbar/usage'
+import { DEFAULT_THINKING_LEVELS, normalizeThinkingLevel } from '@hbar/contracts'
 import type { DriverInput, HarnessDriver, ModelRequest, ToolResultContent } from '@hbar/plugin-sdk'
 import type { ContentBlock, Message, ProviderConfig, ThinkingLevel, Usage } from '@hbar/contracts'
 import { appendProviderContext, splitModelContext } from './model-context'
@@ -40,6 +42,11 @@ const normalizeUsage = (usage: PiUsage): Usage => ({
   cost: usage.cost.total,
 })
 function modelOf(config: ProviderConfig): Model<Api> {
+  // Custom OpenAI providers are not in Pi's model catalogue. Without the Host
+  // capability map Pi silently clamps xhigh/max to high and assumes off is valid.
+  const thinkingLevelMap: ThinkingLevelMap = {}
+  for (const level of DEFAULT_THINKING_LEVELS)
+    thinkingLevelMap[level] = config.thinkingLevels.includes(level) ? (level === 'off' ? 'none' : level) : null
   return {
     id: config.model,
     name: config.name,
@@ -47,6 +54,7 @@ function modelOf(config: ProviderConfig): Model<Api> {
     api: config.protocol === 'mock' ? 'openai-completions' : config.protocol,
     baseUrl: config.baseUrl,
     reasoning: config.reasoning,
+    ...(config.protocol === 'openai-responses' || config.protocol === 'openai-completions' ? { thinkingLevelMap } : {}),
     input: config.imageInput ? ['text', 'image'] : ['text'],
     cost: { input: config.inputPrice, output: config.outputPrice, cacheRead: 0, cacheWrite: 0 },
     contextWindow: config.contextWindow,
@@ -186,11 +194,12 @@ function streamProvider(
   context: PiContext,
   apiKey: string | null,
   signal: AbortSignal,
-  thinking: ThinkingLevel = 'off',
+  thinking: ThinkingLevel | undefined = undefined,
   runtimeContext = '',
   sessionId?: string,
 ): AssistantMessageEventStream {
   const model = modelOf(config)
+  const reasoning = normalizeThinkingLevel(config, thinking)
   const options: SimpleStreamOptions = {
     apiKey: apiKey ?? 'hbar-keyless-local-provider',
     signal,
@@ -200,7 +209,7 @@ function streamProvider(
     ...(config.protocol === 'openai-responses' || config.protocol === 'openai-completions'
       ? { samplingParams: { parallel_tool_calls: true } }
       : {}),
-    ...(thinking !== 'off' ? { reasoning: thinking as Exclude<ThinkingLevel, 'off'> } : {}),
+    ...(reasoning !== 'off' ? { reasoning } : {}),
     ...(runtimeContext && (config.protocol === 'openai-responses' || config.protocol === 'openai-completions')
       ? {
           onPayload: (payload: unknown) =>
@@ -517,7 +526,7 @@ export class PiDriver implements HarnessDriver {
       },
       apiKey,
       signal,
-      'off',
+      request.context?.thinking,
       '',
       request.context?.sessionId,
     )

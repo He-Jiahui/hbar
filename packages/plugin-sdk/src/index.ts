@@ -18,6 +18,7 @@ import type {
   ThreadGoal,
   PlanState,
   RunMode,
+  ThinkingLevel,
   GoalStatus,
   PlanStep,
   SessionBudget,
@@ -202,6 +203,8 @@ export interface ModelRequest {
     sessionId: string
     runId?: string | undefined
     mode?: RunMode | undefined
+    /** Pinned Run effort, including internal compaction requests. Omission uses the model default. */
+    thinking?: ThinkingLevel | undefined
     source?: import('@hbar/contracts').RunSource | undefined
   }
 }

@@ -44,6 +44,7 @@ import type {
   SettingsSnapshot,
   AutomationState,
   TaskNotificationKind,
+  ThinkingLevel,
 } from '@hbar/contracts'
 import { definePlugin, prependModelInstructions, provide } from '@hbar/plugin-sdk'
 import type {
@@ -1557,6 +1558,7 @@ export class Kernel {
                 run.id,
                 workspaceForRun,
                 supportsSteering ? initialCommit.message.seq : undefined,
+                run.input.thinking,
               )
               request = await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext)
             }
@@ -1713,6 +1715,7 @@ export class Kernel {
       model,
       context: {
         sessionId,
+        thinking: normalizeThinkingLevel(model, run?.input.thinking),
         ...(run ? { runId: run.id } : {}),
         ...(run ? { mode: this.plugins.get<ModeService>('mode').effectiveMode(run) } : {}),
         ...(run?.input.source ? { source: run.input.source } : {}),
@@ -2282,6 +2285,7 @@ export class Kernel {
     runId?: string,
     workspaceOverride?: Workspace,
     protectedInitialSeq?: number,
+    thinking?: ThinkingLevel,
   ) {
     const request = await this.buildRequest(sessionId, model, this.hooks, undefined, workspaceOverride)
     const retain = this.plugins.get<CompactionProvider>('compaction').retainMessages
@@ -2300,6 +2304,12 @@ export class Kernel {
       ...request,
       system: `Summarize the conversation faithfully. Preserve objectives, files, tool outcomes, constraints, and unresolved work. Do not execute tools.\n${request.system}`,
       messages: older,
+      context: {
+        ...request.context,
+        sessionId,
+        ...(runId ? { runId } : {}),
+        thinking: normalizeThinkingLevel(model, thinking),
+      },
     }
     const attemptId = crypto.randomUUID()
     await this.append(
