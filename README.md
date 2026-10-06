@@ -48,13 +48,14 @@ Host 显示可用的局域网/VPN IPv4 地址。手机访问对应地址并配�
 bun run dev --demo
 # Vite 和 Host 会在启动时各自选择空闲的 127.0.0.1 端口，终端会打印实际地址
 
-bun run desktop
+bun run desktop:dev
+# Tauri + Vite + React：直接运行源码，不构建或发布安装包
 bun run desktop:build
 ```
 
-桌面命令需要在 VS x64 开发环境中执行。开发桌面使用 `.dev/desktop` 和 Local fixture；安装版默认使用用户目录下的 `.hbar`，不自动启用假模型。
+桌面命令需要在 VS x64 开发环境中执行。开发桌面使用 `.dev/desktop-live` 和 Local fixture；安装版默认使用用户目录下的 `.hbar`，不自动启用假模型。开发入口与[热更新说明](docs/desktop-live-development.md)包含监听范围、端口、数据目录和退出方式。
 
-Tauri 启动独立 Bun 进程，关闭窗口隐藏到托盘；退出桌面也不会终止 Host。安装包将 Bun、Host、Storage Worker 和网页资源一起打包。使用独立 Host 与桌面连接同一个数据目录时，先运行 `bun run host --desktop --home <目录> ...`，再通过 `HBAR_HOME` 指向该目录启动桌面；桌面通过本地 `connection.json` 与实例 ID 校验复用 Host。
+Tauri 启动或连接独立 Bun 进程，关闭窗口可以隐藏到托盘；开发进程退出时回收其启动的服务。安装包将 Bun、Host、Storage Worker 和网页资源一起打包。使用独立 Host 与安装桌面连接同一个数据目录时，先运行 `bun run host --desktop --home <目录> ...`，再通过 `HBAR_HOME` 指向该目录启动桌面；安装桌面通过本地 `connection.json` 与实例 ID 校验复用 Host。
 
 每个数据目录只允许一个 Host。可通过不同 `--home` 和 `--port` 运行多个互相独立的实例。停止前台 Host 使用 Ctrl+C；后台 Host 的 PID 记录在其数据目录的 `host.lock`。
 

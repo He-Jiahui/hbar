@@ -303,6 +303,11 @@ fn should_exit_service() -> bool {
 }
 
 fn stop_host(pid: Option<u32>) {
+    // The source-development launcher owns the watch process tree. A captured
+    // Host PID can become stale after reload; let that launcher release it.
+    if cfg!(debug_assertions) && std::env::var("HBAR_DESKTOP_DEV").as_deref() == Ok("1") {
+        return;
+    }
     let Some(pid) = pid else { return };
     #[cfg(windows)]
     {
@@ -1036,12 +1041,6 @@ fn main() {
                 .append_pair("hbar-native", "1")
                 .append_pair("hbar-platform", platform)
                 .append_pair("hbar-material", material);
-            if development_web_url().is_some() {
-                web_url
-                    .query_pairs_mut()
-                    .append_pair("hbarHost", &connection.url)
-                    .append_pair("hbarToken", &connection.token);
-            }
             let host_pid = connection.pid;
             app.manage(UiZoomPath(
                 data_root.join("settings").join("desktop-ui-zoom.json"),

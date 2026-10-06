@@ -38,7 +38,10 @@ applyLumenAppearance(
 
 const root = document.getElementById('root')
 if (!root) throw new Error('Missing application root')
-const nativeConnection = await loadNativeConnection(window, window.location.origin).catch((error: unknown) => {
+const developmentHostOrigin: unknown = import.meta.env.HBAR_NATIVE_HOST_ORIGIN
+const expectedHostOrigin =
+  import.meta.env.DEV && typeof developmentHostOrigin === 'string' ? developmentHostOrigin : window.location.origin
+const nativeConnection = await loadNativeConnection(window, expectedHostOrigin).catch((error: unknown) => {
   console.error('Unable to read the native hbar connection', error)
   return null
 })
