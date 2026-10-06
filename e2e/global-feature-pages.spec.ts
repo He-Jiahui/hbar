@@ -2,7 +2,8 @@ import { expect, test, type Page } from '@playwright/test'
 import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
-import { globalFeatureCopy } from '../apps/web/src/global-feature-copy'
+import { globalFeatureCopy, globalFeaturePageIds } from '../apps/web/src/global-feature-copy'
+import { notificationCopy } from '../apps/web/src/notification-copy'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { openSessionTool } from './support/session-tools-menu'
@@ -50,9 +51,14 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await prompt.fill(draft)
       for (const width of [1440, 960, 320]) {
         await page.setViewportSize({ width, height: 900 })
-        for (const pageId of ['run-board', 'schedules', 'prompt-templates', 'onboarding'] as const) {
+        for (const pageId of globalFeaturePageIds) {
           await showNavigation(page, locale)
-          await page.getByRole('button', { name: labels.titles[pageId], exact: true }).click()
+          const entry =
+            pageId === 'notifications'
+              ? page.getByRole('button', { name: notificationCopy(locale).bell(0), exact: true })
+              : page.getByRole('button', { name: labels.titles[pageId], exact: true })
+          await entry.focus()
+          await page.keyboard.press('Enter')
           const feature = page.locator(`[data-global-page="${pageId}"]`)
           await expect(feature).toBeVisible()
           await expect(feature).toBeInViewport()
@@ -65,13 +71,18 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
             await expect(
               feature
                 .locator('.hbar-web-global-page-body')
-                .getByRole('heading', { name: labels.titles[pageId], exact: true })
+                .getByRole('heading', {
+                  name: pageId === 'notifications' ? notificationCopy(locale).title : labels.titles[pageId],
+                  exact: true,
+                })
                 .first(),
             ).toBeVisible()
           await expect(prompt).toHaveCount(0)
           await expect(page.locator('.hbar-web-tool-outlet')).toHaveCount(0)
           await expect(page.getByRole('dialog')).toHaveCount(0)
-          await expect(page.getByRole('tab', { selected: true })).toHaveCount(0)
+          const sessionTabs = page.locator('.hbar-workspace-tabs-region')
+          if (width >= 1024) await expect(sessionTabs.getByRole('tab')).toHaveCount(1)
+          await expect(sessionTabs.getByRole('tab', { selected: true })).toHaveCount(0)
           const region = page.getByRole('region', { name: labels.titles[pageId], exact: true })
           await expect(region).toBeFocused()
           expect(
@@ -79,6 +90,8 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
           ).toBe(true)
           if (pageId === 'schedules')
             await page.screenshot({ path: testInfo.outputPath(`global-schedules-${width}.png`) })
+          if (pageId === 'notifications')
+            await page.screenshot({ path: testInfo.outputPath(`global-notifications-${width}.png`) })
           const back = feature.getByRole('button', { name: labels.back, exact: true })
           await back.focus()
           await page.keyboard.press('Enter')

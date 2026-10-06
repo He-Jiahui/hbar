@@ -1,0 +1,17 @@
+.hbar-web-notification-navigation {
+  display: flex;
+  align-items: center;
+}
+
+.hbar-web-notification-page-button {
+  gap: 0.375rem;
+}
+
+.hbar-web-notification-count {
+  padding: 0.0625rem 0.375rem;
+  border-radius: 1rem;
+  background: var(--lumen-surface);
+  border: 0.0625rem solid var(--lumen-edge);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}

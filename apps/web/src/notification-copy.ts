@@ -1,5 +1,14 @@
 import type { HbarNotificationsLabels } from '@hbar/app-react'
 import type { ShellLocale } from './shell-copy'
+import type { NotificationPageButtonLabels } from './NotificationPageButton'
+
+export function notificationNavigationCopy(locale: ShellLocale): NotificationPageButtonLabels {
+  const formatter = new Intl.NumberFormat(locale)
+  return {
+    bell: notificationCopy(locale).bell,
+    count: (count) => (count > 99 ? '99+' : formatter.format(count)),
+  }
+}
 
 export function notificationCopy(locale: ShellLocale): HbarNotificationsLabels {
   const zh = locale === 'zh-CN'

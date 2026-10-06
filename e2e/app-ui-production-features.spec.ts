@@ -345,15 +345,10 @@ test.describe('production app-ui feature surfaces', () => {
       const bell = page.getByRole('button', { name: /^Notifications, \d+ unread$/ })
       await expect(bell).toBeVisible()
       await bell.click()
-      const bellDialog = page.getByRole('dialog', { name: notificationLabels.title })
-      await expect(bellDialog).toBeVisible()
-      const bellDialogBox = await bellDialog.boundingBox()
-      expect(bellDialogBox).not.toBeNull()
-      if (bellDialogBox) {
-        expect(bellDialogBox.x).toBeGreaterThanOrEqual(0)
-        expect(bellDialogBox.x + bellDialogBox.width).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth))
-      }
-      await bellDialog.getByRole('button', { name: notificationLabels.title, exact: true }).click()
+      await expect(page.locator('[data-global-page="notifications"]')).toBeVisible()
+      await expect(page.getByRole('dialog')).toHaveCount(0)
+      await expect(page.locator('.hbar-web-tool-outlet')).toHaveCount(0)
+      await expect(bell).toHaveAttribute('aria-current', 'page')
       await expect(page.getByRole('heading', { name: notificationLabels.title }).first()).toBeVisible()
       await expect(page.getByText(/Run completed|Run failed/).first()).toBeVisible()
       await page
@@ -367,6 +362,8 @@ test.describe('production app-ui feature surfaces', () => {
         .poll(async () => (await notificationClient.page({ after: null, limit: 40, unreadOnly: false })).unreadCount)
         .toBe(0)
       await expect(page.getByRole('button', { name: /^Mark Run (completed|failed) read$/ })).toHaveCount(0)
+      await expect(bell).toHaveAttribute('aria-label', notificationLabels.bell(0))
+      await expect(bell.locator('.hbar-web-notification-count')).toHaveCount(0)
       await page
         .getByRole('button', { name: /^Open Run (completed|failed)$/ })
         .first()
@@ -374,7 +371,6 @@ test.describe('production app-ui feature surfaces', () => {
       await expect(page.getByRole('heading', { name: notificationLabels.title }).first()).toHaveCount(0)
       await expect(page.locator(`[data-session-id="${host.ready.sessionId}"]`)).toHaveAttribute('data-selected', 'true')
       await bell.click()
-      await bellDialog.getByRole('button', { name: notificationLabels.title, exact: true }).click()
       await page.getByRole('button', { name: notificationLabels.preferencesTab, exact: true }).click()
       const desktop = page.getByRole('switch').first()
       await expect(desktop).toBeVisible()
@@ -385,8 +381,8 @@ test.describe('production app-ui feature surfaces', () => {
       const reloadedBell = page.getByRole('button', { name: /^Notifications, \d+ unread$/ })
       await expect(reloadedBell).toBeVisible()
       await reloadedBell.click()
-      const reloadedDialog = page.getByRole('dialog', { name: notificationLabels.title })
-      await reloadedDialog.getByRole('button', { name: notificationLabels.title, exact: true }).click()
+      await expect(page.locator('[data-global-page="notifications"]')).toBeVisible()
+      await expect(page.getByRole('dialog')).toHaveCount(0)
       await page.getByRole('button', { name: notificationLabels.preferencesTab, exact: true }).click()
       await expect(page.getByRole('switch').first()).toHaveAttribute(
         'aria-checked',

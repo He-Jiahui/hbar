@@ -6,20 +6,6 @@
   flex-direction: column;
 }
 
-/* The feature actions live in the left sidebar. Keep the trigger-relative
-   notification overlay inside the viewport instead of aligning its wide panel
-   to the sidebar's right edge and clipping it at the surface boundary. */
-.hbar-web-feature-navigation .lumen-notifications-surface {
-  block-size: auto;
-  flex: 0 0 auto;
-  overflow: visible;
-}
-
-.hbar-web-feature-navigation .lumen-notifications-inline-bell {
-  --lumen-bell-popover-inline-start: 0;
-  --lumen-bell-popover-inline-end: auto;
-}
-
 .hbar-web-tool-layout-feedback {
   display: flex;
   min-inline-size: 0;

@@ -16,7 +16,6 @@ import {
   HbarSessionLaunchLocation,
   HbarSessionWorkspace,
   HbarWorkspaceShell,
-  HbarNotifications,
   HbarDesktopLayoutProjection,
   type HbarFlexLayoutGeometry,
   useHbarRuntime,
@@ -137,7 +136,8 @@ import { applyWebTheme, readThemeBootstrap, readThemePreference, resolveWebTheme
 import './App.css'
 import { NotificationDesktopBridge } from './NotificationDesktopBridge'
 import { lazySurface, LazySurfaceBoundary, lazySurfaceCopy } from './lazy-surface'
-import { notificationCopy } from './notification-copy'
+import { notificationNavigationCopy } from './notification-copy'
+import { NotificationPageNavigation } from './NotificationPageButton'
 import { navigateNotification } from './notification-navigation'
 const SchedulesPage = lazySurface<ComponentProps<typeof import('./schedules-page').SchedulesPage>>(() =>
   import('./schedules-page').then((module) => ({ default: module.SchedulesPage })),
@@ -1190,7 +1190,13 @@ function WorkspaceSchedulesPage({
   )
 }
 
-function WorkspacePromptTemplatesPage({ locale, workspaceId }: { readonly locale: ShellLocale; readonly workspaceId?: string }) {
+function WorkspacePromptTemplatesPage({
+  locale,
+  workspaceId,
+}: {
+  readonly locale: ShellLocale
+  readonly workspaceId?: string
+}) {
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   if (!workspaceId) return null
@@ -1216,7 +1222,7 @@ function FeatureNavigation({
   const labels = globalFeatureCopy(locale)
   const runtime = useHbarRuntime()
   const presentation = useHbarRuntimeState(runtime.state.presentation)
-  const notificationLabels = useMemo(() => notificationCopy(locale), [locale])
+  const notificationLabels = notificationNavigationCopy(locale)
   const items = [
     { id: 'run-board' as const, label: labels.titles['run-board'] },
     { id: 'schedules' as const, label: labels.titles.schedules },
@@ -1237,17 +1243,10 @@ function FeatureNavigation({
           {item.label}
         </LumenButton>
       ))}
-      <HbarNotifications
-        runtime={runtime.state.notifications.runtime}
+      <NotificationPageNavigation
         labels={notificationLabels}
-        variant={6}
-        onOpenCenter={() => onOpen('notifications')}
-        onNavigate={(target) =>
-          navigateNotification(target, {
-            commands: runtime.commands,
-            getSchedule: (id) => runtime.state.schedules?.get(id) ?? Promise.resolve(null),
-          })
-        }
+        selected={presentation.page.kind === 'notifications'}
+        onOpen={() => onOpen('notifications')}
       />
     </LumenFrame>
   )

@@ -6,6 +6,7 @@ import type { ShellLocale } from './shell-copy'
 import { notificationCopy } from './notification-copy'
 import { createNativeNotificationPort, type NativeNotificationPort } from './native-notifications'
 import { requestNotificationDesktopPermission } from './notification-desktop-delivery'
+import './notifications-page.css'
 
 export interface NotificationsPageProps {
   readonly runtime: HbarRuntimeView
@@ -73,7 +74,7 @@ export function NotificationsPage({ runtime, locale, onNavigate, variant = 1, na
   }
   const atCapacity = state.items.length >= 400
   return (
-    <LumenFrame aria-busy={state.status === 'loading'}>
+    <LumenFrame className="hbar-web-notifications-page" aria-busy={state.status === 'loading'}>
       {state.error ? (
         <LumenText role="alert" tone="danger">
           {state.error}
@@ -96,8 +97,12 @@ export function NotificationsPage({ runtime, locale, onNavigate, variant = 1, na
         </LumenButton>
       ) : null}
       <LumenFrame as="nav" aria-label={labels.filters}>
-        <LumenButton onClick={() => setTab(1)}>{labels.centerTab}</LumenButton>
-        <LumenButton onClick={() => setTab(3)}>{labels.preferencesTab}</LumenButton>
+        <LumenButton aria-pressed={tab === 1} onClick={() => setTab(1)}>
+          {labels.centerTab}
+        </LumenButton>
+        <LumenButton aria-pressed={tab === 3} onClick={() => setTab(3)}>
+          {labels.preferencesTab}
+        </LumenButton>
       </LumenFrame>
       {nativePort.isAvailable ? (
         <LumenFrame>
