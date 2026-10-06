@@ -209,6 +209,8 @@ import { createWorkspaceOrganization, workspaceOrganizationClientCommands } from
 export { workspaceOrganizationClientCommands } from './workspace-organization'
 export type { WorkspaceOrganizationState, WorkspaceOrganizationAction } from './workspace-organization'
 import { createWorkspaceDisplayNames, workspaceDisplayNamesClientCommands } from './workspace-display-names'
+import { createWorkspaceFolders, workspaceFoldersClientCommands } from './workspace-folders'
+export { workspaceFoldersClientCommands, type WorkspaceFoldersState } from './workspace-folders'
 export { workspaceDisplayNamesClientCommands, workspaceDisplayName } from './workspace-display-names'
 export type {
   WorkspaceDisplayNamesState,
@@ -446,6 +448,7 @@ const runtimeCommands = {
   ...sessionAgentTreeCommands,
   ...workspaceOrganizationClientCommands,
   ...workspaceDisplayNamesClientCommands,
+  ...workspaceFoldersClientCommands,
   ...agentChildNavigationCommands,
   ...sessionMessageForkCommands,
   ...preSessionLaunchBranchesCommands,
@@ -1317,6 +1320,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(sessionAgentTreeCommands, name) ||
         Object.hasOwn(workspaceOrganizationClientCommands, name) ||
         Object.hasOwn(workspaceDisplayNamesClientCommands, name) ||
+        Object.hasOwn(workspaceFoldersClientCommands, name) ||
         Object.hasOwn(surfaceCommands, name)
         ? local.execute(name, input, execution)
         : remote.execute(name, input, execution)
@@ -1344,6 +1348,23 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
   )
+  const workspaceFolders = createWorkspaceFolders(local, {
+    host: options.workspaces,
+    onSubscriberError,
+    onCreated: async (result, entry) => {
+      if (entry.draftId) {
+        const draft = preSessionDrafts.reader.getSnapshot()[entry.draftId]
+        if (!draft) throw new CommandError('NOT_FOUND', 'Original entry draft is unavailable')
+        if (entry.draftRevision !== undefined && draft.revision !== entry.draftRevision)
+          throw new CommandError('COMMAND_CONFLICT', 'Original entry draft changed while configuring folders')
+        await local.execute('preSessionDraft.setWorkspace', {
+          draftId: entry.draftId, workspaceId: result.workspace.id, expectedRevision: draft.revision,
+        })
+      } else if (entry.createSession) {
+        await executor.execute('app.createSession', { workspaceId: result.workspace.id })
+      } else await local.execute('app.setWorkspace', { workspaceId: result.workspace.id })
+    },
+  })
   const view = Object.freeze({
     instanceId: options.instanceId,
     hostId: options.hostId,
@@ -1358,6 +1379,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       workspaceOrganization: workspaceOrganization.reader,
       workspaceDisplayNames: workspaceDisplayNames.reader,
       workspaceDisplayNameSnapshot: workspaceDisplayNames.snapshotReader,
+      workspaceFolders: workspaceFolders.reader,
       messageFork: messageFork.reader,
       directory: directory.reader,
       forms: forms.reader,
@@ -1447,6 +1469,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       sessionAgentTree.dispose()
       workspaceOrganization.dispose()
       workspaceDisplayNames.dispose()
+      workspaceFolders.dispose()
 
       activityWorkspace.dispose()
       agentComposer.dispose()
