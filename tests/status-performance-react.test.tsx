@@ -73,8 +73,11 @@ test('performance dashboard renders bounded Host process and availability facts'
     expect(html).toContain('PLATFORM_UNSUPPORTED')
     expect(html).toContain('The current window has a data gap; 2 samples were skipped.')
     expect(html).toContain('CPU timeline')
+    expect(html).not.toContain('<select')
+    expect(html).toContain('role="combobox"')
     expect(html).toContain('lumen-compact-metrics')
-    expect(html).toContain('lumen-bar-series')
+    expect(html).toContain('aria-label="CPU timeline"')
+    expect(html).toContain('class="hbar-app-react-status-echarts"')
     expect(html).toContain('block-size:42%')
     const disclosures: { label: string; expanded: string | null; contentId: string | null }[] = []
     const hiddenContent = new Map<string, boolean>()

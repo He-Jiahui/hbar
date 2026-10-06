@@ -4,7 +4,6 @@ import {
   LumenCollection,
   LumenCollectionItem,
   LumenFrame,
-  LumenOption,
   LumenText,
   LumenButton,
   LumenActionMenu,
@@ -15,7 +14,7 @@ import {
   LumenIconButton,
   LumenNavigationButton,
   LumenPageHeader,
-  LumenSelect,
+  LumenPopupSelect,
   LumenMonitoring01,
   LumenUsage01,
   LumenUsage08,
@@ -359,6 +358,7 @@ export function HbarStatusWorkspace({
       workspaceDisplayName(left, displayNames).localeCompare(workspaceDisplayName(right, displayNames)) ||
       left.id.localeCompare(right.id),
   )
+  const selectedGitWorkspace = gitWorkspaces.find((workspace) => workspace.id === gitQuery?.workspaceId)
   const setGitQuery = (patch: Partial<StatusWorkspaceEntryState['gitQuery']>) => {
     if (!gitQuery?.workspaceId) return
     invoke('statusWorkspace.setGitQuery', { instanceId, ...gitQuery, ...patch })
@@ -528,44 +528,40 @@ export function HbarStatusWorkspace({
             aria-label={labels.performanceFilters.label}
           >
             <LumenFormField controlId="hbar-status-performance-window" label={labels.performanceFilters.timeWindow}>
-              <LumenSelect
+              <LumenPopupSelect
                 id="hbar-status-performance-window"
                 value={performanceQuery.window}
                 disabled={entry?.status === 'loading'}
-                onChange={(event) =>
+                options={(['2m', '15m', '1h'] as const).map((window) => ({
+                  id: window,
+                  label: labels.performanceFilters.windows[window],
+                }))}
+                onValueChange={(window) =>
                   invoke('statusWorkspace.setPerformanceQuery', {
                     instanceId,
-                    window: event.currentTarget.value,
+                    window,
                     target: performanceQuery.target,
                   })
                 }
-              >
-                {(['2m', '15m', '1h'] as const).map((window) => (
-                  <LumenOption key={window} value={window}>
-                    {labels.performanceFilters.windows[window]}
-                  </LumenOption>
-                ))}
-              </LumenSelect>
+              />
             </LumenFormField>
             <LumenFormField controlId="hbar-status-performance-target" label={labels.performanceFilters.target}>
-              <LumenSelect
+              <LumenPopupSelect
                 id="hbar-status-performance-target"
                 value={performanceQuery.target}
                 disabled={entry?.status === 'loading'}
-                onChange={(event) =>
+                options={(['all', 'system', 'host'] as const).map((target) => ({
+                  id: target,
+                  label: labels.performanceFilters.targets[target],
+                }))}
+                onValueChange={(target) =>
                   invoke('statusWorkspace.setPerformanceQuery', {
                     instanceId,
                     window: performanceQuery.window,
-                    target: event.currentTarget.value,
+                    target,
                   })
                 }
-              >
-                {(['all', 'system', 'host'] as const).map((target) => (
-                  <LumenOption key={target} value={target}>
-                    {labels.performanceFilters.targets[target]}
-                  </LumenOption>
-                ))}
-              </LumenSelect>
+              />
             </LumenFormField>
           </LumenFrame>
         </>
@@ -583,22 +579,17 @@ export function HbarStatusWorkspace({
           aria-label={labels.usage.filters}
         >
           <LumenFormField controlId="hbar-status-usage-scope" label={labels.usage.scope}>
-            <LumenSelect
+            <LumenPopupSelect
               id="hbar-status-usage-scope"
               value={usageQuery.scope}
               disabled={entry?.status === 'loading'}
-              onChange={(event) => setUsageQuery({ scope: event.currentTarget.value as typeof usageQuery.scope })}
-            >
-              {(['global', 'workspace', 'session'] as const).map((scope) => (
-                <LumenOption
-                  key={scope}
-                  value={scope}
-                  disabled={(scope === 'workspace' && !panel.workspaceId) || (scope === 'session' && !panel.sessionId)}
-                >
-                  {labels.usage.scopes[scope]}
-                </LumenOption>
-              ))}
-            </LumenSelect>
+              options={(['global', 'workspace', 'session'] as const).map((scope) => ({
+                id: scope,
+                label: labels.usage.scopes[scope],
+                disabled: (scope === 'workspace' && !panel.workspaceId) || (scope === 'session' && !panel.sessionId),
+              }))}
+              onValueChange={(scope) => setUsageQuery({ scope: scope as typeof usageQuery.scope })}
+            />
           </LumenFormField>
           {usageQuery.scope === 'session' && (
             <LumenCheckBox
@@ -609,66 +600,58 @@ export function HbarStatusWorkspace({
             />
           )}
           <LumenFormField controlId="hbar-status-usage-window" label={labels.usage.timeWindow}>
-            <LumenSelect
+            <LumenPopupSelect
               id="hbar-status-usage-window"
               value={usageQuery.window}
               disabled={entry?.status === 'loading'}
-              onChange={(event) => setUsageQuery({ window: event.currentTarget.value as typeof usageQuery.window })}
-            >
-              {(['1h', '24h', '7d', '30d'] as const).map((window) => (
-                <LumenOption key={window} value={window}>
-                  {labels.usage.windows[window]}
-                </LumenOption>
-              ))}
-            </LumenSelect>
+              options={(['1h', '24h', '7d', '30d'] as const).map((window) => ({
+                id: window,
+                label: labels.usage.windows[window],
+              }))}
+              onValueChange={(window) => setUsageQuery({ window: window as typeof usageQuery.window })}
+            />
           </LumenFormField>
           <HbarLumenDisclosure className="hbar-app-react-status-filter-details" label={labels.usage.advancedFilters}>
             <LumenFrame>
               <LumenFormField controlId="hbar-status-usage-aggregation" label={labels.usage.aggregation}>
-                <LumenSelect
+                <LumenPopupSelect
                   id="hbar-status-usage-aggregation"
                   value={usageQuery.aggregation}
                   disabled={entry?.status === 'loading'}
-                  onChange={(event) =>
-                    setUsageQuery({ aggregation: event.currentTarget.value as typeof usageQuery.aggregation })
+                  options={(['minute', 'hour', 'day'] as const).map((aggregation) => ({
+                    id: aggregation,
+                    label: labels.usage.aggregations[aggregation],
+                  }))}
+                  onValueChange={(aggregation) =>
+                    setUsageQuery({ aggregation: aggregation as typeof usageQuery.aggregation })
                   }
-                >
-                  {(['minute', 'hour', 'day'] as const).map((aggregation) => (
-                    <LumenOption key={aggregation} value={aggregation}>
-                      {labels.usage.aggregations[aggregation]}
-                    </LumenOption>
-                  ))}
-                </LumenSelect>
+                />
               </LumenFormField>
               <LumenFormField controlId="hbar-status-usage-provider" label={labels.usage.provider}>
-                <LumenSelect
+                <LumenPopupSelect
                   id="hbar-status-usage-provider"
                   value={usageQuery.providerId ?? ''}
                   disabled={entry?.status === 'loading'}
-                  onChange={(event) => setUsageQuery({ providerId: event.currentTarget.value || null, modelId: null })}
-                >
-                  <LumenOption value="">{labels.usage.allProviders}</LumenOption>
-                  {usageProviders.map((providerId) => (
-                    <LumenOption key={providerId} value={providerId}>
-                      {providerId}
-                    </LumenOption>
-                  ))}
-                </LumenSelect>
+                  options={[
+                    { id: '', label: labels.usage.allProviders },
+                    ...usageProviders.map((providerId) => ({ id: providerId, label: providerId })),
+                  ]}
+                  selectedLabel={usageQuery.providerId ?? undefined}
+                  onValueChange={(providerId) => setUsageQuery({ providerId: providerId || null, modelId: null })}
+                />
               </LumenFormField>
               <LumenFormField controlId="hbar-status-usage-model" label={labels.usage.modelFilter}>
-                <LumenSelect
+                <LumenPopupSelect
                   id="hbar-status-usage-model"
                   value={usageQuery.modelId ?? ''}
                   disabled={entry?.status === 'loading'}
-                  onChange={(event) => setUsageQuery({ modelId: event.currentTarget.value || null })}
-                >
-                  <LumenOption value="">{labels.usage.allModels}</LumenOption>
-                  {usageModels.map((modelId) => (
-                    <LumenOption key={modelId} value={modelId}>
-                      {modelId}
-                    </LumenOption>
-                  ))}
-                </LumenSelect>
+                  options={[
+                    { id: '', label: labels.usage.allModels },
+                    ...usageModels.map((modelId) => ({ id: modelId, label: modelId })),
+                  ]}
+                  selectedLabel={usageQuery.modelId ?? undefined}
+                  onValueChange={(modelId) => setUsageQuery({ modelId: modelId || null })}
+                />
               </LumenFormField>
             </LumenFrame>
           </HbarLumenDisclosure>
@@ -712,32 +695,36 @@ export function HbarStatusWorkspace({
           aria-label={labels.git.filters}
         >
           <LumenFormField controlId="hbar-status-git-repository" label={labels.git.repositoryFilter}>
-            <LumenSelect
+            <LumenPopupSelect
               id="hbar-status-git-repository"
               value={gitQuery.workspaceId}
               disabled={entry?.status === 'loading'}
-              onChange={(event) => setGitQuery({ workspaceId: event.currentTarget.value })}
-            >
-              {gitWorkspaces.map((workspace) => (
-                <LumenOption key={workspace.id} value={workspace.id}>
-                  {labels.git.workspaceOption(workspaceDisplayName(workspace, displayNames), workspace.path)}
-                </LumenOption>
-              ))}
-            </LumenSelect>
+              options={gitWorkspaces.map((workspace) => ({
+                id: workspace.id,
+                label: labels.git.workspaceOption(workspaceDisplayName(workspace, displayNames), workspace.path),
+              }))}
+              selectedLabel={
+                selectedGitWorkspace
+                  ? labels.git.workspaceOption(
+                      workspaceDisplayName(selectedGitWorkspace, displayNames),
+                      selectedGitWorkspace.path,
+                    )
+                  : gitQuery.workspaceId
+              }
+              onValueChange={(workspaceId) => setGitQuery({ workspaceId })}
+            />
           </LumenFormField>
           <LumenFormField controlId="hbar-status-git-window" label={labels.git.timeWindow}>
-            <LumenSelect
+            <LumenPopupSelect
               id="hbar-status-git-window"
               value={gitQuery.window}
               disabled={entry?.status === 'loading'}
-              onChange={(event) => setGitQuery({ window: event.currentTarget.value as typeof gitQuery.window })}
-            >
-              {(['7d', '30d', '90d', '1y'] as const).map((window) => (
-                <LumenOption key={window} value={window}>
-                  {labels.git.windows[window]}
-                </LumenOption>
-              ))}
-            </LumenSelect>
+              options={(['7d', '30d', '90d', '1y'] as const).map((window) => ({
+                id: window,
+                label: labels.git.windows[window],
+              }))}
+              onValueChange={(window) => setGitQuery({ window: window as typeof gitQuery.window })}
+            />
           </LumenFormField>
           <HbarLumenDisclosure className="hbar-app-react-status-filter-details" label={labels.git.advancedFilters}>
             <LumenFrame className="hbar-app-react-git-source-options" role="group" aria-label={labels.git.sources}>
