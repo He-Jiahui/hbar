@@ -12,7 +12,8 @@ import {
 } from 'react'
 import type { LumenConversationScrollTarget, LumenConversationScrollTargetResult } from '@lumen/app-ui'
 import type { ConversationReadingPosition, ConversationReadingTarget } from '@hbar/app-runtime'
-import type { HbarRuntimeView } from './runtime'
+import { useHbarRuntimeState, type HbarRuntimeView } from './runtime'
+import { sessionSearchHitBox } from './session-search-hit'
 
 const MAX_OLDER_PAGES = 17 // Existing timeline bound: 1,000 messages in 60-message pages.
 const READ_TIMEOUT_MS = 12_000
@@ -78,27 +79,48 @@ export function useSessionReadingPosition(options: ReadingOptions) {
   const workspaceId = target?.workspaceId
   const sessionId = target?.sessionId
   const sourceTabInstanceKey = target?.sourceTabInstanceKey
+  const requested = useHbarRuntimeState(runtime.conversationReading.navigation)
+  const latest = useRef(options)
+  latest.current = options
+  const completedNavigation = useRef<{ scope: string | null; revision: number } | null>(null)
   const ticket = useMemo(() => {
     if (!workspaceId || !sessionId || !sourceTabInstanceKey) return null
     const source = { workspaceId, sessionId, sourceTabInstanceKey }
-    const saved = runtime.conversationReading.read(source)
-    return saved && !saved.atEnd && saved.messageId
+    const intent =
+      requested.request && isConversationReadingOwner(latest.current, runtime, requested.request.target)
+        ? requested.request
+        : null
+    if (
+      !intent &&
+      completedNavigation.current?.scope === scope &&
+      completedNavigation.current.revision === requested.revision
+    )
+      return null
+    const position = intent?.position ?? runtime.conversationReading.read(source)
+    const messages = runtime.state.timeline.getSnapshot().messages
+    const latestAssistant = messages.findLast((message) => message.role === 'assistant')
+    const messageId =
+      intent?.position.atEnd && ready
+        ? (latestAssistant?.id ?? position?.messageId ?? messages.findLast((message) => message.role === 'user')?.id)
+        : position?.messageId
+    const saved = position && messageId ? { ...position, messageId } : null
+    return saved && (intent || !saved.atEnd)
       ? {
           scope,
           source,
           saved,
+          intent,
+          revision: requested.revision,
           scroll: {
             requestId: crypto.randomUUID(),
             scrollKey: sessionId,
             messageId: saved.messageId,
-            align: 'start' as const,
+            align: saved.atEnd ? ('end' as const) : ('start' as const),
           },
         }
       : null
     // A snapshot is captured once per reader identity; its own scroll writes must not restart restoration.
-  }, [runtime, scope, workspaceId, sessionId, sourceTabInstanceKey])
-  const latest = useRef(options)
-  latest.current = options
+  }, [runtime, scope, workspaceId, sessionId, sourceTabInstanceKey, requested, ready])
   const [finished, setFinished] = useState<string | null>(null)
   const finishedRequest = useRef<string | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
@@ -135,8 +157,15 @@ export function useSessionReadingPosition(options: ReadingOptions) {
       finishedRequest.current = ticket?.scroll.requestId ?? null
       setFinished(finishedRequest.current)
       setFailed(unavailable ? (ticket?.scroll.requestId ?? null) : null)
+      if (ticket?.intent && isConversationReadingOwner(latest.current, runtime, ticket.source)) {
+        const element = viewport.current
+        if (element?.isConnected)
+          runtime.conversationReading.remember(ticket.source, measureConversationReading(element))
+        completedNavigation.current = { scope, revision: ticket.revision }
+        runtime.conversationReading.acknowledge(ticket.source, ticket.revision)
+      }
     },
-    [scope, ticket],
+    [scope, ticket, runtime],
   )
   const isCurrent = useCallback(
     (captured: ConversationReadingTarget) =>
@@ -291,8 +320,26 @@ export function useSessionReadingPosition(options: ReadingOptions) {
   const onScrollTargetResult = (result: LumenConversationScrollTargetResult): boolean => {
     if (!ticket || result.target.requestId !== ticket.scroll.requestId) return false
     if (finishedRequest.current === ticket.scroll.requestId || !isCurrent(ticket.source) || findOpen) return true
-    const atSavedPosition = (element: HTMLElement | null) =>
-      Boolean(
+    const atSavedPosition = (element: HTMLElement | null) => {
+      if (element?.isConnected && ticket.intent) {
+        const call = [...element.querySelectorAll<HTMLElement>('[data-tool-call-id]')].find(
+          (node) => node.dataset.toolCallId === ticket.intent?.callId,
+        )
+        const row = [...element.querySelectorAll<HTMLElement>('[data-message-id]')].find(
+          (node) => node.dataset.messageId === ticket.saved.messageId,
+        )
+        if (ticket.intent.callId && !call) return false
+        const anchor = call ?? row
+        if (anchor)
+          return (
+            Math.abs(
+              (sessionSearchHitBox(anchor, ticket.intent.query) ?? anchor.getBoundingClientRect()).top -
+                element.getBoundingClientRect().top -
+                element.clientTop,
+            ) < (Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16)
+          )
+      }
+      return Boolean(
         element?.isConnected &&
         isConversationReadingAtPosition(
           measureConversationReading(element),
@@ -300,10 +347,17 @@ export function useSessionReadingPosition(options: ReadingOptions) {
           Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16,
         ),
       )
+    }
     if (result.status === 'unavailable') finish(!atSavedPosition(viewport.current))
     else {
       const element = result.viewport
       viewport.current = element
+      if (ticket.saved.atEnd) {
+        finish()
+        remember(element)
+        return true
+      }
+      const callId = ticket.intent?.callId
       let stable = 0
       let geometry: string | null = null
       const align = () => {
@@ -321,7 +375,22 @@ export function useSessionReadingPosition(options: ReadingOptions) {
           finish(true)
           return
         }
-        const box = row.getBoundingClientRect()
+        const call = callId
+          ? [...row.querySelectorAll<HTMLElement>('[data-tool-call-id]')].find(
+              (node) => node.dataset.toolCallId === callId,
+            )
+          : undefined
+        if (callId && !call) {
+          // Completed activity groups defer their call DOM until expanded. Open
+          // the existing disclosure action, then seek its exact call next frame.
+          row.querySelector<HTMLButtonElement>('.hbar-session-activity-summary[aria-expanded="false"]')?.click()
+          const alignment = pendingAlignment.current
+          if (alignment) alignment.frame = requestAnimationFrame(align)
+          return
+        }
+        call?.querySelector<HTMLButtonElement>('button[aria-expanded="false"]')?.click()
+        const box =
+          sessionSearchHitBox(call ?? row, ticket.intent?.query ?? null) ?? (call ?? row).getBoundingClientRect()
         const delta = box.top - element.getBoundingClientRect().top - element.clientTop - ticket.saved.messageOffset
         const measured = `${box.height}:${element.scrollHeight}:${element.clientWidth}:${element.clientHeight}`
         if (Math.abs(delta) > 0.5) {
@@ -361,7 +430,12 @@ export function useSessionReadingPosition(options: ReadingOptions) {
     scope,
     scrollTarget: restoring && available && ticket ? (ticket.scroll satisfies LumenConversationScrollTarget) : null,
     restoring,
-    unavailable: failed === ticket?.scroll.requestId && ticket !== null,
+    unavailable:
+      failed !== null &&
+      (failed === ticket?.scroll.requestId ||
+        (!ticket &&
+          completedNavigation.current?.scope === scope &&
+          completedNavigation.current.revision === requested.revision)),
     onScrollCapture,
     onWheelCapture: cancelForIntent,
     onTouchStartCapture: cancelForIntent,

@@ -32,10 +32,28 @@ export interface ConversationReadingState {
 
 export interface ConversationReading {
   readonly reader: StateReader<ConversationReadingState>
+  readonly navigation: StateReader<ConversationReadingNavigation>
+  navigate(
+    target: ConversationReadingTarget,
+    position: ConversationReadingPosition,
+    callId?: string | null,
+    query?: string | null,
+  ): void
+  acknowledge(target: ConversationReadingTarget, revision: number): void
   read(target: ConversationReadingTarget): ConversationReadingPosition | null
   remember(target: ConversationReadingTarget, position: ConversationReadingPosition): void
   retainTargets(targets: readonly ConversationReadingTarget[]): void
   dispose(): void
+}
+
+export interface ConversationReadingNavigation {
+  readonly revision: number
+  readonly request: {
+    readonly target: ConversationReadingTarget
+    readonly position: ConversationReadingPosition
+    readonly callId: string | null
+    readonly query: string | null
+  } | null
 }
 
 const emptyState: ConversationReadingState = Object.freeze({ anchors: Object.freeze([]) })
@@ -92,6 +110,7 @@ function sameTarget(left: ConversationReadingTarget, right: ConversationReadingT
  */
 export function createConversationReading(onSubscriberError: (error: unknown) => void): ConversationReading {
   const state = createState<ConversationReadingState>(emptyState, onSubscriberError)
+  const navigation = createState<ConversationReadingNavigation>({ revision: 0, request: null }, onSubscriberError)
   const entries = new Map<string, ConversationReadingEntry>()
   let disposed = false
 
@@ -167,15 +186,58 @@ export function createConversationReading(onSubscriberError: (error: unknown) =>
       }
     }
     if (changed) publish()
+    const request = navigation.reader.getSnapshot().request
+    if (request && !retained.has(keyOf(request.target)))
+      navigation.replace({ revision: navigation.reader.getSnapshot().revision, request: null })
   }
 
   const dispose = (): void => {
     if (disposed) return
     entries.clear()
     publish()
+    navigation.replace({ revision: navigation.reader.getSnapshot().revision, request: null })
     disposed = true
     state.dispose()
+    navigation.dispose()
   }
 
-  return { reader: state.reader, read, remember, retainTargets, dispose }
+  const navigate = (
+    target: ConversationReadingTarget,
+    position: ConversationReadingPosition,
+    callId: string | null = null,
+    query: string | null = null,
+  ): void => {
+    if (disposed) return
+    validateTarget(target)
+    validatePosition(position)
+    if (callId !== null) validateId(callId, 'tool call')
+    if (query !== null && (typeof query !== 'string' || !query.trim() || query.length > 160))
+      throw invalidInput('Conversation reading search query is invalid')
+    navigation.replace({
+      revision: navigation.reader.getSnapshot().revision + 1,
+      request: Object.freeze({
+        target: Object.freeze({ ...target }),
+        position: Object.freeze({ ...position }),
+        callId,
+        query,
+      }),
+    })
+  }
+  const acknowledge = (target: ConversationReadingTarget, revision: number): void => {
+    if (disposed) return
+    validateTarget(target)
+    const current = navigation.reader.getSnapshot()
+    if (current.request && current.revision === revision && sameTarget(current.request.target, target))
+      navigation.replace({ revision, request: null })
+  }
+  return {
+    reader: state.reader,
+    navigation: navigation.reader,
+    navigate,
+    acknowledge,
+    read,
+    remember,
+    retainTargets,
+    dispose,
+  }
 }

@@ -143,3 +143,69 @@ test('dispose clears the cache and ignores late writes', () => {
   expect(reading.reader.getSnapshot().anchors).toHaveLength(0)
   reading.dispose()
 })
+
+test('explicit navigation captures an exact source tab and changes revision independently of reading anchors', () => {
+  const owner = createConversationReading(() => {})
+  const target = { workspaceId: 'workspace-a', sessionId: 'session-a', sourceTabInstanceKey: 'tab-a' }
+  const position = { messageId: 'message-a', messageOffset: 0, atEnd: false }
+  owner.navigate(target, position, 'call-a')
+  target.sessionId = 'changed'
+  position.messageId = 'changed'
+  expect(owner.navigation.getSnapshot()).toMatchObject({
+    revision: 1,
+    request: { target: { sessionId: 'session-a' }, position: { messageId: 'message-a' }, callId: 'call-a' },
+  })
+  const request = owner.navigation.getSnapshot()
+  owner.remember(
+    { workspaceId: 'workspace-a', sessionId: 'session-a', sourceTabInstanceKey: 'tab-a' },
+    { messageId: 'message-b', messageOffset: 12, atEnd: false },
+  )
+  expect(owner.navigation.getSnapshot()).toBe(request)
+  owner.navigate(
+    { workspaceId: 'workspace-a', sessionId: 'session-a', sourceTabInstanceKey: 'tab-a' },
+    { messageId: null, messageOffset: 0, atEnd: true },
+  )
+  expect(owner.navigation.getSnapshot()).toMatchObject({
+    revision: 2,
+    request: { position: { messageId: null, atEnd: true }, callId: null },
+  })
+  owner.retainTargets([])
+  expect(owner.navigation.getSnapshot().request).toBeNull()
+  owner.dispose()
+})
+
+test('navigation validates identity and ignores a request after disposal', () => {
+  const owner = createConversationReading(() => {})
+  const target = { workspaceId: 'workspace-a', sessionId: 'session-a', sourceTabInstanceKey: 'tab-a' }
+  expect(() =>
+    owner.navigate({ ...target, sessionId: '' }, { messageId: 'message-a', messageOffset: 0, atEnd: false }),
+  ).toThrow()
+  expect(() => owner.navigate(target, { messageId: 'message-a', messageOffset: 0, atEnd: false }, '')).toThrow()
+  expect(() =>
+    owner.navigate(target, { messageId: 'message-a', messageOffset: 0, atEnd: false }, null, 'x'.repeat(161)),
+  ).toThrow()
+  owner.navigate(target, { messageId: 'message-a', messageOffset: 0, atEnd: false })
+  owner.dispose()
+  expect(owner.navigation.getSnapshot().request).toBeNull()
+  owner.navigate(target, { messageId: 'late', messageOffset: 0, atEnd: false })
+  expect(owner.navigation.getSnapshot().request).toBeNull()
+})
+
+test('only the exact tab and revision can consume a search navigation while retaining its reading anchor', () => {
+  const owner = createConversationReading(() => {})
+  const source = target(1)
+  const position = { messageId: 'message-a', messageOffset: -120, atEnd: false }
+  owner.navigate(source, position, null, 'needle')
+  expect(owner.navigation.getSnapshot().request?.query).toBe('needle')
+  owner.acknowledge(target(2), 1)
+  expect(owner.navigation.getSnapshot().request).not.toBeNull()
+  owner.navigate(source, position)
+  owner.acknowledge(source, 1)
+  expect(owner.navigation.getSnapshot().revision).toBe(2)
+  expect(owner.navigation.getSnapshot().request).not.toBeNull()
+  owner.remember(source, position)
+  owner.acknowledge(source, 2)
+  expect(owner.navigation.getSnapshot().request).toBeNull()
+  expect(owner.read(source)).toEqual(position)
+  owner.dispose()
+})

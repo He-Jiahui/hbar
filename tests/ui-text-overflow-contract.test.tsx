@@ -13,8 +13,10 @@ import {
 } from '../packages/app-react/src/composer-permission-picker'
 import { SessionNavigationRow } from '../packages/app-react/src/session-navigation-row'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { chatSearchCopy } from '../apps/web/src/chat-search-copy'
 
 const searchLabels: HbarChatSearchLabels = {
+  ...chatSearchCopy('zh-CN'),
   search: '搜索聊天',
   recent: '最近的聊天',
   close: '关闭搜索',
@@ -63,11 +65,12 @@ function renderSearch() {
       query="完整"
       status="ready"
       rows={[searchRow]}
-      selectedSessionId="long-session"
+      selectedResultId="long-session"
       truncated={false}
       error={null}
       labels={searchLabels}
       onQueryChange={() => undefined}
+      onSourceChange={() => undefined}
       onMove={() => undefined}
       onSelect={() => undefined}
       onOpen={() => undefined}

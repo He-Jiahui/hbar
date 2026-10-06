@@ -160,6 +160,7 @@ async function start(browser: Browser, locale: ShellLocale, width: number): Prom
     await observer.connect()
     expect((await context.request.post(`${ready.url}/auth/token`, { data: { token: ready.token } })).ok()).toBe(true)
     const page = await context.newPage()
+    page.setDefaultTimeout(10_000)
     let armedSessionId: string | null = null
     let heldNavigation: (() => void) | null = null
     let gateEntered: ReturnType<typeof Promise.withResolvers<void>> | null = null
@@ -272,7 +273,7 @@ test('a changed search query recovers after the original held session navigation
     await expect.poll(() => entered).toBe(true)
     await gate
     await input(fixture).fill('needle')
-    await expect(rows).toHaveCount(2)
+    await expect(rows).toHaveCount(5)
     await expect(rows.first()).toBeDisabled()
     // The authenticated Host confirms the originally selected fixture Session
     // is archived while its exact navigation read is held. No reply is invented.
@@ -285,7 +286,7 @@ test('a changed search query recovers after the original held session navigation
     await expect(rows.first()).toBeEnabled()
     await expect(input(fixture)).toHaveValue('needle')
     await capture(fixture, 'navigation-settled-new-query')
-    await dialog(fixture).locator(`[data-session-id="${fixture.ready.hiddenMatch.id}"]`).click()
+    await dialog(fixture).locator(`[data-session-id="${fixture.ready.hiddenMatch.id}"]`).first().click()
     await expect(dialog(fixture)).toHaveCount(0)
     await expectOpenedSession(fixture, fixture.ready.hiddenMatch.title)
     expect(fixture.commands).not.toContain('run.submit')
@@ -341,7 +342,7 @@ async function openBySidebar(fixture: Fixture): Promise<void> {
 
 async function hideSecondWorkspace(fixture: Fixture): Promise<void> {
   const project = fixture.page.locator(`[data-workspace-id="${fixture.ready.hiddenWorkspace.id}"]`)
-  const trigger = project.locator('.hbar-app-react-project-menu .lumen-action-menu-trigger')
+  const trigger = project.locator('.hbar-app-react-project-menu button')
   await trigger.click()
   const menu = await lumenMenuForTrigger(trigger)
   const hide = menu.getByRole('menuitem', {
@@ -384,6 +385,7 @@ async function capture(fixture: Fixture, name: string): Promise<void> {
       },
     )
     const firstHeading = root.querySelector<HTMLElement>('.hbar-chat-search-row-heading')?.getBoundingClientRect()
+    const firstSource = root.querySelector<HTMLElement>('.hbar-chat-search-source')?.getBoundingClientRect()
     return {
       documentWidth: document.documentElement.scrollWidth,
       viewportWidth: innerWidth,
@@ -411,6 +413,7 @@ async function capture(fixture: Fixture, name: string): Promise<void> {
       inline,
       resultFlow,
       firstHeadingLeft: firstHeading?.left ?? null,
+      firstSourceRight: firstSource?.right ?? null,
       options: root.querySelectorAll('[role="option"]').length,
       focus: document.activeElement?.getAttribute('role'),
     }
@@ -434,8 +437,8 @@ async function capture(fixture: Fixture, name: string): Promise<void> {
     expect(item.left, item.className).toBeGreaterThanOrEqual(geometry.dialog.left - 1)
     expect(item.right, item.className).toBeLessThanOrEqual(geometry.dialog.right + 1)
   }
-  if (geometry.firstHeadingLeft !== null)
-    expect(geometry.firstHeadingLeft).toBeLessThanOrEqual(geometry.dialog.left + 64)
+  if (geometry.firstHeadingLeft !== null && geometry.firstSourceRight !== null)
+    expect(geometry.firstHeadingLeft).toBeGreaterThanOrEqual(geometry.firstSourceRight)
   if (geometry.footer)
     for (const child of geometry.footerChildren) {
       expect(child.left).toBeGreaterThanOrEqual(geometry.footer.left - 1)
@@ -447,7 +450,7 @@ async function capture(fixture: Fixture, name: string): Promise<void> {
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   for (const width of [1440, 320]) {
-    test(`real Host Search chats follows global body-search navigation: ${locale} ${width}`, async ({ browser }) => {
+    test(`real Host Search chats follows categorized navigation: ${locale} ${width}`, async ({ browser }) => {
       test.setTimeout(120_000)
       const fixture = await start(browser, locale, width)
       try {
@@ -497,9 +500,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         const box = input(fixture)
         await box.fill('needle')
         const results = dialog(fixture).getByRole('option')
-        await expect(results).toHaveCount(2, { timeout: 20_000 })
+        await expect(results).toHaveCount(5, { timeout: 20_000 })
+        await expect(dialog(fixture).locator(`[data-session-id="${ready.titleOnly.id}"]`)).toHaveCount(1)
+        await dialog(fixture).getByRole('radio', { name: labels.scopes.conversation, exact: true }).click()
+        await expect(results).toHaveCount(4)
         const resultIds = await results.evaluateAll((rows) => rows.map((row) => row.getAttribute('data-session-id')))
-        expect(resultIds.sort()).toEqual([ready.visibleMatch.id, ready.hiddenMatch.id].sort())
+        expect(resultIds.sort()).toEqual(
+          [ready.visibleMatch.id, ready.visibleMatch.id, ready.hiddenMatch.id, ready.hiddenMatch.id].sort(),
+        )
         expect(resultIds).not.toContain(ready.titleOnly.id)
         expect(resultIds).not.toContain(ready.archivedMatch.id)
         for (const [session, workspace, messageIds] of [
@@ -511,12 +519,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           [ready.hiddenMatch, ready.hiddenWorkspace, [ready.messageIds.hiddenUser, ready.messageIds.hiddenAssistant]],
         ] as const) {
           const row = dialog(fixture).locator(`[role="option"][data-session-id="${session.id}"]`)
-          await expect(row).toContainText(session.title)
-          await expect(row).toContainText(workspace.name)
-          await expect(row).toContainText(labels.matches(2))
+          await expect(row).toHaveCount(2)
+          for (const hit of await row.all()) {
+            await expect(hit).toContainText(session.title)
+            await expect(hit).toContainText(workspace.name)
+            await expect(hit).toContainText(labels.matches(2))
+          }
           await expect(row.locator('.hbar-chat-search-snippet')).toHaveCount(2)
           await expect(row.locator('.hbar-chat-search-highlight')).toHaveText(['needle', 'needle'])
-          const host = await search.execute('session.search', { query: 'needle' })
+          const host = await search.execute('session.search', { query: 'needle', source: 'conversation' })
           const actual = host.items.find((item) => item.sessionId === session.id)
           expect(actual?.matches.map((match) => match.messageId).sort()).toEqual([...messageIds].sort())
         }
@@ -526,6 +537,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expect(dialog(fixture).getByRole('option')).toHaveCount(0)
         await expect(dialog(fixture).getByText(labels.empty, { exact: true })).toBeVisible()
         await capture(fixture, 'title-only-negative')
+        await dialog(fixture).getByRole('radio', { name: labels.scopes.title, exact: true }).click()
+        await expect(dialog(fixture).getByRole('option')).toHaveCount(1)
+        await expect(dialog(fixture).getByRole('option')).toHaveAttribute('data-result-source', 'title')
+        await capture(fixture, 'title-only-positive')
+        await dialog(fixture).getByRole('radio', { name: labels.scopes.conversation, exact: true }).click()
 
         // This is a synthetic DOM composition check, not an OS IME claim.
         await box.fill('')
@@ -542,11 +558,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         })
         await expect(dialog(fixture)).toBeVisible()
         await box.dispatchEvent('compositionend', { data: '中' })
-        await expect(dialog(fixture).getByRole('option')).toHaveCount(2, { timeout: 20_000 })
+        await expect(dialog(fixture).getByRole('option')).toHaveCount(4, { timeout: 20_000 })
         await capture(fixture, 'ime-settled')
 
         const hiddenRow = dialog(fixture).locator(`[role="option"][data-session-id="${ready.hiddenMatch.id}"]`)
-        await hiddenRow.click()
+        await hiddenRow.last().click()
         await expect(dialog(fixture)).toHaveCount(0)
         await expectOpenedSession(fixture, ready.hiddenMatch.title)
         await expect(page.getByText('The hidden project still has a needle in its user history.')).toBeVisible()

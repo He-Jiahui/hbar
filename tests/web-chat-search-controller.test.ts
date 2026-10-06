@@ -6,6 +6,7 @@ import {
   type WebChatSearchPort,
 } from '../apps/web/src/chat-search-controller'
 import type { HbarChatSearchRow } from '@hbar/app-react'
+import type { SessionSearchScope } from '@hbar/contracts/commands/session-search'
 
 function row(index: number): HbarChatSearchRow {
   return {
@@ -45,13 +46,14 @@ function fixture() {
   const searches: Array<{
     query: string
     signal: AbortSignal
+    source: SessionSearchScope
     result: ReturnType<typeof deferred<WebChatSearchPage>>
   }> = []
   const port: WebChatSearchPort = {
     recent: () => recent.promise,
-    search: (query, signal) => {
+    search: (query, signal, source = 'all') => {
       const result = deferred<WebChatSearchPage>()
-      searches.push({ query, signal, result })
+      searches.push({ query, signal, source, result })
       return result.promise
     },
   }
@@ -81,11 +83,11 @@ test('opens Host-global recent eight, clamps keyboard selection, and clears on c
   expect(data.owner.store.getState()).toMatchObject({ open: true, status: 'loading', query: '' })
   data.recent.resolve(page(Array.from({ length: WEB_CHAT_SEARCH_LIMITS.recent }, (_, index) => row(index))))
   await settle()
-  expect(data.owner.store.getState()).toMatchObject({ status: 'recent', selectedSessionId: 'session-0' })
+  expect(data.owner.store.getState()).toMatchObject({ status: 'recent', selectedResultId: 'session-0' })
   for (let index = 0; index < 60; index++) data.owner.move('down')
-  expect(data.owner.store.getState().selectedSessionId).toBe('session-7')
+  expect(data.owner.store.getState().selectedResultId).toBe('session-7')
   data.owner.move('up')
-  expect(data.owner.store.getState().selectedSessionId).toBe('session-6')
+  expect(data.owner.store.getState().selectedResultId).toBe('session-6')
   data.owner.close()
   expect(data.owner.store.getState()).toMatchObject({ open: false, status: 'closed', rows: [], query: '' })
 })
@@ -97,7 +99,7 @@ test('typing debounces, composition holds Enter-target data, and stale results c
   data.recent.resolve(page([row(1)]))
   await settle()
   data.owner.setQuery('old')
-  expect(data.owner.store.getState()).toMatchObject({ status: 'loading', rows: [], selectedSessionId: null })
+  expect(data.owner.store.getState()).toMatchObject({ status: 'loading', rows: [], selectedResultId: null })
   data.flush()
   await settle()
   expect(data.searches.map((item) => item.query)).toEqual(['old'])
@@ -116,7 +118,7 @@ test('typing debounces, composition holds Enter-target data, and stale results c
   expect(data.owner.store.getState()).toMatchObject({ status: 'loading', rows: [] })
   data.searches[1]?.result.resolve(page([row(2)]))
   await settle()
-  expect(data.owner.store.getState()).toMatchObject({ status: 'ready', selectedSessionId: 'session-2' })
+  expect(data.owner.store.getState()).toMatchObject({ status: 'ready', selectedResultId: 'session-2' })
 })
 
 test('two physical reads bound a burst and queue only the latest query', async () => {
@@ -136,10 +138,10 @@ test('two physical reads bound a burst and queue only the latest query', async (
   expect(data.searches.map((item) => item.query)).toEqual(['one', 'two', 'four'])
   data.searches[2]?.result.resolve(page([row(4)]))
   await settle()
-  expect(data.owner.store.getState()).toMatchObject({ query: 'four', selectedSessionId: 'session-4' })
+  expect(data.owner.store.getState()).toMatchObject({ query: 'four', selectedResultId: 'session-4' })
   data.searches[1]?.result.resolve(page([row(2)]))
   await settle()
-  expect(data.owner.store.getState().selectedSessionId).toBe('session-4')
+  expect(data.owner.store.getState().selectedResultId).toBe('session-4')
 })
 
 test('indexing and short-query scan cap never masquerade as complete empty results', async () => {
@@ -184,7 +186,7 @@ test('indexing automatically advances the same query with bounded backoff and st
   expect(data.searches.map((item) => item.query)).toEqual(['needle', 'needle'])
   data.searches[1]?.result.resolve(page([row(7)]))
   await settle()
-  expect(data.owner.store.getState()).toMatchObject({ status: 'ready', selectedSessionId: 'session-7' })
+  expect(data.owner.store.getState()).toMatchObject({ status: 'ready', selectedResultId: 'session-7' })
   expect(data.scheduled).toHaveLength(0)
   data.owner.setQuery('other')
   data.flush()
@@ -261,12 +263,12 @@ test('a query change does not strand navigation busy after the old navigation su
     expect(data.searches).toHaveLength(2)
     data.searches[1]?.result.resolve(page([row(2)]))
     await settle()
-    expect(data.owner.store.getState()).toMatchObject({ query: 'needle', openingSessionId: target.sessionId })
+    expect(data.owner.store.getState()).toMatchObject({ query: 'needle', openingResultId: target.sessionId })
 
     if (outcome === 'success') navigation.resolve()
     else navigation.reject({ code: 'SESSION_ARCHIVED' })
     expect(await opening).toBe(false)
-    expect(data.owner.store.getState()).toMatchObject({ openingSessionId: null, openError: null })
+    expect(data.owner.store.getState()).toMatchObject({ openingResultId: null, openError: null })
 
     const reopened = await data.owner.openRow(row(2).sessionId, row(2).workspaceId, async () => undefined)
     expect(reopened).toBe(true)
@@ -288,11 +290,11 @@ test('a stale navigation cannot clear a new owner after Host rebinding or close 
   const reboundOpening = data.owner.openRow(row(1).sessionId, row(1).workspaceId, async () => reboundNavigation.promise)
   oldNavigation.reject({ code: 'SESSION_ARCHIVED' })
   expect(await oldOpening).toBe(false)
-  expect(data.owner.store.getState().openingSessionId).toBe(row(1).sessionId)
+  expect(data.owner.store.getState().openingResultId).toBe(row(1).sessionId)
   expect(data.owner.store.getState().openError).toBeNull()
   reboundNavigation.resolve()
   expect(await reboundOpening).toBe(true)
-  expect(data.owner.store.getState().openingSessionId).toBeNull()
+  expect(data.owner.store.getState().openingResultId).toBeNull()
 
   const staleNavigation = deferred<void>()
   const staleOpening = data.owner.openRow(row(1).sessionId, row(1).workspaceId, async () => staleNavigation.promise)
@@ -307,10 +309,10 @@ test('a stale navigation cannot clear a new owner after Host rebinding or close 
   )
   staleNavigation.resolve()
   expect(await staleOpening).toBe(false)
-  expect(data.owner.store.getState().openingSessionId).toBe(row(1).sessionId)
+  expect(data.owner.store.getState().openingResultId).toBe(row(1).sessionId)
   reopenedNavigation.resolve()
   expect(await reopenedOpening).toBe(true)
-  expect(data.owner.store.getState().openingSessionId).toBeNull()
+  expect(data.owner.store.getState().openingResultId).toBeNull()
 })
 
 test('disconnect clears stale search results and reconnect searches the same visible query', async () => {
@@ -325,8 +327,62 @@ test('disconnect clears stale search results and reconnect searches the same vis
   data.searches[0]?.result.resolve(page([row(3)]))
   await settle()
   data.owner.bind('host-a', false)
-  expect(data.owner.store.getState()).toMatchObject({ status: 'disconnected', rows: [], selectedSessionId: null })
+  expect(data.owner.store.getState()).toMatchObject({ status: 'disconnected', rows: [], selectedResultId: null })
   data.owner.bind('host-a', true)
   await settle()
   expect(data.searches.map((item) => item.query)).toEqual(['needle', 'needle'])
+})
+
+test('source changes cancel the previous category and retain independent hits from the same session', async () => {
+  const data = fixture()
+  data.owner.bind('host-a', true)
+  data.owner.open()
+  data.recent.resolve(page([]))
+  await settle()
+  data.owner.setQuery('needle')
+  data.flush()
+  await settle()
+  data.owner.setSource('patch')
+  await settle()
+  expect(data.searches.map(({ source }) => source)).toEqual(['all', 'patch'])
+  expect(data.searches[0]?.signal.aborted).toBe(true)
+  const hits: HbarChatSearchRow[] = ['first', 'second'].map((id) => ({
+    ...row(1),
+    resultId: id,
+    source: 'patch',
+    target: { messageId: `message-${id}`, blockIndex: 1, callId: `call-${id}` },
+  }))
+  data.searches[1]?.result.resolve(page(hits))
+  await settle()
+  data.searches[0]?.result.resolve(page([row(9)]))
+  await settle()
+  expect(data.owner.store.getState()).toMatchObject({ source: 'patch', selectedResultId: 'first', rows: hits })
+  data.owner.move('down')
+  expect(data.owner.store.getState().selectedResultId).toBe('second')
+  const selected: HbarChatSearchRow[] = []
+  expect(
+    await data.owner.openRow('second', row(1).workspaceId, async (hit) => {
+      selected.push(hit)
+    }),
+  ).toBe(true)
+  expect(selected).toEqual([hits[1]!])
+  expect(await data.owner.openRow(row(1).sessionId, row(1).workspaceId, async () => {})).toBe(false)
+  data.owner.dispose()
+})
+
+test('an empty non-title category asks for a query and reopening resets the scope', async () => {
+  const data = fixture()
+  data.owner.bind('host-a', true)
+  data.owner.open()
+  data.recent.resolve(page([row(1)]))
+  await settle()
+  data.owner.setSource('tool')
+  await settle()
+  expect(data.owner.store.getState()).toMatchObject({ source: 'tool', status: 'recent', rows: [] })
+  expect(data.searches).toHaveLength(0)
+  data.owner.close()
+  data.owner.open()
+  await settle()
+  expect(data.owner.store.getState()).toMatchObject({ source: 'all', status: 'recent', rows: [row(1)] })
+  data.owner.dispose()
 })

@@ -9,8 +9,10 @@ import {
   type HbarChatSearchRow,
   type HbarChatSearchStatus,
 } from '@hbar/app-react'
+import { chatSearchCopy } from '../apps/web/src/chat-search-copy'
 
 const labels: HbarChatSearchLabels = {
+  ...chatSearchCopy('zh-CN'),
   search: '搜索聊天',
   recent: '最近的聊天',
   close: '关闭搜索',
@@ -52,7 +54,7 @@ function render(
     readonly query?: string
     readonly status?: HbarChatSearchStatus
     readonly rows?: readonly HbarChatSearchRow[]
-    readonly selectedSessionId?: string | null
+    readonly selectedResultId?: string | null
     readonly truncated?: boolean
     readonly error?: string | null
     readonly openError?: { readonly sessionId: string; readonly message: string } | null
@@ -65,12 +67,13 @@ function render(
       query={options.query ?? ''}
       status={options.status ?? 'recent'}
       rows={options.rows ?? []}
-      selectedSessionId={options.selectedSessionId ?? null}
+      selectedResultId={options.selectedResultId ?? null}
       truncated={options.truncated ?? false}
       error={options.error ?? null}
       openError={options.openError}
       labels={options.labels ?? labels}
       onQueryChange={() => {}}
+      onSourceChange={() => {}}
       onMove={() => {}}
       onSelect={() => {}}
       onOpen={() => {}}
@@ -94,12 +97,29 @@ test('Chinese copy, long text, and semantic combobox/listbox keep labels in the 
   expect(html).toContain('role="combobox"')
   expect(html).toContain('role="listbox"')
   expect(html).toContain('role="option"')
-  expect(html).toContain('aria-label="打开 项目 one 中的 很长的项目和会话名称')
+  expect(html).toContain('aria-label="打开对话匹配「很长的项目和会话名称')
   expect(html).toContain(long)
   expect(html).toContain('role="mark"')
   expect(html).toContain('hbar-chat-search-highlight')
   expect(html).toContain('4 条匹配')
   expect(html).toContain('aria-selected="false"')
+})
+
+test('all categories and left source labels retain distinct results inside the same session', () => {
+  const sources = ['title', 'conversation', 'file', 'patch', 'tool'] as const
+  const rows = sources.map((source) => ({ ...row('same'), source, resultId: `same-${source}` }))
+  const html = render({ status: 'ready', query: 'needle', rows, selectedResultId: 'same-patch' })
+  expect(html.match(/role="option"/g)).toHaveLength(5)
+  expect(html).toContain('role="radiogroup"')
+  for (const source of sources) {
+    expect(html).toContain(`data-result-source="${source}"`)
+    expect(html).toContain(labels.sources[source])
+    expect(html).toContain(labels.scopes[source])
+  }
+  expect(visibleChatSearchRows([...rows, rows[0]!], 'ready')).toHaveLength(5)
+  const patch = html.match(/<button[^>]*data-result-id="same-patch"[^>]*>/)?.[0]
+  expect(patch).toContain('aria-selected="true"')
+  expect(html.indexOf('hbar-chat-search-source')).toBeLessThan(html.indexOf('hbar-chat-search-row-body'))
 })
 
 test('capped Host match counts are never presented as exact', () => {
@@ -109,7 +129,7 @@ test('capped Host match counts are never presented as exact', () => {
 })
 
 test('the original selected search row owns both accessible selection and canonical Lumen paint', () => {
-  const html = render({ status: 'ready', rows: [row('first'), row('second')], selectedSessionId: 'second' })
+  const html = render({ status: 'ready', rows: [row('first'), row('second')], selectedResultId: 'second' })
   const options = html.match(/<button[^>]*role="option"[^>]*>/g) ?? []
   expect(options).toHaveLength(2)
   expect(options[0]).toContain('aria-selected="false"')
@@ -117,21 +137,21 @@ test('the original selected search row owns both accessible selection and canoni
   expect(options[1]).toContain('aria-selected="true"')
   expect(options[1]).toContain('data-session-id="second"')
   expect(options[1]).toContain('data-lumen-state="selected"')
-  const stale = render({ status: 'ready', rows: [row('first')], selectedSessionId: 'gone' })
+  const stale = render({ status: 'ready', rows: [row('first')], selectedResultId: 'gone' })
   expect(stale).not.toContain('data-lumen-state="selected"')
 })
 
 test('empty, one, 8 recent, 50 results, and one-over-boundary are capacity safe', () => {
   expect(render()).toContain(labels.noRecent)
   expect(render({ status: 'empty', query: 'absent' })).toContain(labels.empty)
-  expect(render({ rows: [row('one')], selectedSessionId: 'one' })).toContain('aria-selected="true"')
+  expect(render({ rows: [row('one')], selectedResultId: 'one' })).toContain('aria-selected="true"')
   expect(render({ rows: [row('one')] })).toContain(labels.recent)
   const recent = render({ rows: Array.from({ length: 9 }, (_, index) => row(String(index))) })
   expect(recent.match(/role="option"/g)).toHaveLength(8)
   expect(recent).not.toContain('data-session-id="8"')
   const fifty = Array.from({ length: 50 }, (_, index) => row(String(index)))
   expect(render({ status: 'ready', rows: fifty }).match(/role="option"/g)).toHaveLength(50)
-  const beyond = render({ status: 'ready', rows: [...fifty, row('fifty')], selectedSessionId: 'fifty' })
+  const beyond = render({ status: 'ready', rows: [...fifty, row('fifty')], selectedResultId: 'fifty' })
   expect(beyond.match(/role="option"/g)).toHaveLength(50)
   expect(beyond).not.toContain('data-session-id="fifty"')
   expect(beyond).not.toContain('aria-selected="true"')
@@ -139,7 +159,7 @@ test('empty, one, 8 recent, 50 results, and one-over-boundary are capacity safe'
 })
 
 test('duplicate and stale identifiers never create ambiguous options', () => {
-  const html = render({ status: 'ready', rows: [row('a'), row('a', 'duplicate'), row('b')], selectedSessionId: 'gone' })
+  const html = render({ status: 'ready', rows: [row('a'), row('a', 'duplicate'), row('b')], selectedResultId: 'gone' })
   expect(html.match(/role="option"/g)).toHaveLength(2)
   expect(html).not.toContain('duplicate')
   expect(html).not.toContain('aria-activedescendant=')

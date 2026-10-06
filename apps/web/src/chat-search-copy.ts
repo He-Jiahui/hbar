@@ -6,7 +6,30 @@ export function chatSearchCopy(locale: ShellLocale): HbarChatSearchLabels {
   const choose = (chinese: string, english: string) => (zh ? chinese : english)
   const relative = new Intl.RelativeTimeFormat(locale, { numeric: 'auto', style: 'short' })
   const date = new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short', day: 'numeric' })
+  const sources = {
+    title: choose('标题', 'Title'),
+    conversation: choose('对话', 'Dialogue'),
+    file: choose('文件', 'File'),
+    patch: choose('补丁', 'Patch'),
+    tool: choose('工具', 'Tool'),
+  }
   return {
+    category: choose('搜索来源', 'Search source'),
+    enterQuery: choose('输入关键词搜索此分类。', 'Enter a query to search this source.'),
+    scopes: {
+      all: choose('全部', 'All'),
+      title: choose('会话标题', 'Session titles'),
+      conversation: choose('对话内容', 'Dialogue'),
+      file: choose('修改的文件名', 'Changed file names'),
+      patch: choose('补丁内容', 'Patch content'),
+      tool: choose('工具命令', 'Tool commands'),
+    },
+    sources,
+    openResult: (source, title, workspaceName, preview) =>
+      choose(
+        `打开${sources[source]}匹配「${title}」（${workspaceName}）${preview ? `：${preview}` : ''}`,
+        `Open ${sources[source]} match in ${title} (${workspaceName})${preview ? `: ${preview}` : ''}`,
+      ),
     search: choose('搜索所有聊天…', 'Search all chats…'),
     close: choose('关闭聊天搜索', 'Close chat search'),
     recent: choose('最近的聊天', 'Recent chats'),
@@ -24,7 +47,8 @@ export function chatSearchCopy(locale: ShellLocale): HbarChatSearchLabels {
     select: choose('打开', 'open'),
     closeKey: 'Esc',
     closeHint: choose('关闭', 'close'),
-    role: (role) => (role === 'user' ? choose('你', 'You') : choose('助手', 'Assistant')),
+    role: (role) =>
+      role === 'user' ? choose('你', 'You') : role === 'tool' ? sources.tool : choose('助手', 'Assistant'),
     time: (updatedAt) => {
       if (!Number.isSafeInteger(updatedAt) || updatedAt < 0) return choose('时间未知', 'Time unavailable')
       const age = Math.max(0, Date.now() - updatedAt)

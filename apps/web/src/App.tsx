@@ -1313,10 +1313,12 @@ function WorkspaceModal({
           query={chatSearchState.query}
           status={chatSearchState.status === 'closed' ? 'loading' : chatSearchState.status}
           rows={chatSearchState.rows}
-          selectedSessionId={chatSearchState.selectedSessionId}
+          selectedResultId={chatSearchState.selectedResultId}
+          source={chatSearchState.source}
+          onSourceChange={chatSearch.setSource}
           truncated={chatSearchState.truncated}
           error={chatSearchState.error ? chatSearchErrorCopy(locale, chatSearchState.error) : null}
-          openingSessionId={chatSearchState.openingSessionId}
+          openingResultId={chatSearchState.openingResultId}
           openError={
             chatSearchState.openError
               ? {
@@ -1336,6 +1338,30 @@ function WorkspaceModal({
                   sessionId: row.sessionId,
                   workspaceId: row.workspaceId,
                 })
+                const navigation = runtime.state.navigation.getSnapshot()
+                const tabs = runtime.state.workspaceTabs.getSnapshot()
+                const tab = tabs.items.find((candidate) => candidate.id === tabs.activeId)
+                if (
+                  navigation.sessionId !== row.sessionId ||
+                  navigation.workspaceId !== row.workspaceId ||
+                  tab?.kind !== 'session' ||
+                  tab.sessionId !== row.sessionId
+                )
+                  throw { code: 'CANCELLED' }
+                runtime.conversationReading.navigate(
+                  {
+                    workspaceId: row.workspaceId,
+                    sessionId: row.sessionId,
+                    sourceTabInstanceKey: tab.instanceKey,
+                  },
+                  {
+                    messageId: row.target?.messageId ?? null,
+                    messageOffset: 0,
+                    atEnd: row.source === 'title' || !row.target?.messageId,
+                  },
+                  row.target?.callId,
+                  row.source !== 'title' && row.target?.messageId ? chatSearchState.query.trim() : null,
+                )
                 // A global hit may belong to a hidden project. Reveal it only after the
                 // exact session navigation succeeds; reveal failure does not undo the tab.
                 void runtime.commands

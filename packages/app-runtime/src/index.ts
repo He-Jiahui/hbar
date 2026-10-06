@@ -86,7 +86,11 @@ export { sessionToolCommands } from './session-tools'
 import { createSessionTimeline } from './session-timeline'
 import { createConversationReading } from './conversation-reading'
 export { createConversationReading } from './conversation-reading'
-export type { ConversationReadingPosition, ConversationReadingTarget } from './conversation-reading'
+export type {
+  ConversationReadingNavigation,
+  ConversationReadingPosition,
+  ConversationReadingTarget,
+} from './conversation-reading'
 import { activityWorkspaceCommands, createActivityWorkspace } from './activity-workspace'
 export {
   activityWorkspaceCommands,
@@ -1437,7 +1441,13 @@ export function createAppRuntime(options: RuntimeOptions) {
     }),
     commands: Object.freeze(createCommandClient(runtimeCommands, executor)),
     preSessionModelCatalog: preSessionModelCatalog.actions,
-    conversationReading: Object.freeze({ read: conversationReading.read, remember: conversationReading.remember }),
+    conversationReading: Object.freeze({
+      read: conversationReading.read,
+      remember: conversationReading.remember,
+      navigate: conversationReading.navigate,
+      acknowledge: conversationReading.acknowledge,
+      navigation: conversationReading.navigation,
+    }),
     getSessionExecutionAccess: sessionExecutionAccess.get,
     async executeText(source: string, execution?: ExecuteOptions): Promise<unknown> {
       const [name, ...arguments_] = tokenizeCommand(source)

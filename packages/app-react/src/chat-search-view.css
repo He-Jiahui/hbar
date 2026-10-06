@@ -92,7 +92,7 @@
   min-inline-size: 0;
   inline-size: 100%;
   max-inline-size: 100%;
-  flex-direction: column;
+  flex-direction: row;
   align-items: stretch;
   justify-content: flex-start;
   gap: 0.125rem;
@@ -104,6 +104,33 @@
   font: inherit;
   text-align: start;
   cursor: pointer;
+}
+
+.hbar-chat-search-scopes {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  overflow-x: auto;
+  padding: 0.5rem 1.25rem;
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-chat-search-source {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-frost);
+  color: var(--lumen-muted);
+  white-space: nowrap;
+}
+
+.hbar-chat-search-row-body {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .hbar-chat-search-row:disabled {
@@ -152,13 +179,22 @@
 }
 
 .hbar-chat-search-row-context > span:first-child {
-  flex: 0 0 auto;
-  white-space: nowrap;
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .hbar-chat-search-row-context > span + span {
   flex: 0 0 auto;
-  white-space: nowrap;
+  max-inline-size: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.hbar-chat-search-row-context {
+  flex-wrap: wrap;
+  overflow: visible;
 }
 
 .hbar-chat-search-snippet-role {

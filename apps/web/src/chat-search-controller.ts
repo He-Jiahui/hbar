@@ -1,5 +1,6 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { HbarChatSearchRow } from '@hbar/app-react'
+import type { SessionSearchScope } from '@hbar/contracts/commands/session-search'
 
 export const WEB_CHAT_SEARCH_LIMITS = Object.freeze({ recent: 8, results: 50, snippets: 3, query: 160 })
 
@@ -11,18 +12,19 @@ export interface WebChatSearchPage {
 
 export interface WebChatSearchPort {
   recent(signal: AbortSignal): Promise<WebChatSearchPage>
-  search(query: string, signal: AbortSignal): Promise<WebChatSearchPage>
+  search(query: string, signal: AbortSignal, source?: SessionSearchScope): Promise<WebChatSearchPage>
 }
 
 export interface WebChatSearchState {
   readonly open: boolean
   readonly query: string
+  readonly source: SessionSearchScope
   readonly status: 'closed' | 'recent' | 'loading' | 'ready' | 'empty' | 'error' | 'disconnected' | 'indexing'
   readonly rows: readonly HbarChatSearchRow[]
-  readonly selectedSessionId: string | null
+  readonly selectedResultId: string | null
   readonly truncated: boolean
   readonly error: string | null
-  readonly openingSessionId: string | null
+  readonly openingResultId: string | null
   readonly openError: { readonly sessionId: string; readonly message: string } | null
 }
 
@@ -32,6 +34,7 @@ export interface WebChatSearchController {
   open(): void
   close(): void
   setQuery(query: string): void
+  setSource(source: SessionSearchScope): void
   compositionStart(): void
   compositionEnd(query: string): void
   move(direction: 'up' | 'down'): void
@@ -54,10 +57,11 @@ function validPage(page: WebChatSearchPage, mode: 'recent' | 'search'): boolean 
     return false
   const ids = new Set<string>()
   for (const row of page.rows) {
-    if (!row.sessionId || !row.workspaceId || ids.has(row.sessionId) || !Number.isSafeInteger(row.updatedAt))
+    const resultId = row.resultId ?? row.sessionId
+    if (!resultId || !row.sessionId || !row.workspaceId || ids.has(resultId) || !Number.isSafeInteger(row.updatedAt))
       return false
     if (row.snippets.length > WEB_CHAT_SEARCH_LIMITS.snippets || row.matchCount < row.snippets.length) return false
-    ids.add(row.sessionId)
+    ids.add(resultId)
   }
   return true
 }
@@ -73,12 +77,13 @@ export function createWebChatSearchController(
   const store = createStore<WebChatSearchState>(() => ({
     open: false,
     query: '',
+    source: 'all',
     status: 'closed',
     rows: [],
-    selectedSessionId: null,
+    selectedResultId: null,
     truncated: false,
     error: null,
-    openingSessionId: null,
+    openingResultId: null,
     openError: null,
   }))
   let hostId: string | null = null
@@ -94,7 +99,7 @@ export function createWebChatSearchController(
 
   const releaseOpeningRequest = () => {
     openingRequest = null
-    if (store.getState().openingSessionId !== null) store.setState({ openingSessionId: null })
+    if (store.getState().openingResultId !== null) store.setState({ openingResultId: null })
   }
 
   const stop = () => {
@@ -122,7 +127,9 @@ export function createWebChatSearchController(
     const request = { controller: new AbortController() }
     active.add(request)
     const read = Promise.resolve().then(() =>
-      mode === 'recent' ? port.recent(request.controller.signal) : port.search(query, request.controller.signal),
+      mode === 'recent'
+        ? port.recent(request.controller.signal)
+        : port.search(query, request.controller.signal, store.getState().source),
     )
     void read
       .then((page) => {
@@ -139,7 +146,7 @@ export function createWebChatSearchController(
         store.setState({
           status,
           rows: page.rows,
-          selectedSessionId: page.rows[0]?.sessionId ?? null,
+          selectedResultId: page.rows[0] ? (page.rows[0].resultId ?? page.rows[0].sessionId) : null,
           truncated: page.truncated || page.incompleteReason === 'scan_cap',
           error: null,
         })
@@ -156,7 +163,7 @@ export function createWebChatSearchController(
           store.setState({
             status: 'error',
             rows: [],
-            selectedSessionId: null,
+            selectedResultId: null,
             truncated: false,
             error: errorCode(error),
           })
@@ -176,15 +183,19 @@ export function createWebChatSearchController(
     const state = store.getState()
     if (!state.open) return
     if (!hostId || !connected) {
-      store.setState({ status: 'disconnected', rows: [], selectedSessionId: null, truncated: false })
+      store.setState({ status: 'disconnected', rows: [], selectedResultId: null, truncated: false })
       return
     }
     const query = state.query.trim()
-    if (query.length > WEB_CHAT_SEARCH_LIMITS.query) {
-      store.setState({ status: 'error', rows: [], selectedSessionId: null, error: 'QUERY_LIMIT', truncated: false })
+    if (!query && state.source !== 'all' && state.source !== 'title') {
+      store.setState({ status: 'recent', rows: [], selectedResultId: null, truncated: false, error: null })
       return
     }
-    store.setState({ status: 'loading', rows: [], selectedSessionId: null, truncated: false, error: null })
+    if (query.length > WEB_CHAT_SEARCH_LIMITS.query) {
+      store.setState({ status: 'error', rows: [], selectedResultId: null, error: 'QUERY_LIMIT', truncated: false })
+      return
+    }
+    store.setState({ status: 'loading', rows: [], selectedResultId: null, truncated: false, error: null })
     if (composing) return
     const target = generation
     if (delay)
@@ -214,12 +225,13 @@ export function createWebChatSearchController(
       store.setState({
         open: true,
         query: '',
+        source: 'all',
         rows: [],
-        selectedSessionId: null,
+        selectedResultId: null,
         truncated: false,
         error: null,
         openError: null,
-        openingSessionId: null,
+        openingResultId: null,
       })
       beginRead(0)
     },
@@ -233,17 +245,22 @@ export function createWebChatSearchController(
         query: '',
         status: 'closed',
         rows: [],
-        selectedSessionId: null,
+        selectedResultId: null,
         truncated: false,
         error: null,
         openError: null,
-        openingSessionId: null,
+        openingResultId: null,
       })
     },
     setQuery(query) {
       if (disposed || !store.getState().open) return
       store.setState({ query, openError: null })
       beginRead(query.trim() ? 250 : 0)
+    },
+    setSource(source) {
+      if (disposed || !store.getState().open || store.getState().source === source) return
+      store.setState({ source, openError: null })
+      beginRead(0)
     },
     compositionStart() {
       if (disposed || !store.getState().open) return
@@ -261,10 +278,11 @@ export function createWebChatSearchController(
       if (disposed || !state.open || !state.rows.length || !['recent', 'ready'].includes(state.status)) return
       const index = Math.max(
         0,
-        state.rows.findIndex((row) => row.sessionId === state.selectedSessionId),
+        state.rows.findIndex((row) => (row.resultId ?? row.sessionId) === state.selectedResultId),
       )
       const next = Math.max(0, Math.min(state.rows.length - 1, index + (direction === 'down' ? 1 : -1)))
-      store.setState({ selectedSessionId: state.rows[next]?.sessionId ?? null })
+      const row = state.rows[next]
+      store.setState({ selectedResultId: row ? (row.resultId ?? row.sessionId) : null })
     },
     select(sessionId) {
       const state = store.getState()
@@ -272,27 +290,29 @@ export function createWebChatSearchController(
         disposed ||
         !state.open ||
         !['recent', 'ready'].includes(state.status) ||
-        !state.rows.some((row) => row.sessionId === sessionId)
+        !state.rows.some((row) => (row.resultId ?? row.sessionId) === sessionId)
       )
         return
-      store.setState({ selectedSessionId: sessionId })
+      store.setState({ selectedResultId: sessionId })
     },
     async openRow(sessionId, workspaceId, navigate) {
       const state = store.getState()
-      const row = state.rows.find((item) => item.sessionId === sessionId && item.workspaceId === workspaceId)
+      const row = state.rows.find(
+        (item) => (item.resultId ?? item.sessionId) === sessionId && item.workspaceId === workspaceId,
+      )
       if (
         disposed ||
         !state.open ||
         !['recent', 'ready'].includes(state.status) ||
         !row ||
-        state.openingSessionId ||
+        state.openingResultId ||
         !connected
       )
         return false
       const target = generation
       const request = { sessionId }
       openingRequest = request
-      store.setState({ openingSessionId: sessionId, openError: null })
+      store.setState({ openingResultId: sessionId, openError: null })
       try {
         await navigate(row)
         if (!current(target, state.query.trim())) return false
