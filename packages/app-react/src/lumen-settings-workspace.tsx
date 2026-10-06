@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { Suspense, useCallback, useMemo, useState, type ReactNode } from 'react'
 import {
   ArrowLeft,
   ChartNoAxesCombined,
@@ -334,6 +334,17 @@ export function HbarSettingsWorkspace({
   const canRefresh = connected && Boolean(entry) && !busy && !unknown && dirtyCount === 0
   const canSave = connected && Boolean(entry) && !busy && !unknown && !invalid && dirtyCount > 0
   const customGroup = activeGroupId ? renderGroup?.(activeGroupId) : null
+  const suspendedCustomGroup = customGroup ? (
+    <Suspense
+      fallback={
+        <LumenText as="p" className="hbar-app-react-settings-state" role="status">
+          {labels.loading}
+        </LumenText>
+      }
+    >
+      {customGroup}
+    </Suspense>
+  ) : null
   // Device-local groups must remain reachable when an unrelated Host form cannot load.
   // A mixed General group can be Host-described yet must retain its device-local
   // language controls while the Host form is unavailable.
@@ -452,7 +463,7 @@ export function HbarSettingsWorkspace({
             />
           </LumenFrame>
           {localCustomGroup ? (
-            <LumenFrame className="hbar-app-react-settings-scroll">{customGroup}</LumenFrame>
+            <LumenFrame className="hbar-app-react-settings-scroll">{suspendedCustomGroup}</LumenFrame>
           ) : !entry || entry.status === 'loading' ? (
             <LumenText as="p" className="hbar-app-react-settings-state" role="status">
               {labels.loading}
@@ -475,7 +486,7 @@ export function HbarSettingsWorkspace({
                 </LumenFrame>
               )}
               <LumenFrame className="hbar-app-react-settings-scroll">
-                {customGroup ?? (
+                {suspendedCustomGroup ?? (
                   <SettingsRecipe
                     slots={{
                       content: (

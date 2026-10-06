@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { lazy, type ComponentType } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import {
   HbarRuntimeProvider,
@@ -28,6 +29,7 @@ const session: Session = {
   seq: 1,
 }
 const model = encodePath([{ kind: 'field', name: 'provider.model' }])
+const PendingSettingsGroup = lazy(() => new Promise<{ readonly default: ComponentType }>(() => undefined))
 
 const directory: CommandExecutor = {
   execute(name, raw) {
@@ -383,6 +385,42 @@ test('settings workspace composes client groups from the app.openSettings sectio
     expect(html).toContain('data-value="appearance"')
     expect(html).not.toContain('模型选择')
     expect(html).not.toContain('由 Host Schema 生成的设置')
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('a suspended client group keeps settings navigation mounted while its content loads', async () => {
+  const runtime = createAppRuntime({
+    instanceId: 'settings-react-suspended-group',
+    hostId: 'host',
+    directory,
+    settings,
+    surfaces: { canRender: (panelId) => panelId === 'settings' },
+  })
+  try {
+    await runtime.view.commands.execute('workspace.list', { limit: 100 })
+    await runtime.view.commands.execute('session.list', { workspaceId: workspace.id, limit: 100 })
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    await runtime.view.commands.execute('app.openSettings', {
+      scope: 'session',
+      targetId: session.id,
+      section: 'appearance',
+    })
+    await waitForReady(runtime)
+    const html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarSettingsWorkspace
+          labels={labels}
+          connected
+          additionalGroups={[{ id: 'appearance', label: '外观', order: 0 }]}
+          renderGroup={(groupId) => (groupId === 'appearance' ? <PendingSettingsGroup /> : null)}
+        />
+      </HbarRuntimeProvider>,
+    )
+    expect(html).toContain('aria-label="设置分组"')
+    expect(html).toContain('aria-current="page"')
+    expect(html).toContain(labels.loading)
   } finally {
     runtime.dispose()
   }
