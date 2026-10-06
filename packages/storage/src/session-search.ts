@@ -37,6 +37,7 @@ export const SESSION_SEARCH_SQL = `
     normalizedBody, content='session_search_documents', content_rowid='id', tokenize='trigram'
   );
   CREATE INDEX IF NOT EXISTS sessions_recent_search ON sessions(archived,updatedAt DESC,id);
+  CREATE INDEX IF NOT EXISTS messages_search_role_seq ON messages(sessionId,role,seq DESC);
 `
 
 const DISCOVER_PER_STEP = 8
@@ -406,7 +407,10 @@ export function createSessionSearchStorage(db: Database, displayNames: () => Rea
                 messageId: row.messageId,
                 role: row.role,
                 source: row.source,
-                targetMessageId: row.targetMessageId,
+                targetMessageId:
+                  row.source === 'title'
+                    ? latestOutputMessageId(row.sessionId)
+                    : row.targetMessageId,
                 blockIndex: row.source === 'title' ? null : row.blockIndex,
                 callId: row.callId,
                 snippet: excerpt,
@@ -426,6 +430,12 @@ export function createSessionSearchStorage(db: Database, displayNames: () => Rea
       truncated: ranked.length > parsed.limit,
       incompleteReason: scanCap ? 'scan_cap' : null,
     })
+  }
+
+  function latestOutputMessageId(sessionId: string): string | null {
+    const statement = db.query('SELECT id FROM messages WHERE sessionId=? AND role=? ORDER BY seq DESC LIMIT 1')
+    const record = statement.get(sessionId, 'assistant') ?? statement.get(sessionId, 'user')
+    return z.object({ id: z.string() }).nullable().parse(record)?.id ?? null
   }
 
   return { queueMessage, indexStatus, backfillStep, recent, search }

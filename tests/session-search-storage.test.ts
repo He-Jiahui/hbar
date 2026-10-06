@@ -74,6 +74,28 @@ test('searches committed dialogue and titles across workspaces while excluding p
   expect((await store.call('searchSessions', { query: 'searchword' })).items).toHaveLength(2)
 })
 
+test('title navigation identifies the latest assistant output beyond the newest history page', async () => {
+  const { store, workspace } = await fixture()
+  const session = await store.call('createSession', workspace.id, 'needle title')
+  const output = await store.call('commit', session.id, 'title-history', 'assistant', [
+    { type: 'text', text: 'Latest output' },
+  ])
+  for (let index = 0; index < 80; index++)
+    await store.call('commit', session.id, 'title-history', 'user', [{ type: 'text', text: `Later input ${index}` }])
+  const title = await store.call('searchSessions', { query: 'needle', source: 'title' })
+  expect(title.items[0]?.matches[0]).toMatchObject({
+    source: 'title',
+    messageId: null,
+    targetMessageId: output.message.id,
+  })
+  const newer = await store.call('commit', session.id, 'title-history', 'assistant', [
+    { type: 'text', text: 'New latest output' },
+  ])
+  expect(
+    (await store.call('searchSessions', { query: 'needle', source: 'title' })).items[0]?.matches[0]?.targetMessageId,
+  ).toBe(newer.message.id)
+})
+
 test('one-character scans stop at the candidate cap and mark counts/results incomplete', async () => {
   const { database, store, workspace } = await fixture()
   const session = await store.call('createSession', workspace.id, 'large fixture')
