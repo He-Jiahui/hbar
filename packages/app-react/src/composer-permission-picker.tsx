@@ -567,7 +567,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={popupId}
-        title={props.runActive ? labels.runActiveHint : undefined}
+        title={props.runActive ? labels.runActiveHint : triggerLabel}
         disabled={triggerDisabled}
         popoverTarget={popupId}
       >

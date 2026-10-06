@@ -1516,6 +1516,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                                 now={sessionTimeNow}
                                 metadata={{
                                   workspaceName: item.displayName,
+                                  workspacePath: directory.workspaces[item.workspaceId]?.path,
                                   execution: {
                                     state: item.execution.state,
                                     label: props.labels.sort.time.execution[item.execution.state],
@@ -1626,7 +1627,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                               >
                                 <WorkspaceShellIcon name={isExpanded ? 'chevron-down' : 'chevron-right'} tier="sm" />
                                 <WorkspaceShellIcon name={isExpanded ? 'folder-open' : 'folder'} />
-                                <LumenText size="s" variant="label">
+                                <LumenText size="s" variant="label" title={displayName}>
                                   {displayName}
                                 </LumenText>
                                 {isPinned && (
@@ -1929,7 +1930,11 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               <WorkspaceShellIcon name="menu" />
             </HbarActionIconButton>
           ),
-          content: <LumenText as="strong">{props.labels.brand}</LumenText>,
+          content: (
+            <LumenText as="strong" title={props.labels.brand}>
+              {props.labels.brand}
+            </LumenText>
+          ),
         }}
       />
       <LumenNavbar06

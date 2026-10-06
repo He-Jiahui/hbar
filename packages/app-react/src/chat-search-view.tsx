@@ -258,7 +258,7 @@ export function HbarChatSearchView({
               onClick={() => onOpen(row.sessionId, row.workspaceId)}
             >
               <LumenText as="span" className="hbar-chat-search-row-heading">
-                <LumenText as="span" className="hbar-chat-search-row-title">
+                <LumenText as="span" className="hbar-chat-search-row-title" title={row.title}>
                   {row.title}
                 </LumenText>
                 <LumenText
@@ -268,12 +268,15 @@ export function HbarChatSearchView({
                       ? new Date(row.updatedAt).toISOString()
                       : undefined
                   }
+                  title={labels.time(row.updatedAt)}
                 >
                   {labels.time(row.updatedAt)}
                 </LumenText>
               </LumenText>
               <LumenText as="span" className="hbar-chat-search-row-context">
-                <LumenText as="span">{row.workspaceName}</LumenText>
+                <LumenText as="span" title={row.workspaceName}>
+                  {row.workspaceName}
+                </LumenText>
                 {status !== 'recent' && (
                   <LumenText as="span">{labels.matches(row.matchCount, row.matchCountCapped)}</LumenText>
                 )}
@@ -281,10 +284,10 @@ export function HbarChatSearchView({
               {status !== 'recent' &&
                 row.snippets.slice(0, 3).map((snippet) => (
                   <LumenText as="span" key={snippet.messageId} className="hbar-chat-search-snippet">
-                    <LumenText as="span" className="hbar-chat-search-snippet-role">
+                    <LumenText as="span" className="hbar-chat-search-snippet-role" title={labels.role(snippet.role)}>
                       {labels.role(snippet.role)}
                     </LumenText>
-                    <LumenText as="span" className="hbar-chat-search-snippet-text">
+                    <LumenText as="span" className="hbar-chat-search-snippet-text" title={snippet.text}>
                       {highlightedChatSearchText(snippet.text, snippet.highlights)}
                     </LumenText>
                   </LumenText>

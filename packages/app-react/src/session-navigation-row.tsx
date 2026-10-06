@@ -41,6 +41,8 @@ export interface SessionNavigationRowLabels {
 
 export interface SessionNavigationRowMetadata {
   readonly workspaceName: string
+  /** Canonical path is optional because timeline rows may be projected without directory data. */
+  readonly workspacePath?: string | undefined
   readonly execution: SessionActivityIndicatorContent
 }
 
@@ -365,6 +367,7 @@ export function SessionNavigationRow({
                       size="s"
                       variant="supporting"
                       className="hbar-app-react-session-workspace-label"
+                      title={metadata.workspacePath ?? metadata.workspaceName}
                     >
                       {metadata.workspaceName}
                     </LumenText>
