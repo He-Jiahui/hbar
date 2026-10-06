@@ -69,9 +69,12 @@ export const contentBlockSchema = z.discriminatedUnion('type', [
       details: z.unknown().optional(),
       outcome: toolOutcomeSchema.optional(),
     })
-    .refine((result) => !result.outcome || (result.outcome.kind === 'succeeded') === !result.isError, {
-      message: 'Tool outcome must agree with the result error flag',
-    }),
+    .refine(
+      (result) =>
+        !result.outcome ||
+        (result.outcome.kind === 'succeeded' || result.outcome.reason === 'goal_replaced') === !result.isError,
+      { message: 'Tool outcome must agree with the result error flag' },
+    ),
 ])
 export type ContentBlock = z.infer<typeof contentBlockSchema>
 export const thinkingLevelSchema = z.enum(['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
@@ -109,6 +112,7 @@ export const goalContinuationSchema = z.object({
   phase: z.enum(['pending', 'queued', 'running', 'waiting', 'stopped']),
   reason: z.enum([
     'goal_active',
+    'model_unavailable',
     'workflow_wait',
     'plan_mode',
     'budget_exhausted',

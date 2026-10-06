@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
-import { TOOL_SEQUENCE_RESULT_CHARACTERS } from '@hbar/plugin-sdk'
+import { RunControlSignal, TOOL_SEQUENCE_RESULT_CHARACTERS } from '@hbar/plugin-sdk'
 import type { ToolContext, ToolDefinition, ToolResult, ToolSequenceCall, ToolSequenceResult } from '@hbar/plugin-sdk'
 
 const callsSchema = z
@@ -60,6 +60,7 @@ export function createToolSequenceExecutor(
           callId,
           parentCallId: context.callId,
         })
+        if (result.hostControl) throw new RunControlSignal(result.hostControl)
         const needsInspection = result.content?.some((block) => block.type === 'image') ?? false
         const continuedScopeDenial = Boolean(
           call.continueOnScopeDenied &&

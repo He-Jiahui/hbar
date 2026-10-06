@@ -41,3 +41,15 @@ test('actual Host abort reasons remain distinct and are not classified by messag
   ])
     expect(hostAbortToolOutcome(reason, true)).toEqual({ kind: 'failed', executionStarted: true })
 })
+
+test('only an explicitly typed Goal replacement may cancel a call without an error result', () => {
+  const redirected = {
+    ...legacy,
+    isError: false,
+    outcome: { kind: 'cancelled', executionStarted: false, reason: 'goal_replaced' },
+  } satisfies Extract<ContentBlock, { type: 'tool_result' }>
+  expect(contentBlockSchema.parse(redirected)).toEqual(redirected)
+  expect(contentBlockSchema.safeParse({ ...redirected, isError: true }).success).toBe(false)
+  expect(toolOutcomeSchema.safeParse({ ...redirected.outcome, kind: 'succeeded' }).success).toBe(false)
+  expect(toolOutcomeSchema.safeParse({ ...redirected.outcome, reason: 'arbitrary' }).success).toBe(false)
+})

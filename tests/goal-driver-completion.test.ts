@@ -15,6 +15,7 @@ async function fixture(
   firstTool = 'update_goal',
   args: Record<string, unknown> = { status: 'complete' },
   tail: { name: string; args: Record<string, unknown> }[] = [],
+  completeNext = false,
 ) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-goal-driver-'))
   cleanups.push(() => rm(root, { recursive: true, force: true }))
@@ -26,11 +27,12 @@ async function fixture(
     fetch() {
       requests++
       const first = requests === 1
+      const toolTurn = first || completeNext
       const chunk = (delta: unknown, finish_reason: string | null) =>
         `data: ${JSON.stringify({ id: 'completion', object: 'chat.completion.chunk', created: 1, model: 'fixture-network', choices: [{ index: 0, delta, finish_reason }] })}\n\n`
       return new Response(
         chunk(
-          first
+          toolTurn
             ? {
                 role: 'assistant',
                 tool_calls: [
@@ -38,9 +40,12 @@ async function fixture(
                     index: 0,
                     id: 'control',
                     type: 'function',
-                    function: { name: firstTool, arguments: JSON.stringify(args) },
+                    function: {
+                      name: first ? firstTool : 'update_goal',
+                      arguments: JSON.stringify(first ? args : { status: 'complete' }),
+                    },
                   },
-                  ...tail.map((tool, index) => ({
+                  ...(first ? tail : []).map((tool, index) => ({
                     index: index + 1,
                     id: `tail-${index}`,
                     type: 'function',
@@ -51,7 +56,7 @@ async function fixture(
             : { role: 'assistant', content: 'Follow-up inference' },
           null,
         ) +
-          chunk({}, first ? 'tool_calls' : 'stop') +
+          chunk({}, toolTurn ? 'tool_calls' : 'stop') +
           `data: ${JSON.stringify({ id: 'completion', object: 'chat.completion.chunk', created: 1, model: 'fixture-network', choices: [], usage: { prompt_tokens: 50, completion_tokens: 10, total_tokens: 60 } })}\n\n` +
           'data: [DONE]\n\n',
         { headers: { 'Content-Type': 'text/event-stream' } },
@@ -141,4 +146,41 @@ test('completion seals its bound Run against late mutations in the same tool bat
       .flatMap((message) => message.content)
       .some((block) => block.type === 'tool_result' && block.name === 'write_file' && block.isError),
   ).toBe(true)
+})
+
+test('real Pi tool batches hand off normally and use the next request only for the replacement Goal', async () => {
+  const { kernel, session, root, run, requests } = await fixture(
+    'get_goal',
+    {},
+    [{ name: 'write_file', args: { path: 'proof.txt', text: 'obsolete write' } }],
+    true,
+  )
+  await kernel.changePlugin('goal.codex', true, { autoContinue: true })
+  const goals = kernel.plugins.get<GoalService>('goal')
+  const budgets = kernel.plugins.get<BudgetService>('budget')
+  let replaced = false
+  const dispose = kernel.hooks.on('tool.after', async (event) => {
+    if (event.name !== 'get_goal' || replaced) return
+    replaced = true
+    const current = (await goals.get(session.id)).goal!
+    await goals.set(session.id, {
+      objective: 'Verify the preserved proof for the new objective',
+      expectedGoalId: current.goalId,
+    })
+  })
+  try {
+    const snapshot = await run()
+    expect(requests()).toBe(2)
+    expect(snapshot.runs.map((item) => item.status)).toEqual(['completed', 'completed'])
+    expect(snapshot.runs.every((item) => item.error === null && !item.failure)).toBe(true)
+    expect(await readFile(join(root, 'proof.txt'), 'utf8')).toBe('verified')
+    expect((await goals.get(session.id)).goal).toMatchObject({ status: 'complete', tokensUsed: 60 })
+    expect((await budgets.get(session.id))?.usedTokens).toBe(120)
+    const cancelled = snapshot.messages
+      .flatMap((message) => message.content)
+      .find((block) => block.type === 'tool_result' && block.name === 'write_file')
+    expect(cancelled).toMatchObject({ isError: false, outcome: { kind: 'cancelled', reason: 'goal_replaced' } })
+  } finally {
+    await dispose()
+  }
 })

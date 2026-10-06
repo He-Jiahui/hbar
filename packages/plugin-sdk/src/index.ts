@@ -1,6 +1,8 @@
 import { Context, Service } from 'cordis'
 export type { DecisionContext, DecisionService } from './decision'
 export { appendModelContext, prependModelInstructions } from './model-context'
+export { RunControlSignal, type GoalReplacementStop } from './run-control'
+import type { GoalReplacementStop } from './run-control'
 import type { z } from 'zod'
 import type { ToolPresentationDeclaration } from '@hbar/contracts'
 export type { ToolPresentationDeclaration } from '@hbar/contracts'
@@ -85,6 +87,8 @@ export interface ToolResult {
   details?: unknown
   /** Host-owned failure metadata. The execution gateway overwrites any plugin-provided value. */
   hostFailure?: { code: string; executionStarted: boolean } | undefined
+  /** Host-owned normal termination. Plugins cannot manufacture this at the execution gateway. */
+  hostControl?: GoalReplacementStop | undefined
 }
 export interface ToolContext {
   session: Session
@@ -239,7 +243,7 @@ export interface DriverInput {
   stream(id: string, text: string, thinking: string): void
   execute(name: string, args: Record<string, unknown>, callId: string): Promise<ToolResult>
   beforeRequest(request: ModelRequest, stepId: string): Promise<ModelRequest>
-  stepEnded(stepId: string): Promise<{ stop: 'goal_complete' } | void>
+  stepEnded(stepId: string): Promise<{ stop: 'goal_complete' | 'goal_replaced' } | void>
   /** Optional live steering source. Return the next unconsumed canonical,
    * already committed user messages for this exact Run, in sequence order,
    * at most 20 per read. The source owns its delivery cursor; do not rescan
@@ -643,7 +647,7 @@ export interface HookEvents {
     context: ToolContext
     tool: ToolDefinition
   }
-  'step.end': { sessionId: string; runId: string; stepId: string; stop?: 'goal_complete' }
+  'step.end': { sessionId: string; runId: string; stepId: string; stop?: 'goal_complete' | 'goal_replaced' }
   'tools.select': { sessionId: string; runId: string; tools: ToolDefinition[] }
   /** Recomputed per request. Only omit Run tools; bounded instructions may describe access via an existing tool. */
   'tools.advertise': { sessionId: string; runId: string; tools: ToolDefinition[]; instructions?: string }
@@ -678,7 +682,7 @@ export interface HookEvents {
     reason?: 'workflow_wait' | 'repair'
     recoveryKey?: string
   }
-  'goal.replaced': { sessionId: string; previous: ThreadGoal; goal: ThreadGoal }
+  'goal.replaced': { sessionId: string; previous: ThreadGoal; goal: ThreadGoal; supersededRunIds?: readonly string[] }
   'goal.cleared': { sessionId: string; previous: ThreadGoal }
   'agent.patch': {
     parentSessionId: string

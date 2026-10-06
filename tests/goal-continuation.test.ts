@@ -265,11 +265,11 @@ for (const change of ['pause', 'replace', 'clear'] as const) {
     else await goals.set(session.id, { objective: 'Replacement', expectedGoalId: goal.goalId })
     release()
     await kernel.waitForIdle()
-    expect(turns).toBe(0)
+    expect(turns).toBe(change === 'replace' ? 1 : 0)
     if (change === 'replace')
       expect((await goals.get(session.id)).goal).toMatchObject({
         objective: 'Replacement',
-        tokensUsed: 0,
+        tokensUsed: 1,
         status: 'active',
       })
   })
@@ -328,15 +328,29 @@ for (const change of ['pause', 'replace', 'clear'] as const) {
   for (const source of ['user', 'goal'] as const) {
     test(`${change} during a ${source} run prevents the next already-produced tool call from causing an effect`, async () => {
       let effects = 0
+      let originalGoalId: string | undefined
       let stop!: () => Promise<unknown>
       const { kernel, session, goals } = await fixture(async (input) => {
+        if (
+          change === 'replace' &&
+          input.run.input.continuation?.goalId !== originalGoalId &&
+          input.run.input.source === 'goal'
+        ) {
+          await call(input, 'update_goal', { status: 'complete' })
+          return
+        }
         await call(input, 'effect_probe', {})
         await stop()
         const callId = crypto.randomUUID()
         await input.commit('assistant', [{ type: 'tool_call', callId, name: 'effect_probe', args: {} }])
         const result = await input.execute('effect_probe', {}, callId)
-        expect(result.isError).toBe(true)
-        expect(result.text).toContain('paused, replaced or cleared')
+        if (change === 'replace') {
+          expect(result.isError).toBe(false)
+          expect(result.hostControl?.stop).toBe('goal_replaced')
+        } else {
+          expect(result.isError).toBe(true)
+          expect(result.text).toContain('paused, replaced or cleared')
+        }
       })
       const dispose = kernel.tools.register({
         name: 'effect_probe',
@@ -351,6 +365,7 @@ for (const change of ['pause', 'replace', 'clear'] as const) {
       })
       await kernel.setPermissionMode('allow')
       const goal = (await goals.create(session.id, 'Invalidate old tool calls')).goal!
+      originalGoalId = goal.goalId
       stop = () =>
         change === 'pause'
           ? goals.set(session.id, { status: 'paused' })
@@ -368,7 +383,11 @@ for (const change of ['pause', 'replace', 'clear'] as const) {
         await kernel.waitForIdle()
         expect(effects).toBe(1)
         if (change === 'replace')
-          expect((await goals.get(session.id)).goal).toMatchObject({ objective: 'Replacement task', tokensUsed: 0 })
+          expect((await goals.get(session.id)).goal).toMatchObject({
+            objective: 'Replacement task',
+            tokensUsed: 1,
+            status: 'complete',
+          })
       } finally {
         await dispose()
       }

@@ -250,7 +250,8 @@ test('a run from a replaced goal cannot complete or charge the new objective', a
       status: 'active',
       tokensUsed: 0,
     })
-    expect((await kernel.storage.call('run', run.id)).failure?.code).toBe('CONTINUATION_STALE')
+    expect(await kernel.storage.call('run', run.id)).toMatchObject({ status: 'completed', error: null })
+    expect((await kernel.storage.call('run', run.id)).failure).toBeUndefined()
     expect(
       (await kernel.storage.call('events', session.id, 0)).filter((event) => event.type === 'request.started'),
     ).toHaveLength(0)

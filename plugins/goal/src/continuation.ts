@@ -5,7 +5,7 @@ import type { GoalContinuation, SessionEvent } from '@hbar/contracts'
 
 export const continuationIntentSchema = goalContinuationSchema.extend({
   goalId: z.string().min(1).max(160),
-  modelId: z.string().min(1).max(160),
+  modelId: z.string().min(1).max(160).nullable(),
   text: z.string().max(200_000).default(''),
 })
 export type ContinuationIntent = z.infer<typeof continuationIntentSchema>

@@ -28,6 +28,7 @@ export function goalExecutionCopy(locale: ShellLocale): HbarGoalPlanWorkspaceLab
     },
     reasons: {
       goal_active: choose('继续目标', 'Pursuing goal'),
+      model_unavailable: choose('选择可用模型后继续', 'Select an available model to continue'),
       workflow_wait: choose('等待工作流验收或 reviewer', 'Waiting for workflow acceptance or reviewer'),
       plan_mode: choose('计划模式，仅分析', 'Plan mode: analysis only'),
       budget_exhausted: choose('执行额度耗尽', 'Execution allowance exhausted'),

@@ -46,7 +46,7 @@ import type {
   TaskNotificationKind,
   ThinkingLevel,
 } from '@hbar/contracts'
-import { definePlugin, prependModelInstructions, provide } from '@hbar/plugin-sdk'
+import { definePlugin, prependModelInstructions, provide, RunControlSignal } from '@hbar/plugin-sdk'
 import type {
   CompactionProvider,
   BudgetService,
@@ -346,6 +346,7 @@ export class Kernel {
   private wakeups = new Set<string>()
   private listeners = new Set<(event: WireNotification) => void>()
   private approvals = new Map<string, (resolution: ApprovalResolution) => void>()
+  private boundaryStops = new Map<string, RunControlSignal>()
   private userInputs = new Map<
     string,
     { request: UserInputRequest; settle: (response?: UserInputResponse, error?: unknown) => Promise<boolean> }
@@ -464,6 +465,20 @@ export class Kernel {
       },
     )
     this.registerSettingsSchemaCallbacks()
+    this.hooks.on('goal.replaced', async ({ sessionId, previous, goal, supersededRunIds = [] }) => {
+      if (!previous.goalId || !goal.goalId) return
+      const stop = new RunControlSignal({ stop: 'goal_replaced', previousGoalId: previous.goalId, goalId: goal.goalId })
+      const ids = new Set(supersededRunIds)
+      for (const runId of ids) this.boundaryStops.set(runId, stop)
+      for (const entry of [...this.userInputs.values()])
+        if (entry.request.sessionId === sessionId && ids.has(entry.request.runId)) await entry.settle(undefined, stop)
+      if (ids.size) {
+        const snapshot = await this.storage.call('snapshot', sessionId, undefined, 40)
+        for (const approval of snapshot.approvals)
+          if (ids.has(approval.runId) && approval.status === 'pending')
+            await this.resolveApproval(approval.id, 'cancelled')
+      }
+    })
   }
 
   private registerSettingsSchemaCallbacks(): void {
@@ -1663,14 +1678,16 @@ export class Kernel {
         await driver.run(input)
       } catch (error) {
         const cause: unknown = controller.signal.aborted ? controller.signal.reason : error
-        failureDetails = classifyRunFailure(cause)
-        status =
-          failureDetails.category === 'cancelled'
-            ? 'cancelled'
-            : failureDetails.category === 'interrupted'
-              ? 'interrupted'
-              : 'failed'
-        failure = cause instanceof Error ? cause.message : String(cause)
+        if (!(cause instanceof RunControlSignal)) {
+          failureDetails = classifyRunFailure(cause)
+          status =
+            failureDetails.category === 'cancelled'
+              ? 'cancelled'
+              : failureDetails.category === 'interrupted'
+                ? 'interrupted'
+                : 'failed'
+          failure = cause instanceof Error ? cause.message : String(cause)
+        }
       } finally {
         clearTimeout(timer)
         const active = this.active.get(sessionId)
@@ -1683,6 +1700,7 @@ export class Kernel {
         this.publishEvent(settledEvent)
         this.active.delete(sessionId)
         this.cancelled.delete(run.id)
+        this.boundaryStops.delete(run.id)
         await scope.hooks
           .dispatch('run.end', { sessionId, runId: run.id, status, run: await this.storage.call('run', run.id) })
           .catch((error) => console.error('Run observer failed:', error))
@@ -1790,14 +1808,20 @@ export class Kernel {
       started = false,
       executedArgs: Record<string, unknown> | undefined
     let hostFailure: ToolResult['hostFailure']
+    let hostControl: ToolResult['hostControl']
     let outcome: ToolOutcome | undefined
     const assertNotAborted = () => {
       if (!hostSignal.aborted) return
       outcome = hostAbortToolOutcome(hostSignal.reason, started)
       hostSignal.throwIfAborted()
     }
-    try {
+    const assertBoundary = () => {
       assertNotAborted()
+      const stop = this.boundaryStops.get(context.run.id)
+      if (stop) throw stop
+    }
+    try {
+      assertBoundary()
       const initial = tool.inputSchema.parse(rawArgs) as Record<string, unknown>
       const transformed = await scope.hooks.dispatch('tool.before', {
         name,
@@ -1806,6 +1830,7 @@ export class Kernel {
         tool,
       })
       const args = tool.inputSchema.parse(transformed.args) as Record<string, unknown>
+      assertBoundary()
       executedArgs = args
       const mode = context.run.input.approval ?? this.permissionModeValue
       let decision = await this.plugins.get<PolicyProvider>('policy').decide(tool, args, context)
@@ -1828,6 +1853,8 @@ export class Kernel {
       }
       if (tool.humanApproval === 'required' || (decision === 'ask' && gate === 'ask')) {
         const resolution = await this.requestApproval(name, args, context, hostSignal)
+        const replacementStop = this.boundaryStops.get(context.run.id)
+        if (replacementStop && !hostSignal.aborted) throw replacementStop
         if (resolution.source === 'abort') {
           outcome = hostAbortToolOutcome(resolution.reason, false)
           throw resolution.reason
@@ -1847,13 +1874,13 @@ export class Kernel {
           )
         }
       }
-      assertNotAborted()
+      assertBoundary()
       this.publishEvent(
         await this.storage.call('toolStart', context.session.id, context.run.id, context.callId, name, args),
       )
       started = true
       await scope.hooks.dispatch('tool.executing', { name, args: structuredClone(args), context, tool })
-      assertNotAborted()
+      assertBoundary()
       // The environment is Host-owned: drop any value a hook placed on the mutable context and
       // give only the executing tool the sandbox profile's variables.
       const { environment: _hookEnvironment, ...plain } = context
@@ -1865,16 +1892,24 @@ export class Kernel {
       result = (await scope.hooks.dispatch('tool.after', { name, result, context })).result
       outcome = { kind: result.isError ? 'failed' : 'succeeded', executionStarted: started }
     } catch (error) {
-      result = { text: error instanceof Error ? error.message : String(error), isError: true }
-      hostFailure = { code: error instanceof HbarError ? error.code : 'TOOL_FAILED', executionStarted: started }
-      // A plugin may throw a same-named error or fail after an unrelated abort. Only
-      // the exact Host signal reason establishes cancellation outside explicit gates.
-      outcome ??=
-        hostSignal.aborted && error === hostSignal.reason
-          ? hostAbortToolOutcome(hostSignal.reason, started)
-          : { kind: 'failed', executionStarted: started }
+      if (error instanceof RunControlSignal && !hostSignal.aborted) {
+        hostControl = error.control
+        result = {
+          text: 'The Goal was replaced; this old-goal call was cancelled at its next safe boundary.',
+          isError: false,
+        }
+        outcome = { kind: 'cancelled', executionStarted: started, reason: 'goal_replaced' }
+      } else {
+        result = { text: error instanceof Error ? error.message : String(error), isError: true }
+        hostFailure = { code: error instanceof HbarError ? error.code : 'TOOL_FAILED', executionStarted: started }
+        // Only the exact Host signal reason establishes cancellation outside explicit gates.
+        outcome ??=
+          hostSignal.aborted && error === hostSignal.reason
+            ? hostAbortToolOutcome(hostSignal.reason, started)
+            : { kind: 'failed', executionStarted: started }
+      }
     }
-    result = { ...result, hostFailure }
+    result = { ...result, hostFailure, hostControl }
     if (result.text.length > 128_000) result = { ...result, text: `${result.text.slice(0, 128_000)}\n[truncated]` }
     const content: ContentBlock[] = [
       {
@@ -2010,6 +2045,7 @@ export class Kernel {
       this.publishEvent(await this.storage.call('setRun', context.run.id, 'waiting_approval'))
       hostSignal.addEventListener('abort', onAbort, { once: true })
       if (hostSignal.aborted) onAbort()
+      if (this.boundaryStops.has(context.run.id)) await this.resolveApproval(approval.id, 'cancelled')
       return await outcome
     } finally {
       hostSignal.removeEventListener('abort', onAbort)
@@ -2057,6 +2093,8 @@ export class Kernel {
     if (this.userInputs.has(request.requestId))
       throw new HbarError('USER_INPUT_EXISTS', 'A user input request with this id is already pending')
     signal.throwIfAborted()
+    const boundaryStop = this.boundaryStops.get(request.runId)
+    if (boundaryStop) throw boundaryStop
 
     let settled = false
     let resolve!: (response: UserInputResponse) => void
@@ -2093,6 +2131,8 @@ export class Kernel {
     signal.addEventListener('abort', onAbort, { once: true })
     try {
       await this.append(request.sessionId, 'user_input.requested', request, request.runId)
+      const stop = this.boundaryStops.get(request.runId)
+      if (stop && !settled) await settle(undefined, stop)
       if (!settled) {
         this.publish({ method: 'user_input.requested', params: request })
         void this.taskNotification(

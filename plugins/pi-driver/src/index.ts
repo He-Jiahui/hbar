@@ -16,7 +16,7 @@ import { streamSimple as openaiCompletions } from '@earendil-works/pi-ai/api/ope
 import { streamSimple as openaiResponses } from '@earendil-works/pi-ai/api/openai-responses'
 import { streamSimple as anthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages'
 import { z } from 'zod'
-import { definePlugin, provide } from '@hbar/plugin-sdk'
+import { definePlugin, provide, RunControlSignal } from '@hbar/plugin-sdk'
 import { createUsageFact } from '@hbar/usage'
 import { DEFAULT_THINKING_LEVELS, normalizeThinkingLevel } from '@hbar/contracts'
 import type { DriverInput, HarnessDriver, ModelRequest, ToolResultContent } from '@hbar/plugin-sdk'
@@ -340,11 +340,11 @@ export class PiDriver implements HarnessDriver {
       firstThinking = false,
       firstText = false
     const completedTools = new Set<string>()
-    let goalCompleted = false
+    let goalStopped = false
     let requestFailure: unknown
     const readSteering = createDriverSteeringReader(input)
     const pollSteering = async (closeWhenEmpty?: true) => {
-      if (input.signal.aborted || goalCompleted || requestFailure !== undefined) return []
+      if (input.signal.aborted || goalStopped || requestFailure !== undefined) return []
       try {
         // These entries only wake the loop. The provider payload is rebuilt by
         // beforeRequest, with its actual model, including attachment hydration.
@@ -369,6 +369,7 @@ export class PiDriver implements HarnessDriver {
       executionMode: 'sequential',
       execute: async (callId, args) => {
         const result = await input.execute(tool.name, args as Record<string, unknown>, callId)
+        if (result.hostControl) goalStopped = true
         completedTools.add(callId)
         if (result.isError) throw new Error(result.text)
         if (result.content) transientToolContent.set(callId, result.content)
@@ -446,7 +447,7 @@ export class PiDriver implements HarnessDriver {
         }
       } else if (event.type === 'turn_end') {
         await input.emit('step.ended', {}, stepId)
-        goalCompleted = (await input.stepEnded(stepId))?.stop === 'goal_complete'
+        goalStopped = Boolean((await input.stepEnded(stepId))?.stop) || goalStopped
       }
     }
     const streamFn: StreamFn = async () => {
@@ -480,6 +481,7 @@ export class PiDriver implements HarnessDriver {
           input.session.id,
         )
       } catch (error) {
+        if (error instanceof RunControlSignal && !input.signal.aborted) throw error
         requestFailure = error
         return failedStream(modelOf(input.request.model), error, input.signal.aborted)
       }
@@ -496,7 +498,7 @@ export class PiDriver implements HarnessDriver {
           model: modelOf(input.request.model),
           convertToLlm: (messages) => messages as PiMessage[],
           toolExecution: 'sequential',
-          shouldStopAfterTurn: () => input.signal.aborted || goalCompleted,
+          shouldStopAfterTurn: () => input.signal.aborted || goalStopped,
           ...(input.getSteeringMessages
             ? {
                 getSteeringMessages: () => pollSteering(),
@@ -513,6 +515,8 @@ export class PiDriver implements HarnessDriver {
       input.signal.throwIfAborted()
       if (requestFailure !== undefined) throw requestFailure
       if (failure) throw new Error(failure)
+    } catch (error) {
+      if (!(error instanceof RunControlSignal) || input.signal.aborted) throw error
     } finally {
       await input.closeSteeringAdmission?.()
     }
