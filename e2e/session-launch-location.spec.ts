@@ -31,10 +31,13 @@ function git(repository: string, ...args: string[]): string {
 
 async function showSidebar(page: Page, locale: ShellLocale): Promise<void> {
   const copy = getShellCopy(locale)
+  const shell = page.locator('[data-hbar-sidebar-expanded]')
   const sidebar = page.getByRole('complementary', { name: copy.shell.projectsAndSessions, exact: true })
-  if (!(await sidebar.isVisible()))
+  await expect(shell).toBeAttached()
+  if ((await shell.getAttribute('data-hbar-sidebar-expanded')) !== 'true')
     await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()
-  await expect(sidebar).toBeVisible()
+  await expect(shell).toHaveAttribute('data-hbar-sidebar-expanded', 'true')
+  await expect(sidebar).toBeInViewport()
 }
 
 async function createSessionFromSidebar(page: Page, host: WebSessionHost, locale: ShellLocale) {
@@ -71,6 +74,8 @@ async function preparePage(
   page.on('pageerror', (error) => errors.push(error.message))
   await page.goto(base())
   const copy = getShellCopy(pageLocale)
+  if (await page.evaluate(() => window.matchMedia('(max-width: 63.9375rem)').matches))
+    await expect(page.getByRole('button', { name: copy.shell.showSidebar, exact: true })).toBeVisible()
   await showSidebar(page, pageLocale)
   await expect(page.getByRole('button', { name: copy.shell.newSession, exact: true })).toBeVisible()
   return { page, errors }
@@ -152,6 +157,7 @@ test('existing empty Session selects a shared branch locally and applies it on o
   let host: WebSessionHost | undefined
   try {
     host = await startWebSessionHost({
+      budgetAutoContinue: false,
       root,
       home: hostData,
       port: Number(process.env.HBAR_E2E_HOST_PORT ?? 48979),
@@ -228,6 +234,7 @@ test('existing empty Session prepares an isolated selected base before its Goal 
   let host: WebSessionHost | undefined
   try {
     host = await startWebSessionHost({
+      budgetAutoContinue: false,
       root,
       home: hostData,
       port: Number(process.env.HBAR_E2E_HOST_PORT ?? 48979),

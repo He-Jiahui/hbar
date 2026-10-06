@@ -8,7 +8,7 @@ import {
   type SessionWorkspaceMoveEntry,
   type SessionWorkspaceMovePhase,
 } from '@hbar/app-runtime'
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenContentText } from '@lumen/app-ui'
 import { HbarPreSessionLocationPicker, type HbarPreSessionLocationLabels } from './pre-session-location-picker'
 import type { HbarPreSessionLaunchStatusLabels } from './pre-session-launch-status'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
@@ -315,7 +315,10 @@ export function HbarSessionLaunchLocation(props: HbarSessionLaunchLocationProps)
   )
   const moveStatusPanel = hasMoveStatus ? (
     <LumenFrame className="hbar-session-launch-location-status hbar-session-workspace-move-status">
-      <LumenText as="p" role={moveActionError || moveEntry?.status === 'failed' ? 'alert' : 'status'}>
+      <LumenContentText
+        context="feedback.paragraph"
+        role={moveActionError || moveEntry?.status === 'failed' ? 'alert' : 'status'}
+      >
         {!workspaceMoves.available
           ? props.moveLabels.unavailable
           : moveActionError
@@ -323,7 +326,7 @@ export function HbarSessionLaunchLocation(props: HbarSessionLaunchLocationProps)
             : directoryError
               ? props.labels.error(directoryError)
               : moveStatus}
-      </LumenText>
+      </LumenContentText>
       {directoryError && (
         <LumenButton
           type="button"
@@ -493,8 +496,8 @@ export function HbarSessionLaunchLocation(props: HbarSessionLaunchLocationProps)
       />
       {(status || openError || actionError || !launchDrafts.available) && (
         <LumenFrame className="hbar-session-launch-location-status">
-          <LumenText
-            as="p"
+          <LumenContentText
+            context="feedback.paragraph"
             role={
               currentEntry?.phase === 'unknown' || currentEntry?.phase === 'failed' || openError || actionError
                 ? 'alert'
@@ -508,7 +511,7 @@ export function HbarSessionLaunchLocation(props: HbarSessionLaunchLocationProps)
                 : actionError
                   ? props.statusLabels.error(actionError)
                   : status}
-          </LumenText>
+          </LumenContentText>
           {showReconcile && (
             <LumenButton type="button" size="s" disabled={!props.connected || pending} onClick={reconcile}>
               {props.statusLabels.check}
