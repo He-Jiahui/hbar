@@ -1,5 +1,6 @@
 import { readdir } from 'node:fs/promises'
 import { relative, resolve } from 'node:path'
+import * as ts from 'typescript'
 import { classifyDesktopSource } from './classify'
 import { loadDesktopSourceGraph } from './graph'
 import type { DesktopElement, DesktopElementInventory } from './types'
@@ -62,9 +63,15 @@ export async function collectDesktopElements(root: string): Promise<DesktopEleme
     .filter((path) => path.endsWith('.tsx') && roots.some((prefix) => path.startsWith(prefix + '/')))
     .sort()
   const elements: DesktopElement[] = []
+  const program = ts.createProgram({
+    rootNames: [resolve(root, 'apps/web/src/main.tsx')],
+    options: graph.compilerOptions,
+  })
+  const checker = program.getTypeChecker()
   for (const [path, source] of graph.sources) {
     const display = relative(root, path).replaceAll('\\', '/')
-    if (sourceModules.includes(display)) elements.push(...classifyDesktopSource(display, source))
+    if (sourceModules.includes(display))
+      elements.push(...classifyDesktopSource(display, program.getSourceFile(path) ?? source, checker))
   }
   elements.push(...platformElements())
   const allFiles = (await Promise.all(roots.map((prefix) => tsxFiles(resolve(root, prefix)))))

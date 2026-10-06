@@ -1,4 +1,4 @@
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenContentText } from '@lumen/app-ui'
 import type { SessionRosterRefreshEntry } from '@hbar/app-runtime'
 
 export interface SessionRosterRefreshLabels {
@@ -36,8 +36,8 @@ export function SessionRosterFeedback({
     return null
   return (
     <LumenFrame className="hbar-app-react-roster-feedback" data-roster-workspace-id={entry.workspaceId}>
-      <LumenText
-        as="p"
+      <LumenContentText
+        context="feedback.paragraph"
         role={entry.status === 'error' ? 'alert' : 'status'}
         tone={entry.status === 'error' ? 'danger' : 'muted'}
       >
@@ -52,7 +52,7 @@ export function SessionRosterFeedback({
                 : entry.remaining > 0
                   ? labels.remaining(entry.remaining)
                   : labels.refreshed}
-      </LumenText>
+      </LumenContentText>
       {entry.status === 'error' && (
         <LumenButton size="s" variant="text" disabled={!connected} onClick={onRefresh}>
           {labels.retry}

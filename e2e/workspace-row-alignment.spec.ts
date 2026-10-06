@@ -62,6 +62,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         for (const width of [1440, 390]) {
           await page.setViewportSize({ width, height: 900 })
           const showSidebar = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
+          // The responsive collapse command is asynchronous; wait for its confirmed state before reopening.
+          if (width < 1024) await expect(showSidebar).toBeVisible()
           if (await showSidebar.isVisible()) await showSidebar.click()
           await expect(button).toBeVisible()
           const geometry = await button.evaluate((element) => {

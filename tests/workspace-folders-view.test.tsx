@@ -39,7 +39,7 @@ function render(value: WorkspaceFoldersState, locale: 'zh-CN' | 'en-US' = 'en-US
   )
 }
 for (const locale of ['zh-CN', 'en-US'] as const) {
-  for (const count of [0, 1, 32]) {
+  for (const count of [0, 1, 32, 33]) {
     test(`folder editor preserves Host copy, stable row identities and capacity ${locale} ${count}`, () => {
       const html = render(state(count), locale)
       const labels = workspaceFoldersCopy(locale)

@@ -115,6 +115,65 @@ function expressionSource(node: ts.Node, source: ts.SourceFile): string {
   return `[source:${source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1}; ${ts.SyntaxKind[node.kind]}] ${[...references].join(', ')}`
 }
 
+function composedContent(node: ts.Expression, checker?: ts.TypeChecker, visited = new Set<ts.Node>()): boolean {
+  if (visited.has(node)) return false
+  visited.add(node)
+  if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node)) return true
+  if (ts.isParenthesizedExpression(node)) return composedContent(node.expression, checker, visited)
+  if (
+    node.kind === ts.SyntaxKind.NullKeyword ||
+    node.kind === ts.SyntaxKind.FalseKeyword ||
+    node.kind === ts.SyntaxKind.TrueKeyword
+  )
+    return true
+  if (ts.isIdentifier(node) && node.text === 'undefined') return true
+  if (checker) {
+    if (composedType(checker.getTypeAtLocation(node), checker)) return true
+    const symbol = checker.getSymbolAtLocation(node)
+    const declaration = symbol?.valueDeclaration
+    if (symbol && declaration) {
+      if (composedType(checker.getTypeOfSymbolAtLocation(symbol, declaration), checker)) return true
+      if (ts.isVariableDeclaration(declaration) && declaration.initializer)
+        return composedContent(declaration.initializer, checker, visited)
+    }
+  }
+  if (ts.isConditionalExpression(node))
+    return composedContent(node.whenTrue, checker, visited) && composedContent(node.whenFalse, checker, visited)
+  if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken)
+    return composedContent(node.right, checker, visited)
+  if (
+    ts.isCallExpression(node) &&
+    ts.isPropertyAccessExpression(node.expression) &&
+    node.expression.name.text === 'map'
+  ) {
+    const fn = node.arguments[0]
+    if (fn && ts.isArrowFunction(fn) && !ts.isBlock(fn.body)) return composedContent(fn.body, checker, visited)
+  }
+  return false
+}
+
+/** Typed React slots remain composition boundaries; plain strings/numbers require a purpose. */
+function composedType(type: ts.Type, checker: ts.TypeChecker): boolean {
+  const name = type.aliasSymbol?.getName() ?? type.getSymbol()?.getName()
+  if (name === 'ReactNode' || name === 'ReactElement' || name === 'ReactPortal') return true
+  if (
+    name === 'Element' &&
+    type
+      .getSymbol()
+      ?.declarations?.some(
+        (node) =>
+          node.parent.parent && ts.isModuleDeclaration(node.parent.parent) && node.parent.parent.name.text === 'JSX',
+      )
+  )
+    return true
+  if (type.isUnion()) return type.types.every((item) => composedType(item, checker))
+  if (type.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined | ts.TypeFlags.BooleanLike | ts.TypeFlags.Never))
+    return true
+  if (checker.isArrayType(type) || checker.isTupleType(type))
+    return checker.getTypeArguments(type as ts.TypeReference).every((item) => composedType(item, checker))
+  return false
+}
+
 function surfaceOf(path: string, owner: string): string {
   const value = `${path}/${owner}`.toLowerCase()
   if (/settings|provider|sandbox|extension|skill-import|storage-location/.test(value)) return 'settings'
@@ -157,7 +216,11 @@ function nativeMapping(component: string): string {
   return 'LumenFrame or dedicated renderer'
 }
 
-export function classifyDesktopSource(path: string, source: ts.SourceFile): readonly DesktopElement[] {
+export function classifyDesktopSource(
+  path: string,
+  source: ts.SourceFile,
+  checker?: ts.TypeChecker,
+): readonly DesktopElement[] {
   const records: DesktopElement[] = []
   const ordinals = new Map<string, number>()
   function visit(node: ts.Node): void {
@@ -219,8 +282,13 @@ export function classifyDesktopSource(path: string, source: ts.SourceFile): read
         status = 'pending'
       const rawFrameContent =
         component === 'LumenFrame' &&
-        /^(span|pre|label|a)$/.test(attributes.as ?? '') &&
-        contentSources.some((value) => !value.startsWith('aria-') && !value.startsWith('title='))
+        children.some((child) =>
+          ts.isJsxText(child)
+            ? Boolean(child.text.trim())
+            : ts.isJsxExpression(child) && child.expression
+              ? !composedContent(child.expression, checker)
+              : false,
+        )
       if (rawFrameContent && !renderer) {
         status = 'pending'
         issues.push('container-owns-unclassified-content')

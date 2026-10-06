@@ -1,5 +1,5 @@
 import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { LumenButton, LumenDialog, LumenFormField, LumenFrame, LumenInput, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenDialog, LumenFormField, LumenFrame, LumenInput, LumenContentText } from '@lumen/app-ui'
 import type { WorkspaceDisplayNamesState } from '@hbar/app-runtime'
 import { captureWorkspaceDisplayNameValidationFocus } from './workspace-display-name-validation-focus'
 import './workspace-display-names.css'
@@ -297,10 +297,10 @@ export function WorkspaceDisplayNameDialog(props: WorkspaceDisplayNameDialogProp
           {editor.expectedDisplayName !== null && (
             <LumenFrame className="hbar-workspace-display-name-restore">
               <LumenFrame>
-                <LumenText as="p">{editor.canonicalName}</LumenText>
-                <LumenText as="p" tone="muted">
+                <LumenContentText context="dialog.body">{editor.canonicalName}</LumenContentText>
+                <LumenContentText context="form.description" tone="muted">
                   {labels.restoreHint}
-                </LumenText>
+                </LumenContentText>
               </LumenFrame>
               <LumenButton
                 type="button"
@@ -313,35 +313,35 @@ export function WorkspaceDisplayNameDialog(props: WorkspaceDisplayNameDialogProp
             </LumenFrame>
           )}
           {message && (
-            <LumenText as="p" role={uncertain || failure ? 'alert' : 'status'}>
+            <LumenContentText context="feedback.paragraph" role={uncertain || failure ? 'alert' : 'status'}>
               {message}
-            </LumenText>
+            </LumenContentText>
           )}
           {localFailure && !message && !readFailure && (
-            <LumenText as="p" role="alert">
+            <LumenContentText context="feedback.paragraph" role="alert">
               {labels.unexpectedFailure}
-            </LumenText>
+            </LumenContentText>
           )}
           {!connected && (
-            <LumenText as="p" role="status">
+            <LumenContentText context="feedback.paragraph" role="status">
               {labels.offline}
-            </LumenText>
+            </LumenContentText>
           )}
           {connected && state.status === 'unavailable' && (
-            <LumenText as="p" role="status">
+            <LumenContentText context="feedback.paragraph" role="status">
               {labels.unavailable}
-            </LumenText>
+            </LumenContentText>
           )}
           {state.status === 'loading' && !uncertain && (
-            <LumenText as="p" role="status">
+            <LumenContentText context="feedback.paragraph" role="status">
               {labels.loading}
-            </LumenText>
+            </LumenContentText>
           )}
           {editor.baseLoaded && editor.conflict && !uncertain && (
             <LumenFrame className="hbar-workspace-display-name-recovery">
-              <LumenText as="p" role="alert">
+              <LumenContentText context="feedback.paragraph" role="alert">
                 {labels.conflict}
-              </LumenText>
+              </LumenContentText>
               <LumenButton
                 type="button"
                 variant="outlined"
@@ -353,9 +353,9 @@ export function WorkspaceDisplayNameDialog(props: WorkspaceDisplayNameDialogProp
             </LumenFrame>
           )}
           {readFailure && (
-            <LumenText as="p" role="alert">
+            <LumenContentText context="feedback.paragraph" role="alert">
               {readFailure}
-            </LumenText>
+            </LumenContentText>
           )}
           {uncertain ? (
             <LumenButton
@@ -446,24 +446,27 @@ export function WorkspaceDisplayNameFeedback({
       aria-busy={busy || undefined}
     >
       {message && (
-        <LumenText as="p" role={uncertain || state.action.status === 'failed' ? 'alert' : 'status'}>
+        <LumenContentText
+          context="feedback.paragraph"
+          role={uncertain || state.action.status === 'failed' ? 'alert' : 'status'}
+        >
           {message}
-        </LumenText>
+        </LumenContentText>
       )}
       {readFailure && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.paragraph" role="alert">
           {readFailure}
-        </LumenText>
+        </LumenContentText>
       )}
       {localFailure && !message && !readFailure && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.paragraph" role="alert">
           {labels.unexpectedFailure}
-        </LumenText>
+        </LumenContentText>
       )}
       {!connected && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" role="status">
           {labels.offline}
-        </LumenText>
+        </LumenContentText>
       )}
       <LumenFrame className="hbar-workspace-display-name-recovery">
         {workspaceId && (uncertain || state.action.status === 'failed' || state.action.status === 'submitting') && (

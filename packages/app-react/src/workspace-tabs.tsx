@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { Bot, ChevronLeft, ChevronRight, Ellipsis, PanelRight, X } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenContentText } from '@lumen/app-ui'
 import './workspace-tabs.css'
 import { workspaceTabMenuPosition } from './workspace-tab-menu-layout'
 import { revealInlineItem } from './inline-item-reveal'
@@ -245,7 +245,11 @@ export function HbarWorkspaceTabs({
           })
         }}
       >
-        {items.length === 0 && <LumenText className="hbar-workspace-tabs-empty">{labels.empty}</LumenText>}
+        {items.length === 0 && (
+          <LumenContentText context="empty.description" className="hbar-workspace-tabs-empty">
+            {labels.empty}
+          </LumenContentText>
+        )}
         {items.map((item, index) => (
           <LumenFrame
             key={item.id}
@@ -307,7 +311,9 @@ export function HbarWorkspaceTabs({
                   aria-label={labels.activity(item.activity)}
                 />
               )}
-              <LumenText className="hbar-workspace-tab-title">{item.title}</LumenText>
+              <LumenContentText context="navigation.caption" className="hbar-workspace-tab-title">
+                {item.title}
+              </LumenContentText>
             </LumenButton>
             <LumenButton
               variant="text"

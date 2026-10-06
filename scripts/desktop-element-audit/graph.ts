@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 export interface DesktopSourceGraph {
   readonly root: string
+  readonly compilerOptions: ts.CompilerOptions
   readonly sources: ReadonlyMap<string, ts.SourceFile>
   readonly externalBoundaries: readonly string[]
 }
@@ -57,6 +58,7 @@ export function loadDesktopSourceGraph(root: string, entry = 'apps/web/src/main.
       source = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true)
       sources.set(path, source)
       const currentSource = source
+      const importer = path
       function inspect(node: ts.Node): void {
         if (
           ts.isImportDeclaration(node) &&
@@ -71,7 +73,7 @@ export function loadDesktopSourceGraph(root: string, entry = 'apps/web/src/main.
             for (const element of bindings.elements)
               if (!element.isTypeOnly) imports.push((element.propertyName ?? element.name).text)
           } else if (bindings) imports.push('*')
-          visitModule(resolveImport(node.moduleSpecifier.text, path), imports)
+          visitModule(resolveImport(node.moduleSpecifier.text, importer), imports)
         }
         if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
           const argument = node.arguments[0]
@@ -97,7 +99,7 @@ export function loadDesktopSourceGraph(root: string, entry = 'apps/web/src/main.
                 if (used.size) exports = [...used]
               }
             }
-            visitModule(resolveImport(argument.text, path), exports)
+            visitModule(resolveImport(argument.text, importer), exports)
           }
         }
         ts.forEachChild(node, inspect)
@@ -123,5 +125,5 @@ export function loadDesktopSourceGraph(root: string, entry = 'apps/web/src/main.
     }
   }
   visitModule(resolve(absoluteRoot, entry), ['@side-effect'])
-  return { root: absoluteRoot, sources, externalBoundaries: [...boundaries].sort() }
+  return { root: absoluteRoot, compilerOptions: parsed.options, sources, externalBoundaries: [...boundaries].sort() }
 }

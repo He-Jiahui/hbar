@@ -1,4 +1,4 @@
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenContentText } from '@lumen/app-ui'
 import type { useToolPaneLayout } from './tool-pane-layout'
 import type { ToolPaneLayoutLabels } from './tool-pane-layout-copy'
 
@@ -19,9 +19,9 @@ export function ToolPaneLayoutFeedback({
       data-tool-layout-status={surface === 'tool' ? receipt.status : undefined}
       data-sidebar-layout-status={surface === 'sidebar' ? receipt.status : undefined}
     >
-      <LumenText as="span" role={receipt.status === 'failed' ? 'alert' : 'status'}>
+      <LumenContentText context="control.status" role={receipt.status === 'failed' ? 'alert' : 'status'}>
         {receipt.status === 'failed' ? labels.failed(receipt.code) : labels.saving}
-      </LumenText>
+      </LumenContentText>
       {receipt.status === 'failed' ? (
         <LumenButton
           variant="text"

@@ -49,6 +49,40 @@ test('a dedicated renderer exception does not exempt business actions or other f
   expect(records[1]?.issues).toContain('native-element-outside-renderer')
 })
 
+test('flow containers compose semantic children while direct text still requires an explicit purpose', () => {
+  const records = classifyDesktopSource(
+    'apps/web/src/App.tsx',
+    source(`
+    function View({labels, busy, rows}) { return <LumenFrame>
+      <LumenFrame as="span">{busy && <LumenIcon />}</LumenFrame>
+      <LumenFrame>{rows.map(row => <LumenContentText context="navigation.caption">{row.title}</LumenContentText>)}</LumenFrame>
+      <LumenFrame as="label"><LumenContentText context="form.label">{labels.name}</LumenContentText></LumenFrame>
+      <LumenFrame>{labels.description}</LumenFrame>
+      <LumenFrame as="span">{busy ? <LumenIcon /> : labels.status}</LumenFrame>
+    </LumenFrame> }`),
+  )
+  expect(records.filter((record) => record.status === 'pending')).toHaveLength(2)
+  expect(records.filter((record) => record.issues.includes('container-owns-unclassified-content'))).toHaveLength(2)
+})
+
+test('typed content slots retain composition ownership after truthy narrowing while strings remain pending', () => {
+  const fixture = source(`
+    type ReactNode = string | null | {type: string}
+    function View(props: {children: ReactNode, title: string}) { return <LumenFrame>
+      {props.children ? <LumenFrame>{props.children}</LumenFrame> : null}
+      <LumenFrame>{props.title}</LumenFrame>
+    </LumenFrame> }
+  `)
+  const host = ts.createCompilerHost({ jsx: ts.JsxEmit.ReactJSX })
+  const readSource = host.getSourceFile.bind(host)
+  host.getSourceFile = (name, version, onError, shouldCreateNewSourceFile) =>
+    name === 'fixture.tsx' ? fixture : readSource(name, version, onError, shouldCreateNewSourceFile)
+  const program = ts.createProgram(['fixture.tsx'], { jsx: ts.JsxEmit.ReactJSX }, host)
+  const records = classifyDesktopSource('apps/web/src/App.tsx', fixture, program.getTypeChecker())
+  expect(records[1]?.status).toBe('composed')
+  expect(records[2]?.issues).toContain('container-owns-unclassified-content')
+})
+
 test('Desktop graph reaches each delayed feature and retains platform elements', async () => {
   const inventory = await collectDesktopElements(resolve(import.meta.dirname, '..'))
   for (const path of [

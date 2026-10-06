@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { Check, ChevronRight, Clock, Ellipsis, Folder, FolderOpen, RefreshCw, RotateCcw } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenIconButton, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenIconButton, LumenContentText } from '@lumen/app-ui'
 import type { WorkspaceActivitySortBy } from '@hbar/contracts/directory'
 import { workspaceHeaderMenuPosition, type WorkspaceHeaderMenuAlignment } from './workspace-header-sort-menu-model'
 import './workspace-header-sort-menu.css'
@@ -293,9 +293,9 @@ export function WorkspaceHeaderSortMenu({
         <LumenIcon icon={Ellipsis} tier="sm" />
       </LumenIconButton>
       {isPending && (
-        <LumenText role="status" className="hbar-app-react-workspace-sort-pending">
+        <LumenContentText context="control.status" role="status" className="hbar-app-react-workspace-sort-pending">
           {labels.updating}
-        </LumenText>
+        </LumenContentText>
       )}
       <LumenFrame
         ref={menu}
@@ -358,9 +358,9 @@ export function WorkspaceHeaderSortMenu({
               onClick={() => openOrganizationMenu(true)}
             >
               <LumenIcon icon={Folder} tier="md" />
-              <LumenText as="span" className="hbar-app-react-workspace-sort-menu-label">
+              <LumenContentText context="control.label" className="hbar-app-react-workspace-sort-menu-label">
                 {organization.labels.organize}
-              </LumenText>
+              </LumenContentText>
               <LumenIcon icon={ChevronRight} tier="sm" className="hbar-app-react-workspace-sort-chevron" />
             </LumenButton>
             <LumenFrame
@@ -418,9 +418,9 @@ export function WorkspaceHeaderSortMenu({
                 }}
               >
                 <LumenIcon icon={Folder} tier="md" />
-                <LumenText as="span" className="hbar-app-react-workspace-sort-menu-label">
+                <LumenContentText context="control.label" className="hbar-app-react-workspace-sort-menu-label">
                   {organization.labels.byProject}
-                </LumenText>
+                </LumenContentText>
                 {organization.mode === 'project' && <LumenIcon icon={Check} tier="sm" />}
               </LumenButton>
               <LumenButton
@@ -435,9 +435,9 @@ export function WorkspaceHeaderSortMenu({
                 }}
               >
                 <LumenIcon icon={FolderOpen} tier="md" />
-                <LumenText as="span" className="hbar-app-react-workspace-sort-menu-label">
+                <LumenContentText context="control.label" className="hbar-app-react-workspace-sort-menu-label">
                   {organization.labels.recentProjects}
-                </LumenText>
+                </LumenContentText>
                 {organization.mode === 'recentProject' && <LumenIcon icon={Check} tier="sm" />}
               </LumenButton>
               <LumenButton
@@ -452,9 +452,9 @@ export function WorkspaceHeaderSortMenu({
                 }}
               >
                 <LumenIcon icon={Clock} tier="md" />
-                <LumenText as="span" className="hbar-app-react-workspace-sort-menu-label">
+                <LumenContentText context="control.label" className="hbar-app-react-workspace-sort-menu-label">
                   {organization.labels.byTime}
-                </LumenText>
+                </LumenContentText>
                 {organization.mode === 'time' && <LumenIcon icon={Check} tier="sm" />}
               </LumenButton>
             </LumenFrame>
@@ -494,9 +494,9 @@ export function WorkspaceHeaderSortMenu({
             onClick={() => openSortMenu(true)}
           >
             <LumenIcon icon={Clock} tier="md" />
-            <LumenText as="span" className="hbar-app-react-workspace-sort-menu-label">
+            <LumenContentText context="control.label" className="hbar-app-react-workspace-sort-menu-label">
               {labels.sortCondition}
-            </LumenText>
+            </LumenContentText>
             <LumenIcon icon={ChevronRight} tier="sm" className="hbar-app-react-workspace-sort-chevron" />
           </LumenButton>
           <LumenFrame
@@ -542,9 +542,9 @@ export function WorkspaceHeaderSortMenu({
               }}
             >
               <LumenIcon icon={Clock} tier="md" />
-              <LumenText as="span" className="hbar-app-react-workspace-sort-menu-label">
+              <LumenContentText context="control.label" className="hbar-app-react-workspace-sort-menu-label">
                 {labels.createdAt}
-              </LumenText>
+              </LumenContentText>
               {sortBy === 'createdAt' && <LumenIcon icon={Check} tier="sm" />}
             </LumenButton>
             <LumenButton
@@ -559,9 +559,9 @@ export function WorkspaceHeaderSortMenu({
               }}
             >
               <LumenIcon icon={RefreshCw} tier="md" />
-              <LumenText as="span" className="hbar-app-react-workspace-sort-menu-label">
+              <LumenContentText context="control.label" className="hbar-app-react-workspace-sort-menu-label">
                 {labels.updatedAt}
-              </LumenText>
+              </LumenContentText>
               {sortBy === 'updatedAt' && <LumenIcon icon={Check} tier="sm" />}
             </LumenButton>
           </LumenFrame>
@@ -578,9 +578,9 @@ export function WorkspaceHeaderSortMenu({
             }}
           >
             <LumenIcon icon={RotateCcw} tier="md" />
-            <LumenText as="span" className="hbar-app-react-workspace-sort-menu-label">
+            <LumenContentText context="control.label" className="hbar-app-react-workspace-sort-menu-label">
               {labels.restoreHidden(hiddenCount)}
-            </LumenText>
+            </LumenContentText>
           </LumenButton>
         )}
         <LumenButton
@@ -594,9 +594,9 @@ export function WorkspaceHeaderSortMenu({
           }}
         >
           <LumenIcon icon={RefreshCw} tier="md" />
-          <LumenText as="span" className="hbar-app-react-workspace-sort-menu-label">
+          <LumenContentText context="control.label" className="hbar-app-react-workspace-sort-menu-label">
             {labels.refresh}
-          </LumenText>
+          </LumenContentText>
         </LumenButton>
       </LumenFrame>
     </LumenFrame>

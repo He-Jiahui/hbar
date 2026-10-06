@@ -8,7 +8,7 @@ import {
   type LazyExoticComponent,
   type ReactNode,
 } from 'react'
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenContentText } from '@lumen/app-ui'
 import type { ShellLocale } from './shell-copy'
 
 export interface LazySurfaceLabels {
@@ -39,14 +39,20 @@ class RetryBoundary extends Component<
     if (!this.state.failed)
       return (
         <RetryContext.Provider value={this.state.version}>
-          <Suspense fallback={<LumenText role="status">{this.props.labels.loading}</LumenText>}>
+          <Suspense
+            fallback={
+              <LumenContentText context="control.status" role="status">
+                {this.props.labels.loading}
+              </LumenContentText>
+            }
+          >
             {this.props.children}
           </Suspense>
         </RetryContext.Provider>
       )
     return (
       <LumenFrame role="alert">
-        <LumenText>{this.props.labels.failed}</LumenText>
+        <LumenContentText context="feedback.detail">{this.props.labels.failed}</LumenContentText>
         <LumenButton onClick={this.reset}>{this.props.labels.retry}</LumenButton>
       </LumenFrame>
     )

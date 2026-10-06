@@ -39,7 +39,7 @@ import {
   LumenFrame,
   LumenIcon,
   LumenProvider,
-  LumenText,
+  LumenContentText,
   LumenWindowTitlebar,
   LumenWorkbenchNotice,
 } from '@lumen/app-ui'
@@ -511,12 +511,14 @@ function AgentChildReturn({
     <LumenFrame className="hbar-web-agent-return">
       <LumenButton size="s" variant="text" indicator="none" disabled={busy} onClick={onReturn}>
         <LumenIcon icon={ArrowLeft} tier="sm" />
-        <LumenText as="span">{busy ? labels.returningToParent : labels.returnToParent(title)}</LumenText>
+        <LumenContentText context="control.status">
+          {busy ? labels.returningToParent : labels.returnToParent(title)}
+        </LumenContentText>
       </LumenButton>
       {error && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.paragraph" role="alert">
           {labels.returnError(error)}
-        </LumenText>
+        </LumenContentText>
       )}
     </LumenFrame>
   )
@@ -1093,10 +1095,12 @@ function WorkspaceGlobalFeaturePage({
       onBack={() => void runtime.commands.execute('app.closePanel', { instanceId }).catch(() => undefined)}
     >
       {!panel || panel.panelId !== pageId ? (
-        <LumenText role="alert">{labels.unavailable}</LumenText>
+        <LumenContentText context="feedback.detail" role="alert">
+          {labels.unavailable}
+        </LumenContentText>
       ) : needsWorkspace && !panel.workspaceId ? (
         <LumenFrame className="hbar-web-global-page-empty">
-          <LumenText as="p">{labels.workspaceRequired}</LumenText>
+          <LumenContentText context="empty.description">{labels.workspaceRequired}</LumenContentText>
           <LumenButton
             onClick={() =>
               void runtime.commands.execute('app.openPanel', { panelId: 'onboarding' }).catch(() => undefined)
@@ -1126,7 +1130,13 @@ function GlobalFeatureContent({
   const instanceId = panel.instanceId
   if (panel.panelId === 'run-board')
     return (
-      <Suspense fallback={<LumenText role="status">{getShellCopy(locale).shell.loading}</LumenText>}>
+      <Suspense
+        fallback={
+          <LumenContentText context="control.status" role="status">
+            {getShellCopy(locale).shell.loading}
+          </LumenContentText>
+        }
+      >
         <RunBoardPage runtime={runtime} locale={locale} instanceId={instanceId} />
       </Suspense>
     )
@@ -1147,7 +1157,13 @@ function GlobalFeatureContent({
     )
   if (panel.panelId === 'onboarding')
     return (
-      <Suspense fallback={<LumenText role="status">{copy.shell.loading}</LumenText>}>
+      <Suspense
+        fallback={
+          <LumenContentText context="control.status" role="status">
+            {copy.shell.loading}
+          </LumenContentText>
+        }
+      >
         <OnboardingLazyPage
           locale={locale}
           connected={connected}
@@ -1167,7 +1183,13 @@ function GlobalFeatureContent({
     )
   if (panel.panelId === 'notifications' && runtime.state.notifications)
     return (
-      <Suspense fallback={<LumenText role="status">{getShellCopy(locale).shell.loading}</LumenText>}>
+      <Suspense
+        fallback={
+          <LumenContentText context="control.status" role="status">
+            {getShellCopy(locale).shell.loading}
+          </LumenContentText>
+        }
+      >
         <NotificationsLazyPage
           runtime={runtime}
           locale={locale}
@@ -1196,7 +1218,13 @@ function WorkspaceSchedulesPage({
   const runtime = useHbarRuntime()
   if (!workspaceId) return null
   return (
-    <Suspense fallback={<LumenText role="status">{getShellCopy(locale).shell.loading}</LumenText>}>
+    <Suspense
+      fallback={
+        <LumenContentText context="control.status" role="status">
+          {getShellCopy(locale).shell.loading}
+        </LumenContentText>
+      }
+    >
       <SchedulesPage
         runtime={runtime}
         workspaceId={workspaceId}
@@ -1218,7 +1246,13 @@ function WorkspacePromptTemplatesPage({
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   if (!workspaceId) return null
   return (
-    <Suspense fallback={<LumenText role="status">{getShellCopy(locale).shell.loading}</LumenText>}>
+    <Suspense
+      fallback={
+        <LumenContentText context="control.status" role="status">
+          {getShellCopy(locale).shell.loading}
+        </LumenContentText>
+      }
+    >
       <PromptTemplatesPage
         runtime={runtime}
         workspaceId={workspaceId}
@@ -1863,12 +1897,7 @@ export default function App({
       <HbarRuntimeProvider
         view={runtime.view}
         renderSkillImport={(instanceId, connected) => (
-          <WebSkillImportPanel
-            controller={skillImport}
-            instanceId={instanceId}
-            connected={connected}
-            locale={locale}
-          />
+          <WebSkillImportPanel controller={skillImport} instanceId={instanceId} connected={connected} locale={locale} />
         )}
       >
         <WorkbenchSurfaceCleanup key={binding.hostId ?? 'pending'} runtime={runtime} />

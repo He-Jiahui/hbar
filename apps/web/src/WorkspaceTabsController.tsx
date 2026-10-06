@@ -13,7 +13,7 @@ import {
   type HbarWorkspaceTabCloseScope,
   type HbarWorkspaceTabItem,
 } from '@hbar/app-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenContentText } from '@lumen/app-ui'
 import { workspaceTabsCopy } from './workspace-tabs-copy'
 import { getShellCopy, type ShellLocale } from './shell-copy'
 import './workspace-tabs-controller.css'
@@ -268,15 +268,15 @@ export function WorkspaceTabsController({
               )}
             </LumenFrame>
           ) : tabs.restoreStatus === 'loading' ? (
-            <LumenText as="p" role="status">
+            <LumenContentText context="feedback.paragraph" role="status">
               {copy.restoring}
-            </LumenText>
+            </LumenContentText>
           ) : null}
           {error && (
             <LumenFrame className="hbar-workspace-tabs-feedback">
-              <LumenText as="p" role="alert">
+              <LumenContentText context="feedback.paragraph" role="alert">
                 {copy.error(error)}
-              </LumenText>
+              </LumenContentText>
               {restoreError && (
                 <LumenButton
                   variant="text"
@@ -297,9 +297,9 @@ export function WorkspaceTabsController({
             sessionFilesError?.sessionId === sessionTab.sessionId &&
             sessionFilesError.workspaceId === sessionTab.workspaceId &&
             sessionFilesError.sourceTabInstanceKey === sessionTab.instanceKey && (
-              <LumenText as="p" role="alert" className="hbar-workspace-tabs-files-error">
+              <LumenContentText context="feedback.paragraph" role="alert" className="hbar-workspace-tabs-files-error">
                 {sessionCopy.tools.error(sessionFilesError.code)}
-              </LumenText>
+              </LumenContentText>
             )}
         </LumenFrame>
       )}

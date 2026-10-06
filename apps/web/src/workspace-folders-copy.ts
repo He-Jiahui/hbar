@@ -38,6 +38,7 @@ export function workspaceFoldersCopy(locale: ShellLocale): WorkspaceFoldersLabel
       ? '浏览 Host 所在电脑的文件夹，可跨目录多选。选择不会修改磁盘内容。'
       : 'Browse folders on the Host computer and select across locations. Selection does not modify disk contents.',
     alias: zh ? '虚拟目录名' : 'Virtual folder name',
+    folderCaption: (alias) => `${alias}/`,
     aliasHint: zh
       ? '通过短名称访问，例如 frontend/、backend/。名称须唯一，可使用文字、数字、点、短横线和下划线。'
       : 'Access roots with short names such as frontend/ or backend/. Use unique letters, digits, dots, hyphens or underscores.',

@@ -1,4 +1,11 @@
-import { LumenButton, LumenCollection, LumenCollectionItem, LumenDialog, LumenFrame, LumenText } from '@lumen/app-ui'
+import {
+  LumenButton,
+  LumenCollection,
+  LumenCollectionItem,
+  LumenDialog,
+  LumenFrame,
+  LumenContentText,
+} from '@lumen/app-ui'
 import './workspace-tabs.css'
 
 export type HbarWorkspaceTabsCloseStatus = 'checking' | 'choice' | 'stopping' | 'unknown' | 'failed'
@@ -70,9 +77,9 @@ export function HbarWorkspaceTabsCloseDialog({
       }
     >
       <LumenFrame className="hbar-workspace-tabs-close-body" aria-busy={busy || undefined}>
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" role="status">
           {labels.status(status)}
-        </LumenText>
+        </LumenContentText>
         <LumenCollection className="hbar-workspace-tabs-close-targets">
           {targets
             .filter((item, index) => targets.findIndex((candidate) => candidate.id === item.id) === index)
@@ -81,9 +88,9 @@ export function HbarWorkspaceTabsCloseDialog({
             ))}
         </LumenCollection>
         {error && (
-          <LumenText as="p" role="alert">
+          <LumenContentText context="feedback.paragraph" role="alert">
             {error}
-          </LumenText>
+          </LumenContentText>
         )}
       </LumenFrame>
     </LumenDialog>
