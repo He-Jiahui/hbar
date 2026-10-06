@@ -89,6 +89,27 @@ function parseRules(source) {
 }
 
 function isOverlaySelector(path, selector) {
+  // Shared FloatingSurface owns body portals/native top-layer containers.
+  // Dialog resizing evidence in e2e/dialog-sizing.spec.ts confirms these shells
+  // cover/anchor to the viewport; their fields, rows and text still use flex flow.
+  if (/packages\/lumen-app-ui\/src\/floating-surface\.css$/.test(path.replaceAll('\\', '/'))) {
+    const overlays = new Set([
+      '.lumen-floating-surface',
+      '.lumen-floating-surface:popover-open',
+      '.lumen-floating-modal-root:popover-open',
+      '.lumen-floating-modal-root[data-lumen-floating-root]',
+      '.lumen-floating-modal-root > .lumen-floating-surface',
+      '.lumen-floating-modal-backdrop',
+      ".lumen-floating-surface:not([data-focus-behavior='preserve']):not([data-lumen-floating-mode='modal'])",
+      ".lumen-floating-surface[data-mobile-sheet='true']",
+    ])
+    if (
+      selector
+        .split(',')
+        .every((part) => overlays.has(part.trim().replaceAll(/:not\(\s*(\[[^()]*\])\s*\)/g, ':not($1)')))
+    )
+      return true
+  }
   // Mermaid's temporary DOM measurement surface must have SVG layout without
   // entering document flow. It is private, inert, invisible and removed after
   // render. The visible card, zoom canvas and all controls remain normal flow.
@@ -1120,6 +1141,22 @@ inset-inline-end: 0;
     console.error(
       `Flow layout guard self-test expected Lumen combobox overlay exception, got: ${lumenComboboxOverlay.join('; ')}`,
     )
+    process.exit(1)
+  }
+  const sharedFloatingCss = `.lumen-floating-surface { position: fixed; inset: auto; }
+.lumen-floating-modal-root[data-lumen-floating-root] { position: fixed; inset: 0; }
+.lumen-floating-modal-backdrop { position: absolute; inset: 0; }
+.lumen-floating-surface:not([data-focus-behavior='preserve']):not(
+  [data-lumen-floating-mode='modal']
+) { inset: auto 0 0; }`
+  const sharedFloating = validateCss('packages/lumen-app-ui/src/floating-surface.css', sharedFloatingCss)
+  const leakedSharedFloating = validateCss('packages/app-react/src/feature.css', sharedFloatingCss)
+  const floatingContent = validateCss(
+    'packages/lumen-app-ui/src/floating-surface.css',
+    '.lumen-floating-surface .option { position: absolute; inset: 0; }',
+  )
+  if (sharedFloating.length !== 0 || leakedSharedFloating.length === 0 || floatingContent.length === 0) {
+    console.error('Flow layout guard expected only the path-scoped shared floating containers to overlay')
     process.exit(1)
   }
   const lumenNativeControlOverlay = validateCss(
