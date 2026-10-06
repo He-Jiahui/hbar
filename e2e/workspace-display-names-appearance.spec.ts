@@ -48,10 +48,9 @@ for (const [locale, width] of [
             const field = root.querySelector<HTMLInputElement>('[data-testid="workspace-display-name-input"]')
             const readonly = root.querySelector<HTMLInputElement>('input[readonly]')
             const pane = root.querySelector('.lumen-dialog-surface')
-            const background = pane?.querySelector(':scope > div[aria-hidden="true"]')
-            if (!field || !readonly || !pane || !background) throw new Error('Missing public editor elements')
+            if (!field || !readonly || !pane) throw new Error('Missing public editor elements')
             const fieldStyle = getComputedStyle(field)
-            const backgroundStyle = getComputedStyle(background)
+            const backgroundStyle = getComputedStyle(pane)
             const luminance = (color: string) => {
               const value = color.match(/^rgba?\(([^)]+)\)$/)?.[1]
               const srgb = color.match(/^color\(srgb ([^)]+)\)$/)?.[1]
@@ -146,17 +145,14 @@ for (const [locale, width] of [
         await expect(input).toBeFocused()
         await input.hover()
         if (theme !== 'forced-colors') {
-          const invalid = await input.evaluate((element) => {
+          const expected = await input.evaluate((element) => {
             const style = getComputedStyle(element)
             const danger = style.getPropertyValue('--lumen-danger').trim()
             const rgb = /^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(danger)
             if (!rgb) throw new Error('Unexpected declared danger token')
-            return {
-              actual: style.borderTopColor,
-              expected: `rgb(${Number.parseInt(rgb[1] ?? '', 16)}, ${Number.parseInt(rgb[2] ?? '', 16)}, ${Number.parseInt(rgb[3] ?? '', 16)})`,
-            }
+            return `rgb(${Number.parseInt(rgb[1] ?? '', 16)}, ${Number.parseInt(rgb[2] ?? '', 16)}, ${Number.parseInt(rgb[3] ?? '', 16)})`
           })
-          expect(invalid.actual).toBe(invalid.expected)
+          await expect.poll(() => input.evaluate((element) => getComputedStyle(element).borderTopColor)).toBe(expected)
         }
         await f.page.screenshot({ path: `${output}/${locale}-${width}-${theme}-required.png` })
         await input.fill('x'.repeat(81))
@@ -170,7 +166,7 @@ for (const [locale, width] of [
         expect(f.commands.filter((name) => name === 'workspaceDisplayNames.apply')).toHaveLength(0)
         await f.page.keyboard.press('Escape')
         await expect(dialog).toHaveCount(0)
-        await expect(row(f).locator('.hbar-app-react-project-menu summary')).toBeFocused()
+        await expect(row(f).locator('.hbar-app-react-project-menu .lumen-action-menu-trigger')).toBeFocused()
         await hideSidebar(f)
         await expectComposerText(composer(f), draft)
         await noExecution(f)

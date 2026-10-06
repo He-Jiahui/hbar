@@ -1,6 +1,7 @@
 import { ArrowLeft, FolderTree, Maximize2, MessageCircle, PanelRightClose, PanelRightOpen, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
+  hasOpenModalSurface,
   LumenFrame,
   LumenText,
   LumenButton,
@@ -424,7 +425,7 @@ export function HbarFileWorkspace({
           : null,
       inEditor: (element) => editor?.contains(element) ?? false,
       current,
-      usable: (element) => canFocusWorkspaceElement(element) && document.querySelector('dialog:modal') === null,
+      usable: (element) => canFocusWorkspaceElement(element) && !hasOpenModalSurface(document),
       focus: (element) => element.focus({ preventScroll: true }),
     })
     return () => {

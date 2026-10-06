@@ -1,3 +1,4 @@
+import { hasOpenModalSurface } from '@lumen/app-ui'
 import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
 import type { HbarRuntimeView } from './runtime'
 import { canFocusWorkspaceElement } from './workspace-tool-focus'
@@ -60,12 +61,7 @@ export function useWorkspaceDisplayNameFocus(
     queueMicrotask(() => {
       if (lease.current !== pending) return
       lease.current = null
-      if (
-        pending.owner !== runtime ||
-        pending.context !== contextKey(runtime) ||
-        document.querySelector('dialog:modal')
-      )
-        return
+      if (pending.owner !== runtime || pending.context !== contextKey(runtime) || hasOpenModalSurface(document)) return
       const active = document.activeElement
       if (active instanceof HTMLElement && active !== document.body && canFocusWorkspaceElement(active)) return
       const row = [...document.querySelectorAll<HTMLElement>('[data-workspace-id]')].find(

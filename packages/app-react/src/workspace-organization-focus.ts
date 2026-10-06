@@ -1,3 +1,4 @@
+import { hasOpenModalSurface } from '@lumen/app-ui'
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import { canFocusWorkspaceElement } from './workspace-tool-focus'
 
@@ -35,7 +36,7 @@ export function useWorkspaceOrganizationFocus(
     }
     if (!hiddenIds.includes(pending.workspaceId)) return
     lease.current = null
-    if (pending.source.isConnected || document.querySelector('dialog:modal')) return
+    if (pending.source.isConnected || hasOpenModalSurface(document)) return
     const active = document.activeElement
     if (active instanceof HTMLElement && active !== document.body && canFocusWorkspaceElement(active)) return
     const target = menuRef.current?.querySelector<HTMLElement>('summary, [data-workspace-menu-trigger]')

@@ -1,6 +1,14 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { FileText, PencilLine, Play, RefreshCw } from 'lucide-react'
-import { LumenButton, LumenFormField, LumenFrame, LumenIcon, LumenText, LumenTextarea } from '@lumen/app-ui'
+import {
+  hasOpenModalSurface,
+  LumenButton,
+  LumenFormField,
+  LumenFrame,
+  LumenIcon,
+  LumenText,
+  LumenTextarea,
+} from '@lumen/app-ui'
 import { MessageMarkdown, type MessageCodeContext } from './message-markdown'
 import type { MessageFileReferenceContext } from './message-file-reference'
 import './proposed-plan.css'
@@ -101,7 +109,7 @@ function ProposedPlanContent({
     if (state.status !== 'accepted') return
     const source = actionFocus.current
     actionFocus.current = null
-    if (!source || !document.hasFocus() || document.querySelector('dialog:modal')) return
+    if (!source || !document.hasFocus() || hasOpenModalSurface(document)) return
     if (document.activeElement !== document.body && document.activeElement !== source) return
     regionRef.current?.focus({ preventScroll: true })
   }, [state.status])

@@ -1,3 +1,5 @@
+import { getOpenModalSurfaces } from '@lumen/app-ui'
+
 export interface WorkspaceDisplayNameValidationTarget {
   readonly owner: object | undefined
   readonly generation: number
@@ -27,7 +29,7 @@ export function captureWorkspaceDisplayNameValidationFocus(
 ) {
   const document = input.ownerDocument
   const source = document.activeElement
-  const dialog = input.closest('dialog')
+  const dialog = getOpenModalSurfaces(document).findLast((element) => element.contains(input))
   let live = true
   const cancel = () => {
     live = false
@@ -53,8 +55,9 @@ export function captureWorkspaceDisplayNameValidationFocus(
         return settled
       }
       cancel()
-      if (!input.isConnected || input.closest('dialog') !== dialog || !dialog?.open) return true
-      if ([...document.querySelectorAll('dialog:modal')].some((element) => element !== dialog)) return true
+      const modals = getOpenModalSurfaces(document)
+      if (!input.isConnected || !dialog?.contains(input) || !modals.includes(dialog)) return true
+      if (modals.some((element) => element !== dialog)) return true
       const active = document.activeElement
       if (active === input) return true
       if (

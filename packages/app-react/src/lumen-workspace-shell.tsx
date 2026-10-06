@@ -20,6 +20,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import {
+  hasOpenModalSurface,
   LumenAppShell09,
   LumenAppShell04,
   LumenAppSidebar,
@@ -431,7 +432,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
         current.workspaceId !== request.workspaceId ||
         current.sessionId !== request.sessionId ||
         runtime.state.presentation.getSnapshot().modalInstanceId ||
-        document.querySelector('dialog:modal')
+        hasOpenModalSurface(document)
       )
         return
       const active = document.activeElement
@@ -471,7 +472,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     // The shared control reports only its own lost focus. Wait for the sidebar
     // visibility commit, then keep any newer deliberate focus or native modal.
     queueMicrotask(() => {
-      if (sidebarFocusOwner.current !== runtime || document.querySelector('dialog:modal')) return
+      if (sidebarFocusOwner.current !== runtime || hasOpenModalSurface(document)) return
       const active = document.activeElement
       if (active instanceof HTMLElement && active !== document.body && canFocusWorkspaceElement(active)) return
       for (const node of [sidebarFocusRef.current, sidebarShowFocusRef.current, toolRef.current, mainRef.current]) {
@@ -666,7 +667,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
         shouldCollapseWorkspaceSidebar(
           event.matches,
           runtime.state.presentation.getSnapshot().sidebarOpen,
-          document.querySelector('dialog:modal') !== null,
+          hasOpenModalSurface(document),
         )
       )
         void execute('app.setSidebarVisible', { visible: false }).catch(recordError)

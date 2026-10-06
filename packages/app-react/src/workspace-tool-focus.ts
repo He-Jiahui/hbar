@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, type RefObject } from 'react'
-import type { LumenToolPresentation } from '@lumen/app-ui'
+import { hasOpenModalSurface, type LumenToolPresentation } from '@lumen/app-ui'
 import type { NavigationState, PresentationState, SurfaceState, WorkspaceTabsState } from '@hbar/app-runtime'
 import { useHbarRuntimeState, type HbarRuntimeView } from './runtime'
 
@@ -375,7 +375,7 @@ export function useWorkspaceToolFocus(
         selectedTab: () =>
           current.current.mainRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]') ?? null,
         sidebar: () => current.current.sidebarRef.current,
-        modalOpen: () => document.querySelector('dialog:modal') !== null,
+        modalOpen: () => hasOpenModalSurface(document),
         focus: (node) => {
           node.focus({ preventScroll: true })
           return document.activeElement === node
@@ -418,7 +418,7 @@ export function useWorkspaceToolFocus(
           repeat: event.repeat,
           modified: event.ctrlKey || event.metaKey || event.altKey || event.shiftKey,
           inTool: target !== null && inManagedTool(target, current.current.toolRef, current.current.resizeRef),
-          modalOpen: document.querySelector('dialog:modal') !== null,
+          modalOpen: hasOpenModalSurface(document),
           menuOpen,
           inCombobox: target?.closest('[role="combobox"]') !== null && target !== null,
           inOpenDetails: target?.closest('details[open]') !== null && target !== null,
