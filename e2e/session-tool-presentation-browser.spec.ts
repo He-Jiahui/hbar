@@ -684,18 +684,33 @@ for (const locale of ['en-US', 'zh-CN'] as const)
               if (!button || !label || !summary || !card) throw new Error('Compact tool row lacks its content contract')
               const tag = label.getBoundingClientRect()
               const behavior = summary.getBoundingClientRect()
+              const tagText = label.querySelector('.hbar-session-disclosure-label-text')
+              if (!tagText) throw new Error('Compact tool badge lacks its text contract')
+              const tagTextBox = tagText.getBoundingClientRect()
+              const cardBox = card.getBoundingClientRect()
               return {
                 height: box.height,
                 cardHeight: card.getBoundingClientRect().height,
                 buttonHeight: button.getBoundingClientRect().height,
+                tagWidth: tag.width,
+                tagLeft: tag.left,
                 tagRight: tag.right,
+                tagBottom: tag.bottom,
                 behaviorLeft: behavior.left,
+                behaviorRight: behavior.right,
+                behaviorWidth: behavior.width,
                 tagTop: tag.top,
                 behaviorTop: behavior.top,
+                behaviorBottom: behavior.bottom,
+                cardLeft: cardBox.left,
+                cardRight: cardBox.right,
+                cardTop: cardBox.top,
+                cardBottom: cardBox.bottom,
+                tagTextHeight: tagTextBox.height,
+                tagTextScrollHeight: tagText.scrollHeight,
                 border: getComputedStyle(card).borderTopWidth,
                 padding: getComputedStyle(card.firstElementChild ?? card).padding,
-                tagTextWhiteSpace: getComputedStyle(label.querySelector('.hbar-session-disclosure-label-text') ?? label)
-                  .whiteSpace,
+                tagTextWhiteSpace: getComputedStyle(tagText).whiteSpace,
               }
             }),
           )
@@ -714,14 +729,28 @@ for (const locale of ['en-US', 'zh-CN'] as const)
             .screenshot({
               path: `artifacts/compact-tool-actions/actions-${locale}-${theme}-${width}.png`,
             })
+          const tagWidths = geometry.map((item) => item.tagWidth)
+          expect(Math.max(...tagWidths) - Math.min(...tagWidths)).toBeLessThanOrEqual(1)
           for (const item of geometry) {
-            expect(item.cardHeight).toBeLessThanOrEqual(40)
             expect(item.buttonHeight).toBeGreaterThanOrEqual(30)
-            expect(item.tagRight).toBeLessThanOrEqual(item.behaviorLeft)
-            expect(Math.abs(item.tagTop - item.behaviorTop)).toBeLessThanOrEqual(5)
+            expect(item.tagTextWhiteSpace).toBe('nowrap')
+            expect(item.tagTextHeight).toBeLessThanOrEqual(20)
+            expect(item.tagTextScrollHeight).toBeLessThanOrEqual(item.tagTextHeight + 1)
+            expect(item.behaviorRight).toBeLessThanOrEqual(item.cardRight + 1)
+            expect(item.behaviorLeft).toBeGreaterThanOrEqual(item.cardLeft - 1)
+            expect(item.behaviorBottom).toBeLessThanOrEqual(item.cardBottom + 1)
+            expect(item.behaviorWidth).toBeGreaterThan(0)
+            const sameRow = Math.abs(item.tagTop - item.behaviorTop) <= 5
+            if (sameRow) {
+              expect(item.cardHeight).toBeLessThanOrEqual(40)
+              expect(item.tagRight).toBeLessThanOrEqual(item.behaviorLeft + 1)
+            } else {
+              expect(item.behaviorTop).toBeGreaterThanOrEqual(item.tagBottom - 1)
+              expect(Math.abs(item.tagLeft - item.behaviorLeft)).toBeLessThanOrEqual(1)
+              expect(item.tagBottom).toBeLessThanOrEqual(item.behaviorTop + 1)
+            }
             expect(item.border).toBe('0px')
             expect(item.padding).toBe('0px')
-            expect(item.tagTextWhiteSpace).toBe('nowrap')
           }
           await expect(row(page, generic.callId).locator('.hbar-session-disclosure-label')).toHaveText(
             locale === 'zh-CN' ? '工具调用' : 'Tool call',
@@ -761,11 +790,65 @@ for (const locale of ['en-US', 'zh-CN'] as const)
           expect(
             singleLine.every((item) => item.whiteSpace === 'nowrap' && item.height <= 20 && Boolean(item.text)),
           ).toBe(true)
+          const longGeometry = await tools.evaluateAll((elements) =>
+            elements.map((element) => {
+              const button = element.querySelector('.hbar-session-disclosure-trigger')
+              const label = element.querySelector('.hbar-session-disclosure-label')
+              const summary = element.querySelector('.hbar-session-disclosure-preview')
+              const card = element.closest('[data-lumen-component="tool-calls"]')
+              if (!button || !label || !summary || !card)
+                throw new Error('Long-label tool row lacks its content contract')
+              const tag = label.getBoundingClientRect()
+              const behavior = summary.getBoundingClientRect()
+              const cardBox = card.getBoundingClientRect()
+              const tagText = label.querySelector('.hbar-session-disclosure-label-text')
+              if (!tagText) throw new Error('Long-label tool badge lacks its text contract')
+              const tagTextBox = tagText.getBoundingClientRect()
+              return {
+                cardHeight: cardBox.height,
+                cardLeft: cardBox.left,
+                cardRight: cardBox.right,
+                cardBottom: cardBox.bottom,
+                buttonHeight: button.getBoundingClientRect().height,
+                tagWidth: tag.width,
+                tagLeft: tag.left,
+                tagRight: tag.right,
+                tagTop: tag.top,
+                tagBottom: tag.bottom,
+                tagTextHeight: tagTextBox.height,
+                tagTextScrollHeight: tagText.scrollHeight,
+                tagTextWhiteSpace: getComputedStyle(tagText).whiteSpace,
+                behaviorLeft: behavior.left,
+                behaviorRight: behavior.right,
+                behaviorTop: behavior.top,
+                behaviorBottom: behavior.bottom,
+                behaviorWidth: behavior.width,
+              }
+            }),
+          )
           expect(
-            await tools.evaluateAll((elements) =>
-              elements.every((element) => element.getBoundingClientRect().height <= 40),
-            ),
-          ).toBe(true)
+            Math.max(...longGeometry.map((item) => item.tagWidth)) -
+              Math.min(...longGeometry.map((item) => item.tagWidth)),
+          ).toBeLessThanOrEqual(1)
+          for (const item of longGeometry) {
+            expect(item.buttonHeight).toBeGreaterThanOrEqual(30)
+            expect(item.tagTextWhiteSpace).toBe('nowrap')
+            expect(item.tagTextHeight).toBeLessThanOrEqual(20)
+            expect(item.tagTextScrollHeight).toBeLessThanOrEqual(item.tagTextHeight + 1)
+            expect(item.behaviorWidth).toBeGreaterThan(0)
+            expect(item.behaviorLeft).toBeGreaterThanOrEqual(item.cardLeft - 1)
+            expect(item.behaviorRight).toBeLessThanOrEqual(item.cardRight + 1)
+            expect(item.behaviorBottom).toBeLessThanOrEqual(item.cardBottom + 1)
+            const sameRow = Math.abs(item.tagTop - item.behaviorTop) <= 5
+            if (sameRow) {
+              expect(item.cardHeight).toBeLessThanOrEqual(40)
+              expect(item.tagRight).toBeLessThanOrEqual(item.behaviorLeft + 1)
+            } else {
+              expect(item.behaviorTop).toBeGreaterThanOrEqual(item.tagBottom - 1)
+              expect(Math.abs(item.tagLeft - item.behaviorLeft)).toBeLessThanOrEqual(1)
+              expect(item.tagBottom).toBeLessThanOrEqual(item.behaviorTop + 1)
+            }
+          }
           await noOverflow(page)
         }
         expect(f.errors).toEqual([])
