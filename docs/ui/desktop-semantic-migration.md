@@ -116,4 +116,10 @@ Slash 候选与首次发送前的命令选择同样迁入共享 FloatingSurface�
 - 现有空会话 fixture 使用真实抽屉展开状态及视口检查，初次窄屏启动等待自动收起完成；确定数量的运行显式关闭预算自动续跑。原 Session 数量、初始 Git HEAD／分支、选择的 ref／OID、运行输入、原草稿和资源清理检查保留。
 - 严格范围 lint、内容／图标与 flow guard、格式、Web build 与实际构建输入清单核对通过。全库 TypeScript 保留 96 项既有诊断，修改范围无诊断。宽屏、窄屏、长分支与新分支表单截图已检查；证据位于 `artifacts/desktop-elements/location-*`、`artifacts/pre-session-location` 和 `artifacts/pre-session-branch-creation-ui`。
 
+模型入口迁入共享浮层前，Lumen 提交 `d638a7b3d3` 补齐公开 `responsivePresentation`：默认 `auto` 保留窄触摸面板，`anchored` 保留 Desktop 窄窗口的锚定搜索，`narrow-sheet` 为两种指针统一使用窄底部面板。布局、软键盘避免和焦点捕获由同一个共享决策驱动；删除原先可能覆盖运行时选择的重复 CSS media rule。
+
+- 独立实际 client fixture 的 120 个 Chrome 场景通过：中英文、明暗、两种指针、三种展示策略与 1440／1100／900／390／320，窄屏根字号 20px。检查实际锚定／底部几何、搜索或表面焦点、完整说明与键盘滚动、portal／层级／模糊、Escape／入口／外部关闭、打开另一个表面、单一活动层及卸载释放。代表截图已检查；证据位于 `artifacts/desktop-elements/floating-presentations`。
+- Lumen pnpm 构建／类型／声明、51 项组件测试与严格范围 lint 通过。触及的浮层文件修正 namespace import、optional undefined、花括号与嵌套条件的既有 lint 问题，没有添加规则例外。公开 PropTypes 与 API 命令按 Lumen 名称限定通过，但生成器实际只覆盖 MUI，Lumen 接口记录在 README 和声明；Vale 命令已尝试，当前没有其可执行程序。
+- hbar 独立 Web 构建、范围 lint 与格式通过。全库类型仍保留 96 项既有诊断，浮层与 client fixture 范围无诊断。模型／推理与权限调用方的具体迁移及运行回归仍在后续子功能中验收，以上共享原语结果不等同于全部业务菜单已经接入。
+
 当前清单覆盖 144 个生产 TSX 模块、3656 个元素，其中记录了 705 处低层文字未分类，合计 723 项静态缺口。Schema 展示适配、其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
