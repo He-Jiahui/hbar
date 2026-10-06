@@ -344,13 +344,17 @@ async function revealEvidence(page: Page, target: Locator) {
       client: element.clientHeight,
     }))
   const beforeWheel = await readScroll()
-  // Real reader intent leaves automatic end-follow before the bounded row alignment.
-  // Programmatic scrollIntoView alone does not cancel measured-end correction.
+  // Real reader input leaves end-follow. Focusing the original disclosure and
+  // pressing Home also cancels a correction started by a late metadata refresh.
+  // Neither input activates disclosure or executes a tool.
   await viewport.hover({ position: { x: 8, y: 8 } })
   await page.mouse.wheel(0, -Math.max(160, beforeWheel.client))
+  await target.focus()
+  await target.press('Home')
   if (beforeWheel.top > 0) await expect.poll(async () => (await readScroll()).top).toBeLessThan(beforeWheel.top)
-  const afterWheel = await readScroll()
-  await target.scrollIntoViewIfNeeded()
+  const afterIntent = await readScroll()
+  // Check pointer actionability without toggling disclosure.
+  await target.click({ trial: true })
   await expect(target).toBeInViewport()
   await expect
     .poll(() =>
@@ -382,7 +386,7 @@ async function revealEvidence(page: Page, target: Locator) {
       }),
     )
     .toBe(true)
-  return { beforeWheel, afterWheel, afterAlign: await readScroll() }
+  return { beforeWheel, afterIntent, afterAlign: await readScroll() }
 }
 async function capture(f: Fixture, name: string, call: ToolCall) {
   const row = rowFor(f, call)
