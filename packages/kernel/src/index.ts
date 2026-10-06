@@ -1508,8 +1508,8 @@ export class Kernel {
         })
         const selectedNames = new Set(selectedTools.tools.map((tool) => tool.name))
         const toolPresentations = captureToolPresentations(selectedNames, scope.tools)
-        const executeTool = async (name: string, args: Record<string, unknown>, context: ToolContext) => {
-          const result = await this.execute(name, args, context, scope)
+        const trackToolExecution = async <Result>(execution: Promise<Result>): Promise<Result> => {
+          const result = await execution
           idleTimeout.progress()
           return result
         }
@@ -1586,11 +1586,18 @@ export class Kernel {
               signal: controller.signal,
               callId,
             }
-            const sequence = createToolSequenceExecutor(context, selectedTools.tools, name, executeTool, (type, data) =>
-              this.append(sessionId, type, data, run.id),
+            const sequence = createToolSequenceExecutor(
+              context,
+              selectedTools.tools,
+              name,
+              (childName, childArgs, childContext) =>
+                trackToolExecution(this.execute(childName, childArgs, childContext, scope)),
+              (type, data) => this.append(sessionId, type, data, run.id),
             )
             try {
-              return await executeTool(name, args, { ...context, executeSequence: sequence.execute })
+              return await trackToolExecution(
+                this.execute(name, args, { ...context, executeSequence: sequence.execute }, scope),
+              )
             } finally {
               sequence.dispose()
             }
