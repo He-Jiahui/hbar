@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test'
+import { expect, test, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test'
 import { createNotificationCommandClient, createRunCommandClient, createRunBoardCommandClient } from '@hbar/client'
 import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -7,6 +7,7 @@ import { getShellCopy } from '../apps/web/src/shell-copy'
 import { promptTemplateCopy } from '../apps/web/src/prompt-template-copy'
 import { scheduleCopy } from '../apps/web/src/schedule-copy'
 import { notificationCopy } from '../apps/web/src/notification-copy'
+import { expectLumenValue, selectLumenOption } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host.ts'
 
 const WEB_PORT = Number(process.env.HBAR_E2E_PORT ?? 4329)
@@ -34,6 +35,74 @@ async function openFeature(page: Page, label: string): Promise<void> {
 async function capture(page: Page, name: string): Promise<void> {
   await mkdir(artifactRoot, { recursive: true })
   await page.screenshot({ path: join(artifactRoot, name), fullPage: true })
+}
+
+async function assertNoHorizontalOverflow(scope: Locator): Promise<void> {
+  const geometry = await scope.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }))
+  expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth + 1)
+}
+
+async function assertActionFlow(row: Locator, expectedLastTone?: string): Promise<void> {
+  await row.scrollIntoViewIfNeeded()
+  const geometry = await row.evaluate((element) => {
+    const rowBox = element.getBoundingClientRect()
+    const buttonElements = [...element.querySelectorAll('button')]
+    const buttons = buttonElements.map((button) => button.getBoundingClientRect())
+    const overlap = buttons.some((left, index) =>
+      buttons.slice(index + 1).some((right) => {
+        const horizontal = left.left < right.right && right.left < left.right
+        const vertical = left.top < right.bottom && right.top < left.bottom
+        return horizontal && vertical
+      }),
+    )
+    return {
+      buttonCount: buttons.length,
+      outOfBounds: buttons.some((button) => button.left < rowBox.left - 1 || button.right > rowBox.right + 1),
+      overlap,
+      lastButtonRight: buttons.at(-1)?.right ?? rowBox.left,
+      rowRight: rowBox.right,
+      lastButtonTone: buttonElements.at(-1)?.getAttribute('data-tone'),
+      hitTested: buttons.every((button, index) => {
+        const hit = document.elementFromPoint(button.left + button.width / 2, button.top + button.height / 2)
+        const element = buttonElements[index] as HTMLButtonElement | undefined
+        return element !== undefined && (hit === element || Boolean(hit && element.contains(hit)))
+      }),
+    }
+  })
+  expect(geometry.buttonCount).toBeGreaterThan(0)
+  expect(geometry.outOfBounds).toBe(false)
+  expect(geometry.overlap).toBe(false)
+  expect(geometry.lastButtonRight).toBeLessThanOrEqual(geometry.rowRight + 1)
+  expect(geometry.hitTested).toBe(true)
+  if (expectedLastTone) expect(geometry.lastButtonTone).toBe(expectedLastTone)
+}
+
+async function assertVariableFlow(row: Locator): Promise<void> {
+  const geometry = await row.evaluate((element) => {
+    const rowBox = element.getBoundingClientRect()
+    const fields = element.querySelector('.hbar-prompt-variable-fields')?.getBoundingClientRect()
+    const actions = element.querySelector('.hbar-prompt-variable-actions')?.getBoundingClientRect()
+    const remove = element.querySelector('.hbar-prompt-variable-actions button')?.getBoundingClientRect()
+    const fieldAndActionOverlap =
+      fields &&
+      actions &&
+      fields.left < actions.right &&
+      actions.left < fields.right &&
+      fields.top < actions.bottom &&
+      actions.top < fields.bottom
+    return {
+      rowRight: rowBox.right,
+      actionRight: actions?.right ?? rowBox.left,
+      removeRight: remove?.right ?? rowBox.left,
+      fieldAndActionOverlap: Boolean(fieldAndActionOverlap),
+    }
+  })
+  expect(geometry.actionRight).toBeLessThanOrEqual(geometry.rowRight + 1)
+  expect(geometry.removeRight).toBeLessThanOrEqual(geometry.actionRight + 1)
+  expect(geometry.fieldAndActionOverlap).toBe(false)
 }
 
 async function withHost<T>(
@@ -64,46 +133,82 @@ test.describe('production app-ui feature surfaces', () => {
       await withHost(browser, locale, async (page, host) => {
         await openSession(page, host, locale)
         const templateCopy = promptTemplateCopy(locale)
+        const templateName =
+          locale === 'zh-CN'
+            ? '用于窄面板验收的发布模板长标题'.repeat(4)
+            : 'Release template with a deliberately long title for narrow panes'
         await openFeature(page, templateCopy.title)
         await page.getByRole('button', { name: templateCopy.create, exact: true }).click()
         const editor = page.locator('.hbar-prompt-template-editor')
         await page.getByRole('textbox', { name: templateCopy.editor.body, exact: true }).fill('Release build')
-        await page.getByRole('textbox', { name: templateCopy.editor.name, exact: true }).fill('Release template')
+        await page.getByRole('textbox', { name: templateCopy.editor.name, exact: true }).fill(templateName)
         await page
           .getByRole('textbox', { name: templateCopy.description, exact: true })
           .fill('A release template for browser acceptance')
         await page.getByRole('button', { name: templateCopy.addVariable, exact: true }).click()
         const variable = page.locator('.hbar-prompt-variable').last()
-        await variable.locator('input').nth(0).fill('environment')
-        await variable.locator('input').nth(1).fill('Environment')
+        await variable.locator('input.lumen-control').nth(0).fill('environment')
+        await variable.locator('input.lumen-control').nth(1).fill('Environment')
+        await assertVariableFlow(variable)
+        for (const width of [320, 390, 768, 1024, 1440]) {
+          await page.setViewportSize({ width, height: 720 })
+          await assertNoHorizontalOverflow(page.locator('.hbar-prompt-templates-page'))
+          await assertVariableFlow(variable)
+        }
+        await page.setViewportSize({ width: 1440, height: 960 })
+        await page.locator('.hbar-prompt-templates-page').evaluate((element) => {
+          element.style.inlineSize = '28rem'
+          element.style.maxInlineSize = '100%'
+          element.style.boxSizing = 'border-box'
+        })
+        await assertNoHorizontalOverflow(page.locator('.hbar-prompt-templates-page'))
+        await assertVariableFlow(variable)
+        await page.locator('.hbar-prompt-templates-page').evaluate((element) => {
+          element.style.removeProperty('inline-size')
+          element.style.removeProperty('max-inline-size')
+          element.style.removeProperty('box-sizing')
+        })
         await page.getByRole('textbox', { name: templateCopy.editor.body, exact: true }).fill('Release {{environment}}')
+        await assertActionFlow(editor.locator('footer'))
         await page.getByRole('button', { name: templateCopy.editor.save, exact: true }).click()
-        await expect(page.getByRole('status')).toContainText(templateCopy.saved)
-        await page.getByRole('button', { name: 'Release template', exact: true }).click()
+        await expect(page.locator('.hbar-prompt-message')).toContainText(templateCopy.saved)
+        const templateRow = page.locator('.hbar-prompt-template-list article').filter({ hasText: templateName }).first()
+        await expect(templateRow).toBeVisible()
+        for (const width of [320, 390, 768, 1024, 1440]) {
+          await page.setViewportSize({ width, height: 720 })
+          await assertNoHorizontalOverflow(page.locator('.hbar-prompt-template-list'))
+          await assertActionFlow(templateRow.locator('.hbar-prompt-actions'))
+        }
+        await page.setViewportSize({ width: 1440, height: 960 })
+        await page.getByRole('button', { name: templateName, exact: true }).click()
         await expect(page.getByRole('heading', { name: /Apply template|套用模板/ })).toBeVisible()
-        await page.getByRole('combobox', { name: templateCopy.target }).selectOption({ label: host.ready.sessionTitle })
+        await selectLumenOption(page.getByRole('combobox', { name: templateCopy.target }), {
+          label: host.ready.sessionTitle,
+        })
         await page.getByRole('textbox', { name: 'Environment' }).fill('production')
-        await page.getByRole('combobox', { name: templateCopy.mode }).selectOption('append')
+        await selectLumenOption(page.getByRole('combobox', { name: templateCopy.mode }), 'append')
         await page.getByRole('button', { name: templateCopy.apply, exact: true }).click()
-        await expect(page.getByRole('status')).toContainText(templateCopy.applied)
+        await expect(page.locator('.hbar-prompt-message')).toContainText(templateCopy.applied)
         const prompt = page.getByRole('textbox', { name: getShellCopy(locale).session.prompt.input })
         await expect(prompt).toContainText(/Release production/)
         await prompt.fill('Existing draft before replacement')
-        await page.getByRole('combobox', { name: templateCopy.target }).selectOption({ label: host.ready.sessionTitle })
-        await page.getByRole('combobox', { name: templateCopy.mode }).selectOption('replace')
+        await selectLumenOption(page.getByRole('combobox', { name: templateCopy.target }), {
+          label: host.ready.sessionTitle,
+        })
+        await selectLumenOption(page.getByRole('combobox', { name: templateCopy.mode }), 'replace')
         await page.getByRole('button', { name: templateCopy.apply, exact: true }).click()
         await expect(page.getByRole('alert')).toContainText(templateCopy.confirmReplace)
         await page.getByRole('button', { name: templateCopy.confirmReplace }).click()
         await expect(prompt).toContainText('Release production')
         await page.getByRole('button', { name: templateCopy.createPreDraft, exact: true }).click()
-        await expect(page.getByRole('combobox', { name: templateCopy.target })).toHaveValue(/pre-session/)
+        await expectLumenValue(page.getByRole('combobox', { name: templateCopy.target }), /pre-session/)
         await page.getByRole('button', { name: templateCopy.edit, exact: true }).click()
         await expect(editor).toBeVisible()
         await page.getByRole('button', { name: templateCopy.editor.cancel, exact: true }).click()
         await page.getByRole('button', { name: templateCopy.remove, exact: true }).click()
         await expect(page.getByRole('dialog')).toBeVisible()
         await page.getByRole('dialog').getByRole('button', { name: templateCopy.remove, exact: true }).click()
-        await expect(page.getByRole('button', { name: 'Release template', exact: true })).toHaveCount(0)
+        await expect(page.getByRole('button', { name: templateName, exact: true })).toHaveCount(0)
         await capture(page, `templates-${locale}-1440.png`)
         await page.setViewportSize({ width: 320, height: 720 })
         await expect(page.locator('html')).toHaveJSProperty('scrollWidth', 320)
@@ -123,25 +228,54 @@ test.describe('production app-ui feature surfaces', () => {
       const schedule = page.locator('.hbar-schedule-page')
       await schedule.getByLabel(copy.name).fill('Nightly verification')
       await schedule.getByLabel(copy.prompt).fill('Run the nightly verification')
-      await schedule.getByLabel(copy.model).selectOption('local-fixture')
-      await schedule.getByLabel(copy.type).selectOption('daily')
+      await selectLumenOption(schedule.getByLabel(copy.model), 'local-fixture')
+      await selectLumenOption(schedule.getByLabel(copy.type), 'daily')
       await schedule.getByLabel(copy.timezone).fill('America/Los_Angeles')
-      await schedule.getByLabel(copy.target).selectOption('existing-session')
+      await selectLumenOption(schedule.getByLabel(copy.target), 'existing-session')
       const existingSession = schedule.getByRole('combobox', { name: copy.existingSession, exact: true })
-      await expect(existingSession.locator('option')).toHaveCount(2)
-      await existingSession.selectOption(host.ready.sessionId)
+      await selectLumenOption(existingSession, host.ready.sessionId)
+      const scheduleFormActions = schedule.locator('.hbar-schedule-form-actions')
+      for (const width of [320, 390, 768, 1024, 1440]) {
+        await page.setViewportSize({ width, height: 720 })
+        await assertNoHorizontalOverflow(schedule)
+        await assertActionFlow(scheduleFormActions)
+      }
+      await page.setViewportSize({ width: 1440, height: 960 })
+      await schedule.evaluate((element) => {
+        element.style.inlineSize = '28rem'
+        element.style.maxInlineSize = '100%'
+        element.style.boxSizing = 'border-box'
+      })
+      await assertNoHorizontalOverflow(schedule)
+      await assertActionFlow(scheduleFormActions)
+      await schedule.evaluate((element) => {
+        element.style.removeProperty('inline-size')
+        element.style.removeProperty('max-inline-size')
+        element.style.removeProperty('box-sizing')
+      })
       await schedule.getByRole('button', { name: copy.preview, exact: true }).click()
       await expect(schedule.getByRole('region', { name: copy.previewTitle })).toBeVisible()
       await expect(schedule.getByRole('region', { name: copy.previewTitle }).locator('li')).toHaveCount(5)
       await schedule.getByRole('button', { name: copy.create, exact: true }).click()
-      await expect(page.getByRole('status')).toContainText(copy.saved)
-      await expect(page.getByText('Nightly verification', { exact: true })).toBeVisible()
+      await expect(schedule.locator('.hbar-schedule-feedback')).toContainText(copy.saved)
+      const scheduleRow = schedule.locator('.hbar-schedule-list article').first()
+      await expect(scheduleRow).toBeVisible()
+      for (const width of [320, 390, 768, 1024, 1440]) {
+        await page.setViewportSize({ width, height: 720 })
+        await assertNoHorizontalOverflow(schedule)
+        await assertActionFlow(scheduleRow.locator('.hbar-schedule-item-actions'), 'danger')
+      }
+      await page.setViewportSize({ width: 1440, height: 960 })
       await page.getByRole('button', { name: copy.pause, exact: true }).click()
       await expect(page.getByText(copy.paused, { exact: true })).toBeVisible()
       await page.getByRole('button', { name: copy.edit, exact: true }).click()
       await page.getByLabel(copy.name).fill('Nightly verification edited')
       await page.getByRole('button', { name: copy.save, exact: true }).click()
       await expect(page.getByText('Nightly verification edited', { exact: true })).toBeVisible()
+      await assertActionFlow(
+        schedule.locator('.hbar-schedule-list article').first().locator('.hbar-schedule-item-actions'),
+        'danger',
+      )
       await page.getByRole('button', { name: copy.delete, exact: true }).click()
       await expect(page.getByRole('group', { name: copy.deleteConfirm('Nightly verification edited') })).toBeVisible()
       await page

@@ -1,8 +1,15 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useHbarRuntimeState } from '@hbar/app-react'
 import type { createAppRuntime } from '@hbar/app-runtime'
-import { LumenButton, LumenCollection, LumenCollectionItem, LumenFrame, LumenOption, LumenText } from '@lumen/app-ui'
-import { LumenFormField, LumenInput, LumenSelect, LumenTextarea } from '@lumen/app-ui/forms'
+import {
+  LumenButton,
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenPopupSelect,
+  LumenText,
+} from '@lumen/app-ui'
+import { LumenFormField, LumenInput, LumenTextarea } from '@lumen/app-ui/forms'
 import { LumenScheduling01, LumenScheduling03, LumenScheduling04 } from '@lumen/app-ui/scheduling'
 import type { ScheduleDefinition } from '@hbar/contracts/commands/schedules'
 import type { ShellLocale } from './shell-copy'
@@ -245,35 +252,31 @@ function AvailableSchedulesPage({
                 />
               </LumenFormField>
               <LumenFormField controlId={`${formId}-model`} label={copy.model}>
-                <LumenSelect
-                  value={draft.modelId}
+                <LumenPopupSelect
+                  id={`${formId}-model`}
+                  value={draft.modelId || null}
+                  placeholder={copy.chooseModel}
+                  selectedLabel={draft.modelId || undefined}
+                  options={models.map((model) => ({
+                    id: model.id,
+                    label: copy.modelLabel(model.providerName, model.modelName),
+                  }))}
                   disabled={busy}
-                  onChange={(event) => patch({ modelId: event.currentTarget.value })}
-                >
-                  <LumenOption value="">{copy.chooseModel}</LumenOption>
-                  {models.map((model) => (
-                    <LumenOption key={model.id} value={model.id}>
-                      {copy.modelLabel(model.providerName, model.modelName)}
-                    </LumenOption>
-                  ))}
-                </LumenSelect>
+                  onValueChange={(value) => patch({ modelId: value })}
+                />
               </LumenFormField>
               {catalog.status === 'ready' && models.length === 0 ? <LumenText as="p">{copy.noModels}</LumenText> : null}
               <LumenFormField controlId={`${formId}-kind`} label={copy.type}>
-                <LumenSelect
+                <LumenPopupSelect
+                  id={`${formId}-kind`}
                   value={draft.kind}
+                  options={Object.entries(copy.kinds).map(([id, label]) => ({ id, label }))}
                   disabled={busy}
-                  onChange={(event) => {
-                    const kind = event.currentTarget.value
+                  onValueChange={(value) => {
+                    const kind = value
                     if (kind === 'once' || kind === 'daily' || kind === 'weekly' || kind === 'cron') patch({ kind })
                   }}
-                >
-                  {Object.entries(copy.kinds).map(([kind, label]) => (
-                    <LumenOption key={kind} value={kind}>
-                      {label}
-                    </LumenOption>
-                  ))}
-                </LumenSelect>
+                />
               </LumenFormField>
               <LumenFormField controlId={`${formId}-timezone`} label={copy.timezone}>
                 <LumenInput
@@ -339,53 +342,61 @@ function AvailableSchedulesPage({
                 }}
               />
               <LumenFormField controlId={`${formId}-target`} label={copy.target}>
-                <LumenSelect
+                <LumenPopupSelect
+                  id={`${formId}-target`}
                   value={draft.target}
+                  options={[
+                    { id: 'new-session', label: copy.newSession },
+                    { id: 'existing-session', label: copy.existingSession },
+                  ]}
                   disabled={busy}
-                  onChange={(event) =>
+                  onValueChange={(value) =>
                     patch({
-                      target: event.currentTarget.value === 'existing-session' ? 'existing-session' : 'new-session',
+                      target: value === 'existing-session' ? 'existing-session' : 'new-session',
                     })
                   }
-                >
-                  <LumenOption value="new-session">{copy.newSession}</LumenOption>
-                  <LumenOption value="existing-session">{copy.existingSession}</LumenOption>
-                </LumenSelect>
+                />
               </LumenFormField>
               {draft.target === 'existing-session' ? (
                 <LumenFormField controlId={`${formId}-session`} label={copy.existingSession}>
-                  <LumenSelect
-                    value={draft.sessionId}
+                  <LumenPopupSelect
+                    id={`${formId}-session`}
+                    value={draft.sessionId || null}
+                    placeholder={copy.chooseSession}
+                    selectedLabel={draft.sessionId || undefined}
+                    options={sessions.map((session) => ({ id: session.id, label: session.title }))}
                     disabled={busy}
-                    onChange={(event) => patch({ sessionId: event.currentTarget.value })}
-                  >
-                    <LumenOption value="">{copy.chooseSession}</LumenOption>
-                    {sessions.map((session) => (
-                      <LumenOption key={session.id} value={session.id}>
-                        {session.title}
-                      </LumenOption>
-                    ))}
-                  </LumenSelect>
+                    onValueChange={(value) => patch({ sessionId: value })}
+                  />
                 </LumenFormField>
               ) : null}
-              <LumenFrame as="footer">
-                <LumenButton disabled={busy || previewPending} onClick={() => void showPreview()}>
-                  {copy.preview}
-                </LumenButton>
-                <LumenButton tone="primary" disabled={busy} loading={snapshot.mutation === 'submitting'} onClick={save}>
-                  {draft.id ? copy.save : copy.create}
-                </LumenButton>
-                {draft.id ? (
-                  <LumenButton
-                    disabled={busy}
-                    onClick={() => {
-                      setDraft(newScheduleForm(draft.timezone))
-                      setPreview([])
-                    }}
-                  >
-                    {copy.cancel}
+              <LumenFrame as="footer" className="hbar-schedule-form-actions">
+                <LumenFrame className="hbar-schedule-action-group hbar-schedule-secondary-actions">
+                  <LumenButton disabled={busy || previewPending} onClick={() => void showPreview()}>
+                    {copy.preview}
                   </LumenButton>
-                ) : null}
+                  {draft.id ? (
+                    <LumenButton
+                      disabled={busy}
+                      onClick={() => {
+                        setDraft(newScheduleForm(draft.timezone))
+                        setPreview([])
+                      }}
+                    >
+                      {copy.cancel}
+                    </LumenButton>
+                  ) : null}
+                </LumenFrame>
+                <LumenFrame className="hbar-schedule-action-group hbar-schedule-primary-actions">
+                  <LumenButton
+                    tone="primary"
+                    disabled={busy}
+                    loading={snapshot.mutation === 'submitting'}
+                    onClick={save}
+                  >
+                    {draft.id ? copy.save : copy.create}
+                  </LumenButton>
+                </LumenFrame>
               </LumenFrame>
               {preview.length > 0 ? (
                 <LumenFrame as="section" aria-label={copy.previewTitle}>
@@ -398,7 +409,7 @@ function AvailableSchedulesPage({
                 </LumenFrame>
               ) : null}
               {feedback ? (
-                <LumenText as="p" role="status">
+                <LumenText as="p" className="hbar-schedule-feedback" role="status">
                   {feedback}
                 </LumenText>
               ) : null}
@@ -415,27 +426,31 @@ function AvailableSchedulesPage({
               <LumenText>{schedule.enabled ? copy.enabled : copy.paused}</LumenText>
             </LumenFrame>
             <LumenText as="p">{copy.summary(copy.kinds[schedule.spec.kind], schedule.timezone)}</LumenText>
-            <LumenFrame as="footer">
-              <LumenButton
-                disabled={busy}
-                onClick={() => {
-                  owner.current.previewRevision++
-                  setDraft(editScheduleForm(schedule))
-                  setPreview([])
-                  setFeedback(null)
-                }}
-              >
-                {copy.edit}
-              </LumenButton>
-              <LumenButton disabled={busy} onClick={() => toggle(schedule)}>
-                {schedule.enabled ? copy.pause : copy.enable}
-              </LumenButton>
-              <LumenButton disabled={busy} onClick={() => void api.refreshOccurrences(schedule.id)}>
-                {copy.occurrences}
-              </LumenButton>
-              <LumenButton tone="danger" disabled={busy} onClick={() => setConfirmDelete(schedule.id)}>
-                {copy.delete}
-              </LumenButton>
+            <LumenFrame as="footer" className="hbar-schedule-item-actions">
+              <LumenFrame className="hbar-schedule-action-group hbar-schedule-secondary-actions">
+                <LumenButton
+                  disabled={busy}
+                  onClick={() => {
+                    owner.current.previewRevision++
+                    setDraft(editScheduleForm(schedule))
+                    setPreview([])
+                    setFeedback(null)
+                  }}
+                >
+                  {copy.edit}
+                </LumenButton>
+                <LumenButton disabled={busy} onClick={() => toggle(schedule)}>
+                  {schedule.enabled ? copy.pause : copy.enable}
+                </LumenButton>
+                <LumenButton disabled={busy} onClick={() => void api.refreshOccurrences(schedule.id)}>
+                  {copy.occurrences}
+                </LumenButton>
+              </LumenFrame>
+              <LumenFrame className="hbar-schedule-action-group hbar-schedule-danger-actions">
+                <LumenButton tone="danger" disabled={busy} onClick={() => setConfirmDelete(schedule.id)}>
+                  {copy.delete}
+                </LumenButton>
+              </LumenFrame>
             </LumenFrame>
             {confirmDelete === schedule.id ? (
               <LumenFrame role="group" aria-label={copy.deleteConfirm(schedule.name)}>

@@ -9,7 +9,7 @@
   gap: 1rem;
 }
 .hbar-schedule-page {
-  padding: 16px;
+  padding: 1rem;
   min-block-size: 0;
   overflow: auto;
 }
@@ -24,17 +24,51 @@
 .hbar-schedule-page header {
   justify-content: space-between;
 }
+.hbar-schedule-form-actions,
+.hbar-schedule-item-actions {
+  justify-content: flex-end;
+}
+.hbar-schedule-action-group {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.hbar-schedule-primary-actions,
+.hbar-schedule-danger-actions {
+  margin-inline-start: auto;
+}
 .hbar-schedule-list article {
   border-block-start: 0.0625rem solid var(--lumen-edge);
-  padding-block: 12px;
+  padding-block: 0.75rem;
 }
 .hbar-schedule-form textarea {
   min-block-size: 7rem;
 }
 .hbar-schedule-page ol {
-  padding-inline-start: 24px;
+  padding-inline-start: 1.5rem;
   margin-block: 0;
 }
 .hbar-schedule-page li {
   overflow-wrap: anywhere;
+}
+
+@media (max-width: 35rem) {
+  .hbar-schedule-form-actions,
+  .hbar-schedule-item-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hbar-schedule-action-group {
+    align-items: stretch;
+    flex: 1 1 auto;
+    margin-inline-start: 0;
+  }
+
+  .hbar-schedule-action-group > * {
+    flex: 1 1 auto;
+  }
 }

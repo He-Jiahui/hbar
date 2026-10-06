@@ -7,8 +7,7 @@ import {
   LumenFormField,
   LumenFrame,
   LumenInput,
-  LumenOption,
-  LumenSelect,
+  LumenPopupSelect,
   LumenText,
 } from '@lumen/app-ui'
 import { PromptTemplateEditor, useHbarRuntimeState, type HbarRuntimeView } from '@hbar/app-react'
@@ -338,44 +337,50 @@ function AvailablePromptTemplatesPage({
             <LumenText as="h3">{copy.variables}</LumenText>
             {draft.variables.map((variable, index) => (
               <LumenFrame className="hbar-prompt-variable" key={index}>
-                <LumenInput
-                  aria-label={copy.variableId}
-                  disabled={busy}
-                  value={variable.id}
-                  maxLength={80}
-                  onChange={(event) => updateVariable(index, { id: event.currentTarget.value })}
-                />
-                <LumenInput
-                  aria-label={copy.variableLabel}
-                  disabled={busy}
-                  value={variable.label}
-                  maxLength={160}
-                  onChange={(event) => updateVariable(index, { label: event.currentTarget.value })}
-                />
-                <LumenSelect
-                  aria-label={copy.variableRequired}
-                  disabled={busy}
-                  value={variable.required ? 'required' : 'optional'}
-                  onChange={(event) => updateVariable(index, { required: event.currentTarget.value === 'required' })}
-                >
-                  <LumenOption value="optional">{copy.optional}</LumenOption>
-                  <LumenOption value="required">{copy.required}</LumenOption>
-                </LumenSelect>
-                <LumenInput
-                  aria-label={copy.variableDefault}
-                  disabled={busy}
-                  value={variable.defaultValue ?? ''}
-                  maxLength={20_000}
-                  onChange={(event) => updateVariable(index, { defaultValue: event.currentTarget.value })}
-                />
-                <LumenButton
-                  disabled={busy}
-                  onClick={() =>
-                    updateDraft({ variables: draft.variables.filter((_entry, position) => position !== index) })
-                  }
-                >
-                  {copy.removeVariable}
-                </LumenButton>
+                <LumenFrame className="hbar-prompt-variable-fields">
+                  <LumenInput
+                    aria-label={copy.variableId}
+                    disabled={busy}
+                    value={variable.id}
+                    maxLength={80}
+                    onChange={(event) => updateVariable(index, { id: event.currentTarget.value })}
+                  />
+                  <LumenInput
+                    aria-label={copy.variableLabel}
+                    disabled={busy}
+                    value={variable.label}
+                    maxLength={160}
+                    onChange={(event) => updateVariable(index, { label: event.currentTarget.value })}
+                  />
+                  <LumenPopupSelect
+                    id={`prompt-template-variable-required-${index}`}
+                    aria-label={copy.variableRequired}
+                    disabled={busy}
+                    value={variable.required ? 'required' : 'optional'}
+                    options={[
+                      { id: 'optional', label: copy.optional },
+                      { id: 'required', label: copy.required },
+                    ]}
+                    onValueChange={(value) => updateVariable(index, { required: value === 'required' })}
+                  />
+                  <LumenInput
+                    aria-label={copy.variableDefault}
+                    disabled={busy}
+                    value={variable.defaultValue ?? ''}
+                    maxLength={20_000}
+                    onChange={(event) => updateVariable(index, { defaultValue: event.currentTarget.value })}
+                  />
+                </LumenFrame>
+                <LumenFrame className="hbar-prompt-variable-actions">
+                  <LumenButton
+                    disabled={busy}
+                    onClick={() =>
+                      updateDraft({ variables: draft.variables.filter((_entry, position) => position !== index) })
+                    }
+                  >
+                    {copy.removeVariable}
+                  </LumenButton>
+                </LumenFrame>
               </LumenFrame>
             ))}
             <LumenButton
@@ -390,46 +395,46 @@ function AvailablePromptTemplatesPage({
       {selected && !draft ? (
         <LumenFrame as="section" className="hbar-prompt-apply">
           <LumenText as="h2">{copy.applyTitle}</LumenText>
-          <LumenSelect
+          <LumenPopupSelect
+            id="prompt-template-target"
             aria-label={copy.target}
             disabled={busy}
-            value={target ? `${target.kind}:${target.id}` : ''}
-            onChange={(event) => {
-              const value = event.currentTarget.value
+            value={target ? `${target.kind}:${target.id}` : null}
+            placeholder={copy.chooseTarget}
+            selectedLabel={target ? target.id : undefined}
+            options={[
+              { id: '', label: copy.chooseTarget },
+              ...sessions.map((session) => ({ id: `session:${session.id}`, label: session.title })),
+              ...preEntries.map((entry, index) => ({
+                id: `pre-session:${entry.draftId}`,
+                label: copy.preTarget(index + 1),
+              })),
+            ]}
+            onValueChange={(value) => {
               const separator = value.indexOf(':')
               const kind = value.slice(0, separator)
               const id = value.slice(separator + 1)
               setTarget((kind === 'session' || kind === 'pre-session') && id ? { kind, id } : null)
               setReplaceConfirmation(false)
             }}
-          >
-            <LumenOption value="">{copy.chooseTarget}</LumenOption>
-            {sessions.map((session) => (
-              <LumenOption key={session.id} value={`session:${session.id}`}>
-                {session.title}
-              </LumenOption>
-            ))}
-            {preEntries.map((entry, index) => (
-              <LumenOption key={entry.draftId} value={`pre-session:${entry.draftId}`}>
-                {copy.preTarget(index + 1)}
-              </LumenOption>
-            ))}
-          </LumenSelect>
+          />
           <LumenButton disabled={busy} onClick={() => void createPreDraft()}>
             {copy.createPreDraft}
           </LumenButton>
-          <LumenSelect
+          <LumenPopupSelect
+            id="prompt-template-mode"
             aria-label={copy.mode}
             disabled={busy}
             value={mode}
-            onChange={(event) => {
-              setMode(event.currentTarget.value === 'replace' ? 'replace' : 'append')
+            options={[
+              { id: 'append', label: copy.append },
+              { id: 'replace', label: copy.replace },
+            ]}
+            onValueChange={(value) => {
+              setMode(value === 'replace' ? 'replace' : 'append')
               setReplaceConfirmation(false)
             }}
-          >
-            <LumenOption value="append">{copy.append}</LumenOption>
-            <LumenOption value="replace">{copy.replace}</LumenOption>
-          </LumenSelect>
+          />
           {selected.variables.map((variable) => (
             <LumenInput
               key={variable.id}
@@ -460,7 +465,11 @@ function AvailablePromptTemplatesPage({
           <LumenButton onClick={() => void api.reconcile().catch(report)}>{copy.reconcile}</LumenButton>
         </LumenFrame>
       ) : null}
-      {message ? <LumenText role="status">{message}</LumenText> : null}
+      {message ? (
+        <LumenText className="hbar-prompt-message" role="status">
+          {message}
+        </LumenText>
+      ) : null}
       {error || state.mutation === 'failed' ? (
         <LumenText role="alert" tone="danger">
           {error ?? state.error}

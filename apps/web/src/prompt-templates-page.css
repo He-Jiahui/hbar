@@ -1,1 +1,207 @@
-.hbar-prompt-templates-page{display:flex;flex-direction:column;gap:1rem;min-block-size:0;overflow:auto;padding:1rem}.hbar-prompt-templates-page header,.hbar-prompt-actions,.hbar-prompt-pagination,.hbar-prompt-variable{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}.hbar-prompt-templates-page header{justify-content:space-between}.hbar-prompt-template-list,.hbar-prompt-apply,.hbar-prompt-variables{display:flex;flex-direction:column;gap:.75rem;min-inline-size:0}.hbar-prompt-template-list article{display:flex;justify-content:space-between;gap:1rem;border-block-start:.0625rem solid var(--lumen-edge);padding-block:.75rem}.hbar-prompt-variable>*{flex:1 1 10rem;min-inline-size:0}.hbar-prompt-template-editor{display:flex;flex-direction:column;gap:.75rem}.hbar-prompt-template-editor textarea{min-block-size:12rem}.hbar-prompt-feedback{display:flex;flex-wrap:wrap;align-items:center;gap:.75rem}@media (max-width:20rem){.hbar-prompt-template-list article{flex-direction:column}.hbar-prompt-actions>*{flex:1 1 100%}}
+.hbar-prompt-templates-page {
+  display: flex;
+  box-sizing: border-box;
+  container-type: inline-size;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex-direction: column;
+  gap: 1rem;
+  overflow: auto;
+  padding: 1rem;
+}
+
+/* The editor is a scrollable prompt surface by default. In this page it is
+   ordinary document content, so let its surface grow with the form and keep
+   the page as the sole scroll owner. This keeps the save/cancel footer in the
+   hit-testable flow while navigating a narrow tool pane. */
+.hbar-prompt-templates-page > .lumen-prompt-input-surface {
+  block-size: auto;
+  flex: 0 0 auto;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  overflow: visible;
+}
+
+.hbar-prompt-templates-page > .lumen-prompt-input-surface > div {
+  box-sizing: border-box;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.hbar-prompt-templates-page > .lumen-prompt-input-surface > .lumen-prompt-input {
+  box-sizing: border-box;
+  block-size: auto;
+  flex: 0 0 auto;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  overflow: visible;
+}
+
+.hbar-prompt-templates-page > .lumen-form-field,
+.hbar-prompt-template-editor,
+.hbar-prompt-template-editor > .lumen-form-field,
+.hbar-prompt-template-editor .lumen-outlined-field,
+.hbar-prompt-template-editor .lumen-outlined-field > *,
+.hbar-prompt-template-editor > footer {
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.hbar-prompt-templates-page > .lumen-form-field > label,
+.hbar-prompt-template-editor :where(h1, h2, h3, p, label) {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.hbar-prompt-templates-page > .lumen-form-field .lumen-outlined-field,
+.hbar-prompt-templates-page > .lumen-form-field .lumen-outlined-field > *,
+.hbar-prompt-templates-page > .lumen-form-field :where(input, textarea) {
+  box-sizing: border-box;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.hbar-prompt-template-editor :where(input, textarea) {
+  box-sizing: border-box;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.hbar-prompt-templates-page header,
+.hbar-prompt-actions,
+.hbar-prompt-pagination,
+.hbar-prompt-variable,
+.hbar-prompt-variable-fields,
+.hbar-prompt-variable-actions {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.hbar-prompt-templates-page header {
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.hbar-prompt-templates-page header > :first-child,
+.hbar-prompt-template-list article > :first-child {
+  min-inline-size: 0;
+  flex: 1 1 18rem;
+}
+
+.hbar-prompt-template-list,
+.hbar-prompt-apply,
+.hbar-prompt-variables {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.hbar-prompt-template-list article {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+  padding-block: 0.75rem;
+}
+
+.hbar-prompt-template-list article > :first-child {
+  overflow-wrap: anywhere;
+}
+
+.hbar-prompt-actions,
+.hbar-prompt-pagination {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+
+.hbar-prompt-variable {
+  align-items: flex-start;
+}
+
+.hbar-prompt-variable-fields {
+  min-inline-size: 0;
+  flex: 1 1 30rem;
+  align-items: stretch;
+}
+
+.hbar-prompt-variable-fields > * {
+  min-inline-size: 0;
+  flex: 1 1 calc(50% - 0.25rem);
+}
+
+.hbar-prompt-variable-actions {
+  flex: 0 0 auto;
+  align-self: stretch;
+  justify-content: flex-end;
+}
+
+.hbar-prompt-template-editor {
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.hbar-prompt-template-editor > * {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.hbar-prompt-template-editor textarea {
+  min-block-size: 12rem;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.hbar-prompt-feedback {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+@container (max-width: 35rem) {
+  .hbar-prompt-templates-page header,
+  .hbar-prompt-template-list article,
+  .hbar-prompt-variable {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hbar-prompt-actions,
+  .hbar-prompt-pagination {
+    justify-content: flex-start;
+  }
+
+  .hbar-prompt-actions > *,
+  .hbar-prompt-pagination > * {
+    flex: 1 1 auto;
+  }
+
+  .hbar-prompt-variable-fields {
+    flex-basis: auto;
+    flex-direction: column;
+  }
+
+  .hbar-prompt-variable-fields > * {
+    flex-basis: auto;
+  }
+
+  .hbar-prompt-variable-actions {
+    align-self: flex-end;
+  }
+}
