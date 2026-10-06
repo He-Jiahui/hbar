@@ -39,6 +39,53 @@ for (const [locale, width] of [
   ['en-US', 1440],
   ['zh-CN', 320],
 ] as const) {
+  test(`long Goal confirmation keeps exact copy in its reading region and actions reachable: ${locale} ${width}`, async ({
+    browser,
+  }) => {
+    const f = await startGoalPlanRecovery(browser, { locale, width, goal: 'none' })
+    const name = `clear-capacity-${locale}-${width}`
+    let completed = false
+    try {
+      const objective = `Long Goal ${'容量Capacity目标'.repeat(280)}`
+      expect(objective.length).toBeLessThanOrEqual(4000)
+      const created = await f.goals.execute('goal.create', { sessionId: f.ready.firstSession.id, objective })
+      const c = controls(f)
+      await expect(c.summary).toContainText(objective)
+      await c.clear.click()
+      const reading = c.group.getByRole('region', { name: f.copy.session.intent.clear, exact: true })
+      await expect(reading.locator('[data-text-context="dialog.body"]')).toHaveText(
+        f.copy.session.intent.confirmClear(objective),
+      )
+      await expect(reading).toBeInViewport()
+      if (width === 320) {
+        expect(await reading.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true)
+        await reading.focus()
+        await f.page.keyboard.press('End')
+      }
+      for (const action of [c.cancel, c.confirm]) {
+        await expect(action).toBeInViewport()
+        expect(
+          await action.evaluate((element) => {
+            const box = element.getBoundingClientRect()
+            const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+            return hit !== null && element.contains(hit)
+          }),
+        ).toBe(true)
+      }
+      expect(await f.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      await capture(f, evidence, name)
+      await c.cancel.click()
+      expect((await f.goals.execute('goal.snapshot', { sessionId: f.ready.firstSession.id })).goal?.goalId).toBe(
+        created.goal?.goalId,
+      )
+      expect(f.faults.count('goal.clear')).toBe(0)
+      await assertNoExecution(f)
+      completed = true
+    } finally {
+      await finish(f, name, completed)
+    }
+  })
+
   test(`Goal clear returns local focus only after explicit cancel or confirmation: ${locale} ${width}`, async ({
     browser,
   }) => {

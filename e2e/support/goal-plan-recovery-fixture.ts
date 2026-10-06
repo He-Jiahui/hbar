@@ -303,10 +303,15 @@ export async function setDraft(f: GoalPlanRecoveryFixture, text: string): Promis
   await expectComposerText(editor, text)
 }
 export async function openSession(f: GoalPlanRecoveryFixture, session = f.ready.firstSession): Promise<void> {
-  const side = f.page.getByRole('complementary', { name: f.copy.shell.projectsAndSessions, exact: true })
-  if (!(await side.isVisible()))
+  const entry = f.page.getByRole('treeitem', { name: session.title, exact: true })
+  const shell = f.page.locator('[data-hbar-sidebar-expanded]')
+  await expect(shell).toBeAttached()
+  const narrow = await f.page.evaluate(() => window.matchMedia('(max-width: 63.9375rem)').matches)
+  if (narrow || (await shell.getAttribute('data-hbar-sidebar-expanded')) !== 'true')
     await f.page.getByRole('button', { name: f.copy.shell.showSidebar, exact: true }).click()
+  await expect(shell).toHaveAttribute('data-hbar-sidebar-expanded', 'true')
   const row = f.page.locator(`[data-workspace-id="${f.ready.workspace.id}"]`)
+  await expect(row).toBeVisible()
   const toggle = row
   if ((await toggle.getAttribute('aria-expanded')) === 'false') {
     // Initial workspace loading may expand the first project between this
@@ -318,14 +323,13 @@ export async function openSession(f: GoalPlanRecoveryFixture, session = f.ready.
     }
   }
   await expect(toggle).toHaveAttribute('aria-expanded', 'true')
-  await row.getByRole('treeitem', { name: session.title, exact: true }).click()
-  const hide = f.page.getByRole('button', { name: f.copy.shell.hideSidebar, exact: true })
-  if (await hide.isVisible()) {
-    try {
-      await hide.click({ timeout: 1500 })
-    } catch (error) {
-      if (await hide.isVisible()) throw error
-    }
+  await expect(entry).toBeInViewport()
+  await entry.click()
+  await expect(f.page.getByRole('region', { name: session.title, exact: true })).toBeVisible()
+  if (narrow) await expect(shell).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
+  else {
+    await expect(f.page.getByRole('tab', { name: session.title, exact: true })).toHaveAttribute('aria-selected', 'true')
+    await f.page.getByRole('button', { name: f.copy.shell.hideSidebar, exact: true }).click()
   }
   await expect(composer(f)).toBeVisible()
 }
@@ -365,6 +369,7 @@ export async function startGoalPlanRecovery(
     await external.connect()
     expect((await context.request.post(`${ready.url}/auth/token`, { data: { token: ready.token } })).ok()).toBe(true)
     const page = await context.newPage()
+    page.setDefaultTimeout(15_000)
     const errors: string[] = []
     const warnings: string[] = []
     page.on('pageerror', (error) => errors.push(error.message))

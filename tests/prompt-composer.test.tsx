@@ -138,7 +138,10 @@ test('attachment fallback is content-grown at 0/1/normal/12/13 and keeps origina
       name: `宿主提供的很长附件名称-${index}-${'自然换行内容'.repeat(8)}.txt`,
     }))
     const html = renderToStaticMarkup(<HbarPromptComposer {...base} attachments={attachments} />)
-    expect(html.match(/class="lumen-attachment-chip"/g)?.length ?? 0).toBe(count)
+    const chips = [...html.matchAll(/class="([^"]*)"/g)].filter((match) =>
+      match[1]?.split(/\s+/).includes('lumen-attachment-chip'),
+    )
+    expect(chips).toHaveLength(count)
     expect(html.includes('lumen-attachment-strip')).toBe(count > 0)
     for (const attachment of attachments) expect(html).toContain(attachment.name)
   }
@@ -160,7 +163,8 @@ test('attachment fallback is content-grown at 0/1/normal/12/13 and keeps origina
   expect(html).toContain(first.name)
   expect(html).toContain(image.name)
   expect(html).not.toContain('重复文件')
-  expect(html).toContain(`alt="${image.name}"`)
+  // Lumen treats the thumbnail beside the original file label as decorative.
+  expect(html).toMatch(/<img[^>]*src="\/test-only-image\.png"[^>]*alt=""[^>]*>/)
   expect(html).toContain(`aria-label="${base.labels.removeAttachment(first)}"`)
   // A callback from the previous view must not retarget to the new first item.
   renderToStaticMarkup(<HbarPromptComposer {...base} attachments={[image]} onRemoveAttachment={onRemoveAttachment} />)

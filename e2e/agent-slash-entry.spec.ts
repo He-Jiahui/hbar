@@ -280,7 +280,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expectComposerText(prompt, draft)
       expect((await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs).toHaveLength(1)
       expect((await agents.execute('agent.list', { parentSessionId: host.ready.sessionId })).items).toHaveLength(1)
-      await page.getByRole('button', { name: copy.session.tools.activity, exact: true }).click()
+      await page.locator('.hbar-mobile-header-menu-trigger').click()
+      await page
+        .locator('.hbar-mobile-header-menu-content')
+        .getByRole('button', { name: copy.session.tools.activity, exact: true })
+        .click()
       const activity = page.locator('.hbar-session-activity-workspace')
       const row = activity.locator(`[data-activity-agent-id="${created.agentId}"]`)
       await expect(row).toBeVisible()

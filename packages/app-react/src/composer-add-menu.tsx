@@ -6,7 +6,7 @@ import {
   LumenFrame,
   LumenIcon,
   LumenInput,
-  LumenText,
+  LumenContentText,
   useFloatingTrigger,
 } from '@lumen/app-ui'
 import { HbarActionIconButton } from './action-icon-button'
@@ -145,9 +145,9 @@ export function HbarComposerAddMenu({
             {goalAction.label}
           </LumenButton>
           {goalAction.disabled && goalAction.disabledHint && (
-            <LumenText as="p" className="hbar-composer-add-hint">
+            <LumenContentText context="form.help" className="hbar-composer-add-hint">
               {goalAction.disabledHint}
-            </LumenText>
+            </LumenContentText>
           )}
         </>
       )}

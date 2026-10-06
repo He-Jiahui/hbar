@@ -1,5 +1,13 @@
 import { FileText, MessageSquare, X } from 'lucide-react'
-import { LumenButton, LumenDisclosure, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import {
+  LumenButton,
+  LumenDisclosure,
+  LumenFrame,
+  LumenCollection,
+  LumenCollectionItem,
+  LumenIcon,
+  LumenContentText,
+} from '@lumen/app-ui'
 import type { SessionDraftState } from '@hbar/app-runtime'
 import './composer-workspace-contexts.css'
 
@@ -43,12 +51,12 @@ export function HbarComposerWorkspaceContexts({
   return (
     <LumenFrame className="hbar-composer-workspace-contexts">
       {error && (
-        <LumenText as="p" className="hbar-composer-workspace-context-error" role="alert">
+        <LumenContentText context="feedback.paragraph" className="hbar-composer-workspace-context-error" role="alert">
           {error}
-        </LumenText>
+        </LumenContentText>
       )}
       {contexts.length > 0 && (
-        <LumenFrame className="hbar-composer-workspace-context-list" role="list" aria-label={labels.label}>
+        <LumenCollection className="hbar-composer-workspace-context-list" role="list" aria-label={labels.label}>
           {contexts.map((context) => {
             const note =
               context.kind === 'chat-selection'
@@ -59,7 +67,7 @@ export function HbarComposerWorkspaceContexts({
             const icon = context.kind === 'source-selection' ? FileText : MessageSquare
             const range = labels.range(context)
             return (
-              <LumenFrame
+              <LumenCollectionItem
                 key={context.id}
                 className="hbar-composer-workspace-context-card"
                 data-kind={context.kind}
@@ -67,27 +75,31 @@ export function HbarComposerWorkspaceContexts({
               >
                 <LumenIcon icon={icon} tier="sm" className="hbar-composer-workspace-context-icon" />
                 <LumenFrame className="hbar-composer-workspace-context-copy">
-                  <LumenText as="span" className="hbar-composer-workspace-context-kind">
+                  <LumenContentText context="metadata" className="hbar-composer-workspace-context-kind">
                     {labels.kind(context)}
-                  </LumenText>
+                  </LumenContentText>
                   <LumenFrame className="hbar-composer-workspace-context-address" title={labels.location(context)}>
-                    <LumenText as="span" className="hbar-composer-workspace-context-location" tabIndex={0}>
-                      <LumenText as="span">{labels.name(context)}</LumenText>
-                    </LumenText>
+                    <LumenFrame as="span" className="hbar-composer-workspace-context-location" tabIndex={0}>
+                      <LumenContentText context="resource.path">{labels.name(context)}</LumenContentText>
+                    </LumenFrame>
                     {range && (
-                      <LumenText as="small" className="hbar-composer-workspace-context-range">
+                      <LumenContentText context="metadata" className="hbar-composer-workspace-context-range">
                         {range}
-                      </LumenText>
+                      </LumenContentText>
                     )}
                   </LumenFrame>
                   {note && (
-                    <LumenText as="span" className="hbar-composer-workspace-context-note" title={note}>
+                    <LumenContentText
+                      context="collection.description"
+                      className="hbar-composer-workspace-context-note"
+                      title={note}
+                    >
                       {note}
-                    </LumenText>
+                    </LumenContentText>
                   )}
                   <LumenDisclosure className="hbar-composer-workspace-context-quote" summary={labels.quoteDisclosure}>
                     <LumenFrame as="div" role="blockquote" className="hbar-composer-workspace-context-quote-text">
-                      {context.quote}
+                      <LumenContentText context="reading.paragraph">{context.quote}</LumenContentText>
                     </LumenFrame>
                   </LumenDisclosure>
                 </LumenFrame>
@@ -104,23 +116,23 @@ export function HbarComposerWorkspaceContexts({
                 >
                   <LumenIcon icon={X} tier="sm" />
                 </LumenButton>
-              </LumenFrame>
+              </LumenCollectionItem>
             )
           })}
-        </LumenFrame>
+        </LumenCollection>
       )}
       {attachments.length > 0 && (
-        <LumenFrame className="hbar-composer-workspace-context-attachments" role="list" tabIndex={0}>
+        <LumenCollection className="hbar-composer-workspace-context-attachments" role="list" tabIndex={0}>
           {attachments.map((attachment) => (
-            <LumenFrame
+            <LumenCollectionItem
               key={`${attachment.kind}:${attachment.artifact.id}`}
               className="hbar-composer-workspace-context-file"
               role="listitem"
             >
               <LumenIcon icon={FileText} tier="sm" />
-              <LumenText as="span" title={attachment.artifact.name}>
+              <LumenContentText context="collection.title" title={attachment.artifact.name}>
                 {attachment.artifact.name}
-              </LumenText>
+              </LumenContentText>
               <LumenButton
                 type="button"
                 size="s"
@@ -133,9 +145,9 @@ export function HbarComposerWorkspaceContexts({
               >
                 <LumenIcon icon={X} tier="sm" />
               </LumenButton>
-            </LumenFrame>
+            </LumenCollectionItem>
           ))}
-        </LumenFrame>
+        </LumenCollection>
       )}
     </LumenFrame>
   )

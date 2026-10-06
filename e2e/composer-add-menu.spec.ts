@@ -24,6 +24,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         root,
         port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
         goalAutoContinue: false,
+        budgetAutoContinue: false,
       })
       expect((await context.request.post(`${base()}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(
         true,

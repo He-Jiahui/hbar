@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { Expand, Pause, Play, Target, Trash2 } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenContentText } from '@lumen/app-ui'
 import type { ComposerIntentState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import type { HbarComposerIntentControlLabels } from './composer-intent-blocked'
@@ -285,24 +285,29 @@ export function HbarComposerGoal({
         <LumenFrame className="hbar-composer-goal-strip" aria-label={labels.goal}>
           <LumenFrame className="hbar-composer-goal-summary">
             <LumenIcon icon={Target} tier="sm" />
-            <LumenText as="span" className="hbar-composer-current-goal-label">
+            <LumenContentText context="control.label" className="hbar-composer-current-goal-label">
               {labels.currentGoal}
-            </LumenText>
-            <LumenText as="span" className="hbar-composer-goal-status">
+            </LumenContentText>
+            <LumenContentText context="control.status" className="hbar-composer-goal-status">
               {runActive ? labels.running : executionChecking ? labels.executionChecking : labels.statuses[goal.status]}
-            </LumenText>
-            <LumenText as="span" className="hbar-composer-goal-objective" title={goal.objective} tabIndex={0}>
+            </LumenContentText>
+            <LumenContentText
+              context="tool.summary"
+              className="hbar-composer-goal-objective"
+              title={goal.objective}
+              tabIndex={0}
+            >
               {goal.objective}
-            </LumenText>
+            </LumenContentText>
           </LumenFrame>
           <LumenFrame className="hbar-composer-goal-tail">
-            <LumenText as="span" className="hbar-composer-goal-metric">
+            <LumenContentText context="metadata" className="hbar-composer-goal-metric">
               {labels.elapsed(goal.timeUsedSeconds)}
-            </LumenText>
+            </LumenContentText>
             {goal.tokenBudget !== null && (
-              <LumenText as="span" className="hbar-composer-goal-metric">
+              <LumenContentText context="metadata" className="hbar-composer-goal-metric">
                 {labels.budget(goal.tokensUsed, goal.tokenBudget)}
-              </LumenText>
+              </LumenContentText>
             )}
             <LumenFrame className="hbar-composer-goal-actions">
               {goal.status === 'active' ? (
@@ -369,7 +374,7 @@ export function HbarComposerGoal({
       )}
       {showSummary && visibleGoal && executionReadError && (
         <LumenFrame className="hbar-composer-goal-confirm" role="status">
-          <LumenText as="span">{labels.executionReadFailed}</LumenText>
+          <LumenContentText context="feedback.paragraph">{labels.executionReadFailed}</LumenContentText>
           <LumenButton
             type="button"
             size="s"
@@ -389,7 +394,9 @@ export function HbarComposerGoal({
       )}
       {showSummary && clearTarget && clearTarget === goal?.goalId && (
         <LumenFrame role="group" aria-label={labels.clear} className="hbar-composer-goal-confirm">
-          <LumenText as="span">{labels.confirmClear(goal.objective)}</LumenText>
+          <LumenFrame className="hbar-composer-goal-confirm-copy" role="region" aria-label={labels.clear} tabIndex={0}>
+            <LumenContentText context="dialog.body">{labels.confirmClear(goal.objective)}</LumenContentText>
+          </LumenFrame>
           <LumenButton
             type="button"
             size="s"
@@ -412,14 +419,14 @@ export function HbarComposerGoal({
         </LumenFrame>
       )}
       {((showSummary && actionPending) || (showSubmission && submitting)) && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" role="status">
           {labels.pending}
-        </LumenText>
+        </LumenContentText>
       )}
       {showSubmission && entry?.submission.status === 'partial' && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" role="status">
           {labels.partial}
-        </LumenText>
+        </LumenContentText>
       )}
       {showSummary && actionUnknown ? (
         <HbarComposerGoalRecovery
@@ -430,21 +437,23 @@ export function HbarComposerGoal({
         />
       ) : unknown ? (
         <LumenFrame className="hbar-composer-intent-feedback" role="alert">
-          <LumenText as="span">{labels.unknown}</LumenText>
+          <LumenContentText context="feedback.paragraph">{labels.unknown}</LumenContentText>
           <LumenButton type="button" size="s" disabled={!connected} onClick={reconcile}>
             {labels.reconcile}
           </LumenButton>
         </LumenFrame>
       ) : (
         error && (
-          <LumenText as="p" role="alert">
+          <LumenContentText context="feedback.paragraph" role="alert">
             {labels.error(error)}
-          </LumenText>
+          </LumenContentText>
         )
       )}
       {showSummary && !unknown && facts?.status === 'error' && facts.error !== 'CAPABILITY_UNAVAILABLE' && (
         <LumenFrame className="hbar-composer-intent-feedback" role="alert">
-          <LumenText as="span">{labels.error(facts.error ?? 'EXECUTION_FAILED')}</LumenText>
+          <LumenContentText context="feedback.paragraph">
+            {labels.error(facts.error ?? 'EXECUTION_FAILED')}
+          </LumenContentText>
           <LumenButton
             type="button"
             size="s"

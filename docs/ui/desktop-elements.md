@@ -2,17 +2,17 @@
 
 由 `bun scripts/audit-desktop-elements.ts --write` 从运行时入口、命名延迟加载、barrel 导出和 JSX 生成。完整的元素、槽位、内容来源、可访问名称、动作目标、状态来源和待处理问题见 [类型化清单](desktop-elements.json)。
 
-入口：`apps/web/src/main.tsx`。相关 TSX 模块 144 个；元素 3652 个。实际构建输入核对：passed。
+入口：`apps/web/src/main.tsx`。相关 TSX 模块 144 个；元素 3657 个。实际构建输入核对：passed。
 
 ## 类别与展示边界
 
 | 类别        | 元素 | pending | 设计职责                                                                |
 | ----------- | ---: | ------: | ----------------------------------------------------------------------- |
-| structure   | 1081 |      12 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
-| text        | 1073 |     801 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
-| interaction |  923 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
-| form        |  275 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
-| collection  |  162 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
+| structure   | 1077 |      11 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
+| text        | 1073 |     743 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
+| interaction |  925 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
+| form        |  276 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
+| collection  |  168 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
 | technical   |   75 |       0 | 原文、代码、Markdown、图示与媒体的专用 renderer；辅助操作仍使用 Lumen。 |
 | feedback    |   56 |       0 | 空、加载、运行、成功、失败、恢复与取消的宿主状态及语义反馈。            |
 | platform    |    7 |       4 | Tauri 标题、托盘与通知；操作系统展示，宿主提供文案。                    |
@@ -51,18 +51,18 @@
 | [packages/app-react/src/chat-search-view.tsx](../../packages/app-react/src/chat-search-view.tsx)                           | session                                          |   38 |              0 |         22 |          0 |
 | [packages/app-react/src/code-block-copy-action.tsx](../../packages/app-react/src/code-block-copy-action.tsx)               | files-and-reading                                |    7 |              0 |          2 |          0 |
 | [packages/app-react/src/command-palette.tsx](../../packages/app-react/src/command-palette.tsx)                             | commands                                         |   63 |              0 |         10 |          0 |
-| [packages/app-react/src/composer-add-menu.tsx](../../packages/app-react/src/composer-add-menu.tsx)                         | composer-and-launch                              |   14 |              0 |          1 |          0 |
-| [packages/app-react/src/composer-agent-notice.tsx](../../packages/app-react/src/composer-agent-notice.tsx)                 | agents-and-activity                              |    5 |              0 |          1 |          0 |
-| [packages/app-react/src/composer-attachments.tsx](../../packages/app-react/src/composer-attachments.tsx)                   | composer-and-launch                              |   16 |              0 |          4 |          0 |
-| [packages/app-react/src/composer-background-agents.tsx](../../packages/app-react/src/composer-background-agents.tsx)       | composer-and-launch                              |    8 |              0 |          1 |          0 |
-| [packages/app-react/src/composer-goal-recovery.tsx](../../packages/app-react/src/composer-goal-recovery.tsx)               | goals-and-plans                                  |    3 |              0 |          1 |          0 |
+| [packages/app-react/src/composer-add-menu.tsx](../../packages/app-react/src/composer-add-menu.tsx)                         | composer-and-launch                              |   14 |              1 |          0 |          0 |
+| [packages/app-react/src/composer-agent-notice.tsx](../../packages/app-react/src/composer-agent-notice.tsx)                 | agents-and-activity                              |    5 |              1 |          0 |          0 |
+| [packages/app-react/src/composer-attachments.tsx](../../packages/app-react/src/composer-attachments.tsx)                   | composer-and-launch                              |   17 |              4 |          0 |          0 |
+| [packages/app-react/src/composer-background-agents.tsx](../../packages/app-react/src/composer-background-agents.tsx)       | composer-and-launch                              |    8 |              1 |          0 |          0 |
+| [packages/app-react/src/composer-goal-recovery.tsx](../../packages/app-react/src/composer-goal-recovery.tsx)               | goals-and-plans                                  |    3 |              1 |          0 |          0 |
 | [packages/app-react/src/composer-intent-blocked.tsx](../../packages/app-react/src/composer-intent-blocked.tsx)             | composer-and-launch                              |   17 |              6 |          0 |          0 |
-| [packages/app-react/src/composer-intent-controls.tsx](../../packages/app-react/src/composer-intent-controls.tsx)           | goals-and-plans                                  |   36 |              0 |         12 |          0 |
-| [packages/app-react/src/composer-mention-editor.tsx](../../packages/app-react/src/composer-mention-editor.tsx)             | composer-and-launch                              |   29 |              0 |         11 |          0 |
+| [packages/app-react/src/composer-intent-controls.tsx](../../packages/app-react/src/composer-intent-controls.tsx)           | goals-and-plans                                  |   37 |             12 |          0 |          0 |
+| [packages/app-react/src/composer-mention-editor.tsx](../../packages/app-react/src/composer-mention-editor.tsx)             | composer-and-launch                              |   29 |             11 |          0 |          0 |
 | [packages/app-react/src/composer-model-picker.tsx](../../packages/app-react/src/composer-model-picker.tsx)                 | composer-and-launch                              |   48 |             16 |          0 |          0 |
 | [packages/app-react/src/composer-permission-picker.tsx](../../packages/app-react/src/composer-permission-picker.tsx)       | composer-and-launch                              |   56 |             23 |          0 |          0 |
-| [packages/app-react/src/composer-slash-menu.tsx](../../packages/app-react/src/composer-slash-menu.tsx)                     | composer-and-launch                              |    7 |              0 |          3 |          0 |
-| [packages/app-react/src/composer-workspace-contexts.tsx](../../packages/app-react/src/composer-workspace-contexts.tsx)     | composer-and-launch                              |   22 |              0 |          7 |          1 |
+| [packages/app-react/src/composer-slash-menu.tsx](../../packages/app-react/src/composer-slash-menu.tsx)                     | composer-and-launch                              |    9 |              3 |          0 |          0 |
+| [packages/app-react/src/composer-workspace-contexts.tsx](../../packages/app-react/src/composer-workspace-contexts.tsx)     | composer-and-launch                              |   23 |              7 |          0 |          0 |
 | [packages/app-react/src/conversation-selection.tsx](../../packages/app-react/src/conversation-selection.tsx)               | session                                          |    5 |              1 |          0 |          0 |
 | [packages/app-react/src/echarts-chart.tsx](../../packages/app-react/src/echarts-chart.tsx)                                 | workbench                                        |    1 |              0 |          0 |          1 |
 | [packages/app-react/src/extension-collection-feedback.tsx](../../packages/app-react/src/extension-collection-feedback.tsx) | settings                                         |    6 |              0 |          4 |          0 |
@@ -87,7 +87,7 @@
 | [packages/app-react/src/lumen-flex-layout-adapter.tsx](../../packages/app-react/src/lumen-flex-layout-adapter.tsx)         | workbench                                        |    3 |              0 |          0 |          0 |
 | [packages/app-react/src/lumen-provider-editor.tsx](../../packages/app-react/src/lumen-provider-editor.tsx)                 | settings                                         |  125 |              0 |         21 |          0 |
 | [packages/app-react/src/lumen-schema-components.tsx](../../packages/app-react/src/lumen-schema-components.tsx)             | workbench                                        |   11 |              0 |          0 |          0 |
-| [packages/app-react/src/lumen-session-workspace.tsx](../../packages/app-react/src/lumen-session-workspace.tsx)             | session                                          |   84 |              0 |         15 |          2 |
+| [packages/app-react/src/lumen-session-workspace.tsx](../../packages/app-react/src/lumen-session-workspace.tsx)             | session                                          |   84 |             15 |          0 |          2 |
 | [packages/app-react/src/lumen-settings-workspace.tsx](../../packages/app-react/src/lumen-settings-workspace.tsx)           | settings                                         |   45 |              0 |         14 |          0 |
 | [packages/app-react/src/lumen-status-workspace.tsx](../../packages/app-react/src/lumen-status-workspace.tsx)               | status-and-usage                                 |  150 |              0 |         41 |          0 |
 | [packages/app-react/src/lumen-workspace-shell.tsx](../../packages/app-react/src/lumen-workspace-shell.tsx)                 | workbench                                        |  152 |             32 |          0 |          0 |
@@ -125,7 +125,7 @@
 | [packages/app-react/src/session-archive.tsx](../../packages/app-react/src/session-archive.tsx)                             | session                                          |   53 |              0 |         24 |          0 |
 | [packages/app-react/src/session-empty-hero.tsx](../../packages/app-react/src/session-empty-hero.tsx)                       | session                                          |    4 |              0 |          2 |          0 |
 | [packages/app-react/src/session-execution-notice.tsx](../../packages/app-react/src/session-execution-notice.tsx)           | session                                          |    6 |              0 |          2 |          0 |
-| [packages/app-react/src/session-find-view.tsx](../../packages/app-react/src/session-find-view.tsx)                         | session                                          |   12 |              0 |          2 |          0 |
+| [packages/app-react/src/session-find-view.tsx](../../packages/app-react/src/session-find-view.tsx)                         | session                                          |   12 |              2 |          0 |          0 |
 | [packages/app-react/src/session-find.tsx](../../packages/app-react/src/session-find.tsx)                                   | session                                          |    3 |              0 |          0 |          0 |
 | [packages/app-react/src/session-images-model.tsx](../../packages/app-react/src/session-images-model.tsx)                   | settings                                         |    1 |              0 |          0 |          0 |
 | [packages/app-react/src/session-images.tsx](../../packages/app-react/src/session-images.tsx)                               | files-and-reading                                |   33 |              5 |          0 |          0 |

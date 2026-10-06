@@ -99,9 +99,16 @@
   border-radius: 0.5rem;
 }
 
-.hbar-composer-goal-confirm > span {
+.hbar-composer-goal-confirm > [data-text-context],
+.hbar-composer-goal-confirm-copy {
   flex: 1 1 100%;
   overflow-wrap: anywhere;
+}
+
+.hbar-composer-goal-confirm-copy {
+  min-inline-size: 0;
+  max-block-size: min(12rem, 40dvh);
+  overflow: auto;
 }
 
 .hbar-composer-goal-context [role='alert'],

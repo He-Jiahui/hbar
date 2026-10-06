@@ -11,6 +11,9 @@
   align-items: flex-start;
   gap: 0.5rem;
   min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
   max-block-size: clamp(7rem, 24dvh, 12rem);
   overflow: auto;
 }
@@ -69,7 +72,7 @@
   white-space: nowrap;
 }
 
-.hbar-composer-workspace-context-location > span {
+.hbar-composer-workspace-context-location > [data-text-context] {
   display: inline-block;
 }
 
@@ -112,6 +115,12 @@
   white-space: pre-wrap;
 }
 
+.hbar-composer-workspace-context-quote-text > [data-text-context] {
+  margin: 0;
+  font: inherit;
+  white-space: inherit;
+}
+
 .hbar-composer-workspace-context-remove {
   flex: 0 0 auto;
 }
@@ -121,6 +130,9 @@
   flex-wrap: nowrap;
   gap: 0.5rem;
   min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
   overflow-x: auto;
 }
 
