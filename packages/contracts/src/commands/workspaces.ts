@@ -4,6 +4,7 @@ import { idSchema, sessionEventSchema } from '../index'
 import { sessionSchema, workspaceSchema } from '../state/directory'
 import { workspaceOrganizationCommands } from './workspace-organization'
 import { workspaceDisplayNamesCommands } from './workspace-display-names'
+import { workspaceFolderCommands } from './workspace-folders'
 
 const metadata = (id: string, kind: 'command' | 'query', scope: 'global' | 'workspace' | 'session') => ({
   id,
@@ -39,6 +40,7 @@ export const forkableMessagesResultSchema = z.strictObject({
 })
 
 export const workspaceSessionCommands = {
+  ...workspaceFolderCommands,
   ...workspaceOrganizationCommands,
   ...workspaceDisplayNamesCommands,
   'workspace.create': defineCommand(

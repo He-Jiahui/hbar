@@ -37,7 +37,7 @@ async function fixture() {
 
 test('workspace and session commands share the Host catalog and bounded directory queries', async () => {
   const { root, kernel, workspace, client, commands } = await fixture()
-  const catalog = await client.call('command.catalog', { category: 'workspace.session', limit: 30 })
+  const catalog = await client.call('command.catalog', { category: 'workspace.session', limit: 50 })
   expect(catalog.items.map((item) => item.metadata.id)).toEqual([
     'schedule.create',
     'schedule.delete',
@@ -49,6 +49,8 @@ test('workspace and session commands share the Host catalog and bounded director
     'schedule.update',
     'session.activity.global.list',
     'session.activity.list',
+    'session.agentAncestors.get',
+    'session.agentChildren.list',
     'session.archive',
     'session.create',
     'session.export',
@@ -62,6 +64,11 @@ test('workspace and session commands share the Host catalog and bounded director
     'session.sidebar.list',
     'workspace.activity.list',
     'workspace.create',
+    'workspace.folders.browse',
+    'workspace.folders.create',
+    'workspace.folders.get',
+    'workspace.folders.receipt',
+    'workspace.folders.save',
     'workspace.get',
     'workspace.list',
     'workspace.sidebar.list',
@@ -113,6 +120,40 @@ test('workspace and session commands share the Host catalog and bounded director
   })
   expect(rest.events.length).toBeGreaterThan(0)
   expect(rest.nextCursor).toBeNull()
+})
+
+test('authenticated Host exposes a multi-folder workspace and paginated server directory selection', async () => {
+  const { root, commands } = await fixture()
+  const paths = [join(root, 'frontend'), join(root, 'backend')]
+  for (const path of paths) await mkdir(path)
+  const folders = paths.map((path, index) => ({
+    id: `folder-${index}`,
+    alias: index === 0 ? 'frontend' : 'backend',
+    path,
+  }))
+  const request = { folders }
+  const result = await commands.execute('workspace.folders.create', request, { idempotencyKey: 'multi-root-create' })
+  expect((await commands.execute('workspace.folders.get', { workspaceId: result.workspace.id })).folders).toEqual(
+    folders,
+  )
+  const page = await commands.execute('workspace.folders.browse', { path: root })
+  expect(page.items.map((item) => item.name)).toContain('frontend')
+  expect(page.items.map((item) => item.name)).not.toContain('data')
+  const update = {
+    workspaceId: result.workspace.id,
+    expectedRevision: result.snapshot.revision,
+    folders: [...folders].reverse(),
+  }
+  const saved = await commands.execute('workspace.folders.save', update, { idempotencyKey: 'multi-root-save' })
+  expect(saved.snapshot.folders[0]?.alias).toBe('backend')
+  expect(
+    (
+      await commands.execute('workspace.folders.receipt', {
+        idempotencyKey: 'multi-root-save',
+        request: { operation: 'save', input: update },
+      })
+    )?.result,
+  ).toEqual(saved)
 })
 
 test('session create and fork receipts survive Kernel restart for the same actor', async () => {

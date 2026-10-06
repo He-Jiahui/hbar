@@ -53,6 +53,7 @@
     "./commands/system": "./src/commands/system.ts",
     "./commands/usage": "./src/commands/usage.ts",
     "./commands/workspaces": "./src/commands/workspaces.ts",
+    "./commands/workspace-folders": "./src/commands/workspace-folders.ts",
     "./commands/workspace-organization": "./src/commands/workspace-organization.ts",
     "./commands/workspace-display-names": "./src/commands/workspace-display-names.ts",
     "./sidebar-directory": "./src/sidebar-directory.ts",

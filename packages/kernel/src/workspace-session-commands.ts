@@ -4,9 +4,19 @@ import { workspaceSessionCommands } from '@hbar/contracts/commands/workspaces'
 import type { Kernel } from './index'
 import { registerWorkspaceOrganizationCommands } from './workspace-organization-commands'
 import { registerWorkspaceDisplayNamesCommands } from './workspace-display-names-commands'
+import { registerWorkspaceFolderCommands } from './workspace-folders'
 
 export function createWorkspaceSessionCommands(kernel: Kernel) {
   const registry = new CommandRegistry({ execution: 'host' })
+  registerWorkspaceFolderCommands(
+    registry,
+    kernel.storage,
+    [kernel.options.layout.dataRoot, kernel.options.layout.cacheRoot],
+    () => {
+      kernel.changed('workspace-folders')
+      kernel.changed('workspaces')
+    },
+  )
   registerWorkspaceOrganizationCommands(registry, kernel.storage, () => kernel.changed('workspace-organization'))
   registerWorkspaceDisplayNamesCommands(registry, kernel.storage, () => kernel.changed('workspace-display-names'))
   const translate = async <Value>(operation: () => Promise<Value>): Promise<Value> => {

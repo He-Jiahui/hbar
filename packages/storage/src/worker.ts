@@ -81,6 +81,7 @@ import { createSandboxProfileStorage, SANDBOX_PROFILES_SQL } from './sandbox-pro
 import { readRunBoard } from './run-board'
 import { createWorkspaceOrganizationStorage, WORKSPACE_ORGANIZATION_SQL } from './workspace-organization.ts'
 import { createWorkspaceDisplayNamesStorage, WORKSPACE_DISPLAY_NAMES_SQL } from './workspace-display-names.ts'
+import { createWorkspaceFolderStorage, WORKSPACE_FOLDERS_SQL } from './workspace-folders'
 import { createSessionSearchStorage, SESSION_SEARCH_SQL } from './session-search.ts'
 import {
   createSessionLaunchTargetStorage,
@@ -135,7 +136,7 @@ const WORKSPACE_ACTIVITY_SQL = `
     AFTER DELETE ON sessions
     BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
 `
-const LATEST_SCHEMA_VERSION = 19
+const LATEST_SCHEMA_VERSION = 20
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
 if (schemaVersion > LATEST_SCHEMA_VERSION) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
@@ -341,6 +342,7 @@ for (const [version, sql] of [
   [17, PROMPT_TEMPLATES_SQL],
   [18, SCHEDULES_SQL],
   [19, SANDBOX_PROFILES_SQL],
+  [20, WORKSPACE_FOLDERS_SQL],
 ] as const) {
   if (schemaVersion >= version) continue
   db.transaction(() => {
@@ -361,6 +363,7 @@ const schedules = createScheduleStorage(db)
 const sandboxProfiles = createSandboxProfileStorage(db)
 const workspaceOrganization = createWorkspaceOrganizationStorage(db)
 const workspaceDisplayNames = createWorkspaceDisplayNamesStorage(db)
+const workspaceFolders = createWorkspaceFolderStorage(db)
 const sidebarDirectory = createSidebarDirectoryStorage(db, {
   displayNames: workspaceDisplayNames.read,
   organization: workspaceOrganization.read,
@@ -1046,6 +1049,9 @@ const methods: StorageMethods = {
   recentSessions: sessionSearch.recent,
   searchSessions: sessionSearch.search,
   workspaceDisplayNames: workspaceDisplayNames.read,
+  workspaceFolders: workspaceFolders.read,
+  workspaceFolderReceipt: workspaceFolders.receipt,
+  applyWorkspaceFolders: workspaceFolders.apply,
   applyWorkspaceDisplayNames: workspaceDisplayNames.apply,
   workspaceDisplayNamesReceipt: workspaceDisplayNames.receipt,
   workspaceOrganization: workspaceOrganization.read,

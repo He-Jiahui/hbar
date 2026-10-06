@@ -43,6 +43,7 @@ import type { QueuedUserRunsInput, QueuedUserRunsPage } from '@hbar/contracts/co
 import type { UsageReadInput, UsageReadPage } from '@hbar/usage'
 import type { GoalHistoryInput, GoalHistoryPage } from '@hbar/contracts/commands/goal-history'
 import type { NotificationStorage } from './notifications'
+import type { createWorkspaceFolderStorage, WorkspaceFolderStorageMutation } from './workspace-folders'
 import type { createPromptTemplateStorage } from './prompt-templates'
 import type { createScheduleStorage } from './schedules'
 import type { createSandboxProfileStorage } from './sandbox-profiles'
@@ -300,6 +301,11 @@ export interface StorageMethods {
   recentSessions(input: SessionRecentInput): SessionRecentPage
   searchSessions(input: SessionSearchInput): SessionSearchPage
   createWorkspace(path: string, name: string): Workspace
+  workspaceFolders: ReturnType<typeof createWorkspaceFolderStorage>['read']
+  workspaceFolderReceipt: ReturnType<typeof createWorkspaceFolderStorage>['receipt']
+  applyWorkspaceFolders(
+    input: WorkspaceFolderStorageMutation,
+  ): ReturnType<ReturnType<typeof createWorkspaceFolderStorage>['apply']>
   workspaces(): Workspace[]
   workspacePage(input: WorkspaceListInput): WorkspacePage
   workspaceSidebarPage(input: WorkspaceSidebarListInput): WorkspaceSidebarPage
