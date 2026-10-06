@@ -59,11 +59,11 @@ test('Web surface manifest assigns every production surface to one outlet', () =
     commands: 'modal',
     'chat-search': 'modal',
     'settings-editor': 'modal',
-    notifications: 'tool',
-    'run-board': 'tool',
-    schedules: 'tool',
-    'prompt-templates': 'tool',
-    onboarding: 'tool',
+    notifications: 'page',
+    'run-board': 'page',
+    schedules: 'page',
+    'prompt-templates': 'page',
+    onboarding: 'page',
   })
   expect(canRenderWebSurface('files')).toBe(true)
   expect(canRenderWebSurface('activity')).toBe(true)

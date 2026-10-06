@@ -562,7 +562,8 @@ export function createAppRuntime(options: RuntimeOptions) {
     () => disposed,
   )
   const offRunBoardEvents = options.runBoardEvents?.subscribe(() => {
-    const instanceId = presentation.reader.getSnapshot().toolInstanceId
+    const page = presentation.reader.getSnapshot().page
+    const instanceId = page.kind === 'run-board' ? page.instanceId : null
     if (!instanceId || surfaces.reader.getSnapshot().panels[instanceId]?.panelId !== 'run-board') return
     void runBoard.refresh({ instanceId }).catch(() => undefined)
   })

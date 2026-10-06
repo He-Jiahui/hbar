@@ -1,3 +1,5 @@
+import type { PresentationState } from '@hbar/app-runtime'
+
 /** A captured conversation lifetime, not merely the currently selected session ID. */
 export interface SessionFindTarget {
   readonly hostId: string
@@ -28,7 +30,7 @@ export interface SessionFindKeyboardSnapshot {
   readonly isComposing: boolean
   readonly keyCode: number
   readonly repeat: boolean
-  readonly page: 'session' | 'settings' | 'status'
+  readonly page: PresentationState['page']['kind']
   readonly tabKind: 'session' | 'retained-session' | 'workbench' | 'none'
   readonly conversationVisible: boolean
   readonly activeTargetScope: SessionFindTargetScope

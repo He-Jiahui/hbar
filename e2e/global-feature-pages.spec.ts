@@ -1,0 +1,116 @@
+import { expect, test, type Page } from '@playwright/test'
+import { mkdtemp, realpath, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { basename, dirname, join } from 'node:path'
+import { globalFeatureCopy } from '../apps/web/src/global-feature-copy'
+import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
+import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { openSessionTool } from './support/session-tools-menu'
+import { expectComposerText } from './support/composer-text'
+
+async function showNavigation(page: Page, locale: ShellLocale) {
+  const toggle = page.getByRole('button', { name: getShellCopy(locale).shell.showSidebar, exact: true })
+  if ((page.viewportSize()?.width ?? 1440) < 1024)
+    await expect(page.locator('.hbar-app-react-shell-header')).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
+  if (await toggle.isVisible()) await toggle.click()
+  await expect(page.locator('.hbar-web-feature-navigation')).toBeInViewport()
+}
+
+for (const locale of ['zh-CN', 'en-US'] as const) {
+  test(`global pages replace the conversation and recover its draft and session tools: ${locale}`, async ({
+    browser,
+  }, testInfo) => {
+    test.setTimeout(100_000)
+    const root = await mkdtemp(join(tmpdir(), 'hbar-global-pages-'))
+    const context = await browser.newContext({ locale, viewport: { width: 1440, height: 900 } })
+    const labels = globalFeatureCopy(locale)
+    const copy = getShellCopy(locale)
+    let host: WebSessionHost | undefined
+    try {
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+      })
+      const origin = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
+      await context.addInitScript((language) => localStorage.setItem('hbar:web:language', language), locale)
+      expect((await context.request.post(`${origin}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(
+        true,
+      )
+      const page = await context.newPage()
+      page.setDefaultTimeout(10_000)
+      const pageErrors: string[] = []
+      page.on('pageerror', (error) => pageErrors.push(error.message))
+      await page.goto(origin)
+      await page.locator(`[data-session-id="${host.ready.sessionId}"] .hbar-app-react-session-target`).click()
+      const prompt = page
+        .locator('.hbar-app-react-session-workspace')
+        .getByRole('textbox', { name: copy.session.prompt.input, exact: true })
+      const draft = '保留会话草稿 — Keep the original unsent draft'
+      await prompt.fill(draft)
+      for (const width of [1440, 960, 320]) {
+        await page.setViewportSize({ width, height: 900 })
+        for (const pageId of ['run-board', 'schedules', 'prompt-templates', 'onboarding'] as const) {
+          await showNavigation(page, locale)
+          await page.getByRole('button', { name: labels.titles[pageId], exact: true }).click()
+          const feature = page.locator(`[data-global-page="${pageId}"]`)
+          await expect(feature).toBeVisible()
+          await expect(feature).toBeInViewport()
+          await expect(
+            feature
+              .locator('.hbar-web-global-page-header')
+              .getByRole('heading', { name: labels.titles[pageId], exact: true }),
+          ).toBeVisible()
+          if (pageId !== 'onboarding')
+            await expect(
+              feature
+                .locator('.hbar-web-global-page-body')
+                .getByRole('heading', { name: labels.titles[pageId], exact: true })
+                .first(),
+            ).toBeVisible()
+          await expect(prompt).toHaveCount(0)
+          await expect(page.locator('.hbar-web-tool-outlet')).toHaveCount(0)
+          await expect(page.getByRole('dialog')).toHaveCount(0)
+          await expect(page.getByRole('tab', { selected: true })).toHaveCount(0)
+          const region = page.getByRole('region', { name: labels.titles[pageId], exact: true })
+          await expect(region).toBeFocused()
+          expect(
+            await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
+          ).toBe(true)
+          if (pageId === 'schedules')
+            await page.screenshot({ path: testInfo.outputPath(`global-schedules-${width}.png`) })
+          const back = feature.getByRole('button', { name: labels.back, exact: true })
+          await back.focus()
+          await page.keyboard.press('Enter')
+          await expect(feature).toHaveCount(0)
+          await expect(prompt).toBeVisible()
+          await expectComposerText(prompt, draft)
+        }
+      }
+      await page.setViewportSize({ width: 1440, height: 900 })
+      await openSessionTool(page, copy.session.tools, 'monitoring')
+      await expect(page.locator('.hbar-web-tool-outlet')).toBeVisible()
+      await showNavigation(page, locale)
+      await page.getByRole('button', { name: labels.titles['prompt-templates'], exact: true }).click()
+      await expect(page.locator('[data-global-page="prompt-templates"]')).toBeVisible()
+      await expect(page.locator('.hbar-web-tool-outlet')).toHaveCount(0)
+      // Switching global pages retains the original conversation return target.
+      await page.getByRole('button', { name: labels.titles.schedules, exact: true }).click()
+      await page.getByRole('button', { name: labels.back, exact: true }).click()
+      await expect(page.locator('.hbar-web-tool-outlet')).toBeVisible()
+      await expectComposerText(prompt, draft)
+      expect(pageErrors).toEqual([])
+    } finally {
+      try {
+        await context.close()
+      } finally {
+        if (host) await stopWebSessionHost(host)
+        if (
+          basename(root).startsWith('hbar-global-pages-') &&
+          dirname(await realpath(root)) === (await realpath(tmpdir()))
+        )
+          await rm(root, { recursive: true, force: true })
+      }
+    }
+  })
+}

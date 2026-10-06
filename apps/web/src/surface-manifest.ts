@@ -9,11 +9,11 @@ export const webSurfaceOutlets = Object.freeze({
   commands: 'modal',
   'chat-search': 'modal',
   'settings-editor': 'modal',
-  notifications: 'tool',
-  'run-board': 'tool',
-  schedules: 'tool',
-  'prompt-templates': 'tool',
-  onboarding: 'tool',
+  notifications: 'page',
+  'run-board': 'page',
+  schedules: 'page',
+  'prompt-templates': 'page',
+  onboarding: 'page',
 } as const)
 
 export type WebSurfaceId = keyof typeof webSurfaceOutlets

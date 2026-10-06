@@ -3,6 +3,22 @@ import { defineCommand } from '@hbar/commands/protocol'
 import { idSchema } from '../index'
 
 const instanceIdSchema = z.string().min(1).max(160)
+/** Built-in global destinations occupy the main workspace, independently of session tools. */
+export const appPageIds = [
+  'settings',
+  'status',
+  'run-board',
+  'schedules',
+  'prompt-templates',
+  'onboarding',
+  'notifications',
+] as const
+export type AppPageId = (typeof appPageIds)[number]
+export const appPageKindSchema = z.enum(['session', ...appPageIds])
+const pageIds: ReadonlySet<string> = new Set(appPageIds)
+export function isAppPageId(panelId: string): panelId is AppPageId {
+  return pageIds.has(panelId)
+}
 const panelBindingSchema = z.enum(['followActive', 'pinned'])
 const panelSummarySchema = z.strictObject({
   instanceId: instanceIdSchema,
@@ -18,7 +34,7 @@ const windowSummarySchema = z.strictObject({
   focused: z.boolean(),
 })
 const presentationSummarySchema = z.strictObject({
-  page: z.enum(['session', 'settings', 'status']),
+  page: appPageKindSchema,
   pageInstanceId: instanceIdSchema.nullable(),
   toolInstanceId: instanceIdSchema.nullable(),
   modalInstanceId: instanceIdSchema.nullable(),

@@ -7,6 +7,7 @@ import type {
   ExecuteOptions,
 } from '@hbar/commands'
 import type { Session, Workspace } from '@hbar/contracts/directory'
+import type { AppPageId } from '@hbar/contracts/commands/surfaces'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
 import type { DraftAttachmentTransfer, PromptAttachment, PromptWorkspaceContext } from '@hbar/contracts/commands/draft'
 import type { PreSessionDraftState } from '@hbar/contracts/commands/pre-session-draft'
@@ -1055,8 +1056,7 @@ export interface SurfaceState {
 }
 export type MainPageState =
   | { readonly kind: 'session' }
-  | { readonly kind: 'settings'; readonly instanceId: string }
-  | { readonly kind: 'status'; readonly instanceId: string }
+  | { readonly kind: AppPageId; readonly instanceId: string }
 export interface SessionViewContext {
   readonly workspaceId: string | null
   readonly sessionId: string | null

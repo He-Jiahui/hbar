@@ -41,7 +41,7 @@ export function SettingsPageFocusBoundary({
 
   useLayoutEffect(() => {
     const rememberFocus = (event: FocusEvent) => {
-      if (previousPage.current !== 'settings' && event.target instanceof HTMLElement && event.target !== document.body)
+      if (previousPage.current === 'session' && event.target instanceof HTMLElement && event.target !== document.body)
         lastOutsideFocus.current = event.target
     }
     document.addEventListener('focusin', rememberFocus)
@@ -51,18 +51,15 @@ export function SettingsPageFocusBoundary({
   useLayoutEffect(() => {
     const previous = previousPage.current
     previousPage.current = pageKind
-    if (pageKind === 'settings' && previous !== 'settings') {
-      returnTarget.current = lastOutsideFocus.current
+    if (pageKind !== 'session' && previous !== pageKind) {
+      if (previous === 'session') returnTarget.current = lastOutsideFocus.current
       pendingFocus.current = 'entry'
-    } else if (previous === 'settings' && pageKind === 'session') {
+    } else if (previous !== 'session' && pageKind === 'session') {
       const active = document.activeElement
       // A deliberate sidebar session selection keeps its own focus target.
       if (active instanceof HTMLElement && active !== document.body && !boundary.current?.contains(active))
         returnTarget.current = active
       pendingFocus.current = 'return'
-    } else if (previous === 'settings' && pageKind !== 'settings') {
-      pendingFocus.current = null
-      returnTarget.current = null
     }
     // On narrow windows the sidebar hides the main frame. Its close command
     // settles after page navigation, so wait for that visibility transition.

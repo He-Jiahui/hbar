@@ -207,6 +207,8 @@ export interface HbarWorkspaceShellProps {
   readonly sidebarResize?: LumenAppShellProps['sidebarResize']
   readonly sidebarFeedback?: ReactNode
   readonly featureNavigation?: ReactNode
+  /** Host-owned title for global feature pages, including the compact mobile header. */
+  readonly pageTitle?: string | undefined
   readonly toolWidthRem?: number
   readonly toolLayout?: LumenAppShellProps['toolLayout']
   readonly toolResize?: LumenAppShellProps['toolResize']
@@ -1100,7 +1102,8 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     props.connection === 'connected' ? 'success' : props.connection === 'disconnected' ? 'danger' : 'warning'
   const activeWorkspaceTab = workspaceTabs.items.find((item) => item.id === workspaceTabs.activeId)
   const mobileHeaderTitle =
-    presentation.page.kind === 'settings'
+    props.pageTitle ??
+    (presentation.page.kind === 'settings'
       ? props.labels.settings
       : presentation.page.kind === 'status'
         ? props.labels.status
@@ -1112,7 +1115,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               : navigation.sessionId
                 ? (directory.sessions[navigation.sessionId]?.title ?? props.labels.newSession)
                 : props.labels.newSession
-          : props.labels.newSession
+          : props.labels.newSession)
 
   const shellSlots = props.slots
 

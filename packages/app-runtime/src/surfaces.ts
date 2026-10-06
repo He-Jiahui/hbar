@@ -1,5 +1,6 @@
 import { CommandError, type CommandRegistry } from '@hbar/commands'
 import { surfaceCommands } from '@hbar/contracts/commands'
+import { isAppPageId } from '@hbar/contracts/commands/surfaces'
 import type { createState, StateReader } from './state'
 import type { createSessionTools } from './session-tools'
 import type {
@@ -17,11 +18,6 @@ const toolPanelIds = new Set([
   'monitoring',
   'agents',
   'goals',
-  'run-board',
-  'schedules',
-  'prompt-templates',
-  'notifications',
-  'onboarding',
 ])
 const modalPanelIds = new Set(['commands', 'chat-search', 'settings-editor'])
 
@@ -124,7 +120,7 @@ export function registerSurfaceCommands(
       })
     } else if (modalPanelIds.has(panelId)) {
       presentation.replace({ ...currentPresentation, modalInstanceId: instanceId })
-    } else if (panelId === 'settings' || panelId === 'status') {
+    } else if (isAppPageId(panelId)) {
       const returnContext =
         currentPresentation.returnContext ??
         (currentPresentation.page.kind === 'session'

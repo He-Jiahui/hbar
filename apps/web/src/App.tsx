@@ -29,7 +29,7 @@ import {
   workspaceDisplayName,
   type DraftsState,
 } from '@hbar/app-runtime'
-import type { GlobalSettingsStartup } from '@hbar/app-runtime'
+import type { GlobalSettingsStartup, PanelSurface } from '@hbar/app-runtime'
 import { useStore } from 'zustand'
 import { CommandError } from '@hbar/commands'
 import { ArrowLeft } from 'lucide-react'
@@ -108,6 +108,8 @@ import type { AppearanceEditor, AppearanceEditorPort } from './appearance-editor
 import { createWebStartupRuntime } from './startup-runtime'
 import { getShellCopy, type ShellLocale } from './shell-copy'
 import { SettingsPageFocusBoundary } from './SettingsPageFocusBoundary'
+import { GlobalFeaturePage } from './GlobalFeaturePage'
+import { globalFeatureCopy, isGlobalFeaturePageId, type GlobalFeaturePageId } from './global-feature-copy'
 import { WEB_SETTINGS_GROUP_PRESENTATION } from './settings-group-presentation'
 import { WorkspaceTabsController } from './WorkspaceTabsController'
 import { workspaceTabsCopy } from './workspace-tabs-copy'
@@ -548,10 +550,12 @@ function WorkspaceBody(props: WorkspaceBodyProps) {
       ? copy.settings.pageTitle
       : presentation.page.kind === 'status'
         ? copy.shell.status
-        : activeTab?.kind === 'workbench'
-          ? copy.files.title
-          : ((navigation.sessionId ? directory.sessions[navigation.sessionId]?.title : null) ??
-            copy.preSession.hero.title)
+        : isGlobalFeaturePageId(presentation.page.kind)
+          ? globalFeatureCopy(props.locale).titles[presentation.page.kind]
+          : activeTab?.kind === 'workbench'
+            ? copy.files.title
+            : ((navigation.sessionId ? directory.sessions[navigation.sessionId]?.title : null) ??
+              copy.preSession.hero.title)
   return (
     <SettingsPageFocusBoundary
       pageKind={presentation.page.kind}
@@ -775,6 +779,16 @@ function WorkspaceBodyContent({
             )
           return null
         }}
+      />
+    )
+  if (presentation.page.kind !== 'session' && isGlobalFeaturePageId(presentation.page.kind))
+    return (
+      <WorkspaceGlobalFeaturePage
+        key={presentation.page.instanceId}
+        pageId={presentation.page.kind}
+        instanceId={presentation.page.instanceId}
+        locale={locale}
+        connected={connected}
       />
     )
   if (activeTab?.kind === 'workbench') {
@@ -1033,6 +1047,65 @@ function WorkspaceTool({
     return (
       <GoalPlanWorkspace labels={copy.goals} connected={connected} instanceId={instanceId} targetLabel={targetLabel} />
     )
+
+  return null
+}
+
+function WorkspaceGlobalFeaturePage({
+  pageId,
+  instanceId,
+  locale,
+  connected,
+}: {
+  readonly pageId: GlobalFeaturePageId
+  readonly instanceId: string
+  readonly locale: ShellLocale
+  readonly connected: boolean
+}) {
+  const runtime = useHbarRuntime()
+  const surfaces = useHbarRuntimeState(runtime.state.surfaces)
+  const panel = surfaces.panels[instanceId]
+  const labels = globalFeatureCopy(locale)
+  const needsWorkspace = pageId === 'run-board' || pageId === 'schedules' || pageId === 'prompt-templates'
+  return (
+    <GlobalFeaturePage
+      pageId={pageId}
+      title={labels.titles[pageId]}
+      backLabel={labels.back}
+      onBack={() => void runtime.commands.execute('app.closePanel', { instanceId }).catch(() => undefined)}
+    >
+      {!panel || panel.panelId !== pageId ? (
+        <LumenText role="alert">{labels.unavailable}</LumenText>
+      ) : needsWorkspace && !panel.workspaceId ? (
+        <LumenFrame className="hbar-web-global-page-empty">
+          <LumenText as="p">{labels.workspaceRequired}</LumenText>
+          <LumenButton
+            onClick={() =>
+              void runtime.commands.execute('app.openPanel', { panelId: 'onboarding' }).catch(() => undefined)
+            }
+          >
+            {labels.configureWorkspace}
+          </LumenButton>
+        </LumenFrame>
+      ) : (
+        <GlobalFeatureContent panel={panel} locale={locale} connected={connected} />
+      )}
+    </GlobalFeaturePage>
+  )
+}
+
+function GlobalFeatureContent({
+  panel,
+  locale,
+  connected,
+}: {
+  readonly panel: PanelSurface
+  readonly locale: ShellLocale
+  readonly connected: boolean
+}) {
+  const runtime = useHbarRuntime()
+  const copy = getShellCopy(locale)
+  const instanceId = panel.instanceId
   if (panel.panelId === 'run-board')
     return (
       <Suspense fallback={<LumenText role="status">{getShellCopy(locale).shell.loading}</LumenText>}>
@@ -1041,14 +1114,19 @@ function WorkspaceTool({
     )
   if (panel.panelId === 'schedules')
     return (
-      <SchedulesTool
+      <WorkspaceSchedulesPage
         locale={locale}
         {...(panel.workspaceId ? { workspaceId: panel.workspaceId } : {})}
         {...(typeof panel.params.scheduleId === 'string' ? { initialScheduleId: panel.params.scheduleId } : {})}
       />
     )
   if (panel.panelId === 'prompt-templates')
-    return <PromptTemplatesTool locale={locale} {...(panel.workspaceId ? { workspaceId: panel.workspaceId } : {})} />
+    return (
+      <WorkspacePromptTemplatesPage
+        locale={locale}
+        {...(panel.workspaceId ? { workspaceId: panel.workspaceId } : {})}
+      />
+    )
   if (panel.panelId === 'onboarding')
     return (
       <Suspense fallback={<LumenText role="status">{copy.shell.loading}</LumenText>}>
@@ -1088,7 +1166,7 @@ function WorkspaceTool({
   return null
 }
 
-function SchedulesTool({
+function WorkspaceSchedulesPage({
   locale,
   workspaceId,
   initialScheduleId,
@@ -1111,7 +1189,7 @@ function SchedulesTool({
   )
 }
 
-function PromptTemplatesTool({ locale, workspaceId }: { readonly locale: ShellLocale; readonly workspaceId?: string }) {
+function WorkspacePromptTemplatesPage({ locale, workspaceId }: { readonly locale: ShellLocale; readonly workspaceId?: string }) {
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   if (!workspaceId) return null
@@ -1134,14 +1212,15 @@ function FeatureNavigation({
   readonly locale: ShellLocale
   readonly onOpen: (panelId: 'run-board' | 'schedules' | 'prompt-templates' | 'notifications' | 'onboarding') => void
 }) {
-  const zh = locale === 'zh-CN'
+  const labels = globalFeatureCopy(locale)
   const runtime = useHbarRuntime()
+  const presentation = useHbarRuntimeState(runtime.state.presentation)
   const notificationLabels = useMemo(() => notificationCopy(locale), [locale])
   const items = [
-    { id: 'run-board' as const, label: zh ? '运行看板' : 'Run board' },
-    { id: 'schedules' as const, label: zh ? '排期' : 'Schedules' },
-    { id: 'prompt-templates' as const, label: zh ? '提示词模板' : 'Prompt templates' },
-    { id: 'onboarding' as const, label: zh ? '首次配置' : 'Setup' },
+    { id: 'run-board' as const, label: labels.titles['run-board'] },
+    { id: 'schedules' as const, label: labels.titles.schedules },
+    { id: 'prompt-templates' as const, label: labels.titles['prompt-templates'] },
+    { id: 'onboarding' as const, label: labels.titles.onboarding },
   ]
   return (
     <LumenFrame className="hbar-web-feature-navigation">
@@ -1150,6 +1229,7 @@ function FeatureNavigation({
           key={item.id}
           variant="text"
           aria-label={item.label}
+          aria-current={presentation.page.kind === item.id ? 'page' : undefined}
           title={item.label}
           onClick={() => onOpen(item.id)}
         >
@@ -1580,8 +1660,19 @@ export default function App({
     void runtime.view.commands
       .execute('app.openPanel', {
         panelId,
-        ...(current.workspaceId ? { workspaceId: current.workspaceId } : {}),
-        binding: 'followActive',
+        ...(current.workspaceId
+          ? { workspaceId: current.workspaceId, binding: 'pinned' }
+          : { binding: 'followActive' }),
+      })
+      .then((opened) => {
+        const currentPage = runtime.view.state.presentation.getSnapshot().page
+        if (
+          currentPage.kind !== 'session' &&
+          currentPage.instanceId === opened.instanceId &&
+          window.matchMedia('(max-width: 63.9375rem)').matches
+        )
+          return runtime.view.commands.execute('app.setSidebarVisible', { visible: false })
+        return undefined
       })
       .catch(() => undefined)
   }
@@ -1738,6 +1829,11 @@ export default function App({
               controller={sidebarLayoutController}
               labels={copy.sidebarLayout}
             />
+          }
+          pageTitle={
+            isGlobalFeaturePageId(presentation.page.kind)
+              ? globalFeatureCopy(locale).titles[presentation.page.kind]
+              : undefined
           }
           featureNavigation={<FeatureNavigation locale={locale} onOpen={openFeaturePanel} />}
           {...(renderDesktopLayout ? { renderLayout: renderDesktopLayout } : {})}
