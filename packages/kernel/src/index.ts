@@ -171,6 +171,7 @@ import { captureToolPresentations, enrichToolCallPresentations } from './tool-pr
 import { persistToolResultImages } from './tool-result-images'
 import { SessionWakeups } from './session-wakeups.ts'
 import { createToolSequenceExecutor } from './tool-sequence'
+import { createToolExecutionReporter } from './tool-execution'
 import { buildSteeringContext, type RunSteeringContext, type SteeringDelivery } from './run-steering-context'
 import {
   SettingsService,
@@ -1581,7 +1582,13 @@ export class Kernel {
               (type, data) => this.append(sessionId, type, data, run.id),
             )
             try {
-              return await this.execute(name, args, { ...context, executeSequence: sequence.execute }, scope)
+              return await this.execute(
+                name,
+                args,
+                { ...context, executeSequence: sequence.execute },
+                scope,
+                sequence.progress,
+              )
             } finally {
               sequence.dispose()
             }
@@ -1813,6 +1820,7 @@ export class Kernel {
     rawArgs: Record<string, unknown>,
     context: ToolContext,
     scope: RuntimeScope,
+    batchProgress?: () => import('@hbar/contracts').ToolBatchProgress | undefined,
   ): Promise<ToolResult> {
     // Plugin hooks receive a mutable ToolContext. Classification and approval
     // cancellation must retain the original Host-owned signal independently.
@@ -1826,6 +1834,7 @@ export class Kernel {
     let hostControl: ToolResult['hostControl']
     let outcome: ToolOutcome | undefined
     let images: ArtifactRef[] | undefined
+    let reporter: ReturnType<typeof createToolExecutionReporter> | undefined
     const assertNotAborted = () => {
       if (!hostSignal.aborted) return
       outcome = hostAbortToolOutcome(hostSignal.reason, started)
@@ -1891,16 +1900,31 @@ export class Kernel {
         }
       }
       assertBoundary()
-      this.publishEvent(
-        await this.storage.call('toolStart', context.session.id, context.run.id, context.callId, name, args),
+      const startEvent = await this.storage.call(
+        'toolStart',
+        context.session.id,
+        context.run.id,
+        context.callId,
+        name,
+        args,
       )
+      this.publishEvent(startEvent)
       started = true
+      reporter = createToolExecutionReporter(startEvent.time, (execution) =>
+        this.append(context.session.id, 'tool.execution', { callId: context.callId, name, execution }, context.run.id),
+      )
+      await reporter.start()
       await scope.hooks.dispatch('tool.executing', { name, args: structuredClone(args), context, tool })
       assertBoundary()
       // The environment is Host-owned: drop any value a hook placed on the mutable context and
       // give only the executing tool the sandbox profile's variables.
-      const { environment: _hookEnvironment, ...plain } = context
+      const { environment: _hookEnvironment, reportProgress: _hookProgress, ...plain } = context
+      const reportProgress = reporter.report
       const execOverrides = {
+        reportProgress: async (progress: import('@hbar/contracts').ToolProgress) => {
+          assertNotAborted()
+          await reportProgress(progress)
+        },
         ...(environment ? { environment } : {}),
         ...(osConfinement ? { osConfinement } : {}),
       }
@@ -1932,7 +1956,9 @@ export class Kernel {
             : { kind: 'failed', executionStarted: started }
       }
     }
-    result = { ...result, hostFailure, hostControl }
+    const execution = await reporter?.finish()
+    const batch = batchProgress?.()
+    result = { ...result, hostFailure, hostControl, execution }
     if (result.text.length > 128_000) result = { ...result, text: `${result.text.slice(0, 128_000)}\n[truncated]` }
     const content: ContentBlock[] = [
       {
@@ -1943,6 +1969,8 @@ export class Kernel {
         isError: Boolean(result.isError),
         details: result.details,
         outcome,
+        ...(execution ? { execution } : {}),
+        ...(batch ? { batch } : {}),
         ...(images ? { images } : {}),
       },
     ]

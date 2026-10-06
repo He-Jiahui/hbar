@@ -9,6 +9,8 @@ import type { ToolWindowContribution } from './tool-windows.ts'
 import type { ThemeContribution } from './theme.ts'
 import { sandboxSnapshotRefSchema } from './sandbox'
 import { toolOutcomeSchema } from './tool-outcome'
+import { toolExecutionSchema, toolBatchProgressSchema } from './tool-execution'
+export * from './tool-execution'
 export { toolOutcomeSchema, type ToolOutcome } from './tool-outcome'
 import { toolCallPresentationSchema } from './tool-presentation'
 export {
@@ -69,6 +71,8 @@ export const contentBlockSchema = z.discriminatedUnion('type', [
       isError: z.boolean(),
       details: z.unknown().optional(),
       outcome: toolOutcomeSchema.optional(),
+      execution: toolExecutionSchema.optional(),
+      batch: toolBatchProgressSchema.optional(),
       /** Validated, durable image outputs; inline provider bytes never belong in the transcript. */
       images: z.array(artifactSchema).max(MAX_TOOL_RESULT_IMAGES).optional(),
     })
@@ -625,6 +629,8 @@ export interface SessionSnapshot {
   cursor: number
   hasOlder: boolean
   streams: LiveStream[]
+  /** Bounded latest execution facts for reconnect; completed timing also lives in tool results. */
+  toolEvents?: SessionEvent[]
 }
 const providerModelInputSchema = z.object({
   id: z.string().min(1).max(160),

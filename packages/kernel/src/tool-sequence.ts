@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { HbarError } from '@hbar/contracts'
+import { HbarError, type ToolBatchProgress } from '@hbar/contracts'
 import { RunControlSignal, TOOL_SEQUENCE_RESULT_CHARACTERS } from '@hbar/plugin-sdk'
 import type { ToolContext, ToolDefinition, ToolResult, ToolSequenceCall, ToolSequenceResult } from '@hbar/plugin-sdk'
 
@@ -26,7 +26,10 @@ export function createToolSequenceExecutor(
   const signal = AbortSignal.any([context.signal, lifetime.signal])
   const allowed = new Set(selectedTools.map((tool) => tool.name))
   let used = false
+  let progress: ToolBatchProgress | undefined
+  const publishProgress = () => append('tool.sequence_progress', { parentCallId: context.callId, progress })
   return {
+    progress: () => progress,
     dispose: () => lifetime.abort(new HbarError('TOOL_SEQUENCE_CLOSED', 'The parent tool has settled')),
     execute: async (raw: readonly ToolSequenceCall[]): Promise<readonly ToolSequenceResult[]> => {
       signal.throwIfAborted()
@@ -41,45 +44,63 @@ export function createToolSequenceExecutor(
         if (call.name === parentName) throw new HbarError('TOOL_SEQUENCE_RECURSION', 'A sequence cannot invoke itself')
       }
       const results: ToolSequenceResult[] = []
-      for (const [index, call] of calls.entries()) {
-        signal.throwIfAborted()
-        const callId = crypto.randomUUID()
-        await append('tool.sequence_call', {
-          parentCallId: context.callId,
-          callId,
-          index,
-          name: call.name,
-          arguments: call.arguments,
-          ...(call.continueOnScopeDenied ? { continueOnScopeDenied: true } : {}),
-        })
-        const result = await execute(call.name, call.arguments, {
-          session: context.session,
-          workspace: context.workspace,
-          run: context.run,
-          signal,
-          callId,
-          parentCallId: context.callId,
-        })
-        if (result.hostControl) throw new RunControlSignal(result.hostControl)
-        const needsInspection = result.content?.some((block) => block.type === 'image') ?? false
-        const continuedScopeDenial = Boolean(
-          call.continueOnScopeDenied &&
-          result.isError &&
-          !needsInspection &&
-          result.hostFailure?.code === 'WORKFLOW_SCOPE_REQUIRED' &&
-          !result.hostFailure.executionStarted,
-        )
-        results.push({
-          callId,
-          name: call.name,
-          text: needsInspection
-            ? 'This tool returned images. Call it separately to inspect the images before continuing; remaining sequence calls were not executed.'
-            : result.text.slice(0, TOOL_SEQUENCE_RESULT_CHARACTERS),
-          isError: Boolean(result.isError) || needsInspection,
-          truncated: result.text.length > TOOL_SEQUENCE_RESULT_CHARACTERS,
-          ...(continuedScopeDenial ? { continuedScopeDenial: true } : {}),
-        })
-        if ((result.isError && !continuedScopeDenial) || needsInspection) break
+      progress = { total: calls.length, settled: 0, running: 0, pending: calls.length, skipped: 0, unknown: 0 }
+      await publishProgress()
+      try {
+        for (const [index, call] of calls.entries()) {
+          signal.throwIfAborted()
+          const callId = crypto.randomUUID()
+          progress = { ...progress, running: 1, pending: calls.length - index - 1 }
+          await publishProgress()
+          await append('tool.sequence_call', {
+            parentCallId: context.callId,
+            callId,
+            index,
+            name: call.name,
+            arguments: call.arguments,
+            ...(call.continueOnScopeDenied ? { continueOnScopeDenied: true } : {}),
+          })
+          const result = await execute(call.name, call.arguments, {
+            session: context.session,
+            workspace: context.workspace,
+            run: context.run,
+            signal,
+            callId,
+            parentCallId: context.callId,
+          })
+          progress = { ...progress, settled: index + 1, running: 0 }
+          await publishProgress()
+          if (result.hostControl) throw new RunControlSignal(result.hostControl)
+          const needsInspection = result.content?.some((block) => block.type === 'image') ?? false
+          const continuedScopeDenial = Boolean(
+            call.continueOnScopeDenied &&
+            result.isError &&
+            !needsInspection &&
+            result.hostFailure?.code === 'WORKFLOW_SCOPE_REQUIRED' &&
+            !result.hostFailure.executionStarted,
+          )
+          results.push({
+            callId,
+            name: call.name,
+            text: needsInspection
+              ? 'This tool returned images. Call it separately to inspect the images before continuing; remaining sequence calls were not executed.'
+              : result.text.slice(0, TOOL_SEQUENCE_RESULT_CHARACTERS),
+            isError: Boolean(result.isError) || needsInspection,
+            truncated: result.text.length > TOOL_SEQUENCE_RESULT_CHARACTERS,
+            ...(continuedScopeDenial ? { continuedScopeDenial: true } : {}),
+          })
+          if ((result.isError && !continuedScopeDenial) || needsInspection) break
+        }
+      } finally {
+        // An exception before a child result is not evidence that the child completed.
+        progress = {
+          ...progress,
+          unknown: progress.running,
+          running: 0,
+          pending: 0,
+          skipped: calls.length - progress.settled - progress.running,
+        }
+        await publishProgress()
       }
       return results
     },

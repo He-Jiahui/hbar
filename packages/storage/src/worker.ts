@@ -1382,6 +1382,23 @@ const methods: StorageMethods = {
       usage,
       cursor: session.seq,
       streams: [],
+      toolEvents: (
+        db
+          .query(
+            `
+          SELECT * FROM (
+            SELECT *, ROW_NUMBER() OVER (
+              PARTITION BY runId,type,COALESCE(json_extract(data,'$.callId'),json_extract(data,'$.parentCallId'))
+              ORDER BY seq DESC
+            ) AS ordinal
+            FROM events WHERE sessionId=? AND type IN ('tool.execution','tool.sequence_progress')
+          ) WHERE ordinal=1 ORDER BY seq DESC LIMIT 1000
+        `,
+          )
+          .all(sessionId) as Row[]
+      )
+        .reverse()
+        .map(eventRow),
     }
   },
   activeOperations: (input) => readActiveOperations(db, input),

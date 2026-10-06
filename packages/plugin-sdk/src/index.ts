@@ -40,6 +40,8 @@ import type {
   UserInputResponse,
   UserInput,
   ToolWindowContribution,
+  ToolProgress,
+  ToolExecution,
   Usage,
   Workspace,
   SettingsContributionInput,
@@ -89,6 +91,8 @@ export interface ToolResult {
   hostFailure?: { code: string; executionStarted: boolean } | undefined
   /** Host-owned normal termination. Plugins cannot manufacture this at the execution gateway. */
   hostControl?: GoalReplacementStop | undefined
+  /** Host-owned measured execution metadata; plugin values are replaced at the gateway. */
+  execution?: ToolExecution | undefined
 }
 export interface ToolContext {
   session: Session
@@ -100,6 +104,8 @@ export interface ToolContext {
   parentCallId?: string
   /** One bounded, sequential batch through this Run's selected tools and normal execution gates. No recursion. */
   executeSequence?: (calls: readonly ToolSequenceCall[]) => Promise<readonly ToolSequenceResult[]>
+  /** Report actual completed/total work. Host validates, coalesces, and closes this port on settlement. */
+  reportProgress?: (progress: ToolProgress) => Promise<void>
   /** Host-owned variables for processes this call starts, from the Run's sandbox profile. */
   environment?: Readonly<Record<string, string>>
 }
