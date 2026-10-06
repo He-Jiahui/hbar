@@ -15,8 +15,8 @@ import {
   workspaceSearchInputSchema,
   workspaceSearchToolInputSchema,
 } from '@hbar/contracts/workspace-query'
-import type { WorkspaceSearchResult } from '@hbar/contracts/workspace-query'
 import { WorkspaceQueryRuntime } from './workspace-query'
+import { formatSearchText } from './search-output'
 import { mountedPath, mountedWorkspaceQuery, type WorkspaceMountAccess } from './workspace-mounts'
 export type { WorkspaceMountAccess, WorkspaceMount } from './workspace-mounts'
 export { mountedPath } from './workspace-mounts'
@@ -155,19 +155,6 @@ function byteBoundedText(parts: readonly string[], limit = MAX_TOOL_TEXT_BYTES):
     return { text: `${text}${part.slice(0, low)}${TRUNCATED_MARKER}`, truncated: true }
   }
   return { text, truncated: false }
-}
-
-function searchText(result: WorkspaceSearchResult): { text: string; truncated: boolean } {
-  const lines: string[] = []
-  for (const match of result.matches) {
-    const firstContextLine = match.line - match.before.length
-    match.before.forEach((line, index) => lines.push(`${match.path}-${firstContextLine + index}-${line}\n`))
-    lines.push(`${match.path}:${match.line}:${match.column}:${match.text}\n`)
-    match.after.forEach((line, index) => lines.push(`${match.path}-${match.line + index + 1}-${line}\n`))
-  }
-  if (!lines.length) lines.push('No matches found.\n')
-  const bounded = byteBoundedText(lines)
-  return { text: bounded.text, truncated: result.truncated || bounded.truncated }
 }
 
 export async function workspacePath(
@@ -544,20 +531,21 @@ export default definePlugin({
         name: 'search_text',
         presentation: { kind: 'text-search', patternField: 'pattern', pathField: 'path' },
         description:
-          'Search workspace UTF-8 files in process. Prefer this over shell rg/grep for bounded code and text searches.',
+          'Search workspace UTF-8 files in stable path/line order. limit (1–1000, default 200) bounds matching lines; from_index (default 0) continues at the returned nextIndex. fully_scan=false stops content matching at the limit without counting the unseen remainder; true scans all eligible files and caches complete indexes for exact counts and later pages. Text is capped at 64 KiB; read_file retrieves shortened lines. Prefer this over shell rg/grep.',
         inputSchema: workspaceSearchToolInputSchema,
         effect: 'read',
         workspaceAccess: { kind: 'paths', arguments: [{ field: 'path', access: 'read' }] },
         execute: async (args, c) => {
           const result = await query.search(c.workspace.path, workspaceSearchInputSchema.parse(args), c.signal)
-          const formatted = searchText(result)
+          const formatted = formatSearchText(result)
           return {
             text: formatted.text,
             details: {
-              matchCount: result.matches.length,
+              matchCount: formatted.shownMatches,
               filesChecked: result.filesChecked,
               truncated: formatted.truncated,
               cache: result.cache,
+              ...(formatted.pagination ? { pagination: formatted.pagination } : {}),
             },
           }
         },

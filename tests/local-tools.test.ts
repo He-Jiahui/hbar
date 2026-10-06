@@ -154,8 +154,57 @@ test('workspace search text is capped at 64 KiB and reports truncation', async (
   expect(result.type).toBe('tool_result')
   if (result.type !== 'tool_result') throw new Error('Expected tool result')
   expect(Buffer.byteLength(result.text)).toBeLessThanOrEqual(64 * 1024)
-  expect(result.text).toEndWith('[tool output truncated]')
+  expect(result.text).toContain('[tool output truncated]')
+  expect(result.text).toContain('折叠了剩余内容')
+  expect(result.text).toContain('read_file')
   expect(result.details).toMatchObject({ matchCount: 1, truncated: true })
+})
+
+test('managed search_text exposes full-scan counts and continues from the displayed next index', async () => {
+  const { root, kernel, session } = await fixture()
+  await writeFile(join(root, 'pages.ts'), 'needle page 0\nneedle page 1\nneedle page 2\n')
+  const first = await invoke(kernel, session.id, 'search_text', {
+    pattern: 'needle',
+    literal: true,
+    include: ['**/*.ts'],
+    limit: 1,
+    fully_scan: true,
+  })
+  expect(first).toMatchObject({
+    type: 'tool_result',
+    isError: false,
+    details: { matchCount: 1, pagination: { totalMatches: 4, remainingMatches: 3, nextIndex: 1, cacheStored: true } },
+  })
+  if (first.type !== 'tool_result') throw new Error('Unexpected search result')
+  expect(first.text).toContain('折叠了剩余内容')
+  expect(first.text).toContain('from_index=1')
+  const next = await invoke(kernel, session.id, 'search_text', {
+    pattern: 'needle',
+    literal: true,
+    include: ['**/*.ts'],
+    limit: 2,
+    from_index: 1,
+  })
+  expect(next).toMatchObject({
+    type: 'tool_result',
+    isError: false,
+    details: { matchCount: 2, pagination: { totalMatches: 4, remainingMatches: 1, nextIndex: 3, cacheHit: true } },
+  })
+  if (next.type !== 'tool_result') throw new Error('Unexpected search result')
+  expect(next.text).toContain('pages.ts:1:1:needle page 0')
+  expect(next.text).toContain('pages.ts:2:1:needle page 1')
+  const last = await invoke(kernel, session.id, 'search_text', {
+    pattern: 'needle',
+    literal: true,
+    include: ['**/*.ts'],
+    limit: 2,
+    from_index: 3,
+  })
+  expect(last).toMatchObject({
+    type: 'tool_result',
+    isError: false,
+    details: { matchCount: 1, truncated: false, pagination: { totalMatches: 4, remainingMatches: 0 } },
+  })
 })
 
 test('local writes immediately invalidate cached ranged reads', async () => {

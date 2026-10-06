@@ -6,6 +6,7 @@ import type {
   ParsedWorkspaceSearchInput,
   WorkspaceSearchResult,
 } from '@hbar/contracts/workspace-query'
+import { compressSearchFolders, hiddenSearchFolders } from './search-pagination'
 
 export interface WorkspaceMount {
   readonly root: string
@@ -88,27 +89,93 @@ export function mountedWorkspaceQuery(
         truncated: false,
         cache: { contentHits: 0, contentMisses: 0, matchHits: 0, matchMisses: 0, bytesRead: 0 },
       }
-      const targets = scopes(mount, input.path)
+      const targets = scopes(mount, input.path).flatMap((target) => {
+        const adjusted = options(input, target.folder.alias, mount)
+        return adjusted ? [{ ...target, adjusted }] : []
+      })
+      let skipped = input.from_index
+      let totalMatches = 0
+      let scanComplete = true
+      let cacheHit = targets.length > 0
+      let cacheStored = targets.length > 0
+      let cacheLimited = false
+      const folders: NonNullable<WorkspaceSearchResult['pagination']>['folders'] = []
+      let otherMatches = 0
+      let foldersCompressed = false
+      let pageClosed = false
       for (const [index, target] of targets.entries()) {
         deadline.throwIfAborted()
-        const adjusted = options(input, target.folder.alias, mount)
-        if (!adjusted) continue
+        const countOnly = pageClosed || combined.matches.length >= input.limit
         const result = await inner.search(
           target.folder.path,
-          { ...adjusted, path: target.path, limit: input.limit - combined.matches.length },
+          {
+            ...target.adjusted,
+            path: target.path,
+            from_index: skipped,
+            limit: countOnly ? 1 : input.limit - combined.matches.length,
+          },
           deadline,
         )
-        combined.matches.push(
-          ...result.matches.map((match) => ({ ...match, path: `${target.folder.alias}/${match.path}` })),
-        )
+        const page = result.pagination
+        if (!page && (input.from_index || input.fully_scan))
+          throw new HbarError(
+            'UNSUPPORTED_TYPE',
+            'Mounted workspace search requires pagination-capable query providers',
+          )
+        if (!countOnly)
+          combined.matches.push(
+            ...result.matches.map((match) => ({ ...match, path: `${target.folder.alias}/${match.path}` })),
+          )
         combined.filesChecked += result.filesChecked
-        combined.truncated ||= result.truncated
+        combined.truncated ||= !countOnly && result.truncated
         for (const key of Object.keys(combined.cache) as (keyof WorkspaceSearchResult['cache'])[])
           combined.cache[key] += result.cache[key]
-        if (combined.matches.length >= input.limit) {
-          combined.truncated ||= index < targets.length - 1
+        totalMatches += page?.totalMatches ?? 0
+        scanComplete &&= Boolean(page?.scanComplete)
+        cacheHit &&= Boolean(page?.cacheHit)
+        cacheStored &&= Boolean(page?.cacheStored)
+        cacheLimited ||= Boolean(page?.cacheLimited)
+        if (page?.scanComplete) {
+          folders.push(
+            ...page.folders.map((folder) => ({
+              ...folder,
+              path: folder.path === '.' ? target.folder.alias : `${target.folder.alias}/${folder.path}`,
+            })),
+          )
+          if (countOnly)
+            folders.push(
+              ...hiddenSearchFolders(result.matches).map((folder) => ({
+                ...folder,
+                path: folder.path === '.' ? target.folder.alias : `${target.folder.alias}/${folder.path}`,
+              })),
+            )
+          otherMatches += page.otherMatches
+          foldersCompressed ||= page.foldersCompressed
+        }
+        skipped = Math.max(0, skipped - (page?.totalMatches ?? skipped))
+        if (!countOnly && page?.nextIndex !== undefined) pageClosed = true
+        // A byte-limited page must resume in this folder rather than skip to the next mount.
+        if (!input.fully_scan && (result.truncated || combined.matches.length >= input.limit)) {
+          if (index < targets.length - 1) scanComplete = false
+          combined.truncated ||= !scanComplete
           break
         }
+      }
+      const nextIndex = input.from_index + combined.matches.length
+      const remainingMatches = Math.max(0, totalMatches - nextIndex)
+      const more = !scanComplete || remainingMatches > 0
+      const summary = compressSearchFolders(folders, otherMatches)
+      combined.truncated ||= more
+      combined.pagination = {
+        fromIndex: input.from_index,
+        ...(more ? { nextIndex } : {}),
+        scanComplete,
+        ...(scanComplete ? { totalMatches, remainingMatches } : {}),
+        cacheHit,
+        cacheStored: scanComplete && cacheStored,
+        cacheLimited,
+        ...(scanComplete ? summary : { folders: [], otherMatches: 0, foldersCompressed: false }),
+        foldersCompressed: scanComplete && (foldersCompressed || summary.foldersCompressed),
       }
       return combined
     },
