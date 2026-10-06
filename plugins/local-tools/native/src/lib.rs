@@ -19,9 +19,9 @@ const MAX_FILE_BYTES: u64 = 2 * 1024 * 1024;
 const MAX_PATTERN_BYTES: usize = 4096;
 const MAX_GLOBS: usize = 100;
 const MAX_COMPILED_PATTERNS: usize = 128;
-const MAX_CACHED_MATCHES_PER_FILE: usize = 1001;
 const MAX_WALK_FILES: usize = 100_000;
 type ComputeResult<T> = std::result::Result<T, String>;
+mod search_pagination;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct FileVersion {
@@ -140,6 +140,7 @@ struct Cache {
     matches: HashMap<String, MatchEntry>,
     matchers: HashMap<String, MatcherEntry>,
     globs: HashMap<String, GlobEntry>,
+    plans: HashMap<String, search_pagination::SearchPlan>,
     bytes: usize,
     max_bytes: usize,
     clock: u64,
@@ -157,6 +158,7 @@ impl Cache {
             matches: HashMap::new(),
             matchers: HashMap::new(),
             globs: HashMap::new(),
+            plans: HashMap::new(),
             bytes: 0,
             max_bytes,
             clock: 0,
@@ -185,6 +187,23 @@ impl Cache {
                 .iter()
                 .min_by_key(|(_, value)| value.last_used)
                 .map(|(key, value)| (key.clone(), value.last_used));
+            let oldest_plan = self
+                .plans
+                .iter()
+                .min_by_key(|(_, value)| value.last_used)
+                .map(|(key, value)| (key.clone(), value.last_used));
+            if let Some((key, used)) = oldest_plan {
+                if oldest_content
+                    .as_ref()
+                    .is_none_or(|(_, other)| used <= *other)
+                    && oldest_match
+                        .as_ref()
+                        .is_none_or(|(_, other)| used <= *other)
+                {
+                    self.remove_plan(&key);
+                    continue;
+                }
+            }
             match (oldest_content, oldest_match) {
                 (Some((key, used)), Some((_match_key, match_used))) if used <= match_used => {
                     if let Some(value) = self.content.remove(&key) {
@@ -207,6 +226,22 @@ impl Cache {
     }
 
     fn invalidate(&mut self, path: &Path) {
+        // A write can add a previously absent match. Invalidate whole-query plans,
+        // not just entries that already mention the affected file.
+        let keys: Vec<String> = self.plans.keys().cloned().collect();
+        for key in keys {
+            self.remove_plan(&key);
+        }
+        self.invalidate_file(path);
+    }
+
+    fn remove_plan(&mut self, key: &str) {
+        if let Some(plan) = self.plans.remove(key) {
+            self.bytes = self.bytes.saturating_sub(plan.estimated_bytes);
+        }
+    }
+
+    fn invalidate_file(&mut self, path: &Path) {
         if let Some(value) = self.content.remove(path) {
             self.bytes = self.bytes.saturating_sub(value.estimated_bytes);
         }
@@ -283,6 +318,10 @@ struct SearchRequest {
     case_mode: CaseMode,
     before_context: usize,
     after_context: usize,
+    #[serde(default, rename = "from_index")]
+    from_index: usize,
+    #[serde(default, rename = "fully_scan")]
+    fully_scan: bool,
 }
 
 #[derive(Deserialize, Default)]
@@ -314,6 +353,8 @@ struct SearchMatch {
     text: String,
     before: Vec<String>,
     after: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    text_truncated: Option<bool>,
 }
 
 #[derive(Serialize)]
@@ -323,6 +364,7 @@ struct SearchResponse {
     truncated: bool,
     files_checked: usize,
     cache: OperationCacheStats,
+    pagination: search_pagination::Pagination,
 }
 
 #[derive(Serialize)]
@@ -857,7 +899,7 @@ fn read_cached(
         }
         cache.content_misses += 1;
         operation.content_misses += 1;
-        cache.invalidate(path);
+        cache.invalidate_file(path);
     }
     let mut bytes = Vec::with_capacity(fallback_before.size as usize);
     let mut chunk = [0_u8; 64 * 1024];
@@ -927,12 +969,14 @@ fn read_cached(
     })
 }
 
-struct LineSink {
+struct LineSink<'a> {
     lines: Vec<u64>,
     complete: bool,
+    limit: Option<usize>,
+    cancel: &'a AtomicBool,
 }
 
-impl Sink for LineSink {
+impl Sink for LineSink<'_> {
     type Error = std::io::Error;
 
     fn matched(
@@ -940,10 +984,16 @@ impl Sink for LineSink {
         _searcher: &Searcher,
         matched: &SinkMatch<'_>,
     ) -> std::result::Result<bool, Self::Error> {
+        if self.cancel.load(Ordering::Acquire) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Interrupted,
+                "query cancelled",
+            ));
+        }
         if let Some(line) = matched.line_number() {
             self.lines.push(line);
         }
-        if self.lines.len() >= MAX_CACHED_MATCHES_PER_FILE {
+        if self.limit.is_some_and(|limit| self.lines.len() >= limit) {
             self.complete = false;
             Ok(false)
         } else {
@@ -960,6 +1010,7 @@ fn matched_lines(
     matcher: (&str, &RegexMatcher),
     operation: &mut OperationCacheStats,
     cancel: &AtomicBool,
+    limit: Option<usize>,
 ) -> ComputeResult<(Arc<Vec<u64>>, bool)> {
     let (matcher_key, matcher) = matcher;
     let key = format!("{}\0{matcher_key}", path.to_string_lossy());
@@ -989,6 +1040,8 @@ fn matched_lines(
     let mut sink = LineSink {
         lines: Vec::new(),
         complete: true,
+        limit,
+        cancel,
     };
     cancelled(cancel)?;
     searcher
@@ -1054,83 +1107,7 @@ fn search(
     request: SearchRequest,
     cancel: &AtomicBool,
 ) -> ComputeResult<String> {
-    if request.common.limit == 0 || request.common.limit > 1000 {
-        return Err("search limit must be between 1 and 1000".to_owned());
-    }
-    if request.before_context > 20 || request.after_context > 20 {
-        return Err("search context is limited to 20 lines on each side".to_owned());
-    }
-    let (matcher_key, matcher) = compiled_matcher(state, &request)?;
-    let mut matches = Vec::new();
-    let mut truncated = false;
-    let mut operation = OperationCacheStats::default();
-    let files = walk_files(state, &request.common, cancel, true)?;
-    let files_checked = files.len();
-    for (path, relative) in files {
-        cancelled(cancel)?;
-        let content = match read_cached(state, &path, &mut operation, cancel) {
-            Ok(value) => value,
-            Err(error) if error.contains("not valid UTF-8") => continue,
-            Err(error) => return Err(error),
-        };
-        let bytes = content.bytes;
-        let line_starts = content.line_starts;
-        if bytes.contains(&0) {
-            continue;
-        }
-        let (line_numbers, complete) = matched_lines(
-            state,
-            &path,
-            content.version.as_ref(),
-            &bytes,
-            (&matcher_key, &matcher),
-            &mut operation,
-            cancel,
-        )?;
-        for line_number in line_numbers.iter().copied() {
-            cancelled(cancel)?;
-            if matches.len() == request.common.limit {
-                truncated = true;
-                break;
-            }
-            let index = line_number.saturating_sub(1) as usize;
-            if index >= line_starts.len() {
-                continue;
-            }
-            let text = line_text(&bytes, &line_starts, index)?;
-            let column = matcher
-                .find(text.as_bytes())
-                .map_err(|error| format!("search matcher failed: {error}"))?
-                .map_or(1, |matched| matched.start() + 1);
-            let before_start = index.saturating_sub(request.before_context);
-            let after_end = line_starts.len().min(index + request.after_context + 1);
-            matches.push(SearchMatch {
-                path: relative.clone(),
-                line: line_number,
-                column,
-                text: text.to_owned(),
-                before: (before_start..index)
-                    .map(|line| line_text(&bytes, &line_starts, line).map(str::to_owned))
-                    .collect::<ComputeResult<Vec<_>>>()?,
-                after: (index + 1..after_end)
-                    .map(|line| line_text(&bytes, &line_starts, line).map(str::to_owned))
-                    .collect::<ComputeResult<Vec<_>>>()?,
-            });
-        }
-        if !complete && matches.len() >= request.common.limit {
-            truncated = true;
-            break;
-        }
-        if truncated {
-            break;
-        }
-    }
-    json(&SearchResponse {
-        matches,
-        truncated,
-        files_checked,
-        cache: operation,
-    })
+    search_pagination::search(state, request, cancel)
 }
 
 fn read(state: &EngineState, request: ReadRequest, cancel: &AtomicBool) -> ComputeResult<String> {
@@ -1200,6 +1177,8 @@ mod tests {
             case_mode: CaseMode::Smart,
             before_context: 0,
             after_context: 0,
+            from_index: 0,
+            fully_scan: false,
         };
         let (_, matcher) = compiled_matcher(&state, &request).expect("matcher");
         assert_eq!(matcher.find(b"say hello").unwrap().unwrap().start(), 4);

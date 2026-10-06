@@ -104,6 +104,8 @@ const input = (pattern: string): ParsedWorkspaceSearchInput => ({
   exclude: [],
   includeHidden: false,
   limit: 200,
+  from_index: 0,
+  fully_scan: false,
   pattern,
   literal: true,
   caseMode: 'smart',

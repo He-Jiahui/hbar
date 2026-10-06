@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { workspaceSearchResultSchema } from '@hbar/contracts/workspace-query'
 
 export interface NativeCommonRequest {
   workspace: string
@@ -12,6 +13,8 @@ export interface NativeCommonRequest {
 }
 
 export interface NativeSearchRequest extends NativeCommonRequest {
+  from_index?: number
+  fully_scan?: boolean
   pattern: string
   literal: boolean
   caseMode: 'sensitive' | 'insensitive' | 'smart'
@@ -34,21 +37,7 @@ const operationCacheStatsSchema = z.strictObject({
   matchMisses: z.number().int().nonnegative(),
   bytesRead: z.number().int().nonnegative(),
 })
-const searchResponseSchema = z.strictObject({
-  matches: z.array(
-    z.strictObject({
-      path: z.string(),
-      line: z.number().int().positive(),
-      column: z.number().int().positive(),
-      text: z.string(),
-      before: z.array(z.string()),
-      after: z.array(z.string()),
-    }),
-  ),
-  truncated: z.boolean(),
-  filesChecked: z.number().int().nonnegative(),
-  cache: operationCacheStatsSchema,
-})
+const searchResponseSchema = workspaceSearchResultSchema
 const findResponseSchema = z.strictObject({
   paths: z.array(z.string()),
   truncated: z.boolean(),
@@ -136,7 +125,10 @@ export class NativeWorkspaceQuery {
   }
 
   async search(request: NativeSearchRequest, cancelId: string): Promise<NativeSearchResponse> {
-    return parseResult(searchResponseSchema, await this.#engine.search(JSON.stringify(request), cancelId))
+    const result = parseResult(searchResponseSchema, await this.#engine.search(JSON.stringify(request), cancelId))
+    if (!result.pagination && (request.fully_scan || request.from_index))
+      throw new Error('Native workspace search pagination is unavailable. Run "bun run native:build" first.')
+    return result
   }
 
   async find(request: NativeCommonRequest, cancelId: string): Promise<NativeFindResponse> {

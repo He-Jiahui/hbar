@@ -18,6 +18,9 @@ export const workspaceQueryToolCommonSchema = z.strictObject({
   limit: z.number().int().min(1).max(1_000).optional(),
 })
 export const workspaceSearchInputSchema = workspaceQueryCommonSchema.extend({
+  /** Zero-based matching-line index; keep the same query/scope when continuing. */
+  from_index: z.number().int().min(0).max(10_000_000).default(0),
+  fully_scan: z.boolean().default(false),
   pattern: z.string().min(1).max(4_096),
   literal: z.boolean().default(false),
   caseMode: z.enum(['sensitive', 'insensitive', 'smart']).default('smart'),
@@ -29,6 +32,21 @@ export const workspaceFindInputSchema = workspaceQueryCommonSchema.extend({
   nameQuery: z.string().trim().min(1).max(160).optional(),
 })
 export const workspaceSearchToolInputSchema = workspaceQueryToolCommonSchema.extend({
+  from_index: z
+    .number()
+    .int()
+    .min(0)
+    .max(10_000_000)
+    .optional()
+    .describe(
+      'Zero-based matching-line index (default 0). Use the returned nextIndex with the same pattern and scope.',
+    ),
+  fully_scan: z
+    .boolean()
+    .optional()
+    .describe(
+      'Default false: stop content matching at limit, remaining count unknown. True: scan all eligible files, cache complete indexes and report exact remaining counts.',
+    ),
   pattern: z.string().min(1).max(4_096),
   literal: z.boolean().optional(),
   caseMode: z.enum(['sensitive', 'insensitive', 'smart']).optional(),
@@ -65,6 +83,22 @@ export const workspaceSearchMatchSchema = z.strictObject({
   text: z.string().max(2 * 1024 * 1024),
   before: z.array(z.string().max(2 * 1024 * 1024)).max(20),
   after: z.array(z.string().max(2 * 1024 * 1024)).max(20),
+  textTruncated: z.boolean().optional(),
+})
+export const workspaceSearchPaginationSchema = z.strictObject({
+  fromIndex: z.number().int().nonnegative(),
+  nextIndex: z.number().int().nonnegative().optional(),
+  scanComplete: z.boolean(),
+  totalMatches: z.number().int().nonnegative().optional(),
+  remainingMatches: z.number().int().nonnegative().optional(),
+  cacheHit: z.boolean(),
+  cacheStored: z.boolean(),
+  cacheLimited: z.boolean(),
+  folders: z
+    .array(z.strictObject({ path: z.string().min(1).max(4_000), matches: z.number().int().nonnegative() }))
+    .max(6),
+  otherMatches: z.number().int().nonnegative(),
+  foldersCompressed: z.boolean(),
 })
 export const workspaceOperationCacheStatsSchema = z.strictObject({
   contentHits: z.number().int().nonnegative(),
@@ -82,6 +116,8 @@ export const workspaceSearchResultSchema = z.strictObject({
     .nonnegative()
     .max(100_000 * WORKSPACE_FOLDER_LIMIT),
   cache: workspaceOperationCacheStatsSchema,
+  /** Optional for older query adapters; current native searches always supply it. */
+  pagination: workspaceSearchPaginationSchema.optional(),
 })
 export const workspaceFindResultSchema = z.strictObject({
   paths: z.array(z.string().min(1).max(4_000)).max(1_000),
