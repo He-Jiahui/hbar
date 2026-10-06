@@ -34,7 +34,7 @@
   overscroll-behavior: contain;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-size: 0.75rem;
+  font-size: var(--hbar-session-detail-size);
   line-height: 1.6;
 }
 .hbar-session-command [data-command-output-tail][hidden] {

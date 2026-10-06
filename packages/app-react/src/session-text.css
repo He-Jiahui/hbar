@@ -16,8 +16,80 @@
 }
 .hbar-session-thinking-content {
   color: var(--hbar-session-secondary);
-  border-color: color-mix(in srgb, var(--lumen-info) 24%, var(--lumen-edge));
-  background: color-mix(in srgb, var(--lumen-info) 3%, var(--lumen-reading));
+  border-inline-start-color: color-mix(in srgb, var(--lumen-info) 18%, var(--lumen-line));
+  background: transparent;
+}
+/* Reading hierarchy belongs to the message, independently of editor metrics. */
+.hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) {
+  text-align: start;
+}
+.hbar-session-message-blocks
+  :is(.hbar-session-message-prose, .hbar-session-thinking-content)
+  :is(h1, h2, h3, h4, h5, h6) {
+  margin-block: 1.35em 0.55em;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) h1 {
+  font-size: 1.5em;
+}
+.hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) h2 {
+  font-size: 1.25em;
+}
+.hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) h3 {
+  font-size: 1.1em;
+}
+.hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) :is(h4, h5, h6) {
+  font-size: 1em;
+}
+.hbar-session-message-blocks
+  :is(.hbar-session-message-prose, .hbar-session-thinking-content)
+  :is(p, ul, ol, blockquote, table) {
+  margin-block: 0.8em;
+}
+.hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) :is(ul, ol) {
+  padding-inline-start: 1.5em;
+}
+.hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) li + li {
+  margin-block-start: 0.25em;
+}
+.hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) li > p {
+  margin-block: 0.35em;
+}
+.hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) table {
+  display: block;
+  max-inline-size: 100%;
+  overflow: auto;
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+.hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) :is(th, td) {
+  padding: 0.55em 0.85em;
+  border-block-end: 0.0625rem solid var(--lumen-line);
+  vertical-align: top;
+  overflow-wrap: normal;
+}
+.hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) th {
+  font-weight: 600;
+  text-align: start;
+}
+.hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) :is(th, td):first-child {
+  padding-inline-start: 0;
+}
+.hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+.hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) hr {
+  margin-block: 1.25em;
+  border: 0;
+  border-block-start: 0.0625rem solid var(--lumen-line);
+}
+.hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) > :first-child {
+  margin-block-start: 0;
+}
+.hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) > :last-child {
+  margin-block-end: 0;
 }
 .hbar-session-message-blocks
   :is(.hbar-session-message-prose, .hbar-session-thinking-content)
@@ -65,7 +137,7 @@
   color: var(--hbar-session-heading);
 }
 .hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) hr {
-  border-color: var(--lumen-edge);
+  border-color: var(--lumen-line);
 }
 .hbar-session-activity-summary-text {
   color: var(--hbar-session-secondary);

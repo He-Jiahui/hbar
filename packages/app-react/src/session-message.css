@@ -12,6 +12,9 @@
 
 .hbar-session-message-blocks {
   --hbar-session-tool-label-width: 7.5rem;
+  --hbar-session-prose-size: calc(var(--lumen-font-size) * 1.05);
+  --hbar-session-detail-size: calc(var(--lumen-font-size) * 0.95);
+  --hbar-session-caption-size: calc(var(--lumen-font-size) * 0.9);
   gap: 12px;
 }
 .hbar-session-disclosure-heading {
@@ -28,7 +31,7 @@
 }
 .hbar-session-message-prose {
   min-inline-size: 0;
-  font-size: 0.90625rem;
+  font-size: var(--hbar-session-prose-size);
   line-height: 1.7;
   overflow-wrap: anywhere;
 }
@@ -48,7 +51,7 @@
 .hbar-session-message-prose pre {
   max-inline-size: 100%;
   overflow: auto;
-  font-size: 0.8125rem;
+  font-size: var(--hbar-session-detail-size);
 }
 .hbar-session-message-prose img {
   max-inline-size: 100%;
@@ -68,14 +71,14 @@
   gap: 8px;
   padding: 4px 0;
   color: var(--lumen-muted);
-  font-size: 0.78125rem;
+  font-size: var(--hbar-session-caption-size);
   font-weight: 400;
   text-align: start;
   white-space: normal;
 }
 
 .hbar-session-activity-summary {
-  font-size: 0.75rem;
+  font-size: var(--hbar-session-caption-size);
 }
 .hbar-session-activity-summary > .hbar-session-activity-summary-text {
   flex: 1 1 auto;
@@ -123,7 +126,7 @@
   align-items: center;
   gap: 4px;
   margin-inline-start: auto;
-  font-size: 0.6875rem;
+  font-size: var(--hbar-session-caption-size);
   overflow-wrap: anywhere;
   white-space: nowrap;
   transition: color var(--lumen-state-duration) var(--lumen-state-easing);
@@ -233,11 +236,12 @@
   max-block-size: 18.75rem;
   overflow: auto;
   overscroll-behavior: contain;
-  border: 0.0625rem solid var(--lumen-edge);
-  border-radius: var(--lumen-radius-control);
-  padding: 10px 12px;
+  border: 0;
+  border-inline-start: 0.0625rem solid var(--lumen-line);
+  border-radius: 0;
+  padding: 4px 12px;
   color: var(--lumen-muted);
-  font-size: 0.78125rem;
+  font-size: var(--hbar-session-detail-size);
   line-height: 1.65;
   overflow-wrap: anywhere;
 }
@@ -270,7 +274,7 @@
   padding: 4px 6px;
   gap: 4px;
   color: var(--lumen-muted);
-  font-size: 0.6875rem;
+  font-size: var(--hbar-session-caption-size);
   white-space: normal;
   text-align: start;
 }
@@ -281,7 +285,7 @@
 }
 .hbar-session-tool-result-copy-notice {
   color: var(--lumen-muted);
-  font-size: 0.75rem;
+  font-size: var(--hbar-session-caption-size);
 }
 .hbar-session-tool-result-copy-notice[role='alert'] {
   color: var(--lumen-danger);
@@ -289,7 +293,7 @@
 .hbar-session-tool-heading,
 .hbar-session-tool-status {
   color: var(--lumen-muted);
-  font-size: 0.6875rem;
+  font-size: var(--hbar-session-caption-size);
 }
 .hbar-session-tool-status[data-failed='true'],
 .hbar-session-tool[data-failed='true'] > .hbar-session-disclosure-trigger {
@@ -310,7 +314,7 @@
   padding: 10px 12px;
   background: var(--lumen-reading);
   color: var(--lumen-ink);
-  font-size: 0.75rem;
+  font-size: var(--hbar-session-detail-size);
   line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -328,7 +332,7 @@
   flex-wrap: wrap;
   gap: 6px;
   color: var(--lumen-muted);
-  font-size: 0.75rem;
+  font-size: var(--hbar-session-caption-size);
   overflow-wrap: anywhere;
 }
 .hbar-session-message-action {

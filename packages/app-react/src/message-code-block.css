@@ -30,10 +30,10 @@
 }
 .hbar-message-code-header {
   justify-content: space-between;
-  border-block-end: 0.0625rem solid var(--lumen-edge);
+  border-block-end: 0.0625rem solid var(--lumen-line);
   padding: 6px 12px;
   color: var(--lumen-muted);
-  font-size: 0.75rem;
+  font-size: var(--hbar-session-caption-size, calc(var(--lumen-font-size) * 0.9));
 }
 .hbar-message-code-metadata > span {
   min-inline-size: 0;
@@ -64,7 +64,7 @@
   overscroll-behavior: contain;
   margin: 0;
   padding: 10px 12px;
-  font-size: 0.8125rem;
+  font-size: var(--hbar-session-detail-size, calc(var(--lumen-font-size) * 0.95));
   line-height: 1.6;
   white-space: pre;
 }
