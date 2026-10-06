@@ -5,6 +5,8 @@
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-reading);
+
+  overflow-x: auto;
 }
 .hbar-session-command-input,
 .hbar-session-command-output {
@@ -45,28 +47,36 @@
 }
 .hbar-session-command-output-toggle {
   align-self: stretch;
-  min-inline-size: 0;
-  white-space: normal;
+
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }
 .hbar-session-command .hbar-session-tool-result-heading {
   flex-wrap: wrap;
 }
 .hbar-session-command-output-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   min-inline-size: 0;
   gap: 4px;
+
+  overflow-x: auto;
 }
 .hbar-session-command-view-toggle {
-  min-inline-size: 0;
-  white-space: normal;
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }
 .hbar-session-command-original {
   min-inline-size: 0;
   padding: 4px 12px;
+
+  overflow-x: auto;
 }
 .hbar-session-command-original > .hbar-lumen-disclosure-trigger {
-  min-inline-size: 0;
-  white-space: normal;
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }

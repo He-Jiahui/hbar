@@ -86,10 +86,13 @@
 .hbar-plan-exit-actions {
   justify-content: space-between;
   border-block-start: 0.0625rem solid var(--lumen-edge);
+
+  overflow-x: auto;
 }
 .hbar-plan-exit-actions button {
-  white-space: normal;
-  overflow-wrap: anywhere;
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }
 .hbar-plan-exit-error,
 .hbar-plan-exit-confirmed-feedback {
@@ -102,6 +105,8 @@
   .hbar-plan-exit-actions {
     align-items: stretch;
     flex-direction: column;
+
+    overflow-x: auto;
   }
   .hbar-plan-exit-status {
     margin-inline-start: 0;

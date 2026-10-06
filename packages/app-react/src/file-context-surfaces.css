@@ -87,12 +87,16 @@
   border-radius: 2rem;
   background: var(--lumen-frost);
   box-shadow: 0 0.25rem 1rem rgb(0 0 0 / 15%);
+
+  overflow-x: auto;
 }
 
 .hbar-file-selection-menu button {
-  min-inline-size: 0;
   block-size: auto;
   padding: 0.65rem 1rem;
   border-radius: inherit;
-  white-space: normal;
+
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }

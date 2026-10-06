@@ -1,10 +1,12 @@
 .hbar-composer-background-feedback {
   display: flex;
   min-inline-size: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.25rem 0.5rem;
   font-size: 0.8125rem;
+
+  overflow-x: auto;
 }
 
 .hbar-composer-background-feedback > p {
@@ -14,7 +16,7 @@
 }
 
 .hbar-composer-background-feedback > button {
-  max-inline-size: 100%;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }

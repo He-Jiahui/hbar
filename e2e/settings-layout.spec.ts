@@ -10,14 +10,14 @@ test('settings scope and model controls fit narrow workspaces without horizontal
   let host: WebSessionHost | undefined
   const context = await browser.newContext({ locale: 'en-US' })
   try {
-    host = await startWebSessionHost({ root })
+    host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
     const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
     expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
     const page = await context.newPage()
     const errors: string[] = []
     page.on('pageerror', (error) => errors.push(error.message))
     await page.goto(base)
-    await page.getByRole('button', { name: /^Open session / }).click()
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     await page.getByRole('button', { name: 'Settings', exact: true }).click()
     await page.getByRole('button', { name: 'Model', exact: true }).click()
     await selectLumenOption(page.getByRole('combobox', { name: 'Settings scope' }), 'session')

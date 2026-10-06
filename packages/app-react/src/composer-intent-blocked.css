@@ -48,12 +48,18 @@
   font-size: 0.8125rem;
 }
 
-.hbar-composer-intent-blocked-body > * {
+.hbar-composer-intent-blocked-body > :not(button) {
   flex: 0 0 auto;
   max-inline-size: 100%;
   margin: 0;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+.hbar-composer-intent-blocked-body > button {
+  flex: 0 0 auto;
+  min-inline-size: max-content;
+  white-space: nowrap;
 }
 
 @media (max-width: 40rem) {

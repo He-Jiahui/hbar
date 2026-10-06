@@ -14,6 +14,8 @@
 
 .hbar-app-react-skill-detail {
   gap: 1rem;
+
+  overflow-x: auto;
 }
 
 .hbar-app-react-skill-detail-navigation,
@@ -86,13 +88,18 @@
 }
 
 .hbar-app-react-skill-tabs {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   border-block-end: 0.0625rem solid var(--lumen-edge);
+
+  overflow-x: auto;
 }
 
 .hbar-app-react-skill-tabs > button {
   border-radius: 0;
-  white-space: normal;
+
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }
 
 .hbar-app-react-skill-tabs small {
@@ -142,6 +149,8 @@
   margin: 0;
   padding: 0;
   list-style: none;
+
+  overflow-x: auto;
 }
 
 .hbar-app-react-skill-file-index li {
@@ -152,7 +161,10 @@
   inline-size: 100%;
   justify-content: flex-start;
   text-align: start;
-  white-space: normal;
+
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }
 
 .hbar-app-react-skill-file-index button[aria-current='page'] {
@@ -198,6 +210,9 @@
 @media (max-width: 28rem) {
   .hbar-app-react-skill-detail button {
     min-block-size: 2.75rem;
-    white-space: normal;
+
+    min-inline-size: max-content;
+    max-inline-size: none;
+    white-space: nowrap;
   }
 }

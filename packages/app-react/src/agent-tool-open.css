@@ -5,14 +5,18 @@
   max-inline-size: 100%;
   flex-direction: column;
   gap: 4px;
+
+  overflow-x: auto;
 }
 
 .hbar-agent-tool-open > button {
-  max-inline-size: 100%;
   gap: 4px;
   padding: 4px 6px;
-  white-space: normal;
   text-align: start;
+
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }
 
 .hbar-agent-tool-open > span {

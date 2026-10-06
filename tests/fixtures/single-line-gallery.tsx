@@ -2,6 +2,13 @@ import {
   LumenButton,
   LumenFrame,
   LumenPopupSelect,
+  LumenPageHeader,
+  LumenToolPane,
+  LumenSettingsList,
+  LumenFormField,
+  LumenInput,
+  LumenCheckBox,
+  LumenToggle,
   LumenStatus,
   LumenText,
   LumenTree,
@@ -31,6 +38,40 @@ export function SingleLineGallery({
   }))
   return (
     <LumenFrame className="single-line-gallery" data-fixture-gallery>
+      <LumenFormField controlId="fixture-single-line-field" label={caption}>
+        <LumenInput id="fixture-single-line-field" value="" readOnly />
+      </LumenFormField>
+      <LumenCheckBox label={caption} onChange={() => onAction('checkbox')} />
+      <LumenToggle label={caption} onChange={() => onAction('toggle')} />
+      <LumenPageHeader
+        title={caption}
+        context={caption}
+        actionsLabel={caption}
+        actions={<LumenButton onClick={() => onAction('header')}>{caption}</LumenButton>}
+      />
+      <LumenToolPane
+        title={caption}
+        targetLabel={caption}
+        actions={<LumenButton onClick={() => onAction('pane')}>{caption}</LumenButton>}
+      >
+        <LumenFrame />
+      </LumenToolPane>
+      <LumenSettingsList
+        label={caption}
+        empty={caption}
+        addLabel={caption}
+        refreshLabel={caption}
+        items={items.map((item) => ({
+          id: item.id,
+          title: item.title,
+          metadata: [caption],
+          editLabel: item.title,
+          menuLabel: item.title,
+        }))}
+        onAdd={() => onAction('settings:add')}
+        onRefresh={() => onAction('settings:refresh')}
+        onOpen={(id) => onAction(`settings:${id}`)}
+      />
       <LumenFrame className="single-line-gallery-rail" data-fixture-actions>
         {(['contained', 'outlined', 'text'] as const).map((variant) => (
           <LumenButton key={variant} variant={variant} onClick={() => onAction(variant)}>

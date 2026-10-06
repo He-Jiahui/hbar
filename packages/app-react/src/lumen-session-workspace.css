@@ -326,6 +326,8 @@
   padding-block: 0.25rem;
   color: var(--lumen-muted);
   font-size: 0.8125rem;
+
+  overflow-x: auto;
 }
 
 .hbar-session-execution-summary {
@@ -352,10 +354,11 @@
 }
 
 .hbar-session-execution-notice > button {
-  max-inline-size: 100%;
-  white-space: normal;
-  overflow-wrap: anywhere;
   text-align: start;
+
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }
 
 @media (max-width: 35rem) {

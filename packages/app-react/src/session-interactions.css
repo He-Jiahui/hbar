@@ -146,10 +146,13 @@
 .hbar-decision-actions {
   border-block-start: 0.0625rem solid var(--lumen-edge);
   justify-content: space-between;
+
+  overflow-x: auto;
 }
 .hbar-decision-actions button {
-  white-space: normal;
-  overflow-wrap: anywhere;
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }
 .hbar-decision-error {
   margin: 0;

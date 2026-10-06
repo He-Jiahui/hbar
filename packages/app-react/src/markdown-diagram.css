@@ -2,17 +2,20 @@
 .hbar-diagram-preview-tools {
   display: flex;
   min-inline-size: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 4px 8px;
+
+  overflow-x: auto;
 }
 .hbar-diagram-actions {
   margin-inline-start: auto;
 }
 .hbar-diagram-actions > button,
 .hbar-diagram-preview-tools > button {
-  max-inline-size: 100%;
-  white-space: normal;
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }
 .hbar-markdown-diagram [hidden] {
   display: none;

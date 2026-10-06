@@ -42,13 +42,16 @@
 .hbar-message-image-preview-error {
   align-items: flex-start;
   color: var(--lumen-muted);
+
+  overflow-x: auto;
 }
 
 .hbar-message-image-preview-error > button {
-  max-inline-size: 100%;
-  white-space: normal;
-  overflow-wrap: anywhere;
   text-align: start;
+
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }
 
 .hbar-tool-output-image-links {

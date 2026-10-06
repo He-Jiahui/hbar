@@ -43,7 +43,8 @@
   min-inline-size: 0;
   align-items: flex-start;
   justify-content: space-between;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   gap: 0.5rem;
 }
 
@@ -57,8 +58,9 @@
 }
 
 .hbar-session-activity-intent {
-  min-inline-size: 0;
-  flex: 1 1 12rem;
+  min-inline-size: max-content;
+  flex: 1 0 auto;
+  white-space: nowrap;
 }
 
 .hbar-session-activity-list time,

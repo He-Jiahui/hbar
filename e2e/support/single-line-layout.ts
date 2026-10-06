@@ -18,6 +18,7 @@ export async function completeLine(elements: Locator) {
         const centers = rects.map((rect) => rect.top + rect.height / 2)
         return {
           text: node.textContent,
+          component: `${node.tagName}.${node.className}`,
           width: box.width,
           height: box.height,
           ellipsis: getComputedStyle(node).textOverflow === 'ellipsis',
@@ -29,7 +30,7 @@ export async function completeLine(elements: Locator) {
   expect(metrics.length).toBeGreaterThan(0)
   for (const metric of metrics) {
     expect(metric.ellipsis, String(metric.text)).toBe(false)
-    expect(metric.clipped, String(metric.text)).toBe(false)
+    expect(metric.clipped, `${metric.component}: ${metric.text}`).toBe(false)
     expect(metric.spread, String(metric.text)).toBeLessThanOrEqual(6)
   }
   return metrics

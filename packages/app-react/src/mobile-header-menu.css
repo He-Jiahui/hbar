@@ -69,12 +69,13 @@
   }
 
   .hbar-mobile-header-menu-item-row > button:first-child {
-    min-inline-size: 0;
     flex: 1 1 auto;
     justify-content: flex-start;
     text-align: start;
-    white-space: normal;
-    overflow-wrap: anywhere;
+
+    min-inline-size: max-content;
+    max-inline-size: none;
+    white-space: nowrap;
   }
 
   .hbar-mobile-header-menu-item-row > button:last-child:not(:first-child) {

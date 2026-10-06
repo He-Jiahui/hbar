@@ -177,6 +177,11 @@ for (const locale of ['zh-CN', 'en-US'] as const)
           node.scrollLeft = 0
         })
         await page.screenshot({ path: info.outputPath(`loading-${width}.png`) })
+        if (locale === 'zh-CN' && theme === 'dark' && width === 900) {
+          await form.screenshot({ path: join(root, 'composer-loading-after.png') })
+          await render(page, { locale, theme, workspaceName: 'hbar', status: 'ready', branch: 'master' })
+          await form.screenshot({ path: join(root, 'composer-master-after.png') })
+        }
       }
       await render(page, {
         locale,
@@ -223,7 +228,11 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         await expect(gallery.locator('.hbar-workspace-tab-title')).toHaveCount(count)
         await expect(gallery.locator('.hbar-file-preview-tab')).toHaveCount(count)
         await expect(gallery.getByRole('treeitem')).toHaveCount(count)
-        await completeLine(gallery.locator('[data-fixture-actions] button, .lumen-popup-select-trigger'))
+        await completeLine(
+          gallery.locator(
+            '[data-fixture-actions] button, .lumen-popup-select-trigger, .lumen-page-heading > *, .lumen-tool-pane-heading > *, .lumen-settings-list-copy > strong, .lumen-settings-list > header h2, .lumen-form-field > label > span, .lumen-checkbox-copy > span, .lumen-toggle-copy > span',
+          ),
+        )
         if (count) {
           await completeLine(gallery.locator('.hbar-workspace-tab-title, .hbar-file-preview-select, .lumen-tree-row'))
           const strip = gallery.locator('.hbar-workspace-tab-strip')
@@ -255,7 +264,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
     })
     await completeLine(
       gallery.locator(
-        '[data-fixture-actions] button, .lumen-popup-select-trigger, .hbar-workspace-tab-title, .hbar-file-preview-select',
+        '[data-fixture-actions] button, .lumen-popup-select-trigger, .hbar-workspace-tab-title, .hbar-file-preview-select, .lumen-page-heading > *, .lumen-tool-pane-heading > *, .lumen-settings-list-copy > strong, .lumen-settings-list > header h2, .lumen-form-field > label > span, .lumen-checkbox-copy > span, .lumen-toggle-copy > span',
       ),
     )
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)

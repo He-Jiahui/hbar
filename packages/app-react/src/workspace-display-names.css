@@ -54,11 +54,13 @@
 .hbar-workspace-display-name-feedback {
   padding: 6px 12px;
   font-size: 0.8125rem;
+
+  overflow-x: auto;
 }
 
 .hbar-workspace-display-name-dialog button,
 .hbar-workspace-display-name-feedback button {
-  max-inline-size: 100%;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }

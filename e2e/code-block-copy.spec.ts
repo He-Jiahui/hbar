@@ -11,6 +11,7 @@ import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { codeBlockCopyFixtures as data } from '../tests/fixtures/code-block-copy-fixtures'
 import { expectComposerText } from './support/composer-text'
+import { lumenMenuForTrigger } from './support/lumen-controls'
 
 const prefix = 'hbar-code-block-copy-ui-'
 const phase = process.env.HBAR_CODE_COPY_PHASE ?? 'final'
@@ -127,6 +128,15 @@ function composer(f: Fixture) {
 }
 
 async function sidebar(f: Fixture, open: boolean): Promise<void> {
+  const show = f.page.getByRole('button', { name: f.copy.shell.showSidebar, exact: true })
+  if (open) {
+    const project = f.page.locator(`[data-workspace-id="${f.ready.workspace.id}"]`)
+    await expect.poll(async () => (await project.isVisible()) || (await show.isVisible())).toBe(true)
+    if (await show.isVisible()) await show.click()
+    await expect(project).toBeVisible()
+    return
+  }
+  if (await show.isVisible()) return
   const control = f.page.getByRole('button', {
     name: open ? f.copy.shell.showSidebar : f.copy.shell.hideSidebar,
     exact: true,
@@ -135,7 +145,7 @@ async function sidebar(f: Fixture, open: boolean): Promise<void> {
     try {
       await control.click({ timeout: 1500 })
     } catch (error) {
-      if (await control.isVisible()) throw error
+      if (!(await show.isVisible())) throw error
     }
   }
 }
@@ -454,7 +464,9 @@ for (const { locale, width } of cases) {
       await setDraft(f, draftA)
       const readsBeforeFind = f.commands.filter((command) => command === 'session.snapshot').length
       const find = f.copy.session.find
-      await f.page.getByRole('button', { name: find.entry, exact: true }).click()
+      const openFind = f.page.getByRole('button', { name: find.entry, exact: true })
+      if (!(await openFind.isVisible())) await f.page.locator('.hbar-mobile-header-menu-trigger').click()
+      await openFind.click()
       const bar = f.page.getByRole('search', { name: find.title, exact: true })
       const query = bar.getByRole('searchbox', { name: find.input, exact: true })
       await query.fill(f.copy.session.messageBlocks.codeBlock.copy)
@@ -508,8 +520,10 @@ for (const { locale, width } of cases) {
       expect(archived.archived).toBe(true)
       await sidebar(f, true)
       const row = f.page.locator(`[data-workspace-id="${f.ready.workspace.id}"]`)
-      await row.getByTitle(f.copy.shell.workspaceActions(f.ready.workspace.name), { exact: true }).click()
-      await row
+      const trigger = row.getByTitle(f.copy.shell.workspaceActions(f.ready.workspace.name), { exact: true })
+      await trigger.click()
+      const menu = await lumenMenuForTrigger(trigger)
+      await menu
         .getByRole('menuitem', { name: f.copy.shell.roster.refreshWorkspace(f.ready.workspace.name), exact: true })
         .click()
       await sidebar(f, false)

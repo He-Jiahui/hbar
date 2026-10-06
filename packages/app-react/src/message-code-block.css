@@ -24,9 +24,11 @@
 .hbar-message-code-metadata {
   display: flex;
   min-inline-size: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 4px 8px;
+
+  overflow-x: auto;
 }
 .hbar-message-code-header {
   justify-content: space-between;
@@ -36,8 +38,8 @@
   font-size: var(--hbar-session-caption-size, calc(var(--lumen-font-size) * 0.9));
 }
 .hbar-message-code-metadata > span {
-  min-inline-size: 0;
-  overflow-wrap: anywhere;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 .hbar-message-code-copy {
   display: flex;
@@ -47,11 +49,15 @@
   max-inline-size: 100%;
   margin-inline-start: auto;
   gap: 4px;
+
+  overflow-x: auto;
 }
 .hbar-message-code-copy > button {
-  max-inline-size: 100%;
-  white-space: normal;
   gap: 4px;
+
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }
 .hbar-message-code-copy > span {
   overflow-wrap: anywhere;
@@ -74,11 +80,15 @@
 .hbar-message-code-footer {
   display: flex;
   border-block-start: 0.0625rem solid var(--lumen-edge);
+
+  overflow-x: auto;
 }
 .hbar-message-code-footer > button {
   flex: 1;
-  min-inline-size: 0;
-  white-space: normal;
+
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }
 :is(.hbar-message-code, .hbar-session-message-blocks) [data-code-token='comment'] {
   color: var(--hbar-code-comment, var(--lumen-muted));

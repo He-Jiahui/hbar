@@ -46,9 +46,11 @@
 }
 
 .hbar-app-react-status-controls .lumen-popup-select-label {
-  overflow-wrap: anywhere;
   text-overflow: clip;
-  white-space: normal;
+
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }
 
 .hbar-app-react-status-controls .lumen-checkbox {
@@ -116,8 +118,9 @@
 }
 
 .hbar-app-react-git-controls > .lumen-form-field > label {
-  overflow-wrap: anywhere;
-  white-space: normal;
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }
 
 .hbar-app-react-status-controls > .lumen-action-menu {

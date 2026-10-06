@@ -5,26 +5,29 @@
   border: 0.0625rem solid color-mix(in srgb, var(--lumen-success) 24%, var(--lumen-edge));
   border-radius: 0.5rem;
   background: color-mix(in srgb, var(--lumen-success) 4%, var(--lumen-frost));
-  overflow: hidden;
+
+  overflow-x: auto;
 }
 
 .hbar-goal-lifecycle > .hbar-goal-lifecycle-heading {
   display: flex;
   inline-size: 100%;
-  min-inline-size: 0;
   block-size: auto;
   align-items: center;
   justify-content: flex-start;
   gap: 0.5rem;
   padding: 0.625rem 0.75rem;
   text-align: start;
-  white-space: normal;
+
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }
 
 .hbar-goal-lifecycle-title,
 .hbar-goal-lifecycle-status {
-  min-inline-size: 0;
-  overflow-wrap: anywhere;
+  min-inline-size: max-content;
+  white-space: nowrap;
 }
 
 .hbar-goal-lifecycle-title {
@@ -65,8 +68,10 @@
 
 .hbar-goal-lifecycle-objective-toggle {
   align-self: flex-start;
-  max-inline-size: 100%;
-  white-space: normal;
+
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }
 
 .hbar-goal-lifecycle-metadata {

@@ -61,7 +61,7 @@
 
 .hbar-app-react-settings-groups button {
   inline-size: 100%;
-  min-inline-size: 0;
+  min-inline-size: max-content;
   block-size: auto;
   min-block-size: 2rem;
   justify-content: flex-start;
@@ -74,9 +74,9 @@
 }
 
 .hbar-app-react-settings-group-label {
-  min-inline-size: 0;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }
 
 .hbar-app-react-settings-main {
@@ -192,12 +192,20 @@
   gap: 0.25rem;
 }
 
-.hbar-settings-content-recovery button,
 .hbar-settings-content-recovery small {
   max-inline-size: 100%;
   min-inline-size: 0;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+.hbar-settings-content-recovery {
+  overflow-x: auto;
+}
+
+.hbar-settings-content-recovery button {
+  min-inline-size: max-content;
+  white-space: nowrap;
 }
 
 .hbar-app-react-settings-workspace > [role='alert'] {
