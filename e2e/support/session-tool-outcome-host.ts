@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { resolvePathLayout } from '@hbar/storage'
 import { startServer } from '../../apps/host/src/server'
+import { setTimeout as delay } from 'node:timers/promises'
 
 const options = z.object({ root: z.string().min(1), assets: z.string().min(1) }).parse({
   root: process.env.HBAR_TOOL_OUTCOME_ROOT,
@@ -45,6 +46,38 @@ try {
   const workspace = (await kernel.storage.call('workspaces')).find((item) => item.path === workspacePath)
   if (!workspace) throw new Error('Owned workspace is missing')
   const session = await kernel.createSession(workspace.id, 'Tool outcome — 原调用')
+  if (process.env.HBAR_TOOL_FEEDBACK_FIXTURE === '1') {
+    kernel.tools.register({
+      name: 'tool_feedback_read',
+      description: 'Four controlled local file reads with real completed-work progress',
+      effect: 'read',
+      inputSchema: z.object({}),
+      async execute(_args, context) {
+        for (let completed = 0; completed <= 4; completed++) {
+          await context.reportProgress?.({ completed, total: 4 })
+          if (completed === 4) break
+          context.signal.throwIfAborted()
+          await Bun.file(join(workspacePath, 'known-readable.txt')).text()
+          await delay(400, undefined, { signal: context.signal })
+        }
+        return { text: 'Four controlled local reads completed.' }
+      },
+    })
+    kernel.tools.register({
+      name: 'tool_feedback_batch',
+      description: 'Controlled three-call sequence through the real Host gateway',
+      effect: 'read',
+      inputSchema: z.object({}),
+      async execute(_args, context) {
+        const results = await context.executeSequence?.([
+          { name: 'read_file', arguments: { path: 'known-readable.txt' } },
+          { name: 'tool_feedback_read', arguments: {} },
+          { name: 'read_file', arguments: { path: 'known-readable.txt' } },
+        ])
+        return { text: JSON.stringify(results) }
+      },
+    })
+  }
   host = await startServer(kernel, { hostname: '127.0.0.1', port: 0, staticRoot: assets })
   const browser = await host.auth.createDevice('Tool outcome browser fixture')
   const observer = await host.auth.createDevice('Tool outcome independent observer')

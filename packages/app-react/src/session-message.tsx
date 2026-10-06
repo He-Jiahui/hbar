@@ -46,6 +46,13 @@ import {
   type HbarToolDetailsLabels,
 } from './session-tool-details'
 import { sessionToolOutcome, toolErrorPreview, toolOutcomeCounts } from './session-tool-outcome-model'
+import { ToolTiming, ToolBatchFeedback, type SessionToolFeedbackLabels } from './session-tool-feedback'
+import {
+  rowToolActivity,
+  activityCounts,
+  type SessionToolActivities,
+  type SessionToolActivity,
+} from './session-tool-activity-model'
 export type { HbarMessageToolPresentation } from './session-tool-details'
 import {
   HbarMessageImageContent,
@@ -80,6 +87,7 @@ export interface HbarMessageBlocksLabels extends HbarToolDetailsLabels {
   readonly resultAvailable: string
   readonly awaitingResult: string
   readonly running: string
+  readonly feedback?: SessionToolFeedbackLabels
   readonly codeBlock: HbarCodeBlockLabels
   readonly attachment: (kind: 'image' | 'file', name: string) => string
 }
@@ -92,6 +100,7 @@ export interface HbarMessageBlocksProps {
   readonly textFormat?: 'literal' | 'markdown' | undefined
   readonly results?: readonly SessionToolResult[]
   readonly streaming?: boolean
+  readonly toolActivity?: SessionToolActivities | undefined
   readonly labels: HbarMessageBlocksLabels
   /** Local read-only output actions remain available in archived history. */
   readonly clipboard?: MessageClipboardPort | null | undefined
@@ -191,6 +200,7 @@ function Disclosure({
   failed = false,
   tool,
   action,
+  feedback,
 }: {
   readonly label: string
   readonly preview?: string | undefined
@@ -210,6 +220,7 @@ function Disclosure({
     readonly icon: HbarMessageToolPresentation['icon']
   }
   readonly action?: ReactNode
+  readonly feedback?: ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const id = useId()
@@ -266,6 +277,7 @@ function Disclosure({
       ) : (
         trigger
       )}
+      {feedback}
       <LumenFrame id={id} className="hbar-session-disclosure-content" hidden={!open}>
         {open ? children : null}
       </LumenFrame>
@@ -277,10 +289,14 @@ function ToolStatus({
   outcome,
   running,
   labels,
+  activity,
+  pending,
 }: {
   readonly outcome: ReturnType<typeof sessionToolOutcome>
   readonly running: boolean
   readonly labels: HbarMessageBlocksLabels
+  readonly activity?: SessionToolActivity | undefined
+  readonly pending?: boolean | undefined
 }) {
   const active = outcome === 'pending' && running
   const tone = active
@@ -294,23 +310,33 @@ function ToolStatus({
     outcome === 'pending'
       ? active
         ? labels.running
-        : labels.awaitingResult
+        : pending
+          ? (labels.feedback?.pending ?? labels.awaitingResult)
+          : labels.awaitingResult
       : outcome === 'succeeded' || outcome === 'legacy-result'
         ? labels.resultAvailable
         : outcome === 'legacy-error'
           ? labels.incomplete
           : labels[outcome]
   return (
-    <LumenText as="span" className="hbar-session-disclosure-status" data-status-tone={tone}>
-      <LumenText
-        as="span"
-        className="lumen-effect hbar-session-tool-status-indicator"
-        data-lumen-state={active ? 'running' : 'idle'}
-        aria-hidden="true"
-      />
-      <LumenText as="span" className="hbar-session-disclosure-status-text" title={label}>
-        {label}
+    <LumenText
+      as="span"
+      className="hbar-session-disclosure-status"
+      data-status-tone={tone}
+      data-timed={Boolean(activity?.execution && labels.feedback)}
+    >
+      <LumenText as="span" className="hbar-tool-status-caption">
+        <LumenText
+          as="span"
+          className="lumen-effect hbar-session-tool-status-indicator"
+          data-lumen-state={active ? 'running' : 'idle'}
+          aria-hidden="true"
+        />
+        <LumenText as="span" className="hbar-session-disclosure-status-text" title={label}>
+          {label}
+        </LumenText>
       </LumenText>
+      {activity && labels.feedback ? <ToolTiming activity={activity} labels={labels.feedback} /> : null}
     </LumenText>
   )
 }
@@ -325,6 +351,7 @@ function ToolRow({
   clipboard,
   copyOwner,
   renderToolAction,
+  toolActivity,
 }: {
   readonly row: SessionToolRow
   readonly running: boolean
@@ -335,19 +362,35 @@ function ToolRow({
   readonly clipboard?: HbarMessageBlocksProps['clipboard']
   readonly copyOwner?: HbarMessageBlocksProps['copyOwner']
   readonly renderToolAction?: HbarMessageBlocksProps['renderToolAction']
+  readonly toolActivity?: SessionToolActivities | undefined
 }) {
   const presentation = row.call && describeTool ? describeTool(row.call) : undefined
   const icon = toolIcons[presentation?.icon ?? 'tool']
   const errorPreview = toolErrorPreview(row.result, labels.showFullContent)
   const outcome = sessionToolOutcome(row.result)
+  const activity = rowToolActivity(row, toolActivity)
+  const active = toolActivity ? Boolean(activity?.active) : running && outcome === 'pending'
   const disclosure = (
     <Disclosure
       label={presentation?.label ?? labels.tool(row.name)}
       preview={errorPreview || presentation?.summary}
       previewFormat={errorPreview ? 'text' : presentation?.summaryFormat}
       title={presentation?.title}
-      status={<ToolStatus outcome={outcome} running={running} labels={labels} />}
-      live={running && outcome === 'pending'}
+      status={
+        <ToolStatus
+          outcome={outcome}
+          running={active}
+          labels={labels}
+          activity={activity}
+          pending={Boolean(activity?.pending && !row.result)}
+        />
+      }
+      live={active}
+      feedback={
+        activity?.batch && labels.feedback ? (
+          <ToolBatchFeedback counts={activity.batch} labels={labels.feedback} />
+        ) : null
+      }
       icon={icon}
       className="hbar-session-tool"
       failed={outcome === 'failed'}
@@ -393,6 +436,7 @@ function Activity({
   clipboard,
   copyOwner,
   renderToolAction,
+  toolActivity,
 }: {
   readonly rows: readonly ActivityRow[]
   readonly streaming: boolean
@@ -403,6 +447,7 @@ function Activity({
   readonly clipboard?: HbarMessageBlocksProps['clipboard']
   readonly copyOwner?: HbarMessageBlocksProps['copyOwner']
   readonly renderToolAction?: HbarMessageBlocksProps['renderToolAction']
+  readonly toolActivity?: SessionToolActivities | undefined
 }) {
   const [pinnedOpen, setPinnedOpen] = useState<boolean | null>(null)
   const contentId = useId()
@@ -427,6 +472,10 @@ function Activity({
     outcomeCounts,
   })
   const summary = typeof activity === 'string' ? activity : activity.map((part) => part.text).join('')
+  const tools = rows.filter((row): row is SessionToolRow => row.kind === 'tool')
+  const counts = activityCounts(tools, toolActivity)
+  const active =
+    (streaming && rows.some((row) => row.kind === 'thinking')) || (toolActivity ? counts.running > 0 : streaming)
   const children = rows.map((row) =>
     row.kind === 'thinking' ? (
       <Disclosure
@@ -469,12 +518,13 @@ function Activity({
         clipboard={clipboard}
         copyOwner={copyOwner}
         renderToolAction={renderToolAction}
+        toolActivity={toolActivity}
       />
     ),
   )
   if (rows.length === 1) return <LumenFrame className="hbar-session-activity">{children}</LumenFrame>
   return (
-    <LumenFrame className="hbar-session-activity" data-live={streaming}>
+    <LumenFrame className="hbar-session-activity" data-live={active}>
       <LumenButton
         variant="text"
         indicator="none"
@@ -489,7 +539,7 @@ function Activity({
         <LumenText
           as="span"
           className="lumen-effect hbar-session-tool-status-indicator"
-          data-lumen-state={streaming ? 'running' : 'idle'}
+          data-lumen-state={active ? 'running' : 'idle'}
           aria-hidden="true"
         />
         <LumenText as="span" className="hbar-session-activity-summary-text" data-inline-scroll>
@@ -503,6 +553,13 @@ function Activity({
         </LumenText>
         <LumenIcon icon={open ? ChevronDown : ChevronRight} tier="sm" />
       </LumenButton>
+      {tools.length > 1 && labels.feedback ? (
+        <ToolBatchFeedback
+          counts={counts}
+          activities={tools.map((row) => rowToolActivity(row, toolActivity))}
+          labels={labels.feedback}
+        />
+      ) : null}
       <LumenFrame id={contentId} className="hbar-session-activity-steps" hidden={!open}>
         {open ? children : null}
       </LumenFrame>
@@ -526,6 +583,7 @@ function MessageBlocksContent({
   toolDecisions,
   renderImages,
   renderToolAction,
+  toolActivity,
 }: HbarMessageBlocksProps) {
   const rows = buildMessageRows(blocks, results)
   const groups: Array<
@@ -580,6 +638,7 @@ function MessageBlocksContent({
             clipboard={clipboard}
             copyOwner={copyOwner}
             renderToolAction={renderToolAction}
+            toolActivity={toolActivity}
           />
         ) : group.kind === 'images' ? (
           <LumenFrame key={group.id} className="hbar-session-message-images">
@@ -597,6 +656,7 @@ function MessageBlocksContent({
               clipboard={clipboard}
               copyOwner={copyOwner}
               renderToolAction={renderToolAction}
+              toolActivity={toolActivity}
             />
             {toolDecisions?.get(group.id)}
           </LumenFrame>

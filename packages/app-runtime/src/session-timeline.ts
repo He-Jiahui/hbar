@@ -6,6 +6,8 @@ import {
   sessionEventSchema,
   usageSchema,
   userInputRequestSchema,
+  toolExecutionEventSchema,
+  toolBatchEventSchema,
 } from '@hbar/contracts'
 import { sessionTimelineCommands } from '@hbar/contracts/commands/session-timeline'
 import { queuedRunGuidanceSchema, type QueuedRunGuidance } from '@hbar/contracts/commands/run'
@@ -119,6 +121,10 @@ function fromSnapshot(
     streams: Object.fromEntries(snapshot.streams.map((stream) => [stream.id, { ...stream }])),
     events: [],
     cursor: snapshot.cursor,
+    toolEvents: (snapshot.toolEvents ?? []).filter((event) => event.sessionId === snapshot.session.id).slice(-1000),
+    ...(snapshot.toolObservedAt !== undefined
+      ? { toolClock: { hostTime: snapshot.toolObservedAt, receivedAt: Date.now() } }
+      : {}),
     hasOlder: preservesOlder ? (previous?.hasOlder ?? snapshot.hasOlder) : snapshot.hasOlder,
     error: null,
   }
@@ -220,6 +226,26 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
   let plan = current.plan
   let usage = current.usage
   let streams = current.streams
+  let toolEvents = current.toolEvents
+  let toolClock = current.toolClock
+
+  if (
+    event.runId &&
+    ((event.type === 'tool.execution' && toolExecutionEventSchema.safeParse(event.data).success) ||
+      (event.type === 'tool.sequence_progress' && toolBatchEventSchema.safeParse(event.data).success))
+  ) {
+    const identity = event.type === 'tool.execution' ? data?.callId : data?.parentCallId
+    const existing = (toolEvents ?? []).find(
+      (item) =>
+        item.runId === event.runId &&
+        item.type === event.type &&
+        (dataRecord(item)?.callId ?? dataRecord(item)?.parentCallId) === identity,
+    )
+    if (!existing || event.seq > existing.seq) {
+      toolEvents = [...(toolEvents ?? []).filter((item) => item !== existing), event].slice(-1000)
+      toolClock = { hostTime: event.time, receivedAt: Date.now() }
+    }
+  }
 
   if (event.type === 'message.committed' && data && event.runId) {
     const content = z.array(contentBlockSchema).safeParse(data.content)
@@ -302,6 +328,8 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
     plan,
     usage,
     streams,
+    ...(toolEvents ? { toolEvents } : {}),
+    ...(toolClock ? { toolClock } : {}),
     events: [...current.events, event].slice(-MAX_EVENTS),
     cursor: Math.max(current.cursor, event.seq),
     error: null,

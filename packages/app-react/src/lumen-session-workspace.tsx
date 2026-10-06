@@ -49,6 +49,7 @@ import {
   type HbarMessageForkAction,
 } from './session-message'
 import { projectSessionMessages, projectSessionTimelineSequence } from './session-message-model'
+import { projectToolActivities, EMPTY_TOOL_ACTIVITIES } from './session-tool-activity-model'
 import { conversationMessageExpectedText, type ConversationSelectionSubmission } from './conversation-selection-model'
 import {
   HbarConversationSelection,
@@ -1115,6 +1116,20 @@ function SessionWorkspaceContent({
   }
 
   const projectedMessages = useMemo(() => projectSessionMessages(timeline.messages), [timeline.messages])
+  const toolActivities = useMemo(
+    () =>
+      projectToolActivities(
+        {
+          sessionId: timeline.sessionId,
+          messages: timeline.messages,
+          runs: timeline.runs,
+          ...(timeline.toolEvents ? { toolEvents: timeline.toolEvents } : {}),
+          ...(timeline.toolClock ? { toolClock: timeline.toolClock } : {}),
+        },
+        connected,
+      ),
+    [timeline.sessionId, timeline.messages, timeline.runs, timeline.toolEvents, timeline.toolClock, connected],
+  )
   const forkCandidateIds = useMemo(
     () =>
       projectedMessages
@@ -1466,6 +1481,7 @@ function SessionWorkspaceContent({
       const body =
         proposal?.target.messageId === message.id && proposal.target.sessionId === message.sessionId ? (
           <HbarProposedPlanMessage
+            toolActivity={toolActivities.get(message.runId) ?? EMPTY_TOOL_ACTIVITIES}
             fileReferences={fileReferences}
             copyOwner={runtime}
             sessionId={message.sessionId}
@@ -1501,6 +1517,7 @@ function SessionWorkspaceContent({
           />
         ) : message.role === 'assistant' ? (
           <HbarHistoricalPlanMessage
+            toolActivity={toolActivities.get(message.runId) ?? EMPTY_TOOL_ACTIVITIES}
             fileReferences={fileReferences}
             copyOwner={runtime}
             sessionId={message.sessionId}
@@ -1516,6 +1533,7 @@ function SessionWorkspaceContent({
           />
         ) : (
           <HbarMessageBlocks
+            toolActivity={toolActivities.get(message.runId) ?? EMPTY_TOOL_ACTIVITIES}
             fileReferences={fileReferences}
             copyOwner={runtime}
             sessionId={message.sessionId}

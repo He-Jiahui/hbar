@@ -67,7 +67,13 @@ async function cleanup(child: ChildProcess, root: string, directory: string): Pr
     ),
   )
 }
-async function start(browser: Browser, locale: ShellLocale, width: number, outcome: Outcome): Promise<Fixture> {
+async function start(
+  browser: Browser,
+  locale: ShellLocale,
+  width: number,
+  outcome: Outcome,
+  feedback = false,
+): Promise<Fixture> {
   const assets = resolve(z.string().min(1).parse(process.env.HBAR_TOOL_OUTCOME_WEB_DIST))
   const expectedAsset = z.string().min(1).parse(process.env.HBAR_TOOL_OUTCOME_EXPECTED_ASSET)
   if (!existsSync(join(assets, 'index.html'))) throw new Error('Frozen tool-outcome Web assets are missing')
@@ -77,7 +83,12 @@ async function start(browser: Browser, locale: ShellLocale, width: number, outco
   const child = spawn(bunExecutable(), ['e2e/support/session-tool-outcome-host.ts'], {
     windowsHide: true,
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, HBAR_TOOL_OUTCOME_ROOT: root, HBAR_TOOL_OUTCOME_WEB_DIST: assets },
+    env: {
+      ...process.env,
+      HBAR_TOOL_OUTCOME_ROOT: root,
+      HBAR_TOOL_OUTCOME_WEB_DIST: assets,
+      ...(feedback ? { HBAR_TOOL_FEEDBACK_FIXTURE: '1' } : {}),
+    },
   })
   const context = await browser.newContext({
     locale,
@@ -218,7 +229,14 @@ async function verifyRow(f: Fixture, result: ToolResult, outcome: Outcome, phase
   await expect(trigger).toHaveAttribute('aria-expanded', 'false')
   const expectedStatus =
     outcome === 'succeeded' ? f.copy.session.messageBlocks.resultAvailable : f.copy.session.messageBlocks[outcome]
-  await expect(trigger.locator('.hbar-session-disclosure-status')).toHaveText(expectedStatus)
+  await expect(trigger.locator('.hbar-session-disclosure-status-text')).toHaveText(expectedStatus)
+  if (result.execution) {
+    await expect(trigger.locator('[data-tool-elapsed]')).toHaveAttribute(
+      'data-tool-elapsed',
+      String(result.execution.elapsedMs),
+    )
+    await expect(trigger.locator('[data-tool-elapsed]')).toHaveAttribute('data-tool-active', 'false')
+  }
   await trigger.scrollIntoViewIfNeeded()
   await capture(f, `${phase}-compact`)
   await trigger.focus()
@@ -253,6 +271,54 @@ async function verifyRow(f: Fixture, result: ToolResult, outcome: Outcome, phase
     defaultCollapsed: true,
   }
 }
+
+test('real Host tool feedback advances measured progress and restores batch timing after refresh', async ({
+  browser,
+}) => {
+  test.setTimeout(90_000)
+  const f = await start(browser, 'zh-CN', 1440, 'succeeded', true)
+  try {
+    const runs = createRunCommandClient(f.observer)
+    const submit = (name: string) =>
+      runs.execute(
+        'run.submit',
+        {
+          sessionId: f.ready.session.id,
+          modelId: 'local-fixture',
+          input: { text: `/tool ${name} {}`, images: [], approval: 'allow' },
+        },
+        { idempotencyKey: crypto.randomUUID() },
+      )
+    const timed = await submit('tool_feedback_read')
+    const timedRow = f.page.locator('.hbar-session-tool[data-tool-name="tool_feedback_read"]')
+    await expect(timedRow.locator('[data-tool-progress]')).toHaveText('25%')
+    await expect(timedRow.locator('[data-tool-elapsed]')).toHaveAttribute('data-tool-active', 'true')
+    await expect
+      .poll(async () => (await runs.execute('operation.get', { operationId: timed.operationId })).status)
+      .toBe('completed')
+    const timedResult = await originalResult(f, timed.operationId, 'tool_feedback_read')
+    expect(timedResult.execution?.elapsedMs).toBeGreaterThanOrEqual(1600)
+    expect(timedResult.execution?.progress).toEqual({ completed: 4, total: 4 })
+    await verifyRow(f, timedResult, 'succeeded', 'timed-final')
+    const batch = await submit('tool_feedback_batch')
+    const batchRow = f.page.locator('.hbar-session-tool[data-tool-name="tool_feedback_batch"]')
+    await expect(batchRow.locator('.hbar-tool-batch-counts')).toContainText('已结束 1 · 进行中 1 · 待执行 1')
+    await expect(batchRow.locator('[data-tool-progress]')).toHaveText('33.3%')
+    await capture(f, 'batch-running')
+    await expect
+      .poll(async () => (await runs.execute('operation.get', { operationId: batch.operationId })).status)
+      .toBe('completed')
+    const batchResult = await originalResult(f, batch.operationId, 'tool_feedback_batch')
+    expect(batchResult.batch).toEqual({ total: 3, settled: 3, running: 0, pending: 0, skipped: 0, unknown: 0 })
+    await f.page.reload()
+    await expect(batchRow.locator('.hbar-tool-batch-counts')).toContainText('已结束 3 · 进行中 0 · 待执行 0')
+    await expect(batchRow.locator('[data-tool-progress]')).toHaveText('100%')
+    await verifyRow(f, batchResult, 'succeeded', 'batch-refreshed')
+    expect(f.errors).toEqual([])
+  } finally {
+    await stop(f)
+  }
+})
 
 for (const locale of ['en-US', 'zh-CN'] as const)
   for (const width of [1440, 320])

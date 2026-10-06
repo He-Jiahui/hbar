@@ -3,10 +3,11 @@ import { StrictMode } from 'react'
 import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 import { LumenButton, LumenFrame, LumenProvider, LumenText } from '@lumen/app-ui'
-import { HbarMessageBlocks, projectSessionMessages } from '@hbar/app-react'
+import { HbarMessageBlocks, projectSessionMessages, projectToolActivities } from '@hbar/app-react'
 import type { SessionTimelineState } from '@hbar/app-runtime'
 import { createWebLumenAppearance, DEFAULT_WEB_APPEARANCE_DIMENSIONS } from '../../apps/web/src/appearance'
 import { getShellCopy, resolveShellLocale } from '../../apps/web/src/shell-copy'
+import { createSessionToolPresenter } from '../../apps/web/src/session-tool-presentation'
 import '@lumen/app-ui/styles.css'
 import './session-tool-outcome-browser.css'
 
@@ -15,6 +16,11 @@ export interface ToolOutcomeFixtureInput {
   readonly streaming: boolean
   readonly longLabels?: boolean
   readonly rejectClipboard?: boolean
+  readonly toolTimeline?: Pick<SessionTimelineState, 'sessionId' | 'messages' | 'runs' | 'toolEvents' | 'toolClock'>
+  readonly connected?: boolean
+  readonly presentTools?: boolean
+  readonly motion?: boolean
+  readonly mode?: 'light' | 'dark'
 }
 
 declare global {
@@ -48,11 +54,12 @@ const root = createRoot(container)
 
 function Fixture({ input }: { readonly input: ToolOutcomeFixtureInput }) {
   const projections = projectSessionMessages(input.messages)
+  const activities = input.toolTimeline ? projectToolActivities(input.toolTimeline, input.connected ?? true) : undefined
   const labels = input.longLabels
     ? { ...copy.session.messageBlocks, tool: (name: string) => `${fixtureCopy.longTool} — ${name}` }
     : copy.session.messageBlocks
   return (
-    <LumenProvider appearance={appearance}>
+    <LumenProvider appearance={{ ...appearance, mode: input.mode ?? 'light', motion: input.motion ?? false }}>
       <LumenFrame as="main" className="tool-outcome-fixture">
         <LumenText as="h1">{fixtureCopy.title}</LumenText>
         <LumenText as="p">{fixtureCopy.scope}</LumenText>
@@ -72,7 +79,11 @@ function Fixture({ input }: { readonly input: ToolOutcomeFixtureInput }) {
                 messageId={projection.message.id}
                 blocks={projection.blocks}
                 results={projection.results}
+                toolActivity={
+                  activities ? (activities.get(projection.message.runId) ?? new Map<string, never>()) : undefined
+                }
                 streaming={input.streaming}
+                describeTool={input.presentTools ? createSessionToolPresenter(locale) : undefined}
                 labels={labels}
                 clipboard={{
                   writeText: (text) => {

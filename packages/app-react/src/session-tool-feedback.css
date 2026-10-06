@@ -1,0 +1,70 @@
+.hbar-tool-timing,
+.hbar-tool-batch-metrics,
+.hbar-tool-status-caption {
+  display: inline-flex;
+  min-inline-size: 0;
+  align-items: center;
+  gap: 0.5rem;
+}
+.hbar-tool-timing,
+.hbar-tool-batch-metrics {
+  color: var(--lumen-muted);
+  font-variant-numeric: tabular-nums;
+}
+.hbar-session-disclosure-status[data-timed='true'] {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.125rem;
+}
+.hbar-tool-timing {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.hbar-tool-batch-feedback {
+  display: flex;
+  min-inline-size: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  padding: 0.25rem 0.375rem;
+  color: var(--lumen-muted);
+  font-size: var(--hbar-session-caption-size);
+}
+.hbar-tool-batch-counts {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  text-align: start;
+}
+.hbar-tool-batch-metrics {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.hbar-tool-percentage {
+  flex: 0 0 auto;
+  color: var(--lumen-info);
+}
+.hbar-session-tool-status-indicator[data-lumen-state='running'] {
+  animation: hbar-tool-active-pulse var(--lumen-running-duration) var(--lumen-state-easing) infinite alternate;
+}
+@keyframes hbar-tool-active-pulse {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: var(--lumen-glow-running-max);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hbar-session-tool-status-indicator[data-lumen-state='running'] {
+    animation: none;
+    opacity: 1;
+  }
+}
+[data-lumen-motion='off'] .hbar-session-tool-status-indicator[data-lumen-state='running'] {
+  animation: none;
+  opacity: 1;
+}

@@ -137,6 +137,75 @@ test('resnapshot preserves resolved ordinary approval facts for loaded history b
   }
 })
 
+test('tool execution facts survive snapshots, coalesce by call identity and reject invalid or stale progress', async () => {
+  const original = event(
+    'session-one',
+    2,
+    'tool.execution',
+    {
+      callId: 'read',
+      name: 'read_file',
+      execution: { startedAt: 1, elapsedMs: 10 },
+    },
+    'run-1',
+  )
+  let update: ((value: SessionTimelineUpdate) => void) | undefined
+  const timeline: SessionTimelinePort = {
+    async snapshot() {
+      return { ...snapshot('session-one', 2, 'initial'), toolEvents: [original], toolObservedAt: 20 }
+    },
+    async watch(_sessionId, _cursor, onUpdate) {
+      update = onUpdate
+      return () => {}
+    },
+  }
+  const runtime = createAppRuntime({ instanceId: 'tool-timing', hostId: 'host', directory: directory(), timeline })
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: 'session-one' })
+    await waitFor(() => Boolean(update))
+    const state = () => runtime.view.state.timeline.getSnapshot()
+    expect(state().toolEvents).toEqual([original])
+    expect(state().toolClock?.hostTime).toBe(20)
+    update?.({
+      kind: 'event',
+      event: event(
+        'session-one',
+        3,
+        'tool.execution',
+        {
+          callId: 'read',
+          name: 'read_file',
+          execution: { startedAt: 1, elapsedMs: 20, progress: { completed: 1, total: 4 } },
+        },
+        'run-1',
+      ),
+    })
+    await waitFor(() => state().cursor === 3)
+    expect(state().toolEvents).toHaveLength(1)
+    expect(state().toolEvents?.[0]?.seq).toBe(3)
+    update?.({
+      kind: 'event',
+      event: event(
+        'session-one',
+        4,
+        'tool.execution',
+        {
+          callId: 'read',
+          name: 'read_file',
+          execution: { startedAt: 1, elapsedMs: -20 },
+        },
+        'run-1',
+      ),
+    })
+    await waitFor(() => state().cursor === 4)
+    expect(state().toolEvents?.[0]?.seq).toBe(3)
+    await runtime.view.commands.execute('timeline.retry', { sessionId: 'session-one' })
+    expect(state().toolEvents).toEqual([original])
+  } finally {
+    runtime.dispose()
+  }
+})
+
 test('timeline follows the selected session incrementally and rejects stale or malformed updates', async () => {
   const updates = new Map<string, (update: SessionTimelineUpdate) => void>()
   const closed: string[] = []

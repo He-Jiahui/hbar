@@ -1019,6 +1019,9 @@ export interface SessionTimelineState {
   readonly usage: Readonly<Usage>
   readonly streams: Readonly<Record<string, Readonly<LiveStream>>>
   readonly events: readonly Readonly<SessionEvent>[]
+  readonly toolEvents?: readonly Readonly<SessionEvent>[]
+  /** Host/client clock pair prevents remote clock skew from becoming a fabricated elapsed time. */
+  readonly toolClock?: { readonly hostTime: number; readonly receivedAt: number }
   readonly cursor: number
   readonly hasOlder: boolean
   readonly error: string | null

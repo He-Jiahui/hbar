@@ -1382,6 +1382,7 @@ const methods: StorageMethods = {
       usage,
       cursor: session.seq,
       streams: [],
+      toolObservedAt: Date.now(),
       toolEvents: (
         db
           .query(

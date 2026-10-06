@@ -4,6 +4,7 @@ import { fileWorkspaceCopy, fileWorkspaceErrorCopy } from './file-workspace-copy
 import { settingsUsageCopy } from './settings-usage-copy'
 import { goalLifecycleCopy, goalHistoryCopy } from './goal-lifecycle-copy'
 import type { AgentProfileId } from '@hbar/contracts/commands/agents'
+import { toolFeedbackLabels } from './session-tool-feedback-copy'
 import type {
   HbarAgentWorkspaceLabels,
   HbarMessageActivityPart,
@@ -1124,6 +1125,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       accessible: (title, status) => choose(`${title}，${status}`, `${title}, ${status}`),
     },
     messageBlocks: {
+      feedback: toolFeedbackLabels(locale),
       codeBlock: codeBlockCopyLabels(locale),
       thinking: choose('思考中', 'Thinking'),
       thought: choose('思考', 'Thought'),

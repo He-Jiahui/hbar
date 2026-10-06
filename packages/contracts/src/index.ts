@@ -631,6 +631,7 @@ export interface SessionSnapshot {
   streams: LiveStream[]
   /** Bounded latest execution facts for reconnect; completed timing also lives in tool results. */
   toolEvents?: SessionEvent[]
+  toolObservedAt?: number
 }
 const providerModelInputSchema = z.object({
   id: z.string().min(1).max(160),
