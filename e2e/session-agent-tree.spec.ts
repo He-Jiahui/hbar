@@ -4,6 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { lumenMenuForTrigger } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 for (const locale of ['en-US', 'zh-CN'] as const)
@@ -137,8 +138,10 @@ for (const locale of ['en-US', 'zh-CN'] as const)
       await page.setViewportSize({ width: 1440, height: 960 })
       const show = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
       if (await show.isVisible()) await show.click()
-      await firstRow().locator('.lumen-action-menu summary').click()
-      await firstRow().getByRole('menuitem', { name: copy.shell.renameSession, exact: true }).click()
+      const trigger = firstRow().locator('.lumen-action-menu-trigger')
+      await trigger.click()
+      const menu = await lumenMenuForTrigger(trigger)
+      await menu.getByRole('menuitem', { name: copy.shell.renameSession, exact: true }).click()
       await expect(firstRow().getByRole('textbox', { name: copy.shell.renameEditor.title, exact: true })).toHaveValue(
         title,
       )

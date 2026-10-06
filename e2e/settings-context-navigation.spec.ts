@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { expectLumenValue, selectLumenChoice, selectLumenOption } from './support/lumen-controls'
 import { openSessionTool } from './support/session-tools-menu'
 
 async function selectGroup(page: Page, locale: ShellLocale, id: string, label: string) {
@@ -12,7 +13,7 @@ async function selectGroup(page: Page, locale: ShellLocale, id: string, label: s
   const mobile = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
   if (await mobile.isVisible()) {
     await mobile.focus()
-    await mobile.selectOption(id)
+    await selectLumenOption(mobile, id)
     await expect(mobile).toBeFocused()
   } else {
     const button = page
@@ -47,7 +48,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         const pageBoundary = page.locator('.hbar-settings-page-focus')
         await expect(pageBoundary).toBeFocused()
         await expect(pageBoundary).toHaveAccessibleName(copy.settings.pageTitle)
-        await expect(page.getByRole('heading', { name: copy.settings.pageTitle, exact: true })).toBeVisible()
+        await expect(
+          page.locator('.hbar-app-react-settings-workspace').getByRole('heading', {
+            name: copy.settings.pageTitle,
+            exact: true,
+          }),
+        ).toBeVisible()
         await page.screenshot({ path: testInfo.outputPath(`settings-shortcut-${locale}-${width}.png`) })
         await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
         await expectComposerText(prompt, draft)
@@ -86,7 +92,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await prompt.fill(draft)
       const pageBoundary = page.locator('.hbar-settings-page-focus')
       const scope = page.getByRole('combobox', { name: copy.settings.scopes, exact: true })
-      const thinking = page.getByRole('combobox', {
+      const thinking = page.getByRole('radiogroup', {
         name: locale === 'zh-CN' ? '思考等级' : 'Thinking level',
         exact: true,
       })
@@ -98,14 +104,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         { width: 320, height: 720 },
       ]) {
         await page.setViewportSize(viewport)
+        const mobileOpener = page.locator('.hbar-mobile-header-menu-trigger')
+        const openedFromMobileHeader = await mobileOpener.isVisible()
         await openSessionTool(page, copy.session.tools, 'settings')
         await expect(pageBoundary).toBeFocused()
         await expect(pageBoundary).toHaveAccessibleName(copy.settings.pageTitle)
-        await expect(scope).toHaveValue('session')
-        const level = viewport.width === 390 ? (locale === 'zh-CN' ? '高' : 'High') : locale === 'zh-CN' ? '低' : 'Low'
-        await thinking.click()
-        await page.getByRole('option', { name: level, exact: true }).click()
-        await expect(thinking).toHaveValue(level)
+        await expectLumenValue(scope, 'session')
+        const level = viewport.width === 390 ? 'high' : 'low'
+        await selectLumenChoice(thinking, `string:${level}`)
+        await expect(thinking).toHaveAttribute('data-value', `string:${level}`)
 
         await selectGroup(page, locale, 'providers', copy.settings.resolve('i18n:settings.groups.providers'))
         await expect(page.getByText(copy.settings.hostScope, { exact: true })).toBeVisible()
@@ -116,8 +123,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
         await page.screenshot({ path: `artifacts/desktop-experience/settings-context-${locale}-${viewport.width}.png` })
         await selectGroup(page, locale, 'model', modelLabel)
-        await expect(scope).toHaveValue('session')
-        await expect(thinking).toHaveValue(level)
+        await expectLumenValue(scope, 'session')
+        await expect(thinking).toHaveAttribute('data-value', `string:${level.toLowerCase()}`)
         const save = page.getByRole('button', { name: copy.settings.save, exact: true })
         await expect(save).toBeEnabled()
         await save.focus()
@@ -128,7 +135,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         const back = page.getByRole('button', { name: copy.settings.back, exact: true })
         await back.focus()
         await page.keyboard.press('Enter')
-        await expect(pageBoundary).toBeFocused()
+        // The responsive header stays mounted outside the content boundary.
+        // Restore its real opener; desktop session-tool rows are unmounted
+        // by Settings and therefore fall back to the named session region.
+        if (openedFromMobileHeader) await expect(mobileOpener).toBeFocused()
+        else await expect(pageBoundary).toBeFocused()
         await expect(pageBoundary).toHaveAccessibleName(host.ready.sessionTitle)
         await expectComposerText(prompt, draft)
       }

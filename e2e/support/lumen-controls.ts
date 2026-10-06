@@ -21,6 +21,15 @@ export async function selectLumenOption(control: Locator, target: LumenOptionTar
   if (typeof target === 'string') await expectLumenValue(control, target)
 }
 
+/** Resolve the portaled ActionMenu owned by a trigger after it has been opened. */
+export async function lumenMenuForTrigger(trigger: Locator): Promise<Locator> {
+  const menuId = await trigger.getAttribute('aria-controls')
+  if (!menuId) throw new Error('Lumen action trigger does not identify its menu')
+  const menu = trigger.page().locator(`[id=${JSON.stringify(menuId)}][role="menu"]`)
+  await expect(menu).toBeVisible()
+  return menu
+}
+
 /** Stable domain values remain independent from the current host locale. */
 export async function expectLumenValue(control: Locator, value: string | RegExp): Promise<void> {
   await expect(control).toHaveAttribute('data-value', value)

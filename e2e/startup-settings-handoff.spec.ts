@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { WEB_LANGUAGE_STORAGE_KEY } from '../apps/web/src/language'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { expectLumenValue, selectLumenOption } from './support/lumen-controls'
 
 const evidence = process.env.HBAR_STARTUP_EVIDENCE_DIR ?? 'artifacts/startup-handoff'
 if (!/^artifacts\/startup-handoff(?:\/[A-Za-z0-9_-]+)*$/.test(evidence))
@@ -89,7 +90,7 @@ async function gateActualHello(page: Page) {
 async function selectGroup(page: Page, locale: ShellLocale, group: 'general' | 'providers' | 'appearance') {
   const copy = getShellCopy(locale)
   const mobile = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
-  if (await mobile.isVisible()) await mobile.selectOption(group)
+  if (await mobile.isVisible()) await selectLumenOption(mobile, group)
   else {
     const label =
       group === 'general'
@@ -304,8 +305,8 @@ async function changeAppearance(page: Page, locale: ShellLocale) {
   const labels = getShellCopy(locale).appearance
   const form = page.locator('.hbar-web-appearance-settings')
   await form.getByRole('radio', { name: labels.theme.dark, exact: true }).click()
-  await form.getByRole('combobox', { name: labels.controlSize.label, exact: true }).selectOption('s')
-  await form.getByRole('combobox', { name: labels.textSize.label, exact: true }).selectOption('l')
+  await selectLumenOption(form.getByRole('combobox', { name: labels.controlSize.label, exact: true }), 's')
+  await selectLumenOption(form.getByRole('combobox', { name: labels.textSize.label, exact: true }), 'l')
   return form
 }
 async function assertDraft(page: Page, locale: ShellLocale) {
@@ -315,8 +316,8 @@ async function assertDraft(page: Page, locale: ShellLocale) {
     'aria-checked',
     'true',
   )
-  await expect(form.getByRole('combobox', { name: labels.controlSize.label, exact: true })).toHaveValue('s')
-  await expect(form.getByRole('combobox', { name: labels.textSize.label, exact: true })).toHaveValue('l')
+  await expectLumenValue(form.getByRole('combobox', { name: labels.controlSize.label, exact: true }), 's')
+  await expectLumenValue(form.getByRole('combobox', { name: labels.textSize.label, exact: true }), 'l')
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
@@ -363,8 +364,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           if (group === 'appearance') {
             const form = page.locator('.hbar-web-appearance-settings')
             await form.getByRole('radio', { name: copy.appearance.theme.dark, exact: true }).click()
-            await form.getByRole('combobox', { name: copy.appearance.controlSize.label, exact: true }).selectOption('s')
-            await form.getByRole('combobox', { name: copy.appearance.textSize.label, exact: true }).selectOption('l')
+            await selectLumenOption(
+              form.getByRole('combobox', { name: copy.appearance.controlSize.label, exact: true }),
+              's',
+            )
+            await selectLumenOption(
+              form.getByRole('combobox', { name: copy.appearance.textSize.label, exact: true }),
+              'l',
+            )
             await expect(form.getByRole('button', { name: copy.appearance.save, exact: true })).toBeDisabled()
             await expect(form.getByRole('button', { name: copy.appearance.reset, exact: true })).toBeDisabled()
             await expect(form.getByText(copy.appearance.identityPending, { exact: true })).toBeVisible()
@@ -429,7 +436,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           await page.screenshot({ path: `${evidence}/${group}-${locale}-${width}-after.png` })
           expect(sameDom).toBe(true)
           expect(sameFocus).toBe(true)
-          await expect(page.locator('.hbar-app-react-settings-mobile-group select')).toHaveValue(group)
+          await expectLumenValue(page.getByRole('combobox', { name: copy.settings.groups, exact: true }), group)
           await expect(page.locator('html')).toHaveAttribute('lang', activeLocale)
           expect(await page.evaluate((key) => localStorage.getItem(key), WEB_LANGUAGE_STORAGE_KEY)).toBe(
             group === 'general' ? activeLocale : null,
@@ -445,10 +452,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
               'aria-checked',
               'true',
             )
-            await expect(
+            await expectLumenValue(
               form.getByRole('combobox', { name: copy.appearance.controlSize.label, exact: true }),
-            ).toHaveValue('s')
-            await expect(form.getByRole('combobox', { name: copy.appearance.textSize.label, exact: true })).toHaveValue(
+              's',
+            )
+            await expectLumenValue(
+              form.getByRole('combobox', { name: copy.appearance.textSize.label, exact: true }),
               'l',
             )
             await form.getByRole('button', { name: copy.appearance.save, exact: true }).click()
@@ -463,10 +472,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
               'aria-checked',
               'true',
             )
-            await expect(
+            await expectLumenValue(
               form.getByRole('combobox', { name: copy.appearance.controlSize.label, exact: true }),
-            ).toHaveValue('s')
-            await expect(form.getByRole('combobox', { name: copy.appearance.textSize.label, exact: true })).toHaveValue(
+              's',
+            )
+            await expectLumenValue(
+              form.getByRole('combobox', { name: copy.appearance.textSize.label, exact: true }),
               'l',
             )
             await form.getByRole('button', { name: copy.appearance.reset, exact: true }).click()
@@ -475,10 +486,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
               'aria-checked',
               'true',
             )
-            await expect(
+            await expectLumenValue(
               form.getByRole('combobox', { name: copy.appearance.controlSize.label, exact: true }),
-            ).toHaveValue('m')
-            await expect(form.getByRole('combobox', { name: copy.appearance.textSize.label, exact: true })).toHaveValue(
+              'm',
+            )
+            await expectLumenValue(
+              form.getByRole('combobox', { name: copy.appearance.textSize.label, exact: true }),
               'm',
             )
             expect(
@@ -538,7 +551,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
             await openSettings(f.page, locale)
           } else {
             expect(await node?.evaluate((element) => element.isConnected)).toBe(true)
-            await expect(f.page.locator('.hbar-app-react-settings-mobile-group select')).toHaveValue('general')
+            await expectLumenValue(
+              f.page.getByRole('combobox', { name: f.copy.settings.groups, exact: true }),
+              'general',
+            )
           }
           await selectGroup(f.page, locale, 'appearance')
           await assertDraft(f.page, locale)

@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { selectLumenOption } from './support/lumen-controls'
 
 test('settings scope and model controls fit narrow workspaces without horizontal clipping', async ({ browser }) => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-settings-layout-'))
@@ -19,7 +20,7 @@ test('settings scope and model controls fit narrow workspaces without horizontal
     await page.getByRole('button', { name: /^Open session / }).click()
     await page.getByRole('button', { name: 'Settings', exact: true }).click()
     await page.getByRole('button', { name: 'Model', exact: true }).click()
-    await page.getByRole('combobox', { name: 'Settings scope' }).selectOption('session')
+    await selectLumenOption(page.getByRole('combobox', { name: 'Settings scope' }), 'session')
     await expect(page.getByRole('combobox', { name: 'Model', exact: true })).toBeVisible()
     for (const viewport of [
       { width: 1440, height: 960 },
@@ -61,7 +62,7 @@ test('settings scope and model controls fit narrow workspaces without horizontal
       await expect(page.getByRole('combobox', { name: 'Model', exact: true })).toBeVisible()
     }
     await page.setViewportSize({ width: 1440, height: 960 })
-    await page.getByRole('combobox', { name: 'Settings scope' }).selectOption('global')
+    await selectLumenOption(page.getByRole('combobox', { name: 'Settings scope' }), 'global')
     await page.getByRole('button', { name: 'Providers', exact: true }).click()
     const actions = page.getByTitle('Actions for Local fixture', { exact: true })
     await actions.click()

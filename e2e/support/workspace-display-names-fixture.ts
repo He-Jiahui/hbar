@@ -10,6 +10,7 @@ import { createInterface } from 'node:readline'
 import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../../apps/web/src/shell-copy'
 import { workspaceDisplayNamesCopy } from '../../apps/web/src/workspace-display-names-copy'
+import { lumenMenuForTrigger } from './lumen-controls'
 
 export const evidence = process.env.HBAR_DISPLAY_NAMES_EVIDENCE ?? 'artifacts/project-display-names-ui/browser'
 const prefix = 'hbar-project-alias-ui-'
@@ -69,19 +70,25 @@ export async function removeOwned(root: string) {
 }
 export async function showSidebar(f: Fixture) {
   const side = f.page.getByRole('complementary', { name: f.copy.shell.projectsAndSessions, exact: true })
-  if (!(await side.isVisible()))
-    await f.page.getByRole('button', { name: f.copy.shell.showSidebar, exact: true }).click()
+  const show = f.page.getByRole('button', { name: f.copy.shell.showSidebar, exact: true })
+  // Wait for the responsive navigation to settle. The aside shell can be
+  // present before its narrow-screen visibility and actual project rows.
+  await expect.poll(async () => (await row(f).isVisible()) || (await show.isVisible())).toBe(true)
+  if (await show.isVisible()) await show.click()
   await expect(side).toBeVisible()
+  await expect(row(f)).toBeVisible()
   return side
 }
 export async function hideSidebar(f: Fixture) {
+  const show = f.page.getByRole('button', { name: f.copy.shell.showSidebar, exact: true })
+  if (await show.isVisible()) return
   const button = f.page.getByRole('button', { name: f.copy.shell.hideSidebar, exact: true })
   if (await button.isVisible()) {
     try {
       await button.click({ timeout: 1500 })
     } catch (error) {
       // Narrow session navigation may have already fulfilled the same close intent.
-      if (await button.isVisible()) throw error
+      if (!(await show.isVisible())) throw error
     }
   }
 }
@@ -198,11 +205,12 @@ export async function stop(f: Fixture) {
 }
 export async function openEditor(f: Fixture, workspaceId = f.ready.firstWorkspace.id) {
   await showSidebar(f)
-  const trigger = row(f, workspaceId).locator('.hbar-app-react-project-menu summary')
+  const trigger = row(f, workspaceId).locator('.hbar-app-react-project-menu .lumen-action-menu-trigger')
   await trigger.focus()
   await f.page.keyboard.press('Enter')
+  const menu = await lumenMenuForTrigger(trigger)
   await f.page.keyboard.press('Home')
-  const item = row(f, workspaceId).getByRole('menuitem', { name: f.names.title, exact: true })
+  const item = menu.getByRole('menuitem', { name: f.names.title, exact: true })
   await expect(item).toBeFocused()
   await item.click()
   const dialog = f.page.getByRole('dialog', { name: f.names.title, exact: true })

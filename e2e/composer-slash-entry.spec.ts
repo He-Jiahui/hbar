@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { expectLumenValue } from './support/lumen-controls'
 
 const base = () => `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
 
@@ -68,14 +69,18 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expectComposerText(prompt, '/settings ')
       await expect(page.getByRole('combobox', { name: copy.settings.scopes })).toHaveCount(0)
       await prompt.press('Enter')
-      await expect(page.getByRole('combobox', { name: copy.settings.scopes })).toHaveValue('session')
+      await expectLumenValue(page.getByRole('combobox', { name: copy.settings.scopes }), 'session')
       await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
       await expectComposerText(prompt, '')
 
       await prompt.fill('/cost')
       await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
       await expect(page.locator('.hbar-app-react-session-monitoring')).toBeVisible()
-      await expect(page.getByRole('heading', { name: copy.monitoring.title, exact: true })).toBeVisible()
+      await expect(
+        page
+          .locator('.hbar-app-react-session-monitoring [data-tool-pane-slot="header"]')
+          .getByRole('heading', { name: copy.monitoring.title, exact: true }),
+      ).toBeVisible()
       await expectComposerText(prompt, '')
       expect((await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs).toHaveLength(0)
       await page.getByRole('button', { name: copy.monitoring.close, exact: true }).click()
@@ -144,7 +149,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .getByRole('button')
         .click()
       await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
-      await expect(page.getByRole('combobox', { name: copy.settings.scopes })).toHaveValue('session')
+      await expectLumenValue(page.getByRole('combobox', { name: copy.settings.scopes }), 'session')
       await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
       await expectComposerText(prompt, '')
 

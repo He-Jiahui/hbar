@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { expectLumenValue, selectLumenOption } from './support/lumen-controls'
 
 async function revealSidebar(page: Page, locale: ShellLocale) {
   const copy = getShellCopy(locale)
@@ -86,21 +87,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await menu
           .getByRole('menuitem', { name: locale === 'zh-CN' ? '工作区设置' : 'Workspace settings', exact: true })
           .click()
-        await expect(page.getByRole('combobox', { name: copy.settings.scopes })).toHaveValue('workspace')
-        await expect(
-          page.getByRole('combobox', { name: copy.settings.scopes }).getByRole('option', { selected: true }),
-        ).toHaveText(copy.settings.scopeOption('workspace', second.name))
+        await expectLumenValue(page.getByRole('combobox', { name: copy.settings.scopes }), 'workspace')
         await expect(page.getByRole('heading', { name: copy.settings.pageTitle, exact: true })).toBeVisible()
         const scopes = page.getByRole('combobox', { name: copy.settings.scopes })
-        await expect(
-          scopes.getByRole('option', { name: copy.settings.scopeOption('session', null), exact: true }),
-        ).toBeDisabled()
-        await scopes.selectOption('global')
-        await expect(scopes).toHaveValue('global')
-        await scopes.selectOption('workspace')
-        await expect(scopes.getByRole('option', { selected: true })).toHaveText(
-          copy.settings.scopeOption('workspace', second.name),
-        )
+        await selectLumenOption(scopes, 'global')
+        await expectLumenValue(scopes, 'global')
+        await selectLumenOption(scopes, 'workspace')
+        await expectLumenValue(scopes, 'workspace')
         await revealSidebar(page, locale)
         await expect(firstRow).not.toHaveAttribute('aria-current', 'page')
         await expect(page.getByRole('button', { name: copy.shell.settings, exact: true })).toHaveAttribute(

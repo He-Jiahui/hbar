@@ -6,11 +6,12 @@ import { createSystemCommandClient } from '@hbar/client'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { openSessionTool } from './support/session-tools-menu'
+import { selectLumenOption } from './support/lumen-controls'
 
 async function selectDiagnostics(page: Page, locale: ShellLocale) {
   const copy = getShellCopy(locale)
   const mobile = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
-  if (await mobile.isVisible()) await mobile.selectOption('diagnostics')
+  if (await mobile.isVisible()) await selectLumenOption(mobile, 'diagnostics')
   else
     await page
       .getByRole('navigation', { name: copy.settings.groups })

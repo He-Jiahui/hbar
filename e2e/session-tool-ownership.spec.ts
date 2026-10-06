@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { workspaceTabsCopy } from '../apps/web/src/workspace-tabs-copy'
 import { expectComposerText } from './support/composer-text'
+import { lumenMenuForTrigger } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { openSessionTool } from './support/session-tools-menu'
 
@@ -355,8 +356,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await select(fixture, a)
       await assertA(fixture, draftA)
       await sidebar(fixture, true)
-      await page.getByTitle(copy.shell.workspaceActions(secondWorkspace.name), { exact: true }).click()
-      await page.getByRole('menuitem', { name: copy.shell.workspaceFiles, exact: true }).click()
+      const filesTrigger = page.getByTitle(copy.shell.workspaceActions(secondWorkspace.name), { exact: true })
+      await filesTrigger.click()
+      const filesMenu = await lumenMenuForTrigger(filesTrigger)
+      await filesMenu.getByRole('menuitem', { name: copy.shell.workspaceFiles, exact: true }).click()
       await sidebar(fixture, false)
       await expect(files.getByTitle(secondWorkspace.name, { exact: true })).toBeVisible()
       // The project-only pinned entry can start in its own browser view. Both
@@ -483,8 +486,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await select(fixture, b)
       await sidebar(fixture, true)
       const row = page.locator(`[data-session-id="${a.id}"]`)
-      await row.locator('summary').click()
-      await row.getByRole('menuitem', { name: copy.shell.archiveSession, exact: true }).click()
+      const rowTrigger = row.locator('.lumen-action-menu-trigger')
+      await rowTrigger.click()
+      const rowMenu = await lumenMenuForTrigger(rowTrigger)
+      await rowMenu.getByRole('menuitem', { name: copy.shell.archiveSession, exact: true }).click()
       const confirmation = row.getByRole('group', { name: copy.shell.archive.confirmTitle(a.title), exact: true })
       await confirmation.getByRole('button', { name: copy.shell.archive.confirm, exact: true }).click()
       await expect(row).toHaveCount(0)
@@ -504,8 +509,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       )
       await page.setViewportSize({ width: 1440, height: 960 })
       await sidebar(fixture, true)
-      await page.getByTitle(copy.shell.workspaceActions(firstWorkspace.name), { exact: true }).click()
-      await page.getByRole('menuitem', { name: copy.shell.archive.openList(firstWorkspace.name), exact: true }).click()
+      const trigger = page.getByTitle(copy.shell.workspaceActions(firstWorkspace.name), { exact: true })
+      await trigger.click()
+      const menu = await lumenMenuForTrigger(trigger)
+      await menu.getByRole('menuitem', { name: copy.shell.archive.openList(firstWorkspace.name), exact: true }).click()
       const list = page.getByRole('region', { name: copy.shell.archive.listTitle(firstWorkspace.name), exact: true })
       await list.getByRole('button', { name: copy.shell.archive.restoreSession(a.title), exact: true }).click()
       await expect(row).toBeVisible()

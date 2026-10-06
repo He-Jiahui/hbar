@@ -9,6 +9,7 @@ import { createInterface } from 'node:readline'
 import { z } from 'zod'
 import { sessionSchema, workspaceSchema } from '@hbar/contracts/directory'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
+import { selectLumenOption } from './support/lumen-controls'
 
 const prefix = 'hbar-settings-command-focus-'
 const evidence = resolve(process.env.HBAR_SETTINGS_COMMAND_FOCUS_EVIDENCE ?? 'artifacts/settings-command-focus/browser')
@@ -174,12 +175,12 @@ async function start(browser: Browser, locale: ShellLocale, width: number): Prom
     if (await show.isVisible()) await show.click()
     await page.getByRole('button', { name: copy.shell.settings, exact: true }).click()
     const groupSelect = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
-    if (await groupSelect.isVisible()) await groupSelect.selectOption('extensions')
-    else
-      await page
-        .getByRole('navigation', { name: copy.settings.groups, exact: true })
-        .getByRole('button', { name: copy.settings.resolve('i18n:settings.groups.extensions'), exact: true })
-        .click()
+    const desktopGroup = page
+      .getByRole('navigation', { name: copy.settings.groups, exact: true })
+      .getByRole('button', { name: copy.settings.resolve('i18n:settings.groups.extensions'), exact: true })
+    await expect.poll(async () => (await groupSelect.isVisible()) || (await desktopGroup.isVisible())).toBe(true)
+    if (await groupSelect.isVisible()) await selectLumenOption(groupSelect, 'extensions')
+    else await desktopGroup.click()
     await expect(page.locator('.hbar-app-react-extension-workspace')).toBeVisible()
     await expect(page.locator('.hbar-app-react-settings-workspace')).not.toContainText(copy.settings.loading)
     await expect(
@@ -212,7 +213,7 @@ function opener(fixture: Fixture): Locator {
 }
 
 function palette(fixture: Fixture): Locator {
-  return fixture.page.locator('dialog.hbar-app-react-command-modal')
+  return fixture.page.locator('.lumen-dialog.hbar-app-react-command-modal[role="dialog"]')
 }
 
 function commandSearch(fixture: Fixture): Locator {
@@ -225,7 +226,9 @@ async function capture(fixture: Fixture, name: string): Promise<void> {
     viewportWidth: innerWidth,
     activeTag: document.activeElement?.tagName ?? null,
     activeLabel: document.activeElement?.getAttribute('aria-label') ?? null,
-    modalOpen: Boolean(document.querySelector('dialog.hbar-app-react-command-modal:modal')),
+    modalOpen: Boolean(
+      document.querySelector('.lumen-dialog.hbar-app-react-command-modal[role="dialog"][aria-modal="true"]'),
+    ),
   }))
   expect(state.documentWidth).toBeLessThanOrEqual(fixture.width + 1)
   await fixture.page.screenshot({ path: join(fixture.directory, `${name}.png`) })

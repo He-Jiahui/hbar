@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { lumenMenuForTrigger } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 const rpcShape = z
@@ -86,9 +87,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const otherRow = page.locator(`[data-session-id="${other.id}"]`)
       await row.locator('.hbar-app-react-session-target').click()
       const begin = async () => {
-        await row.locator('summary').focus()
+        const trigger = row.locator('.lumen-action-menu-trigger')
+        await trigger.focus()
         await page.keyboard.press('Enter')
-        await row.getByRole('menuitem', { name: copy.shell.archiveSession, exact: true }).click()
+        const menu = await lumenMenuForTrigger(trigger)
+        await menu.getByRole('menuitem', { name: copy.shell.archiveSession, exact: true }).click()
       }
       await begin()
       const confirmation = row.getByRole('group', { name: labels.confirmTitle(title), exact: true })
@@ -139,8 +142,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(page.getByText(labels.archived(title), { exact: true })).toBeVisible()
       await page.getByRole('button', { name: labels.dismiss, exact: true }).click()
       const openArchived = async () => {
-        await page.getByTitle(copy.shell.workspaceActions(host!.ready.workspaceName), { exact: true }).click()
-        await page.getByRole('menuitem', { name: labels.openList(host!.ready.workspaceName), exact: true }).click()
+        const trigger = page.getByTitle(copy.shell.workspaceActions(host!.ready.workspaceName), { exact: true })
+        await trigger.click()
+        const menu = await lumenMenuForTrigger(trigger)
+        await menu.getByRole('menuitem', { name: labels.openList(host!.ready.workspaceName), exact: true }).click()
       }
       await openArchived()
       const list = page.getByRole('region', { name: labels.listTitle(host.ready.workspaceName), exact: true })
@@ -164,8 +169,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(snapshot.messages).toHaveLength(2)
       expect(writes).toBe(2)
       await recovery.getByRole('button', { name: labels.dismiss, exact: true }).click()
-      await otherRow.locator('summary').click()
-      await otherRow.getByRole('menuitem', { name: copy.shell.archiveSession, exact: true }).click()
+      const otherTrigger = otherRow.locator('.lumen-action-menu-trigger')
+      await otherTrigger.click()
+      const otherMenu = await lumenMenuForTrigger(otherTrigger)
+      await otherMenu.getByRole('menuitem', { name: copy.shell.archiveSession, exact: true }).click()
       await otherRow.getByRole('button', { name: labels.confirm, exact: true }).click()
       await expect(otherRow).toHaveCount(0)
       await expect(page.getByRole('heading', { name: copy.preSession.hero.title, exact: true })).toBeVisible()
@@ -208,8 +215,10 @@ test('an empty first archived page still exposes the next bounded project page',
     expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
     const page = await context.newPage()
     await page.goto(base)
-    await page.getByTitle(copy.shell.workspaceActions(host.ready.workspaceName), { exact: true }).click()
-    await page.getByRole('menuitem', { name: labels.openList(host.ready.workspaceName), exact: true }).click()
+    const trigger = page.getByTitle(copy.shell.workspaceActions(host.ready.workspaceName), { exact: true })
+    await trigger.click()
+    const menu = await lumenMenuForTrigger(trigger)
+    await menu.getByRole('menuitem', { name: labels.openList(host.ready.workspaceName), exact: true }).click()
     const list = page.getByRole('region', { name: labels.listTitle(host.ready.workspaceName), exact: true })
     await expect(list).toContainText(labels.emptyPage)
     await expect(list).not.toContainText(labels.empty)

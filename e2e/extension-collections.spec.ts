@@ -13,6 +13,7 @@ import {
   type ExtensionCollectionsFixture,
 } from './support/extension-collections-fixture'
 import { expectComposerText } from './support/composer-text'
+import { selectLumenOption } from './support/lumen-controls'
 
 type Collection = 'plugins' | 'skills'
 const configurations = (['en-US', 'zh-CN'] as const).flatMap((locale) =>
@@ -300,7 +301,7 @@ for (const config of [
       await retry(f, 'skills').click()
       await expect.poll(() => f.faults.pending(original)).toBe(1)
       const select = f.page.getByRole('combobox', { name: f.copy.settings.groups, exact: true })
-      if (await select.isVisible()) await select.selectOption('general')
+      if (await select.isVisible()) await selectLumenOption(select, 'general')
       else
         await f.page
           .getByRole('navigation', { name: f.copy.settings.groups, exact: true })

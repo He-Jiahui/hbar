@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { selectLumenOption } from './support/lumen-controls'
 
 const base = () => `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
 
@@ -63,7 +64,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       if (await showSidebar.isVisible()) await showSidebar.click()
       await page.getByRole('button', { name: copy.shell.settings, exact: true }).click()
       const groups = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
-      if (await groups.isVisible()) await groups.selectOption({ label: copy.general.group })
+      if (await groups.isVisible()) await selectLumenOption(groups, { label: copy.general.group })
       else await page.getByRole('button', { name: copy.general.group, exact: true }).click()
       const sending = page.locator('.hbar-web-general-sending')
       await expect(sending).toBeVisible()

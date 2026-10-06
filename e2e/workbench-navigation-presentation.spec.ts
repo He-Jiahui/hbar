@@ -8,6 +8,7 @@ import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { workspaceTabsCopy } from '../apps/web/src/workspace-tabs-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { selectLumenOption } from './support/lumen-controls'
 
 const origin = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
 const port = Number(process.env.HBAR_E2E_HOST_PORT ?? 4317)
@@ -384,7 +385,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.getByRole('button', { name: copy.shell.extensionsAndSkills, exact: true }).click()
       await sidebar(page, copy, false)
       const settingsGroups = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
-      if (await settingsGroups.isVisible()) await settingsGroups.selectOption('extensions')
+      if (await settingsGroups.isVisible()) await selectLumenOption(settingsGroups, 'extensions')
       else
         await page
           .getByRole('navigation', { name: copy.settings.groups, exact: true })

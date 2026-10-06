@@ -13,6 +13,7 @@ import { getShellCopy } from '../apps/web/src/shell-copy'
 import { preSessionCopy } from '../apps/web/src/pre-session-copy'
 import { preSessionLaunchCopy } from '../apps/web/src/pre-session-launch-copy'
 import { expectComposerText } from './support/composer-text'
+import { selectLumenOption } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 const prefix = 'hbar-project-continuity-'
@@ -202,7 +203,7 @@ test('first-send project switch preserves current model and effort, then tab Fil
     const files = page.locator('.hbar-app-react-file-workspace:not(.hbar-app-react-file-workbench)')
     await expect(files).toBeVisible()
     const navigator = files.getByRole('region', { name: copy.files.navigator, exact: true })
-    await navigator.getByRole('combobox', { name: copy.files.changes.mode, exact: true }).selectOption('all')
+    await selectLumenOption(navigator.getByRole('combobox', { name: copy.files.changes.mode, exact: true }), 'all')
     await navigator.getByRole('textbox', { name: copy.files.tree.filter, exact: true }).fill(path)
     const results = navigator.getByRole('list', { name: copy.files.tree.searchResults, exact: true })
     await results.getByRole('button').filter({ hasText: path }).click()

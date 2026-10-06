@@ -11,6 +11,7 @@ import { HbarClient, createSessionSearchCommandClient, createWorkspaceSessionCom
 import { sessionSchema, workspaceSchema } from '@hbar/contracts/directory'
 import { chatSearchCopy } from '../apps/web/src/chat-search-copy'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
+import { lumenMenuForTrigger } from './support/lumen-controls'
 
 const prefix = 'hbar-chat-search-e2e-'
 const evidence = resolve(process.env.HBAR_CHAT_SEARCH_EVIDENCE ?? 'artifacts/chat-search/browser-v1')
@@ -295,7 +296,7 @@ test('a changed search query recovers after the original held session navigation
 })
 
 function dialog(fixture: Fixture): Locator {
-  return fixture.page.locator('dialog.hbar-app-react-chat-search-dialog')
+  return fixture.page.locator('.lumen-dialog.hbar-app-react-chat-search-dialog[role="dialog"]')
 }
 
 function input(fixture: Fixture): Locator {
@@ -340,8 +341,10 @@ async function openBySidebar(fixture: Fixture): Promise<void> {
 
 async function hideSecondWorkspace(fixture: Fixture): Promise<void> {
   const project = fixture.page.locator(`[data-workspace-id="${fixture.ready.hiddenWorkspace.id}"]`)
-  await project.locator('.hbar-app-react-project-menu summary').click()
-  const hide = project.getByRole('menuitem', {
+  const trigger = project.locator('.hbar-app-react-project-menu .lumen-action-menu-trigger')
+  await trigger.click()
+  const menu = await lumenMenuForTrigger(trigger)
+  const hide = menu.getByRole('menuitem', {
     name: getShellCopy(fixture.locale).shell.organization.hide,
     exact: true,
   })
@@ -352,7 +355,7 @@ async function hideSecondWorkspace(fixture: Fixture): Promise<void> {
 
 async function capture(fixture: Fixture, name: string): Promise<void> {
   const geometry = await fixture.page.evaluate(() => {
-    const root = document.querySelector<HTMLDialogElement>('dialog.hbar-app-react-chat-search-dialog')
+    const root = document.querySelector<HTMLElement>('.lumen-dialog.hbar-app-react-chat-search-dialog[role="dialog"]')
     if (!root) throw new Error('Search dialog is missing')
     const rect = root.getBoundingClientRect()
     const footer = root.querySelector<HTMLElement>('.hbar-chat-search-footer')
@@ -535,7 +538,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await input(fixture).press('Escape')
         await expect(dialog(fixture)).toHaveCount(0)
         await page.keyboard.press('Control+Shift+p')
-        await expect(page.locator('dialog.hbar-app-react-command-modal')).toBeVisible()
+        await expect(page.locator('.lumen-dialog.hbar-app-react-command-modal[role="dialog"]')).toBeVisible()
         expect(fixture.commands).toContain('session.recent')
         expect(fixture.commands).toContain('session.search')
         expect(fixture.commands).not.toContain('run.submit')

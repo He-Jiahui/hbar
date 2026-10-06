@@ -4,6 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { lumenMenuForTrigger } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
@@ -63,9 +64,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.setViewportSize({ width: 320, height: 720 })
       await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()
       await checkRow()
-      await row.locator('summary').click()
-      await expect(row.getByRole('menuitem', { name: copy.shell.renameSession, exact: true })).toBeVisible()
-      await expect(row.getByRole('menuitem', { name: copy.shell.archiveSession, exact: true })).toBeVisible()
+      const trigger = row.locator('.lumen-action-menu-trigger')
+      await trigger.click()
+      const menu = await lumenMenuForTrigger(trigger)
+      await expect(menu.getByRole('menuitem', { name: copy.shell.renameSession, exact: true })).toBeVisible()
+      await expect(menu.getByRole('menuitem', { name: copy.shell.archiveSession, exact: true })).toBeVisible()
       await page.keyboard.press('Escape')
       await page.screenshot({ path: testInfo.outputPath(`session-time-${locale}-320.png`) })
       expect(errors).toEqual([])

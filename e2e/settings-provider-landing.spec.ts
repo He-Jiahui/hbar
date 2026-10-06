@@ -1,9 +1,10 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Locator } from '@playwright/test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { expectLumenValue, selectLumenOption } from './support/lumen-controls'
 import { openSessionTool } from './support/session-tools-menu'
 
 async function removeOwnedFixture(root: string): Promise<void> {
@@ -11,6 +12,24 @@ async function removeOwnedFixture(root: string): Promise<void> {
   if (dirname(target) !== resolve(tmpdir()) || !basename(target).startsWith('hbar-provider-landing-'))
     throw new Error('Refusing to remove an unexpected settings fixture path')
   await rm(target, { recursive: true, force: true })
+}
+
+async function expectLumenOptions(control: Locator, expected: readonly string[]): Promise<void> {
+  await control.click()
+  await expect(control).toHaveAttribute('aria-expanded', 'true')
+  const listboxId = await control.getAttribute('aria-controls')
+  if (!listboxId) throw new Error('Settings group control is missing its listbox')
+  const listbox = control.page().locator(`[id=${JSON.stringify(listboxId)}]`)
+  await expect(listbox).toBeVisible()
+  await expect
+    .poll(() =>
+      listbox
+        .getByRole('option')
+        .evaluateAll((options) => options.map((option) => option.getAttribute('data-value') ?? '')),
+    )
+    .toEqual(expected)
+  await control.page().keyboard.press('Escape')
+  await expect(control).toHaveAttribute('aria-expanded', 'false')
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
@@ -65,12 +84,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.setViewportSize({ width: 320, height: 720 })
       const mobileGroups = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
       await expect(mobileGroups).toBeVisible()
-      await expect(mobileGroups).toHaveValue('providers')
-      expect(
-        await mobileGroups
-          .locator('option')
-          .evaluateAll((options: Element[]) => options.map((option) => option.getAttribute('value'))),
-      ).toEqual([
+      await expectLumenValue(mobileGroups, 'providers')
+      await expectLumenOptions(mobileGroups, [
         'providers',
         'general',
         'appearance',
@@ -84,7 +99,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       ])
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: `artifacts/desktop-experience/provider-landing-${locale}-320.png` })
-      await mobileGroups.selectOption('appearance')
+      await selectLumenOption(mobileGroups, 'appearance')
       await expect(page.locator('.hbar-web-appearance-settings')).toBeVisible()
       await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
       await page.reload()
@@ -103,7 +118,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         'aria-current',
         'page',
       )
-      await expect(page.getByRole('combobox', { name: copy.settings.scopes })).toHaveValue('session')
+      await expectLumenValue(page.getByRole('combobox', { name: copy.settings.scopes }), 'session')
       expect(errors).toEqual([])
     } finally {
       await context.close()

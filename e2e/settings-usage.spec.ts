@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { selectLumenOption } from './support/lumen-controls'
 import { openSessionTool } from './support/session-tools-menu'
 
 const rpc = z
@@ -18,7 +19,7 @@ const rpc = z
 async function selectGroup(page: Page, locale: ShellLocale, id: string, label: string) {
   const copy = getShellCopy(locale)
   const mobile = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
-  if (await mobile.isVisible()) await mobile.selectOption(id)
+  if (await mobile.isVisible()) await selectLumenOption(mobile, id)
   else
     await page
       .getByRole('navigation', { name: copy.settings.groups })

@@ -14,6 +14,7 @@ import { encodePath } from '@hbar/schema-core'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { WEB_ZOOM_STORAGE_KEY } from '../apps/web/src/app-zoom'
+import { selectLumenOption } from './support/lumen-controls'
 
 const prefix = 'hbar-send-shortcut-'
 const evidence = resolve(process.env.HBAR_SEND_SHORTCUT_EVIDENCE ?? 'artifacts/send-shortcut/browser')
@@ -234,7 +235,7 @@ async function openGeneral(fixture: Fixture) {
   if (await show.isVisible()) await show.click()
   await page.getByRole('button', { name: copy.shell.settings, exact: true }).click()
   const groups = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
-  if (await groups.isVisible()) await groups.selectOption({ label: copy.general.group })
+  if (await groups.isVisible()) await selectLumenOption(groups, { label: copy.general.group })
   else await page.getByRole('button', { name: copy.general.group, exact: true }).click()
   const field = page.locator('.hbar-web-general-sending')
   await expect(field).toBeVisible()

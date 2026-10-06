@@ -5,6 +5,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { lumenMenuForTrigger } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 const rpcShape = z
@@ -82,9 +83,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await row.locator('.hbar-app-react-session-target').click()
       const otherRow = page.locator(`[data-session-id="${other.id}"]`)
       const begin = async () => {
-        await row.locator('summary').focus()
+        const trigger = row.locator('.lumen-action-menu-trigger')
+        await trigger.focus()
         await page.keyboard.press('Enter')
-        await row.getByRole('menuitem', { name: copy.shell.renameSession, exact: true }).click()
+        const menu = await lumenMenuForTrigger(trigger)
+        await menu.getByRole('menuitem', { name: copy.shell.renameSession, exact: true }).click()
       }
       const input = row.getByRole('textbox', { name: labels.title, exact: true })
       await begin()
@@ -182,7 +185,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await begin()
       await input.fill('Archived target keeps its rename draft')
       await directory.execute('session.archive', { sessionId: host.ready.sessionId, archived: true })
-      await input.press('Enter')
+      // A live archive can detach the row between the ACK and this keystroke.
+      // Dispatch to the actual focus owner once, rather than retrying Enter
+      // against a row that may already have moved into readonly recovery.
+      await page.keyboard.press('Enter')
       const recovery = page.getByRole('group', { name: labels.form('A delayed accepted title'), exact: true })
       await expect(recovery).toBeVisible()
       await expect(recovery.getByRole('textbox', { name: labels.title, exact: true })).toHaveValue(

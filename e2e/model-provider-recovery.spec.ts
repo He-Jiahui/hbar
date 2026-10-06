@@ -10,6 +10,7 @@ import { createInterface } from 'node:readline'
 import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
+import { lumenMenuForTrigger } from './support/lumen-controls'
 import { openSessionTool } from './support/session-tools-menu'
 
 const phase = process.env.HBAR_MODEL_RECOVERY_PHASE ?? 'current'
@@ -511,8 +512,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const text = await draft(f, true)
       const counts = readCounts(f)
       await providers(f)
-      await f.page.locator(`summary[aria-label="${f.copy.providers.list.actions(primaryName)}"]`).click()
-      await f.page.getByRole('menuitem', { name: f.copy.providers.list.remove(primaryName), exact: true }).click()
+      const trigger = f.page.locator(
+        `.lumen-action-menu-trigger[aria-label="${f.copy.providers.list.actions(primaryName)}"]`,
+      )
+      await trigger.click()
+      const menu = await lumenMenuForTrigger(trigger)
+      await menu.getByRole('menuitem', { name: f.copy.providers.list.remove(primaryName), exact: true }).click()
       const confirmation = f.page.getByRole('dialog', {
         name: f.copy.providers.list.deleteConfirmTitle(primaryName),
         exact: true,

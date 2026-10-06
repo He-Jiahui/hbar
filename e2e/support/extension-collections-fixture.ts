@@ -12,6 +12,7 @@ import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../../apps/web/src/shell-copy'
 import { expectComposerText } from './composer-text'
 import { openSessionTool } from './session-tools-menu'
+import { selectLumenOption } from './lumen-controls'
 
 const prefix = 'hbar-extension-collections-ui-'
 const readySchema = z.object({
@@ -303,7 +304,7 @@ export async function selectExtensionCollection(
 ): Promise<void> {
   const group = collection === 'plugins' ? 'extensions' : 'skills'
   const select = f.page.getByRole('combobox', { name: f.copy.settings.groups, exact: true })
-  if (await select.isVisible()) await select.selectOption(group)
+  if (await select.isVisible()) await selectLumenOption(select, group)
   else
     await f.page
       .getByRole('navigation', { name: f.copy.settings.groups, exact: true })

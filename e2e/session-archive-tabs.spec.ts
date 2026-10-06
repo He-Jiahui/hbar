@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { workspaceTabsCopy } from '../apps/web/src/workspace-tabs-copy'
 import { expectComposerText } from './support/composer-text'
+import { lumenMenuForTrigger } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 const evidence = 'artifacts/desktop-entry-matrix/archive'
@@ -26,8 +27,10 @@ async function showSidebar(page: Page, locale: ShellLocale) {
 async function beginArchive(page: Page, locale: ShellLocale, sessionId: string) {
   await showSidebar(page, locale)
   const row = page.locator(`[data-session-id="${sessionId}"]`)
-  await row.locator('summary').click()
-  await row.getByRole('menuitem', { name: getShellCopy(locale).shell.archiveSession, exact: true }).click()
+  const trigger = row.locator('.lumen-action-menu-trigger')
+  await trigger.click()
+  const menu = await lumenMenuForTrigger(trigger)
+  await menu.getByRole('menuitem', { name: getShellCopy(locale).shell.archiveSession, exact: true }).click()
   return row
 }
 async function waitSavedEmptyWorkspace(page: Page, workspaceId: string) {
@@ -155,8 +158,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect((await commands.execute('session.get', { sessionId: host.ready.sessionId }))?.archived).toBe(true)
       await page.screenshot({ path: `${evidence}/confirmed-${locale}-1440.png` })
       await page.getByRole('button', { name: labels.dismiss, exact: true }).click()
-      await page.getByTitle(copy.shell.workspaceActions(host.ready.workspaceName), { exact: true }).click()
-      await page.getByRole('menuitem', { name: labels.openList(host.ready.workspaceName), exact: true }).click()
+      const trigger = page.getByTitle(copy.shell.workspaceActions(host.ready.workspaceName), { exact: true })
+      await trigger.click()
+      const menu = await lumenMenuForTrigger(trigger)
+      await menu.getByRole('menuitem', { name: labels.openList(host.ready.workspaceName), exact: true }).click()
       const list = page.getByRole('region', { name: labels.listTitle(host.ready.workspaceName), exact: true })
       await list.getByRole('button', { name: labels.restoreSession(title), exact: true }).click()
       await expect(row).toBeVisible()
@@ -297,8 +302,10 @@ test('external active archive retires its tab observationally; the loaded view s
       sessionId: host.ready.sessionId,
       archived: true,
     })
-    await page.getByTitle(copy.shell.workspaceActions(host.ready.workspaceName), { exact: true }).click()
-    await page
+    const trigger = page.getByTitle(copy.shell.workspaceActions(host.ready.workspaceName), { exact: true })
+    await trigger.click()
+    const menu = await lumenMenuForTrigger(trigger)
+    await menu
       .getByRole('menuitem', { name: copy.shell.roster.refreshWorkspace(host.ready.workspaceName), exact: true })
       .click()
     await expect(page.getByRole('tab', { name: host.ready.sessionTitle, exact: true })).toHaveCount(0)

@@ -1,9 +1,11 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Locator } from '@playwright/test'
 import { createWorkspaceSessionCommandClient } from '@hbar/client'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { expectComposerText } from './support/composer-text'
+import { openSessionTool } from './support/session-tools-menu'
+import { expectLumenValue, lumenMenuForTrigger, selectLumenOption } from './support/lumen-controls'
 import {
   evidence,
   start,
@@ -34,7 +36,7 @@ function sessionTab(f: Fixture) {
 }
 async function selectGroup(f: Fixture, id: 'model' | 'session' | 'appearance') {
   const mobile = f.page.getByRole('combobox', { name: f.copy.settings.groups, exact: true })
-  if (await mobile.isVisible()) await mobile.selectOption(id)
+  if (await mobile.isVisible()) await selectLumenOption(mobile, id)
   else
     await f.page
       .getByRole('navigation', { name: f.copy.settings.groups, exact: true })
@@ -44,9 +46,34 @@ async function selectGroup(f: Fixture, id: 'model' | 'session' | 'appearance') {
       })
       .click()
 }
+async function expectLumenOptions(
+  control: Locator,
+  expected: readonly { readonly value: string; readonly label: string | null }[],
+  onlyExpected = false,
+): Promise<void> {
+  await control.click()
+  await expect(control).toHaveAttribute('aria-expanded', 'true')
+  const listboxId = await control.getAttribute('aria-controls')
+  if (!listboxId) throw new Error('Lumen choice control does not identify its listbox')
+  const listbox = control.page().locator(`[id=${JSON.stringify(listboxId)}]`)
+  await expect
+    .poll(() =>
+      listbox.getByRole('option').evaluateAll(
+        (options, values) =>
+          options
+            .filter((option) => values === null || values.includes(option.getAttribute('data-value') ?? ''))
+            .map((option) => ({ value: option.getAttribute('data-value') ?? '', label: option.textContent }))
+            .sort((a, b) => a.value.localeCompare(b.value)),
+        onlyExpected ? expected.map((option) => option.value) : null,
+      ),
+    )
+    .toEqual([...expected].sort((a, b) => a.value.localeCompare(b.value)))
+  await control.page().keyboard.press('Escape')
+  await expect(control).toHaveAttribute('aria-expanded', 'false')
+}
 async function openCommand(f: Fixture, command: 'app.setWorkspace' | 'app.setSession') {
   const dialog = f.page.getByRole('dialog', { name: f.copy.commandPalette.title, exact: true })
-  if (!(await dialog.isVisible())) await f.page.keyboard.press('ControlOrMeta+k')
+  if (!(await dialog.isVisible())) await f.page.keyboard.press('ControlOrMeta+Shift+p')
   await expect(dialog).toBeVisible()
   const back = dialog.getByRole('button', { name: f.copy.commandPalette.backToCommands, exact: true })
   if (await back.isVisible()) await back.click()
@@ -59,10 +86,10 @@ async function openCommand(f: Fixture, command: 'app.setWorkspace' | 'app.setSes
 }
 async function projectSettings(f: Fixture) {
   await showSidebar(f)
-  await row(f, f.ready.secondWorkspace.id).locator('.hbar-app-react-project-menu summary').click()
-  await row(f, f.ready.secondWorkspace.id)
-    .getByRole('menuitem', { name: f.copy.shell.workspaceSettings, exact: true })
-    .click()
+  const trigger = row(f, f.ready.secondWorkspace.id).locator('.hbar-app-react-project-menu .lumen-action-menu-trigger')
+  await trigger.click()
+  const menu = await lumenMenuForTrigger(trigger)
+  await menu.getByRole('menuitem', { name: f.copy.shell.workspaceSettings, exact: true }).click()
   await hideSidebar(f)
   await expect(f.page.locator('.hbar-app-react-settings-workspace')).toBeVisible()
 }
@@ -115,7 +142,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await f.page.locator('.hbar-composer-attachment-target').dispatchEvent('drop', { dataTransfer: transfer })
         await transfer.dispose()
         await expect(f.page.locator('.lumen-attachment-chip').filter({ hasText: attachmentName })).toBeVisible()
-        await f.page.getByRole('button', { name: f.copy.session.tools.files, exact: true }).click()
+        await openSessionTool(f.page, f.copy.session.tools, 'files')
         await files(f).getByRole('button', { name: fileName, exact: true }).click()
         await files(f).getByRole('button', { name: f.copy.files.edit, exact: true }).click()
         const fileEditor = files(f).getByRole('textbox', { name: fileName, exact: true })
@@ -156,7 +183,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
 
         let palette = await openCommand(f, 'app.setWorkspace')
         const workspaceChoice = palette.locator('#hbar-command-workspaceId')
-        await workspaceChoice.selectOption(f.ready.secondWorkspace.id)
+        await selectLumenOption(workspaceChoice, f.ready.secondWorkspace.id)
         await workspaceChoice.focus()
         await change(f.ready.firstWorkspace.id, sharedAlias)
         const expectedWorkspaceOptions = [f.ready.firstWorkspace, f.ready.secondWorkspace]
@@ -165,26 +192,21 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
             value: workspace.id,
             label: f.copy.commandPalette.workspaceOption(sharedAlias, workspace.path),
           }))
-        await expect
-          .poll(() =>
-            workspaceChoice
-              .locator('option')
-              .evaluateAll(
-                (options, ids) =>
-                  options
-                    .filter((option) => ids.includes(option.getAttribute('value') ?? ''))
-                    .map((option) => ({ value: option.getAttribute('value'), label: option.textContent })),
-                [f.ready.firstWorkspace.id, f.ready.secondWorkspace.id],
-              ),
-          )
-          .toEqual(expectedWorkspaceOptions)
-        await expect(workspaceChoice).toHaveValue(f.ready.secondWorkspace.id)
+        await expectLumenOptions(workspaceChoice, expectedWorkspaceOptions, true)
+        await expectLumenValue(workspaceChoice, f.ready.secondWorkspace.id)
         await expect(workspaceChoice).toBeFocused()
         await capture(f, `${phase}/commands-duplicate-${locale}-${width}`)
         palette = await openCommand(f, 'app.setSession')
-        await expect(
-          palette.locator('#hbar-command-sessionId').locator(`option[value="${f.ready.firstSession.id}"]`),
-        ).toHaveText(f.copy.commandPalette.sessionOption(f.ready.firstSession.title, sharedAlias))
+        await expectLumenOptions(
+          palette.locator('#hbar-command-sessionId'),
+          [
+            {
+              value: f.ready.firstSession.id,
+              label: f.copy.commandPalette.sessionOption(f.ready.firstSession.title, sharedAlias),
+            },
+          ],
+          true,
+        )
         await palette.getByRole('button', { name: f.copy.commandPalette.close, exact: true }).click()
         await expect(palette).toHaveCount(0)
         observations.push({
@@ -196,7 +218,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
 
         await projectSettings(f)
         const scope = f.page.getByRole('combobox', { name: f.copy.settings.scopes, exact: true })
-        await expect(scope).toHaveValue('workspace')
+        await expectLumenValue(scope, 'workspace')
         await selectGroup(f, 'session')
         const budget = f.page.getByRole('textbox', {
           name: f.copy.settings.resolve('i18n:settings.session.defaultBudget.label'),
@@ -214,13 +236,17 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         if (width > 480)
           await expect(f.page.getByText(f.copy.settings.title('workspace', targetAlias), { exact: true })).toBeVisible()
         await expect(scope).toBeVisible()
-        await expect(scope.locator('option[value="workspace"]')).toHaveText(
-          f.copy.settings.scopeOption('workspace', targetAlias),
-        )
         await expect(budget).toBeFocused()
         expect(
           await settingsField.evaluate((element) => element.isConnected && document.activeElement === element),
         ).toBe(true)
+        await expectLumenOptions(
+          scope,
+          [{ value: 'workspace', label: f.copy.settings.scopeOption('workspace', targetAlias) }],
+          true,
+        )
+        await budget.focus()
+        await expect(budget).toBeFocused()
         await expect(budget).toHaveValue('12345')
         await capture(f, `${phase}/settings-pinned-${locale}-${width}`)
         await change(f.ready.secondWorkspace.id, null)
@@ -228,10 +254,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           await expect(
             f.page.getByText(f.copy.settings.title('workspace', f.ready.secondWorkspace.name), { exact: true }),
           ).toBeVisible()
-        await expect(scope.locator('option[value="workspace"]')).toHaveText(
-          f.copy.settings.scopeOption('workspace', f.ready.secondWorkspace.name),
-        )
         await expect(budget).toBeFocused()
+        await expectLumenOptions(
+          scope,
+          [{ value: 'workspace', label: f.copy.settings.scopeOption('workspace', f.ready.secondWorkspace.name) }],
+          true,
+        )
         await selectGroup(f, 'appearance')
         await selectGroup(f, 'session')
         await expect(budget).toHaveValue('12345')
@@ -258,27 +286,26 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           .click()
         const repository = status.getByRole('combobox', { name: f.copy.status.git.repositoryFilter, exact: true })
         await expect(repository).toBeEnabled()
-        await repository.selectOption(f.ready.secondWorkspace.id)
+        await selectLumenOption(repository, f.ready.secondWorkspace.id)
         await expect(repository).toBeEnabled()
         await repository.focus()
         await change(f.ready.secondWorkspace.id, sharedAlias)
-        await expect
-          .poll(() =>
-            repository
-              .locator('option')
-              .evaluateAll((options) =>
-                options.map((option) => ({ value: option.getAttribute('value'), label: option.textContent })),
-              ),
-          )
-          .toEqual(expectedWorkspaceOptions.map((option) => ({ value: option.value, label: option.label })))
-        await expect(repository).toHaveValue(f.ready.secondWorkspace.id)
+        await expectLumenOptions(repository, expectedWorkspaceOptions)
+        await expectLumenValue(repository, f.ready.secondWorkspace.id)
         await expect(repository).toBeFocused()
         await capture(f, `${phase}/git-duplicate-${locale}-${width}`)
         await change(f.ready.firstWorkspace.id, null)
-        await expect(repository.locator(`option[value="${f.ready.firstWorkspace.id}"]`)).toHaveText(
-          f.copy.status.git.workspaceOption(f.ready.firstWorkspace.name, f.ready.firstWorkspace.path),
+        await expectLumenOptions(
+          repository,
+          [
+            ...expectedWorkspaceOptions.filter((option) => option.value !== f.ready.firstWorkspace.id),
+            {
+              value: f.ready.firstWorkspace.id,
+              label: f.copy.status.git.workspaceOption(f.ready.firstWorkspace.name, f.ready.firstWorkspace.path),
+            },
+          ].sort((a, b) => a.value.localeCompare(b.value)),
         )
-        await expect(repository).toHaveValue(f.ready.secondWorkspace.id)
+        await expectLumenValue(repository, f.ready.secondWorkspace.id)
         await expect(repository).toBeFocused()
         await status.getByRole('button', { name: f.copy.status.close, exact: true }).click()
         await expect(files(f)).toBeVisible()
