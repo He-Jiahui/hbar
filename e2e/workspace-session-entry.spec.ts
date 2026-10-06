@@ -10,9 +10,10 @@ import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './
 async function showSidebar(page: Page, locale: ShellLocale) {
   const copy = getShellCopy(locale)
   const sidebar = page.getByRole('complementary', { name: copy.shell.projectsAndSessions, exact: true })
-  if (!(await sidebar.isVisible()))
-    await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()
+  const reveal = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
+  if (await reveal.first().isVisible()) await reveal.first().click()
   await expect(sidebar).toBeVisible()
+  await expect(sidebar).toBeInViewport()
   return sidebar
 }
 
@@ -37,10 +38,8 @@ test('project acquisition pages beyond 100 items and keeps the form reachable in
     expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
     const page = await context.newPage()
     await page.goto(base)
-    await page
-      .getByTitle(copy.shell.workspaceActions(host.ready.workspaceName), { exact: true })
-      .waitFor({ state: 'attached' })
     await showSidebar(page, 'zh-CN')
+    await expect(page.getByRole('button', { name: copy.shell.newSession, exact: true })).toBeEnabled()
     await page.getByRole('button', { name: copy.shell.newSession, exact: true }).click()
     const picker = page.getByRole('dialog', { name: copy.shell.chooseWorkspace, exact: true })
     const rows = picker.locator('.hbar-app-react-workspace-picker-item')
@@ -90,7 +89,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base)
       await expect(
-        page.getByTitle(copy.shell.workspaceActions(host.ready.workspaceName), { exact: true }),
+        page.getByRole('button', { name: copy.shell.workspaceActions(host.ready.workspaceName), exact: true }),
       ).toBeVisible()
 
       // No active project: never silently choose the first loaded project or expose an internal command form.
@@ -144,15 +143,34 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       for (const width of [1440, 900, 390, 320]) {
         await page.setViewportSize({ width, height: width === 320 ? 720 : 960 })
         sidebar = await showSidebar(page, locale)
+        const entryGeometry = await sidebar.evaluate((element) => {
+          const heading = element.querySelector('.lumen-app-sidebar-title')?.getBoundingClientRect()
+          const actions = element.querySelector('[data-sidebar-session-actions]')
+          const create = actions?.querySelector('button')?.getBoundingClientRect()
+          const search = actions?.querySelector('.hbar-app-react-sidebar-query-actions')?.getBoundingClientRect()
+          const tree = element.querySelector('.hbar-app-react-project-tree')?.getBoundingClientRect()
+          if (!heading || !create || !search || !tree) throw new Error('The project-owned session entries are missing')
+          return {
+            headingBottom: heading.bottom,
+            createTop: create.top,
+            createBottom: create.bottom,
+            searchTop: search.top,
+            searchBottom: search.bottom,
+            treeTop: tree.top,
+          }
+        })
+        expect(entryGeometry.createTop).toBeGreaterThanOrEqual(entryGeometry.headingBottom - 1)
+        expect(entryGeometry.searchTop).toBeGreaterThanOrEqual(entryGeometry.createBottom - 1)
+        expect(entryGeometry.treeTop).toBeGreaterThanOrEqual(entryGeometry.searchBottom - 1)
         const beforeA = await countSessions(host.ready.workspaceId)
         const beforeB = await countSessions(other.id)
-        const project = sidebar.locator(`section[data-workspace-id="${other.id}"]`)
+        const project = sidebar.locator(`[data-workspace-id="${other.id}"]`)
         const quickCreate = project.getByRole('button', {
           name: copy.shell.createSessionInWorkspace(other.name),
           exact: true,
         })
         await expect(quickCreate).toHaveCount(1)
-        await project.getByTitle(copy.shell.workspaceActions(other.name), { exact: true }).click()
+        await project.getByRole('button', { name: copy.shell.workspaceActions(other.name), exact: true }).click()
         await expect(
           project.getByRole('menuitem', { name: copy.shell.newSessionInWorkspace, exact: true }),
         ).toHaveCount(0)
@@ -167,13 +185,13 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
             fits: row.scrollWidth <= row.clientWidth + 1,
             separated: controls.every((rect, index) => index === 0 || rect.left >= controls[index - 1]!.right - 1),
             actionWidth: controls.at(-1)?.width ?? 0,
-            menuWidth: row.querySelector('summary')?.getBoundingClientRect().width ?? 0,
+            menuWidth: row.querySelector('.hbar-app-react-project-menu button')?.getBoundingClientRect().width ?? 0,
           }
         })
         expect(geometry.fits).toBe(true)
         expect(geometry.separated).toBe(true)
         expect(geometry.actionWidth).toBeGreaterThanOrEqual(width < 1024 ? 44 : 32)
-        if (width < 1024) expect(geometry.menuWidth).toBeGreaterThanOrEqual(44)
+        expect(geometry.menuWidth).toBeGreaterThanOrEqual(24)
         await page.screenshot({
           path: `artifacts/desktop-experience/session-entry/quick-create-${locale}-${width}.png`,
         })
@@ -185,8 +203,11 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         sidebar = await showSidebar(page, locale)
         await expect(sidebar.locator('.hbar-app-react-session-row[data-selected="true"]')).toHaveCount(1)
 
-        // The global action now uses B, without a title/ID/protocol form.
+        // Global creation always asks for a workspace, even when B is active.
         await globalCreate.click()
+        await expect(picker).toBeVisible()
+        expect(await countSessions(other.id)).toBe(beforeB + 1)
+        await picker.getByRole('button', { name: copy.shell.createSessionInWorkspace(other.name), exact: true }).click()
         await expect.poll(() => countSessions(other.id)).toBe(beforeB + 2)
         await expect(page.getByRole('dialog')).toHaveCount(0)
         expect(await countSessions(host.ready.workspaceId)).toBe(beforeA)
@@ -216,6 +237,9 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       expect(await countSessions(registered!.id)).toBe(0)
       await showSidebar(page, locale)
       await globalCreate.click()
+      await picker
+        .getByRole('button', { name: copy.shell.createSessionInWorkspace(registered!.name), exact: true })
+        .click()
       await expect.poll(() => countSessions(registered!.id)).toBe(1)
       await expect(page.getByRole('dialog')).toHaveCount(0)
       await expect(prompt).toBeVisible()

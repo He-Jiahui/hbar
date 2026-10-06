@@ -55,12 +55,12 @@ import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarSessionStopNotice, HbarSessionStopProvider, type SessionStopLabels } from './session-stop'
 import {
   createWorkspaceNavigationActions,
-  defaultSessionWorkspace,
   type WorkspaceNavigationAction,
   type WorkspaceNavigationActionState,
   type WorkspaceNavigationSelection,
 } from './workspace-navigation-actions'
 import './lumen-workspace-shell.css'
+import './workspace-session-entry.css'
 import {
   WorkspaceProjectMenu,
   WorkspaceOrganizationFeedback,
@@ -1032,11 +1032,10 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   }
   const newSession = useCallback(
     (workspaceId?: string) => {
-      const target = workspaceId ?? defaultSessionWorkspace(navigation.workspaceId, directory.workspaces)
-      if (target === null) showProjectPicker('create-session')
-      else runNavigationAction({ kind: 'create-session', workspaceId: target }, workspaceId ?? null)
+      if (workspaceId === undefined) showProjectPicker('create-session')
+      else runNavigationAction({ kind: 'create-session', workspaceId }, workspaceId)
     },
-    [directory.workspaces, navigation.workspaceId, runNavigationAction, showProjectPicker],
+    [runNavigationAction, showProjectPicker],
   )
   useEffect(() => {
     const onNewSessionShortcut = (event: KeyboardEvent) => {
@@ -1221,23 +1220,6 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
         primaryActions={
           <LumenFrame className="hbar-app-react-sidebar-primary">
             <WorkspaceSidebarAction
-              icon="plus"
-              label={props.labels.newSession}
-              size="l"
-              variant="outlined"
-              disabled={!connected || navigationBlocked}
-              onClick={() => newSession()}
-            />
-            {!projectPicker && actionWorkspaceId === null && (
-              <NavigationActionFeedback
-                state={navigationAction}
-                labels={props.labels}
-                connected={connected}
-                targetName={actionTargetName}
-                onReconcile={reconcileNavigationAction}
-              />
-            )}
-            <WorkspaceSidebarAction
               icon="blocks"
               label={props.labels.extensionsAndSkills}
               selected={extensionsSelected}
@@ -1253,58 +1235,6 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             {extensionsEntryError && (
               <LumenText as="p" role="alert" className="hbar-app-react-sidebar-action-error">
                 {props.labels.error(extensionsEntryError)}
-              </LumenText>
-            )}
-            <LumenFrame className="hbar-app-react-sidebar-query-actions">
-              <SidebarSearchEntry
-                label={props.labels.searchChats}
-                shortcut={props.labels.searchShortcut}
-                open={presentation.modalInstanceId === 'chat-search'}
-                onOpen={() => openPanel('chat-search')}
-              />
-              <HbarActionIconButton
-                className="hbar-app-react-roster-refresh"
-                label={props.labels.roster.refreshExpanded}
-                loading={rosterBusy}
-                disabled={!connected || visibleExpanded.size === 0 || rosterBusy}
-                onClick={() => refreshProjectSessions()}
-              >
-                <WorkspaceShellIcon name="refresh" />
-              </HbarActionIconButton>
-              <HbarActionIconButton
-                ref={batchToolbarRef}
-                className="hbar-app-react-session-batch-mode"
-                label={props.labels.archiveBatch.enter}
-                aria-pressed={batchSelecting}
-                disabled={
-                  sessionArchive.batch.status !== 'idle' ||
-                  !['idle', 'succeeded'].includes(sessionArchive.mutation.status)
-                }
-                onClick={() => {
-                  if (batchSelecting) exitBatchSelection()
-                  else setBatchSelecting(true)
-                }}
-              >
-                <WorkspaceShellIcon name="list-checks" tier="md" />
-              </HbarActionIconButton>
-            </LumenFrame>
-            <SessionArchiveBatchPanel
-              labels={props.labels.archiveBatch}
-              connected={connected}
-              selecting={batchSelecting}
-              selectedTargets={batchSelectedTargets}
-              toolbarRef={batchToolbarRef}
-              onClearSelection={clearBatchSelection}
-              onExitSelection={exitBatchSelection}
-              onBatchStarted={() => {
-                setBatchSelecting(false)
-              }}
-              onBatchCancelled={() => setBatchSelecting(true)}
-              onBatchDismissed={exitBatchSelection}
-            />
-            {batchLimitReached && batchSelecting && (
-              <LumenText as="p" role="status" className="hbar-app-react-sidebar-action-error">
-                {props.labels.archiveBatch.maximumReached(SESSION_ARCHIVE_BATCH_MAX_ITEMS)}
               </LumenText>
             )}
             <WorkspaceSidebarAction
@@ -1399,6 +1329,77 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           </LumenFrame>
         }
       >
+        <LumenFrame className="hbar-app-react-sidebar-primary" data-sidebar-session-actions="true">
+          <WorkspaceSidebarAction
+            icon="plus"
+            label={props.labels.newSession}
+            size="l"
+            variant="outlined"
+            disabled={!connected || navigationBlocked}
+            onClick={() => newSession()}
+          />
+          {!projectPicker && actionWorkspaceId === null && (
+            <NavigationActionFeedback
+              state={navigationAction}
+              labels={props.labels}
+              connected={connected}
+              targetName={actionTargetName}
+              onReconcile={reconcileNavigationAction}
+            />
+          )}
+          <LumenFrame className="hbar-app-react-sidebar-query-actions">
+            <SidebarSearchEntry
+              label={props.labels.searchChats}
+              shortcut={props.labels.searchShortcut}
+              open={presentation.modalInstanceId === 'chat-search'}
+              onOpen={() => openPanel('chat-search')}
+            />
+            <HbarActionIconButton
+              className="hbar-app-react-roster-refresh"
+              label={props.labels.roster.refreshExpanded}
+              loading={rosterBusy}
+              disabled={!connected || visibleExpanded.size === 0 || rosterBusy}
+              onClick={() => refreshProjectSessions()}
+            >
+              <WorkspaceShellIcon name="refresh" />
+            </HbarActionIconButton>
+            <HbarActionIconButton
+              ref={batchToolbarRef}
+              className="hbar-app-react-session-batch-mode"
+              label={props.labels.archiveBatch.enter}
+              aria-pressed={batchSelecting}
+              disabled={
+                sessionArchive.batch.status !== 'idle' ||
+                !['idle', 'succeeded'].includes(sessionArchive.mutation.status)
+              }
+              onClick={() => {
+                if (batchSelecting) exitBatchSelection()
+                else setBatchSelecting(true)
+              }}
+            >
+              <WorkspaceShellIcon name="list-checks" tier="md" />
+            </HbarActionIconButton>
+          </LumenFrame>
+          <SessionArchiveBatchPanel
+            labels={props.labels.archiveBatch}
+            connected={connected}
+            selecting={batchSelecting}
+            selectedTargets={batchSelectedTargets}
+            toolbarRef={batchToolbarRef}
+            onClearSelection={clearBatchSelection}
+            onExitSelection={exitBatchSelection}
+            onBatchStarted={() => {
+              setBatchSelecting(false)
+            }}
+            onBatchCancelled={() => setBatchSelecting(true)}
+            onBatchDismissed={exitBatchSelection}
+          />
+          {batchLimitReached && batchSelecting && (
+            <LumenText as="p" role="status" className="hbar-app-react-sidebar-action-error">
+              {props.labels.archiveBatch.maximumReached(SESSION_ARCHIVE_BATCH_MAX_ITEMS)}
+            </LumenText>
+          )}
+        </LumenFrame>
         {shellSlots?.navigation ? (
           <LumenFrame as="nav" data-hbar-app-ui-component="app-sidebar-03-navigation">
             {shellSlots.navigation}

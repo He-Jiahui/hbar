@@ -1,0 +1,17 @@
+/* Keep project actions beneath their heading; only the project inventory scrolls. */
+.hbar-app-react-sidebar-surface .lumen-app-sidebar-content {
+  display: flex;
+  min-block-size: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hbar-app-react-sidebar-surface [data-sidebar-session-actions] {
+  flex: 0 0 auto;
+}
+
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree {
+  min-block-size: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+}
