@@ -88,7 +88,6 @@ test('app-react renders the controlled catalog and descriptor parameter form wit
     expect(html).toContain('Issue panelId required')
     expect(html).toContain('Execute command')
     expect(html).not.toContain('Workspace 1')
-    expect(html).not.toContain('<select')
 
     await runtime.view.commands.execute('commandPalette.setParameter', { field: 'panelId', value: 'status' })
     await runtime.view.commands.execute('commandPalette.execute', {})
@@ -144,8 +143,8 @@ test('command parameters present loaded workspace and session targets with reada
       </HbarRuntimeProvider>,
     )
     expect(html).toContain('Visual review in Hbar')
-    expect(html).toContain('data-value="session-1"')
-    expect(html).toContain('aria-controls="hbar-command-sessionId-listbox"')
+    expect(html).toContain('value="session-1" selected=""')
+    expect(html).toContain('Enter another identifier')
     expect(html).not.toContain('type="text" value="session-1"')
   } finally {
     runtime.dispose()
