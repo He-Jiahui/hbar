@@ -88,7 +88,7 @@ test('message file references open the source session reader, reveal new locatio
     page.on('pageerror', (error) => errors.push(error.message))
     const copy = getShellCopy('zh-CN')
     await page.goto(base)
-    await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     const composer = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     const draft = '从回复查看文件，不改变这份待发送原稿。'
     const message = page.locator('[data-message-id="history-2"]')

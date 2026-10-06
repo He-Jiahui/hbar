@@ -74,11 +74,10 @@ async function showSidebar(page: Page, locale: 'en-US' | 'zh-CN') {
 }
 
 async function openHostSession(page: Page, host: WebSessionHost, locale: 'en-US' | 'zh-CN') {
-  const copy = getShellCopy(locale)
   await showSidebar(page, locale)
-  const session = page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true })
+  const session = page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true })
   if (!(await session.isVisible()))
-    await page.getByRole('button', { name: copy.shell.expandWorkspace(host.ready.workspaceName), exact: true }).click()
+    await page.getByRole('treeitem', { expanded: false, name: host.ready.workspaceName, exact: true }).click()
   await expect(session).toBeVisible()
   await session.click()
 }

@@ -24,7 +24,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       page.on('pageerror', (error) => errors.push(error.message))
       page.on('websocket', (socket) => socket.on('framesent', (event) => calls.push(String(event.payload))))
       await page.goto(base)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       await prompt.fill('Unsaved prompt preserved while inspecting usage — 未发送草稿')
       const trigger = page.locator('.hbar-session-usage-trigger')

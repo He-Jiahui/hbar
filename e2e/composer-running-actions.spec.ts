@@ -37,7 +37,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const composer = page.locator('.lumen-prompt-composer')
       const prompt = composer.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const send = composer.getByRole('button', { name: copy.session.prompt.send, exact: true })

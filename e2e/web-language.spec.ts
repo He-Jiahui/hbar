@@ -29,7 +29,7 @@ test('device language switches in place, keeps live Host workspace and unsaved a
     const en = getShellCopy('en-US')
     const zh = getShellCopy('zh-CN')
     await page.goto(base)
-    await page.getByRole('button', { name: en.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     await page
       .getByRole('textbox', { name: en.session.prompt.input, exact: true })
       .fill('Unsent language-switch draft 保留')
@@ -181,7 +181,7 @@ test('a real same-origin language change keeps the visible conversation, file id
     const errors: string[] = []
     page.on('pageerror', (error) => errors.push(error.message))
     await page.goto(base)
-    await page.getByRole('button', { name: en.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     await page
       .getByRole('textbox', { name: en.session.prompt.input, exact: true })
       .fill('Cross-window unsent conversation')

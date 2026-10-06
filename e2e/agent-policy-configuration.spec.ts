@@ -38,7 +38,7 @@ for (const locale of ['en-US', 'zh-CN'] as const)
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await openSessionTool(page, copy.session.tools, 'agents')
       await page.locator('.hbar-agent-policy-editor > .hbar-lumen-disclosure-trigger').click()
       await expect(page.getByText(copy.agents.policy.empty, { exact: true })).toBeVisible()

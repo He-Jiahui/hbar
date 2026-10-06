@@ -43,7 +43,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.goto(base)
       expect(await page.evaluate(() => matchMedia('(max-width: 40rem) and (pointer: coarse)').matches)).toBe(true)
       await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await page.getByRole('button', { name: mobileShellNavigationLabel(locale), exact: true }).click()
       await page
         .getByRole('dialog', { name: mobileShellNavigationLabel(locale), exact: true })
@@ -134,7 +134,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await openSessionTool(page, copy.session.tools, 'agents')
       await page.getByRole('button', { name: copy.agents.createTitle, exact: true }).click()
       const trigger = page.locator('.hbar-app-react-agent-create .hbar-agent-model-trigger')

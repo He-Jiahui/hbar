@@ -27,10 +27,10 @@ test('real Host session tabs retain independent drafts, close views only, and re
     const errors: string[] = []
     page.on('pageerror', (error) => errors.push(error.message))
     await page.goto(base())
-    await page.getByRole('button', { name: en.shell.openSession('Session 001'), exact: true }).click()
+    await page.getByRole('treeitem', { name: 'Session 001', exact: true }).click()
     await expect(page.getByRole('tab', { name: 'Session 001', exact: true })).toBeVisible()
     await page.getByRole('textbox', { name: 'Prompt' }).fill('draft for one')
-    await page.getByRole('button', { name: en.shell.openSession('Session 002'), exact: true }).click()
+    await page.getByRole('treeitem', { name: 'Session 002', exact: true }).click()
     await expect(page.getByRole('tab', { name: 'Session 002', exact: true })).toBeVisible()
     await page.getByRole('textbox', { name: 'Prompt' }).fill('draft for two')
     await page.getByRole('tab', { name: 'Session 001', exact: true }).click()
@@ -59,7 +59,7 @@ test('real Host session tabs retain independent drafts, close views only, and re
     const sidebar = page.getByRole('complementary', { name: en.shell.projectsAndSessions, exact: true })
     if (!(await sidebar.isVisible()))
       await page.getByRole('button', { name: en.shell.showSidebar, exact: true }).click()
-    await sidebar.getByRole('button', { name: en.shell.openSession('Session 001'), exact: true }).click()
+    await sidebar.getByRole('treeitem', { name: 'Session 001', exact: true }).click()
     const hideSidebar = page.getByRole('button', { name: en.shell.hideSidebar, exact: true })
     if (await hideSidebar.isVisible()) await hideSidebar.click()
     await mobileNavigation.click()
@@ -107,11 +107,11 @@ test('the 33rd visible tab is rejected before selecting or creating another Host
     await page.goto(base())
     for (let index = 1; index <= 32; index++) {
       const title = `Session ${String(index).padStart(3, '0')}`
-      await page.getByRole('button', { name: en.shell.openSession(title), exact: true }).click()
+      await page.getByRole('treeitem', { name: title, exact: true }).click()
       await expect(page.getByRole('tab', { name: title, exact: true })).toBeVisible()
     }
     await expect(page.getByRole('tab')).toHaveCount(32)
-    await page.getByRole('button', { name: en.shell.openSession('Session 033'), exact: true }).click()
+    await page.getByRole('treeitem', { name: 'Session 033', exact: true }).click()
     await expect(page.getByRole('tab', { name: 'Session 033', exact: true })).toHaveCount(0)
     await expect(page.getByRole('tab')).toHaveCount(32)
     await expect(page.getByRole('tab', { name: 'Session 032', exact: true })).toHaveAttribute('aria-selected', 'true')
@@ -163,7 +163,7 @@ test('real Host multi-tab menu closes the original scope and returns to the surv
     await page.goto(base())
     for (let index = 1; index <= 3; index++) {
       const title = `Session ${String(index).padStart(3, '0')}`
-      await page.getByRole('button', { name: en.shell.openSession(title), exact: true }).click()
+      await page.getByRole('treeitem', { name: title, exact: true }).click()
       await expect(page.getByRole('tab', { name: title, exact: true })).toBeVisible()
     }
     await page.getByRole('tab', { name: 'Session 002', exact: true }).click({ button: 'right' })
@@ -249,7 +249,7 @@ test('a lost Host activity read offers keep-running without retrying cancellatio
     })
     await page.goto(base())
     for (const title of ['Session 001', 'Session 002']) {
-      await page.getByRole('button', { name: en.shell.openSession(title), exact: true }).click()
+      await page.getByRole('treeitem', { name: title, exact: true }).click()
       await expect(page.getByRole('tab', { name: title, exact: true })).toBeVisible()
     }
     faultReads = true

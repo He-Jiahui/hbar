@@ -73,19 +73,18 @@ for (const locale of ['en-US', 'zh-CN'] as const)
       await page.goto(base)
       const parent = page.locator(`[data-agent-parent="${host.ready.sessionId}"]`).first()
       const firstRow = () => parent.locator(`[data-agent-parent="${first.sessionId}"]`)
-      await expect(
-        parent.getByRole('button', { name: copy.shell.agentTree.expand(host.ready.sessionTitle, 2), exact: true }),
-      ).toBeVisible()
+      const parentItem = parent.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true })
+      await expect(parentItem).toHaveAttribute('aria-level', '2')
+      await expect(parentItem).toHaveAttribute('aria-expanded', 'false')
       await expect(firstRow()).toHaveCount(0)
-      const toggle = parent.getByRole('button', {
-        name: copy.shell.agentTree.expand(host.ready.sessionTitle, 2),
-        exact: true,
-      })
-      await toggle.focus()
-      await page.keyboard.press('Enter')
+      await parentItem.focus()
+      await page.keyboard.press('ArrowRight')
       await expect(firstRow()).toBeVisible()
-      const children = parent.locator(':scope > .hbar-app-react-agent-branch-children > [data-agent-parent]')
+      const children = parent.locator(
+        ':scope > .lumen-tree-item > .lumen-tree-group > .hbar-app-react-agent-branch-children > [data-agent-parent]',
+      )
       await expect(children).toHaveCount(2)
+      await expect(firstRow().getByRole('treeitem', { name: title, exact: true })).toHaveAttribute('aria-level', '3')
       expect(
         await children.evaluateAll((items) => items.map((item) => item.getAttribute('data-agent-parent'))),
       ).toEqual([second.sessionId, first.sessionId])
@@ -101,28 +100,24 @@ for (const locale of ['en-US', 'zh-CN'] as const)
       await expect
         .poll(async () => children.evaluateAll((items) => items.map((item) => item.getAttribute('data-agent-parent'))))
         .toEqual([first.sessionId, second.sessionId])
-      await parent
-        .getByRole('button', { name: copy.shell.agentTree.collapse(host.ready.sessionTitle, 2), exact: true })
-        .click()
+      await parentItem.focus()
+      await page.keyboard.press('ArrowLeft')
       await expect(firstRow()).toHaveCount(0)
-      await parent
-        .getByRole('button', { name: copy.shell.agentTree.expand(host.ready.sessionTitle, 2), exact: true })
-        .click()
-      await firstRow()
-        .getByRole('button', { name: copy.shell.openSession(title), exact: true })
-        .click()
-      await expect(
-        firstRow().getByRole('button', { name: copy.shell.openSession(title), exact: true }),
-      ).toHaveAttribute('aria-current', 'page')
+      await parentItem.press('ArrowRight')
+      await firstRow().getByRole('treeitem', { name: title, exact: true }).click()
+      await expect(firstRow().getByRole('treeitem', { name: title, exact: true })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
       await page.reload()
       await expect(firstRow()).toBeVisible()
-      await expect(
-        parent.getByRole('button', { name: copy.shell.agentTree.collapse(host.ready.sessionTitle, 2), exact: true }),
-      ).toBeVisible()
+      await expect(parentItem).toHaveAttribute('aria-expanded', 'true')
       // Same canonical hierarchy in global time mode; children never become root peers.
       await page.getByRole('button', { name: copy.shell.sort.time.showTime, exact: true }).click()
       await expect(page.locator('nav[data-sidebar-organization="time"]')).toBeVisible()
       await expect(firstRow()).toBeVisible()
+      await expect(parentItem).toHaveAttribute('aria-level', '2')
+      await expect(firstRow().getByRole('treeitem', { name: title, exact: true })).toHaveAttribute('aria-level', '3')
       await expect(page.locator(`[data-agent-parent="${first.sessionId}"]`)).toHaveCount(1)
       for (const width of [1440, 320]) {
         await page.setViewportSize({ width, height: 960 })
@@ -139,8 +134,13 @@ for (const locale of ['en-US', 'zh-CN'] as const)
       const show = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
       if (await show.isVisible()) await show.click()
       const trigger = firstRow().locator('.lumen-action-menu-trigger')
-      await trigger.click()
+      await firstRow().getByRole('treeitem', { name: title, exact: true }).focus()
+      await page.keyboard.press('Shift+F10')
       const menu = await lumenMenuForTrigger(trigger)
+      await expect(menu).toBeVisible()
+      await page.keyboard.press('Escape')
+      await expect(menu).toBeHidden()
+      await trigger.click()
       await menu.getByRole('menuitem', { name: copy.shell.renameSession, exact: true }).click()
       await expect(firstRow().getByRole('textbox', { name: copy.shell.renameEditor.title, exact: true })).toHaveValue(
         title,

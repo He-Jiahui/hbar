@@ -30,9 +30,7 @@ for (const locale of ['en-US', 'zh-CN'] as const satisfies readonly ShellLocale[
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base)
       const sidebar = page.getByRole('complementary', { name: copy.shell.projectsAndSessions, exact: true })
-      await expect(
-        sidebar.getByRole('button', { name: copy.shell.openSession(originalTitle), exact: true }),
-      ).toBeVisible()
+      await expect(sidebar.getByRole('treeitem', { name: originalTitle, exact: true })).toBeVisible()
 
       // Without a selected project, the global shortcut asks for one instead of guessing.
       await page.keyboard.press('Control+n')
@@ -44,7 +42,7 @@ for (const locale of ['en-US', 'zh-CN'] as const satisfies readonly ShellLocale[
       await page.keyboard.press('Escape')
       await expect(picker).toHaveCount(0)
 
-      await sidebar.getByRole('button', { name: copy.shell.openSession(originalTitle), exact: true }).click()
+      await sidebar.getByRole('treeitem', { name: originalTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const savedDraft = `Keep this draft in ${originalTitle}`
       await prompt.fill(savedDraft)
@@ -52,7 +50,7 @@ for (const locale of ['en-US', 'zh-CN'] as const satisfies readonly ShellLocale[
       await expect.poll(sessionCount).toBe(2)
       await expect(picker).toHaveCount(0)
       await expectComposerText(prompt, '')
-      await sidebar.getByRole('button', { name: copy.shell.openSession(originalTitle), exact: true }).click()
+      await sidebar.getByRole('treeitem', { name: originalTitle, exact: true }).click()
       await expectComposerText(prompt, savedDraft)
 
       // The Mac modifier follows the same path; the narrow layout stays usable.

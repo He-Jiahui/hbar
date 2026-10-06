@@ -24,7 +24,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const picker = page.locator('.hbar-composer-permission-picker')
       const draft = 'Preserve this draft while leaving Plan mode — 保留草稿'
@@ -80,7 +80,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const picker = page.locator('.hbar-composer-permission-picker')
       const open = async (label: string) => {
         await picker.getByRole('button', { name: labels.trigger(label), exact: true }).click()

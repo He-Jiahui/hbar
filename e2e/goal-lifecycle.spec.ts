@@ -46,7 +46,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const cards = page.locator('[data-goal-event-id]')
       await expect(cards).toHaveCount(expected.length)
       expect(await cards.evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-goal-action')))).toEqual(
@@ -117,9 +117,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         workspaceId: host.ready.workspaceId,
         title: 'Other Goal lifecycle fixture',
       })
-      await page.getByRole('button', { name: copy.shell.openSession(other.title), exact: true }).click()
+      await page.getByRole('treeitem', { name: other.title, exact: true }).click()
       await expect(cards).toHaveCount(0)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await expect(cards).toHaveCount(expected.length + 1)
       expect(current?.objective).toBe('Current third Goal')
       expect(errors).toEqual([])
@@ -159,7 +159,7 @@ test('Goal-only history has its own cursor and recoverable pagination without me
     expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
     const page = await context.newPage()
     await page.goto(base)
-    await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     const cards = page.locator('[data-goal-event-id]')
     const list = page.locator('[data-hbar-app-ui-list-strategy="virtualized"]')
     const viewport = page.locator('.lumen-conversation-messages')

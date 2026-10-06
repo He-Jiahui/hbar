@@ -36,10 +36,11 @@
 
 .hbar-app-react-sidebar-time-project-line {
   display: flex;
+  flex: 1 1 auto;
   min-inline-size: 0;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.375rem;
+  padding: 0;
 }
 
 .hbar-app-react-sidebar-time-project-line > [data-variant] {
@@ -51,7 +52,7 @@
 
 .hbar-app-react-sidebar-time-project-sessions {
   gap: 0.125rem;
-  padding-inline-start: 1.5rem;
+  padding-inline-start: 0;
 }
 
 .hbar-app-react-session-label[data-has-metadata='true'] {

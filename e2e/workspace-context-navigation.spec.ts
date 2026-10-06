@@ -44,9 +44,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page
         .getByTitle(copy.shell.workspaceActions(host.ready.workspaceName), { exact: true })
         .waitFor({ state: 'attached' })
-      const firstToggle = page.getByRole('button', { name: copy.shell.expandWorkspace(host.ready.workspaceName) })
+      const firstToggle = page.getByRole('treeitem', { expanded: false, name: host.ready.workspaceName })
       if (await firstToggle.isVisible()) await firstToggle.click()
-      const firstRow = page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true })
+      const firstRow = page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true })
       await firstRow.click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       await prompt.fill('Keep the first project draft')
@@ -106,9 +106,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expectComposerText(prompt, 'Keep the first project draft')
 
         await revealSidebar(page, locale)
-        const expandSecond = page.getByRole('button', { name: copy.shell.expandWorkspace(second.name), exact: true })
+        const expandSecond = page.getByRole('treeitem', { expanded: false, name: second.name, exact: true })
         if (await expandSecond.isVisible()) await expandSecond.click()
-        const secondRow = page.getByRole('button', { name: copy.shell.openSession(secondSession.title), exact: true })
+        const secondRow = page.getByRole('treeitem', { name: secondSession.title, exact: true })
         await secondRow.click()
         await expect(page.getByRole('heading', { level: 1 })).toHaveText(secondSession.title)
         await revealSidebar(page, locale)

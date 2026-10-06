@@ -99,7 +99,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       })
       const copy = getShellCopy(locale)
       await page.goto(base)
-      await page.getByRole('button', { name: copy.shell.openSession(session.title), exact: true }).click()
+      await page.getByRole('treeitem', { name: session.title, exact: true }).click()
       const proposal = page.locator(`[data-message-id="${message.id}"] .hbar-proposed-plan`)
       await expect(proposal).toBeVisible()
       await proposal.getByRole('button', { name: copy.session.proposedPlan.implement, exact: true }).click()

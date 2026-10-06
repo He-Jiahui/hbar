@@ -146,10 +146,10 @@ async function selectSession(page: Page, copy: LocaleCopy, workspaceId: string, 
   const show = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
   if (await show.isVisible()) await show.click()
   const project = page.locator(`[data-workspace-id="${workspaceId}"]`)
-  const toggle = project.locator('.hbar-app-react-workspace-row')
+  const toggle = project
   await expect(toggle).toBeVisible()
   if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click()
-  await project.getByRole('button', { name: copy.shell.openSession(title), exact: true }).click()
+  await project.getByRole('treeitem', { name: title, exact: true }).click()
   await expect(page.getByRole('tab', { name: title, exact: true, includeHidden: true })).toHaveAttribute(
     'aria-selected',
     'true',

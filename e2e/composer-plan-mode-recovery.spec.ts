@@ -70,7 +70,7 @@ test('lost Host mode.set reply stays unknown until read-only reconciliation; swi
       })
     })
     await page.goto(base)
-    await page.getByRole('button', { name: copy.shell.openSession('Session 001'), exact: true }).click()
+    await page.getByRole('treeitem', { name: 'Session 001', exact: true }).click()
     const picker = page.locator('.hbar-composer-permission-picker')
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     await expect(prompt).toHaveAttribute('contenteditable', 'true')
@@ -95,7 +95,7 @@ test('lost Host mode.set reply stays unknown until read-only reconciliation; swi
       }),
     ).toBeVisible()
     expect(writes).toBe(1)
-    await page.getByRole('button', { name: copy.shell.openSession('Session 002'), exact: true }).click()
+    await page.getByRole('treeitem', { name: 'Session 002', exact: true }).click()
     await expect(
       picker.getByRole('button', {
         name: copy.session.permissionPicker.trigger(

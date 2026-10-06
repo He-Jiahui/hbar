@@ -119,12 +119,9 @@ for (const scenario of [
         server.onMessage((message) => socket.send(message))
       })
       await page.goto(base)
-      const expand = page.getByRole('button', {
-        name: copy.shell.expandWorkspace(host.ready.workspaceName),
-        exact: true,
-      })
+      const expand = page.getByRole('treeitem', { expanded: false, name: host.ready.workspaceName, exact: true })
       if (await expand.isVisible()) await expand.click()
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const composerDraft = 'Return to this conversation — 保留未发送内容'
       await prompt.fill(composerDraft)

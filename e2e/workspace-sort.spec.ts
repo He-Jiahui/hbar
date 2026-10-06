@@ -343,10 +343,10 @@ async function verifyLocale(host: OwnedHost, browser: Browser, locale: ShellLoca
     )
 
     const primaryRow = workspaceRow(f, host.ready.primaryWorkspace.id)
-    const expand = primaryRow.locator('.hbar-app-react-workspace-row')
+    const expand = primaryRow
     if ((await expand.getAttribute('aria-expanded')) === 'false') await expand.click()
-    const currentSessionButton = primaryRow.getByRole('button', {
-      name: f.copy.shell.openSession(host.ready.selectedSession.title),
+    const currentSessionButton = primaryRow.getByRole('treeitem', {
+      name: host.ready.selectedSession.title,
       exact: true,
     })
     await expect(currentSessionButton).toBeVisible()

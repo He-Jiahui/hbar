@@ -42,7 +42,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.goto(base)
       const session = await client.call('session.get', { sessionId })
       if (!session) throw new Error('Fixture session disappeared')
-      await page.getByRole('button', { name: copy.shell.openSession(session.title), exact: true }).click()
+      await page.getByRole('treeitem', { name: session.title, exact: true }).click()
       const activity = page.getByRole('region', { name: copy.session.runs.title, exact: true })
       const details = activity.getByRole('button', { name: copy.session.runs.details(22), exact: true })
       await expect(details).toHaveAttribute('aria-expanded', 'false')

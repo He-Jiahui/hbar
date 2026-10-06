@@ -85,7 +85,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base)
-      await page.getByRole('button', { name: copy.shell.openSession(initial.session.title), exact: true }).click()
+      await page.getByRole('treeitem', { name: initial.session.title, exact: true }).click()
       const source = page.locator(`[data-message-id="${callMessage.id}"]`)
       const card = source.locator(`[data-decision-id="${approval.id}"]`)
       await expect(card).toBeVisible()
@@ -125,7 +125,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
 
       await page.reload()
       await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()
-      await page.getByRole('button', { name: copy.shell.openSession(initial.session.title), exact: true }).click()
+      await page.getByRole('treeitem', { name: initial.session.title, exact: true }).click()
       await expect(card.getByRole('status')).toHaveText(labels.allowed)
       await expect(page.locator(`[data-decision-id="${approval.id}"]`)).toHaveCount(1)
       await expect(card.getByRole('button', { name: labels.allow, exact: true })).toHaveCount(0)
@@ -183,9 +183,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const answer = 'Verify keyboard, persistence, and narrow screens — 核对键盘、恢复和窄屏。'
       await questionnaire.getByRole('textbox', { name: labels.customAnswer, exact: true }).fill(answer)
       await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()
-      await page.getByRole('button', { name: copy.shell.openSession(other.title), exact: true }).click()
+      await page.getByRole('treeitem', { name: other.title, exact: true }).click()
       await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()
-      await page.getByRole('button', { name: copy.shell.openSession(pending.session.title), exact: true }).click()
+      await page.getByRole('treeitem', { name: pending.session.title, exact: true }).click()
       await questionnaire.getByRole('tab', { name: /Verification/ }).click()
       await expect(questionnaire.getByRole('textbox', { name: labels.customAnswer, exact: true })).toHaveValue(answer)
       await expect(questionnaire.getByRole('button', { name: labels.submit, exact: true })).toBeEnabled()
@@ -213,7 +213,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.reload()
       const show = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
       await show.click()
-      await page.getByRole('button', { name: copy.shell.openSession(complete.session.title), exact: true }).click()
+      await page.getByRole('treeitem', { name: complete.session.title, exact: true }).click()
       const restored = page.locator(`[data-message-id="${questionMessage.id}"] [data-decision-kind="questionnaire"]`)
       await expect(restored.getByRole('status')).toHaveText(labels.answered)
       await restored.getByRole('tab', { name: /Verification/ }).click()

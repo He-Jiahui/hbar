@@ -31,10 +31,10 @@ test('open tab actions stay reachable as the shell narrows and close only their 
     const copy = getShellCopy('zh-CN')
     const labels = workspaceTabsCopy((zh) => zh).tabs
     await page.goto(base)
-    await page.getByRole('button', { name: copy.shell.openSession('Session 001'), exact: true }).click()
+    await page.getByRole('treeitem', { name: 'Session 001', exact: true }).click()
     const composer = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     await composer.fill('第一个会话的原稿不能因关闭页签被删除。')
-    await page.getByRole('button', { name: copy.shell.openSession('Session 002'), exact: true }).click()
+    await page.getByRole('treeitem', { name: 'Session 002', exact: true }).click()
     const draft = '在同一个菜单里变窄，仍然操作原来的第二个会话。'
     await composer.fill(draft)
     await page.getByRole('button', { name: labels.menu('Session 002'), exact: true }).click()
@@ -58,7 +58,7 @@ test('open tab actions stay reachable as the shell narrows and close only their 
     await expectComposerText(composer, draft)
     await expect(page.getByRole('tab', { name: 'Session 002', exact: true })).toBeFocused()
     await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()
-    await page.getByRole('button', { name: copy.shell.openSession('Session 001'), exact: true }).click()
+    await page.getByRole('treeitem', { name: 'Session 001', exact: true }).click()
     await expectComposerText(composer, '第一个会话的原稿不能因关闭页签被删除。')
     expect((await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs).toHaveLength(0)
     expect(errors).toEqual([])

@@ -182,11 +182,9 @@ async function start(
     await showSidebar(fixture)
     const row = page.locator(`[data-workspace-id="${ready.firstWorkspace.id}"]`)
     await expect(row).toBeVisible()
-    const toggle = row.locator('.hbar-app-react-workspace-row')
+    const toggle = row
     if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click()
-    await row
-      .getByRole('button', { name: fixture.copy.shell.openSession(ready.firstSession.title), exact: true })
-      .click()
+    await row.getByRole('treeitem', { name: ready.firstSession.title, exact: true }).click()
     await hideSidebar(fixture)
     await expect(
       page.getByRole('tab', { name: ready.firstSession.title, exact: true, includeHidden: true }),

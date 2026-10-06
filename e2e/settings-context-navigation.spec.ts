@@ -37,7 +37,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
       const page = await context.newPage()
       await page.goto(base)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const draft = `Settings shortcut draft — ${locale}`
       await prompt.fill(draft)
@@ -81,12 +81,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page
         .getByTitle(copy.shell.workspaceActions(host.ready.workspaceName), { exact: true })
         .waitFor({ state: 'attached' })
-      const expand = page.getByRole('button', {
-        name: copy.shell.expandWorkspace(host.ready.workspaceName),
-        exact: true,
-      })
+      const expand = page.getByRole('treeitem', { expanded: false, name: host.ready.workspaceName, exact: true })
       if (await expand.isVisible()) await expand.click()
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const draft = 'Keep the conversation draft while visiting settings — 返回不丢失输入'
       await prompt.fill(draft)

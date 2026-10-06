@@ -143,16 +143,16 @@ async function sidebar(f: Fixture, open: boolean): Promise<void> {
 async function openSession(f: Fixture, session = f.ready.firstSession): Promise<void> {
   await sidebar(f, true)
   const row = f.page.locator(`[data-workspace-id="${f.ready.workspace.id}"]`)
-  const toggle = row.locator('.hbar-app-react-workspace-row')
+  const toggle = row
   if ((await toggle.getAttribute('aria-expanded')) === 'false') {
     try {
-      await row.locator('.hbar-app-react-workspace-row[aria-expanded="false"]').click({ timeout: 1500 })
+      await row.locator('xpath=self::*[@aria-expanded="false"]').click({ timeout: 1500 })
     } catch (error) {
       if ((await toggle.getAttribute('aria-expanded')) !== 'true') throw error
     }
   }
   await expect(toggle).toHaveAttribute('aria-expanded', 'true')
-  await row.getByRole('button', { name: f.copy.shell.openSession(session.title), exact: true }).click()
+  await row.getByRole('treeitem', { name: session.title, exact: true }).click()
   await sidebar(f, false)
   await expect(composer(f)).toBeVisible()
 }

@@ -22,7 +22,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(`${base()}/apps/web/`)
       const copy = getShellCopy(locale)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const form = page.locator('form.lumen-prompt-composer-surface')
       await expect(form).toHaveAttribute('data-boundary', 'none')
       await expect(form.locator(':scope > [data-edge]')).toHaveCount(0)

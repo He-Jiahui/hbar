@@ -112,7 +112,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       )
       await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
       await ensureSidebar()
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await openSessionTool(page, copy.session.tools, 'settings')
       await expect(groups.getByRole('button', { name: modelLabel, exact: true })).toHaveAttribute(
         'aria-current',

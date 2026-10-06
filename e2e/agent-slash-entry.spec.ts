@@ -196,7 +196,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const pageErrors: string[] = []
       page.on('pageerror', (error) => pageErrors.push(error.message))
       await page.goto(base)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const agents = createAgentCommandClient(host.client)
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const send = page.getByRole('button', { name: copy.session.prompt.send, exact: true })

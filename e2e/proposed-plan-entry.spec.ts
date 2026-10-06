@@ -105,7 +105,7 @@ async function selectSession(page: Page, host: WebSessionHost, locale: ShellLoca
   if (!session) throw new Error('The proposal session disappeared before navigation')
   const showSidebar = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
   if (await showSidebar.isVisible()) await showSidebar.click()
-  await page.getByRole('button', { name: copy.shell.openSession(session.title), exact: true }).click()
+  await page.getByRole('treeitem', { name: session.title, exact: true }).click()
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {

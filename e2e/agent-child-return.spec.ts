@@ -45,7 +45,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.goto(base())
       // The first project expands after its Host sidebar snapshot. Wait for the
       // owned row instead of racing an Expand label that becomes Collapse.
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await openSessionTool(page, copy.session.tools, 'agents')
       await page.getByRole('button', { name: copy.agents.showDetails(created.objective), exact: true }).click()
       await expect(page.getByRole('button', { name: copy.agents.openSession, exact: true })).toBeVisible()
@@ -160,9 +160,9 @@ test('a lost Agent read stays in the original detail and an explicit retry opens
       })
     })
     await page.goto(base())
-    const expand = page.getByRole('button', { name: copy.shell.expandWorkspace(host.ready.workspaceName), exact: true })
+    const expand = page.getByRole('treeitem', { expanded: false, name: host.ready.workspaceName, exact: true })
     if (await expand.isVisible()) await expand.click()
-    await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     await openSessionTool(page, copy.session.tools, 'agents')
     await page.getByRole('button', { name: copy.agents.showDetails(created.objective), exact: true }).click()
     await page.getByRole('button', { name: copy.agents.openSession, exact: true }).click()

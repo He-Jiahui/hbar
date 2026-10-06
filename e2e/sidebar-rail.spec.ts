@@ -33,7 +33,7 @@ test('collapsed desktop rail keeps real navigation direct and narrow screens ret
     await page.goto(base)
     const originalSession = page
       .locator(`[data-session-id="${host.ready.sessionId}"]`)
-      .getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true })
+      .getByRole('treeitem', { name: host.ready.sessionTitle, exact: true })
     await originalSession.click()
     const composer = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     const draft = '折叠导航后仍能直接找功能，并保留原会话输入。'

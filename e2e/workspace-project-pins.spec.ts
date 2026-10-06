@@ -61,14 +61,13 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       )
       await expect(row().getByTitle(copy.shell.pinnedWorkspace(other.name), { exact: true })).toBeVisible()
       const originalProject = sidebar.locator(`[data-workspace-id="${host.ready.workspaceId}"]`)
-      const expandOriginal = originalProject.getByRole('button', {
-        name: copy.shell.expandWorkspace(host.ready.workspaceName),
+      const expandOriginal = originalProject.getByRole('treeitem', {
+        expanded: false,
+        name: host.ready.workspaceName,
         exact: true,
       })
       if (await expandOriginal.count()) await expandOriginal.click()
-      await expect(
-        sidebar.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }),
-      ).toBeVisible()
+      await expect(sidebar.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true })).toBeVisible()
       await page.screenshot({ path: `artifacts/reference-ux-v2/project-pin-${locale}-1440-pinned.png` })
 
       await page.setViewportSize({ width: 320, height: 720 })

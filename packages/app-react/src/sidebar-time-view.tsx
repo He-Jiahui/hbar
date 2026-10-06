@@ -1,5 +1,5 @@
 import { useId, type ReactNode } from 'react'
-import { LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenFrame, LumenText, LumenTreeItem } from '@lumen/app-ui'
 import type { SidebarTimeGroup, SidebarTimeGroupId } from './sidebar-time-groups'
 import './sidebar-time-view.css'
 
@@ -14,6 +14,8 @@ export interface SidebarTimeViewProps {
   readonly renderSession: (sessionId: string) => ReactNode
   readonly projectForSession: (sessionId: string) => SidebarTimeProject | null
   readonly renderProject: (project: SidebarTimeProject) => ReactNode
+  readonly projectExpanded: (projectId: string) => boolean
+  readonly onProjectExpandedChange: (projectId: string, expanded: boolean) => void
   readonly ariaLabel?: string | undefined
 }
 
@@ -27,6 +29,8 @@ export function SidebarTimeView({
   renderSession,
   projectForSession,
   renderProject,
+  projectExpanded,
+  onProjectExpandedChange,
   ariaLabel,
 }: SidebarTimeViewProps) {
   const headingPrefix = useId()
@@ -58,19 +62,21 @@ export function SidebarTimeView({
             </LumenText>
             <LumenFrame className="hbar-app-react-sidebar-time-rows">
               {[...projects.values()].map(({ project, sessionIds }) => (
-                <LumenFrame
+                <LumenTreeItem
                   as="section"
                   className="hbar-app-react-sidebar-time-project"
+                  nodeId={`project:${project.id}`}
+                  label={project.label}
+                  expanded={projectExpanded(project.id)}
+                  onExpandedChange={(expanded) => onProjectExpandedChange(project.id, expanded)}
+                  content={renderProject(project)}
                   data-workspace-id={project.id}
                   data-sidebar-level="project"
                   key={project.id}
                 >
-                  {renderProject(project)}
                   <LumenFrame
                     className="hbar-app-react-sidebar-time-project-sessions"
                     data-sidebar-level="parent-sessions"
-                    role="group"
-                    aria-label={project.label}
                   >
                     {sessionIds.map((sessionId) => (
                       <LumenFrame className="hbar-app-react-sidebar-time-row" key={sessionId}>
@@ -78,7 +84,7 @@ export function SidebarTimeView({
                       </LumenFrame>
                     ))}
                   </LumenFrame>
-                </LumenFrame>
+                </LumenTreeItem>
               ))}
             </LumenFrame>
           </LumenFrame>

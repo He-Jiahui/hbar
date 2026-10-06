@@ -36,7 +36,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const base = await authenticate(page, host.ready.token)
       const copy = getShellCopy(locale)
       await page.goto(base)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await page.getByRole('button', { name: copy.shell.status, exact: true }).click()
       const status = page.locator('.hbar-app-react-status-workspace')
       await expect(status.getByRole('heading', { level: 1, name: copy.status.title, exact: true })).toBeVisible()

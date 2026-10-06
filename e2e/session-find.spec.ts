@@ -97,7 +97,7 @@ async function start(browser: Browser, locale: ShellLocale, width: number): Prom
     if (expectedAsset) expect(new URL(productionAsset, origin).pathname.split('/').at(-1)).toBe(expectedAsset)
     const fixture = { root, host, context, page, copy, errors, requests, uploads, productionAsset, consoleDiagnostics }
     await showSidebar(fixture, true)
-    await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     await showSidebar(fixture, false)
     await expect(page.locator('[data-hbar-app-ui-list-strategy="virtualized"]')).toHaveAttribute(
       'data-hbar-app-ui-message-count',
@@ -469,13 +469,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await find.input.fill('History message 64')
         await expect(find.count).toHaveText(copy.session.find.count(1, 1, false))
         await showSidebar(fixture, true)
-        await page.getByRole('button', { name: copy.shell.openSession('Session 001'), exact: true }).click()
+        await page.getByRole('treeitem', { name: 'Session 001', exact: true }).click()
         await showSidebar(fixture, false)
         await expect(find.input).toHaveValue('History message 64')
         await expect(find.count).toHaveText('0')
         await expect.poll(() => activeHighlights(page)).toEqual([])
         await showSidebar(fixture, true)
-        await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+        await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
         await showSidebar(fixture, false)
         await expect(find.input).toHaveValue('History message 64')
         await expect(find.count).toHaveText(copy.session.find.count(1, 1, false))

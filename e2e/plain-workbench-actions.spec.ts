@@ -20,7 +20,7 @@ test('plain workbench actions preserve keyboard, disclosure, selection and the o
     const errors: string[] = []
     page.on('pageerror', (error) => errors.push(error.message))
     await page.goto(base)
-    await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     const composer = page.locator('.lumen-prompt-composer')
     const editor = composer.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     const text = '保留原会话和输入草稿，验证简洁操作入口。'

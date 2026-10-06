@@ -37,7 +37,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           'src',
           new RegExp(process.env.HBAR_ACTIVITY_EXPECTED_ASSET),
         )
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const draft = 'Keep the parent draft while inspecting delegated work.'
       await prompt.fill(draft)
@@ -149,14 +149,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .toBe('cancelled')
       const showSidebar = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
       if (await showSidebar.isVisible()) await showSidebar.click()
-      await page.getByRole('button', { name: copy.shell.openSession('Session 001'), exact: true }).click()
+      await page.getByRole('treeitem', { name: 'Session 001', exact: true }).click()
       await activity.click()
       await expect(pane.getByText(copy.activity.empty, { exact: true })).toBeVisible()
       await expect(runGroup.getByRole('listitem')).toHaveCount(0)
       await expect(pane.locator('[data-activity-agent-id]')).toHaveCount(0)
       await pane.getByRole('button', { name: copy.activity.close, exact: true }).click()
       if (await showSidebar.isVisible()) await showSidebar.click()
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await activity.click()
       await expect(runGroup.getByRole('listitem')).toHaveCount(1)
       await expect(agentRow).toBeVisible()

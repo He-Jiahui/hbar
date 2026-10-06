@@ -44,7 +44,7 @@ test('same-origin language switching retains model, one-send approval, durable P
     const en = getShellCopy('en-US')
     const zh = getShellCopy('zh-CN')
     await page.goto(base)
-    await page.getByRole('button', { name: en.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     const draft = 'Unsent original language-control draft — 模型、审批、计划与目标保留'
     await page.getByRole('textbox', { name: en.session.prompt.input, exact: true }).fill(draft)
     const model = await models.execute('session.getModel', { sessionId })
@@ -250,7 +250,7 @@ test('an open command palette recomputes a localized query after a real cross-wi
     const en = getShellCopy('en-US')
     const zh = getShellCopy('zh-CN')
     await page.goto(base)
-    await page.getByRole('button', { name: zh.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     await page.keyboard.press('Control+Shift+p')
     const chinesePalette = page.getByRole('dialog', { name: zh.commandPalette.title, exact: true })
     const query = chinesePalette.getByRole('searchbox', { name: zh.commandPalette.search, exact: true })

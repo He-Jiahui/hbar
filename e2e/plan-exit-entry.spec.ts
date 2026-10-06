@@ -89,7 +89,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base)
-      await page.getByRole('button', { name: copy.shell.openSession(pending.session.title), exact: true }).click()
+      await page.getByRole('treeitem', { name: pending.session.title, exact: true }).click()
       const card = page.locator(`[data-message-id="${message.id}"] [data-decision-id="${approval.id}"]`)
       await expect(card).toBeVisible()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })

@@ -157,13 +157,13 @@ async function sidebar(fixture: Fixture, visible: boolean): Promise<void> {
   )
 }
 async function select(fixture: Fixture, session: Session): Promise<void> {
-  const { page, copy } = fixture
+  const { page } = fixture
   await sidebar(fixture, true)
   const project = page.locator(`[data-workspace-id="${session.workspaceId}"]`)
-  const toggle = project.locator('.hbar-app-react-workspace-row')
+  const toggle = project
   await expect(toggle).toBeVisible()
   if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click()
-  await project.getByRole('button', { name: copy.shell.openSession(session.title), exact: true }).click()
+  await project.getByRole('treeitem', { name: session.title, exact: true }).click()
   await expect(page.getByRole('tab', { name: session.title, exact: true, includeHidden: true })).toHaveAttribute(
     'aria-selected',
     'true',

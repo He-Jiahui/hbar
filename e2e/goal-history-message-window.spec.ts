@@ -184,7 +184,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         server.onMessage((message) => socket.send(message))
       })
       await page.goto(base)
-      await page.getByRole('button', { name: copy.shell.openSession(ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: ready.sessionTitle, exact: true }).click()
       const list = page.locator('[data-hbar-app-ui-list-strategy="virtualized"]')
       // Sixty paged messages plus the existing persistent Run's time fallback.
       // This separator must not be mistaken for a canonical Goal lifecycle card.

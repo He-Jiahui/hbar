@@ -21,7 +21,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const page = await context.newPage()
       await page.goto(base)
       await expect(page.getByText(copy.shell.connected, { exact: true })).toBeVisible()
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await openSessionTool(page, copy.session.tools, 'goals')
       const pane = page.locator('.hbar-app-react-goal-plan-workspace')
       await expect(pane.getByRole('heading', { name: copy.goals.title, exact: true })).toBeVisible()

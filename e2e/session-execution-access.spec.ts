@@ -271,7 +271,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       ] as const) {
         await observer.goto(base)
         await showSidebar(observer, locale)
-        await observer.getByRole('button', { name: copy.shell.openSession(title), exact: true }).click()
+        await observer.getByRole('treeitem', { name: title, exact: true }).click()
         const prompt = observer.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
         await expect(prompt).toBeEditable()
         await prompt.fill(value)
@@ -459,7 +459,7 @@ for (const kind of ['model', 'mode', 'run'] as const) {
       const command = kind === 'model' ? 'session.setThinkingLevel' : kind === 'mode' ? 'mode.set' : 'run.submit'
       const intercepted = await loseOneAcceptedReply(page, command)
       await page.goto(base)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const draft = `Original ${kind} unknown draft — 未确认时保留原目标`
       await expect(prompt).toBeEditable()
@@ -583,7 +583,7 @@ test('original active approval rejects archive as BUSY and Stop cancels without 
     const page = await context.newPage()
     await page.goto(base)
     await showSidebar(page, 'en-US')
-    await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     await expect(prompt).toBeEditable()
     const accepted = await runs.execute(
@@ -647,11 +647,11 @@ test('archive A never gates B; explicit restore and rapid A/B selection retain e
     await page.goto(base)
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     await showSidebar(page, 'zh-CN')
-    await page.getByRole('button', { name: copy.shell.openSession(a.title), exact: true }).click()
+    await page.getByRole('treeitem', { name: a.title, exact: true }).click()
     await expect(prompt).toBeEditable()
     await prompt.fill('Draft A — A原始草稿')
     await showSidebar(page, 'zh-CN')
-    await page.getByRole('button', { name: copy.shell.openSession(b.title), exact: true }).click()
+    await page.getByRole('treeitem', { name: b.title, exact: true }).click()
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(b.title)
     await prompt.fill('Draft B — B原始草稿')
     await sessions.execute('session.archive', { sessionId: a.id, archived: true })
@@ -674,7 +674,7 @@ test('archive A never gates B; explicit restore and rapid A/B selection retain e
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(b.title)
     await expect(page.getByRole('tab', { name: a.title, exact: true })).toHaveCount(0)
     await showSidebar(page, 'zh-CN')
-    await page.getByRole('button', { name: copy.shell.openSession(a.title), exact: true }).click()
+    await page.getByRole('treeitem', { name: a.title, exact: true }).click()
     await expectComposerText(prompt, 'Draft A — A原始草稿')
     for (const title of [b.title, a.title, b.title, a.title])
       await page.getByRole('tab', { name: title, exact: true }).click()
@@ -732,7 +732,7 @@ test('archived completed proposal cannot create a detached Run while its documen
     const writes = await observeWrites(page)
     await page.goto(base)
     await showSidebar(page, 'en-US')
-    await page.getByRole('button', { name: copy.shell.openSession(snapshot.session.title), exact: true }).click()
+    await page.getByRole('treeitem', { name: snapshot.session.title, exact: true }).click()
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     await expect(prompt).toBeEditable()
     await prompt.fill('Unsent proposal-independent draft')
@@ -801,7 +801,7 @@ test('same-Run Plan Exit is not a new-Run gate; active archive is BUSY and its o
     const writes = await observeWrites(page)
     await page.goto(base)
     await showSidebar(page, 'zh-CN')
-    await page.getByRole('button', { name: copy.shell.openSession(snapshot.session.title), exact: true }).click()
+    await page.getByRole('treeitem', { name: snapshot.session.title, exact: true }).click()
     await expect(sessions.execute('session.archive', { sessionId, archived: true })).rejects.toMatchObject({
       code: 'BUSY',
     })
@@ -867,7 +867,7 @@ test('archived unknown run.retry keeps only the original read-only receipt actio
     const intercepted = await loseOneAcceptedReply(page, 'run.retry', true)
     await page.goto(base)
     await showSidebar(page, 'en-US')
-    await page.getByRole('button', { name: copy.shell.openSession(snapshot.session.title), exact: true }).click()
+    await page.getByRole('treeitem', { name: snapshot.session.title, exact: true }).click()
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     await expect(prompt).toBeEditable()
     const draft = 'Retry-independent unsent draft — 不消费原稿'

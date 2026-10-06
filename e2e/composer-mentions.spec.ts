@@ -31,7 +31,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(`${base()}${process.env.HBAR_MENTION_E2E_ENTRY ?? '/'}`)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const menu = page.getByRole('listbox', { name: copy.session.mentions.menu })
       await prompt.fill('Review @alpha')
@@ -54,11 +54,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(page.locator('.hbar-composer-mention-pill')).toHaveText('@alpha.ts')
 
       // Switching targets never projects a pill or a late result into another draft.
-      await page.getByRole('button', { name: copy.shell.openSession('Session 001'), exact: true }).click()
+      await page.getByRole('treeitem', { name: 'Session 001', exact: true }).click()
       const otherPrompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       await otherPrompt.fill('Other @beta')
       await expect(menu.getByRole('option').filter({ hasText: 'beta.ts' })).toBeVisible()
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await expect(page.locator('.hbar-composer-mention-pill')).toHaveText('@alpha.ts')
       await expectComposerText(prompt, 'Start Review @alpha.ts')
 

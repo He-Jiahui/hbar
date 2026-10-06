@@ -39,9 +39,9 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await page.goto(base)
       const workspace = page.getByTitle(copy.shell.workspaceActions(host.ready.workspaceName), { exact: true })
       await workspace.waitFor({ state: 'attached' })
-      const expand = page.getByRole('button', { name: copy.shell.expandWorkspace(host.ready.workspaceName) })
+      const expand = page.getByRole('treeitem', { expanded: false, name: host.ready.workspaceName })
       if (await expand.isVisible()) await expand.click()
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await mkdir('artifacts/system-diagnostics', { recursive: true })
       for (const viewport of [
         { width: 1440, height: 960 },

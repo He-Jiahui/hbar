@@ -147,17 +147,17 @@ async function start(browser: Browser, locale: ShellLocale, width: number, outco
     const show = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
     if (await show.isVisible()) await show.click()
     const project = page.locator(`[data-workspace-id="${ready.workspace.id}"]`)
-    const toggle = project.locator('.hbar-app-react-workspace-row')
+    const toggle = project
     await expect(toggle).toBeVisible()
     if ((await toggle.getAttribute('aria-expanded')) === 'false') {
       try {
-        await project.locator('.hbar-app-react-workspace-row[aria-expanded="false"]').click({ timeout: 1500 })
+        await project.locator('xpath=self::*[@aria-expanded="false"]').click({ timeout: 1500 })
       } catch (error) {
         if ((await toggle.getAttribute('aria-expanded')) !== 'true') throw error
       }
     }
     await expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    await project.getByRole('button', { name: copy.shell.openSession(ready.session.title), exact: true }).click()
+    await project.getByRole('treeitem', { name: ready.session.title, exact: true }).click()
     const hide = page.getByRole('button', { name: copy.shell.hideSidebar, exact: true })
     if (await hide.isVisible()) {
       try {

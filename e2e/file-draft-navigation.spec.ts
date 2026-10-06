@@ -57,12 +57,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page
         .getByTitle(copy.shell.workspaceActions(host.ready.workspaceName), { exact: true })
         .waitFor({ state: 'attached' })
-      const expand = page.getByRole('button', {
-        name: copy.shell.expandWorkspace(host.ready.workspaceName),
-        exact: true,
-      })
+      const expand = page.getByRole('treeitem', { expanded: false, name: host.ready.workspaceName, exact: true })
       if (await expand.isVisible()) await expand.click()
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const openOwnFiles = page.getByRole('button', { name: copy.session.tools.files, exact: true })
       await openOwnFiles.click()
       const files = page.locator('.hbar-app-react-file-workspace')

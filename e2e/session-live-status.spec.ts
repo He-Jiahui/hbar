@@ -32,8 +32,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base)
-      const originalSession = page.getByRole('button', {
-        name: copy.shell.openSession(host.ready.sessionTitle),
+      const originalSession = page.getByRole('treeitem', {
+        name: host.ready.sessionTitle,
         exact: true,
       })
       await originalSession.click()
@@ -86,11 +86,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         },
         { idempotencyKey: crypto.randomUUID() },
       )
-      await page.getByRole('button', { name: copy.shell.openSession(other.title), exact: true }).click()
+      await page.getByRole('treeitem', { name: other.title, exact: true }).click()
       await expect(status).toHaveCount(0)
       const currentTitle = (await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).session
         .title
-      await page.getByRole('button', { name: copy.shell.openSession(currentTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: currentTitle, exact: true }).click()
       await expect(status).toHaveAttribute('data-session-live-status', original.operationId)
       const composer = page.locator('.lumen-prompt-composer')
       await composer.getByRole('button', { name: copy.session.prompt.stop, exact: true }).click()

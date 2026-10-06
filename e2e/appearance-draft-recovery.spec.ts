@@ -44,12 +44,9 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       })
       await page.goto(base)
       await page.getByTitle(copy.shell.workspaceActions(host.ready.workspaceName), { exact: true }).waitFor()
-      const expand = page.getByRole('button', {
-        name: copy.shell.expandWorkspace(host.ready.workspaceName),
-        exact: true,
-      })
+      const expand = page.getByRole('treeitem', { expanded: false, name: host.ready.workspaceName, exact: true })
       if (await expand.isVisible()) await expand.click()
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const originalDraft = 'Keep the source session draft while changing appearance — 保持会话归属'
       await prompt.fill(originalDraft)

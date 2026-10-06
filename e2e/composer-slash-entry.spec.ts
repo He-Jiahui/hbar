@@ -28,7 +28,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base())
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const menu = page.getByRole('listbox', { name: copy.session.slash.menu })
 
@@ -157,10 +157,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const showSidebar = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
       if (await showSidebar.isVisible()) await showSidebar.click()
       await prompt.fill('/settings')
-      await page.getByRole('button', { name: copy.shell.openSession('Session 001'), exact: true }).click()
+      await page.getByRole('treeitem', { name: 'Session 001', exact: true }).click()
       const other = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       await expectComposerText(other, '')
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await expectComposerText(prompt, '/settings')
       await prompt.fill('/compact')
       await expect(menu).toHaveCount(0)
@@ -206,7 +206,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base())
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const send = page.getByRole('button', { name: copy.session.prompt.send, exact: true })
       for (const width of [1440, 320]) {

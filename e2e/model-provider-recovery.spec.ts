@@ -261,7 +261,7 @@ async function start(
       warnings,
       faults,
     }
-    await page.getByRole('button', { name: f.copy.shell.openSession(ready.session.title), exact: true }).click()
+    await page.getByRole('treeitem', { name: ready.session.title, exact: true }).click()
     const hide = page.getByRole('button', { name: f.copy.shell.hideSidebar, exact: true })
     if (await hide.isVisible()) await hide.click()
     if (!options.empty) {

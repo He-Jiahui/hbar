@@ -280,11 +280,11 @@ async function selectFixtureSession(f: SidebarFixture): Promise<void> {
   )
   if (!selectedAlias) throw new Error('The selected fixture session has no aliased project')
   const row = projectRow(sidebar, selectedAlias.workspaceId)
-  const disclosure = row.locator('.hbar-app-react-workspace-row')
+  const disclosure = row
   if ((await disclosure.getAttribute('aria-expanded')) === 'false') await disclosure.click()
   await row
-    .getByRole('button', {
-      name: f.copy.shell.openSession(f.host.ready.selectedSession.title),
+    .getByRole('treeitem', {
+      name: f.host.ready.selectedSession.title,
       exact: true,
     })
     .click()
@@ -425,10 +425,10 @@ test.describe('sidebar organization modes', () => {
       const targetId = original[1]
       if (!sourceId || !targetId) throw new Error('Missing ordinary projects to reorder')
       for (const id of original) {
-        const disclosure = projectRow(sidebar, id).locator('.hbar-app-react-workspace-row')
-        if ((await disclosure.getAttribute('aria-expanded')) === 'true') await disclosure.click()
+        const disclosure = projectRow(sidebar, id)
+        if ((await disclosure.getAttribute('aria-expanded')) === 'true') await disclosure.press('ArrowLeft')
       }
-      const source = projectRow(sidebar, sourceId).locator('.hbar-app-react-workspace-row')
+      const source = projectRow(sidebar, sourceId).locator(':scope > .lumen-tree-row')
       await expect(source).toHaveAttribute('draggable', 'true')
       await capture(f, 'en1440-projects-before.png')
       const sourceBox = await source.boundingBox()
@@ -444,7 +444,7 @@ test.describe('sidebar organization modes', () => {
       await f.page.mouse.up()
       const dragged = [original[0], sourceId, ...original.slice(1, -1)]
       await expect.poll(() => projectIds(sidebar)).toEqual(dragged)
-      await expect(source).toHaveAttribute('aria-expanded', 'false')
+      await expect(projectRow(sidebar, sourceId)).toHaveAttribute('aria-expanded', 'false')
       await expectComposerText(composer(f.page, f), draft)
       await expect(f.page.locator('.hbar-composer-model-trigger')).toHaveText(modelText)
       await expect(f.page.locator('.hbar-composer-thinking-trigger')).toHaveText(thinkingText)
@@ -469,10 +469,7 @@ test.describe('sidebar organization modes', () => {
       sidebar = await showSidebar(f)
       await expect.poll(() => projectIds(sidebar)).toEqual(moved)
       await chooseOrganization(f, 'project')
-      await expect(projectRow(sidebar, sourceId).locator('.hbar-app-react-workspace-row')).toHaveAttribute(
-        'draggable',
-        'false',
-      )
+      await expect(projectRow(sidebar, sourceId)).toHaveAttribute('draggable', 'false')
       await chooseOrganization(f, 'recentProject')
       await expectOrganizationOrder(f, sidebar, 'recentProject')
       expectNoCreationOrRunCommands(f)

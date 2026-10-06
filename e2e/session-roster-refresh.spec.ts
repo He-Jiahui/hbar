@@ -115,7 +115,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const otherProject = () => sidebar.locator(`[data-workspace-id="${otherWorkspace.id}"]`)
       const expand = async (name: string) => {
         await sidebar.getByTitle(copy.shell.workspaceActions(name), { exact: true }).waitFor()
-        const button = sidebar.getByRole('button', { name: copy.shell.expandWorkspace(name), exact: true })
+        const button = sidebar.getByRole('treeitem', { expanded: false, name: name, exact: true })
         if (await button.count()) await button.click()
       }
       await expand(host.ready.workspaceName)
@@ -125,9 +125,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await more.click()
       await expect(project().locator(`[data-session-id="${later.id}"]`)).toBeVisible()
       await expand(otherWorkspace.name)
-      await otherProject()
-        .getByRole('button', { name: copy.shell.openSession(otherSession.title), exact: true })
-        .click()
+      await otherProject().getByRole('treeitem', { name: otherSession.title, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       await prompt.fill('Keep the original draft — 保留原会话输入')
       const refreshProject = async (name: string) => {

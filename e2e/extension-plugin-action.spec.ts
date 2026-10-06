@@ -138,7 +138,7 @@ for (const locale of ['en-US', 'zh-CN'] as const)
       })
       await page.goto(base)
       // Finish an actual session navigation before opening Settings; don't race startup restore.
-      await page.getByRole('button', { name: copy.shell.openSession(target.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: target.ready.sessionTitle, exact: true }).click()
       await expect(page.getByRole('heading', { name: target.ready.sessionTitle, exact: true, level: 1 })).toBeVisible()
       await page.getByRole('button', { name: copy.shell.settings, exact: true }).click()
       await page

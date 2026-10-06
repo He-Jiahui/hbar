@@ -1,6 +1,4 @@
-import { useId } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
 import type { DirectoryState, SessionAgentTreeState } from '@hbar/app-runtime'
 import type { Session } from '@hbar/contracts/directory'
 import type { SessionActivityExecution } from '@hbar/contracts/sidebar-directory'
@@ -77,7 +75,6 @@ function Branch({
   readonly path: readonly string[]
   readonly responseTime?: { readonly at: number | null; readonly emptyLabel: string }
 }) {
-  const groupId = useId()
   const { session, treeLabels, connected } = props
   const branch = projection.tree.branches[session.id]
   const expanded = branch?.expanded ?? false
@@ -94,6 +91,68 @@ function Branch({
       ? [{ row, child }]
       : []
   })
+  const children = expanded ? (
+    <LumenFrame
+      className="hbar-app-react-agent-branch-children"
+      data-flat-depth={nextPath.length >= 4}
+      data-sidebar-level="subagent-sessions"
+      aria-label={treeLabels.children(session.title)}
+    >
+      {rows.map(({ row, child }) => (
+        <Branch
+          key={child.id}
+          {...props}
+          session={child}
+          childCount={row.agentChildCount}
+          metadata={undefined}
+          execution={{ state: row.execution.state, label: treeLabels.execution[row.execution.state] }}
+          responseTime={{ at: row.lastResponseAt, emptyLabel: treeLabels.noResponse }}
+          projection={projection}
+          path={nextPath}
+        />
+      ))}
+      {branch?.status === 'loading' && (
+        <LumenText as="p" role="status" size="s" variant="supporting">
+          {treeLabels.loading}
+        </LumenText>
+      )}
+      {branch?.status === 'ready' && rows.length === 0 && (
+        <LumenText as="p" size="s" variant="supporting">
+          {treeLabels.empty}
+        </LumenText>
+      )}
+      {branch?.error && (
+        <LumenFrame className="hbar-app-react-agent-branch-feedback" role="alert">
+          <LumenText as="p" size="s" variant="supporting">
+            {treeLabels.error(branch.error)}
+          </LumenText>
+          <LumenButton
+            size="s"
+            variant="outlined"
+            disabled={!connected}
+            onClick={() => projection.action('refresh', session.id)}
+          >
+            {treeLabels.retry}
+          </LumenButton>
+        </LumenFrame>
+      )}
+      {branch?.limitReached && (
+        <LumenText as="p" size="s" variant="supporting">
+          {treeLabels.capacity}
+        </LumenText>
+      )}
+      {branch?.nextCursor && (
+        <LumenButton
+          size="s"
+          variant="text"
+          disabled={!connected || branch.status === 'loading' || branch.limitReached}
+          onClick={() => projection.action('loadMore', session.id)}
+        >
+          {treeLabels.loadMore}
+        </LumenButton>
+      )}
+    </LumenFrame>
+  ) : null
   return (
     <LumenFrame
       className="hbar-app-react-agent-branch"
@@ -101,113 +160,44 @@ function Branch({
       data-sidebar-level={path.length === 0 ? 'parent-session' : 'subagent-session'}
       data-sidebar-depth={path.length + 2}
     >
-      <LumenFrame className="hbar-app-react-agent-branch-line">
-        {hasChildren ? (
-          <LumenButton
-            className="hbar-app-react-agent-branch-toggle"
-            size="s"
-            variant="text"
-            aria-label={expanded ? treeLabels.collapse(session.title, count) : treeLabels.expand(session.title, count)}
-            aria-expanded={expanded}
-            aria-controls={groupId}
-            disabled={!connected && !expanded}
-            onClick={() => projection.action('toggle', session.id)}
-          >
-            <LumenIcon icon={expanded ? ChevronDown : ChevronRight} tier="sm" />
-          </LumenButton>
-        ) : (
-          <LumenFrame className="hbar-app-react-agent-branch-spacer" aria-hidden="true" />
-        )}
-        <SessionNavigationRow
-          session={session}
-          connected={connected}
-          labels={props.labels}
-          now={props.now}
-          selected={projection.selectedId === session.id}
-          onOpen={() => props.onOpen(session)}
-          metadata={props.metadata}
-          execution={props.execution}
-          responseTime={responseTime}
-          batchSelecting={props.batchSelecting}
-          batchSelected={props.batchSelection.has(`${session.workspaceId}\u0000${session.id}`)}
-          onToggleBatchSelection={() => props.onToggleBatchSelection(session)}
-          onExitBatchSelection={props.onExitBatchSelection}
-        />
-        {count > 0 && (
-          <LumenText
-            className="hbar-app-react-agent-branch-count"
-            size="s"
-            variant="supporting"
-            title={treeLabels.count(count)}
-          >
-            {count}
-          </LumenText>
-        )}
-      </LumenFrame>
-      {expanded && (
-        <LumenFrame
-          id={groupId}
-          className="hbar-app-react-agent-branch-children"
-          data-flat-depth={nextPath.length >= 4}
-          data-sidebar-level="subagent-sessions"
-          role="group"
-          aria-label={treeLabels.children(session.title)}
-        >
-          {rows.map(({ row, child }) => (
-            <Branch
-              key={child.id}
-              {...props}
-              session={child}
-              childCount={row.agentChildCount}
-              metadata={undefined}
-              execution={{ state: row.execution.state, label: treeLabels.execution[row.execution.state] }}
-              responseTime={{ at: row.lastResponseAt, emptyLabel: treeLabels.noResponse }}
-              projection={projection}
-              path={nextPath}
-            />
-          ))}
-          {branch?.status === 'loading' && (
-            <LumenText as="p" role="status" size="s" variant="supporting">
-              {treeLabels.loading}
-            </LumenText>
-          )}
-          {branch?.status === 'ready' && rows.length === 0 && (
-            <LumenText as="p" size="s" variant="supporting">
-              {treeLabels.empty}
-            </LumenText>
-          )}
-          {branch?.error && (
-            <LumenFrame className="hbar-app-react-agent-branch-feedback" role="alert">
-              <LumenText as="p" size="s" variant="supporting">
-                {treeLabels.error(branch.error)}
-              </LumenText>
-              <LumenButton
-                size="s"
-                variant="outlined"
-                disabled={!connected}
-                onClick={() => projection.action('refresh', session.id)}
-              >
-                {treeLabels.retry}
-              </LumenButton>
-            </LumenFrame>
-          )}
-          {branch?.limitReached && (
-            <LumenText as="p" size="s" variant="supporting">
-              {treeLabels.capacity}
-            </LumenText>
-          )}
-          {branch?.nextCursor && (
-            <LumenButton
+      <SessionNavigationRow
+        session={session}
+        connected={connected}
+        labels={props.labels}
+        now={props.now}
+        selected={projection.selectedId === session.id}
+        onOpen={() => props.onOpen(session)}
+        metadata={props.metadata}
+        execution={props.execution}
+        responseTime={responseTime}
+        batchSelecting={props.batchSelecting}
+        batchSelected={props.batchSelection.has(`${session.workspaceId}\u0000${session.id}`)}
+        onToggleBatchSelection={() => props.onToggleBatchSelection(session)}
+        onExitBatchSelection={props.onExitBatchSelection}
+        treeNode={{
+          nodeId: `session:${session.id}`,
+          expanded: hasChildren ? expanded : undefined,
+          expansionDisabled: !connected && !expanded,
+          onExpandedChange: hasChildren
+            ? (next) => {
+                if (next !== expanded) projection.action('toggle', session.id)
+              }
+            : undefined,
+          children,
+        }}
+        treeAdornment={
+          count > 0 ? (
+            <LumenText
+              className="hbar-app-react-agent-branch-count"
               size="s"
-              variant="text"
-              disabled={!connected || branch.status === 'loading' || branch.limitReached}
-              onClick={() => projection.action('loadMore', session.id)}
+              variant="supporting"
+              title={treeLabels.count(count)}
             >
-              {treeLabels.loadMore}
-            </LumenButton>
-          )}
-        </LumenFrame>
-      )}
+              {count}
+            </LumenText>
+          ) : null
+        }
+      />
     </LumenFrame>
   )
 }

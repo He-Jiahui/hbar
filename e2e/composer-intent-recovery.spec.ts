@@ -147,7 +147,7 @@ async function fixture(browser: Browser, locale: ShellLocale, width: number) {
       await expect(planOption).toBeVisible()
     }
     const selectSession = async (title: string) => {
-      const entry = page.getByRole('button', { name: copy.shell.openSession(title), exact: true })
+      const entry = page.getByRole('treeitem', { name: title, exact: true })
       const show = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
       await expect.poll(async () => (await entry.isVisible()) || (await show.isVisible())).toBe(true)
       if (await show.isVisible()) await show.click()

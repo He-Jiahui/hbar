@@ -93,7 +93,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         })
       })
       await page.goto(base)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const draft = 'Draft remains attached to this session — 尚未发送的草稿'
       await expect(prompt).toHaveAttribute('contenteditable', 'true')

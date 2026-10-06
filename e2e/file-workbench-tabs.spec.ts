@@ -29,8 +29,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const copy = getShellCopy(locale)
       const tabs = workspaceTabsCopy((zh, en) => (locale === 'zh-CN' ? zh : en))
       await page.goto(base())
-      const session = page.getByRole('button', {
-        name: copy.shell.openSession(host.ready.sessionTitle),
+      const session = page.getByRole('treeitem', {
+        name: host.ready.sessionTitle,
         exact: true,
       })
       await expect(session).toBeVisible()
@@ -109,7 +109,7 @@ test('Workbench X chooses a surviving neighbour without deleting either Host ses
     const tabs = workspaceTabsCopy((_zh, en) => en)
     await page.goto(base())
     for (const title of ['Session 001', 'Session 002'])
-      await page.getByRole('button', { name: copy.shell.openSession(title), exact: true }).click()
+      await page.getByRole('treeitem', { name: title, exact: true }).click()
     await page.getByRole('tab', { name: 'Session 001', exact: true }).click()
     await page.getByRole('button', { name: copy.session.tools.files, exact: true }).click()
     await page.getByRole('button', { name: copy.files.expandWorkbench, exact: true }).click()

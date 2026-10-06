@@ -122,8 +122,7 @@ test('composer stops its captured background Agents without replacing Send or ca
       })
     })
     await page.goto(base)
-    const open = (title: string) =>
-      page.getByRole('button', { name: copy.shell.openSession(title), exact: true }).click()
+    const open = (title: string) => page.getByRole('treeitem', { name: title, exact: true }).click()
     await open(host.ready.sessionTitle)
     const composer = page.locator('.lumen-prompt-composer')
     const input = composer.getByRole('textbox', { name: copy.session.prompt.input, exact: true })

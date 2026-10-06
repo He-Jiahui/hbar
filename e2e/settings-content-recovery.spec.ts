@@ -242,7 +242,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const initialSidebar = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
       await expect(initialSidebar).toBeVisible()
       await initialSidebar.click()
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       // Session activation closes the sidebar asynchronously below 64rem.
       await expect(initialSidebar).toBeVisible()
       await initialSidebar.click()
@@ -374,7 +374,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await latePage.goto(origin)
       const lateShowSidebar = latePage.getByRole('button', { name: copy.shell.showSidebar, exact: true })
       if (await lateShowSidebar.isVisible()) await lateShowSidebar.click()
-      await latePage.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await latePage.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await latePage.getByRole('button', { name: copy.shell.settings, exact: true }).click()
       await latePage
         .getByRole('navigation', { name: copy.settings.groups, exact: true })

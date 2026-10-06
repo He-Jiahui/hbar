@@ -43,7 +43,7 @@ test('Project and Time sidebar keep an idle parent active while a child works an
         'src',
         new RegExp(process.env.HBAR_ACTIVITY_EXPECTED_ASSET),
       )
-    await page.getByRole('button', { name: copy.shell.openSession(sessionTitle), exact: true }).click()
+    await page.getByRole('treeitem', { name: sessionTitle, exact: true }).click()
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     const draft = '先查看后台工作，返回后继续保留这段输入。'
     await prompt.fill(draft)

@@ -107,7 +107,7 @@ async function openSessionFromSidebar(
   title: string,
   width: number,
 ): Promise<void> {
-  const openSession = page.getByRole('button', { name: copy.shell.openSession(title), exact: true })
+  const openSession = page.getByRole('treeitem', { name: title, exact: true })
   if (!(await openSession.isVisible())) await setSidebar(page, copy, true)
   await openSession.click()
   await expect(page.getByRole('tab', { name: title, exact: true })).toHaveAttribute('aria-selected', 'true')

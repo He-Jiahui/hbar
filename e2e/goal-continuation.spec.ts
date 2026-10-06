@@ -23,7 +23,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       await prompt.fill('Goal continuing is ordinary typed text, not a continuation fact.')
       await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
@@ -114,9 +114,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.reload()
       const showSidebar = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
       if (await showSidebar.isVisible()) await showSidebar.click()
-      await page.getByRole('button', { name: copy.shell.openSession(other.title), exact: true }).click()
+      await page.getByRole('treeitem', { name: other.title, exact: true }).click()
       await expect(markers).toHaveCount(0)
-      await page.getByRole('button', { name: copy.shell.openSession(snapshot.session.title), exact: true }).click()
+      await page.getByRole('treeitem', { name: snapshot.session.title, exact: true }).click()
       await expect(markers).toHaveCount(continuationRuns.length)
       expect(errors).toEqual([])
     } finally {

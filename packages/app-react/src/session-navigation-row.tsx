@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react'
+import { useEffect, useId, useRef, type ReactNode, type KeyboardEvent, type MouseEvent } from 'react'
 import { Check, Circle, Folder, MessageSquare } from 'lucide-react'
 import type { DirectoryState } from '@hbar/app-runtime'
 import {
@@ -9,6 +9,8 @@ import {
   LumenInput,
   LumenNavigationButton,
   LumenText,
+  LumenTreeItem,
+  type LumenTreeItemProps,
 } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { SessionArchiveFeedback, type SessionArchiveLabels } from './session-archive'
@@ -111,6 +113,8 @@ export function SessionNavigationRow({
   metadata,
   execution,
   responseTime,
+  treeNode,
+  treeAdornment,
 }: {
   readonly session: DirectoryState['sessions'][string]
   readonly selected: boolean
@@ -125,6 +129,8 @@ export function SessionNavigationRow({
   readonly metadata?: SessionNavigationRowMetadata | undefined
   readonly execution?: SessionActivityIndicatorContent | undefined
   readonly responseTime?: { readonly at: number | null; readonly emptyLabel: string } | undefined
+  readonly treeNode?: Omit<LumenTreeItemProps, 'content' | 'label' | 'selected' | 'onActivate'> | undefined
+  readonly treeAdornment?: ReactNode
 }) {
   const runtime = useHbarRuntime()
   const rename = useHbarRuntimeState(runtime.state.sessionRename)
@@ -173,37 +179,11 @@ export function SessionNavigationRow({
     )
   const openActions = (): boolean => {
     if (batchSelecting || editing || archiving) return false
-    const menu = row.current?.querySelector<HTMLDetailsElement>('details.lumen-action-menu')
-    if (!menu) return false
-    menu.open = true
-    queueMicrotask(() => menu.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus())
+    const trigger = row.current?.querySelector<HTMLButtonElement>('.lumen-action-menu-trigger')
+    if (!trigger || trigger.disabled) return false
+    trigger.click()
     return true
   }
-  useEffect(() => {
-    const owner = row.current
-    if (!owner) return
-    let removeOutside = () => {}
-    const toggled = (event: Event) => {
-      if (!(event.target instanceof HTMLDetailsElement) || !event.target.matches('details.lumen-action-menu')) return
-      removeOutside()
-      const menu = event.target
-      if (!menu.open) return
-      const document = owner.ownerDocument
-      const dismiss = (pointer: PointerEvent) => {
-        if (pointer.target instanceof Node && !menu.contains(pointer.target)) {
-          menu.open = false
-          removeOutside()
-        }
-      }
-      document.addEventListener('pointerdown', dismiss, true)
-      removeOutside = () => document.removeEventListener('pointerdown', dismiss, true)
-    }
-    owner.addEventListener('toggle', toggled, true)
-    return () => {
-      removeOutside()
-      owner.removeEventListener('toggle', toggled, true)
-    }
-  }, [])
   const invoke = (operation: 'submit' | 'cancel' | 'reconcile') => {
     void runtime.commands
       .execute(`sessionRename.${operation}`, { sessionId: session.id, revision: rename.revision })
@@ -220,12 +200,74 @@ export function SessionNavigationRow({
       // A disabled submit control may leave focus on the body. Restore only
       // within this row/body; never steal focus chosen in another conversation.
       if (active === document?.body || (active && row.current?.contains(active)))
-        row.current?.querySelector<HTMLButtonElement>('.hbar-app-react-session-target')?.focus()
+        (treeNode
+          ? row.current?.closest<HTMLElement>('[role="treeitem"]')
+          : row.current?.querySelector<HTMLElement>('.hbar-app-react-session-target')
+        )?.focus()
     }
     if (archiving) restoreFocus.current = true
     wasEditing.current = editing || archiving
-  }, [editing, archiving])
-  return (
+  }, [editing, archiving, treeNode])
+  const onContextMenu = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.target instanceof Element && event.target.closest('details, input, textarea,button')) return
+    if (openActions()) {
+      event.preventDefault()
+      event.stopPropagation()
+    }
+  }
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if ((event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) && openActions()) {
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+    if (event.key === 'Escape' && batchSelecting && onExitBatchSelection) {
+      event.preventDefault()
+      event.stopPropagation()
+      onExitBatchSelection()
+    }
+  }
+  const targetContent = (
+    <>
+      {(batchSelecting || !metadata) && (
+        <LumenIcon icon={batchSelecting ? (batchSelected ? Check : Circle) : MessageSquare} tier="sm" />
+      )}
+      <LumenText as="span" className="hbar-app-react-session-label" data-has-metadata={metadata ? 'true' : undefined}>
+        {metadata ? (
+          <>
+            <LumenFrame className="hbar-app-react-session-main-line">
+              <LumenText as="span" size="s" variant="label" className="hbar-app-react-session-title">
+                {session.title}
+              </LumenText>
+              {sessionTime}
+              <SessionActivityIndicator execution={metadata.execution} />
+            </LumenFrame>
+            <LumenText as="span" size="s" variant="supporting" className="hbar-app-react-session-context-line">
+              <LumenIcon icon={Folder} tier="sm" />
+              <LumenText
+                as="span"
+                size="s"
+                variant="supporting"
+                className="hbar-app-react-session-workspace-label"
+                title={metadata.workspacePath ?? metadata.workspaceName}
+              >
+                {metadata.workspaceName}
+              </LumenText>
+            </LumenText>
+          </>
+        ) : (
+          <>
+            <LumenText as="span" size="s" variant="label" className="hbar-app-react-session-title">
+              {session.title}
+            </LumenText>
+            <SessionActivityIndicator execution={execution} />
+            {sessionTime}
+          </>
+        )}
+      </LumenText>
+    </>
+  )
+  const content = (
     <LumenFrame
       ref={row}
       className="hbar-app-react-session-row"
@@ -233,25 +275,8 @@ export function SessionNavigationRow({
       data-batch-selected={batchSelected || undefined}
       data-session-id={session.id}
       data-editing={editing || undefined}
-      onContextMenu={(event) => {
-        if (event.target instanceof Element && event.target.closest('details, input, textarea')) return
-        if (openActions()) {
-          event.preventDefault()
-          event.stopPropagation()
-        }
-      }}
-      onKeyDown={(event) => {
-        if ((event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) && openActions()) {
-          event.preventDefault()
-          event.stopPropagation()
-          return
-        }
-        if (event.key === 'Escape' && batchSelecting && onExitBatchSelection) {
-          event.preventDefault()
-          event.stopPropagation()
-          onExitBatchSelection()
-        }
-      }}
+      onContextMenu={onContextMenu}
+      onKeyDown={onKeyDown}
     >
       {archiving ? (
         <SessionArchiveFeedback labels={labels.archive} connected={connected} focusCancel />
@@ -332,58 +357,25 @@ export function SessionNavigationRow({
         </LumenFrame>
       ) : (
         <>
-          <LumenNavigationButton
-            className="hbar-app-react-session-target"
-            size="s"
-            variant="text"
-            selected={batchSelecting ? batchSelected : selected}
-            indicatorEdge="left"
-            aria-label={batchSelecting ? labels.selectSession(session.title) : labels.openSession(session.title)}
-            aria-pressed={batchSelecting ? batchSelected : undefined}
-            title={session.title}
-            onClick={batchSelecting && onToggleBatchSelection ? onToggleBatchSelection : onOpen}
-          >
-            {(batchSelecting || !metadata) && (
-              <LumenIcon icon={batchSelecting ? (batchSelected ? Check : Circle) : MessageSquare} tier="sm" />
-            )}
-            <LumenText
-              as="span"
-              className="hbar-app-react-session-label"
-              data-has-metadata={metadata ? 'true' : undefined}
+          {treeNode ? (
+            <LumenFrame className="hbar-app-react-session-target" title={session.title}>
+              {targetContent}
+            </LumenFrame>
+          ) : (
+            <LumenNavigationButton
+              className="hbar-app-react-session-target"
+              size="s"
+              variant="text"
+              selected={batchSelecting ? batchSelected : selected}
+              indicatorEdge="left"
+              aria-label={batchSelecting ? labels.selectSession(session.title) : labels.openSession(session.title)}
+              aria-pressed={batchSelecting ? batchSelected : undefined}
+              title={session.title}
+              onClick={batchSelecting && onToggleBatchSelection ? onToggleBatchSelection : onOpen}
             >
-              {metadata ? (
-                <>
-                  <LumenFrame className="hbar-app-react-session-main-line">
-                    <LumenText as="span" size="s" variant="label" className="hbar-app-react-session-title">
-                      {session.title}
-                    </LumenText>
-                    {sessionTime}
-                    <SessionActivityIndicator execution={metadata.execution} />
-                  </LumenFrame>
-                  <LumenText as="span" size="s" variant="supporting" className="hbar-app-react-session-context-line">
-                    <LumenIcon icon={Folder} tier="sm" />
-                    <LumenText
-                      as="span"
-                      size="s"
-                      variant="supporting"
-                      className="hbar-app-react-session-workspace-label"
-                      title={metadata.workspacePath ?? metadata.workspaceName}
-                    >
-                      {metadata.workspaceName}
-                    </LumenText>
-                  </LumenText>
-                </>
-              ) : (
-                <>
-                  <LumenText as="span" size="s" variant="label" className="hbar-app-react-session-title">
-                    {session.title}
-                  </LumenText>
-                  <SessionActivityIndicator execution={execution} />
-                  {sessionTime}
-                </>
-              )}
-            </LumenText>
-          </LumenNavigationButton>
+              {targetContent}
+            </LumenNavigationButton>
+          )}
           {!batchSelecting && (
             <LumenActionMenu
               label={labels.sessionActions(session.title)}
@@ -412,8 +404,26 @@ export function SessionNavigationRow({
               }}
             />
           )}
+          {treeAdornment}
         </>
       )}
     </LumenFrame>
+  )
+  return treeNode ? (
+    <LumenTreeItem
+      {...treeNode}
+      label={session.title}
+      selected={batchSelecting ? batchSelected : selected}
+      aria-current={!batchSelecting && selected ? 'page' : undefined}
+      aria-checked={batchSelecting ? batchSelected : undefined}
+      onActivate={
+        editing || archiving ? () => {} : batchSelecting && onToggleBatchSelection ? onToggleBatchSelection : onOpen
+      }
+      onContextMenu={onContextMenu}
+      onKeyDown={onKeyDown}
+      content={content}
+    />
+  ) : (
+    content
   )
 }

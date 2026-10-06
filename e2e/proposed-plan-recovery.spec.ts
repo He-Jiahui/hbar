@@ -247,7 +247,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           `/assets/${process.env.HBAR_E2E_EXPECT_ASSET}`,
         )
       const select = async (title: string) => {
-        const entry = page.getByRole('button', { name: copy.shell.openSession(title), exact: true })
+        const entry = page.getByRole('treeitem', { name: title, exact: true })
         const show = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
         await expect.poll(async () => (await entry.isVisible()) || (await show.isVisible())).toBe(true)
         if (await show.isVisible()) await show.click()

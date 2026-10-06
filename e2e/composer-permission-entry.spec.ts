@@ -11,7 +11,7 @@ async function selectSession(page: Page, title: string, locale: ShellLocale) {
   const copy = getShellCopy(locale)
   const show = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
   if (await show.isVisible()) await show.click()
-  await page.getByRole('button', { name: copy.shell.openSession(title), exact: true }).click()
+  await page.getByRole('treeitem', { name: title, exact: true }).click()
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {

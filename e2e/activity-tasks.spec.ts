@@ -52,7 +52,7 @@ test('Activity tasks follow real Plan updates, clear and Session selection witho
         new RegExp(process.env.HBAR_ACTIVITY_EXPECTED_ASSET),
       )
     const copy = getShellCopy('zh-CN')
-    await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     const draft = '保留这段未发送输入；查看任务不是发送或编辑计划。'
     await prompt.fill(draft)
@@ -98,7 +98,7 @@ test('Activity tasks follow real Plan updates, clear and Session selection witho
     await expectComposerText(prompt, draft)
     const sidebar = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
     if (await sidebar.isVisible()) await sidebar.click()
-    await page.getByRole('button', { name: copy.shell.openSession('Session 001'), exact: true }).click()
+    await page.getByRole('treeitem', { name: 'Session 001', exact: true }).click()
     await activity.click()
     await expect(pane.getByText(copy.activity.empty, { exact: true })).toBeVisible()
     await expect(tasks).toHaveCount(0)

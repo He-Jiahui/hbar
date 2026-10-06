@@ -56,7 +56,7 @@ for (const scenario of [
         return route.abort()
       })
       await page.goto(base)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const draft = 'Keep this draft while reading Markdown — 文档往返不丢草稿'
       await prompt.fill(draft)

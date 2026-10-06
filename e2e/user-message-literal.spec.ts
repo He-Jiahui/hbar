@@ -39,7 +39,7 @@ test('operator text stays literal while assistant Markdown, Copy and Find remain
     const copyMessage = copy.session.messageActions.copyMessage
     if (!copyMessage) throw new Error('Host operator Copy label missing')
     await page.goto(origin)
-    await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     const text =
       '# 保留我的原始输入\n**不要变成粗体** 和 `不是代码块`\n- 这不是列表\n\n  两个空格开头\nD:\\Git\\hbar\\src\\index.ts\n```ts\nconst value = "<tag>&amp;"\n```\n打开 https://example.invalid/docs，然后继续。'

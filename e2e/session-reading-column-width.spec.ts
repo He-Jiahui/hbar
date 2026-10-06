@@ -126,12 +126,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(page.locator('html')).toHaveAttribute('data-lumen-mode', 'dark')
 
       await page.getByTitle(copy.shell.workspaceActions(fixtureHost.ready.workspaceName), { exact: true }).waitFor()
-      const expand = page.getByRole('button', {
-        name: copy.shell.expandWorkspace(fixtureHost.ready.workspaceName),
-        exact: true,
-      })
+      const expand = page.getByRole('treeitem', { expanded: false, name: fixtureHost.ready.workspaceName, exact: true })
       if (await expand.isVisible()) await expand.click()
-      await page.getByRole('button', { name: copy.shell.openSession(currentSession.title), exact: true }).click()
+      await page.getByRole('treeitem', { name: currentSession.title, exact: true }).click()
 
       const composer = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       await expect(composer).toBeVisible()

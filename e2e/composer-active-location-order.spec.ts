@@ -56,12 +56,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const contextCopy = sessionContextCopy(locale)
       await page.goto(`${base()}/apps/web/`)
       await page.getByTitle(copy.shell.workspaceActions(host.ready.workspaceName), { exact: true }).waitFor()
-      const expand = page.getByRole('button', {
-        name: copy.shell.expandWorkspace(host.ready.workspaceName),
-        exact: true,
-      })
+      const expand = page.getByRole('treeitem', { expanded: false, name: host.ready.workspaceName, exact: true })
       if (await expand.isVisible()) await expand.click()
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await expect(page.locator('html')).toHaveAttribute('data-lumen-mode', colorScheme)
 
       const project = page.getByRole('group', {

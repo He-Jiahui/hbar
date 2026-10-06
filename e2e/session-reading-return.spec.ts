@@ -68,7 +68,7 @@ test('reading earlier messages survives Settings and Files workbench returns wit
     page.on('pageerror', (error) => errors.push(error.message))
     const copy = getShellCopy('zh-CN')
     await page.goto(base)
-    await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     const input = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     const draft = '先读旧消息，再打开设置，回来应该继续读同一处。'
     await input.fill(draft)
@@ -149,10 +149,10 @@ test('reading earlier messages survives Settings and Files workbench returns wit
       },
       { idempotencyKey: crypto.randomUUID() },
     )
-    await page.getByRole('button', { name: copy.shell.openSession(other.title), exact: true }).click()
+    await page.getByRole('treeitem', { name: other.title, exact: true }).click()
     await expectComposerText(input, '')
     await expect.poll(async () => (await readingAnchor(viewport)).atEnd).toBe(true)
-    await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     await expectComposerText(input, draft)
     await expect.poll(async () => (await readingAnchor(viewport)).id).toBe(beforeSwitch.id)
     await expect(page.locator('.hbar-app-react-session-main')).toHaveAttribute('data-reading-restoring', 'false')

@@ -232,7 +232,23 @@
 
 .hbar-app-react-session-list {
   gap: 0.125rem;
-  padding-inline-start: 1.5rem;
+  padding-inline-start: 0;
+}
+
+.hbar-app-react-project-tree .lumen-tree-row > .hbar-app-react-workspace-line,
+.hbar-app-react-project-tree .lumen-tree-row > .hbar-app-react-session-row {
+  min-inline-size: 0;
+  flex: 1 1 0;
+}
+
+.hbar-app-react-project-tree .lumen-tree-item:focus-within > .lumen-tree-row .hbar-app-react-project-menu,
+.hbar-app-react-project-tree .lumen-tree-item:focus-within > .lumen-tree-row .hbar-app-react-project-new-session,
+.hbar-app-react-project-tree
+  .lumen-tree-item:focus-within
+  > .lumen-tree-row
+  .hbar-app-react-session-row
+  > .lumen-action-menu {
+  opacity: 1;
 }
 
 .hbar-app-react-session-row {

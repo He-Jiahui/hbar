@@ -41,7 +41,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base())
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await page.getByRole('textbox', { name: copy.session.prompt.input }).fill('Review this')
       await page.getByRole('button', { name: copy.session.tools.files, exact: true }).click()
       const dock = page.locator('.hbar-app-react-file-workspace:not(.hbar-app-react-file-workbench)')
@@ -49,7 +49,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await dock.getByRole('button', { name: copy.files.expandWorkbench, exact: true }).click()
       const workbenchTab = page.getByRole('tab', { name: tabs.workbenchTitle, exact: true })
       await expect(workbenchTab).toHaveAttribute('aria-selected', 'true')
-      await page.getByRole('button', { name: copy.shell.openSession('Session 001'), exact: true }).click()
+      await page.getByRole('treeitem', { name: 'Session 001', exact: true }).click()
       const otherPrompt = page.getByRole('textbox', { name: copy.session.prompt.input })
       await otherPrompt.fill('Other draft')
       await workbenchTab.click()

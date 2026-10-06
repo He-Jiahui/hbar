@@ -85,7 +85,7 @@ test('Guide consumes one queue row into the current Run while draft and remainin
     page.on('pageerror', (error) => errors.push(error.message))
     const copy = getShellCopy('zh-CN')
     await page.goto(ready.url)
-    await page.getByRole('button', { name: copy.shell.openSession(ready.sessionTitle), exact: true }).click()
+    await page.getByRole('treeitem', { name: ready.sessionTitle, exact: true }).click()
     const composer = page.locator('.lumen-prompt-composer')
     const prompt = composer.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     await prompt.fill('开始检查当前任务')

@@ -91,7 +91,7 @@ test('Goal strip distinguishes paused continuation from the current running sess
         'src',
         new RegExp(process.env.HBAR_GOAL_EXPECTED_ASSET),
       )
-    await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     const strip = page.locator('.hbar-session-current-goal .hbar-composer-goal-strip')
     const status = strip.locator('.hbar-composer-goal-status')
     await expect(status).toHaveText(copy.session.intent.statuses.active)
@@ -167,7 +167,7 @@ test('Goal strip distinguishes paused continuation from the current running sess
     await goals.execute('goal.create', { sessionId: other.id, objective: 'Another session is independent' })
     await page.setViewportSize({ width: 1440, height: 960 })
     await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()
-    await page.getByRole('button', { name: copy.shell.openSession(other.title), exact: true }).click()
+    await page.getByRole('treeitem', { name: other.title, exact: true }).click()
     await expect(status).toHaveText(copy.session.intent.statuses.active)
     await expect(strip).not.toContainText(objective)
     await page

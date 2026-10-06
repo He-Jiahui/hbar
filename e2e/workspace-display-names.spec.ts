@@ -59,7 +59,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await capture(f, `edit-${locale}-${width}`)
         await input.press('Enter')
         await expect(dialog).toHaveCount(0)
-        await expect(row(f).locator('.hbar-app-react-workspace-row')).toContainText('Alpha 项目')
+        await expect(row(f)).toContainText('Alpha 项目')
         await expect(row(f).locator('.hbar-app-react-project-menu summary')).toBeFocused()
         expect((await api.execute('workspaceDisplayNames.get', {})).entries).toEqual([
           { workspaceId: f.ready.firstWorkspace.id, displayName: 'Alpha 项目' },

@@ -113,7 +113,7 @@ async function start(
     await beforeNavigate?.(page, host.ready.workspaceId)
     await page.goto(origin)
     const copy = getShellCopy(locale)
-    await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     await page.getByRole('button', { name: copy.shell.hideSidebar, exact: true }).click()
     await page.getByRole('textbox', { name: copy.session.prompt.input, exact: true }).fill(composerDraft)
     await page.getByRole('button', { name: copy.session.tools.files, exact: true }).click()

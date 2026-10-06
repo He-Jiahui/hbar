@@ -60,7 +60,7 @@ test('Activity Workflow follows Host focus/delegation and opens the actual child
         'src',
         new RegExp(process.env.HBAR_ACTIVITY_EXPECTED_ASSET),
       )
-    await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true }),
       draft = '查看委派后返回时仍然保留这段输入。'
     await prompt.fill(draft)
@@ -116,7 +116,7 @@ test('Activity Workflow follows Host focus/delegation and opens the actual child
     await expectComposerText(prompt, draft)
     const sidebar = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
     if (await sidebar.isVisible()) await sidebar.click()
-    await page.getByRole('button', { name: copy.shell.openSession('Session 001'), exact: true }).click()
+    await page.getByRole('treeitem', { name: 'Session 001', exact: true }).click()
     await activity.click()
     await expect(pane.getByText(copy.activity.empty, { exact: true })).toBeVisible()
     await expect(workflow).toHaveCount(0)

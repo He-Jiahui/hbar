@@ -73,7 +73,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.setViewportSize({ width: 1440, height: 960 })
       const show = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
       if (await show.isVisible()) await show.click()
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await expect(entry).toBeEnabled()
       await entry.click()
       const files = page.getByRole('region', { name: copy.files.title, exact: true })

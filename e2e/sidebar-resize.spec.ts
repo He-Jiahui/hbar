@@ -108,7 +108,7 @@ async function start(browser: Browser, locale: ShellLocale): Promise<Fixture> {
     const copy = getShellCopy(locale)
     const fixture = { root, context, page, host, copy, a, b, errors, forbiddenWrites }
     await showSidebar(fixture, true)
-    await page.getByRole('button', { name: copy.shell.openSession(a.title), exact: true }).click()
+    await page.getByRole('treeitem', { name: a.title, exact: true }).click()
     await showSidebar(fixture, true)
     return fixture
   } catch (error) {
@@ -334,7 +334,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await settled(separator, preferred)
 
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
-      await page.getByRole('button', { name: copy.shell.openSession(fixture.a.title), exact: true }).click()
+      await page.getByRole('treeitem', { name: fixture.a.title, exact: true }).click()
       await prompt.fill(draftA)
       await page.getByRole('button', { name: copy.session.tools.files, exact: true }).click()
       const files = page.locator('.hbar-app-react-file-workspace')
@@ -353,10 +353,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await settled(separator, 12)
       await expect.poll(() => savedWidths(page)).toEqual({ sidebar: 12, tool: previousTool + 32 / rem })
       await expect(editor).toHaveValue(dirty)
-      await page.getByRole('button', { name: copy.shell.openSession(fixture.b.title), exact: true }).click()
+      await page.getByRole('treeitem', { name: fixture.b.title, exact: true }).click()
       await expect(files).toHaveCount(0)
       await prompt.fill(draftB)
-      await page.getByRole('button', { name: copy.shell.openSession(fixture.a.title), exact: true }).click()
+      await page.getByRole('treeitem', { name: fixture.a.title, exact: true }).click()
       await expect(editor).toHaveValue(dirty)
       await expectComposerText(prompt, draftA)
       const settings = page.getByRole('button', { name: copy.shell.settings, exact: true })
@@ -388,7 +388,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expectComposerText(prompt, draftA)
       await page.setViewportSize({ width: 1440, height: 960 })
       await showSidebar(fixture, true)
-      await page.getByRole('button', { name: copy.shell.openSession(fixture.b.title), exact: true }).click()
+      await page.getByRole('treeitem', { name: fixture.b.title, exact: true }).click()
       await expectComposerText(prompt, draftB)
       await expect.poll(() => savedWidths(page)).toEqual({ sidebar: 12, tool: previousTool + 32 / rem })
       for (const width of [390, 320]) {

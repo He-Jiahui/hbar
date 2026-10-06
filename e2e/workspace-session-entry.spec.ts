@@ -137,7 +137,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       // Opening the original session preserves its draft across one-click creation in another project.
       await page.setViewportSize({ width: 1440, height: 960 })
       let sidebar = await showSidebar(page, locale)
-      await sidebar.getByRole('button', { name: copy.shell.openSession(originalTitle), exact: true }).click()
+      await sidebar.getByRole('treeitem', { name: originalTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const draft = '工程 A 的草稿不能跟随项目 B 的新建操作丢失 — keep the original draft'
       await prompt.fill(draft)
@@ -194,7 +194,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
         await page.screenshot({ path: `artifacts/desktop-experience/session-entry/created-${locale}-${width}.png` })
         sidebar = await showSidebar(page, locale)
-        await sidebar.getByRole('button', { name: copy.shell.openSession(originalTitle), exact: true }).click()
+        await sidebar.getByRole('treeitem', { name: originalTitle, exact: true }).click()
         await expectComposerText(prompt, draft)
       }
 

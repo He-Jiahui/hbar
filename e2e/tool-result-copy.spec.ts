@@ -150,7 +150,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base)
       const copy = getShellCopy(locale)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const message = page.locator(`[data-message-id="${host.ready.aMessageId}"]`)
       await expect(message).toContainText(authored)
       await message.locator('.hbar-session-activity-summary').click()
@@ -226,9 +226,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       }
       await page.setViewportSize({ width: 1440, height: 960 })
       await showSidebar(page, locale)
-      await page
-        .getByRole('button', { name: copy.shell.openSession(host.ready.otherSessionTitle), exact: true })
-        .click()
+      await page.getByRole('treeitem', { name: host.ready.otherSessionTitle, exact: true }).click()
       const b = page.locator('[data-message-id="copy-fixture-message-b"]')
       await b.locator('.hbar-session-disclosure-trigger').click()
       await copyOutput(
@@ -237,7 +235,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         otherSessionText,
         locale,
       )
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       // External archive is a real Host mutation. The retained observer can still
       // copy historical output; clipboard access is not new execution preparation.
       const commands = createWorkspaceSessionCommandClient(host.client)

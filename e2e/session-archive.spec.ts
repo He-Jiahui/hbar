@@ -102,18 +102,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(row.locator('.hbar-app-react-session-target')).toBeFocused()
       expect(writes).toBe(0)
       await begin()
-      await page
-        .getByRole('button', { name: copy.shell.collapseWorkspace(host.ready.workspaceName), exact: true })
-        .click()
+      await page.getByRole('treeitem', { expanded: true, name: host.ready.workspaceName, exact: true }).click()
       const collapsedRecovery = page.getByRole('group', { name: labels.confirmTitle(title), exact: true })
       await expect(collapsedRecovery).toBeVisible()
       await expect(row).toHaveCount(0)
       await collapsedRecovery.getByRole('button', { name: labels.cancel, exact: true }).click()
       await expect(collapsedRecovery).toHaveCount(0)
       expect(writes).toBe(0)
-      await page
-        .getByRole('button', { name: copy.shell.expandWorkspace(host.ready.workspaceName), exact: true })
-        .click()
+      await page.getByRole('treeitem', { expanded: false, name: host.ready.workspaceName, exact: true }).click()
       await begin()
       for (const width of [1440, 390, 320]) {
         await page.setViewportSize({ width, height: 844 })

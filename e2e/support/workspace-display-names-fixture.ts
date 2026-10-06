@@ -183,9 +183,8 @@ export async function start(
     await showSidebar(f)
     const first = row(f)
     await expect(first).toBeVisible()
-    if ((await first.locator('.hbar-app-react-workspace-row').getAttribute('aria-expanded')) === 'false')
-      await first.locator('.hbar-app-react-workspace-row').click()
-    await first.getByRole('button', { name: f.copy.shell.openSession(ready.firstSession.title), exact: true }).click()
+    if ((await first.getAttribute('aria-expanded')) === 'false') await first.click()
+    await first.getByRole('treeitem', { name: ready.firstSession.title, exact: true }).click()
     await hideSidebar(f)
     await expect(composer(f)).toBeVisible()
     return f

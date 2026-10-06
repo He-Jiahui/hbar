@@ -25,7 +25,7 @@ test('narrow touch model picker shows choices before requesting the keyboard', a
       expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
       const page = await context.newPage()
       await page.goto(base)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await page.setViewportSize({ width: 320, height: 900 })
       const trigger = page.locator('.hbar-composer-model-trigger')
       await trigger.click()

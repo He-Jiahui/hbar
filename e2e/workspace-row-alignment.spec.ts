@@ -37,9 +37,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const project = page.locator(`[data-sidebar-level="project"][data-workspace-id="${host.ready.workspaceId}"]`)
-      const button = project.locator('.hbar-app-react-workspace-row')
+      const button = project
       for (const displayName of [
         'hbar',
         locale === 'zh-CN'
@@ -65,9 +65,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           if (await showSidebar.isVisible()) await showSidebar.click()
           await expect(button).toBeVisible()
           const geometry = await button.evaluate((element) => {
-            const style = getComputedStyle(element)
-            const bounds = element.getBoundingClientRect()
-            const chevron = element.querySelector('svg')
+            const row = element.querySelector('.lumen-tree-row')
+            if (!(row instanceof HTMLElement)) throw new Error('Missing tree node row')
+            const style = getComputedStyle(row)
+            const bounds = row.getBoundingClientRect()
+            const chevron = row.querySelector('.lumen-tree-disclosure')
             if (!chevron) throw new Error('Missing project disclosure icon')
             return {
               justify: style.justifyContent,
@@ -85,7 +87,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           const actions = project.locator('.hbar-app-react-project-menu .lumen-action-menu-trigger')
           await expect(actions).toBeVisible()
           await actions.click({ trial: true })
-          await button.click()
+          await button.locator(':scope > .lumen-tree-row').click()
           await expect(button).toHaveAttribute('aria-expanded', 'false')
           await button.press('Space')
           await expect(button).toHaveAttribute('aria-expanded', 'true')

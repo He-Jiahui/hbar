@@ -44,7 +44,7 @@ async function start(browser: Browser, locale: ShellLocale, width = 1440): Promi
     const copy = getShellCopy(locale)
     await page.goto(origin)
     await sidebar(page, copy, true)
-    await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     await sidebar(page, copy, false)
     return { root, context, host, page, copy, errors }
   } catch (error) {
@@ -220,9 +220,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       for (const width of [1440, 1280, 1279, 900, 390, 320]) {
         await page.setViewportSize({ width, height: 960 })
         await sidebar(page, copy, true)
-        await expect(
-          page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }),
-        ).toBeVisible()
+        await expect(page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true })).toBeVisible()
         await sidebar(page, copy, false)
         for (const tool of tools(copy)) {
           const pane = await openTool(page, tool.open)
@@ -320,7 +318,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expectComposerText(prompt, draft)
       await page.reload()
       await sidebar(page, copy, true)
-      await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await sidebar(page, copy, false)
       await openTool(page, copy.session.tools.files)
       await expect.poll(() => value()).toBeCloseTo(saved, 3)
