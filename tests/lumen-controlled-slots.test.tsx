@@ -66,7 +66,9 @@ test.each([LumenPromptInput01, LumenPromptInput04, LumenPromptInput07])(
 test.each([LumenAgentApproval01, LumenAgentApproval02, LumenAgentApproval06])(
   'approval numbered controlled slots render host decision',
   (Variant) => {
-    const html = renderToStaticMarkup(<Variant controlled={{ body: <div data-testid="decision">host decision</div> }} />)
+    const html = renderToStaticMarkup(
+      <Variant controlled={{ body: <div data-testid="decision">host decision</div> }} />,
+    )
     expect(html).toContain('data-testid="decision"')
     expect(html).toContain('host decision')
   },
@@ -74,8 +76,8 @@ test.each([LumenAgentApproval01, LumenAgentApproval02, LumenAgentApproval06])(
 
 test('composer parity keeps host gates, deduplicates attachment identity and preserves original removal id', () => {
   const html = renderToStaticMarkup(<HbarPromptComposer {...base} disabled />)
-  expect(html.match(/data-kind="file"/g)).toHaveLength(1)
-  expect(html).toContain('Remove a.txt')
+  expect(html.match(/aria-label="Remove a.txt"/g)).toHaveLength(1)
+  expect(html).not.toContain('Remove duplicate')
   expect(html).toContain('disabled=""')
   expect(html).toContain('hbar-prompt-composer')
 })

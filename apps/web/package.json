@@ -9,6 +9,7 @@
     "@hbar/app-react": "workspace:*",
     "@hbar/app-runtime": "workspace:*",
     "@hbar/client": "workspace:*",
+    "@hbar/commands": "workspace:*",
     "@hbar/contracts": "workspace:*",
     "@hbar/terminal": "workspace:*",
     "@hbar/ui-sdk": "workspace:*",
