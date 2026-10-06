@@ -171,6 +171,7 @@ export function HbarProviderSettings({
       )}
       <LumenDialog
         open={Boolean(removeTarget)}
+        size="small"
         title={labels.deleteConfirmTitle(removeTarget?.name ?? '')}
         closeLabel={labels.cancel}
         onClose={() => !removing && setRemoveTarget(null)}
@@ -432,6 +433,7 @@ export function HbarProviderDialog({
       {modalClassName ? (
         <LumenDialog
           open
+          size="medium"
           chromeless
           className={modalClassName}
           title={editor?.providerId ? labels.editTitle(editor.draft.name || editor.providerId) : labels.addTitle}
@@ -445,6 +447,7 @@ export function HbarProviderDialog({
       )}
       <LumenDialog
         open={Boolean(discarding)}
+        size="small"
         title={labels.discardTitle(discarding?.name ?? '')}
         closeLabel={labels.keepEditing}
         onClose={() => setDiscarding(null)}

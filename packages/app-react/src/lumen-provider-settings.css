@@ -22,17 +22,8 @@
   text-align: center;
 }
 
-/* The shared floating dialog is a DIV surface now (not a native <dialog>).
-   Keep the provider editor's page form inside a finite viewport so its header
-   and action footer remain fixed flex slots while only <main> scrolls. */
-.lumen-floating-modal-root.hbar-app-ui-dialog-backdrop > .hbar-app-react-provider-modal {
-  --lumen-dialog-width: 58rem;
-  inline-size: min(58rem, calc(100% - 2rem));
-  max-inline-size: calc(100% - 2rem);
-  block-size: min(52rem, calc(100dvb - 2rem));
-  max-block-size: calc(100dvb - 2rem);
-}
-
+/* Shared LumenDialog owns the viewport size; the editor only arranges its
+   header, scrolling form body and footer within that available space. */
 .hbar-app-react-provider-modal .lumen-dialog-surface,
 .hbar-app-react-provider-modal .lumen-dialog-content,
 .hbar-app-react-provider-modal .lumen-dialog-body {
@@ -49,6 +40,7 @@
 }
 
 .hbar-app-react-provider-modal .lumen-dialog-body > .hbar-app-react-provider-dialog {
+  inline-size: 100%;
   min-block-size: 0;
   flex: 1 1 auto;
 }
@@ -508,14 +500,5 @@
 
   .hbar-app-react-provider-model-editor .hbar-app-react-provider-field-row > * {
     min-inline-size: 100%;
-  }
-}
-
-@media (max-width: 48rem) {
-  .lumen-floating-modal-root.hbar-app-ui-dialog-backdrop > .hbar-app-react-provider-modal {
-    inline-size: calc(100% - 1rem);
-    max-inline-size: calc(100% - 1rem);
-    block-size: calc(100dvb - 2rem);
-    max-block-size: calc(100dvb - 2rem);
   }
 }

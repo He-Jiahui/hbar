@@ -235,6 +235,7 @@ export function MarkdownDiagram({
         {open && ready && (
           <LumenDialog
             open={open}
+            size="large"
             title={labels.previewTitle}
             closeLabel={labels.close}
             onClose={close}

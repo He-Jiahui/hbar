@@ -39,6 +39,7 @@ export function HbarWorkspaceTabsCloseDialog({
   return (
     <LumenDialog
       open={open}
+      size="small"
       className="hbar-workspace-tabs-close-dialog"
       title={labels.title}
       closeLabel={labels.cancel}

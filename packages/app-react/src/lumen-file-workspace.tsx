@@ -931,6 +931,7 @@ export function HbarFileWorkspace({
       </LumenToolPane>
       <LumenDialog
         open={reloadTarget !== null}
+        size="small"
         title={labels.reloadTitle(reloadTarget?.path ?? '')}
         closeLabel={labels.keepDraft}
         onClose={() => setReloadTarget(null)}

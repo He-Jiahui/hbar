@@ -1,16 +1,8 @@
-.hbar-app-ui-dialog-backdrop.lumen-dialog.hbar-app-react-chat-search-dialog {
-  --lumen-dialog-width: 40rem;
-
-  inline-size: min(40rem, calc(100% - 3rem));
-  inset-block-start: 12dvb;
-  translate: -50% 0;
-}
-
 .hbar-chat-search-view {
   display: flex;
   min-inline-size: 0;
   min-block-size: 0;
-  max-block-size: min(70dvb, 42rem);
+  flex: 1 1 auto;
   flex-direction: column;
   overflow: hidden;
   color: var(--lumen-ink);

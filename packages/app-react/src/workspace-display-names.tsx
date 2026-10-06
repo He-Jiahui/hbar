@@ -219,6 +219,7 @@ export function WorkspaceDisplayNameDialog(props: WorkspaceDisplayNameDialogProp
     <LumenFrame ref={rootRef} data-testid="workspace-display-name-dialog">
       <LumenDialog
         appearance="panel"
+        size="small"
         open={editor.open}
         title={labels.title}
         closeLabel={labels.close}

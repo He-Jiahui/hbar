@@ -477,6 +477,7 @@ function AvailablePromptTemplatesPage({
       ) : null}
       <LumenDialog
         open={deleteTarget !== null}
+        size="small"
         title={copy.confirmDelete(deleteTarget?.name ?? '')}
         closeLabel={copy.editor.cancel}
         onClose={() => setDeleteTarget(null)}
