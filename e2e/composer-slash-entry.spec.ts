@@ -37,6 +37,29 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         menu.getByRole('option', { name: copy.session.slash.select('/agent explore'), exact: true }),
       ).toBeVisible()
       await expect(menu.getByRole('option')).toHaveCount(8)
+      await expect(prompt).toBeFocused()
+      expect(
+        await menu.evaluate((element) => ({
+          portal: element.closest('.hbar-composer-mention-root') === null,
+          position: getComputedStyle(element).position,
+          blur: getComputedStyle(element).backdropFilter,
+          align: getComputedStyle(element).textAlign,
+        })),
+      ).toEqual({ portal: true, position: 'fixed', blur: expect.stringContaining('blur('), align: 'start' })
+      const firstOption = menu.getByRole('option').first()
+      expect(
+        await firstOption.evaluate((element) => {
+          const title = element.querySelector('[data-text-context="choice.title"]')
+          const description = element.querySelector('[data-text-context="choice.description"]')
+          if (!title || !description) throw new Error('Slash choice is missing its content slots')
+          const bounds = element.getBoundingClientRect()
+          const hit = document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2)
+          return {
+            reachable: hit !== null && element.contains(hit),
+            aligned: Math.abs(title.getBoundingClientRect().left - description.getBoundingClientRect().left) < 1,
+          }
+        }),
+      ).toEqual({ reachable: true, aligned: true })
       await prompt.dispatchEvent('compositionstart', { data: '中' })
       await prompt.dispatchEvent('keydown', {
         key: 'Enter',
@@ -107,6 +130,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await page.setViewportSize({ width, height: 800 })
         await prompt.fill('/')
         await expect(menu.getByRole('option')).toHaveCount(8)
+        for (let step = 0; step < 7; step += 1) await prompt.press('ArrowDown')
+        await expect(menu.getByRole('option').last()).toHaveAttribute('aria-selected', 'true')
+        await expect(menu.getByRole('option').last()).toBeInViewport()
+        for (let step = 0; step < 7; step += 1) await prompt.press('ArrowUp')
+        await expect(menu.getByRole('option').first()).toHaveAttribute('aria-selected', 'true')
+        await expect(menu.getByRole('option').first()).toBeInViewport()
         await page.screenshot({ path: `artifacts/reference-ux-v2/slash-catalog-${locale}-${width}.png` })
         await prompt.fill('/mo')
         await expect(menu.getByRole('option')).toHaveCount(1)
@@ -117,6 +146,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expect(menu).toHaveCount(0)
       }
       await prompt.fill('/model')
+      await expect(menu.getByRole('option', { name: copy.session.slash.select('/model'), exact: true })).toBeVisible()
       await prompt.press('Tab')
       await expectComposerText(prompt, '/model ')
       await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).evaluate((element) => {
@@ -184,7 +214,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
-  test(`Goal slash starts a model turn after Host setup, then supports replacement and clear: ${locale}`, async ({
+  test(`Goal slash starts the initial turn and preserves Host-owned replacement and clear: ${locale}`, async ({
     browser,
   }) => {
     test.setTimeout(120_000)
@@ -240,6 +270,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           (run) => run.input.text === 'First objective',
         )?.input.continuation,
       ).toBeUndefined()
+      const firstOperation = (
+        await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })
+      ).runs.find((run) => run.input.source === 'user' && run.input.text === 'First objective')
+      if (!firstOperation) throw new Error('Initial Goal slash did not start its user Run')
       await expect
         .poll(async () =>
           (await host!.client.call('session.snapshot', { sessionId: host!.ready.sessionId })).runs
@@ -300,13 +334,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(second?.goalId).not.toBe(first.goalId)
       await expectComposerText(prompt, '')
       await expect
-        .poll(
-          async () =>
-            (await host!.client.call('session.snapshot', { sessionId: host!.ready.sessionId })).runs.filter(
-              (run) => run.input.source === 'user' && run.input.text === 'Second objective',
-            ).length,
+        .poll(async () =>
+          (await host!.client.call('session.snapshot', { sessionId: host!.ready.sessionId })).runs
+            .filter((run) => run.input.source === 'user')
+            .map((run) => run.id),
         )
-        .toBe(1)
+        .toEqual([firstOperation.id])
       await prompt.fill('/goal clear')
       await send.click()
       const clearing = page.getByRole('group', { name: copy.session.slash.goalConfirmClear('Second objective') })
@@ -321,7 +354,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         (await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs.filter(
           (run) => run.input.source === 'user' && ['First objective', 'Second objective'].includes(run.input.text),
         ),
-      ).toHaveLength(2)
+      ).toHaveLength(1)
       const longObjective = `Long Goal ${'容量Capacity目标'.repeat(280)}`
       expect(longObjective.length).toBeLessThanOrEqual(4000)
       await goals.execute('goal.create', { sessionId: host.ready.sessionId, objective: longObjective })

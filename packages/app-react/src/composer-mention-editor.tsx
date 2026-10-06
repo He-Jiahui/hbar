@@ -379,17 +379,6 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
                   return true
                 },
               },
-              {
-                key: 'Escape',
-                run: (editor) => {
-                  if (slashTriggerRef.current && !editor.composing) {
-                    slashDismissedRef.current = slashTriggerRef.current
-                    setSlashTrigger(null)
-                    return true
-                  }
-                  return false
-                },
-              },
               ...(['Tab', 'ArrowRight'] as const).map((key) => ({
                 key,
                 run: (editor: EditorView) => {
@@ -741,11 +730,19 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
       {slashTrigger && props.connected && !props.disabled && (
         <HbarComposerSlashMenu
           id={slashMenuId}
+          anchorRef={host}
           term={slashTrigger.term}
           selected={slashSelected}
           labels={props.slashLabels}
           onSelect={chooseSlash}
           onHover={setSlashSelected}
+          onClose={() => {
+            // The shared surface consumes Escape after CodeMirror's built-in handler.
+            // Expire its temporary Tab escape window while preserving explicit tab-focus mode.
+            viewRef.current?.setTabFocusMode(0)
+            slashDismissedRef.current = slashTriggerRef.current
+            setSlashTrigger(null)
+          }}
         />
       )}
       {trigger && (!props.disabled || !props.connected) && (

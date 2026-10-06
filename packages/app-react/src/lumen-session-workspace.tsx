@@ -12,6 +12,7 @@ import {
 import {
   LumenFrame,
   LumenText,
+  LumenContentText,
   LumenButton,
   LumenConversation,
   LumenAiChat01,
@@ -2031,11 +2032,11 @@ function SessionWorkspaceContent({
                   : labels.slash.goalConfirmReplace(goalConfirmation.previousObjective)
               }
             >
-              <LumenText as="span">
+              <LumenContentText context="dialog.body">
                 {goalConfirmation.action === 'clear'
                   ? labels.slash.goalConfirmClear(goalConfirmation.previousObjective)
                   : labels.slash.goalConfirmReplace(goalConfirmation.previousObjective)}
-              </LumenText>
+              </LumenContentText>
               <LumenFrame className="hbar-composer-goal-confirmation-actions">
                 <LumenButton type="button" size="s" onClick={() => setGoalConfirmation(null)}>
                   {labels.slash.goalCancel}

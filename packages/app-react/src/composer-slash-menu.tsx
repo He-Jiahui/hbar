@@ -1,8 +1,10 @@
 import { Bot, Box, CircleDollarSign, HelpCircle, Settings, Target } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenContentText } from '@lumen/app-ui'
 import type { AgentComposerState } from '@hbar/app-runtime'
+import { useEffect, useRef, type RefObject } from 'react'
 import { slashMatches, type LocalSlashCommand } from './composer-slash'
 import type { HbarComposerAgentNoticeLabels } from './composer-agent-notice'
+import { FloatingSurface } from './floating-surface'
 import './composer-slash-menu.css'
 
 type AgentProfileId = AgentComposerState['profileCatalog']['profiles'][number]
@@ -35,35 +37,67 @@ export interface HbarComposerSlashLabels {
   readonly error: (code: string) => string
 }
 
-export function HbarComposerSlashMenu({
-  id,
-  term,
-  selected,
-  labels,
-  onSelect,
-  onHover,
-}: {
+export interface HbarComposerSlashContentProps {
   readonly id: string
   readonly term: string
   readonly selected: number
   readonly labels: HbarComposerSlashLabels
   readonly onSelect: (command: LocalSlashCommand) => void
   readonly onHover: (index: number) => void
-}) {
+}
+
+export function HbarComposerSlashMenu(
+  props: HbarComposerSlashContentProps & {
+    readonly anchorRef: RefObject<HTMLElement | null>
+    readonly onClose: () => void
+  },
+) {
+  if (
+    !slashMatches(
+      props.term,
+      props.labels.commands.map((item) => item.id),
+    ).length
+  )
+    return null
+  return (
+    <FloatingSurface
+      open
+      id={props.id}
+      anchorRef={props.anchorRef}
+      placement="above"
+      focusBehavior="preserve"
+      onClose={props.onClose}
+      className="hbar-composer-mention-menu hbar-composer-slash-menu"
+      role="listbox"
+      label={props.labels.menu}
+    >
+      <HbarComposerSlashMenuContent {...props} />
+    </FloatingSurface>
+  )
+}
+
+/** Host-owned bounded choices; the owning surface provides portal and listbox semantics. */
+export function HbarComposerSlashMenuContent({
+  id,
+  term,
+  selected,
+  labels,
+  onSelect,
+  onHover,
+}: HbarComposerSlashContentProps) {
+  const itemsRef = useRef<HTMLDivElement>(null)
   const matches = slashMatches(
     term,
     labels.commands.map((item) => item.id),
   )
-  if (!matches.length) return null
   const selectedIndex = Math.min(selected, matches.length - 1)
+  useEffect(() => {
+    itemsRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' })
+  }, [selectedIndex, term])
+  if (!matches.length) return null
   return (
-    <LumenFrame
-      id={id}
-      className="hbar-composer-mention-menu hbar-composer-slash-menu"
-      role="listbox"
-      aria-label={labels.menu}
-    >
-      <LumenFrame className="hbar-composer-slash-items">
+    <>
+      <LumenFrame ref={itemsRef} className="hbar-composer-slash-items">
         {matches.map((command, index) => {
           const item = labels.commands.find((entry) => entry.id === command)
           if (!item) return null
@@ -98,19 +132,21 @@ export function HbarComposerSlashMenu({
                 }
                 tier="sm"
               />
-              <LumenText as="span" className="hbar-composer-slash-name">
-                {item.label} {item.argumentHint}
-              </LumenText>
-              <LumenText as="span" className="hbar-composer-slash-description">
-                {item.description}
-              </LumenText>
+              <LumenFrame className="hbar-composer-slash-copy">
+                <LumenContentText context="choice.title" className="hbar-composer-slash-name">
+                  {item.label} {item.argumentHint}
+                </LumenContentText>
+                <LumenContentText context="choice.description" className="hbar-composer-slash-description">
+                  {item.description}
+                </LumenContentText>
+              </LumenFrame>
             </LumenButton>
           )
         })}
       </LumenFrame>
-      <LumenText as="span" className="hbar-composer-slash-hint">
+      <LumenContentText context="form.help" className="hbar-composer-slash-hint">
         {labels.hint}
-      </LumenText>
-    </LumenFrame>
+      </LumenContentText>
+    </>
   )
 }

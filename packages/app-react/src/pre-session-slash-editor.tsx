@@ -32,6 +32,10 @@ function isPreSessionSuggestion(command: LocalSlashCommand): boolean {
   )
 }
 
+export function preSessionSlashLabels(labels: HbarComposerSlashLabels): HbarComposerSlashLabels {
+  return { ...labels, commands: labels.commands.filter((command) => isPreSessionSuggestion(command.id)) }
+}
+
 export interface HbarPreSessionSlashEditorProps {
   readonly value: string
   readonly inputLabel: string
@@ -96,17 +100,8 @@ export function HbarPreSessionSlashEditor({
   const slashTriggerRef = useRef<SlashTrigger | null>(null)
   const dismissedSlashRef = useRef<SlashTrigger | null>(null)
 
-  const availableCommands = useMemo(
-    () => labels.commands.filter((command) => isPreSessionSuggestion(command.id)).map((command) => command.id),
-    [labels.commands],
-  )
-  const slashLabels = useMemo<HbarComposerSlashLabels>(
-    () => ({
-      ...labels,
-      commands: labels.commands.filter((command) => isPreSessionSuggestion(command.id)),
-    }),
-    [labels],
-  )
+  const slashLabels = useMemo<HbarComposerSlashLabels>(() => preSessionSlashLabels(labels), [labels])
+  const availableCommands = useMemo(() => slashLabels.commands.map((command) => command.id), [slashLabels])
   const [slashTrigger, setSlashTrigger] = useState<SlashTrigger | null>(() =>
     disabled ? null : getSlashTrigger(value, value.length, availableCommands),
   )
@@ -208,7 +203,10 @@ export function HbarPreSessionSlashEditor({
   }
 
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
-    if (composing.current || event.nativeEvent.isComposing || event.keyCode === 229) return
+    if (composing.current || event.nativeEvent.isComposing || event.keyCode === 229) {
+      event.stopPropagation()
+      return
+    }
 
     if (slashOpen) {
       if (event.key === 'ArrowDown') {
@@ -243,13 +241,6 @@ export function HbarPreSessionSlashEditor({
           event.preventDefault()
           chooseSlashCommand(command)
         }
-        return
-      }
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        const dismissed = slashTriggerRef.current
-        setActiveSlash(null)
-        dismissedSlashRef.current = dismissed
         return
       }
     }
@@ -293,16 +284,21 @@ export function HbarPreSessionSlashEditor({
         onCompositionEnd={() => {
           composing.current = false
         }}
-        onBlur={() => setActiveSlash(null)}
       />
       {slashOpen && (
         <HbarComposerSlashMenu
           id={menuId}
+          anchorRef={inputRef}
           term={slashTrigger!.term}
           selected={activeIndex}
           labels={slashLabels}
           onSelect={chooseSlashCommand}
           onHover={setSelectedIndex}
+          onClose={() => {
+            const dismissed = slashTriggerRef.current
+            setActiveSlash(null)
+            dismissedSlashRef.current = dismissed
+          }}
         />
       )}
     </LumenFrame>

@@ -103,7 +103,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await locationRoot.getByRole('button', { name: location.close, exact: true }).click()
       await expect(locationRoot).toBeHidden()
       await landing.getByRole('button', { name: copy.session.addMenu.open, exact: true }).click()
-      await landing
+      await page
         .getByRole('group', { name: copy.session.addMenu.menu })
         .getByRole('button', { name: copy.session.addMenu.slash, exact: true })
         .click()
@@ -120,7 +120,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(menu).toBeHidden()
       await expect(prompt).toBeFocused()
       await landing.getByRole('button', { name: copy.session.addMenu.open, exact: true }).click()
-      await landing
+      await page
         .getByRole('group', { name: copy.session.addMenu.menu })
         .getByRole('button', { name: copy.session.addMenu.slash, exact: true })
         .click()
@@ -163,7 +163,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await cancelGoal.click()
       await expect(execution).toHaveAttribute('data-choice', 'plan')
       await landing.getByRole('button', { name: copy.session.addMenu.open, exact: true }).click()
-      const prepareGoal = landing
+      const prepareGoal = page
         .getByRole('group', { name: copy.session.addMenu.menu })
         .getByRole('button', { name: copy.session.intent.goalMenu, exact: true })
       await expect(prepareGoal).toBeEnabled()

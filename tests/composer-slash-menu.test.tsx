@@ -1,6 +1,9 @@
 import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { HbarComposerSlashMenu, type HbarComposerSlashLabels } from '../packages/app-react/src/composer-slash-menu'
+import {
+  HbarComposerSlashMenuContent,
+  type HbarComposerSlashLabels,
+} from '../packages/app-react/src/composer-slash-menu'
 
 const labels: HbarComposerSlashLabels = {
   menu: '本地命令',
@@ -36,7 +39,7 @@ const labels: HbarComposerSlashLabels = {
 
 function html(input: HbarComposerSlashLabels, selected = 0, term = '') {
   return renderToStaticMarkup(
-    <HbarComposerSlashMenu
+    <HbarComposerSlashMenuContent
       id="slash"
       term={term}
       selected={selected}
@@ -50,7 +53,7 @@ function html(input: HbarComposerSlashLabels, selected = 0, term = '') {
 test('host-owned long localized command rows remain bounded and keep a valid selected option', () => {
   const rendered = html(labels, 20, 's')
   expect(rendered).toContain(labels.commands[1]!.description)
-  expect(rendered).toContain('aria-label="本地命令"')
+  expect(rendered).toContain(`aria-label="${labels.select(labels.commands[1]!.label)}"`)
   expect(rendered).toContain('aria-selected="true"')
   expect(rendered).not.toContain('补全 /model')
   expect(html({ ...labels, commands: [] })).toBe('')

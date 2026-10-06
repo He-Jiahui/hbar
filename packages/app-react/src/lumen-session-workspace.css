@@ -288,7 +288,7 @@
   background: var(--lumen-reading);
 }
 
-.hbar-composer-goal-confirmation > span {
+.hbar-composer-goal-confirmation > [data-text-context='dialog.body'] {
   min-inline-size: 0;
   flex: 1 1 14rem;
   max-block-size: 5.5rem;

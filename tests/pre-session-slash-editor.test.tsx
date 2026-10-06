@@ -7,7 +7,9 @@ import {
   type HbarComposerSlashLabels,
   type LocalSlashCommand,
 } from '@hbar/app-react'
-import { isSameSlashTrigger } from '../packages/app-react/src/pre-session-slash-editor'
+import { isSameSlashTrigger, preSessionSlashLabels } from '../packages/app-react/src/pre-session-slash-editor'
+import { HbarComposerSlashMenuContent } from '../packages/app-react/src/composer-slash-menu'
+import { slashTokenAt } from '../packages/app-react/src/composer-slash'
 
 const labels: HbarComposerSlashLabels = {
   menu: '本地命令',
@@ -59,6 +61,19 @@ function editor(value: string, slashOpenRequest = 0, copy = labels) {
   )
 }
 
+function suggestions(value: string, copy = labels) {
+  return renderToStaticMarkup(
+    <HbarComposerSlashMenuContent
+      id="first-send-choices"
+      term={slashTokenAt(value, value.length)?.term ?? ''}
+      selected={0}
+      labels={preSessionSlashLabels(copy)}
+      onSelect={() => undefined}
+      onHover={() => undefined}
+    />,
+  )
+}
+
 test('pre-session slash editor uses the native labelled textarea and host placeholder', () => {
   const html = editor('保留这段草稿内容')
   expect(html).toContain('<textarea')
@@ -79,7 +94,7 @@ test('first-send Agent suggestions are Host-owned completion entries, not local 
     ],
   }
   const ready = composerAgentSlashLabels(copy, { status: 'ready', profiles: ['explore'], error: null })
-  const html = editor('/ag', 0, ready)
+  const html = suggestions('/ag', ready)
   expect(html).toContain('补全 /agent explore')
   expect(html).toContain('只读探索')
   expect(html).not.toContain('管理已存在的子任务')
@@ -91,7 +106,7 @@ test('first-send Agent suggestions are Host-owned completion entries, not local 
     ),
   ).toBeNull()
   const failed = composerAgentSlashLabels(copy, { status: 'error', profiles: [], error: 'DISCONNECTED' })
-  expect(editor('/ag', 0, failed)).not.toContain('/agent explore')
+  expect(suggestions('/ag', failed)).not.toContain('/agent explore')
 })
 
 test('an empty advertised Agent catalog keeps only the generic completion and preserves other entries', () => {
@@ -102,7 +117,7 @@ test('an empty advertised Agent catalog keeps only the generic completion and pr
   for (const status of ['idle', 'loading', 'ready'] as const) {
     const result = composerAgentSlashLabels(copy, { status, profiles: [], error: null })
     expect(result.commands).toEqual(copy.commands)
-    const html = editor('/ag', 0, result)
+    const html = suggestions('/ag', result)
     expect(html.match(/role="option"/g)).toHaveLength(1)
     expect(html).not.toContain('/agent explore')
   }
@@ -116,7 +131,7 @@ test('a long translated Agent description remains Host data in the shared sugges
     agentProfile: () => ({ label: '/agent explore', description }),
   }
   const ready = composerAgentSlashLabels(copy, { status: 'ready', profiles: ['explore'], error: null })
-  const html = editor('/ag', 0, ready)
+  const html = suggestions('/ag', ready)
   expect(html).toContain(description)
   expect(html).toContain('&lt;任务&gt;')
   expect(html).toContain('aria-label="补全 /agent explore"')
@@ -127,11 +142,12 @@ test('a slash token opens a menu containing only the Host-allowed local commands
   const html = editor('/')
   expect(html).toContain('aria-autocomplete="list"')
   expect(html).toContain('aria-expanded="true"')
-  expect(html).toContain('role="listbox"')
-  expect(html).toContain(labels.commands[0]!.description)
-  expect(html).toContain(labels.commands[1]!.description)
-  expect(html).toContain(labels.commands[2]!.description)
-  expect(html).toContain(labels.hint)
+  expect(html).toContain('aria-controls=')
+  const choices = suggestions('/')
+  expect(choices).toContain(labels.commands[0]!.description)
+  expect(choices).toContain(labels.commands[1]!.description)
+  expect(choices).toContain(labels.commands[2]!.description)
+  expect(choices).toContain(labels.hint)
 })
 
 test('the Host submit helper recognizes only exact local model/settings commands from its allowlist', () => {
