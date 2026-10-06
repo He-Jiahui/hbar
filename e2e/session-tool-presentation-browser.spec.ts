@@ -242,8 +242,40 @@ async function readableSummary(tool: Locator) {
   return geometry
 }
 
+async function intrinsicBadges(page: Page) {
+  const geometry = await page.locator('.hbar-session-disclosure-label').evaluateAll((elements) =>
+    elements.map((element) => {
+      const text = element.querySelector('.hbar-session-disclosure-label-text')
+      if (!text) throw new Error('Badge text is missing')
+      const range = document.createRange()
+      range.selectNodeContents(text)
+      const labelStyle = getComputedStyle(element)
+      const textStyle = getComputedStyle(text)
+      const icon = element.querySelector('.lumen-icon')
+      const padding = (style: CSSStyleDeclaration) =>
+        parseFloat(style.paddingInlineStart) + parseFloat(style.paddingInlineEnd)
+      return {
+        width: element.getBoundingClientRect().width,
+        expectedWidth:
+          range.getBoundingClientRect().width +
+          padding(labelStyle) +
+          padding(textStyle) +
+          parseFloat(labelStyle.borderInlineStartWidth) +
+          parseFloat(labelStyle.borderInlineEndWidth) +
+          (icon ? icon.getBoundingClientRect().width + parseFloat(labelStyle.columnGap) : 0),
+        clipped: text.scrollWidth > text.clientWidth + 1,
+      }
+    }),
+  )
+  expect(geometry.length).toBeGreaterThan(0)
+  for (const item of geometry) {
+    expect(Math.abs(item.width - item.expectedWidth)).toBeLessThanOrEqual(1.5)
+    expect(item.clipped).toBe(false)
+  }
+}
+
 for (const locale of ['en-US', 'zh-CN'] as const) {
-  test(`tool badges have a stable width and never abbreviate short labels: ${locale}`, async ({ browser }, info) => {
+  test(`tool badges fit their content and padding without empty fixed slots: ${locale}`, async ({ browser }, info) => {
     const f = await open(browser, locale, 1440)
     try {
       const shortCommand = call(
@@ -277,21 +309,16 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
             }
           }),
         )
-        expect(
-          Math.max(...geometry.map((item) => item.width)) - Math.min(...geometry.map((item) => item.width)),
-        ).toBeLessThanOrEqual(1)
+        await intrinsicBadges(f.page)
         expect(
           Math.max(...geometry.map((item) => item.left)) - Math.min(...geometry.map((item) => item.left)),
-        ).toBeLessThanOrEqual(1)
-        expect(
-          Math.max(...geometry.map((item) => item.previewLeft)) - Math.min(...geometry.map((item) => item.previewLeft)),
         ).toBeLessThanOrEqual(1)
         expect(geometry.every((item) => !item.clipped)).toBe(true)
         const shortPreview = row(f.page, 'short-command').locator('.hbar-session-disclosure-preview')
         await expect(shortPreview).toHaveText('bun test')
         expect(await shortPreview.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
         await noOverflow(f.page)
-        if (width === 1440 || width === 320) await screenshot(f.page, info, `fixed-tool-badges-${locale}-${width}`)
+        if (width === 1440 || width === 320) await screenshot(f.page, info, `intrinsic-tool-badges-${locale}-${width}`)
       }
       await render(f.page, {
         locale,
@@ -309,6 +336,56 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     }
   })
 }
+
+for (const locale of ['en-US', 'zh-CN'] as const)
+  test(`italic thinking captions fit content with ink padding: ${locale}`, async ({ browser }, info) => {
+    const f = await open(browser, locale, 1440)
+    try {
+      for (const theme of ['light', 'dark'] as const) {
+        await render(f.page, {
+          locale,
+          theme,
+          streaming: true,
+          messages: [
+            message([{ type: 'thinking', text: 'Preparing component scopes / Listing TSX files '.repeat(30) }]),
+          ],
+        })
+        const thinking = f.page.locator('.hbar-session-thinking')
+        for (const width of [1440, 1024, 768, 390, 320]) {
+          await f.page.setViewportSize({ width, height: 960 })
+          await intrinsicBadges(f.page)
+          const layout = await thinking.evaluate((element) => {
+            const label = element.querySelector('.hbar-session-disclosure-label')
+            const text = element.querySelector('.hbar-session-disclosure-label-text')
+            const preview = element.querySelector('.hbar-session-disclosure-preview')
+            if (!label || !text || !preview) throw new Error('Thinking disclosure is incomplete')
+            return {
+              italic: getComputedStyle(text).fontStyle,
+              inkPadding: parseFloat(getComputedStyle(text).paddingInlineEnd),
+              labelEnd: label.getBoundingClientRect().right,
+              previewStart: preview.getBoundingClientRect().left,
+            }
+          })
+          expect(layout.italic).toBe('italic')
+          expect(layout.inkPadding).toBeGreaterThan(0)
+          expect(layout.previewStart - layout.labelEnd).toBeGreaterThanOrEqual(7)
+          await noOverflow(f.page)
+          if (width === 1440 || width === 320)
+            await screenshot(f.page, info, `intrinsic-thinking-${locale}-${theme}-${width}`)
+        }
+        await trigger(thinking).focus()
+        await f.page.keyboard.press('Enter')
+        await expect(trigger(thinking)).toHaveAttribute('aria-expanded', 'true')
+        await f.page.keyboard.press('Space')
+        await expect(trigger(thinking)).toHaveAttribute('aria-expanded', 'false')
+        await expect(trigger(thinking)).toBeFocused()
+      }
+      expect(f.errors).toEqual([])
+      expect(f.requests).toEqual([])
+    } finally {
+      await f.context.close()
+    }
+  })
 
 for (const locale of ['en-US', 'zh-CN'] as const)
   for (const width of [1440, 320]) {
@@ -729,8 +806,7 @@ for (const locale of ['en-US', 'zh-CN'] as const)
             .screenshot({
               path: `artifacts/compact-tool-actions/actions-${locale}-${theme}-${width}.png`,
             })
-          const tagWidths = geometry.map((item) => item.tagWidth)
-          expect(Math.max(...tagWidths) - Math.min(...tagWidths)).toBeLessThanOrEqual(1)
+          await intrinsicBadges(page)
           for (const item of geometry) {
             expect(item.buttonHeight).toBeGreaterThanOrEqual(30)
             expect(item.tagTextWhiteSpace).toBe('nowrap')
@@ -826,10 +902,6 @@ for (const locale of ['en-US', 'zh-CN'] as const)
               }
             }),
           )
-          expect(
-            Math.max(...longGeometry.map((item) => item.tagWidth)) -
-              Math.min(...longGeometry.map((item) => item.tagWidth)),
-          ).toBeLessThanOrEqual(1)
           for (const item of longGeometry) {
             expect(item.buttonHeight).toBeGreaterThanOrEqual(30)
             expect(item.tagTextWhiteSpace).toBe('nowrap')

@@ -11,7 +11,6 @@
 }
 
 .hbar-session-message-blocks {
-  --hbar-session-tool-label-width: 7.5rem;
   --hbar-session-prose-size: calc(var(--lumen-font-size) * 1.05);
   --hbar-session-detail-size: calc(var(--lumen-font-size) * 0.95);
   --hbar-session-caption-size: calc(var(--lumen-font-size) * 0.9);
@@ -196,12 +195,12 @@
 }
 .hbar-session-tool .hbar-session-disclosure-label {
   display: inline-flex;
-  flex: 0 0 var(--hbar-session-tool-label-width);
-  inline-size: var(--hbar-session-tool-label-width);
+  flex: 0 1 auto;
+  inline-size: auto;
   box-sizing: border-box;
   align-items: center;
   gap: 4px;
-  max-inline-size: var(--hbar-session-tool-label-width);
+  max-inline-size: 100%;
   padding: 2px 6px;
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
@@ -221,6 +220,20 @@
 }
 .hbar-session-thinking > .hbar-session-disclosure-trigger {
   font-style: italic;
+}
+.hbar-session-thinking .hbar-session-disclosure-label {
+  display: inline-flex;
+  inline-size: auto;
+  max-inline-size: 100%;
+  box-sizing: border-box;
+  padding: 2px 6px;
+}
+.hbar-session-thinking .hbar-session-disclosure-preview {
+  flex: 1 1 0;
+}
+.hbar-session-thinking :is(.hbar-session-disclosure-label-text, .hbar-session-disclosure-preview) {
+  box-sizing: border-box;
+  padding-inline-end: 0.2em;
 }
 .hbar-session-activity-steps {
   border-inline-start: 0.0625rem solid var(--lumen-edge);
