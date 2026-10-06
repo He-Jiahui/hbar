@@ -1,6 +1,10 @@
 import { chromium } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { ChevronRight } from 'lucide-react'
+import { LumenIcon } from '@lumen/app-ui'
 
 // This is an offline package-CSS contract test, not a React Bits reference.
 // Build @lumen/app-ui first; no hbar stylesheet or preview is loaded here.
@@ -25,12 +29,15 @@ try {
             `<svg class="hbar-app-ui-icon-${tier}" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>`,
         )
         .join('')
+      const publicIcons = tiers
+        .map((tier) => renderToStaticMarkup(createElement(LumenIcon, { icon: ChevronRight, tier })))
+        .join('')
       await page.setContent(`<style>${stylesheet}</style><style>:root{font-size:${rootFontSize}px}</style>
-        <div data-lumen-mode="${mode}">${icons}
+        <div data-lumen-mode="${mode}">${icons}${publicIcons}
           <div class="hbar-app-ui-agent-approval-inline"><svg class="lumen-agent-approval-glyph" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg></div>
           <svg class="hbar-app-ui-agent-approval-diff-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
         </div>`)
-      const expected = [...sizes, 12, 14].map((size) => (size * rootFontSize) / 16)
+      const expected = [...sizes, ...sizes, 12, 14].map((size) => (size * rootFontSize) / 16)
       const ink = await page
         .locator('[data-lumen-mode]')
         .evaluate((element) => getComputedStyle(element).getPropertyValue('--lumen-ink').trim())
