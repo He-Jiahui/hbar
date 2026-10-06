@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { Target, X } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenContentText } from '@lumen/app-ui'
 import type { ComposerIntentState } from '@hbar/app-runtime'
 import { HbarComposerGoalRecovery, type HbarComposerGoalRecoveryLabels } from './composer-goal-recovery'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
@@ -314,9 +314,9 @@ export function HbarComposerIntentControl({
         {intent === 'goal' && <LumenIcon icon={X} tier="sm" />}
       </LumenButton>
       {feedback && !open && !goalUnknown && (
-        <LumenText as="span" role="alert">
+        <LumenContentText context="feedback.detail" role="alert">
           {feedback}
-        </LumenText>
+        </LumenContentText>
       )}
       <LumenFrame
         ref={popup}
@@ -346,9 +346,9 @@ export function HbarComposerIntentControl({
         }}
       >
         <LumenFrame className="hbar-composer-intent-blocked-heading">
-          <LumenText as="strong" id={headingId}>
+          <LumenContentText context="popover.title" id={headingId}>
             {labels.blocked.title}
-          </LumenText>
+          </LumenContentText>
           <LumenButton
             ref={closeButton}
             type="button"
@@ -372,28 +372,28 @@ export function HbarComposerIntentControl({
               onReconcile={() => perform('reconcileComposer')}
             />
           ) : (
-            <LumenText as="p" id={descriptionId} role={confirmedExit ? 'status' : undefined}>
+            <LumenContentText context="popover.body" id={descriptionId} role={confirmedExit ? 'status' : undefined}>
               {confirmedExit ? labels.blocked.exited : reason}
-            </LumenText>
+            </LumenContentText>
           )}
           {recoveryBusy && !goalUnknown && (
-            <LumenText as="p" role="status">
+            <LumenContentText context="feedback.detail" role="status">
               {sharedPlanReading ? labels.blocked.checkingPlan : labels.blocked.pending}
-            </LumenText>
+            </LumenContentText>
           )}
           {!goalUnknown &&
             !sharedPlanReading &&
             plan?.status === 'unknown' &&
             plan.error &&
             plan.error !== 'RESULT_UNKNOWN' && (
-              <LumenText as="p" role="alert">
+              <LumenContentText context="feedback.detail" role="alert">
                 {labels.blocked.planCheckFailed}
-              </LumenText>
+              </LumenContentText>
             )}
           {feedback && !goalUnknown && plan?.status !== 'unknown' && (
-            <LumenText as="p" role="alert">
+            <LumenContentText context="feedback.detail" role="alert">
               {feedback}
-            </LumenText>
+            </LumenContentText>
           )}
           {recovery && !goalUnknown && (
             <LumenButton type="button" size="s" disabled={recoveryBusy} onClick={() => perform(recovery)}>

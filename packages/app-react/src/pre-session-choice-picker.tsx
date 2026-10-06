@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Check, ChevronDown, Search, X, type LucideIcon } from 'lucide-react'
-import { LumenButton, LumenDialog, LumenFrame, LumenIcon, LumenInput, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenDialog, LumenFrame, LumenIcon, LumenInput, LumenContentText } from '@lumen/app-ui'
 import {
   groupPreSessionChoices,
   preSessionChoiceInitialFocus,
@@ -239,15 +239,15 @@ export function HbarPreSessionChoicePicker({
       {item.group ? (
         <>
           <LumenFrame className="hbar-pre-session-choice-row-content">
-            <LumenText as="strong">{item.label}</LumenText>
-            {item.detail && <LumenText as="small">{item.detail}</LumenText>}
+            <LumenContentText context="choice.title">{item.label}</LumenContentText>
+            {item.detail && <LumenContentText context="choice.description">{item.detail}</LumenContentText>}
           </LumenFrame>
           {item.id === selectedId && <LumenIcon icon={Check} tier="sm" aria-hidden="true" />}
         </>
       ) : (
         <>
-          <LumenText as="strong">{item.label}</LumenText>
-          {item.detail && <LumenText as="small">{item.detail}</LumenText>}
+          <LumenContentText context="choice.title">{item.label}</LumenContentText>
+          {item.detail && <LumenContentText context="choice.description">{item.detail}</LumenContentText>}
         </>
       )}
     </LumenButton>
@@ -300,15 +300,19 @@ export function HbarPreSessionChoicePicker({
                   aria-label={section.label}
                   className="hbar-pre-session-choice-group"
                 >
-                  <LumenText as="span" className="hbar-pre-session-choice-group-label">
+                  <LumenContentText context="popover.title" className="hbar-pre-session-choice-group-label">
                     {section.label}
-                  </LumenText>
+                  </LumenContentText>
                   {section.items.map(renderChoice)}
                 </LumenFrame>,
               ]
             : section.items.map(renderChoice),
         )}
-        {rows.length === 0 && <LumenText as="p">{unique.length === 0 ? labels.empty : labels.noMatches}</LumenText>}
+        {rows.length === 0 && (
+          <LumenContentText context="popover.body">
+            {unique.length === 0 ? labels.empty : labels.noMatches}
+          </LumenContentText>
+        )}
         {(remaining > 0 || hasMore) && onMore && (
           <LumenButton
             type="button"
@@ -324,9 +328,9 @@ export function HbarPreSessionChoicePicker({
         )}
       </LumenFrame>
       {error && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.detail" role="alert">
           {labels.error(error)}
-        </LumenText>
+        </LumenContentText>
       )}
       {typeof extra === 'function' ? extra(close) : extra}
     </LumenFrame>
@@ -349,7 +353,9 @@ export function HbarPreSessionChoicePicker({
         onClick={placement === 'dialog' ? () => setOpen(true) : undefined}
       >
         {icon && <LumenIcon icon={icon} tier="sm" />}
-        <LumenText as="span">{unavailableLabel ?? selectedTriggerLabel ?? labels.title}</LumenText>
+        <LumenContentText context="control.label">
+          {unavailableLabel ?? selectedTriggerLabel ?? labels.title}
+        </LumenContentText>
         <LumenIcon icon={ChevronDown} tier="sm" />
       </LumenButton>
       {placement === 'composer' ? (
@@ -380,9 +386,9 @@ export function HbarPreSessionChoicePicker({
           }}
         >
           <LumenFrame className="hbar-pre-session-choice-heading">
-            <LumenText as="strong" id={popupTitleId}>
+            <LumenContentText context="popover.title" id={popupTitleId}>
               {labels.title}
-            </LumenText>
+            </LumenContentText>
             <LumenButton
               type="button"
               size="s"

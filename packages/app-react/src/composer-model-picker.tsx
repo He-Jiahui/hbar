@@ -11,7 +11,7 @@ import {
   type RefObject,
 } from 'react'
 import { ArrowRight, Check, ChevronDown, Search, X } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenRange, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenRange, LumenContentText } from '@lumen/app-ui'
 import type { ComposerModelState, SessionControlsState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { filterCatalogModels, modelIdsRequiringDisclosure, MODEL_CATALOG_PAGE_SIZE } from './model-choice-filter'
@@ -196,7 +196,7 @@ function PickerPopover({
     >
       {kind === 'model' && (
         <LumenFrame className="hbar-composer-picker-heading">
-          <LumenText as="span">{title}</LumenText>
+          <LumenContentText context="popover.title">{title}</LumenContentText>
           <LumenButton
             type="button"
             size="s"
@@ -538,19 +538,19 @@ export function HbarComposerModelPicker({
   const feedback = (
     <LumenFrame className="hbar-composer-picker-feedback">
       {busy && (
-        <LumenText as="span" role="status">
+        <LumenContentText context="feedback.detail" role="status">
           {labels.pending}
-        </LumenText>
+        </LumenContentText>
       )}
       {unresolved && (
-        <LumenText as="span" role="alert">
+        <LumenContentText context="feedback.detail" role="alert">
           {labels.unknown}
-        </LumenText>
+        </LumenContentText>
       )}
       {error && !unresolved && (
-        <LumenText as="span" role="alert">
+        <LumenContentText context="feedback.detail" role="alert">
           {labels.error(error)}
-        </LumenText>
+        </LumenContentText>
       )}
       {unresolved && (
         <LumenButton
@@ -611,9 +611,9 @@ export function HbarComposerModelPicker({
         popoverTarget={directConfigure ? undefined : modelId}
         onClick={directConfigure ? () => openProviders() : undefined}
       >
-        <LumenText as="span" title={triggerName}>
+        <LumenContentText context="control.label" title={triggerName}>
           {triggerName}
-        </LumenText>
+        </LumenContentText>
         <LumenIcon icon={directConfigure ? ArrowRight : ChevronDown} tier="sm" />
       </LumenButton>
       {levels.length > 1 && (
@@ -636,13 +636,13 @@ export function HbarComposerModelPicker({
         </LumenButton>
       )}
       {!open && closedExplanation && (
-        <LumenText
-          as="p"
+        <LumenContentText
+          context="feedback.detail"
           className="hbar-composer-model-closed-recovery"
           role={presentation.readFailed || presentation.state === 'unavailable' ? 'alert' : 'status'}
         >
           {closedExplanation}
-        </LumenText>
+        </LumenContentText>
       )}
       <PickerPopover
         id={modelId}
@@ -705,18 +705,18 @@ export function HbarComposerModelPicker({
           </LumenFrame>
           {feedback}
           {explanation && (
-            <LumenText
-              as="p"
+            <LumenContentText
+              context="feedback.detail"
               className="hbar-composer-model-recovery"
               role={presentation.readFailed || presentation.state === 'unavailable' ? 'alert' : 'status'}
             >
               {explanation}
-            </LumenText>
+            </LumenContentText>
           )}
           {catalog.status === 'loading' && (
-            <LumenText as="span" role="status">
+            <LumenContentText context="feedback.detail" role="status">
               {labels.loading}
-            </LumenText>
+            </LumenContentText>
           )}
           {(presentation.readFailed || retrying) && (
             <LumenButton
@@ -749,9 +749,9 @@ export function HbarComposerModelPicker({
           >
             {groups.map(([providerId, group]) => (
               <LumenFrame key={providerId} role="group" aria-label={group.name} className="hbar-composer-model-group">
-                <LumenText as="span" className="hbar-composer-provider-name">
+                <LumenContentText context="popover.title" className="hbar-composer-provider-name">
                   {group.name}
-                </LumenText>
+                </LumenContentText>
                 {group.models.map((option) => (
                   <LumenButton
                     key={option.id}
@@ -766,23 +766,23 @@ export function HbarComposerModelPicker({
                   >
                     <LumenFrame className="hbar-composer-model-description">
                       <LumenFrame className="hbar-composer-model-name-row">
-                        <LumenText as="span" className="hbar-composer-model-name">
+                        <LumenContentText context="choice.title" className="hbar-composer-model-name">
                           {option.modelName}
-                        </LumenText>
+                        </LumenContentText>
                         {disclosedModelIds.has(option.id) && option.modelId !== option.modelName && (
-                          <LumenText as="small" className="hbar-composer-model-identifier">
+                          <LumenContentText context="code.inline" className="hbar-composer-model-identifier">
                             {option.modelId}
-                          </LumenText>
+                          </LumenContentText>
                         )}
                       </LumenFrame>
                       {option.description && (
-                        <LumenText as="span" className="hbar-composer-model-purpose">
+                        <LumenContentText context="choice.description" className="hbar-composer-model-purpose">
                           {option.description}
-                        </LumenText>
+                        </LumenContentText>
                       )}
-                      <LumenText as="span" className="hbar-composer-model-capability">
+                      <LumenContentText context="choice.description" className="hbar-composer-model-capability">
                         {labels.capability(option)}
-                      </LumenText>
+                      </LumenContentText>
                     </LumenFrame>
                     {option.id === model?.modelId && <LumenIcon icon={Check} tier="sm" />}
                   </LumenButton>
@@ -790,7 +790,9 @@ export function HbarComposerModelPicker({
               </LumenFrame>
             ))}
             {!groups.length && catalog.status === 'ready' && (
-              <LumenText as="p">{models.length ? labels.noMatches : labels.empty}</LumenText>
+              <LumenContentText context="popover.body">
+                {models.length ? labels.noMatches : labels.empty}
+              </LumenContentText>
             )}
             {remaining > 0 && (
               <LumenButton type="button" size="s" onClick={() => setLimit((value) => value + COMPOSER_MODEL_PAGE_SIZE)}>
@@ -823,12 +825,12 @@ export function HbarComposerModelPicker({
         }}
       >
         <LumenFrame className="hbar-composer-thinking-heading">
-          <LumenText as="strong" className="hbar-composer-thinking-value">
+          <LumenContentText context="choice.title" className="hbar-composer-thinking-value">
             {selectedLevel ? labels.thinkingLevel(selectedLevel) : null}
-          </LumenText>
-          <LumenText as="span" className="hbar-composer-thinking-context">
+          </LumenContentText>
+          <LumenContentText context="popover.description" className="hbar-composer-thinking-context">
             {labels.thinking}
-          </LumenText>
+          </LumenContentText>
         </LumenFrame>
         <LumenFrame
           className="hbar-composer-thinking-scale"

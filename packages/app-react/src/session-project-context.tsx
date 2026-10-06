@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Folder, GitBranch, RotateCw } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenContentText } from '@lumen/app-ui'
 import type { SessionGitContextState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './session-project-context.css'
@@ -45,9 +45,13 @@ export function HbarSessionProjectContext({
   return (
     <LumenFrame className="hbar-session-project-context" role="group" aria-label={labels.project(workspaceName)}>
       <LumenIcon icon={Folder} tier="sm" />
-      <LumenText as="span" className="hbar-session-project-context-name" title={workspacePath ?? workspaceName}>
+      <LumenContentText
+        context="control.label"
+        className="hbar-session-project-context-name"
+        title={workspacePath ?? workspaceName}
+      >
         {workspaceName}
-      </LumenText>
+      </LumenContentText>
       {branch && (
         <LumenFrame
           className="hbar-session-project-context-branch"
@@ -55,26 +59,31 @@ export function HbarSessionProjectContext({
           aria-label={labels.branch(branch)}
         >
           <LumenIcon icon={GitBranch} tier="sm" />
-          <LumenText as="span">
+          <LumenContentText context="control.label">
             <bdi>{labels.branchCaption(branch)}</bdi>
-          </LumenText>
+          </LumenContentText>
         </LumenFrame>
       )}
       {!connected && (
-        <LumenText as="span" tone="subtle">
+        <LumenContentText context="control.status" tone="subtle">
           {labels.disconnected}
-        </LumenText>
+        </LumenContentText>
       )}
       {loading && (
-        <LumenText as="span" tone="subtle" role="status">
+        <LumenContentText context="control.status" tone="subtle" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {error && (
         <LumenFrame className="hbar-session-project-context-error" role="status">
-          <LumenText as="span" tone="danger" aria-label={errorLabel ?? undefined} title={errorLabel ?? undefined}>
+          <LumenContentText
+            context="control.status"
+            tone="danger"
+            aria-label={errorLabel ?? undefined}
+            title={errorLabel ?? undefined}
+          >
             {errorLabel}
-          </LumenText>
+          </LumenContentText>
           <LumenButton size="s" variant="text" onClick={onRetry}>
             <LumenIcon icon={RotateCw} tier="sm" />
             {labels.retry}

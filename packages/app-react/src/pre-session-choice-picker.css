@@ -150,6 +150,9 @@ dialog.hbar-pre-session-choice-dialog .lumen-dialog-body {
   align-items: flex-start;
   gap: 0.125rem;
   text-align: start;
+  /* A choice with supporting detail is a reading card, unlike its closed trigger. */
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .hbar-pre-session-choice-row[data-grouped-choice='true'] {

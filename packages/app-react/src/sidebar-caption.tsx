@@ -1,5 +1,5 @@
 import type { KeyboardEvent } from 'react'
-import { LumenText } from '@lumen/app-ui'
+import { LumenContentText } from '@lumen/app-ui'
 import './sidebar-caption.css'
 
 /** A bounded reading viewport; the Host-owned caption retains its full intrinsic width inside it. */
@@ -23,18 +23,17 @@ export function SidebarCaption({
     event.currentTarget.scrollBy({ left: direction * event.currentTarget.clientWidth * 0.75 })
   }
   return (
-    <LumenText
-      as="span"
+    <LumenContentText
+      context="navigation.caption"
       size="s"
-      variant="label"
       className={['hbar-sidebar-caption', className].filter(Boolean).join(' ')}
       title={title}
       tabIndex={focusable ? 0 : undefined}
       onKeyDown={scroll}
     >
-      <LumenText as="span" className="hbar-sidebar-caption-text">
+      <LumenContentText context="navigation.caption" className="hbar-sidebar-caption-text">
         {text}
-      </LumenText>
-    </LumenText>
+      </LumenContentText>
+    </LumenContentText>
   )
 }

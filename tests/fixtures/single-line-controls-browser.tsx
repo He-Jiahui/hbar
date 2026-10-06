@@ -1,6 +1,6 @@
 import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
-import { LumenButton, LumenFrame, LumenProvider } from '@lumen/app-ui'
+import { LumenButton, LumenContentText, LumenDialog, LumenFrame, LumenProvider } from '@lumen/app-ui'
 import type { SessionGitContextState } from '@hbar/app-runtime'
 import { HbarPromptComposer } from '../../packages/app-react/src/prompt-composer'
 import { HbarSessionProjectContext } from '../../packages/app-react/src/session-project-context'
@@ -27,6 +27,8 @@ export interface SingleLineFixtureInput {
   readonly gallery?: boolean
   readonly dataGallery?: boolean
   readonly count?: number
+  readonly choiceDetail?: string
+  readonly readingDialog?: boolean
 }
 
 declare global {
@@ -114,7 +116,9 @@ function Fixture({ input }: { readonly input: SingleLineFixtureInput }) {
                   disabled={false}
                   labels={copy.permissionPicker}
                   onRefresh={async () => undefined}
-                  onSelect={async () => undefined}
+                  onSelect={async ({ sessionId, choice, confirmAllow }) => {
+                    actions.push(`permission:${sessionId}:${choice}:${String(confirmAllow)}`)
+                  }}
                 />
                 <LumenFrame className="hbar-session-project-context-toolbar">{project}</LumenFrame>
               </LumenFrame>
@@ -127,7 +131,7 @@ function Fixture({ input }: { readonly input: SingleLineFixtureInput }) {
                 <HbarPreSessionChoicePicker
                   placement="composer"
                   selectedId="model"
-                  items={[{ id: 'model', label: model }]}
+                  items={[{ id: 'model', label: model, ...(input.choiceDetail ? { detail: input.choiceDetail } : {}) }]}
                   labels={{
                     title: model,
                     trigger: (selected) => selected ?? model,
@@ -163,6 +167,19 @@ function Fixture({ input }: { readonly input: SingleLineFixtureInput }) {
             onAction={(id) => actions.push(id)}
           />
         )}
+        <LumenDialog
+          open={input.readingDialog ?? false}
+          title={input.workspaceName}
+          closeLabel={copy.permissionPicker.close}
+          onClose={() => actions.push('dialog:close')}
+          footer={
+            <LumenButton onClick={() => actions.push('dialog:cancel')}>{copy.permissionPicker.cancel}</LumenButton>
+          }
+        >
+          <LumenContentText context="dialog.body" data-fixture-reading-body>
+            {copy.permissionPicker.confirmBody(input.workspaceName)}
+          </LumenContentText>
+        </LumenDialog>
       </LumenFrame>
     </LumenProvider>
   )

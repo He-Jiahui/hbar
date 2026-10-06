@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import react from '@vitejs/plugin-react'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -14,6 +14,126 @@ let server: PreviewServer | undefined
 async function render(page: Page, input: SingleLineFixtureInput) {
   await page.evaluate((value) => window.singleLineFixture.render(value), input)
 }
+
+/** Reading text wraps inside its own surface; a CSS declaration alone cannot prove it is readable. */
+async function readableParagraph(text: Locator, requiresWrapping = true) {
+  const metrics = await text.evaluate((node) => {
+    const range = document.createRange()
+    range.selectNodeContents(node)
+    const bounds = node.getBoundingClientRect()
+    const rects = [...range.getClientRects()]
+    const lines = new Set(rects.map((rect) => Math.round(rect.top)))
+    return {
+      lines: lines.size,
+      fits: rects.every((rect) => rect.left >= bounds.left - 1 && rect.right <= bounds.right + 1),
+      horizontalOverflow: node.scrollWidth > node.clientWidth + 1,
+      ellipsis: getComputedStyle(node).textOverflow === 'ellipsis',
+    }
+  })
+  if (requiresWrapping) expect(metrics.lines).toBeGreaterThan(1)
+  expect(metrics.fits).toBe(true)
+  expect(metrics.horizontalOverflow).toBe(false)
+  expect(metrics.ellipsis).toBe(false)
+}
+
+for (const locale of ['zh-CN', 'en-US'] as const)
+  for (const theme of ['light', 'dark'] as const) {
+    test(`reading popovers wrap prose while action captions stay single-line ${locale} ${theme}`, async ({
+      page,
+    }, info) => {
+      await page.goto(origin)
+      const errors: string[] = []
+      page.on('pageerror', (error) => errors.push(error.message))
+      const copy = getShellCopy(locale).session.permissionPicker
+      const title =
+        locale === 'zh-CN'
+          ? '帮我优化一下 hbar desktop 布局，要求你视觉检查，将持续改进弹窗与工具栏的阅读体验'
+          : 'Improve the hbar desktop layout and visually check readable dialogs and stable toolbar controls'
+      const form = page.locator('.hbar-prompt-composer')
+      const trigger = form.locator('.hbar-composer-permission-trigger')
+      const popup = page.locator('.hbar-composer-permission-popover')
+      const body = popup.locator('.hbar-composer-permission-body')
+      for (const width of [1100, 900, 390, 320]) {
+        await page.setViewportSize({ width, height: 900 })
+        for (const sessionName of [title, `${title} D:/workspace/${'long-unbroken-path-'.repeat(24)}.tsx`]) {
+          await render(page, { locale, theme, status: 'ready', branch: 'master', workspaceName: sessionName })
+          const toolbarHeight = await form.locator('.lumen-composer-toolbar').evaluate((node) => node.clientHeight)
+          await trigger.click()
+          await expect(popup).toBeVisible()
+          await readableParagraph(popup.locator('.hbar-composer-permission-hint'), false)
+          await popup.locator('[data-choice="allow"]').click()
+          await expect(popup).toHaveAccessibleName(copy.confirmTitle)
+          await expect(body.locator('p')).toHaveText(copy.confirmBody(sessionName))
+          await readableParagraph(body.locator('p'))
+          expect(await body.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true)
+          await completeLine(popup.locator('.hbar-composer-permission-actions button'))
+          expect(await form.locator('.lumen-composer-toolbar').evaluate((node) => node.clientHeight)).toBe(
+            toolbarHeight,
+          )
+          if (width === 900 && sessionName === title && locale === 'zh-CN' && theme === 'dark') {
+            await popup.screenshot({ path: join(root, 'permission-confirmation-wrapped.png') })
+            await page.screenshot({ path: info.outputPath('permission-confirmation-context.png') })
+          }
+          const before = await page.evaluate(() => window.singleLineFixture.actions())
+          await popup.getByRole('button', { name: copy.cancel, exact: true }).click()
+          await expect(popup.locator('[data-choice="allow"]')).toBeVisible()
+          expect(await page.evaluate(() => window.singleLineFixture.actions())).toEqual(before)
+          await popup.locator('[data-choice="allow"]').click()
+          await popup.getByRole('button', { name: copy.confirmAllow, exact: true }).click()
+          await expect(popup).not.toBeVisible()
+          expect(await page.evaluate(() => window.singleLineFixture.actions())).toContain(
+            'permission:session:allow:true',
+          )
+          await expect(trigger).toBeFocused()
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+        }
+        await render(page, {
+          locale,
+          theme,
+          status: 'ready',
+          branch: 'master',
+          workspaceName: title,
+          choiceDetail: copy.confirmBody(title),
+        })
+        await form.locator('.hbar-pre-session-choice-picker > button').click()
+        const modelPopup = page.locator('.hbar-pre-session-choice-popover')
+        await expect(modelPopup).toBeVisible()
+        await readableParagraph(modelPopup.locator('.hbar-pre-session-choice-row small'))
+        expect(
+          await modelPopup
+            .locator('.hbar-pre-session-choice-list')
+            .evaluate((node) => node.scrollWidth <= node.clientWidth + 1),
+        ).toBe(true)
+        await page.keyboard.press('Escape')
+        await expect(modelPopup).not.toBeVisible()
+        await render(page, {
+          locale,
+          theme,
+          status: 'ready',
+          branch: 'master',
+          workspaceName: `${title} ${'long-unbroken-title-'.repeat(12)}`,
+          readingDialog: true,
+        })
+        const dialog = page.locator('.lumen-dialog[data-open]')
+        await expect(dialog).toBeVisible()
+        await readableParagraph(dialog.locator('h2'))
+        await readableParagraph(dialog.locator('[data-fixture-reading-body]'))
+        expect(
+          await dialog.locator('.lumen-dialog-body').evaluate((node) => node.scrollWidth <= node.clientWidth + 1),
+        ).toBe(true)
+        await completeLine(dialog.locator('footer button'))
+        await expect(dialog.getByRole('button', { name: copy.close, exact: true })).toBeInViewport()
+        const before = await page.evaluate(() => window.singleLineFixture.actions())
+        await page.keyboard.press('Escape')
+        expect((await page.evaluate(() => window.singleLineFixture.actions())).slice(before.length)).toEqual([
+          'dialog:close',
+        ])
+        await render(page, { locale, theme, status: 'ready', branch: 'master', workspaceName: title })
+        await expect(dialog).not.toBeVisible()
+      }
+      expect(errors).toEqual([])
+    })
+  }
 
 for (const locale of ['zh-CN', 'en-US'] as const) {
   test(`data captions and atomic mentions retain complete single lines ${locale}`, async ({ page }, info) => {

@@ -13,7 +13,7 @@ import {
   ShieldX,
   X,
 } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenContentText } from '@lumen/app-ui'
 import type {
   ComposerPermissionChoice,
   ComposerPermissionEntry,
@@ -468,13 +468,13 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
   const approvalFeedback = (
     <LumenFrame className="hbar-composer-permission-feedback">
       {entry?.status === 'unknown' ? (
-        <LumenText as="span" role="alert">
+        <LumenContentText context="feedback.detail" role="alert">
           {labels.unknown}
-        </LumenText>
+        </LumenContentText>
       ) : locked || entry?.status === 'loading' ? (
-        <LumenText as="span" role="status">
+        <LumenContentText context="feedback.detail" role="status">
           {entry?.status === 'loading' ? labels.loading : labels.pending}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {entry?.writeUnknown && props.onReconcile && (
         <LumenButton
@@ -506,14 +506,14 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
       )}
       {error &&
         (entry?.status !== 'unknown' || (localError?.sessionId === sessionId && localError.revision === revision)) && (
-          <LumenText as="span" role="alert">
+          <LumenContentText context="feedback.detail" role="alert">
             {labels.error(error)}
-          </LumenText>
+          </LumenContentText>
         )}
       {hostDefault.status === 'loading' && open && (
-        <LumenText as="span" role="status">
+        <LumenContentText context="feedback.detail" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {((hostDefault.status === 'error' && choice === 'inherit') || entry?.status === 'failed') && !locked && (
         <LumenButton type="button" size="s" disabled={!connected || busy} onClick={refresh}>
@@ -525,31 +525,31 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
   const executionFeedback = executionUnresolved ? (
     <LumenFrame className="hbar-composer-permission-feedback">
       {executionStatus === 'pending' && (
-        <LumenText as="span" role="status">
+        <LumenContentText context="feedback.detail" role="status">
           {labels.plan.pending}
-        </LumenText>
+        </LumenContentText>
       )}
       {executionStatus === 'checking' && (
-        <LumenText as="span" role="status">
+        <LumenContentText context="feedback.detail" role="status">
           {labels.execution.checking}
-        </LumenText>
+        </LumenContentText>
       )}
       {executionStatus === 'unknown' && (
-        <LumenText as="span" role="alert">
+        <LumenContentText context="feedback.detail" role="alert">
           {planReadFailed || (planEntry?.error && planEntry.error !== 'RESULT_UNKNOWN')
             ? labels.execution.checkFailed
             : labels.plan.unknown}
-        </LumenText>
+        </LumenContentText>
       )}
       {executionStatus === 'loading' && (
-        <LumenText as="span" role="status">
+        <LumenContentText context="feedback.detail" role="status">
           {labels.plan.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {executionStatus === 'failed' && (
-        <LumenText as="span" role="alert">
+        <LumenContentText context="feedback.detail" role="alert">
           {labels.execution.readFailed}
-        </LumenText>
+        </LumenContentText>
       )}
     </LumenFrame>
   ) : null
@@ -583,7 +583,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
           }
           tier="sm"
         />
-        <LumenText as="span">{triggerLabel}</LumenText>
+        <LumenContentText context="control.label">{triggerLabel}</LumenContentText>
         <LumenIcon icon={ChevronDown} tier="sm" />
       </LumenButton>
       {!open && (
@@ -644,9 +644,9 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
         }}
       >
         <LumenFrame className="hbar-composer-permission-heading">
-          <LumenText as="strong" id={headingId}>
+          <LumenContentText context="popover.title" id={headingId}>
             {confirming ? labels.confirmTitle : labels.title}
-          </LumenText>
+          </LumenContentText>
           <LumenButton
             type="button"
             size="s"
@@ -660,17 +660,17 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
         </LumenFrame>
         <LumenFrame className="hbar-composer-permission-body">
           {confirming ? (
-            <LumenText as="p" id={bodyId}>
+            <LumenContentText context="dialog.body" id={bodyId}>
               {labels.confirmBody(confirming.sessionLabel)}
-            </LumenText>
+            </LumenContentText>
           ) : (
             <>
               {executionUnresolved && (
                 <LumenFrame className="hbar-composer-permission-feedback" data-execution-recovery-region>
                   {executionFeedback}
-                  <LumenText as="p" className="hbar-composer-permission-hint">
+                  <LumenContentText context="popover.body" className="hbar-composer-permission-hint">
                     {labels.execution.approvalFrozen}
-                  </LumenText>
+                  </LumenContentText>
                   {plan && planEntry?.status === 'unknown' && (
                     <LumenButton
                       data-execution-recovery
@@ -709,15 +709,15 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
                 >
                   <LumenIcon icon={ArrowLeft} tier="md" />
                   <LumenFrame className="hbar-composer-permission-description">
-                    <LumenText as="span">{labels.plan.exit}</LumenText>
-                    <LumenText as="span">{labels.plan.exitDescription}</LumenText>
+                    <LumenContentText context="choice.title">{labels.plan.exit}</LumenContentText>
+                    <LumenContentText context="choice.description">{labels.plan.exitDescription}</LumenContentText>
                   </LumenFrame>
                 </LumenButton>
               )}
               {!planSelected && (
-                <LumenText as="p" id={bodyId} className="hbar-composer-permission-hint">
+                <LumenContentText context="popover.body" id={bodyId} className="hbar-composer-permission-hint">
                   {labels.scopeHint}
-                </LumenText>
+                </LumenContentText>
               )}
               <LumenFrame
                 role="menu"
@@ -746,10 +746,10 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
                       >
                         <LumenIcon icon={Lightbulb} tier="md" />
                         <LumenFrame className="hbar-composer-permission-description">
-                          <LumenText as="span">{labels.plan.label}</LumenText>
-                          <LumenText as="span">
+                          <LumenContentText context="choice.title">{labels.plan.label}</LumenContentText>
+                          <LumenContentText context="choice.description">
                             {planSelected ? labels.plan.selected : labels.plan.description}
-                          </LumenText>
+                          </LumenContentText>
                         </LumenFrame>
                         {planSelected && <LumenIcon icon={Check} tier="sm" />}
                       </LumenButton>
@@ -774,14 +774,14 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
                     >
                       <LumenIcon icon={icons[value]} tier="md" />
                       <LumenFrame className="hbar-composer-permission-description">
-                        <LumenText as="span">{labels.options[value].label}</LumenText>
-                        <LumenText as="span">
+                        <LumenContentText context="choice.title">{labels.options[value].label}</LumenContentText>
+                        <LumenContentText context="choice.description">
                           {value === 'inherit'
                             ? labels.inheritedSnapshotHint(
                                 hostDefault.mode ? labels.options[hostDefault.mode].label : null,
                               )
                             : labels.options[value].description}
-                        </LumenText>
+                        </LumenContentText>
                       </LumenFrame>
                       {value === choice && ordinaryConfirmed && <LumenIcon icon={Check} tier="sm" />}
                     </LumenButton>
@@ -790,9 +790,9 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
               </LumenFrame>
               {goalPreparation && !planSelected && (
                 <LumenFrame className="hbar-composer-permission-goal-recovery">
-                  <LumenText as="p" id={goalPreparedId}>
+                  <LumenContentText context="popover.body" id={goalPreparedId}>
                     {labels.plan.goalPrepared}
-                  </LumenText>
+                  </LumenContentText>
                   <LumenButton
                     ref={goalCancelButton}
                     type="button"
@@ -805,16 +805,20 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
                   </LumenButton>
                   {goalCancelError?.sessionId === sessionId &&
                     goalCancelError.revision === goalPreparation.revision && (
-                      <LumenText as="p" role="alert">
+                      <LumenContentText context="feedback.detail" role="alert">
                         {labels.error(goalCancelError.code)}
-                      </LumenText>
+                      </LumenContentText>
                     )}
                 </LumenFrame>
               )}
               {plan && (planSelected || executionUnresolved) && (
-                <LumenText as="p" id={planSelected ? bodyId : undefined} className="hbar-composer-permission-hint">
+                <LumenContentText
+                  context="popover.body"
+                  id={planSelected ? bodyId : undefined}
+                  className="hbar-composer-permission-hint"
+                >
                   {labels.plan.scope}
-                </LumenText>
+                </LumenContentText>
               )}
             </>
           )}
