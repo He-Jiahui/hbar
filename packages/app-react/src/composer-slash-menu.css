@@ -54,3 +54,15 @@
     text-align: start;
   }
 }
+.hbar-composer-slash-menu {
+  position: absolute;
+  z-index: 12;
+  inset-inline: -0.625rem;
+  bottom: calc(100% + 0.4rem);
+  inline-size: auto;
+  max-block-size: min(45vh, 19rem);
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.65rem;
+  background: var(--lumen-contrast);
+  box-shadow: 0 0.65rem 1.75rem rgb(0 0 0 / 18%);
+}

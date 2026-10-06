@@ -69,4 +69,10 @@ Lumen 合并基线将模态窗口改为注册的 portal surface；宿主原有 `
 - 引导 fixture 原默认 `artifacts/queue-guidance-v19/web` 在隔离 checkout 不存在，浏览器只收到“Build the web application”提示。默认入口已对齐本次实际构建的 `dist/web`，显式预览目录仍可覆盖。
 - 严格范围 lint、内容／图标和 flow layout guard、格式、Web build 及清单输入核对通过；全库 TypeScript 保留 96 项已记录诊断，修改范围无新增诊断。
 
-当前清单覆盖 144 个生产 TSX 模块、3652 个元素，仍有 797 处低层文字未分类，合计 817 项静态缺口。Schema 展示适配、其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+文件候选菜单实际点击被对话阅读区拦截。浏览器 trace 显示 `lumen-conversation-content` 位于候选按钮上方，局部绝对定位无法越过工作台 stacking context。候选菜单现使用共享 FloatingSurface 的 portal、最高层级、材质、定位与关闭；兼容接口公开 `focusBehavior` 和 `placement`，保留输入焦点的候选使用 anchored 模式，不声明移动端 modal。旧菜单关闭由共享协调器承担，编辑器的 IME 事件仍由专用 renderer 管理。
+
+- 11 处文件候选标题、路径辅助说明、空态、容量与读取反馈声明 Lumen 内容角色。15 个 mention 映射、目标解析和 slash 用例通过。
+- 中英文 mention 和加号菜单 4 个真实 Host 浏览器用例分别通过。新检查验证 portal、实际点击命中、背景模糊、左对齐、输入焦点、anchor 外部关闭、其他菜单打开时关闭；原用例继续验证撤销／重做、普通文本不获得路径权限、跨会话目标、原路径提交、IME、目录分页，以及 1440／900／390／320px 四边界与截图。
+- 范围 lint、内容／图标和 flow layout guard、格式与独立预览构建通过；全库 TypeScript 保留 96 项已记录诊断，候选与共享接口无新增诊断。构建与实际浏览器证据位于 `artifacts/desktop-elements/mention-*` 和 `artifacts/reference-mentions`。
+
+最近一次提交的清单覆盖 144 个生产 TSX 模块、3652 个元素，其中记录了 797 处低层文字未分类，合计 817 项静态缺口；文件候选及进行中的输入辅助内容将合并重新生成统计。Schema 展示适配、其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

@@ -23,7 +23,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await writeFile(join(root, 'src', 'beta.ts'), 'export const beta = true\n')
       for (let index = 0; index < 58; index += 1)
         await writeFile(join(root, 'pages', `page-${String(index).padStart(2, '0')}.md`), `Page ${index}\n`)
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317), sessionCount: 2 })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        sessionCount: 2,
+        budgetAutoContinue: false,
+      })
       expect((await context.request.post(`${base()}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(
         true,
       )
@@ -37,6 +42,37 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await prompt.fill('Review @alpha')
       await expect(menu).toBeVisible()
       await expect(menu.getByRole('option').filter({ hasText: 'alpha.ts' })).toBeVisible()
+      await expect(prompt).toBeFocused()
+      expect(
+        await menu.evaluate((element) => ({
+          portal: element.closest('.hbar-composer-mention-root') === null,
+          position: getComputedStyle(element).position,
+          blur: getComputedStyle(element).backdropFilter,
+          align: getComputedStyle(element).textAlign,
+        })),
+      ).toEqual({ portal: true, position: 'fixed', blur: expect.stringContaining('blur('), align: 'start' })
+      const candidate = menu.getByRole('option').filter({ hasText: 'alpha.ts' })
+      expect(
+        await candidate.evaluate((element) => {
+          const bounds = element.getBoundingClientRect()
+          const hit = document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2)
+          return hit !== null && element.contains(hit)
+        }),
+      ).toBe(true)
+      await prompt.click()
+      await expect(menu).toHaveCount(0)
+      await expectComposerText(prompt, 'Review @alpha')
+      await prompt.fill('Review @alph')
+      await expect(menu).toBeVisible()
+      const plus = page.getByRole('button', { name: copy.session.addMenu.open, exact: true })
+      await plus.click()
+      await expect(menu).toHaveCount(0)
+      await expect(page.getByRole('group', { name: copy.session.addMenu.menu })).toBeVisible()
+      await page.keyboard.press('Escape')
+      await expect(page.getByRole('group', { name: copy.session.addMenu.menu })).toHaveCount(0)
+      await prompt.fill('Review @alpha')
+      await expect(menu).toBeVisible()
+      await expect(candidate).toBeVisible()
       await prompt.press('Enter')
       await expect(page.locator('.hbar-composer-mention-pill')).toHaveText('@alpha.ts')
       await expect(menu).toHaveCount(0)

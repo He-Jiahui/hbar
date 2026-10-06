@@ -3,7 +3,7 @@ import { ArrowRight, File, Folder, Search } from 'lucide-react'
 import { defaultKeymap, history, historyKeymap, insertNewline, invertedEffects } from '@codemirror/commands'
 import { Compartment, EditorState, Prec, StateEffect, StateField, Transaction } from '@codemirror/state'
 import { Decoration, EditorView, keymap, placeholder, WidgetType } from '@codemirror/view'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenContentText } from '@lumen/app-ui'
 import {
   isWorkspaceRelativePath,
   parseComposerFilePage,
@@ -12,6 +12,7 @@ import {
 } from '@hbar/app-runtime'
 import { mapMentionSpans, nearestMentionBoundary } from './composer-mention-model'
 import { HbarComposerSlashMenu, type HbarComposerSlashLabels } from './composer-slash-menu'
+import { FloatingSurface } from './floating-surface'
 import { shouldSubmitExactSlashOnSend, slashMatches, slashTokenAt, type LocalSlashCommand } from './composer-slash'
 import './composer-mention-editor.css'
 
@@ -386,11 +387,7 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
                     setSlashTrigger(null)
                     return true
                   }
-                  if (!triggerRef.current || editor.composing) return false
-                  dismissedRef.current = triggerRef.current
-                  setTrigger(null)
-                  setSearch(null)
-                  return true
+                  return false
                 },
               },
               ...(['Tab', 'ArrowRight'] as const).map((key) => ({
@@ -752,16 +749,31 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
         />
       )}
       {trigger && (!props.disabled || !props.connected) && (
-        <LumenFrame id={menuId} className="hbar-composer-mention-menu" role="listbox" aria-label={props.labels.menu}>
+        <FloatingSurface
+          open
+          id={menuId}
+          anchorRef={host}
+          placement="above"
+          focusBehavior="preserve"
+          className="hbar-composer-mention-menu"
+          role="listbox"
+          label={props.labels.menu}
+          onClose={() => {
+            dismissedRef.current = triggerRef.current
+            setTrigger(null)
+            setSearch(null)
+            setBrowsePath('.')
+          }}
+        >
           <LumenFrame className="hbar-composer-mention-heading">
             <LumenIcon icon={Search} tier="sm" />
-            <LumenText>
+            <LumenContentText context="tool.label">
               {browsePath !== '.'
                 ? props.labels.browsing(browsePath)
                 : trigger.term
                   ? props.labels.search
                   : props.labels.browsing(props.labels.root)}
-            </LumenText>
+            </LumenContentText>
             {browsePath !== '.' && (
               <LumenButton
                 size="s"
@@ -778,16 +790,18 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
             )}
           </LumenFrame>
           {!props.connected ? (
-            <LumenText className="hbar-composer-mention-feedback" role="status">
+            <LumenContentText context="feedback.paragraph" className="hbar-composer-mention-feedback" role="status">
               {props.labels.disconnected}
-            </LumenText>
+            </LumenContentText>
           ) : search?.status === 'loading' ? (
-            <LumenText className="hbar-composer-mention-feedback" role="status">
+            <LumenContentText context="feedback.paragraph" className="hbar-composer-mention-feedback" role="status">
               {props.labels.loading}
-            </LumenText>
+            </LumenContentText>
           ) : search?.status === 'error' ? (
             <LumenFrame className="hbar-composer-mention-feedback" role="alert">
-              <LumenText>{props.labels.error(search.error ?? 'EXECUTION_FAILED')}</LumenText>
+              <LumenContentText context="feedback.paragraph">
+                {props.labels.error(search.error ?? 'EXECUTION_FAILED')}
+              </LumenContentText>
               <LumenButton size="s" variant="text" indicator="none" onClick={() => setGeneration((value) => value + 1)}>
                 {props.labels.retry}
               </LumenButton>
@@ -811,10 +825,10 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
                     title={item.path}
                   >
                     <LumenIcon icon={item.directory ? Folder : File} tier="sm" />
-                    <LumenText>{item.label}</LumenText>
-                    <LumenText className="hbar-composer-mention-path">
+                    <LumenContentText context="choice.title">{item.label}</LumenContentText>
+                    <LumenContentText context="choice.description" className="hbar-composer-mention-path">
                       {parent(item.path) === '.' ? props.labels.root : parent(item.path)}
-                    </LumenText>
+                    </LumenContentText>
                   </LumenButton>
                   {item.directory && (
                     <LumenButton
@@ -846,7 +860,9 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
             </LumenFrame>
           ) : search?.status === 'ready' ? (
             <LumenFrame className="hbar-composer-mention-feedback" role="status">
-              <LumenText>{search.nextCursor ? props.labels.emptyPage : props.labels.empty}</LumenText>
+              <LumenContentText context="empty.description">
+                {search.nextCursor ? props.labels.emptyPage : props.labels.empty}
+              </LumenContentText>
               {search.nextCursor && (
                 <LumenButton
                   size="s"
@@ -862,22 +878,24 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
             </LumenFrame>
           ) : null}
           {search?.truncated && (
-            <LumenText className="hbar-composer-mention-feedback" role="status">
+            <LumenContentText context="feedback.paragraph" className="hbar-composer-mention-feedback" role="status">
               {props.labels.truncated}
-            </LumenText>
+            </LumenContentText>
           )}
           {search && search.choices.length >= 200 && search.nextCursor && (
-            <LumenText className="hbar-composer-mention-feedback" role="status">
+            <LumenContentText context="feedback.paragraph" className="hbar-composer-mention-feedback" role="status">
               {props.labels.limit}
-            </LumenText>
+            </LumenContentText>
           )}
-          <LumenText className="hbar-composer-mention-footer">{props.labels.hint}</LumenText>
-        </LumenFrame>
+          <LumenContentText context="form.help" className="hbar-composer-mention-footer">
+            {props.labels.hint}
+          </LumenContentText>
+        </FloatingSurface>
       )}
       {localError && (
-        <LumenText className="hbar-composer-mention-feedback" role="alert">
+        <LumenContentText context="feedback.paragraph" className="hbar-composer-mention-feedback" role="alert">
           {props.labels.error(localError)}
-        </LumenText>
+        </LumenContentText>
       )}
     </LumenFrame>
   )

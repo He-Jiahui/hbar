@@ -2,6 +2,7 @@ import {
   LumenFloatingSurface,
   useFloatingTrigger as useSharedFloatingTrigger,
   type FloatingSurfaceMaterial,
+  type FloatingPlacement,
 } from '@lumen/app-ui'
 import { DEFAULT_THEME_PROFILE, type ThemeProfile } from '@hbar/contracts'
 import type { HTMLAttributes, RefObject } from 'react'
@@ -12,6 +13,8 @@ type AppFloatingSurfaceProps = HTMLAttributes<HTMLDivElement> & {
   readonly onClose: () => void
   readonly anchorRef: RefObject<HTMLElement | null>
   readonly initialFocusRef?: RefObject<HTMLElement | null>
+  readonly focusBehavior?: 'surface' | 'preserve'
+  readonly placement?: FloatingPlacement
   readonly label: string
   readonly material?: ThemeProfile['surface']
 }
@@ -32,6 +35,8 @@ export function FloatingSurface({
   onClose,
   anchorRef,
   initialFocusRef,
+  focusBehavior,
+  placement,
   label,
   children,
   className,
@@ -39,8 +44,7 @@ export function FloatingSurface({
   ...attributes
 }: AppFloatingSurfaceProps) {
   const sheetModal =
-    typeof window !== 'undefined' &&
-    window.matchMedia('(max-width: 40rem) and (pointer: coarse)').matches
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 40rem) and (pointer: coarse)').matches
   return (
     <LumenFloatingSurface
       {...attributes}
@@ -49,9 +53,11 @@ export function FloatingSurface({
       mode="anchored"
       anchorRef={anchorRef}
       initialFocusRef={initialFocusRef}
+      focusBehavior={focusBehavior}
+      placement={placement}
       label={label}
       role={attributes.role ?? 'dialog'}
-      aria-modal={sheetModal || undefined}
+      aria-modal={(sheetModal && focusBehavior !== 'preserve') || undefined}
       material={mapMaterial(material)}
       className={`hbar-floating-surface ${className ?? ''}`}
     >
