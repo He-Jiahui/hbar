@@ -7,6 +7,7 @@ import {
   projectPreSessionDraftImages,
   projectSessionDraftImages,
   projectSessionMessageImages,
+  projectSessionToolResultImages,
   type ImageResourcePort,
   type ImageViewerState,
   type ImageViewerRequest,
@@ -124,7 +125,10 @@ export function createSessionImagesModelScope(
         )
         const message = matches[0]
         if (facts.timeline.sessionId !== source.sessionId || matches.length !== 1 || !message) return null
-        next = projectSessionMessageImages({ hostIdentity, message })
+        next =
+          source.kind === 'tool-result'
+            ? projectSessionToolResultImages({ hostIdentity, message, resultIndex: source.resultIndex })
+            : projectSessionMessageImages({ hostIdentity, message })
       }
       return next?.sourceId === target.sourceId ? next : null
     } catch {

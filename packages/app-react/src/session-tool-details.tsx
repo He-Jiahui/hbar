@@ -10,6 +10,7 @@ import { projectCommandReading } from './session-command-reading-model'
 import './session-command-details.css'
 import { MarkdownCodeContent } from './markdown-code-content'
 import { serializedReadingLanguage } from './plain-code-tokens'
+import { HbarToolResultImages } from './session-images'
 
 function SourceText({
   text,
@@ -195,6 +196,7 @@ function CommandDetails({
               labels.emptyOutput
             )}
           </LumenText>
+          <HbarToolResultImages sessionId={sessionId} messageId={messageId} result={row.result} />
           {success && window.collapsible && (
             <LumenButton
               type="button"
@@ -302,6 +304,7 @@ export function SessionToolDetails({
             command={presentation?.input?.format === 'command'}
             owner={copyOwner}
           />
+          <HbarToolResultImages sessionId={sessionId} messageId={messageId} result={row.result} />
         </LumenFrame>
       ) : null}
     </>

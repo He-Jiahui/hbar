@@ -167,6 +167,7 @@ import { createUsageFact, describeUsageAttempt } from '@hbar/usage'
 import { classifyRunFailure } from './run-failure.ts'
 import { hostAbortToolOutcome } from './tool-outcome'
 import { captureToolPresentations, enrichToolCallPresentations } from './tool-presentation'
+import { persistToolResultImages } from './tool-result-images'
 import { SessionWakeups } from './session-wakeups.ts'
 import { createToolSequenceExecutor } from './tool-sequence'
 import { buildSteeringContext, type RunSteeringContext, type SteeringDelivery } from './run-steering-context'
@@ -1810,6 +1811,7 @@ export class Kernel {
     let hostFailure: ToolResult['hostFailure']
     let hostControl: ToolResult['hostControl']
     let outcome: ToolOutcome | undefined
+    let images: ArtifactRef[] | undefined
     const assertNotAborted = () => {
       if (!hostSignal.aborted) return
       outcome = hostAbortToolOutcome(hostSignal.reason, started)
@@ -1890,6 +1892,13 @@ export class Kernel {
       }
       result = await tool.execute(args, Object.keys(execOverrides).length ? { ...plain, ...execOverrides } : plain)
       result = (await scope.hooks.dispatch('tool.after', { name, result, context })).result
+      const captured = await persistToolResultImages(
+        name,
+        result,
+        (file, mime, bytes) => this.upload(file, mime, bytes),
+        hostSignal,
+      )
+      if (captured.length) images = captured
       outcome = { kind: result.isError ? 'failed' : 'succeeded', executionStarted: started }
     } catch (error) {
       if (error instanceof RunControlSignal && !hostSignal.aborted) {
@@ -1920,6 +1929,7 @@ export class Kernel {
         isError: Boolean(result.isError),
         details: result.details,
         outcome,
+        ...(images ? { images } : {}),
       },
     ]
     const event = context.parentCallId

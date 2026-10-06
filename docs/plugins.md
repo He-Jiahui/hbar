@@ -182,6 +182,8 @@ export default definePlugin({
 
 工具前置钩子可返回变换后的参数；内核会重新校验，并以最终参数进行审批。模型钩子可选择已注册模型，但不能把现有凭据转发给未注册的 endpoint。插件处理上下文时，最终模型请求会进入事件日志。副作用不得绕开执行入口去伪装成只读工具。
 
+工具通过 `ToolResult.content` 返回 `{ type: 'image', data, mimeType }` 时，Host 将 PNG、JPEG、WebP 或 GIF 的 base64 数据校验并保存为 artifact，在持久 `tool_result.images` 中记录引用。每次工具输出最多 12 张图片，单张最大 10 MiB；超出范围或损坏数据会产生明确的工具结果错误。图片预览位于原工具的输出区域，复用受鉴权读取、按可见性加载的缩略图和大图查看器，刷新后的历史仍可读取，后续模型请求也可重新读取图片。截图工具的 `details` 只保留元数据，不重复携带图像 bytes。`images` 是可选的增量契约，已有纯文本结果继续按原方式显示。
+
 会话级动态事实使用 SDK 的 `appendModelContext(request, text)` 追加；稳定指令需要置于事实之前时，使用 `prependModelInstructions(request, text)`。两者都保留完整 `ModelRequest.system`，以可选 `systemContextOffset`（UTF-16 索引）标记每请求刷新的 Host 状态起点，不复制另一份业务状态。不要手动拼接前缀后继续沿用旧的偏移量。
 
 当前 Pi 驱动对 OpenAI-compatible 协议将动态后缀放在历史之后，保持原 system / developer 层级；持久会话消息和工具配对不变。其他协议及未支持该元数据的驱动仍可使用完整 `system`，不会丢失预算或焦点。工具广告中的稳定指令放在前缀。该结构及传给供应商适配器的 Session ID 为缓存复用提供条件，但不保证命中；预算仍以实际 usage 结算。

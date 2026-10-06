@@ -26,6 +26,13 @@ export type ImageViewerSource =
   | { readonly kind: 'draft'; readonly sessionId: string; readonly draftRevision: number }
   | { readonly kind: 'pre-session-draft'; readonly draftId: string; readonly draftRevision: number }
   | { readonly kind: 'message'; readonly sessionId: string; readonly messageId: string; readonly messageSeq: number }
+  | {
+      readonly kind: 'tool-result'
+      readonly sessionId: string
+      readonly messageId: string
+      readonly messageSeq: number
+      readonly resultIndex: number
+    }
 
 export interface ImageViewerItem {
   /** Original occurrence identity. Never derive this from the filename or content hash. */
@@ -104,6 +111,13 @@ const sourceSchema = z.discriminatedUnion('kind', [
     sessionId: idSchema,
     messageId: idSchema,
     messageSeq: z.number().int().positive(),
+  }),
+  z.strictObject({
+    kind: z.literal('tool-result'),
+    sessionId: idSchema,
+    messageId: idSchema,
+    messageSeq: z.number().int().positive(),
+    resultIndex: z.number().int().nonnegative(),
   }),
 ])
 const requestSchema = z.strictObject({

@@ -47,6 +47,10 @@ export interface SessionImageMessageInput {
   /** Zero-based occurrence among image blocks; text and tool blocks never shift it. */
   readonly activeOrdinal?: number
 }
+export interface SessionToolResultImageInput extends SessionImageMessageInput {
+  /** Exact tool-result block in the immutable source message, independent of the visible paired call. */
+  readonly resultIndex: number
+}
 export interface SessionImageMembership {
   readonly activeSessionId: string | null
   readonly draft: SessionImageDraft | null | undefined
@@ -78,7 +82,9 @@ function collectionId(hostIdentity: string, source: ImageViewerSource): string {
     return value
   }
   const collection =
-    source.kind === 'draft' ? 'draft' : `message${atom(source.messageId)}${atom(String(source.messageSeq))}`
+    source.kind === 'draft'
+      ? 'draft'
+      : `message${atom(source.messageId)}${atom(String(source.messageSeq))}${source.kind === 'tool-result' ? `tool${source.resultIndex}` : ''}`
   const value = `session-images:1:${atom(hostIdentity)}${atom(source.sessionId)}${atom(collection)}`
   if (value.length > 512) invalid()
   return value
@@ -87,7 +93,7 @@ function occurrenceKey(source: ImageViewerSource, ordinal: number): string {
   if (source.kind === 'pre-session-draft') return `pre-session-draft-image:1:${ordinal}`
   return source.kind === 'draft'
     ? `draft-image:1:${ordinal}`
-    : `message-image:1:${atom(source.messageId)}${atom(String(source.messageSeq))}${ordinal}`
+    : `message-image:1:${atom(source.messageId)}${atom(String(source.messageSeq))}${source.kind === 'tool-result' ? `tool${source.resultIndex}:` : ''}${ordinal}`
 }
 function captureItem(source: ImageViewerSource, artifact: Readonly<ArtifactRef>, ordinal: number): ImageViewerItem {
   const parsed = artifactSchema.safeParse(artifact)
@@ -130,6 +136,31 @@ function preSessionDraftArtifacts(draft: PreSessionImageDraft): readonly Readonl
 function messageArtifacts(message: SessionImageMessage): readonly Readonly<ArtifactRef>[] {
   return message.content.flatMap((block) => (block.type === 'image' ? [block.artifact] : []))
 }
+function toolResultArtifacts(message: SessionImageMessage, resultIndex: number): readonly Readonly<ArtifactRef>[] {
+  const block = message.content[resultIndex]
+  return block?.type === 'tool_result' ? (block.images ?? []) : []
+}
+
+/** Match the same canonical result as the transcript projection, fencing reused IDs by Session and Run. */
+export function findSessionToolResultMessage(
+  timeline: SessionImageTimeline,
+  ownerMessageId: string,
+  callId: string,
+  toolName: string,
+): Readonly<Message> | undefined {
+  const owner = timeline.messages.find(
+    (message) => message.id === ownerMessageId && message.sessionId === timeline.sessionId,
+  )
+  if (!owner) return undefined
+  return timeline.messages.find(
+    (message) =>
+      message.sessionId === owner.sessionId &&
+      message.runId === owner.runId &&
+      message.content.some(
+        (block) => block.type === 'tool_result' && block.callId === callId && block.name === toolName,
+      ),
+  )
+}
 
 /** Project confirmed draft attachments only; text/mention revisions are not collection identity. */
 export function projectSessionDraftImages(input: SessionImageDraftInput): SessionImageProjection | null {
@@ -161,6 +192,30 @@ export function projectSessionMessageImages(input: SessionImageMessageInput): Se
     input.hostIdentity,
     { kind: 'message', sessionId: input.message.sessionId, messageId: input.message.id, messageSeq: input.message.seq },
     messageArtifacts(input.message),
+    input.activeOrdinal ?? 0,
+  )
+}
+
+/** Each tool output owns its own bounded gallery, even when results are displayed under another message. */
+export function projectSessionToolResultImages(input: SessionToolResultImageInput): SessionImageProjection | null {
+  if (
+    !validId(input.message.sessionId) ||
+    !validId(input.message.id) ||
+    !integer(input.message.seq, 1) ||
+    !integer(input.resultIndex, 0) ||
+    input.message.content[input.resultIndex]?.type !== 'tool_result'
+  )
+    invalid()
+  return project(
+    input.hostIdentity,
+    {
+      kind: 'tool-result',
+      sessionId: input.message.sessionId,
+      messageId: input.message.id,
+      messageSeq: input.message.seq,
+      resultIndex: input.resultIndex,
+    },
+    toolResultArtifacts(input.message, input.resultIndex),
     input.activeOrdinal ?? 0,
   )
 }
@@ -218,6 +273,8 @@ export function isSessionImageRequestCurrent(request: ImageViewerRequest, curren
   const message = matching[0]
   if (matching.length !== 1 || !message || message.sessionId !== source.sessionId || message.seq !== source.messageSeq)
     return false
+  if (source.kind === 'tool-result')
+    return integer(source.resultIndex, 0) && sameOccurrences(request, toolResultArtifacts(message, source.resultIndex))
   return sameOccurrences(request, messageArtifacts(message))
 }
 

@@ -304,16 +304,26 @@ async function toPiMessages(
       }
     } else {
       for (const block of message.content)
-        if (block.type === 'tool_result')
+        if (block.type === 'tool_result') {
+          let content = transientToolContent.get(block.callId)
+          if (!content) {
+            content = [{ type: 'text', text: block.text }]
+            if (readImage && model.imageInput)
+              for (const artifact of block.images ?? []) {
+                const image = await readImage(artifact.id)
+                content.push({ type: 'image', data: image.data, mimeType: image.mime })
+              }
+          }
           output.push({
             role: 'toolResult',
             toolCallId: block.callId,
             toolName: block.name,
-            content: transientToolContent.get(block.callId) ?? [{ type: 'text', text: block.text }],
+            content,
             details: block.details,
             isError: block.isError,
             timestamp: message.createdAt,
           })
+        }
     }
   }
   return output

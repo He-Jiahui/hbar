@@ -23,6 +23,8 @@ import {
   projectSessionDraftImages,
   projectPreSessionDraftImages,
   projectSessionMessageImages,
+  projectSessionToolResultImages,
+  findSessionToolResultMessage,
   type ImageResourceErrorCode,
   type ImageResourcePort,
   type ImageThumbnailState,
@@ -32,6 +34,7 @@ import {
   type PreSessionDraftState,
 } from '@hbar/app-runtime'
 import { useHbarRuntime, type HbarRuntimeView } from './runtime'
+import type { ContentBlock } from '@hbar/contracts'
 import {
   HbarSessionImagesModelProvider,
   useSessionImageGallery,
@@ -277,25 +280,39 @@ function MessageImageContent({
   sessionId,
   messageId,
   children,
+  toolResult,
 }: {
   readonly context: ImageContextValue
   readonly sessionId: string
   readonly messageId: string
   readonly children: (renderImages: HbarMessageImageRenderer | undefined) => ReactNode
+  readonly toolResult?: Extract<ContentBlock, { type: 'tool_result' }> | undefined
 }) {
   const timeline = context.runtime.state.timeline
-  const getMessage = () =>
-    timeline.getSnapshot().messages.find((message) => message.id === messageId && message.sessionId === sessionId)
+  const getMessage = () => {
+    const facts = timeline.getSnapshot()
+    if (facts.sessionId !== sessionId) return undefined
+    return toolResult
+      ? findSessionToolResultMessage(facts, messageId, toolResult.callId, toolResult.name)
+      : facts.messages.find((message) => message.id === messageId && message.sessionId === sessionId)
+  }
   const message = useSyncExternalStore(timeline.subscribe, getMessage, getMessage)
+  const resultIndex = toolResult
+    ? (message?.content.findIndex(
+        (block) => block.type === 'tool_result' && block.callId === toolResult.callId && block.name === toolResult.name,
+      ) ?? -1)
+    : -1
   const projection = useMemo(
     () =>
       message && context.hostIdentity
-        ? projectSessionMessageImages({
-            hostIdentity: context.hostIdentity,
-            message,
-          })
+        ? toolResult && resultIndex >= 0
+          ? projectSessionToolResultImages({ hostIdentity: context.hostIdentity, message, resultIndex })
+          : projectSessionMessageImages({
+              hostIdentity: context.hostIdentity,
+              message,
+            })
         : null,
-    [context.hostIdentity, message],
+    [context.hostIdentity, message, toolResult, resultIndex],
   )
   const identity = JSON.stringify([projection?.sourceId, projection?.request.items])
   const { container, visible } = useImageCollectionVisibility(identity)
@@ -351,6 +368,39 @@ export function HbarMessageImageContent({
     </MessageImageContent>
   ) : (
     children(undefined)
+  )
+}
+
+/** Tool previews stay in their output section and resolve resources from the original durable result. */
+export function HbarToolResultImages({
+  sessionId,
+  messageId,
+  result,
+}: {
+  readonly sessionId: string
+  readonly messageId: string
+  readonly result: Extract<ContentBlock, { type: 'tool_result' }>
+}) {
+  const context = useContext(ImageContext)
+  if (!result.images?.length) return null
+  if (!context)
+    return (
+      <LumenFrame className="hbar-image-entries">
+        {result.images.map((artifact, index) => (
+          <LumenText as="span" key={index}>
+            {artifact.name}
+          </LumenText>
+        ))}
+      </LumenFrame>
+    )
+  return (
+    <MessageImageContent context={context} sessionId={sessionId} messageId={messageId} toolResult={result}>
+      {(renderImages) =>
+        renderImages?.(
+          result.images?.map((artifact, ordinal) => ({ key: `tool-image:${ordinal}`, ordinal, artifact })) ?? [],
+        )
+      }
+    </MessageImageContent>
   )
 }
 

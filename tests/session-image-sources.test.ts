@@ -5,6 +5,8 @@ import {
   isSessionImageRequestCurrent,
   projectSessionDraftImages,
   projectSessionMessageImages,
+  projectSessionToolResultImages,
+  findSessionToolResultMessage,
   type SessionImageProjection,
 } from '../packages/app-runtime/src/session-image-sources'
 import { createImageViewer } from '../packages/app-runtime/src/image-viewer'
@@ -95,6 +97,43 @@ const current = (
     draft: value.draft,
     timeline: value.timeline,
   })
+
+test('tool image collections belong to their exact durable result, retaining duplicates and bounded capacity', () => {
+  for (const count of [0, 1, 4, 12, 13]) {
+    const original = message([
+      { ...tool, images: Array.from({ length: count }, () => artifact('a', '截图-很长的文件名.png')) },
+    ])
+    const value = projectSessionToolResultImages({ hostIdentity, message: original, resultIndex: 0 })
+    if (!count) {
+      expect(value).toBeNull()
+      continue
+    }
+    if (!value) throw new Error('Missing tool images')
+    expect(value.capacity).toEqual({ count, limit: 12, exceeded: count > 12 })
+    expect(new Set(value.request.items.map((item) => item.key)).size).toBe(count)
+    expect(current(value.request, { timeline: timeline([original]) })).toBe(true)
+    expect(current(value.request, { timeline: timeline([message([tool])]) })).toBe(false)
+    expect(current(value.request, { timeline: timeline([original, original]) })).toBe(false)
+    expect(current(value.request, { timeline: timeline([original]), activeSessionId: 'other' })).toBe(false)
+    expect(projectSessionMessageImages({ hostIdentity, message: original })).toBeNull()
+  }
+})
+
+test('paired tool images cannot pick another Run, Session or tool with a reused call ID', () => {
+  const owner = message([{ type: 'tool_call', callId: 'call', name: 'tool', args: {} }])
+  const result = { ...message([{ ...tool, images: [artifact()] }]), id: 'result', seq: 22, role: 'tool' as const }
+  const wrongRun = { ...result, id: 'foreign-run', runId: 'run-b' }
+  const wrongSession = { ...result, id: 'foreign-session', sessionId: 'session-b' }
+  const wrongTool = { ...result, id: 'foreign-tool', content: [{ ...tool, name: 'other', images: [artifact('b')] }] }
+  const facts = timeline([owner, wrongRun, wrongSession, wrongTool, result, { ...result, id: 'duplicate' }])
+  expect(findSessionToolResultMessage(facts, owner.id, 'call', 'tool')).toBe(result)
+  expect(findSessionToolResultMessage(facts, 'stale-owner', 'call', 'tool')).toBeUndefined()
+  const value = projectSessionToolResultImages({ hostIdentity, message: result, resultIndex: 0 })
+  if (!value) throw new Error('Missing collection')
+  expect(current(value.request, { timeline: facts })).toBe(true)
+  const changed = { ...result, content: [{ ...tool, images: [artifact('b')] }] }
+  expect(current(value.request, { timeline: timeline([owner, changed]) })).toBe(false)
+})
 
 test('message images retain ordered occurrence identity across text, file and tool-result blocks', () => {
   const original = message([picture(), text, tool, { type: 'file', artifact: artifact('d') }, picture('b')])

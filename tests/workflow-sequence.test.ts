@@ -936,7 +936,16 @@ test('image results stop the text sequence and request a separate visual inspect
     inputSchema: z.object({}),
     effect: 'read',
     workspaceAccess: { kind: 'none' },
-    execute: async () => ({ text: 'Image', content: [{ type: 'image', data: 'fixture', mimeType: 'image/png' }] }),
+    execute: async () => ({
+      text: 'Image',
+      content: [
+        {
+          type: 'image',
+          data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6DYkAAAAASUVORK5CYII=',
+          mimeType: 'image/png',
+        },
+      ],
+    }),
   })
   const before = (await workflows.get(session.id)).workflow!
   await workflows.expandScope(

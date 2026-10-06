@@ -686,7 +686,7 @@ export function browserTools(runtime: BrowserRuntime): ToolDefinition[] {
         return {
           text: `Browser screenshot ${shot.page.url}`,
           content: [{ type: 'image' as const, data: shot.data, mimeType: shot.mime }],
-          details: shot,
+          details: { mime: shot.mime, page: shot.page },
         }
       },
     },

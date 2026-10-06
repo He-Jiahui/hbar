@@ -90,7 +90,7 @@ test('real pi-ai OpenAI transport streams tool calls and usage through a local H
   }
 })
 
-test('read_file sends images to the model without persisting binary data in session events', async () => {
+test('read_file persists image references, rehydrates later tool history and keeps binary bytes out of events', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-provider-image-'))
   const image = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLttAAAAABJRU5ErkJggg==',
@@ -140,7 +140,7 @@ test('read_file sends images to the model without persisting binary data in sess
       return new Response(`${text}data: [DONE]\n\n`, { headers: { 'Content-Type': 'text/event-stream' } })
     },
   })
-  const kernel = await Kernel.create({ home: join(root, 'data'), workspace: root, secrets: new MemorySecrets() })
+  let kernel = await Kernel.create({ home: join(root, 'data'), workspace: root, secrets: new MemorySecrets() })
   try {
     await kernel.saveProvider(
       providerSchema.parse({
@@ -162,6 +162,25 @@ test('read_file sends images to the model without persisting binary data in sess
     expect(receivedImage).toBeTrue()
     expect(serializedEvents).not.toContain(image.toString('base64'))
     expect(serializedEvents).toContain('Read image file pixel.png [image/png]')
+    const output = snapshot.messages.flatMap((message) => message.content).find((block) => block.type === 'tool_result')
+    if (output?.type !== 'tool_result') throw new Error('Missing read_file result')
+    expect(output.images).toHaveLength(1)
+    const ref = output.images?.[0]
+    if (!ref) throw new Error('Missing durable image')
+    expect(ref).toMatchObject({ mime: 'image/png', size: image.length, name: 'read_file-1.png' })
+    expect(Buffer.from(await Bun.file(join(kernel.options.layout.artifacts, ref.id)).arrayBuffer())).toEqual(image)
+    await kernel.close()
+    kernel = await Kernel.create({ home: join(root, 'data'), workspace: root, secrets: new MemorySecrets() })
+    receivedImage = false
+    await kernel.submit(
+      session.id,
+      'image-follow-up',
+      { text: 'Inspect the earlier image again', images: [] },
+      'image-test',
+    )
+    await kernel.waitForIdle()
+    expect(receivedImage).toBeTrue()
+    expect((await kernel.snapshot(session.id)).runs.every((run) => run.status === 'completed')).toBeTrue()
   } finally {
     await kernel.close()
     await provider.stop(true)

@@ -9,8 +9,50 @@ import {
   useSessionImageThumbnails,
 } from '../packages/app-react/src/session-images-model'
 import { sessionImagesFixture } from './fixtures/session-images-model-fixture'
+import { projectSessionToolResultImages } from '@hbar/app-runtime'
 
 const turn = () => Bun.sleep(0)
+
+test('tool-result gallery uses the durable result owner and releases late reads after its source disappears', async () => {
+  const fixture = sessionImagesFixture(false)
+  const message = {
+    id: 'durable-result',
+    sessionId: 'session-a',
+    runId: 'run-a',
+    seq: 2,
+    createdAt: 1,
+    role: 'tool' as const,
+    content: [
+      {
+        type: 'tool_result' as const,
+        callId: 'original',
+        name: 'screenshot',
+        text: 'Screenshot',
+        isError: false,
+        images: fixture.drafts.get()['session-a'].attachments.map((item) => item.artifact),
+      },
+    ],
+  }
+  fixture.timeline.set({ ...fixture.timeline.get(), messages: [message] })
+  const projection = projectSessionToolResultImages({ hostIdentity: 'host', message, resultIndex: 0 })
+  if (!projection) throw new Error('Missing tool projection')
+  const scope = createSessionImagesModelScope(fixture.view, fixture.resources, 'host')
+  const off = scope.retain()
+  expect(scope.open(projection, projection.request.activeKey)).toBe(true)
+  expect(fixture.calls).toHaveLength(1)
+  fixture.timeline.set({ ...fixture.timeline.get(), messages: [] })
+  expect(scope.reader.getSnapshot().status).toBe('closed')
+  expect(fixture.calls[0]?.signal.aborted).toBe(true)
+  const late = fixture.settle(0)
+  await turn()
+  expect(late.releases).toBe(1)
+  expect(scope.reader.getSnapshot().status).toBe('closed')
+  expect(scope.open(projection, projection.request.activeKey)).toBe(false)
+  off()
+  await turn()
+  expect(fixture.counts()).toMatchObject({ live: 0, subscriptions: 0 })
+  fixture.runtime.dispose()
+})
 test('render/SSR abandonment creates no subscriptions, resource reads or URLs', () => {
   const fixture = sessionImagesFixture()
   const projection = fixture.project()

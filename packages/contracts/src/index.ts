@@ -47,6 +47,7 @@ export const artifactSchema = z.object({
   size: z.number().int().nonnegative(),
 })
 export type ArtifactRef = z.infer<typeof artifactSchema>
+export const MAX_TOOL_RESULT_IMAGES = 12
 export const contentBlockSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('text'), text: z.string() }),
   z.object({ type: z.literal('thinking'), text: z.string() }),
@@ -68,6 +69,8 @@ export const contentBlockSchema = z.discriminatedUnion('type', [
       isError: z.boolean(),
       details: z.unknown().optional(),
       outcome: toolOutcomeSchema.optional(),
+      /** Validated, durable image outputs; inline provider bytes never belong in the transcript. */
+      images: z.array(artifactSchema).max(MAX_TOOL_RESULT_IMAGES).optional(),
     })
     .refine(
       (result) =>
