@@ -129,6 +129,24 @@ test('renders localized built-in names, rules, the command limitation and row-bo
   expect(html).toMatch(new RegExp(`<button[^>]*disabled=""[^>]*>${zh.save}</button>`))
 })
 
+test('uses controlled popup selects for profile choices and keeps the sandbox in flow layout', async () => {
+  const html = render()
+  expect(html).not.toContain('<select')
+  expect(html.match(/role="combobox"/g)?.length).toBe(8)
+  expect(html).toContain('data-value="deny"')
+
+  const source = await Bun.file(
+    new URL('../packages/app-react/src/sandbox-profile-settings.tsx', import.meta.url),
+  ).text()
+  expect(source.match(/<LumenPopupSelect/g)?.length).toBe(8)
+  const css = await Bun.file(new URL('../packages/app-react/src/sandbox-profile-settings.css', import.meta.url)).text()
+  expect(css).toContain('.hbar-sandbox-profiles-body {\n  display: flex;')
+  expect(css).toContain('min-inline-size: min(100%, 24rem);')
+  expect(css).toContain('.hbar-sandbox-profiles-fields {\n  display: flex;')
+  expect(css).not.toContain('display: grid')
+  expect(css).not.toContain('@media (max-width')
+})
+
 test('the English locale and a long translated name stay in the semantic text', () => {
   const longName = 'An exceptionally long sandbox profile name used to check wrapping and accessible names'.repeat(2)
   const html = render({

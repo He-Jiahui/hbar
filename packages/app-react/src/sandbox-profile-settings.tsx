@@ -10,11 +10,11 @@ import {
   LumenIconButton,
   LumenInput,
   LumenNavigationButton,
-  LumenOption,
-  LumenSelect,
+  LumenPopupSelect,
   LumenText,
   LumenTextarea,
 } from '@lumen/app-ui'
+import type { LumenControlOption } from '@lumen/app-ui'
 import type {
   SandboxDraftEdit,
   SandboxDraftIssue,
@@ -579,86 +579,84 @@ function Editor({
           label={labels.fields.extends}
           error={extendsIssue ? labels.issue(extendsIssue) : undefined}
         >
-          <LumenSelect
+          <LumenPopupSelect
             id={control('extends')}
             value={draft.extends ?? INHERIT}
             disabled={locked}
-            onChange={(event) => edit({ kind: 'extends', value: event.currentTarget.value || null })}
-          >
-            <LumenOption value={INHERIT}>{labels.fields.noParent}</LumenOption>
-            {!parentListed && draft.extends && (
-              <LumenOption value={draft.extends}>{labels.fields.unknownParent(draft.extends)}</LumenOption>
-            )}
-            {parents.map((profile) => (
-              <LumenOption key={profile.id} value={profile.id}>
-                {labels.profileName(profile)}
-              </LumenOption>
-            ))}
-          </LumenSelect>
+            options={[
+              { id: INHERIT, label: labels.fields.noParent },
+              ...(!parentListed && draft.extends
+                ? [{ id: draft.extends, label: labels.fields.unknownParent(draft.extends) }]
+                : []),
+              ...parents.map((profile): LumenControlOption => ({ id: profile.id, label: labels.profileName(profile) })),
+            ]}
+            onValueChange={(value) => edit({ kind: 'extends', value: value || null })}
+          />
         </LumenFormField>
         <LumenFormField
           controlId={control('escalation')}
           label={labels.fields.escalation}
           hint={labels.fields.escalationHint}
         >
-          <LumenSelect
+          <LumenPopupSelect
             id={control('escalation')}
             value={draft.escalation ?? INHERIT}
             disabled={locked}
-            onChange={(event) => {
-              const value = event.currentTarget.value
+            options={[
+              { id: INHERIT, label: labels.inherit },
+              { id: 'ask', label: labels.escalationOptions.ask },
+              { id: 'deny', label: labels.escalationOptions.deny },
+            ]}
+            onValueChange={(value) => {
               edit({ kind: 'escalation', value: value === 'ask' || value === 'deny' ? value : null })
             }}
-          >
-            <LumenOption value={INHERIT}>{labels.inherit}</LumenOption>
-            <LumenOption value="ask">{labels.escalationOptions.ask}</LumenOption>
-            <LumenOption value="deny">{labels.escalationOptions.deny}</LumenOption>
-          </LumenSelect>
+          />
         </LumenFormField>
         <LumenFormField controlId={control('fileDefault')} label={labels.fields.fileDefault}>
-          <LumenSelect
+          <LumenPopupSelect
             id={control('fileDefault')}
             value={draft.fileDefault ?? INHERIT}
             disabled={locked}
-            onChange={(event) => {
-              const value = accesses.find((access) => access === event.currentTarget.value)
-              edit({ kind: 'fileDefault', value: value ?? null })
+            options={[
+              { id: INHERIT, label: labels.inherit },
+              ...accesses.map((access) => ({ id: access, label: labels.accessOptions[access] })),
+            ]}
+            onValueChange={(value) => {
+              const access = accesses.find((item) => item === value)
+              edit({ kind: 'fileDefault', value: access ?? null })
             }}
-          >
-            <LumenOption value={INHERIT}>{labels.inherit}</LumenOption>
-            {accesses.map((access) => (
-              <LumenOption key={access} value={access}>
-                {labels.accessOptions[access]}
-              </LumenOption>
-            ))}
-          </LumenSelect>
+          />
         </LumenFormField>
         <LumenFormField controlId={control('network')} label={labels.fields.network}>
-          <LumenSelect
+          <LumenPopupSelect
             id={control('network')}
             value={draft.network === null ? INHERIT : draft.network ? 'enabled' : 'disabled'}
             disabled={locked}
-            onChange={(event) => {
-              const value = event.currentTarget.value
+            options={[
+              { id: INHERIT, label: labels.inherit },
+              { id: 'enabled', label: labels.networkOptions.enabled },
+              { id: 'disabled', label: labels.networkOptions.disabled },
+            ]}
+            onValueChange={(value) => {
               edit({ kind: 'network', value: value === 'enabled' ? true : value === 'disabled' ? false : null })
             }}
-          >
-            <LumenOption value={INHERIT}>{labels.inherit}</LumenOption>
-            <LumenOption value="enabled">{labels.networkOptions.enabled}</LumenOption>
-            <LumenOption value="disabled">{labels.networkOptions.disabled}</LumenOption>
-          </LumenSelect>
+          />
         </LumenFormField>
         <LumenFormField
           controlId={control('osConfinement-enabled')}
           label={labels.fields.osConfinement}
           hint={labels.fields.osConfinementHint}
         >
-          <LumenSelect
+          <LumenPopupSelect
             id={control('osConfinement-enabled')}
             value={draft.osConfinement == null ? INHERIT : draft.osConfinement.enabled ? 'enabled' : 'disabled'}
             disabled={locked}
-            onChange={(event) => {
-              const value = event.currentTarget.value
+            options={[
+              { id: INHERIT, label: labels.inherit },
+              { id: 'enabled', label: labels.networkOptions.enabled },
+              { id: 'disabled', label: labels.networkOptions.disabled },
+            ]}
+            onValueChange={(value) => {
               if (value === INHERIT) {
                 edit({ kind: 'osConfinement', value: null })
               } else {
@@ -666,27 +664,24 @@ function Editor({
                 edit({ kind: 'osConfinement', value: { enabled: value === 'enabled', mode } })
               }
             }}
-          >
-            <LumenOption value={INHERIT}>{labels.inherit}</LumenOption>
-            <LumenOption value="enabled">{labels.networkOptions.enabled}</LumenOption>
-            <LumenOption value="disabled">{labels.networkOptions.disabled}</LumenOption>
-          </LumenSelect>
+          />
         </LumenFormField>
         {draft.osConfinement != null && (
           <LumenFormField controlId={control('osConfinement-mode')} label={labels.fields.osConfinementMode}>
-            <LumenSelect
+            <LumenPopupSelect
               id={control('osConfinement-mode')}
               value={draft.osConfinement.mode}
               disabled={locked}
-              onChange={(event) => {
-                const mode = event.currentTarget.value as 'unelevated' | 'elevated'
+              options={[
+                { id: 'unelevated', label: labels.osConfinementModeOptions.unelevated },
+                { id: 'elevated', label: labels.osConfinementModeOptions.elevated },
+              ]}
+              onValueChange={(value) => {
+                const mode = value === 'elevated' ? 'elevated' : 'unelevated'
                 const enabled = draft.osConfinement?.enabled ?? true
                 edit({ kind: 'osConfinement', value: { enabled, mode } })
               }}
-            >
-              <LumenOption value="unelevated">{labels.osConfinementModeOptions.unelevated}</LumenOption>
-              <LumenOption value="elevated">{labels.osConfinementModeOptions.elevated}</LumenOption>
-            </LumenSelect>
+            />
           </LumenFormField>
         )}
       </LumenFrame>
@@ -726,30 +721,27 @@ function Editor({
                       />
                     </Cell>
                     <Cell kind="choice">
-                      <LumenSelect
+                      <LumenPopupSelect
                         aria-label={labels.grants.access}
                         value={row.access}
                         disabled={locked}
-                        onChange={(event) => {
-                          const access = accesses.find((value) => value === event.currentTarget.value)
+                        options={accesses.map((access) => ({ id: access, label: labels.accessOptions[access] }))}
+                        onValueChange={(value) => {
+                          const access = accesses.find((item) => item === value)
                           if (access) edit({ kind: 'grant', rowId: row.rowId, access })
                         }}
-                      >
-                        {accesses.map((access) => (
-                          <LumenOption key={access} value={access}>
-                            {labels.accessOptions[access]}
-                          </LumenOption>
-                        ))}
-                      </LumenSelect>
+                      />
                     </Cell>
-                    <LumenIconButton
-                      label={labels.grants.remove(row.path)}
-                      title={labels.grants.remove(row.path)}
-                      disabled={locked}
-                      onClick={() => edit({ kind: 'remove', section, rowId: row.rowId })}
-                    >
-                      <LumenIcon icon={Trash2} tier="sm" />
-                    </LumenIconButton>
+                    <LumenFrame className="hbar-sandbox-profiles-row-actions">
+                      <LumenIconButton
+                        label={labels.grants.remove(row.path)}
+                        title={labels.grants.remove(row.path)}
+                        disabled={locked}
+                        onClick={() => edit({ kind: 'remove', section, rowId: row.rowId })}
+                      >
+                        <LumenIcon icon={Trash2} tier="sm" />
+                      </LumenIconButton>
+                    </LumenFrame>
                     <RowIssue id={issueId} issue={issue} labels={labels} />
                   </LumenCollectionItem>
                 )
@@ -799,14 +791,16 @@ function Editor({
                         onChange={(decision) => edit({ kind: 'command', rowId: row.rowId, decision })}
                       />
                     </Cell>
-                    <LumenIconButton
-                      label={labels.commands.remove(row.pattern)}
-                      title={labels.commands.remove(row.pattern)}
-                      disabled={locked}
-                      onClick={() => edit({ kind: 'remove', section, rowId: row.rowId })}
-                    >
-                      <LumenIcon icon={Trash2} tier="sm" />
-                    </LumenIconButton>
+                    <LumenFrame className="hbar-sandbox-profiles-row-actions">
+                      <LumenIconButton
+                        label={labels.commands.remove(row.pattern)}
+                        title={labels.commands.remove(row.pattern)}
+                        disabled={locked}
+                        onClick={() => edit({ kind: 'remove', section, rowId: row.rowId })}
+                      >
+                        <LumenIcon icon={Trash2} tier="sm" />
+                      </LumenIconButton>
+                    </LumenFrame>
                     <RowIssue id={issueId} issue={issue} labels={labels} />
                   </LumenCollectionItem>
                 )
@@ -853,14 +847,16 @@ function Editor({
                         onChange={(decision) => edit({ kind: 'tool', rowId: row.rowId, decision })}
                       />
                     </Cell>
-                    <LumenIconButton
-                      label={labels.tools.remove(row.tool)}
-                      title={labels.tools.remove(row.tool)}
-                      disabled={locked}
-                      onClick={() => edit({ kind: 'remove', section, rowId: row.rowId })}
-                    >
-                      <LumenIcon icon={Trash2} tier="sm" />
-                    </LumenIconButton>
+                    <LumenFrame className="hbar-sandbox-profiles-row-actions">
+                      <LumenIconButton
+                        label={labels.tools.remove(row.tool)}
+                        title={labels.tools.remove(row.tool)}
+                        disabled={locked}
+                        onClick={() => edit({ kind: 'remove', section, rowId: row.rowId })}
+                      >
+                        <LumenIcon icon={Trash2} tier="sm" />
+                      </LumenIconButton>
+                    </LumenFrame>
                     <RowIssue id={issueId} issue={issue} labels={labels} />
                   </LumenCollectionItem>
                 )
@@ -913,14 +909,16 @@ function Editor({
                       }
                     />
                   </Cell>
-                  <LumenIconButton
-                    label={labels.environment.remove(row.name)}
-                    title={labels.environment.remove(row.name)}
-                    disabled={locked}
-                    onClick={() => edit({ kind: 'remove', section, rowId: row.rowId })}
-                  >
-                    <LumenIcon icon={Trash2} tier="sm" />
-                  </LumenIconButton>
+                  <LumenFrame className="hbar-sandbox-profiles-row-actions">
+                    <LumenIconButton
+                      label={labels.environment.remove(row.name)}
+                      title={labels.environment.remove(row.name)}
+                      disabled={locked}
+                      onClick={() => edit({ kind: 'remove', section, rowId: row.rowId })}
+                    >
+                      <LumenIcon icon={Trash2} tier="sm" />
+                    </LumenIconButton>
+                  </LumenFrame>
                   <RowIssue id={issueId} issue={issue} labels={labels} />
                 </LumenCollectionItem>
               )
@@ -982,21 +980,16 @@ function DecisionSelect({
   readonly onChange: (decision: SandboxDecision) => void
 }) {
   return (
-    <LumenSelect
+    <LumenPopupSelect
       aria-label={label}
       value={value}
       disabled={disabled}
-      onChange={(event) => {
-        const decision = decisions.find((item) => item === event.currentTarget.value)
+      options={decisions.map((decision) => ({ id: decision, label: labels.decisionOptions[decision] }))}
+      onValueChange={(selected) => {
+        const decision = decisions.find((item) => item === selected)
         if (decision) onChange(decision)
       }}
-    >
-      {decisions.map((decision) => (
-        <LumenOption key={decision} value={decision}>
-          {labels.decisionOptions[decision]}
-        </LumenOption>
-      ))}
-    </LumenSelect>
+    />
   )
 }
 

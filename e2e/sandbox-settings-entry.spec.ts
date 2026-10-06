@@ -1,10 +1,28 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { createSandboxCommandClient } from '@hbar/client'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { expectLumenValue, selectLumenOption } from './support/lumen-controls'
+
+async function expectSandboxFlowFits(page: Page, panel: Locator) {
+  const overflow = await panel
+    .locator(
+      '.hbar-sandbox-profiles, .hbar-sandbox-profiles-body, .hbar-sandbox-profiles-list, .hbar-sandbox-profiles-editor',
+    )
+    .evaluateAll((nodes) =>
+      nodes.map((node) => ({
+        overflow: node.scrollWidth - node.clientWidth,
+      })),
+    )
+  expect(
+    overflow.every((entry) => entry.overflow <= 1),
+    JSON.stringify(overflow),
+  ).toBe(true)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+}
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`sandbox Settings remains reachable after loading and persists edits: ${locale}`, async ({ browser }) => {
@@ -38,7 +56,18 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await panel.getByRole('textbox', { name: labels.fields.id, exact: true }).fill('entry-profile')
       const name = locale === 'zh-CN' ? '沙盒入口保存与恢复' : 'Sandbox entry save and restore'
       await panel.getByRole('textbox', { name: labels.fields.name, exact: true }).fill(name)
-      await panel.getByRole('combobox', { name: labels.fields.network, exact: true }).selectOption('disabled')
+      await selectLumenOption(panel.getByRole('combobox', { name: labels.fields.network, exact: true }), 'disabled')
+      await selectLumenOption(
+        panel.getByRole('combobox', { name: labels.fields.osConfinement, exact: true }),
+        'enabled',
+      )
+      await expect(panel.getByRole('combobox', { name: labels.fields.osConfinementMode, exact: true })).toBeVisible()
+      await panel.getByRole('button', { name: labels.grants.add, exact: true }).click()
+      await panel.getByRole('textbox', { name: labels.grants.path, exact: true }).fill('src')
+      await selectLumenOption(panel.getByRole('combobox', { name: labels.grants.access, exact: true }), 'read')
+      await panel.getByRole('button', { name: labels.commands.add, exact: true }).click()
+      await panel.getByRole('textbox', { name: labels.commands.pattern, exact: true }).fill('bun test *')
+      await selectLumenOption(panel.getByRole('combobox', { name: labels.commands.decision, exact: true }), 'allow')
       await panel.getByRole('button', { name: labels.save, exact: true }).click()
       await expect(panel.getByText(labels.saved, { exact: true })).toBeVisible()
       const saved = await sandbox.execute('sandbox.get', { id: 'entry-profile' })
@@ -52,10 +81,67 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(panel).toBeVisible()
       await panel.locator('.hbar-sandbox-profiles-item').filter({ hasText: name }).click()
       await expect(panel.getByRole('textbox', { name: labels.fields.name, exact: true })).toHaveValue(name)
-      await expect(panel.getByRole('combobox', { name: labels.fields.network, exact: true })).toHaveValue('disabled')
+      await expectLumenValue(panel.getByRole('combobox', { name: labels.fields.network, exact: true }), 'disabled')
+      const popupControls = panel.getByRole('combobox')
+      await expect(popupControls).toHaveCount(8)
+      for (let index = 0, count = 8; index < count; index += 1) {
+        const control = popupControls.nth(index)
+        await expect(control).toHaveAccessibleName(/.+/)
+        await control.click()
+        await expect(control).toHaveAttribute('aria-expanded', 'true')
+        const listboxId = await control.getAttribute('aria-controls')
+        expect(listboxId).toBeTruthy()
+        const listbox = page.locator(`[id=${JSON.stringify(listboxId)}]`)
+        await expect(listbox).toBeVisible()
+        expect(await listbox.getByRole('option').count()).toBeGreaterThan(0)
+        expect(await listbox.evaluate((node) => node.closest('.hbar-sandbox-profiles') === null)).toBe(true)
+        expect(
+          await listbox.evaluate((node) => {
+            const rect = node.getBoundingClientRect()
+            return rect.top >= 0 && rect.bottom <= innerHeight + 1 && rect.left >= 0 && rect.right <= innerWidth + 1
+          }),
+        ).toBe(true)
+        await page.keyboard.press('Escape')
+        await expect(control).toHaveAttribute('aria-expanded', 'false')
+        await expect(control).toBeFocused()
+        expect(
+          await control
+            .locator('.lumen-popup-select-label')
+            .evaluate((node) => node.scrollWidth <= node.clientWidth + 1),
+        ).toBe(true)
+      }
+
+      for (const width of [320, 390, 768, 1024, 1440]) {
+        await page.setViewportSize({ width, height: 844 })
+        await expect(panel).toBeVisible()
+        await expect(panel.getByRole('textbox', { name: labels.fields.name, exact: true })).toBeVisible()
+        await expectSandboxFlowFits(page, panel)
+      }
+
+      await page.setViewportSize({ width: 1440, height: 900 })
+      await panel.evaluate((node) => {
+        node.style.inlineSize = '30rem'
+        node.style.maxInlineSize = '100%'
+      })
+      const stacked = await panel.evaluate((node) => {
+        const list = node.querySelector<HTMLElement>('.hbar-sandbox-profiles-list')
+        const editor = node.querySelector<HTMLElement>('.hbar-sandbox-profiles-editor')
+        if (!list || !editor) return null
+        const listRect = list.getBoundingClientRect()
+        const editorRect = editor.getBoundingClientRect()
+        return { listBottom: listRect.bottom, editorTop: editorRect.top }
+      })
+      expect(stacked).not.toBeNull()
+      expect(stacked!.editorTop).toBeGreaterThanOrEqual(stacked!.listBottom - 1)
+      await expectSandboxFlowFits(page, panel)
+      await panel.evaluate((node) => {
+        node.style.removeProperty('inline-size')
+        node.style.removeProperty('max-inline-size')
+      })
+
       await page.setViewportSize({ width: 320, height: 844 })
-      await expect(page.getByRole('combobox', { name: copy.settings.groups, exact: true })).toHaveValue('sandbox')
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      await expectLumenValue(page.getByRole('combobox', { name: copy.settings.groups, exact: true }), 'sandbox')
+      await expectSandboxFlowFits(page, panel)
       await page.screenshot({ path: `artifacts/ui-repair/sandbox-${locale}-320.png` })
       expect(errors).toEqual([])
     } finally {
