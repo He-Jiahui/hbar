@@ -157,23 +157,26 @@ test('preview uses the first nonempty normalized line, strips ANSI and leaves ra
   }
 })
 
-test('preview bounds 0/1/72/73 visible graphemes without splitting Unicode clusters', () => {
+test('a complete visible line is never shortened at the old 72-character caption width', () => {
   for (const character of ['a', '中', '😀', 'e\u0301', '👨‍👩‍👧‍👦']) {
-    for (const length of [0, 1, MAX_TOOL_ERROR_PREVIEW_CHARACTERS, MAX_TOOL_ERROR_PREVIEW_CHARACTERS + 1]) {
-      expect(toolErrorPreview(result('failed', character.repeat(length)))).toBe(
-        character.repeat(Math.min(length, MAX_TOOL_ERROR_PREVIEW_CHARACTERS)) +
-          (length > MAX_TOOL_ERROR_PREVIEW_CHARACTERS ? '…' : ''),
-      )
-    }
+    for (const length of [0, 1, 71, 72, 73, 160, 161, 300])
+      expect(toolErrorPreview(result('failed', character.repeat(length)))).toBe(character.repeat(length))
   }
 })
 
 test('huge whitespace and escape payloads have a bounded scan and never copy the full raw result', () => {
   const limit = MAX_TOOL_ERROR_PREVIEW_SCAN_CHARACTERS
-  expect(toolErrorPreview(result('failed', 'x'.repeat(1_000_000)))).toBe('x'.repeat(72) + '…')
+  expect(toolErrorPreview(result('failed', 'x'.repeat(MAX_TOOL_ERROR_PREVIEW_CHARACTERS)))).toBe('x'.repeat(limit))
+  expect(toolErrorPreview(result('failed', 'x'.repeat(1_000_000)))).toBe('')
+  expect(toolErrorPreview(result('failed', 'x'.repeat(1_000_000)), '查看完整内容')).toBe(
+    'x'.repeat(limit) + ' · 查看完整内容',
+  )
   expect(toolErrorPreview(result('failed', '\n'.repeat(limit) + 'outside the inspected prefix'))).toBe('')
   expect(toolErrorPreview(result('failed', '\u001b]' + 'secret'.repeat(100_000) + '\u0007failure'))).toBe('')
-  expect(toolErrorPreview(result('failed', 'x' + ' '.repeat(limit) + 'not fully inspected'))).toBe('x…')
+  expect(toolErrorPreview(result('failed', 'x' + ' '.repeat(limit) + 'not fully inspected'))).toBe('')
+  expect(toolErrorPreview(result('failed', 'x' + ' '.repeat(limit) + 'not fully inspected'), 'View full content')).toBe(
+    'x · View full content',
+  )
   expect(toolErrorPreview(result('failed', '\n'.repeat(limit - 1) + 'x'))).toBe('x')
   expect(toolErrorPreview(result('failed', '\n'.repeat(limit - 1) + '😀'))).toBe('')
 })

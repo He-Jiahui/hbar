@@ -259,7 +259,7 @@ export function thinkingPreview(text: string, streaming: boolean): string {
     .map((line) => line.trim().replace(/^(?:#{1,6}|[-*+>]|\d+\.)\s+/, ''))
     .filter(Boolean)
   const preview = (streaming ? lines.at(-1) : lines[0]) ?? ''
-  return preview.length > 160 ? `${preview.slice(0, 160)}…` : preview
+  return preview
 }
 
 /** Unknown tools keep a safe text fallback; cyclic/non-JSON inputs never crash the transcript. */

@@ -26,12 +26,10 @@ export function toolOutcomeCounts(rows: readonly SessionToolRow[]): Readonly<Rec
   return counts
 }
 
-/** At most 72 graphemes plus a single ellipsis; never a truncated raw Copy source. */
-export const MAX_TOOL_ERROR_PREVIEW_CHARACTERS = 72
 /** Inspect only this prefix, including escape payloads/blank lines, regardless of output size. */
 export const MAX_TOOL_ERROR_PREVIEW_SCAN_CHARACTERS = 8_192
-
-const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+/** The visible line is not shortened for layout; the extraction scan remains bounded. */
+export const MAX_TOOL_ERROR_PREVIEW_CHARACTERS = MAX_TOOL_ERROR_PREVIEW_SCAN_CHARACTERS
 type EscapeState = 'text' | 'escape' | 'intermediate' | 'csi' | 'string' | 'string-escape'
 
 function firstVisibleLine(text: string): { text: string; truncated: boolean } {
@@ -87,15 +85,13 @@ function firstVisibleLine(text: string): { text: string; truncated: boolean } {
 }
 
 /** Only confirmed failures or explicitly incomplete legacy errors get a diagnostic preview. */
-export function toolErrorPreview(result: SessionToolResult | undefined): string {
+export function toolErrorPreview(result: SessionToolResult | undefined, fullContentLabel = ''): string {
   const outcome = sessionToolOutcome(result)
   if (!result || (outcome !== 'failed' && outcome !== 'legacy-error')) return ''
   const line = firstVisibleLine(result.text)
   if (!line.text) return ''
-  const preview: string[] = []
-  for (const { segment } of graphemes.segment(line.text)) {
-    if (preview.length === MAX_TOOL_ERROR_PREVIEW_CHARACTERS) return `${preview.join('')}…`
-    preview.push(segment)
-  }
-  return `${preview.join('')}${line.truncated ? '…' : ''}`
+  // A bounded source preview must announce its original-content route. Without
+  // Host copy, omit that preview rather than present a prefix as a complete line.
+  if (line.truncated) return fullContentLabel ? `${line.text} · ${fullContentLabel}` : ''
+  return line.text
 }

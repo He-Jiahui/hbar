@@ -200,13 +200,17 @@ test('file query precedes include fallback; include item access is bounded at ei
   expect(query.title).not.toContain('pattern-')
   const fallback = en(call(find, { needle: ' ', globs, root: '/work' }))
   expect(fallback.summary).toContain('pattern-7')
-  expect(fallback.summary).toEndWith('…')
+  expect(fallback.summary).toEndWith('[truncated; expand Input for the original]')
   expect(fallback.title).toContain('[truncated; expand Input for the original]')
   expect(accessed).toBe(0)
   for (const count of [0, 1, 8, 9]) {
     const items = Array.from({ length: count }, (_, index) => `p${index}`)
     const result = en(call(find, { globs: items }))
-    expect(result.summary).toBe(count === 0 ? undefined : items.slice(0, 8).join(', ') + (count > 8 ? '…' : ''))
+    expect(result.summary).toBe(
+      count === 0
+        ? undefined
+        : items.slice(0, 8).join(', ') + (count > 8 ? ' [truncated; expand Input for the original]' : ''),
+    )
   }
 })
 
@@ -224,12 +228,11 @@ test('wrong include types, sparse values and array accessors are not coerced', (
   expect(invoked).toBe(0)
 })
 
-test('summary boundaries are 160 code points including ellipsis, without splitting surrogate pairs', () => {
-  for (const count of [0, 1, TOOL_SUMMARY_CODE_POINTS, TOOL_SUMMARY_CODE_POINTS + 1]) {
+test('summary preserves complete 160-plus-character values and reports bounded source extraction explicitly', () => {
+  for (const count of [0, 1, 160, 161, TOOL_SUMMARY_CODE_POINTS, TOOL_SUMMARY_CODE_POINTS + 1]) {
     const result = en(call(command, { script: '😀'.repeat(count) }))
-    expect(result.summary).toBe(
-      count === 0 ? undefined : '😀'.repeat(Math.min(count, 159)) + (count > 160 ? '…' : count === 160 ? '😀' : ''),
-    )
+    if (count <= TOOL_SUMMARY_CODE_POINTS) expect(result.summary).toBe(count === 0 ? undefined : '😀'.repeat(count))
+    else expect(result.summary).toEndWith('[truncated; expand Input for the original]')
     expect(points(result.summary)).toBeLessThanOrEqual(TOOL_SUMMARY_CODE_POINTS)
     expect(result.summary ?? '').not.toContain('\ufffd')
   }
@@ -266,12 +269,12 @@ test('long path uses a bounded tail for a real leaf and marks incomplete head in
   expect(result.title).toContain('prefix/')
   expect(result.title).toContain('truncated')
   const noSeparator = en(call(read, { target: 'x'.repeat(1_000_000) }))
-  expect(noSeparator.summary).toStartWith('…')
-  expect(noSeparator.summary).toEndWith('…')
-  expect(points(noSeparator.summary)).toBe(160)
+  expect(noSeparator.summary).not.toStartWith('…')
+  expect(noSeparator.summary).toEndWith('[truncated; expand Input for the original]')
+  expect(points(noSeparator.summary)).toBe(TOOL_SUMMARY_CODE_POINTS)
   const splitPair = en(call(read, { target: 'prefix😀' + 'x'.repeat(TOOL_DISPLAY_SCAN_UNITS - 1) }))
   expect(splitPair.summary ?? '').not.toContain('\ufffd')
-  expect(points(splitPair.summary)).toBe(160)
+  expect(points(splitPair.summary)).toBe(TOOL_SUMMARY_CODE_POINTS)
 })
 
 test('line breaks and dangerous directional controls cannot create spoofed lines or reversed targets', () => {

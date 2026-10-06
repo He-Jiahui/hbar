@@ -265,7 +265,11 @@ test('single legacy error tools start collapsed with safe preview and separately
 test('thinking previews follow the latest stream line and return to the opening line once settled', () => {
   expect(thinkingPreview('## Opening\n\n- Latest line', false)).toBe('Opening')
   expect(thinkingPreview('## Opening\n\n- Latest line', true)).toBe('Latest line')
-  expect(thinkingPreview('x'.repeat(161), false)).toHaveLength(161)
+  for (const length of [159, 160, 161, 1000]) {
+    const text = '😀'.repeat(length)
+    expect(thinkingPreview(text, false)).toBe(text)
+    expect(thinkingPreview(`Opening\n${text}`, true)).toBe(text)
+  }
   expect(thinkingPreview('', false)).toBe('')
 })
 

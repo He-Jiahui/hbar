@@ -5,8 +5,8 @@ import type { ShellLocale } from './shell-copy'
 type Presenter = NonNullable<HbarMessageBlocksProps['describeTool']>
 type Presentation = ReturnType<Presenter>
 
-export const TOOL_SUMMARY_CODE_POINTS = 160
 export const TOOL_TITLE_CODE_POINTS = 4000
+export const TOOL_SUMMARY_CODE_POINTS = TOOL_TITLE_CODE_POINTS
 export const TOOL_DISPLAY_SCAN_UNITS = 8192
 export const TOOL_INCLUDE_ITEMS = 8
 
@@ -172,7 +172,7 @@ function basename(value: string | undefined): DisplayText {
   const separator = Math.max(bounded.lastIndexOf('/'), bounded.lastIndexOf('\\'))
   const leaf = separator >= 0 ? bounded.slice(separator + 1) : bounded
   const result = display(leaf || bounded)
-  return start > 0 && separator < 0 ? { text: `…${result.text}`, truncated: true } : result
+  return start > 0 && separator < 0 ? { text: result.text, truncated: true } : result
 }
 
 function includes(value: unknown): DisplayText {
@@ -196,7 +196,7 @@ function present(call: Parameters<Presenter>[0], copy: Copy): Presentation {
     return {
       icon: 'tool',
       label: copy.toolCall,
-      ...(name.text ? { summary: limit(name.text, TOOL_SUMMARY_CODE_POINTS, '…', name.truncated) } : {}),
+      ...(name.text ? { summary: limit(name.text, TOOL_SUMMARY_CODE_POINTS, copy.truncated, name.truncated) } : {}),
       title: limit(name.text, TOOL_TITLE_CODE_POINTS, copy.truncated, name.truncated),
     }
   const args = ownData(call, 'args')
@@ -267,7 +267,7 @@ function present(call: Parameters<Presenter>[0], copy: Copy): Presentation {
     title: limit(title, TOOL_TITLE_CODE_POINTS, copy.truncated, truncated),
     ...(requestedCommand !== undefined ? { command: requestedCommand } : {}),
     ...(summary.text
-      ? { summary: limit(summary.text, TOOL_SUMMARY_CODE_POINTS, '…', summary.truncated), summaryFormat }
+      ? { summary: limit(summary.text, TOOL_SUMMARY_CODE_POINTS, copy.truncated, summary.truncated), summaryFormat }
       : {}),
   }
 }

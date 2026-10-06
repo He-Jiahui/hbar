@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import {
   Brain,
   Check,
@@ -166,6 +166,17 @@ const toolIcons: Record<HbarMessageToolPresentation['icon'], typeof Brain> = {
   tool: Wrench,
 }
 
+function scrollInlineText(event: KeyboardEvent<HTMLButtonElement>) {
+  if (event.altKey || event.ctrlKey || event.metaKey) return
+  const direction = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0
+  if (!direction) return
+  const rail = event.currentTarget.querySelector<HTMLElement>('[data-inline-scroll]')
+  if (!rail || rail.scrollWidth <= rail.clientWidth) return
+  event.preventDefault()
+  event.stopPropagation()
+  rail.scrollBy({ left: direction * rail.clientWidth * 0.75 })
+}
+
 function Disclosure({
   label,
   preview,
@@ -212,9 +223,10 @@ function Disclosure({
       aria-controls={id}
       title={title}
       onClick={() => setOpen(!open)}
+      onKeyDown={scrollInlineText}
     >
       {!tool ? <LumenIcon icon={icon} tier="sm" /> : null}
-      <LumenText as="span" className="hbar-session-disclosure-identity">
+      <LumenText as="span" className="hbar-session-disclosure-identity" data-inline-scroll>
         <LumenText as="span" className="hbar-session-disclosure-label">
           {tool ? <LumenIcon icon={icon} tier="sm" /> : null}
           <LumenText
@@ -326,7 +338,7 @@ function ToolRow({
 }) {
   const presentation = row.call && describeTool ? describeTool(row.call) : undefined
   const icon = toolIcons[presentation?.icon ?? 'tool']
-  const errorPreview = toolErrorPreview(row.result)
+  const errorPreview = toolErrorPreview(row.result, labels.showFullContent)
   const outcome = sessionToolOutcome(row.result)
   const disclosure = (
     <Disclosure
@@ -472,6 +484,7 @@ function Activity({
         aria-expanded={open}
         aria-controls={contentId}
         onClick={() => setPinnedOpen(!open)}
+        onKeyDown={scrollInlineText}
       >
         <LumenText
           as="span"
@@ -479,7 +492,7 @@ function Activity({
           data-lumen-state={streaming ? 'running' : 'idle'}
           aria-hidden="true"
         />
-        <LumenText as="span" className="hbar-session-activity-summary-text">
+        <LumenText as="span" className="hbar-session-activity-summary-text" data-inline-scroll>
           {typeof activity === 'string'
             ? activity
             : activity.map((part, index) => (

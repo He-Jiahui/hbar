@@ -28,6 +28,9 @@
   flex: 1 1 14rem;
   inline-size: auto;
 }
+.hbar-session-disclosure {
+  overflow-x: auto;
+}
 .hbar-session-message-prose {
   min-inline-size: 0;
   font-size: var(--hbar-session-prose-size);
@@ -73,7 +76,7 @@
   font-size: var(--hbar-session-caption-size);
   font-weight: 400;
   text-align: start;
-  white-space: normal;
+  white-space: nowrap;
 }
 
 .hbar-session-activity-summary {
@@ -83,35 +86,34 @@
   flex: 1 1 auto;
   min-inline-size: 0;
   overflow-wrap: anywhere;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-x: auto;
+  scrollbar-width: none;
   white-space: nowrap;
 }
 .hbar-session-disclosure-label {
-  flex: 0 1 auto;
-  min-inline-size: 0;
+  flex: 0 0 auto;
   overflow-wrap: anywhere;
   white-space: nowrap;
 }
 .hbar-session-disclosure-label-text {
   display: block;
   min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 .hbar-session-disclosure-identity {
   display: flex;
   flex: 1 1 0;
-  min-inline-size: 0;
+  min-inline-size: min(8em, 25%);
   align-items: baseline;
   gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  overscroll-behavior-inline: contain;
 }
 .hbar-session-disclosure-preview {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .hbar-session-disclosure-preview[data-format='code'] {
@@ -119,9 +121,8 @@
 }
 .hbar-session-disclosure-status {
   display: inline-flex;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   min-inline-size: 0;
-  max-inline-size: 45%;
   align-items: center;
   gap: 4px;
   margin-inline-start: auto;
@@ -143,9 +144,7 @@
   color: var(--lumen-info);
 }
 .hbar-session-disclosure-status-text {
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 .hbar-session-tool-status-indicator {
@@ -188,19 +187,18 @@
 }
 .hbar-session-tool .hbar-session-disclosure-identity {
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 .hbar-session-tool .hbar-session-disclosure-preview {
-  flex: 1 1 8ch;
+  flex: 0 0 auto;
 }
 .hbar-session-tool .hbar-session-disclosure-label {
   display: inline-flex;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   inline-size: auto;
   box-sizing: border-box;
   align-items: center;
   gap: 4px;
-  max-inline-size: 100%;
   padding: 2px 6px;
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
@@ -209,7 +207,7 @@
   white-space: nowrap;
 }
 .hbar-session-tool .hbar-session-disclosure-label-text {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
 }
 .hbar-session-disclosure-content[hidden],
 .hbar-session-activity-steps[hidden] {
@@ -224,12 +222,11 @@
 .hbar-session-thinking .hbar-session-disclosure-label {
   display: inline-flex;
   inline-size: auto;
-  max-inline-size: 100%;
   box-sizing: border-box;
   padding: 2px 6px;
 }
 .hbar-session-thinking .hbar-session-disclosure-preview {
-  flex: 1 1 0;
+  flex: 0 0 auto;
 }
 .hbar-session-thinking :is(.hbar-session-disclosure-label-text, .hbar-session-disclosure-preview) {
   box-sizing: border-box;
@@ -283,12 +280,13 @@
   gap: 4px;
 }
 .hbar-session-tool-result-copy {
-  max-inline-size: 100%;
+  max-inline-size: none;
+  flex: 0 0 auto;
   padding: 4px 6px;
   gap: 4px;
   color: var(--lumen-muted);
   font-size: var(--hbar-session-caption-size);
-  white-space: normal;
+  white-space: nowrap;
   text-align: start;
 }
 .hbar-session-tool-result-copy > span,

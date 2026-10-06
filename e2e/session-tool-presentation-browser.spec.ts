@@ -7,6 +7,7 @@ import { build, preview, type PreviewServer } from 'vite'
 import type { ContentBlock, Message, ToolCallPresentation } from '@hbar/contracts'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import type { ToolPresentationFixtureInput } from '../tests/fixtures/session-tool-presentation-browser'
+import { completeLine } from './support/single-line-layout'
 
 // Controlled real React/presenter rendering; deliberately no Host, provider or tool execution.
 const root = join(process.cwd(), 'artifacts/tool-presentation/controlled')
@@ -275,6 +276,64 @@ async function intrinsicBadges(page: Page) {
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
+  test(`complete thinking and tool captions stay single-line through result transitions: ${locale}`, async ({
+    browser,
+  }, info) => {
+    const f = await open(browser, locale, 900)
+    const description = 'Complete requested behavior 雪 '.repeat(12).trim()
+    const thought = 'Complete formatted thinking 雪 '.repeat(12).trim()
+    const failure = 'Original complete diagnostic 雪 '.repeat(8).trim()
+    const item = call(
+      'complete-caption',
+      { version: 1, kind: 'command', commandField: 'cmd', descriptionField: 'note' },
+      { cmd: 'bun test', note: description },
+    )
+    try {
+      for (const theme of ['light', 'dark'] as const)
+        for (const width of [900, 320]) {
+          await f.page.setViewportSize({ width, height: 900 })
+          let height: number | undefined
+          for (const value of [undefined, result(item, false, 'done'), result(item, true, failure)]) {
+            await render(f.page, {
+              locale,
+              theme,
+              streaming: value === undefined,
+              messages: [message([{ type: 'thinking', text: `**${thought}**` }, item, ...(value ? [value] : [])])],
+            })
+            const group = f.page.locator('.hbar-session-activity-summary')
+            if ((await group.getAttribute('aria-expanded')) === 'false') await group.click()
+            const tool = f.page.locator('.hbar-session-tool')
+            const button = trigger(tool)
+            await expect(tool.locator('.hbar-session-disclosure-preview')).toHaveText(
+              value?.isError ? failure : description,
+            )
+            await expect(f.page.locator('.hbar-session-thinking .hbar-session-disclosure-preview')).toHaveText(thought)
+            await completeLine(
+              f.page.locator(
+                '.hbar-session-disclosure-label, .hbar-session-disclosure-preview, .hbar-session-disclosure-status-text',
+              ),
+            )
+            const box = await button.boundingBox()
+            if (!box) throw new Error('Tool row has no bounds')
+            if (height !== undefined) expect(box.height).toBeCloseTo(height, 1)
+            height = box.height
+            const rail = tool.locator('.hbar-session-disclosure-identity')
+            expect(await rail.evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(true)
+            await button.focus()
+            await button.press('ArrowRight')
+            expect(await rail.evaluate((node) => node.scrollLeft > 0)).toBe(true)
+            await expect(button).toHaveAttribute('aria-expanded', 'false')
+            const status = tool.locator('.hbar-session-disclosure-status')
+            await expect(status).toBeInViewport()
+            await noOverflow(f.page)
+          }
+          await f.page.screenshot({ path: info.outputPath(`complete-captions-${theme}-${width}.png`) })
+        }
+      expect(f.errors).toEqual([])
+    } finally {
+      await f.context.close()
+    }
+  })
   test(`tool badges fit their content and padding without empty fixed slots: ${locale}`, async ({ browser }, info) => {
     const f = await open(browser, locale, 1440)
     try {
@@ -326,7 +385,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         messages: calls.map((item) => message([item, result(item, false, 'done')], item.callId)),
       })
       const label = row(f.page, 'short-command').locator('.hbar-session-disclosure-label-text')
-      expect(await label.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true)
+      await completeLine(label)
+      expect(
+        await row(f.page, 'short-command')
+          .locator('.hbar-session-disclosure-identity')
+          .evaluate((element) => element.scrollWidth > element.clientWidth),
+      ).toBe(true)
       expect(await label.getAttribute('title')).toBe(await label.textContent())
       await noOverflow(f.page)
       expect(f.errors).toEqual([])
@@ -761,6 +825,8 @@ for (const locale of ['en-US', 'zh-CN'] as const)
               if (!button || !label || !summary || !card) throw new Error('Compact tool row lacks its content contract')
               const tag = label.getBoundingClientRect()
               const behavior = summary.getBoundingClientRect()
+              const viewport = element.querySelector('.hbar-session-disclosure-identity')?.getBoundingClientRect()
+              if (!viewport) throw new Error('Tool text has no owning scroll viewport')
               const tagText = label.querySelector('.hbar-session-disclosure-label-text')
               if (!tagText) throw new Error('Compact tool badge lacks its text contract')
               const tagTextBox = tagText.getBoundingClientRect()
@@ -776,6 +842,9 @@ for (const locale of ['en-US', 'zh-CN'] as const)
                 behaviorLeft: behavior.left,
                 behaviorRight: behavior.right,
                 behaviorWidth: behavior.width,
+                viewportLeft: viewport.left,
+                viewportRight: viewport.right,
+                viewportBottom: viewport.bottom,
                 tagTop: tag.top,
                 behaviorTop: behavior.top,
                 behaviorBottom: behavior.bottom,
@@ -812,11 +881,12 @@ for (const locale of ['en-US', 'zh-CN'] as const)
             expect(item.tagTextWhiteSpace).toBe('nowrap')
             expect(item.tagTextHeight).toBeLessThanOrEqual(20)
             expect(item.tagTextScrollHeight).toBeLessThanOrEqual(item.tagTextHeight + 1)
-            expect(item.behaviorRight).toBeLessThanOrEqual(item.cardRight + 1)
-            expect(item.behaviorLeft).toBeGreaterThanOrEqual(item.cardLeft - 1)
-            expect(item.behaviorBottom).toBeLessThanOrEqual(item.cardBottom + 1)
+            expect(item.viewportRight).toBeLessThanOrEqual(item.cardRight + 1)
+            expect(item.viewportLeft).toBeGreaterThanOrEqual(item.cardLeft - 1)
+            expect(item.viewportBottom).toBeLessThanOrEqual(item.cardBottom + 1)
             expect(item.behaviorWidth).toBeGreaterThan(0)
             const sameRow = Math.abs(item.tagTop - item.behaviorTop) <= 5
+            expect(sameRow).toBe(true)
             if (sameRow) {
               expect(item.cardHeight).toBeLessThanOrEqual(40)
               expect(item.tagRight).toBeLessThanOrEqual(item.behaviorLeft + 1)
@@ -876,6 +946,8 @@ for (const locale of ['en-US', 'zh-CN'] as const)
                 throw new Error('Long-label tool row lacks its content contract')
               const tag = label.getBoundingClientRect()
               const behavior = summary.getBoundingClientRect()
+              const viewport = element.querySelector('.hbar-session-disclosure-identity')?.getBoundingClientRect()
+              if (!viewport) throw new Error('Long tool text has no owning scroll viewport')
               const cardBox = card.getBoundingClientRect()
               const tagText = label.querySelector('.hbar-session-disclosure-label-text')
               if (!tagText) throw new Error('Long-label tool badge lacks its text contract')
@@ -899,6 +971,9 @@ for (const locale of ['en-US', 'zh-CN'] as const)
                 behaviorTop: behavior.top,
                 behaviorBottom: behavior.bottom,
                 behaviorWidth: behavior.width,
+                viewportLeft: viewport.left,
+                viewportRight: viewport.right,
+                viewportBottom: viewport.bottom,
               }
             }),
           )
@@ -908,10 +983,11 @@ for (const locale of ['en-US', 'zh-CN'] as const)
             expect(item.tagTextHeight).toBeLessThanOrEqual(20)
             expect(item.tagTextScrollHeight).toBeLessThanOrEqual(item.tagTextHeight + 1)
             expect(item.behaviorWidth).toBeGreaterThan(0)
-            expect(item.behaviorLeft).toBeGreaterThanOrEqual(item.cardLeft - 1)
-            expect(item.behaviorRight).toBeLessThanOrEqual(item.cardRight + 1)
-            expect(item.behaviorBottom).toBeLessThanOrEqual(item.cardBottom + 1)
+            expect(item.viewportLeft).toBeGreaterThanOrEqual(item.cardLeft - 1)
+            expect(item.viewportRight).toBeLessThanOrEqual(item.cardRight + 1)
+            expect(item.viewportBottom).toBeLessThanOrEqual(item.cardBottom + 1)
             const sameRow = Math.abs(item.tagTop - item.behaviorTop) <= 5
+            expect(sameRow).toBe(true)
             if (sameRow) {
               expect(item.cardHeight).toBeLessThanOrEqual(40)
               expect(item.tagRight).toBeLessThanOrEqual(item.behaviorLeft + 1)
@@ -1109,7 +1185,7 @@ for (const locale of ['en-US', 'zh-CN'] as const)
           await expect(row(page, id)).toHaveAttribute('data-presentation-icon', 'tool')
         }
         await expect(row(page, 'legacy').locator('.hbar-session-disclosure-preview')).toHaveText(legacy.name)
-        await expect(row(page, 'unknown').locator('.hbar-session-disclosure-preview')).toHaveText(/^Unknown_.*…$/)
+        await expect(row(page, 'unknown').locator('.hbar-session-disclosure-preview')).toHaveText(unknown.name)
         await expect(row(page, 'orphan').locator('.hbar-session-disclosure-preview')).toHaveCount(0)
         await trigger(row(page, 'bad')).click()
         expect(await row(page, 'bad').locator('.hbar-session-tool-section').first().locator('pre').textContent()).toBe(
