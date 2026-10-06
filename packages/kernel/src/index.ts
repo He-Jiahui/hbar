@@ -47,7 +47,7 @@ import type {
   TaskNotificationKind,
   ThinkingLevel,
 } from '@hbar/contracts'
-import { definePlugin, prependModelInstructions, provide, RunControlSignal } from '@hbar/plugin-sdk'
+import { definePlugin, prependModelInstructions, provide, resolveToolTimeoutMs, RunControlSignal } from '@hbar/plugin-sdk'
 import type {
   CompactionProvider,
   BudgetService,
@@ -167,6 +167,7 @@ import { createSchemaCallbackRegistry, encodePath } from '@hbar/schema-core'
 import { createUsageFact, describeUsageAttempt } from '@hbar/usage'
 import { classifyRunFailure } from './run-failure.ts'
 import { createRunIdleTimeout, resolveRunIdleTimeoutMs } from './run-idle-timeout'
+import { ToolExecutions, ToolTimeoutError } from './tool-timeout'
 import { hostAbortToolOutcome } from './tool-outcome'
 import { captureToolPresentations, enrichToolCallPresentations } from './tool-presentation'
 import { persistToolResultImages } from './tool-result-images'
@@ -327,6 +328,7 @@ interface ActiveRun {
   run: Run
   controller: AbortController
   context: RuntimeScope
+  idleTimeout: ReturnType<typeof createRunIdleTimeout>
   steeringReady?: boolean
 }
 type ApprovalResolution =
@@ -334,6 +336,7 @@ type ApprovalResolution =
   | { source: 'abort'; reason: unknown }
 
 export class Kernel {
+  private readonly toolExecutions = new ToolExecutions()
   readonly directoryQueries: ReturnType<typeof createDirectoryQueries>
   readonly storage: StoragePort
   readonly workspaceSandboxes: WorkspaceSandboxService
@@ -1448,9 +1451,9 @@ export class Kernel {
         continue
       }
       scope.ctx.effect(() => () => controller.abort())
-      this.active.set(sessionId, { run, controller, context: scope })
-      if (this.cancelled.has(run.id)) controller.abort(new HbarError('USER_CANCELLED', 'Cancelled by user'))
       const idleTimeout = createRunIdleTimeout(controller, this.options.runIdleTimeoutMs)
+      this.active.set(sessionId, { run, controller, context: scope, idleTimeout })
+      if (this.cancelled.has(run.id)) controller.abort(new HbarError('USER_CANCELLED', 'Cancelled by user'))
       let status: Run['status'] = 'completed',
         failure: string | undefined,
         failureDetails: RunFailure | undefined
@@ -1587,21 +1590,7 @@ export class Kernel {
               signal: controller.signal,
               callId,
             }
-            const sequence = createToolSequenceExecutor(
-              context,
-              selectedTools.tools,
-              name,
-              (childName, childArgs, childContext) =>
-                trackToolExecution(this.execute(childName, childArgs, childContext, scope)),
-              (type, data) => this.append(sessionId, type, data, run.id),
-            )
-            try {
-              return await trackToolExecution(
-                this.execute(name, args, { ...context, executeSequence: sequence.execute }, scope, sequence.progress),
-              )
-            } finally {
-              sequence.dispose()
-            }
+            return trackToolExecution(this.execute(name, args, context, scope, selectedTools.tools))
           },
           beforeRequest: async (_request, stepId) => {
             controller.signal.throwIfAborted()
@@ -1655,7 +1644,9 @@ export class Kernel {
                 tools: advertised.tools.map((tool) => ({
                   name: tool.name,
                   description: tool.description,
-                  schema: z.toJSONSchema(tool.inputSchema),
+                  timeoutMs: resolveToolTimeoutMs(tool),
+                  ...(tool.timeoutArgument ? { timeoutArgument: tool.timeoutArgument } : {}),
+                  schema: z.toJSONSchema(tool.inputSchema, { io: 'input' }),
                 })),
               },
               run.id,
@@ -1831,13 +1822,31 @@ export class Kernel {
     rawArgs: Record<string, unknown>,
     context: ToolContext,
     scope: RuntimeScope,
-    batchProgress?: () => import('@hbar/contracts').ToolBatchProgress | undefined,
+    selectedTools?: readonly ToolDefinition[],
   ): Promise<ToolResult> {
     // Plugin hooks receive a mutable ToolContext. Classification and approval
     // cancellation must retain the original Host-owned signal independently.
     const hostSignal = context.signal
+    const controller = new AbortController()
+    const forwardAbort = () => controller.abort(hostSignal.reason)
+    hostSignal.addEventListener('abort', forwardAbort, { once: true })
+    if (hostSignal.aborted) forwardAbort()
     const tool = scope.tools.get(name)
-    if (!tool) throw new HbarError('TOOL_NOT_FOUND', name)
+    if (!tool) {
+      hostSignal.removeEventListener('abort', forwardAbort)
+      throw new HbarError('TOOL_NOT_FOUND', name)
+    }
+    context = { ...context, signal: controller.signal }
+    const sequence = selectedTools
+      ? createToolSequenceExecutor(
+          context,
+          selectedTools,
+          name,
+          (childName, childArgs, childContext) => this.execute(childName, childArgs, childContext, scope),
+          (type, data) => this.append(context.session.id, type, data, context.run.id),
+        )
+      : undefined
+    if (sequence) context.executeSequence = sequence.execute
     let result: ToolResult,
       started = false,
       executedArgs: Record<string, unknown> | undefined
@@ -1846,6 +1855,7 @@ export class Kernel {
     let outcome: ToolOutcome | undefined
     let images: ArtifactRef[] | undefined
     let reporter: ReturnType<typeof createToolExecutionReporter> | undefined
+    let resumeRunIdle: (() => void) | undefined
     const assertNotAborted = () => {
       if (!hostSignal.aborted) return
       outcome = hostAbortToolOutcome(hostSignal.reason, started)
@@ -1866,6 +1876,7 @@ export class Kernel {
         tool,
       })
       const args = tool.inputSchema.parse(transformed.args) as Record<string, unknown>
+      const timeoutMs = resolveToolTimeoutMs(tool, args)
       assertBoundary()
       executedArgs = args
       const mode = context.run.input.approval ?? this.permissionModeValue
@@ -1911,6 +1922,7 @@ export class Kernel {
         }
       }
       assertBoundary()
+      this.toolExecutions.assertAvailable(`${context.session.id}:${name}`, name)
       const startEvent = await this.storage.call(
         'toolStart',
         context.session.id,
@@ -1925,29 +1937,44 @@ export class Kernel {
         this.append(context.session.id, 'tool.execution', { callId: context.callId, name, execution }, context.run.id),
       )
       await reporter.start()
-      await scope.hooks.dispatch('tool.executing', { name, args: structuredClone(args), context, tool })
-      assertBoundary()
-      // The environment is Host-owned: drop any value a hook placed on the mutable context and
-      // give only the executing tool the sandbox profile's variables.
-      const { environment: _hookEnvironment, reportProgress: _hookProgress, ...plain } = context
+      resumeRunIdle = this.active.get(context.session.id)?.idleTimeout.suspend()
       const reportProgress = reporter.report
-      const execOverrides = {
-        reportProgress: async (progress: import('@hbar/contracts').ToolProgress) => {
-          assertNotAborted()
-          await reportProgress(progress)
-        },
-        ...(environment ? { environment } : {}),
-        ...(osConfinement ? { osConfinement } : {}),
-      }
-      result = await tool.execute(args, Object.keys(execOverrides).length ? { ...plain, ...execOverrides } : plain)
-      result = (await scope.hooks.dispatch('tool.after', { name, result, context })).result
-      const captured = await persistToolResultImages(
+      result = await this.toolExecutions.run(
+        `${context.session.id}:${name}`,
         name,
-        result,
-        (file, mime, bytes) => this.upload(file, mime, bytes),
-        hostSignal,
+        context.callId,
+        controller,
+        timeoutMs,
+        async () => {
+          await scope.hooks.dispatch('tool.executing', { name, args: structuredClone(args), context, tool })
+          assertBoundary()
+          controller.signal.throwIfAborted()
+          // These execution fields are Host-owned, even when hooks mutate ToolContext.
+          const { environment: _hookEnvironment, reportProgress: _hookProgress, ...plain } = context
+          let executed = await tool.execute(args, {
+            ...plain,
+            signal: controller.signal,
+            timeoutMs,
+            reportProgress: async (progress) => {
+              controller.signal.throwIfAborted()
+              await reportProgress(progress)
+            },
+            ...(environment ? { environment } : {}),
+            ...(osConfinement ? { osConfinement } : {}),
+          })
+          if (controller.signal.reason instanceof ToolTimeoutError) controller.signal.throwIfAborted()
+          executed = (await scope.hooks.dispatch('tool.after', { name, result: executed, context })).result
+          if (controller.signal.reason instanceof ToolTimeoutError) controller.signal.throwIfAborted()
+          const captured = await persistToolResultImages(
+            name,
+            executed,
+            (file, mime, bytes) => this.upload(file, mime, bytes),
+            controller.signal,
+          )
+          if (captured.length) images = captured
+          return executed
+        },
       )
-      if (captured.length) images = captured
       outcome = { kind: result.isError ? 'failed' : 'succeeded', executionStarted: started }
     } catch (error) {
       if (error instanceof RunControlSignal && !hostSignal.aborted) {
@@ -1960,15 +1987,24 @@ export class Kernel {
       } else {
         result = { text: error instanceof Error ? error.message : String(error), isError: true }
         hostFailure = { code: error instanceof HbarError ? error.code : 'TOOL_FAILED', executionStarted: started }
+        if (error instanceof ToolTimeoutError) {
+          const resultUnknown = started && tool.effect !== 'read'
+          result.details = { code: error.code, timeoutMs: error.timeoutMs, timeoutCallId: error.callId, resultUnknown }
+          outcome = { kind: resultUnknown ? 'unknown' : 'failed', executionStarted: started }
+        }
         // Only the exact Host signal reason establishes cancellation outside explicit gates.
         outcome ??=
           hostSignal.aborted && error === hostSignal.reason
             ? hostAbortToolOutcome(hostSignal.reason, started)
             : { kind: 'failed', executionStarted: started }
       }
+    } finally {
+      resumeRunIdle?.()
+      hostSignal.removeEventListener('abort', forwardAbort)
+      sequence?.dispose()
     }
     const execution = await reporter?.finish()
-    const batch = batchProgress?.()
+    const batch = sequence?.progress()
     result = { ...result, hostFailure, hostControl, execution }
     if (result.text.length > 128_000) result = { ...result, text: `${result.text.slice(0, 128_000)}\n[truncated]` }
     const content: ContentBlock[] = [
@@ -2583,6 +2619,7 @@ export class Kernel {
     this.directoryQueries.dispose()
     for (const active of this.active.values())
       active.controller.abort(new HbarError('HOST_SHUTTING_DOWN', 'Host shutting down'))
+    this.toolExecutions.dispose()
     await this.sessionLaunchPreparations.close()
     await this.sessionLaunchTargets.close()
     await this.waitForIdle()

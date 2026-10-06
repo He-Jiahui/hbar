@@ -17,7 +17,7 @@ import { streamSimple as openaiResponses } from '@earendil-works/pi-ai/api/opena
 import { streamSimple as anthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages'
 import { z } from 'zod'
 import { providerFailure } from './provider-failure'
-import { definePlugin, provide, RunControlSignal } from '@hbar/plugin-sdk'
+import { definePlugin, describeToolTimeout, provide, RunControlSignal } from '@hbar/plugin-sdk'
 import { createUsageFact } from '@hbar/usage'
 import { DEFAULT_THINKING_LEVELS, normalizeThinkingLevel } from '@hbar/contracts'
 import type { DriverInput, HarnessDriver, ModelRequest, ToolResultContent } from '@hbar/plugin-sdk'
@@ -375,8 +375,8 @@ export class PiDriver implements HarnessDriver {
     const tools: AgentTool[] = input.tools.map((tool) => ({
       name: tool.name,
       label: tool.name,
-      description: tool.description,
-      parameters: Type.Unsafe(z.toJSONSchema(tool.inputSchema)),
+      description: `${tool.description}\n${describeToolTimeout(tool)}`,
+      parameters: Type.Unsafe(z.toJSONSchema(tool.inputSchema, { io: 'input' })),
       executionMode: 'sequential',
       execute: async (callId, args) => {
         const result = await input.execute(tool.name, args as Record<string, unknown>, callId)
