@@ -262,14 +262,14 @@
 
 .hbar-session-composer-options {
   display: flex;
-  min-inline-size: 0;
+  flex: 0 0 auto;
   align-items: center;
   gap: 4px;
 }
 
 .hbar-session-composer-controls {
   display: flex;
-  min-inline-size: 0;
+  flex: 0 0 auto;
   align-items: center;
   flex-wrap: wrap;
   gap: 4px;
@@ -303,52 +303,7 @@
 }
 
 .hbar-session-composer-options > .hbar-composer-model-picker {
-  min-inline-size: 0;
-  flex: 0 1 auto;
-}
-
-@container session-project-context (max-width: 40rem) {
-  .hbar-app-react-session-footer .lumen-composer-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .hbar-app-react-session-footer .lumen-composer-toolbar > div {
-    inline-size: 100%;
-    max-inline-size: 100%;
-    flex: 0 0 auto;
-    flex-wrap: wrap;
-  }
-
-  .hbar-app-react-session-footer .lumen-composer-toolbar > div:last-child {
-    margin-inline-start: 0;
-    justify-content: flex-end;
-  }
-
-  .hbar-session-composer-options {
-    flex: 1 1 0;
-    max-inline-size: 100%;
-    flex-wrap: wrap;
-  }
-
-  .hbar-session-composer-options > .hbar-session-usage-control {
-    flex: 0 0 auto;
-    max-inline-size: 100%;
-  }
-
-  .hbar-session-composer-options > .hbar-composer-model-picker {
-    flex: 1 1 10rem;
-    max-inline-size: 100%;
-  }
-
-  .hbar-session-composer-options .hbar-composer-model-trigger {
-    flex: 1 1 0;
-    max-inline-size: 100%;
-  }
-
-  .hbar-app-react-session-footer .lumen-composer-toolbar > div:last-child > button:not(.lumen-composer-queue-action) {
-    flex: 0 0 auto;
-  }
+  flex: 0 0 auto;
 }
 
 .hbar-session-budget-notice {

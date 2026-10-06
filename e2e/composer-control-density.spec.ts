@@ -35,6 +35,8 @@ async function singleLineControls(toolbar: Locator) {
           whiteSpace: style.whiteSpace,
           spread: lines.length ? Math.max(...lines) - Math.min(...lines) : 0,
           height: element.getBoundingClientRect().height,
+          textOverflow: style.textOverflow,
+          clipped: element.scrollWidth > element.clientWidth + 1,
         }
       }),
   )
@@ -42,6 +44,8 @@ async function singleLineControls(toolbar: Locator) {
   for (const control of controls) {
     expect(control.whiteSpace, String(control.label)).toBe('nowrap')
     expect(control.spread, String(control.label)).toBeLessThanOrEqual(6)
+    expect(control.textOverflow, String(control.label)).not.toBe('ellipsis')
+    expect(control.clipped, String(control.label)).toBe(false)
   }
   return controls
 }
@@ -96,8 +100,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       for (const width of [1440, 390, 320]) {
         await page.setViewportSize({ width, height: 960 })
         await singleLineControls(toolbar)
-        // A fixture-only long translated caption verifies single-line clipping;
-        // the original title still identifies the real queue action.
+        // A long translated label must stay complete inside a scrollable rail.
+        // Send/stop retain a visible target outside that rail.
         const dimensions = await queue.evaluate(
           (element, caption) => {
             const toolbar = element.closest('.lumen-composer-toolbar')
@@ -118,11 +122,23 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         )
         await singleLineControls(toolbar)
         expect(dimensions.after).toEqual(dimensions.before)
+        const rail = toolbar.locator('.lumen-composer-control-rail')
+        expect(await rail.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true)
+        // Waiting approval can disable Queue. The owning rail must still be
+        // keyboard-scrollable so disabled captions remain readable.
+        await rail.focus()
+        await page.keyboard.press('ArrowRight')
+        await expect.poll(() => rail.evaluate((element) => element.scrollLeft > 0)).toBe(true)
+        const stop = toolbar.getByRole('button', { name: copy.session.prompt.stop, exact: true })
+        await expect(stop).toBeInViewport()
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
         await page.screenshot({ path: info.outputPath(`composer-single-line-${locale}-${width}.png`) })
         await queue.evaluate((element, caption) => {
           element.textContent = caption
         }, copy.session.runningActions.queueLabel)
+        await rail.evaluate((element) => {
+          element.scrollLeft = 0
+        })
         await expectComposerText(input, draft)
       }
       expect((await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs).toHaveLength(1)

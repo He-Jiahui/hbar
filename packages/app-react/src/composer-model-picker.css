@@ -1,6 +1,6 @@
 .hbar-composer-model-picker {
   display: flex;
-  min-inline-size: 0;
+  flex: 0 0 auto;
   align-items: center;
   gap: 0.125rem;
 }
@@ -10,16 +10,14 @@
 }
 
 .hbar-composer-model-trigger {
-  min-inline-size: 0;
-  max-inline-size: 16rem;
+  flex: 0 0 auto;
+  max-inline-size: none;
   gap: 0.25rem;
   font-weight: 600;
 }
 
 .hbar-composer-model-trigger > span {
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 
@@ -344,10 +342,6 @@
 }
 
 @media (max-width: 40rem) {
-  .hbar-composer-model-trigger {
-    max-inline-size: 9rem;
-  }
-
   .hbar-composer-picker-popover[data-kind='model'][data-presentation='web'] {
     inset: auto 0 0;
     inline-size: 100%;

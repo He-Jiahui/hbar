@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { createRunCommandClient } from '@hbar/client'
 import { execFileSync } from 'node:child_process'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -60,6 +61,22 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       if (await expand.isVisible()) await expand.click()
       await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await expect(page.locator('html')).toHaveAttribute('data-lumen-mode', colorScheme)
+
+      // Empty sessions expose the launch-location picker. Establish one local
+      // fixture run before checking the confirmed, read-only Git context.
+      const runs = createRunCommandClient(host.client)
+      await runs.execute(
+        'run.submit',
+        {
+          sessionId: host.ready.sessionId,
+          modelId: 'local-fixture',
+          input: { text: 'Confirm the active composer location', images: [], approval: 'deny' },
+        },
+        { idempotencyKey: crypto.randomUUID() },
+      )
+      await expect
+        .poll(async () => (await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs.length)
+        .toBe(1)
 
       const project = page.getByRole('group', {
         name: contextCopy.project(host.ready.workspaceName),

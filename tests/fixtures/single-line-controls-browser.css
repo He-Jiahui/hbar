@@ -1,0 +1,11 @@
+html,
+body {
+  margin: 0;
+}
+.single-line-fixture {
+  min-inline-size: 0;
+  padding-block: 1rem;
+}
+.single-line-fixture .hbar-app-react-session-footer {
+  box-sizing: border-box;
+}

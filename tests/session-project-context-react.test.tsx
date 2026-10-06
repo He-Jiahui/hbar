@@ -71,3 +71,13 @@ test('a display alias keeps the canonical path available without changing branch
   expect(html).toContain('Research 项目')
   expect(html).toContain('feature/very-long-branch')
 })
+
+test('generated launch branches retain their entire name as visible text in both locales', () => {
+  const branch = `hbar/session-launch/${'a7'.repeat(32)}`
+  for (const locale of ['en-US', 'zh-CN'] as const) {
+    const html = render({ ...ready, branch }, true, locale)
+    expect(html).toContain(`<bdi>${branch}</bdi>`)
+    expect(html).not.toContain('dir="rtl"')
+    expect(sessionContextCopy(locale).branchCaption(branch)).toBe(branch)
+  }
+})
