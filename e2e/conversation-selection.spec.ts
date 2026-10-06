@@ -108,9 +108,11 @@ async function openSessionFromSidebar(
   width: number,
 ): Promise<void> {
   const openSession = page.getByRole('treeitem', { name: title, exact: true })
-  if (!(await openSession.isVisible())) await setSidebar(page, copy, true)
+  await setSidebar(page, copy, true)
   await openSession.click()
-  await expect(page.getByRole('tab', { name: title, exact: true })).toHaveAttribute('aria-selected', 'true')
+  if (width > 320)
+    await expect(page.getByRole('tab', { name: title, exact: true })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('region', { name: title, exact: true })).toBeVisible()
   // Narrow navigation closes the drawer itself after its async Session selection.
   // Do not race that transition by clicking a close button that has disappeared.
   if (width === 320) {
@@ -151,6 +153,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         root,
         port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
         sessionCount: 2,
+        budgetAutoContinue: false,
       })
       expect((await context.request.post(`${base()}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(
         true,
@@ -203,7 +206,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const otherPrompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const otherDraft = 'Keep this text only in Session B.'
       await otherPrompt.fill(otherDraft)
-      await page.getByRole('tab', { name: host.ready.sessionTitle, exact: true }).click()
+      await openSessionFromSidebar(page, copy, host.ready.sessionTitle, width)
       await expectComposerText(prompt, '')
 
       const sessionSnapshot = () =>
@@ -290,7 +293,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await openSessionFromSidebar(page, copy, 'Session 001', width)
       await expect(page.locator(chatSelectionCards)).toHaveCount(0)
       await expectComposerText(otherPrompt, otherDraft)
-      await page.getByRole('tab', { name: host.ready.sessionTitle, exact: true }).click()
+      await openSessionFromSidebar(page, copy, host.ready.sessionTitle, width)
       await expect(cards).toHaveCount(2)
       await expectComposerText(prompt, finalDraft)
 
@@ -317,7 +320,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expectViewportFits(page, width)
       await capture(page, testInfo, `accepted-run-cleared-${locale}-${width}.png`)
 
-      await page.getByRole('tab', { name: 'Session 001', exact: true }).click()
+      await openSessionFromSidebar(page, copy, 'Session 001', width)
       await expect(page.locator(chatSelectionCards)).toHaveCount(0)
       await expectComposerText(otherPrompt, otherDraft)
       expect(errors).toEqual([])

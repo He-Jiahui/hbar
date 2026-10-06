@@ -2,17 +2,17 @@
 
 由 `bun scripts/audit-desktop-elements.ts --write` 从运行时入口、命名延迟加载、barrel 导出和 JSX 生成。完整的元素、槽位、内容来源、可访问名称、动作目标、状态来源和待处理问题见 [类型化清单](desktop-elements.json)。
 
-入口：`apps/web/src/main.tsx`。相关 TSX 模块 144 个；元素 3650 个。实际构建输入核对：passed。
+入口：`apps/web/src/main.tsx`。相关 TSX 模块 144 个；元素 3652 个。实际构建输入核对：passed。
 
 ## 类别与展示边界
 
 | 类别        | 元素 | pending | 设计职责                                                                |
 | ----------- | ---: | ------: | ----------------------------------------------------------------------- |
-| structure   | 1085 |      12 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
-| text        | 1073 |     862 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
+| structure   | 1083 |      12 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
+| text        | 1073 |     827 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
 | interaction |  923 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
 | form        |  275 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
-| collection  |  156 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
+| collection  |  160 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
 | technical   |   75 |       0 | 原文、代码、Markdown、图示与媒体的专用 renderer；辅助操作仍使用 Lumen。 |
 | feedback    |   56 |       0 | 空、加载、运行、成功、失败、恢复与取消的宿主状态及语义反馈。            |
 | platform    |    7 |       4 | Tauri 标题、托盘与通知；操作系统展示，宿主提供文案。                    |
@@ -63,7 +63,7 @@
 | [packages/app-react/src/composer-permission-picker.tsx](../../packages/app-react/src/composer-permission-picker.tsx)       | composer-and-launch                              |   56 |             23 |          0 |          0 |
 | [packages/app-react/src/composer-slash-menu.tsx](../../packages/app-react/src/composer-slash-menu.tsx)                     | composer-and-launch                              |    7 |              0 |          3 |          0 |
 | [packages/app-react/src/composer-workspace-contexts.tsx](../../packages/app-react/src/composer-workspace-contexts.tsx)     | composer-and-launch                              |   22 |              0 |          7 |          1 |
-| [packages/app-react/src/conversation-selection.tsx](../../packages/app-react/src/conversation-selection.tsx)               | session                                          |    5 |              0 |          1 |          0 |
+| [packages/app-react/src/conversation-selection.tsx](../../packages/app-react/src/conversation-selection.tsx)               | session                                          |    5 |              1 |          0 |          0 |
 | [packages/app-react/src/echarts-chart.tsx](../../packages/app-react/src/echarts-chart.tsx)                                 | workbench                                        |    1 |              0 |          0 |          1 |
 | [packages/app-react/src/extension-collection-feedback.tsx](../../packages/app-react/src/extension-collection-feedback.tsx) | settings                                         |    6 |              0 |          4 |          0 |
 | [packages/app-react/src/extension-pagination.tsx](../../packages/app-react/src/extension-pagination.tsx)                   | settings                                         |    4 |              0 |          1 |          0 |
@@ -129,7 +129,7 @@
 | [packages/app-react/src/session-find.tsx](../../packages/app-react/src/session-find.tsx)                                   | session                                          |    3 |              0 |          0 |          0 |
 | [packages/app-react/src/session-images-model.tsx](../../packages/app-react/src/session-images-model.tsx)                   | settings                                         |    1 |              0 |          0 |          0 |
 | [packages/app-react/src/session-images.tsx](../../packages/app-react/src/session-images.tsx)                               | files-and-reading                                |   33 |              5 |          0 |          0 |
-| [packages/app-react/src/session-interactions.tsx](../../packages/app-react/src/session-interactions.tsx)                   | session                                          |   51 |              0 |         19 |          0 |
+| [packages/app-react/src/session-interactions.tsx](../../packages/app-react/src/session-interactions.tsx)                   | session                                          |   53 |             20 |          0 |          0 |
 | [packages/app-react/src/session-launch-location.tsx](../../packages/app-react/src/session-launch-location.tsx)             | session                                          |   15 |              0 |          2 |          0 |
 | [packages/app-react/src/session-live-status.tsx](../../packages/app-react/src/session-live-status.tsx)                     | status-and-usage                                 |    3 |              0 |          1 |          0 |
 | [packages/app-react/src/session-message.tsx](../../packages/app-react/src/session-message.tsx)                             | session / status-and-usage / agents-and-activity |   59 |             11 |          0 |          0 |
@@ -137,7 +137,7 @@
 | [packages/app-react/src/session-navigation-row.tsx](../../packages/app-react/src/session-navigation-row.tsx)               | session                                          |   33 |              8 |          0 |          0 |
 | [packages/app-react/src/session-project-context.tsx](../../packages/app-react/src/session-project-context.tsx)             | session                                          |   13 |              6 |          0 |          0 |
 | [packages/app-react/src/session-roster-feedback.tsx](../../packages/app-react/src/session-roster-feedback.tsx)             | session                                          |    3 |              1 |          0 |          0 |
-| [packages/app-react/src/session-run-activity.tsx](../../packages/app-react/src/session-run-activity.tsx)                   | agents-and-activity                              |   33 |              0 |         15 |          0 |
+| [packages/app-react/src/session-run-activity.tsx](../../packages/app-react/src/session-run-activity.tsx)                   | agents-and-activity                              |   33 |             14 |          0 |          0 |
 | [packages/app-react/src/session-stop.tsx](../../packages/app-react/src/session-stop.tsx)                                   | settings                                         |    8 |              0 |          3 |          0 |
 | [packages/app-react/src/session-tool-details.tsx](../../packages/app-react/src/session-tool-details.tsx)                   | session                                          |   35 |              0 |          7 |          0 |
 | [packages/app-react/src/session-tool-feedback.tsx](../../packages/app-react/src/session-tool-feedback.tsx)                 | session                                          |    9 |              0 |          6 |          0 |

@@ -3,9 +3,11 @@ import { Activity, RotateCcw, Square } from 'lucide-react'
 import {
   LumenButton,
   LumenFrame,
+  LumenCollection,
+  LumenCollectionItem,
   LumenIcon,
   LumenStatus,
-  LumenText,
+  LumenContentText,
   type LumenRunActivityItem,
   type LumenRunActivityLabels,
   type LumenRunActivityProps,
@@ -127,45 +129,45 @@ export function HbarSessionRunActivity({
         >
           <LumenIcon icon={Activity} tier="sm" />
           {status(current)}
-          {current.duration && <LumenText as="span">{current.duration}</LumenText>}
-          {activeCount > 1 && <LumenText as="span">{labels.activeCount(activeCount)}</LumenText>}
+          {current.duration && <LumenContentText context="metadata">{current.duration}</LumenContentText>}
+          {activeCount > 1 && <LumenContentText context="metadata">{labels.activeCount(activeCount)}</LumenContentText>}
           {actions(current)}
           {['failed', 'interrupted'].includes(current.status) && current.detail && (
-            <LumenText as="p" className="hbar-session-run-error" role="alert">
+            <LumenContentText context="feedback.paragraph" className="hbar-session-run-error" role="alert">
               {current.detail}
-            </LumenText>
+            </LumenContentText>
           )}
         </LumenFrame>
       )}
       {feedback && (
-        <LumenText as="p" className="hbar-session-run-error" role="alert">
+        <LumenContentText context="feedback.paragraph" className="hbar-session-run-error" role="alert">
           {feedback}
-        </LumenText>
+        </LumenContentText>
       )}
       {current && (
         <HbarLumenDisclosure label={labels.details(runs.length)} className="hbar-session-run-history">
           <LumenFrame className="hbar-session-run-row">
-            <LumenText as="span">{current.label}</LumenText>
-            {current.detail && <LumenText as="span">{current.detail}</LumenText>}
+            <LumenContentText context="metadata">{current.label}</LumenContentText>
+            {current.detail && <LumenContentText context="tool.summary">{current.detail}</LumenContentText>}
           </LumenFrame>
           {others.length > 0 && (
-            <LumenFrame role="list" className="hbar-session-run-list">
+            <LumenCollection role="list" className="hbar-session-run-list">
               {others.slice(0, visible).map((run) => (
-                <LumenFrame role="listitem" key={run.id} data-run-id={run.id} data-status={run.status}>
+                <LumenCollectionItem role="listitem" key={run.id} data-run-id={run.id} data-status={run.status}>
                   <LumenFrame className="hbar-session-run-row">
                     {status(run)}
-                    <LumenText as="span">{run.label}</LumenText>
-                    {run.duration && <LumenText as="span">{run.duration}</LumenText>}
+                    <LumenContentText context="metadata">{run.label}</LumenContentText>
+                    {run.duration && <LumenContentText context="metadata">{run.duration}</LumenContentText>}
                     {actions(run)}
                   </LumenFrame>
                   {run.detail && (
-                    <LumenText as="p" className="hbar-session-run-metadata">
+                    <LumenContentText context="tool.description" className="hbar-session-run-metadata">
                       {run.detail}
-                    </LumenText>
+                    </LumenContentText>
                   )}
-                </LumenFrame>
+                </LumenCollectionItem>
               ))}
-            </LumenFrame>
+            </LumenCollection>
           )}
           {visible < others.length && (
             <LumenButton
@@ -184,26 +186,26 @@ export function HbarSessionRunActivity({
           <HbarLumenDisclosure
             className="hbar-session-run-plan"
             label={
-              <LumenText as="span" className="hbar-session-run-plan-label">
-                <LumenText as="span">{labels.planTitle}</LumenText>
-                <LumenText as="span">
+              <LumenFrame as="span" className="hbar-session-run-plan-label">
+                <LumenContentText context="control.label">{labels.planTitle}</LumenContentText>
+                <LumenContentText context="control.status">
                   {labels.planProgress(
                     plan.steps.filter((step) => step.status === 'completed').length,
                     plan.steps.length,
                   )}
-                </LumenText>
-              </LumenText>
+                </LumenContentText>
+              </LumenFrame>
             }
           >
-            {plan.explanation && <LumenText as="p">{plan.explanation}</LumenText>}
-            <LumenFrame role="list" className="hbar-session-run-list">
+            {plan.explanation && <LumenContentText context="reading.paragraph">{plan.explanation}</LumenContentText>}
+            <LumenCollection role="list" className="hbar-session-run-list">
               {plan.steps.map((step) => (
-                <LumenFrame role="listitem" key={step.id} data-status={step.status}>
-                  <LumenText as="span">{step.title}</LumenText>
-                  <LumenText as="small">{labels.planStatusLabel(step.status)}</LumenText>
-                </LumenFrame>
+                <LumenCollectionItem role="listitem" key={step.id} data-status={step.status}>
+                  <LumenContentText context="collection.title">{step.title}</LumenContentText>
+                  <LumenContentText context="metadata.detail">{labels.planStatusLabel(step.status)}</LumenContentText>
+                </LumenCollectionItem>
               ))}
-            </LumenFrame>
+            </LumenCollection>
           </HbarLumenDisclosure>
         </LumenFrame>
       )}

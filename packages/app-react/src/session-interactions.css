@@ -64,10 +64,17 @@
 }
 .hbar-decision-path {
   display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
   align-items: center;
   gap: 6px;
+  overflow-x: auto;
   overflow-wrap: anywhere;
   font-size: 0.8125rem;
+}
+
+.hbar-decision-path > * {
+  flex: 0 0 auto;
 }
 .hbar-decision-tabs {
   display: flex;

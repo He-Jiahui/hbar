@@ -23,7 +23,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const copy = getShellCopy(locale)
     const labels = copy.session.decisions
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        budgetAutoContinue: false,
+      })
       const targetHost = host
       const sessionId = host.ready.sessionId
       const runs = createRunCommandClient(host.client)
@@ -220,13 +224,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(restored).toContainText(answer)
       await expect(restored.getByRole('button', { name: labels.submit, exact: true })).toHaveCount(0)
       // A deliberate move while the original request is held must revoke the card's focus ownership.
+      const longPath = `${'目录与原始审批目标/'.repeat(8)}original-request-with-a-long-name.md`
       const third = await runs.execute(
         'run.submit',
         {
           sessionId,
           modelId: 'local-fixture',
           input: {
-            text: '/tool edit_file {"path":"browser-e2e.md","oldText":"# Approved edit","newText":"# Must not write"}',
+            text: `/tool write_file ${JSON.stringify({ path: longPath, text: '# Must not write' })}`,
             images: [],
             approval: 'ask',
           },
@@ -243,6 +248,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const thirdPending = await host.client.call('session.snapshot', { sessionId })
       const thirdApproval = thirdPending.approvals.find((value) => value.status === 'pending')!
       const thirdCard = page.locator(`[data-decision-id="${thirdApproval.id}"]`)
+      const pathRail = thirdCard.locator('.hbar-decision-path')
+      await expect(pathRail).toHaveAccessibleName(longPath)
+      await expect(pathRail.locator('[data-text-context="resource.path"]')).toHaveText(longPath)
+      expect(await pathRail.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true)
+      await pathRail.focus()
+      await page.keyboard.press('ArrowRight')
+      await expect.poll(() => pathRail.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      await page.screenshot({ path: testInfo.outputPath(`approval-original-path-${locale}-320.png`) })
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const draft = 'Keep my newer focus and this unsent draft — 保留后续输入位置与草稿。'
       await prompt.fill(draft)

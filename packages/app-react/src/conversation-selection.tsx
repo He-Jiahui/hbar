@@ -9,7 +9,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { LoaderCircle, MessageCircle } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenContentText } from '@lumen/app-ui'
 import { MAX_PROMPT_WORKSPACE_CONTEXT_QUOTE_LENGTH } from '@hbar/app-runtime'
 import { isSessionCodeChrome } from './session-code-block-dom'
 import {
@@ -464,14 +464,14 @@ export function HbarConversationSelection({
     >
       {children}
       {errorCode ? (
-        <LumenText
-          as="p"
+        <LumenContentText
+          context="feedback.paragraph"
           className="hbar-conversation-selection-error"
           data-hbar-conversation-selection-error=""
           role="alert"
         >
           {labels.addError(errorCode)}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {captured && typeof document !== 'undefined'
         ? createPortal(
