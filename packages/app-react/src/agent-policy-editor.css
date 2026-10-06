@@ -3,12 +3,14 @@
   padding: 0.75rem;
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
-.hbar-agent-policy-editor summary {
-  cursor: pointer;
-  overflow-wrap: anywhere;
-}
 .hbar-agent-policy-editor p {
   overflow-wrap: anywhere;
+}
+.hbar-agent-policy-editor > .hbar-lumen-disclosure-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-block-start: 0.5rem;
 }
 .hbar-agent-policy-rows {
   display: flex;
@@ -19,16 +21,52 @@
 .hbar-agent-policy-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 0.5rem;
   min-inline-size: 0;
   padding: 0.5rem;
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
 }
-.hbar-agent-policy-row > * {
-  flex: 1 1 8rem;
+.hbar-agent-policy-fields {
+  display: flex;
+  flex: 1 1 36rem;
+  flex-direction: column;
+  gap: 0.5rem;
   min-inline-size: 0;
+  container: policy-fields / inline-size;
+}
+.hbar-agent-policy-primary-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-inline-size: 0;
+}
+.hbar-agent-policy-primary-fields > * {
+  flex: 1 1 12rem;
+  min-inline-size: 0;
+}
+.hbar-agent-policy-thinking {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+.hbar-agent-policy-weight-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-inline-size: 0;
+}
+.hbar-agent-policy-weight {
+  flex: 0 1 8rem;
+  min-inline-size: 7rem;
+}
+.hbar-agent-policy-row-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-end;
+  min-inline-size: max-content;
 }
 .hbar-agent-policy-actions {
   display: flex;
@@ -36,4 +74,22 @@
   align-items: center;
   gap: 0.5rem;
   padding-block: 0.5rem;
+}
+
+@container policy-fields (max-width: 40rem) {
+  .hbar-agent-policy-primary-fields {
+    flex-direction: column;
+  }
+
+  .hbar-agent-policy-primary-fields > *,
+  .hbar-agent-policy-thinking,
+  .hbar-agent-policy-weight-row {
+    flex: 1 1 auto;
+    inline-size: 100%;
+  }
+
+  .hbar-agent-policy-row-actions {
+    inline-size: 100%;
+    justify-content: flex-end;
+  }
 }

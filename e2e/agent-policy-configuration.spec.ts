@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { openSessionTool } from './support/session-tools-menu'
+import { expectLumenValue, selectLumenChoice, selectLumenOption } from './support/lumen-controls'
 
 for (const locale of ['en-US', 'zh-CN'] as const)
   test(`Child dispatch policy and independent settings are usable: ${locale}`, async ({ browser }, info) => {
@@ -39,18 +40,18 @@ for (const locale of ['en-US', 'zh-CN'] as const)
       await page.goto(base)
       await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
       await openSessionTool(page, copy.session.tools, 'agents')
-      await page.locator('.hbar-agent-policy-editor summary').click()
+      await page.locator('.hbar-agent-policy-editor > .hbar-lumen-disclosure-trigger').click()
       await expect(page.getByText(copy.agents.policy.empty, { exact: true })).toBeVisible()
       await page.getByRole('button', { name: copy.agents.policy.add, exact: true }).click()
       const row = page.locator('.hbar-agent-policy-row')
-      await row.getByRole('combobox', { name: copy.agents.policy.difficulty, exact: true }).selectOption('simple')
+      await selectLumenOption(row.getByRole('combobox', { name: copy.agents.policy.difficulty, exact: true }), 'simple')
       await row.locator('.hbar-agent-model-trigger').click()
       const picker = page.getByRole('dialog', { name: copy.agents.modelPicker.title, exact: true })
       await expect(picker).toBeVisible()
       expect(await picker.evaluate((element) => element.parentElement === document.body)).toBe(true)
       expect(await picker.evaluate((element) => getComputedStyle(element).backdropFilter)).not.toBe('none')
       await picker.getByRole('option').click()
-      await row.getByRole('combobox', { name: copy.agents.policy.thinking, exact: true }).selectOption('low')
+      await selectLumenChoice(row.getByRole('radiogroup', { name: copy.agents.policy.thinking, exact: true }), 'low')
       await row.getByRole('spinbutton', { name: copy.agents.policy.weight, exact: true }).fill('300')
       await expect(page.getByText(copy.agents.policy.unsaved, { exact: true })).toBeVisible()
       await page.getByRole('button', { name: copy.agents.policy.save, exact: true }).click()
@@ -65,12 +66,11 @@ for (const locale of ['en-US', 'zh-CN'] as const)
       }
       await page.setViewportSize({ width: 1440, height: 960 })
       await page.getByRole('button', { name: copy.agents.createTitle, exact: true }).click()
-      await expect(page.getByRole('combobox', { name: copy.agents.thinkingLevel, exact: true })).toHaveValue('')
-      await expect(
-        page.getByRole('combobox', { name: copy.agents.thinkingLevel, exact: true }).locator('option:checked'),
-      ).toHaveText(copy.agents.thinkingInherited('max'))
-      await expect(page.getByRole('combobox', { name: copy.agents.approval, exact: true })).toHaveValue('inherit')
-      await page.getByRole('combobox', { name: copy.agents.selectionMode, exact: true }).selectOption('simple')
+      const thinkingGroup = page.getByRole('radiogroup', { name: copy.agents.thinkingLevel, exact: true })
+      await expectLumenValue(thinkingGroup, '')
+      await expect(thinkingGroup.getByRole('radio', { checked: true })).toHaveText(copy.agents.thinkingInherited('max'))
+      await expectLumenValue(page.getByRole('combobox', { name: copy.agents.approval, exact: true }), 'inherit')
+      await selectLumenOption(page.getByRole('combobox', { name: copy.agents.selectionMode, exact: true }), 'simple')
       await page
         .getByRole('textbox', { name: copy.agents.objective, exact: true })
         .fill('Inspect the saved weighted configuration')
@@ -87,19 +87,11 @@ for (const locale of ['en-US', 'zh-CN'] as const)
       })
       await page.getByRole('button', { name: copy.agents.configureChild, exact: true }).click()
       await expect(page.locator('.hbar-app-react-settings-workspace')).toBeVisible()
-      await expect(page.getByRole('combobox', { name: copy.settings.scopes, exact: true })).toHaveValue('session')
+      await expectLumenValue(page.getByRole('combobox', { name: copy.settings.scopes, exact: true }), 'session')
       const effort = page.locator(
         `[id="hbar-schema-field-${encodePath([{ kind: 'field', name: 'provider.thinkingLevel' }])}"]`,
       )
-      await page
-        .getByRole('button', {
-          name: copy.settings.form.openOptions(copy.settings.resolve('i18n:settings.provider.thinkingLevel.label')),
-          exact: true,
-        })
-        .click()
-      await effort.fill(copy.agents.thinkingOption('high'))
-      await page.getByRole('option', { name: copy.agents.thinkingOption('high'), exact: true }).click()
-      await expect(effort).toHaveValue(copy.agents.thinkingOption('high'))
+      await selectLumenChoice(effort, 'string:high')
       await page.getByRole('button', { name: copy.settings.save, exact: true }).click()
       await expect
         .poll(async () => (await models.execute('session.getModel', { sessionId: child.sessionId })).thinkingLevel)

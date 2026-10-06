@@ -1,7 +1,17 @@
 import { useState } from 'react'
-import { LumenButton, LumenFormField, LumenFrame, LumenInput, LumenOption, LumenSelect, LumenText } from '@lumen/app-ui'
+import {
+  LumenButton,
+  LumenFormField,
+  LumenFrame,
+  LumenInput,
+  LumenPopupSelect,
+  LumenText,
+  LumenToggleGroup,
+  type LumenControlOption,
+} from '@lumen/app-ui'
 import type { AgentPolicyEditorEntry, AgentWorkspaceState } from '@hbar/app-runtime'
 import { AgentModelPicker, type AgentModelPickerLabels } from './agent-model-picker'
+import { HbarLumenDisclosure } from './lumen-disclosure'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './agent-policy-editor.css'
 
@@ -59,30 +69,30 @@ export function AgentPolicyEditor({
     void runtime.commands.execute(name, { instanceId, parentSessionId, ...input }).catch(() => {})
   }
   const busy = !connected || entry?.status === 'loading' || entry?.status === 'saving' || entry?.status === 'unknown'
+  const setExpandedAndLoad = (next: boolean) => {
+    setExpanded(next)
+    if (
+      next &&
+      !entry?.snapshot &&
+      entry?.status !== 'loading' &&
+      entry?.status !== 'saving' &&
+      entry?.status !== 'unknown'
+    ) {
+      invoke('agentPolicy.load')
+      refreshModels()
+    }
+  }
   return (
-    <details
+    <HbarLumenDisclosure
       className="hbar-agent-policy-editor"
-      open={expanded}
-      onToggle={(event) => {
-        const next = event.currentTarget.open
-        setExpanded(next)
-        if (
-          next &&
-          !entry?.snapshot &&
-          entry?.status !== 'loading' &&
-          entry?.status !== 'saving' &&
-          entry?.status !== 'unknown'
-        ) {
-          invoke('agentPolicy.load')
-          refreshModels()
-        }
-      }}
-    >
-      <summary>
+      label={
         <LumenText as="span" variant="supporting">
           {labels.title}
         </LumenText>
-      </summary>
+      }
+      open={expanded}
+      onOpenChange={setExpandedAndLoad}
+    >
       <LumenText as="p" variant="supporting">
         {labels.description}
       </LumenText>
@@ -110,66 +120,86 @@ export function AgentPolicyEditor({
         {entry?.rows.map((row, index) => {
           const model = catalog.models.find((item) => item.id === row.modelId)
           const change = (field: string, value: string) => invoke('agentPolicy.change', { rowId: row.id, field, value })
+          const difficultyOptions: readonly LumenControlOption[] = (['simple', 'medium', 'complex'] as const).map(
+            (difficulty) => ({ id: difficulty, label: labels.difficulties[difficulty] }),
+          )
+          const thinkingOptions: readonly LumenControlOption[] = [
+            { id: '', label: labels.chooseThinking },
+            ...(model?.thinkingLevels.map((level) => ({ id: level, label: labels.thinkingOption(level) })) ?? []),
+            ...(row.thinkingLevel && !model?.thinkingLevels.some((level) => level === row.thinkingLevel)
+              ? [{ id: row.thinkingLevel, label: labels.thinkingOption(row.thinkingLevel), disabled: true }]
+              : []),
+          ]
           return (
             <LumenFrame as="fieldset" key={row.id} className="hbar-agent-policy-row" disabled={busy}>
-              <LumenFormField controlId={`${row.id}-difficulty`} label={labels.difficulty}>
-                <LumenSelect
-                  id={`${row.id}-difficulty`}
-                  value={row.difficulty}
-                  onChange={(event) => change('difficulty', event.currentTarget.value)}
-                >
-                  {(['simple', 'medium', 'complex'] as const).map((difficulty) => (
-                    <LumenOption key={difficulty} value={difficulty}>
-                      {labels.difficulties[difficulty]}
-                    </LumenOption>
-                  ))}
-                </LumenSelect>
-              </LumenFormField>
-              <LumenFormField controlId={`${row.id}-model`} label={labels.model} required>
-                <AgentModelPicker
-                  id={`${row.id}-model`}
-                  value={row.modelId}
-                  catalog={catalog}
-                  connected={connected}
-                  disabled={busy}
-                  labels={{ ...modelLabels, choose: labels.chooseModel }}
-                  onSelect={(value) => change('modelId', value)}
-                  onRetry={refreshModels}
+              <LumenFrame className="hbar-agent-policy-fields">
+                <LumenFrame className="hbar-agent-policy-primary-fields">
+                  <LumenFormField controlId={`${row.id}-difficulty`} label={labels.difficulty}>
+                    <LumenPopupSelect
+                      id={`${row.id}-difficulty`}
+                      value={row.difficulty}
+                      options={difficultyOptions}
+                      onValueChange={(value) => change('difficulty', value)}
+                    />
+                  </LumenFormField>
+                  <LumenFormField controlId={`${row.id}-model`} label={labels.model} required>
+                    <AgentModelPicker
+                      id={`${row.id}-model`}
+                      value={row.modelId}
+                      catalog={catalog}
+                      connected={connected}
+                      disabled={busy}
+                      labels={{ ...modelLabels, choose: labels.chooseModel }}
+                      onSelect={(value) => change('modelId', value)}
+                      onRetry={refreshModels}
+                      required
+                    />
+                  </LumenFormField>
+                </LumenFrame>
+                <LumenFormField
+                  controlId={`${row.id}-thinking`}
+                  label={labels.thinking}
                   required
-                />
-              </LumenFormField>
-              <LumenFormField controlId={`${row.id}-thinking`} label={labels.thinking} required>
-                <LumenSelect
-                  id={`${row.id}-thinking`}
-                  value={row.thinkingLevel}
-                  onChange={(event) => change('thinkingLevel', event.currentTarget.value)}
+                  className="hbar-agent-policy-thinking"
                 >
-                  <LumenOption value="">{labels.chooseThinking}</LumenOption>
-                  {model?.thinkingLevels.map((level) => (
-                    <LumenOption key={level} value={level}>
-                      {labels.thinkingOption(level)}
-                    </LumenOption>
-                  ))}
-                  {row.thinkingLevel && !model?.thinkingLevels.some((level) => level === row.thinkingLevel) && (
-                    <LumenOption value={row.thinkingLevel}>{labels.thinkingOption(row.thinkingLevel)}</LumenOption>
-                  )}
-                </LumenSelect>
-              </LumenFormField>
-              <LumenFormField controlId={`${row.id}-weight`} label={labels.weight} required>
-                <LumenInput
-                  id={`${row.id}-weight`}
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={1_000}
-                  step={1}
-                  value={row.weight}
-                  onChange={(event) => change('weight', event.currentTarget.value)}
-                />
-              </LumenFormField>
-              <LumenButton size="s" variant="text" onClick={() => invoke('agentPolicy.remove', { rowId: row.id })}>
-                {labels.remove(index + 1)}
-              </LumenButton>
+                  <LumenToggleGroup
+                    id={`${row.id}-thinking`}
+                    type="single"
+                    value={row.thinkingLevel}
+                    options={thinkingOptions}
+                    disabled={busy}
+                    onValueChange={(value) => change('thinkingLevel', value)}
+                  />
+                </LumenFormField>
+                <LumenFrame className="hbar-agent-policy-weight-row">
+                  <LumenFormField
+                    controlId={`${row.id}-weight`}
+                    label={labels.weight}
+                    required
+                    className="hbar-agent-policy-weight"
+                  >
+                    <LumenInput
+                      id={`${row.id}-weight`}
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={1_000}
+                      step={1}
+                      value={row.weight}
+                      onChange={(event) => change('weight', event.currentTarget.value)}
+                    />
+                  </LumenFormField>
+                  <LumenFrame className="hbar-agent-policy-row-actions">
+                    <LumenButton
+                      size="s"
+                      variant="text"
+                      onClick={() => invoke('agentPolicy.remove', { rowId: row.id })}
+                    >
+                      {labels.remove(index + 1)}
+                    </LumenButton>
+                  </LumenFrame>
+                </LumenFrame>
+              </LumenFrame>
             </LumenFrame>
           )
         })}
@@ -209,6 +239,6 @@ export function AgentPolicyEditor({
           {labels.refresh}
         </LumenButton>
       </LumenFrame>
-    </details>
+    </HbarLumenDisclosure>
   )
 }

@@ -126,7 +126,8 @@ test('child agent panel renders Host records and a command-owned creation draft'
     expect(html).toContain('Inherit parent (Low)')
     expect(html).toContain('Inherit parent permissions')
     expect(html).toContain('Explore can read and search only.')
-    expect(html).toContain('value="explore" selected=""')
+    expect(html).toContain('data-value="explore"')
+    expect(html).not.toContain('<select')
     expect(html).toContain('Back to child agents')
     expect(html).not.toContain('Verify the release candidate')
     const chineseCreate = renderToStaticMarkup(

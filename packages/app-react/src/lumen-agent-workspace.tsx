@@ -4,7 +4,6 @@ import {
   LumenCollection,
   LumenCollectionItem,
   LumenFrame,
-  LumenOption,
   LumenText,
   LumenButton,
   LumenCompactMetrics,
@@ -12,10 +11,12 @@ import {
   LumenIcon,
   LumenIconButton,
   LumenInput,
-  LumenSelect,
+  LumenPopupSelect,
   LumenStatus,
   LumenTextarea,
   LumenToolPane,
+  LumenToggleGroup,
+  type LumenControlOption,
 } from '@lumen/app-ui'
 import type { AgentWorkspaceEntryState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
@@ -156,6 +157,49 @@ export function HbarAgentWorkspace({
   const selectedModel = entry?.draft.modelId
     ? catalog.models.find((model) => model.id === entry.draft.modelId)
     : entry?.inheritedModel?.model
+  const profileOptions: readonly LumenControlOption[] = [
+    { id: '', label: labels.profileOptions.general },
+    { id: 'explore', label: labels.profileOptions.explore },
+  ]
+  const difficultyOptions: readonly LumenControlOption[] = [
+    { id: '', label: labels.manualSelection },
+    ...(['simple', 'medium', 'complex'] as const).map((difficulty) => ({
+      id: difficulty,
+      label: labels.policy.difficulties[difficulty],
+    })),
+  ]
+  const thinkingOptions: readonly LumenControlOption[] = [
+    {
+      id: '',
+      label:
+        entry?.inheritedModel?.thinkingLevel &&
+        selectedModel &&
+        !selectedModel.thinkingLevels.includes(entry.inheritedModel.thinkingLevel)
+          ? labels.thinkingDefault(selectedModel.defaultThinkingLevel)
+          : labels.thinkingInherited(entry?.inheritedModel?.thinkingLevel ?? null),
+    },
+    ...(selectedModel?.thinkingLevels.map((level) => ({ id: level, label: labels.thinkingOption(level) })) ?? []),
+    ...(entry?.draft.thinkingLevel &&
+    !selectedModel?.thinkingLevels.some((level) => level === entry.draft.thinkingLevel)
+      ? [
+          {
+            id: entry.draft.thinkingLevel,
+            label: labels.thinkingUnavailable(entry.draft.thinkingLevel),
+            disabled: true,
+          },
+        ]
+      : []),
+  ]
+  const approvalOptions: readonly LumenControlOption[] = (['inherit', 'deny', 'ask', 'sandbox', 'allow'] as const).map(
+    (option) => ({ id: option, label: labels.approvalOptions[option] }),
+  )
+  const sandboxOptions: readonly LumenControlOption[] = [
+    { id: '', label: labels.inheritSandbox },
+    ...sandboxProfiles.list.items.map((profile) => ({ id: profile.id, label: profile.name })),
+  ]
+  const selectedSandboxProfile = sandboxProfiles.list.items.find(
+    (profile) => profile.id === entry?.draft.sandboxProfileId,
+  )
   const openSession = (agent: Agent, configure = false) => {
     if (openState?.status === 'submitting') return
     const source = tabs.items.find((item) => item.kind === 'session' && item.sessionId === agent.parentSessionId)
@@ -290,29 +334,23 @@ export function HbarAgentWorkspace({
                 />
               </LumenFormField>
               <LumenFormField controlId={`${instanceId}-agent-profile`} label={labels.profile}>
-                <LumenSelect
+                <LumenPopupSelect
                   id={`${instanceId}-agent-profile`}
                   value={entry.draft.profileId}
-                  onChange={(event) => setField('profileId', event.currentTarget.value)}
-                >
-                  <LumenOption value="">{labels.profileOptions.general}</LumenOption>
-                  <LumenOption value="explore">{labels.profileOptions.explore}</LumenOption>
-                </LumenSelect>
+                  options={profileOptions}
+                  disabled={creationBusy || !connected}
+                  onValueChange={(value) => setField('profileId', value)}
+                />
               </LumenFormField>
               {entry.draft.profileId === 'explore' && <LumenText as="p">{labels.exploreHint}</LumenText>}
               <LumenFormField controlId={`${instanceId}-agent-selection`} label={labels.selectionMode}>
-                <LumenSelect
+                <LumenPopupSelect
                   id={`${instanceId}-agent-selection`}
                   value={entry.draft.difficulty}
-                  onChange={(event) => setField('difficulty', event.currentTarget.value)}
-                >
-                  <LumenOption value="">{labels.manualSelection}</LumenOption>
-                  {(['simple', 'medium', 'complex'] as const).map((difficulty) => (
-                    <LumenOption key={difficulty} value={difficulty}>
-                      {labels.policy.difficulties[difficulty]}
-                    </LumenOption>
-                  ))}
-                </LumenSelect>
+                  options={difficultyOptions}
+                  disabled={creationBusy || !connected}
+                  onValueChange={(value) => setField('difficulty', value)}
+                />
               </LumenFormField>
               {!entry.draft.difficulty && (
                 <>
@@ -361,60 +399,35 @@ export function HbarAgentWorkspace({
               </LumenFormField>
               {!entry.draft.difficulty && (
                 <LumenFormField controlId={`${instanceId}-agent-thinking`} label={labels.thinkingLevel}>
-                  <LumenSelect
+                  <LumenToggleGroup
                     id={`${instanceId}-agent-thinking`}
+                    type="single"
                     value={entry.draft.thinkingLevel}
-                    onChange={(event) => setField('thinkingLevel', event.currentTarget.value)}
+                    options={thinkingOptions}
                     disabled={!selectedModel && !entry.draft.thinkingLevel}
-                  >
-                    <LumenOption value="">
-                      {entry.inheritedModel?.thinkingLevel &&
-                      selectedModel &&
-                      !selectedModel.thinkingLevels.includes(entry.inheritedModel.thinkingLevel)
-                        ? labels.thinkingDefault(selectedModel.defaultThinkingLevel)
-                        : labels.thinkingInherited(entry.inheritedModel?.thinkingLevel ?? null)}
-                    </LumenOption>
-                    {selectedModel?.thinkingLevels.map((level) => (
-                      <LumenOption key={level} value={level}>
-                        {labels.thinkingOption(level)}
-                      </LumenOption>
-                    ))}
-                    {entry.draft.thinkingLevel &&
-                      !selectedModel?.thinkingLevels.some((level) => level === entry.draft.thinkingLevel) && (
-                        <LumenOption value={entry.draft.thinkingLevel}>
-                          {labels.thinkingUnavailable(entry.draft.thinkingLevel)}
-                        </LumenOption>
-                      )}
-                  </LumenSelect>
+                    onValueChange={(value) => setField('thinkingLevel', value)}
+                  />
                 </LumenFormField>
               )}
               <LumenFormField controlId={`${instanceId}-agent-approval`} label={labels.approval}>
-                <LumenSelect
+                <LumenPopupSelect
                   id={`${instanceId}-agent-approval`}
                   value={entry.draft.approval}
-                  onChange={(event) => setField('approval', event.currentTarget.value)}
-                >
-                  {(['inherit', 'deny', 'ask', 'sandbox', 'allow'] as const).map((option) => (
-                    <LumenOption key={option} value={option}>
-                      {labels.approvalOptions[option]}
-                    </LumenOption>
-                  ))}
-                </LumenSelect>
+                  options={approvalOptions}
+                  disabled={creationBusy || !connected}
+                  onValueChange={(value) => setField('approval', value)}
+                />
               </LumenFormField>
               {(entry.draft.approval === 'sandbox' || entry.draft.approval === 'inherit') && (
                 <LumenFormField controlId={`${instanceId}-agent-sandbox`} label={labels.sandboxProfile}>
-                  <LumenSelect
+                  <LumenPopupSelect
                     id={`${instanceId}-agent-sandbox`}
                     value={entry.draft.sandboxProfileId}
-                    onChange={(event) => setField('sandboxProfileId', event.currentTarget.value)}
-                  >
-                    <LumenOption value="">{labels.inheritSandbox}</LumenOption>
-                    {sandboxProfiles.list.items.map((profile) => (
-                      <LumenOption key={profile.id} value={profile.id}>
-                        {profile.name}
-                      </LumenOption>
-                    ))}
-                  </LumenSelect>
+                    options={sandboxOptions}
+                    selectedLabel={(selectedSandboxProfile?.name ?? entry.draft.sandboxProfileId) || undefined}
+                    disabled={creationBusy || !connected}
+                    onValueChange={(value) => setField('sandboxProfileId', value)}
+                  />
                   {sandboxProfiles.list.error && (
                     <LumenText as="p" role="alert">
                       {labels.error(sandboxProfiles.list.error)}

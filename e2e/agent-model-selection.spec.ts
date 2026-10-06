@@ -7,6 +7,7 @@ import { getShellCopy } from '../apps/web/src/shell-copy'
 import { mobileShellNavigationLabel } from '../apps/web/src/mobile-shell-navigation-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { openSessionTool } from './support/session-tools-menu'
+import { expectLumenValue, selectLumenChoice, selectLumenOption } from './support/lumen-controls'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`Agent model chooser becomes a touch sheet without opening the keyboard first: ${locale}`, async ({
@@ -136,7 +137,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
       await openSessionTool(page, copy.session.tools, 'agents')
       await page.getByRole('button', { name: copy.agents.createTitle, exact: true }).click()
-      const trigger = page.locator('.hbar-agent-model-trigger')
+      const trigger = page.locator('.hbar-app-react-agent-create .hbar-agent-model-trigger')
       await expect(trigger).toBeVisible()
       await trigger.click()
       const picker = page.getByRole('dialog', { name: copy.agents.modelPicker.title, exact: true })
@@ -146,10 +147,16 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const pickerBounds = await picker.boundingBox()
       if (!triggerBounds || !pickerBounds) throw new Error('Agent model picker geometry is not measurable')
       expect(pickerBounds.height).toBeLessThanOrEqual(421)
-      expect(pickerBounds.x + pickerBounds.width).toBeCloseTo(
-        Math.min(triggerBounds.x + pickerBounds.width, 1440 - 16),
-        0,
+      const geometry = await page.evaluate(() => {
+        const rootFont = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
+        return { viewportWidth: innerWidth, gap: Math.max(8, Number.isFinite(rootFont) ? rootFont / 2 : 8) }
+      })
+      const expectedLeft = Math.min(
+        Math.max(triggerBounds.x, geometry.gap),
+        Math.max(geometry.gap, geometry.viewportWidth - pickerBounds.width - geometry.gap),
       )
+      expect(Math.abs(pickerBounds.x - expectedLeft)).toBeLessThanOrEqual(1)
+      expect(pickerBounds.x + pickerBounds.width).toBeLessThanOrEqual(geometry.viewportWidth - geometry.gap + 1)
       await page.screenshot({ path: testInfo.outputPath(`agent-model-${locale}-1440.png`) })
       const list = picker.locator('.hbar-agent-model-list')
       expect(await list.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true)
@@ -162,18 +169,18 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.keyboard.press('Enter')
       await expect(picker).not.toBeVisible()
       await expect(trigger).toContainText(longName)
-      const thinking = page.getByRole('combobox', { name: copy.agents.thinkingLevel, exact: true })
-      await expect(thinking.locator('option')).toHaveCount(4)
-      await thinking.selectOption('high')
+      const thinking = page.getByRole('radiogroup', { name: copy.agents.thinkingLevel, exact: true })
+      await expect(thinking.getByRole('radio')).toHaveCount(4)
+      await selectLumenChoice(thinking, 'high')
       await trigger.click()
       await search.fill(low.modelName)
       await picker.getByRole('option').click()
-      await expect(thinking).toHaveValue('')
-      await expect(thinking.locator('option')).toHaveCount(2)
+      await expectLumenValue(thinking, '')
+      await expect(thinking.getByRole('radio')).toHaveCount(2)
       await trigger.click()
       await search.fill(longName)
       await picker.getByRole('option').click()
-      await thinking.selectOption('high')
+      await selectLumenChoice(thinking, 'high')
       expect((await models.execute('session.getModel', { sessionId: host.ready.sessionId })).modelId).toBe(
         before.modelId,
       )
@@ -185,13 +192,69 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.keyboard.press('Escape')
       await page.setViewportSize({ width: 1440, height: 900 })
       const profile = page.getByRole('combobox', { name: copy.agents.profile, exact: true })
-      await profile.selectOption('explore')
+      await selectLumenOption(profile, 'explore')
       await expect(page.getByText(copy.agents.exploreHint)).toBeVisible()
-      await page.setViewportSize({ width: 320, height: 720 })
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
-      await page.screenshot({ path: testInfo.outputPath(`agent-explore-form-${locale}-320.png`) })
+      const policy = page.locator('.hbar-agent-policy-editor')
+      await policy.locator('.hbar-lumen-disclosure-trigger').click()
+      await expect(page.getByText(copy.agents.policy.empty, { exact: true })).toBeVisible()
+      await page.getByRole('button', { name: copy.agents.policy.add, exact: true }).click()
+      const policyRow = policy.locator('.hbar-agent-policy-row').first()
+      await expect(policyRow.locator('.hbar-agent-policy-fields')).toHaveCount(1)
+      await expect(policyRow.locator('.hbar-agent-policy-row-actions')).toHaveCount(1)
+      await expect(policyRow.locator('.hbar-agent-policy-row-actions button')).toBeVisible()
+      await expect(policyRow.locator('.hbar-agent-policy-fields > .hbar-agent-policy-row-actions')).toHaveCount(0)
+      await expect(policyRow.locator('.hbar-agent-policy-weight-row > .hbar-agent-policy-row-actions')).toHaveCount(1)
+      const approval = page.getByRole('combobox', { name: copy.agents.approval, exact: true })
+      await expectLumenValue(approval, 'inherit')
+      await selectLumenOption(approval, 'allow')
+      await expectLumenValue(approval, 'allow')
+      await selectLumenOption(approval, 'inherit')
+      await expectLumenValue(approval, 'inherit')
+      const objective = page.getByRole('textbox', { name: copy.agents.objective, exact: true })
+      const longObjective = `Verify the selected model and preserve this long task description across the narrow Agent pane. ${'Additional context '.repeat(16)}`
+      await objective.fill(longObjective)
+      for (const width of [320, 390, 768, 1024, 1440]) {
+        await page.setViewportSize({ width, height: width < 768 ? 720 : 900 })
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+        for (const field of await page.locator('.hbar-app-react-agent-create fieldset > .lumen-form-field').all()) {
+          const bounds = await field.boundingBox()
+          if (!bounds) throw new Error(`Agent field is not measurable at ${width}px`)
+          expect(bounds.x).toBeGreaterThanOrEqual(-1)
+          expect(bounds.x + bounds.width).toBeLessThanOrEqual(width + 1)
+        }
+        for (const field of await policyRow
+          .locator(
+            '.hbar-agent-policy-primary-fields > .lumen-form-field, .hbar-agent-policy-thinking, .hbar-agent-policy-weight',
+          )
+          .all()) {
+          const bounds = await field.boundingBox()
+          if (!bounds) throw new Error(`Policy field is not measurable at ${width}px`)
+          expect(bounds.x).toBeGreaterThanOrEqual(-1)
+          expect(bounds.x + bounds.width).toBeLessThanOrEqual(width + 1)
+        }
+        const slots = await policyRow.evaluate((element) => {
+          const rect = (selector: string) => {
+            const node = element.querySelector<HTMLElement>(selector)
+            if (!node) return null
+            const bounds = node.getBoundingClientRect()
+            return { top: bounds.top, bottom: bounds.bottom }
+          }
+          const primary = element.querySelector<HTMLElement>('.hbar-agent-policy-primary-fields')
+          return {
+            primaryWidth: primary?.getBoundingClientRect().width ?? 0,
+            difficulty: rect('.hbar-agent-policy-primary-fields > .lumen-form-field:first-child'),
+            model: rect('.hbar-agent-policy-primary-fields > .lumen-form-field:nth-child(2)'),
+            weight: rect('.hbar-agent-policy-weight'),
+            remove: rect('.hbar-agent-policy-row-actions button'),
+          }
+        })
+        if (slots.primaryWidth >= 384 && slots.difficulty && slots.model)
+          expect(Math.abs(slots.difficulty.top - slots.model.top)).toBeLessThanOrEqual(1)
+        if (slots.weight && slots.remove)
+          expect(Math.abs(slots.weight.bottom - slots.remove.bottom)).toBeLessThanOrEqual(1)
+        await page.screenshot({ path: testInfo.outputPath(`agent-explore-form-${locale}-${width}.png`) })
+      }
       await page.setViewportSize({ width: 1440, height: 900 })
-      await page.getByRole('textbox', { name: copy.agents.objective, exact: true }).fill('Verify the selected model')
       await page.getByRole('button', { name: copy.agents.create, exact: true }).click()
       await expect(page.getByText(copy.agents.created)).toBeVisible()
       const records = await createAgentCommandClient(host.client).execute('agent.list', {

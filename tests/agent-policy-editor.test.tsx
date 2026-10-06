@@ -163,6 +163,8 @@ test('policy surface renders Chinese and long Host copy, empty and boundary rows
     expect(html).toContain(copy.policy.unsaved)
     expect(html.match(/hbar-agent-policy-row"/g)).toHaveLength(32)
     expect(html).toContain('移除候选 32')
+    expect(html).not.toContain('<select')
+    expect(html).toContain('role="radiogroup"')
     expect(html).not.toContain('gpt-6')
   } finally {
     f.runtime.dispose()

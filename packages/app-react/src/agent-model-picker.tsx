@@ -61,6 +61,7 @@ export function AgentModelPicker({
     setOpen(value)
   })
   const selected = catalog.models.find((model) => model.id === value)
+  const currentLabel = selected?.modelName ?? (value ? labels.unavailable(value) : labels.choose)
   const { groups, remaining } = filterCatalogModels(catalog.models, query, limit, value)
   const moveOption = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.nativeEvent.isComposing || event.altKey || event.ctrlKey || event.metaKey) return
@@ -96,9 +97,10 @@ export function AgentModelPicker({
         disabled={disabled}
         {...triggerEvents}
         aria-expanded={open}
+        title={currentLabel}
       >
         <LumenText as="span" className="hbar-agent-model-current">
-          {selected?.modelName ?? (value ? labels.unavailable(value) : labels.choose)}
+          {currentLabel}
         </LumenText>
         <LumenIcon icon={ChevronDown} tier="sm" />
       </LumenButton>
@@ -188,14 +190,20 @@ export function AgentModelPicker({
                   role="option"
                   aria-selected={model.id === value}
                   disabled={!connected || catalog.status !== 'ready'}
+                  aria-label={`${model.modelName} (${model.modelId})`}
+                  title={`${model.modelName} (${model.modelId})`}
                   onClick={() => {
                     onSelect(model.id)
                     setOpen(false)
                   }}
                 >
                   <LumenText as="span" className="hbar-agent-model-option-text">
-                    <LumenText as="span">{model.modelName}</LumenText>
-                    <LumenText as="small">{model.modelId}</LumenText>
+                    <LumenText as="span" title={model.modelName}>
+                      {model.modelName}
+                    </LumenText>
+                    <LumenText as="small" title={model.modelId}>
+                      {model.modelId}
+                    </LumenText>
                   </LumenText>
                   {model.id === value && <LumenIcon icon={Check} tier="sm" />}
                 </LumenButton>
