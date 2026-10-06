@@ -125,7 +125,10 @@ const goalCommandInput = sessionInput.extend({
   objective: z.string().trim().min(1).max(MAX_GOAL_OBJECTIVE_LENGTH).optional(),
   expectedGoalId: idSchema.optional(),
 })
-const goalCommandResult = result.extend({ goalId: idSchema.optional() })
+const goalCommandResult = result.extend({
+  goalId: idSchema.optional(),
+  executionOwner: z.enum(['host', 'caller']).optional(),
+})
 const goalRunInput = sessionInput.extend({
   objective: z.string().trim().min(1).max(MAX_GOAL_OBJECTIVE_LENGTH),
   expectedGoalId: idSchema,
@@ -848,7 +851,12 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
         selected.workspaceId !== capturedNavigation.workspaceId
       )
         throw new CommandError('STALE_TARGET', 'Goal command target changed before dispatch')
-      if (options.isRunActive?.(sessionId))
+      const replacing =
+        input.action === 'set' &&
+        before.goal &&
+        before.goal.status !== 'complete' &&
+        before.goal.objective !== input.objective
+      if (options.isRunActive?.(sessionId) && !replacing)
         throw new CommandError('RUN_ACTIVE', 'Wait for the current Run before changing its Goal')
       if (before.goal && before.goal.status !== 'complete' && before.goal.goalId !== input.expectedGoalId)
         throw new CommandError('GOAL_CONFLICT', 'Confirm the current Goal before changing it')
@@ -903,7 +911,11 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       abandonReplacedGoalSlash(sessionId, goalId)
       replace({ ...entry(sessionId), goalAction: { status: 'succeeded', error: null } })
       refreshSelected(sessionId)
-      return { sessionId, ...(goalId ? { goalId } : {}) }
+      return {
+        sessionId,
+        ...(goalId ? { goalId } : {}),
+        executionOwner: replacing ? ('host' as const) : ('caller' as const),
+      }
     } catch (error) {
       const unknown = dispatched && UNKNOWN_CODES.has(code(error))
       if (!unknown) controls.delete(sessionId)

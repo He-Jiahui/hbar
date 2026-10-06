@@ -87,6 +87,7 @@ import {
 import {
   localAgentSlash,
   localGoalSlash,
+  goalSlashReplacesCurrent,
   localSlashCanSubmit,
   localSlashCommand,
   type LocalSlashCommand,
@@ -633,6 +634,11 @@ function SessionWorkspaceContent({
     if (localSlashInFlight.current) return
     const selected = runtime.state.navigation.getSnapshot()
     const latest = runtime.state.drafts.getSnapshot()[target.sessionId]
+    const goalFacts = runtime.state.composerIntent.getSnapshot().facts
+    const replacing = goalSlashReplacesCurrent(
+      command,
+      goalFacts.sessionId === target.sessionId ? goalFacts.snapshot?.goal : null,
+    )
     if (
       selected.sessionId !== target.sessionId ||
       selected.workspaceId !== target.workspaceId ||
@@ -642,7 +648,7 @@ function SessionWorkspaceContent({
       latest.workspaceContexts?.length ||
       latest.attachments.length ||
       latest.attachmentTransfers.length ||
-      activeRun
+      (activeRun && !replacing)
     )
       return
     localSlashInFlight.current = true
@@ -652,6 +658,7 @@ function SessionWorkspaceContent({
       const currentModel = modelState.sessionId === target.sessionId ? modelState.model : null
       if (
         command.action === 'set' &&
+        !replacing &&
         (!currentModel || currentModel.status !== 'configured' || !currentModel.modelId)
       ) {
         setSlashFailure({ sessionId: target.sessionId, code: 'MODEL_NOT_CONFIGURED' })
@@ -659,7 +666,7 @@ function SessionWorkspaceContent({
       }
       const permissionState = runtime.state.composerPermission.getSnapshot()
       const permission = permissionState.entries[target.sessionId]
-      if (command.action === 'set' && permission?.locked) {
+      if (command.action === 'set' && permission?.locked && !replacing) {
         setSlashFailure({ sessionId: target.sessionId, code: 'SUBMISSION_PENDING' })
         return
       }
@@ -668,7 +675,9 @@ function SessionWorkspaceContent({
         ...command,
         ...(expectedGoalId ? { expectedGoalId } : {}),
       })
-      if (command.action === 'set') {
+      const hostOwnsExecution =
+        result && typeof result === 'object' && 'executionOwner' in result && result.executionOwner === 'host'
+      if (command.action === 'set' && !hostOwnsExecution) {
         const goalId =
           result && typeof result === 'object' && 'goalId' in result && typeof result.goalId === 'string'
             ? result.goalId
@@ -795,6 +804,10 @@ function SessionWorkspaceContent({
       const currentIntent = runtime.state.composerIntent.getSnapshot().entries[targetSessionId]
       const currentPermission = runtime.state.composerPermission.getSnapshot().entries[targetSessionId]
       const currentModelAction = runtime.state.composerModel.getSnapshot()
+      const pendingGoalCommand = slash === 'goal' && latest ? localGoalSlash(latest.text) : null
+      const currentGoalFacts = runtime.state.composerIntent.getSnapshot().facts
+      const currentGoal = currentGoalFacts.sessionId === targetSessionId ? currentGoalFacts.snapshot?.goal : null
+      const activeGoalReplacement = Boolean(activeRun && goalSlashReplacesCurrent(pendingGoalCommand, currentGoal))
       if (
         !connected ||
         selected.sessionId !== targetSessionId ||
@@ -806,7 +819,7 @@ function SessionWorkspaceContent({
             currentModelAction.sessionId === targetSessionId &&
             ['submitting', 'unknown'].includes(currentModelAction.action.status),
           intentPending: ['submitting', 'unknown'].includes(currentIntent?.submission.status ?? ''),
-          permissionLocked: Boolean(currentPermission?.locked),
+          permissionLocked: Boolean(currentPermission?.locked) && !activeGoalReplacement,
         }) ||
         localSlashInFlight.current
       )
@@ -829,7 +842,7 @@ function SessionWorkspaceContent({
           setSlashFailure({ sessionId: targetSessionId, code: 'GOAL_REQUIRED' })
           return
         }
-        if (activeRun) {
+        if (activeRun && !activeGoalReplacement) {
           setSlashFailure({ sessionId: targetSessionId, code: 'GOAL_RUN_ACTIVE' })
           return
         }
@@ -1688,6 +1701,10 @@ function SessionWorkspaceContent({
     ) : null
 
   const retryTimeline = () => sessionId && invoke('timeline.retry', { sessionId })
+  const draftGoalReplacement = goalSlashReplacesCurrent(
+    localSlashCommand(draft?.text ?? '', slashIds) === 'goal' ? localGoalSlash(draft?.text ?? '') : null,
+    composerIntent.facts.sessionId === sessionId ? composerIntent.facts.snapshot?.goal : null,
+  )
   const loadOlder = () => sessionId && invoke('timeline.loadOlder', { sessionId })
   const historyNotices = sessionId ? (
     <LumenFrame className="hbar-app-react-session-history-controls">
@@ -2149,7 +2166,7 @@ function SessionWorkspaceContent({
                   draftStatus: draft?.status,
                   modelPending,
                   intentPending: Boolean(intentPending),
-                  permissionLocked: Boolean(permissionEntry?.locked),
+                  permissionLocked: Boolean(permissionEntry?.locked) && !draftGoalReplacement,
                 }) &&
                 (localSlashCommand(draft?.text ?? '', slashIds) !== 'goal' ||
                   !['submitting', 'unknown'].includes(intentEntry?.goalAction.status ?? ''))

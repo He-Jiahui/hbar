@@ -895,6 +895,35 @@ test('Goal slash does not invalidate a running task', async () => {
   }
 })
 
+test('an identity-confirmed running Goal replacement is owned by the Host and never submits a duplicate user Run', async () => {
+  const f = fixture()
+  try {
+    const original = f.makeGoal('one', 'Original')
+    f.setGoal('one', original)
+    f.select('one')
+    f.runActive(true)
+    await expect(
+      f.local.execute('composerIntent.commandGoal', {
+        sessionId: 'one',
+        action: 'set',
+        objective: 'Replacement',
+        expectedGoalId: 'stale',
+      }),
+    ).rejects.toMatchObject({ code: 'GOAL_CONFLICT' })
+    const result = await f.local.execute('composerIntent.commandGoal', {
+      sessionId: 'one',
+      action: 'set',
+      objective: 'Replacement',
+      expectedGoalId: original.goalId,
+    })
+    expect(result).toMatchObject({ sessionId: 'one', executionOwner: 'host' })
+    expect(f.value('one').goal?.objective).toBe('Replacement')
+    expect(f.calls.map((call) => call.name)).toEqual(['goal.set'])
+  } finally {
+    f.dispose()
+  }
+})
+
 test('uncertain Goal slash write freezes repeat writes until current Host facts are reconciled', async () => {
   const f = fixture()
   try {

@@ -52,6 +52,16 @@ export function localGoalSlash(text: string): { action: 'set'; objective: string
   return objective ? { action: 'set', objective } : null
 }
 
+/** An identity-confirmed replacement is a Host mutation, including during an active Run. */
+export function goalSlashReplacesCurrent(
+  command: ReturnType<typeof localGoalSlash>,
+  goal: { readonly objective: string; readonly status: string } | null | undefined,
+): boolean {
+  return Boolean(
+    command?.action === 'set' && goal && goal.status !== 'complete' && goal.objective !== command.objective,
+  )
+}
+
 export function localSlashCanSubmit(input: {
   readonly draftStatus: 'idle' | 'submitting' | 'unknown' | 'failed' | undefined
   readonly modelPending: boolean
