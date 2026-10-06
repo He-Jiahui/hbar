@@ -11,6 +11,7 @@
 }
 
 .hbar-session-message-blocks {
+  --hbar-session-tool-label-width: 7.5rem;
   gap: 12px;
 }
 .hbar-session-disclosure-heading {
@@ -185,12 +186,19 @@
 }
 .hbar-session-tool .hbar-session-disclosure-identity {
   align-items: center;
+  flex-wrap: wrap;
+}
+.hbar-session-tool .hbar-session-disclosure-preview {
+  flex: 1 1 8ch;
 }
 .hbar-session-tool .hbar-session-disclosure-label {
   display: inline-flex;
+  flex: 0 0 var(--hbar-session-tool-label-width);
+  inline-size: var(--hbar-session-tool-label-width);
+  box-sizing: border-box;
   align-items: center;
   gap: 4px;
-  max-inline-size: 50%;
+  max-inline-size: var(--hbar-session-tool-label-width);
   padding: 2px 6px;
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
@@ -198,8 +206,8 @@
   color: var(--lumen-muted);
   white-space: nowrap;
 }
-.hbar-session-tool .hbar-session-disclosure-label:only-child {
-  max-inline-size: 100%;
+.hbar-session-tool .hbar-session-disclosure-label-text {
+  flex: 1 1 auto;
 }
 .hbar-session-disclosure-content[hidden],
 .hbar-session-activity-steps[hidden] {

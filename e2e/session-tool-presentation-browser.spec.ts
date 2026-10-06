@@ -242,6 +242,74 @@ async function readableSummary(tool: Locator) {
   return geometry
 }
 
+for (const locale of ['en-US', 'zh-CN'] as const) {
+  test(`tool badges have a stable width and never abbreviate short labels: ${locale}`, async ({ browser }, info) => {
+    const f = await open(browser, locale, 1440)
+    try {
+      const shortCommand = call(
+        'short-command',
+        { version: 1, kind: 'command', commandField: 'cmd' },
+        { cmd: 'bun test' },
+      )
+      const longCommand = call('long-command', { version: 1, kind: 'command', commandField: 'cmd' }, { cmd: command })
+      const read = call('short-read', { version: 1, kind: 'file-read', pathField: 'path' }, { path: 'README.md' })
+      const calls = [shortCommand, longCommand, read]
+      await render(f.page, {
+        locale,
+        messages: calls.map((item) => message([item, result(item, false, 'done')], item.callId)),
+      })
+      for (const width of [1440, 1024, 768, 390, 320]) {
+        await f.page.setViewportSize({ width, height: 960 })
+        const badges = f.page.locator('.hbar-session-tool .hbar-session-disclosure-label')
+        await expect(badges).toHaveCount(3)
+        const geometry = await badges.evaluateAll((elements) =>
+          elements.map((element) => {
+            const rect = element.getBoundingClientRect()
+            const text = element.querySelector('.hbar-session-disclosure-label-text')
+            if (!text) throw new Error('Tool badge does not expose its label')
+            const preview = element.parentElement?.querySelector('.hbar-session-disclosure-preview')
+            if (!preview) throw new Error('Tool badge does not expose its preview')
+            return {
+              width: rect.width,
+              left: rect.left,
+              previewLeft: preview.getBoundingClientRect().left,
+              clipped: text.scrollWidth > text.clientWidth + 1,
+            }
+          }),
+        )
+        expect(
+          Math.max(...geometry.map((item) => item.width)) - Math.min(...geometry.map((item) => item.width)),
+        ).toBeLessThanOrEqual(1)
+        expect(
+          Math.max(...geometry.map((item) => item.left)) - Math.min(...geometry.map((item) => item.left)),
+        ).toBeLessThanOrEqual(1)
+        expect(
+          Math.max(...geometry.map((item) => item.previewLeft)) - Math.min(...geometry.map((item) => item.previewLeft)),
+        ).toBeLessThanOrEqual(1)
+        expect(geometry.every((item) => !item.clipped)).toBe(true)
+        const shortPreview = row(f.page, 'short-command').locator('.hbar-session-disclosure-preview')
+        await expect(shortPreview).toHaveText('bun test')
+        expect(await shortPreview.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
+        await noOverflow(f.page)
+        if (width === 1440 || width === 320) await screenshot(f.page, info, `fixed-tool-badges-${locale}-${width}`)
+      }
+      await render(f.page, {
+        locale,
+        longLabels: true,
+        messages: calls.map((item) => message([item, result(item, false, 'done')], item.callId)),
+      })
+      const label = row(f.page, 'short-command').locator('.hbar-session-disclosure-label-text')
+      expect(await label.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true)
+      expect(await label.getAttribute('title')).toBe(await label.textContent())
+      await noOverflow(f.page)
+      expect(f.errors).toEqual([])
+      expect(f.requests).toEqual([])
+    } finally {
+      await f.context.close()
+    }
+  })
+}
+
 for (const locale of ['en-US', 'zh-CN'] as const)
   for (const width of [1440, 320]) {
     test(`colored tool source retains exact JSON, terminal logs and Copy ${locale} ${width}`, async ({
