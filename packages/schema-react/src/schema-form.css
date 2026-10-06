@@ -30,6 +30,18 @@
   flex: 1 1 25rem;
 }
 
+.hbar-schema-form[data-field-layout='stacked'] .hbar-schema-form-field {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.hbar-schema-form[data-field-layout='stacked'] .hbar-schema-form-copy,
+.hbar-schema-form[data-field-layout='stacked'] .hbar-schema-form-control {
+  flex: 0 0 auto;
+  inline-size: 100%;
+}
+
 .hbar-schema-form-copy label {
   font-weight: 600;
 }

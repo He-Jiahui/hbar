@@ -29,6 +29,7 @@ export interface HbarSchemaFormProps {
   readonly content?: Readonly<Record<string, SchemaFieldContent>>
   readonly controlRevisions?: Readonly<Record<string, number>>
   readonly fieldNames?: readonly string[]
+  readonly layout?: 'rows' | 'stacked'
   readonly disabled?: boolean
   readonly renderFieldContext?: (field: CompiledField) => ReactNode
   readonly renderFieldActions?: (field: CompiledField) => ReactNode
@@ -47,6 +48,7 @@ export function HbarSchemaForm({
   content = {},
   controlRevisions = {},
   fieldNames,
+  layout = 'rows',
   disabled = false,
   renderFieldContext,
   renderFieldActions,
@@ -54,7 +56,7 @@ export function HbarSchemaForm({
 }: HbarSchemaFormProps) {
   const visible = fieldNames ? new Set(fieldNames) : null
   return (
-    <div className="hbar-schema-form">
+    <div className="hbar-schema-form" data-field-layout={layout}>
       {schema.fields
         .filter((field) => !visible || visible.has(field.name))
         .map((field) => {

@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { encodePath, type CompiledField, type FieldItemValue, type FieldValue } from '@hbar/schema-core'
+import type { SettingsWorkspaceLayout } from '@hbar/contracts/commands/settings'
 import {
   HbarSchemaForm,
   type HbarSchemaFormLabels,
@@ -91,6 +92,7 @@ export interface HbarSettingsWorkspaceProps {
   readonly pendingGroups?: readonly HbarSettingsAdditionalGroup[]
   /** Presentation only: fixed-scope groups do not change the underlying layered form or its draft. */
   readonly groupPresentation?: readonly HbarSettingsGroupPresentation[]
+  readonly layout?: SettingsWorkspaceLayout
   readonly renderGroup?: (groupId: string) => ReactNode
   readonly headerActions?: ReactNode
 }
@@ -119,6 +121,7 @@ export interface HbarSettingsGroupPresentation {
   readonly scope: 'layered' | 'host' | 'client' | 'mixed'
   /** Navigation order only; the Host description still owns form field order. */
   readonly order?: number
+  readonly form?: 'standard' | 'preferences' | 'api' | 'danger' | undefined
 }
 
 const groupIcons = {
@@ -152,6 +155,7 @@ export function HbarSettingsWorkspace({
   additionalGroups = [],
   pendingGroups = [],
   groupPresentation = [],
+  layout = { alignment: 'start', width: 'standard', fields: 'stacked' },
   renderGroup,
   headerActions,
 }: HbarSettingsWorkspaceProps) {
@@ -258,13 +262,15 @@ export function HbarSettingsWorkspace({
     [entry?.description, entry?.selectedGroup],
   )
   const contentRecovery = useSettingsContentRecovery(entry, activeGroupId, fieldNames, connected)
-  const SettingsRecipe = activeGroupId?.toLowerCase().includes('api')
-    ? LumenSettingsForm05
-    : activeGroupId?.toLowerCase().includes('danger')
-      ? LumenSettingsForm06
-      : activeGroupId?.toLowerCase().includes('preference')
-        ? LumenSettingsForm03
-        : LumenSettingsForm01
+  const formRecipe = activeGroupId ? presentationByGroup.get(activeGroupId)?.form : undefined
+  const SettingsRecipe =
+    formRecipe === 'api'
+      ? LumenSettingsForm05
+      : formRecipe === 'danger'
+        ? LumenSettingsForm06
+        : formRecipe === 'preferences'
+          ? LumenSettingsForm03
+          : LumenSettingsForm01
 
   const reportError = useCallback((reason: unknown) => setActionError(reasonCode(reason)), [])
   const openSettings = (scope: 'global' | 'workspace' | 'session', targetId: string | null, section: string | null) => {
@@ -393,7 +399,12 @@ export function HbarSettingsWorkspace({
   }
 
   return (
-    <LumenFrame as="section" className="hbar-app-react-settings-workspace">
+    <LumenFrame
+      as="section"
+      className="hbar-app-react-settings-workspace"
+      data-settings-alignment={layout.alignment}
+      data-settings-width={layout.width}
+    >
       <LumenPageHeader
         title={labels.pageTitle}
         context={fixedScopeLabel === null ? labels.title(entry?.scope.kind ?? 'global', selectedTargetName) : undefined}
@@ -440,6 +451,7 @@ export function HbarSettingsWorkspace({
           {groups.map((group) => (
             <LumenNavigationButton
               key={group.id}
+              data-settings-group={group.id}
               size="s"
               selected={activeGroupId === group.id}
               onClick={() => selectGroup(group.id)}
@@ -463,7 +475,9 @@ export function HbarSettingsWorkspace({
             />
           </LumenFrame>
           {localCustomGroup ? (
-            <LumenFrame className="hbar-app-react-settings-scroll">{suspendedCustomGroup}</LumenFrame>
+            <LumenFrame className="hbar-app-react-settings-scroll">
+              <LumenFrame className="hbar-app-react-settings-content">{suspendedCustomGroup}</LumenFrame>
+            </LumenFrame>
           ) : !entry || entry.status === 'loading' ? (
             <LumenText as="p" className="hbar-app-react-settings-state" role="status">
               {labels.loading}
@@ -486,33 +500,36 @@ export function HbarSettingsWorkspace({
                 </LumenFrame>
               )}
               <LumenFrame className="hbar-app-react-settings-scroll">
-                {suspendedCustomGroup ?? (
-                  <SettingsRecipe
-                    slots={{
-                      content: (
-                        <HbarSchemaForm
-                          schema={entry.schema}
-                          state={entry.form}
-                          components={components}
-                          labels={{
-                            ...labels.form,
-                            resolve: labels.resolve,
-                            help: (field) => {
-                              const key = definitions.get(field.name)?.helpKey
-                              return key ? labels.resolve(key) : undefined
-                            },
-                          }}
-                          content={entry.content}
-                          disabled={busy || unknown}
-                          fieldNames={fieldNames}
-                          renderFieldContext={fieldContext}
-                          renderFieldActions={fieldActions}
-                          onIntent={dispatchIntent}
-                        />
-                      ),
-                    }}
-                  />
-                )}
+                <LumenFrame className="hbar-app-react-settings-content">
+                  {suspendedCustomGroup ?? (
+                    <SettingsRecipe
+                      slots={{
+                        content: (
+                          <HbarSchemaForm
+                            schema={entry.schema}
+                            state={entry.form}
+                            components={components}
+                            labels={{
+                              ...labels.form,
+                              resolve: labels.resolve,
+                              help: (field) => {
+                                const key = definitions.get(field.name)?.helpKey
+                                return key ? labels.resolve(key) : undefined
+                              },
+                            }}
+                            content={entry.content}
+                            disabled={busy || unknown}
+                            fieldNames={fieldNames}
+                            layout={layout.fields}
+                            renderFieldContext={fieldContext}
+                            renderFieldActions={fieldActions}
+                            onIntent={dispatchIntent}
+                          />
+                        ),
+                      }}
+                    />
+                  )}
+                </LumenFrame>
               </LumenFrame>
               {!customGroup && (
                 <LumenFrame as="footer" className="hbar-app-react-settings-footer">

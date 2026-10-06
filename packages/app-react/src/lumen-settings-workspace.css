@@ -1,4 +1,5 @@
 .hbar-app-react-settings-workspace {
+  --hbar-settings-content-width: 54rem;
   display: flex;
   container: hbar-settings-workspace / inline-size;
   min-inline-size: 0;
@@ -96,7 +97,7 @@
 }
 
 .hbar-app-react-settings-content-header {
-  inline-size: min(100%, 54rem);
+  inline-size: min(100%, var(--hbar-settings-content-width));
   flex: 0 0 auto;
   margin-inline: auto;
   padding: 1rem 1rem 0.5rem;
@@ -130,10 +131,28 @@
   padding: 0 1rem 1rem;
 }
 
-.hbar-app-react-settings-scroll > .hbar-schema-form,
-.hbar-app-react-settings-scroll > .hbar-app-react-provider-list {
-  inline-size: min(100%, 50rem);
+.hbar-app-react-settings-content {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  inline-size: min(100%, var(--hbar-settings-content-width));
   margin-inline: auto;
+}
+
+.hbar-app-react-settings-scroll > .hbar-app-react-settings-content > * {
+  inline-size: 100%;
+  max-inline-size: none;
+  margin-inline: 0;
+}
+
+.hbar-app-react-settings-workspace[data-settings-width='wide'] {
+  --hbar-settings-content-width: 70rem;
+}
+
+.hbar-app-react-settings-workspace[data-settings-alignment='start'] .hbar-app-react-settings-content,
+.hbar-app-react-settings-workspace[data-settings-alignment='start'] .hbar-app-react-settings-content-header,
+.hbar-app-react-settings-workspace[data-settings-alignment='start'] .hbar-app-react-settings-footer-inner {
+  margin-inline: 0;
 }
 
 .hbar-app-react-settings-footer {
@@ -152,7 +171,7 @@
 }
 
 .hbar-app-react-settings-footer-inner {
-  inline-size: min(100%, 54rem);
+  inline-size: min(100%, var(--hbar-settings-content-width));
   min-block-size: 3.75rem;
   justify-content: space-between;
   margin-inline: auto;

@@ -9,13 +9,13 @@ import {
 } from '@hbar/app-react'
 import { createAppRuntime } from '@hbar/app-runtime'
 import type { CommandExecutor } from '@hbar/commands'
-import { settingsCommands } from '@hbar/contracts/commands/settings'
+import { settingsCommands, settingsWorkspacePresentationSchema } from '@hbar/contracts/commands/settings'
 import type { Session, Workspace } from '@hbar/contracts/directory'
 import { HBAR_SETTINGS_DEFINITIONS, HBAR_SETTINGS_DESCRIPTION } from '@hbar/kernel'
 import { encodePath, type FieldIssue, type FieldValue } from '@hbar/schema-core'
 import { resolveSettings } from '@hbar/settings-core'
 import { getShellCopy } from '../apps/web/src/shell-copy'
-import { WEB_SETTINGS_GROUP_PRESENTATION } from '../apps/web/src/settings-group-presentation'
+import { WEB_SETTINGS_GROUP_PRESENTATION, WEB_SETTINGS_LAYOUT } from '../apps/web/src/settings-group-presentation'
 
 const workspace: Workspace = { id: 'workspace-settings', name: 'Schema 工程', path: 'D:/schema', createdAt: 1 }
 const session: Session = {
@@ -147,6 +147,50 @@ async function waitForReady(runtime: ReturnType<typeof createAppRuntime>) {
   }
   throw new Error('Settings form did not become ready')
 }
+
+test('settings presentation validates explicit layout and recipes without changing field components or drafts', async () => {
+  expect(WEB_SETTINGS_LAYOUT).toEqual({ alignment: 'start', width: 'standard', fields: 'stacked' })
+  const raw = { schemaVersion: 1, layout: WEB_SETTINGS_LAYOUT, groups: WEB_SETTINGS_GROUP_PRESENTATION }
+  expect(
+    settingsWorkspacePresentationSchema.safeParse({ ...raw, layout: { ...raw.layout, alignment: 'arbitrary' } })
+      .success,
+  ).toBe(false)
+  expect(
+    settingsWorkspacePresentationSchema.safeParse({ ...raw, groups: [raw.groups[0], raw.groups[0]] }).success,
+  ).toBe(false)
+  const runtime = createAppRuntime({
+    instanceId: 'settings-explicit-layout',
+    hostId: 'host',
+    directory,
+    settings,
+    surfaces: { canRender: (id) => id === 'settings' },
+  })
+  try {
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'model' })
+    const entry = await waitForReady(runtime)
+    const html = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarSettingsWorkspace
+          labels={labels}
+          connected
+          layout={WEB_SETTINGS_LAYOUT}
+          groupPresentation={WEB_SETTINGS_GROUP_PRESENTATION}
+        />
+      </HbarRuntimeProvider>,
+    )
+    expect(html).toContain('data-settings-alignment="start"')
+    expect(html).toContain('data-field-layout="stacked"')
+    expect(html).toContain('hbar-app-react-settings-content')
+    expect(
+      entry.description?.fields.find(
+        (field) => field.path[0]?.kind === 'field' && field.path[0].name === 'provider.model',
+      )?.component,
+    ).toBe('ComboBox')
+    expect(entry.form?.dirty).toEqual([])
+  } finally {
+    runtime.dispose()
+  }
+})
 
 test('host-owned global settings landing keeps explicit and prior choices without retargeting session settings', async () => {
   const runtime = createAppRuntime({

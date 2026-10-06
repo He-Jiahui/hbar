@@ -1,6 +1,44 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
 
+/** Serializable presentation only. Fields and persistence remain owned by SettingsDescription. */
+export const settingsWorkspacePresentationSchema = z
+  .strictObject({
+    schemaVersion: z.literal(1),
+    layout: z.strictObject({
+      alignment: z.enum(['start', 'center']),
+      width: z.enum(['standard', 'wide']),
+      fields: z.enum(['stacked', 'rows']),
+    }),
+    groups: z
+      .array(
+        z.strictObject({
+          id: z.string().min(1).max(128),
+          icon: z.enum([
+            'appearance',
+            'model',
+            'session',
+            'providers',
+            'sandbox',
+            'extensions',
+            'skills',
+            'diagnostics',
+            'usage',
+            'settings',
+          ]),
+          scope: z.enum(['layered', 'host', 'client', 'mixed']),
+          order: z.number().int().nonnegative(),
+          form: z.enum(['standard', 'preferences', 'api', 'danger']).optional(),
+        }),
+      )
+      .max(64),
+  })
+  .superRefine((value, context) => {
+    if (new Set(value.groups.map((group) => group.id)).size !== value.groups.length)
+      context.addIssue({ code: 'custom', message: 'Settings presentation group IDs must be unique' })
+  })
+export type SettingsWorkspaceLayout = z.output<typeof settingsWorkspacePresentationSchema>['layout']
+
 export const schemaPathSchema = z
   .array(
     z.discriminatedUnion('kind', [

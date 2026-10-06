@@ -110,7 +110,7 @@ import { getShellCopy, type ShellLocale } from './shell-copy'
 import { SettingsPageFocusBoundary } from './SettingsPageFocusBoundary'
 import { GlobalFeaturePage } from './GlobalFeaturePage'
 import { globalFeatureCopy, isGlobalFeaturePageId, type GlobalFeaturePageId } from './global-feature-copy'
-import { WEB_SETTINGS_GROUP_PRESENTATION } from './settings-group-presentation'
+import { WEB_SETTINGS_GROUP_PRESENTATION, WEB_SETTINGS_LAYOUT } from './settings-group-presentation'
 import { WorkspaceTabsController } from './WorkspaceTabsController'
 import { workspaceTabsCopy } from './workspace-tabs-copy'
 import { sessionContextCopy } from './session-context-copy'
@@ -713,6 +713,7 @@ function WorkspaceBodyContent({
         labels={copy.settings}
         connected={connected}
         groupPresentation={WEB_SETTINGS_GROUP_PRESENTATION}
+        layout={WEB_SETTINGS_LAYOUT}
         pendingGroups={[
           { id: 'providers', label: copy.settings.resolve('i18n:settings.groups.providers'), order: 0 },
           { id: 'sandbox', label: copy.settings.resolve('i18n:settings.groups.sandbox'), order: 35 },
