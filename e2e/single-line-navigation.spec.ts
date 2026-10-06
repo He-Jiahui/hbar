@@ -45,13 +45,24 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await expect(page.getByRole('tab', { name: title, exact: true })).toBeVisible()
       await completeLine(page.locator('.hbar-workspace-tab-title'))
       const navigation = page
-        .locator('.hbar-app-react-project-tree .hbar-app-react-session-label [data-variant]')
+        .locator('.hbar-app-react-project-tree .hbar-app-react-session-label .hbar-sidebar-caption-text')
         .first()
       await expect(navigation).toHaveText(title)
       await completeLine(navigation)
       await completeLine(page.locator('.hbar-web-feature-navigation > button'))
       const pane = page.locator('.lumen-app-sidebar-content')
-      expect(await pane.evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(true)
+      const caption = navigation.locator('..')
+      const captionStyles = await caption.evaluate((node) => ({
+        overflow: getComputedStyle(node).overflowX,
+        ellipsis: getComputedStyle(node).textOverflow,
+        scrollable: node.scrollWidth > node.clientWidth,
+      }))
+      expect(captionStyles).toMatchObject({ overflow: 'auto', ellipsis: 'clip', scrollable: true })
+      await caption.focus()
+      await caption.press('ArrowRight')
+      await expect.poll(() => caption.evaluate((node) => node.scrollLeft > 0)).toBe(true)
+      await expect(session).toHaveAttribute('aria-selected', 'true')
+      expect(await pane.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true)
       for (const width of [1440, 900, 390, 320]) {
         await page.setViewportSize({ width, height: 960 })
         const tabsVisible = await page.locator('.hbar-workspace-tab-title').first().isVisible()

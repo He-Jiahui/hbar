@@ -15,6 +15,7 @@ import {
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { SessionArchiveFeedback, type SessionArchiveLabels } from './session-archive'
 import { SessionActivityIndicator, type SessionActivityIndicatorContent } from './session-activity-indicator'
+import { SidebarCaption } from './sidebar-caption'
 
 export interface SessionRenameLabels {
   readonly form: (title: string) => string
@@ -236,9 +237,11 @@ export function SessionNavigationRow({
         {metadata ? (
           <>
             <LumenFrame className="hbar-app-react-session-main-line">
-              <LumenText as="span" size="s" variant="label" className="hbar-app-react-session-title">
-                {session.title}
-              </LumenText>
+              <SidebarCaption
+                text={session.title}
+                className="hbar-app-react-session-title"
+                focusable={Boolean(treeNode)}
+              />
               {sessionTime}
               <SessionActivityIndicator execution={metadata.execution} />
             </LumenFrame>
@@ -257,9 +260,11 @@ export function SessionNavigationRow({
           </>
         ) : (
           <>
-            <LumenText as="span" size="s" variant="label" className="hbar-app-react-session-title">
-              {session.title}
-            </LumenText>
+            <SidebarCaption
+              text={session.title}
+              className="hbar-app-react-session-title"
+              focusable={Boolean(treeNode)}
+            />
             <SessionActivityIndicator execution={execution} />
             {sessionTime}
           </>

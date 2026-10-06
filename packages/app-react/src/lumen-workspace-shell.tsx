@@ -42,6 +42,7 @@ import {
 } from '@lumen/app-ui'
 import { HbarActionIconButton } from './action-icon-button'
 import { WorkspaceSidebarRail } from './workspace-sidebar-rail'
+import { SidebarCaption } from './sidebar-caption'
 import {
   SESSION_ARCHIVE_BATCH_MAX_ITEMS,
   orderWorkspaceActivityIds,
@@ -1621,9 +1622,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                     <LumenFrame className="hbar-app-react-workspace-line">
                       <LumenFrame className="hbar-app-react-workspace-row" title={workspace.path}>
                         <WorkspaceShellIcon name={isExpanded ? 'folder-open' : 'folder'} />
-                        <LumenText size="s" variant="label" title={displayName}>
-                          {displayName}
-                        </LumenText>
+                        <SidebarCaption text={displayName} focusable />
                         {isPinned && (
                           <LumenText
                             as="span"
