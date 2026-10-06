@@ -2,12 +2,13 @@ import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { LumenText } from '@lumen/app-ui'
 import { SidebarTimeView } from '@hbar/app-react'
+import { getShellCopy } from '../apps/web/src/shell-copy'
 
 test('time view keeps project, parent-session and subagent levels in document order', () => {
   const html = renderToStaticMarkup(
     <SidebarTimeView
       groups={[{ id: 'today', sessionIds: ['parent-a', 'parent-b', 'parent-a-child'] }]}
-      labels={{ today: '今天' }}
+      labels={getShellCopy('zh-CN').shell.sort.time.groups}
       projectForSession={(sessionId) => ({
         id: sessionId === 'parent-b' ? 'project-b' : 'project-a',
         label: sessionId === 'parent-b' ? '项目 B' : '项目 A',
