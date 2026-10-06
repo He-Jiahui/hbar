@@ -1,0 +1,28 @@
+/* Full captions may scroll; action controls must remain inside the modal's flow. */
+.hbar-workspace-folders-dialog .hbar-workspace-folder-browser-list .lumen-tree-row {
+  min-inline-size: 0;
+}
+.hbar-workspace-folders-dialog .hbar-workspace-folder-browser-label,
+.hbar-workspace-folders-dialog .hbar-workspace-folder-header > strong {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  text-overflow: clip;
+  scrollbar-width: thin;
+}
+.hbar-workspace-folders-dialog .hbar-workspace-folder-selection > button {
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+.hbar-workspace-folders-dialog .hbar-workspace-folder-selection-name {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow-x: auto;
+  text-overflow: clip;
+  scrollbar-width: thin;
+}
+.hbar-workspace-folders-dialog .hbar-workspace-folders-actions {
+  flex-wrap: wrap;
+}

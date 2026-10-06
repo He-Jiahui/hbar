@@ -18,6 +18,7 @@ import { WORKSPACE_FOLDER_LIMIT } from '@hbar/contracts/commands/workspace-folde
 import { HbarActionIconButton } from './action-icon-button'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './workspace-folders.css'
+import './workspace-folder-flow.css'
 
 export interface WorkspaceFoldersLabels {
   readonly create: string
