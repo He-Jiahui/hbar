@@ -228,6 +228,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   )
   const budgetCommands = createBudgetCommands(kernel.plugins.get<BudgetService>('budget'))
   const fileCommands = createFileCommands(kernel.storage, resolveExecutionProvider(kernel), {
+    resolveWorkspacePath: (workspaceId, path, signal) => kernel.workspaceSandboxes.prepare(workspaceId, path, signal),
     resolveSessionPath: (sessionId, workspacePath, signal) =>
       kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
   })
@@ -1252,7 +1253,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       case 'file.read': {
         const p = rpcSchemas[method].parse(raw)
         const workspace = await kernel.storage.call('workspace', p.workspaceId)
-        const text = await kernel.plugins.get<ExecutionProvider>('execution').read(workspace.path, p.path)
+        const root = await kernel.workspaceSandboxes.prepare(workspace.id, workspace.path, AbortSignal.timeout(30_000))
+        const text = await kernel.plugins.get<ExecutionProvider>('execution').read(root, p.path)
         return {
           text,
           path: p.path,
@@ -1262,7 +1264,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       case 'file.write': {
         const p = rpcSchemas[method].parse(raw)
         const workspace = await kernel.storage.call('workspace', p.workspaceId)
-        const details = await kernel.plugins.get<ExecutionProvider>('execution').write(workspace.path, p.path, p.text, {
+        const root = await kernel.workspaceSandboxes.prepare(workspace.id, workspace.path, AbortSignal.timeout(30_000))
+        const details = await kernel.plugins.get<ExecutionProvider>('execution').write(root, p.path, p.text, {
           ...(p.expectedRevision ? { expectedRevision: p.expectedRevision } : {}),
         })
         return {
@@ -1274,7 +1277,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       case 'file.list': {
         const p = rpcSchemas[method].parse(raw)
         const workspace = await kernel.storage.call('workspace', p.workspaceId)
-        return kernel.plugins.get<ExecutionProvider>('execution').list(workspace.path, p.path)
+        const root = await kernel.workspaceSandboxes.prepare(workspace.id, workspace.path, AbortSignal.timeout(30_000))
+        return kernel.plugins.get<ExecutionProvider>('execution').list(root, p.path)
       }
     }
     throw new HbarError('METHOD_NOT_FOUND', method)

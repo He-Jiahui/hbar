@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { WORKSPACE_FOLDER_LIMIT } from './commands/workspace-folders'
 
 export const workspaceQueryPathSchema = z.string().min(1).max(4_000).default('.')
 export const workspaceQueryGlobSchema = z.string().min(1).max(1_000)
@@ -75,13 +76,21 @@ export const workspaceOperationCacheStatsSchema = z.strictObject({
 export const workspaceSearchResultSchema = z.strictObject({
   matches: z.array(workspaceSearchMatchSchema).max(1_000),
   truncated: z.boolean(),
-  filesChecked: z.number().int().nonnegative().max(100_000),
+  filesChecked: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(100_000 * WORKSPACE_FOLDER_LIMIT),
   cache: workspaceOperationCacheStatsSchema,
 })
 export const workspaceFindResultSchema = z.strictObject({
   paths: z.array(z.string().min(1).max(4_000)).max(1_000),
   truncated: z.boolean(),
-  filesChecked: z.number().int().nonnegative().max(100_000),
+  filesChecked: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(100_000 * WORKSPACE_FOLDER_LIMIT),
 })
 export const workspaceReadResultSchema = z.strictObject({
   text: z.string().max(2 * 1024 * 1024),

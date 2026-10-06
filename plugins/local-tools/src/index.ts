@@ -3,7 +3,8 @@ import { resolve, relative, dirname, isAbsolute, join, basename } from 'node:pat
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
-import type { ExecOptions, ExecutionProvider, ToolResult } from '@hbar/plugin-sdk'
+import type { ExecOptions, ExecutionProvider, ToolResult, WorkspaceQueryProvider } from '@hbar/plugin-sdk'
+import type { WorkspaceDirectoryService } from '@hbar/plugin-sdk/workspace-directories'
 import { HbarError } from '@hbar/contracts'
 import {
   workspaceFindInputSchema,
@@ -16,6 +17,9 @@ import {
 } from '@hbar/contracts/workspace-query'
 import type { WorkspaceSearchResult } from '@hbar/contracts/workspace-query'
 import { WorkspaceQueryRuntime } from './workspace-query'
+import { mountedPath, mountedWorkspaceQuery, type WorkspaceMountAccess } from './workspace-mounts'
+export type { WorkspaceMountAccess, WorkspaceMount } from './workspace-mounts'
+export { mountedPath } from './workspace-mounts'
 
 // ---------------------------------------------------------------------------
 // OS-level sandbox addon (Windows-only, optional)
@@ -30,7 +34,6 @@ interface SandboxedProcess {
 }
 function loadSandboxAddon(): SandboxAddon | null {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require('../sandbox/hbar_sandbox_win.node') as unknown
     if (
       mod !== null &&
@@ -202,18 +205,20 @@ export async function workspacePath(
 }
 
 export class LocalExecution implements ExecutionProvider {
-  readonly workspaceQuery: WorkspaceQueryRuntime
+  readonly workspaceQuery: WorkspaceQueryProvider
 
   constructor(
     private blocked: string[] = [],
     private readonly managedWorkspace?: VerifiedManagedWorkspaceAccess,
+    private readonly mounts?: WorkspaceMountAccess,
   ) {
-    this.workspaceQuery = new WorkspaceQueryRuntime(
+    const query = new WorkspaceQueryRuntime(
       blocked,
       (workspace, path) => this.workspacePath(workspace, path, false),
       {},
       (workspace) => this.blockedForWorkspace(workspace),
     )
+    this.workspaceQuery = mounts ? mountedWorkspaceQuery(query, mounts) : query
   }
 
   private async blockedForWorkspace(workspace: string) {
@@ -221,10 +226,25 @@ export class LocalExecution implements ExecutionProvider {
   }
 
   private async workspacePath(workspace: string, requested: string, writing = false) {
+    const mount = this.mounts?.get(workspace)
+    if (mount) {
+      await this.mounts?.verify(mount)
+      const target = mountedPath(mount, requested)
+      return workspacePath(target.folder.path, target.path, writing, await this.blockedForWorkspace(target.folder.path))
+    }
     return workspacePath(workspace, requested, writing, await this.blockedForWorkspace(workspace))
   }
 
-  async list(workspace: string, requested: string) {
+  async list(workspace: string, requested: string): Promise<Awaited<ReturnType<ExecutionProvider['list']>>> {
+    const mount = this.mounts?.get(workspace)
+    if (mount) {
+      await this.mounts?.verify(mount)
+      if (requested === '.' || requested === '')
+        return mount.folders.map((folder) => ({ name: folder.alias, path: folder.alias, directory: true }))
+      const target = mountedPath(mount, requested)
+      const entries = await this.list(target.folder.path, target.path)
+      return entries.map((entry) => ({ ...entry, path: `${target.folder.alias}/${entry.path}` }))
+    }
     const path = await this.workspacePath(workspace, requested)
     return (await readdir(path, { withFileTypes: true }))
       .slice(0, 1000)
@@ -234,6 +254,11 @@ export class LocalExecution implements ExecutionProvider {
         path: relative(workspace, join(path, entry.name)).replaceAll('\\', '/'),
       }))
       .sort((a, b) => Number(b.directory) - Number(a.directory) || a.name.localeCompare(b.name))
+  }
+  async resolveDirectory(workspace: string, requested: string) {
+    const path = await this.workspacePath(workspace, requested)
+    if (!(await stat(path)).isDirectory()) throw new HbarError('INVALID_WORKSPACE', 'Working directory is unavailable')
+    return path
   }
   async read(workspace: string, requested: string) {
     return decodeUtf8(await this.readBytes(workspace, requested))
@@ -295,6 +320,8 @@ export class LocalExecution implements ExecutionProvider {
     ])
     for (const [key, value] of Object.entries(process.env))
       if (value !== undefined && allowed.has(key.toLowerCase())) env[key] = value
+    const mount = this.mounts?.get(workspace)
+    if (mount) env.HBAR_WORKSPACE_ROOT = mount.root
     const sameName =
       process.platform === 'win32'
         ? (left: string, right: string) => left.toLowerCase() === right.toLowerCase()
@@ -408,7 +435,11 @@ export class LocalExecution implements ExecutionProvider {
   }
 }
 
-export function localExecutionPlugin(blocked: string[] = [], managedWorkspace?: VerifiedManagedWorkspaceAccess) {
+export function localExecutionPlugin(
+  blocked: string[] = [],
+  managedWorkspace?: VerifiedManagedWorkspaceAccess,
+  mounts?: WorkspaceMountAccess,
+) {
   return definePlugin({
     manifest: {
       id: 'execution.local',
@@ -418,13 +449,16 @@ export function localExecutionPlugin(blocked: string[] = [], managedWorkspace?: 
       description: 'Workspace files and managed local processes',
       scope: 'host',
       required: true,
-      provides: { execution: '1.0.0' },
+      provides: { execution: '1.0.0', 'workspace-directories': '1.0.0' },
       permissions: ['fs', 'process'],
     },
     apply(ctx) {
-      const execution = new LocalExecution(blocked, managedWorkspace)
+      const execution = new LocalExecution(blocked, managedWorkspace, mounts)
       ctx.effect(() => () => execution.dispose())
       provide(ctx, 'execution', execution)
+      provide<WorkspaceDirectoryService>(ctx, 'workspace-directories', {
+        resolve: (root, path) => execution.resolveDirectory(root, path),
+      })
     },
   })
 }

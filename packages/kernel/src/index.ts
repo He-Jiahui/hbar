@@ -1,5 +1,6 @@
 import { readdir, realpath, stat, writeFile } from 'node:fs/promises'
 import { join, basename } from 'node:path'
+import { WorkspaceSandboxService } from './workspace-sandbox'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import {
@@ -330,6 +331,7 @@ type ApprovalResolution =
 export class Kernel {
   readonly directoryQueries: ReturnType<typeof createDirectoryQueries>
   readonly storage: StoragePort
+  readonly workspaceSandboxes: WorkspaceSandboxService
   readonly sessionLaunchTargets: SessionLaunchTargetService
   readonly sessionLaunchPreparations: SessionLaunchTargetPreparationService
   readonly sandboxProfiles: SandboxProfileService
@@ -372,6 +374,10 @@ export class Kernel {
     storage?: StoragePort,
   ) {
     this.storage = storage ?? new Storage(options.layout.database, options.layout)
+    this.workspaceSandboxes = new WorkspaceSandboxService(
+      this.storage,
+      join(options.layout.cacheRoot, 'workspace-sandboxes'),
+    )
     this.sessionLaunchTargets = new SessionLaunchTargetService(
       this.storage,
       options.layout,
@@ -689,11 +695,15 @@ export class Kernel {
     )
     this.plugins.add(piPlugin)
     this.plugins.add(
-      localExecutionPlugin([this.options.layout.dataRoot], {
-        root: this.options.layout.worktrees,
-        protectedRoot: this.options.layout.dataRoot,
-        verify: (workspace) => this.sessionLaunchTargets.isBoundWorktreeExecutionRoot(workspace),
-      }),
+      localExecutionPlugin(
+        [this.options.layout.dataRoot],
+        {
+          root: this.options.layout.worktrees,
+          protectedRoot: this.options.layout.dataRoot,
+          verify: (workspace) => this.sessionLaunchTargets.isBoundWorktreeExecutionRoot(workspace),
+        },
+        this.workspaceSandboxes,
+      ),
     )
     this.plugins.add(
       definePlugin({
@@ -1452,7 +1462,11 @@ export class Kernel {
         const workspace = await this.storage.call('workspace', session.workspaceId)
         const workspaceForRun: Workspace = {
           ...workspace,
-          path: await this.sessionLaunchTargets.workspaceForRun(sessionId, workspace.path, controller.signal),
+          path: await this.workspaceSandboxes.prepare(
+            workspace.id,
+            await this.sessionLaunchTargets.workspaceForRun(sessionId, workspace.path, controller.signal),
+            controller.signal,
+          ),
         }
         const model = await this.plugins.get<ModelRegistry>('models').get(run.modelId)
         const apiKey = model.protocol === 'mock' ? null : await this.secrets.get(model.id)
@@ -1738,7 +1752,7 @@ export class Kernel {
     const session = await this.storage.call('session', sessionId)
     const workspace = workspaceOverride ?? (await this.storage.call('workspace', session.workspaceId))
     return hooks.dispatch('context.build', {
-      system: `You are hbar, a coding assistant. Work in ${workspace.path}. Use the available tools. Respect approval results. Report uncertainty and errors accurately.${context.summary ? `\n\nEarlier conversation summary:\n${context.summary}` : ''}`,
+      system: `You are hbar, a coding assistant. Work in ${workspace.path}. Use the available tools. Respect approval results. Report uncertainty and errors accurately.${this.workspaceSandboxes.instructions(workspace.path)}${context.summary ? `\n\nEarlier conversation summary:\n${context.summary}` : ''}`,
       messages: steering ? buildSteeringContext(context.messages, steering) : context.messages,
       model,
       context: {
@@ -1971,7 +1985,9 @@ export class Kernel {
       if (!(error instanceof HbarError)) throw error
       return { decision: 'deny', denial: `Denied: ${error.message}` }
     }
-    const verdict = await evaluateSandboxCall(profile, { tool, args, workspace: context.workspace.path })
+    const mount = this.workspaceSandboxes.get(context.workspace.path)
+    if (mount) await this.workspaceSandboxes.verify(mount, context.signal)
+    const verdict = await evaluateSandboxCall(profile, { tool, args, workspace: context.workspace.path, mount })
     const result: {
       decision: 'allow' | 'ask' | 'deny'
       denial: string
@@ -1985,18 +2001,10 @@ export class Kernel {
     if (profile.osConfinement?.enabled) {
       const writableRoots = profile.filesystem.grants
         .filter((g) => g.access === 'write')
-        .map((g) =>
-          g.path.startsWith('/') || /^[A-Za-z]:/.test(g.path)
-            ? g.path
-            : `${context.workspace.path}/${g.path}`,
-        )
+        .flatMap((g) => this.workspaceSandboxes.grantPaths(context.workspace.path, g.path))
       const readableRoots = profile.filesystem.grants
         .filter((g) => g.access === 'read')
-        .map((g) =>
-          g.path.startsWith('/') || /^[A-Za-z]:/.test(g.path)
-            ? g.path
-            : `${context.workspace.path}/${g.path}`,
-        )
+        .flatMap((g) => this.workspaceSandboxes.grantPaths(context.workspace.path, g.path))
       result.osConfinement = {
         level: profile.osConfinement.mode,
         writableRoots,
@@ -2542,6 +2550,7 @@ export class Kernel {
     for (const pending of this.userInputs.values())
       await pending.settle(undefined, new HbarError('USER_INPUT_CANCELLED', 'Host shutting down'))
     await this.plugins.close()
+    this.workspaceSandboxes.dispose()
     await this.storage.close()
   }
 }

@@ -1,5 +1,6 @@
 import { realpath } from 'node:fs/promises'
-import { basename, dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve, relative, isAbsolute } from 'node:path'
+import { mountedPath, type WorkspaceMount } from '@hbar/local-tools'
 import type { ToolDefinition } from '@hbar/plugin-sdk'
 import type { ResolvedSandboxProfile } from '@hbar/contracts/sandbox'
 import {
@@ -41,6 +42,7 @@ export interface SandboxGateInput {
   readonly tool: ToolDefinition
   readonly args: Readonly<Record<string, unknown>>
   readonly workspace: string
+  readonly mount?: WorkspaceMount | undefined
 }
 
 /**
@@ -65,15 +67,64 @@ export async function evaluateSandboxCall(
         : []
   const paths: SandboxPathTarget[] = []
   for (const item of required) {
-    const lexical = resolve(root, item.requested)
-    const real = await canonical(lexical)
+    const target = input.mount && !item.subtree ? mountedPath(input.mount, item.requested) : null
+    const lexical = target ? resolve(root, target.folder.alias, target.path) : resolve(root, item.requested)
+    const real = await canonical(target ? resolve(target.folder.path, target.path) : lexical)
     paths.push({ field: item.field, access: item.access, absolute: lexical, subtree: item.subtree })
-    if (normalizeSandboxAbsolutePath(real) !== normalizeSandboxAbsolutePath(lexical))
-      paths.push({ field: item.field, access: item.access, absolute: real, subtree: item.subtree })
+    if (item.subtree && input.mount)
+      for (const folder of input.mount.folders)
+        paths.push({ field: item.field, access: item.access, absolute: await canonical(folder.path), subtree: true })
+    if (normalizeSandboxAbsolutePath(real) !== normalizeSandboxAbsolutePath(lexical)) {
+      const mounted = input.mount?.folders
+        .map((folder) => ({ folder, part: relative(folder.path, real) }))
+        .find(
+          (value) =>
+            value.part !== '..' &&
+            !value.part.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) &&
+            !isAbsolute(value.part),
+        )
+      if (input.mount && !mounted)
+        return {
+          decision: 'deny',
+          escalated: false,
+          reason: { kind: 'path', field: item.field, path: real, required: item.access, granted: 'none', grant: null },
+        }
+      paths.push({
+        field: item.field,
+        access: item.access,
+        absolute: real,
+        subtree: item.subtree,
+      })
+    }
   }
+  const mount = input.mount
+  const scopedProfile = mount
+    ? {
+        ...profile,
+        filesystem: {
+          ...profile.filesystem,
+          grants: profile.filesystem.grants.flatMap((grant) => {
+            if (isAbsolute(grant.path) || /^[a-z]:/i.test(grant.path)) return [grant]
+            if (
+              mount.folders.some((folder) => grant.path === folder.alias || grant.path.startsWith(`${folder.alias}/`))
+            ) {
+              const target = mountedPath(mount, grant.path)
+              return [grant, { ...grant, path: resolve(target.folder.path, target.path) }]
+            }
+            return [
+              grant,
+              ...mount.folders.flatMap((folder) => [
+                ...(grant.path === '.' ? [] : [{ ...grant, path: `${folder.alias}/${grant.path}` }]),
+                { ...grant, path: resolve(folder.path, grant.path) },
+              ]),
+            ]
+          }),
+        },
+      }
+    : profile
   const commandValue = input.tool.commandArgument === undefined ? undefined : input.args[input.tool.commandArgument]
   return evaluateSandbox(
-    profile,
+    scopedProfile,
     {
       tool: input.tool.name,
       effect: input.tool.effect,

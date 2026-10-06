@@ -1,8 +1,8 @@
 import { afterEach, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { HbarClient, createWorkspaceSessionCommandClient } from '@hbar/client'
+import { HbarClient, createWorkspaceSessionCommandClient, createFileCommandClient } from '@hbar/client'
 import { Kernel, MemorySecrets, createWorkspaceSessionCommands } from '@hbar/kernel'
 import { startServer } from '../apps/host/src/server.ts'
 
@@ -123,7 +123,7 @@ test('workspace and session commands share the Host catalog and bounded director
 })
 
 test('authenticated Host exposes a multi-folder workspace and paginated server directory selection', async () => {
-  const { root, commands } = await fixture()
+  const { root, commands, client } = await fixture()
   const paths = [join(root, 'frontend'), join(root, 'backend')]
   for (const path of paths) await mkdir(path)
   const folders = paths.map((path, index) => ({
@@ -133,6 +133,22 @@ test('authenticated Host exposes a multi-folder workspace and paginated server d
   }))
   const request = { folders }
   const result = await commands.execute('workspace.folders.create', request, { idempotencyKey: 'multi-root-create' })
+  await writeFile(join(paths[1]!, 'same.txt'), 'from the second root')
+  const files = createFileCommandClient(client)
+  const read = await files.execute('file.read', { workspaceId: result.workspace.id, path: 'backend/same.txt' })
+  expect(read.text).toBe('from the second root')
+  await files.execute('file.write', {
+    workspaceId: result.workspace.id,
+    path: 'backend/same.txt',
+    text: 'saved to the original root',
+    expectedSha256: read.sha256,
+  })
+  expect(await readFile(join(paths[1]!, 'same.txt'), 'utf8')).toBe('saved to the original root')
+  const rootPage = await files.execute('file.list', { workspaceId: result.workspace.id, path: '.' })
+  expect(rootPage.items.map((item) => item.path)).toEqual(['backend', 'frontend'])
+  expect((await client.call('file.read', { workspaceId: result.workspace.id, path: 'backend/same.txt' })).text).toBe(
+    'saved to the original root',
+  )
   expect((await commands.execute('workspace.folders.get', { workspaceId: result.workspace.id })).folders).toEqual(
     folders,
   )

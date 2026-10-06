@@ -1,6 +1,7 @@
 import { lstat, mkdir, readdir, realpath } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { z } from 'zod'
+import type { WorkspaceDirectoryService } from '@hbar/plugin-sdk/workspace-directories'
 import {
   HbarError,
   gitBranchInfoSchema,
@@ -1242,6 +1243,7 @@ export const gitPlugin = definePlugin({
     scope: 'host',
     required: true,
     provides: { git: '1.0.0' },
+    requires: { 'workspace-directories': '^1.0.0' },
     permissions: ['fs', 'process'],
   },
   configSchema: gitConfigSchema,
@@ -1252,7 +1254,16 @@ export const gitPlugin = definePlugin({
       ctx.hbar.api.notify({ method: 'git.changed', params: { cwd } }),
     )
     provide<GitService>(ctx, 'git', runtime)
-    for (const tool of gitTools(runtime)) ctx.hbar.api.tools.register(tool)
+    const directories = ctx.hbar.api.service<WorkspaceDirectoryService>('workspace-directories')
+    for (const tool of gitTools(runtime))
+      ctx.hbar.api.tools.register({
+        ...tool,
+        async execute(args, context) {
+          const path = await directories.resolve(context.workspace.path, typeof args.cwd === 'string' ? args.cwd : '.')
+          context.signal.throwIfAborted()
+          return tool.execute({ ...args, cwd: '.' }, { ...context, workspace: { ...context.workspace, path } })
+        },
+      })
   },
 })
 
