@@ -9,6 +9,7 @@ interface SemanticRolesFixtureCopy {
   readonly description: string
   readonly author: string
   readonly emphasis: string
+  readonly isolated: string
   readonly time: string
   readonly path: string
 }
@@ -40,6 +41,7 @@ function SemanticRolesFixture({ copy, source }: SemanticRolesFixtureInput) {
       <LumenContentText context="dialog.body" data-sentence>
         {copy.author}
         <LumenContentText context="inline.emphasis">{copy.emphasis}</LumenContentText>
+        <LumenContentText context="inline.isolated">{copy.isolated}</LumenContentText>
         {copy.description}
       </LumenContentText>
       <LumenContentText context="metadata.time" dateTime="2026-10-06T05:24:00Z">

@@ -23,6 +23,8 @@
 
 Lumen 已补齐章节、集合、消息作者、时间、指标、空态、路径、快捷键、定义项和行内强调角色。标题的 `level` 只调整文档层级，其他角色的类型不允许该属性；`metadata.time` 保留机器可读的 `dateTime`。UI 公开入口同时导出语义文字与 flow 容器。图标公开 API 对齐既有 `xs/sm/md/lg/xl` token，命中范围仍由控件负责。
 
+方向敏感的用户内容使用 `inline.isolated`，由 Lumen 保留原生 `bdi` 隔离语义。12 个角色 SSR 用例和扩展后的 20 个实际 client 场景通过，包含中英文混合分支名称的原文与计算后的 `unicode-bidi: isolate`；库类型、构建、声明和严格范围 lint 通过。
+
 - 17 个相关内容、公开角色、原文保留与表单绑定测试通过，严格范围 lint 通过。
 - 独立 pnpm 库构建、TypeScript 和声明生成通过；按 Lumen 名称限定的 PropTypes / API 文档生成通过，该上游生成器只覆盖 MUI 项目，因此 Lumen 接口另记在包 README 与类型声明中。
 - `bun scripts/verify-desktop-semantic-roles.ts` 使用 Vite 构建真实 client fixture，验证 20 个中英文／明暗／1440、1100、900、390、320 宽度场景，窄屏 125% 文字放大；包含完整标题、路径滚动、辅助说明换行、连续句、time、原始代码、键盘焦点、文本对比度和无页面横向溢出。截图与结果放在 `artifacts/desktop-elements/roles`。

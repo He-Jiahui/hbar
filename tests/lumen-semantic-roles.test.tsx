@@ -25,6 +25,15 @@ test('a section title keeps its content role while following document heading hi
   expect(html).toContain(copy.heading)
 })
 
+test('bidirectional content keeps native isolation within its explicit inline role', () => {
+  const branch = 'feature/مرحبا-with-localized-content'
+  const html = renderToStaticMarkup(<LumenContentText context="inline.isolated">{branch}</LumenContentText>)
+  expect(html).toMatch(/^<bdi\b/)
+  expect(html).toContain('data-text-context="inline.isolated"')
+  expect(html).toContain('data-text-flow="inline"')
+  expect(html).toContain(branch)
+})
+
 test('time metadata retains machine-readable time independently of localized content', () => {
   const html = renderToStaticMarkup(
     <LumenContentText context="metadata.time" dateTime="2026-10-06T05:24:00Z">

@@ -11,6 +11,7 @@ const fixtures = {
     description: '辅助说明按照阅读顺序自然换行，保持完整的宿主文案与用户输入。'.repeat(5),
     author: '原始作者：',
     emphasis: '强调的操作对象。',
+    isolated: 'feature/مرحبا-原始分支。',
     time: '2026年10月6日 13:24',
     path: 'C:\\真实项目\\' + '保留完整名称的目录'.repeat(35),
   },
@@ -22,6 +23,7 @@ const fixtures = {
       ),
     author: 'Original author: ',
     emphasis: 'the original action target. ',
+    isolated: 'feature/مرحبا-original-branch. ',
     time: 'Oct 6, 2026, 1:24 PM',
     path: 'C:\\original-workspace\\' + 'complete-unchanged-directory-name'.repeat(30),
   },
@@ -59,7 +61,7 @@ try {
   await page.route('**/*', (route) => route.abort())
   for (const [locale, copy] of Object.entries(fixtures)) {
     const source = `第一行\n  ${copy.path}\n\tLast original line`
-    const sentence = copy.author + copy.emphasis + copy.description
+    const sentence = copy.author + copy.emphasis + copy.isolated + copy.description
     for (const mode of ['light', 'dark'] as const) {
       for (const width of [1440, 1100, 900, 390, 320]) {
         const scale = width <= 390 ? 1.25 : 1
@@ -103,6 +105,8 @@ try {
         expect(contrast).toBeGreaterThanOrEqual(4.5)
         await expect(page.getByRole('heading', { level: 3 })).toHaveText(copy.title)
         await expect(page.locator('[data-sentence]')).toHaveText(sentence)
+        expect(await page.locator('bdi').evaluate((element) => getComputedStyle(element).unicodeBidi)).toBe('isolate')
+        expect(await page.locator('bdi').textContent()).toBe(copy.isolated)
         await expect(page.locator('time')).toHaveAttribute('datetime', '2026-10-06T05:24:00Z')
         expect(await page.locator('pre').textContent()).toBe(source)
         expect(await page.locator('code').textContent()).toBe(copy.path)
