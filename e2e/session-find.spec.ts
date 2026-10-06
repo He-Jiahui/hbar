@@ -61,7 +61,14 @@ async function start(browser: Browser, locale: ShellLocale, width: number): Prom
   try {
     // Real demo Kernel/Host, with 180 deliberately synthetic canonical stored
     // messages. Only the streaming case submits a Run to its local fixture model.
-    host = await startWebSessionHost({ root, port, sessionCount: 2, historyCount: 180, goalAutoContinue: false })
+    host = await startWebSessionHost({
+      root,
+      port,
+      sessionCount: 2,
+      historyCount: 180,
+      goalAutoContinue: false,
+      budgetAutoContinue: false,
+    })
     expect((await context.request.post(`${origin}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
     const page = await context.newPage()
     page.setDefaultTimeout(15_000)
@@ -96,9 +103,7 @@ async function start(browser: Browser, locale: ShellLocale, width: number): Prom
     if (!productionAsset) throw new Error('The production application module asset is missing')
     if (expectedAsset) expect(new URL(productionAsset, origin).pathname.split('/').at(-1)).toBe(expectedAsset)
     const fixture = { root, host, context, page, copy, errors, requests, uploads, productionAsset, consoleDiagnostics }
-    await showSidebar(fixture, true)
-    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
-    await showSidebar(fixture, false)
+    await selectSession(fixture, host.ready.sessionTitle)
     await expect(page.locator('[data-hbar-app-ui-list-strategy="virtualized"]')).toHaveAttribute(
       'data-hbar-app-ui-message-count',
       '60',
@@ -136,12 +141,25 @@ async function stop(fixture: Fixture): Promise<void> {
 }
 
 async function showSidebar({ page, copy }: Fixture, open: boolean): Promise<void> {
-  const trigger = page.getByRole('button', {
-    name: open ? copy.shell.showSidebar : copy.shell.hideSidebar,
-    exact: true,
-  })
-  if (await trigger.isVisible()) await trigger.click()
-  await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', String(open))
+  const shell = page.locator('[data-hbar-sidebar-expanded]')
+  if ((await shell.getAttribute('data-hbar-sidebar-expanded')) !== String(open))
+    await page
+      .getByRole('button', { name: open ? copy.shell.showSidebar : copy.shell.hideSidebar, exact: true })
+      .click()
+  await expect(shell).toHaveAttribute('data-hbar-sidebar-expanded', String(open))
+}
+
+async function selectSession(fixture: Fixture, title: string): Promise<void> {
+  const { page } = fixture
+  await showSidebar(fixture, true)
+  await page.getByRole('treeitem', { name: title, exact: true }).click()
+  await expect(page.getByRole('region', { name: title, exact: true })).toBeVisible()
+  if ((page.viewportSize()?.width ?? 1440) === 320)
+    await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
+  else {
+    await expect(page.getByRole('tab', { name: title, exact: true })).toHaveAttribute('aria-selected', 'true')
+    await showSidebar(fixture, false)
+  }
 }
 
 function findControls({ page, copy }: Fixture) {
@@ -468,15 +486,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await openFind(fixture)
         await find.input.fill('History message 64')
         await expect(find.count).toHaveText(copy.session.find.count(1, 1, false))
-        await showSidebar(fixture, true)
-        await page.getByRole('treeitem', { name: 'Session 001', exact: true }).click()
-        await showSidebar(fixture, false)
+        await selectSession(fixture, 'Session 001')
         await expect(find.input).toHaveValue('History message 64')
         await expect(find.count).toHaveText('0')
         await expect.poll(() => activeHighlights(page)).toEqual([])
-        await showSidebar(fixture, true)
-        await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
-        await showSidebar(fixture, false)
+        await selectSession(fixture, host.ready.sessionTitle)
         await expect(find.input).toHaveValue('History message 64')
         await expect(find.count).toHaveText(copy.session.find.count(1, 1, false))
         await expectMatch(page, 'history-64', 'History message 64')
