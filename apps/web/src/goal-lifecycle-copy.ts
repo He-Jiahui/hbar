@@ -73,5 +73,14 @@ export function goalLifecycleCopy(zh: boolean): HbarGoalLifecycleLabels {
     timestamp: (time) => date.format(time),
     showObjective: choose('显示完整目标', 'Show full objective'),
     hideObjective: choose('收起目标全文', 'Collapse full objective'),
+    comparison: choose('目标变化', 'Goal changes'),
+    previousObjective: choose('旧目标', 'Previous goal'),
+    nextObjective: choose('新目标', 'New goal'),
+    removed: choose('删除', 'Removed'),
+    added: choose('新增', 'Added'),
+    omission: '…',
+    omitted: choose('部分内容已省略，展开可查看全文', 'Some content is omitted; expand to read the full objectives'),
+    showComparison: choose('显示新旧目标全文', 'Show both full objectives'),
+    hideComparison: choose('仅显示变化片段', 'Show change excerpts'),
   }
 }

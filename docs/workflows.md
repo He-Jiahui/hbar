@@ -36,6 +36,14 @@ Goal 结束一轮、reviewer 返回与预算恢复使用同一个持久化续跑
 
 运行中的 Goal 身份与暂停状态还会在每次工具执行和模型请求前检查，覆盖用户发起与自动发起的已绑定 Run。目标变化后，旧模型已经产生但尚未执行的工具调用不得继续产生副作用；不等到下一轮调度才生效。
 
+显式替换作为正常转向处理。已发出的模型请求和已开始的工具先结算；在启动、下一次请求、工具准入、批准后执行检查和 step 结算的安全边界，以 SDK 的 `RunControlSignal` / `goal_replaced` 停止旧 Run。Pi Driver 正常结束旧 Run，旧 Goal 不因此完成。尚未执行的旧调用记录为 `cancelled`、`reason: goal_replaced`、`isError: false`；`ToolResult.hostControl` 由 Host 覆盖管理，顺序批次收到信号后停止其余子调用。旧 Run 的待审批和用户输入等待释放，迟到批准不能恢复旧动作；实际失败、未知效果和用户取消保持原语义。
+
+替换保存新 `goalId` 的持久执行意图，复用 Session 队列与稳定请求 ID。运行中等旧 Run 结算，空闲时主动提交；用户排队消息优先，连续替换只执行尚未失效的最终意图。暂停、`autoContinue`、Plan mode 与双预算门槛继续有效。运行中继承执行模型，空闲时检查最近可用执行模型及 Host 配置；没有模型时目标保存为等待 `model_unavailable`，选择可用模型后可以显式恢复。编辑面板与 `/goal` 使用同一 Host 调度，`composerIntent.commandGoal` 返回 `executionOwner: host` 时界面不再调用 `startGoalRun`；初次创建沿用原流程。旧 Run 的用量只进入其原归属及 Session 总账，不能计入新 Goal。
+
+替换后的第一个 Run 在动态上下文收到新目标和此前实际执行的目标，识别新增、取消和调整的要求，复用仍适用的已验证成果；目标文本继续作为用户任务数据。快速 A→B→C 若 B 尚未开始，模型对照实际执行过的 A 与 C。持久化的替换元数据是可选字段，旧存档、新建目标、缺失 Run 上下文和尚未绑定 Run 时都安全跳过这段补充。
+
+聊天替换卡片按每条历史事件的 `previousGoal` / `goal` 快照显示旧目标、新目标与 `del` / `ins` 增删片段，后续编辑不会改写历史。差异使用 CodeMirror Merge 的有界 `presentableDiff`（`scanLimit: 500`），不调用模型生成摘要。目标上限为 4,000 字符，长目标默认展示变化位置及部分上下文，全文可用键盘展开；旧快照缺失时只显示已知目标。中英文标签由宿主提供，历史仍使用原游标分页与虚拟列表。
+
 新配置的 `maxContinuations` 默认为 `null`，有可验证进展时不再固定停止于 8 轮。显式轮数上限仍有效，并公开 `continuation_limit`。自动轮次没有工具调用时停止为 `no_tool_calls`；新的成功工具结果和实质 Plan 更新计为进展，纯状态查询、重复同一结果或重复同一 Plan 不计为进展，连续三轮无进展停止为 `no_progress`。Host 的 `goal.continuation` 提供阶段与原因；显式恢复可生成新意图，单纯修改暂停目标的预算不能恢复执行。旧 active Goal 没有持久意图时不会在升级后自动运行。
 
 ## 焦点与范围

@@ -1,8 +1,9 @@
-import { useId, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Target } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import type { GoalHistoryProjection, GoalHistorySnapshot } from '@hbar/app-runtime'
 import type { GoalLifecycleAction, GoalLifecycleRow } from './goal-lifecycle-model'
+import { excerptGoalObjective, goalObjectiveDiff, type GoalObjectiveFragment } from './goal-objective-diff'
 import './goal-lifecycle.css'
 
 export interface HbarGoalLifecycleLabels {
@@ -16,6 +17,92 @@ export interface HbarGoalLifecycleLabels {
   readonly timestamp: (time: number) => string
   readonly showObjective: string
   readonly hideObjective: string
+  readonly comparison: string
+  readonly previousObjective: string
+  readonly nextObjective: string
+  readonly removed: string
+  readonly added: string
+  readonly omission: string
+  readonly omitted: string
+  readonly showComparison: string
+  readonly hideComparison: string
+}
+
+function GoalReplacementObjectives({
+  previous,
+  current,
+  labels,
+}: {
+  readonly previous: string
+  readonly current: string
+  readonly labels: HbarGoalLifecycleLabels
+}) {
+  const [full, setFull] = useState(false)
+  const id = useId()
+  const difference = useMemo(() => goalObjectiveDiff(previous, current), [previous, current])
+  const long = Math.max(previous.length, current.length) > 240
+  const renderFragments = (fragments: readonly GoalObjectiveFragment[], before: boolean) =>
+    (long && !full ? excerptGoalObjective(fragments) : fragments).map((fragment, index) => {
+      const key = `${fragment.from}:${index}`
+      if (fragment.kind === 'omitted')
+        return (
+          <span key={key} className="hbar-goal-diff-omission" title={labels.omitted}>
+            {labels.omission}
+          </span>
+        )
+      if (fragment.kind === 'unchanged' || !fragment.text) return <span key={key}>{fragment.text}</span>
+      return before ? (
+        <del key={key} title={labels.removed}>
+          {fragment.text}
+        </del>
+      ) : (
+        <ins key={key} title={labels.added}>
+          {fragment.text}
+        </ins>
+      )
+    })
+  return (
+    <LumenFrame className="hbar-goal-replacement" role="group" aria-label={labels.comparison}>
+      <LumenFrame id={id} className="hbar-goal-replacement-objectives">
+        <LumenFrame className="hbar-goal-diff-side">
+          <LumenText as="p" className="hbar-goal-diff-label">
+            <span>{labels.previousObjective}</span>
+            {difference.previous.some((fragment) => fragment.kind === 'changed' && fragment.text) && (
+              <span className="hbar-goal-diff-removed-label">{labels.removed}</span>
+            )}
+          </LumenText>
+          <LumenText as="p" className="hbar-goal-diff-objective">
+            {renderFragments(difference.previous, true)}
+          </LumenText>
+        </LumenFrame>
+        <LumenFrame className="hbar-goal-diff-side">
+          <LumenText as="p" className="hbar-goal-diff-label">
+            <span>{labels.nextObjective}</span>
+            {difference.current.some((fragment) => fragment.kind === 'changed' && fragment.text) && (
+              <span className="hbar-goal-diff-added-label">{labels.added}</span>
+            )}
+          </LumenText>
+          <LumenText as="p" className="hbar-goal-diff-objective">
+            {renderFragments(difference.current, false)}
+          </LumenText>
+        </LumenFrame>
+      </LumenFrame>
+      {long && (
+        <LumenButton
+          type="button"
+          size="s"
+          variant="text"
+          indicator="none"
+          className="hbar-goal-lifecycle-objective-toggle"
+          aria-expanded={full}
+          aria-controls={id}
+          onClick={() => setFull((value) => !value)}
+        >
+          {full ? labels.hideComparison : labels.showComparison}
+        </LumenButton>
+      )}
+    </LumenFrame>
+  )
 }
 
 export interface HbarGoalHistoryLabels {
@@ -49,6 +136,7 @@ export function HbarGoalLifecycleCard({
         ? labels.objective(goal.objective)
         : ''
   const longObjective = objective.length > 240
+  const previousObjective = row.previousGoal?.objective
   return (
     <LumenFrame
       as="section"
@@ -80,26 +168,32 @@ export function HbarGoalLifecycleCard({
         )}
       </LumenButton>
       <LumenFrame id={bodyId} className="hbar-goal-lifecycle-body" hidden={!expanded}>
-        <LumenText
-          as="p"
-          id={objectiveId}
-          className={longObjective && !fullObjective ? 'hbar-goal-lifecycle-objective-preview' : undefined}
-        >
-          {objective}
-        </LumenText>
-        {longObjective && (
-          <LumenButton
-            type="button"
-            size="s"
-            variant="text"
-            indicator="none"
-            className="hbar-goal-lifecycle-objective-toggle"
-            aria-expanded={fullObjective}
-            aria-controls={objectiveId}
-            onClick={() => setFullObjective((value) => !value)}
-          >
-            {fullObjective ? labels.hideObjective : labels.showObjective}
-          </LumenButton>
+        {row.action === 'replaced' && typeof previousObjective === 'string' && goal ? (
+          <GoalReplacementObjectives previous={previousObjective} current={goal.objective} labels={labels} />
+        ) : (
+          <>
+            <LumenText
+              as="p"
+              id={objectiveId}
+              className={longObjective && !fullObjective ? 'hbar-goal-lifecycle-objective-preview' : undefined}
+            >
+              {objective}
+            </LumenText>
+            {longObjective && (
+              <LumenButton
+                type="button"
+                size="s"
+                variant="text"
+                indicator="none"
+                className="hbar-goal-lifecycle-objective-toggle"
+                aria-expanded={fullObjective}
+                aria-controls={objectiveId}
+                onClick={() => setFullObjective((value) => !value)}
+              >
+                {fullObjective ? labels.hideObjective : labels.showObjective}
+              </LumenButton>
+            )}
+          </>
         )}
         {goal && (
           <LumenFrame className="hbar-goal-lifecycle-metadata">

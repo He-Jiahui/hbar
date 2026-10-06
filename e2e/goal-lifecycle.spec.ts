@@ -166,7 +166,13 @@ test('Goal-only history has its own cursor and recoverable pagination without me
     await expect(list).toHaveAttribute('data-hbar-app-ui-message-count', '100')
     await viewport.evaluate((node) => node.scrollTo({ top: 0 }))
     const newest = await goals.history({ sessionId, limit: 100 })
-    await expect(cards.first()).toHaveAttribute('data-goal-event-id', newest.items[0]!.eventId)
+    // Initial restoration measures the virtual tail before honoring a reading position.
+    await expect
+      .poll(async () => {
+        await viewport.evaluate((node) => node.scrollTo({ top: 0 }))
+        return cards.first().getAttribute('data-goal-event-id')
+      })
+      .toBe(newest.items[0]!.eventId)
     await expect(cards.first()).toHaveAttribute('data-goal-action', 'updated')
     await expect(page.getByRole('button', { name: copy.session.loadOlder, exact: true })).toHaveCount(0)
     await page.getByRole('button', { name: copy.session.goalHistory.loadOlder, exact: true }).click()

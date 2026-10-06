@@ -5,6 +5,7 @@ import { HbarGoalLifecycleCard, projectGoalLifecycleRows } from '@hbar/app-react
 import { projectSessionTimelineSequence } from '../packages/app-react/src/session-message-model'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { sessionMessage } from './session-message.fixtures'
+import { excerptGoalObjective, goalObjectiveDiff } from '../packages/app-react/src/goal-objective-diff'
 
 function goal(overrides: Partial<GoalHistorySnapshot> = {}): GoalHistorySnapshot {
   return {
@@ -189,4 +190,99 @@ test('localized history card is a semantic disclosure, never current Goal contro
     expect(labels.budget(1200, null)).toContain(locale === 'zh-CN' ? '不限' : 'unlimited')
     expect(labels.cleared(null)).not.toContain('undefined')
   }
+})
+
+test('replacement comparisons preserve immutable snapshots across later edits and page boundaries', () => {
+  const previous = goal({ objective: '验证桌面，删除旧流程 🧭' })
+  const next = goal({ goalId: 'goal-b', objective: '验证窄屏，新增键盘流程 🚀' })
+  const rows = project([fact(101, next), fact(102, goal({ goalId: 'goal-c', objective: 'Later objective' }))], {
+    seq: 100,
+    goal: previous,
+  })
+  for (const locale of ['zh-CN', 'en-US'] as const) {
+    const copy = getShellCopy(locale).session.goalLifecycle
+    const html = renderToStaticMarkup(
+      <HbarGoalLifecycleCard
+        row={rows[0]!}
+        labels={{ ...copy, previousObjective: `${copy.previousObjective} ${'特别长的翻译标签'.repeat(12)}` }}
+      />,
+    )
+    expect(html).toContain(copy.nextObjective)
+    expect(html).toContain(copy.removed)
+    expect(html).toContain(copy.added)
+    expect(html).toContain('<del')
+    expect(html).toContain('<ins')
+    expect(html).toContain('🧭')
+    expect(html).toContain('🚀')
+    expect(html).not.toContain('Later objective')
+    expect(html).not.toContain('undefined')
+  }
+  expect(rows[0]?.previousGoal?.objective).toBe(previous.objective)
+  expect(rows[0]?.goal?.objective).toBe(next.objective)
+  expect(rows[1]?.previousGoal?.objective).toBe(next.objective)
+})
+
+test('bounded presentable diff reconstructs Chinese, emoji, multiple edits and worst-case 4,000-character objectives', () => {
+  const cases: readonly (readonly [string, string])[] = [
+    ['保持部署日志并关闭旧审批', '保持测试日志并新增键盘验收'],
+    ['Ship 🧭 old scope, keep files, remove tests', 'Ship 🚀 new scope, keep files, add tests'],
+    ['Same goal', 'Same goal'],
+    ['Keep records', 'Keep records and tests'],
+    ['Keep records and tests', 'Keep records'],
+    ['旧'.repeat(4000), '新'.repeat(4000)],
+  ]
+  for (const [previous, current] of cases) {
+    const diff = goalObjectiveDiff(previous, current)
+    expect(diff.previous.map((fragment) => fragment.text).join('')).toBe(previous)
+    expect(diff.current.map((fragment) => fragment.text).join('')).toBe(current)
+    const changed =
+      diff.previous
+        .filter((fragment) => fragment.kind === 'changed')
+        .map((fragment) => fragment.text)
+        .join('') +
+      diff.current
+        .filter((fragment) => fragment.kind === 'changed')
+        .map((fragment) => fragment.text)
+        .join('')
+    expect(Boolean(changed)).toBe(previous !== current)
+    expect(changed).not.toContain('\uFFFD')
+  }
+})
+
+test('long replacement previews expose distant changes and expand independently from the card disclosure', () => {
+  const prefix = '复用已验证结果🙂'.repeat(250)
+  const previous = `${prefix}取消旧动作`.slice(-4000)
+  const current = `${prefix}新增新目标`.slice(-4000)
+  const row = project([fact(2, goal({ goalId: 'goal-b', objective: current }))], {
+    seq: 1,
+    goal: goal({ objective: previous }),
+  })[0]!
+  const labels = getShellCopy('zh-CN').session.goalLifecycle
+  const html = renderToStaticMarkup(<HbarGoalLifecycleCard row={row} labels={labels} />)
+  expect(html).toContain('旧动作')
+  expect(html).toContain('新目标')
+  expect(html).toContain(labels.showComparison)
+  expect(html).toContain('aria-expanded="false"')
+  expect(html).toContain(labels.omitted)
+  expect(html.length).toBeLessThan(6000)
+  for (const fragments of Object.values(goalObjectiveDiff(previous, current))) {
+    const preview = excerptGoalObjective(fragments)
+    expect(preview.some((fragment) => fragment.kind === 'omitted')).toBe(true)
+    expect(preview.filter((fragment) => fragment.kind === 'changed')).toEqual(
+      fragments.filter((fragment) => fragment.kind === 'changed'),
+    )
+    expect(preview.map((fragment) => fragment.text).join('')).not.toContain('\uFFFD')
+  }
+})
+
+test('a legacy replacement without its previous snapshot falls back to the current objective safely', () => {
+  const row = project([fact(1, goal({ objective: 'Available current objective' }))])[0]!
+  const labels = getShellCopy('en-US').session.goalLifecycle
+  const html = renderToStaticMarkup(
+    <HbarGoalLifecycleCard row={{ ...row, action: 'replaced', previousGoal: null }} labels={labels} />,
+  )
+  expect(html).toContain('Available current objective')
+  expect(html).not.toContain('<del')
+  expect(html).not.toContain(labels.previousObjective)
+  expect(html).not.toContain('undefined')
 })
