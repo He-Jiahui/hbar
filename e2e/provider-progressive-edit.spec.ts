@@ -6,6 +6,33 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { selectLumenOption } from './support/lumen-controls'
+
+async function expectControlsAligned(
+  left: import('@playwright/test').Locator,
+  right: import('@playwright/test').Locator,
+) {
+  await expect(left).toBeVisible()
+  await expect(right).toBeVisible()
+  const [leftBox, rightBox] = await Promise.all([left.boundingBox(), right.boundingBox()])
+  expect(leftBox).not.toBeNull()
+  expect(rightBox).not.toBeNull()
+  expect(Math.abs(leftBox!.y - rightBox!.y)).toBeLessThanOrEqual(1)
+  expect(Math.abs(leftBox!.height - rightBox!.height)).toBeLessThanOrEqual(1)
+}
+
+async function expectSingleScrollRegion(dialog: import('@playwright/test').Locator) {
+  const scrollableCount = await dialog.locator('main, main *').evaluateAll(
+    (elements) =>
+      elements.filter((element) => {
+        const style = getComputedStyle(element)
+        return (
+          (style.overflowY === 'auto' || style.overflowY === 'scroll') && element.scrollHeight > element.clientHeight
+        )
+      }).length,
+  )
+  expect(scrollableCount).toBeLessThanOrEqual(1)
+}
 
 const rpcShape = z
   .object({
@@ -241,8 +268,17 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.setViewportSize({ width: 1440, height: 960 })
       await dialog.locator('#provider-id').fill('progressive-provider')
       await dialog.locator('#provider-name').fill(name)
-      await dialog.locator('#provider-protocol').selectOption('openai-responses')
+      await selectLumenOption(dialog.locator('#provider-protocol'), 'openai-responses')
       await dialog.locator('#provider-base-url').fill('http://127.0.0.1')
+      await expectControlsAligned(dialog.locator('#provider-id'), dialog.locator('#provider-name'))
+      await expectControlsAligned(dialog.locator('#provider-protocol'), dialog.locator('#provider-base-url'))
+      const protocol = dialog.locator('#provider-protocol')
+      const protocolArrow = protocol.locator('.lumen-popup-select-chevron')
+      const [protocolBox, protocolArrowBox] = await Promise.all([protocol.boundingBox(), protocolArrow.boundingBox()])
+      expect(protocolBox).not.toBeNull()
+      expect(protocolArrowBox).not.toBeNull()
+      expect(protocolArrowBox!.x + protocolArrowBox!.width).toBeLessThanOrEqual(protocolBox!.x + protocolBox!.width + 1)
+      expect(await protocol.evaluate((element) => getComputedStyle(element).borderStyle)).toBe('none')
       await dialog.getByLabel(labels.provider.apiKey, { exact: true }).fill('test-only-progressive-key')
       const advanced = dialog.getByRole('button', { name: labels.advancedModel, exact: true })
       await expect(advanced).toHaveAttribute('aria-expanded', 'false')
@@ -250,7 +286,20 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const firstModelId = await dialog.locator('#provider-model-id').inputValue()
       const firstModelName = await dialog.locator('#provider-model-name').inputValue()
       await dialog.locator('#provider-custom-model').fill('second-model')
-      await dialog.getByRole('button', { name: labels.models.addCustom, exact: true }).click()
+      const customInput = dialog.locator('#provider-custom-model')
+      const addCustom = dialog.getByRole('button', { name: labels.models.addCustom, exact: true })
+      const customAction = dialog.locator('.hbar-app-react-provider-inline-action')
+      const [customInputBox, addCustomBox, customActionBox] = await Promise.all([
+        customInput.boundingBox(),
+        addCustom.boundingBox(),
+        customAction.boundingBox(),
+      ])
+      expect(customInputBox).not.toBeNull()
+      expect(addCustomBox).not.toBeNull()
+      expect(customActionBox).not.toBeNull()
+      expect(customInputBox!.width).toBeGreaterThan(0)
+      expect(addCustomBox!.x + addCustomBox!.width).toBeLessThanOrEqual(customActionBox!.x + customActionBox!.width + 1)
+      await addCustom.click()
       await advanced.click()
       const contextField = dialog.getByRole('spinbutton', { name: labels.models.contextWindow, exact: true })
       await contextField.fill('123456')
@@ -274,6 +323,34 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(contextField).toBeHidden()
       await advanced.click()
       await expect(contextField).toHaveValue('200000')
+      await dialog.getByRole('button', { name: labels.models.select(firstModelName), exact: true }).click()
+      await advanced.click()
+      const thinkingGroup = dialog.locator('#provider-model-thinking-levels')
+      const defaultGroup = dialog.locator('#provider-model-default-thinking')
+      const defaultChoice = defaultGroup.locator('[role="radio"][aria-checked="true"]')
+      const defaultValue = await defaultChoice.getAttribute('data-value')
+      expect(defaultValue).not.toBeNull()
+      const defaultToggle = thinkingGroup.locator(`[data-value=${JSON.stringify(defaultValue)}]`)
+      await expect(defaultToggle).toBeDisabled()
+      const selectedLevels = thinkingGroup.locator('button[aria-pressed="true"]')
+      const removableValue = await selectedLevels.evaluateAll((nodes, currentDefault) => {
+        const candidate = nodes.find((node) => node.getAttribute('data-value') !== currentDefault)
+        return candidate?.getAttribute('data-value') ?? null
+      }, defaultValue)
+      if (removableValue) {
+        const beforeCount = await selectedLevels.count()
+        const removable = thinkingGroup.locator(`[data-value=${JSON.stringify(removableValue)}]`)
+        await removable.click()
+        await expect(selectedLevels).toHaveCount(beforeCount - 1)
+        await removable.click()
+        await expect(selectedLevels).toHaveCount(beforeCount)
+        await expect(defaultGroup.locator('[role="radio"][aria-checked="true"]')).toHaveAttribute(
+          'data-value',
+          defaultValue!,
+        )
+      }
+      await dialog.getByRole('button', { name: labels.models.select('second-model'), exact: true }).click()
+      await advanced.click()
       await dialog.getByRole('spinbutton', { name: labels.models.inputPrice, exact: true }).fill('1.25')
       await dialog.getByRole('button', { name: labels.models.setDefault, exact: true }).click()
       await advanced.click()
@@ -317,10 +394,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         (await configuration.execute('provider.list', {})).find((item) => item.provider.id === 'progressive-provider'),
       ).toEqual(saved)
       await edit.click()
+      // Existing providers keep their immutable ID out of the editable form;
+      // the ID/name geometry check belongs to the new-provider form above.
+      await expect(dialog.locator('#provider-id')).toHaveCount(0)
       await expect(dialog.locator('#provider-name')).toHaveValue(name)
       await expect(dialog.getByLabel(labels.provider.apiKey, { exact: true })).toHaveValue('')
 
-      for (const width of [1440, 390, 320]) {
+      for (const width of [1440, 1024, 768, 390, 320]) {
         await page.setViewportSize({ width, height: 900 })
         await main.evaluate((element) => {
           element.scrollTop = 0
@@ -328,6 +408,20 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expect(dialog.getByRole('button', { name: labels.save, exact: true })).toBeVisible()
         await expect(dialog.getByRole('button', { name: labels.cancel, exact: true })).toBeVisible()
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1)
+        if (width >= 768) {
+          await expectControlsAligned(dialog.locator('#provider-protocol'), dialog.locator('#provider-base-url'))
+        }
+        const viewportActionBox = await customAction.boundingBox()
+        const viewportInputBox = await customInput.boundingBox()
+        const viewportAddBox = await addCustom.boundingBox()
+        expect(viewportActionBox).not.toBeNull()
+        expect(viewportInputBox).not.toBeNull()
+        expect(viewportAddBox).not.toBeNull()
+        expect(viewportInputBox!.width).toBeGreaterThan(0)
+        expect(viewportAddBox!.x + viewportAddBox!.width).toBeLessThanOrEqual(
+          viewportActionBox!.x + viewportActionBox!.width + 1,
+        )
+        await expectSingleScrollRegion(dialog)
         await page.screenshot({ path: info.outputPath(`provider-basic-${locale}-${width}.png`) })
         await advanced.scrollIntoViewIfNeeded()
         await advanced.click()

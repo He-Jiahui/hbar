@@ -154,7 +154,7 @@ test('provider list and dialog render Host descriptions without exposing a crede
     expect(list).toContain('Credential configured')
     expect(list).toContain('Edit Visible provider')
     expect(list).toContain('Actions for Visible provider')
-    expect(list).toContain('role="menuitem"')
+    expect(list).toContain('aria-haspopup="menu"')
 
     await runtime.view.commands.execute('app.openSettingsEditor', {
       scope: 'global',

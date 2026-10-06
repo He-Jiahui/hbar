@@ -936,7 +936,15 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
         '决定会话设置中可选择的思考强度。',
         'Controls the thinking strengths offered in session settings.',
       ),
+      thinkingLevelsSelectionHint: choose(
+        '至少保留一个有效等级；当前默认等级不能取消。若要移除它，请先选择其他默认等级。',
+        'Keep at least one supported level. The current default cannot be removed; choose another default first.',
+      ),
       defaultThinkingLevel: choose('默认思考等级', 'Default thinking level'),
+      defaultThinkingLevelDescription: choose(
+        '默认等级必须属于当前可用等级；先选择其他等级，再移除原默认等级。关闭（off）与继承不是同一语义。',
+        'The default must be one of the supported levels. Choose another level before removing the current default; Off and inherit have different meanings.',
+      ),
       removeThinkingLevel: (level) => choose(`移除思考等级 ${level}`, `Remove thinking level ${level}`),
     },
     protocol: (protocol) =>

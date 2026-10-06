@@ -2,20 +2,20 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import type { ProviderEditorState } from '@hbar/app-runtime'
 import {
   LumenFrame,
-  LumenOption,
   LumenText,
   LumenButton,
-  LumenCheckBox,
   LumenComboBox,
   LumenFormField,
   LumenIcon,
   LumenInput,
-  LumenMultiSelect,
   LumenNavigationButton,
-  LumenSelect,
+  LumenPopupSelect,
+  LumenToggle,
+  LumenToggleGroup,
   type LumenControlOption,
 } from '@lumen/app-ui'
-import { Check, ChevronDown, EyeOff, Plus, RotateCcw, Trash2, X } from 'lucide-react'
+import { Check, EyeOff, Plus, RotateCcw, Trash2, X } from 'lucide-react'
+import { HbarLumenDisclosure } from './lumen-disclosure'
 
 type ProviderField = 'id' | 'name' | 'visible' | 'protocol' | 'baseUrl'
 type ThinkingLevel = ProviderEditorState['draft']['models'][number]['thinkingLevels'][number]
@@ -162,7 +162,9 @@ export interface HbarProviderDialogLabels {
     readonly reasoningDescription: string
     readonly thinkingLevels: string
     readonly thinkingLevelsDescription: string
+    readonly thinkingLevelsSelectionHint: string
     readonly defaultThinkingLevel: string
+    readonly defaultThinkingLevelDescription: string
     readonly removeThinkingLevel: (level: string) => string
   }
   readonly protocol: (protocol: ProviderEditorState['draft']['protocol']) => string
@@ -192,6 +194,20 @@ const protocols: readonly ProviderEditorState['draft']['protocol'][] = [
   'mock',
 ]
 
+function isThinkingLevel(value: string): value is ThinkingLevel {
+  return (thinkingLevels as readonly string[]).includes(value)
+}
+
+/** Keep the model's current default and at least one supported level intact. */
+export function normalizeProviderThinkingLevels(
+  values: readonly string[],
+  defaultThinkingLevel: ThinkingLevel,
+): readonly ThinkingLevel[] | null {
+  const next = [...new Set(values.filter(isThinkingLevel))]
+  if (next.length === 0 || !next.includes(defaultThinkingLevel)) return null
+  return next
+}
+
 function AdvancedSection({
   label,
   description,
@@ -210,22 +226,19 @@ function AdvancedSection({
     if (forcedOpen) setExpanded(true)
   }, [forcedOpen])
   return (
-    <LumenFrame className="hbar-provider-advanced" data-open={open}>
-      <LumenButton
-        type="button"
-        variant="text"
-        indicator="none"
-        aria-expanded={open}
-        onClick={() => setExpanded((value) => !value)}
-      >
-        <LumenIcon icon={ChevronDown} tier="sm" />
-        {label}
-      </LumenButton>
+    <HbarLumenDisclosure
+      className="hbar-provider-advanced"
+      label={label}
+      open={open}
+      onOpenChange={(next) => {
+        if (!forcedOpen) setExpanded(next)
+      }}
+    >
       <LumenFrame className="hbar-provider-advanced-content" hidden={!open}>
         <LumenText as="p">{description}</LumenText>
         {children}
       </LumenFrame>
-    </LumenFrame>
+    </HbarLumenDisclosure>
   )
 }
 
@@ -465,6 +478,7 @@ function ProviderConnectionForm({
             controlId="provider-id"
             label={labels.provider.id}
             description={labels.provider.idDescription}
+            descriptionPlacement="after-control"
             required
             requiredIndicator={labels.requiredIndicator}
             {...draftIssueProps(editor, 'id', labels)}
@@ -481,6 +495,7 @@ function ProviderConnectionForm({
         <LumenFormField
           controlId="provider-name"
           label={labels.provider.name}
+          descriptionPlacement="after-control"
           required
           requiredIndicator={labels.requiredIndicator}
           {...draftIssueProps(editor, 'name', labels)}
@@ -501,18 +516,13 @@ function ProviderConnectionForm({
           requiredIndicator={labels.requiredIndicator}
           {...draftIssueProps(editor, 'protocol', labels)}
         >
-          <LumenSelect
+          <LumenPopupSelect
             id="provider-protocol"
             value={editor.draft.protocol}
+            options={protocols.map((protocol) => ({ id: protocol, label: labels.protocol(protocol) }))}
             disabled={disabled}
-            onChange={(event) => set('protocol', event.currentTarget.value)}
-          >
-            {protocols.map((protocol) => (
-              <LumenOption key={protocol} value={protocol}>
-                {labels.protocol(protocol)}
-              </LumenOption>
-            ))}
-          </LumenSelect>
+            onValueChange={(value) => set('protocol', value)}
+          />
         </LumenFormField>
         <LumenFormField
           controlId="provider-base-url"
@@ -541,7 +551,7 @@ function ProviderConnectionForm({
         description={labels.provider.visibleDescription}
         forcedOpen={false}
       >
-        <LumenCheckBox
+        <LumenToggle
           checked={editor.draft.visible}
           disabled={disabled}
           label={labels.provider.visible}
@@ -719,8 +729,12 @@ function ModelList({
               onClick={() => onIntent({ kind: 'select-model', modelId: model.id })}
             >
               <LumenText as="span">
-                <LumenText as="strong">{model.name}</LumenText>
-                <LumenText as="small">{model.id}</LumenText>
+                <LumenText as="strong" title={model.name}>
+                  {model.name}
+                </LumenText>
+                <LumenText as="small" title={model.id}>
+                  {model.id}
+                </LumenText>
                 {editor.draftIssues.some((issue) => issue.path.startsWith(`models.${index}.`)) && (
                   <LumenText as="small" className="hbar-provider-model-error">
                     {labels.modelIssues(
@@ -755,7 +769,11 @@ function ModelList({
         focusCatalogTarget={focusCatalogTarget}
         onIntent={onIntent}
       />
-      <LumenFormField controlId="provider-custom-model" label={labels.models.customId}>
+      <LumenFormField
+        controlId="provider-custom-model"
+        label={labels.models.customId}
+        className="hbar-provider-custom-model-field"
+      >
         <LumenFrame className="hbar-app-react-provider-inline-action">
           <LumenInput
             id="provider-custom-model"
@@ -795,8 +813,6 @@ function ModelEditor({
   readonly disabled: boolean
   readonly onIntent: (intent: HbarProviderEditorIntent) => void
 }) {
-  const [thinkingQuery, setThinkingQuery] = useState('')
-  const [thinkingOpen, setThinkingOpen] = useState(false)
   const modelIndex = editor.draft.models.findIndex((model) => model.id === editor.selectedModelId)
   const model = editor.draft.models[modelIndex]
   if (!model)
@@ -808,7 +824,13 @@ function ModelEditor({
   const set = (field: ModelField, value: string | number | boolean) =>
     onIntent({ kind: 'set-model-field', modelId: model.id, field, value })
   const path = (field: string) => `models.${modelIndex}.${field}`
-  const levelOptions = thinkingLevels.map((level) => ({ id: level, label: labels.thinkingLevel(level) }))
+  const levelOptions = thinkingLevels.map((level) => ({
+    id: level,
+    label: labels.thinkingLevel(level),
+    disabled:
+      model.thinkingLevels.includes(level) &&
+      (model.thinkingLevels.length <= 1 || level === model.defaultThinkingLevel),
+  }))
   return (
     <LumenFrame className="hbar-app-react-provider-model-editor">
       <LumenFrame className="hbar-app-react-provider-model-actions">
@@ -832,6 +854,7 @@ function ModelEditor({
         <LumenFormField
           controlId="provider-model-id"
           label={labels.models.id}
+          descriptionPlacement="after-control"
           required
           requiredIndicator={labels.requiredIndicator}
           {...draftIssueProps(editor, path('id'), labels)}
@@ -846,6 +869,7 @@ function ModelEditor({
         <LumenFormField
           controlId="provider-model-name"
           label={labels.models.name}
+          descriptionPlacement="after-control"
           required
           requiredIndicator={labels.requiredIndicator}
           {...draftIssueProps(editor, path('name'), labels)}
@@ -879,7 +903,7 @@ function ModelEditor({
             !['id', 'name'].includes(issue.path.split('.').at(-1) ?? ''),
         )}
       >
-        <LumenCheckBox
+        <LumenToggle
           checked={model.visible}
           disabled={disabled}
           label={labels.models.visible}
@@ -943,14 +967,14 @@ function ModelEditor({
           </LumenFormField>
         </LumenFrame>
         <LumenFrame className="hbar-app-react-provider-capabilities">
-          <LumenCheckBox
+          <LumenToggle
             checked={model.imageInput}
             disabled={disabled}
             label={labels.models.imageInput}
             description={labels.models.imageInputDescription}
             onChange={(event) => set('imageInput', event.currentTarget.checked)}
           />
-          <LumenCheckBox
+          <LumenToggle
             checked={model.reasoning}
             disabled={disabled}
             label={labels.models.reasoning}
@@ -964,44 +988,44 @@ function ModelEditor({
           description={labels.models.thinkingLevelsDescription}
           {...draftIssueProps(editor, path('thinkingLevels'), labels)}
         >
-          <LumenMultiSelect
+          <LumenToggleGroup
             id="provider-model-thinking-levels"
+            type="multiple"
+            label={labels.models.thinkingLevels}
             values={model.thinkingLevels}
-            query={thinkingQuery}
-            open={thinkingOpen}
             options={levelOptions}
-            labels={{
-              open: labels.models.catalogOpen,
-              empty: labels.models.catalogEmpty,
-              loading: labels.models.catalogLoading,
-              remove: labels.models.removeThinkingLevel,
-            }}
             disabled={disabled}
-            onQueryChange={setThinkingQuery}
-            onOpenChange={setThinkingOpen}
             onValuesChange={(values) => {
-              if (values.length > 0)
+              const next = normalizeProviderThinkingLevels(values, model.defaultThinkingLevel)
+              if (next)
                 onIntent({
                   kind: 'set-model-thinking-levels',
                   modelId: model.id,
-                  thinkingLevels: values as readonly ThinkingLevel[],
+                  thinkingLevels: next,
                 })
             }}
           />
+          <LumenText as="p" className="hbar-provider-thinking-levels-hint">
+            {labels.models.thinkingLevelsSelectionHint}
+          </LumenText>
         </LumenFormField>
-        <LumenFormField controlId="provider-model-default-thinking" label={labels.models.defaultThinkingLevel}>
-          <LumenSelect
+        <LumenFormField
+          controlId="provider-model-default-thinking"
+          label={labels.models.defaultThinkingLevel}
+          description={labels.models.defaultThinkingLevelDescription}
+          descriptionPlacement="after-control"
+        >
+          <LumenToggleGroup
             id="provider-model-default-thinking"
+            type="single"
+            label={labels.models.defaultThinkingLevel}
             value={model.defaultThinkingLevel}
+            options={model.thinkingLevels.map((level) => ({ id: level, label: labels.thinkingLevel(level) }))}
             disabled={disabled}
-            onChange={(event) => set('defaultThinkingLevel', event.currentTarget.value)}
-          >
-            {model.thinkingLevels.map((level) => (
-              <LumenOption key={level} value={level}>
-                {labels.thinkingLevel(level)}
-              </LumenOption>
-            ))}
-          </LumenSelect>
+            onValueChange={(value) => {
+              if (isThinkingLevel(value) && model.thinkingLevels.includes(value)) set('defaultThinkingLevel', value)
+            }}
+          />
         </LumenFormField>
       </AdvancedSection>
     </LumenFrame>

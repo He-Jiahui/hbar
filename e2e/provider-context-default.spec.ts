@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { openSessionTool } from './support/session-tools-menu'
+import { expectLumenValue, selectLumenChoice, selectLumenOption } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 const rpcCommand = z.object({ params: z.object({ commandId: z.string(), input: z.unknown().optional() }) })
@@ -25,7 +26,7 @@ async function removeOwnedFixture(root: string): Promise<void> {
 async function selectGroup(page: Page, locale: ShellLocale, group: 'providers' | 'model'): Promise<void> {
   const copy = getShellCopy(locale)
   const mobile = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
-  if (await mobile.isVisible()) await mobile.selectOption(group)
+  if (await mobile.isVisible()) await selectLumenOption(mobile, group)
   else
     await page
       .getByRole('navigation', { name: copy.settings.groups, exact: true })
@@ -129,19 +130,15 @@ for (const scenario of [
       await prompt.fill(composerDraft)
       await openSessionTool(page, copy.session.tools, 'settings')
       const scope = page.getByRole('combobox', { name: copy.settings.scopes, exact: true })
-      await expect(scope).toHaveValue('session')
-      if (scenario.scope === 'workspace') await scope.selectOption('workspace')
-      await expect(scope).toHaveValue(scenario.scope)
+      await expectLumenValue(scope, 'session')
+      if (scenario.scope === 'workspace') await selectLumenOption(scope, 'workspace')
+      await expectLumenValue(scope, scenario.scope)
       const model = page.locator(`[id="hbar-schema-field-${modelPath}"]`)
       const originalModelLabel = `${originalModel.providerName} · ${originalModel.modelName}`
       await expect(model).toHaveValue(originalModelLabel)
       const thinking = page.locator(`[id="hbar-schema-field-${thinkingPath}"]`)
-      const low = scenario.locale === 'zh-CN' ? '低' : 'Low'
-      const high = scenario.locale === 'zh-CN' ? '高' : 'High'
-      const dirtyThinking = (await thinking.inputValue()) === low ? high : low
-      await thinking.click()
-      await page.getByRole('option', { name: dirtyThinking, exact: true }).click()
-      await expect(thinking).toHaveValue(dirtyThinking)
+      const dirtyThinking = (await thinking.getAttribute('data-value')) === 'string:low' ? 'string:high' : 'string:low'
+      await selectLumenChoice(thinking, dirtyThinking)
       await expect(page.getByRole('button', { name: copy.settings.save, exact: true })).toBeEnabled()
       await selectGroup(page, scenario.locale, 'providers')
       await page.setViewportSize({ width: scenario.width, height: 900 })
@@ -179,9 +176,9 @@ for (const scenario of [
       expect(runCommands).toEqual([])
       await page.screenshot({ path: info.outputPath(`context-default-after-${scenario.scope}.png`) })
       await selectGroup(page, scenario.locale, 'model')
-      await expect(scope).toHaveValue(scenario.scope)
+      await expectLumenValue(scope, scenario.scope)
       await expect(model).toHaveValue(originalModelLabel)
-      await expect(thinking).toHaveValue(dirtyThinking)
+      await expectLumenValue(thinking, dirtyThinking)
       await expect(page.getByRole('button', { name: copy.settings.save, exact: true })).toBeEnabled()
       await page.screenshot({ path: info.outputPath(`context-default-draft-${scenario.scope}.png`) })
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)

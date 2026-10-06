@@ -22,6 +22,37 @@
   text-align: center;
 }
 
+/* The shared floating dialog is a DIV surface now (not a native <dialog>).
+   Keep the provider editor's page form inside a finite viewport so its header
+   and action footer remain fixed flex slots while only <main> scrolls. */
+.lumen-floating-modal-root.hbar-app-ui-dialog-backdrop > .hbar-app-react-provider-modal {
+  --lumen-dialog-width: 58rem;
+  inline-size: min(58rem, calc(100% - 2rem));
+  max-inline-size: calc(100% - 2rem);
+  block-size: min(52rem, calc(100dvb - 2rem));
+  max-block-size: calc(100dvb - 2rem);
+}
+
+.hbar-app-react-provider-modal .lumen-dialog-surface,
+.hbar-app-react-provider-modal .lumen-dialog-content,
+.hbar-app-react-provider-modal .lumen-dialog-body {
+  min-block-size: 0;
+}
+
+.hbar-app-react-provider-modal .lumen-dialog-surface,
+.hbar-app-react-provider-modal .lumen-dialog-content {
+  block-size: 100%;
+}
+
+.hbar-app-react-provider-modal .lumen-dialog-body {
+  overflow: hidden;
+}
+
+.hbar-app-react-provider-modal .lumen-dialog-body > .hbar-app-react-provider-dialog {
+  min-block-size: 0;
+  flex: 1 1 auto;
+}
+
 .hbar-provider-catalog-recovery {
   display: flex;
   min-inline-size: 0;
@@ -167,7 +198,13 @@
 .hbar-app-react-provider-field-row > *,
 .hbar-app-react-provider-capabilities > * {
   min-inline-size: min(100%, 13rem);
-  flex: 1 1 13rem;
+  flex: 1 1 0;
+}
+
+.hbar-app-react-provider-field-row > .lumen-form-field,
+.hbar-app-react-provider-capabilities > .lumen-toggle {
+  min-inline-size: min(100%, 13rem);
+  flex: 1 1 0;
 }
 
 .hbar-app-react-provider-model-section {
@@ -200,7 +237,6 @@
 .hbar-app-react-provider-model-list-items {
   display: flex;
   min-inline-size: 0;
-  flex-direction: column;
   gap: 0.25rem;
   flex-direction: row;
   flex-wrap: wrap;
@@ -210,8 +246,8 @@
   display: flex;
   inline-size: auto;
   max-inline-size: 100%;
-  flex: 0 1 14rem;
-  min-inline-size: 0;
+  flex: 1 1 14rem;
+  min-inline-size: min(100%, 14rem);
   align-items: center;
   gap: 0.5rem;
   text-align: start;
@@ -250,8 +286,32 @@
   gap: 0.25rem;
 }
 
-.hbar-app-react-provider-inline-action > .lumen-control {
+.hbar-app-react-provider-inline-action > .lumen-field,
+.hbar-app-react-provider-inline-action > .lumen-outlined-field,
+.hbar-app-react-provider-inline-action > .lumen-popup-select,
+.hbar-app-react-provider-inline-action > .lumen-combobox-control {
+  min-inline-size: 0;
   flex: 1 1 auto;
+}
+
+.hbar-app-react-provider-inline-action > .lumen-field > .lumen-control,
+.hbar-app-react-provider-inline-action > .lumen-outlined-field > .lumen-control,
+.hbar-app-react-provider-inline-action > .lumen-popup-select > .lumen-control,
+.hbar-app-react-provider-inline-action > .lumen-combobox-control > .lumen-control {
+  inline-size: 100%;
+}
+
+.hbar-app-react-provider-inline-action > button {
+  flex: 0 0 auto;
+}
+
+.hbar-provider-custom-model-field {
+  min-inline-size: 0;
+}
+
+.hbar-provider-custom-model-field > .hbar-app-react-provider-inline-action {
+  min-inline-size: 0;
+  inline-size: 100%;
 }
 
 .hbar-app-react-provider-model-details {
@@ -351,6 +411,10 @@
   gap: 0.75rem;
 }
 
+.hbar-provider-advanced-content {
+  inline-size: 100%;
+}
+
 .hbar-provider-advanced-content[hidden] {
   display: none;
 }
@@ -371,6 +435,14 @@
 
 .hbar-provider-model-error {
   color: var(--lumen-danger);
+}
+
+.hbar-provider-thinking-levels-hint {
+  margin: 0;
+  color: var(--lumen-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .hbar-provider-identity {
@@ -436,5 +508,14 @@
 
   .hbar-app-react-provider-model-editor .hbar-app-react-provider-field-row > * {
     min-inline-size: 100%;
+  }
+}
+
+@media (max-width: 48rem) {
+  .lumen-floating-modal-root.hbar-app-ui-dialog-backdrop > .hbar-app-react-provider-modal {
+    inline-size: calc(100% - 1rem);
+    max-inline-size: calc(100% - 1rem);
+    block-size: calc(100dvb - 2rem);
+    max-block-size: calc(100dvb - 2rem);
   }
 }

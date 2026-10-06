@@ -13,6 +13,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { z } from 'zod'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { selectLumenOption } from './support/lumen-controls'
 
 const rpcCommand = z
   .object({
@@ -144,7 +145,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(inherited.sources.model).toBe('settings:global')
       await page.screenshot({ path: info.outputPath(`provider-default-after-${locale}-${width}.png`) })
       if (width === 320)
-        await page.getByRole('combobox', { name: copy.settings.groups, exact: true }).selectOption('model')
+        await selectLumenOption(page.getByRole('combobox', { name: copy.settings.groups, exact: true }), 'model')
       else
         await page
           .getByRole('navigation', { name: copy.settings.groups, exact: true })
@@ -154,7 +155,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         `${targetModel.providerName} · ${targetModel.modelName}`,
       )
       if (width === 320)
-        await page.getByRole('combobox', { name: copy.settings.groups, exact: true }).selectOption('providers')
+        await selectLumenOption(page.getByRole('combobox', { name: copy.settings.groups, exact: true }), 'providers')
       else
         await page
           .getByRole('navigation', { name: copy.settings.groups, exact: true })
