@@ -28,6 +28,8 @@ bun test ./tests/reactbits-pro-content-geometry.test.ts ./tests/reactbits-pro-st
 
 `bun run build && bun run test:e2e` 使用 Vite preview 和 Edge/Playwright，覆盖无 Host 时的中英文桌面/窄屏外壳、Ctrl+K 本地命令目录、命令关闭后的导航、刷新、旧 localStorage 隔离和明确失败状态。真实临时 Host 场景覆盖选择会话、文件 compare-and-write、通用 descriptor 预算表单、发送/审批/取消、可靠 Usage、真实工具结算/并发/耗时统计、三层设置动态内容、ProviderDialog 凭据保存、Session Monitoring、子 Agent、目标/计划、扩展/技能以及 Performance/Usage/Git 状态中心。连接 Host 后还会切换到 390×844，逐项重开上述工具，检查水平溢出和 AppSidebar/Main 几何重叠。组件库的受控交互测试和独立预览验证脚本继续保留。
 
+子窗口的共享遮罩验收使用 `bun run test:e2e -- e2e/dialog-backdrop.spec.ts e2e/dialog-sizing.spec.ts`。遮罩测试在原生 top layer 与不可用时的回退路径中，直接比较浏览器截图像素：暗色遮罩压暗背景、亮色遮罩提亮背景，底层高对比条纹被模糊。它还检查窗口打开时切换主题不丢失草稿、焦点和尺寸，关闭后恢复背景，点击遮罩关闭，以及系统高对比度关闭背景模糊。尺寸测试继续覆盖大 / 中 / 小窗口的 80% / 60% / 40% 和小视口 100%，截图保存在 `artifacts/dialog-backdrop/` 与 `artifacts/dialog-sizing/`。这些受控组件测试不依赖真实供应商或创建模型 Run。
+
 专注工作流的验证矩阵和定向命令见[专注工作流](workflows.md#迁移与验证)。`tests/compiled-cli.test.ts` 真实编译 standalone CLI，检查内嵌 Host、原生查询、Workflow、隔离补丁以及 Windows 进程拓扑；`e2e/workflow-focus.spec.ts` 用真实 Host 检查桌面和窄屏的单一 Agent Plan、当前焦点、显式人工模式与 Evidence 回读。
 
 `bun scripts/desktop-smoke.ts` 需要先构建 Host 资源和 debug Tauri 程序；自定义输出目录可用 `HBAR_DESKTOP_EXE` 指向实际程序。它会启动真实原生窗口，不是无窗口检查。使用前确认允许本轮临时原生验收，不安装或重启现用桌面。
