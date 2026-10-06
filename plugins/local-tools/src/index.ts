@@ -2,7 +2,7 @@ import { readFile, readdir, realpath, mkdir, writeFile, rename, stat } from 'nod
 import { resolve, relative, dirname, isAbsolute, join, basename } from 'node:path'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
-import { definePlugin, provide } from '@hbar/plugin-sdk'
+import { definePlugin, provide, resolveToolTimeoutMs } from '@hbar/plugin-sdk'
 import type { ExecOptions, ExecutionProvider, ToolResult, WorkspaceQueryProvider } from '@hbar/plugin-sdk'
 import type { WorkspaceDirectoryService } from '@hbar/plugin-sdk/workspace-directories'
 import { HbarError } from '@hbar/contracts'
@@ -300,6 +300,7 @@ export class LocalExecution implements ExecutionProvider {
   }
   async exec(workspace: string, command: string, signal: AbortSignal, options?: ExecOptions): Promise<ToolResult> {
     signal.throwIfAborted()
+    const timeoutMs = resolveToolTimeoutMs({ timeoutMs: options?.timeoutMs ?? 120_000 })
     const workingDirectory = await this.workspacePath(workspace, '.')
     const env: Record<string, string> = {}
     const allowed = new Set([
@@ -374,6 +375,7 @@ export class LocalExecution implements ExecutionProvider {
       }
     }
 
+    signal.throwIfAborted()
     const child = Bun.spawn(argv, {
       cwd: workingDirectory,
       env,
@@ -401,7 +403,12 @@ export class LocalExecution implements ExecutionProvider {
       void terminate().catch(() => child.kill())
     }
     signal.addEventListener('abort', onAbort, { once: true })
-    const timeout = setTimeout(onAbort, 120_000)
+    if (signal.aborted) onAbort()
+    let timedOut = false
+    const timeout = setTimeout(() => {
+      timedOut = true
+      onAbort()
+    }, timeoutMs)
     let truncated = false
     async function collect(stream: ReadableStream<Uint8Array>) {
       const decoder = new TextDecoder()
@@ -419,6 +426,12 @@ export class LocalExecution implements ExecutionProvider {
       const [stdout, stderr, code] = await Promise.all([collect(child.stdout), collect(child.stderr), child.exited])
       if (terminating) await terminating
       signal.throwIfAborted()
+      if (timedOut)
+        return {
+          text: `${stdout}${stderr}\nTool shell timed out after ${timeoutMs} milliseconds; its process was terminated. The Agent may continue.`,
+          isError: true,
+          details: { code: 'TOOL_TIMEOUT', exitCode: code, timeoutMs, truncated },
+        }
       return {
         text: `${stdout}${stderr}${truncated ? '\n[output truncated to retained tail]' : ''}`,
         isError: code !== 0,
@@ -635,12 +648,28 @@ export default definePlugin({
       name: 'shell',
       presentation: { kind: 'command', commandField: 'command' },
       description: 'Execute a shell command in the workspace. Requires user approval.',
-      inputSchema: z.object({ command: z.string().min(1).max(16000) }),
+      inputSchema: z.object({
+        command: z.string().min(1).max(16000),
+        timeout_ms: z
+          .number()
+          .int()
+          .min(1)
+          .max(1_200_000)
+          .default(120_000)
+          .describe(
+            'Execution timeout in milliseconds. Default 120000 (2 minutes), maximum 1200000 (20 minutes). Timeout returns a tool error and the Agent may continue.',
+          ),
+      }),
+      timeoutMs: 1_200_000,
+      timeoutArgument: 'timeout_ms',
       effect: 'process',
       workspaceAccess: { kind: 'workspace' },
       commandArgument: 'command',
       execute: (args, c) =>
-        execution.exec(c.workspace.path, args.command as string, c.signal, { environment: c.environment }),
+        execution.exec(c.workspace.path, args.command as string, c.signal, {
+          environment: c.environment,
+          timeoutMs: c.timeoutMs ?? 120_000,
+        }),
     })
   },
 })

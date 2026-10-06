@@ -3,6 +3,7 @@ export type { DecisionContext, DecisionService } from './decision'
 export { appendModelContext, prependModelInstructions } from './model-context'
 export { RunControlSignal, type GoalReplacementStop } from './run-control'
 import type { GoalReplacementStop } from './run-control'
+import type { ToolTimeoutPolicy } from './tool-timeout'
 import type { z } from 'zod'
 import type { ToolPresentationDeclaration } from '@hbar/contracts'
 export type { ToolPresentationDeclaration } from '@hbar/contracts'
@@ -71,6 +72,8 @@ import type {
 } from '@hbar/contracts/workspace-query'
 
 export { Context }
+export { DEFAULT_TOOL_TIMEOUT_MS, resolveToolTimeoutMs, describeToolTimeout } from './tool-timeout'
+export type { ToolTimeoutPolicy } from './tool-timeout'
 export type Disposer = () => void | Promise<void>
 export type ScopeKind = 'host' | 'workspace' | 'session' | 'run' | 'client'
 export type ToolResultContent = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }
@@ -100,6 +103,8 @@ export interface ToolContext {
   run: Run
   signal: AbortSignal
   callId: string
+  /** Host-owned execution deadline in milliseconds; aborting it does not cancel the parent Run. */
+  timeoutMs?: number
   /** Host-owned parent identity; nested results stay out of the model's tool-call protocol. */
   parentCallId?: string
   /** One bounded, sequential batch through this Run's selected tools and normal execution gates. No recursion. */
@@ -130,7 +135,7 @@ export type ToolWorkspaceAccess =
       arguments: readonly { field: string; access: 'read' | 'write' }[]
     }
   | { kind: 'workspace' }
-export interface ToolDefinition {
+export interface ToolDefinition extends ToolTimeoutPolicy {
   name: string
   description: string
   inputSchema: z.ZodType
@@ -171,6 +176,8 @@ export interface OsConfinementOptions {
 }
 
 export interface ExecOptions {
+  /** Process execution deadline in milliseconds. Defaults to 120 seconds. */
+  readonly timeoutMs?: number | undefined
   /** Applied over the inherited environment; the Host never passes PATH or PATHEXT. */
   readonly environment?: Readonly<Record<string, string>> | undefined
   /**

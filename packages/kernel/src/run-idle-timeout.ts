@@ -26,11 +26,12 @@ export function createRunIdleTimeout(
   controller: AbortController,
   timeoutMs = DEFAULT_RUN_IDLE_TIMEOUT_MS,
   clock: RunIdleScheduler = scheduler,
-): { progress(): void; dispose(): void } {
+): { progress(): void; suspend(): () => void; dispose(): void } {
   resolveRunIdleTimeoutMs(timeoutMs)
   let lastProgress = clock.now()
   let cancelTimer: (() => void) | undefined
   let disposed = false
+  let suspended = 0
 
   const dispose = () => {
     if (disposed) return
@@ -58,6 +59,21 @@ export function createRunIdleTimeout(
   return {
     progress() {
       if (!disposed) lastProgress = clock.now()
+    },
+    suspend() {
+      if (disposed) return () => {}
+      suspended++
+      cancelTimer?.()
+      cancelTimer = undefined
+      let resumed = false
+      return () => {
+        if (resumed) return
+        resumed = true
+        suspended--
+        if (disposed || suspended > 0) return
+        lastProgress = clock.now()
+        cancelTimer = clock.schedule(check, timeoutMs)
+      }
     },
     dispose,
   }

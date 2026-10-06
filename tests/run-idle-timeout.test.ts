@@ -90,6 +90,40 @@ test('invalid deadlines fail before scheduling a timer', () => {
   expect(clock.timers.size).toBe(0)
 })
 
+test('bounded tool execution suspends idle checks until every nested tool settles', () => {
+  const clock = fakeClock()
+  const controller = new AbortController()
+  const timeout = createRunIdleTimeout(controller, 100, clock.clock)
+  const resumeParent = timeout.suspend()
+  const resumeChild = timeout.suspend()
+  expect(clock.timers.size).toBe(0)
+  clock.advance(1_000)
+  resumeParent()
+  resumeParent()
+  clock.advance(1_000)
+  expect(controller.signal.aborted).toBe(false)
+  expect(clock.timers.size).toBe(0)
+  resumeChild()
+  clock.advance(99)
+  expect(controller.signal.aborted).toBe(false)
+  clock.advance(1)
+  expect(controller.signal.reason).toMatchObject({ code: 'RUN_TIMEOUT' })
+})
+
+test('cancelling a tool-suspended Run never schedules a new idle timer', () => {
+  const clock = fakeClock()
+  const controller = new AbortController()
+  const timeout = createRunIdleTimeout(controller, 100, clock.clock)
+  const resume = timeout.suspend()
+  const reason = new HbarError('USER_CANCELLED', 'Cancelled')
+  controller.abort(reason)
+  resume()
+  timeout.suspend()()
+  clock.advance(100)
+  expect(clock.timers.size).toBe(0)
+  expect(controller.signal.reason).toBe(reason)
+})
+
 const resources: { root: string; kernel: Kernel }[] = []
 afterEach(async () => {
   for (const { root, kernel } of resources.splice(0)) {

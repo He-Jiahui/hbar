@@ -28,9 +28,17 @@ export function createToolSequenceExecutor(
   let used = false
   let progress: ToolBatchProgress | undefined
   const publishProgress = () => append('tool.sequence_progress', { parentCallId: context.callId, progress })
+  const closeProgress = () => {
+    if (!progress) return
+    const unknown = progress.unknown + progress.running
+    progress = { ...progress, unknown, running: 0, pending: 0, skipped: progress.total - progress.settled - unknown }
+  }
   return {
     progress: () => progress,
-    dispose: () => lifetime.abort(new HbarError('TOOL_SEQUENCE_CLOSED', 'The parent tool has settled')),
+    dispose: () => {
+      lifetime.abort(new HbarError('TOOL_SEQUENCE_CLOSED', 'The parent tool has settled'))
+      closeProgress()
+    },
     execute: async (raw: readonly ToolSequenceCall[]): Promise<readonly ToolSequenceResult[]> => {
       signal.throwIfAborted()
       if (used) throw new HbarError('TOOL_SEQUENCE_LIMIT', 'A tool may submit only one sequential batch')
@@ -68,6 +76,7 @@ export function createToolSequenceExecutor(
             callId,
             parentCallId: context.callId,
           })
+          lifetime.signal.throwIfAborted()
           progress = { ...progress, settled: index + 1, running: 0 }
           await publishProgress()
           if (result.hostControl) throw new RunControlSignal(result.hostControl)
@@ -93,13 +102,7 @@ export function createToolSequenceExecutor(
         }
       } finally {
         // An exception before a child result is not evidence that the child completed.
-        progress = {
-          ...progress,
-          unknown: progress.running,
-          running: 0,
-          pending: 0,
-          skipped: calls.length - progress.settled - progress.running,
-        }
+        closeProgress()
         await publishProgress()
       }
       return results

@@ -2,7 +2,7 @@ import { mkdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { resolve, relative, isAbsolute, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { Context, HbarService, service } from '@hbar/plugin-sdk'
+import { Context, HbarService, resolveToolTimeoutMs, service } from '@hbar/plugin-sdk'
 import type {
   Disposer,
   HbarAPI,
@@ -41,8 +41,16 @@ export class Tools implements ToolRegistry {
       throw new HbarError('INVALID_TOOL_PRESENTATION', 'Tool presentation declaration is invalid')
     const registered: ToolDefinition = {
       ...tool,
+      timeoutMs: resolveToolTimeoutMs(tool),
       ...(parsed?.success ? { presentation: Object.freeze(parsed.data) } : {}),
     }
+    for (const property of ['timeoutMs', 'timeoutArgument'] as const)
+      Object.defineProperty(registered, property, {
+        value: registered[property],
+        enumerable: true,
+        writable: false,
+        configurable: false,
+      })
     Object.defineProperty(registered, 'presentation', {
       value: registered.presentation,
       enumerable: parsed !== undefined,
