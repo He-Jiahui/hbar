@@ -160,7 +160,8 @@ export function createSessionSearchStorage(db: Database, displayNames: () => Rea
     for (const document of sessionSearchDocuments(role, content)) {
       let targetMessageId = messageId
       let blockIndex = document.blockIndex
-      if (role === 'tool' && document.callId) {
+      const resultBlock = content[document.blockIndex]
+      if (role === 'tool' && document.callId && resultBlock?.type === 'tool_result') {
         const parent = z
           .object({ id: z.string(), blockIndex: z.number() })
           .nullable()
@@ -169,10 +170,12 @@ export function createSessionSearchStorage(db: Database, displayNames: () => Rea
               .query(
                 `SELECT m.id, CAST(b.key AS INTEGER) AS blockIndex FROM messages m, json_each(m.content) b
            WHERE m.sessionId=? AND m.seq<=? AND m.role='assistant'
+             AND m.runId=(SELECT runId FROM messages WHERE id=?)
              AND json_extract(b.value,'$.type')='tool_call' AND json_extract(b.value,'$.callId')=?
+             AND json_extract(b.value,'$.name')=?
            ORDER BY m.seq DESC LIMIT 1`,
               )
-              .get(sessionId, seq, document.callId),
+              .get(sessionId, seq, messageId, document.callId, resultBlock.name),
           )
         if (parent) {
           targetMessageId = parent.id
@@ -407,10 +410,7 @@ export function createSessionSearchStorage(db: Database, displayNames: () => Rea
                 messageId: row.messageId,
                 role: row.role,
                 source: row.source,
-                targetMessageId:
-                  row.source === 'title'
-                    ? latestOutputMessageId(row.sessionId)
-                    : row.targetMessageId,
+                targetMessageId: row.source === 'title' ? latestOutputMessageId(row.sessionId) : row.targetMessageId,
                 blockIndex: row.source === 'title' ? null : row.blockIndex,
                 callId: row.callId,
                 snippet: excerpt,

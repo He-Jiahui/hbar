@@ -269,3 +269,31 @@ test('upgrades the old text-only projection without changing canonical messages'
   ).toBe(session.id)
   expect((await reopened.call('snapshot', session.id)).messages).toEqual(before.messages)
 })
+
+test('tool-result targets remain in the exact run and tool name when providers reuse call IDs', async () => {
+  const { store, workspace } = await fixture()
+  const session = await store.call('createSession', workspace.id, 'Repeated call IDs')
+  const expected = await store.call('commit', session.id, 'original-run', 'assistant', [
+    { type: 'tool_call', callId: 'call-1', name: 'edit', args: {} },
+  ])
+  await store.call('commit', session.id, 'other-run', 'assistant', [
+    { type: 'tool_call', callId: 'call-1', name: 'edit', args: {} },
+  ])
+  await store.call('commit', session.id, 'original-run', 'assistant', [
+    { type: 'tool_call', callId: 'call-1', name: 'write', args: {} },
+  ])
+  await store.call('commit', session.id, 'original-run', 'tool', [
+    {
+      type: 'tool_result',
+      callId: 'call-1',
+      name: 'edit',
+      text: 'Applied',
+      isError: false,
+      details: { path: 'needle.ts', before: 'old', after: 'needle' },
+    },
+  ])
+  await finishIndex(store)
+  expect(
+    (await store.call('searchSessions', { query: 'needle', source: 'file' })).items[0]?.matches[0]?.targetMessageId,
+  ).toBe(expected.message.id)
+})
