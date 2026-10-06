@@ -365,6 +365,7 @@ async function capture(fixture: Fixture, name: string): Promise<void> {
       return { left: child.left, right: child.right, top: child.top, bottom: child.bottom }
     })
     const pane = root.querySelector<HTMLElement>('.hbar-chat-search-pane')
+    const paneRect = pane?.getBoundingClientRect()
     const inline = Array.from(
       root.querySelectorAll<HTMLElement>('.hbar-chat-search-row-heading time, .hbar-chat-search-snippet-role'),
       (node) => ({
@@ -386,10 +387,27 @@ async function capture(fixture: Fixture, name: string): Promise<void> {
     return {
       documentWidth: document.documentElement.scrollWidth,
       viewportWidth: innerWidth,
-      dialog: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width },
+      viewportHeight: innerHeight,
+      dialog: {
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        bottom: rect.bottom,
+        width: rect.width,
+        height: rect.height,
+      },
       footer: footerRect ? { left: footerRect.left, right: footerRect.right } : null,
       footerChildren,
-      pane: pane ? { scrollHeight: pane.scrollHeight, clientHeight: pane.clientHeight } : null,
+      pane:
+        pane && paneRect
+          ? {
+              scrollHeight: pane.scrollHeight,
+              clientHeight: pane.clientHeight,
+              top: paneRect.top,
+              bottom: paneRect.bottom,
+              overflowY: getComputedStyle(pane).overflowY,
+            }
+          : null,
       inline,
       resultFlow,
       firstHeadingLeft: firstHeading?.left ?? null,
@@ -400,12 +418,16 @@ async function capture(fixture: Fixture, name: string): Promise<void> {
   expect(geometry.documentWidth).toBeLessThanOrEqual(fixture.width + 1)
   expect(geometry.dialog.left).toBeGreaterThanOrEqual(0)
   expect(geometry.dialog.right).toBeLessThanOrEqual(fixture.width + 1)
-  if (fixture.width === 320) {
-    expect(geometry.dialog.left).toBeGreaterThanOrEqual(20)
-    expect(geometry.dialog.right).toBeLessThanOrEqual(300)
-  } else if (name === 'recent') {
-    expect(geometry.dialog.top).toBeLessThanOrEqual(160)
-    expect(geometry.pane?.scrollHeight).toBeLessThanOrEqual((geometry.pane?.clientHeight ?? 0) + 1)
+  const ratio = geometry.viewportWidth <= 960 || geometry.viewportHeight <= 640 ? 1 : 0.6
+  expect(Math.abs(geometry.dialog.width - geometry.viewportWidth * ratio)).toBeLessThanOrEqual(1)
+  expect(Math.abs(geometry.dialog.height - geometry.viewportHeight * ratio)).toBeLessThanOrEqual(1)
+  expect(Math.abs(geometry.dialog.left - (geometry.viewportWidth * (1 - ratio)) / 2)).toBeLessThanOrEqual(1)
+  expect(Math.abs(geometry.dialog.top - (geometry.viewportHeight * (1 - ratio)) / 2)).toBeLessThanOrEqual(1)
+  if (geometry.pane) {
+    expect(geometry.pane.clientHeight).toBeGreaterThan(0)
+    expect(geometry.pane.top).toBeGreaterThanOrEqual(geometry.dialog.top)
+    expect(geometry.pane.bottom).toBeLessThanOrEqual(geometry.dialog.bottom)
+    expect(geometry.pane.overflowY).toBe('auto')
   }
   for (const item of geometry.inline) expect(item.height).toBeLessThanOrEqual(item.fontSize * 1.8 + 1)
   for (const item of geometry.resultFlow) {
