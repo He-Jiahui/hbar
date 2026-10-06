@@ -4,7 +4,6 @@ import {
   LumenCollection,
   LumenCollectionItem,
   LumenFrame,
-  LumenOption,
   LumenText,
   LumenButton,
   LumenCheckBox,
@@ -14,7 +13,7 @@ import {
   LumenIconButton,
   LumenInput,
   LumenPageHeader,
-  LumenSelect,
+  LumenPopupSelect,
   LumenTextarea,
 } from '@lumen/app-ui'
 import type { CommandPaletteItem, CommandPaletteState } from '@hbar/app-runtime'
@@ -158,13 +157,18 @@ function KnownTargetParameter({
   const customValue = custom && typeof value === 'string' && !known ? value : ''
   return (
     <LumenFrame className="hbar-app-react-known-target">
-      <LumenSelect
+      <LumenPopupSelect
         id={id}
         value={custom ? CUSTOM_IDENTIFIER : typeof value === 'string' ? value : ''}
+        placeholder={field.required ? labels.chooseKnownTarget : labels.unset}
+        options={[
+          { id: '', label: field.required ? labels.chooseKnownTarget : labels.unset, disabled: field.required },
+          ...options,
+          { id: CUSTOM_IDENTIFIER, label: labels.customIdentifierOption },
+        ]}
         required={field.required}
         disabled={disabled}
-        onChange={(event) => {
-          const next = event.currentTarget.value
+        onValueChange={(next) => {
           if (next === CUSTOM_IDENTIFIER) {
             setCustom(true)
             if (known || value === undefined) onUnset()
@@ -176,17 +180,7 @@ function KnownTargetParameter({
             onChange(next)
           }
         }}
-      >
-        <LumenOption value="" disabled={field.required}>
-          {field.required ? labels.chooseKnownTarget : labels.unset}
-        </LumenOption>
-        {options.map((option) => (
-          <LumenOption key={option.id} value={option.id}>
-            {option.label}
-          </LumenOption>
-        ))}
-        <LumenOption value={CUSTOM_IDENTIFIER}>{labels.customIdentifierOption}</LumenOption>
-      </LumenSelect>
+      />
       {custom && (
         <LumenInput
           type="text"
@@ -365,20 +359,21 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
     if (field.kind === 'boolean') {
       if (!field.required && field.defaultValue === undefined)
         return (
-          <LumenSelect
+          <LumenPopupSelect
             id={controlId}
             value={typeof value === 'boolean' ? String(value) : ''}
+            placeholder={labels.unset}
+            options={[
+              { id: '', label: labels.unset },
+              { id: 'true', label: labels.trueValue },
+              { id: 'false', label: labels.falseValue },
+            ]}
             disabled={busy}
-            onChange={(event) => {
-              const next = event.currentTarget.value
+            onValueChange={(next) => {
               if (next === '') unsetParameter(field.name)
               else setParameter(field.name, next === 'true')
             }}
-          >
-            <LumenOption value="">{labels.unset}</LumenOption>
-            <LumenOption value="true">{labels.trueValue}</LumenOption>
-            <LumenOption value="false">{labels.falseValue}</LumenOption>
-          </LumenSelect>
+          />
         )
       return (
         <LumenCheckBox
@@ -392,29 +387,28 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
     }
     if (field.choices.length)
       return (
-        <LumenSelect
+        <LumenPopupSelect
           id={controlId}
           value={typeof value === 'string' ? value : ''}
+          placeholder={field.required ? labels.required : labels.unset}
+          options={[
+            ...(!field.required
+              ? [{ id: '', label: labels.unset }]
+              : value === undefined
+                ? [{ id: '', label: labels.required, disabled: true }]
+                : []),
+            ...field.choices.map((choice) => ({
+              id: String(choice),
+              label: labels.option(field, choice),
+            })),
+          ]}
           required={field.required}
           disabled={busy}
-          onChange={(event) => {
-            const next = event.currentTarget.value
+          onValueChange={(next) => {
             if (!field.required && next === '') unsetParameter(field.name)
             else setParameter(field.name, next)
           }}
-        >
-          {!field.required && <LumenOption value="">{labels.unset}</LumenOption>}
-          {field.required && value === undefined && (
-            <LumenOption value="" disabled>
-              {labels.required}
-            </LumenOption>
-          )}
-          {field.choices.map((choice) => (
-            <LumenOption key={`${typeof choice}:${String(choice)}`} value={String(choice)}>
-              {labels.option(field, choice)}
-            </LumenOption>
-          ))}
-        </LumenSelect>
+        />
       )
     const knownTargets =
       field.name === 'workspaceId'
@@ -531,7 +525,11 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
             listStrategy={listItems.length > 40 ? 'virtual' : 'content-grown'}
             error={palette.status === 'error' && palette.error ? labels.error(palette.error) : undefined}
           />
-          {palette.truncated && <LumenText as="p" className="hbar-app-react-command-truncated">{labels.truncated}</LumenText>}
+          {palette.truncated && (
+            <LumenText as="p" className="hbar-app-react-command-truncated">
+              {labels.truncated}
+            </LumenText>
+          )}
           {actionError && (
             <LumenText as="p" className="hbar-app-react-command-action-error" role="alert">
               {labels.error(actionError)}
@@ -540,7 +538,8 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
         </LumenFrame>
       ) : palette.view === 'parameters' && selected && palette.draft ? (
         <LumenFrame as="main" className="hbar-app-react-command-parameters">
-          <LumenFrame as="form"
+          <LumenFrame
+            as="form"
             onSubmit={(event) => {
               event.preventDefault()
               if (canExecute) executeCommand()
@@ -553,7 +552,9 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
                   <LumenCollectionItem as="dd">{selected.descriptor.metadata.id}</LumenCollectionItem>
                 </LumenFrame>
                 <LumenFrame>
-                  <LumenCollectionItem as="dt">{labels.execution(selected.descriptor.metadata.execution)}</LumenCollectionItem>
+                  <LumenCollectionItem as="dt">
+                    {labels.execution(selected.descriptor.metadata.execution)}
+                  </LumenCollectionItem>
                   <LumenCollectionItem as="dd">{labels.scope(selected.descriptor.metadata.scope)}</LumenCollectionItem>
                 </LumenFrame>
               </LumenCollection>
@@ -607,7 +608,11 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
                   )}
                 </LumenText>
               )}
-              {actionError && <LumenText as="p" role="alert">{labels.error(actionError)}</LumenText>}
+              {actionError && (
+                <LumenText as="p" role="alert">
+                  {labels.error(actionError)}
+                </LumenText>
+              )}
             </LumenFrame>
             <LumenFrame as="footer">
               <LumenButton
@@ -626,7 +631,8 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
         </LumenFrame>
       ) : palette.view === 'result' && selected ? (
         <LumenFrame as="main" className="hbar-app-react-command-result-view">
-          <LumenFrame as="section"
+          <LumenFrame
+            as="section"
             className="hbar-app-react-command-result-summary"
             data-tone={palette.execution.status === 'succeeded' ? 'success' : 'danger'}
             role={palette.execution.status === 'succeeded' ? 'status' : 'alert'}
@@ -644,7 +650,9 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
               <LumenCollectionItem as="dd">{selected.descriptor.metadata.id}</LumenCollectionItem>
             </LumenFrame>
             <LumenFrame>
-              <LumenCollectionItem as="dt">{labels.execution(selected.descriptor.metadata.execution)}</LumenCollectionItem>
+              <LumenCollectionItem as="dt">
+                {labels.execution(selected.descriptor.metadata.execution)}
+              </LumenCollectionItem>
               <LumenCollectionItem as="dd">{labels.scope(selected.descriptor.metadata.scope)}</LumenCollectionItem>
             </LumenFrame>
           </LumenCollection>
@@ -662,7 +670,9 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
         </LumenFrame>
       ) : (
         <LumenFrame as="main" className="hbar-app-react-command-missing">
-          <LumenText as="p" role="status">{labels.empty}</LumenText>
+          <LumenText as="p" role="status">
+            {labels.empty}
+          </LumenText>
           <LumenButton variant="outlined" onClick={goBack}>
             {labels.backToCommands}
           </LumenButton>
