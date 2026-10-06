@@ -19,7 +19,7 @@ export const workspaceQueryToolCommonSchema = z.strictObject({
 })
 export const workspaceSearchInputSchema = workspaceQueryCommonSchema.extend({
   /** Zero-based matching-line index; keep the same query/scope when continuing. */
-  from_index: z.number().int().min(0).max(10_000_000).default(0),
+  from_index: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(0),
   fully_scan: z.boolean().default(false),
   pattern: z.string().min(1).max(4_096),
   literal: z.boolean().default(false),
@@ -36,7 +36,7 @@ export const workspaceSearchToolInputSchema = workspaceQueryToolCommonSchema.ext
     .number()
     .int()
     .min(0)
-    .max(10_000_000)
+    .max(Number.MAX_SAFE_INTEGER)
     .optional()
     .describe(
       'Zero-based matching-line index (default 0). Use the returned nextIndex with the same pattern and scope.',

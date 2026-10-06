@@ -240,8 +240,8 @@ pub(super) fn search(
     if request.common.limit == 0 || request.common.limit > 1000 {
         return Err("search limit must be between 1 and 1000".to_owned());
     }
-    if request.from_index > 10_000_000 {
-        return Err("search from_index must be between 0 and 10000000".to_owned());
+    if request.from_index as u64 > 9_007_199_254_740_991 {
+        return Err("search from_index must be a nonnegative safe integer".to_owned());
     }
     if request.before_context > 20 || request.after_context > 20 {
         return Err("search context is limited to 20 lines on each side".to_owned());
@@ -304,10 +304,16 @@ pub(super) fn search(
                 }
                 content = Some(value);
                 operation.match_hits += 1;
+                state
+                    .cache
+                    .lock()
+                    .map_err(|_| "cache lock poisoned".to_owned())?
+                    .match_hits += 1;
             }
             (existing.lines.clone(), true, Some(existing.version.clone()))
         } else {
             files_checked += 1;
+            let observed = version(path);
             let value = match read_cached(state, path, &mut operation, cancel) {
                 Ok(value) => Some(value),
                 Err(error) if error.contains("not valid UTF-8") => None,
@@ -316,7 +322,10 @@ pub(super) fn search(
             let identity = value
                 .as_ref()
                 .and_then(|value| value.version.clone())
-                .or_else(|| version(path));
+                .or(observed);
+            if value.is_none() && version(path) != identity {
+                return Err("file changed while checking text encoding".to_owned());
+            }
             let (lines, complete) = match value.as_ref().filter(|value| !value.bytes.contains(&0)) {
                 Some(value) => matched_lines(
                     state,
@@ -373,6 +382,7 @@ pub(super) fn search(
             break;
         }
     }
+    cancelled(cancel)?;
     let mut cache_stored = false;
     let cache_limited = full && !cache_hit && planned.is_none();
     if cache_hit {
@@ -387,20 +397,13 @@ pub(super) fn search(
         }
     } else if request.fully_scan {
         if let Some(planned) = planned {
-            let mut cache = state
-                .cache
-                .lock()
-                .map_err(|_| "cache lock poisoned".to_owned())?;
-            let used = cache.tick();
-            cache.remove_plan(&key);
             let plan = SearchPlan {
                 files: Arc::new(planned),
                 created: Instant::now(),
                 estimated_bytes: plan_bytes,
-                last_used: used,
+                last_used: 0,
             };
             // Do not publish a snapshot whose files changed during the full scan.
-            drop(cache);
             if !valid_plan(&plan, &files, cancel)? {
                 return Err("files changed during full search".to_owned());
             }
@@ -408,19 +411,7 @@ pub(super) fn search(
                 .cache
                 .lock()
                 .map_err(|_| "cache lock poisoned".to_owned())?;
-            cache.bytes += plan.estimated_bytes;
-            cache.plans.insert(key.clone(), plan);
-            while cache.plans.len() > 32 {
-                let oldest = cache
-                    .plans
-                    .iter()
-                    .min_by_key(|(_, plan)| plan.last_used)
-                    .map(|(key, _)| key.clone());
-                if let Some(oldest) = oldest {
-                    cache.remove_plan(&oldest);
-                }
-            }
-            cache.evict();
+            store_plan(&mut cache, key.clone(), plan);
             cache_stored = cache.plans.contains_key(&key);
         }
     }
@@ -453,4 +444,66 @@ pub(super) fn search(
             folders_compressed,
         },
     })
+}
+
+fn store_plan(cache: &mut Cache, key: String, mut plan: SearchPlan) {
+    // Replacement and byte accounting must be atomic: different page/context
+    // requests can finish full scans of the same query concurrently.
+    cache.remove_plan(&key);
+    plan.last_used = cache.tick();
+    cache.bytes += plan.estimated_bytes;
+    cache.plans.insert(key, plan);
+    while cache.plans.len() > 32 {
+        let oldest = cache
+            .plans
+            .iter()
+            .min_by_key(|(_, plan)| plan.last_used)
+            .map(|(key, _)| key.clone());
+        if let Some(oldest) = oldest {
+            cache.remove_plan(&oldest);
+        }
+    }
+    cache.evict();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn plan(bytes: usize) -> SearchPlan {
+        SearchPlan {
+            files: Arc::new(Vec::new()),
+            created: Instant::now(),
+            estimated_bytes: bytes,
+            last_used: 0,
+        }
+    }
+
+    #[test]
+    fn complete_plan_replacement_accounts_for_bytes_once_and_evicts_lru() {
+        let mut cache = Cache::new(100);
+        store_plan(&mut cache, "query".to_owned(), plan(40));
+        store_plan(&mut cache, "query".to_owned(), plan(60));
+        assert_eq!(cache.bytes, 60);
+        store_plan(&mut cache, "other".to_owned(), plan(60));
+        assert_eq!(cache.bytes, 60);
+        assert!(!cache.plans.contains_key("query"));
+        cache.invalidate(Path::new("new-file"));
+        assert!(cache.plans.is_empty());
+        assert_eq!(cache.bytes, 0);
+    }
+
+    #[test]
+    fn complete_plans_expire_without_waiting_and_have_a_capacity_limit() {
+        let cancel = AtomicBool::new(false);
+        let mut expired = plan(1);
+        expired.created = Instant::now() - PLAN_TTL - Duration::from_secs(1);
+        assert!(!valid_plan(&expired, &[], &cancel).unwrap());
+        let mut cache = Cache::new(1000);
+        for index in 0..40 {
+            store_plan(&mut cache, index.to_string(), plan(1));
+        }
+        assert_eq!(cache.plans.len(), 32);
+        assert_eq!(cache.bytes, 32);
+    }
 }

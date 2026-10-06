@@ -12,6 +12,7 @@
 | `from_index` | `0`     | 从 0 开始的命中行索引。续页使用上次返回的 `pagination.nextIndex`。                 |
 | `fully_scan` | `false` | 为 `true` 时继续扫描全部符合现有规则的文件，统计完整命中数量，并尝试缓存完整索引。 |
 
+`from_index` 接受非负安全整数，没有人为的 1,000 万条索引上限。
 续页时保持其他搜索参数及工作区根目录顺序不变。`from_index` 不是文件字节偏移，也不是页码；
 不要自行加 `limit`，因为超长文本可能导致当前页少于 `limit` 条。文件或搜索范围变化时，索引对应
 当前重新验证后的文件状态，不是持久快照；需要严格遍历同一批结果时，应避免过程中修改文件。
@@ -75,3 +76,9 @@ bun test ./tests/local-tools-native.test.ts ./tests/search-text-pagination-nativ
 
 原生模块使用 `bun run native:build` 构建。这里的验收是现有查询 N-API 模块和真实 Host 工具路径，
 不是桌面安装包或真实商业模型的原生窗口验收；本轮没有生成或安装新的 EXE。
+
+本轮最终验证：标准模块加载路径下的 35 项 Bun 测试／185 个断言通过，6 项 Rust 单测通过；
+本功能及其依赖图的严格 TypeScript 检查、改动 TypeScript 文件的严格 ESLint 均通过。
+全仓 TypeScript 检查仍有 217 条其他文件诊断，不能据此宣称全仓验证通过。
+替换原生模块时曾遇到其他 Playwright 临时 Host 的文件锁；等待其正常退出后重试成功，
+没有终止其他测试或用户程序，也没有用隔离副本测试代替最终标准路径的回归。

@@ -46,11 +46,12 @@ test('search pagination has optional tool arguments, bounded indexes and conserv
   for (const input of [
     { from_index: -1 },
     { from_index: 0.5 },
-    { from_index: 10_000_001 },
+    { from_index: Number.MAX_SAFE_INTEGER + 1 },
     { limit: 0 },
     { limit: 1001 },
   ])
     expect(workspaceSearchInputSchema.safeParse({ pattern: 'x', ...input }).success).toBe(false)
+  expect(workspaceSearchInputSchema.parse({ pattern: 'x', from_index: 10_000_001 }).from_index).toBe(10_000_001)
 })
 
 test('ordinary pages stop at their matching-line budget without claiming a remaining count', async () => {
@@ -167,4 +168,23 @@ test('small caches report uncached full scans honestly and remain byte-bounded',
   })
   expect(f.query.cacheStats().bytes).toBeLessThanOrEqual(16)
   expect((await f.search({ from_index: 2 })).matches[0]?.text).toBe('needle 2')
+})
+
+test('full-scan snapshots share cache accounting across concurrent contexts and skip non-text files safely', async () => {
+  const f = await fixture()
+  await writeFile(join(f.root, 'a.txt'), 'needle one\nneedle two\nneedle three\n')
+  await writeFile(join(f.root, 'binary.txt'), Buffer.from([0, 1, 2]))
+  await writeFile(join(f.root, 'invalid.txt'), Buffer.from([0xff, 0xfe]))
+  const first = await f.search({ fully_scan: true })
+  expect(first.pagination).toMatchObject({ totalMatches: 3, cacheStored: true })
+  const expectedBytes = f.query.cacheStats().bytes
+  f.query.clear()
+  const results = await Promise.all([0, 1, 2, 3].map((beforeContext) => f.search({ fully_scan: true, beforeContext })))
+  expect(results.every((result) => result.pagination?.totalMatches === 3)).toBe(true)
+  expect(f.query.cacheStats().bytes).toBe(expectedBytes)
+  expect((await f.search({ from_index: 10_000_001 })).matches).toEqual([])
+  expect((await f.search({ from_index: Number.MAX_SAFE_INTEGER })).pagination?.nextIndex).toBeUndefined()
+  const hits = f.query.cacheStats().matchHits
+  await f.search({ from_index: 1 })
+  expect(f.query.cacheStats().matchHits).toBeGreaterThan(hits)
 })
