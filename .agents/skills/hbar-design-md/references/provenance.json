@@ -15,6 +15,44 @@
       "sourcePath": "design-md/vercel/DESIGN.md",
       "sha256": "d0951b93c2b4ce9840c715c9f9b3e58a386c6c58ae5cc0f804dec3b116b95bd8",
       "file": "vercel.design.md"
+    },
+    {
+      "file": "raycast.design.md",
+      "sourceUrl": "https://getdesign.md/raycast/design-md",
+      "sourcePath": "design-md/raycast/DESIGN.md",
+      "commit": "13be5c05c63be24b57581162364167028020f043",
+      "sha256": "6e2c5137e4d914b70996d589688374a801b6f29a35c9c019c22abb5e0170bda3"
+    },
+    {
+      "file": "cursor.design.md",
+      "sourceUrl": "https://getdesign.md/cursor/design-md",
+      "sourcePath": "design-md/cursor/DESIGN.md",
+      "commit": "13be5c05c63be24b57581162364167028020f043",
+      "sha256": "a3db9b3019dc2f514fdee7cd0ca0a5232c0bd0119e23178e8eebaf6916258d9d"
+    },
+    {
+      "file": "apple.design.md",
+      "sourceUrl": "https://getdesign.md/apple/design-md",
+      "downloadUrl": "https://getdesign.md/design-md/apple/DESIGN.md",
+      "version": "alpha",
+      "retrievedAt": "2026-10-06T08:33:52.119Z",
+      "sha256": "83fbc614443a9b3d7569e9956a43e7b8740f9d0f939f58b8154f7a7cec3002b2"
+    },
+    {
+      "file": "minimax.design.md",
+      "sourceUrl": "https://getdesign.md/minimax/design-md",
+      "downloadUrl": "https://getdesign.md/design-md/minimax/DESIGN.md",
+      "version": "alpha",
+      "retrievedAt": "2026-10-06T08:33:52.120Z",
+      "sha256": "2658b96488bb629749259b152c5ba2912a0e8feb6a03477e265879abd9264c50"
+    },
+    {
+      "file": "runwayml.design.md",
+      "sourceUrl": "https://getdesign.md/runwayml/design-md",
+      "downloadUrl": "https://getdesign.md/design-md/runwayml/DESIGN.md",
+      "version": "alpha",
+      "retrievedAt": "2026-10-06T08:33:52.120Z",
+      "sha256": "fad82f15370701e16b2212faea1f38d1c79841c54b434e344cff1f42506b388c"
     }
   ]
 }

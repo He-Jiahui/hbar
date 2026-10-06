@@ -5,7 +5,8 @@
 ## 来源与取舍
 
 - 设计参考：[VoltAgent awesome-design-md](https://github.com/VoltAgent/awesome-design-md)，版本 `13be5c05c63be24b57581162364167028020f043`。
-- 本轮主要采用 [Vercel 分析](.agents/skills/hbar-design-md/references/vercel.design.md)中的克制表面、清楚的主操作和留白；[Linear 分析](.agents/skills/hbar-design-md/references/linear.design.md)补充工作台层级与分隔方式。
+- 本轮按用户选择采用 [Raycast](https://getdesign.md/raycast/design-md)、[MiniMax](https://getdesign.md/minimax/design-md)、[Apple](https://getdesign.md/apple/design-md)、[Cursor](https://getdesign.md/cursor/design-md) 和 [Runway](https://getdesign.md/runwayml/design-md)。Apple / Runway 提供轻量阅读表面；Raycast 提供侧栏和命令层级；Cursor 提供紧凑动作时间线；MiniMax 提供清楚的模型与状态信息。
+- 五份原始分析保存在项目技能的 `references/`；Raycast / Cursor 固定到上述 Git 版本，另外三份是官网下载的 alpha 文档快照，日期、来源与文件校验记录在 [provenance.json](.agents/skills/hbar-design-md/references/provenance.json)。Vercel / Linear 保留为补充参考。
 - 这些是第三方公开网站分析，包含营销示例；hbar 按自己的应用结构、真实数据和组件接口落地。
 - 保留 ReactBits [App Shell 9](https://pro.reactbits.dev/docs/app-ui/app-shell/app-shell-9)的导航与内容区域关系，以及 [Prompt Input 1](https://pro.reactbits.dev/docs/app-ui/prompt-input/prompt-input-1)的输入、附件和发送/停止行为。
 
@@ -42,3 +43,5 @@
 - 保留 reduced-motion 和系统高对比度模式，不为装饰增加持续动画。
 
 本文件记录当前产品方向；用户新的明确选择优先。项目技能入口见 [hbar-design-md](.agents/skills/hbar-design-md/SKILL.md)。
+
+Lumen 现状、差距与实施边界见 [Lumen 视觉设计评审](docs/lumen-design.md)。
