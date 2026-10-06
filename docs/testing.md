@@ -89,6 +89,8 @@ Provider，不能冒充真实文件读取。`e2e/file-markdown-reading.spec.ts` 
 
 测试使用临时目录，测试用假凭据独立于真实模型配置。pi-ai 的网络集成测试对接本地 SSE 服务器，不对商业供应商发请求。真实供应商认证、供应商限流、商业计费、多型号手机硬件和复杂 VPN 拓扑仍需要部署环境验收。
 
+Storage Worker 的退出、错误、无回复与关闭握手故障由 `tests/storage-lifecycle.test.ts` 验证。普通 RPC 默认 30 秒回复期限，关闭握手默认 5 秒；超时使当前 Storage 终止其自有 Worker，不重放写操作，并明确报告结果可能未知。真实残留测试进程与文件锁的排查边界见 [Storage Worker 生命周期](storage-worker-lifecycle.md)。单个 Bun 测试的 `--timeout` 不应被当作整个外部启动器／进程树已回收的证明；验收后还需核对 owned 进程退出。
+
 ## 性能基准
 
 Goal、Agent Plan、双预算、自主续跑和异常恢复的语义与当前验收边界见 [Session 自主执行](session-autonomy.md)。其中严格区分确定性测试、真实模型实验、预算停止和未通过的仓库级门禁。
