@@ -81,6 +81,11 @@ export {
 } from './lumen-session-workspace'
 export { HbarSessionLaunchLocation, type HbarSessionLaunchLocationProps } from './session-launch-location'
 export {
+  HbarSessionLiveStatus,
+  type HbarSessionLiveStatusLabels,
+  type HbarSessionLiveStatusProps,
+} from './session-live-status'
+export {
   HbarSessionEmptyHero,
   showSessionEmptyHero,
   type HbarSessionEmptyHeroLabels,

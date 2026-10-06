@@ -1024,6 +1024,11 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       }
   return {
     conversationTitle: (title) => choose(`会话：${title}`, `Session: ${title}`),
+    liveStatus: {
+      label: choose('会话状态', 'Session status'),
+      offline: choose('离线 · 状态待确认', 'Offline · Status unconfirmed'),
+      statusLabel: (status) => statusLabels[status],
+    },
     loading: choose('正在加载会话记录…', 'Loading session history…'),
     emptyHistory: choose('此会话暂无可显示的消息。', 'No messages to show in this session.'),
     emptyHero: {

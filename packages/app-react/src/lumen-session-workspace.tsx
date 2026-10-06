@@ -70,6 +70,7 @@ import { HbarSessionUsageControl, sessionUsagePresentation, type HbarSessionUsag
 import { HbarHistoricalPlanMessage, HbarProposedPlanMessage } from './proposed-plan-message'
 import { HbarComposerPermissionPicker, type HbarComposerPermissionLabels } from './composer-permission-picker'
 import { HbarSessionRunActivity, currentSessionRun, type HbarSessionRunLabels } from './session-run-activity'
+import { HbarSessionLiveStatus, type HbarSessionLiveStatusLabels } from './session-live-status'
 import { HbarQueuedUserRuns, type HbarQueuedUserRunsLabels } from './queued-user-runs'
 import { HbarSessionToolsMenu, type HbarSessionToolsMenuLabels } from './session-tools-menu'
 import { addComposerAttachments, type HbarSessionAttachmentSelection } from './composer-attachment-input'
@@ -139,6 +140,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly emptyHero: HbarSessionEmptyHeroLabels
   readonly disconnected: string
   readonly executionAccess: HbarSessionExecutionLabels
+  readonly liveStatus: HbarSessionLiveStatusLabels
   readonly refreshing: string
   readonly loadOlder: string
   readonly loadingOlder: string
@@ -1891,6 +1893,14 @@ function SessionWorkspaceContent({
       data-hbar-composer-session={sessionId}
       data-git-context-status={projectContext.context.status}
     >
+      <HbarSessionLiveStatus
+        sessionId={sessionId}
+        timelineSessionId={timeline.sessionId}
+        owned={activeConversationOwner}
+        connected={connected}
+        run={activeRun}
+        labels={labels.liveStatus}
+      />
       <HbarSessionStopNotice region="main" />
       <HbarSessionExecutionNotice
         key={`${sessionId}:${sessionWorkspaceId}`}

@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client'
 import { LumenConversation, type LumenMessageProps } from '@lumen/app-ui'
 import { DEFAULT_LUMEN_APPEARANCE } from '@lumen/app-ui/appearance'
 import LumenProvider from '@lumen/app-ui/provider'
+import type { RunStatus } from '@hbar/contracts'
+import { HbarSessionLiveStatus } from '../../packages/app-react/src/session-live-status'
+import { getShellCopy } from '../../apps/web/src/shell-copy'
 import '../../packages/hbar-app-ui/src/theme.css'
 
 const copyByLocale = {
@@ -33,6 +36,11 @@ export interface ConversationFixtureOptions {
   readonly first: number
   readonly session: string
   readonly followLatest: boolean
+  readonly runStatus: RunStatus | null
+  readonly connected: boolean
+  readonly owned: boolean
+  readonly timelineSession: string
+  readonly longLabels: boolean
 }
 
 export interface ConversationFixtureApi {
@@ -64,7 +72,21 @@ function DeferredBody({ id }: { readonly id: string }) {
   )
 }
 
-function ConversationFixture({ count, first, session, followLatest }: ConversationFixtureOptions) {
+function ConversationFixture({
+  count,
+  first,
+  session,
+  followLatest,
+  runStatus,
+  connected,
+  owned,
+  timelineSession,
+  longLabels,
+}: ConversationFixtureOptions) {
+  const hostLabels = getShellCopy(document.documentElement.lang.startsWith('zh') ? 'zh-CN' : 'en-US').session.liveStatus
+  const labels = longLabels
+    ? { ...hostLabels, label: `${hostLabels.label} — ${hostLabels.label} — ${hostLabels.label}` }
+    : hostLabels
   const messages = useMemo<readonly LumenMessageProps[]>(
     () =>
       Array.from({ length: Math.min(180, Math.max(0, count)) }, (_, index) => {
@@ -89,7 +111,19 @@ function ConversationFixture({ count, first, session, followLatest }: Conversati
           title={copy.title}
           messages={messages}
           empty={<p>{copy.empty}</p>}
-          composer={<textarea className="fixture-composer" aria-label={copy.composer} rows={3} />}
+          composer={
+            <div className="fixture-footer">
+              <HbarSessionLiveStatus
+                sessionId={session}
+                timelineSessionId={timelineSession}
+                owned={owned}
+                connected={connected}
+                run={runStatus ? { id: 'current-run', status: runStatus } : undefined}
+                labels={labels}
+              />
+              <textarea className="fixture-composer" aria-label={copy.composer} rows={3} />
+            </div>
+          }
           header={null}
           scrollKey={session}
           followLatest={followLatest}
@@ -103,7 +137,17 @@ function ConversationFixture({ count, first, session, followLatest }: Conversati
 const container = document.getElementById('fixture-root')
 if (!container) throw new Error('Missing conversation fixture root')
 const root = createRoot(container)
-let options: ConversationFixtureOptions = { count: 1, first: 0, session: 'session-a', followLatest: true }
+let options: ConversationFixtureOptions = {
+  count: 1,
+  first: 0,
+  session: 'session-a',
+  followLatest: true,
+  runStatus: null,
+  connected: true,
+  owned: true,
+  timelineSession: 'session-a',
+  longLabels: false,
+}
 window.conversationStabilityFixture = {
   configure(update) {
     options = { ...options, ...update }

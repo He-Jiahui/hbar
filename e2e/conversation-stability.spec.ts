@@ -7,6 +7,7 @@ const fixtureStyles = `
   html, body, #fixture-root { margin: 0; block-size: 100%; min-block-size: 0; }
   .conversation-stability-fixture { display: flex; block-size: 100%; min-block-size: 0; }
   .fixture-composer { flex: 0 0 auto; box-sizing: border-box; resize: none; inline-size: 100%; }
+  .fixture-footer { display: flex; flex-direction: column; flex: 0 0 auto; min-inline-size: 0; }
 `
 
 async function configure(page: Page, options: Partial<ConversationFixtureOptions>) {
@@ -99,3 +100,38 @@ test('late virtual measurements and viewport resize retain the end without steal
   await expect.poll(async () => (await measure(page)).firstId).toBe(paused.firstId)
   await expect.poll(async () => Math.abs((await measure(page)).offset - paused.offset)).toBeLessThan(2)
 })
+
+for (const width of [390, 1440]) {
+  test(`current session status remains outside transcript scroll and aligned at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await mountLumenFixture(page, 'tests/fixtures/conversation-stability-browser.tsx', {
+      locale: width === 390 ? 'zh-CN' : 'en-US',
+      styles: fixtureStyles,
+    })
+    await configure(page, { count: 30, runStatus: 'running' })
+    const status = page.locator('[data-session-live-status]')
+    await expect(status).toBeVisible()
+    await expect.poll(async () => (await measure(page)).endGap).toBeLessThan(1)
+    const beforeScroll = await status.boundingBox()
+    await page.locator(viewportSelector).hover()
+    await page.mouse.wheel(0, -800)
+    await expect.poll(async () => (await measure(page)).endGap).toBeGreaterThan(100)
+    const reading = await measure(page)
+    expect(await status.boundingBox()).toEqual(beforeScroll)
+    await configure(page, { runStatus: 'waiting_approval' })
+    await expect(status).toHaveAttribute('data-run-status', 'waiting_approval')
+    await expect.poll(async () => (await measure(page)).firstId).toBe(reading.firstId)
+    await configure(page, { connected: false, longLabels: true })
+    await expect(status).toHaveAttribute('data-run-status', 'unconfirmed')
+    expect(await status.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
+    await page.screenshot({ path: `artifacts/ui-repair/conversation-live-status-${width}.png` })
+    await configure(page, { session: 'session-b' })
+    await expect(status).toHaveCount(0)
+    await configure(page, { timelineSession: 'session-b', connected: true, owned: false })
+    await expect(status).toHaveCount(0)
+    await configure(page, { owned: true, runStatus: 'queued' })
+    await expect(status).toHaveAttribute('data-run-status', 'queued')
+    await configure(page, { runStatus: 'completed' })
+    await expect(status).toHaveCount(0)
+  })
+}
