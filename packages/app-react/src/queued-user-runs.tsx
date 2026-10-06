@@ -13,7 +13,7 @@ export interface HbarQueuedUserRunsLabels {
   readonly next: string
   readonly page: (current: number, total: number) => string
   readonly attachments: (count: number) => string
-  readonly ellipsis: string
+  readonly previewLimited: string
   readonly edit: (position: number) => string
   readonly editInput: (position: number) => string
   readonly editHint: string
@@ -110,7 +110,7 @@ export function HbarQueuedUserRuns({
   const editing = current.editing
   return (
     <LumenFrame className="hbar-queued-user-runs" role="group" aria-label={labels.queued}>
-      <LumenFrame className="hbar-queued-user-runs-list">
+      <LumenFrame className="hbar-queued-user-runs-list" tabIndex={0} aria-label={labels.queued}>
         {current.items.map((item, index) => {
           const edit = editing?.operationId === item.operationId ? editing : null
           const guide = current.guiding?.operationId === item.operationId ? current.guiding : null
@@ -200,10 +200,10 @@ export function HbarQueuedUserRuns({
                 </>
               ) : (
                 <>
-                  <LumenText as="span" className="hbar-queued-user-run-text" title={item.textPreview}>
+                  <LumenText as="span" className="hbar-queued-user-run-text" title={item.textPreview} tabIndex={0}>
                     {item.textPreview || labels.attachments(item.attachmentCount)}
-                    {item.truncated ? labels.ellipsis : null}
                   </LumenText>
+                  {item.truncated && <LumenText as="small">{labels.previewLimited}</LumenText>}
                   {item.attachmentCount > 0 && item.textPreview && (
                     <LumenText as="span" className="hbar-queued-user-run-attachments">
                       {labels.attachments(item.attachmentCount)}

@@ -15,6 +15,83 @@ async function render(page: Page, input: SingleLineFixtureInput) {
   await page.evaluate((value) => window.singleLineFixture.render(value), input)
 }
 
+for (const locale of ['zh-CN', 'en-US'] as const) {
+  test(`data captions and atomic mentions retain complete single lines ${locale}`, async ({ page }, info) => {
+    await page.goto(origin)
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    const gallery = page.locator('[data-fixture-data]')
+    const input: SingleLineFixtureInput = {
+      locale,
+      theme: 'dark',
+      workspaceName: 'hbar',
+      branch: 'master',
+      status: 'ready',
+      dataGallery: true,
+      count: 1,
+    }
+    for (const theme of ['light', 'dark'] as const) {
+      for (const width of [1024, 390, 320]) {
+        await page.setViewportSize({ width, height: 900 })
+        await render(page, { ...input, theme })
+        const shortHeight = await gallery
+          .locator('.hbar-activity-agent-row')
+          .first()
+          .evaluate((node) => node.getBoundingClientRect().height)
+        for (const count of [0, 1, 100]) {
+          await render(page, { ...input, theme, count, long: true })
+          await completeLine(
+            gallery.locator(
+              '.hbar-activity-agent-row strong, .hbar-activity-task-row > span, .hbar-agent-model-current, .hbar-composer-workspace-context-location > span, .hbar-composer-workspace-context-range, .hbar-queued-user-run-text, .hbar-queued-user-run-status',
+            ),
+          )
+          expect(await gallery.locator('.hbar-activity-task-row').count()).toBe(count)
+          expect(await gallery.locator('.hbar-activity-agent-row').count()).toBe(Math.min(count, 50))
+          if (count) {
+            expect(
+              await gallery
+                .locator('.hbar-activity-agent-row')
+                .first()
+                .evaluate((node) => node.getBoundingClientRect().height),
+            ).toBeCloseTo(shortHeight, 1)
+            const rail = gallery.locator('.hbar-activity-agent-list')
+            expect(await rail.evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(true)
+            await rail.focus()
+            await rail.press('ArrowRight')
+            await expect.poll(() => rail.evaluate((node) => node.scrollLeft > 0)).toBe(true)
+          }
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+        }
+        const picker = gallery.locator('.hbar-agent-model-trigger')
+        await picker.click()
+        const option = page.locator('.hbar-agent-model-list [role="option"]')
+        await completeLine(option.locator('.hbar-agent-model-option-text > *'))
+        await option.click()
+        expect(await page.evaluate(() => window.singleLineFixture.actions())).toContain('model:provider:model')
+      }
+    }
+    const editor = gallery.getByRole('textbox', { name: 'fixture mention editor' })
+    await editor.fill('@fixture')
+    const option = page.locator('.hbar-composer-mention-choice').first()
+    await expect(option).toBeVisible()
+    await completeLine(option)
+    await option.click()
+    const pill = gallery.locator('.hbar-composer-mention-pill')
+    await expect(pill).toBeVisible()
+    await completeLine(pill)
+    const caption = await gallery.locator('.hbar-agent-model-current').textContent()
+    await expect(pill).toHaveText(`@${caption?.replaceAll(' ', '-')}.tsx`)
+    expect(await pill.evaluate((node) => node.getBoundingClientRect().width)).toBeGreaterThan(256)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+    await editor.press('ControlOrMeta+z')
+    await expect(pill).toHaveCount(0)
+    await editor.press('ControlOrMeta+y')
+    await expect(pill).toHaveCount(1)
+    await page.screenshot({ path: info.outputPath(`data-and-mention-${locale}.png`) })
+    expect(errors).toEqual([])
+  })
+}
+
 test.beforeAll(async () => {
   test.setTimeout(90_000)
   await mkdir(root, { recursive: true })

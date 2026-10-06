@@ -232,14 +232,14 @@
   gap: 0.25rem;
   flex-direction: row;
   flex-wrap: wrap;
+  overflow-x: auto;
 }
 
 .hbar-app-react-provider-model-row {
   display: flex;
   inline-size: auto;
-  max-inline-size: 100%;
   flex: 1 1 14rem;
-  min-inline-size: min(100%, 14rem);
+  min-inline-size: max-content;
   align-items: center;
   gap: 0.5rem;
   text-align: start;
@@ -248,15 +248,13 @@
 .hbar-app-react-provider-model-row > span:first-child {
   display: flex;
   min-inline-size: 0;
-  flex: 1 1 auto;
+  flex: 1 0 auto;
   flex-direction: column;
-  gap: 2px;
+  gap: 0.125rem;
 }
 
 .hbar-app-react-provider-model-list-items strong,
 .hbar-app-react-provider-model-list-items small {
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

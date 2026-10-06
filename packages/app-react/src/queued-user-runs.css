@@ -11,7 +11,7 @@
   gap: 0.375rem;
   min-inline-size: 0;
   max-block-size: min(35vh, 14rem);
-  overflow-y: auto;
+  overflow: auto;
 }
 
 .hbar-queued-user-run {
@@ -29,6 +29,7 @@
 .hbar-queued-user-run-status,
 .hbar-queued-user-run-attachments {
   flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .hbar-queued-user-run-edit,
@@ -39,6 +40,11 @@
 
 .hbar-queued-user-run-guide {
   color: var(--lumen-accent, var(--lumen-ink));
+  white-space: nowrap;
+}
+
+.hbar-queued-user-run:not(.hbar-queued-user-run-editing) {
+  min-inline-size: max-content;
   white-space: nowrap;
 }
 
@@ -85,10 +91,7 @@
 }
 
 .hbar-queued-user-run-text {
-  flex: 1 1 0;
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 1 0 auto;
   white-space: nowrap;
   color: var(--lumen-ink);
 }

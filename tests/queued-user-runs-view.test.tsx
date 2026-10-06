@@ -13,7 +13,7 @@ const labels: HbarQueuedUserRunsLabels = {
   next: '下一页',
   page: (current, total) => `${current}/${total}`,
   attachments: (count) => `${count} 个附件`,
-  ellipsis: '…',
+  previewLimited: '预览已截取，可编辑查看全文',
   edit: (position) => `编辑第 ${position} 条`,
   editInput: (position) => `第 ${position} 条内容`,
   editHint: 'Enter 保存 · Shift+Enter 换行 · Esc 取消',
@@ -94,7 +94,9 @@ test('only Host-confirmed items for the selected session appear in the composer'
   }
   const html = render(state)
   expect(html).toContain('已排队')
-  expect(html).toContain('这是很长的待发内容…')
+  expect(html).toContain('这是很长的待发内容')
+  expect(html).not.toContain('这是很长的待发内容…')
+  expect(html).toContain(labels.previewLimited)
   expect(html).toContain('2 个附件')
   expect(html).toContain('删除第 1 条')
   expect(html).toContain('编辑第 1 条')

@@ -10,6 +10,7 @@ import { createWebLumenAppearance, DEFAULT_WEB_APPEARANCE_DIMENSIONS } from '../
 import { sessionContextCopy } from '../../apps/web/src/session-context-copy'
 import { getShellCopy, type ShellLocale } from '../../apps/web/src/shell-copy'
 import { SingleLineGallery } from './single-line-gallery'
+import { SingleLineDataGallery } from './single-line-data-gallery'
 import '@lumen/app-ui/styles.css'
 import '../../packages/app-react/src/lumen-session-workspace.css'
 import './single-line-controls-browser.css'
@@ -24,6 +25,7 @@ export interface SingleLineFixtureInput {
   readonly long?: boolean
   readonly textSize?: 'm' | 'l'
   readonly gallery?: boolean
+  readonly dataGallery?: boolean
   readonly count?: number
 }
 
@@ -150,6 +152,14 @@ function Fixture({ input }: { readonly input: SingleLineFixtureInput }) {
           <SingleLineGallery
             caption={input.long ? long : model}
             count={input.count ?? 7}
+            onAction={(id) => actions.push(id)}
+          />
+        )}
+        {input.dataGallery && (
+          <SingleLineDataGallery
+            caption={input.long ? long : model}
+            locale={input.locale}
+            count={input.count ?? 1}
             onAction={(id) => actions.push(id)}
           />
         )}

@@ -71,8 +71,8 @@ export function HbarComposerWorkspaceContexts({
                     {labels.kind(context)}
                   </LumenText>
                   <LumenFrame className="hbar-composer-workspace-context-address" title={labels.location(context)}>
-                    <LumenText as="span" className="hbar-composer-workspace-context-location">
-                      {labels.name(context)}
+                    <LumenText as="span" className="hbar-composer-workspace-context-location" tabIndex={0}>
+                      <LumenText as="span">{labels.name(context)}</LumenText>
                     </LumenText>
                     {range && (
                       <LumenText as="small" className="hbar-composer-workspace-context-range">
@@ -86,11 +86,7 @@ export function HbarComposerWorkspaceContexts({
                     </LumenText>
                   )}
                   <LumenDisclosure className="hbar-composer-workspace-context-quote" summary={labels.quoteDisclosure}>
-                    <LumenFrame
-                      as="div"
-                      role="blockquote"
-                      className="hbar-composer-workspace-context-quote-text"
-                    >
+                    <LumenFrame as="div" role="blockquote" className="hbar-composer-workspace-context-quote-text">
                       {context.quote}
                     </LumenFrame>
                   </LumenDisclosure>
@@ -114,7 +110,7 @@ export function HbarComposerWorkspaceContexts({
         </LumenFrame>
       )}
       {attachments.length > 0 && (
-        <LumenFrame className="hbar-composer-workspace-context-attachments" role="list">
+        <LumenFrame className="hbar-composer-workspace-context-attachments" role="list" tabIndex={0}>
           {attachments.map((attachment) => (
             <LumenFrame
               key={`${attachment.kind}:${attachment.artifact.id}`}

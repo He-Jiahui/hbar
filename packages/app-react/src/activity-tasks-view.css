@@ -16,6 +16,7 @@
 .hbar-activity-task-list {
   padding: 0;
   list-style: none;
+  overflow-x: auto;
 }
 .hbar-activity-task-list > li.hbar-activity-task-row,
 .hbar-activity-task-progress {
@@ -26,14 +27,13 @@
   gap: 0.5rem;
 }
 .hbar-activity-task-row {
+  min-inline-size: max-content;
   padding-block: 0.25rem;
   padding-inline: 0.375rem;
 }
 .hbar-activity-task-row > span {
-  min-inline-size: 0;
+  flex: 0 0 auto;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   font-size: 0.8125rem;
 }
 .hbar-activity-task-row[data-activity-task-status='completed'] {

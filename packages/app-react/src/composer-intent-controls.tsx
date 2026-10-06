@@ -291,7 +291,7 @@ export function HbarComposerGoal({
             <LumenText as="span" className="hbar-composer-goal-status">
               {runActive ? labels.running : executionChecking ? labels.executionChecking : labels.statuses[goal.status]}
             </LumenText>
-            <LumenText as="span" className="hbar-composer-goal-objective" title={goal.objective}>
+            <LumenText as="span" className="hbar-composer-goal-objective" title={goal.objective} tabIndex={0}>
               {goal.objective}
             </LumenText>
           </LumenFrame>

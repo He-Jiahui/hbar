@@ -94,7 +94,7 @@ export function ActivityAgentsView({
         </LumenFrame>
       )}
       {items.length > 0 && (
-        <LumenCollection as="ol" className="hbar-activity-agent-list">
+        <LumenCollection as="ol" className="hbar-activity-agent-list" tabIndex={0} aria-label={labels.title}>
           {items.map((agent) => (
             <LumenCollectionItem key={agent.agentId} data-activity-agent-id={agent.agentId}>
               <LumenButton

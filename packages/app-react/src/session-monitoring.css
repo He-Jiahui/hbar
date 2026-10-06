@@ -60,8 +60,8 @@
 
 .hbar-app-react-session-monitoring li strong {
   inline-size: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-x: auto;
+  scrollbar-width: none;
   white-space: nowrap;
 }
 

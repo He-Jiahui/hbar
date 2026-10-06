@@ -46,6 +46,8 @@
   color: var(--lumen-muted);
   font-size: 0.6875rem;
   line-height: 1.25;
+  white-space: nowrap;
+  overflow-x: auto;
 }
 
 .hbar-composer-workspace-context-address {
@@ -58,13 +60,17 @@
 .hbar-composer-workspace-context-location {
   flex: 1 1 auto;
   min-inline-size: 0;
-  overflow: hidden;
+  overflow-x: auto;
+  scrollbar-width: none;
   color: var(--lumen-muted);
   font-family: var(--lumen-font-mono, monospace);
   font-size: 0.75rem;
   line-height: 1.35;
-  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.hbar-composer-workspace-context-location > span {
+  display: inline-block;
 }
 
 .hbar-composer-workspace-context-range {
@@ -76,14 +82,10 @@
 }
 
 .hbar-composer-workspace-context-note {
-  display: -webkit-box;
-  overflow: hidden;
   color: var(--lumen-ink);
   font-size: 0.8125rem;
   line-height: 1.35;
   overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
 }
 
 .hbar-composer-workspace-context-quote {
@@ -116,18 +118,18 @@
 
 .hbar-composer-workspace-context-attachments {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.5rem;
   min-inline-size: 0;
+  overflow-x: auto;
 }
 
 .hbar-composer-workspace-context-file {
   display: flex;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   align-items: center;
   gap: 0.375rem;
-  min-inline-size: 0;
-  max-inline-size: 100%;
+  min-inline-size: max-content;
   padding: 0.25rem 0.5rem;
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: 0.375rem;
@@ -135,11 +137,9 @@
 }
 
 .hbar-composer-workspace-context-file > span {
-  min-inline-size: 0;
-  overflow: hidden;
+  flex: 0 0 auto;
   color: var(--lumen-ink);
   font-size: 0.8125rem;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

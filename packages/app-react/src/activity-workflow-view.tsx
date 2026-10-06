@@ -55,7 +55,7 @@ export function ActivityWorkflowView({
   const failed = entry?.status === 'error'
   if (!loading && !failed && !workflow) return null
   const rows = (items: typeof focused) => (
-    <LumenCollection as="ol" className="hbar-activity-workflow-agents">
+    <LumenCollection as="ol" className="hbar-activity-workflow-agents" tabIndex={0} aria-label={labels.title}>
       {items.map(({ delegation, agent }) => {
         const title = agent?.objective ?? labels.delegation(delegation.modelId)
         const status =

@@ -38,13 +38,10 @@
 
 .hbar-composer-mention-pill {
   display: inline-flex;
-  max-inline-size: 16rem;
   padding: 0.0625rem 0.35rem;
   border-radius: 0.3rem;
   background: var(--lumen-reading);
   color: var(--lumen-ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: baseline;
 }
@@ -83,8 +80,7 @@
 .hbar-composer-mention-heading > :nth-child(2) {
   min-inline-size: 0;
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-x: auto;
   white-space: nowrap;
 }
 
@@ -96,20 +92,17 @@
 
 .hbar-composer-mention-choice {
   display: flex;
-  min-inline-size: 0;
+  min-inline-size: max-content;
   flex: 1;
   align-items: center;
   justify-content: flex-start;
   gap: 0.5rem;
-  overflow: hidden;
+  white-space: nowrap;
   text-align: start;
 }
 
 .hbar-composer-mention-choice > :nth-child(2) {
   flex: 0 0 auto;
-  max-inline-size: 45%;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -118,11 +111,9 @@
 }
 
 .hbar-composer-mention-path {
-  min-inline-size: 0;
-  overflow: hidden;
+  flex: 0 0 auto;
   color: var(--lumen-muted);
   font-size: 0.75rem;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

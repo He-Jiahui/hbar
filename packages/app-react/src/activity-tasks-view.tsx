@@ -57,7 +57,7 @@ export function ActivityTasksView({
         </LumenFrame>
       )}
       {steps.length > 0 && (
-        <LumenCollection as="ol" className="hbar-activity-task-list">
+        <LumenCollection as="ol" className="hbar-activity-task-list" tabIndex={0} aria-label={labels.title}>
           {steps.map((step, index) => (
             <LumenCollectionItem
               key={`${revision}:${index}`}

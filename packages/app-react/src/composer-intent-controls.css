@@ -28,6 +28,7 @@
 }
 
 .hbar-composer-goal-context {
+  overflow-x: auto;
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
@@ -69,8 +70,8 @@
 .hbar-composer-goal-objective {
   min-inline-size: 0;
   flex: 1 1 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-x: auto;
+  scrollbar-width: none;
   white-space: nowrap;
 }
 
@@ -78,11 +79,13 @@
 .hbar-composer-goal-metric,
 .hbar-composer-goal-actions {
   flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .hbar-composer-current-goal-label {
   flex: 0 0 auto;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .hbar-composer-goal-status,
@@ -121,14 +124,6 @@
   }
 
   .hbar-composer-goal-actions {
-    margin-inline-start: auto;
-  }
-
-  .hbar-app-react-session-footer .lumen-composer-toolbar {
-    flex-wrap: wrap;
-  }
-
-  .hbar-app-react-session-footer .lumen-composer-toolbar > :last-child {
     margin-inline-start: auto;
   }
 }
