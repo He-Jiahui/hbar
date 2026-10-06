@@ -246,6 +246,8 @@ struct PathPointer {
     version: u8,
     data_root: PathBuf,
     cache_root: PathBuf,
+    #[serde(default)]
+    settings_root: Option<PathBuf>,
 }
 
 fn development_web_url() -> Option<tauri::Url> {
@@ -830,9 +832,9 @@ fn native_notification_delivery_status(
     Ok(delivered.contains(&id))
 }
 
-fn existing(data_root: &Path, expected_pid: Option<u32>) -> Option<Connection> {
+fn existing(settings_root: &Path, expected_pid: Option<u32>) -> Option<Connection> {
     let connection: Connection =
-        serde_json::from_slice(&fs::read(data_root.join("settings").join("connection.json")).ok()?)
+        serde_json::from_slice(&fs::read(settings_root.join("connection.json")).ok()?)
             .ok()?;
     let url = tauri::Url::parse(&connection.url).ok()?;
     if expected_pid.is_some_and(|pid| !launched_by(&connection, pid)) {
@@ -855,10 +857,10 @@ fn existing(data_root: &Path, expected_pid: Option<u32>) -> Option<Connection> {
     (status["instanceId"].as_str() == Some(&connection.instance_id)).then_some(connection)
 }
 
-fn path_roots(app: &tauri::AppHandle) -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>> {
+fn path_roots(app: &tauri::AppHandle) -> Result<(PathBuf, PathBuf, PathBuf), Box<dyn std::error::Error>> {
     if let Some(home) = std::env::var_os("HBAR_HOME") {
         let data_root = PathBuf::from(home);
-        return Ok((data_root.clone(), data_root.join("cache")));
+        return Ok((data_root.clone(), data_root.join("cache"), data_root.join("settings")));
     }
     let system_root = if cfg!(windows) {
         std::env::var_os("LOCALAPPDATA")
@@ -872,26 +874,32 @@ fn path_roots(app: &tauri::AppHandle) -> Result<(PathBuf, PathBuf), Box<dyn std:
     let pointer = fs::read(pointer_file)
         .ok()
         .and_then(|bytes| serde_json::from_slice::<PathPointer>(&bytes).ok())
-        .filter(|value| value.version == 1);
+        .filter(|value| value.version == 1 || value.version == 2);
     let data_root = std::env::var_os("HBAR_DATA_ROOT")
         .map(PathBuf::from)
         .or_else(|| pointer.as_ref().map(|value| value.data_root.clone()))
         .unwrap_or_else(|| system_root.join("data"));
     let cache_root = std::env::var_os("HBAR_CACHE_ROOT")
         .map(PathBuf::from)
-        .or_else(|| pointer.map(|value| value.cache_root))
+        .or_else(|| pointer.as_ref().map(|value| value.cache_root.clone()))
         .unwrap_or_else(|| system_root.join("cache"));
+    let settings_root = pointer
+        .as_ref()
+        .filter(|value| value.data_root == data_root)
+        .and_then(|value| value.settings_root.clone())
+        .unwrap_or_else(|| data_root.join("settings"));
     Ok((
         dunce::simplified(&data_root).to_path_buf(),
         dunce::simplified(&cache_root).to_path_buf(),
+        dunce::simplified(&settings_root).to_path_buf(),
     ))
 }
 
 fn launch(app: &tauri::AppHandle) -> Result<(Connection, PathBuf), Box<dyn std::error::Error>> {
-    let (data_root, cache_root) = path_roots(app)?;
-    fs::create_dir_all(data_root.join("settings"))?;
+    let (data_root, cache_root, settings_root) = path_roots(app)?;
+    fs::create_dir_all(&settings_root)?;
     fs::create_dir_all(&cache_root)?;
-    if let Some(connection) = existing(&data_root, None) {
+    if let Some(connection) = existing(&settings_root, None) {
         return Ok((connection, data_root));
     }
     let resources = if cfg!(debug_assertions) {
@@ -941,7 +949,7 @@ fn launch(app: &tauri::AppHandle) -> Result<(Connection, PathBuf), Box<dyn std::
     let child_pid = child.id();
     let started = Instant::now();
     loop {
-        if let Some(connection) = existing(&data_root, Some(child_pid)) {
+        if let Some(connection) = existing(&settings_root, Some(child_pid)) {
             return Ok((connection, data_root));
         }
         if let Some(status) = child.try_wait()? {

@@ -195,7 +195,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const browserCommands = createBrowserCommands(kernel.plugins.get<BrowserUseService>('browser'))
   const computerCommands = createComputerCommands(kernel.plugins.get<ComputerUseService>('computer'))
   const configurationCommands = createConfigurationCommands(kernel, resolveModeService(kernel))
-  const skillInspection = createSkillInspectionService(resolve(kernel.options.layout.skills, 'global'))
+  const skillInspection = createSkillInspectionService(kernel.options.layout.globalSkills)
   const extensionCommands = createExtensionCommands({
     list: () => kernel.plugins.list(),
     set: (id, enabled, config) => kernel.changePlugin(id, enabled, config),
@@ -511,6 +511,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
     },
     paths: () => kernel.paths(),
+    storageLocations: () => kernel.storageLocations(),
+    applyStorageLocations: (input) => kernel.applyStorageLocations(input),
     validatePaths: (dataRoot, cacheRoot) => kernel.validatePaths(dataRoot, cacheRoot),
     setPaths: (dataRoot, cacheRoot) => kernel.setPaths(dataRoot, cacheRoot),
     devices: () => kernel.storage.call('devices'),

@@ -1,10 +1,10 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { pathToFileURL } from 'node:url'
 import type { KernelProfile } from '@hbar/kernel'
 import { Kernel } from '@hbar/kernel'
-import { resolvePathLayout } from '@hbar/storage'
+import { getStorageLocations, resolvePathLayout } from '@hbar/storage'
 import { startServer } from './server.ts'
 import { createHostSupervisor, RESTART_EXIT_CODE } from './supervisor.ts'
 import { desktopConnection } from './desktop-connection.ts'
@@ -34,6 +34,7 @@ export async function runHost(
     },
   })
   const layout = await resolvePathLayout({
+    preferPointer: values.desktop === true && (values.supervised === true || values.supervisor === true),
     home: values.home ?? process.env.HBAR_HOME,
     dataRoot: values['data-root'] ?? process.env.HBAR_DATA_ROOT,
     cacheRoot: values['cache-root'] ?? process.env.HBAR_CACHE_ROOT,
@@ -43,7 +44,7 @@ export async function runHost(
     const supervisor = createHostSupervisor({
       command: supervisorCommand,
       hostArgs: args,
-      connectionFile: layout.connectionFile,
+      connectionFile: async () => join((await getStorageLocations(layout)).saved.settingsRoot, 'connection.json'),
     })
     const stopSupervisor = () => supervisor.stop()
     process.on('SIGINT', stopSupervisor)

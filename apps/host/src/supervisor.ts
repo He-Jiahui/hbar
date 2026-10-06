@@ -5,7 +5,7 @@ export const RESTART_EXIT_CODE = 75
 export interface HostSupervisorOptions {
   readonly command: readonly [string, ...string[]]
   readonly hostArgs: readonly string[]
-  readonly connectionFile: string
+  readonly connectionFile: string | (() => Promise<string>)
   readonly stdio?: 'inherit' | 'ignore'
 }
 
@@ -53,6 +53,8 @@ export function createHostSupervisor(options: HostSupervisorOptions) {
       running = true
       let port: number | undefined
       while (!stopped) {
+        const connectionFile =
+          typeof options.connectionFile === 'string' ? options.connectionFile : await options.connectionFile()
         const output = options.stdio ?? 'inherit'
         child = Bun.spawn([...options.command, ...supervisedArguments(options.hostArgs, port)], {
           stdin: 'ignore',
@@ -64,7 +66,7 @@ export function createHostSupervisor(options: HostSupervisorOptions) {
         child = null
         if (stopped) return 0
         if (code !== RESTART_EXIT_CODE) return code
-        port = await connectionPort(options.connectionFile)
+        port = await connectionPort(connectionFile)
         await Bun.sleep(100)
       }
       return 0

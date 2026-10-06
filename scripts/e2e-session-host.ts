@@ -25,6 +25,8 @@ for (const arguments_ of [
 
 const kernel = await Kernel.create({
   home: process.env.HBAR_E2E_HOME || `${root}/data`,
+  cacheRoot: `${root}/cache`,
+  pointerFile: `${root}/bootstrap/paths.json`,
   workspace: root,
   demo: true,
   secrets: new MemorySecrets(),

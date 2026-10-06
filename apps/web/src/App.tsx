@@ -83,6 +83,9 @@ import {
 import type { BrowserAttachmentSelection, ConnectionStatus } from '@hbar/client'
 import { WebAppearanceSettings } from './AppearanceSettings'
 import { WebGeneralSettings } from './GeneralSettings'
+import { HbarStorageLocationSettings } from '@hbar/app-react/storage-locations'
+import { createStorageLocationController, type StorageLocationController } from '@hbar/app-runtime/storage-locations'
+import { storageLocationCopy } from './storage-location-copy'
 import { WebPreSessionLanding } from './PreSessionLanding'
 import { preSessionLaunchCopy } from './pre-session-launch-copy'
 import type { WebLanguageController } from './language'
@@ -467,6 +470,7 @@ function createAppearancePortForRuntime(runtime: ReturnType<typeof createAppRunt
 }
 
 type WorkspaceBodyProps = {
+  readonly storageLocations: StorageLocationController
   readonly appRuntime: ReturnType<typeof createAppRuntime>
   readonly appearanceEditor: AppearanceEditor
   readonly locale: ShellLocale
@@ -573,6 +577,7 @@ function WorkspaceBody(props: WorkspaceBodyProps) {
 }
 
 function WorkspaceBodyContent({
+  storageLocations,
   appRuntime,
   appearanceEditor,
   locale,
@@ -715,6 +720,7 @@ function WorkspaceBodyContent({
         groupPresentation={WEB_SETTINGS_GROUP_PRESENTATION}
         layout={WEB_SETTINGS_LAYOUT}
         pendingGroups={[
+          { id: 'storage', label: storageLocationCopy(locale).title, order: 37 },
           { id: 'providers', label: copy.settings.resolve('i18n:settings.groups.providers'), order: 0 },
           { id: 'sandbox', label: copy.settings.resolve('i18n:settings.groups.sandbox'), order: 35 },
           { id: 'model', label: copy.settings.resolve('i18n:settings.groups.model'), order: 20 },
@@ -722,6 +728,7 @@ function WorkspaceBodyContent({
           { id: 'extensions', label: copy.settings.resolve('i18n:settings.groups.extensions'), order: 40 },
         ]}
         additionalGroups={[
+          { id: 'storage', label: storageLocationCopy(locale).title, order: 37 },
           ...(language ? [{ id: 'general', label: copy.general.group, order: 5 }] : []),
           { id: 'appearance', label: copy.appearance.group, order: 0 },
           { id: 'sandbox', label: copy.settings.resolve('i18n:settings.groups.sandbox'), order: 35 },
@@ -730,6 +737,14 @@ function WorkspaceBodyContent({
           { id: 'diagnostics', label: copy.diagnostics.title, order: 90 },
         ]}
         renderGroup={(groupId) => {
+          if (groupId === 'storage')
+            return (
+              <HbarStorageLocationSettings
+                controller={storageLocations}
+                labels={storageLocationCopy(locale)}
+                connected={connected}
+              />
+            )
           if (groupId === 'general' && language)
             return (
               <WebGeneralSettings
@@ -1452,6 +1467,16 @@ export default function App({
   const clientUrl = nativeConnection?.url ?? window.location.origin
   const clientToken = nativeConnection?.token
   const client = useMemo(() => new HbarClient(clientUrl, clientToken), [clientToken, clientUrl])
+  const storageLocations = useMemo(() => {
+    const commands = createSystemCommandClient(client)
+    return createStorageLocationController({
+      read: (signal) => commands.execute('system.storage.get', {}, { signal }),
+      save: (input, signal) =>
+        commands.execute('system.storage.apply', input, { signal, idempotencyKey: input.operationId }),
+      restart: (signal) => commands.execute('system.restart', {}, { signal }),
+    })
+  }, [client])
+  useEffect(() => storageLocations.acquire(), [storageLocations])
   const sendBehavior = useMemo(
     () => createWebSendBehaviorController(createHostSendBehaviorPort(createSettingsCommandClient(client))),
     [client],
@@ -1901,6 +1926,7 @@ export default function App({
           {workspaceLayout.config.tabs.visible && workspaceLayout.config.tabs.placement === 'before-content' ? (
             <WorkspaceTabsController runtime={runtime} client={client} locale={locale}>
               <WorkspaceBody
+                storageLocations={storageLocations}
                 appRuntime={runtime}
                 appearanceEditor={appearanceEditor}
                 locale={locale}
@@ -1918,6 +1944,7 @@ export default function App({
             </WorkspaceTabsController>
           ) : (
             <WorkspaceBody
+              storageLocations={storageLocations}
               appRuntime={runtime}
               appearanceEditor={appearanceEditor}
               locale={locale}

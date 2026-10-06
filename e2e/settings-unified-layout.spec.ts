@@ -3,6 +3,7 @@ import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { storageLocationCopy } from '../apps/web/src/storage-location-copy'
 import { selectLumenOption } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
@@ -42,6 +43,7 @@ for (const locale of ['zh-CN', 'en-US'] as const)
           'session',
           'providers',
           'sandbox',
+          'storage',
           'skills',
           'extensions',
           'usage',
@@ -52,15 +54,17 @@ for (const locale of ['zh-CN', 'en-US'] as const)
               .getByRole('navigation', { name: labels.groups })
               .getByRole('button', {
                 name:
-                  group === 'general'
-                    ? getShellCopy(locale).general.group
-                    : group === 'appearance'
-                      ? getShellCopy(locale).appearance.group
-                      : group === 'usage'
-                        ? getShellCopy(locale).settingsUsage.title
-                        : group === 'diagnostics'
-                          ? getShellCopy(locale).diagnostics.title
-                          : labels.resolve(`i18n:settings.groups.${group}`),
+                  group === 'storage'
+                    ? storageLocationCopy(locale).title
+                    : group === 'general'
+                      ? getShellCopy(locale).general.group
+                      : group === 'appearance'
+                        ? getShellCopy(locale).appearance.group
+                        : group === 'usage'
+                          ? getShellCopy(locale).settingsUsage.title
+                          : group === 'diagnostics'
+                            ? getShellCopy(locale).diagnostics.title
+                            : labels.resolve(`i18n:settings.groups.${group}`),
                 exact: true,
               })
               .click()

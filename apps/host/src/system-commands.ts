@@ -2,6 +2,7 @@ import { CommandError, CommandRegistry, createCommandClient } from '@hbar/comman
 import { HbarError } from '@hbar/contracts'
 import type { Device, HostInfo, PluginInfo } from '@hbar/contracts'
 import { systemCommands } from '@hbar/contracts/commands/system'
+import type { StorageLocationApply, StorageLocationSnapshot } from '@hbar/contracts/commands/storage-locations'
 
 export interface SystemPaths {
   dataRoot: string
@@ -30,6 +31,8 @@ export interface SystemCommandDependencies {
   paths(): Promise<SystemPaths>
   validatePaths(dataRoot: string, cacheRoot: string): Promise<{ dataRoot: string; cacheRoot: string; valid: true }>
   setPaths(dataRoot: string, cacheRoot: string): Promise<SystemPaths>
+  storageLocations(): Promise<StorageLocationSnapshot>
+  applyStorageLocations(input: StorageLocationApply): Promise<StorageLocationSnapshot>
   devices(): Promise<Device[]>
   revokeDevice(id: string): Promise<{ revoked: boolean }>
   createPairing(): { code: string; expiresAt: number }
@@ -52,6 +55,12 @@ export function createSystemCommands(dependencies: SystemCommandDependencies) {
     ...(await dependencies.diagnose()),
   }))
   registry.register(systemCommands['system.paths.get'], () => translate(() => dependencies.paths()))
+  registry.register(systemCommands['system.storage.get'], () => translate(() => dependencies.storageLocations()))
+  registry.register(
+    systemCommands['system.storage.apply'],
+    (input) => translate(() => dependencies.applyStorageLocations(input)),
+    { durable: true },
+  )
   registry.register(
     systemCommands['system.paths.validate'],
     ({ dataRoot, cacheRoot }) => translate(() => dependencies.validatePaths(dataRoot, cacheRoot)),

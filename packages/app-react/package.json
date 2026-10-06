@@ -13,6 +13,7 @@
     "./file-workspace": "./src/lumen-file-workspace.tsx",
     "./goal-plan": "./src/goal-plan-workspace.tsx",
     "./settings": "./src/lumen-settings-workspace.tsx",
+    "./storage-locations": "./src/storage-location-settings.tsx",
     "./status": "./src/lumen-status-workspace.tsx",
     "./agents": "./src/lumen-agent-workspace.tsx",
     "./extensions": "./src/extension-workspace.tsx",

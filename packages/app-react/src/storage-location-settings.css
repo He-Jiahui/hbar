@@ -1,0 +1,22 @@
+.hbar-storage-settings {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1rem;
+  min-width: 0;
+}
+.hbar-storage-settings-pointer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  overflow-wrap: anywhere;
+}
+.hbar-storage-settings .hbar-schema-form-copy small {
+  overflow-wrap: anywhere;
+}
+.hbar-storage-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}

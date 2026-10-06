@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
 import { idSchema, PAIRING_CODE_LENGTH } from '../index'
 import { pluginInfoSchema } from './extensions'
+import { storageLocationApplySchema, storageLocationSnapshotSchema } from './storage-locations'
 
 export const hostInfoSchema = z.strictObject({
   version: z.string().min(1).max(64),
@@ -75,6 +76,16 @@ const rootsCli = {
 }
 
 export const systemCommands = {
+  'system.storage.get': defineCommand(
+    metadata('system.storage.get', 'query', 'none'),
+    z.strictObject({}),
+    storageLocationSnapshotSchema,
+  ),
+  'system.storage.apply': defineCommand(
+    metadata('system.storage.apply', 'command', 'persistent'),
+    storageLocationApplySchema,
+    storageLocationSnapshotSchema,
+  ),
   'system.diagnose': defineCommand(metadata('system.diagnose', 'query', 'none'), z.strictObject({}), diagnoseSchema),
   'system.paths.get': defineCommand(
     metadata('system.paths.get', 'query', 'none'),

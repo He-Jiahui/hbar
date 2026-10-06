@@ -2,23 +2,20 @@ import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises
 import { constants } from 'node:fs'
 import { homedir, platform } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { z } from 'zod'
-
-export const pathPointerSchema = z.object({
-  version: z.literal(1),
-  dataRoot: z.string().min(1),
-  cacheRoot: z.string().min(1),
-})
-
-export type PathPointer = z.infer<typeof pathPointerSchema>
+import { pathPointerSchema, type PathPointer } from './path-pointer.ts'
+import { migrateStoredPaths } from './storage-locations.ts'
+export { pathPointerSchema, type PathPointer } from './path-pointer.ts'
 
 export interface PathLayout {
   dataRoot: string
+  /** Stable credential namespace across directory relocation. */
+  identityRoot: string
   cacheRoot: string
   pointerFile: string
   settings: string
   sessions: string
   skills: string
+  globalSkills: string
   plugins: string
   diagnostics: string
   databases: string
@@ -50,6 +47,12 @@ export interface PathLayoutOptions {
   home?: string | undefined
   pointerFile?: string | undefined
   readPointer?: boolean | undefined
+  /** Managed Desktop restarts follow saved locations over launch-time defaults. */
+  preferPointer?: boolean | undefined
+  settingsRoot?: string | undefined
+  sessionsRoot?: string | undefined
+  skillsRoot?: string | undefined
+  identityRoot?: string | undefined
 }
 
 function systemBase() {
@@ -62,10 +65,15 @@ export function defaultPathPointerFile() {
   return join(systemBase(), 'paths.json')
 }
 
-export function createPathLayout(dataRoot: string, cacheRoot: string, pointerFile = defaultPathPointerFile()): PathLayout {
+export function createPathLayout(
+  dataRoot: string,
+  cacheRoot: string,
+  pointerFile = defaultPathPointerFile(),
+  overrides: Pick<PathLayoutOptions, 'settingsRoot' | 'sessionsRoot' | 'skillsRoot' | 'identityRoot'> = {},
+): PathLayout {
   const data = resolve(dataRoot)
   const cacheRootResolved = resolve(cacheRoot)
-  const settings = join(data, 'settings')
+  const settings = resolve(overrides.settingsRoot ?? join(data, 'settings'))
   const plugins = join(data, 'plugins')
   const cache = {
     models: join(cacheRootResolved, 'models'),
@@ -79,11 +87,13 @@ export function createPathLayout(dataRoot: string, cacheRoot: string, pointerFil
   }
   return {
     dataRoot: data,
+    identityRoot: resolve(overrides.identityRoot ?? data),
     cacheRoot: cacheRootResolved,
     pointerFile: resolve(pointerFile),
     settings,
-    sessions: join(data, 'sessions'),
+    sessions: resolve(overrides.sessionsRoot ?? join(data, 'sessions')),
     skills: join(data, 'skills'),
+    globalSkills: resolve(overrides.skillsRoot ?? join(data, 'skills', 'global')),
     plugins,
     diagnostics: join(data, 'diagnostics'),
     databases: join(data, 'databases'),
@@ -102,7 +112,12 @@ export function createPathLayout(dataRoot: string, cacheRoot: string, pointerFil
 export async function resolvePathLayout(options: PathLayoutOptions = {}): Promise<PathLayout> {
   const pointerFile = resolve(options.pointerFile ?? defaultPathPointerFile())
   let pointer: PathPointer | undefined
-  if (options.readPointer !== false && !options.home && !options.dataRoot && !options.cacheRoot) {
+  if (
+    options.readPointer !== false &&
+    (options.preferPointer ||
+      options.pointerFile !== undefined ||
+      (!options.home && !options.dataRoot && !options.cacheRoot))
+  ) {
     try {
       pointer = pathPointerSchema.parse(JSON.parse(await readFile(pointerFile, 'utf8')))
     } catch (error) {
@@ -111,27 +126,51 @@ export async function resolvePathLayout(options: PathLayoutOptions = {}): Promis
   }
   const base = systemBase()
   const compatibilityRoot = options.home ? resolve(options.home) : undefined
+  const explicitData = options.dataRoot ?? compatibilityRoot
+  if (
+    !options.preferPointer &&
+    pointer &&
+    ((explicitData && resolve(explicitData) !== resolve(pointer.dataRoot)) ||
+      (options.cacheRoot && resolve(options.cacheRoot) !== resolve(pointer.cacheRoot)))
+  )
+    pointer = undefined
+  if (pointer?.version === 2 && pointer.migration) await migrateStoredPaths(pointerFile, pointer)
   return createPathLayout(
-    options.dataRoot ?? compatibilityRoot ?? pointer?.dataRoot ?? join(base, 'data'),
-    options.cacheRoot ?? (compatibilityRoot ? join(compatibilityRoot, 'cache') : pointer?.cacheRoot) ?? join(base, 'cache'),
+    (options.preferPointer ? pointer?.dataRoot : undefined) ??
+      options.dataRoot ??
+      compatibilityRoot ??
+      pointer?.dataRoot ??
+      join(base, 'data'),
+    (options.preferPointer ? pointer?.cacheRoot : undefined) ??
+      options.cacheRoot ??
+      pointer?.cacheRoot ??
+      (compatibilityRoot ? join(compatibilityRoot, 'cache') : join(base, 'cache')),
     pointerFile,
+    {
+      identityRoot: pointer?.version === 2 ? pointer.identityRoot : undefined,
+      settingsRoot: options.settingsRoot ?? (pointer?.version === 2 ? pointer.settingsRoot : undefined),
+      sessionsRoot: options.sessionsRoot ?? (pointer?.version === 2 ? pointer.sessionsRoot : undefined),
+      skillsRoot: options.skillsRoot ?? (pointer?.version === 2 ? pointer.skillsRoot : undefined),
+    },
   )
 }
 
 export async function ensurePathLayout(layout: PathLayout): Promise<void> {
-  await Promise.all([
-    layout.settings,
-    join(layout.settings, 'profiles'),
-    layout.sessions,
-    join(layout.skills, 'global'),
-    join(layout.plugins, 'global'),
-    join(layout.plugins, 'projects'),
-    layout.diagnostics,
-    layout.databases,
-    layout.artifacts,
-    layout.worktrees,
-    ...Object.values(layout.cache),
-  ].map((path) => mkdir(path, { recursive: true })))
+  await Promise.all(
+    [
+      layout.settings,
+      join(layout.settings, 'profiles'),
+      layout.sessions,
+      layout.globalSkills,
+      join(layout.plugins, 'global'),
+      join(layout.plugins, 'projects'),
+      layout.diagnostics,
+      layout.databases,
+      layout.artifacts,
+      layout.worktrees,
+      ...Object.values(layout.cache),
+    ].map((path) => mkdir(path, { recursive: true })),
+  )
   for (const [path, initial] of [
     [layout.settingsFile, { version: 1 }],
     [layout.keybindingsFile, { version: 1, bindings: {} }],

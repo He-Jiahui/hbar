@@ -63,7 +63,16 @@ import type {
   ToolResult,
   UserInputService,
 } from '@hbar/plugin-sdk'
-import { Storage, ensurePathLayout, resolvePathLayout, validatePathRoots, writePathPointer } from '@hbar/storage'
+import {
+  Storage,
+  ensurePathLayout,
+  resolvePathLayout,
+  validatePathRoots,
+  writePathPointer,
+  getStorageLocations,
+  applyStorageLocations,
+} from '@hbar/storage'
+import type { StorageLocationApply } from '@hbar/contracts/commands/storage-locations'
 import type {
   PathLayout,
   SessionLaunchTargetMutationInput,
@@ -436,7 +445,7 @@ export class Kernel {
     })
     this.secrets =
       options.secrets ??
-      new NativeSecrets(`hbar.${createHash('sha256').update(options.home).digest('hex').slice(0, 20)}`)
+      new NativeSecrets(`hbar.${createHash('sha256').update(options.layout.identityRoot).digest('hex').slice(0, 20)}`)
     this.plugins = new PluginManager(
       this.storage,
       {
@@ -2552,7 +2561,7 @@ export class Kernel {
     }
   }
   async skills() {
-    const root = join(this.options.layout.skills, 'global')
+    const root = this.options.layout.globalSkills
     const entries = await readdir(root, { withFileTypes: true }).catch(() => [])
     return entries
       .filter((entry) => entry.isDirectory())
@@ -2562,6 +2571,20 @@ export class Kernel {
   async validatePaths(dataRoot: string, cacheRoot: string) {
     const layout = await validatePathRoots(dataRoot, cacheRoot, this.options.layout.pointerFile)
     return { dataRoot: layout.dataRoot, cacheRoot: layout.cacheRoot, valid: true as const }
+  }
+  storageLocations() {
+    return getStorageLocations(this.options.layout)
+  }
+  async applyStorageLocations(input: StorageLocationApply) {
+    this.assertIdle()
+    this.maintenance = true
+    try {
+      const result = await applyStorageLocations(this.options.layout, input)
+      this.changed('paths')
+      return result
+    } finally {
+      this.maintenance = false
+    }
   }
   async setPaths(dataRoot: string, cacheRoot: string) {
     this.assertIdle()
