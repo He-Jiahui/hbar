@@ -8,11 +8,11 @@
 
 | 类别        | 元素 | pending | 设计职责                                                                |
 | ----------- | ---: | ------: | ----------------------------------------------------------------------- |
-| structure   | 1083 |      12 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
-| text        | 1073 |     827 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
+| structure   | 1081 |      12 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
+| text        | 1073 |     801 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
 | interaction |  923 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
 | form        |  275 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
-| collection  |  160 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
+| collection  |  162 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
 | technical   |   75 |       0 | 原文、代码、Markdown、图示与媒体的专用 renderer；辅助操作仍使用 Lumen。 |
 | feedback    |   56 |       0 | 空、加载、运行、成功、失败、恢复与取消的宿主状态及语义反馈。            |
 | platform    |    7 |       4 | Tauri 标题、托盘与通知；操作系统展示，宿主提供文案。                    |
@@ -101,7 +101,7 @@
 | [packages/app-react/src/mobile-header-menu.tsx](../../packages/app-react/src/mobile-header-menu.tsx)                       | settings / workbench                             |   14 |              0 |          2 |          0 |
 | [packages/app-react/src/notifications.tsx](../../packages/app-react/src/notifications.tsx)                                 | global-pages                                     |    2 |              0 |          1 |          0 |
 | [packages/app-react/src/onboarding-readiness.tsx](../../packages/app-react/src/onboarding-readiness.tsx)                   | global-pages                                     |    8 |              0 |          1 |          1 |
-| [packages/app-react/src/plan-exit-decision.tsx](../../packages/app-react/src/plan-exit-decision.tsx)                       | goals-and-plans                                  |   25 |              0 |          7 |          0 |
+| [packages/app-react/src/plan-exit-decision.tsx](../../packages/app-react/src/plan-exit-decision.tsx)                       | goals-and-plans                                  |   25 |              7 |          0 |          0 |
 | [packages/app-react/src/pre-session-approval-picker.tsx](../../packages/app-react/src/pre-session-approval-picker.tsx)     | composer-and-launch                              |   35 |              0 |         11 |          0 |
 | [packages/app-react/src/pre-session-choice-picker.tsx](../../packages/app-react/src/pre-session-choice-picker.tsx)         | composer-and-launch                              |   30 |              9 |          0 |          0 |
 | [packages/app-react/src/pre-session-landing.tsx](../../packages/app-react/src/pre-session-landing.tsx)                     | composer-and-launch                              |    6 |              0 |          0 |          0 |
@@ -111,11 +111,11 @@
 | [packages/app-react/src/pre-session-thinking-picker.tsx](../../packages/app-react/src/pre-session-thinking-picker.tsx)     | composer-and-launch                              |   12 |              0 |          3 |          0 |
 | [packages/app-react/src/prompt-composer.tsx](../../packages/app-react/src/prompt-composer.tsx)                             | composer-and-launch                              |    4 |              0 |          0 |          0 |
 | [packages/app-react/src/prompt-template-editor.tsx](../../packages/app-react/src/prompt-template-editor.tsx)               | global-pages                                     |   16 |              0 |          5 |          0 |
-| [packages/app-react/src/proposed-plan-message.tsx](../../packages/app-react/src/proposed-plan-message.tsx)                 | goals-and-plans                                  |   16 |              0 |          1 |          0 |
-| [packages/app-react/src/proposed-plan.tsx](../../packages/app-react/src/proposed-plan.tsx)                                 | goals-and-plans                                  |   21 |              0 |          5 |          0 |
+| [packages/app-react/src/proposed-plan-message.tsx](../../packages/app-react/src/proposed-plan-message.tsx)                 | goals-and-plans                                  |   16 |              1 |          0 |          0 |
+| [packages/app-react/src/proposed-plan.tsx](../../packages/app-react/src/proposed-plan.tsx)                                 | goals-and-plans                                  |   21 |              5 |          0 |          0 |
 | [packages/app-react/src/provider-list-view.tsx](../../packages/app-react/src/provider-list-view.tsx)                       | settings                                         |   37 |              0 |         16 |          0 |
 | [packages/app-react/src/provider-settings.tsx](../../packages/app-react/src/provider-settings.tsx)                         | settings                                         |   20 |              0 |          6 |          0 |
-| [packages/app-react/src/queued-user-runs.tsx](../../packages/app-react/src/queued-user-runs.tsx)                           | workbench                                        |   43 |              0 |         13 |          0 |
+| [packages/app-react/src/queued-user-runs.tsx](../../packages/app-react/src/queued-user-runs.tsx)                           | workbench                                        |   43 |             13 |          0 |          0 |
 | [packages/app-react/src/run-board.tsx](../../packages/app-react/src/run-board.tsx)                                         | agents-and-activity                              |    1 |              0 |          0 |          0 |
 | [packages/app-react/src/runtime.tsx](../../packages/app-react/src/runtime.tsx)                                             | settings                                         |    2 |              0 |          0 |          0 |
 | [packages/app-react/src/sandbox-profile-settings.tsx](../../packages/app-react/src/sandbox-profile-settings.tsx)           | settings                                         |  140 |              0 |         33 |          0 |

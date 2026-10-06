@@ -122,7 +122,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const attachmentName = 'proposal-composer-draft.txt'
     const attachmentText = 'This file belongs to the unsent composer draft, never the detached proposal request.'
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        budgetAutoContinue: false,
+      })
       const selectedHost = host
       const sessionId = host.ready.sessionId
       // Persisted Plan mode makes an accidental inherited-mode implementation request detectable.

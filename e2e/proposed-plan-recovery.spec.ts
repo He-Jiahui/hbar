@@ -189,6 +189,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         root,
         port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
         goalAutoContinue: false,
+        budgetAutoContinue: false,
       })
       const ownedHost = host
       const sessionId = host.ready.sessionId
@@ -252,7 +253,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expect.poll(async () => (await entry.isVisible()) || (await show.isVisible())).toBe(true)
         if (await show.isVisible()) await show.click()
         await entry.click()
-        await expect(page.getByRole('tab', { name: title, exact: true })).toHaveAttribute('aria-selected', 'true')
+        if ((page.viewportSize()?.width ?? 1440) > 320)
+          await expect(page.getByRole('tab', { name: title, exact: true })).toHaveAttribute('aria-selected', 'true')
+        await expect(page.getByRole('region', { name: title, exact: true })).toBeVisible()
+        if (page.viewportSize()?.width === 320)
+          await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute(
+            'data-hbar-sidebar-expanded',
+            'false',
+          )
       }
       await select(originalSession.title)
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })

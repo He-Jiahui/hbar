@@ -42,7 +42,7 @@ test('Guide consumes one queue row into the current Run while draft and remainin
     env: {
       ...process.env,
       HBAR_GUIDE_FIXTURE_ROOT: root,
-      HBAR_GUIDE_FIXTURE_DIST: resolve(process.env.HBAR_E2E_PREVIEW_DIST ?? 'artifacts/queue-guidance-v19/web'),
+      HBAR_GUIDE_FIXTURE_DIST: resolve(process.env.HBAR_E2E_PREVIEW_DIST ?? 'dist/web'),
     },
   })
   const context = await browser.newContext({ locale: 'zh-CN', viewport: { width: 1440, height: 960 } })

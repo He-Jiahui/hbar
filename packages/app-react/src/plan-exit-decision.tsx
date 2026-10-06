@@ -1,6 +1,6 @@
 import { useId, useState } from 'react'
 import { Check, FileText, PencilLine, RefreshCw } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText, LumenTextarea } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenContentText, LumenTextarea } from '@lumen/app-ui'
 import type { InteractionActionState, SessionDecision } from '@hbar/app-runtime'
 import { MessageMarkdown } from './message-markdown'
 import type { HbarCodeBlockLabels } from './code-block-copy-action'
@@ -111,16 +111,16 @@ export function HbarPlanExitDecision({
     >
       <LumenFrame className="hbar-plan-exit-heading">
         <LumenIcon icon={PencilLine} tier="md" />
-        <LumenText as="strong">{labels.title}</LumenText>
-        <LumenText as="span" id={`${id}-status`} role="status" className="hbar-plan-exit-status">
+        <LumenContentText context="tool.label">{labels.title}</LumenContentText>
+        <LumenContentText context="control.status" id={`${id}-status`} role="status" className="hbar-plan-exit-status">
           {statusText}
-        </LumenText>
+        </LumenContentText>
       </LumenFrame>
       <LumenFrame className="hbar-plan-exit-body">
         <LumenFrame className="hbar-plan-exit-document">
           <LumenFrame className="hbar-plan-exit-document-heading">
             <LumenIcon icon={FileText} tier="sm" />
-            <LumenText as="strong">{labels.document}</LumenText>
+            <LumenContentText context="tool.label">{labels.document}</LumenContentText>
           </LumenFrame>
           <LumenFrame className="hbar-plan-exit-markdown" role="region" aria-label={labels.document} tabIndex={0}>
             {plan ? (
@@ -136,15 +136,15 @@ export function HbarPlanExitDecision({
                 }}
               />
             ) : (
-              <LumenText as="p" role="alert">
+              <LumenContentText context="feedback.paragraph" role="alert">
                 {labels.invalidPlan}
-              </LumenText>
+              </LumenContentText>
             )}
           </LumenFrame>
         </LumenFrame>
         {!complete ? (
           <LumenFrame as="label" className="hbar-plan-exit-feedback" htmlFor={`${id}-feedback`}>
-            <LumenText as="span">{labels.feedback}</LumenText>
+            <LumenContentText context="form.label">{labels.feedback}</LumenContentText>
             <LumenTextarea
               id={`${id}-feedback`}
               variant="plain"
@@ -157,9 +157,9 @@ export function HbarPlanExitDecision({
             />
           </LumenFrame>
         ) : status === 'denied' && confirmedFeedback ? (
-          <LumenText as="p" className="hbar-plan-exit-confirmed-feedback">
+          <LumenContentText context="reading.paragraph" className="hbar-plan-exit-confirmed-feedback">
             {confirmedFeedback}
-          </LumenText>
+          </LumenContentText>
         ) : null}
       </LumenFrame>
       {!complete ? (
@@ -210,9 +210,9 @@ export function HbarPlanExitDecision({
         </LumenFrame>
       ) : null}
       {!complete && scoped?.error ? (
-        <LumenText as="p" role="alert" tone="danger" className="hbar-plan-exit-error">
+        <LumenContentText context="feedback.paragraph" role="alert" tone="danger" className="hbar-plan-exit-error">
           {statusLabels.error(scoped.error)}
-        </LumenText>
+        </LumenContentText>
       ) : null}
     </LumenFrame>
   )

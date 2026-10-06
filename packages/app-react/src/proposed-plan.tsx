@@ -6,7 +6,7 @@ import {
   LumenFormField,
   LumenFrame,
   LumenIcon,
-  LumenText,
+  LumenContentText,
   LumenTextarea,
 } from '@lumen/app-ui'
 import { MessageMarkdown, type MessageCodeContext } from './message-markdown'
@@ -135,7 +135,7 @@ function ProposedPlanContent({
     >
       <LumenFrame className="hbar-proposed-plan-heading">
         <LumenIcon icon={FileText} tier="md" />
-        <LumenText as="strong">{labels.title}</LumenText>
+        <LumenContentText context="tool.label">{labels.title}</LumenContentText>
       </LumenFrame>
       <LumenFrame
         className="hbar-proposed-plan-document"
@@ -147,9 +147,9 @@ function ProposedPlanContent({
         <MessageMarkdown text={markdown} code={code} fileReferences={fileReferences} />
       </LumenFrame>
       {state.status !== 'accepted' && (
-        <LumenText as="p" id={scopeId} className="hbar-proposed-plan-scope" tone="muted">
+        <LumenContentText context="tool.description" id={scopeId} className="hbar-proposed-plan-scope" tone="muted">
           {labels.scope}
-        </LumenText>
+        </LumenContentText>
       )}
       {state.status !== 'accepted' ? (
         <LumenFrame className="hbar-proposed-plan-feedback">
@@ -219,7 +219,12 @@ function ProposedPlanContent({
         </LumenFrame>
       )}
       {state.status === 'submitting' || state.status === 'accepted' || state.status === 'unknown' ? (
-        <LumenText id={statusId} className="hbar-proposed-plan-status" as="p" role="status">
+        <LumenContentText
+          context="feedback.paragraph"
+          id={statusId}
+          className="hbar-proposed-plan-status"
+          role="status"
+        >
           {state.status === 'submitting'
             ? state.phase === 'mode'
               ? labels.exitingPlan
@@ -233,20 +238,20 @@ function ProposedPlanContent({
                 : state.phase === 'mode'
                   ? labels.unknownPlanExit
                   : labels.unknown}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {state.error ? (
-        <LumenText className="hbar-proposed-plan-status" as="p" role="alert" tone="danger">
+        <LumenContentText context="feedback.paragraph" className="hbar-proposed-plan-status" role="alert" tone="danger">
           {state.error}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {!state.canSubmit &&
       state.unavailable &&
       state.status !== 'accepted' &&
       (state.status === 'idle' || state.status === 'failed' || !state.connected) ? (
-        <LumenText className="hbar-proposed-plan-status" as="p" tone="muted">
+        <LumenContentText context="feedback.paragraph" className="hbar-proposed-plan-status" tone="muted">
           {state.unavailable}
-        </LumenText>
+        </LumenContentText>
       ) : null}
     </LumenFrame>
   )
