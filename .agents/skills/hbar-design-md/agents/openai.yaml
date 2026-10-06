@@ -1,0 +1,4 @@
+interface:
+  display_name: 'hbar Design MD'
+  short_description: 'Use curated DESIGN.md references to refine hbar workbench UI.'
+  default_prompt: 'Use $hbar-design-md to improve hbar UI while preserving its component, theme and interaction contracts.'

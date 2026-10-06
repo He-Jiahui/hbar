@@ -1,0 +1,20 @@
+{
+  "repository": "https://github.com/VoltAgent/awesome-design-md",
+  "website": "https://getdesign.md/",
+  "commit": "13be5c05c63be24b57581162364167028020f043",
+  "license": "MIT",
+  "licenseFile": "UPSTREAM-LICENSE",
+  "scope": "Project-local hbar adaptation of selected public DESIGN.md analyses",
+  "references": [
+    {
+      "sourcePath": "design-md/linear.app/DESIGN.md",
+      "sha256": "30bd30e72c48a16e4bdbd010f2d1c85fab657c6fae3cc85389399aab10f9cb5f",
+      "file": "linear.design.md"
+    },
+    {
+      "sourcePath": "design-md/vercel/DESIGN.md",
+      "sha256": "d0951b93c2b4ce9840c715c9f9b3e58a386c6c58ae5cc0f804dec3b116b95bd8",
+      "file": "vercel.design.md"
+    }
+  ]
+}
