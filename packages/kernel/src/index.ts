@@ -166,6 +166,7 @@ import { createAgentSessionConfiguration } from './agent-session-configuration'
 import { createSchemaCallbackRegistry, encodePath } from '@hbar/schema-core'
 import { createUsageFact, describeUsageAttempt } from '@hbar/usage'
 import { classifyRunFailure } from './run-failure.ts'
+import { createRunIdleTimeout, resolveRunIdleTimeoutMs } from './run-idle-timeout'
 import { hostAbortToolOutcome } from './tool-outcome'
 import { captureToolPresentations, enrichToolCallPresentations } from './tool-presentation'
 import { persistToolResultImages } from './tool-result-images'
@@ -308,10 +309,13 @@ export interface KernelOptions {
   workspace?: string | undefined
   secrets?: SecretStore | undefined
   profile?: KernelProfile | undefined
+  /** Stop a Run after this much time without model output or completed work. */
+  runIdleTimeoutMs?: number | undefined
 }
 interface ResolvedKernelOptions extends KernelOptions {
   home: string
   layout: PathLayout
+  runIdleTimeoutMs: number
 }
 export interface KernelProfile {
   replacements?: Record<string, HbarPlugin>
@@ -576,6 +580,7 @@ export class Kernel {
     })
   }
   static async create(options: KernelOptions): Promise<Kernel> {
+    const runIdleTimeoutMs = resolveRunIdleTimeoutMs(options.runIdleTimeoutMs)
     const layout =
       options.layout ??
       (await resolvePathLayout({
@@ -585,7 +590,7 @@ export class Kernel {
         pointerFile: options.pointerFile,
       }))
     await ensurePathLayout(layout)
-    const resolved: ResolvedKernelOptions = { ...options, home: layout.dataRoot, layout }
+    const resolved: ResolvedKernelOptions = { ...options, home: layout.dataRoot, layout, runIdleTimeoutMs }
     const kernel = new Kernel(resolved, await options.profile?.createStorage?.(layout.dataRoot))
     try {
       await kernel.storage.call('ready')
@@ -1444,10 +1449,7 @@ export class Kernel {
       scope.ctx.effect(() => () => controller.abort())
       this.active.set(sessionId, { run, controller, context: scope })
       if (this.cancelled.has(run.id)) controller.abort(new HbarError('USER_CANCELLED', 'Cancelled by user'))
-      const timer = setTimeout(
-        () => controller.abort(new HbarError('RUN_TIMEOUT', 'Run exceeded its 20-minute limit')),
-        20 * 60_000,
-      )
+      const idleTimeout = createRunIdleTimeout(controller, this.options.runIdleTimeoutMs)
       let status: Run['status'] = 'completed',
         failure: string | undefined,
         failureDetails: RunFailure | undefined
@@ -1506,6 +1508,11 @@ export class Kernel {
         })
         const selectedNames = new Set(selectedTools.tools.map((tool) => tool.name))
         const toolPresentations = captureToolPresentations(selectedNames, scope.tools)
+        const executeTool = async (name: string, args: Record<string, unknown>, context: ToolContext) => {
+          const result = await this.execute(name, args, context, scope)
+          idleTimeout.progress()
+          return result
+        }
         const input: DriverInput = {
           session,
           workspace: workspaceForRun,
@@ -1559,9 +1566,15 @@ export class Kernel {
             const result = await this.storage.call('commit', sessionId, run.id, role, content, messageId, providerData)
             if (messageId) this.clearStream(messageId)
             this.publishEvent(result.event)
+            idleTimeout.progress()
             return result.message
           },
-          stream: (id, text, thinking) => this.updateStream({ id, sessionId, runId: run.id, text, thinking }),
+          stream: (id, text, thinking) => {
+            const previous = this.streams.get(id)
+            if (text.length > (previous?.text.length ?? 0) || thinking.length > (previous?.thinking.length ?? 0))
+              idleTimeout.progress()
+            this.updateStream({ id, sessionId, runId: run.id, text, thinking })
+          },
           execute: async (name, args, callId) => {
             const effectiveMode = this.plugins.get<ModeService>('mode').effectiveMode(run)
             const effectiveRun =
@@ -1573,15 +1586,11 @@ export class Kernel {
               signal: controller.signal,
               callId,
             }
-            const sequence = createToolSequenceExecutor(
-              context,
-              selectedTools.tools,
-              name,
-              (childName, childArgs, childContext) => this.execute(childName, childArgs, childContext, scope),
-              (type, data) => this.append(sessionId, type, data, run.id),
+            const sequence = createToolSequenceExecutor(context, selectedTools.tools, name, executeTool, (type, data) =>
+              this.append(sessionId, type, data, run.id),
             )
             try {
-              return await this.execute(name, args, { ...context, executeSequence: sequence.execute }, scope)
+              return await executeTool(name, args, { ...context, executeSequence: sequence.execute })
             } finally {
               sequence.dispose()
             }
@@ -1644,6 +1653,7 @@ export class Kernel {
               run.id,
               stepId,
             )
+            idleTimeout.progress()
             return request
           },
           stepEnded: async (stepId) => {
@@ -1704,7 +1714,7 @@ export class Kernel {
           failure = cause instanceof Error ? cause.message : String(cause)
         }
       } finally {
-        clearTimeout(timer)
+        idleTimeout.dispose()
         const active = this.active.get(sessionId)
         if (active?.run.id === run.id && active.steeringReady) {
           active.steeringReady = false
