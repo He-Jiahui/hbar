@@ -52,6 +52,169 @@ const call: Extract<ContentBlock, { type: 'tool_call' }> = {
   args: { path },
   presentation: { version: 1, kind: 'file-read', pathField: 'path' },
 }
+
+for (const locale of ['zh-CN', 'en-US'] as const) {
+  for (const theme of ['light', 'dark'] as const) {
+    test(`sidebar activity uses a stable blue breathing lamp and respects appearance ${locale} ${theme}`, async ({
+      browser,
+    }, info) => {
+      const page = await browser.newPage({ locale, viewport: { width: 320, height: 640 } })
+      const errors: string[] = []
+      page.on('pageerror', (error) => errors.push(error.message))
+      const labels = getShellCopy(locale).shell.sort.time.execution
+      const input = (
+        state: NonNullable<ToolPresentationFixtureInput['activity']>['state'],
+        motion = true,
+        glow = 0.65,
+      ): ToolPresentationFixtureInput => ({
+        locale,
+        theme,
+        motion,
+        glow,
+        messages: [],
+        activity: { state, label: labels[state] },
+      })
+      try {
+        await page.goto(origin)
+        await render(page, input('running'))
+        const action = page.locator('[data-fixture-outside]')
+        await action.hover()
+        const hover = await action.evaluate(async (element) => {
+          const transition = element
+            .getAnimations()
+            .find(
+              (animation) =>
+                animation instanceof CSSTransition && animation.transitionProperty === '--lumen-effect-level',
+            )
+          if (!transition?.effect) throw new Error('Hover must ease the existing Lumen light level')
+          const duration = transition.effect.getComputedTiming().duration
+          if (typeof duration !== 'number') throw new Error('Hover needs a bounded transition')
+          transition.pause()
+          transition.currentTime = 0
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+          const start = Number(getComputedStyle(element).getPropertyValue('--lumen-effect-level'))
+          const rect = element.getBoundingClientRect()
+          transition.currentTime = duration / 2
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+          const middle = Number(getComputedStyle(element).getPropertyValue('--lumen-effect-level'))
+          transition.currentTime = duration
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+          const end = Number(getComputedStyle(element).getPropertyValue('--lumen-effect-level'))
+          const after = element.getBoundingClientRect()
+          return {
+            start,
+            middle,
+            end,
+            before: { width: rect.width, height: rect.height },
+            after: { width: after.width, height: after.height },
+          }
+        })
+        expect(hover.middle).toBeGreaterThan(hover.start)
+        expect(hover.middle).toBeLessThan(hover.end)
+        expect(hover.after).toEqual(hover.before)
+        const row = page.locator('[data-fixture-activity-row]')
+        const status = row.locator('.hbar-app-react-session-activity-indicator')
+        const lamp = status.locator('.lumen-status-dot')
+        await row.focus()
+        await expect(status).toHaveAccessibleName(labels.running)
+        await expect(lamp).toBeVisible()
+        await expect(lamp).toHaveAttribute('data-lumen-tone', 'info')
+        const breathing = await lamp.evaluate(async (element) => {
+          const animation = element
+            .getAnimations()
+            .find((item) => item instanceof CSSAnimation && item.animationName === 'lumen-breathe')
+          if (!animation?.effect) throw new Error('The running lamp must breathe through Lumen')
+          const duration = animation.effect.getComputedTiming().duration
+          if (typeof duration !== 'number') throw new Error('Breathing needs a bounded duration')
+          animation.pause()
+          animation.currentTime = 0
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+          const low = getComputedStyle(element).boxShadow
+          const bounds = (rect: DOMRect) => ({ x: rect.x, y: rect.y, width: rect.width, height: rect.height })
+          const before = bounds(element.getBoundingClientRect())
+          animation.currentTime = duration / 2
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+          const high = getComputedStyle(element).boxShadow
+          const after = bounds(element.getBoundingClientRect())
+          animation.play()
+          const probe = document.createElement('span')
+          probe.style.background = 'var(--lumen-info)'
+          element.append(probe)
+          const expected = getComputedStyle(probe).backgroundColor
+          probe.remove()
+          return { low, high, before, after, color: getComputedStyle(element).backgroundColor, expected }
+        })
+        expect(breathing.low).not.toBe(breathing.high)
+        expect(breathing.before).toEqual(breathing.after)
+        expect(breathing.color).toBe(breathing.expected)
+        const bounds = await status.boundingBox()
+        for (const state of ['waiting_approval', 'queued', 'cancelRequested', 'running'] as const) {
+          await render(page, input(state))
+          await expect(status).toHaveAccessibleName(labels[state])
+          expect(await status.boundingBox()).toEqual(bounds)
+          await expect(row).toBeFocused()
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+          if (state !== 'running') {
+            await expect(lamp).toHaveCount(0)
+            expect(await status.locator('svg').evaluate((element) => getComputedStyle(element).animationName)).toBe(
+              'none',
+            )
+          }
+        }
+        await render(page, input('running', false))
+        await expect(lamp).toBeVisible()
+        expect(await lamp.evaluate((element) => getComputedStyle(element).animationName)).toBe('none')
+        await render(page, input('running'))
+        await page.emulateMedia({ reducedMotion: 'reduce' })
+        expect(await lamp.evaluate((element) => getComputedStyle(element).animationName)).toBe('none')
+        await page.emulateMedia({ reducedMotion: 'no-preference' })
+        await render(page, input('running', true, 0))
+        const lightAlpha = await lamp.evaluate((element) => {
+          const probe = document.createElement('span')
+          probe.style.color = 'var(--lumen-effect-light)'
+          element.append(probe)
+          const color = getComputedStyle(probe).color
+          probe.remove()
+          const canvas = document.createElement('canvas')
+          const context = canvas.getContext('2d')
+          if (!context) throw new Error('Missing browser color probe')
+          context.fillStyle = color
+          context.fillRect(0, 0, 1, 1)
+          return context.getImageData(0, 0, 1, 1).data[3]
+        })
+        expect(lightAlpha).toBe(0)
+        await expect(lamp).toBeVisible()
+        await page.evaluate(() => {
+          document.documentElement.style.fontSize = '125%'
+        })
+        const scaled = await status.boundingBox()
+        if (!scaled || !bounds) throw new Error('Visible status slot lost its geometry')
+        expect(scaled.width).toBeCloseTo(bounds.width * 1.25, 1)
+        expect(scaled.height).toBeCloseTo(bounds.height * 1.25, 1)
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+        await page.evaluate(() => {
+          document.documentElement.style.fontSize = ''
+        })
+        await page.emulateMedia({ forcedColors: 'active' })
+        expect(await lamp.evaluate((element) => getComputedStyle(element).animationName)).toBe('none')
+        expect(await lamp.evaluate((element) => getComputedStyle(element).boxShadow)).toBe('none')
+        await expect(status).toHaveAccessibleName(labels.running)
+        await page.emulateMedia({ forcedColors: 'none' })
+        await render(page, input('running'))
+        await page.screenshot({ path: info.outputPath('sidebar-running-lamp.png') })
+        await render(page, input('idle'))
+        await expect(status).toHaveCount(0)
+        expect(errors).toEqual([])
+        await info.attach('breathing-geometry', {
+          contentType: 'application/json',
+          body: JSON.stringify({ breathing, hover }),
+        })
+      } finally {
+        await page.close()
+      }
+    })
+  }
+}
 const messages: Message[] = [
   {
     id: 'reading-message',

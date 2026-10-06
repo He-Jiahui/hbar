@@ -2,7 +2,7 @@
 import { StrictMode } from 'react'
 import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
-import { LumenButton, LumenFrame, LumenProvider, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenNavigationButton, LumenProvider, LumenText } from '@lumen/app-ui'
 import { HbarMessageBlocks, projectSessionMessages } from '@hbar/app-react'
 import type { SessionTimelineState } from '@hbar/app-runtime'
 import { createWebLumenAppearance, DEFAULT_WEB_APPEARANCE_DIMENSIONS } from '../../apps/web/src/appearance'
@@ -10,6 +10,10 @@ import { getShellCopy, resolveShellLocale, type ShellLocale } from '../../apps/w
 import { createSessionToolPresenter } from '../../apps/web/src/session-tool-presentation'
 import '@lumen/app-ui/styles.css'
 import './session-tool-presentation-browser.css'
+import {
+  SessionActivityIndicator,
+  type SessionActivityIndicatorContent,
+} from '../../packages/app-react/src/session-activity-indicator'
 
 export interface ToolPresentationFixtureInput {
   readonly messages: SessionTimelineState['messages']
@@ -19,6 +23,8 @@ export interface ToolPresentationFixtureInput {
   readonly theme?: 'light' | 'dark'
   readonly motion?: boolean
   readonly activeRunIds?: readonly string[]
+  readonly activity?: SessionActivityIndicatorContent
+  readonly glow?: number
 }
 
 declare global {
@@ -57,11 +63,21 @@ function Fixture({ input }: { readonly input: ToolPresentationFixtureInput }) {
   const describe = createSessionToolPresenter(input.locale)
   const projections = projectSessionMessages(input.messages)
   return (
-    <LumenProvider appearance={appearance}>
+    <LumenProvider appearance={{ ...appearance, ...(input.glow === undefined ? {} : { glow: input.glow }) }}>
       <LumenFrame as="main" className="tool-presentation-fixture">
         <LumenText as="h1">{fixtureCopy.title}</LumenText>
         <LumenText as="p">{fixtureCopy.scope}</LumenText>
         <LumenButton data-fixture-outside="true">{fixtureCopy.outside}</LumenButton>
+        {input.activity && (
+          <LumenNavigationButton
+            className="tool-presentation-fixture-activity-row"
+            selected
+            data-fixture-activity-row="true"
+          >
+            <LumenText as="span">{fixtureCopy.long}</LumenText>
+            <SessionActivityIndicator execution={input.activity} />
+          </LumenNavigationButton>
+        )}
         <LumenFrame className="tool-presentation-fixture-messages" data-fixture-count={projections.length}>
           {projections.map((projection, index) => (
             // Stable slots deliberately expose production identity reset rather than remounting it here.

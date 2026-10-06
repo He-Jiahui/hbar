@@ -91,8 +91,15 @@ test('Project and Time sidebar keep an idle parent active while a child works an
     await expect(indicator).toHaveAttribute('aria-label', copy.shell.sort.time.execution.running)
     expect(await summary()).toEqual({ state: 'running', activeCount: 1, queuedCount: 0 })
     expect((await host.client.call('session.snapshot', { sessionId })).runs).toHaveLength(0)
-    expect(await indicator.locator('svg').evaluate((node) => getComputedStyle(node).animationName)).toBe(
-      'hbar-sidebar-activity-spin',
+    const lamp = indicator.locator('.lumen-status-dot')
+    await expect(lamp).toHaveAttribute('data-lumen-tone', 'info')
+    await expect(lamp).toHaveAttribute('data-lumen-state', 'running')
+    // The public motion preference may be off in the fixture; both modes must
+    // preserve a visible blue lamp instead of reviving a private spin animation.
+    expect(await lamp.evaluate((node) => getComputedStyle(node).animationName)).toBe(
+      (await page.locator('[data-lumen-mode]').first().getAttribute('data-lumen-motion')) === 'off'
+        ? 'none'
+        : 'lumen-breathe',
     )
     expect(await parent.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true)
     await page.screenshot({ path: join(evidence, 'zh-child-working.png') })

@@ -27,6 +27,19 @@
   min-inline-size: 0;
 }
 
+.tool-presentation-fixture-activity-row {
+  min-inline-size: 0;
+  inline-size: min(100%, 22rem);
+}
+.tool-presentation-fixture-activity-row > span:first-child {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 body {
   margin: 0;
 }

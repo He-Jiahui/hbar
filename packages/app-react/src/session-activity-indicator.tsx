@@ -1,5 +1,5 @@
 import { CircleAlert, Hourglass, LoaderCircle } from 'lucide-react'
-import { LumenFrame, LumenIcon } from '@lumen/app-ui'
+import { LumenFrame, LumenIcon, LumenIndicator } from '@lumen/app-ui'
 import type { SessionActivityExecution } from '@hbar/contracts/sidebar-directory'
 import './session-activity-indicator.css'
 
@@ -17,18 +17,27 @@ export function SessionActivityIndicator({
   if (!execution || execution.state === 'idle') return null
   return (
     <LumenFrame
+      as="span"
       className="hbar-app-react-session-activity-indicator"
       role="img"
       aria-label={execution.label}
       title={execution.label}
       data-state={execution.state}
     >
-      <LumenIcon
-        icon={
-          execution.state === 'waiting_approval' ? CircleAlert : execution.state === 'queued' ? Hourglass : LoaderCircle
-        }
-        tier="sm"
-      />
+      {execution.state === 'running' ? (
+        <LumenIndicator state="running" tone="info" />
+      ) : (
+        <LumenIcon
+          icon={
+            execution.state === 'waiting_approval'
+              ? CircleAlert
+              : execution.state === 'queued'
+                ? Hourglass
+                : LoaderCircle
+          }
+          tier="sm"
+        />
+      )}
     </LumenFrame>
   )
 }

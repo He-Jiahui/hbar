@@ -1,31 +1,18 @@
 .hbar-app-react-session-activity-indicator {
-  display: flex;
+  display: inline-flex;
+  inline-size: var(--hbar-app-ui-icon-sm);
+  block-size: var(--hbar-app-ui-icon-sm);
   flex: 0 0 auto;
-  color: var(--lumen-success);
+  align-items: center;
+  justify-content: center;
+  color: var(--lumen-muted);
+  transition: color var(--lumen-state-duration) var(--lumen-state-easing);
+}
+
+.hbar-app-react-session-activity-indicator[data-state='running'] {
+  color: var(--lumen-info);
 }
 
 .hbar-app-react-session-activity-indicator[data-state='waiting_approval'] {
   color: var(--lumen-warning);
-}
-
-.hbar-app-react-session-activity-indicator[data-state='queued'],
-.hbar-app-react-session-activity-indicator[data-state='cancelRequested'] {
-  color: var(--lumen-muted);
-}
-
-.hbar-app-react-session-activity-indicator[data-state='running'] > .lumen-icon,
-.hbar-app-react-session-activity-indicator[data-state='cancelRequested'] > .lumen-icon {
-  animation: hbar-sidebar-activity-spin 1s linear infinite;
-}
-
-@keyframes hbar-sidebar-activity-spin {
-  to {
-    rotate: 360deg;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hbar-app-react-session-activity-indicator > .lumen-icon {
-    animation: none;
-  }
 }
