@@ -45,6 +45,23 @@ test('progress cannot move backwards or silently change its denominator', async 
   await reporter.finish()
 })
 
+test('the last coalesced progress is published within the bounded interval even if no further report arrives', async () => {
+  const published: ToolExecution[] = []
+  const reporter = createToolExecutionReporter(Date.now(), (execution) => {
+    published.push(execution)
+    return Promise.resolve()
+  })
+  await reporter.report({ completed: 1, total: 4 })
+  await reporter.report({ completed: 2, total: 4 })
+  await Bun.sleep(300)
+  expect(published.at(-1)?.progress).toEqual({ completed: 2, total: 4 })
+  expect(published.at(-1)?.endedAt).toBeUndefined()
+  await reporter.finish()
+  const settledCount = published.length
+  await Bun.sleep(300)
+  expect(published).toHaveLength(settledCount)
+})
+
 test('real Host publishes timing/progress, restores active facts, freezes results and rejects plugin-spoofed timing', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-tool-execution-'))
   const kernel = await Kernel.create({

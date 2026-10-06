@@ -1836,6 +1836,7 @@ export class Kernel {
     // Plugin hooks receive a mutable ToolContext. Classification and approval
     // cancellation must retain the original Host-owned signal independently.
     const hostSignal = context.signal
+    const executionIdentity = { sessionId: context.session.id, runId: context.run.id, callId: context.callId }
     const tool = scope.tools.get(name)
     if (!tool) throw new HbarError('TOOL_NOT_FOUND', name)
     let result: ToolResult,
@@ -1922,7 +1923,12 @@ export class Kernel {
       this.publishEvent(startEvent)
       started = true
       reporter = createToolExecutionReporter(startEvent.time, (execution) =>
-        this.append(context.session.id, 'tool.execution', { callId: context.callId, name, execution }, context.run.id),
+        this.append(
+          executionIdentity.sessionId,
+          'tool.execution',
+          { callId: executionIdentity.callId, name, execution },
+          executionIdentity.runId,
+        ),
       )
       await reporter.start()
       await scope.hooks.dispatch('tool.executing', { name, args: structuredClone(args), context, tool })
