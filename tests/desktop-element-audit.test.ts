@@ -13,15 +13,18 @@ test('semantic audit records distinct text ownership and the original row action
     source(`
     function SessionRow({labels, row, onRename}) {
       return <LumenFrame><LumenContentText context="navigation.caption">{row.title}</LumenContentText>
-        <LumenButton aria-label={labels.rename(row.title)} disabled={row.pending} onClick={() => onRename(row.id)}>{labels.rename}</LumenButton></LumenFrame>
+        <LumenButton aria-label={labels.rename(row.title)} disabled={row.pending} onClick={() => onRename(row.id)}>{labels.rename}</LumenButton>
+        <LumenLink href={row.uri} target="_blank" aria-label={labels.open(row.title)}>{row.title}</LumenLink></LumenFrame>
     }`),
   )
-  expect(records.map((record) => record.owner)).toEqual(['SessionRow', 'SessionRow', 'SessionRow'])
+  expect(records.map((record) => record.owner)).toEqual(['SessionRow', 'SessionRow', 'SessionRow', 'SessionRow'])
   expect(records[1]?.context).toBe('navigation.caption')
   expect(records[1]?.contentSources).toEqual(['row.title'])
   expect(records[2]?.actionBindings.onClick).toBe('() => onRename(row.id)')
   expect(records[2]?.accessibleNameSources).toEqual(['aria-label=labels.rename(row.title)'])
   expect(records[2]?.stateSources).toContain('disabled=row.pending')
+  expect(records[3]?.targetSources).toContain('href=row.uri')
+  expect(records[3]?.targetSources).toContain('target=_blank')
 })
 
 test('audit rejects unclassified low-level text, raw containers and literal accessible content', () => {

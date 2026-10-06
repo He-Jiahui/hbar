@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
-import { LumenButton, LumenFrame, LumenImage, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenImage, LumenContentText, LumenLink } from '@lumen/app-ui'
 import { imageSourceName, remoteImageSource } from './message-image-preview-model'
 import { useMessageImagePreviewLabels, type MessageImagePreviewLabels } from './message-image-preview-context'
 import { registerSessionNavigationChrome } from './session-navigation-chrome'
@@ -23,7 +23,7 @@ function ImagePreview({
   }, [])
   return (
     <LumenFrame as="span" ref={root} className="hbar-message-image-preview" data-image-preview-status={status}>
-      <LumenFrame as="a" href={source} target="_blank" rel="noreferrer noopener" aria-label={labels.open(name)}>
+      <LumenLink href={source} target="_blank" rel="noreferrer noopener" aria-label={labels.open(name)}>
         <LumenImage
           key={attempt}
           src={source}
@@ -35,17 +35,17 @@ function ImagePreview({
           onLoad={() => setStatus('ready')}
           onError={() => setStatus('failed')}
         />
-      </LumenFrame>
+      </LumenLink>
       {status === 'loading' && (
-        <LumenText as="span" role="status">
+        <LumenContentText context="control.status" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {status === 'failed' && (
         <LumenFrame as="span" className="hbar-message-image-preview-error">
-          <LumenText as="span" role="alert">
+          <LumenContentText context="feedback.detail" role="alert">
             {labels.failed}
-          </LumenText>
+          </LumenContentText>
           <LumenButton
             type="button"
             variant="text"
@@ -81,11 +81,11 @@ function ImageReference({
   return (
     <LumenFrame as="span" ref={root}>
       {linked ? (
-        name
+        <LumenContentText context="inline.text">{name}</LumenContentText>
       ) : (
-        <LumenFrame as="a" href={source} target="_blank" rel="noreferrer noopener">
-          {name}
-        </LumenFrame>
+        <LumenLink href={source} target="_blank" rel="noreferrer noopener">
+          <LumenContentText context="inline.text">{name}</LumenContentText>
+        </LumenLink>
       )}
     </LumenFrame>
   )
@@ -105,7 +105,7 @@ export function MessageImagePreview({
 }) {
   const labels = useMessageImagePreviewLabels()
   const url = remoteImageSource(source)
-  if (!url) return alt
+  if (!url) return <LumenContentText context="inline.text">{alt}</LumenContentText>
   const name = imageSourceName(url, alt)
   if (!preview) return <ImageReference source={url} name={name} linked={linked} />
   // An authored image inside a link retains that link's target and has no nested controls.

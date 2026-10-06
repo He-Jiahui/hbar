@@ -76,7 +76,8 @@ test('generated launch branches retain their entire name as visible text in both
   const branch = `hbar/session-launch/${'a7'.repeat(32)}`
   for (const locale of ['en-US', 'zh-CN'] as const) {
     const html = render({ ...ready, branch }, true, locale)
-    expect(html).toContain(`<bdi>${branch}</bdi>`)
+    expect(html.match(/<bdi\b[^>]*>([^<]*)<\/bdi>/)?.[1]).toBe(branch)
+    expect(html).toContain('data-text-context="inline.isolated"')
     expect(html).not.toContain('dir="rtl"')
     expect(sessionContextCopy(locale).branchCaption(branch)).toBe(branch)
   }

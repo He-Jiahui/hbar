@@ -10,7 +10,7 @@ import {
 } from 'react'
 import { flushSync } from 'react-dom'
 import ReactMarkdown, { type ExtraProps } from 'react-markdown'
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenContentText, LumenLink } from '@lumen/app-ui'
 import type { MessageClipboardPort } from './message-copy'
 import { CodeBlockCopyAction, type HbarCodeBlockLabels } from './code-block-copy-action'
 import { CODE_BLOCK_PREVIEW_LINES, messageCodeBlock } from './message-code-block-model'
@@ -85,12 +85,12 @@ function MessageCodeBlock({
     >
       <LumenFrame ref={header} className="hbar-message-code-header" data-session-find-exclude="code-chrome">
         <LumenFrame className="hbar-message-code-metadata">
-          <LumenText as="span">{context.labels.language(code.language)}</LumenText>
-          <LumenText as="span">{context.labels.lines(code.lines)}</LumenText>
+          <LumenContentText context="metadata">{context.labels.language(code.language)}</LumenContentText>
+          <LumenContentText context="metadata">{context.labels.lines(code.lines)}</LumenContentText>
         </LumenFrame>
         <CodeBlockCopyAction {...context} occurrenceId={code.occurrenceId} text={code.text} />
       </LumenFrame>
-      <LumenText as="pre" variant="code" className="hbar-message-code-body" id={bodyId} tabIndex={0}>
+      <LumenContentText context="code.block" className="hbar-message-code-body" id={bodyId} tabIndex={0}>
         <MarkdownCodeContent
           source={code.domText}
           language={code.language}
@@ -100,7 +100,7 @@ function MessageCodeBlock({
           collapsible={collapsible}
           expanded={expanded}
         />
-      </LumenText>
+      </LumenContentText>
       {collapsible && (
         <LumenFrame ref={footer} className="hbar-message-code-footer" data-session-find-exclude="code-chrome">
           <LumenButton
@@ -144,9 +144,9 @@ function MarkdownPre({ node, children, className }: ComponentProps<'pre'> & Extr
       code={code}
     />
   ) : (
-    <LumenText as="pre" className={className}>
+    <LumenContentText context="code.block" className={className}>
       {children}
-    </LumenText>
+    </LumenContentText>
   )
 }
 function MarkdownLink({ node, ...props }: ComponentProps<'a'> & ExtraProps) {
@@ -185,8 +185,7 @@ function MarkdownLink({ node, ...props }: ComponentProps<'a'> & ExtraProps) {
   }
   const anchor = (
     <ImageLinkContext.Provider value={true}>
-      <LumenFrame
-        as="a"
+      <LumenLink
         {...anchorProps}
         ref={anchorRef ? compatibleRef : undefined}
         target={external ? '_blank' : undefined}
@@ -267,7 +266,7 @@ const inlineComponents = {
 /** A disclosure preview retains Markdown emphasis without nested controls or image requests. */
 export function MessageInlineMarkdown({ text }: { readonly text: string }) {
   return (
-    <LumenText as="span" className="hbar-session-inline-markdown">
+    <LumenContentText context="inline.text" className="hbar-session-inline-markdown">
       <ReactMarkdown
         remarkPlugins={sessionMarkdownRemarkPlugins}
         rehypePlugins={sessionMarkdownRehypePlugins}
@@ -276,7 +275,7 @@ export function MessageInlineMarkdown({ text }: { readonly text: string }) {
       >
         {text}
       </ReactMarkdown>
-    </LumenText>
+    </LumenContentText>
   )
 }
 

@@ -1,5 +1,5 @@
 import { messageLiteralSegments } from './message-literal-text-model'
-import { LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenFrame, LumenContentText, LumenLink } from '@lumen/app-ui'
 import { splitMessageFileReferences } from './message-file-reference-model'
 import { MessageFileReferenceLink, type MessageFileReferenceContext } from './message-file-reference'
 import { MessageImagePreview } from './message-image-preview'
@@ -20,7 +20,7 @@ export function MessageLiteralText({
       .slice(0, MAX_MESSAGE_IMAGE_PREVIEWS),
   )
   return (
-    <LumenText as="p" className="hbar-session-message-literal">
+    <LumenContentText context="message.body" className="hbar-session-message-literal">
       {parts.map((segment, index) =>
         segment.kind === 'url' ? (
           <LumenFrame
@@ -28,9 +28,9 @@ export function MessageLiteralText({
             key={index}
             className={previewIndices.has(index) ? 'hbar-message-image-link' : undefined}
           >
-            <LumenFrame as="a" href={segment.value} target="_blank" rel="noreferrer noopener">
-              {segment.value}
-            </LumenFrame>
+            <LumenLink href={segment.value} target="_blank" rel="noreferrer noopener">
+              <LumenContentText context="inline.text">{segment.value}</LumenContentText>
+            </LumenLink>
             {previewIndices.has(index) && <MessageImagePreview source={segment.value} />}
           </LumenFrame>
         ) : fileReferences ? (
@@ -47,6 +47,6 @@ export function MessageLiteralText({
           segment.value
         ),
       )}
-    </LumenText>
+    </LumenContentText>
   )
 }

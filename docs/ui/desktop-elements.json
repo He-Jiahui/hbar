@@ -23801,7 +23801,7 @@
       "contentSources": ["children"],
       "accessibleNameSources": [],
       "actionBindings": {},
-      "targetSources": ["target=_blank"],
+      "targetSources": ["href=href", "target=_blank"],
       "stateSources": [],
       "flow": "owning flow layout",
       "lumenMapping": "LumenFrame",
@@ -33431,7 +33431,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarMessageActionBar::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1582,
+      "line": 1583,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarMessageActionBar",
@@ -33450,14 +33450,14 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenText::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1590,
+      "line": 1591,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenText",
       "category": "text",
       "context": null,
       "contentSources": [
-        "messageFork.actions[forkKey(message)]?.status === 'created'\r\n                    ? labels.messageFork.createdAfterTimestamp(labels.timestamp(message.createdAt))\r\n                    : labels.timestamp(message.createdAt)"
+        "messageFork.actions[forkKey(message)]?.status === 'created'\n                    ? labels.messageFork.createdAfterTimestamp(labels.timestamp(message.createdAt))\n                    : labels.timestamp(message.createdAt)"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -33471,7 +33471,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarMessageBlocks::2",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1609,
+      "line": 1610,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarMessageBlocks",
@@ -33490,7 +33490,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarGoalLifecycleCard::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1636,
+      "line": 1637,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarGoalLifecycleCard",
@@ -33509,7 +33509,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarGoalContinuation::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1648,
+      "line": 1649,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarGoalContinuation",
@@ -33528,14 +33528,14 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenFrame::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1658,
+      "line": 1659,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "[source:1659; BinaryExpression] timeline.runs.length, timeline.runs",
+        "[source:1660; BinaryExpression] timeline.runs.length, timeline.runs",
         "decisionProjection.fallback.map(renderDecision)"
       ],
       "accessibleNameSources": [],
@@ -33550,7 +33550,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenAgentActivity03::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1660,
+      "line": 1661,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenAgentActivity03",
@@ -33569,7 +33569,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarSessionRunActivity::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1663,
+      "line": 1664,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarSessionRunActivity",
@@ -33578,14 +33578,14 @@
       "contentSources": ["labels=labels.runs"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onCancelRun": "(operationId) =>\r\n                    stopRun ? stopRun(operationId) : invoke('operation.cancel', { operationId })",
+        "onCancelRun": "(operationId) =>\n                    stopRun ? stopRun(operationId) : invoke('operation.cancel', { operationId })",
         "onRetryRun": "(operationId: string) => invoke('run.retry', { sessionId, operationId })"
       },
       "targetSources": [
         "key=sessionId",
-        "cancellingRunIds=activeRuns\r\n                    .filter(\r\n                      (run) =>\r\n                        runActions[run.id]?.commandId === 'operation.cancel' &&\r\n                        (runActions[run.id]?.requestInFlight ||\r\n                          ['submitting', 'unknown', 'succeeded'].includes(runActions[run.id]?.status ?? '')),\r\n                    )\r\n                    .map((run) => run.id)",
-        "retryingRunIds=timeline.runs\r\n                    .filter((run) => runActions[run.id]?.status === 'submitting')\r\n                    .map((run) => run.id)",
-        "unknownRetryRunIds=timeline.runs\r\n                    .filter(\r\n                      (run) =>\r\n                        runActions[run.id]?.commandId === 'run.retry' &&\r\n                        (runActions[run.id]?.status === 'unknown' ||\r\n                          (runActions[run.id]?.status === 'submitting' && runActions[run.id]?.phase === 'receipt')),\r\n                    )\r\n                    .map((run) => run.id)"
+        "cancellingRunIds=activeRuns\n                    .filter(\n                      (run) =>\n                        runActions[run.id]?.commandId === 'operation.cancel' &&\n                        (runActions[run.id]?.requestInFlight ||\n                          ['submitting', 'unknown', 'succeeded'].includes(runActions[run.id]?.status ?? '')),\n                    )\n                    .map((run) => run.id)",
+        "retryingRunIds=timeline.runs\n                    .filter((run) => runActions[run.id]?.status === 'submitting')\n                    .map((run) => run.id)",
+        "unknownRetryRunIds=timeline.runs\n                    .filter(\n                      (run) =>\n                        runActions[run.id]?.commandId === 'run.retry' &&\n                        (runActions[run.id]?.status === 'unknown' ||\n                          (runActions[run.id]?.status === 'submitting' && runActions[run.id]?.phase === 'receipt')),\n                    )\n                    .map((run) => run.id)"
       ],
       "stateSources": [],
       "flow": "owning flow layout",
@@ -33596,18 +33596,18 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenFrame::2",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1728,
+      "line": 1729,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "!connected && (\r\n        <LumenText as=\"p\" role=\"status\">\r\n          {labels.disconnected}\r\n        </LumenText>\r\n      )",
-        "timeline.status === 'loading' && timeline.messages.length > 0 && (\r\n        <LumenText as=\"p\" role=\"status\">\r\n          {labels.refreshing}\r\n        </LumenText>\r\n      )",
-        "timeline.status === 'error' && timeline.messages.length > 0 && (\r\n        <LumenFrame className=\"hbar-app-react-session-history-error\" role=\"alert\">\r\n          <LumenText as=\"span\">{labels.error(timeline.error ?? 'EXECUTION_FAILED')}</LumenText>\r\n          {connected && (\r\n            <LumenButton size=\"s\" onClick={retryTimeline}>\r\n              {labels.retryTimeline}\r\n            </LumenButton>\r\n          )}\r\n        </LumenFrame>\r\n      )",
-        "[source:1749; ConditionalExpression] timeline.olderStatus, timeline.hasOlder",
-        "[source:1769; BinaryExpression] goalHistory.available, composerIntent.facts.sessionId, composerIntent.facts, sessionId, composerIntent.facts.snapshot?.goal, composerIntent.facts.snapshot, goalHistoryProjection"
+        "!connected && (\n        <LumenText as=\"p\" role=\"status\">\n          {labels.disconnected}\n        </LumenText>\n      )",
+        "timeline.status === 'loading' && timeline.messages.length > 0 && (\n        <LumenText as=\"p\" role=\"status\">\n          {labels.refreshing}\n        </LumenText>\n      )",
+        "timeline.status === 'error' && timeline.messages.length > 0 && (\n        <LumenFrame className=\"hbar-app-react-session-history-error\" role=\"alert\">\n          <LumenText as=\"span\">{labels.error(timeline.error ?? 'EXECUTION_FAILED')}</LumenText>\n          {connected && (\n            <LumenButton size=\"s\" onClick={retryTimeline}>\n              {labels.retryTimeline}\n            </LumenButton>\n          )}\n        </LumenFrame>\n      )",
+        "[source:1750; ConditionalExpression] timeline.olderStatus, timeline.hasOlder",
+        "[source:1770; BinaryExpression] goalHistory.available, composerIntent.facts.sessionId, composerIntent.facts, sessionId, composerIntent.facts.snapshot?.goal, composerIntent.facts.snapshot, goalHistoryProjection"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -33621,7 +33621,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenText::2",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1730,
+      "line": 1731,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenText",
@@ -33640,7 +33640,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenText::3",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1735,
+      "line": 1736,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenText",
@@ -33659,14 +33659,14 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenFrame::3",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1740,
+      "line": 1741,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "connected && (\r\n            <LumenButton size=\"s\" onClick={retryTimeline}>\r\n              {labels.retryTimeline}\r\n            </LumenButton>\r\n          )"
+        "connected && (\n            <LumenButton size=\"s\" onClick={retryTimeline}>\n              {labels.retryTimeline}\n            </LumenButton>\n          )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -33680,7 +33680,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenText::4",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1741,
+      "line": 1742,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenText",
@@ -33699,7 +33699,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenButton::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1743,
+      "line": 1744,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenButton",
@@ -33718,7 +33718,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenText::5",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1750,
+      "line": 1751,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenText",
@@ -33737,14 +33737,14 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenFrame::4",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1754,
+      "line": 1755,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "timeline.olderStatus === 'error' && (\r\n            <LumenText as=\"span\" role=\"alert\">\r\n              {labels.error(timeline.olderError ?? 'EXECUTION_FAILED')}\r\n            </LumenText>\r\n          )"
+        "timeline.olderStatus === 'error' && (\n            <LumenText as=\"span\" role=\"alert\">\n              {labels.error(timeline.olderError ?? 'EXECUTION_FAILED')}\n            </LumenText>\n          )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -33758,7 +33758,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenText::6",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1756,
+      "line": 1757,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenText",
@@ -33777,14 +33777,14 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenButton::2",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1760,
+      "line": 1761,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenButton",
       "category": "interaction",
       "context": null,
       "contentSources": [
-        "timeline.olderStatus === 'loading'\r\n              ? labels.loadingOlder\r\n              : timeline.olderStatus === 'error'\r\n                ? labels.retryHistory\r\n                : labels.loadOlder"
+        "timeline.olderStatus === 'loading'\n              ? labels.loadingOlder\n              : timeline.olderStatus === 'error'\n                ? labels.retryHistory\n                : labels.loadOlder"
       ],
       "accessibleNameSources": [],
       "actionBindings": { "onClick": "loadOlder" },
@@ -33798,17 +33798,17 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenFrame::5",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1772,
+      "line": 1773,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "goalHistoryProjection.status === 'loading' ? (\r\n              <LumenText as=\"span\" role=\"status\">\r\n                {labels.goalHistory.loading}\r\n              </LumenText>\r\n            ) : goalHistoryProjection.gapReason ? (\r\n              <LumenText as=\"span\" role={goalHistoryProjection.gapReason === 'error' ? 'alert' : 'status'}>\r\n                {labels.goalHistory.gap(goalHistoryProjection.gapReason)}\r\n              </LumenText>\r\n            ) : null",
-        "goalHistoryProjection.limit && (\r\n              <LumenText as=\"span\" role=\"status\">\r\n                {labels.goalHistory.limit(GOAL_HISTORY_MAX_FACTS)}\r\n              </LumenText>\r\n            )",
-        "[source:1790; BinaryExpression] goalHistory.available, goalHistoryProjection.gap, goalHistoryProjection.status, goalHistoryProjection.gapReason",
-        "[source:1804; BinaryExpression] goalHistory.available, goalHistoryProjection.stale, goalHistoryProjection.limit, goalHistoryProjection.hasOlder, timeline.hasOlder, goalHistoryProjection.gap"
+        "goalHistoryProjection.status === 'loading' ? (\n              <LumenText as=\"span\" role=\"status\">\n                {labels.goalHistory.loading}\n              </LumenText>\n            ) : goalHistoryProjection.gapReason ? (\n              <LumenText as=\"span\" role={goalHistoryProjection.gapReason === 'error' ? 'alert' : 'status'}>\n                {labels.goalHistory.gap(goalHistoryProjection.gapReason)}\n              </LumenText>\n            ) : null",
+        "goalHistoryProjection.limit && (\n              <LumenText as=\"span\" role=\"status\">\n                {labels.goalHistory.limit(GOAL_HISTORY_MAX_FACTS)}\n              </LumenText>\n            )",
+        "goalHistory.available &&\n              goalHistoryProjection.gap &&\n              goalHistoryProjection.status !== 'loading' &&\n              goalHistoryProjection.gapReason !== 'limit' && (\n                <LumenButton\n                  size=\"s\"\n                  disabled={\n                    !connected || timeline.status !== 'ready' || goalHistoryProjection.olderStatus === 'loading'\n                  }\n                  onClick={() => invoke('goalHistory.refresh', { sessionId })}\n                >\n                  {labels.goalHistory.refresh}\n                </LumenButton>\n              )",
+        "[source:1805; BinaryExpression] goalHistory.available, goalHistoryProjection.stale, goalHistoryProjection.limit, goalHistoryProjection.hasOlder, timeline.hasOlder, goalHistoryProjection.gap"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -33822,7 +33822,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenText::7",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1777,
+      "line": 1778,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenText",
@@ -33841,7 +33841,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenText::8",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1781,
+      "line": 1782,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenText",
@@ -33860,7 +33860,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenText::9",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1786,
+      "line": 1787,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenText",
@@ -33879,7 +33879,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenButton::3",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1794,
+      "line": 1795,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenButton",
@@ -33900,20 +33900,20 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenButton::4",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1809,
+      "line": 1810,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenButton",
       "category": "interaction",
       "context": null,
       "contentSources": [
-        "goalHistoryProjection.olderStatus === 'loading'\r\n                    ? labels.goalHistory.loadingOlder\r\n                    : goalHistoryProjection.olderStatus === 'error'\r\n                      ? labels.goalHistory.retryOlder\r\n                      : labels.goalHistory.loadOlder"
+        "goalHistoryProjection.olderStatus === 'loading'\n                    ? labels.goalHistory.loadingOlder\n                    : goalHistoryProjection.olderStatus === 'error'\n                      ? labels.goalHistory.retryOlder\n                      : labels.goalHistory.loadOlder"
       ],
       "accessibleNameSources": [],
       "actionBindings": { "onClick": "() => invoke('goalHistory.loadOlder', { sessionId })" },
       "targetSources": [],
       "stateSources": [
-        "disabled=!connected ||\r\n                    timeline.status !== 'ready' ||\r\n                    goalHistoryProjection.status === 'loading' ||\r\n                    goalHistoryProjection.olderStatus === 'loading'"
+        "disabled=!connected ||\n                    timeline.status !== 'ready' ||\n                    goalHistoryProjection.status === 'loading' ||\n                    goalHistoryProjection.olderStatus === 'loading'"
       ],
       "flow": "owning component contract",
       "lumenMapping": "LumenButton",
@@ -33923,7 +33923,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarSessionEmptyHero::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1870,
+      "line": 1871,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarSessionEmptyHero",
@@ -33942,14 +33942,14 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenFrame::6",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1872,
+      "line": 1873,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "connected && timeline.status === 'error' && sessionId && (\r\n        <LumenButton size=\"s\" onClick={retryTimeline}>\r\n          {labels.retryTimeline}\r\n        </LumenButton>\r\n      )"
+        "connected && timeline.status === 'error' && sessionId && (\n        <LumenButton size=\"s\" onClick={retryTimeline}>\n          {labels.retryTimeline}\n        </LumenButton>\n      )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -33963,14 +33963,14 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenText::10",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1873,
+      "line": 1874,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenText",
       "category": "text",
       "context": null,
       "contentSources": [
-        "timeline.status === 'loading'\r\n          ? labels.loading\r\n          : timeline.error\r\n            ? labels.error(timeline.error)\r\n            : labels.emptyHistory"
+        "timeline.status === 'loading'\n          ? labels.loading\n          : timeline.error\n            ? labels.error(timeline.error)\n            : labels.emptyHistory"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -33984,7 +33984,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenButton::5",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1881,
+      "line": 1882,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenButton",
@@ -34003,15 +34003,15 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenFrame::7",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1926,
+      "line": 1927,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "projectContextLabels && (\r\n        <LumenFrame className=\"hbar-session-project-context-below\">{projectContextView(showLaunchLocation)}</LumenFrame>\r\n      )",
-        "sessionUsagePresentation(controls, labels.usage).notice && (\r\n        <LumenText as=\"p\" className=\"hbar-session-budget-notice\" role=\"status\">\r\n          {sessionUsagePresentation(controls, labels.usage).notice}\r\n        </LumenText>\r\n      )"
+        "projectContextLabels && (\n        <LumenFrame className=\"hbar-session-project-context-below\">{projectContextView(showLaunchLocation)}</LumenFrame>\n      )",
+        "sessionUsagePresentation(controls, labels.usage).notice && (\n        <LumenText as=\"p\" className=\"hbar-session-budget-notice\" role=\"status\">\n          {sessionUsagePresentation(controls, labels.usage).notice}\n        </LumenText>\n      )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -34025,7 +34025,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarSessionLiveStatus::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1931,
+      "line": 1932,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarSessionLiveStatus",
@@ -34044,7 +34044,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarSessionStopNotice::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1939,
+      "line": 1940,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarSessionStopNotice",
@@ -34063,7 +34063,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarSessionExecutionNotice::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1940,
+      "line": 1941,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarSessionExecutionNotice",
@@ -34072,7 +34072,7 @@
       "contentSources": ["labels=labels.executionAccess"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onOpenArchived": "[source:1946; ArrowFunction] target, sessionId, workspaceId, sessionWorkspaceId, selected, runtime.state.navigation.getSnapshot, runtime.state.navigation, runtime.state, selected.sessionId, target.sessionId, selected.workspaceId, target.workspaceId, runtime.commands.execute, runtime.commands, latest, latest.sessionId, latest.workspaceId, visible"
+        "onOpenArchived": "[source:1947; ArrowFunction] target, sessionId, workspaceId, sessionWorkspaceId, selected, runtime.state.navigation.getSnapshot, runtime.state.navigation, runtime.state, selected.sessionId, target.sessionId, selected.workspaceId, target.workspaceId, runtime.commands.execute, runtime.commands, latest, latest.sessionId, latest.workspaceId, visible"
       },
       "targetSources": ["key=`${sessionId}:${sessionWorkspaceId}`", "workspaceName=workspaceName"],
       "stateSources": ["status=preparationStatus", "connected=connected"],
@@ -34084,7 +34084,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarComposerGoal::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1956,
+      "line": 1957,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarComposerGoal",
@@ -34103,7 +34103,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarComposerAgentNotice::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 1965,
+      "line": 1966,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarComposerAgentNotice",
@@ -34112,12 +34112,12 @@
       "contentSources": ["labels=labels.slash.agentNotice"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onRetry": "[source:1974; ArrowFunction] agentAction, sessionId, navigation.workspaceId, runtime.commands\r\n            .execute('agentComposer.invoke', {\r\n              sessionId: agentAction.sessionId,\r\n              workspaceId: agentAction.workspaceId,\r\n              draftText: agentAction.draftText,\r\n              draftRevision: agentAction.draftRevision,\r\n              profileId: agentAction.profileId,\r\n              objective: agentAction.objective,\r\n            })\r\n            .catch, runtime.commands\r\n            .execute, runtime.commands, agentAction.sessionId, workspaceId, agentAction.workspaceId, draftText, agentAction.draftText, draftRevision, agentAction.draftRevision, profileId, agentAction.profileId, objective, agentAction.objective, reason, setSlashFailure, code, reason.code",
-        "onOpen": "[source:1995; ArrowFunction] agentAction?.agent, sessionId, navigation.workspaceId, runtime.commands\r\n            .execute('agentComposer.openResult', {\r\n              sessionId: agentAction.sessionId,\r\n              workspaceId: agentAction.workspaceId,\r\n              agentId: agentAction.agent.agentId,\r\n            })\r\n            .catch, runtime.commands\r\n            .execute, runtime.commands, agentAction.sessionId, workspaceId, agentAction.workspaceId, agentId, agentAction.agent.agentId, agentAction.agent, reason, setSlashFailure, code, reason.code"
+        "onRetry": "[source:1975; ArrowFunction] agentAction, sessionId, navigation.workspaceId, runtime.commands\n            .execute('agentComposer.invoke', {\n              sessionId: agentAction.sessionId,\n              workspaceId: agentAction.workspaceId,\n              draftText: agentAction.draftText,\n              draftRevision: agentAction.draftRevision,\n              profileId: agentAction.profileId,\n              objective: agentAction.objective,\n            })\n            .catch, runtime.commands\n            .execute, runtime.commands, agentAction.sessionId, workspaceId, agentAction.workspaceId, draftText, agentAction.draftText, draftRevision, agentAction.draftRevision, profileId, agentAction.profileId, objective, agentAction.objective, reason, setSlashFailure, code, reason.code",
+        "onOpen": "[source:1996; ArrowFunction] agentAction?.agent, sessionId, navigation.workspaceId, runtime.commands\n            .execute('agentComposer.openResult', {\n              sessionId: agentAction.sessionId,\n              workspaceId: agentAction.workspaceId,\n              agentId: agentAction.agent.agentId,\n            })\n            .catch, runtime.commands\n            .execute, runtime.commands, agentAction.sessionId, workspaceId, agentAction.workspaceId, agentId, agentAction.agent.agentId, agentAction.agent, reason, setSlashFailure, code, reason.code"
       },
       "targetSources": ["agentId=agentAction?.agent?.agentId"],
       "stateSources": [
-        "status=agentAction?.status === 'succeeded' && agentAction.draftCleared && draft?.text\r\n            ? undefined\r\n            : agentAction?.status",
+        "status=agentAction?.status === 'succeeded' && agentAction.draftCleared && draft?.text\n            ? undefined\n            : agentAction?.status",
         "connected=connected"
       ],
       "flow": "owning component contract",
@@ -34128,14 +34128,14 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarComposerAttachmentDropTarget::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2014,
+      "line": 2015,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarComposerAttachmentDropTarget",
       "category": "form",
       "context": null,
       "contentSources": [
-        "[source:2020; BinaryExpression] goalConfirmation?.sessionId, sessionId, goalConfirmation.workspaceId, navigation.workspaceId, goalConfirmation.revision, draft?.revision, goalConfirmation.text, draft.text",
+        "[source:2021; BinaryExpression] goalConfirmation?.sessionId, sessionId, goalConfirmation.workspaceId, navigation.workspaceId, goalConfirmation.revision, draft?.revision, goalConfirmation.text, draft.text",
         "label=labels.attachments.drop"
       ],
       "accessibleNameSources": ["label=labels.attachments.drop"],
@@ -34150,7 +34150,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenFrame::8",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2024,
+      "line": 2025,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenFrame",
@@ -34158,7 +34158,7 @@
       "context": null,
       "contentSources": [],
       "accessibleNameSources": [
-        "aria-label=goalConfirmation.action === 'clear'\r\n                  ? labels.slash.goalConfirmClear(goalConfirmation.previousObjective)\r\n                  : labels.slash.goalConfirmReplace(goalConfirmation.previousObjective)"
+        "aria-label=goalConfirmation.action === 'clear'\n                  ? labels.slash.goalConfirmClear(goalConfirmation.previousObjective)\n                  : labels.slash.goalConfirmReplace(goalConfirmation.previousObjective)"
       ],
       "actionBindings": {},
       "targetSources": [],
@@ -34171,14 +34171,14 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenText::11",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2033,
+      "line": 2034,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenText",
       "category": "text",
       "context": null,
       "contentSources": [
-        "goalConfirmation.action === 'clear'\r\n                  ? labels.slash.goalConfirmClear(goalConfirmation.previousObjective)\r\n                  : labels.slash.goalConfirmReplace(goalConfirmation.previousObjective)"
+        "goalConfirmation.action === 'clear'\n                  ? labels.slash.goalConfirmClear(goalConfirmation.previousObjective)\n                  : labels.slash.goalConfirmReplace(goalConfirmation.previousObjective)"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -34192,7 +34192,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenFrame::9",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2038,
+      "line": 2039,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenFrame",
@@ -34211,7 +34211,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenButton::6",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2039,
+      "line": 2040,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenButton",
@@ -34230,7 +34230,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenButton::7",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2042,
+      "line": 2043,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenButton",
@@ -34239,7 +34239,7 @@
       "contentSources": ["labels.slash.goalConfirm"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onClick": "() => {\r\n                    const confirmation = goalConfirmation\r\n                    setGoalConfirmation(null)\r\n                    void runGoalSlash(\r\n                      confirmation,\r\n                      confirmation.action === 'clear'\r\n                        ? { action: 'clear' }\r\n                        : { action: 'set', objective: confirmation.objective! },\r\n                      confirmation.expectedGoalId,\r\n                    )\r\n                  }"
+        "onClick": "() => {\n                    const confirmation = goalConfirmation\n                    setGoalConfirmation(null)\n                    void runGoalSlash(\n                      confirmation,\n                      confirmation.action === 'clear'\n                        ? { action: 'clear' }\n                        : { action: 'set', objective: confirmation.objective! },\n                      confirmation.expectedGoalId,\n                    )\n                  }"
       },
       "targetSources": [],
       "stateSources": [],
@@ -34251,7 +34251,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarPromptComposer::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2063,
+      "line": 2064,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarPromptComposer",
@@ -34259,21 +34259,21 @@
       "context": null,
       "contentSources": [
         "value=composerDraft?.text ?? ''",
-        "labels={\r\n            ...labels.prompt,\r\n            placeholder:\r\n              intent === 'goal'\r\n                ? labels.intent.goalPlaceholder\r\n                : planModeEntry?.status === 'ready' && planModeEntry.mode === 'plan'\r\n                  ? labels.intent.planPlaceholder\r\n                  : labels.prompt.placeholder,\r\n          }"
+        "labels={\n            ...labels.prompt,\n            placeholder:\n              intent === 'goal'\n                ? labels.intent.goalPlaceholder\n                : planModeEntry?.status === 'ready' && planModeEntry.mode === 'plan'\n                  ? labels.intent.planPlaceholder\n                  : labels.prompt.placeholder,\n          }"
       ],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onChange": "(text) => {\r\n            setSlashFailure(null)\r\n            invoke('draft.setText', { sessionId, text })\r\n          }",
+        "onChange": "(text) => {\n            setSlashFailure(null)\n            invoke('draft.setText', { sessionId, text })\n          }",
         "onAddAttachments": "undefined",
-        "onRemoveAttachment": "(id, kind) =>\r\n            invoke('draft.removeAttachment', {\r\n              sessionId,\r\n              artifactId: id,\r\n              kind,\r\n              expectedRevision: draft?.revision ?? 0,\r\n            })",
-        "onSubmit": "() => {\r\n            if (sessionId && navigation.workspaceId) void submitLatest(sessionId, navigation.workspaceId)\r\n          }",
-        "onStop": "() => {\r\n            if (activeRun) {\r\n              if (stopRun) stopRun(activeRun.id)\r\n              else invoke('operation.cancel', { operationId: activeRun.id })\r\n            }\r\n          }"
+        "onRemoveAttachment": "(id, kind) =>\n            invoke('draft.removeAttachment', {\n              sessionId,\n              artifactId: id,\n              kind,\n              expectedRevision: draft?.revision ?? 0,\n            })",
+        "onSubmit": "() => {\n            if (sessionId && navigation.workspaceId) void submitLatest(sessionId, navigation.workspaceId)\n          }",
+        "onStop": "() => {\n            if (activeRun) {\n              if (stopRun) stopRun(activeRun.id)\n              else invoke('operation.cancel', { operationId: activeRun.id })\n            }\n          }"
       },
       "targetSources": [],
       "stateSources": [
         "value=composerDraft?.text ?? ''",
-        "disabled=!connected ||\r\n            firstSendLocked ||\r\n            workspaceMoveLocked ||\r\n            timeline.status === 'loading' ||\r\n            timeline.status === 'error'",
-        "error=draft?.uploadError && !attachmentTransfers.some((item) => item.error === draft.uploadError)\r\n              ? labels.attachments.error(draft.uploadError)\r\n              : draft?.error\r\n                ? labels.error(draft.error)\r\n                : composerModel.sessionId === sessionId && composerModel.action.status === 'unknown'\r\n                  ? labels.modelPicker.unknown\r\n                  : visibleSlashFailure"
+        "disabled=!connected ||\n            firstSendLocked ||\n            workspaceMoveLocked ||\n            timeline.status === 'loading' ||\n            timeline.status === 'error'",
+        "error=draft?.uploadError && !attachmentTransfers.some((item) => item.error === draft.uploadError)\n              ? labels.attachments.error(draft.uploadError)\n              : draft?.error\n                ? labels.error(draft.error)\n                : composerModel.sessionId === sessionId && composerModel.action.status === 'unknown'\n                  ? labels.modelPicker.unknown\n                  : visibleSlashFailure"
       ],
       "flow": "owning component contract",
       "lumenMapping": "HbarPromptComposer",
@@ -34283,7 +34283,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarComposerMentionEditor::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2069,
+      "line": 2070,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarComposerMentionEditor",
@@ -34292,8 +34292,8 @@
       "contentSources": ["placeholder=placeholder", "labels=labels.mentions"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onContent": "(text, mentions, expectedRevision) =>\r\n                      saveComposerContent(sessionId, text, mentions, expectedRevision)",
-        "onSubmit": "() => {\r\n                      void submitLatest(sessionId, navigation.workspaceId!)\r\n                    }"
+        "onContent": "(text, mentions, expectedRevision) =>\n                      saveComposerContent(sessionId, text, mentions, expectedRevision)",
+        "onSubmit": "() => {\n                      void submitLatest(sessionId, navigation.workspaceId!)\n                    }"
       },
       "targetSources": [
         "key=`${sessionId}:${navigation.workspaceId}`",
@@ -34309,7 +34309,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarComposerWorkspaceContexts::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2115,
+      "line": 2116,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarComposerWorkspaceContexts",
@@ -34319,7 +34319,7 @@
       "accessibleNameSources": [],
       "actionBindings": {
         "onRemove": "removeWorkspaceContext",
-        "onRemoveAttachment": "(attachment) =>\r\n                    invoke('draft.removeAttachment', {\r\n                      sessionId,\r\n                      artifactId: attachment.artifact.id,\r\n                      kind: attachment.kind,\r\n                      expectedRevision: draft.revision,\r\n                    })"
+        "onRemoveAttachment": "(attachment) =>\n                    invoke('draft.removeAttachment', {\n                      sessionId,\n                      artifactId: attachment.artifact.id,\n                      kind: attachment.kind,\n                      expectedRevision: draft.revision,\n                    })"
       },
       "targetSources": [],
       "stateSources": ["error=workspaceContextError"],
@@ -34331,7 +34331,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarDraftImageAttachments::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2146,
+      "line": 2147,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarDraftImageAttachments",
@@ -34340,7 +34340,7 @@
       "contentSources": [],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onRemove": "(id, kind) =>\r\n                      invoke('draft.removeAttachment', {\r\n                        sessionId,\r\n                        artifactId: id,\r\n                        kind,\r\n                        expectedRevision: draft.revision,\r\n                      })"
+        "onRemove": "(id, kind) =>\n                      invoke('draft.removeAttachment', {\n                        sessionId,\n                        artifactId: id,\n                        kind,\n                        expectedRevision: draft.revision,\n                      })"
       },
       "targetSources": [],
       "stateSources": [],
@@ -34352,15 +34352,15 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenFrame::10",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2223,
+      "line": 2224,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "[source:2236; BinaryExpression] composerPermission.available, composerPlanMode.available",
-        "projectContextLabels && (\r\n                <LumenFrame className=\"hbar-session-project-context-toolbar\">\r\n                  {projectContextView(showLaunchLocation)}\r\n                </LumenFrame>\r\n              )"
+        "[source:2237; BinaryExpression] composerPermission.available, composerPlanMode.available",
+        "projectContextLabels && (\n                <LumenFrame className=\"hbar-session-project-context-toolbar\">\n                  {projectContextView(showLaunchLocation)}\n                </LumenFrame>\n              )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -34374,7 +34374,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarComposerAddMenu::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2224,
+      "line": 2225,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarComposerAddMenu",
@@ -34397,7 +34397,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarComposerPermissionPicker::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2237,
+      "line": 2238,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarComposerPermissionPicker",
@@ -34406,14 +34406,14 @@
       "contentSources": ["labels=labels.permissionPicker"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onRefresh": "async () => {\r\n                    await runtime.commands.execute('composerPermission.refresh', {})\r\n                  }",
-        "onSelect": "async (input) => {\r\n                    await runtime.commands.execute('composerPermission.setChoice', input)\r\n                  }",
-        "onReconcile": "async () => {\r\n                    await runtime.commands.execute('composerPermission.reconcile', { sessionId })\r\n                  }"
+        "onRefresh": "async () => {\n                    await runtime.commands.execute('composerPermission.refresh', {})\n                  }",
+        "onSelect": "async (input) => {\n                    await runtime.commands.execute('composerPermission.setChoice', input)\n                  }",
+        "onReconcile": "async () => {\n                    await runtime.commands.execute('composerPermission.reconcile', { sessionId })\n                  }"
       },
       "targetSources": ["key=`permission:${sessionId}`", "sessionId=sessionId", "sessionLabel=sessionTitle"],
       "stateSources": [
         "connected=connected",
-        "disabled=workspaceMoveLocked ||\r\n                    firstSendLocked ||\r\n                    draft?.status === 'submitting' ||\r\n                    draft?.status === 'unknown' ||\r\n                    intentPending"
+        "disabled=workspaceMoveLocked ||\n                    firstSendLocked ||\n                    draft?.status === 'submitting' ||\n                    draft?.status === 'unknown' ||\n                    intentPending"
       ],
       "flow": "owning component contract",
       "lumenMapping": "HbarComposerPermissionPicker",
@@ -34423,7 +34423,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenFrame::11",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2296,
+      "line": 2297,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenFrame",
@@ -34442,7 +34442,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarComposerIntentControls::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2300,
+      "line": 2301,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarComposerIntentControls",
@@ -34454,7 +34454,7 @@
       "targetSources": ["key=sessionId", "sessionId=sessionId"],
       "stateSources": [
         "connected=connected",
-        "disabled=workspaceMoveLocked ||\r\n                  firstSendLocked ||\r\n                  draft?.status === 'submitting' ||\r\n                  draft?.status === 'unknown' ||\r\n                  Boolean(permissionEntry?.locked)"
+        "disabled=workspaceMoveLocked ||\n                  firstSendLocked ||\n                  draft?.status === 'submitting' ||\n                  draft?.status === 'unknown' ||\n                  Boolean(permissionEntry?.locked)"
       ],
       "flow": "owning component contract",
       "lumenMapping": "HbarComposerIntentControls",
@@ -34464,7 +34464,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarComposerBackgroundAgentFeedback::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2321,
+      "line": 2322,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarComposerBackgroundAgentFeedback",
@@ -34475,11 +34475,11 @@
       "actionBindings": {
         "onReconcile": "reconcileBackground",
         "onRetry": "retryBackground",
-        "onRefresh": "() => {\r\n                  if (backgroundTarget) invoke('composerBackgroundAgents.refresh', backgroundTarget)\r\n                }"
+        "onRefresh": "() => {\n                  if (backgroundTarget) invoke('composerBackgroundAgents.refresh', backgroundTarget)\n                }"
       },
       "targetSources": [],
       "stateSources": [
-        "error=backgroundEntry?.action.error ??\r\n                  backgroundEntry?.action.targets.find((target) => target.error)?.error ??\r\n                  backgroundEntry?.error ??\r\n                  null",
+        "error=backgroundEntry?.action.error ??\n                  backgroundEntry?.action.targets.find((target) => target.error)?.error ??\n                  backgroundEntry?.error ??\n                  null",
         "disabled=!connected || backgroundPending || !activeConversationOwner"
       ],
       "flow": "owning component contract",
@@ -34490,7 +34490,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarPreSessionLaunchStatus::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2338,
+      "line": 2339,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarPreSessionLaunchStatus",
@@ -34509,7 +34509,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenText::12",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2346,
+      "line": 2347,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenText",
@@ -34528,7 +34528,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarQueuedUserRuns::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2350,
+      "line": 2351,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarQueuedUserRuns",
@@ -34541,21 +34541,21 @@
         "onPrevious": "() => void invoke('queuedUserRuns.previous', { sessionId })",
         "onNext": "() => void invoke('queuedUserRuns.next', { sessionId })",
         "onStartEdit": "(operationId) => void invoke('queuedUserRuns.startEdit', { sessionId, operationId })",
-        "onEditText": "(operationId, text) =>\r\n                  void invoke('queuedUserRuns.setEditText', { sessionId, operationId, text })",
+        "onEditText": "(operationId, text) =>\n                  void invoke('queuedUserRuns.setEditText', { sessionId, operationId, text })",
         "onSaveEdit": "(operationId) => void invoke('queuedUserRuns.saveEdit', { sessionId, operationId })",
         "onRetryEdit": "(operationId) => void invoke('queuedUserRuns.retryEdit', { sessionId, operationId })",
-        "onGuide": "(operationId, expectedRevision, activeRunId) =>\r\n                  void invoke('queuedUserRuns.guide', { sessionId, operationId, expectedRevision, activeRunId })",
+        "onGuide": "(operationId, expectedRevision, activeRunId) =>\n                  void invoke('queuedUserRuns.guide', { sessionId, operationId, expectedRevision, activeRunId })",
         "onRetryGuide": "(operationId) => void invoke('queuedUserRuns.retryGuide', { sessionId, operationId })",
         "onDismissGuide": "() => void invoke('queuedUserRuns.dismissGuide', { sessionId })",
         "onCancelEdit": "() => void invoke('queuedUserRuns.cancelEdit', { sessionId })",
-        "onRemove": "(operationId, expectedRevision) =>\r\n                  void invoke('queuedUserRuns.remove', { sessionId, operationId, expectedRevision })",
+        "onRemove": "(operationId, expectedRevision) =>\n                  void invoke('queuedUserRuns.remove', { sessionId, operationId, expectedRevision })",
         "onRetryRemoval": "(operationId) => void invoke('queuedUserRuns.retryRemoval', { sessionId, operationId })",
         "onDismissRemoval": "() => void invoke('queuedUserRuns.dismissRemoval', { sessionId })"
       },
       "targetSources": [
         "sessionId=sessionId",
-        "activeRunId=timeline.sessionId === sessionId &&\r\n                  timeline.status === 'ready' &&\r\n                  activeRun?.sessionId === sessionId &&\r\n                  activeRun.status === 'running'\r\n                    ? activeRun.id\r\n                    : null",
-        "onGuide=(operationId, expectedRevision, activeRunId) =>\r\n                  void invoke('queuedUserRuns.guide', { sessionId, operationId, expectedRevision, activeRunId })",
+        "activeRunId=timeline.sessionId === sessionId &&\n                  timeline.status === 'ready' &&\n                  activeRun?.sessionId === sessionId &&\n                  activeRun.status === 'running'\n                    ? activeRun.id\n                    : null",
+        "onGuide=(operationId, expectedRevision, activeRunId) =>\n                  void invoke('queuedUserRuns.guide', { sessionId, operationId, expectedRevision, activeRunId })",
         "onRetryGuide=(operationId) => void invoke('queuedUserRuns.retryGuide', { sessionId, operationId })",
         "onDismissGuide=() => void invoke('queuedUserRuns.dismissGuide', { sessionId })"
       ],
@@ -34568,7 +34568,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarComposerAttachmentTransfers::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2384,
+      "line": 2385,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarComposerAttachmentTransfers",
@@ -34577,9 +34577,9 @@
       "contentSources": ["labels=labels.attachments"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onRemove": "(item) =>\r\n                  invoke('draft.removeAttachmentTransfer', {\r\n                    sessionId,\r\n                    reservationId: item.id,\r\n                    ownerRevision: item.ownerRevision,\r\n                  })",
-        "onReconcile": "(item) =>\r\n                  invoke('draft.reconcileAttachment', {\r\n                    sessionId,\r\n                    reservationId: item.id,\r\n                    ownerRevision: item.ownerRevision,\r\n                  })",
-        "onAccept": "(item) =>\r\n                  invoke('draft.acceptReadyAttachment', {\r\n                    sessionId,\r\n                    reservationId: item.id,\r\n                    ownerRevision: item.ownerRevision,\r\n                    expectedRevision: draft?.revision ?? 0,\r\n                  })"
+        "onRemove": "(item) =>\n                  invoke('draft.removeAttachmentTransfer', {\n                    sessionId,\n                    reservationId: item.id,\n                    ownerRevision: item.ownerRevision,\n                  })",
+        "onReconcile": "(item) =>\n                  invoke('draft.reconcileAttachment', {\n                    sessionId,\n                    reservationId: item.id,\n                    ownerRevision: item.ownerRevision,\n                  })",
+        "onAccept": "(item) =>\n                  invoke('draft.acceptReadyAttachment', {\n                    sessionId,\n                    reservationId: item.id,\n                    ownerRevision: item.ownerRevision,\n                    expectedRevision: draft?.revision ?? 0,\n                  })"
       },
       "targetSources": [],
       "stateSources": ["connected=connected"],
@@ -34591,7 +34591,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenFrame::12",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2414,
+      "line": 2415,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenFrame",
@@ -34610,7 +34610,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarSessionUsageControl::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2415,
+      "line": 2416,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarSessionUsageControl",
@@ -34629,7 +34629,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarComposerModelPicker::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2421,
+      "line": 2422,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarComposerModelPicker",
@@ -34638,13 +34638,13 @@
       "contentSources": ["labels=labels.modelPicker"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onOpened": "[source:2438; ArrowFunction] target, pendingModelSlash.current, localSlashInFlight.current, target?.sessionId, sessionId, target.workspaceId, navigation.workspaceId, clearLocalSlash(target).catch, clearLocalSlash, reason, setSlashFailure, target.sessionId, code, reason.code",
-        "onOpenFailed": "(code) => {\r\n                  const target = pendingModelSlash.current\r\n                  pendingModelSlash.current = null\r\n                  localSlashInFlight.current = false\r\n                  if (target?.sessionId === sessionId) setSlashFailure({ sessionId, code })\r\n                }"
+        "onOpened": "[source:2439; ArrowFunction] target, pendingModelSlash.current, localSlashInFlight.current, target?.sessionId, sessionId, target.workspaceId, navigation.workspaceId, clearLocalSlash(target).catch, clearLocalSlash, reason, setSlashFailure, target.sessionId, code, reason.code",
+        "onOpenFailed": "(code) => {\n                  const target = pendingModelSlash.current\n                  pendingModelSlash.current = null\n                  localSlashInFlight.current = false\n                  if (target?.sessionId === sessionId) setSlashFailure({ sessionId, code })\n                }"
       },
       "targetSources": ["key=sessionId", "sessionId=sessionId"],
       "stateSources": [
         "connected=connected",
-        "disabled=workspaceMoveLocked ||\r\n                  firstSendLocked ||\r\n                  draft?.status === 'submitting' ||\r\n                  draft?.status === 'unknown' ||\r\n                  intentPending ||\r\n                  Boolean(activeRun && canPrepare)"
+        "disabled=workspaceMoveLocked ||\n                  firstSendLocked ||\n                  draft?.status === 'submitting' ||\n                  draft?.status === 'unknown' ||\n                  intentPending ||\n                  Boolean(activeRun && canPrepare)"
       ],
       "flow": "owning component contract",
       "lumenMapping": "HbarComposerModelPicker",
@@ -34654,7 +34654,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarComposerBackgroundAgentStop::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2464,
+      "line": 2465,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarComposerBackgroundAgentStop",
@@ -34665,7 +34665,7 @@
       "actionBindings": { "onStop": "stopBackground" },
       "targetSources": [],
       "stateSources": [
-        "disabled=backgroundDisabled ||\r\n                  backgroundUnknown ||\r\n                  backgroundEntry?.action.status === 'requested' ||\r\n                  backgroundEntry?.action.status === 'failed'"
+        "disabled=backgroundDisabled ||\n                  backgroundUnknown ||\n                  backgroundEntry?.action.status === 'requested' ||\n                  backgroundEntry?.action.status === 'failed'"
       ],
       "flow": "owning component contract",
       "lumenMapping": "HbarComposerBackgroundAgentStop",
@@ -34675,7 +34675,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenFrame::13",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2503,
+      "line": 2504,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenFrame",
@@ -34694,7 +34694,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenText::13",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2506,
+      "line": 2507,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenText",
@@ -34713,15 +34713,15 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenFrame::14",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2514,
+      "line": 2515,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "toolFailure?.sessionId === sessionId &&\r\n        toolFailure.workspaceId === navigation.workspaceId &&\r\n        toolFailure.sourceTabInstanceKey === (sourceTab?.instanceKey ?? null) && (\r\n          <LumenText as=\"p\" role=\"alert\">\r\n            {labels.tools.error(toolFailure.code)}\r\n          </LumenText>\r\n        )",
-        "[source:2574; BinaryExpression] sessionId",
+        "toolFailure?.sessionId === sessionId &&\n        toolFailure.workspaceId === navigation.workspaceId &&\n        toolFailure.sourceTabInstanceKey === (sourceTab?.instanceKey ?? null) && (\n          <LumenText as=\"p\" role=\"alert\">\n            {labels.tools.error(toolFailure.code)}\n          </LumenText>\n        )",
+        "[source:2575; BinaryExpression] sessionId",
         "navigationAccessory"
       ],
       "accessibleNameSources": [],
@@ -34736,7 +34736,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenPageHeader::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2515,
+      "line": 2516,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenPageHeader",
@@ -34747,7 +34747,7 @@
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [
-        "status=activeRun\r\n            ? {\r\n                label: labels.runs.statusLabel(activeRun.status),\r\n                tone: activeRun.status === 'waiting_approval' ? 'warning' : 'success',\r\n              }\r\n            : undefined"
+        "status=activeRun\n            ? {\n                label: labels.runs.statusLabel(activeRun.status),\n                tone: activeRun.status === 'waiting_approval' ? 'warning' : 'success',\n              }\n            : undefined"
       ],
       "flow": "owning flow layout",
       "lumenMapping": "LumenPageHeader",
@@ -34757,7 +34757,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::SessionToolButton::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2531,
+      "line": 2532,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "SessionToolButton",
@@ -34776,7 +34776,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::SessionToolButton::2",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2539,
+      "line": 2540,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "SessionToolButton",
@@ -34795,7 +34795,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarSessionToolsMenu::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2546,
+      "line": 2547,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarSessionToolsMenu",
@@ -34805,11 +34805,11 @@
       "accessibleNameSources": [],
       "actionBindings": {
         "onToggleTool": "toggleTool",
-        "onSettings": "() => {\r\n                if (sessionId) invoke('app.openSettings', { scope: 'session', targetId: sessionId })\r\n              }"
+        "onSettings": "() => {\n                if (sessionId) invoke('app.openSettings', { scope: 'session', targetId: sessionId })\n              }"
       },
       "targetSources": ["key=`${sessionId}:${navigation.workspaceId}:${sourceTab?.instanceKey ?? ''}`"],
       "stateSources": [
-        "selected=isToolActive('monitoring')\r\n                  ? 'monitoring'\r\n                  : isToolActive('agents')\r\n                    ? 'agents'\r\n                    : isToolActive('goals')\r\n                      ? 'goals'\r\n                      : null",
+        "selected=isToolActive('monitoring')\n                  ? 'monitoring'\n                  : isToolActive('agents')\n                    ? 'agents'\n                    : isToolActive('goals')\n                      ? 'goals'\n                      : null",
         "disabled=!sessionId"
       ],
       "flow": "owning component contract",
@@ -34820,7 +34820,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenText::14",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2570,
+      "line": 2571,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenText",
@@ -34839,7 +34839,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenFrame::15",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2575,
+      "line": 2576,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenFrame",
@@ -34858,7 +34858,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::HbarComposerGoal::2",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2576,
+      "line": 2577,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "HbarComposerGoal",
@@ -34877,7 +34877,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenFrame::16",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2610,
+      "line": 2611,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenFrame",
@@ -34902,7 +34902,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenAiChat01::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2621,
+      "line": 2622,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenAiChat01",
@@ -34921,7 +34921,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenConversation::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2625,
+      "line": 2626,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenConversation",
@@ -34930,12 +34930,12 @@
       "contentSources": ["title=labels.conversationTitle(sessionTitle)", "empty=emptyTimeline"],
       "accessibleNameSources": ["title=labels.conversationTitle(sessionTitle)"],
       "actionBindings": {
-        "onScrollTargetResult": "(result) => {\r\n                  if (!reading.onScrollTargetResult(result)) find.onScrollTargetResult(result)\r\n                }"
+        "onScrollTargetResult": "(result) => {\n                  if (!reading.onScrollTargetResult(result)) find.onScrollTargetResult(result)\n                }"
       },
       "targetSources": [
         "scrollKey=sessionId ?? undefined",
         "scrollTarget=find.scrollTarget ?? reading.scrollTarget",
-        "onScrollTargetResult=(result) => {\r\n                  if (!reading.onScrollTargetResult(result)) find.onScrollTargetResult(result)\r\n                }"
+        "onScrollTargetResult=(result) => {\n                  if (!reading.onScrollTargetResult(result)) find.onScrollTargetResult(result)\n                }"
       ],
       "stateSources": [],
       "flow": "owning flow layout",
@@ -34946,7 +34946,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::SessionWorkspaceContent::LumenText::15",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2633,
+      "line": 2634,
       "owner": "SessionWorkspaceContent",
       "surface": "session",
       "component": "LumenText",
@@ -34965,7 +34965,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::HbarSessionWorkspace::HbarSessionImageLayer::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2666,
+      "line": 2667,
       "owner": "HbarSessionWorkspace",
       "surface": "session",
       "component": "HbarSessionImageLayer",
@@ -34984,7 +34984,7 @@
     {
       "id": "packages/app-react/src/lumen-session-workspace.tsx::HbarSessionWorkspace::SessionWorkspaceContent::1",
       "path": "packages/app-react/src/lumen-session-workspace.tsx",
-      "line": 2667,
+      "line": 2668,
       "owner": "HbarSessionWorkspace",
       "surface": "session",
       "component": "SessionWorkspaceContent",
@@ -42645,8 +42645,8 @@
       "category": "structure",
       "context": null,
       "contentSources": [
-        "status === 'loading' && (\r\n        <LumenText as=\"span\" role=\"status\">\r\n          {labels.loading}\r\n        </LumenText>\r\n      )",
-        "status === 'failed' && (\r\n        <LumenFrame as=\"span\" className=\"hbar-message-image-preview-error\">\r\n          <LumenText as=\"span\" role=\"alert\">\r\n            {labels.failed}\r\n          </LumenText>\r\n          <LumenButton\r\n            type=\"button\"\r\n            variant=\"text\"\r\n            indicator=\"none\"\r\n            size=\"s\"\r\n            onClick={() => {\r\n              setStatus('loading')\r\n              setAttempt((value) => value + 1)\r\n            }}\r\n          >\r\n            {labels.retry}\r\n          </LumenButton>\r\n        </LumenFrame>\r\n      )"
+        "status === 'loading' && (\n        <LumenContentText context=\"control.status\" role=\"status\">\n          {labels.loading}\n        </LumenContentText>\n      )",
+        "status === 'failed' && (\n        <LumenFrame as=\"span\" className=\"hbar-message-image-preview-error\">\n          <LumenContentText context=\"feedback.detail\" role=\"alert\">\n            {labels.failed}\n          </LumenContentText>\n          <LumenButton\n            type=\"button\"\n            variant=\"text\"\n            indicator=\"none\"\n            size=\"s\"\n            onClick={() => {\n              setStatus('loading')\n              setAttempt((value) => value + 1)\n            }}\n          >\n            {labels.retry}\n          </LumenButton>\n        </LumenFrame>\n      )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -42658,21 +42658,21 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/message-image-preview.tsx::ImagePreview::LumenFrame::2",
+      "id": "packages/app-react/src/message-image-preview.tsx::ImagePreview::LumenLink::1",
       "path": "packages/app-react/src/message-image-preview.tsx",
       "line": 26,
       "owner": "ImagePreview",
       "surface": "files-and-reading",
-      "component": "LumenFrame",
-      "category": "structure",
+      "component": "LumenLink",
+      "category": "interaction",
       "context": null,
       "contentSources": [],
       "accessibleNameSources": ["aria-label=labels.open(name)"],
       "actionBindings": {},
-      "targetSources": ["target=_blank"],
+      "targetSources": ["href=source", "target=_blank"],
       "stateSources": [],
-      "flow": "owning flow layout",
-      "lumenMapping": "LumenFrame",
+      "flow": "owning component contract",
+      "lumenMapping": "LumenLink",
       "status": "composed",
       "issues": []
     },
@@ -42688,7 +42688,7 @@
       "contentSources": [],
       "accessibleNameSources": ["alt=name"],
       "actionBindings": { "onLoad": "() => setStatus('ready')", "onError": "() => setStatus('failed')" },
-      "targetSources": ["key=attempt", "hidden=status === 'failed'"],
+      "targetSources": ["key=attempt", "src=source", "hidden=status === 'failed'"],
       "stateSources": ["loading=lazy"],
       "flow": "dedicated renderer preserves original content",
       "lumenMapping": "LumenImage",
@@ -42696,26 +42696,26 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/message-image-preview.tsx::ImagePreview::LumenText::1",
+      "id": "packages/app-react/src/message-image-preview.tsx::ImagePreview::LumenContentText::1",
       "path": "packages/app-react/src/message-image-preview.tsx",
       "line": 40,
       "owner": "ImagePreview",
       "surface": "files-and-reading",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "control.status",
       "contentSources": ["labels.loading"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "single",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
-      "id": "packages/app-react/src/message-image-preview.tsx::ImagePreview::LumenFrame::3",
+      "id": "packages/app-react/src/message-image-preview.tsx::ImagePreview::LumenFrame::2",
       "path": "packages/app-react/src/message-image-preview.tsx",
       "line": 45,
       "owner": "ImagePreview",
@@ -42734,23 +42734,23 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/message-image-preview.tsx::ImagePreview::LumenText::2",
+      "id": "packages/app-react/src/message-image-preview.tsx::ImagePreview::LumenContentText::2",
       "path": "packages/app-react/src/message-image-preview.tsx",
       "line": 46,
       "owner": "ImagePreview",
       "surface": "files-and-reading",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "feedback.detail",
       "contentSources": ["labels.failed"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/message-image-preview.tsx::ImagePreview::LumenButton::1",
@@ -42764,7 +42764,7 @@
       "contentSources": ["labels.retry"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onClick": "() => {\r\n              setStatus('loading')\r\n              setAttempt((value) => value + 1)\r\n            }"
+        "onClick": "() => {\n              setStatus('loading')\n              setAttempt((value) => value + 1)\n            }"
       },
       "targetSources": [],
       "stateSources": [],
@@ -42783,7 +42783,7 @@
       "category": "structure",
       "context": null,
       "contentSources": [
-        "linked ? (\r\n        name\r\n      ) : (\r\n        <LumenFrame as=\"a\" href={source} target=\"_blank\" rel=\"noreferrer noopener\">\r\n          {name}\r\n        </LumenFrame>\r\n      )"
+        "linked ? (\n        <LumenContentText context=\"inline.text\">{name}</LumenContentText>\n      ) : (\n        <LumenLink href={source} target=\"_blank\" rel=\"noreferrer noopener\">\n          <LumenContentText context=\"inline.text\">{name}</LumenContentText>\n        </LumenLink>\n      )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -42791,27 +42791,84 @@
       "stateSources": [],
       "flow": "owning flow layout",
       "lumenMapping": "LumenFrame",
-      "status": "pending",
-      "issues": ["container-owns-unclassified-content"]
+      "status": "composed",
+      "issues": []
     },
     {
-      "id": "packages/app-react/src/message-image-preview.tsx::ImageReference::LumenFrame::2",
+      "id": "packages/app-react/src/message-image-preview.tsx::ImageReference::LumenContentText::1",
+      "path": "packages/app-react/src/message-image-preview.tsx",
+      "line": 84,
+      "owner": "ImageReference",
+      "surface": "files-and-reading",
+      "component": "LumenContentText",
+      "category": "text",
+      "context": "inline.text",
+      "contentSources": ["name"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "inline",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/message-image-preview.tsx::ImageReference::LumenLink::1",
       "path": "packages/app-react/src/message-image-preview.tsx",
       "line": 86,
       "owner": "ImageReference",
       "surface": "files-and-reading",
-      "component": "LumenFrame",
-      "category": "structure",
+      "component": "LumenLink",
+      "category": "interaction",
       "context": null,
+      "contentSources": [],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": ["href=source", "target=_blank"],
+      "stateSources": [],
+      "flow": "owning component contract",
+      "lumenMapping": "LumenLink",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/message-image-preview.tsx::ImageReference::LumenContentText::2",
+      "path": "packages/app-react/src/message-image-preview.tsx",
+      "line": 87,
+      "owner": "ImageReference",
+      "surface": "files-and-reading",
+      "component": "LumenContentText",
+      "category": "text",
+      "context": "inline.text",
       "contentSources": ["name"],
       "accessibleNameSources": [],
       "actionBindings": {},
-      "targetSources": ["target=_blank"],
+      "targetSources": [],
       "stateSources": [],
-      "flow": "owning flow layout",
-      "lumenMapping": "LumenFrame",
-      "status": "pending",
-      "issues": ["container-owns-unclassified-content"]
+      "flow": "inline",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/message-image-preview.tsx::MessageImagePreview::LumenContentText::1",
+      "path": "packages/app-react/src/message-image-preview.tsx",
+      "line": 108,
+      "owner": "MessageImagePreview",
+      "surface": "files-and-reading",
+      "component": "LumenContentText",
+      "category": "text",
+      "context": "inline.text",
+      "contentSources": ["alt"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "inline",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/message-image-preview.tsx::MessageImagePreview::ImageReference::1",
@@ -42844,7 +42901,7 @@
       "contentSources": [],
       "accessibleNameSources": ["alt=name"],
       "actionBindings": {},
-      "targetSources": [],
+      "targetSources": ["src=url"],
       "stateSources": ["loading=lazy"],
       "flow": "dedicated renderer preserves original content",
       "lumenMapping": "LumenImage",
@@ -42871,14 +42928,14 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/message-literal-text.tsx::MessageLiteralText::LumenText::1",
+      "id": "packages/app-react/src/message-literal-text.tsx::MessageLiteralText::LumenContentText::1",
       "path": "packages/app-react/src/message-literal-text.tsx",
       "line": 23,
       "owner": "MessageLiteralText",
       "surface": "session",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "message.body",
       "contentSources": [
         "[source:24; CallExpression] parts.map, segment, index, segment.kind, fileReferences, splitMessageFileReferences(segment.value).map, splitMessageFileReferences, segment.value, part, ordinal, part.kind, part.value"
       ],
@@ -42886,10 +42943,10 @@
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/message-literal-text.tsx::MessageLiteralText::LumenFrame::1",
@@ -42911,23 +42968,42 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/message-literal-text.tsx::MessageLiteralText::LumenFrame::2",
+      "id": "packages/app-react/src/message-literal-text.tsx::MessageLiteralText::LumenLink::1",
       "path": "packages/app-react/src/message-literal-text.tsx",
       "line": 31,
       "owner": "MessageLiteralText",
       "surface": "session",
-      "component": "LumenFrame",
-      "category": "structure",
+      "component": "LumenLink",
+      "category": "interaction",
       "context": null,
+      "contentSources": [],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": ["href=segment.value", "target=_blank"],
+      "stateSources": [],
+      "flow": "owning component contract",
+      "lumenMapping": "LumenLink",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/message-literal-text.tsx::MessageLiteralText::LumenContentText::2",
+      "path": "packages/app-react/src/message-literal-text.tsx",
+      "line": 32,
+      "owner": "MessageLiteralText",
+      "surface": "session",
+      "component": "LumenContentText",
+      "category": "text",
+      "context": "inline.text",
       "contentSources": ["segment.value"],
       "accessibleNameSources": [],
       "actionBindings": {},
-      "targetSources": ["target=_blank"],
+      "targetSources": [],
       "stateSources": [],
-      "flow": "owning flow layout",
-      "lumenMapping": "LumenFrame",
-      "status": "pending",
-      "issues": ["container-owns-unclassified-content"]
+      "flow": "inline",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/message-literal-text.tsx::MessageLiteralText::MessageImagePreview::1",
@@ -42977,7 +43053,7 @@
       "category": "structure",
       "context": null,
       "contentSources": [
-        "collapsible && (\r\n        <LumenFrame ref={footer} className=\"hbar-message-code-footer\" data-session-find-exclude=\"code-chrome\">\r\n          <LumenButton\r\n            type=\"button\"\r\n            size=\"s\"\r\n            variant=\"text\"\r\n            indicator=\"none\"\r\n            aria-expanded={expanded}\r\n            aria-controls={bodyId}\r\n            onClick={() => setExpanded((value) => !value)}\r\n          >\r\n            {expanded ? context.labels.showLess : context.labels.showMore(code.lines - CODE_BLOCK_PREVIEW_LINES)}\r\n          </LumenButton>\r\n        </LumenFrame>\r\n      )"
+        "collapsible && (\n        <LumenFrame ref={footer} className=\"hbar-message-code-footer\" data-session-find-exclude=\"code-chrome\">\n          <LumenButton\n            type=\"button\"\n            size=\"s\"\n            variant=\"text\"\n            indicator=\"none\"\n            aria-expanded={expanded}\n            aria-controls={bodyId}\n            onClick={() => setExpanded((value) => !value)}\n          >\n            {expanded ? context.labels.showLess : context.labels.showMore(code.lines - CODE_BLOCK_PREVIEW_LINES)}\n          </LumenButton>\n        </LumenFrame>\n      )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -43027,42 +43103,42 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/message-markdown.tsx::MessageCodeBlock::LumenText::1",
+      "id": "packages/app-react/src/message-markdown.tsx::MessageCodeBlock::LumenContentText::1",
       "path": "packages/app-react/src/message-markdown.tsx",
       "line": 88,
       "owner": "MessageCodeBlock",
       "surface": "files-and-reading",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "metadata",
       "contentSources": ["context.labels.language(code.language)"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "single",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
-      "id": "packages/app-react/src/message-markdown.tsx::MessageCodeBlock::LumenText::2",
+      "id": "packages/app-react/src/message-markdown.tsx::MessageCodeBlock::LumenContentText::2",
       "path": "packages/app-react/src/message-markdown.tsx",
       "line": 89,
       "owner": "MessageCodeBlock",
       "surface": "files-and-reading",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "metadata",
       "contentSources": ["context.labels.lines(code.lines)"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "single",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/message-markdown.tsx::MessageCodeBlock::CodeBlockCopyAction::1",
@@ -43084,23 +43160,23 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/message-markdown.tsx::MessageCodeBlock::LumenText::3",
+      "id": "packages/app-react/src/message-markdown.tsx::MessageCodeBlock::LumenContentText::3",
       "path": "packages/app-react/src/message-markdown.tsx",
       "line": 93,
       "owner": "MessageCodeBlock",
       "surface": "files-and-reading",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "code.block",
       "contentSources": [],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": ["id=bodyId"],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "code",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/message-markdown.tsx::MessageCodeBlock::MarkdownCodeContent::1",
@@ -43224,23 +43300,23 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/message-markdown.tsx::MarkdownPre::LumenText::1",
+      "id": "packages/app-react/src/message-markdown.tsx::MarkdownPre::LumenContentText::1",
       "path": "packages/app-react/src/message-markdown.tsx",
       "line": 147,
       "owner": "MarkdownPre",
       "surface": "files-and-reading",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "code.block",
       "contentSources": ["children"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "code",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/message-markdown.tsx::MarkdownLink::MessageFileReferenceLink::1",
@@ -43281,28 +43357,28 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/message-markdown.tsx::MarkdownLink::LumenFrame::1",
+      "id": "packages/app-react/src/message-markdown.tsx::MarkdownLink::LumenLink::1",
       "path": "packages/app-react/src/message-markdown.tsx",
       "line": 188,
       "owner": "MarkdownLink",
       "surface": "files-and-reading",
-      "component": "LumenFrame",
-      "category": "structure",
+      "component": "LumenLink",
+      "category": "interaction",
       "context": null,
       "contentSources": [],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": ["target=external ? '_blank' : undefined"],
       "stateSources": [],
-      "flow": "owning flow layout",
-      "lumenMapping": "LumenFrame",
+      "flow": "owning component contract",
+      "lumenMapping": "LumenLink",
       "status": "composed",
       "issues": []
     },
     {
-      "id": "packages/app-react/src/message-markdown.tsx::MarkdownLink::LumenFrame::2",
+      "id": "packages/app-react/src/message-markdown.tsx::MarkdownLink::LumenFrame::1",
       "path": "packages/app-react/src/message-markdown.tsx",
-      "line": 203,
+      "line": 202,
       "owner": "MarkdownLink",
       "surface": "files-and-reading",
       "component": "LumenFrame",
@@ -43321,7 +43397,7 @@
     {
       "id": "packages/app-react/src/message-markdown.tsx::MarkdownLink::MessageImagePreview::1",
       "path": "packages/app-react/src/message-markdown.tsx",
-      "line": 205,
+      "line": 204,
       "owner": "MarkdownLink",
       "surface": "files-and-reading",
       "component": "MessageImagePreview",
@@ -43340,7 +43416,7 @@
     {
       "id": "packages/app-react/src/message-markdown.tsx::MarkdownImage::MessageImagePreview::1",
       "path": "packages/app-react/src/message-markdown.tsx",
-      "line": 218,
+      "line": 217,
       "owner": "MarkdownImage",
       "surface": "files-and-reading",
       "component": "MessageImagePreview",
@@ -43359,7 +43435,7 @@
     {
       "id": "packages/app-react/src/message-markdown.tsx::InlineContainer::span::1",
       "path": "packages/app-react/src/message-markdown.tsx",
-      "line": 233,
+      "line": 232,
       "owner": "InlineContainer",
       "surface": "files-and-reading",
       "component": "span",
@@ -43378,7 +43454,7 @@
     {
       "id": "packages/app-react/src/message-markdown.tsx::InlineLink::span::1",
       "path": "packages/app-react/src/message-markdown.tsx",
-      "line": 236,
+      "line": 235,
       "owner": "InlineLink",
       "surface": "files-and-reading",
       "component": "span",
@@ -43397,7 +43473,7 @@
     {
       "id": "packages/app-react/src/message-markdown.tsx::InlineImage::span::1",
       "path": "packages/app-react/src/message-markdown.tsx",
-      "line": 239,
+      "line": 238,
       "owner": "InlineImage",
       "surface": "files-and-reading",
       "component": "span",
@@ -43414,28 +43490,28 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/message-markdown.tsx::MessageInlineMarkdown::LumenText::1",
+      "id": "packages/app-react/src/message-markdown.tsx::MessageInlineMarkdown::LumenContentText::1",
       "path": "packages/app-react/src/message-markdown.tsx",
-      "line": 270,
+      "line": 269,
       "owner": "MessageInlineMarkdown",
       "surface": "files-and-reading",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "inline.text",
       "contentSources": [],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "inline",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/message-markdown.tsx::MessageInlineMarkdown::ReactMarkdown::1",
       "path": "packages/app-react/src/message-markdown.tsx",
-      "line": 271,
+      "line": 270,
       "owner": "MessageInlineMarkdown",
       "surface": "files-and-reading",
       "component": "ReactMarkdown",
@@ -43454,7 +43530,7 @@
     {
       "id": "packages/app-react/src/message-markdown.tsx::MessageMarkdown::FileContext.Provider::1",
       "path": "packages/app-react/src/message-markdown.tsx",
-      "line": 296,
+      "line": 295,
       "owner": "MessageMarkdown",
       "surface": "files-and-reading",
       "component": "FileContext.Provider",
@@ -43473,7 +43549,7 @@
     {
       "id": "packages/app-react/src/message-markdown.tsx::MessageMarkdown::CodeContext.Provider::1",
       "path": "packages/app-react/src/message-markdown.tsx",
-      "line": 297,
+      "line": 296,
       "owner": "MessageMarkdown",
       "surface": "files-and-reading",
       "component": "CodeContext.Provider",
@@ -43496,7 +43572,7 @@
     {
       "id": "packages/app-react/src/message-markdown.tsx::MessageMarkdown::ReactMarkdown::1",
       "path": "packages/app-react/src/message-markdown.tsx",
-      "line": 300,
+      "line": 299,
       "owner": "MessageMarkdown",
       "surface": "files-and-reading",
       "component": "ReactMarkdown",
@@ -43515,7 +43591,7 @@
     {
       "id": "packages/app-react/src/message-markdown.tsx::MessageMarkdown::LumenFrame::1",
       "path": "packages/app-react/src/message-markdown.tsx",
-      "line": 311,
+      "line": 310,
       "owner": "MessageMarkdown",
       "surface": "files-and-reading",
       "component": "LumenFrame",
@@ -56432,7 +56508,7 @@
       "category": "technical",
       "context": null,
       "contentSources": [
-        "items=(request?.items ?? []).map((item) => ({\r\n        key: item.key,\r\n        name: item.artifact.name,\r\n        thumbnailUrl: entries.get(item.key)?.resource?.url,\r\n      }))",
+        "items=(request?.items ?? []).map((item) => ({\n        key: item.key,\n        name: item.artifact.name,\n        thumbnailUrl: entries.get(item.key)?.resource?.url,\n      }))",
         "labels=context.labels.gallery"
       ],
       "accessibleNameSources": [],
@@ -56575,7 +56651,7 @@
       "contentSources": [],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onOpen": "canOpen\r\n            ? () => {\r\n                gallery.open(projection, item.key)\r\n              }\r\n            : undefined",
+        "onOpen": "canOpen\n            ? () => {\n                gallery.open(projection, item.key)\n              }\n            : undefined",
         "onRemove": "onRemove",
         "onRetry": "error && retryable(error) ? () => onRetry(item.key) : undefined",
         "onImageError": "(url) => onImageError(item.key, url)"
@@ -56599,7 +56675,7 @@
       "category": "structure",
       "context": null,
       "contentSources": [
-        "items.map((row) => {\r\n        const item = projection?.request.items[row.ordinal] ?? { key: row.key, artifact: row.artifact }\r\n        return (\r\n          <ImageEntry\r\n            key={row.key}\r\n            item={item}\r\n            thumbnail={entries.get(item.key)}\r\n            projection={projection}\r\n            variant=\"message\"\r\n            onRetry={thumbnails.retry}\r\n            onImageError={thumbnails.onImageError}\r\n          />\r\n        )\r\n      })"
+        "items.map((row) => {\n        const item = projection?.request.items[row.ordinal] ?? { key: row.key, artifact: row.artifact }\n        return (\n          <ImageEntry\n            key={row.key}\n            item={item}\n            thumbnail={entries.get(item.key)}\n            projection={projection}\n            variant=\"message\"\n            onRetry={thumbnails.retry}\n            onImageError={thumbnails.onImageError}\n          />\n        )\n      })"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -56640,7 +56716,7 @@
       "context": null,
       "contentSources": [
         "children(renderImages)",
-        "projection?.capacity.exceeded && (\r\n        <LumenText as=\"p\" role=\"status\">\r\n          {context.labels.capacity(projection.capacity.count, projection.capacity.limit)}\r\n        </LumenText>\r\n      )"
+        "projection?.capacity.exceeded && (\n        <LumenContentText context=\"feedback.paragraph\" role=\"status\">\n          {context.labels.capacity(projection.capacity.count, projection.capacity.limit)}\n        </LumenContentText>\n      )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -56652,23 +56728,23 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/session-images.tsx::MessageImageContent::LumenText::1",
+      "id": "packages/app-react/src/session-images.tsx::MessageImageContent::LumenContentText::1",
       "path": "packages/app-react/src/session-images.tsx",
       "line": 359,
       "owner": "MessageImageContent",
       "surface": "files-and-reading",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "feedback.paragraph",
       "contentSources": ["context.labels.capacity(projection.capacity.count, projection.capacity.limit)"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/session-images.tsx::HbarMessageImageContent::MessageImageContent::1",
@@ -56701,7 +56777,7 @@
       "contentSources": [],
       "accessibleNameSources": ["alt=name"],
       "actionBindings": { "onError": "() => setFailed(true)" },
-      "targetSources": [],
+      "targetSources": ["src=source"],
       "stateSources": [],
       "flow": "dedicated renderer preserves original content",
       "lumenMapping": "LumenImage",
@@ -56718,9 +56794,9 @@
       "category": "structure",
       "context": null,
       "contentSources": [
-        "context ? (\r\n        <LumenButton\r\n          type=\"button\"\r\n          className=\"hbar-legacy-tool-image-open\"\r\n          variant=\"text\"\r\n          indicator=\"none\"\r\n          aria-label={context.labels.open(name)}\r\n          onClick={() => setOpen(true)}\r\n        >\r\n          {image}\r\n        </LumenButton>\r\n      ) : (\r\n        image\r\n      )",
-        "failed && context && (\r\n        <LumenText as=\"span\" role=\"alert\">\r\n          {context.labels.error('DECODE_FAILED')}\r\n        </LumenText>\r\n      )",
-        "[source:415; BinaryExpression] context"
+        "context ? (\n        <LumenButton\n          type=\"button\"\n          className=\"hbar-legacy-tool-image-open\"\n          variant=\"text\"\n          indicator=\"none\"\n          aria-label={context.labels.open(name)}\n          onClick={() => setOpen(true)}\n        >\n          {image}\n        </LumenButton>\n      ) : (\n        image\n      )",
+        "failed && context && (\n        <LumenContentText context=\"feedback.detail\" role=\"alert\">\n          {context.labels.error('DECODE_FAILED')}\n        </LumenContentText>\n      )",
+        "context && (\n        <LumenImageGallery\n          open={open}\n          activeKey=\"legacy-image\"\n          items={[{ key: 'legacy-image', name, thumbnailUrl: source }]}\n          image={\n            failed\n              ? { status: 'failed', errorText: context.labels.error('DECODE_FAILED'), retryable: false }\n              : { status: 'ready', url: source }\n          }\n          labels={context.labels.gallery}\n          onSelect={() => {}}\n          onClose={() => setOpen(false)}\n          onRetry={() => setFailed(false)}\n          onImageError={() => setFailed(true)}\n        />\n      )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -56751,23 +56827,23 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/session-images.tsx::LegacyToolImage::LumenText::1",
+      "id": "packages/app-react/src/session-images.tsx::LegacyToolImage::LumenContentText::1",
       "path": "packages/app-react/src/session-images.tsx",
       "line": 411,
       "owner": "LegacyToolImage",
       "surface": "files-and-reading",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "feedback.detail",
       "contentSources": ["context.labels.error('DECODE_FAILED')"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/session-images.tsx::LegacyToolImage::LumenImageGallery::1",
@@ -56825,7 +56901,7 @@
       "category": "structure",
       "context": null,
       "contentSources": [
-        "result.images.map((artifact, index) => (\r\n          <LumenText as=\"span\" key={index}>\r\n            {artifact.name}\r\n          </LumenText>\r\n        ))"
+        "result.images.map((artifact, index) => (\n          <LumenContentText context=\"metadata\" key={index}>\n            {artifact.name}\n          </LumenContentText>\n        ))"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -56837,23 +56913,23 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/session-images.tsx::HbarToolResultImages::LumenText::1",
+      "id": "packages/app-react/src/session-images.tsx::HbarToolResultImages::LumenContentText::1",
       "path": "packages/app-react/src/session-images.tsx",
       "line": 455,
       "owner": "HbarToolResultImages",
       "surface": "files-and-reading",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "metadata",
       "contentSources": ["artifact.name"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": ["key=index"],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "single",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/session-images.tsx::HbarToolResultImages::MessageImageContent::1",
@@ -56865,7 +56941,7 @@
       "category": "technical",
       "context": null,
       "contentSources": [
-        "(renderImages) =>\r\n        renderImages?.(\r\n          result.images?.map((artifact, ordinal) => ({ key: `tool-image:${ordinal}`, ordinal, artifact })) ?? [],\r\n        )"
+        "(renderImages) =>\n        renderImages?.(\n          result.images?.map((artifact, ordinal) => ({ key: `tool-image:${ordinal}`, ordinal, artifact })) ?? [],\n        )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -56924,7 +57000,7 @@
       "category": "structure",
       "context": null,
       "contentSources": [
-        "projection?.capacity.exceeded && (\r\n        <LumenText as=\"p\" role=\"status\">\r\n          {context?.labels.capacity(projection.capacity.count, projection.capacity.limit)}\r\n        </LumenText>\r\n      )"
+        "projection?.capacity.exceeded && (\n        <LumenContentText context=\"feedback.paragraph\" role=\"status\">\n          {context?.labels.capacity(projection.capacity.count, projection.capacity.limit)}\n        </LumenContentText>\n      )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -57018,23 +57094,23 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/session-images.tsx::DraftImageAttachmentContent::LumenText::1",
+      "id": "packages/app-react/src/session-images.tsx::DraftImageAttachmentContent::LumenContentText::1",
       "path": "packages/app-react/src/session-images.tsx",
       "line": 558,
       "owner": "DraftImageAttachmentContent",
       "surface": "files-and-reading",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "control.label",
       "contentSources": ["attachment.artifact.name", "title=attachment.artifact.name"],
       "accessibleNameSources": ["title=attachment.artifact.name"],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "single",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/session-images.tsx::DraftImageAttachmentContent::LumenIconButton::1",
@@ -57075,23 +57151,23 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/session-images.tsx::DraftImageAttachmentContent::LumenText::2",
+      "id": "packages/app-react/src/session-images.tsx::DraftImageAttachmentContent::LumenContentText::2",
       "path": "packages/app-react/src/session-images.tsx",
       "line": 574,
       "owner": "DraftImageAttachmentContent",
       "surface": "files-and-reading",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "feedback.paragraph",
       "contentSources": ["context?.labels.capacity(projection.capacity.count, projection.capacity.limit)"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/session-interactions.tsx::ApprovalPreview::LumenFrame::1",
@@ -58545,44 +58621,44 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/session-message.tsx::Disclosure::LumenText::1",
+      "id": "packages/app-react/src/session-message.tsx::Disclosure::LumenFrame::1",
       "path": "packages/app-react/src/session-message.tsx",
       "line": 240,
       "owner": "Disclosure",
       "surface": "session",
-      "component": "LumenText",
-      "category": "text",
+      "component": "LumenFrame",
+      "category": "structure",
       "context": null,
       "contentSources": [
-        "preview ? (\r\n          <LumenText as=\"span\" className=\"hbar-session-disclosure-preview\" data-format={previewFormat}>\r\n            {previewMarkdown ? <MessageInlineMarkdown text={preview} /> : preview}\r\n          </LumenText>\r\n        ) : null"
+        "preview ? (\n          <LumenContentText\n            context=\"tool.summary\"\n            className=\"hbar-session-disclosure-preview\"\n            data-format={previewFormat}\n          >\n            {previewMarkdown ? <MessageInlineMarkdown text={preview} /> : preview}\n          </LumenContentText>\n        ) : null"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
     },
     {
-      "id": "packages/app-react/src/session-message.tsx::Disclosure::LumenText::2",
+      "id": "packages/app-react/src/session-message.tsx::Disclosure::LumenFrame::2",
       "path": "packages/app-react/src/session-message.tsx",
       "line": 241,
       "owner": "Disclosure",
       "surface": "session",
-      "component": "LumenText",
-      "category": "text",
+      "component": "LumenFrame",
+      "category": "structure",
       "context": null,
       "contentSources": ["tool ? <LumenIcon icon={icon} tier=\"sm\" /> : null"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/session-message.tsx::Disclosure::LumenIcon::2",
@@ -58604,47 +58680,47 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/session-message.tsx::Disclosure::LumenText::3",
+      "id": "packages/app-react/src/session-message.tsx::Disclosure::LumenContentText::1",
       "path": "packages/app-react/src/session-message.tsx",
       "line": 243,
       "owner": "Disclosure",
       "surface": "session",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "control.label",
       "contentSources": ["label", "title=label"],
       "accessibleNameSources": ["title=label"],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "single",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
-      "id": "packages/app-react/src/session-message.tsx::Disclosure::LumenText::4",
+      "id": "packages/app-react/src/session-message.tsx::Disclosure::LumenContentText::2",
       "path": "packages/app-react/src/session-message.tsx",
       "line": 253,
       "owner": "Disclosure",
       "surface": "session",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "tool.summary",
       "contentSources": ["previewMarkdown ? <MessageInlineMarkdown text={preview} /> : preview"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "single",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/session-message.tsx::Disclosure::MessageInlineMarkdown::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 254,
+      "line": 258,
       "owner": "Disclosure",
       "surface": "session",
       "component": "MessageInlineMarkdown",
@@ -58663,7 +58739,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::Disclosure::LumenIcon::3",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 259,
+      "line": 263,
       "owner": "Disclosure",
       "surface": "session",
       "component": "LumenIcon",
@@ -58680,16 +58756,16 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/session-message.tsx::Disclosure::LumenFrame::1",
+      "id": "packages/app-react/src/session-message.tsx::Disclosure::LumenFrame::3",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 263,
+      "line": 267,
       "owner": "Disclosure",
       "surface": "session",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "action ? (\r\n        <LumenFrame className=\"hbar-session-disclosure-heading\">\r\n          {trigger}\r\n          {action}\r\n        </LumenFrame>\r\n      ) : (\r\n        trigger\r\n      )",
+        "action ? (\n        <LumenFrame className=\"hbar-session-disclosure-heading\">\n          {trigger}\n          {action}\n        </LumenFrame>\n      ) : (\n        trigger\n      )",
         "feedback"
       ],
       "accessibleNameSources": [],
@@ -58702,9 +58778,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/session-message.tsx::Disclosure::LumenFrame::2",
+      "id": "packages/app-react/src/session-message.tsx::Disclosure::LumenFrame::4",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 273,
+      "line": 277,
       "owner": "Disclosure",
       "surface": "session",
       "component": "LumenFrame",
@@ -58721,9 +58797,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/session-message.tsx::Disclosure::LumenFrame::3",
+      "id": "packages/app-react/src/session-message.tsx::Disclosure::LumenFrame::5",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 281,
+      "line": 285,
       "owner": "Disclosure",
       "surface": "session",
       "component": "LumenFrame",
@@ -58740,13 +58816,13 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/session-message.tsx::ToolStatus::LumenText::1",
+      "id": "packages/app-react/src/session-message.tsx::ToolStatus::LumenFrame::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 322,
+      "line": 326,
       "owner": "ToolStatus",
       "surface": "status-and-usage",
-      "component": "LumenText",
-      "category": "text",
+      "component": "LumenFrame",
+      "category": "structure",
       "context": null,
       "contentSources": [
         "activity && labels.feedback ? <ToolTiming activity={activity} labels={labels.feedback} /> : null"
@@ -58755,72 +58831,72 @@
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
     },
     {
-      "id": "packages/app-react/src/session-message.tsx::ToolStatus::LumenText::2",
+      "id": "packages/app-react/src/session-message.tsx::ToolStatus::LumenFrame::2",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 328,
+      "line": 332,
       "owner": "ToolStatus",
       "surface": "status-and-usage",
-      "component": "LumenText",
-      "category": "text",
+      "component": "LumenFrame",
+      "category": "structure",
       "context": null,
       "contentSources": [],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
     },
     {
-      "id": "packages/app-react/src/session-message.tsx::ToolStatus::LumenText::3",
+      "id": "packages/app-react/src/session-message.tsx::ToolStatus::LumenFrame::3",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 329,
+      "line": 333,
       "owner": "ToolStatus",
       "surface": "status-and-usage",
-      "component": "LumenText",
-      "category": "text",
+      "component": "LumenFrame",
+      "category": "structure",
       "context": null,
       "contentSources": [],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": ["aria-hidden=true"],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
     },
     {
-      "id": "packages/app-react/src/session-message.tsx::ToolStatus::LumenText::4",
+      "id": "packages/app-react/src/session-message.tsx::ToolStatus::LumenContentText::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 335,
+      "line": 339,
       "owner": "ToolStatus",
       "surface": "status-and-usage",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "control.status",
       "contentSources": ["label", "title=label"],
       "accessibleNameSources": ["title=label"],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "single",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/session-message.tsx::ToolStatus::ToolTiming::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 339,
+      "line": 343,
       "owner": "ToolStatus",
       "surface": "status-and-usage",
       "component": "ToolTiming",
@@ -58839,7 +58915,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::ToolRow::Disclosure::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 374,
+      "line": 378,
       "owner": "ToolRow",
       "surface": "session",
       "component": "Disclosure",
@@ -58850,7 +58926,7 @@
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [
-        "status=<ToolStatus\r\n          outcome={outcome}\r\n          running={active}\r\n          labels={labels}\r\n          activity={activity}\r\n          pending={Boolean(activity?.pending && !row.result)}\r\n        />"
+        "status=<ToolStatus\n          outcome={outcome}\n          running={active}\n          labels={labels}\n          activity={activity}\n          pending={Boolean(activity?.pending && !row.result)}\n        />"
       ],
       "flow": "owning component contract",
       "lumenMapping": "Disclosure",
@@ -58860,7 +58936,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::ToolRow::ToolStatus::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 380,
+      "line": 384,
       "owner": "ToolRow",
       "surface": "session",
       "component": "ToolStatus",
@@ -58879,7 +58955,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::ToolRow::ToolBatchFeedback::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 391,
+      "line": 395,
       "owner": "ToolRow",
       "surface": "session",
       "component": "ToolBatchFeedback",
@@ -58898,7 +58974,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::ToolRow::SessionToolDetails::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 405,
+      "line": 409,
       "owner": "ToolRow",
       "surface": "session",
       "component": "SessionToolDetails",
@@ -58917,7 +58993,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::ToolRow::LumenToolCalls::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 417,
+      "line": 421,
       "owner": "ToolRow",
       "surface": "session",
       "component": "LumenToolCalls",
@@ -58936,7 +59012,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::Activity::Disclosure::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 481,
+      "line": 485,
       "owner": "Activity",
       "surface": "agents-and-activity",
       "component": "Disclosure",
@@ -58955,7 +59031,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::Activity::LumenFrame::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 490,
+      "line": 494,
       "owner": "Activity",
       "surface": "agents-and-activity",
       "component": "LumenFrame",
@@ -58974,7 +59050,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::Activity::MessageMarkdown::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 495,
+      "line": 499,
       "owner": "Activity",
       "surface": "agents-and-activity",
       "component": "MessageMarkdown",
@@ -58993,7 +59069,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::Activity::ToolRow::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 510,
+      "line": 514,
       "owner": "Activity",
       "surface": "agents-and-activity",
       "component": "ToolRow",
@@ -59012,7 +59088,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::Activity::LumenFrame::2",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 525,
+      "line": 529,
       "owner": "Activity",
       "surface": "agents-and-activity",
       "component": "LumenFrame",
@@ -59031,14 +59107,14 @@
     {
       "id": "packages/app-react/src/session-message.tsx::Activity::LumenFrame::3",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 527,
+      "line": 531,
       "owner": "Activity",
       "surface": "agents-and-activity",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "tools.length > 1 && labels.feedback ? (\r\n        <ToolBatchFeedback\r\n          counts={counts}\r\n          activities={tools.map((row) => rowToolActivity(row, toolActivity))}\r\n          labels={labels.feedback}\r\n        />\r\n      ) : null"
+        "tools.length > 1 && labels.feedback ? (\n        <ToolBatchFeedback\n          counts={counts}\n          activities={tools.map((row) => rowToolActivity(row, toolActivity))}\n          labels={labels.feedback}\n        />\n      ) : null"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -59052,7 +59128,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::Activity::LumenButton::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 528,
+      "line": 532,
       "owner": "Activity",
       "surface": "agents-and-activity",
       "component": "LumenButton",
@@ -59069,68 +59145,68 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/session-message.tsx::Activity::LumenText::1",
+      "id": "packages/app-react/src/session-message.tsx::Activity::LumenFrame::4",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 539,
+      "line": 543,
       "owner": "Activity",
       "surface": "agents-and-activity",
-      "component": "LumenText",
-      "category": "text",
+      "component": "LumenFrame",
+      "category": "structure",
       "context": null,
       "contentSources": [],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": ["aria-hidden=true"],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
     },
     {
-      "id": "packages/app-react/src/session-message.tsx::Activity::LumenText::2",
+      "id": "packages/app-react/src/session-message.tsx::Activity::LumenContentText::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 545,
+      "line": 549,
       "owner": "Activity",
       "surface": "agents-and-activity",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "tool.summary",
       "contentSources": [
-        "typeof activity === 'string'\r\n            ? activity\r\n            : activity.map((part, index) => (\r\n                <LumenText as=\"span\" key={index} data-activity-role={part.role}>\r\n                  {part.text}\r\n                </LumenText>\r\n              ))"
+        "typeof activity === 'string'\n            ? activity\n            : activity.map((part, index) => (\n                <LumenContentText context=\"inline.text\" key={index} data-activity-role={part.role}>\n                  {part.text}\n                </LumenContentText>\n              ))"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "single",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
-      "id": "packages/app-react/src/session-message.tsx::Activity::LumenText::3",
+      "id": "packages/app-react/src/session-message.tsx::Activity::LumenContentText::2",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 549,
+      "line": 553,
       "owner": "Activity",
       "surface": "agents-and-activity",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "inline.text",
       "contentSources": ["part.text"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": ["key=index"],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "inline",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/session-message.tsx::Activity::LumenIcon::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 554,
+      "line": 558,
       "owner": "Activity",
       "surface": "agents-and-activity",
       "component": "LumenIcon",
@@ -59149,7 +59225,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::Activity::ToolBatchFeedback::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 557,
+      "line": 561,
       "owner": "Activity",
       "surface": "agents-and-activity",
       "component": "ToolBatchFeedback",
@@ -59166,9 +59242,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/session-message.tsx::Activity::LumenFrame::4",
+      "id": "packages/app-react/src/session-message.tsx::Activity::LumenFrame::5",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 563,
+      "line": 567,
       "owner": "Activity",
       "surface": "agents-and-activity",
       "component": "LumenFrame",
@@ -59187,13 +59263,13 @@
     {
       "id": "packages/app-react/src/session-message.tsx::MessageBlocksContent::LumenFrame::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 627,
+      "line": 631,
       "owner": "MessageBlocksContent",
       "surface": "session",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": ["[source:628; CallExpression] groups.map, group, group.kind"],
+      "contentSources": ["[source:632; CallExpression] groups.map, group, group.kind"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
@@ -59206,7 +59282,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::MessageBlocksContent::Activity::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 630,
+      "line": 634,
       "owner": "MessageBlocksContent",
       "surface": "session",
       "component": "Activity",
@@ -59225,7 +59301,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::MessageBlocksContent::LumenFrame::2",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 644,
+      "line": 648,
       "owner": "MessageBlocksContent",
       "surface": "session",
       "component": "LumenFrame",
@@ -59244,7 +59320,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::MessageBlocksContent::LumenFrame::3",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 648,
+      "line": 652,
       "owner": "MessageBlocksContent",
       "surface": "session",
       "component": "LumenFrame",
@@ -59263,7 +59339,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::MessageBlocksContent::ToolRow::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 649,
+      "line": 653,
       "owner": "MessageBlocksContent",
       "surface": "session",
       "component": "ToolRow",
@@ -59282,13 +59358,13 @@
     {
       "id": "packages/app-react/src/session-message.tsx::MessageBlocksContent::LumenFrame::4",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 664,
+      "line": 668,
       "owner": "MessageBlocksContent",
       "surface": "session",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": ["[source:671; ConditionalExpression] renderText, group, textFormat"],
+      "contentSources": ["[source:675; ConditionalExpression] renderText, group, textFormat"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": ["key=group.id", "data-session-find-segment=renderText ? undefined : group.id"],
@@ -59301,7 +59377,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::MessageBlocksContent::MessageLiteralText::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 674,
+      "line": 678,
       "owner": "MessageBlocksContent",
       "surface": "session",
       "component": "MessageLiteralText",
@@ -59320,7 +59396,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::MessageBlocksContent::MessageMarkdown::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 676,
+      "line": 680,
       "owner": "MessageBlocksContent",
       "surface": "session",
       "component": "MessageMarkdown",
@@ -59337,28 +59413,28 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/session-message.tsx::MessageBlocksContent::LumenText::1",
+      "id": "packages/app-react/src/session-message.tsx::MessageBlocksContent::LumenContentText::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 692,
+      "line": 696,
       "owner": "MessageBlocksContent",
       "surface": "session",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "metadata",
       "contentSources": ["labels.attachment(group.block.type, group.block.artifact.name)"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": ["key=group.id"],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "single",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/session-message.tsx::MessageBlocksContent::LumenIcon::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 693,
+      "line": 697,
       "owner": "MessageBlocksContent",
       "surface": "session",
       "component": "LumenIcon",
@@ -59377,7 +59453,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::HbarMessageBlocks::MessageBlocksContent::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 705,
+      "line": 709,
       "owner": "HbarMessageBlocks",
       "surface": "session",
       "component": "MessageBlocksContent",
@@ -59396,14 +59472,14 @@
     {
       "id": "packages/app-react/src/session-message.tsx::HbarMessageBlocks::HbarMessageImageContent::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 707,
+      "line": 711,
       "owner": "HbarMessageBlocks",
       "surface": "session",
       "component": "HbarMessageImageContent",
       "category": "technical",
       "context": null,
       "contentSources": [
-        "(renderImages) => (\r\n        <MessageBlocksContent\r\n          key={JSON.stringify([props.sessionId, props.messageId])}\r\n          {...props}\r\n          renderImages={renderImages ?? props.renderImages}\r\n        />\r\n      )"
+        "(renderImages) => (\n        <MessageBlocksContent\n          key={JSON.stringify([props.sessionId, props.messageId])}\n          {...props}\n          renderImages={renderImages ?? props.renderImages}\n        />\n      )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -59417,7 +59493,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::HbarMessageBlocks::MessageBlocksContent::2",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 709,
+      "line": 713,
       "owner": "HbarMessageBlocks",
       "surface": "session",
       "component": "MessageBlocksContent",
@@ -59436,20 +59512,20 @@
     {
       "id": "packages/app-react/src/session-message.tsx::MessageActionBarContent::LumenFrame::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 770,
+      "line": 774,
       "owner": "MessageActionBarContent",
       "surface": "session",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "text ? (\r\n        <LumenButton\r\n          variant=\"text\"\r\n          indicator=\"none\"\r\n          size=\"s\"\r\n          className=\"hbar-session-message-action hbar-session-message-copy\"\r\n          aria-label={label}\r\n          title={label}\r\n          disabled={status === 'copying'}\r\n          aria-busy={status === 'copying' || undefined}\r\n          onClick={copy}\r\n        >\r\n          <LumenIcon\r\n            icon={status === 'copied' ? Check : status === 'copying' ? LoaderCircle : failure ? RotateCcw : Copy}\r\n            tier=\"sm\"\r\n          />\r\n        </LumenButton>\r\n      ) : null",
-        "[source:789; ConditionalExpression] fork",
-        "fork?.status === 'submitting' || fork?.status === 'unknown' ? (\r\n        <LumenText as=\"span\" role=\"status\">\r\n          {fork.label}\r\n        </LumenText>\r\n      ) : null",
-        "fork?.error ? (\r\n        <LumenText as=\"span\" role=\"alert\">\r\n          {fork.error}\r\n        </LumenText>\r\n      ) : null",
-        "status === 'copied' || status === 'copying' ? (\r\n        <LumenText as=\"span\" role=\"status\">\r\n          {label}\r\n        </LumenText>\r\n      ) : null",
-        "failure ? (\r\n        <LumenText as=\"span\" role=\"alert\">\r\n          {status === 'unavailable' ? labels.copyUnavailable : labels.copyFailed}\r\n        </LumenText>\r\n      ) : null",
-        "metadata ? (\r\n        <LumenText as=\"span\" className=\"hbar-session-message-metadata\">\r\n          {metadata}\r\n        </LumenText>\r\n      ) : null"
+        "text ? (\n        <LumenButton\n          variant=\"text\"\n          indicator=\"none\"\n          size=\"s\"\n          className=\"hbar-session-message-action hbar-session-message-copy\"\n          aria-label={label}\n          title={label}\n          disabled={status === 'copying'}\n          aria-busy={status === 'copying' || undefined}\n          onClick={copy}\n        >\n          <LumenIcon\n            icon={status === 'copied' ? Check : status === 'copying' ? LoaderCircle : failure ? RotateCcw : Copy}\n            tier=\"sm\"\n          />\n        </LumenButton>\n      ) : null",
+        "[source:793; ConditionalExpression] fork",
+        "fork?.status === 'submitting' || fork?.status === 'unknown' ? (\n        <LumenContentText context=\"control.status\" role=\"status\">\n          {fork.label}\n        </LumenContentText>\n      ) : null",
+        "fork?.error ? (\n        <LumenContentText context=\"feedback.detail\" role=\"alert\">\n          {fork.error}\n        </LumenContentText>\n      ) : null",
+        "status === 'copied' || status === 'copying' ? (\n        <LumenContentText context=\"control.status\" role=\"status\">\n          {label}\n        </LumenContentText>\n      ) : null",
+        "failure ? (\n        <LumenContentText context=\"feedback.detail\" role=\"alert\">\n          {status === 'unavailable' ? labels.copyUnavailable : labels.copyFailed}\n        </LumenContentText>\n      ) : null",
+        "metadata ? (\n        <LumenContentText context=\"message.metadata\" className=\"hbar-session-message-metadata\">\n          {metadata}\n        </LumenContentText>\n      ) : null"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -59463,7 +59539,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::MessageActionBarContent::LumenButton::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 772,
+      "line": 776,
       "owner": "MessageActionBarContent",
       "surface": "session",
       "component": "LumenButton",
@@ -59482,7 +59558,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::MessageActionBarContent::LumenIcon::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 783,
+      "line": 787,
       "owner": "MessageActionBarContent",
       "surface": "session",
       "component": "LumenIcon",
@@ -59501,7 +59577,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::MessageActionBarContent::LumenButton::2",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 790,
+      "line": 794,
       "owner": "MessageActionBarContent",
       "surface": "session",
       "component": "LumenButton",
@@ -59525,7 +59601,7 @@
     {
       "id": "packages/app-react/src/session-message.tsx::MessageActionBarContent::LumenIcon::2",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 802,
+      "line": 806,
       "owner": "MessageActionBarContent",
       "surface": "session",
       "component": "LumenIcon",
@@ -59542,104 +59618,104 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/session-message.tsx::MessageActionBarContent::LumenText::1",
+      "id": "packages/app-react/src/session-message.tsx::MessageActionBarContent::LumenContentText::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 809,
+      "line": 813,
       "owner": "MessageActionBarContent",
       "surface": "session",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "control.status",
       "contentSources": ["fork.label"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "single",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
-      "id": "packages/app-react/src/session-message.tsx::MessageActionBarContent::LumenText::2",
+      "id": "packages/app-react/src/session-message.tsx::MessageActionBarContent::LumenContentText::2",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 814,
+      "line": 818,
       "owner": "MessageActionBarContent",
       "surface": "session",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "feedback.detail",
       "contentSources": ["fork.error"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
-      "id": "packages/app-react/src/session-message.tsx::MessageActionBarContent::LumenText::3",
+      "id": "packages/app-react/src/session-message.tsx::MessageActionBarContent::LumenContentText::3",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 819,
+      "line": 823,
       "owner": "MessageActionBarContent",
       "surface": "session",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "control.status",
       "contentSources": ["label"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "single",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
-      "id": "packages/app-react/src/session-message.tsx::MessageActionBarContent::LumenText::4",
+      "id": "packages/app-react/src/session-message.tsx::MessageActionBarContent::LumenContentText::4",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 824,
+      "line": 828,
       "owner": "MessageActionBarContent",
       "surface": "session",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "feedback.detail",
       "contentSources": ["status === 'unavailable' ? labels.copyUnavailable : labels.copyFailed"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
-      "id": "packages/app-react/src/session-message.tsx::MessageActionBarContent::LumenText::5",
+      "id": "packages/app-react/src/session-message.tsx::MessageActionBarContent::LumenContentText::5",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 829,
+      "line": 833,
       "owner": "MessageActionBarContent",
       "surface": "session",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "message.metadata",
       "contentSources": ["metadata"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "single",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/session-message.tsx::HbarMessageActionBar::MessageActionBarContent::1",
       "path": "packages/app-react/src/session-message.tsx",
-      "line": 839,
+      "line": 843,
       "owner": "HbarMessageActionBar",
       "surface": "session",
       "component": "MessageActionBarContent",
@@ -60735,10 +60811,10 @@
       "category": "structure",
       "context": null,
       "contentSources": [
-        "branch && (\r\n        <LumenFrame\r\n          className=\"hbar-session-project-context-branch\"\r\n          title={labels.branch(branch)}\r\n          aria-label={labels.branch(branch)}\r\n        >\r\n          <LumenIcon icon={GitBranch} tier=\"sm\" />\r\n          <LumenContentText context=\"control.label\">\r\n            <bdi>{labels.branchCaption(branch)}</bdi>\r\n          </LumenContentText>\r\n        </LumenFrame>\r\n      )",
-        "!connected && (\r\n        <LumenContentText context=\"control.status\" tone=\"subtle\">\r\n          {labels.disconnected}\r\n        </LumenContentText>\r\n      )",
-        "loading && (\r\n        <LumenContentText context=\"control.status\" tone=\"subtle\" role=\"status\">\r\n          {labels.loading}\r\n        </LumenContentText>\r\n      )",
-        "error && (\r\n        <LumenFrame className=\"hbar-session-project-context-error\" role=\"status\">\r\n          <LumenContentText\r\n            context=\"control.status\"\r\n            tone=\"danger\"\r\n            aria-label={errorLabel ?? undefined}\r\n            title={errorLabel ?? undefined}\r\n          >\r\n            {errorLabel}\r\n          </LumenContentText>\r\n          <LumenButton size=\"s\" variant=\"text\" onClick={onRetry}>\r\n            <LumenIcon icon={RotateCw} tier=\"sm\" />\r\n            {labels.retry}\r\n          </LumenButton>\r\n        </LumenFrame>\r\n      )"
+        "branch && (\n        <LumenFrame\n          className=\"hbar-session-project-context-branch\"\n          title={labels.branch(branch)}\n          aria-label={labels.branch(branch)}\n        >\n          <LumenIcon icon={GitBranch} tier=\"sm\" />\n          <LumenContentText context=\"control.label\">\n            <LumenContentText context=\"inline.isolated\">{labels.branchCaption(branch)}</LumenContentText>\n          </LumenContentText>\n        </LumenFrame>\n      )",
+        "!connected && (\n        <LumenContentText context=\"control.status\" tone=\"subtle\">\n          {labels.disconnected}\n        </LumenContentText>\n      )",
+        "loading && (\n        <LumenContentText context=\"control.status\" tone=\"subtle\" role=\"status\">\n          {labels.loading}\n        </LumenContentText>\n      )",
+        "error && (\n        <LumenFrame className=\"hbar-session-project-context-error\" role=\"status\">\n          <LumenContentText\n            context=\"control.status\"\n            tone=\"danger\"\n            aria-label={errorLabel ?? undefined}\n            title={errorLabel ?? undefined}\n          >\n            {errorLabel}\n          </LumenContentText>\n          <LumenButton size=\"s\" variant=\"text\" onClick={onRetry}>\n            <LumenIcon icon={RotateCw} tier=\"sm\" />\n            {labels.retry}\n          </LumenButton>\n        </LumenFrame>\n      )"
       ],
       "accessibleNameSources": ["aria-label=labels.project(workspaceName)"],
       "actionBindings": {},
@@ -60845,26 +60921,26 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/session-project-context.tsx::HbarSessionProjectContext::bdi::1",
+      "id": "packages/app-react/src/session-project-context.tsx::HbarSessionProjectContext::LumenContentText::3",
       "path": "packages/app-react/src/session-project-context.tsx",
       "line": 63,
       "owner": "HbarSessionProjectContext",
       "surface": "session",
-      "component": "bdi",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "inline.isolated",
       "contentSources": ["labels.branchCaption(branch)"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit content context required",
-      "status": "pending",
-      "issues": ["native-element-outside-renderer"]
+      "flow": "inline",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
-      "id": "packages/app-react/src/session-project-context.tsx::HbarSessionProjectContext::LumenContentText::3",
+      "id": "packages/app-react/src/session-project-context.tsx::HbarSessionProjectContext::LumenContentText::4",
       "path": "packages/app-react/src/session-project-context.tsx",
       "line": 68,
       "owner": "HbarSessionProjectContext",
@@ -60883,7 +60959,7 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/session-project-context.tsx::HbarSessionProjectContext::LumenContentText::4",
+      "id": "packages/app-react/src/session-project-context.tsx::HbarSessionProjectContext::LumenContentText::5",
       "path": "packages/app-react/src/session-project-context.tsx",
       "line": 73,
       "owner": "HbarSessionProjectContext",
@@ -60921,7 +60997,7 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/session-project-context.tsx::HbarSessionProjectContext::LumenContentText::5",
+      "id": "packages/app-react/src/session-project-context.tsx::HbarSessionProjectContext::LumenContentText::6",
       "path": "packages/app-react/src/session-project-context.tsx",
       "line": 79,
       "owner": "HbarSessionProjectContext",

@@ -60,7 +60,7 @@ export function HbarSessionProjectContext({
         >
           <LumenIcon icon={GitBranch} tier="sm" />
           <LumenContentText context="control.label">
-            <bdi>{labels.branchCaption(branch)}</bdi>
+            <LumenContentText context="inline.isolated">{labels.branchCaption(branch)}</LumenContentText>
           </LumenContentText>
         </LumenFrame>
       )}

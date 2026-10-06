@@ -16,7 +16,7 @@ import {
   Terminal,
   Wrench,
 } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText, LumenToolCalls } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenContentText, LumenToolCalls } from '@lumen/app-ui'
 import { MessageMarkdown, MessageInlineMarkdown } from './message-markdown'
 import type { MessageFileReferenceContext } from './message-file-reference'
 import { MessageLiteralText } from './message-literal-text'
@@ -237,24 +237,28 @@ function Disclosure({
       onKeyDown={scrollInlineText}
     >
       {!tool ? <LumenIcon icon={icon} tier="sm" /> : null}
-      <LumenText as="span" className="hbar-session-disclosure-identity" data-inline-scroll>
-        <LumenText as="span" className="hbar-session-disclosure-label">
+      <LumenFrame as="span" className="hbar-session-disclosure-identity" data-inline-scroll>
+        <LumenFrame as="span" className="hbar-session-disclosure-label">
           {tool ? <LumenIcon icon={icon} tier="sm" /> : null}
-          <LumenText
-            as="span"
+          <LumenContentText
+            context="control.label"
             className="lumen-effect hbar-session-disclosure-label-text"
             data-lumen-state={live ? 'running' : 'idle'}
             title={label}
           >
             {label}
-          </LumenText>
-        </LumenText>
+          </LumenContentText>
+        </LumenFrame>
         {preview ? (
-          <LumenText as="span" className="hbar-session-disclosure-preview" data-format={previewFormat}>
+          <LumenContentText
+            context="tool.summary"
+            className="hbar-session-disclosure-preview"
+            data-format={previewFormat}
+          >
             {previewMarkdown ? <MessageInlineMarkdown text={preview} /> : preview}
-          </LumenText>
+          </LumenContentText>
         ) : null}
-      </LumenText>
+      </LumenFrame>
       {status}
       <LumenIcon icon={open ? ChevronDown : ChevronRight} tier="sm" />
     </LumenButton>
@@ -319,25 +323,25 @@ function ToolStatus({
           ? labels.incomplete
           : labels[outcome]
   return (
-    <LumenText
+    <LumenFrame
       as="span"
       className="hbar-session-disclosure-status"
       data-status-tone={tone}
       data-timed={Boolean(activity?.execution && labels.feedback)}
     >
-      <LumenText as="span" className="hbar-tool-status-caption">
-        <LumenText
+      <LumenFrame as="span" className="hbar-tool-status-caption">
+        <LumenFrame
           as="span"
           className="lumen-effect hbar-session-tool-status-indicator"
           data-lumen-state={active ? 'running' : 'idle'}
           aria-hidden="true"
         />
-        <LumenText as="span" className="hbar-session-disclosure-status-text" title={label}>
+        <LumenContentText context="control.status" className="hbar-session-disclosure-status-text" title={label}>
           {label}
-        </LumenText>
-      </LumenText>
+        </LumenContentText>
+      </LumenFrame>
       {activity && labels.feedback ? <ToolTiming activity={activity} labels={labels.feedback} /> : null}
-    </LumenText>
+    </LumenFrame>
   )
 }
 
@@ -536,21 +540,21 @@ function Activity({
         onClick={() => setPinnedOpen(!open)}
         onKeyDown={scrollInlineText}
       >
-        <LumenText
+        <LumenFrame
           as="span"
           className="lumen-effect hbar-session-tool-status-indicator"
           data-lumen-state={active ? 'running' : 'idle'}
           aria-hidden="true"
         />
-        <LumenText as="span" className="hbar-session-activity-summary-text" data-inline-scroll>
+        <LumenContentText context="tool.summary" className="hbar-session-activity-summary-text" data-inline-scroll>
           {typeof activity === 'string'
             ? activity
             : activity.map((part, index) => (
-                <LumenText as="span" key={index} data-activity-role={part.role}>
+                <LumenContentText context="inline.text" key={index} data-activity-role={part.role}>
                   {part.text}
-                </LumenText>
+                </LumenContentText>
               ))}
-        </LumenText>
+        </LumenContentText>
         <LumenIcon icon={open ? ChevronDown : ChevronRight} tier="sm" />
       </LumenButton>
       {tools.length > 1 && labels.feedback ? (
@@ -689,10 +693,10 @@ function MessageBlocksContent({
             )}
           </LumenFrame>
         ) : (
-          <LumenText as="span" key={group.id} className="hbar-session-message-attachment">
+          <LumenContentText context="metadata" key={group.id} className="hbar-session-message-attachment">
             <LumenIcon icon={FileText} tier="sm" />
             {labels.attachment(group.block.type, group.block.artifact.name)}
-          </LumenText>
+          </LumenContentText>
         ),
       )}
     </LumenFrame>
@@ -806,29 +810,29 @@ function MessageActionBarContent({
         </LumenButton>
       ) : null}
       {fork?.status === 'submitting' || fork?.status === 'unknown' ? (
-        <LumenText as="span" role="status">
+        <LumenContentText context="control.status" role="status">
           {fork.label}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {fork?.error ? (
-        <LumenText as="span" role="alert">
+        <LumenContentText context="feedback.detail" role="alert">
           {fork.error}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {status === 'copied' || status === 'copying' ? (
-        <LumenText as="span" role="status">
+        <LumenContentText context="control.status" role="status">
           {label}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {failure ? (
-        <LumenText as="span" role="alert">
+        <LumenContentText context="feedback.detail" role="alert">
           {status === 'unavailable' ? labels.copyUnavailable : labels.copyFailed}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {metadata ? (
-        <LumenText as="span" className="hbar-session-message-metadata">
+        <LumenContentText context="message.metadata" className="hbar-session-message-metadata">
           {metadata}
-        </LumenText>
+        </LumenContentText>
       ) : null}
     </LumenFrame>
   )

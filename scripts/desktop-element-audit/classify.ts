@@ -312,7 +312,9 @@ export function classifyDesktopSource(
           .map(([name, value]) => `${name}=${value}`),
         actionBindings: Object.fromEntries(Object.entries(attributes).filter(([name]) => /^on[A-Z]/.test(name))),
         targetSources: Object.entries(attributes)
-          .filter(([name]) => /(?:Id|^id$|key|target|reference|session|workspace|field)/i.test(name))
+          .filter(([name]) =>
+            /(?:Id|^id$|key|target|reference|session|workspace|field|^href$|^src$|^srcSet$)/i.test(name),
+          )
           .map(([name, value]) => `${name}=${value}`),
         stateSources: Object.entries(attributes)
           .filter(([name]) =>
