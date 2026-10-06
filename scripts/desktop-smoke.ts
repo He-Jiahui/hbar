@@ -19,6 +19,7 @@ import { getShellCopy } from '../apps/web/src/shell-copy'
 import { preSessionCopy } from '../apps/web/src/pre-session-copy'
 import { preSessionLaunchCopy } from '../apps/web/src/pre-session-launch-copy'
 import { openSessionTool } from '../e2e/support/session-tools-menu'
+import { expectLumenValue, selectLumenChoice, selectLumenOption } from '../e2e/support/lumen-controls'
 import {
   nativeSmokeFixtureRoot,
   ownsNativeSmokeHost,
@@ -26,6 +27,11 @@ import {
   redactNativeSmokeDiagnostics,
   waitForNativeSmokeExit,
 } from './desktop-smoke-fixture'
+
+// Process-local WebView scale samples never change the user's Windows display settings.
+const requestedNativeScale = process.env.HBAR_DESKTOP_SMOKE_SCALE
+if (requestedNativeScale !== undefined && !['1', '1.25', '1.5'].includes(requestedNativeScale))
+  throw new Error('HBAR_DESKTOP_SMOKE_SCALE must be 1, 1.25 or 1.5')
 
 const root = await mkdtemp(join(tmpdir(), 'hbar-native-'))
 // Workspace tools must not browse the protected Host data root, including its descendants.
@@ -90,17 +96,27 @@ async function expectLiveComposerText(page: Page, expected: string, phase: strin
     throw error
   }
 }
-async function invokeNative(page: Page, command: string, args: unknown): Promise<unknown> {
+async function invokeNative(page: Page, command: string, args: unknown, timeoutMs = 15_000): Promise<unknown> {
   return page.evaluate(
-    async ({ command, args }) => {
+    async ({ command, args, timeoutMs }) => {
       const tauri: unknown = Reflect.get(window, '__TAURI_INTERNALS__')
       if (typeof tauri !== 'object' || tauri === null) throw new Error('Tauri initialization is missing')
       const invoke: unknown = Reflect.get(tauri, 'invoke')
       if (typeof invoke !== 'function') throw new Error('Tauri invoke is missing')
-      const result: unknown = await Reflect.apply(invoke, tauri, [command, args])
-      return result
+      let timer: ReturnType<typeof setTimeout> | undefined
+      try {
+        const result: unknown = await Promise.race([
+          Reflect.apply(invoke, tauri, [command, args]),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new Error(`Native command timed out: ${command}`)), timeoutMs)
+          }),
+        ])
+        return result
+      } finally {
+        if (timer !== undefined) clearTimeout(timer)
+      }
     },
-    { command, args },
+    { command, args, timeoutMs },
   )
 }
 
@@ -160,7 +176,12 @@ try {
       HBAR_CACHE_ROOT: join(root, 'cache'),
       HBAR_WORKSPACE: workspaceRoot,
       HBAR_DEMO: '1',
-      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${debugPort}`,
+      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: [
+        `--remote-debugging-port=${debugPort}`,
+        requestedNativeScale ? `--force-device-scale-factor=${requestedNativeScale}` : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
       WEBVIEW2_USER_DATA_FOLDER: join(root, 'webview-profile'),
     },
     stdin: 'ignore',
@@ -219,6 +240,39 @@ try {
       ),
     )
     throw error
+  }
+  const displaySample = await page.evaluate(() => ({
+    devicePixelRatio: window.devicePixelRatio,
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
+  }))
+  if (requestedNativeScale && Math.abs(displaySample.devicePixelRatio - Number(requestedNativeScale)) > 0.01)
+    throw new Error(`WebView did not apply requested process scale: ${JSON.stringify(displaySample)}`)
+  await writeFile(
+    `artifacts/ui-redesign/tauri/native-display-scale-${requestedNativeScale ?? 'default'}.json`,
+    JSON.stringify(
+      { requestedProcessScale: requestedNativeScale ?? null, ...displaySample, windowsSettingsChanged: false },
+      null,
+      2,
+    ),
+  )
+  const processScale = requestedNativeScale ? Number(requestedNativeScale) : 1
+  if (requestedNativeScale) {
+    // Force-device-scale-factor changes WebView CSS pixels, not the OS's
+    // logical window units. Normalize the owned window to the same CSS
+    // workbench sizes so the full workflow is comparable across samples.
+    await invokeNative(page, 'plugin:window|set_size', {
+      label: 'main',
+      value: { Logical: { width: 1440 * processScale, height: 960 * processScale } },
+    })
+    await expect.poll(() => page.evaluate(() => Math.abs(innerWidth - 1440) <= 2)).toBe(true)
+    const sampleCopy = getShellCopy(
+      await page.evaluate(() => (document.documentElement.lang === 'zh-CN' ? 'zh-CN' : 'en-US')),
+    )
+    const showSidebar = page.getByRole('button', { name: sampleCopy.shell.showSidebar, exact: true })
+    const sidebar = page.getByRole('complementary', { name: sampleCopy.shell.projectsAndSessions, exact: true })
+    await expect.poll(async () => (await showSidebar.isVisible()) || (await sidebar.isVisible())).toBe(true)
+    if (await showSidebar.isVisible()) await showSidebar.click()
   }
   await page
     .locator('footer')
@@ -297,9 +351,9 @@ try {
   const controlSize = page.getByRole('combobox', { name: /^(控件尺寸|Control size)$/ })
   const textSize = page.getByRole('combobox', { name: /^(文本尺寸|Text size)$/ })
   const cornerSize = page.getByRole('combobox', { name: /^(圆角尺寸|Corner size)$/ })
-  await controlSize.selectOption('l')
-  await textSize.selectOption('l')
-  await cornerSize.selectOption('l')
+  await selectLumenOption(controlSize, 'l')
+  await selectLumenOption(textSize, 'l')
+  await selectLumenOption(cornerSize, 'l')
   await page.getByRole('button', { name: /^(保存外观|Save appearance)$/ }).click()
   await page.getByText(/^(外观偏好已保存|Appearance preferences saved)$/).waitFor()
   const largeAppearance = await page.evaluate(() => {
@@ -329,12 +383,9 @@ try {
   await page.getByRole('button', { name: /^(设置|Settings)$/ }).click()
   await page.getByRole('button', { name: /^(外观|Appearance)$/ }).click()
   await page.getByRole('combobox', { name: /^(控件尺寸|Control size)$/ }).waitFor()
-  if (
-    (await page.getByRole('combobox', { name: /^(控件尺寸|Control size)$/ }).inputValue()) !== 'l' ||
-    (await page.getByRole('combobox', { name: /^(文本尺寸|Text size)$/ }).inputValue()) !== 'l' ||
-    (await page.getByRole('combobox', { name: /^(圆角尺寸|Corner size)$/ }).inputValue()) !== 'l'
-  )
-    throw new Error('Desktop appearance preferences did not survive reload')
+  await expectLumenValue(controlSize, 'l')
+  await expectLumenValue(textSize, 'l')
+  await expectLumenValue(cornerSize, 'l')
   await page.getByRole('button', { name: /^(恢复默认|Restore defaults)$/ }).click()
   await page.getByText(/^(外观偏好已保存|Appearance preferences saved)$/).waitFor()
   await page.locator('html[data-lumen-control-size="m"]').waitFor()
@@ -377,7 +428,7 @@ try {
   const landingPrompt = landing.getByRole('textbox', { name: copy.preSession.prompt.input, exact: true })
   await landingPrompt.fill(objective)
   await landing.getByRole('button', { name: copy.session.addMenu.open, exact: true }).click()
-  await landing
+  await page
     .getByRole('group', { name: copy.session.addMenu.menu })
     .getByRole('button', { name: copy.session.intent.goalMenu, exact: true })
     .click()
@@ -547,7 +598,7 @@ try {
   const settledSession = await sessions.execute('session.get', { sessionId })
   if (!settledSession) throw new Error('The original native Session is missing before rename')
   const currentRow = page.locator(`[data-session-id="${sessionId}"][data-selected="true"]`)
-  const sessionActions = currentRow.locator('summary')
+  const sessionActions = currentRow.locator('.lumen-action-menu-trigger')
   await expect(sessionActions).toHaveAttribute('aria-label', copy.shell.sessionActions(settledSession.title))
   await sessionActions.click()
   await page.getByRole('menuitem', { name: copy.shell.renameSession, exact: true }).click()
@@ -584,7 +635,7 @@ try {
     { idempotencyKey: `native-search-${sessionId}` },
   )
   await page.keyboard.press('Control+k')
-  const chatSearch = page.locator('dialog.hbar-app-react-chat-search-dialog')
+  const chatSearch = page.locator('.lumen-dialog.hbar-app-react-chat-search-dialog[role="dialog"]')
   const searchInput = chatSearch.getByRole('combobox')
   await expect(searchInput).toBeFocused()
   const searchRows = chatSearch.getByRole('option')
@@ -661,7 +712,10 @@ try {
   if (!(await noHorizontalOverflow())) throw new Error('Desktop session has horizontal overflow')
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/session-default-window.png' })
   await page.getByRole('button', { name: /^(文件|Files)$/ }).click()
-  await page.getByRole('heading', { level: 2, name: /^(文件管理器|File manager)$/ }).waitFor()
+  await page
+    .locator('.hbar-app-react-file-workspace [data-tool-pane-slot="header"]')
+    .getByRole('heading', { level: 2, name: copy.files.title, exact: true })
+    .waitFor()
   const nativeFile = page.getByText('native-visual.md', { exact: true })
   await expect(nativeFile).toBeVisible()
   await nativeFile.click()
@@ -763,7 +817,7 @@ try {
 
   await invokeNative(page, 'plugin:window|set_size', {
     label: 'main',
-    value: { Logical: { width: 900, height: 600 } },
+    value: { Logical: { width: 900 * processScale, height: 600 * processScale } },
   })
   await until(async () => {
     const size = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))
@@ -778,7 +832,7 @@ try {
   await page.getByRole('button', { name: /^(显示工程与会话侧栏|Show projects and sessions sidebar)$/ }).click()
   await page.getByRole('complementary', { name: /^(工程与会话|Projects and sessions)$/ }).waitFor()
   const expandedGeometry = await assertSessionGeometry('Minimum desktop window with sidebar')
-  const sidebarLocator = page.locator('[data-hbar-app-ui-component="hbar-app-ui-app-sidebar-3"]')
+  const sidebarLocator = page.getByRole('complementary', { name: copy.shell.projectsAndSessions, exact: true })
   if ((await sidebarLocator.count()) === 0) {
     await writeFile(
       'artifacts/ui-redesign/tauri/sidebar-dom-snapshot.json',
@@ -817,7 +871,7 @@ try {
         2,
       ),
     )
-    throw new Error('Canonical sidebar navigation marker is absent after sidebar expansion')
+    throw new Error('Named projects and sessions sidebar is absent after sidebar expansion')
   }
   const sidebarGeometry = await sidebarLocator.evaluate((element) => {
     const bounds = element.getBoundingClientRect()
@@ -858,14 +912,17 @@ try {
   await page.getByRole('button', { name: /^(隐藏工程与会话侧栏|Hide projects and sessions sidebar)$/ }).click()
   await page.getByRole('button', { name: /^(显示工程与会话侧栏|Show projects and sessions sidebar)$/ }).waitFor()
   await page.getByRole('button', { name: /^(文件|Files)$/ }).click()
-  await page.getByRole('heading', { level: 2, name: /^(文件管理器|File manager)$/ }).waitFor()
+  await page
+    .locator('.hbar-app-react-file-workspace [data-tool-pane-slot="header"]')
+    .getByRole('heading', { level: 2, name: copy.files.title, exact: true })
+    .waitFor()
   if (!(await noHorizontalOverflow())) throw new Error('Minimum desktop tool window has horizontal overflow')
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/files-min-window.png' })
   await page.getByRole('button', { name: /^(关闭文件管理器|Close file manager)$/ }).click()
   await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()
   await page.getByRole('button', { name: /^(设置|Settings)$/ }).click()
   const settingsGroups = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
-  if (await settingsGroups.isVisible()) await settingsGroups.selectOption('skills')
+  if (await settingsGroups.isVisible()) await selectLumenOption(settingsGroups, 'skills')
   else
     await page
       .getByRole('navigation', { name: copy.settings.groups, exact: true })
@@ -917,7 +974,7 @@ try {
   const modelPath = encodePath([{ kind: 'field', name: 'provider.model' }])
   const thinkingPath = encodePath([{ kind: 'field', name: 'provider.thinkingLevel' }])
   const selectSettingsGroup = async (group: 'providers' | 'model') => {
-    if (await settingsGroups.isVisible()) await settingsGroups.selectOption(group)
+    if (await settingsGroups.isVisible()) await selectLumenOption(settingsGroups, group)
     else
       await page
         .getByRole('navigation', { name: copy.settings.groups, exact: true })
@@ -926,13 +983,11 @@ try {
   }
   await openSessionTool(page, copy.session.tools, 'settings')
   const settingsScope = page.getByRole('combobox', { name: copy.settings.scopes, exact: true })
-  await expect(settingsScope).toHaveValue('session')
+  await expectLumenValue(settingsScope, 'session')
   const settingsModel = page.locator(`[id="hbar-schema-field-${modelPath}"]`)
   const originalModelLabel = await settingsModel.inputValue()
   const settingsThinking = page.locator(`[id="hbar-schema-field-${thinkingPath}"]`)
-  const dirtyLevel = locale === 'zh-CN' ? '低' : 'Low'
-  await settingsThinking.click()
-  await page.getByRole('option', { name: dirtyLevel, exact: true }).click()
+  await selectLumenChoice(settingsThinking, 'string:low')
   await expect(page.getByRole('button', { name: copy.settings.save, exact: true })).toBeEnabled()
   await selectSettingsGroup('providers')
   await expect(settingsScope).toHaveCount(0)
@@ -953,9 +1008,9 @@ try {
   if (!(await noHorizontalOverflow())) throw new Error('Native contextual Providers has horizontal overflow')
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/provider-context-default-min-window.png' })
   await selectSettingsGroup('model')
-  await expect(settingsScope).toHaveValue('session')
+  await expectLumenValue(settingsScope, 'session')
   await expect(settingsModel).toHaveValue(originalModelLabel)
-  await expect(settingsThinking).toHaveValue(dirtyLevel)
+  await expectLumenValue(settingsThinking, 'string:low')
   await expect(page.getByRole('button', { name: copy.settings.save, exact: true })).toBeEnabled()
   await page.screenshot({ path: 'artifacts/ui-redesign/tauri/provider-context-draft-min-window.png' })
   await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
@@ -1032,20 +1087,24 @@ try {
     nativeEnabled: true,
     'run.completed': { ...currentNotificationPreferences['run.completed'], desktop: true },
   })
-  await api.call('run.start', {
-    sessionId: session.id,
-    requestId: 'native-background',
-    modelId: 'local-fixture',
-    input: { text: '/slow' },
-  })
-  await invokeNative(page, 'plugin:window|close', { label: 'main' })
-  const hidden = await invokeNative(page, 'plugin:window|is_visible', { label: 'main' })
+  console.log(`Native smoke: choose No / hide to tray in the owned release close confirmation (PID ${child.pid}).`)
+  await invokeNative(page, 'plugin:window|close', { label: 'main' }, 300_000)
+  const hidden = await invokeNative(page, 'plugin:window|is_visible', { label: 'main' }, 300_000)
   if (hidden !== false) throw new Error('Close did not hide the desktop window')
   const windowState = {
     documentVisibility: await page.evaluate(() => document.visibilityState),
     isVisible: hidden,
     isFocused: await invokeNative(page, 'plugin:window|is_focused', { label: 'main' }),
   }
+  // The Windows close confirmation can outlive the short mock run. Start the
+  // background-notification probe only after the window is actually hidden;
+  // a completion while the app is still visible is intentionally not delivered.
+  await api.call('run.start', {
+    sessionId: session.id,
+    requestId: 'native-background',
+    modelId: 'local-fixture',
+    input: { text: '/slow' },
+  })
   await until(async () => {
     if ((await nativeApi.call('session.snapshot', { sessionId: session.id })).runs[0]?.status !== 'completed')
       throw new Error('Native background run has not completed')
