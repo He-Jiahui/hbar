@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type ChangeEvent, type ReactNode } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import {
   ArrowLeft,
   ChartNoAxesCombined,
@@ -22,14 +22,13 @@ import {
 } from '@hbar/schema-react'
 import {
   LumenFrame,
-  LumenOption,
   LumenText,
   LumenButton,
   LumenIcon,
   LumenIconButton,
   LumenNavigationButton,
   LumenPageHeader,
-  LumenSelect,
+  LumenPopupSelect,
   LumenSettingsForm01,
   LumenSettingsForm03,
   LumenSettingsForm05,
@@ -294,8 +293,7 @@ export function HbarSettingsWorkspace({
             : null
     if (request) void request.catch(reportError)
   }
-  const onScopeChange = (event: ChangeEvent<HTMLSelectElement>) =>
-    selectScope(event.currentTarget.value as 'global' | 'workspace' | 'session')
+  const onScopeChange = (value: string) => selectScope(value as 'global' | 'workspace' | 'session')
   const dispatchIntent = (intent: SchemaFieldIntent) => {
     if (!entry) return
     setActionError(null)
@@ -400,20 +398,22 @@ export function HbarSettingsWorkspace({
         actions={
           <LumenFrame className="hbar-app-react-settings-header-controls">
             {fixedScopeLabel === null ? (
-              <LumenSelect
+              <LumenPopupSelect
+                id="hbar-settings-scope"
                 className="hbar-app-react-settings-scope"
                 aria-label={labels.scopes}
                 value={entry?.scope.kind ?? 'global'}
-                onChange={onScopeChange}
-              >
-                <LumenOption value="global">{labels.scopeOption('global', null)}</LumenOption>
-                <LumenOption value="workspace" disabled={!workspaceId}>
-                  {labels.scopeOption('workspace', workspaceTargetName)}
-                </LumenOption>
-                <LumenOption value="session" disabled={!sessionId}>
-                  {labels.scopeOption('session', sessionTargetName)}
-                </LumenOption>
-              </LumenSelect>
+                options={[
+                  { id: 'global', label: labels.scopeOption('global', null) },
+                  {
+                    id: 'workspace',
+                    label: labels.scopeOption('workspace', workspaceTargetName),
+                    disabled: !workspaceId,
+                  },
+                  { id: 'session', label: labels.scopeOption('session', sessionTargetName), disabled: !sessionId },
+                ]}
+                onValueChange={onScopeChange}
+              />
             ) : (
               <LumenText as="span" className="hbar-app-react-settings-fixed-scope" tone="muted" variant="supporting">
                 {fixedScopeLabel}
@@ -442,17 +442,14 @@ export function HbarSettingsWorkspace({
         </LumenFrame>
         <LumenFrame as="main" className="hbar-app-react-settings-main">
           <LumenFrame className="hbar-app-react-settings-mobile-group">
-            <LumenSelect
+            <LumenPopupSelect
+              id="hbar-settings-group"
               aria-label={labels.groups}
               value={activeGroupId ?? ''}
-              onChange={(event) => selectGroup(event.currentTarget.value)}
-            >
-              {groups.map((group) => (
-                <LumenOption key={group.id} value={group.id}>
-                  {group.label}
-                </LumenOption>
-              ))}
-            </LumenSelect>
+              selectedLabel={groups.find((group) => group.id === activeGroupId)?.label ?? activeGroupId ?? undefined}
+              options={groups.map((group) => ({ id: group.id, label: group.label }))}
+              onValueChange={selectGroup}
+            />
           </LumenFrame>
           {localCustomGroup ? (
             <LumenFrame className="hbar-app-react-settings-scroll">{customGroup}</LumenFrame>

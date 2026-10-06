@@ -4,12 +4,13 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { selectLumenOption } from './support/lumen-controls'
 
 async function openAppearance(page: Page, locale: ShellLocale) {
   const copy = getShellCopy(locale)
   await page.getByRole('button', { name: copy.shell.settings, exact: true }).click()
   const mobile = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
-  if (await mobile.isVisible()) await mobile.selectOption('appearance')
+  if (await mobile.isVisible()) await selectLumenOption(mobile, 'appearance')
   else
     await page
       .getByRole('navigation', { name: copy.settings.groups })
@@ -38,7 +39,7 @@ async function contrastSamples(page: Page): Promise<{ background: string; alpha:
     }
     const background = getComputedStyle(preview).backgroundColor
     const alpha = pixel(background)[3] ?? 0
-    const nodes = Array.from(preview.querySelectorAll('h3, header p, label, input, select, button'))
+    const nodes = Array.from(preview.querySelectorAll('h3, header p, label, input, [role="combobox"], button'))
     if (nodes.length < 6) throw new Error(`Preview text/control samples missing: ${nodes.length}`)
     const ratios = nodes.map((node) => {
       const stack: Element[] = []
@@ -99,9 +100,9 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         await expect(preview).toHaveAttribute('data-lumen-mode', draftTheme)
         await expect(page.locator('html')).toHaveAttribute('data-lumen-mode', systemTheme)
         for (const size of ['s', 'm', 'l'] as const) {
-          await controlSize.selectOption(size)
-          await textSize.selectOption(size)
-          await cornerSize.selectOption(size)
+          await selectLumenOption(controlSize, size)
+          await selectLumenOption(textSize, size)
+          await selectLumenOption(cornerSize, size)
           await expect(preview).toHaveAttribute('data-lumen-control-size', size)
           await expect(preview).toHaveAttribute('data-lumen-text-size', size)
           await expect(preview).toHaveAttribute('data-lumen-corner-size', size)

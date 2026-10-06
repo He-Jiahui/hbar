@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenText, LumenToggle } from '@lumen/app-ui'
 import { HbarNotifications, useHbarRuntimeState, type HbarRuntimeView } from '@hbar/app-react'
 import type { NotificationRecord } from '@hbar/contracts/commands/notifications'
 import type { ShellLocale } from './shell-copy'
@@ -101,16 +101,15 @@ export function NotificationsPage({ runtime, locale, onNavigate, variant = 1, na
       </LumenFrame>
       {nativePort.isAvailable ? (
         <LumenFrame>
-          <LumenButton
-            role="switch"
-            aria-checked={state.preferences?.nativeEnabled === true}
-            onClick={() => void toggleNative()}
+          <LumenToggle
+            id="hbar-notifications-native-enabled"
+            label={labels.nativeEnabled}
+            checked={state.preferences?.nativeEnabled === true}
+            onChange={() => void toggleNative()}
             disabled={
               !state.preferences || permissionPending || state.mutation === 'submitting' || state.mutation === 'unknown'
             }
-          >
-            {labels.nativeEnabled}
-          </LumenButton>
+          />
           {permissionError ? <LumenText role="alert">{labels.permissionDenied}</LumenText> : null}
         </LumenFrame>
       ) : null}

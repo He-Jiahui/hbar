@@ -60,27 +60,35 @@ export function useSettingsContentRecovery(
     const button = buttonRef.current
     const document = button?.ownerDocument
     const original = document?.getElementById(`hbar-schema-field-${current.field}`)
+    const originalControl =
+      original instanceof HTMLElement &&
+      original.matches('input:not([type="hidden"]), button, select, textarea, [tabindex]:not([tabindex="-1"])')
+        ? original
+        : (original?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]:not(:disabled)') ??
+          original?.querySelector<HTMLElement>(
+            '[role="radio"]:not(:disabled), input:not([type="hidden"]):not(:disabled), button:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"]):not([aria-disabled="true"])',
+          ))
     // A later background refresh can settle the same canonical content even
     // after this interaction's guard rejected it. Do not retain a stale retry.
     const failed = entry?.content[current.field]?.status === 'error'
     const target = failed
       ? button
-      : original?.matches(':disabled')
+      : originalControl?.matches(':disabled')
         ? button?.closest('.hbar-schema-form')?.querySelector('input:not(:disabled), button:not(:disabled)')
-        : original
+        : originalControl
     if (
       focusOwned.current &&
       entry?.form?.revision === current.revision &&
       document &&
       (document.activeElement === button || document.activeElement === document.body) &&
-      !document.querySelector('dialog:modal') &&
+      !document.querySelector('dialog:modal, [role="dialog"][aria-modal="true"]') &&
       target instanceof HTMLElement &&
       !target.matches(':disabled') &&
       target.getClientRects().length > 0
     ) {
       target.focus()
-      // Focusing a combobox opens its option overlay. Wait for that layout,
-      // then reveal the original control inside its own scrolling pane.
+      // Wait for the focused control's layout (including any popup), then
+      // reveal the original control inside its own scrolling pane.
       if (focusFrame.current !== null) cancelAnimationFrame(focusFrame.current)
       const capturedOwner = currentOwner.current
       focusFrame.current = requestAnimationFrame(() => {
@@ -91,12 +99,17 @@ export function useSettingsContentRecovery(
           document.activeElement !== target ||
           !target.isConnected ||
           target.closest('[inert]') ||
-          document.querySelector('dialog:modal')
+          document.querySelector('dialog:modal, [role="dialog"][aria-modal="true"]')
         )
           return
         const popupId = target.getAttribute('aria-controls')
         const popup = popupId ? document.getElementById(popupId) : null
         if (popup?.getClientRects().length) popup.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+        // Compound controls can wrap across several rows. Reveal the whole
+        // field before its focused option, otherwise the remaining options
+        // can stay clipped behind the scrolling pane's footer.
+        if (original instanceof HTMLElement && original.contains(target))
+          original.scrollIntoView({ block: 'nearest', inline: 'nearest' })
         target.scrollIntoView({ block: 'nearest', inline: 'nearest' })
       })
     }

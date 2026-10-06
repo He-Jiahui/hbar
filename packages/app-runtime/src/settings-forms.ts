@@ -89,6 +89,11 @@ function compile(description: SettingsDescription, scope: SettingsSnapshot['scop
   components.register('NumberField', ['integer', 'number'])
   components.register('CheckBox', ['boolean'])
   components.register('ComboBox', ['string', 'integer', 'number', 'boolean'])
+  // Renderer IDs are declared by Host descriptors; runtime validation only
+  // needs their field capabilities and does not depend on a UI implementation.
+  components.register('PopupSelect', ['string', 'integer', 'number', 'boolean'])
+  components.register('ToggleGroup', ['string', 'integer', 'number', 'boolean'])
+  components.register('Switch', ['boolean'])
   components.register('MultiSelect', ['string', 'integer', 'number', 'boolean'], [], true)
   components.register('FilePicker', ['string'], ['file'])
   components.register('DirectoryPicker', ['string'], ['directory'])

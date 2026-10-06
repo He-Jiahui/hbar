@@ -57,7 +57,7 @@ export const HBAR_SETTINGS_DESCRIPTION: SettingsDescription = freeze(
         helpKey: 'i18n:settings.client.chatSendBehavior.help',
         group: 'general',
         order: 10,
-        component: 'ComboBox',
+        component: 'PopupSelect',
         multiple: false,
       },
       {
@@ -92,7 +92,7 @@ export const HBAR_SETTINGS_DESCRIPTION: SettingsDescription = freeze(
         helpKey: 'i18n:settings.provider.thinkingLevel.help',
         group: 'model',
         order: 20,
-        component: 'ComboBox',
+        component: 'ToggleGroup',
         multiple: false,
         content: {
           kind: 'options',
@@ -128,7 +128,7 @@ export const HBAR_SETTINGS_DESCRIPTION: SettingsDescription = freeze(
         helpKey: 'i18n:settings.session.approval.help',
         group: 'session',
         order: 20,
-        component: 'ComboBox',
+        component: 'PopupSelect',
         multiple: false,
       },
       {

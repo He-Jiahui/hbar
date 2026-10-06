@@ -7,8 +7,8 @@ import {
   LumenFormField,
   LumenIcon,
   LumenInput,
-  LumenOption,
-  LumenSelect,
+  LumenPopupSelect,
+  LumenToggleGroup,
   LumenText,
   type LumenSize,
 } from '@lumen/app-ui'
@@ -97,20 +97,18 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
     field: { readonly label: string; readonly description: string },
   ) => (
     <LumenFormField controlId={`hbar-appearance-${dimension}`} label={field.label} description={field.description}>
-      <LumenSelect
+      <LumenPopupSelect
         id={`hbar-appearance-${dimension}`}
         className="hbar-web-appearance-control"
         variant="plain"
         value={state.draft[dimension]}
+        options={(['s', 'm', 'l'] as const).map((size) => ({
+          id: size,
+          label: labels.sizeOption(dimension, size),
+        }))}
         disabled={!state.editable || locked}
-        onChange={(event) => editor.change(dimension, event.currentTarget.value as LumenSize)}
-      >
-        {(['s', 'm', 'l'] as const).map((size) => (
-          <LumenOption key={size} value={size}>
-            {labels.sizeOption(dimension, size)}
-          </LumenOption>
-        ))}
-      </LumenSelect>
+        onValueChange={(value) => editor.change(dimension, value as LumenSize)}
+      />
     </LumenFormField>
   )
 
@@ -136,27 +134,17 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
           <LumenText as="p" id="hbar-appearance-theme-description" tone="muted" variant="supporting">
             {labels.theme.description}
           </LumenText>
-          <LumenFrame
-            className="hbar-web-appearance-theme-choices"
-            role="radiogroup"
-            aria-labelledby="hbar-appearance-theme-label"
-            aria-describedby="hbar-appearance-theme-description"
-          >
-            {THEME_CHOICES.map((theme) => (
-              <LumenButton
-                key={theme}
-                className="hbar-web-appearance-theme-choice"
-                variant={state.draft.theme === theme ? 'contained' : 'outlined'}
-                indicator="none"
-                role="radio"
-                aria-checked={state.draft.theme === theme}
-                tabIndex={state.draft.theme === theme ? 0 : -1}
-                disabled={!state.editable || locked}
-                onClick={() => editor.change('theme', theme)}
-              >
-                {themeOptionLabel(labels, theme)}
-              </LumenButton>
-            ))}
+          <LumenFrame className="hbar-web-appearance-theme-choices">
+            <LumenToggleGroup
+              id="hbar-appearance-theme"
+              type="single"
+              value={state.draft.theme}
+              options={THEME_CHOICES.map((theme) => ({ id: theme, label: themeOptionLabel(labels, theme) }))}
+              disabled={!state.editable || locked}
+              aria-labelledby="hbar-appearance-theme-label"
+              aria-describedby="hbar-appearance-theme-description"
+              onValueChange={(value) => editor.change('theme', value as WebThemePreference)}
+            />
           </LumenFrame>
         </LumenFrame>
         {sizeField('controlSize', labels.controlSize)}
@@ -191,15 +179,15 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
               value={labels.preview.input}
             />
           </LumenFormField>
-          <LumenSelect
+          <LumenPopupSelect
+            id="hbar-appearance-preview-select"
             className="hbar-web-appearance-control"
             variant="plain"
             aria-label={labels.preview.select}
             value="preview"
-            onChange={() => undefined}
-          >
-            <LumenOption value="preview">{labels.preview.select}</LumenOption>
-          </LumenSelect>
+            options={[{ id: 'preview', label: labels.preview.select }]}
+            onValueChange={() => undefined}
+          />
           <LumenButton type="button" tone="primary" indicator="none">
             {labels.preview.button}
           </LumenButton>

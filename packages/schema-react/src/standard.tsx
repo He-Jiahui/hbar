@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent } from 'react'
+import { useEffect, useState, type ChangeEvent, type KeyboardEvent } from 'react'
 import { decodeResourceReference, resourceReferenceLabel, type FieldItemValue } from '@hbar/schema-core'
 import type { SchemaComponentRegistry, SchemaFieldRendererProps } from './registry'
 
@@ -166,6 +166,93 @@ function MultiSelect(props: SchemaFieldRendererProps) {
   )
 }
 
+function PopupSelect(props: SchemaFieldRendererProps) {
+  return <ComboBox {...props} />
+}
+
+function ToggleGroup(props: SchemaFieldRendererProps) {
+  const options = optionsFor(props)
+  const selected = isMultipleValue(props.value) ? undefined : props.value
+  const selectedKey = selected === undefined || selected === null ? null : optionKey(selected)
+  const selectedValid = selectedKey === null || options.some((item) => optionKey(item.value) === selectedKey)
+  const visibleOptions =
+    selectedKey !== null && !selectedValid && selected !== undefined && selected !== null
+      ? [{ value: selected, disabled: true, label: props.labels.selectedInvalid(selected) }, ...options]
+      : options
+  const select = (item: (typeof visibleOptions)[number]) => {
+    if (!item.disabled) props.onIntent({ kind: 'set', field: props.field.name, value: item.value })
+  }
+  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+    event.preventDefault()
+    const availableIndices = visibleOptions.flatMap((item, optionIndex) => (item.disabled ? [] : [optionIndex]))
+    if (availableIndices.length === 0) return
+    const direction = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1
+    const currentAvailableIndex = Math.max(0, availableIndices.indexOf(index))
+    const nextIndex =
+      event.key === 'Home'
+        ? availableIndices[0]!
+        : event.key === 'End'
+          ? availableIndices.at(-1)!
+          : availableIndices[(currentAvailableIndex + direction + availableIndices.length) % availableIndices.length]!
+    const next = visibleOptions[nextIndex]
+    if (!next || next.disabled) return
+    event.currentTarget.parentElement
+      ?.querySelector<HTMLButtonElement>(`[role="radio"][data-value=${JSON.stringify(optionKey(next.value))}]`)
+      ?.focus()
+    select(next)
+  }
+  return (
+    <div
+      id={`hbar-schema-field-${props.field.name}`}
+      role="radiogroup"
+      aria-label={props.labels.label}
+      aria-invalid={Boolean(props.issue) || !selectedValid}
+      aria-describedby={describedBy(props)}
+    >
+      {visibleOptions.map((item, index) => {
+        const id = optionKey(item.value)
+        return (
+          <button
+            key={id}
+            type="button"
+            role="radio"
+            aria-checked={selectedKey === id}
+            tabIndex={selectedKey === id || (selectedKey === null && index === 0) ? 0 : -1}
+            disabled={props.disabled || props.field.readOnly || item.disabled}
+            data-value={id}
+            onKeyDown={(event) => onKeyDown(event, index)}
+            onClick={() => select(item)}
+          >
+            {item.label}
+          </button>
+        )
+      })}
+      {props.content.status === 'loading' && <small>{props.labels.loading}</small>}
+      {props.content.status === 'ready' && props.content.report.options.length === 0 && (
+        <small>{props.labels.empty}</small>
+      )}
+    </div>
+  )
+}
+
+function Switch(props: SchemaFieldRendererProps) {
+  return (
+    <input
+      id={`hbar-schema-field-${props.field.name}`}
+      name={props.field.name}
+      type="checkbox"
+      role="switch"
+      checked={props.value === true}
+      disabled={props.disabled || props.field.readOnly}
+      aria-label={props.labels.label}
+      aria-invalid={Boolean(props.issue)}
+      aria-describedby={describedBy(props)}
+      onChange={(event) => props.onIntent({ kind: 'set', field: props.field.name, value: event.currentTarget.checked })}
+    />
+  )
+}
+
 function ResourcePicker(props: SchemaFieldRendererProps) {
   const resource = props.field.resource
   if (!resource) return null
@@ -255,6 +342,42 @@ export function registerStandardSchemaComponents(registry: SchemaComponentRegist
         interaction: 'inline',
       },
       ComboBox,
+    ),
+    registry.register(
+      'PopupSelect',
+      {
+        version: 1,
+        fieldTypes: ['string', 'integer', 'number', 'boolean'],
+        multiple: false,
+        contentKinds: ['options'],
+        resourceKinds: [],
+        interaction: 'inline',
+      },
+      PopupSelect,
+    ),
+    registry.register(
+      'ToggleGroup',
+      {
+        version: 1,
+        fieldTypes: ['string', 'integer', 'number', 'boolean'],
+        multiple: false,
+        contentKinds: ['options'],
+        resourceKinds: [],
+        interaction: 'inline',
+      },
+      ToggleGroup,
+    ),
+    registry.register(
+      'Switch',
+      {
+        version: 1,
+        fieldTypes: ['boolean'],
+        multiple: false,
+        contentKinds: [],
+        resourceKinds: [],
+        interaction: 'inline',
+      },
+      Switch,
     ),
     registry.register(
       'MultiSelect',

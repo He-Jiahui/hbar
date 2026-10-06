@@ -4,11 +4,12 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { selectLumenOption } from './support/lumen-controls'
 
 async function chooseGroup(page: Page, locale: ShellLocale, id: string, label: string) {
   const copy = getShellCopy(locale)
   const mobile = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
-  if (await mobile.isVisible()) await mobile.selectOption(id)
+  if (await mobile.isVisible()) await selectLumenOption(mobile, id)
   else
     await page
       .getByRole('navigation', { name: copy.settings.groups })
@@ -97,9 +98,9 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await expect(choice('dark')).toBeFocused()
       await choice('light').click()
       await expect(form.getByText(copy.appearance.unsaved, { exact: true })).toBeVisible()
-      await expect(choice('light')).toHaveAttribute('data-lumen-variant', 'contained')
-      await expect(choice('system')).toHaveAttribute('data-lumen-variant', 'outlined')
-      await expect(choice('dark')).toHaveAttribute('data-lumen-variant', 'outlined')
+      await expect(choice('light')).toHaveAttribute('aria-checked', 'true')
+      await expect(choice('system')).toHaveAttribute('aria-checked', 'false')
+      await expect(choice('dark')).toHaveAttribute('aria-checked', 'false')
       await page.mouse.move(0, 0)
       await expect.poll(async () => (await selectedChoiceContrast(choice('light'))).alpha).toBe(255)
       await expect.poll(async () => (await selectedChoiceContrast(choice('light'))).ratio).toBeGreaterThanOrEqual(4.5)
@@ -116,6 +117,10 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await page.screenshot({ path: `artifacts/reference-ux-v2/appearance-choice-${locale}-320.png` })
 
       await controlSize.focus()
+      await page.keyboard.press('Shift+Tab')
+      await page.keyboard.press('Tab')
+      await expect(controlSize).toBeFocused()
+      expect(await controlSize.evaluate((element) => element.matches(':focus-visible'))).toBe(true)
       await controlSize.scrollIntoViewIfNeeded()
       await page.emulateMedia({ forcedColors: 'active' })
       expect(await controlSize.evaluate((element) => getComputedStyle(element).outlineStyle)).toBe('solid')

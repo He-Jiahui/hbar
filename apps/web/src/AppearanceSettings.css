@@ -1,5 +1,6 @@
 .hbar-web-appearance-settings {
   display: flex;
+  container: hbar-appearance-settings / inline-size;
   inline-size: min(100%, 54rem);
   min-inline-size: 0;
   flex-direction: column;
@@ -83,7 +84,7 @@
   overflow-wrap: anywhere;
 }
 
-/* Theme choices: LumenButton handles selection via aria-checked/variant. */
+/* Theme choices are a single, keyboard-navigable Lumen toggle group. */
 .hbar-web-appearance-theme-choices {
   display: flex;
   min-inline-size: 0;
@@ -91,14 +92,24 @@
   gap: 0.5rem;
 }
 
-.hbar-web-appearance-theme-choice {
+.hbar-web-appearance-theme-choices > .lumen-toggle-group {
+  inline-size: 100%;
+}
+
+.hbar-web-appearance-theme-choices .lumen-toggle-option {
   max-inline-size: 100%;
   overflow-wrap: anywhere;
 }
 
-.hbar-web-appearance-theme-choices .hbar-web-appearance-theme-choice:focus-visible {
+.hbar-web-appearance-theme-choices .lumen-toggle-option:focus-visible {
   outline: 0.125rem solid var(--lumen-ink);
   outline-offset: 0.125rem;
+}
+
+.hbar-web-appearance-theme-choices .lumen-toggle-option[aria-checked='true'] {
+  border-color: var(--lumen-ink);
+  background: var(--lumen-ink);
+  color: var(--lumen-contrast);
 }
 
 .hbar-web-appearance-settings .hbar-web-appearance-control {
@@ -106,14 +117,25 @@
   background: var(--lumen-contrast);
 }
 
-.hbar-web-appearance-settings .hbar-web-appearance-control:focus-visible {
+.hbar-web-appearance-settings .hbar-web-appearance-control.lumen-popup-select {
+  border: 0;
+  background: transparent;
+}
+
+.hbar-web-appearance-settings .hbar-web-appearance-control:not(.lumen-popup-select):focus-visible {
   border-color: color-mix(in srgb, var(--lumen-ink) 48%, var(--lumen-edge));
   outline: 0.125rem solid color-mix(in srgb, var(--lumen-ink) 42%, transparent);
   outline-offset: 0.0625rem;
 }
 
 @media (forced-colors: active) {
-  .hbar-web-appearance-settings .hbar-web-appearance-control:focus-visible {
+  .hbar-web-appearance-theme-choices .lumen-toggle-option[aria-checked='true'] {
+    border-color: Highlight;
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  .hbar-web-appearance-settings .hbar-web-appearance-control:not(.lumen-popup-select):focus-visible {
     border-color: Highlight;
     outline-color: Highlight;
   }
@@ -189,7 +211,7 @@
   gap: 0.5rem;
 }
 
-@media (max-width: 42rem) {
+@container hbar-appearance-settings (max-width: 42rem) {
   .hbar-web-appearance-fields > .lumen-form-field {
     flex-basis: 100%;
   }
@@ -201,7 +223,7 @@
   }
 }
 
-@media (max-width: 30rem) {
+@container hbar-appearance-settings (max-width: 30rem) {
   .hbar-web-appearance-actions {
     align-items: stretch;
     flex-direction: column;

@@ -1,5 +1,6 @@
 .hbar-app-react-settings-workspace {
   display: flex;
+  container: hbar-settings-workspace / inline-size;
   min-inline-size: 0;
   min-block-size: 0;
   block-size: 100%;
@@ -14,13 +15,18 @@
 }
 
 .hbar-app-react-settings-scope {
-  inline-size: min(18rem, 34vw);
+  inline-size: min(18rem, 100%);
+  min-inline-size: 12rem;
+  flex: 1 1 12rem;
 }
 
 .hbar-app-react-settings-header-controls {
   display: flex;
   min-inline-size: 0;
+  max-inline-size: 100%;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.25rem;
 }
 
@@ -203,7 +209,7 @@
   background: color-mix(in srgb, var(--lumen-danger) 8%, var(--lumen-frost));
 }
 
-@media (max-width: 48rem) {
+@container hbar-settings-workspace (max-width: 48rem) {
   .hbar-app-react-settings-workspace > .lumen-page-header {
     gap: 0.5rem;
     padding-inline: 0.5rem;
@@ -214,7 +220,9 @@
   }
 
   .hbar-app-react-settings-scope {
-    inline-size: min(11rem, 44vw);
+    inline-size: min(18rem, 100%);
+    min-inline-size: 0;
+    flex-basis: 12rem;
   }
 
   .hbar-app-react-settings-groups {
@@ -226,6 +234,10 @@
   }
 
   .hbar-app-react-settings-mobile-group > .lumen-control {
+    inline-size: 100%;
+  }
+
+  .hbar-app-react-settings-mobile-group > .lumen-popup-select {
     inline-size: 100%;
   }
 
@@ -242,7 +254,7 @@
   }
 }
 
-@media (max-width: 30rem) {
+@container hbar-settings-workspace (max-width: 30rem) {
   .hbar-app-react-settings-workspace > .lumen-page-header {
     flex-direction: row;
     flex-wrap: wrap;
@@ -270,7 +282,7 @@
   }
 }
 
-@media (max-width: 24rem) {
+@container hbar-settings-workspace (max-width: 24rem) {
   .hbar-app-react-settings-footer-inner > span {
     flex-basis: 100%;
   }

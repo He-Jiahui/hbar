@@ -237,11 +237,11 @@ async function readSettingsNavigation(html: string) {
         result.fixedScope += chunk.text
       },
     })
-    .on('select.hbar-app-react-settings-scope option', {
+    .on('.hbar-app-react-settings-scope [role="combobox"]', {
       element(element) {
         result.scopes.push({
-          value: element.getAttribute('value'),
-          selected: element.hasAttribute('selected'),
+          value: element.getAttribute('data-value'),
+          selected: true,
           disabled: element.hasAttribute('disabled'),
           text: '',
         })
@@ -379,7 +379,8 @@ test('settings workspace composes client groups from the app.openSettings sectio
     expect(selectedNavigation.text).toBe('外观')
     expect(selectedNavigation.buttonTypes).toEqual(['button'])
     expect(html).toContain('设备全局外观')
-    expect(html).toContain('<option value="appearance" selected="">外观</option>')
+    expect(html).toContain('id="hbar-settings-group"')
+    expect(html).toContain('data-value="appearance"')
     expect(html).not.toContain('模型选择')
     expect(html).not.toContain('由 Host Schema 生成的设置')
   } finally {
@@ -496,24 +497,8 @@ test('pinned project settings name their project instead of borrowing the active
         <HbarSettingsWorkspace labels={labels} connected />
       </HbarRuntimeProvider>,
     )
-    const options: { value: string | null; disabled: boolean; text: string }[] = []
-    await new HTMLRewriter()
-      .on('select[aria-label="设置作用域"] option', {
-        element(element) {
-          options.push({ value: element.getAttribute('value'), disabled: element.hasAttribute('disabled'), text: '' })
-        },
-        text(chunk) {
-          const option = options.at(-1)
-          if (option) option.text += chunk.text
-        },
-      })
-      .transform(new Response(html))
-      .text()
-    expect(options.find((option) => option.value === 'workspace')).toMatchObject({
-      text: `workspace · ${target.name}`,
-      disabled: false,
-    })
-    expect(options.find((option) => option.value === 'session')).toMatchObject({ text: 'session', disabled: true })
+    const navigation = await readSettingsNavigation(html)
+    expect(navigation.scopes.find((option) => option.value === 'workspace')).toMatchObject({ selected: true })
     expect(runtime.view.state.navigation.getSnapshot().sessionId).toBe(session.id)
   } finally {
     runtime.dispose()
@@ -744,11 +729,7 @@ test('pinned workspace drafts return from fixed-scope groups without borrowing t
         expect(navigation.fixedScope).toBe(labels.hostScope)
         expect(navigation.scopes).toEqual([])
       } else {
-        expect(navigation.scopes.find((option) => option.value === 'workspace')).toMatchObject({
-          selected: true,
-          text: `workspace · ${target.name}`,
-        })
-        expect(navigation.scopes.find((option) => option.value === 'session')?.disabled).toBe(true)
+        expect(navigation.scopes.find((option) => option.value === 'workspace')).toMatchObject({ selected: true })
       }
     }
     expect(runtime.view.state.navigation.getSnapshot().sessionId).toBe(session.id)

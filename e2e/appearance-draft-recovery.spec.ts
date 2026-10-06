@@ -5,11 +5,12 @@ import { join } from 'node:path'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { expectLumenValue, selectLumenOption } from './support/lumen-controls'
 
 async function selectGroup(page: Page, locale: ShellLocale, id: string, label: string) {
   const copy = getShellCopy(locale)
   const mobile = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
-  if (await mobile.isVisible()) await mobile.selectOption(id)
+  if (await mobile.isVisible()) await selectLumenOption(mobile, id)
   else
     await page
       .getByRole('navigation', { name: copy.settings.groups })
@@ -60,7 +61,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         theme.getByRole('radio', { name: copy.appearance.theme[value], exact: true })
       const control = form.getByRole('combobox', { name: copy.appearance.controlSize.label })
       await themeChoice('light').click()
-      await control.selectOption('l')
+      await selectLumenOption(control, 'l')
       await expect(form.getByRole('region', { name: copy.appearance.preview.title })).toHaveAttribute(
         'data-lumen-mode',
         'light',
@@ -69,21 +70,21 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await selectGroup(page, locale, 'model', copy.settings.resolve('i18n:settings.groups.model'))
       await selectGroup(page, locale, 'appearance', copy.appearance.group)
       await expect(themeChoice('light')).toHaveAttribute('aria-checked', 'true')
-      await expect(control).toHaveValue('l')
+      await expectLumenValue(control, 'l')
       await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
       await expectComposerText(prompt, originalDraft)
       await page.getByRole('button', { name: copy.shell.settings, exact: true }).click()
       await selectGroup(page, locale, 'appearance', copy.appearance.group)
       await expect(themeChoice('light')).toHaveAttribute('aria-checked', 'true')
-      await expect(control).toHaveValue('l')
+      await expectLumenValue(control, 'l')
       await page.screenshot({ path: `artifacts/reference-ux-v2/appearance-draft-${locale}-1440.png` })
       await form.getByRole('button', { name: copy.appearance.discard, exact: true }).click()
       await expect(themeChoice('system')).toHaveAttribute('aria-checked', 'true')
-      await expect(control).toHaveValue('m')
+      await expectLumenValue(control, 'm')
       await expect(page.locator('html')).toHaveAttribute('data-lumen-mode', 'dark')
 
       await themeChoice('light').click()
-      await control.selectOption('l')
+      await selectLumenOption(control, 'l')
       await form.getByRole('button', { name: copy.appearance.save, exact: true }).click()
       await expect(form.getByText(copy.appearance.saved, { exact: true })).toBeVisible()
       await expect(page.locator('html')).toHaveAttribute('data-lumen-mode', 'light')
@@ -105,7 +106,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         }
       })
       await themeChoice('dark').click()
-      await control.selectOption('m')
+      await selectLumenOption(control, 'm')
       await form.getByRole('button', { name: copy.appearance.save, exact: true }).click()
       await expect(form.getByText(copy.appearance.unknown, { exact: true })).toBeVisible()
       await expect(form.getByRole('button', { name: copy.appearance.save, exact: true })).toBeDisabled()
@@ -114,7 +115,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await expect(form.getByText(copy.appearance.partial(1, 2), { exact: true })).toBeVisible()
       await expect(themeChoice('dark')).toBeDisabled()
       await expect(themeChoice('dark')).toHaveAttribute('aria-checked', 'true')
-      await expect(control).toHaveValue('m')
+      await expectLumenValue(control, 'm')
       await expect(page.locator('html')).toHaveAttribute('data-lumen-mode', 'dark')
       await expect(page.locator('html')).toHaveAttribute('data-lumen-control-size', 'l')
       await page.screenshot({ path: `artifacts/reference-ux-v2/appearance-partial-${locale}-320.png`, fullPage: true })
@@ -145,7 +146,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await page.evaluate(() => localStorage.removeItem('hbar:e2e:blockPrefsRead'))
       await form.getByRole('button', { name: copy.appearance.check, exact: true }).click()
       await expect(themeChoice('dark')).toHaveAttribute('aria-checked', 'true')
-      await expect(control).toHaveValue('m')
+      await expectLumenValue(control, 'm')
       await expect(form.getByText(copy.appearance.restoreError('PERSISTENCE_FAILED'))).toHaveCount(0)
       expect(errors).toEqual([])
     } finally {

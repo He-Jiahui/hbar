@@ -17,6 +17,9 @@ import {
   LumenComboBox,
   LumenInput,
   LumenMultiSelect,
+  LumenPopupSelect,
+  LumenToggleControl,
+  LumenToggleGroup,
   type LumenControlOption,
 } from '@lumen/app-ui'
 import './lumen-schema-components.css'
@@ -223,6 +226,99 @@ function MultiSelect(props: SchemaFieldRendererProps) {
   )
 }
 
+function PopupSelect(props: SchemaFieldRendererProps) {
+  const selected = scalarValue(props.value)
+  const selectedId = selected === null ? null : optionId(selected)
+  const declaredOptions = useMemo(() => fieldOptions(props), [props])
+  const selectedOption = declaredOptions.find((option) => option.id === selectedId)
+  const options = useMemo(
+    () =>
+      selectedId && !selectedOption
+        ? [
+            {
+              id: selectedId,
+              value: selected!,
+              label: props.labels.selectedInvalid(selected!),
+              disabled: false,
+            },
+            ...declaredOptions,
+          ]
+        : declaredOptions,
+    [declaredOptions, props.labels, selected, selectedId, selectedOption],
+  )
+  return (
+    <LumenPopupSelect
+      id={`hbar-schema-field-${props.field.name}`}
+      name={props.field.name}
+      value={selectedId}
+      selectedLabel={selectedOption?.label ?? (selected === null ? undefined : props.labels.selectedInvalid(selected))}
+      options={options}
+      disabled={props.disabled || props.field.readOnly || props.content.status === 'unavailable'}
+      aria-label={props.labels.label}
+      aria-invalid={Boolean(props.issue) || Boolean(selectedId && !selectedOption)}
+      {...(describedBy(props) ? { 'aria-describedby': describedBy(props)! } : {})}
+      onValueChange={(id) => {
+        const option = options.find((candidate) => candidate.id === id)
+        if (option) props.onIntent({ kind: 'set', field: props.field.name, value: option.value })
+      }}
+    />
+  )
+}
+
+function ToggleGroup(props: SchemaFieldRendererProps) {
+  const selected = scalarValue(props.value)
+  const selectedId = selected === null ? null : optionId(selected)
+  const declaredOptions = useMemo(() => fieldOptions(props), [props])
+  const selectedOption = declaredOptions.find((option) => option.id === selectedId)
+  const options = useMemo(
+    () =>
+      selectedId && !selectedOption
+        ? [
+            {
+              id: selectedId,
+              value: selected!,
+              label: props.labels.selectedInvalid(selected!),
+              disabled: true,
+            },
+            ...declaredOptions,
+          ]
+        : declaredOptions,
+    [declaredOptions, props.labels, selected, selectedId, selectedOption],
+  )
+  return (
+    <LumenToggleGroup
+      id={`hbar-schema-field-${props.field.name}`}
+      type="single"
+      value={selectedId}
+      options={options}
+      disabled={props.disabled || props.field.readOnly || props.content.status === 'unavailable'}
+      aria-label={props.labels.label}
+      aria-invalid={Boolean(props.issue) || Boolean(selectedId && !selectedOption)}
+      {...(describedBy(props) ? { 'aria-describedby': describedBy(props)! } : {})}
+      onValueChange={(id) => {
+        const option = options.find((candidate) => candidate.id === id)
+        if (option && !option.disabled) props.onIntent({ kind: 'set', field: props.field.name, value: option.value })
+      }}
+    />
+  )
+}
+
+function Switch(props: SchemaFieldRendererProps) {
+  return (
+    <LumenToggleControl
+      id={`hbar-schema-field-${props.field.name}`}
+      name={props.field.name}
+      checked={props.value === true}
+      readOnly={props.field.readOnly}
+      disabled={props.disabled || props.field.readOnly}
+      aria-label={props.labels.label}
+      aria-invalid={Boolean(props.issue)}
+      {...(describedBy(props) ? { 'aria-describedby': describedBy(props)! } : {})}
+      onChange={(event) => props.onIntent({ kind: 'set', field: props.field.name, value: event.currentTarget.checked })}
+    />
+  )
+}
+
 function ResourcePicker(props: SchemaFieldRendererProps) {
   const resource = props.field.resource
   if (!resource) return null
@@ -297,6 +393,42 @@ export function createHbarSchemaComponents(): SchemaComponentRegistry {
       interaction: 'inline',
     },
     ComboBox,
+  )
+  registry.register(
+    'PopupSelect',
+    {
+      version: 1,
+      fieldTypes: ['string', 'integer', 'number', 'boolean'],
+      multiple: false,
+      contentKinds: ['options'],
+      resourceKinds: [],
+      interaction: 'inline',
+    },
+    PopupSelect,
+  )
+  registry.register(
+    'ToggleGroup',
+    {
+      version: 1,
+      fieldTypes: ['string', 'integer', 'number', 'boolean'],
+      multiple: false,
+      contentKinds: ['options'],
+      resourceKinds: [],
+      interaction: 'inline',
+    },
+    ToggleGroup,
+  )
+  registry.register(
+    'Switch',
+    {
+      version: 1,
+      fieldTypes: ['boolean'],
+      multiple: false,
+      contentKinds: [],
+      resourceKinds: [],
+      interaction: 'inline',
+    },
+    Switch,
   )
   registry.register(
     'MultiSelect',

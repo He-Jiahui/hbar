@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os'
 import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { expectLumenValue, selectLumenOption } from './support/lumen-controls'
 
 const origin = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
 const hostPort = Number(process.env.HBAR_E2E_HOST_PORT ?? 4317)
@@ -119,7 +120,6 @@ async function observeReads(page: Page) {
 
 function fields(page: Page, copy: Copy) {
   const modelLabel = copy.settings.resolve('i18n:settings.provider.model.label')
-  const thinkingLabel = copy.settings.resolve('i18n:settings.provider.thinkingLevel.label')
   const model = page
     .locator('.hbar-schema-form-field')
     .filter({ has: page.locator(`[id="hbar-schema-field-${modelPath}"]`) })
@@ -132,7 +132,7 @@ function fields(page: Page, copy: Copy) {
     modelInput: page.locator(`[id="hbar-schema-field-${modelPath}"]`),
     thinkingInput: page.locator(`[id="hbar-schema-field-${thinkingPath}"]`),
     modelOptions: model.getByRole('button', { name: copy.settings.form.openOptions(modelLabel), exact: true }),
-    thinkingOptions: thinking.getByRole('button', { name: copy.settings.form.openOptions(thinkingLabel), exact: true }),
+    thinkingOptions: thinking.locator('[role="radio"]:not(:disabled)'),
   }
 }
 
@@ -151,25 +151,26 @@ async function removeFixture(root: string): Promise<void> {
   await rm(exact, { recursive: true })
 }
 
-async function recoveryGeometry(input: Locator) {
-  return input.evaluate((element) => {
+async function recoveryGeometry(group: Locator) {
+  return group.evaluate((element) => {
     const pane = element.closest('.hbar-app-react-settings-scroll')
-    const popupId = element.getAttribute('aria-controls')
-    const option = popupId ? document.getElementById(popupId)?.querySelector('[role="option"]') : null
-    if (!pane || !option) throw new Error('Missing original settings scroll pane or recovered option')
-    const box = element.getBoundingClientRect()
+    const target =
+      element.querySelector<HTMLElement>('[role="radio"]:focus:not(:disabled)') ??
+      element.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]:not(:disabled)') ??
+      element.querySelector<HTMLElement>('[role="radio"]:not(:disabled)')
+    if (!pane || !target) throw new Error('Missing settings scroll pane or recovered toggle')
+    const groupBox = element.getBoundingClientRect()
+    const targetBox = target.getBoundingClientRect()
     const clip = pane.getBoundingClientRect()
-    const first = option.getBoundingClientRect()
     const left = Math.max(0, clip.left)
     const right = Math.min(innerWidth, clip.right)
     const top = Math.max(0, clip.top)
     const bottom = Math.min(innerHeight, clip.bottom)
-    const center = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
-    const optionLeft = Math.max(left, first.left)
-    const optionRight = Math.min(right, first.right)
-    const optionTop = Math.max(top, first.top)
-    const optionBottom = Math.min(bottom, first.bottom)
-    const optionHit = document.elementFromPoint((optionLeft + optionRight) / 2, (optionTop + optionBottom) / 2)
+    const groupCenter = document.elementFromPoint(groupBox.x + groupBox.width / 2, groupBox.y + groupBox.height / 2)
+    const targetCenter = document.elementFromPoint(
+      targetBox.x + targetBox.width / 2,
+      targetBox.y + targetBox.height / 2,
+    )
     const rect = (value: DOMRect) => ({
       x: value.x,
       y: value.y,
@@ -179,22 +180,39 @@ async function recoveryGeometry(input: Locator) {
       right: value.right,
     })
     return {
-      input: rect(box),
+      group: rect(groupBox),
+      target: rect(targetBox),
       pane: rect(clip),
-      firstOption: rect(first),
+      targetValue: target.getAttribute('data-value'),
       scrollTop: pane.scrollTop,
-      inputFullyVisible:
-        box.width > 0 &&
-        box.height > 0 &&
-        box.left >= left - 0.5 &&
-        box.right <= right + 0.5 &&
-        box.top >= top - 0.5 &&
-        box.bottom <= bottom + 0.5,
-      inputCenterHit: center === element || (center !== null && element.contains(center)),
-      optionPartVisible: optionRight - optionLeft > 1 && optionBottom - optionTop > 1,
-      optionPartHit: optionHit === option || (optionHit !== null && option.contains(optionHit)),
+      groupFullyVisible:
+        groupBox.width > 0 &&
+        groupBox.height > 0 &&
+        groupBox.left >= left - 0.5 &&
+        groupBox.right <= right + 0.5 &&
+        groupBox.top >= top - 0.5 &&
+        groupBox.bottom <= bottom + 0.5,
+      targetFullyVisible:
+        targetBox.width > 0 &&
+        targetBox.height > 0 &&
+        targetBox.left >= left - 0.5 &&
+        targetBox.right <= right + 0.5 &&
+        targetBox.top >= top - 0.5 &&
+        targetBox.bottom <= bottom + 0.5,
+      groupCenterHit: groupCenter === element || (groupCenter !== null && element.contains(groupCenter)),
+      targetCenterHit: targetCenter === target || (targetCenter !== null && target.contains(targetCenter)),
     }
   })
+}
+
+async function expectUnavailableThinking(controls: ReturnType<typeof fields>) {
+  await expect(controls.thinkingOptions).toHaveCount(0)
+  const checked = controls.thinking.getByRole('radio', { checked: true })
+  if ((await controls.thinkingInput.getAttribute('aria-invalid')) === 'true') {
+    await expect(controls.thinkingInput).toHaveAttribute('aria-invalid', 'true')
+    await expect(checked).toHaveCount(1)
+    await expect(checked).toBeDisabled()
+  }
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
@@ -237,8 +255,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const controls = fields(page, copy)
       const retry = page.getByRole('button', { name: retryLabel, exact: true })
       await expect(controls.thinking).toContainText(copy.settings.form.unavailable('missing_model'))
-      await expect(controls.thinkingInput).toBeDisabled()
-      await expect(controls.thinkingOptions).toBeDisabled()
+      await expectUnavailableThinking(controls)
       await expect(retry).toHaveCount(0)
       const initial = traffic.thinking().at(-1)
       expect(initial?.params.request.scope.kind).toBe('global')
@@ -306,42 +323,44 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.screenshot({ path: `${output}/${locale}-loading-900.png` })
       traffic.release()
       await expect(retry).toHaveCount(0)
-      await expect(controls.thinkingInput).toBeFocused()
       await expect(controls.modelInput).toHaveValue(originalModelValue)
       expect(await formElement.evaluate((element) => element === document.querySelector('.hbar-schema-form'))).toBe(
         true,
       )
       await expect(page.getByText(copy.settings.unsaved(1), { exact: true })).toBeVisible()
-      // LumenComboBox opens its real options when recovery returns focus to the input.
-      await expect(page.getByRole('listbox')).toBeVisible()
-      expect(await page.getByRole('listbox').getByRole('option').count()).toBeGreaterThan(1)
-      // Focus alone is insufficient: do not use click/scrollIntoView to hide a
-      // clipped focused input. Measure the actual pane and hit targets first.
-      try {
-        await expect
-          .poll(async () => {
-            const geometry = await recoveryGeometry(controls.thinkingInput)
-            return (
-              geometry.inputFullyVisible &&
-              geometry.inputCenterHit &&
-              geometry.optionPartVisible &&
-              geometry.optionPartHit
-            )
-          })
-          .toBe(true)
-      } finally {
-        await writeFile(
-          `${output}/${locale}-recovered-geometry-900.json`,
-          JSON.stringify(await recoveryGeometry(controls.thinkingInput), null, 2),
-        )
-        await page.screenshot({ path: `${output}/${locale}-recovered-focus-900.png` })
-      }
-      await page.keyboard.press('ArrowDown')
-      const activeOption = await controls.thinkingInput.getAttribute('aria-activedescendant')
-      if (!activeOption) throw new Error('Keyboard did not identify a real thinking option')
-      const selectedThinking = (await page.locator(`[id=${JSON.stringify(activeOption)}]`).innerText()).trim()
-      await page.keyboard.press('Enter')
-      await expect(controls.thinkingInput).toHaveValue(selectedThinking)
+      const checkedRadio = controls.thinkingInput.locator('[role="radio"][aria-checked="true"]:not(:disabled)')
+      if (await checkedRadio.count()) await expect(checkedRadio).toBeFocused()
+      const recoveredRadio = controls.thinkingInput.locator('[role="radio"]:focus')
+      await expect(recoveredRadio).toHaveCount(1)
+      await expect(recoveredRadio).toBeVisible()
+      await expect(recoveredRadio).toBeEnabled()
+      await expect(recoveredRadio).toBeFocused()
+      await expect
+        .poll(async () => {
+          const geometry = await recoveryGeometry(controls.thinkingInput)
+          return (
+            geometry.groupFullyVisible &&
+            geometry.targetFullyVisible &&
+            geometry.groupCenterHit &&
+            geometry.targetCenterHit &&
+            geometry.scrollTop >= 0
+          )
+        })
+        .toBe(true)
+      const recoveredGeometry = await recoveryGeometry(controls.thinkingInput)
+      expect(recoveredGeometry.targetValue).toBe(await recoveredRadio.getAttribute('data-value'))
+      expect(recoveredGeometry.groupFullyVisible).toBe(true)
+      expect(recoveredGeometry.targetFullyVisible).toBe(true)
+      expect(recoveredGeometry.groupCenterHit).toBe(true)
+      expect(recoveredGeometry.targetCenterHit).toBe(true)
+      expect(recoveredGeometry.scrollTop).toBeGreaterThanOrEqual(0)
+      await writeFile(`${output}/${locale}-recovered-geometry-900.json`, JSON.stringify(recoveredGeometry, null, 2))
+      await page.screenshot({ path: `${output}/${locale}-recovered-focus-900.png` })
+      await page.keyboard.press('ArrowRight')
+      const selectedThinking = await controls.thinkingInput
+        .getByRole('radio', { checked: true })
+        .getAttribute('data-value')
+      if (!selectedThinking) throw new Error('Keyboard did not identify a real thinking option')
       await expect(page.getByText(copy.settings.unsaved(2), { exact: true })).toBeVisible()
       await screenshot(page, locale, 'recovered')
 
@@ -353,6 +372,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       latePage.on('pageerror', (error) => errors.push(error.message))
       const lateTraffic = await observeReads(latePage)
       await latePage.goto(origin)
+      const lateShowSidebar = latePage.getByRole('button', { name: copy.shell.showSidebar, exact: true })
+      if (await lateShowSidebar.isVisible()) await lateShowSidebar.click()
       await latePage.getByRole('button', { name: copy.shell.openSession(host.ready.sessionTitle), exact: true }).click()
       await latePage.getByRole('button', { name: copy.shell.settings, exact: true }).click()
       await latePage
@@ -371,8 +392,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await lateRetry.click()
       await expect.poll(lateTraffic.hasHeldResponse).toBe(true)
       const scope = latePage.getByRole('combobox', { name: copy.settings.scopes, exact: true })
-      await scope.selectOption('workspace')
-      await expect(scope).toHaveValue('workspace')
+      await selectLumenOption(scope, 'workspace')
+      await expectLumenValue(scope, 'workspace')
       await expect(lateControls.thinking).toContainText(copy.settings.form.unavailable('missing_model'))
       const workspaceRead = lateTraffic.thinking().at(-1)
       expect(workspaceRead?.params.request.formId).not.toBe(lateOriginal?.params.request.formId)
@@ -386,14 +407,18 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(lateControls.thinking).toContainText(copy.settings.form.unavailable('missing_model'))
       await expect(latePage.getByRole('button', { name: copy.settings.save, exact: true })).toBeDisabled()
       await expect(lateControls.modelInput).toHaveValue('')
-      await scope.selectOption('global')
+      await selectLumenOption(scope, 'global')
+      await expectLumenValue(scope, 'global')
       await expect(lateControls.modelInput).toHaveValue(originalModelValue)
       await expect(latePage.getByText(copy.settings.unsaved(1), { exact: true })).toBeVisible()
-      await expect(lateControls.thinkingInput).toBeEnabled()
+      await expect(lateControls.thinkingOptions.first()).toBeEnabled()
       await expect(lateRetry).toHaveCount(0)
       await screenshot(latePage, locale, 'returned-global', [320])
       await expect(controls.modelInput).toHaveValue(originalModelValue)
-      await expect(controls.thinkingInput).toHaveValue(selectedThinking)
+      await expect(controls.thinkingInput.getByRole('radio', { checked: true })).toHaveAttribute(
+        'data-value',
+        selectedThinking,
+      )
       await expect(page.getByText(copy.settings.unsaved(2), { exact: true })).toBeVisible()
       expect(await formElement.evaluate((element) => element === document.querySelector('.hbar-schema-form'))).toBe(
         true,
