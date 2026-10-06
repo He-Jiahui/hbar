@@ -248,6 +248,8 @@ struct PathPointer {
     cache_root: PathBuf,
     #[serde(default)]
     settings_root: Option<PathBuf>,
+    #[serde(default)]
+    identity_root: Option<PathBuf>,
 }
 
 fn development_web_url() -> Option<tauri::Url> {
@@ -857,11 +859,10 @@ fn existing(settings_root: &Path, expected_pid: Option<u32>) -> Option<Connectio
     (status["instanceId"].as_str() == Some(&connection.instance_id)).then_some(connection)
 }
 
-fn path_roots(app: &tauri::AppHandle) -> Result<(PathBuf, PathBuf, PathBuf), Box<dyn std::error::Error>> {
-    if let Some(home) = std::env::var_os("HBAR_HOME") {
-        let data_root = PathBuf::from(home);
-        return Ok((data_root.clone(), data_root.join("cache"), data_root.join("settings")));
-    }
+fn path_roots(
+    app: &tauri::AppHandle,
+) -> Result<(PathBuf, PathBuf, PathBuf), Box<dyn std::error::Error>> {
+    let compatibility_root = std::env::var_os("HBAR_HOME").map(PathBuf::from);
     let system_root = if cfg!(windows) {
         std::env::var_os("LOCALAPPDATA")
             .map(PathBuf::from)
@@ -875,12 +876,26 @@ fn path_roots(app: &tauri::AppHandle) -> Result<(PathBuf, PathBuf, PathBuf), Box
         .ok()
         .and_then(|bytes| serde_json::from_slice::<PathPointer>(&bytes).ok())
         .filter(|value| value.version == 1 || value.version == 2);
-    let data_root = std::env::var_os("HBAR_DATA_ROOT")
-        .map(PathBuf::from)
+    let explicit_root = compatibility_root
+        .clone()
+        .or_else(|| std::env::var_os("HBAR_DATA_ROOT").map(PathBuf::from));
+    let preferred = pointer
+        .as_ref()
+        .filter(|value| value.version == 2)
+        .filter(|value| {
+            explicit_root.as_ref().is_none_or(|root| {
+                root == &value.data_root || value.identity_root.as_ref() == Some(root)
+            })
+        });
+    let data_root = preferred
+        .map(|value| value.data_root.clone())
+        .or(explicit_root)
         .or_else(|| pointer.as_ref().map(|value| value.data_root.clone()))
         .unwrap_or_else(|| system_root.join("data"));
-    let cache_root = std::env::var_os("HBAR_CACHE_ROOT")
-        .map(PathBuf::from)
+    let cache_root = preferred
+        .map(|value| value.cache_root.clone())
+        .or_else(|| compatibility_root.as_ref().map(|root| root.join("cache")))
+        .or_else(|| std::env::var_os("HBAR_CACHE_ROOT").map(PathBuf::from))
         .or_else(|| pointer.as_ref().map(|value| value.cache_root.clone()))
         .unwrap_or_else(|| system_root.join("cache"));
     let settings_root = pointer

@@ -83,7 +83,13 @@ async function withPointerLock<T>(path: string, action: () => Promise<T>, attemp
 }
 export async function getStorageLocations(layout: PathLayout): Promise<StorageLocationSnapshot> {
   const text = await pointerText(layout.pointerFile)
-  const pointer = text === null ? null : pathPointerSchema.parse(JSON.parse(text))
+  let pointer = text === null ? null : pathPointerSchema.parse(JSON.parse(text))
+  if (
+    pointer &&
+    relative(resolve(pointer.dataRoot), layout.dataRoot) !== '' &&
+    (pointer.version !== 2 || relative(resolve(pointer.identityRoot), layout.identityRoot) !== '')
+  )
+    pointer = null
   const active = storageRoots(layout)
   const saved =
     pointer === null

@@ -127,8 +127,15 @@ export async function resolvePathLayout(options: PathLayoutOptions = {}): Promis
   const base = systemBase()
   const compatibilityRoot = options.home ? resolve(options.home) : undefined
   const explicitData = options.dataRoot ?? compatibilityRoot
+  const preferPointer = Boolean(
+    options.preferPointer &&
+    pointer?.version === 2 &&
+    (!explicitData ||
+      resolve(explicitData) === resolve(pointer.dataRoot) ||
+      resolve(explicitData) === resolve(pointer.identityRoot)),
+  )
   if (
-    !options.preferPointer &&
+    !preferPointer &&
     pointer &&
     ((explicitData && resolve(explicitData) !== resolve(pointer.dataRoot)) ||
       (options.cacheRoot && resolve(options.cacheRoot) !== resolve(pointer.cacheRoot)))
@@ -136,12 +143,12 @@ export async function resolvePathLayout(options: PathLayoutOptions = {}): Promis
     pointer = undefined
   if (pointer?.version === 2 && pointer.migration) await migrateStoredPaths(pointerFile, pointer)
   return createPathLayout(
-    (options.preferPointer ? pointer?.dataRoot : undefined) ??
+    (preferPointer ? pointer?.dataRoot : undefined) ??
       options.dataRoot ??
       compatibilityRoot ??
       pointer?.dataRoot ??
       join(base, 'data'),
-    (options.preferPointer ? pointer?.cacheRoot : undefined) ??
+    (preferPointer ? pointer?.cacheRoot : undefined) ??
       options.cacheRoot ??
       pointer?.cacheRoot ??
       (compatibilityRoot ? join(compatibilityRoot, 'cache') : join(base, 'cache')),
