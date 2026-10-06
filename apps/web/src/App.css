@@ -1,4 +1,4 @@
-dialog.hbar-app-react-workspace-modal {
+.lumen-dialog.hbar-app-react-workspace-modal {
   --lumen-dialog-width: 72rem;
 
   block-size: min(52rem, calc(100dvb - 2rem));
@@ -72,55 +72,55 @@ dialog.hbar-app-react-workspace-modal {
   overflow-wrap: anywhere;
 }
 
-dialog.hbar-app-react-provider-modal {
+.lumen-dialog.hbar-app-react-provider-modal {
   --lumen-dialog-width: 58rem;
 }
 
-dialog.hbar-app-react-command-modal {
+.lumen-dialog.hbar-app-react-command-modal {
   --lumen-dialog-width: 42rem;
 
   block-size: min(42rem, calc(100dvb - 2rem));
 }
 
-dialog.hbar-app-react-chat-search-dialog {
+.lumen-dialog.hbar-app-react-chat-search-dialog {
   --lumen-dialog-width: 40rem;
 
   block-size: auto;
   max-block-size: calc(100dvb - 2rem);
 }
 
-dialog.hbar-app-react-chat-search-dialog > .lumen-dialog-body {
+.lumen-dialog.hbar-app-react-chat-search-dialog .lumen-dialog-body {
   min-block-size: 0;
 }
 
-dialog.hbar-app-react-command-modal:has(.hbar-app-react-command-palette[data-view='parameters']) {
+.lumen-dialog.hbar-app-react-command-modal:has(.hbar-app-react-command-palette[data-view='parameters']) {
   block-size: min(36rem, calc(100dvb - 2rem));
 }
 
-dialog.hbar-app-react-command-modal:has(.hbar-app-react-command-palette[data-view='result']) {
+.lumen-dialog.hbar-app-react-command-modal:has(.hbar-app-react-command-palette[data-view='result']) {
   block-size: min(30rem, calc(100dvb - 2rem));
 }
 
-dialog.hbar-app-react-command-modal:has(.hbar-app-react-command-result-details[data-open='true']) {
+.lumen-dialog.hbar-app-react-command-modal:has(.hbar-app-react-command-result-details[data-open='true']) {
   block-size: min(42rem, calc(100dvb - 2rem));
 }
 
-.hbar-app-react-workspace-modal > .lumen-dialog-body > * {
+.lumen-dialog.hbar-app-react-workspace-modal .lumen-dialog-body > * {
   min-inline-size: 0;
   min-block-size: 0;
   flex: 1 1 auto;
 }
 
 @media (max-width: 48rem) {
-  dialog.hbar-app-react-workspace-modal {
+  .lumen-dialog.hbar-app-react-workspace-modal {
     block-size: calc(100dvb - 2rem);
   }
 
-  dialog.hbar-app-react-chat-search-dialog {
+  .lumen-dialog.hbar-app-react-chat-search-dialog {
     block-size: auto;
   }
 
-  dialog.hbar-app-react-command-modal:has(.hbar-app-react-command-palette) {
+  .lumen-dialog.hbar-app-react-command-modal:has(.hbar-app-react-command-palette) {
     block-size: calc(100dvb - 2rem);
   }
 }
