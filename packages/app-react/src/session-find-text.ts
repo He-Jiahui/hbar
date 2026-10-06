@@ -7,12 +7,14 @@ import remarkGfm from 'remark-gfm'
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import { sessionCjkAutolink } from './session-markdown-autolink'
 import { messageFileReferenceLinks } from './message-file-reference-links'
+import { messageImageLinks } from './message-image-links'
 
 /** Shared by the real Markdown renderer and the non-DOM, loaded-history index. */
 export const sessionMarkdownRemarkPlugins: PluggableList = [remarkGfm]
 export const sessionMarkdownRehypePlugins: PluggableList = [
   sessionCjkAutolink,
   messageFileReferenceLinks,
+  messageImageLinks,
   [
     rehypeSanitize,
     {
@@ -25,7 +27,9 @@ export const sessionMarkdownRehypePlugins: PluggableList = [
           'dataHbarFileLine',
           'dataHbarFileColumn',
           'dataHbarFileKind',
+          'dataHbarImageOrdinal',
         ],
+        img: [...(defaultSchema.attributes?.img ?? []), 'dataHbarImageOrdinal'],
       },
     },
   ],

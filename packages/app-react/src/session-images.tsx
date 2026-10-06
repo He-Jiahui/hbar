@@ -41,6 +41,7 @@ import {
   useSessionImageThumbnails,
 } from './session-images-model'
 import './session-images.css'
+import { MessageImagePreviewProvider } from './message-image-preview-context'
 
 export interface HbarSessionImageLabels {
   readonly gallery: LumenImageGalleryLabels
@@ -182,7 +183,13 @@ export function HbarSessionImageLayer({
         : null,
     [runtime, options],
   )
-  if (!options) return <>{children}</>
+  const imagePreviewLabels = useMemo(() => {
+    const labels = options?.labels
+    return labels
+      ? { loading: labels.loading, failed: labels.error('READ_FAILED'), retry: labels.retry, open: labels.open }
+      : null
+  }, [options?.labels])
+  if (!options || !imagePreviewLabels) return <>{children}</>
   return (
     <HbarSessionImagesModelProvider
       resources={options.resources}
@@ -190,15 +197,17 @@ export function HbarSessionImageLayer({
       preSessionDraftId={preSessionDraftId}
     >
       <ImageContext.Provider value={context}>
-        <LumenFrame
-          className="hbar-session-images-layer"
-          ref={fallback}
-          tabIndex={-1}
-          aria-label={options.labels.conversation}
-        >
-          {children}
-          <ImageGallery fallback={fallback} />
-        </LumenFrame>
+        <MessageImagePreviewProvider labels={imagePreviewLabels}>
+          <LumenFrame
+            className="hbar-session-images-layer"
+            ref={fallback}
+            tabIndex={-1}
+            aria-label={options.labels.conversation}
+          >
+            {children}
+            <ImageGallery fallback={fallback} />
+          </LumenFrame>
+        </MessageImagePreviewProvider>
       </ImageContext.Provider>
     </HbarSessionImagesModelProvider>
   )

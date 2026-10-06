@@ -11,6 +11,7 @@ import './session-command-details.css'
 import { MarkdownCodeContent } from './markdown-code-content'
 import { serializedReadingLanguage } from './plain-code-tokens'
 import { HbarToolResultImages } from './session-images'
+import { ToolOutputImageLinks } from './tool-output-image-links'
 
 function SourceText({
   text,
@@ -197,6 +198,7 @@ function CommandDetails({
             )}
           </LumenText>
           <HbarToolResultImages sessionId={sessionId} messageId={messageId} result={row.result} />
+          <ToolOutputImageLinks text={output} />
           {success && window.collapsible && (
             <LumenButton
               type="button"
@@ -305,6 +307,7 @@ export function SessionToolDetails({
             owner={copyOwner}
           />
           <HbarToolResultImages sessionId={sessionId} messageId={messageId} result={row.result} />
+          <ToolOutputImageLinks text={row.result.text} />
         </LumenFrame>
       ) : null}
     </>

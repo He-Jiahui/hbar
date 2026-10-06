@@ -1,0 +1,10 @@
+.image-preview-fixture {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  inline-size: min(100%, 60rem);
+  min-inline-size: 0;
+  margin-inline: auto;
+  padding: 16px;
+  box-sizing: border-box;
+}

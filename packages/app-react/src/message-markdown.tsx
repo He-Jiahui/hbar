@@ -26,6 +26,8 @@ import {
 import './message-code-block.css'
 import { MessageFileReferenceLink, type MessageFileReferenceContext } from './message-file-reference'
 import { parseMessageFileReference } from './message-file-reference-model'
+import { MessageImagePreview } from './message-image-preview'
+import { imageLinkSource, MAX_MESSAGE_IMAGE_PREVIEWS } from './message-image-preview-model'
 
 export interface MessageCodeContext {
   readonly sessionId: string
@@ -40,6 +42,7 @@ const CodeContext = createContext<
   (MessageCodeContext & { readonly source: string; readonly streaming?: boolean | undefined }) | null
 >(null)
 const FileContext = createContext<MessageFileReferenceContext | null>(null)
+const ImageLinkContext = createContext(false)
 
 function MessageCodeBlock({
   code,
@@ -148,6 +151,7 @@ function MarkdownPre({ node, children, className }: ComponentProps<'pre'> & Extr
 }
 function MarkdownLink({ node, ...props }: ComponentProps<'a'> & ExtraProps) {
   const files = useContext(FileContext)
+  const code = useContext(CodeContext)
   const path = node?.properties.dataHbarFilePath
   if (typeof path === 'string') {
     const line = node?.properties.dataHbarFileLine
@@ -179,18 +183,50 @@ function MarkdownLink({ node, ...props }: ComponentProps<'a'> & ExtraProps) {
     } else if (anchorRef) anchorRef.current = node
     return undefined
   }
+  const anchor = (
+    <ImageLinkContext.Provider value={true}>
+      <LumenFrame
+        as="a"
+        {...anchorProps}
+        ref={anchorRef ? compatibleRef : undefined}
+        target={external ? '_blank' : undefined}
+        rel={external ? 'noreferrer noopener' : undefined}
+      />
+    </ImageLinkContext.Provider>
+  )
+  const ordinal = node?.properties.dataHbarImageOrdinal
+  const image =
+    !code?.streaming && !files?.streaming && typeof ordinal === 'number' && ordinal < MAX_MESSAGE_IMAGE_PREVIEWS
+      ? imageLinkSource(props.href)
+      : null
+  return image ? (
+    <LumenFrame as="span" className="hbar-message-image-link">
+      {anchor}
+      <MessageImagePreview source={image} />
+    </LumenFrame>
+  ) : (
+    anchor
+  )
+}
+
+function MarkdownImage({ node, src, alt }: ComponentProps<'img'> & ExtraProps) {
+  const linked = useContext(ImageLinkContext)
+  const code = useContext(CodeContext)
+  const files = useContext(FileContext)
+  const ordinal = node?.properties.dataHbarImageOrdinal
   return (
-    <LumenFrame
-      as="a"
-      {...anchorProps}
-      ref={anchorRef ? compatibleRef : undefined}
-      target={external ? '_blank' : undefined}
-      rel={external ? 'noreferrer noopener' : undefined}
+    <MessageImagePreview
+      source={typeof src === 'string' ? src : undefined}
+      alt={alt ?? undefined}
+      linked={linked}
+      preview={
+        !code?.streaming && !files?.streaming && typeof ordinal === 'number' && ordinal < MAX_MESSAGE_IMAGE_PREVIEWS
+      }
     />
   )
 }
 
-const linkComponents = { a: MarkdownLink }
+const linkComponents = { a: MarkdownLink, img: MarkdownImage }
 const components = { ...linkComponents, pre: MarkdownPre }
 
 function InlineContainer({ children }: { readonly children?: ReactNode }) {
