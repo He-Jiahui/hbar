@@ -1,6 +1,7 @@
 import type { Database } from 'bun:sqlite'
 import { z } from 'zod'
 import { contentBlockSchema, type ContentBlock } from '@hbar/contracts'
+import { sessionSearchDocuments } from './session-search-source'
 import {
   sessionRecentInputSchema,
   sessionRecentPageSchema,
@@ -19,14 +20,17 @@ export const SESSION_SEARCH_SQL = `
   CREATE TABLE IF NOT EXISTS session_search_queue(
     messageId TEXT PRIMARY KEY, sessionId TEXT NOT NULL, role TEXT NOT NULL,
     seq INTEGER NOT NULL, body TEXT NOT NULL, nextOffset INTEGER NOT NULL,
-    segmentIndex INTEGER NOT NULL
+    segmentIndex INTEGER NOT NULL, source TEXT NOT NULL DEFAULT 'conversation',
+    blockIndex INTEGER NOT NULL DEFAULT 0, callId TEXT, targetMessageId TEXT, originalMessageId TEXT
   );
   CREATE TABLE IF NOT EXISTS session_search_indexed(messageId TEXT PRIMARY KEY);
   CREATE TABLE IF NOT EXISTS session_search_documents(
     id INTEGER PRIMARY KEY, messageId TEXT NOT NULL, sessionId TEXT NOT NULL,
     role TEXT NOT NULL, seq INTEGER NOT NULL, segmentIndex INTEGER NOT NULL,
     body TEXT NOT NULL, normalizedBody TEXT NOT NULL,
-    UNIQUE(messageId,segmentIndex)
+    source TEXT NOT NULL DEFAULT 'conversation', blockIndex INTEGER NOT NULL DEFAULT 0,
+    callId TEXT, targetMessageId TEXT,
+    UNIQUE(messageId,source,blockIndex,segmentIndex)
   );
   CREATE INDEX IF NOT EXISTS session_search_documents_session ON session_search_documents(sessionId,seq);
   CREATE VIRTUAL TABLE IF NOT EXISTS session_search_fts USING fts5(
@@ -58,18 +62,27 @@ interface QueueRow {
   seq: number
   nextOffset: number
   segmentIndex: number
+  source: 'conversation' | 'file' | 'patch' | 'tool'
+  blockIndex: number
+  callId: string | null
+  targetMessageId: string | null
+  originalMessageId: string
 }
 interface CandidateRow {
   id: number
-  messageId: string
+  messageId: string | null
   sessionId: string
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'tool'
   seq: number
   segmentIndex: number
   workspaceId: string
   title: string
   workspaceName: string
   updatedAt: number
+  source: 'title' | 'conversation' | 'file' | 'patch' | 'tool'
+  blockIndex: number
+  callId: string | null
+  targetMessageId: string | null
 }
 interface RecentRow {
   sessionId: string
@@ -111,13 +124,21 @@ function snippet(body: string, normalizedNeedle: string): { before: string; hit:
   }
 }
 
-function textBody(role: string, content: readonly ContentBlock[]): string | null {
-  if (role !== 'user' && role !== 'assistant') return null
-  const body = content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n')
-  return body.trim() ? body : null
-}
-
 export function createSessionSearchStorage(db: Database, displayNames: () => ReadonlyMap<string, string>) {
+  // Rebuild only disposable search tables when upgrading the source projection.
+  const columns = z
+    .array(z.object({ name: z.string() }))
+    .parse(db.query('PRAGMA table_info(session_search_documents)').all())
+  if (!columns.some((column) => column.name === 'source')) {
+    db.transaction(() => {
+      db.exec(`DROP TABLE IF EXISTS session_search_fts;
+        DROP TABLE IF EXISTS session_search_documents;
+        DROP TABLE IF EXISTS session_search_queue;
+        DROP TABLE IF EXISTS session_search_indexed;
+        DROP TABLE IF EXISTS session_search_progress;`)
+      db.exec(SESSION_SEARCH_SQL)
+    })()
+  }
   function indexStatus(): { complete: boolean } {
     const progress = db.query('SELECT lastMessageRowid FROM session_search_progress WHERE id=1').get() as {
       lastMessageRowid: number
@@ -134,18 +155,49 @@ export function createSessionSearchStorage(db: Database, displayNames: () => Rea
     seq: number,
     content: readonly ContentBlock[],
   ) {
-    const body = textBody(role, content)
-    if (!body) return
     if (db.query('SELECT messageId FROM session_search_indexed WHERE messageId=?').get(messageId)) return
-    db.query('INSERT OR IGNORE INTO session_search_queue VALUES(?,?,?,?,?,?,?)').run(
-      messageId,
-      sessionId,
-      role,
-      seq,
-      body,
-      0,
-      0,
-    )
+    for (const document of sessionSearchDocuments(role, content)) {
+      let targetMessageId = messageId
+      let blockIndex = document.blockIndex
+      if (role === 'tool' && document.callId) {
+        const parent = z
+          .object({ id: z.string(), blockIndex: z.number() })
+          .nullable()
+          .parse(
+            db
+              .query(
+                `SELECT m.id, CAST(b.key AS INTEGER) AS blockIndex FROM messages m, json_each(m.content) b
+           WHERE m.sessionId=? AND m.seq<=? AND m.role='assistant'
+             AND json_extract(b.value,'$.type')='tool_call' AND json_extract(b.value,'$.callId')=?
+           ORDER BY m.seq DESC LIMIT 1`,
+              )
+              .get(sessionId, seq, document.callId),
+          )
+        if (parent) {
+          targetMessageId = parent.id
+          blockIndex = parent.blockIndex
+        }
+      }
+      db.query(
+        `INSERT OR IGNORE INTO session_search_queue
+        (messageId,sessionId,role,seq,body,nextOffset,segmentIndex,source,blockIndex,callId,targetMessageId,originalMessageId)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,
+      ).run(
+        JSON.stringify([messageId, document.source, document.blockIndex]),
+        sessionId,
+        role,
+        seq,
+        document.body,
+        0,
+        0,
+        document.source,
+        blockIndex,
+        document.callId,
+        targetMessageId,
+        messageId,
+      )
+    }
+    db.query('INSERT OR IGNORE INTO session_search_indexed(messageId) VALUES(?)').run(messageId)
   }
 
   function backfillStep(): { complete: boolean } {
@@ -157,7 +209,7 @@ export function createSessionSearchStorage(db: Database, displayNames: () => Rea
         .query('SELECT rowid,id,sessionId,role,seq,content FROM messages WHERE rowid>? ORDER BY rowid LIMIT ?')
         .all(progress.lastMessageRowid, DISCOVER_PER_STEP) as MessageRow[]
       for (const row of legacy) {
-        if (row.role !== 'user' && row.role !== 'assistant') continue
+        if (!['user', 'assistant', 'tool'].includes(row.role)) continue
         const content = z.array(contentBlockSchema).parse(JSON.parse(row.content) as unknown)
         queueMessage(row.id, row.sessionId, row.role, row.seq, content)
       }
@@ -166,9 +218,7 @@ export function createSessionSearchStorage(db: Database, displayNames: () => Rea
 
       for (let index = 0; index < SEGMENTS_PER_STEP; index++) {
         const queued = db
-          .query(
-            'SELECT messageId,sessionId,role,seq,nextOffset,segmentIndex FROM session_search_queue ORDER BY messageId LIMIT 1',
-          )
+          .query('SELECT * FROM session_search_queue ORDER BY messageId LIMIT 1')
           .get() as QueueRow | null
         if (!queued) break
         const segment = db
@@ -181,15 +231,20 @@ export function createSessionSearchStorage(db: Database, displayNames: () => Rea
         }
         if (segment.body) {
           db.query(
-            'INSERT INTO session_search_documents(messageId,sessionId,role,seq,segmentIndex,body,normalizedBody) VALUES(?,?,?,?,?,?,?)',
+            `INSERT INTO session_search_documents(messageId,sessionId,role,seq,segmentIndex,body,normalizedBody,
+              source,blockIndex,callId,targetMessageId) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
           ).run(
-            queued.messageId,
+            queued.originalMessageId,
             queued.sessionId,
             queued.role,
             queued.seq,
             queued.segmentIndex,
             segment.body,
             normalize(segment.body),
+            queued.source,
+            queued.blockIndex,
+            queued.callId,
+            queued.targetMessageId,
           )
           const inserted = db.query('SELECT last_insert_rowid() AS id').get() as { id: number }
           db.query('INSERT INTO session_search_fts(rowid,normalizedBody) VALUES(?,?)').run(
@@ -199,7 +254,6 @@ export function createSessionSearchStorage(db: Database, displayNames: () => Rea
         }
         const nextOffset = queued.nextOffset + SEGMENT_LENGTH
         if (nextOffset >= segment.bodyLength) {
-          db.query('INSERT INTO session_search_indexed(messageId) VALUES(?)').run(queued.messageId)
           db.query('DELETE FROM session_search_queue WHERE messageId=?').run(queued.messageId)
         } else {
           db.query('UPDATE session_search_queue SET nextOffset=?,segmentIndex=? WHERE messageId=?').run(
@@ -233,27 +287,73 @@ export function createSessionSearchStorage(db: Database, displayNames: () => Rea
     const normalizedQuery = normalize(parsed.query)
     const codePoints = Array.from(normalizedQuery).length
     const candidateIds =
-      codePoints >= 3
-        ? (
-            db
-              .query('SELECT rowid AS id FROM session_search_fts WHERE session_search_fts MATCH ? LIMIT ?')
-              .all(`"${normalizedQuery.replaceAll('"', '""')}"`, CANDIDATE_CAP + 1) as { id: number }[]
-          ).map((item) => item.id)
-        : (
-            db.query('SELECT id FROM session_search_documents ORDER BY id LIMIT ?').all(CANDIDATE_CAP + 1) as {
-              id: number
-            }[]
-          ).map((item) => item.id)
-    const scanCap = candidateIds.length > CANDIDATE_CAP
+      parsed.source === 'title'
+        ? []
+        : codePoints >= 3
+          ? (
+              db
+                .query(
+                  `SELECT f.rowid AS id FROM session_search_fts f
+                JOIN session_search_documents d ON d.id=f.rowid JOIN sessions s ON s.id=d.sessionId
+                WHERE session_search_fts MATCH ? AND s.archived=0 AND (?='all' OR d.source=?) LIMIT ?`,
+                )
+                .all(`"${normalizedQuery.replaceAll('"', '""')}"`, parsed.source, parsed.source, CANDIDATE_CAP + 1) as {
+                id: number
+              }[]
+            ).map((item) => item.id)
+          : (
+              db
+                .query(
+                  `SELECT d.id FROM session_search_documents d JOIN sessions s ON s.id=d.sessionId
+              WHERE s.archived=0 AND (?='all' OR d.source=?) ORDER BY d.id LIMIT ?`,
+                )
+                .all(parsed.source, parsed.source, CANDIDATE_CAP + 1) as {
+                id: number
+              }[]
+            ).map((item) => item.id)
+    let scanCap = candidateIds.length > CANDIDATE_CAP
     const names = displayNames()
     const groups = new Map<string, { identity: RecentRow; messages: Map<string, CandidateRow> }>()
+    if (parsed.source === 'all' || parsed.source === 'title') {
+      const titles = db
+        .query(
+          `SELECT s.id AS sessionId,s.workspaceId,s.title,w.name AS workspaceName,s.updatedAt
+        FROM sessions s JOIN workspaces w ON w.id=s.workspaceId WHERE s.archived=0
+        ORDER BY s.updatedAt DESC,s.id LIMIT ?`,
+        )
+        .all(CANDIDATE_CAP + 1) as RecentRow[]
+      scanCap ||= titles.length > CANDIDATE_CAP
+      for (const identity of titles.slice(0, CANDIDATE_CAP)) {
+        if (!normalize(identity.title).includes(normalizedQuery)) continue
+        groups.set(identity.sessionId, {
+          identity: { ...identity, workspaceName: names.get(identity.workspaceId) ?? identity.workspaceName },
+          messages: new Map([
+            [
+              'title',
+              {
+                ...identity,
+                id: 0,
+                messageId: null,
+                role: 'assistant',
+                seq: Number.MAX_SAFE_INTEGER,
+                segmentIndex: 0,
+                source: 'title',
+                blockIndex: 0,
+                callId: null,
+                targetMessageId: null,
+              },
+            ],
+          ]),
+        })
+      }
+    }
     for (let offset = 0; offset < Math.min(candidateIds.length, CANDIDATE_CAP); offset += 200) {
       const ids = candidateIds.slice(offset, offset + 200)
       if (!ids.length) break
       const placeholders = ids.map(() => '?').join(',')
       const rows = db
         .query(
-          `SELECT d.id,d.messageId,d.sessionId,d.role,d.seq,d.segmentIndex,
+          `SELECT d.id,d.messageId,d.sessionId,d.role,d.seq,d.segmentIndex,d.source,d.blockIndex,d.callId,d.targetMessageId,
                   s.workspaceId,s.title,w.name AS workspaceName,s.updatedAt
            FROM session_search_documents d
            JOIN sessions s ON s.id=d.sessionId
@@ -263,7 +363,7 @@ export function createSessionSearchStorage(db: Database, displayNames: () => Rea
         )
         .all(...ids, normalizedQuery) as CandidateRow[]
       for (const row of rows) {
-        if (row.role !== 'user' && row.role !== 'assistant') continue
+        if (!['user', 'assistant', 'tool'].includes(row.role)) continue
         let group = groups.get(row.sessionId)
         if (!group) {
           group = {
@@ -278,8 +378,9 @@ export function createSessionSearchStorage(db: Database, displayNames: () => Rea
           }
           groups.set(row.sessionId, group)
         }
-        const previous = group.messages.get(row.messageId)
-        if (!previous || row.segmentIndex < previous.segmentIndex) group.messages.set(row.messageId, row)
+        const key = JSON.stringify([row.messageId, row.source, row.blockIndex])
+        const previous = group.messages.get(key)
+        if (!previous || row.segmentIndex < previous.segmentIndex) group.messages.set(key, row)
       }
     }
     const ranked = [...groups.values()].sort(
@@ -291,12 +392,27 @@ export function createSessionSearchStorage(db: Database, displayNames: () => Rea
       const messages = [...group.messages.values()]
       messages.sort((left, right) => right.seq - left.seq || left.segmentIndex - right.segmentIndex)
       const matches = messages.slice(0, parsed.matchesPerSession).flatMap((row) => {
-        const document = db.query('SELECT body FROM session_search_documents WHERE id=?').get(row.id) as {
-          body: string
-        } | null
+        const document =
+          row.source === 'title'
+            ? { body: row.title }
+            : (db.query('SELECT body FROM session_search_documents WHERE id=?').get(row.id) as {
+                body: string
+              } | null)
         if (!document) return []
         const excerpt = snippet(document.body, normalizedQuery)
-        return excerpt ? [{ messageId: row.messageId, role: row.role, snippet: excerpt }] : []
+        return excerpt
+          ? [
+              {
+                messageId: row.messageId,
+                role: row.role,
+                source: row.source,
+                targetMessageId: row.targetMessageId,
+                blockIndex: row.source === 'title' ? null : row.blockIndex,
+                callId: row.callId,
+                snippet: excerpt,
+              },
+            ]
+          : []
       })
       return {
         ...group.identity,

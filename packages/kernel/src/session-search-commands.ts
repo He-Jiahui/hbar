@@ -54,6 +54,7 @@ export function createSessionSearchCommands(storage: StoragePort) {
   registry.register(sessionSearchCommands['session.recent'], (input) => storage.call('recentSessions', input))
   registry.register(sessionSearchCommands['session.search'], async (input, context) => {
     context.signal.throwIfAborted()
+    if (input.source === 'title') return storage.call('searchSessions', input)
     const index = await advance()
     context.signal.throwIfAborted()
     if (!index.complete) return { items: [], truncated: false, incompleteReason: 'indexing' as const }

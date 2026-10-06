@@ -57,7 +57,10 @@ test('paired public Client reads real indexed Host search and recent sessions wi
       },
     ],
   })
-  expect((await search.execute('session.search', { query: 'Search title' })).items).toEqual([])
+  expect((await search.execute('session.search', { query: 'Search title', source: 'conversation' })).items).toEqual([])
+  expect(
+    (await search.execute('session.search', { query: 'Search title', source: 'title' })).items[0]?.matches[0],
+  ).toMatchObject({ source: 'title', messageId: null })
   await kernel.storage.call('applyWorkspaceOrganization', {
     actorId: 'search-fixture',
     idempotencyKey: 'hide-workspace',

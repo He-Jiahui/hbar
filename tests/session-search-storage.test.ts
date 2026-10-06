@@ -28,7 +28,7 @@ async function finishIndex(store: Storage, maxSteps = 100) {
   throw new Error('Search index did not complete within the fixture bound')
 }
 
-test('searches committed user/assistant text across workspaces, not titles or private blocks', async () => {
+test('searches committed dialogue and titles across workspaces while excluding private blocks', async () => {
   const { root, store, workspace } = await fixture()
   const secondWorkspace = await store.call('createWorkspace', join(root, 'second'), 'Other project')
   const first = await store.call('createSession', workspace.id, 'title-only-needle')
@@ -53,7 +53,11 @@ test('searches committed user/assistant text across workspaces, not titles or pr
   expect(firstHit.matchCount).toBe(2)
   expect(firstHit.matches).toHaveLength(2)
   expect(firstHit.matches.every((match) => match.snippet.hit.toLowerCase() === 'searchword')).toBe(true)
-  expect((await store.call('searchSessions', { query: 'title-only-needle' })).items).toEqual([])
+  expect((await store.call('searchSessions', { query: 'title-only-needle', source: 'conversation' })).items).toEqual([])
+  expect((await store.call('searchSessions', { query: 'title-only-needle' })).items[0]?.matches[0]).toMatchObject({
+    source: 'title',
+    messageId: null,
+  })
   expect((await store.call('searchSessions', { query: 'secret-thinking-token' })).items).toEqual([])
   expect((await store.call('searchSessions', { query: 'tool-only-token' })).items).toEqual([])
   expect((await store.call('searchSessions', { query: '中文' })).items[0]?.sessionId).toBe(first.id)
@@ -130,7 +134,7 @@ test('old version-8 projection backfills incrementally and never reports false e
   db.close()
   const reopened = new Storage(database)
   stores.push(reopened)
-  expect((await reopened.call('ready')).version).toBe(19)
+  expect((await reopened.call('ready')).version).toBeGreaterThanOrEqual(19)
   expect((await reopened.call('searchIndexStep')).complete).toBe(false)
   await finishIndex(reopened)
   expect((await reopened.call('searchSessions', { query: 'legacy-match-19' })).items[0]?.sessionId).toBe(session.id)
@@ -150,4 +154,96 @@ test('a deleted SQLite projection rebuilds search from canonical session JSONL',
   await reopened.call('ready')
   await finishIndex(reopened)
   expect((await reopened.call('searchSessions', { query: 'canonical-search' })).items[0]?.sessionId).toBe(session.id)
+})
+
+test('source scopes find titles, dialogue, changed files, patch content and declared commands with exact targets', async () => {
+  const { store, workspace } = await fixture()
+  const session = await store.call('createSession', workspace.id, 'needle title')
+  const dialogue = await store.call('commit', session.id, 'source-run', 'user', [
+    { type: 'text', text: 'needle dialogue' },
+  ])
+  const call = await store.call('commit', session.id, 'source-run', 'assistant', [
+    {
+      type: 'tool_call',
+      callId: 'shell-call',
+      name: 'shell',
+      args: { command: 'echo needle', apiKey: 'private-argument-token' },
+      presentation: { version: 1, kind: 'command', commandField: 'command' },
+    },
+    { type: 'tool_call', callId: 'edit-call', name: 'edit_file', args: { path: 'needle.ts' } },
+    { type: 'thinking', text: 'private-thinking-token' },
+  ])
+  const result = await store.call('commit', session.id, 'source-run', 'tool', [
+    {
+      type: 'tool_result',
+      callId: 'edit-call',
+      name: 'edit_file',
+      text: 'Edited needle.ts',
+      isError: false,
+      details: { path: 'src/needle.ts', before: 'const old = "needle removed"', after: 'const fresh = "needle added"' },
+    },
+    {
+      type: 'tool_result',
+      callId: 'failed-call',
+      name: 'edit_file',
+      text: 'failed',
+      isError: true,
+      details: { path: 'failed-private-file.ts', before: 'failed-patch-token', after: 'changed' },
+    },
+  ])
+  await finishIndex(store)
+  const all = await store.call('searchSessions', { query: 'needle', matchesPerSession: 10 })
+  expect(new Set(all.items[0]?.matches.map((match) => match.source))).toEqual(
+    new Set(['title', 'conversation', 'file', 'patch', 'tool']),
+  )
+  for (const source of ['title', 'conversation', 'file', 'patch', 'tool'] as const) {
+    const matches = (
+      await store.call('searchSessions', { query: 'needle', source, matchesPerSession: 10 })
+    ).items.flatMap((item) => item.matches)
+    expect(matches.length).toBeGreaterThan(0)
+    expect(matches.every((match) => match.source === source)).toBe(true)
+    if (source === 'conversation') expect(matches[0]?.targetMessageId).toBe(dialogue.message.id)
+    if (source === 'file' || source === 'patch')
+      expect(matches[0]).toMatchObject({
+        messageId: result.message.id,
+        targetMessageId: call.message.id,
+        callId: 'edit-call',
+        blockIndex: 1,
+      })
+    if (source === 'tool')
+      expect(matches[0]).toMatchObject({ targetMessageId: call.message.id, callId: 'shell-call', blockIndex: 0 })
+  }
+  for (const query of ['private-argument-token', 'private-thinking-token', 'failed-private-file', 'failed-patch-token'])
+    expect((await store.call('searchSessions', { query })).items).toEqual([])
+  expect((await store.call('searchSessions', { query: 'needle removed', source: 'patch' })).items).toHaveLength(1)
+  expect((await store.call('searchSessions', { query: 'needle added', source: 'patch' })).items).toHaveLength(1)
+  await store.call('updateSession', session.id, { title: 'renamed title' })
+  expect((await store.call('searchSessions', { query: 'needle', source: 'title' })).items).toEqual([])
+  expect((await store.call('searchSessions', { query: 'renamed', source: 'title' })).items[0]?.sessionId).toBe(
+    session.id,
+  )
+})
+
+test('upgrades the old text-only projection without changing canonical messages', async () => {
+  const { store, database, workspace } = await fixture()
+  const session = await store.call('createSession', workspace.id, 'upgrade')
+  await store.call('commit', session.id, 'upgrade-run', 'assistant', [
+    { type: 'tool_call', callId: 'legacy-call', name: 'shell', args: { command: 'echo legacy-command-token' } },
+  ])
+  const before = await store.call('snapshot', session.id)
+  await store.close()
+  const db = new Database(database)
+  db.exec(`DROP TABLE session_search_fts; DROP TABLE session_search_documents;
+    CREATE TABLE session_search_documents(id INTEGER PRIMARY KEY,messageId TEXT NOT NULL,sessionId TEXT NOT NULL,
+      role TEXT NOT NULL,seq INTEGER NOT NULL,segmentIndex INTEGER NOT NULL,body TEXT NOT NULL,normalizedBody TEXT NOT NULL,UNIQUE(messageId,segmentIndex));
+    CREATE VIRTUAL TABLE session_search_fts USING fts5(normalizedBody,content='session_search_documents',content_rowid='id',tokenize='trigram');`)
+  db.close()
+  const reopened = new Storage(database)
+  stores.push(reopened)
+  await reopened.call('ready')
+  await finishIndex(reopened)
+  expect(
+    (await reopened.call('searchSessions', { query: 'legacy-command-token', source: 'tool' })).items[0]?.sessionId,
+  ).toBe(session.id)
+  expect((await reopened.call('snapshot', session.id)).messages).toEqual(before.messages)
 })

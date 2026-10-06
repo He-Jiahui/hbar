@@ -15,14 +15,25 @@ export const sessionRecentInputSchema = z.strictObject({ limit: z.number().int()
 export const sessionRecentItemSchema = z.strictObject(sessionIdentity)
 export const sessionRecentPageSchema = z.strictObject({ items: z.array(sessionRecentItemSchema).max(8) })
 
+export const sessionSearchSources = ['title', 'conversation', 'file', 'patch', 'tool'] as const
+export const sessionSearchSourceSchema = z.enum(sessionSearchSources)
+export const sessionSearchScopeSchema = z.enum(['all', ...sessionSearchSources])
+export type SessionSearchSource = z.output<typeof sessionSearchSourceSchema>
+export type SessionSearchScope = z.output<typeof sessionSearchScopeSchema>
+
 export const sessionSearchInputSchema = z.strictObject({
   query: z.string().trim().min(1).max(160),
+  source: sessionSearchScopeSchema.default('all'),
   limit: z.number().int().min(1).max(50).default(50),
-  matchesPerSession: z.number().int().min(1).max(3).default(3),
+  matchesPerSession: z.number().int().min(1).max(10).default(3),
 })
 export const sessionSearchMatchSchema = z.strictObject({
-  messageId: idSchema,
-  role: z.enum(['user', 'assistant']),
+  source: sessionSearchSourceSchema.default('conversation'),
+  messageId: idSchema.nullable(),
+  targetMessageId: idSchema.nullable().default(null),
+  blockIndex: z.number().int().nonnegative().nullable().default(null),
+  callId: idSchema.nullable().default(null),
+  role: z.enum(['user', 'assistant', 'tool']),
   snippet: z.strictObject({
     before: z.string().max(160),
     hit: z.string().min(1).max(160),
@@ -33,7 +44,7 @@ export const sessionSearchItemSchema = z.strictObject({
   ...sessionIdentity,
   matchCount: z.number().int().positive().max(999),
   matchCountCapped: z.boolean(),
-  matches: z.array(sessionSearchMatchSchema).min(1).max(3),
+  matches: z.array(sessionSearchMatchSchema).min(1).max(10),
 })
 export const sessionSearchPageSchema = z.strictObject({
   items: z.array(sessionSearchItemSchema).max(50),
@@ -48,7 +59,7 @@ export type SessionSearchPage = z.output<typeof sessionSearchPageSchema>
 
 const metadata = (id: 'session.recent' | 'session.search') => ({
   id,
-  version: 1,
+  version: id === 'session.search' ? 2 : 1,
   owner: 'hbar.session-search',
   kind: 'query' as const,
   execution: 'host' as const,
