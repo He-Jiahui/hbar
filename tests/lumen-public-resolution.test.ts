@@ -136,7 +136,7 @@ test('maintained Bun test entries retain native and quality gates with the hbar 
     .object({ scripts: z.object({ test: z.string(), check: z.string() }) })
     .parse(await Bun.file(resolve(root, 'package.json')).json())
   expect(manifest.scripts.test).toBe(
-    'bun run native:build && bun test ./tests ./packages/kernel/src/schedule-runner.test.ts ./packages/kernel/src/schedule-service.test.ts --tsconfig-override ./tsconfig.json --timeout 20000',
+    'bun run native:build && bun test ./tests ./packages/kernel/src/schedule-runner.test.ts ./packages/kernel/src/schedule-service.test.ts --tsconfig-override ./tsconfig.test.json --timeout 20000',
   )
   expect(manifest.scripts.check.split(' && ')).toEqual([
     'bun run lint',

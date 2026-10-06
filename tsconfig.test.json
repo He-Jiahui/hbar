@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@lumen/app-ui": ["./hbar-ui/packages/lumen-app-ui/src/index.ts"],
+      "@lumen/app-ui/catalog": ["./hbar-ui/packages/lumen-app-ui/src/catalog.ts"],
+      "@lumen/app-ui/variants": ["./hbar-ui/packages/lumen-app-ui/src/variants/index.ts"],
+      "react": ["./node_modules/react"],
+      "react/*": ["./node_modules/react/*"],
+      "react-dom": ["./node_modules/react-dom"],
+      "react-dom/*": ["./node_modules/react-dom/*"]
+    }
+  }
+}

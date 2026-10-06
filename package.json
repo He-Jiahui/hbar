@@ -58,7 +58,7 @@
     "build:reactbits-skill-registry": "bun scripts/build-reactbits-skill-registry.ts",
     "check:theme-tokens": "bun scripts/check-theme-tokens.ts",
     "check:github-flow": "bun test tests/github-flow.test.ts --timeout 20000",
-    "test": "bun run native:build && bun test ./tests ./packages/kernel/src/schedule-runner.test.ts ./packages/kernel/src/schedule-service.test.ts --tsconfig-override ./tsconfig.json --timeout 20000",
+    "test": "bun run native:build && bun test ./tests ./packages/kernel/src/schedule-runner.test.ts ./packages/kernel/src/schedule-service.test.ts --tsconfig-override ./tsconfig.test.json --timeout 20000",
     "test:e2e": "playwright test",
     "bench": "bun scripts/benchmark.ts",
     "bench:workspace-query": "bun run native:build && bun scripts/benchmark-workspace-query.ts",

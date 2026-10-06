@@ -17,6 +17,7 @@
 - 同一 `a958a3ff` 源码在已安装依赖的 Lumen checkout 上执行 pnpm 包构建，类型、Vite 库产物与声明生成均通过。pnpm 使用仓库指定的 `12.3.4`。
 - 全库 `bun run typecheck` 实际失败，语义迁移前观察到 96 项诊断，涉及已退役 Web 入口、主题契约、CLI 插件信息和存储等路径。这些失败仍需处理，不能将范围检查写成全库通过。
 - 隔离 Lumen 的完整 pnpm 安装使用临时 Node `22.23.2`。13 个旧镜像 tarball 曾遇到证书过期；通过 npm 官方源填充 pnpm 内容缓存后，原锁文件的冻结安装通过。
+- Lumen 独立 pnpm 依赖中的 React `19.3.0` 与宿主 `19.2.8` 同时存在时，Bun SSR 会使用两份 Hooks dispatcher。正式测试使用继承根配置的 `tsconfig.test.json`，把 React、React DOM 与 JSX runtime 统一解析到宿主依赖，和 Vite 的 `resolve.dedupe` 保持一致。93 个工作台、导航、审计与公开入口用例通过；更新测试命令契约后，其 4 个用例再次通过。
 
 ## 共享语义能力
 
