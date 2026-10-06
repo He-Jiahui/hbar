@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { createWorkspaceSessionCommandClient } from '@hbar/client'
+import { selectLumenOption } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 const base = () => `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 44729}`
@@ -52,7 +53,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       page.on('pageerror', (error) => errors.push(error.message))
       const copy = getShellCopy(locale)
       const files = await enterFiles(page, locale, host)
-      await files.getByRole('combobox', { name: copy.files.changes.mode, exact: true }).selectOption('changed')
+      await selectLumenOption(files.getByRole('combobox', { name: copy.files.changes.mode, exact: true }), 'changed')
       await expect(files.getByRole('button', { name: copy.files.changes.open(workingPath), exact: true })).toBeVisible()
       await expect(files.getByText(copy.files.changes.status(' ', 'M'), { exact: true })).toBeVisible()
       await expect(files.getByText(copy.files.changes.status('M', ' '), { exact: true })).toBeVisible()
@@ -108,7 +109,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .getByRole('menu', { name: copy.shell.workspaceActions(nested.name), exact: true })
         .getByRole('menuitem', { name: locale === 'zh-CN' ? '文件' : 'Files', exact: true })
         .click()
-      await files.getByRole('combobox', { name: copy.files.changes.mode, exact: true }).selectOption('changed')
+      await selectLumenOption(files.getByRole('combobox', { name: copy.files.changes.mode, exact: true }), 'changed')
       await files.getByRole('button', { name: copy.files.changes.open(nestedPath), exact: true }).click()
       await expect(files.getByLabel(copy.files.changes.diffContent(nestedPath), { exact: true })).toContainText(
         '+export const value = "after"',

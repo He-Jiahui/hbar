@@ -7,6 +7,7 @@ import { basename, dirname, join } from 'node:path'
 import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
+import { selectLumenOption } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 const origin = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
@@ -161,7 +162,7 @@ async function navigator(fixture: Fixture): Promise<Locator> {
 }
 async function openFile(fixture: Fixture, path: string): Promise<void> {
   const region = await navigator(fixture)
-  await region.getByRole('combobox', { name: fixture.copy.files.changes.mode, exact: true }).selectOption('all')
+  await selectLumenOption(region.getByRole('combobox', { name: fixture.copy.files.changes.mode, exact: true }), 'all')
   await region.getByRole('textbox', { name: fixture.copy.files.tree.filter, exact: true }).fill(path)
   await region.getByRole('button', { name: path, exact: true }).click()
   await expect(preview(fixture, path)).toBeVisible()
@@ -208,7 +209,10 @@ async function openDiff(
   expectedText?: string,
 ): Promise<void> {
   const region = await navigator(fixture)
-  await region.getByRole('combobox', { name: fixture.copy.files.changes.mode, exact: true }).selectOption('changed')
+  await selectLumenOption(
+    region.getByRole('combobox', { name: fixture.copy.files.changes.mode, exact: true }),
+    'changed',
+  )
   await region.getByRole('button', { name: fixture.copy.files.changes.open(path), exact: true }).click()
   await files(fixture)
     .getByRole('button', {

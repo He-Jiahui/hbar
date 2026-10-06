@@ -91,6 +91,8 @@ test('file workspace renders Host entries and a command-owned editable document'
     expect(html).toContain('class="hbar-app-react-file-browser" hidden=""')
     expect(html).toContain(labels.showNavigator)
     expect(html).toContain('aria-current="page"')
+    expect(html).not.toContain('<select')
+    expect(html).toContain('role="combobox"')
     expect(html).not.toContain('demo.ts')
     await runtime.view.commands.execute('fileWorkspace.setDocumentMode', {
       instanceId: 'files',

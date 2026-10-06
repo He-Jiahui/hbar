@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { workspaceTabsCopy } from '../apps/web/src/workspace-tabs-copy'
 import { expectComposerText } from './support/composer-text'
+import { selectLumenOption } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 const base = () => `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
@@ -83,7 +84,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await files.getByRole('textbox', { name: filename, exact: true }).fill('# still unsaved in A')
       await expect(add).toBeDisabled()
       await files.getByRole('button', { name: copy.files.backToFiles, exact: true }).click()
-      await files.getByRole('combobox', { name: copy.files.changes.mode }).selectOption('changed')
+      await selectLumenOption(files.getByRole('combobox', { name: copy.files.changes.mode }), 'changed')
       await files.getByRole('button', { name: copy.files.changes.open(changedFile), exact: true }).click()
       await expect(files.getByLabel(copy.files.changes.diffContent(changedFile), { exact: true })).toContainText(
         '+# after',

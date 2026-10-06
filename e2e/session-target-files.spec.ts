@@ -16,6 +16,7 @@ import { COMMAND_PROTOCOL_VERSION, createCommandClient } from '@hbar/commands'
 import { sessionLaunchTargetCommands } from '@hbar/contracts/commands/session-launch-target'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { workspaceTabsCopy } from '../apps/web/src/workspace-tabs-copy'
+import { selectLumenOption } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 const prefix = 'hbar-session-target-files-'
@@ -184,7 +185,7 @@ async function openFile(page: Page, copy: LocaleCopy, path: string): Promise<voi
   if (await show.isVisible()) await show.click()
   const navigator = panel.getByRole('region', { name: copy.files.navigator, exact: true })
   await expect(navigator).toBeVisible()
-  await navigator.getByRole('combobox', { name: copy.files.changes.mode, exact: true }).selectOption('all')
+  await selectLumenOption(navigator.getByRole('combobox', { name: copy.files.changes.mode, exact: true }), 'all')
   await navigator.getByRole('textbox', { name: copy.files.tree.filter, exact: true }).fill(path)
   const results = navigator.getByRole('list', { name: copy.files.tree.searchResults, exact: true })
   await expect(results).toBeVisible()
@@ -398,7 +399,7 @@ test('an isolated Files workbench reads and saves its own same-path file after s
     if (await showNavigator.isVisible()) await showNavigator.click()
     const navigator = workbench.getByRole('region', { name: copy.files.navigator, exact: true })
     await expect(navigator).toBeVisible()
-    await navigator.getByRole('combobox', { name: copy.files.changes.mode, exact: true }).selectOption('changed')
+    await selectLumenOption(navigator.getByRole('combobox', { name: copy.files.changes.mode, exact: true }), 'changed')
     await navigator.getByRole('button', { name: copy.files.changes.open(documentPath), exact: true }).click()
     const diffContent = workbench.getByLabel(copy.files.changes.diffContent(documentPath), { exact: true })
     await expect(diffContent).toContainText('-# Shared workspace version')

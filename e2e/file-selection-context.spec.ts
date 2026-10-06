@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
+import { selectLumenOption } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 const base = () => `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
@@ -110,7 +111,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await comment.getByRole('button', { name: copy.files.context.addComment, exact: true }).click()
       await expect(comment).toHaveCount(0)
       await files.getByRole('button', { name: copy.files.backToFiles, exact: true }).click()
-      await files.getByRole('combobox', { name: copy.files.changes.mode, exact: true }).selectOption('changed')
+      await selectLumenOption(files.getByRole('combobox', { name: copy.files.changes.mode, exact: true }), 'changed')
       await files.getByRole('button', { name: copy.files.changes.open(changedPath), exact: true }).click()
       await files
         .getByRole('button', { name: copy.files.context.commentLine(changedPath, 2, 'new'), exact: true })

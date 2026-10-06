@@ -9,8 +9,7 @@ import {
   LumenIconButton,
   LumenFileDocument,
   LumenTextarea,
-  LumenSelect,
-  LumenOption,
+  LumenPopupSelect,
   LumenToolPane,
   LumenFileManager01,
   LumenFileManager03,
@@ -853,22 +852,24 @@ export function HbarFileWorkspace({
             hidden={hasPreview && !navigator.shown}
           >
             <LumenFrame className="hbar-file-browser-mode">
-              <LumenSelect
+              <LumenPopupSelect
                 aria-label={labels.changes.mode}
+                id="hbar-file-browser-mode"
                 value={entry?.browserMode ?? 'all'}
                 disabled={!connected || !entry}
-                onChange={(event) =>
+                options={[
+                  { id: 'all', label: labels.changes.all },
+                  { id: 'changed', label: labels.changes.changed },
+                ]}
+                onValueChange={(mode) =>
                   invoke('fileWorkspace.setBrowserMode', {
                     instanceId,
                     workspaceId,
-                    mode: event.currentTarget.value,
+                    mode,
                     preservePreview: true,
                   })
                 }
-              >
-                <LumenOption value="all">{labels.changes.all}</LumenOption>
-                <LumenOption value="changed">{labels.changes.changed}</LumenOption>
-              </LumenSelect>
+              />
             </LumenFrame>
             {entry?.browserMode === 'changed' ? (
               <LumenFileManager03

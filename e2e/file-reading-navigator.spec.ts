@@ -4,6 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { selectLumenOption } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 const base = () => `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 44881}`
@@ -66,7 +67,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(files.getByLabel(copy.files.textPreview(second), { exact: true })).toContainText('changed second')
       await expect(navigator).toBeVisible()
       await expect(navigator.getByRole('button', { name: second, exact: true })).toHaveAttribute('aria-current', 'page')
-      await navigator.getByRole('combobox', { name: copy.files.changes.mode, exact: true }).selectOption('changed')
+      await selectLumenOption(
+        navigator.getByRole('combobox', { name: copy.files.changes.mode, exact: true }),
+        'changed',
+      )
       await expect(files.getByLabel(copy.files.textPreview(second), { exact: true })).toBeVisible()
       await navigator.getByRole('button', { name: copy.files.changes.open(second), exact: true }).click()
       await expect(files.getByLabel(copy.files.changes.diffContent(second), { exact: true })).toContainText(
@@ -77,7 +81,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       ).toHaveAttribute('aria-current', 'page')
       await navigator.getByRole('button', { name: copy.files.changes.refresh, exact: true }).click()
       await expect(files.getByLabel(copy.files.changes.diffContent(second), { exact: true })).toBeVisible()
-      await navigator.getByRole('combobox', { name: copy.files.changes.mode, exact: true }).selectOption('all')
+      await selectLumenOption(navigator.getByRole('combobox', { name: copy.files.changes.mode, exact: true }), 'all')
       await expect(files.getByLabel(copy.files.changes.diffContent(second), { exact: true })).toBeVisible()
       await navigator.getByRole('button', { name: first, exact: true }).click()
       // The existing preview keeps its own editing mode when selected again.

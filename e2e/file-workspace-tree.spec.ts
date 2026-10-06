@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
+import { selectLumenOption } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 const base = () => `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 44729}`
@@ -122,9 +123,11 @@ for (const locale of ['zh-CN'] as const) {
       await search.press('ArrowDown')
       await expect(alternativeResult).toBeFocused()
       await alternativeResult.press('Enter')
-      await expect(files.getByLabel(copy.files.textPreview(alternative), { exact: true })).toContainText(
-        '# Other source',
-      )
+      const alternativePreview = files.getByLabel(copy.files.textPreview(alternative), { exact: true })
+      await expect(alternativePreview).toBeVisible()
+      await expect(
+        alternativePreview.getByRole('heading', { level: 1, name: 'Other source', exact: true }),
+      ).toBeVisible()
       await files.getByRole('button', { name: copy.files.backToFiles, exact: true }).click()
       await expect(search).toHaveValue('other/')
       await files.getByRole('button', { name: copy.files.tree.clearSearch, exact: true }).click()
@@ -135,7 +138,11 @@ for (const locale of ['zh-CN'] as const) {
       await search.press('ArrowDown')
       await expect(searchResult).toBeFocused()
       await searchResult.press('Enter')
-      await expect(files.getByLabel(copy.files.textPreview(path), { exact: true })).toContainText('# Source')
+      await expect(
+        files
+          .getByLabel(copy.files.textPreview(path), { exact: true })
+          .getByRole('heading', { level: 1, name: 'Source', exact: true }),
+      ).toBeVisible()
       await files.getByRole('button', { name: copy.files.backToFiles, exact: true }).click()
       await expect(search).toHaveValue('breadcrumb')
       await expect(searchResult).toBeVisible()
@@ -146,7 +153,11 @@ for (const locale of ['zh-CN'] as const) {
       await expect(files.getByRole('button', { name: filename, exact: true })).toBeVisible()
       await expect(files.getByText(copy.files.tree.filterScope, { exact: true })).toBeVisible()
       await files.getByRole('button', { name: filename, exact: true }).click()
-      await expect(files.getByLabel(copy.files.textPreview(path), { exact: true })).toContainText('# Source')
+      await expect(
+        files
+          .getByLabel(copy.files.textPreview(path), { exact: true })
+          .getByRole('heading', { level: 1, name: 'Source', exact: true }),
+      ).toBeVisible()
       await files.getByRole('button', { name: copy.files.edit, exact: true }).click()
       const editor = files.getByRole('textbox', { name: path, exact: true })
       await editor.fill('# An unsaved tree draft')
@@ -160,10 +171,10 @@ for (const locale of ['zh-CN'] as const) {
         'true',
       )
       await files.getByRole('button', { name: copy.files.backToFiles, exact: true }).click()
-      await files.getByRole('combobox', { name: copy.files.changes.mode, exact: true }).selectOption('changed')
+      await selectLumenOption(files.getByRole('combobox', { name: copy.files.changes.mode, exact: true }), 'changed')
       await files.getByRole('button', { name: copy.files.changes.openFolder(folder), exact: true }).click()
       // Opening a changed folder retains the selected mode. All files owns breadcrumbs.
-      await files.getByRole('combobox', { name: copy.files.changes.mode, exact: true }).selectOption('all')
+      await selectLumenOption(files.getByRole('combobox', { name: copy.files.changes.mode, exact: true }), 'all')
       await expect(files.getByRole('navigation', { name: copy.files.tree.navigation, exact: true })).toContainText(
         copy.files.tree.root,
       )

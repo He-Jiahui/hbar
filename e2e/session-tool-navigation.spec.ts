@@ -9,6 +9,7 @@ import { workspaceTabsCopy } from '../apps/web/src/workspace-tabs-copy'
 import { expectComposerText } from './support/composer-text'
 import { openSessionTool } from './support/session-tools-menu'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { expectLumenValue } from './support/lumen-controls'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`session tools remain readable, keyboard-operable and scoped at every width: ${locale}`, async ({ browser }) => {
@@ -154,7 +155,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           await expect(page.getByRole('heading', { level: 1 })).toHaveText(host.ready.sessionTitle)
         }
         await openSessionTool(page, copy.session.tools, 'settings')
-        await expect(page.getByRole('combobox', { name: copy.settings.scopes })).toHaveValue('session')
+        await expectLumenValue(page.getByRole('combobox', { name: copy.settings.scopes }), 'session')
         await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
         await expectComposerText(prompt, 'A draft belongs to this session — 工具切换不应丢失草稿')
       }
@@ -334,7 +335,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
 
         await trigger.click()
         await menuTool(copy.session.tools.settings).click()
-        await expect(page.getByRole('combobox', { name: copy.settings.scopes })).toHaveValue('session')
+        await expectLumenValue(page.getByRole('combobox', { name: copy.settings.scopes }), 'session')
         await expect(titleHeading).toHaveText(copy.shell.settings)
         await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
         await expect(titleHeading).toHaveText(title)
@@ -489,7 +490,7 @@ test('primary Activity and labelled secondary tools preserve current-session dra
     await agents.getByRole('button', { name: copy.agents.close, exact: true }).click()
     await expect(more).toBeFocused()
     await openSessionTool(page, labels, 'settings')
-    await expect(page.getByRole('combobox', { name: copy.settings.scopes })).toHaveValue('session')
+    await expectLumenValue(page.getByRole('combobox', { name: copy.settings.scopes }), 'session')
     await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
     await expectComposerText(prompt, draft)
 
