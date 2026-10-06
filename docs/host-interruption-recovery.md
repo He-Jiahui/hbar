@@ -18,6 +18,18 @@ Goal/Session token budget 和用户取消仍由原有边界管理。
 真正的无进展超时继续保留为不可自动重试的错误。检查已提交的工具结果后再显式
 续跑，不自动重复未知结果的写入。
 
+## 模型连接与流响应
+
+Pi 适配边界将 SDK 的 `Connection error.` 标记为
+`PROVIDER_CONNECTION_FAILED`，将残缺 JSON 或缺失 Responses 终态事件标记为
+`PROVIDER_STREAM_INTERRUPTED`。这些明确属于模型传输的错误沿原有 Goal 续跑
+流程退避重试，默认最多两次重试，持续失败则停止为 `retry_exhausted`。
+
+恢复请求使用已提交的会话与工具结果。不执行失败流里的部分工具调用，也不
+重新执行已结算的调用。Host hook、存储和工具异常即使含有相似文字，也不会
+因此被赋予这些传输错误码。用户取消、真正的空闲超时及结果未知的写入保留
+原来的停止语义。普通对话没有活动 Goal 时仍返回明确失败，不创建隐式目标。
+
 ## 桌面源码重载
 
 `desktop:dev` 的 Bun `--watch` 会在已导入的后端源码变化时重启 Host。
@@ -31,5 +43,9 @@ Goal/Session token budget 和用户取消仍由原有边界管理。
 到期、单计时器与释放，并使用真实 Kernel / Storage 验证正文、thinking 和工具
 结算更新期限，以及相同流更新不能保活。`tests/goal-replacement.test.ts` 覆盖没有
 `replacement` 元数据的 Goal 与缺失 Run 上下文、重启恢复和目标替换。
+
+`tests/provider-stream-recovery.test.ts` 通过真实 Pi / 本地 HTTP Responses 流
+验证残缺 JSON、缺失终态、连接失败、重试次数上限和部分工具不执行，并核对
+已保存的写入在下一次请求中保留且只执行一次。
 
 这些测试使用临时数据与本地 fixture，不依赖真实模型或用户会话。

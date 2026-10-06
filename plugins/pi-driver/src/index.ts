@@ -16,6 +16,7 @@ import { streamSimple as openaiCompletions } from '@earendil-works/pi-ai/api/ope
 import { streamSimple as openaiResponses } from '@earendil-works/pi-ai/api/openai-responses'
 import { streamSimple as anthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages'
 import { z } from 'zod'
+import { providerFailure } from './provider-failure'
 import { definePlugin, provide, RunControlSignal } from '@hbar/plugin-sdk'
 import { createUsageFact } from '@hbar/usage'
 import { DEFAULT_THINKING_LEVELS, normalizeThinkingLevel } from '@hbar/contracts'
@@ -524,7 +525,7 @@ export class PiDriver implements HarnessDriver {
       )
       input.signal.throwIfAborted()
       if (requestFailure !== undefined) throw requestFailure
-      if (failure) throw new Error(failure)
+      if (failure) throw attemptModel.protocol === 'mock' ? new Error(failure) : providerFailure(failure)
     } catch (error) {
       if (!(error instanceof RunControlSignal) || input.signal.aborted) throw error
     } finally {
@@ -550,7 +551,9 @@ export class PiDriver implements HarnessDriver {
     }
     const message = await stream.result()
     if (message.stopReason === 'error' || message.stopReason === 'aborted')
-      throw new Error(message.errorMessage ?? 'Compaction failed')
+      throw request.model.protocol === 'mock'
+        ? new Error(message.errorMessage ?? 'Compaction failed')
+        : providerFailure(message.errorMessage ?? 'Compaction failed')
     return {
       text: message.content
         .filter((c) => c.type === 'text')

@@ -60,6 +60,23 @@ test('Bun provider socket closure is transient but typed Host failures and unkno
   expect(classifyRunFailure(new Error('fetch failed'))).toMatchObject({ category: 'execution', retryable: false })
 })
 
+test('provider transport failures retry only when attributed by the provider boundary', () => {
+  for (const code of ['PROVIDER_CONNECTION_FAILED', 'PROVIDER_STREAM_INTERRUPTED'])
+    expect(classifyRunFailure(new HbarError(code, 'Provider response interrupted'))).toEqual({
+      code,
+      category: 'transient',
+      retryable: true,
+    })
+  for (const message of ['Connection error.', 'JSON Parse error: Unterminated string']) {
+    expect(classifyRunFailure(new Error(message))).toMatchObject({ category: 'execution', retryable: false })
+    expect(classifyRunFailure(new HbarError('STORAGE_FAILURE', message))).toEqual({
+      code: 'STORAGE_FAILURE',
+      category: 'execution',
+      retryable: false,
+    })
+  }
+})
+
 for (const source of ['goal', 'session'] as const) {
   test(`${source} allowance errors preserve their code through PiDriver, operation queries and restart`, async () => {
     const { resource, kernel, session, goals } = await fixture()
