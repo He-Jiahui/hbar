@@ -25,6 +25,7 @@
     "./commands/files": "./src/commands/files.ts",
     "./commands/file-workspace": "./src/commands/file-workspace.ts",
     "./commands/extensions": "./src/commands/extensions.ts",
+    "./commands/skill-import": "./src/commands/skill-import.ts",
     "./commands/extension-workspace": "./src/commands/extension-workspace.ts",
     "./commands/goals": "./src/commands/goals.ts",
     "./commands/goal-history": "./src/commands/goal-history.ts",

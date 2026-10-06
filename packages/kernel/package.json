@@ -5,16 +5,19 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./session-search-commands": "./src/session-search-commands.ts"
+    "./session-search-commands": "./src/session-search-commands.ts",
+    "./skill-import": "./src/skill-import-service.ts"
   },
   "dependencies": {
     "@hbar/agent": "workspace:*",
     "@hbar/commands": "workspace:*",
+    "@hbar/contracts": "workspace:*",
     "@hbar/provider-catalog": "workspace:*",
     "@hbar/schema-core": "workspace:*",
     "@hbar/settings-core": "workspace:*",
     "@hbar/usage": "workspace:*",
     "@hbar/workflow": "workspace:*",
-    "cron-parser": "5.10.1"
+    "cron-parser": "5.10.1",
+    "zod": "4.5.4"
   }
 }

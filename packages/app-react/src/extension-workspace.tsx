@@ -14,7 +14,7 @@ import {
   LumenText,
 } from '@lumen/app-ui'
 import { extensionWorkspacePage, type ExtensionWorkspaceEntryState } from '@hbar/app-runtime'
-import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import { useHbarRuntime, useHbarRuntimeState, useHbarSkillImportSurface } from './runtime'
 import { ExtensionPluginDetail, type ExtensionPluginDetailLabels } from './extension-plugin-detail'
 import { ExtensionSkillDetail, type ExtensionSkillDetailLabels } from './extension-skill-detail'
 import { ExtensionPagination, type ExtensionPaginationLabels } from './extension-pagination'
@@ -117,6 +117,7 @@ export function HbarExtensionWorkspace({
   readonly commandPaletteTriggerRef?: RefObject<HTMLButtonElement | null>
 }) {
   const runtime = useHbarRuntime()
+  const renderSkillImport = useHbarSkillImportSurface()
   const extensions = useHbarRuntimeState(runtime.state.extensions)
   const entry = extensions.entries[instanceId]
   const detail = collection === 'skills' ? undefined : entry?.detail
@@ -488,6 +489,7 @@ export function HbarExtensionWorkspace({
                         )}
                       </LumenFrame>
                     )}
+                    {renderSkillImport?.(instanceId, connected)}
                     <ExtensionCollectionFeedback
                       key={collection ?? 'combined'}
                       state={skills}

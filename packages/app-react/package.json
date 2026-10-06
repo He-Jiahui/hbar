@@ -14,6 +14,7 @@
     "./goal-plan": "./src/goal-plan-workspace.tsx",
     "./settings": "./src/lumen-settings-workspace.tsx",
     "./storage-locations": "./src/storage-location-settings.tsx",
+    "./skill-import": "./src/skill-import-panel.tsx",
     "./status": "./src/lumen-status-workspace.tsx",
     "./agents": "./src/lumen-agent-workspace.tsx",
     "./extensions": "./src/extension-workspace.tsx",

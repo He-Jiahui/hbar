@@ -78,6 +78,7 @@ import type {
 } from '@hbar/plugin-sdk'
 import { Auth, requestToken } from './auth.ts'
 import { createSystemCommands } from './system-commands.ts'
+import { createSkillImportService } from '@hbar/kernel/skill-import'
 import { createExtensionCommands } from './extension-commands.ts'
 import { createSkillInspectionService } from './skill-inspection.ts'
 import type { RuntimeScope } from '@hbar/kernel'
@@ -196,7 +197,12 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const computerCommands = createComputerCommands(kernel.plugins.get<ComputerUseService>('computer'))
   const configurationCommands = createConfigurationCommands(kernel, resolveModeService(kernel))
   const skillInspection = createSkillInspectionService(kernel.options.layout.globalSkills)
+  const skillImport = createSkillImportService({
+    destination: kernel.options.layout.globalSkills,
+    journalRoot: resolve(kernel.options.layout.settings, 'skill-imports'),
+  })
   const extensionCommands = createExtensionCommands({
+    skillImport,
     list: () => kernel.plugins.list(),
     set: (id, enabled, config) => kernel.changePlugin(id, enabled, config),
     install: (path, projectId) => kernel.installPlugin(path, projectId),
@@ -1151,6 +1157,10 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         const p = rpcSchemas[method].parse(raw)
         return extensionCommands.execute('plugin.resolve', p)
       }
+      case 'plugin.disableTree': {
+        const input = rpcSchemas[method].parse(raw)
+        return kernel.changePluginTree(input.id, input.projectId)
+      }
       case 'plugin.graph':
         return extensionCommands.execute('plugin.graph', {})
       case 'plugin.lock':
@@ -1500,6 +1510,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       computerCommands.dispose()
       configurationCommands.dispose()
       extensionCommands.dispose()
+      await skillImport.dispose()
       gitCommands.dispose()
       workspaceSessionCommands.dispose()
       sessionLaunchTargetCommands.dispose()

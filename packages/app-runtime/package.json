@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./workspace-tab-close": "./src/workspace-tab-close.ts",
-    "./storage-locations": "./src/storage-locations.ts"
+    "./storage-locations": "./src/storage-locations.ts",
+    "./skill-import": "./src/skill-import.ts"
   },
   "dependencies": {
     "@hbar/commands": "workspace:*",

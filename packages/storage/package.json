@@ -5,6 +5,8 @@
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {
-    "@hbar/usage": "workspace:*"
+    "@hbar/contracts": "workspace:*",
+    "@hbar/usage": "workspace:*",
+    "zod": "4.5.4"
   }
 }

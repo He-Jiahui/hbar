@@ -3,6 +3,7 @@ import { HbarError } from '@hbar/contracts'
 import type { PluginInfo } from '@hbar/contracts'
 import { extensionCommands, type SkillDescriptor } from '@hbar/contracts/commands/extensions'
 import type { SkillInspectionService } from './skill-inspection.ts'
+import type { SkillImportService } from '@hbar/kernel/skill-import'
 
 export interface ExtensionCommandDependencies {
   list(): PluginInfo[]
@@ -18,6 +19,7 @@ export interface ExtensionCommandDependencies {
   doctor(): { ok: boolean; errors: string[]; order?: string[] }
   skills(signal?: AbortSignal): Promise<SkillDescriptor[]>
   skillInspection?: SkillInspectionService
+  skillImport?: SkillImportService
 }
 
 export function createExtensionCommands(dependencies: ExtensionCommandDependencies) {
@@ -62,6 +64,30 @@ export function createExtensionCommands(dependencies: ExtensionCommandDependenci
   registry.register(extensionCommands['plugin.doctor'], () => dependencies.doctor())
   registry.register(extensionCommands['skill.list'], (_input, context) =>
     translate(() => dependencies.skills(context.signal)),
+  )
+  const imports = () => {
+    if (!dependencies.skillImport)
+      throw new CommandError('CAPABILITY_UNAVAILABLE', 'Skill import is unavailable on this Host')
+    return dependencies.skillImport
+  }
+  registry.register(extensionCommands['skill.import.preview'], (input, context) =>
+    translate(() => imports().preview(input, context.signal)),
+  )
+  registry.register(
+    extensionCommands['skill.import.start'],
+    (input, context) => translate(() => imports().start(input, context.actorId ?? 'local')),
+    { durable: true },
+  )
+  registry.register(extensionCommands['skill.import.get'], ({ operationId }, context) =>
+    translate(() => imports().get(operationId, context.actorId ?? 'local')),
+  )
+  registry.register(extensionCommands['skill.import.latest'], (_input, context) =>
+    translate(() => imports().latest(context.actorId ?? 'local')),
+  )
+  registry.register(
+    extensionCommands['skill.import.cancel'],
+    ({ operationId }, context) => translate(() => imports().cancel(operationId, context.actorId ?? 'local')),
+    { durable: true },
   )
   registry.register(extensionCommands['skill.inspect'], ({ id }, context) => {
     const inspection = dependencies.skillInspection

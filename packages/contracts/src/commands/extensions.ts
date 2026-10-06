@@ -1,6 +1,13 @@
 import { z } from 'zod'
 import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
 import { idSchema, terminalContributionSchema } from '../index'
+import {
+  skillImportRequestSchema,
+  skillImportPreviewSchema,
+  skillImportStartSchema,
+  skillImportJobSchema,
+  skillImportOperationSchema,
+} from './skill-import'
 
 export const pluginInfoSchema = z.object({
   id: idSchema,
@@ -99,6 +106,31 @@ function metadata(id: string, kind: 'command' | 'query', effect: 'none' | 'exter
 
 const idArgument = { field: 'id', type: 'string' as const, position: 0 }
 export const extensionCommands = {
+  'skill.import.preview': defineCommand(
+    metadata('skill.import.preview', 'query', 'none'),
+    skillImportRequestSchema,
+    skillImportPreviewSchema,
+  ),
+  'skill.import.start': defineCommand(
+    metadata('skill.import.start', 'command', 'external'),
+    skillImportStartSchema,
+    skillImportJobSchema,
+  ),
+  'skill.import.get': defineCommand(
+    metadata('skill.import.get', 'query', 'none'),
+    skillImportOperationSchema,
+    skillImportJobSchema.nullable(),
+  ),
+  'skill.import.latest': defineCommand(
+    metadata('skill.import.latest', 'query', 'none'),
+    z.strictObject({}),
+    skillImportJobSchema.nullable(),
+  ),
+  'skill.import.cancel': defineCommand(
+    metadata('skill.import.cancel', 'command', 'external'),
+    skillImportOperationSchema,
+    skillImportJobSchema.nullable(),
+  ),
   'plugin.list': defineCommand(metadata('plugin.list', 'query', 'none'), z.strictObject({}), pluginsSchema),
   'plugin.inspect': defineCommand(
     { ...metadata('plugin.inspect', 'query', 'none'), cli: { arguments: [idArgument] } },

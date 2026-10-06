@@ -2564,7 +2564,7 @@ export class Kernel {
     const root = this.options.layout.globalSkills
     const entries = await readdir(root, { withFileTypes: true }).catch(() => [])
     return entries
-      .filter((entry) => entry.isDirectory())
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.hbar-import-'))
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((entry) => ({ id: entry.name, path: join(root, entry.name) }))
   }

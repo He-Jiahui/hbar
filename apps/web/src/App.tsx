@@ -86,6 +86,8 @@ import { WebGeneralSettings } from './GeneralSettings'
 import { HbarStorageLocationSettings } from '@hbar/app-react/storage-locations'
 import { createStorageLocationController, type StorageLocationController } from '@hbar/app-runtime/storage-locations'
 import { storageLocationCopy } from './storage-location-copy'
+import { createSkillImportController } from '@hbar/app-runtime/skill-import'
+import { WebSkillImportPanel } from './SkillImportPanel'
 import { WebPreSessionLanding } from './PreSessionLanding'
 import { preSessionLaunchCopy } from './pre-session-launch-copy'
 import type { WebLanguageController } from './language'
@@ -1503,6 +1505,19 @@ export default function App({
     })
   }, [client])
   useEffect(() => storageLocations.acquire(), [storageLocations])
+  const skillImport = useMemo(() => {
+    const commands = createExtensionCommandClient(client)
+    return createSkillImportController({
+      preview: (input, signal) => commands.execute('skill.import.preview', input, { signal }),
+      start: (input, signal) =>
+        commands.execute('skill.import.start', input, { signal, idempotencyKey: input.operationId }),
+      get: (operationId, signal) => commands.execute('skill.import.get', { operationId }, { signal }),
+      latest: (signal) => commands.execute('skill.import.latest', {}, { signal }),
+      cancel: (operationId, signal) =>
+        commands.execute('skill.import.cancel', { operationId }, { signal, idempotencyKey: `cancel-${operationId}` }),
+    })
+  }, [client])
+  useEffect(() => skillImport.acquire(), [skillImport])
   const sendBehavior = useMemo(
     () => createWebSendBehaviorController(createHostSendBehaviorPort(createSettingsCommandClient(client))),
     [client],
@@ -1845,7 +1860,17 @@ export default function App({
 
   return (
     <LumenProvider appearance={lumenAppearance}>
-      <HbarRuntimeProvider view={runtime.view}>
+      <HbarRuntimeProvider
+        view={runtime.view}
+        renderSkillImport={(instanceId, connected) => (
+          <WebSkillImportPanel
+            controller={skillImport}
+            instanceId={instanceId}
+            connected={connected}
+            locale={locale}
+          />
+        )}
+      >
         <WorkbenchSurfaceCleanup key={binding.hostId ?? 'pending'} runtime={runtime} />
         <NotificationDesktopBridge locale={locale} connected={connection === 'connected'} />
         <HbarWorkspaceShell
