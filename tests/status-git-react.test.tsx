@@ -124,6 +124,7 @@ test('Git status renders workspace provenance, changes, bounded series, and poli
     expect(html).toContain('Automatic checkpoint')
     expect(html).toContain('<dt>Session</dt><dd>session</dd>')
     expect(html).toContain('lumen-compact-metrics')
+    expect(html).toMatch(/<small[^>]*>aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa<\/small>/)
     expect(html).toContain('role="img" aria-label="File and line changes"')
     expect(html).not.toContain('hbar-app-ui-metric-strip')
   } finally {

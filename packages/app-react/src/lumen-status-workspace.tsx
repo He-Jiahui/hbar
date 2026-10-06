@@ -1227,6 +1227,7 @@ export function HbarStatusWorkspace({
                       id: 'head',
                       label: labels.git.head,
                       value: gitReport.head?.slice(0, 12) ?? labels.git.noHead,
+                      ...(gitReport.head ? { detail: gitReport.head } : {}),
                     },
                     { id: 'scanned', label: labels.git.scanned, value: labels.number(gitReport.scannedCommits) },
                     { id: 'index', label: labels.git.indexMode, value: gitReport.indexMode },

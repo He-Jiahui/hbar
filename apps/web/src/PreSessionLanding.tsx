@@ -698,6 +698,8 @@ export function WebPreSessionLanding({
       />
     </LumenFrame>
   )
+  const preparedGoalObjective = draft?.intent === 'goal' && text.trim() ? text : ''
+  const preparedGoalTitle = preparedGoalObjective || shell.session.intent.goalPreparedHint
   const preparedGoal =
     draft?.intent === 'goal' ? (
       <LumenButton
@@ -708,7 +710,7 @@ export function WebPreSessionLanding({
         className="hbar-web-pre-session-goal-chip"
         aria-label={shell.session.intent.cancelGoal}
         aria-pressed="true"
-        title={shell.session.intent.goalPreparedHint}
+        title={preparedGoalTitle}
         disabled={!connected || busy || draft.phase === 'unknown'}
         onClick={() => chooseGoalIntent('default')}
       >

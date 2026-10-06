@@ -128,6 +128,7 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
   const head = page?.repository.kind === 'repository' ? page.repository.head : null
   const isolated = selection.mode === 'isolated-worktree'
   const branchName = launchSelectionBranchName(selection) ?? (head && 'name' in head ? head.name : null)
+  const triggerLabel = labels.trigger(directory?.label ?? null, branchName, isolated)
   const repositoryRoot = page?.repository.kind === 'repository' && page.repository.workspaceScope === 'repository-root'
   const selectedBaseRef =
     selection.mode === 'shared-branch'
@@ -245,7 +246,8 @@ export function HbarPreSessionLocationPicker(props: HbarPreSessionLocationPicker
         disabled={disabled || pending}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={labels.trigger(directory?.label ?? null, branchName, isolated)}
+        aria-label={triggerLabel}
+        title={triggerLabel}
       >
         <LumenIcon icon={isolated ? GitFork : Folder} tier="sm" />
         <LumenText as="span">{directory?.label ?? labels.chooseDirectory}</LumenText>

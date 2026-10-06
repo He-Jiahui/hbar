@@ -44,6 +44,8 @@ test('failed and offline Git queries keep the real project and nearby bilingual 
   const failed = render({ ...ready, status: 'error', branch: null, error: 'GIT_TIMEOUT' }, true, 'zh-CN')
   expect(failed).toContain('Very long project 工程')
   expect(failed).toContain('分支不可用：GIT_TIMEOUT')
+  expect(failed).toContain('title="分支不可用：GIT_TIMEOUT"')
+  expect(failed).toContain('aria-label="分支不可用：GIT_TIMEOUT"')
   expect(failed).toContain('重试')
   expect(failed).not.toContain('feature/very-long-branch')
   const offline = render(ready, false)

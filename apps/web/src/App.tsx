@@ -1146,7 +1146,13 @@ function FeatureNavigation({
   return (
     <LumenFrame className="hbar-web-feature-navigation">
       {items.map((item) => (
-        <LumenButton key={item.id} variant="text" onClick={() => onOpen(item.id)}>
+        <LumenButton
+          key={item.id}
+          variant="text"
+          aria-label={item.label}
+          title={item.label}
+          onClick={() => onOpen(item.id)}
+        >
           {item.label}
         </LumenButton>
       ))}

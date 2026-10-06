@@ -41,6 +41,7 @@ export function HbarSessionProjectContext({
   const branch = connected && belongsHere && context.status === 'ready' ? context.branch : null
   const error = connected && belongsHere && context.status === 'error' ? context.error : null
   const loading = connected && belongsHere && context.status === 'loading'
+  const errorLabel = error ? labels.unavailable(error) : null
   return (
     <LumenFrame className="hbar-session-project-context" role="group" aria-label={labels.project(workspaceName)}>
       <LumenIcon icon={Folder} tier="sm" />
@@ -71,8 +72,8 @@ export function HbarSessionProjectContext({
       )}
       {error && (
         <LumenFrame className="hbar-session-project-context-error" role="status">
-          <LumenText as="span" tone="danger">
-            {labels.unavailable(error)}
+          <LumenText as="span" tone="danger" aria-label={errorLabel ?? undefined} title={errorLabel ?? undefined}>
+            {errorLabel}
           </LumenText>
           <LumenButton size="s" variant="text" onClick={onRetry}>
             <LumenIcon icon={RotateCw} tier="sm" />
