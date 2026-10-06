@@ -86,9 +86,19 @@ test('workspace tabs keep the active tab and close action visible while respecti
     await expect
       .poll(() =>
         active.evaluate((el) => {
-          const rect = el.parentElement!.getBoundingClientRect()
-          const bounds = el.closest('[role=tablist]')!.getBoundingClientRect()
-          return rect.left >= bounds.left - 1 && rect.right <= bounds.right + 1
+          const item = el.parentElement
+          const rail = el.closest('[role=tablist]')
+          const close = item?.querySelector('.hbar-workspace-tab-close')
+          if (!item || !rail || !close) return false
+          const rect = item.getBoundingClientRect()
+          const action = close.getBoundingClientRect()
+          const bounds = rail.getBoundingClientRect()
+          return (
+            rect.right > bounds.left &&
+            rect.left < bounds.right &&
+            action.left >= bounds.left - 1 &&
+            action.right <= bounds.right + 1
+          )
         }),
       )
       .toBe(true)

@@ -51,9 +51,19 @@ test('bounded host data scrolls at 32 and 33 entries without clipping translated
     await expect
       .poll(() =>
         tabs.last().evaluate((element) => {
-          const item = element.parentElement?.getBoundingClientRect()
-          const parent = element.closest('[role=tablist]')?.getBoundingClientRect()
-          return Boolean(item && parent && item.left >= parent.left - 1 && item.right <= parent.right + 1)
+          const item = element.parentElement
+          const rail = element.closest('[role=tablist]')
+          const close = item?.querySelector('.hbar-file-preview-close')
+          if (!item || !rail || !close) return false
+          const rect = item.getBoundingClientRect()
+          const action = close.getBoundingClientRect()
+          const bounds = rail.getBoundingClientRect()
+          return (
+            rect.right > bounds.left &&
+            rect.left < bounds.right &&
+            action.left >= bounds.left - 1 &&
+            action.right <= bounds.right + 1
+          )
         }),
       )
       .toBe(true)

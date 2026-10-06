@@ -20,6 +20,7 @@
   align-items: flex-start;
   gap: 8px;
   min-width: 0;
+  overflow-x: auto;
 }
 
 .hbar-image-entry {
@@ -45,12 +46,10 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
-  max-width: 100%;
+  flex: 0 0 auto;
 }
 
 .hbar-image-file-chip > span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 0 0 auto;
   white-space: nowrap;
 }

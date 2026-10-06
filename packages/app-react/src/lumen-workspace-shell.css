@@ -88,9 +88,8 @@
 }
 
 .hbar-app-react-shell-header strong {
-  overflow: hidden;
+  flex: 0 0 auto;
   font-size: 0.875rem;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -224,9 +223,7 @@
 
 .hbar-app-react-workspace-row [data-variant],
 .hbar-app-react-session-label [data-variant] {
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex-shrink: 0;
   white-space: nowrap;
 }
 
@@ -495,8 +492,8 @@
     font-size: 0.9375rem;
     font-weight: 650;
     line-height: 1.25;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow-x: auto;
+    scrollbar-width: thin;
     white-space: nowrap;
   }
 }

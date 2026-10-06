@@ -1,10 +1,11 @@
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import react from '@vitejs/plugin-react'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { build, preview, type PreviewServer } from 'vite'
 import type { SingleLineFixtureInput } from '../tests/fixtures/single-line-controls-browser'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { completeLine } from './support/single-line-layout'
 
 const root = join(process.cwd(), 'artifacts/single-line-controls')
 const origin = 'http://127.0.0.1:45625'
@@ -41,41 +42,6 @@ test.afterAll(async () => {
     server.httpServer.close((error) => (error ? reject(error) : resolve()))
   })
 })
-
-/** Check the actual text range, not just nowrap or an unabridged tooltip. */
-async function completeLine(elements: Locator) {
-  const metrics = await elements.evaluateAll((nodes) =>
-    nodes
-      .filter((node) => node.getClientRects().length > 0)
-      .map((node) => {
-        const box = node.getBoundingClientRect()
-        const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT)
-        const rects: DOMRect[] = []
-        while (walker.nextNode()) {
-          if (!walker.currentNode.textContent?.trim() || walker.currentNode.parentElement?.closest('svg')) continue
-          const range = document.createRange()
-          range.selectNodeContents(walker.currentNode)
-          rects.push(...range.getClientRects())
-        }
-        const centers = rects.map((rect) => rect.top + rect.height / 2)
-        return {
-          text: node.textContent,
-          width: box.width,
-          height: box.height,
-          ellipsis: getComputedStyle(node).textOverflow === 'ellipsis',
-          clipped: rects.some((rect) => rect.left < box.left - 1 || rect.right > box.right + 1),
-          spread: centers.length ? Math.max(...centers) - Math.min(...centers) : 0,
-        }
-      }),
-  )
-  expect(metrics.length).toBeGreaterThan(0)
-  for (const metric of metrics) {
-    expect(metric.ellipsis, String(metric.text)).toBe(false)
-    expect(metric.clipped, String(metric.text)).toBe(false)
-    expect(metric.spread, String(metric.text)).toBeLessThanOrEqual(6)
-  }
-  return metrics
-}
 
 for (const locale of ['zh-CN', 'en-US'] as const)
   for (const theme of ['light', 'dark'] as const) {
@@ -153,3 +119,68 @@ for (const locale of ['zh-CN', 'en-US'] as const)
       expect(errors).toEqual([])
     })
   }
+
+for (const locale of ['zh-CN', 'en-US'] as const) {
+  test(`primitive labels, tabs and tree use complete intrinsic text ${locale}`, async ({ page }, info) => {
+    await page.goto(origin)
+    const input: SingleLineFixtureInput = {
+      locale,
+      theme: 'dark',
+      workspaceName: 'hbar',
+      branch: 'master',
+      status: 'ready',
+      gallery: true,
+    }
+    const gallery = page.locator('[data-fixture-gallery]')
+    await page.setViewportSize({ width: 900, height: 950 })
+    await render(page, input)
+    const short = await completeLine(gallery.locator('[data-fixture-actions] button').first())
+    await render(page, { ...input, long: true })
+    const long = await completeLine(gallery.locator('[data-fixture-actions] button').first())
+    expect(long[0]?.width).toBeGreaterThan((short[0]?.width ?? 0) * 2)
+    expect(long[0]?.height).toBe(short[0]?.height)
+    for (const width of [900, 390, 320]) {
+      await page.setViewportSize({ width, height: 950 })
+      for (const count of [0, 1, 7, 32, 33]) {
+        await render(page, { ...input, long: true, count })
+        await expect(gallery.locator('.hbar-workspace-tab-title')).toHaveCount(count)
+        await expect(gallery.locator('.hbar-file-preview-tab')).toHaveCount(count)
+        await expect(gallery.getByRole('treeitem')).toHaveCount(count)
+        await completeLine(gallery.locator('[data-fixture-actions] button, .lumen-popup-select-trigger'))
+        if (count) {
+          await completeLine(gallery.locator('.hbar-workspace-tab-title, .hbar-file-preview-select, .lumen-tree-row'))
+          const strip = gallery.locator('.hbar-workspace-tab-strip')
+          expect(await strip.evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(true)
+          await gallery.locator('.hbar-workspace-tab-select').last().focus()
+          if (count === 1) {
+            await strip.evaluate((node) => {
+              node.scrollLeft = 0
+            })
+            const right = gallery
+              .locator('.hbar-workspace-tabs > button')
+              .filter({ has: page.locator('svg.lucide-chevron-right') })
+            await right.focus()
+            await right.press('Enter')
+          }
+          await expect.poll(() => strip.evaluate((node) => node.scrollLeft > 0)).toBe(true)
+          const tree = gallery.getByRole('treeitem').last()
+          await tree.focus()
+          await tree.press('Enter')
+          expect(await page.evaluate(() => window.singleLineFixture.actions())).toContain(`tree:tab-${count - 1}`)
+        }
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      }
+      await page.screenshot({ path: info.outputPath(`gallery-${width}.png`) })
+    }
+    await render(page, { ...input, long: true, count: 1, textSize: 'l' })
+    await page.locator('html').evaluate((node) => {
+      node.style.fontSize = '200%'
+    })
+    await completeLine(
+      gallery.locator(
+        '[data-fixture-actions] button, .lumen-popup-select-trigger, .hbar-workspace-tab-title, .hbar-file-preview-select',
+      ),
+    )
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+  })
+}

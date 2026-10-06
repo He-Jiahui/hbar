@@ -74,10 +74,11 @@
 
 .hbar-prompt-attachments {
   flex-wrap: wrap;
+  overflow-x: auto;
 }
 
 .hbar-prompt-attachment {
-  max-inline-size: min(100%, 16rem);
+  flex: 0 0 auto;
   padding-inline-start: 0.5rem;
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
@@ -90,9 +91,7 @@
 }
 
 .hbar-prompt-attachment > span {
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 

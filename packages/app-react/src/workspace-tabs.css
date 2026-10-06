@@ -22,8 +22,7 @@
   display: flex;
   align-items: center;
   flex: 0 0 auto;
-  min-inline-size: 8.75rem;
-  max-inline-size: 12.5rem;
+  min-inline-size: max-content;
   border: 0.0625rem solid transparent;
   border-block-end: 0;
   border-radius: 0.5rem 0.5rem 0 0;
@@ -47,9 +46,7 @@
   box-shadow: none;
 }
 .hbar-workspace-tab-title {
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 .hbar-workspace-tab-close {
@@ -94,10 +91,10 @@
   gap: 0.125rem;
 }
 .hbar-workspace-tab-menu-popover > button {
+  min-inline-size: max-content;
   justify-content: flex-start;
-  white-space: normal;
+  white-space: nowrap;
   text-align: start;
-  overflow-wrap: anywhere;
 }
 .hbar-workspace-tabs-close-body,
 .hbar-workspace-tabs-close-targets {
@@ -127,10 +124,10 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.5rem;
+  overflow-x: auto;
 }
 .hbar-workspace-tabs-close-actions > button {
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 
 /* The reference close choice is an opaque, naturally sized modal over a simple scrim. */

@@ -8,7 +8,7 @@
 
 .hbar-web-pre-session-goal-controls {
   display: flex;
-  min-inline-size: 0;
+  flex: 0 0 auto;
   align-items: center;
   gap: 0.25rem;
 }
@@ -16,22 +16,20 @@
 .hbar-web-pre-session-goal-chip {
   display: inline-flex;
   min-inline-size: 0;
-  max-inline-size: 12rem;
+  flex: 0 0 auto;
   align-self: flex-start;
   align-items: center;
   gap: 0.25rem;
 }
 
 .hbar-web-pre-session-goal-chip span:not(.lumen-icon) {
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 
 .hbar-web-pre-session-model-controls {
   display: flex;
-  min-inline-size: 0;
+  flex: 0 0 auto;
   align-items: center;
   gap: 0.125rem;
 }
@@ -41,15 +39,9 @@
 }
 
 .hbar-web-pre-session-model-controls > .hbar-pre-session-choice-picker > button {
-  max-inline-size: 16rem;
+  max-inline-size: none;
   gap: 0.25rem;
   font-weight: 600;
-}
-
-@media (max-width: 40rem) {
-  .hbar-web-pre-session-model-controls > .hbar-pre-session-choice-picker > button {
-    max-inline-size: 9rem;
-  }
 }
 
 .hbar-web-pre-session-path {

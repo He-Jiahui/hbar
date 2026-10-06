@@ -1,6 +1,6 @@
 .hbar-sidebar-search-entry {
   display: flex;
-  min-inline-size: 0;
+  min-inline-size: max-content;
   min-block-size: 2.25rem;
   flex: 1 1 auto;
   justify-content: flex-start;
@@ -16,10 +16,7 @@
 }
 
 .hbar-sidebar-search-label {
-  min-inline-size: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 

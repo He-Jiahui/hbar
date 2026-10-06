@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Circle, FileDiff, FileText, X } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenIconButton, LumenText } from '@lumen/app-ui'
 import './file-preview-tabs.css'
+import { revealInlineItem } from './inline-item-reveal'
 
 export type HbarFilePreviewKind = 'document' | 'working' | 'staged'
 export type HbarFilePreviewCloseScope = 'current' | 'others' | 'left' | 'right' | 'all'
@@ -74,8 +75,9 @@ export function HbarFilePreviewTabs({ items: source, activeId, labels, onSelect,
   const identity = items.map((item) => item.id).join('\u0000')
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
-      if (activeId)
-        buttons.current.get(activeId)?.parentElement?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+      const item = activeId ? buttons.current.get(activeId)?.parentElement : null
+      const rail = item?.parentElement
+      if (item && rail) revealInlineItem(rail, item, item.querySelector<HTMLElement>('.hbar-file-preview-close'))
     })
     return () => {
       cancelAnimationFrame(frame)

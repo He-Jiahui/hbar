@@ -9,6 +9,7 @@ import { HbarPreSessionChoicePicker } from '../../packages/app-react/src/pre-ses
 import { createWebLumenAppearance, DEFAULT_WEB_APPEARANCE_DIMENSIONS } from '../../apps/web/src/appearance'
 import { sessionContextCopy } from '../../apps/web/src/session-context-copy'
 import { getShellCopy, type ShellLocale } from '../../apps/web/src/shell-copy'
+import { SingleLineGallery } from './single-line-gallery'
 import '@lumen/app-ui/styles.css'
 import '../../packages/app-react/src/lumen-session-workspace.css'
 import './single-line-controls-browser.css'
@@ -22,6 +23,8 @@ export interface SingleLineFixtureInput {
   readonly connected?: boolean
   readonly long?: boolean
   readonly textSize?: 'm' | 'l'
+  readonly gallery?: boolean
+  readonly count?: number
 }
 
 declare global {
@@ -143,6 +146,13 @@ function Fixture({ input }: { readonly input: SingleLineFixtureInput }) {
           />
           <LumenFrame className="hbar-session-project-context-below">{project}</LumenFrame>
         </LumenFrame>
+        {input.gallery && (
+          <SingleLineGallery
+            caption={input.long ? long : model}
+            count={input.count ?? 7}
+            onAction={(id) => actions.push(id)}
+          />
+        )}
       </LumenFrame>
     </LumenProvider>
   )

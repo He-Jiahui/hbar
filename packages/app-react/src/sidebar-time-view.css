@@ -44,9 +44,7 @@
 }
 
 .hbar-app-react-sidebar-time-project-line > [data-variant] {
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 
@@ -83,12 +81,6 @@
 }
 
 .hbar-app-react-session-workspace-label {
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 0 0 auto;
   white-space: nowrap;
-}
-
-.hbar-app-react-session-workspace-label {
-  flex: 1 1 auto;
 }

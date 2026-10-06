@@ -3,6 +3,7 @@ import { Bot, ChevronLeft, ChevronRight, Ellipsis, PanelRight, X } from 'lucide-
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import './workspace-tabs.css'
 import { workspaceTabMenuPosition } from './workspace-tab-menu-layout'
+import { revealInlineItem } from './inline-item-reveal'
 
 export type HbarWorkspaceTabCloseScope = 'one' | 'others' | 'left' | 'right' | 'all'
 export interface HbarWorkspaceTabItem {
@@ -139,8 +140,9 @@ export function HbarWorkspaceTabs({
         right: element.scrollLeft + element.clientWidth < element.scrollWidth - 1,
       }
       setEdges((previous) => (previous.left === next.left && previous.right === next.right ? previous : next))
-      if (!manualScroll.current && activeId)
-        buttons.current.get(activeId)?.parentElement?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+      const item = activeId ? buttons.current.get(activeId)?.parentElement : null
+      if (item && !manualScroll.current)
+        revealInlineItem(element, item, item.querySelector<HTMLElement>('.hbar-workspace-tab-close'))
     }
     const observer = new ResizeObserver(update)
     observer.observe(element)

@@ -17,7 +17,7 @@
 }
 .hbar-file-preview-tab {
   flex: 0 0 auto;
-  max-inline-size: min(24rem, 85%);
+  min-inline-size: max-content;
   border-block-end: 0.125rem solid transparent;
 }
 .hbar-file-preview-tab[data-active='true'] {
@@ -32,9 +32,7 @@
 }
 .hbar-file-preview-select > span,
 .hbar-file-preview-select > small:not(.hbar-file-preview-status) {
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 .hbar-file-preview-select > small {
@@ -66,9 +64,10 @@
   flex-direction: column;
 }
 .hbar-file-preview-menu-popover > button {
+  min-inline-size: max-content;
   justify-content: flex-start;
   block-size: auto;
-  white-space: normal;
+  white-space: nowrap;
   text-align: start;
 }
 .hbar-file-preview-feedback {
