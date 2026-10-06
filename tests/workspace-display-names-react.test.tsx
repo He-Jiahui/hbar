@@ -84,9 +84,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const labels = workspaceDisplayNamesCopy(locale)
     const html = dialog(state(), locale)
     expect(html).toContain(`aria-label="${labels.title}"`)
+    expect(html).toContain('class="lumen-floating-modal-root hbar-app-ui-dialog-backdrop"')
     expect(html).toContain(
-      'class="lumen-dialog hbar-app-ui-native-dialog hbar-app-ui-dialog-backdrop hbar-workspace-display-name-dialog"',
+      'class="lumen-floating-surface lumen-dialog hbar-app-ui-native-dialog hbar-workspace-display-name-dialog"',
     )
+    expect(html).toContain('role="dialog" aria-label=')
+    expect(html).toContain('aria-modal="true"')
     expect(html).toContain('data-testid="workspace-display-name-dialog"')
     expect(html).toContain('data-testid="workspace-display-name-input"')
     expect(html).toContain('value="New alias"')

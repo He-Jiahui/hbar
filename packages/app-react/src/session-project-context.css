@@ -62,11 +62,11 @@
 }
 
 .hbar-session-project-context-toolbar .hbar-session-project-context-name {
-  max-inline-size: 4.5rem;
+  max-inline-size: 8rem;
 }
 
 .hbar-session-project-context-toolbar .hbar-session-project-context-branch {
-  max-inline-size: 4.5rem;
+  max-inline-size: 12rem;
 }
 
 .hbar-session-project-context-below {

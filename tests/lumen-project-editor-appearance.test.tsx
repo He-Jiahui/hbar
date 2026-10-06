@@ -30,9 +30,11 @@ test('default dialog preserves glass, contour metadata and both semantic separat
   expect(markup).toContain('aria-label="编辑项目"')
 })
 
-test('panel appearance changes only chrome, retaining native dialog, title, body, close and footer', () => {
+test('panel appearance changes only chrome, retaining shared modal semantics, title, body, close and footer', () => {
   const markup = renderToStaticMarkup(<LumenDialog {...dialogProps} appearance="panel" />)
-  expect(markup).toContain('<dialog')
+  expect(markup).toContain('role="dialog"')
+  expect(markup).toContain('aria-modal="true"')
+  expect(markup).toContain('data-lumen-floating-mode="modal"')
   expect(markup).toContain('data-appearance="panel"')
   expect(markup).toContain('data-material="solid"')
   expect(markup).toContain('data-boundary="none"')

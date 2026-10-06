@@ -1,33 +1,15 @@
 .hbar-floating-surface {
-  position: fixed;
-  inset: auto;
-  inset-inline-start: var(--floating-left);
-  inset-block-start: var(--floating-top);
-  inset-block-end: var(--floating-bottom);
-  inline-size: min(22.5rem, calc(100vw - 2rem));
-  max-block-size: min(26.25rem, var(--floating-limit));
-  display: flex;
-  flex-direction: column;
-  min-block-size: 0;
+  /* Geometry, portal, chrome and dismissal belong to LumenFloatingSurface. */
   margin: 0;
   padding: 0.5rem;
-  overflow: hidden;
   text-align: start;
-  border: 0.0625rem solid var(--lumen-edge);
-  border-radius: var(--lumen-radius-control);
-  background: var(--lumen-contrast);
-  color: var(--lumen-ink);
-  box-shadow: var(--lumen-shadow);
-  backdrop-filter: blur(var(--floating-blur));
 }
 .hbar-floating-surface::backdrop {
-  backdrop-filter: blur(var(--floating-blur));
+  -webkit-backdrop-filter: blur(var(--lumen-floating-blur, 1.2rem));
+  backdrop-filter: blur(var(--lumen-floating-blur, 1.2rem));
 }
 @media (max-width: 40rem) and (pointer: coarse) {
   .hbar-floating-surface {
-    inset: auto 0 0;
-    inline-size: 100%;
-    max-block-size: min(78dvh, 40rem);
     padding: 1rem;
   }
 }
