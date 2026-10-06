@@ -1,10 +1,11 @@
-import { cp, mkdir, copyFile, rm, stat } from 'node:fs/promises'
+import { mkdir, copyFile, stat } from 'node:fs/promises'
 import { constants } from 'node:fs'
-import { resolve, join, relative } from 'node:path'
+import { resolve, join } from 'node:path'
 import './icons'
 import './build-native-tools'
 import { copyBuildArtifact } from './copy-build-artifact'
 import { buildHostBundle } from './build-host-bundle'
+import { syncDesktopWebResources } from './sync-desktop-web'
 
 const project = resolve(import.meta.dir, '..')
 const output = resolve(project, 'dist/desktop-resources')
@@ -49,10 +50,7 @@ await copyBuildArtifact(
   resolve(project, 'plugins/local-tools/native/hbar_workspace_query.node'),
   join(nativeOutput, 'hbar_workspace_query.node'),
 )
-const webOutput = join(output, 'web')
-if (relative(output, webOutput) !== 'web') throw new Error('Invalid generated asset path')
-await rm(webOutput, { recursive: true, force: true })
-await cp(resolve(project, 'dist/web'), webOutput, { recursive: true })
+await syncDesktopWebResources(project)
 console.log(`Standalone host resources: ${output}`)
 
 function isErrno(error: unknown, code: string): boolean {

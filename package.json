@@ -43,6 +43,7 @@
     "app-ui:reactbits:compare": "bun scripts/reactbits-pro-audit.ts compare",
     "app-ui:reactbits:audit": "bun scripts/reactbits-pro-audit.ts audit",
     "build": "vite build --config apps/web/vite.config.ts",
+    "build:desktop-web": "bun run build && bun scripts/sync-desktop-web.ts",
     "native:build": "bun scripts/build-native-tools.ts",
     "build:cli": "bun run native:build && bun build --compile apps/cli/src/main.ts packages/storage/src/worker.ts --outfile dist/hbar.exe --external @aws-sdk/client-s3 --external chromium-bidi/lib/cjs/bidiMapper/BidiMapper --external chromium-bidi/lib/cjs/cdp/CdpConnection",
     "typecheck": "node --stack-size=8192 node_modules/typescript/bin/tsc --noEmit",
