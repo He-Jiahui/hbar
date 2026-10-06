@@ -71,7 +71,7 @@ test('Goal and Plan survive first send and explicit approval resumes the origina
     await prompt.fill(objective)
     const prepareGoal = async () => {
       await landing.getByRole('button', { name: copy.session.addMenu.open, exact: true }).click()
-      await landing
+      await page
         .getByRole('group', { name: copy.session.addMenu.menu })
         .getByRole('button', { name: copy.session.intent.goalMenu, exact: true })
         .click()
