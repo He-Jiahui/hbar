@@ -5,7 +5,7 @@ import { delimiter, join } from 'node:path'
 import { z } from 'zod'
 
 const bundleSchema = z.object({ code: z.string().min(1), css: z.string().min(1) })
-let bundle: z.infer<typeof bundleSchema> | undefined
+const bundles = new Map<string, z.infer<typeof bundleSchema>>()
 
 export interface LumenControlsFixtureOptions {
   readonly theme?: 'light' | 'dark'
@@ -25,20 +25,30 @@ function bunExecutable(): string {
   return executable
 }
 
-async function readBundle(): Promise<z.infer<typeof bundleSchema>> {
-  if (bundle) return bundle
-  const value = execFileSync(bunExecutable(), ['tests/fixtures/build-lumen-controls.ts'], {
+async function readBundle(entry: string): Promise<z.infer<typeof bundleSchema>> {
+  const cached = bundles.get(entry)
+  if (cached) return cached
+  const value = execFileSync(bunExecutable(), ['tests/fixtures/build-lumen-controls.ts', entry], {
     cwd: process.cwd(),
     encoding: 'utf8',
     timeout: 30_000,
     maxBuffer: 12 * 1024 * 1024,
   })
-  bundle = bundleSchema.parse(JSON.parse(value))
+  const bundle = bundleSchema.parse(JSON.parse(value))
+  bundles.set(entry, bundle)
   return bundle
 }
 
 export async function mountLumenControlsFixture(page: Page, options: LumenControlsFixtureOptions = {}): Promise<void> {
-  const artifact = await readBundle()
+  await mountLumenFixture(page, 'tests/fixtures/lumen-controls-browser.tsx', options)
+}
+
+export async function mountLumenFixture(
+  page: Page,
+  entry: string,
+  options: LumenControlsFixtureOptions = {},
+): Promise<void> {
+  const artifact = await readBundle(entry)
   const theme = options.theme ?? 'dark'
   const size = options.size ?? 'm'
   const locale = options.locale ?? 'en-US'
