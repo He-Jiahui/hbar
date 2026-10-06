@@ -876,7 +876,6 @@ export function createAppRuntime(options: RuntimeOptions) {
     isRunActive: isCurrentRunActive,
     isSubmissionLocked: (sessionId) =>
       composerIntent.isSubmissionPending(sessionId) ||
-      composerIntent.reader.getSnapshot().entries[sessionId]?.intent === 'goal' ||
       ['submitting', 'unknown'].includes(drafts.reader.getSnapshot()[sessionId]?.status ?? ''),
     onSubscriberError,
   })
@@ -1363,7 +1362,9 @@ export function createAppRuntime(options: RuntimeOptions) {
         if (entry.draftRevision !== undefined && draft.revision !== entry.draftRevision)
           throw new CommandError('COMMAND_CONFLICT', 'Original entry draft changed while configuring folders')
         await local.execute('preSessionDraft.setWorkspace', {
-          draftId: entry.draftId, workspaceId: result.workspace.id, expectedRevision: draft.revision,
+          draftId: entry.draftId,
+          workspaceId: result.workspace.id,
+          expectedRevision: draft.revision,
         })
       } else if (entry.createSession) {
         await executor.execute('app.createSession', { workspaceId: result.workspace.id })

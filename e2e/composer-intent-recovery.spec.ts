@@ -117,6 +117,7 @@ async function fixture(browser: Browser, locale: ShellLocale, width: number) {
       port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
       sessionCount: 2,
       goalAutoContinue: false,
+      budgetAutoContinue: false,
     })
     const ownedHost = host
     const directory = createWorkspaceSessionCommandClient(host.client)
@@ -127,6 +128,7 @@ async function fixture(browser: Browser, locale: ShellLocale, width: number) {
     const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
     expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
     const page = await context.newPage()
+    page.setDefaultTimeout(15_000)
     const errors: string[] = []
     page.on('pageerror', (error) => errors.push(error.message))
     const mode = await observeMode(page)
@@ -148,12 +150,15 @@ async function fixture(browser: Browser, locale: ShellLocale, width: number) {
     }
     const selectSession = async (title: string) => {
       const entry = page.getByRole('treeitem', { name: title, exact: true })
-      const show = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
-      await expect.poll(async () => (await entry.isVisible()) || (await show.isVisible())).toBe(true)
-      if (await show.isVisible()) await show.click()
+      const shell = page.locator('[data-hbar-sidebar-expanded]')
       await expect(entry).toBeVisible()
+      if (width === 320 || (await shell.getAttribute('data-hbar-sidebar-expanded')) !== 'true')
+        await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()
+      await expect(entry).toBeInViewport()
       await entry.click()
-      await expect(page.getByRole('tab', { name: title, exact: true })).toHaveAttribute('aria-selected', 'true')
+      await expect(page.getByRole('region', { name: title, exact: true })).toBeVisible()
+      if (width === 320) await expect(shell).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
+      else await expect(page.getByRole('tab', { name: title, exact: true })).toHaveAttribute('aria-selected', 'true')
       await expect(prompt).toBeVisible()
     }
     await page.goto(base)
@@ -235,136 +240,142 @@ async function fixture(browser: Browser, locale: ShellLocale, width: number) {
 
 for (const locale of ['en-US', 'zh-CN'] as const)
   for (const width of [1440, 320]) {
-    test(`Goal and Plan each require a separate recovery and preparation action: ${locale} ${width}`, async ({
-      browser,
-    }) => {
+    test(
+      'Goal preparation and durable Plan stay independent with their original drafts: ' + locale + ' ' + width,
+      async ({ browser }) => {
+        test.setTimeout(90_000)
+        const f = await fixture(browser, locale, width)
+        try {
+          const { copy, page } = f
+          await f.clickGoal()
+          const cancelGoal = page.getByRole('button', { name: copy.session.intent.cancelGoal, exact: true })
+          await expect(cancelGoal).toHaveAttribute('aria-pressed', 'true')
+          await f.openPermission()
+          await expect(f.planOption).toBeEnabled()
+          await expect(
+            f.permission.getByRole('button', {
+              name: copy.session.permissionPicker.plan.cancelGoalPreparation,
+              exact: true,
+            }),
+          ).toHaveCount(0)
+          await visibleHit(f.planOption)
+          await page.screenshot({ path: test.info().outputPath('goal-plan-choice-' + locale + '-' + width + '.png') })
+          await f.planOption.click()
+          await expect(f.permission.locator('.hbar-composer-permission-trigger')).toHaveAttribute('data-choice', 'plan')
+          await expect(cancelGoal).toHaveAttribute('aria-pressed', 'true')
+          await f.checkDraft()
+          expect(f.mode.writes).toEqual([{ sessionId: f.a.id, mode: 'plan' }])
+          expect(await f.host.client.call('mode.get', { sessionId: f.a.id })).toEqual({ mode: 'plan' })
+          await f.openPermission()
+          const exit = f.permission.getByRole('button', { name: copy.session.permissionPicker.plan.exit, exact: true })
+          await visibleHit(exit)
+          await exit.click()
+          await expect(f.permission.locator('.hbar-composer-permission-trigger')).toHaveAttribute(
+            'data-choice',
+            'inherit',
+          )
+          await expect(cancelGoal).toHaveAttribute('aria-pressed', 'true')
+          await f.checkDraft()
+          expect(f.mode.writes).toEqual([
+            { sessionId: f.a.id, mode: 'plan' },
+            { sessionId: f.a.id, mode: 'default' },
+          ])
+          await cancelGoal.click()
+          await expect(f.goal()).toHaveAttribute('aria-pressed', 'false')
+          await f.clickGoal()
+          await expect(cancelGoal).toHaveAttribute('aria-pressed', 'true')
+          await f.selectSession(f.b.title)
+          await expect(f.goal()).toHaveAttribute('aria-pressed', 'false')
+          await f.prompt.fill('Independent B draft \u2014 \u72EC\u7ACBB\u8349\u7A3F')
+          await expect(page.locator('.lumen-attachment-chip')).toHaveCount(0)
+          await f.selectSession(f.a.title)
+          await expect(cancelGoal).toHaveAttribute('aria-pressed', 'true')
+          await f.checkDraft()
+          await cancelGoal.click()
+          await expect(f.goal()).toHaveAttribute('aria-pressed', 'false')
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+          await page.screenshot({ path: test.info().outputPath('independent-draft-' + locale + '-' + width + '.png') })
+          await f.noRunsOrGoals()
+        } finally {
+          await f.close()
+        }
+      },
+    )
+  }
+
+for (const locale of ['en-US', 'zh-CN'] as const) {
+  test(
+    'late Plan exit keeps A ownership and Goal preparation; unknown exit reconciles without another write: ' + locale,
+    async ({ browser }) => {
       test.setTimeout(90_000)
-      const f = await fixture(browser, locale, width)
+      const f = await fixture(browser, locale, 1440)
       try {
-        const { copy, page } = f
+        const labels = f.copy.session.intent.blocked
+        const cancelGoal = f.page.getByRole('button', { name: f.copy.session.intent.cancelGoal, exact: true })
+        const execution = f.permission.locator('.hbar-composer-permission-trigger')
+        const exit = f.permission.getByRole('button', { name: f.copy.session.permissionPicker.plan.exit, exact: true })
         await f.clickGoal()
-        const cancelGoal = page.getByRole('button', { name: copy.session.intent.cancelGoal, exact: true })
         await expect(cancelGoal).toHaveAttribute('aria-pressed', 'true')
         await f.openPermission()
-        await expect(f.planOption).toBeDisabled()
-        await expect(f.planOption).toHaveAccessibleDescription(copy.session.permissionPicker.plan.goalPrepared)
-        const cancel = f.permission.getByRole('button', {
-          name: copy.session.permissionPicker.plan.cancelGoalPreparation,
-          exact: true,
-        })
-        await visibleHit(cancel)
-        await page.screenshot({ path: test.info().outputPath(`goal-prepared-${locale}-${width}.png`) })
-        await cancel.click()
-        await expect(f.planOption).toBeEnabled()
-        await expect(f.planOption).toBeFocused()
-        await expect(f.goal()).toHaveAttribute('aria-pressed', 'false')
-        await f.checkDraft()
-        expect(f.mode.writes).toEqual([])
-        expect(await f.host.client.call('mode.get', { sessionId: f.a.id })).toEqual({ mode: 'default' })
-        // Cancel only prepares the next explicit choice; it must not silently enter Plan.
         await f.planOption.click()
-        await expect(f.permission.locator('.hbar-composer-permission-trigger')).toHaveAttribute('data-choice', 'plan')
-        expect(f.mode.writes).toEqual([{ sessionId: f.a.id, mode: 'plan' }])
-        await f.clickGoal()
-        await expect(f.help).toContainText(copy.session.intent.blocked.reasons.plan)
-        const exit = f.help.getByRole('button', { name: copy.session.intent.blocked.exitPlan, exact: true })
-        await visibleHit(exit)
-        await page.screenshot({ path: test.info().outputPath(`plan-blocks-goal-${locale}-${width}.png`) })
+        await expect(execution).toHaveAttribute('data-choice', 'plan')
+        await f.openPermission()
+        f.mode.fault('hold')
         await exit.click()
-        await expect(f.help).toContainText(copy.session.intent.blocked.exited)
-        await expect(f.goal()).toHaveAttribute('aria-pressed', 'false')
-        await f.checkDraft()
-        expect(f.mode.writes).toEqual([
-          { sessionId: f.a.id, mode: 'plan' },
-          { sessionId: f.a.id, mode: 'default' },
-        ])
-        await f.help.getByRole('button', { name: copy.session.intent.blocked.close, exact: true }).click()
-        await expect(f.goal()).toBeFocused()
-        await f.clickGoal()
-        await expect(cancelGoal).toHaveAttribute('aria-pressed', 'true')
-        // Switching away preserves the prepared intent and text/materials only for A.
+        await expect.poll(f.mode.held).toBe(true)
+        expect(await f.host.client.call('mode.get', { sessionId: f.a.id })).toEqual({ mode: 'default' })
+        await f.page.keyboard.press('Escape')
+        await expect(f.permission.locator('[popover]')).not.toBeVisible()
+        await expect(execution).toBeFocused()
         await f.selectSession(f.b.title)
+        await f.prompt.fill('B keeps focus after A reply \u2014 B\u4E0D\u88AB\u665A\u56DE\u590D\u62A2\u8D70')
+        f.mode.release()
+        await expect(f.page.getByRole('tab', { name: f.b.title, exact: true })).toHaveAttribute('aria-selected', 'true')
+        await expect(f.help).not.toBeVisible()
+        await expectComposerText(
+          f.prompt,
+          'B keeps focus after A reply \u2014 B\u4E0D\u88AB\u665A\u56DE\u590D\u62A2\u8D70',
+        )
         await expect(f.goal()).toHaveAttribute('aria-pressed', 'false')
-        await f.prompt.fill('Independent B draft — 独立B草稿')
-        await expect(page.locator('.lumen-attachment-chip')).toHaveCount(0)
         await f.selectSession(f.a.title)
+        await expect(execution).toHaveAttribute('data-choice', 'inherit')
         await expect(cancelGoal).toHaveAttribute('aria-pressed', 'true')
         await f.checkDraft()
+        await f.openPermission()
+        await f.planOption.click()
+        await expect(execution).toHaveAttribute('data-choice', 'plan')
+        await f.openPermission()
+        f.mode.fault('unknown')
+        await exit.click()
+        await expect(execution).toHaveAttribute('data-choice', 'unknown')
+        await f.page.keyboard.press('Escape')
+        await cancelGoal.click()
+        await expect(f.help).toContainText(labels.reasons.planUnknown)
+        await expect(cancelGoal).toHaveAttribute('aria-pressed', 'true')
+        await expect(f.help.getByRole('button', { name: labels.exitPlan, exact: true })).toHaveCount(0)
+        await f.checkDraft()
+        const writesBefore = f.mode.writes.length
+        const commandsBefore = f.mode.commands.length
+        await f.page.screenshot({ path: test.info().outputPath('unknown-exit-' + locale + '.png') })
+        await f.help.getByRole('button', { name: labels.reconcilePlan, exact: true }).click()
+        await expect(f.help.getByRole('button', { name: labels.reconcilePlan, exact: true })).toHaveCount(0)
+        await expect(execution).toHaveAttribute('data-choice', 'inherit')
+        expect(f.mode.writes).toHaveLength(writesBefore)
+        expect(f.mode.commands.slice(commandsBefore)).toContain('mode.get')
+        expect(f.mode.commands.slice(commandsBefore)).not.toContain('mode.set')
+        await expect(cancelGoal).toHaveAttribute('aria-pressed', 'true')
+        await f.help.getByRole('button', { name: labels.close, exact: true }).click()
+        await expect(cancelGoal).toBeFocused()
         await cancelGoal.click()
         await expect(f.goal()).toHaveAttribute('aria-pressed', 'false')
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
-        await page.screenshot({ path: test.info().outputPath(`recovered-draft-${locale}-${width}.png`) })
+        await f.checkDraft()
+        expect(f.mode.writes.every((write) => write.sessionId === f.a.id)).toBe(true)
+        expect(f.mode.writes.map((write) => write.mode)).toEqual(['plan', 'default', 'plan', 'default'])
+        expect(await f.host.client.call('mode.get', { sessionId: f.b.id })).toEqual({ mode: 'default' })
         await f.noRunsOrGoals()
       } finally {
         await f.close()
       }
-    })
-  }
-
-for (const locale of ['en-US', 'zh-CN'] as const) {
-  test(`late Plan exit remains owned by A and unknown exit reconciles without a second write: ${locale}`, async ({
-    browser,
-  }) => {
-    test.setTimeout(90_000)
-    const f = await fixture(browser, locale, 1440)
-    try {
-      const labels = f.copy.session.intent.blocked
-      await f.openPermission()
-      await f.planOption.click()
-      await expect(f.permission.locator('.hbar-composer-permission-trigger')).toHaveAttribute('data-choice', 'plan')
-      await f.clickGoal()
-      f.mode.fault('hold')
-      await f.help.getByRole('button', { name: labels.exitPlan, exact: true }).click()
-      await expect.poll(f.mode.held).toBe(true)
-      expect(await f.host.client.call('mode.get', { sessionId: f.a.id })).toEqual({ mode: 'default' })
-      // The confirmed Host reply is still held. Native light-dismiss must restore
-      // the original Goal entry even if the pending action replaced its button.
-      await f.page.keyboard.press('Escape')
-      await expect(f.help).not.toBeVisible()
-      await expect(f.goal()).toBeFocused()
-      await f.selectSession(f.b.title)
-      await f.prompt.fill('B keeps focus after A reply — B不被晚回复抢走')
-      f.mode.release()
-      await expect(f.page.getByRole('tab', { name: f.b.title, exact: true })).toHaveAttribute('aria-selected', 'true')
-      await expect(f.help).not.toBeVisible()
-      await expectComposerText(f.prompt, 'B keeps focus after A reply — B不被晚回复抢走')
-      await expect(f.goal()).toHaveAttribute('aria-pressed', 'false')
-      await f.selectSession(f.a.title)
-      await expect(f.permission.locator('.hbar-composer-permission-trigger')).toHaveAttribute('data-choice', 'inherit')
-      await f.checkDraft()
-      await f.openPermission()
-      await f.planOption.click()
-      await expect(f.permission.locator('.hbar-composer-permission-trigger')).toHaveAttribute('data-choice', 'plan')
-      await f.clickGoal()
-      f.mode.fault('unknown')
-      await f.help.getByRole('button', { name: labels.exitPlan, exact: true }).click()
-      await expect(f.help).toContainText(labels.reasons.planUnknown)
-      await expect(f.goal()).toHaveAttribute('aria-pressed', 'false')
-      await expect(f.help.getByRole('button', { name: labels.exitPlan, exact: true })).toHaveCount(0)
-      await f.checkDraft()
-      const writesBefore = f.mode.writes.length
-      const commandsBefore = f.mode.commands.length
-      await f.page.screenshot({ path: test.info().outputPath(`unknown-exit-${locale}.png`) })
-      await f.help.getByRole('button', { name: labels.reconcilePlan, exact: true }).click()
-      await expect(f.help.getByRole('button', { name: labels.reconcilePlan, exact: true })).toHaveCount(0)
-      await expect(f.permission.locator('.hbar-composer-permission-trigger')).toHaveAttribute('data-choice', 'inherit')
-      expect(f.mode.writes).toHaveLength(writesBefore)
-      expect(f.mode.commands.slice(commandsBefore)).toContain('mode.get')
-      expect(f.mode.commands.slice(commandsBefore)).not.toContain('mode.set')
-      await expect(f.goal()).toHaveAttribute('aria-pressed', 'false')
-      await f.help.getByRole('button', { name: labels.close, exact: true }).click()
-      await f.clickGoal()
-      await expect(f.page.getByRole('button', { name: f.copy.session.intent.cancelGoal, exact: true })).toHaveAttribute(
-        'aria-pressed',
-        'true',
-      )
-      await f.checkDraft()
-      expect(f.mode.writes.every((write) => write.sessionId === f.a.id)).toBe(true)
-      expect(f.mode.writes.map((write) => write.mode)).toEqual(['plan', 'default', 'plan', 'default'])
-      expect(await f.host.client.call('mode.get', { sessionId: f.b.id })).toEqual({ mode: 'default' })
-      await f.noRunsOrGoals()
-    } finally {
-      await f.close()
-    }
-  })
+    },
+  )
 }

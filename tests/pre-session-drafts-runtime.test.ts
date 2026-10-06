@@ -73,6 +73,47 @@ function session(id: string, workspaceId: string): Session {
   }
 }
 
+test('prepared Goal permits durable Plan changes through the runtime composition root without submitting its draft', async () => {
+  const f = fixture({ planMode: true, goals: true })
+  const sessionId = 'prepared-original'
+  try {
+    f.sessions.set(sessionId, session(sessionId, 'workspace-a'))
+    await f.runtime.view.commands.execute('app.setSession', { sessionId, workspaceId: 'workspace-a' })
+    await f.runtime.view.commands.execute('draft.setText', { sessionId, text: 'Original Goal draft — 保留原稿' })
+    await f.runtime.view.commands.execute('composerIntent.setIntent', { sessionId, intent: 'goal' })
+    const prepared = f.runtime.view.state.composerIntent.getSnapshot().entries[sessionId]
+    const originalDraft = f.runtime.view.state.drafts.getSnapshot()[sessionId]
+    if (!prepared || !originalDraft) throw new Error('Prepared Goal fixture is missing its original owner')
+    await f.runtime.view.commands.execute('composerPlanMode.refresh', { sessionId })
+    for (const mode of ['plan', 'default', 'plan'] as const) {
+      const entry = f.runtime.view.state.composerPlanMode.getSnapshot().entries[sessionId]
+      if (!entry) throw new Error('Original Plan mode fixture is unavailable')
+      await f.runtime.view.commands.execute('composerPlanMode.setMode', {
+        sessionId,
+        mode,
+        expectedRevision: entry.revision,
+      })
+      expect(f.runtime.view.state.composerIntent.getSnapshot().entries[sessionId]).toMatchObject({
+        intent: 'goal',
+        revision: prepared.revision,
+      })
+      expect(f.runtime.view.state.drafts.getSnapshot()[sessionId]).toEqual(originalDraft)
+      expect(f.hostPlanModes.get(sessionId)).toBe(mode)
+    }
+    await f.runtime.view.commands.execute('composerIntent.setIntent', { sessionId, intent: 'default' })
+    expect(f.hostPlanModes.get(sessionId)).toBe('plan')
+    expect(f.planModeWrites.map(({ sessionId: owner, mode }) => ({ owner, mode }))).toEqual([
+      { owner: sessionId, mode: 'plan' },
+      { owner: sessionId, mode: 'default' },
+      { owner: sessionId, mode: 'plan' },
+    ])
+    expect(f.runCalls).toEqual([])
+    expect(f.goalCalls).toEqual([])
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
 function initialModel(sessionId: string): ModelConfiguration {
   return {
     sessionId,
