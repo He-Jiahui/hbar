@@ -33,6 +33,8 @@ const kernel = await Kernel.create({
 })
 if (process.env.HBAR_E2E_GOAL_AUTO_CONTINUE === '0')
   await kernel.changePlugin('goal.codex', true, { autoContinue: false })
+if (process.env.HBAR_E2E_BUDGET_AUTO_CONTINUE === '0')
+  await kernel.changePlugin('budget.codex', true, { autoContinue: false })
 const workspace = (await kernel.storage.call('workspaces'))[0]!
 let session = await kernel.createSession(workspace.id, sessionCount === 1 ? undefined : 'Session 001')
 for (let index = 2; index <= sessionCount; index += 1)

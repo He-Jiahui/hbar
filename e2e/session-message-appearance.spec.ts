@@ -13,7 +13,11 @@ test('message reading surfaces stay quiet while tool disclosures retain keyboard
   const root = await mkdtemp(join(tmpdir(), 'hbar-message-appearance-'))
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+    host = await startWebSessionHost({
+      root,
+      port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+      budgetAutoContinue: false,
+    })
     const sessionId = host.ready.sessionId
     const goals = createGoalPlanCommandClient(host.client)
     await createRunCommandClient(host.client).execute(
@@ -52,7 +56,10 @@ test('message reading surfaces stay quiet while tool disclosures retain keyboard
           await page.addInitScript((value) => localStorage.setItem('hbar:web:theme', value), theme)
           await page.goto(base)
           if (width < 1024) await page.getByRole('button', { name: '显示工程与会话侧栏' }).click()
-          await page.getByRole('button', { name: /^打开会话 / }).click()
+          await page
+            .locator(`[data-session-id="${sessionId}"]`)
+            .locator('xpath=ancestor::*[@role="treeitem"][1]')
+            .click()
           const messages = page.locator('.lumen-message-transcript')
           await expect(messages).toHaveCount(3)
           await expect(messages.locator('[data-edge]')).toHaveCount(0)
@@ -89,7 +96,7 @@ test('message reading surfaces stay quiet while tool disclosures retain keyboard
           expect((await page.evaluate(() => navigator.clipboard.readText())).replaceAll('\r\n', '\n')).toBe(
             expectedText,
           )
-          await page.getByRole('textbox', { name: '提示词' }).focus()
+          await page.getByRole('textbox', { name: labels.prompt.input, exact: true }).focus()
           await page.screenshot({ path: testInfo.outputPath(`message-reading-${theme}-${width}.png`) })
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
           const viewport = page.locator('.lumen-conversation-messages')

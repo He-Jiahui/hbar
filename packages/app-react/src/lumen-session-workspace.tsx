@@ -1576,6 +1576,7 @@ function SessionWorkspaceContent({
         copyLabel: labels.copy,
         children,
         actions:
+          message.role === 'user' ||
           (lastAssistantByRun.get(message.runId) === message.id && !unfinishedRuns.has(message.runId)) ||
           forkActionFor(message) ||
           messageFork.actions[forkKey(message)]?.status === 'created' ? (

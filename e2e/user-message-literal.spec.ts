@@ -28,7 +28,11 @@ test('operator text stays literal while assistant Markdown, Copy and Find remain
   })
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+    host = await startWebSessionHost({
+      root,
+      port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+      budgetAutoContinue: false,
+    })
     const owned = host
     const origin = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
     expect((await context.request.post(`${origin}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
@@ -69,13 +73,18 @@ test('operator text stays literal while assistant Markdown, Copy and Find remain
       'href',
       'https://example.invalid/docs',
     )
+    const viewport = page.locator('.lumen-conversation-messages')
+    await viewport.hover()
+    await page.mouse.wheel(0, -4000)
+    await expect(row).toBeVisible()
     await row.getByRole('button', { name: copyMessage, exact: true }).click()
     await expect(row.getByRole('status')).toHaveText(copy.session.messageActions.copied)
     expect((await page.evaluate(() => navigator.clipboard.readText())).replaceAll('\r\n', '\n')).toBe(text)
     await prompt.fill('保留这份未发送草稿')
     await page.screenshot({ path: info.outputPath('literal-wide.png') })
     await page.setViewportSize({ width: 320, height: 900 })
-    await page.getByRole('button', { name: copy.session.find.entry, exact: true }).click()
+    await prompt.focus()
+    await page.keyboard.press('Control+f')
     const find = page.getByRole('search', { name: copy.session.find.title, exact: true })
     await find.getByRole('searchbox', { name: copy.session.find.input, exact: true }).fill('**不要变成粗体**')
     await expect(find.getByRole('status')).toHaveText(copy.session.find.count(1, 1, false))
