@@ -141,6 +141,17 @@ test('composer stops its captured background Agents without replacing Send or ca
     await page.screenshot({ path: info.outputPath('background-stop-alongside-send-1440.png') })
     await page.setViewportSize({ width: 320, height: 900 })
     await expect(backgroundStop).toBeEnabled()
+    await expect(backgroundStop).toBeInViewport()
+    await expect(send).toBeInViewport()
+    for (const action of [backgroundStop, send]) {
+      expect(
+        await action.evaluate((element) => {
+          const box = element.getBoundingClientRect()
+          const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+          return hit !== null && element.contains(hit)
+        }),
+      ).toBe(true)
+    }
     const [stopBox, sendBox] = await Promise.all([backgroundStop.boundingBox(), send.boundingBox()])
     expect(stopBox).not.toBeNull()
     expect(sendBox).not.toBeNull()
