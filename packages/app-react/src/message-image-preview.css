@@ -54,3 +54,8 @@
 .hbar-tool-output-image-links {
   display: flex;
 }
+
+.hbar-legacy-tool-image-open {
+  align-self: flex-start;
+  max-inline-size: 100%;
+}

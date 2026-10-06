@@ -186,6 +186,8 @@ export default definePlugin({
 
 聊天正文、用户消息和工具输出中的 HTTP(S) 图片直链也会自动显示预览。普通链接按 URL pathname 的常见图片扩展名识别，保留签名 query 和 fragment；显式 Markdown 图片可使用没有扩展名的 URL。每段正文或每次工具输出最多自动预览 12 个来源，其余保留可点击链接。预览在浏览器中按可见性延迟读取，失败可就地重试，点击可打开原图；代码示例和折叠摘要不加载图片，流式 Markdown 在提交后开始加载。Files 的 Markdown 阅读沿用自己的图片资源策略。
 
+旧版截图结果如果仍在 `details.data`／`details.mime` 中保存了受支持的 base64 图片，也可直接预览和打开大图；此兼容路径只读取已有历史数据，不重放工具或改写历史。只有说明文字、没有图片 bytes 或 artifact 引用的旧记录无法恢复原图。
+
 会话级动态事实使用 SDK 的 `appendModelContext(request, text)` 追加；稳定指令需要置于事实之前时，使用 `prependModelInstructions(request, text)`。两者都保留完整 `ModelRequest.system`，以可选 `systemContextOffset`（UTF-16 索引）标记每请求刷新的 Host 状态起点，不复制另一份业务状态。不要手动拼接前缀后继续沿用旧的偏移量。
 
 当前 Pi 驱动对 OpenAI-compatible 协议将动态后缀放在历史之后，保持原 system / developer 层级；持久会话消息和工具配对不变。其他协议及未支持该元数据的驱动仍可使用完整 `system`，不会丢失预算或焦点。工具广告中的稳定指令放在前缀。该结构及传给供应商适配器的 Session ID 为缓存复用提供条件，但不保证命中；预算仍以实际 usage 结算。

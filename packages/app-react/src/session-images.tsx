@@ -12,10 +12,12 @@ import {
 import { FileText, X } from 'lucide-react'
 import {
   LumenIcon,
+  LumenButton,
   LumenFrame,
   LumenIconButton,
   LumenImageGallery,
   LumenImageTile,
+  LumenImage,
   LumenText,
   type LumenImageGalleryLabels,
 } from '@lumen/app-ui'
@@ -42,6 +44,7 @@ import {
 } from './session-images-model'
 import './session-images.css'
 import { MessageImagePreviewProvider } from './message-image-preview-context'
+import { legacyToolImageSource } from './legacy-tool-image'
 
 export interface HbarSessionImageLabels {
   readonly gallery: LumenImageGalleryLabels
@@ -380,6 +383,56 @@ export function HbarMessageImageContent({
   )
 }
 
+/** Read already-stored legacy bytes locally; never rerun a screenshot or fabricate a new artifact owner. */
+function LegacyToolImage({ source, name }: { readonly source: string; readonly name: string }) {
+  const context = useContext(ImageContext)
+  const [open, setOpen] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const image = (
+    <LumenImage className="hbar-message-linked-image" src={source} alt={name} onError={() => setFailed(true)} />
+  )
+  return (
+    <LumenFrame className="hbar-message-image-content">
+      {context ? (
+        <LumenButton
+          type="button"
+          className="hbar-legacy-tool-image-open"
+          variant="text"
+          indicator="none"
+          aria-label={context.labels.open(name)}
+          onClick={() => setOpen(true)}
+        >
+          {image}
+        </LumenButton>
+      ) : (
+        image
+      )}
+      {failed && context && (
+        <LumenText as="span" role="alert">
+          {context.labels.error('DECODE_FAILED')}
+        </LumenText>
+      )}
+      {context && (
+        <LumenImageGallery
+          open={open}
+          activeKey="legacy-image"
+          items={[{ key: 'legacy-image', name, thumbnailUrl: source }]}
+          image={
+            failed
+              ? { status: 'failed', errorText: context.labels.error('DECODE_FAILED'), retryable: false }
+              : { status: 'ready', url: source }
+          }
+          labels={context.labels.gallery}
+          onSelect={() => {}}
+          onClose={() => setOpen(false)}
+          onRetry={() => setFailed(false)}
+          onImageError={() => setFailed(true)}
+        />
+      )}
+    </LumenFrame>
+  )
+}
+
 /** Tool previews stay in their output section and resolve resources from the original durable result. */
 export function HbarToolResultImages({
   sessionId,
@@ -391,7 +444,10 @@ export function HbarToolResultImages({
   readonly result: Extract<ContentBlock, { type: 'tool_result' }>
 }) {
   const context = useContext(ImageContext)
-  if (!result.images?.length) return null
+  if (!result.images?.length) {
+    const legacy = legacyToolImageSource(result)
+    return legacy ? <LegacyToolImage key={legacy} source={legacy} name={result.text || result.name} /> : null
+  }
   if (!context)
     return (
       <LumenFrame className="hbar-image-entries">

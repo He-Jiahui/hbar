@@ -153,6 +153,30 @@ for (const [locale, width] of [
       await expect.poll(() => images.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(480)
       await expect(page.getByRole('alert')).toHaveCount(0)
       await page.screenshot({ path: `artifacts/message-image-preview/recovered-${locale}-${width}.png` })
+      const caption = 'Computer screenshot 480x240'
+      await render(page, { locale, mode: 'legacy', text: caption, legacyData: imageFile(0).buffer.toString('base64') })
+      await expect.poll(() => images.first().evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(480)
+      const openLegacy = page.getByRole('button', { name: labels.open(caption), exact: true })
+      await openLegacy.focus()
+      await page.keyboard.press('Enter')
+      const gallery = page.getByRole('dialog', { name: labels.gallery.title, exact: true })
+      await expect(gallery.locator('.lumen-image-gallery-media img')).toHaveAttribute('src', /^data:image\/png;base64,/)
+      await expect
+        .poll(() =>
+          gallery.locator('.lumen-image-gallery-media img').evaluate((image: HTMLImageElement) => image.naturalWidth),
+        )
+        .toBe(480)
+      await page.keyboard.press('Escape')
+      await expect(openLegacy).toBeFocused()
+      await page.screenshot({ path: `artifacts/message-image-preview/legacy-${locale}-${width}.png` })
+      await render(page, {
+        locale,
+        mode: 'legacy',
+        text: caption,
+        legacyData: Buffer.from('invalid PNG bytes').toString('base64'),
+      })
+      await expect(page.getByRole('alert')).toHaveText(labels.error('DECODE_FAILED'))
+      expect(await page.evaluate(() => window.imagePreviewFixture.resourceReads())).toBe(0)
       expect(requests.every((item) => item.referrer === undefined)).toBe(true)
       expect(errors).toEqual([])
     } finally {
