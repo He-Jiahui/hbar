@@ -15,5 +15,6 @@ export function HbarPromptComposer(
   const controlled = { body: null, composer }
   if (props.variant === 4) return <LumenPromptInput04 controlled={controlled} />
   if (props.variant === 7) return <LumenPromptInput07 controlled={controlled} />
-  return <LumenPromptInput01 controlled={controlled} />
+  if (props.variant === 1) return <LumenPromptInput01 controlled={controlled} />
+  return composer
 }

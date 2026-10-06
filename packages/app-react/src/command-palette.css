@@ -98,15 +98,18 @@
   display: flex;
   min-inline-size: 0;
   align-items: flex-end;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
 .hbar-app-react-command-field > .lumen-form-field {
-  flex: 1 1 auto;
+  min-inline-size: 0;
+  flex: 1 1 16rem;
 }
 
 .hbar-app-react-command-field > button {
   flex: 0 0 auto;
+  margin-inline-start: auto;
 }
 
 .hbar-app-react-known-target {
@@ -237,7 +240,8 @@
   }
 
   .hbar-app-react-command-field > button {
-    align-self: flex-start;
+    align-self: flex-end;
+    margin-inline-start: 0;
   }
 
   .hbar-app-react-command-parameters form > footer,

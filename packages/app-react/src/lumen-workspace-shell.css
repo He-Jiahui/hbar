@@ -1,3 +1,31 @@
+.hbar-app-react-sidebar-surface {
+  display: flex;
+  inline-size: 100%;
+  block-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hbar-app-react-sidebar-surface > .lumen-app-sidebar {
+  min-block-size: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.hbar-app-react-sidebar-surface > .lumen-app-sidebar > header {
+  min-block-size: 0;
+  flex: 0 1 auto;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.hbar-app-react-sidebar-surface .lumen-app-sidebar-content {
+  min-block-size: 2.75rem;
+}
+
 .hbar-app-react-tool-content {
   display: flex;
   min-inline-size: 0;

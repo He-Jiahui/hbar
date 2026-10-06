@@ -1,0 +1,192 @@
+/* Host composition of the user-selected DESIGN.md family. Lumen owns action paint and motion. */
+[data-hbar-app-ui-shell='app'] {
+  --hbar-workbench-brand-size: calc(var(--lumen-font-size) * 1.35);
+  --hbar-workbench-title-size: calc(var(--lumen-font-size) * 1.65);
+  --hbar-workbench-caption-size: calc(var(--lumen-font-size) * 0.9);
+}
+
+[data-hbar-app-ui-shell='app'] .lumen-app-sidebar {
+  border-inline-end-color: var(--lumen-line);
+}
+
+[data-hbar-app-ui-shell='app'] .hbar-app-react-shell-header-active-title {
+  min-inline-size: 0;
+  flex: 1 1 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--lumen-ink);
+  font-size: var(--lumen-font-size);
+  font-weight: 500;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-hbar-app-ui-shell='app'] .lumen-app-sidebar > header {
+  gap: 1rem;
+  padding: 1rem;
+}
+
+[data-hbar-app-ui-shell='app'] .lumen-app-brand {
+  font-size: var(--hbar-workbench-brand-size);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+[data-hbar-app-ui-shell='app'] .hbar-app-react-sidebar-primary {
+  gap: 0.25rem;
+}
+
+[data-hbar-app-ui-shell='app'] .hbar-app-react-sidebar-query-actions {
+  padding-block: 0.625rem;
+}
+
+[data-hbar-app-ui-shell='app'] .lumen-app-sidebar-title {
+  padding-inline: 1rem;
+  padding-block: 0.5rem;
+}
+
+[data-hbar-app-ui-shell='app'] .lumen-app-sidebar-title h2 {
+  color: var(--lumen-muted);
+  font-size: var(--hbar-workbench-caption-size);
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+[data-hbar-app-ui-shell='app'] .lumen-app-sidebar-content {
+  padding-inline: 0.75rem;
+}
+
+[data-hbar-app-ui-shell='app'] .lumen-app-sidebar > footer {
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-block-start-color: var(--lumen-line);
+}
+
+[data-hbar-app-ui-shell='app'] .hbar-web-feature-navigation {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.375rem;
+}
+
+[data-hbar-app-ui-shell='app'] .hbar-web-feature-navigation > button {
+  min-inline-size: 0;
+  flex: 1 1 7rem;
+  justify-content: flex-start;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-hbar-app-ui-shell='app'] .hbar-web-feature-navigation > :not(button) {
+  min-inline-size: 0;
+  flex: 1 1 100%;
+}
+
+[data-hbar-app-ui-shell='app'] .hbar-app-react-session-empty-hero {
+  gap: 1rem;
+  padding-inline: 1.5rem;
+}
+
+[data-hbar-app-ui-shell='app'] .hbar-app-react-session-empty-mark {
+  inline-size: 3rem;
+  block-size: 3rem;
+  border-radius: var(--lumen-radius-surface);
+}
+
+[data-hbar-app-ui-shell='app'] .hbar-app-react-session-empty-title {
+  font-size: var(--hbar-workbench-title-size);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+[data-hbar-app-ui-shell='app'] .hbar-app-react-session-empty-description {
+  color: var(--lumen-muted);
+  font-size: var(--lumen-font-size);
+  line-height: 1.7;
+}
+
+[data-hbar-app-ui-shell='app'] .hbar-pre-session-landing-footer {
+  padding-block-end: 1.5rem;
+}
+
+[data-hbar-app-ui-shell='app'] .lumen-prompt-composer-surface {
+  border-color: var(--lumen-line);
+  border-radius: var(--lumen-radius-surface);
+  outline: none;
+}
+
+[data-hbar-app-ui-shell='app'] .lumen-prompt-composer-surface:not([data-lumen-state='disabled']):focus-within {
+  --lumen-effect-level: var(--lumen-glow-focus);
+  border-color: var(--lumen-effect-color);
+  outline: 0.125rem solid color-mix(in srgb, var(--lumen-effect-color) 45%, transparent);
+  outline-offset: 0.125rem;
+}
+
+[data-hbar-app-ui-shell='app'] .lumen-prompt-composer-surface:not([data-lumen-state='failed']):focus-within {
+  --lumen-effect-color: var(--lumen-info);
+}
+
+[data-hbar-app-ui-shell='app'] .lumen-prompt-composer-surface[data-lumen-state='failed'] {
+  border-color: var(--lumen-danger);
+}
+
+[data-hbar-app-ui-shell='app'] .hbar-prompt-composer {
+  box-shadow: none;
+}
+
+[data-hbar-app-ui-shell='app'] .hbar-pre-session-landing .hbar-prompt-composer {
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+/* The composed form owns this editor's keyboard focus boundary. */
+[data-hbar-app-ui-shell='app'] .hbar-prompt-composer .hbar-pre-session-slash-editor-input,
+[data-hbar-app-ui-shell='app'] .hbar-prompt-composer > textarea {
+  min-block-size: 4.5rem;
+  padding: 0.25rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--lumen-ink);
+  font: inherit;
+  font-size: var(--lumen-font-size);
+  line-height: 1.65;
+  outline: none;
+  box-shadow: none;
+}
+
+[data-hbar-app-ui-shell='app'] .hbar-prompt-composer .hbar-composer-mention-editor .cm-focused {
+  outline: none;
+}
+
+@media (max-height: 40rem) {
+  [data-hbar-app-ui-shell='app'] .hbar-app-react-session-empty-hero {
+    gap: 0.5rem;
+    padding-block: 0.5rem;
+  }
+
+  [data-hbar-app-ui-shell='app'] .hbar-app-react-session-empty-mark {
+    inline-size: 2rem;
+    block-size: 2rem;
+  }
+}
+
+@media (max-width: 40rem) {
+  [data-hbar-app-ui-shell='app'] .hbar-pre-session-landing .hbar-prompt-composer {
+    padding: 0.75rem;
+  }
+}
+
+@media (forced-colors: active) {
+  [data-hbar-app-ui-shell='app'] .lumen-prompt-composer-surface {
+    border-color: CanvasText;
+  }
+
+  [data-hbar-app-ui-shell='app'] .lumen-prompt-composer-surface:focus-within {
+    border-color: Highlight;
+    outline-color: Highlight;
+  }
+}

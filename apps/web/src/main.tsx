@@ -15,6 +15,7 @@ import './document.css'
 import './react-bits/theme.css'
 import './react-bits/semantic.css'
 import './react-bits/production.css'
+import './workbench-design.css'
 import ReferenceFixtureRoute, { referenceFixtureRouteFromLocation } from './react-bits/reference/ReferenceFixtureRoute'
 
 const language = createWebLanguageController(resolveShellLocale(navigator.languages), {
