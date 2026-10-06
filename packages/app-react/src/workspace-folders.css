@@ -1,0 +1,174 @@
+.hbar-workspace-folders-body,
+.hbar-workspace-folder-list,
+.hbar-workspace-folder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-inline-size: 0;
+}
+.hbar-workspace-folders-body {
+  padding: 0.75rem 1rem;
+}
+.hbar-workspace-folders-body p {
+  margin: 0;
+  color: var(--lumen-muted);
+}
+.hbar-workspace-folder-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.hbar-workspace-folder {
+  padding: 0.75rem;
+  border: thin solid var(--lumen-line);
+  border-radius: 0.5rem;
+}
+.hbar-workspace-folder-path-row,
+.hbar-workspace-folder-header,
+.hbar-workspace-folder-fields,
+.hbar-workspace-folder-priority,
+.hbar-workspace-folder-browser-toolbar,
+.hbar-workspace-folder-browser-row,
+.hbar-workspace-folders-heading,
+.hbar-workspace-folders-actions,
+.hbar-workspace-folder-selection {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-inline-size: 0;
+}
+.hbar-workspace-folder-path-row > .lumen-outlined-field,
+.hbar-workspace-folder-path-row > input {
+  flex: 1 1 14rem;
+  min-inline-size: 0;
+}
+.hbar-workspace-folder-path-row > button {
+  flex: 0 0 auto;
+}
+.hbar-workspace-folder-path-row input {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+.hbar-workspace-folder-fields {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.hbar-workspace-folder-fields > :first-child {
+  flex: 1 1 10rem;
+  min-inline-size: 0;
+}
+.hbar-workspace-folder-fields > :last-child {
+  flex: 3 1 18rem;
+  min-inline-size: 0;
+}
+.hbar-workspace-folder-fields input {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+.hbar-workspace-folder-header > strong,
+.hbar-workspace-folder-browser-row > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-inline-size: 0;
+}
+.hbar-workspace-folder-priority {
+  margin-inline-start: auto;
+  flex: 0 0 auto;
+}
+.hbar-workspace-folder-primary {
+  color: var(--lumen-info);
+  background: var(--lumen-glass);
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.25rem;
+  flex: 0 0 auto;
+}
+.hbar-workspace-folder-browser-toolbar {
+  flex-wrap: wrap;
+}
+.hbar-workspace-folder-browser-toolbar > :first-child {
+  flex: 1 1 12rem;
+  min-inline-size: 0;
+}
+.hbar-workspace-folder-browser-list {
+  max-block-size: 42vh;
+  overflow: auto;
+}
+.hbar-workspace-folder-browser-row {
+  flex: 1 1 0;
+  inline-size: auto;
+}
+.hbar-workspace-folder-browser-list .lumen-tree-row {
+  min-inline-size: 0;
+}
+.hbar-workspace-folder-browser-label {
+  flex: 1 1 0;
+}
+.hbar-workspace-folder-browser-row > .lumen-icon {
+  flex-shrink: 0;
+}
+.hbar-workspace-folder-browser-row > .hbar-action-icon-button {
+  margin-inline-start: auto;
+}
+.hbar-workspace-folder-current {
+  overflow-wrap: anywhere;
+}
+.hbar-workspace-folder-selection {
+  flex-wrap: wrap;
+}
+.hbar-workspace-folder-selection > strong {
+  flex-basis: 100%;
+}
+.hbar-workspace-folder-selection > button {
+  max-inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hbar-workspace-folders-heading {
+  justify-content: space-between;
+}
+.hbar-workspace-folder-selection-name {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hbar-workspace-folders-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.hbar-workspace-folder-entry-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-inline-size: 0;
+}
+.hbar-workspace-folder-entry-row > :first-child {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+.hbar-workspace-folder-entry-row > :last-child {
+  flex: 0 0 auto;
+}
+.hbar-workspace-folder-entry-row input {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+@media (max-width: 40rem) {
+  .hbar-workspace-folder-path-row {
+    flex-wrap: wrap;
+  }
+  .hbar-workspace-folder-path-row > .lumen-outlined-field,
+  .hbar-workspace-folder-path-row > input {
+    flex-basis: 100%;
+  }
+  .hbar-workspace-folder-header {
+    flex-wrap: wrap;
+  }
+  .hbar-workspace-folder-entry-row:has(input) {
+    flex-wrap: wrap;
+  }
+  .hbar-workspace-folder-entry-row:has(input) > :first-child {
+    flex-basis: 100%;
+  }
+}

@@ -80,6 +80,7 @@ import {
   type WorkspaceDisplayNamesLabels,
 } from './workspace-display-names'
 import { useWorkspaceDisplayNameFocus } from './workspace-display-name-focus'
+import { HbarWorkspaceFoldersDialog, type WorkspaceFoldersLabels } from './workspace-folders'
 import { SessionRenameRecovery, type SessionRenameLabels } from './session-navigation-row'
 import { SessionAgentBranch, type SessionAgentTreeLabels } from './session-agent-branch'
 import {
@@ -127,6 +128,7 @@ export interface HbarWorkspaceShellLabels {
     }
   }
   readonly displayNames: WorkspaceDisplayNamesLabels
+  readonly workspaceFolders: WorkspaceFoldersLabels
   readonly noWorkspaces: string
   readonly noSessions: string
   readonly loading: string
@@ -1065,6 +1067,19 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       createSession: projectPicker === 'create-session',
     })
   }
+  const openFolders = (workspaceId?: string, path?: string, browse = false) => {
+    const createSession = projectPicker === 'create-session'
+    const targetPath =
+      path?.trim() ||
+      (browse && navigation.workspaceId ? directory.workspaces[navigation.workspaceId]?.path : undefined)
+    closeProjectPicker()
+    void execute('workspaceFolders.open', {
+      ...(workspaceId ? { workspaceId } : {}),
+      ...(targetPath ? { path: targetPath } : {}),
+      ...(!workspaceId && createSession ? { createSession: true } : {}),
+      ...(browse ? { browse: true } : {}),
+    }).catch(recordError)
+  }
   const openSession = (workspaceId: string, sessionId: string) => {
     void execute('app.setSession', { workspaceId, sessionId })
       .then(() => {
@@ -1630,6 +1645,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                               (displayNameBusy && displayNames.editor?.workspaceId !== workspace.id),
                           },
                           { id: 'files', label: props.labels.workspaceFiles },
+                          { id: 'folders', label: props.labels.workspaceFolders.manage, disabled: !connected },
                           { id: 'settings', label: props.labels.workspaceSettings },
                           {
                             id: 'pin',
@@ -1668,6 +1684,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                         ]}
                         onAction={(action) => {
                           if (action === 'edit') editWorkspace({ workspaceId: workspace.id })
+                          else if (action === 'folders') openFolders(workspace.id)
                           else if (action === 'files' || action === 'settings')
                             openWorkspaceSurface(workspace.id, action)
                           else if (action === 'pin') toggleWorkspacePin(workspace.id)
@@ -1975,30 +1992,38 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               </LumenText>
             ) : (
               workspaces.map((workspace, index) => (
-                <LumenButton
-                  key={workspace.id}
-                  variant="text"
-                  className="hbar-app-react-workspace-picker-item"
-                  autoFocus={index === 0}
-                  disabled={!connected || navigationBlocked}
-                  aria-label={
-                    projectPicker === 'create-session'
-                      ? props.labels.createSessionInWorkspace(workspaceDisplayName(workspace, displayNames.snapshot))
-                      : workspaceDisplayName(workspace, displayNames.snapshot)
-                  }
-                  onClick={() =>
-                    runNavigationAction({
-                      kind: projectPicker === 'create-session' ? 'create-session' : 'select-workspace',
-                      workspaceId: workspace.id,
-                    })
-                  }
-                >
-                  <WorkspaceShellIcon name="folder" />
-                  <LumenFrame>
-                    <LumenText as="strong">{workspaceDisplayName(workspace, displayNames.snapshot)}</LumenText>
-                    <LumenText as="small">{workspace.path}</LumenText>
-                  </LumenFrame>
-                </LumenButton>
+                <LumenFrame key={workspace.id} className="hbar-workspace-folder-entry-row">
+                  <LumenButton
+                    variant="text"
+                    className="hbar-app-react-workspace-picker-item"
+                    autoFocus={index === 0}
+                    disabled={!connected || navigationBlocked}
+                    aria-label={
+                      projectPicker === 'create-session'
+                        ? props.labels.createSessionInWorkspace(workspaceDisplayName(workspace, displayNames.snapshot))
+                        : workspaceDisplayName(workspace, displayNames.snapshot)
+                    }
+                    onClick={() =>
+                      runNavigationAction({
+                        kind: projectPicker === 'create-session' ? 'create-session' : 'select-workspace',
+                        workspaceId: workspace.id,
+                      })
+                    }
+                  >
+                    <WorkspaceShellIcon name="folder" />
+                    <LumenFrame>
+                      <LumenText as="strong">{workspaceDisplayName(workspace, displayNames.snapshot)}</LumenText>
+                      <LumenText as="small">{workspace.path}</LumenText>
+                    </LumenFrame>
+                  </LumenButton>
+                  <HbarActionIconButton
+                    label={props.labels.workspaceFolders.manage}
+                    disabled={!connected || navigationBlocked}
+                    onClick={() => openFolders(workspace.id)}
+                  >
+                    <LumenIcon icon={SquarePen} tier="sm" />
+                  </HbarActionIconButton>
+                </LumenFrame>
               ))
             )}
             {workspaceCursor && (
@@ -2017,14 +2042,26 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               label={props.labels.workspacePath}
               description={props.labels.workspacePathHint}
             >
-              <LumenInput
-                id="hbar-workspace-path"
-                autoFocus={workspaces.length === 0}
-                value={workspacePath}
-                maxLength={4000}
-                disabled={!connected || navigationBlocked}
-                onChange={(event) => setWorkspacePath(event.currentTarget.value)}
-              />
+              <LumenFrame className="hbar-workspace-folder-entry-row">
+                <LumenInput
+                  id="hbar-workspace-path"
+                  autoFocus={workspaces.length === 0}
+                  value={workspacePath}
+                  maxLength={4000}
+                  disabled={!connected || navigationBlocked}
+                  onChange={(event) => setWorkspacePath(event.currentTarget.value)}
+                />
+                <LumenButton
+                  type="button"
+                  variant="outlined"
+                  indicator="none"
+                  disabled={!connected || navigationBlocked}
+                  onClick={() => openFolders(undefined, workspacePath, true)}
+                >
+                  <LumenIcon icon={FolderOpen} tier="sm" />
+                  {props.labels.workspaceFolders.browse}
+                </LumenButton>
+              </LumenFrame>
             </LumenFormField>
             <LumenButton type="submit" disabled={!connected || navigationBlocked || !workspacePath.trim()}>
               {props.labels.addWorkspace}
@@ -2044,6 +2081,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           )}
         </LumenDialog>
       )}
+      <HbarWorkspaceFoldersDialog labels={props.labels.workspaceFolders} connected={connected} />
     </>
   )
   const contentRegion = (

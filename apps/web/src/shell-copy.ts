@@ -46,6 +46,7 @@ import { workspaceOrganizationCopy } from './workspace-organization-copy'
 import { workspaceSortCopy } from './workspace-sort-copy'
 import { sessionAgentTreeCopy } from './session-agent-tree-copy'
 import { workspaceDisplayNamesCopy } from './workspace-display-names-copy'
+import { workspaceFoldersCopy } from './workspace-folders-copy'
 import { getSessionStopCopy, sessionStopButtonLabel } from './session-stop-copy'
 import { sessionTimeCopy } from './session-time-copy'
 
@@ -1366,7 +1367,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       next: choose('下一页', 'Next'),
       page: (current, total) => choose(`第 ${current} / ${total} 页`, `Page ${current} of ${total}`),
       attachments: (count) => choose(`${count} 个附件`, `${count} attachments`),
-      ellipsis: '…',
+      previewLimited: choose('预览已截取，可编辑查看全文', 'Limited preview; edit to read the full message'),
       edit: (position) => choose(`编辑第 ${position} 条排队消息`, `Edit queued message ${position}`),
       editInput: (position) => choose(`第 ${position} 条排队消息内容`, `Queued message ${position} text`),
       editHint: choose(
@@ -3484,6 +3485,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       sort: workspaceSortCopy('zh-CN'),
       agentTree: sessionAgentTreeCopy('zh-CN'),
       displayNames: workspaceDisplayNamesCopy('zh-CN'),
+      workspaceFolders: workspaceFoldersCopy('zh-CN'),
       noWorkspaces: '尚无工程',
       noSessions: '尚无会话',
       loading: '正在加载',
@@ -3495,7 +3497,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       chooseWorkspace: '选择项目',
       chooseWorkspaceDescription: '选择新会话所属的项目。',
       workspacePath: '服务端目录',
-      workspacePathHint: '输入服务端上已存在的目录路径。',
+      workspacePathHint: '输入服务端目录，或从右侧浏览并选择多个文件夹。',
       addWorkspace: '添加项目',
       openingWorkspace: '正在打开项目…',
       cancel: '取消',
@@ -3632,6 +3634,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       sort: workspaceSortCopy('en-US'),
       agentTree: sessionAgentTreeCopy('en-US'),
       displayNames: workspaceDisplayNamesCopy('en-US'),
+      workspaceFolders: workspaceFoldersCopy('en-US'),
       noWorkspaces: 'No projects yet',
       noSessions: 'No sessions yet',
       loading: 'Loading',
@@ -3643,7 +3646,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       chooseWorkspace: 'Choose a project',
       chooseWorkspaceDescription: 'Choose the project for this new session.',
       workspacePath: 'Host directory',
-      workspacePathHint: 'Enter an existing directory path on the Host.',
+      workspacePathHint: 'Enter a Host path, or browse on the right to select multiple folders.',
       addWorkspace: 'Add project',
       openingWorkspace: 'Opening project…',
       cancel: 'Cancel',
