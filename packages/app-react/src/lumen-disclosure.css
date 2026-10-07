@@ -9,6 +9,13 @@
   text-align: start;
 }
 
+.hbar-lumen-disclosure-trigger-reading {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  min-block-size: max-content;
+  overflow-x: auto;
+}
+
 .hbar-lumen-disclosure-content {
   min-inline-size: 0;
 }

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import type { ProviderEditorState } from '@hbar/app-runtime'
 import {
   LumenFrame,
-  LumenText,
+  LumenCollection,
+  LumenContentText,
   LumenButton,
   LumenComboBox,
   LumenFormField,
@@ -133,6 +134,7 @@ export interface HbarProviderDialogLabels {
     readonly default: string
     readonly hidden: string
     readonly select: (name: string) => string
+    readonly selectPrompt: string
     readonly customId: string
     readonly customIdPlaceholder: string
     readonly addCustom: string
@@ -235,7 +237,7 @@ function AdvancedSection({
       }}
     >
       <LumenFrame className="hbar-provider-advanced-content" hidden={!open}>
-        <LumenText as="p">{description}</LumenText>
+        <LumenContentText context="form.description">{description}</LumenContentText>
         {children}
       </LumenFrame>
     </HbarLumenDisclosure>
@@ -245,8 +247,10 @@ function AdvancedSection({
 function SectionHeading({ title, description }: { readonly title: string; readonly description: string }) {
   return (
     <LumenFrame as="header" className="hbar-app-react-provider-section-heading">
-      <LumenText as="h2">{title}</LumenText>
-      <LumenText as="p">{description}</LumenText>
+      <LumenFrame className="hbar-provider-title-reading" role="group" aria-label={title} tabIndex={0}>
+        <LumenContentText context="section.title">{title}</LumenContentText>
+      </LumenFrame>
+      <LumenContentText context="section.description">{description}</LumenContentText>
     </LumenFrame>
   )
 }
@@ -272,9 +276,13 @@ function CatalogReadFeedback({
   const loading = read.status === 'loading'
   return (
     <LumenFrame className="hbar-provider-catalog-recovery" aria-busy={loading}>
-      <LumenText as="p" role={loading ? 'status' : 'alert'}>
+      <LumenContentText
+        context="feedback.paragraph"
+        role={loading ? 'status' : 'alert'}
+        tone={loading ? 'muted' : 'danger'}
+      >
         {loading ? labels.loading : labels.error(read.errorCode ?? 'EXECUTION_FAILED')}
-      </LumenText>
+      </LumenContentText>
       <LumenButton
         type="button"
         variant="outlined"
@@ -415,7 +423,7 @@ function ProviderPresetPicker({
   return (
     <LumenFrame as="section" className="hbar-app-react-provider-section">
       <SectionHeading title={labels.sections.preset} description={labels.sections.presetDescription} />
-      <LumenFormField controlId="provider-preset" label={labels.preset.label}>
+      <LumenFormField context={null} controlId="provider-preset" label={labels.preset.label}>
         <LumenComboBox
           id="provider-preset"
           value={editor.presets.selectedPresetId}
@@ -475,6 +483,7 @@ function ProviderConnectionForm({
       <LumenFrame className="hbar-app-react-provider-field-row">
         {!editor.providerId && (
           <LumenFormField
+            context={null}
             controlId="provider-id"
             label={labels.provider.id}
             description={labels.provider.idDescription}
@@ -493,6 +502,7 @@ function ProviderConnectionForm({
           </LumenFormField>
         )}
         <LumenFormField
+          context={null}
           controlId="provider-name"
           label={labels.provider.name}
           descriptionPlacement="after-control"
@@ -510,6 +520,7 @@ function ProviderConnectionForm({
       </LumenFrame>
       <LumenFrame className="hbar-app-react-provider-field-row">
         <LumenFormField
+          context={null}
           controlId="provider-protocol"
           label={labels.provider.protocol}
           required
@@ -525,6 +536,7 @@ function ProviderConnectionForm({
           />
         </LumenFormField>
         <LumenFormField
+          context={null}
           controlId="provider-base-url"
           label={labels.provider.baseUrl}
           required
@@ -541,10 +553,12 @@ function ProviderConnectionForm({
         </LumenFormField>
       </LumenFrame>
       {editor.providerId && (
-        <LumenText as="p" className="hbar-provider-identity">
-          <LumenText as="span">{labels.provider.id}</LumenText>
-          <LumenText as="span">{editor.providerId}</LumenText>
-        </LumenText>
+        <LumenCollection as="dl" className="hbar-provider-identity">
+          <LumenContentText context="detail.term" aria-label={labels.provider.id} tabIndex={0}>
+            {labels.provider.id}
+          </LumenContentText>
+          <LumenContentText context="detail.value">{editor.providerId}</LumenContentText>
+        </LumenCollection>
       )}
       <AdvancedSection
         label={labels.advancedConnection}
@@ -578,6 +592,7 @@ function ProviderCredentials({
     <LumenFrame as="section" className="hbar-app-react-provider-section">
       <SectionHeading title={labels.sections.credentials} description={labels.sections.credentialsDescription} />
       <LumenFormField
+        context={null}
         controlId="provider-api-key"
         label={labels.provider.apiKey}
         description={labels.provider.apiKeyDescription}
@@ -636,7 +651,7 @@ function ModelCatalogPicker({
     disabled: existing.has(model.id),
   }))
   return (
-    <LumenFormField controlId="provider-model-catalog" label={labels.models.catalog}>
+    <LumenFormField context={null} controlId="provider-model-catalog" label={labels.models.catalog}>
       <LumenComboBox
         id="provider-model-catalog"
         value={null}
@@ -715,9 +730,14 @@ function ModelList({
   }
   return (
     <LumenFrame as="aside" className="hbar-app-react-provider-model-list" aria-label={labels.sections.models}>
-      <LumenFrame className="hbar-app-react-provider-model-list-items">
+      <LumenFrame
+        className="hbar-app-react-provider-model-list-items"
+        role="group"
+        aria-label={labels.sections.models}
+        tabIndex={0}
+      >
         {editor.draft.models.length === 0 ? (
-          <LumenText as="p">{labels.models.empty}</LumenText>
+          <LumenContentText context="empty.description">{labels.models.empty}</LumenContentText>
         ) : (
           editor.draft.models.map((model, index) => (
             <LumenNavigationButton
@@ -728,34 +748,39 @@ function ModelList({
               disabled={disabled}
               onClick={() => onIntent({ kind: 'select-model', modelId: model.id })}
             >
-              <LumenText as="span">
-                <LumenText as="strong" title={model.name}>
+              <LumenFrame as="span">
+                <LumenContentText context="collection.title" title={model.name}>
                   {model.name}
-                </LumenText>
-                <LumenText as="small" title={model.id}>
+                </LumenContentText>
+                <LumenContentText context="metadata.detail" title={model.id}>
                   {model.id}
-                </LumenText>
+                </LumenContentText>
                 {editor.draftIssues.some((issue) => issue.path.startsWith(`models.${index}.`)) && (
-                  <LumenText as="small" className="hbar-provider-model-error">
+                  <LumenContentText
+                    context="control.status"
+                    className="hbar-provider-model-error"
+                    tone="danger"
+                    size="s"
+                  >
                     {labels.modelIssues(
                       model.name,
                       editor.draftIssues.filter((issue) => issue.path.startsWith(`models.${index}.`)).length,
                     )}
-                  </LumenText>
+                  </LumenContentText>
                 )}
-              </LumenText>
-              <LumenText as="span" className="hbar-app-react-provider-model-markers">
+              </LumenFrame>
+              <LumenFrame as="span" className="hbar-app-react-provider-model-markers">
                 {editor.draft.model === model.id && (
-                  <LumenText as="span" title={labels.models.default} aria-label={labels.models.default}>
+                  <LumenFrame as="span" title={labels.models.default} aria-label={labels.models.default}>
                     <LumenIcon icon={Check} tier="sm" />
-                  </LumenText>
+                  </LumenFrame>
                 )}
                 {!model.visible && (
-                  <LumenText as="span" title={labels.models.hidden} aria-label={labels.models.hidden}>
+                  <LumenFrame as="span" title={labels.models.hidden} aria-label={labels.models.hidden}>
                     <LumenIcon icon={EyeOff} tier="sm" />
-                  </LumenText>
+                  </LumenFrame>
                 )}
-              </LumenText>
+              </LumenFrame>
             </LumenNavigationButton>
           ))
         )}
@@ -770,6 +795,7 @@ function ModelList({
         onIntent={onIntent}
       />
       <LumenFormField
+        context={null}
         controlId="provider-custom-model"
         label={labels.models.customId}
         className="hbar-provider-custom-model-field"
@@ -818,7 +844,9 @@ function ModelEditor({
   if (!model)
     return (
       <LumenFrame className="hbar-app-react-provider-model-empty">
-        <LumenText as="p">{labels.models.empty}</LumenText>
+        <LumenContentText context="empty.description">
+          {editor.draft.models.length === 0 ? labels.models.empty : labels.models.selectPrompt}
+        </LumenContentText>
       </LumenFrame>
     )
   const set = (field: ModelField, value: string | number | boolean) =>
@@ -833,7 +861,12 @@ function ModelEditor({
   }))
   return (
     <LumenFrame className="hbar-app-react-provider-model-editor">
-      <LumenFrame className="hbar-app-react-provider-model-actions">
+      <LumenFrame
+        className="hbar-app-react-provider-model-actions"
+        role="toolbar"
+        aria-label={labels.models.select(model.name)}
+        tabIndex={0}
+      >
         <LumenButton
           disabled={disabled || editor.draft.model === model.id}
           onClick={() => onIntent({ kind: 'set-default-model', modelId: model.id })}
@@ -852,6 +885,7 @@ function ModelEditor({
       </LumenFrame>
       <LumenFrame className="hbar-app-react-provider-field-row">
         <LumenFormField
+          context={null}
           controlId="provider-model-id"
           label={labels.models.id}
           descriptionPlacement="after-control"
@@ -867,6 +901,7 @@ function ModelEditor({
           />
         </LumenFormField>
         <LumenFormField
+          context={null}
           controlId="provider-model-name"
           label={labels.models.name}
           descriptionPlacement="after-control"
@@ -883,6 +918,7 @@ function ModelEditor({
         </LumenFormField>
       </LumenFrame>
       <LumenFormField
+        context={null}
         controlId="provider-model-description"
         label={labels.models.description}
         {...draftIssueProps(editor, path('description'), labels)}
@@ -912,6 +948,7 @@ function ModelEditor({
         />
         <LumenFrame className="hbar-app-react-provider-field-row">
           <LumenFormField
+            context={null}
             controlId="provider-model-context"
             label={labels.models.contextWindow}
             required
@@ -926,6 +963,7 @@ function ModelEditor({
             />
           </LumenFormField>
           <LumenFormField
+            context={null}
             controlId="provider-model-output"
             label={labels.models.maxOutput}
             required
@@ -942,6 +980,7 @@ function ModelEditor({
         </LumenFrame>
         <LumenFrame className="hbar-app-react-provider-field-row">
           <LumenFormField
+            context={null}
             controlId="provider-model-input-price"
             label={labels.models.inputPrice}
             {...draftIssueProps(editor, path('inputPrice'), labels)}
@@ -954,6 +993,7 @@ function ModelEditor({
             />
           </LumenFormField>
           <LumenFormField
+            context={null}
             controlId="provider-model-output-price"
             label={labels.models.outputPrice}
             {...draftIssueProps(editor, path('outputPrice'), labels)}
@@ -983,6 +1023,7 @@ function ModelEditor({
           />
         </LumenFrame>
         <LumenFormField
+          context={null}
           controlId="provider-model-thinking-levels"
           label={labels.models.thinkingLevels}
           description={labels.models.thinkingLevelsDescription}
@@ -1005,11 +1046,12 @@ function ModelEditor({
                 })
             }}
           />
-          <LumenText as="p" className="hbar-provider-thinking-levels-hint">
+          <LumenContentText context="form.help" className="hbar-provider-thinking-levels-hint" tone="muted">
             {labels.models.thinkingLevelsSelectionHint}
-          </LumenText>
+          </LumenContentText>
         </LumenFormField>
         <LumenFormField
+          context={null}
           controlId="provider-model-default-thinking"
           label={labels.models.defaultThinkingLevel}
           description={labels.models.defaultThinkingLevelDescription}
@@ -1202,8 +1244,10 @@ export function HbarProviderEditorView({
     >
       <LumenFrame as="header" className="hbar-app-react-provider-page-header">
         <LumenFrame>
-          <LumenText as="h1">{title}</LumenText>
-          <LumenText as="p">{labels.description}</LumenText>
+          <LumenFrame className="hbar-provider-title-reading" role="group" aria-label={title} tabIndex={0}>
+            <LumenContentText context="workspace.title">{title}</LumenContentText>
+          </LumenFrame>
+          <LumenContentText context="section.description">{labels.description}</LumenContentText>
         </LumenFrame>
         <LumenButton
           type="button"
@@ -1244,13 +1288,18 @@ export function HbarProviderEditorView({
         />
       </LumenFrame>
       {displayedError && !(unknown && ['RESULT_UNKNOWN', 'CREDENTIAL_RESULT_UNKNOWN'].includes(displayedError)) && (
-        <LumenText as="p" className="hbar-app-react-provider-error" role="alert">
+        <LumenContentText
+          context="feedback.paragraph"
+          className="hbar-app-react-provider-error"
+          role="alert"
+          tone="danger"
+        >
           {labels.error(displayedError)}
-        </LumenText>
+        </LumenContentText>
       )}
       <LumenFrame as="footer">
         <LumenFrame className="hbar-provider-footer-details">
-          <LumenText as="span" role="status">
+          <LumenContentText context="feedback.paragraph" role="status" tone="muted">
             {busy
               ? labels.saving
               : unknown
@@ -1267,8 +1316,13 @@ export function HbarProviderEditorView({
               : checked && editor.draftIssues.length === 0
                 ? labels.validConfiguration
                 : null}
-          </LumenText>
-          <LumenFrame className="hbar-provider-secondary-actions">
+          </LumenContentText>
+          <LumenFrame
+            className="hbar-provider-secondary-actions"
+            role="toolbar"
+            aria-label={labels.checkConfiguration}
+            tabIndex={0}
+          >
             {dirtyCount > 0 && !unknown && (
               <LumenButton disabled={disabled} onClick={() => onIntent({ kind: 'reset-draft' })}>
                 <LumenIcon icon={RotateCcw} tier="sm" />
@@ -1280,7 +1334,7 @@ export function HbarProviderEditorView({
             </LumenButton>
           </LumenFrame>
         </LumenFrame>
-        <LumenFrame className="hbar-provider-primary-actions">
+        <LumenFrame className="hbar-provider-primary-actions" role="toolbar" aria-label={labels.save} tabIndex={0}>
           <LumenButton type="button" disabled={busy || unknown} onClick={onBack}>
             {labels.cancel}
           </LumenButton>

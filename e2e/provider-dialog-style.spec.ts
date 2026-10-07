@@ -1,14 +1,19 @@
 import { expect, test } from '@playwright/test'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 async function removeFixture(root: string): Promise<void> {
-  if (dirname(root) !== tmpdir() || !root.startsWith(join(tmpdir(), 'hbar-provider-modal-style-')))
+  const target = await realpath(root)
+  if (
+    target !== resolve(root) ||
+    dirname(target) !== (await realpath(tmpdir())) ||
+    !basename(target).startsWith('hbar-provider-modal-style-')
+  )
     throw new Error('Unexpected provider modal fixture path')
-  await rm(root, { recursive: true, force: true })
+  await rm(target, { recursive: true, force: true })
 }
 
 for (const locale of ['zh-CN', 'en-US'] as const) {
@@ -22,7 +27,12 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
     const context = await browser.newContext({ locale, colorScheme: 'dark', viewport: { width: 2048, height: 1228 } })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
       expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
       await context.addInitScript((language) => localStorage.setItem('hbar:web:language', language), locale)

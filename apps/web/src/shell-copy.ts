@@ -885,6 +885,7 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
       default: choose('默认模型', 'Default model'),
       hidden: choose('已隐藏', 'Hidden'),
       select: (name) => choose(`选择 ${name}`, `Select ${name}`),
+      selectPrompt: choose('选择一个模型以查看和修改其配置。', 'Select a model to view and edit its configuration.'),
       customId: choose('自定义模型 ID', 'Custom model ID'),
       customIdPlaceholder: choose('例如 my-model', 'For example, my-model'),
       addCustom: choose('添加自定义模型', 'Add custom model'),

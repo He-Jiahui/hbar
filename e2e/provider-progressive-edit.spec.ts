@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test'
 import { createConfigurationCommandClient } from '@hbar/client'
 import { z } from 'zod'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { selectLumenOption } from './support/lumen-controls'
@@ -17,8 +17,20 @@ async function expectControlsAligned(
   const [leftBox, rightBox] = await Promise.all([left.boundingBox(), right.boundingBox()])
   expect(leftBox).not.toBeNull()
   expect(rightBox).not.toBeNull()
-  expect(Math.abs(leftBox!.y - rightBox!.y)).toBeLessThanOrEqual(1)
-  expect(Math.abs(leftBox!.height - rightBox!.height)).toBeLessThanOrEqual(1)
+  if (!leftBox || !rightBox) throw new Error('Missing owned Provider control bounds')
+  expect(Math.abs(leftBox.y - rightBox.y)).toBeLessThanOrEqual(1)
+  expect(Math.abs(leftBox.height - rightBox.height)).toBeLessThanOrEqual(1)
+}
+
+async function removeFixture(root: string): Promise<void> {
+  const target = await realpath(root)
+  if (
+    target !== resolve(root) ||
+    dirname(target) !== (await realpath(tmpdir())) ||
+    !basename(target).startsWith('hbar-provider-progressive-')
+  )
+    throw new Error('Unexpected Provider progressive fixture path')
+  await rm(target, { recursive: true, force: true })
 }
 
 async function expectSingleScrollRegion(dialog: import('@playwright/test').Locator) {
@@ -52,7 +64,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 960 } })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const configuration = createConfigurationCommandClient(host.client)
       const original = await configuration.execute('provider.list', {})
       const copy = getShellCopy(locale)
@@ -277,9 +294,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const [protocolBox, protocolArrowBox] = await Promise.all([protocol.boundingBox(), protocolArrow.boundingBox()])
       expect(protocolBox).not.toBeNull()
       expect(protocolArrowBox).not.toBeNull()
-      expect(protocolArrowBox!.x + protocolArrowBox!.width).toBeLessThanOrEqual(protocolBox!.x + protocolBox!.width + 1)
+      if (!protocolBox || !protocolArrowBox) throw new Error('Missing Provider protocol bounds')
+      expect(protocolArrowBox.x + protocolArrowBox.width).toBeLessThanOrEqual(protocolBox.x + protocolBox.width + 1)
       expect(await protocol.evaluate((element) => getComputedStyle(element).borderStyle)).toBe('none')
-      await dialog.getByLabel(labels.provider.apiKey, { exact: true }).fill('test-only-progressive-key')
+      const apiKey = dialog.locator('input').and(dialog.getByLabel(labels.provider.apiKey, { exact: true }))
+      await apiKey.fill('test-only-progressive-key')
       const advanced = dialog.getByRole('button', { name: labels.advancedModel, exact: true })
       await expect(advanced).toHaveAttribute('aria-expanded', 'false')
       await expect(dialog.locator('#provider-model-context')).toBeHidden()
@@ -297,8 +316,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(customInputBox).not.toBeNull()
       expect(addCustomBox).not.toBeNull()
       expect(customActionBox).not.toBeNull()
-      expect(customInputBox!.width).toBeGreaterThan(0)
-      expect(addCustomBox!.x + addCustomBox!.width).toBeLessThanOrEqual(customActionBox!.x + customActionBox!.width + 1)
+      if (!customInputBox || !addCustomBox || !customActionBox) throw new Error('Missing Provider custom model bounds')
+      expect(customInputBox.width).toBeGreaterThan(0)
+      expect(addCustomBox.x + addCustomBox.width).toBeLessThanOrEqual(customActionBox.x + customActionBox.width + 1)
       await addCustom.click()
       await advanced.click()
       const contextField = dialog.getByRole('spinbutton', { name: labels.models.contextWindow, exact: true })
@@ -372,12 +392,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
 
       const edit = page.getByRole('button', { name: copy.providers.list.edit(name), exact: true })
       await edit.click()
-      await expect(dialog.getByLabel(labels.provider.apiKey, { exact: true })).toHaveValue('')
+      await expect(apiKey).toHaveValue('')
       await dialog.getByRole('button', { name: labels.models.select('second-model'), exact: true }).click()
       await expect(dialog.getByRole('textbox', { name: labels.models.description, exact: true })).toHaveValue(purpose)
       await expect(advanced).toHaveAttribute('aria-expanded', 'false')
       await dialog.locator('#provider-name').fill('This name will be discarded')
-      await dialog.getByLabel(labels.provider.apiKey, { exact: true }).fill('cancelled-test-key')
+      await apiKey.fill('cancelled-test-key')
       await page.keyboard.press('Escape')
       const confirmation = page.getByRole('dialog', {
         name: labels.discardTitle('This name will be discarded'),
@@ -398,7 +418,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       // the ID/name geometry check belongs to the new-provider form above.
       await expect(dialog.locator('#provider-id')).toHaveCount(0)
       await expect(dialog.locator('#provider-name')).toHaveValue(name)
-      await expect(dialog.getByLabel(labels.provider.apiKey, { exact: true })).toHaveValue('')
+      await expect(apiKey).toHaveValue('')
 
       for (const width of [1440, 1024, 768, 390, 320]) {
         await page.setViewportSize({ width, height: 900 })
@@ -417,9 +437,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         expect(viewportActionBox).not.toBeNull()
         expect(viewportInputBox).not.toBeNull()
         expect(viewportAddBox).not.toBeNull()
-        expect(viewportInputBox!.width).toBeGreaterThan(0)
-        expect(viewportAddBox!.x + viewportAddBox!.width).toBeLessThanOrEqual(
-          viewportActionBox!.x + viewportActionBox!.width + 1,
+        if (!viewportInputBox || !viewportAddBox || !viewportActionBox)
+          throw new Error('Missing narrow Provider model bounds')
+        expect(viewportInputBox.width).toBeGreaterThan(0)
+        expect(viewportAddBox.x + viewportAddBox.width).toBeLessThanOrEqual(
+          viewportActionBox.x + viewportActionBox.width + 1,
         )
         await expectSingleScrollRegion(dialog)
         await page.screenshot({ path: info.outputPath(`provider-basic-${locale}-${width}.png`) })
@@ -428,7 +450,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await dialog.locator('#provider-model-thinking-levels').scrollIntoViewIfNeeded()
         await page.screenshot({ path: info.outputPath(`provider-advanced-${locale}-${width}.png`) })
         const [bodyBox, footerBox] = await Promise.all([main.boundingBox(), dialog.locator('footer').boundingBox()])
-        expect(bodyBox!.y + bodyBox!.height).toBeLessThanOrEqual(footerBox!.y + 1)
+        if (!bodyBox || !footerBox) throw new Error('Missing Provider body and footer bounds')
+        expect(bodyBox.y + bodyBox.height).toBeLessThanOrEqual(footerBox.y + 1)
         await advanced.click()
         await expect(dialog.locator('#provider-model-context')).toBeHidden()
       }
@@ -457,14 +480,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           ?.provider.name,
       ).toBe(recoveredName)
       await page.getByRole('button', { name: copy.providers.list.edit(recoveredName), exact: true }).click()
-      await dialog.getByLabel(labels.provider.apiKey, { exact: true }).fill('replacement-test-key')
+      await apiKey.fill('replacement-test-key')
       await dialog.getByRole('button', { name: labels.save, exact: true }).click()
       await expect(dialog.getByRole('button', { name: labels.reconcile, exact: true })).toBeVisible()
       await dialog.getByRole('button', { name: labels.reconcile, exact: true }).click()
       await expect(dialog.getByRole('status')).toContainText(labels.credentialUnconfirmed)
       await expect(dialog.getByRole('button', { name: labels.cancel, exact: true })).toBeDisabled()
       await expect(dialog.getByRole('button', { name: labels.back, exact: true })).toBeDisabled()
-      await expect(dialog.getByLabel(labels.provider.apiKey, { exact: true })).toBeDisabled()
+      await expect(apiKey).toBeDisabled()
       await page.keyboard.press('Escape')
       await expect(dialog).toBeVisible()
       expect(saveWrites).toBe(3)
@@ -481,7 +504,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeFixture(root)
     }
   })
 }

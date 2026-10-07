@@ -1,10 +1,21 @@
 import { expect, test, type Locator } from '@playwright/test'
 import { createConfigurationCommandClient } from '@hbar/client'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+
+async function removeFixture(root: string): Promise<void> {
+  const target = await realpath(root)
+  if (
+    target !== resolve(root) ||
+    dirname(target) !== (await realpath(tmpdir())) ||
+    !basename(target).startsWith('hbar-preset-layout-')
+  )
+    throw new Error('Unexpected Provider preset fixture path')
+  await rm(target, { recursive: true, force: true })
+}
 
 async function expectReadableOptions(list: Locator): Promise<void> {
   const geometry = await list.evaluate((element) => {
@@ -56,7 +67,12 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
     const context = await browser.newContext({ locale, colorScheme: 'dark', viewport: { width: 900, height: 1080 } })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const configuration = createConfigurationCommandClient(host.client)
       const original = await configuration.execute('provider.list', {})
       await context.addInitScript((language) => localStorage.setItem('hbar:web:language', language), locale)
@@ -148,7 +164,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeFixture(root)
     }
   })
 }
