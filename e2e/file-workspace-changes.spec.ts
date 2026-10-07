@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { createWorkspaceSessionCommandClient } from '@hbar/client'
 import { selectLumenOption } from './support/lumen-controls'
@@ -13,6 +13,17 @@ const workingPath = 'src/long-folder-name/working-tree-change-with-a-long-name.t
 const stagedPath = 'staged-change.md'
 const untrackedPath = '未跟踪-preview.txt'
 
+async function cleanupOwnedChanges(root: string) {
+  const owned = await realpath(root)
+  if (
+    owned !== resolve(root) ||
+    dirname(owned) !== (await realpath(tmpdir())) ||
+    !basename(owned).startsWith('hbar-file-changes-')
+  )
+    throw new Error('Unexpected owned file changes fixture root')
+  await rm(owned, { recursive: true, force: true })
+}
+
 function git(root: string, ...arguments_: string[]) {
   execFileSync('git', arguments_, { cwd: root, stdio: 'ignore', windowsHide: true })
 }
@@ -21,15 +32,19 @@ async function enterFiles(page: Page, locale: ShellLocale, host: WebSessionHost)
   const copy = getShellCopy(locale)
   await page.goto(base())
   await page.getByTitle(copy.shell.workspaceActions(host.ready.workspaceName), { exact: true }).waitFor()
-  const expand = page.getByRole('treeitem', { expanded: false, name: host.ready.workspaceName, exact: true })
-  if (await expand.isVisible()) await expand.click()
+  const project = page.getByRole('treeitem', { name: host.ready.workspaceName, exact: true })
+  if ((await project.getAttribute('aria-expanded')) === 'false') {
+    await project.focus()
+    await project.press('ArrowRight')
+    await expect(project).toHaveAttribute('aria-expanded', 'true')
+  }
   await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
   await page.getByRole('button', { name: copy.session.tools.files, exact: true }).click()
   return page.locator('.hbar-app-react-file-workspace')
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
-  test(`real Host Changed files and diff remain usable at four widths: ${locale}`, async ({ browser }) => {
+  test(`real Host Changed files and diff remain usable at five widths: ${locale}`, async ({ browser }) => {
     const root = await mkdtemp(join(tmpdir(), 'hbar-file-changes-'))
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 960 } })
     let host: WebSessionHost | undefined
@@ -37,7 +52,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await mkdir(join(root, 'src', 'long-folder-name'), { recursive: true })
       await writeFile(join(root, workingPath), 'export const value = "before"\n')
       await writeFile(join(root, stagedPath), '# before\n')
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 44717) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 44717),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       git(root, 'add', workingPath, stagedPath)
       git(root, 'commit', '-m', 'files fixture')
       await writeFile(join(root, workingPath), 'export const value = "after"\n')
@@ -57,7 +77,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(files.getByRole('button', { name: copy.files.changes.open(workingPath), exact: true })).toBeVisible()
       await expect(files.getByText(copy.files.changes.status(' ', 'M'), { exact: true })).toBeVisible()
       await expect(files.getByText(copy.files.changes.status('M', ' '), { exact: true })).toBeVisible()
-      for (const width of [1440, 1024, 390, 320]) {
+      for (const width of [1440, 1100, 900, 390, 320]) {
         await page.setViewportSize({ width, height: width > 1000 ? 960 : 844 })
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
         await page.screenshot({ path: `artifacts/file-changes/hbar-changed-${locale}-${width}.png` })
@@ -120,9 +140,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(errors).toEqual([])
       void diff
     } finally {
-      await context.close()
-      if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      try {
+        await context.close()
+      } finally {
+        if (host) await stopWebSessionHost(host)
+        await cleanupOwnedChanges(root)
+      }
     }
   })
 }

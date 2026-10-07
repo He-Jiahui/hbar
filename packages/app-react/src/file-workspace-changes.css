@@ -1,0 +1,108 @@
+.hbar-file-changes,
+.hbar-file-diff {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: auto;
+}
+.hbar-file-changes-controls,
+.hbar-file-changes-pagination,
+.hbar-file-diff-actions-reading {
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.5rem 0.75rem;
+}
+.hbar-file-changes-controls input {
+  min-inline-size: 0;
+  flex: 1 1 8rem;
+}
+.hbar-file-changes-controls > button,
+.hbar-file-changes-pagination > *,
+.hbar-file-diff-actions-reading > button {
+  flex: 0 0 auto;
+}
+.hbar-file-changes-list {
+  min-inline-size: 0;
+  min-block-size: 1lh;
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 0 0.5rem;
+  overflow: auto;
+  list-style: none;
+}
+.hbar-file-change {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: max-content;
+  block-size: auto;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  text-align: start;
+}
+.hbar-file-change-path {
+  display: flex;
+  min-inline-size: 0;
+  flex: 1 0 auto;
+  flex-direction: column;
+}
+.hbar-file-change-status {
+  flex: 0 0 auto;
+}
+.hbar-file-diff-toolbar,
+.hbar-file-diff-feedback {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.hbar-file-diff-heading {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+.hbar-file-diff-path-reading {
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  flex: 1 1 12rem;
+  overflow-x: auto;
+}
+.hbar-file-diff-path {
+  flex: 0 0 auto;
+}
+.hbar-file-diff > [data-text-context],
+.hbar-file-changes > [data-text-context],
+.hbar-file-diff-feedback > [data-text-context] {
+  flex: 0 0 auto;
+  padding: 0.5rem 0.75rem;
+}
+.hbar-file-diff-content {
+  min-inline-size: 0;
+  min-block-size: 1lh;
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 0.75rem;
+  overflow: auto;
+  line-height: 1.5;
+}
+.hbar-file-diff-row[data-kind='addition'] {
+  color: var(--lumen-success);
+}
+.hbar-file-diff-row[data-kind='deletion'] {
+  color: var(--lumen-danger);
+}
+.hbar-file-diff-row[data-kind='hunk'] {
+  color: var(--lumen-primary);
+}

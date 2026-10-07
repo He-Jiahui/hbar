@@ -180,10 +180,7 @@
 }
 
 .hbar-file-browser-mode,
-.hbar-file-document-modes,
-.hbar-file-changes-controls,
-.hbar-file-diff-toolbar,
-.hbar-file-changes-pagination {
+.hbar-file-document-modes {
   display: flex;
   min-inline-size: 0;
   flex: 0 0 auto;
@@ -218,86 +215,6 @@
   min-block-size: 2rem;
 }
 
-.hbar-file-changes,
-.hbar-file-diff {
-  display: flex;
-  min-inline-size: 0;
-  min-block-size: 0;
-  flex: 1 1 auto;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.hbar-file-changes-controls input {
-  min-inline-size: 0;
-  flex: 1 1 8rem;
-}
-
-.hbar-file-changes-list {
-  min-block-size: 0;
-  flex: 1 1 auto;
-  margin: 0;
-  padding: 0 0.5rem;
-  overflow: auto;
-  list-style: none;
-}
-
-.hbar-file-change {
-  display: flex;
-  inline-size: 100%;
-  min-inline-size: max-content;
-  block-size: auto;
-  align-items: flex-start;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  text-align: start;
-  white-space: nowrap;
-}
-
-.hbar-file-change-path {
-  display: flex;
-  min-inline-size: 0;
-  flex: 1 0 auto;
-  flex-direction: column;
-  white-space: nowrap;
-}
-
-.hbar-file-change-status {
-  flex: 0 0 auto;
-  white-space: nowrap;
-  color: var(--lumen-muted);
-}
-
-.hbar-file-change-path small,
-.hbar-file-diff-caption {
-  color: var(--lumen-muted);
-}
-
-.hbar-file-diff-heading {
-  display: flex;
-  min-inline-size: 0;
-  flex: 1 1 100%;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.hbar-file-diff-path {
-  min-inline-size: 0;
-  flex: 1 1 auto;
-  overflow-x: auto;
-  white-space: nowrap;
-}
-
-.hbar-file-diff > p,
-.hbar-file-changes > p,
-.hbar-file-diff-caption,
-.hbar-file-diff-feedback {
-  margin: 0;
-  padding: 0.5rem 0.75rem;
-  overflow-wrap: anywhere;
-}
-
-.hbar-file-diff-content,
 .hbar-file-text-preview {
   min-inline-size: 0;
   min-block-size: 0;
@@ -309,18 +226,6 @@
   font-size: 0.8125rem;
   line-height: 1.5;
   white-space: pre;
-}
-
-.hbar-file-diff-row[data-kind='addition'] {
-  color: var(--lumen-success);
-}
-
-.hbar-file-diff-row[data-kind='deletion'] {
-  color: var(--lumen-danger);
-}
-
-.hbar-file-diff-row[data-kind='hunk'] {
-  color: var(--lumen-primary);
 }
 
 .lumen-file-document-body footer [role='status'] {

@@ -375,4 +375,12 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 严格范围 ESLint、文案／图标／flow guard、格式、Web 构建与实际构建输入清单通过。冷启动类型检查仍有 92 项既有诊断，本次范围为零；最初脚本的 DOM className 类型和 Playwright mark role 类型问题已修正，没有忽略类型检查。浏览器 fixture 纠正了 Provider 的真实布局根、跨用例鼠标位置和 IME 期间允许保留 query 变化的断言，核心打开／导航／关闭抑制断言保留。
 - 证据为 chat-search-content/unit-pointer-final.log、client-pointer-final.log、pointer-red.log、host.log、host-final.log、lint-final.log、types-final.log、build-final.log、inventory-final.log 及 guard／format 日志。清单为 146 模块／3744 元素／298 处低层文字／315 项静态缺口。
 
-当前已提交清单覆盖 146 个生产 TSX 模块、3744 个元素，其中记录了 298 处低层文字未分类，合计 315 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+文件变更与只读差异迁移全部 20 处低层文字。加载、失败、截断、引用反馈使用 feedback.paragraph；非仓库、空变更、过滤为空与空 diff 使用 empty.description；只读说明使用 section.description；重命名说明使用 choice.description，状态与分页使用 metadata.detail。路径保持 resource.path，技术行保持 code.inline 与原始制表符／空白、hunk／addition／deletion 标记和 data-diff-code。空行的几何占位保留专用 renderer 语义。样式移至所属 file-workspace-changes.css，公共文件外壳保留其他表面的样式；路径、分页和比较动作均有明确的完整阅读区，技术正文仍拥有独立滚动，外层长反馈可纵向阅读。
+
+- 沿用 [File Manager](https://pro.reactbits.dev/docs/app-ui/file-manager) 的集合／预览／原文件动作结构，以及 [Tool Calls 3](https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-3) 的差异语义与比较动作关系。工作区路径、比较 cached 标识、过滤、当前页、原文捕获、评论范围、源会话和未知保存状态的归属保持原契约。
+- 29 项相关单测、204 个断言通过：原工作区路径投影、Windows／重命名／逃逸路径、非仓库与失败、100 行当前页、400 行 diff、重开／切换后的旧响应拒绝、独立读取、后页刷新钳制和未知保存的原对象恢复均保留。
+- 86 个实际 Chrome 场景通过，覆盖两语言、明暗、五宽度、窄屏 125% 文字、长路径与长宿主说明、0／1／100／101／5000 项变更、0／1／400／401／1200 行 diff、过滤输入 4000／4001、重排后原路径回调、工作树／暂存模式、离线／加载／失败／非仓库／无匹配／截断／添加结果。实际键盘横向阅读、原始代码行内容／空白和准确 new side 行评论捕获通过；分页后 fixture 宿主 Copy 槽位仍收到全部原文。公开 schema 另验证列表 5000／5001、路径 4000／4001 与 diff 文本 512000／512001 字符边界，不将展示分页视为放宽 Host 容量。
+- 两语言实际 Chrome / Host 回归整组通过，覆盖 1440／1100／900／390／320、真实工作树／暂存变更、未跟踪文件、筛选／刷新、正确目录和 diff 原文件打开，以及磁盘原文未被阅读操作修改。测试通过真实 TreeItem ArrowRight 展开工作区；关闭上下文后停止所属 Host，再按 realpath、临时目录和所属前缀校验清理临时数据。
+- 严格范围 ESLint、文案／图标 guard、两份样式的 flow guard、格式、Web 构建与实际构建输入清单通过；冷启动完整类型仍有 92 项既有诊断，本次范围为零。证据为 file-changes-content/unit-final.log、client.log、host.log、lint.log、types.log、build.log、inventory.log 及 guard／format 日志。清单为 146 模块／3747 元素／278 处低层文字／295 项静态缺口。其他文件表面和实际 Clipboard 的最终整体回归仍按各自所有者继续验收。
+
+当前已提交清单覆盖 146 个生产 TSX 模块、3747 个元素，其中记录了 278 处低层文字未分类，合计 295 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

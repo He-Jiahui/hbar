@@ -7,7 +7,7 @@ import {
   LumenFrame,
   LumenIcon,
   LumenInput,
-  LumenText,
+  LumenContentText,
 } from '@lumen/app-ui'
 import {
   filteredFileChanges,
@@ -19,6 +19,7 @@ import {
 } from '@hbar/app-runtime'
 import { clampFileDiffPage, FILE_DIFF_LINES_PER_PAGE, type FileDiffPagination } from './file-preview-pagination'
 import { HbarFileCommentEditor, type HbarFileContextLabels } from './file-context-surfaces'
+import './file-workspace-changes.css'
 
 type Changes = FileWorkspaceEntryState['changes']
 type Diff = NonNullable<FileWorkspaceEntryState['diff']>
@@ -103,25 +104,29 @@ export function HbarFileChanges({
         </LumenButton>
       </LumenFrame>
       {busy && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {changes.error && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.paragraph" tone="danger" role="alert">
           {labels.error(changes.error)}
-        </LumenText>
+        </LumenContentText>
       )}
-      {changes.status === 'ready' && !isRepository && <LumenText as="p">{labels.notRepository}</LumenText>}
+      {changes.status === 'ready' && !isRepository && (
+        <LumenContentText context="empty.description">{labels.notRepository}</LumenContentText>
+      )}
       {changes.status === 'ready' && isRepository && items.length === 0 && (
-        <LumenText as="p">{changes.items.length === 0 ? labels.noChanges : labels.noMatches}</LumenText>
+        <LumenContentText context="empty.description">
+          {changes.items.length === 0 ? labels.noChanges : labels.noMatches}
+        </LumenContentText>
       )}
       {changes.limitReached && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" role="status">
           {labels.limit}
-        </LumenText>
+        </LumenContentText>
       )}
-      <LumenCollection as="ul" className="hbar-file-changes-list" aria-label={labels.changed}>
+      <LumenCollection as="ul" className="hbar-file-changes-list" aria-label={labels.changed} tabIndex={0}>
         {items.map((item) => (
           <LumenCollectionItem as="li" key={item.path}>
             <LumenButton
@@ -137,21 +142,25 @@ export function HbarFileChanges({
             >
               <LumenIcon icon={item.directory ? Folder : FileDiff} tier="sm" />
               <LumenFrame className="hbar-file-change-path">
-                <LumenText as="span">{item.path}</LumenText>
-                {item.originalPath && <LumenText as="small">{labels.renamedFrom(item.originalPath)}</LumenText>}
+                <LumenContentText context="resource.path">{item.path}</LumenContentText>
+                {item.originalPath && (
+                  <LumenContentText context="choice.description">
+                    {labels.renamedFrom(item.originalPath)}
+                  </LumenContentText>
+                )}
               </LumenFrame>
-              <LumenText as="small" className="hbar-file-change-status">
+              <LumenContentText context="metadata.detail" tone="subtle" className="hbar-file-change-status">
                 {labels.status(item.index, item.worktree)}
-              </LumenText>
+              </LumenContentText>
             </LumenButton>
           </LumenCollectionItem>
         ))}
       </LumenCollection>
       {filtered.length > FILE_CHANGES_PAGE_SIZE && (
-        <LumenFrame className="hbar-file-changes-pagination">
-          <LumenText as="span">
+        <LumenFrame className="hbar-file-changes-pagination" role="group" aria-label={labels.changed} tabIndex={0}>
+          <LumenContentText context="metadata.detail">
             {labels.page(start + 1, Math.min(start + FILE_CHANGES_PAGE_SIZE, filtered.length), filtered.length)}
-          </LumenText>
+          </LumenContentText>
           <LumenButton disabled={changes.page === 0} onClick={() => onPage(changes.page - 1)}>
             {labels.previous}
           </LumenButton>
@@ -263,88 +272,105 @@ export function HbarFileDiff({
     <LumenFrame className="hbar-file-diff">
       <LumenFrame className="hbar-file-diff-toolbar">
         <LumenFrame className="hbar-file-diff-heading">
-          <LumenText as="span" className="hbar-file-diff-path" title={diff.path}>
-            {diff.path}
-          </LumenText>
+          <LumenFrame className="hbar-file-diff-path-reading" role="group" aria-label={diff.path} tabIndex={0}>
+            <LumenContentText context="resource.path" className="hbar-file-diff-path" title={diff.path}>
+              {diff.path}
+            </LumenContentText>
+          </LumenFrame>
           {headerActions}
         </LumenFrame>
-        <LumenButton
-          variant={diff.cached ? 'text' : 'outlined'}
-          aria-pressed={!diff.cached}
-          disabled={!connected || !change || diff.status === 'loading'}
-          onClick={() => onOpen(false)}
+        <LumenFrame
+          className="hbar-file-diff-actions-reading"
+          role="group"
+          aria-label={labels.readOnlyDiff}
+          tabIndex={0}
         >
-          {labels.workingTree}
-        </LumenButton>
-        <LumenButton
-          variant={diff.cached ? 'outlined' : 'text'}
-          aria-pressed={diff.cached}
-          disabled={!connected || !change || diff.status === 'loading'}
-          onClick={() => onOpen(true)}
-        >
-          {labels.staged}
-        </LumenButton>
-        <LumenButton disabled={!connected} onClick={onFile}>
-          {labels.openFile}
-        </LumenButton>
-        {onRefresh && (
           <LumenButton
-            variant="text"
-            disabled={!connected || diff.status === 'loading'}
-            onClick={onRefresh}
-            aria-label={labels.refresh}
-            title={labels.refresh}
+            variant={diff.cached ? 'text' : 'outlined'}
+            aria-pressed={!diff.cached}
+            disabled={!connected || !change || diff.status === 'loading'}
+            onClick={() => onOpen(false)}
           >
-            <LumenIcon icon={RefreshCw} tier="sm" />
+            {labels.workingTree}
           </LumenButton>
-        )}
-        {addToChat && (
           <LumenButton
-            className="hbar-file-add-to-chat"
-            variant="text"
-            disabled={addToChat.disabled}
-            onClick={addToChat.onClick}
+            variant={diff.cached ? 'outlined' : 'text'}
+            aria-pressed={diff.cached}
+            disabled={!connected || !change || diff.status === 'loading'}
+            onClick={() => onOpen(true)}
           >
-            <LumenIcon icon={MessageCircle} tier="sm" />
-            {addToChat.label}
+            {labels.staged}
           </LumenButton>
-        )}
+          <LumenButton disabled={!connected} onClick={onFile}>
+            {labels.openFile}
+          </LumenButton>
+          {onRefresh && (
+            <LumenButton
+              variant="text"
+              disabled={!connected || diff.status === 'loading'}
+              onClick={onRefresh}
+              aria-label={labels.refresh}
+              title={labels.refresh}
+            >
+              <LumenIcon icon={RefreshCw} tier="sm" />
+            </LumenButton>
+          )}
+          {addToChat && (
+            <LumenButton
+              className="hbar-file-add-to-chat"
+              variant="text"
+              disabled={addToChat.disabled}
+              onClick={addToChat.onClick}
+            >
+              <LumenIcon icon={MessageCircle} tier="sm" />
+              {addToChat.label}
+            </LumenButton>
+          )}
+        </LumenFrame>
       </LumenFrame>
       {(addToChat?.feedback || referenceHint) && (
-        <LumenText
-          as="p"
+        <LumenContentText
+          context="feedback.paragraph"
+          tone={addToChat?.feedbackKind === 'error' ? 'danger' : 'neutral'}
           className="hbar-file-add-feedback"
           role={addToChat?.feedbackKind === 'error' ? 'alert' : 'status'}
         >
           {addToChat?.feedback ?? referenceHint}
-        </LumenText>
+        </LumenContentText>
       )}
-      <LumenText as="small" className="hbar-file-diff-caption">
+      <LumenContentText context="section.description" tone="subtle" className="hbar-file-diff-caption">
         {labels.readOnlyDiff}
-      </LumenText>
+      </LumenContentText>
       {diff.status === 'loading' && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {diff.status === 'error' && (
         <LumenFrame className="hbar-file-diff-feedback">
-          <LumenText as="p" role="alert">
+          <LumenContentText context="feedback.paragraph" tone="danger" role="alert">
             {labels.error(diff.error ?? 'EXECUTION_FAILED')}
-          </LumenText>
-          <LumenButton disabled={!connected} onClick={onRefresh ?? (() => onOpen(diff.cached))}>
-            {labels.refresh}
-          </LumenButton>
+          </LumenContentText>
+          <LumenFrame className="hbar-file-diff-actions-reading" role="group" aria-label={labels.refresh} tabIndex={0}>
+            <LumenButton disabled={!connected} onClick={onRefresh ?? (() => onOpen(diff.cached))}>
+              {labels.refresh}
+            </LumenButton>
+          </LumenFrame>
         </LumenFrame>
       )}
       {diff.truncated && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" role="status">
           {labels.truncated}
-        </LumenText>
+        </LumenContentText>
       )}
       {(diff.status === 'ready' || Boolean(diff.text)) &&
         (diff.text ? (
-          <LumenFrame className="hbar-file-diff-content" aria-label={labels.diffContent(diff.path)} tabIndex={0}>
+          <LumenFrame
+            className="hbar-file-diff-content"
+            role="group"
+            aria-label={labels.diffContent(diff.path)}
+            tabIndex={0}
+          >
             {rows.slice(start, start + FILE_DIFF_LINES_PER_PAGE).map((row) => (
               <Fragment key={row.index}>
                 <LumenFrame
@@ -393,11 +419,11 @@ export function HbarFileDiff({
                       {row.side === 'old' ? row.oldLine : row.newLine}
                     </LumenButton>
                   ) : (
-                    <LumenText as="span" />
+                    <LumenFrame as="span" />
                   )}
-                  <LumenText as="span" data-diff-code={row.index}>
+                  <LumenContentText context="code.inline" size="s" data-diff-code={row.index}>
                     {row.raw || '\u200b'}
-                  </LumenText>
+                  </LumenContentText>
                 </LumenFrame>
                 {range?.rowEnd === row.index && context && (
                   <HbarFileCommentEditor
@@ -433,18 +459,23 @@ export function HbarFileDiff({
             ))}
           </LumenFrame>
         ) : (
-          <LumenText as="p">{labels.noDiff}</LumenText>
+          <LumenContentText context="empty.description">{labels.noDiff}</LumenContentText>
         ))}
       {incompatible && context && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" role="status">
           {context.labels.incompatible}
-        </LumenText>
+        </LumenContentText>
       )}
       {lines.length > FILE_DIFF_LINES_PER_PAGE && (
-        <LumenFrame className="hbar-file-changes-pagination">
-          <LumenText as="span">
+        <LumenFrame
+          className="hbar-file-changes-pagination"
+          role="group"
+          aria-label={labels.diffContent(diff.path)}
+          tabIndex={0}
+        >
+          <LumenContentText context="metadata.detail">
             {labels.linePage(start + 1, Math.min(start + FILE_DIFF_LINES_PER_PAGE, lines.length), lines.length)}
-          </LumenText>
+          </LumenContentText>
           <LumenButton disabled={page === 0} onClick={() => selectPage(page - 1)}>
             {labels.previousLines}
           </LumenButton>
