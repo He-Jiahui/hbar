@@ -45,30 +45,23 @@ const states = [
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   for (const [index, state] of states.entries()) {
-    test(`${locale}: unresolved execution ${index}/${state.label} replaces the trigger and every selected approval mark`, () => {
+    test(`${locale}: closed unresolved execution ${index}/${state.label} replaces remembered approval`, () => {
       const input = props(locale, state.entry)
       const html = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} />)
       expect(html).toContain(`aria-label="${input.labels.trigger(input.labels.execution[state.label])}"`)
       expect(html).not.toContain('aria-checked="true"')
-      expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(6)
-      expect(html).toContain(input.labels.execution.approvalFrozen)
+      expect(html).not.toContain('role="menuitemradio"')
       const trigger = html.match(/<button[^>]*class="[^"]*hbar-composer-permission-trigger[^>]*>/)?.[0]
       expect(trigger).toBeDefined()
       expect(trigger).not.toContain('disabled=""')
-      const close = html.match(new RegExp(`<button[^>]*aria-label="${input.labels.close}"[^>]*>`))?.[0]
-      expect(close).toBeDefined()
-      expect(close).not.toContain('disabled=""')
     })
   }
 
-  test(`${locale}: a fresh view projection of shared owner reading displays checking and disables reconciliation`, () => {
+  test(`${locale}: closed shared owner reading displays checking beside the entry`, () => {
     const input = props(locale, mode('unknown', true))
     const html = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} />)
     expect(html).toContain(input.labels.execution.checking)
-    const recovery = html.match(/<button[^>]*data-execution-recovery[^>]*>/g)
-    expect(recovery).toHaveLength(1)
-    expect(recovery?.[0]).toContain('disabled=""')
-    expect(recovery?.[0]).toContain('aria-busy="true"')
+    expect(html).not.toContain('data-execution-recovery')
     expect(html).not.toContain(input.labels.plan.recheck)
     expect(html).not.toContain(input.labels.plan.pending)
   })
@@ -77,47 +70,21 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const input = props(locale, { ...mode('unknown'), error: 'PRIVATE_HOST_PAYLOAD' })
     const html = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} />)
     expect(html).toContain(input.labels.execution.checkFailed)
-    expect(html).toContain(input.labels.plan.recheck)
     expect(html).not.toContain('PRIVATE_HOST_PAYLOAD')
     expect(html).not.toContain('aria-checked="true"')
-    expect(html.match(/<button[^>]*data-execution-recovery[^>]*disabled=""/g)).toBeNull()
-    const offline = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} connected={false} />)
-    expect(offline.match(/<button[^>]*data-execution-recovery[^>]*disabled=""/g)).toHaveLength(1)
-    expect(offline).toContain(input.labels.plan.recheck)
   })
 
   test(`${locale}: only confirmed default restores the locally remembered approval, not Host default or Plan`, () => {
     const input = props(locale, { ...mode('ready'), mode: 'default' })
     const html = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} />)
     expect(html).toContain(`aria-label="${input.labels.trigger(input.labels.options.allow.label)}"`)
-    expect(html.match(/aria-checked="true"/g)).toHaveLength(1)
-    expect(html).toContain('role="menuitemradio" aria-checked="true"')
+    expect(html).not.toContain('role="menuitemradio"')
     expect(html).not.toContain(input.labels.execution.approvalFrozen)
-    expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toBeNull()
     expect(html).not.toContain('data-execution-recovery-region')
   })
 
-  for (const status of ['unknown', 'failed'] as const) {
-    test(`${locale}: ${status} execution feedback and its read action precede disabled options and scope detail`, () => {
-      const input = props(locale, { ...mode(status), error: 'DISCONNECTED' })
-      const html = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} />)
-      const body = html.slice(html.indexOf('class="hbar-composer-permission-body"'))
-      const message = status === 'unknown' ? input.labels.execution.checkFailed : input.labels.execution.readFailed
-      const region = body.indexOf('data-execution-recovery-region')
-      const feedback = body.indexOf(message)
-      const frozen = body.indexOf(input.labels.execution.approvalFrozen)
-      const action = body.indexOf('data-execution-recovery="true"')
-      const options = body.indexOf('role="menu"')
-      expect(region).toBeGreaterThanOrEqual(0)
-      expect(feedback).toBeGreaterThan(region)
-      expect(frozen).toBeGreaterThan(feedback)
-      expect(action).toBeGreaterThan(frozen)
-      expect(options).toBeGreaterThan(action)
-      expect(body.indexOf(input.labels.plan.scope)).toBeGreaterThan(options)
-      expect(body.split(message)).toHaveLength(2)
-      expect(body.match(/data-execution-recovery="true"/g)).toHaveLength(1)
-    })
-  }
+  // Recovery order, disabled rows, nearby scope, Close, and focusable pending
+  // read actions are checked on the visible portal in verify-session-permission.ts.
 }
 
 test('a mismatched Plan target is loading, never an inherited approval or another session Plan fact', () => {
@@ -125,22 +92,20 @@ test('a mismatched Plan target is loading, never an inherited approval or anothe
   const html = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} />)
   expect(html).toContain(`aria-label="${input.labels.trigger(input.labels.execution.loading)}"`)
   expect(html).not.toContain('aria-checked="true"')
-  expect(html).toContain(input.labels.plan.retry)
 })
 
-test('an archived or submission-locked unresolved mode is inspectable but cannot create a mode or approval write', () => {
+test('an archived unresolved mode keeps its inspection trigger available while closed', () => {
   const input = props('en-US', mode('unknown'))
   const html = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} disabled canPrepare={false} />)
-  expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(6)
-  expect(html.match(/<button[^>]*data-execution-recovery[^>]*disabled=""/g)).toBeNull()
-  expect(html).toContain(input.labels.plan.recheck)
+  const trigger = html.match(/<button[^>]*class="[^"]*hbar-composer-permission-trigger[^>]*>/)?.[0]
+  expect(trigger).toBeDefined()
+  expect(trigger).not.toContain('disabled=""')
 })
 
 test('failed mode reads expose localized recovery rather than raw Host details or a remembered selected mode', () => {
   const input = props('zh-CN', { ...mode('failed'), mode: 'default', error: 'PRIVATE_HOST_PAYLOAD' })
   const html = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} />)
   expect(html).toContain(input.labels.execution.readFailed)
-  expect(html).toContain(input.labels.plan.retry)
   expect(html).not.toContain('PRIVATE_HOST_PAYLOAD')
   expect(html).not.toContain('aria-checked="true"')
 })
@@ -151,6 +116,6 @@ test('a long translated uncertain trigger preserves its full accessible name wit
   const labels = { ...input.labels, execution: { ...input.labels.execution, unknown: long } }
   const html = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} labels={labels} />)
   expect(html).toContain(`aria-label="${labels.trigger(long)}"`)
-  expect(html.match(/role="menuitemradio"/g)).toHaveLength(6)
+  expect(html).not.toContain('role="menuitemradio"')
   expect(html).not.toContain('aria-checked="true"')
 })

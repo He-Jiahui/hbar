@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { createWorkspaceSessionCommandClient } from '@hbar/client'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
+import { cleanupOwnedPermissionFixture } from './support/permission-fixture-cleanup'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 const envelope = z
@@ -24,7 +25,12 @@ test('lost Host mode.set reply stays unknown until read-only reconciliation; swi
   const copy = getShellCopy('en-US')
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, sessionCount: 2, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+    host = await startWebSessionHost({
+      root,
+      sessionCount: 2,
+      port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+      budgetAutoContinue: false,
+    })
     const sessions = await createWorkspaceSessionCommandClient(host.client).execute('session.list', {
       workspaceId: host.ready.workspaceId,
       limit: 100,
@@ -72,6 +78,7 @@ test('lost Host mode.set reply stays unknown until read-only reconciliation; swi
     await page.goto(base)
     await page.getByRole('treeitem', { name: 'Session 001', exact: true }).click()
     const picker = page.locator('.hbar-composer-permission-picker')
+    const popup = page.locator('.hbar-composer-permission-surface')
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     await expect(prompt).toHaveAttribute('contenteditable', 'true')
     await prompt.fill('This draft remains when mode confirmation is lost.')
@@ -82,13 +89,13 @@ test('lost Host mode.set reply stays unknown until read-only reconciliation; swi
         ),
       })
       .click()
-    await picker.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label }).click()
-    await expect(picker.getByText(copy.session.permissionPicker.plan.unknown)).toBeVisible()
+    await popup.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label }).click()
+    await expect(popup.getByText(copy.session.permissionPicker.plan.unknown)).toBeVisible()
     await expect(page.getByRole('button', { name: copy.session.prompt.send, exact: true })).toBeDisabled()
     await expectComposerText(prompt, 'This draft remains when mode confirmation is lost.')
     expect(await host.client.call('mode.get', { sessionId: original })).toEqual({ mode: 'plan' })
     expect(writes).toBe(1)
-    await picker.getByRole('button', { name: copy.session.permissionPicker.plan.recheck }).click()
+    await popup.getByRole('button', { name: copy.session.permissionPicker.plan.recheck }).click()
     await expect(
       picker.getByRole('button', {
         name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.plan.label),
@@ -124,6 +131,6 @@ test('lost Host mode.set reply stays unknown until read-only reconciliation; swi
   } finally {
     await context.close()
     if (host) await stopWebSessionHost(host)
-    await rm(root, { recursive: true, force: true })
+    await cleanupOwnedPermissionFixture(root, 'hbar-durable-plan-recovery-')
   }
 })

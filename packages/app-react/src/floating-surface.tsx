@@ -16,6 +16,7 @@ type AppFloatingSurfaceProps = HTMLAttributes<HTMLDivElement> & {
   readonly anchorRef: RefObject<HTMLElement | null>
   readonly positionReferenceRef?: RefObject<HTMLElement | null>
   readonly initialFocusRef?: RefObject<HTMLElement | null>
+  readonly focusRecoveryRef?: RefObject<HTMLElement | null>
   readonly focusBehavior?: 'surface' | 'preserve'
   readonly placement?: FloatingPlacement
   readonly anchorAlignment?: FloatingAnchorAlignment
@@ -41,6 +42,7 @@ export function FloatingSurface({
   anchorRef,
   positionReferenceRef,
   initialFocusRef,
+  focusRecoveryRef,
   focusBehavior,
   placement,
   anchorAlignment,
@@ -60,6 +62,7 @@ export function FloatingSurface({
       anchorRef={anchorRef}
       positionReferenceRef={positionReferenceRef}
       initialFocusRef={initialFocusRef}
+      focusRecoveryRef={focusRecoveryRef}
       focusBehavior={focusBehavior}
       placement={placement}
       anchorAlignment={anchorAlignment}

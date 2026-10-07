@@ -1,10 +1,11 @@
 import { expect, test, type Page } from '@playwright/test'
 import { createConfigurationCommandClient, createRunCommandClient } from '@hbar/client'
-import { access, mkdtemp, readFile, rm } from 'node:fs/promises'
+import { access, mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
+import { cleanupOwnedPermissionFixture } from './support/permission-fixture-cleanup'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 async function selectSession(page: Page, title: string, locale: ShellLocale) {
@@ -23,7 +24,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 960 } })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317), sessionCount: 2 })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        sessionCount: 2,
+        budgetAutoContinue: false,
+      })
       const target = host
       const sessionId = host.ready.sessionId
       const copy = getShellCopy(locale)
@@ -40,14 +46,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await selectSession(page, host.ready.sessionTitle, locale)
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const trigger = page.locator('.hbar-composer-permission-trigger')
-      const popup = page.locator('.hbar-composer-permission-popover')
+      const popup = page.locator('.hbar-composer-permission-surface')
       const draft = 'Approval choice stays with this draft — 审批选项随本会话草稿保留'
       await prompt.fill(draft)
       await expect(trigger).toHaveAttribute('data-choice', 'inherit')
       await trigger.focus()
       await page.keyboard.press('Enter')
       await expect(popup).toBeVisible()
-      await expect(popup.getByRole('menuitemradio')).toHaveCount(5)
+      await expect(popup.getByRole('menuitemradio')).toHaveCount(6)
       await expect(popup.getByRole('menuitemradio', { checked: true })).toBeFocused()
       await expect(popup).toContainText(labels.scopeHint)
       await page.keyboard.press('ArrowUp')
@@ -70,12 +76,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await page.setViewportSize({ width, height: width === 320 ? 720 : 900 })
         await trigger.click()
         await expect(popup).toBeVisible()
-        await expect(popup.getByRole('menuitemradio')).toHaveCount(5)
+        await expect(popup.getByRole('menuitemradio')).toHaveCount(6)
         expect(
           await popup
             .getByRole('menuitemradio')
             .evaluateAll((items) => items.map((item) => item.getAttribute('data-choice'))),
-        ).toEqual(['ask', 'deny', 'allow', 'plan', 'inherit'])
+        ).toEqual(['ask', 'deny', 'sandbox', 'allow', 'plan', 'inherit'])
         await expect(popup).not.toContainText(labels.plan.scope)
         if (width === 320) await expect(popup.locator('[data-choice="plan"]')).toBeInViewport({ ratio: 1 })
         expect(await popup.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
@@ -228,7 +234,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await cleanupOwnedPermissionFixture(root, 'hbar-composer-permission-')
     }
   })
 }

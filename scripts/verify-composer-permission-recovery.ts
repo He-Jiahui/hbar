@@ -35,7 +35,7 @@ try {
   browser = await chromium.launch({ channel: process.env.HBAR_BROWSER_CHANNEL ?? 'msedge', headless: true })
   for (const locale of ['en-US', 'zh-CN'] as const) {
     for (const width of [1440, 320]) {
-      for (const scenario of ['escape', 'tab-to-close'] as const) {
+      for (const scenario of ['escape', 'tab-to-close', 'removed-control'] as const) {
         const page = await browser.newPage({ viewport: { width, height: 900 } })
         const values: Record<string, PermissionRecoverySnapshot> = {}
         const businessRequests: string[] = []
@@ -50,7 +50,10 @@ try {
           const labels = getShellCopy(locale).session.permissionPicker
           await page.goto(`http://127.0.0.1:45153/?locale=${locale}`)
           await page.waitForFunction(() => Boolean(window.composerPermissionRecovery))
-          const trigger = page.getByRole('button', { name: labels.trigger(labels.options.inherit.label), exact: true })
+          const trigger = page.getByRole('button', {
+            name: labels.trigger(labels.inheritedTrigger(labels.options.ask.label)),
+            exact: true,
+          })
           await trigger.click()
           const popup = page.getByRole('dialog', { name: labels.title, exact: true })
           await expect(popup).toBeVisible()
@@ -62,11 +65,10 @@ try {
           if (scenario === 'escape') {
             await page.keyboard.press('Escape')
             await expect(popup).not.toBeVisible()
-          } else {
-            // Disabled controls can leave Chromium's sequential focus start at
-            // a scrollable menu container. Reach Close with bounded real keys;
-            // retain every intermediate stop instead of assuming one keypress.
-            for (let step = 1; step <= 6; step++) {
+          } else if (scenario === 'tab-to-close') {
+            // Six choices, two named reading regions and Close are a finite
+            // tab sequence. Record the actual stops while cancellation is pending.
+            for (let step = 1; step <= 10; step++) {
               await page.keyboard.press('Shift+Tab')
               const value = await snapshot(page)
               values[`keyboardStep${step}`] = value
@@ -85,7 +87,9 @@ try {
               .poll(
                 async () => {
                   const focus = (await snapshot(page)).focus
-                  return scenario === 'escape' ? focus.trigger : focus.close
+                  if (scenario === 'escape') return focus.trigger
+                  if (scenario === 'removed-control') return focus.choice === 'plan'
+                  return focus.close
                 },
                 { timeout: 1200 },
               )
@@ -116,7 +120,7 @@ try {
   expect(errors).toEqual([])
   if (failures.length) throw new Error(`${failures.length} permission recovery assertions failed; see ${output}`)
   console.log(
-    'PASS: actual permission picker StrictMode; 4 locale/viewport pairs, 2 pending-focus paths; 0 Host writes',
+    'PASS: actual permission picker StrictMode; 4 locale/viewport pairs, 3 pending-focus paths; 0 Host writes',
   )
 } finally {
   await browser?.close()
@@ -127,7 +131,7 @@ try {
       {
         capturedAt: new Date().toISOString(),
         scope:
-          'Actual HbarComposerPermissionPicker + LumenProvider in Edge development StrictMode. Controlled cancellation Promise, fixed local draft facts; no Host, business HTTP, provider, production App or native claim.',
+          'Actual HbarComposerPermissionPicker + LumenProvider in development StrictMode. Controlled cancellation Promise, fixed local draft facts; no Host, business HTTP, provider, production App or native claim.',
         observations,
         errors,
         failures,

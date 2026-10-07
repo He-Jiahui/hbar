@@ -2,7 +2,7 @@ import { StrictMode, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
-import { DEFAULT_LUMEN_APPEARANCE, LumenButton, LumenFrame, LumenProvider, LumenText } from '@lumen/app-ui'
+import { DEFAULT_LUMEN_APPEARANCE, LumenButton, LumenFrame, LumenProvider, LumenContentText } from '@lumen/app-ui'
 import '@lumen/app-ui/styles.css'
 import { HbarComposerPermissionPicker } from '../../../packages/app-react/src/composer-permission-picker'
 import { getShellCopy } from '../../../apps/web/src/shell-copy'
@@ -72,7 +72,7 @@ export interface PermissionRecoverySnapshot {
 
 const snapshot = (): PermissionRecoverySnapshot => {
   const active = document.activeElement
-  const popup = document.querySelector('.hbar-composer-permission-popover')
+  const popup = document.querySelector('.hbar-composer-permission-surface[data-lumen-floating-open="true"]')
   return {
     ...state.getState(),
     cancelCalls,
@@ -95,7 +95,7 @@ const snapshot = (): PermissionRecoverySnapshot => {
       trigger: active?.classList.contains('hbar-composer-permission-trigger') ?? false,
       close: active?.getAttribute('aria-label') === labels.close,
       insidePopover: Boolean(active && popup?.contains(active)),
-      popoverOpen: popup?.matches(':popover-open') ?? false,
+      popoverOpen: popup?.getAttribute('data-lumen-floating-open') === 'true',
     },
   }
 }
@@ -124,10 +124,10 @@ function Fixture() {
   return (
     <LumenProvider appearance={{ ...DEFAULT_LUMEN_APPEARANCE, mode: 'light', motion: false }}>
       <LumenFrame as="main" className="permission-recovery-fixture">
-        <LumenText as="p">{copy.notice}</LumenText>
+        <LumenContentText context="reading.paragraph">{copy.notice}</LumenContentText>
         <LumenButton data-testid="outside-control">{copy.outside}</LumenButton>
         <LumenFrame className="permission-recovery-composer">
-          <LumenText as="p">{copy.draft}</LumenText>
+          <LumenContentText context="reading.paragraph">{copy.draft}</LumenContentText>
           <HbarComposerPermissionPicker
             sessionId="session-a"
             sessionLabel={copy.session}

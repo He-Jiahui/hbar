@@ -20,30 +20,30 @@
   white-space: nowrap;
 }
 
-/* Observed in cc-haha: a true overlay anchored above the left composer pill.
-   Only the container is positioned. The bounded choice list uses normal flex flow. */
-.hbar-composer-permission-popover {
-  position: fixed;
-  inset: auto;
-  top: var(--permission-popup-top);
-  bottom: var(--permission-popup-bottom);
-  left: var(--permission-popup-left);
+.hbar-composer-permission-surface {
+  /* The six fixed choices grow to the available viewport; the shared surface
+     still owns placement and the final viewport limit. */
+  --lumen-floating-max-height: calc(100dvh - 2rem);
   inline-size: min(22.5rem, calc(100vw - 2rem));
-  max-block-size: var(--permission-popup-limit);
-  margin: 0;
   padding: 0.75rem;
-  border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.75rem;
-  color: var(--lumen-ink);
-  background: var(--lumen-contrast);
-  box-shadow: 0 1rem 2.5rem color-mix(in srgb, var(--lumen-ink) 18%, transparent);
-  overflow: hidden;
+  gap: 0.5rem;
 }
 
-.hbar-composer-permission-popover:popover-open {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+.hbar-composer-permission-surface > .hbar-composer-permission-body {
+  flex: 1 1 auto;
+}
+
+.hbar-composer-permission-title-rail {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  overscroll-behavior: contain;
+}
+
+.hbar-composer-permission-title-rail > [data-text-context] {
+  display: block;
+  inline-size: max-content;
+  max-inline-size: none;
 }
 
 .hbar-composer-permission-heading,
@@ -106,7 +106,7 @@
   border-block-start: 0.0625rem solid var(--lumen-edge);
 }
 
-.hbar-composer-permission-popover .hbar-composer-permission-option[data-lumen-indicator='none']:focus-visible {
+.hbar-composer-permission-surface .hbar-composer-permission-option[data-lumen-indicator='none']:focus-visible {
   outline: 0.0625rem solid var(--lumen-muted);
   outline-offset: -0.0625rem;
 }
@@ -164,21 +164,15 @@
   white-space: nowrap;
 }
 
-.hbar-composer-permission-actions {
-  justify-content: flex-end;
-  flex-wrap: wrap;
+.hbar-composer-permission-surface > .hbar-composer-permission-actions {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  overflow-x: auto;
 }
 
-@media (max-width: 40rem) {
-  .hbar-composer-permission-popover {
-    inset: auto 0 0;
-    inline-size: 100%;
-    max-block-size: min(78dvh, 40rem);
-    border-radius: 0.75rem 0.75rem 0 0;
-    padding: 1rem;
-  }
-
-  .hbar-composer-permission-popover::backdrop {
-    background: color-mix(in srgb, var(--lumen-ink) 30%, transparent);
-  }
+.hbar-composer-permission-surface > .hbar-composer-permission-actions > button {
+  flex: 0 0 auto;
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
 }

@@ -17119,18 +17119,19 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenFrame::1",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 469,
+      "line": 473,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "entry?.status === 'unknown' ? (\r\n        <LumenContentText context=\"feedback.detail\" role=\"alert\">\r\n          {labels.unknown}\r\n        </LumenContentText>\r\n      ) : locked || entry?.status === 'loading' ? (\r\n        <LumenContentText context=\"feedback.detail\" role=\"status\">\r\n          {entry?.status === 'loading' ? labels.loading : labels.pending}\r\n        </LumenContentText>\r\n      ) : null",
-        "[source:479; BinaryExpression] entry?.writeUnknown, props.onReconcile",
-        "error &&\r\n        (entry?.status !== 'unknown' || (localError?.sessionId === sessionId && localError.revision === revision)) && (\r\n          <LumenContentText context=\"feedback.detail\" role=\"alert\">\r\n            {labels.error(error)}\r\n          </LumenContentText>\r\n        )",
-        "hostDefault.status === 'loading' && open && (\r\n        <LumenContentText context=\"feedback.detail\" role=\"status\">\r\n          {labels.loading}\r\n        </LumenContentText>\r\n      )",
-        "((hostDefault.status === 'error' && choice === 'inherit') || entry?.status === 'failed') && !locked && (\r\n        <LumenButton type=\"button\" size=\"s\" disabled={!connected || busy} onClick={refresh}>\r\n          {labels.retry}\r\n        </LumenButton>\r\n      )"
+        "actionBusy && !planAction && !locked && entry?.status !== 'loading' && (\n        <LumenContentText context=\"feedback.detail\" role=\"status\">\n          {approvalAction === 'read' ? labels.loading : labels.pending}\n        </LumenContentText>\n      )",
+        "entry?.status === 'unknown' ? (\n        <LumenContentText context=\"feedback.detail\" role=\"alert\">\n          {labels.unknown}\n        </LumenContentText>\n      ) : locked || entry?.status === 'loading' ? (\n        <LumenContentText context=\"feedback.detail\" role=\"status\">\n          {entry?.status === 'loading' ? labels.loading : labels.pending}\n        </LumenContentText>\n      ) : null",
+        "[source:488; BinaryExpression] entry?.writeUnknown, props.onReconcile",
+        "error &&\n        (entry?.status !== 'unknown' || (localError?.sessionId === sessionId && localError.revision === revision)) && (\n          <LumenContentText context=\"feedback.detail\" role=\"alert\">\n            {labels.error(error)}\n          </LumenContentText>\n        )",
+        "hostDefault.status === 'loading' && open && (\n        <LumenContentText context=\"feedback.detail\" role=\"status\">\n          {labels.loading}\n        </LumenContentText>\n      )",
+        "((hostDefault.status === 'error' && choice === 'inherit') || entry?.status === 'failed') && !locked && (\n        <LumenButton\n          type=\"button\"\n          size=\"s\"\n          disabled={!connected || goalCancelBusy || Boolean(planAction)}\n          aria-disabled={busy || undefined}\n          aria-busy={actionBusy || undefined}\n          indicatorState={actionBusy ? 'running' : undefined}\n          onClick={refresh}\n        >\n          {labels.retry}\n        </LumenButton>\n      )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -17144,7 +17145,26 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::1",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 471,
+      "line": 475,
+      "owner": "HbarComposerPermissionPicker",
+      "surface": "composer-and-launch",
+      "component": "LumenContentText",
+      "category": "text",
+      "context": "feedback.detail",
+      "contentSources": ["approvalAction === 'read' ? labels.loading : labels.pending"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::2",
+      "path": "packages/app-react/src/composer-permission-picker.tsx",
+      "line": 480,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -17161,9 +17181,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::2",
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::3",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 475,
+      "line": 484,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -17182,7 +17202,7 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenButton::1",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 480,
+      "line": 489,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -17191,19 +17211,22 @@
       "contentSources": ["labels.recheck"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onClick": "[source:485; ArrowFunction] inFlight.current, generation, actionGeneration.current, setBusy, setLocalError, props\r\n              .onReconcile?.()\r\n              .catch((reason: unknown) => {\r\n                if (actionGeneration.current === generation && owner.current.sessionId === sessionId)\r\n                  setLocalError({ sessionId, revision, code: errorCode(reason) })\r\n              })\r\n              .finally, props\r\n              .onReconcile?.()\r\n              .catch, props\r\n              .onReconcile, reason, owner.current.sessionId, owner.current, sessionId, revision, code, errorCode"
+        "onClick": "[source:496; ArrowFunction] connected, busy, inFlight.current, goalCancelPending.current, generation, actionGeneration.current, setBusy, setApprovalAction, setLocalError, props\n              .onReconcile?.()\n              .catch((reason: unknown) => {\n                if (actionGeneration.current === generation && owner.current.sessionId === sessionId)\n                  setLocalError({ sessionId, revision, code: errorCode(reason) })\n              })\n              .finally, props\n              .onReconcile?.()\n              .catch, props\n              .onReconcile, reason, owner.current.sessionId, owner.current, sessionId, revision, code, errorCode"
       },
       "targetSources": [],
-      "stateSources": ["disabled=!connected || busy", "loading=actionBusy"],
+      "stateSources": [
+        "disabled=!connected || goalCancelBusy || Boolean(planAction)",
+        "aria-busy=actionBusy || undefined"
+      ],
       "flow": "owning component contract",
       "lumenMapping": "LumenButton",
       "status": "composed",
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::3",
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::4",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 509,
+      "line": 522,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -17220,9 +17243,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::4",
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::5",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 514,
+      "line": 527,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -17241,7 +17264,7 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenButton::2",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 519,
+      "line": 532,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -17251,7 +17274,10 @@
       "accessibleNameSources": [],
       "actionBindings": { "onClick": "refresh" },
       "targetSources": [],
-      "stateSources": ["disabled=!connected || busy"],
+      "stateSources": [
+        "disabled=!connected || goalCancelBusy || Boolean(planAction)",
+        "aria-busy=actionBusy || undefined"
+      ],
       "flow": "owning component contract",
       "lumenMapping": "LumenButton",
       "status": "composed",
@@ -17260,18 +17286,18 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenFrame::2",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 526,
+      "line": 547,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "executionStatus === 'pending' && (\r\n        <LumenContentText context=\"feedback.detail\" role=\"status\">\r\n          {labels.plan.pending}\r\n        </LumenContentText>\r\n      )",
-        "executionStatus === 'checking' && (\r\n        <LumenContentText context=\"feedback.detail\" role=\"status\">\r\n          {labels.execution.checking}\r\n        </LumenContentText>\r\n      )",
-        "executionStatus === 'unknown' && (\r\n        <LumenContentText context=\"feedback.detail\" role=\"alert\">\r\n          {planReadFailed || (planEntry?.error && planEntry.error !== 'RESULT_UNKNOWN')\r\n            ? labels.execution.checkFailed\r\n            : labels.plan.unknown}\r\n        </LumenContentText>\r\n      )",
-        "executionStatus === 'loading' && (\r\n        <LumenContentText context=\"feedback.detail\" role=\"status\">\r\n          {labels.plan.loading}\r\n        </LumenContentText>\r\n      )",
-        "executionStatus === 'failed' && (\r\n        <LumenContentText context=\"feedback.detail\" role=\"alert\">\r\n          {labels.execution.readFailed}\r\n        </LumenContentText>\r\n      )"
+        "executionStatus === 'pending' && (\n        <LumenContentText context=\"feedback.detail\" role=\"status\">\n          {labels.plan.pending}\n        </LumenContentText>\n      )",
+        "executionStatus === 'checking' && (\n        <LumenContentText context=\"feedback.detail\" role=\"status\">\n          {labels.execution.checking}\n        </LumenContentText>\n      )",
+        "executionStatus === 'unknown' && (\n        <LumenContentText context=\"feedback.detail\" role=\"alert\">\n          {planReadFailed || (planEntry?.error && planEntry.error !== 'RESULT_UNKNOWN')\n            ? labels.execution.checkFailed\n            : labels.plan.unknown}\n        </LumenContentText>\n      )",
+        "executionStatus === 'loading' && (\n        <LumenContentText context=\"feedback.detail\" role=\"status\">\n          {labels.plan.loading}\n        </LumenContentText>\n      )",
+        "executionStatus === 'failed' && (\n        <LumenContentText context=\"feedback.detail\" role=\"alert\">\n          {labels.execution.readFailed}\n        </LumenContentText>\n      )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -17283,9 +17309,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::5",
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::6",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 528,
+      "line": 549,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -17302,9 +17328,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::6",
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::7",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 533,
+      "line": 554,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -17321,16 +17347,16 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::7",
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::8",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 538,
+      "line": 559,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
       "category": "text",
       "context": "feedback.detail",
       "contentSources": [
-        "planReadFailed || (planEntry?.error && planEntry.error !== 'RESULT_UNKNOWN')\r\n            ? labels.execution.checkFailed\r\n            : labels.plan.unknown"
+        "planReadFailed || (planEntry?.error && planEntry.error !== 'RESULT_UNKNOWN')\n            ? labels.execution.checkFailed\n            : labels.plan.unknown"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -17342,9 +17368,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::8",
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::9",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 545,
+      "line": 566,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -17361,9 +17387,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::9",
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::10",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 550,
+      "line": 571,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -17382,15 +17408,13 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenFrame::3",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 557,
+      "line": 578,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": [
-        "!open && (\r\n        <>\r\n          {approvalFeedback}\r\n          {executionFeedback}\r\n        </>\r\n      )"
-      ],
+      "contentSources": ["[source:611; BinaryExpression] open"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
@@ -17403,7 +17427,7 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenButton::3",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 558,
+      "line": 579,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -17415,8 +17439,8 @@
         "title=props.runActive ? labels.runActiveHint : triggerLabel"
       ],
       "actionBindings": {},
-      "targetSources": ["popoverTarget=popupId"],
-      "stateSources": ["aria-expanded=open", "disabled=triggerDisabled"],
+      "targetSources": [],
+      "stateSources": ["aria-expanded=open", "disabled=triggerDisabled", "aria-busy=busy || undefined"],
       "flow": "owning component contract",
       "lumenMapping": "LumenButton",
       "status": "composed",
@@ -17425,7 +17449,7 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenIcon::1",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 574,
+      "line": 596,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenIcon",
@@ -17442,9 +17466,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::10",
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::11",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 586,
+      "line": 608,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -17463,7 +17487,7 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenIcon::2",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 587,
+      "line": 609,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenIcon",
@@ -17480,35 +17504,79 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenFrame::4",
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::12",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 595,
+      "line": 616,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
-      "component": "LumenFrame",
-      "category": "structure",
+      "component": "LumenContentText",
+      "category": "text",
+      "context": "feedback.detail",
+      "contentSources": ["labels.plan.cancellingGoalPreparation"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::13",
+      "path": "packages/app-react/src/composer-permission-picker.tsx",
+      "line": 623,
+      "owner": "HbarComposerPermissionPicker",
+      "surface": "composer-and-launch",
+      "component": "LumenContentText",
+      "category": "text",
+      "context": "feedback.detail",
+      "contentSources": ["labels.error(goalCancelError.code)"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::FloatingSurface::1",
+      "path": "packages/app-react/src/composer-permission-picker.tsx",
+      "line": 629,
+      "owner": "HbarComposerPermissionPicker",
+      "surface": "composer-and-launch",
+      "component": "FloatingSurface",
+      "category": "interaction",
       "context": null,
-      "contentSources": ["[source:827; BinaryExpression] confirming"],
-      "accessibleNameSources": ["aria-labelledby=headingId", "aria-describedby=bodyId"],
+      "contentSources": [
+        "[source:865; BinaryExpression] confirming",
+        "label=confirming ? labels.confirmTitle : labels.title"
+      ],
+      "accessibleNameSources": [
+        "label=confirming ? labels.confirmTitle : labels.title",
+        "aria-labelledby=headingId",
+        "aria-describedby=bodyId"
+      ],
       "actionBindings": {
-        "onBeforeToggle": "(event) => {\r\n          if (event.newState === 'open' && anchor.current) placePopover(event.currentTarget, anchor.current)\r\n        }",
-        "onToggle": "[source:606; ArrowFunction] event, opening, event.newState, sameOpening, openedGeneration.current, actionGeneration.current, goalCancelPending.current, goalCancelReturn.current, goalCancelGeneration.current, executionUnresolved, owner.current.sessionId, owner.current, sessionId, document.querySelector, document.activeElement, document.body, document.activeElement?.isConnected, anchor.current?.focus, anchor.current, setOpen, setConfirmation, selected, planSelected, popup.current?.querySelector, popup.current, HTMLButtonElement, (\r\n              selected ??\r\n              popup.current?.querySelector<HTMLButtonElement>('[data-execution-recovery]:not(:disabled)') ??\r\n              popup.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')\r\n            )?.focus",
-        "onKeyDown": "(event) => {\r\n          if (event.key === 'Enter') event.stopPropagation()\r\n          if (event.key === 'Escape') {\r\n            event.preventDefault()\r\n            event.stopPropagation()\r\n            closePopover()\r\n          }\r\n        }"
+        "onClose": "closePopover",
+        "onKeyDown": "(event) => {\n          if (event.key === 'Enter') event.stopPropagation()\n        }"
       },
       "targetSources": [
         "id=popupId",
-        "onKeyDown=(event) => {\r\n          if (event.key === 'Enter') event.stopPropagation()\r\n          if (event.key === 'Escape') {\r\n            event.preventDefault()\r\n            event.stopPropagation()\r\n            closePopover()\r\n          }\r\n        }"
+        "onKeyDown=(event) => {\n          if (event.key === 'Enter') event.stopPropagation()\n        }"
       ],
-      "stateSources": [],
-      "flow": "owning flow layout",
-      "lumenMapping": "LumenFrame",
+      "stateSources": ["open=open"],
+      "flow": "owning component contract",
+      "lumenMapping": "FloatingSurface",
       "status": "composed",
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenFrame::5",
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenFrame::4",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 646,
+      "line": 647,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
@@ -17525,9 +17593,28 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::11",
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenFrame::5",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 647,
+      "line": 648,
+      "owner": "HbarComposerPermissionPicker",
+      "surface": "composer-and-launch",
+      "component": "LumenFrame",
+      "category": "structure",
+      "context": null,
+      "contentSources": [],
+      "accessibleNameSources": ["aria-label=confirming ? labels.confirmTitle : labels.title"],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::14",
+      "path": "packages/app-react/src/composer-permission-picker.tsx",
+      "line": 654,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -17546,7 +17633,7 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenButton::4",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 650,
+      "line": 658,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -17565,7 +17652,7 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenIcon::3",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 658,
+      "line": 667,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenIcon",
@@ -17584,14 +17671,14 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenFrame::6",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 661,
+      "line": 670,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": ["[source:662; ConditionalExpression] confirming", "open && approvalFeedback"],
-      "accessibleNameSources": [],
+      "contentSources": ["[source:676; ConditionalExpression] confirming", "open && approvalFeedback"],
+      "accessibleNameSources": ["aria-label=confirming ? labels.confirmTitle : labels.title"],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
@@ -17601,9 +17688,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::12",
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::15",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 663,
+      "line": 677,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -17622,7 +17709,7 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenFrame::7",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 669,
+      "line": 683,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
@@ -17630,8 +17717,8 @@
       "context": null,
       "contentSources": [
         "executionFeedback",
-        "plan && planEntry?.status === 'unknown' && (\r\n                    <LumenButton\r\n                      data-execution-recovery\r\n                      type=\"button\"\r\n                      size=\"s\"\r\n                      disabled={!connected || busy}\r\n                      loading={planEntry.reading || planAction === 'read'}\r\n                      onClick={() => checkPlan(true)}\r\n                    >\r\n                      {planEntry.reading || planAction === 'read' ? labels.execution.checking : labels.plan.recheck}\r\n                    </LumenButton>\r\n                  )",
-        "plan && (!planEntry || planEntry.status === 'failed') && (\r\n                    <LumenButton\r\n                      data-execution-recovery\r\n                      type=\"button\"\r\n                      size=\"s\"\r\n                      disabled={!connected || busy}\r\n                      onClick={() => checkPlan(false)}\r\n                    >\r\n                      {labels.plan.retry}\r\n                    </LumenButton>\r\n                  )"
+        "[source:688; BinaryExpression] plan, planAction, planReconcile, planEntry?.status",
+        "[source:703; BinaryExpression] plan, planAction, planReconcile, planEntry, planEntry.status"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -17643,9 +17730,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::13",
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::16",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 671,
+      "line": 685,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -17664,19 +17751,22 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenButton::5",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 675,
+      "line": 689,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
       "category": "interaction",
       "context": null,
       "contentSources": [
-        "planEntry.reading || planAction === 'read' ? labels.execution.checking : labels.plan.recheck"
+        "planEntry?.reading || planAction === 'read' ? labels.execution.checking : labels.plan.recheck"
       ],
       "accessibleNameSources": [],
       "actionBindings": { "onClick": "() => checkPlan(true)" },
       "targetSources": [],
-      "stateSources": ["disabled=!connected || busy", "loading=planEntry.reading || planAction === 'read'"],
+      "stateSources": [
+        "disabled=!connected || goalCancelBusy || planAction === 'write'",
+        "aria-busy=planEntry?.reading || planAction === 'read' || undefined"
+      ],
       "flow": "owning component contract",
       "lumenMapping": "LumenButton",
       "status": "composed",
@@ -17685,7 +17775,7 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenButton::6",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 687,
+      "line": 704,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -17695,7 +17785,10 @@
       "accessibleNameSources": [],
       "actionBindings": { "onClick": "() => checkPlan(false)" },
       "targetSources": [],
-      "stateSources": ["disabled=!connected || busy"],
+      "stateSources": [
+        "disabled=!connected || goalCancelBusy || planAction === 'write'",
+        "aria-busy=planAction === 'read' || undefined"
+      ],
       "flow": "owning component contract",
       "lumenMapping": "LumenButton",
       "status": "composed",
@@ -17704,7 +17797,7 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenButton::7",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 700,
+      "line": 721,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -17714,7 +17807,7 @@
       "accessibleNameSources": ["aria-label=labels.plan.exit"],
       "actionBindings": { "onClick": "() => changePlan('default')" },
       "targetSources": [],
-      "stateSources": ["disabled=planBlocked"],
+      "stateSources": ["disabled=preparationUnavailable", "aria-busy=planAction === 'write' || undefined"],
       "flow": "owning component contract",
       "lumenMapping": "LumenButton",
       "status": "composed",
@@ -17723,7 +17816,7 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenIcon::4",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 710,
+      "line": 734,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenIcon",
@@ -17742,142 +17835,7 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenFrame::8",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 711,
-      "owner": "HbarComposerPermissionPicker",
-      "surface": "composer-and-launch",
-      "component": "LumenFrame",
-      "category": "structure",
-      "context": null,
-      "contentSources": [],
-      "accessibleNameSources": [],
-      "actionBindings": {},
-      "targetSources": [],
-      "stateSources": [],
-      "flow": "owning flow layout",
-      "lumenMapping": "LumenFrame",
-      "status": "composed",
-      "issues": []
-    },
-    {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::14",
-      "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 712,
-      "owner": "HbarComposerPermissionPicker",
-      "surface": "composer-and-launch",
-      "component": "LumenContentText",
-      "category": "text",
-      "context": "choice.title",
-      "contentSources": ["labels.plan.exit"],
-      "accessibleNameSources": [],
-      "actionBindings": {},
-      "targetSources": [],
-      "stateSources": [],
-      "flow": "reading",
-      "lumenMapping": "LumenContentText",
-      "status": "semantic",
-      "issues": []
-    },
-    {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::15",
-      "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 713,
-      "owner": "HbarComposerPermissionPicker",
-      "surface": "composer-and-launch",
-      "component": "LumenContentText",
-      "category": "text",
-      "context": "choice.description",
-      "contentSources": ["labels.plan.exitDescription"],
-      "accessibleNameSources": [],
-      "actionBindings": {},
-      "targetSources": [],
-      "stateSources": [],
-      "flow": "reading",
-      "lumenMapping": "LumenContentText",
-      "status": "semantic",
-      "issues": []
-    },
-    {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::16",
-      "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 718,
-      "owner": "HbarComposerPermissionPicker",
-      "surface": "composer-and-launch",
-      "component": "LumenContentText",
-      "category": "text",
-      "context": "popover.body",
-      "contentSources": ["labels.scopeHint"],
-      "accessibleNameSources": [],
-      "actionBindings": {},
-      "targetSources": ["id=bodyId"],
-      "stateSources": [],
-      "flow": "reading",
-      "lumenMapping": "LumenContentText",
-      "status": "semantic",
-      "issues": []
-    },
-    {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenFrame::9",
-      "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 722,
-      "owner": "HbarComposerPermissionPicker",
-      "surface": "composer-and-launch",
-      "component": "LumenFrame",
-      "category": "structure",
-      "context": null,
-      "contentSources": ["[source:728; CallExpression] choiceOrder.map, value, plan"],
-      "accessibleNameSources": ["aria-label=labels.title"],
-      "actionBindings": { "onKeyDown": "moveChoice" },
-      "targetSources": ["onKeyDown=moveChoice"],
-      "stateSources": [],
-      "flow": "owning flow layout",
-      "lumenMapping": "LumenFrame",
-      "status": "composed",
-      "issues": []
-    },
-    {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenButton::8",
-      "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 731,
-      "owner": "HbarComposerPermissionPicker",
-      "surface": "composer-and-launch",
-      "component": "LumenButton",
-      "category": "interaction",
-      "context": null,
-      "contentSources": ["planSelected && <LumenIcon icon={Check} tier=\"sm\" />"],
-      "accessibleNameSources": ["aria-describedby=goalPreparation && !planSelected ? goalPreparedId : undefined"],
-      "actionBindings": {
-        "onClick": "() => {\r\n                          if (planSelected) closePopover()\r\n                          else changePlan('plan')\r\n                        }"
-      },
-      "targetSources": ["key=value"],
-      "stateSources": ["disabled=planBlocked"],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenButton",
-      "status": "composed",
-      "issues": []
-    },
-    {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenIcon::5",
-      "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 747,
-      "owner": "HbarComposerPermissionPicker",
-      "surface": "composer-and-launch",
-      "component": "LumenIcon",
-      "category": "interaction",
-      "context": null,
-      "contentSources": [],
-      "accessibleNameSources": [],
-      "actionBindings": {},
-      "targetSources": [],
-      "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenIcon",
-      "status": "composed",
-      "issues": []
-    },
-    {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenFrame::10",
-      "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 748,
+      "line": 735,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
@@ -17896,7 +17854,145 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::17",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 749,
+      "line": 736,
+      "owner": "HbarComposerPermissionPicker",
+      "surface": "composer-and-launch",
+      "component": "LumenContentText",
+      "category": "text",
+      "context": "choice.title",
+      "contentSources": ["labels.plan.exit"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::18",
+      "path": "packages/app-react/src/composer-permission-picker.tsx",
+      "line": 737,
+      "owner": "HbarComposerPermissionPicker",
+      "surface": "composer-and-launch",
+      "component": "LumenContentText",
+      "category": "text",
+      "context": "choice.description",
+      "contentSources": ["labels.plan.exitDescription"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::19",
+      "path": "packages/app-react/src/composer-permission-picker.tsx",
+      "line": 742,
+      "owner": "HbarComposerPermissionPicker",
+      "surface": "composer-and-launch",
+      "component": "LumenContentText",
+      "category": "text",
+      "context": "popover.body",
+      "contentSources": ["labels.scopeHint"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": ["id=bodyId"],
+      "stateSources": [],
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenFrame::9",
+      "path": "packages/app-react/src/composer-permission-picker.tsx",
+      "line": 746,
+      "owner": "HbarComposerPermissionPicker",
+      "surface": "composer-and-launch",
+      "component": "LumenFrame",
+      "category": "structure",
+      "context": null,
+      "contentSources": ["[source:752; CallExpression] choiceOrder.map, value, plan"],
+      "accessibleNameSources": ["aria-label=labels.title"],
+      "actionBindings": { "onKeyDown": "moveChoice" },
+      "targetSources": ["onKeyDown=moveChoice"],
+      "stateSources": [],
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenButton::8",
+      "path": "packages/app-react/src/composer-permission-picker.tsx",
+      "line": 755,
+      "owner": "HbarComposerPermissionPicker",
+      "surface": "composer-and-launch",
+      "component": "LumenButton",
+      "category": "interaction",
+      "context": null,
+      "contentSources": ["planSelected && <LumenIcon icon={Check} tier=\"sm\" />"],
+      "accessibleNameSources": ["aria-describedby=goalPreparation && !planSelected ? goalPreparedId : undefined"],
+      "actionBindings": {
+        "onClick": "() => {\n                          if (planBlocked) return\n                          if (planSelected) closePopover()\n                          else changePlan('plan')\n                        }"
+      },
+      "targetSources": ["key=value"],
+      "stateSources": [
+        "disabled=planBlocked && !((goalCancelBusy || planAction === 'write') && !preparationUnavailable)",
+        "aria-busy=planAction === 'write' || undefined"
+      ],
+      "flow": "owning component contract",
+      "lumenMapping": "LumenButton",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenIcon::5",
+      "path": "packages/app-react/src/composer-permission-picker.tsx",
+      "line": 777,
+      "owner": "HbarComposerPermissionPicker",
+      "surface": "composer-and-launch",
+      "component": "LumenIcon",
+      "category": "interaction",
+      "context": null,
+      "contentSources": [],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "owning component contract",
+      "lumenMapping": "LumenIcon",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenFrame::10",
+      "path": "packages/app-react/src/composer-permission-picker.tsx",
+      "line": 778,
+      "owner": "HbarComposerPermissionPicker",
+      "surface": "composer-and-launch",
+      "component": "LumenFrame",
+      "category": "structure",
+      "context": null,
+      "contentSources": [],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::20",
+      "path": "packages/app-react/src/composer-permission-picker.tsx",
+      "line": 779,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -17913,9 +18009,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::18",
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::21",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 750,
+      "line": 780,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -17934,7 +18030,7 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenIcon::6",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 754,
+      "line": 784,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenIcon",
@@ -17953,7 +18049,7 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenButton::9",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 758,
+      "line": 788,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -17962,10 +18058,13 @@
       "contentSources": ["value === choice && ordinaryConfirmed && <LumenIcon icon={Check} tier=\"sm\" />"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onClick": "() => {\r\n                        if (!canSelectOrdinary) return\r\n                        if (value === 'allow' && (choice !== 'allow' || planSelected))\r\n                          setConfirmation({ sessionId, revision, sessionLabel })\r\n                        else select({ sessionId, choice: value, expectedRevision: revision })\r\n                      }"
+        "onClick": "() => {\n                        if (!canSelectOrdinary || preparationUnavailable || busy || inFlight.current) return\n                        if (value === 'allow' && (choice !== 'allow' || planSelected))\n                          setConfirmation({ sessionId, revision, sessionLabel })\n                        else select({ sessionId, choice: value, expectedRevision: revision })\n                      }"
       },
       "targetSources": ["key=value"],
-      "stateSources": ["disabled=preparationUnavailable || busy || !canSelectOrdinary"],
+      "stateSources": [
+        "disabled=preparationUnavailable || (!canSelectOrdinary && planAction !== 'write')",
+        "aria-busy=(approvalAction === 'write' && actionBusy) || undefined"
+      ],
       "flow": "owning component contract",
       "lumenMapping": "LumenButton",
       "status": "composed",
@@ -17974,7 +18073,7 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenIcon::7",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 775,
+      "line": 811,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenIcon",
@@ -17993,7 +18092,7 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenFrame::11",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 776,
+      "line": 812,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
@@ -18010,9 +18109,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::19",
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::22",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 777,
+      "line": 813,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -18029,16 +18128,16 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::20",
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::23",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 778,
+      "line": 814,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
       "category": "text",
       "context": "choice.description",
       "contentSources": [
-        "value === 'inherit'\r\n                            ? labels.inheritedSnapshotHint(\r\n                                hostDefault.mode ? labels.options[hostDefault.mode].label : null,\r\n                              )\r\n                            : labels.options[value].description"
+        "value === 'inherit'\n                            ? labels.inheritedSnapshotHint(\n                                hostDefault.mode ? labels.options[hostDefault.mode].label : null,\n                              )\n                            : labels.options[value].description"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -18052,7 +18151,7 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenIcon::8",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 786,
+      "line": 822,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenIcon",
@@ -18071,14 +18170,14 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenFrame::12",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 792,
+      "line": 828,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "goalCancelError?.sessionId === sessionId &&\r\n                    goalCancelError.revision === goalPreparation.revision && (\r\n                      <LumenContentText context=\"feedback.detail\" role=\"alert\">\r\n                        {labels.error(goalCancelError.code)}\r\n                      </LumenContentText>\r\n                    )"
+        "goalCancelError?.sessionId === sessionId &&\n                    goalCancelError.revision === goalPreparation.revision && (\n                      <LumenContentText context=\"feedback.detail\" role=\"alert\">\n                        {labels.error(goalCancelError.code)}\n                      </LumenContentText>\n                    )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -18090,9 +18189,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::21",
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::24",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 793,
+      "line": 829,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -18111,7 +18210,7 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenButton::10",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 796,
+      "line": 832,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -18121,16 +18220,19 @@
       "accessibleNameSources": ["aria-describedby=goalPreparedId"],
       "actionBindings": { "onClick": "cancelGoalPreparation" },
       "targetSources": [],
-      "stateSources": ["disabled=unavailable || busy"],
+      "stateSources": [
+        "disabled=unavailable || actionBusy || planEntry?.reading",
+        "aria-busy=goalCancelBusy || undefined"
+      ],
       "flow": "owning component contract",
       "lumenMapping": "LumenButton",
       "status": "composed",
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::22",
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::25",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 808,
+      "line": 846,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -18147,9 +18249,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::23",
+      "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenContentText::26",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 815,
+      "line": 853,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -18168,14 +18270,14 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenFrame::13",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 828,
+      "line": 866,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [],
-      "accessibleNameSources": [],
+      "accessibleNameSources": ["aria-label=labels.confirmTitle"],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
@@ -18187,7 +18289,7 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenButton::11",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 829,
+      "line": 872,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -18196,10 +18298,10 @@
       "contentSources": ["labels.cancel"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onClick": "() => {\r\n                const generation = actionGeneration.current\r\n                setConfirmation(null)\r\n                queueMicrotask(() => {\r\n                  if (actionGeneration.current !== generation || !popup.current?.matches(':popover-open')) return\r\n                  popup.current\r\n                    .querySelector<HTMLButtonElement>('[role=\"menuitemradio\"][data-choice=\"allow\"]:not(:disabled)')\r\n                    ?.focus()\r\n                })\r\n              }"
+        "onClick": "() => {\n                if (busy || inFlight.current) return\n                returnAllowFocus.current = true\n                setConfirmation(null)\n              }"
       },
       "targetSources": [],
-      "stateSources": ["disabled=busy"],
+      "stateSources": [],
       "flow": "owning component contract",
       "lumenMapping": "LumenButton",
       "status": "composed",
@@ -18208,7 +18310,7 @@
     {
       "id": "packages/app-react/src/composer-permission-picker.tsx::HbarComposerPermissionPicker::LumenButton::12",
       "path": "packages/app-react/src/composer-permission-picker.tsx",
-      "line": 847,
+      "line": 885,
       "owner": "HbarComposerPermissionPicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -18217,10 +18319,10 @@
       "contentSources": ["labels.confirmAllow"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onClick": "() =>\r\n                select({\r\n                  sessionId: confirming.sessionId,\r\n                  choice: 'allow',\r\n                  expectedRevision: confirming.revision,\r\n                  confirmAllow: true,\r\n                })"
+        "onClick": "() =>\n                select({\n                  sessionId: confirming.sessionId,\n                  choice: 'allow',\n                  expectedRevision: confirming.revision,\n                  confirmAllow: true,\n                })"
       },
       "targetSources": [],
-      "stateSources": ["disabled=preparationUnavailable || busy"],
+      "stateSources": ["disabled=preparationUnavailable", "aria-busy=actionBusy || undefined"],
       "flow": "owning component contract",
       "lumenMapping": "LumenButton",
       "status": "composed",
@@ -26291,7 +26393,7 @@
     {
       "id": "packages/app-react/src/floating-surface.tsx::FloatingSurface::LumenFloatingSurface::1",
       "path": "packages/app-react/src/floating-surface.tsx",
-      "line": 55,
+      "line": 57,
       "owner": "FloatingSurface",
       "surface": "workbench",
       "component": "LumenFloatingSurface",

@@ -51,7 +51,7 @@ for (const locale of ['zh-CN', 'en-US'] as const)
           : 'Improve the hbar desktop layout and visually check readable dialogs and stable toolbar controls'
       const form = page.locator('.hbar-prompt-composer')
       const trigger = form.locator('.hbar-composer-permission-trigger')
-      const popup = page.locator('.hbar-composer-permission-popover')
+      const popup = page.locator('.hbar-composer-permission-surface')
       const body = popup.locator('.hbar-composer-permission-body')
       for (const width of [1100, 900, 390, 320]) {
         await page.setViewportSize({ width, height: 900 })

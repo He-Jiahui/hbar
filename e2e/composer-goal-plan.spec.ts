@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test'
 import { createGoalPlanCommandClient } from '@hbar/client'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
+import { cleanupOwnedPermissionFixture } from './support/permission-fixture-cleanup'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
@@ -15,7 +16,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({ locale })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        budgetAutoContinue: false,
+      })
       const { sessionId } = host.ready
       const copy = getShellCopy(locale)
       const labels = copy.session.intent
@@ -37,7 +42,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expect(addMenu).toBeHidden()
       }
       const permission = page.locator('.hbar-composer-permission-picker')
-      const planEntry = permission.getByRole('menuitemradio', {
+      const popup = page.locator('.hbar-composer-permission-surface')
+      const planEntry = popup.getByRole('menuitemradio', {
         name: copy.session.permissionPicker.plan.label,
         exact: false,
       })
@@ -61,6 +67,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       )
       await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-goal-chip-${locale}.png` })
       await page.setViewportSize({ width: 320, height: 720 })
+      // Intrinsic controls live in the composer rail. Real focus reveals the
+      // prepared Goal after the viewport shrinks, without changing its target.
+      await modes.getByRole('button', { name: labels.cancelGoal }).focus()
       await expect(modes.getByRole('button', { name: labels.cancelGoal })).toBeInViewport()
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(321)
       await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-goal-chip-${locale}-320.png` })
@@ -80,11 +89,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await permission
         .getByRole('button', { name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.plan.label) })
         .click()
-      await expect(
-        permission.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label }),
-      ).toBeVisible()
+      await expect(popup.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label })).toBeVisible()
       await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-durable-plan-menu-${locale}-1440.png` })
-      await permission.getByRole('button', { name: copy.session.permissionPicker.close }).click()
+      await popup.getByRole('button', { name: copy.session.permissionPicker.close }).click()
       await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-plan-chip-${locale}.png` })
       await page.setViewportSize({ width: 320, height: 720 })
       await expect(
@@ -95,18 +102,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await permission
         .getByRole('button', { name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.plan.label) })
         .click()
-      await expect(
-        permission.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label }),
-      ).toBeVisible()
-      await permission.getByRole('menuitemradio').first().focus()
+      await expect(popup.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label })).toBeVisible()
+      await popup.getByRole('menuitemradio').first().focus()
       await page.keyboard.press('End')
-      await expect(permission.locator('[role="menuitemradio"][data-choice="inherit"]')).toBeFocused()
+      await expect(popup.locator('[role="menuitemradio"][data-choice="inherit"]')).toBeFocused()
       await page.keyboard.press('ArrowUp')
-      await expect(
-        permission.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label }),
-      ).toBeFocused()
+      await expect(popup.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label })).toBeFocused()
       expect(
-        await permission.locator('.hbar-composer-permission-popover').evaluate((popup) => {
+        await popup.evaluate((popup) => {
           const option = popup.querySelector('[role="menuitemradio"][data-choice="plan"]')?.getBoundingClientRect()
           const bounds = popup.getBoundingClientRect()
           return Boolean(option && option.top >= bounds.top && option.bottom <= bounds.bottom)
@@ -114,14 +117,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       ).toBe(true)
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-durable-plan-menu-${locale}-320.png` })
-      await permission.getByRole('button', { name: copy.session.permissionPicker.close }).click()
+      await popup.getByRole('button', { name: copy.session.permissionPicker.close }).click()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-plan-chip-${locale}-320.png` })
       await page.setViewportSize({ width: 1440, height: 960 })
       await permission
         .getByRole('button', { name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.plan.label) })
         .click()
-      await permission.locator('[role="menuitemradio"][data-choice="inherit"]').click()
+      await popup.locator('[role="menuitemradio"][data-choice="inherit"]').click()
       expect(await host.client.call('mode.get', { sessionId })).toEqual({ mode: 'default' })
       await expectComposerText(prompt, objective)
 
@@ -258,7 +261,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await permission
         .getByRole('button', { name: copy.session.permissionPicker.trigger(copy.session.permissionPicker.plan.label) })
         .click()
-      await permission.locator('[role="menuitemradio"][data-choice="inherit"]').click()
+      await popup.locator('[role="menuitemradio"][data-choice="inherit"]').click()
       await prompt.fill('Act in default mode after explicit exit.')
       await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
       await expectComposerText(prompt, '')
@@ -271,7 +274,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await cleanupOwnedPermissionFixture(root, 'hbar-composer-intent-')
     }
   })
 }

@@ -1,13 +1,14 @@
 import { expect, test } from '@playwright/test'
 import { createConfigurationCommandClient, createGoalPlanCommandClient, createModelCommandClient } from '@hbar/client'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
+import { cleanupOwnedPermissionFixture } from './support/permission-fixture-cleanup'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
-test('same-origin language switching retains model, one-send approval, durable Plan, paused Goal and command context', async ({
+test('same-origin language switching retains model, session approval, durable Plan, paused Goal and command context', async ({
   browser,
 }) => {
   test.setTimeout(120_000)
@@ -23,6 +24,7 @@ test('same-origin language switching retains model, one-send approval, durable P
       root,
       port: Number(process.env.HBAR_E2E_HOST_PORT ?? 44965),
       goalAutoContinue: false,
+      budgetAutoContinue: false,
     })
     const { sessionId } = host.ready
     const goals = createGoalPlanCommandClient(host.client)
@@ -60,10 +62,10 @@ test('same-origin language switching retains model, one-send approval, durable P
     await expect(fixtureOption).toHaveAttribute('aria-selected', 'true')
     await fixtureOption.click()
     await expect(initialModelDialog).toBeHidden()
-    const modelBaseline = await models.execute('session.getModel', { sessionId })
+    const selectedModel = await models.execute('session.getModel', { sessionId })
     const permission = page.locator('.hbar-composer-permission-picker')
     const trigger = permission.locator('.hbar-composer-permission-trigger')
-    const permissionPopup = permission.locator('.hbar-composer-permission-popover')
+    const permissionPopup = page.locator('.hbar-composer-permission-surface')
     await trigger.click()
     await permissionPopup.locator('[data-choice="deny"]').click()
     await expect(trigger).toHaveAttribute('data-choice', 'deny')
@@ -71,6 +73,16 @@ test('same-origin language switching retains model, one-send approval, durable P
     await permissionPopup.locator('[role="menuitemradio"][data-choice="plan"]').click()
     await expect(trigger).toHaveAttribute('data-choice', 'plan')
     expect(await host.client.call('mode.get', { sessionId })).toEqual({ mode: 'plan' })
+    // The fixture itself changed session approval. Since 888c0757 that write
+    // advances the same settings revision included in model configuration.
+    // Verify only this expected revision advance before freezing the full
+    // configuration that subsequent read-only language interactions must retain.
+    const modelBaseline = await models.execute('session.getModel', { sessionId })
+    const sessionRevision = `settings:session:${sessionId}`
+    expect(modelBaseline).toEqual({
+      ...selectedModel,
+      revisions: { ...selectedModel.revisions, [sessionRevision]: (selectedModel.revisions[sessionRevision] ?? 0) + 1 },
+    })
     const permissionBaseline = await configuration.execute('permission.get', {})
     expect(permissionBaseline).toEqual({ mode: 'ask' })
     const goalBaseline = (await goals.execute('goal.get', { sessionId })).goal
@@ -122,7 +134,7 @@ test('same-origin language switching retains model, one-send approval, durable P
         await expect(modelTrigger).toBeFocused()
         await trigger.click()
         await expect(permissionPopup.locator('[data-choice="plan"]')).toHaveAttribute('aria-checked', 'true')
-        await expect(permissionPopup.getByRole('menuitemradio')).toHaveCount(5)
+        await expect(permissionPopup.getByRole('menuitemradio')).toHaveCount(6)
         for (const choice of await permissionPopup.getByRole('menuitemradio').all()) await expect(choice).toBeEnabled()
         await expect(permissionPopup).toContainText(copy.session.permissionPicker.plan.scope)
         await expect(permissionPopup).not.toContainText(copy.session.permissionPicker.scopeHint)
@@ -225,7 +237,7 @@ test('same-origin language switching retains model, one-send approval, durable P
     )
     await context.close()
     if (host) await stopWebSessionHost(host)
-    await rm(root, { recursive: true, force: true })
+    await cleanupOwnedPermissionFixture(root, 'hbar-language-session-controls-')
   }
 })
 
@@ -243,6 +255,7 @@ test('an open command palette recomputes a localized query after a real cross-wi
       root,
       port: Number(process.env.HBAR_E2E_HOST_PORT ?? 44965),
       goalAutoContinue: false,
+      budgetAutoContinue: false,
     })
     const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 44967}`
     expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
@@ -338,6 +351,6 @@ test('an open command palette recomputes a localized query after a real cross-wi
   } finally {
     await context.close()
     if (host) await stopWebSessionHost(host)
-    await rm(root, { recursive: true, force: true })
+    await cleanupOwnedPermissionFixture(root, 'hbar-language-command-filter-')
   }
 })
