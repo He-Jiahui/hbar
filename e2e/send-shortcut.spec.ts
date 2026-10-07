@@ -194,14 +194,18 @@ async function start(
     }
     await expect(toggle).toHaveAttribute('aria-expanded', 'true')
     await project.getByRole('treeitem', { name: ready.firstSession.title, exact: true }).click()
-    const hide = page.getByRole('button', { name: copy.shell.hideSidebar, exact: true })
-    if (await hide.isVisible()) {
-      try {
-        await hide.click({ timeout: 1500 })
-      } catch (error) {
-        if (await hide.isVisible()) throw error
-      }
+    if (width < 1024) {
+      // Session activation closes the modal sidebar; the composer is inert until this completes.
+      await expect(show).toBeVisible()
+    } else {
+      const hide = page.getByRole('button', { name: copy.shell.hideSidebar, exact: true })
+      if (await hide.isVisible()) await hide.click()
     }
+    await expect(
+      page
+        .locator('.hbar-composer-mention-root')
+        .getByRole('textbox', { name: copy.session.prompt.input, exact: true }),
+    ).toBeVisible()
     return { root, directory, child, context, page, observer, ready, copy, locale, width, asset, commands, errors }
   } catch (error) {
     await context.close()
@@ -234,9 +238,14 @@ async function openGeneral(fixture: Fixture) {
   const show = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
   if (await show.isVisible()) await show.click()
   await page.getByRole('button', { name: copy.shell.settings, exact: true }).click()
+  await expect(page.locator('.hbar-app-react-settings-workspace')).toBeVisible()
   const groups = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
+  const general = page
+    .getByRole('navigation', { name: copy.settings.groups, exact: true })
+    .getByRole('button', { name: copy.general.group, exact: true })
+  await expect.poll(async () => (await groups.isVisible()) || (await general.isVisible())).toBe(true)
   if (await groups.isVisible()) await selectLumenOption(groups, { label: copy.general.group })
-  else await page.getByRole('button', { name: copy.general.group, exact: true }).click()
+  else await general.click()
   const field = page.locator('.hbar-web-general-sending')
   await expect(field).toBeVisible()
   return field
@@ -249,6 +258,8 @@ function sendChoice(fixture: Fixture, field: Locator, behavior: 'enter' | 'modif
 async function capture(fixture: Fixture, name: string): Promise<void> {
   const { page, directory, width } = fixture
   const choices = page.locator('.hbar-web-general-send-choice')
+  // Persistent selection is measured after leaving the independent hover state.
+  await page.mouse.move(0, 0)
   if (await choices.count())
     await expect
       .poll(() =>
@@ -266,6 +277,9 @@ async function capture(fixture: Fixture, name: string): Promise<void> {
       return {
         title: node.querySelector('.hbar-web-general-send-title')?.textContent,
         pressed: node.getAttribute('aria-pressed'),
+        variant: node.getAttribute('data-lumen-variant'),
+        accent: style.getPropertyValue('--lumen-accent'),
+        edge: style.getPropertyValue('--lumen-edge'),
         borderColor: style.borderColor,
         backgroundColor: style.backgroundColor,
         borderWidth: style.borderWidth,
@@ -274,6 +288,7 @@ async function capture(fixture: Fixture, name: string): Promise<void> {
     }),
   }))
   expect(geometry.documentWidth).toBeLessThanOrEqual(width + 1)
+  await writeFile(join(directory, `${name}.json`), JSON.stringify(geometry, null, 2))
   if (geometry.sendChoices.length) {
     const selected = geometry.sendChoices.filter((choice) => choice.pressed === 'true')
     const unselected = geometry.sendChoices.filter((choice) => choice.pressed === 'false')
@@ -283,7 +298,6 @@ async function capture(fixture: Fixture, name: string): Promise<void> {
     expect(selected[0]?.backgroundColor).not.toBe(unselected[0]?.backgroundColor)
   }
   await page.screenshot({ path: join(directory, `${name}.png`) })
-  await writeFile(join(directory, `${name}.json`), JSON.stringify(geometry, null, 2))
 }
 
 /** Settings has its own scrollport; fullPage screenshots do not reveal feedback below it. */

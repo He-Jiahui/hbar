@@ -230,4 +230,11 @@ Lumen outlined 动作的持久选中边框已补齐。`LumenButton`／`LumenIcon
 
 - Lumen 包类型、构建／声明、格式与 flow guard 通过。General 进行中的实际 Chrome 验证增加指针离开后的选中／未选中边框断言，26 个两语言／主题／五宽度场景全部通过；General 完整调用方迁移和真实 Host send／zoom 尚待下一提交验收，此处只记录公共样式基础能力。原语言键盘对照也在 End 导航处失败，后续恢复与控件迁移保留全部原断言。证据为 `general-settings/*`。
 
-当前已提交清单覆盖 146 个生产 TSX 模块、3680 个元素，其中记录了 658 处低层文字未分类，合计 676 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+General 的 33 处低层文字已按用途分类：章节标题／说明、设备与字段帮助、表单 legend、选项标签／说明、缩放指标和读取／保存／恢复反馈。语言的固定三项使用受控 LumenToggleGroup，公开键盘导航与焦点由 Lumen 管理；发送的固定两项沿用原受控 LumenButton 与 Host 设置契约。单行标题、legend、选项由所属具名阅读区承接横向阅读，说明正文自然换行；legend 自己约束 intrinsic 宽度，避免原生 fieldset 的 legend 脱离父级 overflow 约束。语言保存重试移除原按钮后，只在原 controller／preference 仍匹配、焦点回到 body 且实际选中控件可见时恢复焦点。删除页面的选中配色与焦点覆盖，消费 Lumen 公共状态。结构沿用 [settings-form](https://pro.reactbits.dev/docs/app-ui/settings-form) 的分节字段与就近保存反馈，以及 [forms](https://pro.reactbits.dev/docs/app-ui/forms) 的标签、帮助和恢复关系。
+
+- 27 项既有语言、General、缩放与发送控制器测试通过。26 个实际 Chrome 场景通过，覆盖两语言／主题／五宽度、125% 根字体、长标题与 legend 真实键盘阅读、语言 roving focus、保存恢复、原 storage key／偏好、发送未知结果的相同 operation ID／revision／输入重试、缩放边界 0.5／2 与重置，以及指针离开后的公共持久选中边框。字段与选项数量固定，外层设置面板负责纵向滚动，未引入伪列表或固定内容高度。320px 明暗长翻译、错误与选中状态截图已复核。
+- 5 项真实语言流程通过，包含原会话、文件与未保存外观在两窗口间的身份保留，以及离线、损坏本地值、诚实写入失败、重试和键盘导航。原 `d44eacc2` General 对照在 End 键盘导航处失败；本次使用公共 ToggleGroup 并恢复原重试移除后的所属焦点，保留原断言。夹具关闭独立 Host 后校验真实临时根与前缀，再释放数据，并禁用无关 budget 自动继续。
+- 10 项真实 Host send／zoom 流程通过：两语言的 1440／320px 下，保留 IME、单次提交、原 session／Host／附件／草稿、原 revision、发送方式切换与回读、保存失败／未知／重试、缩放键盘／滑块边界与同 origin 刷新持久化。冻结生产资产通过原文件名和 SHA256 校验。中间窄窗超时源于测试在设置布局加载前错误选择隐藏桌面导航，现等待实际设置表面与可见入口；原 Sidebar 激活关闭后等待真实会话输入，避免操作 inert 区域。截图断言先移开指针再等待动画结束，测持久选中状态，保留选中／未选中边框和背景差异断言。证据为 `general-settings/host-send-verified.log` 与 `send-verified/*`。
+- 修改范围严格 lint、内容／图标／flow guard、格式、Web 构建与清单／实际生产输入核对通过。冷启动完整 typecheck 仍为 96 项既有诊断，修改范围无诊断。公共 pressed outlined 基础能力在 Lumen `3740b3d67d`／父仓库 `fb275641` 独立提交；本项验证其实际调用方。原生 zoom／平台 smoke 仍属于后续平台验收，浏览器 CSS fallback 不作为原生验证。其余证据为 `general-settings/*`。
+
+当前已提交清单覆盖 146 个生产 TSX 模块、3680 个元素，其中记录了 625 处低层文字未分类，合计 643 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

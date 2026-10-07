@@ -95,12 +95,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     expect(rendered).toContain(labels.deviceScope)
     expect(rendered).toContain(labels.languageDescription)
     expect(rendered).toContain(labels.currentLanguage(locale))
-    expect(rendered).toContain('role="radiogroup" aria-labelledby="hbar-general-language-label"')
+    const group = (rendered.match(/<[^>]+>/g) ?? []).find((tag) => tag.includes('role="radiogroup"'))
+    expect(group).toContain('aria-labelledby="hbar-general-language-label"')
     expect(rendered).toContain('aria-describedby="hbar-general-language-help"')
     expect(rendered.match(/role="radio"/g)).toHaveLength(3)
     expect(rendered.match(/aria-checked="true"/g)).toHaveLength(1)
-    expect(rendered.match(/tabindex="0"/g)).toHaveLength(1)
-    expect(rendered.match(/tabindex="-1"/g)).toHaveLength(2)
+    const radios = rendered.match(/<button[^>]*role="radio"[^>]*>/g) ?? []
+    expect(radios.filter((tag) => tag.includes('tabindex="0"'))).toHaveLength(1)
+    expect(radios.filter((tag) => tag.includes('tabindex="-1"'))).toHaveLength(2)
     for (const label of Object.values(labels.options)) expect(rendered).toContain(label)
     expect(rendered).not.toContain('日本語')
     expect(rendered).not.toContain('繁體中文')
@@ -118,7 +120,7 @@ test('General renders the selected applied choice after an actual owner action w
   const rendered = html(language)
   const labels = generalSettingsCopy('zh-CN')
   expect(rendered).toMatch(
-    /<button(?=[^>]*role="radio")(?=[^>]*aria-checked="true")(?=[^>]*tabindex="0")[^>]*>简体中文<\/button>/,
+    /<button(?=[^>]*role="radio")(?=[^>]*aria-checked="true")(?=[^>]*tabindex="0")[^>]*>(?:<[^>]+>)*简体中文/,
   )
   expect(rendered).toContain(labels.currentLanguage('zh-CN'))
   expect(rendered).toContain(labels.saved)
@@ -196,7 +198,8 @@ test('General preserves deliberately long host labels and escapes content rather
   expect(rendered).toContain(long)
   expect(rendered).toContain(`&lt;${long}&gt;`)
   expect(rendered.match(/role="radio"/g)).toHaveLength(3)
-  expect(rendered.match(/tabindex="0"/g)).toHaveLength(1)
+  const radios = rendered.match(/<button[^>]*role="radio"[^>]*>/g) ?? []
+  expect(radios.filter((tag) => tag.includes('tabindex="0"'))).toHaveLength(1)
 })
 
 for (const locale of ['en-US', 'zh-CN'] as const) {

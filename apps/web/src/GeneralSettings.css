@@ -25,7 +25,22 @@
 .hbar-web-general-settings p,
 .hbar-web-general-settings h2 {
   margin: 0;
-  overflow-wrap: anywhere;
+}
+
+.hbar-web-general-title,
+.hbar-web-general-language,
+.hbar-web-general-sending,
+.hbar-web-general-zoom {
+  min-inline-size: 0;
+  overflow-x: auto;
+}
+
+.hbar-web-general-legend {
+  display: block;
+  min-inline-size: 0;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  overflow-x: auto;
 }
 
 .hbar-web-general-heading > div > p {
@@ -98,15 +113,16 @@
 .hbar-web-general-send-choices {
   display: flex;
   min-inline-size: 0;
-  flex-wrap: wrap;
+  overflow-x: auto;
+  min-block-size: max-content;
   gap: 0.5rem;
 }
 
 .hbar-web-general-send-choice {
   display: flex;
-  flex: 1 1 10rem;
-  min-inline-size: 0;
-  max-inline-size: 100%;
+  flex: 0 0 auto;
+  min-inline-size: max-content;
+  max-inline-size: none;
   flex-direction: column;
   align-items: flex-start;
   gap: 0.25rem;
@@ -116,28 +132,12 @@
   overflow-wrap: anywhere;
 }
 
-.hbar-web-general-send-choice[data-lumen-variant='outlined'][aria-pressed='true'],
-.hbar-web-general-send-choice[data-lumen-variant='outlined'][aria-pressed='true']:hover,
-.hbar-web-general-send-choice[data-lumen-variant='outlined'][aria-pressed='true']:active {
-  border-color: var(--lumen-accent);
-  background: color-mix(in srgb, var(--lumen-accent) 10%, transparent);
-}
-
-.hbar-web-general-send-choice:focus-visible {
-  outline: 0.125rem solid var(--lumen-ink);
-  outline-offset: 0.125rem;
-}
-
-.hbar-web-general-send-title {
-  font-weight: 600;
-}
-
 .hbar-web-general-language legend {
   padding: 0;
   margin-block-end: 0.25rem;
 }
 
-/* Language choice group: LumenButton handles selection via aria-checked/variant. */
+/* Language choice group: LumenToggleGroup owns the single selection and roving focus. */
 .hbar-web-general-choices,
 .hbar-web-general-feedback {
   display: flex;
@@ -147,24 +147,19 @@
   gap: 0.5rem;
 }
 
-.hbar-web-general-choices > button {
-  max-inline-size: 100%;
-  border: 0.0625rem solid var(--lumen-edge);
-  overflow-wrap: anywhere;
+.hbar-web-general-choices .lumen-toggle-option {
+  flex: 0 0 auto;
+  max-inline-size: none;
 }
 
-.hbar-web-general-choices > button[aria-checked='true'],
-.hbar-web-general-choices > button[aria-checked='true']:hover,
-.hbar-web-general-choices > button[aria-checked='true']:active {
-  --lumen-action-color: var(--lumen-contrast);
-  border-color: var(--lumen-ink);
-  background: var(--lumen-ink);
-  box-shadow: none;
+.hbar-web-general-choices {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  min-block-size: max-content;
 }
 
-.hbar-web-general-choices > button:focus-visible {
-  outline: 0.125rem solid var(--lumen-ink);
-  outline-offset: 0.125rem;
+.hbar-web-general-choices .lumen-toggle-options {
+  flex-wrap: nowrap;
 }
 
 .hbar-web-general-feedback > p {

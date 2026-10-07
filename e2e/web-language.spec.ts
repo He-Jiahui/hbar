@@ -1,10 +1,20 @@
 import { expect, test } from '@playwright/test'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { WEB_LANGUAGE_STORAGE_KEY } from '../apps/web/src/language'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+
+async function removeOwnedFixture(root: string) {
+  const target = await realpath(root)
+  if (
+    dirname(target) !== (await realpath(tmpdir())) ||
+    !['hbar-web-language-', 'hbar-language-two-windows-'].some((prefix) => basename(target).startsWith(prefix))
+  )
+    throw new Error('Unexpected language fixture root')
+  await rm(target, { recursive: true, force: true })
+}
 
 test('device language switches in place, keeps live Host workspace and unsaved appearance, and persists on reload', async ({
   browser,
@@ -18,6 +28,7 @@ test('device language switches in place, keeps live Host workspace and unsaved a
       root,
       port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
       goalAutoContinue: false,
+      budgetAutoContinue: false,
     })
     const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
     expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
@@ -101,7 +112,7 @@ test('device language switches in place, keeps live Host workspace and unsaved a
   } finally {
     await context.close()
     if (host) await stopWebSessionHost(host)
-    await rm(root, { recursive: true, force: true })
+    await removeOwnedFixture(root)
   }
 })
 
@@ -172,6 +183,7 @@ test('a real same-origin language change keeps the visible conversation, file id
       root,
       port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
       goalAutoContinue: false,
+      budgetAutoContinue: false,
     })
     const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
     expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
@@ -219,6 +231,6 @@ test('a real same-origin language change keeps the visible conversation, file id
   } finally {
     await context.close()
     if (host) await stopWebSessionHost(host)
-    await rm(root, { recursive: true, force: true })
+    await removeOwnedFixture(root)
   }
 })
