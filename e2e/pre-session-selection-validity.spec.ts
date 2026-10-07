@@ -29,7 +29,11 @@ test('first-send choices stay truthful after the selected model or effort disapp
   const context = await browser.newContext({ locale: 'zh-CN', viewport: { width: 390, height: 900 } })
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+    host = await startWebSessionHost({
+      root,
+      port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+      budgetAutoContinue: false,
+    })
     const configuration = createConfigurationCommandClient(host.client)
     const models = createModelCommandClient(host.client)
     const sessions = createWorkspaceSessionCommandClient(host.client)
@@ -103,7 +107,9 @@ test('first-send choices stay truthful after the selected model or effort disapp
     await page.screenshot({ path: info.outputPath('effort-capability-changed.png') })
     // Merely inspecting or dismissing the available scale is not confirmation.
     await effort.click()
-    await prompt.click()
+    await prompt.click({ position: { x: 4, y: 4 } })
+    await expect(thinkingPicker).toBeHidden()
+    await expect(prompt).toBeFocused()
     await expect(send).toBeDisabled()
     await effort.click()
     await thinkingPicker.getByRole('slider').press('Home')

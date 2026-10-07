@@ -1,9 +1,11 @@
-import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
-import { LumenButton, LumenFrame, LumenRange, LumenText } from '@lumen/app-ui'
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties } from 'react'
+import { LumenButton, LumenFrame, LumenRange, LumenContentText } from '@lumen/app-ui'
 import type { ComposerModelState } from '@hbar/app-runtime'
 import type { HbarComposerModelLabels } from './composer-model-picker'
 import { thinkingProgressPercent } from './composer-model-picker'
+import { FloatingSurface, useFloatingTrigger } from './floating-surface'
 import './composer-model-picker.css'
+import './pre-session-thinking-picker.css'
 
 type ModelDescriptor = ComposerModelState['models'][number]
 type ThinkingLevel = ModelDescriptor['thinkingLevels'][number]
@@ -26,13 +28,13 @@ export function HbarPreSessionThinkingPicker({
 }: HbarPreSessionThinkingPickerProps) {
   const popupId = useId()
   const trigger = useRef<HTMLButtonElement>(null)
-  const popup = useRef<HTMLDivElement>(null)
   const slider = useRef<HTMLInputElement>(null)
+  const openedIdentity = useRef<string | null>(null)
   const inFlight = useRef(false)
   const cancelled = useRef(false)
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ readonly identity: string; readonly code: string } | null>(null)
   const [preview, setPreview] = useState<{ identity: string; index: number } | null>(null)
   const levels = model?.thinkingLevels ?? []
   const modelDefault =
@@ -46,19 +48,34 @@ export function HbarPreSessionThinkingPicker({
   const identity = JSON.stringify([model?.id ?? null, levels, displayed])
   const selectedIndex = preview?.identity === identity ? preview.index : confirmedIndex
   const selectedLevel = levels[selectedIndex] ?? confirmed
+  const visible = model !== null && levels.length > 0 && (levels.length > 1 || unavailable)
+  const selectionError = error?.identity === identity ? error.code : null
+  const close = useCallback(() => {
+    cancelled.current = true
+    setPreview(null)
+    setOpen(false)
+  }, [])
+  const openPicker = useCallback(() => {
+    if (disabled || inFlight.current || !visible) return
+    cancelled.current = false
+    openedIdentity.current = identity
+    setPreview(null)
+    setOpen(true)
+  }, [disabled, identity, visible])
+  const triggerEvents = useFloatingTrigger({ open, onOpen: openPicker, onClose: close })
 
   useEffect(() => {
-    if ((levels.length > 1 || unavailable) && !disabled) return
-    popup.current?.hidePopover()
-  }, [disabled, levels.length, unavailable])
+    if (open && (disabled || !visible || openedIdentity.current !== identity)) close()
+  }, [close, disabled, identity, open, visible])
 
-  if (!model || (levels.length < 2 && !unavailable)) return null
+  if (!visible) return null
 
   const commit = (input: HTMLInputElement, confirmUnavailable = false) => {
     if (
       disabled ||
       inFlight.current ||
       cancelled.current ||
+      openedIdentity.current !== identity ||
       !model ||
       (preview?.identity !== identity && !(unavailable && confirmUnavailable))
     )
@@ -71,19 +88,23 @@ export function HbarPreSessionThinkingPicker({
     inFlight.current = true
     setBusy(true)
     setError(null)
-    void onChoose(next, model.id)
+    const modelId = model.id
+    void Promise.resolve()
+      .then(() => onChoose(next, modelId))
       .then(() => {
         setPreview(null)
-        popup.current?.hidePopover()
-        setTimeout(() => trigger.current?.focus(), 0)
+        setError(null)
+        close()
       })
       .catch((reason: unknown) => {
         setPreview(null)
-        setError(
-          reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
-            ? reason.code
-            : 'EXECUTION_FAILED',
-        )
+        setError({
+          identity,
+          code:
+            reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+              ? reason.code
+              : 'EXECUTION_FAILED',
+        })
       })
       .finally(() => {
         inFlight.current = false
@@ -105,70 +126,43 @@ export function HbarPreSessionThinkingPicker({
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={popupId}
+        aria-busy={busy || undefined}
+        aria-disabled={busy || undefined}
         disabled={disabled}
-        popoverTarget={popupId}
+        {...triggerEvents}
       >
         {labels.thinkingLevel(displayed)}
       </LumenButton>
-      <LumenFrame
-        ref={popup}
+      <FloatingSurface
+        open={open}
+        onClose={close}
+        anchorRef={trigger}
+        initialFocusRef={slider}
+        responsivePresentation="anchored"
+        placement="above"
+        label={labels.thinking}
         id={popupId}
-        popover="auto"
         role="dialog"
         aria-label={labels.thinking}
         aria-busy={busy}
-        className="hbar-composer-picker-popover"
+        className="hbar-pre-session-thinking-popover"
         data-kind="thinking"
-        onBeforeToggle={(event) => {
-          if (event.newState !== 'open' || !trigger.current) return
-          const rect = trigger.current.getBoundingClientRect()
-          const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
-          const width = Math.min(18.75 * rem, innerWidth - 2 * rem)
-          const above = rect.top > innerHeight - rect.bottom
-          event.currentTarget.style.setProperty(
-            '--composer-popup-left',
-            `${Math.max(rem, Math.min(rect.right - width, innerWidth - width - rem))}px`,
-          )
-          event.currentTarget.style.setProperty('--composer-popup-top', above ? 'auto' : `${rect.bottom + rem / 2}px`)
-          event.currentTarget.style.setProperty(
-            '--composer-popup-bottom',
-            above ? `${innerHeight - rect.top + rem / 2}px` : 'auto',
-          )
-          event.currentTarget.style.setProperty(
-            '--composer-popup-limit',
-            `${Math.max(0, (above ? rect.top : innerHeight - rect.bottom) - 1.5 * rem)}px`,
-          )
-        }}
-        onToggle={(event) => {
-          const opening = event.newState === 'open'
-          setOpen(opening)
-          if (opening) {
-            cancelled.current = false
-            queueMicrotask(() => slider.current?.focus())
-          } else {
-            setPreview(null)
-            setError(null)
-          }
-        }}
         onKeyDown={(event) => {
           if (event.key === 'Enter') event.stopPropagation()
-          if (event.key === 'Escape') {
-            event.preventDefault()
-            event.stopPropagation()
-            cancelled.current = true
-            setPreview(null)
-            popup.current?.hidePopover()
-            trigger.current?.focus()
-          }
         }}
       >
-        <LumenFrame className="hbar-composer-thinking-heading">
-          <LumenText as="strong" className="hbar-composer-thinking-value">
+        <LumenFrame
+          className="hbar-composer-thinking-heading"
+          role="region"
+          aria-label={labels.thinkingLevel(selectedLevel)}
+          tabIndex={0}
+        >
+          <LumenContentText context="choice.title" className="hbar-composer-thinking-value">
             {labels.thinkingLevel(selectedLevel)}
-          </LumenText>
-          <LumenText as="span" className="hbar-composer-thinking-context">
+          </LumenContentText>
+          <LumenContentText context="popover.title" className="hbar-composer-thinking-context">
             {labels.thinking}
-          </LumenText>
+          </LumenContentText>
         </LumenFrame>
         <LumenFrame
           className="hbar-composer-thinking-scale"
@@ -184,6 +178,7 @@ export function HbarPreSessionThinkingPicker({
             step={1}
             value={selectedIndex}
             disabled={disabled}
+            aria-disabled={busy || undefined}
             aria-label={labels.thinking}
             aria-valuetext={labels.thinkingLevel(selectedLevel)}
             onChange={(event) => {
@@ -201,7 +196,7 @@ export function HbarPreSessionThinkingPicker({
               setPreview(null)
             }}
             onKeyDown={(event) => {
-              if (event.key !== 'Enter') return
+              if (event.key !== 'Enter' || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return
               event.preventDefault()
               event.stopPropagation()
               commit(event.currentTarget, true)
@@ -214,12 +209,19 @@ export function HbarPreSessionThinkingPicker({
             ))}
           </LumenFrame>
         </LumenFrame>
-        {error && (
-          <LumenFrame className="hbar-composer-picker-feedback">
-            <LumenText role="alert">{labels.error(error)}</LumenText>
+        {selectionError && (
+          <LumenFrame className="hbar-composer-picker-feedback" role="region" aria-label={labels.thinking} tabIndex={0}>
+            <LumenContentText context="feedback.paragraph" role="alert">
+              {labels.error(selectionError)}
+            </LumenContentText>
           </LumenFrame>
         )}
-      </LumenFrame>
+      </FloatingSurface>
+      {selectionError && !open && (
+        <LumenContentText context="feedback.paragraph" role="alert" className="hbar-composer-model-closed-recovery">
+          {labels.error(selectionError)}
+        </LumenContentText>
+      )}
     </LumenFrame>
   )
 }

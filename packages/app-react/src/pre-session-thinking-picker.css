@@ -1,0 +1,20 @@
+.hbar-pre-session-thinking-popover {
+  inline-size: min(18.75rem, calc(100vw - 2rem));
+  padding: 1.1875rem 1.375rem;
+  gap: 0.9375rem;
+}
+
+.hbar-pre-session-thinking-popover > .hbar-composer-thinking-scale {
+  flex: 0 0 auto;
+}
+
+.hbar-pre-session-thinking-popover > .hbar-composer-thinking-heading {
+  flex: 0 1 auto;
+  min-block-size: 0;
+  overflow: auto;
+}
+
+.hbar-pre-session-thinking-popover > .hbar-composer-picker-feedback {
+  flex: 1 1 auto;
+  overflow: auto;
+}

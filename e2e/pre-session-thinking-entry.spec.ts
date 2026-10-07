@@ -25,7 +25,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const location = preSessionLaunchCopy(locale).location
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        budgetAutoContinue: false,
+      })
       const models = createModelCommandClient(host.client)
       const sessions = createWorkspaceSessionCommandClient(host.client)
       const fixture = (await models.execute('model.list', {})).find((item) => item.id === 'local-fixture')
@@ -101,10 +105,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(await count()).toBe(1)
       const firstSend = landing.getByRole('button', { name: copy.preSession.prompt.send, exact: true })
       await expect(firstSend).toBeEnabled()
-      await expect(firstSend).toHaveAttribute('data-lumen-indicator', 'none')
-      await expect(firstSend).toHaveAttribute('data-lumen-variant', 'solid')
+      await expect(firstSend).toHaveAttribute('data-lumen-indicator', 'lamp')
+      await expect(firstSend).toHaveAttribute('data-lumen-variant', 'contained')
       await expect(firstSend).toHaveCSS('background-color', 'rgb(23, 23, 23)')
-      await expect(firstSend.locator('.lucide-arrow-up')).toHaveCount(1)
+      await expect(firstSend.locator('svg[aria-hidden="true"]')).toHaveCount(1)
       await page.screenshot({ path: info.outputPath(`model-ready-before-first-send-${locale}.png`) })
       await firstSend.click()
       await expect.poll(count).toBe(2)
@@ -143,10 +147,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .locator('.lumen-prompt-composer')
         .getByRole('button', { name: copy.session.prompt.send, exact: true })
       await expect(nextSend).toBeEnabled()
-      await expect(nextSend).toHaveAttribute('data-lumen-indicator', 'none')
-      await expect(nextSend).toHaveAttribute('data-lumen-variant', 'solid')
+      await expect(nextSend).toHaveAttribute('data-lumen-indicator', 'lamp')
+      await expect(nextSend).toHaveAttribute('data-lumen-variant', 'contained')
       await expect(nextSend).toHaveCSS('background-color', 'rgb(23, 23, 23)')
-      await expect(nextSend.locator('.lucide-arrow-up')).toHaveCount(1)
+      await expect(nextSend.locator('svg[aria-hidden="true"]')).toHaveCount(1)
       await page.screenshot({ path: info.outputPath(`model-ready-after-first-send-${locale}.png`) })
     } finally {
       await context.close()
