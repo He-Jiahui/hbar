@@ -45,13 +45,7 @@
 .hbar-composer-model-title {
   flex: 1 1 auto;
   min-inline-size: 0;
-  overflow: auto;
-}
-
-.hbar-composer-model-title > [data-text-context] {
-  display: block;
-  inline-size: max-content;
-  max-inline-size: none;
+  max-inline-size: 100%;
 }
 
 .hbar-composer-model-surface > .hbar-composer-picker-heading > button {

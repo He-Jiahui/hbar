@@ -79,8 +79,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(bounds.width).toBeGreaterThanOrEqual(319)
       expect(bounds.y).toBeGreaterThanOrEqual(150)
       expect(bounds.y + bounds.height).toBeLessThanOrEqual(721)
-      const list = picker.locator('.hbar-agent-model-list')
-      expect(await list.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true)
+      expect(await picker.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true)
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: testInfo.outputPath(`agent-model-touch-${locale}-320.png`) })
       await search.focus()
@@ -115,7 +114,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         goalAutoContinue: false,
         budgetAutoContinue: false,
       })
-      const longName = 'Agent review model — 长名称需要正确截断并保留选择入口'
+      const longName = 'Agent review model — 长名称需要完整换行并保留选择入口'
       const configuration = createConfigurationCommandClient(host.client)
       await configuration.execute('provider.save', {
         provider: {
@@ -180,8 +179,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(Math.abs(pickerBounds.x - expectedLeft)).toBeLessThanOrEqual(1)
       expect(pickerBounds.x + pickerBounds.width).toBeLessThanOrEqual(geometry.viewportWidth - geometry.gap + 1)
       await page.screenshot({ path: testInfo.outputPath(`agent-model-${locale}-1440.png`) })
-      const list = picker.locator('.hbar-agent-model-list')
-      expect(await list.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true)
+      expect(await picker.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true)
       const search = picker.getByRole('searchbox', { name: copy.agents.modelPicker.search })
       await expect(search).toBeFocused()
       await search.fill(longName)

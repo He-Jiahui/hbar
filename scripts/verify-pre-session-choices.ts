@@ -4,6 +4,7 @@ import { chromium, expect, type Page } from '@playwright/test'
 import { build } from 'vite'
 import react from '@vitejs/plugin-react'
 import type { ChoiceFixtureCopy, ChoiceFixtureInput } from '../tests/fixtures/pre-session-choice-browser'
+import { verifyReadableText } from './support/verify-readable-text'
 
 const copyByLocale = {
   'en-US': {
@@ -167,6 +168,11 @@ try {
                 .getByRole('button', { name: `${modelName} 60 ${detail}`.replace(/\s+/g, ' ').trim(), exact: true })
               await expect(selected).toHaveAttribute('aria-current', 'true')
               await expect(selected.locator('[data-text-context="choice.title"]')).toHaveText(`${modelName} 60`)
+              await verifyReadableText(
+                selected.locator('[data-text-context="choice.title"]'),
+                `${modelName} 60`,
+                width <= 390,
+              )
               await expect(selected.locator('[data-text-context="choice.description"]')).toHaveText(detail)
               await expect(selected.locator('svg')).toBeVisible()
               expect(
@@ -239,6 +245,43 @@ try {
     const page = await context.newPage()
     page.setDefaultTimeout(10_000)
     await page.route('**/*', (route) => route.abort())
+    for (const [locale, baseCopy] of Object.entries(copyByLocale)) {
+      const title = `${baseCopy.title} 完整标题 Complete original model heading `.repeat(4)
+      const label = '完整原始推理模型名称 Complete original reasoning model name '.repeat(4)
+      const copy = { ...baseCopy, title }
+      for (const presentation of ['native', 'web'] as const) {
+        const input: ChoiceFixtureInput = {
+          copy,
+          choices: [{ id: 'original-complete-name', label }],
+          selectedId: null,
+          mode: 'dark',
+          presentation,
+          placement: presentation === 'native' ? 'dialog' : 'composer',
+          behavior: 'resolve',
+        }
+        await mount(page, input, 320)
+        await page.locator('.hbar-pre-session-choice-picker > button').click()
+        const picker = page.getByRole('dialog', { name: title, exact: true })
+        const heading = picker
+          .locator('.hbar-pre-session-choice-heading > [data-text-context="popover.title"]')
+          .or(picker.getByRole('heading', { name: title, exact: true }))
+        await verifyReadableText(heading, title, true)
+        const choice = picker.locator('.hbar-pre-session-choice-row').first()
+        await verifyReadableText(choice.locator('[data-text-context="choice.title"]'), label, true)
+        await choice.click()
+        await expect(picker).toBeHidden()
+        expect((await page.evaluate(() => window.readChoiceFixtureEvents())).chosen).toEqual(['original-complete-name'])
+        outcomes.push({
+          case: 'complete-multiline-title-and-model-name',
+          locale,
+          mode: 'dark',
+          presentation,
+          coarse: false,
+          width: 320,
+        })
+        await page.evaluate(() => window.releaseChoiceFixture())
+      }
+    }
     const copy = copyByLocale['zh-CN']
     for (const count of [0, 1, 60, 61, 100, 101]) {
       console.log(`Checking capacity ${count}`)

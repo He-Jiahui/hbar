@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { createModelCommandClient, createWorkspaceSessionCommandClient } from '@hbar/client'
-import { mkdtemp, mkdir, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
@@ -10,8 +10,12 @@ import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './
 const prefix = 'hbar-pre-session-model-picker-'
 
 async function removeOwnedFixture(root: string): Promise<void> {
-  const target = resolve(root)
-  if (dirname(target) !== resolve(tmpdir()) || !basename(target).startsWith(prefix))
+  const target = await realpath(root)
+  if (
+    target !== resolve(root) ||
+    dirname(target) !== (await realpath(tmpdir())) ||
+    !basename(target).startsWith(prefix)
+  )
     throw new Error('Unowned model picker test directory')
   await rm(target, { recursive: true, force: true })
 }
@@ -28,13 +32,19 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const labels = preSessionCopy(locale)
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const models = createModelCommandClient(host.client)
       const sessions = createWorkspaceSessionCommandClient(host.client)
       const model = (await models.execute('model.list', {})).find((item) => item.id === 'local-fixture')
       if (!model) throw new Error('Local fixture model is unavailable')
+      const workspaceId = host.ready.workspaceId
       const countSessions = async () =>
-        (await sessions.execute('session.list', { workspaceId: host!.ready.workspaceId, limit: 100 })).items.length
+        (await sessions.execute('session.list', { workspaceId, limit: 100 })).items.length
 
       const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
       expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)

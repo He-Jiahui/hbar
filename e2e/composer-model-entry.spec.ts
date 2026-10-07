@@ -23,6 +23,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         root,
         port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
         budgetAutoContinue: false,
+        goalAutoContinue: false,
       })
       await createConfigurationCommandClient(host.client).execute('provider.save', {
         provider: {
@@ -430,7 +431,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(popup.getByRole('option').first()).toContainText('Catalog fixture 63')
       await expect(popup.getByRole('option').first()).toHaveAttribute('aria-selected', 'true')
       await expect(popup.getByRole('option').first()).toBeInViewport()
-      await popup.locator('.hbar-composer-model-list > button').click()
+      await popup.locator('.hbar-composer-model-list').evaluate((element) => {
+        element.scrollTop = element.scrollHeight
+      })
+      await expect(popup.locator('.hbar-composer-model-list > button')).toHaveCount(0)
       await expect(lateModel).toHaveCount(1)
       await expect(popup.getByRole('option').first().locator('.hbar-composer-model-name')).toHaveText(
         firstCatalogOption ?? '',

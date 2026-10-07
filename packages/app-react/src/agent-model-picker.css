@@ -31,7 +31,6 @@
 }
 
 .hbar-agent-model-trigger-reading,
-.hbar-agent-model-title-reading,
 .hbar-agent-model-action-reading {
   min-inline-size: 0;
   max-inline-size: 100%;
@@ -41,22 +40,13 @@
 
 .hbar-agent-model-title-reading {
   flex: 1 1 auto;
-}
-
-.hbar-agent-model-title-reading > [data-text-context] {
-  display: block;
-  inline-size: max-content;
-  max-inline-size: none;
-}
-
-.hbar-agent-model-heading > strong {
-  flex: 0 0 auto;
-  white-space: nowrap;
+  min-inline-size: 0;
+  max-inline-size: 100%;
 }
 
 .hbar-agent-model-heading {
   flex: 0 0 auto;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.5rem;
 }
@@ -75,9 +65,14 @@
   flex: 1 1 auto;
 }
 
-.hbar-agent-model-list {
-  min-block-size: 0;
+.hbar-agent-model-popover {
   overflow: auto;
+}
+
+.hbar-agent-model-list {
+  flex: 0 0 auto;
+  min-block-size: 0;
+  overflow: visible;
 }
 
 .hbar-agent-model-group {
@@ -98,24 +93,17 @@
 .hbar-agent-model-group button {
   display: flex;
   inline-size: 100%;
-  min-inline-size: max-content;
-  align-items: center;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.5rem;
   text-align: start;
 }
 
 .hbar-agent-model-option-text {
-  flex: 1 0 auto;
+  flex: 1 1 auto;
   gap: 0.125rem;
-}
-
-.hbar-agent-model-option-text > * {
-  white-space: nowrap;
-}
-
-.hbar-agent-model-option-text small {
-  color: var(--lumen-muted);
 }
 
 .hbar-agent-model-feedback {

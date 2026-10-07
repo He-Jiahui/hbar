@@ -6,6 +6,7 @@ import react from '@vitejs/plugin-react'
 import type { ComposerModelState, SessionControlsState } from '@hbar/app-runtime'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import type { SessionModelFixtureInput } from '../tests/fixtures/session-model-browser'
+import { verifyReadableText } from './support/verify-readable-text'
 
 const output = resolve('artifacts/desktop-elements/session-model')
 await mkdir(output, { recursive: true })
@@ -118,7 +119,19 @@ try {
           page.on('pageerror', (error) => errors.push(error.message))
           for (const presentation of ['native', 'web'] as const) {
             for (const width of [1440, 1100, 900, 390, 320]) {
-              const initial = { ...inputFor(locale, mode), presentation }
+              const base = inputFor(locale, mode)
+              const fullName = '模型完整原始名称 Complete original reasoning model name '.repeat(6).slice(0, 160)
+              const initial = {
+                ...base,
+                presentation,
+                catalog: {
+                  ...base.catalog,
+                  models: [
+                    { ...model, modelName: fullName },
+                    { ...alternative, modelName: fullName },
+                  ],
+                },
+              }
               await mount(page, initial, width)
               const trigger = page.locator('.hbar-composer-model-trigger')
               const menu = page.getByRole('dialog', { name: labels.title, exact: true })
@@ -128,6 +141,9 @@ try {
               expect(await menu.evaluate((element) => element.parentElement === document.body)).toBe(true)
               expect(await menu.evaluate((element) => getComputedStyle(element).backdropFilter)).toContain('blur')
               await expect(menu.getByRole('option')).toHaveCount(2)
+              const first = menu.getByRole('option').first()
+              await verifyReadableText(first.locator('[data-text-context="choice.title"]'), fullName, true)
+              await verifyReadableText(first.locator('[data-text-context="code.inline"]'), model.modelId)
               const search = menu.getByRole('searchbox', { name: labels.search })
               if (coarse && width <= 640 && presentation === 'web') await expect(menu).toBeFocused()
               else await expect(search).toBeFocused()
@@ -279,13 +295,7 @@ try {
         })
         .toBeGreaterThan(0)
       const title = menu.locator('.hbar-composer-model-title')
-      await title.focus()
-      await page.keyboard.press('ArrowRight')
-      await expect
-        .poll(() => title.evaluate((element) => element.scrollLeft), {
-          message: 'Complete menu title remains keyboard scrollable',
-        })
-        .toBeGreaterThan(0)
+      await verifyReadableText(title, labels.title + readFailed.copy.suffix, true)
       await page.screenshot({ path: resolve(output, `${locale}-long-recovery-320.png`) })
       await menu.getByRole('button', { name: labels.close, exact: true }).click()
       await page.evaluate(() => window.releaseSessionModelFixture())

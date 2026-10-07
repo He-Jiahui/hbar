@@ -5,6 +5,7 @@ import { build } from 'vite'
 import react from '@vitejs/plugin-react'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import type { AgentModelFixtureInput } from '../tests/fixtures/agent-model-browser'
+import { verifyReadableText } from './support/verify-readable-text'
 const output = resolve('artifacts/desktop-elements/agent-model')
 await mkdir(output, { recursive: true })
 await build({
@@ -33,6 +34,7 @@ const server = Bun.serve({
 const browser = await chromium.launch({ channel: 'chrome', headless: true })
 const errors: string[] = []
 let scenarios = 0
+let currentCase: unknown
 try {
   for (const touch of [false, true]) {
     const context = await browser.newContext({ hasTouch: touch, isMobile: touch })
@@ -61,6 +63,7 @@ try {
                 ]
               : [{ count: 3, failure: 'none' }]
           for (const scenario of cases) {
+            currentCase = { locale, mode, width, touch, scenario }
             await page.setViewportSize({ width, height: 900 })
             await page.setContent(
               `<meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style><style>html{font-size:${width < 400 ? 20 : 16}px}body{margin:0}*{box-sizing:border-box}.agent-model-fixture-pane{display:flex;min-inline-size:0;flex-direction:column;gap:1rem;padding:1rem}</style><div id="agent-model-fixture"></div>`,
@@ -77,14 +80,31 @@ try {
             await expect(dialog).toHaveAttribute('data-positioned', 'true')
             const search = dialog.getByRole('searchbox', { name: copy.search, exact: true })
             if (touch && width <= 640) await expect(search).not.toBeFocused()
-            const title = dialog.getByRole('group', { name: copy.title + suffix, exact: true })
-            await title.focus()
-            for (let step = 0; step < 5; step++) await page.keyboard.press('ArrowRight')
-            await expect.poll(() => title.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0)
+            await verifyReadableText(dialog.locator('.hbar-agent-model-title-reading'), copy.title + suffix, true)
             await expect(dialog.getByRole('button', { name: copy.close, exact: true })).toBeVisible()
             await expect(dialog.getByRole('option')).toHaveCount(Math.min(scenario.count, 60))
             if (scenario.count === 0) await expect(dialog.getByText(copy.empty, { exact: true })).toBeVisible()
             else {
+              const first = dialog.getByRole('option').first()
+              await verifyReadableText(
+                first.locator('[data-text-context="choice.title"]'),
+                'Model 0 with a deliberately long bilingual name — 很长的模型名称',
+                width <= 390,
+              )
+              await verifyReadableText(first.locator('[data-text-context="code.inline"]'), 'original-0')
+              const geometry = await first.evaluate((node) => ({
+                height: node.clientHeight,
+                content: node.scrollHeight,
+                text: [...node.querySelectorAll('[data-text-context]')].map((text) => ({
+                  role: text.getAttribute('data-text-context'),
+                  top: text.getBoundingClientRect().top,
+                  bottom: text.getBoundingClientRect().bottom,
+                })),
+                top: node.getBoundingClientRect().top,
+                bottom: node.getBoundingClientRect().bottom,
+              }))
+              if (geometry.content > geometry.height + 1) console.log(JSON.stringify({ currentCase, geometry }))
+              expect(geometry.content).toBeLessThanOrEqual(geometry.height + 1)
               await expect(dialog.getByRole('heading', { level: 3 })).toHaveText(
                 'Provider with a deliberately long bilingual name — 很长的供应商名称',
               )
@@ -165,7 +185,7 @@ try {
                 blur: getComputedStyle(node).backdropFilter,
               }
             })
-            expect(geometry.body).toBe(true)
+            expect(geometry.body, JSON.stringify({ currentCase, geometry })).toBe(true)
             expect(geometry.blur).not.toBe('none')
             expect(geometry.left).toBeGreaterThanOrEqual(-1)
             expect(geometry.right).toBeLessThanOrEqual(geometry.width + 1)
@@ -173,13 +193,21 @@ try {
             expect(geometry.bottom).toBeLessThanOrEqual(geometry.height + 1)
             if (scenario.count) {
               const reading = dialog.getByRole('listbox', { name: copy.title + suffix, exact: true })
-              const needsReading = await reading.evaluate((node) => node.scrollWidth > node.clientWidth + 1)
-              if (width <= 390) expect(needsReading).toBe(true)
-              if (needsReading) {
-                await reading.focus()
-                for (let step = 0; step < 5; step++) await page.keyboard.press('ArrowRight')
-                await expect.poll(() => reading.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0)
-              }
+              const listGeometry = await reading.evaluate((node) => ({
+                content: node.scrollWidth,
+                width: node.clientWidth,
+                overflow: [...node.querySelectorAll('*')]
+                  .filter((child) => child.getBoundingClientRect().right > node.getBoundingClientRect().right + 1)
+                  .map((child) => ({
+                    tag: child.tagName,
+                    role: child.getAttribute('role'),
+                    text: child.textContent?.slice(0, 80),
+                    width: child.getBoundingClientRect().width,
+                  })),
+              }))
+              expect(listGeometry.content, JSON.stringify({ currentCase, listGeometry })).toBeLessThanOrEqual(
+                listGeometry.width + 1,
+              )
             }
             if (width === 320)
               await page.screenshot({
@@ -204,7 +232,13 @@ try {
             await expect(trigger).toBeFocused()
             expect(await page.evaluate(() => window.agentModelBoundaryAccepted(4096))).toBe(true)
             expect(await page.evaluate(() => window.agentModelBoundaryAccepted(4097))).toBe(false)
-            expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+            const pageGeometry = await page.evaluate(() => ({
+              content: document.documentElement.scrollWidth,
+              width: innerWidth,
+            }))
+            expect(pageGeometry.content, JSON.stringify({ currentCase, pageGeometry })).toBeLessThanOrEqual(
+              pageGeometry.width + 1,
+            )
             if (width === 320)
               await page.screenshot({
                 path: resolve(output, `${locale}-${mode}-${touch}-${scenario.count}-${scenario.failure}.png`),
@@ -219,6 +253,9 @@ try {
   console.log(
     `Agent model verified: ${scenarios} actual Chrome scenarios, two locales/themes/pointers/five widths, 0/1/3/60/61/4096/4097, full names/IDs, retry and original selection.`,
   )
+} catch (error) {
+  console.log(JSON.stringify({ currentCase }))
+  throw error
 } finally {
   await browser.close()
   await server.stop(true)

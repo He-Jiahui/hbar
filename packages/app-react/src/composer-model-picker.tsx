@@ -615,9 +615,9 @@ export function HbarComposerModelPicker({
         }}
       >
         <LumenFrame className="hbar-composer-picker-heading">
-          <LumenFrame className="hbar-composer-model-title" role="region" aria-label={labels.title} tabIndex={0}>
-            <LumenContentText context="popover.title">{labels.title}</LumenContentText>
-          </LumenFrame>
+          <LumenContentText context="popover.title" className="hbar-composer-model-title">
+            {labels.title}
+          </LumenContentText>
           <LumenButton
             type="button"
             size="s"

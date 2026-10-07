@@ -10377,28 +10377,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/agent-model-picker.tsx::AgentModelPicker::LumenFrame::6",
-      "path": "packages/app-react/src/agent-model-picker.tsx",
-      "line": 162,
-      "owner": "AgentModelPicker",
-      "surface": "agents-and-activity",
-      "component": "LumenFrame",
-      "category": "structure",
-      "context": null,
-      "contentSources": [],
-      "accessibleNameSources": ["aria-label=labels.title"],
-      "actionBindings": {},
-      "targetSources": [],
-      "stateSources": [],
-      "flow": "owning flow layout",
-      "lumenMapping": "LumenFrame",
-      "status": "composed",
-      "issues": []
-    },
-    {
       "id": "packages/app-react/src/agent-model-picker.tsx::AgentModelPicker::LumenContentText::4",
       "path": "packages/app-react/src/agent-model-picker.tsx",
-      "line": 163,
+      "line": 162,
       "owner": "AgentModelPicker",
       "surface": "agents-and-activity",
       "component": "LumenContentText",
@@ -10453,7 +10434,7 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/agent-model-picker.tsx::AgentModelPicker::LumenFrame::7",
+      "id": "packages/app-react/src/agent-model-picker.tsx::AgentModelPicker::LumenFrame::6",
       "path": "packages/app-react/src/agent-model-picker.tsx",
       "line": 176,
       "owner": "AgentModelPicker",
@@ -10531,7 +10512,7 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/agent-model-picker.tsx::AgentModelPicker::LumenFrame::8",
+      "id": "packages/app-react/src/agent-model-picker.tsx::AgentModelPicker::LumenFrame::7",
       "path": "packages/app-react/src/agent-model-picker.tsx",
       "line": 196,
       "owner": "AgentModelPicker",
@@ -10569,7 +10550,7 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/agent-model-picker.tsx::AgentModelPicker::LumenFrame::9",
+      "id": "packages/app-react/src/agent-model-picker.tsx::AgentModelPicker::LumenFrame::8",
       "path": "packages/app-react/src/agent-model-picker.tsx",
       "line": 200,
       "owner": "AgentModelPicker",
@@ -10607,7 +10588,7 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/agent-model-picker.tsx::AgentModelPicker::LumenFrame::10",
+      "id": "packages/app-react/src/agent-model-picker.tsx::AgentModelPicker::LumenFrame::9",
       "path": "packages/app-react/src/agent-model-picker.tsx",
       "line": 207,
       "owner": "AgentModelPicker",
@@ -10618,7 +10599,7 @@
       "contentSources": [
         "[source:208; CallExpression] groups.map, providerId, group",
         "catalog.status === 'ready' && !groups.length && (\n            <LumenContentText context=\"empty.description\">\n              {catalog.models.length ? labels.noMatches : labels.empty}\n            </LumenContentText>\n          )",
-        "remaining > 0 && (\n            <LumenButton\n              type=\"button\"\n              size=\"s\"\n              onClick={() => setLimit((current) => current + MODEL_CATALOG_PAGE_SIZE)}\n            >\n              {labels.more(remaining)}\n            </LumenButton>\n          )"
+        "remaining > 0 && (\n            <LumenFrame\n              className=\"hbar-agent-model-action-reading\"\n              role=\"group\"\n              aria-label={labels.more(remaining)}\n              tabIndex={0}\n            >\n              <LumenButton\n                type=\"button\"\n                size=\"s\"\n                onClick={() => setLimit((current) => current + MODEL_CATALOG_PAGE_SIZE)}\n              >\n                {labels.more(remaining)}\n              </LumenButton>\n            </LumenFrame>\n          )"
       ],
       "accessibleNameSources": ["aria-label=labels.title"],
       "actionBindings": {},
@@ -10630,7 +10611,7 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/agent-model-picker.tsx::AgentModelPicker::LumenFrame::11",
+      "id": "packages/app-react/src/agent-model-picker.tsx::AgentModelPicker::LumenFrame::10",
       "path": "packages/app-react/src/agent-model-picker.tsx",
       "line": 209,
       "owner": "AgentModelPicker",
@@ -10695,7 +10676,7 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/agent-model-picker.tsx::AgentModelPicker::LumenFrame::12",
+      "id": "packages/app-react/src/agent-model-picker.tsx::AgentModelPicker::LumenFrame::11",
       "path": "packages/app-react/src/agent-model-picker.tsx",
       "line": 235,
       "owner": "AgentModelPicker",
@@ -10721,7 +10702,7 @@
       "surface": "agents-and-activity",
       "component": "LumenContentText",
       "category": "text",
-      "context": "collection.title",
+      "context": "choice.title",
       "contentSources": ["model.modelName", "title=model.modelName"],
       "accessibleNameSources": ["title=model.modelName"],
       "actionBindings": {},
@@ -10740,13 +10721,13 @@
       "surface": "agents-and-activity",
       "component": "LumenContentText",
       "category": "text",
-      "context": "metadata.detail",
+      "context": "code.inline",
       "contentSources": ["model.modelId", "title=model.modelId"],
       "accessibleNameSources": ["title=model.modelId"],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "single",
+      "flow": "inlineCode",
       "lumenMapping": "LumenContentText",
       "status": "semantic",
       "issues": []
@@ -10790,9 +10771,28 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/agent-model-picker.tsx::AgentModelPicker::LumenButton::6",
+      "id": "packages/app-react/src/agent-model-picker.tsx::AgentModelPicker::LumenFrame::12",
       "path": "packages/app-react/src/agent-model-picker.tsx",
       "line": 254,
+      "owner": "AgentModelPicker",
+      "surface": "agents-and-activity",
+      "component": "LumenFrame",
+      "category": "structure",
+      "context": null,
+      "contentSources": [],
+      "accessibleNameSources": ["aria-label=labels.more(remaining)"],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/agent-model-picker.tsx::AgentModelPicker::LumenButton::6",
+      "path": "packages/app-react/src/agent-model-picker.tsx",
+      "line": 260,
       "owner": "AgentModelPicker",
       "surface": "agents-and-activity",
       "component": "LumenButton",
@@ -16483,28 +16483,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::5",
-      "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 618,
-      "owner": "HbarComposerModelPicker",
-      "surface": "composer-and-launch",
-      "component": "LumenFrame",
-      "category": "structure",
-      "context": null,
-      "contentSources": [],
-      "accessibleNameSources": ["aria-label=labels.title"],
-      "actionBindings": {},
-      "targetSources": [],
-      "stateSources": [],
-      "flow": "owning flow layout",
-      "lumenMapping": "LumenFrame",
-      "status": "composed",
-      "issues": []
-    },
-    {
       "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::6",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 619,
+      "line": 618,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -16559,7 +16540,7 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::6",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::5",
       "path": "packages/app-react/src/composer-model-picker.tsx",
       "line": 632,
       "owner": "HbarComposerModelPicker",
@@ -16581,7 +16562,7 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::7",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::6",
       "path": "packages/app-react/src/composer-model-picker.tsx",
       "line": 633,
       "owner": "HbarComposerModelPicker",
@@ -16682,7 +16663,7 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::8",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::7",
       "path": "packages/app-react/src/composer-model-picker.tsx",
       "line": 666,
       "owner": "HbarComposerModelPicker",
@@ -16766,7 +16747,7 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::9",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::8",
       "path": "packages/app-react/src/composer-model-picker.tsx",
       "line": 697,
       "owner": "HbarComposerModelPicker",
@@ -16791,7 +16772,7 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::10",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::9",
       "path": "packages/app-react/src/composer-model-picker.tsx",
       "line": 715,
       "owner": "HbarComposerModelPicker",
@@ -16848,7 +16829,7 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::11",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::10",
       "path": "packages/app-react/src/composer-model-picker.tsx",
       "line": 731,
       "owner": "HbarComposerModelPicker",
@@ -16869,7 +16850,7 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::12",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::11",
       "path": "packages/app-react/src/composer-model-picker.tsx",
       "line": 732,
       "owner": "HbarComposerModelPicker",
@@ -17071,7 +17052,7 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::13",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::12",
       "path": "packages/app-react/src/composer-model-picker.tsx",
       "line": 792,
       "owner": "HbarComposerModelPicker",
@@ -17128,7 +17109,7 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::14",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::13",
       "path": "packages/app-react/src/composer-model-picker.tsx",
       "line": 805,
       "owner": "HbarComposerModelPicker",
@@ -17178,7 +17159,7 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::15",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::14",
       "path": "packages/app-react/src/composer-model-picker.tsx",
       "line": 858,
       "owner": "HbarComposerModelPicker",
@@ -17199,7 +17180,7 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::16",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::15",
       "path": "packages/app-react/src/composer-model-picker.tsx",
       "line": 860,
       "owner": "HbarComposerModelPicker",
@@ -17218,7 +17199,7 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::17",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::16",
       "path": "packages/app-react/src/composer-model-picker.tsx",
       "line": 865,
       "owner": "HbarComposerModelPicker",

@@ -159,9 +159,9 @@ export function AgentModelPicker({
         }}
       >
         <LumenFrame className="hbar-agent-model-heading">
-          <LumenFrame className="hbar-agent-model-title-reading" role="group" aria-label={labels.title} tabIndex={0}>
-            <LumenContentText context="popover.title">{labels.title}</LumenContentText>
-          </LumenFrame>
+          <LumenContentText context="popover.title" className="hbar-agent-model-title-reading">
+            {labels.title}
+          </LumenContentText>
           <LumenButton
             type="button"
             size="s"
@@ -233,10 +233,10 @@ export function AgentModelPicker({
                   }}
                 >
                   <LumenFrame as="span" className="hbar-agent-model-option-text">
-                    <LumenContentText context="collection.title" title={model.modelName}>
+                    <LumenContentText context="choice.title" title={model.modelName}>
                       {model.modelName}
                     </LumenContentText>
-                    <LumenContentText context="metadata.detail" title={model.modelId}>
+                    <LumenContentText context="code.inline" tone="muted" title={model.modelId}>
                       {model.modelId}
                     </LumenContentText>
                   </LumenFrame>
@@ -251,13 +251,20 @@ export function AgentModelPicker({
             </LumenContentText>
           )}
           {remaining > 0 && (
-            <LumenButton
-              type="button"
-              size="s"
-              onClick={() => setLimit((current) => current + MODEL_CATALOG_PAGE_SIZE)}
+            <LumenFrame
+              className="hbar-agent-model-action-reading"
+              role="group"
+              aria-label={labels.more(remaining)}
+              tabIndex={0}
             >
-              {labels.more(remaining)}
-            </LumenButton>
+              <LumenButton
+                type="button"
+                size="s"
+                onClick={() => setLimit((current) => current + MODEL_CATALOG_PAGE_SIZE)}
+              >
+                {labels.more(remaining)}
+              </LumenButton>
+            </LumenFrame>
           )}
         </LumenFrame>
       </FloatingSurface>
