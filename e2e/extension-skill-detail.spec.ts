@@ -1,8 +1,9 @@
 import { expect, test } from '@playwright/test'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { createExtensionCommandClient } from '@hbar/client'
 import { expectComposerText } from './support/composer-text'
+import { verifyReadableText } from '../scripts/support/verify-readable-text'
 import {
   assertReadOnly,
   capture,
@@ -26,6 +27,10 @@ for (const config of [
     try {
       const selected = fixture.ready.skills[20]
       if (!selected) throw new Error('Owned skill page two fixture is missing')
+      const fullName = '完整原始技能名称 Complete original Skill name '.repeat(9).slice(0, 256).trim()
+      const entryPath = join(selected.path, 'SKILL.md')
+      const originalSource = await readFile(entryPath, 'utf8')
+      await writeFile(entryPath, originalSource.replace(/^name:.*$/m, 'name: ' + JSON.stringify(fullName)))
       // These additional sources belong only to this fixture's isolated skill directory.
       await mkdir(join(selected.path, 'references'))
       for (let index = 1; index <= 21; index++)
@@ -51,6 +56,7 @@ for (const config of [
         id: selected.id,
       })
       if (!authoritative) throw new Error('Host did not inspect the discovered owned skill')
+      expect(authoritative.displayName).toBe(fullName)
       const row = panel.locator(`[data-skill-id="${selected.id}"]`)
       const opener = row.getByRole('button', { name: labels.inspect(selected.id), exact: true })
       await opener.focus()
@@ -61,6 +67,15 @@ for (const config of [
           .locator('.hbar-app-react-skill-summary')
           .getByRole('heading', { name: authoritative.displayName, exact: true }),
       ).toBeVisible()
+      for (const width of [1440, 1100, 900, 390, 320]) {
+        await fixture.page.setViewportSize({ width, height: 900 })
+        await verifyReadableText(
+          detail.locator('.hbar-app-react-skill-summary [data-text-context="section.title"]'),
+          fullName,
+          width <= 900,
+        )
+      }
+      await fixture.page.setViewportSize({ width: config.width, height: 900 })
       expect(authoritative.body).toContain('This fixture is only listed.')
       await expect(detail.locator('.hbar-app-react-skill-overview')).toContainText('This fixture is only listed.')
       await capture(fixture, resolve('artifacts/skill-detail-core'), `overview-${config.locale}`)

@@ -14,8 +14,6 @@
 
 .hbar-app-react-skill-detail {
   gap: 1rem;
-
-  overflow-x: auto;
 }
 
 .hbar-app-react-skill-detail-navigation,
@@ -31,7 +29,7 @@
 }
 
 .hbar-app-react-skill-detail-navigation {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: space-between;
 }
 
@@ -54,26 +52,8 @@
   margin-block: 0;
 }
 
-.hbar-app-react-skill-detail .hbar-app-react-skill-summary h3 {
-  font-size: 1.25rem;
-  overflow-wrap: anywhere;
-}
-
-.hbar-app-react-skill-summary p,
-.hbar-app-react-skill-summary dt,
-.hbar-app-react-skill-summary dd,
-.hbar-app-react-skill-summary dl,
-.hbar-app-react-skill-file-index small,
-.hbar-app-react-skill-file-preview small {
-  font-size: 0.75rem;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-
-.hbar-app-react-skill-summary p,
-.hbar-app-react-skill-summary dt,
-.hbar-app-react-skill-file-index small {
-  color: var(--lumen-muted);
+.hbar-app-react-skill-summary dd {
+  margin-inline-start: 0;
 }
 
 .hbar-app-react-skill-summary dl {
@@ -102,10 +82,6 @@
   white-space: nowrap;
 }
 
-.hbar-app-react-skill-tabs small {
-  color: var(--lumen-muted);
-}
-
 .hbar-app-react-skill-overview {
   overflow-wrap: anywhere;
 }
@@ -114,8 +90,7 @@
   max-inline-size: 100%;
 }
 
-.hbar-app-react-skill-overview pre,
-.hbar-app-react-skill-file-content pre {
+.hbar-app-react-skill-overview pre {
   max-inline-size: 100%;
   overflow: auto;
   white-space: pre-wrap;
@@ -167,18 +142,13 @@
   white-space: nowrap;
 }
 
-.hbar-app-react-skill-file-index button[aria-current='page'] {
-  background: var(--lumen-contrast);
-}
-
 .hbar-app-react-skill-file-index-copy {
   flex: 1 1 auto;
   gap: 0.125rem;
 }
 
-.hbar-app-react-skill-file-index-copy > strong,
 .hbar-app-react-skill-file-content,
-.hbar-app-react-skill-file-heading strong {
+.hbar-app-react-skill-file-heading [data-text-context] {
   overflow-wrap: anywhere;
 }
 
@@ -187,12 +157,27 @@
   overflow-wrap: anywhere;
 }
 
-.hbar-app-react-skill-file-error [role='alert'] {
-  color: var(--lumen-danger);
+.hbar-skill-detail-reading {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  min-block-size: max-content;
+  overflow-x: auto;
 }
 
-.hbar-app-react-skill-empty {
-  color: var(--lumen-muted);
+.hbar-app-react-skill-detail-navigation > button,
+.hbar-app-react-skill-file-error .hbar-skill-detail-reading > button {
+  min-inline-size: max-content;
+  max-inline-size: none;
+  flex: 0 0 auto;
+}
+
+.hbar-app-react-skill-file-heading > [data-text-context] {
+  flex: 1 1 auto;
+}
+
+.hbar-app-react-skill-file-content [data-text-context='code.block'] {
+  max-inline-size: 100%;
+  overflow-x: auto;
 }
 
 @media (max-width: 42rem) {
