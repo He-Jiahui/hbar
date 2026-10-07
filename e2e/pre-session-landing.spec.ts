@@ -7,13 +7,20 @@ import {
 } from '@hbar/client'
 import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { preSessionCopy } from '../apps/web/src/pre-session-copy'
 import { preSessionLaunchCopy } from '../apps/web/src/pre-session-launch-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 test.use({ actionTimeout: 10_000 })
+
+async function removeOwnedFixture(root: string): Promise<void> {
+  const absolute = resolve(root)
+  if (dirname(absolute) !== resolve(tmpdir()) || !basename(absolute).startsWith('hbar-pre-session-'))
+    throw new Error('Refusing cleanup outside the owned first-send fixture')
+  await rm(absolute, { recursive: true, force: true })
+}
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`no-tab composer defers Session creation until first send: ${locale}`, async ({ browser }) => {
@@ -25,7 +32,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const location = preSessionLaunchCopy(locale).location
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        budgetAutoContinue: false,
+      })
       const sessions = createWorkspaceSessionCommandClient(host.client)
       const models = createModelCommandClient(host.client)
       const configuration = createConfigurationCommandClient(host.client)
@@ -63,7 +74,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
 
       const add = landing.getByRole('button', { name: copy.session.addMenu.open, exact: true })
       await add.click()
-      const addMenu = landing.getByRole('group', { name: copy.session.addMenu.menu })
+      const addMenu = page.getByRole('group', { name: copy.session.addMenu.menu })
       const goalAction = addMenu.getByRole('button', { name: copy.session.intent.goalMenu, exact: true })
       await expect(goalAction).toBeVisible()
       await expect(goalAction).toBeInViewport()
@@ -99,7 +110,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const modelPicker = page.getByRole('dialog', { name: labels.model.title })
       await expect(modelPicker).toBeVisible()
       await expect(modelPicker).toBeInViewport()
-      await expect(modelPicker.getByRole('button', { name: labels.model.close })).toBeFocused()
+      await expect(modelPicker.getByRole('searchbox', { name: labels.model.search })).toBeFocused()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: `artifacts/desktop-experience/pre-session-models-${locale}-320.png` })
       await modelPicker.getByRole('button', { name: new RegExp(fixtureModel!.modelName) }).click()
@@ -108,7 +119,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await approval.click()
       const approvalPicker = page.locator('.hbar-pre-session-approval-popover')
       await expect(approvalPicker).toBeVisible()
-      await expect(approvalPicker.getByRole('menuitemradio')).toHaveCount(5)
+      await expect(approvalPicker.getByRole('menuitemradio')).toHaveCount(6)
+      for (const choice of ['ask', 'deny', 'sandbox', 'allow', 'inherit'] as const)
+        await expect(approvalPicker.locator(`[data-choice="${choice}"]`)).toHaveCount(1)
       await expect(approvalPicker).toBeInViewport()
       await expect(approvalPicker.getByRole('menuitemradio', { checked: true })).toBeFocused()
       await page.keyboard.press('Home')
@@ -189,7 +202,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeOwnedFixture(root)
     }
   })
 
@@ -202,7 +215,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const location = preSessionLaunchCopy(locale).location
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        budgetAutoContinue: false,
+      })
       const sessions = createWorkspaceSessionCommandClient(host.client)
       const configuration = createConfigurationCommandClient(host.client)
       const fixtureModel = (await createModelCommandClient(host.client).execute('model.list', {})).find(
@@ -234,7 +251,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const trigger = landing.locator('.hbar-pre-session-approval-picker .hbar-composer-permission-trigger')
       const picker = page.locator('.hbar-pre-session-approval-popover')
       await trigger.click()
-      await expect(picker.getByRole('menuitemradio')).toHaveCount(5)
+      await expect(picker.getByRole('menuitemradio')).toHaveCount(6)
       await picker
         .getByRole('menuitemradio', { name: new RegExp(copy.session.permissionPicker.options.deny.label) })
         .click()
@@ -261,6 +278,16 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(
         picker.getByRole('menuitem', { name: new RegExp(copy.session.permissionPicker.plan.exit) }),
       ).toBeVisible()
+      await expect(picker.locator('[data-text-context="popover.body"]')).toHaveText(
+        copy.session.permissionPicker.plan.scope,
+      )
+      await expect(picker.getByRole('menuitemradio').locator('svg[data-tier="md"]')).toHaveCount(6)
+      await expect(picker.getByRole('menuitem').locator('[data-text-context="choice.title"]')).toHaveText(
+        copy.session.permissionPicker.plan.exit,
+      )
+      await expect(picker.getByRole('menuitem').locator('[data-text-context="choice.description"]')).toHaveText(
+        copy.session.permissionPicker.plan.exitDescription,
+      )
       await expect(picker).toBeInViewport()
       const menuBody = picker.locator('.hbar-composer-permission-body')
       const overflow = await menuBody.evaluate((element) => ({
@@ -281,7 +308,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await picker.getByRole('button', { name: copy.session.permissionPicker.close }).click()
       const add = landing.getByRole('button', { name: copy.session.addMenu.open, exact: true })
       await add.click()
-      const addMenu = landing.getByRole('group', { name: copy.session.addMenu.menu })
+      const addMenu = page.getByRole('group', { name: copy.session.addMenu.menu })
       await expect(addMenu.getByRole('button', { name: copy.session.intent.goalMenu, exact: true })).toBeEnabled()
       await page.screenshot({ path: `artifacts/desktop-experience/pre-session-goal-from-plan-${locale}-320.png` })
       await page.keyboard.press('Escape')
@@ -327,7 +354,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeOwnedFixture(root)
     }
   })
 
@@ -340,7 +367,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const location = preSessionLaunchCopy(locale).location
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        budgetAutoContinue: false,
+      })
       const sessions = createWorkspaceSessionCommandClient(host.client)
       const goals = createGoalPlanCommandClient(host.client)
       const fixtureModel = (await createModelCommandClient(host.client).execute('model.list', {})).find(
@@ -371,7 +402,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .getByRole('button', { name: new RegExp(fixtureModel!.modelName) })
         .click()
       const add = landing.getByRole('button', { name: copy.session.addMenu.open, exact: true })
-      const goalAction = landing.getByRole('group', { name: copy.session.addMenu.menu }).getByRole('button', {
+      const goalAction = page.getByRole('group', { name: copy.session.addMenu.menu }).getByRole('button', {
         name: copy.session.intent.goalMenu,
         exact: true,
       })
@@ -384,7 +415,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(cancelGoal).toBeInViewport()
       await add.click()
       await expect(goalAction).toBeDisabled()
-      await expect(landing.getByText(labels.goalAlreadyPrepared, { exact: true })).toBeVisible()
+      await expect(
+        page
+          .getByRole('group', { name: copy.session.addMenu.menu })
+          .getByText(labels.goalAlreadyPrepared, { exact: true }),
+      ).toBeVisible()
       await page.keyboard.press('Escape')
       const execution = landing.locator('.hbar-pre-session-approval-picker .hbar-composer-permission-trigger')
       await execution.click()
@@ -435,7 +470,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeOwnedFixture(root)
     }
   })
 }
@@ -449,7 +484,11 @@ test('no-tab project picker pages beyond 100 without clipping its path action at
   const location = preSessionLaunchCopy('zh-CN').location
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+    host = await startWebSessionHost({
+      root,
+      port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+      budgetAutoContinue: false,
+    })
     const sessions = createWorkspaceSessionCommandClient(host.client)
     for (let index = 0; index < 100; index += 1) {
       const path = join(
@@ -510,6 +549,6 @@ test('no-tab project picker pages beyond 100 without clipping its path action at
   } finally {
     await context.close()
     if (host) await stopWebSessionHost(host)
-    await rm(root, { recursive: true, force: true })
+    await removeOwnedFixture(root)
   }
 })

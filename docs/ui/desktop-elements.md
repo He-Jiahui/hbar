@@ -2,15 +2,15 @@
 
 由 `bun scripts/audit-desktop-elements.ts --write` 从运行时入口、命名延迟加载、barrel 导出和 JSX 生成。完整的元素、槽位、内容来源、可访问名称、动作目标、状态来源和待处理问题见 [类型化清单](desktop-elements.json)。
 
-入口：`apps/web/src/main.tsx`。相关 TSX 模块 144 个；元素 3658 个。实际构建输入核对：passed。
+入口：`apps/web/src/main.tsx`。相关 TSX 模块 144 个；元素 3660 个。实际构建输入核对：passed。
 
 ## 类别与展示边界
 
 | 类别        | 元素 | pending | 设计职责                                                                |
 | ----------- | ---: | ------: | ----------------------------------------------------------------------- |
-| structure   | 1073 |      10 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
-| text        | 1074 |     706 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
-| interaction |  928 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
+| structure   | 1074 |      10 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
+| text        | 1074 |     695 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
+| interaction |  929 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
 | form        |  277 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
 | collection  |  168 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
 | technical   |   75 |       0 | 原文、代码、Markdown、图示与媒体的专用 renderer；辅助操作仍使用 Lumen。 |
@@ -102,7 +102,7 @@
 | [packages/app-react/src/notifications.tsx](../../packages/app-react/src/notifications.tsx)                                 | global-pages                                     |    2 |              0 |          1 |          0 |
 | [packages/app-react/src/onboarding-readiness.tsx](../../packages/app-react/src/onboarding-readiness.tsx)                   | global-pages                                     |    8 |              0 |          1 |          1 |
 | [packages/app-react/src/plan-exit-decision.tsx](../../packages/app-react/src/plan-exit-decision.tsx)                       | goals-and-plans                                  |   25 |              7 |          0 |          0 |
-| [packages/app-react/src/pre-session-approval-picker.tsx](../../packages/app-react/src/pre-session-approval-picker.tsx)     | composer-and-launch                              |   35 |              0 |         11 |          0 |
+| [packages/app-react/src/pre-session-approval-picker.tsx](../../packages/app-react/src/pre-session-approval-picker.tsx)     | composer-and-launch                              |   37 |             11 |          0 |          0 |
 | [packages/app-react/src/pre-session-choice-picker.tsx](../../packages/app-react/src/pre-session-choice-picker.tsx)         | composer-and-launch                              |   31 |             10 |          0 |          0 |
 | [packages/app-react/src/pre-session-landing.tsx](../../packages/app-react/src/pre-session-landing.tsx)                     | composer-and-launch                              |    6 |              0 |          0 |          0 |
 | [packages/app-react/src/pre-session-launch-status.tsx](../../packages/app-react/src/pre-session-launch-status.tsx)         | status-and-usage                                 |    7 |              0 |          1 |          0 |

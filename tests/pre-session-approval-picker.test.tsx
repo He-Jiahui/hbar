@@ -19,12 +19,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       />,
     )
     expect(html).toContain(labels.trigger(labels.inheritedTrigger(labels.options.ask.label)))
-    for (const choice of ['ask', 'deny', 'allow', 'inherit'] as const)
-      expect(html).toContain(labels.options[choice].description)
-    expect(html).toContain(labels.plan.label)
-    expect(html).toContain(labels.plan.description)
+    expect(html).toContain(labels.inheritedTrigger(labels.options.ask.label))
+    expect(html).toContain('data-text-context="control.label"')
+    expect(html).toContain('aria-expanded="false"')
+    expect(html).not.toContain('role="dialog"')
+    expect(html).not.toContain('role="menuitemradio"')
     expect(html).toContain('data-tier="sm"')
-    expect(html).toContain('data-tier="md"')
   })
 
   test(`pre-session Plan remains a separate, localized execution mode: ${locale}`, () => {
@@ -42,8 +42,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       />,
     )
     expect(html).toContain(labels.trigger(labels.plan.label))
-    expect(html).toContain(labels.plan.scope)
-    expect(html).toContain(labels.plan.exit)
+    expect(html).toContain('data-text-context="control.label"')
+    expect(html).toContain('aria-expanded="false"')
+    expect(html).not.toContain('role="dialog"')
     expect(html).toContain('data-choice="plan"')
   })
 

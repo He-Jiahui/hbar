@@ -59,7 +59,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     expect(html).not.toMatch(/class="hbar-composer-add-item hbar-composer-add-goal"[^>]*disabled=""/)
   })
 
-  test(`prepared Goal keeps no-tab Plan available with its normal execution description: ${locale}`, () => {
+  test(`prepared Goal keeps the localized no-tab execution trigger available: ${locale}`, () => {
     const copy = getShellCopy(locale)
     const html = renderToStaticMarkup(
       <HbarPreSessionApprovalPicker
@@ -73,7 +73,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         onPlanMode={async () => undefined}
       />,
     )
-    expect(html).toContain(copy.session.permissionPicker.plan.description)
-    expect(html).not.toMatch(/data-choice="plan"[^>]*disabled=""/)
+    expect(html).toContain(copy.session.permissionPicker.trigger(copy.session.permissionPicker.options.inherit.label))
+    expect(html).toContain('aria-expanded="false"')
+    expect(html).not.toContain('disabled=""')
+    expect(html).not.toContain('role="dialog"')
   })
 }

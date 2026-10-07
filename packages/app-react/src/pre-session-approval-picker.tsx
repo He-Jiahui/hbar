@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import {
   ArrowLeft,
   Check,
@@ -11,10 +11,12 @@ import {
   ShieldX,
   X,
 } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenContentText } from '@lumen/app-ui'
 import type { ComposerPermissionChoice, ComposerPermissionMode, ComposerPlanMode } from '@hbar/app-runtime'
 import type { HbarComposerPermissionLabels } from './composer-permission-picker'
+import { FloatingSurface, useFloatingTrigger } from './floating-surface'
 import './composer-permission-picker.css'
+import './pre-session-approval-picker.css'
 
 const order = ['ask', 'deny', 'sandbox', 'allow', 'plan', 'inherit'] as const satisfies readonly (
   ComposerPermissionChoice | 'plan'
@@ -51,8 +53,11 @@ export function HbarPreSessionApprovalPicker({
   const headingId = useId()
   const hintId = useId()
   const anchor = useRef<HTMLButtonElement>(null)
-  const popup = useRef<HTMLDivElement>(null)
+  const selectedOption = useRef<HTMLButtonElement>(null)
+  const allowOption = useRef<HTMLButtonElement>(null)
   const cancelConfirmation = useRef<HTMLButtonElement>(null)
+  const returnAllowFocus = useRef(false)
+  const inFlight = useRef(false)
   const [open, setOpen] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -65,68 +70,101 @@ export function HbarPreSessionApprovalPicker({
       : labels.options[choice].label
 
   useEffect(() => {
+    if (!open) return
     if (confirming) cancelConfirmation.current?.focus()
-  }, [confirming])
+    else if (returnAllowFocus.current) {
+      returnAllowFocus.current = false
+      allowOption.current?.focus()
+    }
+  }, [confirming, open])
 
-  const close = (force = false) => {
-    if (busy && !force) return
-    popup.current?.hidePopover()
+  const close = useCallback(() => {
+    setOpen(false)
     setConfirming(false)
-    setError(null)
-    anchor.current?.focus()
-  }
+    returnAllowFocus.current = false
+  }, [])
+  const triggerEvents = useFloatingTrigger({
+    open,
+    onOpen: () => {
+      if (disabled || inFlight.current) return
+      setConfirming(false)
+      setOpen(true)
+    },
+    onClose: close,
+  })
   const select = async (next: ComposerPermissionChoice, confirmAllow?: true) => {
-    if (busy || disabled) return
+    if (inFlight.current || disabled) return
     if (next === choice && !planSelected) {
-      close(true)
+      close()
       return
     }
+    inFlight.current = true
     setBusy(true)
     setError(null)
     try {
       await onChoose(next, confirmAllow)
-      setBusy(false)
-      close(true)
+      setError(null)
+      close()
     } catch (reason) {
-      setBusy(false)
       setError(
         reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
           ? reason.code
           : 'EXECUTION_FAILED',
       )
+    } finally {
+      inFlight.current = false
+      setBusy(false)
     }
   }
   const selectPlan = async (mode: ComposerPlanMode) => {
-    if (busy || disabled || (mode === 'plan' && (!planAvailable || planBlockedReason))) return
+    if (inFlight.current || disabled || (mode === 'plan' && (!planAvailable || planBlockedReason))) return
     if (mode === planMode) {
-      close(true)
+      close()
       return
     }
+    inFlight.current = true
     setBusy(true)
     setError(null)
     try {
       await onPlanMode(mode)
-      setBusy(false)
-      close(true)
+      setError(null)
+      close()
     } catch (reason) {
-      setBusy(false)
       setError(
         reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
           ? reason.code
           : 'EXECUTION_FAILED',
       )
+    } finally {
+      inFlight.current = false
+      setBusy(false)
     }
   }
   const moveChoice = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (
+      event.nativeEvent.isComposing ||
+      event.nativeEvent.keyCode === 229 ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey
+    )
+      return
     if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return
-    event.preventDefault()
+    if (
+      event.target !== event.currentTarget &&
+      !(event.target instanceof Element && event.target.matches('[role="menuitemradio"], [role="menuitem"]'))
+    )
+      return
     const items = [
       ...event.currentTarget.querySelectorAll<HTMLButtonElement>(
         '[role="menuitemradio"]:not(:disabled), [role="menuitem"]:not(:disabled)',
       ),
     ]
     if (items.length === 0) return
-    const current = items.indexOf(document.activeElement as HTMLButtonElement)
+    event.preventDefault()
+    event.stopPropagation()
+    const active = items.findIndex((item) => item === event.currentTarget.ownerDocument.activeElement)
+    const current = active >= 0 ? active : items.findIndex((item) => item === selectedOption.current)
     const next =
       event.key === 'Home'
         ? 0
@@ -137,6 +175,11 @@ export function HbarPreSessionApprovalPicker({
             : (current - 1 + items.length) % items.length
     items[next]?.focus()
   }
+  const feedback = error ? (
+    <LumenContentText context="feedback.paragraph" tone="danger" role="alert">
+      {labels.error(error)}
+    </LumenContentText>
+  ) : null
   return (
     <LumenFrame className="hbar-composer-permission-picker hbar-pre-session-approval-picker">
       <LumenButton
@@ -151,62 +194,37 @@ export function HbarPreSessionApprovalPicker({
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={popupId}
-        disabled={disabled || busy}
-        popoverTarget={popupId}
+        disabled={disabled}
+        aria-disabled={busy || undefined}
+        aria-busy={busy || undefined}
+        {...triggerEvents}
       >
         <LumenIcon icon={planSelected ? Lightbulb : icons[choice]} tier="sm" />
-        <LumenText as="span">{selectedLabel}</LumenText>
+        <LumenContentText context="control.label">{selectedLabel}</LumenContentText>
         <LumenIcon icon={ChevronDown} tier="sm" />
       </LumenButton>
-      <LumenFrame
-        ref={popup}
+      <FloatingSurface
+        open={open}
+        onClose={close}
+        anchorRef={anchor}
+        initialFocusRef={selectedOption}
+        responsivePresentation="narrow-sheet"
+        placement="above"
+        label={confirming ? labels.confirmTitle : labels.title}
         id={popupId}
-        popover="auto"
         role="dialog"
         aria-labelledby={headingId}
         aria-describedby={hintId}
-        className="hbar-composer-permission-popover hbar-pre-session-approval-popover"
-        onBeforeToggle={(event) => {
-          if (event.newState !== 'open' || !anchor.current) return
-          const rect = anchor.current.getBoundingClientRect()
-          const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
-          const width = Math.min(22.5 * rem, Math.max(0, innerWidth - 2 * rem))
-          event.currentTarget.style.setProperty(
-            '--permission-popup-left',
-            `${Math.max(rem, Math.min(rect.left, innerWidth - width - rem))}px`,
-          )
-          event.currentTarget.style.setProperty('--permission-popup-top', 'auto')
-          event.currentTarget.style.setProperty('--permission-popup-bottom', `${innerHeight - rect.top + rem / 2}px`)
-          event.currentTarget.style.setProperty('--permission-popup-limit', `${Math.max(0, rect.top - 1.5 * rem)}px`)
-        }}
-        onToggle={(event) => {
-          const opening = event.newState === 'open'
-          setOpen(opening)
-          if (!opening) {
-            setConfirming(false)
-            setError(null)
-          } else {
-            queueMicrotask(() => {
-              const target = planSelected
-                ? popup.current?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')
-                : popup.current?.querySelector<HTMLButtonElement>('[role="menuitemradio"][aria-checked="true"]')
-              target?.focus()
-            })
-          }
-        }}
+        className="hbar-pre-session-approval-popover"
         onKeyDown={(event) => {
           if (event.key === 'Enter') event.stopPropagation()
-          if (event.key === 'Escape') {
-            event.preventDefault()
-            event.stopPropagation()
-            close()
-          }
+          moveChoice(event)
         }}
       >
         <LumenFrame className="hbar-composer-permission-heading">
-          <LumenText as="strong" id={headingId}>
+          <LumenContentText context="popover.title" id={headingId}>
             {confirming ? labels.confirmTitle : labels.title}
-          </LumenText>
+          </LumenContentText>
           <LumenButton
             type="button"
             size="s"
@@ -220,9 +238,17 @@ export function HbarPreSessionApprovalPicker({
         </LumenFrame>
         {confirming ? (
           <>
-            <LumenText as="p" id={hintId}>
-              {labels.confirmBody(sessionLabel)}
-            </LumenText>
+            <LumenFrame
+              className="hbar-pre-session-approval-confirmation"
+              role="region"
+              aria-label={labels.confirmTitle}
+              tabIndex={0}
+            >
+              <LumenContentText context="popover.body" id={hintId}>
+                {labels.confirmBody(sessionLabel)}
+              </LumenContentText>
+              {feedback}
+            </LumenFrame>
             <LumenFrame className="hbar-composer-permission-actions">
               <LumenButton
                 ref={cancelConfirmation}
@@ -231,9 +257,7 @@ export function HbarPreSessionApprovalPicker({
                 disabled={busy}
                 onClick={() => {
                   setConfirming(false)
-                  queueMicrotask(() =>
-                    popup.current?.querySelector<HTMLButtonElement>('[data-choice="allow"]')?.focus(),
-                  )
+                  returnAllowFocus.current = true
                 }}
               >
                 {labels.cancel}
@@ -250,18 +274,14 @@ export function HbarPreSessionApprovalPicker({
             </LumenFrame>
           </>
         ) : (
-          <LumenFrame className="hbar-composer-permission-body">
-            <LumenText as="p" id={hintId} className="hbar-composer-permission-hint">
+          <LumenFrame className="hbar-composer-permission-body" role="region" aria-label={labels.title} tabIndex={0}>
+            <LumenContentText context="popover.body" id={hintId} className="hbar-composer-permission-hint">
               {planSelected ? labels.plan.scope : labels.scopeHint}
-            </LumenText>
-            <LumenFrame
-              role="menu"
-              aria-label={labels.title}
-              className="hbar-composer-permission-options"
-              onKeyDown={moveChoice}
-            >
+            </LumenContentText>
+            <LumenFrame role="menu" aria-label={labels.title} className="hbar-composer-permission-options">
               {planSelected && (
                 <LumenButton
+                  ref={selectedOption}
                   type="button"
                   variant="text"
                   indicator="none"
@@ -272,8 +292,8 @@ export function HbarPreSessionApprovalPicker({
                 >
                   <LumenIcon icon={ArrowLeft} tier="md" />
                   <LumenFrame className="hbar-composer-permission-description">
-                    <LumenText as="span">{labels.plan.exit}</LumenText>
-                    <LumenText as="span">{labels.plan.exitDescription}</LumenText>
+                    <LumenContentText context="choice.title">{labels.plan.exit}</LumenContentText>
+                    <LumenContentText context="choice.description">{labels.plan.exitDescription}</LumenContentText>
                   </LumenFrame>
                 </LumenButton>
               )}
@@ -294,16 +314,20 @@ export function HbarPreSessionApprovalPicker({
                     >
                       <LumenIcon icon={Lightbulb} tier="md" />
                       <LumenFrame className="hbar-composer-permission-description">
-                        <LumenText as="span">{labels.plan.label}</LumenText>
-                        <LumenText as="span">
+                        <LumenContentText context="choice.title">{labels.plan.label}</LumenContentText>
+                        <LumenContentText context="choice.description">
                           {planBlockedReason ?? (planSelected ? labels.plan.selected : labels.plan.description)}
-                        </LumenText>
+                        </LumenContentText>
                       </LumenFrame>
                       {planSelected && <LumenIcon icon={Check} tier="sm" />}
                     </LumenButton>
                   ) : null
                 ) : (
                   <LumenButton
+                    ref={(node) => {
+                      if (value === 'allow') allowOption.current = node
+                      if (!planSelected && choice === value) selectedOption.current = node
+                    }}
                     key={value}
                     type="button"
                     variant="text"
@@ -320,22 +344,21 @@ export function HbarPreSessionApprovalPicker({
                   >
                     <LumenIcon icon={icons[value]} tier="md" />
                     <LumenFrame className="hbar-composer-permission-description">
-                      <LumenText as="span">{labels.options[value].label}</LumenText>
-                      <LumenText as="span">{labels.options[value].description}</LumenText>
+                      <LumenContentText context="choice.title">{labels.options[value].label}</LumenContentText>
+                      <LumenContentText context="choice.description">
+                        {labels.options[value].description}
+                      </LumenContentText>
                     </LumenFrame>
                     {!planSelected && choice === value && <LumenIcon icon={Check} tier="sm" />}
                   </LumenButton>
                 ),
               )}
             </LumenFrame>
-            {error && (
-              <LumenText as="p" role="alert">
-                {labels.error(error)}
-              </LumenText>
-            )}
+            {feedback}
           </LumenFrame>
         )}
-      </LumenFrame>
+      </FloatingSurface>
+      {error && !open && <LumenFrame className="hbar-pre-session-approval-closed-error">{feedback}</LumenFrame>}
     </LumenFrame>
   )
 }
