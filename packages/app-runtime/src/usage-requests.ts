@@ -50,11 +50,14 @@ export interface UsageRequestsState {
   readonly hasMore: boolean
   readonly status: 'idle' | 'loading' | 'ready' | 'error'
   readonly error: string | null
+  readonly gap?: boolean
 }
 
 export interface UsageRequestsOptions {
   readonly usage?: CommandExecutor
   readonly initialScope?: UsageScope
+  readonly initialRange?: UsageRequestsRange
+  readonly order?: UsageExportInput['order']
   readonly filters?: UsageFilters
   readonly onSubscriberError?: (error: unknown) => void
 }
@@ -111,12 +114,13 @@ export function createUsageRequests(options: UsageRequestsOptions = {}): UsageRe
     {
       scope: usageScopeSchema.parse(options.initialScope ?? defaultScope),
       filters: options.filters ?? {},
-      range: {},
+      range: options.initialRange ?? {},
       items: [],
       cursor: null,
       hasMore: false,
       status: 'idle',
       error: null,
+      gap: false,
     },
     options.onSubscriberError ?? (() => undefined),
   )
@@ -137,6 +141,7 @@ export function createUsageRequests(options: UsageRequestsOptions = {}): UsageRe
       ...snapshot.range,
       limit: USAGE_REQUEST_PAGE_SIZE,
       ...(append && snapshot.cursor ? { after: snapshot.cursor } : {}),
+      ...(options.order ? { order: options.order } : {}),
     }
     const timeout = setTimeout(
       () => controller.abort(new CommandError('TIMEOUT', 'Usage export timed out')),
@@ -162,6 +167,13 @@ export function createUsageRequests(options: UsageRequestsOptions = {}): UsageRe
       if (!parsed.success) throw new CommandError('INVALID_OUTPUT', 'Usage export response is invalid')
       if (!sameScope(parsed.data.scope, snapshot.scope))
         throw new CommandError('INVALID_OUTPUT', 'Usage export scope changed')
+      const scope = snapshot.scope
+      if (
+        scope.kind === 'session' &&
+        !scope.includeDescendants &&
+        parsed.data.items.some((item) => item.sessionId !== scope.sessionId)
+      )
+        throw new CommandError('INVALID_OUTPUT', 'Usage export contains a foreign session')
       const unique = new Map<string, UsageRequestItem>()
       if (append) for (const item of snapshot.items) unique.set(item.id, item)
       for (const item of parsed.data.items) unique.set(item.usageId, itemFromAttempt(item))
@@ -178,6 +190,7 @@ export function createUsageRequests(options: UsageRequestsOptions = {}): UsageRe
           pageCount < USAGE_REQUEST_MAX_PAGES,
         status: 'ready',
         error: null,
+        gap: parsed.data.gap || (append && Boolean(snapshot.gap)),
       })
     } finally {
       clearTimeout(timeout)
@@ -201,6 +214,7 @@ export function createUsageRequests(options: UsageRequestsOptions = {}): UsageRe
         hasMore: false,
         status: 'loading',
         error: null,
+        gap: false,
       })
     } else state.replace({ ...state.reader.getSnapshot(), status: 'loading', error: null })
     const operation = request(append, token, controller)
@@ -251,6 +265,7 @@ export function createUsageRequests(options: UsageRequestsOptions = {}): UsageRe
         hasMore: false,
         status: 'idle',
         error: null,
+        gap: false,
       })
       await run(false)
     },

@@ -2,6 +2,7 @@ import { extensionDetailCopy } from './extension-detail-copy'
 import { extensionSkillCopy } from './extension-skill-copy'
 import { fileWorkspaceCopy, fileWorkspaceErrorCopy } from './file-workspace-copy'
 import { settingsUsageCopy } from './settings-usage-copy'
+import { createSessionRequestLabels } from './session-request-copy'
 import { goalLifecycleCopy, goalHistoryCopy } from './goal-lifecycle-copy'
 import type { AgentProfileId } from '@hbar/contracts/commands/agents'
 import { toolFeedbackLabels } from './session-tool-feedback-copy'
@@ -2097,6 +2098,7 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
   const percent = new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 1 })
   return {
     title: choose('会话状态', 'Session status'),
+    requests: createSessionRequestLabels(locale, session.messageBlocks.codeBlock),
     history: {
       runs: session.runs,
       loading: session.loading,

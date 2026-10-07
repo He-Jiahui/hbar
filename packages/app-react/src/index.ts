@@ -175,6 +175,7 @@ export {
   type HbarFilePreviewCloseScope,
 } from './file-preview-tabs'
 export { HbarSessionMonitoring, type HbarSessionMonitoringLabels } from './session-monitoring'
+export { HbarSessionRequestDetails, type HbarSessionRequestLabels } from './session-request-details'
 export {
   HbarSessionActivityWorkspace,
   HbarSessionActivityView,

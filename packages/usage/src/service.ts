@@ -627,8 +627,17 @@ export class UsageService {
       .map(({ item }) => item)
       .filter((item) => matches(item, input.filters))
       .filter(
-        (item) => !after || item.endedAt > after.time || (item.endedAt === after.time && item.usageId > after.usageId),
+        (item) =>
+          !after ||
+          (input.order === 'desc'
+            ? item.endedAt < after.time || (item.endedAt === after.time && item.usageId < after.usageId)
+            : item.endedAt > after.time || (item.endedAt === after.time && item.usageId > after.usageId)),
       )
+      .sort((left, right) => {
+        const comparison =
+          left.endedAt - right.endedAt || (left.usageId === right.usageId ? 0 : left.usageId < right.usageId ? -1 : 1)
+        return input.order === 'desc' ? -comparison : comparison
+      })
     const items = matched.slice(0, input.limit)
     return usageExportResultSchema.parse({
       accountingVersion: USAGE_ACCOUNTING_VERSION,

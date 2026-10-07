@@ -1,0 +1,103 @@
+.hbar-app-react-session-monitoring .hbar-session-requests,
+.hbar-app-react-session-monitoring .hbar-session-context {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-block-end: 0.0625rem solid var(--lumen-line);
+}
+
+.hbar-session-requests > header {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.hbar-app-react-session-monitoring :is(.hbar-session-requests, .hbar-session-raw-messages) li {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+}
+
+.hbar-session-requests .hbar-lumen-disclosure-trigger {
+  inline-size: 100%;
+  align-items: baseline;
+  white-space: normal;
+}
+
+.hbar-session-request-summary,
+.hbar-session-request-record,
+.hbar-session-raw-messages,
+.hbar-session-request-json {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hbar-session-request-summary {
+  flex: 1 1 auto;
+  font-size: var(--hbar-session-pane-body-size);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.hbar-session-request-summary > span {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 8px;
+}
+
+.hbar-app-react-session-monitoring .hbar-session-request-summary strong {
+  min-inline-size: 0;
+  inline-size: auto;
+  flex: 1 1 auto;
+  overflow: visible;
+  font-size: inherit;
+  font-weight: 550;
+  white-space: normal;
+}
+
+.hbar-session-request-record {
+  padding-block: 4px 8px;
+}
+
+.hbar-session-request-record p,
+.hbar-session-raw-messages p {
+  color: var(--lumen-muted);
+  font-size: var(--hbar-session-pane-meta-size);
+  overflow-wrap: anywhere;
+}
+
+.hbar-session-request-json > pre {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 8px;
+  border: 0.0625rem solid var(--lumen-line);
+  border-radius: var(--lumen-radius-s, 0.25rem);
+  background: var(--lumen-frost);
+  font-size: var(--hbar-session-pane-meta-size);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.hbar-session-request-json code {
+  font-size: inherit;
+}
+
+.hbar-session-request-json .hbar-message-code-copy {
+  display: flex;
+  min-inline-size: 0;
+  justify-content: flex-end;
+}

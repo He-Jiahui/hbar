@@ -12,10 +12,12 @@ import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import { EchartsChart, type EChartsOption } from './echarts-chart'
 import { HbarSessionRunHistory, type HbarSessionRunHistoryLabels } from './session-run-history'
+import { HbarSessionRequestDetails, type HbarSessionRequestLabels } from './session-request-details'
 import './session-monitoring.css'
 
 export interface HbarSessionMonitoringLabels {
   readonly history: HbarSessionRunHistoryLabels
+  readonly requests: HbarSessionRequestLabels
   readonly title: string
   readonly description: string
   readonly close: string
@@ -108,6 +110,14 @@ export function HbarSessionMonitoring({
       className="hbar-app-react-session-monitoring"
     >
       <HbarSessionRunHistory sessionId={sessionId} connected={connected} labels={labels.history} />
+      {sessionId && (
+        <HbarSessionRequestDetails
+          key={sessionId}
+          sessionId={sessionId}
+          connected={connected}
+          labels={labels.requests}
+        />
+      )}
       {!report ? (
         <LumenText as="p" className="hbar-app-react-monitoring-empty">
           {labels.empty}

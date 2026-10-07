@@ -47,8 +47,12 @@ import { terminalApplicationCommands } from '@hbar/contracts/commands/terminal-a
 import { sessionTimelineCommands } from '@hbar/contracts/commands/session-timeline'
 import { createState } from './state'
 import { createUsageRequests } from './usage-requests'
+import { createSessionRequests } from './session-requests'
+export type { SessionRequestsRuntime } from './session-requests'
+export { createSessionRequestContext } from './session-request-context'
 import { createUsageBudget } from './usage-budget'
 export { createUsageRequests } from './usage-requests'
+export { USAGE_REQUEST_MAX_ITEMS } from './usage-requests'
 export type { UsageRequestsRuntime, UsageRequestsState, UsageRequestItem } from './usage-requests'
 export { createUsageBudget } from './usage-budget'
 export type { UsageBudgetRuntime, UsageBudgetState, UsageBudgetTarget } from './usage-budget'
@@ -484,6 +488,10 @@ export function createAppRuntime(options: RuntimeOptions) {
   const surfaces = createState<SurfaceState>(startup.surfaces, onSubscriberError)
   const presentation = createState<PresentationState>(startup.presentation, onSubscriberError)
   const usageRequests = createUsageRequests(options.usage ? { usage: options.usage } : {})
+  const sessionRequests = createSessionRequests({
+    ...(options.usage ? { usage: options.usage } : {}),
+    onSubscriberError,
+  })
   let budgetTargetSnapshot: { readonly sessionId: string } | null = null
   const budgetTarget = {
     getSnapshot: () => {
@@ -1411,6 +1419,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       sessionRosterRefresh: sessionRosterRefresh.reader,
       settingsUsage: settingsUsage.reader,
       usageRequests: { reader: usageRequests.reader, runtime: usageRequests },
+      sessionRequests: { create: sessionRequests.create },
       usageBudget: usageBudget ? { state: usageBudget.state, runtime: usageBudget } : null,
       composerIntent: composerIntent.reader,
       composerPermission: composerPermission.reader,
@@ -1511,6 +1520,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       sessionRosterRefresh.dispose()
       settingsUsage.dispose()
       usageRequests.dispose()
+      sessionRequests.dispose()
       usageBudget?.dispose()
       composerIntent.dispose()
       composerPermission.dispose()

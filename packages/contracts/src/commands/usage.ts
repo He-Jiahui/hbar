@@ -37,6 +37,7 @@ export const usageExportInputSchema = z.strictObject({
   filters: usageFiltersSchema.default({}),
   after: z.string().min(1).max(256).optional(),
   limit: z.number().int().min(1).max(500).default(100),
+  order: z.enum(['asc', 'desc']).optional(),
 })
 
 export const usageAvailabilitySchema = z.enum(['available', 'empty', 'unavailable'])
