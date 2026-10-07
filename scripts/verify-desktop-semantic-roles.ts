@@ -103,7 +103,7 @@ try {
           return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05)
         })
         expect(contrast).toBeGreaterThanOrEqual(4.5)
-        await expect(page.getByRole('heading', { level: 3 })).toHaveText(copy.title)
+        await expect(page.locator('[data-primary-title]')).toHaveText(copy.title)
         await expect(page.locator('[data-sentence]')).toHaveText(sentence)
         expect(await page.locator('bdi').evaluate((element) => getComputedStyle(element).unicodeBidi)).toBe('isolate')
         expect(await page.locator('bdi').textContent()).toBe(copy.isolated)
@@ -116,7 +116,7 @@ try {
           return range.getClientRects().length
         })
         expect(lines).toBeGreaterThan(1)
-        for (const selector of ['[data-caption-rail]', '[data-path-rail]', 'pre']) {
+        for (const selector of ['[data-path-rail]', 'pre']) {
           const scrollable = await page.locator(selector).evaluate((element) => {
             element.scrollLeft = element.scrollWidth
             return element.scrollLeft > 0
@@ -124,8 +124,25 @@ try {
           expect(scrollable, `${locale}/${mode}/${width} ${selector}`).toBe(true)
         }
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-        await page.locator('[data-caption-rail]').focus()
-        await expect(page.locator('[data-caption-rail]')).toBeFocused()
+        const titles = page.locator('[data-title], .lumen-page-heading h1, .lumen-tool-pane-heading h2')
+        for (let index = 0; index < (await titles.count()); index++) {
+          const title = titles.nth(index)
+          await expect(title).toHaveText(copy.title)
+          await expect(title).toHaveCSS('white-space', 'normal')
+          const geometry = await title.evaluate((node) => {
+            const range = document.createRange()
+            range.selectNodeContents(node)
+            return {
+              lines: range.getClientRects().length,
+              scroll: node.scrollWidth,
+              width: node.clientWidth,
+              overflow: getComputedStyle(node).textOverflow,
+            }
+          })
+          expect(geometry.lines).toBeGreaterThan(1)
+          expect(geometry.scroll).toBeLessThanOrEqual(geometry.width + 1)
+          expect(geometry.overflow).not.toBe('ellipsis')
+        }
         await page.locator('.caption-rail, pre').evaluateAll((elements) =>
           elements.forEach((element) => {
             element.scrollLeft = 0

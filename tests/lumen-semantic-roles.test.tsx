@@ -21,7 +21,7 @@ test('a section title keeps its content role while following document heading hi
   expect(html).toMatch(/^<h3\b/)
   expect(html).toContain('id="history-heading"')
   expect(html).toContain('data-text-context="section.title"')
-  expect(html).toContain('data-text-flow="single"')
+  expect(html).toContain('data-text-flow="reading"')
   expect(html).toContain(copy.heading)
 })
 
@@ -45,7 +45,7 @@ test('time metadata retains machine-readable time independently of localized con
   expect(html).toContain(copy.time)
 })
 
-test('host-owned collection text distinguishes a stable caption from a reading description', () => {
+test('host-owned collection titles and descriptions retain complete reading content', () => {
   const html = renderToStaticMarkup(
     <>
       <LumenContentText context="collection.title">{copy.author}</LumenContentText>
@@ -55,7 +55,7 @@ test('host-owned collection text distinguishes a stable caption from a reading d
       </LumenContentText>
     </>,
   )
-  expect(html).toContain('data-text-context="collection.title" data-text-flow="single"')
+  expect(html).toContain('data-text-context="collection.title" data-text-flow="reading"')
   expect(html).toContain('data-text-context="collection.description" data-text-flow="reading"')
   expect(html).toContain('role="status"')
   expect(html).toContain(copy.description)

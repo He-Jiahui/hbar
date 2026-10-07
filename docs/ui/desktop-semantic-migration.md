@@ -23,6 +23,11 @@
 
 Lumen 已补齐章节、集合、消息作者、时间、指标、空态、路径、快捷键、定义项和行内强调角色。标题的 `level` 只调整文档层级，其他角色的类型不允许该属性；`metadata.time` 保留机器可读的 `dateTime`。UI 公开入口同时导出语义文字与 flow 容器。图标公开 API 对齐既有 `xs/sm/md/lg/xl` token，命中范围仍由控件负责。
 
+用户追加的内容规则是模型选项名称与标题完整换行。当前公共角色将 workspace、navigation、section、collection 和 tool 的标题改为 reading flow，沿用 dialog、popover、choice 和 empty 标题的自然换行；workspace context 同样自然阅读。页面头、工具面板与设置章节头接入这些角色，保留宿主原文、文档层级、目标和动作。调用方仍需清理 intrinsic 宽度与 nowrap 的局部覆盖，并以实际换行和完整可见内容验收。下文历史记录中的标题横向阅读描述保留当时证据，最新实现以此追加规则为准。
+
+- 16 项内容／公开角色测试与 20 个实际 Chrome 场景通过。浏览器覆盖两语言、明暗、五宽度、窄屏 125% 文字、八类标题及实际 PageHeader／ToolPane；检查完整原文、多行、非省略及无横向逃逸，同时保留路径、代码、时间和 bdi 的原始语义。
+- Lumen 包类型、构建／声明、严格范围 lint、格式和 flow guard 通过。限定 propTypes／API build 命令通过，但现有生成器只登记 MUI 项目，Lumen 的契约以 README 与公开声明交付。调用方和全库最终验收仍在进行。
+
 方向敏感的用户内容使用 `inline.isolated`，由 Lumen 保留原生 `bdi` 隔离语义。12 个角色 SSR 用例和扩展后的 20 个实际 client 场景通过，包含中英文混合分支名称的原文与计算后的 `unicode-bidi: isolate`；库类型、构建、声明和严格范围 lint 通过。
 
 - 17 个相关内容、公开角色、原文保留与表单绑定测试通过，严格范围 lint 通过。

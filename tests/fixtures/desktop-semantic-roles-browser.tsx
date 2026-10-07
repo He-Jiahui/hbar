@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { flushSync } from 'react-dom'
 import { LumenContentText, LumenFrame } from '@lumen/app-ui/ui'
+import { LumenPageHeader, LumenToolPane } from '@lumen/app-ui'
 import '@lumen/app-ui/styles.css'
 import { applyLumenAppearance, DEFAULT_LUMEN_APPEARANCE, type LumenMode } from '@lumen/app-ui/appearance'
 
@@ -30,11 +31,31 @@ declare global {
 function SemanticRolesFixture({ copy, source }: SemanticRolesFixtureInput) {
   return (
     <LumenFrame as="main" className="fixture">
-      <LumenFrame className="caption-rail" tabIndex={0} aria-label={copy.title} data-caption-rail>
-        <LumenContentText context="section.title" level={3}>
+      <LumenFrame>
+        <LumenContentText context="section.title" level={3} data-title data-primary-title>
           {copy.title}
         </LumenContentText>
       </LumenFrame>
+      {(
+        [
+          'workspace.title',
+          'navigation.title',
+          'tool.title',
+          'collection.title',
+          'dialog.title',
+          'popover.title',
+          'choice.title',
+          'empty.title',
+        ] as const
+      ).map((context) => (
+        <LumenContentText key={context} context={context} data-title>
+          {copy.title}
+        </LumenContentText>
+      ))}
+      <LumenPageHeader title={copy.title} context={copy.description} />
+      <LumenToolPane title={copy.title} description={copy.description}>
+        <LumenContentText context="reading.paragraph">{copy.description}</LumenContentText>
+      </LumenToolPane>
       <LumenContentText context="section.description" data-description>
         {copy.description}
       </LumenContentText>
