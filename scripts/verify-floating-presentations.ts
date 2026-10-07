@@ -1,9 +1,10 @@
 import { mkdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { chromium, expect } from '@playwright/test'
+import { chromium, expect, type Page } from '@playwright/test'
 import { build } from 'vite'
 import react from '@vitejs/plugin-react'
 import type { FloatingResponsivePresentation } from '@lumen/app-ui'
+import type { FloatingPresentationInput } from '../tests/fixtures/floating-presentation-browser'
 
 const copyByLocale = {
   'en-US': {
@@ -51,7 +52,28 @@ const scenarios: {
   coarse: boolean
   presentation: FloatingResponsivePresentation
   sheet: boolean
+  alignment?: 'start' | 'end'
+  dock?: 'start' | 'center' | 'end'
 }[] = []
+async function mountFloatingPage(page: Page, input: FloatingPresentationInput, width: number): Promise<void> {
+  await page.setViewportSize({ width, height: 900 })
+  await page.setContent(`<meta name="viewport" content="width=device-width,initial-scale=1"><style>${stylesheet}</style><style>
+    html { font-size: ${width < 400 ? 20 : 16}px; }
+    body { margin: 0; color: var(--lumen-ink); background: var(--lumen-canvas); }
+    .floating-fixture { display: flex; min-inline-size: 0; min-block-size: 100dvh; flex-direction: column; padding: 1rem; box-sizing: border-box; }
+    .floating-fixture-main { min-inline-size: 0; flex: 1 1 auto; }
+    .floating-fixture-controls, .floating-fixture-heading { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+    .floating-fixture-controls[data-dock="end"] { justify-content: flex-end; }
+    .floating-fixture-controls[data-dock="center"] { justify-content: center; }
+    .floating-fixture-popup { inline-size: min(22.5rem, calc(100vw - 2rem)); gap: .5rem; padding: .5rem; }
+    .floating-fixture-heading { flex: 0 0 auto; }
+    .floating-fixture-heading > [data-text-context] { flex: 1 1 auto; }
+    .floating-fixture-popup > input { flex: 0 0 auto; }
+    .floating-fixture-reading { min-block-size: 0; overflow: auto; }
+  </style><div id="floating-presentation-fixture"></div>`)
+  await page.addScriptTag({ content: browserScript })
+  await page.evaluate((value) => window.renderFloatingPresentationFixture(value), input)
+}
 try {
   for (const [locale, copy] of Object.entries(copyByLocale)) {
     for (const mode of ['light', 'dark'] as const) {
@@ -64,25 +86,7 @@ try {
             page.on('pageerror', (error) => errors.push(error.message))
             await page.route('**/*', (route) => route.abort())
             for (const width of [1440, 1100, 900, 390, 320]) {
-              await page.setViewportSize({ width, height: 900 })
-              await page.setContent(`<meta name="viewport" content="width=device-width,initial-scale=1"><style>${stylesheet}</style><style>
-                html { font-size: ${width < 400 ? 20 : 16}px; }
-                body { margin: 0; color: var(--lumen-ink); background: var(--lumen-canvas); }
-                .floating-fixture { display: flex; min-inline-size: 0; min-block-size: 100dvh; flex-direction: column; padding: 1rem; box-sizing: border-box; }
-                .floating-fixture-main { min-inline-size: 0; flex: 1 1 auto; }
-                .floating-fixture-controls, .floating-fixture-heading { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
-                .floating-fixture-popup { inline-size: min(22.5rem, calc(100vw - 2rem)); gap: .5rem; padding: .5rem; }
-                .floating-fixture-heading { flex: 0 0 auto; }
-                .floating-fixture-heading > [data-text-context] { flex: 1 1 auto; }
-                .floating-fixture-popup > input { flex: 0 0 auto; }
-                .floating-fixture-reading { min-block-size: 0; overflow: auto; }
-              </style><div id="floating-presentation-fixture"></div>`)
-              await page.addScriptTag({ content: browserScript })
-              await page.evaluate((input) => window.renderFloatingPresentationFixture(input), {
-                copy,
-                presentation,
-                mode,
-              })
+              await mountFloatingPage(page, { copy, presentation, mode }, width)
               expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(coarse)
               const trigger = page.getByRole('button', { name: copy.open, exact: true })
               const popup = page.getByRole('dialog', { name: copy.title, exact: true })
@@ -158,6 +162,83 @@ try {
         }
       }
     }
+  }
+  const alignedContext = await browser.newContext({ reducedMotion: 'reduce' })
+  try {
+    const page = await alignedContext.newPage()
+    page.setDefaultTimeout(10000)
+    for (const alignment of ['start', 'end'] as const) {
+      for (const dock of ['start', 'center', 'end'] as const) {
+        for (const width of [1440, 320]) {
+          const copy = copyByLocale['zh-CN']
+          await mountFloatingPage(
+            page,
+            { copy, presentation: 'anchored', mode: 'dark', alignment, dock, placement: 'below' },
+            width,
+          )
+          const trigger = page.getByRole('button', { name: copy.open, exact: true })
+          const popup = page.getByRole('dialog', { name: copy.title, exact: true })
+          await trigger.click()
+          await expect(page.getByRole('searchbox', { name: copy.search, exact: true })).toBeFocused()
+          await expect
+            .poll(() =>
+              popup
+                .evaluate((element) => {
+                  const anchor = document.querySelector('.floating-fixture-controls > button')
+                  if (!anchor) throw new Error('Missing alignment anchor')
+                  const box = element.getBoundingClientRect()
+                  const triggerBox = anchor.getBoundingClientRect()
+                  const gap = Math.max(8, Number.parseFloat(getComputedStyle(document.documentElement).fontSize) / 2)
+                  return {
+                    left: box.left,
+                    right: box.right,
+                    width: box.width,
+                    triggerLeft: triggerBox.left,
+                    triggerRight: triggerBox.right,
+                    gap,
+                    viewportWidth: innerWidth,
+                    bottom: box.bottom,
+                    triggerTop: triggerBox.top,
+                  }
+                })
+                .then((geometry) => {
+                  const intended = alignment === 'end' ? geometry.triggerRight - geometry.width : geometry.triggerLeft
+                  const expected = Math.max(
+                    geometry.gap,
+                    Math.min(intended, geometry.viewportWidth - geometry.width - geometry.gap),
+                  )
+                  return Math.abs(geometry.left - expected)
+                }),
+            )
+            .toBeLessThanOrEqual(1)
+          await expect
+            .poll(() =>
+              popup.evaluate((element) => {
+                const anchor = document.querySelector('.floating-fixture-controls > button')
+                if (!anchor) throw new Error('Missing alignment anchor')
+                return element.getBoundingClientRect().bottom <= anchor.getBoundingClientRect().top
+              }),
+            )
+            .toBe(true)
+          await page.keyboard.press('Escape')
+          await expect(popup).toBeHidden()
+          await expect(trigger).toBeFocused()
+          scenarios.push({
+            locale: 'zh-CN',
+            mode: 'dark',
+            width,
+            coarse: false,
+            presentation: 'anchored',
+            sheet: false,
+            alignment,
+            dock,
+          })
+          await page.evaluate(() => window.releaseFloatingPresentationFixture())
+        }
+      }
+    }
+  } finally {
+    await alignedContext.close()
   }
   await Bun.write(resolve(output, 'verification.json'), JSON.stringify(scenarios, null, 2) + '\n')
   console.log(`${scenarios.length} real browser floating presentation scenarios passed.`)

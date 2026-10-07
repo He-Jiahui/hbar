@@ -8,6 +8,7 @@ import {
   LumenFrame,
   LumenInput,
   useFloatingTrigger,
+  type FloatingAnchorAlignment,
   type FloatingResponsivePresentation,
 } from '@lumen/app-ui'
 import '@lumen/app-ui/styles.css'
@@ -21,10 +22,13 @@ interface FloatingPresentationCopy {
   readonly other: string
   readonly detail: string
 }
-interface FloatingPresentationInput {
+export interface FloatingPresentationInput {
   readonly copy: FloatingPresentationCopy
   readonly presentation: FloatingResponsivePresentation
   readonly mode: LumenMode
+  readonly alignment?: FloatingAnchorAlignment
+  readonly placement?: 'above' | 'below'
+  readonly dock?: 'start' | 'center' | 'end'
 }
 declare global {
   interface Window {
@@ -32,7 +36,13 @@ declare global {
     releaseFloatingPresentationFixture: () => void
   }
 }
-function FloatingPresentationFixture({ copy, presentation }: FloatingPresentationInput) {
+function FloatingPresentationFixture({
+  copy,
+  presentation,
+  alignment,
+  placement = 'above',
+  dock = 'start',
+}: FloatingPresentationInput) {
   const [open, setOpen] = useState(false)
   const [otherOpen, setOtherOpen] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
@@ -52,7 +62,7 @@ function FloatingPresentationFixture({ copy, presentation }: FloatingPresentatio
           {copy.other}
         </LumenButton>
       </LumenFrame>
-      <LumenFrame className="floating-fixture-controls">
+      <LumenFrame className="floating-fixture-controls" data-dock={dock}>
         <LumenButton ref={trigger} {...triggerEvents} aria-expanded={open} aria-haspopup="dialog">
           {copy.open}
         </LumenButton>
@@ -64,7 +74,8 @@ function FloatingPresentationFixture({ copy, presentation }: FloatingPresentatio
         anchorRef={trigger}
         initialFocusRef={search}
         responsivePresentation={presentation}
-        placement="above"
+        placement={placement}
+        anchorAlignment={alignment}
         label={copy.title}
         role="dialog"
         className="floating-fixture-popup"

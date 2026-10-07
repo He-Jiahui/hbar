@@ -140,4 +140,10 @@ Lumen 提交 `b8c6a007c2` 修复真实目录刷新移除获得焦点的 Retry �
 - 最终独立预览上的 3 个真实 Host 用例通过：中英文首次 Run 保持确认级别、原推理级别失效后重新确认、仅剩一级时显式恢复、删除模型后的切换，以及首发后输入和模型入口连续性。初次失败的中心点击实际落在窄屏浮层内，现点击真实露出的输入区并核对关闭与输入焦点；发送按钮检查对齐 `13f5d78d` 引入的现有 canonical Lumen 控件，保留原颜色、图形、输入、级别及 Session／Run 数量检查。fixture 显式关闭预算自动续跑。
 - 严格范围 lint、内容与 flow guard、格式、Web build、清单与实际构建输入核对通过；全库类型仍为 96 项既有诊断，修改范围无诊断。证据位于 `artifacts/desktop-elements/pre-session-thinking`、`thinking-reading-*` 及 `artifacts/desktop-experience/pre-session-thinking-*`。会话内的模型／推理菜单与权限菜单仍须分别迁移和验收。
 
+真实 Host 首发验收复现 `503c569a` 后模型菜单失去原有右边缘对齐，旧实现明确采用 `rect.right - width`。Lumen 提交 `10ab5c5a80` 增加公开 `FloatingAnchorAlignment` 与 anchored above／below 的 `anchorAlignment: start | end`；共享组件继续承担视口收敛，side placement 保持原居中，sheet 保持原布局，point／modal 类型不接收此参数。
+
+- 26 项 node 对齐、原焦点恢复与 composer 测试通过，公开入口的严格 lint、格式、Lumen 类型／构建／声明及限定 proptypes／API 生成通过。原 wildcard 控件导出与明确 Divider 导出冲突，现明确列出控件导出，保留原 root Divider 实现；公开入口身份回归通过。API 文档工具仍属于 MUI 生成流程，实际 Lumen 契约记入 README 与声明；既有 Vale 不可用限制未冒充通过。
+- 132 个 Chrome 公共能力场景通过：原 120 个语言／主题／指针／展示策略／五宽度用例，加上 12 个 start／end、左／中／右锚点、1440／320px 的边缘收敛与 below 向上翻转用例。初始 node 翻转 fixture 有足够下方空间，已改为实际视口底部锚点来验证真正的翻转；未放宽断言。证据位于 `artifacts/desktop-elements/floating-alignment-*`。
+- 公共能力先独立提交；模型调用方的恢复及首发权限菜单仍在后续独立验收中。
+
 当前清单覆盖 144 个生产 TSX 模块、3658 个元素，其中记录了 702 处低层文字未分类，合计 720 项静态缺口。Schema 展示适配、其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
