@@ -1,6 +1,7 @@
 import type { CompiledField, CompiledForm, FieldIssue, FormState } from '@hbar/schema-core'
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import type { SchemaComponentRegistry, SchemaFieldContent, SchemaFieldIntent, SchemaFieldLabels } from './registry'
+import { nativeSchemaFormPresentation, type SchemaFormPresentation } from './presentation'
 import './schema-form.css'
 
 export interface HbarSchemaFormLabels {
@@ -31,6 +32,7 @@ export interface HbarSchemaFormProps {
   readonly fieldNames?: readonly string[]
   readonly layout?: 'rows' | 'stacked'
   readonly disabled?: boolean
+  readonly presentation?: SchemaFormPresentation
   readonly renderFieldContext?: (field: CompiledField) => ReactNode
   readonly renderFieldActions?: (field: CompiledField) => ReactNode
   readonly onIntent: (intent: SchemaFieldIntent) => void
@@ -50,13 +52,16 @@ export function HbarSchemaForm({
   fieldNames,
   layout = 'rows',
   disabled = false,
+  presentation,
   renderFieldContext,
   renderFieldActions,
   onIntent,
 }: HbarSchemaFormProps) {
+  const formId = useId()
+  const View = presentation ?? nativeSchemaFormPresentation
   const visible = fieldNames ? new Set(fieldNames) : null
   return (
-    <div className="hbar-schema-form" data-field-layout={layout}>
+    <View.Form layout={layout}>
       {schema.fields
         .filter((field) => !visible || visible.has(field.name))
         .map((field) => {
@@ -64,6 +69,17 @@ export function HbarSchemaForm({
           const issue = issueFor(state, field)
           const fieldContent = content[field.name] ?? ({ status: 'idle' } as const)
           const help = labels.help?.(field)
+          const controlId = presentation ? `hbar-schema-${formId}-${field.name}` : `hbar-schema-field-${field.name}`
+          const issueId = presentation ? `${controlId}-issue` : `${field.name}-issue`
+          const contentId = presentation ? `${controlId}-content` : `${field.name}-content`
+          const describedBy =
+            [
+              help ? `${controlId}-description` : undefined,
+              issue ? issueId : undefined,
+              fieldContent.status === 'unavailable' || fieldContent.status === 'error' ? contentId : undefined,
+            ]
+              .filter(Boolean)
+              .join(' ') || undefined
           const fieldLabels: SchemaFieldLabels = {
             label: labels.resolve(field.labelKey),
             ...(help ? { help } : {}),
@@ -88,57 +104,61 @@ export function HbarSchemaForm({
               ? !registration.descriptor.resourceKinds.includes(field.resource.kind)
               : registration.descriptor.resourceKinds.length > 0)
           return (
-            <div className="hbar-schema-form-field" key={field.name} data-field={field.name}>
-              <div className="hbar-schema-form-copy">
-                <label htmlFor={`hbar-schema-field-${field.name}`}>{fieldLabels.label}</label>
-                {help && <small>{help}</small>}
-                {renderFieldContext?.(field)}
-              </div>
-              <div className="hbar-schema-form-control">
-                {incompatible ? (
-                  <p role="status">{labels.componentUnavailable(field.component)}</p>
-                ) : (
-                  <registration.Renderer
-                    field={field}
-                    value={state.draft[field.name]}
-                    raw={state.raw[field.name]}
-                    issue={issue}
-                    content={fieldContent}
-                    labels={fieldLabels}
-                    disabled={disabled}
-                    {...(controlRevisions[field.name] === undefined
-                      ? {}
-                      : { controlRevision: controlRevisions[field.name] })}
-                    onIntent={onIntent}
-                  />
-                )}
-                {issue && (
-                  <small id={`${field.name}-issue`} role="alert">
-                    {labels.issue(issue)}
-                  </small>
-                )}
-                {fieldContent.status === 'unavailable' && (
-                  <small id={`${field.name}-content`}>{labels.unavailable(fieldContent.report.reasonCode)}</small>
-                )}
-                {fieldContent.status === 'error' && (
-                  <small id={`${field.name}-content`} role="alert">
-                    {labels.contentError(fieldContent.errorCode)}
-                  </small>
-                )}
-                {!field.readOnly && state.dirty.includes(field.name) && (
-                  <button
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => onIntent({ kind: 'reset', field: field.name })}
-                  >
-                    {labels.reset}
-                  </button>
-                )}
-                {renderFieldActions?.(field)}
-              </div>
-            </div>
+            <View.Field
+              key={field.name}
+              field={field}
+              controlId={controlId}
+              label={fieldLabels.label}
+              help={help}
+              layout={layout}
+              context={renderFieldContext?.(field)}
+            >
+              {incompatible ? (
+                <View.Feedback kind="status">{labels.componentUnavailable(field.component)}</View.Feedback>
+              ) : (
+                <registration.Renderer
+                  id={controlId}
+                  aria-describedby={describedBy}
+                  field={field}
+                  value={state.draft[field.name]}
+                  raw={state.raw[field.name]}
+                  issue={issue}
+                  content={fieldContent}
+                  labels={fieldLabels}
+                  disabled={disabled}
+                  {...(controlRevisions[field.name] === undefined
+                    ? {}
+                    : { controlRevision: controlRevisions[field.name] })}
+                  onIntent={onIntent}
+                />
+              )}
+              {issue && (
+                <View.Feedback id={issueId} kind="error">
+                  {labels.issue(issue)}
+                </View.Feedback>
+              )}
+              {fieldContent.status === 'unavailable' && (
+                <View.Feedback id={contentId} kind="help">
+                  {labels.unavailable(fieldContent.report.reasonCode)}
+                </View.Feedback>
+              )}
+              {fieldContent.status === 'error' && (
+                <View.Feedback id={contentId} kind="error">
+                  {labels.contentError(fieldContent.errorCode)}
+                </View.Feedback>
+              )}
+              {!field.readOnly && state.dirty.includes(field.name) && (
+                <View.Reset
+                  field={field}
+                  label={labels.reset}
+                  disabled={disabled}
+                  onReset={() => onIntent({ kind: 'reset', field: field.name })}
+                />
+              )}
+              {renderFieldActions?.(field)}
+            </View.Field>
           )
         })}
-    </div>
+    </View.Form>
   )
 }

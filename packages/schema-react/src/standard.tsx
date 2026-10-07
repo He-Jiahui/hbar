@@ -8,6 +8,7 @@ function value(props: SchemaFieldRendererProps): string {
 }
 
 function describedBy(props: SchemaFieldRendererProps): string | undefined {
+  if (props['aria-describedby'] !== undefined) return props['aria-describedby']
   if (props.issue) return `${props.field.name}-issue`
   if (props.content.status === 'unavailable' || props.content.status === 'error') return `${props.field.name}-content`
   return undefined
@@ -17,8 +18,9 @@ function TextField(props: SchemaFieldRendererProps) {
   const numeric = props.field.type === 'integer' || props.field.type === 'number'
   return (
     <input
-      id={`hbar-schema-field-${props.field.name}`}
+      id={props.id ?? `hbar-schema-field-${props.field.name}`}
       name={props.field.name}
+      aria-labelledby={props['aria-labelledby']}
       type={numeric ? 'text' : 'text'}
       inputMode={numeric ? (props.field.type === 'integer' ? 'numeric' : 'decimal') : undefined}
       value={value(props)}
@@ -36,8 +38,9 @@ function SecretField(props: SchemaFieldRendererProps) {
   useEffect(() => setDraft(''), [props.controlRevision])
   return (
     <input
-      id={`hbar-schema-field-${props.field.name}`}
+      id={props.id ?? `hbar-schema-field-${props.field.name}`}
       name={props.field.name}
+      aria-labelledby={props['aria-labelledby']}
       type="password"
       autoComplete="new-password"
       value={draft}
@@ -56,8 +59,9 @@ function SecretField(props: SchemaFieldRendererProps) {
 function CheckBox(props: SchemaFieldRendererProps) {
   return (
     <input
-      id={`hbar-schema-field-${props.field.name}`}
+      id={props.id ?? `hbar-schema-field-${props.field.name}`}
       name={props.field.name}
+      aria-labelledby={props['aria-labelledby']}
       type="checkbox"
       checked={props.value === true}
       disabled={props.disabled || props.field.readOnly}
@@ -107,8 +111,9 @@ function ComboBox(props: SchemaFieldRendererProps) {
   return (
     <>
       <select
-        id={`hbar-schema-field-${props.field.name}`}
+        id={props.id ?? `hbar-schema-field-${props.field.name}`}
         name={props.field.name}
+        aria-labelledby={props['aria-labelledby']}
         value={selected === undefined || selected === null ? '' : optionKey(selected)}
         disabled={props.disabled || props.field.readOnly || props.content.status === 'loading'}
         aria-invalid={Boolean(props.issue) || !selectedValid}
@@ -140,8 +145,9 @@ function MultiSelect(props: SchemaFieldRendererProps) {
   return (
     <>
       <select
-        id={`hbar-schema-field-${props.field.name}`}
+        id={props.id ?? `hbar-schema-field-${props.field.name}`}
         name={props.field.name}
+        aria-labelledby={props['aria-labelledby']}
         multiple
         value={[...selectedKeys]}
         disabled={props.disabled || props.field.readOnly || props.content.status === 'loading'}
@@ -204,7 +210,7 @@ function ToggleGroup(props: SchemaFieldRendererProps) {
   }
   return (
     <div
-      id={`hbar-schema-field-${props.field.name}`}
+      id={props.id ?? `hbar-schema-field-${props.field.name}`}
       role="radiogroup"
       aria-label={props.labels.label}
       aria-invalid={Boolean(props.issue) || !selectedValid}
@@ -239,8 +245,9 @@ function ToggleGroup(props: SchemaFieldRendererProps) {
 function Switch(props: SchemaFieldRendererProps) {
   return (
     <input
-      id={`hbar-schema-field-${props.field.name}`}
+      id={props.id ?? `hbar-schema-field-${props.field.name}`}
       name={props.field.name}
+      aria-labelledby={props['aria-labelledby']}
       type="checkbox"
       role="switch"
       checked={props.value === true}
@@ -260,8 +267,9 @@ function ResourcePicker(props: SchemaFieldRendererProps) {
   return (
     <div className="hbar-schema-resource-picker">
       <input
-        id={`hbar-schema-field-${props.field.name}`}
+        id={props.id ?? `hbar-schema-field-${props.field.name}`}
         name={props.field.name}
+        aria-labelledby={props['aria-labelledby']}
         type="text"
         value={reference ? resourceReferenceLabel(reference) : value(props)}
         readOnly

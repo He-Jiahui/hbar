@@ -1,13 +1,20 @@
 import { expect, test } from '@playwright/test'
 import { createAgentCommandClient, createModelCommandClient } from '@hbar/client'
 import { encodePath } from '@hbar/schema-core'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { openSessionTool } from './support/session-tools-menu'
 import { expectLumenValue, selectLumenChoice, selectLumenOption } from './support/lumen-controls'
+
+async function removeOwnedFixture(root: string) {
+  const target = await realpath(root)
+  if (dirname(target) !== (await realpath(tmpdir())) || !basename(target).startsWith('hbar-agent-policy-ui-'))
+    throw new Error('Unexpected agent policy fixture root')
+  await rm(target, { recursive: true, force: true })
+}
 
 for (const locale of ['en-US', 'zh-CN'] as const)
   test(`Child dispatch policy and independent settings are usable: ${locale}`, async ({ browser }, info) => {
@@ -16,7 +23,11 @@ for (const locale of ['en-US', 'zh-CN'] as const)
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 960 } })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        budgetAutoContinue: false,
+      })
       const models = createModelCommandClient(host.client)
       const agents = createAgentCommandClient(host.client)
       const baseline = await models.execute('session.getModel', { sessionId: host.ready.sessionId })
@@ -88,9 +99,11 @@ for (const locale of ['en-US', 'zh-CN'] as const)
       await page.getByRole('button', { name: copy.agents.configureChild, exact: true }).click()
       await expect(page.locator('.hbar-app-react-settings-workspace')).toBeVisible()
       await expectLumenValue(page.getByRole('combobox', { name: copy.settings.scopes, exact: true }), 'session')
-      const effort = page.locator(
-        `[id="hbar-schema-field-${encodePath([{ kind: 'field', name: 'provider.thinkingLevel' }])}"]`,
-      )
+      const effort = page
+        .locator(
+          `[data-schema-form] [data-field=${JSON.stringify(encodePath([{ kind: 'field', name: 'provider.thinkingLevel' }]))}]`,
+        )
+        .getByRole('radiogroup')
       await selectLumenChoice(effort, 'string:high')
       await page.getByRole('button', { name: copy.settings.save, exact: true }).click()
       await expect
@@ -105,6 +118,6 @@ for (const locale of ['en-US', 'zh-CN'] as const)
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeOwnedFixture(root)
     }
   })

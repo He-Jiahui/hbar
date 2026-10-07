@@ -2,9 +2,9 @@ import { expect, test, type Page } from '@playwright/test'
 import { createConfigurationCommandClient, createModelCommandClient, createSettingsCommandClient } from '@hbar/client'
 import { settingsCommands } from '@hbar/contracts/commands/settings'
 import { encodePath } from '@hbar/schema-core'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, dirname, join, resolve } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
@@ -17,8 +17,8 @@ const modelPath = encodePath([{ kind: 'field', name: 'provider.model' }])
 const thinkingPath = encodePath([{ kind: 'field', name: 'provider.thinkingLevel' }])
 
 async function removeOwnedFixture(root: string): Promise<void> {
-  const target = resolve(root)
-  if (dirname(target) !== resolve(tmpdir()) || !basename(target).startsWith('hbar-provider-context-'))
+  const target = await realpath(root)
+  if (dirname(target) !== (await realpath(tmpdir())) || !basename(target).startsWith('hbar-provider-context-'))
     throw new Error('Refusing to remove an unexpected provider context fixture')
   await rm(target, { recursive: true, force: true })
 }
@@ -47,7 +47,11 @@ for (const scenario of [
     const copy = getShellCopy(scenario.locale)
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        budgetAutoContinue: false,
+      })
       const settings = createSettingsCommandClient(host.client)
       const models = createModelCommandClient(host.client)
       const providerId = 'context-default-fixture'
@@ -130,10 +134,16 @@ for (const scenario of [
       await expectLumenValue(scope, 'session')
       if (scenario.scope === 'workspace') await selectLumenOption(scope, 'workspace')
       await expectLumenValue(scope, scenario.scope)
-      const model = page.locator(`[id="hbar-schema-field-${modelPath}"]`)
+      const model = page
+        .locator('[data-schema-form]')
+        .locator(`[data-field=${JSON.stringify(modelPath)}]`)
+        .getByRole('combobox')
       const originalModelLabel = `${originalModel.providerName} · ${originalModel.modelName}`
       await expect(model).toHaveValue(originalModelLabel)
-      const thinking = page.locator(`[id="hbar-schema-field-${thinkingPath}"]`)
+      const thinking = page
+        .locator('[data-schema-form]')
+        .locator(`[data-field=${JSON.stringify(thinkingPath)}]`)
+        .getByRole('radiogroup')
       const dirtyThinking = (await thinking.getAttribute('data-value')) === 'string:low' ? 'string:high' : 'string:low'
       await selectLumenChoice(thinking, dirtyThinking)
       await expect(page.getByRole('button', { name: copy.settings.save, exact: true })).toBeEnabled()

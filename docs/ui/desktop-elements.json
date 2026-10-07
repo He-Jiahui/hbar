@@ -33228,18 +33228,18 @@
     {
       "id": "packages/app-react/src/lumen-schema-components.tsx::TextField::LumenInput::1",
       "path": "packages/app-react/src/lumen-schema-components.tsx",
-      "line": 74,
+      "line": 75,
       "owner": "TextField",
       "surface": "workbench",
       "component": "LumenInput",
       "category": "form",
       "context": null,
       "contentSources": ["value=textValue(props)"],
-      "accessibleNameSources": ["aria-describedby=describedBy(props)"],
+      "accessibleNameSources": ["aria-labelledby=props['aria-labelledby']", "aria-describedby=describedBy(props)"],
       "actionBindings": {
         "onChange": "(event) => props.onIntent({ kind: 'set', field: props.field.name, value: event.currentTarget.value })"
       },
-      "targetSources": ["id=`hbar-schema-field-${props.field.name}`", "aria-invalid=Boolean(props.issue)"],
+      "targetSources": ["id=props.id ?? `hbar-schema-field-${props.field.name}`", "aria-invalid=Boolean(props.issue)"],
       "stateSources": ["value=textValue(props)", "disabled=props.disabled"],
       "flow": "owning component contract",
       "lumenMapping": "LumenInput",
@@ -33249,18 +33249,18 @@
     {
       "id": "packages/app-react/src/lumen-schema-components.tsx::SecretField::LumenInput::1",
       "path": "packages/app-react/src/lumen-schema-components.tsx",
-      "line": 93,
+      "line": 95,
       "owner": "SecretField",
       "surface": "workbench",
       "component": "LumenInput",
       "category": "form",
       "context": null,
       "contentSources": ["value=draft"],
-      "accessibleNameSources": ["aria-describedby=describedBy(props)"],
+      "accessibleNameSources": ["aria-labelledby=props['aria-labelledby']", "aria-describedby=describedBy(props)"],
       "actionBindings": {
-        "onChange": "(event) => {\r\n        setDraft(event.currentTarget.value)\r\n        props.onIntent({ kind: 'set', field: props.field.name, value: event.currentTarget.value })\r\n      }"
+        "onChange": "(event) => {\n        setDraft(event.currentTarget.value)\n        props.onIntent({ kind: 'set', field: props.field.name, value: event.currentTarget.value })\n      }"
       },
-      "targetSources": ["id=`hbar-schema-field-${props.field.name}`", "aria-invalid=Boolean(props.issue)"],
+      "targetSources": ["id=props.id ?? `hbar-schema-field-${props.field.name}`", "aria-invalid=Boolean(props.issue)"],
       "stateSources": ["value=draft", "disabled=props.disabled"],
       "flow": "owning component contract",
       "lumenMapping": "LumenInput",
@@ -33270,18 +33270,18 @@
     {
       "id": "packages/app-react/src/lumen-schema-components.tsx::CheckBox::LumenCheckBoxControl::1",
       "path": "packages/app-react/src/lumen-schema-components.tsx",
-      "line": 113,
+      "line": 116,
       "owner": "CheckBox",
       "surface": "workbench",
       "component": "LumenCheckBoxControl",
       "category": "form",
       "context": null,
       "contentSources": [],
-      "accessibleNameSources": ["aria-describedby=describedBy(props)"],
+      "accessibleNameSources": ["aria-labelledby=props['aria-labelledby']", "aria-describedby=describedBy(props)"],
       "actionBindings": {
         "onChange": "(event) => props.onIntent({ kind: 'set', field: props.field.name, value: event.currentTarget.checked })"
       },
-      "targetSources": ["id=`hbar-schema-field-${props.field.name}`", "aria-invalid=Boolean(props.issue)"],
+      "targetSources": ["id=props.id ?? `hbar-schema-field-${props.field.name}`", "aria-invalid=Boolean(props.issue)"],
       "stateSources": ["checked=props.value === true", "disabled=props.disabled || props.field.readOnly"],
       "flow": "owning component contract",
       "lumenMapping": "LumenCheckBoxControl",
@@ -33291,7 +33291,7 @@
     {
       "id": "packages/app-react/src/lumen-schema-components.tsx::ComboBox::LumenComboBox::1",
       "path": "packages/app-react/src/lumen-schema-components.tsx",
-      "line": 159,
+      "line": 163,
       "owner": "ComboBox",
       "surface": "workbench",
       "component": "LumenComboBox",
@@ -33300,16 +33300,16 @@
       "contentSources": [
         "value=selectedId",
         "options=options",
-        "labels={\r\n        open: props.labels.openOptions(props.labels.label),\r\n        empty: props.labels.empty,\r\n        loading: props.labels.loading,\r\n      }"
+        "labels={\n        open: props.labels.openOptions(props.labels.label),\n        empty: props.labels.empty,\n        loading: props.labels.loading,\n      }"
       ],
-      "accessibleNameSources": [],
+      "accessibleNameSources": ["aria-label=props.labels.label", "aria-labelledby=props['aria-labelledby']"],
       "actionBindings": {
         "onQueryChange": "picker.setQuery",
         "onOpenChange": "picker.setOpen",
-        "onValueChange": "(id) => {\r\n        const option = options.find((candidate) => candidate.id === id)\r\n        if (option) props.onIntent({ kind: 'set', field: props.field.name, value: option.value })\r\n      }"
+        "onValueChange": "(id) => {\n        const option = options.find((candidate) => candidate.id === id)\n        if (option) props.onIntent({ kind: 'set', field: props.field.name, value: option.value })\n      }"
       },
       "targetSources": [
-        "id=`hbar-schema-field-${props.field.name}`",
+        "id=props.id ?? `hbar-schema-field-${props.field.name}`",
         "invalid=Boolean(props.issue) || Boolean(selectedId && !selectedOption)"
       ],
       "stateSources": [
@@ -33326,7 +33326,7 @@
     {
       "id": "packages/app-react/src/lumen-schema-components.tsx::MultiSelect::LumenMultiSelect::1",
       "path": "packages/app-react/src/lumen-schema-components.tsx",
-      "line": 199,
+      "line": 205,
       "owner": "MultiSelect",
       "surface": "workbench",
       "component": "LumenMultiSelect",
@@ -33334,16 +33334,16 @@
       "context": null,
       "contentSources": [
         "options=options",
-        "labels={\r\n        open: props.labels.openOptions(props.labels.label),\r\n        empty: props.labels.empty,\r\n        loading: props.labels.loading,\r\n        remove: props.labels.removeOption,\r\n      }"
+        "labels={\n        open: props.labels.openOptions(props.labels.label),\n        empty: props.labels.empty,\n        loading: props.labels.loading,\n        remove: props.labels.removeOption,\n      }"
       ],
-      "accessibleNameSources": [],
+      "accessibleNameSources": ["aria-label=props.labels.label", "aria-labelledby=props['aria-labelledby']"],
       "actionBindings": {
         "onQueryChange": "picker.setQuery",
         "onOpenChange": "picker.setOpen",
-        "onValuesChange": "(ids) => {\r\n        const values = ids.flatMap((id) => {\r\n          const option = options.find((candidate) => candidate.id === id)\r\n          return option ? [option.value] : []\r\n        })\r\n        props.onIntent({ kind: 'set', field: props.field.name, value: values })\r\n        picker.setQuery('')\r\n      }"
+        "onValuesChange": "(ids) => {\n        const values = ids.flatMap((id) => {\n          const option = options.find((candidate) => candidate.id === id)\n          return option ? [option.value] : []\n        })\n        props.onIntent({ kind: 'set', field: props.field.name, value: values })\n        picker.setQuery('')\n      }"
       },
       "targetSources": [
-        "id=`hbar-schema-field-${props.field.name}`",
+        "id=props.id ?? `hbar-schema-field-${props.field.name}`",
         "invalid=Boolean(props.issue) || missingOptions.length > 0"
       ],
       "stateSources": [
@@ -33359,19 +33359,19 @@
     {
       "id": "packages/app-react/src/lumen-schema-components.tsx::PopupSelect::LumenPopupSelect::1",
       "path": "packages/app-react/src/lumen-schema-components.tsx",
-      "line": 250,
+      "line": 258,
       "owner": "PopupSelect",
       "surface": "workbench",
       "component": "LumenPopupSelect",
       "category": "form",
       "context": null,
       "contentSources": ["value=selectedId", "options=options"],
-      "accessibleNameSources": ["aria-label=props.labels.label"],
+      "accessibleNameSources": ["aria-labelledby=props['aria-labelledby']", "aria-label=props.labels.label"],
       "actionBindings": {
-        "onValueChange": "(id) => {\r\n        const option = options.find((candidate) => candidate.id === id)\r\n        if (option) props.onIntent({ kind: 'set', field: props.field.name, value: option.value })\r\n      }"
+        "onValueChange": "(id) => {\n        const option = options.find((candidate) => candidate.id === id)\n        if (option) props.onIntent({ kind: 'set', field: props.field.name, value: option.value })\n      }"
       },
       "targetSources": [
-        "id=`hbar-schema-field-${props.field.name}`",
+        "id=props.id ?? `hbar-schema-field-${props.field.name}`",
         "aria-invalid=Boolean(props.issue) || Boolean(selectedId && !selectedOption)"
       ],
       "stateSources": [
@@ -33386,7 +33386,7 @@
     {
       "id": "packages/app-react/src/lumen-schema-components.tsx::ToggleGroup::LumenToggleGroup::1",
       "path": "packages/app-react/src/lumen-schema-components.tsx",
-      "line": 289,
+      "line": 298,
       "owner": "ToggleGroup",
       "surface": "workbench",
       "component": "LumenToggleGroup",
@@ -33395,10 +33395,10 @@
       "contentSources": ["value=selectedId", "options=options"],
       "accessibleNameSources": ["aria-label=props.labels.label"],
       "actionBindings": {
-        "onValueChange": "(id) => {\r\n        const option = options.find((candidate) => candidate.id === id)\r\n        if (option && !option.disabled) props.onIntent({ kind: 'set', field: props.field.name, value: option.value })\r\n      }"
+        "onValueChange": "(id) => {\n        const option = options.find((candidate) => candidate.id === id)\n        if (option && !option.disabled) props.onIntent({ kind: 'set', field: props.field.name, value: option.value })\n      }"
       },
       "targetSources": [
-        "id=`hbar-schema-field-${props.field.name}`",
+        "id=props.id ?? `hbar-schema-field-${props.field.name}`",
         "aria-invalid=Boolean(props.issue) || Boolean(selectedId && !selectedOption)"
       ],
       "stateSources": [
@@ -33413,18 +33413,18 @@
     {
       "id": "packages/app-react/src/lumen-schema-components.tsx::Switch::LumenToggleControl::1",
       "path": "packages/app-react/src/lumen-schema-components.tsx",
-      "line": 308,
+      "line": 317,
       "owner": "Switch",
       "surface": "workbench",
       "component": "LumenToggleControl",
       "category": "form",
       "context": null,
       "contentSources": [],
-      "accessibleNameSources": ["aria-label=props.labels.label"],
+      "accessibleNameSources": ["aria-labelledby=props['aria-labelledby']", "aria-label=props.labels.label"],
       "actionBindings": {
         "onChange": "(event) => props.onIntent({ kind: 'set', field: props.field.name, value: event.currentTarget.checked })"
       },
-      "targetSources": ["id=`hbar-schema-field-${props.field.name}`", "aria-invalid=Boolean(props.issue)"],
+      "targetSources": ["id=props.id ?? `hbar-schema-field-${props.field.name}`", "aria-invalid=Boolean(props.issue)"],
       "stateSources": ["checked=props.value === true", "disabled=props.disabled || props.field.readOnly"],
       "flow": "owning component contract",
       "lumenMapping": "LumenToggleControl",
@@ -33434,7 +33434,7 @@
     {
       "id": "packages/app-react/src/lumen-schema-components.tsx::ResourcePicker::LumenFrame::1",
       "path": "packages/app-react/src/lumen-schema-components.tsx",
-      "line": 327,
+      "line": 337,
       "owner": "ResourcePicker",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -33453,16 +33453,16 @@
     {
       "id": "packages/app-react/src/lumen-schema-components.tsx::ResourcePicker::LumenInput::1",
       "path": "packages/app-react/src/lumen-schema-components.tsx",
-      "line": 328,
+      "line": 338,
       "owner": "ResourcePicker",
       "surface": "workbench",
       "component": "LumenInput",
       "category": "form",
       "context": null,
       "contentSources": ["value=reference ? resourceReferenceLabel(reference) : textValue(props)"],
-      "accessibleNameSources": ["aria-describedby=describedBy(props)"],
+      "accessibleNameSources": ["aria-labelledby=props['aria-labelledby']", "aria-describedby=describedBy(props)"],
       "actionBindings": {},
-      "targetSources": ["id=`hbar-schema-field-${props.field.name}`", "aria-invalid=Boolean(props.issue)"],
+      "targetSources": ["id=props.id ?? `hbar-schema-field-${props.field.name}`", "aria-invalid=Boolean(props.issue)"],
       "stateSources": [
         "value=reference ? resourceReferenceLabel(reference) : textValue(props)",
         "disabled=props.disabled"
@@ -33475,7 +33475,7 @@
     {
       "id": "packages/app-react/src/lumen-schema-components.tsx::ResourcePicker::LumenButton::1",
       "path": "packages/app-react/src/lumen-schema-components.tsx",
-      "line": 338,
+      "line": 349,
       "owner": "ResourcePicker",
       "surface": "workbench",
       "component": "LumenButton",
@@ -33486,6 +33486,120 @@
       "actionBindings": { "onClick": "() => props.onIntent({ kind: 'pick', field: props.field.name })" },
       "targetSources": [],
       "stateSources": ["disabled=props.disabled || props.field.readOnly || props.content.status === 'loading'"],
+      "flow": "owning component contract",
+      "lumenMapping": "LumenButton",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/lumen-schema-presentation.tsx::module::LumenFrame::1",
+      "path": "packages/app-react/src/lumen-schema-presentation.tsx",
+      "line": 8,
+      "owner": "module",
+      "surface": "workbench",
+      "component": "LumenFrame",
+      "category": "structure",
+      "context": null,
+      "contentSources": ["children"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": ["data-field-layout=layout"],
+      "stateSources": [],
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/lumen-schema-presentation.tsx::module::LumenFrame::2",
+      "path": "packages/app-react/src/lumen-schema-presentation.tsx",
+      "line": 13,
+      "owner": "module",
+      "surface": "workbench",
+      "component": "LumenFrame",
+      "category": "structure",
+      "context": null,
+      "contentSources": [],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": ["data-field=field.name", "data-control-id=controlId"],
+      "stateSources": [],
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/lumen-schema-presentation.tsx::module::LumenFormField::1",
+      "path": "packages/app-react/src/lumen-schema-presentation.tsx",
+      "line": 14,
+      "owner": "module",
+      "surface": "workbench",
+      "component": "LumenFormField",
+      "category": "form",
+      "context": null,
+      "contentSources": ["label=label", "description=help"],
+      "accessibleNameSources": ["label=label"],
+      "actionBindings": {},
+      "targetSources": ["controlId=controlId"],
+      "stateSources": [],
+      "flow": "owning component contract",
+      "lumenMapping": "LumenFormField",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/lumen-schema-presentation.tsx::module::LumenFrame::3",
+      "path": "packages/app-react/src/lumen-schema-presentation.tsx",
+      "line": 15,
+      "owner": "module",
+      "surface": "workbench",
+      "component": "LumenFrame",
+      "category": "structure",
+      "context": null,
+      "contentSources": ["children"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/lumen-schema-presentation.tsx::module::LumenContentText::1",
+      "path": "packages/app-react/src/lumen-schema-presentation.tsx",
+      "line": 20,
+      "owner": "module",
+      "surface": "workbench",
+      "component": "LumenContentText",
+      "category": "text",
+      "context": "form.help",
+      "contentSources": ["children"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": ["id=id"],
+      "stateSources": [],
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/lumen-schema-presentation.tsx::module::LumenButton::1",
+      "path": "packages/app-react/src/lumen-schema-presentation.tsx",
+      "line": 30,
+      "owner": "module",
+      "surface": "workbench",
+      "component": "LumenButton",
+      "category": "interaction",
+      "context": null,
+      "contentSources": ["label"],
+      "accessibleNameSources": [],
+      "actionBindings": { "onClick": "onReset" },
+      "targetSources": [],
+      "stateSources": ["disabled=disabled"],
       "flow": "owning component contract",
       "lumenMapping": "LumenButton",
       "status": "composed",
@@ -35274,7 +35388,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::Suspense::1",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 344,
+      "line": 345,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "Suspense",
@@ -35293,7 +35407,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenText::1",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 346,
+      "line": 347,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenText",
@@ -35312,7 +35426,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::fieldContext::LumenText::1",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 371,
+      "line": 372,
       "owner": "fieldContext",
       "surface": "settings",
       "component": "LumenText",
@@ -35331,7 +35445,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::fieldContext::LumenText::2",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 372,
+      "line": 373,
       "owner": "fieldContext",
       "surface": "settings",
       "component": "LumenText",
@@ -35350,7 +35464,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::fieldContext::LumenText::3",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 373,
+      "line": 374,
       "owner": "fieldContext",
       "surface": "settings",
       "component": "LumenText",
@@ -35369,7 +35483,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::fieldContext::LumenText::4",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 374,
+      "line": 375,
       "owner": "fieldContext",
       "surface": "settings",
       "component": "LumenText",
@@ -35388,7 +35502,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::fieldActions::SettingsContentRecovery::1",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 388,
+      "line": 389,
       "owner": "fieldActions",
       "surface": "settings",
       "component": "SettingsContentRecovery",
@@ -35407,7 +35521,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::fieldActions::LumenText::1",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 391,
+      "line": 392,
       "owner": "fieldActions",
       "surface": "settings",
       "component": "LumenText",
@@ -35426,7 +35540,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::fieldActions::LumenButton::1",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 392,
+      "line": 393,
       "owner": "fieldActions",
       "surface": "settings",
       "component": "LumenButton",
@@ -35445,14 +35559,14 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenFrame::1",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 402,
+      "line": 403,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "(actionError || (entry?.status === 'ready' && entry.error)) && (\r\n        <LumenText as=\"p\" role=\"alert\">\r\n          {labels.error(actionError ?? entry?.error ?? 'EXECUTION_FAILED')}\r\n        </LumenText>\r\n      )"
+        "(actionError || (entry?.status === 'ready' && entry.error)) && (\n        <LumenText as=\"p\" role=\"alert\">\n          {labels.error(actionError ?? entry?.error ?? 'EXECUTION_FAILED')}\n        </LumenText>\n      )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -35466,7 +35580,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenPageHeader::1",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 408,
+      "line": 409,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenPageHeader",
@@ -35485,7 +35599,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenIconButton::1",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 412,
+      "line": 413,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenIconButton",
@@ -35504,7 +35618,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenIcon::1",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 416,
+      "line": 417,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenIcon",
@@ -35523,13 +35637,13 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenFrame::2",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 421,
+      "line": 422,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": ["[source:422; ConditionalExpression] fixedScopeLabel", "headerActions"],
+      "contentSources": ["[source:423; ConditionalExpression] fixedScopeLabel", "headerActions"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
@@ -35542,7 +35656,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenPopupSelect::1",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 423,
+      "line": 424,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenPopupSelect",
@@ -35550,7 +35664,7 @@
       "context": null,
       "contentSources": [
         "value=entry?.scope.kind ?? 'global'",
-        "options=[\r\n                  { id: 'global', label: labels.scopeOption('global', null) },\r\n                  {\r\n                    id: 'workspace',\r\n                    label: labels.scopeOption('workspace', workspaceTargetName),\r\n                    disabled: !workspaceId,\r\n                  },\r\n                  { id: 'session', label: labels.scopeOption('session', sessionTargetName), disabled: !sessionId },\r\n                ]"
+        "options=[\n                  { id: 'global', label: labels.scopeOption('global', null) },\n                  {\n                    id: 'workspace',\n                    label: labels.scopeOption('workspace', workspaceTargetName),\n                    disabled: !workspaceId,\n                  },\n                  { id: 'session', label: labels.scopeOption('session', sessionTargetName), disabled: !sessionId },\n                ]"
       ],
       "accessibleNameSources": ["aria-label=labels.scopes"],
       "actionBindings": { "onValueChange": "onScopeChange" },
@@ -35564,7 +35678,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenText::2",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 440,
+      "line": 441,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenText",
@@ -35583,7 +35697,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenFrame::3",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 449,
+      "line": 450,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenFrame",
@@ -35602,14 +35716,14 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenFrame::4",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 450,
+      "line": 451,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "groups.map((group) => (\r\n            <LumenNavigationButton\r\n              key={group.id}\r\n              data-settings-group={group.id}\r\n              size=\"s\"\r\n              selected={activeGroupId === group.id}\r\n              onClick={() => selectGroup(group.id)}\r\n            >\r\n              <LumenIcon icon={groupIcons[presentationByGroup.get(group.id)?.icon ?? 'settings']} tier=\"md\" />\r\n              <LumenText as=\"span\" className=\"hbar-app-react-settings-group-label\">\r\n                {group.label}\r\n              </LumenText>\r\n            </LumenNavigationButton>\r\n          ))"
+        "groups.map((group) => (\n            <LumenNavigationButton\n              key={group.id}\n              data-settings-group={group.id}\n              size=\"s\"\n              selected={activeGroupId === group.id}\n              onClick={() => selectGroup(group.id)}\n            >\n              <LumenIcon icon={groupIcons[presentationByGroup.get(group.id)?.icon ?? 'settings']} tier=\"md\" />\n              <LumenText as=\"span\" className=\"hbar-app-react-settings-group-label\">\n                {group.label}\n              </LumenText>\n            </LumenNavigationButton>\n          ))"
       ],
       "accessibleNameSources": ["aria-label=labels.groups"],
       "actionBindings": {},
@@ -35623,7 +35737,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenNavigationButton::1",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 452,
+      "line": 453,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenNavigationButton",
@@ -35642,7 +35756,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenIcon::2",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 459,
+      "line": 460,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenIcon",
@@ -35661,7 +35775,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenText::3",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 460,
+      "line": 461,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenText",
@@ -35680,14 +35794,14 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenFrame::5",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 466,
+      "line": 467,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "[source:477; ConditionalExpression] localCustomGroup, entry, entry.status, entry.description, entry.schema, entry.form"
+        "[source:478; ConditionalExpression] localCustomGroup, entry, entry.status, entry.description, entry.schema, entry.form"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -35701,7 +35815,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenFrame::6",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 467,
+      "line": 468,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenFrame",
@@ -35720,7 +35834,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenPopupSelect::2",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 468,
+      "line": 469,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenPopupSelect",
@@ -35742,7 +35856,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenFrame::7",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 478,
+      "line": 479,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenFrame",
@@ -35761,7 +35875,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenFrame::8",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 479,
+      "line": 480,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenFrame",
@@ -35780,7 +35894,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenText::4",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 482,
+      "line": 483,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenText",
@@ -35799,7 +35913,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenFrame::9",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 486,
+      "line": 487,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenFrame",
@@ -35818,7 +35932,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenText::5",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 487,
+      "line": 488,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenText",
@@ -35837,7 +35951,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenButton::1",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 490,
+      "line": 491,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenButton",
@@ -35856,7 +35970,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenFrame::10",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 497,
+      "line": 498,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenFrame",
@@ -35875,7 +35989,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenText::6",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 498,
+      "line": 499,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenText",
@@ -35894,7 +36008,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenText::7",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 499,
+      "line": 500,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenText",
@@ -35913,7 +36027,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenFrame::11",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 502,
+      "line": 503,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenFrame",
@@ -35932,13 +36046,13 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenFrame::12",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 503,
+      "line": 504,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": ["[source:504; BinaryExpression] suspendedCustomGroup"],
+      "contentSources": ["[source:505; BinaryExpression] suspendedCustomGroup"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
@@ -35951,7 +36065,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::SettingsRecipe::1",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 505,
+      "line": 506,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "SettingsRecipe",
@@ -35970,14 +36084,14 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::HbarSchemaForm::1",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 508,
+      "line": 509,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "HbarSchemaForm",
       "category": "form",
       "context": null,
       "contentSources": [
-        "labels={\r\n                              ...labels.form,\r\n                              resolve: labels.resolve,\r\n                              help: (field) => {\r\n                                const key = definitions.get(field.name)?.helpKey\r\n                                return key ? labels.resolve(key) : undefined\r\n                              },\r\n                            }",
+        "labels={\n                              ...labels.form,\n                              resolve: labels.resolve,\n                              help: (field) => {\n                                const key = definitions.get(field.name)?.helpKey\n                                return key ? labels.resolve(key) : undefined\n                              },\n                            }",
         "content=entry.content"
       ],
       "accessibleNameSources": [],
@@ -35992,7 +36106,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenFrame::13",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 535,
+      "line": 537,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenFrame",
@@ -36011,7 +36125,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenFrame::14",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 536,
+      "line": 538,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenFrame",
@@ -36030,7 +36144,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenText::8",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 537,
+      "line": 539,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenText",
@@ -36049,14 +36163,14 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenFrame::15",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 540,
+      "line": 542,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "unknown ? (\r\n                        <LumenButton tone=\"warning\" disabled={!connected} onClick={() => runFormCommand('reconcile')}>\r\n                          {labels.reconcile}\r\n                        </LumenButton>\r\n                      ) : (\r\n                        <LumenButton tone=\"primary\" disabled={!canSave} onClick={() => runFormCommand('submit')}>\r\n                          {labels.save}\r\n                        </LumenButton>\r\n                      )"
+        "unknown ? (\n                        <LumenButton tone=\"warning\" disabled={!connected} onClick={() => runFormCommand('reconcile')}>\n                          {labels.reconcile}\n                        </LumenButton>\n                      ) : (\n                        <LumenButton tone=\"primary\" disabled={!canSave} onClick={() => runFormCommand('submit')}>\n                          {labels.save}\n                        </LumenButton>\n                      )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -36070,7 +36184,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenButton::2",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 541,
+      "line": 543,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenButton",
@@ -36089,7 +36203,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenButton::3",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 545,
+      "line": 547,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenButton",
@@ -36108,7 +36222,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenButton::4",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 549,
+      "line": 551,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenButton",
@@ -36127,7 +36241,7 @@
     {
       "id": "packages/app-react/src/lumen-settings-workspace.tsx::HbarSettingsWorkspace::LumenText::9",
       "path": "packages/app-react/src/lumen-settings-workspace.tsx",
-      "line": 562,
+      "line": 564,
       "owner": "HbarSettingsWorkspace",
       "surface": "settings",
       "component": "LumenText",
@@ -63703,16 +63817,16 @@
     {
       "id": "packages/app-react/src/settings-content-recovery.tsx::SettingsContentRecovery::LumenFrame::1",
       "path": "packages/app-react/src/settings-content-recovery.tsx",
-      "line": 193,
+      "line": 195,
       "owner": "SettingsContentRecovery",
       "surface": "settings",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "controller.pending && (\r\n        <LumenText as=\"small\" role=\"status\">\r\n          {labels.loading}\r\n        </LumenText>\r\n      )",
-        "!controller.connected && (\r\n        <LumenText as=\"small\" role=\"status\">\r\n          {labels.offline}\r\n        </LumenText>\r\n      )",
-        "controller.error && (\r\n        <LumenText as=\"small\" role=\"alert\">\r\n          {labels.error(controller.error)}\r\n        </LumenText>\r\n      )"
+        "controller.pending && (\n        <LumenText as=\"small\" role=\"status\">\n          {labels.loading}\n        </LumenText>\n      )",
+        "!controller.connected && (\n        <LumenText as=\"small\" role=\"status\">\n          {labels.offline}\n        </LumenText>\n      )",
+        "controller.error && (\n        <LumenText as=\"small\" role=\"alert\">\n          {labels.error(controller.error)}\n        </LumenText>\n      )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -63726,7 +63840,7 @@
     {
       "id": "packages/app-react/src/settings-content-recovery.tsx::SettingsContentRecovery::LumenButton::1",
       "path": "packages/app-react/src/settings-content-recovery.tsx",
-      "line": 194,
+      "line": 196,
       "owner": "SettingsContentRecovery",
       "surface": "settings",
       "component": "LumenButton",
@@ -63745,7 +63859,7 @@
     {
       "id": "packages/app-react/src/settings-content-recovery.tsx::SettingsContentRecovery::LumenText::1",
       "path": "packages/app-react/src/settings-content-recovery.tsx",
-      "line": 198,
+      "line": 200,
       "owner": "SettingsContentRecovery",
       "surface": "settings",
       "component": "LumenText",
@@ -63764,7 +63878,7 @@
     {
       "id": "packages/app-react/src/settings-content-recovery.tsx::SettingsContentRecovery::LumenText::2",
       "path": "packages/app-react/src/settings-content-recovery.tsx",
-      "line": 203,
+      "line": 205,
       "owner": "SettingsContentRecovery",
       "surface": "settings",
       "component": "LumenText",
@@ -63783,7 +63897,7 @@
     {
       "id": "packages/app-react/src/settings-content-recovery.tsx::SettingsContentRecovery::LumenText::3",
       "path": "packages/app-react/src/settings-content-recovery.tsx",
-      "line": 208,
+      "line": 210,
       "owner": "SettingsContentRecovery",
       "surface": "settings",
       "component": "LumenText",
@@ -65233,21 +65347,21 @@
     {
       "id": "packages/app-react/src/storage-location-settings.tsx::HbarStorageLocationSettings::LumenFrame::1",
       "path": "packages/app-react/src/storage-location-settings.tsx",
-      "line": 47,
+      "line": 48,
       "owner": "HbarStorageLocationSettings",
       "surface": "settings",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "state.snapshot && (\r\n        <LumenFrame className=\"hbar-storage-settings-pointer\">\r\n          <LumenText as=\"span\" variant=\"label\">\r\n            {labels.pointer}\r\n          </LumenText>\r\n          <LumenText as=\"code\">{state.snapshot.pointerFile}</LumenText>\r\n        </LumenFrame>\r\n      )",
-        "[source:62; BinaryExpression] form, state.snapshot",
-        "state.loading && (\r\n        <LumenText as=\"p\" role=\"status\">\r\n          {labels.loading}\r\n        </LumenText>\r\n      )",
-        "state.error && (\r\n        <LumenText as=\"p\" role=\"alert\">\r\n          {labels.error(state.error)}\r\n        </LumenText>\r\n      )",
-        "unknown && (\r\n        <LumenText as=\"p\" role=\"status\">\r\n          {labels.unknown}\r\n        </LumenText>\r\n      )",
-        "state.snapshot?.restartRequired && (\r\n        <LumenText as=\"p\" role=\"status\">\r\n          {labels.pending}\r\n        </LumenText>\r\n      )",
-        "form?.status === 'succeeded' && !state.snapshot?.restartRequired && (\r\n        <LumenText as=\"p\" role=\"status\">\r\n          {labels.saved}\r\n        </LumenText>\r\n      )",
-        "state.restart === 'manual' && (\r\n        <LumenText as=\"p\" role=\"status\">\r\n          {labels.manualRestart}\r\n        </LumenText>\r\n      )"
+        "state.snapshot && (\n        <LumenFrame className=\"hbar-storage-settings-pointer\">\n          <LumenText as=\"span\" variant=\"label\">\n            {labels.pointer}\n          </LumenText>\n          <LumenText as=\"code\">{state.snapshot.pointerFile}</LumenText>\n        </LumenFrame>\n      )",
+        "[source:63; BinaryExpression] form, state.snapshot",
+        "state.loading && (\n        <LumenText as=\"p\" role=\"status\">\n          {labels.loading}\n        </LumenText>\n      )",
+        "state.error && (\n        <LumenText as=\"p\" role=\"alert\">\n          {labels.error(state.error)}\n        </LumenText>\n      )",
+        "unknown && (\n        <LumenText as=\"p\" role=\"status\">\n          {labels.unknown}\n        </LumenText>\n      )",
+        "state.snapshot?.restartRequired && (\n        <LumenText as=\"p\" role=\"status\">\n          {labels.pending}\n        </LumenText>\n      )",
+        "form?.status === 'succeeded' && !state.snapshot?.restartRequired && (\n        <LumenText as=\"p\" role=\"status\">\n          {labels.saved}\n        </LumenText>\n      )",
+        "state.restart === 'manual' && (\n        <LumenText as=\"p\" role=\"status\">\n          {labels.manualRestart}\n        </LumenText>\n      )"
       ],
       "accessibleNameSources": ["aria-label=labels.title"],
       "actionBindings": {},
@@ -65261,7 +65375,7 @@
     {
       "id": "packages/app-react/src/storage-location-settings.tsx::HbarStorageLocationSettings::LumenText::1",
       "path": "packages/app-react/src/storage-location-settings.tsx",
-      "line": 48,
+      "line": 49,
       "owner": "HbarStorageLocationSettings",
       "surface": "settings",
       "component": "LumenText",
@@ -65280,7 +65394,7 @@
     {
       "id": "packages/app-react/src/storage-location-settings.tsx::HbarStorageLocationSettings::LumenText::2",
       "path": "packages/app-react/src/storage-location-settings.tsx",
-      "line": 51,
+      "line": 52,
       "owner": "HbarStorageLocationSettings",
       "surface": "settings",
       "component": "LumenText",
@@ -65299,7 +65413,7 @@
     {
       "id": "packages/app-react/src/storage-location-settings.tsx::HbarStorageLocationSettings::LumenFrame::2",
       "path": "packages/app-react/src/storage-location-settings.tsx",
-      "line": 55,
+      "line": 56,
       "owner": "HbarStorageLocationSettings",
       "surface": "settings",
       "component": "LumenFrame",
@@ -65318,7 +65432,7 @@
     {
       "id": "packages/app-react/src/storage-location-settings.tsx::HbarStorageLocationSettings::LumenText::3",
       "path": "packages/app-react/src/storage-location-settings.tsx",
-      "line": 56,
+      "line": 57,
       "owner": "HbarStorageLocationSettings",
       "surface": "settings",
       "component": "LumenText",
@@ -65337,7 +65451,7 @@
     {
       "id": "packages/app-react/src/storage-location-settings.tsx::HbarStorageLocationSettings::LumenText::4",
       "path": "packages/app-react/src/storage-location-settings.tsx",
-      "line": 59,
+      "line": 60,
       "owner": "HbarStorageLocationSettings",
       "surface": "settings",
       "component": "LumenText",
@@ -65356,7 +65470,7 @@
     {
       "id": "packages/app-react/src/storage-location-settings.tsx::HbarStorageLocationSettings::HbarSchemaForm::1",
       "path": "packages/app-react/src/storage-location-settings.tsx",
-      "line": 63,
+      "line": 64,
       "owner": "HbarStorageLocationSettings",
       "surface": "settings",
       "component": "HbarSchemaForm",
@@ -65365,10 +65479,10 @@
       "contentSources": ["labels=labels.form"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onIntent": "(intent) => {\r\n            if (intent.kind === 'set' && typeof intent.value === 'string') controller.edit(intent.field, intent.value)\r\n            else if (intent.kind === 'reset') controller.reset(intent.field)\r\n          }"
+        "onIntent": "(intent) => {\n            if (intent.kind === 'set' && typeof intent.value === 'string') controller.edit(intent.field, intent.value)\n            else if (intent.kind === 'reset') controller.reset(intent.field)\n          }"
       },
       "targetSources": [
-        "renderFieldContext=(field) => (\r\n            <LumenText as=\"small\" tone=\"muted\">\r\n              {labels.active(state.snapshot!.active[field.name as keyof typeof state.snapshot.active])}\r\n            </LumenText>\r\n          )"
+        "renderFieldContext=(field) => (\n            <LumenText as=\"small\" tone=\"muted\">\n              {labels.active(state.snapshot!.active[field.name as keyof typeof state.snapshot.active])}\n            </LumenText>\n          )"
       ],
       "stateSources": ["state=form", "disabled=!connected || state.loading"],
       "flow": "owning component contract",
@@ -65379,7 +65493,7 @@
     {
       "id": "packages/app-react/src/storage-location-settings.tsx::HbarStorageLocationSettings::LumenText::5",
       "path": "packages/app-react/src/storage-location-settings.tsx",
-      "line": 71,
+      "line": 73,
       "owner": "HbarStorageLocationSettings",
       "surface": "settings",
       "component": "LumenText",
@@ -65398,7 +65512,7 @@
     {
       "id": "packages/app-react/src/storage-location-settings.tsx::HbarStorageLocationSettings::LumenText::6",
       "path": "packages/app-react/src/storage-location-settings.tsx",
-      "line": 82,
+      "line": 84,
       "owner": "HbarStorageLocationSettings",
       "surface": "settings",
       "component": "LumenText",
@@ -65417,7 +65531,7 @@
     {
       "id": "packages/app-react/src/storage-location-settings.tsx::HbarStorageLocationSettings::LumenText::7",
       "path": "packages/app-react/src/storage-location-settings.tsx",
-      "line": 87,
+      "line": 89,
       "owner": "HbarStorageLocationSettings",
       "surface": "settings",
       "component": "LumenText",
@@ -65436,7 +65550,7 @@
     {
       "id": "packages/app-react/src/storage-location-settings.tsx::HbarStorageLocationSettings::LumenText::8",
       "path": "packages/app-react/src/storage-location-settings.tsx",
-      "line": 92,
+      "line": 94,
       "owner": "HbarStorageLocationSettings",
       "surface": "settings",
       "component": "LumenText",
@@ -65455,7 +65569,7 @@
     {
       "id": "packages/app-react/src/storage-location-settings.tsx::HbarStorageLocationSettings::LumenText::9",
       "path": "packages/app-react/src/storage-location-settings.tsx",
-      "line": 97,
+      "line": 99,
       "owner": "HbarStorageLocationSettings",
       "surface": "settings",
       "component": "LumenText",
@@ -65474,7 +65588,7 @@
     {
       "id": "packages/app-react/src/storage-location-settings.tsx::HbarStorageLocationSettings::LumenText::10",
       "path": "packages/app-react/src/storage-location-settings.tsx",
-      "line": 102,
+      "line": 104,
       "owner": "HbarStorageLocationSettings",
       "surface": "settings",
       "component": "LumenText",
@@ -65493,7 +65607,7 @@
     {
       "id": "packages/app-react/src/storage-location-settings.tsx::HbarStorageLocationSettings::LumenText::11",
       "path": "packages/app-react/src/storage-location-settings.tsx",
-      "line": 107,
+      "line": 109,
       "owner": "HbarStorageLocationSettings",
       "surface": "settings",
       "component": "LumenText",
@@ -65512,15 +65626,15 @@
     {
       "id": "packages/app-react/src/storage-location-settings.tsx::HbarStorageLocationSettings::LumenFrame::3",
       "path": "packages/app-react/src/storage-location-settings.tsx",
-      "line": 111,
+      "line": 113,
       "owner": "HbarStorageLocationSettings",
       "surface": "settings",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "unknown && (\r\n          <LumenButton disabled={!connected || busy} onClick={() => void controller.retryOriginal()}>\r\n            {labels.retryOriginal}\r\n          </LumenButton>\r\n        )",
-        "state.snapshot?.restartRequired && (\r\n          <LumenButton\r\n            variant=\"text\"\r\n            disabled={\r\n              !connected ||\r\n              busy ||\r\n              unknown ||\r\n              state.restart === 'pending' ||\r\n              state.restart === 'accepted' ||\r\n              Boolean(form?.dirty.length)\r\n            }\r\n            onClick={() => void controller.restart()}\r\n          >\r\n            {state.restart === 'pending' || state.restart === 'accepted' ? labels.restarting : labels.restart}\r\n          </LumenButton>\r\n        )"
+        "unknown && (\n          <LumenButton disabled={!connected || busy} onClick={() => void controller.retryOriginal()}>\n            {labels.retryOriginal}\n          </LumenButton>\n        )",
+        "state.snapshot?.restartRequired && (\n          <LumenButton\n            variant=\"text\"\n            disabled={\n              !connected ||\n              busy ||\n              unknown ||\n              state.restart === 'pending' ||\n              state.restart === 'accepted' ||\n              Boolean(form?.dirty.length)\n            }\n            onClick={() => void controller.restart()}\n          >\n            {state.restart === 'pending' || state.restart === 'accepted' ? labels.restarting : labels.restart}\n          </LumenButton>\n        )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -65534,7 +65648,7 @@
     {
       "id": "packages/app-react/src/storage-location-settings.tsx::HbarStorageLocationSettings::LumenButton::1",
       "path": "packages/app-react/src/storage-location-settings.tsx",
-      "line": 113,
+      "line": 115,
       "owner": "HbarStorageLocationSettings",
       "surface": "settings",
       "component": "LumenButton",
@@ -65553,7 +65667,7 @@
     {
       "id": "packages/app-react/src/storage-location-settings.tsx::HbarStorageLocationSettings::LumenButton::2",
       "path": "packages/app-react/src/storage-location-settings.tsx",
-      "line": 117,
+      "line": 119,
       "owner": "HbarStorageLocationSettings",
       "surface": "settings",
       "component": "LumenButton",
@@ -65572,7 +65686,7 @@
     {
       "id": "packages/app-react/src/storage-location-settings.tsx::HbarStorageLocationSettings::LumenButton::3",
       "path": "packages/app-react/src/storage-location-settings.tsx",
-      "line": 123,
+      "line": 125,
       "owner": "HbarStorageLocationSettings",
       "surface": "settings",
       "component": "LumenButton",
@@ -65591,7 +65705,7 @@
     {
       "id": "packages/app-react/src/storage-location-settings.tsx::HbarStorageLocationSettings::LumenButton::4",
       "path": "packages/app-react/src/storage-location-settings.tsx",
-      "line": 130,
+      "line": 132,
       "owner": "HbarStorageLocationSettings",
       "surface": "settings",
       "component": "LumenButton",
@@ -65610,7 +65724,7 @@
     {
       "id": "packages/app-react/src/storage-location-settings.tsx::HbarStorageLocationSettings::LumenButton::5",
       "path": "packages/app-react/src/storage-location-settings.tsx",
-      "line": 134,
+      "line": 136,
       "owner": "HbarStorageLocationSettings",
       "surface": "settings",
       "component": "LumenButton",
@@ -65623,7 +65737,7 @@
       "actionBindings": { "onClick": "() => void controller.restart()" },
       "targetSources": [],
       "stateSources": [
-        "disabled=!connected ||\r\n              busy ||\r\n              unknown ||\r\n              state.restart === 'pending' ||\r\n              state.restart === 'accepted' ||\r\n              Boolean(form?.dirty.length)"
+        "disabled=!connected ||\n              busy ||\n              unknown ||\n              state.restart === 'pending' ||\n              state.restart === 'accepted' ||\n              Boolean(form?.dirty.length)"
       ],
       "flow": "owning component contract",
       "lumenMapping": "LumenButton",
@@ -72556,17 +72670,177 @@
       "issues": []
     },
     {
-      "id": "packages/schema-react/src/form.tsx::HbarSchemaForm::div::1",
+      "id": "packages/schema-react/src/form.tsx::HbarSchemaForm::View.Form::1",
       "path": "packages/schema-react/src/form.tsx",
-      "line": 59,
+      "line": 64,
       "owner": "HbarSchemaForm",
+      "surface": "workbench",
+      "component": "View.Form",
+      "category": "form",
+      "context": null,
+      "contentSources": [
+        "[source:65; CallExpression] schema.fields\n        .filter((field) => !visible || visible.has(field.name))\n        .map, schema.fields\n        .filter, schema.fields, field, visible, visible.has, field.name, registration, components.resolve, field.component, issue, issueFor, state, fieldContent, content, status, const, help, labels.help, controlId, presentation, formId, issueId, contentId, describedBy, [\n              help ? `${controlId}-description` : undefined,\n              issue ? issueId : undefined,\n              fieldContent.status === 'unavailable' || fieldContent.status === 'error' ? contentId : undefined,\n            ]\n              .filter(Boolean)\n              .join, [\n              help ? `${controlId}-description` : undefined,\n              issue ? issueId : undefined,\n              fieldContent.status === 'unavailable' || fieldContent.status === 'error' ? contentId : undefined,\n            ]\n              .filter, undefined, fieldContent.status, Boolean, fieldLabels, SchemaFieldLabels, label, labels.resolve, field.labelKey, reset, labels.reset, loading, labels.loading, empty, labels.empty, unavailable, labels.unavailable, contentError, labels.contentError, selectedInvalid, labels.selectedInvalid, labels.issue, option, labels.option, contentText, labels.contentText, pickResource, labels.pickResource, openOptions, labels.openOptions, removeOption, labels.removeOption, incompatible, registration.descriptor.fieldTypes.includes, registration.descriptor.fieldTypes, registration.descriptor, field.type, registration.descriptor.multiple, field.multiple, field.resource, registration.descriptor.resourceKinds.includes, registration.descriptor.resourceKinds, field.resource.kind, registration.descriptor.resourceKinds.length"
+      ],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "owning component contract",
+      "lumenMapping": "View.Form",
+      "status": "schema-boundary",
+      "issues": []
+    },
+    {
+      "id": "packages/schema-react/src/form.tsx::HbarSchemaForm::View.Field::1",
+      "path": "packages/schema-react/src/form.tsx",
+      "line": 107,
+      "owner": "HbarSchemaForm",
+      "surface": "workbench",
+      "component": "View.Field",
+      "category": "structure",
+      "context": null,
+      "contentSources": [
+        "[source:116; ConditionalExpression] incompatible",
+        "issue && (\n                <View.Feedback id={issueId} kind=\"error\">\n                  {labels.issue(issue)}\n                </View.Feedback>\n              )",
+        "fieldContent.status === 'unavailable' && (\n                <View.Feedback id={contentId} kind=\"help\">\n                  {labels.unavailable(fieldContent.report.reasonCode)}\n                </View.Feedback>\n              )",
+        "fieldContent.status === 'error' && (\n                <View.Feedback id={contentId} kind=\"error\">\n                  {labels.contentError(fieldContent.errorCode)}\n                </View.Feedback>\n              )",
+        "!field.readOnly && state.dirty.includes(field.name) && (\n                <View.Reset\n                  field={field}\n                  label={labels.reset}\n                  disabled={disabled}\n                  onReset={() => onIntent({ kind: 'reset', field: field.name })}\n                />\n              )",
+        "renderFieldActions?.(field)",
+        "label=fieldLabels.label"
+      ],
+      "accessibleNameSources": ["label=fieldLabels.label"],
+      "actionBindings": {},
+      "targetSources": ["key=field.name", "field=field", "controlId=controlId"],
+      "stateSources": [],
+      "flow": "owning flow layout",
+      "lumenMapping": "View.Field",
+      "status": "schema-boundary",
+      "issues": []
+    },
+    {
+      "id": "packages/schema-react/src/form.tsx::HbarSchemaForm::View.Feedback::1",
+      "path": "packages/schema-react/src/form.tsx",
+      "line": 117,
+      "owner": "HbarSchemaForm",
+      "surface": "workbench",
+      "component": "View.Feedback",
+      "category": "feedback",
+      "context": null,
+      "contentSources": ["labels.componentUnavailable(field.component)"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "owning component contract",
+      "lumenMapping": "View.Feedback",
+      "status": "schema-boundary",
+      "issues": []
+    },
+    {
+      "id": "packages/schema-react/src/form.tsx::HbarSchemaForm::registration.Renderer::1",
+      "path": "packages/schema-react/src/form.tsx",
+      "line": 119,
+      "owner": "HbarSchemaForm",
+      "surface": "workbench",
+      "component": "registration.Renderer",
+      "category": "structure",
+      "context": null,
+      "contentSources": ["value=state.draft[field.name]", "content=fieldContent", "labels=fieldLabels"],
+      "accessibleNameSources": ["aria-describedby=describedBy"],
+      "actionBindings": { "onIntent": "onIntent" },
+      "targetSources": ["id=controlId", "field=field"],
+      "stateSources": ["value=state.draft[field.name]", "disabled=disabled"],
+      "flow": "owning flow layout",
+      "lumenMapping": "registration.Renderer",
+      "status": "schema-boundary",
+      "issues": []
+    },
+    {
+      "id": "packages/schema-react/src/form.tsx::HbarSchemaForm::View.Feedback::2",
+      "path": "packages/schema-react/src/form.tsx",
+      "line": 136,
+      "owner": "HbarSchemaForm",
+      "surface": "workbench",
+      "component": "View.Feedback",
+      "category": "feedback",
+      "context": null,
+      "contentSources": ["labels.issue(issue)"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": ["id=issueId"],
+      "stateSources": [],
+      "flow": "owning component contract",
+      "lumenMapping": "View.Feedback",
+      "status": "schema-boundary",
+      "issues": []
+    },
+    {
+      "id": "packages/schema-react/src/form.tsx::HbarSchemaForm::View.Feedback::3",
+      "path": "packages/schema-react/src/form.tsx",
+      "line": 141,
+      "owner": "HbarSchemaForm",
+      "surface": "workbench",
+      "component": "View.Feedback",
+      "category": "feedback",
+      "context": null,
+      "contentSources": ["labels.unavailable(fieldContent.report.reasonCode)"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": ["id=contentId"],
+      "stateSources": [],
+      "flow": "owning component contract",
+      "lumenMapping": "View.Feedback",
+      "status": "schema-boundary",
+      "issues": []
+    },
+    {
+      "id": "packages/schema-react/src/form.tsx::HbarSchemaForm::View.Feedback::4",
+      "path": "packages/schema-react/src/form.tsx",
+      "line": 146,
+      "owner": "HbarSchemaForm",
+      "surface": "workbench",
+      "component": "View.Feedback",
+      "category": "feedback",
+      "context": null,
+      "contentSources": ["labels.contentError(fieldContent.errorCode)"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": ["id=contentId"],
+      "stateSources": [],
+      "flow": "owning component contract",
+      "lumenMapping": "View.Feedback",
+      "status": "schema-boundary",
+      "issues": []
+    },
+    {
+      "id": "packages/schema-react/src/form.tsx::HbarSchemaForm::View.Reset::1",
+      "path": "packages/schema-react/src/form.tsx",
+      "line": 151,
+      "owner": "HbarSchemaForm",
+      "surface": "workbench",
+      "component": "View.Reset",
+      "category": "structure",
+      "context": null,
+      "contentSources": ["label=labels.reset"],
+      "accessibleNameSources": ["label=labels.reset"],
+      "actionBindings": { "onReset": "() => onIntent({ kind: 'reset', field: field.name })" },
+      "targetSources": ["field=field"],
+      "stateSources": ["disabled=disabled"],
+      "flow": "owning flow layout",
+      "lumenMapping": "View.Reset",
+      "status": "schema-boundary",
+      "issues": []
+    },
+    {
+      "id": "packages/schema-react/src/presentation.tsx::module::div::1",
+      "path": "packages/schema-react/src/presentation.tsx",
+      "line": 40,
+      "owner": "module",
       "surface": "workbench",
       "component": "div",
       "category": "structure",
       "context": null,
-      "contentSources": [
-        "[source:60; CallExpression] schema.fields\r\n        .filter((field) => !visible || visible.has(field.name))\r\n        .map, schema.fields\r\n        .filter, schema.fields, field, visible, visible.has, field.name, registration, components.resolve, field.component, issue, issueFor, state, fieldContent, content, status, const, help, labels.help, fieldLabels, SchemaFieldLabels, label, labels.resolve, field.labelKey, reset, labels.reset, loading, labels.loading, empty, labels.empty, unavailable, labels.unavailable, contentError, labels.contentError, selectedInvalid, labels.selectedInvalid, labels.issue, option, labels.option, contentText, labels.contentText, pickResource, labels.pickResource, openOptions, labels.openOptions, removeOption, labels.removeOption, incompatible, registration.descriptor.fieldTypes.includes, registration.descriptor.fieldTypes, registration.descriptor, field.type, registration.descriptor.multiple, field.multiple, field.resource, registration.descriptor.resourceKinds.includes, registration.descriptor.resourceKinds, field.resource.kind, registration.descriptor.resourceKinds.length"
-      ],
+      "contentSources": ["children"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": ["data-field-layout=layout"],
@@ -72577,10 +72851,10 @@
       "issues": []
     },
     {
-      "id": "packages/schema-react/src/form.tsx::HbarSchemaForm::div::2",
-      "path": "packages/schema-react/src/form.tsx",
-      "line": 91,
-      "owner": "HbarSchemaForm",
+      "id": "packages/schema-react/src/presentation.tsx::module::div::2",
+      "path": "packages/schema-react/src/presentation.tsx",
+      "line": 45,
+      "owner": "module",
       "surface": "workbench",
       "component": "div",
       "category": "structure",
@@ -72588,7 +72862,7 @@
       "contentSources": [],
       "accessibleNameSources": [],
       "actionBindings": {},
-      "targetSources": ["key=field.name", "data-field=field.name"],
+      "targetSources": ["data-field=field.name", "data-control-id=controlId"],
       "stateSources": [],
       "flow": "owning flow layout",
       "lumenMapping": "LumenFrame or dedicated renderer",
@@ -72596,15 +72870,15 @@
       "issues": []
     },
     {
-      "id": "packages/schema-react/src/form.tsx::HbarSchemaForm::div::3",
-      "path": "packages/schema-react/src/form.tsx",
-      "line": 92,
-      "owner": "HbarSchemaForm",
+      "id": "packages/schema-react/src/presentation.tsx::module::div::3",
+      "path": "packages/schema-react/src/presentation.tsx",
+      "line": 46,
+      "owner": "module",
       "surface": "workbench",
       "component": "div",
       "category": "structure",
       "context": null,
-      "contentSources": ["help && <small>{help}</small>", "renderFieldContext?.(field)"],
+      "contentSources": ["help && <small id={`${controlId}-description`}>{help}</small>", "context"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
@@ -72615,15 +72889,15 @@
       "issues": []
     },
     {
-      "id": "packages/schema-react/src/form.tsx::HbarSchemaForm::label::1",
-      "path": "packages/schema-react/src/form.tsx",
-      "line": 93,
-      "owner": "HbarSchemaForm",
+      "id": "packages/schema-react/src/presentation.tsx::module::label::1",
+      "path": "packages/schema-react/src/presentation.tsx",
+      "line": 47,
+      "owner": "module",
       "surface": "workbench",
       "component": "label",
       "category": "text",
       "context": null,
-      "contentSources": ["fieldLabels.label"],
+      "contentSources": ["label"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
@@ -72634,10 +72908,10 @@
       "issues": []
     },
     {
-      "id": "packages/schema-react/src/form.tsx::HbarSchemaForm::small::1",
-      "path": "packages/schema-react/src/form.tsx",
-      "line": 94,
-      "owner": "HbarSchemaForm",
+      "id": "packages/schema-react/src/presentation.tsx::module::small::1",
+      "path": "packages/schema-react/src/presentation.tsx",
+      "line": 48,
+      "owner": "module",
       "surface": "workbench",
       "component": "small",
       "category": "text",
@@ -72645,7 +72919,7 @@
       "contentSources": ["help"],
       "accessibleNameSources": [],
       "actionBindings": {},
-      "targetSources": [],
+      "targetSources": ["id=`${controlId}-description`"],
       "stateSources": [],
       "flow": "owning component contract",
       "lumenMapping": "LumenContentText: explicit content context required",
@@ -72653,22 +72927,15 @@
       "issues": []
     },
     {
-      "id": "packages/schema-react/src/form.tsx::HbarSchemaForm::div::4",
-      "path": "packages/schema-react/src/form.tsx",
-      "line": 97,
-      "owner": "HbarSchemaForm",
+      "id": "packages/schema-react/src/presentation.tsx::module::div::4",
+      "path": "packages/schema-react/src/presentation.tsx",
+      "line": 51,
+      "owner": "module",
       "surface": "workbench",
       "component": "div",
       "category": "structure",
       "context": null,
-      "contentSources": [
-        "[source:98; ConditionalExpression] incompatible",
-        "issue && (\r\n                  <small id={`${field.name}-issue`} role=\"alert\">\r\n                    {labels.issue(issue)}\r\n                  </small>\r\n                )",
-        "fieldContent.status === 'unavailable' && (\r\n                  <small id={`${field.name}-content`}>{labels.unavailable(fieldContent.report.reasonCode)}</small>\r\n                )",
-        "fieldContent.status === 'error' && (\r\n                  <small id={`${field.name}-content`} role=\"alert\">\r\n                    {labels.contentError(fieldContent.errorCode)}\r\n                  </small>\r\n                )",
-        "!field.readOnly && state.dirty.includes(field.name) && (\r\n                  <button\r\n                    type=\"button\"\r\n                    disabled={disabled}\r\n                    onClick={() => onIntent({ kind: 'reset', field: field.name })}\r\n                  >\r\n                    {labels.reset}\r\n                  </button>\r\n                )",
-        "renderFieldActions?.(field)"
-      ],
+      "contentSources": ["children"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
@@ -72679,56 +72946,18 @@
       "issues": []
     },
     {
-      "id": "packages/schema-react/src/form.tsx::HbarSchemaForm::p::1",
-      "path": "packages/schema-react/src/form.tsx",
-      "line": 99,
-      "owner": "HbarSchemaForm",
-      "surface": "workbench",
-      "component": "p",
-      "category": "text",
-      "context": null,
-      "contentSources": ["labels.componentUnavailable(field.component)"],
-      "accessibleNameSources": [],
-      "actionBindings": {},
-      "targetSources": [],
-      "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit content context required",
-      "status": "schema-boundary",
-      "issues": []
-    },
-    {
-      "id": "packages/schema-react/src/form.tsx::HbarSchemaForm::registration.Renderer::1",
-      "path": "packages/schema-react/src/form.tsx",
-      "line": 101,
-      "owner": "HbarSchemaForm",
-      "surface": "workbench",
-      "component": "registration.Renderer",
-      "category": "structure",
-      "context": null,
-      "contentSources": ["value=state.draft[field.name]", "content=fieldContent", "labels=fieldLabels"],
-      "accessibleNameSources": [],
-      "actionBindings": { "onIntent": "onIntent" },
-      "targetSources": ["field=field"],
-      "stateSources": ["value=state.draft[field.name]", "disabled=disabled"],
-      "flow": "owning flow layout",
-      "lumenMapping": "registration.Renderer",
-      "status": "schema-boundary",
-      "issues": []
-    },
-    {
-      "id": "packages/schema-react/src/form.tsx::HbarSchemaForm::small::2",
-      "path": "packages/schema-react/src/form.tsx",
-      "line": 116,
-      "owner": "HbarSchemaForm",
+      "id": "packages/schema-react/src/presentation.tsx::module::small::2",
+      "path": "packages/schema-react/src/presentation.tsx",
+      "line": 55,
+      "owner": "module",
       "surface": "workbench",
       "component": "small",
       "category": "text",
       "context": null,
-      "contentSources": ["labels.issue(issue)"],
+      "contentSources": ["children"],
       "accessibleNameSources": [],
       "actionBindings": {},
-      "targetSources": ["id=`${field.name}-issue`"],
+      "targetSources": ["id=id"],
       "stateSources": [],
       "flow": "owning component contract",
       "lumenMapping": "LumenContentText: explicit content context required",
@@ -72736,55 +72965,17 @@
       "issues": []
     },
     {
-      "id": "packages/schema-react/src/form.tsx::HbarSchemaForm::small::3",
-      "path": "packages/schema-react/src/form.tsx",
-      "line": 121,
-      "owner": "HbarSchemaForm",
-      "surface": "workbench",
-      "component": "small",
-      "category": "text",
-      "context": null,
-      "contentSources": ["labels.unavailable(fieldContent.report.reasonCode)"],
-      "accessibleNameSources": [],
-      "actionBindings": {},
-      "targetSources": ["id=`${field.name}-content`"],
-      "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit content context required",
-      "status": "schema-boundary",
-      "issues": []
-    },
-    {
-      "id": "packages/schema-react/src/form.tsx::HbarSchemaForm::small::4",
-      "path": "packages/schema-react/src/form.tsx",
-      "line": 124,
-      "owner": "HbarSchemaForm",
-      "surface": "workbench",
-      "component": "small",
-      "category": "text",
-      "context": null,
-      "contentSources": ["labels.contentError(fieldContent.errorCode)"],
-      "accessibleNameSources": [],
-      "actionBindings": {},
-      "targetSources": ["id=`${field.name}-content`"],
-      "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit content context required",
-      "status": "schema-boundary",
-      "issues": []
-    },
-    {
-      "id": "packages/schema-react/src/form.tsx::HbarSchemaForm::button::1",
-      "path": "packages/schema-react/src/form.tsx",
-      "line": 129,
-      "owner": "HbarSchemaForm",
+      "id": "packages/schema-react/src/presentation.tsx::module::button::1",
+      "path": "packages/schema-react/src/presentation.tsx",
+      "line": 60,
+      "owner": "module",
       "surface": "workbench",
       "component": "button",
       "category": "interaction",
       "context": null,
-      "contentSources": ["labels.reset"],
+      "contentSources": ["label"],
       "accessibleNameSources": [],
-      "actionBindings": { "onClick": "() => onIntent({ kind: 'reset', field: field.name })" },
+      "actionBindings": { "onClick": "onReset" },
       "targetSources": [],
       "stateSources": ["disabled=disabled"],
       "flow": "owning component contract",
@@ -72860,6 +73051,7 @@
     "packages/app-react/src/lumen-flex-layout-adapter.tsx",
     "packages/app-react/src/lumen-provider-editor.tsx",
     "packages/app-react/src/lumen-schema-components.tsx",
+    "packages/app-react/src/lumen-schema-presentation.tsx",
     "packages/app-react/src/lumen-session-workspace.tsx",
     "packages/app-react/src/lumen-settings-workspace.tsx",
     "packages/app-react/src/lumen-status-workspace.tsx",
@@ -72937,7 +73129,8 @@
     "packages/app-react/src/workspace-sidebar-rail.tsx",
     "packages/app-react/src/workspace-tabs-close-dialog.tsx",
     "packages/app-react/src/workspace-tabs.tsx",
-    "packages/schema-react/src/form.tsx"
+    "packages/schema-react/src/form.tsx",
+    "packages/schema-react/src/presentation.tsx"
   ],
   "unusedTsxModules": [
     "apps/web/src/ActivityPanel.tsx",
@@ -74189,6 +74382,7 @@
     "packages/app-react/src/lumen-flex-layout-adapter.tsx",
     "packages/app-react/src/lumen-provider-editor.tsx",
     "packages/app-react/src/lumen-schema-components.tsx",
+    "packages/app-react/src/lumen-schema-presentation.tsx",
     "packages/app-react/src/lumen-session-workspace.tsx",
     "packages/app-react/src/lumen-settings-workspace.tsx",
     "packages/app-react/src/lumen-status-workspace.tsx",
@@ -74547,6 +74741,7 @@
     "packages/schema-react/src/form.tsx",
     "packages/schema-react/src/index.ts",
     "packages/schema-react/src/list.tsx",
+    "packages/schema-react/src/presentation.tsx",
     "packages/schema-react/src/registry.ts",
     "packages/schema-react/src/standard.tsx"
   ],

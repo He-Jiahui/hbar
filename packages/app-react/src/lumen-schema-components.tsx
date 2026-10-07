@@ -63,6 +63,7 @@ function textValue(props: SchemaFieldRendererProps): string {
 }
 
 function describedBy(props: SchemaFieldRendererProps): string | undefined {
+  if (props['aria-describedby'] !== undefined) return props['aria-describedby']
   if (props.issue) return `${props.field.name}-issue`
   if (props.content.status === 'unavailable' || props.content.status === 'error') return `${props.field.name}-content`
   return undefined
@@ -72,8 +73,9 @@ function TextField(props: SchemaFieldRendererProps) {
   const numeric = props.field.type === 'integer' || props.field.type === 'number'
   return (
     <LumenInput
-      id={`hbar-schema-field-${props.field.name}`}
+      id={props.id ?? `hbar-schema-field-${props.field.name}`}
       name={props.field.name}
+      aria-labelledby={props['aria-labelledby']}
       type="text"
       inputMode={numeric ? (props.field.type === 'integer' ? 'numeric' : 'decimal') : undefined}
       value={textValue(props)}
@@ -91,8 +93,9 @@ function SecretField(props: SchemaFieldRendererProps) {
   useEffect(() => setDraft(''), [props.controlRevision])
   return (
     <LumenInput
-      id={`hbar-schema-field-${props.field.name}`}
+      id={props.id ?? `hbar-schema-field-${props.field.name}`}
       name={props.field.name}
+      aria-labelledby={props['aria-labelledby']}
       type="password"
       autoComplete="new-password"
       value={draft}
@@ -111,8 +114,9 @@ function SecretField(props: SchemaFieldRendererProps) {
 function CheckBox(props: SchemaFieldRendererProps) {
   return (
     <LumenCheckBoxControl
-      id={`hbar-schema-field-${props.field.name}`}
+      id={props.id ?? `hbar-schema-field-${props.field.name}`}
       name={props.field.name}
+      aria-labelledby={props['aria-labelledby']}
       checked={props.value === true}
       readOnly={props.field.readOnly}
       disabled={props.disabled || props.field.readOnly}
@@ -157,9 +161,11 @@ function ComboBox(props: SchemaFieldRendererProps) {
   )
   return (
     <LumenComboBox
-      id={`hbar-schema-field-${props.field.name}`}
+      id={props.id ?? `hbar-schema-field-${props.field.name}`}
       value={selectedId}
       query={picker.query}
+      aria-label={props.labels.label}
+      aria-labelledby={props['aria-labelledby']}
       open={picker.open}
       options={options}
       labels={{
@@ -197,9 +203,11 @@ function MultiSelect(props: SchemaFieldRendererProps) {
   const picker = usePickerState('')
   return (
     <LumenMultiSelect
-      id={`hbar-schema-field-${props.field.name}`}
+      id={props.id ?? `hbar-schema-field-${props.field.name}`}
       values={selectedIds}
       query={picker.query}
+      aria-label={props.labels.label}
+      aria-labelledby={props['aria-labelledby']}
       open={picker.open}
       options={options}
       labels={{
@@ -248,8 +256,9 @@ function PopupSelect(props: SchemaFieldRendererProps) {
   )
   return (
     <LumenPopupSelect
-      id={`hbar-schema-field-${props.field.name}`}
+      id={props.id ?? `hbar-schema-field-${props.field.name}`}
       name={props.field.name}
+      aria-labelledby={props['aria-labelledby']}
       value={selectedId}
       selectedLabel={selectedOption?.label ?? (selected === null ? undefined : props.labels.selectedInvalid(selected))}
       options={options}
@@ -287,7 +296,7 @@ function ToggleGroup(props: SchemaFieldRendererProps) {
   )
   return (
     <LumenToggleGroup
-      id={`hbar-schema-field-${props.field.name}`}
+      id={props.id ?? `hbar-schema-field-${props.field.name}`}
       type="single"
       value={selectedId}
       options={options}
@@ -306,8 +315,9 @@ function ToggleGroup(props: SchemaFieldRendererProps) {
 function Switch(props: SchemaFieldRendererProps) {
   return (
     <LumenToggleControl
-      id={`hbar-schema-field-${props.field.name}`}
+      id={props.id ?? `hbar-schema-field-${props.field.name}`}
       name={props.field.name}
+      aria-labelledby={props['aria-labelledby']}
       checked={props.value === true}
       readOnly={props.field.readOnly}
       disabled={props.disabled || props.field.readOnly}
@@ -326,8 +336,9 @@ function ResourcePicker(props: SchemaFieldRendererProps) {
   return (
     <LumenFrame className="hbar-app-react-schema-resource">
       <LumenInput
-        id={`hbar-schema-field-${props.field.name}`}
+        id={props.id ?? `hbar-schema-field-${props.field.name}`}
         name={props.field.name}
+        aria-labelledby={props['aria-labelledby']}
         type="text"
         value={reference ? resourceReferenceLabel(reference) : textValue(props)}
         readOnly

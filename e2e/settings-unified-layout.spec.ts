@@ -24,7 +24,11 @@ for (const locale of ['zh-CN', 'en-US'] as const)
     const context = await browser.newContext({ locale })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 45490) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 45490),
+        budgetAutoContinue: false,
+      })
       const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 45489}`
       expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
       const page = await context.newPage()

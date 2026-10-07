@@ -55,6 +55,7 @@ export {
   type HbarProposedPlanTarget,
 } from './proposed-plan'
 export { createHbarSchemaComponents } from './lumen-schema-components'
+export { lumenSchemaFormPresentation } from './lumen-schema-presentation'
 export {
   HbarWorkspaceShell,
   type HbarWorkspaceShellLabels,

@@ -1,5 +1,12 @@
 export { HbarSchemaForm } from './form'
 export type { HbarSchemaFormLabels, HbarSchemaFormProps } from './form'
+export type {
+  SchemaFormPresentation,
+  SchemaFormContainerProps,
+  SchemaFormFieldPresentationProps,
+  SchemaFormFeedbackProps,
+  SchemaFormResetProps,
+} from './presentation'
 export {
   createSchemaComponentRegistry,
   createSchemaEditorRegistry,

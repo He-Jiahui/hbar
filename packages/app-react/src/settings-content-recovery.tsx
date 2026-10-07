@@ -59,7 +59,9 @@ export function useSettingsContentRecovery(
     if (!current || (!current.accepted && !current.error) || loading) return
     const button = buttonRef.current
     const document = button?.ownerDocument
-    const original = document?.getElementById(`hbar-schema-field-${current.field}`)
+    const fieldBoundary = button?.closest<HTMLElement>('[data-field]')
+    const controlId = fieldBoundary?.dataset.field === current.field ? fieldBoundary.dataset.controlId : undefined
+    const original = controlId ? document?.getElementById(controlId) : null
     const originalControl =
       original instanceof HTMLElement &&
       original.matches('input:not([type="hidden"]), button, select, textarea, [tabindex]:not([tabindex="-1"])')
@@ -74,7 +76,7 @@ export function useSettingsContentRecovery(
     const target = failed
       ? button
       : originalControl?.matches(':disabled')
-        ? button?.closest('.hbar-schema-form')?.querySelector('input:not(:disabled), button:not(:disabled)')
+        ? button?.closest('[data-schema-form]')?.querySelector('input:not(:disabled), button:not(:disabled)')
         : originalControl
     if (
       focusOwned.current &&

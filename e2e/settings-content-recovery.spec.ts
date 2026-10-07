@@ -120,17 +120,13 @@ async function observeReads(page: Page) {
 
 function fields(page: Page, copy: Copy) {
   const modelLabel = copy.settings.resolve('i18n:settings.provider.model.label')
-  const model = page
-    .locator('.hbar-schema-form-field')
-    .filter({ has: page.locator(`[id="hbar-schema-field-${modelPath}"]`) })
-  const thinking = page
-    .locator('.hbar-schema-form-field')
-    .filter({ has: page.locator(`[id="hbar-schema-field-${thinkingPath}"]`) })
+  const model = page.locator('[data-schema-form]').locator(`[data-field=${JSON.stringify(modelPath)}]`)
+  const thinking = page.locator('[data-schema-form]').locator(`[data-field=${JSON.stringify(thinkingPath)}]`)
   return {
     model,
     thinking,
-    modelInput: page.locator(`[id="hbar-schema-field-${modelPath}"]`),
-    thinkingInput: page.locator(`[id="hbar-schema-field-${thinkingPath}"]`),
+    modelInput: model.getByRole('combobox', { name: modelLabel, exact: true }),
+    thinkingInput: thinking.getByRole('radiogroup'),
     modelOptions: model.getByRole('button', { name: copy.settings.form.openOptions(modelLabel), exact: true }),
     thinkingOptions: thinking.locator('[role="radio"]:not(:disabled)'),
   }
@@ -223,7 +219,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({ locale, viewport: { width: 900, height: 600 } })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: hostPort, goalAutoContinue: false })
+      host = await startWebSessionHost({ root, port: hostPort, goalAutoContinue: false, budgetAutoContinue: false })
       const settings = createSettingsCommandClient(host.client)
       const baseline = await settings.execute('settings.get', { scope: { kind: 'global' } })
       await context.addInitScript((language) => localStorage.setItem('hbar:web:language', language), locale)
@@ -251,7 +247,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .getByRole('navigation', { name: copy.settings.groups, exact: true })
         .getByRole('button', { name: copy.settings.resolve('i18n:settings.groups.model'), exact: true })
         .click()
-      const form = page.locator('.hbar-schema-form')
+      const form = page.locator('[data-schema-form]')
       const controls = fields(page, copy)
       const retry = page.getByRole('button', { name: retryLabel, exact: true })
       await expect(controls.thinking).toContainText(copy.settings.form.unavailable('missing_model'))
@@ -324,7 +320,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       traffic.release()
       await expect(retry).toHaveCount(0)
       await expect(controls.modelInput).toHaveValue(originalModelValue)
-      expect(await formElement.evaluate((element) => element === document.querySelector('.hbar-schema-form'))).toBe(
+      expect(await formElement.evaluate((element) => element === document.querySelector('[data-schema-form]'))).toBe(
         true,
       )
       await expect(page.getByText(copy.settings.unsaved(1), { exact: true })).toBeVisible()
@@ -420,7 +416,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         selectedThinking,
       )
       await expect(page.getByText(copy.settings.unsaved(2), { exact: true })).toBeVisible()
-      expect(await formElement.evaluate((element) => element === document.querySelector('.hbar-schema-form'))).toBe(
+      expect(await formElement.evaluate((element) => element === document.querySelector('[data-schema-form]'))).toBe(
         true,
       )
       expect(await settings.execute('settings.get', { scope: { kind: 'global' } })).toEqual(baseline)

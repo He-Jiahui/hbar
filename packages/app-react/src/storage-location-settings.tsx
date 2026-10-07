@@ -4,6 +4,7 @@ import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
 import { HbarSchemaForm, type HbarSchemaFormLabels } from '@hbar/schema-react'
 import type { StorageLocationController } from '@hbar/app-runtime/storage-locations'
 import { createHbarSchemaComponents } from './lumen-schema-components'
+import { lumenSchemaFormPresentation } from './lumen-schema-presentation'
 import './storage-location-settings.css'
 
 const components = createHbarSchemaComponents()
@@ -64,6 +65,7 @@ export function HbarStorageLocationSettings({
           schema={controller.schema}
           state={form}
           components={components}
+          presentation={lumenSchemaFormPresentation}
           labels={labels.form}
           layout="stacked"
           disabled={!connected || state.loading}

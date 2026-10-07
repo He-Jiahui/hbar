@@ -60,6 +60,10 @@ export interface SchemaFieldLabels {
 }
 
 export interface SchemaFieldRendererProps {
+  /** Registered controls forward these host-provided DOM relationships to their actual control. */
+  readonly id?: string
+  readonly 'aria-describedby'?: string | undefined
+  readonly 'aria-labelledby'?: string | undefined
   readonly field: CompiledField
   readonly value: FieldValue | undefined
   readonly raw: string | undefined

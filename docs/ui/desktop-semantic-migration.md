@@ -201,4 +201,12 @@ Schema 展示适配所需的 Lumen 字段基础能力已提交。`LumenFormField
 - 40 个公开入口 Chrome 场景通过，覆盖两语言／主题／五宽度／两布局、125% 根字体、长标签真实 ArrowRight 阅读、说明／错误不截断、透明字段和嵌套注册控件原关联、编辑／恢复原草稿及实际横排／堆叠几何。320px 长内容截图已复核。证据为 `form-field-*`，本项不代表 Desktop Schema 调用方已完成。
 - 包严格 lint、类型／构建／声明、格式、父仓库 fixture 严格 lint／内容 guard／flow guard、Web build、清单与真实生产输入核对通过。完整增量 typecheck 仍为 96 项既有诊断，修改范围无诊断。限定 proptypes／API build 命令通过；现有 API 工具只覆盖 MUI 项目，没有生成 Lumen API 页，公开 props 与 README 已更新。Vale 因可执行文件缺失未能运行，未将其记为通过。
 
-当前清单覆盖 144 个生产 TSX 模块、3667 个元素，其中记录了 686 处低层文字未分类，合计 704 项静态缺口。Schema 展示适配、其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+Desktop Schema 展示适配已接入设置工作台和 Storage 两处生产入口。通用 Schema 通过 `SchemaFormPresentation` 的 Form／Field／Feedback／Reset 插槽提供具名标签、帮助、上下文、错误和原字段动作；Desktop 直接使用 `LumenFormField`、`LumenContentText`、`LumenFrame`、`LumenButton`。Schema 包保持独立，不引入 Lumen 依赖。注入展示的各个表单生成独立 ID，注册控件转发 ID 与可访问关联，错误、内容错误和帮助同时指向实际控件。原注册能力、数值 raw、Secret revision、草稿和 intent 仍由 Schema／ViewModel 管理。
+
+- 布局沿用 [ReactBits settings-form](https://pro.reactbits.dev/docs/app-ui/settings-form) 的字段 copy／controls 层级和 [forms](https://pro.reactbits.dev/docs/app-ui/forms) 的标签、校验与恢复动作关系，使用已验证的 Lumen rows／stacked flex 流。表单遵守既有 64 字段容量，内容自然增长，由设置外层面板负责滚动；不增加固定内容高度。
+- 32 项相关单测通过，包含两语言的 1／3／64 字段、65 字段拒绝、空投影、重复／失效筛选、原无效数值与局部错误、通用默认展示和原控件 ID，以及设置／Storage 原保存、未知结果和恢复机制。46 个实际 Chrome 场景通过，覆盖两语言／主题／五宽度／两布局、125% 根字体、长标签真实键盘阅读、标签点击、原草稿编辑和重置、列表变更后的原动作目标、同名字段的两个表单独立关联、容量边界最后一项可编辑及无横向页面溢出。320px 长翻译截图已复核。
+- 首轮真实 Host 的设置恢复暴露本次迁移的 ID 查找差距：恢复组件仍重算旧全局字段 ID。现通过所属字段上的 `data-control-id` 查找原控件，保留原恢复焦点、完整选项可见性和局部滚动断言；修正后的恢复两项和 Agent 配置两项通过。另有 Storage 两项与全部设置分组的统一内容列两项通过，合计 8 项不同真实 Host 用例。
+- 两项 contextual Providers 用例在最后返回会话时未恢复 composer 草稿，未计为通过。`b414d9fa` 已记录同一 reading-return 基线差距；本次以 `a1e9eda9` 原 Schema 源码构建真实 Web／Host 对照，仅增加供测试定位的表单标记，保留原字段、ID、回调和生命周期，两项仍在同一步失败。证据为 `schema-presentation/provider-baseline/*`；这不是 Schema 注入造成的回归，草稿闭环仍待下一独立修复。
+- 修改范围严格 lint、内容／图标／flow guard、格式、Web 构建和清单／实际生产输入核对通过。完整增量类型检查仍为 96 项既有诊断，修改范围无诊断。首轮单测的 6 个容量断言错误使用不存在的 Lumen data 属性，改为公开的 `data-text-context` 后全部通过；未把中间失败算作验收通过。证据为 `schema-presentation/*`；本项未运行原生 smoke。
+
+当前清单覆盖 146 个生产 TSX 模块、3677 个元素，其中记录了 686 处低层文字未分类，合计 704 项静态缺口。其余生产表面迁移、composer 草稿返回差距、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

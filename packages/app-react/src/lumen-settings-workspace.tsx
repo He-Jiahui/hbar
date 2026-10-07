@@ -38,6 +38,7 @@ import {
 import { workspaceDisplayName, type SettingsFormEntry } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { createHbarSchemaComponents } from './lumen-schema-components'
+import { lumenSchemaFormPresentation } from './lumen-schema-presentation'
 import {
   SettingsContentRecovery,
   useSettingsContentRecovery,
@@ -509,6 +510,7 @@ export function HbarSettingsWorkspace({
                             schema={entry.schema}
                             state={entry.form}
                             components={components}
+                            presentation={lumenSchemaFormPresentation}
                             labels={{
                               ...labels.form,
                               resolve: labels.resolve,

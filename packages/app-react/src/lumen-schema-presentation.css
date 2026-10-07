@@ -1,0 +1,20 @@
+.hbar-lumen-schema-form,
+.hbar-lumen-schema-controls {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.hbar-lumen-schema-field {
+  min-inline-size: 0;
+  padding-block: 0.875rem;
+  border-block-end: var(--hbar-app-ui-divider, 0.0625rem) solid var(--hbar-app-ui-border, currentColor);
+}
+
+.hbar-lumen-schema-controls {
+  gap: 0.375rem;
+}
+
+.hbar-lumen-schema-controls > button {
+  align-self: flex-start;
+}
