@@ -3,6 +3,21 @@
   margin: 0;
 }
 
+.hbar-session-status-runs {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-block-end: 0.0625rem solid var(--lumen-line);
+  font-size: calc(var(--lumen-font-size, 1rem) * 0.8125);
+}
+
+.hbar-session-status-runs > p {
+  color: var(--lumen-muted);
+}
+
 .hbar-app-react-session-monitoring h2 {
   font-size: 0.875rem;
   font-weight: 650;

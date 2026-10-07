@@ -1047,7 +1047,14 @@ function WorkspaceTool({
       />
     )
   if (panel.panelId === 'monitoring')
-    return <SessionMonitoring labels={copy.monitoring} instanceId={instanceId} targetLabel={targetLabel} />
+    return (
+      <SessionMonitoring
+        labels={copy.monitoring}
+        instanceId={instanceId}
+        targetLabel={targetLabel}
+        connected={connected}
+      />
+    )
   if (panel.panelId === 'activity')
     return (
       <SessionActivityWorkspace

@@ -15,7 +15,6 @@ import {
   LumenButton,
   LumenConversation,
   LumenAiChat01,
-  LumenAgentActivity03,
   LumenAgentApproval01,
   LumenIcon,
   LumenPageHeader,
@@ -70,7 +69,7 @@ import { HbarComposerGoal, HbarComposerIntentControls, type HbarComposerIntentLa
 import { HbarSessionUsageControl, sessionUsagePresentation, type HbarSessionUsageLabels } from './session-usage-control'
 import { HbarHistoricalPlanMessage, HbarProposedPlanMessage } from './proposed-plan-message'
 import { HbarComposerPermissionPicker, type HbarComposerPermissionLabels } from './composer-permission-picker'
-import { HbarSessionRunActivity, currentSessionRun, type HbarSessionRunLabels } from './session-run-activity'
+import { currentSessionRun, type HbarSessionRunLabels } from './session-run-activity'
 import { HbarSessionLiveStatus, type HbarSessionLiveStatusLabels } from './session-live-status'
 import { HbarQueuedUserRuns, type HbarQueuedUserRunsLabels } from './queued-user-runs'
 import { HbarSessionToolsMenu, type HbarSessionToolsMenuLabels } from './session-tools-menu'
@@ -1069,9 +1068,6 @@ function SessionWorkspaceContent({
   }
   const workspaceContextError =
     workspaceContextFailure?.sessionId === sessionId ? workspaceContextFailure.message : undefined
-  const runErrorAction = timeline.runs
-    .map((run) => runActions[run.id])
-    .find((action) => action?.error && (!stopRun || action.commandId !== 'operation.cancel'))
   const toolInstanceId = presentation.toolInstanceId
   const [toolFailure, setToolFailure] = useState<{
     sessionId: string
@@ -1654,66 +1650,8 @@ function SessionWorkspaceContent({
   )
 
   const activity: ReactNode =
-    timeline.runs.length > 0 || decisionProjection.fallback.length > 0 ? (
+    decisionProjection.fallback.length > 0 ? (
       <LumenFrame className="hbar-app-react-session-activity">
-        {timeline.runs.length > 0 && (
-          <LumenAgentActivity03
-            controlled={{
-              body: (
-                <HbarSessionRunActivity
-                  key={sessionId}
-                  runs={timeline.runs.map((run) => ({
-                    id: run.id,
-                    label: labels.timestamp(run.createdAt),
-                    status: run.status,
-                    detail: run.error ?? labels.runDetail(run.modelId),
-                    duration: labels.runDuration(run.startedAt ?? run.createdAt, run.endedAt),
-                  }))}
-                  labels={labels.runs}
-                  plan={
-                    timeline.plan && (timeline.plan.plan.length > 0 || timeline.plan.explanation)
-                      ? {
-                          runId: timeline.plan.turnId,
-                          explanation: timeline.plan.explanation ?? undefined,
-                          steps: timeline.plan.plan.map((step, index) => ({
-                            id: `${timeline.plan!.updatedAt}:${index}`,
-                            title: step.step,
-                            status: step.status,
-                          })),
-                        }
-                      : undefined
-                  }
-                  cancellingRunIds={activeRuns
-                    .filter(
-                      (run) =>
-                        runActions[run.id]?.commandId === 'operation.cancel' &&
-                        (runActions[run.id]?.requestInFlight ||
-                          ['submitting', 'unknown', 'succeeded'].includes(runActions[run.id]?.status ?? '')),
-                    )
-                    .map((run) => run.id)}
-                  canCancelRun={canCancelRun}
-                  retryingRunIds={timeline.runs
-                    .filter((run) => runActions[run.id]?.status === 'submitting')
-                    .map((run) => run.id)}
-                  canRetryNewRun={canPrepare}
-                  unknownRetryRunIds={timeline.runs
-                    .filter(
-                      (run) =>
-                        runActions[run.id]?.commandId === 'run.retry' &&
-                        (runActions[run.id]?.status === 'unknown' ||
-                          (runActions[run.id]?.status === 'submitting' && runActions[run.id]?.phase === 'receipt')),
-                    )
-                    .map((run) => run.id)}
-                  feedback={runErrorAction?.error ? labels.error(runErrorAction.error) : undefined}
-                  onCancelRun={(operationId) =>
-                    stopRun ? stopRun(operationId) : invoke('operation.cancel', { operationId })
-                  }
-                  onRetryRun={(operationId: string) => invoke('run.retry', { sessionId, operationId })}
-                />
-              ),
-            }}
-          />
-        )}
         {decisionProjection.fallback.map(renderDecision)}
       </LumenFrame>
     ) : null

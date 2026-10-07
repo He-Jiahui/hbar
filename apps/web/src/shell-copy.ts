@@ -1852,7 +1852,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       current: (label) => choose(`更多工具：当前打开${label}`, `More tools: ${label} is open`),
       files: choose('文件', 'Files'),
       activity: choose('活动', 'Activity'),
-      monitoring: choose('用量监控', 'Monitoring'),
+      monitoring: choose('会话状态', 'Session status'),
       agents: choose('子 Agent', 'Child agents'),
       goals: choose('目标与计划', 'Goals and plans'),
       settings: choose('会话设置', 'Session settings'),
@@ -2080,6 +2080,7 @@ function createFileLabels(locale: ShellLocale): HbarFileWorkspaceLabels {
 }
 
 function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitoringLabels {
+  const session = createSessionLabels(locale)
   const zh = locale === 'zh-CN'
   const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
   const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 })
@@ -2091,12 +2092,23 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
   })
   const percent = new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 1 })
   return {
-    title: choose('会话用量监控', 'Session monitoring'),
+    title: choose('会话状态', 'Session status'),
+    history: {
+      runs: session.runs,
+      loading: session.loading,
+      empty: choose('当前会话还没有运行记录。', 'No runs in this session yet.'),
+      retry: session.retryTimeline,
+      detail: session.runDetail,
+      duration: session.runDuration,
+      timestamp: session.timestamp,
+      error: session.error,
+    },
+
     description: choose(
       '查看 Host 记录的 Token、费用、延迟与模型用量。',
       'Inspect Host-recorded tokens, cost, latency, and model usage.',
     ),
-    close: choose('关闭用量监控', 'Close session monitoring'),
+    close: choose('关闭会话状态', 'Close session status'),
     empty: choose('当前会话还没有可靠的用量数据。', 'This session does not have reliable usage data yet.'),
     unavailable: choose('不可用', 'Unavailable'),
     gap: choose('当前时间窗口包含数据缺口。', 'The current time window contains a data gap.'),

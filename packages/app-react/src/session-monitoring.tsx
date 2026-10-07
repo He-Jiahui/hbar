@@ -6,15 +6,16 @@ import {
   LumenFrame,
   LumenText,
   LumenCompactMetrics,
-  LumenMonitoring01,
   LumenToolPane,
 } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import { EchartsChart, type EChartsOption } from './echarts-chart'
+import { HbarSessionRunHistory, type HbarSessionRunHistoryLabels } from './session-run-history'
 import './session-monitoring.css'
 
 export interface HbarSessionMonitoringLabels {
+  readonly history: HbarSessionRunHistoryLabels
   readonly title: string
   readonly description: string
   readonly close: string
@@ -55,16 +56,26 @@ export function HbarSessionMonitoring({
   labels,
   instanceId: requestedInstanceId,
   targetLabel,
+  connected = false,
 }: {
   readonly labels: HbarSessionMonitoringLabels
   readonly instanceId?: string
   readonly targetLabel?: string | undefined
+  readonly connected?: boolean
 }) {
   const runtime = useHbarRuntime()
   const controls = useHbarRuntimeState(runtime.state.controls)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
+  const navigation = useHbarRuntimeState(runtime.state.navigation)
+  const surfaces = useHbarRuntimeState(runtime.state.surfaces)
   const instanceId = requestedInstanceId ?? presentation.toolInstanceId
-  const report = controls.usage
+  const sessionId = (instanceId ? surfaces.panels[instanceId]?.sessionId : null) ?? navigation.sessionId
+  const report =
+    controls.sessionId === sessionId &&
+    controls.usage?.scope.kind === 'session' &&
+    controls.usage.scope.sessionId === sessionId
+      ? controls.usage
+      : null
   const value = (metric: { value: number | null; availability: string }, format: (item: number) => string) =>
     metric.availability === 'available' && metric.value !== null ? format(metric.value) : labels.unavailable
   const metric = (id: string, label: string, metricValue: string, detail?: string) => ({
@@ -76,34 +87,15 @@ export function HbarSessionMonitoring({
   const close = () => {
     if (instanceId) void runtime.commands.execute('app.closePanel', { instanceId }).catch(() => {})
   }
-  const monitoringContent = report
-    ? {
-        health: {
-          labels: {
-            title: labels.title,
-            detail: labels.description,
-            refresh: labels.title,
-            chart: labels.series,
-            incidents: labels.execution.title,
-            empty: labels.empty,
-          },
-          metrics: [
-            { id: 'tokens', label: labels.totals.tokens, value: labels.number(report.totals.input + report.totals.output) },
-            { id: 'runs', label: labels.totals.runs, value: labels.number(report.totals.runs) },
-            { id: 'cost', label: labels.totals.cost, value: value(report.cost, labels.currency) },
-          ],
-          series: report.series.map((point) => ({ id: String(point.start), value: point.billableTokens })),
-          incidents: [],
-          listStrategy: { kind: 'content-grown' as const, expectedMaximum: 12 },
-        },
-      }
-    : undefined
-  const seriesOption = useMemo<EChartsOption>(() => ({
-    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-    xAxis: { type: 'category', data: report?.series.map((p) => String(p.start)) ?? [], axisLabel: { show: false } },
-    yAxis: { type: 'value', minInterval: 1 },
-    series: [{ type: 'bar', data: report?.series.map((p) => p.billableTokens) ?? [] }],
-  }), [report?.series])
+  const seriesOption = useMemo<EChartsOption>(
+    () => ({
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+      xAxis: { type: 'category', data: report?.series.map((p) => String(p.start)) ?? [], axisLabel: { show: false } },
+      yAxis: { type: 'value', minInterval: 1 },
+      series: [{ type: 'bar', data: report?.series.map((p) => p.billableTokens) ?? [] }],
+    }),
+    [report?.series],
+  )
 
   return (
     <LumenToolPane
@@ -115,9 +107,11 @@ export function HbarSessionMonitoring({
       onClose={close}
       className="hbar-app-react-session-monitoring"
     >
-      {monitoringContent && <LumenMonitoring01 content={monitoringContent} className="hbar-app-react-monitoring-lumen" />}
+      <HbarSessionRunHistory sessionId={sessionId} connected={connected} labels={labels.history} />
       {!report ? (
-        <LumenText as="p" className="hbar-app-react-monitoring-empty">{labels.empty}</LumenText>
+        <LumenText as="p" className="hbar-app-react-monitoring-empty">
+          {labels.empty}
+        </LumenText>
       ) : (
         <LumenFrame as="main">
           {report.gap && (

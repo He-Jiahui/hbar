@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { openSessionTool } from './support/session-tools-menu'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`current run actions stay visible and history grows only on demand: ${locale}`, async ({
@@ -15,7 +16,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({ locale })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+      })
       const client = host.client
       const sessionId = host.ready.sessionId
       const commands = createRunCommandClient(client)
@@ -43,15 +48,23 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const session = await client.call('session.get', { sessionId })
       if (!session) throw new Error('Fixture session disappeared')
       await page.getByRole('treeitem', { name: session.title, exact: true }).click()
+      await expect(page.locator('.hbar-app-react-session-workspace .hbar-session-run-activity')).toHaveCount(0)
+      await openSessionTool(page, copy.session.tools, 'monitoring')
       const activity = page.getByRole('region', { name: copy.session.runs.title, exact: true })
-      const details = activity.getByRole('button', { name: copy.session.runs.details(22), exact: true })
+      await expect(page.locator('.hbar-app-react-session-monitoring')).toContainText(copy.monitoring.title)
+      const historyCount = Math.min(80, (await snapshot()).runs.length)
+      const olderCount = historyCount - 1
+      expect(olderCount).toBeGreaterThan(20)
+      const details = activity.getByRole('button', { name: copy.session.runs.details(historyCount), exact: true })
       await expect(details).toHaveAttribute('aria-expanded', 'false')
       await expect(activity.getByRole('list')).toBeHidden()
       await details.focus()
       await page.keyboard.press('Enter')
       await expect(activity.getByRole('listitem')).toHaveCount(20)
-      await activity.getByRole('button', { name: copy.session.runs.more(1), exact: true }).click()
-      await expect(activity.getByRole('listitem')).toHaveCount(21)
+      await activity
+        .getByRole('button', { name: copy.session.runs.more(Math.min(20, olderCount - 20)), exact: true })
+        .click()
+      await expect(activity.getByRole('listitem')).toHaveCount(Math.min(40, olderCount))
       await details.click()
       for (const width of [1440, 900, 390, 320]) {
         await page.setViewportSize({ width, height: 900 })
@@ -76,8 +89,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .locator('.hbar-session-run-current')
         .getByRole('button', { name: copy.session.runs.retryLabel, exact: true })
       await expect(retry).toBeVisible()
+      const runsBeforeRetry = (await snapshot()).runs.length
       await retry.click()
-      await expect.poll(async () => (await snapshot()).runs.length).toBe(24)
+      await expect.poll(async () => (await snapshot()).runs.length).toBe(runsBeforeRetry + 1)
       const running = await submit('/slow')
       await expect
         .poll(async () => (await snapshot()).runs.find((run) => run.id === running.operationId)?.status)

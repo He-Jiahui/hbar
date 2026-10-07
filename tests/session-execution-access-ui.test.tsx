@@ -1,6 +1,11 @@
 import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { HbarGoalPlanWorkspace, HbarRuntimeProvider, HbarSessionWorkspace } from '@hbar/app-react'
+import {
+  HbarGoalPlanWorkspace,
+  HbarRuntimeProvider,
+  HbarSessionWorkspace,
+  HbarSessionMonitoring,
+} from '@hbar/app-react'
 import { createAppRuntime, type SessionExecutionAccess, type SessionTimelinePort } from '@hbar/app-runtime'
 import type { ThreadGoal } from '@hbar/contracts'
 import { HbarComposerGoal } from '../packages/app-react/src/composer-intent-controls'
@@ -398,8 +403,9 @@ test('read-only permission menu disables all bounded new choices and Plan writes
       }}
     />,
   )
-  expect(html.match(/role="menuitemradio"/g)).toHaveLength(5)
-  expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(5)
+  const choices = Object.keys(labels.options).length + 1 // Host approval choices plus the independent Plan choice.
+  expect(html.match(/role="menuitemradio"/g)).toHaveLength(choices)
+  expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(choices)
   const controls = await buttons(html)
   expect(controls.find((control) => control.text === labels.plan.recheck)?.disabled).toBe(false)
   expect(controls.find((control) => control.className.includes('hbar-composer-permission-trigger'))?.disabled).toBe(
@@ -445,7 +451,7 @@ test('pinned archived Goal editor remains read-only when current navigation is a
   }
 })
 
-test('workspace routes unknown recovery only for the exact retry command, never cancel unknown or other failed Runs', async () => {
+test('session status routes unknown recovery only for the exact retry command, never cancel unknown or other failed Runs', async () => {
   const f = fixture()
   const copy = getShellCopy('en-US')
   try {
@@ -485,13 +491,7 @@ test('workspace routes unknown recovery only for the exact retry command, never 
             },
           }}
         >
-          <HbarSessionWorkspace
-            sessionTitle={firstSession.title}
-            workspaceName={workspace.name}
-            sessionWorkspaceId={workspace.id}
-            labels={copy.session}
-            connected
-          />
+          <HbarSessionMonitoring labels={copy.monitoring} connected />
         </HbarRuntimeProvider>,
       )
     const unknown = await buttons(render('unknown'))
@@ -532,13 +532,7 @@ test('a normal new Retry request still says Retrying, not Checking result', asyn
           },
         }}
       >
-        <HbarSessionWorkspace
-          sessionTitle={firstSession.title}
-          workspaceName={workspace.name}
-          sessionWorkspaceId={workspace.id}
-          labels={copy.session}
-          connected
-        />
+        <HbarSessionMonitoring labels={copy.monitoring} connected />
       </HbarRuntimeProvider>,
     )
     const controls = await buttons(html)
