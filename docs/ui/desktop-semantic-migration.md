@@ -357,4 +357,6 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 
 - 九项真实 Kernel／Run commands／RPC 测试通过，包含新归档拒绝、恢复后同一未受理 key 正常受理且只入队一次；保留原受理事实／actor receipt、Git 预受理失败、丢失回执恢复、retry、queued／running cancel 与 watch cursor。范围严格 lint、格式及冷启动类型检查通过对应范围；完整类型仍有 92 项既有诊断。证据为 archived-admission/red.log、green.log、unit.log、unit-final.log、lint-final.log 和 types-final.log。进行中的 UI 调用方与 Host 回归结果另行记录。
 
+归档长标题的真实 Host 验收还暴露了共享树布局缺陷：237px 的子节点组内，长反馈被居中扩展为约 805px，确认按钮处于负向可视区。Lumen 初始基础提交 3fce674c9e 的 `[role='treeitem'] > div` 行样式同时命中了子节点组。Lumen 285a976f54 将行和行内文案样式限定为 `.lumen-tree-row`，让子组保持正常拉伸。独立 pnpm 包类型、库构建与格式检查通过，六项消费端树结构测试通过；实际 Chrome / Host 的中文归档、未知恢复、原对象核对及确认按钮／子组几何回归通过。证据为 session-archive-content/lumen-tree-types.log、lumen-tree-build.log、lumen-tree-format.log、tree-unit.log 和 host-tree-fixed.log。此基础修复不改变公开 props，归档 UI 的全矩阵结果后续独立记录。
+
 当前已提交清单覆盖 146 个生产 TSX 模块、3734 个元素，其中记录了 344 处低层文字未分类，合计 361 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
