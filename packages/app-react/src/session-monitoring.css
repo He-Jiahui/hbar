@@ -19,7 +19,7 @@
 }
 
 .hbar-app-react-session-monitoring h2 {
-  font-size: 0.875rem;
+  font-size: var(--hbar-session-pane-heading-size);
   font-weight: 650;
 }
 
@@ -102,3 +102,4 @@
   color: var(--lumen-muted);
   text-align: center;
 }
+@import './session-pane-density.css';

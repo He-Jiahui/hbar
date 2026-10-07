@@ -1,0 +1,63 @@
+:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) {
+  --hbar-session-pane-body-size: calc(var(--lumen-font-size, 1rem) * 0.8125);
+  --hbar-session-pane-meta-size: calc(var(--lumen-font-size, 1rem) * 0.75);
+  --hbar-session-pane-heading-size: calc(var(--lumen-font-size, 1rem) * 0.875);
+  font-size: var(--hbar-session-pane-body-size);
+  line-height: 1.5;
+}
+
+:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) .lumen-tool-pane-copy > p,
+:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) [data-lumen-component='status'] {
+  font-size: var(--hbar-session-pane-meta-size);
+}
+
+:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) .lumen-tool-pane-heading h2 {
+  font-size: var(--hbar-session-pane-heading-size);
+}
+
+.hbar-app-react-session-monitoring .hbar-session-run-activity {
+  font-size: var(--hbar-session-pane-body-size);
+}
+
+:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) .lumen-compact-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) .lumen-compact-metrics > div {
+  display: flex;
+  flex-direction: row;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) .lumen-compact-metrics dt {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  font-size: var(--hbar-session-pane-meta-size);
+  overflow-wrap: anywhere;
+}
+
+:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) .lumen-compact-metrics dd {
+  min-inline-size: 0;
+  flex: 0 1 auto;
+  max-inline-size: 60%;
+  margin: 0;
+  font-size: var(--hbar-session-pane-body-size);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+:is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) .lumen-compact-metrics small {
+  flex-basis: 100%;
+  font-size: var(--hbar-session-pane-meta-size);
+}

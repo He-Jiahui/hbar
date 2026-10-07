@@ -1,10 +1,12 @@
+@import './session-pane-density.css';
+
 .hbar-app-react-goal-plan-workspace h2,
 .hbar-app-react-goal-plan-workspace p {
   margin: 0;
 }
 
 .hbar-app-react-goal-plan-workspace h2 {
-  font-size: 0.875rem;
+  font-size: var(--hbar-session-pane-heading-size);
 }
 
 .hbar-app-react-goal-editor > footer,
@@ -22,7 +24,7 @@
   min-inline-size: 0;
   flex: 0 0 auto;
   flex-direction: column;
-  gap: 1rem;
+  gap: 12px;
   overflow: visible;
   padding: 0.75rem;
 }
@@ -39,7 +41,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 10px;
 }
 
 .hbar-app-react-goal-editor fieldset {
@@ -76,7 +78,7 @@
 .hbar-app-react-plan-count,
 .hbar-app-react-plan-explanation {
   color: var(--lumen-subtle);
-  font-size: 0.75rem;
+  font-size: var(--hbar-session-pane-meta-size);
 }
 
 .hbar-app-react-goal-objective,
@@ -122,6 +124,15 @@
   min-inline-size: 0;
   flex: 1 1 auto;
   overflow-wrap: anywhere;
+  font-size: var(--hbar-session-pane-body-size);
+  font-weight: 550;
+  line-height: 1.5;
+}
+
+.hbar-app-react-goal-objective {
+  font-size: var(--hbar-session-pane-body-size);
+  font-weight: 450;
+  line-height: 1.5;
 }
 
 .hbar-app-react-goal-plan-empty,
@@ -183,7 +194,7 @@
 .hbar-app-react-workflow-group > h3 {
   margin: 0;
   color: var(--lumen-subtle);
-  font-size: 0.75rem;
+  font-size: var(--hbar-session-pane-meta-size);
 }
 
 .hbar-app-react-workflow-group > h3 > span:last-child {
@@ -252,7 +263,7 @@
 
 .hbar-app-react-workflow-item-heading > span:last-child {
   color: var(--lumen-muted);
-  font-size: 0.75rem;
+  font-size: var(--hbar-session-pane-meta-size);
 }
 
 .hbar-app-react-workflow-disclosure {
@@ -296,7 +307,7 @@
 
 .hbar-app-react-workflow-checks > span {
   color: var(--lumen-subtle);
-  font-size: 0.75rem;
+  font-size: var(--hbar-session-pane-meta-size);
   font-weight: 600;
 }
 
@@ -355,7 +366,7 @@
 
 .hbar-app-react-workflow-evidence time {
   color: var(--lumen-muted);
-  font-size: 0.75rem;
+  font-size: var(--hbar-session-pane-meta-size);
 }
 
 @media (max-width: 42rem) {
