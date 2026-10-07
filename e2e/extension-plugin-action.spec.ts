@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test'
 import { createExtensionCommandClient, createRunCommandClient } from '@hbar/client'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { removeOwnedPluginFixture } from './support/plugin-fixture-cleanup'
 
 const envelope = z
   .object({
@@ -36,7 +37,12 @@ for (const locale of ['en-US', 'zh-CN'] as const)
     let releaseAck: (() => void) | undefined
     let releaseWrite: (() => void) | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 44955) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 44955),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const target = host
       const extensions = createExtensionCommandClient(host.client)
       for (const id of ['action-a', 'action-b']) {
@@ -278,6 +284,6 @@ for (const locale of ['en-US', 'zh-CN'] as const)
       releaseWrite?.()
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeOwnedPluginFixture(root, 'hbar-plugin-actions-')
     }
   })

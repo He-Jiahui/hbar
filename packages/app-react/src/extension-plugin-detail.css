@@ -9,18 +9,84 @@
 
 .hbar-app-react-plugin-actions > div {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.5rem;
 }
 
-.hbar-app-react-plugin-actions > p {
-  color: var(--lumen-muted);
-  font-size: 0.75rem;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
+.hbar-app-react-plugin-detail,
+.hbar-app-react-plugin-detail-summary,
+.hbar-app-react-plugin-capability,
+.hbar-app-react-plugin-capability li {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
 }
-
-.hbar-app-react-plugin-actions > p[role='alert'] {
-  color: var(--lumen-danger);
+.hbar-app-react-plugin-detail {
+  gap: 1rem;
+}
+.hbar-app-react-plugin-detail-summary > header,
+.hbar-app-react-plugin-capability > header {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.hbar-app-react-plugin-detail-summary > header > [data-text-context],
+.hbar-app-react-plugin-capability > header > [data-text-context='section.title'] {
+  flex: 1 1 12rem;
+}
+.hbar-app-react-plugin-detail-summary,
+.hbar-app-react-plugin-capability {
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-reading);
+  padding: 1rem;
+}
+.hbar-app-react-plugin-detail-summary dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.hbar-app-react-plugin-detail-summary dl > div {
+  flex: 1 1 12rem;
+  min-inline-size: 0;
+}
+.hbar-app-react-plugin-detail-summary dd {
+  margin-inline-start: 0;
+}
+.hbar-app-react-plugin-capability ul {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.75rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.hbar-app-react-plugin-capability li + li {
+  padding-block-start: 0.75rem;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+.hbar-plugin-detail-reading {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  min-block-size: max-content;
+  overflow-x: auto;
+}
+.hbar-app-react-plugin-detail-navigation {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.hbar-app-react-plugin-detail-navigation > button,
+.hbar-app-react-plugin-actions > .hbar-plugin-detail-reading > button {
+  flex: 0 0 auto;
+  min-inline-size: max-content;
+  max-inline-size: none;
 }

@@ -18,7 +18,11 @@ const options = z
     skillCount: process.env.HBAR_EXTENSION_COLLECTIONS_SKILL_COUNT ?? '2',
   })
 const root = await realpath(options.root)
-if (dirname(root) !== (await realpath(tmpdir())) || !basename(root).startsWith('hbar-extension-collections-ui-'))
+if (
+  root !== resolve(options.root) ||
+  dirname(root) !== (await realpath(tmpdir())) ||
+  !basename(root).startsWith('hbar-extension-collections-ui-')
+)
   throw new Error('Refusing a non-owned extension fixture root')
 const layout = await resolvePathLayout({
   dataRoot: join(root, 'data'),

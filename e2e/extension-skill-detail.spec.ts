@@ -35,13 +35,11 @@ for (const config of [
         )
       const draft = `Unsent original Skills draft — ${config.locale}`
       await setDraft(fixture, draft)
-      const sidebar = fixture.page.getByRole('complementary', {
-        name: fixture.copy.shell.projectsAndSessions,
-        exact: true,
-      })
-      if (!(await sidebar.isVisible()))
-        await fixture.page.getByRole('button', { name: fixture.copy.shell.showSidebar, exact: true }).click()
-      await fixture.page.getByRole('button', { name: fixture.copy.shell.settings, exact: true }).click()
+      const showSidebar = fixture.page.getByRole('button', { name: fixture.copy.shell.showSidebar, exact: true })
+      if (await showSidebar.isVisible()) await showSidebar.click()
+      const settings = fixture.page.getByRole('button', { name: fixture.copy.shell.settings, exact: true })
+      await expect(settings).toBeInViewport()
+      await settings.click()
       await selectExtensionCollection(fixture, 'skills')
       const panel = fixture.page.locator('.hbar-app-react-extension-workspace')
       const labels = fixture.copy.extensions

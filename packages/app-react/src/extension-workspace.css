@@ -9,11 +9,7 @@
 }
 
 .hbar-app-react-extension-browser,
-.hbar-app-react-plugin-detail,
 .hbar-app-react-extension-filter,
-.hbar-app-react-plugin-detail-summary,
-.hbar-app-react-plugin-capability,
-.hbar-app-react-plugin-capability li,
 .hbar-app-react-extension-open-copy {
   display: flex;
   min-inline-size: 0;
@@ -21,8 +17,7 @@
   gap: 0.5rem;
 }
 
-.hbar-app-react-extension-browser,
-.hbar-app-react-plugin-detail {
+.hbar-app-react-extension-browser {
   gap: 1rem;
 }
 
@@ -77,11 +72,7 @@
   color: var(--lumen-muted);
 }
 
-.hbar-app-react-extension-open,
-.hbar-app-react-extension-pagination,
-.hbar-app-react-plugin-detail-navigation,
-.hbar-app-react-plugin-detail-summary > header,
-.hbar-app-react-plugin-capability > header {
+.hbar-app-react-extension-open {
   display: flex;
   min-inline-size: 0;
   align-items: center;
@@ -107,71 +98,6 @@
   line-height: 1.45;
 }
 
-.hbar-app-react-extension-pagination,
-.hbar-app-react-plugin-detail-navigation,
-.hbar-app-react-plugin-detail-summary > header,
-.hbar-app-react-plugin-capability > header {
-  flex-wrap: wrap;
-  justify-content: space-between;
-}
-
-.hbar-app-react-extension-pagination > small {
-  flex: 1 1 auto;
-  color: var(--lumen-muted);
-}
-
-.hbar-app-react-plugin-detail-summary,
-.hbar-app-react-plugin-capability {
-  border: 0.0625rem solid var(--lumen-edge);
-  border-radius: var(--lumen-radius-control);
-  background: var(--lumen-reading);
-  padding: 1rem;
-}
-
-.hbar-app-react-plugin-detail-summary h3 {
-  font-size: 1.125rem;
-}
-
-.hbar-app-react-plugin-capability h4 {
-  margin: 0;
-  font-size: 0.875rem;
-}
-
-.hbar-app-react-plugin-detail-summary dl {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.hbar-app-react-plugin-detail-summary dl > div {
-  flex: 1 1 12rem;
-  min-inline-size: 0;
-}
-
-.hbar-app-react-plugin-detail-summary dt,
-.hbar-app-react-plugin-detail-hint,
-.hbar-app-react-plugin-detail-summary > small,
-.hbar-app-react-plugin-capability p,
-.hbar-app-react-plugin-capability small {
-  color: var(--lumen-muted);
-  font-size: 0.75rem;
-  line-height: 1.5;
-}
-
-.hbar-app-react-plugin-capability ul {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.hbar-app-react-plugin-capability li + li {
-  padding-block-start: 0.75rem;
-  border-block-start: 0.0625rem solid var(--lumen-edge);
-}
-
 .hbar-app-react-extension-workspace strong,
 .hbar-app-react-extension-workspace small,
 .hbar-app-react-extension-workspace code,
@@ -179,13 +105,6 @@
 .hbar-app-react-extension-workspace dd,
 .hbar-app-react-extension-workspace h3 {
   overflow-wrap: anywhere;
-}
-
-.hbar-app-react-plugin-detail-summary p,
-.hbar-app-react-plugin-detail-summary dd,
-.hbar-app-react-plugin-capability code {
-  font-size: 0.8125rem;
-  line-height: 1.5;
 }
 
 @media (max-width: 28rem) {

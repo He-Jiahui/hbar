@@ -1,5 +1,6 @@
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenContentText } from '@lumen/app-ui'
 import { EXTENSION_PAGE_SIZE } from '@hbar/app-runtime'
+import './extension-pagination.css'
 
 export interface ExtensionPaginationLabels {
   readonly previous: string
@@ -22,15 +23,22 @@ export function ExtensionPagination({
   if (pages <= 1) return null
   return (
     <LumenFrame className="hbar-app-react-extension-pagination">
-      <LumenText as="small" role="status">
+      <LumenContentText context="collection.detail" role="status">
         {labels.page(page + 1, pages, count)}
-      </LumenText>
-      <LumenButton variant="text" disabled={page === 0} onClick={() => onPage(page - 1)}>
-        {labels.previous}
-      </LumenButton>
-      <LumenButton variant="text" disabled={page >= pages - 1} onClick={() => onPage(page + 1)}>
-        {labels.next}
-      </LumenButton>
+      </LumenContentText>
+      <LumenFrame
+        className="hbar-extension-pagination-actions"
+        role="group"
+        aria-label={labels.page(page + 1, pages, count)}
+        tabIndex={0}
+      >
+        <LumenButton variant="text" disabled={page === 0} onClick={() => onPage(page - 1)}>
+          {labels.previous}
+        </LumenButton>
+        <LumenButton variant="text" disabled={page >= pages - 1} onClick={() => onPage(page + 1)}>
+          {labels.next}
+        </LumenButton>
+      </LumenFrame>
     </LumenFrame>
   )
 }

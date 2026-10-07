@@ -1,0 +1,25 @@
+.hbar-app-react-extension-pagination {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.hbar-app-react-extension-pagination > [data-text-context] {
+  flex: 1 1 12rem;
+}
+.hbar-extension-pagination-actions {
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  min-block-size: max-content;
+  flex: 0 1 auto;
+  gap: 0.5rem;
+  overflow-x: auto;
+}
+.hbar-extension-pagination-actions > button {
+  flex: 0 0 auto;
+  min-inline-size: max-content;
+  max-inline-size: none;
+}

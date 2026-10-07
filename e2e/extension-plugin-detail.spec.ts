@@ -1,11 +1,13 @@
 import { expect, test } from '@playwright/test'
 import { createExtensionCommandClient } from '@hbar/client'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { removeOwnedPluginFixture } from './support/plugin-fixture-cleanup'
+import { verifyReadableText } from '../scripts/support/verify-readable-text'
 
 const envelope = z
   .object({
@@ -23,7 +25,12 @@ for (const locale of ['en-US', 'zh-CN'] as const)
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 960 } })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 45417) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 45417),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const extensions = createExtensionCommandClient(host.client)
       const source = join(root, 'fixture-plugin')
       await mkdir(source)
@@ -46,7 +53,14 @@ for (const locale of ['en-US', 'zh-CN'] as const)
                 usage: `/fixture.review-${index}`,
                 group: 'extensions',
               })),
-              panels: [{ id: 'fixture.panel', title: 'Declared review panel' }],
+              panels: [
+                {
+                  id: 'fixture.panel',
+                  title: 'Declared review panel',
+                  kind: 'markdown',
+                  content: 'Original declared review fixture',
+                },
+              ],
               renderers: [{ id: 'fixture.renderer' }],
             },
           },
@@ -56,7 +70,11 @@ for (const locale of ['en-US', 'zh-CN'] as const)
         join(source, 'index.js'),
         `export default { manifest: { id: 'fixture', name: ${JSON.stringify(name)}, version: '0.0.0', apiVersion: '^1.0.0', description: 'A test plugin with public command and UI declarations.', scope: 'host', permissions: [] }, apply() {} }`,
       )
-      await extensions.execute('plugin.install', { path: source })
+      await extensions.execute('plugin.install', { path: source }).catch((reason: unknown) => {
+        if (reason && typeof reason === 'object' && 'code' in reason)
+          throw new Error(`Owned declaration install failed: ${String(reason.code)}`, { cause: reason })
+        throw reason
+      })
       const installed = await extensions.execute('plugin.inspect', { id: 'detail-fixture' })
       expect(installed?.contributes?.commands).toHaveLength(21)
       const required = (await extensions.execute('plugin.list', {})).find((plugin) => plugin.required)
@@ -120,9 +138,10 @@ for (const locale of ['en-US', 'zh-CN'] as const)
       await expect(detail).toContainText('Declared review panel')
       await expect(detail).toContainText('fixture.renderer')
       await expect(detail).toContainText(labels.detail.readOnly)
-      for (const width of [1440, 320]) {
+      for (const width of [1440, 1100, 900, 390, 320]) {
         await page.setViewportSize({ width, height: 960 })
         await expect(detail).toBeVisible()
+        await verifyReadableText(detail.getByRole('heading', { name, exact: true }), name, width <= 390)
         expect(await workspace.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
         await page.screenshot({ path: info.outputPath(`plugin-detail-${locale}-${width}.png`) })
@@ -139,11 +158,13 @@ for (const locale of ['en-US', 'zh-CN'] as const)
       await expect(detail.getByRole('button', { name: labels.disable, exact: true })).toHaveCount(0)
       await detail.getByRole('button', { name: labels.detail.back }).click()
       await filter.fill('no-such-extension')
-      await expect(workspace.locator('[data-extension-collection="plugins"]').getByText(labels.noMatches)).toBeVisible()
+      await expect(
+        workspace.locator('[data-extension-collection="plugins"]').getByText(labels.noMatchingPlugins, { exact: true }),
+      ).toBeVisible()
       expect(errors).toEqual([])
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeOwnedPluginFixture(root, 'hbar-plugin-detail-')
     }
   })

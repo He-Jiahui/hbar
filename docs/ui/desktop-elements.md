@@ -2,17 +2,17 @@
 
 由 `bun scripts/audit-desktop-elements.ts --write` 从运行时入口、命名延迟加载、barrel 导出和 JSX 生成。完整的元素、槽位、内容来源、可访问名称、动作目标、状态来源和待处理问题见 [类型化清单](desktop-elements.json)。
 
-入口：`apps/web/src/main.tsx`。相关 TSX 模块 146 个；元素 3719 个。实际构建输入核对：passed。
+入口：`apps/web/src/main.tsx`。相关 TSX 模块 146 个；元素 3722 个。实际构建输入核对：passed。
 
 ## 类别与展示边界
 
 | 类别        | 元素 | pending | 设计职责                                                                |
 | ----------- | ---: | ------: | ----------------------------------------------------------------------- |
-| structure   | 1131 |      10 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
-| text        | 1083 |     451 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
+| structure   | 1133 |      10 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
+| text        | 1092 |     423 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
 | interaction |  933 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
 | form        |  278 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
-| collection  |  151 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
+| collection  |  143 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
 | technical   |   75 |       0 | 原文、代码、Markdown、图示与媒体的专用 renderer；辅助操作仍使用 Lumen。 |
 | feedback    |   61 |       0 | 空、加载、运行、成功、失败、恢复与取消的宿主状态及语义反馈。            |
 | platform    |    7 |       4 | Tauri 标题、托盘与通知；操作系统展示，宿主提供文案。                    |
@@ -66,8 +66,8 @@
 | [packages/app-react/src/conversation-selection.tsx](../../packages/app-react/src/conversation-selection.tsx)               | session                                          |    5 |              1 |          0 |          0 |
 | [packages/app-react/src/echarts-chart.tsx](../../packages/app-react/src/echarts-chart.tsx)                                 | workbench                                        |    1 |              0 |          0 |          1 |
 | [packages/app-react/src/extension-collection-feedback.tsx](../../packages/app-react/src/extension-collection-feedback.tsx) | settings                                         |    6 |              0 |          4 |          0 |
-| [packages/app-react/src/extension-pagination.tsx](../../packages/app-react/src/extension-pagination.tsx)                   | settings                                         |    4 |              0 |          1 |          0 |
-| [packages/app-react/src/extension-plugin-detail.tsx](../../packages/app-react/src/extension-plugin-detail.tsx)             | settings                                         |   65 |              0 |         27 |          0 |
+| [packages/app-react/src/extension-pagination.tsx](../../packages/app-react/src/extension-pagination.tsx)                   | settings                                         |    5 |              1 |          0 |          0 |
+| [packages/app-react/src/extension-plugin-detail.tsx](../../packages/app-react/src/extension-plugin-detail.tsx)             | settings                                         |   67 |             36 |          0 |          0 |
 | [packages/app-react/src/extension-skill-detail.tsx](../../packages/app-react/src/extension-skill-detail.tsx)               | settings                                         |   68 |              0 |         22 |          0 |
 | [packages/app-react/src/extension-workspace.tsx](../../packages/app-react/src/extension-workspace.tsx)                     | settings                                         |   74 |              0 |         26 |          1 |
 | [packages/app-react/src/file-context-surfaces.tsx](../../packages/app-react/src/file-context-surfaces.tsx)                 | files-and-reading                                |   19 |              0 |          3 |          0 |

@@ -7,7 +7,7 @@ import {
   LumenFrame,
   LumenIcon,
   LumenStatus,
-  LumenText,
+  LumenContentText,
 } from '@lumen/app-ui'
 import {
   EXTENSION_PAGE_SIZE,
@@ -77,8 +77,10 @@ function Collection<Item>({
   return (
     <LumenFrame as="section" className="hbar-app-react-plugin-capability">
       <LumenFrame as="header">
-        <LumenText as="h4">{title}</LumenText>
-        <LumenText as="small">{labels.count(items.length)}</LumenText>
+        <LumenContentText context="section.title" level={4}>
+          {title}
+        </LumenContentText>
+        <LumenContentText context="collection.detail">{labels.count(items.length)}</LumenContentText>
       </LumenFrame>
       <LumenCollection as="ul">
         {items.slice(page * EXTENSION_PAGE_SIZE, (page + 1) * EXTENSION_PAGE_SIZE).map((item, index) => (
@@ -97,8 +99,8 @@ function declaration(value: Readonly<Record<string, unknown>>, labels: Extension
   const title = typeof value.title === 'string' ? value.title : id
   return (
     <>
-      <LumenText as="strong">{title ?? labels.notReported}</LumenText>
-      {id && title !== id && <LumenText as="code">{id}</LumenText>}
+      <LumenContentText context="collection.title">{title ?? labels.notReported}</LumenContentText>
+      {id && title !== id && <LumenContentText context="code.inline">{id}</LumenContentText>}
     </>
   )
 }
@@ -130,8 +132,14 @@ export function ExtensionPluginDetail({
   )
   const commands = [...commandMap.values()]
   return (
-    <LumenFrame className="hbar-app-react-plugin-detail" aria-label={labels.title}>
-      <LumenFrame as="header" className="hbar-app-react-plugin-detail-navigation">
+    <LumenFrame as="section" className="hbar-app-react-plugin-detail" aria-label={labels.title}>
+      <LumenFrame
+        as="header"
+        className="hbar-app-react-plugin-detail-navigation hbar-plugin-detail-reading"
+        role="group"
+        aria-label={labels.title}
+        tabIndex={0}
+      >
         <LumenButton variant="text" onClick={onBack}>
           <LumenIcon icon={ArrowLeft} tier="md" />
           {labels.back}
@@ -144,71 +152,101 @@ export function ExtensionPluginDetail({
         )}
       </LumenFrame>
       {detail.status === 'loading' && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {detail.status === 'error' && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.paragraph" tone="danger" role="alert">
           {labels.error(detail.error ?? 'EXECUTION_FAILED')}
-        </LumenText>
+        </LumenContentText>
       )}
       {detail.status === 'missing' && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="empty.description" role="status">
           {labels.missing}
-        </LumenText>
+        </LumenContentText>
       )}
       {!plugin && action?.status === 'unknown' && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" tone="warning" role="status">
           {labels.actions.unknown}
-        </LumenText>
+        </LumenContentText>
       )}
       {plugin && (
         <>
           <LumenFrame as="section" className="hbar-app-react-plugin-detail-summary">
             <LumenFrame as="header">
-              <LumenText as="h3">{plugin.name}</LumenText>
-              <LumenStatus
-                value={labels.status[plugin.status]}
-                tone={plugin.status === 'active' ? 'success' : plugin.status === 'failed' ? 'danger' : 'neutral'}
-              />
+              <LumenContentText context="section.title" level={3}>
+                {plugin.name}
+              </LumenContentText>
+              <LumenFrame
+                className="hbar-plugin-detail-reading"
+                role="group"
+                aria-label={labels.status[plugin.status]}
+                tabIndex={0}
+              >
+                <LumenStatus
+                  value={labels.status[plugin.status]}
+                  tone={plugin.status === 'active' ? 'success' : plugin.status === 'failed' ? 'danger' : 'neutral'}
+                />
+              </LumenFrame>
             </LumenFrame>
-            <LumenText as="small">{labels.metadata(plugin.id, plugin.version)}</LumenText>
-            {plugin.description && <LumenText as="p">{plugin.description}</LumenText>}
+            <LumenContentText context="collection.detail">
+              {labels.metadata(plugin.id, plugin.version)}
+            </LumenContentText>
+            {plugin.description && (
+              <LumenContentText context="section.description">{plugin.description}</LumenContentText>
+            )}
             <LumenCollection as="dl">
               <LumenFrame>
-                <LumenCollectionItem as="dt">{labels.source}</LumenCollectionItem>
-                <LumenCollectionItem as="dd">{plugin.packageName ?? plugin.path ?? plugin.id}</LumenCollectionItem>
+                <LumenContentText context="detail.term" className="hbar-plugin-detail-reading" tabIndex={0}>
+                  {labels.source}
+                </LumenContentText>
+                <LumenContentText context="detail.value" className="hbar-plugin-detail-reading" tabIndex={0}>
+                  <LumenContentText context="resource.path">
+                    {plugin.packageName ?? plugin.path ?? plugin.id}
+                  </LumenContentText>
+                </LumenContentText>
               </LumenFrame>
               {plugin.installScope && (
                 <LumenFrame>
-                  <LumenCollectionItem as="dt">{labels.installation}</LumenCollectionItem>
-                  <LumenCollectionItem as="dd">{labels.installScope[plugin.installScope]}</LumenCollectionItem>
+                  <LumenContentText context="detail.term" className="hbar-plugin-detail-reading" tabIndex={0}>
+                    {labels.installation}
+                  </LumenContentText>
+                  <LumenContentText context="detail.value">{labels.installScope[plugin.installScope]}</LumenContentText>
                 </LumenFrame>
               )}
               {plugin.runtimeScope && (
                 <LumenFrame>
-                  <LumenCollectionItem as="dt">{labels.runtime}</LumenCollectionItem>
-                  <LumenCollectionItem as="dd">{labels.runtimeScope[plugin.runtimeScope]}</LumenCollectionItem>
+                  <LumenContentText context="detail.term" className="hbar-plugin-detail-reading" tabIndex={0}>
+                    {labels.runtime}
+                  </LumenContentText>
+                  <LumenContentText context="detail.value">{labels.runtimeScope[plugin.runtimeScope]}</LumenContentText>
                 </LumenFrame>
               )}
               {plugin.projectId && (
                 <LumenFrame>
-                  <LumenCollectionItem as="dt">{labels.project}</LumenCollectionItem>
-                  <LumenCollectionItem as="dd">{plugin.projectId}</LumenCollectionItem>
+                  <LumenContentText context="detail.term" className="hbar-plugin-detail-reading" tabIndex={0}>
+                    {labels.project}
+                  </LumenContentText>
+                  <LumenContentText context="detail.value">{plugin.projectId}</LumenContentText>
                 </LumenFrame>
               )}
             </LumenCollection>
-            {plugin.required && <LumenText as="p">{labels.required}</LumenText>}
+            {plugin.required && <LumenContentText context="section.description">{labels.required}</LumenContentText>}
             {plugin.error && (
-              <LumenText as="p" role="alert">
+              <LumenContentText context="feedback.paragraph" tone="danger" role="alert">
                 {plugin.error}
-              </LumenText>
+              </LumenContentText>
             )}
           </LumenFrame>
           <LumenFrame as="section" className="hbar-app-react-plugin-actions" aria-label={labels.actions.title}>
-            <LumenText as="p">{labels.actions.scope}</LumenText>
-            <LumenFrame role="group" aria-label={labels.actions.title}>
+            <LumenContentText context="section.description">{labels.actions.scope}</LumenContentText>
+            <LumenFrame
+              className="hbar-plugin-detail-reading"
+              role="group"
+              aria-label={labels.actions.title}
+              tabIndex={0}
+            >
               {!plugin.required && action?.status !== 'unknown' && (
                 <LumenButton
                   variant="outlined"
@@ -234,60 +272,62 @@ export function ExtensionPluginDetail({
               </LumenButton>
             </LumenFrame>
             {action?.status === 'succeeded' && (
-              <LumenText as="p" role="status">
+              <LumenContentText context="feedback.paragraph" tone="success" role="status">
                 {labels.actions.confirmed}
-              </LumenText>
+              </LumenContentText>
             )}
             {action?.status === 'unknown' && (
-              <LumenText as="p" role="status">
+              <LumenContentText context="feedback.paragraph" tone="warning" role="status">
                 {labels.actions.unknown}
-              </LumenText>
+              </LumenContentText>
             )}
             {action?.status === 'failed' && (
-              <LumenText as="p" role="alert">
+              <LumenContentText context="feedback.paragraph" tone="danger" role="alert">
                 {labels.actions.error(action.error ?? 'EXECUTION_FAILED')}
-              </LumenText>
+              </LumenContentText>
             )}
             {operationError && (
-              <LumenText as="p" role="alert">
+              <LumenContentText context="feedback.paragraph" tone="danger" role="alert">
                 {labels.actions.error(operationError)}
-              </LumenText>
+              </LumenContentText>
             )}
           </LumenFrame>
-          <LumenText as="p" className="hbar-app-react-plugin-detail-hint">
+          <LumenContentText context="section.description" className="hbar-app-react-plugin-detail-hint">
             {labels.readOnly}
-          </LumenText>
+          </LumenContentText>
           <Collection
             title={labels.commands}
             items={commands}
             labels={labels}
             render={(command) => (
               <>
-                <LumenText as="strong">{command.title}</LumenText>
-                <LumenText as="code">{command.id}</LumenText>
-                {command.description && <LumenText as="p">{command.description}</LumenText>}
-                <LumenText as="code" aria-label={labels.commandUsage}>
+                <LumenContentText context="collection.title">{command.title}</LumenContentText>
+                <LumenContentText context="code.inline">{command.id}</LumenContentText>
+                {command.description && (
+                  <LumenContentText context="collection.description">{command.description}</LumenContentText>
+                )}
+                <LumenContentText context="code.block" aria-label={labels.commandUsage} tabIndex={0}>
                   {command.usage}
-                </LumenText>
+                </LumenContentText>
               </>
             )}
           />
           {!commands.length && (
-            <LumenText as="p" className="hbar-app-react-extension-empty">
+            <LumenContentText context="empty.description" className="hbar-app-react-extension-empty">
               {labels.emptyCommands}
-            </LumenText>
+            </LumenContentText>
           )}
           <Collection
             title={labels.services}
             items={[...new Set(plugin.provides)]}
             labels={labels}
-            render={(item) => <LumenText as="code">{item}</LumenText>}
+            render={(item) => <LumenContentText context="code.inline">{item}</LumenContentText>}
           />
           <Collection
             title={labels.requires}
             items={[...new Set(plugin.requires)]}
             labels={labels}
-            render={(item) => <LumenText as="code">{item}</LumenText>}
+            render={(item) => <LumenContentText context="code.inline">{item}</LumenContentText>}
           />
           <Collection
             title={labels.panels}
@@ -302,9 +342,9 @@ export function ExtensionPluginDetail({
             render={(item) => declaration(item, labels)}
           />
           {Boolean(plugin.contributes?.panels.length || plugin.contributes?.renderers.length) && (
-            <LumenText as="p" className="hbar-app-react-plugin-detail-hint">
+            <LumenContentText context="section.description" className="hbar-app-react-plugin-detail-hint">
               {labels.declared}
-            </LumenText>
+            </LumenContentText>
           )}
         </>
       )}

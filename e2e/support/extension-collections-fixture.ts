@@ -213,7 +213,7 @@ async function stopChild(child: ChildProcess): Promise<void> {
 }
 async function removeOwned(root: string): Promise<void> {
   const path = await realpath(root)
-  if (dirname(path) !== (await realpath(tmpdir())) || !basename(path).startsWith(prefix))
+  if (path !== resolve(root) || dirname(path) !== (await realpath(tmpdir())) || !basename(path).startsWith(prefix))
     throw new Error('Refusing non-owned extension cleanup')
   await rm(path, { recursive: true, force: true })
 }
@@ -268,26 +268,25 @@ export async function setDraft(f: ExtensionCollectionsFixture, text: string): Pr
 }
 export async function openSession(f: ExtensionCollectionsFixture, session = f.ready.firstSession): Promise<void> {
   const side = f.page.getByRole('complementary', { name: f.copy.shell.projectsAndSessions, exact: true })
-  if (!(await side.isVisible()))
-    await f.page.getByRole('button', { name: f.copy.shell.showSidebar, exact: true }).click()
+  const shell = f.page.locator('.hbar-app-ui-app-shell[data-sidebar-open]')
+  const show = f.page.getByRole('button', { name: f.copy.shell.showSidebar, exact: true })
+  await expect(side).toBeVisible()
+  if ((await shell.getAttribute('data-sidebar-open')) === 'false') await show.click()
+  await expect(shell).toHaveAttribute('data-sidebar-open', 'true')
   const row = f.page.locator(`[data-workspace-id="${f.ready.workspace.id}"]`)
   const toggle = row
   if ((await toggle.getAttribute('aria-expanded')) === 'false') {
-    try {
-      await row.locator('xpath=self::*[@aria-expanded="false"]').click({ timeout: 1500 })
-    } catch (error) {
-      if ((await toggle.getAttribute('aria-expanded')) !== 'true') throw error
-    }
+    await toggle.focus()
+    await toggle.press('ArrowRight')
   }
   await expect(toggle).toHaveAttribute('aria-expanded', 'true')
   await row.getByRole('treeitem', { name: session.title, exact: true }).click()
-  const hide = f.page.getByRole('button', { name: f.copy.shell.hideSidebar, exact: true })
-  if (await hide.isVisible()) {
-    try {
-      await hide.click({ timeout: 1500 })
-    } catch (error) {
-      if (await hide.isVisible()) throw error
-    }
+  if (await f.page.evaluate(() => matchMedia('(max-width: 63.9375rem)').matches)) {
+    await expect(shell).toHaveAttribute('data-sidebar-open', 'false')
+  } else {
+    const hide = f.page.getByRole('button', { name: f.copy.shell.hideSidebar, exact: true })
+    await hide.click()
+    await expect(hide).not.toBeVisible()
   }
   await expect(composer(f)).toBeVisible()
 }
@@ -303,11 +302,13 @@ export async function selectExtensionCollection(
   collection: 'plugins' | 'skills',
 ): Promise<void> {
   const group = collection === 'plugins' ? 'extensions' : 'skills'
+  await expect(f.page.locator('.hbar-app-react-settings-workspace')).toBeVisible()
   const select = f.page.getByRole('combobox', { name: f.copy.settings.groups, exact: true })
+  const navigation = f.page.getByRole('navigation', { name: f.copy.settings.groups, exact: true })
+  await expect.poll(async () => (await select.isVisible()) || (await navigation.isVisible())).toBe(true)
   if (await select.isVisible()) await selectLumenOption(select, group)
   else
-    await f.page
-      .getByRole('navigation', { name: f.copy.settings.groups, exact: true })
+    await navigation
       .getByRole('button', { name: f.copy.settings.resolve(`i18n:settings.groups.${group}`), exact: true })
       .click()
   await expect(f.page.locator('.hbar-app-react-extension-workspace')).toBeVisible()
