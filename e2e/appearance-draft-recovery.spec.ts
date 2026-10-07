@@ -1,15 +1,33 @@
 import { expect, test, type Page } from '@playwright/test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { expectLumenValue, selectLumenOption } from './support/lumen-controls'
 
+async function removeOwnedFixture(root: string) {
+  const target = await realpath(root)
+  if (
+    target !== resolve(root) ||
+    dirname(target) !== (await realpath(tmpdir())) ||
+    !basename(target).startsWith('hbar-appearance-recovery-')
+  )
+    throw new Error('Refusing replaced or unowned Appearance recovery fixture')
+  await rm(target, { recursive: true })
+}
+
 async function selectGroup(page: Page, locale: ShellLocale, id: string, label: string) {
   const copy = getShellCopy(locale)
+  await expect(page.locator('.hbar-app-react-settings-workspace')).toBeVisible()
   const mobile = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
+  await expect
+    .poll(
+      async () =>
+        (await mobile.isVisible()) || (await page.getByRole('navigation', { name: copy.settings.groups }).isVisible()),
+    )
+    .toBe(true)
   if (await mobile.isVisible()) await selectLumenOption(mobile, id)
   else
     await page
@@ -28,7 +46,12 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
     const copy = getShellCopy(locale)
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
       expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
       const page = await context.newPage()
@@ -47,9 +70,13 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       const expand = page.getByRole('treeitem', { expanded: false, name: host.ready.workspaceName, exact: true })
       if (await expand.isVisible()) await expand.click()
       await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
-      const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
+      const prompt = page
+        .locator('.hbar-composer-mention-root')
+        .getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const originalDraft = 'Keep the source session draft while changing appearance — 保持会话归属'
-      await prompt.fill(originalDraft)
+      await prompt.pressSequentially(originalDraft)
+      await expectComposerText(prompt, originalDraft)
+      await expect(page.getByRole('button', { name: copy.session.prompt.send, exact: true })).toBeEnabled()
       await page.getByRole('button', { name: copy.shell.settings, exact: true }).click()
       await selectGroup(page, locale, 'appearance', copy.appearance.group)
       const form = page.locator('.hbar-web-appearance-settings')
@@ -149,7 +176,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeOwnedFixture(root)
     }
   })
 }

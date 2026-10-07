@@ -9,7 +9,7 @@ import {
   LumenInput,
   LumenPopupSelect,
   LumenToggleGroup,
-  LumenText,
+  LumenContentText,
   type LumenSize,
 } from '@lumen/app-ui'
 import { resolveWebTheme, type WebResolvedTheme, type WebThemePreference } from './theme'
@@ -107,7 +107,9 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
           label: labels.sizeOption(dimension, size),
         }))}
         disabled={!state.editable || locked}
-        onValueChange={(value) => editor.change(dimension, value as LumenSize)}
+        onValueChange={(value) => {
+          if (value === 's' || value === 'm' || value === 'l') editor.change(dimension, value)
+        }}
       />
     </LumenFormField>
   )
@@ -116,34 +118,48 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
     <LumenFrame as="form" className="hbar-web-appearance-settings" onSubmit={submit}>
       <LumenFrame as="header" className="hbar-web-appearance-heading">
         <LumenFrame>
-          <LumenText as="h2">{labels.title}</LumenText>
-          <LumenText as="p" tone="muted" variant="supporting">
+          <LumenFrame className="hbar-web-appearance-title" role="region" aria-label={labels.title} tabIndex={0}>
+            <LumenContentText context="section.title">{labels.title}</LumenContentText>
+          </LumenFrame>
+          <LumenContentText context="section.description" tone="muted">
             {labels.description}
-          </LumenText>
+          </LumenContentText>
         </LumenFrame>
-        <LumenText as="p" className="hbar-web-appearance-scope" tone="subtle" variant="supporting">
+        <LumenContentText context="form.help" className="hbar-web-appearance-scope" tone="subtle">
           {labels.deviceScope}
-        </LumenText>
+        </LumenContentText>
       </LumenFrame>
 
       <LumenFrame className="hbar-web-appearance-fields">
         <LumenFrame as="fieldset" className="hbar-web-appearance-theme">
-          <LumenText as="legend" id="hbar-appearance-theme-label" variant="label">
+          <LumenContentText
+            context="form.legend"
+            id="hbar-appearance-theme-label"
+            className="hbar-web-appearance-legend"
+            role="region"
+            aria-label={labels.theme.label}
+            tabIndex={0}
+          >
             {labels.theme.label}
-          </LumenText>
-          <LumenText as="p" id="hbar-appearance-theme-description" tone="muted" variant="supporting">
+          </LumenContentText>
+          <LumenContentText context="form.description" id="hbar-appearance-theme-description" tone="muted">
             {labels.theme.description}
-          </LumenText>
+          </LumenContentText>
           <LumenFrame className="hbar-web-appearance-theme-choices">
             <LumenToggleGroup
               id="hbar-appearance-theme"
               type="single"
+              selectionVariant="contained"
               value={state.draft.theme}
               options={THEME_CHOICES.map((theme) => ({ id: theme, label: themeOptionLabel(labels, theme) }))}
               disabled={!state.editable || locked}
               aria-labelledby="hbar-appearance-theme-label"
               aria-describedby="hbar-appearance-theme-description"
-              onValueChange={(value) => editor.change('theme', value as WebThemePreference)}
+              tabIndex={0}
+              onValueChange={(value) => {
+                const theme = THEME_CHOICES.find((choice) => choice === value)
+                if (theme) editor.change('theme', theme)
+              }}
             />
           </LumenFrame>
         </LumenFrame>
@@ -164,10 +180,14 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
         style={{ colorScheme: previewTheme }}
       >
         <LumenFrame as="header">
-          <LumenText as="h3">{labels.preview.title}</LumenText>
-          <LumenText as="p" tone="muted" variant="supporting">
+          <LumenFrame className="hbar-web-appearance-title" role="group" aria-label={labels.preview.title} tabIndex={0}>
+            <LumenContentText context="section.title" level={3}>
+              {labels.preview.title}
+            </LumenContentText>
+          </LumenFrame>
+          <LumenContentText context="section.description" tone="muted">
             {labels.preview.description}
-          </LumenText>
+          </LumenContentText>
         </LumenFrame>
         <LumenFrame className="hbar-web-appearance-preview-controls">
           <LumenFormField controlId="hbar-appearance-preview-input" label={labels.preview.label}>
@@ -205,11 +225,10 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
 
       <LumenFrame as="footer" className="hbar-web-appearance-actions">
         <LumenFrame className="hbar-web-appearance-feedback">
-          <LumenText
-            as="span"
+          <LumenContentText
+            context="feedback.paragraph"
             role={state.error ? 'alert' : 'status'}
             tone={state.error ? 'danger' : 'muted'}
-            variant="supporting"
           >
             {pendingIdentity
               ? labels.identityPending
@@ -232,22 +251,31 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
                               ? labels.saved
                               : labels.volatile
                             : null}
-          </LumenText>
+          </LumenContentText>
           {state.status === 'conflict' && state.checked && (
             <LumenFrame className="hbar-web-appearance-recovery">
-              {state.action?.kind === 'reset' && <LumenText as="p">{labels.resetConflict}</LumenText>}
-              <LumenText as="p">
+              {state.action?.kind === 'reset' && (
+                <LumenContentText context="feedback.paragraph">{labels.resetConflict}</LumenContentText>
+              )}
+              <LumenContentText context="form.help">
                 {labels.latest(
                   themeOptionLabel(labels, state.latest.theme),
                   labels.sizeOption('controlSize', state.latest.controlSize),
                   labels.sizeOption('textSize', state.latest.textSize),
                   labels.sizeOption('cornerSize', state.latest.cornerSize),
                 )}
-              </LumenText>
+              </LumenContentText>
               {progress.count > 0 && progress.count < progress.total && (
-                <LumenText as="p">{labels.partial(progress.count, progress.total)}</LumenText>
+                <LumenContentText context="feedback.paragraph">
+                  {labels.partial(progress.count, progress.total)}
+                </LumenContentText>
               )}
-              <LumenFrame>
+              <LumenFrame
+                className="hbar-web-appearance-recovery-actions"
+                role="toolbar"
+                aria-label={labels.continueDraft}
+                tabIndex={0}
+              >
                 <LumenButton type="button" size="s" variant="outlined" indicator="none" onClick={editor.continueDraft}>
                   {state.action?.kind === 'reset' ? labels.continueAfterReset : labels.continueDraft}
                 </LumenButton>
@@ -281,7 +309,7 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
               </LumenButton>
             )}
         </LumenFrame>
-        <LumenFrame>
+        <LumenFrame className="hbar-web-appearance-save-actions" role="toolbar" aria-label={labels.title} tabIndex={0}>
           <LumenButton
             type="button"
             variant="outlined"

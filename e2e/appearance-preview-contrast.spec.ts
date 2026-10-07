@@ -1,15 +1,33 @@
 import { expect, test, type Page } from '@playwright/test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { selectLumenOption } from './support/lumen-controls'
 
+async function removeOwnedFixture(root: string) {
+  const target = await realpath(root)
+  if (
+    target !== resolve(root) ||
+    dirname(target) !== (await realpath(tmpdir())) ||
+    !basename(target).startsWith('hbar-appearance-contrast-')
+  )
+    throw new Error('Refusing replaced or unowned Appearance contrast fixture')
+  await rm(target, { recursive: true })
+}
+
 async function openAppearance(page: Page, locale: ShellLocale) {
   const copy = getShellCopy(locale)
   await page.getByRole('button', { name: copy.shell.settings, exact: true }).click()
+  await expect(page.locator('.hbar-app-react-settings-workspace')).toBeVisible()
   const mobile = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
+  await expect
+    .poll(
+      async () =>
+        (await mobile.isVisible()) || (await page.getByRole('navigation', { name: copy.settings.groups }).isVisible()),
+    )
+    .toBe(true)
   if (await mobile.isVisible()) await selectLumenOption(mobile, 'appearance')
   else
     await page
@@ -74,7 +92,12 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
     const copy = getShellCopy(locale)
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
       expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
       const page = await context.newPage()
@@ -134,7 +157,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeOwnedFixture(root)
     }
   })
 }
