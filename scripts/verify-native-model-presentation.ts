@@ -92,7 +92,7 @@ try {
   const trigger = page.locator('.hbar-composer-model-trigger')
   await expect(trigger).toHaveAttribute('aria-haspopup', 'dialog')
   await trigger.click()
-  const menu = page.locator('.hbar-composer-picker-popover[data-kind="model"]')
+  const menu = page.getByRole('dialog', { name: copy.session.modelPicker.title, exact: true })
   await expect(menu).toBeVisible()
   await expect(menu).toHaveAttribute('data-presentation', 'native')
   const width = await page.evaluate(() => innerWidth)

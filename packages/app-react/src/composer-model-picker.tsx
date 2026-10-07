@@ -15,6 +15,7 @@ import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenRange, LumenConten
 import type { ComposerModelState, SessionControlsState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { filterCatalogModels, modelIdsRequiringDisclosure, MODEL_CATALOG_PAGE_SIZE } from './model-choice-filter'
+import { FloatingSurface, useFloatingTrigger } from './floating-surface'
 import './composer-model-picker.css'
 
 type ModelDescriptor = ComposerModelState['models'][number]
@@ -126,13 +127,13 @@ export function filterComposerModels(
   return filterCatalogModels(models, query, limit, selectedModelId)
 }
 
-/** Only the true overlay container is positioned, relative to its trigger group. */
+/** The remaining native thinking overlay uses its original trigger-group geometry. */
 function placePopover(popover: HTMLElement, anchor: HTMLElement) {
   const rect = anchor.getBoundingClientRect()
   const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
   const margin = rem
   const gap = rem / 2
-  const width = Math.min(popover.dataset.kind === 'thinking' ? 18.75 * rem : 22.5 * rem, innerWidth - margin * 2)
+  const width = Math.min(18.75 * rem, innerWidth - margin * 2)
   const above = rect.top > innerHeight - rect.bottom
   popover.style.setProperty(
     '--composer-popup-left',
@@ -146,12 +147,9 @@ function placePopover(popover: HTMLElement, anchor: HTMLElement) {
   )
 }
 
-function PickerPopover({
+function ThinkingPopover({
   id,
   title,
-  close,
-  kind,
-  presentation,
   anchor,
   children,
   onOpen,
@@ -160,9 +158,6 @@ function PickerPopover({
 }: {
   readonly id: string
   readonly title: string
-  readonly close: string
-  readonly kind: 'model' | 'thinking'
-  readonly presentation?: 'native' | 'web'
   readonly anchor: RefObject<HTMLDivElement | null>
   readonly popupRef: RefObject<HTMLDivElement | null>
   readonly children: ReactNode
@@ -177,8 +172,7 @@ function PickerPopover({
       role="dialog"
       aria-label={title}
       className="hbar-composer-picker-popover"
-      data-kind={kind}
-      data-presentation={presentation}
+      data-kind="thinking"
       onBeforeToggle={(event) => {
         if (event.newState === 'open' && anchor.current) placePopover(event.currentTarget, anchor.current)
       }}
@@ -194,21 +188,6 @@ function PickerPopover({
         }
       }}
     >
-      {kind === 'model' && (
-        <LumenFrame className="hbar-composer-picker-heading">
-          <LumenContentText context="popover.title">{title}</LumenContentText>
-          <LumenButton
-            type="button"
-            size="s"
-            variant="text"
-            indicator="none"
-            aria-label={close}
-            onClick={() => popupRef.current?.hidePopover()}
-          >
-            <LumenIcon icon={X} tier="sm" />
-          </LumenButton>
-        </LumenFrame>
-      )}
       {children}
     </LumenFrame>
   )
@@ -259,12 +238,18 @@ export function HbarComposerModelPicker({
   const searchRef = useRef<HTMLInputElement>(null)
   const sliderRef = useRef<HTMLInputElement>(null)
   const thinkingWriteRef = useRef(false)
+  const modelWriteRef = useRef(false)
   const modelId = useId()
   const thinkingId = useId()
   const [open, setOpen] = useState<'model' | 'thinking' | null>(null)
+  const openRef = useRef(open)
+  openRef.current = open
+  const sessionRef = useRef(sessionId)
+  sessionRef.current = sessionId
   useEffect(() => {
     if (!runActive) return
-    modelRef.current?.hidePopover()
+    entryIntent.current += 1
+    setOpen(null)
     thinkingRef.current?.hidePopover()
   }, [runActive])
   const [query, setQuery] = useState('')
@@ -273,11 +258,10 @@ export function HbarComposerModelPicker({
   const sliderDraftRef = useRef<ThinkingPreview | null>(null)
   const pointerIdentityRef = useRef<string | null>(null)
   const cancelledRef = useRef(false)
-  const [localError, setLocalError] = useState<string | null>(null)
-  const [retrying, setRetrying] = useState(false)
+  const [localError, setLocalError] = useState<{ readonly sessionId: string; readonly code: string } | null>(null)
+  const [retrySession, setRetrySession] = useState<string | null>(null)
+  const retrying = retrySession === sessionId
   const retryingRef = useRef(false)
-  const retryButtonRef = useRef<HTMLButtonElement>(null)
-  const retryFrameRef = useRef<number | null>(null)
   const entryIntent = useRef(0)
   useEffect(() => {
     if (!connected || busy || unresolved) entryIntent.current += 1
@@ -285,7 +269,6 @@ export function HbarComposerModelPicker({
   useEffect(
     () => () => {
       entryIntent.current += 1
-      if (retryFrameRef.current !== null) cancelAnimationFrame(retryFrameRef.current)
     },
     [],
   )
@@ -311,17 +294,39 @@ export function HbarComposerModelPicker({
             reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
               ? reason.code
               : 'EXECUTION_FAILED'
-          setLocalError(code)
+          setLocalError({ sessionId, code })
           onOpenFailed?.(code)
         })
     },
     [connected, runtime, sessionId, onOpened, onOpenFailed],
   )
   const lastOpenRequest = useRef(openRequest)
+  const closeModel = useCallback(() => {
+    entryIntent.current += 1
+    if (openRef.current === 'model') openRef.current = null
+    setOpen((value) => (value === 'model' ? null : value))
+    setQuery('')
+    setLimit(COMPOSER_MODEL_PAGE_SIZE)
+  }, [])
+  const openModel = () => {
+    if (!connected || (disabled && !unresolved)) return
+    thinkingRef.current?.hidePopover()
+    setQuery('')
+    setLimit(COMPOSER_MODEL_PAGE_SIZE)
+    openRef.current = 'model'
+    setOpen('model')
+    if (!unresolved && !busy) refresh(true)
+    onOpened?.()
+  }
+  const modelTriggerEvents = useFloatingTrigger({ open: open === 'model', onOpen: openModel, onClose: closeModel })
+  useEffect(() => {
+    closeModel()
+    thinkingRef.current?.hidePopover()
+  }, [sessionId, closeModel])
   useEffect(() => {
     if (lastOpenRequest.current === openRequest) return
     lastOpenRequest.current = openRequest
-    if (unavailable || !modelRef.current) {
+    if (unavailable || !modelTriggerRef.current?.isConnected) {
       onOpenFailed?.('CAPABILITY_UNAVAILABLE')
       return
     }
@@ -329,17 +334,13 @@ export function HbarComposerModelPicker({
       openProviders()
       return
     }
-    try {
-      if (modelRef.current.matches(':popover-open')) onOpened?.()
-      else modelRef.current.showPopover()
-    } catch {
-      onOpenFailed?.('CAPABILITY_UNAVAILABLE')
-    }
-  }, [openRequest, unavailable, directConfigure, openProviders, onOpened, onOpenFailed])
+    if (openRef.current === 'model') onOpened?.()
+    else openModel()
+  })
   useEffect(() => {
-    if (!open) return
+    if (open !== 'thinking') return
     const reposition = () => {
-      const popup = open === 'model' ? modelRef.current : thinkingRef.current
+      const popup = thinkingRef.current
       if (popup && groupRef.current) placePopover(popup, groupRef.current)
     }
     window.addEventListener('resize', reposition)
@@ -369,22 +370,21 @@ export function HbarComposerModelPicker({
       setSliderDraft(null)
     }
   }, [thinkingIdentity])
-  const error = localError ?? action?.error
+  const error = (localError?.sessionId === sessionId ? localError.code : null) ?? action?.error
   const capture = (reason: unknown) => {
     const code =
       reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
         ? reason.code
         : 'EXECUTION_FAILED'
-    setLocalError(code)
+    setLocalError({ sessionId, code })
   }
   const refresh = (configureAfterRead = false) => {
     if (!configureAfterRead && retryingRef.current) return
     const intent = ++entryIntent.current
     const navigation = runtime.state.navigation.getSnapshot()
-    const originalFocus = document.activeElement
     if (!configureAfterRead) {
       retryingRef.current = true
-      setRetrying(true)
+      setRetrySession(sessionId)
     }
     setLocalError(null)
     void runtime.commands
@@ -394,7 +394,9 @@ export function HbarComposerModelPicker({
           !configureAfterRead ||
           entryIntent.current !== intent ||
           runtime.state.navigation.getSnapshot() !== navigation ||
-          !modelRef.current?.matches(':popover-open')
+          openRef.current !== 'model' ||
+          sessionRef.current !== sessionId ||
+          !modelRef.current?.isConnected
         )
           return
         const latest = runtime.state.composerModel.getSnapshot()
@@ -429,37 +431,33 @@ export function HbarComposerModelPicker({
         if (configureAfterRead) return
         retryingRef.current = false
         if (!groupRef.current) return
-        setRetrying(false)
-        retryFrameRef.current = requestAnimationFrame(() => {
-          retryFrameRef.current = null
-          if (
-            entryIntent.current !== intent ||
-            runtime.state.navigation.getSnapshot() !== navigation ||
-            !modelRef.current?.matches(':popover-open')
-          )
-            return
-          if (originalFocus !== retryButtonRef.current && originalFocus?.isConnected) return
-          if (document.activeElement !== document.body && document.activeElement !== originalFocus) return
-          if (retryButtonRef.current && !retryButtonRef.current.disabled) retryButtonRef.current.focus()
-          else searchRef.current?.focus()
-        })
+        setRetrySession((value) => (value === sessionId ? null : value))
       })
   }
   const selectModel = (id: string) => {
-    if (writeUnavailable) return
+    if (writeUnavailable || modelWriteRef.current) return
+    modelWriteRef.current = true
     const navigation = runtime.state.navigation.getSnapshot()
     const source = document.activeElement
     setLocalError(null)
     void runtime.commands
       .execute('composerModel.selectModel', { sessionId, modelId: id })
       .then(() => {
-        if (runtime.state.navigation.getSnapshot() !== navigation || !modelRef.current?.matches(':popover-open')) return
+        if (
+          runtime.state.navigation.getSnapshot() !== navigation ||
+          openRef.current !== 'model' ||
+          sessionRef.current !== sessionId ||
+          !modelRef.current?.isConnected
+        )
+          return
         const active = document.activeElement
         if (active !== source && active !== document.body) return
-        modelRef.current?.hidePopover()
-        modelTriggerRef.current?.focus()
+        closeModel()
       })
       .catch(capture)
+      .finally(() => {
+        modelWriteRef.current = false
+      })
   }
   const previewThinking = (input: HTMLInputElement) => {
     if (!thinkingIdentity || thinkingUnavailable || thinkingWriteRef.current) return
@@ -490,7 +488,7 @@ export function HbarComposerModelPicker({
     pointerIdentityRef.current = null
     if (origin !== thinkingIdentity || latestIdentity !== thinkingIdentity) {
       resetThinkingPreview()
-      setLocalError('VERSION_CONFLICT')
+      setLocalError({ sessionId, code: 'VERSION_CONFLICT' })
       return
     }
     if (!nextLevel || nextLevel === (model?.thinkingLevel ?? current?.defaultThinkingLevel ?? 'off')) {
@@ -520,10 +518,17 @@ export function HbarComposerModelPicker({
     )
       return
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+    if (
+      event.target !== event.currentTarget &&
+      event.target !== searchRef.current &&
+      !(event.target instanceof Element && event.target.matches('[role="option"]'))
+    )
+      return
     if (event.target === searchRef.current && event.key !== 'ArrowDown') return
     const options = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="option"]:not(:disabled)')]
     if (!options.length) return
     event.preventDefault()
+    event.stopPropagation()
     const index = options.findIndex((option) => option === document.activeElement)
     const next =
       event.key === 'Home'
@@ -608,8 +613,8 @@ export function HbarComposerModelPicker({
         aria-expanded={directConfigure ? undefined : open === 'model'}
         aria-controls={directConfigure ? undefined : modelId}
         disabled={!connected || (disabled && !unresolved)}
-        popoverTarget={directConfigure ? undefined : modelId}
-        onClick={directConfigure ? () => openProviders() : undefined}
+        aria-busy={busy || retrying || undefined}
+        {...(directConfigure ? { onClick: () => openProviders() } : modelTriggerEvents)}
       >
         <LumenContentText context="control.label" title={triggerName}>
           {triggerName}
@@ -644,33 +649,47 @@ export function HbarComposerModelPicker({
           {closedExplanation}
         </LumenContentText>
       )}
-      <PickerPopover
+      {!open && (busy || unresolved || error) && (
+        <LumenFrame className="hbar-composer-model-closed-feedback">{feedback}</LumenFrame>
+      )}
+      <FloatingSurface
         id={modelId}
-        title={labels.title}
-        close={labels.close}
-        kind="model"
-        presentation={menuPresentation}
-        anchor={groupRef}
-        popupRef={modelRef}
-        onOpen={() => {
-          modelListRef.current?.scrollTo({ top: 0 })
-          setLimit(COMPOSER_MODEL_PAGE_SIZE)
-          setOpen('model')
-          // The same popup can be opened from the model trigger or a local /model
-          // command while the editor still owns focus. On a narrow touch device,
-          // leave the list unobscured until the user deliberately chooses search.
-          if (!window.matchMedia('(max-width: 40rem) and (pointer: coarse)').matches) searchRef.current?.focus()
-          if (!unresolved && !busy) refresh(true)
-          onOpened?.()
-        }}
-        onClose={() => {
-          entryIntent.current += 1
-          setOpen((value) => (value === 'model' ? null : value))
-          setQuery('')
-          setLimit(COMPOSER_MODEL_PAGE_SIZE)
+        open={open === 'model'}
+        onClose={closeModel}
+        label={labels.title}
+        anchorRef={modelTriggerRef}
+        positionReferenceRef={groupRef}
+        anchorAlignment="end"
+        placement="above"
+        responsivePresentation={menuPresentation === 'native' ? 'anchored' : 'narrow-sheet'}
+        initialFocusRef={searchRef}
+        className="hbar-composer-model-surface"
+        data-kind="model"
+        data-presentation={menuPresentation}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.stopPropagation()
+            if (event.target instanceof HTMLInputElement) event.preventDefault()
+          }
+          moveOption(event)
         }}
       >
-        <LumenFrame onKeyDown={moveOption} className="hbar-composer-picker-body">
+        <LumenFrame className="hbar-composer-picker-heading">
+          <LumenFrame className="hbar-composer-model-title" role="region" aria-label={labels.title} tabIndex={0}>
+            <LumenContentText context="popover.title">{labels.title}</LumenContentText>
+          </LumenFrame>
+          <LumenButton
+            type="button"
+            size="s"
+            variant="text"
+            indicator="none"
+            aria-label={labels.close}
+            onClick={closeModel}
+          >
+            <LumenIcon icon={X} tier="sm" />
+          </LumenButton>
+        </LumenFrame>
+        <LumenFrame ref={modelRef} className="hbar-composer-picker-body">
           <LumenFrame className="hbar-composer-model-search">
             <LumenIcon icon={Search} tier="sm" aria-hidden="true" />
             <LumenInput
@@ -703,32 +722,37 @@ export function HbarComposerModelPicker({
               </LumenButton>
             )}
           </LumenFrame>
-          {feedback}
-          {explanation && (
-            <LumenContentText
-              context="feedback.detail"
-              className="hbar-composer-model-recovery"
-              role={presentation.readFailed || presentation.state === 'unavailable' ? 'alert' : 'status'}
-            >
-              {explanation}
-            </LumenContentText>
-          )}
-          {catalog.status === 'loading' && (
-            <LumenContentText context="feedback.detail" role="status">
-              {labels.loading}
-            </LumenContentText>
-          )}
-          {(presentation.readFailed || retrying) && (
-            <LumenButton
-              ref={retryButtonRef}
-              type="button"
-              size="s"
-              loading={retrying}
-              disabled={!connected || busy || unresolved || retrying || catalog.status === 'loading'}
-              onClick={() => refresh()}
-            >
-              {labels.retry}
-            </LumenButton>
+          {(busy || unresolved || error || explanation || catalog.status === 'loading' || retrying) && (
+            <LumenFrame className="hbar-composer-model-reading" role="region" aria-label={labels.title} tabIndex={0}>
+              {feedback}
+              {explanation && (
+                <LumenContentText
+                  context="feedback.detail"
+                  className="hbar-composer-model-recovery"
+                  role={presentation.readFailed || presentation.state === 'unavailable' ? 'alert' : 'status'}
+                >
+                  {explanation}
+                </LumenContentText>
+              )}
+              {catalog.status === 'loading' && (
+                <LumenContentText context="feedback.detail" role="status">
+                  {labels.loading}
+                </LumenContentText>
+              )}
+              {(presentation.readFailed || retrying) && (
+                <LumenButton
+                  type="button"
+                  size="s"
+                  aria-busy={retrying}
+                  aria-disabled={retrying}
+                  indicatorState={retrying ? 'running' : undefined}
+                  disabled={!connected || busy || unresolved || (!retrying && catalog.status === 'loading')}
+                  onClick={() => refresh()}
+                >
+                  {labels.retry}
+                </LumenButton>
+              )}
+            </LumenFrame>
           )}
           <LumenFrame
             ref={modelListRef}
@@ -737,7 +761,7 @@ export function HbarComposerModelPicker({
             aria-label={labels.title}
             aria-busy={busy || catalog.status === 'loading'}
             onScroll={(event) => {
-              if (!modelRef.current?.matches(':popover-open')) return
+              if (openRef.current !== 'model') return
               const list = event.currentTarget
               if (remaining <= 0 || list.scrollTop <= 0 || list.scrollHeight <= list.clientHeight) return
               if (list.scrollHeight - list.scrollTop - list.clientHeight <= 48) {
@@ -749,7 +773,7 @@ export function HbarComposerModelPicker({
           >
             {groups.map(([providerId, group]) => (
               <LumenFrame key={providerId} role="group" aria-label={group.name} className="hbar-composer-model-group">
-                <LumenContentText context="popover.title" className="hbar-composer-provider-name">
+                <LumenContentText context="section.title" className="hbar-composer-provider-name">
                   {group.name}
                 </LumenContentText>
                 {group.models.map((option) => (
@@ -806,12 +830,10 @@ export function HbarComposerModelPicker({
             </LumenButton>
           )}
         </LumenFrame>
-      </PickerPopover>
-      <PickerPopover
+      </FloatingSurface>
+      <ThinkingPopover
         id={thinkingId}
         title={labels.thinking}
-        close={labels.close}
-        kind="thinking"
         anchor={groupRef}
         popupRef={thinkingRef}
         onOpen={() => {
@@ -890,7 +912,7 @@ export function HbarComposerModelPicker({
           </LumenFrame>
         </LumenFrame>
         {feedback}
-      </PickerPopover>
+      </ThinkingPopover>
     </LumenFrame>
   )
 }

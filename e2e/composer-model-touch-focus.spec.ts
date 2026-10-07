@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { cleanupOwnedModelFixture } from './support/model-fixture-cleanup'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
@@ -11,7 +12,11 @@ test('narrow touch model picker shows choices before requesting the keyboard', a
   let host: WebSessionHost | undefined
   const contexts = []
   try {
-    host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+    host = await startWebSessionHost({
+      root,
+      port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+      budgetAutoContinue: false,
+    })
     const copy = getShellCopy('en-US')
     const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
     for (const hasTouch of [false, true]) {
@@ -44,6 +49,7 @@ test('narrow touch model picker shows choices before requesting the keyboard', a
   } finally {
     for (const context of contexts) await context.close()
     if (host) await stopWebSessionHost(host)
-    await rm(root, { recursive: true, force: true })
+
+    await cleanupOwnedModelFixture(root, 'hbar-model-touch-')
   }
 })

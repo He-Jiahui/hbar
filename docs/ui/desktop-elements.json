@@ -16066,124 +16066,45 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::PickerPopover::LumenFrame::1",
+      "id": "packages/app-react/src/composer-model-picker.tsx::ThinkingPopover::LumenFrame::1",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 173,
-      "owner": "PickerPopover",
+      "line": 168,
+      "owner": "ThinkingPopover",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": [
-        "kind === 'model' && (\r\n        <LumenFrame className=\"hbar-composer-picker-heading\">\r\n          <LumenContentText context=\"popover.title\">{title}</LumenContentText>\r\n          <LumenButton\r\n            type=\"button\"\r\n            size=\"s\"\r\n            variant=\"text\"\r\n            indicator=\"none\"\r\n            aria-label={close}\r\n            onClick={() => popupRef.current?.hidePopover()}\r\n          >\r\n            <LumenIcon icon={X} tier=\"sm\" />\r\n          </LumenButton>\r\n        </LumenFrame>\r\n      )",
-        "children"
-      ],
+      "contentSources": ["children"],
       "accessibleNameSources": ["aria-label=title"],
       "actionBindings": {
-        "onBeforeToggle": "(event) => {\r\n        if (event.newState === 'open' && anchor.current) placePopover(event.currentTarget, anchor.current)\r\n      }",
-        "onToggle": "(event) => {\r\n        if (event.newState === 'open') onOpen()\r\n        else onClose()\r\n      }",
-        "onKeyDown": "(event) => {\r\n        // A popover nested in the prompt form must never submit the prompt.\r\n        if (event.key === 'Enter') {\r\n          event.stopPropagation()\r\n          if (event.target instanceof HTMLInputElement) event.preventDefault()\r\n        }\r\n      }"
+        "onBeforeToggle": "(event) => {\n        if (event.newState === 'open' && anchor.current) placePopover(event.currentTarget, anchor.current)\n      }",
+        "onToggle": "(event) => {\n        if (event.newState === 'open') onOpen()\n        else onClose()\n      }",
+        "onKeyDown": "(event) => {\n        // A popover nested in the prompt form must never submit the prompt.\n        if (event.key === 'Enter') {\n          event.stopPropagation()\n          if (event.target instanceof HTMLInputElement) event.preventDefault()\n        }\n      }"
       },
       "targetSources": [
         "id=id",
-        "onKeyDown=(event) => {\r\n        // A popover nested in the prompt form must never submit the prompt.\r\n        if (event.key === 'Enter') {\r\n          event.stopPropagation()\r\n          if (event.target instanceof HTMLInputElement) event.preventDefault()\r\n        }\r\n      }"
+        "onKeyDown=(event) => {\n        // A popover nested in the prompt form must never submit the prompt.\n        if (event.key === 'Enter') {\n          event.stopPropagation()\n          if (event.target instanceof HTMLInputElement) event.preventDefault()\n        }\n      }"
       ],
       "stateSources": [],
       "flow": "owning flow layout",
       "lumenMapping": "LumenFrame",
-      "status": "composed",
-      "issues": []
-    },
-    {
-      "id": "packages/app-react/src/composer-model-picker.tsx::PickerPopover::LumenFrame::2",
-      "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 198,
-      "owner": "PickerPopover",
-      "surface": "composer-and-launch",
-      "component": "LumenFrame",
-      "category": "structure",
-      "context": null,
-      "contentSources": [],
-      "accessibleNameSources": [],
-      "actionBindings": {},
-      "targetSources": [],
-      "stateSources": [],
-      "flow": "owning flow layout",
-      "lumenMapping": "LumenFrame",
-      "status": "composed",
-      "issues": []
-    },
-    {
-      "id": "packages/app-react/src/composer-model-picker.tsx::PickerPopover::LumenContentText::1",
-      "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 199,
-      "owner": "PickerPopover",
-      "surface": "composer-and-launch",
-      "component": "LumenContentText",
-      "category": "text",
-      "context": "popover.title",
-      "contentSources": ["title"],
-      "accessibleNameSources": [],
-      "actionBindings": {},
-      "targetSources": [],
-      "stateSources": [],
-      "flow": "reading",
-      "lumenMapping": "LumenContentText",
-      "status": "semantic",
-      "issues": []
-    },
-    {
-      "id": "packages/app-react/src/composer-model-picker.tsx::PickerPopover::LumenButton::1",
-      "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 200,
-      "owner": "PickerPopover",
-      "surface": "composer-and-launch",
-      "component": "LumenButton",
-      "category": "interaction",
-      "context": null,
-      "contentSources": [],
-      "accessibleNameSources": ["aria-label=close"],
-      "actionBindings": { "onClick": "() => popupRef.current?.hidePopover()" },
-      "targetSources": [],
-      "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenButton",
-      "status": "composed",
-      "issues": []
-    },
-    {
-      "id": "packages/app-react/src/composer-model-picker.tsx::PickerPopover::LumenIcon::1",
-      "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 208,
-      "owner": "PickerPopover",
-      "surface": "composer-and-launch",
-      "component": "LumenIcon",
-      "category": "interaction",
-      "context": null,
-      "contentSources": [],
-      "accessibleNameSources": [],
-      "actionBindings": {},
-      "targetSources": [],
-      "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenIcon",
       "status": "composed",
       "issues": []
     },
     {
       "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::1",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 539,
+      "line": 544,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "busy && (\r\n        <LumenContentText context=\"feedback.detail\" role=\"status\">\r\n          {labels.pending}\r\n        </LumenContentText>\r\n      )",
-        "unresolved && (\r\n        <LumenContentText context=\"feedback.detail\" role=\"alert\">\r\n          {labels.unknown}\r\n        </LumenContentText>\r\n      )",
-        "error && !unresolved && (\r\n        <LumenContentText context=\"feedback.detail\" role=\"alert\">\r\n          {labels.error(error)}\r\n        </LumenContentText>\r\n      )",
-        "unresolved && (\r\n        <LumenButton\r\n          type=\"button\"\r\n          size=\"s\"\r\n          disabled={!connected || busy}\r\n          onClick={() => {\r\n            setLocalError(null)\r\n            void runtime.commands.execute('composerModel.reconcile', { sessionId }).catch(capture)\r\n          }}\r\n        >\r\n          {labels.reconcile}\r\n        </LumenButton>\r\n      )"
+        "busy && (\n        <LumenContentText context=\"feedback.detail\" role=\"status\">\n          {labels.pending}\n        </LumenContentText>\n      )",
+        "unresolved && (\n        <LumenContentText context=\"feedback.detail\" role=\"alert\">\n          {labels.unknown}\n        </LumenContentText>\n      )",
+        "error && !unresolved && (\n        <LumenContentText context=\"feedback.detail\" role=\"alert\">\n          {labels.error(error)}\n        </LumenContentText>\n      )",
+        "unresolved && (\n        <LumenButton\n          type=\"button\"\n          size=\"s\"\n          disabled={!connected || busy}\n          onClick={() => {\n            setLocalError(null)\n            void runtime.commands.execute('composerModel.reconcile', { sessionId }).catch(capture)\n          }}\n        >\n          {labels.reconcile}\n        </LumenButton>\n      )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -16197,7 +16118,7 @@
     {
       "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::1",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 541,
+      "line": 546,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -16216,7 +16137,7 @@
     {
       "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::2",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 546,
+      "line": 551,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -16235,7 +16156,7 @@
     {
       "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::3",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 551,
+      "line": 556,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -16254,7 +16175,7 @@
     {
       "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenButton::1",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 556,
+      "line": 561,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -16263,7 +16184,7 @@
       "contentSources": ["labels.reconcile"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onClick": "() => {\r\n            setLocalError(null)\r\n            void runtime.commands.execute('composerModel.reconcile', { sessionId }).catch(capture)\r\n          }"
+        "onClick": "() => {\n            setLocalError(null)\n            void runtime.commands.execute('composerModel.reconcile', { sessionId }).catch(capture)\n          }"
       },
       "targetSources": [],
       "stateSources": ["disabled=!connected || busy"],
@@ -16275,15 +16196,16 @@
     {
       "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::2",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 597,
+      "line": 602,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "[source:619; BinaryExpression] levels.length",
-        "!open && closedExplanation && (\r\n        <LumenContentText\r\n          context=\"feedback.detail\"\r\n          className=\"hbar-composer-model-closed-recovery\"\r\n          role={presentation.readFailed || presentation.state === 'unavailable' ? 'alert' : 'status'}\r\n        >\r\n          {closedExplanation}\r\n        </LumenContentText>\r\n      )"
+        "[source:624; BinaryExpression] levels.length",
+        "!open && closedExplanation && (\n        <LumenContentText\n          context=\"feedback.detail\"\n          className=\"hbar-composer-model-closed-recovery\"\n          role={presentation.readFailed || presentation.state === 'unavailable' ? 'alert' : 'status'}\n        >\n          {closedExplanation}\n        </LumenContentText>\n      )",
+        "!open && (busy || unresolved || error) && (\n        <LumenFrame className=\"hbar-composer-model-closed-feedback\">{feedback}</LumenFrame>\n      )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -16297,7 +16219,7 @@
     {
       "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenButton::2",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 598,
+      "line": 603,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -16308,11 +16230,12 @@
         "aria-label=directConfigure ? labels.configure : labels.trigger(triggerName)",
         "title=explanation ?? triggerName"
       ],
-      "actionBindings": { "onClick": "directConfigure ? () => openProviders() : undefined" },
-      "targetSources": ["popoverTarget=directConfigure ? undefined : modelId"],
+      "actionBindings": {},
+      "targetSources": [],
       "stateSources": [
         "aria-expanded=directConfigure ? undefined : open === 'model'",
-        "disabled=!connected || (disabled && !unresolved)"
+        "disabled=!connected || (disabled && !unresolved)",
+        "aria-busy=busy || retrying || undefined"
       ],
       "flow": "owning component contract",
       "lumenMapping": "LumenButton",
@@ -16322,7 +16245,7 @@
     {
       "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::4",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 614,
+      "line": 619,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -16341,7 +16264,7 @@
     {
       "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenIcon::1",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 617,
+      "line": 622,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenIcon",
@@ -16360,7 +16283,7 @@
     {
       "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenButton::3",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 620,
+      "line": 625,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -16368,7 +16291,7 @@
       "context": null,
       "contentSources": ["labels.thinkingLevel(model?.thinkingLevel ?? current?.defaultThinkingLevel ?? 'off')"],
       "accessibleNameSources": [
-        "aria-label=labels.thinkingTrigger(\r\n            labels.thinkingLevel(model?.thinkingLevel ?? current?.defaultThinkingLevel ?? 'off'),\r\n          )"
+        "aria-label=labels.thinkingTrigger(\n            labels.thinkingLevel(model?.thinkingLevel ?? current?.defaultThinkingLevel ?? 'off'),\n          )"
       ],
       "actionBindings": {},
       "targetSources": ["popoverTarget=thinkingId"],
@@ -16381,7 +16304,7 @@
     {
       "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::5",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 639,
+      "line": 644,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -16398,46 +16321,18 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::PickerPopover::1",
-      "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 647,
-      "owner": "HbarComposerModelPicker",
-      "surface": "composer-and-launch",
-      "component": "PickerPopover",
-      "category": "form",
-      "context": null,
-      "contentSources": ["title=labels.title"],
-      "accessibleNameSources": ["title=labels.title"],
-      "actionBindings": {
-        "onOpen": "() => {\r\n          modelListRef.current?.scrollTo({ top: 0 })\r\n          setLimit(COMPOSER_MODEL_PAGE_SIZE)\r\n          setOpen('model')\r\n          // The same popup can be opened from the model trigger or a local /model\r\n          // command while the editor still owns focus. On a narrow touch device,\r\n          // leave the list unobscured until the user deliberately chooses search.\r\n          if (!window.matchMedia('(max-width: 40rem) and (pointer: coarse)').matches) searchRef.current?.focus()\r\n          if (!unresolved && !busy) refresh(true)\r\n          onOpened?.()\r\n        }",
-        "onClose": "() => {\r\n          entryIntent.current += 1\r\n          setOpen((value) => (value === 'model' ? null : value))\r\n          setQuery('')\r\n          setLimit(COMPOSER_MODEL_PAGE_SIZE)\r\n        }"
-      },
-      "targetSources": ["id=modelId"],
-      "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "PickerPopover",
-      "status": "composed",
-      "issues": []
-    },
-    {
       "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::3",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 673,
+      "line": 653,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": [
-        "feedback",
-        "explanation && (\r\n            <LumenContentText\r\n              context=\"feedback.detail\"\r\n              className=\"hbar-composer-model-recovery\"\r\n              role={presentation.readFailed || presentation.state === 'unavailable' ? 'alert' : 'status'}\r\n            >\r\n              {explanation}\r\n            </LumenContentText>\r\n          )",
-        "catalog.status === 'loading' && (\r\n            <LumenContentText context=\"feedback.detail\" role=\"status\">\r\n              {labels.loading}\r\n            </LumenContentText>\r\n          )",
-        "(presentation.readFailed || retrying) && (\r\n            <LumenButton\r\n              ref={retryButtonRef}\r\n              type=\"button\"\r\n              size=\"s\"\r\n              loading={retrying}\r\n              disabled={!connected || busy || unresolved || retrying || catalog.status === 'loading'}\r\n              onClick={() => refresh()}\r\n            >\r\n              {labels.retry}\r\n            </LumenButton>\r\n          )",
-        "presentation.recoverProviders && (\r\n            <LumenButton type=\"button\" size=\"s\" disabled={!connected || busy} onClick={() => openProviders()}>\r\n              {labels.providers}\r\n            </LumenButton>\r\n          )"
-      ],
+      "contentSources": ["feedback"],
       "accessibleNameSources": [],
-      "actionBindings": { "onKeyDown": "moveOption" },
-      "targetSources": ["onKeyDown=moveOption"],
+      "actionBindings": {},
+      "targetSources": [],
       "stateSources": [],
       "flow": "owning flow layout",
       "lumenMapping": "LumenFrame",
@@ -16445,16 +16340,138 @@
       "issues": []
     },
     {
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::FloatingSurface::1",
+      "path": "packages/app-react/src/composer-model-picker.tsx",
+      "line": 655,
+      "owner": "HbarComposerModelPicker",
+      "surface": "composer-and-launch",
+      "component": "FloatingSurface",
+      "category": "interaction",
+      "context": null,
+      "contentSources": ["label=labels.title"],
+      "accessibleNameSources": ["label=labels.title"],
+      "actionBindings": {
+        "onClose": "closeModel",
+        "onKeyDown": "(event) => {\n          if (event.key === 'Enter') {\n            event.stopPropagation()\n            if (event.target instanceof HTMLInputElement) event.preventDefault()\n          }\n          moveOption(event)\n        }"
+      },
+      "targetSources": [
+        "id=modelId",
+        "positionReferenceRef=groupRef",
+        "onKeyDown=(event) => {\n          if (event.key === 'Enter') {\n            event.stopPropagation()\n            if (event.target instanceof HTMLInputElement) event.preventDefault()\n          }\n          moveOption(event)\n        }"
+      ],
+      "stateSources": ["open=open === 'model'"],
+      "flow": "owning component contract",
+      "lumenMapping": "FloatingSurface",
+      "status": "composed",
+      "issues": []
+    },
+    {
       "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::4",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 674,
+      "line": 677,
+      "owner": "HbarComposerModelPicker",
+      "surface": "composer-and-launch",
+      "component": "LumenFrame",
+      "category": "structure",
+      "context": null,
+      "contentSources": [],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::5",
+      "path": "packages/app-react/src/composer-model-picker.tsx",
+      "line": 678,
+      "owner": "HbarComposerModelPicker",
+      "surface": "composer-and-launch",
+      "component": "LumenFrame",
+      "category": "structure",
+      "context": null,
+      "contentSources": [],
+      "accessibleNameSources": ["aria-label=labels.title"],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::6",
+      "path": "packages/app-react/src/composer-model-picker.tsx",
+      "line": 679,
+      "owner": "HbarComposerModelPicker",
+      "surface": "composer-and-launch",
+      "component": "LumenContentText",
+      "category": "text",
+      "context": "popover.title",
+      "contentSources": ["labels.title"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenButton::4",
+      "path": "packages/app-react/src/composer-model-picker.tsx",
+      "line": 681,
+      "owner": "HbarComposerModelPicker",
+      "surface": "composer-and-launch",
+      "component": "LumenButton",
+      "category": "interaction",
+      "context": null,
+      "contentSources": [],
+      "accessibleNameSources": ["aria-label=labels.close"],
+      "actionBindings": { "onClick": "closeModel" },
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "owning component contract",
+      "lumenMapping": "LumenButton",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenIcon::2",
+      "path": "packages/app-react/src/composer-model-picker.tsx",
+      "line": 689,
+      "owner": "HbarComposerModelPicker",
+      "surface": "composer-and-launch",
+      "component": "LumenIcon",
+      "category": "interaction",
+      "context": null,
+      "contentSources": [],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "owning component contract",
+      "lumenMapping": "LumenIcon",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::6",
+      "path": "packages/app-react/src/composer-model-picker.tsx",
+      "line": 692,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "query && (\r\n              <LumenButton\r\n                type=\"button\"\r\n                size=\"s\"\r\n                variant=\"text\"\r\n                indicator=\"none\"\r\n                aria-label={labels.clearSearch}\r\n                onClick={() => {\r\n                  setQuery('')\r\n                  setLimit(COMPOSER_MODEL_PAGE_SIZE)\r\n                  searchRef.current?.focus()\r\n                }}\r\n              >\r\n                <LumenIcon icon={X} tier=\"sm\" />\r\n              </LumenButton>\r\n            )"
+        "[source:725; BinaryExpression] busy, unresolved, error, explanation, catalog.status, retrying",
+        "presentation.recoverProviders && (\n            <LumenButton type=\"button\" size=\"s\" disabled={!connected || busy} onClick={() => openProviders()}>\n              {labels.providers}\n            </LumenButton>\n          )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -16466,9 +16483,30 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenIcon::2",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::7",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 675,
+      "line": 693,
+      "owner": "HbarComposerModelPicker",
+      "surface": "composer-and-launch",
+      "component": "LumenFrame",
+      "category": "structure",
+      "context": null,
+      "contentSources": [
+        "query && (\n              <LumenButton\n                type=\"button\"\n                size=\"s\"\n                variant=\"text\"\n                indicator=\"none\"\n                aria-label={labels.clearSearch}\n                onClick={() => {\n                  setQuery('')\n                  setLimit(COMPOSER_MODEL_PAGE_SIZE)\n                  searchRef.current?.focus()\n                }}\n              >\n                <LumenIcon icon={X} tier=\"sm\" />\n              </LumenButton>\n            )"
+      ],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenIcon::3",
+      "path": "packages/app-react/src/composer-model-picker.tsx",
+      "line": 694,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenIcon",
@@ -16487,7 +16525,7 @@
     {
       "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenInput::1",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 676,
+      "line": 695,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenInput",
@@ -16496,7 +16534,7 @@
       "contentSources": ["value=query", "placeholder=labels.search"],
       "accessibleNameSources": ["aria-label=labels.search"],
       "actionBindings": {
-        "onChange": "(event) => {\r\n                entryIntent.current += 1\r\n                setQuery(event.currentTarget.value)\r\n                setLimit(COMPOSER_MODEL_PAGE_SIZE)\r\n              }"
+        "onChange": "(event) => {\n                entryIntent.current += 1\n                setQuery(event.currentTarget.value)\n                setLimit(COMPOSER_MODEL_PAGE_SIZE)\n              }"
       },
       "targetSources": [],
       "stateSources": ["value=query"],
@@ -16506,9 +16544,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenButton::4",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenButton::5",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 690,
+      "line": 709,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -16517,7 +16555,7 @@
       "contentSources": [],
       "accessibleNameSources": ["aria-label=labels.clearSearch"],
       "actionBindings": {
-        "onClick": "() => {\r\n                  setQuery('')\r\n                  setLimit(COMPOSER_MODEL_PAGE_SIZE)\r\n                  searchRef.current?.focus()\r\n                }"
+        "onClick": "() => {\n                  setQuery('')\n                  setLimit(COMPOSER_MODEL_PAGE_SIZE)\n                  searchRef.current?.focus()\n                }"
       },
       "targetSources": [],
       "stateSources": [],
@@ -16527,9 +16565,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenIcon::3",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenIcon::4",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 702,
+      "line": 721,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenIcon",
@@ -16546,9 +16584,33 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::6",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::8",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 708,
+      "line": 726,
+      "owner": "HbarComposerModelPicker",
+      "surface": "composer-and-launch",
+      "component": "LumenFrame",
+      "category": "structure",
+      "context": null,
+      "contentSources": [
+        "feedback",
+        "explanation && (\n                <LumenContentText\n                  context=\"feedback.detail\"\n                  className=\"hbar-composer-model-recovery\"\n                  role={presentation.readFailed || presentation.state === 'unavailable' ? 'alert' : 'status'}\n                >\n                  {explanation}\n                </LumenContentText>\n              )",
+        "catalog.status === 'loading' && (\n                <LumenContentText context=\"feedback.detail\" role=\"status\">\n                  {labels.loading}\n                </LumenContentText>\n              )",
+        "(presentation.readFailed || retrying) && (\n                <LumenButton\n                  type=\"button\"\n                  size=\"s\"\n                  aria-busy={retrying}\n                  aria-disabled={retrying}\n                  indicatorState={retrying ? 'running' : undefined}\n                  disabled={!connected || busy || unresolved || (!retrying && catalog.status === 'loading')}\n                  onClick={() => refresh()}\n                >\n                  {labels.retry}\n                </LumenButton>\n              )"
+      ],
+      "accessibleNameSources": ["aria-label=labels.title"],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::7",
+      "path": "packages/app-react/src/composer-model-picker.tsx",
+      "line": 729,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -16565,9 +16627,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::7",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::8",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 717,
+      "line": 738,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -16584,9 +16646,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenButton::5",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenButton::6",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 722,
+      "line": 743,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -16597,8 +16659,8 @@
       "actionBindings": { "onClick": "() => refresh()" },
       "targetSources": [],
       "stateSources": [
-        "loading=retrying",
-        "disabled=!connected || busy || unresolved || retrying || catalog.status === 'loading'"
+        "aria-busy=retrying",
+        "disabled=!connected || busy || unresolved || (!retrying && catalog.status === 'loading')"
       ],
       "flow": "owning component contract",
       "lumenMapping": "LumenButton",
@@ -16606,22 +16668,22 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::5",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::9",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 733,
+      "line": 757,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "[source:750; CallExpression] groups.map, providerId, group",
-        "!groups.length && catalog.status === 'ready' && (\r\n              <LumenContentText context=\"popover.body\">\r\n                {models.length ? labels.noMatches : labels.empty}\r\n              </LumenContentText>\r\n            )",
-        "remaining > 0 && (\r\n              <LumenButton type=\"button\" size=\"s\" onClick={() => setLimit((value) => value + COMPOSER_MODEL_PAGE_SIZE)}>\r\n                {labels.more(remaining)}\r\n              </LumenButton>\r\n            )"
+        "[source:774; CallExpression] groups.map, providerId, group",
+        "!groups.length && catalog.status === 'ready' && (\n              <LumenContentText context=\"popover.body\">\n                {models.length ? labels.noMatches : labels.empty}\n              </LumenContentText>\n            )",
+        "remaining > 0 && (\n              <LumenButton type=\"button\" size=\"s\" onClick={() => setLimit((value) => value + COMPOSER_MODEL_PAGE_SIZE)}>\n                {labels.more(remaining)}\n              </LumenButton>\n            )"
       ],
       "accessibleNameSources": ["aria-label=labels.title"],
       "actionBindings": {
-        "onScroll": "(event) => {\r\n              if (!modelRef.current?.matches(':popover-open')) return\r\n              const list = event.currentTarget\r\n              if (remaining <= 0 || list.scrollTop <= 0 || list.scrollHeight <= list.clientHeight) return\r\n              if (list.scrollHeight - list.scrollTop - list.clientHeight <= 48) {\r\n                setLimit((value) =>\r\n                  value === limit ? Math.min(models.length, value + COMPOSER_MODEL_PAGE_SIZE) : value,\r\n                )\r\n              }\r\n            }"
+        "onScroll": "(event) => {\n              if (openRef.current !== 'model') return\n              const list = event.currentTarget\n              if (remaining <= 0 || list.scrollTop <= 0 || list.scrollHeight <= list.clientHeight) return\n              if (list.scrollHeight - list.scrollTop - list.clientHeight <= 48) {\n                setLimit((value) =>\n                  value === limit ? Math.min(models.length, value + COMPOSER_MODEL_PAGE_SIZE) : value,\n                )\n              }\n            }"
       },
       "targetSources": [],
       "stateSources": ["aria-busy=busy || catalog.status === 'loading'"],
@@ -16631,15 +16693,15 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::6",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::10",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 751,
+      "line": 775,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": ["[source:755; CallExpression] group.models.map, group.models, option"],
+      "contentSources": ["[source:779; CallExpression] group.models.map, group.models, option"],
       "accessibleNameSources": ["aria-label=group.name"],
       "actionBindings": {},
       "targetSources": ["key=providerId"],
@@ -16650,28 +16712,28 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::8",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::9",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 752,
+      "line": 776,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
       "category": "text",
-      "context": "popover.title",
+      "context": "section.title",
       "contentSources": ["group.name"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "reading",
+      "flow": "single",
       "lumenMapping": "LumenContentText",
       "status": "semantic",
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenButton::6",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenButton::7",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 756,
+      "line": 780,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -16688,16 +16750,16 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::7",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::11",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 767,
+      "line": 791,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "option.description && (\r\n                        <LumenContentText context=\"choice.description\" className=\"hbar-composer-model-purpose\">\r\n                          {option.description}\r\n                        </LumenContentText>\r\n                      )"
+        "option.description && (\n                        <LumenContentText context=\"choice.description\" className=\"hbar-composer-model-purpose\">\n                          {option.description}\n                        </LumenContentText>\n                      )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -16709,16 +16771,16 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::8",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::12",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 768,
+      "line": 792,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "disclosedModelIds.has(option.id) && option.modelId !== option.modelName && (\r\n                          <LumenContentText context=\"code.inline\" className=\"hbar-composer-model-identifier\">\r\n                            {option.modelId}\r\n                          </LumenContentText>\r\n                        )"
+        "disclosedModelIds.has(option.id) && option.modelId !== option.modelName && (\n                          <LumenContentText context=\"code.inline\" className=\"hbar-composer-model-identifier\">\n                            {option.modelId}\n                          </LumenContentText>\n                        )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -16730,9 +16792,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::9",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::10",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 769,
+      "line": 793,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -16749,9 +16811,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::10",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::11",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 773,
+      "line": 797,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -16768,9 +16830,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::11",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::12",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 779,
+      "line": 803,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -16787,9 +16849,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::12",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::13",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 783,
+      "line": 807,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -16806,9 +16868,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenIcon::4",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenIcon::5",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 787,
+      "line": 811,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenIcon",
@@ -16825,9 +16887,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::13",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::14",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 793,
+      "line": 817,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -16844,9 +16906,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenButton::7",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenButton::8",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 798,
+      "line": 822,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -16863,9 +16925,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenButton::8",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenButton::9",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 804,
+      "line": 828,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -16882,31 +16944,31 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::PickerPopover::2",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::ThinkingPopover::1",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 810,
+      "line": 834,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
-      "component": "PickerPopover",
-      "category": "form",
+      "component": "ThinkingPopover",
+      "category": "structure",
       "context": null,
       "contentSources": ["feedback", "title=labels.thinking"],
       "accessibleNameSources": ["title=labels.thinking"],
       "actionBindings": {
-        "onOpen": "() => {\r\n          setOpen('thinking')\r\n          cancelledRef.current = false\r\n          sliderRef.current?.focus()\r\n        }",
-        "onClose": "() => {\r\n          setOpen((value) => (value === 'thinking' ? null : value))\r\n          resetThinkingPreview()\r\n        }"
+        "onOpen": "() => {\n          setOpen('thinking')\n          cancelledRef.current = false\n          sliderRef.current?.focus()\n        }",
+        "onClose": "() => {\n          setOpen((value) => (value === 'thinking' ? null : value))\n          resetThinkingPreview()\n        }"
       },
       "targetSources": ["id=thinkingId"],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "PickerPopover",
+      "flow": "owning flow layout",
+      "lumenMapping": "ThinkingPopover",
       "status": "composed",
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::9",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::13",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 827,
+      "line": 849,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
@@ -16923,9 +16985,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::14",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::15",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 828,
+      "line": 850,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -16942,9 +17004,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::15",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenContentText::16",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 831,
+      "line": 853,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -16961,9 +17023,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::10",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::14",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 835,
+      "line": 857,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
@@ -16982,7 +17044,7 @@
     {
       "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenRange::1",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 841,
+      "line": 863,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenRange",
@@ -16992,14 +17054,14 @@
       "accessibleNameSources": ["aria-label=labels.thinking"],
       "actionBindings": {
         "onChange": "(event) => previewThinking(event.currentTarget)",
-        "onPointerDown": "() => {\r\n              pointerIdentityRef.current = thinkingIdentity\r\n              cancelledRef.current = false\r\n            }",
+        "onPointerDown": "() => {\n              pointerIdentityRef.current = thinkingIdentity\n              cancelledRef.current = false\n            }",
         "onPointerUp": "(event) => selectThinking(event.currentTarget)",
-        "onPointerCancel": "() => {\r\n              cancelledRef.current = true\r\n              resetThinkingPreview()\r\n            }",
-        "onKeyDown": "[source:861; ArrowFunction] event, event.key, event.preventDefault, event.stopPropagation, cancelledRef.current, resetThinkingPreview, thinkingRef.current?.hidePopover, thinkingRef.current, ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes, selectThinking, event.currentTarget",
+        "onPointerCancel": "() => {\n              cancelledRef.current = true\n              resetThinkingPreview()\n            }",
+        "onKeyDown": "[source:883; ArrowFunction] event, event.key, event.preventDefault, event.stopPropagation, cancelledRef.current, resetThinkingPreview, thinkingRef.current?.hidePopover, thinkingRef.current, ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes, selectThinking, event.currentTarget",
         "onBlur": "(event) => selectThinking(event.currentTarget)"
       },
       "targetSources": [
-        "onKeyDown=[source:861; ArrowFunction] event, event.key, event.preventDefault, event.stopPropagation, cancelledRef.current, resetThinkingPreview, thinkingRef.current?.hidePopover, thinkingRef.current, ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes, selectThinking, event.currentTarget"
+        "onKeyDown=[source:883; ArrowFunction] event, event.key, event.preventDefault, event.stopPropagation, cancelledRef.current, resetThinkingPreview, thinkingRef.current?.hidePopover, thinkingRef.current, ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes, selectThinking, event.currentTarget"
       ],
       "stateSources": ["value=selectedIndex", "disabled=thinkingUnavailable || levels.length < 2"],
       "flow": "owning component contract",
@@ -17008,16 +17070,16 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::11",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::15",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 886,
+      "line": 908,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "levels.map((level, index) => (\r\n              <LumenFrame key={level} className=\"hbar-composer-thinking-stop\" data-reached={index <= selectedIndex} />\r\n            ))"
+        "levels.map((level, index) => (\n              <LumenFrame key={level} className=\"hbar-composer-thinking-stop\" data-reached={index <= selectedIndex} />\n            ))"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -17029,9 +17091,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::12",
+      "id": "packages/app-react/src/composer-model-picker.tsx::HbarComposerModelPicker::LumenFrame::16",
       "path": "packages/app-react/src/composer-model-picker.tsx",
-      "line": 888,
+      "line": 910,
       "owner": "HbarComposerModelPicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
@@ -26222,7 +26284,7 @@
     {
       "id": "packages/app-react/src/floating-surface.tsx::FloatingSurface::LumenFloatingSurface::1",
       "path": "packages/app-react/src/floating-surface.tsx",
-      "line": 53,
+      "line": 55,
       "owner": "FloatingSurface",
       "surface": "workbench",
       "component": "LumenFloatingSurface",
@@ -26231,7 +26293,7 @@
       "contentSources": ["children", "label=label"],
       "accessibleNameSources": ["label=label"],
       "actionBindings": { "onClose": "onClose" },
-      "targetSources": [],
+      "targetSources": ["positionReferenceRef=positionReferenceRef"],
       "stateSources": ["open=open"],
       "flow": "owning component contract",
       "lumenMapping": "LumenFloatingSurface",

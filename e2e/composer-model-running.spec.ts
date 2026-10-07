@@ -1,8 +1,9 @@
 import { expect, test } from '@playwright/test'
 import { createRunCommandClient } from '@hbar/client'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { cleanupOwnedModelFixture } from './support/model-fixture-cleanup'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
@@ -16,7 +17,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 960 } })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        budgetAutoContinue: false,
+      })
       const sessionId = host.ready.sessionId
       const runs = createRunCommandClient(host.client)
       const copy = getShellCopy(locale)
@@ -79,7 +84,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+
+      await cleanupOwnedModelFixture(root, 'hbar-running-model-e2e-')
     }
   })
 }

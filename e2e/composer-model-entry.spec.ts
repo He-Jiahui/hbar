@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test'
 import { createConfigurationCommandClient, createModelCommandClient } from '@hbar/client'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
+import { cleanupOwnedModelFixture } from './support/model-fixture-cleanup'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
@@ -18,7 +19,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const labels = copy.session.modelPicker
     const longModelName = '模型选择回归测试 — A deliberately long model display name that must not hide the send action'
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        budgetAutoContinue: false,
+      })
       await createConfigurationCommandClient(host.client).execute('provider.save', {
         provider: {
           id: 'composer-fixture',
@@ -380,15 +385,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         if (viewport.width === 320) {
           await expect(popup).toHaveAttribute('data-presentation', 'web')
           expect(bounds!.width).toBeGreaterThanOrEqual(viewport.width - 1)
-          await popup.evaluate((element) => element.setAttribute('data-presentation', 'native'))
-          const anchored = await popup.boundingBox()
-          expect(anchored).not.toBeNull()
-          expect(anchored!.x).toBeGreaterThan(0)
-          expect(anchored!.x + anchored!.width).toBeLessThan(viewport.width)
-          await page.screenshot({
-            path: `artifacts/reference-ux-v2/hbar-model-native-layout-fixture-${locale}-320.png`,
-          })
-          await popup.evaluate((element) => element.setAttribute('data-presentation', 'web'))
+          await expect(popup).toHaveAttribute('data-mobile-sheet', 'true')
+          // Native anchoring is a typed strategy, not an attribute-only CSS switch.
+          // verify-session-model.ts renders both actual strategies at every width.
         }
         if (viewport.width === 1440 || viewport.width === 320) {
           const list = popup.locator('.hbar-composer-model-list')
@@ -471,7 +470,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+
+      await cleanupOwnedModelFixture(root, 'hbar-composer-model-')
     }
   })
 }

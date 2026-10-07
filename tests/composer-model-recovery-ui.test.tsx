@@ -97,16 +97,8 @@ async function render(input: {
   }
 }
 
-test('model menu keeps an explicit desktop presentation independent of CSS viewport width', async () => {
-  const input = states('configured')
-  const labels = getShellCopy('zh-CN').session.modelPicker
-  const native = await render({ ...input, labels, menuPresentation: 'native' })
-  const web = await render({ ...input, labels, menuPresentation: 'web' })
-  expect(native).toContain('data-kind="model" data-presentation="native"')
-  expect(web).toContain('data-kind="model" data-presentation="web"')
-  expect(native).toContain('data-kind="thinking"')
-  expect(native).not.toContain('data-kind="thinking" data-presentation=')
-})
+// Open model content and native/web presentation are verified in the real client
+// fixture (verify-session-model.ts). A closed body portal is absent from SSR.
 async function markup(html: string) {
   const buttons: Array<{
     label: string
@@ -149,14 +141,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     expect(html).toContain('data-model-state="unavailable"')
     expect(html).toContain('hbar-composer-model-closed-recovery')
     expect(html).toContain(labels.unavailableHint)
-    expect(html).toContain(labels.unavailable('removed/provider-model'))
     expect(buttons.find((button) => button.className.includes('hbar-composer-model-trigger'))).toMatchObject({
       label: labels.trigger(labels.unavailableTrigger),
       popup: 'dialog',
       disabled: false,
     })
-    expect(buttons.find((button) => button.text === labels.providers)).toMatchObject({ disabled: false })
-    expect(buttons.find((button) => button.role === 'option')).toMatchObject({ disabled: false })
+    expect(buttons.some((button) => button.role === 'option')).toBe(false)
     expect(buttons.some((button) => button.className.includes('hbar-composer-thinking-trigger'))).toBe(false)
     expect(html).not.toContain('aria-selected="true"')
   })
@@ -182,7 +172,6 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(html).not.toContain('PRIVATE_FAILURE')
       if (status === 'error') {
         expect(html).toContain(labels.readFailed)
-        expect(buttons.find((button) => button.text === labels.retry)).toMatchObject({ disabled: false })
       }
     }
   })
@@ -200,7 +189,6 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const buttons = await markup(html)
     expect(buttons.find((button) => button.className.includes('hbar-composer-model-trigger'))?.disabled).toBe(false)
     expect(buttons.find((button) => button.text === labels.reconcile)?.disabled).toBe(false)
-    expect(buttons.filter((button) => button.role === 'option').every((button) => button.disabled)).toBe(true)
     expect(buttons.find((button) => button.className.includes('hbar-composer-thinking-trigger'))?.disabled).toBe(true)
     expect(html).toContain(labels.unknown)
   })

@@ -10,7 +10,7 @@ import { startServer } from '../../apps/host/src/server'
 // provider records supply metadata only: no Run, provider request or key exists.
 const options = z.object({ root: z.string().min(1), assets: z.string().min(1), empty: z.boolean() }).parse({
   root: process.env.HBAR_MODEL_RECOVERY_ROOT,
-  assets: process.env.HBAR_MODEL_RECOVERY_WEB_DIST ?? 'dist/web',
+  assets: process.env.HBAR_MODEL_RECOVERY_WEB_DIST ?? process.env.HBAR_E2E_PREVIEW_DIST ?? 'dist/web',
   empty: process.env.HBAR_MODEL_RECOVERY_EMPTY === '1',
 })
 const workspacePath = join(options.root, 'Original model recovery workspace — 原工程')

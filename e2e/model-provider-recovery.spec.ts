@@ -384,7 +384,7 @@ async function noExecution(f: Fixture) {
 async function capture(f: Fixture, state: string) {
   expect(await f.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
   const geometry = await f.page.evaluate(() => {
-    const popup = document.querySelector<HTMLElement>('.hbar-composer-picker-popover:popover-open')
+    const popup = document.querySelector<HTMLElement>('.hbar-composer-model-surface[data-positioned="true"]')
     if (!popup) return []
     const targets = [
       popup,
@@ -397,8 +397,8 @@ async function capture(f: Fixture, state: string) {
       .map((element) => {
         const rect = element.getBoundingClientRect()
         const clip = { left: 0, top: 0, right: innerWidth, bottom: innerHeight }
-        // Native popovers enter the top layer, escaping ancestors above the
-        // popover. Only its own internal scroll/clip ancestors remain relevant.
+        // Shared body portals enter the top layer. Only the surface's own
+        // internal scroll/clip ancestors remain relevant.
         if (element !== popup) {
           for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
             const box = ancestor.getBoundingClientRect()
@@ -688,7 +688,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const retry = picker(f).popup.getByRole('button', { name: f.copy.session.modelPicker.retry, exact: true })
       await retry.click()
       await expect.poll(() => f.faults.pending('read')).toBeGreaterThan(0)
-      await expect(retry).toBeDisabled()
+      await expect(retry).toHaveAttribute('aria-busy', 'true')
+      await expect(retry).toHaveAttribute('aria-disabled', 'true')
+      await expect(retry).toBeFocused()
       await expect(send(f)).toBeDisabled()
       f.faults.release('read')
       await expect(picker(f).trigger).toContainText(renamed)
