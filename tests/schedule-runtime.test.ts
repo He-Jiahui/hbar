@@ -270,3 +270,47 @@ test('typed transport failure retains the original schedule receipt across works
   expect(writes).toBe(1)
   runtime.dispose()
 })
+
+test.each(['duplicate', 'foreign'] as const)('rejects %s schedule targets before publishing rows', async (kind) => {
+  const base = defaultPort()
+  const runtime = createScheduleRuntime({
+    execute: async (name, raw, options) =>
+      name === 'schedule.list'
+        ? {
+            items: kind === 'duplicate' ? [schedule('s'), schedule('s')] : [schedule('s', 'foreign-workspace')],
+            next: null,
+            revision: 0,
+          }
+        : base.execute(name, raw, options),
+  })
+  await runtime.refresh('w')
+  expect(runtime.reader.getSnapshot().status).toBe('error')
+  expect(runtime.reader.getSnapshot().schedules).toEqual([])
+  runtime.dispose()
+})
+
+test.each(['duplicate', 'foreign'] as const)(
+  'rejects %s occurrence targets before publishing records',
+  async (kind) => {
+    const base = defaultPort()
+    const runtime = createScheduleRuntime({
+      execute: async (name, raw, options) => {
+        if (name === 'schedule.list') return { items: [schedule('s')], next: null, revision: 0 }
+        if (name === 'schedule.occurrences')
+          return {
+            items:
+              kind === 'duplicate'
+                ? [occurrence('o'), occurrence('o')]
+                : [{ ...occurrence('o'), scheduleId: 'foreign-schedule' }],
+            next: null,
+          }
+        return base.execute(name, raw, options)
+      },
+    })
+    await runtime.refresh('w')
+    await runtime.refreshOccurrences('s')
+    expect(runtime.reader.getSnapshot().status).toBe('error')
+    expect(runtime.reader.getSnapshot().occurrences['s']).toBeUndefined()
+    runtime.dispose()
+  },
+)

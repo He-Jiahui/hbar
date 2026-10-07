@@ -118,6 +118,38 @@ async function assertVariableFlow(row: Locator): Promise<void> {
   expect(geometry.fieldAndActionOverlap).toBe(false)
 }
 
+async function assertScheduleActionFlow(row: Locator, expectedLastTone?: string): Promise<void> {
+  await row.scrollIntoViewIfNeeded()
+  await assertNoHorizontalOverflow(row)
+  const readers = row.locator('.hbar-schedule-action-group')
+  for (const reader of await readers.all()) {
+    if (await reader.evaluate((element) => element.scrollWidth > element.clientWidth)) {
+      await reader.focus()
+      await reader.press('ArrowRight')
+      await expect.poll(() => reader.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0)
+    }
+  }
+  const buttons = row.getByRole('button')
+  expect(await buttons.count()).toBeGreaterThan(0)
+  for (const button of await buttons.all()) {
+    await button.scrollIntoViewIfNeeded()
+    const geometry = await button.evaluate((element) => {
+      const reader = element.closest('.hbar-schedule-action-group')
+      if (!reader) throw new Error('Schedule action has no owning reader')
+      const box = element.getBoundingClientRect()
+      const bounds = reader.getBoundingClientRect()
+      const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+      return {
+        contained: box.left >= bounds.left - 1 && box.right <= bounds.right + 1,
+        hit: hit === element || (hit !== null && element.contains(hit)),
+      }
+    })
+    expect(geometry.contained).toBe(true)
+    expect(geometry.hit).toBe(true)
+  }
+  if (expectedLastTone) await expect(buttons.last()).toHaveAttribute('data-tone', expectedLastTone)
+}
+
 async function withHost<T>(
   browser: Browser,
   locale: 'en-US' | 'zh-CN',
@@ -129,7 +161,12 @@ async function withHost<T>(
   try {
     await context.addInitScript((value) => localStorage.setItem('hbar:web:language', value), locale)
     await authenticate(context, host.ready.token)
-    return await callback(await context.newPage(), host)
+    const page = await context.newPage()
+    const pageErrors: string[] = []
+    page.on('pageerror', (error) => pageErrors.push(error.message))
+    const result = await callback(page, host)
+    expect(pageErrors).toEqual([])
+    return result
   } finally {
     try {
       await context.close()
@@ -255,73 +292,75 @@ test.describe('production app-ui feature surfaces', () => {
     browser,
   }) => {
     test.setTimeout(120_000)
-    await withHost(browser, 'en-US', async (page, host) => {
-      await openSession(page, host, 'en-US')
-      const copy = scheduleCopy('en-US')
-      await openFeature(page, copy.title)
-      const schedule = page.locator('.hbar-schedule-page')
-      await schedule.getByLabel(copy.name).fill('Nightly verification')
-      await schedule.getByLabel(copy.prompt).fill('Run the nightly verification')
-      await selectLumenOption(schedule.getByLabel(copy.model), 'local-fixture')
-      await selectLumenOption(schedule.getByLabel(copy.type), 'daily')
-      await schedule.getByLabel(copy.timezone).fill('America/Los_Angeles')
-      await selectLumenOption(schedule.getByLabel(copy.target), 'existing-session')
-      const existingSession = schedule.getByRole('combobox', { name: copy.existingSession, exact: true })
-      await selectLumenOption(existingSession, host.ready.sessionId)
-      const scheduleFormActions = schedule.locator('.hbar-schedule-form-actions')
-      for (const width of [320, 390, 768, 1024, 1440]) {
-        await page.setViewportSize({ width, height: 720 })
+    for (const locale of ['en-US', 'zh-CN'] as const) {
+      await withHost(browser, locale, async (page, host) => {
+        await openSession(page, host, locale)
+        const copy = scheduleCopy(locale)
+        await openFeature(page, copy.title, locale)
+        const schedule = page.locator('.hbar-schedule-page')
+        await schedule.getByRole('textbox', { name: copy.name, exact: true }).fill('Nightly verification')
+        await schedule.getByRole('textbox', { name: copy.prompt, exact: true }).fill('Run the nightly verification')
+        await selectLumenOption(schedule.getByRole('combobox', { name: copy.model, exact: true }), 'local-fixture')
+        await selectLumenOption(schedule.getByRole('combobox', { name: copy.type, exact: true }), 'daily')
+        await schedule.getByRole('textbox', { name: copy.timezone, exact: true }).fill('America/Los_Angeles')
+        await selectLumenOption(schedule.getByRole('combobox', { name: copy.target, exact: true }), 'existing-session')
+        const existingSession = schedule.getByRole('combobox', { name: copy.existingSession, exact: true })
+        await selectLumenOption(existingSession, host.ready.sessionId)
+        const scheduleFormActions = schedule.locator('.hbar-schedule-form-actions')
+        for (const width of [320, 390, 768, 1024, 1440]) {
+          await page.setViewportSize({ width, height: 720 })
+          await assertNoHorizontalOverflow(schedule)
+          await assertScheduleActionFlow(scheduleFormActions)
+        }
+        await page.setViewportSize({ width: 1440, height: 960 })
+        await schedule.evaluate((element) => {
+          element.style.inlineSize = '28rem'
+          element.style.maxInlineSize = '100%'
+          element.style.boxSizing = 'border-box'
+        })
         await assertNoHorizontalOverflow(schedule)
-        await assertActionFlow(scheduleFormActions)
-      }
-      await page.setViewportSize({ width: 1440, height: 960 })
-      await schedule.evaluate((element) => {
-        element.style.inlineSize = '28rem'
-        element.style.maxInlineSize = '100%'
-        element.style.boxSizing = 'border-box'
+        await assertScheduleActionFlow(scheduleFormActions)
+        await schedule.evaluate((element) => {
+          element.style.removeProperty('inline-size')
+          element.style.removeProperty('max-inline-size')
+          element.style.removeProperty('box-sizing')
+        })
+        await schedule.getByRole('button', { name: copy.preview, exact: true }).click()
+        await expect(schedule.getByRole('region', { name: copy.previewTitle })).toBeVisible()
+        await expect(schedule.getByRole('region', { name: copy.previewTitle }).locator('li')).toHaveCount(5)
+        await schedule.getByRole('button', { name: copy.create, exact: true }).click()
+        await expect(schedule.locator('.hbar-schedule-feedback')).toContainText(copy.saved)
+        const scheduleRow = schedule.locator('.hbar-schedule-list article').first()
+        await expect(scheduleRow).toBeVisible()
+        for (const width of [320, 390, 768, 1024, 1440]) {
+          await page.setViewportSize({ width, height: 720 })
+          await assertNoHorizontalOverflow(schedule)
+          await assertScheduleActionFlow(scheduleRow.locator('.hbar-schedule-item-actions'), 'danger')
+        }
+        await page.setViewportSize({ width: 1440, height: 960 })
+        await page.getByRole('button', { name: copy.pause, exact: true }).click()
+        await expect(page.getByText(copy.paused, { exact: true })).toBeVisible()
+        await page.getByRole('button', { name: copy.edit, exact: true }).click()
+        await schedule.getByRole('textbox', { name: copy.name, exact: true }).fill('Nightly verification edited')
+        await page.getByRole('button', { name: copy.save, exact: true }).click()
+        await expect(page.getByText('Nightly verification edited', { exact: true })).toBeVisible()
+        await assertScheduleActionFlow(
+          schedule.locator('.hbar-schedule-list article').first().locator('.hbar-schedule-item-actions'),
+          'danger',
+        )
+        await page.getByRole('button', { name: copy.delete, exact: true }).click()
+        await expect(page.getByRole('group', { name: copy.deleteConfirm('Nightly verification edited') })).toBeVisible()
+        await page
+          .getByRole('group', { name: copy.deleteConfirm('Nightly verification edited') })
+          .getByRole('button', { name: copy.delete, exact: true })
+          .click()
+        await expect(page.getByText('Nightly verification edited', { exact: true })).toHaveCount(0)
+        await capture(page, `schedules-${locale}-1440.png`)
+        await page.setViewportSize({ width: 320, height: 720 })
+        await expect(page.locator('html')).toHaveJSProperty('scrollWidth', 320)
+        await capture(page, `schedules-${locale}-320.png`)
       })
-      await assertNoHorizontalOverflow(schedule)
-      await assertActionFlow(scheduleFormActions)
-      await schedule.evaluate((element) => {
-        element.style.removeProperty('inline-size')
-        element.style.removeProperty('max-inline-size')
-        element.style.removeProperty('box-sizing')
-      })
-      await schedule.getByRole('button', { name: copy.preview, exact: true }).click()
-      await expect(schedule.getByRole('region', { name: copy.previewTitle })).toBeVisible()
-      await expect(schedule.getByRole('region', { name: copy.previewTitle }).locator('li')).toHaveCount(5)
-      await schedule.getByRole('button', { name: copy.create, exact: true }).click()
-      await expect(schedule.locator('.hbar-schedule-feedback')).toContainText(copy.saved)
-      const scheduleRow = schedule.locator('.hbar-schedule-list article').first()
-      await expect(scheduleRow).toBeVisible()
-      for (const width of [320, 390, 768, 1024, 1440]) {
-        await page.setViewportSize({ width, height: 720 })
-        await assertNoHorizontalOverflow(schedule)
-        await assertActionFlow(scheduleRow.locator('.hbar-schedule-item-actions'), 'danger')
-      }
-      await page.setViewportSize({ width: 1440, height: 960 })
-      await page.getByRole('button', { name: copy.pause, exact: true }).click()
-      await expect(page.getByText(copy.paused, { exact: true })).toBeVisible()
-      await page.getByRole('button', { name: copy.edit, exact: true }).click()
-      await page.getByLabel(copy.name).fill('Nightly verification edited')
-      await page.getByRole('button', { name: copy.save, exact: true }).click()
-      await expect(page.getByText('Nightly verification edited', { exact: true })).toBeVisible()
-      await assertActionFlow(
-        schedule.locator('.hbar-schedule-list article').first().locator('.hbar-schedule-item-actions'),
-        'danger',
-      )
-      await page.getByRole('button', { name: copy.delete, exact: true }).click()
-      await expect(page.getByRole('group', { name: copy.deleteConfirm('Nightly verification edited') })).toBeVisible()
-      await page
-        .getByRole('group', { name: copy.deleteConfirm('Nightly verification edited') })
-        .getByRole('button', { name: copy.delete, exact: true })
-        .click()
-      await expect(page.getByText('Nightly verification edited', { exact: true })).toHaveCount(0)
-      await capture(page, 'schedules-1440.png')
-      await page.setViewportSize({ width: 320, height: 720 })
-      await expect(page.locator('html')).toHaveJSProperty('scrollWidth', 320)
-      await capture(page, 'schedules-320.png')
-    })
+    }
   })
 
   test('notifications record completed/failed, unread mark-read, preferences persist, and target navigation', async ({

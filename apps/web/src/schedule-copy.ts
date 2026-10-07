@@ -21,7 +21,7 @@ export interface ScheduleCopy {
   readonly once: string
   readonly time: string
   readonly weekdays: string
-  readonly weekdayNames: readonly string[]
+  readonly weekdayNames: readonly [string, string, string, string, string, string, string]
   readonly cron: string
   readonly timezone: string
   readonly target: string

@@ -430,4 +430,14 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 一项真实 Chrome／Host 回归完成中英文两套创建／编辑、变量声明、五宽度布局、原会话追加／替换、首次发送草稿与删除流程。首次误用旧冻结文件、旧测试读取非活动对话、侧栏折叠和不同表面的中文返回文案均已按实际入口纠正；验证使用重新构建的当前 Web 文件，返回原会话读取草稿后再打开模板页。所属 Host 已停止，数据经 realpath、临时目录与前缀校验清理。
 - Web build、范围严格 ESLint、文案／图标／flow guard、格式与构建清单通过；冷启动类型仍为 92 项既有诊断，本次范围为零，全库门禁未完成。证据在 artifacts/desktop-elements/prompt-template-content 的 identity-red.log、flow-red.log、unit.log、client-final.log、host-final.log、types-final.log、lint-final.log、lint-delivery.log、build-final.log、inventory.log 及各失败／最终截图目录。结构参考：App Shell 的稳定工作台区域；交互参考：Forms 的分节编辑、校验与就近保存反馈，沿用 [App Shell](https://pro.reactbits.dev/docs/app-ui/app-shell) 与 [Forms](https://pro.reactbits.dev/docs/app-ui/forms) 的既有映射。
 
-当前已提交清单覆盖 146 个生产 TSX 模块、3768 个元素，其中记录了 180 处低层文字未分类，合计 191 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 调度的标题、模型名称、表单与执行记录
+
+- 16 处低层文字归入章节、集合、空态和反馈角色，补齐日期预览及日期＋状态复合文案的内容槽位。排期完整名称、预览标题、说明、状态和执行错误自然换行。字段标签、星期选择和紧凑动作由各自具名键盘阅读区承接；星期是宿主提供的固定七项元组，动作 key 使用星期索引，不依赖翻译文本。
+- 保留 100 条页／400 条累计记录、五次预览及原 DTO 的 200 字名称、80 字时区、128 字 cron 和 1,000,000 字 API 提示词边界。现有 UI 提示词输入仍为 200,000 字；本轮验证该输入边界，不宣称覆盖了 API 的最大正文。保存／暂停／删除沿用原 ID、revision 和幂等键，未知结果核对原请求，普通冲突保留编辑内容并允许修复重试。
+- 浏览器复现选中模型仍沿用 45de87d330 的单行控件样式。共享 Lumen c38be70659 新增公开 valueContext，模型及会话身份由调用者声明 choice.title，完整选中名称自然换行；紧凑枚举和空 placeholder 保持各自的 control.label 角色。缺失选项保留宿主名称，导航 ID 随目录变化校验，受控浮层重开重新匹配当前选择。修正 28b93899a0 的 effect 派生状态及原范围 lint 问题，未添加忽略。共享构建／声明／类型、严格 lint、格式、11 项组件测试通过；限定 proptypes／API 命令通过但生成器仍仅登记 MUI，契约由公共声明及 README 说明，Vale 不可用。
+- abf4c98f 的读取边界没有拒绝页内重复 ID、跨工作区排期或跨排期执行记录。四项确定性失败复现转为通过；新增校验只约束当前页的唯一 ID 和原目标，保留跨页按 ID 合并、取消、generation 与容量规则。28 项相关 Runtime／Form／Storage／Host／Due Reader 单测、86 项断言通过。
+- 82 个实际 Chrome 场景通过，覆盖两语言、明暗、五宽度、125% 文字、完整排期／模型选项／选中名称／预览标题、标签与动作键盘阅读、0／1／7／100／101／400／401 条排期与执行记录、201 字名称拒绝、重复／异源／超容量页、加载／离线读取错误修复／冲突／未知结果核对、服务不可用／无模型、五次预览、四种排期、原记录重排后的原 revision 删除、200,000 字提示词和 200／80／128 字输入上限。测试端口不执行真实排期 Run，写入与未知结果行为使用真实 Runtime。
+- 一项实际 Chrome／Host 调度回归完成中英文两套创建、五次预览、IANA 时区、原会话目标、五宽度正文及动作阅读、暂停、编辑和确认删除；同时此前的模板两语言真实 Host 回归通过，均检查 pageerror。旧 getByLabel 被标签阅读区与控件同时匹配的问题改为明确控件角色；原动作必须同时位于屏内的断言改为逐个键盘／滚动阅读后验证可见与实际命中。没有强制点击、扩大面板或取消原目标断言。所属 Host 停止后按真实路径、临时目录和前缀检查释放。
+- 范围严格 ESLint、文案／图标／flow guard、格式、当前 Web build 与实际构建清单通过；测试夹具的可选 initialScheduleId 改为缺省时不传递，冷启动类型恢复为 92 项既有诊断，本次范围为零。证据在 artifacts/desktop-elements/schedule-content 的 identity-red.log、unit.log、client-final.log、host.log、host-final.log、types-final.log、lint.log、lint-final.log、lint-readers.log、build.log、inventory.log 与 lumen-*。结构参考沿用 [App Shell](https://pro.reactbits.dev/docs/app-ui/app-shell) 的稳定区域；交互沿用 [Forms](https://pro.reactbits.dev/docs/app-ui/forms) 的字段、校验和所属动作，并保留 [Scheduling](https://pro.reactbits.dev/docs/app-ui/scheduling) 的排期预览与记录组织。
+
+当前已提交清单覆盖 146 个生产 TSX 模块、3776 个元素，其中记录了 164 处低层文字未分类，合计 175 项静态缺口。其余生产表面迁移、已分类表面的身份选择值复核、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

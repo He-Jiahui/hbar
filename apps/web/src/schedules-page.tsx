@@ -7,13 +7,13 @@ import {
   LumenCollectionItem,
   LumenFrame,
   LumenPopupSelect,
-  LumenText,
+  LumenContentText,
 } from '@lumen/app-ui'
 import { LumenFormField, LumenInput, LumenTextarea } from '@lumen/app-ui/forms'
 import { LumenScheduling01, LumenScheduling03, LumenScheduling04 } from '@lumen/app-ui/scheduling'
 import type { ScheduleDefinition } from '@hbar/contracts/commands/schedules'
 import type { ShellLocale } from './shell-copy'
-import { scheduleCopy } from './schedule-copy'
+import { scheduleCopy, type ScheduleCopy } from './schedule-copy'
 import { editScheduleForm, newScheduleForm, scheduleFormInput, type ScheduleFormDraft } from './schedule-form'
 import './schedules-page.css'
 import { createWorkspaceSessionTargets } from './workspace-session-targets'
@@ -25,11 +25,14 @@ export function SchedulesPage(props: {
   readonly workspaceId: string
   readonly locale: ShellLocale
   readonly initialScheduleId?: string
+  readonly labels?: ScheduleCopy
 }) {
   return props.runtime.state.schedules ? (
     <AvailableSchedulesPage {...props} api={props.runtime.state.schedules} />
   ) : (
-    <LumenText>{scheduleCopy(props.locale).unavailable}</LumenText>
+    <LumenContentText context="feedback.paragraph">
+      {(props.labels ?? scheduleCopy(props.locale)).unavailable}
+    </LumenContentText>
   )
 }
 
@@ -39,14 +42,16 @@ function AvailableSchedulesPage({
   locale,
   api,
   initialScheduleId,
+  labels,
 }: {
   readonly runtime: Runtime
   readonly workspaceId: string
   readonly locale: ShellLocale
   readonly api: NonNullable<Runtime['state']['schedules']>
   readonly initialScheduleId?: string
+  readonly labels?: ScheduleCopy
 }) {
-  const copy = scheduleCopy(locale)
+  const copy = labels ?? scheduleCopy(locale)
   const snapshot = useHbarRuntimeState(api.reader)
   const directory = useHbarRuntimeState(runtime.state.directory)
   const catalog = useHbarRuntimeState(runtime.state.preSessionModelCatalog)
@@ -206,36 +211,50 @@ function AvailableSchedulesPage({
   const body = (
     <LumenFrame as="section" className="hbar-schedule-page" aria-busy={snapshot.status === 'loading'}>
       <LumenFrame as="header">
-        <LumenText as="h2">{copy.title}</LumenText>
-        <LumenButton disabled={snapshot.status === 'loading'} onClick={() => void api.refresh(workspaceId)}>
-          {copy.refresh}
-        </LumenButton>
-      </LumenFrame>
-      {sessionLoad === 'error' ? (
-        <LumenFrame role="alert">
-          <LumenText as="p">{copy.sessionsFailed}</LumenText>
-          <LumenButton onClick={() => void sessionTargets.refresh(workspaceId).catch(() => undefined)}>
+        <LumenContentText context="section.title" level={2}>
+          {copy.title}
+        </LumenContentText>
+        <LumenFrame className="hbar-schedule-action-group" role="group" aria-label={copy.title} tabIndex={0}>
+          <LumenButton disabled={snapshot.status === 'loading'} onClick={() => void api.refresh(workspaceId)}>
             {copy.refresh}
           </LumenButton>
         </LumenFrame>
+      </LumenFrame>
+      {sessionLoad === 'error' ? (
+        <LumenFrame role="alert">
+          <LumenContentText context="feedback.paragraph" tone="danger">
+            {copy.sessionsFailed}
+          </LumenContentText>
+          <LumenFrame className="hbar-schedule-action-group" role="group" aria-label={copy.sessionsFailed} tabIndex={0}>
+            <LumenButton onClick={() => void sessionTargets.refresh(workspaceId).catch(() => undefined)}>
+              {copy.refresh}
+            </LumenButton>
+          </LumenFrame>
+        </LumenFrame>
       ) : null}
-      {targetCatalog.capacityReached ? <LumenText>{copy.sessionCapacity}</LumenText> : null}
+      {targetCatalog.capacityReached ? (
+        <LumenContentText context="feedback.paragraph">{copy.sessionCapacity}</LumenContentText>
+      ) : null}
       {snapshot.error ? (
-        <LumenText as="p" role="alert" tone="danger">
+        <LumenContentText context="feedback.paragraph" role="alert" tone="danger">
           {snapshot.error}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {snapshot.mutation === 'unknown' ? (
         <LumenFrame role="alert">
-          <LumenText as="p">{copy.unknown}</LumenText>
-          <LumenButton onClick={() => void execute(() => api.reconcile())}>{copy.reconcile}</LumenButton>
+          <LumenContentText context="feedback.paragraph" tone="warning">
+            {copy.unknown}
+          </LumenContentText>
+          <LumenFrame className="hbar-schedule-action-group" role="group" aria-label={copy.unknown} tabIndex={0}>
+            <LumenButton onClick={() => void execute(() => api.reconcile())}>{copy.reconcile}</LumenButton>
+          </LumenFrame>
         </LumenFrame>
       ) : null}
       <LumenScheduling03
         slots={{
           body: (
             <LumenFrame as="section" className="hbar-schedule-form">
-              <LumenFormField controlId={`${formId}-name`} label={copy.name}>
+              <LumenFormField controlId={`${formId}-name`} label={copy.name} layout="rows">
                 <LumenInput
                   value={draft.name}
                   maxLength={200}
@@ -243,7 +262,7 @@ function AvailableSchedulesPage({
                   onChange={(event) => patch({ name: event.currentTarget.value })}
                 />
               </LumenFormField>
-              <LumenFormField controlId={`${formId}-prompt`} label={copy.prompt}>
+              <LumenFormField controlId={`${formId}-prompt`} label={copy.prompt} layout="rows">
                 <LumenTextarea
                   value={draft.prompt}
                   maxLength={200_000}
@@ -251,9 +270,10 @@ function AvailableSchedulesPage({
                   onChange={(event) => patch({ prompt: event.currentTarget.value })}
                 />
               </LumenFormField>
-              <LumenFormField controlId={`${formId}-model`} label={copy.model}>
+              <LumenFormField controlId={`${formId}-model`} label={copy.model} layout="rows">
                 <LumenPopupSelect
                   id={`${formId}-model`}
+                  valueContext="choice.title"
                   value={draft.modelId || null}
                   placeholder={copy.chooseModel}
                   selectedLabel={draft.modelId || undefined}
@@ -265,8 +285,10 @@ function AvailableSchedulesPage({
                   onValueChange={(value) => patch({ modelId: value })}
                 />
               </LumenFormField>
-              {catalog.status === 'ready' && models.length === 0 ? <LumenText as="p">{copy.noModels}</LumenText> : null}
-              <LumenFormField controlId={`${formId}-kind`} label={copy.type}>
+              {catalog.status === 'ready' && models.length === 0 ? (
+                <LumenContentText context="empty.description">{copy.noModels}</LumenContentText>
+              ) : null}
+              <LumenFormField controlId={`${formId}-kind`} label={copy.type} layout="rows">
                 <LumenPopupSelect
                   id={`${formId}-kind`}
                   value={draft.kind}
@@ -278,9 +300,10 @@ function AvailableSchedulesPage({
                   }}
                 />
               </LumenFormField>
-              <LumenFormField controlId={`${formId}-timezone`} label={copy.timezone}>
+              <LumenFormField controlId={`${formId}-timezone`} label={copy.timezone} layout="rows">
                 <LumenInput
                   value={draft.timezone}
+                  maxLength={80}
                   disabled={busy}
                   onChange={(event) => patch({ timezone: event.currentTarget.value })}
                 />
@@ -290,7 +313,7 @@ function AvailableSchedulesPage({
                   body: (
                     <LumenFrame as="section" className="hbar-schedule-time">
                       {draft.kind === 'once' ? (
-                        <LumenFormField controlId={`${formId}-date`} label={copy.once}>
+                        <LumenFormField controlId={`${formId}-date`} label={copy.once} layout="rows">
                           <LumenInput
                             type="datetime-local"
                             value={draft.date}
@@ -299,15 +322,16 @@ function AvailableSchedulesPage({
                           />
                         </LumenFormField>
                       ) : draft.kind === 'cron' ? (
-                        <LumenFormField controlId={`${formId}-cron`} label={copy.cron}>
+                        <LumenFormField controlId={`${formId}-cron`} label={copy.cron} layout="rows">
                           <LumenInput
                             value={draft.expression}
+                            maxLength={128}
                             disabled={busy}
                             onChange={(event) => patch({ expression: event.currentTarget.value })}
                           />
                         </LumenFormField>
                       ) : (
-                        <LumenFormField controlId={`${formId}-time`} label={copy.time}>
+                        <LumenFormField controlId={`${formId}-time`} label={copy.time} layout="rows">
                           <LumenInput
                             type="time"
                             value={draft.time}
@@ -317,10 +341,15 @@ function AvailableSchedulesPage({
                         </LumenFormField>
                       )}
                       {draft.kind === 'weekly' ? (
-                        <LumenFrame role="group" aria-label={copy.weekdays} className="hbar-schedule-weekdays">
+                        <LumenFrame
+                          role="group"
+                          aria-label={copy.weekdays}
+                          className="hbar-schedule-weekdays"
+                          tabIndex={0}
+                        >
                           {copy.weekdayNames.map((day, index) => (
                             <LumenButton
-                              key={day}
+                              key={index}
                               disabled={busy}
                               aria-pressed={draft.weekdays.includes(index)}
                               variant={draft.weekdays.includes(index) ? 'contained' : 'outlined'}
@@ -341,7 +370,7 @@ function AvailableSchedulesPage({
                   ),
                 }}
               />
-              <LumenFormField controlId={`${formId}-target`} label={copy.target}>
+              <LumenFormField controlId={`${formId}-target`} label={copy.target} layout="rows">
                 <LumenPopupSelect
                   id={`${formId}-target`}
                   value={draft.target}
@@ -358,9 +387,10 @@ function AvailableSchedulesPage({
                 />
               </LumenFormField>
               {draft.target === 'existing-session' ? (
-                <LumenFormField controlId={`${formId}-session`} label={copy.existingSession}>
+                <LumenFormField controlId={`${formId}-session`} label={copy.existingSession} layout="rows">
                   <LumenPopupSelect
                     id={`${formId}-session`}
+                    valueContext="choice.title"
                     value={draft.sessionId || null}
                     placeholder={copy.chooseSession}
                     selectedLabel={draft.sessionId || undefined}
@@ -371,7 +401,12 @@ function AvailableSchedulesPage({
                 </LumenFormField>
               ) : null}
               <LumenFrame as="footer" className="hbar-schedule-form-actions">
-                <LumenFrame className="hbar-schedule-action-group hbar-schedule-secondary-actions">
+                <LumenFrame
+                  className="hbar-schedule-action-group hbar-schedule-secondary-actions"
+                  role="group"
+                  aria-label={copy.previewTitle}
+                  tabIndex={0}
+                >
                   <LumenButton disabled={busy || previewPending} onClick={() => void showPreview()}>
                     {copy.preview}
                   </LumenButton>
@@ -387,7 +422,12 @@ function AvailableSchedulesPage({
                     </LumenButton>
                   ) : null}
                 </LumenFrame>
-                <LumenFrame className="hbar-schedule-action-group hbar-schedule-primary-actions">
+                <LumenFrame
+                  className="hbar-schedule-action-group hbar-schedule-primary-actions"
+                  role="group"
+                  aria-label={copy.title}
+                  tabIndex={0}
+                >
                   <LumenButton
                     tone="primary"
                     disabled={busy}
@@ -400,34 +440,51 @@ function AvailableSchedulesPage({
               </LumenFrame>
               {preview.length > 0 ? (
                 <LumenFrame as="section" aria-label={copy.previewTitle}>
-                  <LumenText as="h3">{copy.previewTitle}</LumenText>
+                  <LumenContentText context="section.title" level={3}>
+                    {copy.previewTitle}
+                  </LumenContentText>
                   <LumenCollection as="ol">
                     {preview.map((time) => (
-                      <LumenCollectionItem key={time}>{copy.formatDate(time, draft.timezone)}</LumenCollectionItem>
+                      <LumenCollectionItem key={time}>
+                        <LumenContentText context="collection.detail">
+                          {copy.formatDate(time, draft.timezone)}
+                        </LumenContentText>
+                      </LumenCollectionItem>
                     ))}
                   </LumenCollection>
                 </LumenFrame>
               ) : null}
               {feedback ? (
-                <LumenText as="p" className="hbar-schedule-feedback" role="status">
+                <LumenContentText context="feedback.paragraph" className="hbar-schedule-feedback" role="status">
                   {feedback}
-                </LumenText>
+                </LumenContentText>
               ) : null}
             </LumenFrame>
           ),
         }}
       />
       <LumenFrame as="section" className="hbar-schedule-list">
-        {snapshot.schedules.length === 0 && snapshot.status !== 'loading' ? <LumenText>{copy.empty}</LumenText> : null}
+        {snapshot.schedules.length === 0 && snapshot.status !== 'loading' ? (
+          <LumenContentText context="empty.description">{copy.empty}</LumenContentText>
+        ) : null}
         {snapshot.schedules.map((schedule) => (
           <LumenFrame as="article" key={schedule.id}>
             <LumenFrame as="header">
-              <LumenText as="strong">{schedule.name}</LumenText>
-              <LumenText>{schedule.enabled ? copy.enabled : copy.paused}</LumenText>
+              <LumenContentText context="collection.title">{schedule.name}</LumenContentText>
+              <LumenContentText context="collection.detail">
+                {schedule.enabled ? copy.enabled : copy.paused}
+              </LumenContentText>
             </LumenFrame>
-            <LumenText as="p">{copy.summary(copy.kinds[schedule.spec.kind], schedule.timezone)}</LumenText>
+            <LumenContentText context="collection.description">
+              {copy.summary(copy.kinds[schedule.spec.kind], schedule.timezone)}
+            </LumenContentText>
             <LumenFrame as="footer" className="hbar-schedule-item-actions">
-              <LumenFrame className="hbar-schedule-action-group hbar-schedule-secondary-actions">
+              <LumenFrame
+                className="hbar-schedule-action-group hbar-schedule-secondary-actions"
+                role="group"
+                aria-label={schedule.name}
+                tabIndex={0}
+              >
                 <LumenButton
                   disabled={busy}
                   onClick={() => {
@@ -446,7 +503,12 @@ function AvailableSchedulesPage({
                   {copy.occurrences}
                 </LumenButton>
               </LumenFrame>
-              <LumenFrame className="hbar-schedule-action-group hbar-schedule-danger-actions">
+              <LumenFrame
+                className="hbar-schedule-action-group hbar-schedule-danger-actions"
+                role="group"
+                aria-label={copy.delete}
+                tabIndex={0}
+              >
                 <LumenButton tone="danger" disabled={busy} onClick={() => setConfirmDelete(schedule.id)}>
                   {copy.delete}
                 </LumenButton>
@@ -454,49 +516,70 @@ function AvailableSchedulesPage({
             </LumenFrame>
             {confirmDelete === schedule.id ? (
               <LumenFrame role="group" aria-label={copy.deleteConfirm(schedule.name)}>
-                <LumenText>{copy.deleteConfirm(schedule.name)}</LumenText>
-                <LumenButton
-                  disabled={busy}
-                  onClick={() =>
-                    void execute(() =>
-                      api.remove(
-                        { scheduleId: schedule.id, expectedRevision: schedule.revision },
-                        { idempotencyKey: crypto.randomUUID() },
-                      ),
-                    ).then((succeeded) => {
-                      if (succeeded && owner.current.workspaceId === schedule.workspaceId) setConfirmDelete(null)
-                    })
-                  }
-                >
-                  {copy.delete}
-                </LumenButton>
-                <LumenButton onClick={() => setConfirmDelete(null)}>{copy.cancel}</LumenButton>
+                <LumenContentText context="feedback.paragraph" tone="warning">
+                  {copy.deleteConfirm(schedule.name)}
+                </LumenContentText>
+                <LumenFrame className="hbar-schedule-action-group" role="group" aria-label={copy.delete} tabIndex={0}>
+                  <LumenButton
+                    disabled={busy}
+                    onClick={() =>
+                      void execute(() =>
+                        api.remove(
+                          { scheduleId: schedule.id, expectedRevision: schedule.revision },
+                          { idempotencyKey: crypto.randomUUID() },
+                        ),
+                      ).then((succeeded) => {
+                        if (succeeded && owner.current.workspaceId === schedule.workspaceId) setConfirmDelete(null)
+                      })
+                    }
+                  >
+                    {copy.delete}
+                  </LumenButton>
+                  <LumenButton onClick={() => setConfirmDelete(null)}>{copy.cancel}</LumenButton>
+                </LumenFrame>
               </LumenFrame>
             ) : null}
             {snapshot.occurrences[schedule.id]?.length ? (
               <LumenCollection as="ol">
                 {snapshot.occurrences[schedule.id]?.map((occurrence) => (
                   <LumenCollectionItem key={occurrence.id}>
-                    {copy.occurrenceSummary(
-                      copy.formatDate(occurrence.dueAt, schedule.timezone),
-                      copy.occurrenceStatus[occurrence.status],
-                    )}
+                    <LumenContentText context="collection.description">
+                      {copy.occurrenceSummary(
+                        copy.formatDate(occurrence.dueAt, schedule.timezone),
+                        copy.occurrenceStatus[occurrence.status],
+                      )}
+                    </LumenContentText>
                     {occurrence.error ? (
-                      <LumenText as="p" role="alert">
+                      <LumenContentText context="feedback.paragraph" role="alert" tone="danger">
                         {occurrence.error}
-                      </LumenText>
+                      </LumenContentText>
                     ) : null}
                   </LumenCollectionItem>
                 ))}
               </LumenCollection>
             ) : null}
             {snapshot.occurrenceNext[schedule.id] ? (
-              <LumenButton onClick={() => void api.loadMoreOccurrences(schedule.id)}>{copy.more}</LumenButton>
+              <LumenFrame
+                className="hbar-schedule-action-group"
+                role="group"
+                aria-label={copy.occurrences}
+                tabIndex={0}
+              >
+                <LumenButton onClick={() => void api.loadMoreOccurrences(schedule.id)}>{copy.more}</LumenButton>
+              </LumenFrame>
             ) : null}
           </LumenFrame>
         ))}
-        {snapshot.next ? <LumenButton onClick={() => void api.loadMore()}>{copy.more}</LumenButton> : null}
-        {snapshot.capacityReached ? <LumenText role="status">{copy.capacity}</LumenText> : null}
+        {snapshot.next ? (
+          <LumenFrame className="hbar-schedule-action-group" role="group" aria-label={copy.title} tabIndex={0}>
+            <LumenButton onClick={() => void api.loadMore()}>{copy.more}</LumenButton>
+          </LumenFrame>
+        ) : null}
+        {snapshot.capacityReached ? (
+          <LumenContentText context="feedback.paragraph" role="status">
+            {copy.capacity}
+          </LumenContentText>
+        ) : null}
       </LumenFrame>
     </LumenFrame>
   )

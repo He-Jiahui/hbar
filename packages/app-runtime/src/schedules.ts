@@ -26,6 +26,17 @@ export interface ScheduleRuntimeState {
   readonly error: string | null
 }
 export type ScheduleCommandPort = CommandExecutor
+function requireOriginalSchedulePage<T extends { readonly id: string }>(
+  items: readonly T[],
+  matches: (item: T) => boolean,
+): void {
+  const ids = new Set<string>()
+  for (const item of items) {
+    if (!matches(item) || ids.has(item.id))
+      throw new CommandError('INVALID_OUTPUT', 'Schedule page contains a duplicate or foreign target')
+    ids.add(item.id)
+  }
+}
 type ScheduleCommandOptions = ExecuteOptions
 type PendingWrite =
   | {
@@ -141,6 +152,7 @@ export function createScheduleRuntime(
     })
     try {
       const page = await client.list({ workspaceId, limit: 100 }, { signal: request.signal })
+      requireOriginalSchedulePage(page.items, (item) => item.workspaceId === workspaceId)
       if (!disposed && currentGeneration === generation)
         state.replace({
           ...read(),
@@ -171,6 +183,7 @@ export function createScheduleRuntime(
         { scheduleId, after: cursor ?? null, limit: 100 },
         { signal: request.signal },
       )
+      requireOriginalSchedulePage(page.items, (item) => item.scheduleId === scheduleId)
       if (disposed || request.signal.aborted || currentGeneration !== generation) return
       const previous = append ? (read().occurrences[scheduleId] ?? []) : []
       const byId = new Map(previous.map((item) => [item.id, item]))
@@ -263,6 +276,7 @@ export function createScheduleRuntime(
       const currentGeneration = generation
       try {
         const page = await client.list({ workspaceId: current.workspaceId, after: current.next, limit: 100 })
+        requireOriginalSchedulePage(page.items, (item) => item.workspaceId === current.workspaceId)
         if (disposed || currentGeneration !== generation) return
         const byId = new Map(read().schedules.map((item) => [item.id, item]))
         for (const item of page.items) byId.set(item.id, item)
