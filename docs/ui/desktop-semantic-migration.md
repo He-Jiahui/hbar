@@ -165,4 +165,8 @@ Lumen 提交 `b8c6a007c2` 修复真实目录刷新移除获得焦点的 Retry �
 - 96 个公开 `LumenPromptComposer` Chrome 场景通过：行／列、两语言／主题、五宽度、默认／200% 字号，以及 0／1／3／12 个宿主控件。用原生文字 Range 实测 client 阅读区上下边界，核对 ArrowRight 的实际横向滚动、原控件动作与编辑后全文发送。初始 fixture 的非序列化 formatter、列布局宽度和单行标题的阅读归属均已按实际 Host 合同修正；Chromium 的 End 不执行横向滚动，最终使用其真实 ArrowRight 行为，未添加产品键盘处理或强制滚动。
 - 9 个真实 Host density／首发／Goal／Plan／容量用例全部通过；首发页面现直接验证 1440／1100／900／390／320px 下文字和 SVG 的垂直边界，原数量、目标、草稿和权限断言保留。修复后的 320px Goal 工具栏完整可读，32px 深色公开 fixture 的文字和发送动作可达，截图已检查。15 项 Lumen composer node 测试、包类型／构建／声明、格式和 flow guard 通过；父仓库 fixture／脚本／E2E 严格 lint 与内容 guard 通过，完整 typecheck 仍为 96 项既有诊断，修改范围无诊断。清单及实际生产输入核对通过；证据为 `composer-control-flow-*` 与 `composer-rail-*`。
 
+会话模型与推理菜单原来按整个控件组定位，但它们是独立触发入口。把整个组直接当作共享 surface 的 anchor 会让协调器将相邻按钮的点击判定为原入口点击，导致旧菜单关闭后新菜单无法打开。旧分组 anchor 的实际 node 回归已复现该失败；Lumen 现公开 anchored 模式专用的 `positionReferenceRef`，仅负责几何和宽度匹配，实际 `anchorRef` 继续负责外部关闭与焦点归还。缺失定位参考回退到实际触发元素，两个元素的 ResizeObserver 均随关闭释放。
+
+- 15 项定位／边缘对齐／焦点 node 测试通过。公共 client 验证扩展至 148 项，新增的 16 项覆盖中英文、明暗、细／粗指针、1440／320px：保留分组右边缘和上方间距、分组标签变化后重新定位、相邻入口切换、一次仅一个 surface、Escape 归还原触发按钮和无页面横向溢出。证据为 `floating-position-reference-*`。
+
 当前清单覆盖 144 个生产 TSX 模块、3660 个元素，其中记录了 686 处低层文字未分类，合计 704 项静态缺口。Schema 展示适配、其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

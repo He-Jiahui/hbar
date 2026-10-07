@@ -54,6 +54,7 @@ const scenarios: {
   sheet: boolean
   alignment?: 'start' | 'end'
   dock?: 'start' | 'center' | 'end'
+  groupReference?: boolean
 }[] = []
 async function mountFloatingPage(page: Page, input: FloatingPresentationInput, width: number): Promise<void> {
   await page.setViewportSize({ width, height: 900 })
@@ -65,6 +66,7 @@ async function mountFloatingPage(page: Page, input: FloatingPresentationInput, w
     .floating-fixture-controls, .floating-fixture-heading { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
     .floating-fixture-controls[data-dock="end"] { justify-content: flex-end; }
     .floating-fixture-controls[data-dock="center"] { justify-content: center; }
+    .floating-fixture-controls[data-group-reference="true"] { inline-size: max-content; max-inline-size: 100%; align-self: center; }
     .floating-fixture-popup { inline-size: min(22.5rem, calc(100vw - 2rem)); gap: .5rem; padding: .5rem; }
     .floating-fixture-heading { flex: 0 0 auto; }
     .floating-fixture-heading > [data-text-context] { flex: 1 1 auto; }
@@ -239,6 +241,78 @@ try {
     }
   } finally {
     await alignedContext.close()
+  }
+  for (const [locale, copy] of Object.entries(copyByLocale)) {
+    for (const mode of ['light', 'dark'] as const) {
+      for (const coarse of [false, true]) {
+        const context = await browser.newContext({ hasTouch: coarse, reducedMotion: 'reduce' })
+        try {
+          const page = await context.newPage()
+          page.setDefaultTimeout(10000)
+          for (const width of [1440, 320]) {
+            const input: FloatingPresentationInput = {
+              copy,
+              presentation: 'anchored',
+              mode,
+              alignment: 'end',
+              dock: 'center',
+              groupReference: true,
+            }
+            await mountFloatingPage(page, input, width)
+            const trigger = page.getByRole('button', { name: copy.open, exact: true })
+            const popup = page.getByRole('dialog', { name: copy.title, exact: true })
+            await trigger.click()
+            await expect(page.getByRole('searchbox', { name: copy.search, exact: true })).toBeFocused()
+            const positionMatchesGroup = () =>
+              popup.evaluate((element) => {
+                const group = document.querySelector('.floating-fixture-controls')
+                if (!group) throw new Error('Missing geometry group')
+                const box = element.getBoundingClientRect()
+                const reference = group.getBoundingClientRect()
+                const gap = Math.max(8, Number.parseFloat(getComputedStyle(document.documentElement).fontSize) / 2)
+                const intended = reference.right - box.width
+                const expected = Math.max(gap, Math.min(intended, innerWidth - box.width - gap))
+                return Math.abs(box.left - expected) <= 1 && Math.abs(box.bottom - reference.top + gap) <= 1
+              })
+            await expect.poll(positionMatchesGroup).toBe(true)
+            await page.evaluate(
+              () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+            )
+            const changedCopy = { ...copy, other: copy.other + (locale === 'zh-CN' ? ' · 更多' : ' · More') }
+            const updated: FloatingPresentationInput = { ...input, copy: changedCopy }
+            await page.evaluate((value) => window.renderFloatingPresentationFixture(value), updated)
+            await expect.poll(positionMatchesGroup).toBe(true)
+            await page.getByRole('button', { name: changedCopy.other, exact: true }).click()
+            await expect(popup).toBeHidden()
+            const sibling = page.getByRole('dialog', { name: changedCopy.other, exact: true })
+            await expect(sibling).toBeVisible()
+            await expect(page.locator('[data-lumen-floating-surface]:visible')).toHaveCount(1)
+            await sibling.getByRole('button', { name: copy.close, exact: true }).click()
+            await expect(page.getByRole('button', { name: changedCopy.other, exact: true })).toBeFocused()
+            await trigger.click()
+            await expect.poll(positionMatchesGroup).toBe(true)
+            await page.keyboard.press('Escape')
+            await expect(popup).toBeHidden()
+            await expect(trigger).toBeFocused()
+            expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+            scenarios.push({
+              locale,
+              mode,
+              width,
+              coarse,
+              presentation: 'anchored',
+              sheet: false,
+              alignment: 'end',
+              dock: 'center',
+              groupReference: true,
+            })
+            await page.evaluate(() => window.releaseFloatingPresentationFixture())
+          }
+        } finally {
+          await context.close()
+        }
+      }
+    }
   }
   await Bun.write(resolve(output, 'verification.json'), JSON.stringify(scenarios, null, 2) + '\n')
   console.log(`${scenarios.length} real browser floating presentation scenarios passed.`)

@@ -29,6 +29,7 @@ export interface FloatingPresentationInput {
   readonly alignment?: FloatingAnchorAlignment
   readonly placement?: 'above' | 'below'
   readonly dock?: 'start' | 'center' | 'end'
+  readonly groupReference?: boolean
 }
 declare global {
   interface Window {
@@ -42,10 +43,12 @@ function FloatingPresentationFixture({
   alignment,
   placement = 'above',
   dock = 'start',
+  groupReference = false,
 }: FloatingPresentationInput) {
   const [open, setOpen] = useState(false)
   const [otherOpen, setOtherOpen] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
+  const group = useRef<HTMLDivElement>(null)
   const other = useRef<HTMLButtonElement>(null)
   const search = useRef<HTMLInputElement>(null)
   const triggerEvents = useFloatingTrigger({ open, onOpen: () => setOpen(true), onClose: () => setOpen(false) })
@@ -58,20 +61,33 @@ function FloatingPresentationFixture({
     <LumenFrame className="floating-fixture">
       <LumenFrame className="floating-fixture-main">
         <LumenContentText context="workspace.title">{copy.title}</LumenContentText>
-        <LumenButton ref={other} {...otherEvents} aria-expanded={otherOpen} aria-haspopup="dialog">
-          {copy.other}
-        </LumenButton>
+        {!groupReference && (
+          <LumenButton ref={other} {...otherEvents} aria-expanded={otherOpen} aria-haspopup="dialog">
+            {copy.other}
+          </LumenButton>
+        )}
       </LumenFrame>
-      <LumenFrame className="floating-fixture-controls" data-dock={dock}>
+      <LumenFrame
+        ref={group}
+        className="floating-fixture-controls"
+        data-dock={dock}
+        data-group-reference={groupReference || undefined}
+      >
         <LumenButton ref={trigger} {...triggerEvents} aria-expanded={open} aria-haspopup="dialog">
           {copy.open}
         </LumenButton>
+        {groupReference && (
+          <LumenButton ref={other} {...otherEvents} aria-expanded={otherOpen} aria-haspopup="dialog">
+            {copy.other}
+          </LumenButton>
+        )}
       </LumenFrame>
       <LumenFloatingSurface
         open={open}
         onClose={() => setOpen(false)}
         mode="anchored"
         anchorRef={trigger}
+        positionReferenceRef={groupReference ? group : undefined}
         initialFocusRef={search}
         responsivePresentation={presentation}
         placement={placement}
