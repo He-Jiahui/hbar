@@ -77,11 +77,19 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
               width: element.clientWidth,
             }
           })
-          expect(geometry.objectiveSize).toBeLessThanOrEqual(geometry.rootSize * 0.85)
-          expect(geometry.stepSize).toBeLessThanOrEqual(geometry.rootSize * 0.85)
+          expect(geometry.objectiveSize).toBeGreaterThanOrEqual(12)
+          expect(geometry.objectiveSize).toBeLessThanOrEqual(geometry.rootSize * 0.95)
+          expect(geometry.stepSize).toBeLessThanOrEqual(geometry.rootSize * 0.95)
           expect(geometry.metricsHeight).toBeLessThan(110)
           expect(geometry.metricsFlow).toBe('column')
           expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.width + 1)
+          await pane.evaluate((element) => element.style.setProperty('--lumen-font-size', '1rem'))
+          expect(
+            await pane
+              .locator('.hbar-app-react-goal-objective')
+              .evaluate((element) => parseFloat(getComputedStyle(element).fontSize)),
+          ).toBeGreaterThan(geometry.objectiveSize)
+          await pane.evaluate((element) => element.style.removeProperty('--lumen-font-size'))
           await pane.screenshot({ path: testInfo.outputPath(`goals-${locale}-${theme}-${width}.png`) })
           await pane.getByRole('button', { name: copy.goals.close, exact: true }).click()
         }

@@ -1,7 +1,7 @@
 :is(.hbar-app-react-goal-plan-workspace, .hbar-app-react-session-monitoring) {
-  --hbar-session-pane-body-size: calc(var(--lumen-font-size, 1rem) * 0.8125);
-  --hbar-session-pane-meta-size: calc(var(--lumen-font-size, 1rem) * 0.75);
-  --hbar-session-pane-heading-size: calc(var(--lumen-font-size, 1rem) * 0.875);
+  --hbar-session-pane-body-size: calc(var(--lumen-font-size, 0.875rem) * 13 / 14);
+  --hbar-session-pane-meta-size: calc(var(--lumen-font-size, 0.875rem) * 12 / 14);
+  --hbar-session-pane-heading-size: var(--lumen-font-size, 0.875rem);
   font-size: var(--hbar-session-pane-body-size);
   line-height: 1.5;
 }
