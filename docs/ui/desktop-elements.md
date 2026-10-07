@@ -2,14 +2,14 @@
 
 由 `bun scripts/audit-desktop-elements.ts --write` 从运行时入口、命名延迟加载、barrel 导出和 JSX 生成。完整的元素、槽位、内容来源、可访问名称、动作目标、状态来源和待处理问题见 [类型化清单](desktop-elements.json)。
 
-入口：`apps/web/src/main.tsx`。相关 TSX 模块 146 个；元素 3707 个。实际构建输入核对：passed。
+入口：`apps/web/src/main.tsx`。相关 TSX 模块 146 个；元素 3711 个。实际构建输入核对：passed。
 
 ## 类别与展示边界
 
 | 类别        | 元素 | pending | 设计职责                                                                |
 | ----------- | ---: | ------: | ----------------------------------------------------------------------- |
-| structure   | 1119 |      10 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
-| text        | 1066 |     533 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
+| structure   | 1124 |      10 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
+| text        | 1065 |     522 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
 | interaction |  933 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
 | form        |  278 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
 | collection  |  169 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
@@ -45,7 +45,7 @@
 | [packages/app-react/src/activity-agents-view.tsx](../../packages/app-react/src/activity-agents-view.tsx)                   | agents-and-activity                              |   19 |              0 |          8 |          0 |
 | [packages/app-react/src/activity-tasks-view.tsx](../../packages/app-react/src/activity-tasks-view.tsx)                     | agents-and-activity                              |   14 |              0 |          5 |          1 |
 | [packages/app-react/src/activity-workflow-view.tsx](../../packages/app-react/src/activity-workflow-view.tsx)               | agents-and-activity                              |   28 |              0 |         10 |          0 |
-| [packages/app-react/src/agent-model-picker.tsx](../../packages/app-react/src/agent-model-picker.tsx)                       | agents-and-activity                              |   30 |              0 |         11 |          0 |
+| [packages/app-react/src/agent-model-picker.tsx](../../packages/app-react/src/agent-model-picker.tsx)                       | agents-and-activity                              |   34 |             10 |          0 |          0 |
 | [packages/app-react/src/agent-policy-editor.tsx](../../packages/app-react/src/agent-policy-editor.tsx)                     | agents-and-activity                              |   29 |              8 |          0 |          0 |
 | [packages/app-react/src/agent-tool-open.tsx](../../packages/app-react/src/agent-tool-open.tsx)                             | agents-and-activity                              |    4 |              0 |          1 |          0 |
 | [packages/app-react/src/chat-search-view.tsx](../../packages/app-react/src/chat-search-view.tsx)                           | session                                          |   38 |              0 |         22 |          0 |

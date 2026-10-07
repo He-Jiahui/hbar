@@ -35,18 +35,17 @@ function render(locale: 'en-US' | 'zh-CN', catalog: Parameters<typeof AgentModel
   )
 }
 
-test('Agent model picker keeps unavailable drafts visible and localizes failure, empty, and long model rows', () => {
+test('Agent model picker keeps unavailable drafts visible and localizes its closed control and read feedback', () => {
   const error = render('zh-CN', { status: 'error', models: [], error: 'DISCONNECTED' }, 'old:model')
   expect(error).toContain('不可用：old:model')
   expect(error).toContain('无法读取模型：DISCONNECTED')
   expect(error).toContain('重试读取模型')
   const empty = render('en-US', { status: 'ready', models: [], error: null })
-  expect(empty).toContain('No models available')
+  expect(empty).toContain(getShellCopy('en-US').agents.modelPicker.choose)
+  expect(empty).toContain('aria-expanded="false"')
   const ready = render('zh-CN', { status: 'ready', models: [model], error: null }, model.id)
   expect(ready).toContain(model.modelName)
-  expect(ready).toContain(model.providerName)
-  expect(ready).toContain('aria-selected="true"')
-  expect(ready).not.toContain('disabled="" role="option"')
+  expect(ready).toContain('aria-expanded="false"')
 })
 
 test('Agent model search and paging cover the Host catalog without rendering more than one page', () => {

@@ -30,9 +30,23 @@
   white-space: nowrap;
 }
 
-.hbar-agent-model-picker,
-.hbar-agent-model-heading {
+.hbar-agent-model-trigger-reading,
+.hbar-agent-model-title-reading,
+.hbar-agent-model-action-reading {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  min-block-size: max-content;
   overflow-x: auto;
+}
+
+.hbar-agent-model-title-reading {
+  flex: 1 1 auto;
+}
+
+.hbar-agent-model-title-reading > [data-text-context] {
+  display: block;
+  inline-size: max-content;
+  max-inline-size: none;
 }
 
 .hbar-agent-model-heading > strong {
@@ -45,6 +59,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+}
+.hbar-agent-model-heading > button {
+  flex: 0 0 auto;
 }
 
 .hbar-agent-model-search {
@@ -107,6 +124,5 @@
 }
 
 .hbar-agent-model-feedback [role='alert'] {
-  color: var(--lumen-danger);
   overflow-wrap: anywhere;
 }

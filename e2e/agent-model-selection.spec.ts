@@ -1,13 +1,24 @@
 import { expect, test } from '@playwright/test'
 import { createAgentCommandClient, createConfigurationCommandClient, createModelCommandClient } from '@hbar/client'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { mobileShellNavigationLabel } from '../apps/web/src/mobile-shell-navigation-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { openSessionTool } from './support/session-tools-menu'
 import { expectLumenValue, selectLumenChoice, selectLumenOption } from './support/lumen-controls'
+
+async function removeFixture(root: string): Promise<void> {
+  const target = await realpath(root)
+  if (
+    target !== resolve(root) ||
+    dirname(target) !== (await realpath(tmpdir())) ||
+    !basename(target).startsWith('hbar-agent-model-')
+  )
+    throw new Error('Unexpected Agent model fixture path')
+  await rm(target, { recursive: true, force: true })
+}
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`Agent model chooser becomes a touch sheet without opening the keyboard first: ${locale}`, async ({
@@ -23,7 +34,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       await createConfigurationCommandClient(host.client).execute('provider.save', {
         provider: {
           id: 'touch-models',
@@ -82,7 +98,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeFixture(root)
     }
   })
   test(`Agent creation chooses a Host model, thinking level and read-only profile: ${locale}`, async ({
@@ -93,7 +109,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 900 } })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const longName = 'Agent review model — 长名称需要正确截断并保留选择入口'
       const configuration = createConfigurationCommandClient(host.client)
       await configuration.execute('provider.save', {
@@ -124,8 +145,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       })
       const models = createModelCommandClient(host.client)
       const catalog = await models.execute('model.list', {})
-      const review = catalog.find((model) => model.modelName === longName)!
-      const low = catalog.find((model) => model.providerId === 'agent-low')!
+      const review = catalog.find((model) => model.modelName === longName)
+      const low = catalog.find((model) => model.providerId === 'agent-low')
+      if (!review || !low) throw new Error('Missing original owned Agent model records')
       const before = await models.execute('session.getModel', { sessionId: host.ready.sessionId })
       const copy = getShellCopy(locale)
       const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
@@ -268,7 +290,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeFixture(root)
     }
   })
 }

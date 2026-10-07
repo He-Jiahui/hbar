@@ -2337,6 +2337,7 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
       more: (count) => choose(`显示更多（剩余 ${count} 个）`, `Show more (${count} remaining)`),
       unavailable: (modelId) => choose(`不可用：${modelId}`, `Unavailable: ${modelId}`),
       error: (code) => choose(`无法读取模型：${code}`, `Could not load models: ${code}`),
+      optionLabel: (modelName, modelId) => `${modelName} (${modelId})`,
     },
     inheritModel: choose('恢复继承主 Agent 模型', 'Restore parent model inheritance'),
     selectionMode: choose('模型选择方式', 'Model selection strategy'),
