@@ -160,4 +160,9 @@ Lumen 提交 `b8c6a007c2` 修复真实目录刷新移除获得焦点的 Retry �
 - 88 项 landing、Goal、模型目录／有效性、Slash 与首发草稿测试通过。14 个真实 Host 用例分批通过：初批 13 项通过，触摸 Slash 用例的旧 Close 焦点断言失败；按 `503c569a` 接入的共享 touch sheet 面板焦点契约校正后，该用例独立重跑通过。原关闭、软键盘策略、全文草稿、Session／Run 数量、Goal／Plan、权限、模型能力失效与提供商恢复断言保留，确定数量的 Slash fixture 关闭预算自动续跑。普通首发检查 1440／900／390／320px，其他用例涵盖宽屏及触摸窄屏。
 - 严格范围 lint、内容／图标与 flow guard、格式、独立 Web build、清单生成／核对和实际构建输入通过；全库类型仍是 96 项既有诊断，修改范围无诊断。使用本轮真实 Host 截图复核普通菜单、Goal 标签和恢复布局；证据为 `landing-content-*`，没有将初批失败报告为单批全部通过。
 
+闭合输入工具栏的截图检查复现窄屏文字裁切：`2e65b042ec` 引入的 rail 使用 `flex: 1 1 0`，Host 将 toolbar 改为列方向时，零 basis 转为高度；实际测得阅读区只有 4px，文字越过上下边界。Lumen 提交 `ccc6228f1e` 使用 `min-block-size: max-content` 保留内容固有高度，继续由原横向轨道阅读完整单行标签，发送／停止动作保持独立；没有为普通内容设置固定高度。
+
+- 96 个公开 `LumenPromptComposer` Chrome 场景通过：行／列、两语言／主题、五宽度、默认／200% 字号，以及 0／1／3／12 个宿主控件。用原生文字 Range 实测 client 阅读区上下边界，核对 ArrowRight 的实际横向滚动、原控件动作与编辑后全文发送。初始 fixture 的非序列化 formatter、列布局宽度和单行标题的阅读归属均已按实际 Host 合同修正；Chromium 的 End 不执行横向滚动，最终使用其真实 ArrowRight 行为，未添加产品键盘处理或强制滚动。
+- 9 个真实 Host density／首发／Goal／Plan／容量用例全部通过；首发页面现直接验证 1440／1100／900／390／320px 下文字和 SVG 的垂直边界，原数量、目标、草稿和权限断言保留。修复后的 320px Goal 工具栏完整可读，32px 深色公开 fixture 的文字和发送动作可达，截图已检查。15 项 Lumen composer node 测试、包类型／构建／声明、格式和 flow guard 通过；父仓库 fixture／脚本／E2E 严格 lint 与内容 guard 通过，完整 typecheck 仍为 96 项既有诊断，修改范围无诊断。清单及实际生产输入核对通过；证据为 `composer-control-flow-*` 与 `composer-rail-*`。
+
 当前清单覆盖 144 个生产 TSX 模块、3660 个元素，其中记录了 686 处低层文字未分类，合计 704 项静态缺口。Schema 展示适配、其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

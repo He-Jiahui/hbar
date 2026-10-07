@@ -1,5 +1,36 @@
 import { expect, type Locator } from '@playwright/test'
 
+/** Horizontal reading may overflow inline; its text and icons must fit vertically. */
+export async function completeControlRailHeight(rail: Locator): Promise<void> {
+  await expect(rail).toBeVisible()
+  await expect(rail.getByRole('button').first()).toBeVisible()
+  await expect
+    .poll(() =>
+      rail.evaluate((element) => {
+        const viewport = element.getBoundingClientRect()
+        const top = viewport.top + element.clientTop
+        const bottom = top + element.clientHeight
+        const buttons = [...element.querySelectorAll('button')].filter(
+          (button) => button.getClientRects().length > 0 && !button.closest('[popover], dialog'),
+        )
+        const glyphs: DOMRect[] = []
+        for (const button of buttons) {
+          const walker = element.ownerDocument.createTreeWalker(button, NodeFilter.SHOW_TEXT)
+          while (walker.nextNode()) {
+            const text = walker.currentNode
+            if (!text.textContent?.trim() || text.parentElement?.closest('svg')) continue
+            const range = element.ownerDocument.createRange()
+            range.selectNodeContents(text)
+            glyphs.push(...range.getClientRects())
+          }
+          for (const icon of button.querySelectorAll('svg')) glyphs.push(icon.getBoundingClientRect())
+        }
+        return glyphs.length > 0 && glyphs.every((glyph) => glyph.top >= top - 1 && glyph.bottom <= bottom + 1)
+      }),
+    )
+    .toBe(true)
+}
+
 /** Measure actual text ranges; titles and nowrap alone cannot prove legibility. */
 export async function completeLine(elements: Locator) {
   const metrics = await elements.evaluateAll((nodes) =>

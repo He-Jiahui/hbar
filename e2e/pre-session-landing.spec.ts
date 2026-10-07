@@ -12,6 +12,7 @@ import { getShellCopy } from '../apps/web/src/shell-copy'
 import { preSessionCopy } from '../apps/web/src/pre-session-copy'
 import { preSessionLaunchCopy } from '../apps/web/src/pre-session-launch-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { completeControlRailHeight } from './support/single-line-layout'
 
 test.use({ actionTimeout: 10_000 })
 
@@ -61,6 +62,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
 
       for (const viewport of [
         { width: 1440, height: 900 },
+        { width: 1100, height: 900 },
         { width: 900, height: 760 },
         { width: 390, height: 720 },
         { width: 320, height: 560 },
@@ -68,6 +70,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await page.setViewportSize(viewport)
         await expect(landing.getByRole('heading', { name: copy.preSession.hero.title })).toBeInViewport()
         await expect(prompt).toBeInViewport()
+        await completeControlRailHeight(
+          landing.getByRole('toolbar', { name: copy.preSession.prompt.input, exact: true }),
+        )
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
         await page.screenshot({ path: `artifacts/desktop-experience/pre-session-${locale}-${viewport.width}.png` })
       }
