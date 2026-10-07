@@ -1,11 +1,22 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { createSandboxCommandClient } from '@hbar/client'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { expectLumenValue, selectLumenOption } from './support/lumen-controls'
+
+async function removeFixture(root: string): Promise<void> {
+  const target = await realpath(root)
+  if (
+    target !== resolve(root) ||
+    dirname(target) !== (await realpath(tmpdir())) ||
+    !basename(target).startsWith('hbar-sandbox-entry-')
+  )
+    throw new Error('Unexpected Sandbox fixture path')
+  await rm(target, { recursive: true, force: true })
+}
 
 async function expectSandboxFlowFits(page: Page, panel: Locator) {
   const overflow = await panel
@@ -31,7 +42,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 900 } })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const sandbox = createSandboxCommandClient(host.client)
       const copy = getShellCopy(locale)
       const labels = copy.sandbox
@@ -132,7 +148,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         return { listBottom: listRect.bottom, editorTop: editorRect.top }
       })
       expect(stacked).not.toBeNull()
-      expect(stacked!.editorTop).toBeGreaterThanOrEqual(stacked!.listBottom - 1)
+      if (!stacked) throw new Error('Missing owned Sandbox stacked layout bounds')
+      expect(stacked.editorTop).toBeGreaterThanOrEqual(stacked.listBottom - 1)
       await expectSandboxFlowFits(page, panel)
       await panel.evaluate((node) => {
         node.style.removeProperty('inline-size')
@@ -147,7 +164,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeFixture(root)
     }
   })
 }

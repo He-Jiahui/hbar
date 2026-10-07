@@ -126,7 +126,11 @@ test('renders localized built-in names, rules, the command limitation and row-bo
   expect(html).toContain(zh.revision(3))
   expect(html).toContain(`>${zh.delete}<`)
   // Save is blocked while issues remain.
-  expect(html).toMatch(new RegExp(`<button[^>]*disabled=""[^>]*>${zh.save}</button>`))
+  const saveButtons = [...html.matchAll(/<button\b[^>]*>[\s\S]*?<\/button>/g)]
+    .map((match) => match[0])
+    .filter((button) => button.replace(/<[^>]*>/g, '').trim() === zh.save)
+  expect(saveButtons).toHaveLength(1)
+  expect(saveButtons[0]).toContain('disabled=""')
 })
 
 test('uses controlled popup selects for profile choices and keeps the sandbox in flow layout', async () => {
