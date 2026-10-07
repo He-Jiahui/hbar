@@ -8,10 +8,11 @@ import {
   LumenIcon,
   LumenIconButton,
   LumenInput,
+  LumenFormField,
   LumenStatus,
   LumenIntegrations02,
   LumenIntegrations01,
-  LumenText,
+  LumenContentText,
 } from '@lumen/app-ui'
 import { extensionWorkspacePage, type ExtensionWorkspaceEntryState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState, useHbarSkillImportSurface } from './runtime'
@@ -92,11 +93,13 @@ function ExtensionNoMatches({
   return (
     <LumenFrame className="hbar-app-react-extension-no-matches" role="status">
       <LumenIcon icon={SearchX} tier="lg" />
-      <LumenText as="strong">{title}</LumenText>
-      <LumenText as="p">{labels.noMatchesHint}</LumenText>
-      <LumenButton type="button" variant="outlined" onClick={onClear}>
-        {labels.clearSearch}
-      </LumenButton>
+      <LumenContentText context="empty.title">{title}</LumenContentText>
+      <LumenContentText context="empty.description">{labels.noMatchesHint}</LumenContentText>
+      <LumenFrame className="hbar-extension-reading" role="group" aria-label={labels.clearSearch} tabIndex={0}>
+        <LumenButton type="button" variant="outlined" onClick={onClear}>
+          {labels.clearSearch}
+        </LumenButton>
+      </LumenFrame>
     </LumenFrame>
   )
 }
@@ -132,9 +135,9 @@ export function HbarExtensionWorkspace({
   const root = useRef<HTMLElement>(null)
   const filterInput = useRef<HTMLInputElement>(null)
   const filterId = useId()
-  const heading = useRef<HTMLDivElement>(null)
-  const pluginsHeading = useRef<HTMLDivElement>(null)
-  const skillsHeading = useRef<HTMLDivElement>(null)
+  const heading = useRef<HTMLElement>(null)
+  const pluginsHeading = useRef<HTMLElement>(null)
+  const skillsHeading = useRef<HTMLElement>(null)
   const focusDirection = useRef<'detail' | 'list' | null>(null)
   useLayoutEffect(() => {
     // Collection navigation invalidates only view focus ownership, not retained
@@ -228,26 +231,26 @@ export function HbarExtensionWorkspace({
       {!detail && !skillDetail && (
         <LumenFrame as="header" className="hbar-app-react-extension-heading">
           <LumenFrame>
-            <LumenFrame
+            <LumenContentText
+              context="section.title"
+              level={2}
               ref={heading}
-              role="heading"
-              aria-level={2}
               tabIndex={-1}
               className="hbar-app-react-extension-title"
               id={`${instanceId}-extensions-title`}
             >
-              <LumenText as="span">{navigation.title}</LumenText>
-            </LumenFrame>
-            <LumenText as="p">{navigation.description}</LumenText>
-            {!collection && <LumenText as="small">{labels.hostWide}</LumenText>}
+              {navigation.title}
+            </LumenContentText>
+            <LumenContentText context="section.description">{navigation.description}</LumenContentText>
+            {!collection && <LumenContentText context="collection.detail">{labels.hostWide}</LumenContentText>}
             {collection === 'plugins' && plugins?.hasSnapshot && page && (
-              <LumenText as="small">{labels.pluginCount(page.pluginCount)}</LumenText>
+              <LumenContentText context="collection.detail">{labels.pluginCount(page.pluginCount)}</LumenContentText>
             )}
             {collection === 'skills' && skills?.hasSnapshot && page && (
-              <LumenText as="small">{labels.skillCount(page.skillCount)}</LumenText>
+              <LumenContentText context="collection.detail">{labels.skillCount(page.skillCount)}</LumenContentText>
             )}
           </LumenFrame>
-          <LumenFrame>
+          <LumenFrame className="hbar-extension-reading" role="group" aria-label={navigation.title} tabIndex={0}>
             <LumenButton
               variant="outlined"
               disabled={
@@ -277,15 +280,17 @@ export function HbarExtensionWorkspace({
           list: (
             <LumenFrame className="hbar-app-react-extension-browser" hidden={Boolean(detail || skillDetail)}>
               {collection !== 'skills' && entry?.error === 'CAPACITY_EXCEEDED' && (
-                <LumenText as="p" role="alert">
+                <LumenContentText context="feedback.paragraph" tone="danger" role="alert">
                   {labels.detail.actions.error(entry.error)}
-                </LumenText>
+                </LumenContentText>
               )}
               <>
-                <LumenFrame className="hbar-app-react-extension-filter">
-                  <LumenFrame as="label" htmlFor={filterId}>
-                    {navigation.filter}
-                  </LumenFrame>
+                <LumenFormField
+                  className="hbar-app-react-extension-filter"
+                  controlId={filterId}
+                  label={navigation.filter}
+                  layout="rows"
+                >
                   <LumenFrame className="hbar-app-react-extension-filter-control">
                     <LumenInput
                       ref={filterInput}
@@ -311,11 +316,11 @@ export function HbarExtensionWorkspace({
                     )}
                   </LumenFrame>
                   {collection === 'skills' && query.trim() && skills?.status === 'ready' && page && (
-                    <LumenText as="small" role="status">
+                    <LumenContentText context="form.help" role="status">
                       {labels.skillSearchResults(page.skillCount, entry?.skills.length ?? 0)}
-                    </LumenText>
+                    </LumenContentText>
                   )}
-                </LumenFrame>
+                </LumenFormField>
                 {collection !== 'skills' && (
                   <LumenFrame
                     as="section"
@@ -325,17 +330,19 @@ export function HbarExtensionWorkspace({
                   >
                     {!collection && (
                       <LumenFrame as="header">
-                        <LumenFrame
-                          role="heading"
-                          aria-level={3}
+                        <LumenContentText
+                          context="section.title"
+                          level={3}
                           className="hbar-app-react-extension-collection-heading"
                           ref={pluginsHeading}
                           tabIndex={-1}
                         >
-                          <LumenText as="span">{labels.plugins}</LumenText>
-                        </LumenFrame>
+                          {labels.plugins}
+                        </LumenContentText>
                         {plugins?.hasSnapshot && page && (
-                          <LumenText as="small">{labels.pluginCount(page.pluginCount)}</LumenText>
+                          <LumenContentText context="collection.detail">
+                            {labels.pluginCount(page.pluginCount)}
+                          </LumenContentText>
                         )}
                       </LumenFrame>
                     )}
@@ -355,9 +362,9 @@ export function HbarExtensionWorkspace({
                       (entry.plugins.length && collection === 'plugins' ? (
                         <ExtensionNoMatches title={labels.noMatchingPlugins} labels={labels} onClear={clearQuery} />
                       ) : (
-                        <LumenText as="p" className="hbar-app-react-extension-empty">
+                        <LumenContentText context="empty.description" className="hbar-app-react-extension-empty">
                           {entry.plugins.length ? labels.noMatches : labels.noPlugins}
-                        </LumenText>
+                        </LumenContentText>
                       ))
                     ) : (
                       <LumenCollection as="ul" className="hbar-app-react-extension-list">
@@ -370,82 +377,106 @@ export function HbarExtensionWorkspace({
                               className="hbar-app-react-extension-plugin"
                               data-plugin-id={plugin.id}
                             >
-                              <LumenButton
-                                type="button"
-                                variant="text"
-                                className="hbar-app-react-extension-open"
-                                aria-label={labels.inspect(plugin.name)}
-                                aria-current={entry.selectedPluginId === plugin.id ? 'true' : undefined}
-                                disabled={!connected}
-                                onClick={() => {
-                                  focusDirection.current = 'detail'
-                                  void runtime.commands
-                                    .execute('extensionWorkspace.inspect', { instanceId, pluginId: plugin.id })
-                                    .catch(() => {})
-                                }}
-                              >
-                                <LumenIcon icon={Puzzle} tier="md" />
-                                <LumenText as="span" className="hbar-app-react-extension-open-copy">
-                                  <LumenText as="strong">{plugin.name}</LumenText>
-                                  <LumenText as="small">{labels.pluginMetadata(plugin.id, plugin.version)}</LumenText>
-                                  <LumenText as="span">{plugin.description}</LumenText>
-                                </LumenText>
-                                <LumenStatus
-                                  value={labels.status[plugin.status]}
-                                  tone={
-                                    plugin.status === 'active'
-                                      ? 'success'
-                                      : plugin.status === 'failed'
-                                        ? 'danger'
-                                        : 'neutral'
-                                  }
-                                />
-                                <LumenIcon icon={ChevronRight} tier="md" />
-                              </LumenButton>
-                              <LumenText as="small">{plugin.packageName ?? plugin.path ?? plugin.id}</LumenText>
+                              <LumenFrame as="header">
+                                <LumenButton
+                                  type="button"
+                                  variant="text"
+                                  className="hbar-app-react-extension-open"
+                                  aria-label={labels.inspect(plugin.name)}
+                                  aria-current={entry.selectedPluginId === plugin.id ? 'true' : undefined}
+                                  disabled={!connected}
+                                  onClick={() => {
+                                    focusDirection.current = 'detail'
+                                    void runtime.commands
+                                      .execute('extensionWorkspace.inspect', { instanceId, pluginId: plugin.id })
+                                      .catch(() => {})
+                                  }}
+                                >
+                                  <LumenIcon icon={Puzzle} tier="md" />
+                                  <LumenFrame as="span" className="hbar-app-react-extension-open-copy">
+                                    <LumenContentText context="collection.title">{plugin.name}</LumenContentText>
+                                    <LumenContentText context="collection.detail">
+                                      {labels.pluginMetadata(plugin.id, plugin.version)}
+                                    </LumenContentText>
+                                    <LumenContentText context="collection.description">
+                                      {plugin.description}
+                                    </LumenContentText>
+                                  </LumenFrame>
+                                  <LumenIcon icon={ChevronRight} tier="md" />
+                                </LumenButton>
+                                <LumenFrame
+                                  className="hbar-extension-reading"
+                                  role="group"
+                                  aria-label={labels.status[plugin.status]}
+                                  tabIndex={0}
+                                >
+                                  <LumenStatus
+                                    value={labels.status[plugin.status]}
+                                    tone={
+                                      plugin.status === 'active'
+                                        ? 'success'
+                                        : plugin.status === 'failed'
+                                          ? 'danger'
+                                          : 'neutral'
+                                    }
+                                  />
+                                </LumenFrame>
+                              </LumenFrame>
+                              <LumenContentText context="resource.path" className="hbar-extension-reading" tabIndex={0}>
+                                {plugin.packageName ?? plugin.path ?? plugin.id}
+                              </LumenContentText>
                               {action?.status === 'unknown' && (
-                                <LumenText as="p" role="status">
+                                <LumenContentText context="feedback.paragraph" tone="warning" role="status">
                                   {labels.detail.actions.unknown}
-                                </LumenText>
+                                </LumenContentText>
                               )}
                               {action?.error && action.status === 'failed' && (
-                                <LumenText as="p" role="alert">
+                                <LumenContentText context="feedback.paragraph" tone="danger" role="alert">
                                   {labels.detail.actions.error(action.error)}
-                                </LumenText>
+                                </LumenContentText>
                               )}
                               <LumenFrame as="footer">
-                                {plugin.required && <LumenText as="small">{labels.required}</LumenText>}
-                                {action?.status === 'unknown' ? (
-                                  <LumenButton
-                                    variant="outlined"
-                                    disabled={!connected || pluginsBusy}
-                                    onClick={() => void refresh('plugins')}
-                                  >
-                                    {labels.detail.actions.readCurrent}
-                                  </LumenButton>
-                                ) : (
-                                  !plugin.required && (
-                                    <LumenButton
-                                      variant="text"
-                                      disabled={!connected || action?.status === 'submitting' || pluginsBusy}
-                                      onClick={() =>
-                                        void runtime.commands
-                                          .execute('extensionWorkspace.setEnabled', {
-                                            instanceId,
-                                            pluginId: plugin.id,
-                                            enabled: plugin.status !== 'active',
-                                          })
-                                          .catch(() => {})
-                                      }
-                                    >
-                                      {action?.status === 'submitting'
-                                        ? labels.changing
-                                        : plugin.status === 'active'
-                                          ? labels.disable
-                                          : labels.enable}
-                                    </LumenButton>
-                                  )
+                                {plugin.required && (
+                                  <LumenContentText context="collection.detail">{labels.required}</LumenContentText>
                                 )}
+                                <LumenFrame
+                                  className="hbar-extension-reading"
+                                  role="group"
+                                  aria-label={labels.inspect(plugin.name)}
+                                  tabIndex={0}
+                                >
+                                  {action?.status === 'unknown' ? (
+                                    <LumenButton
+                                      variant="outlined"
+                                      disabled={!connected || pluginsBusy}
+                                      onClick={() => void refresh('plugins')}
+                                    >
+                                      {labels.detail.actions.readCurrent}
+                                    </LumenButton>
+                                  ) : (
+                                    !plugin.required && (
+                                      <LumenButton
+                                        variant="text"
+                                        disabled={!connected || action?.status === 'submitting' || pluginsBusy}
+                                        onClick={() =>
+                                          void runtime.commands
+                                            .execute('extensionWorkspace.setEnabled', {
+                                              instanceId,
+                                              pluginId: plugin.id,
+                                              enabled: plugin.status !== 'active',
+                                            })
+                                            .catch(() => {})
+                                        }
+                                      >
+                                        {action?.status === 'submitting'
+                                          ? labels.changing
+                                          : plugin.status === 'active'
+                                            ? labels.disable
+                                            : labels.enable}
+                                      </LumenButton>
+                                    )
+                                  )}
+                                </LumenFrame>
                               </LumenFrame>
                             </LumenCollectionItem>
                           )
@@ -475,17 +506,19 @@ export function HbarExtensionWorkspace({
                   >
                     {!collection && (
                       <LumenFrame as="header">
-                        <LumenFrame
-                          role="heading"
-                          aria-level={3}
+                        <LumenContentText
+                          context="section.title"
+                          level={3}
                           className="hbar-app-react-extension-collection-heading"
                           ref={skillsHeading}
                           tabIndex={-1}
                         >
-                          <LumenText as="span">{labels.skills}</LumenText>
-                        </LumenFrame>
+                          {labels.skills}
+                        </LumenContentText>
                         {skills?.hasSnapshot && page && (
-                          <LumenText as="small">{labels.skillCount(page.skillCount)}</LumenText>
+                          <LumenContentText context="collection.detail">
+                            {labels.skillCount(page.skillCount)}
+                          </LumenContentText>
                         )}
                       </LumenFrame>
                     )}
@@ -506,9 +539,9 @@ export function HbarExtensionWorkspace({
                       (entry.skills.length && collection === 'skills' ? (
                         <ExtensionNoMatches title={labels.noMatchingSkills} labels={labels} onClear={clearQuery} />
                       ) : (
-                        <LumenText as="p" className="hbar-app-react-extension-empty">
+                        <LumenContentText context="empty.description" className="hbar-app-react-extension-empty">
                           {entry.skills.length ? labels.noMatches : labels.noSkills}
-                        </LumenText>
+                        </LumenContentText>
                       ))
                     ) : (
                       <LumenCollection
@@ -531,19 +564,26 @@ export function HbarExtensionWorkspace({
                                   .catch(() => {})
                               }}
                             >
-                              <LumenFrame className="hbar-app-react-extension-skill-content">
-                                <LumenText as="strong">{skill.id}</LumenText>
-                                <LumenText as="small" title={skill.path}>
-                                  {skill.path}
-                                </LumenText>
-                                <LumenText as="span">{labels.skillScope}</LumenText>
+                              <LumenFrame as="span" className="hbar-app-react-extension-skill-content">
+                                <LumenContentText context="collection.title">{skill.id}</LumenContentText>
+                                <LumenContentText context="code.inline">{skill.path}</LumenContentText>
+                                <LumenContentText context="collection.description">
+                                  {labels.skillScope}
+                                </LumenContentText>
                               </LumenFrame>
                             </LumenButton>
-                            <LumenStatus
-                              className="hbar-app-react-extension-skill-status"
-                              value={labels.discovered}
-                              tone="neutral"
-                            />
+                            <LumenFrame
+                              className="hbar-extension-reading"
+                              role="group"
+                              aria-label={labels.discovered}
+                              tabIndex={0}
+                            >
+                              <LumenStatus
+                                className="hbar-app-react-extension-skill-status"
+                                value={labels.discovered}
+                                tone="neutral"
+                              />
+                            </LumenFrame>
                           </LumenCollectionItem>
                         ))}
                       </LumenCollection>

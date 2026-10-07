@@ -1,0 +1,20 @@
+.hbar-app-react-extension-collection-feedback {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+.hbar-app-react-extension-collection-feedback:empty {
+  display: none;
+}
+.hbar-extension-feedback-reading {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  min-block-size: max-content;
+  overflow-x: auto;
+}
+.hbar-extension-feedback-reading > button {
+  min-inline-size: max-content;
+  max-inline-size: none;
+}

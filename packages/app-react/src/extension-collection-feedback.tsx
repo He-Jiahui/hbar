@@ -1,6 +1,7 @@
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenContentText } from '@lumen/app-ui'
 import type { ExtensionWorkspaceEntryState } from '@hbar/app-runtime'
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import './extension-collection-feedback.css'
 
 export interface ExtensionCollectionLabels {
   readonly notLoaded: string
@@ -115,30 +116,36 @@ export function ExtensionCollectionFeedback({
       data-collection-status={state?.status ?? 'idle'}
     >
       {loading ? (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       ) : failed ? (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.paragraph" tone="danger" role="alert">
           {labels.error(state.error)}
-        </LumenText>
+        </LumenContentText>
       ) : !state?.hasSnapshot ? (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" role="status">
           {labels.notLoaded}
-        </LumenText>
+        </LumenContentText>
       ) : null}
-      {stale && <LumenText as="p">{labels.stale}</LumenText>}
+      {stale && (
+        <LumenContentText context="feedback.paragraph" tone="warning">
+          {labels.stale}
+        </LumenContentText>
+      )}
       {(failed || retryRequested) && (
-        <LumenButton
-          ref={button}
-          type="button"
-          variant="outlined"
-          disabled={!connected || busy}
-          loading={busy}
-          onClick={retry}
-        >
-          {busy ? labels.loading : labels.retry}
-        </LumenButton>
+        <LumenFrame className="hbar-extension-feedback-reading" role="group" aria-label={labels.retry} tabIndex={0}>
+          <LumenButton
+            ref={button}
+            type="button"
+            variant="outlined"
+            disabled={!connected || busy}
+            loading={busy}
+            onClick={retry}
+          >
+            {busy ? labels.loading : labels.retry}
+          </LumenButton>
+        </LumenFrame>
       )}
     </LumenFrame>
   )

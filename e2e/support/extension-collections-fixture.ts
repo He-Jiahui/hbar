@@ -376,6 +376,11 @@ export async function startExtensionCollections(
       warnings,
       faults,
     }
+    if (await page.evaluate(() => matchMedia('(max-width: 63.9375rem)').matches))
+      await expect(page.locator('.hbar-app-ui-app-shell[data-sidebar-open]')).toHaveAttribute(
+        'data-sidebar-open',
+        'false',
+      )
     await openSession(f)
     return f
   } catch (error) {

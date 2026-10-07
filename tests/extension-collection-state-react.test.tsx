@@ -137,7 +137,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     expect(html).toContain(labels.skillCount(0))
     expect(html).toContain(labels.noPlugins)
     expect(html).toContain(labels.noSkills)
-    expect(html.match(/role="heading"[^>]*aria-level="3"[^>]*tabindex="-1"/gi)).toHaveLength(2)
+    expect(html.match(/<h3\b[^>]*tabindex="-1"[^>]*data-text-context="section.title"/gi)).toHaveLength(2)
     expect(html).not.toContain(labels.collections.plugins.stale)
     expect(html).not.toContain(labels.collections.skills.retry)
   })

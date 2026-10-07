@@ -90,8 +90,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(html).toContain(labels.navigation[collection].description)
       expect(html).toContain(labels.navigation[collection].filter)
       expect(html).not.toContain(labels.hostWide)
-      expect(html.match(/role="heading"/g)).toHaveLength(1)
-      expect(html).toMatch(/role="heading"[^>]*aria-level="2"[^>]*tabindex="-1"/)
+      expect(html.match(/<h[1-6]\b/g)).toHaveLength(1)
+      expect(html).toMatch(/<h2\b[^>]*tabindex="-1"[^>]*data-text-context="section.title"/)
       expect(html.match(/data-extension-collection=/g)).toHaveLength(1)
       expect(html).toContain(`data-extension-collection="${collection}"`)
       expect(html).not.toContain(`class="hbar-app-react-extension-section" aria-label=`)
@@ -132,7 +132,7 @@ test('the legacy combined consumer keeps both collections, shared filter and dia
   expect(html).toContain(plugin.name)
   expect(html).toContain(skill.id)
   expect(html).toContain(labels.openSystemCommands)
-  expect(html.match(/role="heading"/g)).toHaveLength(3)
+  expect(html.match(/<h[1-6]\b/g)).toHaveLength(3)
   expect(html.match(/data-extension-collection=/g)).toHaveLength(2)
 })
 
@@ -175,8 +175,10 @@ test('Skills no-match offers both clear routes, a bounded result count and no fa
   expect(html).toContain(labels.skillSearchResults(0, 1))
   expect(html).toContain(labels.noMatchingSkills)
   expect(html).toContain(labels.noMatchesHint)
-  expect(html.match(/aria-label="清除搜索"/g)).toHaveLength(1)
-  expect(html.match(/<button\b[^>]*>[\s\S]*?<\/button>/g)?.filter((node) => node.includes(labels.clearSearch))).toHaveLength(2)
+  expect(html.match(/<button\b[^>]*aria-label="清除搜索"/g)).toHaveLength(1)
+  expect(
+    html.match(/<button\b[^>]*>[\s\S]*?<\/button>/g)?.filter((node) => node.includes(labels.clearSearch)),
+  ).toHaveLength(2)
   expect(html).not.toContain(skill.id)
 
   const absent = render(entry({ skills: [], queries: { plugins: '', skills: '' } }), 'skills', 'zh-CN')
