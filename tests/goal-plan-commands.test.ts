@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from 'bun:test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { HbarClient, createGoalPlanCommandClient } from '@hbar/client'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { startServer } from '../apps/host/src/server.ts'
@@ -29,7 +29,14 @@ async function fixture() {
     client.disconnect()
     await host.close()
     await kernel.close()
-    await rm(root, { recursive: true, force: true })
+    const ownedRoot = await realpath(root)
+    if (
+      ownedRoot !== resolve(root) ||
+      dirname(ownedRoot) !== (await realpath(tmpdir())) ||
+      !basename(ownedRoot).startsWith('hbar-goal-plan-commands-')
+    )
+      throw new Error('Refusing cleanup outside the captured Goal command fixture')
+    await rm(ownedRoot, { recursive: true, force: true })
   })
   await client.pair(host.pairing.code, 'goal plan command test')
   return { client, session, other }
@@ -44,6 +51,8 @@ test('goal and plan commands preserve plugin rules, explicit targets and query r
     'agent.create',
     'agent.list',
     'agent.patch.apply',
+    'agent.policy.get',
+    'agent.policy.set',
     'agent.profiles.list',
     'agent.result.get',
     'goal.clear',

@@ -398,4 +398,11 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 39 项现有单测、287 项断言通过。32 个实际 Chrome 场景覆盖中英文、明暗主题、1440／1100／900／390／320、窄屏 125% 文字、长标题／说明／路径、保留／丢弃草稿、长正文模式切换、超出 Markdown 阈值、保存冲突及未知结果禁止重放。真实 Host 的 6 项文件页签／差异／保存／晚到响应回归全部通过，临时数据按已验证真实路径清理，自动 Goal 与预算继续关闭。
 - 范围 ESLint、文案／图标／flow guard、格式、Web 构建和构建输入清单通过。冷启动完整类型仍有 92 项既有诊断，本次文件范围为零；全库类型门禁仍未通过。证据在 artifacts/desktop-elements/file-workspace-content 的 unit-initial.log、title-red.log、client-final.log、host.log、host-final.log、lumen-*、types-final.log、lint-final.log、build-final.log、inventory-final.log。
 
-当前已提交清单覆盖 146 个生产 TSX 模块、3753 个元素，其中记录了 252 处低层文字未分类，合计 269 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## Goal／Plan 工作区的章节、步骤与保存反馈
+
+- 19 处低层文字归入 section.title／description、reading.paragraph、collection.title、metadata、form.help、empty.description 和 feedback.paragraph。章节与完整步骤自然换行，计数和紧凑状态各有具名键盘阅读区；Goal 保存动作由所属工具栏承接横向阅读。序号由宿主 number 格式器生成，Plan 保持 Host 顺序的只读集合，最多 100 步，随工具面板正文滚动。
+- 4000 字目标／步骤检查复现了 Agent Plan 外层裁切。旧工作区阅读选择器来自 73a238ec，但当前正文位于 LumenSurface 内容槽内。工作区通过具名内容类与公开组件标识定义自然内容尺寸和滚动归属，保留 Lumen 配方边界。目标输入使用公开 MAX_GOAL_OBJECTIVE_LENGTH；调用已限定到公开命令定义，经 schema 收敛后进入类型化客户端，去掉函数断言，并限定 Workflow 回调的命令名。
+- 48 个实际 Chrome 场景通过，覆盖中英文、明暗、五宽度、125% 文字、0／1／7／100／101 步、刷新顺序变化、4000／4001 字步骤与 4000 字目标、4001 字输入限制、空／加载／离线／读取错误恢复、编辑／保存冲突恢复和已接受响应丢失后的原 Goal 核对。未知保存只发生一次写入，核对恢复确认事实，保留原目标 ID。两个实际 Host 中英文创建流程通过，临时数据按真实路径检查后清理，自动 Goal／预算继续关闭。
+- 12 项单测、118 项断言通过，包含 live 序列、dirty editor、目标变化及命令集成。首次命令目录测试缺少 67ee889d 已发布的 agent.policy.get／set，按该提交核对后更新期望，完整相关测试通过。范围 ESLint、文案／图标／flow guard、格式、Web build 与构建输入清单通过；最终冷启动类型仍为 92 项既有诊断，本次范围为零。证据在 artifacts/desktop-elements/goal-workspace-content 的 unit.log、unit-final.log、client-final.log、host-final.log、types-final.log、lint-final.log、build-final.log、inventory.log。
+
+当前已提交清单覆盖 146 个生产 TSX 模块、3756 个元素，其中记录了 233 处低层文字未分类，合计 250 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

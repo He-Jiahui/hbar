@@ -9,6 +9,7 @@ import {
   LumenContentText,
 } from '@lumen/app-ui'
 import type { WorkflowWorkspaceEntryState } from '@hbar/app-runtime'
+import type { workflowWorkspaceCommands } from '@hbar/contracts/commands/workflow-workspace'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import './workflow-overview.css'
 
@@ -93,7 +94,7 @@ export function HbarWorkflowOverview({
   readonly labels: HbarWorkflowOverviewLabels
   readonly connected: boolean
   readonly instanceId: string
-  readonly invoke: (name: string, input: unknown) => void
+  readonly invoke: (name: keyof typeof workflowWorkspaceCommands | 'app.setSession', input: unknown) => void
 }) {
   if (!entry || entry.status === 'loading')
     return (
