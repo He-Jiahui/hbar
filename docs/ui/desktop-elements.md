@@ -9,7 +9,7 @@
 | 类别        | 元素 | pending | 设计职责                                                                |
 | ----------- | ---: | ------: | ----------------------------------------------------------------------- |
 | structure   | 1074 |      10 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
-| text        | 1074 |     695 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
+| text        | 1074 |     690 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
 | interaction |  929 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
 | form        |  277 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
 | collection  |  168 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
@@ -28,7 +28,7 @@
 | [apps/web/src/LanguageApp.tsx](../../apps/web/src/LanguageApp.tsx)                                                         | workbench                                        |    1 |              0 |          0 |          0 |
 | [apps/web/src/NotificationDesktopBridge.tsx](../../apps/web/src/NotificationDesktopBridge.tsx)                             | global-pages                                     |    1 |              0 |          1 |          0 |
 | [apps/web/src/NotificationPageButton.tsx](../../apps/web/src/NotificationPageButton.tsx)                                   | global-pages                                     |    5 |              0 |          1 |          0 |
-| [apps/web/src/PreSessionLanding.tsx](../../apps/web/src/PreSessionLanding.tsx)                                             | session                                          |   36 |              0 |          5 |          1 |
+| [apps/web/src/PreSessionLanding.tsx](../../apps/web/src/PreSessionLanding.tsx)                                             | session                                          |   36 |              5 |          0 |          1 |
 | [apps/web/src/SettingsPageFocusBoundary.tsx](../../apps/web/src/SettingsPageFocusBoundary.tsx)                             | settings                                         |    1 |              0 |          0 |          0 |
 | [apps/web/src/SkillImportPanel.tsx](../../apps/web/src/SkillImportPanel.tsx)                                               | workbench                                        |    1 |              0 |          0 |          0 |
 | [apps/web/src/StatusUsageFeatures.tsx](../../apps/web/src/StatusUsageFeatures.tsx)                                         | status-and-usage                                 |    1 |              0 |          0 |          0 |

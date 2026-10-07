@@ -4590,14 +4590,14 @@
         "onMoreDirectories": "loadMoreWorkspaces",
         "onWorkspace": "chooseWorkspace",
         "onSelection": "chooseLaunchSelection",
-        "onOpen": "() => {\r\n        setLocationOpen(true)\r\n        setBranchSearch('')\r\n        setLocationRefresh((current) => current + 1)\r\n      }",
+        "onOpen": "() => {\n        setLocationOpen(true)\n        setBranchSearch('')\n        setLocationRefresh((current) => current + 1)\n      }",
         "onClose": "() => setLocationOpen(false)",
         "onSearch": "setBranchSearch",
-        "onMoreBranches": "() => {\r\n        if (draft?.workspaceId && launchBranches.page?.nextCursor)\r\n          void runtime.commands\r\n            .execute('preSessionLaunchBranches.load', {\r\n              workspaceId: draft.workspaceId,\r\n              search: branchSearch,\r\n              cursor: launchBranches.page.nextCursor,\r\n            })\r\n            .catch(() => undefined)\r\n      }",
-        "onCaptureBranchBase": "(expectedRevision) =>\r\n        runtime.commands.execute('preSessionLaunchBranchCreation.capture', { draftId, expectedRevision })",
-        "onCreateBranch": "(name, expectedRevision) =>\r\n        runtime.commands.execute('preSessionLaunchBranchCreation.create', { draftId, expectedRevision, name })",
-        "onReconcileBranch": "(expectedRevision) =>\r\n        runtime.commands.execute('preSessionLaunchBranchCreation.reconcile', { draftId, expectedRevision })",
-        "onAdoptBranch": "(expectedRevision) =>\r\n        runtime.commands.execute('preSessionLaunchBranchCreation.adopt', { draftId, expectedRevision })",
+        "onMoreBranches": "() => {\n        if (draft?.workspaceId && launchBranches.page?.nextCursor)\n          void runtime.commands\n            .execute('preSessionLaunchBranches.load', {\n              workspaceId: draft.workspaceId,\n              search: branchSearch,\n              cursor: launchBranches.page.nextCursor,\n            })\n            .catch(() => undefined)\n      }",
+        "onCaptureBranchBase": "(expectedRevision) =>\n        runtime.commands.execute('preSessionLaunchBranchCreation.capture', { draftId, expectedRevision })",
+        "onCreateBranch": "(name, expectedRevision) =>\n        runtime.commands.execute('preSessionLaunchBranchCreation.create', { draftId, expectedRevision, name })",
+        "onReconcileBranch": "(expectedRevision) =>\n        runtime.commands.execute('preSessionLaunchBranchCreation.reconcile', { draftId, expectedRevision })",
+        "onAdoptBranch": "(expectedRevision) =>\n        runtime.commands.execute('preSessionLaunchBranchCreation.adopt', { draftId, expectedRevision })",
         "onCancelBranchCreate": "() => runtime.commands.execute('preSessionLaunchBranchCreation.cancel', { draftId })"
       },
       "targetSources": ["workspaceId=draft?.workspaceId ?? null", "onWorkspace=chooseWorkspace"],
@@ -4621,7 +4621,7 @@
       "category": "structure",
       "context": null,
       "contentSources": [
-        "pathError && (\r\n            <LumenText as=\"p\" role=\"alert\">\r\n              {labels.error(pathError)}\r\n            </LumenText>\r\n          )"
+        "pathError && (\n            <LumenContentText context=\"feedback.paragraph\" role=\"alert\">\n              {labels.error(pathError)}\n            </LumenContentText>\n          )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -4683,11 +4683,11 @@
       "accessibleNameSources": [],
       "actionBindings": {
         "onChange": "(event) => setPath(event.currentTarget.value)",
-        "onKeyDown": "(event) => {\r\n                if (event.key !== 'Enter' || event.nativeEvent.isComposing) return\r\n                event.preventDefault()\r\n                event.stopPropagation()\r\n                openWorkspace(closePicker)\r\n              }"
+        "onKeyDown": "(event) => {\n                if (event.key !== 'Enter' || event.nativeEvent.isComposing) return\n                event.preventDefault()\n                event.stopPropagation()\n                openWorkspace(closePicker)\n              }"
       },
       "targetSources": [
         "id=hbar-pre-session-path",
-        "onKeyDown=(event) => {\r\n                if (event.key !== 'Enter' || event.nativeEvent.isComposing) return\r\n                event.preventDefault()\r\n                event.stopPropagation()\r\n                openWorkspace(closePicker)\r\n              }"
+        "onKeyDown=(event) => {\n                if (event.key !== 'Enter' || event.nativeEvent.isComposing) return\n                event.preventDefault()\n                event.stopPropagation()\n                openWorkspace(closePicker)\n              }"
       ],
       "stateSources": ["value=path", "disabled=!connected || busy || openingPath"],
       "flow": "owning component contract",
@@ -4707,7 +4707,7 @@
       "contentSources": ["shell.shell.workspaceFolders.browse"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onClick": "[source:606; ArrowFunction] closePicker, targetPath, path.trim, draft?.workspaceId, directory.workspaces[draft.workspaceId]?.path, directory.workspaces, draft.workspaceId, undefined, runtime.commands\r\n                  .execute('workspaceFolders.open', {\r\n                    ...(targetPath ? { path: targetPath } : {}),\r\n                    draftId,\r\n                    browse: true,\r\n                    draftRevision: runtime.state.preSessionDrafts.getSnapshot()[draftId]?.revision ?? 0,\r\n                  })\r\n                  .catch, runtime.commands\r\n                  .execute, runtime.commands, path, draftId, browse, draftRevision, runtime.state.preSessionDrafts.getSnapshot()[draftId]?.revision, runtime.state.preSessionDrafts.getSnapshot, runtime.state.preSessionDrafts, runtime.state, reason, alive.current, setPathError, code"
+        "onClick": "[source:606; ArrowFunction] closePicker, targetPath, path.trim, draft?.workspaceId, directory.workspaces[draft.workspaceId]?.path, directory.workspaces, draft.workspaceId, undefined, runtime.commands\n                  .execute('workspaceFolders.open', {\n                    ...(targetPath ? { path: targetPath } : {}),\n                    draftId,\n                    browse: true,\n                    draftRevision: runtime.state.preSessionDrafts.getSnapshot()[draftId]?.revision ?? 0,\n                  })\n                  .catch, runtime.commands\n                  .execute, runtime.commands, path, draftId, browse, draftRevision, runtime.state.preSessionDrafts.getSnapshot()[draftId]?.revision, runtime.state.preSessionDrafts.getSnapshot, runtime.state.preSessionDrafts, runtime.state, reason, alive.current, setPathError, code"
       },
       "targetSources": [],
       "stateSources": ["disabled=!connected || busy || openingPath"],
@@ -4755,23 +4755,23 @@
       "issues": []
     },
     {
-      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenText::1",
+      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenContentText::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
       "line": 636,
       "owner": "WebPreSessionLanding",
       "surface": "session",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "feedback.paragraph",
       "contentSources": ["labels.error(pathError)"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::HbarPreSessionChoicePicker::1",
@@ -4793,23 +4793,23 @@
       "issues": []
     },
     {
-      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenText::2",
+      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenContentText::2",
       "path": "apps/web/src/PreSessionLanding.tsx",
       "line": 659,
       "owner": "WebPreSessionLanding",
       "surface": "session",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "feedback.paragraph",
       "contentSources": ["labels.checkingModels"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenFrame::4",
@@ -5024,23 +5024,23 @@
       "issues": []
     },
     {
-      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenText::3",
+      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenContentText::3",
       "path": "apps/web/src/PreSessionLanding.tsx",
       "line": 745,
       "owner": "WebPreSessionLanding",
       "surface": "session",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "control.label",
       "contentSources": ["shell.session.intent.goalPrepared"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "single",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenIcon::3",
@@ -5071,7 +5071,7 @@
       "category": "structure",
       "context": null,
       "contentSources": [
-        "modelError ? (\r\n          <LumenButton type=\"button\" size=\"s\" disabled={!connected} onClick={retryModels}>\r\n            {labels.retryModels}\r\n          </LumenButton>\r\n        ) : models.length === 0 ? (\r\n          <LumenButton\r\n            type=\"button\"\r\n            size=\"s\"\r\n            disabled={!connected || openingProviders}\r\n            onClick={() => openProviderSettings()}\r\n          >\r\n            {labels.configureProviders}\r\n          </LumenButton>\r\n        ) : null"
+        "modelError ? (\n          <LumenButton type=\"button\" size=\"s\" disabled={!connected} onClick={retryModels}>\n            {labels.retryModels}\n          </LumenButton>\n        ) : models.length === 0 ? (\n          <LumenButton\n            type=\"button\"\n            size=\"s\"\n            disabled={!connected || openingProviders}\n            onClick={() => openProviderSettings()}\n          >\n            {labels.configureProviders}\n          </LumenButton>\n        ) : null"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -5083,30 +5083,30 @@
       "issues": []
     },
     {
-      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenText::4",
+      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenContentText::4",
       "path": "apps/web/src/PreSessionLanding.tsx",
       "line": 752,
       "owner": "WebPreSessionLanding",
       "surface": "session",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "feedback.paragraph",
       "contentSources": [
-        "providerRouteError\r\n            ? labels.modelActionFailed\r\n            : modelError\r\n              ? labels.modelReadFailed\r\n              : modelSelection.unavailable === 'model'\r\n                ? labels.selectedModelUnavailable\r\n                : modelSelection.unavailable === 'thinking'\r\n                  ? labels.selectedThinkingUnavailable\r\n                  : labels.model.empty"
+        "providerRouteError\n            ? labels.modelActionFailed\n            : modelError\n              ? labels.modelReadFailed\n              : modelSelection.unavailable === 'model'\n                ? labels.selectedModelUnavailable\n                : modelSelection.unavailable === 'thinking'\n                  ? labels.selectedThinkingUnavailable\n                  : labels.model.empty"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenButton::6",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 764,
+      "line": 767,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenButton",
@@ -5125,7 +5125,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenButton::7",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 768,
+      "line": 771,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenButton",
@@ -5144,7 +5144,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::HbarSessionImageLayer::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 780,
+      "line": 783,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "HbarSessionImageLayer",
@@ -5163,14 +5163,14 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::HbarPreSessionLanding::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 781,
+      "line": 784,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "HbarPreSessionLanding",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "labels=draft?.intent === 'goal'\r\n            ? {\r\n                ...shell.preSession,\r\n                prompt: { ...shell.preSession.prompt, placeholder: shell.session.intent.goalPlaceholder },\r\n              }\r\n            : draft?.planMode === 'plan'\r\n              ? {\r\n                  ...shell.preSession,\r\n                  prompt: { ...shell.preSession.prompt, placeholder: shell.session.intent.planPlaceholder },\r\n                }\r\n              : shell.preSession"
+        "labels=draft?.intent === 'goal'\n            ? {\n                ...shell.preSession,\n                prompt: { ...shell.preSession.prompt, placeholder: shell.session.intent.goalPlaceholder },\n              }\n            : draft?.planMode === 'plan'\n              ? {\n                  ...shell.preSession,\n                  prompt: { ...shell.preSession.prompt, placeholder: shell.session.intent.planPlaceholder },\n                }\n              : shell.preSession"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -5184,7 +5184,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::HbarPreSessionDraftImageAttachments::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 805,
+      "line": 808,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "HbarPreSessionDraftImageAttachments",
@@ -5193,7 +5193,7 @@
       "contentSources": [],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onRemove": "(artifactId, kind) =>\r\n                  runAttachmentCommand(() =>\r\n                    runtime.commands.execute('preSessionDraft.removeAttachment', {\r\n                      draftId,\r\n                      kind,\r\n                      artifactId,\r\n                      expectedRevision: runtime.state.preSessionDrafts.getSnapshot()[draftId]?.revision ?? 0,\r\n                    }),\r\n                  )"
+        "onRemove": "(artifactId, kind) =>\n                  runAttachmentCommand(() =>\n                    runtime.commands.execute('preSessionDraft.removeAttachment', {\n                      draftId,\n                      kind,\n                      artifactId,\n                      expectedRevision: runtime.state.preSessionDrafts.getSnapshot()[draftId]?.revision ?? 0,\n                    }),\n                  )"
       },
       "targetSources": [],
       "stateSources": [],
@@ -5205,7 +5205,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::HbarComposerAttachmentTransfers::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 860,
+      "line": 863,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "HbarComposerAttachmentTransfers",
@@ -5214,9 +5214,9 @@
       "contentSources": ["labels=attachmentLabels"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onRemove": "(item) =>\r\n                    runAttachmentCommand(() =>\r\n                      runtime.commands.execute('preSessionDraft.removeAttachmentTransfer', {\r\n                        draftId,\r\n                        reservationId: item.id,\r\n                        ownerRevision: item.ownerRevision,\r\n                      }),\r\n                    )",
-        "onReconcile": "(item) =>\r\n                    runAttachmentCommand(() =>\r\n                      runtime.commands.execute('preSessionDraft.reconcileAttachment', {\r\n                        draftId,\r\n                        reservationId: item.id,\r\n                        ownerRevision: item.ownerRevision,\r\n                      }),\r\n                    )",
-        "onAccept": "(item) =>\r\n                    runAttachmentCommand(() =>\r\n                      runtime.commands.execute('preSessionDraft.acceptReadyAttachment', {\r\n                        draftId,\r\n                        reservationId: item.id,\r\n                        ownerRevision: item.ownerRevision,\r\n                        expectedRevision: runtime.state.preSessionDrafts.getSnapshot()[draftId]?.revision ?? 0,\r\n                      }),\r\n                    )"
+        "onRemove": "(item) =>\n                    runAttachmentCommand(() =>\n                      runtime.commands.execute('preSessionDraft.removeAttachmentTransfer', {\n                        draftId,\n                        reservationId: item.id,\n                        ownerRevision: item.ownerRevision,\n                      }),\n                    )",
+        "onReconcile": "(item) =>\n                    runAttachmentCommand(() =>\n                      runtime.commands.execute('preSessionDraft.reconcileAttachment', {\n                        draftId,\n                        reservationId: item.id,\n                        ownerRevision: item.ownerRevision,\n                      }),\n                    )",
+        "onAccept": "(item) =>\n                    runAttachmentCommand(() =>\n                      runtime.commands.execute('preSessionDraft.acceptReadyAttachment', {\n                        draftId,\n                        reservationId: item.id,\n                        ownerRevision: item.ownerRevision,\n                        expectedRevision: runtime.state.preSessionDrafts.getSnapshot()[draftId]?.revision ?? 0,\n                      }),\n                    )"
       },
       "targetSources": [],
       "stateSources": ["connected=connected"],
@@ -5228,7 +5228,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::HbarPreSessionLaunchStatus::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 894,
+      "line": 897,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "HbarPreSessionLaunchStatus",
@@ -5245,28 +5245,28 @@
       "issues": []
     },
     {
-      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenText::5",
+      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenContentText::5",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 899,
+      "line": 902,
       "owner": "WebPreSessionLanding",
       "surface": "session",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "feedback.paragraph",
       "contentSources": ["labels.slashRequiresSession"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenFrame::9",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 906,
+      "line": 909,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenFrame",
@@ -5285,7 +5285,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::HbarPreSessionSlashEditor::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 914,
+      "line": 917,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "HbarPreSessionSlashEditor",

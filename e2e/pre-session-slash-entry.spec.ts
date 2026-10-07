@@ -24,7 +24,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({
       locale,
       viewport: { width: locale === 'en-US' ? 1440 : 320, height: 900 },
-      // The narrow Web sheet's close-first policy belongs to touch input, not desktop resizing.
+      // The narrow touch sheet focuses its surface to avoid requesting the soft keyboard.
       hasTouch: locale === 'zh-CN',
     })
     const copy = getShellCopy(locale)
@@ -32,7 +32,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const location = preSessionLaunchCopy(locale).location
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        budgetAutoContinue: false,
+      })
       const sessions = createWorkspaceSessionCommandClient(host.client)
       const count = async () =>
         (await sessions.execute('session.list', { workspaceId: host!.ready.workspaceId, limit: 100 })).items.length
@@ -57,7 +61,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(modelPicker).toBeVisible()
       if (locale === 'en-US')
         await expect(modelPicker.getByRole('searchbox', { name: labels.model.search })).toBeFocused()
-      else await expect(modelPicker.getByRole('button', { name: labels.model.close })).toBeFocused()
+      else await expect(modelPicker).toBeFocused()
       await expect(prompt).toHaveValue('')
       expect(await count()).toBe(1)
       await modelPicker.getByRole('button', { name: labels.model.close }).click()
