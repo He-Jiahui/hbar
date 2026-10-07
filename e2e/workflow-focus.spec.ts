@@ -1,9 +1,23 @@
 import { expect, test } from '@playwright/test'
 import { createGoalPlanCommandClient, createWorkflowCommandClient } from '@hbar/client'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host.ts'
+import { getShellCopy } from '../apps/web/src/shell-copy'
+import { openSessionTool } from './support/session-tools-menu'
+import { verifyReadableText } from '../scripts/support/verify-readable-text'
+
+async function removeOwnedWorkflowFixture(root: string): Promise<void> {
+  const owned = await realpath(root)
+  if (
+    owned !== resolve(root) ||
+    dirname(owned) !== (await realpath(tmpdir())) ||
+    !basename(owned).startsWith('hbar-workflow-focus-')
+  )
+    throw new Error('Unowned focused Workflow fixture')
+  await rm(owned, { recursive: true, force: true })
+}
 
 test('renders and accepts Host-owned focused workflow state at desktop, tablet, and narrow widths', async ({
   browser,
@@ -15,13 +29,21 @@ test('renders and accepts Host-owned focused workflow state at desktop, tablet, 
   let host: WebSessionHost | undefined
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 960 } })
   try {
-    host = await startWebSessionHost({ root })
+    host = await startWebSessionHost({
+      root,
+      port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+      goalAutoContinue: false,
+      budgetAutoContinue: false,
+    })
+    const sessionId = host.ready.sessionId
+    const copy = getShellCopy('en-US')
+    const title = 'Verify the complete focused workflow title in the browser — 保留完整原始工作流标题 '.repeat(4).trim()
     const goals = createGoalPlanCommandClient(host.client)
     const workflows = createWorkflowCommandClient(host.client)
     const plan = await goals.execute('plan.update', {
       sessionId: host.ready.sessionId,
       explanation: 'Keep the browser task focused and externally verified',
-      plan: [{ step: 'Verify the focused workflow in the browser', status: 'in_progress' }],
+      plan: [{ step: title, status: 'in_progress' }],
     })
     const started = await workflows.execute('workflow.focus.set', {
       sessionId: host.ready.sessionId,
@@ -46,6 +68,7 @@ test('renders and accepts Host-owned focused workflow state at desktop, tablet, 
       expectedPlanRevision: plan.revision,
     })
     expect(started.workflow).toMatchObject({ status: 'active', focus: { focusId: 'browser-focus' } })
+    if (!started.workflow) throw new Error('No original Host workflow')
     const waiting = await workflows.execute('workflow.checkpoint', {
       sessionId: host.ready.sessionId,
       itemId: 'browser-focus',
@@ -53,7 +76,7 @@ test('renders and accepts Host-owned focused workflow state at desktop, tablet, 
       summary: 'The explicitly requested browser review can begin',
       evidenceIds: [],
       nextItemId: null,
-      expectedRevision: started.workflow!.revision,
+      expectedRevision: started.workflow.revision,
     })
     expect(waiting.workflow?.status).toBe('waiting_user')
 
@@ -65,13 +88,13 @@ test('renders and accepts Host-owned focused workflow state at desktop, tablet, 
     const page = await context.newPage()
     await page.goto(`http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`)
     await expect(page.locator('footer')).toContainText('Connected')
-    await page.getByRole('button', { name: `Open session ${host.ready.sessionTitle}` }).click()
-    await page.getByRole('button', { name: 'Goals and plans', exact: true }).click()
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
+    await openSessionTool(page, copy.session.tools, 'goals')
 
     const overview = page.locator('.hbar-app-react-workflow-overview')
     await expect(overview.getByRole('heading', { level: 2, name: 'Focused workflow' })).toBeVisible()
     await expect(overview.getByText('Current focus', { exact: true })).toBeVisible()
-    const focusedTitle = overview.getByText('Verify the focused workflow in the browser', { exact: true })
+    const focusedTitle = overview.getByText(title, { exact: true })
     await expect(focusedTitle).toHaveCount(1)
     await expect(focusedTitle.first()).toBeVisible()
     await expect(overview.getByText('Explicit user review', { exact: true })).toBeVisible()
@@ -80,12 +103,19 @@ test('renders and accepts Host-owned focused workflow state at desktop, tablet, 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     await page.screenshot({ path: `${artifacts}/desktop-pending.png`, fullPage: true })
 
+    for (const width of [1440, 1100, 900, 390, 320]) {
+      await page.setViewportSize({ width, height: 960 })
+      await verifyReadableText(focusedTitle, title, true)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+    }
+    await page.setViewportSize({ width: 1440, height: 960 })
+
     await overview.getByRole('button', { name: 'Accept check: Browser acceptance confirms the focused result' }).click()
     await expect(overview.getByText('Accepted', { exact: true })).toBeVisible()
     await expect(overview.getByText('Showing 1 of 1', { exact: true })).toBeVisible()
     await expect
       .poll(async () => {
-        const snapshot = await workflows.execute('workflow.get', { sessionId: host!.ready.sessionId })
+        const snapshot = await workflows.execute('workflow.get', { sessionId })
         return {
           status: snapshot.workflow?.focus?.acceptanceChecks[0]?.status,
           evidence: snapshot.workflow?.evidence.length,
@@ -110,6 +140,6 @@ test('renders and accepts Host-owned focused workflow state at desktop, tablet, 
   } finally {
     await context.close()
     if (host) await stopWebSessionHost(host)
-    await rm(root, { recursive: true, force: true })
+    await removeOwnedWorkflowFixture(root)
   }
 })

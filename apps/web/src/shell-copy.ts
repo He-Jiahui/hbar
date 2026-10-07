@@ -2697,6 +2697,10 @@ function createGoalPlanWorkspaceLabels(locale: ShellLocale): HbarGoalPlanWorkspa
       readPaths: choose('读取路径', 'Read paths'),
       writePaths: choose('写入路径', 'Write paths'),
       tools: choose('工具', 'Tools'),
+      scopeEntries: (entries) =>
+        entries.length
+          ? new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' }).format(entries)
+          : choose('无', 'None'),
       none: choose('无', 'None'),
       review: choose('独立复核', 'Independent review'),
       reviewStatuses,

@@ -1,15 +1,20 @@
 import { expect, test } from '@playwright/test'
 import { createGoalPlanCommandClient, createWorkflowCommandClient } from '@hbar/client'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { expectComposerText } from './support/composer-text'
+import { mobileShellNavigationLabel } from '../apps/web/src/mobile-shell-navigation-copy'
 
 async function cleanupFixture(root: string) {
-  const target = resolve(root)
-  if (dirname(target) !== resolve(tmpdir()) || !basename(target).startsWith('hbar-activity-workflow-'))
+  const target = await realpath(root)
+  if (
+    target !== resolve(root) ||
+    dirname(target) !== (await realpath(tmpdir())) ||
+    !basename(target).startsWith('hbar-activity-workflow-')
+  )
     throw new Error('Refusing cleanup outside the Workflow fixture')
   await rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 })
 }
@@ -26,6 +31,7 @@ test('Activity Workflow follows Host focus/delegation and opens the actual child
       port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
       sessionCount: 2,
       goalAutoContinue: false,
+      budgetAutoContinue: false,
     })
     const { sessionId } = host.ready
     const goals = createGoalPlanCommandClient(host.client),
@@ -65,7 +71,17 @@ test('Activity Workflow follows Host focus/delegation and opens the actual child
       draft = '查看委派后返回时仍然保留这段输入。'
     await prompt.fill(draft)
     const activity = page.getByRole('button', { name: copy.session.tools.activity, exact: true })
-    await activity.click()
+    const openActivity = async () => {
+      if (await activity.isVisible()) await activity.click()
+      else {
+        await page.getByRole('button', { name: mobileShellNavigationLabel('zh-CN'), exact: true }).click()
+        await page
+          .getByRole('dialog', { name: mobileShellNavigationLabel('zh-CN'), exact: true })
+          .getByRole('button', { name: copy.session.tools.activity, exact: true })
+          .click()
+      }
+    }
+    await openActivity()
     const pane = page.locator('.hbar-session-activity-workspace'),
       workflow = pane.locator('.hbar-activity-workflow')
     await expect(workflow.getByRole('heading', { name: copy.activity.workflow.title, exact: true })).toBeVisible()
@@ -117,7 +133,7 @@ test('Activity Workflow follows Host focus/delegation and opens the actual child
     const sidebar = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
     if (await sidebar.isVisible()) await sidebar.click()
     await page.getByRole('treeitem', { name: 'Session 001', exact: true }).click()
-    await activity.click()
+    await openActivity()
     await expect(pane.getByText(copy.activity.empty, { exact: true })).toBeVisible()
     await expect(workflow).toHaveCount(0)
     expect(errors).toEqual([])

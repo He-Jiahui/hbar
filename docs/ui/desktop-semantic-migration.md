@@ -309,4 +309,10 @@ Agent 模型选择器的 11 处低层文本已分类：当前控件标签、浮�
 - 最终构建的 4 项真实 Host 权限与首次发送推理流程通过；原 Host 默认、session 确认、首个 Run、草稿、原模型与焦点断言保留。fixture 关闭无关自动继续，真实绝对临时根及前缀核对后释放，原记录缺失改为明确失败。最初长标题验收发现父行 align-items:flex-start 使子内容保持全部高度，改为读区跟随父行伸缩、关闭按钮保持顶部后通过；初版夹具在确认前后沿用旧 dialog 名称，现分别验证两个原可访问名称。重复区域名称改为标题 group 与正文 region。
 - 范围严格 lint、内容／图标／flow guard、格式、Web 构建和实际生产输入核对通过；冷启动全库类型仍有 92 项既有诊断，本次范围无诊断。窄屏权限标题与推理文字的实际截图已检查。证据为 picker-title-wrap/permission-final.log、first-approval-delivery.log、thinking.log、first-thinking.log、unit.log、unit-delivery.log、host-delivery.log、lint-delivery.log、types-delivery.log。
 
-当前已提交清单覆盖 146 个生产 TSX 模块、3712 个元素，其中记录了 477 处低层文字未分类，合计 495 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+工作流概览的 30 处低层文字与 6 个范围定义项已分类：章节／焦点标题、验收项说明、委派结果、复核／拒绝原因、空态、动作反馈、证据正文／时间、范围 term/value 和补丁路径。范围列表通过必填宿主 scopeEntries 格式化，使用当前语言的连接语法与空值文案。紧凑状态、动作、术语和技术路径有具名读区；正文和标题自然换行。Disclosure 复用既有 Lumen 组合，冲突进入时自动展开且允许用户关闭，验收／委派／证据使用契约已校验的稳定 ID 作 React key。原 instance/session/focus/check/agent、版本、回执归属和目标命令保留，重复 ID 继续由原 runtime 拒绝。
+
+- 52 个实际 Chrome 场景通过，两语言／明暗／五宽度与窄屏 125% 文字；验证 0／1／正常列表、证据 20／21／1000（20 条一页）、验收 32、委派／范围 128、补丁 512 的实际布局与滚动，另验证各上限加一的 DTO 拒绝。覆盖空、计划草稿、过期焦点、独立复核／恢复诊断、读失败与刷新恢复、重复 ID 拒绝、离线禁写。原按钮在验收清单反转后仍提交原 check ID；显式版本、接受／拒绝失败恢复、原补丁目标及冲突协调子会话均通过。时间保留原 dateTime，补丁末项和紧凑动作完成键盘阅读，卸载验证 watcher 释放。
+- 8 项原 View／runtime 用例在最终布局通过，保留迟到读取、并发 clear、外来／旧 revision、重复 ID、增量证据与动作核对。最终 Web 资源上的 2 项真实 Host 用例通过：英文 Focus 全文五宽度、验收写回与原证据；中文 Activity 委派／原子会话进入／父会话返回、Goal clear 与其他会话隔离。fixture 关闭无关自动继续，真实绝对临时根和前缀校验后释放。初版 Host 夹具保留了被契约正常 trim 的标题尾空格，并在窄屏查找隐藏桌面 Activity 按钮；现以合法原文和真实移动工具菜单验证，原业务断言保留。
+- 概览此前依赖 Goal 页面间接加载样式。真实独立 client 暴露其读区 overflow 为 visible，现将工作流样式归入组件自己的 workflow-overview.css，正常公开导入直接可用。初版夹具缺少 Agent.error 并使用了过期的 review 字段，均按当前公开 schema 修正；没有放松 DTO。标题在宽窗口可保持一行，受限窗口验证真实多行与全文。范围严格 lint、内容／图标／flow guard、格式、Web build、清单及实际生产输入核对通过。完整冷启动类型仍为 92 项既有诊断，本次范围无诊断；两语言初始长标题、验收与补丁窄屏截图已复核。证据为 workflow-content/client-responsive.log、unit-delivery.log、host-owned.log、lint-delivery.log、types-delivery.log、inventory.log 与 *-initial-title-320.png。
+
+当前已提交清单覆盖 146 个生产 TSX 模块、3719 个元素，其中记录了 447 处低层文字未分类，合计 465 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
