@@ -61,6 +61,7 @@ import {
 } from './workspace-navigation-actions'
 import './lumen-workspace-shell.css'
 import './workspace-session-entry.css'
+import './sidebar-navigation.css'
 import {
   WorkspaceProjectMenu,
   WorkspaceOrganizationFeedback,
@@ -1510,10 +1511,8 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 }}
                 renderProject={(project) => (
                   <LumenFrame className="hbar-app-react-sidebar-time-project-line">
-                    <WorkspaceShellIcon name="folder" tier="sm" />
-                    <LumenText size="s" variant="label" title={project.label}>
-                      {project.label}
-                    </LumenText>
+                    <WorkspaceShellIcon name="folder" />
+                    <SidebarCaption text={project.label} />
                   </LumenFrame>
                 )}
                 renderSession={(sessionId) => {
@@ -1626,7 +1625,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                     <LumenFrame className="hbar-app-react-workspace-line">
                       <LumenFrame className="hbar-app-react-workspace-row" title={workspace.path}>
                         <WorkspaceShellIcon name={isExpanded ? 'folder-open' : 'folder'} />
-                        <SidebarCaption text={displayName} focusable />
+                        <SidebarCaption text={displayName} />
                         {isPinned && (
                           <LumenText
                             as="span"

@@ -1,0 +1,132 @@
+/* The project tree owns vertical scrolling; each flex row yields to the pane. */
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree {
+  gap: 0.5rem;
+  overflow-x: hidden;
+  text-align: start;
+}
+
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-item,
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-group,
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .hbar-app-react-agent-branch,
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .hbar-app-react-session-list {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  align-items: stretch;
+}
+
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-item > .lumen-tree-row {
+  box-sizing: border-box;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  justify-content: flex-start;
+  padding: 0.25em 0.5em;
+  overflow: hidden;
+  border-radius: var(--lumen-radius-control);
+  color: var(--lumen-muted);
+  text-align: start;
+  transition:
+    background-color var(--lumen-state-duration) var(--lumen-state-easing),
+    color var(--lumen-state-duration) var(--lumen-state-easing);
+}
+
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-item > .lumen-tree-row:hover {
+  background: color-mix(in srgb, var(--lumen-ink) 5%, transparent);
+  color: var(--lumen-ink);
+}
+
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-item[aria-selected='true'] > .lumen-tree-row {
+  background: color-mix(in srgb, var(--lumen-ink) 9%, transparent);
+  color: var(--lumen-ink);
+}
+
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-group {
+  border-inline-start: 0;
+}
+
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-group:not([data-flat-depth='true']) {
+  margin-inline-start: 0;
+  padding-inline-start: calc(var(--hbar-app-ui-icon-md) + 0.5rem);
+}
+
+/* Root project children share the full row surface; disclosure slots supply the text indent. */
+.hbar-app-react-sidebar-surface
+  .hbar-app-react-project-tree
+  .lumen-tree-item[data-sidebar-level='project']
+  > .lumen-tree-group {
+  padding-inline-start: 0;
+}
+
+.hbar-app-react-sidebar-surface
+  .hbar-app-react-project-tree
+  .lumen-tree-item[data-sidebar-level='project']
+  > .lumen-tree-row
+  > .lumen-tree-disclosure {
+  display: none;
+}
+
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-icon[data-tier='md'] {
+  inline-size: var(--hbar-app-ui-icon-md);
+  block-size: var(--hbar-app-ui-icon-md);
+}
+
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .hbar-app-react-workspace-row,
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .hbar-app-react-sidebar-time-project-line,
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .hbar-app-react-session-target,
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .hbar-app-react-session-label {
+  min-inline-size: 0;
+  flex: 1 1 0;
+  justify-content: flex-start;
+  text-align: start;
+}
+
+.hbar-app-react-sidebar-surface
+  .hbar-app-react-project-tree:not([aria-multiselectable='true'])
+  .hbar-app-react-session-target
+  > .lumen-icon {
+  display: none;
+}
+
+/* Inline actions and status keep their own space when the caption is clipped. */
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-action-menu-trigger {
+  box-sizing: border-box;
+  padding: 0;
+  border: 0.0625rem solid transparent;
+  border-radius: var(--lumen-radius-control);
+}
+
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-action-menu-trigger:focus-visible {
+  outline: 0.125rem solid var(--lumen-info);
+  outline-offset: -0.125rem;
+}
+
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .hbar-app-react-session-row > .lumen-action-menu,
+.hbar-app-react-sidebar-surface
+  .hbar-app-react-project-tree
+  .hbar-app-react-workspace-line
+  > .hbar-app-react-project-menu {
+  flex: 0 0 auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-item > .lumen-tree-row {
+    transition: none;
+  }
+}
+
+[data-lumen-motion='off']
+  .hbar-app-react-sidebar-surface
+  .hbar-app-react-project-tree
+  .lumen-tree-item
+  > .lumen-tree-row {
+  transition: none;
+}
+
+@media (forced-colors: active) {
+  .hbar-app-react-sidebar-surface
+    .hbar-app-react-project-tree
+    .lumen-tree-item[aria-selected='true']
+    > .lumen-tree-row {
+    outline: 0.125rem solid Highlight;
+    outline-offset: -0.125rem;
+  }
+}

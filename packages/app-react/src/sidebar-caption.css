@@ -1,24 +1,37 @@
 .hbar-sidebar-caption {
-  flex: 1 1 auto;
+  display: block;
+  flex: 1 1 0;
   min-inline-size: 0;
-  overflow-x: auto;
+  overflow: clip;
   text-overflow: clip;
+  text-align: start;
   white-space: nowrap;
-  scrollbar-width: none;
 }
 
 .hbar-sidebar-caption-text {
-  display: inline-block;
-  min-inline-size: max-content;
+  display: block;
+  inline-size: max-content;
+  min-inline-size: 100%;
   white-space: nowrap;
 }
 
-/* Caption viewports retain ownership when shell adapters constrain whole tree rows. */
+/* Fade only actual overflow, so short captions remain fully legible in either theme. */
+.hbar-sidebar-caption[data-overflow='true'] {
+  mask-image: linear-gradient(to right, var(--lumen-ink) calc(100% - 1.25em), transparent);
+}
+
+/* Caption ownership also wins over legacy host-level ellipsis/scroll rules. */
 .hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-item .lumen-tree-row .hbar-sidebar-caption {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-inline-size: 0;
   max-inline-size: 100%;
-  overflow-x: auto;
+  overflow: clip;
   text-overflow: clip;
   white-space: nowrap;
+}
+
+@media (forced-colors: active) {
+  .hbar-sidebar-caption[data-overflow='true'] {
+    mask-image: none;
+  }
 }

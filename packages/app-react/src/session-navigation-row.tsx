@@ -237,11 +237,7 @@ export function SessionNavigationRow({
         {metadata ? (
           <>
             <LumenFrame className="hbar-app-react-session-main-line">
-              <SidebarCaption
-                text={session.title}
-                className="hbar-app-react-session-title"
-                focusable={Boolean(treeNode)}
-              />
+              <SidebarCaption text={session.title} className="hbar-app-react-session-title" />
               {sessionTime}
               <SessionActivityIndicator execution={metadata.execution} />
             </LumenFrame>
@@ -260,11 +256,7 @@ export function SessionNavigationRow({
           </>
         ) : (
           <>
-            <SidebarCaption
-              text={session.title}
-              className="hbar-app-react-session-title"
-              focusable={Boolean(treeNode)}
-            />
+            <SidebarCaption text={session.title} className="hbar-app-react-session-title" />
             <SessionActivityIndicator execution={execution} />
             {sessionTime}
           </>
