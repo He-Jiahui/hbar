@@ -440,4 +440,13 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 一项实际 Chrome／Host 调度回归完成中英文两套创建、五次预览、IANA 时区、原会话目标、五宽度正文及动作阅读、暂停、编辑和确认删除；同时此前的模板两语言真实 Host 回归通过，均检查 pageerror。旧 getByLabel 被标签阅读区与控件同时匹配的问题改为明确控件角色；原动作必须同时位于屏内的断言改为逐个键盘／滚动阅读后验证可见与实际命中。没有强制点击、扩大面板或取消原目标断言。所属 Host 停止后按真实路径、临时目录和前缀检查释放。
 - 范围严格 ESLint、文案／图标／flow guard、格式、当前 Web build 与实际构建清单通过；测试夹具的可选 initialScheduleId 改为缺省时不传递，冷启动类型恢复为 92 项既有诊断，本次范围为零。证据在 artifacts/desktop-elements/schedule-content 的 identity-red.log、unit.log、client-final.log、host.log、host-final.log、types-final.log、lint.log、lint-final.log、lint-readers.log、build.log、inventory.log 与 lumen-*。结构参考沿用 [App Shell](https://pro.reactbits.dev/docs/app-ui/app-shell) 的稳定区域；交互沿用 [Forms](https://pro.reactbits.dev/docs/app-ui/forms) 的字段、校验和所属动作，并保留 [Scheduling](https://pro.reactbits.dev/docs/app-ui/scheduling) 的排期预览与记录组织。
 
-当前已提交清单覆盖 146 个生产 TSX 模块、3776 个元素，其中记录了 164 处低层文字未分类，合计 175 项静态缺口。其余生产表面迁移、已分类表面的身份选择值复核、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 设置用量的真实分页、完整名称与时间段阅读
+
+- 页面、章节、说明、空态、反馈与机器可读时间归入具名内容角色。刷新、四种时间窗、观察时间和分页动作有各自具名键盘阅读区。Lumen 的用量组合声明章节、集合及指标槽位，模型完整名称自然换行；没有变化量数据时只显示模型、Token 和费用三个实际字段。公开可选 change 字段保持既有四列调用兼容，文案和数值仍来自宿主。
+- 原模型列表实际渲染全部记录，隐藏兼容节点让旧单测误判为每页八行。本次分页限制真正的 Lumen 行，最多八条；翻页保留模型原 ID，新报告到达后回到第一页。6526fc4c 的图表迁移丢失了选择时间段的回调，恢复公开 LumenBarSeries 的键盘选择及所属详情，报告身份变化后不沿用旧选择。图形轴的 7rem 是数据条的绘图尺寸，正文高度随内容增长。
+- Chrome 长模型测试先复现 497px 行内有 733px 内容的溢出，共享 Lumen 0c929a63e8 的完整集合标题和 intrinsic 宽度修正后通过。50 个实际 Chrome 场景覆盖两语言、明暗、五宽度、125% 文字、完整标题／模型名、紧凑动作键盘阅读、0／1／7／8／9／1,024 行、1,025 行拒绝、0／1／24／120 个时间段、121 个拒绝、重复 ID／错误作用域、选择、分页、新报告重排及读取失败恢复。图表端口夹具是测试数据，不冒充 Host 账目。
+- 八项 Runtime／组件测试与 141 个断言通过，包含真正的十二秒截止、取消、旧回包隔离、原设置页面实例、四种读取窗口及 unavailable 费用。共享库四项测试、严格范围 lint、类型、构建／声明和格式通过；限定 proptypes／API 命令通过，现有生成器只登记 MUI，公共 README 和声明描述 Lumen 接口，Vale 不可用。
+- 两项真实 Chrome／Host 回归通过（中英文，20.4s），读取实际 Local fixture 账目，保留四种时间窗、柱选择、失败后旧结果与重试、离开分类后的晚回包隔离、原会话草稿及断线禁用检查。旧测试依赖隐藏摘要节点的问题改为检查实际命名摘要区域；初始编辑器焦点时序改为实际点击、确认焦点和键盘输入后验证草稿。没有删掉草稿断言或重复输入掩盖失败。所属 Host 已停止，临时数据经真实路径、临时目录与前缀校验后清理。
+- 范围严格 ESLint、内容／图标／flow guard、当前 Web build、格式与实际构建清单通过。冷启动类型为 92 项既有诊断，本次范围为零，全库门禁仍待处理。证据保留在 artifacts/desktop-elements/settings-usage-content 的 browser.log、unit.log、lumen-*、host.log、host-final.log、host-keyboard.log、host-pointer.log、types-final.log、lint.log、lint-delivery.log、build.log、inventory.log 及截图。结构沿用 [Dashboard](https://pro.reactbits.dev/docs/app-ui/dashboard) 的指标与摘要层次，交互沿用 [Analytics](https://pro.reactbits.dev/docs/app-ui/analytics) 的时间窗和真实时间序列阅读。
+
+当前清单覆盖 146 个生产 TSX 模块、3780 个元素，其中记录了 151 处低层文字未分类，合计 161 项静态缺口。其余生产表面迁移、已分类表面的身份选择值复核、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

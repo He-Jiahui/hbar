@@ -382,7 +382,8 @@ test('both locale Views use true metrics, no invented cost, bounded rows, empty 
         expect(html).toContain(labels.costUnavailable)
         expect(html).not.toContain('$0.00')
         expect(html).toContain(longLabels.description)
-        expect((html.match(/class="hbar-settings-usage-model-row"/g) ?? []).length).toBe(
+        expect(html).not.toContain('class="hbar-settings-usage-model-row"')
+        expect((html.match(/\blumen-usage-model-row\b/g) ?? []).length).toBe(
           Math.min(count, SETTINGS_USAGE_MODELS_PER_PAGE),
         )
         if (count > 8) expect(html).toContain(labels.page(1, 8, count))

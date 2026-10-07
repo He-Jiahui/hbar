@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 import { createRunCommandClient, createUsageCommandClient } from '@hbar/client'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
@@ -16,6 +16,16 @@ const rpc = z
     params: z.object({ commandId: z.string().optional(), input: z.unknown().optional() }).passthrough().optional(),
   })
   .passthrough()
+async function removeOwnedUsageFixture(root: string) {
+  const resolved = resolve(root)
+  if (
+    root !== resolved ||
+    !basename(resolved).startsWith('hbar-settings-usage-') ||
+    (await realpath(dirname(resolved))) !== (await realpath(tmpdir()))
+  )
+    throw new Error('Refusing cleanup outside the owned usage fixture')
+  await rm(resolved, { recursive: true, force: true })
+}
 async function selectGroup(page: Page, locale: ShellLocale, id: string, label: string) {
   const copy = getShellCopy(locale)
   const mobile = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
@@ -38,7 +48,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const labels = copy.settingsUsage
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 44873) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 44873),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 44875}`
       expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
       const page = await context.newPage()
@@ -81,10 +96,19 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         })
       })
       await page.goto(base)
+      const project = page.getByRole('treeitem', { name: host.ready.workspaceName, exact: true })
+      if ((await project.getAttribute('aria-expanded')) === 'false') {
+        await project.focus()
+        await project.press('ArrowRight')
+        await expect(project).toHaveAttribute('aria-expanded', 'true')
+      }
       await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const draft = 'Original source draft stays unchanged — 原会话草稿'
-      await prompt.fill(draft)
+      await prompt.click()
+      await expect(prompt).toBeFocused()
+      await page.keyboard.insertText(draft)
+      await expectComposerText(prompt, draft)
       await openSessionTool(page, copy.session.tools, 'settings')
       await selectGroup(page, locale, 'usage', labels.title)
       const region = page.getByRole('region', { name: labels.title, exact: true })
@@ -122,7 +146,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const firstModel = report.models[0]
       if (!firstModel) throw new Error('Recorded Host usage should include its model')
       await refresh.click()
-      const summary = region.getByRole('list', { name: labels.summary })
+      const summary = region.getByRole('region', { name: labels.summary, exact: true })
       await expect(
         summary.getByText(labels.tokenCount(report.totals.input + report.totals.output), { exact: true }),
       ).toBeVisible()
@@ -209,7 +233,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeOwnedUsageFixture(root)
     }
   })
 }
