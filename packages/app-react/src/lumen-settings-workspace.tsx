@@ -23,7 +23,7 @@ import {
 } from '@hbar/schema-react'
 import {
   LumenFrame,
-  LumenText,
+  LumenContentText,
   LumenButton,
   LumenIcon,
   LumenIconButton,
@@ -344,9 +344,9 @@ export function HbarSettingsWorkspace({
   const suspendedCustomGroup = customGroup ? (
     <Suspense
       fallback={
-        <LumenText as="p" className="hbar-app-react-settings-state" role="status">
+        <LumenContentText context="feedback.paragraph" className="hbar-app-react-settings-state" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       }
     >
       {customGroup}
@@ -369,11 +369,11 @@ export function HbarSettingsWorkspace({
         ? labels.localOverride
         : labels.inheritedFrom(report.sourceLayer)
     return (
-      <LumenText as="span" className="hbar-schema-form-context">
-        <LumenText as="small">{source}</LumenText>
-        <LumenText as="small">{labels.applyMode(definition.applyMode)}</LumenText>
-        {field.readOnly && <LumenText as="small">{labels.readOnly}</LumenText>}
-      </LumenText>
+      <LumenFrame className="hbar-schema-form-context">
+        <LumenContentText context="form.help">{source}</LumenContentText>
+        <LumenContentText context="form.help">{labels.applyMode(definition.applyMode)}</LumenContentText>
+        {field.readOnly && <LumenContentText context="form.help">{labels.readOnly}</LumenContentText>}
+      </LumenFrame>
     )
   }
   const fieldActions = (field: CompiledField) => {
@@ -389,11 +389,11 @@ export function HbarSettingsWorkspace({
           <SettingsContentRecovery controller={contentRecovery} labels={labels.contentRecovery} />
         )}
         {canRestore && (
-          <LumenText as="span" className="hbar-schema-form-actions">
+          <LumenFrame className="hbar-schema-form-actions">
             <LumenButton type="button" disabled={busy || unknown} onClick={() => restoreInheritance(field.name)}>
               {labels.restoreInheritance}
             </LumenButton>
-          </LumenText>
+          </LumenFrame>
         )}
       </>
     )
@@ -438,9 +438,16 @@ export function HbarSettingsWorkspace({
                 onValueChange={onScopeChange}
               />
             ) : (
-              <LumenText as="span" className="hbar-app-react-settings-fixed-scope" tone="muted" variant="supporting">
-                {fixedScopeLabel}
-              </LumenText>
+              <LumenFrame
+                className="hbar-app-react-settings-fixed-scope"
+                role="region"
+                aria-label={fixedScopeLabel}
+                tabIndex={0}
+              >
+                <LumenContentText context="metadata.detail" tone="muted">
+                  {fixedScopeLabel}
+                </LumenContentText>
+              </LumenFrame>
             )}
             {headerActions}
           </LumenFrame>
@@ -458,9 +465,9 @@ export function HbarSettingsWorkspace({
               onClick={() => selectGroup(group.id)}
             >
               <LumenIcon icon={groupIcons[presentationByGroup.get(group.id)?.icon ?? 'settings']} tier="md" />
-              <LumenText as="span" className="hbar-app-react-settings-group-label">
+              <LumenContentText context="navigation.caption" className="hbar-app-react-settings-group-label">
                 {group.label}
-              </LumenText>
+              </LumenContentText>
             </LumenNavigationButton>
           ))}
         </LumenFrame>
@@ -480,14 +487,14 @@ export function HbarSettingsWorkspace({
               <LumenFrame className="hbar-app-react-settings-content">{suspendedCustomGroup}</LumenFrame>
             </LumenFrame>
           ) : !entry || entry.status === 'loading' ? (
-            <LumenText as="p" className="hbar-app-react-settings-state" role="status">
+            <LumenContentText context="feedback.paragraph" className="hbar-app-react-settings-state" role="status">
               {labels.loading}
-            </LumenText>
+            </LumenContentText>
           ) : entry.status === 'error' || !entry.description || !entry.schema || !entry.form ? (
             <LumenFrame className="hbar-app-react-settings-state">
-              <LumenText as="p" role="alert">
+              <LumenContentText context="feedback.paragraph" role="alert">
                 {labels.error(entry.error ?? 'FORM_NOT_READY')}
-              </LumenText>
+              </LumenContentText>
               <LumenButton disabled={!connected} onClick={() => runFormCommand('refresh')}>
                 {labels.refresh}
               </LumenButton>
@@ -496,8 +503,19 @@ export function HbarSettingsWorkspace({
             <>
               {!customGroup && selectedGroup && (
                 <LumenFrame as="header" className="hbar-app-react-settings-content-header">
-                  <LumenText as="h2">{labels.resolve(selectedGroup.labelKey)}</LumenText>
-                  <LumenText as="p">{labels.description}</LumenText>
+                  <LumenFrame
+                    className="hbar-app-react-settings-group-title"
+                    role="region"
+                    aria-label={labels.resolve(selectedGroup.labelKey)}
+                    tabIndex={0}
+                  >
+                    <LumenContentText context="section.title">
+                      {labels.resolve(selectedGroup.labelKey)}
+                    </LumenContentText>
+                  </LumenFrame>
+                  <LumenContentText context="section.description" tone="muted">
+                    {labels.description}
+                  </LumenContentText>
                 </LumenFrame>
               )}
               <LumenFrame className="hbar-app-react-settings-scroll">
@@ -536,10 +554,15 @@ export function HbarSettingsWorkspace({
               {!customGroup && (
                 <LumenFrame as="footer" className="hbar-app-react-settings-footer">
                   <LumenFrame className="hbar-app-react-settings-footer-inner">
-                    <LumenText as="span" role="status">
+                    <LumenContentText context="feedback.detail" role="status">
                       {entry.receipt ? labels.saved : dirtyCount > 0 ? labels.unsaved(dirtyCount) : null}
-                    </LumenText>
-                    <LumenFrame>
+                    </LumenContentText>
+                    <LumenFrame
+                      className="hbar-app-react-settings-form-actions"
+                      role="toolbar"
+                      aria-label={labels.pageTitle}
+                      tabIndex={0}
+                    >
                       <LumenButton disabled={!canRefresh} onClick={() => runFormCommand('refresh')}>
                         {labels.refresh}
                       </LumenButton>
@@ -561,9 +584,9 @@ export function HbarSettingsWorkspace({
         </LumenFrame>
       </LumenFrame>
       {(actionError || (entry?.status === 'ready' && entry.error)) && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.paragraph" role="alert">
           {labels.error(actionError ?? entry?.error ?? 'EXECUTION_FAILED')}
-        </LumenText>
+        </LumenContentText>
       )}
     </LumenFrame>
   )

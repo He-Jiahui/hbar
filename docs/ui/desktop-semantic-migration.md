@@ -220,4 +220,10 @@ Storage 设置的 11 处低层文本已按用途迁移：section 标题／说明
 - Storage 保存／刷新恢复与全部设置分组内容列共 4 项真实 Host 回归通过；320px 长翻译和未知结果后的较新草稿截图已复核。最初浏览器夹具在 about:blank 运行，未满足 Controller operation ID 所需的安全上下文；改为隔离 localhost origin，并在入口检查 `crypto.randomUUID` 能力。夹具使用真实 Controller 与受控纯内存端口，模拟的读取／保存失败不冒充真实 Host 验证；结束时取消读取、卸载与释放 Controller，等待临时服务器关闭。证据为 `storage-settings/*`。
 - 修改范围严格 lint、内容／图标／flow guard、格式、Web 构建与清单／实际生产输入核对通过。两次完整增量 typecheck 进程异常退出 253 且未产生诊断，未记作通过；随后使用相同完整项目的冷启动类型检查（禁用增量并显式设置 Node heap）得到既有 96 项诊断，修改范围无诊断。没有据此推断增量异常的具体原因。本项未运行原生 smoke。
 
-当前清单覆盖 146 个生产 TSX 模块、3678 个元素，其中记录了 675 处低层文字未分类，合计 693 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+设置工作台与字段内容恢复的 17 处低层调用已分类。字段来源／覆盖／继承／生效方式／只读提示使用 form.help，字段上下文和继承动作由 LumenFrame 组合；导航使用 navigation.caption，分组标题与说明使用 section 槽位，固定范围使用 metadata，加载与保存状态／错误使用所属反馈槽位。完整单行标题与固定范围在具名阅读区展示，保存／核对／刷新动作在页脚具名工具栏横向阅读，状态正文保持自然换行。删除外层为文本角色重复设置的字号与行高，消费 Lumen 排版。保留 [settings-form](https://pro.reactbits.dev/docs/app-ui/settings-form) 的导航／范围／字段／保存层级与 [forms](https://pro.reactbits.dev/docs/app-ui/forms) 的校验／恢复关系。
+
+- 49 项设置内容、恢复、ViewModel、公共表单兼容和 Providers runtime 测试通过。旧 view 测试来自 `ff44d6d5`，仍假定 thinking 是 input 与旧全局 ID；`e16aa54a` 已迁移为受控 ToggleGroup，本次 Schema 又提供实例 ID。现在按实际 radiogroup 检查唯一原字段、禁写状态和原内容说明关联，不取消可访问状态断言；实际 Host 恢复仍保留完整焦点与可见性检查。
+- 40 个真实 Chrome 场景通过，覆盖两语言／主题／五宽度／125% 根字体、长翻译、layered／fixed scope、标题与范围完整键盘阅读、长来源自然换行、页脚单行动作实际横向滚动、失败读取后的原字段恢复和零保存请求。fixture 通过公开 settings DTO schema 解析由宿主注入的报告，不把内部 readonly resolution 直接作为传输对象；清理卸载与 runtime 均有等待路径。截图已复核。相关模型选项仍由原动态内容查询决定。
+- 6 项真实 Host 回归通过：两语言的局部内容失败恢复、全部分组统一内容列和 contextual Providers 的原草稿／配置返回。严格范围 lint、内容／图标／flow guard、格式、Web 构建和清单／真实生产输入核对通过。初次类型检查新增一项测试 DTO readonly 不匹配，公开 schema 解析修正后冷启动完整检查恢复至 96 项既有诊断，修改范围无诊断。证据为 `settings-workspace/*`；本项未运行原生 smoke。
+
+当前清单覆盖 146 个生产 TSX 模块、3680 个元素，其中记录了 658 处低层文字未分类，合计 676 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

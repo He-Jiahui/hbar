@@ -102,7 +102,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         expect(markup).toContain(labels.form.unavailable(reason))
         expect(markup).not.toContain(reason)
         expect(markup).not.toContain('hbar-settings-content-recovery')
-        expect(markup).toMatch(/<input[^>]*id="hbar-schema-field-[^"]*thinkingLevel[^"]*"[^>]*disabled=""/)
+        const thinking = (markup.match(/<[^>]+>/g) ?? []).filter(
+          (tag) => tag.includes('role="radiogroup"') && / id="[^"]*thinkingLevel"/.test(tag),
+        )
+        expect(thinking).toHaveLength(1)
+        expect(thinking[0]).toContain('aria-disabled="true"')
+        expect(thinking[0]).toMatch(/aria-describedby="[^"]*thinkingLevel-content/)
       } finally {
         await runtime.dispose()
       }

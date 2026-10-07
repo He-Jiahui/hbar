@@ -2,14 +2,14 @@
 
 由 `bun scripts/audit-desktop-elements.ts --write` 从运行时入口、命名延迟加载、barrel 导出和 JSX 生成。完整的元素、槽位、内容来源、可访问名称、动作目标、状态来源和待处理问题见 [类型化清单](desktop-elements.json)。
 
-入口：`apps/web/src/main.tsx`。相关 TSX 模块 146 个；元素 3678 个。实际构建输入核对：passed。
+入口：`apps/web/src/main.tsx`。相关 TSX 模块 146 个；元素 3680 个。实际构建输入核对：passed。
 
 ## 类别与展示边界
 
 | 类别        | 元素 | pending | 设计职责                                                                |
 | ----------- | ---: | ------: | ----------------------------------------------------------------------- |
-| structure   | 1083 |      10 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
-| text        | 1075 |     679 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
+| structure   | 1087 |      10 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
+| text        | 1073 |     662 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
 | interaction |  933 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
 | form        |  277 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
 | collection  |  168 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
@@ -89,7 +89,7 @@
 | [packages/app-react/src/lumen-schema-components.tsx](../../packages/app-react/src/lumen-schema-components.tsx)             | workbench                                        |   11 |              0 |          0 |          0 |
 | [packages/app-react/src/lumen-schema-presentation.tsx](../../packages/app-react/src/lumen-schema-presentation.tsx)         | workbench                                        |    6 |              1 |          0 |          0 |
 | [packages/app-react/src/lumen-session-workspace.tsx](../../packages/app-react/src/lumen-session-workspace.tsx)             | session                                          |   84 |             15 |          0 |          2 |
-| [packages/app-react/src/lumen-settings-workspace.tsx](../../packages/app-react/src/lumen-settings-workspace.tsx)           | settings                                         |   45 |              0 |         14 |          0 |
+| [packages/app-react/src/lumen-settings-workspace.tsx](../../packages/app-react/src/lumen-settings-workspace.tsx)           | settings                                         |   47 |             12 |          0 |          0 |
 | [packages/app-react/src/lumen-status-workspace.tsx](../../packages/app-react/src/lumen-status-workspace.tsx)               | status-and-usage                                 |  150 |              0 |         41 |          0 |
 | [packages/app-react/src/lumen-workspace-shell.tsx](../../packages/app-react/src/lumen-workspace-shell.tsx)                 | workbench                                        |  152 |             32 |          0 |          0 |
 | [packages/app-react/src/markdown-code-content.tsx](../../packages/app-react/src/markdown-code-content.tsx)                 | files-and-reading                                |    3 |              0 |          3 |          0 |
@@ -144,7 +144,7 @@
 | [packages/app-react/src/session-tool-feedback.tsx](../../packages/app-react/src/session-tool-feedback.tsx)                 | session                                          |    9 |              0 |          6 |          0 |
 | [packages/app-react/src/session-tools-menu.tsx](../../packages/app-react/src/session-tools-menu.tsx)                       | session                                          |   12 |              0 |          3 |          0 |
 | [packages/app-react/src/session-usage-control.tsx](../../packages/app-react/src/session-usage-control.tsx)                 | status-and-usage                                 |   14 |              0 |          5 |          0 |
-| [packages/app-react/src/settings-content-recovery.tsx](../../packages/app-react/src/settings-content-recovery.tsx)         | settings                                         |    5 |              0 |          3 |          0 |
+| [packages/app-react/src/settings-content-recovery.tsx](../../packages/app-react/src/settings-content-recovery.tsx)         | settings                                         |    5 |              3 |          0 |          0 |
 | [packages/app-react/src/settings-usage.tsx](../../packages/app-react/src/settings-usage.tsx)                               | settings                                         |   26 |              0 |         13 |          1 |
 | [packages/app-react/src/sidebar-caption.tsx](../../packages/app-react/src/sidebar-caption.tsx)                             | workbench                                        |    2 |              2 |          0 |          0 |
 | [packages/app-react/src/sidebar-search-entry.tsx](../../packages/app-react/src/sidebar-search-entry.tsx)                   | workbench                                        |    4 |              2 |          0 |          0 |
