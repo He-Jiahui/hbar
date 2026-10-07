@@ -1,6 +1,6 @@
 import { useId, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Target } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenContentText } from '@lumen/app-ui'
 import type { GoalHistoryProjection, GoalHistorySnapshot } from '@hbar/app-runtime'
 import type { GoalLifecycleAction, GoalLifecycleRow } from './goal-lifecycle-model'
 import { excerptGoalObjective, goalObjectiveDiff, type GoalObjectiveFragment } from './goal-objective-diff'
@@ -46,60 +46,71 @@ function GoalReplacementObjectives({
       const key = `${fragment.from}:${index}`
       if (fragment.kind === 'omitted')
         return (
-          <span key={key} className="hbar-goal-diff-omission" title={labels.omitted}>
+          <LumenContentText context="inline.text" key={key} className="hbar-goal-diff-omission" title={labels.omitted}>
             {labels.omission}
-          </span>
+          </LumenContentText>
         )
-      if (fragment.kind === 'unchanged' || !fragment.text) return <span key={key}>{fragment.text}</span>
+      if (fragment.kind === 'unchanged' || !fragment.text)
+        return (
+          <LumenContentText context="inline.text" key={key}>
+            {fragment.text}
+          </LumenContentText>
+        )
       return before ? (
-        <del key={key} title={labels.removed}>
+        <LumenContentText context="inline.removed" key={key} title={labels.removed}>
           {fragment.text}
-        </del>
+        </LumenContentText>
       ) : (
-        <ins key={key} title={labels.added}>
+        <LumenContentText context="inline.inserted" key={key} title={labels.added}>
           {fragment.text}
-        </ins>
+        </LumenContentText>
       )
     })
   return (
     <LumenFrame className="hbar-goal-replacement" role="group" aria-label={labels.comparison}>
       <LumenFrame id={id} className="hbar-goal-replacement-objectives">
         <LumenFrame className="hbar-goal-diff-side">
-          <LumenText as="p" className="hbar-goal-diff-label">
-            <span>{labels.previousObjective}</span>
+          <LumenFrame as="header" className="hbar-goal-diff-label">
+            <LumenContentText context="collection.title">{labels.previousObjective}</LumenContentText>
             {difference.previous.some((fragment) => fragment.kind === 'changed' && fragment.text) && (
-              <span className="hbar-goal-diff-removed-label">{labels.removed}</span>
+              <LumenContentText context="feedback.detail" tone="danger" className="hbar-goal-diff-removed-label">
+                {labels.removed}
+              </LumenContentText>
             )}
-          </LumenText>
-          <LumenText as="p" className="hbar-goal-diff-objective">
+          </LumenFrame>
+          <LumenContentText context="reading.paragraph" className="hbar-goal-diff-objective">
             {renderFragments(difference.previous, true)}
-          </LumenText>
+          </LumenContentText>
         </LumenFrame>
         <LumenFrame className="hbar-goal-diff-side">
-          <LumenText as="p" className="hbar-goal-diff-label">
-            <span>{labels.nextObjective}</span>
+          <LumenFrame as="header" className="hbar-goal-diff-label">
+            <LumenContentText context="collection.title">{labels.nextObjective}</LumenContentText>
             {difference.current.some((fragment) => fragment.kind === 'changed' && fragment.text) && (
-              <span className="hbar-goal-diff-added-label">{labels.added}</span>
+              <LumenContentText context="feedback.detail" tone="success" className="hbar-goal-diff-added-label">
+                {labels.added}
+              </LumenContentText>
             )}
-          </LumenText>
-          <LumenText as="p" className="hbar-goal-diff-objective">
+          </LumenFrame>
+          <LumenContentText context="reading.paragraph" className="hbar-goal-diff-objective">
             {renderFragments(difference.current, false)}
-          </LumenText>
+          </LumenContentText>
         </LumenFrame>
       </LumenFrame>
       {long && (
-        <LumenButton
-          type="button"
-          size="s"
-          variant="text"
-          indicator="none"
-          className="hbar-goal-lifecycle-objective-toggle"
-          aria-expanded={full}
-          aria-controls={id}
-          onClick={() => setFull((value) => !value)}
-        >
-          {full ? labels.hideComparison : labels.showComparison}
-        </LumenButton>
+        <LumenFrame className="hbar-goal-lifecycle-actions" role="group" aria-label={labels.comparison} tabIndex={0}>
+          <LumenButton
+            type="button"
+            size="s"
+            variant="text"
+            indicator="none"
+            className="hbar-goal-lifecycle-objective-toggle"
+            aria-expanded={full}
+            aria-controls={id}
+            onClick={() => setFull((value) => !value)}
+          >
+            {full ? labels.hideComparison : labels.showComparison}
+          </LumenButton>
+        </LumenFrame>
       )}
     </LumenFrame>
   )
@@ -158,13 +169,13 @@ export function HbarGoalLifecycleCard({
       >
         <LumenIcon icon={expanded ? ChevronDown : ChevronRight} tier="sm" />
         <LumenIcon icon={Target} tier="sm" />
-        <LumenText as="span" className="hbar-goal-lifecycle-title">
+        <LumenContentText context="collection.title" className="hbar-goal-lifecycle-title">
           {title}
-        </LumenText>
+        </LumenContentText>
         {goal && (
-          <LumenText as="span" className="hbar-goal-lifecycle-status">
+          <LumenContentText context="collection.detail" className="hbar-goal-lifecycle-status">
             {labels.statuses[goal.status]}
-          </LumenText>
+          </LumenContentText>
         )}
       </LumenButton>
       <LumenFrame id={bodyId} className="hbar-goal-lifecycle-body" hidden={!expanded}>
@@ -172,35 +183,42 @@ export function HbarGoalLifecycleCard({
           <GoalReplacementObjectives previous={previousObjective} current={goal.objective} labels={labels} />
         ) : (
           <>
-            <LumenText
-              as="p"
+            <LumenContentText
+              context="reading.paragraph"
               id={objectiveId}
               className={longObjective && !fullObjective ? 'hbar-goal-lifecycle-objective-preview' : undefined}
             >
               {objective}
-            </LumenText>
+            </LumenContentText>
             {longObjective && (
-              <LumenButton
-                type="button"
-                size="s"
-                variant="text"
-                indicator="none"
-                className="hbar-goal-lifecycle-objective-toggle"
-                aria-expanded={fullObjective}
-                aria-controls={objectiveId}
-                onClick={() => setFullObjective((value) => !value)}
-              >
-                {fullObjective ? labels.hideObjective : labels.showObjective}
-              </LumenButton>
+              <LumenFrame className="hbar-goal-lifecycle-actions" role="group" aria-label={title} tabIndex={0}>
+                <LumenButton
+                  type="button"
+                  size="s"
+                  variant="text"
+                  indicator="none"
+                  className="hbar-goal-lifecycle-objective-toggle"
+                  aria-expanded={fullObjective}
+                  aria-controls={objectiveId}
+                  onClick={() => setFullObjective((value) => !value)}
+                >
+                  {fullObjective ? labels.hideObjective : labels.showObjective}
+                </LumenButton>
+              </LumenFrame>
             )}
           </>
         )}
         {goal && (
-          <LumenFrame className="hbar-goal-lifecycle-metadata">
-            <LumenText as="span">{labels.statuses[goal.status]}</LumenText>
-            <LumenText as="span">{labels.budget(goal.tokensUsed, goal.tokenBudget)}</LumenText>
+          <LumenFrame
+            className="hbar-goal-lifecycle-metadata"
+            role="group"
+            aria-label={labels.accessible(title, labels.timestamp(row.time))}
+            tabIndex={0}
+          >
+            <LumenContentText context="metadata">{labels.statuses[goal.status]}</LumenContentText>
+            <LumenContentText context="metadata">{labels.budget(goal.tokensUsed, goal.tokenBudget)}</LumenContentText>
             {goal.continuationCount !== undefined && (
-              <LumenText as="span">{labels.continuations(goal.continuationCount)}</LumenText>
+              <LumenContentText context="metadata">{labels.continuations(goal.continuationCount)}</LumenContentText>
             )}
           </LumenFrame>
         )}

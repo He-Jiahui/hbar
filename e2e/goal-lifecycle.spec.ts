@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test'
 import { createGoalPlanCommandClient } from '@hbar/client'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
-import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { startWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { disposeOwnedGoalFixture, selectGoalFixtureSession } from './support/goal-fixture-cleanup'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`canonical Goal lifecycle survives clear, another Goal, reload and keyboard disclosure: ${locale}`, async ({
@@ -19,6 +20,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         root,
         port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
         goalAutoContinue: false,
+        budgetAutoContinue: false,
       })
       const { sessionId } = host.ready
       const goals = createGoalPlanCommandClient(host.client)
@@ -46,7 +48,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base)
-      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
+      await selectGoalFixtureSession(page, host)
       const cards = page.locator('[data-goal-event-id]')
       await expect(cards).toHaveCount(expected.length)
       expect(await cards.evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-goal-action')))).toEqual(
@@ -119,14 +121,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       })
       await page.getByRole('treeitem', { name: other.title, exact: true }).click()
       await expect(cards).toHaveCount(0)
-      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
+      await selectGoalFixtureSession(page, host)
       await expect(cards).toHaveCount(expected.length + 1)
       expect(current?.objective).toBe('Current third Goal')
       expect(errors).toEqual([])
     } finally {
-      await context.close()
-      if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await disposeOwnedGoalFixture(context, host, root, 'hbar-goal-lifecycle-')
     }
   })
 }
@@ -143,6 +143,7 @@ test('Goal-only history has its own cursor and recoverable pagination without me
       root,
       port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
       goalAutoContinue: false,
+      budgetAutoContinue: false,
     })
     const { sessionId } = host.ready
     const goals = createGoalPlanCommandClient(host.client)
@@ -159,7 +160,7 @@ test('Goal-only history has its own cursor and recoverable pagination without me
     expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
     const page = await context.newPage()
     await page.goto(base)
-    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
+    await selectGoalFixtureSession(page, host)
     const cards = page.locator('[data-goal-event-id]')
     const list = page.locator('[data-hbar-app-ui-list-strategy="virtualized"]')
     const viewport = page.locator('.lumen-conversation-messages')
@@ -250,8 +251,6 @@ test('Goal-only history has its own cursor and recoverable pagination without me
     expect((await host.client.call('session.snapshot', { sessionId })).messages).toEqual([])
     expect((await host.client.call('session.snapshot', { sessionId })).runs).toEqual([])
   } finally {
-    await context.close()
-    if (host) await stopWebSessionHost(host)
-    await rm(root, { recursive: true, force: true })
+    await disposeOwnedGoalFixture(context, host, root, 'hbar-goal-only-pages-')
   }
 })

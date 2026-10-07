@@ -2,14 +2,14 @@
 
 由 `bun scripts/audit-desktop-elements.ts --write` 从运行时入口、命名延迟加载、barrel 导出和 JSX 生成。完整的元素、槽位、内容来源、可访问名称、动作目标、状态来源和待处理问题见 [类型化清单](desktop-elements.json)。
 
-入口：`apps/web/src/main.tsx`。相关 TSX 模块 146 个；元素 3756 个。实际构建输入核对：passed。
+入口：`apps/web/src/main.tsx`。相关 TSX 模块 146 个；元素 3758 个。实际构建输入核对：passed。
 
 ## 类别与展示边界
 
 | 类别        | 元素 | pending | 设计职责                                                                |
 | ----------- | ---: | ------: | ----------------------------------------------------------------------- |
-| structure   | 1171 |       9 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
-| text        | 1093 |     237 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
+| structure   | 1173 |       9 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
+| text        | 1093 |     218 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
 | interaction |  933 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
 | form        |  279 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
 | collection  |  137 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
@@ -77,9 +77,9 @@
 | [packages/app-react/src/file-workspace-changes.tsx](../../packages/app-react/src/file-workspace-changes.tsx)               | files-and-reading                                |   56 |             19 |          0 |          0 |
 | [packages/app-react/src/file-workspace-tree.tsx](../../packages/app-react/src/file-workspace-tree.tsx)                     | files-and-reading                                |   53 |             17 |          0 |          0 |
 | [packages/app-react/src/floating-surface.tsx](../../packages/app-react/src/floating-surface.tsx)                           | workbench                                        |    1 |              0 |          0 |          0 |
-| [packages/app-react/src/goal-continuation.tsx](../../packages/app-react/src/goal-continuation.tsx)                         | goals-and-plans                                  |    7 |              0 |          2 |          0 |
-| [packages/app-react/src/goal-execution-state.tsx](../../packages/app-react/src/goal-execution-state.tsx)                   | goals-and-plans                                  |    5 |              0 |          3 |          0 |
-| [packages/app-react/src/goal-lifecycle.tsx](../../packages/app-react/src/goal-lifecycle.tsx)                               | goals-and-plans                                  |   31 |              0 |         10 |          4 |
+| [packages/app-react/src/goal-continuation.tsx](../../packages/app-react/src/goal-continuation.tsx)                         | goals-and-plans                                  |    7 |              2 |          0 |          0 |
+| [packages/app-react/src/goal-execution-state.tsx](../../packages/app-react/src/goal-execution-state.tsx)                   | goals-and-plans                                  |    5 |              3 |          0 |          0 |
+| [packages/app-react/src/goal-lifecycle.tsx](../../packages/app-react/src/goal-lifecycle.tsx)                               | goals-and-plans                                  |   33 |             16 |          0 |          0 |
 | [packages/app-react/src/goal-plan-workspace.tsx](../../packages/app-react/src/goal-plan-workspace.tsx)                     | goals-and-plans                                  |   53 |             19 |          0 |          0 |
 | [packages/app-react/src/lumen-agent-workspace.tsx](../../packages/app-react/src/lumen-agent-workspace.tsx)                 | agents-and-activity                              |   78 |             24 |          0 |          0 |
 | [packages/app-react/src/lumen-disclosure.tsx](../../packages/app-react/src/lumen-disclosure.tsx)                           | workbench                                        |    6 |              1 |          0 |          0 |

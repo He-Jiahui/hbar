@@ -1,21 +1,12 @@
 import { expect, test } from '@playwright/test'
 import { createGoalPlanCommandClient, createRunCommandClient } from '@hbar/client'
 import { existsSync } from 'node:fs'
-import { mkdtemp, realpath, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
-import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
-
-async function cleanupFixture(root: string) {
-  const resolved = await realpath(root)
-  if (
-    dirname(resolved).toLowerCase() !== (await realpath(tmpdir())).toLowerCase() ||
-    !basename(resolved).startsWith('hbar-goal-diff-')
-  )
-    throw new Error('Refusing cleanup outside the owned Goal diff fixture')
-  await rm(resolved, { recursive: true, force: true })
-}
+import { startWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { disposeOwnedGoalFixture, selectGoalFixtureSession } from './support/goal-fixture-cleanup'
 
 for (const locale of ['zh-CN', 'en-US'] as const) {
   test(`replacement history shows immutable before/after excerpts, full text and keyboard disclosure: ${locale}`, async ({
@@ -30,6 +21,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         root,
         port: Number(process.env.HBAR_E2E_HOST_PORT ?? 45488),
         goalAutoContinue: false,
+        budgetAutoContinue: false,
       })
       const { sessionId } = host.ready
       const goals = createGoalPlanCommandClient(host.client)
@@ -53,7 +45,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base)
-      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
+      await selectGoalFixtureSession(page, host)
       const cards = page.locator('[data-goal-action="replaced"]')
       await expect(cards).toHaveCount(2)
       const first = cards.first()
@@ -94,9 +86,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       expect((await host.client.call('session.snapshot', { sessionId })).runs).toHaveLength(0)
       expect(errors).toEqual([])
     } finally {
-      await context.close()
-      if (host) await stopWebSessionHost(host)
-      await cleanupFixture(root)
+      await disposeOwnedGoalFixture(context, host, root, 'hbar-goal-diff-history-')
     }
   })
 }
@@ -107,7 +97,11 @@ test('the Goal editor hands off a pending Run and exposes its before/after recor
   const context = await browser.newContext({ locale: 'zh-CN' })
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 45488) })
+    host = await startWebSessionHost({
+      root,
+      port: Number(process.env.HBAR_E2E_HOST_PORT ?? 45488),
+      budgetAutoContinue: false,
+    })
     const target = host
     const { sessionId } = host.ready
     const goals = createGoalPlanCommandClient(host.client)
@@ -120,7 +114,7 @@ test('the Goal editor hands off a pending Run and exposes its before/after recor
     const errors: string[] = []
     page.on('pageerror', (error) => errors.push(error.message))
     await page.goto(base)
-    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
+    await selectGoalFixtureSession(page, host)
     const pending = await runs.execute(
       'run.submit',
       {
@@ -172,9 +166,7 @@ test('the Goal editor hands off a pending Run and exposes its before/after recor
     expect(added).toContain('新增键盘验收')
     expect(errors).toEqual([])
   } finally {
-    await context.close()
-    if (host) await stopWebSessionHost(host)
-    await cleanupFixture(root)
+    await disposeOwnedGoalFixture(context, host, root, 'hbar-goal-diff-editor-')
   }
 })
 
@@ -188,6 +180,7 @@ test('a replacement at the history page boundary keeps its preceding objective a
       root,
       port: Number(process.env.HBAR_E2E_HOST_PORT ?? 45488),
       goalAutoContinue: false,
+      budgetAutoContinue: false,
     })
     const { sessionId } = host.ready
     const goals = createGoalPlanCommandClient(host.client)
@@ -215,7 +208,7 @@ test('a replacement at the history page boundary keeps its preceding objective a
     expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
     const page = await context.newPage()
     await page.goto(base)
-    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
+    await selectGoalFixtureSession(page, host)
     const list = page.locator('[data-hbar-app-ui-list-strategy="virtualized"]')
     const viewport = page.locator('.lumen-conversation-messages')
     const card = page.locator('[data-goal-action="replaced"]')
@@ -241,8 +234,6 @@ test('a replacement at the history page boundary keeps its preceding objective a
     await verify()
     expect((await host.client.call('session.snapshot', { sessionId })).runs).toEqual([])
   } finally {
-    await context.close()
-    if (host) await stopWebSessionHost(host)
-    await cleanupFixture(root)
+    await disposeOwnedGoalFixture(context, host, root, 'hbar-goal-diff-pages-')
   }
 })

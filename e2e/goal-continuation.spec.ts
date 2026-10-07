@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test'
 import { createGoalPlanCommandClient } from '@hbar/client'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
-import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { startWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { disposeOwnedGoalFixture, selectGoalFixtureSession } from './support/goal-fixture-cleanup'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`persistent Goal continuation has one read-only boundary per real Run: ${locale}`, async ({ browser }) => {
@@ -13,7 +14,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({ locale })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        budgetAutoContinue: false,
+      })
       const selected = host
       const { sessionId } = host.ready
       const copy = getShellCopy(locale)
@@ -23,7 +28,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base)
-      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
+      await selectGoalFixtureSession(page, host)
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       await prompt.fill('Goal continuing is ordinary typed text, not a continuation fact.')
       await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
@@ -120,9 +125,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(markers).toHaveCount(continuationRuns.length)
       expect(errors).toEqual([])
     } finally {
-      await context.close()
-      if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await disposeOwnedGoalFixture(context, host, root, 'hbar-goal-continuation-')
     }
   })
 }

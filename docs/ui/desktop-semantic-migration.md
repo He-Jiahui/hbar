@@ -405,4 +405,12 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 48 个实际 Chrome 场景通过，覆盖中英文、明暗、五宽度、125% 文字、0／1／7／100／101 步、刷新顺序变化、4000／4001 字步骤与 4000 字目标、4001 字输入限制、空／加载／离线／读取错误恢复、编辑／保存冲突恢复和已接受响应丢失后的原 Goal 核对。未知保存只发生一次写入，核对恢复确认事实，保留原目标 ID。两个实际 Host 中英文创建流程通过，临时数据按真实路径检查后清理，自动 Goal／预算继续关闭。
 - 12 项单测、118 项断言通过，包含 live 序列、dirty editor、目标变化及命令集成。首次命令目录测试缺少 67ee889d 已发布的 agent.policy.get／set，按该提交核对后更新期望，完整相关测试通过。范围 ESLint、文案／图标／flow guard、格式、Web build 与构建输入清单通过；最终冷启动类型仍为 92 项既有诊断，本次范围为零。证据在 artifacts/desktop-elements/goal-workspace-content 的 unit.log、unit-final.log、client-final.log、host-final.log、types-final.log、lint-final.log、build-final.log、inventory.log。
 
-当前已提交清单覆盖 146 个生产 TSX 模块、3756 个元素，其中记录了 233 处低层文字未分类，合计 250 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## Goal 生命周期记录、比较与续作事实
+
+- 生命周期卡片的标题／状态归入 collection.title／detail，自然换行；目标正文及比较原文使用 reading.paragraph，预算／状态／续作次数使用 metadata。展开动作与元数据分别拥有具名键盘阅读区，保留原有历史快照、事件 ID、local disclosure 和完整正文展开。执行余量的说明与阻塞反馈、持久化 Run 续作标记也使用相应阅读角色，不推断新 Goal 事实。
+- Lumen 1880654e3d 补齐 inline.removed／inline.inserted，保留原生 del／ins、Unicode、转义及句子内流动；未改动 Markdown 的 inline.deleted。共享包构建／声明、类型、lint、格式及 3 项内容／焦点测试通过。限定 proptypes 与 API builder 命令通过，但当前生成器只登记 MUI；Lumen 契约由公开声明与 README 交付。
+- 31 项单测、372 项断言通过，覆盖历史事实／完整性、重复与异源 ID、比较边界、续作顺序及现有 Goal 执行余量。96 个实际 Chrome 场景覆盖两语言、明暗、五宽度、125% 文字、完整记录及比较标题、原生删除／插入、转义、新行、全文显示、紧凑内容键盘阅读、Enter／Space 折叠、1／240／241／4000／4001 字契约边界、无卡片、7 条记录重排后的原事件折叠状态和清除后的原目标。
+- 9 项真实 Host 回归全部通过，包含两语言历史／替换／续作、106 条历史分页及恢复、待处理 Run 的交接、页面边界上的原目标和重新加载。保持有目的的本地自动续作验证，关闭预算自动继续；测试停止所属 Host 并按明确前缀、realpath 与临时目录检查后清理。清理守卫独立成函数后通过 no-unsafe-finally 检查。
+- 范围 ESLint、文案／图标／flow guard、格式、Web build 与构建输入清单通过；冷启动完整类型仍有 92 项既有诊断，本次范围为零。证据在 artifacts/desktop-elements/goal-lifecycle-content 的 unit.log、client-final.log、host.log、types.log、lint.log、lint-cleanup-final.log、build.log、inventory.log、lumen-proptypes.log、lumen-api.log；共享包验证日志以 goal-lifecycle-content-lumen-* 保存于 desktop-elements。
+
+当前已提交清单覆盖 146 个生产 TSX 模块、3758 个元素，其中记录了 218 处低层文字未分类，合计 231 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
