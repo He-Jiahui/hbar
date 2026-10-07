@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
+import { cleanupOwnedModelFixture } from './support/model-fixture-cleanup'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
@@ -14,7 +15,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const copy = getShellCopy(locale)
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        budgetAutoContinue: false,
+      })
       const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
       expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
       const page = await context.newPage()
@@ -68,7 +73,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.locator('.hbar-composer-model-trigger').click()
       await expect(hero).toBeVisible()
       await page
-        .locator('.hbar-composer-picker-popover[data-kind="model"]:popover-open')
+        .getByRole('dialog', { name: copy.session.modelPicker.title, exact: true })
         .getByRole('option')
         .first()
         .click()
@@ -84,7 +89,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await cleanupOwnedModelFixture(root, 'hbar-empty-hero-')
     }
   })
 }

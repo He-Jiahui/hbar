@@ -1,15 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type KeyboardEvent,
-  type ReactNode,
-  type RefObject,
-} from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
 import { ArrowRight, Check, ChevronDown, Search, X } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenRange, LumenContentText } from '@lumen/app-ui'
 import type { ComposerModelState, SessionControlsState } from '@hbar/app-runtime'
@@ -127,72 +116,6 @@ export function filterComposerModels(
   return filterCatalogModels(models, query, limit, selectedModelId)
 }
 
-/** The remaining native thinking overlay uses its original trigger-group geometry. */
-function placePopover(popover: HTMLElement, anchor: HTMLElement) {
-  const rect = anchor.getBoundingClientRect()
-  const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
-  const margin = rem
-  const gap = rem / 2
-  const width = Math.min(18.75 * rem, innerWidth - margin * 2)
-  const above = rect.top > innerHeight - rect.bottom
-  popover.style.setProperty(
-    '--composer-popup-left',
-    `${Math.max(margin, Math.min(rect.right - width, innerWidth - width - margin))}px`,
-  )
-  popover.style.setProperty('--composer-popup-top', above ? 'auto' : `${rect.bottom + gap}px`)
-  popover.style.setProperty('--composer-popup-bottom', above ? `${innerHeight - rect.top + gap}px` : 'auto')
-  popover.style.setProperty(
-    '--composer-popup-limit',
-    `${Math.max(0, (above ? rect.top : innerHeight - rect.bottom) - margin - gap)}px`,
-  )
-}
-
-function ThinkingPopover({
-  id,
-  title,
-  anchor,
-  children,
-  onOpen,
-  onClose,
-  popupRef,
-}: {
-  readonly id: string
-  readonly title: string
-  readonly anchor: RefObject<HTMLDivElement | null>
-  readonly popupRef: RefObject<HTMLDivElement | null>
-  readonly children: ReactNode
-  readonly onOpen: () => void
-  readonly onClose: () => void
-}) {
-  return (
-    <LumenFrame
-      id={id}
-      ref={popupRef}
-      popover="auto"
-      role="dialog"
-      aria-label={title}
-      className="hbar-composer-picker-popover"
-      data-kind="thinking"
-      onBeforeToggle={(event) => {
-        if (event.newState === 'open' && anchor.current) placePopover(event.currentTarget, anchor.current)
-      }}
-      onToggle={(event) => {
-        if (event.newState === 'open') onOpen()
-        else onClose()
-      }}
-      onKeyDown={(event) => {
-        // A popover nested in the prompt form must never submit the prompt.
-        if (event.key === 'Enter') {
-          event.stopPropagation()
-          if (event.target instanceof HTMLInputElement) event.preventDefault()
-        }
-      }}
-    >
-      {children}
-    </LumenFrame>
-  )
-}
-
 export function HbarComposerModelPicker({
   sessionId,
   connected,
@@ -234,7 +157,7 @@ export function HbarComposerModelPicker({
   const modelTriggerRef = useRef<HTMLButtonElement>(null)
   const modelRef = useRef<HTMLDivElement>(null)
   const modelListRef = useRef<HTMLDivElement>(null)
-  const thinkingRef = useRef<HTMLDivElement>(null)
+  const thinkingTriggerRef = useRef<HTMLButtonElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const sliderRef = useRef<HTMLInputElement>(null)
   const thinkingWriteRef = useRef(false)
@@ -246,12 +169,6 @@ export function HbarComposerModelPicker({
   openRef.current = open
   const sessionRef = useRef(sessionId)
   sessionRef.current = sessionId
-  useEffect(() => {
-    if (!runActive) return
-    entryIntent.current += 1
-    setOpen(null)
-    thinkingRef.current?.hidePopover()
-  }, [runActive])
   const [query, setQuery] = useState('')
   const [limit, setLimit] = useState(COMPOSER_MODEL_PAGE_SIZE)
   const [sliderDraft, setSliderDraft] = useState<ThinkingPreview | null>(null)
@@ -310,7 +227,7 @@ export function HbarComposerModelPicker({
   }, [])
   const openModel = () => {
     if (!connected || (disabled && !unresolved)) return
-    thinkingRef.current?.hidePopover()
+    closeThinking()
     setQuery('')
     setLimit(COMPOSER_MODEL_PAGE_SIZE)
     openRef.current = 'model'
@@ -319,10 +236,49 @@ export function HbarComposerModelPicker({
     onOpened?.()
   }
   const modelTriggerEvents = useFloatingTrigger({ open: open === 'model', onOpen: openModel, onClose: closeModel })
+  const models = catalog.sessionId === sessionId ? catalog.models : NO_MODELS
+  const disclosedModelIds = useMemo(() => modelIdsRequiringDisclosure(models, query), [models, query])
+  const { groups, remaining } = filterComposerModels(models, query, limit, model?.modelId)
+  const levels = current?.thinkingLevels ?? []
+  const thinkingIdentity = model ? thinkingPreviewIdentity(sessionId, model) : null
+  const levelIndex = Math.max(0, levels.indexOf(model?.thinkingLevel ?? current?.defaultThinkingLevel ?? 'off'))
+  const selectedIndex = visibleThinkingIndex(levelIndex, thinkingIdentity, sliderDraft)
+  const selectedLevel = levels[selectedIndex]
+  const resetThinkingPreview = useCallback(() => {
+    sliderDraftRef.current = null
+    pointerIdentityRef.current = null
+    setSliderDraft(null)
+  }, [])
+  const closeThinking = useCallback(() => {
+    cancelledRef.current = true
+    resetThinkingPreview()
+    if (openRef.current === 'thinking') openRef.current = null
+    setOpen((value) => (value === 'thinking' ? null : value))
+  }, [resetThinkingPreview])
+  const openThinking = () => {
+    if (thinkingUnavailable || thinkingWriteRef.current || levels.length < 2) return
+    closeModel()
+    cancelledRef.current = false
+    resetThinkingPreview()
+    openRef.current = 'thinking'
+    setOpen('thinking')
+  }
+  const thinkingTriggerEvents = useFloatingTrigger({
+    open: open === 'thinking',
+    onOpen: openThinking,
+    onClose: closeThinking,
+  })
   useEffect(() => {
     closeModel()
-    thinkingRef.current?.hidePopover()
-  }, [sessionId, closeModel])
+    closeThinking()
+  }, [sessionId, closeModel, closeThinking])
+  useEffect(() => {
+    if (!runActive) return
+    closeModel()
+    closeThinking()
+  }, [runActive, closeModel, closeThinking])
+  // Clear the former session surface before honoring a new explicit request
+  // delivered in the same render. The request belongs to the new session.
   useEffect(() => {
     if (lastOpenRequest.current === openRequest) return
     lastOpenRequest.current = openRequest
@@ -338,31 +294,12 @@ export function HbarComposerModelPicker({
     else openModel()
   })
   useEffect(() => {
-    if (open !== 'thinking') return
-    const reposition = () => {
-      const popup = thinkingRef.current
-      if (popup && groupRef.current) placePopover(popup, groupRef.current)
-    }
-    window.addEventListener('resize', reposition)
-    window.addEventListener('scroll', reposition, true)
-    return () => {
-      window.removeEventListener('resize', reposition)
-      window.removeEventListener('scroll', reposition, true)
-    }
-  }, [open])
-  const models = catalog.sessionId === sessionId ? catalog.models : NO_MODELS
-  const disclosedModelIds = useMemo(() => modelIdsRequiringDisclosure(models, query), [models, query])
-  const { groups, remaining } = filterComposerModels(models, query, limit, model?.modelId)
-  const levels = current?.thinkingLevels ?? []
-  const thinkingIdentity = model ? thinkingPreviewIdentity(sessionId, model) : null
-  const levelIndex = Math.max(0, levels.indexOf(model?.thinkingLevel ?? current?.defaultThinkingLevel ?? 'off'))
-  const selectedIndex = visibleThinkingIndex(levelIndex, thinkingIdentity, sliderDraft)
-  const selectedLevel = levels[selectedIndex]
-  const resetThinkingPreview = () => {
-    sliderDraftRef.current = null
-    pointerIdentityRef.current = null
-    setSliderDraft(null)
-  }
+    if (
+      open === 'thinking' &&
+      (!connected || (disabled && !unresolved) || !canSelect || (!unresolved && levels.length < 2))
+    )
+      closeThinking()
+  }, [open, connected, disabled, unresolved, canSelect, levels.length, closeThinking])
   useEffect(() => {
     if (sliderDraftRef.current && sliderDraftRef.current.identity !== thinkingIdentity) {
       sliderDraftRef.current = null
@@ -623,6 +560,7 @@ export function HbarComposerModelPicker({
       </LumenButton>
       {levels.length > 1 && (
         <LumenButton
+          ref={thinkingTriggerRef}
           type="button"
           size="s"
           variant="text"
@@ -634,8 +572,10 @@ export function HbarComposerModelPicker({
           aria-haspopup="dialog"
           aria-expanded={open === 'thinking'}
           aria-controls={thinkingId}
-          disabled={thinkingUnavailable}
-          popoverTarget={thinkingId}
+          disabled={!connected || disabled || !canSelect || !current}
+          aria-disabled={busy || unresolved || undefined}
+          aria-busy={busy || undefined}
+          {...thinkingTriggerEvents}
         >
           {labels.thinkingLevel(model?.thinkingLevel ?? current?.defaultThinkingLevel ?? 'off')}
         </LumenButton>
@@ -831,26 +771,34 @@ export function HbarComposerModelPicker({
           )}
         </LumenFrame>
       </FloatingSurface>
-      <ThinkingPopover
+      <FloatingSurface
         id={thinkingId}
-        title={labels.thinking}
-        anchor={groupRef}
-        popupRef={thinkingRef}
-        onOpen={() => {
-          setOpen('thinking')
-          cancelledRef.current = false
-          sliderRef.current?.focus()
-        }}
-        onClose={() => {
-          setOpen((value) => (value === 'thinking' ? null : value))
-          resetThinkingPreview()
+        open={open === 'thinking'}
+        onClose={closeThinking}
+        anchorRef={thinkingTriggerRef}
+        positionReferenceRef={groupRef}
+        initialFocusRef={sliderRef}
+        label={labels.thinking}
+        placement="above"
+        anchorAlignment="end"
+        responsivePresentation="anchored"
+        className="hbar-composer-thinking-surface"
+        data-kind="thinking"
+        aria-busy={busy || undefined}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') event.stopPropagation()
         }}
       >
-        <LumenFrame className="hbar-composer-thinking-heading">
+        <LumenFrame
+          className="hbar-composer-thinking-heading"
+          role="region"
+          aria-label={selectedLevel ? labels.thinkingLevel(selectedLevel) : labels.thinking}
+          tabIndex={0}
+        >
           <LumenContentText context="choice.title" className="hbar-composer-thinking-value">
             {selectedLevel ? labels.thinkingLevel(selectedLevel) : null}
           </LumenContentText>
-          <LumenContentText context="popover.description" className="hbar-composer-thinking-context">
+          <LumenContentText context="popover.title" className="hbar-composer-thinking-context">
             {labels.thinking}
           </LumenContentText>
         </LumenFrame>
@@ -867,11 +815,13 @@ export function HbarComposerModelPicker({
             max={Math.max(0, levels.length - 1)}
             step={1}
             value={selectedIndex}
-            disabled={thinkingUnavailable || levels.length < 2}
+            disabled={!connected || disabled || !canSelect || !current || levels.length < 2}
+            aria-disabled={busy || unresolved || undefined}
             aria-label={labels.thinking}
             aria-valuetext={selectedLevel ? labels.thinkingLevel(selectedLevel) : undefined}
             onChange={(event) => previewThinking(event.currentTarget)}
             onPointerDown={() => {
+              if (thinkingUnavailable || thinkingWriteRef.current) return
               pointerIdentityRef.current = thinkingIdentity
               cancelledRef.current = false
             }}
@@ -881,14 +831,14 @@ export function HbarComposerModelPicker({
               resetThinkingPreview()
             }}
             onKeyDown={(event) => {
-              if (event.key === 'Escape') {
-                event.preventDefault()
-                event.stopPropagation()
-                cancelledRef.current = true
-                resetThinkingPreview()
-                thinkingRef.current?.hidePopover()
+              if (
+                event.nativeEvent.isComposing ||
+                event.nativeEvent.keyCode === 229 ||
+                event.altKey ||
+                event.ctrlKey ||
+                event.metaKey
+              )
                 return
-              }
               if (
                 ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(
                   event.key,
@@ -911,8 +861,17 @@ export function HbarComposerModelPicker({
             ))}
           </LumenFrame>
         </LumenFrame>
-        {feedback}
-      </ThinkingPopover>
+        {(busy || unresolved || error) && (
+          <LumenFrame
+            className="hbar-composer-thinking-feedback"
+            role="region"
+            aria-label={labels.thinking}
+            tabIndex={0}
+          >
+            {feedback}
+          </LumenFrame>
+        )}
+      </FloatingSurface>
     </LumenFrame>
   )
 }

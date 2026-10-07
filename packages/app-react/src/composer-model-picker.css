@@ -79,36 +79,28 @@
   min-inline-size: 0;
 }
 
-/* cc-haha's measured model/effort overlays anchor to the composer trigger group.
-   Only this top-layer container has coordinates. Its content stays in flex flow. */
-.hbar-composer-picker-popover {
-  position: fixed;
-  inset: auto;
-  top: var(--composer-popup-top);
-  bottom: var(--composer-popup-bottom);
-  left: var(--composer-popup-left);
-  inline-size: min(22.5rem, calc(100vw - 2rem));
-  max-block-size: min(26.25rem, var(--composer-popup-limit));
-  margin: 0;
-  padding: 0.75rem;
-  border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 1rem;
-  background: var(--lumen-contrast);
-  color: var(--lumen-ink);
-  box-shadow: 0 1rem 2.5rem color-mix(in srgb, var(--lumen-ink) 18%, transparent);
-  overflow: hidden;
-}
-
-.hbar-composer-picker-popover:popover-open {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.hbar-composer-picker-popover[data-kind='thinking'] {
+.hbar-composer-thinking-surface {
   inline-size: min(18.75rem, calc(100vw - 2rem));
   padding: 1.1875rem 1.375rem;
   gap: 0.9375rem;
+}
+
+.hbar-composer-thinking-surface > .hbar-composer-thinking-heading {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  min-block-size: 0;
+  overflow: auto;
+}
+
+.hbar-composer-thinking-surface > .hbar-composer-thinking-scale {
+  flex: 0 0 auto;
+}
+
+.hbar-composer-thinking-feedback {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: auto;
 }
 
 .hbar-composer-picker-heading {

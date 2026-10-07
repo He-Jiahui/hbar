@@ -99,7 +99,7 @@ async function selectModel(page: import('@playwright/test').Page, host: WebSessi
   const model = (await models.execute('model.list', {})).find((item) => item.id === 'local-fixture')
   if (!model) throw new Error('The local E2E model is unavailable')
   await page.locator('.hbar-composer-model-trigger:visible').click()
-  const menu = page.locator('.hbar-composer-picker-popover[data-kind="model"]:popover-open')
+  const menu = page.getByRole('dialog', { name: getShellCopy(locale).session.modelPicker.title, exact: true })
   await expect(menu).toBeVisible()
   await menu.getByRole('option', { name: new RegExp(model.modelName) }).click()
   await expect(menu).toBeHidden()

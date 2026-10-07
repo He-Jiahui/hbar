@@ -35,12 +35,15 @@ export interface SessionModelFixtureInput {
     readonly draft: string
     readonly suffix: string
     readonly readFailed?: string
+    readonly thinkingTitle?: string
+    readonly thinkingValueSuffix?: string
   }
 }
 interface FixtureCall {
   readonly name: string
   readonly sessionId?: string
   readonly modelId?: string
+  readonly thinkingLevel?: NonNullable<ModelConfiguration['thinkingLevel']>
 }
 declare global {
   interface Window {
@@ -103,7 +106,12 @@ const port: CommandExecutor = {
     if (name === 'session.getModelReceipt') return null
     if (name === 'session.setModel' || name === 'session.setThinkingLevel') {
       const input = modelCommands[name].input.parse(raw)
-      calls.push({ name, sessionId: input.sessionId, ...('modelId' in input ? { modelId: input.modelId } : {}) })
+      calls.push({
+        name,
+        sessionId: input.sessionId,
+        ...('modelId' in input ? { modelId: input.modelId } : {}),
+        ...('thinkingLevel' in input ? { thinkingLevel: input.thinkingLevel } : {}),
+      })
       const behavior = current.writeBehavior
       const originalModels = current.catalog.models
       if (behavior === 'defer') await defer()
@@ -170,6 +178,9 @@ function Fixture({ input }: { readonly input: SessionModelFixtureInput }) {
     ...original,
     title: original.title + input.copy.suffix,
     readFailed: input.copy.readFailed ?? original.readFailed,
+    thinking: input.copy.thinkingTitle ?? original.thinking,
+    thinkingLevel: (level: Parameters<typeof original.thinkingLevel>[0]) =>
+      original.thinkingLevel(level) + (input.copy.thinkingValueSuffix ?? ''),
   }
   return (
     <HbarRuntimeProvider view={{ ...runtime.view, state: { ...runtime.view.state, controls, composerModel: catalog } }}>
