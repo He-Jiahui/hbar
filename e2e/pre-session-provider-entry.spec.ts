@@ -6,13 +6,25 @@ import {
 } from '@hbar/client'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { preSessionCopy } from '../apps/web/src/pre-session-copy'
 import { preSessionLaunchCopy } from '../apps/web/src/pre-session-launch-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 test.use({ actionTimeout: 10_000 })
+
+async function removeOwnedFixture(root: string): Promise<void> {
+  const target = resolve(root)
+  if (
+    dirname(target) !== resolve(tmpdir()) ||
+    !['hbar-pre-session-provider-', 'hbar-pre-session-model-retry-', 'hbar-pre-session-model-change-'].some((prefix) =>
+      basename(target).startsWith(prefix),
+    )
+  )
+    throw new Error('Unowned provider entry test directory')
+  await rm(target, { recursive: true, force: true })
+}
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`providerless first-send routes to Settings without losing its Goal draft: ${locale}`, async ({ browser }) => {
@@ -27,7 +39,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const location = preSessionLaunchCopy(locale).location
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        budgetAutoContinue: false,
+      })
       const configuration = createConfigurationCommandClient(host.client)
       const sessions = createWorkspaceSessionCommandClient(host.client)
       const goals = createGoalPlanCommandClient(host.client)
@@ -66,7 +82,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .click()
       const add = landing.getByRole('button', { name: copy.session.addMenu.open, exact: true })
       await add.click()
-      await landing
+      await page
         .getByRole('group', { name: copy.session.addMenu.menu })
         .getByRole('button', { name: copy.session.intent.goalMenu, exact: true })
         .click()
@@ -114,14 +130,17 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(await count()).toBe(1)
       await page.screenshot({ path: `artifacts/desktop-experience/pre-session-provider-return-${locale}.png` })
       await landing.getByRole('button', { name: copy.preSession.prompt.send, exact: true }).click()
-      await expect(page.getByRole('tab')).toHaveCount(1)
       await expect.poll(count).toBe(2)
       const created = (
         await sessions.execute('session.list', { workspaceId: host.ready.workspaceId, limit: 100 })
       ).items.find((item) => item.id !== host!.ready.sessionId)!
+      await expect(landing).toBeHidden()
+      if (locale === 'en-US') await expect(page.getByRole('tab')).toHaveCount(1)
+      else await expect(page.locator(`[data-current-goal-session="${created.id}"]`)).toBeInViewport()
       await expect
         .poll(async () => (await goals.execute('goal.get', { sessionId: created.id })).goal?.objective)
         .toBe(objective)
+      await expect(page.locator(`[data-current-goal-session="${created.id}"]`)).toContainText(objective)
       await expect
         .poll(async () => {
           const snapshot = await host!.client.call('session.snapshot', { sessionId: created.id, limit: 60 })
@@ -131,7 +150,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeOwnedFixture(root)
     }
   })
 }
@@ -146,7 +165,11 @@ test('failed no-tab model read offers Retry without creating a Session or losing
   const faultCode = `MODEL_READ_FAILED_${'LONG_UNBROKEN_ERROR_'.repeat(6)}`
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+    host = await startWebSessionHost({
+      root,
+      port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+      budgetAutoContinue: false,
+    })
     const sessions = createWorkspaceSessionCommandClient(host.client)
     const count = async () =>
       (await sessions.execute('session.list', { workspaceId: host!.ready.workspaceId, limit: 100 })).items.length
@@ -209,7 +232,8 @@ test('failed no-tab model read offers Retry without creating a Session or losing
     await page.screenshot({ path: 'artifacts/desktop-experience/pre-session-model-read-failed-en-US-320.png' })
     await picker.getByRole('button', { name: labels.retryModels, exact: true }).click()
     await expect(picker.getByRole('button', { name: /fixture/i })).toBeVisible()
-    await expect(picker.getByRole('button', { name: labels.model.close })).toBeFocused()
+    await expect(picker).toBeFocused()
+    await expect(picker.getByRole('searchbox', { name: labels.model.search })).not.toBeFocused()
     await picker.getByRole('button', { name: /fixture/i }).click()
     await expect(prompt).toHaveValue(message)
     expect(await count()).toBe(1)
@@ -218,7 +242,7 @@ test('failed no-tab model read offers Retry without creating a Session or losing
   } finally {
     await context.close()
     if (host) await stopWebSessionHost(host)
-    await rm(root, { recursive: true, force: true })
+    await removeOwnedFixture(root)
   }
 })
 
@@ -233,7 +257,11 @@ test('a live first-send catalog change blocks Session creation and recovers with
   const location = preSessionLaunchCopy('en-US').location
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+    host = await startWebSessionHost({
+      root,
+      port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+      budgetAutoContinue: false,
+    })
     const configuration = createConfigurationCommandClient(host.client)
     const sessions = createWorkspaceSessionCommandClient(host.client)
     const count = async () =>
@@ -269,7 +297,7 @@ test('a live first-send catalog change blocks Session creation and recovers with
       .click()
     await configuration.execute('provider.delete', { id: 'local-fixture' })
     await expect(landing.getByRole('button', { name: copy.preSession.prompt.send, exact: true })).toBeDisabled()
-    await expect(landing.locator('.hbar-web-pre-session-model-guidance')).toContainText(labels.model.empty)
+    await expect(landing.locator('.hbar-web-pre-session-model-guidance')).toContainText(labels.selectedModelUnavailable)
     await expect(page.getByRole('tab')).toHaveCount(0)
     expect(await count()).toBe(1)
     await expect(prompt).toHaveValue(message)
@@ -303,6 +331,6 @@ test('a live first-send catalog change blocks Session creation and recovers with
   } finally {
     await context.close()
     if (host) await stopWebSessionHost(host)
-    await rm(root, { recursive: true, force: true })
+    await removeOwnedFixture(root)
   }
 })

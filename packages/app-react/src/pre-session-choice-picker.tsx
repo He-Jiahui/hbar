@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { Check, ChevronDown, Search, X, type LucideIcon } from 'lucide-react'
+import { Check, ChevronDown, LoaderCircle, Search, X, type LucideIcon } from 'lucide-react'
 import { LumenButton, LumenDialog, LumenFrame, LumenIcon, LumenInput, LumenContentText } from '@lumen/app-ui'
-import {
-  groupPreSessionChoices,
-  preSessionChoiceInitialFocus,
-  visiblePreSessionChoices,
-} from './pre-session-choice-model'
+import { groupPreSessionChoices, visiblePreSessionChoices } from './pre-session-choice-model'
 import type { HbarPreSessionChoice } from './pre-session-choice-model'
+import { FloatingSurface, useFloatingTrigger } from './floating-surface'
 import './pre-session-choice-picker.css'
 
 export { visiblePreSessionChoices } from './pre-session-choice-model'
@@ -72,103 +69,30 @@ export function HbarPreSessionChoicePicker({
   const popupId = useId()
   const popupTitleId = useId()
   const trigger = useRef<HTMLButtonElement>(null)
-  const popup = useRef<HTMLDivElement>(null)
   const search = useRef<HTMLInputElement>(null)
   const lastOpenRequest = useRef(openRequest)
-  const restoreDialogFocus = useRef(false)
   const unique = useMemo(() => visiblePreSessionChoices(items, '', items.length).rows, [items])
   const selected = unique.find((item) => item.id === selectedId) ?? null
   const selectedTriggerLabel = selected?.triggerLabel ?? selected?.label ?? null
   const { rows, remaining } = visiblePreSessionChoices(items, query, limit, selectedId)
   const sections = groupPreSessionChoices(rows)
-  const positionPopup = useCallback(() => {
-    if (!trigger.current || !popup.current) return
-    const document = trigger.current.ownerDocument
-    const view = document.defaultView
-    if (!view) return
-    const rect = trigger.current.getBoundingClientRect()
-    const rem = Number.parseFloat(view.getComputedStyle(document.documentElement).fontSize)
-    const width = Math.min(22.5 * rem, Math.max(0, view.innerWidth - 2 * rem))
-    const above = rect.top >= view.innerHeight - rect.bottom
-    popup.current.style.setProperty(
-      '--choice-popup-left',
-      `${Math.max(rem, Math.min(rect.right - width, view.innerWidth - width - rem))}px`,
-    )
-    popup.current.style.setProperty('--choice-popup-top', above ? 'auto' : `${rect.bottom + rem / 2}px`)
-    popup.current.style.setProperty(
-      '--choice-popup-bottom',
-      above ? `${view.innerHeight - rect.top + rem / 2}px` : 'auto',
-    )
-    popup.current.style.setProperty(
-      '--choice-popup-limit',
-      `${Math.max(0, (above ? rect.top : view.innerHeight - rect.bottom) - 1.5 * rem)}px`,
-    )
+  const close = useCallback(() => {
+    setOpen(false)
+    setQuery('')
+    setLimit(PRE_SESSION_CHOICE_PAGE_SIZE)
   }, [])
-  const focusInitial = useCallback(() => {
-    const view = popup.current?.ownerDocument.defaultView
-    if (!view || !popup.current?.matches(':popover-open')) return
-    const target = preSessionChoiceInitialFocus(
-      menuPresentation,
-      view.matchMedia('(max-width: 40rem)').matches,
-      view.matchMedia('(pointer: coarse)').matches,
-    )
-    if (target === 'close') popup.current.querySelector<HTMLButtonElement>('.hbar-pre-session-choice-close')?.focus()
-    else search.current?.focus()
-  }, [menuPresentation])
-  useEffect(() => {
-    if (placement !== 'composer' || !open) return
-    const view = popup.current?.ownerDocument.defaultView
-    if (!view) return
-    positionPopup()
-    view.addEventListener('resize', positionPopup)
-    view.addEventListener('scroll', positionPopup, true)
-    return () => {
-      view.removeEventListener('resize', positionPopup)
-      view.removeEventListener('scroll', positionPopup, true)
-    }
-  }, [open, placement, positionPopup])
-  useEffect(() => {
-    if (placement !== 'dialog' || open || !restoreDialogFocus.current) return
-    restoreDialogFocus.current = false
-    // A modal still makes the trigger inert until React commits its removal.
-    // Restore from this closed-state effect, not before setOpen(false) settles.
-    trigger.current?.focus()
-  }, [open, placement])
+  const openPicker = useCallback(() => {
+    if (disabled || pendingId !== null) return
+    setQuery('')
+    setLimit(PRE_SESSION_CHOICE_PAGE_SIZE)
+    setOpen(true)
+  }, [disabled, pendingId])
+  const triggerEvents = useFloatingTrigger({ open, onOpen: openPicker, onClose: close })
   useEffect(() => {
     if (lastOpenRequest.current === openRequest) return
     lastOpenRequest.current = openRequest
-    if (disabled) return
-    if (placement === 'dialog') {
-      setOpen(true)
-      return
-    }
-    try {
-      if (!popup.current?.matches(':popover-open')) popup.current?.showPopover()
-    } catch {
-      // Browsers without the Popover API cannot satisfy this request; keep it a no-op.
-    }
-  }, [disabled, openRequest, placement])
-  useEffect(() => {
-    if (placement !== 'composer' || !open || !popup.current?.matches(':popover-open')) return
-    const document = popup.current.ownerDocument
-    if (document.activeElement !== document.body) return
-    focusInitial()
-  }, [items.length, loading, open, placement, focusInitial])
-  const reset = () => {
-    setQuery('')
-    setLimit(PRE_SESSION_CHOICE_PAGE_SIZE)
-    setError(null)
-  }
-  const close = () => {
-    if (pendingId !== null) return
-    if (placement === 'composer') popup.current?.hidePopover()
-    else {
-      restoreDialogFocus.current = true
-      setOpen(false)
-    }
-    reset()
-    if (placement === 'composer') trigger.current?.focus()
-  }
+    openPicker()
+  }, [openRequest, openPicker])
   const moveChoice = (event: KeyboardEvent<HTMLDivElement>) => {
     if (
       event.nativeEvent.isComposing ||
@@ -215,16 +139,12 @@ export function HbarPreSessionChoicePicker({
       onClick={() => {
         setPendingId(item.id)
         setError(null)
-        void Promise.resolve(onChoose(item.id))
+        void Promise.resolve()
+          .then(() => onChoose(item.id))
           .then(() => {
             setPendingId(null)
-            if (placement === 'composer') popup.current?.hidePopover()
-            else {
-              restoreDialogFocus.current = true
-              setOpen(false)
-            }
-            reset()
-            if (placement === 'composer') trigger.current?.focus()
+            setError(null)
+            close()
           })
           .catch((reason: unknown) => {
             setPendingId(null)
@@ -290,7 +210,7 @@ export function HbarPreSessionChoicePicker({
           </LumenButton>
         )}
       </LumenFrame>
-      <LumenFrame className="hbar-pre-session-choice-list" aria-label={labels.title}>
+      <LumenFrame className="hbar-pre-session-choice-list" role="region" aria-label={labels.title} tabIndex={0}>
         {sections.flatMap((section) =>
           section.label
             ? [
@@ -345,44 +265,36 @@ export function HbarPreSessionChoicePicker({
         variant="text"
         indicator="none"
         disabled={disabled}
+        aria-disabled={pendingId !== null || undefined}
+        aria-busy={pendingId !== null || loading || undefined}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={unavailableLabel ?? labels.trigger(selectedTriggerLabel)}
         title={unavailableLabel ?? selectedTriggerLabel ?? labels.title}
-        popoverTarget={placement === 'composer' ? popupId : undefined}
-        onClick={placement === 'dialog' ? () => setOpen(true) : undefined}
+        {...triggerEvents}
       >
         {icon && <LumenIcon icon={icon} tier="sm" />}
         <LumenContentText context="control.label">
           {unavailableLabel ?? selectedTriggerLabel ?? labels.title}
         </LumenContentText>
-        <LumenIcon icon={ChevronDown} tier="sm" />
+        <LumenIcon icon={pendingId !== null ? LoaderCircle : ChevronDown} tier="sm" />
       </LumenButton>
       {placement === 'composer' ? (
-        <LumenFrame
-          ref={popup}
+        <FloatingSurface
+          open={open}
+          onClose={close}
+          anchorRef={trigger}
+          initialFocusRef={search}
+          responsivePresentation={menuPresentation === 'native' ? 'anchored' : 'narrow-sheet'}
+          placement="above"
+          label={labels.title}
           id={popupId}
-          popover="auto"
           role="dialog"
           aria-labelledby={popupTitleId}
           className="hbar-pre-session-choice-popover"
           data-presentation={menuPresentation}
-          onBeforeToggle={(event) => {
-            if (event.newState === 'open') positionPopup()
-          }}
-          onToggle={(event) => {
-            const opening = event.newState === 'open'
-            setOpen(opening)
-            if (!opening) reset()
-            else queueMicrotask(focusInitial)
-          }}
           onKeyDown={(event) => {
             if (event.key === 'Enter') event.stopPropagation()
-            if (event.key === 'Escape') {
-              event.preventDefault()
-              event.stopPropagation()
-              close()
-            }
           }}
         >
           <LumenFrame className="hbar-pre-session-choice-heading">
@@ -402,7 +314,7 @@ export function HbarPreSessionChoicePicker({
             </LumenButton>
           </LumenFrame>
           {content}
-        </LumenFrame>
+        </FloatingSurface>
       ) : open ? (
         <LumenDialog
           open
@@ -415,6 +327,11 @@ export function HbarPreSessionChoicePicker({
           {content}
         </LumenDialog>
       ) : null}
+      {error && !open && (
+        <LumenContentText context="feedback.paragraph" role="alert" className="hbar-pre-session-choice-closed-error">
+          {labels.error(error)}
+        </LumenContentText>
+      )}
     </LumenFrame>
   )
 }

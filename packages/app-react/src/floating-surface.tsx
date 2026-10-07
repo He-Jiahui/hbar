@@ -3,6 +3,7 @@ import {
   useFloatingTrigger as useSharedFloatingTrigger,
   type FloatingSurfaceMaterial,
   type FloatingPlacement,
+  type FloatingResponsivePresentation,
 } from '@lumen/app-ui'
 import { DEFAULT_THEME_PROFILE, type ThemeProfile } from '@hbar/contracts'
 import type { HTMLAttributes, RefObject } from 'react'
@@ -15,6 +16,7 @@ type AppFloatingSurfaceProps = HTMLAttributes<HTMLDivElement> & {
   readonly initialFocusRef?: RefObject<HTMLElement | null>
   readonly focusBehavior?: 'surface' | 'preserve'
   readonly placement?: FloatingPlacement
+  readonly responsivePresentation?: FloatingResponsivePresentation
   readonly label: string
   readonly material?: ThemeProfile['surface']
 }
@@ -37,14 +39,13 @@ export function FloatingSurface({
   initialFocusRef,
   focusBehavior,
   placement,
+  responsivePresentation,
   label,
   children,
   className,
   material = DEFAULT_THEME_PROFILE.surface,
   ...attributes
 }: AppFloatingSurfaceProps) {
-  const sheetModal =
-    typeof window !== 'undefined' && window.matchMedia('(max-width: 40rem) and (pointer: coarse)').matches
   return (
     <LumenFloatingSurface
       {...attributes}
@@ -55,9 +56,9 @@ export function FloatingSurface({
       initialFocusRef={initialFocusRef}
       focusBehavior={focusBehavior}
       placement={placement}
+      responsivePresentation={responsivePresentation}
       label={label}
       role={attributes.role ?? 'dialog'}
-      aria-modal={(sheetModal && focusBehavior !== 'preserve') || undefined}
       material={mapMaterial(material)}
       className={`hbar-floating-surface ${className ?? ''}`}
     >

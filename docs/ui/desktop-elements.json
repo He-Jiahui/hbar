@@ -26222,7 +26222,7 @@
     {
       "id": "packages/app-react/src/floating-surface.tsx::FloatingSurface::LumenFloatingSurface::1",
       "path": "packages/app-react/src/floating-surface.tsx",
-      "line": 49,
+      "line": 50,
       "owner": "FloatingSurface",
       "surface": "workbench",
       "component": "LumenFloatingSurface",
@@ -45349,16 +45349,16 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::renderChoice::LumenButton::1",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 206,
+      "line": 130,
       "owner": "renderChoice",
       "surface": "composer-and-launch",
       "component": "LumenButton",
       "category": "interaction",
       "context": null,
-      "contentSources": ["[source:239; ConditionalExpression] item.group"],
+      "contentSources": ["[source:159; ConditionalExpression] item.group"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onClick": "[source:215; ArrowFunction] setPendingId, item.id, setError, Promise.resolve(onChoose(item.id))\r\n          .then(() => {\r\n            setPendingId(null)\r\n            if (placement === 'composer') popup.current?.hidePopover()\r\n            else {\r\n              restoreDialogFocus.current = true\r\n              setOpen(false)\r\n            }\r\n            reset()\r\n            if (placement === 'composer') trigger.current?.focus()\r\n          })\r\n          .catch, Promise.resolve(onChoose(item.id))\r\n          .then, Promise.resolve, onChoose, placement, popup.current?.hidePopover, popup.current, restoreDialogFocus.current, setOpen, reset, trigger.current?.focus, trigger.current, reason, reason.code"
+        "onClick": "() => {\n        setPendingId(item.id)\n        setError(null)\n        void Promise.resolve()\n          .then(() => onChoose(item.id))\n          .then(() => {\n            setPendingId(null)\n            setError(null)\n            close()\n          })\n          .catch((reason: unknown) => {\n            setPendingId(null)\n            setError(\n              reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'\n                ? reason.code\n                : 'EXECUTION_FAILED',\n            )\n          })\n      }"
       },
       "targetSources": ["key=item.id"],
       "stateSources": ["disabled=pendingId !== null"],
@@ -45370,7 +45370,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::renderChoice::LumenFrame::1",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 241,
+      "line": 161,
       "owner": "renderChoice",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
@@ -45391,7 +45391,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::renderChoice::LumenContentText::1",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 242,
+      "line": 162,
       "owner": "renderChoice",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -45410,7 +45410,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::renderChoice::LumenContentText::2",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 243,
+      "line": 163,
       "owner": "renderChoice",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -45429,7 +45429,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::renderChoice::LumenIcon::1",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 245,
+      "line": 165,
       "owner": "renderChoice",
       "surface": "composer-and-launch",
       "component": "LumenIcon",
@@ -45448,7 +45448,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::renderChoice::LumenContentText::3",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 249,
+      "line": 169,
       "owner": "renderChoice",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -45467,7 +45467,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::renderChoice::LumenContentText::4",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 250,
+      "line": 170,
       "owner": "renderChoice",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -45486,14 +45486,14 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenFrame::1",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 256,
+      "line": 176,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "error && (\r\n        <LumenContentText context=\"feedback.detail\" role=\"alert\">\r\n          {labels.error(error)}\r\n        </LumenContentText>\r\n      )",
+        "error && (\n        <LumenContentText context=\"feedback.detail\" role=\"alert\">\n          {labels.error(error)}\n        </LumenContentText>\n      )",
         "typeof extra === 'function' ? extra(close) : extra"
       ],
       "accessibleNameSources": [],
@@ -45508,14 +45508,14 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenFrame::2",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 257,
+      "line": 177,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "query && (\r\n          <LumenButton\r\n            type=\"button\"\r\n            size=\"s\"\r\n            variant=\"text\"\r\n            indicator=\"none\"\r\n            aria-label={labels.clearSearch}\r\n            onClick={() => {\r\n              setQuery('')\r\n              setLimit(PRE_SESSION_CHOICE_PAGE_SIZE)\r\n              search.current?.focus()\r\n            }}\r\n          >\r\n            <LumenIcon icon={X} tier=\"sm\" />\r\n          </LumenButton>\r\n        )"
+        "query && (\n          <LumenButton\n            type=\"button\"\n            size=\"s\"\n            variant=\"text\"\n            indicator=\"none\"\n            aria-label={labels.clearSearch}\n            onClick={() => {\n              setQuery('')\n              setLimit(PRE_SESSION_CHOICE_PAGE_SIZE)\n              search.current?.focus()\n            }}\n          >\n            <LumenIcon icon={X} tier=\"sm\" />\n          </LumenButton>\n        )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -45529,7 +45529,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenIcon::1",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 258,
+      "line": 178,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenIcon",
@@ -45548,7 +45548,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenInput::1",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 259,
+      "line": 179,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenInput",
@@ -45557,11 +45557,11 @@
       "contentSources": ["placeholder=labels.search", "value=query"],
       "accessibleNameSources": ["aria-label=labels.search"],
       "actionBindings": {
-        "onChange": "(event) => {\r\n            setQuery(event.currentTarget.value)\r\n            setLimit(PRE_SESSION_CHOICE_PAGE_SIZE)\r\n          }",
-        "onKeyDown": "(event) => {\r\n            if (event.key !== 'Enter' || event.nativeEvent.isComposing) return\r\n            event.preventDefault()\r\n            event.stopPropagation()\r\n          }"
+        "onChange": "(event) => {\n            setQuery(event.currentTarget.value)\n            setLimit(PRE_SESSION_CHOICE_PAGE_SIZE)\n          }",
+        "onKeyDown": "(event) => {\n            if (event.key !== 'Enter' || event.nativeEvent.isComposing) return\n            event.preventDefault()\n            event.stopPropagation()\n          }"
       },
       "targetSources": [
-        "onKeyDown=(event) => {\r\n            if (event.key !== 'Enter' || event.nativeEvent.isComposing) return\r\n            event.preventDefault()\r\n            event.stopPropagation()\r\n          }"
+        "onKeyDown=(event) => {\n            if (event.key !== 'Enter' || event.nativeEvent.isComposing) return\n            event.preventDefault()\n            event.stopPropagation()\n          }"
       ],
       "stateSources": ["value=query"],
       "flow": "owning component contract",
@@ -45572,7 +45572,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenButton::1",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 277,
+      "line": 197,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -45581,7 +45581,7 @@
       "contentSources": [],
       "accessibleNameSources": ["aria-label=labels.clearSearch"],
       "actionBindings": {
-        "onClick": "() => {\r\n              setQuery('')\r\n              setLimit(PRE_SESSION_CHOICE_PAGE_SIZE)\r\n              search.current?.focus()\r\n            }"
+        "onClick": "() => {\n              setQuery('')\n              setLimit(PRE_SESSION_CHOICE_PAGE_SIZE)\n              search.current?.focus()\n            }"
       },
       "targetSources": [],
       "stateSources": [],
@@ -45593,7 +45593,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenIcon::2",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 289,
+      "line": 209,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenIcon",
@@ -45612,16 +45612,16 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenFrame::3",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 293,
+      "line": 213,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "[source:294; CallExpression] sections.flatMap, section, section.label, section.items.map, section.items, renderChoice",
-        "rows.length === 0 && (\r\n          <LumenContentText context=\"popover.body\">\r\n            {unique.length === 0 ? labels.empty : labels.noMatches}\r\n          </LumenContentText>\r\n        )",
-        "(remaining > 0 || hasMore) && onMore && (\r\n          <LumenButton\r\n            type=\"button\"\r\n            size=\"s\"\r\n            disabled={loading || pendingId !== null}\r\n            onClick={() => {\r\n              if (remaining > 0) setLimit((current) => current + PRE_SESSION_CHOICE_PAGE_SIZE)\r\n              else onMore()\r\n            }}\r\n          >\r\n            {labels.more(hasMore && remaining === 0 ? null : remaining)}\r\n          </LumenButton>\r\n        )"
+        "[source:214; CallExpression] sections.flatMap, section, section.label, section.items.map, section.items, renderChoice",
+        "rows.length === 0 && (\n          <LumenContentText context=\"popover.body\">\n            {unique.length === 0 ? labels.empty : labels.noMatches}\n          </LumenContentText>\n        )",
+        "(remaining > 0 || hasMore) && onMore && (\n          <LumenButton\n            type=\"button\"\n            size=\"s\"\n            disabled={loading || pendingId !== null}\n            onClick={() => {\n              if (remaining > 0) setLimit((current) => current + PRE_SESSION_CHOICE_PAGE_SIZE)\n              else onMore()\n            }}\n          >\n            {labels.more(hasMore && remaining === 0 ? null : remaining)}\n          </LumenButton>\n        )"
       ],
       "accessibleNameSources": ["aria-label=labels.title"],
       "actionBindings": {},
@@ -45635,7 +45635,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenFrame::4",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 297,
+      "line": 217,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
@@ -45654,7 +45654,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenContentText::1",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 303,
+      "line": 223,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -45673,7 +45673,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenContentText::2",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 312,
+      "line": 232,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -45692,7 +45692,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenButton::2",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 317,
+      "line": 237,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -45701,7 +45701,7 @@
       "contentSources": ["labels.more(hasMore && remaining === 0 ? null : remaining)"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onClick": "() => {\r\n              if (remaining > 0) setLimit((current) => current + PRE_SESSION_CHOICE_PAGE_SIZE)\r\n              else onMore()\r\n            }"
+        "onClick": "() => {\n              if (remaining > 0) setLimit((current) => current + PRE_SESSION_CHOICE_PAGE_SIZE)\n              else onMore()\n            }"
       },
       "targetSources": [],
       "stateSources": ["disabled=loading || pendingId !== null"],
@@ -45713,7 +45713,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenContentText::3",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 331,
+      "line": 251,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -45732,13 +45732,16 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenFrame::5",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 339,
+      "line": 259,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": ["[source:361; ConditionalExpression] placement, open"],
+      "contentSources": [
+        "[source:282; ConditionalExpression] placement, open",
+        "error && !open && (\n        <LumenContentText context=\"feedback.paragraph\" role=\"alert\" className=\"hbar-pre-session-choice-closed-error\">\n          {labels.error(error)}\n        </LumenContentText>\n      )"
+      ],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
@@ -45751,7 +45754,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenButton::3",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 340,
+      "line": 260,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -45765,9 +45768,13 @@
         "aria-label=unavailableLabel ?? labels.trigger(selectedTriggerLabel)",
         "title=unavailableLabel ?? selectedTriggerLabel ?? labels.title"
       ],
-      "actionBindings": { "onClick": "placement === 'dialog' ? () => setOpen(true) : undefined" },
-      "targetSources": ["id=triggerId", "popoverTarget=placement === 'composer' ? popupId : undefined"],
-      "stateSources": ["disabled=disabled", "aria-expanded=open"],
+      "actionBindings": {},
+      "targetSources": ["id=triggerId"],
+      "stateSources": [
+        "disabled=disabled",
+        "aria-busy=pendingId !== null || loading || undefined",
+        "aria-expanded=open"
+      ],
       "flow": "owning component contract",
       "lumenMapping": "LumenButton",
       "status": "composed",
@@ -45776,7 +45783,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenIcon::3",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 355,
+      "line": 276,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenIcon",
@@ -45795,7 +45802,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenContentText::4",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 356,
+      "line": 277,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -45814,7 +45821,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenIcon::4",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 359,
+      "line": 280,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenIcon",
@@ -45831,35 +45838,34 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenFrame::6",
+      "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::FloatingSurface::1",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 362,
+      "line": 283,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
-      "component": "LumenFrame",
-      "category": "structure",
+      "component": "FloatingSurface",
+      "category": "interaction",
       "context": null,
-      "contentSources": ["content"],
-      "accessibleNameSources": ["aria-labelledby=popupTitleId"],
+      "contentSources": ["content", "label=labels.title"],
+      "accessibleNameSources": ["label=labels.title", "aria-labelledby=popupTitleId"],
       "actionBindings": {
-        "onBeforeToggle": "(event) => {\r\n            if (event.newState === 'open') positionPopup()\r\n          }",
-        "onToggle": "(event) => {\r\n            const opening = event.newState === 'open'\r\n            setOpen(opening)\r\n            if (!opening) reset()\r\n            else queueMicrotask(focusInitial)\r\n          }",
-        "onKeyDown": "(event) => {\r\n            if (event.key === 'Enter') event.stopPropagation()\r\n            if (event.key === 'Escape') {\r\n              event.preventDefault()\r\n              event.stopPropagation()\r\n              close()\r\n            }\r\n          }"
+        "onClose": "close",
+        "onKeyDown": "(event) => {\n            if (event.key === 'Enter') event.stopPropagation()\n          }"
       },
       "targetSources": [
         "id=popupId",
-        "onKeyDown=(event) => {\r\n            if (event.key === 'Enter') event.stopPropagation()\r\n            if (event.key === 'Escape') {\r\n              event.preventDefault()\r\n              event.stopPropagation()\r\n              close()\r\n            }\r\n          }"
+        "onKeyDown=(event) => {\n            if (event.key === 'Enter') event.stopPropagation()\n          }"
       ],
-      "stateSources": [],
-      "flow": "owning flow layout",
-      "lumenMapping": "LumenFrame",
+      "stateSources": ["open=open"],
+      "flow": "owning component contract",
+      "lumenMapping": "FloatingSurface",
       "status": "composed",
       "issues": []
     },
     {
-      "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenFrame::7",
+      "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenFrame::6",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 388,
+      "line": 300,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenFrame",
@@ -45878,7 +45884,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenContentText::5",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 389,
+      "line": 301,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenContentText",
@@ -45897,7 +45903,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenButton::4",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 392,
+      "line": 304,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenButton",
@@ -45916,7 +45922,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenIcon::5",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 401,
+      "line": 313,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenIcon",
@@ -45935,7 +45941,7 @@
     {
       "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenDialog::1",
       "path": "packages/app-react/src/pre-session-choice-picker.tsx",
-      "line": 407,
+      "line": 319,
       "owner": "HbarPreSessionChoicePicker",
       "surface": "composer-and-launch",
       "component": "LumenDialog",
@@ -45949,6 +45955,25 @@
       "flow": "owning component contract",
       "lumenMapping": "LumenDialog",
       "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/pre-session-choice-picker.tsx::HbarPreSessionChoicePicker::LumenContentText::6",
+      "path": "packages/app-react/src/pre-session-choice-picker.tsx",
+      "line": 331,
+      "owner": "HbarPreSessionChoicePicker",
+      "surface": "composer-and-launch",
+      "component": "LumenContentText",
+      "category": "text",
+      "context": "feedback.paragraph",
+      "contentSources": ["labels.error(error)"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
       "issues": []
     },
     {

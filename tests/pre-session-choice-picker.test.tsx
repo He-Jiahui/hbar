@@ -56,7 +56,7 @@ test('duplicate IDs keep the first source row and search does not invent a stale
   expect(html).not.toContain('Replacement project')
 })
 
-test('composer placement keeps the same Host choices in a trigger-owned popup', () => {
+test('closed composer placement exposes the Host selection without mounting a floating layer', () => {
   const html = renderToStaticMarkup(
     <HbarPreSessionChoicePicker
       icon={Folder}
@@ -68,8 +68,10 @@ test('composer placement keeps the same Host choices in a trigger-owned popup', 
     />,
   )
   expect(html).toContain('data-placement="composer"')
-  expect(html).toContain('popover="auto"')
-  expect(html).toContain('role="dialog"')
+  expect(html).toContain('aria-haspopup="dialog"')
+  expect(html).toContain('aria-expanded="false"')
+  expect(html).not.toContain('role="dialog"')
+  expect(html).not.toContain('Reasoning')
   expect(html).toContain(labels.trigger('Provider · Model'))
   expect(html).toContain('data-tier="sm"')
 })
@@ -90,10 +92,10 @@ test('open requests preserve the closed initial render for both picker placement
   expect(dialog).toContain('aria-expanded="false"')
   expect(dialog).not.toContain('data-open="true"')
   expect(composer).toContain('aria-expanded="false"')
-  expect(composer).toContain('popover="auto"')
+  expect(composer).not.toContain('role="dialog"')
 })
 
-test('model triggers can be text-only while their Host provider groups, details and identities remain in the menu', () => {
+test('closed model triggers show the Host model name with one glyph while groups and details await opening', () => {
   const modelName = '一个很长的推理模型名称——保持输入区前后连续'
   const html = renderToStaticMarkup(
     <HbarPreSessionChoicePicker
@@ -115,10 +117,9 @@ test('model triggers can be text-only while their Host provider groups, details 
   expect(trigger).toContain('lucide-chevron-down')
   expect(trigger).not.toContain('提供商甲')
   expect(trigger).not.toContain('提供商乙')
-  expect(html).toContain('aria-label="提供商甲"')
-  expect(html).toContain('aria-label="提供商乙"')
-  expect(html).toContain('支持图像与推理')
-  expect(html).toContain('另一个服务端配置')
-  expect(html).toContain('aria-current="true"')
-  expect(html.indexOf('aria-label="提供商乙"')).toBeLessThan(html.indexOf('aria-current="true"'))
+  expect(html).not.toContain('aria-label="提供商甲"')
+  expect(html).not.toContain('aria-label="提供商乙"')
+  expect(html).not.toContain('支持图像与推理')
+  expect(html).not.toContain('另一个服务端配置')
+  expect(html).not.toContain('aria-current="true"')
 })
