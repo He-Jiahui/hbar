@@ -237,4 +237,8 @@ General 的 33 处低层文字已按用途分类：章节标题／说明、设�
 - 10 项真实 Host send／zoom 流程通过：两语言的 1440／320px 下，保留 IME、单次提交、原 session／Host／附件／草稿、原 revision、发送方式切换与回读、保存失败／未知／重试、缩放键盘／滑块边界与同 origin 刷新持久化。冻结生产资产通过原文件名和 SHA256 校验。中间窄窗超时源于测试在设置布局加载前错误选择隐藏桌面导航，现等待实际设置表面与可见入口；原 Sidebar 激活关闭后等待真实会话输入，避免操作 inert 区域。截图断言先移开指针再等待动画结束，测持久选中状态，保留选中／未选中边框和背景差异断言。证据为 `general-settings/host-send-verified.log` 与 `send-verified/*`。
 - 修改范围严格 lint、内容／图标／flow guard、格式、Web 构建与清单／实际生产输入核对通过。冷启动完整 typecheck 仍为 96 项既有诊断，修改范围无诊断。公共 pressed outlined 基础能力在 Lumen `3740b3d67d`／父仓库 `fb275641` 独立提交；本项验证其实际调用方。原生 zoom／平台 smoke 仍属于后续平台验收，浏览器 CSS fallback 不作为原生验证。其余证据为 `general-settings/*`。
 
+LumenToggleGroup 的可选 `selectionVariant="contained"` 公共呈现已补齐，默认 subtle 保持原半透明选中效果。contained 从原主题前景／反差色得到实心选中背景与文字，选项详情继承反差文字；强制颜色使用 Highlight／HighlightText。单选、复选、原 ID、受控值、键盘与原生 validation 路径继续复用，未添加第二份选择状态。外观设置移除本地 selected 配色后，原 opacity=255 验收得到 36；通过公共呈现选项保留原实心状态要求，无需降低原对比度或透明度断言。
+
+- 包严格 lint、typecheck、构建／声明、格式和 flow guard 通过。修改组件的既有 26 项 lint 差距按原规则收敛：补齐条件块、按公共包约定显式声明 optional undefined，并拆解两处嵌套条件，保留原判断结果。父仓库 29 项原选择组／外观状态测试、30 个实际 Chrome 场景、6 项真实 Host 外观流程通过；两项主题流程加入强制颜色下实心背景与 4.5:1 对比度断言后再次通过。外观调用方的完整内容分类在下一提交记录。限定 proptypes／API build 命令通过，现有工具只生成 MUI 文档，Lumen 契约写入 README 与公开声明；既有 Vale 不可用限制未记为通过。证据为 `appearance-settings/*`。
+
 当前已提交清单覆盖 146 个生产 TSX 模块、3680 个元素，其中记录了 625 处低层文字未分类，合计 643 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
