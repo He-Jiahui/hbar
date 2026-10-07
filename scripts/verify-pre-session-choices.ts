@@ -143,6 +143,23 @@ try {
               expect(geometry.top).toBeGreaterThanOrEqual(0)
               expect(geometry.bottom).toBeLessThanOrEqual(geometry.height + 1)
               if (sheet) expect(Math.abs(geometry.bottom - geometry.height)).toBeLessThanOrEqual(1)
+              else
+                await expect
+                  .poll(() =>
+                    picker.evaluate((element) => {
+                      const anchor = document.querySelector('.hbar-pre-session-choice-picker > button')
+                      if (!anchor) throw new Error('Missing original choice anchor')
+                      const box = element.getBoundingClientRect()
+                      const trigger = anchor.getBoundingClientRect()
+                      const gap = Math.max(
+                        8,
+                        Number.parseFloat(getComputedStyle(document.documentElement).fontSize) / 2,
+                      )
+                      const expectedRight = Math.max(box.width + gap, Math.min(trigger.right, innerWidth - gap))
+                      return Math.abs(box.right - expectedRight)
+                    }),
+                  )
+                  .toBeLessThanOrEqual(1)
               const rows = picker.locator('.hbar-pre-session-choice-row')
               await expect(rows).toHaveCount(60)
               const selected = picker

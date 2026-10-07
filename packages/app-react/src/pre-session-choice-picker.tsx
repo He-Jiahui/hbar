@@ -287,6 +287,7 @@ export function HbarPreSessionChoicePicker({
           initialFocusRef={search}
           responsivePresentation={menuPresentation === 'native' ? 'anchored' : 'narrow-sheet'}
           placement="above"
+          anchorAlignment="end"
           label={labels.title}
           id={popupId}
           role="dialog"

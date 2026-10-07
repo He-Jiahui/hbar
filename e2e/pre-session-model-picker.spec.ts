@@ -92,6 +92,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       })
       expect(geometry.left).toBeGreaterThanOrEqual(-1)
       expect(geometry.right).toBeLessThanOrEqual(geometry.viewport + 1)
+      if (locale === 'en-US')
+        await expect
+          .poll(async () => {
+            const anchor = await trigger.boundingBox()
+            const surface = await reopened.boundingBox()
+            if (!anchor || !surface) throw new Error('Missing open model choice geometry')
+            return Math.abs(anchor.x + anchor.width - surface.x - surface.width)
+          })
+          .toBeLessThanOrEqual(1)
       if (locale === 'zh-CN') expect(Math.abs(geometry.bottom - geometry.height)).toBeLessThanOrEqual(1)
       await expect(reopened).toHaveAttribute('data-presentation', 'web')
       await search.press('ArrowDown')

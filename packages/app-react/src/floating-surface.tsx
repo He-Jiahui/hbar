@@ -3,6 +3,7 @@ import {
   useFloatingTrigger as useSharedFloatingTrigger,
   type FloatingSurfaceMaterial,
   type FloatingPlacement,
+  type FloatingAnchorAlignment,
   type FloatingResponsivePresentation,
 } from '@lumen/app-ui'
 import { DEFAULT_THEME_PROFILE, type ThemeProfile } from '@hbar/contracts'
@@ -16,6 +17,7 @@ type AppFloatingSurfaceProps = HTMLAttributes<HTMLDivElement> & {
   readonly initialFocusRef?: RefObject<HTMLElement | null>
   readonly focusBehavior?: 'surface' | 'preserve'
   readonly placement?: FloatingPlacement
+  readonly anchorAlignment?: FloatingAnchorAlignment
   readonly responsivePresentation?: FloatingResponsivePresentation
   readonly label: string
   readonly material?: ThemeProfile['surface']
@@ -39,6 +41,7 @@ export function FloatingSurface({
   initialFocusRef,
   focusBehavior,
   placement,
+  anchorAlignment,
   responsivePresentation,
   label,
   children,
@@ -56,6 +59,7 @@ export function FloatingSurface({
       initialFocusRef={initialFocusRef}
       focusBehavior={focusBehavior}
       placement={placement}
+      anchorAlignment={anchorAlignment}
       responsivePresentation={responsivePresentation}
       label={label}
       role={attributes.role ?? 'dialog'}
