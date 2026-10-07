@@ -359,4 +359,12 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 
 归档长标题的真实 Host 验收还暴露了共享树布局缺陷：237px 的子节点组内，长反馈被居中扩展为约 805px，确认按钮处于负向可视区。Lumen 初始基础提交 3fce674c9e 的 `[role='treeitem'] > div` 行样式同时命中了子节点组。Lumen 285a976f54 将行和行内文案样式限定为 `.lumen-tree-row`，让子组保持正常拉伸。独立 pnpm 包类型、库构建与格式检查通过，六项消费端树结构测试通过；实际 Chrome / Host 的中文归档、未知恢复、原对象核对及确认按钮／子组几何回归通过。证据为 session-archive-content/lumen-tree-types.log、lumen-tree-build.log、lumen-tree-format.log、tree-unit.log 和 host-tree-fixed.log。此基础修复不改变公开 props，归档 UI 的全矩阵结果后续独立记录。
 
-当前已提交清单覆盖 146 个生产 TSX 模块、3734 个元素，其中记录了 344 处低层文字未分类，合计 361 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+会话归档表面按独立内容归属迁移：选择／预览与归档列表使用 section.title，原记录与批量目标使用 collection.title，操作确认使用 feedback.title，说明与结果使用自然换行的 section.description／feedback.paragraph；时间、分页和紧凑动作保留具名、可聚焦的横向阅读区。跨项目批量目标由宿主 target(workspaceName, title) 格式器提供。标题保留完整原文，100 项预览的纵向阅读区由预览组件拥有。参考沿用 [App Sidebar](https://pro.reactbits.dev/docs/app-ui/app-sidebar) 的项目分组和就近动作，以及 [AI Chat 5](https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-5) 的操作影响与确认反馈结构。
+
+- 修复旧原生 summary 消失后的关闭焦点归属：调用方提供原项目菜单按钮的所属根，关闭前捕获目标，仅在旧按钮／body 仍拥有焦点且目标仍连接时恢复。保留原工作区、会话 ID、revision、确认捕获、未知结果和不重复写入语义。
+- 整组 Host 回归复现另一时序缺陷：缓存会话仍未归档，但当前活动列表已移除原行，Recovery 误判存在行内反馈。现在由当前项目／时间列表和已展开子 Agent 分支提供实际 inlineSessionIds；分支渲染和反馈位置共用已有 parentId、归档、循环及 32 层规则。四项旧实现失败的确定性复现转为通过，新增中英文未知结果与可见分支测试覆盖缓存残留、折叠、错误 parent、归档、缺失项及深度边界。相关原实现见 e8551236，实时 Host 证据见 host-delivery-final.log 的失败及 host-recovery-final.log 的通过。
+- 59 项相关单测、510 个断言通过。104 个实际 Chrome 场景通过，中英文、明暗、1440／1100／900／390／320、窄屏 125% 文字、长标题、选择与批量 0／1／100、归档列表 0／1／100／101／250、失败／重复／超容量页／离线／处理中／未知／成功、原目标重排与关闭焦点均覆盖。公开 DTO 的 200／201 与标题 160／161 边界另按实际 schema 校验，归档页与批量所有者上限仍为 100。所有操作验证原 ID 与调用数量。
+- 12 项实际 Chrome / Host 回归整组通过：两语言归档与恢复、丢失已接受回执的核对、批量捕获／键盘选择／取消、100 项预览、A／B 草稿与页签、脏 Files Workbench、外部活动归档与新提交拒绝、刷新后空工作区、空第一页后继续读取。旧选择显示 div 改为真实 TreeItem 的键盘断言，窄屏隐藏页签仍验证选中状态与实际草稿；深度样式断言限定自身 Agent children，而非重复命中 Lumen 子组。
+- Web 构建、严格范围 ESLint、文案／图标／flow guard 和格式通过；冷启动完整类型仍有 92 项既有诊断，本次范围为零。构建清单为 146 模块／3739 元素／320 处低层文字／337 项静态缺口。证据为 session-archive-content/recovery-red.log、unit-recovery-final.log、client-recovery-final.log、host-recovery-final.log、lint-delivery-final.log、lint-recovery-final.log、types-recovery-final.log、build-recovery.log、inventory-recovery-final.log 及相应 guard／format 日志。Host 临时数据停止后经 realpath、临时目录与所属前缀校验清理。
+
+当前已提交清单覆盖 146 个生产 TSX 模块、3739 个元素，其中记录了 320 处低层文字未分类，合计 337 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

@@ -1,6 +1,7 @@
+import { cleanupOwnedArchiveFixture } from './support/archive-fixture-cleanup'
 import { expect, test, type Page } from '@playwright/test'
 import { createRunCommandClient, createWorkspaceSessionCommandClient } from '@hbar/client'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
@@ -21,7 +22,9 @@ const rpc = z
 async function showSidebar(page: Page, locale: ShellLocale) {
   const labels = getShellCopy(locale).shell
   const sidebar = page.getByRole('complementary', { name: labels.projectsAndSessions, exact: true })
-  if (!(await sidebar.isVisible())) await page.getByRole('button', { name: labels.showSidebar, exact: true }).click()
+  const show = page.getByRole('button', { name: labels.showSidebar, exact: true })
+  if (await show.isVisible()) await show.click()
+  await expect(show).toBeHidden()
   return sidebar
 }
 async function beginArchive(page: Page, locale: ShellLocale, sessionId: string) {
@@ -74,6 +77,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     try {
       await mkdir(evidence, { recursive: true })
       host = await startWebSessionHost({
+        budgetAutoContinue: false,
         root,
         port: Number(process.env.HBAR_E2E_HOST_PORT ?? 44923),
         goalAutoContinue: false,
@@ -189,9 +193,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(writes).toBe(3)
       expect(errors).toEqual([])
     } finally {
-      await context.close()
-      if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      try {
+        await context.close()
+      } finally {
+        if (host) await stopWebSessionHost(host)
+        await cleanupOwnedArchiveFixture(root)
+      }
     }
   })
 
@@ -206,6 +213,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     try {
       await writeFile(join(root, filename), '# original disk\n')
       host = await startWebSessionHost({
+        budgetAutoContinue: false,
         root,
         port: Number(process.env.HBAR_E2E_HOST_PORT ?? 44923),
         goalAutoContinue: false,
@@ -234,7 +242,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await dock.getByRole('button', { name: copy.files.edit, exact: true }).click()
       await dock.getByRole('textbox', { name: filename, exact: true }).fill('# unsaved editor draft')
       await dock.getByRole('button', { name: copy.files.expandWorkbench, exact: true }).click()
-      const workbench = page.getByRole('tab', { name: tabs.workbenchTitle, exact: true })
+      const workbench = page.getByRole('tab', { name: tabs.workbenchTitle, exact: true, includeHidden: true })
       const expanded = page.locator('.hbar-app-react-file-workbench')
       await expect(workbench).toHaveAttribute('aria-selected', 'true')
       const row = await beginArchive(page, locale, host.ready.sessionId)
@@ -242,11 +250,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(page.getByRole('tab', { name: host.ready.sessionTitle, exact: true })).toHaveCount(0)
       await expect(workbench).toHaveAttribute('aria-selected', 'true')
       await page.getByRole('button', { name: copy.shell.archive.dismiss, exact: true }).click()
-      for (const width of [1440, 900, 390, 320]) {
+      for (const width of [1440, 1100, 900, 390, 320]) {
         await page.setViewportSize({ width, height: width > 900 ? 960 : 844 })
-        const sidebar = page.getByRole('complementary', { name: copy.shell.projectsAndSessions, exact: true })
-        if (width < 1024 && (await sidebar.isVisible()))
-          await page.getByRole('button', { name: copy.shell.hideSidebar, exact: true }).first().click()
+        if (width < 1024)
+          await expect(page.locator('.hbar-app-ui-app-shell[data-sidebar-open]')).toHaveAttribute(
+            'data-sidebar-open',
+            'false',
+          )
         await expect(expanded.getByRole('textbox', { name: filename, exact: true })).toHaveValue(
           '# unsaved editor draft',
         )
@@ -264,9 +274,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         )?.archived,
       ).toBe(true)
     } finally {
-      await context.close()
-      if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      try {
+        await context.close()
+      } finally {
+        if (host) await stopWebSessionHost(host)
+        await cleanupOwnedArchiveFixture(root)
+      }
     }
   })
 }
@@ -279,6 +292,7 @@ test('external active archive retires its tab observationally; the loaded view s
   let host: WebSessionHost | undefined
   try {
     host = await startWebSessionHost({
+      budgetAutoContinue: false,
       root,
       port: Number(process.env.HBAR_E2E_HOST_PORT ?? 44923),
       goalAutoContinue: false,
@@ -332,9 +346,12 @@ test('external active archive retires its tab observationally; the loaded view s
     await page.reload()
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(other.title)
   } finally {
-    await context.close()
-    if (host) await stopWebSessionHost(host)
-    await rm(root, { recursive: true, force: true })
+    try {
+      await context.close()
+    } finally {
+      if (host) await stopWebSessionHost(host)
+      await cleanupOwnedArchiveFixture(root)
+    }
   }
 })
 
@@ -346,6 +363,7 @@ test('archiving selected A preserves empty workspace across reload instead of si
   let host: WebSessionHost | undefined
   try {
     host = await startWebSessionHost({
+      budgetAutoContinue: false,
       root,
       port: Number(process.env.HBAR_E2E_HOST_PORT ?? 44923),
       sessionCount: 2,
@@ -378,8 +396,11 @@ test('archiving selected A preserves empty workspace across reload instead of si
     await expect(page.getByRole('heading', { name: copy.preSession.hero.title, exact: true })).toBeVisible()
     await page.screenshot({ path: `${evidence}/local-current-empty-reload-1440.png` })
   } finally {
-    await context.close()
-    if (host) await stopWebSessionHost(host)
-    await rm(root, { recursive: true, force: true })
+    try {
+      await context.close()
+    } finally {
+      if (host) await stopWebSessionHost(host)
+      await cleanupOwnedArchiveFixture(root)
+    }
   }
 })

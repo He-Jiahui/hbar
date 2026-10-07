@@ -1,6 +1,8 @@
+import { cleanupOwnedArchiveFixture } from './support/archive-fixture-cleanup'
+import { sessionTreeItemForRow } from './support/session-tree'
 import { expect, test } from '@playwright/test'
 import { createWorkspaceSessionCommandClient } from '@hbar/client'
-import { mkdtemp, mkdir, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
@@ -26,6 +28,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     let host: WebSessionHost | undefined
     try {
       host = await startWebSessionHost({
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
         root,
         port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
         historyCount: 2,
@@ -69,16 +73,16 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.keyboard.press('Enter')
       await expect(toolbar).toHaveAttribute('aria-pressed', 'true')
       const firstRow = page.locator(`[data-session-id="${first.id}"]`)
-      const firstTarget = firstRow.locator('.hbar-app-react-session-target')
+      const firstTarget = sessionTreeItemForRow(firstRow)
       await firstTarget.focus()
-      await expect(firstTarget).toHaveAttribute('aria-label', copy.shell.selectSession(first.title))
+      await expect(firstTarget).toHaveAccessibleName(first.title)
       await page.keyboard.press('Enter')
-      await expect(firstTarget).toHaveAttribute('aria-pressed', 'true')
+      await expect(firstTarget).toHaveAttribute('aria-checked', 'true')
       await expect(page.getByRole('heading', { name: first.title, exact: true })).toHaveCount(0)
       await page.keyboard.press('Space')
-      await expect(firstTarget).toHaveAttribute('aria-pressed', 'false')
+      await expect(firstTarget).toHaveAttribute('aria-checked', 'false')
       await page.keyboard.press('Enter')
-      await expect(firstTarget).toHaveAttribute('aria-pressed', 'true')
+      await expect(firstTarget).toHaveAttribute('aria-checked', 'true')
       await page.keyboard.press('Escape')
       await expect(toolbar).toHaveAttribute('aria-pressed', 'false')
       await expect(toolbar).toBeFocused()
@@ -86,12 +90,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
 
       await toolbar.click()
       await firstTarget.click()
-      const secondTarget = page.locator(`[data-session-id="${second.id}"] .hbar-app-react-session-target`)
+      const secondTarget = sessionTreeItemForRow(page.locator(`[data-session-id="${second.id}"]`))
       await secondTarget.click()
       const selection = page.getByRole('region', { name: labels.selectionTitle, exact: true })
       await expect(selection).toContainText(labels.selectedCount(2, 100))
       await mkdir('artifacts/session-archive-batch', { recursive: true })
-      for (const width of [1440, 390, 320]) {
+      for (const width of [1440, 1100, 900, 390, 320]) {
         await page.setViewportSize({ width, height: 844 })
         if (width < 1024) {
           const show = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
@@ -120,10 +124,21 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       ).toBeVisible()
       await expect(confirmation.getByText(labels.project(host.ready.workspaceName), { exact: true })).toBeVisible()
       await expect(confirmation.getByRole('button', { name: labels.cancel, exact: true })).toBeFocused()
-      const cancelBox = await confirmation.getByRole('button', { name: labels.cancel, exact: true }).boundingBox()
-      const confirmBox = await confirmation.getByRole('button', { name: labels.confirm, exact: true }).boundingBox()
-      expect(cancelBox && confirmBox && Math.abs(cancelBox.y - confirmBox.y) < 2).toBe(true)
-      for (const width of [1440, 390, 320]) {
+      const actionBoxes = await confirmation
+        .locator('.hbar-app-react-session-archive-actions')
+        .last()
+        .evaluate((node) =>
+          [...node.querySelectorAll<HTMLButtonElement>('button')].map((button) => {
+            const box = button.getBoundingClientRect()
+            return { text: button.textContent, centerY: box.y + box.height / 2 }
+          }),
+        )
+      expect(actionBoxes.map((box) => box.text)).toEqual([labels.cancel, labels.confirm])
+      const cancelBox = actionBoxes[0]
+      const confirmBox = actionBoxes[1]
+      if (!cancelBox || !confirmBox) throw new Error('The original archive actions are missing')
+      expect(Math.abs(cancelBox.centerY - confirmBox.centerY)).toBeLessThan(2)
+      for (const width of [1440, 1100, 900, 390, 320]) {
         await page.setViewportSize({ width, height: 844 })
         if (width < 1024) {
           const show = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
@@ -162,9 +177,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await results.getByRole('button', { name: labels.dismiss, exact: true }).click()
       expect(pageErrors).toEqual([])
     } finally {
-      await context.close()
-      if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      try {
+        await context.close()
+      } finally {
+        if (host) await stopWebSessionHost(host)
+        await cleanupOwnedArchiveFixture(root)
+      }
     }
   })
 }
@@ -178,6 +196,8 @@ test('the 100-target preview remains bounded on narrow screens and selection nev
   let host: WebSessionHost | undefined
   try {
     host = await startWebSessionHost({
+      goalAutoContinue: false,
+      budgetAutoContinue: false,
       root,
       port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
       sessionCount: 101,
@@ -214,13 +234,13 @@ test('the 100-target preview remains bounded on narrow screens and selection nev
     await toolbar.click()
     const rows = roster.locator('[data-session-id]')
     for (let index = 0; index < 100; index += 1) {
-      await rows.nth(index).locator('.hbar-app-react-session-target').click()
+      await sessionTreeItemForRow(rows.nth(index)).click()
     }
     const selectedCount = page.getByText(labels.selectedCount(100, 100), { exact: true })
     await expect(selectedCount).toBeVisible()
     const lastRow = rows.nth(100)
-    const lastTarget = lastRow.locator('.hbar-app-react-session-target')
-    await expect(lastTarget).toHaveAttribute('aria-pressed', 'false')
+    const lastTarget = sessionTreeItemForRow(lastRow)
+    await expect(lastTarget).toHaveAttribute('aria-checked', 'false')
     await lastTarget.click()
     await expect(page.getByText(labels.maximumReached(100), { exact: true })).toBeVisible()
     await expect(selectedCount).toBeVisible()
@@ -228,8 +248,9 @@ test('the 100-target preview remains bounded on narrow screens and selection nev
     await selection.getByRole('button', { name: labels.archiveSelected, exact: true }).click()
     const confirmation = page.getByRole('region', { name: labels.previewTitle(100), exact: true })
     const targetList = confirmation.locator('ol')
+    const targetReader = confirmation.locator('.hbar-app-react-session-archive-batch-reading')
     await expect(targetList.locator('li')).toHaveCount(100)
-    expect(await targetList.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true)
+    expect(await targetReader.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true)
     await mkdir('artifacts/session-archive-batch', { recursive: true })
     for (const width of [390, 320]) {
       await page.setViewportSize({ width, height: 844 })
@@ -238,7 +259,7 @@ test('the 100-target preview remains bounded on narrow screens and selection nev
       await expect(confirmation).toBeVisible()
       await expect(confirmation.getByRole('button', { name: labels.confirm, exact: true })).toBeVisible()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
-      expect(await targetList.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true)
+      expect(await targetReader.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true)
       await page.screenshot({ path: `artifacts/session-archive-batch/confirm-100-en-US-${width}.png` })
     }
     await confirmation.getByRole('button', { name: labels.cancel, exact: true }).focus()
@@ -246,8 +267,11 @@ test('the 100-target preview remains bounded on narrow screens and selection nev
     await expect(selection).toBeVisible()
     expect(archiveWrites).toBe(0)
   } finally {
-    await context.close()
-    if (host) await stopWebSessionHost(host)
-    await rm(root, { recursive: true, force: true })
+    try {
+      await context.close()
+    } finally {
+      if (host) await stopWebSessionHost(host)
+      await cleanupOwnedArchiveFixture(root)
+    }
   }
 })

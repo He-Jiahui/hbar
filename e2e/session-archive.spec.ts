@@ -1,6 +1,8 @@
+import { cleanupOwnedArchiveFixture } from './support/archive-fixture-cleanup'
+import { sessionTreeItemForRow } from './support/session-tree'
 import { expect, test } from '@playwright/test'
 import { createWorkspaceSessionCommandClient } from '@hbar/client'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
@@ -17,11 +19,18 @@ const rpcShape = z
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`archive and restore preserve history, navigation and unknown targets: ${locale}`, async ({ browser }) => {
+    test.setTimeout(90_000)
     const root = await mkdtemp(join(tmpdir(), 'hbar-session-archive-'))
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 960 } })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317), historyCount: 2 })
+      host = await startWebSessionHost({
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        historyCount: 2,
+      })
       const commands = createWorkspaceSessionCommandClient(host.client)
       const title =
         '需要可恢复归档的原会话 — Preserve every historical message and the original target across navigation'
@@ -99,19 +108,29 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(confirmation.getByRole('button', { name: labels.cancel, exact: true })).toBeFocused()
       await page.keyboard.press('Escape')
       await expect(confirmation).toHaveCount(0)
-      await expect(row.locator('.hbar-app-react-session-target')).toBeFocused()
+      await expect(sessionTreeItemForRow(row)).toBeFocused()
       expect(writes).toBe(0)
       await begin()
-      await page.getByRole('treeitem', { expanded: true, name: host.ready.workspaceName, exact: true }).click()
+      await page.getByRole('treeitem', { expanded: true, name: host.ready.workspaceName, exact: true }).focus()
+      await page.keyboard.press('ArrowLeft')
+      await expect(page.getByRole('treeitem', { name: host.ready.workspaceName, exact: true })).toHaveAttribute(
+        'aria-expanded',
+        'false',
+      )
       const collapsedRecovery = page.getByRole('group', { name: labels.confirmTitle(title), exact: true })
       await expect(collapsedRecovery).toBeVisible()
       await expect(row).toHaveCount(0)
       await collapsedRecovery.getByRole('button', { name: labels.cancel, exact: true }).click()
       await expect(collapsedRecovery).toHaveCount(0)
       expect(writes).toBe(0)
-      await page.getByRole('treeitem', { expanded: false, name: host.ready.workspaceName, exact: true }).click()
+      await page.getByRole('treeitem', { expanded: false, name: host.ready.workspaceName, exact: true }).focus()
+      await page.keyboard.press('ArrowRight')
+      await expect(page.getByRole('treeitem', { name: host.ready.workspaceName, exact: true })).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      )
       await begin()
-      for (const width of [1440, 390, 320]) {
+      for (const width of [1440, 1100, 900, 390, 320]) {
         await page.setViewportSize({ width, height: 844 })
         if (width < 1024) await page.getByRole('button', { name: copy.shell.showSidebar, exact: true }).click()
         await expect(confirmation).toBeVisible()
@@ -149,7 +168,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(other.title)
       mode = 'unknown'
       await list.getByRole('button', { name: labels.restoreSession(title), exact: true }).click()
-      await expect(list.getByRole('alert')).toHaveText(labels.unknown)
+      const originalRestoreFeedback = page.getByRole('group', { name: labels.restoreTitle(title), exact: true })
+      await expect(originalRestoreFeedback.getByRole('alert')).toHaveText(labels.unknown)
       await list.getByRole('button', { name: labels.close, exact: true }).click()
       await expect(list).toHaveCount(0)
       const recovery = page.getByRole('group', { name: labels.restoreTitle(title), exact: true })
@@ -169,7 +189,30 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await otherTrigger.click()
       const otherMenu = await lumenMenuForTrigger(otherTrigger)
       await otherMenu.getByRole('menuitem', { name: copy.shell.archiveSession, exact: true }).click()
-      await otherRow.getByRole('button', { name: labels.confirm, exact: true }).click()
+      const lastConfirm = otherRow.getByRole('button', { name: labels.confirm, exact: true })
+      await lastConfirm.scrollIntoViewIfNeeded()
+      const geometry = await lastConfirm.evaluate((node) => {
+        const button = node.getBoundingClientRect()
+        const group = node.closest('.lumen-tree-group')
+        const child = group?.firstElementChild
+        if (!group || !child) throw new Error('Archive target must belong to the rendered session tree group')
+        const owner = group.getBoundingClientRect()
+        const content = child.getBoundingClientRect()
+        return {
+          left: button.left,
+          right: button.right,
+          viewport: innerWidth,
+          contentLeft: content.left,
+          contentRight: content.right,
+          ownerLeft: owner.left,
+          ownerRight: owner.right,
+        }
+      })
+      expect(geometry.left).toBeGreaterThanOrEqual(0)
+      expect(geometry.right).toBeLessThanOrEqual(geometry.viewport)
+      expect(geometry.contentLeft).toBeGreaterThanOrEqual(geometry.ownerLeft - 1)
+      expect(geometry.contentRight).toBeLessThanOrEqual(geometry.ownerRight + 1)
+      await lastConfirm.click()
       await expect(otherRow).toHaveCount(0)
       await expect(page.getByRole('heading', { name: copy.preSession.hero.title, exact: true })).toBeVisible()
       await page.getByRole('button', { name: labels.dismiss, exact: true }).click()
@@ -181,9 +224,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(writes).toBe(4)
       expect(errors).toEqual([])
     } finally {
-      await context.close()
-      if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      try {
+        await context.close()
+      } finally {
+        if (host) await stopWebSessionHost(host)
+        await cleanupOwnedArchiveFixture(root)
+      }
     }
   })
 }
@@ -193,7 +239,13 @@ test('an empty first archived page still exposes the next bounded project page',
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 960 } })
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317), sessionCount: 101 })
+    host = await startWebSessionHost({
+      goalAutoContinue: false,
+      budgetAutoContinue: false,
+      root,
+      port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+      sessionCount: 101,
+    })
     const all = await host.client.call('session.list', {
       workspaceId: host.ready.workspaceId,
       includeArchived: true,
@@ -230,8 +282,11 @@ test('an empty first archived page still exposes the next bounded project page',
     await expect(list).toHaveCount(0)
     await expect(page.getByTitle(copy.shell.workspaceActions(host.ready.workspaceName), { exact: true })).toBeFocused()
   } finally {
-    await context.close()
-    if (host) await stopWebSessionHost(host)
-    await rm(root, { recursive: true, force: true })
+    try {
+      await context.close()
+    } finally {
+      if (host) await stopWebSessionHost(host)
+      await cleanupOwnedArchiveFixture(root)
+    }
   }
 })

@@ -4,11 +4,11 @@ import { createAppRuntime } from '@hbar/app-runtime'
 import { HbarRuntimeProvider } from '@hbar/app-react'
 import { CommandError } from '@hbar/commands'
 import { directoryCommands } from '@hbar/contracts/commands'
-import { SessionArchiveFeedback } from '../packages/app-react/src/session-archive'
+import { SessionArchiveFeedback, SessionArchiveRecovery } from '../packages/app-react/src/session-archive'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
-  for (const error of ['CAPACITY_EXCEEDED', 'BUSY'] as const) {
+  for (const error of ['CAPACITY_EXCEEDED', 'BUSY', 'CONNECTION_CLOSED'] as const) {
     test(`archive feedback distinguishes client capacity from an active Host Run: ${locale}/${error}`, async () => {
       const workspace = { id: 'workspace', name: 'Original workspace', path: 'D:/fixture', createdAt: 1 }
       const session = {
@@ -52,7 +52,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           runtime.view.commands.execute('sessionArchive.confirm', { sessionId: session.id, revision }),
         ).rejects.toMatchObject({ code: error })
         expect(runtime.view.state.sessionArchive.getSnapshot().mutation).toMatchObject({
-          status: 'failed',
+          status: error === 'CONNECTION_CLOSED' ? 'unknown' : 'failed',
           error,
           target: { sessionId: session.id, title: session.title },
         })
@@ -64,12 +64,28 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         )
         expect(markup).toContain('role="alert"')
         expect(markup).toContain(copy.confirmTitle(session.title))
-        expect(markup).toContain(copy.error(error))
-        expect(markup).not.toContain(copy.error(error === 'BUSY' ? 'CAPACITY_EXCEEDED' : 'BUSY'))
-        expect(markup).toContain(copy.cancel)
-        expect(markup).not.toContain(copy.reconcile)
+        const feedback = error === 'CONNECTION_CLOSED' ? copy.unknown : copy.error(error)
+        expect(markup).toContain(feedback)
+        if (error === 'CONNECTION_CLOSED') {
+          expect(markup).toContain(copy.reconcile)
+          expect(markup).not.toContain(`>${copy.cancel}</`)
+        } else {
+          expect(markup).not.toContain(copy.error(error === 'BUSY' ? 'CAPACITY_EXCEEDED' : 'BUSY'))
+          expect(markup).toContain(copy.cancel)
+          expect(markup).not.toContain(copy.reconcile)
+        }
         expect(copy.error('CAPACITY_EXCEEDED')).not.toContain('CAPACITY_EXCEEDED')
         expect(runtime.view.state.navigation.getSnapshot().sessionId).toBe(session.id)
+        const recovery = (inlineSessionIds: ReadonlySet<string>) =>
+          renderToStaticMarkup(
+            <HbarRuntimeProvider view={runtime.view}>
+              <SessionArchiveRecovery labels={copy} connected inlineSessionIds={inlineSessionIds} />
+            </HbarRuntimeProvider>,
+          )
+        // A cached unarchived fact does not prove the current roster renders its row.
+        expect(recovery(new Set())).toContain(copy.confirmTitle(session.title))
+        expect(recovery(new Set())).toContain(feedback)
+        expect(recovery(new Set([session.id]))).toBe('')
       } finally {
         runtime.dispose()
       }

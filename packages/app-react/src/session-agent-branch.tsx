@@ -9,6 +9,7 @@ import {
   type SessionNavigationRowMetadata,
 } from './session-navigation-row'
 import type { SessionActivityIndicatorContent } from './session-activity-indicator'
+import { visibleSessionAgentRows } from './session-agent-visible-rows'
 import './session-agent-branch.css'
 
 export interface SessionAgentTreeLabels {
@@ -81,16 +82,7 @@ function Branch({
   const count = branch?.status === 'ready' ? branch.totalCount : Math.max(props.childCount, branch?.totalCount ?? 0)
   const hasChildren = count > 0 || expanded
   const nextPath = [...path, session.id]
-  const rows = (branch?.rows ?? []).flatMap((row) => {
-    const child = projection.directory.sessions[row.sessionId]
-    return child &&
-      !child.archived &&
-      child.parentId === session.id &&
-      !nextPath.includes(child.id) &&
-      nextPath.length < 32
-      ? [{ row, child }]
-      : []
-  })
+  const rows = visibleSessionAgentRows(session, path, projection.directory, projection.tree)
   const children = expanded ? (
     <LumenFrame
       className="hbar-app-react-agent-branch-children"

@@ -85,6 +85,7 @@ import { useWorkspaceDisplayNameFocus } from './workspace-display-name-focus'
 import { HbarWorkspaceFoldersDialog, type WorkspaceFoldersLabels } from './workspace-folders'
 import { SessionRenameRecovery, type SessionRenameLabels } from './session-navigation-row'
 import { SessionAgentBranch, type SessionAgentTreeLabels } from './session-agent-branch'
+import { renderedSessionAgentIds } from './session-agent-visible-rows'
 import {
   ArchivedSessions,
   SessionArchiveBatchPanel,
@@ -378,6 +379,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const organization = useHbarRuntimeState(runtime.state.workspaceOrganization)
   const displayNames = useHbarRuntimeState(runtime.state.workspaceDisplayNames)
   const organizationMenuRef = useRef<HTMLDivElement | null>(null)
+  const projectMenuRoots = useRef(new Map<string, HTMLDivElement>())
   const sidebarTreeRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     // Changing list organization starts at its heading; live row updates keep the scroll position.
@@ -910,6 +912,25 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     [timelineItems, directory.sessions, sessionTimeNow],
   )
 
+  const inlineArchiveSessionIds = renderedSessionAgentIds(
+    timeView
+      ? timeGroups.flatMap((group) =>
+          group.sessionIds.flatMap((id) => {
+            const item = timelineById.get(id)
+            const session = item && directory.sessions[id]
+            return item && session && expanded.has(item.workspaceId) && directory.workspaces[item.workspaceId]
+              ? [session]
+              : []
+          }),
+        )
+      : sidebarOrder.flatMap((workspaceId) =>
+          expanded.has(workspaceId) && directory.workspaces[workspaceId]
+            ? (sessionsByWorkspace.get(workspaceId) ?? [])
+            : [],
+        ),
+    directory,
+    agentTree,
+  )
   const batchSelectedTargets = Array.from(batchSelection.values())
   const clearBatchSelection = () => {
     const next = new Map<string, { readonly workspaceId: string; readonly sessionId: string }>()
@@ -1663,6 +1684,10 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                         )}
                       </LumenFrame>
                       <WorkspaceProjectMenu
+                        onRootChange={(node) => {
+                          if (node) projectMenuRoots.current.set(workspace.id, node)
+                          else projectMenuRoots.current.delete(workspace.id)
+                        }}
                         label={props.labels.workspaceActions(displayName)}
                         items={[
                           {
@@ -1791,6 +1816,11 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                         </LumenFrame>
                       )}
                       <ArchivedSessions
+                        getCloseFocusTarget={() =>
+                          projectMenuRoots.current
+                            .get(workspace.id)
+                            ?.querySelector<HTMLElement>('button[aria-haspopup="menu"]') ?? null
+                        }
                         workspaceId={workspace.id}
                         workspaceName={displayName}
                         labels={props.labels.archive}
@@ -1908,7 +1938,11 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           )}
         </LumenTree>
         <SessionRenameRecovery labels={props.labels.renameEditor} connected={props.connection === 'connected'} />
-        <SessionArchiveRecovery labels={props.labels.archive} connected={connected} expandedWorkspaces={expanded} />
+        <SessionArchiveRecovery
+          labels={props.labels.archive}
+          connected={connected}
+          inlineSessionIds={inlineArchiveSessionIds}
+        />
         {error && (
           <LumenContentText context="feedback.paragraph" role="alert">
             {props.labels.error(error)}

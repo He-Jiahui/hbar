@@ -163,8 +163,8 @@ test('Deep Agent ancestry retains semantic parent groups without unbounded visua
     expect(html.match(/data-agent-parent=/g)).toHaveLength(32)
     expect(html).toContain('data-sidebar-level="parent-session"')
     expect(html).toContain('data-sidebar-level="subagent-session"')
-    expect(html.match(/data-flat-depth="false"/g)).toHaveLength(3)
-    expect(html.match(/data-flat-depth="true"/g)).toHaveLength(28)
+    expect(html.match(/class="hbar-app-react-agent-branch-children"[^>]*data-flat-depth="false"/g)).toHaveLength(3)
+    expect(html.match(/class="hbar-app-react-agent-branch-children"[^>]*data-flat-depth="true"/g)).toHaveLength(28)
     expect(html).toContain('data-agent-parent="deep-30"')
   } finally {
     runtime.dispose()

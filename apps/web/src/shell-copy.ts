@@ -3442,6 +3442,7 @@ function createArchiveBatchLabels(locale: ShellLocale): SessionArchiveBatchLabel
     cancel: zh ? '取消' : 'Cancel',
     confirm: zh ? '立即归档' : 'Archive now',
     project: (name) => (zh ? `项目：${name}` : `Project: ${name}`),
+    target: (workspaceName, title) => (zh ? `${workspaceName}：${title}` : `${workspaceName}: ${title}`),
     archiving: (completed, total) =>
       zh ? `正在处理 ${completed}/${total} 项…` : `Processing ${completed} of ${total}…`,
     processing: zh ? '正在归档…' : 'Archiving…',

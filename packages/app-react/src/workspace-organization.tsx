@@ -34,12 +34,14 @@ export function WorkspaceProjectMenu({
   items,
   onAction,
   menuRef,
+  onRootChange,
   header = false,
 }: {
   readonly label: string
   readonly items: readonly LumenActionMenuItem[]
   readonly onAction: (id: string) => void
   readonly menuRef?: { current: HTMLDivElement | null } | undefined
+  readonly onRootChange?: (root: HTMLDivElement | null) => void
   readonly header?: boolean
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -90,6 +92,7 @@ export function WorkspaceProjectMenu({
       ref={(node) => {
         rootRef.current = node
         if (menuRef) menuRef.current = node
+        onRootChange?.(node)
       }}
       className={header ? 'hbar-app-react-project-organization-menu' : 'hbar-app-react-project-menu'}
       data-testid={header ? 'workspace-organization-menu' : undefined}
