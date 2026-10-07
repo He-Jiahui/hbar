@@ -2,17 +2,17 @@
 
 由 `bun scripts/audit-desktop-elements.ts --write` 从运行时入口、命名延迟加载、barrel 导出和 JSX 生成。完整的元素、槽位、内容来源、可访问名称、动作目标、状态来源和待处理问题见 [类型化清单](desktop-elements.json)。
 
-入口：`apps/web/src/main.tsx`。相关 TSX 模块 146 个；元素 3760 个。实际构建输入核对：passed。
+入口：`apps/web/src/main.tsx`。相关 TSX 模块 146 个；元素 3768 个。实际构建输入核对：passed。
 
 ## 类别与展示边界
 
 | 类别        | 元素 | pending | 设计职责                                                                |
 | ----------- | ---: | ------: | ----------------------------------------------------------------------- |
-| structure   | 1173 |       7 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
-| text        | 1092 |     202 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
+| structure   | 1178 |       7 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
+| text        | 1093 |     180 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
 | interaction |  933 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
 | form        |  280 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
-| collection  |  139 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
+| collection  |  141 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
 | technical   |   75 |       0 | 原文、代码、Markdown、图示与媒体的专用 renderer；辅助操作仍使用 Lumen。 |
 | feedback    |   61 |       0 | 空、加载、运行、成功、失败、恢复与取消的宿主状态及语义反馈。            |
 | platform    |    7 |       4 | Tauri 标题、托盘与通知；操作系统展示，宿主提供文案。                    |
@@ -38,7 +38,7 @@
 | [apps/web/src/main.tsx](../../apps/web/src/main.tsx)                                                                       | workbench                                        |    3 |              0 |          0 |          0 |
 | [apps/web/src/notifications-page.tsx](../../apps/web/src/notifications-page.tsx)                                           | global-pages                                     |   12 |              0 |          3 |          0 |
 | [apps/web/src/onboarding-page.tsx](../../apps/web/src/onboarding-page.tsx)                                                 | global-pages                                     |    4 |              0 |          1 |          0 |
-| [apps/web/src/prompt-templates-page.tsx](../../apps/web/src/prompt-templates-page.tsx)                                     | global-pages                                     |   60 |              0 |         17 |          0 |
+| [apps/web/src/prompt-templates-page.tsx](../../apps/web/src/prompt-templates-page.tsx)                                     | global-pages                                     |   68 |             18 |          0 |          0 |
 | [apps/web/src/run-board-page.tsx](../../apps/web/src/run-board-page.tsx)                                                   | agents-and-activity                              |   22 |              0 |         13 |          0 |
 | [apps/web/src/schedules-page.tsx](../../apps/web/src/schedules-page.tsx)                                                   | global-pages                                     |   77 |              0 |         16 |          0 |
 | [packages/app-react/src/action-icon-button.tsx](../../packages/app-react/src/action-icon-button.tsx)                       | workbench                                        |    2 |              0 |          0 |          0 |
@@ -111,7 +111,7 @@
 | [packages/app-react/src/pre-session-slash-editor.tsx](../../packages/app-react/src/pre-session-slash-editor.tsx)           | composer-and-launch                              |    3 |              0 |          0 |          0 |
 | [packages/app-react/src/pre-session-thinking-picker.tsx](../../packages/app-react/src/pre-session-thinking-picker.tsx)     | composer-and-launch                              |   13 |              4 |          0 |          0 |
 | [packages/app-react/src/prompt-composer.tsx](../../packages/app-react/src/prompt-composer.tsx)                             | composer-and-launch                              |    4 |              0 |          0 |          0 |
-| [packages/app-react/src/prompt-template-editor.tsx](../../packages/app-react/src/prompt-template-editor.tsx)               | global-pages                                     |   16 |              0 |          5 |          0 |
+| [packages/app-react/src/prompt-template-editor.tsx](../../packages/app-react/src/prompt-template-editor.tsx)               | global-pages                                     |   16 |              5 |          0 |          0 |
 | [packages/app-react/src/proposed-plan-message.tsx](../../packages/app-react/src/proposed-plan-message.tsx)                 | goals-and-plans                                  |   16 |              1 |          0 |          0 |
 | [packages/app-react/src/proposed-plan.tsx](../../packages/app-react/src/proposed-plan.tsx)                                 | goals-and-plans                                  |   21 |              5 |          0 |          0 |
 | [packages/app-react/src/provider-list-view.tsx](../../packages/app-react/src/provider-list-view.tsx)                       | settings                                         |   42 |             14 |          0 |          0 |

@@ -174,6 +174,12 @@ export function createPromptTemplates(commands: CommandExecutor, onError: (error
             { signal: controller.signal },
           ),
         )
+        const ids = new Set<string>()
+        for (const item of page.items) {
+          if (item.workspaceId !== workspaceId || ids.has(item.id))
+            throw new CommandError('INVALID_OUTPUT', 'Template page contains an ambiguous or foreign target')
+          ids.add(item.id)
+        }
         if (!disposed && currentGeneration === generation)
           state.replace({ ...read(), page, status: read().mutation === 'unknown' ? 'unknown' : 'idle' })
         return page

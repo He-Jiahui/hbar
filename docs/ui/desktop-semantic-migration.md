@@ -421,4 +421,13 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 两项中英文实际 Chrome／Host 导入回归通过，验证 Claude／Codex 的技能与上下文文件转换、脚本和源文件保留、发现刷新与重新加载，以及 390／320 窄屏。所属 Host 停止后按前缀、真实路径和临时目录校验清理，关闭自动 Goal／预算继续。
 - 范围 ESLint、文案／图标／flow guard、格式、Web build 与构建输入清单通过。测试夹具把 settings.title 格式器误当字符串的问题已修正；最终冷启动类型仍为 92 项既有诊断，本次范围为零，全库门禁尚未通过。证据在 artifacts/desktop-elements/skill-import-content 的 unit.log、client-final.log、host.log、host-reader-final.log、types-final.log、lint.log、lint-fixture-final.log、lint-reader-final.log、build.log、inventory-final.log 及相应 guard／format 日志。
 
-当前已提交清单覆盖 146 个生产 TSX 模块、3760 个元素，其中记录了 202 处低层文字未分类，合计 213 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 提示模板的完整名称、编辑器与原目标操作
+
+- 页面／章节、模板主副内容、变量状态、表单帮助、空态和反馈共 22 处低层文字归入具名角色。模板选择按钮内使用 collection.title 完整换行；列表仍是 Host 提供的 50 条游标页，变量状态交由 LumenCollection／Item，编辑状态最多 32 个变量，正文由页面统一承担纵向阅读。编辑器使用独立关联 ID 和公开 160 字名称／200,000 字正文上限，输入字段及紧凑操作组拥有具名键盘阅读区。
+- 8056cb9e 的横向 flex-basis 在窄屏纵向布局产生额外空白；旧行为确定性检查失败，窄屏改为随内容增长后通过。标题与说明之间保留实际语义排版边距，检查依据渲染内容与动作间的实际间距。页面支持宿主传入类型化 labels，生产仍由本地语言目录解析；测试长文案不进入运行时默认内容。
+- 原读取实现 ad017bf9 只进行 DTO schema 校验，重复模板 ID 与跨工作区记录仍被接收。两项失败复现转为通过：Runtime 在应用页面结果前校验唯一 ID 与原 workspaceId，拒绝含糊目标，保留既有 generation、游标和未知结果核对。10 项相关 Runtime／Storage 单测、43 个断言全部通过。
+- 84 个实际 Chrome 场景通过，覆盖两语言、明暗、五宽度、125% 文字、完整名称／说明／编辑标题／变量标签／状态、紧凑动作与字段标签键盘阅读、短文案自然标题区、0／1／7／50／51 个模板、160／161 字名称、0／1／32／33 个变量、200,000 字正文与额外输入限制、加载／失败恢复／已接受响应丢失、原模板保存与列表重排后原 revision 删除、有效／失效草稿目标和实际追加正文。未知保存核对只发生一次写入。
+- 一项真实 Chrome／Host 回归完成中英文两套创建／编辑、变量声明、五宽度布局、原会话追加／替换、首次发送草稿与删除流程。首次误用旧冻结文件、旧测试读取非活动对话、侧栏折叠和不同表面的中文返回文案均已按实际入口纠正；验证使用重新构建的当前 Web 文件，返回原会话读取草稿后再打开模板页。所属 Host 已停止，数据经 realpath、临时目录与前缀校验清理。
+- Web build、范围严格 ESLint、文案／图标／flow guard、格式与构建清单通过；冷启动类型仍为 92 项既有诊断，本次范围为零，全库门禁未完成。证据在 artifacts/desktop-elements/prompt-template-content 的 identity-red.log、flow-red.log、unit.log、client-final.log、host-final.log、types-final.log、lint-final.log、lint-delivery.log、build-final.log、inventory.log 及各失败／最终截图目录。结构参考：App Shell 的稳定工作台区域；交互参考：Forms 的分节编辑、校验与就近保存反馈，沿用 [App Shell](https://pro.reactbits.dev/docs/app-ui/app-shell) 与 [Forms](https://pro.reactbits.dev/docs/app-ui/forms) 的既有映射。
+
+当前已提交清单覆盖 146 个生产 TSX 模块、3768 个元素，其中记录了 180 处低层文字未分类，合计 191 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

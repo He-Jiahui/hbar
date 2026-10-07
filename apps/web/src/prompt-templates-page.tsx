@@ -8,7 +8,7 @@ import {
   LumenFrame,
   LumenInput,
   LumenPopupSelect,
-  LumenText,
+  LumenContentText,
 } from '@lumen/app-ui'
 import { PromptTemplateEditor, useHbarRuntimeState, type HbarRuntimeView } from '@hbar/app-react'
 import { preSessionDraftStateSchema } from '@hbar/contracts/commands/pre-session-draft'
@@ -27,6 +27,7 @@ export interface PromptTemplatesPageProps {
   readonly workspaceId: string
   readonly sessionId?: string
   readonly locale: ShellLocale
+  readonly labels?: PromptTemplateCopy
 }
 type Target = { readonly kind: 'session' | 'pre-session'; readonly id: string }
 
@@ -52,6 +53,7 @@ function AvailablePromptTemplatesPage({
   workspaceId,
   sessionId,
   locale,
+  labels,
   api,
 }: PromptTemplatesPageProps & {
   readonly api: NonNullable<HbarRuntimeView['state']['promptTemplates']>
@@ -72,7 +74,7 @@ function AvailablePromptTemplatesPage({
     void sessionTargets.refresh(workspaceId).catch(() => undefined)
   }, [sessionTargets, workspaceId])
   useEffect(() => sessionTargets.retain(), [sessionTargets])
-  const copy = useMemo(() => promptTemplateCopy(locale), [locale])
+  const copy = useMemo(() => labels ?? promptTemplateCopy(locale), [labels, locale])
   const [target, setTarget] = useState<Target | null>(sessionId ? { kind: 'session', id: sessionId } : null)
   const [mode, setMode] = useState<'append' | 'replace'>('append')
   const [values, setValues] = useState<Readonly<Record<string, string>>>({})
@@ -220,54 +222,71 @@ function AvailablePromptTemplatesPage({
     <LumenFrame className="hbar-prompt-templates-page">
       <LumenFrame as="header">
         <LumenFrame>
-          <LumenText as="h1">{copy.title}</LumenText>
-          <LumenText as="p" tone="muted">
-            {copy.detail}
-          </LumenText>
+          <LumenContentText context="workspace.title">{copy.title}</LumenContentText>
+          <LumenContentText context="workspace.context">{copy.detail}</LumenContentText>
         </LumenFrame>
-        <LumenButton
-          disabled={busy}
-          onClick={() => {
-            api.createDraft(workspaceId)
-            setError(null)
-            setMessage(null)
-          }}
-        >
-          {copy.create}
-        </LumenButton>
+        <LumenFrame className="hbar-prompt-actions" role="group" aria-label={copy.title} tabIndex={0}>
+          <LumenButton
+            disabled={busy}
+            onClick={() => {
+              api.createDraft(workspaceId)
+              setError(null)
+              setMessage(null)
+            }}
+          >
+            {copy.create}
+          </LumenButton>
+        </LumenFrame>
       </LumenFrame>
-      {state.status === 'loading' ? <LumenText role="status">{copy.loading}</LumenText> : null}
+      {state.status === 'loading' ? (
+        <LumenContentText context="feedback.paragraph" role="status">
+          {copy.loading}
+        </LumenContentText>
+      ) : null}
       {targetCatalog.status === 'error' ? (
         <LumenFrame role="alert">
-          <LumenText>{copy.sessionsFailed}</LumenText>
-          <LumenButton onClick={() => void sessionTargets.refresh(workspaceId).catch(report)}>{copy.retry}</LumenButton>
+          <LumenContentText context="feedback.paragraph" tone="danger">
+            {copy.sessionsFailed}
+          </LumenContentText>
+          <LumenFrame className="hbar-prompt-actions" role="group" aria-label={copy.sessionsFailed} tabIndex={0}>
+            <LumenButton onClick={() => void sessionTargets.refresh(workspaceId).catch(report)}>
+              {copy.retry}
+            </LumenButton>
+          </LumenFrame>
         </LumenFrame>
       ) : null}
-      {targetCatalog.capacityReached ? <LumenText>{copy.sessionCapacity}</LumenText> : null}
+      {targetCatalog.capacityReached ? (
+        <LumenContentText context="feedback.paragraph">{copy.sessionCapacity}</LumenContentText>
+      ) : null}
       {state.status === 'error' && state.mutation !== 'failed' ? (
         <LumenFrame className="hbar-prompt-feedback" role="alert">
-          <LumenText>{state.error ?? copy.loadError}</LumenText>
-          <LumenButton onClick={() => void api.list(workspaceId, null).catch(report)}>{copy.retry}</LumenButton>
+          <LumenContentText context="feedback.paragraph" tone="danger">
+            {state.error ?? copy.loadError}
+          </LumenContentText>
+          <LumenFrame className="hbar-prompt-actions" role="group" aria-label={copy.loadError} tabIndex={0}>
+            <LumenButton onClick={() => void api.list(workspaceId, null).catch(report)}>{copy.retry}</LumenButton>
+          </LumenFrame>
         </LumenFrame>
       ) : null}
       <LumenFrame as="section" className="hbar-prompt-template-list" aria-label={copy.listTitle}>
-        <LumenText as="h2">{copy.listTitle}</LumenText>
+        <LumenContentText context="section.title" level={2}>
+          {copy.listTitle}
+        </LumenContentText>
         {items.map((template) => (
           <LumenFrame as="article" key={template.id}>
             <LumenFrame>
               <LumenButton
                 variant="text"
+                className="hbar-prompt-template-select"
                 disabled={busy}
                 aria-pressed={selected?.id === template.id}
                 onClick={() => select(template)}
               >
-                {template.name}
+                <LumenContentText context="collection.title">{template.name}</LumenContentText>
               </LumenButton>
-              <LumenText as="p" tone="muted">
-                {template.description}
-              </LumenText>
+              <LumenContentText context="collection.detail">{template.description}</LumenContentText>
             </LumenFrame>
-            <LumenFrame className="hbar-prompt-actions">
+            <LumenFrame className="hbar-prompt-actions" role="group" aria-label={template.name} tabIndex={0}>
               <LumenButton
                 disabled={busy}
                 onClick={() => {
@@ -284,9 +303,11 @@ function AvailablePromptTemplatesPage({
             </LumenFrame>
           </LumenFrame>
         ))}
-        {items.length === 0 && state.status === 'idle' ? <LumenText>{copy.empty}</LumenText> : null}
+        {items.length === 0 && state.status === 'idle' ? (
+          <LumenContentText context="empty.description">{copy.empty}</LumenContentText>
+        ) : null}
       </LumenFrame>
-      <LumenFrame as="nav" className="hbar-prompt-pagination">
+      <LumenFrame as="nav" className="hbar-prompt-pagination" aria-label={copy.listTitle} tabIndex={0}>
         <LumenButton
           disabled={busy || state.status === 'loading' || !state.page?.nextCursor}
           onClick={() => {
@@ -325,7 +346,7 @@ function AvailablePromptTemplatesPage({
               setError(null)
             }}
           />
-          <LumenFormField label={copy.description} controlId="prompt-template-description">
+          <LumenFormField label={copy.description} controlId="prompt-template-description" layout="rows">
             <LumenInput
               value={draft.description}
               disabled={busy}
@@ -334,7 +355,9 @@ function AvailablePromptTemplatesPage({
             />
           </LumenFormField>
           <LumenFrame as="section" className="hbar-prompt-variables">
-            <LumenText as="h3">{copy.variables}</LumenText>
+            <LumenContentText context="section.title" level={3}>
+              {copy.variables}
+            </LumenContentText>
             {draft.variables.map((variable, index) => (
               <LumenFrame className="hbar-prompt-variable" key={index}>
                 <LumenFrame className="hbar-prompt-variable-fields">
@@ -371,7 +394,12 @@ function AvailablePromptTemplatesPage({
                     onChange={(event) => updateVariable(index, { defaultValue: event.currentTarget.value })}
                   />
                 </LumenFrame>
-                <LumenFrame className="hbar-prompt-variable-actions">
+                <LumenFrame
+                  className="hbar-prompt-variable-actions"
+                  role="group"
+                  aria-label={copy.variables}
+                  tabIndex={0}
+                >
                   <LumenButton
                     disabled={busy}
                     onClick={() =>
@@ -383,18 +411,22 @@ function AvailablePromptTemplatesPage({
                 </LumenFrame>
               </LumenFrame>
             ))}
-            <LumenButton
-              disabled={busy || draft.variables.length >= 32}
-              onClick={() => updateDraft({ variables: [...draft.variables, { id: '', label: '', required: false }] })}
-            >
-              {copy.addVariable}
-            </LumenButton>
+            <LumenFrame className="hbar-prompt-actions" role="group" aria-label={copy.variables} tabIndex={0}>
+              <LumenButton
+                disabled={busy || draft.variables.length >= 32}
+                onClick={() => updateDraft({ variables: [...draft.variables, { id: '', label: '', required: false }] })}
+              >
+                {copy.addVariable}
+              </LumenButton>
+            </LumenFrame>
           </LumenFrame>
         </>
       ) : null}
       {selected && !draft ? (
         <LumenFrame as="section" className="hbar-prompt-apply">
-          <LumenText as="h2">{copy.applyTitle}</LumenText>
+          <LumenContentText context="section.title" level={2}>
+            {copy.applyTitle}
+          </LumenContentText>
           <LumenPopupSelect
             id="prompt-template-target"
             aria-label={copy.target}
@@ -418,9 +450,11 @@ function AvailablePromptTemplatesPage({
               setReplaceConfirmation(false)
             }}
           />
-          <LumenButton disabled={busy} onClick={() => void createPreDraft()}>
-            {copy.createPreDraft}
-          </LumenButton>
+          <LumenFrame className="hbar-prompt-actions" role="group" aria-label={copy.target} tabIndex={0}>
+            <LumenButton disabled={busy} onClick={() => void createPreDraft()}>
+              {copy.createPreDraft}
+            </LumenButton>
+          </LumenFrame>
           <LumenPopupSelect
             id="prompt-template-mode"
             aria-label={copy.mode}
@@ -448,32 +482,42 @@ function AvailablePromptTemplatesPage({
               }}
             />
           ))}
-          {replaceConfirmation ? <LumenText role="alert">{copy.confirmReplace}</LumenText> : null}
-          <LumenButton disabled={busy || !targetAvailable} loading={applying} onClick={() => void apply()}>
-            {replaceConfirmation ? copy.confirmReplace : copy.apply}
-          </LumenButton>
+          {replaceConfirmation ? (
+            <LumenContentText context="feedback.paragraph" tone="warning" role="alert">
+              {copy.confirmReplace}
+            </LumenContentText>
+          ) : null}
+          <LumenFrame className="hbar-prompt-actions" role="group" aria-label={copy.applyTitle} tabIndex={0}>
+            <LumenButton disabled={busy || !targetAvailable} loading={applying} onClick={() => void apply()}>
+              {replaceConfirmation ? copy.confirmReplace : copy.apply}
+            </LumenButton>
+          </LumenFrame>
         </LumenFrame>
       ) : null}
       {state.mutation === 'unknown' ? (
         <LumenFrame className="hbar-prompt-feedback" role="alert">
-          <LumenText>{copy.unknown}</LumenText>
-          <LumenText tone="muted">
+          <LumenContentText context="feedback.paragraph" tone="warning">
+            {copy.unknown}
+          </LumenContentText>
+          <LumenContentText context="feedback.paragraph" tone="muted">
             {copy.pendingWorkspace(
               directory.workspaces[state.pendingWorkspaceId ?? workspaceId]?.name ?? copy.otherWorkspace,
             )}
-          </LumenText>
-          <LumenButton onClick={() => void api.reconcile().catch(report)}>{copy.reconcile}</LumenButton>
+          </LumenContentText>
+          <LumenFrame className="hbar-prompt-actions" role="group" aria-label={copy.unknown} tabIndex={0}>
+            <LumenButton onClick={() => void api.reconcile().catch(report)}>{copy.reconcile}</LumenButton>
+          </LumenFrame>
         </LumenFrame>
       ) : null}
       {message ? (
-        <LumenText className="hbar-prompt-message" role="status">
+        <LumenContentText context="feedback.paragraph" className="hbar-prompt-message" role="status">
           {message}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {error || state.mutation === 'failed' ? (
-        <LumenText role="alert" tone="danger">
+        <LumenContentText context="feedback.paragraph" role="alert" tone="danger">
           {error ?? state.error}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       <LumenDialog
         open={deleteTarget !== null}
@@ -508,7 +552,7 @@ function AvailablePromptTemplatesPage({
           </>
         }
       >
-        <LumenText>{deleteTarget?.description}</LumenText>
+        <LumenContentText context="dialog.body">{deleteTarget?.description}</LumenContentText>
       </LumenDialog>
     </LumenFrame>
   )

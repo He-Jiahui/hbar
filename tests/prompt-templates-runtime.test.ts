@@ -195,4 +195,26 @@ describe('prompt templates runtime', () => {
     expect(writes).toBe(1)
     runtime.dispose()
   })
+
+  test.each(['duplicate', 'foreign'] as const)(
+    'rejects an ambiguous %s template page before rendering actions',
+    async (kind) => {
+      const runtime = createPromptTemplates(
+        {
+          execute: async () => ({
+            items:
+              kind === 'duplicate'
+                ? [template, { ...template, name: 'Another name' }]
+                : [{ ...template, workspaceId: 'foreign-workspace' }],
+            nextCursor: null,
+          }),
+        },
+        () => undefined,
+      )
+      await expect(runtime.list(template.workspaceId, null)).rejects.toMatchObject({ code: 'INVALID_OUTPUT' })
+      expect(runtime.reader.getSnapshot().page).toBeNull()
+      expect(runtime.reader.getSnapshot().status).toBe('error')
+      runtime.dispose()
+    },
+  )
 })

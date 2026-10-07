@@ -1,10 +1,11 @@
 import { expect, test, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test'
 import { createNotificationCommandClient, createRunCommandClient, createRunBoardCommandClient } from '@hbar/client'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { promptTemplateCopy } from '../apps/web/src/prompt-template-copy'
+import { globalFeatureCopy } from '../apps/web/src/global-feature-copy'
 import { scheduleCopy } from '../apps/web/src/schedule-copy'
 import { notificationCopy } from '../apps/web/src/notification-copy'
 import { expectLumenValue, selectLumenOption } from './support/lumen-controls'
@@ -23,13 +24,25 @@ async function openSession(page: Page, host: WebSessionHost, locale: 'en-US' | '
   const copy = getShellCopy(locale)
   await page.goto(`http://127.0.0.1:${WEB_PORT}`)
   await expect(page.getByText(copy.shell.connected, { exact: true }).first()).toBeVisible()
+  const project = page.getByRole('treeitem', { name: host.ready.workspaceName, exact: true })
+  await expect(project).toBeVisible()
+  if ((await project.getAttribute('aria-expanded')) === 'false') {
+    await project.focus()
+    await project.press('ArrowRight')
+    await expect(project).toHaveAttribute('aria-expanded', 'true')
+  }
   const sessionEntry = page.locator(`[data-session-id="${host.ready.sessionId}"]`)
   await expect(sessionEntry).toBeVisible()
   await sessionEntry.click()
 }
 
-async function openFeature(page: Page, label: string): Promise<void> {
-  await page.getByRole('button', { name: label, exact: true }).click()
+async function openFeature(page: Page, label: string, locale: 'en-US' | 'zh-CN' = 'en-US'): Promise<void> {
+  const action = page.getByRole('button', { name: label, exact: true })
+  if (!(await action.isVisible())) {
+    await page.getByRole('button', { name: getShellCopy(locale).shell.showSidebar, exact: true }).click()
+    await expect(action).toBeVisible()
+  }
+  await action.click()
 }
 
 async function capture(page: Page, name: string): Promise<void> {
@@ -111,17 +124,32 @@ async function withHost<T>(
   callback: (page: Page, host: WebSessionHost) => Promise<T>,
 ): Promise<T> {
   const root = await mkdtemp(join(tmpdir(), 'hbar-app-ui-features-'))
-  const host = await startWebSessionHost({ root, port: HOST_PORT })
+  const host = await startWebSessionHost({ root, port: HOST_PORT, goalAutoContinue: false, budgetAutoContinue: false })
   const context = await browser.newContext({ locale, viewport: { width: 1440, height: 960 } })
   try {
     await context.addInitScript((value) => localStorage.setItem('hbar:web:language', value), locale)
     await authenticate(context, host.ready.token)
     return await callback(await context.newPage(), host)
   } finally {
-    await context.close()
-    await stopWebSessionHost(host)
-    await rm(root, { recursive: true, force: true })
+    try {
+      await context.close()
+    } finally {
+      await stopWebSessionHost(host)
+      await expect.poll(() => host.child.exitCode !== null || host.child.signalCode !== null).toBe(true)
+      await cleanupFeatureHost(root)
+    }
   }
+}
+
+async function cleanupFeatureHost(root: string): Promise<void> {
+  const path = await realpath(root)
+  if (
+    path !== resolve(root) ||
+    dirname(path).toLowerCase() !== (await realpath(tmpdir())).toLowerCase() ||
+    !basename(path).startsWith('hbar-app-ui-features-')
+  )
+    throw new Error('Owned feature Host cleanup path changed')
+  await rm(path, { recursive: true, force: true })
 }
 
 test.describe('production app-ui feature surfaces', () => {
@@ -137,7 +165,7 @@ test.describe('production app-ui feature surfaces', () => {
           locale === 'zh-CN'
             ? '用于窄面板验收的发布模板长标题'.repeat(4)
             : 'Release template with a deliberately long title for narrow panes'
-        await openFeature(page, templateCopy.title)
+        await openFeature(page, templateCopy.title, locale)
         await page.getByRole('button', { name: templateCopy.create, exact: true }).click()
         const editor = page.locator('.hbar-prompt-template-editor')
         await page.getByRole('textbox', { name: templateCopy.editor.body, exact: true }).fill('Release build')
@@ -189,17 +217,23 @@ test.describe('production app-ui feature surfaces', () => {
         await selectLumenOption(page.getByRole('combobox', { name: templateCopy.mode }), 'append')
         await page.getByRole('button', { name: templateCopy.apply, exact: true }).click()
         await expect(page.locator('.hbar-prompt-message')).toContainText(templateCopy.applied)
+        await page.getByRole('button', { name: globalFeatureCopy(locale).back, exact: true }).click()
         const prompt = page.getByRole('textbox', { name: getShellCopy(locale).session.prompt.input })
         await expect(prompt).toContainText(/Release production/)
         await prompt.fill('Existing draft before replacement')
+        await openFeature(page, templateCopy.title, locale)
         await selectLumenOption(page.getByRole('combobox', { name: templateCopy.target }), {
           label: host.ready.sessionTitle,
         })
+        await page.getByRole('textbox', { name: 'Environment', exact: true }).fill('production')
         await selectLumenOption(page.getByRole('combobox', { name: templateCopy.mode }), 'replace')
         await page.getByRole('button', { name: templateCopy.apply, exact: true }).click()
         await expect(page.getByRole('alert')).toContainText(templateCopy.confirmReplace)
         await page.getByRole('button', { name: templateCopy.confirmReplace }).click()
+        await expect(page.locator('.hbar-prompt-message')).toContainText(templateCopy.applied)
+        await page.getByRole('button', { name: globalFeatureCopy(locale).back, exact: true }).click()
         await expect(prompt).toContainText('Release production')
+        await openFeature(page, templateCopy.title, locale)
         await page.getByRole('button', { name: templateCopy.createPreDraft, exact: true }).click()
         await expectLumenValue(page.getByRole('combobox', { name: templateCopy.target }), /pre-session/)
         await page.getByRole('button', { name: templateCopy.edit, exact: true }).click()

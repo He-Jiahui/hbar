@@ -1,5 +1,20 @@
-import { LumenButton, LumenFormField, LumenFrame, LumenInput, LumenPromptInput04, LumenTextarea, LumenText } from '@lumen/app-ui'
-import type { PromptTemplateVariable } from '@hbar/contracts/commands/prompt-templates'
+import { useId } from 'react'
+import {
+  LumenButton,
+  LumenFormField,
+  LumenFrame,
+  LumenInput,
+  LumenPromptInput04,
+  LumenTextarea,
+  LumenContentText,
+  LumenCollection,
+  LumenCollectionItem,
+} from '@lumen/app-ui'
+import {
+  PROMPT_TEMPLATE_MAX_NAME,
+  PROMPT_TEMPLATE_MAX_BODY,
+  type PromptTemplateVariable,
+} from '@hbar/contracts/commands/prompt-templates'
 
 export interface PromptTemplateEditorLabels {
   readonly title: string
@@ -27,40 +42,48 @@ export interface PromptTemplateEditorProps {
 }
 
 export function PromptTemplateEditor(props: PromptTemplateEditorProps) {
+  const nameId = useId()
+  const bodyId = useId()
   const content = (
     <LumenFrame as="section" aria-label={props.labels.title} className="hbar-prompt-template-editor">
-      <LumenText as="h2" variant="title">
+      <LumenContentText context="section.title" level={2}>
         {props.labels.title}
-      </LumenText>
-      <LumenText as="p" tone="muted">
-        {props.labels.detail}
-      </LumenText>
-      <LumenFormField controlId="prompt-template-name" label={props.labels.name}>
+      </LumenContentText>
+      <LumenContentText context="section.description">{props.labels.detail}</LumenContentText>
+      <LumenFormField controlId={nameId} label={props.labels.name} layout="rows">
         <LumenInput
+          id={nameId}
+          maxLength={PROMPT_TEMPLATE_MAX_NAME}
           disabled={props.disabled}
           value={props.name}
           onChange={(event) => props.onNameChange(event.currentTarget.value)}
         />
       </LumenFormField>
-      <LumenFormField controlId="prompt-template-body" label={props.labels.body}>
+      <LumenFormField controlId={bodyId} label={props.labels.body} layout="rows">
         <LumenTextarea
+          id={bodyId}
+          maxLength={PROMPT_TEMPLATE_MAX_BODY}
           disabled={props.disabled}
           value={props.body}
           onChange={(event) => props.onBodyChange(event.currentTarget.value)}
         />
       </LumenFormField>
-      <LumenFrame aria-label={props.labels.variables}>
+      <LumenCollection aria-label={props.labels.variables} className="hbar-prompt-variable-status">
         {props.variables.map((variable, index) => (
-          <LumenFrame key={index}>
-            <LumenText as="span">{variable.label}</LumenText>
-            <LumenText as="span" tone={variable.present ? 'success' : 'muted'}>
+          <LumenCollectionItem key={index}>
+            <LumenContentText context="collection.title">{variable.label}</LumenContentText>
+            <LumenContentText context="collection.detail" tone={variable.present ? 'success' : 'muted'}>
               {variable.present ? props.labels.valid : props.labels.invalid}
-            </LumenText>
-          </LumenFrame>
+            </LumenContentText>
+          </LumenCollectionItem>
         ))}
-      </LumenFrame>
-      {props.validation ? <LumenText tone="danger">{props.validation}</LumenText> : null}
-      <LumenFrame as="footer">
+      </LumenCollection>
+      {props.validation ? (
+        <LumenContentText context="form.help" tone="danger" role="alert">
+          {props.validation}
+        </LumenContentText>
+      ) : null}
+      <LumenFrame as="footer" className="hbar-prompt-actions" role="group" aria-label={props.labels.title} tabIndex={0}>
         <LumenButton tone="primary" disabled={!props.canSave} onClick={props.onSave}>
           {props.labels.save}
         </LumenButton>
