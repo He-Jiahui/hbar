@@ -11,6 +11,7 @@ import '@lumen/app-ui/styles.css'
 
 type ThinkingLevel = ModelDescriptor['thinkingLevels'][number]
 export interface ThinkingFixtureCopy {
+  readonly pickerTitleSuffix?: string
   readonly title: string
   readonly other: string
   readonly close: string
@@ -61,7 +62,7 @@ function ThinkingFixture({ locale, copy, model, level, behavior }: ThinkingFixtu
           model={model}
           level={level}
           labels={{
-            thinking: labels.thinking,
+            thinking: labels.thinking + (copy.pickerTitleSuffix ?? ''),
             thinkingTrigger: labels.thinkingTrigger,
             thinkingLevel: (value) => `${labels.thinkingLevel(value)}${copy.longSuffix}`,
             error: () => copy.error,

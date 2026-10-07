@@ -222,9 +222,16 @@ export function HbarPreSessionApprovalPicker({
         }}
       >
         <LumenFrame className="hbar-composer-permission-heading">
-          <LumenContentText context="popover.title" id={headingId}>
-            {confirming ? labels.confirmTitle : labels.title}
-          </LumenContentText>
+          <LumenFrame
+            className="hbar-composer-permission-title-reading"
+            role="group"
+            aria-label={confirming ? labels.confirmTitle : labels.title}
+            tabIndex={0}
+          >
+            <LumenContentText context="popover.title" id={headingId}>
+              {confirming ? labels.confirmTitle : labels.title}
+            </LumenContentText>
+          </LumenFrame>
           <LumenButton
             type="button"
             size="s"

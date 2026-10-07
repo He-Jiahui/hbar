@@ -6,6 +6,7 @@ import react from '@vitejs/plugin-react'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import type { ModelDescriptor } from '@hbar/contracts/commands/models'
 import type { ThinkingFixtureInput, ThinkingFixtureCopy } from '../tests/fixtures/pre-session-thinking-browser'
+import { verifyReadableText } from './support/verify-readable-text'
 
 const copies = {
   'en-US': {
@@ -336,6 +337,40 @@ try {
     await page.evaluate(() => window.releaseThinkingFixture())
   } finally {
     await context.close()
+  }
+  for (const locale of ['en-US', 'zh-CN'] as const) {
+    const labels = getShellCopy(locale).session.modelPicker
+    const copy = {
+      ...copies[locale],
+      pickerTitleSuffix: ' 完整原始推理标题 Complete original thinking heading '.repeat(12),
+    }
+    const context = await browser.newContext({ reducedMotion: 'reduce' })
+    try {
+      const page = await context.newPage()
+      const input: ThinkingFixtureInput = { locale, copy, model, level: 'low', mode: 'dark', behavior: 'resolve' }
+      await mount(page, input, 320)
+      await page.locator('.hbar-pre-session-thinking-picker > button').click()
+      const picker = page.getByRole('dialog', { name: labels.thinking + copy.pickerTitleSuffix, exact: true })
+      await verifyReadableText(
+        picker.locator('[data-text-context="popover.title"]'),
+        labels.thinking + copy.pickerTitleSuffix,
+        true,
+      )
+      const slider = picker.getByRole('slider')
+      await expect(slider).toBeInViewport()
+      await slider.focus()
+      await slider.press('End')
+      await slider.press('Enter')
+      await expect(picker).toBeHidden()
+      expect(await page.evaluate(() => window.readThinkingFixtureActions())).toEqual([
+        { level: 'max', modelId: model.id },
+      ])
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      await page.evaluate(() => window.releaseThinkingFixture())
+      outcomes.push({ case: 'complete-multiline-thinking-title', locale, width: 320, mode: 'dark', coarse: false })
+    } finally {
+      await context.close()
+    }
   }
   await Bun.write(resolve(output, 'verification.json'), JSON.stringify(outcomes, null, 2) + '\n')
   console.log(`${outcomes.length} real browser pre-session thinking scenarios passed.`)

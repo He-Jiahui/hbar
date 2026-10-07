@@ -10,6 +10,7 @@ import { FloatingSurface, useFloatingTrigger } from '../../packages/app-react/sr
 import '@lumen/app-ui/styles.css'
 
 export interface ApprovalFixtureCopy {
+  readonly pickerTitleSuffix?: string
   readonly title: string
   readonly other: string
   readonly close: string
@@ -93,6 +94,8 @@ function ApprovalFixture({
           sessionLabel={copy.session}
           labels={{
             ...labels,
+            title: labels.title + (copy.pickerTitleSuffix ?? ''),
+            confirmTitle: labels.confirmTitle + (copy.pickerTitleSuffix ?? ''),
             options: {
               ask: { label: labels.options.ask.label, description: labels.options.ask.description + copy.longSuffix },
               deny: {

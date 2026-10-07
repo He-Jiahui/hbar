@@ -35,7 +35,7 @@ export async function verifyReadableText(text: Locator, expected: string, multil
   expect(['normal', 'pre-wrap']).toContain(geometry.whiteSpace)
   expect(geometry.overflow).not.toBe('ellipsis')
   expect(geometry.clamp).toBe('none')
-  expect(geometry.unclipped).toBe(true)
+  expect(geometry.unclipped, `Full text clipping geometry: ${JSON.stringify(geometry)}`).toBe(true)
   expect(geometry.content).toBeLessThanOrEqual(geometry.available + 1)
   if (multiline) expect(geometry.lines).toBeGreaterThan(1)
 }

@@ -646,8 +646,8 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
       >
         <LumenFrame className="hbar-composer-permission-heading">
           <LumenFrame
-            className="hbar-composer-permission-title-rail"
-            role="region"
+            className="hbar-composer-permission-title-reading"
+            role="group"
             aria-label={confirming ? labels.confirmTitle : labels.title}
             tabIndex={0}
           >

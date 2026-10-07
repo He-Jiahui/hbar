@@ -5,6 +5,7 @@ import { build } from 'vite'
 import react from '@vitejs/plugin-react'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import type { SessionPermissionFixtureInput } from '../tests/fixtures/session-permission-browser'
+import { verifyReadableText } from './support/verify-readable-text'
 
 function fixture(locale: ShellLocale, mode: 'light' | 'dark' = 'light'): SessionPermissionFixtureInput {
   return {
@@ -360,15 +361,26 @@ try {
       }
       await mount(page, longInput, 320)
       const longMenu = await open(page)
-      const rail = longMenu.menu.locator('.hbar-composer-permission-title-rail')
-      expect(await rail.evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(true)
-      await rail.focus()
-      for (let step = 0; step < 8; step++) await page.keyboard.press('ArrowRight')
-      await expect.poll(() => rail.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0)
+      const title = longMenu.menu.locator('[data-text-context="popover.title"]')
+      await verifyReadableText(title, long, true)
+      const titleReading = longMenu.menu.locator('.hbar-composer-permission-title-reading')
+      expect(
+        await titleReading.evaluate((node) => node.scrollHeight > node.clientHeight),
+        'Long title has a vertical reader',
+      ).toBe(true)
+      await titleReading.focus()
+      await page.keyboard.press('End')
+      await expect
+        .poll(() => titleReading.evaluate((node) => node.scrollHeight - node.clientHeight - node.scrollTop))
+        .toBeLessThanOrEqual(1)
       await longMenu.menu.locator('[data-choice="allow"]').click()
+      await verifyReadableText(title, long, true)
       const body = longMenu.menu.locator('.hbar-composer-permission-body')
       await expect(body).toHaveText(long.repeat(8))
-      expect(await body.evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true)
+      expect(
+        await body.evaluate((node) => node.scrollHeight > node.clientHeight),
+        'Long confirmation body has a vertical reader',
+      ).toBe(true)
       await body.focus()
       await page.keyboard.press('End')
       await expect

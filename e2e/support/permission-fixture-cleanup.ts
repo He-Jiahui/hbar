@@ -1,6 +1,6 @@
 import { realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, dirname } from 'node:path'
+import { basename, dirname, resolve } from 'node:path'
 
 type PermissionFixturePrefix =
   | 'hbar-composer-permission-'
@@ -13,7 +13,7 @@ type PermissionFixturePrefix =
 
 export async function cleanupOwnedPermissionFixture(root: string, prefix: PermissionFixturePrefix): Promise<void> {
   const owned = await realpath(root)
-  if (dirname(owned) !== (await realpath(tmpdir())) || !basename(owned).startsWith(prefix))
+  if (owned !== resolve(root) || dirname(owned) !== (await realpath(tmpdir())) || !basename(owned).startsWith(prefix))
     throw new Error('Unexpected owned permission fixture root')
   await rm(owned, { recursive: true, force: true })
 }

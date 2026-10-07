@@ -5,6 +5,7 @@ import { build } from 'vite'
 import react from '@vitejs/plugin-react'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import type { ApprovalFixtureCopy, ApprovalFixtureInput } from '../tests/fixtures/pre-session-approval-browser'
+import { verifyReadableText } from './support/verify-readable-text'
 
 const copies = {
   'en-US': {
@@ -170,7 +171,7 @@ try {
             await expect(inherited).toBeFocused()
             await inherited.dispatchEvent('keydown', { key: 'Home', ctrlKey: true })
             await expect(inherited).toBeFocused()
-            const reading = picker.getByRole('region', { name: labels.title, exact: true })
+            const reading = picker.locator('.hbar-composer-permission-body')
             expect(await reading.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true)
             await readToEnd(page, reading)
             await expect(reading).toBeFocused()
@@ -374,6 +375,61 @@ try {
     }
   } finally {
     await context.close()
+  }
+  for (const locale of ['en-US', 'zh-CN'] as const) {
+    const labels = getShellCopy(locale).session.permissionPicker
+    const copy = {
+      ...copies[locale],
+      pickerTitleSuffix: ' 完整原始标题 Complete original permission heading '.repeat(12),
+    }
+    const context = await browser.newContext({ reducedMotion: 'reduce' })
+    try {
+      const page = await context.newPage()
+      const input: ApprovalFixtureInput = {
+        locale,
+        copy,
+        choice: 'inherit',
+        planMode: 'default',
+        planAvailable: true,
+        planBlocked: false,
+        draftId: 'original-title-draft',
+        mode: 'dark',
+        behavior: 'resolve',
+      }
+      await mount(page, input, 320)
+      const trigger = page.locator('.hbar-pre-session-approval-picker > button')
+      await trigger.click()
+      const picker = page.locator('.hbar-pre-session-approval-popover')
+      await expect(picker).toHaveAccessibleName(labels.title + copy.pickerTitleSuffix)
+      await verifyReadableText(
+        picker.locator('[data-text-context="popover.title"]'),
+        labels.title + copy.pickerTitleSuffix,
+        true,
+      )
+      await picker.locator('[data-choice="allow"]').click()
+      await expect(picker).toHaveAccessibleName(labels.confirmTitle + copy.pickerTitleSuffix)
+      await verifyReadableText(
+        picker.locator('[data-text-context="popover.title"]'),
+        labels.confirmTitle + copy.pickerTitleSuffix,
+        true,
+      )
+      await expect(picker.getByRole('button', { name: labels.cancel, exact: true })).toBeInViewport()
+      await picker.getByRole('button', { name: labels.cancel, exact: true }).click()
+      await page.keyboard.press('Escape')
+      await expect(trigger).toBeFocused()
+      expect(await page.evaluate(() => window.readApprovalFixtureActions())).toEqual([])
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+      await page.evaluate(() => window.releaseApprovalFixture())
+      outcomes.push({
+        case: 'complete-multiline-picker-and-confirmation-title',
+        locale,
+        width: 320,
+        mode: 'dark',
+        coarse: false,
+      })
+    } finally {
+      await context.close()
+    }
   }
   await Bun.write(resolve(output, 'verification.json'), JSON.stringify(outcomes, null, 2) + '\n')
   console.log(`${outcomes.length} real browser pre-session approval scenarios passed.`)

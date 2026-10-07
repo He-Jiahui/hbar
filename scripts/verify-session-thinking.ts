@@ -6,6 +6,7 @@ import react from '@vitejs/plugin-react'
 import type { ModelDescriptor } from '@hbar/contracts/commands/models'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import type { SessionModelFixtureInput } from '../tests/fixtures/session-model-browser'
+import { verifyReadableText } from './support/verify-readable-text'
 
 const levels = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const
 const model: ModelDescriptor = {
@@ -198,6 +199,12 @@ try {
       let slider = menu.getByRole('slider')
       await expect(slider).toBeInViewport()
       const header = menu.getByRole('region')
+      await verifyReadableText(header.locator('.hbar-composer-thinking-context'), longTitle, true)
+      await verifyReadableText(
+        header.locator('.hbar-composer-thinking-value'),
+        labels.thinkingLevel('low') + (longInput.copy.thinkingValueSuffix ?? ''),
+        true,
+      )
       expect(
         await header
           .locator('.hbar-composer-thinking-value')

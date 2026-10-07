@@ -29,6 +29,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
         sessionCount: 2,
         budgetAutoContinue: false,
+        goalAutoContinue: false,
       })
       const target = host
       const sessionId = host.ready.sessionId

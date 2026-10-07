@@ -33,17 +33,12 @@
   flex: 1 1 auto;
 }
 
-.hbar-composer-permission-title-rail {
+.hbar-composer-permission-title-reading {
   min-inline-size: 0;
+  min-block-size: 0;
   flex: 1 1 auto;
-  overflow-x: auto;
+  overflow: auto;
   overscroll-behavior: contain;
-}
-
-.hbar-composer-permission-title-rail > [data-text-context] {
-  display: block;
-  inline-size: max-content;
-  max-inline-size: none;
 }
 
 .hbar-composer-permission-heading,
@@ -56,11 +51,15 @@
 }
 
 .hbar-composer-permission-heading {
-  color: var(--lumen-muted);
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  flex: 0 1 auto;
+  min-block-size: 0;
+  max-block-size: 50dvh;
+  align-items: stretch;
+}
+
+.hbar-composer-permission-heading > button {
+  flex: 0 0 auto;
+  align-self: flex-start;
 }
 
 .hbar-composer-permission-body,

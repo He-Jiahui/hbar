@@ -266,20 +266,18 @@
 .hbar-composer-thinking-heading {
   display: flex;
   min-inline-size: 0;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: 0.75rem;
 }
 
 .hbar-composer-thinking-value {
-  font-size: 1.1875rem;
-  overflow-wrap: anywhere;
+  flex: 1 1 10rem;
 }
 
 .hbar-composer-thinking-context {
-  flex: 0 0 auto;
-  color: var(--lumen-muted);
-  font-size: 0.75rem;
+  flex: 1 1 8rem;
 }
 
 /* The native range keeps the real pointer/keyboard target and filled track.
