@@ -9,10 +9,12 @@ import {
   LumenText,
 } from '@lumen/app-ui'
 import type { ActivityAgentEntryState } from '@hbar/app-runtime'
+import { ActivityText, type ActivityTextLabels } from './activity-text'
 import './activity-agents-view.css'
 
 type Agent = ActivityAgentEntryState['items'][number]
 export interface ActivityAgentLabels {
+  readonly text: ActivityTextLabels
   readonly title: string
   readonly loading: string
   readonly unavailable: string
@@ -97,21 +99,25 @@ export function ActivityAgentsView({
         <LumenCollection as="ol" className="hbar-activity-agent-list" tabIndex={0} aria-label={labels.title}>
           {items.map((agent) => (
             <LumenCollectionItem key={agent.agentId} data-activity-agent-id={agent.agentId}>
-              <LumenButton
-                className="hbar-activity-agent-row"
-                size="s"
-                variant="text"
-                aria-label={labels.open(agent.objective)}
-                disabled={!connected || opening?.status === 'opening'}
-                onClick={() => onOpen(agent)}
-              >
-                <LumenIcon icon={Bot} tier="md" />
-                <LumenText as="strong" title={agent.objective}>
-                  {agent.objective}
-                </LumenText>
-                <LumenStatus value={labels.status(agent.status)} tone={tone(agent)} />
-                <LumenIcon icon={ChevronRight} tier="sm" />
-              </LumenButton>
+              <ActivityText text={agent.objective} labels={labels.text} context="choice.title">
+                {(caption) => (
+                  <LumenButton
+                    className="hbar-activity-agent-row"
+                    size="s"
+                    variant="text"
+                    aria-label={labels.open(agent.objective)}
+                    disabled={!connected || opening?.status === 'opening'}
+                    onClick={() => onOpen(agent)}
+                  >
+                    <LumenIcon icon={Bot} tier="sm" />
+                    <LumenFrame className="hbar-activity-agent-copy">
+                      {caption}
+                      <LumenStatus value={labels.status(agent.status)} tone={tone(agent)} />
+                    </LumenFrame>
+                    <LumenIcon icon={ChevronRight} tier="sm" />
+                  </LumenButton>
+                )}
+              </ActivityText>
               {opening?.agentId === agent.agentId && (
                 <LumenText as="p" role={opening.status === 'error' ? 'alert' : 'status'}>
                   {opening.status === 'opening' ? labels.opening : labels.error(opening.error ?? 'EXECUTION_FAILED')}

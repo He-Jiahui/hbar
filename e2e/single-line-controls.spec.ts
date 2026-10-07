@@ -136,7 +136,7 @@ for (const locale of ['zh-CN', 'en-US'] as const)
   }
 
 for (const locale of ['zh-CN', 'en-US'] as const) {
-  test(`data captions and atomic mentions retain complete single lines ${locale}`, async ({ page }, info) => {
+  test(`Activity captions wrap and atomic mentions retain complete single lines ${locale}`, async ({ page }, info) => {
     await page.goto(origin)
     const errors: string[] = []
     page.on('pageerror', (error) => errors.push(error.message))
@@ -154,31 +154,26 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       for (const width of [1024, 390, 320]) {
         await page.setViewportSize({ width, height: 900 })
         await render(page, { ...input, theme })
-        const shortHeight = await gallery
-          .locator('.hbar-activity-agent-row')
-          .first()
-          .evaluate((node) => node.getBoundingClientRect().height)
         for (const count of [0, 1, 100]) {
           await render(page, { ...input, theme, count, long: true })
           await completeLine(
             gallery.locator(
-              '.hbar-activity-agent-row strong, .hbar-activity-task-row > span, .hbar-agent-model-current, .hbar-composer-workspace-context-location > span, .hbar-composer-workspace-context-range, .hbar-queued-user-run-text, .hbar-queued-user-run-status',
+              '.hbar-agent-model-current, .hbar-composer-workspace-context-location > span, .hbar-composer-workspace-context-range, .hbar-queued-user-run-text, .hbar-queued-user-run-status',
             ),
           )
           expect(await gallery.locator('.hbar-activity-task-row').count()).toBe(count)
           expect(await gallery.locator('.hbar-activity-agent-row').count()).toBe(Math.min(count, 50))
           if (count) {
-            expect(
-              await gallery
-                .locator('.hbar-activity-agent-row')
-                .first()
-                .evaluate((node) => node.getBoundingClientRect().height),
-            ).toBeCloseTo(shortHeight, 1)
-            const rail = gallery.locator('.hbar-activity-agent-list')
-            expect(await rail.evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(true)
-            await rail.focus()
-            await rail.press('ArrowRight')
-            await expect.poll(() => rail.evaluate((node) => node.scrollLeft > 0)).toBe(true)
+            for (const selector of ['.hbar-activity-agent-list', '.hbar-activity-task-list']) {
+              const list = gallery.locator(selector)
+              expect(await list.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true)
+              const caption = list.locator('.hbar-activity-text-content').first()
+              const metrics = await caption.evaluate((node) => ({
+                height: node.getBoundingClientRect().height,
+                lineHeight: Number.parseFloat(getComputedStyle(node).lineHeight),
+              }))
+              expect(metrics.height).toBeLessThanOrEqual(metrics.lineHeight * 3 + 1)
+            }
           }
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
         }

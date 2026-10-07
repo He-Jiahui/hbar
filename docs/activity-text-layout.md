@@ -1,0 +1,13 @@
+# 活动面板文本与密度
+
+活动面板的任务、运行输入、工作流目标与子 Agent 目标属于可阅读内容。它们使用 Lumen 主题的正文字号，状态和时间使用同一字号的辅助文字比例；章节标题使用适度加重的正文。列表与工具栏的文字均不得产生横向滚动。
+
+正文按面板的可用宽度自然换行。连续的文件路径、命令和无空格文本也可以换行。每条正文默认最多显示三行，实际溢出三行时提供“展开全文 / 收起全文”按钮。这个阈值按浏览器实际排版判断，随侧栏宽度和主题字体变化重新测量，不按字符数量猜测。完整内容始终保留在 DOM 中；展开后沿正常文档流增高，由活动面板统一提供纵向滚动。
+
+展开按钮独立于打开子 Agent 的行按钮，可以用 Enter 或 Space 操作，提供 `aria-expanded` 与 `aria-controls`。断线时仍可展开已加载的文字，打开子会话维持原有禁用状态。Agent 的展开状态跟随稳定的 Agent ID；任务状态更新不清除同一会话、同一步文本的展开状态；更换内容或会话后默认收起。活动面板顶栏中的会话标题换行并保留完整标题提示，默认最多显示三行。
+
+容量和业务加载策略沿用 Host 契约：Plan 最多 100 个步骤，Agent 按 50 行游标分页，Workflow 最多 128 个委派，运行按现有游标分页。面板只保留一个纵向内容滚动区，标题、刷新与关闭入口留在滚动区外。这是活动面板的阅读策略，其他组件的单行控制标签策略保持其既有作用域。
+
+结构对应 ReactBits [三栏工作台](https://pro.reactbits.dev/docs/app-ui/app-shell/app-shell-4)，紧凑状态层级对应 [Activity 3](https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-3)，按需展开对应 [Activity 2](https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-2)。只采用这些结构与交互语义，颜色与字号消费现有 Lumen 主题。
+
+回归验收位于 `e2e/activity-text-layout.spec.ts`，覆盖中英文、明暗主题、478 / 390 / 320 宽度、长路径、默认折叠与键盘展开、原始行操作目标、实时更新及列表容量。真实 Host 的 Plan / Workflow / Agent 入口另外由对应 Activity E2E 验证。

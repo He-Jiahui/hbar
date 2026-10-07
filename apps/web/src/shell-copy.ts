@@ -2157,6 +2157,7 @@ function createSessionActivityLabels(locale: ShellLocale): HbarSessionActivityLa
   const number = new Intl.NumberFormat(locale)
   const time = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' })
   const at = (timestamp: number) => time.format(new Date(timestamp))
+  const text = { expand: choose('展开全文', 'Show full text'), collapse: choose('收起全文', 'Collapse text') }
   const statuses: Readonly<Record<Parameters<HbarSessionActivityLabels['status']>[0], string>> = {
     queued: choose('排队中', 'Queued'),
     running: choose('运行中', 'Running'),
@@ -2164,10 +2165,12 @@ function createSessionActivityLabels(locale: ShellLocale): HbarSessionActivityLa
     cancelRequested: choose('正在取消', 'Cancelling'),
   }
   return {
+    text,
     title: choose('活动', 'Activity'),
     runs: choose('运行', 'Runs'),
     description: '',
     workflow: {
+      text,
       title: choose('工作流', 'Workflow'),
       loading: choose('正在读取工作流…', 'Loading workflow…'),
       retry: choose('重试读取工作流', 'Retry workflow'),
@@ -2194,6 +2197,7 @@ function createSessionActivityLabels(locale: ShellLocale): HbarSessionActivityLa
       },
     },
     tasks: {
+      text,
       title: choose('任务', 'Tasks'),
       loading: choose('正在读取任务进度…', 'Loading task progress…'),
       retry: choose('重试读取任务', 'Retry task progress'),
@@ -2213,6 +2217,7 @@ function createSessionActivityLabels(locale: ShellLocale): HbarSessionActivityLa
       },
     },
     agents: {
+      text,
       title: choose('子 Agent', 'Subagents'),
       loading: choose('正在读取子 Agent…', 'Loading subagents…'),
       unavailable: choose('此 Host 未提供子 Agent 活动。', 'Subagent activity is unavailable on this Host.'),

@@ -3,9 +3,11 @@ import { LumenButton, LumenCollection, LumenCollectionItem, LumenFrame, LumenIco
 import type { ComposerIntentState } from '@hbar/app-runtime'
 import type { PlanStepStatus } from '@hbar/contracts'
 import { projectActivityTasks } from './activity-tasks-model'
+import { ActivityText, type ActivityTextLabels } from './activity-text'
 import './activity-tasks-view.css'
 
 export interface ActivityTaskLabels {
+  readonly text: ActivityTextLabels
   readonly title: string
   readonly loading: string
   readonly retry: string
@@ -28,7 +30,7 @@ export function ActivityTasksView({
   readonly labels: ActivityTaskLabels
   readonly onRefresh: () => void
 }) {
-  const { steps, revision, completed, loading, failed } = projectActivityTasks(facts, sessionId)
+  const { steps, completed, loading, failed } = projectActivityTasks(facts, sessionId)
   if (!loading && !failed && steps.length === 0) return null
   return (
     <LumenFrame as="section" className="hbar-activity-tasks" aria-label={labels.title}>
@@ -60,7 +62,7 @@ export function ActivityTasksView({
         <LumenCollection as="ol" className="hbar-activity-task-list" tabIndex={0} aria-label={labels.title}>
           {steps.map((step, index) => (
             <LumenCollectionItem
-              key={`${revision}:${index}`}
+              key={`${sessionId}:${index}:${step.step}`}
               className="hbar-activity-task-row"
               data-activity-task-status={step.status}
               aria-label={labels.step(step.step, step.status)}
@@ -70,9 +72,9 @@ export function ActivityTasksView({
                 icon={
                   step.status === 'completed' ? CheckCircle2 : step.status === 'in_progress' ? LoaderCircle : Circle
                 }
-                tier="md"
+                tier="sm"
               />
-              <LumenText as="span">{step.step}</LumenText>
+              <ActivityText text={step.step} labels={labels.text} />
             </LumenCollectionItem>
           ))}
         </LumenCollection>

@@ -2,12 +2,12 @@ import { expect, type Page } from '@playwright/test'
 import type { getShellCopy } from '../../apps/web/src/shell-copy'
 
 type SessionToolsLabels = ReturnType<typeof getShellCopy>['session']['tools']
-type SessionTool = 'files' | 'monitoring' | 'agents' | 'goals' | 'settings'
+type SessionTool = 'activity' | 'files' | 'monitoring' | 'agents' | 'goals' | 'settings'
 
 /** Use the actual header entrance; opening a menu never opens or mutates a tool. */
 export async function openSessionTool(page: Page, labels: SessionToolsLabels, tool: SessionTool): Promise<void> {
   const direct = page.getByRole('button', { name: labels[tool], exact: true })
-  if (tool === 'files' && (await direct.isVisible())) {
+  if ((tool === 'files' || tool === 'activity') && (await direct.isVisible())) {
     await direct.click()
     return
   }

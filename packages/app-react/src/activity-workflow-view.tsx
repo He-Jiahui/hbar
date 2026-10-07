@@ -12,10 +12,12 @@ import type { WorkflowWorkspaceEntryState } from '@hbar/app-runtime'
 import type { AgentRecord } from '@hbar/contracts/commands/agents'
 import type { ActivityAgentLabels, ActivityAgentOpenState } from './activity-agents-view'
 import { projectActivityWorkflow } from './activity-workflow-model'
+import { ActivityText, type ActivityTextLabels } from './activity-text'
 import './activity-workflow-view.css'
 
 type Workflow = NonNullable<WorkflowWorkspaceEntryState['snapshot']['workflow']>
 export interface ActivityWorkflowLabels {
+  readonly text: ActivityTextLabels
   readonly title: string
   readonly loading: string
   readonly retry: string
@@ -64,32 +66,36 @@ export function ActivityWorkflowView({
           ['created', 'queued', 'running', 'waiting_approval', 'cancelRequested'].includes(agent.status)
             ? labels.agent.status(agent.status)
             : labels.delegationStatus(delegation.status)
-        const content = (
-          <>
-            <LumenIcon icon={Bot} tier="md" />
-            <LumenText as="strong" title={title}>
-              {title}
-            </LumenText>
-            <LumenStatus value={status} />
-            {agent && <LumenIcon icon={ChevronRight} tier="sm" />}
-          </>
-        )
         return (
           <LumenCollectionItem key={delegation.delegationId} data-activity-delegation-id={delegation.delegationId}>
-            {agent ? (
-              <LumenButton
-                size="s"
-                variant="text"
-                className="hbar-activity-agent-row"
-                aria-label={labels.agent.open(agent.objective)}
-                disabled={!connected || opening?.status === 'opening'}
-                onClick={() => onOpen(agent)}
-              >
-                {content}
-              </LumenButton>
-            ) : (
-              <LumenFrame className="hbar-activity-agent-row">{content}</LumenFrame>
-            )}
+            <ActivityText text={title} labels={labels.text} context="choice.title">
+              {(caption) => {
+                const content = (
+                  <>
+                    <LumenIcon icon={Bot} tier="sm" />
+                    <LumenFrame className="hbar-activity-agent-copy">
+                      {caption}
+                      <LumenStatus value={status} />
+                    </LumenFrame>
+                    {agent && <LumenIcon icon={ChevronRight} tier="sm" />}
+                  </>
+                )
+                return agent ? (
+                  <LumenButton
+                    size="s"
+                    variant="text"
+                    className="hbar-activity-agent-row"
+                    aria-label={labels.agent.open(agent.objective)}
+                    disabled={!connected || opening?.status === 'opening'}
+                    onClick={() => onOpen(agent)}
+                  >
+                    {content}
+                  </LumenButton>
+                ) : (
+                  <LumenFrame className="hbar-activity-agent-row">{content}</LumenFrame>
+                )
+              }}
+            </ActivityText>
             {!agent && delegation.agentId && (
               <LumenFrame className="hbar-session-activity-recovery">
                 <LumenText as="p">{labels.missingAgent}</LumenText>
@@ -134,9 +140,7 @@ export function ActivityWorkflowView({
       {workflow?.focus && (
         <LumenFrame className="hbar-activity-workflow-group" data-activity-focus-id={workflow.focus.focusId}>
           <LumenFrame className="hbar-activity-workflow-group-heading">
-            <LumenText as="h4" title={workflow.focus.title}>
-              {workflow.focus.title}
-            </LumenText>
+            <ActivityText key={workflow.focus.focusId} text={workflow.focus.title} labels={labels.text} />
             <LumenText as="span">
               {focused.length
                 ? labels.count(settled(focused), focused.length)

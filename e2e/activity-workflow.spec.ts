@@ -6,6 +6,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { expectComposerText } from './support/composer-text'
+import { openSessionTool } from './support/session-tools-menu'
 
 async function cleanupFixture(root: string) {
   const target = resolve(root)
@@ -64,13 +65,12 @@ test('Activity Workflow follows Host focus/delegation and opens the actual child
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true }),
       draft = '查看委派后返回时仍然保留这段输入。'
     await prompt.fill(draft)
-    const activity = page.getByRole('button', { name: copy.session.tools.activity, exact: true })
-    await activity.click()
+    await openSessionTool(page, copy.session.tools, 'activity')
     const pane = page.locator('.hbar-session-activity-workspace'),
       workflow = pane.locator('.hbar-activity-workflow')
     await expect(workflow.getByRole('heading', { name: copy.activity.workflow.title, exact: true })).toBeVisible()
     await expect(workflow.locator('[data-activity-focus-id="activity-focus"]')).toContainText(title)
-    await expect(workflow.locator('[data-activity-focus-id="activity-focus"]').getByRole('button')).toHaveCount(0)
+    await expect(workflow.locator('[data-activity-focus-id="activity-focus"] .hbar-activity-agent-row')).toHaveCount(0)
     const evidence = resolve('artifacts/activity-workflow/hbar-e2e')
     await mkdir(evidence, { recursive: true })
     await page.screenshot({ path: join(evidence, 'zh-workflow-focus.png') })
@@ -95,16 +95,17 @@ test('Activity Workflow follows Host focus/delegation and opens the actual child
       .toBe(true)
     if (!delegationId || !delegatedAgentId) throw new Error('No delegated Agent identity')
     const row = workflow.locator(`[data-activity-delegation-id="${delegationId}"]`)
-    await expect(row.getByRole('button')).toHaveCount(1)
-    await expect(row.getByRole('button')).toBeVisible()
+    const openChild = row.locator('.hbar-activity-agent-row')
+    await expect(openChild).toHaveCount(1)
+    await expect(openChild).toBeVisible()
     await expect(pane.locator(`[data-activity-agent-id="${delegatedAgentId}"]`)).toHaveCount(0)
     await page.screenshot({ path: join(evidence, 'zh-workflow-wide.png') })
     await page.setViewportSize({ width: 390, height: 800 })
-    await expect(row.getByRole('button')).toBeInViewport()
+    await expect(openChild).toBeInViewport()
     expect(await pane.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true)
     await page.screenshot({ path: join(evidence, 'zh-workflow-narrow.png') })
-    await row.getByRole('button').focus()
-    await row.getByRole('button').press('Enter')
+    await openChild.focus()
+    await openChild.press('Enter')
     await expect(
       page.getByRole('button', { name: copy.agents.returnToParent(host.ready.sessionTitle), exact: true }),
     ).toBeVisible()
@@ -117,7 +118,7 @@ test('Activity Workflow follows Host focus/delegation and opens the actual child
     const sidebar = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
     if (await sidebar.isVisible()) await sidebar.click()
     await page.getByRole('treeitem', { name: 'Session 001', exact: true }).click()
-    await activity.click()
+    await openSessionTool(page, copy.session.tools, 'activity')
     await expect(pane.getByText(copy.activity.empty, { exact: true })).toBeVisible()
     await expect(workflow).toHaveCount(0)
     expect(errors).toEqual([])

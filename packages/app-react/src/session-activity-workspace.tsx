@@ -18,11 +18,13 @@ import { ActivityAgentsView, type ActivityAgentLabels, type ActivityAgentOpenSta
 import type { ActivityAgentEntryState } from '@hbar/app-runtime'
 import { ActivityTasksView, type ActivityTaskLabels } from './activity-tasks-view'
 import { ActivityWorkflowView, type ActivityWorkflowLabels } from './activity-workflow-view'
+import { ActivityText, type ActivityTextLabels } from './activity-text'
 import { projectActivityWorkflow } from './activity-workflow-model'
 
 type Operation = ActivityWorkspaceEntryState['items'][number]
 
 export interface HbarSessionActivityLabels {
+  readonly text: ActivityTextLabels
   readonly title: string
   readonly runs: string
   readonly agents: ActivityAgentLabels
@@ -107,9 +109,11 @@ export function HbarSessionActivityView({
             {visible.map((item) => (
               <LumenCollectionItem key={item.operationId} data-operation-id={item.operationId}>
                 <LumenFrame className="hbar-session-activity-row-heading">
-                  <LumenText as="strong" className="hbar-session-activity-intent">
-                    {item.intentPreview ? labels.intentPreview(item.intentPreview) : labels.runAt(item.createdAt)}
-                  </LumenText>
+                  <ActivityText
+                    text={item.intentPreview ? labels.intentPreview(item.intentPreview) : labels.runAt(item.createdAt)}
+                    labels={labels.text}
+                    context="choice.title"
+                  />
                   <LumenStatus value={labels.status(item.status)} tone={tone(item.status)} />
                 </LumenFrame>
                 <LumenText as="time" dateTime={new Date(item.startedAt ?? item.createdAt).toISOString()}>

@@ -6,6 +6,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { expectComposerText } from './support/composer-text'
+import { openSessionTool } from './support/session-tools-menu'
 
 async function cleanupFixture(root: string) {
   const target = resolve(root)
@@ -56,8 +57,7 @@ test('Activity tasks follow real Plan updates, clear and Session selection witho
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     const draft = '保留这段未发送输入；查看任务不是发送或编辑计划。'
     await prompt.fill(draft)
-    const activity = page.getByRole('button', { name: copy.session.tools.activity, exact: true })
-    await activity.click()
+    await openSessionTool(page, copy.session.tools, 'activity')
     const pane = page.locator('.hbar-session-activity-workspace')
     const tasks = pane.locator('.hbar-activity-tasks')
     await expect(tasks.getByRole('listitem')).toHaveCount(3)
@@ -99,7 +99,7 @@ test('Activity tasks follow real Plan updates, clear and Session selection witho
     const sidebar = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
     if (await sidebar.isVisible()) await sidebar.click()
     await page.getByRole('treeitem', { name: 'Session 001', exact: true }).click()
-    await activity.click()
+    await openSessionTool(page, copy.session.tools, 'activity')
     await expect(pane.getByText(copy.activity.empty, { exact: true })).toBeVisible()
     await expect(tasks).toHaveCount(0)
     expect(errors).toEqual([])
