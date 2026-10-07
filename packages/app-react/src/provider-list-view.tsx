@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { RefreshCw, Plus } from 'lucide-react'
 import {
   LumenActionMenu,
@@ -8,7 +9,7 @@ import {
   LumenIcon,
   LumenIconButton,
   LumenStatus,
-  LumenText,
+  LumenContentText,
 } from '@lumen/app-ui'
 import {
   providerListRowPresentation,
@@ -91,11 +92,26 @@ export function ProviderListView({
   onEdit,
   onRemove,
 }: ProviderListViewProps) {
+  const uniqueItems = useMemo(() => {
+    const seen = new Set<string>()
+    return items.filter((item) => {
+      if (seen.has(item.providerId)) return false
+      seen.add(item.providerId)
+      return true
+    })
+  }, [items])
   const defaultMutationBusy = defaultAction.status === 'submitting' || defaultAction.status === 'unknown'
   const listBusy = busy || defaultMutationBusy || reconcilingProviderId !== null
+  const missingUnknownProviderId =
+    defaultAction.status === 'unknown' &&
+    defaultAction.providerId !== null &&
+    !uniqueItems.some((item) => item.providerId === defaultAction.providerId)
+      ? defaultAction.providerId
+      : null
 
   return (
-    <LumenFrame as="section"
+    <LumenFrame
+      as="section"
       className="hbar-provider-list-view"
       aria-label={labels.title}
       aria-busy={listBusy || undefined}
@@ -103,14 +119,19 @@ export function ProviderListView({
     >
       <LumenFrame as="header" className="hbar-provider-list-view-header">
         <LumenFrame className="hbar-provider-list-view-heading">
-          <LumenText as="h2" variant="heading">
-            {labels.title}
-          </LumenText>
-          <LumenText as="p" tone="muted">
+          <LumenFrame className="hbar-provider-list-view-title" role="group" aria-label={labels.title} tabIndex={0}>
+            <LumenContentText context="section.title">{labels.title}</LumenContentText>
+          </LumenFrame>
+          <LumenContentText context="section.description" tone="muted">
             {labels.description}
-          </LumenText>
+          </LumenContentText>
         </LumenFrame>
-        <LumenFrame className="hbar-provider-list-view-header-actions">
+        <LumenFrame
+          className="hbar-provider-list-view-header-actions"
+          role="toolbar"
+          aria-label={labels.title}
+          tabIndex={0}
+        >
           <LumenIconButton label={labels.refresh} disabled={!connected || listBusy} onClick={onRefresh}>
             <LumenIcon icon={RefreshCw} tier="sm" />
           </LumenIconButton>
@@ -122,18 +143,48 @@ export function ProviderListView({
       </LumenFrame>
 
       {globalDefault.status === 'error' && globalDefault.error ? (
-        <LumenText as="p" className="hbar-provider-list-view-error" role="alert">
+        <LumenContentText
+          context="feedback.paragraph"
+          className="hbar-provider-list-view-error"
+          role="alert"
+          tone="danger"
+        >
           {labels.error(globalDefault.error)}
-        </LumenText>
+        </LumenContentText>
       ) : null}
 
-      {items.length === 0 ? (
-        <LumenText as="p" className="hbar-provider-list-view-empty" tone="muted">
+      {missingUnknownProviderId !== null && (
+        <LumenFrame
+          key={missingUnknownProviderId}
+          className="hbar-provider-list-view-missing-action"
+          aria-busy={reconcilingProviderId === missingUnknownProviderId}
+        >
+          <LumenContentText
+            context="feedback.paragraph"
+            role={reconcilingProviderId === missingUnknownProviderId ? 'status' : 'alert'}
+            tone={reconcilingProviderId === missingUnknownProviderId ? 'muted' : 'danger'}
+          >
+            {reconcilingProviderId === missingUnknownProviderId
+              ? labels.loading
+              : labels.setDefaultError(defaultAction.error ?? 'RESULT_UNKNOWN')}
+          </LumenContentText>
+          <LumenButton
+            variant="outlined"
+            disabled={!connected || busy || reconcilingProviderId !== null}
+            onClick={() => onReconcileDefault(missingUnknownProviderId)}
+          >
+            {labels.reconcileDefault}
+          </LumenButton>
+        </LumenFrame>
+      )}
+
+      {uniqueItems.length === 0 ? (
+        <LumenContentText context="empty.description" className="hbar-provider-list-view-empty" tone="muted">
           {labels.empty}
-        </LumenText>
+        </LumenContentText>
       ) : (
         <LumenCollection as="ol" className="hbar-provider-list-view-items" aria-label={labels.title}>
-          {items.map((item) => {
+          {uniqueItems.map((item) => {
             const row = providerListRowPresentation({
               item,
               globalDefault,
@@ -150,85 +201,108 @@ export function ProviderListView({
                 className="hbar-provider-list-view-item"
                 data-testid="provider-row"
                 data-provider-id={item.providerId}
+                aria-label={item.name}
               >
-                {row.isGlobalDefaultProvider || !item.defaultTargetVisible ? (
-                  <ProviderSummary
-                    item={item}
-                    labels={labels}
-                    {...(row.isGlobalDefaultProvider && row.activeDefaultModelName
-                      ? {
-                          globalDefaultModelName: row.activeDefaultModelName,
-                          globalDefaultSelectable: globalDefault.selectable,
-                        }
-                      : {})}
-                  />
-                ) : (
-                  <LumenButton
-                    type="button"
-                    variant="text"
-                    className="hbar-provider-list-view-primary"
-                    aria-label={labels.setDefaultFor(item.name, item.primaryModelName)}
-                    data-testid="provider-default-action"
-                    disabled={!row.canSetDefault}
-                    onClick={() => onSetDefault(item.providerId)}
-                  >
-                    <ProviderSummaryCopy item={item} labels={labels} />
-                    <LumenText as="span" className="hbar-provider-list-view-set-default">
-                      {labels.setDefault}
-                    </LumenText>
-                  </LumenButton>
-                )}
+                <LumenFrame className="hbar-provider-list-view-record" role="group" aria-label={item.name} tabIndex={0}>
+                  {row.isGlobalDefaultProvider || !item.defaultTargetVisible ? (
+                    <ProviderSummary
+                      item={item}
+                      labels={labels}
+                      {...(row.isGlobalDefaultProvider && row.activeDefaultModelName
+                        ? {
+                            globalDefaultModelName: row.activeDefaultModelName,
+                            globalDefaultSelectable: globalDefault.selectable,
+                          }
+                        : {})}
+                    />
+                  ) : (
+                    <LumenButton
+                      type="button"
+                      variant="text"
+                      className="hbar-provider-list-view-primary"
+                      aria-label={labels.setDefaultFor(item.name, item.primaryModelName)}
+                      data-testid="provider-default-action"
+                      disabled={!row.canSetDefault}
+                      onClick={() => onSetDefault(item.providerId)}
+                    >
+                      <ProviderSummaryCopy item={item} labels={labels} />
+                      <LumenContentText context="control.label" className="hbar-provider-list-view-set-default">
+                        {labels.setDefault}
+                      </LumenContentText>
+                    </LumenButton>
+                  )}
 
-                <LumenFrame className="hbar-provider-list-view-actions">
-                  {row.actionIsUnknown ? (
+                  <LumenFrame
+                    className="hbar-provider-list-view-actions"
+                    role="toolbar"
+                    aria-label={item.name}
+                    tabIndex={0}
+                  >
+                    {row.actionIsUnknown ? (
+                      <LumenButton
+                        type="button"
+                        size="s"
+                        variant="outlined"
+                        className="hbar-provider-list-view-reconcile"
+                        aria-label={labels.reconcileDefaultFor(item.name, item.primaryModelName)}
+                        data-testid="provider-default-reconcile"
+                        // Unknown writes lock out edits and a second switch, but
+                        // the reconciliation action is the one permitted exit.
+                        disabled={!connected || busy || row.reconciliationPending}
+                        onClick={() => onReconcileDefault(item.providerId)}
+                      >
+                        {labels.reconcileDefault}
+                      </LumenButton>
+                    ) : null}
                     <LumenButton
                       type="button"
                       size="s"
-                      variant="outlined"
-                      className="hbar-provider-list-view-reconcile"
-                      aria-label={labels.reconcileDefaultFor(item.name, item.primaryModelName)}
-                      data-testid="provider-default-reconcile"
-                      // Unknown writes lock out edits and a second switch, but
-                      // the reconciliation action is the one permitted exit.
-                      disabled={!connected || busy || row.reconciliationPending}
-                      onClick={() => onReconcileDefault(item.providerId)}
+                      variant="text"
+                      aria-label={labels.edit(item.name)}
+                      disabled={!connected || listBusy}
+                      onClick={() => onEdit(item.providerId)}
                     >
-                      {labels.reconcileDefault}
+                      {labels.editAction}
                     </LumenButton>
-                  ) : null}
-                  <LumenButton
-                    type="button"
-                    size="s"
-                    variant="text"
-                    aria-label={labels.edit(item.name)}
-                    disabled={!connected || listBusy}
-                    onClick={() => onEdit(item.providerId)}
-                  >
-                    {labels.editAction}
-                  </LumenButton>
-                  <LumenActionMenu
-                    label={labels.actions(item.name)}
-                    items={[
-                      { id: 'remove', label: labels.remove(item.name), tone: 'danger', disabled: row.deleteDisabled },
-                    ]}
-                    onAction={() => onRemove(item.providerId)}
-                  />
+                    <LumenActionMenu
+                      label={labels.actions(item.name)}
+                      items={[
+                        { id: 'remove', label: labels.remove(item.name), tone: 'danger', disabled: row.deleteDisabled },
+                      ]}
+                      onAction={() => onRemove(item.providerId)}
+                    />
+                  </LumenFrame>
                 </LumenFrame>
 
                 {row.actionIsSubmitting && !row.reconciliationPending ? (
-                  <LumenText as="p" className="hbar-provider-list-view-feedback" role="status">
+                  <LumenContentText
+                    context="feedback.paragraph"
+                    className="hbar-provider-list-view-feedback"
+                    role="status"
+                    tone="muted"
+                  >
                     {labels.settingDefault(item.name, item.primaryModelName)}
-                  </LumenText>
+                  </LumenContentText>
                 ) : null}
                 {row.reconciliationPending ? (
-                  <LumenText as="p" className="hbar-provider-list-view-feedback" role="status">
+                  <LumenContentText
+                    context="feedback.paragraph"
+                    className="hbar-provider-list-view-feedback"
+                    role="status"
+                    tone="muted"
+                  >
                     {labels.reconcilingDefault(item.name, item.primaryModelName)}
-                  </LumenText>
+                  </LumenContentText>
                 ) : null}
                 {actionError ? (
-                  <LumenText as="p" className="hbar-provider-list-view-error" role="alert">
+                  <LumenContentText
+                    context="feedback.paragraph"
+                    className="hbar-provider-list-view-error"
+                    role="alert"
+                    tone="danger"
+                  >
                     {actionError}
-                  </LumenText>
+                  </LumenContentText>
                 ) : null}
               </LumenCollectionItem>
             )
@@ -274,11 +348,11 @@ function ProviderSummaryCopy({
   readonly globalDefaultSelectable?: boolean
 }) {
   return (
-    <LumenText as="span" className="hbar-provider-list-view-copy">
-      <LumenText as="span" className="hbar-provider-list-view-title-row">
-        <LumenText as="strong" variant="label" className="hbar-provider-list-view-name">
+    <LumenFrame as="span" className="hbar-provider-list-view-copy">
+      <LumenFrame as="span" className="hbar-provider-list-view-title-row">
+        <LumenContentText context="collection.title" className="hbar-provider-list-view-name">
           {item.name}
-        </LumenText>
+        </LumenContentText>
         {globalDefaultModelName ? (
           <LumenStatus
             value={labels.globalDefault(globalDefaultModelName)}
@@ -287,27 +361,27 @@ function ProviderSummaryCopy({
             data-testid="provider-global-default"
           />
         ) : null}
-      </LumenText>
-      <LumenText as="span" className="hbar-provider-list-view-metadata">
-        <LumenText as="small" tone="subtle" variant="supporting">
+      </LumenFrame>
+      <LumenFrame as="span" className="hbar-provider-list-view-metadata">
+        <LumenContentText context="metadata.detail" tone="subtle">
           {labels.protocol(item.protocol)}
-        </LumenText>
-        <LumenText as="small" tone="subtle" variant="supporting">
+        </LumenContentText>
+        <LumenContentText context="metadata.detail" tone="subtle">
           {labels.primaryModel(item.primaryModelName)}
-        </LumenText>
-        <LumenText as="small" tone="subtle" variant="supporting">
+        </LumenContentText>
+        <LumenContentText context="metadata.detail" tone="subtle">
           {labels.modelCount(item.modelCount)}
-        </LumenText>
+        </LumenContentText>
         <LumenStatus
           value={item.hasKey ? labels.configured : labels.notConfigured}
           tone={item.hasKey ? 'success' : 'neutral'}
         />
         {item.hidden ? (
-          <LumenText as="small" tone="subtle" variant="supporting">
+          <LumenContentText context="metadata.detail" tone="subtle">
             {labels.hidden}
-          </LumenText>
+          </LumenContentText>
         ) : null}
-      </LumenText>
-    </LumenText>
+      </LumenFrame>
+    </LumenFrame>
   )
 }

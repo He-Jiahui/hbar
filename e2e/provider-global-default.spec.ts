@@ -7,7 +7,7 @@ import {
 } from '@hbar/client'
 import { settingsCommands } from '@hbar/contracts/commands/settings'
 import { encodePath } from '@hbar/schema-core'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { z } from 'zod'
@@ -24,8 +24,12 @@ const modelPath = encodePath([{ kind: 'field', name: 'provider.model' }])
 const thinkingPath = encodePath([{ kind: 'field', name: 'provider.thinkingLevel' }])
 
 async function removeOwnedFixture(root: string): Promise<void> {
-  const target = resolve(root)
-  if (dirname(target) !== resolve(tmpdir()) || !basename(target).startsWith('hbar-provider-default-'))
+  const target = await realpath(root)
+  if (
+    target !== resolve(root) ||
+    dirname(target) !== (await realpath(tmpdir())) ||
+    !basename(target).startsWith('hbar-provider-default-')
+  )
     throw new Error('Refusing to remove an unexpected provider fixture path')
   await rm(target, { recursive: true, force: true })
 }
@@ -40,7 +44,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 900 } })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const configuration = createConfigurationCommandClient(host.client)
       const settings = createSettingsCommandClient(host.client)
       const models = createModelCommandClient(host.client)
@@ -151,9 +160,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           .getByRole('navigation', { name: copy.settings.groups, exact: true })
           .getByRole('button', { name: copy.settings.resolve('i18n:settings.groups.model'), exact: true })
           .click()
-      await expect(page.locator(`[id="hbar-schema-field-${modelPath}"]`)).toHaveValue(
-        `${targetModel.providerName} · ${targetModel.modelName}`,
-      )
+      await expect(
+        page.getByRole('combobox', { name: copy.settings.resolve('i18n:settings.provider.model.label'), exact: true }),
+      ).toHaveValue(`${targetModel.providerName} · ${targetModel.modelName}`)
       if (width === 320)
         await selectLumenOption(page.getByRole('combobox', { name: copy.settings.groups, exact: true }), 'providers')
       else
