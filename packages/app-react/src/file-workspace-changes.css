@@ -106,3 +106,7 @@
 .hbar-file-diff-row[data-kind='hunk'] {
   color: var(--lumen-primary);
 }
+
+.hbar-file-change[aria-current='page'] {
+  background: color-mix(in srgb, var(--lumen-ink) 8%, var(--lumen-frost));
+}

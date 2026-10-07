@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
@@ -14,8 +14,12 @@ const path = `${nested}/${filename}`
 const alternative = `other/${filename}`
 
 async function removeOwnedFixture(root: string) {
-  const ownedRoot = resolve(root)
-  if (dirname(ownedRoot) !== resolve(tmpdir()) || !basename(ownedRoot).startsWith('hbar-file-tree-'))
+  const ownedRoot = await realpath(root)
+  if (
+    ownedRoot !== resolve(root) ||
+    dirname(ownedRoot) !== (await realpath(tmpdir())) ||
+    !basename(ownedRoot).startsWith('hbar-file-tree-')
+  )
     throw new Error('Refusing to remove a non-owned file-tree fixture')
   await rm(ownedRoot, { recursive: true, force: true })
 }
@@ -24,14 +28,18 @@ async function enterFiles(page: import('@playwright/test').Page, locale: ShellLo
   const copy = getShellCopy(locale)
   await page.goto(base())
   await page.getByTitle(copy.shell.workspaceActions(host.ready.workspaceName), { exact: true }).waitFor()
-  const expand = page.getByRole('treeitem', { expanded: false, name: host.ready.workspaceName, exact: true })
-  if (await expand.isVisible()) await expand.click()
+  const project = page.getByRole('treeitem', { name: host.ready.workspaceName, exact: true })
+  if ((await project.getAttribute('aria-expanded')) === 'false') {
+    await project.focus()
+    await project.press('ArrowRight')
+    await expect(project).toHaveAttribute('aria-expanded', 'true')
+  }
   await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
   await page.getByRole('button', { name: copy.session.tools.files, exact: true }).click()
   return page.locator('.hbar-app-react-file-workspace')
 }
 
-for (const locale of ['zh-CN'] as const) {
+for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`real Host All files keyboard focus, unopened paths, preview query and tree drafts: ${locale}`, async ({
     browser,
   }) => {
@@ -44,6 +52,8 @@ for (const locale of ['zh-CN'] as const) {
       await writeFile(join(root, path), '# Source\n')
       await writeFile(join(root, alternative), '# Other source\n')
       host = await startWebSessionHost({
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
         root,
         home: join(root, '.host'),
         port: Number(process.env.HBAR_E2E_HOST_PORT ?? 44717),
@@ -196,9 +206,12 @@ for (const locale of ['zh-CN'] as const) {
       expect(await readFile(join(root, path), 'utf8')).toBe('# Source\n')
       expect(errors).toEqual([])
     } finally {
-      await context.close()
-      if (host) await stopWebSessionHost(host)
-      await removeOwnedFixture(root)
+      try {
+        await context.close()
+      } finally {
+        if (host) await stopWebSessionHost(host)
+        await removeOwnedFixture(root)
+      }
     }
   })
 }

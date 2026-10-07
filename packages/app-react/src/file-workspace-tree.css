@@ -1,0 +1,92 @@
+.hbar-file-tree {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: auto;
+}
+.hbar-file-tree-controls,
+.hbar-file-tree-breadcrumbs,
+.hbar-file-tree-actions-reading {
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  overflow-x: auto;
+}
+.hbar-file-tree-controls input {
+  min-inline-size: 0;
+  flex: 1 1 8rem;
+}
+.hbar-file-tree-controls > button,
+.hbar-file-tree-breadcrumbs > button,
+.hbar-file-tree-actions-reading > button {
+  flex: 0 0 auto;
+}
+.hbar-file-tree-feedback {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.hbar-file-tree > [data-text-context],
+.hbar-file-tree-scroll > [data-text-context],
+.hbar-file-tree-children > [data-text-context],
+.hbar-file-tree-feedback > [data-text-context] {
+  flex: 0 0 auto;
+  padding: 0.375rem 0.75rem;
+}
+.hbar-file-tree-scroll {
+  min-inline-size: 0;
+  min-block-size: 1lh;
+  flex: 1 1 auto;
+  overflow: auto;
+}
+.hbar-file-tree-list {
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  list-style: none;
+}
+.hbar-file-tree-list > li {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  align-items: stretch;
+}
+.hbar-file-tree-children {
+  min-inline-size: 0;
+  margin-inline-start: 0.75rem;
+  border-inline-start: 0.0625rem solid var(--lumen-edge);
+}
+.hbar-file-tree-list .hbar-file-tree-row {
+  display: flex;
+  inline-size: 100%;
+  min-inline-size: 0;
+  block-size: auto;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0.375rem;
+  padding: 0.375rem;
+  text-align: start;
+  white-space: normal;
+}
+.hbar-file-tree-row > [data-text-context],
+.hbar-file-search-path {
+  min-inline-size: 0;
+  flex: 1 1 0;
+}
+.hbar-file-search-path {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+}
+.hbar-file-tree-row[aria-current='page'],
+.hbar-file-search-row[data-selected='true'] {
+  background: color-mix(in srgb, var(--lumen-ink) 8%, var(--lumen-frost));
+}
