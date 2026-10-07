@@ -4,7 +4,7 @@
   min-inline-size: 0;
   min-block-size: 0;
   block-size: 100%;
-  overflow: hidden;
+  overflow: auto;
   color: var(--lumen-ink);
   background: var(--lumen-frost);
 }
@@ -66,15 +66,13 @@
 
 .hbar-app-react-status-controls > p {
   align-self: center;
-  color: var(--lumen-muted);
 }
 
 .hbar-app-react-status-export-warning {
   margin-inline-start: 0.25rem;
-  color: var(--lumen-warning);
 }
 
-.hbar-app-react-status-filter-details > .hbar-lumen-disclosure-trigger {
+.hbar-app-react-status-filter-details > .hbar-lumen-disclosure-trigger-reading > .hbar-lumen-disclosure-trigger {
   display: flex;
   min-block-size: 1.75rem;
   align-items: center;
@@ -117,12 +115,6 @@
   flex: 1 1 10rem;
 }
 
-.hbar-app-react-git-controls > .lumen-form-field > label {
-  min-inline-size: max-content;
-  max-inline-size: none;
-  white-space: nowrap;
-}
-
 .hbar-app-react-status-controls > .lumen-action-menu {
   margin-inline-start: auto;
 }
@@ -135,8 +127,10 @@
 .hbar-app-react-status-workspace > nav {
   display: flex;
   flex: 0 0 auto;
-  flex-wrap: wrap;
+  min-inline-size: 0;
+  max-inline-size: 100%;
   gap: 0.25rem;
+  overflow-x: auto;
   padding: 0.5rem 1rem;
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
@@ -150,32 +144,43 @@
 
 .hbar-app-react-status-workspace > main {
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 0 auto;
   min-block-size: 0;
+  min-inline-size: 0;
   flex-direction: column;
   gap: 1rem;
-  overflow: auto;
+  overflow: visible;
   padding: 1rem;
 }
 
 .hbar-app-react-status-workspace > main > section {
   display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.hbar-app-react-status-workspace > main > section > h2,
-.hbar-app-react-status-details > .hbar-lumen-disclosure-trigger {
-  font-size: 0.875rem;
-  font-weight: 650;
-  line-height: 1.3;
+.hbar-status-detail-term,
+.hbar-status-action-reading {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-x: auto;
+}
+
+.hbar-status-action-reading {
+  display: flex;
+}
+
+.hbar-status-action-reading > *,
+.hbar-app-react-status-workspace > nav > * {
+  flex: 0 0 auto;
 }
 
 .hbar-app-react-status-gap {
   padding: 0.5rem 0.75rem;
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
-  color: var(--lumen-warning);
   background: color-mix(in srgb, var(--lumen-warning) 8%, transparent);
 }
 
@@ -183,12 +188,8 @@
   border-block-start: 0.0625rem solid var(--lumen-edge);
 }
 
-.hbar-app-react-status-details > .hbar-lumen-disclosure-trigger {
+.hbar-app-react-status-details > .hbar-lumen-disclosure-trigger-reading > .hbar-lumen-disclosure-trigger {
   padding-block: 0.75rem;
-}
-
-.hbar-app-react-status-details[data-open='true'] > .hbar-lumen-disclosure-trigger {
-  color: var(--lumen-ink);
 }
 
 .hbar-app-react-status-loading {
@@ -218,8 +219,7 @@
 }
 
 .hbar-app-react-status-empty-chart {
-  min-block-size: 5rem;
-  color: var(--lumen-muted);
+  padding-block: 0.75rem;
 }
 
 .hbar-app-react-usage-models {
@@ -237,14 +237,18 @@
   align-items: baseline;
   gap: 0.75rem;
   min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-x: auto;
   padding: 0.5rem;
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 
-.hbar-app-react-usage-models strong {
-  min-inline-size: min(100%, 14rem);
+.hbar-app-react-usage-models li > * {
+  flex: 0 0 auto;
+}
+
+.hbar-app-react-usage-models [data-text-context='collection.title'] {
   flex: 1 1 14rem;
-  overflow-wrap: anywhere;
 }
 
 .hbar-app-react-usage-latency .lumen-compact-metrics > div {
@@ -283,10 +287,6 @@
   background: var(--lumen-warning);
 }
 
-.hbar-app-react-git-empty {
-  color: var(--lumen-muted);
-}
-
 .hbar-app-react-git-status > .hbar-app-react-status-details .lumen-compact-metrics > div:first-child {
   flex-basis: 24rem;
 }
@@ -320,6 +320,9 @@
 
 .hbar-app-react-git-commits .hbar-lumen-disclosure-trigger {
   display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  inline-size: 100%;
   align-items: flex-start;
   gap: 0.5rem;
 }
@@ -329,15 +332,21 @@
   color: var(--lumen-ink);
 }
 
-.hbar-app-react-git-commits .hbar-lumen-disclosure-trigger > span:last-child {
+.hbar-app-react-git-commits .hbar-lumen-disclosure-trigger > [data-text-context='control.label'] {
   display: flex;
   flex: 1 1 auto;
-  flex-direction: column;
-  gap: 0.25rem;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  gap: 0.5rem;
 }
 
-.hbar-app-react-git-commits .hbar-lumen-disclosure-trigger small {
-  color: var(--lumen-muted);
+.hbar-app-react-git-commits .hbar-status-commit-copy {
+  display: flex;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .hbar-app-react-git-commits .hbar-lumen-disclosure-trigger span,
@@ -358,27 +367,6 @@
   flex: 1 1 10rem;
 }
 
-.hbar-app-react-git-commits dt {
-  color: var(--lumen-muted);
-}
-
 .hbar-app-react-git-commits dd {
   margin: 0;
-}
-
-.hbar-app-react-status-workspace [role='alert'] {
-  color: var(--lumen-danger);
-}
-
-@media (max-width: 42rem) {
-  .hbar-app-react-usage-models li {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  .hbar-app-react-usage-models strong {
-    min-inline-size: 0;
-    flex: 0 0 auto;
-  }
 }

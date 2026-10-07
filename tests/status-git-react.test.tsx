@@ -122,7 +122,9 @@ test('Git status renders workspace provenance, changes, bounded series, and poli
     expect(html).toContain('Repository and accounting details')
     expect(html).toContain('Recent commit details')
     expect(html).toContain('Automatic checkpoint')
-    expect(html).toContain('<dt>Session</dt><dd>session</dd>')
+    expect(html).toMatch(
+      /<dt[^>]*data-text-context="detail.term"[^>]*>Session<\/dt><dd[^>]*data-text-context="detail.value"[^>]*>session<\/dd>/,
+    )
     expect(html).toContain('lumen-compact-metrics')
     expect(html).toMatch(/<small[^>]*>aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa<\/small>/)
     expect(html).toContain('role="img" aria-label="File and line changes"')

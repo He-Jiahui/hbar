@@ -1,12 +1,23 @@
 import { expect, test } from '@playwright/test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { selectLumenOption } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 const widths = [320, 390, 768, 1024, 1440] as const
+
+async function removeFixture(root: string): Promise<void> {
+  const target = await realpath(root)
+  if (
+    target !== resolve(root) ||
+    dirname(target) !== (await realpath(tmpdir())) ||
+    !basename(target).startsWith('hbar-status-controls-')
+  )
+    throw new Error('Unexpected status controls fixture path')
+  await rm(target, { recursive: true, force: true })
+}
 
 async function authenticate(page: import('@playwright/test').Page, token: string): Promise<string> {
   const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
@@ -22,13 +33,23 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 900 } })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const page = await context.newPage()
       let usageQueryCount = 0
+      let performanceQueryCount = 0
+      let gitQueryCount = 0
       await page.routeWebSocket('**/rpc', (socket) => {
         const server = socket.connectToServer()
         socket.onMessage((message) => {
           if (typeof message === 'string' && /"commandId"\s*:\s*"usage\.query"/.test(message)) usageQueryCount += 1
+          if (typeof message === 'string' && /"commandId"\s*:\s*"metrics\.query"/.test(message))
+            performanceQueryCount += 1
+          if (typeof message === 'string' && /"commandId"\s*:\s*"git\.stats"/.test(message)) gitQueryCount += 1
           server.send(message)
         })
         server.onMessage((message) => socket.send(message))
@@ -49,7 +70,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .click()
       const controls = status.getByRole('group', { name: copy.status.usage.filters, exact: true })
       const scope = controls.getByRole('combobox', { name: copy.status.usage.scope, exact: true })
-      const advanced = controls.locator('.hbar-app-react-status-filter-details > .hbar-lumen-disclosure-trigger')
+      const advanced = controls.getByRole('button', { name: copy.status.usage.advancedFilters, exact: true })
       const exportTrigger = controls.locator(
         `.lumen-action-menu > summary[aria-label=${JSON.stringify(copy.status.usage.export)}], ` +
           `.lumen-action-menu > button.lumen-action-menu-trigger[aria-label=${JSON.stringify(copy.status.usage.export)}]`,
@@ -108,8 +129,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         const exportBounds = await exportTrigger.boundingBox()
         expect(controlsBounds).not.toBeNull()
         expect(exportBounds).not.toBeNull()
-        expect((controlsBounds?.right ?? 0) - (exportBounds?.right ?? 0)).toBeGreaterThanOrEqual(0)
-        expect((controlsBounds?.right ?? 0) - (exportBounds?.right ?? 0)).toBeLessThan(20)
+        if (!controlsBounds || !exportBounds) throw new Error('Status export geometry is unavailable')
+        const exportInset = controlsBounds.x + controlsBounds.width - exportBounds.x - exportBounds.width
+        expect(exportInset).toBeGreaterThanOrEqual(0)
+        expect(exportInset).toBeLessThan(20)
 
         await exportTrigger.click()
         const exportMenu = page.getByRole('menu', { name: copy.status.usage.export, exact: true })
@@ -166,10 +189,28 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expect.poll(() => usageQueryCount).toBeGreaterThan(beforeScopeQuery)
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       }
+      const navigation = status.getByRole('navigation', { name: copy.status.tabs, exact: true })
+      await navigation.getByRole('button', { name: copy.status.sections.dashboard, exact: true }).click()
+      const performance = status.locator('#hbar-status-performance-target')
+      await expect(performance).toBeEnabled()
+      const beforePerformance = performanceQueryCount
+      await selectLumenOption(performance, 'host')
+      await expect.poll(() => performanceQueryCount).toBeGreaterThan(beforePerformance)
+      await expect(performance).toHaveAttribute('data-value', 'host')
+      await navigation.getByRole('button', { name: copy.status.sections.git, exact: true }).click()
+      await expect.poll(() => gitQueryCount).toBeGreaterThan(0)
+      const repository = status.getByRole('combobox', { name: copy.status.git.repositoryFilter, exact: true })
+      await expect(repository).toHaveAttribute('data-value', host.ready.workspaceId)
+      const commits = status.locator('.hbar-app-react-git-commits')
+      await expect(commits).toContainText('browser fixture')
+      await commits.getByRole('button').first().click()
+      await expect(commits.getByText(copy.status.git.commitSource, { exact: true })).toBeVisible()
+      await expect(commits.getByRole('definition')).toContainText([copy.status.git.external])
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeFixture(root)
     }
   })
 }
