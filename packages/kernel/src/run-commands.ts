@@ -125,6 +125,7 @@ export function createRunCommands(kernel: Kernel) {
             'DEMO_DISABLED',
             'UNSUPPORTED_IMAGE',
             'ARCHIVED',
+            'SESSION_ARCHIVED',
             'NOT_FOUND',
             'INVALID_INPUT',
             'COMMAND_CONFLICT',
@@ -149,7 +150,7 @@ export function createRunCommands(kernel: Kernel) {
             'HOST_SHUTTING_DOWN',
           ].includes(error.code)
         )
-          throw new CommandError(error.code, error.message)
+          throw new CommandError(error.code === 'SESSION_ARCHIVED' ? 'ARCHIVED' : error.code, error.message)
         uncertainSessions.add(input.sessionId)
         throw new CommandError('RESULT_UNKNOWN', 'Run acceptance requires reconciliation')
       }

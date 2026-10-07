@@ -353,4 +353,8 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 原页面在追加处理中和失败后保持可见，忙碌及错误反馈使用宿主文案的语义段落，追加按钮禁用或提供原游标重试。54 个实际 Chrome 场景通过，在前述矩阵追加两语言的真实延迟读及失败恢复，验证禁用、原 50 条保留、状态全文、失败反馈和相同请求输入重试。34 项 View／runtime／导航测试通过，含九项新生命周期／合并／重复调用／失败重试／八槽物理容量／断连恢复测试；受控复现由三项失败到修复后通过。dispose 仍保留 command registry 原有 RESULT_UNKNOWN 回执语义，未把在途写命令强行改成确定取消。
 - 六项真实 Host Agent 模型／策略流程在最终生产资源通过。范围严格 lint、内容／图标 guard、格式、Web build 与清单／实际生产输入核对通过；完整冷启动类型仍有 92 项既有诊断，本次范围无诊断。证据为 agent-append/red-corrected.log、unit-final.log、client.log、host.log、lint.log、lint-test-final.log、types-final.log、build.log 和 inventory.log。
 
+归档验收中的 Run admission 拒绝单独修复：实际 Host 的已归档会话返回 RESULT_UNKNOWN，后续恢复会话也被 uncertainSessions 阻塞。相关 8bad4c80 的 launch preparation 保护返回 SESSION_ARCHIVED，但 durable Run 层只识别原 ARCHIVED。独立 Kernel 复现确认真实领域拒绝为 SESSION_ARCHIVED，未产生 run.queued；现在在读取规范受理事实后，将这一已知拒绝映射为原 Run API 的 ARCHIVED，不加入未知结果集合。
+
+- 九项真实 Kernel／Run commands／RPC 测试通过，包含新归档拒绝、恢复后同一未受理 key 正常受理且只入队一次；保留原受理事实／actor receipt、Git 预受理失败、丢失回执恢复、retry、queued／running cancel 与 watch cursor。范围严格 lint、格式及冷启动类型检查通过对应范围；完整类型仍有 92 项既有诊断。证据为 archived-admission/red.log、green.log、unit.log、unit-final.log、lint-final.log 和 types-final.log。进行中的 UI 调用方与 Host 回归结果另行记录。
+
 当前已提交清单覆盖 146 个生产 TSX 模块、3734 个元素，其中记录了 344 处低层文字未分类，合计 361 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
