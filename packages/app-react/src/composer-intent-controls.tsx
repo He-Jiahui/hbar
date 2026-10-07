@@ -393,7 +393,9 @@ export function HbarComposerGoal({
       )}
       {showSummary && clearTarget && clearTarget === goal?.goalId && (
         <LumenFrame role="group" aria-label={labels.clear} className="hbar-composer-goal-confirm">
-          <LumenText as="span">{labels.confirmClear(goal.objective)}</LumenText>
+          <LumenText as="span" tabIndex={embedded ? 0 : undefined}>
+            {labels.confirmClear(goal.objective)}
+          </LumenText>
           <LumenButton
             type="button"
             size="s"

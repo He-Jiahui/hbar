@@ -63,6 +63,11 @@
   inline-size: auto;
 }
 
+.hbar-composer-goal-context[data-embedded] .hbar-composer-goal-confirm > span {
+  max-block-size: min(20dvh, 6rem);
+  overflow: auto;
+}
+
 .hbar-composer-goal-context p {
   margin: 0;
 }
