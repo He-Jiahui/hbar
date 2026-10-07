@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useStore } from 'zustand'
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenContentText, LumenFrame } from '@lumen/app-ui'
 import { HbarSchemaForm, type HbarSchemaFormLabels } from '@hbar/schema-react'
 import type { StorageLocationController } from '@hbar/app-runtime/storage-locations'
 import { createHbarSchemaComponents } from './lumen-schema-components'
@@ -44,20 +44,19 @@ export function HbarStorageLocationSettings({
   const form = state.form
   const busy = state.loading || form?.status === 'submitting'
   const unknown = form?.status === 'unknown'
+  const activeRoots = state.snapshot ? new Map(Object.entries(state.snapshot.active)) : new Map<string, string>()
   return (
     <LumenFrame as="section" className="hbar-storage-settings" aria-label={labels.title}>
-      <LumenText as="h2" variant="heading">
-        {labels.title}
-      </LumenText>
-      <LumenText as="p" tone="muted">
+      <LumenFrame className="hbar-storage-settings-title" role="region" aria-label={labels.title} tabIndex={0}>
+        <LumenContentText context="section.title">{labels.title}</LumenContentText>
+      </LumenFrame>
+      <LumenContentText context="section.description" tone="muted">
         {labels.description}
-      </LumenText>
+      </LumenContentText>
       {state.snapshot && (
-        <LumenFrame className="hbar-storage-settings-pointer">
-          <LumenText as="span" variant="label">
-            {labels.pointer}
-          </LumenText>
-          <LumenText as="code">{state.snapshot.pointerFile}</LumenText>
+        <LumenFrame className="hbar-storage-settings-pointer" role="region" aria-label={labels.pointer} tabIndex={0}>
+          <LumenContentText context="form.label">{labels.pointer}</LumenContentText>
+          <LumenContentText context="resource.path">{state.snapshot.pointerFile}</LumenContentText>
         </LumenFrame>
       )}
       {form && state.snapshot && (
@@ -69,11 +68,14 @@ export function HbarStorageLocationSettings({
           labels={labels.form}
           layout="stacked"
           disabled={!connected || state.loading}
-          renderFieldContext={(field) => (
-            <LumenText as="small" tone="muted">
-              {labels.active(state.snapshot!.active[field.name as keyof typeof state.snapshot.active])}
-            </LumenText>
-          )}
+          renderFieldContext={(field) => {
+            const active = activeRoots.get(field.name)
+            return active === undefined ? null : (
+              <LumenContentText context="form.help" tone="muted">
+                {labels.active(active)}
+              </LumenContentText>
+            )
+          }}
           onIntent={(intent) => {
             if (intent.kind === 'set' && typeof intent.value === 'string') controller.edit(intent.field, intent.value)
             else if (intent.kind === 'reset') controller.reset(intent.field)
@@ -81,36 +83,36 @@ export function HbarStorageLocationSettings({
         />
       )}
       {state.loading && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {state.error && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.paragraph" role="alert">
           {labels.error(state.error)}
-        </LumenText>
+        </LumenContentText>
       )}
       {unknown && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" role="status">
           {labels.unknown}
-        </LumenText>
+        </LumenContentText>
       )}
       {state.snapshot?.restartRequired && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" role="status">
           {labels.pending}
-        </LumenText>
+        </LumenContentText>
       )}
       {form?.status === 'succeeded' && !state.snapshot?.restartRequired && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" role="status">
           {labels.saved}
-        </LumenText>
+        </LumenContentText>
       )}
       {state.restart === 'manual' && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" role="status">
           {labels.manualRestart}
-        </LumenText>
+        </LumenContentText>
       )}
-      <LumenFrame className="hbar-storage-settings-actions">
+      <LumenFrame className="hbar-storage-settings-actions" role="toolbar" aria-label={labels.title} tabIndex={0}>
         {unknown && (
           <LumenButton disabled={!connected || busy} onClick={() => void controller.retryOriginal()}>
             {labels.retryOriginal}

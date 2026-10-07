@@ -5,18 +5,22 @@
   gap: 1rem;
   min-width: 0;
 }
+.hbar-storage-settings-title,
 .hbar-storage-settings-pointer {
   display: flex;
   flex-direction: column;
+  min-inline-size: 0;
+  overflow: auto;
   gap: 0.35rem;
-  overflow-wrap: anywhere;
-}
-.hbar-storage-settings .hbar-schema-form-copy small {
-  overflow-wrap: anywhere;
 }
 .hbar-storage-settings-actions {
   display: flex;
-  flex-wrap: wrap;
+  min-inline-size: 0;
+  min-block-size: max-content;
+  overflow-x: auto;
   align-items: center;
   gap: 0.5rem;
+}
+.hbar-storage-settings-actions > button {
+  flex: 0 0 auto;
 }
