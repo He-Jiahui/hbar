@@ -390,4 +390,12 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 86 个变更／diff client 场景重新通过；四项实际 Chrome / Host 回归整组通过，包含两语言的树搜索／键盘／未打开路径／预览与原草稿，以及两语言五宽度的变更／比较／真实文件打开。临时数据清理校验 realpath、所属前缀和临时目录；上下文关闭失败时也停止所属 Host。
 - 严格范围 ESLint、文案／图标 guard、三份样式的 flow guard、格式、Web 构建与实际构建输入清单通过。初次夹具的命令名 string 类型诊断已使用公开执行器命令类型修复；最终冷启动完整类型仍为 92 项既有诊断，本次范围为零。证据为 file-tree-content/unit-final.log、client-final.log、changes-regression.log、host.log、lint.log、lint-fixture-final.log、types-final.log、build.log、inventory.log 及 guard／format 日志。清单为 146 模块／3752 元素／261 处低层文字／278 项静态缺口。
 
-当前已提交清单覆盖 146 个生产 TSX 模块、3752 个元素，其中记录了 261 处低层文字未分类，合计 278 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 文件工作区正文、反馈与重载确认
+
+- 工作区的 9 处低层文字归入 feedback.paragraph、control.status、resource.path 和 dialog.body。保存状态与动作、确认弹窗的原始路径各有具名键盘阅读区；反馈和确认说明自然换行。保留已有目标、草稿、SHA、revision 和未知结果核对契约。
+- Lumen 文件文档标题与说明改为 section.title／section.description，标题完整换行。实际长标题检查复现了 864bc53b0d 中的 nowrap／ellipsis；共享修复为 b1c36102e7。该提交的包构建、类型、范围 lint、格式和 5 项组件测试通过。
+- 真实 Host 的长 Markdown 正文复现了预览层拦截“源码”按钮。原共享文档正文的直接子节点 flex 规则与工作区模式、反馈及底部动作规则优先级相同；工作区使用所属表面限定选择器保留各自的自然尺寸，32 个 Chrome 场景及 Host 回归确认按钮可点击。相关旧规则可追溯到 864bc53b0d；测试导航入口等待真实可见状态，差异正文使用其所属阅读区消除与分页组的名称歧义，保留行为断言。
+- 39 项现有单测、287 项断言通过。32 个实际 Chrome 场景覆盖中英文、明暗主题、1440／1100／900／390／320、窄屏 125% 文字、长标题／说明／路径、保留／丢弃草稿、长正文模式切换、超出 Markdown 阈值、保存冲突及未知结果禁止重放。真实 Host 的 6 项文件页签／差异／保存／晚到响应回归全部通过，临时数据按已验证真实路径清理，自动 Goal 与预算继续关闭。
+- 范围 ESLint、文案／图标／flow guard、格式、Web 构建和构建输入清单通过。冷启动完整类型仍有 92 项既有诊断，本次文件范围为零；全库类型门禁仍未通过。证据在 artifacts/desktop-elements/file-workspace-content 的 unit-initial.log、title-red.log、client-final.log、host.log、host-final.log、lumen-*、types-final.log、lint-final.log、build-final.log、inventory-final.log。
+
+当前已提交清单覆盖 146 个生产 TSX 模块、3753 个元素，其中记录了 252 处低层文字未分类，合计 269 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

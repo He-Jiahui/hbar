@@ -3,7 +3,7 @@ import { createFileCommandClient, createGitCommandClient } from '@hbar/client'
 import { execFileSync } from 'node:child_process'
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
@@ -59,7 +59,11 @@ test.beforeAll(async () => {
 
 async function removeFixture(root: string): Promise<void> {
   const resolved = await realpath(root)
-  if (dirname(resolved) !== (await realpath(tmpdir())) || !basename(resolved).startsWith('hbar-file-preview-tabs-'))
+  if (
+    resolved !== resolve(root) ||
+    dirname(resolved) !== (await realpath(tmpdir())) ||
+    !basename(resolved).startsWith('hbar-file-preview-tabs-')
+  )
     throw new Error('Refusing cleanup outside the captured file-preview fixture')
   await rm(resolved, { recursive: true, force: true })
 }
@@ -87,7 +91,7 @@ async function start(
       [pagedDiffPath, pagedText('before')],
     ] as const)
       await writeFile(join(root, path), text)
-    host = await startWebSessionHost({ root, port, goalAutoContinue: false })
+    host = await startWebSessionHost({ root, port, goalAutoContinue: false, budgetAutoContinue: false })
     const git = (...args: string[]) => execFileSync('git', args, { cwd: root, stdio: 'ignore', windowsHide: true })
     git('add', aPath, bPath, firstPath, secondPath, changedPath, latePath, readingA, readingB, pagedDiffPath)
     git('commit', '-m', 'isolated real Host preview-tabs fixture')
@@ -113,17 +117,27 @@ async function start(
     await beforeNavigate?.(page, host.ready.workspaceId)
     await page.goto(origin)
     const copy = getShellCopy(locale)
+    const project = page.getByRole('treeitem', { name: host.ready.workspaceName, exact: true })
+    await expect(project).toBeVisible()
+    if ((await project.getAttribute('aria-expanded')) === 'false') {
+      await project.focus()
+      await project.press('ArrowRight')
+      await expect(project).toHaveAttribute('aria-expanded', 'true')
+    }
     await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     await page.getByRole('button', { name: copy.shell.hideSidebar, exact: true }).click()
     await page.getByRole('textbox', { name: copy.session.prompt.input, exact: true }).fill(composerDraft)
     await page.getByRole('button', { name: copy.session.tools.files, exact: true }).click()
     return { root, context, page, host, locale, copy, errors, writes }
   } catch (reason) {
-    await context.close()
-    if (host) {
-      const captured = host
-      await stopWebSessionHost(captured)
-      await expect.poll(() => captured.child.exitCode !== null || captured.child.signalCode !== null).toBe(true)
+    try {
+      await context.close()
+    } finally {
+      if (host) {
+        const captured = host
+        await stopWebSessionHost(captured)
+        await expect.poll(() => captured.child.exitCode !== null || captured.child.signalCode !== null).toBe(true)
+      }
       await removeFixture(root)
     }
     throw reason
@@ -131,10 +145,13 @@ async function start(
 }
 
 async function stop(fixture: Fixture): Promise<void> {
-  await fixture.context.close()
-  await stopWebSessionHost(fixture.host)
-  await expect.poll(() => fixture.host.child.exitCode !== null || fixture.host.child.signalCode !== null).toBe(true)
-  await removeFixture(fixture.root)
+  try {
+    await fixture.context.close()
+  } finally {
+    await stopWebSessionHost(fixture.host)
+    await expect.poll(() => fixture.host.child.exitCode !== null || fixture.host.child.signalCode !== null).toBe(true)
+    await removeFixture(fixture.root)
+  }
 }
 
 function files(fixture: Fixture): Locator {
@@ -142,6 +159,11 @@ function files(fixture: Fixture): Locator {
 }
 function preview(fixture: Fixture, path: string): Locator {
   return files(fixture).getByLabel(fixture.copy.files.textPreview(path), { exact: true })
+}
+function diffContent(fixture: Fixture, path: string): Locator {
+  return files(fixture)
+    .locator('.hbar-file-diff-content')
+    .and(files(fixture).getByLabel(fixture.copy.files.changes.diffContent(path), { exact: true }))
 }
 async function expectSourceText(fixture: Fixture, path: string, text: string): Promise<void> {
   await files(fixture).getByRole('button', { name: fixture.copy.files.source, exact: true }).click()
@@ -155,8 +177,9 @@ function editor(fixture: Fixture, path: string): Locator {
 }
 async function navigator(fixture: Fixture): Promise<Locator> {
   const show = files(fixture).getByRole('button', { name: fixture.copy.files.showNavigator, exact: true })
-  if (await show.isVisible()) await show.click()
   const region = files(fixture).getByRole('region', { name: fixture.copy.files.navigator, exact: true })
+  await expect.poll(async () => (await region.isVisible()) || (await show.isVisible())).toBe(true)
+  if (!(await region.isVisible())) await show.click()
   await expect(region).toBeVisible()
   return region
 }
@@ -220,7 +243,7 @@ async function openDiff(
       exact: true,
     })
     .click()
-  await expect(files(fixture).getByLabel(fixture.copy.files.changes.diffContent(path), { exact: true })).toContainText(
+  await expect(diffContent(fixture, path)).toContainText(
     expectedText ?? (kind === 'working' ? '+# Working tree version' : '+# Staged version'),
   )
 }
@@ -445,9 +468,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       ).toEqual(identities)
       await files(fixture).getByRole('button', { name: copy.files.expandWorkbench, exact: true }).click()
       await previewTab(fixture, changedPath, 'working').click()
-      await expect(
-        files(fixture).getByLabel(copy.files.changes.diffContent(changedPath), { exact: true }),
-      ).toContainText('+# Working tree version')
+      await expect(diffContent(fixture, changedPath)).toContainText('+# Working tree version')
       await files(fixture).getByRole('button', { name: copy.files.returnToConversation, exact: true }).click()
       await expect(page.locator('.lumen-app-tool-drawer')).toBeVisible()
       expect(
@@ -461,9 +482,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         ).toBeEnabled()
         await screenshot(fixture, 'three-real-identities', width)
         await previewTab(fixture, changedPath, 'staged').click()
-        await expect(
-          files(fixture).getByLabel(copy.files.changes.diffContent(changedPath), { exact: true }),
-        ).toContainText('+# Staged version')
+        await expect(diffContent(fixture, changedPath)).toContainText('+# Staged version')
         await previewTab(fixture, changedPath, 'working')
           .click()
           .catch(async (reason: unknown) => {
@@ -520,9 +539,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await previewTab(fixture, changedPath, 'staged').click()
       await bulkClose(fixture, changedPath, 'staged', 'others')
       await expect(files(fixture).getByRole('tablist')).toHaveCount(0)
-      await expect(
-        files(fixture).getByLabel(copy.files.changes.diffContent(changedPath), { exact: true }),
-      ).toContainText('+# Staged version')
+      await expect(diffContent(fixture, changedPath)).toContainText('+# Staged version')
       await closePreview(fixture, changedPath, 'staged')
       await expect(files(fixture).getByRole('region', { name: copy.files.navigator, exact: true })).toBeVisible()
       await expect(files(fixture).getByRole('tab')).toHaveCount(0)
@@ -555,7 +572,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await files(fixture).getByRole('button', { name: copy.files.changes.nextLines, exact: true }).click()
       const pageRange = copy.files.changes.linePage(401, 800, diffLines.length)
       await expect(files(fixture).getByText(pageRange, { exact: true })).toBeVisible()
-      const content = files(fixture).getByLabel(copy.files.changes.diffContent(pagedDiffPath), { exact: true })
+      const content = diffContent(fixture, pagedDiffPath)
       const firstLine = diffLines[400]
       const lastLine = diffLines[799]
       if (!firstLine || !lastLine) throw new Error('The real Host diff did not include the expected page bounds')
