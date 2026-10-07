@@ -9,7 +9,7 @@
 | 类别        | 元素 | pending | 设计职责                                                                |
 | ----------- | ---: | ------: | ----------------------------------------------------------------------- |
 | structure   | 1119 |      10 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
-| text        | 1066 |     541 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
+| text        | 1066 |     533 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
 | interaction |  933 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
 | form        |  278 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
 | collection  |  169 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
@@ -46,7 +46,7 @@
 | [packages/app-react/src/activity-tasks-view.tsx](../../packages/app-react/src/activity-tasks-view.tsx)                     | agents-and-activity                              |   14 |              0 |          5 |          1 |
 | [packages/app-react/src/activity-workflow-view.tsx](../../packages/app-react/src/activity-workflow-view.tsx)               | agents-and-activity                              |   28 |              0 |         10 |          0 |
 | [packages/app-react/src/agent-model-picker.tsx](../../packages/app-react/src/agent-model-picker.tsx)                       | agents-and-activity                              |   30 |              0 |         11 |          0 |
-| [packages/app-react/src/agent-policy-editor.tsx](../../packages/app-react/src/agent-policy-editor.tsx)                     | agents-and-activity                              |   29 |              0 |          8 |          0 |
+| [packages/app-react/src/agent-policy-editor.tsx](../../packages/app-react/src/agent-policy-editor.tsx)                     | agents-and-activity                              |   29 |              8 |          0 |          0 |
 | [packages/app-react/src/agent-tool-open.tsx](../../packages/app-react/src/agent-tool-open.tsx)                             | agents-and-activity                              |    4 |              0 |          1 |          0 |
 | [packages/app-react/src/chat-search-view.tsx](../../packages/app-react/src/chat-search-view.tsx)                           | session                                          |   38 |              0 |         22 |          0 |
 | [packages/app-react/src/code-block-copy-action.tsx](../../packages/app-react/src/code-block-copy-action.tsx)               | files-and-reading                                |    7 |              0 |          2 |          0 |

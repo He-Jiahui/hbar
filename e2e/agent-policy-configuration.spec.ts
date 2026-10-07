@@ -3,7 +3,7 @@ import { createAgentCommandClient, createModelCommandClient } from '@hbar/client
 import { encodePath } from '@hbar/schema-core'
 import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { openSessionTool } from './support/session-tools-menu'
@@ -11,7 +11,11 @@ import { expectLumenValue, selectLumenChoice, selectLumenOption } from './suppor
 
 async function removeOwnedFixture(root: string) {
   const target = await realpath(root)
-  if (dirname(target) !== (await realpath(tmpdir())) || !basename(target).startsWith('hbar-agent-policy-ui-'))
+  if (
+    target !== resolve(root) ||
+    dirname(target) !== (await realpath(tmpdir())) ||
+    !basename(target).startsWith('hbar-agent-policy-ui-')
+  )
     throw new Error('Unexpected agent policy fixture root')
   await rm(target, { recursive: true, force: true })
 }
@@ -27,6 +31,7 @@ for (const locale of ['en-US', 'zh-CN'] as const)
         root,
         port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
         budgetAutoContinue: false,
+        goalAutoContinue: false,
       })
       const models = createModelCommandClient(host.client)
       const agents = createAgentCommandClient(host.client)
@@ -51,7 +56,7 @@ for (const locale of ['en-US', 'zh-CN'] as const)
       await page.goto(base)
       await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await openSessionTool(page, copy.session.tools, 'agents')
-      await page.locator('.hbar-agent-policy-editor > .hbar-lumen-disclosure-trigger').click()
+      await page.getByRole('button', { name: copy.agents.policy.title, exact: true }).click()
       await expect(page.getByText(copy.agents.policy.empty, { exact: true })).toBeVisible()
       await page.getByRole('button', { name: copy.agents.policy.add, exact: true }).click()
       const row = page.locator('.hbar-agent-policy-row')

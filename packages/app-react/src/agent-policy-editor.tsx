@@ -5,7 +5,7 @@ import {
   LumenFrame,
   LumenInput,
   LumenPopupSelect,
-  LumenText,
+  LumenContentText,
   LumenToggleGroup,
   type LumenControlOption,
 } from '@lumen/app-ui'
@@ -85,36 +85,30 @@ export function AgentPolicyEditor({
   return (
     <HbarLumenDisclosure
       className="hbar-agent-policy-editor"
-      label={
-        <LumenText as="span" variant="supporting">
-          {labels.title}
-        </LumenText>
-      }
+      label={<LumenContentText context="control.label">{labels.title}</LumenContentText>}
       open={expanded}
       onOpenChange={setExpandedAndLoad}
     >
-      <LumenText as="p" variant="supporting">
-        {labels.description}
-      </LumenText>
+      <LumenContentText context="form.description">{labels.description}</LumenContentText>
       {entry?.snapshot && (
-        <LumenText as="p" variant="supporting">
+        <LumenContentText context="form.help">
           {labels.source(entry.snapshot.sourceLayer, entry.snapshot.inherited)}
-        </LumenText>
+        </LumenContentText>
       )}
       {entry?.status === 'loading' && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {entry?.error && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.paragraph" role="alert" tone="danger">
           {labels.error(entry.error)}
-        </LumenText>
+        </LumenContentText>
       )}
       {policies.feedback?.parentSessionId === parentSessionId && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.paragraph" role="alert" tone="danger">
           {labels.error(policies.feedback.code)}
-        </LumenText>
+        </LumenContentText>
       )}
       <LumenFrame className="hbar-agent-policy-rows">
         {entry?.rows.map((row, index) => {
@@ -134,7 +128,7 @@ export function AgentPolicyEditor({
             <LumenFrame as="fieldset" key={row.id} className="hbar-agent-policy-row" disabled={busy}>
               <LumenFrame className="hbar-agent-policy-fields">
                 <LumenFrame className="hbar-agent-policy-primary-fields">
-                  <LumenFormField controlId={`${row.id}-difficulty`} label={labels.difficulty}>
+                  <LumenFormField context={null} controlId={`${row.id}-difficulty`} label={labels.difficulty}>
                     <LumenPopupSelect
                       id={`${row.id}-difficulty`}
                       value={row.difficulty}
@@ -142,7 +136,7 @@ export function AgentPolicyEditor({
                       onValueChange={(value) => change('difficulty', value)}
                     />
                   </LumenFormField>
-                  <LumenFormField controlId={`${row.id}-model`} label={labels.model} required>
+                  <LumenFormField context={null} controlId={`${row.id}-model`} label={labels.model} required>
                     <AgentModelPicker
                       id={`${row.id}-model`}
                       value={row.modelId}
@@ -157,6 +151,7 @@ export function AgentPolicyEditor({
                   </LumenFormField>
                 </LumenFrame>
                 <LumenFormField
+                  context={null}
                   controlId={`${row.id}-thinking`}
                   label={labels.thinking}
                   required
@@ -173,6 +168,7 @@ export function AgentPolicyEditor({
                 </LumenFormField>
                 <LumenFrame className="hbar-agent-policy-weight-row">
                   <LumenFormField
+                    context={null}
                     controlId={`${row.id}-weight`}
                     label={labels.weight}
                     required
@@ -189,7 +185,12 @@ export function AgentPolicyEditor({
                       onChange={(event) => change('weight', event.currentTarget.value)}
                     />
                   </LumenFormField>
-                  <LumenFrame className="hbar-agent-policy-row-actions">
+                  <LumenFrame
+                    className="hbar-agent-policy-row-actions"
+                    role="group"
+                    aria-label={labels.remove(index + 1)}
+                    tabIndex={0}
+                  >
                     <LumenButton
                       size="s"
                       variant="text"
@@ -204,13 +205,15 @@ export function AgentPolicyEditor({
           )
         })}
       </LumenFrame>
-      {entry?.snapshot && !entry.rows.length && <LumenText as="p">{labels.empty}</LumenText>}
-      {entry?.snapshot && (
-        <LumenText as="p" role="status">
-          {entry.dirty ? labels.unsaved : labels.saved}
-        </LumenText>
+      {entry?.snapshot && !entry.rows.length && (
+        <LumenContentText context="empty.description">{labels.empty}</LumenContentText>
       )}
-      <LumenFrame className="hbar-agent-policy-actions">
+      {entry?.snapshot && (
+        <LumenContentText context="feedback.paragraph" role="status">
+          {entry.dirty ? labels.unsaved : labels.saved}
+        </LumenContentText>
+      )}
+      <LumenFrame className="hbar-agent-policy-actions" role="toolbar" aria-label={labels.title} tabIndex={0}>
         <LumenButton
           size="s"
           variant="outlined"

@@ -64,16 +64,27 @@
 }
 .hbar-agent-policy-row-actions {
   display: flex;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   align-items: flex-end;
-  min-inline-size: max-content;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  min-block-size: max-content;
+  overflow-x: auto;
 }
 .hbar-agent-policy-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  min-block-size: max-content;
+  overflow-x: auto;
   align-items: center;
   gap: 0.5rem;
   padding-block: 0.5rem;
+}
+.hbar-agent-policy-actions > button,
+.hbar-agent-policy-row-actions > button {
+  flex: 0 0 auto;
 }
 
 @container policy-fields (max-width: 40rem) {
@@ -90,6 +101,6 @@
 
   .hbar-agent-policy-row-actions {
     inline-size: 100%;
-    justify-content: flex-end;
+    justify-content: flex-start;
   }
 }
