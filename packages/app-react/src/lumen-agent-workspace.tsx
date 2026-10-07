@@ -4,7 +4,7 @@ import {
   LumenCollection,
   LumenCollectionItem,
   LumenFrame,
-  LumenText,
+  LumenContentText,
   LumenButton,
   LumenCompactMetrics,
   LumenFormField,
@@ -299,8 +299,8 @@ export function HbarAgentWorkspace({
       {view === 'create' && entry ? (
         <LumenFrame as="main" className="hbar-app-react-agent-create-view">
           <LumenFrame>
-            <LumenText as="h2">{labels.createTitle}</LumenText>
-            <LumenText as="p">{labels.createScope}</LumenText>
+            <LumenContentText context="section.title">{labels.createTitle}</LumenContentText>
+            <LumenContentText context="section.description">{labels.createScope}</LumenContentText>
           </LumenFrame>
           <LumenFrame
             as="form"
@@ -312,6 +312,7 @@ export function HbarAgentWorkspace({
           >
             <LumenFrame as="fieldset" disabled={!connected || creationBusy}>
               <LumenFormField
+                layout="rows"
                 controlId={`${instanceId}-agent-objective`}
                 label={labels.objective}
                 required
@@ -320,20 +321,27 @@ export function HbarAgentWorkspace({
                 <LumenTextarea
                   id={`${instanceId}-agent-objective`}
                   required
+                  maxLength={4000}
                   value={entry.draft.objective}
                   placeholder={labels.objectivePlaceholder}
                   onChange={(event) => setField('objective', event.currentTarget.value)}
                 />
               </LumenFormField>
-              <LumenFormField controlId={`${instanceId}-agent-title`} label={labels.childTitle}>
+              <LumenFormField
+                layout="rows"
+                controlId={`${instanceId}-agent-title`}
+                label={labels.childTitle}
+                {...(entry.draft.issues.title ? { error: labels.issue('title') } : {})}
+              >
                 <LumenInput
                   id={`${instanceId}-agent-title`}
+                  maxLength={160}
                   value={entry.draft.title}
                   placeholder={labels.childTitlePlaceholder}
                   onChange={(event) => setField('title', event.currentTarget.value)}
                 />
               </LumenFormField>
-              <LumenFormField controlId={`${instanceId}-agent-profile`} label={labels.profile}>
+              <LumenFormField layout="rows" controlId={`${instanceId}-agent-profile`} label={labels.profile}>
                 <LumenPopupSelect
                   id={`${instanceId}-agent-profile`}
                   value={entry.draft.profileId}
@@ -342,8 +350,10 @@ export function HbarAgentWorkspace({
                   onValueChange={(value) => setField('profileId', value)}
                 />
               </LumenFormField>
-              {entry.draft.profileId === 'explore' && <LumenText as="p">{labels.exploreHint}</LumenText>}
-              <LumenFormField controlId={`${instanceId}-agent-selection`} label={labels.selectionMode}>
+              {entry.draft.profileId === 'explore' && (
+                <LumenContentText context="form.help">{labels.exploreHint}</LumenContentText>
+              )}
+              <LumenFormField layout="rows" controlId={`${instanceId}-agent-selection`} label={labels.selectionMode}>
                 <LumenPopupSelect
                   id={`${instanceId}-agent-selection`}
                   value={entry.draft.difficulty}
@@ -355,6 +365,7 @@ export function HbarAgentWorkspace({
               {!entry.draft.difficulty && (
                 <>
                   <LumenFormField
+                    layout="rows"
                     controlId={`${instanceId}-agent-model`}
                     label={labels.model}
                     {...(entry.draft.issues.modelId ? { error: labels.issue('modelId') } : {})}
@@ -370,19 +381,27 @@ export function HbarAgentWorkspace({
                       onRetry={() => invoke('agentWorkspace.refreshModels', { instanceId })}
                     />
                     {entry.draft.modelId && (
-                      <LumenButton
-                        size="s"
-                        variant="text"
-                        disabled={creationBusy}
-                        onClick={() => setField('modelId', '')}
+                      <LumenFrame
+                        className="hbar-agent-content-reading"
+                        role="group"
+                        aria-label={labels.inheritModel}
+                        tabIndex={0}
                       >
-                        {labels.inheritModel}
-                      </LumenButton>
+                        <LumenButton
+                          size="s"
+                          variant="text"
+                          disabled={creationBusy}
+                          onClick={() => setField('modelId', '')}
+                        >
+                          {labels.inheritModel}
+                        </LumenButton>
+                      </LumenFrame>
                     )}
                   </LumenFormField>
                 </>
               )}
               <LumenFormField
+                layout="rows"
                 controlId={`${instanceId}-agent-budget`}
                 label={labels.tokenBudget}
                 {...(entry.draft.issues.tokenBudget ? { error: labels.issue('tokenBudget') } : {})}
@@ -398,18 +417,25 @@ export function HbarAgentWorkspace({
                 />
               </LumenFormField>
               {!entry.draft.difficulty && (
-                <LumenFormField controlId={`${instanceId}-agent-thinking`} label={labels.thinkingLevel}>
-                  <LumenToggleGroup
-                    id={`${instanceId}-agent-thinking`}
-                    type="single"
-                    value={entry.draft.thinkingLevel}
-                    options={thinkingOptions}
-                    disabled={!selectedModel && !entry.draft.thinkingLevel}
-                    onValueChange={(value) => setField('thinkingLevel', value)}
-                  />
+                <LumenFormField layout="rows" controlId={`${instanceId}-agent-thinking`} label={labels.thinkingLevel}>
+                  <LumenFrame
+                    className="hbar-agent-content-reading"
+                    role="group"
+                    aria-label={labels.thinkingLevel}
+                    tabIndex={0}
+                  >
+                    <LumenToggleGroup
+                      id={`${instanceId}-agent-thinking`}
+                      type="single"
+                      value={entry.draft.thinkingLevel}
+                      options={thinkingOptions}
+                      disabled={!selectedModel && !entry.draft.thinkingLevel}
+                      onValueChange={(value) => setField('thinkingLevel', value)}
+                    />
+                  </LumenFrame>
                 </LumenFormField>
               )}
-              <LumenFormField controlId={`${instanceId}-agent-approval`} label={labels.approval}>
+              <LumenFormField layout="rows" controlId={`${instanceId}-agent-approval`} label={labels.approval}>
                 <LumenPopupSelect
                   id={`${instanceId}-agent-approval`}
                   value={entry.draft.approval}
@@ -419,7 +445,7 @@ export function HbarAgentWorkspace({
                 />
               </LumenFormField>
               {(entry.draft.approval === 'sandbox' || entry.draft.approval === 'inherit') && (
-                <LumenFormField controlId={`${instanceId}-agent-sandbox`} label={labels.sandboxProfile}>
+                <LumenFormField layout="rows" controlId={`${instanceId}-agent-sandbox`} label={labels.sandboxProfile}>
                   <LumenPopupSelect
                     id={`${instanceId}-agent-sandbox`}
                     value={entry.draft.sandboxProfileId}
@@ -429,41 +455,57 @@ export function HbarAgentWorkspace({
                     onValueChange={(value) => setField('sandboxProfileId', value)}
                   />
                   {sandboxProfiles.list.error && (
-                    <LumenText as="p" role="alert">
+                    <LumenContentText context="feedback.paragraph" tone="danger" role="alert">
                       {labels.error(sandboxProfiles.list.error)}
-                    </LumenText>
+                    </LumenContentText>
                   )}
                 </LumenFormField>
               )}
             </LumenFrame>
             {entry.creation.error && (
-              <LumenText as="p" role="alert">
+              <LumenContentText context="feedback.paragraph" tone="danger" role="alert">
                 {labels.error(entry.creation.error)}
-              </LumenText>
+              </LumenContentText>
             )}
-            <LumenButton disabled={!connected || entry.creation.status === 'submitting'} tone="primary" type="submit">
-              {entry.creation.status === 'submitting'
-                ? labels.creating
-                : entry.creation.status === 'unknown'
-                  ? labels.retryCreate
-                  : labels.create}
-            </LumenButton>
+            <LumenFrame
+              className="hbar-agent-content-reading"
+              role="group"
+              aria-label={labels.createTitle}
+              tabIndex={0}
+            >
+              <LumenButton disabled={!connected || entry.creation.status === 'submitting'} tone="primary" type="submit">
+                {entry.creation.status === 'submitting'
+                  ? labels.creating
+                  : entry.creation.status === 'unknown'
+                    ? labels.retryCreate
+                    : labels.create}
+              </LumenButton>
+            </LumenFrame>
           </LumenFrame>
         </LumenFrame>
       ) : selectedAgent && entry ? (
         <LumenFrame as="main" className="hbar-app-react-agent-detail">
           <LumenFrame className="hbar-app-react-agent-detail-heading">
-            <LumenText as="h2">{labels.detailTitle}</LumenText>
-            <LumenStatus value={labels.status(selectedAgent.status)} tone={tone(selectedAgent.status)} />
+            <LumenContentText context="section.title">{labels.detailTitle}</LumenContentText>
+            <LumenFrame
+              className="hbar-agent-content-reading"
+              role="group"
+              aria-label={labels.status(selectedAgent.status)}
+              tabIndex={0}
+            >
+              <LumenStatus value={labels.status(selectedAgent.status)} tone={tone(selectedAgent.status)} />
+            </LumenFrame>
           </LumenFrame>
           {entry.creation.status === 'succeeded' && entry.selectedAgentId === selectedAgent.agentId && (
-            <LumenText as="p" role="status">
+            <LumenContentText context="feedback.paragraph" tone="success" role="status">
               {labels.created}
-            </LumenText>
+            </LumenContentText>
           )}
           <LumenFrame as="section">
-            <LumenText as="h3">{labels.objective}</LumenText>
-            <LumenText as="p">{selectedAgent.objective}</LumenText>
+            <LumenContentText context="section.title" level={3}>
+              {labels.objective}
+            </LumenContentText>
+            <LumenContentText context="section.description">{selectedAgent.objective}</LumenContentText>
           </LumenFrame>
           <LumenCompactMetrics
             label={labels.detailTitle}
@@ -506,30 +548,36 @@ export function HbarAgentWorkspace({
             ]}
           />
           {selectedAgent.dispatchConfiguration?.selection && (
-            <LumenText as="p">
+            <LumenContentText context="collection.detail">
               {labels.selectionSummary(
                 labels.policy.difficulties[selectedAgent.dispatchConfiguration.selection.difficulty],
                 selectedAgent.dispatchConfiguration.selection.weight,
               )}
-            </LumenText>
+            </LumenContentText>
           )}
-          <LumenText as="p">{labels.configurationHint}</LumenText>
+          <LumenContentText context="section.description">{labels.configurationHint}</LumenContentText>
           {selectedAgent.error && (
-            <LumenText as="p" role="alert">
+            <LumenContentText context="feedback.paragraph" tone="danger" role="alert">
               {selectedAgent.error}
-            </LumenText>
+            </LumenContentText>
           )}
           {selectedAction?.error && (
-            <LumenText as="p" role="alert">
+            <LumenContentText context="feedback.paragraph" tone="danger" role="alert">
               {labels.error(selectedAction.error)}
-            </LumenText>
+            </LumenContentText>
           )}
           {openState?.agentId === selectedAgent.agentId && openState.error && (
-            <LumenText as="p" role="alert">
+            <LumenContentText context="feedback.paragraph" tone="danger" role="alert">
               {labels.openSessionError(openState.error)}
-            </LumenText>
+            </LumenContentText>
           )}
-          <LumenFrame as="footer">
+          <LumenFrame
+            as="footer"
+            className="hbar-agent-content-reading"
+            role="group"
+            aria-label={labels.detailTitle}
+            tabIndex={0}
+          >
             <LumenButton
               disabled={!connected || openState?.status === 'submitting'}
               onClick={() => openSession(selectedAgent, true)}
@@ -542,11 +590,11 @@ export function HbarAgentWorkspace({
               onClick={() => openSession(selectedAgent)}
             >
               <LumenIcon icon={ExternalLink} tier="sm" />
-              <LumenText as="span">
+              <LumenContentText context="control.label">
                 {openState?.agentId === selectedAgent.agentId && openState.status === 'submitting'
                   ? labels.openingSession
                   : labels.openSession}
-              </LumenText>
+              </LumenContentText>
             </LumenButton>
             {!terminal(selectedAgent.status) && (
               <LumenButton
@@ -566,47 +614,66 @@ export function HbarAgentWorkspace({
       ) : (
         <LumenFrame as="main" className="hbar-app-react-agent-list" aria-label={labels.title}>
           <LumenFrame as="header">
-            <LumenText as="h2">{labels.count(entry?.items.length ?? 0)}</LumenText>
+            <LumenContentText context="section.title">{labels.count(entry?.items.length ?? 0)}</LumenContentText>
           </LumenFrame>
           {!entry || entry.status === 'loading' ? (
-            <LumenText as="p">{labels.loading}</LumenText>
+            <LumenContentText context="feedback.paragraph" role="status">
+              {labels.loading}
+            </LumenContentText>
           ) : entry.error ? (
-            <LumenText as="p" role="alert">
+            <LumenContentText context="feedback.paragraph" tone="danger" role="alert">
               {labels.error(entry.error)}
-            </LumenText>
+            </LumenContentText>
           ) : entry.items.length === 0 ? (
-            <LumenText as="p" className="hbar-app-react-agent-empty">
+            <LumenContentText context="empty.description" className="hbar-app-react-agent-empty">
               {labels.empty}
-            </LumenText>
+            </LumenContentText>
           ) : (
             <LumenCollection as="ul">
               {entry.items.map((agent) => (
-                <LumenCollectionItem key={agent.agentId}>
+                <LumenCollectionItem key={agent.agentId} className="hbar-app-react-agent-record">
                   <LumenButton
                     className="hbar-app-react-agent-row"
                     variant="outlined"
                     aria-label={labels.showDetails(agent.objective)}
                     onClick={() => invoke('agentWorkspace.showAgent', { instanceId, agentId: agent.agentId })}
                   >
-                    <LumenText as="span">
-                      <LumenText as="strong">{agent.objective}</LumenText>
-                      <LumenStatus value={labels.status(agent.status)} tone={tone(agent.status)} />
-                    </LumenText>
-                    <LumenText as="small">
+                    <LumenContentText context="collection.title">{agent.objective}</LumenContentText>
+                    <LumenContentText context="collection.detail">
                       {labels.summary(agent.modelId, agent.tokenBudget, agent.profileId)}
-                    </LumenText>
-                    <LumenText as="time" dateTime={new Date(agent.createdAt).toISOString()}>
-                      {labels.timestamp(agent.createdAt)}
-                    </LumenText>
+                    </LumenContentText>
                   </LumenButton>
+                  <LumenFrame
+                    className="hbar-agent-content-reading"
+                    role="group"
+                    aria-label={labels.status(agent.status)}
+                    tabIndex={0}
+                  >
+                    <LumenStatus value={labels.status(agent.status)} tone={tone(agent.status)} />
+                  </LumenFrame>
+                  <LumenFrame
+                    className="hbar-agent-content-reading"
+                    role="group"
+                    aria-label={labels.createdAt}
+                    tabIndex={0}
+                  >
+                    <LumenContentText context="metadata.time" dateTime={new Date(agent.createdAt).toISOString()}>
+                      {labels.timestamp(agent.createdAt)}
+                    </LumenContentText>
+                  </LumenFrame>
                 </LumenCollectionItem>
               ))}
             </LumenCollection>
           )}
           {entry?.nextCursor && (
-            <LumenButton onClick={() => invoke('agentWorkspace.loadMore', { instanceId })}>
-              {labels.loadMore}
-            </LumenButton>
+            <LumenFrame className="hbar-agent-content-reading" role="group" aria-label={labels.loadMore} tabIndex={0}>
+              <LumenButton
+                disabled={!connected || entry.status === 'loading'}
+                onClick={() => invoke('agentWorkspace.loadMore', { instanceId })}
+              >
+                {labels.loadMore}
+              </LumenButton>
+            </LumenFrame>
           )}
         </LumenFrame>
       )}
