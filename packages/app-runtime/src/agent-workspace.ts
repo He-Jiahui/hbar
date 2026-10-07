@@ -132,6 +132,8 @@ export function createAgentWorkspace(
     readonly promise: Promise<AgentWorkspaceState['catalog']>
   } | null = null
   const generations = new Map<string, number>()
+  let listGeneration = 0
+  const appendReads = new Map<string, AbortController>()
   const inFlightCreateSessions = new Set<string>()
   const createRecovery = createAgentCreateRecovery(options)
   const readPendingCreate = createRecovery.read
@@ -147,6 +149,18 @@ export function createAgentWorkspace(
   const offSurfaces = surfaces.subscribe(() => {
     const panels = surfaces.getSnapshot().panels
     const removed = Object.entries(previousPanels).filter(([id, panel]) => panel.panelId === 'agents' && !panels[id])
+    for (const [id, previous] of Object.entries(previousPanels)) {
+      const current = panels[id]
+      if (
+        previous.panelId === 'agents' &&
+        (current?.panelId !== 'agents' ||
+          current.sessionId !== previous.sessionId ||
+          current.workspaceId !== previous.workspaceId)
+      ) {
+        generations.delete(id)
+        appendReads.get(id)?.abort()
+      }
+    }
     previousPanels = panels
     if (!removed.length) return
     const ids = new Set(removed.map(([id]) => id))
@@ -257,6 +271,13 @@ export function createAgentWorkspace(
   const setConnected = (value: boolean) => {
     if (connected === value) return
     connected = value
+    if (!value) {
+      for (const [instanceId, controller] of appendReads) {
+        controller.abort()
+        const entry = state.reader.getSnapshot().entries[instanceId]
+        if (entry) replace({ ...entry, loadingMore: false, loadMoreError: 'DISCONNECTED' })
+      }
+    }
     invalidateModels()
   }
   const acquireCreateLock = (sessionId: string): (() => void) | null => {
@@ -292,7 +313,8 @@ export function createAgentWorkspace(
     const previous = state.reader.getSnapshot().entries[instanceId]
     const sameTarget = previous?.parentSessionId === target.sessionId
     const inheritedModel = controls.getSnapshot().sessionId === target.sessionId ? controls.getSnapshot().model : null
-    const generation = (generations.get(instanceId) ?? 0) + 1
+    appendReads.get(instanceId)?.abort()
+    const generation = ++listGeneration
     generations.set(instanceId, generation)
     const loading: AgentWorkspaceEntryState = {
       instanceId,
@@ -303,6 +325,8 @@ export function createAgentWorkspace(
       status: 'loading',
       items: sameTarget ? previous.items : [],
       nextCursor: null,
+      loadingMore: false,
+      loadMoreError: null,
       draft: sameTarget ? previous.draft : initialDraft(),
       creation: sameTarget ? previous.creation : { status: 'idle', error: null },
       actions: sameTarget ? previous.actions : {},
@@ -358,28 +382,71 @@ export function createAgentWorkspace(
     }
   }
   const loadMore = async (instanceId: string) => {
+    const target = panel(instanceId)
+    if (!connected) throw new CommandError('DISCONNECTED', 'Agent listing needs a connection')
     const entry = state.reader.getSnapshot().entries[instanceId]
     if (!entry) return load(instanceId)
+    if (entry.parentSessionId !== target.sessionId) throw new CommandError('CANCELLED', 'Agent target changed')
+    if (entry.status === 'loading' || appendReads.has(instanceId))
+      throw new CommandError('BUSY', 'Agent listing is already pending')
     if (!entry.nextCursor) return summary(entry)
-    const target = panel(instanceId)
-    const page = await requireClient().execute('agent.list', {
-      parentSessionId: target.sessionId,
-      after: entry.nextCursor,
-      limit: PAGE_SIZE,
-    })
-    const items = [...new Map([...entry.items, ...page.items].map((item) => [item.agentId, item])).values()].slice(
-      0,
-      MAX_AGENTS,
-    )
-    const next = {
-      ...entry,
-      items,
-      nextCursor: items.length >= MAX_AGENTS ? null : page.nextCursor,
-      status: 'ready' as const,
-      error: null,
+    if (appendReads.size >= MAX_PANELS) {
+      replace({ ...entry, loadMoreError: 'CAPACITY_EXCEEDED' })
+      throw new CommandError('CAPACITY_EXCEEDED', 'Agent append read capacity is full')
     }
-    replace(next)
-    return summary(next)
+    const controller = new AbortController()
+    const generation = generations.get(instanceId)
+    const ownsTarget = () => {
+      const current = surfaces.getSnapshot().panels[instanceId]
+      const latest = state.reader.getSnapshot().entries[instanceId]
+      return (
+        !isDisposed() &&
+        !controller.signal.aborted &&
+        connected &&
+        generations.get(instanceId) === generation &&
+        current?.panelId === 'agents' &&
+        current.sessionId === target.sessionId &&
+        current.workspaceId === target.workspaceId &&
+        latest?.parentSessionId === target.sessionId &&
+        latest.nextCursor === entry.nextCursor
+      )
+    }
+    appendReads.set(instanceId, controller)
+    replace({ ...entry, loadingMore: true, loadMoreError: null })
+    try {
+      const page = await requireClient().execute(
+        'agent.list',
+        {
+          parentSessionId: target.sessionId,
+          after: entry.nextCursor,
+          limit: PAGE_SIZE,
+        },
+        { signal: controller.signal },
+      )
+      if (!ownsTarget()) throw new CommandError('CANCELLED', 'Agent append was superseded')
+      const latest = state.reader.getSnapshot().entries[instanceId]
+      if (!latest) throw new CommandError('CANCELLED', 'Agent panel closed')
+      const items = [...new Map([...latest.items, ...page.items].map((item) => [item.agentId, item])).values()].slice(
+        0,
+        MAX_AGENTS,
+      )
+      const next = {
+        ...latest,
+        items,
+        nextCursor: items.length >= MAX_AGENTS ? null : page.nextCursor,
+        status: 'ready' as const,
+        loadingMore: false,
+        loadMoreError: null,
+      }
+      replace(next)
+      return summary(next)
+    } catch (reason) {
+      const latest = state.reader.getSnapshot().entries[instanceId]
+      if (ownsTarget() && latest) replace({ ...latest, loadingMore: false, loadMoreError: code(reason) })
+      throw commandFailure(reason)
+    } finally {
+      if (appendReads.get(instanceId) === controller) appendReads.delete(instanceId)
+    }
   }
   const showList = (instanceId: string) => {
     const entry = state.reader.getSnapshot().entries[instanceId]
@@ -771,6 +838,7 @@ export function createAgentWorkspace(
       catalogRead?.controller.abort()
       catalogRead = null
       generations.clear()
+      for (const controller of appendReads.values()) controller.abort()
       inFlightCreateSessions.clear()
       state.dispose()
     },

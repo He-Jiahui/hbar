@@ -348,4 +348,9 @@ Agent 工作区的 23 处低层文字已分类：创建／详情／列表标题�
 - 25 项原 View／runtime／子 Agent 导航测试通过，保留草稿恢复、未知创建持久化与原 key、编辑后旧结果隔离、关闭／释放、迟到模型目录及独立子配置。六项最终真实 Host 模型选择与策略流程通过，覆盖两语言、窄屏 sheet 触摸／键盘、原模型／推理／只读 profile 创建、child dispatch policy 及独立子设置；使用实际原 Host 配置与临时数据。浏览器追加页测试验证页间重叠，未声称覆盖迟到追加读取或首批重复 ID 的所有情况。
 - 范围严格 lint、内容／图标／flow guard、格式、Web build、清单与实际生产输入核对通过；冷启动完整类型仍为 92 项既有诊断，本次范围无诊断。夹具最初模型名称超过真实 160 字 DTO 上限，现使用有效长名称；超限 setField 被原契约拒绝，容量测试改为验收真实原生输入与 VM 校验。320px 列表／创建／详情截图已复核。证据为 agent-workspace-content/client-final.log、unit-delivery.log、host-final.log、types-final.log、lint-final.log、build-delivery.log、inventory-delivery.log 与 *-320.png。
 
-当前已提交清单覆盖 146 个生产 TSX 模块、3732 个元素，其中记录了 344 处低层文字未分类，合计 361 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入的 loadMore 直接写回 await 前捕获的 entry；受控执行器复现了关闭后记录重现、刷新快照被覆盖及追加期间新草稿丢失。追加现捕获唯一递增代次、原 parent／workspace／cursor，核对仍有效后与当前 entry 合并；保留新的草稿、详情选择、创建与取消状态。关闭／重开／切换目标／刷新／断连／释放会取消所属读取，迟到结果不再应用。每个面板禁止重复追加，未实际结算的读取即使忽略 AbortSignal 仍计入八个物理在途槽位；释放槽位后可以继续读取。
+
+- 原页面在追加处理中和失败后保持可见，忙碌及错误反馈使用宿主文案的语义段落，追加按钮禁用或提供原游标重试。54 个实际 Chrome 场景通过，在前述矩阵追加两语言的真实延迟读及失败恢复，验证禁用、原 50 条保留、状态全文、失败反馈和相同请求输入重试。34 项 View／runtime／导航测试通过，含九项新生命周期／合并／重复调用／失败重试／八槽物理容量／断连恢复测试；受控复现由三项失败到修复后通过。dispose 仍保留 command registry 原有 RESULT_UNKNOWN 回执语义，未把在途写命令强行改成确定取消。
+- 六项真实 Host Agent 模型／策略流程在最终生产资源通过。范围严格 lint、内容／图标 guard、格式、Web build 与清单／实际生产输入核对通过；完整冷启动类型仍有 92 项既有诊断，本次范围无诊断。证据为 agent-append/red-corrected.log、unit-final.log、client.log、host.log、lint.log、lint-test-final.log、types-final.log、build.log 和 inventory.log。
+
+当前已提交清单覆盖 146 个生产 TSX 模块、3734 个元素，其中记录了 344 处低层文字未分类，合计 361 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

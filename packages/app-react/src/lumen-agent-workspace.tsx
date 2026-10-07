@@ -665,10 +665,20 @@ export function HbarAgentWorkspace({
               ))}
             </LumenCollection>
           )}
+          {entry?.loadMoreError && (
+            <LumenContentText context="feedback.paragraph" tone="danger" role="alert">
+              {labels.error(entry.loadMoreError)}
+            </LumenContentText>
+          )}
+          {entry?.loadingMore && (
+            <LumenContentText context="feedback.paragraph" role="status">
+              {labels.loading}
+            </LumenContentText>
+          )}
           {entry?.nextCursor && (
             <LumenFrame className="hbar-agent-content-reading" role="group" aria-label={labels.loadMore} tabIndex={0}>
               <LumenButton
-                disabled={!connected || entry.status === 'loading'}
+                disabled={!connected || entry.status === 'loading' || entry.loadingMore}
                 onClick={() => invoke('agentWorkspace.loadMore', { instanceId })}
               >
                 {labels.loadMore}

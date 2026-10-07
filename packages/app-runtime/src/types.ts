@@ -300,6 +300,8 @@ export interface AgentWorkspaceEntryState {
   readonly items: readonly Readonly<AgentRecord>[]
   readonly nextCursor: string | null
   readonly draft: Readonly<AgentWorkspaceDraftState>
+  readonly loadingMore?: boolean
+  readonly loadMoreError?: string | null
   readonly creation: {
     readonly status: 'idle' | 'submitting' | 'succeeded' | 'failed' | 'unknown'
     readonly error: string | null
@@ -1054,9 +1056,7 @@ export interface SurfaceState {
   readonly focusedPanelId: string | null
   readonly focusedWindowId: string | null
 }
-export type MainPageState =
-  | { readonly kind: 'session' }
-  | { readonly kind: AppPageId; readonly instanceId: string }
+export type MainPageState = { readonly kind: 'session' } | { readonly kind: AppPageId; readonly instanceId: string }
 export interface SessionViewContext {
   readonly workspaceId: string | null
   readonly sessionId: string | null

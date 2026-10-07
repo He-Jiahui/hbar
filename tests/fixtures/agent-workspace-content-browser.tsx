@@ -28,6 +28,8 @@ export interface AgentWorkspaceContentInput {
     | 'read-error'
     | 'offline'
     | 'duplicate-page'
+    | 'append-pending'
+    | 'append-error'
 }
 declare global {
   interface Window {
@@ -98,6 +100,7 @@ window.mountAgentWorkspaceContent = async (input) => {
     }),
   )
   let failed = true
+  let releaseAppend = () => {}
   const calls: { name: string; input: unknown; operationKey: string | null }[] = []
   const created = new Map<string, AgentRecord>()
   const agents: CommandExecutor = {
@@ -109,6 +112,12 @@ window.mountAgentWorkspaceContent = async (input) => {
         if (target.parentSessionId !== parent.id) throw new Error('A foreign parent list was read')
         if (input.state === 'read-error' && failed) throw new CommandError('DISCONNECTED', 'Owned list read failed')
         const offset = target.after ? Number(target.after) : 0
+        if (offset > 0 && input.state === 'append-error' && failed)
+          throw new CommandError('AGENT_NOT_FOUND', 'Owned append failed')
+        if (offset > 0 && input.state === 'append-pending' && failed)
+          await new Promise<void>((resolve) => {
+            releaseAppend = resolve
+          })
         const items = records.slice(offset, offset + target.limit)
         if (input.state === 'duplicate-page' && offset > 0 && records[0]) items.unshift(records[0])
         return agentCommands[name].output.parse({
@@ -256,6 +265,7 @@ window.mountAgentWorkspaceContent = async (input) => {
   )
   window.repairAgentWorkspaceContent = () => {
     failed = false
+    releaseAppend()
   }
   window.reverseAgentWorkspaceContent = async () => {
     records = [...records].reverse()

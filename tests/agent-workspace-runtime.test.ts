@@ -1,7 +1,12 @@
 import { expect, test } from 'bun:test'
 import { CommandError, type CommandExecutor, type ExecuteOptions } from '@hbar/commands'
 import { createAppRuntime, type ClientJsonValue, type ClientPersistencePort } from '@hbar/app-runtime'
-import { agentCreateInputSchema, type AgentCreateInput, type AgentRecord } from '@hbar/contracts/commands/agents'
+import {
+  agentCreateInputSchema,
+  agentListInputSchema,
+  type AgentCreateInput,
+  type AgentRecord,
+} from '@hbar/contracts/commands/agents'
 import type { ModelDescriptor } from '@hbar/contracts/commands/models'
 
 const workspace = { id: 'workspace', path: 'D:/workspace', name: 'Workspace', createdAt: 1 }
@@ -63,6 +68,246 @@ async function waitFor(check: () => boolean) {
   throw new Error('state did not settle')
 }
 
+function pendingAgentPage() {
+  let resolvePage: (page: { items: AgentRecord[]; nextCursor: string | null }) => void = () => {}
+  let rejectPage: (reason: unknown) => void = () => {}
+  let reads = 0
+  let refreshes = 0
+  let signal: AbortSignal | undefined
+  const page = new Promise<{ items: AgentRecord[]; nextCursor: string | null }>((resolve, reject) => {
+    resolvePage = resolve
+    rejectPage = reject
+  })
+  const agents: CommandExecutor = {
+    async execute(name, input, options) {
+      if (name !== 'agent.list') throw new Error(`Unsupported query: ${name}`)
+      const query = agentListInputSchema.parse(input)
+      if (query.after) {
+        reads += 1
+        signal = options?.signal
+        return reads === 1 ? page : { items: [{ ...child('running'), agentId: 'retry-child' }], nextCursor: null }
+      }
+      refreshes += 1
+      return {
+        items: [{ ...child('running'), objective: `Snapshot ${refreshes}` }],
+        nextCursor: 'page-two',
+      }
+    },
+  }
+  return {
+    agents,
+    release: () => resolvePage({ items: [{ ...child('running'), agentId: 'second' }], nextCursor: null }),
+    fail: () => rejectPage(new CommandError('READ_FAILED', 'Owned test read failed')),
+    reads: () => reads,
+    signal: () => signal,
+  }
+}
+
+for (const change of ['close', 'refresh', 'dispose', 'close-reopen', 'retarget'] as const) {
+  test(`late Agent append cannot overwrite ${change}`, async () => {
+    const pending = pendingAgentPage()
+    const runtime = createAgentWorkspaceRuntime(`agent-late-append-${change}`, pending.agents)
+    try {
+      await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+      const opened = await runtime.view.commands.execute('app.openPanel', { panelId: 'agents' })
+      await runtime.view.commands.execute('agentWorkspace.refresh', { instanceId: opened.instanceId })
+      const before = runtime.view.state.agents.getSnapshot().entries[opened.instanceId]
+      const result = runtime.view.commands.execute('agentWorkspace.loadMore', { instanceId: opened.instanceId }).then(
+        () => null,
+        (reason: unknown) => (reason instanceof CommandError ? reason.code : 'UNEXPECTED'),
+      )
+      await waitFor(() => pending.reads() === 1)
+      if (change === 'close') await runtime.view.commands.execute('app.closePanel', { instanceId: opened.instanceId })
+      else if (change === 'refresh')
+        await runtime.view.commands.execute('agentWorkspace.refresh', { instanceId: opened.instanceId })
+      else if (change === 'dispose') runtime.dispose()
+      else {
+        if (change === 'close-reopen')
+          await runtime.view.commands.execute('app.closePanel', { instanceId: opened.instanceId })
+        else
+          await runtime.view.commands.execute('app.openPanel', {
+            panelId: 'agents',
+            instanceId: opened.instanceId,
+            workspaceId: workspace.id,
+            sessionId: 'other-parent',
+            binding: 'pinned',
+          })
+        await runtime.view.commands.execute('app.openPanel', {
+          panelId: 'agents',
+          instanceId: opened.instanceId,
+          workspaceId: workspace.id,
+          sessionId: session.id,
+          binding: 'pinned',
+        })
+        await runtime.view.commands.execute('agentWorkspace.refresh', { instanceId: opened.instanceId })
+      }
+      const current = runtime.view.state.agents.getSnapshot().entries[opened.instanceId]
+      pending.release()
+      expect(await result).toBe(change === 'dispose' ? 'RESULT_UNKNOWN' : 'CANCELLED')
+      await Bun.sleep(0)
+      expect(runtime.view.state.agents.getSnapshot().entries[opened.instanceId]).toEqual(current)
+      if (change === 'refresh') expect(current?.items[0]?.objective).not.toBe(before?.items[0]?.objective)
+      if (change === 'close') expect(current).toBeUndefined()
+    } finally {
+      pending.release()
+      runtime.dispose()
+    }
+  })
+}
+
+test('Agent append keeps a newer local draft and detail selection', async () => {
+  const pending = pendingAgentPage()
+  const runtime = createAgentWorkspaceRuntime('agent-append-keeps-draft', pending.agents)
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    const opened = await runtime.view.commands.execute('app.openPanel', { panelId: 'agents' })
+    await runtime.view.commands.execute('agentWorkspace.refresh', { instanceId: opened.instanceId })
+    const reading = runtime.view.commands.execute('agentWorkspace.loadMore', { instanceId: opened.instanceId })
+    await waitFor(() => pending.reads() === 1)
+    await runtime.view.commands.execute('agentWorkspace.showCreate', { instanceId: opened.instanceId })
+    await runtime.view.commands.execute('agentWorkspace.setField', {
+      instanceId: opened.instanceId,
+      field: 'title',
+      value: 'New local draft',
+    })
+    await runtime.view.commands.execute('agentWorkspace.showAgent', { instanceId: opened.instanceId, agentId: 'child' })
+    pending.release()
+    await reading
+    const current = runtime.view.state.agents.getSnapshot().entries[opened.instanceId]
+    expect(current?.draft.title).toBe('New local draft')
+    expect(current?.selectedAgentId).toBe('child')
+    expect(current?.view).toBe('detail')
+    expect(current?.items.map((item) => item.agentId)).toEqual(['child', 'second'])
+  } finally {
+    pending.release()
+    runtime.dispose()
+  }
+})
+
+test('Agent append rejects duplicate reads, keeps the first page on failure and retries the original cursor', async () => {
+  const pending = pendingAgentPage()
+  const runtime = createAgentWorkspaceRuntime('agent-append-retry', pending.agents)
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    const opened = await runtime.view.commands.execute('app.openPanel', { panelId: 'agents' })
+    await runtime.view.commands.execute('agentWorkspace.refresh', { instanceId: opened.instanceId })
+    const reading = runtime.view.commands.execute('agentWorkspace.loadMore', { instanceId: opened.instanceId }).then(
+      () => null,
+      (reason: unknown) => (reason instanceof CommandError ? reason.code : 'UNEXPECTED'),
+    )
+    await waitFor(() => pending.reads() === 1)
+    expect(runtime.view.state.agents.getSnapshot().entries[opened.instanceId]?.loadingMore).toBe(true)
+    await expect(
+      runtime.view.commands.execute('agentWorkspace.loadMore', { instanceId: opened.instanceId }),
+    ).rejects.toMatchObject({ code: 'BUSY' })
+    expect(pending.reads()).toBe(1)
+    pending.fail()
+    expect(await reading).toBe('READ_FAILED')
+    const failed = runtime.view.state.agents.getSnapshot().entries[opened.instanceId]
+    expect(failed?.items.map((item) => item.agentId)).toEqual(['child'])
+    expect(failed?.nextCursor).toBe('page-two')
+    expect(failed?.loadingMore).toBe(false)
+    expect(failed?.loadMoreError).toBe('READ_FAILED')
+    await runtime.view.commands.execute('agentWorkspace.loadMore', { instanceId: opened.instanceId })
+    const retried = runtime.view.state.agents.getSnapshot().entries[opened.instanceId]
+    expect(retried?.items.map((item) => item.agentId)).toEqual(['child', 'retry-child'])
+    expect(retried?.loadMoreError).toBeNull()
+  } finally {
+    pending.release()
+    runtime.dispose()
+  }
+})
+
+test('closed Agent append reads retain their physical capacity until the executor settles', async () => {
+  const pages: ReturnType<typeof pendingAgentPage>[] = []
+  const runtime = createAgentWorkspaceRuntime('agent-append-capacity', {
+    async execute(name, input, options) {
+      const query = agentListInputSchema.parse(input)
+      const pending = pages.find((page) => page.reads() === 0)
+      if (!pending) throw new Error('Missing owned page executor')
+      return pending.agents.execute(name, { ...query }, options)
+    },
+  })
+  const results: Promise<unknown>[] = []
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    for (let index = 0; index < 8; index += 1) {
+      const pending = pendingAgentPage()
+      pages.push(pending)
+      const opened = await runtime.view.commands.execute('app.openPanel', {
+        panelId: 'agents',
+        instanceId: `owned-${index}`,
+      })
+      await runtime.view.commands.execute('agentWorkspace.refresh', { instanceId: opened.instanceId })
+      results.push(
+        runtime.view.commands
+          .execute('agentWorkspace.loadMore', { instanceId: opened.instanceId })
+          .catch((reason: unknown) => (reason instanceof CommandError ? reason.code : 'UNEXPECTED')),
+      )
+      await waitFor(() => pending.reads() === 1)
+      await runtime.view.commands.execute('app.closePanel', { instanceId: opened.instanceId })
+      expect(pending.signal()?.aborted).toBe(true)
+    }
+    const last = pendingAgentPage()
+    pages.push(last)
+    const opened = await runtime.view.commands.execute('app.openPanel', { panelId: 'agents', instanceId: 'owned-last' })
+    await runtime.view.commands.execute('agentWorkspace.refresh', { instanceId: opened.instanceId })
+    await expect(
+      runtime.view.commands.execute('agentWorkspace.loadMore', { instanceId: opened.instanceId }),
+    ).rejects.toMatchObject({ code: 'CAPACITY_EXCEEDED' })
+    expect(last.reads()).toBe(0)
+    for (const pending of pages.slice(0, 8)) pending.release()
+    expect(await Promise.all(results)).toEqual(Array.from({ length: 8 }, () => 'CANCELLED'))
+    const reading = runtime.view.commands.execute('agentWorkspace.loadMore', { instanceId: opened.instanceId })
+    await waitFor(() => last.reads() === 1)
+    last.release()
+    await reading
+    expect(runtime.view.state.agents.getSnapshot().entries[opened.instanceId]?.items.length).toBe(2)
+  } finally {
+    for (const pending of pages) pending.release()
+    await Promise.all(results)
+    runtime.dispose()
+  }
+})
+
+test('disconnect cancels Agent append feedback without erasing the page and reconnect can retry', async () => {
+  const pending = pendingAgentPage()
+  const listeners = new Set<(connected: boolean) => void>()
+  const runtime = createAgentWorkspaceRuntime('agent-append-disconnect', pending.agents, undefined, (listener) => {
+    listeners.add(listener)
+    return () => {
+      listeners.delete(listener)
+    }
+  })
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    const opened = await runtime.view.commands.execute('app.openPanel', { panelId: 'agents' })
+    await runtime.view.commands.execute('agentWorkspace.refresh', { instanceId: opened.instanceId })
+    const reading = runtime.view.commands.execute('agentWorkspace.loadMore', { instanceId: opened.instanceId }).then(
+      () => null,
+      (reason: unknown) => (reason instanceof CommandError ? reason.code : 'UNEXPECTED'),
+    )
+    await waitFor(() => pending.reads() === 1)
+    for (const listener of listeners) listener(false)
+    expect(pending.signal()?.aborted).toBe(true)
+    expect(runtime.view.state.agents.getSnapshot().entries[opened.instanceId]?.loadingMore).toBe(false)
+    expect(runtime.view.state.agents.getSnapshot().entries[opened.instanceId]?.items.length).toBe(1)
+    await expect(
+      runtime.view.commands.execute('agentWorkspace.loadMore', { instanceId: opened.instanceId }),
+    ).rejects.toMatchObject({ code: 'DISCONNECTED' })
+    pending.release()
+    expect(await reading).toBe('CANCELLED')
+    for (const listener of listeners) listener(true)
+    await runtime.view.commands.execute('agentWorkspace.loadMore', { instanceId: opened.instanceId })
+    expect(
+      runtime.view.state.agents.getSnapshot().entries[opened.instanceId]?.items.map((item) => item.agentId),
+    ).toEqual(['child', 'retry-child'])
+  } finally {
+    pending.release()
+    runtime.dispose()
+  }
+})
+
 function memoryPersistence() {
   const values = new Map<string, unknown>()
   const persistence: ClientPersistencePort = {
@@ -77,7 +322,12 @@ function memoryPersistence() {
   return { persistence, values }
 }
 
-function createAgentWorkspaceRuntime(instanceId: string, agents: CommandExecutor, persistence?: ClientPersistencePort) {
+function createAgentWorkspaceRuntime(
+  instanceId: string,
+  agents: CommandExecutor,
+  persistence?: ClientPersistencePort,
+  onConnection?: (listener: (connected: boolean) => void) => () => void,
+) {
   return createAppRuntime({
     instanceId,
     hostId: 'host',
@@ -105,6 +355,7 @@ function createAgentWorkspaceRuntime(instanceId: string, agents: CommandExecutor
       },
     },
     agents,
+    ...(onConnection ? { modelEvents: { subscribe: () => () => {}, onConnection } } : {}),
     ...(persistence ? { persistence } : {}),
     surfaces: { canRender: (panelId) => panelId === 'agents' },
   })

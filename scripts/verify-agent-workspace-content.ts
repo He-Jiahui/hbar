@@ -59,6 +59,8 @@ try {
             ).map((state) => ({ ...normal, state })),
             { ...normal, state: 'duplicate-page', count: 51 },
             { ...normal, state: 'offline', count: 51 },
+            { ...normal, state: 'append-pending', count: 51 },
+            { ...normal, state: 'append-error', count: 51 },
           )
         for (const input of cases) {
           currentCase = { locale, mode, width, count: input.count, state: input.state }
@@ -162,6 +164,20 @@ try {
           } else {
             const rows = panel.locator('.hbar-app-react-agent-record')
             await expect(rows).toHaveCount(Math.min(50, input.count))
+            if (input.state === 'append-pending' || input.state === 'append-error') {
+              const more = panel.getByRole('button', { name: base.loadMore + suffix, exact: true })
+              await more.click()
+              if (input.state === 'append-pending') {
+                await expect(more).toBeDisabled()
+                await expect(panel.getByRole('status')).toHaveText(base.loading)
+              } else {
+                await expect(more).toBeEnabled()
+                await verifyReadableText(panel.getByRole('alert'), base.error('AGENT_NOT_FOUND'), true)
+              }
+              await expect(rows).toHaveCount(50)
+              await page.evaluate(() => window.repairAgentWorkspaceContent())
+              if (input.state === 'append-pending') await expect(rows).toHaveCount(51)
+            }
             while (
               input.state !== 'offline' &&
               (await panel.getByRole('button', { name: base.loadMore + suffix, exact: true }).isVisible())
@@ -171,6 +187,23 @@ try {
               await expect.poll(() => rows.count()).toBeGreaterThan(oldCount)
             }
             await expect(rows).toHaveCount(Math.min(input.state === 'offline' ? 50 : 500, input.count))
+            if (input.state === 'append-error') {
+              const attempts = await page.evaluate(() =>
+                window
+                  .agentWorkspaceContentState()
+                  .calls.filter(
+                    (call) =>
+                      call.name === 'agent.list' &&
+                      typeof call.input === 'object' &&
+                      call.input !== null &&
+                      'after' in call.input,
+                  )
+                  .map((call) => call.input),
+              )
+              expect(attempts).toHaveLength(2)
+              expect(attempts[0]).toEqual(attempts[1])
+              await expect(panel.getByRole('alert')).toHaveCount(0)
+            }
             if (input.state === 'offline' && input.count > 50)
               await expect(panel.getByRole('button', { name: base.loadMore + suffix, exact: true })).toBeDisabled()
             if (input.count) {
