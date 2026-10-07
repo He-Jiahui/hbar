@@ -126,9 +126,16 @@ for (const scenario of [
       const expand = page.getByRole('treeitem', { expanded: false, name: host.ready.workspaceName, exact: true })
       if (await expand.isVisible()) await expand.click()
       await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
-      const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
+      // Selecting the session is asynchronous; the landing composer has the same accessible name.
+      const prompt = page.locator('.hbar-composer-mention-root').getByRole('textbox', {
+        name: copy.session.prompt.input,
+        exact: true,
+      })
       const composerDraft = 'Return to this conversation — 保留未发送内容'
-      await prompt.fill(composerDraft)
+      await expectComposerText(prompt, '')
+      await prompt.pressSequentially(composerDraft)
+      await expectComposerText(prompt, composerDraft)
+      await expect(page.getByRole('button', { name: copy.session.prompt.send, exact: true })).toBeEnabled()
       await openSessionTool(page, copy.session.tools, 'settings')
       const scope = page.getByRole('combobox', { name: copy.settings.scopes, exact: true })
       await expectLumenValue(scope, 'session')
