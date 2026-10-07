@@ -24,7 +24,6 @@
   min-inline-size: 0;
   flex: 0 0 auto;
   flex-direction: column;
-  padding: 0 12px 8px;
 }
 
 .hbar-session-current-goal:has(> .hbar-composer-goal-context:empty) {

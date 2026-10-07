@@ -1,6 +1,10 @@
 # Current Goal execution status
 
-The header Goal strip distinguishes the persistent Goal lifecycle from current-session activity. A confirmed nonterminal Run overrides the displayed lifecycle label while it is queued, running, or waiting for approval. Pausing Goal continuation does not stop that Run: Pause/Resume still follow the canonical Goal status, and Stop remains the current Run action. Once the Run settles, the strip returns to the canonical paused/active/budget label.
+The Goal strip lives in the collapsible Session status rail above the docked composer. It distinguishes the persistent Goal lifecycle from current-session activity. A confirmed nonterminal Run overrides the displayed lifecycle label while it is queued, running, or waiting for approval. Pausing Goal continuation does not stop that Run: Pause/Resume still follow the canonical Goal status, and Stop remains the current Run action. Once the Run settles, the strip returns to the canonical paused/active/budget label.
+
+The rail starts collapsed for each selected Session and shows its Goal objective, elapsed usage, controls and Plan completion count. Expanding it reveals the same `ActivityTasksView` checklist and progress used by the right Activity pane, followed by the Plan explanation and complete Goal text. Both use the captured `composerIntent` Goal/Plan snapshot and the same Session identity checks. The transcript's Run history no longer receives a second copy of the Plan. Idle Goals and Plans remain reachable after a Run settles, while an empty Session has no rail.
+
+The Host bounds the Plan at 100 steps and the objective at 4,000 characters. The expanded region owns vertical scrolling within the composer area; ordinary rows use flex flow and localized labels. Narrow layout places the Run badge with the disclosure before the Goal summary. Long objective summaries use ellipsis with the full text available in the expanded region. Goal command feedback stays mounted across a clear event and its acknowledgement so the existing focus/reconciliation ownership remains intact. `e2e/session-status-context.spec.ts` exercises this with a real temporary Host in Chinese and English, including Activity parity, Plan updates, capacity, Goal replacement, draft retention, Session switching and refresh.
 
 ## Reference and boundary
 

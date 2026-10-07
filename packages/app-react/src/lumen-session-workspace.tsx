@@ -1867,12 +1867,53 @@ function SessionWorkspaceContent({
       data-git-context-status={projectContext.context.status}
     >
       <HbarSessionLiveStatus
+        key={sessionId}
         sessionId={sessionId}
         timelineSessionId={timeline.sessionId}
         owned={activeConversationOwner}
         connected={connected}
         run={activeRun}
         labels={labels.liveStatus}
+        context={{
+          facts: composerIntent.facts,
+          onRefresh: () => invoke('composerIntent.refresh', { sessionId }),
+          summary: (
+            <LumenFrame className="hbar-session-current-goal" data-current-goal-session={sessionId}>
+              <HbarComposerGoal
+                key={sessionId}
+                sessionId={sessionId}
+                workspaceId={navigation.workspaceId}
+                connected={connected}
+                labels={labels.intent}
+                surface="summary"
+                embedded
+                runActive={
+                  connected &&
+                  ((timeline.sessionId === sessionId && Boolean(activeRun)) ||
+                    (selectedExecution.target?.sessionId === sessionId &&
+                      selectedExecution.target.workspaceId === sessionWorkspaceId &&
+                      selectedExecution.status === 'ready' &&
+                      selectedExecution.snapshot?.execution.activeCount !== undefined &&
+                      selectedExecution.snapshot.execution.activeCount > 0))
+                }
+                executionReadError={
+                  connected &&
+                  selectedExecution.target?.sessionId === sessionId &&
+                  selectedExecution.target.workspaceId === sessionWorkspaceId &&
+                  selectedExecution.status === 'error'
+                }
+                executionChecking={
+                  connected &&
+                  selectedExecution.target?.sessionId === sessionId &&
+                  selectedExecution.target.workspaceId === sessionWorkspaceId &&
+                  selectedExecution.status === 'loading'
+                }
+                goalTriggerRef={composerGoalTrigger}
+                canPrepare={canPrepare}
+              />
+            </LumenFrame>
+          ),
+        }}
       />
       <HbarSessionStopNotice region="main" />
       <HbarSessionExecutionNotice
@@ -2509,41 +2550,6 @@ function SessionWorkspaceContent({
             {labels.tools.error(toolFailure.code)}
           </LumenText>
         )}
-      {sessionId && (
-        <LumenFrame className="hbar-session-current-goal" data-current-goal-session={sessionId}>
-          <HbarComposerGoal
-            key={sessionId}
-            sessionId={sessionId}
-            workspaceId={navigation.workspaceId}
-            connected={connected}
-            labels={labels.intent}
-            surface="summary"
-            runActive={
-              connected &&
-              ((timeline.sessionId === sessionId && Boolean(activeRun)) ||
-                (selectedExecution.target?.sessionId === sessionId &&
-                  selectedExecution.target.workspaceId === sessionWorkspaceId &&
-                  selectedExecution.status === 'ready' &&
-                  selectedExecution.snapshot?.execution.activeCount !== undefined &&
-                  selectedExecution.snapshot.execution.activeCount > 0))
-            }
-            executionReadError={
-              connected &&
-              selectedExecution.target?.sessionId === sessionId &&
-              selectedExecution.target.workspaceId === sessionWorkspaceId &&
-              selectedExecution.status === 'error'
-            }
-            executionChecking={
-              connected &&
-              selectedExecution.target?.sessionId === sessionId &&
-              selectedExecution.target.workspaceId === sessionWorkspaceId &&
-              selectedExecution.status === 'loading'
-            }
-            goalTriggerRef={composerGoalTrigger}
-            canPrepare={canPrepare}
-          />
-        </LumenFrame>
-      )}
       {navigationAccessory}
       <LumenFrame
         className="hbar-app-react-session-main"

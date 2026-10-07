@@ -40,6 +40,29 @@
   display: none;
 }
 
+.hbar-composer-goal-context[data-embedded] {
+  overflow-x: visible;
+}
+
+.hbar-composer-goal-context[data-embedded] .hbar-composer-goal-strip {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.hbar-composer-goal-context[data-embedded] .hbar-composer-goal-objective {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hbar-composer-goal-context[data-embedded] .hbar-composer-goal-summary {
+  flex-basis: 7rem;
+}
+
+.hbar-composer-goal-context[data-embedded] .hbar-composer-goal-tail {
+  inline-size: auto;
+}
+
 .hbar-composer-goal-context p {
   margin: 0;
 }

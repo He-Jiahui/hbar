@@ -303,9 +303,9 @@ export async function setDraft(f: GoalPlanRecoveryFixture, text: string): Promis
   await expectComposerText(editor, text)
 }
 export async function openSession(f: GoalPlanRecoveryFixture, session = f.ready.firstSession): Promise<void> {
-  const side = f.page.getByRole('complementary', { name: f.copy.shell.projectsAndSessions, exact: true })
-  if (!(await side.isVisible()))
-    await f.page.getByRole('button', { name: f.copy.shell.showSidebar, exact: true }).click()
+  // The collapsed rail is still a visible complementary region; use the real expand control.
+  const showSidebar = f.page.getByRole('button', { name: f.copy.shell.showSidebar, exact: true })
+  if (await showSidebar.isVisible()) await showSidebar.click()
   const row = f.page.locator(`[data-workspace-id="${f.ready.workspace.id}"]`)
   const toggle = row
   if ((await toggle.getAttribute('aria-expanded')) === 'false') {
@@ -320,11 +320,15 @@ export async function openSession(f: GoalPlanRecoveryFixture, session = f.ready.
   await expect(toggle).toHaveAttribute('aria-expanded', 'true')
   await row.getByRole('treeitem', { name: session.title, exact: true }).click()
   const hide = f.page.getByRole('button', { name: f.copy.shell.hideSidebar, exact: true })
-  if (await hide.isVisible()) {
+  const mobileHeader = f.page.locator('.hbar-app-react-shell-header')
+  const mobileClosed = async () =>
+    (await mobileHeader.isVisible()) && (await mobileHeader.getAttribute('data-hbar-sidebar-expanded')) === 'false'
+  if ((await hide.isVisible()) && !(await mobileClosed())) {
     try {
       await hide.click({ timeout: 1500 })
     } catch (error) {
-      if (await hide.isVisible()) throw error
+      // A mobile Session selection closes its drawer automatically while its offscreen contents remain mounted.
+      if ((await hide.isVisible()) && !(await mobileClosed())) throw error
     }
   }
   await expect(composer(f)).toBeVisible()
@@ -336,7 +340,9 @@ export async function startGoalPlanRecovery(
   const root = await mkdtemp(join(tmpdir(), prefix))
   const context = await browser.newContext({
     locale: options.locale,
-    viewport: { width: options.width, height: options.height ?? 900 },
+    // Open the captured Session before narrowing: initial responsive Sidebar restoration can otherwise hide
+    // the first row between its visibility check and click. The recovery interactions still use the requested size.
+    viewport: { width: Math.max(options.width, 1440), height: options.height ?? 900 },
   })
   const assets = options.assets ?? process.env.HBAR_GOAL_PLAN_RECOVERY_WEB_DIST ?? 'dist/web'
   if (!existsSync(join(resolve(assets), 'index.html'))) {
@@ -392,6 +398,7 @@ export async function startGoalPlanRecovery(
       configuration: createConfigurationCommandClient(external),
     }
     await openSession(f)
+    await page.setViewportSize({ width: options.width, height: options.height ?? 900 })
     return f
   } catch (error) {
     const failures: unknown[] = [error]

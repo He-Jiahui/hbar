@@ -56,6 +56,7 @@ export function HbarComposerGoal({
   executionReadError = false,
   executionChecking = false,
   goalTriggerRef,
+  embedded = false,
 }: {
   readonly sessionId: string
   readonly workspaceId: string | null
@@ -67,6 +68,7 @@ export function HbarComposerGoal({
   readonly executionReadError?: boolean
   readonly executionChecking?: boolean
   readonly goalTriggerRef?: RefObject<HTMLButtonElement | null>
+  readonly embedded?: boolean
 }) {
   const runtime = useHbarRuntime()
   const state = useHbarRuntimeState(runtime.state.composerIntent)
@@ -280,14 +282,16 @@ export function HbarComposerGoal({
   }
   const visibleGoal = goal && goal.status !== 'complete'
   return (
-    <LumenFrame className="hbar-composer-goal-context">
+    <LumenFrame className="hbar-composer-goal-context" data-embedded={embedded || undefined}>
       {showSummary && visibleGoal && (
         <LumenFrame className="hbar-composer-goal-strip" aria-label={labels.goal}>
           <LumenFrame className="hbar-composer-goal-summary">
             <LumenIcon icon={Target} tier="sm" />
-            <LumenText as="span" className="hbar-composer-current-goal-label">
-              {labels.currentGoal}
-            </LumenText>
+            {!embedded && (
+              <LumenText as="span" className="hbar-composer-current-goal-label">
+                {labels.currentGoal}
+              </LumenText>
+            )}
             <LumenText as="span" className="hbar-composer-goal-status">
               {runActive ? labels.running : executionChecking ? labels.executionChecking : labels.statuses[goal.status]}
             </LumenText>

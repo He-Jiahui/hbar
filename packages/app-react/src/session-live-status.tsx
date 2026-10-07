@@ -1,11 +1,20 @@
-import { LumenFrame, LumenStatus, LumenText } from '@lumen/app-ui'
+import { useId, useState, type ReactNode } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
+import { LumenButton, LumenFrame, LumenIcon, LumenStatus, LumenText } from '@lumen/app-ui'
+import type { ComposerIntentState } from '@hbar/app-runtime'
 import type { RunStatus } from '@hbar/contracts'
+import { projectActivityTasks } from './activity-tasks-model'
+import { ActivityTasksView, type ActivityTaskLabels } from './activity-tasks-view'
 import './session-live-status.css'
 
 export interface HbarSessionLiveStatusLabels {
   readonly label: string
   readonly offline: string
   readonly statusLabel: (status: RunStatus) => string
+  readonly expand: string
+  readonly collapse: string
+  readonly goal: string
+  readonly tasks: ActivityTaskLabels
 }
 
 export interface HbarSessionLiveStatusProps {
@@ -15,9 +24,14 @@ export interface HbarSessionLiveStatusProps {
   readonly connected: boolean
   readonly run: Readonly<{ id: string; status: RunStatus }> | undefined
   readonly labels: HbarSessionLiveStatusLabels
+  readonly context?: {
+    readonly facts: ComposerIntentState['facts']
+    readonly summary: ReactNode
+    readonly onRefresh: () => void
+  }
 }
 
-/** One current-run status, outside the transcript scroll; never projects another session's facts. */
+/** Docked session context. The expanded pane owns scrolling for the Host's bounded 100-step Plan. */
 export function HbarSessionLiveStatus({
   sessionId,
   timelineSessionId,
@@ -25,35 +39,115 @@ export function HbarSessionLiveStatus({
   connected,
   run,
   labels,
+  context,
 }: HbarSessionLiveStatusProps) {
-  if (
-    !owned ||
-    timelineSessionId !== sessionId ||
-    !run ||
-    !['queued', 'running', 'waiting_approval'].includes(run.status)
-  )
-    return null
+  const [expandedSession, setExpandedSession] = useState<string | null>(null)
+  const contentId = useId()
+  const expanded = expandedSession === sessionId
+  const currentRun =
+    timelineSessionId === sessionId && run && ['queued', 'running', 'waiting_approval'].includes(run.status)
+      ? run
+      : undefined
+  const snapshot =
+    context?.facts.sessionId === sessionId && context.facts.snapshot?.sessionId === sessionId
+      ? context.facts.snapshot
+      : null
+  const goal = snapshot?.goal?.threadId === sessionId && snapshot.goal.status !== 'complete' ? snapshot.goal : null
+  const tasks = context ? projectActivityTasks(context.facts, sessionId) : null
+  const hasDetails = Boolean(goal || tasks?.steps.length || tasks?.explanation || tasks?.failed)
+  const visible = Boolean(currentRun || hasDetails)
+  const summaryOwned = context?.facts.sessionId === sessionId
+  if (!owned) return null
+  // Keep pending/failed Goal commands reachable even when no Goal or Run has been saved yet.
+  // Its component stays mounted when a clear event precedes the command acknowledgement (focus/recovery lease).
+  if (!visible && !context) return null
   return (
     <LumenFrame
+      as="section"
       className="hbar-session-live-status"
-      data-session-live-status={run.id}
+      data-session-live-status={visible ? (currentRun?.id ?? sessionId) : undefined}
       data-session-id={sessionId}
-      data-run-status={connected ? run.status : 'unconfirmed'}
-      role="status"
+      data-run-status={connected ? currentRun?.status : 'unconfirmed'}
+      data-expanded={hasDetails && expanded}
+      data-visible={visible}
       aria-label={labels.label}
-      aria-live="polite"
-      aria-atomic="true"
     >
-      <LumenText as="strong" variant="label">
-        {labels.label}
-      </LumenText>
-      <LumenStatus
-        className="hbar-session-live-status-badge"
-        value={connected ? labels.statusLabel(run.status) : labels.offline}
-        tone={
-          !connected || run.status === 'waiting_approval' ? 'warning' : run.status === 'running' ? 'info' : 'neutral'
-        }
-      />
+      <LumenFrame className="hbar-session-live-status-header">
+        {hasDetails ? (
+          <LumenButton
+            className="hbar-session-live-status-toggle"
+            type="button"
+            size="s"
+            variant="text"
+            indicator="none"
+            aria-label={expanded ? labels.collapse : labels.expand}
+            title={expanded ? labels.collapse : labels.expand}
+            aria-expanded={expanded}
+            aria-controls={contentId}
+            onClick={() => setExpandedSession(expanded ? null : sessionId)}
+          >
+            <LumenIcon icon={expanded ? ChevronDown : ChevronRight} tier="sm" />
+            <LumenText as="strong" variant="label">
+              {labels.label}
+            </LumenText>
+            {Boolean(tasks?.steps.length) && (
+              <LumenText as="span" className="hbar-session-live-status-progress">
+                {labels.tasks.progress(tasks?.completed ?? 0, tasks?.steps.length ?? 0)}
+              </LumenText>
+            )}
+          </LumenButton>
+        ) : currentRun ? (
+          <LumenText as="strong" variant="label">
+            {labels.label}
+          </LumenText>
+        ) : null}
+        {summaryOwned && (
+          <LumenFrame key="goal" className="hbar-session-live-status-goal">
+            {context.summary}
+          </LumenFrame>
+        )}
+        {(currentRun || (visible && !connected)) && (
+          <LumenFrame role="status" aria-live="polite" aria-atomic="true" className="hbar-session-live-status-badge">
+            <LumenStatus
+              value={connected && currentRun ? labels.statusLabel(currentRun.status) : labels.offline}
+              tone={
+                !connected || currentRun?.status === 'waiting_approval'
+                  ? 'warning'
+                  : currentRun?.status === 'running'
+                    ? 'info'
+                    : 'neutral'
+              }
+            />
+          </LumenFrame>
+        )}
+      </LumenFrame>
+      {hasDetails && (
+        <LumenFrame
+          id={contentId}
+          className="hbar-session-live-status-details"
+          hidden={!expanded}
+          tabIndex={0}
+          role="region"
+          aria-label={labels.label}
+        >
+          {context && (
+            <ActivityTasksView
+              facts={context.facts}
+              sessionId={sessionId}
+              connected={connected}
+              labels={labels.tasks}
+              onRefresh={context.onRefresh}
+            />
+          )}
+          {tasks?.explanation && <LumenText as="p">{tasks.explanation}</LumenText>}
+          {goal && (
+            <LumenFrame as="section" className="hbar-session-live-status-objective" aria-label={labels.goal}>
+              <LumenText as="h3">{labels.goal}</LumenText>
+              <LumenText as="p">{goal.objective}</LumenText>
+            </LumenFrame>
+          )}
+        </LumenFrame>
+      )}
     </LumenFrame>
   )
 }
