@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, type ReactNode, type RefObject } from 'react'
 import { LoaderCircle, Search, X } from 'lucide-react'
 import {
   sessionSearchScopeSchema,
+  sessionSearchInputSchema,
   type SessionSearchScope,
   type SessionSearchSource,
 } from '@hbar/contracts/commands/session-search'
@@ -11,7 +12,7 @@ import {
   LumenIcon,
   LumenIconButton,
   LumenInput,
-  LumenText,
+  LumenContentText,
   LumenToggleGroup,
 } from '@lumen/app-ui'
 import './chat-search-view.css'
@@ -137,9 +138,14 @@ export function highlightedChatSearchText(text: string, highlights: readonly Hba
     if (start < cursor) continue
     if (start > cursor) segments.push(text.slice(cursor, start))
     segments.push(
-      <LumenText as="span" role="mark" className="hbar-chat-search-highlight" key={`${start}:${end}`}>
+      <LumenContentText
+        context="inline.text"
+        role="mark"
+        className="hbar-chat-search-highlight"
+        key={`${start}:${end}`}
+      >
         {text.slice(start, end)}
-      </LumenText>,
+      </LumenContentText>,
     )
     cursor = end
   }
@@ -207,6 +213,7 @@ export function HbarChatSearchView({
           type="search"
           variant="plain"
           value={query}
+          maxLength={sessionSearchInputSchema.shape.query.maxLength ?? undefined}
           aria-label={labels.search}
           placeholder={labels.search}
           role="combobox"
@@ -245,7 +252,7 @@ export function HbarChatSearchView({
           <LumenIcon icon={X} tier="md" />
         </LumenIconButton>
       </LumenFrame>
-      <LumenFrame className="hbar-chat-search-scopes">
+      <LumenFrame className="hbar-chat-search-scopes" role="group" aria-label={labels.category} tabIndex={0}>
         <LumenToggleGroup
           type="single"
           size="s"
@@ -263,17 +270,26 @@ export function HbarChatSearchView({
       </LumenFrame>
       <LumenFrame className="hbar-chat-search-pane">
         {status === 'recent' && visible.length > 0 && (
-          <LumenText as="p" className="hbar-chat-search-recent">
+          <LumenContentText context="section.title" className="hbar-chat-search-recent">
             {labels.recent}
-          </LumenText>
+          </LumenContentText>
         )}
         {statusText && (
           <LumenFrame className="hbar-chat-search-feedback" role={status === 'error' ? 'alert' : 'status'}>
-            <LumenText as="p">{statusText}</LumenText>
+            <LumenContentText context="feedback.paragraph" tone={status === 'error' ? 'danger' : 'subtle'}>
+              {statusText}
+            </LumenContentText>
             {(status === 'error' || status === 'disconnected' || status === 'indexing') && (
-              <LumenButton type="button" variant="text" indicator="none" onClick={onRetry}>
-                {labels.retry}
-              </LumenButton>
+              <LumenFrame
+                className="hbar-chat-search-actions-reading"
+                role="group"
+                aria-label={labels.retry}
+                tabIndex={0}
+              >
+                <LumenButton type="button" variant="text" indicator="none" onClick={onRetry}>
+                  {labels.retry}
+                </LumenButton>
+              </LumenFrame>
             )}
           </LumenFrame>
         )}
@@ -306,64 +322,87 @@ export function HbarChatSearchView({
               data-result-id={row.resultId ?? row.sessionId}
               data-result-source={row.source ?? (status === 'recent' ? 'title' : 'conversation')}
               disabled={pending}
-              onMouseEnter={() => onSelect(row.resultId ?? row.sessionId)}
+              onPointerMove={(event) => {
+                if (event.pointerType === 'mouse' && selectedResultId !== (row.resultId ?? row.sessionId))
+                  onSelect(row.resultId ?? row.sessionId)
+              }}
               onFocus={() => onSelect(row.resultId ?? row.sessionId)}
               onClick={() => onOpen(row.resultId ?? row.sessionId, row.workspaceId)}
             >
-              <LumenText as="span" className="hbar-chat-search-source">
+              <LumenContentText context="choice.description" className="hbar-chat-search-source">
                 {labels.sources[row.source ?? (status === 'recent' ? 'title' : 'conversation')]}
-              </LumenText>
+              </LumenContentText>
               <LumenFrame className="hbar-chat-search-row-body">
-                <LumenText as="span" className="hbar-chat-search-row-heading">
-                  <LumenText as="span" className="hbar-chat-search-row-title" title={row.title}>
+                <LumenFrame as="span" className="hbar-chat-search-row-heading">
+                  <LumenContentText context="collection.title" className="hbar-chat-search-row-title" title={row.title}>
                     {row.title}
-                  </LumenText>
-                  <LumenText
-                    as="time"
-                    dateTime={
-                      Number.isFinite(row.updatedAt) && Number.isFinite(new Date(row.updatedAt).getTime())
-                        ? new Date(row.updatedAt).toISOString()
-                        : undefined
-                    }
-                    title={labels.time(row.updatedAt)}
+                  </LumenContentText>
+                  <LumenFrame
+                    as="span"
+                    className="hbar-chat-search-metadata-reading"
+                    role="group"
+                    aria-label={labels.time(row.updatedAt)}
+                    tabIndex={0}
                   >
-                    {labels.time(row.updatedAt)}
-                  </LumenText>
-                </LumenText>
-                <LumenText as="span" className="hbar-chat-search-row-context">
-                  <LumenText as="span" title={row.workspaceName}>
+                    <LumenContentText
+                      context="metadata.time"
+                      tone="subtle"
+                      dateTime={
+                        Number.isFinite(row.updatedAt) && Number.isFinite(new Date(row.updatedAt).getTime())
+                          ? new Date(row.updatedAt).toISOString()
+                          : undefined
+                      }
+                      title={labels.time(row.updatedAt)}
+                    >
+                      {labels.time(row.updatedAt)}
+                    </LumenContentText>
+                  </LumenFrame>
+                </LumenFrame>
+                <LumenFrame as="span" className="hbar-chat-search-row-context">
+                  <LumenContentText context="collection.detail" title={row.workspaceName}>
                     {row.workspaceName}
-                  </LumenText>
+                  </LumenContentText>
                   {status !== 'recent' && (
-                    <LumenText as="span">{labels.matches(row.matchCount, row.matchCountCapped)}</LumenText>
+                    <LumenContentText context="collection.detail">
+                      {labels.matches(row.matchCount, row.matchCountCapped)}
+                    </LumenContentText>
                   )}
-                </LumenText>
+                </LumenFrame>
                 {status !== 'recent' &&
                   row.snippets.slice(0, 3).map((snippet) => (
-                    <LumenText as="span" key={snippet.messageId ?? 'title'} className="hbar-chat-search-snippet">
+                    <LumenFrame as="span" key={snippet.messageId ?? 'title'} className="hbar-chat-search-snippet">
                       {row.source !== 'title' && (
-                        <LumenText
-                          as="span"
+                        <LumenContentText
+                          context="collection.detail"
                           className="hbar-chat-search-snippet-role"
                           title={labels.role(snippet.role)}
                         >
                           {labels.role(snippet.role)}
-                        </LumenText>
+                        </LumenContentText>
                       )}
-                      <LumenText as="span" className="hbar-chat-search-snippet-text" title={snippet.text}>
+                      <LumenContentText
+                        context="collection.detail"
+                        className="hbar-chat-search-snippet-text"
+                        title={snippet.text}
+                      >
                         {highlightedChatSearchText(snippet.text, snippet.highlights)}
-                      </LumenText>
-                    </LumenText>
+                      </LumenContentText>
+                    </LumenFrame>
                   ))}
                 {openingResultId === (row.resultId ?? row.sessionId) && (
-                  <LumenText as="span" className="hbar-chat-search-row-status" role="status">
+                  <LumenContentText context="feedback.detail" className="hbar-chat-search-row-status" role="status">
                     {labels.opening(row.title)}
-                  </LumenText>
+                  </LumenContentText>
                 )}
                 {openError?.sessionId === (row.resultId ?? row.sessionId) && (
-                  <LumenText as="span" className="hbar-chat-search-row-error" role="alert">
+                  <LumenContentText
+                    context="feedback.detail"
+                    tone="danger"
+                    className="hbar-chat-search-row-error"
+                    role="alert"
+                  >
                     {openError.message}
-                  </LumenText>
+                  </LumenContentText>
                 )}
               </LumenFrame>
             </LumenButton>
@@ -371,20 +410,28 @@ export function HbarChatSearchView({
         </LumenFrame>
       </LumenFrame>
       {(truncated || (status === 'ready' && rows.length > 50)) && (
-        <LumenText as="p" className="hbar-chat-search-truncated" role="status">
+        <LumenContentText
+          context="feedback.paragraph"
+          tone="subtle"
+          className="hbar-chat-search-truncated"
+          role="status"
+        >
           {labels.truncated}
-        </LumenText>
+        </LumenContentText>
       )}
-      <LumenFrame as="footer" className="hbar-chat-search-footer">
-        <LumenText as="span">
-          <LumenText as="kbd">{labels.navigateKey}</LumenText> {labels.navigate}
-        </LumenText>
-        <LumenText as="span">
-          <LumenText as="kbd">{labels.selectKey}</LumenText> {labels.select}
-        </LumenText>
-        <LumenText as="span">
-          <LumenText as="kbd">{labels.closeKey}</LumenText> {labels.closeHint}
-        </LumenText>
+      <LumenFrame as="footer" className="hbar-chat-search-footer" role="group" aria-label={labels.search} tabIndex={0}>
+        <LumenFrame as="span">
+          <LumenContentText context="shortcut.key">{labels.navigateKey}</LumenContentText>
+          <LumenContentText context="inline.text">{labels.navigate}</LumenContentText>
+        </LumenFrame>
+        <LumenFrame as="span">
+          <LumenContentText context="shortcut.key">{labels.selectKey}</LumenContentText>
+          <LumenContentText context="inline.text">{labels.select}</LumenContentText>
+        </LumenFrame>
+        <LumenFrame as="span">
+          <LumenContentText context="shortcut.key">{labels.closeKey}</LumenContentText>
+          <LumenContentText context="inline.text">{labels.closeHint}</LumenContentText>
+        </LumenFrame>
       </LumenFrame>
     </LumenFrame>
   )

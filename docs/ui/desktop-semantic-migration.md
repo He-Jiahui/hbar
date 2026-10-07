@@ -367,4 +367,12 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 12 项实际 Chrome / Host 回归整组通过：两语言归档与恢复、丢失已接受回执的核对、批量捕获／键盘选择／取消、100 项预览、A／B 草稿与页签、脏 Files Workbench、外部活动归档与新提交拒绝、刷新后空工作区、空第一页后继续读取。旧选择显示 div 改为真实 TreeItem 的键盘断言，窄屏隐藏页签仍验证选中状态与实际草稿；深度样式断言限定自身 Agent children，而非重复命中 Lumen 子组。
 - Web 构建、严格范围 ESLint、文案／图标／flow guard 和格式通过；冷启动完整类型仍有 92 项既有诊断，本次范围为零。构建清单为 146 模块／3739 元素／320 处低层文字／337 项静态缺口。证据为 session-archive-content/recovery-red.log、unit-recovery-final.log、client-recovery-final.log、host-recovery-final.log、lint-delivery-final.log、lint-recovery-final.log、types-recovery-final.log、build-recovery.log、inventory-recovery-final.log 及相应 guard／format 日志。Host 临时数据停止后经 realpath、临时目录与所属前缀校验清理。
 
-当前已提交清单覆盖 146 个生产 TSX 模块、3739 个元素，其中记录了 320 处低层文字未分类，合计 337 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+聊天搜索按独立槽位迁移全部 22 处低层文字。结果原标题使用 collection.title；来源、项目、匹配数、角色及原片段分别使用 choice.description／collection.detail；结果打开反馈使用 feedback.detail，状态说明与截断反馈使用 feedback.paragraph，最近记录标题使用 section.title。UTF-16 高亮保留 inline.text 与 mark 语义、原文和转义规则，快捷键使用 shortcut.key。时间、来源筛选和重试分别由具名阅读区拥有紧凑内容的横向滚动；标题与描述自然换行。输入容量直接读取公开 sessionSearchInputSchema 的 160 字符约束，沿用 Host 的 8 条最近、50 条结果与每结果 3 个可见片段边界。结构／交互参考沿用 [App Shell](https://pro.reactbits.dev/docs/app-ui/app-shell) 与 [Command Menu](https://pro.reactbits.dev/docs/app-ui/command-menu) 的搜索优先、键盘目标及原工作台阅读区。
+
+- 实际 Host 的两个窄屏回归发现静止指针下的重新布局会触发旧 mouseenter，覆盖键盘选中对象。原逻辑可见 b561bb42；pointer-red.log 的确定性重开复现失败。现在只在真实鼠标 pointermove 且对象变化时选择，保持焦点选择与点击目标，并避免同一目标的重复选择。两语言重开／实际指针移动／方向键／Enter 原对象回归通过，完整真实 Host 回归恢复通过。
+- 24 项组件、控制器和 Host 适配单测通过，160 个断言。50 个实际 Chrome 场景通过，覆盖两语言、明暗、五宽度、125% 文字、完整标题与片段、源码转义／UTF-16 标记、来源与时间阅读、8／9 最近、50／51 结果、重复／无效／失效选中 ID、空／加载／索引／失败／离线／打开中／打开失败、重试、重排后原 ID、输入 160／161、分类回调、IME 抑制动作与 Escape。
+- 七项实际 Chrome / Host 回归整组通过，包含两语言与 1440／320 窗口、原最近记录、50 条结果、分类匹配、隐藏项目、归档排除、键盘选中样式与原对象打开、历史精确消息／工具调用／最新输出定位，以及新查询从原导航失败恢复。消费冻结 Web 入口文件及 SHA256，经所属 Host 和数据目录释放完成。
+- 严格范围 ESLint、文案／图标／flow guard、格式、Web 构建与实际构建输入清单通过。冷启动类型检查仍有 92 项既有诊断，本次范围为零；最初脚本的 DOM className 类型和 Playwright mark role 类型问题已修正，没有忽略类型检查。浏览器 fixture 纠正了 Provider 的真实布局根、跨用例鼠标位置和 IME 期间允许保留 query 变化的断言，核心打开／导航／关闭抑制断言保留。
+- 证据为 chat-search-content/unit-pointer-final.log、client-pointer-final.log、pointer-red.log、host.log、host-final.log、lint-final.log、types-final.log、build-final.log、inventory-final.log 及 guard／format 日志。清单为 146 模块／3744 元素／298 处低层文字／315 项静态缺口。
+
+当前已提交清单覆盖 146 个生产 TSX 模块、3744 个元素，其中记录了 298 处低层文字未分类，合计 315 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
