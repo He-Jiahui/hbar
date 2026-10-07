@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { skillImportCopy } from '../apps/web/src/skill-import-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
@@ -9,6 +9,7 @@ import { selectLumenOption } from './support/lumen-controls'
 async function cleanup(root: string) {
   const path = await realpath(root)
   if (
+    path !== resolve(root) ||
     dirname(path).toLowerCase() !== (await realpath(tmpdir())).toLowerCase() ||
     !basename(path).startsWith('hbar-skill-browser-')
   )
@@ -35,7 +36,12 @@ for (const locale of ['zh-CN', 'en-US'] as const)
           '#!/bin/sh\nprintf "source preserved"\n',
         )
       }
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 45490) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 45490),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 45489}`
       expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
       const page = await context.newPage()
@@ -53,6 +59,13 @@ for (const locale of ['zh-CN', 'en-US'] as const)
         else await selectLumenOption(page.getByRole('combobox', { name: copy.settings.groups, exact: true }), 'skills')
       }
       await page.goto(base)
+      const project = page.getByRole('treeitem', { name: host.ready.workspaceName, exact: true })
+      await expect(project).toBeVisible()
+      if ((await project.getAttribute('aria-expanded')) === 'false') {
+        await project.focus()
+        await project.press('ArrowRight')
+        await expect(project).toHaveAttribute('aria-expanded', 'true')
+      }
       await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await openSettings()
       await page.getByRole('button', { name: labels.open, exact: true }).click()
@@ -108,11 +121,12 @@ for (const locale of ['zh-CN', 'en-US'] as const)
       try {
         await context.close()
       } finally {
-        try {
-          if (host) await stopWebSessionHost(host)
-        } finally {
-          await cleanup(root)
+        if (host) {
+          await stopWebSessionHost(host)
+          const captured = host
+          await expect.poll(() => captured.child.exitCode !== null || captured.child.signalCode !== null).toBe(true)
         }
+        await cleanup(root)
       }
     }
   })

@@ -413,4 +413,12 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 9 项真实 Host 回归全部通过，包含两语言历史／替换／续作、106 条历史分页及恢复、待处理 Run 的交接、页面边界上的原目标和重新加载。保持有目的的本地自动续作验证，关闭预算自动继续；测试停止所属 Host 并按明确前缀、realpath 与临时目录检查后清理。清理守卫独立成函数后通过 no-unsafe-finally 检查。
 - 范围 ESLint、文案／图标／flow guard、格式、Web build 与构建输入清单通过；冷启动完整类型仍有 92 项既有诊断，本次范围为零。证据在 artifacts/desktop-elements/goal-lifecycle-content 的 unit.log、client-final.log、host.log、types.log、lint.log、lint-cleanup-final.log、build.log、inventory.log、lumen-proptypes.log、lumen-api.log；共享包验证日志以 goal-lifecycle-content-lumen-* 保存于 desktop-elements。
 
-当前已提交清单覆盖 146 个生产 TSX 模块、3758 个元素，其中记录了 218 处低层文字未分类，合计 231 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 技能导入的预览集合、输入与核对反馈
+
+- 16 处低层文字归入章节、集合、路径、元数据、空态及反馈角色，标题、候选完整名称、说明和警告自然换行。原生 ul／li 交给 LumenCollection／Item；路径、容量、源切换、分页和动作组各有具名键盘阅读区。来源输入使用 LumenFormField 的公开布局及关联 ID，长字段标签同样有可聚焦的阅读区。
+- 保留实际控制器的 20 条分页、128 个预览上限、4000 字来源输入、256 字名称及最多 16 条警告契约。候选 key 仍使用物理 sourcePath，允许不同来源具有相同目的地 ID；重复警告以位置区分。来源变化使旧预览失效，已接受但响应丢失的操作仍核对原 operationId，未知状态禁止另起写入；原重试复用同一操作 ID。
+- 14 项单测、64 项断言通过。56 个实际 Chrome 场景覆盖两语言、明暗、五宽度、125% 文字、长标题／候选／说明、路径／容量／字段标签键盘阅读、0／1／20／21／128／129 项、256／257 字名称、16／17 条警告、重复目的地 ID、离线／读取错误恢复／截断／取消／未知结果核对与原操作重试、仅一次导入回调、输入 4001 字限制及来源变化后的捕获请求。浏览器夹具使用公开 schema 和真实控制器，其端口返回测试数据；文件转换由真实 Host 回归验证。
+- 两项中英文实际 Chrome／Host 导入回归通过，验证 Claude／Codex 的技能与上下文文件转换、脚本和源文件保留、发现刷新与重新加载，以及 390／320 窄屏。所属 Host 停止后按前缀、真实路径和临时目录校验清理，关闭自动 Goal／预算继续。
+- 范围 ESLint、文案／图标／flow guard、格式、Web build 与构建输入清单通过。测试夹具把 settings.title 格式器误当字符串的问题已修正；最终冷启动类型仍为 92 项既有诊断，本次范围为零，全库门禁尚未通过。证据在 artifacts/desktop-elements/skill-import-content 的 unit.log、client-final.log、host.log、host-reader-final.log、types-final.log、lint.log、lint-fixture-final.log、lint-reader-final.log、build.log、inventory-final.log 及相应 guard／format 日志。
+
+当前已提交清单覆盖 146 个生产 TSX 模块、3760 个元素，其中记录了 202 处低层文字未分类，合计 213 项静态缺口。其余生产表面迁移、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
