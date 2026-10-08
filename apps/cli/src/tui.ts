@@ -443,7 +443,7 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
     if (command === 'plugins') {
       const [action = 'list', idOrPath] = args
       const extensions = createExtensionCommandClient(runtime.client)
-      let plugins: PluginInfo[]
+      let plugins: readonly Pick<PluginInfo, 'id' | 'version' | 'status'>[]
       if (action === 'install' && idOrPath)
         plugins = await extensions.execute('plugin.install', { path: idOrPath, projectId: runtime.project.id })
       else if (action === 'enable' && idOrPath) plugins = await extensions.execute('plugin.enable', { id: idOrPath })
