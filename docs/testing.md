@@ -6,7 +6,7 @@
 
 `bun run check` 串行运行严格 lint、类型检查和 Bun 测试。覆盖组件库以及 Pi 流式循环、真实 pi-ai HTTP 协议适配、工具成功/失败、批准/拒绝、幂等队列、取消、插件依赖与作用域、卸载释放、压缩与分支、配对与 Origin、设备撤销以及崩溃后的未知副作用恢复。
 
-`bun run lint` 固定使用根配置与 `tsconfig.eslint.json`，覆盖 hbar 源码、脚本、测试、配置和已声明 workspace `hbar-ui/packages/lumen-app-ui`。子模块内未接入 hbar workspace 的 MUI 上游包、文档和示例由其独立工程检查负责，不混入 hbar 的检查项目；生成产物仍排除。入口为类型感知 ESLint 显式分配最多 8 GiB Node 堆，避免默默依赖终端环境变量。`tests/lint-workspace-coverage.test.ts` 检查根 TypeScript 范围、Lumen 源码 / 构建配置均被覆盖，并保持同一套严格规则。
+`bun run lint` 固定使用根配置与 `tsconfig.eslint.json`，覆盖 hbar 源码、脚本、测试、配置和已声明 workspace `hbar-ui/packages/lumen-app-ui`。子模块内未接入 hbar workspace 的 MUI 上游包、文档和示例由其独立工程检查负责，不混入 hbar 的检查项目；生成产物仍排除。入口通过 ESLint 自身枚举同一完整文件集合，然后串行交给默认 64 文件的独立 Node worker，每次显式分配最多 8 GiB 堆；只在枚举阶段停用规则与类型 program，正式 worker 保持原规则、类型配置和警告即失败。普通诊断不阻止后续批次，异常退出会失败；`artifacts/lint/inventory.json` 与 `results.json` 记录配置／集合哈希、逐批覆盖数、完成状态和实际诊断。`HBAR_LINT_BATCH_SIZE` 可指定 1–128，改变容量而不改变覆盖。`tests/lint-workspace-coverage.test.ts` 保证根 TypeScript 范围、Lumen 源码 / 构建配置和严格规则；`tests/lint-workspace-batches.test.ts` 对照 ESLint 直接选择检查隐藏文件／扩展／ignore 再纳入，并以真实严格 worker 验证失败不遗漏后续文件、修复后的报告与退出码。
 
 崩溃测试启动额外 Bun 进程，在已提交工具意图且实际写入完成、结果尚未提交时终止进程，重新打开同一数据目录，检查 WAL 历史和 unknown 结果，不重放调用。它不宣称覆盖所有磁盘故障或断电场景。
 
