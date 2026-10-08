@@ -1,12 +1,22 @@
 import { expect, test, type Page } from '@playwright/test'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { createSystemCommandClient } from '@hbar/client'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { openSessionTool } from './support/session-tools-menu'
 import { selectLumenOption } from './support/lumen-controls'
+async function removeOwnedDiagnosticsFixture(root: string) {
+  const path = await realpath(root)
+  if (
+    path !== resolve(root) ||
+    (await realpath(dirname(path))) !== (await realpath(tmpdir())) ||
+    !basename(path).startsWith('hbar-system-diagnostics-')
+  )
+    throw new Error('Refusing cleanup outside the owned diagnostics fixture')
+  await rm(path, { recursive: true, force: true })
+}
 
 async function selectDiagnostics(page: Page, locale: ShellLocale) {
   const copy = getShellCopy(locale)
@@ -29,7 +39,12 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
     const copy = getShellCopy(locale)
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const diagnosis = await createSystemCommandClient(host.client).execute('system.diagnose', {})
       const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
       expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
@@ -37,10 +52,13 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(base)
-      const workspace = page.getByTitle(copy.shell.workspaceActions(host.ready.workspaceName), { exact: true })
-      await workspace.waitFor({ state: 'attached' })
-      const expand = page.getByRole('treeitem', { expanded: false, name: host.ready.workspaceName })
-      if (await expand.isVisible()) await expand.click()
+      const workspace = page.getByRole('treeitem', { name: host.ready.workspaceName, exact: true })
+      await expect(workspace).toBeVisible()
+      if ((await workspace.getAttribute('aria-expanded')) === 'false') {
+        await workspace.focus()
+        await workspace.press('ArrowRight')
+        await expect(workspace).toHaveAttribute('aria-expanded', 'true')
+      }
       await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await mkdir('artifacts/system-diagnostics', { recursive: true })
       for (const viewport of [
@@ -69,7 +87,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
           await region
             .locator('.hbar-system-diagnostics-value')
             .first()
-            .locator('span')
+            .locator('.hbar-system-diagnostics-term-reader [data-text-context="inline.text"]')
             .first()
             .evaluate((element) => {
               element.textContent = `Very-long-localized-label-${'诊断diagnostics'.repeat(40)}`
@@ -88,12 +106,13 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       const refresh = page.getByRole('button', { name: copy.diagnostics.refresh, exact: true })
       await expect(refresh).toBeDisabled()
       await expect(page.getByText(diagnosis.host.version, { exact: true })).toBeVisible()
+      await expect(page.getByText(copy.diagnostics.oldResult, { exact: true })).toBeVisible()
       await page.screenshot({ path: `artifacts/system-diagnostics/${locale}-offline.png` })
       expect(errors).toEqual([])
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeOwnedDiagnosticsFixture(root)
     }
   })
 }

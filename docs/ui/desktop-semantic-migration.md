@@ -459,4 +459,12 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 一项实际 Chrome／Host 回归完成两语言独立 Host 的原取消、原失败 Run 重试、真实 plan.update、详情中的原步骤、五宽度及逐宽度 Escape／原卡片焦点恢复（12.8s）。重试验证新增 Host Run，未把固定的 queued／running 列标题当作执行结果。窄窗口先通过实际侧栏入口进入当前看板，再打开和关闭详情；保留此前跨断点保持弹窗时底层导航不可用的失败证据，不宣称该组合已修复。21 项相关 Bun 测试、137 个断言通过；所属 Host 已停止，原临时目录经 realpath、目录与前缀核对后清理。
 - 当前 Web build、实际构建清单、范围严格 ESLint、文案／图标／flow guard 与格式通过，冷启动类型为 92 项既有诊断，本次范围为零。证据在 artifacts/desktop-elements/run-board-content 的 targets-red.log、events-red.log、browser-red.log、browser-final.log、unit-delivery.log、host-facts.log、host-events.log、host-flow.log、types-delivery.log、lint-final.log、build-events.log、inventory.log 与 lumen-*。结构和交互沿用 [Kanban](https://pro.reactbits.dev/docs/app-ui/kanban) 的状态列、原记录动作和详情阅读；稳定工作台区域沿用 [App Shell](https://pro.reactbits.dev/docs/app-ui/app-shell)。
 
-当前清单覆盖 146 个生产 TSX 模块、3786 个元素，其中记录了 138 处低层文字未分类，合计 148 项静态缺口。其余生产表面迁移、已分类表面的身份选择值复核、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 系统诊断的章节、真实键值与旧结果反馈
+
+- 13 处低层文字归入 section.title／description、feedback.paragraph、empty.description 与 detail.term／value。章节标题自然换行，真实 Host 版本和平台完整显示；键值采用公开 LumenCollection 的原生定义列表。技术键名及刷新动作各有具名键盘阅读区，原生 term 保留其语义，名称归属内部阅读区。
+- 延续 bcfaf1fb 的只读契约与排序后十二项存储摘要，省略数来自实际记录。database 是公开的无固定条数字典，本次 4,096 项测试只是代表性大输入，不宣称是其容量上限；tools 则验证 0／1／4,096 与超出契约的 4,097 项。失败、加载及断线均标明保留的旧结果，没有显示地址或添加维护操作。
+- 46 个实际 Chrome 场景通过，覆盖中英文、明暗、五宽度、窄屏 125% 文字、长标题／说明、64 字版本／平台、存储 0／1／7／12／13／4,096 项、键盘横向阅读、真实正文边界、读取失败／加载恢复／断线及非法输出。四项现有 Runtime／组件测试、30 个断言通过，保留原页面目标、旧结果重试与晚回包隔离。
+- 两项真实 Chrome／Host 回归通过（中英文，14.3s），读取实际 system.diagnose，在 1440／320 下刷新、检查完整 Host 值、断线禁用与旧结果提示，pageerror 为零。长键名压力文字仅用于显式测试，不冒充 Host 事实；所属 Host 停止后经真实路径、临时目录与所属前缀校验清理。
+- 范围严格 ESLint、文案／图标／flow guard、格式、Web build 与实际构建清单通过。首次将 dl 交给 LumenFrame 的三个类型错误已改为现有公开集合 API；最终冷启动类型恢复为 92 项既有诊断，本次范围为零，全库门禁仍待处理。证据在 artifacts/desktop-elements/system-diagnostics-content 的 browser-final.log、unit-final.log、host-final.log、types-final.log、lint-final.log、build-final.log、inventory.log 与截图。结构继续使用现有工作台分节摘要及就近刷新反馈。
+
+当前清单覆盖 146 个生产 TSX 模块、3789 个元素，其中记录了 125 处低层文字未分类，合计 135 项静态缺口。其余生产表面迁移、已分类表面的身份选择值复核、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
