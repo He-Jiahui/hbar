@@ -11,6 +11,7 @@ import {
   promptTemplateContentVariableLabel,
 } from '../tests/fixtures/prompt-template-content-data'
 import { verifyReadableText } from './support/verify-readable-text'
+import { selectLumenOption } from '../e2e/support/lumen-controls'
 
 const output = resolve('artifacts/desktop-elements/prompt-template-content')
 await mkdir(output, { recursive: true })
@@ -102,6 +103,16 @@ try {
             promptTemplateContentDescription(0),
             true,
           )
+          if (state === 'list') {
+            await row.getByRole('button', { name: promptTemplateContentName(0), exact: true }).click()
+            const target = root.locator('#prompt-template-target')
+            await selectLumenOption(target, 'session:original-session')
+            await verifyReadableText(
+              target.locator('[data-text-context="choice.title"]'),
+              'Original draft target 原始草稿目标 '.repeat(4),
+              width < 400,
+            )
+          }
           if (state === 'edit') {
             const editor = root.locator('.hbar-prompt-template-editor')
             await verifyReadableText(editor.getByRole('heading'), base.editor.title + suffix, width < 400)

@@ -116,9 +116,15 @@ export function AgentModelPicker({
           aria-expanded={open}
           title={currentLabel}
         >
-          <LumenContentText context="control.label" className="hbar-agent-model-current">
-            {currentLabel}
-          </LumenContentText>
+          {value ? (
+            <LumenContentText context="choice.title" className="hbar-agent-model-current">
+              {currentLabel}
+            </LumenContentText>
+          ) : (
+            <LumenContentText context="control.label" className="hbar-agent-model-current">
+              {currentLabel}
+            </LumenContentText>
+          )}
           <LumenIcon icon={ChevronDown} tier="sm" />
         </LumenButton>
       </LumenFrame>

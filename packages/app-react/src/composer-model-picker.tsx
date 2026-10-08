@@ -545,6 +545,7 @@ export function HbarComposerModelPicker({
         indicator="none"
         className="hbar-composer-model-trigger"
         aria-label={directConfigure ? labels.configure : labels.trigger(triggerName)}
+        aria-describedby={current && disclosedModelIds.has(current.id) ? `${modelId}-current-name` : undefined}
         title={explanation ?? triggerName}
         aria-haspopup={directConfigure ? undefined : 'dialog'}
         aria-expanded={directConfigure ? undefined : open === 'model'}
@@ -553,9 +554,22 @@ export function HbarComposerModelPicker({
         aria-busy={busy || retrying || undefined}
         {...(directConfigure ? { onClick: () => openProviders() } : modelTriggerEvents)}
       >
-        <LumenContentText context="control.label" title={triggerName}>
-          {triggerName}
-        </LumenContentText>
+        {current && !directConfigure ? (
+          <LumenFrame as="span" className="hbar-composer-model-trigger-copy">
+            <LumenContentText context="choice.title" id={`${modelId}-current-name`}>
+              {current.modelName}
+            </LumenContentText>
+            {disclosedModelIds.has(current.id) && (
+              <LumenContentText context="code.inline" tone="muted">
+                {current.modelId}
+              </LumenContentText>
+            )}
+          </LumenFrame>
+        ) : (
+          <LumenContentText context="control.label" title={triggerName}>
+            {triggerName}
+          </LumenContentText>
+        )}
         <LumenIcon icon={directConfigure ? ArrowRight : ChevronDown} tier="sm" />
       </LumenButton>
       {levels.length > 1 && (

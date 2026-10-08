@@ -429,6 +429,7 @@ function AvailablePromptTemplatesPage({
           </LumenContentText>
           <LumenPopupSelect
             id="prompt-template-target"
+            valueContext="choice.title"
             aria-label={copy.target}
             disabled={busy}
             value={target ? `${target.kind}:${target.id}` : null}

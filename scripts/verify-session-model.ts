@@ -120,10 +120,15 @@ try {
           for (const presentation of ['native', 'web'] as const) {
             for (const width of [1440, 1100, 900, 390, 320]) {
               const base = inputFor(locale, mode)
+              if (!base.controls.model) throw new Error('Missing original confirmed model fixture')
               const fullName = '模型完整原始名称 Complete original reasoning model name '.repeat(6).slice(0, 160)
               const initial = {
                 ...base,
                 presentation,
+                controls: {
+                  ...base.controls,
+                  model: { ...base.controls.model, model: { ...model, modelName: fullName } },
+                },
                 catalog: {
                   ...base.catalog,
                   models: [
@@ -134,6 +139,7 @@ try {
               }
               await mount(page, initial, width)
               const trigger = page.locator('.hbar-composer-model-trigger')
+              await verifyReadableText(trigger.locator('[data-text-context="choice.title"]'), fullName, width < 400)
               const menu = page.getByRole('dialog', { name: labels.title, exact: true })
               await trigger.click()
               await expect(menu).toBeVisible()
@@ -178,7 +184,53 @@ try {
               await page.keyboard.press('Escape')
               await trigger.click()
               const outside = page.getByRole('textbox', { name: initial.copy.outside })
-              await outside.click()
+              const outsideBounds = await outside.boundingBox()
+              const menuBounds = await menu.boundingBox()
+              if (!outsideBounds || !menuBounds) throw new Error('Missing open menu and original input bounds')
+              const inputCenter = {
+                x: outsideBounds.x + outsideBounds.width / 2,
+                y: outsideBounds.y + outsideBounds.height / 2,
+              }
+              if (
+                await menu.evaluate(
+                  (node, point) => node.contains(document.elementFromPoint(point.x, point.y)),
+                  inputCenter,
+                )
+              ) {
+                const point = await menu.evaluate((node, bounds) => {
+                  const candidates = [
+                    { x: bounds.x / 2, y: innerHeight / 2 },
+                    { x: (bounds.x + bounds.width + innerWidth) / 2, y: innerHeight / 2 },
+                    { x: innerWidth / 2, y: bounds.y / 2 },
+                    { x: innerWidth / 2, y: (bounds.y + bounds.height + innerHeight) / 2 },
+                  ]
+                  return (
+                    candidates.find((candidate) => {
+                      const hit = document.elementFromPoint(candidate.x, candidate.y)
+                      return hit !== null && !node.contains(hit)
+                    }) ?? null
+                  )
+                }, menuBounds)
+                if (!point) throw new Error('Open model menu has no exposed outside click area')
+                await page.mouse.click(point.x, point.y)
+                await expect(menu).toBeHidden()
+              }
+              try {
+                await outside.click()
+              } catch (error) {
+                console.error({
+                  locale,
+                  mode,
+                  coarse,
+                  presentation,
+                  width,
+                  trigger: await trigger.boundingBox(),
+                  outside: await outside.boundingBox(),
+                  menu: await menu.boundingBox(),
+                })
+                await page.screenshot({ path: resolve(output, 'caption-failure.png') })
+                throw error
+              }
               await expect(menu).toBeHidden()
               await expect(outside).toBeFocused()
               await expect(outside).toHaveValue(initial.copy.draft)

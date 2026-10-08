@@ -18,7 +18,8 @@
 
 .hbar-agent-model-trigger {
   inline-size: 100%;
-  min-inline-size: max-content;
+  min-inline-size: 0;
+  max-inline-size: 100%;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
@@ -26,16 +27,26 @@
 }
 
 .hbar-agent-model-current {
-  flex: 0 0 auto;
-  white-space: nowrap;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  text-align: start;
 }
 
-.hbar-agent-model-trigger-reading,
 .hbar-agent-model-action-reading {
   min-inline-size: 0;
   max-inline-size: 100%;
   min-block-size: max-content;
   overflow-x: auto;
+}
+.hbar-agent-model-trigger-reading {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+.hbar-agent-model-trigger-reading:has([data-text-context='control.label']) {
+  overflow-x: auto;
+}
+.hbar-agent-model-trigger:has(> [data-text-context='control.label']) {
+  min-inline-size: max-content;
 }
 
 .hbar-agent-model-title-reading {

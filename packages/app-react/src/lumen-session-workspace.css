@@ -262,7 +262,10 @@
 
 .hbar-session-composer-options {
   display: flex;
-  flex: 0 0 auto;
+  flex: 1 1 12rem;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
 }
@@ -303,7 +306,21 @@
 }
 
 .hbar-session-composer-options > .hbar-composer-model-picker {
-  flex: 0 0 auto;
+  flex: 1 1 12rem;
+}
+.hbar-app-react-session-footer .lumen-composer-control-rail {
+  flex-wrap: wrap;
+}
+.hbar-app-react-session-footer .lumen-composer-trailing-controls {
+  flex: 1 1 12rem;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+.hbar-app-react-session-footer .lumen-composer-trailing-controls > .hbar-session-composer-options {
+  flex-shrink: 1;
+}
+.hbar-session-composer-options > .hbar-composer-model-picker > .hbar-composer-model-trigger {
+  flex-shrink: 1;
 }
 
 .hbar-session-budget-notice {

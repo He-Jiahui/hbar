@@ -7,6 +7,7 @@ import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { expectComposerText } from './support/composer-text'
 import { openSessionTool } from './support/session-tools-menu'
+import { verifyReadableText } from '../scripts/support/verify-readable-text'
 
 async function cleanupFixture(root: string): Promise<void> {
   const target = await realpath(root)
@@ -153,6 +154,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await openAgent.focus()
       await openAgent.press('Enter')
       await expect(page.getByRole('heading', { level: 1, name: childTitle, exact: true })).toBeVisible()
+      await verifyReadableText(page.getByRole('heading', { level: 1, name: childTitle, exact: true }), childTitle, true)
       const back = page.getByRole('button', { name: copy.agents.returnToParent(host.ready.sessionTitle), exact: true })
       await expect(back).toBeInViewport()
       await back.click()

@@ -1,6 +1,9 @@
 .hbar-composer-model-picker {
   display: flex;
-  flex: 0 0 auto;
+  flex: 1 1 12rem;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.125rem;
 }
@@ -11,10 +14,23 @@
 }
 
 .hbar-composer-model-trigger {
-  flex: 0 0 auto;
-  max-inline-size: none;
+  flex: 1 1 8rem;
+  min-inline-size: 0;
+  max-inline-size: 100%;
   gap: 0.25rem;
   font-weight: 600;
+}
+.hbar-composer-model-trigger-copy {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  text-align: start;
+}
+.hbar-composer-model-trigger-copy > [data-text-context] {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
 }
 
 .hbar-composer-model-trigger > [data-text-context='control.label'] {

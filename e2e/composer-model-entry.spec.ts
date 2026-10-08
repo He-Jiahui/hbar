@@ -8,6 +8,7 @@ import { cleanupOwnedModelFixture } from './support/model-fixture-cleanup'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { verifyReadableText } from '../scripts/support/verify-readable-text'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`composer selects models and reasoning locally, preserving draft and focus: ${locale}`, async ({ browser }) => {
@@ -99,11 +100,21 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         })
       })
       await page.goto(base)
+      const workspace = page.getByRole('treeitem', { name: host.ready.workspaceName, exact: true })
+      await expect(workspace).toBeVisible()
+      if ((await workspace.getAttribute('aria-expanded')) === 'false') {
+        await workspace.focus()
+        await workspace.press('ArrowRight')
+        await expect(workspace).toHaveAttribute('aria-expanded', 'true')
+      }
       await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const draft = 'Draft remains attached to this session — 尚未发送的草稿'
       await expect(prompt).toHaveAttribute('contenteditable', 'true')
-      await prompt.fill(draft)
+      await prompt.click()
+      await expect(prompt).toBeFocused()
+      await page.keyboard.insertText(draft)
+      await expectComposerText(prompt, draft)
       const model = page.locator('.hbar-composer-model-trigger')
       const popup = page.getByRole('dialog', { name: labels.title, exact: true })
       const search = popup.getByRole('searchbox', { name: labels.search })
@@ -153,6 +164,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.keyboard.press('Enter')
       await expect(popup).not.toBeVisible()
       await expect(model).toContainText(longModelName)
+      await verifyReadableText(model.locator('[data-text-context="choice.title"]'), longModelName)
       await expectComposerText(prompt, draft)
       await expect(model).toBeFocused()
       await model.click()
@@ -349,6 +361,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
 
       for (const viewport of [
         { width: 1440, height: 960 },
+        { width: 1100, height: 900 },
         { width: 900, height: 600 },
         { width: 390, height: 844 },
         { width: 320, height: 720 },
@@ -356,6 +369,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await page.setViewportSize(viewport)
         await expect(model).toBeVisible()
         await expect(page.getByRole('button', { name: copy.session.prompt.send, exact: true })).toBeVisible()
+        const fullName = model.locator('[data-text-context="choice.title"]')
+        await verifyReadableText(fullName, longModelName, viewport.width < 400)
+        const nameBox = await fullName.boundingBox()
+        const buttonBox = await model.boundingBox()
+        if (!nameBox || !buttonBox) throw new Error('Missing full model name bounds')
+        expect(nameBox.x).toBeGreaterThanOrEqual(buttonBox.x)
+        expect(nameBox.x + nameBox.width).toBeLessThanOrEqual(buttonBox.x + buttonBox.width + 1)
+        expect(nameBox.y + nameBox.height).toBeLessThanOrEqual(buttonBox.y + buttonBox.height + 1)
+        await expect(page.getByRole('button', { name: copy.session.prompt.send, exact: true })).toBeInViewport()
         if (viewport.width === 1440) {
           const modelBounds = await model.boundingBox()
           const thinkingBounds = await page.locator('.hbar-composer-thinking-trigger').boundingBox()
@@ -365,6 +387,31 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
             throw new Error('The configured model and reasoning controls must be visible')
           const centerYDelta = Math.abs(
             modelBounds.y + modelBounds.height / 2 - thinkingBounds.y - thinkingBounds.height / 2,
+          )
+          console.log(
+            'Owned configured model geometry',
+            await model.evaluate((node) => {
+              const rows = []
+              for (let current: Element | null = node; current && rows.length < 6; current = current.parentElement) {
+                const style = getComputedStyle(current)
+                const box = current.getBoundingClientRect()
+                rows.push({
+                  className: current.className,
+                  width: box.width,
+                  height: box.height,
+                  x: box.x,
+                  y: box.y,
+                  scrollHeight: current.scrollHeight,
+                  clientHeight: current.clientHeight,
+                  flex: style.flex,
+                  whiteSpace: style.whiteSpace,
+                  alignItems: style.alignItems,
+                  flexWrap: style.flexWrap,
+                  overflowY: style.overflowY,
+                })
+              }
+              return rows
+            }),
           )
           await test.info().attach(`configured-model-row-${locale}`, {
             body: JSON.stringify({ viewport, modelBounds, thinkingBounds, centerYDelta }, null, 2),

@@ -217,9 +217,16 @@ try {
             await expect(dialog).toHaveCount(0)
             await expect(trigger).toBeFocused()
             if (width === 320 && scenario.count && scenario.failure !== 'stale') {
+              await verifyReadableText(
+                trigger.locator('[data-text-context="choice.title"]'),
+                `Model ${scenario.failure === 'offline' ? 0 : scenario.count - 1} with a deliberately long bilingual name — 很长的模型名称`,
+                true,
+              )
+            }
+            if (width === 320 && scenario.count === 0) {
               const reading = page.locator('.hbar-agent-model-trigger-reading')
               await reading.focus()
-              for (let step = 0; step < 5; step++) await page.keyboard.press('ArrowRight')
+              await page.keyboard.press('ArrowRight')
               await expect.poll(() => reading.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0)
             }
             await trigger.click()

@@ -492,9 +492,8 @@
     font-size: 0.9375rem;
     font-weight: 650;
     line-height: 1.25;
-    overflow-x: auto;
-    scrollbar-width: thin;
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 

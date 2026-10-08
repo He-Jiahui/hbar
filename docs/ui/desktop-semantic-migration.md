@@ -476,4 +476,14 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 旧测试在手机入口寻找桌面 tab，现改为实际当前会话标题及原父会话返回，并保留后续原运行断言。父树项含展开子项时，中心点击不等同于点击其行；测试使用真实键盘 Enter 激活并确认原父项 aria-selected，再检查该会话的原运行。没有扩大窗口、强制点击或去掉来源／草稿验证。手机顶栏的长标题仍沿用单行规则，本次截图确认该缺口，列入后续标题复核。
 - 范围严格 ESLint、文案／图标／四份 flow guard、格式、Web build 与构建清单通过。测试 Workflow 夹具缺失 executionModel 的一个类型问题已补齐公开字段；冷启动类型恢复为 92 项既有诊断，本次范围为零。证据在 artifacts/desktop-elements/activity-content 的 browser-initial.log、browser-delivery.log、unit-final.log、host.log、host-final.log、host-navigation.log、host-parent.log、types-final.log、lint-final.log、lint-navigation.log、build.log、inventory.log 与截图。结构沿用 [App Shell](https://pro.reactbits.dev/docs/app-ui/app-shell)，交互沿用 [Agent Activity 2](https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-2) 的分节执行状态与真实对象详情。
 
-当前清单覆盖 146 个生产 TSX 模块、3803 个元素，其中记录了 92 处低层文字未分类，合计 101 项静态缺口。其余生产表面迁移、已分类表面的身份选择值与手机顶栏复核、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 选中模型、目标身份与手机顶栏的完整显示
+
+- 主会话模型与 Agent 模型的选中值使用 choice.title，完整名称自然换行；同名模型保留原技术 ID 和可访问描述。空选择提示仍由单行控制标签及其所属键盘阅读区承接。模板的目标会话使用已公开的 LumenPopupSelect.valueContext，完整会话名按身份角色展示。
+- 手机顶栏的 workspace.title 同时修正所属组件与宿主 workbench-design.css 的单行覆盖，保留现有主题字号／字重。ff102490 留下的宿主高优先级规则是实际覆盖来源，真实 Host 两语言长子会话标题证明修改生效。composer 的通用按钮规则同样覆盖了模型的 flex 与宽度；prompt-composer.css 按 choice.title 内容槽排除完整身份，模型、用量、思考和主操作由自然 flex 流承接。没有改变其动作目标或草稿状态。
+- 名称换行后，较高的定位组复现 Lumen 浮层占满可用高度时贴到触发区的缺口。共享 3cdf84de9c 同时预留触发区与视口边距，上／下两项几何不变量先失败再通过；23 项定位／焦点测试、包严格 lint、类型、构建和格式通过。公开 props 与导出未改变。实际 Chrome 保留原严格的 above 位置检查，未通过放宽边界消除失败。
+- 106 个会话模型场景、76 个 Agent 模型场景及 84 个模板场景通过，覆盖中英文、明暗、触摸／鼠标、原生锚定／Web sheet、五宽度、125% 文字、完整选中值及选项、容量、重排、失效选中项、关闭／恢复焦点、原模型写入及未知结果核对。空 Agent 提示的横向边界修复后仍检查实际键盘阅读；离线夹具保留原选中项，预期不借用未执行的选择。
+- 原生锚定浮层可以覆盖原输入框，外部点击测试先按实际浮层边界与 elementFromPoint 找到可点击外部区域，确认关闭后再实际点击原输入框，保留焦点和草稿断言。没有强制点击或把被覆盖控件当作可点击。20 项相关 Bun 测试、138 个断言通过。
+- 四项真实 Chrome／Host 回归通过：两语言 Activity 子会话标题／原父会话返回／草稿，以及两语言模型选择、思考档位、拖动预览／确认、保存失败／未知结果恢复与五宽度的原模型名称／按钮边界／发送可达性。composer 的桌面同行中心对齐断言保留并通过，完整名称的实际矩形必须位于按钮内；窄屏必须出现自然多行。所属 Host 均停止后按真实路径及前缀核对清理。
+- 范围严格 ESLint、文案／图标／六份 flow guard、格式、当前 Web build 与构建输入清单通过；最终冷启动类型为 92 项既有诊断，本次范围为零；全库门禁仍待处理。证据在 artifacts/desktop-elements/full-identity-captions 的 caption-red.log、session-geometry.log、session-gap.log、session-delivery.log、agent-browser.log、agent-static-roles.log、template-browser.log、unit-final.log、lumen-_、host-header.log、host-final.log、host-caption-geometry.log、host-composer.log、types-final.log、lint-_、build-composer.log、inventory-final.log 与截图。结构与交互沿用已选择的 App Shell／Prompt Input／Model Picker 映射。
+
+当前清单覆盖 146 个生产 TSX 模块、3807 个元素，其中记录了 92 处低层文字未分类，合计 101 项静态缺口。其余生产表面迁移、其余已分类标题／身份复核、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
