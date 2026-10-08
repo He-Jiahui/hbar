@@ -13,6 +13,7 @@ import {
   usageRequestFixture,
 } from './fixtures/hbar-app-ui-usage-request-fixtures'
 import { USAGE_FIXTURES } from './fixtures/hbar-app-ui-usage-fixtures'
+import { renderedElements } from './ssr-elements'
 
 test('request filters project matching totals while retaining a single expanded ID across filter changes', () => {
   const store = createUsageRequestPreviewStore(USAGE_REQUEST_FACTS, 'req_8f2183')
@@ -115,7 +116,7 @@ test('localized long copy, empty status filter and invalid costs remain host-own
   expect(renderToStaticMarkup(createElement(HbarAppUiUsageRequestLog, view()))).toContain('Keine Anfragen')
 })
 
-test('detail arrays grow at and above their bound, duplicate facts merge, legacy API stays supported', () => {
+test('detail arrays grow at and above their bound, duplicate facts merge, legacy API stays supported', async () => {
   const view = projectUsageRequestPreview(
     createUsageRequestPreviewStore(USAGE_REQUEST_FACTS, 'req_8f21c4').getState(),
     USAGE_REQUEST_COPY,
@@ -131,7 +132,9 @@ test('detail arrays grow at and above their bound, duplicate facts merge, legacy
       createElement(HbarAppUiUsageRequestLog, { ...view, table: { ...view.table!, rows: [row, row] } }),
     )
     expect((html.match(/data-request-id=/g) ?? []).length).toBe(1)
-    expect((html.match(/title="Value /g) ?? []).length).toBe(count)
+    const values = await renderedElements(html, '.lumen-usage-request-details [data-text-context="reading.paragraph"]')
+    expect(values.map((element) => element.text)).toEqual(details.map((detail) => detail.value))
+    expect(values.every((element) => element.attributes['data-text-flow'] === 'reading')).toBe(true)
   }
   expect(renderToStaticMarkup(createElement(HbarAppUiUsageRequestLog, USAGE_FIXTURES.requests))).toContain('<pre>')
 })

@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import type { HbarAppUiIntegrationContent } from '../packages/hbar-app-ui/src/index'
 import { ReferenceApiKeysIntegration } from '../hbar-ui/packages/lumen-app-ui/src/integrations/ReferenceApiKeysIntegration'
 import { createIntegrationApiKeysReferenceFixture } from './fixtures/hbar-app-ui-integrations-api-keys-reference-fixtures'
+import { renderedElements } from './ssr-elements'
 
 type ApiKeysContent = NonNullable<HbarAppUiIntegrationContent['apiKeys']>
 
@@ -39,7 +40,7 @@ function expandedKeys(content: ApiKeysContent, count: number): ApiKeysContent {
 }
 
 describe('integrations reference API keys', () => {
-  test('renders the native five-column source table and keeps each key action reachable in its scroll region', () => {
+  test('renders the native five-column source table and keeps each key action reachable in its scroll region', async () => {
     const content = withApiKeyFlow(createIntegrationApiKeysReferenceFixture())
     const markup = renderApiKeys(content)
 
@@ -51,7 +52,11 @@ describe('integrations reference API keys', () => {
     expect(markup.match(/<tr data-hbar-app-ui-item-id=/g)).toHaveLength(4)
     expect(markup.match(/aria-label="Reveal key"/g)).toHaveLength(4)
     expect(markup.match(/aria-label="Copy key"/g)).toHaveLength(4)
-    expect(markup.match(/>Rotate<\/button>/g)).toHaveLength(4)
+    expect(
+      (await renderedElements(markup, '.hbar-app-ui-integration-reference-api-keys-table button')).filter(
+        (element) => element.text === content.labels.rotate,
+      ),
+    ).toHaveLength(4)
     expect(markup).toContain('Revoke Billing worker')
     expect(markup).toContain('4 keys · revoking takes effect immediately')
     expect(markup).not.toContain('preview-only-key-for-billing-worker')

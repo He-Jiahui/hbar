@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { renderedElements } from './ssr-elements'
 import {
   LumenCommandList,
   LumenInviteCommand,
@@ -48,13 +49,17 @@ function preview(variant: number, mode: string | null = null) {
   return { fixture, ownerId, store, project }
 }
 
-test('group labels are list-owned semantic sections, and blank IDs never become options', () => {
+test('group labels are list-owned semantic sections, and blank IDs never become options', async () => {
   const { project } = preview(1)
   const list = project().list
   const html = renderToStaticMarkup(
     createElement(LumenCommandList, { ...list, items: [{ id: ' ', label: 'Invalid' }, ...list.items] }),
   )
-  expect(html.match(/role="group"/g)).toHaveLength(3)
+  const groups = await renderedElements(html, '[role="listbox"] .lumen-command-group[role="group"]')
+  expect(groups.map((element) => element.attributes['aria-label'])).toEqual([
+    ...new Set(list.items.map((item) => item.group).filter((group) => group)),
+  ])
+  expect(groups).toHaveLength(3)
   expect(html.match(/role="option"/g)).toHaveLength(10)
   expect(html).not.toContain('Invalid')
   expect(

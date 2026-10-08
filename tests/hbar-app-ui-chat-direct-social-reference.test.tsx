@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { renderedElements } from './ssr-elements'
 import { getLumenVariantComponent } from '../hbar-ui/packages/lumen-app-ui/src/catalog'
 import type {
   LumenChatComposerFlow,
@@ -146,7 +147,7 @@ describe('source Direct conversation reference', () => {
 })
 
 describe('source social discussion reference', () => {
-  test('renders the source post, reply composer, nested conversation and accessible short Reply actions', () => {
+  test('renders the source post, reply composer, nested conversation and accessible short Reply actions', async () => {
     const content = createChatSocialReferenceFixture()
     const markup = renderChat('hbar-app-ui-chat-3', { social: content })
 
@@ -161,7 +162,7 @@ describe('source social discussion reference', () => {
     expect(markup).toContain('Exactly. We capped ourselves at two hues')
     expect(markup).toContain('aria-label="Reply to Marcus Bell"')
     expect(markup.match(/class="[^"]*lumen-chat-social-reply-action[^"]*"/g)).toHaveLength(2)
-    expect(markup.match(/>Reply<\/button>/g)).toHaveLength(3)
+    expect((await renderedElements(markup, 'button')).filter((element) => element.text === 'Reply')).toHaveLength(3)
   })
 
   test('handles empty, one, duplicate and stale nested replies', () => {
@@ -256,7 +257,7 @@ describe('source social discussion reference', () => {
     expect(recent).toContain('data-hbar-app-ui-action="social:sort"')
   })
 
-  test('keeps locale-owned long copy and reply-to accessible names separate from the visible label', () => {
+  test('keeps locale-owned long copy and reply-to accessible names separate from the visible label', async () => {
     const content = createChatSocialReferenceFixture('de-long')
     const markup = renderChat('hbar-app-ui-chat-3', {
       social: { ...content, referenceFlow: socialFlow({ sortOrder: 'relevant' }) },
@@ -264,6 +265,14 @@ describe('source social discussion reference', () => {
 
     expect(markup).toContain('Gefällt mir')
     expect(markup).toContain('aria-label="Auf die Antwort von Marcus Bell antworten"')
-    expect(markup).toContain('>Antworten</button>')
+    expect(
+      (await renderedElements(markup, '.lumen-chat-social-reply-action')).map((element) => ({
+        label: element.attributes['aria-label'],
+        text: element.text,
+      })),
+    ).toEqual([
+      { label: 'Auf die Antwort von Marcus Bell antworten', text: 'Antworten' },
+      { label: 'Auf die Antwort von Sofia Alvarez antworten', text: 'Antworten' },
+    ])
   })
 })

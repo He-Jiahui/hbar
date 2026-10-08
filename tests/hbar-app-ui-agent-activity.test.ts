@@ -15,6 +15,7 @@ import {
   createHbarAppUiAgentActivityLocalizedFixtures,
   HBAR_APP_UI_AGENT_ACTIVITY_FIXTURES,
 } from './fixtures/hbar-app-ui-agent-activity-fixtures'
+import { renderedElements } from './ssr-elements'
 
 function renderActivity(
   variant: number,
@@ -76,7 +77,7 @@ describe('hbar-app-ui agent activity surfaces', () => {
     }
   })
 
-  test('keeps reference meaning in semantic text and flow regions', () => {
+  test('keeps reference meaning in semantic text and flow regions', async () => {
     const live = renderActivity(1)
     const history = renderActivity(4)
     const log = renderActivity(5)
@@ -86,7 +87,9 @@ describe('hbar-app-ui agent activity surfaces', () => {
     expect(live).toContain('<ol class="lumen-agent-activity-list hbar-app-ui-agent-activity-live-list"')
     expect(live).toContain('<header class="lumen-agent-activity-heading hbar-app-ui-agent-activity-live-heading"')
     expect(live).toContain('Reconcile October invoices')
-    expect(live).toContain('>Stop</button>')
+    expect(
+      (await renderedElements(live, '.hbar-app-ui-agent-activity-live-heading button')).map((element) => element.text),
+    ).toEqual(['Stop'])
     expect(live).toContain('data-hbar-app-ui-list-strategy="pane-scroll"')
     const nested = renderActivity(2)
     expect(nested).toContain('Weekly warehouse export')
@@ -118,7 +121,13 @@ describe('hbar-app-ui agent activity surfaces', () => {
     expect(log).toContain('aria-checked="true"')
     expect(log).toContain('class="is-compact">Warn</span>')
     expect(log).not.toContain('role="tablist"')
-    expect(log).not.toContain('role="log"')
+    expect(
+      (await renderedElements(log, '[role="log"]')).map((element) => ({
+        tag: element.tag,
+        label: element.attributes['aria-label'],
+        live: element.attributes['aria-live'],
+      })),
+    ).toEqual([{ tag: 'ol', label: requiredLog(HBAR_APP_UI_AGENT_ACTIVITY_FIXTURES).labels.title, live: 'polite' }])
     expect(workers).toContain('role="banner"')
     expect(workers.match(/class="has-progress"/g)).toHaveLength(4)
     expect(workers.match(/class="without-progress"/g)).toHaveLength(2)
