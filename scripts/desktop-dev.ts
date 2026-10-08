@@ -48,8 +48,9 @@ async function ready(
   url: string,
   child: Bun.Subprocess,
   verify: (response: Response) => Promise<boolean>,
+  timeoutMs = 30_000,
 ): Promise<void> {
-  const deadline = Date.now() + 30_000
+  const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     if (child.exitCode !== null) throw new Error(`Development process exited before readiness (${child.exitCode})`)
     try {
@@ -142,13 +143,19 @@ export async function runDesktopDev(args: readonly string[] = []): Promise<numbe
       { cwd: project, env, stdio: ['ignore', log, log], windowsHide: true },
     )
     children.push(host)
-    await ready(`${hostUrl}/healthz`, host, async (response) => {
-      const parsed: unknown = JSON.parse(await readFile(resolve(home, 'settings/connection.json'), 'utf8'))
-      const connection = connectionSchema.parse(parsed)
-      if (connection.url !== hostUrl) return false
-      const health: unknown = await response.json()
-      return z.object({ instanceId: z.string() }).parse(health).instanceId === connection.instanceId
-    })
+    await ready(
+      `${hostUrl}/healthz`,
+      host,
+      async (response) => {
+        const parsed: unknown = JSON.parse(await readFile(resolve(home, 'settings/connection.json'), 'utf8'))
+        const connection = connectionSchema.parse(parsed)
+        if (connection.url !== hostUrl) return false
+        const health: unknown = await response.json()
+        return z.object({ instanceId: z.string() }).parse(health).instanceId === connection.instanceId
+      },
+      // Watched source startup includes module loading and persisted-session recovery.
+      120_000,
+    )
     const web = Bun.spawn(
       [node, resolve(project, 'node_modules/vite/bin/vite.js'), '--config', 'apps/web/vite.config.ts'],
       {
