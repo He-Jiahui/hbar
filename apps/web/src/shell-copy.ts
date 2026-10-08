@@ -2093,6 +2093,18 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
   const percent = new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 1 })
   return {
     title: choose('会话用量监控', 'Session monitoring'),
+    refresh: choose('刷新会话用量', 'Refresh session usage'),
+    loading: choose('正在读取会话用量。', 'Reading session usage.'),
+    offline: choose('Host 已断开连接。', 'The Host is disconnected.'),
+    oldResult: choose('以下是上次读取的数据。', 'The previous result is shown below.'),
+    error: (code) => choose(`读取会话用量失败：${code}`, `Could not read session usage: ${code}`),
+    previous: choose('上一页模型', 'Previous models'),
+    next: choose('下一页模型', 'Next models'),
+    page: (from, to, total) =>
+      choose(
+        `${number.format(from)}–${number.format(to)} / ${number.format(total)} 个模型`,
+        `${number.format(from)}–${number.format(to)} of ${number.format(total)} models`,
+      ),
     description: choose(
       '查看 Host 记录的 Token、费用、延迟与模型用量。',
       'Inspect Host-recorded tokens, cost, latency, and model usage.',

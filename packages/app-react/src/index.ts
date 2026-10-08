@@ -175,7 +175,11 @@ export {
   type HbarFilePreviewProtection,
   type HbarFilePreviewCloseScope,
 } from './file-preview-tabs'
-export { HbarSessionMonitoring, type HbarSessionMonitoringLabels } from './session-monitoring'
+export {
+  HbarSessionMonitoring,
+  SESSION_MONITORING_MODELS_PER_PAGE,
+  type HbarSessionMonitoringLabels,
+} from './session-monitoring'
 export {
   HbarSessionActivityWorkspace,
   HbarSessionActivityView,

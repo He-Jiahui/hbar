@@ -2,15 +2,15 @@
 
 由 `bun scripts/audit-desktop-elements.ts --write` 从运行时入口、命名延迟加载、barrel 导出和 JSX 生成。完整的元素、槽位、内容来源、可访问名称、动作目标、状态来源和待处理问题见 [类型化清单](desktop-elements.json)。
 
-入口：`apps/web/src/main.tsx`。相关 TSX 模块 146 个；元素 3821 个。实际构建输入核对：passed。
+入口：`apps/web/src/main.tsx`。相关 TSX 模块 146 个；元素 3832 个。实际构建输入核对：passed。
 
 ## 类别与展示边界
 
 | 类别        | 元素 | pending | 设计职责                                                                |
 | ----------- | ---: | ------: | ----------------------------------------------------------------------- |
-| structure   | 1213 |       5 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
-| text        | 1116 |      82 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
-| interaction |  934 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
+| structure   | 1214 |       5 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
+| text        | 1122 |      74 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
+| interaction |  938 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
 | form        |  280 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
 | collection  |  135 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
 | technical   |   74 |       0 | 原文、代码、Markdown、图示与媒体的专用 renderer；辅助操作仍使用 Lumen。 |
@@ -82,7 +82,7 @@
 | [packages/app-react/src/goal-lifecycle.tsx](../../packages/app-react/src/goal-lifecycle.tsx)                               | goals-and-plans                                  |   33 |             16 |          0 |          0 |
 | [packages/app-react/src/goal-plan-workspace.tsx](../../packages/app-react/src/goal-plan-workspace.tsx)                     | goals-and-plans                                  |   53 |             19 |          0 |          0 |
 | [packages/app-react/src/lumen-agent-workspace.tsx](../../packages/app-react/src/lumen-agent-workspace.tsx)                 | agents-and-activity                              |   78 |             24 |          0 |          0 |
-| [packages/app-react/src/lumen-disclosure.tsx](../../packages/app-react/src/lumen-disclosure.tsx)                           | workbench                                        |    6 |              1 |          0 |          0 |
+| [packages/app-react/src/lumen-disclosure.tsx](../../packages/app-react/src/lumen-disclosure.tsx)                           | workbench                                        |    7 |              2 |          0 |          0 |
 | [packages/app-react/src/lumen-file-workspace.tsx](../../packages/app-react/src/lumen-file-workspace.tsx)                   | files-and-reading                                |   50 |              9 |          0 |          0 |
 | [packages/app-react/src/lumen-flex-layout-adapter.tsx](../../packages/app-react/src/lumen-flex-layout-adapter.tsx)         | workbench                                        |    3 |              0 |          0 |          0 |
 | [packages/app-react/src/lumen-provider-editor.tsx](../../packages/app-react/src/lumen-provider-editor.tsx)                 | settings                                         |  127 |             16 |          0 |          0 |
@@ -134,7 +134,7 @@
 | [packages/app-react/src/session-launch-location.tsx](../../packages/app-react/src/session-launch-location.tsx)             | session                                          |   15 |              2 |          0 |          0 |
 | [packages/app-react/src/session-live-status.tsx](../../packages/app-react/src/session-live-status.tsx)                     | status-and-usage                                 |    3 |              0 |          1 |          0 |
 | [packages/app-react/src/session-message.tsx](../../packages/app-react/src/session-message.tsx)                             | session / status-and-usage / agents-and-activity |   59 |             11 |          0 |          0 |
-| [packages/app-react/src/session-monitoring.tsx](../../packages/app-react/src/session-monitoring.tsx)                       | status-and-usage                                 |   21 |              0 |          8 |          0 |
+| [packages/app-react/src/session-monitoring.tsx](../../packages/app-react/src/session-monitoring.tsx)                       | status-and-usage                                 |   31 |             13 |          0 |          0 |
 | [packages/app-react/src/session-navigation-row.tsx](../../packages/app-react/src/session-navigation-row.tsx)               | session                                          |   33 |              8 |          0 |          0 |
 | [packages/app-react/src/session-project-context.tsx](../../packages/app-react/src/session-project-context.tsx)             | session                                          |   13 |              6 |          0 |          0 |
 | [packages/app-react/src/session-roster-feedback.tsx](../../packages/app-react/src/session-roster-feedback.tsx)             | session                                          |    3 |              1 |          0 |          0 |

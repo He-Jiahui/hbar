@@ -60,9 +60,22 @@
 
 .hbar-app-react-session-monitoring li strong {
   inline-size: 100%;
+}
+
+.hbar-monitoring-model-metadata,
+.hbar-monitoring-pagination {
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  gap: 0.5rem;
   overflow-x: auto;
-  scrollbar-width: none;
-  white-space: nowrap;
+}
+.hbar-monitoring-model-metadata > *,
+.hbar-monitoring-pagination > * {
+  flex: 0 0 auto;
+}
+.hbar-app-react-session-monitoring [data-tool-pane-slot='body'] > * {
+  flex: 0 0 auto;
 }
 
 .hbar-app-react-session-monitoring li span {

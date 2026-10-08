@@ -126,7 +126,8 @@ import { agentPageSchema } from '@hbar/contracts/commands/agents'
 import { createPlanProposalActions, planProposalCommands } from './plan-proposal-actions'
 import { createInteractions } from './interactions'
 import { interactionRecoveryCommands } from './interaction-recovery'
-import { createSessionControls } from './session-controls'
+import { createSessionControls, sessionControlsCommands } from './session-controls'
+export { sessionControlsCommands } from './session-controls'
 import { composerModelCommands, createComposerModel } from './composer-model'
 import { createPreSessionModelCatalog } from './pre-session-model-catalog'
 import { createNotificationsRuntime } from './notifications'
@@ -445,6 +446,7 @@ const runtimeCommands = {
   ...interactionRecoveryCommands,
   ...workspaceTabCommands,
   ...sessionToolCommands,
+  ...sessionControlsCommands,
   ...agentComposerCommands,
   ...composerBackgroundAgentsCommands,
   ...workspacePinCommands,
@@ -934,6 +936,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     options.interactionRecovery,
   )
   const controls = createSessionControls(
+    local,
     options.models,
     options.usage,
     options.budget,
@@ -1319,6 +1322,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(planProposalCommands, name) ||
         Object.hasOwn(workspaceTabCommands, name) ||
         Object.hasOwn(sessionToolCommands, name) ||
+        Object.hasOwn(sessionControlsCommands, name) ||
         Object.hasOwn(workspacePinCommands, name) ||
         Object.hasOwn(workspaceActivityCommands, name) ||
         Object.hasOwn(sessionAgentTreeCommands, name) ||

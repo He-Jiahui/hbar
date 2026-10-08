@@ -5,6 +5,7 @@ import './lumen-disclosure.css'
 
 export interface HbarLumenDisclosureProps {
   readonly label: ReactNode
+  readonly labelContext?: 'control.label' | 'collection.title'
   readonly children: ReactNode
   readonly defaultOpen?: boolean
   readonly open?: boolean
@@ -15,6 +16,7 @@ export interface HbarLumenDisclosureProps {
 /** A disclosure composed from Lumen controls for app-owned expandable content. */
 export function HbarLumenDisclosure({
   label,
+  labelContext = 'control.label',
   children,
   defaultOpen = false,
   open: controlledOpen,
@@ -54,7 +56,11 @@ export function HbarLumenDisclosure({
           onClick={toggle}
         >
           <LumenIcon icon={open ? ChevronDown : ChevronRight} tier="sm" />
-          <LumenContentText context="control.label">{label}</LumenContentText>
+          {labelContext === 'collection.title' ? (
+            <LumenContentText context="collection.title">{label}</LumenContentText>
+          ) : (
+            <LumenContentText context="control.label">{label}</LumenContentText>
+          )}
         </LumenButton>
       </LumenFrame>
       <LumenFrame id={contentId} className="hbar-lumen-disclosure-content" hidden={!open}>

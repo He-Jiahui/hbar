@@ -9,6 +9,13 @@
   text-align: start;
 }
 
+.hbar-lumen-disclosure-trigger:has([data-text-context='collection.title']) {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  inline-size: 100%;
+  white-space: normal;
+}
+
 .hbar-lumen-disclosure-trigger-reading {
   min-inline-size: 0;
   max-inline-size: 100%;

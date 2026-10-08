@@ -156,7 +156,8 @@ test('session monitoring renders only the runtime usage projection and closes th
     expect(html).toContain('Execution statistics')
     expect(html).toContain('1 succeeded · 0 failed · 0 unknown')
     expect(html).toContain('lumen-compact-metrics')
-    expect(html).toContain('lumen-bar-series')
+    expect(html).toContain('hbar-app-react-monitoring-echarts')
+    expect(html).not.toContain('hbar-app-react-monitoring-lumen')
     expect(html).not.toContain('<details open')
     expect(html).not.toContain('hbar-app-ui-metrics')
 

@@ -1,4 +1,11 @@
-import { CommandError, type CommandExecutor, type ExecuteOptions } from '@hbar/commands'
+import {
+  CommandError,
+  defineCommand,
+  type CommandRegistry,
+  type CommandExecutor,
+  type ExecuteOptions,
+} from '@hbar/commands'
+import { z } from 'zod'
 import {
   modelConfigurationSchema,
   modelWriteResultSchema,
@@ -10,6 +17,27 @@ import { usageQueryResultSchema } from '@hbar/contracts/commands/usage'
 import { createState, type StateReader } from './state'
 import { createModelReadQueue } from './model-read-queue'
 import type { BudgetCommandPort, NavigationState, SessionControlsState, SessionTimelineState } from './types'
+
+export const sessionControlsCommands = {
+  'sessionControls.refresh': defineCommand(
+    {
+      id: 'sessionControls.refresh',
+      version: 1,
+      owner: 'hbar.session-controls',
+      kind: 'command',
+      execution: 'client',
+      stateEffect: 'application',
+      scope: 'client',
+      category: 'monitoring.usage',
+      visibility: 'internal',
+      surfaces: ['api'],
+      titleKey: 'commands.sessionControls.refresh.title',
+      descriptionKey: 'commands.sessionControls.refresh.description',
+    },
+    z.strictObject({ sessionId: z.string().min(1).max(160) }),
+    z.strictObject({ sessionId: z.string().min(1).max(160), status: z.enum(['idle', 'loading', 'ready', 'partial']) }),
+  ),
+}
 
 function initial(sessionId: string | null, status: SessionControlsState['status']): SessionControlsState {
   return {
@@ -28,6 +56,7 @@ function code(error: unknown): string {
 }
 
 export function createSessionControls(
+  local: CommandRegistry,
   models: CommandExecutor | undefined,
   usage: CommandExecutor | undefined,
   budget: BudgetCommandPort | undefined,
@@ -79,11 +108,16 @@ export function createSessionControls(
     if (inactive() || intent !== generation || navigation.getSnapshot().sessionId !== sessionId) return
     pendingLoad = null
     const current = state.reader.getSnapshot()
-    const usageReport = usageResult.status === 'fulfilled' ? usageQueryResultSchema.parse(usageResult.value) : null
+    const parsedUsage = usageResult.status === 'fulfilled' ? usageQueryResultSchema.safeParse(usageResult.value) : null
+    const validUsage =
+      parsedUsage?.success &&
+      parsedUsage.data.scope.kind === 'session' &&
+      parsedUsage.data.scope.sessionId === sessionId
+    const usageReport = validUsage ? parsedUsage.data : current.usage
     const sessionBudget = budgetResult.status === 'fulfilled' ? budgetResult.value : null
     const errors = {
       model: current.errors.model,
-      usage: usageResult.status === 'rejected' ? code(usageResult.reason) : null,
+      usage: usageResult.status === 'rejected' ? code(usageResult.reason) : validUsage ? null : 'INVALID_OUTPUT',
       budget: budgetResult.status === 'rejected' ? code(budgetResult.reason) : null,
     }
     state.replace({
@@ -244,6 +278,18 @@ export function createSessionControls(
     if (relevantEvent || resynced) void load(current.sessionId)
   })
   void load(selected)
+
+  local.register(sessionControlsCommands['sessionControls.refresh'], async ({ sessionId }) => {
+    if (inactive()) throw new CommandError('CANCELLED', 'Session controls are disposed')
+    if (navigation.getSnapshot().sessionId !== sessionId)
+      throw new CommandError('TARGET_CHANGED', 'The refresh target is no longer selected')
+    if (!connected) throw new CommandError('DISCONNECTED', 'Session controls need a connection')
+    if (state.reader.getSnapshot().status === 'loading') throw new CommandError('BUSY', 'Session controls are loading')
+    await load(sessionId)
+    if (navigation.getSnapshot().sessionId !== sessionId)
+      throw new CommandError('TARGET_CHANGED', 'The refresh target changed before its response')
+    return { sessionId, status: state.reader.getSnapshot().status }
+  })
 
   return {
     reader: state.reader,

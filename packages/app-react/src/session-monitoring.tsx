@@ -1,12 +1,14 @@
-import { useMemo } from 'react'
-import { ChartNoAxesColumnIncreasing } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ChartNoAxesColumnIncreasing, RefreshCw } from 'lucide-react'
 import {
   LumenCollection,
   LumenCollectionItem,
   LumenFrame,
-  LumenText,
+  LumenContentText,
+  LumenButton,
+  LumenIconButton,
+  LumenIcon,
   LumenCompactMetrics,
-  LumenMonitoring01,
   LumenToolPane,
 } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
@@ -21,6 +23,14 @@ export interface HbarSessionMonitoringLabels {
   readonly empty: string
   readonly unavailable: string
   readonly gap: string
+  readonly refresh: string
+  readonly loading: string
+  readonly offline: string
+  readonly oldResult: string
+  readonly error: (code: string) => string
+  readonly previous: string
+  readonly next: string
+  readonly page: (from: number, to: number, total: number) => string
   readonly totals: {
     readonly tokens: string
     readonly runs: string
@@ -51,20 +61,47 @@ export interface HbarSessionMonitoringLabels {
   readonly model: (provider: string, model: string) => string
 }
 
+export const SESSION_MONITORING_MODELS_PER_PAGE = 8
+
 export function HbarSessionMonitoring({
   labels,
   instanceId: requestedInstanceId,
   targetLabel,
+  connected = true,
 }: {
   readonly labels: HbarSessionMonitoringLabels
   readonly instanceId?: string
   readonly targetLabel?: string | undefined
+  readonly connected?: boolean | undefined
 }) {
   const runtime = useHbarRuntime()
   const controls = useHbarRuntimeState(runtime.state.controls)
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const instanceId = requestedInstanceId ?? presentation.toolInstanceId
   const report = controls.usage
+  const loading = controls.status === 'loading'
+  const [pagination, setPagination] = useState<{ readonly report: typeof report; readonly page: number } | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const models =
+    report?.models.filter(
+      (model, index, all) => all.findIndex((other) => other.modelSelectionId === model.modelSelectionId) === index,
+    ) ?? []
+  const lastPage = Math.max(0, Math.ceil(models.length / SESSION_MONITORING_MODELS_PER_PAGE) - 1)
+  const page = pagination?.report === report ? Math.min(pagination?.page ?? 0, lastPage) : 0
+  const pageStart = page * SESSION_MONITORING_MODELS_PER_PAGE
+  const refresh = () => {
+    const sessionId = controls.sessionId
+    if (!sessionId) return
+    setActionError(null)
+    void runtime.commands.execute('sessionControls.refresh', { sessionId }).catch((reason: unknown) => {
+      if (runtime.state.controls.getSnapshot().sessionId !== sessionId) return
+      setActionError(
+        reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+          ? reason.code
+          : 'EXECUTION_FAILED',
+      )
+    })
+  }
   const value = (metric: { value: number | null; availability: string }, format: (item: number) => string) =>
     metric.availability === 'available' && metric.value !== null ? format(metric.value) : labels.unavailable
   const metric = (id: string, label: string, metricValue: string, detail?: string) => ({
@@ -76,34 +113,15 @@ export function HbarSessionMonitoring({
   const close = () => {
     if (instanceId) void runtime.commands.execute('app.closePanel', { instanceId }).catch(() => {})
   }
-  const monitoringContent = report
-    ? {
-        health: {
-          labels: {
-            title: labels.title,
-            detail: labels.description,
-            refresh: labels.title,
-            chart: labels.series,
-            incidents: labels.execution.title,
-            empty: labels.empty,
-          },
-          metrics: [
-            { id: 'tokens', label: labels.totals.tokens, value: labels.number(report.totals.input + report.totals.output) },
-            { id: 'runs', label: labels.totals.runs, value: labels.number(report.totals.runs) },
-            { id: 'cost', label: labels.totals.cost, value: value(report.cost, labels.currency) },
-          ],
-          series: report.series.map((point) => ({ id: String(point.start), value: point.billableTokens })),
-          incidents: [],
-          listStrategy: { kind: 'content-grown' as const, expectedMaximum: 12 },
-        },
-      }
-    : undefined
-  const seriesOption = useMemo<EChartsOption>(() => ({
-    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-    xAxis: { type: 'category', data: report?.series.map((p) => String(p.start)) ?? [], axisLabel: { show: false } },
-    yAxis: { type: 'value', minInterval: 1 },
-    series: [{ type: 'bar', data: report?.series.map((p) => p.billableTokens) ?? [] }],
-  }), [report?.series])
+  const seriesOption = useMemo<EChartsOption>(
+    () => ({
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+      xAxis: { type: 'category', data: report?.series.map((p) => String(p.start)) ?? [], axisLabel: { show: false } },
+      yAxis: { type: 'value', minInterval: 1 },
+      series: [{ type: 'bar', data: report?.series.map((p) => p.billableTokens) ?? [] }],
+    }),
+    [report?.series],
+  )
 
   return (
     <LumenToolPane
@@ -113,17 +131,52 @@ export function HbarSessionMonitoring({
       icon={ChartNoAxesColumnIncreasing}
       closeLabel={labels.close}
       onClose={close}
+      busy={loading}
+      actions={
+        <LumenIconButton
+          label={labels.refresh}
+          disabled={loading || !connected || !controls.sessionId}
+          onClick={refresh}
+        >
+          <LumenIcon icon={RefreshCw} tier="sm" />
+        </LumenIconButton>
+      }
       className="hbar-app-react-session-monitoring"
     >
-      {monitoringContent && <LumenMonitoring01 content={monitoringContent} className="hbar-app-react-monitoring-lumen" />}
+      {!connected && (
+        <LumenContentText context="feedback.paragraph" role="status">
+          {labels.offline}
+        </LumenContentText>
+      )}
+      {loading && (
+        <LumenContentText context="feedback.paragraph" role="status">
+          {labels.loading}
+        </LumenContentText>
+      )}
+      {(controls.errors.usage || actionError) && (
+        <LumenContentText context="feedback.paragraph" role="alert">
+          {labels.error(controls.errors.usage ?? actionError ?? 'EXECUTION_FAILED')}
+        </LumenContentText>
+      )}
+      {report && (!connected || loading || controls.errors.usage) && (
+        <LumenContentText context="feedback.paragraph" role="status">
+          {labels.oldResult}
+        </LumenContentText>
+      )}
       {!report ? (
-        <LumenText as="p" className="hbar-app-react-monitoring-empty">{labels.empty}</LumenText>
+        !loading &&
+        !controls.errors.usage &&
+        connected && (
+          <LumenContentText context="empty.description" className="hbar-app-react-monitoring-empty">
+            {labels.empty}
+          </LumenContentText>
+        )
       ) : (
         <LumenFrame as="main">
           {report.gap && (
-            <LumenText as="p" className="hbar-app-react-monitoring-gap" role="status">
+            <LumenContentText context="feedback.paragraph" className="hbar-app-react-monitoring-gap" role="status">
               {labels.gap}
-            </LumenText>
+            </LumenContentText>
           )}
           <LumenCompactMetrics
             label={labels.title}
@@ -137,7 +190,7 @@ export function HbarSessionMonitoring({
             ]}
           />
           <LumenFrame as="section">
-            <LumenText as="h2">{labels.series}</LumenText>
+            <LumenContentText context="section.title">{labels.series}</LumenContentText>
             {report.series.length > 0 ? (
               <EchartsChart
                 height="8rem"
@@ -146,10 +199,10 @@ export function HbarSessionMonitoring({
                 option={seriesOption}
               />
             ) : (
-              <LumenText as="p">{labels.unavailable}</LumenText>
+              <LumenContentText context="empty.description">{labels.unavailable}</LumenContentText>
             )}
           </LumenFrame>
-          <HbarLumenDisclosure label={labels.latency.title}>
+          <HbarLumenDisclosure label={labels.latency.title} labelContext="collection.title">
             <LumenCompactMetrics
               label={labels.latency.title}
               metrics={[
@@ -171,7 +224,7 @@ export function HbarSessionMonitoring({
             />
           </HbarLumenDisclosure>
           {report.execution && (
-            <HbarLumenDisclosure label={labels.execution.title}>
+            <HbarLumenDisclosure label={labels.execution.title} labelContext="collection.title">
               <LumenCompactMetrics
                 label={labels.execution.title}
                 metrics={[
@@ -218,21 +271,47 @@ export function HbarSessionMonitoring({
               />
             </HbarLumenDisclosure>
           )}
-          <HbarLumenDisclosure label={labels.models}>
-            {report.models.length ? (
+          <HbarLumenDisclosure label={labels.models} labelContext="collection.title">
+            {models.length ? (
               <LumenCollection as="ul">
-                {report.models.map((model) => (
+                {models.slice(pageStart, pageStart + SESSION_MONITORING_MODELS_PER_PAGE).map((model) => (
                   <LumenCollectionItem key={model.modelSelectionId}>
-                    <LumenText as="strong" title={labels.model(model.providerId, model.modelId)}>
+                    <LumenContentText context="collection.title">
                       {labels.model(model.providerId, model.modelId)}
-                    </LumenText>
-                    <LumenText as="span">{labels.tokens(model.input + model.output)}</LumenText>
-                    <LumenText as="span">{value(model.cost, labels.currency)}</LumenText>
+                    </LumenContentText>
+                    <LumenFrame
+                      className="hbar-monitoring-model-metadata"
+                      role="group"
+                      aria-label={labels.model(model.providerId, model.modelId)}
+                      tabIndex={0}
+                    >
+                      <LumenContentText context="metadata">
+                        {labels.tokens(model.input + model.output)}
+                      </LumenContentText>
+                      <LumenContentText context="metadata">{value(model.cost, labels.currency)}</LumenContentText>
+                    </LumenFrame>
                   </LumenCollectionItem>
                 ))}
               </LumenCollection>
             ) : (
-              <LumenText as="p">{labels.unavailable}</LumenText>
+              <LumenContentText context="empty.description">{labels.unavailable}</LumenContentText>
+            )}
+            {models.length > SESSION_MONITORING_MODELS_PER_PAGE && (
+              <LumenFrame className="hbar-monitoring-pagination" role="group" aria-label={labels.models} tabIndex={0}>
+                <LumenButton disabled={page === 0} onClick={() => setPagination({ report, page: page - 1 })}>
+                  {labels.previous}
+                </LumenButton>
+                <LumenContentText context="metadata">
+                  {labels.page(
+                    pageStart + 1,
+                    Math.min(pageStart + SESSION_MONITORING_MODELS_PER_PAGE, models.length),
+                    models.length,
+                  )}
+                </LumenContentText>
+                <LumenButton disabled={page === lastPage} onClick={() => setPagination({ report, page: page + 1 })}>
+                  {labels.next}
+                </LumenButton>
+              </LumenFrame>
             )}
           </HbarLumenDisclosure>
         </LumenFrame>
