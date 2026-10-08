@@ -107,6 +107,12 @@ function service(overrides: Partial<GitService> = {}): GitService {
       gap: false,
     }),
     commit: async () => commit,
+    stage: async () => {
+      throw new Error('Unexpected staging in this Git command fixture')
+    },
+    unstage: async () => {
+      throw new Error('Unexpected unstaging in this Git command fixture')
+    },
     branch: async () => [],
     worktree: async () => [],
     launchBranchSnapshot: async () => ({ repository: { kind: 'not-repository' }, branches: [], incomplete: false }),

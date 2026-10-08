@@ -237,6 +237,8 @@ test('session Git rechecks the expected target revision after a pending status q
     log: (cwd, limit, signal) => service.log(cwd, limit, signal),
     stats: (cwd, options, signal) => service.stats(cwd, options, signal),
     commit: (cwd, options, signal) => service.commit(cwd, options, signal),
+    stage: (cwd, paths, signal) => service.stage(cwd, paths, signal),
+    unstage: (cwd, paths, signal) => service.unstage(cwd, paths, signal),
     branch: (cwd, operation, signal) => service.branch(cwd, operation, signal),
     worktree: (cwd, operation, signal) => service.worktree(cwd, operation, signal),
     launchBranchSnapshot: (cwd, signal) => service.launchBranchSnapshot(cwd, signal),
