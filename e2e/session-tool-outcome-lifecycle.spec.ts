@@ -146,9 +146,9 @@ for (const locale of ['en-US', 'zh-CN'] as const)
         await expect(original).toHaveAttribute('data-failed', 'true')
         await expect(trigger(original)).toHaveAttribute('aria-expanded', 'false')
         await expect(page.locator('[data-fixture-outside]')).toBeFocused()
-        // The public preview bound is 72 graphemes plus one truncation marker.
+        // The caption preserves the complete first diagnostic line; its rail owns reading.
         await expect(original.locator('.hbar-session-disclosure-preview')).toHaveText(
-          `${'ERROR-FIRST-LINE '.repeat(9).slice(0, 72)}…`,
+          'ERROR-FIRST-LINE '.repeat(9).trim(),
         )
         await expect(original.locator('.hbar-session-disclosure-status')).toHaveText(labels.failed)
         await capture(page, info, `error-arrival-closed-${locale}-${width}`)
@@ -229,14 +229,27 @@ for (const locale of ['en-US', 'zh-CN'] as const)
                 ? labels.incomplete
                 : labels[kind]
           await expect(tool.locator('.hbar-session-disclosure-status')).toHaveText(expected)
+          const tone =
+            kind === 'failed' ? 'danger' : kind === 'succeeded' || kind === 'legacy-result' ? 'success' : 'warning'
+          const status = tool.locator('.hbar-session-disclosure-status')
+          await expect(status).toHaveAttribute('data-status-tone', tone)
+          await expect
+            .poll(() =>
+              status.evaluate((element, token) => {
+                const probe = document.createElement('span')
+                probe.style.color = `var(--lumen-${token})`
+                element.append(probe)
+                const expectedColor = getComputedStyle(probe).color
+                probe.remove()
+                return getComputedStyle(element).color === expectedColor
+              }, tone),
+            )
+            .toBe(true)
           colors.push({ kind, color: await trigger(tool).evaluate((element) => getComputedStyle(element).color) })
           await capture(page, info, `${kind}-${locale}-${width}`)
         }
         const failedColor = colors.find((entry) => entry.kind === 'failed')?.color
         expect(failedColor).toBeDefined()
-        expect(colors.filter((entry) => entry.kind !== 'failed').every((entry) => entry.color !== failedColor)).toBe(
-          true,
-        )
         await render(page, { messages: [message([call()])], streaming: false })
         await expect(row(page)).toHaveAttribute('data-outcome', 'pending')
         await expect(row(page).locator('.hbar-session-disclosure-status')).toHaveText(labels.awaitingResult)
@@ -285,26 +298,27 @@ for (const locale of ['en-US', 'zh-CN'] as const)
           streaming: true,
         })
         await expect(summary).toHaveAttribute('aria-expanded', 'false')
+        const activity = labels.activity({
+          thinkingCount: 0,
+          toolCounts: [
+            { name: 'read_fixture', count: 2 },
+            { name: 'write_fixture', count: 1 },
+          ],
+          failedCount: 1,
+          outcomeCounts: {
+            succeeded: 0,
+            failed: 1,
+            denied: 1,
+            cancelled: 1,
+            interrupted: 0,
+            unknown: 0,
+            'legacy-error': 0,
+            'legacy-result': 0,
+            pending: 0,
+          },
+        })
         await expect(summary).toHaveText(
-          labels.activity({
-            thinkingCount: 0,
-            toolCounts: [
-              { name: 'read_fixture', count: 2 },
-              { name: 'write_fixture', count: 1 },
-            ],
-            failedCount: 1,
-            outcomeCounts: {
-              succeeded: 0,
-              failed: 1,
-              denied: 1,
-              cancelled: 1,
-              interrupted: 0,
-              unknown: 0,
-              'legacy-error': 0,
-              'legacy-result': 0,
-              pending: 0,
-            },
-          }),
+          typeof activity === 'string' ? activity : activity.map((part) => part.text).join(''),
         )
         await summary.focus()
         await page.keyboard.press('Enter')

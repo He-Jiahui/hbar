@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { lstat, mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
@@ -7,8 +7,15 @@ import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 async function cleanupOwnedFixture(root: string): Promise<void> {
-  const target = resolve(root)
-  if (dirname(target) !== resolve(tmpdir()) || !basename(target).startsWith('hbar-command-reading-'))
+  const stat = await lstat(root)
+  const target = await realpath(root)
+  if (
+    stat.isSymbolicLink() ||
+    !stat.isDirectory() ||
+    target !== resolve(root) ||
+    dirname(target) !== (await realpath(tmpdir())) ||
+    !basename(target).startsWith('hbar-command-reading-')
+  )
     throw new Error('Invalid owned command fixture cleanup')
   await rm(target, { recursive: true, force: true })
 }
@@ -28,6 +35,7 @@ test('real command approval, result reading and full Copy return to the original
       root,
       port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
       goalAutoContinue: false,
+      budgetAutoContinue: false,
     })
     const originalHost = host
     const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`

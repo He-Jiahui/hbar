@@ -80,3 +80,22 @@
   max-inline-size: none;
   white-space: nowrap;
 }
+
+.hbar-tool-detail-actions {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-x: auto;
+}
+.hbar-tool-detail-actions > button {
+  min-inline-size: max-content;
+  max-inline-size: none;
+  white-space: nowrap;
+}
+.hbar-session-tool-result-copy-action {
+  overflow-x: auto;
+}
+.hbar-session-tool-heading {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  margin: 0;
+}

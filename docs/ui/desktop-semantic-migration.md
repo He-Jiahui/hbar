@@ -504,4 +504,13 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 两项真实 Chrome／Host 流程通过，两语言分别覆盖五宽度的原运行、Host 用量查询值、展开统计、打开不触发额外查询、显式刷新、关闭及未发送草稿。初次夹具默认开启预算续作，统计持续增长，现显式关闭 Goal／预算自动继续并以 Host 用量查询核对事实。900 宽度的侧栏隐藏按钮仍在 DOM 中但被另一个入口拦截；测试只在主入口不可见时使用真实侧栏隐藏动作，不扩大窗口或强制点击。停止所属 Host 后按真实路径及前缀核对清理。
 - 范围严格 lint、文案／图标／flow guard、格式、当前 Web build 与构建输入清单通过；冷启动类型仍有 92 项既有诊断，本次范围为零，全库门禁待处理。旧 production-file-monitoring 回归缺少指定 Host 端口，首次鉴权失败，未标记通过；本次独立两语言 Host 流程提供实际完整验收。证据在 artifacts/desktop-elements/monitoring-content 的 browser-delivery.log、unit-final.log、host-reading.log、host-_、lumen-_、types-delivery.log、lint-*、build-host-final.log、audit-final.log 与截图。
 
-当前清单覆盖 146 个生产 TSX 模块、3832 个元素，其中记录了 74 处低层文字未分类，合计 83 项静态缺口。其余生产表面迁移、其余已分类标题／身份复核、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 工具输入／输出标题、原文与复制反馈
+
+- 详情及复制动作的 9 处低层文字归入 section.title、code.block、inline.text、empty.description、control.label 和 feedback.detail。命令、输入、输出和原始参数标题完整换行；每个原文阅读区有宿主名称和键盘入口，展开与复制动作拥有独立横向阅读区。保持 MarkdownCodeContent 专用渲染、原调用 ID、命令、参数和读取／原文切换，空输出作为真实空态说明展示。
+- 保留 12000 字详情预览、命令输出既有预览窗口、失败／未知完整诊断以及 1000000 UTF-16 字符 Copy 上限。显示预览不改变复制原文，CRLF、Unicode 和原始参数保持完整。53 项 Bun 测试、640 项断言通过。
+- 80 个实际 Chrome 场景通过，覆盖两语言、明暗、五宽度、125% 文字、完整详情标题和键盘阅读、命令／通用工具、0／1／7／11999／12000／12001／1000000／1000001 字输出、成功／失败／未知／未返回结果、原参数、完整复制及剪贴板失败重试。测试曾错误期待 CRLF 归一化，已按原文契约核对并修正，保留原字符串严格相等断言。
+- 生命周期／呈现／复制扩展回归共 49 项通过，首次为 37 项通过与 12 项失败，失败项修正后分别重跑 8 项及 4 项通过。Git 查证 f14b9498 已取消首行省略，c05acfa3 已使用 opacity 呼吸；测试按完整首行、类型化 activity 内容槽及实际 opacity 动画核对，保留状态、真实语义色 token、几何、开关动效、减少动态效果、焦点、完整输出、容量和异源回执断言。修正 activity 测试还消除一个既有类型诊断。
+- 实际 Chrome／Host 审批、命令阅读、原文／读取视图、系统剪贴板完整 Copy 与返回原草稿流程通过。夹具显式关闭 Goal／预算自动继续，所属 Host 先停止，再按 realpath、临时目录和原前缀校验清理；使用本次冻结的 Web 资源。
+- 范围严格 lint、文案／图标／flow guard、格式、Web build 和构建输入清单通过。冷启动完整类型由 92 降为 91 项既有诊断，本次范围为零，全库门禁仍待处理。证据在 artifacts/desktop-elements/tool-details-content 的 browser-final.log、unit-final.log、host.log、lifecycle.log、legacy.log、legacy-final.log、types-final.log、lint-*、build.log、audit.log 与截图。
+
+当前清单覆盖 146 个生产 TSX 模块、3836 个元素，其中记录了 65 处低层文字未分类，合计 74 项静态缺口。其余生产表面迁移、其余已分类标题／身份复核、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

@@ -691,21 +691,24 @@ for (const locale of ['en-US', 'zh-CN'] as const)
           const breathing = await lamp.evaluate((element) => {
             const animation = element
               .getAnimations()
-              .find((candidate) => candidate instanceof CSSAnimation && candidate.animationName === 'lumen-breathe')
+              .find(
+                (candidate) =>
+                  candidate instanceof CSSAnimation && candidate.animationName === 'hbar-tool-active-pulse',
+              )
             if (!animation?.effect) throw new Error('Blue progress lamp has no breathing animation')
             const duration = animation.effect.getTiming().duration
             if (typeof duration !== 'number') throw new Error('Breathing duration is not resolved')
             const originalTime = animation.currentTime
             animation.pause()
             animation.currentTime = 0
-            const low = getComputedStyle(element).boxShadow
+            const low = getComputedStyle(element).opacity
             const measure = () => {
               const rect = element.getBoundingClientRect()
               return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
             }
             const before = measure()
             animation.currentTime = duration / 2
-            const high = getComputedStyle(element).boxShadow
+            const high = getComputedStyle(element).opacity
             const after = measure()
             animation.currentTime = originalTime ?? 0
             animation.play()
@@ -714,7 +717,8 @@ for (const locale of ['en-US', 'zh-CN'] as const)
           expect(breathing.low).not.toBe(breathing.high)
           expect(breathing.before).toEqual(breathing.after)
           expect(breathing.duration).toBeGreaterThan(0)
-          expect(breathing.opacity).toBe('1')
+          expect(Number(breathing.opacity)).toBeGreaterThan(0)
+          expect(Number(breathing.opacity)).toBeLessThanOrEqual(1)
           await noOverflow(page)
           await page.locator('.tool-presentation-fixture-messages').screenshot({
             path: `artifacts/tool-status-tones/status-${locale}-${theme}-${width}.png`,

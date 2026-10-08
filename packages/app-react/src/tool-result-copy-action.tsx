@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { Check, Copy, LoaderCircle, RotateCcw } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenContentText } from '@lumen/app-ui'
 import type { MessageClipboardPort } from './message-copy'
 import { copyToolResultText, MAX_TOOL_RESULT_COPY_CHARACTERS, type ToolResultCopyInput } from './tool-result-copy'
 
@@ -89,7 +89,13 @@ function ToolResultCopyActionContent({ labels, clipboard, ...input }: ToolResult
         : labels.failed
       : null
   return (
-    <LumenFrame className="hbar-session-tool-result-copy-action" data-copy-status={status}>
+    <LumenFrame
+      className="hbar-session-tool-result-copy-action"
+      data-copy-status={status}
+      role="group"
+      aria-label={labels.copy}
+      tabIndex={0}
+    >
       <LumenButton
         variant="text"
         indicator="none"
@@ -104,19 +110,19 @@ function ToolResultCopyActionContent({ labels, clipboard, ...input }: ToolResult
           icon={status === 'copied' ? Check : status === 'copying' ? LoaderCircle : failure ? RotateCcw : Copy}
           tier="sm"
         />
-        <LumenText as="span" aria-live="polite">
+        <LumenContentText context="control.label" aria-live="polite">
           {label}
-        </LumenText>
+        </LumenContentText>
       </LumenButton>
       {notice ? (
-        <LumenText
-          as="span"
+        <LumenContentText
+          context="feedback.detail"
           id={noticeId}
           role={failure ? 'alert' : 'status'}
           className="hbar-session-tool-result-copy-notice"
         >
           {notice}
-        </LumenText>
+        </LumenContentText>
       ) : null}
     </LumenFrame>
   )

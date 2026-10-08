@@ -1,5 +1,5 @@
 import { useId, useMemo, useState } from 'react'
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenContentText } from '@lumen/app-ui'
 import type { MessageClipboardPort } from './message-copy'
 import { toolInputText, type SessionToolRow } from './session-message-model'
 import { ToolResultCopyAction, type HbarToolResultCopyLabels } from './tool-result-copy-action'
@@ -68,12 +68,14 @@ const DETAIL_PREVIEW_CHARACTERS = 12_000
 
 function DetailText({
   text,
+  label,
   labels,
   command = false,
   language,
   owner,
 }: {
   readonly text: string
+  readonly label: string
   readonly labels: HbarToolDetailsLabels
   readonly command?: boolean
   readonly language?: string | null | undefined
@@ -83,17 +85,24 @@ function DetailText({
   const long = text.length > DETAIL_PREVIEW_CHARACTERS
   return (
     <LumenFrame className="hbar-session-detail-text" data-format={command ? 'command' : undefined}>
-      <LumenText as="pre" tabIndex={0}>
+      <LumenContentText context="code.block" role="region" aria-label={label} tabIndex={0}>
         <SourceText
           text={long && !full ? `${text.slice(0, DETAIL_PREVIEW_CHARACTERS)}…` : text}
           language={language}
           owner={owner}
         />
-      </LumenText>
+      </LumenContentText>
       {long ? (
-        <LumenButton variant="text" indicator="none" size="s" onClick={() => setFull(!full)} aria-expanded={full}>
-          {full ? labels.showLessContent : labels.showFullContent}
-        </LumenButton>
+        <LumenFrame
+          className="hbar-tool-detail-actions"
+          role="group"
+          aria-label={full ? labels.showLessContent : labels.showFullContent}
+          tabIndex={0}
+        >
+          <LumenButton variant="text" indicator="none" size="s" onClick={() => setFull(!full)} aria-expanded={full}>
+            {full ? labels.showLessContent : labels.showFullContent}
+          </LumenButton>
+        </LumenFrame>
       ) : null}
     </LumenFrame>
   )
@@ -132,10 +141,10 @@ function CommandDetails({
   return (
     <LumenFrame className="hbar-session-command" data-outcome={outcome}>
       <LumenFrame className="hbar-session-command-input">
-        <LumenText as="span" className="hbar-session-tool-heading">
+        <LumenContentText context="section.title" level={3} className="hbar-session-tool-heading">
           {labels.command}
-        </LumenText>
-        <DetailText text={command} labels={labels} language="shellscript" owner={copyOwner} />
+        </LumenContentText>
+        <DetailText text={command} label={labels.command} labels={labels} language="shellscript" owner={copyOwner} />
       </LumenFrame>
       {row.result && (
         <LumenFrame
@@ -145,10 +154,15 @@ function CommandDetails({
           data-content-kind="output"
         >
           <LumenFrame className="hbar-session-tool-result-heading">
-            <LumenText as="span" className="hbar-session-tool-heading">
+            <LumenContentText context="section.title" level={3} className="hbar-session-tool-heading">
               {failed ? labels.errorOutput : labels.output}
-            </LumenText>
-            <LumenFrame className="hbar-session-command-output-actions">
+            </LumenContentText>
+            <LumenFrame
+              className="hbar-session-command-output-actions"
+              role="group"
+              aria-label={labels.output}
+              tabIndex={0}
+            >
               {reading.changed && (
                 <LumenButton
                   type="button"
@@ -174,55 +188,72 @@ function CommandDetails({
               />
             </LumenFrame>
           </LumenFrame>
-          <LumenText
-            as="pre"
-            tabIndex={0}
-            id={outputId}
-            className="hbar-session-command-output-text"
-            data-command-output=""
-            data-command-output-view={rawView || !reading.changed ? 'raw' : 'reading'}
-          >
-            {visible ? (
-              <>
-                <SourceText text={success ? visible.slice(0, window.previewEnd) : visible} owner={copyOwner} />
-                {success && window.collapsible && (
-                  <LumenText as="span" data-command-output-tail="" hidden={folded}>
-                    <SourceText text={visible.slice(window.previewEnd)} owner={copyOwner} />
-                  </LumenText>
-                )}
-              </>
-            ) : reading.changed && !rawView ? (
-              labels.emptyReadingOutput
-            ) : (
-              labels.emptyOutput
-            )}
-          </LumenText>
+          {visible ? (
+            <LumenContentText
+              context="code.block"
+              role="region"
+              aria-label={failed ? labels.errorOutput : labels.output}
+              tabIndex={0}
+              id={outputId}
+              className="hbar-session-command-output-text"
+              data-command-output=""
+              data-command-output-view={rawView || !reading.changed ? 'raw' : 'reading'}
+            >
+              <SourceText text={success ? visible.slice(0, window.previewEnd) : visible} owner={copyOwner} />
+              {success && window.collapsible && (
+                <LumenContentText context="inline.text" data-command-output-tail="" hidden={folded}>
+                  <SourceText text={visible.slice(window.previewEnd)} owner={copyOwner} />
+                </LumenContentText>
+              )}
+            </LumenContentText>
+          ) : (
+            <LumenContentText
+              context="empty.description"
+              id={outputId}
+              data-command-output=""
+              data-command-output-view={rawView || !reading.changed ? 'raw' : 'reading'}
+            >
+              {reading.changed && !rawView ? labels.emptyReadingOutput : labels.emptyOutput}
+            </LumenContentText>
+          )}
           <HbarToolResultImages sessionId={sessionId} messageId={messageId} result={row.result} />
           <ToolOutputImageLinks text={output} />
           {success && window.collapsible && (
-            <LumenButton
-              type="button"
-              size="s"
-              variant="text"
-              indicator="none"
-              className="hbar-session-command-output-toggle"
-              aria-controls={outputId}
-              aria-expanded={expanded}
-              onClick={() => setExpanded((value) => !value)}
+            <LumenFrame
+              className="hbar-tool-detail-actions"
+              role="group"
+              aria-label={labels.showFullContent}
+              tabIndex={0}
             >
-              {expanded
-                ? labels.showLessContent
-                : window.hiddenLines
-                  ? labels.showMoreOutput(window.hiddenLines)
-                  : labels.showFullContent}
-            </LumenButton>
+              <LumenButton
+                type="button"
+                size="s"
+                variant="text"
+                indicator="none"
+                className="hbar-session-command-output-toggle"
+                aria-controls={outputId}
+                aria-expanded={expanded}
+                onClick={() => setExpanded((value) => !value)}
+              >
+                {expanded
+                  ? labels.showLessContent
+                  : window.hiddenLines
+                    ? labels.showMoreOutput(window.hiddenLines)
+                    : labels.showFullContent}
+              </LumenButton>
+            </LumenFrame>
           )}
         </LumenFrame>
       )}
       {row.call && (
-        <HbarLumenDisclosure label={labels.originalInput} className="hbar-session-command-original">
+        <HbarLumenDisclosure
+          label={labels.originalInput}
+          labelContext="collection.title"
+          className="hbar-session-command-original"
+        >
           <DetailText
             text={toolInputText(row.call.args, labels.unavailableInput)}
+            label={labels.originalInput}
             labels={labels}
             language="json"
             owner={copyOwner}
@@ -267,11 +298,12 @@ export function SessionToolDetails({
     <>
       {row.call ? (
         <LumenFrame className="hbar-session-tool-section" data-content-kind="input">
-          <LumenText as="span" className="hbar-session-tool-heading">
+          <LumenContentText context="section.title" level={3} className="hbar-session-tool-heading">
             {labels.input}
-          </LumenText>
+          </LumenContentText>
           <DetailText
             text={presentation?.input?.text ?? toolInputText(row.call.args, labels.unavailableInput)}
+            label={labels.input}
             labels={labels}
             command={presentation?.input?.format === 'command'}
             language={presentation?.input ? (presentation.input.format === 'command' ? 'shellscript' : null) : 'json'}
@@ -287,9 +319,9 @@ export function SessionToolDetails({
           data-content-kind="output"
         >
           <LumenFrame className="hbar-session-tool-result-heading">
-            <LumenText as="span" className="hbar-session-tool-heading">
+            <LumenContentText context="section.title" level={3} className="hbar-session-tool-heading">
               {labels.output}
-            </LumenText>
+            </LumenContentText>
             <ToolResultCopyAction
               sessionId={sessionId}
               messageId={messageId}
@@ -300,12 +332,17 @@ export function SessionToolDetails({
               clipboard={clipboard}
             />
           </LumenFrame>
-          <DetailText
-            text={row.result.text || labels.emptyOutput}
-            labels={labels}
-            command={presentation?.input?.format === 'command'}
-            owner={copyOwner}
-          />
+          {row.result.text ? (
+            <DetailText
+              text={row.result.text}
+              label={labels.output}
+              labels={labels}
+              command={presentation?.input?.format === 'command'}
+              owner={copyOwner}
+            />
+          ) : (
+            <LumenContentText context="empty.description">{labels.emptyOutput}</LumenContentText>
+          )}
           <HbarToolResultImages sessionId={sessionId} messageId={messageId} result={row.result} />
           <ToolOutputImageLinks text={row.result.text} />
         </LumenFrame>
