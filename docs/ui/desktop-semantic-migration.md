@@ -1,12 +1,23 @@
 # Desktop 元素与 Lumen 语义迁移
 
-本记录对应全量 Desktop 元素分类与迁移。工作台、会话、设置、工具和全局页面直接使用 Lumen 的内容、控件与容器 API；平台标题、托盘和通知由宿主提供文案。完整验收还包括元素清单、Schema 展示适配、原生文案同步、浏览器矩阵与临时原生验收。
+本轮已完成全量 Desktop 元素分类与 Lumen 语义组件迁移。工作台、会话、设置、工具和全局页面按内容用途使用 Lumen 的文本、控件与容器 API；每段文案和真实数据归入所属组件的具名槽位，平台标题、托盘和通知由宿主提供文案。模型选项完整名称与应用内标题自然换行，正文和说明保持阅读流；技术原文由登记的专用 renderer 负责。
+
+## 当前验收结果
+
+- 最终源码／实际构建输入核对在 `b98eb799` 通过：149 个生产 TSX 模块、3873 个元素、零 pending、零业务未分类文字。八类为 structure 1240、text 1122、interaction 945、form 282、collection 135、technical 75、feedback 63、platform 11。每条[类型化记录](desktop-elements.json)包含所属组件、内容与可访问名称来源、原动作目标、状态、阅读规则及 Lumen 映射；[可阅读清单](desktop-elements.md)按模块列出结果，renderer 例外仍有明确边界。
+- `bun run check` 在生产源码提交 `6c2ca8dd` 完整通过：配置枚举的 3377 个文件全部严格 lint，零错误／警告，报告 complete=true；冷启动 TypeScript、主题 token 检查及 5311 项测试通过，56008 个断言、810 个文件。后续 `2c54c17d`／`b98eb799` 仅更新独立原生验收脚本及记录，生产源码未再变化；两个脚本均另外通过严格 lint、根类型、格式与实际原生运行，没有将旧完整门禁冒充对新脚本重跑的结果。
+- 新鲜 `bun run desktop:build --debug --no-bundle` 通过，包含 Web、Host 资源、原生 workspace query 与 debug Tauri。当前构建产物通过三项独立临时原生验收：中英文窗口／托盘文案同步与失败恢复、三栏拖动／缩放／取消／刷新恢复，以及 900×600／150% 下完整模型名称、原选项键盘与草稿。窗口／菜单文案依据 Rust 回读，关闭确认依据所属 OS dialog 回读；托盘提示依据 setter 成功回执，不宣称观察了 OS 气泡。通知沿用已验证的宿主权限、容量、去重与回执契约。
+- 各表面中英文、明暗、1440／1100／900／390／320、较大文字和 125% zoom 的适用内容／容量矩阵与真实 Host 交互结果逐项列在下文。模型和标题检查原文、多行、最后字符及视口边界；短动作／状态／技术路径使用所属阅读区，原草稿、稳定 ID、分页、失败恢复、焦点、IME、发送／停止、审批、搜索、完整 Copy 与滚动锚点保留原契约。单项静态状态不替代这些运行结果。
+- 首次完整检查为 5310 pass／1 fail，唯一失败发生在 server 的 Storage Worker 初始化并报告 disk I/O error。定向四文件 18 项、同一用例 20 个独立 Bun 进程均通过，同一生产源码第二次完整检查也全部通过；未复现或证明根因，没有添加重试或宣称修复存储 I/O。保留首次日志、复现日志和第二次完整日志；Bun 的成功运行也出现了内部 directory mismatch 提示，未将它未经证实地归因为 I/O 原因。
+- 实施与本地提交仅在附加的 `codex/desktop-lumen-semantics` 隔离工作树，Lumen 位于其中的 `codex/desktop-content-roles` 子模块分支；原工作区的既有修改未变动。产物为 debug 程序，本轮未构建安装包、安装、发布或 push。未把历史全仓格式、旧文档链接或上游 Vale 不可用记成通过；修改文件格式与修改记录的相对链接已校验。
+
+最终证据位于 `artifacts/desktop-elements/final-gates`：`check-confirmation.log`、`check-current.log`、`server-storage-repro.log`／`server-storage-repeat.log`、`desktop-final-build.log`、`native-final-chrome.log`、`native-visible-files-resize.log`、`native-model-final.log`、`audit-final.log`。完整 lint 结果在 `artifacts/lint/results.json`，inventory hash 为 `3e9bee12992647c60488d50cfb31970614170e4a5efcfdc435c8e5e30020b56f`。截图、事实和构建产物保存在忽略目录；下文保留逐项提交时的基线与诊断，早期失败应结合当前结果及后续修复阅读。
 
 ## 依赖基线
 
 - hbar 起点：`40eddc9ed53259b640eb7dddf76213fe35160a36`，原 Lumen 指针为 `5d3616757cdf14b74f9005efbed48e02fc6bff39`。
 - 最新上游 `master`：`92e6f6cf213bd701adea70c365983dfb7579b48b`，通过直接 Git 查询确认。
-- 本轮固定的 Lumen：`a958a3ffaae79fbfeccb1181cdfd963ae224c6f8`。该合并同时包含最新上游与本地语义内容、受控 slots、主题及单行阅读能力；包版本仍为 `0.12.0`，接入仍为 `workspace:*`。
+- 升级时的合并基线为 `a958a3ffaae79fbfeccb1181cdfd963ae224c6f8`；最终固定的 Lumen 为 `23948f272be646a609ecc90f42abf694f5924626`。该提交包含再次远端核对的最新上游 `master` 及本轮语义文字、表单／受控内容、共享浮层、焦点／缩放与面板预览修复。包是私有 workspace 依赖，版本仍为 `0.12.0`，接入仍为 `workspace:*`，没有以虚构版本号代替实际 Git 升级。
 - 干净安装暴露 Web 未声明的 `@hbar/commands` 和根测试未声明的 workspace 消费者。补齐公开依赖以及 Lumen 构建所需的 Node 声明后更新 Bun 锁文件，冻结安装通过。
 - 附件兼容检查改为验证唯一的可访问删除名称及重复项消除；质量入口检查保留按序执行的 lint、类型、主题和测试门禁。
 
@@ -35,7 +46,7 @@ Lumen 已补齐章节、集合、消息作者、时间、指标、空态、路�
 - `bun scripts/verify-desktop-semantic-roles.ts` 使用 Vite 构建真实 client fixture，验证 20 个中英文／明暗／1440、1100、900、390、320 宽度场景，窄屏 125% 文字放大；包含完整标题、路径滚动、辅助说明换行、连续句、time、原始代码、键盘焦点、文本对比度和无页面横向溢出。截图与结果放在 `artifacts/desktop-elements/roles`。
 - `bun scripts/verify-lumen-icon-scale.ts` 在独立库 CSS 下核对五档公开图标与兼容图标，明暗／16、20px 根字号的几何结果通过。以上属于共享原语验证，尚不代表业务界面已全部迁移。
 
-## 后续验收
+## 逐项实施与验收记录
 
 Lumen 合并基线将模态窗口改为注册的 portal surface；宿主原有 `dialog:modal` 和 `closest('dialog')` 判定会漏掉它。公开模态查询现同时支持原生 dialog 和已注册的 modal，并按 document 限定所属窗口。工作台、文件工具、计划、组织与项目编辑的焦点保护已接入，验证错误的焦点恢复继续保留原运行时、版本、草稿和用户后续交互边界。
 
@@ -757,4 +768,4 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 6953a14f 的旧验收在导航自动收起后查找 footer 标签的 Connected，当前组件已不依赖该 HTML 标签。现在从原生实际侧栏区域核对已连接状态，保留原窗口、菜单、焦点和尺寸要求；没有更改生产入口。WebView2 在 150% 下的 surface 截图裁掉了右侧，改用 CDP 原生 view capture 后获得完整 900×600 图片，已人工检查完整三行模型名与换行标题。
 - 范围严格 lint、根类型、格式、差异和本文件相对链接通过。证据为 artifacts/desktop-elements/final-gates/native-model-final.log、native-model-final/facts.json、native-model-final/anchored-model-at-900-zoom-150.png，以及 native-model-final-lint.log／native-model-final-types.log；初次 footer、类型与 cleanup 结构诊断保留。
 
-当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过；最终工程与原生结果在收尾记录中单独列明。
+当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。完整工程门禁、对应内容／交互矩阵及选定原生验收均已完成；当前通过结果和实际限制见本记录开头，逐项历史证据保留在各功能段落。
