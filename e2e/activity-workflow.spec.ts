@@ -6,7 +6,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { expectComposerText } from './support/composer-text'
-import { mobileShellNavigationLabel } from '../apps/web/src/mobile-shell-navigation-copy'
+import { openSessionTool } from './support/session-tools-menu'
 
 async function cleanupFixture(root: string) {
   const target = await realpath(root)
@@ -66,21 +66,21 @@ test('Activity Workflow follows Host focus/delegation and opens the actual child
         'src',
         new RegExp(process.env.HBAR_ACTIVITY_EXPECTED_ASSET),
       )
+    const workspace = page.getByRole('treeitem', { name: host.ready.workspaceName, exact: true })
+    await expect(workspace).toBeVisible()
+    if ((await workspace.getAttribute('aria-expanded')) === 'false') {
+      await workspace.focus()
+      await workspace.press('ArrowRight')
+      await expect(workspace).toHaveAttribute('aria-expanded', 'true')
+    }
     await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true }),
       draft = '查看委派后返回时仍然保留这段输入。'
-    await prompt.fill(draft)
-    const activity = page.getByRole('button', { name: copy.session.tools.activity, exact: true })
-    const openActivity = async () => {
-      if (await activity.isVisible()) await activity.click()
-      else {
-        await page.getByRole('button', { name: mobileShellNavigationLabel('zh-CN'), exact: true }).click()
-        await page
-          .getByRole('dialog', { name: mobileShellNavigationLabel('zh-CN'), exact: true })
-          .getByRole('button', { name: copy.session.tools.activity, exact: true })
-          .click()
-      }
-    }
+    await prompt.click()
+    await expect(prompt).toBeFocused()
+    await page.keyboard.insertText(draft)
+    await expectComposerText(prompt, draft)
+    const openActivity = () => openSessionTool(page, copy.session.tools, 'activity')
     await openActivity()
     const pane = page.locator('.hbar-session-activity-workspace'),
       workflow = pane.locator('.hbar-activity-workflow')

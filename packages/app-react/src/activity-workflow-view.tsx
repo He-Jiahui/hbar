@@ -6,7 +6,7 @@ import {
   LumenFrame,
   LumenIcon,
   LumenStatus,
-  LumenText,
+  LumenContentText,
 } from '@lumen/app-ui'
 import type { WorkflowWorkspaceEntryState } from '@hbar/app-runtime'
 import type { AgentRecord } from '@hbar/contracts/commands/agents'
@@ -67,43 +67,47 @@ export function ActivityWorkflowView({
         const content = (
           <>
             <LumenIcon icon={Bot} tier="md" />
-            <LumenText as="strong" title={title}>
-              {title}
-            </LumenText>
-            <LumenStatus value={status} />
+            <LumenContentText context="collection.title">{title}</LumenContentText>
             {agent && <LumenIcon icon={ChevronRight} tier="sm" />}
           </>
         )
         return (
           <LumenCollectionItem key={delegation.delegationId} data-activity-delegation-id={delegation.delegationId}>
-            {agent ? (
-              <LumenButton
-                size="s"
-                variant="text"
-                className="hbar-activity-agent-row"
-                aria-label={labels.agent.open(agent.objective)}
-                disabled={!connected || opening?.status === 'opening'}
-                onClick={() => onOpen(agent)}
-              >
-                {content}
-              </LumenButton>
-            ) : (
-              <LumenFrame className="hbar-activity-agent-row">{content}</LumenFrame>
-            )}
+            <LumenFrame className="hbar-activity-agent-row">
+              {agent ? (
+                <LumenButton
+                  size="s"
+                  variant="text"
+                  className="hbar-activity-agent-open"
+                  aria-label={labels.agent.open(agent.objective)}
+                  disabled={!connected || opening?.status === 'opening'}
+                  onClick={() => onOpen(agent)}
+                >
+                  {content}
+                </LumenButton>
+              ) : (
+                <LumenFrame className="hbar-activity-agent-open">{content}</LumenFrame>
+              )}
+              <LumenFrame className="hbar-activity-reader" role="region" aria-label={status} tabIndex={0}>
+                <LumenStatus value={status} />
+              </LumenFrame>
+            </LumenFrame>
             {!agent && delegation.agentId && (
               <LumenFrame className="hbar-session-activity-recovery">
-                <LumenText as="p">{labels.missingAgent}</LumenText>
-                <LumenButton size="s" disabled={!connected || loading} onClick={onRefresh}>
-                  {labels.retry}
-                </LumenButton>
+                <LumenContentText context="feedback.paragraph">{labels.missingAgent}</LumenContentText>
+                <LumenFrame className="hbar-activity-reader" role="group" aria-label={labels.retry} tabIndex={0}>
+                  <LumenButton size="s" disabled={!connected || loading} onClick={onRefresh}>
+                    {labels.retry}
+                  </LumenButton>
+                </LumenFrame>
               </LumenFrame>
             )}
             {agent && opening?.agentId === agent.agentId && (
-              <LumenText as="p" role={opening.status === 'error' ? 'alert' : 'status'}>
+              <LumenContentText context="feedback.paragraph" role={opening.status === 'error' ? 'alert' : 'status'}>
                 {opening.status === 'opening'
                   ? labels.agent.opening
                   : labels.agent.error(opening.error ?? 'EXECUTION_FAILED')}
-              </LumenText>
+              </LumenContentText>
             )}
           </LumenCollectionItem>
         )
@@ -113,35 +117,48 @@ export function ActivityWorkflowView({
   return (
     <LumenFrame as="section" className="hbar-activity-workflow" aria-label={labels.title}>
       <LumenFrame className="hbar-activity-section-heading">
-        <LumenText as="h3">{labels.title}</LumenText>
-        {workflow && <LumenStatus value={labels.status(workflow.status)} />}
+        <LumenContentText context="section.title" level={3}>
+          {labels.title}
+        </LumenContentText>
+        {workflow && (
+          <LumenFrame
+            className="hbar-activity-reader"
+            role="region"
+            aria-label={labels.status(workflow.status)}
+            tabIndex={0}
+          >
+            <LumenStatus value={labels.status(workflow.status)} />
+          </LumenFrame>
+        )}
       </LumenFrame>
       {loading && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {failed && (
         <LumenFrame className="hbar-session-activity-recovery">
-          <LumenText as="p" role="alert">
+          <LumenContentText context="feedback.paragraph" role="alert">
             {labels.error(entry.error ?? 'EXECUTION_FAILED')}
-          </LumenText>
-          <LumenButton size="s" disabled={!connected || loading} onClick={onRefresh}>
-            {labels.retry}
-          </LumenButton>
+          </LumenContentText>
+          <LumenFrame className="hbar-activity-reader" role="group" aria-label={labels.retry} tabIndex={0}>
+            <LumenButton size="s" disabled={!connected || loading} onClick={onRefresh}>
+              {labels.retry}
+            </LumenButton>
+          </LumenFrame>
         </LumenFrame>
       )}
       {workflow?.focus && (
         <LumenFrame className="hbar-activity-workflow-group" data-activity-focus-id={workflow.focus.focusId}>
           <LumenFrame className="hbar-activity-workflow-group-heading">
-            <LumenText as="h4" title={workflow.focus.title}>
+            <LumenContentText context="section.title" level={4}>
               {workflow.focus.title}
-            </LumenText>
-            <LumenText as="span">
+            </LumenContentText>
+            <LumenContentText context="collection.detail">
               {focused.length
                 ? labels.count(settled(focused), focused.length)
                 : labels.focusStatus(workflow.focus.status)}
-            </LumenText>
+            </LumenContentText>
           </LumenFrame>
           {rows(focused)}
         </LumenFrame>
@@ -149,8 +166,12 @@ export function ActivityWorkflowView({
       {other.length > 0 && (
         <LumenFrame className="hbar-activity-workflow-group">
           <LumenFrame className="hbar-activity-workflow-group-heading">
-            <LumenText as="h4">{labels.other}</LumenText>
-            <LumenText as="span">{labels.count(settled(other), other.length)}</LumenText>
+            <LumenContentText context="section.title" level={4}>
+              {labels.other}
+            </LumenContentText>
+            <LumenContentText context="collection.detail">
+              {labels.count(settled(other), other.length)}
+            </LumenContentText>
           </LumenFrame>
           {rows(other)}
         </LumenFrame>

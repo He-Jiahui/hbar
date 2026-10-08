@@ -8,7 +8,7 @@ import {
   LumenIcon,
   LumenIconButton,
   LumenStatus,
-  LumenText,
+  LumenContentText,
   LumenToolPane,
 } from '@lumen/app-ui'
 import type { ActivityWorkspaceEntryState } from '@hbar/app-runtime'
@@ -71,67 +71,92 @@ export function HbarSessionActivityView({
   return (
     <LumenFrame as="section" className="hbar-session-activity-runs" aria-label={labels.runs}>
       <LumenFrame className="hbar-activity-section-heading">
-        <LumenText as="h3">{labels.runs}</LumenText>
+        <LumenContentText context="section.title" level={3}>
+          {labels.runs}
+        </LumenContentText>
       </LumenFrame>
       {!connected && (
-        <LumenText as="p" role="status" className="hbar-session-activity-notice">
+        <LumenContentText context="feedback.paragraph" role="status" className="hbar-session-activity-notice">
           {labels.offline}
-        </LumenText>
+        </LumenContentText>
       )}
       {entry?.status === 'error' && (
         <LumenFrame className="hbar-session-activity-recovery">
-          <LumenText as="p" role="alert">
+          <LumenContentText context="feedback.paragraph" role="alert">
             {labels.error(entry.error ?? 'EXECUTION_FAILED')}
-          </LumenText>
-          <LumenButton size="s" disabled={!connected} onClick={onRefresh}>
-            {labels.retry}
-          </LumenButton>
+          </LumenContentText>
+          <LumenFrame className="hbar-activity-reader" role="group" aria-label={labels.retry} tabIndex={0}>
+            <LumenButton size="s" disabled={!connected} onClick={onRefresh}>
+              {labels.retry}
+            </LumenButton>
+          </LumenFrame>
         </LumenFrame>
       )}
       {loading && !loadingMore && (
-        <LumenText as="p" role="status" className="hbar-session-activity-notice">
+        <LumenContentText context="feedback.paragraph" role="status" className="hbar-session-activity-notice">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {entry?.status === 'ready' && entry.totalActive === 0 && (
-        <LumenText as="p" className="hbar-session-activity-notice">
+        <LumenContentText context="empty.description" className="hbar-session-activity-notice">
           {labels.empty}
-        </LumenText>
+        </LumenContentText>
       )}
       {visible.length > 0 && (
         <>
-          <LumenText as="p" className="hbar-session-activity-count">
+          <LumenContentText context="section.description" className="hbar-session-activity-count">
             {labels.count(visible.length, entry?.totalActive ?? visible.length)}
-          </LumenText>
+          </LumenContentText>
           <LumenCollection as="ol" className="hbar-session-activity-list">
             {visible.map((item) => (
               <LumenCollectionItem key={item.operationId} data-operation-id={item.operationId}>
                 <LumenFrame className="hbar-session-activity-row-heading">
-                  <LumenText as="strong" className="hbar-session-activity-intent">
+                  <LumenContentText context="collection.title" className="hbar-session-activity-intent">
                     {item.intentPreview ? labels.intentPreview(item.intentPreview) : labels.runAt(item.createdAt)}
-                  </LumenText>
-                  <LumenStatus value={labels.status(item.status)} tone={tone(item.status)} />
+                  </LumenContentText>
+                  <LumenFrame
+                    className="hbar-activity-reader"
+                    role="region"
+                    aria-label={labels.status(item.status)}
+                    tabIndex={0}
+                  >
+                    <LumenStatus value={labels.status(item.status)} tone={tone(item.status)} />
+                  </LumenFrame>
                 </LumenFrame>
-                <LumenText as="time" dateTime={new Date(item.startedAt ?? item.createdAt).toISOString()}>
-                  {item.startedAt === null ? labels.queuedAt(item.createdAt) : labels.startedAt(item.startedAt)}
-                </LumenText>
+                <LumenFrame
+                  className="hbar-activity-reader"
+                  role="region"
+                  aria-label={
+                    item.startedAt === null ? labels.queuedAt(item.createdAt) : labels.startedAt(item.startedAt)
+                  }
+                  tabIndex={0}
+                >
+                  <LumenContentText
+                    context="metadata.time"
+                    dateTime={new Date(item.startedAt ?? item.createdAt).toISOString()}
+                  >
+                    {item.startedAt === null ? labels.queuedAt(item.createdAt) : labels.startedAt(item.startedAt)}
+                  </LumenContentText>
+                </LumenFrame>
               </LumenCollectionItem>
             ))}
           </LumenCollection>
           {loadingMore && (
-            <LumenText as="p" role="status" className="hbar-session-activity-notice">
+            <LumenContentText context="feedback.paragraph" role="status" className="hbar-session-activity-notice">
               {labels.loadingMore}
-            </LumenText>
+            </LumenContentText>
           )}
           {entry?.limitReached && (
-            <LumenText as="p" className="hbar-session-activity-notice">
+            <LumenContentText context="feedback.paragraph" className="hbar-session-activity-notice">
               {labels.limitReached}
-            </LumenText>
+            </LumenContentText>
           )}
           {entry?.status === 'ready' && entry.nextCursor && !entry.limitReached && (
-            <LumenButton size="s" disabled={!connected} onClick={onLoadMore}>
-              {labels.loadMore}
-            </LumenButton>
+            <LumenFrame className="hbar-activity-reader" role="group" aria-label={labels.loadMore} tabIndex={0}>
+              <LumenButton size="s" disabled={!connected} onClick={onLoadMore}>
+                {labels.loadMore}
+              </LumenButton>
+            </LumenFrame>
           )}
         </>
       )}

@@ -1,15 +1,20 @@
 import { expect, test } from '@playwright/test'
 import { createAgentCommandClient, createRunCommandClient } from '@hbar/client'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { expectComposerText } from './support/composer-text'
+import { openSessionTool } from './support/session-tools-menu'
 
 async function cleanupFixture(root: string): Promise<void> {
-  const target = resolve(root)
-  if (dirname(target) !== resolve(tmpdir()) || !basename(target).startsWith('hbar-session-activity-'))
+  const target = await realpath(root)
+  if (
+    target !== resolve(root) ||
+    dirname(target) !== (await realpath(tmpdir())) ||
+    !basename(target).startsWith('hbar-session-activity-')
+  )
     throw new Error('Refusing cleanup outside the owned Activity fixture')
   await rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 })
 }
@@ -23,7 +28,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 900 } })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317), sessionCount: 2 })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        sessionCount: 2,
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const sessionId = host.ready.sessionId
       const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
       expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
@@ -37,14 +48,31 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           'src',
           new RegExp(process.env.HBAR_ACTIVITY_EXPECTED_ASSET),
         )
+      const workspace = page.getByRole('treeitem', { name: host.ready.workspaceName, exact: true })
+      await expect(workspace).toBeVisible()
+      if ((await workspace.getAttribute('aria-expanded')) === 'false') {
+        await workspace.focus()
+        await workspace.press('ArrowRight')
+        await expect(workspace).toHaveAttribute('aria-expanded', 'true')
+      }
       await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const draft = 'Keep the parent draft while inspecting delegated work.'
-      await prompt.fill(draft)
+      await prompt.click()
+      await expect(prompt).toBeFocused()
+      await page.keyboard.insertText(draft)
       await expectComposerText(prompt, draft)
-      const activity = page.getByRole('button', { name: copy.session.tools.activity, exact: true })
-      await expect(activity).toBeVisible()
-      await activity.click()
+      const openActivity = async () => {
+        if (
+          !(await page.getByRole('button', { name: copy.session.tools.activity, exact: true }).isVisible()) &&
+          !(await page.getByRole('button', { name: copy.session.tools.more, exact: true }).isVisible()) &&
+          !(await page.locator('.hbar-mobile-header-menu-trigger').isVisible())
+        ) {
+          await page.getByRole('button', { name: copy.shell.hideSidebar, exact: true }).click()
+        }
+        await openSessionTool(page, copy.session.tools, 'activity')
+      }
+      await openActivity()
       const pane = page.locator('.hbar-session-activity-workspace')
       const runGroup = pane.locator('.hbar-session-activity-runs')
       await expect(pane).toBeVisible()
@@ -73,7 +101,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect
         .poll(async () => (await runs.execute('operation.get', { operationId: queued.operationId })).status)
         .toBe('queued')
-      await activity.click()
+      await openActivity()
       await expect(runGroup.getByRole('listitem')).toHaveCount(2)
       const approvedRun = pane.locator(`[data-operation-id="${accepted.operationId}"]`)
       const queuedRun = pane.locator(`[data-operation-id="${queued.operationId}"]`)
@@ -114,23 +142,21 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.setViewportSize({ width: 320, height: 720 })
       await expect(pane).toBeVisible()
       await expect(pane.getByRole('button', { name: copy.activity.close, exact: true })).toBeInViewport()
-      await expect(approvedRun).toBeInViewport()
-      await expect(queuedRun).toBeInViewport()
-      await expect(agentRow.getByRole('button')).toBeInViewport()
+      for (const row of [approvedRun, queuedRun, agentRow]) {
+        await row.scrollIntoViewIfNeeded()
+        await expect(row).toBeInViewport()
+      }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: testInfo.outputPath(`activity-${locale}-320.png`) })
       await page.screenshot({ path: join(evidence, `${locale}-320.png`) })
       const openAgent = agentRow.getByRole('button', { name: copy.activity.agents.open(objective), exact: true })
       await openAgent.focus()
       await openAgent.press('Enter')
-      await expect(page.getByRole('tab', { name: childTitle, exact: true })).toHaveAttribute('aria-selected', 'true')
+      await expect(page.getByRole('heading', { level: 1, name: childTitle, exact: true })).toBeVisible()
       const back = page.getByRole('button', { name: copy.agents.returnToParent(host.ready.sessionTitle), exact: true })
       await expect(back).toBeInViewport()
       await back.click()
-      await expect(page.getByRole('tab', { name: host.ready.sessionTitle, exact: true })).toHaveAttribute(
-        'aria-selected',
-        'true',
-      )
+      await expect(page.getByRole('heading', { level: 1, name: host.ready.sessionTitle, exact: true })).toBeVisible()
       await expect(pane).toBeVisible()
       await agents.execute('agent.cancel', { parentSessionId: sessionId, agentId: created.agentId })
       await expect
@@ -150,14 +176,17 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const showSidebar = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
       if (await showSidebar.isVisible()) await showSidebar.click()
       await page.getByRole('treeitem', { name: 'Session 001', exact: true }).click()
-      await activity.click()
+      await openActivity()
       await expect(pane.getByText(copy.activity.empty, { exact: true })).toBeVisible()
       await expect(runGroup.getByRole('listitem')).toHaveCount(0)
       await expect(pane.locator('[data-activity-agent-id]')).toHaveCount(0)
       await pane.getByRole('button', { name: copy.activity.close, exact: true }).click()
       if (await showSidebar.isVisible()) await showSidebar.click()
-      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
-      await activity.click()
+      const originalParent = page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true })
+      await originalParent.focus()
+      await originalParent.press('Enter')
+      await expect(originalParent).toHaveAttribute('aria-selected', 'true')
+      await openActivity()
       await expect(runGroup.getByRole('listitem')).toHaveCount(1)
       await expect(agentRow).toBeVisible()
       await pane.getByRole('button', { name: copy.activity.close, exact: true }).click()
@@ -169,7 +198,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect
         .poll(async () => (await runs.execute('operation.get', { operationId: accepted.operationId })).status)
         .toBe('completed')
-      await activity.click()
+      await openActivity()
       await pane.getByRole('button', { name: copy.activity.refresh, exact: true }).click()
       await expect(pane.getByText(copy.activity.empty, { exact: true })).toBeVisible()
       expect(errors).toEqual([])

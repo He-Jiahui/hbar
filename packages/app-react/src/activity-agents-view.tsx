@@ -6,7 +6,7 @@ import {
   LumenFrame,
   LumenIcon,
   LumenStatus,
-  LumenText,
+  LumenContentText,
 } from '@lumen/app-ui'
 import type { ActivityAgentEntryState } from '@hbar/app-runtime'
 import './activity-agents-view.css'
@@ -70,62 +70,77 @@ export function ActivityAgentsView({
   return (
     <LumenFrame as="section" className="hbar-activity-agents" aria-label={labels.title}>
       <LumenFrame className="hbar-activity-section-heading">
-        <LumenText as="h3">{labels.title}</LumenText>
+        <LumenContentText context="section.title" level={3}>
+          {labels.title}
+        </LumenContentText>
         {items.length > 0 && (
-          <LumenText as="span">
+          <LumenContentText context="collection.detail">
             {labels.count(items.length, items.filter(active).length, Boolean(entry?.nextCursor))}
-          </LumenText>
+          </LumenContentText>
         )}
       </LumenFrame>
       {(!entry || entry.status === 'loading') && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
-      {entry?.status === 'unavailable' && <LumenText as="p">{labels.unavailable}</LumenText>}
+      {entry?.status === 'unavailable' && (
+        <LumenContentText context="feedback.paragraph">{labels.unavailable}</LumenContentText>
+      )}
       {entry?.status === 'error' && (
         <LumenFrame className="hbar-session-activity-recovery">
-          <LumenText as="p" role="alert">
+          <LumenContentText context="feedback.paragraph" role="alert">
             {labels.error(entry.error ?? 'EXECUTION_FAILED')}
-          </LumenText>
-          <LumenButton size="s" disabled={!connected} onClick={onRefresh}>
-            {labels.retry}
-          </LumenButton>
+          </LumenContentText>
+          <LumenFrame className="hbar-activity-reader" role="group" aria-label={labels.retry} tabIndex={0}>
+            <LumenButton size="s" disabled={!connected} onClick={onRefresh}>
+              {labels.retry}
+            </LumenButton>
+          </LumenFrame>
         </LumenFrame>
       )}
       {items.length > 0 && (
         <LumenCollection as="ol" className="hbar-activity-agent-list" tabIndex={0} aria-label={labels.title}>
           {items.map((agent) => (
             <LumenCollectionItem key={agent.agentId} data-activity-agent-id={agent.agentId}>
-              <LumenButton
-                className="hbar-activity-agent-row"
-                size="s"
-                variant="text"
-                aria-label={labels.open(agent.objective)}
-                disabled={!connected || opening?.status === 'opening'}
-                onClick={() => onOpen(agent)}
-              >
-                <LumenIcon icon={Bot} tier="md" />
-                <LumenText as="strong" title={agent.objective}>
-                  {agent.objective}
-                </LumenText>
-                <LumenStatus value={labels.status(agent.status)} tone={tone(agent)} />
-                <LumenIcon icon={ChevronRight} tier="sm" />
-              </LumenButton>
+              <LumenFrame className="hbar-activity-agent-row">
+                <LumenButton
+                  className="hbar-activity-agent-open"
+                  size="s"
+                  variant="text"
+                  aria-label={labels.open(agent.objective)}
+                  disabled={!connected || opening?.status === 'opening'}
+                  onClick={() => onOpen(agent)}
+                >
+                  <LumenIcon icon={Bot} tier="md" />
+                  <LumenContentText context="collection.title">{agent.objective}</LumenContentText>
+                  <LumenIcon icon={ChevronRight} tier="sm" />
+                </LumenButton>
+                <LumenFrame
+                  className="hbar-activity-reader"
+                  role="region"
+                  aria-label={labels.status(agent.status)}
+                  tabIndex={0}
+                >
+                  <LumenStatus value={labels.status(agent.status)} tone={tone(agent)} />
+                </LumenFrame>
+              </LumenFrame>
               {opening?.agentId === agent.agentId && (
-                <LumenText as="p" role={opening.status === 'error' ? 'alert' : 'status'}>
+                <LumenContentText context="feedback.paragraph" role={opening.status === 'error' ? 'alert' : 'status'}>
                   {opening.status === 'opening' ? labels.opening : labels.error(opening.error ?? 'EXECUTION_FAILED')}
-                </LumenText>
+                </LumenContentText>
               )}
             </LumenCollectionItem>
           ))}
         </LumenCollection>
       )}
-      {entry?.limitReached && <LumenText as="p">{labels.limitReached}</LumenText>}
+      {entry?.limitReached && <LumenContentText context="feedback.paragraph">{labels.limitReached}</LumenContentText>}
       {entry?.status === 'ready' && entry.nextCursor && !entry.limitReached && (
-        <LumenButton size="s" disabled={!connected} onClick={onLoadMore}>
-          {labels.loadMore}
-        </LumenButton>
+        <LumenFrame className="hbar-activity-reader" role="group" aria-label={labels.loadMore} tabIndex={0}>
+          <LumenButton size="s" disabled={!connected} onClick={onLoadMore}>
+            {labels.loadMore}
+          </LumenButton>
+        </LumenFrame>
       )}
     </LumenFrame>
   )

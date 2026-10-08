@@ -5,18 +5,13 @@
   flex-direction: column;
   gap: 0.375rem;
 }
-.hbar-activity-tasks p,
+.hbar-activity-tasks [data-text-context='feedback.paragraph'],
 .hbar-activity-task-list {
   margin: 0;
-}
-.hbar-activity-tasks p {
-  font-size: 0.75rem;
-  overflow-wrap: anywhere;
 }
 .hbar-activity-task-list {
   padding: 0;
   list-style: none;
-  overflow-x: auto;
 }
 .hbar-activity-task-list > li.hbar-activity-task-row,
 .hbar-activity-task-progress {
@@ -27,19 +22,18 @@
   gap: 0.5rem;
 }
 .hbar-activity-task-row {
-  min-inline-size: max-content;
+  max-inline-size: 100%;
   padding-block: 0.25rem;
   padding-inline: 0.375rem;
 }
-.hbar-activity-task-row > span {
-  flex: 0 0 auto;
-  white-space: nowrap;
-  font-size: 0.8125rem;
+.hbar-activity-task-row > [data-text-context='collection.title'] {
+  flex: 1 1 auto;
+  min-inline-size: 0;
 }
 .hbar-activity-task-row[data-activity-task-status='completed'] {
   color: var(--lumen-muted);
 }
-.hbar-activity-task-row[data-activity-task-status='completed'] > span {
+.hbar-activity-task-row[data-activity-task-status='completed'] > [data-text-context='collection.title'] {
   text-decoration: line-through;
 }
 .hbar-activity-task-row[data-activity-task-status='completed'] > svg {
@@ -49,10 +43,10 @@
   color: var(--lumen-warning);
 }
 .hbar-activity-task-progress {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
 }
-.hbar-activity-task-progress progress {
+.hbar-activity-task-progress .lumen-progress {
+  flex: 0 0 auto;
   inline-size: 3.25rem;
   block-size: 0.375rem;
-  accent-color: var(--lumen-success);
 }

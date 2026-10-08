@@ -1,15 +1,20 @@
 import { expect, test } from '@playwright/test'
 import { createGoalPlanCommandClient } from '@hbar/client'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { expectComposerText } from './support/composer-text'
+import { openSessionTool } from './support/session-tools-menu'
 
 async function cleanupFixture(root: string) {
-  const target = resolve(root)
-  if (dirname(target) !== resolve(tmpdir()) || !basename(target).startsWith('hbar-activity-tasks-'))
+  const target = await realpath(root)
+  if (
+    target !== resolve(root) ||
+    dirname(target) !== (await realpath(tmpdir())) ||
+    !basename(target).startsWith('hbar-activity-tasks-')
+  )
     throw new Error('Refusing cleanup outside owned task fixture')
   await rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 })
 }
@@ -27,6 +32,7 @@ test('Activity tasks follow real Plan updates, clear and Session selection witho
       port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
       sessionCount: 2,
       goalAutoContinue: false,
+      budgetAutoContinue: false,
     })
     const { sessionId } = host.ready
     const goals = createGoalPlanCommandClient(host.client)
@@ -52,16 +58,27 @@ test('Activity tasks follow real Plan updates, clear and Session selection witho
         new RegExp(process.env.HBAR_ACTIVITY_EXPECTED_ASSET),
       )
     const copy = getShellCopy('zh-CN')
+    const workspace = page.getByRole('treeitem', { name: host.ready.workspaceName, exact: true })
+    await expect(workspace).toBeVisible()
+    if ((await workspace.getAttribute('aria-expanded')) === 'false') {
+      await workspace.focus()
+      await workspace.press('ArrowRight')
+      await expect(workspace).toHaveAttribute('aria-expanded', 'true')
+    }
     await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     const draft = '保留这段未发送输入；查看任务不是发送或编辑计划。'
-    await prompt.fill(draft)
-    const activity = page.getByRole('button', { name: copy.session.tools.activity, exact: true })
-    await activity.click()
+    await prompt.click()
+    await expect(prompt).toBeFocused()
+    await page.keyboard.insertText(draft)
+    await expectComposerText(prompt, draft)
+    const openActivity = () => openSessionTool(page, copy.session.tools, 'activity')
+    await openActivity()
     const pane = page.locator('.hbar-session-activity-workspace')
     const tasks = pane.locator('.hbar-activity-tasks')
     await expect(tasks.getByRole('listitem')).toHaveCount(3)
-    await expect(tasks.getByRole('progressbar')).toHaveAttribute('value', '1')
+    await expect(tasks.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1')
+    await expect(tasks.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '3')
     await expect(tasks.getByRole('progressbar')).toHaveAccessibleName(copy.activity.tasks.progress(1, 3))
     await expect(tasks.locator('[data-activity-task-status="in_progress"]')).toContainText(longStep)
     const evidence = resolve('artifacts/activity-tasks/hbar-e2e')
@@ -72,7 +89,7 @@ test('Activity tasks follow real Plan updates, clear and Session selection witho
       plan: steps.map((step) => ({ ...step, status: 'completed' as const })),
     })
     await expect(tasks.locator('[data-activity-task-status="completed"]')).toHaveCount(3)
-    await expect(tasks.getByRole('progressbar')).toHaveAttribute('value', '3')
+    await expect(tasks.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '3')
     await page.setViewportSize({ width: 390, height: 800 })
     await expect(tasks.getByRole('progressbar')).toBeInViewport()
     expect(await tasks.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true)
@@ -99,7 +116,7 @@ test('Activity tasks follow real Plan updates, clear and Session selection witho
     const sidebar = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
     if (await sidebar.isVisible()) await sidebar.click()
     await page.getByRole('treeitem', { name: 'Session 001', exact: true }).click()
-    await activity.click()
+    await openActivity()
     await expect(pane.getByText(copy.activity.empty, { exact: true })).toBeVisible()
     await expect(tasks).toHaveCount(0)
     expect(errors).toEqual([])

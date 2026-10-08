@@ -467,4 +467,13 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 两项真实 Chrome／Host 回归通过（中英文，14.3s），读取实际 system.diagnose，在 1440／320 下刷新、检查完整 Host 值、断线禁用与旧结果提示，pageerror 为零。长键名压力文字仅用于显式测试，不冒充 Host 事实；所属 Host 停止后经真实路径、临时目录与所属前缀校验清理。
 - 范围严格 ESLint、文案／图标／flow guard、格式、Web build 与实际构建清单通过。首次将 dl 交给 LumenFrame 的三个类型错误已改为现有公开集合 API；最终冷启动类型恢复为 92 项既有诊断，本次范围为零，全库门禁仍待处理。证据在 artifacts/desktop-elements/system-diagnostics-content 的 browser-final.log、unit-final.log、host-final.log、types-final.log、lint-final.log、build-final.log、inventory.log 与截图。结构继续使用现有工作台分节摘要及就近刷新反馈。
 
-当前清单覆盖 146 个生产 TSX 模块、3789 个元素，其中记录了 125 处低层文字未分类，合计 135 项静态缺口。其余生产表面迁移、已分类表面的身份选择值复核、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 会话 Activity 的运行、任务、Agent 与工作流
+
+- 这组组件的 33 处低层文字归入章节、集合、反馈、空态及机器可读时间；原生 progress 改用公开 LumenProgress，保留真实完成数及最大值。章节、运行输入摘要、完整 Agent 目标、工作流焦点及任务步骤自然换行。状态、进度和时间各有具名键盘阅读区，Agent 状态在打开按钮之外，避免嵌套可聚焦控件。
+- 修正 8c901adb／6add4a4a 留下的 nowrap、max-content 与整行横向阅读规则，正文由 Activity 的真实 pane 负责纵向滚动，各节随内容增长。保留 100 条运行页／1,000 条累计、50 条 Agent 页／200 条累计、100 步 Plan 和 128 条委派契约；工作流代表的 Agent 不在其他 Agent 列表重复出现。没有增加运行操作或复制宿主事实。
+- 92 个实际 Chrome 场景通过，使用真实 AppRuntime 和公开端口，覆盖两语言、明暗、五宽度、125% 文字、4,000 字目标／步骤／焦点、运行 0／1／7／100／101／1,000／1,001、Agent 0／1／7／50／51／200／201、任务 0／1／7／100／101、委派 0／1／7／128／129、实际 pane 滚动、技术状态键盘阅读、重复／异源／超容量输出、加载／失败恢复／断线、重排后的原 Agent 打开及被移除 Agent 的恢复入口。20 项相关 Runtime／模型／组件测试、129 个断言通过。
+- 四项真实 Chrome／Host 回归通过：Plan 的更新／清空／100 步滚动／异源会话，Workflow 的实际委派／子会话打开／原父会话返回／取消，以及中英文运行排队／审批／Agent 取消／最终完成。检查实际 Host 原运行 ID、原 Agent 与完整输入摘要，返回后保留未发送草稿，pageerror 为零；所属 Host 停止后按真实路径、临时目录及前缀校验清理。
+- 旧测试在手机入口寻找桌面 tab，现改为实际当前会话标题及原父会话返回，并保留后续原运行断言。父树项含展开子项时，中心点击不等同于点击其行；测试使用真实键盘 Enter 激活并确认原父项 aria-selected，再检查该会话的原运行。没有扩大窗口、强制点击或去掉来源／草稿验证。手机顶栏的长标题仍沿用单行规则，本次截图确认该缺口，列入后续标题复核。
+- 范围严格 ESLint、文案／图标／四份 flow guard、格式、Web build 与构建清单通过。测试 Workflow 夹具缺失 executionModel 的一个类型问题已补齐公开字段；冷启动类型恢复为 92 项既有诊断，本次范围为零。证据在 artifacts/desktop-elements/activity-content 的 browser-initial.log、browser-delivery.log、unit-final.log、host.log、host-final.log、host-navigation.log、host-parent.log、types-final.log、lint-final.log、lint-navigation.log、build.log、inventory.log 与截图。结构沿用 [App Shell](https://pro.reactbits.dev/docs/app-ui/app-shell)，交互沿用 [Agent Activity 2](https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-2) 的分节执行状态与真实对象详情。
+
+当前清单覆盖 146 个生产 TSX 模块、3803 个元素，其中记录了 92 处低层文字未分类，合计 101 项静态缺口。其余生产表面迁移、已分类表面的身份选择值与手机顶栏复核、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

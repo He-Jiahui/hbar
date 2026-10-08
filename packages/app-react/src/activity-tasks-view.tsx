@@ -1,5 +1,13 @@
 import { CheckCircle2, Circle, LoaderCircle } from 'lucide-react'
-import { LumenButton, LumenCollection, LumenCollectionItem, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import {
+  LumenButton,
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenIcon,
+  LumenContentText,
+  LumenProgress,
+} from '@lumen/app-ui'
 import type { ComposerIntentState } from '@hbar/app-runtime'
 import type { PlanStepStatus } from '@hbar/contracts'
 import { projectActivityTasks } from './activity-tasks-model'
@@ -33,27 +41,41 @@ export function ActivityTasksView({
   return (
     <LumenFrame as="section" className="hbar-activity-tasks" aria-label={labels.title}>
       <LumenFrame className="hbar-activity-section-heading">
-        <LumenText as="h3">{labels.title}</LumenText>
+        <LumenContentText context="section.title" level={3}>
+          {labels.title}
+        </LumenContentText>
         {steps.length > 0 && (
-          <LumenFrame className="hbar-activity-task-progress">
-            <progress max={steps.length} value={completed} aria-label={labels.progress(completed, steps.length)} />
-            <LumenText as="span">{labels.progress(completed, steps.length)}</LumenText>
+          <LumenFrame
+            className="hbar-activity-reader hbar-activity-task-progress"
+            role="region"
+            aria-label={labels.progress(completed, steps.length)}
+            tabIndex={0}
+          >
+            <LumenProgress
+              maximum={steps.length}
+              value={completed}
+              label={labels.progress(completed, steps.length)}
+              tone="success"
+            />
+            <LumenContentText context="metadata">{labels.progress(completed, steps.length)}</LumenContentText>
           </LumenFrame>
         )}
       </LumenFrame>
       {loading && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.paragraph" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {failed && (
         <LumenFrame className="hbar-session-activity-recovery">
-          <LumenText as="p" role="alert">
+          <LumenContentText context="feedback.paragraph" role="alert">
             {labels.error(facts.error ?? 'EXECUTION_FAILED')}
-          </LumenText>
-          <LumenButton size="s" disabled={!connected} onClick={onRefresh}>
-            {labels.retry}
-          </LumenButton>
+          </LumenContentText>
+          <LumenFrame className="hbar-activity-reader" role="group" aria-label={labels.retry} tabIndex={0}>
+            <LumenButton size="s" disabled={!connected} onClick={onRefresh}>
+              {labels.retry}
+            </LumenButton>
+          </LumenFrame>
         </LumenFrame>
       )}
       {steps.length > 0 && (
@@ -72,7 +94,7 @@ export function ActivityTasksView({
                 }
                 tier="md"
               />
-              <LumenText as="span">{step.step}</LumenText>
+              <LumenContentText context="collection.title">{step.step}</LumenContentText>
             </LumenCollectionItem>
           ))}
         </LumenCollection>

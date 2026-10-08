@@ -11,39 +11,29 @@
   padding-block-start: 0.75rem;
   border-block-start: 0.0625rem solid var(--lumen-edge);
 }
-.hbar-activity-workflow p,
-.hbar-activity-workflow-group-heading h4,
+.hbar-activity-workflow [data-text-context='feedback.paragraph'],
+.hbar-activity-workflow-group-heading [data-text-context],
 .hbar-activity-workflow-agents {
   margin: 0;
 }
 .hbar-activity-workflow-group-heading {
   display: flex;
   min-inline-size: 0;
-  align-items: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
   gap: 0.5rem;
-  overflow-x: auto;
-  white-space: nowrap;
 }
-.hbar-activity-workflow-group-heading h4 {
-  flex: 1 0 auto;
-  white-space: nowrap;
-  font-size: 0.75rem;
-  color: var(--lumen-muted);
+.hbar-activity-workflow-group-heading [data-text-context='section.title'] {
+  flex: 1 1 12rem;
+  min-inline-size: 0;
 }
-.hbar-activity-workflow-group-heading span {
-  flex: 0 0 auto;
-  font-size: 0.75rem;
-  color: var(--lumen-muted);
+.hbar-activity-workflow-group-heading [data-text-context='collection.detail'] {
+  flex: 0 1 auto;
 }
 .hbar-activity-workflow-agents {
   padding: 0;
   list-style: none;
-  overflow-x: auto;
 }
 .hbar-activity-workflow-agents > li {
   padding-inline-start: 0.375rem;
-}
-.hbar-activity-workflow p {
-  font-size: 0.75rem;
-  overflow-wrap: anywhere;
 }
