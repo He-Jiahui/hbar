@@ -64,6 +64,7 @@
         "@hbar/app-react": "workspace:*",
         "@hbar/app-runtime": "workspace:*",
         "@hbar/commands": "workspace:*",
+        "@hbar/decision-laya": "workspace:*",
         "@mui/material": "9.4.0",
         "@playwright/test": "1.63.0",
         "@tauri-apps/cli": "2.11.4",
