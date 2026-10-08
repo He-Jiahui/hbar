@@ -45,7 +45,7 @@
   inline-size: 100%;
 }
 
-.hbar-app-react-status-controls .lumen-popup-select-label {
+.hbar-app-react-status-controls .lumen-popup-select-label[data-text-flow='single'] {
   text-overflow: clip;
 
   min-inline-size: max-content;

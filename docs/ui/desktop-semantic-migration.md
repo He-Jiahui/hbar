@@ -718,4 +718,12 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 
 - Roster 的两项旧失败已闭合：原夹具 click 后立即输入，没有确认异步 Session 选择完成。现在先等待原目标标题及其行 data-selected=true，再输入并立即核对草稿。两个语言的完整真实 Host Chrome 场景通过，保留原来的第二 Client 新建／重命名／归档、后页合并、读取失败／重试、重连／旧响应、五宽度及所有草稿与原导航断言；320 截图确认当前标题自然换行及草稿完整显示。范围严格 lint、格式通过，根类型仍只有另一个 E2E 的两项旧 Host 捕获诊断。证据为 roster-target.log／results／lint／types 与 artifacts/session-roster-refresh 的原截图。
 
+## Git 项目完整名称与浮层稳定性
+
+- Git 仓库选择器改为 choice.title，保留宿主提供的完整项目别名与真实路径并自然换行。原 status CSS 对所有选择器文字强制 nowrap；现在只作用于声明 single 的紧凑内容，名称使用 Lumen 的 reading 流。SSR 核对当前组合框的真实 ID、完整文字及读取语义；选项的排序、重复别名和重置在实际打开的 portal 列表中验证。
+- 原生 option 的旧 SSR 断言无法读取关闭的 Lumen 浮层，现分别验证当前选中值与原草稿／状态归属，浏览器继续验证全部选项且不再为比较结果重排选项。四项真实 Host 场景覆盖中英文、1440／320、项目别名更新／重置、命令／设置／Git／Files／页签、原文件与输入草稿、原焦点及零 Run。
+- 初次浏览器运行发现普通 pointer click 持续报告选项不稳定。24 帧测量证明宽度与 x 坐标每帧交替 1/64px；70804dd3f0 的缩放换算将 client rectangle 的 436.65625 与 CSSOM 的 436.656 当作实际缩放，形成 ResizeObserver 反馈。Lumen 31f7295839 将有效比例固定到四位小数，保留缩放转换、视口余量和原焦点契约。新测量的 24 帧完全一致，实际 pointer click 通过。
+- 28 项别名消费／Runtime 测试、199 个断言，34 项 Lumen 浮层／比例测试，以及同次 14 项 Chrome 场景通过。另十项 Chrome 用例覆盖两语言、五宽度、两主题、125% zoom、五种用量状态、原阅读区和关闭／焦点归还。项目名称的最后字符 Range、真实多行和无裁切均已检查，宽／窄截图已复核。
+- 范围严格 lint、根 TypeScript（零诊断）、Lumen 包类型／build、格式、文案／图标／flow guards、新鲜 Web build 和 strict 清单通过。证据位于 artifacts/desktop-elements/final-gates 的 floating-scale 与 workspace-consumers-title 日志，以及 workspace-consumers/verified-title 和 floating-scale-browser-results。初次失败与逐帧事实保留；测试诊断截图有界，显式启用时才记录 trace。
+
 当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。最终全库／浏览器／原生门禁和上述四项扩展导航失败尚未完成。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

@@ -27,6 +27,7 @@ const fileName = 'organization-notes.md'
 const dirtyFile = '# Unsaved original material — 保留原文件草稿\n'
 const attachmentName = 'alias-consumer-material.md'
 const sharedAlias = 'Shared display name — 同名别名'
+const captureTrace = process.env.HBAR_DISPLAY_NAMES_TRACE === '1'
 
 function files(f: Fixture) {
   return f.page.locator('.lumen-app-tool-drawer .hbar-app-react-file-workspace')
@@ -58,16 +59,17 @@ async function expectLumenOptions(
   const listbox = control.page().locator(`[id=${JSON.stringify(listboxId)}]`)
   await expect
     .poll(() =>
-      listbox.getByRole('option').evaluateAll(
-        (options, values) =>
-          options
-            .filter((option) => values === null || values.includes(option.getAttribute('data-value') ?? ''))
-            .map((option) => ({ value: option.getAttribute('data-value') ?? '', label: option.textContent }))
-            .sort((a, b) => a.value.localeCompare(b.value)),
-        onlyExpected ? expected.map((option) => option.value) : null,
-      ),
+      listbox
+        .getByRole('option')
+        .evaluateAll(
+          (options, values) =>
+            options
+              .filter((option) => values === null || values.includes(option.getAttribute('data-value') ?? ''))
+              .map((option) => ({ value: option.getAttribute('data-value') ?? '', label: option.textContent })),
+          onlyExpected ? expected.map((option) => option.value) : null,
+        ),
     )
-    .toEqual([...expected].sort((a, b) => a.value.localeCompare(b.value)))
+    .toEqual(expected)
   await control.page().keyboard.press('Escape')
   await expect(control).toHaveAttribute('aria-expanded', 'false')
 }
@@ -83,6 +85,79 @@ async function openCommand(f: Fixture, command: 'app.setWorkspace' | 'app.setSes
   await search.press('Enter')
   await expect(dialog.getByRole('button', { name: f.copy.commandPalette.execute, exact: true })).toBeVisible()
   return dialog
+}
+async function expectStableRepositoryOptions(control: Locator, evidencePath: string) {
+  await control.click()
+  const listboxId = await control.getAttribute('aria-controls')
+  if (!listboxId) throw new Error('Repository control does not identify its listbox')
+  const option = control
+    .page()
+    .locator(`[id=${JSON.stringify(listboxId)}]`)
+    .getByRole('option')
+    .first()
+  await expect(option).toBeVisible()
+  const frames = await option.evaluate(async (element) => {
+    const result: {
+      bounds: { x: number; y: number; width: number; height: number }
+      layoutWidth: string
+      layoutHeight: string
+      inlineSize: string
+      zoom: string
+    }[] = []
+    for (let index = 0; index < 24; index++) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+      const bounds = element.getBoundingClientRect()
+      const surface = element.closest<HTMLElement>('.lumen-floating-surface')
+      if (!surface) throw new Error('Repository option lost its owning floating surface')
+      const style = getComputedStyle(surface)
+      result.push({
+        bounds: { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height },
+        layoutWidth: style.width,
+        layoutHeight: style.height,
+        inlineSize: surface.style.inlineSize,
+        zoom: style.zoom,
+      })
+    }
+    return result
+  })
+  await writeFile(evidencePath, JSON.stringify(frames, null, 2))
+  expect(new Set(frames.slice(-12).map((frame) => JSON.stringify(frame.bounds))).size).toBe(1)
+  await control.page().keyboard.press('Escape')
+  await expect(control).toHaveAttribute('aria-expanded', 'false')
+}
+async function expectWrappedRepositoryName(control: Locator) {
+  const title = control.locator('[data-text-context="choice.title"]')
+  await expect(title).toBeVisible()
+  await expect(title).toHaveAttribute('data-text-flow', 'reading')
+  const geometry = await title.evaluate((element) => {
+    const nodes: Text[] = []
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node instanceof Text && node.data.trim()) nodes.push(node)
+    }
+    const first = nodes[0]
+    const last = nodes.at(-1)
+    if (!first || !last) throw new Error('Repository name has no readable text')
+    const range = document.createRange()
+    range.setStart(first, 0)
+    range.setEnd(first, 1)
+    const firstCharacter = range.getBoundingClientRect()
+    range.setStart(last, last.length - 1)
+    range.setEnd(last, last.length)
+    const lastCharacter = range.getBoundingClientRect()
+    const bounds = element.getBoundingClientRect()
+    return {
+      wrapped: lastCharacter.top > firstCharacter.top,
+      complete:
+        lastCharacter.width > 0 &&
+        lastCharacter.left >= bounds.left - 1 &&
+        lastCharacter.right <= bounds.right + 1 &&
+        lastCharacter.bottom <= bounds.bottom + 1,
+      noClipping: element.scrollWidth <= element.clientWidth + 1 && element.scrollHeight <= element.clientHeight + 1,
+      whiteSpace: getComputedStyle(element).whiteSpace,
+    }
+  })
+  expect(geometry).toEqual({ wrapped: true, complete: true, noClipping: true, whiteSpace: 'normal' })
 }
 async function projectSettings(f: Fixture) {
   await showSidebar(f)
@@ -111,7 +186,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       f.page.on('console', (message) => {
         if (message.type() === 'warning' || message.type() === 'error') warnings.push(message.text())
       })
-      await f.context.tracing.start({ screenshots: true, snapshots: true })
+      if (captureTrace) await f.context.tracing.start({ screenshots: true, snapshots: true })
       try {
         const api = createWorkspaceSessionCommandClient(f.external)
         const change = async (workspaceId: string, displayName: string | null) => {
@@ -286,12 +361,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           .click()
         const repository = status.getByRole('combobox', { name: f.copy.status.git.repositoryFilter, exact: true })
         await expect(repository).toBeEnabled()
+        await expectWrappedRepositoryName(repository)
+        await expectStableRepositoryOptions(repository, `${output}/option-geometry-${locale}-${width}.json`)
         await selectLumenOption(repository, f.ready.secondWorkspace.id)
         await expect(repository).toBeEnabled()
         await repository.focus()
         await change(f.ready.secondWorkspace.id, sharedAlias)
         await expectLumenOptions(repository, expectedWorkspaceOptions)
         await expectLumenValue(repository, f.ready.secondWorkspace.id)
+        await expectWrappedRepositoryName(repository)
         await expect(repository).toBeFocused()
         await capture(f, `${phase}/git-duplicate-${locale}-${width}`)
         await change(f.ready.firstWorkspace.id, null)
@@ -303,7 +381,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
               value: f.ready.firstWorkspace.id,
               label: f.copy.status.git.workspaceOption(f.ready.firstWorkspace.name, f.ready.firstWorkspace.path),
             },
-          ].sort((a, b) => a.value.localeCompare(b.value)),
+          ].sort((a, b) => {
+            const nameA = a.value === f.ready.firstWorkspace.id ? f.ready.firstWorkspace.name : sharedAlias
+            const nameB = b.value === f.ready.firstWorkspace.id ? f.ready.firstWorkspace.name : sharedAlias
+            return nameA.localeCompare(nameB) || a.value.localeCompare(b.value)
+          }),
         )
         await expectLumenValue(repository, f.ready.secondWorkspace.id)
         await expect(repository).toBeFocused()
@@ -338,10 +420,28 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           canonicalDirectoryUnchanged: true,
         })
         completed = true
+      } catch (error) {
+        await writeFile(
+          `${output}/failure-${locale}-${width}.json`,
+          JSON.stringify(
+            {
+              name: error instanceof Error ? error.name : 'UnknownFailure',
+              message: error instanceof Error ? error.message : 'Non-Error failure',
+            },
+            null,
+            2,
+          ),
+        )
+        throw error
       } finally {
         try {
-          await f.page.screenshot({ path: `${output}/last-${locale}-${width}.png` })
-          await f.context.tracing.stop({ path: `${output}/trace-${locale}-${width}.zip` })
+          if (!f.page.isClosed())
+            await f.page
+              .screenshot({ path: `${output}/last-${locale}-${width}.png`, timeout: 5000 })
+              .catch((error: unknown) => {
+                warnings.push(error instanceof Error ? error.message : 'Diagnostic screenshot unavailable')
+              })
+          if (captureTrace) await f.context.tracing.stop({ path: `${output}/trace-${locale}-${width}.zip` })
           await writeFile(
             `${output}/observations-${locale}-${width}.json`,
             JSON.stringify(

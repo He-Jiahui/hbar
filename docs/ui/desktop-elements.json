@@ -38571,7 +38571,7 @@
         "section === 'usage' && usageContent && (\n        <LumenUsage01 content={usageContent} className=\"hbar-app-react-status-lumen-usage\" />\n      )",
         "[source:602; BinaryExpression] section, usageQuery",
         "[source:725; BinaryExpression] section, gitQuery?.workspaceId",
-        "[source:784; ConditionalExpression] entry, entry.status, entry.error, section, report, usageReport, gitReport"
+        "[source:785; ConditionalExpression] entry, entry.status, entry.error, section, report, usageReport, gitReport"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -39336,7 +39336,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFormField::9",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 751,
+      "line": 752,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFormField",
@@ -39355,7 +39355,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenPopupSelect::9",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 752,
+      "line": 753,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenPopupSelect",
@@ -39379,7 +39379,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::HbarLumenDisclosure::2",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 766,
+      "line": 767,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "HbarLumenDisclosure",
@@ -39398,7 +39398,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::7",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 767,
+      "line": 768,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -39419,7 +39419,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenCheckBox::2",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 771,
+      "line": 772,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenCheckBox",
@@ -39441,7 +39441,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::4",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 785,
+      "line": 786,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -39460,7 +39460,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::5",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 792,
+      "line": 793,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -39479,7 +39479,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::8",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 801,
+      "line": 802,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -39488,7 +39488,7 @@
       "contentSources": [
         "report.gap && (\n            <LumenContentText\n              tone=\"warning\"\n              context=\"feedback.paragraph\"\n              className=\"hbar-app-react-status-gap\"\n              role=\"status\"\n            >\n              {labels.gap(report.skippedSamples)}\n            </LumenContentText>\n          )",
         "includeHost && (\n            <LumenFrame as=\"section\">\n              <LumenContentText context=\"section.title\">{labels.runtime}</LumenContentText>\n              <LumenCompactMetrics\n                label={labels.runtime}\n                metrics={metrics([\n                  'hostThreadCount',\n                  'eventLoopLagMs',\n                  'activeRuns',\n                  'queuedRuns',\n                  'managedChildProcesses',\n                ])}\n              />\n            </LumenFrame>\n          )",
-        "[source:860; BinaryExpression] includeHost"
+        "[source:861; BinaryExpression] includeHost"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -39502,7 +39502,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::6",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 803,
+      "line": 804,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -39521,7 +39521,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::9",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 812,
+      "line": 813,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -39540,7 +39540,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::7",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 813,
+      "line": 814,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -39559,7 +39559,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenCompactMetrics::1",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 814,
+      "line": 815,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenCompactMetrics",
@@ -39578,7 +39578,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::10",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 825,
+      "line": 826,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -39597,7 +39597,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::8",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 826,
+      "line": 827,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -39616,7 +39616,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenCompactMetrics::2",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 827,
+      "line": 828,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenCompactMetrics",
@@ -39635,7 +39635,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::11",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 839,
+      "line": 840,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -39654,7 +39654,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::9",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 840,
+      "line": 841,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -39673,7 +39673,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::12",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 841,
+      "line": 842,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -39695,7 +39695,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::13",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 843,
+      "line": 844,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -39714,7 +39714,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::10",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 844,
+      "line": 845,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -39733,7 +39733,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::14",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 851,
+      "line": 852,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -39752,7 +39752,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::11",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 852,
+      "line": 853,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -39771,7 +39771,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::HbarLumenDisclosure::3",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 861,
+      "line": 862,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "HbarLumenDisclosure",
@@ -39790,7 +39790,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenCompactMetrics::3",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 862,
+      "line": 863,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenCompactMetrics",
@@ -39809,7 +39809,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::HbarLumenDisclosure::4",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 882,
+      "line": 883,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "HbarLumenDisclosure",
@@ -39828,7 +39828,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenCompactMetrics::4",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 883,
+      "line": 884,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenCompactMetrics",
@@ -39847,7 +39847,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::15",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 895,
+      "line": 896,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -39870,7 +39870,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenDashboard02::1",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 897,
+      "line": 898,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenDashboard02",
@@ -39889,14 +39889,14 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenUsage08::1",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 899,
+      "line": 900,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenUsage08",
       "category": "collection",
       "context": null,
       "contentSources": [
-        "content=[source:900; ObjectLiteralExpression] compact, title, labels.usage.title, labels.usage, description, labels.description, value, labels.number, usageReport.totals.input, usageReport.totals, usageReport.totals.output, detail, usageValue, usageReport.cost, labels, labels.currency, progressLabel, labels.usage.tokens, tone, sparkline, usageReport.series.map, usageReport.series, point, id, String, point.start, point.input, point.output, sparklineLabel, labels.usage.timeline, metrics, label, labels.usage.cost"
+        "content=[source:901; ObjectLiteralExpression] compact, title, labels.usage.title, labels.usage, description, labels.description, value, labels.number, usageReport.totals.input, usageReport.totals, usageReport.totals.output, detail, usageValue, usageReport.cost, labels, labels.currency, progressLabel, labels.usage.tokens, tone, sparkline, usageReport.series.map, usageReport.series, point, id, String, point.start, point.input, point.output, sparklineLabel, labels.usage.timeline, metrics, label, labels.usage.cost"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -39910,7 +39910,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::12",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 929,
+      "line": 930,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -39929,7 +39929,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::16",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 938,
+      "line": 939,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -39948,7 +39948,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::13",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 939,
+      "line": 940,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -39967,7 +39967,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenCompactMetrics::5",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 940,
+      "line": 941,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenCompactMetrics",
@@ -39986,7 +39986,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::17",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 968,
+      "line": 969,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -40005,7 +40005,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::14",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 969,
+      "line": 970,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40024,7 +40024,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenCompactMetrics::6",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 970,
+      "line": 971,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenCompactMetrics",
@@ -40043,7 +40043,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::18",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 979,
+      "line": 980,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -40062,7 +40062,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::15",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 980,
+      "line": 981,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40081,7 +40081,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenCompactMetrics::7",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 981,
+      "line": 982,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenCompactMetrics",
@@ -40100,13 +40100,13 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::19",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 991,
+      "line": 992,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": ["[source:993; ConditionalExpression] usageReport.series.length, usageReport.series"],
+      "contentSources": ["[source:994; ConditionalExpression] usageReport.series.length, usageReport.series"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
@@ -40119,7 +40119,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::16",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 992,
+      "line": 993,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40138,7 +40138,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::EchartsChart::1",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 994,
+      "line": 995,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "EchartsChart",
@@ -40157,7 +40157,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::17",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1010,
+      "line": 1011,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40176,13 +40176,13 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::20",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1015,
+      "line": 1016,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": ["[source:1017; ConditionalExpression] usageReport.models.length, usageReport.models"],
+      "contentSources": ["[source:1018; ConditionalExpression] usageReport.models.length, usageReport.models"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
@@ -40195,7 +40195,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::18",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1016,
+      "line": 1017,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40214,7 +40214,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::19",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1018,
+      "line": 1019,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40233,14 +40233,14 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenCollection::1",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1020,
+      "line": 1021,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenCollection",
       "category": "collection",
       "context": null,
       "contentSources": [
-        "[source:1021; CallExpression] [...usageModelsById.values()].map, usageModelsById.values, model"
+        "[source:1022; CallExpression] [...usageModelsById.values()].map, usageModelsById.values, model"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -40254,7 +40254,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenCollectionItem::1",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1022,
+      "line": 1023,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenCollectionItem",
@@ -40273,7 +40273,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::20",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1027,
+      "line": 1028,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40292,7 +40292,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::21",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1030,
+      "line": 1031,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40311,7 +40311,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::22",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1033,
+      "line": 1034,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40330,13 +40330,13 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::HbarLumenDisclosure::5",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1042,
+      "line": 1043,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "HbarLumenDisclosure",
       "category": "interaction",
       "context": null,
-      "contentSources": ["[source:1043; ConditionalExpression] usageReport.execution", "label=labels.usage.execution"],
+      "contentSources": ["[source:1044; ConditionalExpression] usageReport.execution", "label=labels.usage.execution"],
       "accessibleNameSources": ["label=labels.usage.execution"],
       "actionBindings": {},
       "targetSources": [],
@@ -40349,7 +40349,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenCompactMetrics::8",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1044,
+      "line": 1045,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenCompactMetrics",
@@ -40368,7 +40368,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::23",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1073,
+      "line": 1074,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40387,7 +40387,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::21",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1078,
+      "line": 1079,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -40395,7 +40395,7 @@
       "context": null,
       "contentSources": [
         "gitReport.gap && (\n            <LumenContentText\n              tone=\"warning\"\n              context=\"feedback.paragraph\"\n              className=\"hbar-app-react-status-gap\"\n              role=\"status\"\n            >\n              {labels.git.gap}\n            </LumenContentText>\n          )",
-        "[source:1116; BinaryExpression] gitStatus?.root"
+        "[source:1117; BinaryExpression] gitStatus?.root"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -40409,7 +40409,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::24",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1080,
+      "line": 1081,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40428,13 +40428,13 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::22",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1089,
+      "line": 1090,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": ["[source:1091; ConditionalExpression] gitStatus?.root"],
+      "contentSources": ["[source:1092; ConditionalExpression] gitStatus?.root"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
@@ -40447,7 +40447,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::25",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1090,
+      "line": 1091,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40466,7 +40466,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::26",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1092,
+      "line": 1093,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40485,7 +40485,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenCompactMetrics::9",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1096,
+      "line": 1097,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenCompactMetrics",
@@ -40504,7 +40504,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::23",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1118,
+      "line": 1119,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -40525,7 +40525,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::27",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1119,
+      "line": 1120,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40544,7 +40544,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::28",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1121,
+      "line": 1122,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40563,7 +40563,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenCompactMetrics::10",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1125,
+      "line": 1126,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenCompactMetrics",
@@ -40582,13 +40582,13 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::24",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1158,
+      "line": 1159,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": ["[source:1160; ConditionalExpression] gitReport.totals.commits, gitReport.totals"],
+      "contentSources": ["[source:1161; ConditionalExpression] gitReport.totals.commits, gitReport.totals"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
@@ -40601,7 +40601,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::29",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1159,
+      "line": 1160,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40620,7 +40620,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::30",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1161,
+      "line": 1162,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40639,7 +40639,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::25",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1163,
+      "line": 1164,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -40658,7 +40658,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::26",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1164,
+      "line": 1165,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -40677,7 +40677,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::31",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1165,
+      "line": 1166,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40696,7 +40696,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::EchartsChart::2",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1168,
+      "line": 1169,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "EchartsChart",
@@ -40715,7 +40715,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::27",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1184,
+      "line": 1185,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -40734,7 +40734,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::32",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1185,
+      "line": 1186,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40753,7 +40753,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::EchartsChart::3",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1188,
+      "line": 1189,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "EchartsChart",
@@ -40772,7 +40772,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::28",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1204,
+      "line": 1205,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -40791,7 +40791,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::33",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1205,
+      "line": 1206,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40810,7 +40810,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::EchartsChart::4",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1208,
+      "line": 1209,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "EchartsChart",
@@ -40829,15 +40829,15 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::29",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1227,
+      "line": 1228,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "[source:1229; BinaryExpression] selectedGitPoint",
-        "[source:1251; ConditionalExpression] visibleGitCommits.length",
+        "[source:1230; BinaryExpression] selectedGitPoint",
+        "[source:1252; ConditionalExpression] visibleGitCommits.length",
         "entry.gitHistoryTruncated && (\n                  <LumenContentText context=\"feedback.paragraph\" role=\"status\">\n                    {labels.git.historyTruncated}\n                  </LumenContentText>\n                )"
       ],
       "accessibleNameSources": [],
@@ -40852,7 +40852,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::34",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1228,
+      "line": 1229,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40871,7 +40871,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::30",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1230,
+      "line": 1231,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -40890,7 +40890,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::35",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1231,
+      "line": 1232,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40911,7 +40911,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::31",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1237,
+      "line": 1238,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -40930,7 +40930,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenButton::1",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1243,
+      "line": 1244,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenButton",
@@ -40951,7 +40951,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::36",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1252,
+      "line": 1253,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -40970,13 +40970,13 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::32",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1254,
+      "line": 1255,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": ["[source:1255; CallExpression] visibleGitCommits.map, commit"],
+      "contentSources": ["[source:1256; CallExpression] visibleGitCommits.map, commit"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
@@ -40989,14 +40989,14 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::HbarLumenDisclosure::6",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1256,
+      "line": 1257,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "HbarLumenDisclosure",
       "category": "interaction",
       "context": null,
-      "contentSources": ["label=[source:1259; JsxFragment] "],
-      "accessibleNameSources": ["label=[source:1259; JsxFragment] "],
+      "contentSources": ["label=[source:1260; JsxFragment] "],
+      "accessibleNameSources": ["label=[source:1260; JsxFragment] "],
       "actionBindings": {},
       "targetSources": ["key=commit.sha"],
       "stateSources": [],
@@ -41008,7 +41008,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::37",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1260,
+      "line": 1261,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -41027,7 +41027,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::33",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1261,
+      "line": 1262,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -41046,7 +41046,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::38",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1262,
+      "line": 1263,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -41065,7 +41065,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::39",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1263,
+      "line": 1264,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -41086,7 +41086,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenCollection::2",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1275,
+      "line": 1276,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenCollection",
@@ -41109,7 +41109,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::34",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1276,
+      "line": 1277,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -41128,7 +41128,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::40",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1277,
+      "line": 1278,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -41147,7 +41147,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::41",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1280,
+      "line": 1281,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -41166,7 +41166,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::35",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1282,
+      "line": 1283,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -41185,7 +41185,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::42",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1283,
+      "line": 1284,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -41204,7 +41204,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::43",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1286,
+      "line": 1287,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -41223,7 +41223,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::36",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1290,
+      "line": 1291,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -41242,7 +41242,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::44",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1291,
+      "line": 1292,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -41261,7 +41261,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::45",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1294,
+      "line": 1295,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -41280,7 +41280,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::37",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1299,
+      "line": 1300,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -41299,7 +41299,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::46",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1300,
+      "line": 1301,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -41318,7 +41318,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::47",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1303,
+      "line": 1304,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -41337,7 +41337,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::38",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1307,
+      "line": 1308,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -41356,7 +41356,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::48",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1308,
+      "line": 1309,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -41375,7 +41375,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::49",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1311,
+      "line": 1312,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -41394,7 +41394,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenFrame::39",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1315,
+      "line": 1316,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenFrame",
@@ -41413,7 +41413,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::50",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1316,
+      "line": 1317,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -41432,7 +41432,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::51",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1319,
+      "line": 1320,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -41451,7 +41451,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenContentText::52",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1330,
+      "line": 1331,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenContentText",
@@ -41470,7 +41470,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::HbarLumenDisclosure::7",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1335,
+      "line": 1336,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "HbarLumenDisclosure",
@@ -41489,7 +41489,7 @@
     {
       "id": "packages/app-react/src/lumen-status-workspace.tsx::HbarStatusWorkspace::LumenCompactMetrics::11",
       "path": "packages/app-react/src/lumen-status-workspace.tsx",
-      "line": 1336,
+      "line": 1337,
       "owner": "HbarStatusWorkspace",
       "surface": "status-and-usage",
       "component": "LumenCompactMetrics",
@@ -77748,6 +77748,7 @@
     "hbar-ui/packages/lumen-app-ui/src/file-manager.tsx",
     "hbar-ui/packages/lumen-app-ui/src/file-picker.tsx",
     "hbar-ui/packages/lumen-app-ui/src/file-workspace.tsx",
+    "hbar-ui/packages/lumen-app-ui/src/floating-layout-scale.ts",
     "hbar-ui/packages/lumen-app-ui/src/floating-reference-bounds.ts",
     "hbar-ui/packages/lumen-app-ui/src/floating-surface.tsx",
     "hbar-ui/packages/lumen-app-ui/src/forms.tsx",
