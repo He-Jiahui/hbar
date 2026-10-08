@@ -249,7 +249,25 @@ function RuntimeView({
   const actions = useHbarRuntimeState(runtime.view.state.runActions)
   const labels = copy(locale)
   const base = getSessionStopCopy(locale)
-  const stopLabels = longLabels ? { ...base, unknown: base.unknown.repeat(5), check: base.check.repeat(8) } : base
+  const stopLabels = longLabels
+    ? {
+        ...base,
+        sending: base.sending.repeat(5),
+        requested: base.requested.repeat(5),
+        unknown: base.unknown.repeat(5),
+        checking: base.checking.repeat(8),
+        cancelled: base.cancelled.repeat(5),
+        completed: base.completed.repeat(5),
+        runFailed: base.runFailed.repeat(5),
+        interrupted: base.interrupted.repeat(5),
+        guided: base.guided.repeat(5),
+        failure: (code: string) => base.failure(code).repeat(5),
+        offline: base.offline.repeat(5),
+        check: base.check.repeat(8),
+        retry: base.retry.repeat(8),
+        dismiss: base.dismiss.repeat(8),
+      }
+    : base
   return (
     <HbarSessionStopProvider
       labels={stopLabels}
@@ -401,6 +419,7 @@ if (!container) throw new Error('Missing Stop fixture root')
 const locale = resolveShellLocale(navigator.languages)
 document.documentElement.lang = locale
 const initial = await createFixtureRuntime()
+const appearanceParameters = new URL(location.href).searchParams
 window.addEventListener(
   'pagehide',
   () => {
@@ -410,7 +429,16 @@ window.addEventListener(
 )
 createRoot(container).render(
   <StrictMode>
-    <LumenProvider appearance={createWebLumenAppearance('light', DEFAULT_WEB_APPEARANCE_DIMENSIONS, false)}>
+    <LumenProvider
+      appearance={createWebLumenAppearance(
+        appearanceParameters.get('mode') === 'dark' ? 'dark' : 'light',
+        {
+          ...DEFAULT_WEB_APPEARANCE_DIMENSIONS,
+          textSize: appearanceParameters.has('large-text') ? 'l' : DEFAULT_WEB_APPEARANCE_DIMENSIONS.textSize,
+        },
+        false,
+      )}
+    >
       <Fixture initial={initial} locale={locale} />
     </LumenProvider>
   </StrictMode>,

@@ -9,7 +9,7 @@
 | 类别        | 元素 | pending | 设计职责                                                                |
 | ----------- | ---: | ------: | ----------------------------------------------------------------------- |
 | structure   | 1221 |       5 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
-| text        | 1122 |      29 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
+| text        | 1122 |      26 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
 | interaction |  940 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
 | form        |  280 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
 | collection  |  135 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
@@ -139,7 +139,7 @@
 | [packages/app-react/src/session-project-context.tsx](../../packages/app-react/src/session-project-context.tsx)             | session                                          |   13 |              6 |          0 |          0 |
 | [packages/app-react/src/session-roster-feedback.tsx](../../packages/app-react/src/session-roster-feedback.tsx)             | session                                          |    3 |              1 |          0 |          0 |
 | [packages/app-react/src/session-run-activity.tsx](../../packages/app-react/src/session-run-activity.tsx)                   | agents-and-activity                              |   33 |             14 |          0 |          0 |
-| [packages/app-react/src/session-stop.tsx](../../packages/app-react/src/session-stop.tsx)                                   | settings                                         |    8 |              0 |          3 |          0 |
+| [packages/app-react/src/session-stop.tsx](../../packages/app-react/src/session-stop.tsx)                                   | settings                                         |    8 |              3 |          0 |          0 |
 | [packages/app-react/src/session-tool-details.tsx](../../packages/app-react/src/session-tool-details.tsx)                   | session                                          |   39 |              9 |          0 |          0 |
 | [packages/app-react/src/session-tool-feedback.tsx](../../packages/app-react/src/session-tool-feedback.tsx)                 | session                                          |    9 |              4 |          0 |          0 |
 | [packages/app-react/src/session-tools-menu.tsx](../../packages/app-react/src/session-tools-menu.tsx)                       | session                                          |   12 |              3 |          0 |          0 |

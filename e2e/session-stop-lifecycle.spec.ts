@@ -47,7 +47,7 @@ test.afterAll(async () => {
     server.httpServer.close((error) => (error ? reject(error) : resolve()))
   })
 })
-async function open(browser: Browser, locale: ShellLocale, longLabels = false) {
+async function open(browser: Browser, locale: ShellLocale, longLabels = false, mode: 'light' | 'dark' = 'light') {
   const context = await browser.newContext({ locale, viewport: { width: 1440, height: 960 } })
   const errors: string[] = []
   const forbidden: string[] = []
@@ -64,7 +64,7 @@ async function open(browser: Browser, locale: ShellLocale, longLabels = false) {
   page.on('console', (message) => {
     if (['warning', 'error'].includes(message.type())) errors.push(message.text())
   })
-  await page.goto(`${base}/${longLabels ? '?long-labels' : ''}`)
+  await page.goto(`${base}/?mode=${mode}${longLabels ? '&long-labels&large-text' : ''}`)
   await ready(page, 'a')
   await expect(page.locator('[data-effect-setup]')).toHaveAttribute('data-effect-setup', '2')
   await expect(page.locator('[data-effect-cleanup]')).toHaveAttribute('data-effect-cleanup', '1')
@@ -122,6 +122,66 @@ async function clean(page: Page, errors: string[], forbidden: string[]) {
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
+  for (const mode of ['light', 'dark'] as const) {
+    test(`semantic Stop feedback and owned action reading ${locale} ${mode}`, async ({ browser }, info) => {
+      const f = await open(browser, locale, true, mode)
+      const page = f.page
+      const labels = getSessionStopCopy(locale)
+      try {
+        await page.locator('[data-pointer-stop]').click()
+        await status(page, 'sending')
+        await expect(notice(page).locator('.hbar-app-react-session-stop-actions')).toHaveCount(0)
+        await act(page, 'lost')
+        await status(page, 'unknown')
+        for (const width of [1440, 1100, 900, 390, 320]) {
+          await page.setViewportSize({ width, height: 1000 })
+          const paragraph = notice(page).locator('[data-text-context="feedback.paragraph"]')
+          await expect(paragraph).toHaveText(labels.unknown.repeat(5))
+          expect(await paragraph.evaluate((node) => getComputedStyle(node).whiteSpace)).toBe('normal')
+          expect(await paragraph.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true)
+          const reader = notice(page).getByRole('group', { name: labels.check.repeat(8), exact: true })
+          await reader.focus()
+          await expect(reader).toBeFocused()
+          await reader.evaluate((node) => {
+            node.scrollLeft = 0
+          })
+          if (await reader.evaluate((node) => node.scrollWidth > node.clientWidth)) {
+            await reader.press('ArrowRight')
+            await expect.poll(() => reader.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0)
+          }
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+          if (width === 1440 || width === 320)
+            await notice(page).screenshot({ path: info.outputPath(`stop-${locale}-${mode}-${width}.png`) })
+        }
+        const check = notice(page).getByRole('button')
+        await expect(check).toHaveText(labels.check.repeat(8))
+        await check.focus()
+        await check.press('Enter')
+        await status(page, 'checking')
+        await expect(check).toBeFocused()
+        await act(page, 'reject')
+        await status(page, 'unknown')
+        await expect(notice(page).locator('[data-text-context="feedback.detail"]')).toHaveCount(1)
+        await act(page, 'offline')
+        await expect(notice(page).locator('[data-text-context="feedback.detail"]')).toContainText([
+          labels.offline.repeat(5),
+        ])
+        await act(page, 'online')
+        await check.click()
+        await act(page, 'cancelled')
+        await status(page, 'cancelled')
+        await notice(page)
+          .getByRole('button', { name: labels.dismiss.repeat(8), exact: true })
+          .click()
+        await expect(notice(page)).toHaveCount(0)
+        expect((await calls(page)).filter((call) => call.name === 'operation.cancel')).toHaveLength(1)
+        expect((await calls(page)).every((call) => call.operationId === 'a-run')).toBe(true)
+        await clean(page, f.errors, f.forbidden)
+      } finally {
+        await f.context.close()
+      }
+    })
+  }
   test(`StrictMode Stop captures original Run across ABA, tab and runtime lifetimes: ${locale}`, async ({
     browser,
   }) => {

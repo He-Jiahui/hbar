@@ -11,6 +11,7 @@ import { runCommands } from '@hbar/contracts/commands/run'
 import { sessionSchema, workspaceSchema } from '@hbar/contracts/directory'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
+import { openSessionTool } from './support/session-tools-menu'
 
 const prefix = 'hbar-session-stop-ui-'
 const evidence = resolve(process.env.HBAR_STOP_SHORTCUT_EVIDENCE ?? 'artifacts/session-stop-shortcut/browser')
@@ -298,26 +299,23 @@ async function start(browser: Browser, locale: ShellLocale, width: number, phase
       cleanupCancelIds: [],
     }
     const show = page.getByRole('button', { name: f.copy.shell.showSidebar, exact: true })
-    if (await show.isVisible()) await show.click()
+    if (width < 1024) {
+      await expect(show).toBeVisible()
+      await show.click()
+    } else if (await show.isVisible()) await show.click()
     const project = page.locator(`[data-workspace-id="${ready.workspace.id}"]`)
-    const toggle = project
-    if ((await toggle.getAttribute('aria-expanded')) === 'false') {
-      try {
-        await project.locator('xpath=self::*[@aria-expanded="false"]').click({ timeout: 1500 })
-      } catch (error) {
-        if ((await toggle.getAttribute('aria-expanded')) !== 'true') throw error
-      }
-    }
-    await expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    await project.getByRole('treeitem', { name: ready.firstSession.title, exact: true }).click()
+    await expect(project).toBeVisible()
+    await project.focus()
+    if ((await project.getAttribute('aria-expanded')) === 'false') await project.press('ArrowRight')
+    await expect(project).toHaveAttribute('aria-expanded', 'true')
+    const session = project.getByRole('treeitem', { name: ready.firstSession.title, exact: true })
+    await expect(session).toBeVisible()
+    await session.focus()
+    await session.press('Enter')
+    await expect(session).toHaveAttribute('aria-selected', 'true')
     const hide = page.getByRole('button', { name: f.copy.shell.hideSidebar, exact: true })
-    if (await hide.isVisible()) {
-      try {
-        await hide.click({ timeout: 1500 })
-      } catch (error) {
-        if (await hide.isVisible()) throw error
-      }
-    }
+    if ((await page.locator('[data-hbar-sidebar-expanded]').getAttribute('data-hbar-sidebar-expanded')) === 'true')
+      await hide.click()
     await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
     await expect(composer(f)).toBeVisible()
     return f
@@ -364,7 +362,7 @@ async function seedDraft(f: Fixture): Promise<string> {
 }
 
 async function openDirtyFiles(f: Fixture) {
-  await f.page.getByRole('button', { name: f.copy.session.tools.files, exact: true }).click()
+  await openSessionTool(f.page, f.copy.session.tools, 'files')
   await files(f).getByRole('button', { name: fileName, exact: true }).click()
   await files(f).getByRole('button', { name: f.copy.files.edit, exact: true }).click()
   const editor = files(f).getByRole('textbox', { name: fileName, exact: true })

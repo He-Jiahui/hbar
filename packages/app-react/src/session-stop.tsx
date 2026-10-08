@@ -9,7 +9,7 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react'
-import { LumenButton, LumenFrame, LumenText, type LumenToolPresentation } from '@lumen/app-ui'
+import { LumenButton, LumenContentText, LumenFrame, type LumenToolPresentation } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { canFocusWorkspaceElement } from './workspace-tool-focus'
 import {
@@ -223,6 +223,15 @@ export function HbarSessionStopProvider({
         ? labels.failure(feedback.error ?? 'EXECUTION_FAILED')
         : labels[feedback.kind]
     : null
+  const actionLabel = !feedback
+    ? undefined
+    : terminal
+      ? labels.dismiss
+      : feedback.kind === 'failed'
+        ? labels.retry
+        : feedback.kind === 'checking'
+          ? labels.checking
+          : labels.check
   const notice =
     target && feedback ? (
       <LumenFrame
@@ -232,14 +241,19 @@ export function HbarSessionStopProvider({
         data-stop-state={feedback.kind}
       >
         <LumenFrame className="hbar-app-react-session-stop-message" role="status" aria-live="polite" aria-atomic="true">
-          <LumenText as="p">{text}</LumenText>
+          <LumenContentText context="feedback.paragraph">{text}</LumenContentText>
           {feedback.error && feedback.error !== 'RESULT_UNKNOWN' && feedback.kind !== 'failed' && !terminal && (
-            <LumenText as="small">{labels.failure(feedback.error)}</LumenText>
+            <LumenContentText context="feedback.detail">{labels.failure(feedback.error)}</LumenContentText>
           )}
-          {!connected && !terminal && <LumenText as="small">{labels.offline}</LumenText>}
+          {!connected && !terminal && <LumenContentText context="feedback.detail">{labels.offline}</LumenContentText>}
         </LumenFrame>
-        <LumenFrame className="hbar-app-react-session-stop-actions">
-          {feedback.kind !== 'sending' && (
+        {feedback.kind !== 'sending' && (
+          <LumenFrame
+            className="hbar-app-react-session-stop-actions"
+            role="group"
+            aria-label={actionLabel}
+            tabIndex={0}
+          >
             <LumenButton
               size="s"
               variant="text"
@@ -261,16 +275,10 @@ export function HbarSessionStopProvider({
                 else check()
               }}
             >
-              {terminal
-                ? labels.dismiss
-                : feedback.kind === 'failed'
-                  ? labels.retry
-                  : feedback.kind === 'checking'
-                    ? labels.checking
-                    : labels.check}
+              {actionLabel}
             </LumenButton>
-          )}
-        </LumenFrame>
+          </LumenFrame>
+        )}
       </LumenFrame>
     ) : null
   const region = toolPresentation !== 'none' && sessionStopToolMatches(snapshot) ? 'tool' : 'main'
