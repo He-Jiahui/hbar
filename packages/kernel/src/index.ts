@@ -1834,7 +1834,15 @@ export class Kernel {
         observedAt: Date.now(),
       }
     const model = await this.plugins.get<ModelRegistry>('models').get(modelId)
-    const request = await this.buildRequest(sessionId, model, active?.context.hooks ?? this.hooks, active?.run)
+    const request = await this.buildRequest(
+      sessionId,
+      model,
+      active?.context.hooks ?? this.hooks,
+      active?.run,
+      undefined,
+      undefined,
+      'context-inspection',
+    )
     return describeContextUsage(sessionId, request, percent)
   }
 
@@ -1845,6 +1853,7 @@ export class Kernel {
     run?: Run,
     workspaceOverride?: Workspace,
     steering?: RunSteeringContext,
+    purpose: 'execution' | 'context-inspection' = 'execution',
   ): Promise<ModelRequest> {
     const context = await this.storage.call('context', sessionId)
     const session = await this.storage.call('session', sessionId)
@@ -1855,6 +1864,7 @@ export class Kernel {
       model,
       context: {
         sessionId,
+        purpose,
         thinking: normalizeThinkingLevel(model, run?.input.thinking),
         ...(run ? { runId: run.id } : {}),
         ...(run ? { mode: this.plugins.get<ModeService>('mode').effectiveMode(run) } : {}),

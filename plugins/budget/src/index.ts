@@ -378,7 +378,7 @@ export class BudgetRuntime {
       throw new HbarError('RESULT_UNKNOWN', 'Budget state requires Host recovery')
     const budget = sessionId ? this.budgets.get(sessionId) : undefined
     if (!budget) return request
-    if (budget.phase === 'exhausted')
+    if (budget.phase === 'exhausted' && request.context?.purpose !== 'context-inspection')
       throw new HbarError('BUDGET_EXHAUSTED', `Token budget exhausted (${budget.usedTokens}/${budget.limit})`)
     const prompt = [
       '<session_budget>',

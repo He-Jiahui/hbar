@@ -1287,8 +1287,13 @@ class GoalRuntime implements GoalService {
     const sessionId = request.context?.sessionId
     if (sessionId) this.assertKnown(sessionId)
     const goal = sessionId ? this.goals.get(sessionId) : undefined
-    if (sessionId && request.context?.runId) this.assertRunCurrent(sessionId, request.context.runId)
-    if (request.context?.mode !== 'plan' && goal?.status === 'budget_limited')
+    if (sessionId && request.context?.runId && request.context.purpose !== 'context-inspection')
+      this.assertRunCurrent(sessionId, request.context.runId)
+    if (
+      request.context?.mode !== 'plan' &&
+      request.context?.purpose !== 'context-inspection' &&
+      goal?.status === 'budget_limited'
+    )
       throw new HbarError(
         'GOAL_BUDGET_EXHAUSTED',
         `Goal token budget exhausted (${goal.tokensUsed}/${goal.tokenBudget})`,

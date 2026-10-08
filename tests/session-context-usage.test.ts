@@ -3,7 +3,12 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Kernel, MemorySecrets, SettingsService } from '@hbar/kernel'
-import { createModelCommandClient, createSettingsCommandClient, HbarClient } from '@hbar/client'
+import {
+  createBudgetCommandClient,
+  createModelCommandClient,
+  createSettingsCommandClient,
+  HbarClient,
+} from '@hbar/client'
 import { providerSchema } from '@hbar/contracts'
 import { COMPACTION_PERCENT_SETTING, sessionContextUsageSchema } from '@hbar/contracts/commands/models'
 import { encodePath } from '@hbar/schema-core'
@@ -26,6 +31,7 @@ async function fixture() {
     secrets: new MemorySecrets(),
   })
   const service = new SettingsService(kernel.storage)
+  await kernel.changePlugin('budget.codex', true, { autoContinue: false })
   await kernel.saveProvider({
     id: 'context-fixture',
     name: 'Context fixture',
@@ -57,6 +63,66 @@ async function fixture() {
     settings: createSettingsCommandClient(client),
   }
 }
+
+test('exhausted execution budgets keep context inspectable while further model execution stays guarded', async () => {
+  const { kernel, session, models, client } = await fixture()
+  const configuration = await models.execute('session.getModel', { sessionId: session.id })
+  await models.execute(
+    'session.setModel',
+    { sessionId: session.id, modelId: 'context-fixture', baselineRevisions: configuration.revisions },
+    writeOptions(),
+  )
+  await createBudgetCommandClient(client).execute(
+    'session.setBudget',
+    { sessionId: session.id, tokens: 1 },
+    writeOptions(),
+  )
+  await kernel.submit(session.id, 'spend-budget', { text: 'hello', images: [] }, 'context-fixture')
+  await kernel.waitForIdle()
+  expect(await createBudgetCommandClient(client).execute('session.getBudget', { sessionId: session.id })).toMatchObject(
+    { phase: 'exhausted' },
+  )
+  expect(await models.execute('session.getContextUsage', { sessionId: session.id })).toMatchObject({
+    status: 'available',
+    modelId: 'context-fixture',
+  })
+  const guarded = await kernel
+    .submit(session.id, 'exhausted-budget', { text: 'Do not execute', images: [] }, 'context-fixture')
+    .then(
+      () => null,
+      (error: unknown) => error,
+    )
+  expect(guarded).toMatchObject({ code: 'BUDGET_EXHAUSTED' })
+  expect((await models.execute('session.getContextUsage', { sessionId: session.id })).inputTokens).toBeGreaterThan(0)
+})
+
+test('goal budget exhaustion also permits context inspection without permitting another execution', async () => {
+  const { kernel, session, models, client } = await fixture()
+  await client.call('goal.create', { sessionId: session.id, objective: 'Fixture goal', tokenBudget: 1 })
+  const configuration = await models.execute('session.getModel', { sessionId: session.id })
+  await models.execute(
+    'session.setModel',
+    { sessionId: session.id, modelId: 'context-fixture', baselineRevisions: configuration.revisions },
+    writeOptions(),
+  )
+  await kernel.submit(session.id, 'spend-goal-budget', { text: 'hello', images: [] }, 'context-fixture')
+  await kernel.waitForIdle()
+  expect(await client.call('goal.get', { sessionId: session.id })).toMatchObject({ goal: { status: 'budget_limited' } })
+  expect(await models.execute('session.getContextUsage', { sessionId: session.id })).toMatchObject({
+    status: 'available',
+  })
+  const guarded = await kernel.submit(
+    session.id,
+    'exhausted-goal',
+    { text: 'Do not execute', images: [] },
+    'context-fixture',
+  )
+  await kernel.waitForIdle()
+  expect((await kernel.snapshot(session.id)).runs.find((run) => run.id === guarded.id)).toMatchObject({
+    status: 'failed',
+    failure: { code: 'GOAL_BUDGET_EXHAUSTED', category: 'budget' },
+  })
+})
 
 test('context policy is inclusive at the configured threshold and reserves output capacity', () => {
   const request = {

@@ -226,6 +226,8 @@ export interface ModelRequest {
   toolNames?: readonly string[]
   context?: {
     sessionId: string
+    /** Context inspection decorates a read-only projection without admitting a model execution. */
+    purpose?: 'execution' | 'context-inspection'
     runId?: string | undefined
     mode?: RunMode | undefined
     /** Pinned Run effort, including internal compaction requests. Omission uses the model default. */
