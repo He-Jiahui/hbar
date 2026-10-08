@@ -35,7 +35,13 @@ async function start(browser: Browser, locale: ShellLocale, width = 1440): Promi
   const context = await browser.newContext({ locale, viewport: { width, height: 960 } })
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, port, sessionCount: 2, goalAutoContinue: false })
+    host = await startWebSessionHost({
+      root,
+      port,
+      sessionCount: 2,
+      goalAutoContinue: false,
+      budgetAutoContinue: false,
+    })
     expect((await context.request.post(`${origin}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
     const page = await context.newPage()
     page.setDefaultTimeout(15_000)
@@ -490,7 +496,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     }
   })
 
-  test(`tool navigation and native close dialog resize preserve the original approval and Stop: ${locale}`, async ({
+  test(`tool navigation and session close dialog resize preserve the original approval and Stop: ${locale}`, async ({
     browser,
   }) => {
     test.setTimeout(120_000)
@@ -546,7 +552,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect((await runs.execute('operation.get', { operationId: accepted.operationId })).status).toBe(
         'waiting_approval',
       )
-      // Reopen at split width, then verify native modal Escape at page width
+      // Reopen at split width, then verify modal Escape at page width
       // consumes only its own dismissal, not the underlying tool.
       await page.setViewportSize({ width: 1440, height: 960 })
       await page.getByRole('button', { name: tabs.tabs.close(host.ready.sessionTitle), exact: true }).click()
@@ -562,7 +568,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(close).toBeVisible()
       await page.setViewportSize({ width: 320, height: 960 })
       await expect(close.getByRole('button', { name: tabs.close.cancel, exact: true }).last()).toBeVisible()
-      await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', 'true')
+      await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
       await noOverflow(page)
       await page.screenshot({ path: `${evidence}/active-close-sidebar-${locale}-320.png` })
       await close.getByRole('button', { name: tabs.close.cancel, exact: true }).last().click()
@@ -586,22 +592,16 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
               frame: node('.lumen-app-frame'),
               sidebar: node('.lumen-app-sidebar-drawer'),
               tool: node('.lumen-app-tool-drawer'),
-              modalOpen: document.querySelector('dialog:modal') !== null,
+              modalOpen: document.querySelector('dialog:modal, [role="dialog"][aria-modal="true"]') !== null,
             }
           }),
           null,
           2,
         ),
       )
-      await expect
-        .poll(() =>
-          page.evaluate(() => {
-            const element = document.activeElement
-            const rect = element?.getBoundingClientRect()
-            return Boolean(element?.closest('.lumen-app-sidebar-drawer') && rect && rect.width > 0 && rect.height > 0)
-          }),
-        )
-        .toBe(true)
+      await expect.poll(() => focusInTool(page)).toBe(true)
+      await sidebar(page, copy, true)
+      await expect(page.getByRole('button', { name: copy.shell.hideSidebar, exact: true })).toBeVisible()
       await sidebar(page, copy, false)
       await expect(page.locator('.lumen-app-tool-drawer')).toBeVisible()
       await expect(page.getByRole('button', { name: copy.shell.showSidebar, exact: true })).toBeFocused()

@@ -41646,7 +41646,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenAppSidebar06::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1144,
+      "line": 1138,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenAppSidebar06",
@@ -41665,7 +41665,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceSidebarRail::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1147,
+      "line": 1141,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceSidebarRail",
@@ -41696,7 +41696,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::NavigationActionFeedback::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1196,
+      "line": 1190,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "NavigationActionFeedback",
@@ -41715,7 +41715,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1205,
+      "line": 1199,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -41734,7 +41734,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1214,
+      "line": 1208,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -41753,7 +41753,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenAppSidebar::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1215,
+      "line": 1209,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenAppSidebar",
@@ -41776,7 +41776,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::2",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1223,
+      "line": 1217,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -41795,7 +41795,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::HbarActionIconButton::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1224,
+      "line": 1218,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "HbarActionIconButton",
@@ -41816,7 +41816,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenIcon::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1231,
+      "line": 1225,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenIcon",
@@ -41835,7 +41835,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::HbarActionIconButton::2",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1233,
+      "line": 1227,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "HbarActionIconButton",
@@ -41854,7 +41854,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceShellIcon::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1238,
+      "line": 1232,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceShellIcon",
@@ -41873,7 +41873,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::3",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1243,
+      "line": 1237,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -41895,7 +41895,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceSidebarAction::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1244,
+      "line": 1238,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceSidebarAction",
@@ -41916,7 +41916,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::2",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1258,
+      "line": 1252,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -41935,7 +41935,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceSidebarAction::2",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1266,
+      "line": 1260,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceSidebarAction",
@@ -41954,7 +41954,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceSidebarAction::3",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1273,
+      "line": 1267,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceSidebarAction",
@@ -41978,7 +41978,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::3",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1289,
+      "line": 1283,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -41997,7 +41997,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::4",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1300,
+      "line": 1294,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -42016,7 +42016,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceHeaderSortMenu::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1301,
+      "line": 1295,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceHeaderSortMenu",
@@ -42039,7 +42039,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::HbarActionIconButton::3",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1329,
+      "line": 1323,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "HbarActionIconButton",
@@ -42058,7 +42058,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceShellIcon::2",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1334,
+      "line": 1328,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceShellIcon",
@@ -42077,7 +42077,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::5",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1339,
+      "line": 1333,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -42100,7 +42100,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceSidebarAction::4",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1343,
+      "line": 1337,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceSidebarAction",
@@ -42119,7 +42119,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceSidebarAction::5",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1345,
+      "line": 1339,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceSidebarAction",
@@ -42138,7 +42138,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceSidebarAction::6",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1351,
+      "line": 1345,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceSidebarAction",
@@ -42157,7 +42157,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::6",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1362,
+      "line": 1356,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -42179,7 +42179,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceSidebarAction::7",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1363,
+      "line": 1357,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceSidebarAction",
@@ -42198,7 +42198,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::NavigationActionFeedback::2",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1372,
+      "line": 1366,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "NavigationActionFeedback",
@@ -42217,7 +42217,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::7",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1380,
+      "line": 1374,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -42236,7 +42236,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::SidebarSearchEntry::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1381,
+      "line": 1375,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "SidebarSearchEntry",
@@ -42255,7 +42255,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::HbarActionIconButton::4",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1387,
+      "line": 1381,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "HbarActionIconButton",
@@ -42274,7 +42274,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceShellIcon::3",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1394,
+      "line": 1388,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceShellIcon",
@@ -42293,7 +42293,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::HbarActionIconButton::5",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1396,
+      "line": 1390,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "HbarActionIconButton",
@@ -42316,7 +42316,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceShellIcon::4",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1410,
+      "line": 1404,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceShellIcon",
@@ -42335,7 +42335,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::SessionArchiveBatchPanel::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1413,
+      "line": 1407,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "SessionArchiveBatchPanel",
@@ -42360,7 +42360,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::4",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1428,
+      "line": 1422,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -42379,7 +42379,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::8",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1438,
+      "line": 1432,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -42398,23 +42398,23 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenTree::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1442,
+      "line": 1436,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenTree",
       "category": "collection",
       "context": null,
       "contentSources": [
-        "[source:1466; BinaryExpression] agentTree.revealError",
+        "[source:1460; BinaryExpression] agentTree.revealError",
         "workspacePins.status === 'error' && (\n            <LumenFrame className=\"hbar-app-react-pin-feedback\" role=\"alert\">\n              <LumenContentText context=\"feedback.paragraph\">\n                {props.labels.pinRestoreFailure(workspacePins.error ?? 'UNKNOWN')}\n              </LumenContentText>\n              <LumenButton size=\"s\" variant=\"outlined\" onClick={retryWorkspacePins}>\n                {props.labels.pinRetryRestore}\n              </LumenButton>\n            </LumenFrame>\n          )",
         "!timeView && workspaceActivity.workspaces.error && (\n            <LumenFrame className=\"hbar-app-react-organization-feedback\" role=\"alert\">\n              <LumenContentText context=\"feedback.paragraph\">\n                {props.labels.error(workspaceActivity.workspaces.error)}\n              </LumenContentText>\n              <LumenButton size=\"s\" variant=\"outlined\" disabled={!connected} onClick={refreshSidebar}>\n                {props.labels.sort.refresh}\n              </LumenButton>\n            </LumenFrame>\n          )",
         "workspaceActivity.preferenceError && (\n            <LumenFrame className=\"hbar-app-react-organization-feedback\" role=\"alert\">\n              <LumenContentText context=\"feedback.paragraph\">\n                {props.labels.error(workspaceActivity.preferenceError)}\n              </LumenContentText>\n              <LumenButton size=\"s\" variant=\"outlined\" disabled={!connected} onClick={refreshSidebar}>\n                {props.labels.sort.refresh}\n              </LumenButton>\n            </LumenFrame>\n          )",
         "workspaceActivity.organizationPreferenceError && (\n            <LumenFrame className=\"hbar-app-react-organization-feedback\" role=\"alert\">\n              <LumenContentText context=\"feedback.paragraph\">\n                {props.labels.error(workspaceActivity.organizationPreferenceError)}\n              </LumenContentText>\n              <LumenButton size=\"s\" variant=\"outlined\" disabled={!connected} onClick={refreshSidebar}>\n                {props.labels.sort.refresh}\n              </LumenButton>\n            </LumenFrame>\n          )",
-        "[source:1526; BinaryExpression] timeView",
+        "[source:1520; BinaryExpression] timeView",
         "!timeView &&\n            !organizationInitializing &&\n            sidebarWorkspaces.length === 0 &&\n            !workspaceActivity.workspaces.error && (\n              <LumenContentText context=\"empty.description\">\n                {workspaceActivity.workspaces.status !== 'ready'\n                  ? props.labels.loading\n                  : hiddenWorkspaceIds.length\n                    ? props.labels.organization.allHidden\n                    : props.labels.noWorkspaces}\n              </LumenContentText>\n            )",
-        "[source:1640; BinaryExpression] timeView, sidebarWorkspaces.map, workspace, displayName, workspaceDisplayName, displayNames.snapshot, isExpanded, expanded.has, workspace.id, isPinned, workspacePins.ids.includes, workspacePins.ids, partition, sidebarWorkspaces.filter, item, item.id, projectIndex, partition.findIndex, previousProject, nextProject, sessions, sessionsByWorkspace.get, activitySessions, workspaceActivity.sessions",
+        "[source:1634; BinaryExpression] timeView, sidebarWorkspaces.map, workspace, displayName, workspaceDisplayName, displayNames.snapshot, isExpanded, expanded.has, workspace.id, isPinned, workspacePins.ids.includes, workspacePins.ids, partition, sidebarWorkspaces.filter, item, item.id, projectIndex, partition.findIndex, previousProject, nextProject, sessions, sessionsByWorkspace.get, activitySessions, workspaceActivity.sessions",
         "!timeView && workspaceActivity.workspaces.limitReached && (\n            <LumenContentText context=\"feedback.paragraph\" role=\"status\">\n              {props.labels.sort.capacityReached}\n            </LumenContentText>\n          )",
-        "[source:1919; BinaryExpression] timeView, workspaceActivity.workspaces.hasMore, workspaceActivity.workspaces",
+        "[source:1913; BinaryExpression] timeView, workspaceActivity.workspaces.hasMore, workspaceActivity.workspaces",
         "label=timeView ? props.labels.sort.time.title : props.labels.projectsAndSessions"
       ],
       "accessibleNameSources": ["label=timeView ? props.labels.sort.time.title : props.labels.projectsAndSessions"],
@@ -42429,7 +42429,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceDisplayNameFeedback::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1450,
+      "line": 1444,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceDisplayNameFeedback",
@@ -42452,7 +42452,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceOrganizationFeedback::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1458,
+      "line": 1452,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceOrganizationFeedback",
@@ -42471,7 +42471,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::9",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1467,
+      "line": 1461,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -42492,7 +42492,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::5",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1468,
+      "line": 1462,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -42511,7 +42511,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenButton::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1472,
+      "line": 1466,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenButton",
@@ -42532,7 +42532,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::10",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1487,
+      "line": 1481,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -42551,7 +42551,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::6",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1488,
+      "line": 1482,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -42570,7 +42570,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenButton::2",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1491,
+      "line": 1485,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenButton",
@@ -42589,7 +42589,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::11",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1497,
+      "line": 1491,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -42608,7 +42608,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::7",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1498,
+      "line": 1492,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -42627,7 +42627,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenButton::3",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1501,
+      "line": 1495,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenButton",
@@ -42646,7 +42646,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::12",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1507,
+      "line": 1501,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -42665,7 +42665,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::8",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1508,
+      "line": 1502,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -42684,7 +42684,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenButton::4",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1511,
+      "line": 1505,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenButton",
@@ -42703,7 +42703,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::13",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1517,
+      "line": 1511,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -42722,7 +42722,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::9",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1518,
+      "line": 1512,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -42741,7 +42741,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenButton::5",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1521,
+      "line": 1515,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenButton",
@@ -42760,7 +42760,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::10",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1529,
+      "line": 1523,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -42781,7 +42781,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::SidebarTimeView::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1533,
+      "line": 1527,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "SidebarTimeView",
@@ -42794,7 +42794,7 @@
       },
       "targetSources": [
         "projectForSession=(sessionId): SidebarTimeProject | null => {\n                  const item = timelineById.get(sessionId)\n                  const workspace = item ? directory.workspaces[item.workspaceId] : undefined\n                  return workspace\n                    ? {\n                        id: workspace.id,\n                        label: workspaceDisplayName(workspace, displayNames.snapshot),\n                      }\n                    : null\n                }",
-        "renderSession=[source:1563; ArrowFunction] sessionId, item, timelineById.get, session, directory.sessions"
+        "renderSession=[source:1557; ArrowFunction] sessionId, item, timelineById.get, session, directory.sessions"
       ],
       "stateSources": [],
       "flow": "owning flow layout",
@@ -42805,7 +42805,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::14",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1556,
+      "line": 1550,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -42824,7 +42824,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceShellIcon::5",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1557,
+      "line": 1551,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceShellIcon",
@@ -42843,7 +42843,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::11",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1558,
+      "line": 1552,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -42862,7 +42862,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::SessionAgentBranch::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1568,
+      "line": 1562,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "SessionAgentBranch",
@@ -42885,7 +42885,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::15",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1596,
+      "line": 1590,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -42904,7 +42904,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::12",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1597,
+      "line": 1591,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -42923,7 +42923,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenButton::6",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1600,
+      "line": 1594,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenButton",
@@ -42942,7 +42942,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::13",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1606,
+      "line": 1600,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -42961,7 +42961,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenButton::7",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1611,
+      "line": 1605,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenButton",
@@ -42984,7 +42984,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::14",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1632,
+      "line": 1626,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -43005,16 +43005,16 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenTreeItem::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1652,
+      "line": 1646,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenTreeItem",
       "category": "collection",
       "context": null,
       "contentSources": [
-        "[source:1832; BinaryExpression] isExpanded",
+        "[source:1826; BinaryExpression] isExpanded",
         "label=displayName",
-        "content=[source:1672; JsxElement] "
+        "content=[source:1666; JsxElement] "
       ],
       "accessibleNameSources": ["label=displayName"],
       "actionBindings": {
@@ -43035,7 +43035,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::16",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1672,
+      "line": 1666,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -43054,7 +43054,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::17",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1673,
+      "line": 1667,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -43076,7 +43076,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceShellIcon::6",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1674,
+      "line": 1668,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceShellIcon",
@@ -43095,7 +43095,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::SidebarTitle::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1675,
+      "line": 1669,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "SidebarTitle",
@@ -43114,7 +43114,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::18",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1677,
+      "line": 1671,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -43133,7 +43133,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceShellIcon::7",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1682,
+      "line": 1676,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceShellIcon",
@@ -43152,7 +43152,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceProjectMenu::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1686,
+      "line": 1680,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceProjectMenu",
@@ -43160,12 +43160,12 @@
       "context": null,
       "contentSources": [
         "label=props.labels.workspaceActions(displayName)",
-        "items=[source:1692; ArrayLiteralExpression] id, label, props.labels.displayNames.title, props.labels.displayNames, props.labels, disabled, displayNames.status, displayNameBusy, displayNames.editor?.workspaceId, displayNames.editor, workspace.id, props.labels.workspaceFiles, props.labels.workspaceFolders.manage, props.labels.workspaceFolders, connected, props.labels.workspaceSettings, isPinned, props.labels.unpinWorkspace, props.labels.pinWorkspace, pinBusy, workspacePins.status, manualProjectView, props.labels.sort.reorder.moveUp, props.labels.sort.reorder, props.labels.sort, projectReorderEnabled, previousProject, props.labels.sort.reorder.moveDown, nextProject, props.labels.archive.openList, props.labels.archive, displayName, props.labels.roster.refreshWorkspace, props.labels.roster, rosterRefresh.entries[workspace.id]?.status, rosterRefresh.entries, props.labels.organization.hide, props.labels.organization, organizationCanWrite"
+        "items=[source:1686; ArrayLiteralExpression] id, label, props.labels.displayNames.title, props.labels.displayNames, props.labels, disabled, displayNames.status, displayNameBusy, displayNames.editor?.workspaceId, displayNames.editor, workspace.id, props.labels.workspaceFiles, props.labels.workspaceFolders.manage, props.labels.workspaceFolders, connected, props.labels.workspaceSettings, isPinned, props.labels.unpinWorkspace, props.labels.pinWorkspace, pinBusy, workspacePins.status, manualProjectView, props.labels.sort.reorder.moveUp, props.labels.sort.reorder, props.labels.sort, projectReorderEnabled, previousProject, props.labels.sort.reorder.moveDown, nextProject, props.labels.archive.openList, props.labels.archive, displayName, props.labels.roster.refreshWorkspace, props.labels.roster, rosterRefresh.entries[workspace.id]?.status, rosterRefresh.entries, props.labels.organization.hide, props.labels.organization, organizationCanWrite"
       ],
       "accessibleNameSources": ["label=props.labels.workspaceActions(displayName)"],
       "actionBindings": {
         "onRootChange": "(node) => {\n                          if (node) projectMenuRoots.current.set(workspace.id, node)\n                          else projectMenuRoots.current.delete(workspace.id)\n                        }",
-        "onAction": "[source:1738; ArrowFunction] action, editWorkspace, workspaceId, workspace.id, openFolders, openWorkspaceSurface, toggleWorkspacePin, previousProject, moveProject, previousProject.id, sidebarOrder, nextProject, nextProject.id, refreshProjectSessions, hideWorkspace, execute('archivedSessions.open', { workspaceId: workspace.id }).catch, execute, recordError"
+        "onAction": "[source:1732; ArrowFunction] action, editWorkspace, workspaceId, workspace.id, openFolders, openWorkspaceSurface, toggleWorkspacePin, previousProject, moveProject, previousProject.id, sidebarOrder, nextProject, nextProject.id, refreshProjectSessions, hideWorkspace, execute('archivedSessions.open', { workspaceId: workspace.id }).catch, execute, recordError"
       },
       "targetSources": [],
       "stateSources": [],
@@ -43177,7 +43177,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::HbarActionIconButton::6",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1754,
+      "line": 1748,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "HbarActionIconButton",
@@ -43199,7 +43199,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceShellIcon::8",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1761,
+      "line": 1755,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceShellIcon",
@@ -43218,7 +43218,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::SessionRosterFeedback::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1768,
+      "line": 1762,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "SessionRosterFeedback",
@@ -43237,7 +43237,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::NavigationActionFeedback::3",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1775,
+      "line": 1769,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "NavigationActionFeedback",
@@ -43256,7 +43256,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::15",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1783,
+      "line": 1777,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -43275,7 +43275,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::19",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1788,
+      "line": 1782,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -43296,14 +43296,14 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::16",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1798,
+      "line": 1792,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
       "category": "text",
       "context": "feedback.paragraph",
       "contentSources": [
-        "[source:1799; ConditionalExpression] workspacePins.action.status, workspacePins.action, props.labels.pinningWorkspace, props.labels, props.labels.pinUnknown, props.labels.pinFailure, workspacePins.action.error, workspacePins.action.persisted, isPinned, props.labels.pinSaved, props.labels.pinRemoved, props.labels.pinVolatile"
+        "[source:1793; ConditionalExpression] workspacePins.action.status, workspacePins.action, props.labels.pinningWorkspace, props.labels, props.labels.pinUnknown, props.labels.pinFailure, workspacePins.action.error, workspacePins.action.persisted, isPinned, props.labels.pinSaved, props.labels.pinRemoved, props.labels.pinVolatile"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -43317,7 +43317,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenButton::8",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1812,
+      "line": 1806,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenButton",
@@ -43336,7 +43336,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::ArchivedSessions::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1818,
+      "line": 1812,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "ArchivedSessions",
@@ -43359,17 +43359,17 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::20",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1833,
+      "line": 1827,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "[source:1834; ConditionalExpression] activitySessions, activitySessions.status, sessions.length, activitySessions?.error, sessions.map, session, execution, activitySessions?.execution, session.id",
-        "[source:1875; BinaryExpression] activitySessions?.error",
+        "[source:1828; ConditionalExpression] activitySessions, activitySessions.status, sessions.length, activitySessions?.error, sessions.map, session, execution, activitySessions?.execution, session.id",
+        "[source:1869; BinaryExpression] activitySessions?.error",
         "activitySessions?.limitReached && (\n                        <LumenContentText context=\"feedback.paragraph\" role=\"status\">\n                          {props.labels.sort.sessionCapacityReached}\n                        </LumenContentText>\n                      )",
-        "[source:1895; BinaryExpression] activitySessions?.hasMore"
+        "[source:1889; BinaryExpression] activitySessions?.hasMore"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -43383,7 +43383,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::17",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1835,
+      "line": 1829,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -43402,7 +43402,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::18",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1837,
+      "line": 1831,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -43421,7 +43421,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::SessionAgentBranch::2",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1842,
+      "line": 1836,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "SessionAgentBranch",
@@ -43444,7 +43444,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::21",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1876,
+      "line": 1870,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -43463,7 +43463,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::19",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1877,
+      "line": 1871,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -43482,7 +43482,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenButton::9",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1880,
+      "line": 1874,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenButton",
@@ -43501,7 +43501,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::20",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1891,
+      "line": 1885,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -43520,7 +43520,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenButton::10",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1896,
+      "line": 1890,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenButton",
@@ -43539,7 +43539,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::21",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1915,
+      "line": 1909,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -43558,7 +43558,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenButton::11",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1920,
+      "line": 1914,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenButton",
@@ -43581,7 +43581,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::SessionRenameRecovery::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1940,
+      "line": 1934,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "SessionRenameRecovery",
@@ -43600,7 +43600,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::SessionArchiveRecovery::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1941,
+      "line": 1935,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "SessionArchiveRecovery",
@@ -43619,7 +43619,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::22",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1947,
+      "line": 1941,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -43638,7 +43638,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::22",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1955,
+      "line": 1949,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -43657,7 +43657,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::HbarActionIconButton::7",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1960,
+      "line": 1954,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "HbarActionIconButton",
@@ -43676,7 +43676,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceShellIcon::9",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1965,
+      "line": 1959,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceShellIcon",
@@ -43695,7 +43695,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::23",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1967,
+      "line": 1961,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -43714,7 +43714,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::24",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1970,
+      "line": 1964,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -43733,7 +43733,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::HbarMobileHeaderMenu::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1977,
+      "line": 1971,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "HbarMobileHeaderMenu",
@@ -43752,7 +43752,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::23",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1983,
+      "line": 1977,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -43771,7 +43771,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenNavbar01::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1984,
+      "line": 1978,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenNavbar01",
@@ -43790,7 +43790,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::HbarActionIconButton::8",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1987,
+      "line": 1981,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "HbarActionIconButton",
@@ -43809,7 +43809,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceShellIcon::10",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 1992,
+      "line": 1986,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceShellIcon",
@@ -43828,7 +43828,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenAppShell04::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2001,
+      "line": 1995,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenAppShell04",
@@ -43847,7 +43847,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenAppShell04::2",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2003,
+      "line": 1997,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenAppShell04",
@@ -43866,7 +43866,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::24",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2007,
+      "line": 2001,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -43888,7 +43888,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::HbarSessionStopNotice::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2009,
+      "line": 2003,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "HbarSessionStopNotice",
@@ -43907,7 +43907,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::25",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2011,
+      "line": 2005,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -43926,7 +43926,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceDisplayNameDialog::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2025,
+      "line": 2019,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceDisplayNameDialog",
@@ -43953,7 +43953,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenDialog::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2043,
+      "line": 2037,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenDialog",
@@ -43977,7 +43977,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenButton::12",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2050,
+      "line": 2044,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenButton",
@@ -43996,7 +43996,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::26",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2055,
+      "line": 2049,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -44015,14 +44015,14 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::25",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2056,
+      "line": 2050,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "[source:2057; ConditionalExpression] workspaces.length, workspaces.map, workspace, index",
+        "[source:2051; ConditionalExpression] workspaces.length, workspaces.map, workspace, index",
         "workspaceCursor && (\n              <LumenButton\n                variant=\"text\"\n                disabled={!connected || loading.has('workspaces') || navigationBlocked}\n                onClick={() => void loadWorkspaces(workspaceCursor)}\n              >\n                {props.labels.loadMore}\n              </LumenButton>\n            )"
       ],
       "accessibleNameSources": [],
@@ -44037,7 +44037,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::27",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2058,
+      "line": 2052,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -44056,7 +44056,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::26",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2063,
+      "line": 2057,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -44075,7 +44075,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenButton::13",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2064,
+      "line": 2058,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenButton",
@@ -44098,7 +44098,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::WorkspaceShellIcon::11",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2081,
+      "line": 2075,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "WorkspaceShellIcon",
@@ -44117,7 +44117,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::27",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2082,
+      "line": 2076,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -44136,7 +44136,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::28",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2083,
+      "line": 2077,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -44155,7 +44155,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::29",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2086,
+      "line": 2080,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -44174,7 +44174,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::HbarActionIconButton::9",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2089,
+      "line": 2083,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "HbarActionIconButton",
@@ -44193,7 +44193,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenIcon::2",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2094,
+      "line": 2088,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenIcon",
@@ -44212,7 +44212,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenButton::14",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2100,
+      "line": 2094,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenButton",
@@ -44231,7 +44231,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::28",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2109,
+      "line": 2103,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -44250,7 +44250,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFormField::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2110,
+      "line": 2104,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFormField",
@@ -44269,7 +44269,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::29",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2115,
+      "line": 2109,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -44288,7 +44288,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenInput::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2116,
+      "line": 2110,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenInput",
@@ -44307,7 +44307,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenButton::15",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2124,
+      "line": 2118,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenButton",
@@ -44326,7 +44326,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenIcon::3",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2131,
+      "line": 2125,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenIcon",
@@ -44345,7 +44345,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenButton::16",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2136,
+      "line": 2130,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenButton",
@@ -44364,7 +44364,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::NavigationActionFeedback::4",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2140,
+      "line": 2134,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "NavigationActionFeedback",
@@ -44383,7 +44383,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenContentText::30",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2148,
+      "line": 2142,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -44402,7 +44402,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::HbarWorkspaceFoldersDialog::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2154,
+      "line": 2148,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "HbarWorkspaceFoldersDialog",
@@ -44421,7 +44421,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::30",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2158,
+      "line": 2152,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -44443,7 +44443,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::31",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2161,
+      "line": 2155,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -44462,7 +44462,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenAppShell09::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2166,
+      "line": 2160,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenAppShell09",
@@ -44492,7 +44492,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::32",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2198,
+      "line": 2192,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -44511,7 +44511,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::LumenFrame::33",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2209,
+      "line": 2203,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -44530,7 +44530,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::HbarMobileHeaderMenuProvider::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2230,
+      "line": 2224,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "HbarMobileHeaderMenuProvider",
@@ -44549,7 +44549,7 @@
     {
       "id": "packages/app-react/src/lumen-workspace-shell.tsx::HbarWorkspaceShell::HbarSessionStopProvider::1",
       "path": "packages/app-react/src/lumen-workspace-shell.tsx",
-      "line": 2231,
+      "line": 2225,
       "owner": "HbarWorkspaceShell",
       "surface": "workbench",
       "component": "HbarSessionStopProvider",

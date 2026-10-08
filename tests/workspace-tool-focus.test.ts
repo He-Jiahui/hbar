@@ -398,11 +398,11 @@ const escape: WorkspaceToolEscapeContext = {
   inOpenDetails: false,
 }
 
-test('narrow resize uses live sidebar state and preserves a native modal interaction', () => {
-  expect(shouldCollapseWorkspaceSidebar(true, true, false)).toBe(true)
-  expect(shouldCollapseWorkspaceSidebar(true, true, true)).toBe(false)
-  expect(shouldCollapseWorkspaceSidebar(true, false, false)).toBe(false)
-  expect(shouldCollapseWorkspaceSidebar(false, true, false)).toBe(false)
+test('narrow resize uses live sidebar state while modal focus remains independently owned', () => {
+  expect(shouldCollapseWorkspaceSidebar(true, true)).toBe(true)
+  expect(shouldCollapseWorkspaceSidebar(true, false)).toBe(false)
+  expect(shouldCollapseWorkspaceSidebar(false, true)).toBe(false)
+  expect(shouldCollapseWorkspaceSidebar(false, false)).toBe(false)
 })
 
 test('Escape yields to inner controls, IME, modifiers, native dialogs and popovers', () => {

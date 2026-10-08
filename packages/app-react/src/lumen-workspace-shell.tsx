@@ -665,13 +665,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     const narrow = window.matchMedia('(max-width: 63.9375rem)')
     const closeNarrowSidebar = (event: MediaQueryListEvent | MediaQueryList) => {
       setSidebarViewportNarrow(event.matches)
-      if (
-        shouldCollapseWorkspaceSidebar(
-          event.matches,
-          runtime.state.presentation.getSnapshot().sidebarOpen,
-          hasOpenModalSurface(document),
-        )
-      )
+      if (shouldCollapseWorkspaceSidebar(event.matches, runtime.state.presentation.getSnapshot().sidebarOpen))
         void execute('app.setSidebarVisible', { visible: false }).catch(recordError)
     }
     closeNarrowSidebar(narrow)

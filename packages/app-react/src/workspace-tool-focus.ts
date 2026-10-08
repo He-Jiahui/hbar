@@ -300,12 +300,10 @@ export function shouldDismissWorkspaceTool(context: WorkspaceToolEscapeContext):
   )
 }
 
-export function shouldCollapseWorkspaceSidebar(
-  narrow: boolean,
-  sidebarOpen: boolean,
-  nativeModalOpen: boolean,
-): boolean {
-  return narrow && sidebarOpen && !nativeModalOpen
+export function shouldCollapseWorkspaceSidebar(narrow: boolean, sidebarOpen: boolean): boolean {
+  // Responsive navigation changes visibility only. The modal keeps its own
+  // focus; preserving the sidebar would hide its return target on narrow screens.
+  return narrow && sidebarOpen
 }
 
 export function canFocusWorkspaceElement(element: HTMLElement): boolean {
