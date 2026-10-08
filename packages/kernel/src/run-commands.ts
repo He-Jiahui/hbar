@@ -333,7 +333,15 @@ export function createRunCommands(kernel: Kernel) {
       } catch (error) {
         if (
           error instanceof HbarError &&
-          ['NOTHING_TO_COMPACT', 'MODEL_NOT_FOUND', 'DEMO_DISABLED', 'BUSY'].includes(error.code)
+          [
+            'NOTHING_TO_COMPACT',
+            'MODEL_NOT_FOUND',
+            'DEMO_DISABLED',
+            'BUSY',
+            'COMPACTION_FAILED',
+            'COMPACTION_LIMIT',
+            'CONTEXT_WINDOW_EXCEEDED',
+          ].includes(error.code)
         )
           throw new CommandError(error.code, error.message)
         if (error instanceof CommandError) throw error

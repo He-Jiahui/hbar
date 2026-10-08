@@ -150,9 +150,10 @@ test('automatic compaction and subsequent inference retain Run max instead of th
     const snapshot = await kernel.snapshot(session.id)
     expect(snapshot.runs.find((item) => item.id === run.id)?.status).toBe('completed')
     expect(snapshot.runs.find((item) => item.id === run.id)?.input.thinking).toBe('max')
-    expect(fixture.requests).toHaveLength(2)
-    expect(JSON.stringify(fixture.requests[0])).toContain('Summarize the conversation')
-    expect(fixture.requests.map((request) => request.reasoning?.effort)).toEqual(['max', 'max'])
+    expect(fixture.requests.length).toBeGreaterThanOrEqual(2)
+    for (const request of fixture.requests.slice(0, -1))
+      expect(JSON.stringify(request)).toContain('Summarize the conversation')
+    expect(fixture.requests.every((request) => request.reasoning?.effort === 'max')).toBe(true)
     const events = await kernel.storage.call('events', session.id, 0)
     const compaction = events.find((event) => event.type === 'compaction.request' && event.runId === run.id)
     expect(

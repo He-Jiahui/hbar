@@ -17,6 +17,8 @@ export interface RunSteeringContext {
   readonly runId: string
   readonly initialUserMessageId: string
   readonly deliveries: readonly SteeringDelivery[]
+  /** Acknowledged guidance at/before this durable prefix is already summarized. */
+  readonly compactedThroughSeq?: number
 }
 
 interface DeliveryEntry {
@@ -101,6 +103,7 @@ function collectDeliveries(
     const message = canonicalById.get(delivery.message.id) ?? delivery.message
     if (
       seen.has(message.id) ||
+      message.seq <= (options.compactedThroughSeq ?? 0) ||
       (expectedSessionId !== undefined && message.sessionId !== expectedSessionId) ||
       message.runId !== options.runId ||
       message.role !== 'user' ||

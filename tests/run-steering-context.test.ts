@@ -140,3 +140,15 @@ test('reinserts a delivered guide when older context was compacted', () => {
   expect(result.map((item) => item.id)).toEqual(['initial', 'guide', 'answer'])
   expect(result.find((item) => item.id === guide.id)?.seq).toBe(guide.seq)
 })
+
+test('does not resurrect guidance already included in the durable compaction prefix', () => {
+  const guide = message('summarized-guide', 4, 'user', [text('Already summarized')])
+  const answer = message('retained-answer', 8, 'assistant', [text('Current answer')])
+  const result = buildSteeringContext([answer], {
+    runId,
+    initialUserMessageId: 'summarized-initial',
+    deliveries: [delivery(guide, 5)],
+    compactedThroughSeq: 7,
+  })
+  expect(result.map((item) => item.id)).toEqual(['retained-answer'])
+})

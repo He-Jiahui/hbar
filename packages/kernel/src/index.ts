@@ -10,6 +10,14 @@ import {
 } from '@hbar/contracts/commands/models'
 import { compactionInputThreshold, describeContextUsage, estimateContextTokens } from './context-usage'
 import {
+  assertContextCapacity,
+  compactionBoundary,
+  createSummaryRequest,
+  MAX_COMPACTION_CHUNKS,
+  nextSummaryChunk,
+  summaryDocument,
+} from './context-compaction'
+import {
   HbarError,
   approvalModeSchema,
   inputSchema,
@@ -349,6 +357,7 @@ interface ActiveRun {
   context: RuntimeScope
   idleTimeout: ReturnType<typeof createRunIdleTimeout>
   steeringReady?: boolean
+  steeringContext?: RunSteeringContext
 }
 type ApprovalResolution =
   | { source: 'approval'; status: 'allowed' | 'denied' | 'cancelled'; feedback?: string }
@@ -1537,6 +1546,8 @@ export class Kernel {
         const steeringContext: RunSteeringContext | undefined = supportsSteering
           ? { runId: run.id, initialUserMessageId: initialCommit.message.id, deliveries: steeringDeliveries }
           : undefined
+        const activeRun = this.active.get(sessionId)
+        if (activeRun && steeringContext) activeRun.steeringContext = steeringContext
         let steeringAfterSeq = initialCommit.message.seq
         const closeSteering = async () => {
           const active = this.active.get(sessionId)
@@ -1644,7 +1655,7 @@ export class Kernel {
                 controller.signal,
                 run.id,
                 workspaceForRun,
-                supportsSteering ? initialCommit.message.seq : undefined,
+                steeringContext,
                 run.input.thinking,
               )
               request = await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext)
@@ -1677,6 +1688,7 @@ export class Kernel {
               toolNames: advertised.tools.map((tool) => tool.name),
             }
             controller.signal.throwIfAborted()
+            assertContextCapacity(request)
             await this.append(
               sessionId,
               'request.started',
@@ -1840,7 +1852,7 @@ export class Kernel {
       active?.context.hooks ?? this.hooks,
       active?.run,
       undefined,
-      undefined,
+      active?.steeringContext,
       'context-inspection',
     )
     return describeContextUsage(sessionId, request, percent)
@@ -1858,9 +1870,26 @@ export class Kernel {
     const context = await this.storage.call('context', sessionId)
     const session = await this.storage.call('session', sessionId)
     const workspace = workspaceOverride ?? (await this.storage.call('workspace', session.workspaceId))
+    const messages = steering
+      ? buildSteeringContext(context.messages, { ...steering, compactedThroughSeq: context.throughSeq })
+      : context.messages
     return hooks.dispatch('context.build', {
       system: `You are hbar, a coding assistant. Work in ${workspace.path}. Use the available tools. Respect approval results. Report uncertainty and errors accurately.${this.workspaceSandboxes.instructions(workspace.path)}${context.summary ? `\n\nEarlier conversation summary:\n${context.summary}` : ''}`,
-      messages: steering ? buildSteeringContext(context.messages, steering) : context.messages,
+      messages:
+        context.summary && messages[0]?.role !== 'user'
+          ? [
+              {
+                id: `context-summary-${context.throughSeq}`,
+                sessionId,
+                runId: run?.id ?? '',
+                seq: context.throughSeq,
+                createdAt: 0,
+                role: 'user',
+                content: [{ type: 'text', text: 'Continue the task from the earlier conversation summary.' }],
+              },
+              ...messages,
+            ]
+          : messages,
       model,
       context: {
         sessionId,
@@ -2531,26 +2560,25 @@ export class Kernel {
     signal: AbortSignal,
     runId?: string,
     workspaceOverride?: Workspace,
-    protectedInitialSeq?: number,
+    steering?: RunSteeringContext,
     thinking?: ThinkingLevel,
   ) {
     const request = await this.buildRequest(sessionId, model, this.hooks, undefined, workspaceOverride)
     const retain = this.plugins.get<CompactionProvider>('compaction').retainMessages
-    let boundary = -1
-    for (let i = 1; i <= request.messages.length - retain; i++) {
-      const message = request.messages[i]
-      if (message?.role === 'user' && (protectedInitialSeq === undefined || message.seq <= protectedInitialSeq))
-        boundary = i
-    }
-    if (boundary < 1) {
+    const percent = await this.compactionPercent(sessionId)
+    const boundary = compactionBoundary(request, retain, percent, steering)
+    const storedContext = await this.storage.call('context', sessionId)
+    const summarizeExisting =
+      boundary === 0 &&
+      storedContext.summary &&
+      estimateContextTokens({ ...request, messages: [] }) >= compactionInputThreshold(request, percent)
+    if (boundary < 1 && !summarizeExisting) {
       if (!runId) throw new HbarError('NOTHING_TO_COMPACT', 'More completed conversation history is needed')
       return { summary: '' }
     }
     const older = request.messages.slice(0, boundary)
     const summarization: ModelRequest = {
-      ...request,
-      system: `Summarize the conversation faithfully. Preserve objectives, files, tool outcomes, constraints, and unresolved work. Do not execute tools.\n${request.system}`,
-      messages: older,
+      ...createSummaryRequest(request, older, percent),
       context: {
         ...request.context,
         sessionId,
@@ -2558,28 +2586,72 @@ export class Kernel {
         thinking: normalizeThinkingLevel(model, thinking),
       },
     }
-    const attemptId = crypto.randomUUID()
-    await this.append(
-      sessionId,
-      'compaction.request',
-      { ...describeUsageAttempt(attemptId, 'compaction', model), request: summarization },
-      runId,
-      attemptId,
-    )
-    const result = await this.plugins
-      .get<HarnessDriver>('driver')
-      .summarize(summarization, model.protocol === 'mock' ? null : await this.secrets.get(model.id), signal)
-    await this.append(
-      sessionId,
-      'usage.recorded',
-      createUsageFact({ usage: result.usage, runId, attemptId, source: 'compaction', model }),
-      runId,
-      attemptId,
-    )
-    signal.throwIfAborted()
-    if (!result.text.trim()) throw new HbarError('COMPACTION_FAILED', 'Provider returned an empty summary')
-    this.publishEvent(await this.storage.call('compact', sessionId, older.at(-1)!.seq, result.text, model.id))
-    return { summary: result.text }
+    const summarize = async (boundedRequest: ModelRequest) => {
+      signal.throwIfAborted()
+      assertContextCapacity(boundedRequest)
+      const attemptId = crypto.randomUUID()
+      await this.append(
+        sessionId,
+        'compaction.request',
+        { ...describeUsageAttempt(attemptId, 'compaction', boundedRequest.model), request: boundedRequest },
+        runId,
+        attemptId,
+      )
+      const result = await this.plugins
+        .get<HarnessDriver>('driver')
+        .summarize(boundedRequest, model.protocol === 'mock' ? null : await this.secrets.get(model.id), signal)
+      await this.append(
+        sessionId,
+        'usage.recorded',
+        createUsageFact({ usage: result.usage, runId, attemptId, source: 'compaction', model: boundedRequest.model }),
+        runId,
+        attemptId,
+      )
+      signal.throwIfAborted()
+      if (!result.text.trim()) throw new HbarError('COMPACTION_FAILED', 'Provider returned an empty summary')
+      return result.text
+    }
+    const document = summaryDocument(summarization)
+    let offset = 0
+    let summary = ''
+    for (let chunk = 0; offset < document.length; chunk++) {
+      if (chunk >= MAX_COMPACTION_CHUNKS)
+        throw new HbarError('COMPACTION_LIMIT', 'History exceeds the bounded compaction chunk limit')
+      const next = nextSummaryChunk(summarization, document, offset, summary)
+      summary = await summarize(next.request)
+      offset = next.nextOffset
+    }
+    const throughSeq = older.at(-1)?.seq ?? storedContext.throughSeq
+    const baseSystem = storedContext.summary
+      ? request.system.replace(`\n\nEarlier conversation summary:\n${storedContext.summary}`, '')
+      : request.system
+    const retained = request.messages.slice(boundary)
+    const rebuilt: ModelRequest = {
+      ...request,
+      system: `${baseSystem}\n\nEarlier conversation summary:\n${summary}`,
+      messages:
+        retained[0]?.role === 'user'
+          ? retained
+          : [
+              {
+                id: `context-summary-${throughSeq}`,
+                sessionId,
+                runId: runId ?? '',
+                seq: throughSeq,
+                createdAt: 0,
+                role: 'user',
+                content: [{ type: 'text', text: 'Continue the task from the earlier conversation summary.' }],
+              },
+              ...retained,
+            ],
+    }
+    if (estimateContextTokens(rebuilt) + model.maxOutput > model.contextWindow)
+      throw new HbarError(
+        'COMPACTION_FAILED',
+        'Generated summary and retained history exceed the model context capacity',
+      )
+    this.publishEvent(await this.storage.call('compact', sessionId, throughSeq, summary, model.id))
+    return { summary }
   }
   async upload(name: string, mime: string, bytes: Uint8Array): Promise<ArtifactRef> {
     const normalizedMime = (mime.trim().split(';', 1)[0] || 'application/octet-stream').toLowerCase()
