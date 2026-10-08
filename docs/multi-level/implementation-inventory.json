@@ -95,7 +95,14 @@
         "mode.get",
         "mode.set",
         "schema.content.cancel",
-        "schema.content.query"
+        "schema.content.query",
+        "settings.catalog",
+        "settings.snapshot",
+        "settings.set",
+        "settings.reset",
+        "settings.search",
+        "automation.get",
+        "automation.set"
       ],
       "additionalCommands": ["settings.getThinkingLevels"],
       "tests": [
@@ -178,7 +185,9 @@
         "workspace.list",
         "workspace.get",
         "session.list",
-        "session.get"
+        "session.get",
+        "session.move",
+        "session.summaries"
       ],
       "additionalCommands": ["workspace.open"],
       "tests": [
@@ -203,7 +212,8 @@
         "operation.unwatch",
         "approval.resolve",
         "user_input.resolve",
-        "context.compact"
+        "context.compact",
+        "run.reorder"
       ],
       "additionalCommands": [
         "run.retry",
@@ -241,7 +251,9 @@
         "git.commit",
         "git.branch",
         "git.worktree",
-        "git.diff_to_remote"
+        "git.diff_to_remote",
+        "git.stage",
+        "git.unstage"
       ],
       "additionalCommands": ["git.stats"],
       "tests": [
@@ -269,7 +281,8 @@
         "browser.screenshot",
         "browser.evaluate",
         "browser.close",
-        "browser.history"
+        "browser.history",
+        "browser.go"
       ],
       "additionalCommands": [],
       "tests": ["tests/browser-use.test.ts", "tests/browser-commands.test.ts", "tests/cli.test.ts"]
@@ -313,7 +326,9 @@
         "plugin.resolve",
         "plugin.graph",
         "plugin.lock",
-        "plugin.doctor"
+        "plugin.doctor",
+        "system.skills.list",
+        "plugin.disableTree"
       ],
       "additionalCommands": ["plugin.list", "plugin.inspect", "skill.list"],
       "tests": [
@@ -330,7 +345,7 @@
       "category": "files.tools",
       "milestone": "A11/B5",
       "status": "complete-headless-commands-transfer-and-file-workspace",
-      "rpc": ["file.read", "file.list"],
+      "rpc": ["file.read", "file.list", "file.write"],
       "additionalCommands": ["file.write", "attachment.upload", "attachment.query"],
       "tests": [
         "tests/file-attachment.test.ts",
@@ -345,7 +360,7 @@
     {
       "id": "agents-metrics",
       "owner": "Agent plugin / Host performance and usage providers",
-      "stateOwner": "Host parent-child sessions, usage ledger, bounded metrics",
+      "stateOwner": "Host parent-child sessions, usage ledger, bounded metrics; client policy edit drafts",
       "category": "agent.management / monitoring.usage / monitoring.performance",
       "milestone": "A11-A13",
       "status": "complete-agent-usage-and-performance-query-watch",
@@ -357,7 +372,12 @@
         "metrics.query",
         "metrics.watch",
         "usage.query",
-        "usage.export"
+        "usage.export",
+        "agentPolicy.load",
+        "agentPolicy.add",
+        "agentPolicy.change",
+        "agentPolicy.remove",
+        "agentPolicy.save"
       ],
       "tests": [
         "tests/agent-commands.test.ts",
@@ -371,8 +391,20 @@
         "tests/status-performance-runtime.test.ts",
         "tests/status-performance-react.test.tsx",
         "tests/session-monitoring.test.tsx",
-        "tests/cli.test.ts"
+        "tests/cli.test.ts",
+        "tests/agent-policy-editor.test.tsx"
       ]
+    },
+    {
+      "id": "system-terminal",
+      "owner": "Host SystemTerminalManager / authenticated RPC controller",
+      "stateOwner": "Host device-owned managed PTY; client terminal transcript",
+      "category": "files.tools / app.navigation",
+      "milestone": "desktop-contract-audit",
+      "status": "managed-pty-legacy-rpc-and-typed-terminal-ui-aliases",
+      "rpc": ["terminal.open", "terminal.input", "terminal.resize", "terminal.close", "terminal.list"],
+      "additionalCommands": ["app.clearTranscript", "app.closeTerminal"],
+      "tests": ["tests/server.test.ts", "tests/terminal-application-commands.test.ts", "tests/terminal.test.ts"]
     }
   ],
   "renames": {
@@ -409,6 +441,11 @@
     "quit": "app.closeTerminal"
   },
   "applicationCommands": [
+    "agentPolicy.add",
+    "agentPolicy.change",
+    "agentPolicy.load",
+    "agentPolicy.remove",
+    "agentPolicy.save",
     "agentWorkspace.cancel",
     "agentWorkspace.create",
     "agentWorkspace.loadMore",
