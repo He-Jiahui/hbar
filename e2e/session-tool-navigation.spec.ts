@@ -434,6 +434,7 @@ test('primary Activity and labelled secondary tools preserve current-session dra
       root,
       port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
       goalAutoContinue: false,
+      budgetAutoContinue: false,
     })
     const copy = getShellCopy('zh-CN')
     const labels = copy.session.tools
@@ -446,7 +447,10 @@ test('primary Activity and labelled secondary tools preserve current-session dra
     await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     const draft = '当前会话的长草稿：打开工具、返回与切换会话均不能自动发送或清除。'.repeat(4)
-    await prompt.fill(draft)
+    await prompt.click()
+    await expect(prompt).toBeFocused()
+    await page.keyboard.insertText(draft)
+    await expectComposerText(prompt, draft)
     const header = page.getByRole('group', { name: labels.label, exact: true })
     const more = header.getByRole('button', { name: labels.more, exact: true })
     await expect(header.getByRole('button', { name: labels.activity, exact: true })).toBeVisible()

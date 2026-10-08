@@ -66135,7 +66135,7 @@
     {
       "id": "packages/app-react/src/session-tools-menu.tsx::HbarSessionToolsMenu::LumenFrame::1",
       "path": "packages/app-react/src/session-tools-menu.tsx",
-      "line": 91,
+      "line": 83,
       "owner": "HbarSessionToolsMenu",
       "surface": "session",
       "component": "LumenFrame",
@@ -66154,7 +66154,7 @@
     {
       "id": "packages/app-react/src/session-tools-menu.tsx::HbarSessionToolsMenu::LumenButton::1",
       "path": "packages/app-react/src/session-tools-menu.tsx",
-      "line": 92,
+      "line": 84,
       "owner": "HbarSessionToolsMenu",
       "surface": "session",
       "component": "LumenButton",
@@ -66166,12 +66166,10 @@
         "aria-label=labels.more"
       ],
       "actionBindings": {
-        "onClick": "() => {\r\n          firstFocus.current = 'selected'\r\n        }",
-        "onKeyDown": "(event) => {\r\n          if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return\r\n          event.preventDefault()\r\n          firstFocus.current = event.key === 'ArrowUp' ? 'last' : 'first'\r\n          popup.current?.showPopover()\r\n        }"
+        "onKeyDown": "(event) => {\n          if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return\n          event.preventDefault()\n          setFocusIntent(event.key === 'ArrowUp' ? 'last' : 'first')\n          setRequestedOpen(true)\n        }"
       },
       "targetSources": [
-        "popoverTarget=id",
-        "onKeyDown=(event) => {\r\n          if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return\r\n          event.preventDefault()\r\n          firstFocus.current = event.key === 'ArrowUp' ? 'last' : 'first'\r\n          popup.current?.showPopover()\r\n        }"
+        "onKeyDown=(event) => {\n          if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return\n          event.preventDefault()\n          setFocusIntent(event.key === 'ArrowUp' ? 'last' : 'first')\n          setRequestedOpen(true)\n        }"
       ],
       "stateSources": ["disabled=disabled", "aria-expanded=open"],
       "flow": "owning component contract",
@@ -66182,7 +66180,7 @@
     {
       "id": "packages/app-react/src/session-tools-menu.tsx::HbarSessionToolsMenu::LumenIcon::1",
       "path": "packages/app-react/src/session-tools-menu.tsx",
-      "line": 117,
+      "line": 106,
       "owner": "HbarSessionToolsMenu",
       "surface": "session",
       "component": "LumenIcon",
@@ -66199,51 +66197,47 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/session-tools-menu.tsx::HbarSessionToolsMenu::LumenText::1",
+      "id": "packages/app-react/src/session-tools-menu.tsx::HbarSessionToolsMenu::LumenContentText::1",
       "path": "packages/app-react/src/session-tools-menu.tsx",
-      "line": 118,
+      "line": 107,
       "owner": "HbarSessionToolsMenu",
       "surface": "session",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "control.label",
       "contentSources": ["labels.more"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "single",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
-      "id": "packages/app-react/src/session-tools-menu.tsx::HbarSessionToolsMenu::LumenFrame::2",
+      "id": "packages/app-react/src/session-tools-menu.tsx::HbarSessionToolsMenu::LumenFloatingSurface::1",
       "path": "packages/app-react/src/session-tools-menu.tsx",
-      "line": 120,
+      "line": 109,
       "owner": "HbarSessionToolsMenu",
       "surface": "session",
-      "component": "LumenFrame",
-      "category": "structure",
+      "component": "LumenFloatingSurface",
+      "category": "interaction",
       "context": null,
-      "contentSources": ["[source:149; CallExpression] tools.map, tool"],
-      "accessibleNameSources": ["aria-label=labels.more"],
-      "actionBindings": {
-        "onBeforeToggle": "(event) => {\r\n          if (event.newState === 'open') place()\r\n        }",
-        "onToggle": "[source:130; ArrowFunction] event, opening, event.newState, setOpen, requestAnimationFrame, popup.current?.matches, popup.current, popup.current.contains, document.activeElement, rows, Array.from, popup.current.querySelectorAll, HTMLButtonElement, target, firstFocus.current, rows.at, rows.find, row, row.getAttribute, target?.focus",
-        "onKeyDown": "navigate"
-      },
+      "contentSources": ["[source:126; CallExpression] tools.map, tool", "label=labels.more"],
+      "accessibleNameSources": ["label=labels.more"],
+      "actionBindings": { "onClose": "close", "onKeyDown": "navigate" },
       "targetSources": ["id=id", "onKeyDown=navigate"],
-      "stateSources": [],
-      "flow": "owning flow layout",
-      "lumenMapping": "LumenFrame",
+      "stateSources": ["open=open"],
+      "flow": "owning component contract",
+      "lumenMapping": "LumenFloatingSurface",
       "status": "composed",
       "issues": []
     },
     {
       "id": "packages/app-react/src/session-tools-menu.tsx::HbarSessionToolsMenu::LumenButton::2",
       "path": "packages/app-react/src/session-tools-menu.tsx",
-      "line": 150,
+      "line": 127,
       "owner": "HbarSessionToolsMenu",
       "surface": "session",
       "component": "LumenButton",
@@ -66252,7 +66246,7 @@
       "contentSources": ["selected === tool.id && <LumenIcon icon={Check} tier=\"sm\" />"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onClick": "() => {\r\n              close()\r\n              onToggleTool(tool.id)\r\n            }"
+        "onClick": "() => {\n              close()\n              onToggleTool(tool.id)\n            }"
       },
       "targetSources": ["key=tool.id"],
       "stateSources": ["disabled=disabled"],
@@ -66264,7 +66258,7 @@
     {
       "id": "packages/app-react/src/session-tools-menu.tsx::HbarSessionToolsMenu::LumenIcon::2",
       "path": "packages/app-react/src/session-tools-menu.tsx",
-      "line": 163,
+      "line": 141,
       "owner": "HbarSessionToolsMenu",
       "surface": "session",
       "component": "LumenIcon",
@@ -66281,28 +66275,28 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/session-tools-menu.tsx::HbarSessionToolsMenu::LumenText::2",
+      "id": "packages/app-react/src/session-tools-menu.tsx::HbarSessionToolsMenu::LumenContentText::2",
       "path": "packages/app-react/src/session-tools-menu.tsx",
-      "line": 164,
+      "line": 142,
       "owner": "HbarSessionToolsMenu",
       "surface": "session",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "collection.title",
       "contentSources": ["labels[tool.id]"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/session-tools-menu.tsx::HbarSessionToolsMenu::LumenIcon::3",
       "path": "packages/app-react/src/session-tools-menu.tsx",
-      "line": 167,
+      "line": 145,
       "owner": "HbarSessionToolsMenu",
       "surface": "session",
       "component": "LumenIcon",
@@ -66321,7 +66315,7 @@
     {
       "id": "packages/app-react/src/session-tools-menu.tsx::HbarSessionToolsMenu::LumenButton::3",
       "path": "packages/app-react/src/session-tools-menu.tsx",
-      "line": 170,
+      "line": 148,
       "owner": "HbarSessionToolsMenu",
       "surface": "session",
       "component": "LumenButton",
@@ -66329,7 +66323,7 @@
       "context": null,
       "contentSources": [],
       "accessibleNameSources": [],
-      "actionBindings": { "onClick": "() => {\r\n            close()\r\n            onSettings()\r\n          }" },
+      "actionBindings": { "onClick": "() => {\n            close()\n            onSettings()\n          }" },
       "targetSources": [],
       "stateSources": ["disabled=disabled"],
       "flow": "owning component contract",
@@ -66340,7 +66334,7 @@
     {
       "id": "packages/app-react/src/session-tools-menu.tsx::HbarSessionToolsMenu::LumenIcon::4",
       "path": "packages/app-react/src/session-tools-menu.tsx",
-      "line": 181,
+      "line": 160,
       "owner": "HbarSessionToolsMenu",
       "surface": "session",
       "component": "LumenIcon",
@@ -66357,23 +66351,23 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/session-tools-menu.tsx::HbarSessionToolsMenu::LumenText::3",
+      "id": "packages/app-react/src/session-tools-menu.tsx::HbarSessionToolsMenu::LumenContentText::3",
       "path": "packages/app-react/src/session-tools-menu.tsx",
-      "line": 182,
+      "line": 161,
       "owner": "HbarSessionToolsMenu",
       "surface": "session",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "collection.title",
       "contentSources": ["labels.settings"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/session-usage-control.tsx::HbarSessionUsageControl::LumenFrame::1",
@@ -77638,7 +77632,6 @@
     "packages/app-react/src/session-tool-details.tsx",
     "packages/app-react/src/session-tool-feedback.tsx",
     "packages/app-react/src/session-tool-outcome-model.ts",
-    "packages/app-react/src/session-tools-menu-model.ts",
     "packages/app-react/src/session-tools-menu.tsx",
     "packages/app-react/src/session-usage-control.tsx",
     "packages/app-react/src/settings-content-recovery.tsx",

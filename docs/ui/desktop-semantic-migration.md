@@ -540,4 +540,12 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 3 项 Bun 测试、50 个断言和 27 项 Lumen 统计／浮层定位、层级、焦点测试通过。最终 12 项 Chrome 单次运行通过，覆盖中英文、明暗主题、五个宽度、较大文字／125% 缩放、未知／已知／警告／耗尽／失败统计、原始目标、切换会话、外部点击、相邻浮层、Escape 与键盘阅读；其中 2 项真实 Host 验证使用公开 Budget SDK 核实入口值、无额外查询、原草稿和打开监控。修复内容收缩后另有 4 项桌面／窄屏回归通过，并对新鲜 Web 冻结产物再验真实 Host。截图检查识别并修正指标／动作重叠，不能以早先断言全绿代替视觉验收。
 - 范围严格 lint、文案／图标／flow guard、格式、Lumen build／types／声明与 Web build、构建输入清单通过；冷启动根类型仍有 91 项既有诊断，本次范围为零，全库门禁尚未通过。证据位于 artifacts/desktop-elements/session-usage-content 的 unit-final.log、lumen-tests-scale.log、browser-final.log、flow.log、delivery.log、lint-_、types.log、lumen-_、build-delivery.log、audit.log 与截图；历史失败记录保留。宿主 E2E 禁用 Goal／budget 自动继续，停止 Host 后使用受检查的所属临时目录清理。
 
-当前清单覆盖 146 个生产 TSX 模块、3841 个元素，其中记录了 49 处低层文字未分类，合计 58 项静态缺口。其余生产表面迁移、其余已分类标题／身份容量复核（包括文件标题与项目名称）、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 会话更多工具菜单
+
+- 三处低层文本归为 control.label 与 collection.title，四个固定动作保留 goals／agents／monitoring／settings 的原标识、选中状态和宿主回调。完整工具／设置名称自然换行，各行按内容增长；只有共享浮层在视口受限时纵向滚动。移除本地原生 popover、坐标计算、resize 监听、背景／层级复制及已失去生产调用方的几何模型测试。
+- 使用公开 LumenFloatingSurface／useFloatingTrigger，保留点击初始选中项、ArrowDown／ArrowUp 初始首末项、Home／End 与循环方向键。共享组件处理 Escape、外部点击、入口点击竞态、相邻浮层和焦点恢复；禁用后关闭，恢复启用不自动重开。工具切换后的目标回调仍来自原行，未复制当前会话数据。
+- 两项 Bun 测试、99 个断言通过。11 项 Chrome 单次最终验证通过，覆盖两语言、明暗、五宽度、较大文字、125% CSS zoom、完整长名称、四动作边界、空选中、选中变化、禁用恢复、真实键盘纵向阅读与共享生命周期；其中一项实际 Host 回归验证工具／设置返回、原草稿、异源会话及无意外运行。Host 的 Goal 与 budget 自动继续均禁用。
+- 320 宽英文字体的字形墨迹比整数行盒高 2 CSS 像素，但仍位于按钮留白内。验证改为实际文本 Range 与按钮边界，仍严格检查水平溢出和最后一项可通过键盘滚动完整阅读；截图确认自然行高及行间无重叠。未通过截断内容或扩大视口消除失败。
+- 范围严格 lint、文案／图标／flow guard、格式、Web build 与构建输入清单通过；冷启动根类型仍有 91 项既有诊断，本次范围为零，全库门禁尚未通过。证据在 artifacts/desktop-elements/session-tools-content 的 unit.log、final.log、lint-final.log、types-final.log、build-final.log、audit.log 和截图，保留初始失败记录。
+
+当前清单覆盖 146 个生产 TSX 模块、3841 个元素，其中记录了 46 处低层文字未分类，合计 55 项静态缺口。其余生产表面迁移、其余已分类标题／身份容量复核（包括文件标题与项目名称）、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

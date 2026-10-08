@@ -8,9 +8,9 @@
 
 | 类别        | 元素 | pending | 设计职责                                                                |
 | ----------- | ---: | ------: | ----------------------------------------------------------------------- |
-| structure   | 1223 |       5 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
-| text        | 1121 |      49 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
-| interaction |  939 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
+| structure   | 1222 |       5 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
+| text        | 1121 |      46 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
+| interaction |  940 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
 | form        |  280 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
 | collection  |  135 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
 | technical   |   74 |       0 | 原文、代码、Markdown、图示与媒体的专用 renderer；辅助操作仍使用 Lumen。 |
@@ -142,7 +142,7 @@
 | [packages/app-react/src/session-stop.tsx](../../packages/app-react/src/session-stop.tsx)                                   | settings                                         |    8 |              0 |          3 |          0 |
 | [packages/app-react/src/session-tool-details.tsx](../../packages/app-react/src/session-tool-details.tsx)                   | session                                          |   39 |              9 |          0 |          0 |
 | [packages/app-react/src/session-tool-feedback.tsx](../../packages/app-react/src/session-tool-feedback.tsx)                 | session                                          |    9 |              4 |          0 |          0 |
-| [packages/app-react/src/session-tools-menu.tsx](../../packages/app-react/src/session-tools-menu.tsx)                       | session                                          |   12 |              0 |          3 |          0 |
+| [packages/app-react/src/session-tools-menu.tsx](../../packages/app-react/src/session-tools-menu.tsx)                       | session                                          |   12 |              3 |          0 |          0 |
 | [packages/app-react/src/session-usage-control.tsx](../../packages/app-react/src/session-usage-control.tsx)                 | status-and-usage                                 |   15 |              5 |          0 |          0 |
 | [packages/app-react/src/settings-content-recovery.tsx](../../packages/app-react/src/settings-content-recovery.tsx)         | settings                                         |    5 |              3 |          0 |          0 |
 | [packages/app-react/src/settings-usage.tsx](../../packages/app-react/src/settings-usage.tsx)                               | settings                                         |   30 |             13 |          0 |          0 |
