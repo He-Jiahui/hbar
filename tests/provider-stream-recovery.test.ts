@@ -154,20 +154,21 @@ test('persistent malformed provider output exhausts the existing retry bound', a
   expect(await Bun.file(join(f.root, 'unfinished.txt')).exists()).toBe(false)
 })
 
-test('compaction retains the provider stream failure code for the owning Run', async () => {
-  const f = await fixture(() => interruptedResponse(false))
-  const model = await f.kernel.plugins.get<ModelRegistry>('models').get('responses-recovery')
-  const failure = await new PiDriver()
-    .summarize(
-      { system: 'Summarize the conversation.', messages: [], model },
-      'fixture-only',
-      new AbortController().signal,
-    )
-    .catch((error: unknown) => error)
-  expect(failure).toBeInstanceOf(HbarError)
-  expect(failure).toMatchObject({ code: 'PROVIDER_STREAM_INTERRUPTED' })
-  expect(f.requests).toHaveLength(1)
-})
+for (const malformed of [true, false])
+  test(`compaction retains the provider ${malformed ? 'malformed JSON' : 'missing terminal'} failure code for the owning Run`, async () => {
+    const f = await fixture(() => interruptedResponse(malformed))
+    const model = await f.kernel.plugins.get<ModelRegistry>('models').get('responses-recovery')
+    const failure = await new PiDriver()
+      .summarize(
+        { system: 'Summarize the conversation.', messages: [], model },
+        'fixture-only',
+        new AbortController().signal,
+      )
+      .catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(HbarError)
+    expect(failure).toMatchObject({ code: 'PROVIDER_STREAM_INTERRUPTED' })
+    expect(f.requests).toHaveLength(1)
+  })
 
 test('an SDK Connection error resumes after the local provider becomes available', async () => {
   const f = await fixture(() => toolResponse('update_goal', { status: 'complete' }, 'connected'))
@@ -186,7 +187,11 @@ test('an SDK Connection error resumes after the local provider becomes available
   expect((await f.goals.get(f.session.id)).goal?.status).toBe('complete')
 })
 
-for (const message of ['JSON Parse error: Unterminated string', 'Connection error.'])
+for (const message of [
+  'JSON Parse error: Unterminated string',
+  'Error reading response: malformed server-sent event JSON.',
+  'Connection error.',
+])
   test(`a Host context failure containing ${message} remains permanent and cannot start provider retries`, async () => {
     const f = await fixture(() => toolResponse('update_goal', { status: 'complete' }, 'unused'))
     f.kernel.hooks.on('model.request', () => {

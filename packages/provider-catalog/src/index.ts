@@ -1,4 +1,5 @@
 import { getSupportedThinkingLevels } from '@earendil-works/pi-ai'
+import type { Api, Model } from '@earendil-works/pi-ai'
 import {
   builtinProviders,
   getBuiltinModelDataGeneratedAt,
@@ -21,11 +22,7 @@ interface PresetRecord {
   models: ProviderPresetModel[]
 }
 
-const supportedProtocols = new Set<string>([
-  'openai-completions',
-  'openai-responses',
-  'anthropic-messages',
-])
+const supportedProtocols = new Set<string>(['openai-completions', 'openai-responses', 'anthropic-messages'])
 
 function isSupportedProtocol(value: string): value is SupportedProtocol {
   return supportedProtocols.has(value)
@@ -44,7 +41,7 @@ function defaultThinkingLevel(levels: readonly ProviderPresetModel['thinkingLeve
   return levels.includes('medium') ? ('medium' as const) : levels[0]!
 }
 
-function toPresetModel(model: ReturnType<typeof getBuiltinModels>[number]): ProviderPresetModel {
+function toPresetModel(model: Model<Api>): ProviderPresetModel {
   const thinkingLevels = getSupportedThinkingLevels(model)
   return {
     id: model.id,
@@ -73,8 +70,9 @@ function buildPresets(): PresetRecord[] {
       else groups.set(key, { protocol: model.api, baseUrl: model.baseUrl, models: [toPresetModel(model)] })
     }
     for (const group of groups.values()) {
-      const models = group.models.toSorted((left, right) =>
-        left.name.localeCompare(right.name, 'en', { sensitivity: 'base' }) || left.id.localeCompare(right.id),
+      const models = group.models.toSorted(
+        (left, right) =>
+          left.name.localeCompare(right.name, 'en', { sensitivity: 'base' }) || left.id.localeCompare(right.id),
       )
       records.push({
         summary: {
@@ -125,9 +123,7 @@ export class PiProviderPresetCatalog {
   list(input: ProviderPresetListInput): ProviderPresetListResult {
     const matches = this.#presets
       .map((preset) => preset.summary)
-      .filter((preset) =>
-        includesQuery([preset.name, preset.providerId, preset.protocol, preset.baseUrl], input.query),
-      )
+      .filter((preset) => includesQuery([preset.name, preset.providerId, preset.protocol, preset.baseUrl], input.query))
     return { ...paginate(matches, input.cursor, input.limit ?? 50), catalogGeneratedAt: this.#catalogGeneratedAt }
   }
 

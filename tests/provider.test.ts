@@ -60,6 +60,9 @@ test('real pi-ai OpenAI transport streams tool calls and usage through a local H
   })
   const kernel = await Kernel.create({ home: join(root, 'data'), workspace: root, secrets: new MemorySecrets() })
   try {
+    // This fixture measures one tool turn and one response; automatic Budget
+    // continuations would add separate Runs and change the Session totals.
+    await kernel.changePlugin('budget.codex', true, { autoContinue: false })
     await kernel.saveProvider(
       providerSchema.parse({
         id: 'network-test',

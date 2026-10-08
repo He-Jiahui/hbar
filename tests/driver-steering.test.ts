@@ -261,18 +261,29 @@ test('steering attachments hydrate only for the next authoritative request model
   expect(f.messages.filter((message) => message.id === 'image-steer')).toHaveLength(1)
 })
 
-test('Goal completion stays authoritative and is not bypassed to fetch a steering message', async () => {
-  const f = fixture()
-  let reads = 0
-  f.input.getSteeringMessages = () => {
-    reads++
-    return Promise.resolve([])
-  }
-  f.input.stepEnded = () => Promise.resolve({ stop: 'goal_complete' })
-  await new PiDriver().run(f.input)
-  expect(reads).toBe(1)
-  expect(f.requests).toHaveLength(1)
-})
+for (const stop of ['goal_complete', 'goal_replaced'] as const)
+  test(`${stop} at step settlement cannot drain steering or start another request`, async () => {
+    const f = fixture()
+    let reads = 0
+    let settledSteps = 0
+    f.input.getSteeringMessages = () => {
+      reads++
+      return Promise.resolve([])
+    }
+    f.input.stepEnded = async (stepId) => {
+      // Settlement may pause at a Host hook; the stop must still fence Pi's
+      // next queue poll, and the durable step end must have been emitted once.
+      await Bun.sleep(1)
+      settledSteps++
+      expect(f.events.filter((event) => event.type === 'step.ended' && event.stepId === stepId)).toHaveLength(1)
+      expect(f.messages.filter((message) => message.role === 'assistant')).toHaveLength(1)
+      return { stop }
+    }
+    await new PiDriver().run(f.input)
+    expect(settledSteps).toBe(1)
+    expect(reads).toBe(1)
+    expect(f.requests).toHaveLength(1)
+  })
 
 test('steering source failure after a settled response fails before another provider request', async () => {
   const f = fixture()

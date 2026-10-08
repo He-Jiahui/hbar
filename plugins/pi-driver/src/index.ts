@@ -1,6 +1,6 @@
 import { runAgentLoop } from '@earendil-works/pi-agent-core'
 import type { AgentEvent, AgentTool, StreamFn } from '@earendil-works/pi-agent-core'
-import { Type } from '@earendil-works/pi-ai'
+import { normalizeContext, Type } from '@earendil-works/pi-ai'
 import { AssistantMessageEventStream } from '@earendil-works/pi-ai/utils/event-stream'
 import type {
   Api,
@@ -145,7 +145,7 @@ export function fixtureStream(
           type: 'toolCall' as const,
           id: crypto.randomUUID(),
           name: tool[1]!,
-          arguments: JSON.parse(tool[2]!) as Record<string, unknown>,
+          arguments: z.record(z.string(), z.json()).parse(JSON.parse(tool[2]!)),
         }
         message.content.push(call)
         message.stopReason = 'toolUse'
@@ -223,15 +223,16 @@ function streamProvider(
       : {}),
   }
   try {
+    const transcript = normalizeContext(context)
     switch (config.protocol) {
       case 'mock':
         return fixtureStream(model, context, options)
       case 'openai-completions':
-        return openaiCompletions(model as Model<'openai-completions'>, context, options)
+        return openaiCompletions(model as Model<'openai-completions'>, transcript, options)
       case 'openai-responses':
-        return openaiResponses(model as Model<'openai-responses'>, context, options)
+        return openaiResponses(model as Model<'openai-responses'>, transcript, options)
       case 'anthropic-messages':
-        return anthropicMessages(model as Model<'anthropic-messages'>, context, options)
+        return anthropicMessages(model as Model<'anthropic-messages'>, transcript, options)
     }
   } catch (error) {
     return failedStream(model, error, signal.aborted)
@@ -289,7 +290,14 @@ async function toPiMessages(
           block.type === 'text'
             ? [block]
             : block.type === 'tool_call'
-              ? [{ type: 'toolCall', id: block.callId, name: block.name, arguments: block.args }]
+              ? [
+                  {
+                    type: 'toolCall',
+                    id: block.callId,
+                    name: block.name,
+                    arguments: z.record(z.string(), z.json()).parse(block.args),
+                  },
+                ]
               : [],
         )
         output.push({
@@ -320,7 +328,7 @@ async function toPiMessages(
             toolCallId: block.callId,
             toolName: block.name,
             content,
-            details: block.details,
+            ...(block.details === undefined ? {} : { details: z.json().parse(block.details) }),
             isError: block.isError,
             timestamp: message.createdAt,
           })
@@ -456,9 +464,6 @@ export class PiDriver implements HarnessDriver {
             },
           ])
         }
-      } else if (event.type === 'turn_end') {
-        await input.emit('step.ended', {}, stepId)
-        goalStopped = Boolean((await input.stepEnded(stepId))?.stop) || goalStopped
       }
     }
     const streamFn: StreamFn = async () => {
@@ -498,18 +503,28 @@ export class PiDriver implements HarnessDriver {
       }
     }
     try {
+      const thinking = normalizeThinkingLevel(input.request.model, input.run.input.thinking)
       await runAgentLoop(
         [],
         {
-          systemPrompt: input.request.system,
-          messages: await toPiMessages(input.request.messages, input.request.model, input.readImage, input.readFile),
+          messages: normalizeContext({
+            systemPrompt: input.request.system,
+            messages: await toPiMessages(input.request.messages, input.request.model, input.readImage, input.readFile),
+          }).messages,
           tools,
         },
         {
           model: modelOf(input.request.model),
+          ...(thinking !== 'off' ? { reasoning: thinking } : {}),
           convertToLlm: (messages) => messages as PiMessage[],
           toolExecution: 'sequential',
-          shouldStopAfterTurn: () => input.signal.aborted || goalStopped,
+          finishTurn: async () => {
+            // Pi decides whether to continue before turn_end. Settle the Host
+            // step here so its stop signal is observed before any queue drain.
+            await input.emit('step.ended', {}, stepId)
+            goalStopped = Boolean((await input.stepEnded(stepId))?.stop) || goalStopped
+            return input.signal.aborted || goalStopped ? { action: 'end' } : undefined
+          },
           ...(input.getSteeringMessages
             ? {
                 getSteeringMessages: () => pollSteering(),
