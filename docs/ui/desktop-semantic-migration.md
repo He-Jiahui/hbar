@@ -750,4 +750,11 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 初始失败来自 85e2e42b 的旧入口：脚本点击“首次配置”打开当前引导页，那里只有一处分隔条。改为使用宿主文案与原工程名称打开实际 Files 工具，并等待其真实关闭按钮，避免把 lazy loading 占位当作内容就绪。原生 FlexLayout projection 使用自身工具／侧栏区域，不依赖只存在于 Web shell 的状态属性；reload 后也使用同一公开入口。保留全部几何与状态断言，没有放宽数量或像素误差。
 - 范围严格 lint、根 TypeScript、格式和差异检查通过，已复核内容加载后的 100% 与大字号截图。证据为 artifacts/desktop-elements/final-gates/native-visible-files-resize.log、native-visible-files-resize/geometry.json 与三组截图；此前入口、projection 属性和过时刷新名称的诊断失败均保留。拍图前再次等待实际文件控件，较早只等待工具外壳的通过日志不作为内容就绪验收。
 
+## 原生模型选择器的完整名称
+
+- 新鲜 debug Desktop 在 900×600 原生内窗、150% 缩放下实测 600×400 CSS viewport。共享 native anchored 模型表面宽 360 CSS px，保持在视口内；真实临时 Host 的 mock provider 提供完整中英文混合长模型名，原文不截断，Range 实测三行、normal 换行和非 ellipsis，各行完整位于视口内。供应商标题也在实际画面中自然换行。
+- 原生搜索获得焦点，按模型原 ID 搜索，ArrowDown 到原选项，Escape 返回真实入口；再次打开／关闭后原会话草稿完整保留，只有一个原会话，Run 和页面错误均为零。fixture 使用独立项目、Host 数据与 WebView2 profile，核对 system.paths.get 的真实 dataRoot 与精确 supervisor 命令行后释放，不再以 PID 本身作为终止依据。
+- 6953a14f 的旧验收在导航自动收起后查找 footer 标签的 Connected，当前组件已不依赖该 HTML 标签。现在从原生实际侧栏区域核对已连接状态，保留原窗口、菜单、焦点和尺寸要求；没有更改生产入口。WebView2 在 150% 下的 surface 截图裁掉了右侧，改用 CDP 原生 view capture 后获得完整 900×600 图片，已人工检查完整三行模型名与换行标题。
+- 范围严格 lint、根类型、格式、差异和本文件相对链接通过。证据为 artifacts/desktop-elements/final-gates/native-model-final.log、native-model-final/facts.json、native-model-final/anchored-model-at-900-zoom-150.png，以及 native-model-final-lint.log／native-model-final-types.log；初次 footer、类型与 cleanup 结构诊断保留。
+
 当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过；最终工程与原生结果在收尾记录中单独列明。
