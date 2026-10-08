@@ -1068,6 +1068,12 @@ export function createAppRuntime(options: RuntimeOptions) {
   })
   const offModelEvents = options.modelEvents?.subscribe(composerModel.invalidateModels)
   const offModelConnection = options.modelEvents?.onConnection?.(composerModel.setConnected)
+  const offContextEvents = options.contextEvents?.subscribe(() => {
+    const sessionId = navigation.reader.getSnapshot().sessionId
+    if (!sessionId || disposed) return
+    controls.invalidateContext()
+    void controls.refreshContext(sessionId)
+  })
   const providerSettings = createProviderSettings(
     local,
     options,
@@ -1449,6 +1455,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       runBoard: runBoard.reader,
     }),
     commands: Object.freeze(createCommandClient(runtimeCommands, executor)),
+    contextUsage: Object.freeze({ refresh: controls.refreshContext }),
     preSessionModelCatalog: preSessionModelCatalog.actions,
     conversationReading: Object.freeze({
       read: conversationReading.read,
@@ -1513,6 +1520,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       interactions.dispose()
       offModelEvents?.()
       offModelConnection?.()
+      offContextEvents?.()
       controls.dispose()
       composerModel.dispose()
       preSessionModelCatalog.dispose()

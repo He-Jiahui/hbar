@@ -3,6 +3,8 @@ import {
   modelConfigurationSchema,
   modelWriteResultSchema,
   modelCommands,
+  COMPACTION_PERCENT_SETTING,
+  sessionContextUsageSchema,
   type ModelConfiguration,
 } from '@hbar/contracts/commands/models'
 import type { SettingsApplyInput } from '@hbar/contracts/commands/settings'
@@ -18,7 +20,9 @@ function initial(sessionId: string | null, status: SessionControlsState['status'
     model: null,
     usage: null,
     budget: null,
-    errors: { model: null, usage: null, budget: null },
+    context: null,
+    contextStatus: sessionId ? 'loading' : 'idle',
+    errors: { model: null, usage: null, budget: null, context: null },
   }
 }
 
@@ -38,6 +42,8 @@ export function createSessionControls(
 ) {
   const state = createState<SessionControlsState>(initial(null, 'idle'), onSubscriberError)
   const modelReads = createModelReadQueue()
+  const contextReads = createModelReadQueue()
+  let contextGeneration = 0
   let disposed = false
   let connected = true
   const inactive = () => disposed || isDisposed()
@@ -49,12 +55,64 @@ export function createSessionControls(
   let pendingModel: number | null = null
   let scheduledModel = false
   let currentRead: { sessionId: string; generation: number; promise: Promise<void> } | null = null
-  let observedTimeline = { sessionId: null as string | null, status: 'idle' as string, cursor: 0 }
+  const initialTimeline = timeline.getSnapshot()
+  let observedTimeline = {
+    sessionId: initialTimeline.sessionId,
+    status: initialTimeline.status,
+    cursor: initialTimeline.cursor,
+  }
+
+  const invalidateContext = () => {
+    contextGeneration += 1
+    contextReads.cancel()
+    const current = state.reader.getSnapshot()
+    state.replace({
+      ...current,
+      context: null,
+      contextStatus: connected ? 'loading' : 'error',
+      errors: { ...current.errors, context: connected ? null : 'DISCONNECTED' },
+    })
+  }
+  const refreshContext = async (sessionId: string) => {
+    if (inactive() || !connected || navigation.getSnapshot().sessionId !== sessionId) return
+    const intent = ++contextGeneration
+    contextReads.cancel()
+    const current = state.reader.getSnapshot()
+    state.replace({ ...current, contextStatus: 'loading', errors: { ...current.errors, context: null } })
+    try {
+      const result = await contextReads.run(async (signal) => {
+        if (!models) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Context commands are unavailable')
+        return models.execute(
+          'session.getContextUsage',
+          { sessionId },
+          { signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)]) },
+        )
+      })
+      const context = sessionContextUsageSchema.parse(result)
+      if (context.sessionId !== sessionId)
+        throw new CommandError('INVALID_OUTPUT', 'Context belongs to another session')
+      if (inactive() || !connected || intent !== contextGeneration || navigation.getSnapshot().sessionId !== sessionId)
+        return
+      const latest = state.reader.getSnapshot()
+      state.replace({ ...latest, context, contextStatus: 'ready', errors: { ...latest.errors, context: null } })
+    } catch (error) {
+      if (inactive() || !connected || intent !== contextGeneration || navigation.getSnapshot().sessionId !== sessionId)
+        return
+      const latest = state.reader.getSnapshot()
+      state.replace({
+        ...latest,
+        context: null,
+        contextStatus: 'error',
+        errors: { ...latest.errors, context: code(error) },
+      })
+    }
+  }
 
   const load = async (sessionId: string | null) => {
     const intent = ++generation
     pendingLoad = intent
     if (!sessionId) {
+      invalidateContext()
       modelGeneration += 1
       modelReads.cancel()
       pendingLoad = null
@@ -63,6 +121,7 @@ export function createSessionControls(
       return
     }
     const previous = state.reader.getSnapshot()
+    if (previous.sessionId !== sessionId) invalidateContext()
     state.replace(previous.sessionId === sessionId ? { ...previous, status: 'loading' } : initial(sessionId, 'loading'))
     const [, usageResult, budgetResult] = await Promise.allSettled([
       refreshModel(sessionId, {}, true),
@@ -85,13 +144,16 @@ export function createSessionControls(
       model: current.errors.model,
       usage: usageResult.status === 'rejected' ? code(usageResult.reason) : null,
       budget: budgetResult.status === 'rejected' ? code(budgetResult.reason) : null,
+      context: current.errors.context ?? null,
     }
     state.replace({
       sessionId,
-      status: pendingModel !== null ? 'loading' : Object.values(errors).some(Boolean) ? 'partial' : 'ready',
+      status: pendingModel !== null ? 'loading' : errors.model || errors.usage || errors.budget ? 'partial' : 'ready',
       model: current.model,
       usage: usageReport,
       budget: sessionBudget,
+      context: current.context ?? null,
+      contextStatus: current.contextStatus ?? 'idle',
       errors,
     })
   }
@@ -114,14 +176,19 @@ export function createSessionControls(
       return false
     modelGeneration += 1
     modelReads.cancel()
+    contextGeneration += 1
+    contextReads.cancel()
     pendingModel = null
     const errors = { ...current.errors, model: null }
     state.replace({
       ...current,
       model,
+      context: null,
+      contextStatus: 'loading',
       errors,
-      status: pendingLoad !== null ? 'loading' : Object.values(errors).some(Boolean) ? 'partial' : 'ready',
+      status: pendingLoad !== null ? 'loading' : errors.model || errors.usage || errors.budget ? 'partial' : 'ready',
     })
+    void refreshContext(model.sessionId)
     return true
   }
 
@@ -162,6 +229,7 @@ export function createSessionControls(
       return currentRead.promise
     const intent = ++modelGeneration
     modelReads.cancel()
+    if (!retainCurrent) invalidateContext()
     pendingModel = intent
     const previous = state.reader.getSnapshot()
     // Confirmed settings writes invalidate the old send configuration. Opening
@@ -188,8 +256,9 @@ export function createSessionControls(
         ...current,
         model,
         errors,
-        status: pendingLoad !== null ? 'loading' : Object.values(errors).some(Boolean) ? 'partial' : 'ready',
+        status: pendingLoad !== null ? 'loading' : errors.model || errors.usage || errors.budget ? 'partial' : 'ready',
       })
+      void refreshContext(sessionId)
       if (currentRead?.generation === intent) currentRead = null
     })()
     currentRead = { sessionId, generation: intent, promise }
@@ -200,6 +269,7 @@ export function createSessionControls(
     if (inactive()) return
     modelGeneration += 1
     modelReads.cancel()
+    invalidateContext()
     const current = state.reader.getSnapshot()
     const sessionId = navigation.getSnapshot().sessionId
     pendingModel = connected && sessionId ? modelGeneration : null
@@ -242,6 +312,10 @@ export function createSessionControls(
       (eventType === 'usage.recorded' || eventType === 'run.settled' || eventType.startsWith('budget.'))
     const resynced = previous.status !== 'ready' && state.reader.getSnapshot().status !== 'loading'
     if (relevantEvent || resynced) void load(current.sessionId)
+    // Snapshot recovery can advance the committed cursor with no retained event
+    // rows. Refresh on that revision too; stream-only frames keep the same cursor.
+    else if (current.sessionId && (current.cursor !== previous.cursor || previous.status !== 'ready'))
+      void refreshContext(current.sessionId)
   })
   void load(selected)
 
@@ -251,6 +325,8 @@ export function createSessionControls(
     setConnected,
     captureModelGeneration: () => modelGeneration,
     refreshModel,
+    refreshContext,
+    invalidateContext,
     readModel,
     commitModel,
     async settingsCommitted(input: SettingsApplyInput): Promise<void> {
@@ -262,10 +338,17 @@ export function createSessionControls(
           path[0]?.kind === 'field' &&
           (path[0].name === 'provider.model' || path[0].name === 'provider.thinkingLevel'),
       )
-      if (!affectsModel || !selection.sessionId) return
+      const affectsContext = input.changes.some(
+        ({ path }) => path.length === 1 && path[0]?.kind === 'field' && path[0].name === COMPACTION_PERCENT_SETTING,
+      )
+      if ((!affectsModel && !affectsContext) || !selection.sessionId) return
       if (input.scope.kind === 'session' && input.scope.targetId !== selection.sessionId) return
       if (input.scope.kind === 'workspace' && input.scope.targetId !== selection.workspaceId) return
-      await refreshModel(selection.sessionId)
+      if (affectsModel) await refreshModel(selection.sessionId)
+      else {
+        invalidateContext()
+        await refreshContext(selection.sessionId)
+      }
     },
     async executeModel(name: string, input: unknown, options: ExecuteOptions = {}): Promise<unknown> {
       if (!models) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Model commands are unavailable')
@@ -308,9 +391,11 @@ export function createSessionControls(
       disposed = true
       generation += 1
       modelGeneration += 1
+      contextGeneration += 1
       offNavigation()
       offTimeline()
       modelReads.dispose()
+      contextReads.dispose()
       currentRead = null
       state.dispose()
     },

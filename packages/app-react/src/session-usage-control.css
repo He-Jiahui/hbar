@@ -7,7 +7,7 @@
   gap: 4px;
   min-inline-size: 0;
   color: var(--lumen-muted);
-  font-size: 0.6875rem;
+  font-size: var(--lumen-font-size, var(--hbar-ui-font-size-default));
   white-space: nowrap;
 }
 .hbar-session-usage-control[data-tone='danger'] > button {
@@ -16,29 +16,33 @@
 .hbar-session-usage-control[data-tone='warning'] > button {
   color: var(--lumen-warning);
 }
-/* Reference ContextUsageIndicator overlays the composer, with a narrow bottom sheet.
-   Only this top-layer container is positioned; all details remain normal flex flow. */
-.hbar-session-usage-popover {
-  position: fixed;
-  inset: auto;
-  left: var(--usage-left);
-  bottom: var(--usage-bottom);
-  inline-size: min(24rem, calc(100vw - 2rem));
-  max-block-size: min(32rem, var(--usage-limit));
-  margin: 0;
-  padding: 16px;
-  border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 1rem;
-  background: var(--lumen-contrast);
-  color: var(--lumen-ink);
-  box-shadow: 0 1rem 2.5rem color-mix(in srgb, var(--lumen-ink) 18%, transparent);
-  overflow: auto;
-  overscroll-behavior: contain;
+.hbar-context-usage-ring {
+  inline-size: var(--hbar-app-ui-icon-sm);
+  block-size: var(--hbar-app-ui-icon-sm);
+  flex: 0 0 auto;
+  fill: none;
+  stroke-width: 2;
 }
-.hbar-session-usage-popover:popover-open {
+.hbar-context-ring-track {
+  stroke: var(--lumen-edge);
+}
+.hbar-context-ring-used {
+  stroke: currentColor;
+}
+.hbar-context-ring-threshold {
+  stroke: var(--lumen-ink);
+  stroke-width: 2.5;
+}
+.hbar-session-usage-popover {
+  --lumen-floating-max-height: 32rem;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  inline-size: min(24rem, 100%);
+  min-inline-size: 0;
+  padding: 16px;
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 .hbar-session-usage-heading {
   display: flex;
@@ -46,9 +50,16 @@
   justify-content: space-between;
   gap: 8px;
 }
-.hbar-session-usage-popover > p {
+.hbar-session-usage-popover > * {
+  flex-shrink: 0;
+}
+.hbar-session-usage-heading > strong {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.hbar-session-usage-popover p {
   margin: 0;
-  font-size: 0.8125rem;
+  font-size: var(--lumen-font-size, var(--hbar-ui-font-size-default));
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
@@ -56,22 +67,45 @@
   flex-direction: column;
   flex-wrap: nowrap;
   align-items: stretch;
+  min-inline-size: 0;
 }
 .hbar-session-usage-popover .lumen-inline-usage > div:first-child,
 .hbar-session-usage-popover .lumen-inline-usage > .lumen-compact-metrics {
   flex: 0 0 auto;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.hbar-session-usage-popover .lumen-inline-usage > div:first-child {
+  align-items: flex-start;
 }
 .hbar-session-usage-popover .lumen-compact-metrics {
+  flex-direction: column;
   flex-wrap: wrap;
+  min-inline-size: 0;
 }
-@media (max-width: 40rem) {
-  .hbar-session-usage-popover {
-    inset: auto 0 0;
-    inline-size: 100%;
-    max-block-size: 80dvh;
-    border-radius: 1rem 1rem 0 0;
-  }
-  .hbar-session-usage-popover::backdrop {
-    background: color-mix(in srgb, var(--lumen-ink) 30%, transparent);
-  }
+.hbar-session-usage-popover .lumen-compact-metrics > div {
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.hbar-session-usage-popover .lumen-compact-metrics dt,
+.hbar-session-usage-popover .lumen-compact-metrics dd {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.hbar-session-usage-popover .lumen-compact-metrics dd {
+  font-size: inherit;
+}
+.hbar-session-usage-popover .lumen-inline-usage > progress {
+  inline-size: 100%;
+}
+.hbar-session-usage-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
 }

@@ -372,6 +372,13 @@ function createRuntime(
       },
     },
     usage: createUsageCommandClient(client),
+    contextEvents: {
+      subscribe(listener) {
+        return client.onEvent((event) => {
+          if (event.method === 'host.changed' && event.params.kind === 'settings') listener()
+        })
+      },
+    },
     budget: createBudgetCommandClient(client),
     settings: createSettingsCommandClient(client),
     permissionEvents: {

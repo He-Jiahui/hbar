@@ -2396,6 +2396,9 @@ function SessionWorkspaceContent({
                 controls={controls}
                 labels={labels.usage}
                 onOpenMonitor={() => toggleTool('monitoring')}
+                onRefresh={() => {
+                  void runtime.contextUsage.refresh(sessionId)
+                }}
               />
               <HbarComposerModelPicker
                 key={sessionId}

@@ -31,7 +31,7 @@ import type {
   RunAccepted,
 } from '@hbar/contracts/commands/run'
 import type { GoalPlanChange, GoalPlanSnapshot } from '@hbar/contracts/commands/goals'
-import type { ModelConfiguration, ModelDescriptor } from '@hbar/contracts/commands/models'
+import type { ModelConfiguration, ModelDescriptor, SessionContextUsage } from '@hbar/contracts/commands/models'
 import type { UsageQueryResult } from '@hbar/contracts/commands/usage'
 import type { AgentProfileId, AgentRecord } from '@hbar/contracts/commands/agents'
 import type { PluginInfo, SkillDescriptor, SkillDetail, SkillFileReadResult } from '@hbar/contracts/commands/extensions'
@@ -149,6 +149,10 @@ export interface RuntimeOptions {
   readonly modelEvents?: {
     subscribe(listener: () => void): () => void
     onConnection?(listener: (connected: boolean) => void): () => void
+  }
+  /** Host invalidations for retained context policy, including another client's settings save. */
+  readonly contextEvents?: {
+    subscribe(listener: () => void): () => void
   }
   readonly usage?: CommandExecutor
   readonly budget?: BudgetCommandPort
@@ -955,10 +959,14 @@ export interface SessionControlsState {
   readonly model: Readonly<ModelConfiguration> | null
   readonly usage: Readonly<UsageQueryResult> | null
   readonly budget: Readonly<SessionBudget> | null
+  /** Optional for older embedders; the built-in runtime always projects this query. */
+  readonly context?: Readonly<SessionContextUsage> | null
+  readonly contextStatus?: 'idle' | 'loading' | 'ready' | 'error'
   readonly errors: {
     readonly model: string | null
     readonly usage: string | null
     readonly budget: string | null
+    readonly context?: string | null
   }
 }
 

@@ -996,11 +996,6 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     explore: choose('探索（只读），在独立子会话中运行', 'Explore (read-only) in a separate child session'),
   }
   const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 })
-  const currency = new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 4,
-  })
   const error = (code: string) => {
     if (code === 'QUESTIONNAIRE_INCOMPLETE')
       return choose('请回答全部问题后再提交。', 'Answer every question before submitting.')
@@ -1942,46 +1937,38 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       failureMessage: choose('回答提交失败', 'Answer submission failed'),
     },
     usage: {
-      title: choose('用量与预算', 'Usage and budget'),
+      title: choose('当前上下文窗口', 'Current context window'),
       description: choose(
-        '当前会话的累计结算与预算，不是模型上下文占用率。',
-        'Session accounting and budget, not the model context-window occupancy.',
+        '估算当前会话保留的消息、摘要与系统上下文；不包含未发送草稿。模型分词、工具定义和图片编码可能产生差异。',
+        'Estimates the retained messages, summary and system context in this session; unsent drafts are excluded. Model tokenization, tool definitions and image encoding may differ.',
       ),
-      trigger: (value) => choose(`查看用量与预算：${value}`, `View usage and budget: ${value}`),
-      budgetPercent: (value) => choose(`预算 ${Math.round(value)}%`, `${Math.round(value)}% budget`),
-      noBudget: choose('用量', 'Usage'),
+      trigger: (value) => choose(`查看当前上下文：${value}`, `View current context: ${value}`),
+      usedPercent: (value) => choose(`${number.format(Math.round(value))}% 已用`, `${number.format(Math.round(value))}% used`),
+      windowUsage: (used, limit) => choose(`约 ${number.format(used)} / ${number.format(limit)} tokens`, `About ${number.format(used)} of ${number.format(limit)} tokens`),
+      threshold: (percent, tokens) => `${number.format(Math.round(percent * 10) / 10)}% · ${number.format(tokens)} tokens`,
+      compactionThreshold: choose('自动压缩阈值', 'Auto-compaction threshold'),
+      effectiveThreshold: choose('输出预留后的触发点', 'Trigger after output reserve'),
+      untilCompaction: (tokens) => choose(`距离压缩约 ${number.format(tokens)} tokens`, `About ${number.format(tokens)} tokens until compaction`),
+      compactionPending: choose('已达触发点；下次模型请求前压缩可归档的历史。', 'Threshold reached; compact eligible history before the next model request.'),
+      thresholdLegend: choose('圆环表示当前占用，刻度表示压缩触发点。可在设置 → 模型中调整阈值；压缩需要已有可归档的历史。', 'The arc shows current occupancy; the mark shows the compaction point. Adjust the threshold in Settings → Model. Compaction needs eligible history.'),
+      outputReserve: choose('输出预留 tokens', 'Output reserve tokens'),
+      remaining: choose('剩余上下文 tokens', 'Remaining context tokens'),
+      noModel: choose('未选择模型', 'No model selected'),
+      loading: choose('读取用量…', 'Loading context…'),
+      refresh: choose('重新读取', 'Reload context'),
       budgetWarning: choose(
-        '会话预算即将用尽，可展开查看详情。',
-        'The session budget is running low. Open usage for details.',
+        '会话执行预算即将用尽，可打开用量监控查看。',
+        'The session execution budget is running low. Open usage monitoring for details.',
       ),
       budgetExhausted: choose(
         '会话预算已用尽，后续执行受预算限制。',
         'The session budget is exhausted; further execution is budget-limited.',
       ),
-      close: choose('关闭用量与预算', 'Close usage and budget'),
+      close: choose('关闭上下文用量', 'Close context usage'),
       monitor: choose('打开用量监控', 'Open usage monitoring'),
-      error: (code) => choose(`用量读取失败：${code}`, `Could not load usage: ${code}`),
-      total: (tokens) => `${number.format(tokens)} tokens`,
-      remaining: (remaining, limit) =>
-        choose(
-          `剩余 ${number.format(remaining)} / ${number.format(limit)} tokens`,
-          `${number.format(remaining)} of ${number.format(limit)} tokens remaining`,
-        ),
-      progress: (used, limit) =>
-        choose(
-          `已使用 ${number.format(used)} / ${number.format(limit)} tokens`,
-          `${number.format(used)} of ${number.format(limit)} tokens used`,
-        ),
-      input: choose('输入', 'Input'),
-      output: choose('输出', 'Output'),
-      cost: choose('预计金额', 'Estimated cost'),
-      rate: choose('Token 速率', 'Token rate'),
+      error: (code) => choose(`上下文用量读取失败：${code}`, `Could not load context usage: ${code}`),
       unavailable: choose('不可用', 'Unavailable'),
-      gap: choose('部分样本缺失。', 'Some samples are missing.'),
-      sparkline: choose('Token 用量变化', 'Token usage over time'),
       number: (value) => number.format(value),
-      currency: (value) => currency.format(value),
-      tokensPerSecond: (value) => `${number.format(value)} tokens/s`,
     },
   }
 }
