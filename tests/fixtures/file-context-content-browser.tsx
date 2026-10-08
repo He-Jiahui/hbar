@@ -45,6 +45,10 @@ function Fixture({ input }: { readonly input: FileContextContentInput }) {
     addComment: copy.files.context.addComment.repeat(input.long ? 8 : 1),
     cancel: copy.files.context.cancel.repeat(input.long ? 8 : 1),
     addSelection: copy.files.context.addSelection.repeat(input.long ? 8 : 1),
+    previousLines: copy.files.context.previousLines.repeat(input.long ? 8 : 1),
+    nextLines: copy.files.context.nextLines.repeat(input.long ? 8 : 1),
+    linePage: (from: number, to: number, total: number) =>
+      copy.files.context.linePage(from, to, total).repeat(input.long ? 8 : 1),
     range: (start: number, end: number, side?: 'old' | 'new') =>
       copy.files.context.range(start, end, side).repeat(input.long ? 16 : 1),
   }

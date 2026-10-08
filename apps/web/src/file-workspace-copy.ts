@@ -89,6 +89,9 @@ export function fileWorkspaceCopy(
           `Comment on ${path} ${side ?? ''} line ${line}`,
         ),
       incompatible: choose('请选择同一差异块中同一侧的代码。', 'Select code on the same side of one diff hunk.'),
+      previousLines: choose('上一页代码', 'Previous source lines'),
+      nextLines: choose('下一页代码', 'Next source lines'),
+      linePage: (from, to, total) => choose(`${from}–${to} / ${total} 行`, `Lines ${from}–${to} of ${total}`),
     },
     previews: {
       tabs: choose('已打开的文件预览', 'Open file previews'),

@@ -1,18 +1,16 @@
 import { expect, test } from '@playwright/test'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, dirname, join, resolve } from 'node:path'
+import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { z } from 'zod'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { removeOwnedTempDirectory } from './support/owned-temp-directory'
 
 const prefix = 'hbar-message-files-'
 async function cleanup(root: string) {
-  const exact = resolve(root)
-  if (dirname(exact) !== resolve(tmpdir()) || !basename(exact).startsWith(prefix))
-    throw new Error('Refusing to remove an unowned message-files fixture')
-  await rm(exact, { recursive: true, force: true })
+  await removeOwnedTempDirectory(root, prefix)
 }
 
 test('message file references open the source session reader, reveal new locations and retain dirty edits', async ({
@@ -24,7 +22,7 @@ test('message file references open the source session reader, reveal new locatio
   const held: { release: (() => void) | null } = { release: null }
   try {
     const path = 'src/reference.vue'
-    const original = Array.from({ length: 120 }, (_, index) => `export const line${index + 1} = ${index + 1}`).join(
+    const original = Array.from({ length: 1200 }, (_, index) => `export const line${index + 1} = ${index + 1}`).join(
       '\n',
     )
     await mkdir(join(root, 'src'))
@@ -32,7 +30,7 @@ test('message file references open the source session reader, reveal new locatio
     host = await startWebSessionHost({
       root,
       historyCount: 2,
-      historyText: `查看 ${path}:2，再读 \`${path}:80:4\`，或者 [尾部](${path}:110)。缺失文件 missing.ts:2。`,
+      historyText: `查看 ${path}:2，再读 \`${path}:80:4\`，或者 [尾部](${path}:110)。后续页 ${path}:801。缺失文件 missing.ts:2。`,
       port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
     })
     const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
@@ -151,6 +149,15 @@ test('message file references open the source session reader, reveal new locatio
       .toBe(true)
     await expect(files.getByRole('tablist', { name: copy.files.previews.tabs, exact: true })).toHaveCount(0)
     await page.screenshot({ path: info.outputPath('message-file-line-80-1440.png') })
+    await files.getByRole('button', { name: copy.files.close, exact: true }).click()
+    await link(801).click()
+    await expect(reader.locator('[data-revealed="true"] [data-source-code="800"]')).toBeVisible()
+    await expect(reader.locator('[data-source-code]')).toHaveCount(400)
+    await files.getByRole('button', { name: copy.files.context.previousLines, exact: true }).click()
+    await expect(reader.locator('[data-source-code="400"]')).toBeVisible()
+    await files.getByRole('button', { name: copy.files.close, exact: true }).click()
+    await link(801).click()
+    await expect(reader.locator('[data-revealed="true"] [data-source-code="800"]')).toBeVisible()
     await files.getByRole('button', { name: copy.files.expandWorkbench, exact: true }).click()
     await page.getByRole('tab', { name: host.ready.sessionTitle, exact: true }).click()
     await link(2).click()

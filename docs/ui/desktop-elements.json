@@ -24623,7 +24623,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenFrame::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 50,
+      "line": 55,
       "owner": "HbarFileCommentEditor",
       "surface": "files-and-reading",
       "component": "LumenFrame",
@@ -24642,7 +24642,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenFrame::2",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 51,
+      "line": 56,
       "owner": "HbarFileCommentEditor",
       "surface": "files-and-reading",
       "component": "LumenFrame",
@@ -24661,7 +24661,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenIcon::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 52,
+      "line": 57,
       "owner": "HbarFileCommentEditor",
       "surface": "files-and-reading",
       "component": "LumenIcon",
@@ -24680,7 +24680,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenContentText::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 53,
+      "line": 58,
       "owner": "HbarFileCommentEditor",
       "surface": "files-and-reading",
       "component": "LumenContentText",
@@ -24699,7 +24699,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenFrame::3",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 56,
+      "line": 61,
       "owner": "HbarFileCommentEditor",
       "surface": "files-and-reading",
       "component": "LumenFrame",
@@ -24718,7 +24718,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenContentText::2",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 57,
+      "line": 62,
       "owner": "HbarFileCommentEditor",
       "surface": "files-and-reading",
       "component": "LumenContentText",
@@ -24737,7 +24737,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenTextarea::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 60,
+      "line": 65,
       "owner": "HbarFileCommentEditor",
       "surface": "files-and-reading",
       "component": "LumenTextarea",
@@ -24761,7 +24761,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenFrame::4",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 80,
+      "line": 85,
       "owner": "HbarFileCommentEditor",
       "surface": "files-and-reading",
       "component": "LumenFrame",
@@ -24780,7 +24780,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenButton::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 81,
+      "line": 86,
       "owner": "HbarFileCommentEditor",
       "surface": "files-and-reading",
       "component": "LumenButton",
@@ -24799,7 +24799,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenButton::2",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 84,
+      "line": 89,
       "owner": "HbarFileCommentEditor",
       "surface": "files-and-reading",
       "component": "LumenButton",
@@ -24818,7 +24818,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::SelectionMenu::LumenFloatingSurface::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 136,
+      "line": 143,
       "owner": "SelectionMenu",
       "surface": "files-and-reading",
       "component": "LumenFloatingSurface",
@@ -24837,7 +24837,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::SelectionMenu::LumenButton::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 151,
+      "line": 158,
       "owner": "SelectionMenu",
       "surface": "files-and-reading",
       "component": "LumenButton",
@@ -24856,7 +24856,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::SelectionMenu::LumenIcon::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 152,
+      "line": 159,
       "owner": "SelectionMenu",
       "surface": "files-and-reading",
       "component": "LumenIcon",
@@ -24875,24 +24875,16 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileSourceSurface::LumenFrame::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 202,
+      "line": 235,
       "owner": "HbarFileSourceSurface",
       "surface": "files-and-reading",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": [
-        "[source:213; CallExpression] lines.map, line, index",
-        "[source:269; BinaryExpression] selection"
-      ],
-      "accessibleNameSources": ["aria-label=previewLabel"],
-      "actionBindings": {
-        "onMouseUp": "mouseUp",
-        "onKeyUp": "(event) => {\n        if (event.key === 'Escape') dismiss()\n        else if (event.shiftKey && root.current && !disabled) setSelection(captureTextSelection(root.current, starts))\n      }"
-      },
-      "targetSources": [
-        "onKeyUp=(event) => {\n        if (event.key === 'Escape') dismiss()\n        else if (event.shiftKey && root.current && !disabled) setSelection(captureTextSelection(root.current, starts))\n      }"
-      ],
+      "contentSources": ["[source:335; BinaryExpression] page.totalLines, FILE_SOURCE_LINES_PER_PAGE"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
       "stateSources": [],
       "flow": "owning flow layout",
       "lumenMapping": "LumenFrame",
@@ -24902,13 +24894,40 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileSourceSurface::LumenFrame::2",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 214,
+      "line": 236,
       "owner": "HbarFileSourceSurface",
       "surface": "files-and-reading",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": ["[source:244; BinaryExpression] comment, endLine, index"],
+      "contentSources": [
+        "[source:247; CallExpression] page.lines.map, page.lines, row, text, line, index",
+        "[source:313; BinaryExpression] selection"
+      ],
+      "accessibleNameSources": ["aria-label=previewLabel"],
+      "actionBindings": {
+        "onMouseUp": "mouseUp",
+        "onKeyUp": "(event) => {\n          if (event.key === 'Escape') dismiss()\n          else if (event.shiftKey && root.current && !disabled) setSelection(captureTextSelection(root.current))\n        }"
+      },
+      "targetSources": [
+        "onKeyUp=(event) => {\n          if (event.key === 'Escape') dismiss()\n          else if (event.shiftKey && root.current && !disabled) setSelection(captureTextSelection(root.current))\n        }"
+      ],
+      "stateSources": [],
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileSourceSurface::LumenFrame::3",
+      "path": "packages/app-react/src/file-context-surfaces.tsx",
+      "line": 250,
+      "owner": "HbarFileSourceSurface",
+      "surface": "files-and-reading",
+      "component": "LumenFrame",
+      "category": "structure",
+      "context": null,
+      "contentSources": ["[source:287; BinaryExpression] comment, endLine, index"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": ["key=index"],
@@ -24919,9 +24938,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileSourceSurface::LumenFrame::3",
+      "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileSourceSurface::LumenFrame::4",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 215,
+      "line": 251,
       "owner": "HbarFileSourceSurface",
       "surface": "files-and-reading",
       "component": "LumenFrame",
@@ -24940,7 +24959,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileSourceSurface::LumenButton::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 220,
+      "line": 256,
       "owner": "HbarFileSourceSurface",
       "surface": "files-and-reading",
       "component": "LumenButton",
@@ -24949,7 +24968,7 @@
       "contentSources": ["index + 1"],
       "accessibleNameSources": ["aria-label=labels.commentLine(path, index + 1)"],
       "actionBindings": {
-        "onClick": "(event) => {\n                dismiss()\n                setComment((current) =>\n                  event.shiftKey && current ? { ...current, focus: index } : { anchor: index, focus: index, note: '' },\n                )\n              }"
+        "onClick": "(event) => {\n                    dismiss()\n                    setReview((current) =>\n                      event.shiftKey && current?.value === value\n                        ? { ...current, focus: row }\n                        : { value, anchor: row, focus: row, note: '' },\n                    )\n                  }"
       },
       "targetSources": [],
       "stateSources": ["disabled=disabled || !sha256 || !line"],
@@ -24961,7 +24980,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileSourceSurface::LumenContentText::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 240,
+      "line": 278,
       "owner": "HbarFileSourceSurface",
       "surface": "files-and-reading",
       "component": "LumenContentText",
@@ -24980,7 +24999,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileSourceSurface::HbarFileCommentEditor::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 245,
+      "line": 288,
       "owner": "HbarFileSourceSurface",
       "surface": "files-and-reading",
       "component": "HbarFileCommentEditor",
@@ -24989,9 +25008,9 @@
       "contentSources": ["labels=labels"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onNote": "(note) => setComment((current) => (current ? { ...current, note } : null))",
+        "onNote": "(note) => setReview((current) => (current ? { ...current, note } : null))",
         "onCancel": "closeComment",
-        "onSubmit": "async (note) => {\n                if (!sha256) return false\n                const added = await onAdd({\n                  kind: 'source-comment',\n                  sha256,\n                  startOffset: starts[startLine]!,\n                  endOffset: starts[endLine]! + lines[endLine]!.length,\n                  note,\n                })\n                if (added) closeComment()\n                return added\n              }"
+        "onSubmit": "async (note) => {\n                    if (!sha256) return false\n                    const added = await onAdd({\n                      kind: 'source-comment',\n                      sha256,\n                      startOffset,\n                      endOffset,\n                      note,\n                    })\n                    if (added) closeComment()\n                    return added\n                  }"
       },
       "targetSources": ["key=`${startLine}:${endLine}`"],
       "stateSources": ["disabled=disabled"],
@@ -25003,7 +25022,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileSourceSurface::SelectionMenu::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 270,
+      "line": 314,
       "owner": "HbarFileSourceSurface",
       "surface": "files-and-reading",
       "component": "SelectionMenu",
@@ -25013,12 +25032,94 @@
       "accessibleNameSources": ["label=labels.addSelection"],
       "actionBindings": {
         "onDismiss": "dismiss",
-        "onAdd": "() => {\n            if (!sha256) return\n            void onAdd({\n              kind: 'source-selection',\n              sha256,\n              startOffset: selection.startOffset,\n              endOffset: selection.endOffset,\n            }).then((added) => {\n              if (!added) return\n              dismiss()\n              root.current?.ownerDocument.getSelection()?.removeAllRanges()\n            })\n          }"
+        "onAdd": "() => {\n              if (!sha256) return\n              void onAdd({\n                kind: 'source-selection',\n                sha256,\n                startOffset: selection.startOffset,\n                endOffset: selection.endOffset,\n              }).then((added) => {\n                if (!added) return\n                dismiss()\n                root.current?.ownerDocument.getSelection()?.removeAllRanges()\n              })\n            }"
       },
       "targetSources": [],
       "stateSources": ["disabled=disabled"],
       "flow": "owning component contract",
       "lumenMapping": "SelectionMenu",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileSourceSurface::LumenFrame::5",
+      "path": "packages/app-react/src/file-context-surfaces.tsx",
+      "line": 336,
+      "owner": "HbarFileSourceSurface",
+      "surface": "files-and-reading",
+      "component": "LumenFrame",
+      "category": "structure",
+      "context": null,
+      "contentSources": [],
+      "accessibleNameSources": [
+        "aria-label=labels.linePage(page.startLine + 1, page.startLine + page.lines.length, page.totalLines)"
+      ],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileSourceSurface::LumenContentText::2",
+      "path": "packages/app-react/src/file-context-surfaces.tsx",
+      "line": 342,
+      "owner": "HbarFileSourceSurface",
+      "surface": "files-and-reading",
+      "component": "LumenContentText",
+      "category": "text",
+      "context": "metadata.detail",
+      "contentSources": ["labels.linePage(page.startLine + 1, page.startLine + page.lines.length, page.totalLines)"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "single",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileSourceSurface::LumenButton::2",
+      "path": "packages/app-react/src/file-context-surfaces.tsx",
+      "line": 345,
+      "owner": "HbarFileSourceSurface",
+      "surface": "files-and-reading",
+      "component": "LumenButton",
+      "category": "interaction",
+      "context": null,
+      "contentSources": ["labels.previousLines"],
+      "accessibleNameSources": [],
+      "actionBindings": {
+        "onClick": "() => {\n              dismiss()\n              changePage(page.page - 1)\n            }"
+      },
+      "targetSources": [],
+      "stateSources": ["disabled=disabled || page.page === 0"],
+      "flow": "owning component contract",
+      "lumenMapping": "LumenButton",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileSourceSurface::LumenButton::3",
+      "path": "packages/app-react/src/file-context-surfaces.tsx",
+      "line": 354,
+      "owner": "HbarFileSourceSurface",
+      "surface": "files-and-reading",
+      "component": "LumenButton",
+      "category": "interaction",
+      "context": null,
+      "contentSources": ["labels.nextLines"],
+      "accessibleNameSources": [],
+      "actionBindings": {
+        "onClick": "() => {\n              dismiss()\n              changePage(page.page + 1)\n            }"
+      },
+      "targetSources": [],
+      "stateSources": ["disabled=disabled || page.startLine + page.lines.length >= page.totalLines"],
+      "flow": "owning component contract",
+      "lumenMapping": "LumenButton",
       "status": "composed",
       "issues": []
     },
@@ -32073,7 +32174,7 @@
     {
       "id": "packages/app-react/src/lumen-file-workspace.tsx::HbarFileWorkspace::LumenContentText::6",
       "path": "packages/app-react/src/lumen-file-workspace.tsx",
-      "line": 777,
+      "line": 778,
       "owner": "HbarFileWorkspace",
       "surface": "files-and-reading",
       "component": "LumenContentText",
@@ -32092,7 +32193,7 @@
     {
       "id": "packages/app-react/src/lumen-file-workspace.tsx::HbarFileWorkspace::LumenFrame::5",
       "path": "packages/app-react/src/lumen-file-workspace.tsx",
-      "line": 781,
+      "line": 782,
       "owner": "HbarFileWorkspace",
       "surface": "files-and-reading",
       "component": "LumenFrame",
@@ -32100,7 +32201,7 @@
       "context": null,
       "contentSources": [
         "dirty && !unknown && (\n                          <LumenButton\n                            disabled={!connected || busy || document.status === 'loading'}\n                            onClick={requestReload}\n                          >\n                            {labels.reload}\n                          </LumenButton>\n                        )",
-        "[source:799; ConditionalExpression] unknown, editing"
+        "[source:800; ConditionalExpression] unknown, editing"
       ],
       "accessibleNameSources": ["aria-label=labels.edit"],
       "actionBindings": {},
@@ -32114,7 +32215,7 @@
     {
       "id": "packages/app-react/src/lumen-file-workspace.tsx::HbarFileWorkspace::LumenContentText::7",
       "path": "packages/app-react/src/lumen-file-workspace.tsx",
-      "line": 788,
+      "line": 789,
       "owner": "HbarFileWorkspace",
       "surface": "files-and-reading",
       "component": "LumenContentText",
@@ -32133,7 +32234,7 @@
     {
       "id": "packages/app-react/src/lumen-file-workspace.tsx::HbarFileWorkspace::LumenButton::7",
       "path": "packages/app-react/src/lumen-file-workspace.tsx",
-      "line": 792,
+      "line": 793,
       "owner": "HbarFileWorkspace",
       "surface": "files-and-reading",
       "component": "LumenButton",
@@ -32152,7 +32253,7 @@
     {
       "id": "packages/app-react/src/lumen-file-workspace.tsx::HbarFileWorkspace::LumenButton::8",
       "path": "packages/app-react/src/lumen-file-workspace.tsx",
-      "line": 800,
+      "line": 801,
       "owner": "HbarFileWorkspace",
       "surface": "files-and-reading",
       "component": "LumenButton",
@@ -32173,7 +32274,7 @@
     {
       "id": "packages/app-react/src/lumen-file-workspace.tsx::HbarFileWorkspace::LumenButton::9",
       "path": "packages/app-react/src/lumen-file-workspace.tsx",
-      "line": 807,
+      "line": 808,
       "owner": "HbarFileWorkspace",
       "surface": "files-and-reading",
       "component": "LumenButton",
@@ -32192,7 +32293,7 @@
     {
       "id": "packages/app-react/src/lumen-file-workspace.tsx::HbarFileWorkspace::HbarFileDiff::1",
       "path": "packages/app-react/src/lumen-file-workspace.tsx",
-      "line": 821,
+      "line": 822,
       "owner": "HbarFileWorkspace",
       "surface": "files-and-reading",
       "component": "HbarFileDiff",
@@ -32215,13 +32316,13 @@
     {
       "id": "packages/app-react/src/lumen-file-workspace.tsx::HbarFileWorkspace::LumenFrame::6",
       "path": "packages/app-react/src/lumen-file-workspace.tsx",
-      "line": 863,
+      "line": 864,
       "owner": "HbarFileWorkspace",
       "surface": "files-and-reading",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": ["[source:890; ConditionalExpression] entry?.browserMode"],
+      "contentSources": ["[source:891; ConditionalExpression] entry?.browserMode"],
       "accessibleNameSources": ["aria-label=labels.navigator"],
       "actionBindings": {},
       "targetSources": ["hidden=hasPreview && !navigator.shown"],
@@ -32234,7 +32335,7 @@
     {
       "id": "packages/app-react/src/lumen-file-workspace.tsx::HbarFileWorkspace::LumenFrame::7",
       "path": "packages/app-react/src/lumen-file-workspace.tsx",
-      "line": 870,
+      "line": 871,
       "owner": "HbarFileWorkspace",
       "surface": "files-and-reading",
       "component": "LumenFrame",
@@ -32253,7 +32354,7 @@
     {
       "id": "packages/app-react/src/lumen-file-workspace.tsx::HbarFileWorkspace::LumenPopupSelect::1",
       "path": "packages/app-react/src/lumen-file-workspace.tsx",
-      "line": 871,
+      "line": 872,
       "owner": "HbarFileWorkspace",
       "surface": "files-and-reading",
       "component": "LumenPopupSelect",
@@ -32277,7 +32378,7 @@
     {
       "id": "packages/app-react/src/lumen-file-workspace.tsx::HbarFileWorkspace::LumenFileManager03::1",
       "path": "packages/app-react/src/lumen-file-workspace.tsx",
-      "line": 891,
+      "line": 892,
       "owner": "HbarFileWorkspace",
       "surface": "files-and-reading",
       "component": "LumenFileManager03",
@@ -32296,7 +32397,7 @@
     {
       "id": "packages/app-react/src/lumen-file-workspace.tsx::HbarFileWorkspace::HbarFileChanges::1",
       "path": "packages/app-react/src/lumen-file-workspace.tsx",
-      "line": 894,
+      "line": 895,
       "owner": "HbarFileWorkspace",
       "surface": "files-and-reading",
       "component": "HbarFileChanges",
@@ -32320,7 +32421,7 @@
     {
       "id": "packages/app-react/src/lumen-file-workspace.tsx::HbarFileWorkspace::LumenFileManager01::1",
       "path": "packages/app-react/src/lumen-file-workspace.tsx",
-      "line": 913,
+      "line": 914,
       "owner": "HbarFileWorkspace",
       "surface": "files-and-reading",
       "component": "LumenFileManager01",
@@ -32339,7 +32440,7 @@
     {
       "id": "packages/app-react/src/lumen-file-workspace.tsx::HbarFileWorkspace::HbarFileTree::1",
       "path": "packages/app-react/src/lumen-file-workspace.tsx",
-      "line": 916,
+      "line": 917,
       "owner": "HbarFileWorkspace",
       "surface": "files-and-reading",
       "component": "HbarFileTree",
@@ -32367,7 +32468,7 @@
     {
       "id": "packages/app-react/src/lumen-file-workspace.tsx::HbarFileWorkspace::LumenDialog::1",
       "path": "packages/app-react/src/lumen-file-workspace.tsx",
-      "line": 948,
+      "line": 949,
       "owner": "HbarFileWorkspace",
       "surface": "files-and-reading",
       "component": "LumenDialog",
@@ -32386,7 +32487,7 @@
     {
       "id": "packages/app-react/src/lumen-file-workspace.tsx::HbarFileWorkspace::LumenButton::10",
       "path": "packages/app-react/src/lumen-file-workspace.tsx",
-      "line": 956,
+      "line": 957,
       "owner": "HbarFileWorkspace",
       "surface": "files-and-reading",
       "component": "LumenButton",
@@ -32405,7 +32506,7 @@
     {
       "id": "packages/app-react/src/lumen-file-workspace.tsx::HbarFileWorkspace::LumenButton::11",
       "path": "packages/app-react/src/lumen-file-workspace.tsx",
-      "line": 957,
+      "line": 958,
       "owner": "HbarFileWorkspace",
       "surface": "files-and-reading",
       "component": "LumenButton",
@@ -32424,7 +32525,7 @@
     {
       "id": "packages/app-react/src/lumen-file-workspace.tsx::HbarFileWorkspace::LumenFrame::8",
       "path": "packages/app-react/src/lumen-file-workspace.tsx",
-      "line": 963,
+      "line": 964,
       "owner": "HbarFileWorkspace",
       "surface": "files-and-reading",
       "component": "LumenFrame",
@@ -32443,7 +32544,7 @@
     {
       "id": "packages/app-react/src/lumen-file-workspace.tsx::HbarFileWorkspace::LumenContentText::8",
       "path": "packages/app-react/src/lumen-file-workspace.tsx",
-      "line": 969,
+      "line": 970,
       "owner": "HbarFileWorkspace",
       "surface": "files-and-reading",
       "component": "LumenContentText",
@@ -32462,7 +32563,7 @@
     {
       "id": "packages/app-react/src/lumen-file-workspace.tsx::HbarFileWorkspace::LumenContentText::9",
       "path": "packages/app-react/src/lumen-file-workspace.tsx",
-      "line": 971,
+      "line": 972,
       "owner": "HbarFileWorkspace",
       "surface": "files-and-reading",
       "component": "LumenContentText",
@@ -77560,6 +77661,7 @@
     "packages/app-react/src/file-preview-tabs.tsx",
     "packages/app-react/src/file-review-focus.ts",
     "packages/app-react/src/file-search-focus.ts",
+    "packages/app-react/src/file-source-pagination.ts",
     "packages/app-react/src/file-workspace-changes.tsx",
     "packages/app-react/src/file-workspace-tree.tsx",
     "packages/app-react/src/floating-surface.tsx",

@@ -1,5 +1,30 @@
+.hbar-file-source-workspace {
+  display: flex;
+  flex: 1 1 0;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex-direction: column;
+}
+
 .hbar-file-source-surface {
+  flex: 1 1 0;
+  min-block-size: 0;
   padding-inline: 0;
+}
+
+.hbar-file-source-pagination {
+  display: flex;
+  flex: 0 0 auto;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.5rem;
+}
+
+.hbar-file-source-pagination > * {
+  flex: 0 0 auto;
 }
 
 .hbar-file-source-row,

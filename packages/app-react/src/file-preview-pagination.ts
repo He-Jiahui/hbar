@@ -12,11 +12,15 @@ export interface FileDiffPagination {
 export interface FilePreviewPageSource {
   readonly id: string
   readonly lineCount: number
+  readonly reveal?: { readonly requestId: string; readonly line: number } | undefined
 }
 
 export interface FilePreviewPaginationState {
   readonly target: string
-  readonly pages: ReadonlyMap<string, { readonly page: number; readonly lineCount: number }>
+  readonly pages: ReadonlyMap<
+    string,
+    { readonly page: number; readonly lineCount: number; readonly revealRequestId?: string }
+  >
 }
 
 /** Count like split('\n') without allocating a second array for a large diff. */
@@ -38,20 +42,37 @@ export function synchronizeFilePreviewPagination(
   target: string,
   sources: readonly FilePreviewPageSource[],
 ): FilePreviewPaginationState {
-  const pages = new Map<string, { readonly page: number; readonly lineCount: number }>()
+  const pages = new Map<
+    string,
+    { readonly page: number; readonly lineCount: number; readonly revealRequestId?: string }
+  >()
   for (const source of sources) {
     if (!source.id || pages.has(source.id)) continue
     if (pages.size === MAX_PREVIEW_PAGES) break
-    const previous = state.target === target ? state.pages.get(source.id)?.page : 0
+    const previous = state.target === target ? state.pages.get(source.id) : undefined
     const lineCount = Number.isFinite(source.lineCount) ? Math.max(0, Math.floor(source.lineCount)) : 0
-    pages.set(source.id, { page: clampFileDiffPage(previous ?? 0, lineCount), lineCount })
+    const reveal = source.reveal
+    const requestedPage =
+      reveal && reveal.requestId !== previous?.revealRequestId
+        ? Math.floor((reveal.line - 1) / FILE_DIFF_LINES_PER_PAGE)
+        : (previous?.page ?? 0)
+    const revealRequestId = reveal?.requestId ?? previous?.revealRequestId
+    pages.set(source.id, {
+      page: clampFileDiffPage(requestedPage, lineCount),
+      lineCount,
+      ...(revealRequestId ? { revealRequestId } : {}),
+    })
   }
   if (
     state.target === target &&
     state.pages.size === pages.size &&
     Array.from(pages).every(([id, value]) => {
       const previous = state.pages.get(id)
-      return previous?.page === value.page && previous.lineCount === value.lineCount
+      return (
+        previous?.page === value.page &&
+        previous.lineCount === value.lineCount &&
+        previous.revealRequestId === value.revealRequestId
+      )
     })
   )
     return state
@@ -73,23 +94,34 @@ export function changeFilePreviewPage(
   return { target, pages }
 }
 
-/** The workspace, not the remounted active diff component, owns its bounded reading pages. */
+/** The workspace owns pages for immutable preview lifetimes, including one-shot source reveals. */
 export function useFilePreviewPagination(
   target: string,
   previews: readonly FileWorkspacePreviewState[],
   activePreviewId: string | null,
 ): FileDiffPagination | undefined {
-  const lineCounts = useRef(new WeakMap<Extract<FileWorkspacePreviewState, { kind: 'diff' }>['diff'], number>())
+  const lineCounts = useRef(new WeakMap<object, number>())
   const sources = useMemo(
     () =>
       previews.flatMap((preview) => {
-        if (preview.kind !== 'diff') return []
-        let lineCount = lineCounts.current.get(preview.diff)
+        const content = preview.kind === 'diff' ? preview.diff : preview.document
+        let lineCount = lineCounts.current.get(content)
         if (lineCount === undefined) {
-          lineCount = fileDiffLineCount(preview.diff.text)
-          lineCounts.current.set(preview.diff, lineCount)
+          lineCount = fileDiffLineCount(preview.kind === 'diff' ? preview.diff.text : preview.document.draft)
+          lineCounts.current.set(content, lineCount)
         }
-        return [{ id: preview.id, lineCount }]
+        return [
+          {
+            id: preview.id,
+            lineCount,
+            ...(preview.kind === 'document' &&
+            preview.document.sha256 &&
+            preview.document.status !== 'loading' &&
+            preview.reveal
+              ? { reveal: { requestId: preview.reveal.requestId, line: preview.reveal.line } }
+              : {}),
+          },
+        ]
       }),
     [previews],
   )

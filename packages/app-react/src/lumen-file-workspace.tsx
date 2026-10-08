@@ -770,6 +770,7 @@ export function HbarFileWorkspace({
                           labels={labels.context}
                           disabled={!canAdd || addingTarget !== null}
                           revealedLine={revealedLine}
+                          pagination={diffPagination}
                           onAdd={addCurrentFile}
                         />
                       )}
