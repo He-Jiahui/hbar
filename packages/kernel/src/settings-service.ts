@@ -2,6 +2,12 @@ import { createHash, randomUUID } from 'node:crypto'
 import { HbarError } from '@hbar/contracts'
 import { DEFAULT_SANDBOX_PROFILE_ID } from '@hbar/contracts/sandbox'
 import {
+  COMPACTION_PERCENT_SETTING,
+  DEFAULT_COMPACTION_PERCENT,
+  MIN_COMPACTION_PERCENT,
+  MAX_COMPACTION_PERCENT,
+} from '@hbar/contracts/commands/models'
+import {
   settingsDescriptionSchema,
   settingsReceiptSchema,
   type SettingsDescription,
@@ -113,6 +119,22 @@ export const HBAR_SETTINGS_DESCRIPTION: SettingsDescription = freeze(
         helpKey: 'i18n:settings.session.defaultBudget.help',
         group: 'session',
         order: 10,
+        component: 'NumberField',
+        multiple: false,
+      },
+      {
+        path: path(COMPACTION_PERCENT_SETTING),
+        type: 'integer',
+        nullable: false,
+        defaultValue: DEFAULT_COMPACTION_PERCENT,
+        minimum: MIN_COMPACTION_PERCENT,
+        maximum: MAX_COMPACTION_PERCENT,
+        allowedScopes: ['global', 'workspace', 'session'],
+        applyMode: 'immediate',
+        labelKey: 'i18n:settings.context.compactionPercent.label',
+        helpKey: 'i18n:settings.context.compactionPercent.help',
+        group: 'model',
+        order: 30,
         component: 'NumberField',
         multiple: false,
       },

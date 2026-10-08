@@ -4,6 +4,12 @@ import { WorkspaceSandboxService } from './workspace-sandbox'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import {
+  COMPACTION_PERCENT_SETTING,
+  DEFAULT_COMPACTION_PERCENT,
+  type SessionContextUsage,
+} from '@hbar/contracts/commands/models'
+import { compactionInputThreshold, describeContextUsage, estimateContextTokens } from './context-usage'
+import {
   HbarError,
   approvalModeSchema,
   inputSchema,
@@ -762,9 +768,9 @@ export class Kernel {
         }),
         apply: (ctx, config) =>
           provide<CompactionProvider>(ctx, 'compaction', {
-            shouldCompact: (request) =>
-              JSON.stringify(request.messages).length / 3 + request.system.length / 3 + request.model.maxOutput >
-              request.model.contextWindow * (config.threshold as number),
+            thresholdRatio: config.threshold as number,
+            shouldCompact: (request, thresholdRatio = config.threshold as number) =>
+              estimateContextTokens(request) >= compactionInputThreshold(request, thresholdRatio * 100),
             retainMessages: config.retainMessages as number,
           }),
       }),
@@ -1604,7 +1610,11 @@ export class Kernel {
           beforeRequest: async (_request, stepId) => {
             controller.signal.throwIfAborted()
             let request = await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext)
-            if (this.plugins.get<CompactionProvider>('compaction').shouldCompact(request)) {
+            if (
+              this.plugins
+                .get<CompactionProvider>('compaction')
+                .shouldCompact(request, (await this.compactionPercent(sessionId)) / 100)
+            ) {
               await this.compactInternal(
                 sessionId,
                 model,
@@ -1746,18 +1756,59 @@ export class Kernel {
             )
         } else if (status === 'failed') {
           const goalState = await this.plugins.get<GoalService>('goal').get(sessionId)
-          const controlled = run.input.source === 'goal' || run.input.source === 'system' ||
+          const controlled =
+            run.input.source === 'goal' ||
+            run.input.source === 'system' ||
             ['active', 'blocked', 'usage_limited', 'budget_limited'].includes(goalState.goal?.status ?? '')
           if (controlled)
-            void this.taskNotification('retry_failed', sessionId, run.id, '任务失败', '任务执行失败，请检查错误后重试。').catch((error) =>
-              console.error('Task notification failed:', error),
-            )
+            void this.taskNotification(
+              'retry_failed',
+              sessionId,
+              run.id,
+              '任务失败',
+              '任务执行失败，请检查错误后重试。',
+            ).catch((error) => console.error('Task notification failed:', error))
         }
         await scope.dispose()
         this.changed('sessions')
       }
     }
   }
+  private async compactionPercent(sessionId: string): Promise<number> {
+    const snapshot = await this.permissionSettings.get({ kind: 'session', targetId: sessionId })
+    const report = snapshot.resolution.reports[encodePath([{ kind: 'field', name: COMPACTION_PERCENT_SETTING }])]
+    // Preserve explicit plugin configurations until a layered threshold is saved.
+    if (report?.sourceLayer === 'default')
+      return (
+        (this.plugins.get<CompactionProvider>('compaction').thresholdRatio ?? DEFAULT_COMPACTION_PERCENT / 100) * 100
+      )
+    return typeof report?.effectiveValue === 'number' ? report.effectiveValue : DEFAULT_COMPACTION_PERCENT
+  }
+
+  async getContextUsage(sessionId: string, selectedModelId: string | null): Promise<SessionContextUsage> {
+    // Active Runs keep their captured model even when next-Run settings change.
+    const active = this.active.get(sessionId)
+    const modelId = active?.run.modelId ?? selectedModelId
+    const percent = await this.compactionPercent(sessionId)
+    if (!modelId)
+      return {
+        sessionId,
+        modelId: null,
+        status: 'no-model',
+        estimated: true,
+        inputTokens: null,
+        contextWindow: null,
+        outputReserve: null,
+        compactionPercent: percent,
+        compactionTokens: null,
+        remainingTokens: null,
+        observedAt: Date.now(),
+      }
+    const model = await this.plugins.get<ModelRegistry>('models').get(modelId)
+    const request = await this.buildRequest(sessionId, model, active?.context.hooks ?? this.hooks, active?.run)
+    return describeContextUsage(sessionId, request, percent)
+  }
+
   private async buildRequest(
     sessionId: string,
     model: ProviderConfig,

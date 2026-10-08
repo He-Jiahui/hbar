@@ -2,6 +2,27 @@ import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
 import { idSchema, thinkingLevelSchema } from '../index'
 
+export const DEFAULT_COMPACTION_PERCENT = 80
+export const MIN_COMPACTION_PERCENT = 30
+export const MAX_COMPACTION_PERCENT = 95
+export const COMPACTION_PERCENT_SETTING = 'context.compactionPercent'
+
+/** Current retained context, never cumulative usage accounting. Counts are Host estimates. */
+export const sessionContextUsageSchema = z.strictObject({
+  sessionId: idSchema,
+  modelId: idSchema.nullable(),
+  status: z.enum(['available', 'no-model']),
+  estimated: z.literal(true),
+  inputTokens: z.number().int().nonnegative().nullable(),
+  contextWindow: z.number().int().positive().nullable(),
+  outputReserve: z.number().int().nonnegative().nullable(),
+  compactionPercent: z.number().min(MIN_COMPACTION_PERCENT).max(MAX_COMPACTION_PERCENT),
+  /** Input threshold after allowing room for the model's maximum output. */
+  compactionTokens: z.number().int().nonnegative().nullable(),
+  remainingTokens: z.number().int().nonnegative().nullable(),
+  observedAt: z.number().int().nonnegative(),
+})
+
 export const modelDescriptorSchema = z.strictObject({
   id: idSchema,
   providerId: idSchema,
@@ -71,6 +92,14 @@ export const modelCommands = {
     z.strictObject({ sessionId: idSchema }),
     modelConfigurationSchema,
   ),
+  'session.getContextUsage': defineCommand(
+    {
+      ...metadata('session.getContextUsage', 'query', 'session'),
+      cli: { arguments: [{ field: 'sessionId', type: 'string' as const, flag: 'session' }] },
+    },
+    z.strictObject({ sessionId: idSchema }),
+    sessionContextUsageSchema,
+  ),
   'session.getModelReceipt': defineCommand(
     {
       ...metadata('session.getModelReceipt', 'query', 'session'),
@@ -120,3 +149,4 @@ export type ModelDescriptor = z.output<typeof modelDescriptorSchema>
 export type ModelConfiguration = z.output<typeof modelConfigurationSchema>
 export type ModelWriteResult = z.output<typeof modelWriteResultSchema>
 export type ModelReceipt = z.output<typeof modelReceiptSchema>
+export type SessionContextUsage = z.output<typeof sessionContextUsageSchema>

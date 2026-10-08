@@ -643,7 +643,9 @@ export interface ComputerUseService {
   launch(sessionId: string, appId: string, signal?: AbortSignal): Promise<ComputerAction>
 }
 export interface CompactionProvider {
-  shouldCompact(request: ModelRequest): boolean
+  /** Layered settings override the legacy plugin threshold when explicitly saved. */
+  shouldCompact(request: ModelRequest, thresholdRatio?: number): boolean
+  readonly thresholdRatio?: number
   retainMessages: number
 }
 export interface HookEvents {

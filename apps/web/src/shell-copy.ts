@@ -556,6 +556,9 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.provider.model.help': '选择后续运行使用的供应商模型。',
         'i18n:settings.provider.thinkingLevel.label': '思考等级',
         'i18n:settings.provider.thinkingLevel.help': '可用等级会随当前模型变化。',
+        'i18n:settings.context.compactionPercent.label': '自动压缩阈值（%）',
+        'i18n:settings.context.compactionPercent.help':
+          '默认 80%，可设置 30–95%。当前会话的上下文占用达到此比例时，在下一次模型请求前压缩；输出预留空间不足时会提前触发。保存后立即采用。',
         'i18n:settings.session.defaultBudget.label': '默认 Token 预算',
         'i18n:settings.session.defaultBudget.help': '设置新会话运行采用的默认 Token 上限。',
         'i18n:settings.session.approval.label': '会话工具审批',
@@ -577,6 +580,9 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.provider.model.help': 'Choose the provider model used by future runs.',
         'i18n:settings.provider.thinkingLevel.label': 'Thinking level',
         'i18n:settings.provider.thinkingLevel.help': 'Available levels follow the selected model.',
+        'i18n:settings.context.compactionPercent.label': 'Auto-compaction threshold (%)',
+        'i18n:settings.context.compactionPercent.help':
+          'Defaults to 80%; choose 30–95%. Compact the current session before the next model request at this context occupancy, or earlier to reserve output space. Saved changes apply immediately.',
         'i18n:settings.session.defaultBudget.label': 'Default token budget',
         'i18n:settings.session.defaultBudget.help': 'Set the default token limit for new session runs.',
         'i18n:settings.session.approval.label': 'Session tool approval',

@@ -89,6 +89,9 @@ export function createModelCommands(kernel: Kernel, settings: SettingsService) {
 
   registry.register(modelCommands['model.list'], async () => (await kernel.models()).map(toModelDescriptor))
   registry.register(modelCommands['session.getModel'], ({ sessionId }) => translate(() => configuration(sessionId)))
+  registry.register(modelCommands['session.getContextUsage'], ({ sessionId }) =>
+    translate(async () => kernel.getContextUsage(sessionId, (await configuration(sessionId)).modelId)),
+  )
   registry.register(modelCommands['session.getModelReceipt'], ({ sessionId, idempotencyKey }, context) =>
     translate(async () => {
       if (!context.actorId) throw new HbarError('INVALID_INPUT', 'Authenticated actor is required')

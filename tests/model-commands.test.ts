@@ -59,6 +59,7 @@ test('model commands use layered settings with capability validation and atomic 
   const catalog = await client.call('command.catalog', { category: 'model.configuration', limit: 20 })
   expect(catalog.items.map((item) => item.metadata.id)).toEqual([
     'model.list',
+    'session.getContextUsage',
     'session.getModel',
     'session.setModel',
     'session.setThinkingLevel',
