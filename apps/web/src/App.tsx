@@ -64,6 +64,7 @@ import {
   createSessionLaunchTargetReader,
   createSessionLaunchTargetPreparationManager,
   createSessionLaunchBranchesManager,
+  createSessionBranchTargetCommandClient,
   createSessionSearchCommandClient,
   createSessionTimelineClient,
   createInteractionCommandClient,
@@ -419,6 +420,11 @@ function createRuntime(
     sessionLaunchTargetPreparation: createSessionLaunchTargetPreparationManager(client),
     sessionLaunchBranches,
     sessionLaunchBranchCreation: sessionLaunchBranches,
+    sessionBranchTargets: createSessionBranchTargetCommandClient(client),
+    sessionBranchTargetEvents: {
+      subscribe: (listener) => client.onEvent((event) => { if (event.method === 'host.changed' && ['session-launch-target', 'resync'].includes(event.params.kind)) listener() }),
+      onConnection: (listener) => client.onStatus((status) => listener(status === 'connected')),
+    },
     agents: createAgentCommandClient(client),
     goals,
     goalEvents: {

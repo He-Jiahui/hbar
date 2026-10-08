@@ -1,0 +1,97 @@
+.hbar-session-branch-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.25rem;
+  color: var(--lumen-muted);
+  white-space: nowrap;
+}
+.hbar-session-branch-trigger > span {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.hbar-session-branch-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  inline-size: min(27rem, calc(100vw - 1.5rem));
+  max-inline-size: calc(100vw - 1.5rem);
+  min-inline-size: 0;
+  text-align: start;
+  padding: 0.75rem;
+}
+.hbar-session-branch-heading,
+.hbar-session-branch-search,
+.hbar-session-branch-create-actions,
+.hbar-session-branch-base {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-inline-size: 0;
+}
+.hbar-session-branch-heading > [data-text-context],
+.hbar-session-branch-search input,
+.hbar-session-branch-base > [data-text-context] {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+.hbar-session-branch-heading > button:last-child {
+  margin-inline-start: auto;
+}
+.hbar-session-branch-directory,
+.hbar-session-branch-form,
+.hbar-session-branch-feedback,
+.hbar-session-branch-option-copy,
+.hbar-session-branch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-inline-size: 0;
+}
+.hbar-session-branch-directory,
+.hbar-session-branch-form,
+.hbar-session-branch-feedback,
+.hbar-session-branch-option-copy,
+.hbar-session-branch-base {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.hbar-session-branch-list {
+  max-block-size: min(24rem, 45dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.hbar-session-branch-option {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.6rem;
+  inline-size: 100%;
+  min-inline-size: 0;
+  text-align: start;
+  white-space: normal;
+}
+.hbar-session-branch-option-copy {
+  flex: 1 1 auto;
+}
+.hbar-session-branch-option-copy > *,
+.hbar-session-branch-directory > * {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.hbar-session-branch-option[aria-selected='true'] {
+  background: var(--lumen-frost);
+}
+.hbar-session-branch-create-actions {
+  flex-wrap: wrap;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+  padding-block-start: 0.5rem;
+}
+.hbar-session-branch-form {
+  gap: 0.6rem;
+}
+.hbar-session-branch-form > button[type='submit'] {
+  align-self: flex-start;
+}

@@ -85,6 +85,7 @@ import {
   useHbarSessionProjectContext,
   type HbarSessionProjectContextLabels,
 } from './session-project-context'
+import { HbarSessionBranchTargetControl } from './session-branch-target-control'
 import {
   localAgentSlash,
   localGoalSlash,
@@ -428,6 +429,8 @@ function SessionWorkspaceContent({
     terminalRunId,
     enabled: Boolean(projectContextLabels),
   })
+  const branchTargets = useHbarRuntimeState(runtime.state.sessionBranchTargetPicker)
+  const branchTargetEntry = sessionId ? branchTargets.entries[sessionId] : undefined
   const projectContextView = (showLaunchControls: boolean) =>
     showLaunchControls && renderLaunchControls ? (
       renderLaunchControls()
@@ -441,6 +444,10 @@ function SessionWorkspaceContent({
         context={projectContext.context}
         labels={projectContextLabels}
         onRetry={projectContext.onRetry}
+        executionPath={branchTargetEntry?.workspaceId === sessionWorkspaceId ? branchTargetEntry.page?.execution.path : undefined}
+        renderBranch={projectContextLabels.target && branchTargets.available ? (branch) => (
+          <HbarSessionBranchTargetControl key={sessionId} sessionId={sessionId} workspaceId={sessionWorkspaceId} connected={connected} busy={Boolean(activeRun)} branch={branch} labels={projectContextLabels.target!} branchLabel={projectContextLabels.branch} />
+        ) : undefined}
       />
     ) : null
   const execute = (name: string, input: unknown) =>

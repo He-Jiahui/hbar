@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
+import type { HbarSessionBranchTargetLabels } from './session-branch-target-control'
 import { Folder, GitBranch, RotateCw } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenContentText } from '@lumen/app-ui'
 import type { SessionGitContextState } from '@hbar/app-runtime'
@@ -16,6 +17,7 @@ export interface HbarSessionProjectContextLabels {
   readonly unavailable: (code: string) => string
   readonly disconnected: string
   readonly retry: string
+  readonly target?: HbarSessionBranchTargetLabels
 }
 
 export function HbarSessionProjectContext({
@@ -27,6 +29,8 @@ export function HbarSessionProjectContext({
   context,
   labels,
   onRetry,
+  renderBranch,
+  executionPath,
 }: {
   readonly workspaceName: string
   readonly workspacePath?: string | undefined
@@ -36,6 +40,8 @@ export function HbarSessionProjectContext({
   readonly context: SessionGitContextState
   readonly labels: HbarSessionProjectContextLabels
   readonly onRetry: () => void
+  readonly renderBranch?: ((branch: string | null) => ReactNode) | undefined
+  readonly executionPath?: string | undefined
 }) {
   const belongsHere = context.sessionId === sessionId && context.workspaceId === workspaceId
   const branch = connected && belongsHere && context.status === 'ready' ? context.branch : null
@@ -48,22 +54,24 @@ export function HbarSessionProjectContext({
       <LumenContentText
         context="control.label"
         className="hbar-session-project-context-name"
-        title={workspacePath ?? workspaceName}
+        title={executionPath ?? workspacePath ?? workspaceName}
       >
         {workspaceName}
       </LumenContentText>
-      {branch && (
-        <LumenFrame
-          className="hbar-session-project-context-branch"
-          title={labels.branch(branch)}
-          aria-label={labels.branch(branch)}
-        >
-          <LumenIcon icon={GitBranch} tier="sm" />
-          <LumenContentText context="control.label">
-            <bdi>{labels.branchCaption(branch)}</bdi>
-          </LumenContentText>
-        </LumenFrame>
-      )}
+      {renderBranch
+        ? renderBranch(branch)
+        : branch && (
+            <LumenFrame
+              className="hbar-session-project-context-branch"
+              title={labels.branch(branch)}
+              aria-label={labels.branch(branch)}
+            >
+              <LumenIcon icon={GitBranch} tier="sm" />
+              <LumenContentText context="control.label">
+                <bdi>{labels.branchCaption(branch)}</bdi>
+              </LumenContentText>
+            </LumenFrame>
+          )}
       {!connected && (
         <LumenContentText context="control.status" tone="subtle">
           {labels.disconnected}
@@ -127,6 +135,10 @@ export function useHbarSessionProjectContext({
       await runtime.commands
         .execute('sessionGitContext.refresh', target, { signal: controller.signal })
         .catch(() => undefined)
+      if (!disposed && runtime.state.sessionBranchTargetPicker.getSnapshot().available)
+        await runtime.commands
+          .execute('sessionBranchTargetPicker.refresh', target, { signal: controller.signal })
+          .catch(() => undefined)
     }
     const onFocus = () => void refresh()
     const onVisible = () => {
@@ -146,7 +158,7 @@ export function useHbarSessionProjectContext({
       window.removeEventListener('focus', onFocus)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [connected, enabled, runtime.commands, sessionId, workspaceId])
+  }, [connected, enabled, runtime.commands, runtime.state.sessionBranchTargetPicker, sessionId, workspaceId])
 
   useEffect(() => {
     if (!enabled || !sessionId) return
@@ -163,7 +175,11 @@ export function useHbarSessionProjectContext({
     )
       return
     void runtime.commands.execute('sessionGitContext.refresh', { sessionId, workspaceId }).catch(() => undefined)
-  }, [connected, enabled, terminalRunId, runtime.commands, sessionId, workspaceId])
+    if (runtime.state.sessionBranchTargetPicker.getSnapshot().available)
+      void runtime.commands
+        .execute('sessionBranchTargetPicker.refresh', { sessionId, workspaceId })
+        .catch(() => undefined)
+  }, [connected, enabled, terminalRunId, runtime.commands, runtime.state.sessionBranchTargetPicker, sessionId, workspaceId])
 
   return {
     context,

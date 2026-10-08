@@ -228,6 +228,7 @@ export {
   type HbarWorkspaceTabsCloseStatus,
 } from './workspace-tabs-close-dialog'
 export { HbarGoalContinuation, type HbarGoalContinuationLabels } from './goal-continuation'
+export { HbarSessionBranchTargetControl, type HbarSessionBranchTargetLabels } from './session-branch-target-control'
 export { SessionAgentBranch, type SessionAgentTreeLabels } from './session-agent-branch'
 export { HbarGoalLifecycleCard, type HbarGoalLifecycleLabels, type HbarGoalHistoryLabels } from './goal-lifecycle'
 export { projectGoalLifecycleRows, type GoalLifecycleAction, type GoalLifecycleRow } from './goal-lifecycle-model'

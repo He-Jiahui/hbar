@@ -196,6 +196,9 @@ export interface RuntimeOptions {
   readonly sessionLaunchBranches?: SessionLaunchBranchesReader
   /** Optional confirmed branch-ref creation capability for the pre-session launch Location form. */
   readonly sessionLaunchBranchCreation?: SessionLaunchBranchesManager
+  /** Established-session branch/worktree execution target commands. */
+  readonly sessionBranchTargets?: CommandExecutor
+  readonly sessionBranchTargetEvents?: { subscribe(listener: () => void): () => void; onConnection?(listener: (connected: boolean) => void): () => void }
   readonly agents?: CommandExecutor
   readonly goals?: GoalPlanWorkspacePort
   /** Transport lifetime for Goal reads; a reconnect is not confirmation of an unknown action. */

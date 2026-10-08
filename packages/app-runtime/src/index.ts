@@ -186,6 +186,9 @@ import { createExtensionWorkspace } from './extension-workspace'
 export { EXTENSION_PAGE_SIZE, extensionWorkspacePage } from './extension-workspace-model'
 import { createStatusWorkspace } from './status-workspace'
 import { createSessionGitContext, sessionGitContextCommands } from './session-git-context'
+import { createSessionBranchTargetPicker, sessionBranchTargetPickerCommands } from './session-branch-target-picker'
+export type { SessionBranchTargetPickerState, SessionBranchTargetPickerEntry } from './session-branch-target-picker'
+export type { SessionBranchTargetPage, SessionBranchTargetSelectInput } from '@hbar/contracts/commands/session-branch-target'
 import { createSessionRosterRefresh, sessionRosterRefreshCommands } from './session-roster-refresh'
 export { sessionRosterRefreshCommands } from './session-roster-refresh'
 export type { SessionRosterRefreshState, SessionRosterRefreshEntry } from './session-roster-refresh'
@@ -433,6 +436,7 @@ const runtimeCommands = {
   ...applicationCommands,
   ...composerModelCommands,
   ...sessionGitContextCommands,
+  ...sessionBranchTargetPickerCommands,
   ...sessionRosterRefreshCommands,
   ...settingsUsageCommands,
   ...activityWorkspaceCommands,
@@ -602,6 +606,14 @@ export function createAppRuntime(options: RuntimeOptions) {
     () => disposed,
     options.sessionLaunchTargets,
   )
+  const sessionBranchTargetPicker = createSessionBranchTargetPicker(local, {
+    host: options.sessionBranchTargets,
+    events: options.sessionBranchTargetEvents,
+    navigation: navigation.reader,
+    busy: (sessionId) => timeline.reader.getSnapshot().sessionId === sessionId && timeline.reader.getSnapshot().runs.some((run) => ['queued', 'running', 'waiting_approval'].includes(run.status)),
+    onSubscriberError,
+    isDisposed: () => disposed,
+  })
   const workspacePins = createWorkspacePins(local, {
     preferences: clientPersistence.preferences,
     preferencesReady: clientPersistence.ready,
@@ -1319,6 +1331,7 @@ export function createAppRuntime(options: RuntimeOptions) {
         Object.hasOwn(sessionTimelineCommands, name) ||
         Object.hasOwn(composerModelCommands, name) ||
         Object.hasOwn(sessionGitContextCommands, name) ||
+        Object.hasOwn(sessionBranchTargetPickerCommands, name) ||
         Object.hasOwn(sessionRosterRefreshCommands, name) ||
         Object.hasOwn(settingsUsageCommands, name) ||
         Object.hasOwn(activityWorkspaceCommands, name) ||
@@ -1422,6 +1435,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       controls: controls.reader,
       composerModel: composerModel.reader,
       sessionGitContext: sessionGitContext.reader,
+      sessionBranchTargetPicker: sessionBranchTargetPicker.reader,
       sessionRosterRefresh: sessionRosterRefresh.reader,
       settingsUsage: settingsUsage.reader,
       usageRequests: { reader: usageRequests.reader, runtime: usageRequests },
@@ -1526,6 +1540,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       composerModel.dispose()
       preSessionModelCatalog.dispose()
       sessionGitContext.dispose()
+      sessionBranchTargetPicker.dispose()
       sessionRosterRefresh.dispose()
       settingsUsage.dispose()
       usageRequests.dispose()
