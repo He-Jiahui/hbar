@@ -662,4 +662,11 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 原生失败恢复使用只拦截本次 copy 命令的 IPC response 故障注入，重试交付真实 Rust；不将受控故障等同于 OS setter 故障。初始探针尝试替换只读 Tauri invoke，计数为零；查证本地 Tauri core.js 后改为窄 fetch 观察，不修改生产桥接。OS 标题初次回读被 PowerShell ANSI stdout 损坏，改用 ASCII base64 携带原 UTF-16 后逐字通过。另保留缺少桌面运行资源和 Node JSON import attribute 的初次失败。旧 capability 用例更新为现用 web_url 和保留的全部命令集合，仍限制主 WebView；清单只有在语言目录、Rust 字段绑定、生成资源及窄 capability 一起存在时将四处原生文案标为 composed。
 - 全范围严格 lint、内容／图标 guard、已修改界面／新模块格式、独立 Rust 模块格式、新鲜 Web／Desktop build 与 strict 清单通过；保留旧 main.rs 和 contracts/index.ts 未触及部分的格式，未夹带全文件格式化。冷根类型仍有 91 项既有诊断，本次范围零，全库门禁尚未通过。Bun 对测试页 fetch 增加了 preconnect 静态成员，探针按实际 DOM 函数类型通过可验证 Reflect.set 适配，并重新实际运行 smoke。证据在 artifacts/desktop-elements/native-chrome 的 unit-capability.log、browser-verified.log、rust-test-final.log、desktop-build-readback.log、native-smoke-delivery.log、native/facts.json／截图、lint-smoke.log、lint-probe-final.log、types-final.log、audit.log，初次失败保留。
 
-当前清单覆盖 149 个生产 TSX 模块、3869 个元素，业务低层文字未分类项和静态 pending 均为 0。其余已分类标题／身份容量复核（包括 LumenFileDocument 标题与侧栏项目名称）、跨断点模态关闭后的导航／焦点恢复及最终全库／浏览器／原生门禁尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 文件正文标题的容量与阅读空间
+
+- LumenFileDocument 的完整 section.title 保持自然换行，新增以原 name／path 命名的键盘阅读组。标题组在 40dvh 内纵向阅读，普通短标题按内容生长；标题子项不被 flex 压缩，正文继续拥有原窗格滚动。原路径、三级标题、刷新／关闭操作、加载保留正文、不可用正文及重试分支不变。未在 View 截断 1024 字文件名或增加实际文件系统容量承诺。
+- 5 项 Lumen 测试、20 项 Bun 测试／181 个断言与最终单次 6 项 Chrome 场景通过。四项纯展示 DTO 矩阵覆盖两语言／明暗／五宽度／较大文字／125% zoom、完整 1024 字标题与公开 schema 拒绝 1025／空名字、实际 End 键后的最后字符 Range 位于阅读组、正文可见、加载保留／错误／不可用与原 path 重试；两项真实 Host 回归验证未展开目录搜索、文件键盘导航、源稿／预览和原查询／草稿。较长文件名矩阵不宣称在 Windows 创建了 1024 字 basename。
+- b1c36102e7 已移除标题截断，但原标题没有阅读边界。浏览器按原无限制标题策略移除 bound 后，320 宽度的正文高度实际为零；恢复后正文高度回到原值，比较保存在纯夹具附件中。End 键的初次即时断言早于滚动动画完成，改为等待同一最后字符实际进入阅读区后通过；保留初次服务器启动超时与读取断言失败。未将服务器超时当作原组件复现。
+- Lumen 类型／build、严格 lint、格式、内容／图标／flow guard、新鲜 Web build、清单与截图通过；冷根类型仍为 91 项既有诊断，本次范围零。证据在 artifacts/desktop-elements/file-document-title 的 lumen-build-final.log、lumen-types.log、lumen-lint.log、lumen-unit.log、unit.log、delivery.log（6 项）、delivery-results、types.log、lint-final.log、build-final.log 和 audit.log。
+
+当前清单覆盖 149 个生产 TSX 模块、3869 个元素，业务低层文字未分类项和已登记的静态 pending 均为 0。独立原生源码复核还发现 Windows 退出确认框的正文／caption 尚未纳入这份六项平台清单，下一项必须补充其文案契约与分类，不能把已有 pending 为零等同于原生元素穷尽。侧栏项目名称 4000 字容量、跨断点模态关闭后的导航／焦点恢复及最终全库／浏览器／原生门禁尚未完成。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
