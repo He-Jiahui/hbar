@@ -56,9 +56,26 @@ function workspaceSidebarPage(items: readonly WorkspaceSidebarItem[]): Workspace
 function sessionSidebarPage(sessions: readonly (typeof session)[]): SessionSidebarPage {
   return {
     revision: 1,
-    items: sessions.map((item) => ({ session: item, execution: idleSessionExecution })),
+    items: sessions.map((item) => ({ session: item, execution: idleSessionExecution, agentChildCount: 0 })),
     nextCursor: null,
   }
+}
+
+async function sidebarActionGroups(html: string): Promise<readonly string[]> {
+  const groups: string[] = []
+  await new HTMLRewriter()
+    .on('.hbar-app-react-sidebar-primary', {
+      element() {
+        groups.push('')
+      },
+      text(chunk) {
+        const index = groups.length - 1
+        if (index >= 0) groups[index] += chunk.text
+      },
+    })
+    .transform(new Response(html))
+    .text()
+  return groups
 }
 
 const labels: HbarWorkspaceShellLabels = {
@@ -70,6 +87,7 @@ const labels: HbarWorkspaceShellLabels = {
   organization: workspaceOrganizationCopy('zh-CN'),
   sort: workspaceSortCopy('zh-CN'),
   displayNames: workspaceDisplayNamesCopy('zh-CN'),
+  workspaceFolders: getShellCopy('zh-CN').shell.workspaceFolders,
   noWorkspaces: '没有工程',
   noSessions: '没有会话',
   loading: '正在加载数据',
@@ -284,18 +302,44 @@ test('app-react renders host-owned workspace and session content from read-only 
     )
     expect(html).toContain('非常长的工程名称')
     expect(html).toContain('需要键盘导航的会话')
-    expect(html).toMatch(
-      /hbar-app-react-session-title[^>]*>需要键盘导航的会话<\/span><time[^>]*hbar-app-react-session-time/,
-    )
+    const identity: { context: string | null; flow: string | null; text: string }[] = []
+    let currentIdentity: (typeof identity)[number] | undefined
+    await new HTMLRewriter()
+      .on('.hbar-app-react-session-title, .hbar-app-react-session-time', {
+        element(element) {
+          currentIdentity = {
+            context: element.getAttribute('data-text-context'),
+            flow: element.getAttribute('data-text-flow'),
+            text: '',
+          }
+          identity.push(currentIdentity)
+        },
+        text(chunk) {
+          if (currentIdentity) currentIdentity.text += chunk.text
+        },
+      })
+      .transform(new Response(html))
+      .text()
+    expect(identity).toEqual([
+      { context: 'collection.title', flow: 'reading', text: session.title },
+      { context: 'metadata.time', flow: 'single', text: labels.sessionUpdatedAt(session.updatedAt) },
+    ])
     expect(html).toContain('title="完整更新时间 3"')
     expect(html).toContain('aria-current="page"')
     expect(html).toContain('打开命令目录')
     expect(html).toContain(labels.searchChats)
-    expect(html.indexOf(labels.newSession)).toBeLessThan(html.indexOf(labels.extensionsAndSkills))
-    expect(html.indexOf(labels.extensionsAndSkills)).toBeLessThan(html.indexOf(labels.searchChats))
-    expect(html.indexOf(labels.searchChats)).toBeLessThan(html.indexOf(labels.commands))
-    expect(html.indexOf(labels.commands)).toBeLessThan(html.indexOf(labels.workspaceFilesEntry))
-    expect(html.indexOf(labels.workspaceFilesEntry)).toBeLessThan(html.indexOf('hbar-app-react-project-tree'))
+    const [primary, sessionActions] = await sidebarActionGroups(html)
+    expect(primary).toBeDefined()
+    expect(sessionActions).toBeDefined()
+    if (primary === undefined || sessionActions === undefined) throw new Error('Missing sidebar action slots')
+    expect(primary).toContain(labels.extensionsAndSkills)
+    expect(primary).toContain(labels.commands)
+    expect(primary).toContain(labels.workspaceFilesEntry)
+    expect(sessionActions).toContain(labels.newSession)
+    expect(sessionActions).toContain(labels.searchChats)
+    expect(primary.indexOf(labels.extensionsAndSkills)).toBeLessThan(primary.indexOf(labels.commands))
+    expect(primary.indexOf(labels.commands)).toBeLessThan(primary.indexOf(labels.workspaceFilesEntry))
+    expect(sessionActions.indexOf(labels.newSession)).toBeLessThan(sessionActions.indexOf(labels.searchChats))
     expect(html).toContain(`aria-label="${labels.openWorkspaceFiles(workspace.name)}"`)
     expect(html).toContain('打开工作区')
     expect(html).toContain('打开状态中心')
@@ -304,11 +348,20 @@ test('app-react renders host-owned workspace and session content from read-only 
     expect(html).toContain('非常长的工程名称 的工程操作')
     expect(html).toContain(labels.createSessionInWorkspace(workspace.name))
     expect(html).not.toContain(labels.newSessionInWorkspace)
-    expect(html).toContain(labels.workspaceFiles)
-    expect(html).toContain(labels.workspaceSettings)
     expect(html).toContain('需要键盘导航的会话 的操作')
-    expect(html).toContain('重命名会话')
-    expect(html).toContain('归档会话')
+    const menuTriggers: { label: string | null; expanded: string | null }[] = []
+    const originalMenus = [labels.workspaceActions(workspace.name), labels.sessionActions(session.title)]
+    await new HTMLRewriter()
+      .on('button[aria-haspopup="menu"]', {
+        element(element) {
+          const label = element.getAttribute('aria-label')
+          if (label !== null && originalMenus.includes(label))
+            menuTriggers.push({ label, expanded: element.getAttribute('aria-expanded') })
+        },
+      })
+      .transform(new Response(html))
+      .text()
+    expect(menuTriggers).toEqual(originalMenus.map((label) => ({ label, expanded: 'false' })))
     expect(html).toContain('--lumen-tool-size:26rem')
     expect(html).not.toContain('Workspace 1')
   } finally {
@@ -392,7 +445,7 @@ test('separate React runtime providers keep each window selection private', asyn
   }
 })
 
-test('English host copy renders Search, Commands, and workspace Files as separate first-level actions', async () => {
+test('English host copy owns primary navigation and separate session Search actions', async () => {
   const runtime = runtimeFixture('search-entry-en')
   try {
     await prepareSidebar(runtime, { sessions: false })
@@ -415,8 +468,16 @@ test('English host copy renders Search, Commands, and workspace Files as separat
     expect(html).toContain(english.workspaceFilesEntry)
     expect(html).toContain(english.extensionsAndSkills)
     expect(html).toContain(english.workspaceFilesUnavailable)
-    expect(html.indexOf(english.searchChats)).toBeLessThan(html.indexOf(english.commands))
-    expect(html.indexOf(english.commands)).toBeLessThan(html.indexOf(english.workspaceFilesEntry))
+    const [primary, sessionActions] = await sidebarActionGroups(html)
+    expect(primary).toBeDefined()
+    expect(sessionActions).toBeDefined()
+    if (primary === undefined || sessionActions === undefined) throw new Error('Missing sidebar action slots')
+    expect(primary).toContain(english.commands)
+    expect(primary).toContain(english.workspaceFilesEntry)
+    expect(primary).not.toContain(english.searchChats)
+    expect(primary.indexOf(english.commands)).toBeLessThan(primary.indexOf(english.workspaceFilesEntry))
+    expect(sessionActions).toContain(english.searchChats)
+    expect(sessionActions).not.toContain(english.commands)
     expect(html).toContain(english.searchShortcut)
     expect(html).toContain(english.commandShortcut)
   } finally {
@@ -539,7 +600,7 @@ test('settings and status highlight only their page while preserving the selecte
     const current: { label: string | null; text: string }[] = []
     let button: (typeof current)[number] | undefined
     await new HTMLRewriter()
-      .on('button[aria-current="page"]', {
+      .on('[aria-current="page"]', {
         element(element) {
           button = { label: element.getAttribute('aria-label'), text: '' }
           current.push(button)
@@ -555,7 +616,7 @@ test('settings and status highlight only their page while preserving the selecte
   try {
     await prepareSidebar(runtime)
     await runtime.view.commands.execute('app.setSession', { workspaceId: workspace.id, sessionId: session.id })
-    expect(await currentPageLabels()).toEqual([labels.openSession(session.title)])
+    expect(await currentPageLabels()).toEqual([session.title])
     await runtime.view.commands.execute('app.openSettings', {
       scope: 'workspace',
       targetId: workspace.id,
@@ -568,7 +629,7 @@ test('settings and status highlight only their page while preserving the selecte
       sessionId: session.id,
     })
     await runtime.view.commands.execute('app.back', {})
-    expect(await currentPageLabels()).toEqual([labels.openSession(session.title)])
+    expect(await currentPageLabels()).toEqual([session.title])
     await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'skills' })
     expect(await currentPageLabels()).toEqual([labels.extensionsAndSkills])
     await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'extensions' })
@@ -576,11 +637,11 @@ test('settings and status highlight only their page while preserving the selecte
     await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'providers' })
     expect(await currentPageLabels()).toEqual([labels.settings])
     await runtime.view.commands.execute('app.back', {})
-    expect(await currentPageLabels()).toEqual([labels.openSession(session.title)])
+    expect(await currentPageLabels()).toEqual([session.title])
     await runtime.view.commands.execute('app.openStatus', { section: 'dashboard' })
     expect(await currentPageLabels()).toEqual([labels.status])
     await runtime.view.commands.execute('app.back', {})
-    expect(await currentPageLabels()).toEqual([labels.openSession(session.title)])
+    expect(await currentPageLabels()).toEqual([session.title])
   } finally {
     runtime.dispose()
   }
