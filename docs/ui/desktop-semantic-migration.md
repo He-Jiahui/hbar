@@ -676,4 +676,9 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 43 项 Bun 测试／304 个断言、14 项 Rust 测试、4 项 Chrome 同步反馈矩阵、新鲜 Web／Desktop debug build 和独立原生 smoke 通过。原生窗口分别切至中英文后，实际枚举仅属于本次 Desktop PID 的 #32770 确认框，逐字读取标题和正文；仅点击此对话框的 IDNO，恢复原窗口并继续验证语言失败恢复、窗口／菜单回读、Unicode OS 标题、4001 字／2001 emoji／NUL 正文拒绝、零 Run／页面错误及所属进程树／profile 释放。确认文本通过 UTF-16 base64 回读，未记录鉴权信息或触碰另一个原生 Desktop。
 - 范围严格 lint、格式、独立 Rust 模块格式、生产构建清单和相关门禁通过；冷根类型仍有 91 项既有诊断，本次范围零。证据在 artifacts/desktop-elements/native-close-copy 的 unit-final.log、rust-test.log、desktop-build.log、browser.log、native-smoke-final.log、types.log、lint-final.log、audit.log；实际对话框事实与界面截图保存在独立原生探针既有的 artifacts/desktop-elements/native-chrome/native/facts.json 与 PNG 中。最终全库 lint 的首次实际运行在 8GB heap 上限处失败，日志在 artifacts/desktop-elements/final-gates/lint-baseline.log，未将它报告为通过，后续必须有界执行同一完整文件集合。
 
-当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。侧栏项目名称 4000 字容量、跨断点模态关闭后的导航／焦点恢复及最终全库／浏览器／原生门禁尚未完成。期间上游 master 已从本地 origin/master a958a3ff 更新为 92e6f6cf，尚须整合此最新依赖基线并重跑兼容验证。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 最新 Lumen 上游核对的更正
+
+- 远端 ls-remote 返回 92e6f6cf，fetch 明确报告 origin/master 从 a958a3ff 强制更新。随后核对提交图：92e6f6cf 的时间是 2026-09-25，a958a3ff 是 2026-10-07；两者都是当前 d272d4ac 的祖先，merge-base(origin/master, HEAD) 精确等于 92e6f6cf。因此这次是远端引用回退，当前工作区已经包含最新远端及原有基础整合，并无待合并的新提交。此前只根据 SHA 差异记录“尚须整合”不准确，本节更正该判断，不改写已提交记录。
+- 私有 @lumen/app-ui 仍为 0.12.0、workspace:*；现用分支保留已验证的宿主受控 API、具名文字与布局组件。Git 上包含当前上游和现用公开入口／build／类型验证一起作为依赖证据，不把包版本号或远端引用变化单独当作升级完成。
+
+当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。侧栏项目名称 4000 字容量、跨断点模态关闭后的导航／焦点恢复及最终全库／浏览器／原生门禁尚未完成。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
