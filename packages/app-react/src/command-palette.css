@@ -39,6 +39,9 @@
   overflow: auto;
   padding: 1rem;
 }
+.hbar-app-react-command-form-body > * {
+  flex: 0 0 auto;
+}
 
 .hbar-app-react-command-metadata {
   display: flex;
@@ -61,12 +64,14 @@
 
 .hbar-app-react-command-metadata dt {
   color: var(--lumen-muted);
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  margin: 0;
 }
 
 .hbar-app-react-command-metadata dd {
   min-inline-size: 0;
   margin: 0;
-  font-family: ui-monospace, 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
   font-weight: 600;
   text-align: end;
   overflow-wrap: anywhere;
@@ -86,6 +91,8 @@
   margin-block-end: 0.75rem;
   font-size: 0.875rem;
   font-weight: 650;
+  max-inline-size: 100%;
+  min-inline-size: 0;
 }
 
 .hbar-app-react-command-parameters p,
@@ -104,10 +111,11 @@
 
 .hbar-app-react-command-field > .lumen-form-field {
   min-inline-size: 0;
+  max-inline-size: 100%;
   flex: 1 1 16rem;
 }
 
-.hbar-app-react-command-field > button {
+.hbar-app-react-command-field > .hbar-command-reader {
   flex: 0 0 auto;
   margin-inline-start: auto;
 }
@@ -126,7 +134,7 @@
 
 .hbar-app-react-command-parameters textarea {
   min-block-size: 8rem;
-  font-family: ui-monospace, 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+  font-family: var(--lumen-font-family);
 }
 
 .hbar-app-react-command-parameters [role='alert'],
@@ -139,8 +147,7 @@
 .hbar-app-react-command-result-view > footer {
   display: flex;
   flex: 0 0 auto;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
   border-block-start: 0.0625rem solid var(--lumen-edge);
@@ -175,6 +182,8 @@
 
 .hbar-app-react-command-result-summary {
   display: flex;
+  flex: 0 0 auto;
+  min-inline-size: 0;
   flex-direction: column;
   gap: 0.25rem;
   padding: 0.75rem;
@@ -188,6 +197,8 @@
 }
 
 .hbar-app-react-command-result-details {
+  flex: 0 0 auto;
+  min-inline-size: 0;
   border-block-start: 0.0625rem solid var(--lumen-edge);
 }
 
@@ -197,15 +208,21 @@
 }
 
 .hbar-app-react-command-result-details pre {
-  max-block-size: 20rem;
-  overflow: auto;
   margin: 0;
   padding: 0.75rem;
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-reading);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+}
+.hbar-command-reader {
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-x: auto;
+  gap: 0.5rem;
+}
+.hbar-command-reader > * {
+  flex: 0 0 auto;
 }
 
 .hbar-app-react-command-result-view > footer {
@@ -237,9 +254,14 @@
   .hbar-app-react-command-field {
     align-items: stretch;
     flex-direction: column;
+    flex-wrap: nowrap;
+  }
+  .hbar-app-react-command-field > .lumen-form-field {
+    flex: 0 0 auto;
+    inline-size: 100%;
   }
 
-  .hbar-app-react-command-field > button {
+  .hbar-app-react-command-field > .hbar-command-reader {
     align-self: flex-end;
     margin-inline-start: 0;
   }

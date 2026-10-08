@@ -293,11 +293,15 @@ export function createCommandPalette(
   const setQuery = (query: string): CommandPaletteSummary => {
     const current = state.reader.getSnapshot()
     const ids = visible(current.items, query)
+    const next = replaceSelection({ ...current, query }, current.items, ids, null, false)
     state.replace({
-      ...replaceSelection({ ...current, query }, current.items, ids, null, false),
+      ...next,
       query,
       view: 'search',
-      execution: { status: 'idle', commandId: null, result: null, error: null },
+      execution:
+        current.execution.status === 'unknown' && next.selectedId === current.execution.commandId
+          ? current.execution
+          : { status: 'idle', commandId: null, result: null, error: null },
     })
     return summary()
   }
@@ -305,13 +309,16 @@ export function createCommandPalette(
   const select = (commandId: string): CommandPaletteSummary => {
     const current = state.reader.getSnapshot()
     if (!current.visibleIds.includes(commandId)) throw new CommandError('COMMAND_NOT_FOUND', 'Command is not visible')
-    selectDraft(current.items[commandId])
+    if (current.selectedId !== commandId) selectDraft(current.items[commandId])
     state.replace({
       ...current,
       selectedId: commandId,
       selectionLost: false,
       draft: fullDraft ? publicDraft(current.items[commandId]!.form, fullDraft) : null,
-      execution: { status: 'idle', commandId: null, result: null, error: null },
+      execution:
+        current.execution.status === 'unknown' && commandId === current.execution.commandId
+          ? current.execution
+          : { status: 'idle', commandId: null, result: null, error: null },
     })
     return summary()
   }
@@ -337,7 +344,10 @@ export function createCommandPalette(
     state.replace({
       ...current,
       view: current.view === 'result' ? 'parameters' : 'search',
-      execution: { status: 'idle', commandId: null, result: null, error: null },
+      execution:
+        current.execution.status === 'unknown'
+          ? current.execution
+          : { status: 'idle', commandId: null, result: null, error: null },
     })
     return summary()
   }

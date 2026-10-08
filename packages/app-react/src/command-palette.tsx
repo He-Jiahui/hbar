@@ -2,9 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 import { ArrowLeft, RefreshCw, X } from 'lucide-react'
 import {
   LumenCollection,
-  LumenCollectionItem,
   LumenFrame,
-  LumenText,
+  LumenContentText,
   LumenButton,
   LumenCheckBox,
   LumenCommandList,
@@ -159,6 +158,7 @@ function KnownTargetParameter({
     <LumenFrame className="hbar-app-react-known-target">
       <LumenPopupSelect
         id={id}
+        valueContext="choice.title"
         value={custom ? CUSTOM_IDENTIFIER : typeof value === 'string' ? value : ''}
         placeholder={field.required ? labels.chooseKnownTarget : labels.unset}
         options={[
@@ -464,14 +464,11 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
       title={palette.view === 'result' ? labels.result : palette.view === 'parameters' ? commandTitle : labels.title}
       context={palette.view === 'search' ? labels.description : commandDescription}
       leading={
-        palette.view === 'search' ? undefined : (
-          <LumenIconButton
-            label={palette.view === 'result' ? labels.backToParameters : labels.backToCommands}
-            onClick={goBack}
-          >
+        palette.view === 'parameters' && selected ? (
+          <LumenIconButton label={labels.backToCommands} onClick={goBack}>
             <LumenIcon icon={ArrowLeft} tier="sm" />
           </LumenIconButton>
-        )
+        ) : undefined
       }
       actionsLabel={labels.actions}
       actions={
@@ -526,14 +523,14 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
             error={palette.status === 'error' && palette.error ? labels.error(palette.error) : undefined}
           />
           {palette.truncated && (
-            <LumenText as="p" className="hbar-app-react-command-truncated">
+            <LumenContentText context="feedback.paragraph" className="hbar-app-react-command-truncated">
               {labels.truncated}
-            </LumenText>
+            </LumenContentText>
           )}
           {actionError && (
-            <LumenText as="p" className="hbar-app-react-command-action-error" role="alert">
+            <LumenContentText context="feedback.paragraph" className="hbar-app-react-command-action-error" role="alert">
               {labels.error(actionError)}
-            </LumenText>
+            </LumenContentText>
           )}
         </LumenFrame>
       ) : palette.view === 'parameters' && selected && palette.draft ? (
@@ -546,22 +543,55 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
             }}
           >
             <LumenFrame className="hbar-app-react-command-form-body">
+              {palette.execution.status === 'unknown' && (
+                <LumenContentText context="feedback.paragraph" tone="danger" role="alert">
+                  {labels.error(palette.execution.error ?? 'RESULT_UNKNOWN')}
+                </LumenContentText>
+              )}
               <LumenCollection as="dl" className="hbar-app-react-command-metadata">
                 <LumenFrame>
-                  <LumenCollectionItem as="dt">{labels.kind(selected.descriptor.metadata.kind)}</LumenCollectionItem>
-                  <LumenCollectionItem as="dd">{selected.descriptor.metadata.id}</LumenCollectionItem>
+                  <LumenContentText context="detail.term">
+                    <LumenFrame
+                      className="hbar-command-reader"
+                      role="region"
+                      aria-label={labels.kind(selected.descriptor.metadata.kind)}
+                      tabIndex={0}
+                    >
+                      <LumenContentText context="inline.text">
+                        {labels.kind(selected.descriptor.metadata.kind)}
+                      </LumenContentText>
+                    </LumenFrame>
+                  </LumenContentText>
+                  <LumenContentText context="detail.value">
+                    <LumenContentText context="code.inline">{selected.descriptor.metadata.id}</LumenContentText>
+                  </LumenContentText>
                 </LumenFrame>
                 <LumenFrame>
-                  <LumenCollectionItem as="dt">
-                    {labels.execution(selected.descriptor.metadata.execution)}
-                  </LumenCollectionItem>
-                  <LumenCollectionItem as="dd">{labels.scope(selected.descriptor.metadata.scope)}</LumenCollectionItem>
+                  <LumenContentText context="detail.term">
+                    <LumenFrame
+                      className="hbar-command-reader"
+                      role="region"
+                      aria-label={labels.execution(selected.descriptor.metadata.execution)}
+                      tabIndex={0}
+                    >
+                      <LumenContentText context="inline.text">
+                        {labels.execution(selected.descriptor.metadata.execution)}
+                      </LumenContentText>
+                    </LumenFrame>
+                  </LumenContentText>
+                  <LumenContentText context="detail.value">
+                    {labels.scope(selected.descriptor.metadata.scope)}
+                  </LumenContentText>
                 </LumenFrame>
               </LumenCollection>
               <LumenFrame as="fieldset" disabled={busy}>
-                <LumenText as="legend">{labels.parameters}</LumenText>
+                <LumenContentText context="form.legend">
+                  <LumenFrame className="hbar-command-reader" role="region" aria-label={labels.parameters} tabIndex={0}>
+                    <LumenContentText context="inline.text">{labels.parameters}</LumenContentText>
+                  </LumenFrame>
+                </LumenContentText>
                 {selected.form.fields.length === 0 ? (
-                  <LumenText as="p">{labels.noParameters}</LumenText>
+                  <LumenContentText context="empty.description">{labels.noParameters}</LumenContentText>
                 ) : (
                   selected.form.fields.map((field) => {
                     const issue = fieldIssue(field.name)
@@ -587,14 +617,21 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
                           {fieldControl(field, controlId, label)}
                         </LumenFormField>
                         {!field.required && isSet && !usesKnownTargetControl && (
-                          <LumenButton
-                            type="button"
-                            variant="text"
-                            disabled={busy}
-                            onClick={() => unsetParameter(field.name)}
+                          <LumenFrame
+                            className="hbar-command-reader"
+                            role="group"
+                            aria-label={labels.unset}
+                            tabIndex={0}
                           >
-                            {labels.unset}
-                          </LumenButton>
+                            <LumenButton
+                              type="button"
+                              variant="text"
+                              disabled={busy}
+                              onClick={() => unsetParameter(field.name)}
+                            >
+                              {labels.unset}
+                            </LumenButton>
+                          </LumenFrame>
                         )}
                       </LumenFrame>
                     )
@@ -602,19 +639,25 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
                 )}
               </LumenFrame>
               {(!selected.available || hostDisconnected) && (
-                <LumenText as="p" role="status">
+                <LumenContentText context="feedback.paragraph" role="status">
                   {labels.unavailableReason(
                     hostDisconnected ? 'HOST_DISCONNECTED' : (selected.unavailableReason ?? 'CAPABILITY_UNAVAILABLE'),
                   )}
-                </LumenText>
+                </LumenContentText>
               )}
               {actionError && (
-                <LumenText as="p" role="alert">
+                <LumenContentText context="feedback.paragraph" role="alert">
                   {labels.error(actionError)}
-                </LumenText>
+                </LumenContentText>
               )}
             </LumenFrame>
-            <LumenFrame as="footer">
+            <LumenFrame
+              as="footer"
+              className="hbar-command-reader"
+              role="group"
+              aria-label={labels.actions}
+              tabIndex={0}
+            >
               <LumenButton
                 type="button"
                 variant="outlined"
@@ -637,45 +680,70 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
             data-tone={palette.execution.status === 'succeeded' ? 'success' : 'danger'}
             role={palette.execution.status === 'succeeded' ? 'status' : 'alert'}
           >
-            <LumenText as="strong">
+            <LumenContentText context="feedback.title">
               {palette.execution.status === 'succeeded'
                 ? labels.succeeded
                 : labels.error(palette.execution.error ?? 'EXECUTION_FAILED')}
-            </LumenText>
-            <LumenText as="p">{labels.resultSummary(commandTitle)}</LumenText>
+            </LumenContentText>
+            <LumenContentText context="feedback.paragraph">{labels.resultSummary(commandTitle)}</LumenContentText>
           </LumenFrame>
           <LumenCollection as="dl" className="hbar-app-react-command-metadata">
             <LumenFrame>
-              <LumenCollectionItem as="dt">{labels.kind(selected.descriptor.metadata.kind)}</LumenCollectionItem>
-              <LumenCollectionItem as="dd">{selected.descriptor.metadata.id}</LumenCollectionItem>
+              <LumenContentText context="detail.term">
+                <LumenFrame
+                  className="hbar-command-reader"
+                  role="region"
+                  aria-label={labels.kind(selected.descriptor.metadata.kind)}
+                  tabIndex={0}
+                >
+                  <LumenContentText context="inline.text">
+                    {labels.kind(selected.descriptor.metadata.kind)}
+                  </LumenContentText>
+                </LumenFrame>
+              </LumenContentText>
+              <LumenContentText context="detail.value">
+                <LumenContentText context="code.inline">{selected.descriptor.metadata.id}</LumenContentText>
+              </LumenContentText>
             </LumenFrame>
             <LumenFrame>
-              <LumenCollectionItem as="dt">
-                {labels.execution(selected.descriptor.metadata.execution)}
-              </LumenCollectionItem>
-              <LumenCollectionItem as="dd">{labels.scope(selected.descriptor.metadata.scope)}</LumenCollectionItem>
+              <LumenContentText context="detail.term">
+                <LumenFrame
+                  className="hbar-command-reader"
+                  role="region"
+                  aria-label={labels.execution(selected.descriptor.metadata.execution)}
+                  tabIndex={0}
+                >
+                  <LumenContentText context="inline.text">
+                    {labels.execution(selected.descriptor.metadata.execution)}
+                  </LumenContentText>
+                </LumenFrame>
+              </LumenContentText>
+              <LumenContentText context="detail.value">
+                {labels.scope(selected.descriptor.metadata.scope)}
+              </LumenContentText>
             </LumenFrame>
           </LumenCollection>
           <HbarLumenDisclosure className="hbar-app-react-command-result-details" label={labels.technicalDetails}>
-            <LumenText as="pre">{palette.execution.result ?? palette.execution.error}</LumenText>
+            <LumenContentText context="code.block" role="region" aria-label={labels.technicalDetails} tabIndex={0}>
+              {palette.execution.result ?? palette.execution.error}
+            </LumenContentText>
           </HbarLumenDisclosure>
-          <LumenFrame as="footer">
+          <LumenFrame as="footer" className="hbar-command-reader" role="group" aria-label={labels.actions} tabIndex={0}>
             <LumenButton variant="outlined" onClick={goBack}>
               {labels.backToParameters}
-            </LumenButton>
-            <LumenButton tone="primary" onClick={closePanel}>
-              {labels.close}
             </LumenButton>
           </LumenFrame>
         </LumenFrame>
       ) : (
         <LumenFrame as="main" className="hbar-app-react-command-missing">
-          <LumenText as="p" role="status">
+          <LumenContentText context="empty.description" role="status">
             {labels.empty}
-          </LumenText>
-          <LumenButton variant="outlined" onClick={goBack}>
-            {labels.backToCommands}
-          </LumenButton>
+          </LumenContentText>
+          <LumenFrame className="hbar-command-reader" role="group" aria-label={labels.backToCommands} tabIndex={0}>
+            <LumenButton variant="outlined" onClick={goBack}>
+              {labels.backToCommands}
+            </LumenButton>
+          </LumenFrame>
         </LumenFrame>
       )}
     </LumenFrame>

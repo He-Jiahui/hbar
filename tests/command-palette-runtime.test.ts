@@ -1,6 +1,12 @@
 import { expect, test } from 'bun:test'
 import { z } from 'zod'
-import { defineCommand, describeCommand, type CommandDescriptor, type CommandExecutor } from '@hbar/commands'
+import {
+  CommandError,
+  defineCommand,
+  describeCommand,
+  type CommandDescriptor,
+  type CommandExecutor,
+} from '@hbar/commands'
 import { createAppRuntime, type CommandCatalogPort } from '@hbar/app-runtime'
 import { budgetCommands } from '@hbar/contracts/commands/budget'
 import type { Session, Workspace } from '@hbar/contracts/directory'
@@ -203,6 +209,54 @@ test('palette defaults a required workspace target when the loaded directory has
       values: { workspaceId: workspace.id },
       issues: [],
     })
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('palette navigation preserves an unknown execution until the user changes the command intent', async () => {
+  let writes = 0
+  const runtime = createAppRuntime({
+    instanceId: 'palette-unknown-navigation',
+    hostId: 'host-test',
+    directory: directory(),
+    surfaces: { canRender: () => true },
+    commandCatalog: {
+      list: () => Promise.resolve({ revision: 1, items: [describeCommand(secretCommand)] }),
+      execute: () => {
+        writes++
+        return Promise.reject(new CommandError('RESULT_UNKNOWN', 'The accepted command reply is unavailable'))
+      },
+    },
+  })
+  try {
+    await runtime.view.commands.execute('commandPalette.refresh', {})
+    await runtime.view.commands.execute('commandPalette.setQuery', { query: secretCommand.metadata.id })
+    await runtime.view.commands.execute('commandPalette.openCommand', { commandId: secretCommand.metadata.id })
+    await runtime.view.commands.execute('commandPalette.setParameter', { field: 'secret', value: 'original-intent' })
+    await expect(runtime.view.commands.execute('commandPalette.execute', {})).rejects.toMatchObject({
+      code: 'RESULT_UNKNOWN',
+    })
+    await runtime.view.commands.execute('commandPalette.back', {})
+    await runtime.view.commands.execute('commandPalette.refresh', {})
+    expect(runtime.view.state.commandPalette.getSnapshot()).toMatchObject({
+      view: 'parameters',
+      execution: { status: 'unknown', commandId: secretCommand.metadata.id },
+      draft: { sensitiveFields: ['secret'] },
+    })
+    await expect(runtime.view.commands.execute('commandPalette.execute', {})).rejects.toMatchObject({
+      code: 'RESULT_UNKNOWN',
+    })
+    await runtime.view.commands.execute('commandPalette.back', {})
+    await runtime.view.commands.execute('commandPalette.setQuery', { query: secretCommand.metadata.id })
+    await runtime.view.commands.execute('commandPalette.openCommand', { commandId: secretCommand.metadata.id })
+    await expect(runtime.view.commands.execute('commandPalette.execute', {})).rejects.toMatchObject({
+      code: 'RESULT_UNKNOWN',
+    })
+    expect(writes).toBe(1)
+    expect(JSON.stringify(runtime.view.state.commandPalette.getSnapshot())).not.toContain('original-intent')
+    await runtime.view.commands.execute('commandPalette.setParameter', { field: 'secret', value: 'changed-intent' })
+    expect(runtime.view.state.commandPalette.getSnapshot().execution.status).toBe('idle')
   } finally {
     runtime.dispose()
   }

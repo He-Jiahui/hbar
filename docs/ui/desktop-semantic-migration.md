@@ -486,4 +486,13 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 四项真实 Chrome／Host 回归通过：两语言 Activity 子会话标题／原父会话返回／草稿，以及两语言模型选择、思考档位、拖动预览／确认、保存失败／未知结果恢复与五宽度的原模型名称／按钮边界／发送可达性。composer 的桌面同行中心对齐断言保留并通过，完整名称的实际矩形必须位于按钮内；窄屏必须出现自然多行。所属 Host 均停止后按真实路径及前缀核对清理。
 - 范围严格 ESLint、文案／图标／六份 flow guard、格式、当前 Web build 与构建输入清单通过；最终冷启动类型为 92 项既有诊断，本次范围为零；全库门禁仍待处理。证据在 artifacts/desktop-elements/full-identity-captions 的 caption-red.log、session-geometry.log、session-gap.log、session-delivery.log、agent-browser.log、agent-static-roles.log、template-browser.log、unit-final.log、lumen-_、host-header.log、host-final.log、host-caption-geometry.log、host-composer.log、types-final.log、lint-_、build-composer.log、inventory-final.log 与截图。结构与交互沿用已选择的 App Shell／Prompt Input／Model Picker 映射。
 
-当前清单覆盖 146 个生产 TSX 模块、3807 个元素，其中记录了 92 处低层文字未分类，合计 101 项静态缺口。其余生产表面迁移、其余已分类标题／身份复核、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 命令目录、参数与结果的内容归属
+
+- 命令面板的 10 处低层文字改为表单、反馈、空态和代码角色。完整命令名称与说明自然换行，已选择的会话目标使用 choice.title。元数据保留原生 dt／dd；单行标签、参数重置和执行动作由具名键盘阅读区承担，技术结果保留原始序列化字符和所属代码阅读区。
+- Lumen f32b9da3ae 为命令列表补齐 choice.title／description、section.title、反馈和快捷键角色；长提示有独立键盘阅读区。保留实际测量的虚拟行；使用 pointermove 选择，避免换行或虚拟行移动触发原鼠标位置的另一命令。3 项共享交互测试、范围严格 lint／格式、包类型和构建通过。
+- 100 个实际 Chrome 场景通过，覆盖两语言、明暗、五宽度、125% 文字、目录 0／1／7／40／41／200／201／1000／1001 项、虚拟化、重排及失效目标、256／257 字查询、参数编辑和原命令 ID、空／加载／读取失败恢复、执行失败重试、未知结果与 16384 字结果边界。结果容量按 JSON 序列化后的字符计算，保留既有上限及省略标记。
+- 恢复测试复现 f8b401df 的返回操作将未知执行清为空闲；原 execute 的未知结果防重放条件因此失效。返回、刷新及重新打开同一命令现在保留未知事实和原参数，反馈就近显示；显式修改参数才成为新意图。11 项 Bun 测试、130 项断言通过。结果页的重复返回和关闭动作按栏目唯一性收拢到各自入口。
+- 5 项真实 Chrome／Host 焦点回归通过，覆盖两语言和 1440／320、两次 Escape、原设置筛选值及原打开按钮，禁用按钮不会抢焦点。Host 使用本次构建的冻结资源并核对入口 SHA，停止所属进程后校验真实路径清理。
+- 范围严格 lint、文案／图标／flow guard、格式、Web build 与构建输入清单通过；最终冷启动类型仍为 92 项既有诊断，本次范围为零，全库门禁尚未通过。证据在 artifacts/desktop-elements/command-palette-content 的 browser-final.log、unit-complete.log、host-focus.log、lumen-_、types-verified.log、lint-_、build.log、audit.log 与截图。
+
+当前清单覆盖 146 个生产 TSX 模块、3821 个元素，其中记录了 82 处低层文字未分类，合计 91 项静态缺口。其余生产表面迁移、其余已分类标题／身份复核、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
