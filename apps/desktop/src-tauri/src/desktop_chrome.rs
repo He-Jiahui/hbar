@@ -11,6 +11,14 @@ pub(crate) struct DesktopChromeCopy {
     pub(crate) tray_tooltip: String,
     pub(crate) tray_open: String,
     pub(crate) tray_exit: String,
+    pub(crate) close_confirmation: DesktopCloseConfirmationCopy,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct DesktopCloseConfirmationCopy {
+    pub(crate) title: String,
+    pub(crate) message: String,
 }
 
 impl DesktopChromeCopy {
@@ -20,6 +28,7 @@ impl DesktopChromeCopy {
             &self.tray_tooltip,
             &self.tray_open,
             &self.tray_exit,
+            &self.close_confirmation.title,
         ] {
             if value.trim().is_empty()
                 || value.encode_utf16().count() > 127
@@ -30,8 +39,32 @@ impl DesktopChromeCopy {
                 return Err("DESKTOP_CHROME_COPY_INVALID".into());
             }
         }
+        let message = &self.close_confirmation.message;
+        if message.trim().is_empty()
+            || message.encode_utf16().count() > 4000
+            || message.chars().any(|character| {
+                (character <= '\u{1f}' && character != '\n' && character != '\r')
+                    || character == '\u{7f}'
+            })
+        {
+            return Err("DESKTOP_CHROME_COPY_INVALID".into());
+        }
         Ok(())
     }
+}
+
+#[cfg(windows)]
+pub(crate) fn close_confirmation(app: &tauri::AppHandle) -> Option<DesktopCloseConfirmationCopy> {
+    use tauri::Manager;
+    app.try_state::<DesktopChromeState>()
+        .and_then(|state| {
+            state
+                .applied
+                .lock()
+                .ok()
+                .map(|copy| copy.close_confirmation.clone())
+        })
+        .or_else(|| startup_copy().ok().map(|copy| copy.close_confirmation))
 }
 
 pub(crate) fn startup_copy() -> Result<DesktopChromeCopy, Box<dyn std::error::Error>> {
@@ -112,6 +145,7 @@ pub(crate) fn set_desktop_chrome_copy(
             .text()
             .map_err(|_| "DESKTOP_CHROME_MENU_READ_FAILED")?
             .replace("&&", "&"),
+        close_confirmation: copy.close_confirmation.clone(),
     };
     if receipt != copy {
         return Err("DESKTOP_CHROME_RECEIPT_MISMATCH".into());
@@ -150,6 +184,25 @@ mod tests {
         assert!(copy.validate().is_err());
         for invalid in ["", " ", "line\nbreak", "null\0byte"] {
             copy.tray_tooltip = invalid.into();
+            assert!(copy.validate().is_err());
+        }
+    }
+
+    #[test]
+    fn close_confirmation_preserves_paragraphs_and_bounds_unicode_without_null_termination_in_copy()
+    {
+        let mut copy = startup_copy().unwrap();
+        assert!(copy.close_confirmation.message.contains('\n'));
+        copy.close_confirmation.message = "界".repeat(4000);
+        assert!(copy.validate().is_ok());
+        copy.close_confirmation.message.push('界');
+        assert!(copy.validate().is_err());
+        copy.close_confirmation.message = "🙂".repeat(2000);
+        assert!(copy.validate().is_ok());
+        copy.close_confirmation.message.push('🙂');
+        assert!(copy.validate().is_err());
+        for invalid in ["", " ", "null\0byte", "tab\tbyte"] {
+            copy.close_confirmation.message = invalid.into();
             assert!(copy.validate().is_err());
         }
     }

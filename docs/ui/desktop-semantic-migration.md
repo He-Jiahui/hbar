@@ -669,4 +669,11 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - b1c36102e7 已移除标题截断，但原标题没有阅读边界。浏览器按原无限制标题策略移除 bound 后，320 宽度的正文高度实际为零；恢复后正文高度回到原值，比较保存在纯夹具附件中。End 键的初次即时断言早于滚动动画完成，改为等待同一最后字符实际进入阅读区后通过；保留初次服务器启动超时与读取断言失败。未将服务器超时当作原组件复现。
 - Lumen 类型／build、严格 lint、格式、内容／图标／flow guard、新鲜 Web build、清单与截图通过；冷根类型仍为 91 项既有诊断，本次范围零。证据在 artifacts/desktop-elements/file-document-title 的 lumen-build-final.log、lumen-types.log、lumen-lint.log、lumen-unit.log、unit.log、delivery.log（6 项）、delivery-results、types.log、lint-final.log、build-final.log 和 audit.log。
 
-当前清单覆盖 149 个生产 TSX 模块、3869 个元素，业务低层文字未分类项和已登记的静态 pending 均为 0。独立原生源码复核还发现 Windows 退出确认框的正文／caption 尚未纳入这份六项平台清单，下一项必须补充其文案契约与分类，不能把已有 pending 为零等同于原生元素穷尽。侧栏项目名称 4000 字容量、跨断点模态关闭后的导航／焦点恢复及最终全库／浏览器／原生门禁尚未完成。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 原生退出确认的补充分类与文案
+
+- 原六项平台记录遗漏 Windows 退出确认。现在增加其标题／正文以及由 OS locale 展示的标准 IDYES／IDNO 动作，平台合计十项。DesktopChromeCopy.closeConfirmation 有明确 title／message，沿用同一语言目录、生成启动资源、主 WebView 窄接口及串行语言回执；确认框只读取最后确认的原生 copy，启动期间使用同一 zh-CN 资源。MessageBoxW 继续负责原生布局及系统按钮，正文保留段落换行，原“是退出／否隐藏”行为不变。
+- 标题遵循 127 UTF-16 单元，正文允许 CR／LF 并明确限制 4000 UTF-16 单元；拒绝空白、NUL、tab、其它控制字符、越界和未知槽位，不将截断当作校验。对嵌套确认文案逐字段比较回执，四处窗口／托盘文字相同而确认文字不同时仍报告同步失败。清单只有确认的实际 Rust 字段绑定存在才将标题／正文标为 composed，标准 OS 按钮的来源单独记录。
+- 43 项 Bun 测试／304 个断言、14 项 Rust 测试、4 项 Chrome 同步反馈矩阵、新鲜 Web／Desktop debug build 和独立原生 smoke 通过。原生窗口分别切至中英文后，实际枚举仅属于本次 Desktop PID 的 #32770 确认框，逐字读取标题和正文；仅点击此对话框的 IDNO，恢复原窗口并继续验证语言失败恢复、窗口／菜单回读、Unicode OS 标题、4001 字／2001 emoji／NUL 正文拒绝、零 Run／页面错误及所属进程树／profile 释放。确认文本通过 UTF-16 base64 回读，未记录鉴权信息或触碰另一个原生 Desktop。
+- 范围严格 lint、格式、独立 Rust 模块格式、生产构建清单和相关门禁通过；冷根类型仍有 91 项既有诊断，本次范围零。证据在 artifacts/desktop-elements/native-close-copy 的 unit-final.log、rust-test.log、desktop-build.log、browser.log、native-smoke-final.log、types.log、lint-final.log、audit.log；实际对话框事实与界面截图保存在独立原生探针既有的 artifacts/desktop-elements/native-chrome/native/facts.json 与 PNG 中。最终全库 lint 的首次实际运行在 8GB heap 上限处失败，日志在 artifacts/desktop-elements/final-gates/lint-baseline.log，未将它报告为通过，后续必须有界执行同一完整文件集合。
+
+当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。侧栏项目名称 4000 字容量、跨断点模态关闭后的导航／焦点恢复及最终全库／浏览器／原生门禁尚未完成。期间上游 master 已从本地 origin/master a958a3ff 更新为 92e6f6cf，尚须整合此最新依赖基线并重跑兼容验证。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

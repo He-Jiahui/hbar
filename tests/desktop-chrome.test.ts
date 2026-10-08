@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { desktopChromeCopySchema, type DesktopChromeCopy } from '@hbar/contracts'
+import { desktopChromeCopySchema, desktopCloseConfirmationCopySchema, type DesktopChromeCopy } from '@hbar/contracts'
 import { desktopChromeCopy } from '../apps/web/src/desktop-chrome-copy'
 import {
   bindDesktopChromeLanguage,
@@ -59,6 +59,29 @@ test('native port is inert outside Tauri and validates the exact replacement rec
   expect(targets).toEqual([desktopChromeCopy('en-US')])
   mismatch = true
   await expect(port.apply(desktopChromeCopy('en-US'))).rejects.toThrow('MISMATCH')
+})
+test('close confirmation preserves localized paragraphs with separate title and UTF16 message capacities', () => {
+  const original = desktopChromeCopy('zh-CN').closeConfirmation
+  expect(original.message).toContain('\n')
+  expect(desktopChromeCopy('en-US').closeConfirmation.title).toBe('Exit hbar')
+  for (const message of ['界'.repeat(4000), '🙂'.repeat(2000), 'one\r\ntwo'])
+    expect(desktopCloseConfirmationCopySchema.safeParse({ ...original, message }).success).toBe(true)
+  for (const message of ['', ' ', '界'.repeat(4001), '🙂'.repeat(2001), 'null\0byte', 'tab\tbyte'])
+    expect(desktopCloseConfirmationCopySchema.safeParse({ ...original, message }).success).toBe(false)
+  expect(desktopCloseConfirmationCopySchema.safeParse({ ...original, title: 'a'.repeat(128) }).success).toBe(false)
+  expect(desktopCloseConfirmationCopySchema.safeParse({ ...original, extra: 'unowned' }).success).toBe(false)
+})
+test('native confirmation receipt must match even when the four window and tray fields match', async () => {
+  const copy = desktopChromeCopy('en-US')
+  const port = createDesktopChromePort(
+    {
+      __TAURI_INTERNALS__: {
+        invoke: async () => ({ ...copy, closeConfirmation: desktopChromeCopy('zh-CN').closeConfirmation }),
+      },
+    },
+    true,
+  )
+  await expect(port.apply(copy)).rejects.toThrow('MISMATCH')
 })
 test('rapid language changes keep one in-flight command and one latest replacement', async () => {
   const controlled = controlledPort()

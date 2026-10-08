@@ -2,7 +2,7 @@
 
 由 `bun scripts/audit-desktop-elements.ts --write` 从运行时入口、命名延迟加载、barrel 导出和 JSX 生成。完整的元素、槽位、内容来源、可访问名称、动作目标、状态来源和待处理问题见 [类型化清单](desktop-elements.json)。
 
-入口：`apps/web/src/main.tsx`。相关 TSX 模块 149 个；元素 3869 个。实际构建输入核对：passed。
+入口：`apps/web/src/main.tsx`。相关 TSX 模块 149 个；元素 3873 个。实际构建输入核对：passed。
 
 ## 类别与展示边界
 
@@ -15,7 +15,7 @@
 | collection  |  135 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
 | technical   |   75 |       0 | 原文、代码、Markdown、图示与媒体的专用 renderer；辅助操作仍使用 Lumen。 |
 | feedback    |   63 |       0 | 空、加载、运行、成功、失败、恢复与取消的宿主状态及语义反馈。            |
-| platform    |    7 |       0 | Tauri 标题、托盘与通知；操作系统展示，宿主提供文案。                    |
+| platform    |   11 |       0 | Tauri 标题、托盘与通知；操作系统展示，宿主提供文案。                    |
 
 ## 按生产模块核对
 

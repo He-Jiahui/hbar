@@ -3,12 +3,20 @@
     "windowTitle": "hbar",
     "trayTooltip": "hbar 工作台",
     "trayOpen": "打开 hbar",
-    "trayExit": "退出桌面"
+    "trayExit": "退出桌面",
+    "closeConfirmation": {
+      "title": "退出 hbar",
+      "message": "退出服务？\n选择“是”退出 hbar 和本地 Host 服务；选择“否”隐藏到托盘。"
+    }
   },
   "en-US": {
     "windowTitle": "hbar",
     "trayTooltip": "hbar workbench",
     "trayOpen": "Open hbar",
-    "trayExit": "Exit desktop"
+    "trayExit": "Exit desktop",
+    "closeConfirmation": {
+      "title": "Exit hbar",
+      "message": "Exit the service?\nChoose Yes to exit hbar and the local Host service, or No to hide the window in the tray."
+    }
   }
 }

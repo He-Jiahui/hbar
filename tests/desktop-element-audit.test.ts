@@ -121,7 +121,7 @@ test('Desktop graph reaches each delayed feature and retains platform elements',
   ])
     expect(inventory.sourceModules).toContain(path)
   expect(inventory.sourceModules.some((path) => path.includes('/react-bits/reference/'))).toBe(false)
-  expect(inventory.elements.filter((entry) => entry.id.startsWith('native::'))).toHaveLength(6)
+  expect(inventory.elements.filter((entry) => entry.id.startsWith('native::'))).toHaveLength(10)
   expect(inventory.elements.filter((entry) => entry.id.startsWith('native::') && entry.status === 'pending')).toEqual(
     [],
   )

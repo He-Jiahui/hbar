@@ -22,6 +22,29 @@ fn main() {
                 "Invalid Desktop copy slot"
             );
         }
+        let title = catalog[locale]["closeConfirmation"]["title"]
+            .as_str()
+            .expect("Missing close confirmation title");
+        let message = catalog[locale]["closeConfirmation"]["message"]
+            .as_str()
+            .expect("Missing close confirmation message");
+        assert!(
+            !title.trim().is_empty()
+                && title.encode_utf16().count() <= 127
+                && !title
+                    .chars()
+                    .any(|character| character <= '\u{1f}' || character == '\u{7f}'),
+            "Invalid close confirmation title"
+        );
+        assert!(
+            !message.trim().is_empty()
+                && message.encode_utf16().count() <= 4000
+                && !message.chars().any(|character| (character <= '\u{1f}'
+                    && character != '\n'
+                    && character != '\r')
+                    || character == '\u{7f}'),
+            "Invalid close confirmation message"
+        );
     }
     let destination = std::path::PathBuf::from(
         std::env::var_os("OUT_DIR").expect("Missing Cargo output directory"),

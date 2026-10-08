@@ -272,7 +272,7 @@ fn is_allowed_web_origin(candidate: &tauri::Url, host_url: &tauri::Url) -> bool 
 }
 
 #[cfg(windows)]
-fn should_exit_service() -> bool {
+fn should_exit_service(app: &tauri::AppHandle) -> bool {
     use std::ffi::OsStr;
     use std::os::windows::ffi::OsStrExt;
 
@@ -288,11 +288,9 @@ fn should_exit_service() -> bool {
             ty: u32,
         ) -> i32;
     }
-    let text: Vec<u16> =
-        OsStr::new("退出服务？\n选择“是”退出 hbar 和本地 Host 服务；选择“否”隐藏到托盘。\0")
-            .encode_wide()
-            .collect();
-    let caption: Vec<u16> = OsStr::new("hbar").encode_wide().chain(Some(0)).collect();
+    let Some(copy) = desktop_chrome::close_confirmation(app) else { return false };
+    let text: Vec<u16> = OsStr::new(&copy.message).encode_wide().chain(Some(0)).collect();
+    let caption: Vec<u16> = OsStr::new(&copy.title).encode_wide().chain(Some(0)).collect();
     unsafe {
         MessageBoxW(
             std::ptr::null_mut(),
@@ -304,7 +302,7 @@ fn should_exit_service() -> bool {
 }
 
 #[cfg(not(windows))]
-fn should_exit_service() -> bool {
+fn should_exit_service(_app: &tauri::AppHandle) -> bool {
     false
 }
 
@@ -1097,7 +1095,7 @@ fn main() {
             window.on_window_event(move |event| {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
-                    if should_exit_service() {
+                    if should_exit_service(&app_handle) {
                         stop_host(host_pid);
                         app_handle.exit(0);
                     } else {

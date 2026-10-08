@@ -16,6 +16,7 @@ export async function collectNativePlatformElements(root: string): Promise<Deskt
     ].map((path) => readFile(resolve(root, path), 'utf8').catch(() => '')),
   )
   let chromeOwned = false
+  let confirmationOwned = false
   try {
     const copy = z
       .strictObject({ 'zh-CN': desktopChromeCopySchema, 'en-US': desktopChromeCopySchema })
@@ -34,6 +35,14 @@ export async function collectNativePlatformElements(root: string): Promise<Deskt
       ['window_title', 'tray_tooltip', 'tray_open', 'tray_exit'].every(
         (field) => main?.includes(`startup_copy.${field}`) && native?.includes(`copy.${field}`),
       )
+    confirmationOwned =
+      chromeOwned &&
+      Boolean(
+        main?.includes('desktop_chrome::close_confirmation') &&
+        main.includes('OsStr::new(&copy.message)') &&
+        main.includes('OsStr::new(&copy.title)') &&
+        native?.includes('copy.close_confirmation'),
+      )
   } catch {
     /* A missing or invalid platform boundary remains pending. */
   }
@@ -48,9 +57,31 @@ export async function collectNativePlatformElements(root: string): Promise<Deskt
     { id: 'tray-tooltip', component: 'TauriTrayTooltip', source: 'DesktopChromeCopy.trayTooltip' },
     { id: 'notification-title', component: 'TauriNotificationTitle', source: 'NativeNotification.title' },
     { id: 'notification-body', component: 'TauriNotificationBody', source: 'NativeNotification.body' },
+    {
+      id: 'close-confirmation-title',
+      component: 'WindowsCloseConfirmationTitle',
+      source: 'DesktopChromeCopy.closeConfirmation.title',
+    },
+    {
+      id: 'close-confirmation-message',
+      component: 'WindowsCloseConfirmationMessage',
+      source: 'DesktopChromeCopy.closeConfirmation.message',
+    },
+    {
+      id: 'close-confirmation-yes',
+      component: 'WindowsCloseConfirmationYes',
+      source: 'Windows OS locale / standard IDYES button',
+    },
+    {
+      id: 'close-confirmation-no',
+      component: 'WindowsCloseConfirmationNo',
+      source: 'Windows OS locale / standard IDNO button',
+    },
   ].map((entry) => {
     const notification = entry.id.startsWith('notification')
-    const owned = notification || chromeOwned
+    const confirmation = entry.id.startsWith('close-confirmation')
+    const systemAction = entry.id === 'close-confirmation-yes' || entry.id === 'close-confirmation-no'
+    const owned = notification || systemAction || (confirmation ? confirmationOwned : chromeOwned)
     return {
       id: `native::${entry.id}`,
       path: 'apps/desktop/src-tauri/src/main.rs',
@@ -63,7 +94,13 @@ export async function collectNativePlatformElements(root: string): Promise<Deskt
       contentSources: [entry.source],
       accessibleNameSources: [entry.source],
       actionBindings: {},
-      targetSources: [notification ? 'notification.id' : 'main WebView / original tray menu action id'],
+      targetSources: [
+        notification
+          ? 'notification.id'
+          : confirmation
+            ? 'original main window / explicit exit or tray hide decision'
+            : 'main WebView / original tray menu action id',
+      ],
       stateSources: [
         notification
           ? 'NativeNotificationPort permission / delivery receipt'
@@ -71,7 +108,11 @@ export async function collectNativePlatformElements(root: string): Promise<Deskt
       ],
       flow: notification
         ? 'operating-system renderer / bounded UTF-8 payload'
-        : 'operating-system renderer / 127 UTF-16 units; no source truncation',
+        : systemAction
+          ? 'operating-system standard button renderer and locale'
+          : entry.id === 'close-confirmation-message'
+            ? 'operating-system wrapped paragraphs / 4000 UTF-16 units'
+            : 'operating-system renderer / 127 UTF-16 units; no source truncation',
       lumenMapping: 'native platform adapter with host-owned copy',
       status: owned ? 'composed' : 'pending',
       issues: owned ? [] : ['desktop-chrome-copy-contract-pending'],

@@ -17,7 +17,14 @@ export function createDesktopChromePort(scope: unknown, native: boolean): Deskto
       if (!bridge) throw new Error('DESKTOP_CHROME_UNAVAILABLE')
       const request = desktopChromeCopySchema.parse(copy)
       const receipt = desktopChromeCopySchema.parse(await bridge.invoke('set_desktop_chrome_copy', { copy: request }))
-      if (Object.keys(request).some((key) => Reflect.get(request, key) !== Reflect.get(receipt, key)))
+      if (
+        request.windowTitle !== receipt.windowTitle ||
+        request.trayTooltip !== receipt.trayTooltip ||
+        request.trayOpen !== receipt.trayOpen ||
+        request.trayExit !== receipt.trayExit ||
+        request.closeConfirmation.title !== receipt.closeConfirmation.title ||
+        request.closeConfirmation.message !== receipt.closeConfirmation.message
+      )
         throw new Error('DESKTOP_CHROME_RECEIPT_MISMATCH')
     },
   }

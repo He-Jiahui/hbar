@@ -101,6 +101,34 @@ const nativeStateSchema = z.object({
   failNext: z.boolean(),
   calls: z.array(z.object({ copy: z.unknown(), receipt: desktopChromeCopySchema.nullable(), failed: z.boolean() })),
 })
+const closeDialogSchema = z.object({
+  Title: z.string(),
+  Message: z.string(),
+  ProcessId: z.number().int().positive(),
+  HasNoButton: z.boolean(),
+})
+async function closeDialog(pid: number, action: 'Read' | 'ChooseNo') {
+  const inspector = Bun.spawn(
+    [
+      'powershell.exe',
+      '-NoProfile',
+      '-NonInteractive',
+      '-File',
+      resolve('scripts/inspect-owned-close-dialog.ps1'),
+      '-DesktopProcessId',
+      String(pid),
+      '-Action',
+      action,
+    ],
+    { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe', windowsHide: true, timeout: 10_000 },
+  )
+  const output = await new Response(inspector.stdout).text()
+  const error = await new Response(inspector.stderr).text()
+  if ((await inspector.exited) !== 0) throw new Error(`Owned close dialog probe failed: ${error.slice(0, 400)}`)
+  const value: unknown = JSON.parse(Buffer.from(output.trim(), 'base64').toString('utf16le'))
+  return value === null ? null : closeDialogSchema.parse(value)
+}
+const closeFacts: { readonly locale: 'en-US' | 'zh-CN'; readonly title: string; readonly message: string }[] = []
 try {
   await mkdir(output, { recursive: true })
   const probe = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: () => new Response('owned fixture') })
@@ -123,6 +151,7 @@ try {
     stderr: 'ignore',
     windowsHide: true,
   })
+  const desktopPid = child.pid
   connection = await until(async () => {
     const value: unknown = JSON.parse(await readFile(join(root, 'settings/connection.json'), 'utf8'))
     supervisorPid = z.object({ supervisorPid: z.number().int().positive().optional() }).parse(value).supervisorPid
@@ -200,6 +229,27 @@ try {
     await expect.poll(async () => (await state()).calls.at(-1)?.receipt).toEqual(desktopChromeCopy(locale))
     expect(await osTitle(child.pid)).toBe(desktopChromeCopy(locale).windowTitle)
     await page.screenshot({ path: join(output, `native-${locale}.png`) })
+    await page.getByRole('button', { name: labels.windowControls.close, exact: true }).click()
+    const dialog = await until(async () => {
+      const result = await closeDialog(desktopPid, 'Read')
+      if (!result) throw new Error('Owned native close dialog is not visible yet')
+      return result
+    })
+    expect(dialog.ProcessId).toBe(child.pid)
+    expect(dialog.HasNoButton).toBe(true)
+    expect(dialog.Title).toBe(desktopChromeCopy(locale).closeConfirmation.title)
+    expect(dialog.Message.replaceAll('\r\n', '\n')).toBe(desktopChromeCopy(locale).closeConfirmation.message)
+    closeFacts.push({ locale, title: dialog.Title, message: dialog.Message })
+    await closeDialog(child.pid, 'ChooseNo')
+    await page.evaluate(async () => {
+      const bridge: unknown = Reflect.get(window, '__TAURI_INTERNALS__')
+      if (typeof bridge !== 'object' || bridge === null) throw new Error('Missing original native window bridge')
+      const invoke: unknown = Reflect.get(bridge, 'invoke')
+      if (typeof invoke !== 'function') throw new Error('Missing original native window invoke')
+      const result: unknown = Reflect.apply(invoke, bridge, ['plugin:window|show', { label: 'main' }])
+      await result
+    })
+    await expect(page.getByRole('heading', { name: labels.general.title, exact: true })).toBeVisible()
   }
   await page.evaluate(() => {
     const state: unknown = Reflect.get(window, '__hbarChromeSmoke')
@@ -226,6 +276,9 @@ try {
     { ...probeCopy, trayTooltip: '界'.repeat(128) },
     { ...probeCopy, trayTooltip: '🙂'.repeat(64) },
     { ...probeCopy, trayOpen: 'invalid\nmenu' },
+    { ...probeCopy, closeConfirmation: { ...probeCopy.closeConfirmation, message: '界'.repeat(4001) } },
+    { ...probeCopy, closeConfirmation: { ...probeCopy.closeConfirmation, message: '🙂'.repeat(2001) } },
+    { ...probeCopy, closeConfirmation: { ...probeCopy.closeConfirmation, message: 'null\0message' } },
     { ...probeCopy, extra: 'unowned' },
   ]) {
     await expect(invokeCopy(page, invalid)).rejects.toBeDefined()
@@ -241,6 +294,7 @@ try {
     JSON.stringify(
       {
         startupLocale: current,
+        closeConfirmations: closeFacts,
         calls: (await state()).calls,
         windowTitle: await osTitle(child.pid),
         pageErrors: errors,
