@@ -357,6 +357,7 @@ export function useSessionFind(timeline: SessionTimelineState, labels: HbarSessi
     workspaceRef,
     open,
     disabled: !target || !model,
+    close,
     activate: focusFind,
     scrollTarget,
     onScrollTargetResult,

@@ -1068,6 +1068,23 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     retryTimeline: choose('重试会话加载', 'Retry session history'),
     historyLimit: choose('已达到此窗口的 1,000 条消息上限。', 'This window reached its 1,000-message history limit.'),
     find: sessionFindCopy(locale),
+    anchors: {
+      navigation: (first, last, total) =>
+        choose(
+          `对话锚点，已加载 ${total} 条，当前显示 ${first}–${last}`,
+          `Conversation anchors, ${total} loaded, showing ${first}–${last}`,
+        ),
+      jump: (index, title) => choose(`跳转到第 ${index} 条对话：${title}`, `Jump to conversation ${index}: ${title}`),
+      preview: choose('对话预览', 'Conversation preview'),
+      attachments: (count) =>
+        choose(`附件消息（${count} 个附件）`, `Message with ${count} ${count === 1 ? 'attachment' : 'attachments'}`),
+      previous: choose('上一组对话锚点', 'Previous conversation anchors'),
+      next: choose('下一组对话锚点', 'Next conversation anchors'),
+      older: choose('加载更早的对话锚点', 'Load earlier conversation anchors'),
+      loadingOlder: choose('正在加载更早对话…', 'Loading earlier conversations…'),
+      retryOlder: choose('重试加载更早对话', 'Retry earlier conversations'),
+      historyLimit: choose('已达到此窗口的消息上限', 'This window reached its message limit'),
+    },
     latest: choose('查看最新消息', 'View latest messages'),
     readingPositionUnavailable: choose(
       '暂时无法恢复上次阅读位置。',

@@ -1,0 +1,110 @@
+.hbar-conversation-anchor-lane {
+  display: flex;
+  min-block-size: 0;
+  flex: 0 0 auto;
+  inline-size: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  padding-block: 12px;
+}
+
+.hbar-conversation-anchor-rail {
+  display: flex;
+  min-block-size: 0;
+  max-block-size: 70%;
+  inline-size: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.hbar-conversation-anchor-list {
+  display: flex;
+  min-block-size: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.hbar-conversation-anchor,
+.hbar-conversation-anchor-control {
+  display: flex;
+  min-block-size: 1rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: var(--lumen-radius-control);
+  background: transparent;
+  color: var(--lumen-muted);
+  cursor: pointer;
+}
+
+.hbar-conversation-anchor-control {
+  min-block-size: 1.5rem;
+}
+
+.hbar-conversation-anchor-control:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.hbar-conversation-anchor:hover,
+.hbar-conversation-anchor-control:hover:enabled,
+.hbar-conversation-anchor[aria-current='location'] {
+  color: var(--lumen-ink);
+}
+
+.hbar-conversation-anchor:focus-visible,
+.hbar-conversation-anchor-control:focus-visible {
+  outline: 0.125rem solid var(--lumen-accent);
+  outline-offset: -0.125rem;
+}
+
+.hbar-conversation-anchor-mark {
+  display: block;
+  inline-size: 0.5rem;
+  block-size: 0.125rem;
+  border-radius: var(--lumen-radius-control);
+  background: currentColor;
+}
+
+.hbar-conversation-anchor:hover .hbar-conversation-anchor-mark,
+.hbar-conversation-anchor:focus-visible .hbar-conversation-anchor-mark,
+.hbar-conversation-anchor[aria-current='location'] .hbar-conversation-anchor-mark {
+  inline-size: 1rem;
+}
+
+.hbar-conversation-anchor-preview {
+  display: flex;
+  inline-size: min(22rem, 80vw);
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  text-align: start;
+  font-size: calc(var(--lumen-font-size) * 0.9);
+}
+
+.hbar-conversation-anchor-preview strong,
+.hbar-conversation-anchor-preview p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.hbar-conversation-anchor-preview strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-conversation-anchor-preview p {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  color: var(--lumen-muted);
+}

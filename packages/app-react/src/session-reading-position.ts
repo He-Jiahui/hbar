@@ -427,6 +427,7 @@ export function useSessionReadingPosition(options: ReadingOptions) {
   }
   return {
     rootRef: root,
+    cancelNavigation: () => finish(),
     scope,
     scrollTarget: restoring && available && ticket ? (ticket.scroll satisfies LumenConversationScrollTarget) : null,
     restoring,

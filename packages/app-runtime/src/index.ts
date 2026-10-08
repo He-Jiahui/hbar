@@ -1458,6 +1458,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     contextUsage: Object.freeze({ refresh: controls.refreshContext }),
     preSessionModelCatalog: preSessionModelCatalog.actions,
     conversationReading: Object.freeze({
+      reader: conversationReading.reader,
       read: conversationReading.read,
       remember: conversationReading.remember,
       navigate: conversationReading.navigate,

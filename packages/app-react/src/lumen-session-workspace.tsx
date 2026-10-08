@@ -59,6 +59,7 @@ import { HbarSessionDecision, type HbarSessionDecisionLabels } from './session-i
 import { HbarComposerModelPicker, type HbarComposerModelLabels } from './composer-model-picker'
 import { HbarPromptComposer } from './prompt-composer'
 import { useSessionReadingPosition } from './session-reading-position'
+import { HbarSessionMessageAnchors, type HbarConversationAnchorLabels } from './conversation-anchors'
 import {
   HbarComposerBackgroundAgentStop,
   HbarComposerBackgroundAgentFeedback,
@@ -135,6 +136,7 @@ import {
 
 export interface HbarSessionWorkspaceLabels {
   readonly find: HbarSessionFindLabels
+  readonly anchors: HbarConversationAnchorLabels
   readonly conversationTitle: (title: string) => string
   readonly loading: string
   readonly emptyHistory: string
@@ -2565,6 +2567,19 @@ function SessionWorkspaceContent({
         onPointerDownCapture={reading.onPointerDownCapture}
         onKeyDownCapture={reading.onKeyDownCapture}
       >
+        {backgroundTarget && activeConversationOwner && timeline.sessionId === sessionId && (
+          <HbarSessionMessageAnchors
+            timeline={timeline}
+            target={backgroundTarget}
+            labels={labels.anchors}
+            connected={connected}
+            navigating={reading.restoring}
+            onBeforeNavigate={() => {
+              find.close()
+              reading.cancelNavigation()
+            }}
+          />
+        )}
         <LumenAiChat01
           className="hbar-session-ai-chat"
           controlled={{

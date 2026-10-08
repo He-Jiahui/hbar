@@ -41,6 +41,11 @@ export {
 } from './session-message'
 export type { HbarCodeBlockLabels } from './code-block-copy-action'
 export { projectSessionMessages, type SessionMessageProjection } from './session-message-model'
+export {
+  HbarConversationAnchorRail,
+  type HbarConversationAnchorRailProps,
+  type HbarConversationAnchorLabels,
+} from './conversation-anchors'
 export { projectToolActivities, type SessionToolActivities } from './session-tool-activity-model'
 export type { SessionToolFeedbackLabels } from './session-tool-feedback'
 export {
