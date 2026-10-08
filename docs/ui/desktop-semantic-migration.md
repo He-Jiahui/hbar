@@ -618,4 +618,11 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 范围严格 lint、文案／图标／flow guard、格式、Lumen 类型／build、Web build 与构建清单通过；冷启动根类型仍为 91 项既有诊断，本次范围为零。证据在 artifacts/desktop-elements/empty-launch-content 的 unit-verified.log、lumen-unit.log、lumen-lint.log、delivery.log（4 项）、browser.log（两项实际 Host 通过，初始矩阵失败保留）、types.log、lint.log、lint-delivery.log、build.log、audit.log 与截图，Lumen 初始构建日志为 artifacts/desktop-elements/empty-launch-lumen-build.log。
 - 截图复核发现居中父容器中的首次发送表面按长按钮的固有宽度撑开，方向键实际移动整个 main，标题因此离开横向视口。补充表面自身的父宽度约束，操作阅读区继续独立滚动；收紧矩阵为 main 无横向溢出及标题左右边界都在 main 内。6 项 Chrome 单次重新通过，截图确认标题居中完整换行；严格 lint、flow、格式与新鲜 Web build 通过。关联 c2e6c5c6，补充证据为 bounds.log、bounds-results、lint-bounds.log 和 build-bounds.log；早期断言通过不能代替此次视觉与边界验收。
 
-当前清单覆盖 147 个生产 TSX 模块、3856 个元素，其中记录了 7 处低层文字未分类，合计 16 项静态缺口。其余生产表面迁移、其余已分类标题／身份容量复核（包括 LumenFileDocument 标题与项目名称）、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 引导页与工作区路径字段
+
+- 引导页拆出接收 readiness、labels、actions 和已翻译错误的 OnboardingPageView；原页面保留模型目录订阅、路径草稿与 workspace.open 命令所有权。错误使用 feedback.paragraph，重试区具名并支持键盘阅读。引导与首页目录路径统一使用 LumenFormField 的 controlId、label、hint 和 rows 布局；完整长标签由字段的具名阅读区承接，说明自然换行，原输入、IME Enter 门控与浏览动作保持原目标。
+- 实际使用的 Lumen Wizard Shipping footer 接收宿主步骤标题作为动作组名称，长按钮由独立横向阅读区承接。标题与正文继续自然换行；方向键不会横向移动整个页面或使标题离开所属表面。其余未传名称的 Wizard footer 保留原布局。未更改参考 ShippingReference，也未把静态 fixture 的动作当成真实文件系统创建能力。
+- 15 项 Bun 测试／107 个断言通过。8 项 Chrome 在最终单次运行中通过：4 项受控展示矩阵覆盖两语言／明暗／五宽度／较大文字／125% zoom、关联字段说明、长标签和操作组的实际键盘滚动、完整标题视口边界、4000／4001 字路径及公开 DTO 校验、错误／忙碌／恢复、0／1／3／1000／1001 事实计数和保留原输入；4 项真实 Host 回归覆盖两语言、桌面／窄屏的多根目录选择、优先级、编辑与仅移除引用。真实 Host 禁用 Goal 与 budget 自动继续。
+- 范围严格 lint、内容／图标／flow guard、格式、Lumen 类型／build、新鲜 Web build 与生产清单通过；冷启动根类型仍有 91 项既有诊断，本次范围为零。证据在 artifacts/desktop-elements/onboarding-path-content 的 unit-footer.log、delivery.log（8 项）、delivery-results 截图、lint-delivery.log、types-delivery.log、lumen-build.log、lumen-lint.log、build-fields.log 与 audit-delivery.log；早期失败保留。
+
+当前清单覆盖 148 个生产 TSX 模块、3858 个元素，其中记录了 5 处低层文字未分类，合计 12 项静态缺口。其余生产表面迁移、其余已分类标题／身份容量复核（包括 LumenFileDocument 标题与项目名称）、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

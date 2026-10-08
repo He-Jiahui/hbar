@@ -4627,10 +4627,29 @@
       "issues": []
     },
     {
-      "id": "apps/web/src/onboarding-page.tsx::OnboardingPage::OnboardingReadinessView::1",
-      "path": "apps/web/src/onboarding-page.tsx",
-      "line": 27,
-      "owner": "OnboardingPage",
+      "id": "apps/web/src/onboarding-page-view.tsx::OnboardingPageView::LumenFrame::1",
+      "path": "apps/web/src/onboarding-page-view.tsx",
+      "line": 19,
+      "owner": "OnboardingPageView",
+      "surface": "global-pages",
+      "component": "LumenFrame",
+      "category": "structure",
+      "context": null,
+      "contentSources": ["[source:21; BinaryExpression] error"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "apps/web/src/onboarding-page-view.tsx::OnboardingPageView::OnboardingReadinessView::1",
+      "path": "apps/web/src/onboarding-page-view.tsx",
+      "line": 20,
+      "owner": "OnboardingPageView",
       "surface": "global-pages",
       "component": "OnboardingReadinessView",
       "category": "feedback",
@@ -4646,10 +4665,10 @@
       "issues": []
     },
     {
-      "id": "apps/web/src/onboarding-page.tsx::OnboardingPage::LumenFrame::1",
-      "path": "apps/web/src/onboarding-page.tsx",
-      "line": 28,
-      "owner": "OnboardingPage",
+      "id": "apps/web/src/onboarding-page-view.tsx::OnboardingPageView::LumenFrame::2",
+      "path": "apps/web/src/onboarding-page-view.tsx",
+      "line": 22,
+      "owner": "OnboardingPageView",
       "surface": "global-pages",
       "component": "LumenFrame",
       "category": "structure",
@@ -4665,40 +4684,78 @@
       "issues": []
     },
     {
-      "id": "apps/web/src/onboarding-page.tsx::OnboardingPage::LumenText::1",
-      "path": "apps/web/src/onboarding-page.tsx",
-      "line": 28,
-      "owner": "OnboardingPage",
+      "id": "apps/web/src/onboarding-page-view.tsx::OnboardingPageView::LumenContentText::1",
+      "path": "apps/web/src/onboarding-page-view.tsx",
+      "line": 23,
+      "owner": "OnboardingPageView",
       "surface": "global-pages",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
-      "contentSources": ["labels.error(error)"],
+      "context": "feedback.paragraph",
+      "contentSources": ["error"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
-      "id": "apps/web/src/onboarding-page.tsx::OnboardingPage::LumenButton::1",
-      "path": "apps/web/src/onboarding-page.tsx",
-      "line": 28,
-      "owner": "OnboardingPage",
+      "id": "apps/web/src/onboarding-page-view.tsx::OnboardingPageView::LumenFrame::3",
+      "path": "apps/web/src/onboarding-page-view.tsx",
+      "line": 24,
+      "owner": "OnboardingPageView",
+      "surface": "global-pages",
+      "component": "LumenFrame",
+      "category": "structure",
+      "context": null,
+      "contentSources": [],
+      "accessibleNameSources": ["aria-label=labels.retry"],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "apps/web/src/onboarding-page-view.tsx::OnboardingPageView::LumenButton::1",
+      "path": "apps/web/src/onboarding-page-view.tsx",
+      "line": 30,
+      "owner": "OnboardingPageView",
       "surface": "global-pages",
       "component": "LumenButton",
       "category": "interaction",
       "context": null,
       "contentSources": ["labels.retry"],
       "accessibleNameSources": [],
-      "actionBindings": { "onClick": "retry" },
+      "actionBindings": { "onClick": "actions.onRetry" },
       "targetSources": [],
-      "stateSources": [],
+      "stateSources": ["disabled=actions.busy === true || !actions.onRetry"],
       "flow": "owning component contract",
       "lumenMapping": "LumenButton",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "apps/web/src/onboarding-page.tsx::OnboardingPage::OnboardingPageView::1",
+      "path": "apps/web/src/onboarding-page.tsx",
+      "line": 59,
+      "owner": "OnboardingPage",
+      "surface": "global-pages",
+      "component": "OnboardingPageView",
+      "category": "structure",
+      "context": null,
+      "contentSources": ["labels=labels"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": ["error=error ? labels.error(error) : null"],
+      "flow": "owning flow layout",
+      "lumenMapping": "OnboardingPageView",
       "status": "composed",
       "issues": []
     },
@@ -4760,28 +4817,28 @@
       "issues": []
     },
     {
-      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenFrame::2",
+      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenFormField::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
       "line": 582,
       "owner": "WebPreSessionLanding",
       "surface": "session",
-      "component": "LumenFrame",
-      "category": "structure",
+      "component": "LumenFormField",
+      "category": "form",
       "context": null,
-      "contentSources": ["labels.path"],
-      "accessibleNameSources": [],
+      "contentSources": ["label=labels.path"],
+      "accessibleNameSources": ["label=labels.path"],
       "actionBindings": {},
-      "targetSources": [],
+      "targetSources": ["controlId=hbar-pre-session-path"],
       "stateSources": [],
-      "flow": "owning flow layout",
-      "lumenMapping": "LumenFrame",
-      "status": "pending",
-      "issues": ["container-owns-unclassified-content"]
+      "flow": "owning component contract",
+      "lumenMapping": "LumenFormField",
+      "status": "composed",
+      "issues": []
     },
     {
-      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenFrame::3",
+      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenFrame::2",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 585,
+      "line": 583,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenFrame",
@@ -4800,7 +4857,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenInput::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 586,
+      "line": 584,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenInput",
@@ -4810,11 +4867,11 @@
       "accessibleNameSources": [],
       "actionBindings": {
         "onChange": "(event) => setPath(event.currentTarget.value)",
-        "onKeyDown": "(event) => {\n                if (event.key !== 'Enter' || event.nativeEvent.isComposing) return\n                event.preventDefault()\n                event.stopPropagation()\n                openWorkspace(closePicker)\n              }"
+        "onKeyDown": "(event) => {\n                  if (event.key !== 'Enter' || event.nativeEvent.isComposing) return\n                  event.preventDefault()\n                  event.stopPropagation()\n                  openWorkspace(closePicker)\n                }"
       },
       "targetSources": [
         "id=hbar-pre-session-path",
-        "onKeyDown=(event) => {\n                if (event.key !== 'Enter' || event.nativeEvent.isComposing) return\n                event.preventDefault()\n                event.stopPropagation()\n                openWorkspace(closePicker)\n              }"
+        "onKeyDown=(event) => {\n                  if (event.key !== 'Enter' || event.nativeEvent.isComposing) return\n                  event.preventDefault()\n                  event.stopPropagation()\n                  openWorkspace(closePicker)\n                }"
       ],
       "stateSources": ["value=path", "disabled=!connected || busy || openingPath"],
       "flow": "owning component contract",
@@ -4825,7 +4882,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenButton::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 600,
+      "line": 598,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenButton",
@@ -4834,7 +4891,7 @@
       "contentSources": ["shell.shell.workspaceFolders.browse"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onClick": "[source:606; ArrowFunction] closePicker, targetPath, path.trim, draft?.workspaceId, directory.workspaces[draft.workspaceId]?.path, directory.workspaces, draft.workspaceId, undefined, runtime.commands\n                  .execute('workspaceFolders.open', {\n                    ...(targetPath ? { path: targetPath } : {}),\n                    draftId,\n                    browse: true,\n                    draftRevision: runtime.state.preSessionDrafts.getSnapshot()[draftId]?.revision ?? 0,\n                  })\n                  .catch, runtime.commands\n                  .execute, runtime.commands, path, draftId, browse, draftRevision, runtime.state.preSessionDrafts.getSnapshot()[draftId]?.revision, runtime.state.preSessionDrafts.getSnapshot, runtime.state.preSessionDrafts, runtime.state, reason, alive.current, setPathError, code"
+        "onClick": "[source:604; ArrowFunction] closePicker, targetPath, path.trim, draft?.workspaceId, directory.workspaces[draft.workspaceId]?.path, directory.workspaces, draft.workspaceId, undefined, runtime.commands\n                    .execute('workspaceFolders.open', {\n                      ...(targetPath ? { path: targetPath } : {}),\n                      draftId,\n                      browse: true,\n                      draftRevision: runtime.state.preSessionDrafts.getSnapshot()[draftId]?.revision ?? 0,\n                    })\n                    .catch, runtime.commands\n                    .execute, runtime.commands, path, draftId, browse, draftRevision, runtime.state.preSessionDrafts.getSnapshot()[draftId]?.revision, runtime.state.preSessionDrafts.getSnapshot, runtime.state.preSessionDrafts, runtime.state, reason, alive.current, setPathError, code"
       },
       "targetSources": [],
       "stateSources": ["disabled=!connected || busy || openingPath"],
@@ -4846,7 +4903,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenIcon::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 622,
+      "line": 620,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenIcon",
@@ -4865,7 +4922,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenButton::2",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 626,
+      "line": 625,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenButton",
@@ -4884,7 +4941,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenContentText::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 636,
+      "line": 635,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenContentText",
@@ -4903,7 +4960,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::HbarPreSessionChoicePicker::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 645,
+      "line": 644,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "HbarPreSessionChoicePicker",
@@ -4922,7 +4979,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenContentText::2",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 659,
+      "line": 658,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenContentText",
@@ -4939,9 +4996,9 @@
       "issues": []
     },
     {
-      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenFrame::4",
+      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenFrame::3",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 663,
+      "line": 662,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenFrame",
@@ -4960,7 +5017,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenButton::3",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 664,
+      "line": 663,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenButton",
@@ -4977,9 +5034,9 @@
       "issues": []
     },
     {
-      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenFrame::5",
+      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenFrame::4",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 669,
+      "line": 668,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenFrame",
@@ -4998,7 +5055,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenButton::4",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 670,
+      "line": 669,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenButton",
@@ -5015,9 +5072,9 @@
       "issues": []
     },
     {
-      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenFrame::6",
+      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenFrame::5",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 687,
+      "line": 686,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenFrame",
@@ -5036,7 +5093,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::HbarPreSessionThinkingPicker::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 689,
+      "line": 688,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "HbarPreSessionThinkingPicker",
@@ -5055,7 +5112,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::HbarPreSessionApprovalPicker::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 699,
+      "line": 698,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "HbarPreSessionApprovalPicker",
@@ -5072,9 +5129,9 @@
       "issues": []
     },
     {
-      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenFrame::7",
+      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenFrame::6",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 712,
+      "line": 711,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenFrame",
@@ -5093,7 +5150,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::HbarComposerAddMenu::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 713,
+      "line": 712,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "HbarComposerAddMenu",
@@ -5115,7 +5172,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenButton::5",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 732,
+      "line": 731,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenButton",
@@ -5134,7 +5191,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenIcon::2",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 744,
+      "line": 743,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenIcon",
@@ -5153,7 +5210,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenContentText::3",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 745,
+      "line": 744,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenContentText",
@@ -5172,7 +5229,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenIcon::3",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 746,
+      "line": 745,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenIcon",
@@ -5189,9 +5246,9 @@
       "issues": []
     },
     {
-      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenFrame::8",
+      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenFrame::7",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 751,
+      "line": 750,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenFrame",
@@ -5212,7 +5269,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenContentText::4",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 752,
+      "line": 751,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenContentText",
@@ -5233,7 +5290,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenButton::6",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 767,
+      "line": 766,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenButton",
@@ -5252,7 +5309,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenButton::7",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 771,
+      "line": 770,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenButton",
@@ -5271,7 +5328,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::HbarSessionImageLayer::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 783,
+      "line": 782,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "HbarSessionImageLayer",
@@ -5290,7 +5347,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::HbarPreSessionLanding::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 784,
+      "line": 783,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "HbarPreSessionLanding",
@@ -5311,7 +5368,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::HbarPreSessionDraftImageAttachments::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 808,
+      "line": 807,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "HbarPreSessionDraftImageAttachments",
@@ -5332,7 +5389,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::HbarComposerAttachmentTransfers::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 863,
+      "line": 862,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "HbarComposerAttachmentTransfers",
@@ -5355,7 +5412,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::HbarPreSessionLaunchStatus::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 897,
+      "line": 896,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "HbarPreSessionLaunchStatus",
@@ -5374,7 +5431,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenContentText::5",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 902,
+      "line": 901,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenContentText",
@@ -5391,9 +5448,9 @@
       "issues": []
     },
     {
-      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenFrame::9",
+      "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::LumenFrame::8",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 909,
+      "line": 908,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "LumenFrame",
@@ -5412,7 +5469,7 @@
     {
       "id": "apps/web/src/PreSessionLanding.tsx::WebPreSessionLanding::HbarPreSessionSlashEditor::1",
       "path": "apps/web/src/PreSessionLanding.tsx",
-      "line": 917,
+      "line": 916,
       "owner": "WebPreSessionLanding",
       "surface": "session",
       "component": "HbarPreSessionSlashEditor",
@@ -46425,7 +46482,7 @@
     {
       "id": "packages/app-react/src/onboarding-readiness.tsx::OnboardingReadinessView::LumenOnboarding3Reference::1",
       "path": "packages/app-react/src/onboarding-readiness.tsx",
-      "line": 28,
+      "line": 145,
       "owner": "OnboardingReadinessView",
       "surface": "global-pages",
       "component": "LumenOnboarding3Reference",
@@ -46444,15 +46501,13 @@
     {
       "id": "packages/app-react/src/onboarding-readiness.tsx::OnboardingReadinessView::LumenFrame::1",
       "path": "packages/app-react/src/onboarding-readiness.tsx",
-      "line": 32,
+      "line": 161,
       "owner": "OnboardingReadinessView",
       "surface": "global-pages",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": [
-        "workspaceSelected ? <LumenFrame className=\"hbar-onboarding-workspace-form\">\r\n        <LumenFrame as=\"label\" htmlFor=\"hbar-onboarding-workspace-path\">{labels.setupPath}</LumenFrame>\r\n        <LumenInput id=\"hbar-onboarding-workspace-path\" value={actions.setupPath ?? ''} onChange={(event) => actions.onPathChange?.(event.target.value)} placeholder={labels.setupPathPlaceholder} disabled={actions.busy === true} />\r\n        <LumenText as=\"small\">{labels.setupPathHint}</LumenText>\r\n      </LumenFrame> : null"
-      ],
+      "contentSources": ["[source:193; ConditionalExpression] workspaceSelected"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
@@ -46465,18 +46520,18 @@
     {
       "id": "packages/app-react/src/onboarding-readiness.tsx::OnboardingReadinessView::LumenWizard07::1",
       "path": "packages/app-react/src/onboarding-readiness.tsx",
-      "line": 33,
+      "line": 162,
       "owner": "OnboardingReadinessView",
       "surface": "global-pages",
       "component": "LumenWizard07",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "content={ shipping: { labels: { title: labels.setupTitle, detail: labels.setupDescription, options: labels.project, back: labels.back, continue: labels.continue, empty: labels.empty }, options: [{ id: 'workspace', label: labels.workspace }, { id: 'model', label: labels.model }, { id: 'project', label: labels.project }], initialOptionId: selectedOptionId, selectedOptionId, onOptionChange: (id) => actions.onConfigure(id === 'workspace' ? 'workspace' : id === 'model' ? 'model' : 'project'), listStrategy: { kind: 'content-grown', expectedMaximum: 3 } } }"
+        "content=[source:163; ObjectLiteralExpression] shipping, labels, title, labels.setupTitle, detail, labels.setupDescription, options, labels.project, back, labels.back, continue, labels.continue, empty, labels.empty, id, label, labels.workspace, labels.model, initialOptionId, selectedOptionId, onOptionChange, actions.onConfigure, listStrategy, kind, expectedMaximum"
       ],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onAction": "(event) => { if (event.actionId === 'continue' || event.actionId === 'save-shipping') { if (event.value === 'workspace') actions.onCreate(actions.setupPath?.trim() ?? ''); else actions.onConfigure(event.value === 'model' ? 'model' : 'project') } if (event.actionId === 'back') actions.onBack?.() }"
+        "onAction": "(event) => {\n            if (event.actionId === 'continue' || event.actionId === 'save-shipping') {\n              if (event.value === 'workspace') actions.onCreate(actions.setupPath?.trim() ?? '')\n              else actions.onConfigure(event.value === 'model' ? 'model' : 'project')\n            }\n            if (event.actionId === 'back') actions.onBack?.()\n          }"
       },
       "targetSources": [],
       "stateSources": [],
@@ -46488,7 +46543,7 @@
     {
       "id": "packages/app-react/src/onboarding-readiness.tsx::OnboardingReadinessView::LumenFrame::2",
       "path": "packages/app-react/src/onboarding-readiness.tsx",
-      "line": 34,
+      "line": 194,
       "owner": "OnboardingReadinessView",
       "surface": "global-pages",
       "component": "LumenFrame",
@@ -46505,28 +46560,28 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/onboarding-readiness.tsx::OnboardingReadinessView::LumenFrame::3",
+      "id": "packages/app-react/src/onboarding-readiness.tsx::OnboardingReadinessView::LumenFormField::1",
       "path": "packages/app-react/src/onboarding-readiness.tsx",
-      "line": 35,
+      "line": 195,
       "owner": "OnboardingReadinessView",
       "surface": "global-pages",
-      "component": "LumenFrame",
-      "category": "structure",
+      "component": "LumenFormField",
+      "category": "form",
       "context": null,
-      "contentSources": ["labels.setupPath"],
-      "accessibleNameSources": [],
+      "contentSources": ["label=labels.setupPath"],
+      "accessibleNameSources": ["label=labels.setupPath"],
       "actionBindings": {},
-      "targetSources": [],
+      "targetSources": ["controlId=hbar-onboarding-workspace-path"],
       "stateSources": [],
-      "flow": "owning flow layout",
-      "lumenMapping": "LumenFrame",
-      "status": "pending",
-      "issues": ["container-owns-unclassified-content"]
+      "flow": "owning component contract",
+      "lumenMapping": "LumenFormField",
+      "status": "composed",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/onboarding-readiness.tsx::OnboardingReadinessView::LumenInput::1",
       "path": "packages/app-react/src/onboarding-readiness.tsx",
-      "line": 36,
+      "line": 201,
       "owner": "OnboardingReadinessView",
       "surface": "global-pages",
       "component": "LumenInput",
@@ -46543,28 +46598,9 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/onboarding-readiness.tsx::OnboardingReadinessView::LumenText::1",
-      "path": "packages/app-react/src/onboarding-readiness.tsx",
-      "line": 37,
-      "owner": "OnboardingReadinessView",
-      "surface": "global-pages",
-      "component": "LumenText",
-      "category": "text",
-      "context": null,
-      "contentSources": ["labels.setupPathHint"],
-      "accessibleNameSources": [],
-      "actionBindings": {},
-      "targetSources": [],
-      "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
-    },
-    {
       "id": "packages/app-react/src/onboarding-readiness.tsx::OnboardingReadinessView::LumenOnboarding6Reference::1",
       "path": "packages/app-react/src/onboarding-readiness.tsx",
-      "line": 42,
+      "line": 227,
       "owner": "OnboardingReadinessView",
       "surface": "global-pages",
       "component": "LumenOnboarding6Reference",
@@ -76464,6 +76500,7 @@
     "apps/web/src/main.tsx",
     "apps/web/src/notifications-page-view.tsx",
     "apps/web/src/notifications-page.tsx",
+    "apps/web/src/onboarding-page-view.tsx",
     "apps/web/src/onboarding-page.tsx",
     "apps/web/src/prompt-templates-page.tsx",
     "apps/web/src/run-board-page.tsx",
@@ -77019,6 +77056,7 @@
     "apps/web/src/notifications-page-view.tsx",
     "apps/web/src/notifications-page.tsx",
     "apps/web/src/onboarding-copy.ts",
+    "apps/web/src/onboarding-page-view.tsx",
     "apps/web/src/onboarding-page.tsx",
     "apps/web/src/pre-session-copy.ts",
     "apps/web/src/pre-session-launch-copy.ts",

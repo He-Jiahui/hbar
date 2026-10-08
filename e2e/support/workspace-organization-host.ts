@@ -23,6 +23,8 @@ const kernel = await Kernel.create({
   demo: true,
   secrets: new MemorySecrets(),
 })
+await kernel.changePlugin('goal.codex', true, { autoContinue: false })
+await kernel.changePlugin('budget.codex', true, { autoContinue: false })
 const host = await startServer(kernel, { hostname: '127.0.0.1', port: 0, staticRoot: resolve(options.assets) })
 const firstDevice = await host.auth.createDevice('Organization browser fixture')
 const secondDevice = await host.auth.createDevice('Organization external observer fixture')

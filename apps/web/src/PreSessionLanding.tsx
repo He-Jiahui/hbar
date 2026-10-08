@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { FolderOpen, Target, X } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenContentText } from '@lumen/app-ui'
+import { LumenButton, LumenFormField, LumenFrame, LumenIcon, LumenInput, LumenContentText } from '@lumen/app-ui'
 import {
   HbarComposerAddMenu,
   HbarComposerAttachmentTransfers,
@@ -579,50 +579,49 @@ export function WebPreSessionLanding({
       onCancelBranchCreate={() => runtime.commands.execute('preSessionLaunchBranchCreation.cancel', { draftId })}
       directoryExtra={(closePicker) => (
         <LumenFrame className="hbar-web-pre-session-path">
-          <LumenFrame as="label" htmlFor="hbar-pre-session-path">
-            {labels.path}
-          </LumenFrame>
-          <LumenFrame className="hbar-workspace-folder-entry-row">
-            <LumenInput
-              id="hbar-pre-session-path"
-              variant="boxed"
-              value={path}
-              placeholder={labels.pathHint}
-              disabled={!connected || busy || openingPath}
-              onChange={(event) => setPath(event.currentTarget.value)}
-              onKeyDown={(event) => {
-                if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
-                event.preventDefault()
-                event.stopPropagation()
-                openWorkspace(closePicker)
-              }}
-            />
-            <LumenButton
-              type="button"
-              size="s"
-              variant="outlined"
-              indicator="none"
-              disabled={!connected || busy || openingPath}
-              onClick={() => {
-                closePicker()
-                const targetPath =
-                  path.trim() || (draft?.workspaceId ? directory.workspaces[draft.workspaceId]?.path : undefined)
-                void runtime.commands
-                  .execute('workspaceFolders.open', {
-                    ...(targetPath ? { path: targetPath } : {}),
-                    draftId,
-                    browse: true,
-                    draftRevision: runtime.state.preSessionDrafts.getSnapshot()[draftId]?.revision ?? 0,
-                  })
-                  .catch((reason: unknown) => {
-                    if (alive.current) setPathError(code(reason))
-                  })
-              }}
-            >
-              <LumenIcon icon={FolderOpen} tier="sm" />
-              {shell.shell.workspaceFolders.browse}
-            </LumenButton>
-          </LumenFrame>
+          <LumenFormField controlId="hbar-pre-session-path" label={labels.path} layout="rows">
+            <LumenFrame className="hbar-workspace-folder-entry-row">
+              <LumenInput
+                id="hbar-pre-session-path"
+                variant="boxed"
+                value={path}
+                placeholder={labels.pathHint}
+                disabled={!connected || busy || openingPath}
+                onChange={(event) => setPath(event.currentTarget.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+                  event.preventDefault()
+                  event.stopPropagation()
+                  openWorkspace(closePicker)
+                }}
+              />
+              <LumenButton
+                type="button"
+                size="s"
+                variant="outlined"
+                indicator="none"
+                disabled={!connected || busy || openingPath}
+                onClick={() => {
+                  closePicker()
+                  const targetPath =
+                    path.trim() || (draft?.workspaceId ? directory.workspaces[draft.workspaceId]?.path : undefined)
+                  void runtime.commands
+                    .execute('workspaceFolders.open', {
+                      ...(targetPath ? { path: targetPath } : {}),
+                      draftId,
+                      browse: true,
+                      draftRevision: runtime.state.preSessionDrafts.getSnapshot()[draftId]?.revision ?? 0,
+                    })
+                    .catch((reason: unknown) => {
+                      if (alive.current) setPathError(code(reason))
+                    })
+                }}
+              >
+                <LumenIcon icon={FolderOpen} tier="sm" />
+                {shell.shell.workspaceFolders.browse}
+              </LumenButton>
+            </LumenFrame>
+          </LumenFormField>
           <LumenButton
             type="button"
             size="s"

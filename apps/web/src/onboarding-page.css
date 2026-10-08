@@ -1,0 +1,11 @@
+.hbar-web-onboarding-page,
+.hbar-web-onboarding-feedback {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.hbar-web-onboarding-feedback-actions {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-x: auto;
+}
