@@ -8,7 +8,7 @@
 
 | 类别        | 元素 | pending | 设计职责                                                                |
 | ----------- | ---: | ------: | ----------------------------------------------------------------------- |
-| structure   | 1238 |       1 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
+| structure   | 1238 |       0 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
 | text        | 1121 |       0 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
 | interaction |  944 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
 | form        |  282 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
@@ -66,7 +66,7 @@
 | [packages/app-react/src/composer-slash-menu.tsx](../../packages/app-react/src/composer-slash-menu.tsx)                     | composer-and-launch                              |    9 |              3 |          0 |          0 |
 | [packages/app-react/src/composer-workspace-contexts.tsx](../../packages/app-react/src/composer-workspace-contexts.tsx)     | composer-and-launch                              |   23 |              7 |          0 |          0 |
 | [packages/app-react/src/conversation-selection.tsx](../../packages/app-react/src/conversation-selection.tsx)               | session                                          |    5 |              1 |          0 |          0 |
-| [packages/app-react/src/echarts-chart.tsx](../../packages/app-react/src/echarts-chart.tsx)                                 | workbench                                        |    1 |              0 |          0 |          1 |
+| [packages/app-react/src/echarts-chart.tsx](../../packages/app-react/src/echarts-chart.tsx)                                 | workbench                                        |    1 |              0 |          0 |          0 |
 | [packages/app-react/src/extension-collection-feedback.tsx](../../packages/app-react/src/extension-collection-feedback.tsx) | settings                                         |    7 |              4 |          0 |          0 |
 | [packages/app-react/src/extension-pagination.tsx](../../packages/app-react/src/extension-pagination.tsx)                   | settings                                         |    5 |              1 |          0 |          0 |
 | [packages/app-react/src/extension-plugin-detail.tsx](../../packages/app-react/src/extension-plugin-detail.tsx)             | settings                                         |   67 |             36 |          0 |          0 |

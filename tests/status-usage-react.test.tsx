@@ -129,7 +129,9 @@ test('usage status renders command-owned filters, exports, ledger, and execution
     expect(html).toContain('role="img" aria-label="Token timeline"')
     expect(html).toContain('class="hbar-app-react-status-echarts"')
     expect(html).not.toContain('hbar-app-ui-metric-strip')
-    expect(html).toContain('>Tool calls</dt><dd>3</dd>')
+    const toolCalls = html.match(/<div\b[^>]*role="group"[^>]*aria-label="Tool calls"[^>]*>([\s\S]*?)<\/div>/)?.[1]
+    expect(toolCalls?.match(/<dt\b[^>]*>([\s\S]*?)<\/dt>/)?.[1]?.replace(/<[^>]+>/g, '')).toBe('Tool calls')
+    expect(toolCalls?.match(/<strong\b[^>]*>([\s\S]*?)<\/strong>/)?.[1]).toBe('3')
     expect(html).toContain('2 succeeded · 1 failed · 0 unknown')
     expect(html).toContain('Peak request concurrency')
     expect(html).toContain('2.5 s')

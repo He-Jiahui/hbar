@@ -1,125 +1,116 @@
 /**
  * Shared echarts React wrapper for hbar visualisation surfaces.
  *
- * Reads lumen CSS token values at mount/resize so charts always match the
- * active theme without a JS theme registry. Respects prefers-reduced-motion
- * by disabling echarts animations when the user has requested it.
- *
- * Usage:
- *   <EchartsChart option={echartsOption} height="12rem" label="Token usage" />
+ * The Lumen reading surface owns accessible copy and theme values. ECharts
+ * owns only its generated canvas DOM. Appearance, resize and motion updates
+ * share one bounded animation-frame queue and are released on unmount.
  */
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef } from 'react'
+import { LumenFrame } from '@lumen/app-ui'
 import * as echarts from 'echarts/core'
 import { BarChart, LineChart } from 'echarts/charts'
-import {
-  GridComponent,
-  TooltipComponent,
-  TitleComponent,
-  LegendComponent,
-} from 'echarts/components'
+import { GridComponent, TooltipComponent, TitleComponent, LegendComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import type { EChartsOption } from 'echarts'
+import { readingEchartsOption, type EchartsReadingTheme } from './echarts-chart-model'
 
-echarts.use([
-  BarChart,
-  LineChart,
-  GridComponent,
-  TooltipComponent,
-  TitleComponent,
-  LegendComponent,
-  CanvasRenderer,
-])
+echarts.use([BarChart, LineChart, GridComponent, TooltipComponent, TitleComponent, LegendComponent, CanvasRenderer])
 
 export type { EChartsOption }
 
-/** Read a single CSS custom property value from the document root. */
-function token(name: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-}
-
-/** Build a minimal echarts theme from the current lumen CSS tokens. */
-function buildTheme() {
+function readingTheme(element: HTMLElement, reducedMotion: boolean): EchartsReadingTheme {
+  const style = getComputedStyle(element)
+  const token = (name: string) => style.getPropertyValue(name).trim()
+  const duration = token('--lumen-motion-duration')
+  const amount = Number.parseFloat(duration)
   return {
-    textStyle: { color: token('--lumen-ink') || '#eeeeee', fontFamily: 'inherit', fontSize: 12 },
-    axisLabel: { color: token('--lumen-muted') || '#aaaaaa' },
-    axisLine: { lineStyle: { color: token('--lumen-edge') || 'rgba(255,255,255,0.17)' } },
-    splitLine: { lineStyle: { color: token('--lumen-edge') || 'rgba(255,255,255,0.17)' } },
-    itemStyle: { color: token('--lumen-accent') || '#7c6af7' },
-    backgroundColor: 'transparent',
+    foreground: token('--lumen-ink') || style.color,
+    muted: token('--lumen-muted') || style.color,
+    edge: token('--lumen-edge') || style.borderColor,
+    info: token('--lumen-info') || style.color,
+    fontFamily: style.fontFamily,
+    fontSize: Number.parseFloat(style.fontSize),
+    animation: !reducedMotion && element.closest('[data-lumen-motion]')?.getAttribute('data-lumen-motion') !== 'off',
+    duration: Number.isFinite(amount) ? amount * (duration.endsWith('ms') ? 1 : 1000) : 0,
   }
 }
 
 export interface EchartsChartProps {
   readonly option: EChartsOption
   /** CSS height value, e.g. "12rem" or "200px". Defaults to "10rem". */
-  readonly height?: string
+  readonly height?: string | undefined
   /** Accessible label for the chart container. */
   readonly label: string
-  readonly className?: string
+  readonly className?: string | undefined
 }
-
-const REDUCED_MOTION = typeof window !== 'undefined'
-  ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  : false
 
 export function EchartsChart({ option, height = '10rem', label, className }: EchartsChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const instanceRef = useRef<echarts.ECharts | null>(null)
+  const optionRef = useRef(option)
+  const applyRef = useRef<(() => void) | null>(null)
 
-  // Init chart once on mount.
   useLayoutEffect(() => {
-    if (!containerRef.current) return
-    const theme = buildTheme()
-    const chart = echarts.init(containerRef.current, undefined, { renderer: 'canvas' })
-    instanceRef.current = chart
-    chart.setOption({
-      animation: !REDUCED_MOTION,
-      animationDuration: 220,
-      animationEasing: 'cubicOut',
-      textStyle: theme.textStyle,
-      grid: { left: 48, right: 12, top: 12, bottom: 32, containLabel: false },
-      ...option,
-      xAxis: Array.isArray(option.xAxis)
-        ? (option.xAxis as object[]).map((a) => ({ axisLine: { lineStyle: { color: theme.axisLine.lineStyle.color } }, axisLabel: { color: theme.axisLabel.color }, splitLine: { lineStyle: { color: theme.splitLine.lineStyle.color } }, ...a as object }))
-        : option.xAxis
-          ? { axisLine: { lineStyle: { color: theme.axisLine.lineStyle.color } }, axisLabel: { color: theme.axisLabel.color }, splitLine: { lineStyle: { color: theme.splitLine.lineStyle.color } }, ...option.xAxis as object }
-          : undefined,
-      yAxis: Array.isArray(option.yAxis)
-        ? (option.yAxis as object[]).map((a) => ({ axisLine: { lineStyle: { color: theme.axisLine.lineStyle.color } }, axisLabel: { color: theme.axisLabel.color }, splitLine: { lineStyle: { color: theme.splitLine.lineStyle.color } }, ...a as object }))
-        : option.yAxis
-          ? { axisLine: { lineStyle: { color: theme.axisLine.lineStyle.color } }, axisLabel: { color: theme.axisLabel.color }, splitLine: { lineStyle: { color: theme.splitLine.lineStyle.color } }, ...option.yAxis as object }
-          : undefined,
-    })
-    return () => {
-      chart.dispose()
-      instanceRef.current = null
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Update option on every render except the first (init handles that).
-  const isMounted = useRef(false)
-  useEffect(() => {
-    if (!isMounted.current) { isMounted.current = true; return }
-    instanceRef.current?.setOption(option, { notMerge: false, lazyUpdate: true })
+    optionRef.current = option
+    applyRef.current?.()
   }, [option])
 
-  // Resize chart when container dimensions change.
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const observer = new ResizeObserver(() => instanceRef.current?.resize())
-    observer.observe(el)
-    return () => observer.disconnect()
+  useLayoutEffect(() => {
+    const element = containerRef.current
+    if (!element) return
+    const chart = echarts.init(element, undefined, { renderer: 'canvas' })
+    const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
+    let frame: number | null = null
+    let disposed = false
+    const apply = () => {
+      if (disposed) return
+      chart.setOption(readingEchartsOption(optionRef.current, readingTheme(element, motion.matches)), {
+        notMerge: false,
+        replaceMerge: ['series', 'xAxis', 'yAxis'],
+        lazyUpdate: true,
+      })
+    }
+    const schedule = () => {
+      if (disposed || frame !== null) return
+      frame = requestAnimationFrame(() => {
+        frame = null
+        apply()
+        chart.resize()
+      })
+    }
+    applyRef.current = apply
+    apply()
+    const resize = new ResizeObserver(schedule)
+    resize.observe(element)
+    const appearance = new MutationObserver(schedule)
+    for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+      appearance.observe(ancestor, { attributes: true })
+    }
+    motion.addEventListener('change', schedule)
+    return () => {
+      disposed = true
+      applyRef.current = null
+      if (frame !== null) cancelAnimationFrame(frame)
+      resize.disconnect()
+      appearance.disconnect()
+      motion.removeEventListener('change', schedule)
+      chart.dispose()
+    }
   }, [])
 
   return (
-    <div
+    <LumenFrame
       ref={containerRef}
       role="img"
       aria-label={label}
       className={className}
-      style={{ width: '100%', height, minWidth: 0 }}
+      style={{
+        inlineSize: '100%',
+        maxInlineSize: '100%',
+        minInlineSize: 0,
+        height,
+        fontFamily: 'var(--lumen-font-body)',
+        fontSize: 'var(--lumen-font-size-supporting)',
+      }}
     />
   )
 }

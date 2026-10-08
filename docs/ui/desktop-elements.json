@@ -20377,12 +20377,12 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/echarts-chart.tsx::EchartsChart::div::1",
+      "id": "packages/app-react/src/echarts-chart.tsx::EchartsChart::LumenFrame::1",
       "path": "packages/app-react/src/echarts-chart.tsx",
-      "line": 117,
+      "line": 101,
       "owner": "EchartsChart",
       "surface": "workbench",
-      "component": "div",
+      "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [],
@@ -20391,9 +20391,9 @@
       "targetSources": [],
       "stateSources": [],
       "flow": "owning flow layout",
-      "lumenMapping": "LumenFrame or dedicated renderer",
-      "status": "pending",
-      "issues": ["native-element-outside-renderer"]
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/extension-collection-feedback.tsx::ExtensionCollectionFeedback::LumenFrame::1",
@@ -77962,6 +77962,7 @@
     "packages/app-react/src/conversation-selection-model.ts",
     "packages/app-react/src/conversation-selection.tsx",
     "packages/app-react/src/decision-result-focus.ts",
+    "packages/app-react/src/echarts-chart-model.ts",
     "packages/app-react/src/echarts-chart.tsx",
     "packages/app-react/src/extension-collection-feedback.tsx",
     "packages/app-react/src/extension-pagination.tsx",

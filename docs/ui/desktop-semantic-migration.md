@@ -647,4 +647,11 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 37 项 Bun 测试／212 个断言和最终单次 8 项 Chrome 场景通过。四项纯展示 DTO 矩阵覆盖两语言／明暗／五宽度／较大文字／125% zoom、4000 字项目名与 4001 字公开 schema 拒绝、完整长分支、实际 PageDown 纵向阅读和状态方向键横向阅读、原重试目标、失效所有者、empty／launch／project 内容选择。四项实际 Host 流程覆盖两语言的启动位置／分支选择／首次发送及只读项目切换、分支变更、第二次运行后的刷新、四宽度布局、模型／权限浮层和离线；使用本地测试模型，禁用 Goal 与 budget 自动继续。
 - 旧用例保留完整分支身份而不再期待八字摘要（关联 5f188464）；实际空会话先建立本地已完成运行，再验证只读 Git 内容；根据原 Session ID 读取首次运行自动生成后的 Host 标题，依据实际侧栏和项目展开状态使用键盘导航。只记录原 ID、revision、分支和显示值的所属事实文件，不读取真实 Host 的鉴权 trace。范围严格 lint、内容／图标／flow guard、格式、新鲜 Web build、构建清单与截图通过；冷根类型仍有 91 项既有诊断，本次范围为零。证据在 artifacts/desktop-elements/session-workspace-context 的 unit-titles.log、titles.log（8 项）、title-results、owned-branch-facts.json（各所属测试目录）、lint-titles.log、types-final.log、build-titles.log 与 audit-titles.log；修复前失败记录保留。
 
-当前清单覆盖 149 个生产 TSX 模块、3864 个元素，业务低层文字未分类项为 0，合计仍有 5 项静态缺口（图表容器与四处原生文案）。其余已分类标题／身份容量复核（包括 LumenFileDocument 标题与侧栏项目名称）、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终全库／浏览器／原生门禁尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 图表阅读边界与实时主题
+
+- 图表宿主容器使用具名 LumenFrame img；宿主提供完整可访问名称，外部章节标题自然换行，ECharts 仅负责生成的 canvas DOM。读取最近 Lumen 表面的颜色、字体及动效参数，移除原根元素读取、固定颜色／字号／220ms 和 Hooks 忽略。祖先外观、容器尺寸及系统减弱动效变化共用单个 animation frame，卸载释放观察器、监听器、排队帧与实例。
+- typed readingEchartsOption 保留具体坐标轴联合类型、宿主 formatter／颜色／原数据和稳定 series IDs；更新时替换 series 与 axes，避免由三组减到一组／零组后残留旧曲线。系统或最近 Provider 禁用动效时优先关闭；明确保留原图形坐标边界，不将图形高度用于普通文字布局。
+- 19 项 Bun 测试／153 个断言、6 项独立 Chrome 场景通过。四项展示 DTO 矩阵覆盖中英文／明暗／五宽度／较大文字／125% zoom、最近嵌套主题、完整标题边界、0／1／3／500 桶与公开 DTO 拒绝 501、原实例内实时主题／字号／系统和 Provider 动效更新、系列减少及实际 dispose；两项真实 Host 监控验证原事实、刷新、草稿和目标，禁用两类自动继续。纯 renderer fixture 不宣称模拟 Host 写入。截图发现嵌套主题的透明阅读背景承接外部深色底，改用实际所属 --lumen-canvas 后重新检查四项矩阵；保留初始失败与截图。
+- 严格范围 lint、内容／图标 guard、格式、新鲜 Web build 和清单通过；冷根类型回到 91 项既有诊断，本次范围零。测试根明确声明已在生产包使用的 echarts 6.1.0 为开发依赖，避免测试的公开 API 探针无法解析；锁文件仅相应一行。旧用量 SSR 用例期待裸 dt/dd，按 Lumen 5b51f7b5f9 的具名 metric 结构保留相同 Tool calls／3 断言。证据在 artifacts/desktop-elements/echarts-reading 的 unit-delivery.log、final.log（6 项）、canvas.log（4 项截图复核）、types-final.log、lint-final.log、build-final.log、audit.log 与截图。
+
+当前清单覆盖 149 个生产 TSX 模块、3864 个元素，业务低层文字未分类项为 0，合计仍有 4 项静态缺口（原生文案）。其余已分类标题／身份容量复核（包括 LumenFileDocument 标题与侧栏项目名称）、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终全库／浏览器／原生门禁尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
