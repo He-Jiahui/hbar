@@ -703,4 +703,8 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 根据实际入口图、构建输入、引用检索和 6ec3b46b 的工作台替换，退役 20 个不再被 Desktop 或参考组件调用的旧 TSX、10 份仅被它们导入的 CSS，以及已无调用者的旧 locale／production-context。旧组件仍访问已删除的 stores、ui-plugins 和 session-capabilities；不会把恢复旧可写全局 store 作为修复。参考组件继续使用的 FloatingLayer、GlassSurface、PromptComposer.css 和纯内容 adapters 保留，其他未进入入口的组件仍列入清单。
 - 16 项 Web 组合边界／ReactBits 纯 adapter／Desktop AST 与实际构建输入测试通过，484 个断言；保留 barrel 的范围严格 lint、新鲜 Web build 和 strict 清单通过。149 个生产 TSX／3873 个元素均未改变，pending 仍为零。根类型诊断从 88 降到 24，本次保留 barrel 无诊断；剩余诊断与旧 store 测试、参考主题、夹具和脚本契约继续处理。证据位于 artifacts/desktop-elements/final-gates 的 legacy-retirement 日志。
 
+- d5545644 将仍导入已删除 stores 的历史测试迁到公开 SessionTimelinePort／Runtime：follow reset 使旧页失效、重复加载明确 BUSY、原页只合并一次、原订阅正确释放。7 项 timeline／history 测试、59 个断言、范围严格 lint 和格式通过，根类型降到 21，本次零诊断。
+- 参考 GlassSurface 通过 themeProfile prop 接收宿主解析的数据，不再读取已删除 ui-plugins 或旧 Desktop theme store。将原有颜色／CSS／贡献合并／作用域判断保留为纯 reference-theme 投影；删除旧 store 的 I/O、全局状态及 DOM 写入。保留默认主题校验、字体／资产约束、对比度、显式覆盖优先级和作用域测试；退役仅针对已删除客户端 renderer registry／旧 store 的五个测试，不宣称当前 Desktop 存在那些注册能力。新增真实参考组件 SSR 验证独立输入 profile 的视觉属性，当前 Desktop 的受控主题、保存／reset／revision、草稿与启动绑定由既有测试覆盖。
+- 40 项参考主题／实际 Web 外观与编辑器／启动绑定／写入边界测试通过，213 个断言；范围严格 lint、文案 guard、格式、Web build 与差异检查通过。根类型降到 12，本次零诊断。证据位于 artifacts/desktop-elements/final-gates 的 history-requests 和 reference-theme 日志；后者两项原生模块加载错误的旧入口现已消除，完整 Bun 门禁仍待重跑。
+
 当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。最终全库／浏览器／原生门禁和上述四项扩展导航失败尚未完成。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
