@@ -653,6 +653,7 @@ test('read-only reviewer approval survives restart and stale or rejected verdict
   expect(await restarted.plugins.get<PlanService>('plan').get(first.session.id)).toMatchObject({
     plan: [{ status: 'completed' }],
   })
+  expect((await restarted.plugins.get<GoalService>('goal').get(reviewerId)).goal?.status).toBe('complete')
   expect(await restarted.plugins.get<WorkflowService>('workflow').get(first.session.id)).toMatchObject({
     workflow: {
       status: 'completed',
@@ -706,6 +707,7 @@ test('read-only reviewer approval survives restart and stale or rejected verdict
   expect(await rejectedFixture.workflows.get(rejectedFixture.session.id)).toMatchObject({
     workflow: { status: 'needs_revision', review: { status: 'rejected' } },
   })
+  expect((await rejectedFixture.goals.get(rejectedReview.reviewerAgentId!)).goal?.status).toBe('complete')
   expect(await rejectedFixture.plans.get(rejectedFixture.session.id)).toMatchObject({
     revision: rejectedPlan.revision,
     plan: [{ status: 'in_progress' }],
@@ -758,6 +760,7 @@ test('read-only reviewer approval survives restart and stale or rejected verdict
     workflow: { status: 'needs_revision', review: { status: 'stale' } },
   })
   expect((await staleFixture.plans.get(staleFixture.session.id))?.revision).toBe(stalePlan.revision)
+  expect((await staleFixture.goals.get(staleReview.reviewerAgentId!)).goal?.status).toBe('paused')
 })
 
 test('reviewer cancellation restores the main Agent without user intervention', async () => {

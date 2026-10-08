@@ -44,7 +44,7 @@ Goal 结束一轮、reviewer 返回与预算恢复使用同一个持久化续跑
 
 聊天替换卡片按每条历史事件的 `previousGoal` / `goal` 快照显示旧目标、新目标与 `del` / `ins` 增删片段，后续编辑不会改写历史。差异使用 CodeMirror Merge 的有界 `presentableDiff`（`scanLimit: 500`），不调用模型生成摘要。目标上限为 4,000 字符，长目标默认展示变化位置及部分上下文，全文可用键盘展开；旧快照缺失时只显示已知目标。中英文标签由宿主提供，历史仍使用原游标分页与虚拟列表。
 
-新配置的 `maxContinuations` 默认为 `null`，有可验证进展时不再固定停止于 8 轮。显式轮数上限仍有效，并公开 `continuation_limit`。自动轮次没有工具调用时停止为 `no_tool_calls`；新的成功工具结果和实质 Plan 更新计为进展，纯状态查询、重复同一结果或重复同一 Plan 不计为进展，连续三轮无进展停止为 `no_progress`。Host 的 `goal.continuation` 提供阶段与原因；显式恢复可生成新意图，单纯修改暂停目标的预算不能恢复执行。旧 active Goal 没有持久意图时不会在升级后自动运行。
+新配置的 `maxContinuations` 默认为 `null`，未完成的 active Goal 会在一轮结束后继续核验当前内容、Agent Plan 和持久结果。自动轮次没有工具调用、连续查询状态或没有新的工具结果都只作为重新评估的信号；不会因此停止一个仍未完成的目标。Agent 验证完成后必须调用 `update_goal` 记录 complete；未完成时更新计划并继续工作。显式暂停、取消、已确认阻塞、预算与用量限制、执行失败及显式轮数上限仍保留其停止或等待语义。启动恢复会重新核验旧 `no_tool_calls` / `no_progress` 停止意图；没有持久执行意图的旧 active Goal 保持不自动运行。Host 的 `goal.continuation` 提供阶段与原因；单纯修改暂停目标的预算不能恢复执行。
 
 ## 焦点与范围
 

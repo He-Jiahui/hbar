@@ -32,9 +32,9 @@ function scriptedDriver(script: (input: DriverInput) => Promise<void>) {
       provide<HarnessDriver>(ctx, 'driver', {
         run: async (input) => {
           const step = crypto.randomUUID()
-          await input.beforeRequest(input.request, step)
+          const request = await input.beforeRequest(input.request, step)
           await input.emit('usage.recorded', { ...emptyUsage(), output: 1 }, step)
-          await script(input)
+          await script({ ...input, request })
           await input.stepEnded(step)
         },
         summarize: async () => ({ text: 'test summary', usage: emptyUsage() }),
@@ -90,33 +90,42 @@ test('default Goal executes more than eight autonomous turns with durable Plan p
   expect(new Set(snapshot.runs.map((run) => run.requestId)).size).toBe(12)
 })
 
-test('no-tool automatic turns stop with a durable reason instead of consuming the old eight-run allowance', async () => {
+test('text-only automatic turns revalidate the Goal and continue until completion is recorded', async () => {
   let turns = 0
-  const { resource, options, kernel, session, goals } = await fixture(async () => {
+  const { resource, options, kernel, session, goals } = await fixture(async (input) => {
     turns++
+    if (turns < 4) await input.commit('assistant', [{ type: 'text', text: `Unfinished draft ${turns}` }])
+    else {
+      expect(JSON.stringify(input.request)).toContain('Review the current Goal')
+      await call(input, 'update_goal', { status: 'complete' })
+    }
   })
-  await goals.create(session.id, 'Do not echo indefinitely')
+  await goals.create(session.id, 'Finish and verify the written result')
   await kernel.submit(session.id, 'start', { text: 'Work', images: [] }, 'local-fixture')
   await kernel.waitForIdle()
-  expect(turns).toBe(2)
-  expect((await goals.get(session.id)).goal?.continuation).toMatchObject({ phase: 'stopped', reason: 'no_tool_calls' })
+  expect(turns).toBe(4)
+  expect((await goals.get(session.id)).goal?.status).toBe('complete')
   await kernel.close()
   resource.kernel = await Kernel.create(options)
   await resource.kernel.waitForIdle()
-  expect(turns).toBe(2)
+  expect(turns).toBe(4)
 })
 
-test('repeating state queries is not progress and stops after three no-progress turns', async () => {
+test('repeated state queries trigger content reassessment rather than stopping an unfinished Goal', async () => {
   let turns = 0
   const { kernel, session, goals } = await fixture(async (input) => {
     turns++
     await call(input, 'get_goal', {})
+    if (turns === 5) {
+      expect(JSON.stringify(input.request)).toContain('change approach rather than repeating state queries')
+      await call(input, 'update_goal', { status: 'complete' })
+    }
   })
   await goals.create(session.id, 'Do not query forever')
   await kernel.submit(session.id, 'start', { text: 'Work', images: [] }, 'local-fixture')
   await kernel.waitForIdle()
-  expect(turns).toBe(3)
-  expect((await goals.get(session.id)).goal?.continuation).toMatchObject({ phase: 'stopped', reason: 'no_progress' })
+  expect(turns).toBe(5)
+  expect((await goals.get(session.id)).goal?.status).toBe('complete')
 })
 
 test('an explicit continuation ceiling still stops with its own visible reason', async () => {
@@ -238,8 +247,9 @@ test('user messages queued during automatic admission execute first and invalida
 for (const change of ['pause', 'replace', 'clear'] as const) {
   test(`${change} between idle scheduling and enqueue prevents stale automatic execution`, async () => {
     let turns = 0
-    const { kernel, session, goals } = await fixture(async () => {
+    const { kernel, session, goals } = await fixture(async (input) => {
       turns++
+      await call(input, 'update_goal', { status: 'complete' })
     })
     const goal = (await goals.create(session.id, 'Old intent')).goal!
     let entered!: () => void
@@ -270,7 +280,7 @@ for (const change of ['pause', 'replace', 'clear'] as const) {
       expect((await goals.get(session.id)).goal).toMatchObject({
         objective: 'Replacement',
         tokensUsed: 1,
-        status: 'active',
+        status: 'complete',
       })
   })
 }
@@ -306,10 +316,13 @@ test('failed admission has a persistent stop reason instead of an unexplained qu
 
 test('explicit resume starts a fresh intent but merely raising a paused Goal budget does not', async () => {
   let turns = 0
+  let pause: (() => Promise<unknown>) | undefined
   const { kernel, session, goals } = await fixture(async (input) => {
     turns++
+    if (turns === 2) await pause?.()
     if (turns === 3) await call(input, 'update_goal', { status: 'complete' })
   })
+  pause = () => goals.set(session.id, { status: 'paused' })
   await goals.create(session.id, 'Resume consciously', 100)
   await kernel.submit(session.id, 'start', { text: 'Work', images: [] }, 'local-fixture')
   await kernel.waitForIdle()

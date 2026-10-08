@@ -1735,6 +1735,23 @@ export class WorkflowRuntime implements WorkflowService {
     })
   }
 
+  async startReviewer(event: HookEvents['run.start']) {
+    const session = await this.api.sessions.get(event.sessionId)
+    if (!session.parentId || !this.workflows.has(session.parentId)) return
+    const assigned = await this.serial(session.parentId, async () => {
+      const review = this.workflows.get(session.parentId!)?.review
+      return review?.reviewerAgentId === event.sessionId && ['queued', 'running'].includes(review.status)
+    })
+    if (!assigned || (await this.goals.get(event.sessionId)).goal) return
+    await this.goals.create(
+      event.sessionId,
+      event.run.input.text,
+      undefined,
+      event.runId,
+      event.run.startedAt ?? event.run.createdAt,
+    )
+  }
+
   async submitReview(reviewerSessionId: string, reviewId: string, verdict: 'approved' | 'rejected', summary: string) {
     const target = [...this.workflows.entries()].find(([, workflow]) => workflow.review?.reviewId === reviewId)
     if (!target) throw new HbarError('WORKFLOW_REVIEW_NOT_FOUND', 'The review request does not exist')
@@ -1742,6 +1759,7 @@ export class WorkflowRuntime implements WorkflowService {
     const reviewerSession = await this.api.sessions.get(reviewerSessionId)
     if (reviewerSession.parentId !== sessionId)
       throw new HbarError('WORKFLOW_REVIEW_FORBIDDEN', 'Only the assigned direct review agent can submit this verdict')
+    const reviewerGoal = (await this.goals.get(reviewerSessionId)).goal
     let resumeModelId: string | null = null
     let result!: WorkflowSnapshot
     await this.serial(sessionId, async () => {
@@ -1881,6 +1899,16 @@ export class WorkflowRuntime implements WorkflowService {
         { review: { reviewId, status: 'approved', summary } },
       )
     })
+    if (reviewerGoal?.goalId) {
+      try {
+        await this.goals.set(reviewerSessionId, {
+          expectedGoalId: reviewerGoal.goalId,
+          status: result.workflow?.review?.status === 'stale' ? 'paused' : 'complete',
+        })
+      } catch (error) {
+        if (!(error instanceof HbarError && error.code === 'GOAL_CONFLICT')) throw error
+      }
+    }
     const current = result.workflow
     if (resumeModelId && current && current.review?.status !== 'stale') {
       const goal = await this.goals.get(sessionId)
@@ -2704,6 +2732,7 @@ export const workflowPlugin = definePlugin({
     await runtime.restore()
     await runtime.resumeDelegations()
     provide<WorkflowService>(ctx, 'workflow', runtime)
+    api.hooks.on('run.start', (event) => runtime.startReviewer(event))
     api.hooks.on('context.build', (request) => runtime.decorate(request))
     api.hooks.on('tool.before', async (event) => {
       await runtime.beforeTool(event.name, event.args, event.context, event.tool)

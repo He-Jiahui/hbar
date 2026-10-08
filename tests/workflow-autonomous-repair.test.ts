@@ -227,9 +227,9 @@ test('three unsuccessful restricted repair turns stop durably without enabling o
   expect((await workflows.get(session.id)).workflow?.status).toBe('needs_revision')
 })
 
-test('re-publishing an identical focus does not count changing revision, evidence ids or timestamps as progress', async () => {
+test('identical focus is revalidated while the unfinished Goal continues until an explicit ceiling', async () => {
   let turns = 0
-  const { kernel, session, goals } = await fixture(async (input) => {
+  const { kernel, session } = await fixture(async (input) => {
     turns++
     const plan = planStateSchema.parse((await invoke(input, 'get_plan', {})).details)
     await invoke(input, 'workflow_focus', {
@@ -239,8 +239,12 @@ test('re-publishing an identical focus does not count changing revision, evidenc
       expectedPlanRevision: plan.revision,
     })
   })
+  await kernel.changePlugin('goal.codex', true, { maxContinuations: 3 })
   await kernel.submit(session.id, 'start', { text: 'Do not repeat focus forever', images: [] }, 'local-fixture')
   await kernel.waitForIdle()
   expect(turns).toBe(4)
-  expect((await goals.get(session.id)).goal?.continuation).toMatchObject({ phase: 'stopped', reason: 'no_progress' })
+  expect((await kernel.plugins.get<GoalService>('goal').get(session.id)).goal?.continuation).toMatchObject({
+    phase: 'stopped',
+    reason: 'continuation_limit',
+  })
 })

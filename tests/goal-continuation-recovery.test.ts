@@ -138,7 +138,7 @@ for (const checkpointed of [false, true])
     expect(calls()).toBe(1)
   })
 
-test('startup preserves no-tool stop and never wakes a legacy Goal without an intent', async () => {
+test('startup revalidates a completed text-only turn and never wakes a legacy Goal without an intent', async () => {
   const { kernel, resource, options, session, run, calls } = await fixture()
   await kernel.storage.call('setRun', run.id, 'completed')
   const workspace = (await kernel.storage.call('workspaces'))[0]!
@@ -147,10 +147,10 @@ test('startup preserves no-tool stop and never wakes a legacy Goal without an in
   await kernel.close()
   resource.kernel = await Kernel.create(options)
   await resource.kernel.waitForIdle()
-  expect(calls()).toBe(0)
+  expect(calls()).toBe(1)
   expect((await resource.kernel.plugins.get<GoalRuntime>('goal').get(session.id)).goal?.continuation).toMatchObject({
     phase: 'stopped',
-    reason: 'no_tool_calls',
+    reason: 'complete',
   })
   expect((await resource.kernel.plugins.get<GoalRuntime>('goal').get(legacy.id)).goal?.continuation).toBeUndefined()
 })
@@ -166,6 +166,56 @@ test('an unfinished write intent is reported unknown and is never replayed after
     phase: 'stopped',
     reason: 'result_unknown',
   })
+})
+
+for (const reason of ['no_tool_calls', 'no_progress'])
+  test(`startup revalidates an active Goal stopped by the former ${reason} heuristic exactly once`, async () => {
+    const { kernel, resource, options, session, run, saved, intent, calls } = await fixture()
+    await kernel.storage.call('setRun', run.id, 'completed')
+    await kernel.append(
+      session.id,
+      'goal.accounted',
+      {
+        goal: {
+          ...saved,
+          accountedRuns: [run.id],
+          continuationIntent: { ...intent, phase: 'stopped', reason },
+        },
+      },
+      run.id,
+    )
+    await kernel.close()
+    resource.kernel = await Kernel.create(options)
+    await resource.kernel.waitForIdle()
+    expect(calls()).toBe(1)
+    expect((await resource.kernel.plugins.get<GoalRuntime>('goal').get(session.id)).goal?.status).toBe('complete')
+    await resource.kernel.close()
+    resource.kernel = await Kernel.create(options)
+    await resource.kernel.waitForIdle()
+    expect(calls()).toBe(1)
+  })
+
+test('startup preserves a paused Goal even if its prior turn stopped without tools', async () => {
+  const { kernel, resource, options, session, run, saved, intent, calls } = await fixture()
+  await kernel.storage.call('setRun', run.id, 'completed')
+  await kernel.append(
+    session.id,
+    'goal.accounted',
+    {
+      goal: {
+        ...saved,
+        status: 'paused',
+        accountedRuns: [run.id],
+        continuationIntent: { ...intent, phase: 'stopped', reason: 'no_tool_calls' },
+      },
+    },
+    run.id,
+  )
+  await kernel.close()
+  resource.kernel = await Kernel.create(options)
+  await resource.kernel.waitForIdle()
+  expect(calls()).toBe(0)
+  expect((await resource.kernel.plugins.get<GoalRuntime>('goal').get(session.id)).goal?.status).toBe('paused')
 })
 
 test('interruption accounting excludes offline time from a late recovery timestamp', async () => {
