@@ -331,7 +331,6 @@ export interface StorageMethods {
   sessions(): Session[]
   childSessions(parentId: string, after?: string, limit?: number): Session[]
   session(id: string): Session
-  updateSession(id: string, update: { title?: string; archived?: boolean }): { session: Session; event: SessionEvent }
   moveSession(id: string, workspaceId: string): { session: Session; event: SessionEvent }
   sessionSummary(id: string): SessionSummary
   sessionSummaries(ids: string[]): SessionSummary[]
