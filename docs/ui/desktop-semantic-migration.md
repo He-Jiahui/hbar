@@ -732,4 +732,10 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 浏览器明确验证第一、第二个方向键、Home／End、pointer 拖动、保存与 reload 后的宽度，以及原分隔条焦点和收起的侧栏。旧测试以 offscreen 隐藏按钮判断导航状态，并在响应式过渡中分开读取状态和宽度；现在读取 canonical 可见状态、使用 900 宽度下实际出现的设置导航，并在同一次浏览器任务里核对布局模式、实际宽度、inert 和主区域。
 - 19 项 Bun 布局／保存／失败恢复测试、127 个断言，以及六条中英文真实 Host Chrome 路径通过。最终定向运行的两条完整工具导航均通过；同一生产产物的四条文件草稿／设置／状态／关闭确认路径也通过。保留原输入和文件草稿、附件、审批、Stop、零误执行和 viewport 检查；截图已复核。严格 lint、根 TypeScript、格式、文案／图标 guard、新鲜 Web build 与 strict 清单通过。证据为 artifacts/desktop-elements/final-gates 的 navigation-current、navigation-focus-diagnostic、navigation-visibility 与 navigation-geometry 日志，截图与完整事实位于 artifacts/workbench-navigation-presentation/final。
 
-当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。最终全库与原生门禁尚未完成。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## Lumen 工作台缩放预览归属与严格检查
+
+- Lumen 23948f272b 将两处 effect 内的同步预览重置改为绑定面板输入的局部 gesture 状态。面板、描述尺寸与持久化 owner 改变时先清除旧预览；回到同一面板后，原 generation 的迟到更新或清除也不能覆盖新预览。普通重渲染保留当前 gesture；公开 props、原方向键与持久化接口保持原契约。
+- Lumen 工作台原有 12 项严格规则错误全部清除，没有关闭规则。34 项 Lumen 预览／侧栏测试、19 项父仓库布局测试／127 个断言、两语言的完整真实 Host 工具导航和两个真实侧栏保存失败／原重试场景通过。包与父仓库严格 lint、类型、包声明／library build、格式、新鲜 Web build、strict 清单与窄屏截图通过。
+- 扩展侧栏的两条完整拖动路径在 pointer 拖动断言失败；修改前的 navigation-visibility-web 产物也出现同一失败，未算作该功能回归通过，继续独立核对 pointer 坐标与动画。证据为 artifacts/desktop-elements/final-gates 的 lumen-workbench、pane-preview 与 sidebar-before-preview 日志。最新上游 master 已再次通过远端读取确认是 92e6f6cf213bd701adea70c365983dfb7579b48b，当前 Lumen 分支保留已整合上游及上述修复。
+
+当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。最终全库与原生门禁、扩展侧栏拖动验收尚未完成。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
