@@ -1,8 +1,16 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Circle, FileDiff, FileText, X } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenIconButton, LumenText } from '@lumen/app-ui'
+import {
+  LumenButton,
+  LumenContentText,
+  LumenFloatingSurface,
+  LumenFrame,
+  LumenIcon,
+  LumenIconButton,
+} from '@lumen/app-ui'
 import './file-preview-tabs.css'
 import { revealInlineItem } from './inline-item-reveal'
+import { canFocusWorkspaceElement } from './workspace-tool-focus'
 
 export type HbarFilePreviewKind = 'document' | 'working' | 'staged'
 export type HbarFilePreviewCloseScope = 'current' | 'others' | 'left' | 'right' | 'all'
@@ -69,10 +77,29 @@ const scopes: readonly HbarFilePreviewCloseScope[] = ['current', 'others', 'left
 export function HbarFilePreviewTabs({ items: source, activeId, labels, onSelect, onClose }: HbarFilePreviewTabsProps) {
   const items = uniqueFilePreviews(source)
   const focusId = items.some((item) => item.id === activeId) ? activeId : items[0]?.id
-  const popup = useRef<HTMLDivElement>(null)
+  const anchorRef = useRef<HTMLElement>(null)
+  const positionReferenceRef = useRef<HTMLElement>(null)
+  const firstMenuItemRef = useRef<HTMLButtonElement>(null)
+  const focusedTabRef = useRef<HTMLButtonElement | null>(null)
   const buttons = useRef(new Map<string, HTMLButtonElement>())
   const [menu, setMenu] = useState<{ item: HbarFilePreviewItem; ids: readonly string[] } | null>(null)
   const identity = items.map((item) => item.id).join('\u0000')
+  const menuOpen = Boolean(menu && items.some((item) => item.id === menu.item.id))
+  useLayoutEffect(() => {
+    if (!menuOpen) setMenu(null)
+  }, [menuOpen])
+  useLayoutEffect(() => {
+    const original = focusedTabRef.current
+    const fallback = focusId ? buttons.current.get(focusId) : undefined
+    if (
+      original &&
+      !original.isConnected &&
+      document.activeElement === document.body &&
+      fallback &&
+      canFocusWorkspaceElement(fallback)
+    )
+      fallback.focus({ preventScroll: true })
+  }, [identity, focusId])
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       const item = activeId ? buttons.current.get(activeId)?.parentElement : null
@@ -84,20 +111,16 @@ export function HbarFilePreviewTabs({ items: source, activeId, labels, onSelect,
     }
   }, [activeId, identity])
   const openMenu = (item: HbarFilePreviewItem, anchor: HTMLElement) => {
+    const trigger = buttons.current.get(item.id)
+    if (!trigger) return
+    trigger.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+    trigger.focus({ preventScroll: true })
+    anchorRef.current = trigger
+    positionReferenceRef.current = anchor
     setMenu({ item, ids: items.map((candidate) => candidate.id) })
-    const rect = anchor.getBoundingClientRect()
-    const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
-    // This is the observed trigger-anchored context-menu overlay, not content placement.
-    popup.current?.style.setProperty(
-      '--file-preview-menu-left',
-      `${Math.max(rem / 2, Math.min(rect.left, innerWidth - Math.min(18 * rem, innerWidth - rem) - rem / 2))}px`,
-    )
-    popup.current?.style.setProperty('--file-preview-menu-top', `${rect.bottom + rem / 4}px`)
-    popup.current?.showPopover()
-    requestAnimationFrame(() => popup.current?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')?.focus())
   }
   const closeMenu = () => {
-    popup.current?.hidePopover()
+    setMenu(null)
     if (menu) (buttons.current.get(menu.item.id) ?? (focusId ? buttons.current.get(focusId) : null))?.focus()
   }
   const keyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -160,21 +183,31 @@ export function HbarFilePreviewTabs({ items: source, activeId, labels, onSelect,
               indicator="none"
               className="hbar-file-preview-select"
               onClick={() => onSelect(item.id)}
+              onFocus={(event) => {
+                focusedTabRef.current = event.currentTarget
+              }}
               onKeyDown={(event) => keyDown(event, index)}
             >
               <LumenIcon icon={item.kind === 'document' ? FileText : FileDiff} tier="sm" />
-              <LumenText as="span">{item.path.replaceAll('\\', '/').split('/').at(-1) ?? item.path}</LumenText>
-              {item.kind !== 'document' && <LumenText as="small">{labels.kind(item.kind)}</LumenText>}
+              <LumenFrame className="hbar-file-preview-copy">
+                <LumenContentText context="collection.title">
+                  {item.path.replaceAll('\\', '/').split('/').at(-1) ?? item.path}
+                </LumenContentText>
+                {item.kind !== 'document' && (
+                  <LumenContentText context="collection.detail">{labels.kind(item.kind)}</LumenContentText>
+                )}
+              </LumenFrame>
               {item.protection && (
-                <LumenText
-                  as="small"
+                <LumenFrame
+                  as="span"
+                  role="img"
                   id={`file-preview-status-${item.id}`}
                   title={labels.status(item.protection)}
                   className="hbar-file-preview-status"
                   aria-label={labels.status(item.protection)}
                 >
                   <LumenIcon icon={Circle} tier="sm" />
-                </LumenText>
+                </LumenFrame>
               )}
             </LumenButton>
             <LumenIconButton
@@ -187,11 +220,19 @@ export function HbarFilePreviewTabs({ items: source, activeId, labels, onSelect,
           </LumenFrame>
         ))}
       </LumenFrame>
-      <LumenFrame
-        ref={popup}
-        popover="auto"
+      <LumenFloatingSurface
+        open={menuOpen}
+        onClose={() => setMenu(null)}
+        anchorRef={anchorRef}
+        positionReferenceRef={positionReferenceRef}
+        initialFocusRef={firstMenuItemRef}
+        responsivePresentation="anchored"
+        material={{ background: 'var(--lumen-contrast)' }}
+        placement="below"
+        restoreFocus
+        tabIndex={0}
         role="menu"
-        aria-label={menu ? labels.menu(menu.item.path, menu.item.kind) : labels.tabs}
+        label={menu ? labels.menu(menu.item.path, menu.item.kind) : labels.tabs}
         className="hbar-file-preview-menu-popover"
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
@@ -225,6 +266,7 @@ export function HbarFilePreviewTabs({ items: source, activeId, labels, onSelect,
             return (
               <LumenButton
                 key={scope}
+                ref={scope === 'current' ? firstMenuItemRef : undefined}
                 role="menuitem"
                 variant="text"
                 indicator="none"
@@ -238,7 +280,7 @@ export function HbarFilePreviewTabs({ items: source, activeId, labels, onSelect,
               </LumenButton>
             )
           })}
-      </LumenFrame>
+      </LumenFloatingSurface>
     </LumenFrame>
   )
 }
