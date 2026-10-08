@@ -16,11 +16,13 @@
   overflow-wrap: anywhere;
 }
 
-.tool-outcome-fixture > button {
-  align-self: flex-start;
+.tool-outcome-fixture-action-reading {
+  min-inline-size: 0;
   max-inline-size: 100%;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-x: auto;
+}
+.tool-outcome-fixture-action-reading > button {
+  min-inline-size: max-content;
 }
 
 .tool-outcome-fixture-messages > * {

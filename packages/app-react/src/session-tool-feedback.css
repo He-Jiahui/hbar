@@ -38,10 +38,15 @@
   text-align: start;
 }
 .hbar-tool-batch-metrics {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  max-inline-size: 100%;
   margin-inline-start: auto;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  overflow-x: auto;
+}
+.hbar-tool-batch-metrics > * {
+  flex: 0 0 auto;
 }
 .hbar-tool-percentage {
   flex: 0 0 auto;

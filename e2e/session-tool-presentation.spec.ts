@@ -325,7 +325,9 @@ async function identity(f: Fixture, call: ToolCall, expected: ToolCase, locale: 
   const row = rowFor(f, call)
   await expect(row).toHaveCount(1)
   await expect(row).toHaveAttribute('data-presentation-icon', expected.icon)
-  const trigger = row.locator(':scope > .hbar-session-disclosure-trigger')
+  const trigger = row.locator(
+    ':scope > .hbar-session-disclosure-trigger, :scope > .hbar-session-disclosure-heading > .hbar-session-disclosure-trigger',
+  )
   await expect(trigger.locator('.hbar-session-disclosure-label')).toHaveText(expectedTitles[name][locale])
   await expect(trigger.locator('.hbar-session-disclosure-preview')).toHaveText(expected.summary)
   const title = (await trigger.getAttribute('title')) ?? (await row.getAttribute('title'))
@@ -390,7 +392,12 @@ async function revealEvidence(page: Page, target: Locator) {
 }
 async function capture(f: Fixture, name: string, call: ToolCall) {
   const row = rowFor(f, call)
-  const readingIntent = await revealEvidence(f.page, row.locator(':scope > .hbar-session-disclosure-trigger'))
+  const readingIntent = await revealEvidence(
+    f.page,
+    row.locator(
+      ':scope > .hbar-session-disclosure-trigger, :scope > .hbar-session-disclosure-heading > .hbar-session-disclosure-trigger',
+    ),
+  )
   const geometry = await row.evaluate((element) => {
     const rect = element.getBoundingClientRect()
     const glyph = element.querySelector('svg')

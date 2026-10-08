@@ -147,9 +147,12 @@ for (const locale of ['zh-CN', 'en-US'] as const)
         const geometry = await active.evaluate((row) => {
           const status = row.querySelector('.hbar-session-disclosure-status')?.getBoundingClientRect()
           const identity = row.querySelector('.hbar-session-disclosure-identity')?.getBoundingClientRect()
-          return { left: status?.left, right: identity?.right }
+          return { status, identity }
         })
-        expect(geometry.left).toBeGreaterThanOrEqual(geometry.right ?? 0)
+        if (!geometry.status || !geometry.identity) throw new Error('Missing owned feedback bounds')
+        expect(geometry.status.left >= geometry.identity.right || geometry.status.top >= geometry.identity.bottom).toBe(
+          true,
+        )
         await page.screenshot({ path: info.outputPath(`active-${locale}-${width}.png`), fullPage: true })
         await page.evaluate((data) => window.toolOutcomeFixture.render({ ...data, connected: false }), data)
         const paused = Number(await elapsed.getAttribute('data-tool-elapsed'))
@@ -168,6 +171,7 @@ for (const locale of ['zh-CN', 'en-US'] as const)
           execution: { startedAt: 1000, endedAt: 6000, elapsedMs: 4321 },
           batch: { total: 3, settled: 2, running: 0, pending: 0, skipped: 1, unknown: 0 },
         }
+
         await page.evaluate((data) => window.toolOutcomeFixture.render(data), {
           ...data,
           streaming: false,
@@ -210,6 +214,57 @@ for (const locale of ['zh-CN', 'en-US'] as const)
         await page.emulateMedia({ reducedMotion: 'reduce' })
         await expect(indicator).toHaveCSS('animation-name', 'none')
         await expect(indicator).toHaveCSS('opacity', '1')
+        expect(errors).toEqual([])
+      } finally {
+        await context.close()
+      }
+    })
+  }
+
+for (const locale of ['en-US', 'zh-CN'] as const)
+  for (const width of [1440, 1100, 900, 390, 320]) {
+    test(`long tool feedback has an independent keyboard reader ${locale} ${width}`, async ({ browser }, info) => {
+      const context = await browser.newContext({ locale, viewport: { width, height: 1000 } })
+      const page = await context.newPage()
+      const errors: string[] = []
+      page.on('pageerror', (error) => errors.push(error.message))
+      try {
+        await page.goto(url)
+        await page.evaluate(() => {
+          document.documentElement.style.zoom = '1.25'
+        })
+        for (const mode of ['light', 'dark'] as const) {
+          const source = input(mode)
+          const data = { ...source, longFeedback: true, largeText: true }
+          await page.evaluate((data) => window.toolOutcomeFixture.render(data), data)
+          const active = page.locator('[data-tool-call-id="call-1"].hbar-session-tool')
+          const button = active.locator('.hbar-session-disclosure-trigger')
+          const reader = active.locator('.hbar-session-disclosure-status-reading')
+          await expect(button.locator('[tabindex]')).toHaveCount(0)
+          const descriptionId = await button.getAttribute('aria-describedby')
+          expect(descriptionId).toBeTruthy()
+          await expect(reader).toHaveAttribute('aria-labelledby', descriptionId ?? '')
+          await expect(active.locator('[role="progressbar"]')).toHaveAttribute('aria-valuenow', '1')
+          await expect(active.locator('[role="progressbar"]')).toHaveAttribute('aria-valuemax', '4')
+          for (const target of [reader, page.locator('.hbar-tool-batch-metrics').first()]) {
+            await target.focus()
+            await expect(target).toBeFocused()
+            expect(await target.evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(true)
+            await target.press('ArrowRight')
+            await expect.poll(() => target.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0)
+            await expect(button).toHaveAttribute('aria-expanded', 'false')
+          }
+          const counts = page.locator('.hbar-tool-batch-counts').first()
+          expect(await counts.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true)
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+          await button.focus()
+          await button.press('Enter')
+          await expect(button).toHaveAttribute('aria-expanded', 'true')
+          await expect(active).toHaveAttribute('data-tool-call-id', 'call-1')
+          await page.screenshot({ path: info.outputPath(`long-feedback-${mode}-${width}.png`), fullPage: true })
+          await button.press('Enter')
+          await expect(button).toHaveAttribute('aria-expanded', 'false')
+        }
         expect(errors).toEqual([])
       } finally {
         await context.close()

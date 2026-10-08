@@ -69,7 +69,11 @@ for (const [locale, width] of [
       await expect(source).toHaveCount(1)
       const group = page.locator('.hbar-session-activity-summary')
       if ((await group.count()) && (await group.getAttribute('aria-expanded')) === 'false') await group.click()
-      await source.locator(':scope > .hbar-session-disclosure-trigger').click()
+      await source
+        .locator(
+          ':scope > .hbar-session-disclosure-trigger, :scope > .hbar-session-disclosure-heading > .hbar-session-disclosure-trigger',
+        )
+        .click()
       const output = source.locator('[data-content-kind="output"]')
       await expect(output).toContainText('Read image file output.png')
       const tile = output.locator('.lumen-image-tile')
@@ -106,7 +110,11 @@ for (const [locale, width] of [
       expect(snapshot.runs.find((item) => item.id === run.operationId)?.status).toBe('completed')
       await page.reload()
       if ((await group.count()) && (await group.getAttribute('aria-expanded')) === 'false') await group.click()
-      await source.locator(':scope > .hbar-session-disclosure-trigger').click()
+      await source
+        .locator(
+          ':scope > .hbar-session-disclosure-trigger, :scope > .hbar-session-disclosure-heading > .hbar-session-disclosure-trigger',
+        )
+        .click()
       await expect(tile.locator('img')).toBeVisible()
       await open.click()
       await expect(dialog.locator('.lumen-image-gallery-media img')).toBeVisible()

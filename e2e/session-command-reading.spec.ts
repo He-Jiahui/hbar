@@ -90,7 +90,9 @@ test('real command approval, result reading and full Copy return to the original
     expect(result.outcome?.kind).toBe('succeeded')
     expect(result.text).toContain('command reading line 25')
     const tool = page.locator(`.hbar-session-tool[data-tool-call-id="${approval.callId}"]`)
-    const disclosure = tool.locator(':scope > .hbar-session-disclosure-trigger')
+    const disclosure = tool.locator(
+      ':scope > .hbar-session-disclosure-trigger, :scope > .hbar-session-disclosure-heading > .hbar-session-disclosure-trigger',
+    )
     await disclosure.focus()
     await disclosure.press('Enter')
     const card = tool.locator('.hbar-session-command')

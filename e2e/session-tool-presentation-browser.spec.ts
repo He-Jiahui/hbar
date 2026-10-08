@@ -93,7 +93,9 @@ function row(page: Page, id: string): Locator {
   return page.locator(`.hbar-session-tool[data-tool-call-id="${id}"]`)
 }
 function trigger(tool: Locator): Locator {
-  return tool.locator(':scope > .hbar-session-disclosure-trigger')
+  return tool.locator(
+    ':scope > .hbar-session-disclosure-trigger, :scope > .hbar-session-disclosure-heading > .hbar-session-disclosure-trigger',
+  )
 }
 async function render(page: Page, input: ToolPresentationFixtureInput): Promise<void> {
   await page.evaluate((input) => window.toolPresentationFixture.render(input), input)

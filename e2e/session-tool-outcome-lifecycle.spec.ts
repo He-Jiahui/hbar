@@ -87,7 +87,9 @@ function row(page: Page, callId = 'call-a', name = 'read_fixture'): Locator {
   return page.locator(`.hbar-session-tool[data-tool-call-id="${callId}"][data-tool-name="${name}"]`)
 }
 function trigger(tool: Locator): Locator {
-  return tool.locator(':scope > .hbar-session-disclosure-trigger')
+  return tool.locator(
+    ':scope > .hbar-session-disclosure-trigger, :scope > .hbar-session-disclosure-heading > .hbar-session-disclosure-trigger',
+  )
 }
 async function noOverflow(page: Page): Promise<void> {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)

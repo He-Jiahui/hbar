@@ -25,8 +25,19 @@
 }
 
 .hbar-session-disclosure-heading > .hbar-session-disclosure-trigger {
-  flex: 1 1 14rem;
+  flex: 1 1 8rem;
   inline-size: auto;
+}
+.hbar-session-disclosure-status-reading {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  flex: 0 1 auto;
+  margin-inline-start: auto;
+  overflow-x: auto;
+}
+.hbar-session-disclosure-status-reading > * {
+  display: inline-flex;
+  min-inline-size: max-content;
 }
 .hbar-session-disclosure {
   overflow-x: auto;

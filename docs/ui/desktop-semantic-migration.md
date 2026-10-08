@@ -513,4 +513,12 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 实际 Chrome／Host 审批、命令阅读、原文／读取视图、系统剪贴板完整 Copy 与返回原草稿流程通过。夹具显式关闭 Goal／预算自动继续，所属 Host 先停止，再按 realpath、临时目录和原前缀校验清理；使用本次冻结的 Web 资源。
 - 范围严格 lint、文案／图标／flow guard、格式、Web build 和构建输入清单通过。冷启动完整类型由 92 降为 91 项既有诊断，本次范围为零，全库门禁仍待处理。证据在 artifacts/desktop-elements/tool-details-content 的 browser-final.log、unit-final.log、host.log、lifecycle.log、legacy.log、legacy-final.log、types-final.log、lint-*、build.log、audit.log 与截图。
 
-当前清单覆盖 146 个生产 TSX 模块、3836 个元素，其中记录了 65 处低层文字未分类，合计 74 项静态缺口。其余生产表面迁移、其余已分类标题／身份复核、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 工具时间、进度与批次反馈的组件归属
+
+- 6 处低层文字归入 metadata、control.status 与 collection.detail。时间与进度由独立反馈组件渲染；批次计数自然换行，紧凑时间／百分比由具名键盘阅读区承担横向滚动。空聚合不产生 NaN、虚构进度或空焦点入口。
+- 工具状态阅读区与展开按钮同级，按钮通过 aria-describedby 关联原状态，避免按钮内部嵌入可聚焦阅读控件。普通工具行保持紧凑；长反馈按内容流换行。工具 ID、真实 Host 进度、运行计时、离线冻结、终态时间与原始 Copy 不变。
+- 29 项 Bun 测试、260 个断言通过，包含空／1／7／8／9／100／101 条工具聚合。Host 单次批次上限仍为 8，100／101 是消息聚合测试，不能解释为放宽批次执行上限。25 个不同 Chrome 流程最终通过：15 项最终单次运行包含中英文长反馈、明暗主题、五个宽度、较大文字与 125% 缩放、计时冻结，以及真实 Host 审批／操作系统完整 Copy／原草稿恢复；另 10 项既有工具标题、语义状态与紧凑行回归分两次运行通过（8 项首次通过、2 项修复后通过）。历史失败日志保留，未合并为虚构的一次全绿运行。
+- 修正既有 E2E 对展开按钮直接子元素的假设；状态拆为同级组件后使用明确的两种父容器定位。窄屏旧反馈行的 14rem flex basis 导致短状态换到下一行，改为 8rem 的弹性基准后真实布局回归通过。测试中极长的外部焦点按钮也移入自身阅读区，避免测试辅助内容造成页面溢出。
+- 范围严格 lint、文案／图标／flow guard、格式、Web build 与构建输入清单通过；冷启动类型检查仍有 91 项既有诊断，本次范围为零，全库门禁尚未通过。证据位于 artifacts/desktop-elements/tool-feedback-content 的 verified.log、browser-final.log、browser-rerun.log、unit-final.log、types-final.log、lint-final.log、lint-fixture-final.log、build-final.log、audit.log 与截图。
+
+当前清单覆盖 146 个生产 TSX 模块、3838 个元素，其中记录了 59 处低层文字未分类，合计 68 项静态缺口。其余生产表面迁移、其余已分类标题／身份复核、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

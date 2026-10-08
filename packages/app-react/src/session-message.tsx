@@ -224,6 +224,7 @@ function Disclosure({
 }) {
   const [open, setOpen] = useState(false)
   const id = useId()
+  const statusId = useId()
   const trigger = (
     <LumenButton
       variant="text"
@@ -232,6 +233,7 @@ function Disclosure({
       className="hbar-session-disclosure-trigger"
       aria-expanded={open}
       aria-controls={id}
+      aria-describedby={status ? statusId : undefined}
       title={title}
       onClick={() => setOpen(!open)}
       onKeyDown={scrollInlineText}
@@ -259,7 +261,6 @@ function Disclosure({
           </LumenContentText>
         ) : null}
       </LumenFrame>
-      {status}
       <LumenIcon icon={open ? ChevronDown : ChevronRight} tier="sm" />
     </LumenButton>
   )
@@ -273,9 +274,21 @@ function Disclosure({
       data-presentation-icon={tool?.icon}
       data-live={live}
     >
-      {action ? (
+      {action || status ? (
         <LumenFrame className="hbar-session-disclosure-heading">
           {trigger}
+          {status && (
+            <LumenFrame
+              className="hbar-session-disclosure-status-reading"
+              role="group"
+              aria-labelledby={statusId}
+              tabIndex={0}
+            >
+              <LumenFrame as="span" id={statusId}>
+                {status}
+              </LumenFrame>
+            </LumenFrame>
+          )}
           {action}
         </LumenFrame>
       ) : (

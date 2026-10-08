@@ -15,6 +15,8 @@ export interface ToolOutcomeFixtureInput {
   readonly messages: SessionTimelineState['messages']
   readonly streaming: boolean
   readonly longLabels?: boolean
+  readonly longFeedback?: boolean
+  readonly largeText?: boolean
   readonly rejectClipboard?: boolean
   readonly toolTimeline?: Pick<SessionTimelineState, 'sessionId' | 'messages' | 'runs' | 'toolEvents' | 'toolClock'>
   readonly connected?: boolean
@@ -55,15 +57,43 @@ const root = createRoot(container)
 function Fixture({ input }: { readonly input: ToolOutcomeFixtureInput }) {
   const projections = projectSessionMessages(input.messages)
   const activities = input.toolTimeline ? projectToolActivities(input.toolTimeline, input.connected ?? true) : undefined
-  const labels = input.longLabels
+  const messageLabels = input.longLabels
     ? { ...copy.session.messageBlocks, tool: (name: string) => `${fixtureCopy.longTool} — ${name}` }
     : copy.session.messageBlocks
+  const feedback = messageLabels.feedback
+  const labels =
+    input.longFeedback && feedback
+      ? {
+          ...messageLabels,
+          feedback: {
+            ...feedback,
+            duration: (...args: Parameters<typeof feedback.duration>) => feedback.duration(...args).repeat(12),
+            cumulativeDuration: (duration: number) => feedback.cumulativeDuration(duration).repeat(12),
+            counts: (...args: Parameters<typeof feedback.counts>) => feedback.counts(...args).repeat(4),
+            progress: (percentage: number) => feedback.progress(percentage).repeat(48),
+          },
+        }
+      : messageLabels
   return (
-    <LumenProvider appearance={{ ...appearance, mode: input.mode ?? 'light', motion: input.motion ?? false }}>
+    <LumenProvider
+      appearance={{
+        ...appearance,
+        textSize: input.largeText ? 'l' : appearance.textSize,
+        mode: input.mode ?? 'light',
+        motion: input.motion ?? false,
+      }}
+    >
       <LumenFrame as="main" className="tool-outcome-fixture">
         <LumenText as="h1">{fixtureCopy.title}</LumenText>
         <LumenText as="p">{fixtureCopy.scope}</LumenText>
-        <LumenButton data-fixture-outside="true">{fixtureCopy.outside}</LumenButton>
+        <LumenFrame
+          className="tool-outcome-fixture-action-reading"
+          role="group"
+          aria-label={fixtureCopy.outside}
+          tabIndex={0}
+        >
+          <LumenButton data-fixture-outside="true">{fixtureCopy.outside}</LumenButton>
+        </LumenFrame>
         <LumenFrame className="tool-outcome-fixture-messages" data-fixture-count={projections.length}>
           {projections.map((projection, index) => (
             // Stable fixture slots intentionally exercise production identity reset,
