@@ -1,7 +1,7 @@
 import {
   LumenButton,
+  LumenContentText,
   LumenFrame,
-  LumenText,
   LumenUsage07,
   type LumenUsageContent,
   type LumenUsageRequestRecord,
@@ -9,6 +9,7 @@ import {
 import type { UsageRequestsRuntime, UsageRequestItem } from '@hbar/app-runtime'
 import type { UsageSource } from '@hbar/contracts/usage'
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import './usage-feedback.css'
 
 export interface HbarUsageRequestsLabels {
   readonly title: string
@@ -174,21 +175,23 @@ export function HbarUsageRequests({ runtime, labels, onOpenRequest, managed = fa
   const queryError = snapshot.error ?? 'EXECUTION_FAILED'
   if (snapshot.status === 'error')
     return (
-      <LumenFrame>
-        <LumenText as="p" role="alert">
+      <LumenFrame as="section" aria-label={labels.title} className="hbar-usage-feedback">
+        <LumenContentText context="feedback.paragraph" role="alert">
           {labels.error(queryError)}
-        </LumenText>
-        <LumenButton type="button" variant="text" onClick={() => void runtime.refresh()}>
-          {labels.retry}
-        </LumenButton>
+        </LumenContentText>
+        <LumenFrame role="group" aria-label={labels.retry} tabIndex={0} className="hbar-usage-feedback-actions">
+          <LumenButton type="button" variant="text" onClick={() => void runtime.refresh()}>
+            {labels.retry}
+          </LumenButton>
+        </LumenFrame>
       </LumenFrame>
     )
   return (
-    <LumenFrame>
+    <LumenFrame as="section" aria-label={labels.title} className="hbar-usage-feedback">
       {actionError ? (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.paragraph" role="alert">
           {labels.error(actionError)}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       <LumenUsage07 content={content} state={snapshot.status} />
     </LumenFrame>

@@ -1,6 +1,7 @@
-import { LumenButton, LumenFrame, LumenText, LumenUsage05 } from '@lumen/app-ui'
+import { LumenButton, LumenContentText, LumenFrame, LumenUsage05 } from '@lumen/app-ui'
 import type { UsageBudgetRuntime } from '@hbar/app-runtime'
 import { useHbarRuntimeState } from './runtime'
+import './usage-feedback.css'
 export interface HbarUsageBudgetLabels {
   readonly title: string
   readonly description: string
@@ -37,26 +38,32 @@ export function HbarUsageBudget({ runtime, labels }: HbarUsageBudgetProps) {
     },
   }
   return (
-    <LumenFrame as="section" aria-label={labels.title}>
+    <LumenFrame as="section" aria-label={labels.title} className="hbar-usage-feedback">
       <LumenUsage05 content={{ budget }} />
-      {state.pendingSessionId ? <LumenText as="p">{labels.pendingTarget(state.pendingSessionId)}</LumenText> : null}
+      {state.pendingSessionId ? (
+        <LumenContentText context="feedback.paragraph">{labels.pendingTarget(state.pendingSessionId)}</LumenContentText>
+      ) : null}
       {state.pendingStatus === 'unknown' ? (
-        <LumenButton
-          onClick={() => {
-            void runtime.reconcile().catch(() => undefined)
-          }}
-        >
-          {labels.reconcile}
-        </LumenButton>
+        <LumenFrame role="group" aria-label={labels.reconcile} tabIndex={0} className="hbar-usage-feedback-actions">
+          <LumenButton
+            onClick={() => {
+              void runtime.reconcile().catch(() => undefined)
+            }}
+          >
+            {labels.reconcile}
+          </LumenButton>
+        </LumenFrame>
       ) : null}
       {state.status === 'error' && !state.pendingStatus ? (
-        <LumenButton
-          onClick={() => {
-            void runtime.refresh().catch(() => undefined)
-          }}
-        >
-          {labels.retry}
-        </LumenButton>
+        <LumenFrame role="group" aria-label={labels.retry} tabIndex={0} className="hbar-usage-feedback-actions">
+          <LumenButton
+            onClick={() => {
+              void runtime.refresh().catch(() => undefined)
+            }}
+          >
+            {labels.retry}
+          </LumenButton>
+        </LumenFrame>
       ) : null}
     </LumenFrame>
   )

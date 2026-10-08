@@ -631,4 +631,12 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 14 项 Bun 测试／76 个断言和 5 项 Chrome 场景通过。四项受控内容矩阵覆盖两语言／明暗／五宽度／较大文字／125% zoom、长路径／长状态／长错误、Enter 激活、重复点击去重、失败后重试、替换消息后原请求晚到不能污染新反馈，以及原 targetKey／path／line／column。一个真实 Host 场景核验消息引用到 source reader、后续 801 行有界页、延迟读不抢焦点、脏编辑与原 composer 草稿保留、缺失文件错误和消息搜索；磁盘原文件未修改、未创建 Run，禁用两类自动继续。
 - 范围严格 lint、内容／图标／flow guard、格式、新鲜 Web build、截图与构建清单通过；根冷类型保留 91 项既有诊断，本次范围为零。证据在 artifacts/desktop-elements/message-file-feedback 的 unit.log、browser.log（5 项）、browser-results、lint.log、types.log、build.log 与 audit.log。
 
-当前清单覆盖 148 个生产 TSX 模块、3858 个元素，其中记录了 3 处低层文字未分类，合计 10 项静态缺口。其余生产表面迁移、其余已分类标题／身份容量复核（包括 LumenFileDocument 标题与项目名称）、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 请求用量与预算操作反馈
+
+- 三处业务低层文字归入 feedback.paragraph：请求查询失败、打开原会话失败与预算待核对的原会话说明。错误保留在所属用量表面并完整换行，重试／核对各有具名键盘阅读区；原预算草稿、CAS revision、idempotency key 与未知结果不重发的运行时规则保持不变。
+- Lumen 请求表声明 section.title／description、collection.title 与 empty.description；完整模型名称在桌面和窄屏均可读，详情不再截断。窄屏费用按正常 flex 流移到身份之后，避免将模型名挤成单字列。字段、状态、保存、过滤、翻页和原会话操作都有独立具名阅读区；预算使用 LumenFormField rows 关联宿主标签与原输入 ID，错误使用反馈角色。请求表排版消费现有字体变量。
+- 29 项 Bun 测试／154 个断言和 6 项 Lumen 测试通过。6 项独立 Chrome 场景通过：四项公开 Runtime 的受控传输矩阵覆盖两语言／明暗／五宽度／较大文字／125% zoom、完整标题与 160 字模型 ID、具名读区实际键盘滚动及标题左右边界、0／1／3／400／401 条、50 条页与 400 条上限、重复 IDs、原请求跳转失败恢复、预算失败保留编辑、切换目标后的未知原回执核对且不重发；两项真实 Host 流程验证拒绝写入后重读、合法预算增加的实际持久化、原会话目标与返回后的 composer 草稿、零 Run 和页面错误，禁用两类自动继续。
+- 真实 Host 的初始测试尝试将活动预算 100000 降到 14000，回执明确为 BUDGET_DECREASE，符合既有领域规则；修正 fixture 为从当前确认预算派生合法增量。返回原会话时按 sidebar 实际展开状态和项目展开回执恢复导航，避免操作离屏树。保留初始失败及只包含预算目标、数值、错误码的所属事实文件，不读取带鉴权数据的真实 Host trace。截图复核后修正窄屏身份宽度；最终四项内容矩阵与两项 Host 流程分别通过。
+- 范围严格 lint、内容／图标／flow guard、格式、新鲜 Lumen 类型／build、Web build、截图与清单通过；根冷类型仍有 91 项既有诊断，本次范围为零。证据在 artifacts/desktop-elements/usage-feedback-content 的 unit-verified.log、lumen-unit-verified.log、complete.log（四项最终内容矩阵）、host-verified.log（两项）、complete-results／host-verified-results、lint-complete.log、lint-host-verified.log、lumen-lint-verified.log、types-final.log、lumen-build-flow.log、build-flow.log 与 audit-complete.log。
+
+当前清单覆盖 148 个生产 TSX 模块、3861 个元素，业务低层文字未分类项为 0，合计仍有 7 项静态缺口。其余生产表面迁移、其余已分类标题／身份容量复核（包括 LumenFileDocument 标题与项目名称）、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

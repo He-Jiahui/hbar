@@ -56,7 +56,9 @@ for (const labels of copies) {
     const unknown = renderToStaticMarkup(<HbarUsageBudget runtime={runtime} labels={labels} />)
     expect(unknown).toContain(labels.unknown)
     expect(unknown).toContain(labels.pendingTarget('original-a'))
-    expect(unknown).toMatch(new RegExp(`<button[^>]*>[^<]*${labels.reconcile}`))
+    const buttons = unknown.match(/<button\b[^>]*>[\s\S]*?<\/button>/g) ?? []
+    expect(buttons.some((button) => button.includes(labels.reconcile))).toBe(true)
+    expect(unknown).toContain(`aria-label="${labels.reconcile}"`)
     expect(unknown).toContain('disabled=""')
     runtime.dispose()
   })

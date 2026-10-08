@@ -1,0 +1,13 @@
+.hbar-usage-feedback {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+.hbar-usage-feedback-actions {
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-x: auto;
+}
+.hbar-usage-feedback-actions > button {
+  flex: 0 0 auto;
+}

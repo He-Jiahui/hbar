@@ -2,14 +2,14 @@
 
 由 `bun scripts/audit-desktop-elements.ts --write` 从运行时入口、命名延迟加载、barrel 导出和 JSX 生成。完整的元素、槽位、内容来源、可访问名称、动作目标、状态来源和待处理问题见 [类型化清单](desktop-elements.json)。
 
-入口：`apps/web/src/main.tsx`。相关 TSX 模块 148 个；元素 3858 个。实际构建输入核对：passed。
+入口：`apps/web/src/main.tsx`。相关 TSX 模块 148 个；元素 3861 个。实际构建输入核对：passed。
 
 ## 类别与展示边界
 
 | 类别        | 元素 | pending | 设计职责                                                                |
 | ----------- | ---: | ------: | ----------------------------------------------------------------------- |
-| structure   | 1232 |       3 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
-| text        | 1121 |       3 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
+| structure   | 1235 |       3 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
+| text        | 1121 |       0 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
 | interaction |  944 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
 | form        |  282 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
 | collection  |  135 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
@@ -156,9 +156,9 @@
 | [packages/app-react/src/system-diagnostics.tsx](../../packages/app-react/src/system-diagnostics.tsx)                       | status-and-usage                                 |   40 |             14 |          0 |          0 |
 | [packages/app-react/src/tool-output-image-links.tsx](../../packages/app-react/src/tool-output-image-links.tsx)             | files-and-reading                                |    2 |              0 |          0 |          0 |
 | [packages/app-react/src/tool-result-copy-action.tsx](../../packages/app-react/src/tool-result-copy-action.tsx)             | workbench                                        |    6 |              2 |          0 |          0 |
-| [packages/app-react/src/usage-budget.tsx](../../packages/app-react/src/usage-budget.tsx)                                   | status-and-usage                                 |    5 |              0 |          1 |          0 |
+| [packages/app-react/src/usage-budget.tsx](../../packages/app-react/src/usage-budget.tsx)                                   | status-and-usage                                 |    7 |              1 |          0 |          0 |
 | [packages/app-react/src/usage-features.tsx](../../packages/app-react/src/usage-features.tsx)                               | status-and-usage                                 |    3 |              0 |          0 |          0 |
-| [packages/app-react/src/usage-requests.tsx](../../packages/app-react/src/usage-requests.tsx)                               | status-and-usage                                 |    6 |              0 |          2 |          0 |
+| [packages/app-react/src/usage-requests.tsx](../../packages/app-react/src/usage-requests.tsx)                               | status-and-usage                                 |    7 |              2 |          0 |          0 |
 | [packages/app-react/src/workflow-overview.tsx](../../packages/app-react/src/workflow-overview.tsx)                         | agents-and-activity                              |   90 |             37 |          0 |          0 |
 | [packages/app-react/src/workspace-display-names.tsx](../../packages/app-react/src/workspace-display-names.tsx)             | workbench                                        |   35 |             13 |          0 |          0 |
 | [packages/app-react/src/workspace-folders.tsx](../../packages/app-react/src/workspace-folders.tsx)                         | workbench                                        |   71 |             19 |          0 |          0 |
