@@ -1,55 +1,47 @@
 import { test, expect, type Page } from '@playwright/test'
-import { spawnSync } from 'node:child_process'
+import react from '@vitejs/plugin-react'
 import { resolve } from 'node:path'
-import { existsSync, mkdirSync } from 'node:fs'
+import { build, preview, type PreviewServer } from 'vite'
 
 const artifactRoot = resolve('artifacts/app-ui-migration-audit/notifications-controlled')
-const bundle = resolve(artifactRoot, 'notifications-controlled.js')
-test.beforeAll(() => {
-  mkdirSync(artifactRoot, { recursive: true })
-  const bunBinary =
-    process.platform === 'win32'
-      ? (process.env.PATH ?? '')
-          .split(';')
-          .flatMap((directory) => [resolve(directory, 'bun.exe'), resolve(directory, 'node_modules/bun/bin/bun.exe')])
-          .find(existsSync)
-      : 'bun'
-  if (!bunBinary) throw new Error('Bun executable was not found on PATH')
-  const result = spawnSync(
-    bunBinary,
-    [
-      'build',
-      './e2e/fixtures/notifications-controlled.tsx',
-      '--target',
-      'browser',
-      '--format',
-      'iife',
-      '--outdir',
-      artifactRoot,
-      '--entry-naming',
-      '[name].[ext]',
-      '--define',
-      'process.env.NODE_ENV="production"',
-    ],
-    { encoding: 'utf8', timeout: 30_000 },
-  )
-  if (result.status !== 0)
-    throw new Error(result.stderr || result.stdout || result.error?.message || 'Fixture build failed')
+let server: PreviewServer | undefined
+let url = ''
+test.beforeAll(async () => {
+  test.setTimeout(90_000)
+  await build({
+    configFile: false,
+    root: process.cwd(),
+    plugins: [react()],
+    logLevel: 'warn',
+    define: { 'process.env.NODE_ENV': JSON.stringify('production') },
+    resolve: { dedupe: ['react', 'react-dom'] },
+    build: {
+      outDir: resolve(artifactRoot, 'web'),
+      emptyOutDir: true,
+      chunkSizeWarningLimit: 1500,
+      rolldownOptions: { input: resolve('e2e/fixtures/notifications-controlled.html') },
+    },
+  })
+  server = await preview({
+    configFile: false,
+    build: { outDir: resolve(artifactRoot, 'web') },
+    preview: { host: '127.0.0.1', port: 0, strictPort: false },
+  })
+  const address = server.httpServer.address()
+  if (!address || typeof address === 'string') throw new Error('Missing notification preview')
+  url = `http://127.0.0.1:${address.port}/e2e/fixtures/notifications-controlled.html`
+})
+test.afterAll(async () => {
+  await new Promise<void>((resolve, reject) => {
+    if (!server) return resolve()
+    server.httpServer.close((error) => (error ? reject(error) : resolve()))
+  })
 })
 
 async function load(page: Page) {
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
-  const url = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? '4329'}/`
-  await page.route(url, (route) =>
-    route.fulfill({
-      contentType: 'text/html',
-      body: '<!doctype html><html><head><style>html,body,#root{margin:0;height:100%;min-width:0}</style></head><body><div id="root"></div></body></html>',
-    }),
-  )
   await page.goto(url)
-  await page.addScriptTag({ path: bundle })
-  await page.addStyleTag({ path: resolve(artifactRoot, 'notifications-controlled.css') })
   await expect(page.getByRole('heading', { name: '通知中心' })).toBeVisible()
   await expect(page.getByRole('button', { name: '标记 运行完成 为已读' }).first()).toBeVisible()
   expect(errors).toEqual([])

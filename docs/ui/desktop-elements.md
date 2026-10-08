@@ -2,14 +2,14 @@
 
 由 `bun scripts/audit-desktop-elements.ts --write` 从运行时入口、命名延迟加载、barrel 导出和 JSX 生成。完整的元素、槽位、内容来源、可访问名称、动作目标、状态来源和待处理问题见 [类型化清单](desktop-elements.json)。
 
-入口：`apps/web/src/main.tsx`。相关 TSX 模块 146 个；元素 3849 个。实际构建输入核对：passed。
+入口：`apps/web/src/main.tsx`。相关 TSX 模块 147 个；元素 3853 个。实际构建输入核对：passed。
 
 ## 类别与展示边界
 
 | 类别        | 元素 | pending | 设计职责                                                                |
 | ----------- | ---: | ------: | ----------------------------------------------------------------------- |
-| structure   | 1224 |       5 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
-| text        | 1122 |      20 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
+| structure   | 1228 |       5 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
+| text        | 1122 |      14 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
 | interaction |  944 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
 | form        |  280 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
 | collection  |  135 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
@@ -26,8 +26,8 @@
 | [apps/web/src/GeneralSettings.tsx](../../apps/web/src/GeneralSettings.tsx)                                                 | settings                                         |   63 |             33 |          0 |          0 |
 | [apps/web/src/GlobalFeaturePage.tsx](../../apps/web/src/GlobalFeaturePage.tsx)                                             | workbench                                        |    7 |              2 |          0 |          0 |
 | [apps/web/src/LanguageApp.tsx](../../apps/web/src/LanguageApp.tsx)                                                         | workbench                                        |    1 |              0 |          0 |          0 |
-| [apps/web/src/NotificationDesktopBridge.tsx](../../apps/web/src/NotificationDesktopBridge.tsx)                             | global-pages                                     |    1 |              0 |          1 |          0 |
-| [apps/web/src/NotificationPageButton.tsx](../../apps/web/src/NotificationPageButton.tsx)                                   | global-pages                                     |    5 |              0 |          1 |          0 |
+| [apps/web/src/NotificationDesktopBridge.tsx](../../apps/web/src/NotificationDesktopBridge.tsx)                             | global-pages                                     |    1 |              1 |          0 |          0 |
+| [apps/web/src/NotificationPageButton.tsx](../../apps/web/src/NotificationPageButton.tsx)                                   | global-pages                                     |    5 |              1 |          0 |          0 |
 | [apps/web/src/PreSessionLanding.tsx](../../apps/web/src/PreSessionLanding.tsx)                                             | session                                          |   36 |              5 |          0 |          1 |
 | [apps/web/src/SettingsPageFocusBoundary.tsx](../../apps/web/src/SettingsPageFocusBoundary.tsx)                             | settings                                         |    1 |              0 |          0 |          0 |
 | [apps/web/src/SkillImportPanel.tsx](../../apps/web/src/SkillImportPanel.tsx)                                               | workbench                                        |    1 |              0 |          0 |          0 |
@@ -36,7 +36,8 @@
 | [apps/web/src/WorkspaceTabsController.tsx](../../apps/web/src/WorkspaceTabsController.tsx)                                 | workbench                                        |   14 |              3 |          0 |          0 |
 | [apps/web/src/lazy-surface.tsx](../../apps/web/src/lazy-surface.tsx)                                                       | workbench                                        |    8 |              2 |          0 |          0 |
 | [apps/web/src/main.tsx](../../apps/web/src/main.tsx)                                                                       | workbench                                        |    3 |              0 |          0 |          0 |
-| [apps/web/src/notifications-page.tsx](../../apps/web/src/notifications-page.tsx)                                           | global-pages                                     |   12 |              0 |          3 |          0 |
+| [apps/web/src/notifications-page-view.tsx](../../apps/web/src/notifications-page-view.tsx)                                 | global-pages                                     |   15 |              3 |          0 |          0 |
+| [apps/web/src/notifications-page.tsx](../../apps/web/src/notifications-page.tsx)                                           | global-pages                                     |    1 |              0 |          0 |          0 |
 | [apps/web/src/onboarding-page.tsx](../../apps/web/src/onboarding-page.tsx)                                                 | global-pages                                     |    4 |              0 |          1 |          0 |
 | [apps/web/src/prompt-templates-page.tsx](../../apps/web/src/prompt-templates-page.tsx)                                     | global-pages                                     |   68 |             18 |          0 |          0 |
 | [apps/web/src/run-board-page.tsx](../../apps/web/src/run-board-page.tsx)                                                   | agents-and-activity                              |   28 |             14 |          0 |          0 |
@@ -100,7 +101,7 @@
 | [packages/app-react/src/message-literal-text.tsx](../../packages/app-react/src/message-literal-text.tsx)                   | session                                          |    6 |              2 |          0 |          0 |
 | [packages/app-react/src/message-markdown.tsx](../../packages/app-react/src/message-markdown.tsx)                           | files-and-reading                                |   29 |              5 |          0 |          0 |
 | [packages/app-react/src/mobile-header-menu.tsx](../../packages/app-react/src/mobile-header-menu.tsx)                       | settings / workbench                             |   14 |              2 |          0 |          0 |
-| [packages/app-react/src/notifications.tsx](../../packages/app-react/src/notifications.tsx)                                 | global-pages                                     |    2 |              0 |          1 |          0 |
+| [packages/app-react/src/notifications.tsx](../../packages/app-react/src/notifications.tsx)                                 | global-pages                                     |    2 |              1 |          0 |          0 |
 | [packages/app-react/src/onboarding-readiness.tsx](../../packages/app-react/src/onboarding-readiness.tsx)                   | global-pages                                     |    8 |              0 |          1 |          1 |
 | [packages/app-react/src/plan-exit-decision.tsx](../../packages/app-react/src/plan-exit-decision.tsx)                       | goals-and-plans                                  |   25 |              7 |          0 |          0 |
 | [packages/app-react/src/pre-session-approval-picker.tsx](../../packages/app-react/src/pre-session-approval-picker.tsx)     | composer-and-launch                              |   38 |             11 |          0 |          0 |

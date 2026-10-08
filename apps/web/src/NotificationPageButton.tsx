@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Bell } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenContentText, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from '@hbar/app-react'
 import './NotificationPageButton.css'
 
@@ -30,9 +30,9 @@ export function NotificationPageButton({ labels, unreadCount, selected, onOpen }
     >
       <LumenIcon icon={Bell} tier="sm" />
       {unreadCount > 0 ? (
-        <LumenText as="span" className="hbar-web-notification-count" aria-hidden="true">
+        <LumenContentText context="metric.value" className="hbar-web-notification-count" aria-hidden="true">
           {labels.count(unreadCount)}
-        </LumenText>
+        </LumenContentText>
       ) : null}
     </LumenButton>
   )

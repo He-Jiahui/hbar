@@ -6,7 +6,7 @@ import { notificationNavigationCopy } from '../apps/web/src/notification-copy'
 
 for (const locale of ['zh-CN', 'en-US'] as const) {
   for (const unreadCount of [0, 9, 999]) {
-    test(`notification page entry keeps its exact accessible count and bounded badge: ${locale}/${unreadCount}`, () => {
+    test(`notification page entry keeps its exact accessible count and bounded badge: ${locale}/${unreadCount}`, async () => {
       const labels = notificationNavigationCopy(locale)
       const html = renderToStaticMarkup(
         createElement(NotificationPageButton, {
@@ -22,7 +22,18 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       expect(html).not.toContain('aria-expanded')
       expect(html).not.toContain('role="dialog"')
       if (unreadCount === 0) expect(html).not.toContain('hbar-web-notification-count')
-      else expect(html).toContain(`>${labels.count(unreadCount)}</span>`)
+      else {
+        let count = ''
+        await new HTMLRewriter()
+          .on('[data-text-context="metric.value"]', {
+            text: (chunk) => {
+              count += chunk.text
+            },
+          })
+          .transform(new Response(html))
+          .text()
+        expect(count).toBe(labels.count(unreadCount))
+      }
     })
   }
 }

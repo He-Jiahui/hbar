@@ -7,9 +7,20 @@
   min-block-size: 0;
 }
 
-.hbar-web-notifications-page > nav {
+.hbar-web-notification-actions {
   display: flex;
   flex: 0 0 auto;
-  flex-wrap: wrap;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-x: auto;
   gap: 0.5rem;
+}
+
+.hbar-web-notification-actions > * {
+  flex: 0 0 auto;
+}
+
+.hbar-web-notification-native {
+  flex: 0 0 auto;
+  min-inline-size: 0;
 }

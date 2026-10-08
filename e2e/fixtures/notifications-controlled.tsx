@@ -1,4 +1,6 @@
 import { createRoot } from 'react-dom/client'
+import { DEFAULT_LUMEN_APPEARANCE, LumenProvider } from '@lumen/app-ui'
+import '@lumen/app-ui/styles.css'
 import { HbarNotifications } from '@hbar/app-react'
 import { createNotificationsRuntime, type NotificationsPort } from '@hbar/app-runtime'
 import { CommandError } from '@hbar/commands'
@@ -118,11 +120,13 @@ window.__notifications = controls
 const root = document.getElementById('root')
 if (!root) throw new Error('Missing root')
 createRoot(root).render(
-  <HbarNotifications
-    runtime={runtime}
-    labels={notificationCopy('zh-CN')}
-    onNavigate={(target) => {
-      controls.opens.push(target)
-    }}
-  />,
+  <LumenProvider appearance={DEFAULT_LUMEN_APPEARANCE}>
+    <HbarNotifications
+      runtime={runtime}
+      labels={notificationCopy('zh-CN')}
+      onNavigate={(target) => {
+        controls.opens.push(target)
+      }}
+    />
+  </LumenProvider>,
 )

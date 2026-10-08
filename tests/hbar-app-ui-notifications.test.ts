@@ -25,6 +25,21 @@ function render(variant: number, content: HbarAppUiNotificationsContent = HBAR_A
     }),
   )
 }
+async function renderedTabText(html: string): Promise<readonly string[]> {
+  const values: string[] = []
+  await new HTMLRewriter()
+    .on('[role="tab"]', {
+      element: () => {
+        values.push('')
+      },
+      text: (chunk) => {
+        values[values.length - 1] = (values.at(-1) ?? '') + chunk.text
+      },
+    })
+    .transform(new Response(html))
+    .text()
+  return values
+}
 
 describe('hbar-app-ui notification surfaces', () => {
   test('renders six distinct Lumen notification workflows from host content', () => {
@@ -70,7 +85,7 @@ describe('hbar-app-ui notification surfaces', () => {
     expect(HBAR_APP_UI_NOTIFICATIONS_FIXTURES.bell?.listStrategy.kind).toBe('pane-scroll')
   })
 
-  test('keeps notification groups, counts and action labels host-owned at capacity', () => {
+  test('keeps notification groups, counts and action labels host-owned at capacity', async () => {
     const reference = HBAR_APP_UI_NOTIFICATIONS_FIXTURES.center!
     const content: HbarAppUiNotificationsContent = {
       ...HBAR_APP_UI_NOTIFICATIONS_FIXTURES,
@@ -101,9 +116,9 @@ describe('hbar-app-ui notification surfaces', () => {
     }
     const html = render(1, content)
     expect(html).toContain('消息中心')
-    expect(html).toContain('全部<span class="lumen-notifications-tab-count">80条</span>')
-    expect(html).toContain('未读<span class="lumen-notifications-tab-count">40条</span>')
-    expect(html).toContain('提及<span class="lumen-notifications-tab-count">20条</span>')
+    expect(await renderedTabText(html)).toContain('全部80条')
+    expect(await renderedTabText(html)).toContain('未读40条')
+    expect(await renderedTabText(html)).toContain('提及20条')
     expect((html.match(/<li data-unread/g) ?? []).length).toBe(40)
     expect((html.match(/<li/g) ?? []).length).toBe(80)
     expect(html).toContain('aria-label="设为已读"')
@@ -127,10 +142,16 @@ describe('hbar-app-ui notification surfaces', () => {
         ...HBAR_APP_UI_NOTIFICATIONS_FIXTURES.toasts!,
         labels: {
           ...HBAR_APP_UI_NOTIFICATIONS_FIXTURES.toasts!.labels,
-          title: '短消息', detail: '悬停后展开', empty: '没有消息', clear: '清除所有',
-          active: (count) => `${count} 条`, dismiss: () => '关闭',
+          title: '短消息',
+          detail: '悬停后展开',
+          empty: '没有消息',
+          clear: '清除所有',
+          active: (count) => `${count} 条`,
+          dismiss: () => '关闭',
         },
-        choices: [{ id: 'custom', label: '完成', title: '保存成功', detail: '新的内容已同步', tone: 'success', action: '撤销' }],
+        choices: [
+          { id: 'custom', label: '完成', title: '保存成功', detail: '新的内容已同步', tone: 'success', action: '撤销' },
+        ],
         maximum: 1,
       },
     }
@@ -151,23 +172,25 @@ describe('hbar-app-ui notification surfaces', () => {
     expect(html).toContain('aria-pressed="true"')
     expect(html).toContain('All changes saved')
     expect(html).not.toContain('When someone mentions you')
-    expect(render(3, createHbarAppUiNotificationPreferencesFixture('localized'))).toContain('Benachrichtigungseinstellungen')
+    expect(render(3, createHbarAppUiNotificationPreferencesFixture('localized'))).toContain(
+      'Benachrichtigungseinstellungen',
+    )
     expect(render(3, createHbarAppUiNotificationPreferencesFixture('empty'))).toContain('No preferences')
     expect((render(3, createHbarAppUiNotificationPreferencesFixture('overflow')).match(/<li/g) ?? []).length).toBe(81)
     expect((render(3, createHbarAppUiNotificationPreferencesFixture('duplicate')).match(/<li/g) ?? []).length).toBe(7)
     expect(render(3, createHbarAppUiNotificationPreferencesFixture('unavailable'))).toContain('disabled=""')
   })
 
-  test('activity projects host entries into views with typed detail, counts and a confirmed move boundary', () => {
+  test('activity projects host entries into views with typed detail, counts and a confirmed move boundary', async () => {
     const html = render(4)
     expect(html).toContain('Priya Nandakumar')
     expect(html).toContain('requested admin access to Cedar Labs billing')
     expect(html).toContain('Cedar Labs billing')
     expect(html).toContain('Grant access')
     expect(html).toContain('Open in console')
-    expect(html).toContain('Inbox<span class="lumen-activity-count">3</span>')
-    expect(html).toContain('Snoozed<span class="lumen-activity-count">1</span>')
-    expect(html).toContain('Archived<span class="lumen-activity-count">1</span>')
+    expect(await renderedTabText(html)).toContain('Inbox3')
+    expect(await renderedTabText(html)).toContain('Snoozed1')
+    expect(await renderedTabText(html)).toContain('Archived1')
     expect((html.match(/<li/g) ?? []).length).toBe(3)
     expect(html).not.toContain('Mina')
     expect(render(4, createHbarAppUiNotificationActivityFixture('localized'))).toContain('Aktivitäten')
@@ -190,9 +213,17 @@ describe('hbar-app-ui notification surfaces', () => {
     expect(html).not.toContain('Three source files need a schema mapping')
     expect(render(5, createHbarAppUiNotificationSystemFixture('localized'))).toContain('Systemmeldungen')
     expect(render(5, createHbarAppUiNotificationSystemFixture('empty'))).toContain('Dismissed banners do not come back')
-    expect((render(5, createHbarAppUiNotificationSystemFixture('one')).match(/class="lumen-system-message"/g) ?? []).length).toBe(1)
-    expect((render(5, createHbarAppUiNotificationSystemFixture('overflow')).match(/class="lumen-system-message"/g) ?? []).length).toBe(81)
-    expect((render(5, createHbarAppUiNotificationSystemFixture('duplicate')).match(/class="lumen-system-message"/g) ?? []).length).toBe(5)
+    expect(
+      (render(5, createHbarAppUiNotificationSystemFixture('one')).match(/class="lumen-system-message"/g) ?? []).length,
+    ).toBe(1)
+    expect(
+      (render(5, createHbarAppUiNotificationSystemFixture('overflow')).match(/class="lumen-system-message"/g) ?? [])
+        .length,
+    ).toBe(81)
+    expect(
+      (render(5, createHbarAppUiNotificationSystemFixture('duplicate')).match(/class="lumen-system-message"/g) ?? [])
+        .length,
+    ).toBe(5)
     expect(render(5, createHbarAppUiNotificationSystemFixture('unavailable'))).toContain('Action unavailable')
   })
 

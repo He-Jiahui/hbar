@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { LumenButton, LumenFrame, LumenText, LumenToggle } from '@lumen/app-ui'
-import { HbarNotifications, useHbarRuntimeState, type HbarRuntimeView } from '@hbar/app-react'
+import { useHbarRuntimeState, type HbarRuntimeView } from '@hbar/app-react'
 import type { NotificationRecord } from '@hbar/contracts/commands/notifications'
 import type { ShellLocale } from './shell-copy'
 import { notificationCopy } from './notification-copy'
 import { createNativeNotificationPort, type NativeNotificationPort } from './native-notifications'
 import { requestNotificationDesktopPermission } from './notification-desktop-delivery'
-import './notifications-page.css'
+import { NotificationsPageView } from './notifications-page-view'
 
 export interface NotificationsPageProps {
   readonly runtime: HbarRuntimeView
@@ -72,64 +71,30 @@ export function NotificationsPage({ runtime, locale, onNavigate, variant = 1, na
   const loadMore = () => {
     void runtime.state.notifications.runtime.loadMore()
   }
-  const atCapacity = state.items.length >= 400
+  const reconcile = () => {
+    setReconciling(true)
+    void runtime.state.notifications.runtime
+      .reconcile()
+      .catch(() => undefined)
+      .finally(() => {
+        if (permissionOwner.current.mounted) setReconciling(false)
+      })
+  }
   return (
-    <LumenFrame className="hbar-web-notifications-page" aria-busy={state.status === 'loading'}>
-      {state.error ? (
-        <LumenText role="alert" tone="danger">
-          {state.error}
-        </LumenText>
-      ) : null}
-      {state.mutation === 'unknown' ? (
-        <LumenButton
-          disabled={reconciling}
-          onClick={() => {
-            setReconciling(true)
-            void runtime.state.notifications.runtime
-              .reconcile()
-              .catch(() => undefined)
-              .finally(() => {
-                if (permissionOwner.current.mounted) setReconciling(false)
-              })
-          }}
-        >
-          {reconciling ? labels.reconciling : labels.reconcile}
-        </LumenButton>
-      ) : null}
-      <LumenFrame as="nav" aria-label={labels.filters}>
-        <LumenButton aria-pressed={tab === 1} onClick={() => setTab(1)}>
-          {labels.centerTab}
-        </LumenButton>
-        <LumenButton aria-pressed={tab === 3} onClick={() => setTab(3)}>
-          {labels.preferencesTab}
-        </LumenButton>
-      </LumenFrame>
-      {nativePort.isAvailable ? (
-        <LumenFrame>
-          <LumenToggle
-            id="hbar-notifications-native-enabled"
-            label={labels.nativeEnabled}
-            checked={state.preferences?.nativeEnabled === true}
-            onChange={() => void toggleNative()}
-            disabled={
-              !state.preferences || permissionPending || state.mutation === 'submitting' || state.mutation === 'unknown'
-            }
-          />
-          {permissionError ? <LumenText role="alert">{labels.permissionDenied}</LumenText> : null}
-        </LumenFrame>
-      ) : null}
-      <HbarNotifications
-        runtime={runtime.state.notifications.runtime}
-        labels={labels}
-        onNavigate={onNavigate}
-        variant={tab}
-      />
-      {tab === 1 && !atCapacity && state.nextCursor ? (
-        <LumenButton onClick={loadMore} disabled={state.status === 'loading'}>
-          {labels.loadMore}
-        </LumenButton>
-      ) : null}
-      {tab === 1 && atCapacity ? <LumenText>{labels.capacity(state.items.length)}</LumenText> : null}
-    </LumenFrame>
+    <NotificationsPageView
+      runtime={runtime.state.notifications.runtime}
+      state={state}
+      labels={labels}
+      onNavigate={onNavigate}
+      tab={tab}
+      onTab={setTab}
+      nativeAvailable={nativePort.isAvailable}
+      permissionPending={permissionPending}
+      permissionError={permissionError}
+      reconciling={reconciling}
+      onToggleNative={() => void toggleNative()}
+      onReconcile={reconcile}
+      onLoadMore={loadMore}
+    />
   )
 }
