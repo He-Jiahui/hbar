@@ -92,6 +92,7 @@ import {
   createSessionLaunchTargetPreparationStorage,
   SESSION_LAUNCH_TARGET_PREPARATION_OPERATION_SQL,
 } from './session-launch-target-preparations.ts'
+import { createSessionBranchTargetStorage, SESSION_BRANCH_TARGET_SQL, SESSION_BRANCH_TARGET_BRANCH_SQL } from './session-branch-target'
 import {
   createSidebarDirectoryStorage,
   SIDEBAR_DIRECTORY_SCHEMA_SQL,
@@ -136,7 +137,7 @@ const WORKSPACE_ACTIVITY_SQL = `
     AFTER DELETE ON sessions
     BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
 `
-const LATEST_SCHEMA_VERSION = 20
+const LATEST_SCHEMA_VERSION = 22
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
 if (schemaVersion > LATEST_SCHEMA_VERSION) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
@@ -343,6 +344,8 @@ for (const [version, sql] of [
   [18, SCHEDULES_SQL],
   [19, SANDBOX_PROFILES_SQL],
   [20, WORKSPACE_FOLDERS_SQL],
+  [21, SESSION_BRANCH_TARGET_SQL],
+  [22, SESSION_BRANCH_TARGET_BRANCH_SQL],
 ] as const) {
   if (schemaVersion >= version) continue
   db.transaction(() => {
@@ -374,6 +377,7 @@ const sessionSearch = createSessionSearchStorage(
   () => new Map(workspaceDisplayNames.read().entries.map((entry) => [entry.workspaceId, entry.displayName])),
 )
 const sessionLaunchTarget = createSessionLaunchTargetStorage(db)
+const sessionBranchTarget = createSessionBranchTargetStorage(db, (sessionId) => sessionLaunchTarget.read(sessionId).revision)
 const sessionLaunchTargetPreparations = createSessionLaunchTargetPreparationStorage(db)
 
 db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
@@ -1193,6 +1197,11 @@ const methods: StorageMethods = {
   sessionSummaries: (ids) => ids.map((id) => sessionSummary(id)),
   sessionLaunchTarget: sessionLaunchTarget.read,
   sessionLaunchTargetRuntime: sessionLaunchTarget.runtime,
+  sessionBranchTargetOperation: sessionBranchTarget.read,
+  pendingSessionBranchTargetOperation: sessionBranchTarget.pending,
+  beginSessionBranchTarget: sessionBranchTarget.begin,
+  finishSessionBranchTarget: sessionBranchTarget.finish,
+  observeSessionBranchTargetRun: sessionBranchTarget.observeRunBranch,
   sessionLaunchTargetBindingForPath: sessionLaunchTarget.bindingForPath,
   activeSharedCheckoutPaths: sessionLaunchTarget.activeSharedCheckoutPaths,
   setSessionLaunchTarget: sessionLaunchTarget.set,

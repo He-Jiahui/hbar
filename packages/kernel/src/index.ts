@@ -128,6 +128,10 @@ export { createSessionLaunchTargetCommands } from './session-launch-target-comma
 export { createSessionLaunchBranchesCommands } from './session-launch-branches-commands'
 export { SessionLaunchTargetService } from './session-launch-target-service'
 import { SessionLaunchTargetService } from './session-launch-target-service'
+export { createSessionBranchTargetCommands } from './session-branch-target-commands'
+import { SessionBranchTargetService } from './session-branch-target-service'
+import type { SessionBranchTargetSelectInput } from '@hbar/contracts/commands/session-branch-target'
+import type { SessionBranchTargetIdentity } from '@hbar/storage'
 export { SessionLaunchTargetPreparationService } from './session-launch-target-preparation-service'
 import { SessionLaunchTargetPreparationService } from './session-launch-target-preparation-service'
 export { createSettingsCommands } from './settings-commands'
@@ -356,6 +360,7 @@ export class Kernel {
   readonly storage: StoragePort
   readonly workspaceSandboxes: WorkspaceSandboxService
   readonly sessionLaunchTargets: SessionLaunchTargetService
+  readonly sessionBranchTargets: SessionBranchTargetService
   readonly sessionLaunchPreparations: SessionLaunchTargetPreparationService
   readonly sandboxProfiles: SandboxProfileService
   readonly tools = new Tools()
@@ -422,6 +427,7 @@ export class Kernel {
       },
       () => this.changed('session-launch-target'),
     )
+    this.sessionBranchTargets = new SessionBranchTargetService(this.storage, options.layout, this.sessionLaunchTargets.branchTargetGit.bind(this.sessionLaunchTargets), (path, signal, excludeSessionId) => this.assertSharedCheckoutIdle(path, signal, excludeSessionId))
     this.permissionSettings = new SettingsService(this.storage)
     this.sandboxProfiles = new SandboxProfileService(
       {
@@ -1209,7 +1215,9 @@ export class Kernel {
     signal?.throwIfAborted()
     const session = await this.storage.call('session', sessionId)
     const workspace = await this.storage.call('workspace', session.workspaceId)
-    const root = await this.sessionLaunchTargets.checkoutRootForWorkspace(workspace.path, signal)
+    const runtime = await this.storage.call('sessionLaunchTargetRuntime', sessionId)
+    const executionPath = runtime.branchTarget?.targetPath ?? runtime.binding?.targetPath ?? workspace.path
+    const root = await this.sessionLaunchTargets.checkoutRootForWorkspace(executionPath, signal)
     const key = this.sharedCheckoutKey(root)
     if (this.sharedCheckoutWaiters >= 64) throw new HbarError('BUSY', 'Shared checkout admission capacity is full')
     this.sharedCheckoutWaiters++
@@ -1238,9 +1246,9 @@ export class Kernel {
     }
   }
 
-  private async assertSharedCheckoutIdle(targetPath: string, signal: AbortSignal): Promise<void> {
+  private async assertSharedCheckoutIdle(targetPath: string, signal: AbortSignal, excludeSessionId?: string): Promise<void> {
     const root = this.sharedCheckoutKey(await this.sessionLaunchTargets.checkoutRootForWorkspace(targetPath, signal))
-    for (const path of await this.storage.call('activeSharedCheckoutPaths')) {
+    for (const path of await this.storage.call('activeSharedCheckoutPaths', excludeSessionId)) {
       signal.throwIfAborted()
       const activeRoot = await this.sessionLaunchTargets.checkoutRootForWorkspace(path, signal)
       if (this.sharedCheckoutKey(activeRoot) === root)
@@ -1250,6 +1258,16 @@ export class Kernel {
 
   async getSessionLaunchTarget(sessionId: string) {
     return this.sessionLaunchTargets.get(sessionId)
+  }
+  async selectSessionBranchTarget(input: SessionBranchTargetSelectInput, identity: Omit<SessionBranchTargetIdentity, 'sessionId'>, signal: AbortSignal) {
+    const result = await this.withSessionLaunchTargetLock(input.sessionId, () => this.withSharedCheckoutLock(input.sessionId, () => this.sessionBranchTargets.select(input, identity, signal), signal), signal)
+    if (result.status === 'ready') this.changed('session-launch-target')
+    return result
+  }
+  async reconcileSessionBranchTarget(input: SessionBranchTargetIdentity, signal: AbortSignal) {
+    const result = await this.withSessionLaunchTargetLock(input.sessionId, () => this.withSharedCheckoutLock(input.sessionId, () => this.sessionBranchTargets.reconcile(input, signal), signal), signal)
+    if (result.status === 'ready') this.changed('session-launch-target')
+    return result
   }
   async setSessionLaunchTarget(input: SessionLaunchTargetMutationInput) {
     return this.withSessionLaunchTargetLock(input.sessionId, () => this.sessionLaunchTargets.set(input))
@@ -1472,6 +1490,8 @@ export class Kernel {
       let status: Run['status'] = 'completed',
         failure: string | undefined,
         failureDetails: RunFailure | undefined
+      let branchExecutionPath: string | null = null
+      let branchTargetRevision: number | null = null
       try {
         this.publishEvent(await this.storage.call('setRun', run.id, 'running'))
         await scope.hooks.dispatch('run.start', {
@@ -1481,11 +1501,14 @@ export class Kernel {
         })
         const session = await this.storage.call('session', sessionId)
         const workspace = await this.storage.call('workspace', session.workspaceId)
+        const branchTarget = await this.withSessionLaunchTargetLock(sessionId, () => this.withSharedCheckoutLock(sessionId, () => this.sessionBranchTargets.prepareForRun(sessionId, controller.signal), controller.signal), controller.signal)
+        branchTargetRevision = branchTarget?.revision ?? null
+        branchExecutionPath = await this.sessionLaunchTargets.workspaceForRun(sessionId, workspace.path, controller.signal)
         const workspaceForRun: Workspace = {
           ...workspace,
           path: await this.workspaceSandboxes.prepare(
             workspace.id,
-            await this.sessionLaunchTargets.workspaceForRun(sessionId, workspace.path, controller.signal),
+            branchExecutionPath,
             controller.signal,
           ),
         }
@@ -1740,6 +1763,12 @@ export class Kernel {
         }
         for (const stream of this.streams.values()) if (stream.runId === run.id) this.clearStream(stream.id)
         const settledEvent = await this.storage.call('setRun', run.id, status, failure, failureDetails)
+        if (branchExecutionPath !== null && branchTargetRevision !== null) {
+          const observedPath = branchExecutionPath
+          const observedRevision = branchTargetRevision
+          const observationSignal = AbortSignal.timeout(5_000)
+          await this.withSessionLaunchTargetLock(sessionId, () => this.withSharedCheckoutLock(sessionId, () => this.sessionBranchTargets.observeRunBranch(sessionId, run.id, observedRevision, observedPath, observationSignal), observationSignal), observationSignal).catch((error: unknown) => console.error('Session branch observation failed:', error))
+        }
         this.publishEvent(settledEvent)
         this.active.delete(sessionId)
         this.cancelled.delete(run.id)
@@ -2701,6 +2730,7 @@ export class Kernel {
       active.controller.abort(new HbarError('HOST_SHUTTING_DOWN', 'Host shutting down'))
     this.toolExecutions.dispose()
     await this.sessionLaunchPreparations.close()
+    await this.sessionBranchTargets.close()
     await this.sessionLaunchTargets.close()
     await this.waitForIdle()
     for (const pending of this.userInputs.values())

@@ -33,6 +33,7 @@ export * from './storage-locations.ts'
 export * from './session-log-writer.ts'
 export * from './session-log-recovery.ts'
 export * from './project-registry.ts'
+export type { SessionBranchExecutionRoot, SessionBranchTargetIntent, SessionBranchTargetIdentity, SessionBranchTargetRecord } from './session-branch-target'
 import type { PathLayout } from './path-layout.ts'
 export interface StoragePort {
   call<K extends keyof StorageMethods>(

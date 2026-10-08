@@ -23,6 +23,7 @@ import type {
   SessionLaunchTargetRuntimeSnapshot,
 } from './types.ts'
 import { hasActiveSessionLaunchTargetPreparation } from './session-launch-target-preparations.ts'
+import { readSessionBranchExecutionRoot, hasPendingSessionBranchTarget } from './session-branch-target'
 
 export const SESSION_LAUNCH_TARGET_SQL = `
   CREATE TABLE IF NOT EXISTS session_launch_targets(
@@ -271,7 +272,8 @@ export function createSessionLaunchTargetStorage(db: Database) {
       .get(path)
     if (!row) return null
     const binding = readBinding(row.sessionId)
-    return binding?.selection.mode === 'isolated-worktree' ? binding : null
+    const branchTarget = readSessionBranchExecutionRoot(db, row.sessionId)
+    return binding && (binding.selection.mode === 'isolated-worktree' || (branchTarget?.revision === binding.expectedRevision && branchTarget.kind === 'worktree')) ? binding : null
   }
 
   function read(sessionId: string): SessionLaunchTarget {
@@ -315,10 +317,13 @@ export function createSessionLaunchTargetStorage(db: Database) {
   function runtime(sessionId: string): SessionLaunchTargetRuntimeSnapshot {
     const target = read(sessionId)
     const row = resolutionRow(sessionId, target.revision)
+    const branchTarget = readSessionBranchExecutionRoot(db, sessionId)
     return {
       target,
       resolution: row ? parseResolution(row) : null,
       binding: readBinding(sessionId),
+      branchTarget: branchTarget?.revision === target.revision ? branchTarget : null,
+      branchTargetPending: hasPendingSessionBranchTarget(db, sessionId),
     }
   }
 
@@ -518,6 +523,8 @@ export function createSessionLaunchTargetStorage(db: Database) {
     workspacePath: string,
     candidate?: SessionLaunchTargetBindingInput,
   ): SessionLaunchTargetBinding {
+    if (hasPendingSessionBranchTarget(db, sessionId))
+      throw new HbarError('RESULT_UNKNOWN', 'Wait for or reconcile the session branch operation before accepting a Run')
     const existing = readBinding(sessionId)
     if (existing) {
       if (candidate) validateReplayBinding(sessionId, candidate)
@@ -565,8 +572,9 @@ export function createSessionLaunchTargetStorage(db: Database) {
       if (binding.targetPath !== workspacePath || binding.branch !== null)
         throw new HbarError('INVALID_INPUT', 'Shared launch target must resolve to the current workspace')
     } else if (binding.selection.mode === 'shared-branch') {
+      const branchTarget = readSessionBranchExecutionRoot(db, sessionId)
       if (
-        binding.targetPath !== workspacePath ||
+        (binding.targetPath !== workspacePath && !(branchTarget?.revision === binding.expectedRevision && branchTarget.targetPath === binding.targetPath)) ||
         !selectedBranchMatches(binding.selection, binding.branch) ||
         binding.head !== binding.selection.branch.tipOid
       )
@@ -603,17 +611,18 @@ export function createSessionLaunchTargetStorage(db: Database) {
     read,
     runtime,
     bindingForPath,
-    activeSharedCheckoutPaths: (): string[] => {
+    activeSharedCheckoutPaths: (excludeSessionId?: string): string[] => {
+      const excluded = excludeSessionId ? idSchema.parse(excludeSessionId) : ''
       const rows = db
-        .query<{ path: string }, []>(
+        .query<{ path: string }, [string]>(
           `SELECT DISTINCT COALESCE(b.targetPath,w.path) AS path FROM runs r
          JOIN sessions s ON s.id=r.sessionId JOIN workspaces w ON w.id=s.workspaceId
          LEFT JOIN session_launch_target_bindings b ON b.sessionId=s.id
          WHERE r.status IN ('queued','running','waiting_approval')
-           AND (b.sessionId IS NULL OR json_extract(b.selectionJson,'$.mode')!='isolated-worktree')
+           AND r.sessionId!=?
          LIMIT 65`,
         )
-        .all()
+        .all(excluded)
       if (rows.length > 64) throw new HbarError('BUSY', 'Too many active shared checkouts to safely switch branches')
       return rows.map((row) => row.path)
     },

@@ -40,6 +40,7 @@ export { createGitCommandClient } from './git'
 export { createSessionLaunchTargetReader, type SessionLaunchTargetReadTransport } from './session-launch-target'
 export { createSessionLaunchTargetPreparationManager } from './session-launch-target-preparation'
 export { createSessionLaunchBranchesManager, createSessionLaunchBranchesReader } from './session-launch-branches'
+export { createSessionBranchTargetCommandClient } from './session-branch-target'
 export type {
   SessionLaunchBranchCreateOptions,
   SessionLaunchBranchCreateRequest,

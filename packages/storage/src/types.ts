@@ -43,6 +43,8 @@ import type { QueuedUserRunsInput, QueuedUserRunsPage } from '@hbar/contracts/co
 import type { UsageReadInput, UsageReadPage } from '@hbar/usage'
 import type { GoalHistoryInput, GoalHistoryPage } from '@hbar/contracts/commands/goal-history'
 import type { NotificationStorage } from './notifications'
+import type { SessionBranchExecutionRoot, SessionBranchTargetIntent, SessionBranchTargetIdentity, SessionBranchTargetRecord } from './session-branch-target'
+import type { SessionBranchTargetOperation } from '@hbar/contracts/commands/session-branch-target'
 import type { createWorkspaceFolderStorage, WorkspaceFolderStorageMutation } from './workspace-folders'
 import type { createPromptTemplateStorage } from './prompt-templates'
 import type { createScheduleStorage } from './schedules'
@@ -163,6 +165,8 @@ export interface SessionLaunchTargetRuntimeSnapshot {
   target: SessionLaunchTarget
   resolution: SessionLaunchTargetResolutionRecord | null
   binding: SessionLaunchTargetBinding | null
+  branchTarget?: SessionBranchExecutionRoot | null
+  branchTargetPending?: boolean
 }
 
 export interface SessionLaunchTargetPreparationStartMutationInput extends SessionLaunchTargetPreparationStartInput {
@@ -337,8 +341,13 @@ export interface StorageMethods {
   sessionSummaries(ids: string[]): SessionSummary[]
   sessionLaunchTarget(sessionId: string): SessionLaunchTarget
   sessionLaunchTargetRuntime(sessionId: string): SessionLaunchTargetRuntimeSnapshot
+  sessionBranchTargetOperation(input: SessionBranchTargetIdentity): SessionBranchTargetRecord | null
+  pendingSessionBranchTargetOperation(sessionId: string, actorId?: string): { operationId: string; owned: boolean; idempotencyKey?: string; request?: import('@hbar/contracts/commands/session-branch-target').SessionBranchTargetSelectInput } | null
+  beginSessionBranchTarget(input: SessionBranchTargetIntent): SessionBranchTargetRecord
+  observeSessionBranchTargetRun(input: { sessionId: string; runId: string; expectedRevision: number; targetPath: string; branch: string }): boolean
+  finishSessionBranchTarget(input: SessionBranchTargetIdentity, result: { status: 'ready' | 'failed' | 'unknown'; error?: { code: string; message: string } }): SessionBranchTargetOperation
   sessionLaunchTargetBindingForPath(targetPath: string): SessionLaunchTargetBinding | null
-  activeSharedCheckoutPaths(): string[]
+  activeSharedCheckoutPaths(excludeSessionId?: string): string[]
   setSessionLaunchTarget(input: SessionLaunchTargetMutationInput): SessionLaunchTargetSetReceipt
   sessionLaunchTargetReceipt(input: SessionLaunchTargetReceiptLookup): SessionLaunchTargetSetReceipt | null
   startSessionLaunchTargetPreparation(

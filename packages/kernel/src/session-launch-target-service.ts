@@ -12,6 +12,7 @@ import type {
   SessionLaunchTargetResolutionRecord,
   SessionLaunchTargetRuntimeSnapshot,
 } from '@hbar/storage'
+import { verifyBranchExecutionRoot } from './session-branch-git'
 
 const GIT_TIMEOUT_MS = 60_000
 const GIT_OUTPUT_LIMIT = 512 * 1024
@@ -276,6 +277,10 @@ export class SessionLaunchTargetService {
 
   async get(sessionId: string): Promise<SessionLaunchTarget> {
     return this.storage.call('sessionLaunchTarget', sessionId)
+  }
+  /** Shares bounded Git process capacity and shutdown cancellation with branch target operations. */
+  branchTargetGit(cwd: string, args: string[], signal: AbortSignal): Promise<GitResult> {
+    return this.trackOperation(() => this.git(cwd, args, signal))
   }
 
   async set(input: {
@@ -588,11 +593,17 @@ export class SessionLaunchTargetService {
     const runtime = await this.storage.call('sessionLaunchTargetRuntime', sessionId)
     if (expectedLaunchTargetRevision !== undefined)
       return this.bindPreparedTargetForRun(sessionId, expectedLaunchTargetRevision, runtime, signal)
+    if (runtime.branchTargetPending)
+      throw new HbarError('RESULT_UNKNOWN', 'Wait for or reconcile the branch operation before accepting a Run')
     if (runtime.binding) {
       await this.verifyBoundTarget(runtime, signal)
       return this.bindingInput(runtime.binding)
     }
     const target = runtime.target
+    if (runtime.branchTarget?.revision === target.revision && runtime.resolution?.state === 'ready') {
+      await verifyBranchExecutionRoot(this.branchTargetGit.bind(this), runtime.branchTarget, signal ?? new AbortController().signal)
+      return { sessionId, expectedRevision: target.revision, selection: target.selection, targetPath: runtime.branchTarget.targetPath, branch: runtime.resolution.branch, head: runtime.resolution.resolvedHead }
+    }
     if (target.locked)
       throw new HbarError('SESSION_LAUNCH_TARGET_LOCKED', 'The accepted session target could not be reconciled')
     const bindingRevision = target.revision
@@ -622,6 +633,8 @@ export class SessionLaunchTargetService {
   ): Promise<SessionLaunchTargetBindingInput> {
     if (runtime.target.revision !== expectedRevision)
       throw new HbarError('COMMAND_CONFLICT', 'Session launch target revision changed')
+    if (runtime.branchTargetPending)
+      throw new HbarError('RESULT_UNKNOWN', 'Wait for or reconcile the branch operation before accepting a Run')
     if (runtime.binding) {
       if (runtime.binding.expectedRevision !== expectedRevision)
         throw new HbarError('COMMAND_CONFLICT', 'Session launch target revision changed')
@@ -630,6 +643,11 @@ export class SessionLaunchTargetService {
     }
     if (runtime.target.locked)
       throw new HbarError('SESSION_LAUNCH_TARGET_LOCKED', 'The accepted session target could not be reconciled')
+
+    if (runtime.branchTarget?.revision === expectedRevision && runtime.resolution?.state === 'ready') {
+      await verifyBranchExecutionRoot(this.branchTargetGit.bind(this), runtime.branchTarget, signal ?? new AbortController().signal)
+      return { sessionId, expectedRevision, selection: runtime.target.selection, targetPath: runtime.branchTarget.targetPath, branch: runtime.resolution.branch, head: runtime.resolution.resolvedHead, requirePreparedTarget: true }
+    }
 
     const initial = runtime.resolution
     if (
@@ -709,8 +727,12 @@ export class SessionLaunchTargetService {
     signal?: AbortSignal,
   ): Promise<string> {
     const runtime = await this.storage.call('sessionLaunchTargetRuntime', sessionId)
+    if (runtime.branchTargetPending)
+      throw new HbarError('RESULT_UNKNOWN', 'Wait for or reconcile the branch operation before using this execution directory')
     const targetPath = runtime.binding?.targetPath ?? workspacePath
     if (runtime.binding) await this.verifyBoundTarget(runtime, signal)
+    else if (runtime.branchTarget?.revision === runtime.target.revision)
+      return verifyBranchExecutionRoot(this.branchTargetGit.bind(this), runtime.branchTarget, signal ?? new AbortController().signal)
     else if (runtime.target.selection.mode !== 'shared-current')
       throw new HbarError('SESSION_LAUNCH_TARGET_UNRESOLVED', 'The session worktree has not been accepted and bound')
     return targetPath
@@ -1784,6 +1806,14 @@ export class SessionLaunchTargetService {
   private async verifyBoundTarget(runtime: SessionLaunchTargetRuntimeSnapshot, signal?: AbortSignal): Promise<void> {
     const binding = runtime.binding
     if (!binding) return
+    if (runtime.branchTargetPending)
+      throw new HbarError('RESULT_UNKNOWN', 'Reconcile the branch operation before using the session target')
+    if (runtime.branchTarget?.revision === binding.expectedRevision) {
+      if (!samePath(runtime.branchTarget.targetPath, binding.targetPath))
+        throw new HbarError('SESSION_BRANCH_TARGET_CHANGED', 'The execution binding does not match the branch target')
+      await verifyBranchExecutionRoot(this.branchTargetGit.bind(this), runtime.branchTarget, signal ?? new AbortController().signal)
+      return
+    }
     // A shared branch is an initial launch choice, not a permanent execution pin.
     // After acceptance, shared sessions follow this checkout just like shared-current.
     if (binding.selection.mode === 'shared-current' || binding.selection.mode === 'shared-branch') {
