@@ -488,7 +488,7 @@ test('a late archive ACK cannot retire a restored instance after its newer canon
         nextCursor: null,
       })
     })
-    for (let page = 0; page < 6; page++)
+    for (let page = 0; page < 7; page++)
       await f.commands.execute('session.list', { workspaceId: 'other-workspace', after: String(page), limit: 200 })
     expect(f.runtime.view.state.directory.getSnapshot().sessions.a).toBeUndefined()
     gate.resolve()
@@ -674,7 +674,7 @@ test('cache absence does not retire a tab; an explicit accepted archived read do
         nextCursor: null,
       })
     })
-    for (let page = 0; page < 6; page++)
+    for (let page = 0; page < 7; page++)
       await f.commands.execute('session.list', { workspaceId: 'w', limit: 200, after: String(page) })
     expect(f.runtime.view.state.directory.getSnapshot().sessions.a).toBeUndefined()
     expect(f.tabs().items.map((item) => item.id)).toEqual(['a', 'b'])
@@ -715,7 +715,7 @@ for (const delayedAt of ['session', 'workspace'] as const) {
       const select = f.open('a')
       await entered.promise
       await f.commands.execute('app.archiveSession', { sessionId: 'a', archived: true })
-      for (let page = 0; page < 6; page++)
+      for (let page = 0; page < 7; page++)
         await f.commands.execute('session.list', { workspaceId: 'w', limit: 200, after: String(page) })
       expect(f.runtime.view.state.directory.getSnapshot().sessions.a).toBeUndefined()
       gate.resolve(delayedAt === 'session' ? session('a') : workspace)
@@ -868,7 +868,7 @@ for (const source of ['list', 'roster'] as const) {
       await f.open('a')
       const restored = f.tabs().items.find((item) => item.id === 'a')!
       await f.open('b')
-      for (let page = 0; page < 6; page++)
+      for (let page = 0; page < 7; page++)
         await f.commands.execute('session.list', { workspaceId: 'other-workspace', after: String(page), limit: 200 })
       expect(f.runtime.view.state.directory.getSnapshot().sessions.a).toBeUndefined()
       // A later confirmed null can free a slot. Capacity alone is not a version fence for the older roster accumulator.
@@ -876,12 +876,16 @@ for (const source of ['list', 'roster'] as const) {
       gate.resolve(source === 'list' ? { items: [archived], nextCursor: null } : session('c'))
       const result = await pending
       if (source === 'list') expect(result).toMatchObject({ items: [archived] })
-      else
+      else {
+        // The unrelated c row was evicted too; a full observational cache must
+        // report its skipped projection while preserving the restored a tab.
         expect(f.runtime.view.state.sessionRosterRefresh.getSnapshot().entries.w).toMatchObject({
           status: 'ready',
           error: null,
-          skipped: 0,
+          skipped: 1,
         })
+        expect(f.runtime.view.state.directory.getSnapshot().sessions.c).toBeUndefined()
+      }
       expect(f.tabs().items.find((item) => item.id === 'a')?.instanceKey).toBe(restored.instanceKey)
       expect(f.sessions.get('a')).toMatchObject({ archived: false, seq: 3 })
       expect(f.runtime.view.state.navigation.getSnapshot().sessionId).toBe('b')
@@ -919,7 +923,7 @@ test('a saturated roster scan reports non-authoritative projection instead of re
     })
     const refresh = f.commands.execute('sessionRoster.refresh', { workspaceId: 'w' })
     await entered.promise
-    for (let page = 0; page < 6; page++)
+    for (let page = 0; page < 7; page++)
       await f.commands.execute('session.list', { workspaceId: 'w', after: String(page), limit: 200 })
     f.sessions.set('a', { ...session('a'), archived: true, seq: 2, updatedAt: 2 })
     gate.resolve(f.sessions.get('a'))
@@ -972,7 +976,7 @@ test('a get started after a confirmed restore seeds that version before cache ev
     })
     const pending = f.commands.execute('session.get', { sessionId: 'a' })
     await entered.promise
-    for (let page = 0; page < 6; page++)
+    for (let page = 0; page < 7; page++)
       await f.commands.execute('session.list', { workspaceId: 'other-workspace', after: String(page), limit: 200 })
     expect(f.runtime.view.state.directory.getSnapshot().sessions.a).toBeUndefined()
     gate.resolve(old)
@@ -1035,7 +1039,7 @@ for (const source of ['selection', 'restore'] as const) {
       })
       const pending = source === 'selection' ? f.open('a') : f.commands.execute('workspaceTabs.retryRestore', {})
       await entered.promise
-      for (let page = 0; page < 6; page++)
+      for (let page = 0; page < 7; page++)
         await f.commands.execute('session.list', { workspaceId: 'other-workspace', after: String(page), limit: 200 })
       gate.resolve(session('a'))
       if (source === 'selection') await expect(pending).rejects.toMatchObject({ code: 'SESSION_ARCHIVED' })

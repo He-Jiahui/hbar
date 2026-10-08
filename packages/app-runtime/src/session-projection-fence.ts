@@ -1,6 +1,7 @@
 import type { Session } from '@hbar/contracts/directory'
+import { DIRECTORY_SESSION_TOTAL_LIMIT } from './session-directory-capacity'
 
-export const SESSION_PROJECTION_VERSION_LIMIT = 1000
+export const SESSION_PROJECTION_VERSION_LIMIT = DIRECTORY_SESSION_TOTAL_LIMIT
 type VersionedSession = Readonly<Pick<Session, 'id' | 'workspaceId' | 'seq' | 'updatedAt'>>
 export type ConfirmedSessionSubscriber = (listener: (facts: readonly Session[]) => void) => () => void
 

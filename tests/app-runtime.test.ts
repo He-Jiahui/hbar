@@ -238,38 +238,47 @@ test('independent consumers can finish the same query without an old result reve
   runtime.dispose()
 })
 
-test('directory cache stays bounded across pages while retaining the selected session', async () => {
-  const data = fixture()
-  data.sessions.splice(0)
-  for (let index = 0; index < 1001; index++)
-    data.sessions.push({
-      id: `s${String(index).padStart(4, '0')}`,
-      workspaceId: 'w1',
-      title: `Session ${index}`,
-      archived: false,
-      parentId: null,
-      createdAt: 1,
-      updatedAt: 1,
-      seq: 1,
-    })
-  const runtime = createAppRuntime({ instanceId: 'one', hostId: 'host', directory: data.directory })
-  await runtime.view.commands.execute('app.setSession', { sessionId: 's0000' })
-  let after: string | null = null
-  let count = 0
-  do {
-    const page: SessionPage = await runtime.view.commands.execute('session.list', {
-      workspaceId: 'w1',
-      limit: 200,
-      ...(after ? { after } : {}),
-    })
-    count += page.items.length
-    after = page.nextCursor
-  } while (after)
-  expect(count).toBe(1001)
-  expect(Object.keys(runtime.view.state.directory.getSnapshot().sessions)).toHaveLength(1000)
-  expect(runtime.view.state.directory.getSnapshot().sessions.s0000?.id).toBe('s0000')
-  runtime.dispose()
-})
+for (const total of [1320, 1321, 1521]) {
+  test(`directory cache retains the selected session at its normal and Agent budget (${total} records)`, async () => {
+    const data = fixture()
+    data.sessions.splice(0)
+    for (let index = 0; index < total; index++)
+      data.sessions.push({
+        id: `s${String(index).padStart(4, '0')}`,
+        workspaceId: 'w1',
+        title: `Session ${index}`,
+        archived: false,
+        parentId: null,
+        createdAt: 1,
+        updatedAt: 1,
+        seq: 1,
+      })
+    const runtime = createAppRuntime({ instanceId: 'one', hostId: 'host', directory: data.directory })
+    try {
+      await runtime.view.commands.execute('app.setSession', { sessionId: 's0000' })
+      let after: string | null = null
+      let count = 0
+      do {
+        const page: SessionPage = await runtime.view.commands.execute('session.list', {
+          workspaceId: 'w1',
+          limit: 200,
+          ...(after ? { after } : {}),
+        })
+        expect(page.items.length).toBeLessThanOrEqual(200)
+        count += page.items.length
+        after = page.nextCursor
+      } while (after)
+      const cached = runtime.view.state.directory.getSnapshot().sessions
+      expect(count).toBe(total)
+      expect(Object.keys(cached)).toHaveLength(1320)
+      expect(cached.s0000?.id).toBe('s0000')
+      expect(cached[`s${String(total - 1).padStart(4, '0')}`]?.id).toBe(`s${String(total - 1).padStart(4, '0')}`)
+      expect(cached.s0001 !== undefined).toBe(total === 1320)
+    } finally {
+      runtime.dispose()
+    }
+  })
+}
 
 test('runtime bundle contains vanilla state but no React, DOM renderer, transport or Host implementation', async () => {
   const paths: string[] = []

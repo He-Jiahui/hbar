@@ -78352,6 +78352,7 @@
     "packages/app-runtime/src/session-agent-tree.ts",
     "packages/app-runtime/src/session-archive.ts",
     "packages/app-runtime/src/session-controls.ts",
+    "packages/app-runtime/src/session-directory-capacity.ts",
     "packages/app-runtime/src/session-draft-persistence.ts",
     "packages/app-runtime/src/session-execution-access.ts",
     "packages/app-runtime/src/session-execution-preparation.ts",

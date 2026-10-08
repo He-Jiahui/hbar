@@ -709,4 +709,11 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 
 - 8c45f4f4 补齐 BrowserUseService.go、GitService.stage／unstage 夹具，并让延迟真实 Git 适配保留方法转发。9 项命令／取消／版本／执行根测试、67 个断言和范围严格 lint 通过，根类型降到 3。提交正文误记格式通过：实际首次检查因此次补丁引入混合换行失败。对照格式器输出确认仅换行符不同，统一后再检查已通过，Git 没有额外源码差异；此处更正原提交说明，不将它记成既有格式问题。
 
-当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。最终全库／浏览器／原生门禁和上述四项扩展导航失败尚未完成。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 会话缓存与读取版本保护的容量一致性
+
+- 1320／1321 条的真实 Runtime 分页测试发现：返回页数完整，canonical cache 却停在 1200 条。35a2852b 的 Session projection fence 仍限制 1000 个版本；63d2ae67 将 cache 扩至普通 1000 加 Agent 320 后没有同步此保护，后续读在播种现有 cache 时已 overflow，整页不再归并。
+- Session cache 与版本保护现在共享一个纯容量策略，保持总上限 1320、选中 Session／保留 Agent 的保护，以及第 1321 个被观察版本整体失败关闭。1320、1321、1521 条测试验证页大小最多 200、继续分页、实际逐出与原选中记录保留。七份旧 archive 压力夹具改为 7×200，确实超过新容量，保留 late ACK／list／roster、旧验证／恢复实例和草稿的原断言；被一并逐出的 c 在满缓存的观察性刷新中报告 skipped=1，明确验证其没有重新进入缓存。
+- 78 项 Runtime／版本保护／archive tabs／Agent tree／roster／activity 测试、418 个断言通过；范围严格 lint、类型（仅剩另一个 E2E 的两项旧 Host 捕获诊断）、格式和 Web build 通过。strict 清单初次正确报告新增策略模块导致 build inputs 过时，重新生成后纳入实际输入；生产 149 个 TSX／3873 个元素／零 pending 不变。证据位于 artifacts/desktop-elements/final-gates 的 directory-cache 日志。
+- 新鲜 frozen Web 的 6 项真实 Host archive Chrome 场景通过，覆盖中英文、确认／未知结果核对、恢复不导航、外部归档、空工作区 reload 和 320 下保留 dirty Files Workbench，截图已检查。同轮两项 roster Chrome 场景在草稿为空的断言失败；随后用修改前的 run-board-resize/web frozen 产物重跑两语言，出现同一失败。此问题继续独立定位，不报告整组 8 项通过。对照证据为 directory-cache-browser.log／results 和 roster-before-cache.log／results。
+
+当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。最终全库／浏览器／原生门禁、两项 roster 草稿场景和上述四项扩展导航失败尚未完成。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

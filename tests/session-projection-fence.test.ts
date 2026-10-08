@@ -39,8 +39,8 @@ test('a projection fence seeds canonical versions, observes newer accepted facts
     f.fence.dispose()
   }
 })
-test('the 1001st distinct version fails closed for the whole projection; a new read can start cleanly', () => {
-  const initial = Array.from({ length: 1000 }, (_, index) => session(`id-${index}`))
+test('the 1321st distinct version fails closed for the whole projection; a new read can start cleanly', () => {
+  const initial = Array.from({ length: 1320 }, (_, index) => session(`id-${index}`))
   const f = fixture(initial)
   try {
     f.observe([session('id-0', 3)])

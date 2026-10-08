@@ -30,12 +30,17 @@ import { createState, type StateReader } from './state'
 import type { DirectoryState, NavigationState, RuntimeOptions } from './types'
 import type { RosterMissingSession } from './session-roster-refresh'
 import { createSessionProjectionFence } from './session-projection-fence'
+import {
+  DIRECTORY_SESSION_CACHE_LIMIT,
+  DIRECTORY_SESSION_TOTAL_LIMIT,
+  MAX_RETAINED_AGENT_SESSIONS,
+} from './session-directory-capacity'
+
+export { MAX_RETAINED_AGENT_SESSIONS } from './session-directory-capacity'
 
 export const MAX_RETAINED_ACTIVITY_WORKSPACES = 220
 export const MAX_RETAINED_ACTIVITY_SESSIONS = 900
-export const MAX_RETAINED_AGENT_SESSIONS = 320
 const DIRECTORY_WORKSPACE_CACHE_LIMIT = 200
-const DIRECTORY_SESSION_CACHE_LIMIT = 1000
 const DIRECTORY_WORKSPACE_TOTAL_LIMIT = DIRECTORY_WORKSPACE_CACHE_LIMIT + MAX_RETAINED_ACTIVITY_WORKSPACES
 function decode<Schema extends z.ZodType>(schema: Schema, value: unknown): z.output<Schema> {
   const parsed = schema.safeParse(value)
@@ -145,7 +150,7 @@ export function createDirectoryModule(
       }
     }
     const selected = navigation.getSnapshot().sessionId
-    while (entries.size > DIRECTORY_SESSION_CACHE_LIMIT + MAX_RETAINED_AGENT_SESSIONS) {
+    while (entries.size > DIRECTORY_SESSION_TOTAL_LIMIT) {
       const candidate = [...entries.keys()].find(
         (id) => id !== selected && !retainedActivitySessionIds.has(id) && !retainedAgentSessionIds.has(id),
       )
@@ -390,8 +395,9 @@ export function createDirectoryModule(
     },
     /**
      * Retain sorted Session-page records in the canonical directory cache. The owner
-     * budget leaves room inside the 1,000-record cache for the active Session and
-     * ordinary point/page reads; returned facts are the canonical versions in page order.
+     * budget leaves room inside the normal 1,000-record budget for the active Session
+     * and ordinary point/page reads; Agent retention has its separate 320-record reserve.
+     * Returned facts are the canonical versions in page order.
      */
     projectActivitySessions(retainedIds: readonly string[], records: readonly Session[]): readonly Session[] {
       if (disposed) return []
