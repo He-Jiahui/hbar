@@ -449,4 +449,14 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 两项真实 Chrome／Host 回归通过（中英文，20.4s），读取实际 Local fixture 账目，保留四种时间窗、柱选择、失败后旧结果与重试、离开分类后的晚回包隔离、原会话草稿及断线禁用检查。旧测试依赖隐藏摘要节点的问题改为检查实际命名摘要区域；初始编辑器焦点时序改为实际点击、确认焦点和键盘输入后验证草稿。没有删掉草稿断言或重复输入掩盖失败。所属 Host 已停止，临时数据经真实路径、临时目录与前缀校验后清理。
 - 范围严格 ESLint、内容／图标／flow guard、当前 Web build、格式与实际构建清单通过。冷启动类型为 92 项既有诊断，本次范围为零，全库门禁仍待处理。证据保留在 artifacts/desktop-elements/settings-usage-content 的 browser.log、unit.log、lumen-*、host.log、host-final.log、host-keyboard.log、host-pointer.log、types-final.log、lint.log、lint-delivery.log、build.log、inventory.log 及截图。结构沿用 [Dashboard](https://pro.reactbits.dev/docs/app-ui/dashboard) 的指标与摘要层次，交互沿用 [Analytics](https://pro.reactbits.dev/docs/app-ui/analytics) 的时间窗和真实时间序列阅读。
 
-当前清单覆盖 146 个生产 TSX 模块、3780 个元素，其中记录了 151 处低层文字未分类，合计 161 项静态缺口。其余生产表面迁移、已分类表面的身份选择值复核、原生文案同步和最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 运行看板的完整名称、原运行操作与权威更新
+
+- 页面、章节、计划步骤、详情、空态和反馈的 13 处低层文字归入具名角色。详情中的计划由 LumenSurface 与语义集合按内容增长，保留 100 步契约；原 LumenAgentPlan05 包装在窄窗口裁切长步骤，实际几何检查复现后改正。缺失用量／计划值由宿主 formatter 提供，业务组件不再写入占位文案。页面支持类型化 labels 注入，测试文案只在 test fixture。
+- Lumen c35e6ac64a 为旧 Kanban 卡片提供完整身份槽位 assigneeContext 和宿主 openLabel，标题与完整工作区名称自然换行，原 initials 调用保持兼容。技术 ID 与操作组使用独立具名键盘阅读区，避免在打开卡片的按钮内再放可聚焦控件；按钮目标保持原 Run ID。共享库还补齐 Sprint 卡片原动作转发，并用有界局部投影替换 effect 派生状态，宿主列变化立即采用新事实。五项共享交互测试、包严格 lint、类型／构建／声明、格式和 flow guard 通过；限定 API 生成命令通过，生成器仍只登记 MUI，README／声明说明接口，Vale 不可用。
+- a28e3805 的读取边界未拒绝页内重复运行 ID、错误会话记录及追加页的异源目标，加载更多也没有进入 busy 状态。三项失败复现转为通过：刷新和追加页均核对原工作区／会话及唯一 ID，重复加载只发一个读请求；失败保留原记录与游标，允许显式重试。保留 100 条页／400 条累计边界、generation、取消和十二秒截止，达到 400 条时显示宿主容量反馈。取消与重试还核对最新 Run 状态，失效动作不借用其他记录。
+- 54 个实际 Chrome 场景通过，覆盖两语言、明暗、五宽度、125% 文字、完整页／列／卡片／详情标题、完整身份、技术 ID 与动作键盘阅读、0／1／7／100／101／400／401 条运行和真实 pane 滚动、0／1／100／101 个计划步骤、4,000 字工作区名称／步骤、非法页／重复 ID／异源会话、失败恢复、列表重排后的原取消目标、移除选中运行及 modal 关闭。内容测试使用真实 Runtime 与公开端口，操作失败夹具不冒充 Host 的成功写入。
+- 新增真实 Host 检查确认取消已写入，但原卡片仍显示 running。旧 E2E 的 cancelled 文本会匹配始终存在的列标题，不能证明卡片同步；新检查绑定原运行 ID 和 Host 快照。核对 f6e153e6／a275874b 的实际通知后，Web 映射加入 session-activity、名称及计划更新；原映射只监听 runs 等旧类别，确定性通知测试先失败再通过。没有以手工 Refresh 掩盖更新丢失。
+- 一项实际 Chrome／Host 回归完成两语言独立 Host 的原取消、原失败 Run 重试、真实 plan.update、详情中的原步骤、五宽度及逐宽度 Escape／原卡片焦点恢复（12.8s）。重试验证新增 Host Run，未把固定的 queued／running 列标题当作执行结果。窄窗口先通过实际侧栏入口进入当前看板，再打开和关闭详情；保留此前跨断点保持弹窗时底层导航不可用的失败证据，不宣称该组合已修复。21 项相关 Bun 测试、137 个断言通过；所属 Host 已停止，原临时目录经 realpath、目录与前缀核对后清理。
+- 当前 Web build、实际构建清单、范围严格 ESLint、文案／图标／flow guard 与格式通过，冷启动类型为 92 项既有诊断，本次范围为零。证据在 artifacts/desktop-elements/run-board-content 的 targets-red.log、events-red.log、browser-red.log、browser-final.log、unit-delivery.log、host-facts.log、host-events.log、host-flow.log、types-delivery.log、lint-final.log、build-events.log、inventory.log 与 lumen-*。结构和交互沿用 [Kanban](https://pro.reactbits.dev/docs/app-ui/kanban) 的状态列、原记录动作和详情阅读；稳定工作台区域沿用 [App Shell](https://pro.reactbits.dev/docs/app-ui/app-shell)。
+
+当前清单覆盖 146 个生产 TSX 模块、3786 个元素，其中记录了 138 处低层文字未分类，合计 148 项静态缺口。其余生产表面迁移、已分类表面的身份选择值复核、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

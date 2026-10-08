@@ -19,8 +19,8 @@ export interface RunBoardPageLabels {
   readonly columnLabel: (status: RunStatus) => string
   readonly statusLabel: (status: RunStatus | PlanStepStatus) => string
   readonly cardLabel: (title: string, status: string) => string
-  readonly usageLabel: (value: string) => string
-  readonly planLabel: (value: string) => string
+  readonly usageLabel: (value: string | null) => string
+  readonly planLabel: (value: string | null) => string
   readonly count: (count: number) => string
   readonly openRun: (title: string) => string
   readonly cancelRun: (title: string) => string
@@ -102,8 +102,8 @@ export function runBoardCopy(locale: ShellLocale): RunBoardPageLabels {
     columnLabel: (status: RunStatus) => statusNames[status],
     statusLabel: (status: RunStatus | PlanStepStatus) => statusNames[status],
     cardLabel: (title, status) => `${title} · ${status}`,
-    usageLabel: (value) => (zh ? `用量 ${value}` : `Usage ${value}`),
-    planLabel: (value) => (zh ? `计划 ${value}` : `Plan ${value}`),
+    usageLabel: (value) => (zh ? `用量 ${value ?? '—'}` : `Usage ${value ?? '—'}`),
+    planLabel: (value) => (zh ? `计划 ${value ?? '—'}` : `Plan ${value ?? '—'}`),
     count: (count) => (zh ? `${count} 个运行` : `${count} runs`),
     openRun: (title) => (zh ? `打开 ${title}` : `Open ${title}`),
     cancelRun: (title) => (zh ? `取消 ${title}` : `Cancel ${title}`),

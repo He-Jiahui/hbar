@@ -1,5 +1,10 @@
 import { expect, test, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test'
-import { createNotificationCommandClient, createRunCommandClient, createRunBoardCommandClient } from '@hbar/client'
+import {
+  createNotificationCommandClient,
+  createRunCommandClient,
+  createRunBoardCommandClient,
+  createGoalPlanCommandClient,
+} from '@hbar/client'
 import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
@@ -8,6 +13,7 @@ import { promptTemplateCopy } from '../apps/web/src/prompt-template-copy'
 import { globalFeatureCopy } from '../apps/web/src/global-feature-copy'
 import { scheduleCopy } from '../apps/web/src/schedule-copy'
 import { notificationCopy } from '../apps/web/src/notification-copy'
+import { runBoardCopy } from '../apps/web/src/run-board-copy'
 import { expectLumenValue, selectLumenOption } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host.ts'
 
@@ -470,57 +476,100 @@ test.describe('production app-ui feature surfaces', () => {
 
   test('run board is read-only and supports cancel, retry, and detail plan', async ({ browser }) => {
     test.setTimeout(120_000)
-    await withHost(browser, 'en-US', async (page, host) => {
-      const runs = createRunCommandClient(host.client)
-      await runs.execute(
-        'run.submit',
-        {
-          sessionId: host.ready.sessionId,
-          modelId: 'local-fixture',
-          input: { text: '/slow board cancellation', images: [] },
-        },
-        { idempotencyKey: crypto.randomUUID() },
-      )
-      await openSession(page, host, 'en-US')
-      await openFeature(page, 'Run board')
-      await expect(page.getByRole('heading', { name: 'Run board' }).first()).toBeVisible()
-      await expect(page.getByRole('button', { name: /Move|Add card|New card/ })).toHaveCount(0)
-      await expect(page.getByRole('button', { name: /Cancel run/ }).first()).toBeVisible()
-      await page
-        .getByRole('button', { name: /Cancel run/ })
-        .first()
-        .click()
-      await expect(page.getByText(/Cancelled|cancelled/i).first()).toBeVisible()
-      await runs.execute(
-        'run.submit',
-        { sessionId: host.ready.sessionId, modelId: 'local-fixture', input: { text: '/fail board retry', images: [] } },
-        { idempotencyKey: crypto.randomUUID() },
-      )
-      await expect
-        .poll(async () =>
-          (
-            await createRunBoardCommandClient(host.client).list({
-              workspaceId: host.ready.workspaceId,
-              limit: 50,
-              statuses: [],
-            })
-          ).items.some((item) => item.run.status === 'failed'),
+    for (const locale of ['en-US', 'zh-CN'] as const)
+      await withHost(browser, locale, async (page, host) => {
+        const labels = runBoardCopy(locale)
+        const runs = createRunCommandClient(host.client)
+        const slow = await runs.execute(
+          'run.submit',
+          {
+            sessionId: host.ready.sessionId,
+            modelId: 'local-fixture',
+            input: { text: '/slow board cancellation', images: [] },
+          },
+          { idempotencyKey: crypto.randomUUID() },
         )
-        .toBe(true)
-      await page
-        .getByRole('button', { name: /Retry run/ })
-        .first()
-        .click()
-      await expect(page.getByText(/queued|running/i).first()).toBeVisible()
-      await page
-        .getByRole('button', { name: /Open|View details/ })
-        .first()
-        .click()
-      await expect(page.getByText(host.ready.sessionTitle, { exact: true }).first()).toBeVisible()
-      await capture(page, 'run-board-1440.png')
-      await page.setViewportSize({ width: 320, height: 720 })
-      await expect(page.locator('html')).toHaveJSProperty('scrollWidth', 320)
-      await capture(page, 'run-board-320.png')
-    })
+        await openSession(page, host, locale)
+        await openFeature(page, labels.title, locale)
+        const board = page.locator('.hbar-web-run-board')
+        await expect(board.getByRole('heading', { name: labels.title }).first()).toBeVisible()
+        await expect(board.locator('[draggable="true"]')).toHaveCount(0)
+        for (const label of [labels.move, labels.addCard, labels.newCard])
+          await expect(board.getByRole('button', { name: label, exact: true })).toHaveCount(0)
+        const boardClient = createRunBoardCommandClient(host.client)
+        const readBoard = () => boardClient.list({ workspaceId: host.ready.workspaceId, limit: 100, statuses: [] })
+        const slowItem = (await readBoard()).items.find((item) => item.run.id === slow.operationId)
+        if (!slowItem) throw new Error('Original slow run is missing from its Host board')
+        const slowTitle = slowItem.sessionTitle ?? slowItem.run.sessionTitle ?? labels.missingSession
+        const slowRow = board.locator('.lumen-kanban-card').filter({ hasText: slow.operationId })
+        await slowRow.getByRole('button', { name: labels.cancelRun(slowTitle), exact: true }).click()
+        await expect
+          .poll(
+            async () =>
+              (await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs.find(
+                (run) => run.id === slow.operationId,
+              )?.status,
+          )
+          .toBe('cancelled')
+        await expect(slowRow.getByText(labels.statusLabel('cancelled'), { exact: true })).toBeVisible()
+        const step = 'Verify this original run detail 原运行详情验证'
+        await createGoalPlanCommandClient(host.client).execute('plan.update', {
+          sessionId: host.ready.sessionId,
+          expectedRevision: 0,
+          plan: [{ step, status: 'in_progress' }],
+        })
+        const failed = await runs.execute(
+          'run.submit',
+          {
+            sessionId: host.ready.sessionId,
+            modelId: 'local-fixture',
+            input: { text: '/fail board retry', images: [] },
+          },
+          { idempotencyKey: crypto.randomUUID() },
+        )
+        await expect
+          .poll(async () =>
+            (await readBoard()).items.some(
+              (item) => item.run.id === failed.operationId && item.run.status === 'failed',
+            ),
+          )
+          .toBe(true)
+        const failedItem = (await readBoard()).items.find((item) => item.run.id === failed.operationId)
+        if (!failedItem) throw new Error('Original failed run is missing from its Host board')
+        const title = failedItem.sessionTitle ?? failedItem.run.sessionTitle ?? labels.missingSession
+        const failedRow = board.locator('.lumen-kanban-card').filter({ hasText: failed.operationId })
+        await failedRow.getByRole('button', { name: labels.retryRun(title), exact: true }).click()
+        await expect
+          .poll(
+            async () =>
+              (await readBoard()).items.filter(
+                (item) => item.run.id !== slow.operationId && item.run.id !== failed.operationId,
+              ).length,
+          )
+          .toBeGreaterThan(0)
+        const open = failedRow.getByRole('button', { name: labels.openRun(title), exact: true })
+        for (const width of [1440, 1100, 900, 390, 320]) {
+          await page.setViewportSize({ width, height: 900 })
+          if (!(await open.isVisible())) {
+            await page.getByRole('button', { name: getShellCopy(locale).shell.hideSidebar, exact: true }).click()
+          }
+          await expect(open).toBeVisible()
+          await open.click()
+          const dialog = page.getByRole('dialog', { name: title, exact: true })
+          await expect(dialog.getByRole('heading', { name: title, exact: true })).toBeVisible()
+          await expect(
+            dialog
+              .getByRole('listitem')
+              .getByText(labels.cardLabel(step, labels.statusLabel('in_progress')), { exact: true }),
+          ).toBeVisible()
+          await assertNoHorizontalOverflow(dialog)
+          await expect(page.locator('html')).toHaveJSProperty('scrollWidth', width)
+          await capture(page, `run-board-${locale}-${width}.png`)
+          await dialog.getByRole('button', { name: labels.closeDetails, exact: true }).focus()
+          await page.keyboard.press('Escape')
+          await expect(dialog).toHaveCount(0)
+          await expect(open).toBeFocused()
+        }
+      })
   })
 })

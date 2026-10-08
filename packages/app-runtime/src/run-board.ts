@@ -63,7 +63,7 @@ export const runBoardCommands = {
   'runBoard.loadMore': defineCommand(metadata('runBoard.loadMore'), loadMoreInputSchema, resultSchema),
 }
 
-const emptyColumns = (): RunBoardColumns => ({
+const emptyColumns = (): Record<RunBoardColumn, RunBoardItem[]> => ({
   queued: [],
   running: [],
   waiting_approval: [],
@@ -79,9 +79,22 @@ function errorCode(reason: unknown): string {
     : 'EXECUTION_FAILED'
 }
 function columns(items: readonly RunBoardItem[]): RunBoardColumns {
-  const grouped = emptyColumns() as Record<RunBoardColumn, RunBoardItem[]>
+  const grouped = emptyColumns()
   for (const item of items) grouped[item.run.status].push(item)
   return grouped
+}
+function validatePageTarget(
+  page: RunBoardPage,
+  target: { readonly workspaceId: string; readonly sessionId: string | null },
+): void {
+  const ids = new Set(page.items.map((item) => item.run.id))
+  if (
+    page.workspaceId !== target.workspaceId ||
+    page.sessionId !== target.sessionId ||
+    ids.size !== page.items.length ||
+    (target.sessionId !== null && page.items.some((item) => item.run.sessionId !== target.sessionId))
+  )
+    throw new CommandError('INVALID_OUTPUT', 'Run board page does not identify unique original target records')
 }
 
 /** Host-owned workspace/session run projection used by Kanban and compact boards. */
@@ -120,7 +133,8 @@ export function createRunBoard(
   let generation = 0
   const resolveTarget = (instanceId: string) => {
     const panel = surfaces.getSnapshot().panels[instanceId]
-    if (!panel || panel.panelId !== 'run-board') throw new CommandError('STALE_TARGET', 'Run board panel is no longer available')
+    if (!panel || panel.panelId !== 'run-board')
+      throw new CommandError('STALE_TARGET', 'Run board panel is no longer available')
     const selected = navigation.getSnapshot()
     if (selected.status !== 'idle') throw new CommandError('STALE_TARGET', 'Run board navigation is not settled')
     return {
@@ -129,8 +143,20 @@ export function createRunBoard(
     }
   }
   const current = (candidate: typeof request & object) => {
-    const target = (() => { try { return resolveTarget(candidate.instanceId) } catch { return null } })()
-    return !disposed && !isDisposed() && request?.generation === candidate.generation && target?.workspaceId === candidate.workspaceId && target?.sessionId === candidate.sessionId
+    const target = (() => {
+      try {
+        return resolveTarget(candidate.instanceId)
+      } catch {
+        return null
+      }
+    })()
+    return (
+      !disposed &&
+      !isDisposed() &&
+      request?.generation === candidate.generation &&
+      target?.workspaceId === candidate.workspaceId &&
+      target?.sessionId === candidate.sessionId
+    )
   }
   const invalidate = () => {
     const active = request
@@ -200,6 +226,7 @@ export function createRunBoard(
         interrupted,
       ])
       const page = runBoardPageSchema.parse(raw)
+      validatePageTarget(page, token)
       if (
         page.workspaceId !== token.workspaceId ||
         page.sessionId !== token.sessionId ||
@@ -234,9 +261,10 @@ export function createRunBoard(
     const previous = state.reader.getSnapshot()
     if (!previous.nextCursor)
       return { workspaceId: previous.workspaceId ?? '', sessionId: previous.sessionId, loaded: 0 }
-    if (previous.status === 'loading' || !previous.workspaceId)
+    if (request || previous.status === 'loading' || !previous.workspaceId)
       throw new CommandError('BUSY', 'Run board is already loading')
-    if (target.workspaceId !== previous.workspaceId || target.sessionId !== previous.sessionId) throw new CommandError('STALE_TARGET', 'Run board target changed')
+    if (target.workspaceId !== previous.workspaceId || target.sessionId !== previous.sessionId)
+      throw new CommandError('STALE_TARGET', 'Run board target changed')
     const controller = new AbortController()
     const token = {
       workspaceId: previous.workspaceId,
@@ -246,11 +274,21 @@ export function createRunBoard(
       instanceId,
     }
     request = token
+    state.replace({ ...previous, status: 'loading', error: null })
     const abort = () =>
       controller.abort(execution.signal?.reason ?? new CommandError('CANCELLED', 'Run board read cancelled'))
     execution.signal?.addEventListener('abort', abort, { once: true })
     const interrupted = new Promise<never>((_resolve, reject) =>
-      controller.signal.addEventListener('abort', () => reject(controller.signal.reason instanceof CommandError ? controller.signal.reason : new CommandError('QUERY_SUPERSEDED', 'Run board read interrupted')), { once: true }),
+      controller.signal.addEventListener(
+        'abort',
+        () =>
+          reject(
+            controller.signal.reason instanceof CommandError
+              ? controller.signal.reason
+              : new CommandError('QUERY_SUPERSEDED', 'Run board read interrupted'),
+          ),
+        { once: true },
+      ),
     )
     const timer = setTimeout(() => controller.abort(new CommandError('TIMEOUT', 'Run board read timed out')), 12_000)
     try {
@@ -269,6 +307,7 @@ export function createRunBoard(
         interrupted,
       ])
       const page = runBoardPageSchema.parse(raw)
+      validatePageTarget(page, token)
       if (!current(token) || page.revision !== previous.revision)
         throw new CommandError('STALE_CURSOR', 'Run board changed; refresh required')
       const merged = [...previous.items, ...page.items]
@@ -282,6 +321,9 @@ export function createRunBoard(
         nextCursor: merged.length >= RUN_BOARD_MAX_ITEMS ? null : page.nextCursor,
       })
       return { workspaceId: token.workspaceId, sessionId: token.sessionId, loaded: page.items.length }
+    } catch (reason) {
+      if (current(token)) state.replace({ ...previous, status: 'error', error: errorCode(reason) })
+      throw reason
     } finally {
       clearTimeout(timer)
       execution.signal?.removeEventListener('abort', abort)

@@ -1,0 +1,29 @@
+.hbar-web-run-board {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  gap: 0.75rem;
+}
+.hbar-web-run-board > header {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: 0.5rem;
+}
+.hbar-run-board-reader {
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  gap: 0.5rem;
+  overflow-x: auto;
+}
+.hbar-run-board-reader > * {
+  flex: 0 0 auto;
+}
+.hbar-run-board-plan {
+  flex: 0 0 auto;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}

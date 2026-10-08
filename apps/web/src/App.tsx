@@ -114,6 +114,7 @@ import { getShellCopy, type ShellLocale } from './shell-copy'
 import { SettingsPageFocusBoundary } from './SettingsPageFocusBoundary'
 import { GlobalFeaturePage } from './GlobalFeaturePage'
 import { globalFeatureCopy, isGlobalFeaturePageId, type GlobalFeaturePageId } from './global-feature-copy'
+import { isRunBoardInvalidation } from './run-board-events'
 import { WEB_SETTINGS_GROUP_PRESENTATION, WEB_SETTINGS_LAYOUT } from './settings-group-presentation'
 import { WorkspaceTabsController } from './WorkspaceTabsController'
 import { workspaceTabsCopy } from './workspace-tabs-copy'
@@ -341,11 +342,7 @@ function createRuntime(
     runBoardEvents: {
       subscribe(listener) {
         return client.onEvent((event) => {
-          if (
-            event.method === 'host.changed' &&
-            ['runs', 'notifications', 'schedules', 'resync'].includes(event.params.kind)
-          )
-            listener()
+          if (isRunBoardInvalidation(event)) listener()
         })
       },
       onConnection(listener) {

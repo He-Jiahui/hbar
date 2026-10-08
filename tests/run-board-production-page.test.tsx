@@ -63,11 +63,21 @@ describe('production run board page contract', () => {
       command: 'operation.cancel',
       input: { operationId: 'run-action' },
     })
-    expect(resolveRunBoardAction({ actionId: 'retry', value: 'run-action' }, run, 'workspace-1')).toEqual({
+    expect(
+      resolveRunBoardAction({ actionId: 'retry', value: 'run-action' }, item('run-action', 'failed'), 'workspace-1'),
+    ).toEqual({
       command: 'run.retry',
       input: { operationId: 'run-action', sessionId: 'session-run-action' },
     })
     expect(resolveRunBoardAction({ actionId: 'open', value: 'stale' }, run, 'workspace-1')).toBeNull()
     expect(resolveRunBoardAction({ actionId: 'unknown', value: 'run-action' }, run, 'workspace-1')).toBeNull()
+    expect(resolveRunBoardAction({ actionId: 'retry', value: 'run-action' }, run, 'workspace-1')).toBeNull()
+    expect(
+      resolveRunBoardAction(
+        { actionId: 'cancel', value: 'run-action' },
+        item('run-action', 'completed'),
+        'workspace-1',
+      ),
+    ).toBeNull()
   })
 })
