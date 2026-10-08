@@ -4,6 +4,7 @@ import { HbarRuntimeProvider, HbarStatusWorkspace } from '@hbar/app-react'
 import { createAppRuntime } from '@hbar/app-runtime'
 import type { GitCommitInfo, GitStatsReport, GitStatus } from '@hbar/contracts'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { renderedElements } from './ssr-elements'
 
 const workspace = { id: 'workspace', path: 'D:/workspace', name: 'Workspace', createdAt: 1 }
 const totals = {
@@ -126,7 +127,11 @@ test('Git status renders workspace provenance, changes, bounded series, and poli
       /<dt[^>]*data-text-context="detail.term"[^>]*>Session<\/dt><dd[^>]*data-text-context="detail.value"[^>]*>session<\/dd>/,
     )
     expect(html).toContain('lumen-compact-metrics')
-    expect(html).toMatch(/<small[^>]*>aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa<\/small>/)
+    expect(
+      (await renderedElements(html, '.lumen-compact-metrics [data-text-context="collection.description"]')).map(
+        (element) => element.text,
+      ),
+    ).toContain('a'.repeat(40))
     expect(html).toContain('role="img" aria-label="File and line changes"')
     expect(html).not.toContain('hbar-app-ui-metric-strip')
   } finally {

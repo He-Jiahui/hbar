@@ -1330,7 +1330,6 @@ function SessionWorkspaceContent({
     const body = (
       <HbarSessionDecision
         copyOwner={runtime}
-        key={`${decision.kind}:${decision.id}`}
         decision={decision}
         action={sessionDecisionAction(decision, interactions)}
         answers={
@@ -1347,7 +1346,7 @@ function SessionWorkspaceContent({
         onReconcile={(target) => invoke('interaction.reconcile', target)}
       />
     )
-    return <LumenAgentApproval01 controlled={{ body }} />
+    return <LumenAgentApproval01 key={`${decision.kind}:${decision.id}`} controlled={{ body }} />
   }
   const toolDecisionsByMessage = new Map(
     [...decisionProjection.byMessage].map(([messageId, rows]) => [

@@ -1,9 +1,28 @@
-import { expect, test } from 'bun:test'
+import { expect, spyOn, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { HbarRuntimeProvider, HbarSessionWorkspace } from '@hbar/app-react'
 import { createAppRuntime, type BudgetCommandPort, type SessionTimelinePort } from '@hbar/app-runtime'
 import type { UsageQueryResult } from '@hbar/contracts/commands/usage'
+import type { SessionBudget } from '@hbar/contracts'
+import type { ModelDescriptor } from '@hbar/contracts/commands/models'
+import { createCommandClient } from '@hbar/commands'
+import { budgetCommands } from '@hbar/contracts/commands/budget'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { renderedElements } from './ssr-elements'
+
+function renderCleanMarkup(content: Parameters<typeof renderToStaticMarkup>[0]): string {
+  const warnings: string[] = []
+  const log = spyOn(console, 'error').mockImplementation((...values: unknown[]) => {
+    for (const value of values) if (typeof value === 'string') warnings.push(value)
+  })
+  try {
+    const html = renderToStaticMarkup(content)
+    expect(warnings).toEqual([])
+    return html
+  } finally {
+    log.mockRestore()
+  }
+}
 
 const workspace = { id: 'workspace', path: 'D:/workspace', name: 'Workspace', createdAt: 1 }
 const session = {
@@ -170,24 +189,45 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
       throw new Error(`Unsupported query: ${name}`)
     },
   }
-  const budget = {
-    async execute() {
-      return {
-        sessionId: session.id,
-        budgetId: 'budget',
-        limit: 100,
-        phase: 'active',
-        usedTokens: 20,
-        remainingTokens: 80,
-        revision: 1,
-        createdAt: 1,
-        updatedAt: 2,
-      }
+  const budgetValue: SessionBudget = {
+    sessionId: session.id,
+    budgetId: 'budget',
+    limit: 100,
+    phase: 'active',
+    usedTokens: 20,
+    remainingTokens: 80,
+    revision: 1,
+    createdAt: 1,
+    updatedAt: 2,
+  }
+  const budgetQueries = createCommandClient(budgetCommands, {
+    async execute(id, value) {
+      if (id !== 'session.getBudget') throw new Error('Static fixture does not accept budget writes')
+      const input = budgetCommands[id].input.parse(value)
+      expect(input.sessionId).toBe(session.id)
+      return budgetValue
     },
+  })
+  const budget: BudgetCommandPort = {
+    execute: budgetQueries.execute,
     async getReceipt() {
       return null
     },
-  } as unknown as BudgetCommandPort
+  }
+  const model: ModelDescriptor = {
+    id: 'provider:model',
+    providerId: 'provider',
+    providerName: 'Provider',
+    modelId: 'model',
+    modelName: 'Fixture Model',
+    contextWindow: 100_000,
+    maxOutput: 10_000,
+    imageInput: true,
+    reasoning: true,
+    thinkingLevels: ['low', 'high'],
+    defaultThinkingLevel: 'low',
+    hasKey: true,
+  }
   const runtime = createAppRuntime({
     instanceId: 'session-workspace',
     hostId: 'host',
@@ -195,25 +235,14 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
     timeline,
     budget,
     models: {
-      async execute() {
+      async execute(name) {
+        if (name === 'model.list') return [model]
+        if (name !== 'session.getModel') throw new Error(`Unexpected model mutation: ${name}`)
         return {
           sessionId: session.id,
           status: 'configured',
           modelId: 'provider:model',
-          model: {
-            id: 'provider:model',
-            providerId: 'provider',
-            providerName: 'Provider',
-            modelId: 'model',
-            modelName: 'Fixture Model',
-            contextWindow: 100_000,
-            maxOutput: 10_000,
-            imageInput: true,
-            reasoning: true,
-            thinkingLevels: ['low'],
-            defaultThinkingLevel: 'low',
-            hasKey: true,
-          },
+          model,
           thinkingLevel: 'low',
           revisions: {},
           sources: { model: 'session', thinkingLevel: 'session' },
@@ -240,7 +269,7 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
       questionId: 'continue',
       answer: { kind: 'option', value: 'Yes' },
     })
-    const html = renderToStaticMarkup(
+    const html = renderCleanMarkup(
       <HbarRuntimeProvider view={runtime.view}>
         <HbarSessionWorkspace
           sessionTitle={session.title}
@@ -259,7 +288,21 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
     expect(html).not.toContain('<script>')
     expect(html).toContain('next prompt')
     expect(html).toContain('aria-label="Choose model: Fixture Model"')
-    expect(html).toContain('aria-valuetext="Low"')
+    expect(
+      (await renderedElements(html, '.hbar-composer-thinking-trigger')).map((element) => ({
+        text: element.text,
+        label: element.attributes['aria-label'],
+        expanded: element.attributes['aria-expanded'],
+        popup: element.attributes['aria-haspopup'],
+      })),
+    ).toEqual([
+      {
+        text: labels.modelPicker.thinkingLevel('low'),
+        label: labels.modelPicker.thinkingTrigger(labels.modelPicker.thinkingLevel('low')),
+        expanded: 'false',
+        popup: 'dialog',
+      },
+    ])
     expect(html).toContain('aria-haspopup="dialog"')
     expect(html).toContain(getShellCopy('en-US').session.decisions.approval)
     expect(html).toContain('Agent plan')
