@@ -1,7 +1,13 @@
-import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react'
-import { createPortal } from 'react-dom'
+import { useRef, useState, type MouseEvent } from 'react'
 import { MessageCircle, MessageSquare } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText, LumenTextarea } from '@lumen/app-ui'
+import {
+  LumenButton,
+  LumenContentText,
+  LumenFloatingSurface,
+  LumenFrame,
+  LumenIcon,
+  LumenTextarea,
+} from '@lumen/app-ui'
 import type { FileComposerContextSelection } from '@hbar/app-runtime'
 import './file-context-surfaces.css'
 
@@ -44,8 +50,12 @@ export function HbarFileCommentEditor({
     <LumenFrame className="hbar-file-comment-editor">
       <LumenFrame className="hbar-file-comment-heading">
         <LumenIcon icon={MessageSquare} tier="sm" />
-        <LumenText as="strong">{labels.commentTitle}</LumenText>
-        <LumenText as="small">{rangeLabel}</LumenText>
+        <LumenContentText context="section.title" level={3} className="hbar-file-comment-title">
+          {labels.commentTitle}
+        </LumenContentText>
+        <LumenFrame className="hbar-file-comment-range" role="group" aria-label={rangeLabel} tabIndex={0}>
+          <LumenContentText context="metadata.detail">{rangeLabel}</LumenContentText>
+        </LumenFrame>
       </LumenFrame>
       <LumenTextarea
         variant="plain"
@@ -67,7 +77,7 @@ export function HbarFileCommentEditor({
           }
         }}
       />
-      <LumenFrame className="hbar-file-comment-actions">
+      <LumenFrame className="hbar-file-comment-actions" role="group" aria-label={labels.commentTitle} tabIndex={0}>
         <LumenButton variant="text" disabled={submitting} onClick={onCancel}>
           {labels.cancel}
         </LumenButton>
@@ -122,51 +132,27 @@ function SelectionMenu({
   readonly onAdd: () => void
   readonly onDismiss: () => void
 }) {
-  const menu = useRef<HTMLDivElement>(null)
-  const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
-  useLayoutEffect(() => {
-    const box = menu.current?.getBoundingClientRect()
-    if (!box) return
-    const margin = 8
-    const top =
-      selection.rect.bottom + margin + box.height <= innerHeight
-        ? selection.rect.bottom + margin
-        : selection.rect.top - margin - box.height
-    setPosition({
-      left: Math.max(margin, Math.min(selection.rect.left, innerWidth - box.width - margin)),
-      top: Math.max(margin, Math.min(top, innerHeight - box.height - margin)),
-    })
-  }, [selection])
-  useEffect(() => {
-    const outside = (event: PointerEvent) => {
-      if (event.target instanceof Node && !menu.current?.contains(event.target)) onDismiss()
-    }
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onDismiss()
-    }
-    document.addEventListener('pointerdown', outside)
-    document.addEventListener('keydown', escape)
-    window.addEventListener('resize', onDismiss)
-    window.addEventListener('scroll', onDismiss, true)
-    return () => {
-      document.removeEventListener('pointerdown', outside)
-      document.removeEventListener('keydown', escape)
-      window.removeEventListener('resize', onDismiss)
-      window.removeEventListener('scroll', onDismiss, true)
-    }
-  }, [onDismiss])
-  return createPortal(
-    <LumenFrame
-      ref={menu}
+  return (
+    <LumenFloatingSurface
+      open
+      mode="point"
+      anchorPoint={{ x: selection.rect.left, y: selection.rect.bottom }}
+      placement="below"
+      responsivePresentation="anchored"
+      environmentChangeBehavior="dismiss"
+      focusBehavior="preserve"
+      restoreFocus={false}
+      onClose={onDismiss}
+      label={label}
+      role="group"
+      tabIndex={0}
       className="hbar-file-selection-menu"
-      style={{ left: position?.left ?? 0, top: position?.top ?? 0, visibility: position ? 'visible' : 'hidden' }}
     >
       <LumenButton variant="text" disabled={disabled} onMouseDown={(event) => event.preventDefault()} onClick={onAdd}>
         <LumenIcon icon={MessageCircle} tier="md" />
         {label}
       </LumenButton>
-    </LumenFrame>,
-    document.body,
+    </LumenFloatingSurface>
   )
 }
 
@@ -251,9 +237,9 @@ export function HbarFileSourceSurface({
             >
               {index + 1}
             </LumenButton>
-            <LumenText as="span" data-source-code={index}>
+            <LumenContentText context="code.inline" data-source-code={index}>
               {line || '\u200b'}
-            </LumenText>
+            </LumenContentText>
           </LumenFrame>
           {comment && endLine === index && (
             <HbarFileCommentEditor

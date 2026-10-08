@@ -24,7 +24,7 @@
   justify-content: flex-end;
   color: var(--lumen-muted);
   font: inherit;
-  font-size: 0.75rem;
+  font-size: var(--hbar-session-caption-size, calc(var(--lumen-font-size) * 0.9));
   user-select: none;
 }
 
@@ -60,9 +60,17 @@
   flex-wrap: wrap;
 }
 
-.hbar-file-comment-heading small {
+.hbar-file-comment-title {
+  flex: 1 1 12rem;
+  min-inline-size: 0;
+}
+
+.hbar-file-comment-range {
   margin-inline-start: auto;
+  min-inline-size: 0;
+  max-inline-size: 100%;
   color: var(--lumen-muted);
+  overflow-x: auto;
 }
 
 .hbar-file-comment-editor textarea {
@@ -74,27 +82,20 @@
 }
 
 .hbar-file-comment-actions {
-  justify-content: flex-end;
+  max-inline-size: 100%;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  justify-content: flex-start;
 }
 
-/* Proven overlay: CC's selected-text Add action floats beside the actual Range.
-   Coordinates come from measured text/menu rectangles, not screenshot layout. */
+/* The shared point surface owns Range placement, viewport clamping and dismissal. */
 .hbar-file-selection-menu {
-  position: fixed;
-  z-index: 1100;
-  max-inline-size: calc(100vi - 1rem);
-  border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 2rem;
-  background: var(--lumen-frost);
-  box-shadow: 0 0.25rem 1rem rgb(0 0 0 / 15%);
-
   overflow-x: auto;
 }
 
 .hbar-file-selection-menu button {
   block-size: auto;
   padding: 0.65rem 1rem;
-  border-radius: inherit;
 
   min-inline-size: max-content;
   max-inline-size: none;

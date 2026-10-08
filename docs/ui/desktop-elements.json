@@ -24623,7 +24623,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenFrame::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 44,
+      "line": 50,
       "owner": "HbarFileCommentEditor",
       "surface": "files-and-reading",
       "component": "LumenFrame",
@@ -24642,7 +24642,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenFrame::2",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 45,
+      "line": 51,
       "owner": "HbarFileCommentEditor",
       "surface": "files-and-reading",
       "component": "LumenFrame",
@@ -24661,7 +24661,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenIcon::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 46,
+      "line": 52,
       "owner": "HbarFileCommentEditor",
       "surface": "files-and-reading",
       "component": "LumenIcon",
@@ -24678,47 +24678,66 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenText::1",
+      "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenContentText::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 47,
+      "line": 53,
       "owner": "HbarFileCommentEditor",
       "surface": "files-and-reading",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "section.title",
       "contentSources": ["labels.commentTitle"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
-      "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenText::2",
+      "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenFrame::3",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 48,
+      "line": 56,
       "owner": "HbarFileCommentEditor",
       "surface": "files-and-reading",
-      "component": "LumenText",
-      "category": "text",
+      "component": "LumenFrame",
+      "category": "structure",
       "context": null,
+      "contentSources": [],
+      "accessibleNameSources": ["aria-label=rangeLabel"],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenContentText::2",
+      "path": "packages/app-react/src/file-context-surfaces.tsx",
+      "line": 57,
+      "owner": "HbarFileCommentEditor",
+      "surface": "files-and-reading",
+      "component": "LumenContentText",
+      "category": "text",
+      "context": "metadata.detail",
       "contentSources": ["rangeLabel"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "single",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenTextarea::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 50,
+      "line": 60,
       "owner": "HbarFileCommentEditor",
       "surface": "files-and-reading",
       "component": "LumenTextarea",
@@ -24728,10 +24747,10 @@
       "accessibleNameSources": ["aria-label=labels.note"],
       "actionBindings": {
         "onChange": "(event) => onNote(event.currentTarget.value)",
-        "onKeyDown": "(event) => {\r\n          if (event.key === 'Escape') {\r\n            event.preventDefault()\r\n            if (!submitting) onCancel()\r\n          } else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {\r\n            event.preventDefault()\r\n            submit()\r\n          }\r\n        }"
+        "onKeyDown": "(event) => {\n          if (event.key === 'Escape') {\n            event.preventDefault()\n            if (!submitting) onCancel()\n          } else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {\n            event.preventDefault()\n            submit()\n          }\n        }"
       },
       "targetSources": [
-        "onKeyDown=(event) => {\r\n          if (event.key === 'Escape') {\r\n            event.preventDefault()\r\n            if (!submitting) onCancel()\r\n          } else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {\r\n            event.preventDefault()\r\n            submit()\r\n          }\r\n        }"
+        "onKeyDown=(event) => {\n          if (event.key === 'Escape') {\n            event.preventDefault()\n            if (!submitting) onCancel()\n          } else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {\n            event.preventDefault()\n            submit()\n          }\n        }"
       ],
       "stateSources": ["value=note", "disabled=disabled || submitting"],
       "flow": "owning component contract",
@@ -24740,16 +24759,16 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenFrame::3",
+      "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenFrame::4",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 70,
+      "line": 80,
       "owner": "HbarFileCommentEditor",
       "surface": "files-and-reading",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [],
-      "accessibleNameSources": [],
+      "accessibleNameSources": ["aria-label=labels.commentTitle"],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
@@ -24761,7 +24780,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenButton::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 71,
+      "line": 81,
       "owner": "HbarFileCommentEditor",
       "surface": "files-and-reading",
       "component": "LumenButton",
@@ -24780,7 +24799,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileCommentEditor::LumenButton::2",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 74,
+      "line": 84,
       "owner": "HbarFileCommentEditor",
       "surface": "files-and-reading",
       "component": "LumenButton",
@@ -24797,28 +24816,28 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/file-context-surfaces.tsx::SelectionMenu::LumenFrame::1",
+      "id": "packages/app-react/src/file-context-surfaces.tsx::SelectionMenu::LumenFloatingSurface::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 159,
+      "line": 136,
       "owner": "SelectionMenu",
       "surface": "files-and-reading",
-      "component": "LumenFrame",
-      "category": "structure",
+      "component": "LumenFloatingSurface",
+      "category": "interaction",
       "context": null,
-      "contentSources": [],
-      "accessibleNameSources": [],
-      "actionBindings": {},
+      "contentSources": ["label=label"],
+      "accessibleNameSources": ["label=label"],
+      "actionBindings": { "onClose": "onDismiss" },
       "targetSources": [],
-      "stateSources": [],
-      "flow": "owning flow layout",
-      "lumenMapping": "LumenFrame",
+      "stateSources": ["open=true"],
+      "flow": "owning component contract",
+      "lumenMapping": "LumenFloatingSurface",
       "status": "composed",
       "issues": []
     },
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::SelectionMenu::LumenButton::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 164,
+      "line": 151,
       "owner": "SelectionMenu",
       "surface": "files-and-reading",
       "component": "LumenButton",
@@ -24837,7 +24856,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::SelectionMenu::LumenIcon::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 165,
+      "line": 152,
       "owner": "SelectionMenu",
       "surface": "files-and-reading",
       "component": "LumenIcon",
@@ -24856,23 +24875,23 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileSourceSurface::LumenFrame::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 216,
+      "line": 202,
       "owner": "HbarFileSourceSurface",
       "surface": "files-and-reading",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "[source:227; CallExpression] lines.map, line, index",
-        "[source:283; BinaryExpression] selection"
+        "[source:213; CallExpression] lines.map, line, index",
+        "[source:269; BinaryExpression] selection"
       ],
       "accessibleNameSources": ["aria-label=previewLabel"],
       "actionBindings": {
         "onMouseUp": "mouseUp",
-        "onKeyUp": "(event) => {\r\n        if (event.key === 'Escape') dismiss()\r\n        else if (event.shiftKey && root.current && !disabled) setSelection(captureTextSelection(root.current, starts))\r\n      }"
+        "onKeyUp": "(event) => {\n        if (event.key === 'Escape') dismiss()\n        else if (event.shiftKey && root.current && !disabled) setSelection(captureTextSelection(root.current, starts))\n      }"
       },
       "targetSources": [
-        "onKeyUp=(event) => {\r\n        if (event.key === 'Escape') dismiss()\r\n        else if (event.shiftKey && root.current && !disabled) setSelection(captureTextSelection(root.current, starts))\r\n      }"
+        "onKeyUp=(event) => {\n        if (event.key === 'Escape') dismiss()\n        else if (event.shiftKey && root.current && !disabled) setSelection(captureTextSelection(root.current, starts))\n      }"
       ],
       "stateSources": [],
       "flow": "owning flow layout",
@@ -24883,13 +24902,13 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileSourceSurface::LumenFrame::2",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 228,
+      "line": 214,
       "owner": "HbarFileSourceSurface",
       "surface": "files-and-reading",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": ["[source:258; BinaryExpression] comment, endLine, index"],
+      "contentSources": ["[source:244; BinaryExpression] comment, endLine, index"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": ["key=index"],
@@ -24902,7 +24921,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileSourceSurface::LumenFrame::3",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 229,
+      "line": 215,
       "owner": "HbarFileSourceSurface",
       "surface": "files-and-reading",
       "component": "LumenFrame",
@@ -24921,7 +24940,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileSourceSurface::LumenButton::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 234,
+      "line": 220,
       "owner": "HbarFileSourceSurface",
       "surface": "files-and-reading",
       "component": "LumenButton",
@@ -24930,7 +24949,7 @@
       "contentSources": ["index + 1"],
       "accessibleNameSources": ["aria-label=labels.commentLine(path, index + 1)"],
       "actionBindings": {
-        "onClick": "(event) => {\r\n                dismiss()\r\n                setComment((current) =>\r\n                  event.shiftKey && current ? { ...current, focus: index } : { anchor: index, focus: index, note: '' },\r\n                )\r\n              }"
+        "onClick": "(event) => {\n                dismiss()\n                setComment((current) =>\n                  event.shiftKey && current ? { ...current, focus: index } : { anchor: index, focus: index, note: '' },\n                )\n              }"
       },
       "targetSources": [],
       "stateSources": ["disabled=disabled || !sha256 || !line"],
@@ -24940,28 +24959,28 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileSourceSurface::LumenText::1",
+      "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileSourceSurface::LumenContentText::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 254,
+      "line": 240,
       "owner": "HbarFileSourceSurface",
       "surface": "files-and-reading",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "code.inline",
       "contentSources": ["line || '\\u200b'"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "inlineCode",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileSourceSurface::HbarFileCommentEditor::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 259,
+      "line": 245,
       "owner": "HbarFileSourceSurface",
       "surface": "files-and-reading",
       "component": "HbarFileCommentEditor",
@@ -24972,7 +24991,7 @@
       "actionBindings": {
         "onNote": "(note) => setComment((current) => (current ? { ...current, note } : null))",
         "onCancel": "closeComment",
-        "onSubmit": "async (note) => {\r\n                if (!sha256) return false\r\n                const added = await onAdd({\r\n                  kind: 'source-comment',\r\n                  sha256,\r\n                  startOffset: starts[startLine]!,\r\n                  endOffset: starts[endLine]! + lines[endLine]!.length,\r\n                  note,\r\n                })\r\n                if (added) closeComment()\r\n                return added\r\n              }"
+        "onSubmit": "async (note) => {\n                if (!sha256) return false\n                const added = await onAdd({\n                  kind: 'source-comment',\n                  sha256,\n                  startOffset: starts[startLine]!,\n                  endOffset: starts[endLine]! + lines[endLine]!.length,\n                  note,\n                })\n                if (added) closeComment()\n                return added\n              }"
       },
       "targetSources": ["key=`${startLine}:${endLine}`"],
       "stateSources": ["disabled=disabled"],
@@ -24984,7 +25003,7 @@
     {
       "id": "packages/app-react/src/file-context-surfaces.tsx::HbarFileSourceSurface::SelectionMenu::1",
       "path": "packages/app-react/src/file-context-surfaces.tsx",
-      "line": 284,
+      "line": 270,
       "owner": "HbarFileSourceSurface",
       "surface": "files-and-reading",
       "component": "SelectionMenu",
@@ -24994,7 +25013,7 @@
       "accessibleNameSources": ["label=labels.addSelection"],
       "actionBindings": {
         "onDismiss": "dismiss",
-        "onAdd": "() => {\r\n            if (!sha256) return\r\n            void onAdd({\r\n              kind: 'source-selection',\r\n              sha256,\r\n              startOffset: selection.startOffset,\r\n              endOffset: selection.endOffset,\r\n            }).then((added) => {\r\n              if (!added) return\r\n              dismiss()\r\n              root.current?.ownerDocument.getSelection()?.removeAllRanges()\r\n            })\r\n          }"
+        "onAdd": "() => {\n            if (!sha256) return\n            void onAdd({\n              kind: 'source-selection',\n              sha256,\n              startOffset: selection.startOffset,\n              endOffset: selection.endOffset,\n            }).then((added) => {\n              if (!added) return\n              dismiss()\n              root.current?.ownerDocument.getSelection()?.removeAllRanges()\n            })\n          }"
       },
       "targetSources": [],
       "stateSources": ["disabled=disabled"],

@@ -1,12 +1,13 @@
 import { expect, test } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, dirname, join, resolve } from 'node:path'
+import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { selectLumenOption } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { removeOwnedTempDirectory } from './support/owned-temp-directory'
 
 const base = () => `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
 const captureDirectory = 'artifacts/file-selection-context'
@@ -24,10 +25,7 @@ function git(root: string, ...args: string[]) {
 }
 
 async function removeOwnedTemporaryDirectory(path: string): Promise<void> {
-  const target = resolve(path)
-  if (dirname(target) !== resolve(tmpdir()) || !basename(target).startsWith('hbar-file-context-'))
-    throw new Error(`Refusing to remove unexpected temporary directory: ${target}`)
-  await rm(target, { recursive: true, force: true })
+  await removeOwnedTempDirectory(path, 'hbar-file-context-')
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
@@ -169,7 +167,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const disclosure = page.locator(
         '.hbar-composer-workspace-context-card[data-kind="source-selection"] .hbar-composer-workspace-context-quote',
       )
-      const quote = disclosure.locator('blockquote')
+      const quote = disclosure.getByRole('blockquote')
       for (const width of [1440, 320]) {
         await page.setViewportSize({ width, height: width === 320 ? 844 : 900 })
         await expect(quote).toBeHidden()
