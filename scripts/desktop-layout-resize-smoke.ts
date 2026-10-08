@@ -92,7 +92,12 @@ try {
     { idempotencyKey: crypto.randomUUID() },
   )
   const show = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
-  if (await show.isVisible()) await show.click()
+  const showSidebar = async () => {
+    const sidebar = view.getByRole('complementary', { name: copy.shell.projectsAndSessions, exact: true })
+    if (!(await sidebar.isVisible())) await show.click()
+    await expect(sidebar).toBeVisible()
+  }
+  await showSidebar()
   await page.getByRole('button', { name: copy.shell.roster.refreshExpanded, exact: true }).click()
   await page.locator(`[data-session-id="${session.id}"] .hbar-app-react-session-target`).click()
   const invokeNative = (command: string, args: Record<string, unknown>) =>
@@ -110,10 +115,22 @@ try {
     invokeNative('plugin:window|set_size', { label: 'main', value: { Logical: { width, height } } })
   await setWindowSize(1600, 1000)
   await expect.poll(() => view.evaluate(() => innerHeight)).toBe(1000)
-  await page.getByRole('button', { name: '首次配置', exact: true }).click()
-  await expect(page.locator('.hbar-desktop-layout-projection .flexlayout__splitter')).toHaveCount(2)
-  const draft = '尺寸验收未发送草稿'
   const composer = view.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
+  const openFiles = async () => {
+    await expect(composer).toBeVisible()
+    const pane = view.locator('.hbar-desktop-tool-pane')
+    if (!(await pane.isVisible())) {
+      await showSidebar()
+      await view.getByRole('button', { name: copy.shell.openWorkspaceFiles(workspace.name), exact: true }).click()
+    }
+    await expect(pane).toBeVisible()
+    await expect(pane.getByRole('region', { name: copy.files.title, exact: true })).toBeVisible()
+    await expect(pane.getByRole('button', { name: copy.files.close, exact: true })).toBeVisible()
+    await showSidebar()
+    await expect(view.locator('.hbar-desktop-layout-projection .flexlayout__splitter')).toHaveCount(2)
+  }
+  await openFiles()
+  const draft = '尺寸验收未发送草稿'
   await composer.fill(draft)
   const readGeometry = () =>
     view.evaluate(() => {
@@ -240,14 +257,16 @@ try {
       .toBeLessThanOrEqual(1)
     await composer.click()
     expect((await readGeometry()).saved).toEqual(beforeReload.saved)
+    await expect(
+      view.locator('.hbar-desktop-tool-pane').getByRole('button', { name: copy.files.close, exact: true }),
+    ).toBeVisible()
     await view.screenshot({ path: join(output, `${scenario.id}.png`) })
     await view.reload()
     await view.locator('[data-hbar-app-ui-shell="app"]').waitFor()
     await view.evaluate((rem) => {
       document.documentElement.style.fontSize = `${rem}px`
     }, scenario.rem)
-    await view.getByRole('button', { name: '首次配置', exact: true }).click()
-    await expect(view.locator('.hbar-desktop-layout-projection .flexlayout__splitter')).toHaveCount(2)
+    await openFiles()
     for (const index of [0, 1, 2])
       await expect
         .poll(async () => Math.abs(paneWidth(await readGeometry(), index) - paneWidth(beforeReload, index)))
@@ -284,7 +303,7 @@ try {
   for (const width of [1200, 900, 1600]) {
     await setWindowSize(width, 800)
     await expect.poll(() => view.evaluate(() => innerWidth)).toBe(width)
-    if (await show.isVisible()) await show.click()
+    await showSidebar()
     await expect(view.locator('.hbar-desktop-layout-projection .flexlayout__splitter')).toHaveCount(2)
     await expect.poll(async () => (await readGeometry()).layout.width).toBe(width - 2)
     await expect.poll(async () => paneWidth(await readGeometry(), 1)).toBeGreaterThanOrEqual(319)

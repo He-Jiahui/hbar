@@ -744,4 +744,10 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 7f222913 将通知入口改为直接打开全局页面，旧侧栏测试还查找已不存在的 notifications-surface。现在通过宿主通知文案找到实际通知按钮，并继续核对它与 Settings 的真实边界，避免把测试只改为存在检查。修改前的 frozen 产物也复现了原拖动／旧页脚选择器失败；诊断、最终四项通过日志与截图均保留在 sidebar-pointer、sidebar-before-preview 与 artifacts/desktop-final-entry-audit/navigation/sidebar-resize。范围严格 lint、根类型、格式和截图通过，本项没有修改产品源码。
 - 更正 febce976／716a7bdb 的格式基线记录：PowerShell 管道转换了用于对照的文本换行，不能据其退出码判断 Git blob 的原始格式。使用原始 Git blob 与 Prettier API 核对后，五个有限 fixture 文件及 server.test.ts 的原始格式均合规，本轮混合换行已统一，格式检查通过且没有额外 Git 文本差异。contracts/index.ts 的既存格式失败由原始 blob 单独确认，保持已提交的最小字段变更，没有夹带整文件重排。
 
-当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。最终全库与原生门禁尚未完成。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 原生三栏拖动、缩放与刷新恢复
+
+- 本轮新鲜 debug Desktop 上的完整 resize smoke 通过：100%／125% 原生缩放与 20px 根字号、20 次真实 pointer 拖动、两处分隔条最小／最大宽度、预览／松手／保存／reload 误差不超过 1 CSS px、方向键、Escape 不保存、1600→1200→900→1600 收缩恢复及原会话草稿保持。实际页面错误和 Run 数均为零，独立临时 Host／profile 已按精确 data-root 所有权释放；没有请求真实模型。
+- 初始失败来自 85e2e42b 的旧入口：脚本点击“首次配置”打开当前引导页，那里只有一处分隔条。改为使用宿主文案与原工程名称打开实际 Files 工具，并等待其真实关闭按钮，避免把 lazy loading 占位当作内容就绪。原生 FlexLayout projection 使用自身工具／侧栏区域，不依赖只存在于 Web shell 的状态属性；reload 后也使用同一公开入口。保留全部几何与状态断言，没有放宽数量或像素误差。
+- 范围严格 lint、根 TypeScript、格式和差异检查通过，已复核内容加载后的 100% 与大字号截图。证据为 artifacts/desktop-elements/final-gates/native-visible-files-resize.log、native-visible-files-resize/geometry.json 与三组截图；此前入口、projection 属性和过时刷新名称的诊断失败均保留。拍图前再次等待实际文件控件，较早只等待工具外壳的通过日志不作为内容就绪验收。
+
+当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过；最终工程与原生结果在收尾记录中单独列明。
