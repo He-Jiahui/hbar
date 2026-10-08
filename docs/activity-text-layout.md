@@ -8,6 +8,8 @@
 
 容量和业务加载策略沿用 Host 契约：Plan 最多 100 个步骤，Agent 按 50 行游标分页，Workflow 最多 128 个委派，运行按现有游标分页。面板只保留一个纵向内容滚动区，标题、刷新与关闭入口留在滚动区外。这是活动面板的阅读策略，其他组件的单行控制标签策略保持其既有作用域。
 
+内容超过面板可用高度时自动显示清晰的主题色纵向滚动条；内容能放下时不显示滑块。滚动条轨道预留稳定空间，显隐不会挤动正文或改变行宽。窗口高度变化、展开 / 收起全文及列表增减均由浏览器原生滚动机制即时处理。滚动区可聚焦，支持鼠标滚轮以及 PageDown / End / Home 等键盘操作；高对比度模式交给系统颜色。各任务、运行和 Agent 条目继续使用正常流，不添加嵌套的文本滚动区。
+
 结构对应 ReactBits [三栏工作台](https://pro.reactbits.dev/docs/app-ui/app-shell/app-shell-4)，紧凑状态层级对应 [Activity 3](https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-3)，按需展开对应 [Activity 2](https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-2)。只采用这些结构与交互语义，颜色与字号消费现有 Lumen 主题。
 
 回归验收位于 `e2e/activity-text-layout.spec.ts`，覆盖中英文、明暗主题、478 / 390 / 320 宽度、长路径、默认折叠与键盘展开、原始行操作目标、实时更新及列表容量。真实 Host 的 Plan / Workflow / Agent 入口另外由对应 Activity E2E 验证。

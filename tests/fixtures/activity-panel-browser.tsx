@@ -171,7 +171,7 @@ function Fixture({ input }: { readonly input: ActivityPanelFixtureInput }) {
         closeLabel={copy.close}
         onClose={() => actions.push('close')}
       >
-        <LumenFrame as="main" className="hbar-session-activity-body">
+        <LumenFrame as="main" className="hbar-session-activity-body" tabIndex={0} aria-label={copy.title}>
           <ActivityTasksView
             facts={facts}
             sessionId={sessionId}

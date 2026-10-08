@@ -271,7 +271,7 @@ export function HbarSessionActivityWorkspace({
       }
       className="hbar-session-activity-workspace"
     >
-      <LumenFrame as="main" className="hbar-session-activity-body">
+      <LumenFrame as="main" className="hbar-session-activity-body" tabIndex={0} aria-label={labels.title}>
         {panel?.sessionId && (
           <ActivityTasksView
             facts={composerIntent.facts}

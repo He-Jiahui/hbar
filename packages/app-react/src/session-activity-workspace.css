@@ -15,7 +15,16 @@
   padding: 0.5rem;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+  scrollbar-color: var(--lumen-ink) var(--lumen-panel, var(--lumen-contrast));
   overscroll-behavior: contain;
+}
+
+@media (forced-colors: active) {
+  .hbar-session-activity-body {
+    scrollbar-color: auto;
+  }
 }
 
 .hbar-session-activity-workspace > .lumen-tool-pane-body {
