@@ -12,6 +12,16 @@
   padding: 0.5rem 0;
 }
 
+.hbar-pre-session-launch-actions {
+  max-inline-size: 100%;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.hbar-pre-session-launch-actions > button {
+  flex: 0 0 auto;
+}
+
 .hbar-pre-session-launch-status > p {
   min-inline-size: 0;
   margin: 0;

@@ -1,5 +1,5 @@
 import type { SessionDraftState, SessionTimelineState } from '@hbar/app-runtime'
-import { LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenFrame } from '@lumen/app-ui'
 
 export interface HbarSessionEmptyHeroLabels {
   readonly markUrl: string
@@ -60,12 +60,16 @@ export function HbarSessionEmptyHero({
         style={{ backgroundImage: `url(${labels.markUrl})` }}
         aria-hidden="true"
       />
-      <LumenText as={headingAs} className="hbar-app-react-session-empty-title">
+      <LumenContentText
+        context="empty.title"
+        level={headingAs === 'h1' ? 1 : 2}
+        className="hbar-app-react-session-empty-title"
+      >
         {labels.title}
-      </LumenText>
-      <LumenText as="p" className="hbar-app-react-session-empty-description">
+      </LumenContentText>
+      <LumenContentText context="empty.description" className="hbar-app-react-session-empty-description">
         {labels.description}
-      </LumenText>
+      </LumenContentText>
     </LumenFrame>
   )
 }

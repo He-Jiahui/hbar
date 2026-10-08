@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenContentText, LumenFrame } from '@lumen/app-ui'
 import type { PreSessionDraftState } from '@hbar/app-runtime'
 import { useHbarRuntime } from './runtime'
 import { firstSendNeedsContinue } from './pre-session-launch-model'
@@ -7,6 +7,7 @@ export { firstSendIsLocked } from './pre-session-launch-model'
 import './pre-session-launch-status.css'
 
 export interface HbarPreSessionLaunchStatusLabels {
+  readonly actions: string
   readonly preparing: string
   readonly paused: string
   readonly unknown: string
@@ -79,10 +80,13 @@ export function HbarPreSessionLaunchStatus({
             : labels.preparing
   return (
     <LumenFrame className="hbar-pre-session-launch-status" data-first-send-phase={draft.phase}>
-      <LumenText as="p" role={draft.phase === 'failed' || draft.phase === 'unknown' ? 'alert' : 'status'}>
+      <LumenContentText
+        context="feedback.paragraph"
+        role={draft.phase === 'failed' || draft.phase === 'unknown' ? 'alert' : 'status'}
+      >
         {error ? labels.error(error) : status}
-      </LumenText>
-      <LumenFrame className="hbar-pre-session-launch-actions">
+      </LumenContentText>
+      <LumenFrame className="hbar-pre-session-launch-actions" role="group" aria-label={labels.actions} tabIndex={0}>
         {(draft.phase === 'unknown' || cancelRequested || paused) && !inFlight && (
           <LumenButton
             type="button"

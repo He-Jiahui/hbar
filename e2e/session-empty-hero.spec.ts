@@ -19,6 +19,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         root,
         port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
         budgetAutoContinue: false,
+        goalAutoContinue: false,
       })
       const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
       expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
@@ -78,7 +79,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .first()
         .click()
       await expect(hero).toBeVisible()
-      await prompt.fill('Begin the first verified turn.')
+      await prompt.click()
+      await expect(prompt).toBeFocused()
+      await page.keyboard.insertText('Begin the first verified turn.')
+      await expectComposerText(prompt, 'Begin the first verified turn.')
       await expect(hero).toBeVisible()
       const send = page.getByRole('button', { name: copy.session.prompt.send, exact: true })
       await expect(send).toBeEnabled()

@@ -9,7 +9,7 @@
 | 类别        | 元素 | pending | 设计职责                                                                |
 | ----------- | ---: | ------: | ----------------------------------------------------------------------- |
 | structure   | 1231 |       5 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
-| text        | 1122 |      10 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
+| text        | 1122 |       7 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
 | interaction |  944 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
 | form        |  280 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
 | collection  |  135 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
@@ -107,7 +107,7 @@
 | [packages/app-react/src/pre-session-approval-picker.tsx](../../packages/app-react/src/pre-session-approval-picker.tsx)     | composer-and-launch                              |   38 |             11 |          0 |          0 |
 | [packages/app-react/src/pre-session-choice-picker.tsx](../../packages/app-react/src/pre-session-choice-picker.tsx)         | composer-and-launch                              |   31 |             10 |          0 |          0 |
 | [packages/app-react/src/pre-session-landing.tsx](../../packages/app-react/src/pre-session-landing.tsx)                     | composer-and-launch                              |    6 |              0 |          0 |          0 |
-| [packages/app-react/src/pre-session-launch-status.tsx](../../packages/app-react/src/pre-session-launch-status.tsx)         | status-and-usage                                 |    7 |              0 |          1 |          0 |
+| [packages/app-react/src/pre-session-launch-status.tsx](../../packages/app-react/src/pre-session-launch-status.tsx)         | status-and-usage                                 |    7 |              1 |          0 |          0 |
 | [packages/app-react/src/pre-session-location-picker.tsx](../../packages/app-react/src/pre-session-location-picker.tsx)     | composer-and-launch                              |   85 |             31 |          0 |          0 |
 | [packages/app-react/src/pre-session-slash-editor.tsx](../../packages/app-react/src/pre-session-slash-editor.tsx)           | composer-and-launch                              |    3 |              0 |          0 |          0 |
 | [packages/app-react/src/pre-session-thinking-picker.tsx](../../packages/app-react/src/pre-session-thinking-picker.tsx)     | composer-and-launch                              |   13 |              4 |          0 |          0 |
@@ -125,7 +125,7 @@
 | [packages/app-react/src/session-activity-workspace.tsx](../../packages/app-react/src/session-activity-workspace.tsx)       | agents-and-activity                              |   31 |             10 |          0 |          0 |
 | [packages/app-react/src/session-agent-branch.tsx](../../packages/app-react/src/session-agent-branch.tsx)                   | agents-and-activity                              |   15 |              5 |          0 |          0 |
 | [packages/app-react/src/session-archive.tsx](../../packages/app-react/src/session-archive.tsx)                             | session                                          |   58 |             24 |          0 |          0 |
-| [packages/app-react/src/session-empty-hero.tsx](../../packages/app-react/src/session-empty-hero.tsx)                       | session                                          |    4 |              0 |          2 |          0 |
+| [packages/app-react/src/session-empty-hero.tsx](../../packages/app-react/src/session-empty-hero.tsx)                       | session                                          |    4 |              2 |          0 |          0 |
 | [packages/app-react/src/session-execution-notice.tsx](../../packages/app-react/src/session-execution-notice.tsx)           | session                                          |    7 |              2 |          0 |          0 |
 | [packages/app-react/src/session-find-view.tsx](../../packages/app-react/src/session-find-view.tsx)                         | session                                          |   12 |              2 |          0 |          0 |
 | [packages/app-react/src/session-find.tsx](../../packages/app-react/src/session-find.tsx)                                   | session                                          |    3 |              0 |          0 |          0 |

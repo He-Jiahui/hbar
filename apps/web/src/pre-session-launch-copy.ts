@@ -112,6 +112,7 @@ export function preSessionLaunchCopy(locale: ShellLocale): {
         ),
     },
     status: {
+      actions: choose('首次发送操作', 'First-send actions'),
       preparing: choose('正在准备首次发送…', 'Preparing first send…'),
       paused: choose(
         '首次发送已暂停。确认当前会话后继续。',
