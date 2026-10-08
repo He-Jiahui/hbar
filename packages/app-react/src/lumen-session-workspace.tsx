@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { HbarSessionWorkspaceContext, type HbarSessionWorkspaceContextContent } from './session-workspace-context'
+import { latestSessionContextTerminalRunId } from './session-project-context-model'
 import {
   Bot,
   ChartNoAxesColumnIncreasing,
@@ -80,11 +82,7 @@ import { HbarComposerAddMenu, type HbarComposerAddMenuLabels } from './composer-
 import { HbarComposerAgentNotice } from './composer-agent-notice'
 import { HbarAgentToolOpen, type HbarAgentToolOpenLabels } from './agent-tool-open'
 import { agentToolOpenIdentity } from './agent-tool-open-model'
-import {
-  HbarSessionProjectContext,
-  useHbarSessionProjectContext,
-  type HbarSessionProjectContextLabels,
-} from './session-project-context'
+import { useHbarSessionProjectContext, type HbarSessionProjectContextLabels } from './session-project-context'
 import {
   localAgentSlash,
   localGoalSlash,
@@ -418,8 +416,7 @@ function SessionWorkspaceContent({
       },
       operationId,
     )
-  const terminalRunId =
-    [...timeline.runs].reverse().find((run) => ['completed', 'failed', 'cancelled'].includes(run.status))?.id ?? null
+  const terminalRunId = latestSessionContextTerminalRunId(timeline.runs)
   const projectContext = useHbarSessionProjectContext({
     sessionId,
     workspaceId: sessionWorkspaceId,
@@ -427,21 +424,24 @@ function SessionWorkspaceContent({
     terminalRunId,
     enabled: Boolean(projectContextLabels),
   })
-  const projectContextView = (showLaunchControls: boolean) =>
-    showLaunchControls && renderLaunchControls ? (
-      renderLaunchControls()
-    ) : projectContextLabels && sessionId ? (
-      <HbarSessionProjectContext
-        workspaceName={workspaceName}
-        workspacePath={workspacePath}
-        sessionId={sessionId}
-        workspaceId={sessionWorkspaceId}
-        connected={connected}
-        context={projectContext.context}
-        labels={projectContextLabels}
-        onRetry={projectContext.onRetry}
-      />
-    ) : null
+  const projectContextContent = (showLaunchControls: boolean): HbarSessionWorkspaceContextContent =>
+    showLaunchControls && renderLaunchControls
+      ? { kind: 'launch', slot: renderLaunchControls() }
+      : projectContextLabels && sessionId
+        ? {
+            kind: 'project',
+            props: {
+              workspaceName,
+              workspacePath,
+              sessionId,
+              workspaceId: sessionWorkspaceId,
+              connected,
+              context: projectContext.context,
+              labels: projectContextLabels,
+              onRetry: projectContext.onRetry,
+            },
+          }
+        : { kind: 'empty' }
   const execute = (name: string, input: unknown) =>
     (runtime.commands.execute as (command: string, value: unknown) => Promise<unknown>)(name, input)
   const invoke = (name: string, input: unknown) => void execute(name, input).catch(() => {})
@@ -2299,9 +2299,7 @@ function SessionWorkspaceContent({
                 />
               )}
               {projectContextLabels && (
-                <LumenFrame className="hbar-session-project-context-toolbar">
-                  {projectContextView(showLaunchLocation)}
-                </LumenFrame>
+                <HbarSessionWorkspaceContext placement="toolbar" content={projectContextContent(showLaunchLocation)} />
               )}
               <HbarComposerIntentControls
                 key={sessionId}
@@ -2506,7 +2504,7 @@ function SessionWorkspaceContent({
         />
       </HbarComposerAttachmentDropTarget>
       {projectContextLabels && (
-        <LumenFrame className="hbar-session-project-context-below">{projectContextView(showLaunchLocation)}</LumenFrame>
+        <HbarSessionWorkspaceContext placement="below" content={projectContextContent(showLaunchLocation)} />
       )}
       {sessionUsagePresentation(controls, labels.usage).notice && (
         <LumenContentText context="feedback.paragraph" className="hbar-session-budget-notice" role="status">

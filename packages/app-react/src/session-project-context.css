@@ -2,39 +2,47 @@
 .hbar-session-project-context-branch,
 .hbar-session-project-context-error {
   display: flex;
-  flex: 0 0 auto;
+  min-inline-size: 0;
+  max-inline-size: 100%;
   align-items: center;
   gap: 0.25rem;
-  white-space: nowrap;
 }
 
 .hbar-session-project-context {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  max-block-size: 40dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   align-self: flex-start;
   padding: 0.35rem 0.55rem;
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-frost);
-  font-size: 0.75rem;
+  font-size: var(--lumen-font-size-supporting);
 }
 
 .hbar-session-project-context-name,
-.hbar-session-project-context-branch > span,
-.hbar-session-project-context-error > span {
-  flex: 0 0 auto;
-  white-space: nowrap;
+.hbar-session-project-context-branch-name {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  font-size: var(--lumen-font-size-supporting);
 }
 
 .hbar-session-project-context-branch {
+  flex: 0 1 auto;
   color: var(--lumen-muted);
 }
 
-.hbar-session-project-context-branch > span {
+.hbar-session-project-context-branch-name {
   text-align: start;
 }
 
 .hbar-session-project-context-toolbar {
   display: flex;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  max-inline-size: 100%;
   align-items: center;
 }
 
@@ -50,6 +58,15 @@
   max-inline-size: 100%;
   overflow-x: auto;
   scrollbar-width: thin;
+}
+.hbar-session-project-context-feedback,
+.hbar-session-project-context-error {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-x: auto;
+}
+.hbar-session-project-context-error > * {
+  flex: 0 0 auto;
 }
 
 .hbar-app-react-session-footer[data-git-context-status='error'] .hbar-session-project-context-toolbar {

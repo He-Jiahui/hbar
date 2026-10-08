@@ -158,6 +158,7 @@ test('existing empty Session selects a shared branch locally and applies it on o
   try {
     host = await startWebSessionHost({
       budgetAutoContinue: false,
+      goalAutoContinue: false,
       root,
       home: hostData,
       port: Number(process.env.HBAR_E2E_HOST_PORT ?? 48979),

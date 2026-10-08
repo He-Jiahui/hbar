@@ -273,6 +273,8 @@
 .hbar-session-composer-controls {
   display: flex;
   flex: 0 0 auto;
+  min-inline-size: 0;
+  max-inline-size: 100%;
   align-items: center;
   flex-wrap: wrap;
   gap: 4px;

@@ -639,4 +639,12 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 真实 Host 的初始测试尝试将活动预算 100000 降到 14000，回执明确为 BUDGET_DECREASE，符合既有领域规则；修正 fixture 为从当前确认预算派生合法增量。返回原会话时按 sidebar 实际展开状态和项目展开回执恢复导航，避免操作离屏树。保留初始失败及只包含预算目标、数值、错误码的所属事实文件，不读取带鉴权数据的真实 Host trace。截图复核后修正窄屏身份宽度；最终四项内容矩阵与两项 Host 流程分别通过。
 - 范围严格 lint、内容／图标／flow guard、格式、新鲜 Lumen 类型／build、Web build、截图与清单通过；根冷类型仍有 91 项既有诊断，本次范围为零。证据在 artifacts/desktop-elements/usage-feedback-content 的 unit-verified.log、lumen-unit-verified.log、complete.log（四项最终内容矩阵）、host-verified.log（两项）、complete-results／host-verified-results、lint-complete.log、lint-host-verified.log、lumen-lint-verified.log、types-final.log、lumen-build-flow.log、build-flow.log 与 audit-complete.log。
 
-当前清单覆盖 148 个生产 TSX 模块、3861 个元素，业务低层文字未分类项为 0，合计仍有 7 项静态缺口。其余生产表面迁移、其余已分类标题／身份容量复核（包括 LumenFileDocument 标题与项目名称）、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 会话项目内容组合、完整身份与运行完成后的刷新
+
+- 两处未归属内容容器收进 HbarSessionWorkspaceContext。类型化 content 明确区分宿主 launch slot、已确认 project props 与 empty；toolbar／below 的原 DOM 位置、class、门控及回调保持不变。命名并公开 HbarSessionProjectContextProps，组件只接收既有宿主文案、项目路径、会话／工作区身份和 Git 投影；未添加审计白名单或伪造文本用途标记。
+- 项目名和完整分支归入 collection.title，自然换行。所属身份组在内容过长时以 40dvh 上界承担纵向键盘阅读，保持 composer 可用；加载、离线、错误和重试分别有具名横向阅读区，语义字体变量替代固定小字号。工具栏／下方区域和 leading controls 具备父宽度约束，避免长身份把整个页面撑宽；宽屏对齐以控制中心线验收，允许标题自然增加行数。
+- 实际第二次运行完成后，Host 的 sessionGit.info 已给出新分支，而界面仍显示前一次分支。查证 6fbfceef 的 reverse().find 与 session-timeline 的新到旧排序后，确认原逻辑选择最早的终态，不能触发后续刷新。改为按已确认 endedAt（缺失时使用真实 createdAt）选择最新完成的原 Run ID，不依赖列表顺序，覆盖完成、失败、取消、中断和 guided；并保留原 session／workspace 校验、取消和单次在途读取。
+- 37 项 Bun 测试／212 个断言和最终单次 8 项 Chrome 场景通过。四项纯展示 DTO 矩阵覆盖两语言／明暗／五宽度／较大文字／125% zoom、4000 字项目名与 4001 字公开 schema 拒绝、完整长分支、实际 PageDown 纵向阅读和状态方向键横向阅读、原重试目标、失效所有者、empty／launch／project 内容选择。四项实际 Host 流程覆盖两语言的启动位置／分支选择／首次发送及只读项目切换、分支变更、第二次运行后的刷新、四宽度布局、模型／权限浮层和离线；使用本地测试模型，禁用 Goal 与 budget 自动继续。
+- 旧用例保留完整分支身份而不再期待八字摘要（关联 5f188464）；实际空会话先建立本地已完成运行，再验证只读 Git 内容；根据原 Session ID 读取首次运行自动生成后的 Host 标题，依据实际侧栏和项目展开状态使用键盘导航。只记录原 ID、revision、分支和显示值的所属事实文件，不读取真实 Host 的鉴权 trace。范围严格 lint、内容／图标／flow guard、格式、新鲜 Web build、构建清单与截图通过；冷根类型仍有 91 项既有诊断，本次范围为零。证据在 artifacts/desktop-elements/session-workspace-context 的 unit-titles.log、titles.log（8 项）、title-results、owned-branch-facts.json（各所属测试目录）、lint-titles.log、types-final.log、build-titles.log 与 audit-titles.log；修复前失败记录保留。
+
+当前清单覆盖 149 个生产 TSX 模块、3864 个元素，业务低层文字未分类项为 0，合计仍有 5 项静态缺口（图表容器与四处原生文案）。其余已分类标题／身份容量复核（包括 LumenFileDocument 标题与侧栏项目名称）、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终全库／浏览器／原生门禁尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

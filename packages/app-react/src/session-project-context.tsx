@@ -17,6 +17,16 @@ export interface HbarSessionProjectContextLabels {
   readonly disconnected: string
   readonly retry: string
 }
+export interface HbarSessionProjectContextProps {
+  readonly workspaceName: string
+  readonly workspacePath?: string | undefined
+  readonly sessionId: string
+  readonly workspaceId: string
+  readonly connected: boolean
+  readonly context: SessionGitContextState
+  readonly labels: HbarSessionProjectContextLabels
+  readonly onRetry: () => void
+}
 
 export function HbarSessionProjectContext({
   workspaceName,
@@ -27,26 +37,22 @@ export function HbarSessionProjectContext({
   context,
   labels,
   onRetry,
-}: {
-  readonly workspaceName: string
-  readonly workspacePath?: string | undefined
-  readonly sessionId: string
-  readonly workspaceId: string
-  readonly connected: boolean
-  readonly context: SessionGitContextState
-  readonly labels: HbarSessionProjectContextLabels
-  readonly onRetry: () => void
-}) {
+}: HbarSessionProjectContextProps) {
   const belongsHere = context.sessionId === sessionId && context.workspaceId === workspaceId
   const branch = connected && belongsHere && context.status === 'ready' ? context.branch : null
   const error = connected && belongsHere && context.status === 'error' ? context.error : null
   const loading = connected && belongsHere && context.status === 'loading'
   const errorLabel = error ? labels.unavailable(error) : null
   return (
-    <LumenFrame className="hbar-session-project-context" role="group" aria-label={labels.project(workspaceName)}>
+    <LumenFrame
+      className="hbar-session-project-context"
+      role="group"
+      aria-label={labels.project(workspaceName)}
+      tabIndex={0}
+    >
       <LumenIcon icon={Folder} tier="sm" />
       <LumenContentText
-        context="control.label"
+        context="collection.title"
         className="hbar-session-project-context-name"
         title={workspacePath ?? workspaceName}
       >
@@ -59,23 +65,42 @@ export function HbarSessionProjectContext({
           aria-label={labels.branch(branch)}
         >
           <LumenIcon icon={GitBranch} tier="sm" />
-          <LumenContentText context="control.label">
+          <LumenContentText context="collection.title" className="hbar-session-project-context-branch-name">
             <LumenContentText context="inline.isolated">{labels.branchCaption(branch)}</LumenContentText>
           </LumenContentText>
         </LumenFrame>
       )}
       {!connected && (
-        <LumenContentText context="control.status" tone="subtle">
-          {labels.disconnected}
-        </LumenContentText>
+        <LumenFrame
+          className="hbar-session-project-context-feedback"
+          role="group"
+          aria-label={labels.disconnected}
+          tabIndex={0}
+        >
+          <LumenContentText context="control.status" tone="subtle">
+            {labels.disconnected}
+          </LumenContentText>
+        </LumenFrame>
       )}
       {loading && (
-        <LumenContentText context="control.status" tone="subtle" role="status">
-          {labels.loading}
-        </LumenContentText>
+        <LumenFrame
+          className="hbar-session-project-context-feedback"
+          role="group"
+          aria-label={labels.loading}
+          tabIndex={0}
+        >
+          <LumenContentText context="control.status" tone="subtle" role="status">
+            {labels.loading}
+          </LumenContentText>
+        </LumenFrame>
       )}
       {error && (
-        <LumenFrame className="hbar-session-project-context-error" role="status">
+        <LumenFrame
+          className="hbar-session-project-context-error"
+          role="status"
+          aria-label={errorLabel ?? undefined}
+          tabIndex={0}
+        >
           <LumenContentText
             context="control.status"
             tone="danger"
