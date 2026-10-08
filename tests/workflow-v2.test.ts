@@ -30,6 +30,7 @@ async function fixture() {
   })
   resources.push({ root, kernel })
   await kernel.changePlugin('goal.codex', true, { autoContinue: false, maxContinuations: 0 })
+  await kernel.changePlugin('budget.codex', true, { autoContinue: false })
   const workspace = (await kernel.storage.call('workspaces'))[0]!
   const session = await kernel.createSession(workspace.id)
   return {

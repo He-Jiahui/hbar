@@ -60,6 +60,7 @@ test('real pi-ai OpenAI transport streams tool calls and usage through a local H
   })
   const kernel = await Kernel.create({ home: join(root, 'data'), workspace: root, secrets: new MemorySecrets() })
   try {
+    await kernel.changePlugin('budget.codex', true, { autoContinue: false })
     await kernel.saveProvider(
       providerSchema.parse({
         id: 'network-test',

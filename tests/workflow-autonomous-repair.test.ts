@@ -87,6 +87,7 @@ async function fixture(script: (input: DriverInput) => Promise<void>) {
     profile: { replacements: { 'driver.pi': driver } },
   })
   resources.push({ root, kernel })
+  await kernel.changePlugin('budget.codex', true, { autoContinue: false })
   const session = await kernel.createSession((await kernel.storage.call('workspaces'))[0]!.id)
   const goals = kernel.plugins.get<GoalService>('goal')
   const plans = kernel.plugins.get<PlanService>('plan')
