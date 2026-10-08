@@ -7,13 +7,14 @@ import {
 } from '@hbar/client'
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, delimiter, dirname, join, resolve } from 'node:path'
+import { delimiter, join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { preSessionCopy } from '../apps/web/src/pre-session-copy'
 import { preSessionLaunchCopy } from '../apps/web/src/pre-session-launch-copy'
 import { expectComposerText } from './support/composer-text'
+import { removeOwnedTempDirectory } from './support/owned-temp-directory'
 import {
   waitForWebSessionHostReady,
   stopOwnedWebSessionHostChild,
@@ -55,10 +56,7 @@ async function startParentHost(root: string): Promise<WebSessionHost> {
 }
 
 async function cleanupFixture(root: string): Promise<void> {
-  const target = resolve(root)
-  if (dirname(target) !== resolve(tmpdir()) || !basename(target).startsWith('hbar-agent-slash-'))
-    throw new Error('Refusing cleanup outside the owned Agent slash fixture')
-  await rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 })
+  await removeOwnedTempDirectory(root, 'hbar-agent-slash-')
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {

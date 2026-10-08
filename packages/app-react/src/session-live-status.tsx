@@ -1,4 +1,4 @@
-import { LumenFrame, LumenStatus, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenFrame, LumenStatus } from '@lumen/app-ui'
 import type { RunStatus } from '@hbar/contracts'
 import './session-live-status.css'
 
@@ -44,16 +44,21 @@ export function HbarSessionLiveStatus({
       aria-live="polite"
       aria-atomic="true"
     >
-      <LumenText as="strong" variant="label">
-        {labels.label}
-      </LumenText>
-      <LumenStatus
-        className="hbar-session-live-status-badge"
-        value={connected ? labels.statusLabel(run.status) : labels.offline}
-        tone={
-          !connected || run.status === 'waiting_approval' ? 'warning' : run.status === 'running' ? 'info' : 'neutral'
-        }
-      />
+      <LumenContentText context="feedback.title">{labels.label}</LumenContentText>
+      <LumenFrame
+        className="hbar-session-live-status-reading"
+        role="group"
+        aria-label={connected ? labels.statusLabel(run.status) : labels.offline}
+        tabIndex={0}
+      >
+        <LumenStatus
+          className="hbar-session-live-status-badge"
+          value={connected ? labels.statusLabel(run.status) : labels.offline}
+          tone={
+            !connected || run.status === 'waiting_approval' ? 'warning' : run.status === 'running' ? 'info' : 'neutral'
+          }
+        />
+      </LumenFrame>
     </LumenFrame>
   )
 }

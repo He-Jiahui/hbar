@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { Archive, ShieldQuestion } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenContentText, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import type { SessionExecutionAccess, SessionExecutionTarget } from '@hbar/app-runtime'
 
 export interface HbarSessionExecutionLabels {
@@ -64,19 +64,26 @@ export function HbarSessionExecutionNotice({
     <LumenFrame className="hbar-session-execution-notice" data-session-execution-access={status}>
       <LumenFrame className="hbar-session-execution-summary" role="status">
         <LumenIcon icon={status === 'archived' ? Archive : ShieldQuestion} tier="sm" />
-        <LumenText as="span" className="hbar-session-execution-copy">
+        <LumenContentText context="feedback.paragraph" className="hbar-session-execution-copy">
           {status === 'archived' ? labels.archived : labels.unverified}
-        </LumenText>
+        </LumenContentText>
       </LumenFrame>
       {status === 'archived' && (
-        <LumenButton size="s" variant="text" indicator="none" disabled={!connected || opening} onClick={open}>
-          {opening ? labels.opening : labels.openArchived(workspaceName)}
-        </LumenButton>
+        <LumenFrame
+          className="hbar-session-execution-actions"
+          role="group"
+          aria-label={labels.openArchived(workspaceName)}
+          tabIndex={0}
+        >
+          <LumenButton size="s" variant="text" indicator="none" disabled={!connected || opening} onClick={open}>
+            {opening ? labels.opening : labels.openArchived(workspaceName)}
+          </LumenButton>
+        </LumenFrame>
       )}
       {error && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.paragraph" role="alert" tone="danger">
           {labels.error(error)}
-        </LumenText>
+        </LumenContentText>
       )}
     </LumenFrame>
   )

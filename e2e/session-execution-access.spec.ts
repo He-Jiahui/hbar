@@ -7,13 +7,14 @@ import {
   createWorkspaceSessionCommandClient,
 } from '@hbar/client'
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { removeOwnedTempDirectory } from './support/owned-temp-directory'
 
 const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
 const port = Number(process.env.HBAR_E2E_HOST_PORT ?? 4317)
@@ -47,11 +48,7 @@ test.beforeAll(async () => {
 })
 
 async function removeOwnedRoot(root: string): Promise<void> {
-  const resolved = await realpath(root)
-  const temporary = await realpath(tmpdir())
-  if (dirname(resolved) !== temporary || !basename(resolved).startsWith('hbar-execution-access-'))
-    throw new Error('Refusing cleanup outside the owned temporary execution-access fixture')
-  await rm(resolved, { recursive: true, force: true })
+  await removeOwnedTempDirectory(root, 'hbar-execution-access-')
 }
 
 async function authenticate(context: BrowserContext, host: WebSessionHost): Promise<void> {
@@ -60,10 +57,14 @@ async function authenticate(context: BrowserContext, host: WebSessionHost): Prom
 
 async function showSidebar(page: Page, locale: ShellLocale): Promise<void> {
   const show = page.getByRole('button', { name: getShellCopy(locale).shell.showSidebar, exact: true })
-  if (await show.isVisible()) await show.click()
+  const sidebar = page.locator('[data-hbar-sidebar-expanded]')
+  await expect(sidebar).toHaveAttribute('data-hbar-sidebar-expanded', /^(true|false)$/)
+  if ((await sidebar.getAttribute('data-hbar-sidebar-expanded')) !== 'true') await show.click()
+  await expect(sidebar).toHaveAttribute('data-hbar-sidebar-expanded', 'true')
 }
 
 async function hideSidebar(page: Page, locale: ShellLocale): Promise<void> {
+  if ((await page.locator('[data-hbar-sidebar-expanded]').getAttribute('data-hbar-sidebar-expanded')) !== 'true') return
   const hide = page.getByRole('button', { name: getShellCopy(locale).shell.hideSidebar, exact: true })
   if (await hide.isVisible()) await hide.click()
 }
@@ -117,7 +118,9 @@ async function observeWrites(page: Page) {
   const uploads: string[] = []
   const restoreIds = new Set<string | number>()
   let holdRestore = false
-  let releaseRestore: (() => void) | null = null
+  let restoreDispatched = false
+  let restoreReplyHeld = false
+  let heldFrames: (() => void)[] = []
   page.on('request', (request) => {
     if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/artifacts') uploads.push(request.url())
   })
@@ -134,7 +137,10 @@ async function observeWrites(page: Page) {
         if (command && preparationCommands.has(command)) commands.push(command)
         if (parsed.success && command === 'session.archive' && parsed.data.id !== undefined) {
           const input = z.object({ archived: z.boolean() }).passthrough().safeParse(parsed.data.params?.input)
-          if (input.success && !input.data.archived) restoreIds.add(parsed.data.id)
+          if (input.success && !input.data.archived) {
+            restoreIds.add(parsed.data.id)
+            if (holdRestore) restoreDispatched = true
+          }
         }
       }
       server.send(message)
@@ -142,10 +148,16 @@ async function observeWrites(page: Page) {
     server.onMessage((message) => {
       if (typeof message === 'string') {
         const parsed = rpcEnvelope.safeParse(JSON.parse(message))
-        if (parsed.success && parsed.data.id !== undefined && restoreIds.delete(parsed.data.id) && holdRestore) {
-          releaseRestore = () => socket.send(message)
-          return
-        }
+        if (parsed.success && parsed.data.id !== undefined && restoreIds.delete(parsed.data.id) && holdRestore)
+          restoreReplyHeld = true
+      }
+      if (holdRestore && restoreDispatched) {
+        // Hold this observer's facts together with the reply. Independent Host
+        // verification still sees the restore; no event or refreshed snapshot
+        // can accidentally end the intended unconfirmed UI interval.
+        if (heldFrames.length >= 256) throw new Error('Owned restore hold exceeded its frame capacity')
+        heldFrames.push(() => socket.send(message))
+        return
       }
       socket.send(message)
     })
@@ -155,14 +167,17 @@ async function observeWrites(page: Page) {
     uploads,
     holdRestore: () => {
       holdRestore = true
+      restoreDispatched = false
     },
-    hasHeldRestoreReply: () => releaseRestore !== null,
+    hasHeldRestoreReply: () => restoreReplyHeld,
     releaseRestore: () => {
-      if (!releaseRestore) throw new Error('The actual Host restore reply is not held')
-      const release = releaseRestore
-      releaseRestore = null
+      if (!restoreReplyHeld) throw new Error('The actual Host restore reply is not held')
+      restoreReplyHeld = false
       holdRestore = false
-      release()
+      restoreDispatched = false
+      const frames = heldFrames
+      heldFrames = []
+      for (const release of frames) release()
     },
   }
 }
@@ -243,7 +258,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     let host: WebSessionHost | undefined
     try {
       await mkdir(`${evidence}/${phase}`, { recursive: true })
-      host = await startWebSessionHost({ root, port, historyCount: 4, goalAutoContinue: false })
+      host = await startWebSessionHost({
+        root,
+        port,
+        historyCount: 4,
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const sessions = createWorkspaceSessionCommandClient(host.client)
       const models = createModelCommandClient(host.client)
       const configuration = createConfigurationCommandClient(host.client)
@@ -271,10 +292,21 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       ] as const) {
         await observer.goto(base)
         await showSidebar(observer, locale)
-        await observer.getByRole('treeitem', { name: title, exact: true }).click()
+        const target = observer.getByRole('treeitem', { name: title, exact: true })
+        const project = observer.getByRole('treeitem', { name: host.ready.workspaceName, exact: true })
+        await project.focus()
+        if ((await project.getAttribute('aria-expanded')) === 'false') await project.press('ArrowRight')
+        await expect(project).toHaveAttribute('aria-expanded', 'true')
+        await expect(target).toBeVisible()
+        await target.focus()
+        await observer.keyboard.press('Enter')
+        await expect(target).toHaveAttribute('aria-selected', 'true')
         const prompt = observer.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
         await expect(prompt).toBeEditable()
-        await prompt.fill(value)
+        await prompt.click()
+        await expect(prompt).toBeFocused()
+        await observer.keyboard.insertText(value)
+        await expectComposerText(prompt, value)
         await dropFile(observer, attachmentName)
         await expect(observer.locator('.lumen-attachment-chip').filter({ hasText: attachmentName })).toBeVisible()
       }
@@ -346,8 +378,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(await narrow.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await narrow.screenshot({ path: `${evidence}/${phase}/readonly-model-${locale}-320.png` })
       await narrowModel.getByRole('button', { name: copy.session.modelPicker.close, exact: true }).click()
-      const picker = page.locator('.hbar-composer-permission-picker')
-      await picker.locator('.hbar-composer-permission-trigger').click()
+      await page.locator('.hbar-composer-permission-trigger').click()
+      const picker = page.getByRole('dialog', { name: copy.session.permissionPicker.title, exact: true })
+      await expect(picker).toBeVisible()
+      await expect(picker.getByRole('menuitemradio')).toHaveCount(6)
       for (const option of await picker.getByRole('menuitemradio').all()) await expect(option).toBeDisabled()
       await expect(picker.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label })).toBeDisabled()
       await page.screenshot({ path: `${evidence}/${phase}/readonly-permission-plan-${locale}-1440.png` })
@@ -448,7 +482,7 @@ for (const kind of ['model', 'mode', 'run'] as const) {
     let host: WebSessionHost | undefined
     try {
       await mkdir(`${evidence}/${phase}`, { recursive: true })
-      host = await startWebSessionHost({ root, port, goalAutoContinue: false })
+      host = await startWebSessionHost({ root, port, goalAutoContinue: false, budgetAutoContinue: false })
       const originalHost = host
       const sessionId = host.ready.sessionId
       const sessions = createWorkspaceSessionCommandClient(host.client)
@@ -574,7 +608,7 @@ test('original active approval rejects archive as BUSY and Stop cancels without 
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 320, height: 960 } })
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, port, goalAutoContinue: false })
+    host = await startWebSessionHost({ root, port, goalAutoContinue: false, budgetAutoContinue: false })
     const sessionId = host.ready.sessionId
     const sessions = createWorkspaceSessionCommandClient(host.client)
     const runs = createRunCommandClient(host.client)
@@ -628,7 +662,13 @@ test('archive A never gates B; explicit restore and rapid A/B selection retain e
   const context = await browser.newContext({ locale: 'zh-CN', viewport: { width: 320, height: 960 } })
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, port, sessionCount: 2, goalAutoContinue: false })
+    host = await startWebSessionHost({
+      root,
+      port,
+      sessionCount: 2,
+      goalAutoContinue: false,
+      budgetAutoContinue: false,
+    })
     const sessions = createWorkspaceSessionCommandClient(host.client)
     const all = await sessions.execute('session.list', { workspaceId: host.ready.workspaceId, limit: 100 })
     const a = all.items.find((session) => session.id === host?.ready.sessionId)
@@ -699,7 +739,7 @@ test('archived completed proposal cannot create a detached Run while its documen
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 320, height: 960 } })
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, port, goalAutoContinue: false })
+    host = await startWebSessionHost({ root, port, goalAutoContinue: false, budgetAutoContinue: false })
     const originalHost = host
     const sessionId = host.ready.sessionId
     const runs = createRunCommandClient(host.client)
@@ -769,7 +809,7 @@ test('same-Run Plan Exit is not a new-Run gate; active archive is BUSY and its o
   const context = await browser.newContext({ locale: 'zh-CN', viewport: { width: 320, height: 960 } })
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, port, goalAutoContinue: false })
+    host = await startWebSessionHost({ root, port, goalAutoContinue: false, budgetAutoContinue: false })
     const originalHost = host
     const sessionId = host.ready.sessionId
     const sessions = createWorkspaceSessionCommandClient(host.client)
@@ -847,7 +887,7 @@ test('archived unknown run.retry keeps only the original read-only receipt actio
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 320, height: 960 } })
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, port, goalAutoContinue: false })
+    host = await startWebSessionHost({ root, port, goalAutoContinue: false, budgetAutoContinue: false })
     const originalHost = host
     const sessionId = host.ready.sessionId
     const runs = createRunCommandClient(host.client)

@@ -258,8 +258,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         false,
       )
       const modelOptions = controls.filter((control) => control.className.includes('hbar-composer-model-option'))
-      expect(modelOptions).toHaveLength(1)
-      expect(modelOptions.every((control) => control.disabled)).toBe(true)
+      // Closed shared portals have no server DOM. Actual opening and readonly
+      // option behavior are exercised by verify-session-model.ts.
+      expect(modelOptions).toHaveLength(0)
       expect(controls.find((control) => control.className.includes('hbar-composer-thinking-trigger'))?.disabled).toBe(
         true,
       )
@@ -360,21 +361,17 @@ test('read-only model recovery stays discoverable while its original result is u
     )
     const controls = await buttons(html)
     expect(controls.find((control) => control.className.includes('hbar-composer-model-trigger'))?.disabled).toBe(false)
-    expect(controls.filter((control) => control.text === labels.reconcile)).toHaveLength(2)
+    expect(controls.filter((control) => control.text === labels.reconcile)).toHaveLength(1)
     expect(controls.filter((control) => control.text === labels.reconcile).every((control) => !control.disabled)).toBe(
       true,
     )
-    expect(
-      controls
-        .filter((control) => control.className.includes('hbar-composer-model-option'))
-        .every((control) => control.disabled),
-    ).toBe(true)
+    expect(controls.filter((control) => control.className.includes('hbar-composer-model-option'))).toHaveLength(0)
   } finally {
     f.runtime.dispose()
   }
 })
 
-test('read-only permission menu disables all bounded new choices and Plan writes, but retains original Plan recheck', async () => {
+test('read-only permission entrance remains available without rendering a closed portal on the server', async () => {
   const labels = getShellCopy('zh-CN').session.permissionPicker
   const html = renderToStaticMarkup(
     <HbarComposerPermissionPicker
@@ -398,10 +395,11 @@ test('read-only permission menu disables all bounded new choices and Plan writes
       }}
     />,
   )
-  expect(html.match(/role="menuitemradio"/g)).toHaveLength(5)
-  expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(5)
+  // The six current choices and original Plan recheck are verified after
+  // opening the shared portal by verify-session-permission.ts.
+  expect(html).not.toContain('role="menuitemradio"')
   const controls = await buttons(html)
-  expect(controls.find((control) => control.text === labels.plan.recheck)?.disabled).toBe(false)
+  expect(controls.find((control) => control.text === labels.plan.recheck)).toBeUndefined()
   expect(controls.find((control) => control.className.includes('hbar-composer-permission-trigger'))?.disabled).toBe(
     false,
   )

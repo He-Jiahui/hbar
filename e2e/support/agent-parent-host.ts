@@ -46,6 +46,8 @@ const kernel = await Kernel.create({
   secrets: new MemorySecrets(),
   profile: { replacements: { 'driver.pi': driver } },
 })
+await kernel.changePlugin('goal.codex', true, { autoContinue: false })
+await kernel.changePlugin('budget.codex', true, { autoContinue: false })
 const workspace = (await kernel.storage.call('workspaces'))[0]
 if (!workspace) throw new Error('Owned fixture Workspace is missing')
 const session = await kernel.createSession(workspace.id, 'Parent Agent task')

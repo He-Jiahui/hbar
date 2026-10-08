@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowUpRight } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenContentText, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import { useHbarRuntime } from './runtime'
 import './agent-tool-open.css'
 
@@ -70,22 +70,29 @@ export function HbarAgentToolOpen({
   }
   return (
     <LumenFrame className="hbar-agent-tool-open">
-      <LumenButton
-        type="button"
-        variant="text"
-        indicator="none"
-        size="s"
-        disabled={!connected || busy}
+      <LumenFrame
+        className="hbar-agent-tool-open-actions"
+        role="group"
         aria-label={labels.openNamed(objective)}
-        onClick={open}
+        tabIndex={0}
       >
-        <LumenIcon icon={ArrowUpRight} tier="sm" />
-        {busy ? labels.opening : labels.open}
-      </LumenButton>
+        <LumenButton
+          type="button"
+          variant="text"
+          indicator="none"
+          size="s"
+          disabled={!connected || busy}
+          aria-label={labels.openNamed(objective)}
+          onClick={open}
+        >
+          <LumenIcon icon={ArrowUpRight} tier="sm" />
+          {busy ? labels.opening : labels.open}
+        </LumenButton>
+      </LumenFrame>
       {error && (
-        <LumenText as="span" role="alert">
+        <LumenContentText context="feedback.paragraph" role="alert" tone="danger">
           {labels.error(error)}
-        </LumenText>
+        </LumenContentText>
       )}
     </LumenFrame>
   )

@@ -603,4 +603,11 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 54 项 Bun 测试／254 个断言和 3 项 Lumen 测试通过；8 项 Chrome 最终单次运行通过，覆盖两语言／明暗／五宽度／较大文字／125% zoom、240 字标题／4000 字详情、0／1／3／400／401 条、重复 IDs、原跳转目标、读取失败恢复、权限等待、持久化开关、冲突、外部已读刷新及未知回执不重发。旧回归的独立 Bun 包含两份 React，产生 useContext 空 dispatcher；改为有 React 去重的 Vite 测试页与公开 LumenProvider 后，保留原有四项断言全部通过，关联 Lumen 45d5ac596a。
 - 范围严格 lint、文案／图标／flow guard、格式、Lumen 类型／build、新鲜 Web build 与构建清单通过。冷启动根类型仍有 91 项既有诊断，本次范围为零，全库门禁尚未通过。证据位于 artifacts/desktop-elements/notification-content 的 delivery.log（8 项）、unit-verified.log、lumen-unit-verified.log、lint-final.log、lint-delivery.log、lumen-lint-verified.log、types-verified.log、lumen-build-delivery.log、build-delivery.log、audit.log 和截图；初始失败记录保留。
 
-当前清单覆盖 147 个生产 TSX 模块、3853 个元素，其中记录了 14 处低层文字未分类，合计 23 项静态缺口。其余生产表面迁移、其余已分类标题／身份容量复核（包括 LumenFileDocument 标题与项目名称）、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 会话执行说明、运行状态与子任务入口反馈
+
+- 四处低层文字归入 feedback.title／paragraph。归档与待确认说明、动作错误完整换行；运行状态标题自然换行，紧凑状态、归档入口及子任务动作分别由具名键盘阅读区承接长名称。未更改原准备权限、运行身份、子任务工具来源和命令回调；移除图标邻近反馈的固定字号，消费现有语义文字变量。
+- 59 项 Bun 测试／318 个断言通过。10 项独立 Chrome 场景通过：4 项内容矩阵覆盖中英文／明暗／五宽度／较大文字／125% zoom、4000 字项目身份的完整归档动作、错误、离线、失效／结束状态及键盘阅读；6 项真实 Host 覆盖两语言的归档观察器／恢复、运行审批／排队／切换／停止及工具创建的子任务打开／返回和原草稿。另运行模型选择器 106 项、权限选择器 126 项实际浏览器场景，核实只读新选项禁用、原未知结果确认仍可读。
+- 旧静态用例将关闭的共享 portal 当作可见菜单，改为检查真实入口与外部恢复动作，菜单内容由上述实际浏览器检查。旧归档 E2E 在窄屏启动时操作离屏树，改为依据 data-hbar-sidebar-expanded、实际项目展开状态及选中回执导航，使用受控输入与原草稿检查；读取权限菜单通过其具名 dialog，保留六项禁用断言。恢复故障注入在实际写入发出后有界扣留该观察器的响应和事实，再按原顺序释放，避免单独扣留回复却收到已确认 Host 事实的错误前提；独立 Host 仍核验实际恢复，未重发写入。关联 c6c2e52a、b414d9fa。
+- 范围严格 lint、文案／图标／flow guard、格式、Web build 与构建清单通过。冷启动根类型保持 91 项既有诊断，本次范围为零，全库门禁仍未通过。证据在 artifacts/desktop-elements/session-feedback-content 的 unit-verified.log、delivery.log（6 项）、browser.log（4 项矩阵与两项运行状态通过，初始归档失败保留）、host.log（两项工具子任务通过）、model-regression.log、permission-regression.log、lint.log、lint-verified.log、lint-delivery.log、types.log、build.log、audit.log 与截图。Host 禁用 Goal 和 budget 自动继续；先停止 Host，再检查所属临时目录并释放。
+
+当前清单覆盖 147 个生产 TSX 模块、3856 个元素，其中记录了 10 处低层文字未分类，合计 19 项静态缺口。其余生产表面迁移、其余已分类标题／身份容量复核（包括 LumenFileDocument 标题与项目名称）、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

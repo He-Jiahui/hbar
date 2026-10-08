@@ -12,8 +12,12 @@
   background: var(--lumen-reading);
 }
 
-.hbar-session-live-status-badge {
+.hbar-session-live-status-reading {
   min-inline-size: 0;
   max-inline-size: 100%;
-  overflow-wrap: anywhere;
+  overflow-x: auto;
+}
+
+.hbar-session-live-status-badge {
+  min-inline-size: max-content;
 }

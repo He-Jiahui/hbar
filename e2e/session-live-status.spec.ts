@@ -1,18 +1,13 @@
 import { expect, test } from '@playwright/test'
 import { createRunCommandClient, createWorkspaceSessionCommandClient } from '@hbar/client'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, dirname, join, resolve } from 'node:path'
+import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { removeOwnedTempDirectory } from './support/owned-temp-directory'
 
 const prefix = 'hbar-session-live-status-'
-async function cleanupFixture(root: string) {
-  const exact = resolve(root)
-  if (dirname(exact) !== resolve(tmpdir()) || !basename(exact).startsWith(prefix))
-    throw new Error('Refusing to remove an unowned live-status fixture')
-  await rm(exact, { recursive: true, force: true })
-}
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`real Host current Run stays visible at the bottom through approval, queuing and session switch: ${locale}`, async ({
@@ -23,7 +18,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({ locale, colorScheme: 'light', viewport: { width: 1440, height: 960 } })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const runs = createRunCommandClient(host.client)
       const copy = getShellCopy(locale)
       const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
@@ -109,7 +109,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         try {
           if (host) await stopWebSessionHost(host)
         } finally {
-          await cleanupFixture(root)
+          await removeOwnedTempDirectory(root, prefix)
         }
       }
     }

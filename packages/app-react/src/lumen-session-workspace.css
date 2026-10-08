@@ -342,9 +342,7 @@
 .hbar-session-execution-notice {
   padding-block: 0.25rem;
   color: var(--lumen-muted);
-  font-size: 0.8125rem;
-
-  overflow-x: auto;
+  font-size: var(--hbar-session-caption-size, calc(var(--lumen-font-size) * 0.9));
 }
 
 .hbar-session-execution-summary {
@@ -370,7 +368,13 @@
   overflow-wrap: anywhere;
 }
 
-.hbar-session-execution-notice > button {
+.hbar-session-execution-actions {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-x: auto;
+}
+
+.hbar-session-execution-actions > button {
   text-align: start;
 
   min-inline-size: max-content;

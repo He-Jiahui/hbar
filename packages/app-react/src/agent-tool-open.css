@@ -4,14 +4,18 @@
   min-inline-size: 0;
   max-inline-size: 100%;
   flex-direction: column;
-  gap: 4px;
+  gap: 0.25rem;
+}
 
+.hbar-agent-tool-open-actions {
+  min-inline-size: 0;
+  max-inline-size: 100%;
   overflow-x: auto;
 }
 
-.hbar-agent-tool-open > button {
-  gap: 4px;
-  padding: 4px 6px;
+.hbar-agent-tool-open-actions > button {
+  gap: 0.25rem;
+  padding: 0.25rem 0.375rem;
   text-align: start;
 
   min-inline-size: max-content;
@@ -19,9 +23,7 @@
   white-space: nowrap;
 }
 
-.hbar-agent-tool-open > span {
-  max-inline-size: 24rem;
-  font-size: 0.75rem;
-  color: var(--lumen-danger);
-  overflow-wrap: anywhere;
+.hbar-agent-tool-open > [data-text-context='feedback.paragraph'] {
+  max-inline-size: 100%;
+  font-size: var(--hbar-session-caption-size, calc(var(--lumen-font-size) * 0.9));
 }
