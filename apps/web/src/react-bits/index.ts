@@ -41,7 +41,6 @@ export {
   type ReferenceSurfaceProps,
   type ReferenceTabsProps,
 } from './production'
-export { useReferenceProductionContext, useReferenceProjections } from './production-context'
 export {
   default as ModelPickerSurface,
   type ReactBitsModelOption,

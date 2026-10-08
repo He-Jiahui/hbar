@@ -182,24 +182,7 @@
 
 ## 未进入生产入口图的 TSX
 
-- `apps/web/src/ActivityPanel.tsx`
-- `apps/web/src/ChatSessionChrome.tsx`
-- `apps/web/src/DescriptorSettingsForm.tsx`
-- `apps/web/src/DiagnosePanel.tsx`
-- `apps/web/src/FileNavigation.tsx`
 - `apps/web/src/FloatingLayer.tsx`
-- `apps/web/src/GitContextSwitcher.tsx`
-- `apps/web/src/GitDiffViewer.tsx`
-- `apps/web/src/GitPanel.tsx`
-- `apps/web/src/PairingPage.tsx`
-- `apps/web/src/PatchViewer.tsx`
-- `apps/web/src/PluginDiagnostics.tsx`
-- `apps/web/src/PluginRow.tsx`
-- `apps/web/src/PromptComposer.tsx`
-- `apps/web/src/RendererBoundary.tsx`
-- `apps/web/src/SettingsNavigation.tsx`
-- `apps/web/src/SystemTerminalPanel.tsx`
-- `apps/web/src/ThemeRuntimeSync.tsx`
 - `apps/web/src/react-bits/AnimatedList.tsx`
 - `apps/web/src/react-bits/GlareButton.tsx`
 - `apps/web/src/react-bits/GlassIconButton.tsx`
@@ -537,9 +520,6 @@
 - `apps/web/src/react-bits/reference/variants/wizard/wizard-6.tsx`
 - `apps/web/src/react-bits/reference/variants/wizard/wizard-7.tsx`
 - `apps/web/src/react-bits/semantic.tsx`
-- `apps/web/src/workbench/WorkbenchHeader.tsx`
-- `apps/web/src/workbench/WorkbenchNavigation.tsx`
-- `apps/web/src/workbench/WorkbenchStatusBar.tsx`
 - `packages/app-react/src/prompt-template-picker.tsx`
 - `packages/schema-react/src/list.tsx`
 - `packages/schema-react/src/standard.tsx`

@@ -696,4 +696,11 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 共享 modal 修改后另有 6 项真实 Host 项目编辑外观／焦点回归通过，覆盖中英文、1440／320、明暗／forced-colors、键盘 trap／Escape 与原项目菜单触发器焦点归还，未执行 Run，合计 9 项独立 Chrome 场景。范围严格 lint、Lumen 严格 lint／包类型／build、文案／图标 guard、格式、新鲜 Web build、strict 清单与截图通过；冷根类型仍为 91 项既有诊断，本次范围零。证据位于 artifacts/desktop-elements/run-board-resize 的 red.log、viewport.log、focus.log（最终 3 项）、focus-results、editor.log（6 项）／editor-results／editor-appearance、unit.log、lumen-unit.log、lint 日志、Lumen 日志、types.log、build-focus.log 和 audit.log。看板截图在 artifacts/app-ui-migration-audit 的 resize-focus PNG；会话关闭事实／截图使用现有 artifacts/workbench-navigation-presentation/final。
 - 扩展整个旧 navigation spec 的实际运行另有四项失败：中英文的 separator 方向键／idle 回执及 settings 自动收起与旧 hideSidebar helper 的竞态，已保留 navigation.log／navigation-results，尚未归因为本次修改，后续工程验收继续定位，不报告整份文件通过。首次全库文件枚举通过 ESLint 的实际文件选择得到 3390 项、无 syntax 诊断；仅在枚举阶段关闭规则与 project 解析以避免类型缓存，正式有界 worker 必须按完整原配置严格检查每一项。
 
+## 全量工程检查与旧入口退役
+
+- 62159c7a 将原来单进程、8 GiB 堆仍耗尽（exit 134）的 lint 改为完整枚举、串行独立 worker。完整基线实际检查 3393 个文件，533 个错误、零警告，集中在 19 个文件；报告 complete 为 true，但退出码为 1，不能视为门禁通过。4 项 Bun 测试／79 个断言证明 ESLint 文件选择等价、失败继续检查后续批次及修复后的退出码／报告。原始报告保存在 artifacts/desktop-elements/final-gates/lint-bounded-baseline.json 和 lint-inventory-baseline.json。
+- 3c037e08 删除 StorageMethods 内过时的重复 updateSession overload，保留 11d93f52 的 expectedTitle／no-op event=null 契约及实际 worker 行为。14 项 rename CAS／runtime 测试、102 个断言和范围严格 lint 通过，根类型诊断从 91 降到 88，storage 诊断归零。该提交正文误记格式检查通过：实际 Prettier 检查失败；读取 HEAD^ 原文确认该文件原先也未满足格式。本次只删除一行，没有夹带整文件重排，git diff --check 通过；此处更正提交说明。
+- 根据实际入口图、构建输入、引用检索和 6ec3b46b 的工作台替换，退役 20 个不再被 Desktop 或参考组件调用的旧 TSX、10 份仅被它们导入的 CSS，以及已无调用者的旧 locale／production-context。旧组件仍访问已删除的 stores、ui-plugins 和 session-capabilities；不会把恢复旧可写全局 store 作为修复。参考组件继续使用的 FloatingLayer、GlassSurface、PromptComposer.css 和纯内容 adapters 保留，其他未进入入口的组件仍列入清单。
+- 16 项 Web 组合边界／ReactBits 纯 adapter／Desktop AST 与实际构建输入测试通过，484 个断言；保留 barrel 的范围严格 lint、新鲜 Web build 和 strict 清单通过。149 个生产 TSX／3873 个元素均未改变，pending 仍为零。根类型诊断从 88 降到 24，本次保留 barrel 无诊断；剩余诊断与旧 store 测试、参考主题、夹具和脚本契约继续处理。证据位于 artifacts/desktop-elements/final-gates 的 legacy-retirement 日志。
+
 当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。最终全库／浏览器／原生门禁和上述四项扩展导航失败尚未完成。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
