@@ -126,8 +126,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(project().locator(`[data-session-id="${later.id}"]`)).toBeVisible()
       await expand(otherWorkspace.name)
       await otherProject().getByRole('treeitem', { name: otherSession.title, exact: true }).click()
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(otherSession.title)
+      await expect(otherProject().locator(`[data-session-id="${otherSession.id}"]`)).toHaveAttribute(
+        'data-selected',
+        'true',
+      )
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       await prompt.fill('Keep the original draft — 保留原会话输入')
+      await expectComposerText(prompt, 'Keep the original draft — 保留原会话输入')
       const refreshProject = async (name: string) => {
         await sidebar.getByTitle(copy.shell.workspaceActions(name), { exact: true }).click()
         await page.getByRole('menuitem', { name: copy.shell.roster.refreshWorkspace(name), exact: true }).click()

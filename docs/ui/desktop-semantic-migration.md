@@ -716,4 +716,6 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 78 项 Runtime／版本保护／archive tabs／Agent tree／roster／activity 测试、418 个断言通过；范围严格 lint、类型（仅剩另一个 E2E 的两项旧 Host 捕获诊断）、格式和 Web build 通过。strict 清单初次正确报告新增策略模块导致 build inputs 过时，重新生成后纳入实际输入；生产 149 个 TSX／3873 个元素／零 pending 不变。证据位于 artifacts/desktop-elements/final-gates 的 directory-cache 日志。
 - 新鲜 frozen Web 的 6 项真实 Host archive Chrome 场景通过，覆盖中英文、确认／未知结果核对、恢复不导航、外部归档、空工作区 reload 和 320 下保留 dirty Files Workbench，截图已检查。同轮两项 roster Chrome 场景在草稿为空的断言失败；随后用修改前的 run-board-resize/web frozen 产物重跑两语言，出现同一失败。此问题继续独立定位，不报告整组 8 项通过。对照证据为 directory-cache-browser.log／results 和 roster-before-cache.log／results。
 
-当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。最终全库／浏览器／原生门禁、两项 roster 草稿场景和上述四项扩展导航失败尚未完成。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+- Roster 的两项旧失败已闭合：原夹具 click 后立即输入，没有确认异步 Session 选择完成。现在先等待原目标标题及其行 data-selected=true，再输入并立即核对草稿。两个语言的完整真实 Host Chrome 场景通过，保留原来的第二 Client 新建／重命名／归档、后页合并、读取失败／重试、重连／旧响应、五宽度及所有草稿与原导航断言；320 截图确认当前标题自然换行及草稿完整显示。范围严格 lint、格式通过，根类型仍只有另一个 E2E 的两项旧 Host 捕获诊断。证据为 roster-target.log／results／lint／types 与 artifacts/session-roster-refresh 的原截图。
+
+当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。最终全库／浏览器／原生门禁和上述四项扩展导航失败尚未完成。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
