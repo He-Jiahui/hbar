@@ -681,4 +681,11 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 远端 ls-remote 返回 92e6f6cf，fetch 明确报告 origin/master 从 a958a3ff 强制更新。随后核对提交图：92e6f6cf 的时间是 2026-09-25，a958a3ff 是 2026-10-07；两者都是当前 d272d4ac 的祖先，merge-base(origin/master, HEAD) 精确等于 92e6f6cf。因此这次是远端引用回退，当前工作区已经包含最新远端及原有基础整合，并无待合并的新提交。此前只根据 SHA 差异记录“尚须整合”不准确，本节更正该判断，不改写已提交记录。
 - 私有 @lumen/app-ui 仍为 0.12.0、workspace:*；现用分支保留已验证的宿主受控 API、具名文字与布局组件。Git 上包含当前上游和现用公开入口／build／类型验证一起作为依赖证据，不把包版本号或远端引用变化单独当作升级完成。
 
-当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。侧栏项目名称 4000 字容量、跨断点模态关闭后的导航／焦点恢复及最终全库／浏览器／原生门禁尚未完成。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 侧栏完整项目名称的容量与键盘阅读
+
+- LumenAppSidebar 的原内容滚动区由 LumenFrame region 承接，使用宿主已有 title 作为可访问名称，tabIndex=0 和语义焦点颜色提供独立键盘阅读入口；不另建数据源、截断项目名或改变树的方向键／动作目标。Header 与 footer 保留在阅读区外，4000 字项目名由整个 pane 纵向滚动，正常内容仍按流布局。极长项目名按公开 workspace DTO 检查，不宣称在 Windows 创建了 4000 字 basename。
+- 最终单次 8 项 Chrome 场景通过：四项展示 DTO 矩阵覆盖中英文／明暗／五宽度／较大文字与 125% zoom、0／1／2 条、4000 字完整名称／4001 拒绝、失效选中 ID、列表替换后原条目动作、PageDown／End 后最后一个字符实际位于阅读区及 footer 可达；两项真实 Host 保留原会话／页签／移动标题与导航，两项既有组件测试保留重复 ID 拒绝、层级／方向键／typeahead 与异步移除焦点归还。四项展示夹具的动作日志仅证明 View 回调，不当作 Host 写入证据。
+- 31 项 Lumen 阅读／resize 测试与最终 Frame 版本的 2 项阅读测试通过，17 项 Bun 测试／172 个断言通过。旧 sidebar-directory 升级断言仍期待 schema 19；查证 06dc73a8 的 folder roots 迁移后修正为实际 20，原 parent activity 与 trigger 恢复断言不变。初次失败保留。hbar 严格配置覆盖本次所有 TS／TSX（含 Lumen workbench）通过，Lumen 新测试自己的严格 preset 通过，包类型／build、文案／图标 guard、格式、新鲜 Web build、strict 清单与截图通过。旧存储测试整文件原有格式差异未夹带重排。
+- 冷根类型仍有 91 项既有诊断，本次范围零；Lumen 自身另一个 preset 对旧 workbench 的 effect／条件语句产生既有诊断，初次还拒绝原生 region tabIndex，改为公开 LumenFrame 后已解决新增项，其余留待工程门禁审查，不报告该 preset 为通过。证据位于 artifacts/desktop-elements/sidebar-title-capacity 的 browser-final.log（8 项）、final-results、unit-final.log、lumen-unit*、types.log、lint-final.log、lumen-test-lint.log、lumen-preset-baseline.log、lumen-types.log、lumen-build-final.log、build-final.log 和 audit.log。
+
+当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。跨断点模态关闭后的导航／焦点恢复及最终全库／浏览器／原生门禁尚未完成。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
