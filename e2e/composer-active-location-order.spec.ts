@@ -37,9 +37,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     try {
       await mkdir(screenshotDirectory, { recursive: true })
       host = await startWebSessionHost({
+        budgetAutoContinue: false,
         root,
         port: Number(process.env.HBAR_E2E_ACTIVE_LOCATION_HOST_PORT ?? (locale === 'en-US' ? 48739 : 48740)),
       })
+      const selectedHost = host
       const branch = execFileSync('git', ['branch', '--show-current'], {
         cwd: root,
         encoding: 'utf8',
@@ -75,7 +77,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         { idempotencyKey: crypto.randomUUID() },
       )
       await expect
-        .poll(async () => (await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs.length)
+        .poll(
+          async () =>
+            (await selectedHost.client.call('session.snapshot', { sessionId: selectedHost.ready.sessionId })).runs
+              .length,
+        )
         .toBe(1)
 
       const project = page.getByRole('group', {
@@ -218,6 +224,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           fullPage: true,
         })
       }
+      expect(
+        (await selectedHost.client.call('session.snapshot', { sessionId: selectedHost.ready.sessionId })).runs,
+      ).toHaveLength(1)
       expect(errors).toEqual([])
       await writeFile(
         join(screenshotDirectory, 'capture-metadata.json'),
