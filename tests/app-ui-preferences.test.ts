@@ -12,7 +12,7 @@ function render(patch: Partial<HbarAppUiSettingsPreferencesContent>) {
   return renderToStaticMarkup(createElement(HbarAppUiPreferencesSettings, { ...fixture, ...patch }))
 }
 describe('controlled preferences', () => {
-  test('does not select a replacement for an unavailable choice or render duplicate IDs', () => {
+  test('does not select a replacement for an unavailable choice or render duplicate IDs', async () => {
     const html = render({
       themeId: 'deleted',
       themeChoices: [
@@ -26,8 +26,27 @@ describe('controlled preferences', () => {
     expect(html).toContain('new')
     expect(html).not.toContain('>old<')
     expect(html).not.toMatch(/type="radio"[^>]+checked/)
-    expect(html.match(/<option value="" disabled="" selected="">/g)).toHaveLength(2)
-    expect(html).toContain(fixture.labels.unavailableChoice)
+    const choices: { label: string | null; expanded: string | null; text: string }[] = []
+    await new HTMLRewriter()
+      .on('[role="combobox"]', {
+        element(element) {
+          choices.push({
+            label: element.getAttribute('aria-label'),
+            expanded: element.getAttribute('aria-expanded'),
+            text: '',
+          })
+        },
+        text(chunk) {
+          const choice = choices.at(-1)
+          if (choice) choice.text += chunk.text
+        },
+      })
+      .transform(new Response(html))
+      .text()
+    expect(choices).toEqual([
+      { label: fixture.labels.densityLabel, expanded: 'false', text: fixture.labels.unavailableChoice },
+      { label: fixture.labels.languageLabel, expanded: 'false', text: fixture.labels.unavailableChoice },
+    ])
   })
   test('immediate persistence has no fake save/cancel or unsupported controls', () => {
     const html = render({
