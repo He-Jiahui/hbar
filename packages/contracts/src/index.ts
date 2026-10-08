@@ -155,6 +155,14 @@ export const threadGoalSchema = z.object({
   tokenBudget: z.number().int().positive().nullable(),
   tokensUsed: z.number().int().nonnegative(),
   timeUsedSeconds: z.number().int().nonnegative(),
+  /** Runtime sample; extrapolate only while a bound Run is executing. Never persisted as accounting. */
+  timing: z
+    .object({
+      observedAt: z.number().int().nonnegative(),
+      elapsedMilliseconds: z.number().int().nonnegative(),
+      running: z.boolean(),
+    })
+    .optional(),
   createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),
   executionBudget: executionBudgetSchema.optional(),

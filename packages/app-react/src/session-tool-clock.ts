@@ -32,6 +32,6 @@ const idleSubscribe = () => () => {}
 const snapshot = () => value
 const serverSnapshot = () => 0
 /** Shared visual clock, no per-row timers and no ticks for terminal history or hidden windows. */
-export function useToolClock(active: boolean): number {
+export function useSessionClock(active: boolean): number {
   return useSyncExternalStore(active ? subscribe : idleSubscribe, active ? snapshot : serverSnapshot, serverSnapshot)
 }

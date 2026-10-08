@@ -364,9 +364,14 @@ class GoalRuntime implements GoalService {
       timeAccounted: 0,
       ...(repairKey ? { repairKey } : {}),
     }
-    await this.append(goal.threadId, 'goal.run_bound', { accounting }, runId)
+    const event = await this.append(goal.threadId, 'goal.run_bound', { accounting }, runId)
     this.activeRuns.set(runId, accounting)
     this.boundRuns.add(runId)
+    this.sequences.set(goal.threadId, event.seq)
+    this.api.notify({
+      method: 'goal.updated',
+      params: { sessionId: goal.threadId, runId, goal: this.projectGoal(goal), seq: event.seq },
+    })
     if (goal.replacement && goal.replacement.firstRunId === null)
       await this.persist({ ...goal, replacement: { ...goal.replacement, firstRunId: runId } }, runId)
   }
@@ -565,7 +570,7 @@ class GoalRuntime implements GoalService {
     }
     this.api.notify({
       method: 'goal.updated',
-      params: { sessionId: goal.threadId, runId: runId ?? event.runId, goal: publicGoal(goal), seq: event.seq },
+      params: { sessionId: goal.threadId, runId: runId ?? event.runId, goal: this.projectGoal(goal), seq: event.seq },
     })
     this.api.changed('goals')
     if (
@@ -616,7 +621,24 @@ class GoalRuntime implements GoalService {
   }
 
   private result(sessionId: string, completionBudgetReport?: string) {
-    return response(this.goals.get(sessionId) ?? null, completionBudgetReport)
+    const goal = this.goals.get(sessionId) ?? null
+    const result = response(goal, completionBudgetReport)
+    return goal ? { ...result, goal: this.projectGoal(goal) } : result
+  }
+
+  private projectGoal(goal: PersistedGoal): ThreadGoal {
+    const observedAt = Date.now()
+    const runs = [...this.activeRuns.entries()].filter(
+      ([runId, tracking]) => tracking.goalId === goal.goalId && !goal.accountedRuns.includes(runId),
+    )
+    const running = goal.status !== 'complete' && runs.length > 0
+    const unaccounted = running
+      ? runs.reduce((sum, [, run]) => sum + Math.max(0, observedAt - run.startedAt - run.timeAccounted * 1000), 0)
+      : 0
+    return {
+      ...publicGoal(goal),
+      timing: { observedAt, elapsedMilliseconds: goal.timeUsedSeconds * 1000 + unaccounted, running },
+    }
   }
 
   private withContinuation(

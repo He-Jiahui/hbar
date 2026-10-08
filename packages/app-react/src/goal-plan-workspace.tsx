@@ -19,6 +19,8 @@ import {
   type LumenPlanEditorLabels,
 } from '@lumen/app-ui'
 import type { GoalPlanGoalDraftState, GoalPlanStepDraftState } from '@hbar/app-runtime'
+import type { ThreadGoal } from '@hbar/contracts'
+import { useGoalElapsed } from './session-goal-timing'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import { HbarGoalExecutionState, type HbarGoalExecutionLabels } from './goal-execution-state'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
@@ -94,6 +96,34 @@ function stepTone(status: PlanStepStatus): 'neutral' | 'success' | 'warning' {
   if (status === 'completed') return 'success'
   if (status === 'in_progress') return 'warning'
   return 'neutral'
+}
+
+function GoalMetrics({
+  goal,
+  receivedAt,
+  connected,
+  labels,
+}: {
+  readonly goal: ThreadGoal
+  readonly receivedAt: number | undefined
+  readonly connected: boolean
+  readonly labels: HbarGoalPlanWorkspaceLabels
+}) {
+  const seconds = useGoalElapsed(goal, receivedAt, connected)
+  return (
+    <LumenCompactMetrics
+      label={labels.goal.title}
+      metrics={[
+        { id: 'used', label: labels.goal.used, value: labels.number(goal.tokensUsed) },
+        { id: 'elapsed', label: labels.goal.elapsed, value: labels.duration(seconds) },
+        {
+          id: 'budget',
+          label: labels.goal.tokenBudget,
+          value: goal.tokenBudget === null ? labels.unavailable : labels.number(goal.tokenBudget),
+        },
+      ]}
+    />
+  )
 }
 
 export function HbarGoalPlanWorkspace({
@@ -312,24 +342,11 @@ export function HbarGoalPlanWorkspace({
                         <LumenText as="p" className="hbar-app-react-goal-objective">
                           {entry.goal.objective}
                         </LumenText>
-                        <LumenCompactMetrics
-                          label={labels.goal.title}
-                          metrics={[
-                            { id: 'used', label: labels.goal.used, value: labels.number(entry.goal.tokensUsed) },
-                            {
-                              id: 'elapsed',
-                              label: labels.goal.elapsed,
-                              value: labels.duration(entry.goal.timeUsedSeconds),
-                            },
-                            {
-                              id: 'budget',
-                              label: labels.goal.tokenBudget,
-                              value:
-                                entry.goal.tokenBudget === null
-                                  ? labels.unavailable
-                                  : labels.number(entry.goal.tokenBudget),
-                            },
-                          ]}
+                        <GoalMetrics
+                          goal={entry.goal}
+                          receivedAt={entry.goalReceivedAt}
+                          connected={connected}
+                          labels={labels}
                         />
                         <HbarGoalExecutionState
                           goal={entry.goal}

@@ -279,6 +279,7 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
   } else if (['run.queued', 'run.status', 'run.settled'].includes(event.type) && data) {
     const parsed = runSchema.safeParse(data.run)
     if (parsed.success) {
+      if (!toolClock || event.time >= toolClock.hostTime) toolClock = { hostTime: event.time, receivedAt: Date.now() }
       runs = [...upsert(runs, parsed.data as Run, (item) => item.id, MAX_RUNS)].sort(
         (a, b) => b.createdAt - a.createdAt,
       )

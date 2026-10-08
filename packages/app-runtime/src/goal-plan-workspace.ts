@@ -193,6 +193,7 @@ export function createGoalPlanWorkspace(
       replace({
         ...entry,
         goal: change.goal,
+        goalReceivedAt: Date.now(),
         remainingTokens:
           change.goal?.tokenBudget == null ? null : Math.max(0, change.goal.tokenBudget - change.goal.tokensUsed),
         goalDraft: preserve ? entry.goalDraft : goalDraft(change.goal),
@@ -226,6 +227,7 @@ export function createGoalPlanWorkspace(
       view: sameTarget ? previous.view : 'overview',
       status: background && sameTarget ? previous.status : 'loading',
       goal: sameTarget ? previous.goal : null,
+      goalReceivedAt: sameTarget ? previous.goalReceivedAt : undefined,
       remainingTokens: sameTarget ? previous.remainingTokens : null,
       completionBudgetReport: sameTarget ? previous.completionBudgetReport : null,
       goalDraft: sameTarget ? previous.goalDraft : goalDraft(null),
@@ -286,6 +288,7 @@ export function createGoalPlanWorkspace(
         ...latest,
         status: 'ready',
         goal: committedGoal ? latest.goal : goalResponse.goal,
+        goalReceivedAt: committedGoal ? latest.goalReceivedAt : Date.now(),
         remainingTokens: committedGoal ? latest.remainingTokens : goalResponse.remainingTokens,
         completionBudgetReport: committedGoal
           ? latest.completionBudgetReport
@@ -426,6 +429,7 @@ export function createGoalPlanWorkspace(
       const next: GoalPlanWorkspaceEntryState = {
         ...latest,
         goal: factVersion(instanceId) > versionAtStart ? latest.goal : response.goal,
+        goalReceivedAt: factVersion(instanceId) > versionAtStart ? latest.goalReceivedAt : Date.now(),
         remainingTokens: factVersion(instanceId) > versionAtStart ? latest.remainingTokens : response.remainingTokens,
         completionBudgetReport: response.completionBudgetReport ?? null,
         goalDraft: goalDraft(factVersion(instanceId) > versionAtStart ? latest.goal : response.goal),

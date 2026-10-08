@@ -1,6 +1,6 @@
 import { LumenFrame, LumenText } from '@lumen/app-ui'
 import type { ToolProgress } from '@hbar/contracts'
-import { useToolClock } from './session-tool-clock'
+import { useSessionClock } from './session-tool-clock'
 import { toolElapsed, type SessionToolActivity, type ToolActivityCounts } from './session-tool-activity-model'
 import './session-tool-feedback.css'
 
@@ -42,7 +42,7 @@ export function ToolTiming({
   readonly activity: SessionToolActivity
   readonly labels: SessionToolFeedbackLabels
 }) {
-  const now = useToolClock(activity.active)
+  const now = useSessionClock(activity.active)
   const elapsed = toolElapsed(activity, now)
   if (elapsed === undefined) return null
   return (
@@ -66,7 +66,7 @@ export function ToolBatchFeedback({
   readonly activities?: readonly (SessionToolActivity | undefined)[]
   readonly labels: SessionToolFeedbackLabels
 }) {
-  const now = useToolClock(activities?.some((activity) => activity?.active) ?? false)
+  const now = useSessionClock(activities?.some((activity) => activity?.active) ?? false)
   const durations = activities?.map((activity) => (activity ? toolElapsed(activity, now) : undefined))
   const totalDuration =
     durations?.length && durations.every((duration) => duration !== undefined)

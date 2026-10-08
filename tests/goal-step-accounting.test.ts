@@ -56,6 +56,31 @@ async function rejection(promise: Promise<unknown>) {
   }
 }
 
+test('Goal timing samples only bound live execution and never count idle, completed or offline time', async () => {
+  const { kernel, session, goals } = await fixture()
+  await goals.create(session.id, 'Observe actual execution')
+  expect((await goals.get(session.id)).goal?.timing).toMatchObject({ running: false, elapsedMilliseconds: 0 })
+  const run = { ...runFor(session.id), status: 'running' as const, endedAt: null, startedAt: Date.now() - 3500 }
+  await goals.startRun({ sessionId: session.id, runId: run.id, run })
+  const live = (await goals.get(session.id)).goal!
+  expect(live.timeUsedSeconds).toBe(0)
+  expect(live.timing?.running).toBe(true)
+  expect(live.timing!.elapsedMilliseconds).toBeGreaterThanOrEqual(3500)
+  const snapshot = await goals.snapshot(session.id)
+  expect(snapshot.seq).toBe((await kernel.storage.call('events', session.id, 0)).at(-1)!.seq)
+  await goals.set(session.id, { status: 'paused', expectedGoalId: live.goalId })
+  // Pausing continuation does not stop the currently executing Run.
+  expect((await goals.get(session.id)).goal?.timing?.running).toBe(true)
+  const ended = { ...run, status: 'completed' as const, endedAt: Date.now() }
+  await goals.accountRun({ sessionId: session.id, runId: run.id, run: ended, status: 'completed' })
+  const settled = (await goals.get(session.id)).goal!
+  expect(settled.timing).toMatchObject({ running: false, elapsedMilliseconds: settled.timeUsedSeconds * 1000 })
+  expect(settled.timeUsedSeconds).toBeGreaterThanOrEqual(3)
+  for (const event of await kernel.storage.call('events', session.id, 0)) {
+    if (event.type.startsWith('goal.')) expect(JSON.stringify(event.data)).not.toContain('elapsedMilliseconds')
+  }
+})
+
 test('Goal settles each model step and blocks a second request when its own allowance is exhausted', async () => {
   const { kernel, session, goals } = await fixture()
   await goals.create(session.id, 'One-request allowance', 1)

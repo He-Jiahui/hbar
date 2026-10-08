@@ -58,6 +58,7 @@ export interface ComposerIntentState {
     readonly sessionId: string | null
     readonly status: 'idle' | 'loading' | 'ready' | 'error'
     readonly snapshot: GoalPlanSnapshot | null
+    readonly goalReceivedAt?: number | undefined
     readonly error: string | null
   }
 }
@@ -380,7 +381,10 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
                 change.goal?.tokenBudget == null ? null : Math.max(0, change.goal.tokenBudget - change.goal.tokensUsed),
             }
           : { ...facts.snapshot, plan: change.plan, planSeq: change.seq }
-      state.replace({ ...current, facts: { ...facts, snapshot: next } })
+      state.replace({
+        ...current,
+        facts: { ...facts, snapshot: next, goalReceivedAt: change.kind === 'goal' ? Date.now() : facts.goalReceivedAt },
+      })
     },
     (sessionId) => {
       void refresh(sessionId).catch(() => {})
@@ -398,6 +402,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
         sessionId,
         status: 'loading',
         snapshot: current.facts.sessionId === sessionId ? current.facts.snapshot : null,
+        goalReceivedAt: current.facts.sessionId === sessionId ? current.facts.goalReceivedAt : undefined,
         error: null,
       },
     })
@@ -407,7 +412,7 @@ export function createComposerIntent(local: CommandRegistry, options: ComposerIn
       if (!disposed && intent === generation && options.navigation.getSnapshot().sessionId === sessionId) {
         state.replace({
           ...state.reader.getSnapshot(),
-          facts: { sessionId, status: 'ready', snapshot: value, error: null },
+          facts: { sessionId, status: 'ready', snapshot: value, goalReceivedAt: Date.now(), error: null },
         })
         feed.finish(sessionId, value)
       }

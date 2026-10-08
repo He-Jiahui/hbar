@@ -384,6 +384,7 @@ export interface GoalPlanWorkspaceEntryState {
   readonly view: 'overview' | 'goal' | 'plan'
   readonly status: 'loading' | 'ready' | 'error'
   readonly goal: Readonly<ThreadGoal> | null
+  readonly goalReceivedAt?: number | undefined
   readonly remainingTokens: number | null
   readonly completionBudgetReport: string | null
   readonly goalDraft: Readonly<GoalPlanGoalDraftState>

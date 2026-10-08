@@ -176,6 +176,29 @@ test('clear tombstones reject old updates and closing the panel releases its fee
   expect(listeners.size).toBe(0)
 })
 
+test('Goal clocks keep their receipt anchor across Plan updates and reject stale timing samples', async () => {
+  const { runtime, target, goal, session, emit, entry } = await fixture()
+  await runtime.view.commands.execute('goalPlanWorkspace.refresh', target)
+  emit({
+    kind: 'goal',
+    sessionId: session.id,
+    seq: 30,
+    goal: {
+      ...goal,
+      timing: { observedAt: 1, elapsedMilliseconds: 3500, running: true },
+    },
+  })
+  const receivedAt = entry().goalReceivedAt
+  expect(receivedAt).toBeGreaterThan(0)
+  const composerReceivedAt = runtime.view.state.composerIntent.getSnapshot().facts.goalReceivedAt
+  expect(composerReceivedAt).toBeGreaterThan(0)
+  emit({ kind: 'plan', sessionId: session.id, seq: 31, plan: null })
+  emit({ kind: 'goal', sessionId: session.id, seq: 29, goal })
+  expect(entry().goalReceivedAt).toBe(receivedAt)
+  expect(runtime.view.state.composerIntent.getSnapshot().facts.goalReceivedAt).toBe(composerReceivedAt)
+  expect(entry().goal?.timing?.elapsedMilliseconds).toBe(3500)
+})
+
 test('reconnect reconciles authoritative facts automatically and disposes previous listeners', async () => {
   const { runtime, target, goal, facts, emit, entry, listeners } = await fixture()
   await runtime.view.commands.execute('goalPlanWorkspace.refresh', target)

@@ -5,6 +5,32 @@ import { sessionPreparationStatus } from './session-execution-notice'
 import { firstSendIsLocked } from './pre-session-launch-status'
 import { useSessionStopAction } from './session-stop'
 import { sessionStopCanCancel } from './session-stop-model'
+import type { Run } from '@hbar/contracts'
+import { runObservedEnd, type SessionClockSample } from './session-elapsed-model'
+import { useSessionClock } from './session-tool-clock'
+
+function RunTiming({
+  run,
+  clock,
+  connected,
+  format,
+}: {
+  readonly run: Run
+  readonly clock: SessionClockSample | undefined
+  readonly connected: boolean
+  readonly format: HbarSessionRunHistoryLabels['duration']
+}) {
+  const now = useSessionClock(connected && Boolean(clock) && ['running', 'waiting_approval'].includes(run.status))
+  const end = runObservedEnd(run, clock, now, connected)
+  return (
+    <LumenText
+      as="span"
+      data-run-elapsed={end === null ? undefined : Math.max(0, end - (run.startedAt ?? run.createdAt))}
+    >
+      {format(run.startedAt ?? run.createdAt, end)}
+    </LumenText>
+  )
+}
 
 export interface HbarSessionRunHistoryLabels {
   readonly runs: HbarSessionRunLabels
@@ -105,7 +131,7 @@ export function HbarSessionRunHistory({
           label: labels.timestamp(run.createdAt),
           status: run.status,
           detail: run.error ?? labels.detail(run.modelId),
-          duration: labels.duration(run.startedAt ?? run.createdAt, run.endedAt),
+          duration: <RunTiming run={run} clock={timeline.toolClock} connected={connected} format={labels.duration} />,
         }))}
         labels={labels.runs}
         plan={

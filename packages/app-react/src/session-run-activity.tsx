@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Activity, RotateCcw, Square } from 'lucide-react'
 import {
   LumenButton,
@@ -18,7 +18,10 @@ const PAGE_SIZE = 20
 const MAX_RUNS = 80
 
 export type HbarSessionRunStatus = RunStatus
-export type HbarSessionRunItem = Omit<LumenRunActivityItem, 'status'> & { readonly status: HbarSessionRunStatus }
+export type HbarSessionRunItem = Omit<LumenRunActivityItem, 'status' | 'duration'> & {
+  readonly status: HbarSessionRunStatus
+  readonly duration?: ReactNode
+}
 
 export interface HbarSessionRunLabels extends Omit<LumenRunActivityLabels, 'statusLabel'> {
   readonly statusLabel: (status: HbarSessionRunStatus) => string

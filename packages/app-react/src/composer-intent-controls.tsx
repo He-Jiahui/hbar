@@ -6,6 +6,7 @@ import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import type { HbarComposerIntentControlLabels } from './composer-intent-blocked'
 import { HbarComposerGoalRecovery, type HbarComposerGoalRecoveryLabels } from './composer-goal-recovery'
 import { canReturnGoalClearFocus, sameGoalClearFocusScope, type GoalClearFocusScope } from './composer-goal-clear-focus'
+import { HbarGoalTiming } from './session-goal-timing'
 import './composer-intent-controls.css'
 
 type Goal = NonNullable<NonNullable<ComposerIntentState['facts']['snapshot']>['goal']>
@@ -301,7 +302,12 @@ export function HbarComposerGoal({
           </LumenFrame>
           <LumenFrame className="hbar-composer-goal-tail">
             <LumenText as="span" className="hbar-composer-goal-metric">
-              {labels.elapsed(goal.timeUsedSeconds)}
+              <HbarGoalTiming
+                goal={goal}
+                receivedAt={facts?.goalReceivedAt}
+                connected={connected}
+                format={labels.elapsed}
+              />
             </LumenText>
             {goal.tokenBudget !== null && (
               <LumenText as="span" className="hbar-composer-goal-metric">

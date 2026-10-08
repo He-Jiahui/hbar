@@ -21,6 +21,7 @@ async function fixture() {
     secrets: new MemorySecrets(),
   })
   const workspace = (await kernel.storage.call('workspaces'))[0]!
+  await kernel.changePlugin('goal.codex', true, { autoContinue: false })
   const session = await kernel.createSession(workspace.id, 'goal plan commands')
   const other = await kernel.createSession(workspace.id, 'other session')
   const host = await startServer(kernel, { port: 0 })
@@ -44,6 +45,8 @@ test('goal and plan commands preserve plugin rules, explicit targets and query r
     'agent.create',
     'agent.list',
     'agent.patch.apply',
+    'agent.policy.get',
+    'agent.policy.set',
     'agent.profiles.list',
     'agent.result.get',
     'goal.clear',
@@ -83,6 +86,7 @@ test('goal and plan commands preserve plugin rules, explicit targets and query r
     goal: { threadId: session.id, objective: 'finish the command migration', status: 'active', tokenBudget: 1_000 },
     remainingTokens: 1_000,
   })
+  expect(created.goal?.timing).toMatchObject({ running: false, elapsedMilliseconds: 0 })
   await expect(
     commands.execute('goal.create', { sessionId: session.id, objective: 'replacement from create' }),
   ).rejects.toMatchObject({ code: 'GOAL_EXISTS' })
