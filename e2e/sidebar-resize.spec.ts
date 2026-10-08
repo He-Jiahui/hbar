@@ -5,6 +5,7 @@ import { basename, dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
+import { notificationNavigationCopy } from '../apps/web/src/notification-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
@@ -129,15 +130,14 @@ async function stop(fixture: Fixture): Promise<void> {
   await removeRoot(fixture.root)
 }
 async function showSidebar({ page, copy }: Fixture, shown: boolean): Promise<void> {
+  const shell = page.locator('[data-hbar-sidebar-expanded]')
+  await expect(shell).toHaveAttribute('data-hbar-sidebar-expanded', /^(true|false)$/)
   const trigger = page.getByRole('button', {
     name: shown ? copy.shell.showSidebar : copy.shell.hideSidebar,
     exact: true,
   })
-  if (await trigger.isVisible()) await trigger.click()
-  await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute(
-    'data-hbar-sidebar-expanded',
-    String(shown),
-  )
+  if ((await shell.getAttribute('data-hbar-sidebar-expanded')) !== String(shown)) await trigger.click()
+  await expect(shell).toHaveAttribute('data-hbar-sidebar-expanded', String(shown))
 }
 function resizer({ page, copy }: Fixture): Locator {
   return page.getByRole('separator', { name: copy.sidebarLayout.resize, exact: true })
@@ -174,10 +174,17 @@ async function drag(
   offset: number,
   finish: 'up' | 'escape' | 'cancel' = 'up',
 ): Promise<void> {
+  await separator.click({ trial: true })
   const rect = await separator.boundingBox()
   if (!rect) throw new Error('Missing visible sidebar separator')
   await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2)
+  const ownsPoint = await separator.evaluate(
+    (element, point) => document.elementFromPoint(point.x, point.y) === element,
+    { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 },
+  )
+  expect(ownsPoint).toBe(true)
   await page.mouse.down()
+  await expect.poll(() => separator.evaluate((element) => element.hasPointerCapture(1))).toBe(true)
   await page.mouse.move(rect.x + rect.width / 2 + offset, rect.y + rect.height / 2, { steps: 5 })
   if (finish === 'escape') await page.keyboard.press('Escape')
   if (finish === 'cancel')
@@ -360,7 +367,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(editor).toHaveValue(dirty)
       await expectComposerText(prompt, draftA)
       const settings = page.getByRole('button', { name: copy.shell.settings, exact: true })
-      const bellSurface = await page.locator('.hbar-web-feature-navigation .lumen-notifications-surface').boundingBox()
+      const bell = page
+        .locator('.hbar-web-feature-navigation')
+        .getByRole('button', { name: notificationNavigationCopy(locale).bell(0), exact: true })
+      await expect(bell).toBeVisible()
+      const bellSurface = await bell.boundingBox()
       const settingsBox = await settings.boundingBox()
       if (!bellSurface || !settingsBox) throw new Error('Sidebar footer actions are missing')
       expect(bellSurface.y + bellSurface.height).toBeLessThanOrEqual(settingsBox.y + 1)

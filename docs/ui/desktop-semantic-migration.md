@@ -738,4 +738,10 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - Lumen 工作台原有 12 项严格规则错误全部清除，没有关闭规则。34 项 Lumen 预览／侧栏测试、19 项父仓库布局测试／127 个断言、两语言的完整真实 Host 工具导航和两个真实侧栏保存失败／原重试场景通过。包与父仓库严格 lint、类型、包声明／library build、格式、新鲜 Web build、strict 清单与窄屏截图通过。
 - 扩展侧栏的两条完整拖动路径在 pointer 拖动断言失败；修改前的 navigation-visibility-web 产物也出现同一失败，未算作该功能回归通过，继续独立核对 pointer 坐标与动画。证据为 artifacts/desktop-elements/final-gates 的 lumen-workbench、pane-preview 与 sidebar-before-preview 日志。最新上游 master 已再次通过远端读取确认是 92e6f6cf213bd701adea70c365983dfb7579b48b，当前 Lumen 分支保留已整合上游及上述修复。
 
-当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。最终全库与原生门禁、扩展侧栏拖动验收尚未完成。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 扩展侧栏的真实指针与页脚验证
+
+- 四条完整侧栏 Chrome 路径已通过，覆盖两语言、1440／900／390／320、方向键／Home／End／默认重置、真实 pointer 拖动、Escape／cancel、保存与 reload、两份会话草稿、原 Files 未保存正文、设置／状态往返和保存失败后的原重试。直接拖动前检查浏览器 actionability，核对坐标实际命中分隔条，确认 pointer capture 后才发送后续事件；保留所有实际宽度、持久化与零执行断言。
+- 7f222913 将通知入口改为直接打开全局页面，旧侧栏测试还查找已不存在的 notifications-surface。现在通过宿主通知文案找到实际通知按钮，并继续核对它与 Settings 的真实边界，避免把测试只改为存在检查。修改前的 frozen 产物也复现了原拖动／旧页脚选择器失败；诊断、最终四项通过日志与截图均保留在 sidebar-pointer、sidebar-before-preview 与 artifacts/desktop-final-entry-audit/navigation/sidebar-resize。范围严格 lint、根类型、格式和截图通过，本项没有修改产品源码。
+- 更正 febce976／716a7bdb 的格式基线记录：PowerShell 管道转换了用于对照的文本换行，不能据其退出码判断 Git blob 的原始格式。使用原始 Git blob 与 Prettier API 核对后，五个有限 fixture 文件及 server.test.ts 的原始格式均合规，本轮混合换行已统一，格式检查通过且没有额外 Git 文本差异。contracts/index.ts 的既存格式失败由原始 blob 单独确认，保持已提交的最小字段变更，没有夹带整文件重排。
+
+当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。最终全库与原生门禁尚未完成。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
