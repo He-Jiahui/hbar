@@ -38,7 +38,7 @@ async function fixture() {
   roots.push(root)
   const path = join(root, 'storage.sqlite')
   const store = open(path)
-  expect(await store.call('ready')).toEqual({ version: 18 })
+  expect(await store.call('ready')).toEqual({ version: 20 })
   const workspace = await store.call('createWorkspace', root, 'folder')
   return { root, path, store, workspace }
 }
@@ -229,7 +229,7 @@ for (const version of [6, 7]) {
     })
     const a = open(f.path)
     const b = open(f.path)
-    expect(await Promise.all([a.call('ready'), b.call('ready')])).toEqual([{ version: 18 }, { version: 18 }])
+    expect(await Promise.all([a.call('ready'), b.call('ready')])).toEqual([{ version: 20 }, { version: 20 }])
     const writes = await Promise.allSettled([
       a.call('applyWorkspaceDisplayNames', input(f.workspace.id, 'A')),
       b.call('applyWorkspaceDisplayNames', input(f.workspace.id, 'B')),
