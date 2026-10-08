@@ -726,4 +726,10 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 28 项别名消费／Runtime 测试、199 个断言，34 项 Lumen 浮层／比例测试，以及同次 14 项 Chrome 场景通过。另十项 Chrome 用例覆盖两语言、五宽度、两主题、125% zoom、五种用量状态、原阅读区和关闭／焦点归还。项目名称的最后字符 Range、真实多行和无裁切均已检查，宽／窄截图已复核。
 - 范围严格 lint、根 TypeScript（零诊断）、Lumen 包类型／build、格式、文案／图标／flow guards、新鲜 Web build 和 strict 清单通过。证据位于 artifacts/desktop-elements/final-gates 的 floating-scale 与 workspace-consumers-title 日志，以及 workspace-consumers/verified-title 和 floating-scale-browser-results。初次失败与逐帧事实保留；测试诊断截图有界，显式启用时才记录 trace。
 
-当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。最终全库／浏览器／原生门禁和上述四项扩展导航失败尚未完成。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 导航与宽度保存的状态归属
+
+- 扩展导航失败已闭合。174c7e89 按布局 source 同步侧栏可见性；首次宽度保存把 source 从 default 变为 current，重新打开已收起的侧栏并挤走工具分隔条。现在 current 提交仅更新几何，恢复布局继续应用描述文件的可见性，实时导航仍由 Runtime presentation 管理。
+- 浏览器明确验证第一、第二个方向键、Home／End、pointer 拖动、保存与 reload 后的宽度，以及原分隔条焦点和收起的侧栏。旧测试以 offscreen 隐藏按钮判断导航状态，并在响应式过渡中分开读取状态和宽度；现在读取 canonical 可见状态、使用 900 宽度下实际出现的设置导航，并在同一次浏览器任务里核对布局模式、实际宽度、inert 和主区域。
+- 19 项 Bun 布局／保存／失败恢复测试、127 个断言，以及六条中英文真实 Host Chrome 路径通过。最终定向运行的两条完整工具导航均通过；同一生产产物的四条文件草稿／设置／状态／关闭确认路径也通过。保留原输入和文件草稿、附件、审批、Stop、零误执行和 viewport 检查；截图已复核。严格 lint、根 TypeScript、格式、文案／图标 guard、新鲜 Web build 与 strict 清单通过。证据为 artifacts/desktop-elements/final-gates 的 navigation-current、navigation-focus-diagnostic、navigation-visibility 与 navigation-geometry 日志，截图与完整事实位于 artifacts/workbench-navigation-presentation/final。
+
+当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。最终全库与原生门禁尚未完成。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

@@ -1486,7 +1486,7 @@
     {
       "id": "apps/web/src/App.tsx::App::LumenProvider::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1906,
+      "line": 1907,
       "owner": "App",
       "surface": "workbench",
       "component": "LumenProvider",
@@ -1505,7 +1505,7 @@
     {
       "id": "apps/web/src/App.tsx::App::HbarRuntimeProvider::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1907,
+      "line": 1908,
       "owner": "App",
       "surface": "workbench",
       "component": "HbarRuntimeProvider",
@@ -1524,7 +1524,7 @@
     {
       "id": "apps/web/src/App.tsx::App::WebSkillImportPanel::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1910,
+      "line": 1911,
       "owner": "App",
       "surface": "workbench",
       "component": "WebSkillImportPanel",
@@ -1543,7 +1543,7 @@
     {
       "id": "apps/web/src/App.tsx::App::WorkbenchSurfaceCleanup::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1913,
+      "line": 1914,
       "owner": "App",
       "surface": "workbench",
       "component": "WorkbenchSurfaceCleanup",
@@ -1562,7 +1562,7 @@
     {
       "id": "apps/web/src/App.tsx::App::NotificationDesktopBridge::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1914,
+      "line": 1915,
       "owner": "App",
       "surface": "workbench",
       "component": "NotificationDesktopBridge",
@@ -1581,14 +1581,14 @@
     {
       "id": "apps/web/src/App.tsx::App::HbarWorkspaceShell::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1915,
+      "line": 1916,
       "owner": "App",
       "surface": "workbench",
       "component": "HbarWorkspaceShell",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "[source:2016; ConditionalExpression] workspaceLayout.config.tabs.visible, workspaceLayout.config.tabs, workspaceLayout.config, workspaceLayout.config.tabs.placement",
+        "[source:2017; ConditionalExpression] workspaceLayout.config.tabs.visible, workspaceLayout.config.tabs, workspaceLayout.config, workspaceLayout.config.tabs.placement",
         "labels=copy.shell"
       ],
       "accessibleNameSources": [],
@@ -1610,7 +1610,7 @@
     {
       "id": "apps/web/src/App.tsx::App::NativeWindowTitlebar::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1921,
+      "line": 1922,
       "owner": "App",
       "surface": "workbench",
       "component": "NativeWindowTitlebar",
@@ -1629,7 +1629,7 @@
     {
       "id": "apps/web/src/App.tsx::App::ToolPaneLayoutFeedback::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1942,
+      "line": 1943,
       "owner": "App",
       "surface": "workbench",
       "component": "ToolPaneLayoutFeedback",
@@ -1648,7 +1648,7 @@
     {
       "id": "apps/web/src/App.tsx::App::FeatureNavigation::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1953,
+      "line": 1954,
       "owner": "App",
       "surface": "workbench",
       "component": "FeatureNavigation",
@@ -1667,7 +1667,7 @@
     {
       "id": "apps/web/src/App.tsx::App::LumenFrame::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1998,
+      "line": 1999,
       "owner": "App",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -1686,7 +1686,7 @@
     {
       "id": "apps/web/src/App.tsx::App::ToolPaneLayoutFeedback::2",
       "path": "apps/web/src/App.tsx",
-      "line": 1999,
+      "line": 2000,
       "owner": "App",
       "surface": "workbench",
       "component": "ToolPaneLayoutFeedback",
@@ -1705,7 +1705,7 @@
     {
       "id": "apps/web/src/App.tsx::App::LazySurfaceBoundary::1",
       "path": "apps/web/src/App.tsx",
-      "line": 2000,
+      "line": 2001,
       "owner": "App",
       "surface": "workbench",
       "component": "LazySurfaceBoundary",
@@ -1724,7 +1724,7 @@
     {
       "id": "apps/web/src/App.tsx::App::WorkspaceTool::1",
       "path": "apps/web/src/App.tsx",
-      "line": 2001,
+      "line": 2002,
       "owner": "App",
       "surface": "workbench",
       "component": "WorkspaceTool",
@@ -1743,7 +1743,7 @@
     {
       "id": "apps/web/src/App.tsx::App::LazySurfaceBoundary::2",
       "path": "apps/web/src/App.tsx",
-      "line": 2011,
+      "line": 2012,
       "owner": "App",
       "surface": "workbench",
       "component": "LazySurfaceBoundary",
@@ -1762,7 +1762,7 @@
     {
       "id": "apps/web/src/App.tsx::App::WorkspaceModal::1",
       "path": "apps/web/src/App.tsx",
-      "line": 2012,
+      "line": 2013,
       "owner": "App",
       "surface": "workbench",
       "component": "WorkspaceModal",
@@ -1781,7 +1781,7 @@
     {
       "id": "apps/web/src/App.tsx::App::WorkspaceTabsController::1",
       "path": "apps/web/src/App.tsx",
-      "line": 2017,
+      "line": 2018,
       "owner": "App",
       "surface": "workbench",
       "component": "WorkspaceTabsController",
@@ -1800,7 +1800,7 @@
     {
       "id": "apps/web/src/App.tsx::App::WorkspaceBody::1",
       "path": "apps/web/src/App.tsx",
-      "line": 2018,
+      "line": 2019,
       "owner": "App",
       "surface": "workbench",
       "component": "WorkspaceBody",
@@ -1819,7 +1819,7 @@
     {
       "id": "apps/web/src/App.tsx::App::WorkspaceBody::2",
       "path": "apps/web/src/App.tsx",
-      "line": 2037,
+      "line": 2038,
       "owner": "App",
       "surface": "workbench",
       "component": "WorkspaceBody",

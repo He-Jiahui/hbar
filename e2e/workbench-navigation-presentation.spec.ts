@@ -8,7 +8,6 @@ import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { workspaceTabsCopy } from '../apps/web/src/workspace-tabs-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
-import { selectLumenOption } from './support/lumen-controls'
 
 const origin = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
 const port = Number(process.env.HBAR_E2E_HOST_PORT ?? 4317)
@@ -82,15 +81,14 @@ async function removeRoot(root: string): Promise<void> {
 }
 
 async function sidebar(page: Page, copy: Copy, visible: boolean): Promise<void> {
+  const shell = page.locator('[data-hbar-sidebar-expanded]')
+  await expect(shell).toHaveAttribute('data-hbar-sidebar-expanded', /^(true|false)$/)
   const button = page.getByRole('button', {
     name: visible ? copy.shell.showSidebar : copy.shell.hideSidebar,
     exact: true,
   })
-  if (await button.isVisible()) await button.click()
-  await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute(
-    'data-hbar-sidebar-expanded',
-    String(visible),
-  )
+  if ((await shell.getAttribute('data-hbar-sidebar-expanded')) !== String(visible)) await button.click()
+  await expect(shell).toHaveAttribute('data-hbar-sidebar-expanded', String(visible))
 }
 
 function tools(copy: Copy) {
@@ -112,36 +110,40 @@ async function noOverflow(page: Page): Promise<void> {
 
 async function presentation(page: Page): Promise<Presentation> {
   const shell = page.locator('[data-lumen-shell="app"]')
+  const read = () =>
+    shell.evaluate((element) => {
+      const body = element.querySelector('.lumen-app-body')
+      const main = element.querySelector('.lumen-app-main')
+      if (!(body instanceof HTMLElement) || !(main instanceof HTMLElement))
+        throw new Error('Tool presentation has no owning body/main panes')
+      return {
+        presentation: element.getAttribute('data-tool-presentation'),
+        available: body.getBoundingClientRect().width,
+        rem: Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
+        main: {
+          width: main.getBoundingClientRect().width,
+          inert: main.hasAttribute('inert'),
+          hidden: main.hasAttribute('hidden'),
+          display: getComputedStyle(main).display,
+        },
+      }
+    })
+  let snapshot = await read()
   await expect
     .poll(async () => {
-      const value = await shell.getAttribute('data-tool-presentation')
-      const available = await page.locator('.lumen-app-body').evaluate((element) => ({
-        width: element.getBoundingClientRect().width,
-        rem: Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
-      }))
-      return value === (available.width >= 40.375 * available.rem ? 'split' : 'page')
+      // Read state and layout in one browser task, including responsive transitions.
+      snapshot = await read()
+      const expected = snapshot.available >= 40.375 * snapshot.rem ? 'split' : 'page'
+      return (
+        snapshot.presentation === expected &&
+        !snapshot.main.hidden &&
+        snapshot.main.display !== 'none' &&
+        (expected === 'page' ? snapshot.main.inert && snapshot.main.width === 0 : !snapshot.main.inert)
+      )
     })
     .toBe(true)
-  const state = await shell.getAttribute('data-tool-presentation')
+  const state = snapshot.presentation
   if (state !== 'split' && state !== 'page') throw new Error('The active tool must have a real presentation mode')
-  const main = page.locator('.lumen-app-main')
-  if (state === 'page') {
-    await expect(main).toHaveAttribute('inert', '')
-    const collapsed = await main.evaluate((element) => ({
-      width: element.getBoundingClientRect().width,
-      hidden: element.hasAttribute('hidden'),
-      display: getComputedStyle(element).display,
-    }))
-    expect(collapsed.width).toBe(0)
-    expect(collapsed.hidden).toBe(false)
-    expect(collapsed.display).not.toBe('none')
-  } else await expect(main).not.toHaveAttribute('inert', '')
-  const policy = await page.locator('.lumen-app-body').evaluate((element) => ({
-    width: element.getBoundingClientRect().width,
-    rem: Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
-  }))
-  // Default descriptor: main20rem + tool20rem + flowing separator0.375rem.
-  expect(state).toBe(policy.width >= 40.375 * policy.rem ? 'split' : 'page')
   await noOverflow(page)
   return state
 }
@@ -246,21 +248,21 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       // consumes width: not a hard viewport80rem overlay breakpoint.
       await page.setViewportSize({ width: 900, height: 960 })
       const pane = await openTool(page, copy.session.tools.files)
-      expect(await presentation(page)).toBe('split')
+      await expect.poll(() => presentation(page)).toBe('split')
       await sidebar(page, copy, true)
-      expect(await presentation(page)).toBe('page')
+      await expect.poll(() => presentation(page)).toBe('page')
       await page.screenshot({ path: `${evidence}/files-sidebar-open-${locale}-900.png` })
       await sidebar(page, copy, false)
-      expect(await presentation(page)).toBe('split')
+      await expect.poll(() => presentation(page)).toBe('split')
       // The native-modal retention guard does not change ordinary narrow
       // navigation: without a modal, entering320 still closes the sidebar.
       await page.setViewportSize({ width: 1440, height: 960 })
       await sidebar(page, copy, true)
       await page.setViewportSize({ width: 320, height: 960 })
       await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
-      expect(await presentation(page)).toBe('page')
+      await expect.poll(() => presentation(page)).toBe('page')
       await page.setViewportSize({ width: 900, height: 960 })
-      expect(await presentation(page)).toBe('split')
+      await expect.poll(() => presentation(page)).toBe('split')
       const separator = page.getByRole('separator', { name: copy.toolLayout.resize, exact: true })
       await expect(separator).toBeVisible()
       const value = async (attribute = 'aria-valuenow') => {
@@ -271,9 +273,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const initial = await value()
       const rem = await page.evaluate(() => Number.parseFloat(getComputedStyle(document.documentElement).fontSize))
       await separator.focus()
+      await expect(separator).toBeFocused()
       await page.keyboard.press('ArrowLeft')
       await expect.poll(() => value()).toBeCloseTo(initial + 32 / rem, 3)
       await expect(separator).toHaveAttribute('data-resize-status', 'idle')
+      await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
+      await expect(separator).toBeFocused()
       await page.keyboard.press('ArrowRight')
       await expect.poll(() => value()).toBeCloseTo(initial, 3)
       await expect(separator).toHaveAttribute('data-resize-status', 'idle')
@@ -296,10 +301,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect.poll(() => value()).toBeCloseTo(saved, 3)
       await expect(separator).toHaveAttribute('data-resize-status', 'idle')
       await page.setViewportSize({ width: 320, height: 960 })
-      expect(await presentation(page)).toBe('page')
+      await expect.poll(() => presentation(page)).toBe('page')
       await expect(separator).toBeHidden()
       await page.setViewportSize({ width: 900, height: 960 })
-      expect(await presentation(page)).toBe('split')
+      await expect.poll(() => presentation(page)).toBe('split')
       await expect.poll(() => value()).toBeCloseTo(saved, 3)
       await writeFile(
         `${evidence}/resize-focus-${locale}.json`,
@@ -388,13 +393,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await sidebar(page, copy, true)
       await page.getByRole('button', { name: copy.shell.extensionsAndSkills, exact: true }).click()
       await sidebar(page, copy, false)
-      const settingsGroups = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
-      if (await settingsGroups.isVisible()) await selectLumenOption(settingsGroups, 'extensions')
-      else
-        await page
-          .getByRole('navigation', { name: copy.settings.groups, exact: true })
-          .getByRole('button', { name: copy.settings.resolve('i18n:settings.groups.extensions'), exact: true })
-          .click()
+      const settingsGroups = page.getByRole('navigation', { name: copy.settings.groups, exact: true })
+      await expect(settingsGroups).toBeVisible()
+      await settingsGroups
+        .getByRole('button', { name: copy.settings.resolve('i18n:settings.groups.extensions'), exact: true })
+        .click()
       await expect(page.getByRole('button', { name: copy.extensions.openSystemCommands, exact: true })).toBeVisible()
       await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
       await page.keyboard.press('Control+Shift+p')

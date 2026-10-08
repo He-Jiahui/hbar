@@ -1813,7 +1813,8 @@ export default function App({
       : undefined
 
   useEffect(() => {
-    if (layout.status !== 'ready') return
+    // A current width commit changes geometry, while live navigation owns visibility.
+    if (layout.status !== 'ready' || layout.source === 'current') return
     const syncKey = `sidebar:${layout.source}`
     if (layoutVisibilitySync.current === syncKey) return
     layoutVisibilitySync.current = syncKey
