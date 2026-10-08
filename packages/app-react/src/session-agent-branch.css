@@ -26,6 +26,7 @@
 .hbar-app-react-agent-branch-count {
   flex: 0 0 auto;
   padding-inline: 0.25rem;
+  color: var(--lumen-muted);
 }
 .hbar-app-react-agent-branch-children {
   margin-inline-start: 0;
@@ -43,9 +44,14 @@
   padding: 0.25rem;
   overflow-wrap: anywhere;
 }
-.hbar-app-react-agent-branch-children > button,
-.hbar-app-react-agent-branch-feedback > button {
+.hbar-app-react-agent-branch-actions {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-x: auto;
+}
+.hbar-app-react-agent-branch-actions > button {
   align-self: flex-start;
+  min-inline-size: max-content;
 }
 @media (pointer: coarse) {
   .hbar-app-react-agent-branch-toggle,

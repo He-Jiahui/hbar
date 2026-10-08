@@ -2,14 +2,14 @@
 
 由 `bun scripts/audit-desktop-elements.ts --write` 从运行时入口、命名延迟加载、barrel 导出和 JSX 生成。完整的元素、槽位、内容来源、可访问名称、动作目标、状态来源和待处理问题见 [类型化清单](desktop-elements.json)。
 
-入口：`apps/web/src/main.tsx`。相关 TSX 模块 146 个；元素 3838 个。实际构建输入核对：passed。
+入口：`apps/web/src/main.tsx`。相关 TSX 模块 146 个；元素 3840 个。实际构建输入核对：passed。
 
 ## 类别与展示边界
 
 | 类别        | 元素 | pending | 设计职责                                                                |
 | ----------- | ---: | ------: | ----------------------------------------------------------------------- |
-| structure   | 1220 |       5 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
-| text        | 1122 |      59 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
+| structure   | 1223 |       5 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
+| text        | 1121 |      54 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
 | interaction |  938 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
 | form        |  280 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
 | collection  |  135 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
@@ -122,7 +122,7 @@
 | [packages/app-react/src/sandbox-profile-settings.tsx](../../packages/app-react/src/sandbox-profile-settings.tsx)           | settings                                         |  157 |             33 |          0 |          0 |
 | [packages/app-react/src/session-activity-indicator.tsx](../../packages/app-react/src/session-activity-indicator.tsx)       | agents-and-activity                              |    3 |              0 |          0 |          0 |
 | [packages/app-react/src/session-activity-workspace.tsx](../../packages/app-react/src/session-activity-workspace.tsx)       | agents-and-activity                              |   31 |             10 |          0 |          0 |
-| [packages/app-react/src/session-agent-branch.tsx](../../packages/app-react/src/session-agent-branch.tsx)                   | agents-and-activity                              |   13 |              0 |          5 |          0 |
+| [packages/app-react/src/session-agent-branch.tsx](../../packages/app-react/src/session-agent-branch.tsx)                   | agents-and-activity                              |   15 |              5 |          0 |          0 |
 | [packages/app-react/src/session-archive.tsx](../../packages/app-react/src/session-archive.tsx)                             | session                                          |   58 |             24 |          0 |          0 |
 | [packages/app-react/src/session-empty-hero.tsx](../../packages/app-react/src/session-empty-hero.tsx)                       | session                                          |    4 |              0 |          2 |          0 |
 | [packages/app-react/src/session-execution-notice.tsx](../../packages/app-react/src/session-execution-notice.tsx)           | session                                          |    6 |              0 |          2 |          0 |
@@ -135,7 +135,7 @@
 | [packages/app-react/src/session-live-status.tsx](../../packages/app-react/src/session-live-status.tsx)                     | status-and-usage                                 |    3 |              0 |          1 |          0 |
 | [packages/app-react/src/session-message.tsx](../../packages/app-react/src/session-message.tsx)                             | session / status-and-usage / agents-and-activity |   61 |             11 |          0 |          0 |
 | [packages/app-react/src/session-monitoring.tsx](../../packages/app-react/src/session-monitoring.tsx)                       | status-and-usage                                 |   31 |             13 |          0 |          0 |
-| [packages/app-react/src/session-navigation-row.tsx](../../packages/app-react/src/session-navigation-row.tsx)               | session                                          |   33 |              8 |          0 |          0 |
+| [packages/app-react/src/session-navigation-row.tsx](../../packages/app-react/src/session-navigation-row.tsx)               | session                                          |   34 |              8 |          0 |          0 |
 | [packages/app-react/src/session-project-context.tsx](../../packages/app-react/src/session-project-context.tsx)             | session                                          |   13 |              6 |          0 |          0 |
 | [packages/app-react/src/session-roster-feedback.tsx](../../packages/app-react/src/session-roster-feedback.tsx)             | session                                          |    3 |              1 |          0 |          0 |
 | [packages/app-react/src/session-run-activity.tsx](../../packages/app-react/src/session-run-activity.tsx)                   | agents-and-activity                              |   33 |             14 |          0 |          0 |
@@ -146,9 +146,9 @@
 | [packages/app-react/src/session-usage-control.tsx](../../packages/app-react/src/session-usage-control.tsx)                 | status-and-usage                                 |   14 |              0 |          5 |          0 |
 | [packages/app-react/src/settings-content-recovery.tsx](../../packages/app-react/src/settings-content-recovery.tsx)         | settings                                         |    5 |              3 |          0 |          0 |
 | [packages/app-react/src/settings-usage.tsx](../../packages/app-react/src/settings-usage.tsx)                               | settings                                         |   30 |             13 |          0 |          0 |
-| [packages/app-react/src/sidebar-caption.tsx](../../packages/app-react/src/sidebar-caption.tsx)                             | workbench                                        |    2 |              2 |          0 |          0 |
 | [packages/app-react/src/sidebar-search-entry.tsx](../../packages/app-react/src/sidebar-search-entry.tsx)                   | workbench                                        |    4 |              2 |          0 |          0 |
 | [packages/app-react/src/sidebar-time-view.tsx](../../packages/app-react/src/sidebar-time-view.tsx)                         | workbench                                        |    7 |              1 |          0 |          0 |
+| [packages/app-react/src/sidebar-title.tsx](../../packages/app-react/src/sidebar-title.tsx)                                 | workbench                                        |    1 |              1 |          0 |          0 |
 | [packages/app-react/src/skill-import-panel.tsx](../../packages/app-react/src/skill-import-panel.tsx)                       | settings                                         |   36 |             15 |          0 |          0 |
 | [packages/app-react/src/storage-location-settings.tsx](../../packages/app-react/src/storage-location-settings.tsx)         | settings                                         |   21 |             11 |          0 |          0 |
 | [packages/app-react/src/system-diagnostics.tsx](../../packages/app-react/src/system-diagnostics.tsx)                       | status-and-usage                                 |   40 |             14 |          0 |          0 |

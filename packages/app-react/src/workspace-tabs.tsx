@@ -311,7 +311,7 @@ export function HbarWorkspaceTabs({
                   aria-label={labels.activity(item.activity)}
                 />
               )}
-              <LumenContentText context="navigation.caption" className="hbar-workspace-tab-title">
+              <LumenContentText context="collection.title" className="hbar-workspace-tab-title">
                 {item.title}
               </LumenContentText>
             </LumenButton>

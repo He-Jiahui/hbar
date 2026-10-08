@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test'
 import { createAgentCommandClient, createRunCommandClient, createWorkspaceSessionCommandClient } from '@hbar/client'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { lumenMenuForTrigger } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { removeOwnedTempDirectory } from './support/owned-temp-directory'
 
 for (const locale of ['en-US', 'zh-CN'] as const)
   test(`Child agents are nested, foldable and response ordered in both sidebar modes: ${locale}`, async ({
@@ -16,7 +17,12 @@ for (const locale of ['en-US', 'zh-CN'] as const)
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 960 } })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const agents = createAgentCommandClient(host.client)
       const sessions = createWorkspaceSessionCommandClient(host.client)
       const copy = getShellCopy(locale)
@@ -62,7 +68,7 @@ for (const locale of ['en-US', 'zh-CN'] as const)
         .toBe('completed')
       const title =
         locale === 'zh-CN'
-          ? '已重命名但仍按回复时间排序的子 agent：这是一个非常长的标题用来验证窄窗口省略和原始操作目标不会改变'
+          ? '已重命名但仍按回复时间排序的子 agent：这是一个非常长的标题用来验证窄窗口完整显示和原始操作目标不会改变'
           : 'Renamed older child with a very long title that must not reorder responses or change its original action target'
       await sessions.execute('session.rename', { sessionId: first.sessionId, title })
       const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
@@ -127,6 +133,10 @@ for (const locale of ['en-US', 'zh-CN'] as const)
           await show.click()
         }
         await expect(firstRow()).toBeVisible()
+        const childTitle = firstRow().locator('.hbar-sidebar-title')
+        await expect(childTitle).toHaveText(title)
+        expect(await childTitle.evaluate((node) => getComputedStyle(node).whiteSpace)).toBe('normal')
+        expect(await childTitle.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true)
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
         await page.screenshot({ path: info.outputPath(`agent-tree-${locale}-${width}.png`) })
       }
@@ -149,6 +159,6 @@ for (const locale of ['en-US', 'zh-CN'] as const)
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeOwnedTempDirectory(root, 'hbar-agent-tree-ui-')
     }
   })

@@ -1,14 +1,15 @@
 import { expect, test } from '@playwright/test'
 import { createWorkspaceSessionCommandClient } from '@hbar/client'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { lumenMenuForTrigger } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { removeOwnedTempDirectory } from './support/owned-temp-directory'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
-  test(`session title and time stay on one navigable row at desktop and narrow widths: ${locale}`, async ({
+  test(`complete session title and its time remain accessible at desktop and narrow widths: ${locale}`, async ({
     browser,
   }, testInfo) => {
     test.setTimeout(90_000)
@@ -16,7 +17,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 900 } })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const directory = createWorkspaceSessionCommandClient(host.client)
       const session = await directory.execute(
         'session.create',
@@ -43,20 +49,29 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expect(time).toHaveAttribute('dateTime', new Date(session.updatedAt).toISOString())
         await expect(time).toHaveAttribute('title', copy.shell.sessionUpdatedAtFull(session.updatedAt))
         const bounds = await row.evaluate((element) => {
-          const title = element.querySelector('.hbar-app-react-session-title') as HTMLElement
-          const time = element.querySelector('time') as HTMLElement
-          const action = element.querySelector('.lumen-action-menu') as HTMLElement
+          const title = element.querySelector('.hbar-app-react-session-title')
+          const time = element.querySelector('time')
+          const action = element.querySelector('.lumen-action-menu')
+          const reader = element.querySelector('.hbar-app-react-session-time-reading')
+          if (!title || !time || !action || !reader) throw new Error('Missing session row content')
           const titleRect = title.getBoundingClientRect()
-          const timeRect = time.getBoundingClientRect()
+          const timeRect = reader.getBoundingClientRect()
           const actionRect = action.getBoundingClientRect()
           return {
-            sameLine: Math.abs(titleRect.top - timeRect.top) < 4,
-            ordered: titleRect.right <= timeRect.left && timeRect.right <= actionRect.left,
+            aligned: Math.abs(titleRect.top + titleRect.height / 2 - timeRect.top - timeRect.height / 2) < 4,
+            ordered: titleRect.right <= timeRect.left + 1 && timeRect.right <= actionRect.left + 1,
+            readableTime: time.scrollWidth <= reader.clientWidth + 1,
             titleTruncated: title.scrollWidth > title.clientWidth,
             overflow: document.documentElement.scrollWidth > innerWidth + 1,
           }
         })
-        expect(bounds).toEqual({ sameLine: true, ordered: true, titleTruncated: true, overflow: false })
+        expect(bounds).toEqual({
+          aligned: true,
+          ordered: true,
+          readableTime: true,
+          titleTruncated: false,
+          overflow: false,
+        })
       }
       await target.click()
       await checkRow()
@@ -75,7 +90,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeOwnedTempDirectory(root, 'hbar-session-time-')
     }
   })
 }

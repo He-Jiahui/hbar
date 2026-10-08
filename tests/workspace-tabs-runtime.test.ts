@@ -6,7 +6,7 @@ import {
   type ClientJsonValue,
   type ClientPersistencePort,
 } from '@hbar/app-runtime'
-import type { Session, Workspace } from '@hbar/contracts/directory'
+import { sessionListInputSchema, type Session, type Workspace } from '@hbar/contracts/directory'
 
 const workspace: Workspace = { id: 'w', name: 'Workspace', path: 'D:/workspace', createdAt: 1 }
 const session = (id: string, archived = false): Session => ({
@@ -351,13 +351,18 @@ test('closing the selected tab validates an older open neighbour evicted from th
   const directory: CommandExecutor = {
     execute(name, input, options) {
       if (name === 'session.list') {
-        const after = (input as { after?: string }).after
+        const request = sessionListInputSchema.parse(input)
+        const after = request.after
         const page = after ? Number(after.slice(1)) : 0
         const start = page * 200
-        const size = page === 5 ? 1 : 200
+        // 63d2ae67 reserves another 320 cache slots for Agent ancestry; 1321 rows force eviction.
+        const size = page === 6 ? 121 : 200
         return Promise.resolve({
-          items: Array.from({ length: size }, (_, i) => session(`bulk-${start + i}`)),
-          nextCursor: page === 5 ? null : `p${page + 1}`,
+          items: Array.from({ length: size }, (_, i) => ({
+            ...session(`bulk-${start + i}`),
+            workspaceId: request.workspaceId,
+          })),
+          nextCursor: page === 6 ? null : `p${page + 1}`,
         })
       }
       return f.directory.execute(name, input, options)
@@ -367,9 +372,10 @@ test('closing the selected tab validates an older open neighbour evicted from th
   await runtime.ready
   await runtime.view.commands.execute('app.setSession', { workspaceId: 'w', sessionId: 'one' })
   await runtime.view.commands.execute('app.setSession', { workspaceId: 'w', sessionId: 'two' })
-  for (let page = 0; page <= 5; page++)
+  for (let page = 0; page <= 6; page++)
     await runtime.view.commands.execute('session.list', {
-      workspaceId: 'w',
+      // Keep each workspace scan within the 1000-version projection fence.
+      workspaceId: `bulk-workspace-${page}`,
       limit: 200,
       ...(page ? { after: `p${page}` } : {}),
     })

@@ -521,4 +521,14 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 修正既有 E2E 对展开按钮直接子元素的假设；状态拆为同级组件后使用明确的两种父容器定位。窄屏旧反馈行的 14rem flex basis 导致短状态换到下一行，改为 8rem 的弹性基准后真实布局回归通过。测试中极长的外部焦点按钮也移入自身阅读区，避免测试辅助内容造成页面溢出。
 - 范围严格 lint、文案／图标／flow guard、格式、Web build 与构建输入清单通过；冷启动类型检查仍有 91 项既有诊断，本次范围为零，全库门禁尚未通过。证据位于 artifacts/desktop-elements/tool-feedback-content 的 verified.log、browser-final.log、browser-rerun.log、unit-final.log、types-final.log、lint-final.log、lint-fixture-final.log、build-final.log、audit.log 与截图。
 
-当前清单覆盖 146 个生产 TSX 模块、3838 个元素，其中记录了 59 处低层文字未分类，合计 68 项静态缺口。其余生产表面迁移、其余已分类标题／身份复核、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 子 Agent 分支与完整的侧栏／会话页签标题
+
+- 子 Agent 分支的 5 处低层文字分别归入反馈、空态与元数据。重试／加载更多置于具名键盘阅读区，加载、失败、容量提示自然换行。沿用 50 项分页、每分支 128 项、全局 256 项与 32 个分支的既有运行时边界，未放宽查询或执行容量。
+- 发现 SidebarCaption 仍将项目／会话身份定义为单行 caption，替换为 SidebarTitle 的 collection.title；删除宿主对全部 data-variant 文字强制单行的规则。时间视图中的项目身份与会话页签标题也使用可换行集合标题。页签保留原 ID、32 项容量、关闭／移动、活动指示与滚动归属。Lumen 6ec0d261f5 将树行的 max-content 最小宽度改为 0，允许具名内容在所属面板内收缩。
+- 运行时间／未回复提示由独立具名阅读容器承接，并保留原始 time/dateTime 与宿主格式。元数据限制为所在标签区域的三分之一，避免长“尚未回复”文字耗尽标题宽度；该阅读容器保留自己的宽度，可通过方向键读完，方向键不会同时操作树。
+- 31 项 Bun 测试、244 个断言通过。21 个不同 Chrome 流程最终通过，涵盖中英文、明暗主题、五个宽度、较大文字／125% 缩放，0／1／7／49／50／51／127／128／129 条子会话、真实分页、128 项容量提示／禁用动作、重复 ID 拒绝、失败重试、加载释放、离线禁用及原 ID；包含 6 个真实 Host 标题／导航／排序／重命名入口与 5 个树／页签键盘、关闭和滚动回归。19 项在 browser-delivery.log 中通过，另外 2 项时间容器检查修正后在 time-verified.log 中通过；最后的窄屏复核另存 narrow-final.log。历史失败日志保留，不将这些结果合并为一次全绿运行。
+- 更新过时的缓存驱逐测试：63d2ae67 为 Agent 祖先增加 320 个保留槽位，35a2852b 引入每工作区 1000 条版本的安全投影围栏。旧测试的 1001 条同工作区记录不再触发驱逐；改用分属多个工作区的 1321 条合法记录，继续验证关闭当前页签后重新核实原相邻会话。未改缓存／投影安全逻辑。
+- 初始长标题样例超过会话 160 字契约，改成合法上限附近的数据；重复 ID 与容量后的禁用加载按钮按实际公开契约验证。宿主 E2E 禁用自动 Goal／budget 继续，临时目录在停止 Host 后核实 realpath、临时目录父路径、所属前缀及非链接属性再清理。
+- 范围严格 lint、文案／图标／flow guard、格式、Lumen build／types、Web build 与构建输入清单通过；冷启动根类型仍有 91 项既有诊断，本次范围为零，全库门禁尚未通过。证据位于 artifacts/desktop-elements/agent-branch-content 的 unit-delivery.log、browser-delivery.log、time-verified.log、narrow-final.log、lint-delivery.log、lint-time-final.log、types-delivery.log、lumen-*、build-time-verified.log、audit-final.log 与截图。
+
+当前清单覆盖 146 个生产 TSX 模块、3840 个元素，其中记录了 54 处低层文字未分类，合计 63 项静态缺口。其余生产表面迁移、其余已分类标题／身份容量复核（包括文件标题与项目名称）、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

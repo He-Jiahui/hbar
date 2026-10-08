@@ -1,4 +1,4 @@
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenContentText } from '@lumen/app-ui'
 import type { DirectoryState, SessionAgentTreeState } from '@hbar/app-runtime'
 import type { Session } from '@hbar/contracts/directory'
 import type { SessionActivityExecution } from '@hbar/contracts/sidebar-directory'
@@ -88,6 +88,7 @@ function Branch({
       className="hbar-app-react-agent-branch-children"
       data-flat-depth={nextPath.length >= 4}
       data-sidebar-level="subagent-sessions"
+      role="group"
       aria-label={treeLabels.children(session.title)}
     >
       {rows.map(({ row, child }) => (
@@ -104,44 +105,50 @@ function Branch({
         />
       ))}
       {branch?.status === 'loading' && (
-        <LumenText as="p" role="status" size="s" variant="supporting">
+        <LumenContentText context="feedback.detail" role="status">
           {treeLabels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {branch?.status === 'ready' && rows.length === 0 && (
-        <LumenText as="p" size="s" variant="supporting">
-          {treeLabels.empty}
-        </LumenText>
+        <LumenContentText context="empty.description">{treeLabels.empty}</LumenContentText>
       )}
       {branch?.error && (
         <LumenFrame className="hbar-app-react-agent-branch-feedback" role="alert">
-          <LumenText as="p" size="s" variant="supporting">
-            {treeLabels.error(branch.error)}
-          </LumenText>
-          <LumenButton
-            size="s"
-            variant="outlined"
-            disabled={!connected}
-            onClick={() => projection.action('refresh', session.id)}
+          <LumenContentText context="feedback.detail">{treeLabels.error(branch.error)}</LumenContentText>
+          <LumenFrame
+            className="hbar-app-react-agent-branch-actions"
+            role="group"
+            aria-label={treeLabels.retry}
+            tabIndex={0}
           >
-            {treeLabels.retry}
-          </LumenButton>
+            <LumenButton
+              size="s"
+              variant="outlined"
+              disabled={!connected}
+              onClick={() => projection.action('refresh', session.id)}
+            >
+              {treeLabels.retry}
+            </LumenButton>
+          </LumenFrame>
         </LumenFrame>
       )}
-      {branch?.limitReached && (
-        <LumenText as="p" size="s" variant="supporting">
-          {treeLabels.capacity}
-        </LumenText>
-      )}
+      {branch?.limitReached && <LumenContentText context="feedback.detail">{treeLabels.capacity}</LumenContentText>}
       {branch?.nextCursor && (
-        <LumenButton
-          size="s"
-          variant="text"
-          disabled={!connected || branch.status === 'loading' || branch.limitReached}
-          onClick={() => projection.action('loadMore', session.id)}
+        <LumenFrame
+          className="hbar-app-react-agent-branch-actions"
+          role="group"
+          aria-label={treeLabels.loadMore}
+          tabIndex={0}
         >
-          {treeLabels.loadMore}
-        </LumenButton>
+          <LumenButton
+            size="s"
+            variant="text"
+            disabled={!connected || branch.status === 'loading' || branch.limitReached}
+            onClick={() => projection.action('loadMore', session.id)}
+          >
+            {treeLabels.loadMore}
+          </LumenButton>
+        </LumenFrame>
       )}
     </LumenFrame>
   ) : null
@@ -179,14 +186,13 @@ function Branch({
         }}
         treeAdornment={
           count > 0 ? (
-            <LumenText
+            <LumenContentText
+              context="metadata"
               className="hbar-app-react-agent-branch-count"
-              size="s"
-              variant="supporting"
               title={treeLabels.count(count)}
             >
               {count}
-            </LumenText>
+            </LumenContentText>
           ) : null
         }
       />

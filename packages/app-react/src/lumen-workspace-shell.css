@@ -221,12 +221,6 @@
   font-size: 0.75rem;
 }
 
-.hbar-app-react-workspace-row [data-variant],
-.hbar-app-react-session-label [data-variant] {
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
 .hbar-app-react-session-list {
   gap: 0.125rem;
   padding-inline-start: 0;
@@ -305,6 +299,17 @@
 
 .hbar-app-react-session-title {
   flex: 1 1 auto;
+}
+
+.hbar-app-react-session-time-reading {
+  flex: 0 0 auto;
+  min-inline-size: 0;
+  max-inline-size: 33%;
+  overflow-x: auto;
+}
+.hbar-app-react-session-time-reading > * {
+  display: block;
+  min-inline-size: max-content;
 }
 
 .hbar-app-react-session-time {

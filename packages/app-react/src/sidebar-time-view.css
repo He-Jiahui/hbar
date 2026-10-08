@@ -81,6 +81,8 @@
 }
 
 .hbar-app-react-session-workspace-label {
-  flex: 0 0 auto;
-  white-space: nowrap;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }

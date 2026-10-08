@@ -15,7 +15,16 @@ import {
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { SessionArchiveFeedback, type SessionArchiveLabels } from './session-archive'
 import { SessionActivityIndicator, type SessionActivityIndicatorContent } from './session-activity-indicator'
-import { SidebarCaption } from './sidebar-caption'
+import { SidebarTitle } from './sidebar-title'
+
+function scrollTimeMetadata(event: KeyboardEvent<HTMLElement>) {
+  if (event.altKey || event.ctrlKey || event.metaKey) return
+  const direction = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0
+  if (!direction || event.currentTarget.scrollWidth <= event.currentTarget.clientWidth) return
+  event.preventDefault()
+  event.stopPropagation()
+  event.currentTarget.scrollBy({ left: direction * event.currentTarget.clientWidth * 0.75 })
+}
 
 export interface SessionRenameLabels {
   readonly form: (title: string) => string
@@ -155,7 +164,8 @@ export function SessionNavigationRow({
   const restoreFocus = useRef(false)
   const copy = labels.renameEditor
   const timestamp = responseTime ? responseTime.at : session.updatedAt
-  const sessionTime =
+  const timeId = useId()
+  const timeContent =
     own && rename.status === 'succeeded' && session.title === rename.draft.trim() ? (
       <LumenContentText
         context="control.status"
@@ -163,17 +173,19 @@ export function SessionNavigationRow({
         size="s"
         tone="subtle"
         className="hbar-app-react-session-time"
+        id={timeId}
       >
         {copy.saved}
       </LumenContentText>
     ) : timestamp === null ? (
-      <LumenContentText context="metadata" size="s" tone="subtle" className="hbar-app-react-session-time">
+      <LumenContentText context="metadata" size="s" tone="subtle" className="hbar-app-react-session-time" id={timeId}>
         {responseTime?.emptyLabel}
       </LumenContentText>
     ) : (
       <LumenContentText
         context="metadata.time"
         className="hbar-app-react-session-time"
+        id={timeId}
         dateTime={
           Number.isSafeInteger(timestamp) && timestamp >= 0 && timestamp <= 8_640_000_000_000_000
             ? new Date(timestamp).toISOString()
@@ -184,6 +196,18 @@ export function SessionNavigationRow({
         {labels.sessionUpdatedAt(timestamp, now)}
       </LumenContentText>
     )
+  const sessionTime = (
+    <LumenFrame
+      as="span"
+      className="hbar-app-react-session-time-reading"
+      role="group"
+      aria-labelledby={timeId}
+      tabIndex={treeNode ? 0 : undefined}
+      onKeyDown={scrollTimeMetadata}
+    >
+      {timeContent}
+    </LumenFrame>
+  )
   const openActions = (): boolean => {
     if (batchSelecting || editing || archiving) return false
     const trigger = row.current?.querySelector<HTMLButtonElement>('.lumen-action-menu-trigger')
@@ -243,18 +267,14 @@ export function SessionNavigationRow({
         {metadata ? (
           <>
             <LumenFrame className="hbar-app-react-session-main-line">
-              <SidebarCaption
-                text={session.title}
-                className="hbar-app-react-session-title"
-                focusable={Boolean(treeNode)}
-              />
+              <SidebarTitle text={session.title} className="hbar-app-react-session-title" />
               {sessionTime}
               <SessionActivityIndicator execution={metadata.execution} />
             </LumenFrame>
             <LumenFrame as="span" className="hbar-app-react-session-context-line">
               <LumenIcon icon={Folder} tier="sm" />
               <LumenContentText
-                context="metadata"
+                context="collection.title"
                 size="s"
                 className="hbar-app-react-session-workspace-label"
                 title={metadata.workspacePath ?? metadata.workspaceName}
@@ -265,11 +285,7 @@ export function SessionNavigationRow({
           </>
         ) : (
           <>
-            <SidebarCaption
-              text={session.title}
-              className="hbar-app-react-session-title"
-              focusable={Boolean(treeNode)}
-            />
+            <SidebarTitle text={session.title} className="hbar-app-react-session-title" />
             <SessionActivityIndicator execution={execution} />
             {sessionTime}
           </>
