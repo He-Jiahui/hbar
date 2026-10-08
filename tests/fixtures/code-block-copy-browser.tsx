@@ -1,7 +1,7 @@
 // Controlled component fixture: no Host, provider, Run or executable plan.
 import { StrictMode, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { LumenButton, LumenFrame, LumenProvider, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenContentText, LumenFrame, LumenProvider, LumenText } from '@lumen/app-ui'
 import type { ContentBlock } from '@hbar/contracts'
 import { HbarMessageBlocks } from '../../packages/app-react/src/session-message'
 import { MessageMarkdown } from '../../packages/app-react/src/message-markdown'
@@ -142,7 +142,7 @@ function PlanExitFixture({
   } satisfies HbarSessionDecisionProps['decision']
   return (
     <LumenFrame data-plan-exit-fixture="" data-plan-exit-effects={JSON.stringify(effects)}>
-      <LumenFrame className="code-copy-fixture-controls">
+      <LumenFrame className="code-copy-fixture-controls" role="group" aria-label={labels.pending} tabIndex={0}>
         {(['pending', 'allowed', 'denied'] as const).map((value) => (
           <LumenButton key={value} size="s" data-plan-exit-action={value} onClick={() => setStatus(value)}>
             {labels[value]}
@@ -219,6 +219,8 @@ function Fixture({ locale }: { readonly locale: ShellLocale }) {
   const copyLabels = longLabels
     ? {
         ...baseCopy,
+        language: (language: string | null) => baseCopy.language(language).repeat(8),
+        lines: (count: number) => baseCopy.lines(count).repeat(8),
         copy:
           locale === 'zh-CN'
             ? '复制当前代码块的完整内容（不包含说明或其他代码块）'
@@ -314,10 +316,10 @@ function Fixture({ locale }: { readonly locale: ShellLocale }) {
     <LumenFrame as="main" className="code-copy-fixture" data-fixture-scenario={scenario}>
       <LumenText as="h1">{labels.title}</LumenText>
       <LumenText as="p">{labels.note}</LumenText>
-      <LumenFrame className="code-copy-fixture-controls">
+      <LumenFrame className="code-copy-fixture-controls" role="group" aria-label={labels.title} tabIndex={0}>
         {scenarios.map((id) => (
           <LumenButton key={id} size="s" data-fixture-action={id} onClick={() => setScenario(id)}>
-            {labels.scenarios[id]}
+            <LumenContentText context="collection.title">{labels.scenarios[id]}</LumenContentText>
           </LumenButton>
         ))}
         <LumenButton size="s" data-fixture-action="resolve" disabled={!pendingCount} onClick={() => settle(true)}>
@@ -422,9 +424,19 @@ const root = document.getElementById('root')
 if (!root) throw new Error('Missing code-copy fixture root')
 const locale = resolveShellLocale(navigator.languages)
 document.documentElement.lang = locale
+const appearanceParameters = new URL(location.href).searchParams
 createRoot(root).render(
   <StrictMode>
-    <LumenProvider appearance={createWebLumenAppearance('light', DEFAULT_WEB_APPEARANCE_DIMENSIONS, false)}>
+    <LumenProvider
+      appearance={createWebLumenAppearance(
+        appearanceParameters.get('mode') === 'dark' ? 'dark' : 'light',
+        {
+          ...DEFAULT_WEB_APPEARANCE_DIMENSIONS,
+          textSize: appearanceParameters.has('large-text') ? 'l' : DEFAULT_WEB_APPEARANCE_DIMENSIONS.textSize,
+        },
+        false,
+      )}
+    >
       <Fixture locale={locale} />
     </LumenProvider>
   </StrictMode>,

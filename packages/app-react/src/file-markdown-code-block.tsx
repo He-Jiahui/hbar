@@ -1,6 +1,6 @@
 import { createContext, useContext, useId, useLayoutEffect, useState, type ComponentProps } from 'react'
 import type { ExtraProps } from 'react-markdown'
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenContentText, LumenFrame } from '@lumen/app-ui'
 import { CodeTextCopyAction, type HbarCodeBlockLabels } from './code-block-copy-action'
 import type { MessageClipboardPort } from './message-copy'
 import { CODE_BLOCK_PREVIEW_LINES, markdownCodeBlock } from './markdown-code-block-model'
@@ -29,14 +29,15 @@ function FileCodeBlock({
 }) {
   const [expanded, setExpanded] = useState(false)
   const bodyId = useId()
+  const metadataLabel = `${context.labels.language(code.language)} ${context.labels.lines(code.lines)}`
   const collapsible = code.lines > CODE_BLOCK_PREVIEW_LINES
   useLayoutEffect(() => setExpanded(false), [context.owner])
   return (
     <LumenFrame className="hbar-message-code hbar-file-markdown-code" data-code-occurrence={code.occurrenceId}>
       <LumenFrame className="hbar-message-code-header">
-        <LumenFrame className="hbar-message-code-metadata">
-          <LumenText as="span">{context.labels.language(code.language)}</LumenText>
-          <LumenText as="span">{context.labels.lines(code.lines)}</LumenText>
+        <LumenFrame className="hbar-message-code-metadata" role="group" aria-label={metadataLabel} tabIndex={0}>
+          <LumenContentText context="metadata">{context.labels.language(code.language)}</LumenContentText>
+          <LumenContentText context="metadata">{context.labels.lines(code.lines)}</LumenContentText>
         </LumenFrame>
         <CodeTextCopyAction
           identity={['file', context.previewId, context.path, code.occurrenceId]}
@@ -47,7 +48,13 @@ function FileCodeBlock({
           text={code.text}
         />
       </LumenFrame>
-      <LumenText as="pre" variant="code" className="hbar-message-code-body" id={bodyId} tabIndex={0}>
+      <LumenContentText
+        context="code.block"
+        className="hbar-message-code-body"
+        id={bodyId}
+        tabIndex={0}
+        aria-label={metadataLabel}
+      >
         <MarkdownCodeContent
           source={code.domText}
           language={code.language}
@@ -56,9 +63,16 @@ function FileCodeBlock({
           collapsible={collapsible}
           expanded={expanded}
         />
-      </LumenText>
+      </LumenContentText>
       {collapsible && (
-        <LumenFrame className="hbar-message-code-footer">
+        <LumenFrame
+          className="hbar-message-code-footer"
+          role="group"
+          aria-label={
+            expanded ? context.labels.showLess : context.labels.showMore(code.lines - CODE_BLOCK_PREVIEW_LINES)
+          }
+          tabIndex={0}
+        >
           <LumenButton
             type="button"
             size="s"
@@ -111,8 +125,8 @@ export function FileMarkdownPre({ node, children, className }: ComponentProps<'p
       code={code}
     />
   ) : (
-    <LumenText as="pre" className={className}>
+    <LumenContentText context="code.block" className={className}>
       {children}
-    </LumenText>
+    </LumenContentText>
   )
 }

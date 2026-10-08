@@ -1,11 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { Maximize, Minus, Plus, Workflow } from 'lucide-react'
-import { LumenButton, LumenDialog, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenContentText, LumenDialog, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import { clampDiagramZoom, fitDiagramZoom, type HbarDiagramLabels } from './markdown-diagram-model'
 import { renderMarkdownDiagram, type DiagramRenderResult } from './markdown-diagram-render'
 import { registerSessionCodeBlock } from './session-code-block-dom'
 import './markdown-diagram.css'
+
+/** Renderer boundary: Mermaid's unmodified source inherits the owning code reader. */
+function DiagramSourceCode({ text }: { readonly text: string }) {
+  return <code>{text}</code>
+}
 
 /** A single original source pane, with a static graphic as renderer-owned chrome. */
 export function MarkdownDiagram({
@@ -33,7 +38,7 @@ export function MarkdownDiagram({
   const header = useRef<HTMLDivElement>(null)
   const graphic = useRef<HTMLDivElement>(null)
   const modalChrome = useRef<HTMLDivElement>(null)
-  const source = useRef<HTMLPreElement>(null)
+  const source = useRef<HTMLElement>(null)
   const viewport = useRef<HTMLDivElement>(null)
   const opener = useRef<HTMLElement | null>(null)
   const lifetime = useRef(0)
@@ -46,10 +51,11 @@ export function MarkdownDiagram({
   const [retry, setRetry] = useState(0)
   const [dark, setDark] = useState(false)
   useLayoutEffect(() => {
-    const update = () => setDark(document.documentElement.dataset.lumenMode === 'dark')
+    const themeOwner = root.current?.closest<HTMLElement>('[data-lumen-mode]') ?? document.documentElement
+    const update = () => setDark(themeOwner.dataset.lumenMode === 'dark')
     update()
     const observer = new MutationObserver(update)
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-lumen-mode'] })
+    observer.observe(themeOwner, { attributes: true, attributeFilter: ['data-lumen-mode'] })
     return () => observer.disconnect()
   }, [])
   useLayoutEffect(() => {
@@ -161,11 +167,11 @@ export function MarkdownDiagram({
       data-code-occurrence={occurrenceId}
     >
       <LumenFrame ref={header} className="hbar-message-code-header" data-session-find-exclude="code-chrome">
-        <LumenFrame className="hbar-message-code-metadata">
+        <LumenFrame className="hbar-diagram-title">
           <LumenIcon icon={Workflow} tier="sm" />
-          <LumenText as="span">{labels.title}</LumenText>
+          <LumenContentText context="tool.title">{labels.title}</LumenContentText>
         </LumenFrame>
-        <LumenFrame className="hbar-diagram-actions">
+        <LumenFrame className="hbar-diagram-actions" role="group" aria-label={labels.preview} tabIndex={0}>
           <LumenButton
             size="s"
             variant="text"
@@ -210,13 +216,13 @@ export function MarkdownDiagram({
           </LumenButton>
         ) : (
           <LumenFrame className="hbar-diagram-status">
-            <LumenText as="p" role="status">
+            <LumenContentText context="feedback.paragraph" role="status">
               {streaming
                 ? labels.generating
                 : result?.status === 'failed'
                   ? labels.failure(result.reason)
                   : labels.loading}
-            </LumenText>
+            </LumenContentText>
             {result?.status === 'failed' &&
               (result.reason === 'busy' || result.reason === 'failed' || result.reason === 'invalid') && (
                 <LumenButton size="s" variant="text" indicator="none" onClick={() => setRetry((value) => value + 1)}>
@@ -226,11 +232,16 @@ export function MarkdownDiagram({
           </LumenFrame>
         )}
       </LumenFrame>
-      <LumenFrame as="pre" ref={source} className="hbar-message-code-body" hidden={!showSource} tabIndex={0}>
-        <LumenText as="code" variant="code">
-          {sourceText}
-        </LumenText>
-      </LumenFrame>
+      <LumenContentText
+        context="code.block"
+        ref={source}
+        className="hbar-message-code-body"
+        hidden={!showSource}
+        tabIndex={0}
+        aria-label={labels.source}
+      >
+        <DiagramSourceCode text={sourceText} />
+      </LumenContentText>
       <LumenFrame ref={modalChrome} data-session-find-exclude="code-chrome">
         {open && ready && (
           <LumenDialog
@@ -242,7 +253,12 @@ export function MarkdownDiagram({
             appearance="panel"
             className="hbar-diagram-preview-overlay"
           >
-            <LumenFrame className="hbar-diagram-preview-tools">
+            <LumenFrame
+              className="hbar-diagram-preview-tools"
+              role="group"
+              aria-label={labels.previewTitle}
+              tabIndex={0}
+            >
               <LumenButton
                 size="s"
                 variant="text"
@@ -319,9 +335,9 @@ export function MarkdownDiagram({
                 <LumenFrame className="hbar-diagram-svg" dangerouslySetInnerHTML={{ __html: ready.previewSvg }} />
               </LumenFrame>
             </LumenFrame>
-            <LumenText as="p" className="hbar-diagram-help" tone="muted">
+            <LumenContentText context="section.description" className="hbar-diagram-help" tone="muted">
               {labels.panHelp}
-            </LumenText>
+            </LumenContentText>
           </LumenDialog>
         )}
       </LumenFrame>

@@ -38,6 +38,7 @@ function Fixture() {
         ...copy.session.messageBlocks.codeBlock,
         diagram: {
           ...copy.session.messageBlocks.codeBlock.diagram,
+          title: copy.session.messageBlocks.codeBlock.diagram.title.repeat(8),
           source:
             locale === 'zh-CN'
               ? '查看当前图示未经改写的完整原始源码'
@@ -138,9 +139,19 @@ function Fixture() {
 }
 const root = document.getElementById('root')
 if (!root) throw new Error('Missing diagram fixture root')
+const appearanceParameters = new URL(location.href).searchParams
 createRoot(root).render(
   <StrictMode>
-    <LumenProvider appearance={createWebLumenAppearance('light', DEFAULT_WEB_APPEARANCE_DIMENSIONS, false)}>
+    <LumenProvider
+      appearance={createWebLumenAppearance(
+        appearanceParameters.get('mode') === 'dark' ? 'dark' : 'light',
+        {
+          ...DEFAULT_WEB_APPEARANCE_DIMENSIONS,
+          textSize: appearanceParameters.has('large-text') ? 'l' : DEFAULT_WEB_APPEARANCE_DIMENSIONS.textSize,
+        },
+        false,
+      )}
+    >
       <Fixture />
     </LumenProvider>
   </StrictMode>,

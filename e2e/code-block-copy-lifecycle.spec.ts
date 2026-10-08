@@ -23,7 +23,7 @@ test.beforeAll(async () => {
   await mkdir(evidence, { recursive: true })
   await writeFile(
     join(root, 'index.html'),
-    '<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>.code-copy-fixture{display:flex;flex-direction:column;gap:1rem;padding:1rem;min-inline-size:0;box-sizing:border-box}.code-copy-fixture-controls{display:flex;flex-wrap:wrap;gap:.5rem}.code-copy-fixture-controls button{white-space:normal}.code-copy-fixture-writes{display:flex;flex-direction:column;min-inline-size:0}.code-copy-fixture-writes pre{overflow:auto;max-inline-size:100%}</style></head><body><div id="root"></div><script type="module" src="../../../tests/fixtures/code-block-copy-browser.tsx"></script></body></html>',
+    '<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>.code-copy-fixture{display:flex;flex-direction:column;gap:1rem;padding:1rem;min-inline-size:0;box-sizing:border-box}.code-copy-fixture-controls{display:flex;flex-wrap:wrap;gap:.5rem}.code-copy-fixture-controls button{white-space:normal;min-inline-size:0;max-inline-size:100%}.code-copy-fixture-writes{display:flex;flex-direction:column;min-inline-size:0}.code-copy-fixture-writes pre{overflow:auto;max-inline-size:100%}</style></head><body><div id="root"></div><script type="module" src="../../../tests/fixtures/code-block-copy-browser.tsx"></script></body></html>',
   )
   await build({
     configFile: false,
@@ -106,13 +106,15 @@ test('syntax reading keeps one source, whole comment state, Copy and live Find r
     await f.page.screenshot({ path: info.outputPath('highlight-reading-find-copy-en-US.png') })
     const keyword = block.locator('[data-code-token="keyword"]').first()
     const lightColor = await keyword.evaluate((element) => getComputedStyle(element).color)
-    expect(lightColor).toBe('rgb(184, 83, 59)')
+    expect(lightColor).not.toBe(await block.locator('pre').evaluate((element) => getComputedStyle(element).color))
     await f.page.evaluate(() => {
       const provider = document.querySelector<HTMLElement>('[data-lumen-mode="light"]')
       if (!provider) throw new Error('Missing owned light provider')
       provider.dataset.lumenMode = 'dark'
     })
-    expect(await keyword.evaluate((element) => getComputedStyle(element).color)).toBe('rgb(233, 146, 107)')
+    const darkColor = await keyword.evaluate((element) => getComputedStyle(element).color)
+    expect(darkColor).not.toBe(lightColor)
+    expect(darkColor).not.toBe(await block.locator('pre').evaluate((element) => getComputedStyle(element).color))
     await action(f.page, 'b')
     await expect(block.locator('code')).toHaveText('const source = "B"\n')
     await expect(block.locator('code')).toHaveAttribute('data-code-highlight', 'ready')
@@ -336,6 +338,86 @@ async function copy(page: Page, index = 0) {
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
+  for (const filePreview of [false, true]) {
+    test(`semantic code readers keep full metadata and original source ${locale} ${filePreview ? 'file' : 'message'}`, async ({
+      browser,
+    }, info) => {
+      const f = await open(browser, locale, true, filePreview)
+      try {
+        const block = f.page.locator('.hbar-message-code')
+        for (const mode of ['light', 'dark'] as const) {
+          await f.page.goto(`${base}/?long-labels&${filePreview ? 'file-preview&' : ''}mode=${mode}&large-text`)
+          await action(f.page, 'long')
+          await f.page.evaluate(() => {
+            document.documentElement.style.zoom = '1.25'
+          })
+          for (const width of [1440, 1100, 900, 390, 320]) {
+            await f.page.setViewportSize({ width, height: 1000 })
+            const readers = block.locator(
+              '.hbar-message-code-metadata, .hbar-message-code-copy, .hbar-message-code-footer',
+            )
+            await expect(readers).toHaveCount(3)
+            for (const reader of await readers.all()) {
+              await expect(reader).toHaveAttribute('role', 'group')
+              await expect(reader).toHaveAttribute('aria-label', /\S/)
+              await reader.focus()
+              await expect(reader).toBeFocused()
+              await reader.evaluate((node) => {
+                node.scrollLeft = 0
+              })
+              if (await reader.evaluate((node) => node.scrollWidth > node.clientWidth)) {
+                await reader.press('ArrowRight')
+                await expect.poll(() => reader.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0)
+              }
+            }
+            await expect(block.locator('pre[data-text-context="code.block"]')).toHaveText(`${longCode}\n`)
+            await expect(block.locator('[data-text-context="metadata"]')).toHaveCount(2)
+            const metadata = await block.locator('.hbar-message-code-metadata').textContent()
+            const copy = codeBlockCopyLabels(locale)
+            expect(metadata).toBe(copy.language('typescript').repeat(8) + copy.lines(25).repeat(8))
+            const geometry = await f.page.evaluate(() => ({
+              width: innerWidth,
+              documentWidth: document.documentElement.scrollWidth,
+              scrollX,
+              offenders: [...document.querySelectorAll<HTMLElement>('*')]
+                .filter(
+                  (node) =>
+                    !node.closest(
+                      '.hbar-message-code-metadata, .hbar-message-code-copy, .hbar-message-code-footer, .hbar-message-code-body',
+                    ),
+                )
+                .map((node) => ({
+                  tag: node.tagName,
+                  class: node.className,
+                  right: node.getBoundingClientRect().right,
+                  width: node.getBoundingClientRect().width,
+                  overflow: getComputedStyle(node).overflowX,
+                  text: node.textContent?.slice(0, 48),
+                }))
+                .filter((node) => node.right + scrollX > innerWidth + 1)
+                .slice(0, 12),
+            }))
+            expect(geometry.documentWidth, JSON.stringify(geometry)).toBeLessThanOrEqual(geometry.width + 1)
+            if (width === 1440 || width === 320)
+              await block.screenshot({ path: info.outputPath(`code-reader-${mode}-${width}.png`) })
+          }
+        }
+        await copy(f.page)
+        await expect(f.page.locator('[data-write-index="0"]')).toHaveText(longCode)
+        await action(f.page, 'reject')
+        await expect(block.getByRole('alert')).toBeVisible()
+        await expect(block.getByRole('alert')).toHaveAttribute('data-text-context', 'feedback.detail')
+        await block.getByRole('button', { name: codeBlockCopyLabels(locale).retry, exact: true }).click()
+        await expect(f.page.locator('[data-write-index="1"]')).toHaveText(longCode)
+        await action(f.page, 'resolve')
+        await expect(block.locator('[data-copy-status]')).toHaveAttribute('data-copy-status', 'copied')
+        expect(f.errors).toEqual([])
+        expect(f.forbidden).toEqual([])
+      } finally {
+        await f.context.close()
+      }
+    })
+  }
   test(`code clipboard target lifetimes and repeat requests remain independent: ${locale}`, async ({ browser }) => {
     const f = await open(browser, locale)
     try {

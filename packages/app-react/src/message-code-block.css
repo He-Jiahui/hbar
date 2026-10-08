@@ -31,11 +31,15 @@
   overflow-x: auto;
 }
 .hbar-message-code-header {
+  flex-wrap: wrap;
   justify-content: space-between;
   border-block-end: 0.0625rem solid var(--lumen-line);
   padding: 6px 12px;
   color: var(--lumen-muted);
   font-size: var(--hbar-session-caption-size, calc(var(--lumen-font-size) * 0.9));
+}
+.hbar-message-code-metadata {
+  max-inline-size: 100%;
 }
 .hbar-message-code-metadata > span {
   flex: 0 0 auto;
@@ -73,6 +77,11 @@
   font-size: var(--hbar-session-detail-size, calc(var(--lumen-font-size) * 0.95));
   line-height: 1.6;
   white-space: pre;
+}
+.hbar-message-code-body > code {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
 }
 .hbar-message-code [data-code-tail][hidden] {
   display: none;

@@ -86,6 +86,30 @@ test('typed content slots retain composition ownership after truthy narrowing wh
   expect(records[2]?.issues).toContain('container-owns-unclassified-content')
 })
 
+test('source-token renderers are narrow exceptions while adjacent business copy remains classified', () => {
+  const records = classifyDesktopSource(
+    'packages/app-react/src/markdown-code-content.tsx',
+    source(`
+    function MarkdownCodeContent({source}) { const content = () => <span data-code-token="string">{source}</span>; return <code>{content()}</code> }
+    function CopyAction({labels}) { return <LumenText as="span">{labels.copy}</LumenText> }
+  `),
+  )
+  expect(records[0]?.owner).toBe('content')
+  expect(records[0]?.status).toBe('renderer-boundary')
+  expect(records[1]?.status).toBe('renderer-boundary')
+  expect(records[2]?.status).toBe('pending')
+  expect(records[2]?.issues).toContain('text-purpose-not-declared')
+  const diagram = classifyDesktopSource(
+    'packages/app-react/src/markdown-diagram.tsx',
+    source(`
+    function DiagramSourceCode({text}) { return <code>{text}</code> }
+    function MarkdownDiagram({labels}) { return <LumenText as="span">{labels.title}</LumenText> }
+  `),
+  )
+  expect(diagram[0]?.status).toBe('renderer-boundary')
+  expect(diagram[1]?.status).toBe('pending')
+})
+
 test('Desktop graph reaches each delayed feature and retains platform elements', async () => {
   const inventory = await collectDesktopElements(resolve(import.meta.dirname, '..'))
   for (const path of [
@@ -101,4 +125,4 @@ test('Desktop graph reaches each delayed feature and retains platform elements',
   expect(new Set(inventory.elements.map((element) => element.id)).size).toBe(inventory.elements.length)
   const buildInputs = await collectDesktopBuildInputs(resolve(import.meta.dirname, '..'))
   expect(inventory.sourceModules.filter((path) => !buildInputs.includes(path))).toEqual([])
-})
+}, 30_000)

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { LumenText } from '@lumen/app-ui'
 import { highlightMarkdownCode, type CodeTokenRange } from './markdown-code-highlight'
 import { plainCodeTokenRanges } from './plain-code-tokens'
 
@@ -10,7 +9,7 @@ interface HighlightState {
   readonly ranges: readonly CodeTokenRange[] | null
 }
 
-/** The sole original code text stream, shared by Messages, Plans and Files. */
+/** Renderer boundary: one original code stream and source-range tokens shared by Messages, Plans and Files. */
 export function MarkdownCodeContent({
   source,
   language,
@@ -57,26 +56,24 @@ export function MarkdownCodeContent({
           const to = Math.min(end, range.end)
           return from < to
             ? [
-                <LumenText as="span" variant="code" key={from} data-code-token={range.role}>
+                <span key={from} data-code-token={range.role}>
                   {source.slice(from, to)}
-                </LumenText>,
+                </span>,
               ]
             : []
         })
       : source.slice(start, end)
   return (
-    <LumenText
-      as="code"
-      variant="code"
+    <code
       data-code-highlight={ranges ? 'ready' : 'plain'}
       data-code-fallback={!ranges && fallback ? 'lexical' : undefined}
     >
       {content(0, previewEnd)}
       {collapsible && (
-        <LumenText as="span" variant="code" data-code-tail="" hidden={!expanded}>
+        <span data-code-tail="" hidden={!expanded}>
           {content(previewEnd, source.length)}
-        </LumenText>
+        </span>
       )}
-    </LumenText>
+    </code>
   )
 }

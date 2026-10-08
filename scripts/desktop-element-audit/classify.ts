@@ -74,6 +74,8 @@ const categoryByComponent: Readonly<Record<string, DesktopElementCategory>> = {
 }
 
 export const desktopRendererBoundaries: Readonly<Record<string, readonly string[]>> = {
+  'packages/app-react/src/markdown-code-content.tsx': ['MarkdownCodeContent', 'content'],
+  'packages/app-react/src/markdown-diagram.tsx': ['DiagramSourceCode'],
   'packages/app-react/src/message-markdown.tsx': ['InlineContainer', 'InlineLink', 'InlineImage'],
   'packages/app-react/src/goal-lifecycle.tsx': ['renderFragments'],
 }

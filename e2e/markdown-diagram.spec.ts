@@ -128,6 +128,67 @@ test('Mermaid reading follows the reference path and retains source/Find/owner r
     await context.close()
   }
 })
+test('diagram titles wrap and original source readers stay scoped at every width', async ({ browser }, info) => {
+  for (const locale of ['en-US', 'zh-CN'] as const) {
+    const context = await browser.newContext({ locale, viewport: { width: 1440, height: 1000 } })
+    try {
+      const page = await context.newPage()
+      const errors: string[] = []
+      page.on('pageerror', (error) => errors.push(error.message))
+      await page.goto(`${base}/?long-labels`)
+      const labels = getShellCopy(locale).session.messageBlocks.codeBlock.diagram
+      const block = page.locator('.hbar-markdown-diagram')
+      await expect(block.locator('.hbar-diagram-inline svg')).toBeVisible()
+      let lightFill: string | undefined
+      for (const mode of ['light', 'dark'] as const) {
+        await page.goto(`${base}/?long-labels&mode=${mode}&large-text`)
+        await page.evaluate(() => {
+          document.documentElement.style.zoom = '1.25'
+        })
+        await expect(block.locator('.hbar-diagram-inline svg')).toBeVisible()
+        const shape = block.locator('.hbar-diagram-inline svg .node rect').first()
+        await expect(shape).toBeVisible()
+        if (mode === 'light') lightFill = await shape.evaluate((node) => getComputedStyle(node).fill)
+        else await expect.poll(() => shape.evaluate((node) => getComputedStyle(node).fill)).not.toBe(lightFill)
+        for (const width of [1440, 1100, 900, 390, 320]) {
+          await page.setViewportSize({ width, height: 1000 })
+          const heading = block.getByRole('heading', { name: labels.title.repeat(8), exact: true })
+          await expect(heading).toBeVisible()
+          const flow = await heading.evaluate((node) => ({
+            wrap: getComputedStyle(node).whiteSpace,
+            overflow: getComputedStyle(node).textOverflow,
+            fits: node.scrollWidth <= node.clientWidth + 1,
+          }))
+          expect(flow).toEqual({ wrap: 'normal', overflow: 'clip', fits: true })
+          const actions = block.locator('.hbar-diagram-actions')
+          await expect(actions).toHaveAttribute('role', 'group')
+          await actions.focus()
+          if (await actions.evaluate((node) => node.scrollWidth > node.clientWidth)) {
+            await actions.press('ArrowRight')
+            await expect.poll(() => actions.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0)
+          }
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+          if (width === 1440 || width === 320)
+            await block.screenshot({ path: info.outputPath(`diagram-title-${locale}-${mode}-${width}.png`) })
+        }
+      }
+      const sourceLabel =
+        locale === 'zh-CN' ? '查看当前图示未经改写的完整原始源码' : 'View the complete original source of this diagram'
+      await block.getByRole('button', { name: sourceLabel, exact: true }).click()
+      const source = block.locator('pre[data-text-context="code.block"]')
+      await source.focus()
+      await expect(source).toBeFocused()
+      await expect(source).toHaveAttribute('aria-label', sourceLabel)
+      await expect(source).toHaveText(
+        'flowchart TD\n  Start[Open document] --> Parse[Parse Markdown]\n  Parse --> Render[Render Mermaid]\n',
+      )
+      expect(errors).toEqual([])
+    } finally {
+      await context.close()
+    }
+  }
+})
+
 test('file Mermaid uses localized nearby actions and natural narrow flow', async ({ browser }, info) => {
   const context = await browser.newContext({ locale: 'zh-CN', viewport: { width: 320, height: 900 } })
   try {

@@ -11,6 +11,16 @@
 .hbar-diagram-actions {
   margin-inline-start: auto;
 }
+.hbar-diagram-title {
+  display: flex;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.hbar-diagram-title > [data-text-context='tool.title'] {
+  min-inline-size: 0;
+}
 .hbar-diagram-actions > button,
 .hbar-diagram-preview-tools > button {
   min-inline-size: max-content;

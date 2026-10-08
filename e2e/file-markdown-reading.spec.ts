@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test'
-import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises'
+import { mkdtemp, writeFile, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, dirname, join, resolve } from 'node:path'
+import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { removeOwnedTempDirectory } from './support/owned-temp-directory'
 
 const longCode = Array.from({ length: 25 }, (_, i) => `const line${i + 1} = "Markdown file proof ${i + 1}";`).join('\n')
 const diagramCode = 'flowchart TD\n  Start[Open document] --> Parse[Parse Markdown]\n  Parse --> Render[Render Mermaid]'
@@ -19,10 +20,7 @@ const text =
   ).join('')
 
 async function removeOwnedFixture(root: string): Promise<void> {
-  const target = resolve(root)
-  if (dirname(target) !== resolve(tmpdir()) || !basename(target).startsWith('hbar-markdown-reading-'))
-    throw new Error('Unexpected Markdown fixture cleanup target')
-  await rm(target, { recursive: true, force: true })
+  await removeOwnedTempDirectory(root, 'hbar-markdown-reading-')
 }
 
 for (const scenario of [
@@ -44,7 +42,12 @@ for (const scenario of [
     try {
       await writeFile(join(root, 'README.md'), text)
       await writeFile(join(root, 'other.txt'), 'A separate ordinary text file.\n')
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
       expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
       const page = await context.newPage()
@@ -59,7 +62,10 @@ for (const scenario of [
       await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const draft = 'Keep this draft while reading Markdown — 文档往返不丢草稿'
-      await prompt.fill(draft)
+      await prompt.click()
+      await expect(prompt).toBeFocused()
+      await page.keyboard.insertText(draft)
+      await expectComposerText(prompt, draft)
       await page.getByRole('button', { name: copy.session.tools.files, exact: true }).click()
       await page.getByText('README.md', { exact: true }).click()
       await page.setViewportSize({ width: scenario.width, height: 900 })

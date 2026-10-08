@@ -557,4 +557,13 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 三项实际 Host 验证最终分别通过：两语言工具／设置／文件工作台与页签返回，及第 33 个页签被拒绝、原 32 个视图／Host 会话保留、窄屏最后一项可读。旧容量测试把“新会话”的项目选择弹窗留开，阻挡后续入口；按当前流程用 Escape 关闭并检查原页签与 Host 数量，未创建额外会话。窄屏只在实际手机菜单隐藏时收起可见侧栏，不点击离屏但 isVisible 为真的旧入口。Host 禁用两类自动继续，并核验所属临时目录再清理。
 - 范围严格 lint、文案／图标／flow guard、格式、Web build 与构建清单通过；冷启动根类型仍有 91 项既有诊断，本次范围为零，全库门禁尚未通过。证据在 artifacts/desktop-elements/mobile-header-content 的 unit.log、lumen-_、delivery.log（10 项）、host.log（两语言通过）、capacity.log（单项通过）、lint-delivery.log、lint-capacity.log、types-final.log、build-anchor.log、audit.log 与截图；初始失败记录保留。
 
-当前清单覆盖 146 个生产 TSX 模块、3841 个元素，其中记录了 44 处低层文字未分类，合计 53 项静态缺口。其余生产表面迁移、其余已分类标题／身份容量复核（包括文件标题与项目名称）、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 代码、文件 Markdown 与图示阅读
+
+- 15 处低层文字归入 metadata、code.block、control.label、feedback.detail／paragraph、inline.text、tool.title 与 section.description；Mermaid 标题完整换行。语言／行数、Copy、折叠及图示操作各有具名键盘阅读区；标题与操作按流分行，反馈随内容增长。代码 reader 保留原缩进、折叠尾部及 pane 内滚动；展开／收起后阅读区名称与当前动作一致。
+- MarkdownCodeContent／content 的源范围 token 和尾部，以及 DiagramSourceCode 的完整原始 code 是登记的专用 renderer 边界；只有这些具名函数中的原文 DOM 属于例外。外层阅读器、业务元数据和动作仍使用 Lumen 语义组件。审计新增测试证明同文件的业务 Copy／图示标题不会被例外豁免。原文和 token 从所属 pre 继承字体，无第二份文本、高亮串重写或复制截断。
+- 保留 20 行预览、百万 UTF-16 字符 Copy 上限、文件 Markdown 128 KiB UTF-8 边界、Mermaid 渲染／超限／受限／取消与既有 Find 映射。63 项 Bun 测试、381 个断言和 20 项实际 Chrome 最终单次回归通过，其中 2 项真实 Host 验证原文件阅读、完整 Copy、编辑／保存、阅读位置与返回草稿。其余覆盖源身份变化、晚到剪贴板结果、重复代码、空／上限前／正好上限／超限、失败重试、计时、折叠、实时 Find、普通／当前／历史 Plan、图示预览／缩放／拖动／范围恢复。没有重试未知业务执行。
+- 新内容检查通过 Lumen 正式主题与较大文字 props 验证两语言、明暗、五宽度及 125% CSS zoom，共 40 个代码 reader 与 20 个图示标题组合。截图复核发现只改 DOM 主题标记不足以更新完整调色板，测试现用公开 Provider 参数；进一步发现图示只观察全局 html 的主题，遗漏所属 LumenProvider。组件改为观察最近的 Lumen 主题所有者，缺省才读 documentElement；实际 SVG 节点填色证明明暗切换生效。关联既有 markdown-diagram 的 22de980d／ba204f79／e65084c2。
+- 英文测试夹具控制区的单行场景名在放大后溢出，现按集合身份换行并保留完整数据；生产代码 reader 未通过扩大视口或隐藏正文掩盖问题。旧 SSR 检查用连续 HTML 子串判断已被 token span 拆开的代码，现检查实际 code 文本。全生产图／构建输入检查的单项等待有界为 30 秒，保留全部检查；实测整组约 12 秒。旧固定 RGB 断言改为检验实际主题下 token 与正文的区分及主题变化，不锁死升级前调色板。
+- 范围严格 lint、文案／图标／flow guard、格式、新鲜 Web build 和生产构建清单通过；冷启动根类型仍有 91 项既有诊断，本次范围为零，全库门禁尚未通过。证据在 artifacts/desktop-elements/code-reading-content 的 unit-verified.log、complete.log、appearance.log、lint-complete.log、lint-verified.log、types-verified.log、build-complete.log、audit-verified.log 与截图；保留初始失败记录。宿主测试禁用两类自动继续，停止后检查所属临时目录再清理。
+
+当前清单覆盖 146 个生产 TSX 模块、3842 个元素，其中记录了 29 处低层文字未分类，合计 38 项静态缺口。其余生产表面迁移、其余已分类标题／身份容量复核（包括文件标题与项目名称）、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

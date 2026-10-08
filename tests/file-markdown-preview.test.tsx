@@ -9,7 +9,7 @@ import {
 } from '../packages/app-react/src/file-markdown-preview'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 
-test('file Markdown renders semantic content and never loads or executes embedded resources', () => {
+test('file Markdown renders semantic content and never loads or executes embedded resources', async () => {
   const labels = getShellCopy('zh-CN').files
   const html = renderToStaticMarkup(
     <HbarFileMarkdownPreview
@@ -28,7 +28,16 @@ test('file Markdown renders semantic content and never loads or executes embedde
   expect(html).toContain('<ol>')
   expect(html).toContain('<strong>检查</strong>')
   expect(html).toContain('<table>')
-  expect(html).toContain('const ready = true')
+  let codeText = ''
+  await new HTMLRewriter()
+    .on('pre code', {
+      text: (chunk) => {
+        codeText += chunk.text
+      },
+    })
+    .transform(new Response(html))
+    .text()
+  expect(codeText).toBe('const ready = true\n')
   expect(html).toContain('图片未加载：很长的中文图片说明')
   expect(html).not.toMatch(/<(?:img|script|iframe)|\shref=|\ssrc=/)
 })

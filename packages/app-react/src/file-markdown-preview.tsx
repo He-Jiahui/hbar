@@ -1,5 +1,5 @@
 import ReactMarkdown from 'react-markdown'
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenContentText, LumenFrame } from '@lumen/app-ui'
 import type { PluggableList } from 'unified'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
@@ -103,12 +103,12 @@ export function HbarFileMarkdownPreview({
                     {children}
                   </LumenFrame>
                 )
-              return <LumenText as="span">{children}</LumenText>
+              return <LumenContentText context="inline.text">{children}</LumenContentText>
             },
             img: ({ alt }) => (
-              <LumenText as="span" className="hbar-file-markdown-image">
+              <LumenContentText context="inline.text" className="hbar-file-markdown-image">
                 {imageLabel(alt ?? '')}
-              </LumenText>
+              </LumenContentText>
             ),
           }}
         >

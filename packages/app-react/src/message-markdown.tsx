@@ -56,6 +56,7 @@ function MessageCodeBlock({
   const header = useRef<HTMLDivElement>(null)
   const footer = useRef<HTMLDivElement>(null)
   const bodyId = useId()
+  const metadataLabel = `${context.labels.language(code.language)} ${context.labels.lines(code.lines)}`
   const collapsible = code.lines > CODE_BLOCK_PREVIEW_LINES
   // A different runtime/Host is a new reading owner, even if its IDs match.
   // Ordinary stream appends keep the user's explicit expansion untouched.
@@ -84,13 +85,19 @@ function MessageCodeBlock({
       data-expanded={expanded}
     >
       <LumenFrame ref={header} className="hbar-message-code-header" data-session-find-exclude="code-chrome">
-        <LumenFrame className="hbar-message-code-metadata">
+        <LumenFrame className="hbar-message-code-metadata" role="group" aria-label={metadataLabel} tabIndex={0}>
           <LumenContentText context="metadata">{context.labels.language(code.language)}</LumenContentText>
           <LumenContentText context="metadata">{context.labels.lines(code.lines)}</LumenContentText>
         </LumenFrame>
         <CodeBlockCopyAction {...context} occurrenceId={code.occurrenceId} text={code.text} />
       </LumenFrame>
-      <LumenContentText context="code.block" className="hbar-message-code-body" id={bodyId} tabIndex={0}>
+      <LumenContentText
+        context="code.block"
+        className="hbar-message-code-body"
+        id={bodyId}
+        tabIndex={0}
+        aria-label={metadataLabel}
+      >
         <MarkdownCodeContent
           source={code.domText}
           language={code.language}
@@ -102,7 +109,16 @@ function MessageCodeBlock({
         />
       </LumenContentText>
       {collapsible && (
-        <LumenFrame ref={footer} className="hbar-message-code-footer" data-session-find-exclude="code-chrome">
+        <LumenFrame
+          ref={footer}
+          className="hbar-message-code-footer"
+          data-session-find-exclude="code-chrome"
+          role="group"
+          aria-label={
+            expanded ? context.labels.showLess : context.labels.showMore(code.lines - CODE_BLOCK_PREVIEW_LINES)
+          }
+          tabIndex={0}
+        >
           <LumenButton
             type="button"
             size="s"
