@@ -122,6 +122,12 @@ test('Desktop graph reaches each delayed feature and retains platform elements',
     expect(inventory.sourceModules).toContain(path)
   expect(inventory.sourceModules.some((path) => path.includes('/react-bits/reference/'))).toBe(false)
   expect(inventory.elements.filter((entry) => entry.id.startsWith('native::'))).toHaveLength(6)
+  expect(inventory.elements.filter((entry) => entry.id.startsWith('native::') && entry.status === 'pending')).toEqual(
+    [],
+  )
+  expect(inventory.elements.find((entry) => entry.id === 'native::tray-open')?.contentSources).toEqual([
+    'DesktopChromeCopy.trayOpen',
+  ])
   expect(new Set(inventory.elements.map((element) => element.id)).size).toBe(inventory.elements.length)
   const buildInputs = await collectDesktopBuildInputs(resolve(import.meta.dirname, '..'))
   expect(inventory.sourceModules.filter((path) => !buildInputs.includes(path))).toEqual([])

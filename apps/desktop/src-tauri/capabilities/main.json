@@ -14,6 +14,7 @@
     "allow-request-native-notification-permission",
     "allow-send-native-notification",
     "allow-native-notification-delivery-status",
+    "allow-set-desktop-chrome-copy",
     "core:webview:allow-set-webview-zoom",
     "core:window:allow-close",
     "core:window:allow-show",

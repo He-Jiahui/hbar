@@ -3,6 +3,7 @@ import { relative, resolve } from 'node:path'
 import * as ts from 'typescript'
 import { classifyDesktopSource } from './classify'
 import { loadDesktopSourceGraph } from './graph'
+import { collectNativePlatformElements } from './platform'
 import type { DesktopElement, DesktopElementInventory } from './types'
 
 const roots = ['apps/web/src', 'packages/app-react/src', 'packages/schema-react/src'] as const
@@ -16,44 +17,6 @@ async function tsxFiles(path: string): Promise<string[]> {
     else if (entry.name.endsWith('.tsx')) result.push(current)
   }
   return result
-}
-
-/** Native platforms have their own renderer but remain part of the content inventory. */
-function platformElements(): DesktopElement[] {
-  return [
-    {
-      id: 'window-title',
-      component: 'TauriWindowTitle',
-      source: 'ToolWindowOpenOptions.title / native window builder',
-    },
-    { id: 'tray-open', component: 'TauriTrayOpen', source: 'Open hbar' },
-    { id: 'tray-exit', component: 'TauriTrayExit', source: 'Exit desktop' },
-    { id: 'tray-tooltip', component: 'TauriTrayTooltip', source: 'hbar' },
-    { id: 'notification-title', component: 'TauriNotificationTitle', source: 'NativeNotification.title' },
-    { id: 'notification-body', component: 'TauriNotificationBody', source: 'NativeNotification.body' },
-  ].map((entry) => ({
-    id: `native::${entry.id}`,
-    path: 'apps/desktop/src-tauri/src/main.rs',
-    line: 1,
-    owner: 'desktop-platform',
-    surface: 'platform',
-    component: entry.component,
-    category: 'platform',
-    context: null,
-    contentSources: [entry.source],
-    accessibleNameSources: [entry.source],
-    actionBindings: {},
-    targetSources: [entry.id.startsWith('notification') ? 'notification.id' : 'main window / tray menu action id'],
-    stateSources: [
-      entry.id.startsWith('notification')
-        ? 'NativeNotificationPort permission / delivery receipt'
-        : 'desktop application lifecycle',
-    ],
-    flow: 'operating-system renderer and existing UTF-8 capacity contract',
-    lumenMapping: 'native platform adapter with host-owned copy',
-    status: entry.id.startsWith('notification') ? 'composed' : 'pending',
-    issues: entry.id.startsWith('notification') ? [] : ['desktop-chrome-copy-contract-pending'],
-  }))
 }
 
 export async function collectDesktopElements(root: string): Promise<DesktopElementInventory> {
@@ -73,7 +36,7 @@ export async function collectDesktopElements(root: string): Promise<DesktopEleme
     if (sourceModules.includes(display))
       elements.push(...classifyDesktopSource(display, program.getSourceFile(path) ?? source, checker))
   }
-  elements.push(...platformElements())
+  elements.push(...(await collectNativePlatformElements(root)))
   const allFiles = (await Promise.all(roots.map((prefix) => tsxFiles(resolve(root, prefix)))))
     .flat()
     .map((path) => relative(root, path).replaceAll('\\', '/'))

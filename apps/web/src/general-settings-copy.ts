@@ -44,6 +44,14 @@ export function generalSettingsCopy(locale: ShellLocale): WebGeneralSettingsLabe
     ),
     retryRead: choose('重试读取', 'Retry reading'),
     retrySave: choose('重试保存', 'Retry saving'),
+    desktopChrome: {
+      pending: choose('正在将语言应用到窗口和托盘…', 'Applying the language to the window and tray…'),
+      error: choose(
+        '界面语言已更新，但窗口或托盘未能同步。可重试应用当前语言。',
+        'The interface language is updated, but the window or tray could not sync. Retry applying the current language.',
+      ),
+      retry: choose('重试窗口和托盘语言', 'Retry window and tray language'),
+    },
     sending: {
       title: choose('消息发送方式', 'Message Sending'),
       description: choose('选择对话输入框如何发送消息。', 'Choose how the chat composer submits messages.'),

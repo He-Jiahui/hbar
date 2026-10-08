@@ -1584,3 +1584,4 @@ export class HbarError extends Error {
 }
 
 export * from './workflow'
+export * from './desktop-chrome'

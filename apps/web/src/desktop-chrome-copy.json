@@ -1,0 +1,14 @@
+{
+  "zh-CN": {
+    "windowTitle": "hbar",
+    "trayTooltip": "hbar 工作台",
+    "trayOpen": "打开 hbar",
+    "trayExit": "退出桌面"
+  },
+  "en-US": {
+    "windowTitle": "hbar",
+    "trayTooltip": "hbar workbench",
+    "trayOpen": "Open hbar",
+    "trayExit": "Exit desktop"
+  }
+}

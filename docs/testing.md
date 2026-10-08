@@ -34,6 +34,8 @@ bun test ./tests/reactbits-pro-content-geometry.test.ts ./tests/reactbits-pro-st
 
 `bun scripts/desktop-smoke.ts` 需要先构建 Host 资源和 debug Tauri 程序；自定义输出目录可用 `HBAR_DESKTOP_EXE` 指向实际程序。它会启动真实原生窗口，不是无窗口检查。使用前确认允许本轮临时原生验收，不安装或重启现用桌面。
 
+窗口与托盘语言的独立原生验收使用 `bun scripts/desktop-chrome-smoke.ts`，同样需要已构建的 debug 程序和桌面资源，也支持 `HBAR_DESKTOP_EXE`。它在独立临时 Host／WebView2 profile 中切换中英文，检查原生窗口／菜单回读、Unicode OS 标题、具名语言同步失败及显式重试，拒绝超容量／控制字符／未知槽位，核对零 Run／页面错误。故障注入只拦截 copy 命令的 IPC response；其余回读来自真实 Rust。退出时依据精确 data-root 核对 supervisor 和 Host 进程所有权后释放临时目录；事实与截图只包含本次文案，保存在 `artifacts/desktop-elements/native-chrome/native`，不保存鉴权 trace。
+
 工作台分隔条的定向原生回归使用 `bun scripts/desktop-layout-resize-smoke.ts`，也可通过 `HBAR_DESKTOP_EXE` 指向构建程序。
 它使用独立临时 profile 和真实 WebView，比较拖动预览、松手、保存和刷新后的 CSS 像素宽度，覆盖两侧边界、原生缩放、根字号、
 键盘调整、Esc 取消、窗口变窄后恢复和未发送草稿；不创建模型 Run。最新结果及现用 Host 的前端资源核对见

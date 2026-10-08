@@ -138,6 +138,7 @@ import { createBrowserClientExport } from './client-export'
 import { canRenderWebSurface } from './surface-manifest'
 import type { HbarNativeConnection } from './native-connection'
 import type { HbarNativeWindowContext } from './native-window'
+import type { DesktopChromeController } from './desktop-chrome'
 import { applyWebTheme, readThemeBootstrap, readThemePreference, resolveWebTheme, writeThemeBootstrap } from './theme'
 import './App.css'
 import { NotificationDesktopBridge } from './NotificationDesktopBridge'
@@ -474,6 +475,7 @@ type WorkspaceBodyProps = {
   readonly appearanceEditor: AppearanceEditor
   readonly locale: ShellLocale
   readonly language?: WebLanguageController | undefined
+  readonly desktopChrome?: DesktopChromeController | undefined
   readonly sendBehavior: WebSendBehaviorController
   readonly zoom: WebZoomController
   readonly nativeDesktop: boolean
@@ -584,6 +586,7 @@ function WorkspaceBodyContent({
   locale,
   language,
   sendBehavior,
+  desktopChrome,
   zoom,
   nativeDesktop,
   connected,
@@ -751,6 +754,7 @@ function WorkspaceBodyContent({
               <WebGeneralSettings
                 labels={copy.general}
                 language={language}
+                desktopChrome={desktopChrome}
                 sendBehavior={sendBehavior}
                 zoom={zoom}
                 nativeZoom={nativeDesktop}
@@ -1513,12 +1517,14 @@ export default function App({
   locale,
   language,
   zoom,
+  desktopChrome,
   nativeConnection,
   nativeWindow,
 }: {
   readonly locale: ShellLocale
   readonly language?: WebLanguageController | undefined
   readonly zoom: WebZoomController
+  readonly desktopChrome?: DesktopChromeController | undefined
   readonly nativeConnection?: HbarNativeConnection | undefined
   readonly nativeWindow?: HbarNativeWindowContext | undefined
 }) {
@@ -2015,6 +2021,7 @@ export default function App({
                 appearanceEditor={appearanceEditor}
                 locale={locale}
                 language={language}
+                desktopChrome={desktopChrome}
                 sendBehavior={sendBehavior}
                 zoom={zoom}
                 nativeDesktop={Boolean(nativeWindow)}
@@ -2033,6 +2040,7 @@ export default function App({
               appearanceEditor={appearanceEditor}
               locale={locale}
               language={language}
+              desktopChrome={desktopChrome}
               sendBehavior={sendBehavior}
               zoom={zoom}
               nativeDesktop={Boolean(nativeWindow)}

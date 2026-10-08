@@ -10,6 +10,7 @@ import {
 import { WEB_SEND_BEHAVIORS, type WebSendBehavior, type WebSendBehaviorController } from './send-behavior'
 import { DEFAULT_WEB_ZOOM, MAX_WEB_ZOOM, MIN_WEB_ZOOM, type WebZoomController } from './app-zoom'
 import type { ShellLocale } from './shell-copy'
+import type { DesktopChromeController } from './desktop-chrome'
 import './GeneralSettings.css'
 
 export interface WebGeneralSettingsLabels {
@@ -27,6 +28,11 @@ export interface WebGeneralSettingsLabels {
   readonly saveError: string
   readonly retryRead: string
   readonly retrySave: string
+  readonly desktopChrome: {
+    readonly pending: string
+    readonly error: string
+    readonly retry: string
+  }
   readonly sending: {
     readonly title: string
     readonly description: string
@@ -57,6 +63,52 @@ export interface WebGeneralSettingsLabels {
     readonly retryRead: string
     readonly retrySave: string
   }
+}
+
+function DesktopChromeFeedback({
+  controller,
+  labels,
+}: {
+  readonly controller: DesktopChromeController
+  readonly labels: WebGeneralSettingsLabels['desktopChrome']
+}) {
+  const state = useStore(controller.store)
+  const retryTarget = useRef<{ readonly button: HTMLButtonElement; readonly fieldset: HTMLElement | null } | null>(null)
+  useLayoutEffect(() => {
+    const target = retryTarget.current
+    if (!target || state.status !== 'synced') return
+    retryTarget.current = null
+    if (target.button.isConnected || target.button.ownerDocument.activeElement !== target.button.ownerDocument.body)
+      return
+    target.fieldset?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]')?.focus()
+  }, [state.status])
+  if (state.status !== 'pending' && state.status !== 'error') return null
+  return (
+    <LumenFrame className="hbar-web-general-feedback">
+      <LumenContentText context="feedback.paragraph" role={state.status === 'error' ? 'alert' : 'status'}>
+        {state.status === 'error' ? labels.error : labels.pending}
+      </LumenContentText>
+      {state.status === 'error' && (
+        <LumenFrame
+          role="group"
+          aria-label={labels.retry}
+          tabIndex={0}
+          style={{ minInlineSize: 0, maxInlineSize: '100%', overflowX: 'auto' }}
+        >
+          <LumenButton
+            variant="text"
+            indicator="none"
+            onClick={(event) => {
+              retryTarget.current = { button: event.currentTarget, fieldset: event.currentTarget.closest('fieldset') }
+              controller.retry()
+            }}
+          >
+            {labels.retry}
+          </LumenButton>
+        </LumenFrame>
+      )}
+    </LumenFrame>
+  )
 }
 
 function WebGeneralZoom({
@@ -312,6 +364,7 @@ function WebGeneralSendBehavior({
 export function WebGeneralSettings({
   labels,
   language,
+  desktopChrome,
   sendBehavior,
   zoom,
   nativeZoom = false,
@@ -319,6 +372,7 @@ export function WebGeneralSettings({
 }: {
   readonly labels: WebGeneralSettingsLabels
   readonly language: WebLanguageController
+  readonly desktopChrome?: DesktopChromeController | undefined
   readonly sendBehavior?: WebSendBehaviorController | undefined
   readonly zoom?: WebZoomController | undefined
   readonly nativeZoom?: boolean | undefined
@@ -430,6 +484,7 @@ export function WebGeneralSettings({
             </>
           )}
         </LumenFrame>
+        {desktopChrome && <DesktopChromeFeedback controller={desktopChrome} labels={labels.desktopChrome} />}
       </LumenFrame>
       {sendBehavior && (
         <WebGeneralSendBehavior labels={labels.sending} controller={sendBehavior} connected={connected} />

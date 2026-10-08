@@ -2,20 +2,20 @@
 
 由 `bun scripts/audit-desktop-elements.ts --write` 从运行时入口、命名延迟加载、barrel 导出和 JSX 生成。完整的元素、槽位、内容来源、可访问名称、动作目标、状态来源和待处理问题见 [类型化清单](desktop-elements.json)。
 
-入口：`apps/web/src/main.tsx`。相关 TSX 模块 149 个；元素 3864 个。实际构建输入核对：passed。
+入口：`apps/web/src/main.tsx`。相关 TSX 模块 149 个；元素 3869 个。实际构建输入核对：passed。
 
 ## 类别与展示边界
 
 | 类别        | 元素 | pending | 设计职责                                                                |
 | ----------- | ---: | ------: | ----------------------------------------------------------------------- |
-| structure   | 1238 |       0 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
-| text        | 1121 |       0 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
-| interaction |  944 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
+| structure   | 1240 |       0 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
+| text        | 1122 |       0 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
+| interaction |  945 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
 | form        |  282 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
 | collection  |  135 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
 | technical   |   75 |       0 | 原文、代码、Markdown、图示与媒体的专用 renderer；辅助操作仍使用 Lumen。 |
-| feedback    |   62 |       0 | 空、加载、运行、成功、失败、恢复与取消的宿主状态及语义反馈。            |
-| platform    |    7 |       4 | Tauri 标题、托盘与通知；操作系统展示，宿主提供文案。                    |
+| feedback    |   63 |       0 | 空、加载、运行、成功、失败、恢复与取消的宿主状态及语义反馈。            |
+| platform    |    7 |       0 | Tauri 标题、托盘与通知；操作系统展示，宿主提供文案。                    |
 
 ## 按生产模块核对
 
@@ -23,7 +23,7 @@
 | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ---: | -------------: | ---------: | ---------: |
 | [apps/web/src/App.tsx](../../apps/web/src/App.tsx)                                                                         | workbench / global-pages                         |   82 |              9 |          0 |          0 |
 | [apps/web/src/AppearanceSettings.tsx](../../apps/web/src/AppearanceSettings.tsx)                                           | settings                                         |   42 |             11 |          0 |          0 |
-| [apps/web/src/GeneralSettings.tsx](../../apps/web/src/GeneralSettings.tsx)                                                 | settings                                         |   63 |             33 |          0 |          0 |
+| [apps/web/src/GeneralSettings.tsx](../../apps/web/src/GeneralSettings.tsx)                                                 | settings                                         |   68 |             34 |          0 |          0 |
 | [apps/web/src/GlobalFeaturePage.tsx](../../apps/web/src/GlobalFeaturePage.tsx)                                             | workbench                                        |    7 |              2 |          0 |          0 |
 | [apps/web/src/LanguageApp.tsx](../../apps/web/src/LanguageApp.tsx)                                                         | workbench                                        |    1 |              0 |          0 |          0 |
 | [apps/web/src/NotificationDesktopBridge.tsx](../../apps/web/src/NotificationDesktopBridge.tsx)                             | global-pages                                     |    1 |              1 |          0 |          0 |

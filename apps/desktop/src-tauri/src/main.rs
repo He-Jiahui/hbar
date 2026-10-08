@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod desktop_chrome;
+
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeSet, HashSet, VecDeque},
@@ -1051,9 +1053,11 @@ fn main() {
             native_notification_permission,
             request_native_notification_permission,
             send_native_notification,
-            native_notification_delivery_status
+            native_notification_delivery_status,
+            desktop_chrome::set_desktop_chrome_copy
         ])
         .setup(|app| {
+            let startup_copy = desktop_chrome::startup_copy()?;
             let (connection, data_root) = launch(app.handle())?;
             let origin = tauri::Url::parse(&connection.url)?.origin();
             let url = tauri::Url::parse(&connection.url)?;
@@ -1072,7 +1076,7 @@ fn main() {
             app.manage(connection);
             let mut window_builder =
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::External(web_url))
-                    .title("hbar")
+                    .title(&startup_copy.window_title)
                     .inner_size(1440.0, 960.0)
                     .min_inner_size(900.0, 600.0)
                     .decorations(false)
@@ -1101,8 +1105,8 @@ fn main() {
                     }
                 }
             });
-            let open = MenuItem::with_id(app, "open", "Open hbar", true, None::<&str>)?;
-            let exit = MenuItem::with_id(app, "exit", "Exit desktop", true, None::<&str>)?;
+            let open = MenuItem::with_id(app, "open", &startup_copy.tray_open, true, None::<&str>)?;
+            let exit = MenuItem::with_id(app, "exit", &startup_copy.tray_exit, true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open, &exit])?;
             let mut pixels = vec![0u8; 32 * 32 * 4];
             for y in 0..32 {
@@ -1117,9 +1121,9 @@ fn main() {
                     });
                 }
             }
-            TrayIconBuilder::new()
+            let tray = TrayIconBuilder::new()
                 .icon(Image::new_owned(pixels, 32, 32))
-                .tooltip("hbar")
+                .tooltip(&startup_copy.tray_tooltip)
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "open" => {
@@ -1145,6 +1149,7 @@ fn main() {
                     }
                 })
                 .build(app)?;
+            app.manage(desktop_chrome::DesktopChromeState::new(open, exit, tray, startup_copy));
             Ok(())
         })
         .build(tauri::generate_context!())

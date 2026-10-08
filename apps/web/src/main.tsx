@@ -7,6 +7,8 @@ import { createWebLanguageController } from './language'
 import { createWebLumenAppearance, readAppearanceBootstrap } from './appearance'
 import { loadNativeConnection } from './native-connection'
 import { applyNativeWindowContext, readNativeWindowContext } from './native-window'
+import { readNativeInvokeBridge } from './native-invoke'
+import { bindDesktopChromeLanguage, createDesktopChromeController, createDesktopChromePort } from './desktop-chrome'
 import { createWebZoomController } from './app-zoom'
 import { createBrowserZoomPort, createNativeZoomPort } from './app-zoom-port'
 import { resolveShellLocale } from './shell-copy'
@@ -48,13 +50,19 @@ const nativeConnection = await loadNativeConnection(window, expectedHostOrigin).
 })
 const nativeWindow = nativeConnection ? readNativeWindowContext(new URL(window.location.href)) : null
 applyNativeWindowContext(document.documentElement, nativeWindow)
-const nativeBridge = (
-  window as Window & {
-    readonly __TAURI_INTERNALS__?: {
-      invoke: (command: string, args?: Record<string, unknown>) => Promise<unknown>
-    }
-  }
-).__TAURI_INTERNALS__
+const nativeBridge = readNativeInvokeBridge(window)
+const desktopChrome = nativeWindow ? createDesktopChromeController(createDesktopChromePort(window, true)) : undefined
+if (desktopChrome) {
+  const release = bindDesktopChromeLanguage(desktopChrome, language)
+  window.addEventListener(
+    'pagehide',
+    () => {
+      release()
+      desktopChrome.dispose()
+    },
+    { once: true },
+  )
+}
 const zoom = createWebZoomController(
   nativeWindow && nativeConnection && nativeBridge
     ? createNativeZoomPort(nativeBridge)
@@ -71,6 +79,7 @@ createRoot(root).render(
       <LanguageApp
         language={language}
         zoom={zoom}
+        desktopChrome={desktopChrome}
         nativeConnection={nativeConnection ?? undefined}
         nativeWindow={nativeWindow ?? undefined}
       />

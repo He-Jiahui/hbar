@@ -6,15 +6,18 @@ import { resolveShellLocale } from './shell-copy'
 import { WEB_ZOOM_STORAGE_KEY, nextWebZoom, webZoomKeyboardAction, type WebZoomController } from './app-zoom'
 import type { HbarNativeConnection } from './native-connection'
 import type { HbarNativeWindowContext } from './native-window'
+import type { DesktopChromeController } from './desktop-chrome'
 
 export function LanguageApp({
   language,
   zoom,
+  desktopChrome,
   nativeConnection,
   nativeWindow,
 }: {
   readonly language: WebLanguageController
   readonly zoom: WebZoomController
+  readonly desktopChrome?: DesktopChromeController | undefined
   readonly nativeConnection?: HbarNativeConnection | undefined
   readonly nativeWindow?: HbarNativeWindowContext | undefined
 }) {
@@ -59,6 +62,7 @@ export function LanguageApp({
       locale={locale}
       language={language}
       zoom={zoom}
+      desktopChrome={desktopChrome}
       nativeConnection={nativeConnection}
       nativeWindow={nativeWindow}
     />

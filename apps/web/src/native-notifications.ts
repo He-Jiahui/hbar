@@ -1,3 +1,5 @@
+import { readNativeInvokeBridge } from './native-invoke'
+
 export type NativeNotificationPermission = 'Granted' | 'Denied' | 'Prompt' | 'Unknown'
 
 export interface NativeNotification {
@@ -14,26 +16,8 @@ export interface NativeNotificationPort {
   readonly notify: (notification: NativeNotification) => Promise<boolean>
 }
 
-interface NativeInvokeBridge {
-  readonly invoke: (command: string, args?: Record<string, unknown>) => Promise<unknown>
-}
-
 function permission(value: unknown): NativeNotificationPermission {
   return value === 'Granted' || value === 'Denied' || value === 'Prompt' ? value : 'Unknown'
-}
-
-function invokeBridge(scope: unknown): NativeInvokeBridge | null {
-  if (typeof scope !== 'object' || scope === null) return null
-  const bridge: unknown = Reflect.get(scope, '__TAURI_INTERNALS__')
-  if (typeof bridge !== 'object' || bridge === null) return null
-  const invoke: unknown = Reflect.get(bridge, 'invoke')
-  if (typeof invoke !== 'function') return null
-  return {
-    invoke: async (command, args) => {
-      const value: unknown = Reflect.apply(invoke, bridge, args === undefined ? [command] : [command, args])
-      return await value
-    },
-  }
 }
 
 function nativeText(value: string, maximumBytes: number): string {
@@ -51,7 +35,7 @@ function nativeText(value: string, maximumBytes: number): string {
 }
 
 export function createNativeNotificationPort(scope: unknown, native: boolean): NativeNotificationPort {
-  const bridge = native ? invokeBridge(scope) : null
+  const bridge = native ? readNativeInvokeBridge(scope) : null
   if (!bridge) {
     return {
       isAvailable: false,

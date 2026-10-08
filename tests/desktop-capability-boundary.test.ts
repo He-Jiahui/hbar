@@ -27,17 +27,36 @@ test('native main privileges belong to its WebView, not every child of its windo
   expect(capability.permissions).toContain('allow-read-ui-zoom')
   expect(capability.permissions).toContain('allow-write-ui-zoom')
   expect(capability.permissions).toContain('allow-native-notification-delivery-status')
+  expect(capability.permissions).toContain('allow-set-desktop-chrome-copy')
   expect(capability.permissions).toContain('core:webview:allow-set-webview-zoom')
 
   const nativeSource = await readFile(join(desktopRoot, 'src/main.rs'), 'utf8')
-  expect(nativeSource).toMatch(/WebviewWindowBuilder::new\(app,\s*"main",\s*WebviewUrl::External\(url\)\)/)
-  expect(nativeSource).toMatch(
-    /generate_handler!\[\s*connection_info,\s*read_ui_zoom,\s*write_ui_zoom,\s*native_notification_permission,\s*request_native_notification_permission,\s*send_native_notification,\s*native_notification_delivery_status\s*\]/,
-  )
+  expect(nativeSource).toMatch(/WebviewWindowBuilder::new\(app,\s*"main",\s*WebviewUrl::External\(web_url\)\)/)
+  const handlers = nativeSource.match(/generate_handler!\[([\s\S]*?)\]/)?.[1]
+  for (const name of [
+    'connection_info',
+    'read_ui_zoom',
+    'write_ui_zoom',
+    'native_notification_permission',
+    'request_native_notification_permission',
+    'send_native_notification',
+    'native_notification_delivery_status',
+    'desktop_chrome::set_desktop_chrome_copy',
+  ])
+    expect(handlers).toContain(name)
   const buildSource = await readFile(join(desktopRoot, 'build.rs'), 'utf8')
-  expect(buildSource).toMatch(
-    /AppManifest::new\(\)\.commands\(&\[\s*"connection_info",\s*"read_ui_zoom",\s*"write_ui_zoom",\s*"native_notification_permission",\s*"request_native_notification_permission",\s*"send_native_notification",\s*"native_notification_delivery_status",?\s*\]\)/,
-  )
+  const commands = buildSource.match(/AppManifest::new\(\)\.commands\(&\[([\s\S]*?)\]\)/)?.[1]
+  for (const name of [
+    'connection_info',
+    'read_ui_zoom',
+    'write_ui_zoom',
+    'native_notification_permission',
+    'request_native_notification_permission',
+    'send_native_notification',
+    'native_notification_delivery_status',
+    'set_desktop_chrome_copy',
+  ])
+    expect(commands).toContain(`"${name}"`)
 })
 
 test('no desktop capability grants main-window privileges to a future child WebView', async () => {

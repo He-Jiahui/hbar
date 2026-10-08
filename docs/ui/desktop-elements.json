@@ -11,15 +11,15 @@
       "component": "TauriWindowTitle",
       "category": "platform",
       "context": null,
-      "contentSources": ["ToolWindowOpenOptions.title / native window builder"],
-      "accessibleNameSources": ["ToolWindowOpenOptions.title / native window builder"],
+      "contentSources": ["DesktopChromeCopy.windowTitle / ToolWindowOpenOptions.title"],
+      "accessibleNameSources": ["DesktopChromeCopy.windowTitle / ToolWindowOpenOptions.title"],
       "actionBindings": {},
-      "targetSources": ["main window / tray menu action id"],
-      "stateSources": ["desktop application lifecycle"],
-      "flow": "operating-system renderer and existing UTF-8 capacity contract",
+      "targetSources": ["main WebView / original tray menu action id"],
+      "stateSources": ["DesktopChromeController latest locale / serialized native receipt"],
+      "flow": "operating-system renderer / 127 UTF-16 units; no source truncation",
       "lumenMapping": "native platform adapter with host-owned copy",
-      "status": "pending",
-      "issues": ["desktop-chrome-copy-contract-pending"]
+      "status": "composed",
+      "issues": []
     },
     {
       "id": "native::tray-open",
@@ -30,15 +30,15 @@
       "component": "TauriTrayOpen",
       "category": "platform",
       "context": null,
-      "contentSources": ["Open hbar"],
-      "accessibleNameSources": ["Open hbar"],
+      "contentSources": ["DesktopChromeCopy.trayOpen"],
+      "accessibleNameSources": ["DesktopChromeCopy.trayOpen"],
       "actionBindings": {},
-      "targetSources": ["main window / tray menu action id"],
-      "stateSources": ["desktop application lifecycle"],
-      "flow": "operating-system renderer and existing UTF-8 capacity contract",
+      "targetSources": ["main WebView / original tray menu action id"],
+      "stateSources": ["DesktopChromeController latest locale / serialized native receipt"],
+      "flow": "operating-system renderer / 127 UTF-16 units; no source truncation",
       "lumenMapping": "native platform adapter with host-owned copy",
-      "status": "pending",
-      "issues": ["desktop-chrome-copy-contract-pending"]
+      "status": "composed",
+      "issues": []
     },
     {
       "id": "native::tray-exit",
@@ -49,15 +49,15 @@
       "component": "TauriTrayExit",
       "category": "platform",
       "context": null,
-      "contentSources": ["Exit desktop"],
-      "accessibleNameSources": ["Exit desktop"],
+      "contentSources": ["DesktopChromeCopy.trayExit"],
+      "accessibleNameSources": ["DesktopChromeCopy.trayExit"],
       "actionBindings": {},
-      "targetSources": ["main window / tray menu action id"],
-      "stateSources": ["desktop application lifecycle"],
-      "flow": "operating-system renderer and existing UTF-8 capacity contract",
+      "targetSources": ["main WebView / original tray menu action id"],
+      "stateSources": ["DesktopChromeController latest locale / serialized native receipt"],
+      "flow": "operating-system renderer / 127 UTF-16 units; no source truncation",
       "lumenMapping": "native platform adapter with host-owned copy",
-      "status": "pending",
-      "issues": ["desktop-chrome-copy-contract-pending"]
+      "status": "composed",
+      "issues": []
     },
     {
       "id": "native::tray-tooltip",
@@ -68,15 +68,15 @@
       "component": "TauriTrayTooltip",
       "category": "platform",
       "context": null,
-      "contentSources": ["hbar"],
-      "accessibleNameSources": ["hbar"],
+      "contentSources": ["DesktopChromeCopy.trayTooltip"],
+      "accessibleNameSources": ["DesktopChromeCopy.trayTooltip"],
       "actionBindings": {},
-      "targetSources": ["main window / tray menu action id"],
-      "stateSources": ["desktop application lifecycle"],
-      "flow": "operating-system renderer and existing UTF-8 capacity contract",
+      "targetSources": ["main WebView / original tray menu action id"],
+      "stateSources": ["DesktopChromeController latest locale / serialized native receipt"],
+      "flow": "operating-system renderer / 127 UTF-16 units; no source truncation",
       "lumenMapping": "native platform adapter with host-owned copy",
-      "status": "pending",
-      "issues": ["desktop-chrome-copy-contract-pending"]
+      "status": "composed",
+      "issues": []
     },
     {
       "id": "native::notification-title",
@@ -92,7 +92,7 @@
       "actionBindings": {},
       "targetSources": ["notification.id"],
       "stateSources": ["NativeNotificationPort permission / delivery receipt"],
-      "flow": "operating-system renderer and existing UTF-8 capacity contract",
+      "flow": "operating-system renderer / bounded UTF-8 payload",
       "lumenMapping": "native platform adapter with host-owned copy",
       "status": "composed",
       "issues": []
@@ -111,7 +111,7 @@
       "actionBindings": {},
       "targetSources": ["notification.id"],
       "stateSources": ["NativeNotificationPort permission / delivery receipt"],
-      "flow": "operating-system renderer and existing UTF-8 capacity contract",
+      "flow": "operating-system renderer / bounded UTF-8 payload",
       "lumenMapping": "native platform adapter with host-owned copy",
       "status": "composed",
       "issues": []
@@ -119,7 +119,7 @@
     {
       "id": "apps/web/src/App.tsx::AgentChildReturn::LumenFrame::1",
       "path": "apps/web/src/App.tsx",
-      "line": 508,
+      "line": 510,
       "owner": "AgentChildReturn",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -140,7 +140,7 @@
     {
       "id": "apps/web/src/App.tsx::AgentChildReturn::LumenButton::1",
       "path": "apps/web/src/App.tsx",
-      "line": 509,
+      "line": 511,
       "owner": "AgentChildReturn",
       "surface": "workbench",
       "component": "LumenButton",
@@ -159,7 +159,7 @@
     {
       "id": "apps/web/src/App.tsx::AgentChildReturn::LumenIcon::1",
       "path": "apps/web/src/App.tsx",
-      "line": 510,
+      "line": 512,
       "owner": "AgentChildReturn",
       "surface": "workbench",
       "component": "LumenIcon",
@@ -178,7 +178,7 @@
     {
       "id": "apps/web/src/App.tsx::AgentChildReturn::LumenContentText::1",
       "path": "apps/web/src/App.tsx",
-      "line": 511,
+      "line": 513,
       "owner": "AgentChildReturn",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -197,7 +197,7 @@
     {
       "id": "apps/web/src/App.tsx::AgentChildReturn::LumenContentText::2",
       "path": "apps/web/src/App.tsx",
-      "line": 516,
+      "line": 518,
       "owner": "AgentChildReturn",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -216,7 +216,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceBody::SettingsPageFocusBoundary::1",
       "path": "apps/web/src/App.tsx",
-      "line": 565,
+      "line": 567,
       "owner": "WorkspaceBody",
       "surface": "workbench",
       "component": "SettingsPageFocusBoundary",
@@ -239,7 +239,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceBody::LazySurfaceBoundary::1",
       "path": "apps/web/src/App.tsx",
-      "line": 573,
+      "line": 575,
       "owner": "WorkspaceBody",
       "surface": "workbench",
       "component": "LazySurfaceBoundary",
@@ -258,7 +258,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceBody::WorkspaceBodyContent::1",
       "path": "apps/web/src/App.tsx",
-      "line": 574,
+      "line": 576,
       "owner": "WorkspaceBody",
       "surface": "workbench",
       "component": "WorkspaceBodyContent",
@@ -277,7 +277,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceBodyContent::StatusWorkspace::1",
       "path": "apps/web/src/App.tsx",
-      "line": 709,
+      "line": 712,
       "owner": "WorkspaceBodyContent",
       "surface": "workbench",
       "component": "StatusWorkspace",
@@ -296,7 +296,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceBodyContent::UsageFeatures::1",
       "path": "apps/web/src/App.tsx",
-      "line": 712,
+      "line": 715,
       "owner": "WorkspaceBodyContent",
       "surface": "workbench",
       "component": "UsageFeatures",
@@ -315,7 +315,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceBodyContent::SettingsWorkspace::1",
       "path": "apps/web/src/App.tsx",
-      "line": 718,
+      "line": 721,
       "owner": "WorkspaceBodyContent",
       "surface": "workbench",
       "component": "SettingsWorkspace",
@@ -334,7 +334,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceBodyContent::HbarStorageLocationSettings::1",
       "path": "apps/web/src/App.tsx",
-      "line": 743,
+      "line": 746,
       "owner": "WorkspaceBodyContent",
       "surface": "workbench",
       "component": "HbarStorageLocationSettings",
@@ -353,7 +353,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceBodyContent::WebGeneralSettings::1",
       "path": "apps/web/src/App.tsx",
-      "line": 751,
+      "line": 754,
       "owner": "WorkspaceBodyContent",
       "surface": "workbench",
       "component": "WebGeneralSettings",
@@ -372,7 +372,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceBodyContent::WebAppearanceSettings::1",
       "path": "apps/web/src/App.tsx",
-      "line": 762,
+      "line": 766,
       "owner": "WorkspaceBodyContent",
       "surface": "workbench",
       "component": "WebAppearanceSettings",
@@ -391,7 +391,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceBodyContent::ProviderSettings::1",
       "path": "apps/web/src/App.tsx",
-      "line": 768,
+      "line": 772,
       "owner": "WorkspaceBodyContent",
       "surface": "workbench",
       "component": "ProviderSettings",
@@ -410,7 +410,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceBodyContent::SandboxProfileSettings::1",
       "path": "apps/web/src/App.tsx",
-      "line": 769,
+      "line": 773,
       "owner": "WorkspaceBodyContent",
       "surface": "workbench",
       "component": "SandboxProfileSettings",
@@ -429,7 +429,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceBodyContent::ExtensionWorkspace::1",
       "path": "apps/web/src/App.tsx",
-      "line": 772,
+      "line": 776,
       "owner": "WorkspaceBodyContent",
       "surface": "workbench",
       "component": "ExtensionWorkspace",
@@ -448,7 +448,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceBodyContent::SettingsUsage::1",
       "path": "apps/web/src/App.tsx",
-      "line": 783,
+      "line": 787,
       "owner": "WorkspaceBodyContent",
       "surface": "workbench",
       "component": "SettingsUsage",
@@ -467,7 +467,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceBodyContent::SystemDiagnostics::1",
       "path": "apps/web/src/App.tsx",
-      "line": 791,
+      "line": 795,
       "owner": "WorkspaceBodyContent",
       "surface": "workbench",
       "component": "SystemDiagnostics",
@@ -486,7 +486,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceBodyContent::WorkspaceGlobalFeaturePage::1",
       "path": "apps/web/src/App.tsx",
-      "line": 803,
+      "line": 807,
       "owner": "WorkspaceBodyContent",
       "surface": "workbench",
       "component": "WorkspaceGlobalFeaturePage",
@@ -509,7 +509,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceBodyContent::LumenWorkbenchNotice::1",
       "path": "apps/web/src/App.tsx",
-      "line": 814,
+      "line": 818,
       "owner": "WorkspaceBodyContent",
       "surface": "workbench",
       "component": "LumenWorkbenchNotice",
@@ -528,7 +528,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceBodyContent::FileWorkspace::1",
       "path": "apps/web/src/App.tsx",
-      "line": 831,
+      "line": 835,
       "owner": "WorkspaceBodyContent",
       "surface": "workbench",
       "component": "FileWorkspace",
@@ -554,7 +554,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceBodyContent::HbarSessionWorkspace::1",
       "path": "apps/web/src/App.tsx",
-      "line": 852,
+      "line": 856,
       "owner": "WorkspaceBodyContent",
       "surface": "workbench",
       "component": "HbarSessionWorkspace",
@@ -578,7 +578,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceBodyContent::HbarSessionLaunchLocation::1",
       "path": "apps/web/src/App.tsx",
-      "line": 860,
+      "line": 864,
       "owner": "WorkspaceBodyContent",
       "surface": "workbench",
       "component": "HbarSessionLaunchLocation",
@@ -602,7 +602,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceBodyContent::AgentChildReturn::1",
       "path": "apps/web/src/App.tsx",
-      "line": 884,
+      "line": 888,
       "owner": "WorkspaceBodyContent",
       "surface": "workbench",
       "component": "AgentChildReturn",
@@ -616,7 +616,7 @@
         "title=directory.sessions[activeTab.agentSource.parentSessionId]?.title ??\n                tabCopy.unknownSession(activeTab.agentSource.parentSessionId)"
       ],
       "actionBindings": {
-        "onReturn": "[source:892; ArrowFunction] agentReturn.busy, childSessionId, activeTab.sessionId, setAgentReturn, busy, error, runtime.commands\n                  .execute('agentChild.return', {\n                    childSessionId,\n                    childTabInstanceKey: activeTab.instanceKey,\n                  })\n                  .then(() => {\n                    requestAnimationFrame(() =>\n                      document\n                        .querySelector<HTMLElement>('[role=\"tab\"][aria-selected=\"true\"]')\n                        ?.focus({ preventScroll: true }),\n                    )\n                  })\n                  .catch, runtime.commands\n                  .execute('agentChild.return', {\n                    childSessionId,\n                    childTabInstanceKey: activeTab.instanceKey,\n                  })\n                  .then, runtime.commands\n                  .execute, runtime.commands, childTabInstanceKey, activeTab.instanceKey, requestAnimationFrame, document\n                        .querySelector<HTMLElement>('[role=\"tab\"][aria-selected=\"true\"]')\n                        ?.focus, document\n                        .querySelector, HTMLElement, preventScroll, reason, currentTabs, runtime.state.workspaceTabs.getSnapshot, runtime.state.workspaceTabs, runtime.state, currentTabs.activeId, currentTabs.items.find((item) => item.id === childSessionId)?.instanceKey, currentTabs.items.find, currentTabs.items, item, item.id, errorCode"
+        "onReturn": "[source:896; ArrowFunction] agentReturn.busy, childSessionId, activeTab.sessionId, setAgentReturn, busy, error, runtime.commands\n                  .execute('agentChild.return', {\n                    childSessionId,\n                    childTabInstanceKey: activeTab.instanceKey,\n                  })\n                  .then(() => {\n                    requestAnimationFrame(() =>\n                      document\n                        .querySelector<HTMLElement>('[role=\"tab\"][aria-selected=\"true\"]')\n                        ?.focus({ preventScroll: true }),\n                    )\n                  })\n                  .catch, runtime.commands\n                  .execute('agentChild.return', {\n                    childSessionId,\n                    childTabInstanceKey: activeTab.instanceKey,\n                  })\n                  .then, runtime.commands\n                  .execute, runtime.commands, childTabInstanceKey, activeTab.instanceKey, requestAnimationFrame, document\n                        .querySelector<HTMLElement>('[role=\"tab\"][aria-selected=\"true\"]')\n                        ?.focus, document\n                        .querySelector, HTMLElement, preventScroll, reason, currentTabs, runtime.state.workspaceTabs.getSnapshot, runtime.state.workspaceTabs, runtime.state, currentTabs.activeId, currentTabs.items.find((item) => item.id === childSessionId)?.instanceKey, currentTabs.items.find, currentTabs.items, item, item.id, errorCode"
       },
       "targetSources": [],
       "stateSources": ["busy=agentReturn.busy", "error=agentReturn.error"],
@@ -628,7 +628,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceBodyContent::WebPreSessionLanding::1",
       "path": "apps/web/src/App.tsx",
-      "line": 926,
+      "line": 930,
       "owner": "WorkspaceBodyContent",
       "surface": "workbench",
       "component": "WebPreSessionLanding",
@@ -647,7 +647,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceTool::FileWorkspace::1",
       "path": "apps/web/src/App.tsx",
-      "line": 972,
+      "line": 976,
       "owner": "WorkspaceTool",
       "surface": "workbench",
       "component": "FileWorkspace",
@@ -656,7 +656,7 @@
       "contentSources": ["labels=copy.files"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onExpand": "[source:979; ConditionalExpression] canExpand, panel.workspaceId, expanding.current, setExpandError, originalBinding, panel.binding, workspaceId, navigation, runtime.state.navigation.getSnapshot, runtime.state.navigation, runtime.state, tabs, runtime.state.workspaceTabs.getSnapshot, runtime.state.workspaceTabs, activeTab, tabs.items.find, tabs.items, item, item.id, tabs.activeId, ownedPanel, panel, ownsExpansion, currentNavigation, currentTabs, runtime.state.presentation.getSnapshot().page.kind, runtime.state.presentation.getSnapshot().page, runtime.state.presentation.getSnapshot, runtime.state.presentation, runtime.state.presentation.getSnapshot().toolInstanceId, instanceId, runtime.state.surfaces.getSnapshot().panels, runtime.state.surfaces.getSnapshot, runtime.state.surfaces, currentNavigation.workspaceId, navigation.workspaceId, currentNavigation.sessionId, navigation.sessionId, currentTabs.activeId, currentTabs.items.find((item) => item.id === currentTabs.activeId)?.instanceKey, currentTabs.items.find, currentTabs.items, activeTab?.instanceKey, pin, runtime.commands.execute, runtime.commands, panelId, panel.sessionId, sessionId, binding, panelInstanceId, sourceSessionId, reason, restore, restore.catch, undefined, errorCode"
+        "onExpand": "[source:983; ConditionalExpression] canExpand, panel.workspaceId, expanding.current, setExpandError, originalBinding, panel.binding, workspaceId, navigation, runtime.state.navigation.getSnapshot, runtime.state.navigation, runtime.state, tabs, runtime.state.workspaceTabs.getSnapshot, runtime.state.workspaceTabs, activeTab, tabs.items.find, tabs.items, item, item.id, tabs.activeId, ownedPanel, panel, ownsExpansion, currentNavigation, currentTabs, runtime.state.presentation.getSnapshot().page.kind, runtime.state.presentation.getSnapshot().page, runtime.state.presentation.getSnapshot, runtime.state.presentation, runtime.state.presentation.getSnapshot().toolInstanceId, instanceId, runtime.state.surfaces.getSnapshot().panels, runtime.state.surfaces.getSnapshot, runtime.state.surfaces, currentNavigation.workspaceId, navigation.workspaceId, currentNavigation.sessionId, navigation.sessionId, currentTabs.activeId, currentTabs.items.find((item) => item.id === currentTabs.activeId)?.instanceKey, currentTabs.items.find, currentTabs.items, activeTab?.instanceKey, pin, runtime.commands.execute, runtime.commands, panelId, panel.sessionId, sessionId, binding, panelInstanceId, sourceSessionId, reason, restore, restore.catch, undefined, errorCode"
       },
       "targetSources": ["instanceId=instanceId", "targetLabel=targetLabel"],
       "stateSources": ["connected=connected"],
@@ -668,7 +668,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceTool::SessionMonitoring::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1050,
+      "line": 1054,
       "owner": "WorkspaceTool",
       "surface": "workbench",
       "component": "SessionMonitoring",
@@ -687,7 +687,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceTool::SessionActivityWorkspace::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1059,
+      "line": 1063,
       "owner": "WorkspaceTool",
       "surface": "workbench",
       "component": "SessionActivityWorkspace",
@@ -706,7 +706,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceTool::AgentWorkspace::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1068,
+      "line": 1072,
       "owner": "WorkspaceTool",
       "surface": "workbench",
       "component": "AgentWorkspace",
@@ -725,7 +725,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceTool::GoalPlanWorkspace::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1072,
+      "line": 1076,
       "owner": "WorkspaceTool",
       "surface": "workbench",
       "component": "GoalPlanWorkspace",
@@ -744,14 +744,14 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceGlobalFeaturePage::GlobalFeaturePage::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1095,
+      "line": 1099,
       "owner": "WorkspaceGlobalFeaturePage",
       "surface": "workbench",
       "component": "GlobalFeaturePage",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "[source:1101; ConditionalExpression] panel, panel.panelId, pageId, needsWorkspace, panel.workspaceId",
+        "[source:1105; ConditionalExpression] panel, panel.panelId, pageId, needsWorkspace, panel.workspaceId",
         "title=labels.titles[pageId]"
       ],
       "accessibleNameSources": ["title=labels.titles[pageId]"],
@@ -768,7 +768,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceGlobalFeaturePage::LumenContentText::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1102,
+      "line": 1106,
       "owner": "WorkspaceGlobalFeaturePage",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -787,7 +787,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceGlobalFeaturePage::LumenFrame::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1106,
+      "line": 1110,
       "owner": "WorkspaceGlobalFeaturePage",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -806,7 +806,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceGlobalFeaturePage::LumenContentText::2",
       "path": "apps/web/src/App.tsx",
-      "line": 1107,
+      "line": 1111,
       "owner": "WorkspaceGlobalFeaturePage",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -825,7 +825,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceGlobalFeaturePage::LumenButton::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1108,
+      "line": 1112,
       "owner": "WorkspaceGlobalFeaturePage",
       "surface": "workbench",
       "component": "LumenButton",
@@ -846,7 +846,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceGlobalFeaturePage::GlobalFeatureContent::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1117,
+      "line": 1121,
       "owner": "WorkspaceGlobalFeaturePage",
       "surface": "workbench",
       "component": "GlobalFeatureContent",
@@ -865,7 +865,7 @@
     {
       "id": "apps/web/src/App.tsx::GlobalFeatureContent::Suspense::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1137,
+      "line": 1141,
       "owner": "GlobalFeatureContent",
       "surface": "workbench",
       "component": "Suspense",
@@ -884,7 +884,7 @@
     {
       "id": "apps/web/src/App.tsx::GlobalFeatureContent::LumenContentText::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1139,
+      "line": 1143,
       "owner": "GlobalFeatureContent",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -903,7 +903,7 @@
     {
       "id": "apps/web/src/App.tsx::GlobalFeatureContent::RunBoardPage::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1144,
+      "line": 1148,
       "owner": "GlobalFeatureContent",
       "surface": "workbench",
       "component": "RunBoardPage",
@@ -922,7 +922,7 @@
     {
       "id": "apps/web/src/App.tsx::GlobalFeatureContent::WorkspaceSchedulesPage::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1149,
+      "line": 1153,
       "owner": "GlobalFeatureContent",
       "surface": "workbench",
       "component": "WorkspaceSchedulesPage",
@@ -941,7 +941,7 @@
     {
       "id": "apps/web/src/App.tsx::GlobalFeatureContent::WorkspacePromptTemplatesPage::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1157,
+      "line": 1161,
       "owner": "GlobalFeatureContent",
       "surface": "workbench",
       "component": "WorkspacePromptTemplatesPage",
@@ -960,7 +960,7 @@
     {
       "id": "apps/web/src/App.tsx::GlobalFeatureContent::Suspense::2",
       "path": "apps/web/src/App.tsx",
-      "line": 1164,
+      "line": 1168,
       "owner": "GlobalFeatureContent",
       "surface": "workbench",
       "component": "Suspense",
@@ -979,7 +979,7 @@
     {
       "id": "apps/web/src/App.tsx::GlobalFeatureContent::LumenContentText::2",
       "path": "apps/web/src/App.tsx",
-      "line": 1166,
+      "line": 1170,
       "owner": "GlobalFeatureContent",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -998,7 +998,7 @@
     {
       "id": "apps/web/src/App.tsx::GlobalFeatureContent::OnboardingLazyPage::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1171,
+      "line": 1175,
       "owner": "GlobalFeatureContent",
       "surface": "workbench",
       "component": "OnboardingLazyPage",
@@ -1020,7 +1020,7 @@
     {
       "id": "apps/web/src/App.tsx::GlobalFeatureContent::Suspense::3",
       "path": "apps/web/src/App.tsx",
-      "line": 1190,
+      "line": 1194,
       "owner": "GlobalFeatureContent",
       "surface": "workbench",
       "component": "Suspense",
@@ -1039,7 +1039,7 @@
     {
       "id": "apps/web/src/App.tsx::GlobalFeatureContent::LumenContentText::3",
       "path": "apps/web/src/App.tsx",
-      "line": 1192,
+      "line": 1196,
       "owner": "GlobalFeatureContent",
       "surface": "workbench",
       "component": "LumenContentText",
@@ -1058,7 +1058,7 @@
     {
       "id": "apps/web/src/App.tsx::GlobalFeatureContent::NotificationsLazyPage::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1197,
+      "line": 1201,
       "owner": "GlobalFeatureContent",
       "surface": "workbench",
       "component": "NotificationsLazyPage",
@@ -1079,7 +1079,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceSchedulesPage::Suspense::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1225,
+      "line": 1229,
       "owner": "WorkspaceSchedulesPage",
       "surface": "global-pages",
       "component": "Suspense",
@@ -1098,7 +1098,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceSchedulesPage::LumenContentText::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1227,
+      "line": 1231,
       "owner": "WorkspaceSchedulesPage",
       "surface": "global-pages",
       "component": "LumenContentText",
@@ -1117,7 +1117,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceSchedulesPage::SchedulesPage::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1232,
+      "line": 1236,
       "owner": "WorkspaceSchedulesPage",
       "surface": "global-pages",
       "component": "SchedulesPage",
@@ -1136,7 +1136,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspacePromptTemplatesPage::Suspense::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1253,
+      "line": 1257,
       "owner": "WorkspacePromptTemplatesPage",
       "surface": "global-pages",
       "component": "Suspense",
@@ -1155,7 +1155,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspacePromptTemplatesPage::LumenContentText::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1255,
+      "line": 1259,
       "owner": "WorkspacePromptTemplatesPage",
       "surface": "global-pages",
       "component": "LumenContentText",
@@ -1174,7 +1174,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspacePromptTemplatesPage::PromptTemplatesPage::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1260,
+      "line": 1264,
       "owner": "WorkspacePromptTemplatesPage",
       "surface": "global-pages",
       "component": "PromptTemplatesPage",
@@ -1193,7 +1193,7 @@
     {
       "id": "apps/web/src/App.tsx::FeatureNavigation::LumenFrame::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1288,
+      "line": 1292,
       "owner": "FeatureNavigation",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -1214,7 +1214,7 @@
     {
       "id": "apps/web/src/App.tsx::FeatureNavigation::LumenButton::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1290,
+      "line": 1294,
       "owner": "FeatureNavigation",
       "surface": "workbench",
       "component": "LumenButton",
@@ -1233,7 +1233,7 @@
     {
       "id": "apps/web/src/App.tsx::FeatureNavigation::NotificationPageNavigation::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1301,
+      "line": 1305,
       "owner": "FeatureNavigation",
       "surface": "workbench",
       "component": "NotificationPageNavigation",
@@ -1252,7 +1252,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceModal::LumenDialog::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1341,
+      "line": 1345,
       "owner": "WorkspaceModal",
       "surface": "workbench",
       "component": "LumenDialog",
@@ -1271,7 +1271,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceModal::HbarChatSearchView::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1351,
+      "line": 1355,
       "owner": "WorkspaceModal",
       "surface": "workbench",
       "component": "HbarChatSearchView",
@@ -1284,7 +1284,7 @@
         "onQueryChange": "chatSearch.setQuery",
         "onMove": "chatSearch.move",
         "onSelect": "chatSearch.select",
-        "onOpen": "[source:1374; ArrowFunction] sessionId, workspaceId, chatSearch\n              .openRow(sessionId, workspaceId, async (row) => {\n                await runtime.commands.execute('app.setSession', {\n                  sessionId: row.sessionId,\n                  workspaceId: row.workspaceId,\n                })\n                const navigation = runtime.state.navigation.getSnapshot()\n                const tabs = runtime.state.workspaceTabs.getSnapshot()\n                const tab = tabs.items.find((candidate) => candidate.id === tabs.activeId)\n                if (\n                  navigation.sessionId !== row.sessionId ||\n                  navigation.workspaceId !== row.workspaceId ||\n                  tab?.kind !== 'session' ||\n                  tab.sessionId !== row.sessionId\n                )\n                  throw { code: 'CANCELLED' }\n                runtime.conversationReading.navigate(\n                  {\n                    workspaceId: row.workspaceId,\n                    sessionId: row.sessionId,\n                    sourceTabInstanceKey: tab.instanceKey,\n                  },\n                  {\n                    messageId: row.target?.messageId ?? null,\n                    messageOffset: 0,\n                    atEnd: row.source === 'title' || !row.target?.messageId,\n                  },\n                  row.target?.callId,\n                  row.source !== 'title' && row.target?.messageId ? chatSearchState.query.trim() : null,\n                )\n                // A global hit may belong to a hidden project. Reveal it only after the\n                // exact session navigation succeeds; reveal failure does not undo the tab.\n                void runtime.commands\n                  .execute('workspaceSidebar.reveal', { workspaceId: row.workspaceId })\n                  .catch(() => undefined)\n              })\n              .then, chatSearch\n              .openRow, row, runtime.commands.execute, runtime.commands, row.sessionId, row.workspaceId, navigation, runtime.state.navigation.getSnapshot, runtime.state.navigation, runtime.state, tabs, runtime.state.workspaceTabs.getSnapshot, runtime.state.workspaceTabs, tab, tabs.items.find, tabs.items, candidate, candidate.id, tabs.activeId, navigation.sessionId, navigation.workspaceId, tab?.kind, tab.sessionId, code, runtime.conversationReading.navigate, runtime.conversationReading, sourceTabInstanceKey, tab.instanceKey, messageId, row.target?.messageId, row.target, messageOffset, atEnd, row.source, row.target?.callId, chatSearchState.query.trim, chatSearchState.query, runtime.commands\n                  .execute('workspaceSidebar.reveal', { workspaceId: row.workspaceId })\n                  .catch, runtime.commands\n                  .execute, undefined, opened, runtime.state.presentation.getSnapshot().modalInstanceId, runtime.state.presentation.getSnapshot, runtime.state.presentation, selectedInstanceId, close",
+        "onOpen": "[source:1378; ArrowFunction] sessionId, workspaceId, chatSearch\n              .openRow(sessionId, workspaceId, async (row) => {\n                await runtime.commands.execute('app.setSession', {\n                  sessionId: row.sessionId,\n                  workspaceId: row.workspaceId,\n                })\n                const navigation = runtime.state.navigation.getSnapshot()\n                const tabs = runtime.state.workspaceTabs.getSnapshot()\n                const tab = tabs.items.find((candidate) => candidate.id === tabs.activeId)\n                if (\n                  navigation.sessionId !== row.sessionId ||\n                  navigation.workspaceId !== row.workspaceId ||\n                  tab?.kind !== 'session' ||\n                  tab.sessionId !== row.sessionId\n                )\n                  throw { code: 'CANCELLED' }\n                runtime.conversationReading.navigate(\n                  {\n                    workspaceId: row.workspaceId,\n                    sessionId: row.sessionId,\n                    sourceTabInstanceKey: tab.instanceKey,\n                  },\n                  {\n                    messageId: row.target?.messageId ?? null,\n                    messageOffset: 0,\n                    atEnd: row.source === 'title' || !row.target?.messageId,\n                  },\n                  row.target?.callId,\n                  row.source !== 'title' && row.target?.messageId ? chatSearchState.query.trim() : null,\n                )\n                // A global hit may belong to a hidden project. Reveal it only after the\n                // exact session navigation succeeds; reveal failure does not undo the tab.\n                void runtime.commands\n                  .execute('workspaceSidebar.reveal', { workspaceId: row.workspaceId })\n                  .catch(() => undefined)\n              })\n              .then, chatSearch\n              .openRow, row, runtime.commands.execute, runtime.commands, row.sessionId, row.workspaceId, navigation, runtime.state.navigation.getSnapshot, runtime.state.navigation, runtime.state, tabs, runtime.state.workspaceTabs.getSnapshot, runtime.state.workspaceTabs, tab, tabs.items.find, tabs.items, candidate, candidate.id, tabs.activeId, navigation.sessionId, navigation.workspaceId, tab?.kind, tab.sessionId, code, runtime.conversationReading.navigate, runtime.conversationReading, sourceTabInstanceKey, tab.instanceKey, messageId, row.target?.messageId, row.target, messageOffset, atEnd, row.source, row.target?.callId, chatSearchState.query.trim, chatSearchState.query, runtime.commands\n                  .execute('workspaceSidebar.reveal', { workspaceId: row.workspaceId })\n                  .catch, runtime.commands\n                  .execute, undefined, opened, runtime.state.presentation.getSnapshot().modalInstanceId, runtime.state.presentation.getSnapshot, runtime.state.presentation, selectedInstanceId, close",
         "onClose": "() => close(selectedInstanceId)",
         "onCompositionStart": "chatSearch.compositionStart",
         "onCompositionEnd": "chatSearch.compositionEnd",
@@ -1306,7 +1306,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceModal::LumenDialog::2",
       "path": "apps/web/src/App.tsx",
-      "line": 1426,
+      "line": 1430,
       "owner": "WorkspaceModal",
       "surface": "workbench",
       "component": "LumenDialog",
@@ -1327,7 +1327,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceModal::HbarCommandPalette::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1441,
+      "line": 1445,
       "owner": "WorkspaceModal",
       "surface": "workbench",
       "component": "HbarCommandPalette",
@@ -1346,7 +1346,7 @@
     {
       "id": "apps/web/src/App.tsx::WorkspaceModal::ProviderDialog::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1446,
+      "line": 1450,
       "owner": "WorkspaceModal",
       "surface": "workbench",
       "component": "ProviderDialog",
@@ -1365,7 +1365,7 @@
     {
       "id": "apps/web/src/App.tsx::NativeWindowTitlebar::LumenWindowTitlebar::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1500,
+      "line": 1504,
       "owner": "NativeWindowTitlebar",
       "surface": "workbench",
       "component": "LumenWindowTitlebar",
@@ -1388,7 +1388,7 @@
     {
       "id": "apps/web/src/App.tsx::App::HbarDesktopLayoutProjection::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1794,
+      "line": 1800,
       "owner": "App",
       "surface": "workbench",
       "component": "HbarDesktopLayoutProjection",
@@ -1410,7 +1410,7 @@
     {
       "id": "apps/web/src/App.tsx::App::LumenProvider::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1900,
+      "line": 1906,
       "owner": "App",
       "surface": "workbench",
       "component": "LumenProvider",
@@ -1429,7 +1429,7 @@
     {
       "id": "apps/web/src/App.tsx::App::HbarRuntimeProvider::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1901,
+      "line": 1907,
       "owner": "App",
       "surface": "workbench",
       "component": "HbarRuntimeProvider",
@@ -1448,7 +1448,7 @@
     {
       "id": "apps/web/src/App.tsx::App::WebSkillImportPanel::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1904,
+      "line": 1910,
       "owner": "App",
       "surface": "workbench",
       "component": "WebSkillImportPanel",
@@ -1467,7 +1467,7 @@
     {
       "id": "apps/web/src/App.tsx::App::WorkbenchSurfaceCleanup::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1907,
+      "line": 1913,
       "owner": "App",
       "surface": "workbench",
       "component": "WorkbenchSurfaceCleanup",
@@ -1486,7 +1486,7 @@
     {
       "id": "apps/web/src/App.tsx::App::NotificationDesktopBridge::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1908,
+      "line": 1914,
       "owner": "App",
       "surface": "workbench",
       "component": "NotificationDesktopBridge",
@@ -1505,14 +1505,14 @@
     {
       "id": "apps/web/src/App.tsx::App::HbarWorkspaceShell::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1909,
+      "line": 1915,
       "owner": "App",
       "surface": "workbench",
       "component": "HbarWorkspaceShell",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "[source:2010; ConditionalExpression] workspaceLayout.config.tabs.visible, workspaceLayout.config.tabs, workspaceLayout.config, workspaceLayout.config.tabs.placement",
+        "[source:2016; ConditionalExpression] workspaceLayout.config.tabs.visible, workspaceLayout.config.tabs, workspaceLayout.config, workspaceLayout.config.tabs.placement",
         "labels=copy.shell"
       ],
       "accessibleNameSources": [],
@@ -1534,7 +1534,7 @@
     {
       "id": "apps/web/src/App.tsx::App::NativeWindowTitlebar::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1915,
+      "line": 1921,
       "owner": "App",
       "surface": "workbench",
       "component": "NativeWindowTitlebar",
@@ -1553,7 +1553,7 @@
     {
       "id": "apps/web/src/App.tsx::App::ToolPaneLayoutFeedback::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1936,
+      "line": 1942,
       "owner": "App",
       "surface": "workbench",
       "component": "ToolPaneLayoutFeedback",
@@ -1572,7 +1572,7 @@
     {
       "id": "apps/web/src/App.tsx::App::FeatureNavigation::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1947,
+      "line": 1953,
       "owner": "App",
       "surface": "workbench",
       "component": "FeatureNavigation",
@@ -1591,7 +1591,7 @@
     {
       "id": "apps/web/src/App.tsx::App::LumenFrame::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1992,
+      "line": 1998,
       "owner": "App",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -1610,7 +1610,7 @@
     {
       "id": "apps/web/src/App.tsx::App::ToolPaneLayoutFeedback::2",
       "path": "apps/web/src/App.tsx",
-      "line": 1993,
+      "line": 1999,
       "owner": "App",
       "surface": "workbench",
       "component": "ToolPaneLayoutFeedback",
@@ -1629,7 +1629,7 @@
     {
       "id": "apps/web/src/App.tsx::App::LazySurfaceBoundary::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1994,
+      "line": 2000,
       "owner": "App",
       "surface": "workbench",
       "component": "LazySurfaceBoundary",
@@ -1648,7 +1648,7 @@
     {
       "id": "apps/web/src/App.tsx::App::WorkspaceTool::1",
       "path": "apps/web/src/App.tsx",
-      "line": 1995,
+      "line": 2001,
       "owner": "App",
       "surface": "workbench",
       "component": "WorkspaceTool",
@@ -1667,7 +1667,7 @@
     {
       "id": "apps/web/src/App.tsx::App::LazySurfaceBoundary::2",
       "path": "apps/web/src/App.tsx",
-      "line": 2005,
+      "line": 2011,
       "owner": "App",
       "surface": "workbench",
       "component": "LazySurfaceBoundary",
@@ -1686,7 +1686,7 @@
     {
       "id": "apps/web/src/App.tsx::App::WorkspaceModal::1",
       "path": "apps/web/src/App.tsx",
-      "line": 2006,
+      "line": 2012,
       "owner": "App",
       "surface": "workbench",
       "component": "WorkspaceModal",
@@ -1705,7 +1705,7 @@
     {
       "id": "apps/web/src/App.tsx::App::WorkspaceTabsController::1",
       "path": "apps/web/src/App.tsx",
-      "line": 2011,
+      "line": 2017,
       "owner": "App",
       "surface": "workbench",
       "component": "WorkspaceTabsController",
@@ -1724,7 +1724,7 @@
     {
       "id": "apps/web/src/App.tsx::App::WorkspaceBody::1",
       "path": "apps/web/src/App.tsx",
-      "line": 2012,
+      "line": 2018,
       "owner": "App",
       "surface": "workbench",
       "component": "WorkspaceBody",
@@ -1743,7 +1743,7 @@
     {
       "id": "apps/web/src/App.tsx::App::WorkspaceBody::2",
       "path": "apps/web/src/App.tsx",
-      "line": 2030,
+      "line": 2037,
       "owner": "App",
       "surface": "workbench",
       "component": "WorkspaceBody",
@@ -2586,9 +2586,89 @@
       "issues": []
     },
     {
+      "id": "apps/web/src/GeneralSettings.tsx::DesktopChromeFeedback::LumenFrame::1",
+      "path": "apps/web/src/GeneralSettings.tsx",
+      "line": 87,
+      "owner": "DesktopChromeFeedback",
+      "surface": "settings",
+      "component": "LumenFrame",
+      "category": "structure",
+      "context": null,
+      "contentSources": [
+        "state.status === 'error' && (\n        <LumenFrame\n          role=\"group\"\n          aria-label={labels.retry}\n          tabIndex={0}\n          style={{ minInlineSize: 0, maxInlineSize: '100%', overflowX: 'auto' }}\n        >\n          <LumenButton\n            variant=\"text\"\n            indicator=\"none\"\n            onClick={(event) => {\n              retryTarget.current = { button: event.currentTarget, fieldset: event.currentTarget.closest('fieldset') }\n              controller.retry()\n            }}\n          >\n            {labels.retry}\n          </LumenButton>\n        </LumenFrame>\n      )"
+      ],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "apps/web/src/GeneralSettings.tsx::DesktopChromeFeedback::LumenContentText::1",
+      "path": "apps/web/src/GeneralSettings.tsx",
+      "line": 88,
+      "owner": "DesktopChromeFeedback",
+      "surface": "settings",
+      "component": "LumenContentText",
+      "category": "text",
+      "context": "feedback.paragraph",
+      "contentSources": ["state.status === 'error' ? labels.error : labels.pending"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
+    },
+    {
+      "id": "apps/web/src/GeneralSettings.tsx::DesktopChromeFeedback::LumenFrame::2",
+      "path": "apps/web/src/GeneralSettings.tsx",
+      "line": 92,
+      "owner": "DesktopChromeFeedback",
+      "surface": "settings",
+      "component": "LumenFrame",
+      "category": "structure",
+      "context": null,
+      "contentSources": [],
+      "accessibleNameSources": ["aria-label=labels.retry"],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "owning flow layout",
+      "lumenMapping": "LumenFrame",
+      "status": "composed",
+      "issues": []
+    },
+    {
+      "id": "apps/web/src/GeneralSettings.tsx::DesktopChromeFeedback::LumenButton::1",
+      "path": "apps/web/src/GeneralSettings.tsx",
+      "line": 98,
+      "owner": "DesktopChromeFeedback",
+      "surface": "settings",
+      "component": "LumenButton",
+      "category": "interaction",
+      "context": null,
+      "contentSources": ["labels.retry"],
+      "accessibleNameSources": [],
+      "actionBindings": {
+        "onClick": "(event) => {\n              retryTarget.current = { button: event.currentTarget, fieldset: event.currentTarget.closest('fieldset') }\n              controller.retry()\n            }"
+      },
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "owning component contract",
+      "lumenMapping": "LumenButton",
+      "status": "composed",
+      "issues": []
+    },
+    {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralZoom::LumenFrame::1",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 90,
+      "line": 142,
       "owner": "WebGeneralZoom",
       "surface": "settings",
       "component": "LumenFrame",
@@ -2614,7 +2694,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralZoom::LumenContentText::1",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 91,
+      "line": 143,
       "owner": "WebGeneralZoom",
       "surface": "settings",
       "component": "LumenContentText",
@@ -2633,7 +2713,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralZoom::LumenContentText::2",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 101,
+      "line": 153,
       "owner": "WebGeneralZoom",
       "surface": "settings",
       "component": "LumenContentText",
@@ -2652,7 +2732,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralZoom::LumenContentText::3",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 104,
+      "line": 156,
       "owner": "WebGeneralZoom",
       "surface": "settings",
       "component": "LumenContentText",
@@ -2671,7 +2751,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralZoom::LumenFrame::2",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 107,
+      "line": 159,
       "owner": "WebGeneralZoom",
       "surface": "settings",
       "component": "LumenFrame",
@@ -2690,7 +2770,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralZoom::LumenContentText::4",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 108,
+      "line": 160,
       "owner": "WebGeneralZoom",
       "surface": "settings",
       "component": "LumenContentText",
@@ -2709,7 +2789,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralZoom::LumenButton::1",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 111,
+      "line": 163,
       "owner": "WebGeneralZoom",
       "surface": "settings",
       "component": "LumenButton",
@@ -2728,7 +2808,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralZoom::LumenFrame::3",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 120,
+      "line": 172,
       "owner": "WebGeneralZoom",
       "surface": "settings",
       "component": "LumenFrame",
@@ -2747,7 +2827,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralZoom::LumenContentText::5",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 121,
+      "line": 173,
       "owner": "WebGeneralZoom",
       "surface": "settings",
       "component": "LumenContentText",
@@ -2766,7 +2846,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralZoom::LumenRange::1",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 122,
+      "line": 174,
       "owner": "WebGeneralZoom",
       "surface": "settings",
       "component": "LumenRange",
@@ -2794,7 +2874,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralZoom::LumenContentText::6",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 149,
+      "line": 201,
       "owner": "WebGeneralZoom",
       "surface": "settings",
       "component": "LumenContentText",
@@ -2813,7 +2893,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralZoom::LumenContentText::7",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 152,
+      "line": 204,
       "owner": "WebGeneralZoom",
       "surface": "settings",
       "component": "LumenContentText",
@@ -2832,7 +2912,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralZoom::LumenContentText::8",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 157,
+      "line": 209,
       "owner": "WebGeneralZoom",
       "surface": "settings",
       "component": "LumenContentText",
@@ -2851,7 +2931,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralZoom::LumenFrame::4",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 162,
+      "line": 214,
       "owner": "WebGeneralZoom",
       "surface": "settings",
       "component": "LumenFrame",
@@ -2870,7 +2950,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralZoom::LumenContentText::9",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 163,
+      "line": 215,
       "owner": "WebGeneralZoom",
       "surface": "settings",
       "component": "LumenContentText",
@@ -2889,7 +2969,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralZoom::LumenButton::2",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 166,
+      "line": 218,
       "owner": "WebGeneralZoom",
       "surface": "settings",
       "component": "LumenButton",
@@ -2908,7 +2988,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralZoom::LumenFrame::5",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 172,
+      "line": 224,
       "owner": "WebGeneralZoom",
       "surface": "settings",
       "component": "LumenFrame",
@@ -2927,7 +3007,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralZoom::LumenContentText::10",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 173,
+      "line": 225,
       "owner": "WebGeneralZoom",
       "surface": "settings",
       "component": "LumenContentText",
@@ -2946,7 +3026,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralZoom::LumenButton::3",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 176,
+      "line": 228,
       "owner": "WebGeneralZoom",
       "surface": "settings",
       "component": "LumenButton",
@@ -2965,7 +3045,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralZoom::LumenContentText::11",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 182,
+      "line": 234,
       "owner": "WebGeneralZoom",
       "surface": "settings",
       "component": "LumenContentText",
@@ -2984,7 +3064,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralZoom::LumenContentText::12",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 187,
+      "line": 239,
       "owner": "WebGeneralZoom",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3003,7 +3083,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSendBehavior::LumenFrame::1",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 217,
+      "line": 269,
       "owner": "WebGeneralSendBehavior",
       "surface": "settings",
       "component": "LumenFrame",
@@ -3029,7 +3109,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSendBehavior::LumenContentText::1",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 218,
+      "line": 270,
       "owner": "WebGeneralSendBehavior",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3048,7 +3128,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSendBehavior::LumenContentText::2",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 228,
+      "line": 280,
       "owner": "WebGeneralSendBehavior",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3067,7 +3147,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSendBehavior::LumenContentText::3",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 231,
+      "line": 283,
       "owner": "WebGeneralSendBehavior",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3086,13 +3166,13 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSendBehavior::LumenFrame::2",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 234,
+      "line": 286,
       "owner": "WebGeneralSendBehavior",
       "surface": "settings",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": ["[source:241; CallExpression] WEB_SEND_BEHAVIORS.map, behavior"],
+      "contentSources": ["[source:293; CallExpression] WEB_SEND_BEHAVIORS.map, behavior"],
       "accessibleNameSources": [
         "aria-labelledby=hbar-general-sending-label",
         "aria-describedby=hbar-general-sending-help"
@@ -3108,7 +3188,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSendBehavior::LumenButton::1",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 242,
+      "line": 294,
       "owner": "WebGeneralSendBehavior",
       "surface": "settings",
       "component": "LumenButton",
@@ -3127,7 +3207,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSendBehavior::LumenContentText::4",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 251,
+      "line": 303,
       "owner": "WebGeneralSendBehavior",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3146,7 +3226,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSendBehavior::LumenContentText::5",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 254,
+      "line": 306,
       "owner": "WebGeneralSendBehavior",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3165,7 +3245,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSendBehavior::LumenContentText::6",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 261,
+      "line": 313,
       "owner": "WebGeneralSendBehavior",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3184,7 +3264,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSendBehavior::LumenContentText::7",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 266,
+      "line": 318,
       "owner": "WebGeneralSendBehavior",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3203,7 +3283,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSendBehavior::LumenContentText::8",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 271,
+      "line": 323,
       "owner": "WebGeneralSendBehavior",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3222,7 +3302,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSendBehavior::LumenFrame::3",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 276,
+      "line": 328,
       "owner": "WebGeneralSendBehavior",
       "surface": "settings",
       "component": "LumenFrame",
@@ -3241,7 +3321,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSendBehavior::LumenContentText::9",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 277,
+      "line": 329,
       "owner": "WebGeneralSendBehavior",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3260,7 +3340,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSendBehavior::LumenButton::2",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 280,
+      "line": 332,
       "owner": "WebGeneralSendBehavior",
       "surface": "settings",
       "component": "LumenButton",
@@ -3279,7 +3359,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSendBehavior::LumenFrame::4",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 286,
+      "line": 338,
       "owner": "WebGeneralSendBehavior",
       "surface": "settings",
       "component": "LumenFrame",
@@ -3298,7 +3378,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSendBehavior::LumenContentText::10",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 287,
+      "line": 339,
       "owner": "WebGeneralSendBehavior",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3317,7 +3397,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSendBehavior::LumenButton::3",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 290,
+      "line": 342,
       "owner": "WebGeneralSendBehavior",
       "surface": "settings",
       "component": "LumenButton",
@@ -3336,7 +3416,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSendBehavior::LumenFrame::5",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 296,
+      "line": 348,
       "owner": "WebGeneralSendBehavior",
       "surface": "settings",
       "component": "LumenFrame",
@@ -3355,7 +3435,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSendBehavior::LumenContentText::11",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 297,
+      "line": 349,
       "owner": "WebGeneralSendBehavior",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3374,7 +3454,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSendBehavior::LumenButton::4",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 300,
+      "line": 352,
       "owner": "WebGeneralSendBehavior",
       "surface": "settings",
       "component": "LumenButton",
@@ -3393,7 +3473,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSendBehavior::LumenButton::5",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 303,
+      "line": 355,
       "owner": "WebGeneralSendBehavior",
       "surface": "settings",
       "component": "LumenButton",
@@ -3412,7 +3492,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::LumenFrame::1",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 356,
+      "line": 410,
       "owner": "WebGeneralSettings",
       "surface": "settings",
       "component": "LumenFrame",
@@ -3434,7 +3514,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::LumenFrame::2",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 357,
+      "line": 411,
       "owner": "WebGeneralSettings",
       "surface": "settings",
       "component": "LumenFrame",
@@ -3453,7 +3533,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::LumenFrame::3",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 358,
+      "line": 412,
       "owner": "WebGeneralSettings",
       "surface": "settings",
       "component": "LumenFrame",
@@ -3472,7 +3552,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::LumenFrame::4",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 359,
+      "line": 413,
       "owner": "WebGeneralSettings",
       "surface": "settings",
       "component": "LumenFrame",
@@ -3491,7 +3571,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::LumenContentText::1",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 360,
+      "line": 414,
       "owner": "WebGeneralSettings",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3510,7 +3590,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::LumenContentText::2",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 362,
+      "line": 416,
       "owner": "WebGeneralSettings",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3529,7 +3609,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::LumenContentText::3",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 366,
+      "line": 420,
       "owner": "WebGeneralSettings",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3548,14 +3628,15 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::LumenFrame::5",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 370,
+      "line": 424,
       "owner": "WebGeneralSettings",
       "surface": "settings",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "state.preference === 'system' && (\n          <LumenContentText context=\"form.help\" tone=\"muted\">\n            {labels.systemPolicy}\n          </LumenContentText>\n        )"
+        "state.preference === 'system' && (\n          <LumenContentText context=\"form.help\" tone=\"muted\">\n            {labels.systemPolicy}\n          </LumenContentText>\n        )",
+        "desktopChrome && <DesktopChromeFeedback controller={desktopChrome} labels={labels.desktopChrome} />"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -3569,7 +3650,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::LumenContentText::4",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 371,
+      "line": 425,
       "owner": "WebGeneralSettings",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3588,7 +3669,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::LumenContentText::5",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 381,
+      "line": 435,
       "owner": "WebGeneralSettings",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3607,7 +3688,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::LumenToggleGroup::1",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 384,
+      "line": 438,
       "owner": "WebGeneralSettings",
       "surface": "settings",
       "component": "LumenToggleGroup",
@@ -3634,7 +3715,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::LumenContentText::6",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 398,
+      "line": 452,
       "owner": "WebGeneralSettings",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3653,7 +3734,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::LumenContentText::7",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 402,
+      "line": 456,
       "owner": "WebGeneralSettings",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3672,7 +3753,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::LumenFrame::6",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 406,
+      "line": 460,
       "owner": "WebGeneralSettings",
       "surface": "settings",
       "component": "LumenFrame",
@@ -3695,7 +3776,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::LumenContentText::8",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 408,
+      "line": 462,
       "owner": "WebGeneralSettings",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3714,7 +3795,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::LumenContentText::9",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 414,
+      "line": 468,
       "owner": "WebGeneralSettings",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3733,7 +3814,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::LumenButton::1",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 417,
+      "line": 471,
       "owner": "WebGeneralSettings",
       "surface": "settings",
       "component": "LumenButton",
@@ -3752,7 +3833,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::LumenContentText::10",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 424,
+      "line": 478,
       "owner": "WebGeneralSettings",
       "surface": "settings",
       "component": "LumenContentText",
@@ -3771,7 +3852,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::LumenButton::2",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 427,
+      "line": 481,
       "owner": "WebGeneralSettings",
       "surface": "settings",
       "component": "LumenButton",
@@ -3788,9 +3869,28 @@
       "issues": []
     },
     {
+      "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::DesktopChromeFeedback::1",
+      "path": "apps/web/src/GeneralSettings.tsx",
+      "line": 487,
+      "owner": "WebGeneralSettings",
+      "surface": "settings",
+      "component": "DesktopChromeFeedback",
+      "category": "feedback",
+      "context": null,
+      "contentSources": ["labels=labels.desktopChrome"],
+      "accessibleNameSources": [],
+      "actionBindings": {},
+      "targetSources": [],
+      "stateSources": [],
+      "flow": "owning component contract",
+      "lumenMapping": "DesktopChromeFeedback",
+      "status": "composed",
+      "issues": []
+    },
+    {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::WebGeneralSendBehavior::1",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 435,
+      "line": 490,
       "owner": "WebGeneralSettings",
       "surface": "settings",
       "component": "WebGeneralSendBehavior",
@@ -3809,7 +3909,7 @@
     {
       "id": "apps/web/src/GeneralSettings.tsx::WebGeneralSettings::WebGeneralZoom::1",
       "path": "apps/web/src/GeneralSettings.tsx",
-      "line": 437,
+      "line": 492,
       "owner": "WebGeneralSettings",
       "surface": "settings",
       "component": "WebGeneralZoom",
@@ -3961,7 +4061,7 @@
     {
       "id": "apps/web/src/LanguageApp.tsx::LanguageApp::App::1",
       "path": "apps/web/src/LanguageApp.tsx",
-      "line": 58,
+      "line": 61,
       "owner": "LanguageApp",
       "surface": "workbench",
       "component": "App",
@@ -4132,14 +4232,14 @@
     {
       "id": "apps/web/src/main.tsx::module::StrictMode::1",
       "path": "apps/web/src/main.tsx",
-      "line": 67,
+      "line": 75,
       "owner": "module",
       "surface": "workbench",
       "component": "StrictMode",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "fixtureRoute ? (\r\n      <ReferenceFixtureRoute {...fixtureRoute} />\r\n    ) : (\r\n      <LanguageApp\r\n        language={language}\r\n        zoom={zoom}\r\n        nativeConnection={nativeConnection ?? undefined}\r\n        nativeWindow={nativeWindow ?? undefined}\r\n      />\r\n    )"
+        "fixtureRoute ? (\n      <ReferenceFixtureRoute {...fixtureRoute} />\n    ) : (\n      <LanguageApp\n        language={language}\n        zoom={zoom}\n        desktopChrome={desktopChrome}\n        nativeConnection={nativeConnection ?? undefined}\n        nativeWindow={nativeWindow ?? undefined}\n      />\n    )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -4153,7 +4253,7 @@
     {
       "id": "apps/web/src/main.tsx::module::ReferenceFixtureRoute::1",
       "path": "apps/web/src/main.tsx",
-      "line": 69,
+      "line": 77,
       "owner": "module",
       "surface": "workbench",
       "component": "ReferenceFixtureRoute",
@@ -4172,7 +4272,7 @@
     {
       "id": "apps/web/src/main.tsx::module::LanguageApp::1",
       "path": "apps/web/src/main.tsx",
-      "line": 71,
+      "line": 79,
       "owner": "module",
       "surface": "workbench",
       "component": "LanguageApp",
@@ -77144,6 +77244,8 @@
     "apps/web/src/composer-goal-recovery-copy.ts",
     "apps/web/src/composer-intent-blocked-copy.ts",
     "apps/web/src/conversation-selection-copy.ts",
+    "apps/web/src/desktop-chrome-copy.ts",
+    "apps/web/src/desktop-chrome.ts",
     "apps/web/src/extension-collection-copy.ts",
     "apps/web/src/extension-detail-copy.ts",
     "apps/web/src/extension-navigation-copy.ts",
@@ -77160,6 +77262,7 @@
     "apps/web/src/main.tsx",
     "apps/web/src/mobile-shell-navigation-copy.ts",
     "apps/web/src/native-connection.ts",
+    "apps/web/src/native-invoke.ts",
     "apps/web/src/native-notifications.ts",
     "apps/web/src/native-window.ts",
     "apps/web/src/notification-copy.ts",
@@ -78333,6 +78436,7 @@
     "packages/contracts/src/commands/workspace-folders.ts",
     "packages/contracts/src/commands/workspace-organization.ts",
     "packages/contracts/src/commands/workspaces.ts",
+    "packages/contracts/src/desktop-chrome.ts",
     "packages/contracts/src/index.ts",
     "packages/contracts/src/legacy-rpc.ts",
     "packages/contracts/src/metrics.ts",
