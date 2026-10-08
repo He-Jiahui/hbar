@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from 'react'
 import { Ellipsis, X, type LucideIcon } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenContentText, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import { FloatingSurface, useFloatingTrigger } from './floating-surface'
 import './mobile-header-menu.css'
 
@@ -50,6 +50,27 @@ interface MenuRegistry {
 
 const MobileHeaderMenuContext = createContext<MenuRegistry | null>(null)
 
+/** Host-owned bounded sections grow in one viewport reader; ambiguous row IDs cannot dispatch. */
+export function projectMobileHeaderMenuSections(
+  source: readonly HbarMobileHeaderMenuSection[],
+): readonly HbarMobileHeaderMenuSection[] {
+  const sections = new Map<string, HbarMobileHeaderMenuSection>()
+  for (const section of source) {
+    const current = sections.get(section.id)
+    sections.set(section.id, current ? { ...current, items: [...current.items, ...section.items] } : section)
+  }
+  return [...sections.values()]
+    .flatMap((section) => {
+      const counts = new Map<string, number>()
+      for (const item of section.items) counts.set(item.id, (counts.get(item.id) ?? 0) + 1)
+      const items = section.items
+        .filter((item) => counts.get(item.id) === 1)
+        .sort((left, right) => (left.order ?? 0) - (right.order ?? 0))
+      return items.length ? [{ ...section, items }] : []
+    })
+    .sort((left, right) => left.order - right.order)
+}
+
 export function HbarMobileHeaderMenuProvider({ children }: { readonly children: ReactNode }) {
   const readersRef = useRef(new Map<string, () => HbarMobileHeaderMenuSection | null>())
   const [revision, setRevision] = useState(0)
@@ -64,19 +85,13 @@ export function HbarMobileHeaderMenuProvider({ children }: { readonly children: 
     }
   }, [])
   const readSections = useCallback(() => {
-    const sections = new Map<string, HbarMobileHeaderMenuSection>()
+    const sections: HbarMobileHeaderMenuSection[] = []
     for (const read of readersRef.current.values()) {
       const section = read()
       if (!section) continue
-      const current = sections.get(section.id)
-      if (!current) sections.set(section.id, section)
-      else
-        sections.set(section.id, {
-          ...current,
-          items: [...current.items, ...section.items].sort((left, right) => (left.order ?? 0) - (right.order ?? 0)),
-        })
+      sections.push(section)
     }
-    return [...sections.values()].sort((left, right) => left.order - right.order)
+    return projectMobileHeaderMenuSections(sections)
   }, [])
   const registerDismiss = useCallback((dismiss: () => void) => {
     dismissRef.current = dismiss
@@ -115,6 +130,9 @@ export function HbarMobileHeaderMenu({ label }: { readonly label: string }) {
   const dismiss = registry?.dismiss
   const registerDismiss = registry?.registerDismiss
   const sections = registry?.readSections() ?? []
+  useLayoutEffect(() => {
+    if (sections.length === 0) setOpen(false)
+  }, [sections.length])
   const close = useCallback((returnFocus = true) => {
     setOpen(false)
     if (returnFocus) triggerRef.current?.focus({ preventScroll: true })
@@ -188,7 +206,9 @@ export function HbarMobileHeaderMenu({ label }: { readonly label: string }) {
               className="hbar-mobile-header-menu-section"
               aria-label={section.label}
             >
-              <LumenText as="strong">{section.label}</LumenText>
+              <LumenContentText context="section.title" level={2}>
+                {section.label}
+              </LumenContentText>
               <LumenFrame className="hbar-mobile-header-menu-items">
                 {section.items.map((item) => (
                   <LumenFrame key={item.id} className="hbar-mobile-header-menu-item-row">
@@ -202,7 +222,9 @@ export function HbarMobileHeaderMenu({ label }: { readonly label: string }) {
                       onClick={() => activate(item.onActivate)}
                     >
                       {item.icon && <LumenIcon icon={item.icon} tier="sm" />}
-                      <LumenText as="span">{item.label}</LumenText>
+                      <LumenContentText context="collection.title" className="hbar-mobile-header-menu-item-title">
+                        {item.label}
+                      </LumenContentText>
                     </LumenButton>
                     {item.close && (
                       <LumenButton

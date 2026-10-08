@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { removeOwnedTempDirectory } from './support/owned-temp-directory'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -99,7 +100,13 @@ test('the 33rd visible tab is rejected before selecting or creating another Host
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 900 } })
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, sessionCount: 33, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+    host = await startWebSessionHost({
+      root,
+      sessionCount: 33,
+      port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+      goalAutoContinue: false,
+      budgetAutoContinue: false,
+    })
     expect((await context.request.post(`${base()}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
     const page = await context.newPage()
     const errors: string[] = []
@@ -116,14 +123,24 @@ test('the 33rd visible tab is rejected before selecting or creating another Host
     await expect(page.getByRole('tab')).toHaveCount(32)
     await expect(page.getByRole('tab', { name: 'Session 032', exact: true })).toHaveAttribute('aria-selected', 'true')
     await page.getByRole('button', { name: en.shell.newSession, exact: true }).click()
+    const chooser = page.getByRole('dialog', { name: en.shell.chooseWorkspace, exact: true })
+    await expect(chooser).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(chooser).not.toBeVisible()
+    await expect(page.getByRole('tab')).toHaveCount(32)
     const sessions = await createWorkspaceSessionCommandClient(host.client).execute('session.list', {
       workspaceId: host.ready.workspaceId,
       limit: 100,
     })
     expect(sessions.items).toHaveLength(33)
     await page.setViewportSize({ width: 320, height: 844 })
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
     const mobileNavigation = page.locator('.hbar-mobile-header-menu-trigger')
+    const hideSidebar = page.getByRole('button', { name: en.shell.hideSidebar, exact: true })
+    if (!(await mobileNavigation.isVisible())) {
+      await expect(hideSidebar).toBeInViewport()
+      await hideSidebar.click()
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
     await mobileNavigation.click()
     const mobileTabs = page.locator('.hbar-mobile-header-menu-content').getByRole('region', {
       name: tabCopy.tabs.tabs,
@@ -143,7 +160,7 @@ test('the 33rd visible tab is rejected before selecting or creating another Host
   } finally {
     await context.close()
     if (host) await stopWebSessionHost(host)
-    await rm(root, { recursive: true, force: true })
+    await removeOwnedTempDirectory(root, 'hbar-tabs-capacity-')
   }
 })
 

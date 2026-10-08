@@ -45846,7 +45846,7 @@
     {
       "id": "packages/app-react/src/mobile-header-menu.tsx::HbarMobileHeaderMenuProvider::MobileHeaderMenuContext.Provider::1",
       "path": "packages/app-react/src/mobile-header-menu.tsx",
-      "line": 92,
+      "line": 107,
       "owner": "HbarMobileHeaderMenuProvider",
       "surface": "settings",
       "component": "MobileHeaderMenuContext.Provider",
@@ -45865,19 +45865,19 @@
     {
       "id": "packages/app-react/src/mobile-header-menu.tsx::HbarMobileHeaderMenu::LumenFrame::1",
       "path": "packages/app-react/src/mobile-header-menu.tsx",
-      "line": 149,
+      "line": 167,
       "owner": "HbarMobileHeaderMenu",
       "surface": "workbench",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": ["[source:175; BinaryExpression] open"],
+      "contentSources": ["[source:193; BinaryExpression] open"],
       "accessibleNameSources": [],
       "actionBindings": {
-        "onKeyDown": "(event) => {\r\n        if (event.key !== 'Escape' || !open) return\r\n        event.preventDefault()\r\n        event.stopPropagation()\r\n        dismiss?.()\r\n      }"
+        "onKeyDown": "(event) => {\n        if (event.key !== 'Escape' || !open) return\n        event.preventDefault()\n        event.stopPropagation()\n        dismiss?.()\n      }"
       },
       "targetSources": [
-        "onKeyDown=(event) => {\r\n        if (event.key !== 'Escape' || !open) return\r\n        event.preventDefault()\r\n        event.stopPropagation()\r\n        dismiss?.()\r\n      }"
+        "onKeyDown=(event) => {\n        if (event.key !== 'Escape' || !open) return\n        event.preventDefault()\n        event.stopPropagation()\n        dismiss?.()\n      }"
       ],
       "stateSources": [],
       "flow": "owning flow layout",
@@ -45888,7 +45888,7 @@
     {
       "id": "packages/app-react/src/mobile-header-menu.tsx::HbarMobileHeaderMenu::LumenButton::1",
       "path": "packages/app-react/src/mobile-header-menu.tsx",
-      "line": 160,
+      "line": 178,
       "owner": "HbarMobileHeaderMenu",
       "surface": "workbench",
       "component": "LumenButton",
@@ -45907,7 +45907,7 @@
     {
       "id": "packages/app-react/src/mobile-header-menu.tsx::HbarMobileHeaderMenu::LumenIcon::1",
       "path": "packages/app-react/src/mobile-header-menu.tsx",
-      "line": 173,
+      "line": 191,
       "owner": "HbarMobileHeaderMenu",
       "surface": "workbench",
       "component": "LumenIcon",
@@ -45926,13 +45926,13 @@
     {
       "id": "packages/app-react/src/mobile-header-menu.tsx::HbarMobileHeaderMenu::FloatingSurface::1",
       "path": "packages/app-react/src/mobile-header-menu.tsx",
-      "line": 176,
+      "line": 194,
       "owner": "HbarMobileHeaderMenu",
       "surface": "workbench",
       "component": "FloatingSurface",
       "category": "interaction",
       "context": null,
-      "contentSources": ["[source:184; CallExpression] sections.map, section", "label=label"],
+      "contentSources": ["[source:202; CallExpression] sections.map, section", "label=label"],
       "accessibleNameSources": ["label=label"],
       "actionBindings": { "onClose": "close" },
       "targetSources": ["id=contentId"],
@@ -45945,7 +45945,7 @@
     {
       "id": "packages/app-react/src/mobile-header-menu.tsx::HbarMobileHeaderMenu::LumenFrame::2",
       "path": "packages/app-react/src/mobile-header-menu.tsx",
-      "line": 185,
+      "line": 203,
       "owner": "HbarMobileHeaderMenu",
       "surface": "workbench",
       "component": "LumenFrame",
@@ -45962,34 +45962,34 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/mobile-header-menu.tsx::HbarMobileHeaderMenu::LumenText::1",
+      "id": "packages/app-react/src/mobile-header-menu.tsx::HbarMobileHeaderMenu::LumenContentText::1",
       "path": "packages/app-react/src/mobile-header-menu.tsx",
-      "line": 191,
+      "line": 209,
       "owner": "HbarMobileHeaderMenu",
       "surface": "workbench",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "section.title",
       "contentSources": ["section.label"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/mobile-header-menu.tsx::HbarMobileHeaderMenu::LumenFrame::3",
       "path": "packages/app-react/src/mobile-header-menu.tsx",
-      "line": 192,
+      "line": 212,
       "owner": "HbarMobileHeaderMenu",
       "surface": "workbench",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
-      "contentSources": ["[source:193; CallExpression] section.items.map, section.items, item"],
+      "contentSources": ["[source:213; CallExpression] section.items.map, section.items, item"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
@@ -46002,14 +46002,14 @@
     {
       "id": "packages/app-react/src/mobile-header-menu.tsx::HbarMobileHeaderMenu::LumenFrame::4",
       "path": "packages/app-react/src/mobile-header-menu.tsx",
-      "line": 194,
+      "line": 214,
       "owner": "HbarMobileHeaderMenu",
       "surface": "workbench",
       "component": "LumenFrame",
       "category": "structure",
       "context": null,
       "contentSources": [
-        "item.close && (\r\n                      <LumenButton\r\n                        type=\"button\"\r\n                        variant=\"text\"\r\n                        indicator=\"none\"\r\n                        aria-label={item.close.label}\r\n                        title={item.close.label}\r\n                        disabled={item.close.disabled}\r\n                        onClick={() => item.close && activate(item.close.onActivate)}\r\n                      >\r\n                        <LumenIcon icon={X} tier=\"sm\" />\r\n                      </LumenButton>\r\n                    )"
+        "item.close && (\n                      <LumenButton\n                        type=\"button\"\n                        variant=\"text\"\n                        indicator=\"none\"\n                        aria-label={item.close.label}\n                        title={item.close.label}\n                        disabled={item.close.disabled}\n                        onClick={() => item.close && activate(item.close.onActivate)}\n                      >\n                        <LumenIcon icon={X} tier=\"sm\" />\n                      </LumenButton>\n                    )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -46023,7 +46023,7 @@
     {
       "id": "packages/app-react/src/mobile-header-menu.tsx::HbarMobileHeaderMenu::LumenButton::2",
       "path": "packages/app-react/src/mobile-header-menu.tsx",
-      "line": 195,
+      "line": 215,
       "owner": "HbarMobileHeaderMenu",
       "surface": "workbench",
       "component": "LumenButton",
@@ -46042,7 +46042,7 @@
     {
       "id": "packages/app-react/src/mobile-header-menu.tsx::HbarMobileHeaderMenu::LumenIcon::2",
       "path": "packages/app-react/src/mobile-header-menu.tsx",
-      "line": 204,
+      "line": 224,
       "owner": "HbarMobileHeaderMenu",
       "surface": "workbench",
       "component": "LumenIcon",
@@ -46059,28 +46059,28 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/mobile-header-menu.tsx::HbarMobileHeaderMenu::LumenText::2",
+      "id": "packages/app-react/src/mobile-header-menu.tsx::HbarMobileHeaderMenu::LumenContentText::2",
       "path": "packages/app-react/src/mobile-header-menu.tsx",
-      "line": 205,
+      "line": 225,
       "owner": "HbarMobileHeaderMenu",
       "surface": "workbench",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "collection.title",
       "contentSources": ["item.label"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": [],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/mobile-header-menu.tsx::HbarMobileHeaderMenu::LumenButton::3",
       "path": "packages/app-react/src/mobile-header-menu.tsx",
-      "line": 208,
+      "line": 230,
       "owner": "HbarMobileHeaderMenu",
       "surface": "workbench",
       "component": "LumenButton",
@@ -46099,7 +46099,7 @@
     {
       "id": "packages/app-react/src/mobile-header-menu.tsx::HbarMobileHeaderMenu::LumenIcon::3",
       "path": "packages/app-react/src/mobile-header-menu.tsx",
-      "line": 217,
+      "line": 239,
       "owner": "HbarMobileHeaderMenu",
       "surface": "workbench",
       "component": "LumenIcon",

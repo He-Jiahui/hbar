@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test'
 import { createWorkspaceSessionCommandClient } from '@hbar/client'
-import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { mobileShellNavigationLabel } from '../apps/web/src/mobile-shell-navigation-copy'
 import { workspaceTabsCopy } from '../apps/web/src/workspace-tabs-copy'
@@ -10,6 +10,7 @@ import { expectComposerText } from './support/composer-text'
 import { openSessionTool } from './support/session-tools-menu'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { expectLumenValue } from './support/lumen-controls'
+import { removeOwnedTempDirectory } from './support/owned-temp-directory'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`session tools remain readable, keyboard-operable and scoped at every width: ${locale}`, async ({ browser }) => {
@@ -178,13 +179,18 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const tabCopy = workspaceTabsCopy((zh, en) => (locale === 'zh-CN' ? zh : en))
     const title =
       locale === 'zh-CN'
-        ? '这是一段很长很长很长的会话标题，用于验证窄屏标题截断、操作入口和本地化导航布局。'
-        : 'A very long session title that checks narrow header truncation, localized navigation, and reachable actions.'
+        ? '这是一段很长很长很长的会话标题，用于验证窄屏标题完整换行、操作入口和本地化导航布局。'
+        : 'A very long session title that checks complete narrow header wrapping, localized navigation, and reachable actions.'
     const draft = `Preserve mobile navigation draft — 保持移动端草稿 ${locale}`
     let host: WebSessionHost | undefined
     try {
       await mkdir(evidence, { recursive: true })
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       await createWorkspaceSessionCommandClient(host.client).execute('session.rename', {
         sessionId: host.ready.sessionId,
         title,
@@ -201,7 +207,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const hideSidebar = page.getByRole('button', { name: copy.shell.hideSidebar, exact: true })
       if (await hideSidebar.isVisible()) await hideSidebar.click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
-      await prompt.fill(draft)
+      await prompt.click()
+      await expect(prompt).toBeFocused()
+      await page.keyboard.insertText(draft)
+      await expectComposerText(prompt, draft)
       const header = page.locator('.hbar-app-react-shell-header')
       const titleHeading = page.locator('.hbar-app-react-shell-header-active-title')
       const trigger = page.locator('.hbar-mobile-header-menu-trigger')
@@ -225,10 +234,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           width: element.clientWidth,
           scrollWidth: element.scrollWidth,
           overflow: getComputedStyle(element).textOverflow,
+          wrap: getComputedStyle(element).whiteSpace,
         }))
-        expect(titleGeometry.scrollWidth).toBeGreaterThan(titleGeometry.width)
-        expect(titleGeometry.overflow).toBe('ellipsis')
-        expect(before).toBeLessThanOrEqual(64)
+        expect(titleGeometry.scrollWidth).toBeLessThanOrEqual(titleGeometry.width + 1)
+        expect(titleGeometry.overflow).toBe('clip')
+        expect(titleGeometry.wrap).toBe('normal')
         const screenshotSize = viewport.height === 560 ? '320x560' : String(viewport.width)
         await page.screenshot({ path: `${evidence}/shell-${locale}-${screenshotSize}-closed.png` })
 
@@ -260,7 +270,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           }
         })
         expect(openGeometry.headerHeight).toBeCloseTo(before, 1)
-        expect(openGeometry.positioning).toBe('absolute')
+        expect(openGeometry.positioning).toBe('fixed')
+        expect(await panel.evaluate((node) => node.parentElement === document.body)).toBe(true)
         expect(openGeometry.panelTop).toBeGreaterThanOrEqual(openGeometry.triggerBottom - 1)
         expect(openGeometry.panelRight).toBeLessThanOrEqual(openGeometry.viewportWidth + 1)
         expect(openGeometry.panelBottom).toBeLessThanOrEqual(openGeometry.viewportHeight + 1)
@@ -275,9 +286,6 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expect(sendButton).toBeVisible()
         const sendBox = await sendButton.boundingBox()
         if (!sendBox) throw new Error('Expected the session send control to remain rendered')
-        const sendOverlappedByMenu =
-          openGeometry.panelTop < sendBox.y + sendBox.height && openGeometry.panelBottom > sendBox.y
-        expect(sendOverlappedByMenu).toBe(false)
         await expect(tools().getByRole('button')).toHaveCount(7)
         for (const label of [
           copy.session.find.entry,
@@ -403,7 +411,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeOwnedTempDirectory(root, 'hbar-mobile-navigation-')
     }
   })
 }
@@ -413,13 +421,7 @@ async function noOverflowForMobile(page: import('@playwright/test').Page): Promi
 }
 
 async function cleanupFixture(root: string, ownedPrefix = 'hbar-session-tools-v13-') {
-  const resolved = await realpath(root)
-  if (
-    dirname(resolved).toLowerCase() !== (await realpath(tmpdir())).toLowerCase() ||
-    !basename(resolved).startsWith(ownedPrefix)
-  )
-    throw new Error('Refusing cleanup outside the owned tool-navigation fixture')
-  await rm(resolved, { recursive: true, force: true })
+  await removeOwnedTempDirectory(root, ownedPrefix)
 }
 
 test('primary Activity and labelled secondary tools preserve current-session drafts and return paths', async ({

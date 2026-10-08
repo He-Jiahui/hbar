@@ -49,10 +49,11 @@
   }
 
   .hbar-mobile-header-menu-section {
+    flex: 0 0 auto;
     gap: 0.25rem;
   }
 
-  .hbar-mobile-header-menu-section > strong {
+  .hbar-mobile-header-menu-section > [data-text-context='section.title'] {
     padding: 0.25rem 0.5rem;
     color: var(--lumen-muted);
   }
@@ -73,9 +74,15 @@
     justify-content: flex-start;
     text-align: start;
 
-    min-inline-size: max-content;
-    max-inline-size: none;
-    white-space: nowrap;
+    min-inline-size: 0;
+    max-inline-size: 100%;
+    white-space: normal;
+    align-items: flex-start;
+  }
+
+  .hbar-mobile-header-menu-item-title {
+    flex: 1 1 0;
+    min-inline-size: 0;
   }
 
   .hbar-mobile-header-menu-item-row > button:last-child:not(:first-child) {
