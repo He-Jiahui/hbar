@@ -531,4 +531,13 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 初始长标题样例超过会话 160 字契约，改成合法上限附近的数据；重复 ID 与容量后的禁用加载按钮按实际公开契约验证。宿主 E2E 禁用自动 Goal／budget 继续，临时目录在停止 Host 后核实 realpath、临时目录父路径、所属前缀及非链接属性再清理。
 - 范围严格 lint、文案／图标／flow guard、格式、Lumen build／types、Web build 与构建输入清单通过；冷启动根类型仍有 91 项既有诊断，本次范围为零，全库门禁尚未通过。证据位于 artifacts/desktop-elements/agent-branch-content 的 unit-delivery.log、browser-delivery.log、time-verified.log、narrow-final.log、lint-delivery.log、lint-time-final.log、types-delivery.log、lumen-*、build-time-verified.log、audit-final.log 与截图。
 
-当前清单覆盖 146 个生产 TSX 模块、3840 个元素，其中记录了 54 处低层文字未分类，合计 63 项静态缺口。其余生产表面迁移、其余已分类标题／身份容量复核（包括文件标题与项目名称）、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 会话用量弹层、预算未知与共享缩放定位
+
+- 5 处低层文字分别归入 control.status、popover.title、section.description 与 feedback.detail。弹层改用 LumenFloatingSurface／useFloatingTrigger，移除业务侧定位、resize、原生 popover 生命周期、背景和层级复制。标题自然换行，详情在弹层中纵向滚动，总量、四项指标与长监控动作各有具名键盘阅读入口。内容保留自身高度，避免长文案下统计与底部动作重叠。
+- 本地展开状态绑定原 sessionId，切换会话立即关闭，返回旧会话不自动重开；没有 sessionId 时入口禁用。只读展开不重新读取模型、预算或用量，监控动作校验当前展开目标。共享浮层处理外部点击、入口竞态、相邻浮层、Escape、焦点进入／恢复和窄屏抽屉。
+- Lumen 239589d2f0 将 CompactUsage.progress 定义为 number | null：没有预算事实或非有限进度时省略百分比 meter，保留已确认总量／指标；有限数字仍钳制为 0–1。内联总量改为 metric.value／collection.detail 与具名阅读区。公开类型、README 和构建生成声明同步验证，未用 0% 冒充未知预算。
+- 发现放大后的共享定位缺口：125% CSS zoom 将 420 CSS 像素高度量为 525 屏幕像素，随后将屏幕 top 直接写成 CSS 坐标，导致弹层超出视口 27.5 像素。Lumen 70804dd3f0 从实际 border box 与解析 CSS 尺寸推导比例，换算 inset、宽度匹配及视口限制，保持定位／触发器职责；关联提交 3cdf84de9c。未放宽窗口边界断言。
+- 3 项 Bun 测试、50 个断言和 27 项 Lumen 统计／浮层定位、层级、焦点测试通过。最终 12 项 Chrome 单次运行通过，覆盖中英文、明暗主题、五个宽度、较大文字／125% 缩放、未知／已知／警告／耗尽／失败统计、原始目标、切换会话、外部点击、相邻浮层、Escape 与键盘阅读；其中 2 项真实 Host 验证使用公开 Budget SDK 核实入口值、无额外查询、原草稿和打开监控。修复内容收缩后另有 4 项桌面／窄屏回归通过，并对新鲜 Web 冻结产物再验真实 Host。截图检查识别并修正指标／动作重叠，不能以早先断言全绿代替视觉验收。
+- 范围严格 lint、文案／图标／flow guard、格式、Lumen build／types／声明与 Web build、构建输入清单通过；冷启动根类型仍有 91 项既有诊断，本次范围为零，全库门禁尚未通过。证据位于 artifacts/desktop-elements/session-usage-content 的 unit-final.log、lumen-tests-scale.log、browser-final.log、flow.log、delivery.log、lint-_、types.log、lumen-_、build-delivery.log、audit.log 与截图；历史失败记录保留。宿主 E2E 禁用 Goal／budget 自动继续，停止 Host 后使用受检查的所属临时目录清理。
+
+当前清单覆盖 146 个生产 TSX 模块、3841 个元素，其中记录了 49 处低层文字未分类，合计 58 项静态缺口。其余生产表面迁移、其余已分类标题／身份容量复核（包括文件标题与项目名称）、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

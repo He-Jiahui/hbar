@@ -16,41 +16,47 @@
 .hbar-session-usage-control[data-tone='warning'] > button {
   color: var(--lumen-warning);
 }
-/* Reference ContextUsageIndicator overlays the composer, with a narrow bottom sheet.
-   Only this top-layer container is positioned; all details remain normal flex flow. */
 .hbar-session-usage-popover {
-  position: fixed;
-  inset: auto;
-  left: var(--usage-left);
-  bottom: var(--usage-bottom);
   inline-size: min(24rem, calc(100vw - 2rem));
-  max-block-size: min(32rem, var(--usage-limit));
-  margin: 0;
-  padding: 16px;
-  border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 1rem;
-  background: var(--lumen-contrast);
-  color: var(--lumen-ink);
-  box-shadow: 0 1rem 2.5rem color-mix(in srgb, var(--lumen-ink) 18%, transparent);
-  overflow: auto;
-  overscroll-behavior: contain;
-}
-.hbar-session-usage-popover:popover-open {
+  padding: 1rem;
   display: flex;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   flex-direction: column;
   gap: 12px;
+}
+.hbar-session-usage-popover > * {
+  flex: 0 0 auto;
 }
 .hbar-session-usage-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-inline-size: 0;
 }
-.hbar-session-usage-popover > p {
+.hbar-session-usage-heading > [data-text-context='popover.title'] {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+.hbar-session-usage-heading > button {
+  flex: 0 0 auto;
+  align-self: flex-start;
+}
+.hbar-session-usage-popover > [data-text-flow='reading'] {
   margin: 0;
   font-size: 0.8125rem;
   line-height: 1.5;
   overflow-wrap: anywhere;
+}
+.hbar-session-usage-actions {
+  flex: 0 0 auto;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-x: auto;
+}
+.hbar-session-usage-actions > button {
+  min-inline-size: max-content;
 }
 .hbar-session-usage-popover .lumen-inline-usage {
   flex-direction: column;
@@ -63,15 +69,4 @@
 }
 .hbar-session-usage-popover .lumen-compact-metrics {
   flex-wrap: wrap;
-}
-@media (max-width: 40rem) {
-  .hbar-session-usage-popover {
-    inset: auto 0 0;
-    inline-size: 100%;
-    max-block-size: 80dvh;
-    border-radius: 1rem 1rem 0 0;
-  }
-  .hbar-session-usage-popover::backdrop {
-    background: color-mix(in srgb, var(--lumen-ink) 30%, transparent);
-  }
 }

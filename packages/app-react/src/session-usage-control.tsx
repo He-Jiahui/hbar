@@ -1,6 +1,15 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { ChartNoAxesColumnIncreasing, X } from 'lucide-react'
-import { LumenButton, LumenCompactUsage, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import {
+  LumenButton,
+  LumenCompactUsage,
+  LumenFrame,
+  LumenIcon,
+  LumenIconButton,
+  LumenContentText,
+  LumenFloatingSurface,
+  useFloatingTrigger,
+} from '@lumen/app-ui'
 import type { SessionControlsState } from '@hbar/app-runtime'
 import './session-usage-control.css'
 
@@ -48,7 +57,7 @@ export function sessionUsagePresentation(controls: SessionControlsState, labels:
       description: report?.gap ? `${labels.description} ${labels.gap}` : labels.description,
       value: total === null ? labels.unavailable : labels.total(total),
       detail: budget ? labels.remaining(budget.remainingTokens, budget.limit) : labels.unavailable,
-      progress: progress ?? 0,
+      progress,
       progressLabel: budget ? labels.progress(budget.usedTokens, budget.limit) : labels.unavailable,
       tone: exhausted ? ('danger' as const) : warning ? ('warning' as const) : ('accent' as const),
       sparkline: (report?.series ?? []).map((point) => ({ id: String(point.start), value: point.billableTokens })),
@@ -87,31 +96,14 @@ export function HbarSessionUsageControl({
 }) {
   const id = useId()
   const trigger = useRef<HTMLButtonElement>(null)
-  const popup = useRef<HTMLDivElement>(null)
-  const [open, setOpen] = useState(false)
+  const closeButton = useRef<HTMLButtonElement>(null)
+  const [openSessionId, setOpenSessionId] = useState<string | null>(null)
+  const open = openSessionId !== null && openSessionId === controls.sessionId
+  useLayoutEffect(() => setOpenSessionId(null), [controls.sessionId])
   const presentation = sessionUsagePresentation(controls, labels)
   const error = controls.errors.usage ?? controls.errors.budget
-  const place = () => {
-    if (!trigger.current || !popup.current) return
-    const rect = trigger.current.getBoundingClientRect()
-    const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
-    const width = Math.min(24 * rem, innerWidth - 2 * rem)
-    popup.current.style.setProperty(
-      '--usage-left',
-      `${Math.max(rem, Math.min(rect.right - width, innerWidth - width - rem))}px`,
-    )
-    popup.current.style.setProperty('--usage-bottom', `${innerHeight - rect.top + rem / 2}px`)
-    popup.current.style.setProperty('--usage-limit', `${Math.max(0, rect.top - rem * 1.5)}px`)
-  }
-  useEffect(() => {
-    if (!open) return
-    window.addEventListener('resize', place)
-    return () => window.removeEventListener('resize', place)
-  }, [open])
-  const close = () => {
-    popup.current?.hidePopover()
-    trigger.current?.focus()
-  }
+  const close = () => setOpenSessionId(null)
+  const triggerEvents = useFloatingTrigger({ open, onOpen: () => setOpenSessionId(controls.sessionId), onClose: close })
   return (
     <LumenFrame className="hbar-session-usage-control" data-tone={presentation.content.tone}>
       <LumenButton
@@ -121,64 +113,77 @@ export function HbarSessionUsageControl({
         variant="text"
         indicator="none"
         className="hbar-session-usage-trigger"
-        popoverTarget={id}
+        aria-controls={id}
         aria-haspopup="dialog"
         aria-expanded={open}
+        disabled={controls.sessionId === null}
         aria-label={labels.trigger(presentation.trigger)}
         title={labels.trigger(presentation.trigger)}
+        {...triggerEvents}
       >
         <LumenIcon icon={ChartNoAxesColumnIncreasing} tier="sm" />
-        <LumenText as="span">{presentation.trigger}</LumenText>
+        <LumenContentText context="control.status">{presentation.trigger}</LumenContentText>
       </LumenButton>
-      <LumenFrame
-        ref={popup}
+      <LumenFloatingSurface
         id={id}
-        popover="auto"
+        open={open}
+        onClose={close}
+        anchorRef={trigger}
+        mode="anchored"
+        placement="above"
+        anchorAlignment="end"
+        responsivePresentation="narrow-sheet"
+        initialFocusRef={closeButton}
+        restoreFocus
+        keepMounted
         role="dialog"
-        aria-label={labels.title}
+        label={labels.title}
         className="hbar-session-usage-popover"
-        onBeforeToggle={(event) => {
-          if (event.newState === 'open') place()
-        }}
-        onToggle={(event) => setOpen(event.newState === 'open')}
         onKeyDown={(event) => {
           if (event.key === 'Enter') event.stopPropagation()
-          if (event.key === 'Escape') {
-            event.preventDefault()
-            close()
-          }
         }}
       >
         <LumenFrame className="hbar-session-usage-heading">
-          <LumenText as="strong">{labels.title}</LumenText>
-          <LumenButton type="button" size="s" variant="text" indicator="none" aria-label={labels.close} onClick={close}>
+          <LumenContentText context="popover.title">{labels.title}</LumenContentText>
+          <LumenIconButton
+            ref={closeButton}
+            type="button"
+            size="s"
+            variant="text"
+            indicator="none"
+            label={labels.close}
+            onClick={close}
+          >
             <LumenIcon icon={X} tier="sm" />
-          </LumenButton>
+          </LumenIconButton>
         </LumenFrame>
-        <LumenText as="p">{presentation.content.description}</LumenText>
+        <LumenContentText context="section.description">{presentation.content.description}</LumenContentText>
         {error && (
-          <LumenText as="p" role="alert">
+          <LumenContentText context="feedback.detail" role="alert">
             {labels.error(error)}
-          </LumenText>
+          </LumenContentText>
         )}
         {presentation.notice && (
-          <LumenText as="p" role="status">
+          <LumenContentText context="feedback.detail" role="status">
             {presentation.notice}
-          </LumenText>
+          </LumenContentText>
         )}
         <LumenCompactUsage {...presentation.content} />
-        <LumenButton
-          type="button"
-          variant="text"
-          indicator="none"
-          onClick={() => {
-            popup.current?.hidePopover()
-            onOpenMonitor()
-          }}
-        >
-          {labels.monitor}
-        </LumenButton>
-      </LumenFrame>
+        <LumenFrame className="hbar-session-usage-actions" role="group" aria-label={labels.monitor} tabIndex={0}>
+          <LumenButton
+            type="button"
+            variant="text"
+            indicator="none"
+            onClick={() => {
+              if (openSessionId !== controls.sessionId) return
+              close()
+              onOpenMonitor()
+            }}
+          >
+            {labels.monitor}
+          </LumenButton>
+        </LumenFrame>
+      </LumenFloatingSurface>
     </LumenFrame>
   )
 }

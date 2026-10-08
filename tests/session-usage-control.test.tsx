@@ -36,9 +36,10 @@ test('usage never invents zero accounting or context occupancy when facts are un
     const html = renderToStaticMarkup(
       <HbarSessionUsageControl controls={empty} labels={labels} onOpenMonitor={() => {}} />,
     )
-    expect(html).toContain('popover="auto"')
+    expect(html).not.toContain('popover="auto"')
     expect(html).toContain('aria-expanded="false"')
-    expect(html).toContain(labels.description)
+    expect(html).toContain(labels.noBudget)
+    expect(view.content.progress).toBeNull()
     expect(html).not.toContain('0 tokens')
   }
 })
@@ -56,23 +57,25 @@ test('budget uses its own fact and preserves warnings at boundaries without infi
   }
   const view = sessionUsagePresentation({ ...empty, budget: { ...budget(0), limit: 0 } }, labels)
   expect(view.trigger).toBe(labels.noBudget)
-  expect(Number.isFinite(view.content.progress)).toBe(true)
+  expect(view.content.progress).toBeNull()
 })
 
-test('long host labels and read errors remain accessible without fake success or hidden metrics', () => {
+test('long host labels stay in typed presentation while closed server markup retains the actual trigger', () => {
   const labels = getShellCopy('zh-CN').session.usage
   const title = '当前会话累计结算与预算详情，不是模型上下文窗口占用率的百分比'
   const html = renderToStaticMarkup(
     <HbarSessionUsageControl
       controls={{ ...empty, errors: { model: null, usage: 'DISCONNECTED', budget: null } }}
-      labels={{ ...labels, title }}
+      labels={{ ...labels, title, trigger: (value) => labels.trigger(value) + title }}
       onOpenMonitor={() => {}}
     />,
   )
   expect(html).toContain(title)
+  const view = sessionUsagePresentation(empty, { ...labels, title })
+  expect(view.content.title).toBe(title)
+  expect(view.content.metrics.map((metric) => metric.label)).toContain(labels.input)
+  expect(view.content.metrics.map((metric) => metric.label)).toContain(labels.output)
+  expect(html).toContain('aria-hidden="true"')
   expect(html).toContain(labels.error('DISCONNECTED'))
   expect(html).toContain('role="alert"')
-  expect(html).toContain(labels.monitor)
-  expect(html).toContain(labels.input)
-  expect(html).toContain(labels.output)
 })
