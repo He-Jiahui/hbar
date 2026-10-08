@@ -8,6 +8,10 @@
 }
 
 .hbar-pre-session-launch-status {
+  inline-size: 100%;
+  max-inline-size: 100%;
+  flex: 0 0 auto;
+  box-sizing: border-box;
   justify-content: space-between;
   padding: 0.5rem 0;
 }

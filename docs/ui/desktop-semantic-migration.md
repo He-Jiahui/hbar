@@ -616,5 +616,6 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 首次发送操作区增加宿主 actions 文案与具名键盘横向阅读，长检查／取消／关闭动作保留完整文字。原准备、取消、未知回执与关闭命令继续使用 draftId／revision；未新增隐式重发、准备或实体切换。标题及说明消费既有字体变量，保留宿主标记资源、空态事实门控与提交后的消失条件。
 - 94 项 Bun 测试／595 个断言和 5 项 Lumen 文本／焦点／阅读测试通过。6 项独立 Chrome 场景通过：4 项受控展示 DTO 覆盖两语言／明暗／五宽度／较大文字／125% zoom、一级／二级标题、完整长说明、自然流与窄屏滚动、未知／失败／准备／闲置／接受状态、离线与实际不存在草稿的失败反馈；这四项不宣称模拟了真实准备回执。两项实际 Host 回归核验空会话、模型选择、原受控输入、首次发送和空态消失，禁用两类自动继续。扩展空态的现有渲染测试也通过。
 - 范围严格 lint、文案／图标／flow guard、格式、Lumen 类型／build、Web build 与构建清单通过；冷启动根类型仍为 91 项既有诊断，本次范围为零。证据在 artifacts/desktop-elements/empty-launch-content 的 unit-verified.log、lumen-unit.log、lumen-lint.log、delivery.log（4 项）、browser.log（两项实际 Host 通过，初始矩阵失败保留）、types.log、lint.log、lint-delivery.log、build.log、audit.log 与截图，Lumen 初始构建日志为 artifacts/desktop-elements/empty-launch-lumen-build.log。
+- 截图复核发现居中父容器中的首次发送表面按长按钮的固有宽度撑开，方向键实际移动整个 main，标题因此离开横向视口。补充表面自身的父宽度约束，操作阅读区继续独立滚动；收紧矩阵为 main 无横向溢出及标题左右边界都在 main 内。6 项 Chrome 单次重新通过，截图确认标题居中完整换行；严格 lint、flow、格式与新鲜 Web build 通过。关联 c2e6c5c6，补充证据为 bounds.log、bounds-results、lint-bounds.log 和 build-bounds.log；早期断言通过不能代替此次视觉与边界验收。
 
 当前清单覆盖 147 个生产 TSX 模块、3856 个元素，其中记录了 7 处低层文字未分类，合计 16 项静态缺口。其余生产表面迁移、其余已分类标题／身份容量复核（包括 LumenFileDocument 标题与项目名称）、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

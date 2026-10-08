@@ -77,6 +77,14 @@ for (const locale of ['en-US', 'zh-CN'] as const)
           if (await actions.evaluate((node) => node.scrollWidth > node.clientWidth + 1))
             await expect.poll(() => actions.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0)
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
+          expect(await page.getByRole('main').evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true)
+          expect(
+            await page.getByRole('heading').evaluate((node) => {
+              const reader = node.closest('main')?.getBoundingClientRect()
+              const bounds = node.getBoundingClientRect()
+              return Boolean(reader && bounds.left >= reader.left - 1 && bounds.right <= reader.right + 1)
+            }),
+          ).toBe(true)
           if (width <= 390)
             expect(await page.getByRole('main').evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true)
           if (width === 320) await page.screenshot({ path: info.outputPath(`empty-launch-${locale}-${mode}-320.png`) })
