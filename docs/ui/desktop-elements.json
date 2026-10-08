@@ -45104,11 +45104,11 @@
       "contentSources": ["children", "title=context.labels.open(reference)"],
       "accessibleNameSources": ["aria-label=context.labels.open(reference)", "title=context.labels.open(reference)"],
       "actionBindings": {
-        "onClick": "(event) => {\r\n          event.preventDefault()\r\n          event.stopPropagation()\r\n          open()\r\n        }",
-        "onKeyDown": "(event) => {\r\n          if (event.key !== 'Enter') return\r\n          event.preventDefault()\r\n          event.stopPropagation()\r\n          open()\r\n        }"
+        "onClick": "(event) => {\n          event.preventDefault()\n          event.stopPropagation()\n          open()\n        }",
+        "onKeyDown": "(event) => {\n          if (event.key !== 'Enter') return\n          event.preventDefault()\n          event.stopPropagation()\n          open()\n        }"
       },
       "targetSources": [
-        "onKeyDown=(event) => {\r\n          if (event.key !== 'Enter') return\r\n          event.preventDefault()\r\n          event.stopPropagation()\r\n          open()\r\n        }"
+        "onKeyDown=(event) => {\n          if (event.key !== 'Enter') return\n          event.preventDefault()\n          event.stopPropagation()\n          open()\n        }"
       ],
       "stateSources": ["aria-busy=status.busy || undefined"],
       "flow": "owning flow layout",
@@ -45126,8 +45126,8 @@
       "category": "structure",
       "context": null,
       "contentSources": [
-        "status.busy && (\r\n          <LumenText as=\"small\" role=\"status\" data-session-find-exclude=\"file-navigation\">\r\n            {context.labels.opening}\r\n          </LumenText>\r\n        )",
-        "status.error && (\r\n          <LumenText as=\"small\" role=\"alert\" data-session-find-exclude=\"file-navigation\">\r\n            {context.labels.error(status.error)}\r\n          </LumenText>\r\n        )"
+        "status.busy && (\n          <LumenContentText\n            context=\"feedback.detail\"\n            className=\"hbar-message-file-feedback\"\n            role=\"status\"\n            data-session-find-exclude=\"file-navigation\"\n          >\n            {context.labels.opening}\n          </LumenContentText>\n        )",
+        "status.error && (\n          <LumenContentText\n            context=\"feedback.detail\"\n            className=\"hbar-message-file-feedback\"\n            role=\"alert\"\n            data-session-find-exclude=\"file-navigation\"\n          >\n            {context.labels.error(status.error)}\n          </LumenContentText>\n        )"
       ],
       "accessibleNameSources": [],
       "actionBindings": {},
@@ -45139,42 +45139,42 @@
       "issues": []
     },
     {
-      "id": "packages/app-react/src/message-file-reference.tsx::MessageFileReferenceLink::LumenText::1",
+      "id": "packages/app-react/src/message-file-reference.tsx::MessageFileReferenceLink::LumenContentText::1",
       "path": "packages/app-react/src/message-file-reference.tsx",
       "line": 97,
       "owner": "MessageFileReferenceLink",
       "surface": "files-and-reading",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "feedback.detail",
       "contentSources": ["context.labels.opening"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": ["data-session-find-exclude=file-navigation"],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
-      "id": "packages/app-react/src/message-file-reference.tsx::MessageFileReferenceLink::LumenText::2",
+      "id": "packages/app-react/src/message-file-reference.tsx::MessageFileReferenceLink::LumenContentText::2",
       "path": "packages/app-react/src/message-file-reference.tsx",
-      "line": 102,
+      "line": 107,
       "owner": "MessageFileReferenceLink",
       "surface": "files-and-reading",
-      "component": "LumenText",
+      "component": "LumenContentText",
       "category": "text",
-      "context": null,
+      "context": "feedback.detail",
       "contentSources": ["context.labels.error(status.error)"],
       "accessibleNameSources": [],
       "actionBindings": {},
       "targetSources": ["data-session-find-exclude=file-navigation"],
       "stateSources": [],
-      "flow": "owning component contract",
-      "lumenMapping": "LumenContentText: explicit context required",
-      "status": "pending",
-      "issues": ["text-purpose-not-declared"]
+      "flow": "reading",
+      "lumenMapping": "LumenContentText",
+      "status": "semantic",
+      "issues": []
     },
     {
       "id": "packages/app-react/src/message-image-preview-context.tsx::MessageImagePreviewProvider::Context.Provider::1",

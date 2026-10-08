@@ -9,7 +9,7 @@
 | 类别        | 元素 | pending | 设计职责                                                                |
 | ----------- | ---: | ------: | ----------------------------------------------------------------------- |
 | structure   | 1232 |       3 | Lumen flow 容器、区域、页面与工具标题；业务组件拥有区域组合。           |
-| text        | 1121 |       5 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
+| text        | 1121 |       3 | LumenContentText 明确用途；具名文案与真实数据由宿主提供。               |
 | interaction |  944 |       0 | Lumen 控件与共享浮层；稳定目标、键盘、焦点和就近反馈。                  |
 | form        |  282 |       0 | 类型化字段、草稿、校验与保存；Schema 展示由宿主适配。                   |
 | collection  |  135 |       0 | 稳定记录、分页／虚拟化与窗格滚动；标题、副文本与元数据各有归属。        |
@@ -96,7 +96,7 @@
 | [packages/app-react/src/lumen-workspace-shell.tsx](../../packages/app-react/src/lumen-workspace-shell.tsx)                 | workbench                                        |  152 |             32 |          0 |          0 |
 | [packages/app-react/src/markdown-code-content.tsx](../../packages/app-react/src/markdown-code-content.tsx)                 | files-and-reading                                |    3 |              0 |          0 |          0 |
 | [packages/app-react/src/markdown-diagram.tsx](../../packages/app-react/src/markdown-diagram.tsx)                           | files-and-reading                                |   31 |              4 |          0 |          0 |
-| [packages/app-react/src/message-file-reference.tsx](../../packages/app-react/src/message-file-reference.tsx)               | files-and-reading                                |    5 |              0 |          2 |          0 |
+| [packages/app-react/src/message-file-reference.tsx](../../packages/app-react/src/message-file-reference.tsx)               | files-and-reading                                |    5 |              2 |          0 |          0 |
 | [packages/app-react/src/message-image-preview-context.tsx](../../packages/app-react/src/message-image-preview-context.tsx) | settings                                         |    1 |              0 |          0 |          0 |
 | [packages/app-react/src/message-image-preview.tsx](../../packages/app-react/src/message-image-preview.tsx)                 | files-and-reading                                |   15 |              5 |          0 |          0 |
 | [packages/app-react/src/message-literal-text.tsx](../../packages/app-react/src/message-literal-text.tsx)                   | session                                          |    6 |              2 |          0 |          0 |

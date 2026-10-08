@@ -625,4 +625,10 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 - 15 项 Bun 测试／107 个断言通过。8 项 Chrome 在最终单次运行中通过：4 项受控展示矩阵覆盖两语言／明暗／五宽度／较大文字／125% zoom、关联字段说明、长标签和操作组的实际键盘滚动、完整标题视口边界、4000／4001 字路径及公开 DTO 校验、错误／忙碌／恢复、0／1／3／1000／1001 事实计数和保留原输入；4 项真实 Host 回归覆盖两语言、桌面／窄屏的多根目录选择、优先级、编辑与仅移除引用。真实 Host 禁用 Goal 与 budget 自动继续。
 - 范围严格 lint、内容／图标／flow guard、格式、Lumen 类型／build、新鲜 Web build 与生产清单通过；冷启动根类型仍有 91 项既有诊断，本次范围为零。证据在 artifacts/desktop-elements/onboarding-path-content 的 unit-footer.log、delivery.log（8 项）、delivery-results 截图、lint-delivery.log、types-delivery.log、lumen-build.log、lumen-lint.log、build-fields.log 与 audit-delivery.log；早期失败保留。
 
-当前清单覆盖 148 个生产 TSX 模块、3858 个元素，其中记录了 5 处低层文字未分类，合计 12 项静态缺口。其余生产表面迁移、其余已分类标题／身份容量复核（包括 LumenFileDocument 标题与项目名称）、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
+## 消息文件引用的就近反馈
+
+- 两处低层文字归入 feedback.detail，保留 inline span 语义，避免在消息段落内生成嵌套段落。打开中和错误正文自然换行；颜色使用已有语义变量，CSS 通过反馈组件类而非 small 标签选择。原消息文本、导航链接、搜索排除区、路径／行／列与所有者生命周期保持原契约。
+- 14 项 Bun 测试／76 个断言和 5 项 Chrome 场景通过。四项受控内容矩阵覆盖两语言／明暗／五宽度／较大文字／125% zoom、长路径／长状态／长错误、Enter 激活、重复点击去重、失败后重试、替换消息后原请求晚到不能污染新反馈，以及原 targetKey／path／line／column。一个真实 Host 场景核验消息引用到 source reader、后续 801 行有界页、延迟读不抢焦点、脏编辑与原 composer 草稿保留、缺失文件错误和消息搜索；磁盘原文件未修改、未创建 Run，禁用两类自动继续。
+- 范围严格 lint、内容／图标／flow guard、格式、新鲜 Web build、截图与构建清单通过；根冷类型保留 91 项既有诊断，本次范围为零。证据在 artifacts/desktop-elements/message-file-feedback 的 unit.log、browser.log（5 项）、browser-results、lint.log、types.log、build.log 与 audit.log。
+
+当前清单覆盖 148 个生产 TSX 模块、3858 个元素，其中记录了 3 处低层文字未分类，合计 10 项静态缺口。其余生产表面迁移、其余已分类标题／身份容量复核（包括 LumenFileDocument 标题与项目名称）、原生文案同步、跨断点模态关闭后的导航／焦点恢复及最终浏览器／原生回归尚未完成。后续按独立子功能验证并立即提交，在此记录当前证据与剩余要求。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。

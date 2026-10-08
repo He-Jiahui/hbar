@@ -12,11 +12,10 @@
   outline-offset: 0.125rem;
   border-radius: 0.125rem;
 }
-.hbar-message-file-reference > span > small {
+.hbar-message-file-feedback {
   margin-inline-start: 0.5em;
-  white-space: normal;
   color: var(--lumen-muted);
 }
-.hbar-message-file-reference > span > small[role='alert'] {
+.hbar-message-file-feedback[role='alert'] {
   color: var(--lumen-danger);
 }

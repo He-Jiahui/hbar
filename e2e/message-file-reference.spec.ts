@@ -29,6 +29,8 @@ test('message file references open the source session reader, reveal new locatio
     await writeFile(join(root, path), original)
     host = await startWebSessionHost({
       root,
+      goalAutoContinue: false,
+      budgetAutoContinue: false,
       historyCount: 2,
       historyText: `查看 ${path}:2，再读 \`${path}:80:4\`，或者 [尾部](${path}:110)。后续页 ${path}:801。缺失文件 missing.ts:2。`,
       port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
