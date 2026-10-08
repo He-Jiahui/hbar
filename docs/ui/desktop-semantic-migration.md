@@ -705,6 +705,8 @@ Agent 增量读取的目标归属和恢复另行闭合。历史 8a444d52 引入�
 
 - d5545644 将仍导入已删除 stores 的历史测试迁到公开 SessionTimelinePort／Runtime：follow reset 使旧页失效、重复加载明确 BUSY、原页只合并一次、原订阅正确释放。7 项 timeline／history 测试、59 个断言、范围严格 lint 和格式通过，根类型降到 21，本次零诊断。
 - 参考 GlassSurface 通过 themeProfile prop 接收宿主解析的数据，不再读取已删除 ui-plugins 或旧 Desktop theme store。将原有颜色／CSS／贡献合并／作用域判断保留为纯 reference-theme 投影；删除旧 store 的 I/O、全局状态及 DOM 写入。保留默认主题校验、字体／资产约束、对比度、显式覆盖优先级和作用域测试；退役仅针对已删除客户端 renderer registry／旧 store 的五个测试，不宣称当前 Desktop 存在那些注册能力。新增真实参考组件 SSR 验证独立输入 profile 的视觉属性，当前 Desktop 的受控主题、保存／reset／revision、草稿与启动绑定由既有测试覆盖。
-- 40 项参考主题／实际 Web 外观与编辑器／启动绑定／写入边界测试通过，213 个断言；范围严格 lint、文案 guard、格式、Web build 与差异检查通过。根类型降到 12，本次零诊断。证据位于 artifacts/desktop-elements/final-gates 的 history-requests 和 reference-theme 日志；后者两项原生模块加载错误的旧入口现已消除，完整 Bun 门禁仍待重跑。
+- 40 项参考主题／实际 Web 外观与编辑器／启动绑定／写入边界测试通过，213 个断言；范围严格 lint、文案 guard、格式、Web build 与差异检查通过。根类型降到 12，本次零诊断。证据位于 artifacts/desktop-elements/final-gates 的 history-requests 和 reference-theme 日志；两项旧模块加载错误对应的入口现已消除，完整 Bun 门禁仍待重跑。
+
+- 8c45f4f4 补齐 BrowserUseService.go、GitService.stage／unstage 夹具，并让延迟真实 Git 适配保留方法转发。9 项命令／取消／版本／执行根测试、67 个断言和范围严格 lint 通过，根类型降到 3。提交正文误记格式通过：实际首次检查因此次补丁引入混合换行失败。对照格式器输出确认仅换行符不同，统一后再检查已通过，Git 没有额外源码差异；此处更正原提交说明，不将它记成既有格式问题。
 
 当前清单覆盖 149 个生产 TSX 模块、3873 个元素，业务低层文字未分类项和静态 pending 均为 0。最终全库／浏览器／原生门禁和上述四项扩展导航失败尚未完成。清单的 composed / semantic 状态只证明静态边界，不代表内容、容量和交互验收已通过。
