@@ -1,5 +1,8 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { extname, join, relative, resolve } from 'node:path'
+import * as ts from 'typescript'
+import { classifyDesktopSource } from './desktop-element-audit/classify'
+import { loadDesktopSourceGraph } from './desktop-element-audit/graph'
 
 export interface DesignSystemViolation {
   readonly file: string
@@ -9,7 +12,8 @@ export interface DesignSystemViolation {
 }
 
 const primitiveSelector = /\.hbar-app-ui-(?:button|icon-button|control|label|text)(?![A-Za-z0-9_-])/
-const forbiddenPrimitiveProperty = /(?:^|;)\s*(?:font(?:-size|-family)?|line-height|min-block-size|block-size|height|border(?:-[\w-]+)?|background(?:-[\w-]+)?|color|padding(?:-[\w-]+)?|outline(?:-[\w-]+)?|box-shadow)\s*:/m
+const forbiddenPrimitiveProperty =
+  /(?:^|;)\s*(?:font(?:-size|-family)?|line-height|min-block-size|block-size|height|border(?:-[\w-]+)?|background(?:-[\w-]+)?|color|padding(?:-[\w-]+)?|outline(?:-[\w-]+)?|box-shadow)\s*:/m
 const forbiddenPrimitiveState = /:(?:hover|focus|focus-visible|disabled)\b/
 const nativeControls = new Set(['button', 'input', 'select', 'textarea'])
 const nativeVisibleElements = new Set([
@@ -83,24 +87,47 @@ function lineAt(source: string, offset: number): number {
 }
 
 export function auditProductionTsx(file: string, source: string): readonly DesignSystemViolation[] {
+  const syntax = ts.createSourceFile(
+    file,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  )
   const violations: DesignSystemViolation[] = []
-  for (const match of source.matchAll(/<([a-z][a-z0-9-]*)\b/g)) {
-    const element = match[1]
-    if (!element || !nativeVisibleElements.has(element)) continue
+  for (const element of classifyDesktopSource(file.replaceAll('\\', '/'), syntax)) {
+    if (!nativeVisibleElements.has(element.component) || !element.issues.includes('native-element-outside-renderer'))
+      continue
     violations.push({
       file,
-      line: lineAt(source, match.index),
-      rule: nativeControls.has(element) ? 'native-control' : 'native-element',
-      detail: `Render <${element}> through an @lumen/app-ui component`,
+      line: element.line,
+      rule: nativeControls.has(element.component) ? 'native-control' : 'native-element',
+      detail: `Render <${element.component}> through an @lumen/app-ui component`,
     })
   }
-  for (const match of source.matchAll(/\bsize=\{\s*\d+(?:\.\d+)?\s*\}/g))
-    violations.push({
-      file,
-      line: lineAt(source, match.index),
-      rule: 'numeric-size',
-      detail: 'Use the semantic S/M/L component size',
-    })
+  function visit(node: ts.Node): void {
+    if (
+      ts.isJsxAttribute(node) &&
+      node.name.getText(syntax) === 'size' &&
+      node.initializer &&
+      ts.isJsxExpression(node.initializer)
+    ) {
+      const value = node.initializer.expression
+      if (
+        value &&
+        (ts.isNumericLiteral(value) || (ts.isPrefixUnaryExpression(value) && ts.isNumericLiteral(value.operand)))
+      ) {
+        violations.push({
+          file,
+          line: syntax.getLineAndCharacterOfPosition(node.getStart(syntax)).line + 1,
+          rule: 'numeric-size',
+          detail: 'Use the component semantic size tier',
+        })
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(syntax)
   return violations
 }
 
@@ -133,13 +160,30 @@ async function sourceFiles(directory: string): Promise<readonly string[]> {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name)
     if (entry.isDirectory()) files.push(...(await sourceFiles(path)))
-    else if (entry.isFile() && ['.css', '.tsx'].includes(extname(entry.name))) files.push(path)
+    else if (entry.isFile() && ['.css', '.ts', '.tsx'].includes(extname(entry.name))) files.push(path)
   }
   return files
 }
 
+function desktopSourceInputs(root: string): ReadonlySet<string> {
+  return new Set(
+    [...loadDesktopSourceGraph(root).sources.keys()].map((file) => relative(root, file).replaceAll('\\', '/')),
+  )
+}
+
+/** Runtime imports and demanded barrel exports, plus the maintained application composition package. */
+export async function collectProductionAppSourceFiles(root = process.cwd()): Promise<readonly string[]> {
+  const inputs = desktopSourceInputs(root)
+  const application = await sourceFiles(resolve(root, 'packages/app-react/src'))
+  const host = await sourceFiles(resolve(root, 'apps/web/src'))
+  return [...application, ...host.filter((file) => inputs.has(relative(root, file).replaceAll('\\', '/')))]
+    .filter((file) => ['.ts', '.tsx'].includes(extname(file)))
+    .sort()
+}
+
 export async function auditProductionDesignSystem(root = process.cwd()): Promise<readonly DesignSystemViolation[]> {
   const violations: DesignSystemViolation[] = []
+  const inputs = desktopSourceInputs(root)
   for (const directory of [
     'packages/app-react/src',
     'apps/web/src',
@@ -147,8 +191,9 @@ export async function auditProductionDesignSystem(root = process.cwd()): Promise
     'apps/hbar-app-ui-preview/src',
   ]) {
     for (const file of await sourceFiles(resolve(root, directory))) {
-      const source = await readFile(file, 'utf8')
       const display = relative(root, file).replaceAll('\\', '/')
+      if (directory === 'apps/web/src' && extname(file) === '.tsx' && !inputs.has(display)) continue
+      const source = await readFile(file, 'utf8')
       violations.push(
         ...(extname(file) === '.css' && !directory.startsWith('packages/hbar-app-ui')
           ? auditProductionCss(display, source)
