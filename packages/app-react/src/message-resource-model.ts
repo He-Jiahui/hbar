@@ -1,10 +1,15 @@
-import { parseResourceReference, type ResourceReference } from '@hbar/contracts/resources'
+import { parseResourceReference, resourceCommandText, type ResourceReference } from '@hbar/contracts/resources'
 import { splitMessageFileReferences } from './message-file-reference-model'
 import { messageLiteralSegments } from './message-literal-text-model'
 export type ResourceSegment =
   { kind: 'text'; value: string } | { kind: 'resource'; value: string; reference: ResourceReference }
 /** Preserve authored bytes and CJK punctuation; quoted/inline code can carry spaces. */
 export function splitResourceReferences(text: string): ResourceSegment[] {
+  if (/[\r\n]/.test(text))
+    return text
+      .split(/(\r\n|\r|\n)/)
+      .flatMap((line, index) => (index % 2 ? [{ kind: 'text' as const, value: line }] : splitResourceReferences(line)))
+  if (resourceCommandText(text)) return [{ kind: 'text', value: text }]
   const result: ResourceSegment[] = []
   const expression = /`([^`\r\n]+)`|[^\s<>`，。；！？、（）“”「」]+/gu
   let offset = 0
@@ -22,7 +27,8 @@ export function splitResourceReferences(text: string): ResourceSegment[] {
         result.push({ kind: 'resource', value: target, reference })
         if (value.length > target.length) result.push({ kind: 'text', value: value.slice(target.length) })
       }
-    } else appendPlain(value)
+    } else if (match[1]) result.push({ kind: 'text', value })
+    else appendPlain(value)
     offset = match.index + value.length
   }
   appendPlain(text.slice(offset))

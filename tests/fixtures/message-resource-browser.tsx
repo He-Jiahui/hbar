@@ -16,6 +16,7 @@ const labels = resourceCopy(locale)
 const content =
   '`src/main.ts:12` · `same.ts` · `photo.png` · `missing.ts` · `C:\\My Project\\notes.txt` · `https://example.test/page`\n\n`HbarPromptComposer` and `console.log`\n\n```ts\nsrc/main.ts:12\n```'
 const toolContent = 'Tool result: `src/tool.ts:7`'
+const commandContent = '`bun test src/main.ts` · `git diff src/main.ts` · `const file = src/main.ts`'
 const source = { workspaceId: 'fixture-w', sessionId: 'fixture-s', messageId: 'fixture-m', sourceTabInstanceKey: null }
 declare global {
   interface Window {
@@ -87,6 +88,7 @@ function App() {
       <HbarMessageResourceLayer model={model} labels={labels}>
         <main>
           <MessageMarkdown text={content} fileReferences={fileReferences} />
+          <MessageMarkdown text={commandContent} fileReferences={fileReferences} />
           <MessageResourceSourceProvider context={fileReferences}>
             <MessageMarkdown text={toolContent} />
           </MessageResourceSourceProvider>

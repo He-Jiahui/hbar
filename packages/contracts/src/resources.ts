@@ -28,7 +28,22 @@ const images = /\.(?:png|jpe?g|webp|gif|apng|avif|svg|bmp|ico)(?:$|[?#])/i
 const files =
   /(?:\.(?:[cm]?[jt]sx?|py|rs|go|java|c|cc|cpp|h|hpp|cs|swift|kt|rb|php|sh|ps1|bat|cmd|vue|svelte|css|scss|html?|md|mdx|txt|json|jsonc|ya?ml|toml|xml|sql|ini|cfg|conf|log|csv|pdf|docx?|xlsx?|pptx?|zip|gz|tar|7z|rar|mp[34]|wav|ogg|flac|mov|webm|woff2?|ttf|otf|png|jpe?g|webp|gif|apng|avif|svg|bmp|ico)|(?:^|\/)(?:Dockerfile|Makefile|LICENSE|\.env(?:\.[\w-]+)?|\.gitignore|\.npmrc))$/i
 
-export function parseResourceReference(input: string, explicit = false): ResourceReference | null {
+/** Conservative code/prose guard; explicitly authored links can still name such directories. */
+export function resourceCommandText(input: string): boolean {
+  return (
+    /^(?:[$>]\s*)?(?:(?:bun|npm|npx|pnpm|yarn|deno|node|python[23]?|pip[23]?|uv|cargo|rustc|go|dotnet|java|javac|mvn|gradle|git|gh|curl|wget|docker|podman|kubectl|ssh|scp|rsync|ls|cat|cd|cp|mv|rm|rg|grep|find|sed|awk|echo|printf|powershell|pwsh|cmd|bash|sh|zsh|fish|make|cmake|ninja|ctest|code)(?:\.exe)?\s+|(?:Get|Set|Add|Remove|Select|Start|Stop|Test|Invoke)-[\w-]+\s+|(?:const|let|var|return|throw|await|import|export)\s+)/i.test(
+      input.trim(),
+    ) ||
+    /^[\w.$]+\s*=/.test(input.trim()) ||
+    /\$\{/.test(input)
+  )
+}
+
+export function parseResourceReference(
+  input: string,
+  explicit = false,
+  source: 'reference' | 'authored-link' = 'reference',
+): ResourceReference | null {
   let value = input.trim()
   if (!value || [...value].some((char) => char.charCodeAt(0) < 32) || value.length > 16384) return null
   if (/^https?:\/\//i.test(value)) {
@@ -50,6 +65,12 @@ export function parseResourceReference(input: string, explicit = false): Resourc
     } catch {
       return null
     }
+  } else if (source === 'authored-link') {
+    try {
+      value = decodeURIComponent(value)
+    } catch {
+      return null
+    }
   }
   value = value.replaceAll('\\', '/')
   if (value.length > 4000 || /[<>|?*\n]/.test(value) || value.includes('://')) return null
@@ -64,6 +85,7 @@ export function parseResourceReference(input: string, explicit = false): Resourc
     return null
   if (/:/.test(value.replace(/^[a-z]:/i, '')) || /(?:^|\/)\.\.(?:\/|$)/.test(value)) return null
   const absolute = /^(?:[a-z]:\/|\/|~\/)/i.test(value)
+  if (!absolute && source !== 'authored-link' && resourceCommandText(value)) return null
   if (!absolute && !files.test(value)) return null
   if (!absolute && !value.includes('/') && line === undefined && /\.(?:log|c|h|conf|cfg)$/i.test(value)) return null
   if (!explicit && (/\s/.test(value) || /[(){}=;]/.test(value))) return null

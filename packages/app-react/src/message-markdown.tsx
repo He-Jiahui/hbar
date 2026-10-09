@@ -238,7 +238,7 @@ function MarkdownImage({ node, src, alt }: ComponentProps<'img'> & ExtraProps) {
   const files = useContext(FileContext)
   if (resources && files?.source) {
     if (linked || files.streaming) return alt
-    const reference = typeof src === 'string' ? parseResourceReference(src, true) : null
+    const reference = typeof src === 'string' ? parseResourceReference(src, true, 'authored-link') : null
     if (!reference) return alt
     return (
       <MessageResourceLink

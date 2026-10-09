@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { CommandError } from '@hbar/commands'
 import { createMessageResources, type MessageResourcePort } from '@hbar/app-runtime'
 import type { ResourceCandidate } from '@hbar/contracts/resources'
+import { parseResourceReference } from '@hbar/contracts/resources'
 import { splitResourceReferences } from '../packages/app-react/src/message-resource-model'
 import { projectSessionFindText } from '../packages/app-react/src/session-find-text'
 
@@ -72,6 +73,38 @@ test('resource segmentation retains exact prose and identifies relative images a
     { kind: 'web', url: 'https://example.com:8080/a?q=1', image: false },
   ])
   expect(projectSessionFindText('`src/main.ts:12` and `console.log`').text).toBe('src/main.ts:12 and console.log')
+})
+test('complete commands and expressions retain their original text, while authored links decode spaced paths', () => {
+  for (const text of [
+    'bun test src/main.ts',
+    'git diff src/main.ts',
+    'npm run src/main.ts',
+    'Get-Content src/main.ts',
+    'const file = src/main.ts',
+    '${root}/src/main.ts',
+  ]) {
+    expect(parseResourceReference(text, true)).toBeNull()
+    for (const original of [text, `\`${text}\``]) {
+      const parts = splitResourceReferences(original)
+      expect(parts.map((part) => part.value).join('')).toBe(original)
+      expect(parts.every((part) => part.kind === 'text')).toBe(true)
+    }
+  }
+  expect(parseResourceReference('git%20notes/src/main.ts', true, 'authored-link')).toEqual({
+    kind: 'file',
+    path: 'git notes/src/main.ts',
+  })
+  expect(parseResourceReference('My%20Project/%E4%B8%AD%E6%96%87.ts:4:2', true, 'authored-link')).toEqual({
+    kind: 'file',
+    path: 'My Project/中文.ts',
+    line: 4,
+    column: 2,
+  })
+  expect(parseResourceReference('../escape.ts', true, 'authored-link')).toBeNull()
+  const multi = 'bun test src/main.ts\r\n查看 src/other.ts:2'
+  const parts = splitResourceReferences(multi)
+  expect(parts.map((part) => part.value).join('')).toBe(multi)
+  expect(parts.filter((part) => part.kind === 'resource').map((part) => part.value)).toEqual(['src/other.ts:2'])
 })
 test('ambiguous selection revalidates the original candidate and opens only the selected target', async () => {
   const f = fixture()

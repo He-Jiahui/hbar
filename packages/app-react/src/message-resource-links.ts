@@ -32,7 +32,9 @@ export function messageResourceLinks() {
         } else if (child.type === 'element') {
           if (child.tagName === 'a') {
             const reference =
-              typeof child.properties.href === 'string' ? parseResourceReference(child.properties.href, true) : null
+              typeof child.properties.href === 'string'
+                ? parseResourceReference(child.properties.href, true, 'authored-link')
+                : null
             if (reference && count++ < 200)
               child.properties = { ...child.properties, ...properties(reference, 'authored') }
           } else if (child.tagName === 'code') {
