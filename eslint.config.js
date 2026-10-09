@@ -11,6 +11,8 @@ export default tseslint.config(
       '**/dist/**',
       '**/artifacts/**',
       '.dev/**',
+      // Separate checkouts are validated in their own workspace, not recursively here.
+      '.hbar-worktrees/**',
       'test-results/**',
       'playwright-report/**',
       'apps/desktop/src-tauri/target/**',
