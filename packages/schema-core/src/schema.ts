@@ -9,6 +9,11 @@ export type FieldItemValue = string | number | boolean
 export type FieldValue = FieldItemValue | null | readonly FieldItemValue[]
 export type FieldType = 'string' | 'integer' | 'number' | 'boolean'
 
+/** Presentation only: every typed comparison must match the current draft. */
+export interface FieldVisibility {
+  readonly all: readonly { readonly field: string; readonly equals: FieldValue }[]
+}
+
 export interface FormDescription {
   readonly id: string
   readonly version: number
@@ -20,6 +25,7 @@ export interface FormDescription {
         readonly component: string
         readonly readOnly?: boolean
         readonly resource?: ResourceFieldDescription
+        readonly visibleWhen?: FieldVisibility
       }
     >
   >
@@ -35,6 +41,7 @@ export interface CompiledField {
   readonly nullable: boolean
   readonly readOnly: boolean
   readonly resource?: ResourceFieldDescription
+  readonly visibleWhen?: FieldVisibility
   readonly minimum?: number
   readonly exclusiveMinimum?: number
   readonly maximum?: number
@@ -390,5 +397,39 @@ export function compileForm(
       throw new SchemaError('INVALID_DESCRIPTION', `Component ${field.component} requires resource metadata`)
     return field
   })
-  return Object.freeze({ id: description.id, version: description.version, fields: Object.freeze(fields) })
+  const compiled = fields.map((field): CompiledField => {
+    const condition = description.fields[field.name]?.visibleWhen
+    if (condition === undefined) return field
+    if (!condition || !Array.isArray(condition.all) || condition.all.length < 1 || condition.all.length > 16)
+      throw new SchemaError('INVALID_DESCRIPTION', 'Visibility requires 1–16 field comparisons')
+    const all = condition.all.map((comparison: FieldVisibility['all'][number]) => {
+      if (!comparison || typeof comparison.field !== 'string')
+        throw new SchemaError('INVALID_DESCRIPTION', 'Visibility requires named field comparisons')
+      const dependency = fields.find((candidate) => candidate.name === comparison.field)
+      if (!dependency || dependency.name === field.name || !validValue(dependency, comparison.equals))
+        throw new SchemaError('INVALID_DESCRIPTION', `Invalid visibility dependency for ${field.name}`)
+      return Object.freeze({
+        field: comparison.field,
+        equals: itemValueArray(comparison.equals) ? Object.freeze([...comparison.equals]) : comparison.equals,
+      })
+    })
+    if (new Set(all.map((comparison) => comparison.field)).size !== all.length)
+      throw new SchemaError('INVALID_DESCRIPTION', 'Visibility dependencies must be unique')
+    return Object.freeze({ ...field, visibleWhen: Object.freeze({ all: Object.freeze(all) }) })
+  })
+  const visited = new Set<string>(),
+    active = new Set<string>()
+  const visit = (field: CompiledField): void => {
+    if (active.has(field.name)) throw new SchemaError('INVALID_DESCRIPTION', 'Visibility dependencies cannot cycle')
+    if (visited.has(field.name)) return
+    active.add(field.name)
+    for (const comparison of field.visibleWhen?.all ?? []) {
+      const dependency = compiled.find((candidate) => candidate.name === comparison.field)
+      if (dependency) visit(dependency)
+    }
+    active.delete(field.name)
+    visited.add(field.name)
+  }
+  compiled.forEach(visit)
+  return Object.freeze({ id: description.id, version: description.version, fields: Object.freeze(compiled) })
 }

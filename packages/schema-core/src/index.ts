@@ -7,7 +7,9 @@ export type {
   FieldItemValue,
   FieldType,
   FieldValue,
+  FieldVisibility,
 } from './schema'
+export { isFieldVisible } from './visibility'
 export {
   decodeResourceReference,
   encodeResourceReference,

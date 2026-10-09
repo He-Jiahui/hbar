@@ -62,9 +62,16 @@ const settingTypeSchema = z.enum(['string', 'integer', 'number', 'boolean'])
 const settingItemValueSchema = z.union([z.string(), z.number().finite(), z.boolean()])
 const settingValueSchema = z.union([settingItemValueSchema, z.null()])
 const settingFieldValueSchema = z.union([settingValueSchema, z.array(settingItemValueSchema).max(256)])
+export const settingsFieldVisibilitySchema = z.strictObject({
+  all: z
+    .array(z.strictObject({ path: schemaPathSchema, equals: settingFieldValueSchema }))
+    .min(1)
+    .max(16),
+})
 const settingsFieldSchema = z
   .strictObject({
     path: schemaPathSchema,
+    visibleWhen: settingsFieldVisibilitySchema.optional(),
     type: settingTypeSchema,
     nullable: z.boolean(),
     defaultValue: settingFieldValueSchema,
@@ -162,6 +169,7 @@ export const settingsDescriptionSchema = z
       context.addIssue({ code: 'custom', message: 'Setting paths must be unique' })
     const known = new Set(paths)
     const dependenciesByPath = new Map<string, readonly string[]>()
+    const visibilityByPath = new Map<string, readonly string[]>()
     for (const field of description.fields) {
       if (!groupIds.includes(field.group))
         context.addIssue({ code: 'custom', message: 'Every setting field must reference a declared group' })
@@ -169,6 +177,32 @@ export const settingsDescriptionSchema = z
       dependenciesByPath.set(JSON.stringify(field.path), dependencies)
       if (new Set(dependencies).size !== dependencies.length || dependencies.some((path) => !known.has(path)))
         context.addIssue({ code: 'custom', message: 'Dynamic setting dependencies must be unique declared fields' })
+      const comparisons = field.visibleWhen?.all ?? []
+      const visibility = comparisons.map((comparison) => JSON.stringify(comparison.path))
+      visibilityByPath.set(JSON.stringify(field.path), visibility)
+      if (new Set(visibility).size !== visibility.length || visibility.some((path) => !known.has(path)))
+        context.addIssue({ code: 'custom', message: 'Visibility dependencies must be unique declared fields' })
+      for (const comparison of comparisons) {
+        const dependency = description.fields.find(
+          (candidate) => JSON.stringify(candidate.path) === JSON.stringify(comparison.path),
+        )
+        if (!dependency) continue
+        const value = comparison.equals
+        const items = Array.isArray(value) ? value : [value]
+        const matches =
+          value === null
+            ? dependency.nullable
+            : Array.isArray(value) === dependency.multiple &&
+              items.every((item) =>
+                dependency.type === 'string'
+                  ? typeof item === 'string'
+                  : dependency.type === 'boolean'
+                    ? typeof item === 'boolean'
+                    : typeof item === 'number' && (dependency.type !== 'integer' || Number.isSafeInteger(item)),
+              )
+        if (!matches)
+          context.addIssue({ code: 'custom', message: 'Visibility comparisons must match their dependency type' })
+      }
     }
     const visited = new Set<string>()
     const active = new Set<string>()
@@ -183,6 +217,12 @@ export const settingsDescriptionSchema = z
     }
     if (paths.some((path) => !visit(path)))
       context.addIssue({ code: 'custom', message: 'Dynamic setting dependencies cannot contain cycles' })
+    visited.clear()
+    active.clear()
+    dependenciesByPath.clear()
+    for (const [path, dependencies] of visibilityByPath) dependenciesByPath.set(path, dependencies)
+    if (paths.some((path) => !visit(path)))
+      context.addIssue({ code: 'custom', message: 'Visibility dependencies cannot contain cycles' })
   })
 const valueSourceSchema = z.strictObject({
   layerId: z.string().min(1),

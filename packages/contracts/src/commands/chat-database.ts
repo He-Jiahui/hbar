@@ -86,8 +86,27 @@ export const chatDatabaseSettingsFields: readonly SettingsFieldDescription[] = O
               : multiple
                 ? { minimum: 0, maximum: 6 }
                 : {}
+  const schedule = ['scheduleKind', 'scheduleHour', 'scheduleMinute', 'scheduleWeekdays', 'timezone'].includes(name)
+  const capacity = name === 'capacityLimitMiB' || name === 'capacityFirst'
+  const visibleWhen =
+    schedule || capacity
+      ? {
+          all: [
+            {
+              path: [
+                { kind: 'field' as const, name: `chatDatabase.${schedule ? 'scheduleEnabled' : 'capacityEnabled'}` },
+              ],
+              equals: true,
+            },
+            ...(multiple
+              ? [{ path: [{ kind: 'field' as const, name: 'chatDatabase.scheduleKind' }], equals: 'weekly' }]
+              : []),
+          ],
+        }
+      : undefined
   return {
     path: [{ kind: 'field' as const, name: `chatDatabase.${name}` }],
+    ...(visibleWhen ? { visibleWhen } : {}),
     type,
     nullable: false,
     defaultValue,

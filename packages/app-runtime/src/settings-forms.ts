@@ -124,6 +124,16 @@ function compile(description: SettingsDescription, scope: SettingsSnapshot['scop
             component: field.component,
             readOnly: !field.allowedScopes.includes(scope.kind),
             ...(field.resource ? { resource: field.resource } : {}),
+            ...(field.visibleWhen
+              ? {
+                  visibleWhen: {
+                    all: field.visibleWhen.all.map((comparison) => ({
+                      field: encodePath(comparison.path),
+                      equals: comparison.equals,
+                    })),
+                  },
+                }
+              : {}),
           },
         ]),
       ),

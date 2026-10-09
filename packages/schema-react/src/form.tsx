@@ -1,4 +1,5 @@
 import type { CompiledField, CompiledForm, FieldIssue, FormState } from '@hbar/schema-core'
+import { isFieldVisible } from '@hbar/schema-core'
 import type { ReactNode } from 'react'
 import type { SchemaComponentRegistry, SchemaFieldContent, SchemaFieldIntent, SchemaFieldLabels } from './registry'
 import './schema-form.css'
@@ -58,7 +59,7 @@ export function HbarSchemaForm({
   return (
     <div className="hbar-schema-form" data-field-layout={layout}>
       {schema.fields
-        .filter((field) => !visible || visible.has(field.name))
+        .filter((field) => (!visible || visible.has(field.name)) && isFieldVisible(field, state.draft, state.raw))
         .map((field) => {
           const registration = components.resolve(field.component)
           const issue = issueFor(state, field)
