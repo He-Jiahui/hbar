@@ -1068,7 +1068,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       error,
     },
     refreshing: choose('正在刷新会话记录…', 'Refreshing session history…'),
-    loadOlder: choose('加载更早消息', 'Load earlier messages'),
+    loadOlder: choose('向上滚动查看更早消息', 'Scroll up for earlier messages'),
     loadingOlder: choose('正在加载更早消息…', 'Loading earlier messages…'),
     retryHistory: choose('重试加载更早消息', 'Retry earlier messages'),
     retryTimeline: choose('重试会话加载', 'Retry session history'),

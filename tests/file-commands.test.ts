@@ -70,6 +70,8 @@ test('file commands page, read, and compare-and-write within the workspace bound
     'file.list',
     'file.read',
     'file.write',
+    'resource.resolve',
+    'resource.text',
   ])
   const firstPage = await commands.execute('file.list', { workspaceId: workspace.id, path: '.', limit: 1 })
   expect(firstPage.items).toHaveLength(1)

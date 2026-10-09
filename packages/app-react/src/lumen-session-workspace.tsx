@@ -60,6 +60,7 @@ import { HbarComposerModelPicker, type HbarComposerModelLabels } from './compose
 import { HbarPromptComposer } from './prompt-composer'
 import { HbarDeletedSessionWorkspace } from './deleted-session-workspace'
 import { useSessionReadingPosition } from './session-reading-position'
+import { useSessionHistoryScroll } from './session-history-scroll'
 import { HbarSessionMessageAnchors, type HbarConversationAnchorLabels } from './conversation-anchors'
 import {
   HbarComposerBackgroundAgentStop,
@@ -1257,6 +1258,14 @@ function SessionWorkspaceContent({
     hasOlder: timeline.hasOlder,
     olderStatus: timeline.olderStatus,
   })
+  const historyScroll = useSessionHistoryScroll({
+    runtime,
+    target: backgroundTarget,
+    connected,
+    ready: activeConversationOwner && timeline.sessionId === sessionId && timeline.status === 'ready',
+    restoring: reading.restoring,
+    findRequestId: find.scrollTarget?.requestId ?? null,
+  })
   const backgroundCandidate = sessionId ? backgroundAgents.entries[sessionId] : undefined
   const backgroundEntry =
     backgroundTarget &&
@@ -1713,21 +1722,23 @@ function SessionWorkspaceContent({
         <LumenText as="p" role="status">
           {labels.historyLimit}
         </LumenText>
-      ) : timeline.hasOlder || timeline.olderStatus === 'error' ? (
+      ) : timeline.olderStatus === 'loading' ? (
+        <LumenText as="p" role="status">
+          {labels.loadingOlder}
+        </LumenText>
+      ) : timeline.olderStatus === 'error' ? (
         <LumenFrame className="hbar-app-react-session-history-page">
-          {timeline.olderStatus === 'error' && (
-            <LumenText as="span" role="alert">
-              {labels.error(timeline.olderError ?? 'EXECUTION_FAILED')}
-            </LumenText>
-          )}
-          <LumenButton size="s" disabled={!connected || timeline.olderStatus === 'loading'} onClick={loadOlder}>
-            {timeline.olderStatus === 'loading'
-              ? labels.loadingOlder
-              : timeline.olderStatus === 'error'
-                ? labels.retryHistory
-                : labels.loadOlder}
+          <LumenText as="span" role="alert">
+            {labels.error(timeline.olderError ?? 'EXECUTION_FAILED')}
+          </LumenText>
+          <LumenButton size="s" disabled={!connected} onClick={loadOlder}>
+            {labels.retryHistory}
           </LumenButton>
         </LumenFrame>
+      ) : timeline.hasOlder ? (
+        <LumenText as="p" role="status">
+          {labels.loadOlder}
+        </LumenText>
       ) : null}
       {(goalHistory.available ||
         (composerIntent.facts.sessionId === sessionId && composerIntent.facts.snapshot?.goal)) &&
@@ -2584,11 +2595,27 @@ function SessionWorkspaceContent({
         ref={reading.rootRef}
         data-reading-scope={reading.scope}
         data-reading-restoring={reading.restoring}
-        onScrollCapture={reading.onScrollCapture}
-        onWheelCapture={reading.onWheelCapture}
-        onTouchStartCapture={reading.onTouchStartCapture}
-        onPointerDownCapture={reading.onPointerDownCapture}
-        onKeyDownCapture={reading.onKeyDownCapture}
+        onScrollCapture={(event) => {
+          reading.onScrollCapture(event)
+          historyScroll.onScrollCapture(event)
+        }}
+        onWheelCapture={(event) => {
+          reading.onWheelCapture(event)
+          historyScroll.onWheelCapture(event)
+        }}
+        onTouchStartCapture={(event) => {
+          reading.onTouchStartCapture(event)
+          historyScroll.onTouchStartCapture(event)
+        }}
+        onTouchMoveCapture={historyScroll.onTouchMoveCapture}
+        onPointerDownCapture={(event) => {
+          reading.onPointerDownCapture(event)
+          historyScroll.onPointerDownCapture(event)
+        }}
+        onKeyDownCapture={(event) => {
+          reading.onKeyDownCapture(event)
+          historyScroll.onKeyDownCapture(event)
+        }}
       >
         {backgroundTarget && activeConversationOwner && timeline.sessionId === sessionId && (
           <HbarSessionMessageAnchors

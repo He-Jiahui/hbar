@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
+import { scrollToHistoryTop } from './support/session-history-scroll'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 const prefix = 'hbar-reading-return-'
@@ -106,13 +107,12 @@ test('reading earlier messages survives Settings and Files workbench returns wit
 
     // Reading a previously loaded page must survive a workbench which replaces
     // the entire conversation tree, not just a sibling tool drawer.
-    const loadOlder = page.getByRole('button', { name: copy.session.loadOlder, exact: true })
-    await loadOlder.click()
+    await scrollToHistoryTop(page)
     await expect(viewport.locator('.lumen-conversation-virtual')).toHaveAttribute(
       'data-hbar-app-ui-message-count',
       '120',
     )
-    await loadOlder.click()
+    await scrollToHistoryTop(page)
     await expect(viewport.locator('.lumen-conversation-virtual')).toHaveAttribute(
       'data-hbar-app-ui-message-count',
       '180',

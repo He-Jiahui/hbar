@@ -23,6 +23,8 @@
     "./commands/configuration": "./src/commands/configuration.ts",
     "./commands/git": "./src/commands/git.ts",
     "./commands/files": "./src/commands/files.ts",
+    "./commands/resources": "./src/commands/resources.ts",
+    "./resources": "./src/resources.ts",
     "./commands/file-workspace": "./src/commands/file-workspace.ts",
     "./commands/extensions": "./src/commands/extensions.ts",
     "./commands/skill-import": "./src/commands/skill-import.ts",

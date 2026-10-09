@@ -10,6 +10,9 @@ export {
   type ImageArtifactMime,
 } from './image-artifacts'
 export { createDirectoryQueryAdapter } from './directory'
+export { createResourceCommandClient } from './resources'
+import { readResourceMedia } from './resources'
+import type { ResourceReadInput } from '@hbar/contracts/commands/resources'
 export { createSessionSearchCommandClient } from './session-search'
 export { createNotificationCommandClient } from './notifications'
 export { createPromptTemplateCommandClient } from './prompt-templates'
@@ -345,6 +348,13 @@ export class HbarClient implements ClientTransport {
   }
   readImageArtifact(ref: ArtifactRef, options?: ImageArtifactReadOptions): Promise<ImageArtifactBytes> {
     return this.imageArtifacts.read(ref, options)
+  }
+  async readResourceMedia(input: ResourceReadInput, signal: AbortSignal): Promise<Blob> {
+    const token = this.token
+    const host = this.connectionHost()?.instanceId
+    const media = await readResourceMedia(this.baseUrl, token, input, signal)
+    if (this.token !== token || this.connectionHost()?.instanceId !== host) throw new HbarError('DISCONNECTED', 'Resource owner changed')
+    return media
   }
   disconnect() {
     this.closed = true

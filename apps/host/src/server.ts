@@ -20,6 +20,7 @@ import {
   createSessionBranchTargetCommands,
   createBudgetCommands,
   createFileCommands,
+  createResourceCommands,
   createGoalPlanCommands,
   createInteractionCommands,
   createModelCommands,
@@ -54,6 +55,7 @@ import { sessionLaunchTargetCommands as sessionLaunchTargetDefinitions } from '@
 import { sessionLaunchBranchesCommands as sessionLaunchBranchesDefinitions } from '@hbar/contracts/commands/session-launch-branches'
 import { sessionBranchTargetCommands as sessionBranchTargetDefinitions } from '@hbar/contracts/commands/session-branch-target'
 import { fileCommands as fileDefinitions } from '@hbar/contracts/commands/files'
+import { resourceCommands as resourceDefinitions } from '@hbar/contracts/commands/resources'
 import { extensionCommands as extensionDefinitions } from '@hbar/contracts/commands/extensions'
 import { goalPlanCommands as goalPlanDefinitions } from '@hbar/contracts/commands/goals'
 import { interactionCommands as interactionDefinitions } from '@hbar/contracts/commands/interaction'
@@ -274,6 +276,12 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     settingsService,
     createChatDatabaseFileScanner(kernel.options.layout),
   )
+  const resourceCommands = createResourceCommands(kernel.storage, resolveExecutionProvider(kernel), {
+    resolveWorkspacePath: (workspaceId, path, signal) => kernel.workspaceSandboxes.prepare(workspaceId, path, signal),
+    resolveSessionPath: (sessionId, workspacePath, signal) => kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
+  }, [kernel.options.layout.settings, kernel.options.layout.artifacts, kernel.options.layout.sessions,
+    kernel.options.layout.databases, kernel.options.layout.connectionFile,
+    kernel.options.layout.hostLock, kernel.options.layout.diagnostics])
   const chatDatabaseArtifactReferences = createChatDatabaseArtifactReferenceService(kernel.storage, kernel.options.layout.settings)
   const chatDatabaseResources = createChatDatabaseResourceService(kernel.storage, kernel.options.layout, chatDatabaseArtifactReferences, {
     protectedRoots: () => kernel.plugins.protectedResourceRoots(),
@@ -392,6 +400,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     { definitions: sessionBranchTargetDefinitions, service: sessionBranchTargetCommands },
     { definitions: budgetDefinitions, service: budgetCommands },
     { definitions: fileDefinitions, service: fileCommands },
+    { definitions: resourceDefinitions, service: resourceCommands },
     { definitions: goalPlanDefinitions, service: goalPlanCommands },
     { definitions: interactionDefinitions, service: interactionCommands },
     { definitions: modelDefinitions, service: modelCommands },
@@ -1413,6 +1422,16 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
               ),
             )
           }
+          if (url.pathname === '/api/resource-media' && request.method === 'POST') {
+            const body = await request.text()
+            if (body.length > 24_000) throw new HbarError('INVALID_INPUT', 'Resource request is oversized')
+            const media = await resourceCommands.readMedia(JSON.parse(body), request.signal)
+            return response(request, new Blob([new Uint8Array(media.bytes)], { type: media.mime }), 200, {
+              'Content-Type': media.mime, 'Cache-Control': 'no-store',
+              'Content-Security-Policy': "default-src 'none'; sandbox",
+              'X-Content-Type-Options': 'nosniff',
+            })
+          }
           const match = /^\/api\/artifacts\/([a-f0-9]{64})$/.exec(url.pathname)
           if (match && request.method === 'GET') {
             const artifact = await kernel.storage.call('artifact', match[1]!)
@@ -1560,6 +1579,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       await sessionSearchCommands.dispose()
       budgetCommands.dispose()
       fileCommands.dispose()
+      resourceCommands.dispose()
       goalPlanCommands.dispose()
       workflowCommands.dispose()
       interactionCommands.dispose()

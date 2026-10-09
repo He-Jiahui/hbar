@@ -8,6 +8,7 @@ import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { openSessionTool } from './support/session-tools-menu'
+import { scrollToHistoryTop } from './support/session-history-scroll'
 
 const origin = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 45157}`
 const port = Number(process.env.HBAR_E2E_HOST_PORT ?? 45158)
@@ -439,7 +440,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expect(find.count).toHaveText('0')
         await expect(find.bar).toContainText(copy.session.find.older)
         expect(fixture.requests.filter((request) => request === 'session.snapshot')).toHaveLength(snapshotsBefore)
-        await page.getByRole('button', { name: copy.session.loadOlder, exact: true }).click()
+        await scrollToHistoryTop(page)
         await expect(page.locator('[data-hbar-app-ui-list-strategy="virtualized"]')).toHaveAttribute(
           'data-hbar-app-ui-message-count',
           '120',

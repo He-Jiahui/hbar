@@ -369,6 +369,46 @@ test('timeline follows the selected session incrementally and rejects stale or m
   }
 })
 
+test('timeline stops older page requests at its 1,000-message bound', async () => {
+  const messages = Array.from({ length: 1_100 }, (_, index) => ({
+    id: `bounded-${index + 1}`,
+    sessionId: 'session-one',
+    runId: `run-${index + 1}`,
+    role: 'assistant' as const,
+    content: [{ type: 'text' as const, text: 'History' }],
+    seq: index + 1,
+    createdAt: index + 1,
+  }))
+  let reads = 0
+  const timeline: SessionTimelinePort = {
+    async snapshot(sessionId, before, limit = 60) {
+      reads++
+      const candidates = messages.filter((message) => message.seq < (before ?? Number.MAX_SAFE_INTEGER))
+      const page = candidates.slice(-limit)
+      return { ...snapshot(sessionId, 1_100, 'unused'), messages: page, hasOlder: candidates.length > page.length }
+    },
+    async watch() {
+      return () => undefined
+    },
+  }
+  const runtime = createAppRuntime({ instanceId: 'bounded-history', hostId: 'host', directory: directory(), timeline })
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: 'session-one' })
+    await waitFor(() => runtime.view.state.timeline.getSnapshot().status === 'ready')
+    for (let page = 0; page < 16; page++)
+      await runtime.view.commands.execute('timeline.loadOlder', { sessionId: 'session-one' })
+    expect(runtime.view.state.timeline.getSnapshot()).toMatchObject({ olderStatus: 'limit', hasOlder: true })
+    expect(runtime.view.state.timeline.getSnapshot().messages).toHaveLength(1_000)
+    const before = reads
+    expect(await runtime.view.commands.execute('timeline.loadOlder', { sessionId: 'session-one' })).toMatchObject({
+      loaded: 0,
+    })
+    expect(reads).toBe(before)
+  } finally {
+    runtime.dispose()
+  }
+})
+
 test('timeline pages older history, preserves cached content on reconnect, and ignores work for old selections', async () => {
   const messages = Array.from({ length: 180 }, (_, index) => ({
     id: `history-${index + 1}`,
