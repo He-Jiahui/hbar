@@ -43,6 +43,7 @@ import type { QueuedUserRunsInput, QueuedUserRunsPage } from '@hbar/contracts/co
 import type { UsageReadInput, UsageReadPage } from '@hbar/usage'
 import type { GoalHistoryInput, GoalHistoryPage } from '@hbar/contracts/commands/goal-history'
 import type { NotificationStorage } from './notifications'
+import type { createChatDatabaseProjection } from './chat-database-projection'
 import type { SessionBranchExecutionRoot, SessionBranchTargetIntent, SessionBranchTargetIdentity, SessionBranchTargetRecord } from './session-branch-target'
 import type { SessionBranchTargetOperation } from '@hbar/contracts/commands/session-branch-target'
 import type { createWorkspaceFolderStorage, WorkspaceFolderStorageMutation } from './workspace-folders'
@@ -265,6 +266,9 @@ export interface StoredSettings {
 }
 
 export interface StorageMethods {
+  chatDatabaseUsageBackfill: ReturnType<typeof createChatDatabaseProjection>['backfill']
+  chatDatabaseUsage: ReturnType<typeof createChatDatabaseProjection>['usage']
+  chatDatabaseArtifactPage: ReturnType<typeof createChatDatabaseProjection>['artifactPage']
   notificationPage: NotificationStorage['page']
   notificationBySourceEvent: NotificationStorage['bySourceEvent']
   insertNotification: NotificationStorage['insert']

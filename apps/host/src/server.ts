@@ -26,6 +26,8 @@ import {
   createModelSettingsValidator,
   createRunCommands,
   createSettingsCommands,
+  createChatDatabaseCommands,
+  createChatDatabaseStatisticsService,
   createUsageCommands,
   createWorkflowCommands,
   createScheduleCommands,
@@ -56,6 +58,8 @@ import {
   runCommands as runDefinitions,
 } from '@hbar/contracts/commands/run'
 import { settingsCommands as settingsDefinitions } from '@hbar/contracts/commands/settings'
+import { chatDatabaseCommands as chatDatabaseDefinitions } from '@hbar/contracts/commands/chat-database'
+import { createChatDatabaseFileScanner } from '@hbar/storage'
 import { systemCommands as systemDefinitions } from '@hbar/contracts/commands/system'
 import { usageCommands as usageDefinitions } from '@hbar/contracts/commands/usage'
 import { workflowCommands as workflowDefinitions } from '@hbar/contracts/commands/workflows'
@@ -260,6 +264,12 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const modelCommands = createModelCommands(kernel, settingsService)
   const runCommands = createRunCommands(kernel)
   const settingsCommands = createSettingsCommands(settingsService)
+  const chatDatabaseStatistics = createChatDatabaseStatisticsService(
+    kernel.storage,
+    settingsService,
+    createChatDatabaseFileScanner(kernel.options.layout),
+  )
+  const chatDatabaseCommands = createChatDatabaseCommands(chatDatabaseStatistics)
   const usageCommands = createUsageCommands(
     new UsageService({ read: (input) => kernel.storage.call('usageEvents', input) }),
   )
@@ -368,6 +378,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     { definitions: metricsDefinitions, service: metricsCommands },
     { definitions: runDefinitions, service: runCommands },
     { definitions: settingsDefinitions, service: settingsCommands },
+    { definitions: chatDatabaseDefinitions, service: chatDatabaseCommands },
     { definitions: usageDefinitions, service: usageCommands },
     { definitions: workflowDefinitions, service: workflowCommands },
     { definitions: scheduleDefinitions, service: scheduleCommands },
@@ -1531,6 +1542,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       performance.stop()
       runCommands.dispose()
       settingsCommands.dispose()
+      chatDatabaseCommands.dispose()
+      await chatDatabaseStatistics.close()
       usageCommands.dispose()
       await scheduleController.close()
       unsubscribe()

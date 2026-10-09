@@ -2,6 +2,7 @@ import { extensionDetailCopy } from './extension-detail-copy'
 import { extensionSkillCopy } from './extension-skill-copy'
 import { fileWorkspaceCopy, fileWorkspaceErrorCopy } from './file-workspace-copy'
 import { settingsUsageCopy } from './settings-usage-copy'
+import { resolveChatDatabaseSettingCopy } from './chat-database-settings-copy'
 import { createSessionRequestLabels } from './session-request-copy'
 import { goalLifecycleCopy, goalHistoryCopy } from './goal-lifecycle-copy'
 import type { AgentProfileId } from '@hbar/contracts/commands/agents'
@@ -662,7 +663,7 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
             ? choose('请等待当前设置操作结束后重试。', 'Wait for the current settings operation before retrying.')
             : choose('未能开始读取选项，请重试。', 'Could not reload the options. Try again.'),
     },
-    resolve: (key) => messages[key] ?? key,
+    resolve: (key) => resolveChatDatabaseSettingCopy(locale, key) ?? messages[key] ?? key,
     form: {
       reset: choose('恢复已保存值', 'Restore saved value'),
       loading: choose('正在加载选项…', 'Loading options…'),

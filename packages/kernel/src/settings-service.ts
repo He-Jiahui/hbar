@@ -1,6 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { HbarError } from '@hbar/contracts'
 import { DEFAULT_SANDBOX_PROFILE_ID } from '@hbar/contracts/sandbox'
+import { chatDatabaseSettingsFields } from '@hbar/contracts/commands/chat-database'
+import { resolveChatDatabasePolicy } from './chat-database-policy'
 import {
   COMPACTION_PERCENT_SETTING,
   DEFAULT_COMPACTION_PERCENT,
@@ -49,8 +51,10 @@ export const HBAR_SETTINGS_DESCRIPTION: SettingsDescription = freeze(
       { id: 'session', labelKey: 'i18n:settings.groups.session', order: 20 },
       { id: 'providers', labelKey: 'i18n:settings.groups.providers', order: 30 },
       { id: 'extensions', labelKey: 'i18n:settings.groups.extensions', order: 40 },
+      { id: 'chatDatabase', labelKey: 'i18n:settings.groups.chatDatabase', order: 38 },
     ],
     fields: [
+      ...chatDatabaseSettingsFields,
       {
         path: path('client.chatSendBehavior'),
         type: 'string',
@@ -401,6 +405,7 @@ export class SettingsService {
     } catch (error) {
       translate(error)
     }
+    resolveChatDatabasePolicy(resolution)
     await this.validateCandidate?.({ scope: input.scope, changes: input.changes, resolution })
     const receipt = await this.storage.call('commitSettings', {
       actorId: input.actorId,

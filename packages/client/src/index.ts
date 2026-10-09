@@ -24,6 +24,7 @@ export { createSessionTimelineClient, type SessionTimelineTransport } from './se
 export { registerSurfaceClient, type SurfaceClientOptions } from './surfaces'
 export { createSchemaCallbackClient } from './schema-content'
 export { createSettingsCommandClient } from './settings'
+export { createChatDatabaseCommandClient } from './chat-database'
 export { createSystemCommandClient } from './system'
 export { createUsageCommandClient } from './usage'
 export { createInteractionCommandClient, createInteractionRecoveryClient } from './interaction'

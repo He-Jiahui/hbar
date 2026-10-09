@@ -44,6 +44,7 @@ import { promptTemplateCommands } from './prompt-templates'
 import { runBoardCommands } from './run-board'
 import { scheduleCommands } from './schedules'
 import { sandboxCommands } from './sandbox'
+import { chatDatabaseCommands } from './chat-database'
 import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
 import {
   workspaceSchema,
@@ -266,6 +267,7 @@ export { promptTemplateCommands } from './prompt-templates'
 export { runBoardCommands } from './run-board'
 export { scheduleCommands } from './schedules'
 export { sandboxCommands } from './sandbox'
+export { chatDatabaseCommands } from './chat-database'
 export { clientPersistenceCommands } from './client-persistence'
 export { terminalApplicationCommands } from './terminal-application'
 export { sessionTimelineCommands } from './session-timeline'
@@ -330,6 +332,7 @@ export const applicationCommands = {
   ...runBoardCommands,
   ...scheduleCommands,
   ...sandboxCommands,
+  ...chatDatabaseCommands,
   ...clientPersistenceCommands,
   ...terminalApplicationCommands,
   ...sessionTimelineCommands,

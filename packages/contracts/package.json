@@ -44,6 +44,7 @@
     "./commands/run-action": "./src/commands/run-action.ts",
     "./commands/sandbox": "./src/commands/sandbox.ts",
     "./commands/settings": "./src/commands/settings.ts",
+    "./commands/chat-database": "./src/commands/chat-database.ts",
     "./commands/status-workspace": "./src/commands/status-workspace.ts",
     "./commands/client-persistence": "./src/commands/client-persistence.ts",
     "./commands/terminal-application": "./src/commands/terminal-application.ts",

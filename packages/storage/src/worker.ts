@@ -83,6 +83,8 @@ import { createWorkspaceOrganizationStorage, WORKSPACE_ORGANIZATION_SQL } from '
 import { createWorkspaceDisplayNamesStorage, WORKSPACE_DISPLAY_NAMES_SQL } from './workspace-display-names.ts'
 import { createWorkspaceFolderStorage, WORKSPACE_FOLDERS_SQL } from './workspace-folders'
 import { createSessionSearchStorage, SESSION_SEARCH_SQL } from './session-search.ts'
+import { CHAT_DATABASE_SQL } from './chat-database-schema'
+import { createChatDatabaseProjection } from './chat-database-projection'
 import {
   createSessionLaunchTargetStorage,
   SESSION_LAUNCH_TARGET_RESOLUTION_SQL,
@@ -137,7 +139,7 @@ const WORKSPACE_ACTIVITY_SQL = `
     AFTER DELETE ON sessions
     BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
 `
-const LATEST_SCHEMA_VERSION = 22
+const LATEST_SCHEMA_VERSION = 23
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
 if (schemaVersion > LATEST_SCHEMA_VERSION) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
@@ -346,6 +348,7 @@ for (const [version, sql] of [
   [20, WORKSPACE_FOLDERS_SQL],
   [21, SESSION_BRANCH_TARGET_SQL],
   [22, SESSION_BRANCH_TARGET_BRANCH_SQL],
+  [23, CHAT_DATABASE_SQL],
 ] as const) {
   if (schemaVersion >= version) continue
   db.transaction(() => {
@@ -376,6 +379,7 @@ const sessionSearch = createSessionSearchStorage(
   db,
   () => new Map(workspaceDisplayNames.read().entries.map((entry) => [entry.workspaceId, entry.displayName])),
 )
+const chatDatabaseProjection = createChatDatabaseProjection(db)
 const sessionLaunchTarget = createSessionLaunchTargetStorage(db)
 const sessionBranchTarget = createSessionBranchTargetStorage(db, (sessionId) => sessionLaunchTarget.read(sessionId).revision)
 const sessionLaunchTargetPreparations = createSessionLaunchTargetPreparationStorage(db)
@@ -1007,6 +1011,9 @@ function appendEvent(
   return event
 }
 const methods: StorageMethods = {
+  chatDatabaseUsageBackfill: chatDatabaseProjection.backfill,
+  chatDatabaseUsage: chatDatabaseProjection.usage,
+  chatDatabaseArtifactPage: chatDatabaseProjection.artifactPage,
   ready: () => ({ version: LATEST_SCHEMA_VERSION }),
   notificationPage: (input) => notifications.page(input),
   notificationBySourceEvent: (sourceEventId) => notifications.bySourceEvent(sourceEventId),
