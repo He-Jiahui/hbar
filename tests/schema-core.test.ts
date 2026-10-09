@@ -46,6 +46,21 @@ function fixture() {
   return { form, components, unregisterNumber }
 }
 
+test('numeric picker values retain typed numbers while invalid values keep the last valid draft', () => {
+  const { form } = fixture()
+  let state = createForm(form, { sessionId: 'target', tokens: 100 })
+  state = setField(form, state, 'tokens', 250)
+  expect(state.draft.tokens).toBe(250)
+  expect(state.raw).toEqual({})
+  expect(state.issues).toEqual([])
+  state = setField(form, state, 'tokens', 1001)
+  expect(state.draft.tokens).toBe(250)
+  expect(state.issues).toEqual([{ field: 'tokens', code: 'invalid' }])
+  state = setField(form, state, 'tokens', '300')
+  expect(state.draft.tokens).toBe(300)
+  expect(state.raw).toEqual({})
+})
+
 test('compiled form keeps target read-only, preserves numeric intermediate states and validates ranges', () => {
   const { form } = fixture()
   let state = createForm(form, { sessionId: 'original-session', tokens: 100, expectedRevision: null })

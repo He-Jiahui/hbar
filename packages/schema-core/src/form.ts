@@ -146,9 +146,11 @@ export function setField(form: CompiledForm, state: FormState, name: string, val
   let parsed: unknown = itemValueArray(value) ? Object.freeze([...value]) : value
   if (!field.multiple && value !== null && field.type !== 'string' && field.type !== 'boolean') {
     parsed =
-      typeof value === 'string' && value.trim() !== '' && /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(value)
-        ? Number(value)
-        : undefined
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string' && value.trim() !== '' && /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(value)
+          ? Number(value)
+          : undefined
   }
   if (parsed !== undefined && validValue(field, parsed)) {
     draft[name] = parsed
