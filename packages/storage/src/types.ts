@@ -47,6 +47,8 @@ import type { createChatDatabaseProjection } from './chat-database-projection'
 import type { createChatDatabaseArtifactStorage } from './chat-database-artifacts'
 import type { createChatDatabaseResourceLedger } from './chat-database-resource-ledger'
 import type { createChatDatabaseJournal } from './chat-database-journal'
+import type { createChatDatabaseAutomaticPlan } from './chat-database-automatic-plan'
+import type { createChatDatabaseTaskStorage } from './chat-database-tasks'
 import type { createChatDatabaseDeletionStorage } from './chat-database-deletion'
 import type { SessionBranchExecutionRoot, SessionBranchTargetIntent, SessionBranchTargetIdentity, SessionBranchTargetRecord } from './session-branch-target'
 import type { SessionBranchTargetOperation } from '@hbar/contracts/commands/session-branch-target'
@@ -312,6 +314,12 @@ export interface StorageMethods {
   chatDatabaseHistory: ReturnType<typeof createChatDatabaseJournal>['history']
   chatDatabasePending: ReturnType<typeof createChatDatabaseJournal>['pending']
   chatDatabasePreviewReset: ReturnType<typeof createChatDatabaseJournal>['resetPreview']
+  chatDatabaseAutomaticPlanStep: ReturnType<typeof createChatDatabaseAutomaticPlan>['step']
+  chatDatabaseAutomaticPlanRead: ReturnType<typeof createChatDatabaseAutomaticPlan>['read']
+  chatDatabaseAutomaticPlanPage: ReturnType<typeof createChatDatabaseAutomaticPlan>['page']
+  chatDatabaseTaskScopes: ReturnType<typeof createChatDatabaseTaskStorage>['scopes']
+  chatDatabaseTaskRead: ReturnType<typeof createChatDatabaseTaskStorage>['get']
+  chatDatabaseTaskSave: ReturnType<typeof createChatDatabaseTaskStorage>['save']
   chatDatabaseDeleteSession: ReturnType<typeof createChatDatabaseDeletionStorage>['remove']
   notificationPage: NotificationStorage['page']
   notificationBySourceEvent: NotificationStorage['bySourceEvent']

@@ -4,11 +4,13 @@ import { chatDatabaseCommands } from '@hbar/contracts/commands/chat-database'
 import type { ChatDatabaseStatisticsService } from './chat-database-statistics'
 import type { ChatDatabaseMaintenanceService } from './chat-database-maintenance'
 import type { ChatDatabaseArtifactReferenceService } from './chat-database-artifact-references'
+import type { ChatDatabaseScheduler } from './chat-database-scheduler'
 
 export function createChatDatabaseCommands(
   statistics: ChatDatabaseStatisticsService,
   maintenance: ChatDatabaseMaintenanceService,
   artifacts: ChatDatabaseArtifactReferenceService,
+  scheduler: ChatDatabaseScheduler,
 ) {
   const registry = new CommandRegistry({ execution: 'host', maxConcurrent: 8 })
   const checked = async <Value>(action: () => Promise<Value>): Promise<Value> => {
@@ -79,6 +81,7 @@ export function createChatDatabaseCommands(
     { durable: true },
   )
   registry.register(chatDatabaseCommands['chatDatabase.history'], (input) => checked(() => maintenance.history(input)))
+  registry.register(chatDatabaseCommands['chatDatabase.task'], (input) => checked(() => scheduler.get(input.scope)))
   registry.register(chatDatabaseCommands['chatDatabase.statistics'], async (input) => {
     try {
       return await statistics.get(input.scope, input.refresh)

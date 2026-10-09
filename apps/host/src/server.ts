@@ -32,6 +32,7 @@ import {
   createChatDatabaseArtifactReferenceService,
   createChatDatabaseResourceService,
   createChatDatabaseDatabaseService,
+  createChatDatabaseScheduler,
   createUsageCommands,
   createWorkflowCommands,
   createScheduleCommands,
@@ -287,7 +288,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     removeSession: (input) => kernel.removeChatDatabaseSession(input),
     deleted: (ids, revision) => kernel.notifyChatDatabaseDeleted(ids, revision),
   }, chatDatabaseResources, chatDatabaseDatabase)
-  const chatDatabaseCommands = createChatDatabaseCommands(chatDatabaseStatistics, chatDatabaseMaintenance, chatDatabaseArtifactReferences)
+  const chatDatabaseScheduler = createChatDatabaseScheduler(kernel.storage, settingsService, chatDatabaseStatistics, chatDatabaseMaintenance)
+  const chatDatabaseCommands = createChatDatabaseCommands(chatDatabaseStatistics, chatDatabaseMaintenance, chatDatabaseArtifactReferences, chatDatabaseScheduler)
   const usageCommands = createUsageCommands(
     new UsageService({ read: (input) => kernel.storage.call('usageEvents', input) }),
   )
@@ -1567,6 +1569,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       runCommands.dispose()
       settingsCommands.dispose()
       chatDatabaseCommands.dispose()
+      await chatDatabaseScheduler.close()
       await chatDatabaseMaintenance.close()
       await chatDatabaseArtifactReferences.close()
       await chatDatabaseStatistics.close()

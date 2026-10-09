@@ -7,6 +7,7 @@ import {
 } from './chat-database-sources'
 import { CHAT_DATABASE_ARTIFACT_SQL } from './chat-database-artifact-schema'
 import { CHAT_DATABASE_RESOURCE_SQL } from './chat-database-resource-schema'
+import { CHAT_DATABASE_AUTOMATIC_PLAN_SQL } from './chat-database-automatic-plan'
 
 const recordTriggers = chatDatabaseProjectionSources
   .map((source) => {
@@ -86,4 +87,5 @@ export const CHAT_DATABASE_SQL = `
   ${recordTriggers}
   ${CHAT_DATABASE_ARTIFACT_SQL}
   ${CHAT_DATABASE_RESOURCE_SQL}
+  ${CHAT_DATABASE_AUTOMATIC_PLAN_SQL}
 `

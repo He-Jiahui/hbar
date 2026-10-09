@@ -29,6 +29,7 @@ export const chatDatabaseSkipReasonSchema = z.enum([
   'fileChanged',
   'policyChanged',
   'capacityUnreachable',
+  'capacityTarget',
 ])
 export type ChatDatabaseSkipReason = z.output<typeof chatDatabaseSkipReasonSchema>
 export const chatDatabaseResourceSchema = z.strictObject({
@@ -80,7 +81,7 @@ export const chatDatabaseOperationSchema = z.strictObject({
   reusableDatabaseBytes: count,
   remainingBytes: count.nullable(),
   targetBytes: count.nullable(),
-  skipped: z.array(z.strictObject({ code: chatDatabaseSkipReasonSchema, count })).max(24),
+  skipped: z.array(z.strictObject({ code: chatDatabaseSkipReasonSchema, count })).max(25),
   cancellationRequested: z.boolean(),
   error: z.string().max(160).nullable(),
 })

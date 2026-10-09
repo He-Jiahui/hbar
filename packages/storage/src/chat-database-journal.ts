@@ -13,10 +13,12 @@ import {
 } from '@hbar/contracts/commands/chat-database'
 import { createFeatureCommandReceipts, type FeatureWriteIdentity } from './feature-command-receipts'
 import { chatDatabaseSessionProtection } from './chat-database-deletion'
+import { createChatDatabaseTaskStorage, type ChatDatabaseTaskRuntime } from './chat-database-tasks'
 
 export interface ChatDatabaseOperationStart extends FeatureWriteIdentity {
   operation: ChatDatabaseOperation
   request: string
+  taskRuntime?: ChatDatabaseTaskRuntime
 }
 export type ChatDatabaseOperationPatch = Partial<
   Pick<
@@ -34,6 +36,7 @@ export type ChatDatabaseOperationPatch = Partial<
     | 'reclaimedBytes'
     | 'reusableDatabaseBytes'
     | 'remainingBytes'
+    | 'targetBytes'
     | 'skipped'
     | 'error'
     | 'cancellationRequested'
@@ -51,6 +54,7 @@ const terminal = (operation: ChatDatabaseOperation) => ['completed', 'cancelled'
 
 export function createChatDatabaseJournal(db: Database) {
   const receipts = createFeatureCommandReceipts(db)
+  const tasks = createChatDatabaseTaskStorage(db)
   const decode = (row: { dataJson: string } | null): ChatDatabaseOperation | null =>
     row ? chatDatabaseOperationSchema.parse(JSON.parse(row.dataJson)) : null
   function read(operationId: string): ChatDatabaseOperation {
@@ -105,7 +109,7 @@ export function createChatDatabaseJournal(db: Database) {
           JSON.stringify(operation),
           operation.updatedAt,
         )
-        if (operation.type === 'preview')
+        if (operation.type === 'preview' || operation.previewId === operation.operationId)
           db.query('INSERT INTO chat_database_previews VALUES(?,?,?,?,?,?,?,?)').run(
             operation.operationId,
             input.actorId,
@@ -116,6 +120,7 @@ export function createChatDatabaseJournal(db: Database) {
             0,
             '{}',
           )
+        if (input.taskRuntime) tasks.save({ ...input.taskRuntime, lastOperationId: operation.operationId })
         return { operation, created: true }
       })
       .immediate()

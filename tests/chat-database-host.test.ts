@@ -3,10 +3,84 @@ import { Database } from 'bun:sqlite'
 import { lstat, mkdtemp, rm, utimes, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { Kernel, MemorySecrets } from '@hbar/kernel'
+import { Kernel, MemorySecrets, SettingsService } from '@hbar/kernel'
 import { HbarClient, createChatDatabaseCommandClient, createSettingsCommandClient } from '@hbar/client'
 import { startServer } from '../apps/host/src/server'
 import type { ChatDatabaseOperation } from '@hbar/contracts/commands/chat-database'
+
+test('Host startup executes saved capacity rules, reclaims cache first and exposes the durable automatic task through Client SDK', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-chat-auto-host-'))
+  const kernel = await Kernel.create({
+    home: join(root, 'home'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  let host: Awaited<ReturnType<typeof startServer>> | undefined
+  let client: HbarClient | undefined
+  try {
+    const settings = new SettingsService(kernel.storage)
+    const saved = await settings.get({ kind: 'global' })
+    await settings.apply({
+      actorId: 'fixture',
+      idempotencyKey: 'enable-quota',
+      schemaVersion: 1,
+      scope: { kind: 'global' },
+      baselineRevisions: saved.revisions,
+      changes: [
+        { op: 'set', path: [{ kind: 'field', name: 'chatDatabase.autoEnabled' }], value: true },
+        { op: 'set', path: [{ kind: 'field', name: 'chatDatabase.scheduleEnabled' }], value: false },
+        { op: 'set', path: [{ kind: 'field', name: 'chatDatabase.capacityEnabled' }], value: true },
+        { op: 'set', path: [{ kind: 'field', name: 'chatDatabase.capacityLimitMiB' }], value: 10 },
+      ],
+    })
+    const workspace = await kernel.storage.call('createWorkspace', root, 'cache priority')
+    const chat = await kernel.storage.call('createSession', workspace.id, 'retained after cache target')
+    await kernel.storage.call('commit', chat.id, 'fixture', 'user', [{ type: 'text', text: 'retained content' }])
+    await kernel.storage.call('updateSession', chat.id, { archived: true })
+    while (!(await kernel.storage.call('chatDatabaseUsageBackfill', 250)).complete) {
+      /* batch */
+    }
+    const db = new Database(kernel.options.layout.database, { strict: true })
+    db.query('UPDATE chat_database_usage SET lastActivityAt=? WHERE sessionId=?').run(
+      Date.now() - 100 * 86_400_000,
+      chat.id,
+    )
+    db.close()
+    const cache = join(kernel.options.layout.cache.markdown, 'capacity-preview.bin')
+    await writeFile(cache, new Uint8Array(12 * 1_048_576))
+    await utimes(cache, 0, 0)
+    host = await startServer(kernel, { port: 0 })
+    client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
+    await client.pair(host.pairing.code, 'automatic task monitor')
+    const commands = createChatDatabaseCommandClient(client)
+    let task = await commands.execute('chatDatabase.task', { scope: { kind: 'global' } })
+    for (let attempt = 0; attempt < 500 && task.operation?.status !== 'completed'; attempt++) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 5))
+      task = await commands.execute('chatDatabase.task', { scope: { kind: 'global' } })
+    }
+    expect(task).toMatchObject({
+      autoEnabled: true,
+      scheduleEnabled: false,
+      nextDueAt: null,
+      operation: { status: 'completed', trigger: 'capacity', deletedCount: 1, reclaimedBytes: 12 * 1_048_576 },
+    })
+    expect(task.operation?.remainingBytes).toBeLessThanOrEqual(Math.floor(10 * 1_048_576 * 0.9))
+    expect(await kernel.storage.call('findSession', chat.id)).not.toBeNull()
+    expect(
+      await lstat(cache).then(
+        () => null,
+        (reason: unknown) => reason,
+      ),
+    ).toMatchObject({ code: 'ENOENT' })
+    expect((await commands.execute('chatDatabase.history', { scope: { kind: 'global' } })).items).toHaveLength(1)
+  } finally {
+    client?.disconnect()
+    await host?.close()
+    await kernel.close()
+    await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+  }
+})
 
 test('paired Host commands reclaim only known cache bytes and preserve an attachment owned by an offline draft', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-chat-database-resources-host-'))

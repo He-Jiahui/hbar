@@ -7,6 +7,8 @@ import type { ChatDatabaseDeleteInput, ChatDatabaseDeleteResult, ChatDatabaseRes
 import type { ChatDatabaseResourceRequest } from './chat-database-resources'
 import type { ChatDatabaseSkipReason } from '@hbar/contracts/commands/chat-database'
 export { createChatDatabaseMaintenanceService } from './chat-database-maintenance'
+export { createChatDatabaseScheduler, chatDatabaseCapacitySignature } from './chat-database-scheduler'
+export type { ChatDatabaseScheduler } from './chat-database-scheduler'
 export { createChatDatabaseArtifactReferenceService } from './chat-database-artifact-references'
 export type { ChatDatabaseArtifactReferenceService } from './chat-database-artifact-references'
 export type { ChatDatabaseMaintenanceService, ChatDatabaseCleanupDomainPort } from './chat-database-maintenance'

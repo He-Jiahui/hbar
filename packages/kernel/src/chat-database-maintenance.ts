@@ -15,12 +15,14 @@ import type {
   ChatDatabaseDeleteResult,
   ChatDatabaseCandidateCursor,
   ChatDatabaseCandidatePage,
+  ChatDatabaseTaskRuntime,
 } from '@hbar/storage'
 import type { SettingsService } from './settings-service'
 import type { ChatDatabaseStatisticsService } from './chat-database-statistics'
 import { resolveChatDatabasePolicy } from './chat-database-policy'
 import type { ChatDatabaseResourcePort } from './chat-database-resources'
 import type { ChatDatabaseDatabasePort } from './chat-database-database'
+import { createChatDatabaseAutomaticPlanner, type ChatDatabaseAutomaticInput } from './chat-database-automatic-plan'
 
 export interface ChatDatabaseCleanupDomainPort {
   protection(sessionId: string): ChatDatabaseSkipReason | null
@@ -90,6 +92,7 @@ export function createChatDatabaseMaintenanceService(
 ) {
   let closed = false
   let current: { id: string; controller: AbortController; task: Promise<void> } | null = null
+  const automaticPlan = createChatDatabaseAutomaticPlanner(storage, settings, statistics, domain.protection, resources)
   async function cancelled(id: string, signal: AbortSignal): Promise<boolean> {
     signal.throwIfAborted()
     return (await storage.call('chatDatabaseOperationRead', id)).cancellationRequested
@@ -364,12 +367,16 @@ export function createChatDatabaseMaintenanceService(
     if (!state.previewId) throw new HbarError('INVALID_STATE', 'Cleanup requires a fixed preview')
     const previewId = state.previewId
     const fixed = await storage.call('chatDatabaseOperationRead', previewId)
-    const resourcePolicy =
-      fixed.kind === 'sessions' ? null : resolveChatDatabasePolicy((await savedPolicy(fixed)).resolution)
+    const resourcePolicy = resources
+      ? resolveChatDatabasePolicy((await settings.get({ kind: 'global' })).resolution)
+      : null
     await storage.call('chatDatabaseOperationUpdate', id, { status: 'running', stage: 'deleting' })
     let after: number | null = state.processedCount || null
     do {
-      const page = await storage.call('chatDatabasePreviewPage', { previewId, after, limit: 50 })
+      const page =
+        fixed.trigger === 'manual'
+          ? await storage.call('chatDatabasePreviewPage', { previewId, after, limit: 50 })
+          : await storage.call('chatDatabaseAutomaticPlanPage', previewId, after, 50)
       for (let index = 0; index < page.items.length; index++) {
         const item = page.items[index]!
         if (await cancelled(id, signal)) {
@@ -387,7 +394,8 @@ export function createChatDatabaseMaintenanceService(
         if (item.eligible && item.kind !== 'sessions') {
           result = await storage.call('chatDatabaseResourceReceipt', id, item.kind, item.id)
           if (!result) {
-            if (!sameRevisions((await savedPolicy(fixed)).revisions, fixed.policyRevisions)) reason = 'policyChanged'
+            if (!sameRevisions((await settings.get({ kind: 'global' })).revisions, item.policyRevisions))
+              reason = 'policyChanged'
             if (!reason && resources && resourcePolicy)
               result = await resources.remove({
                 operationId: id,
@@ -449,10 +457,27 @@ export function createChatDatabaseMaintenanceService(
       await finishCancelled(id)
       return
     }
+    const report =
+      fixed.trigger === 'manual'
+        ? null
+        : await statistics.readComplete(fixed.scope, signal).catch((reason: unknown) => {
+            if (fixed.scope.kind !== 'global' && reason instanceof HbarError && reason.code === 'NOT_FOUND') return null
+            throw reason
+          })
+    state = await storage.call('chatDatabaseOperationRead', id)
     await storage.call('chatDatabaseOperationUpdate', id, {
       status: 'completed',
       stage: 'finished',
       completedAt: Date.now(),
+      ...(fixed.trigger === 'manual'
+        ? {}
+        : {
+            remainingBytes: report?.totalBytes ?? 0,
+            skipped:
+              state.targetBytes !== null && report && report.totalBytes > state.targetBytes
+                ? addSkip(state.skipped, 'capacityUnreachable')
+                : state.skipped,
+          }),
     })
     await statistics.get({ kind: 'global' }, true)
   }
@@ -468,7 +493,9 @@ export function createChatDatabaseMaintenanceService(
     const task = (
       state.type === 'preview'
         ? preview(state.operationId, controller.signal)
-        : cleanup(state.operationId, controller.signal)
+        : state.trigger === 'manual'
+          ? cleanup(state.operationId, controller.signal)
+          : automatic(state, controller.signal)
     )
       .catch(async (reason: unknown) => {
         const latest = await storage.call('chatDatabaseOperationRead', state.operationId)
@@ -498,7 +525,57 @@ export function createChatDatabaseMaintenanceService(
     if (pending) launch(pending)
   })
   void ready.catch((error: unknown) => console.error('Chat database recovery failed', error))
+  async function automatic(state: ChatDatabaseOperation, signal: AbortSignal): Promise<void> {
+    const selected = await storage.call('chatDatabaseAutomaticPlanRead', state.operationId)
+    if (!selected?.complete) {
+      if (!(await automaticPlan(state, signal))) {
+        await finishCancelled(state.operationId)
+        return
+      }
+    }
+    await cleanup(state.operationId, signal)
+  }
   return {
+    async automatic(
+      input: ChatDatabaseAutomaticInput,
+      identity: WriteIdentity,
+      taskRuntime?: ChatDatabaseTaskRuntime,
+    ): Promise<ChatDatabaseOperation> {
+      await ready
+      if (closed) throw new HbarError('DISPOSED', 'Chat database maintenance is closed')
+      const prior = await storage.call('chatDatabaseOperationReceipt', identity.actorId, identity.idempotencyKey)
+      if (prior) {
+        if (
+          prior.trigger !== input.trigger ||
+          JSON.stringify(prior.scope) !== JSON.stringify(input.scope) ||
+          prior.targetBytes !== input.targetBytes
+        )
+          throw new HbarError('IDEMPOTENCY_CONFLICT', 'Automatic cleanup key was used with different rules')
+        if (taskRuntime)
+          await storage.call('chatDatabaseTaskSave', { ...taskRuntime, lastOperationId: prior.operationId })
+        return prior
+      }
+      const saved = await settings.get(input.scope)
+      const rule = resolveChatDatabasePolicy(saved.resolution)
+      if (!rule.autoEnabled || (input.trigger === 'schedule' ? !rule.scheduleEnabled : !rule.capacityEnabled))
+        throw new HbarError('AUTO_DISABLED', 'Automatic cleanup is disabled')
+      const initial = operation('cleanup', { scope: input.scope, kind: 'sessions' })
+      const accepted = await storage.call('chatDatabaseOperationAccept', {
+        ...identity,
+        operation: {
+          ...initial,
+          trigger: input.trigger,
+          previewId: initial.operationId,
+          targetBytes: input.targetBytes,
+          remainingBytes: input.totalBytes,
+          policyRevisions: saved.revisions,
+        },
+        request: JSON.stringify({ type: 'automatic', input }),
+        ...(taskRuntime ? { taskRuntime } : {}),
+      })
+      if (accepted.created) launch(accepted.operation)
+      return accepted.operation
+    },
     async preview(input: ChatDatabasePreviewInput, identity: WriteIdentity): Promise<ChatDatabaseOperation> {
       await ready
       if (closed) throw new HbarError('DISPOSED', 'Chat database maintenance is closed')

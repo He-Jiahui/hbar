@@ -86,6 +86,8 @@ import { createSessionSearchStorage, SESSION_SEARCH_SQL } from './session-search
 import { CHAT_DATABASE_SQL } from './chat-database-schema'
 import { createChatDatabaseProjection } from './chat-database-projection'
 import { createChatDatabaseJournal } from './chat-database-journal'
+import { createChatDatabaseAutomaticPlan } from './chat-database-automatic-plan'
+import { createChatDatabaseTaskStorage } from './chat-database-tasks'
 import { createChatDatabaseDeletionStorage } from './chat-database-deletion'
 import { createChatDatabaseArtifactStorage } from './chat-database-artifacts'
 import { createChatDatabaseResourceLedger } from './chat-database-resource-ledger'
@@ -394,6 +396,8 @@ const chatDatabaseResources = createChatDatabaseResourceLedger(db, sessionsRoot,
 })
 const chatDatabaseArtifacts = createChatDatabaseArtifactStorage(db, sessionsRoot, artifactsRoot, settingsRoot, chatDatabaseResources)
 const chatDatabaseJournal = createChatDatabaseJournal(db)
+const chatDatabaseAutomaticPlan = createChatDatabaseAutomaticPlan(db, chatDatabaseJournal)
+const chatDatabaseTasks = createChatDatabaseTaskStorage(db)
 const chatDatabaseDeletion = createChatDatabaseDeletionStorage(db, sessionsRoot, undefined, settingsRoot)
 const sessionLaunchTarget = createSessionLaunchTargetStorage(db)
 const sessionBranchTarget = createSessionBranchTargetStorage(db, (sessionId) => sessionLaunchTarget.read(sessionId).revision)
@@ -1090,6 +1094,12 @@ const methods: StorageMethods = {
   chatDatabaseHistory: chatDatabaseJournal.history,
   chatDatabasePending: chatDatabaseJournal.pending,
   chatDatabasePreviewReset: chatDatabaseJournal.resetPreview,
+  chatDatabaseAutomaticPlanStep: chatDatabaseAutomaticPlan.step,
+  chatDatabaseAutomaticPlanRead: chatDatabaseAutomaticPlan.read,
+  chatDatabaseAutomaticPlanPage: chatDatabaseAutomaticPlan.page,
+  chatDatabaseTaskScopes: chatDatabaseTasks.scopes,
+  chatDatabaseTaskRead: chatDatabaseTasks.get,
+  chatDatabaseTaskSave: chatDatabaseTasks.save,
   chatDatabaseDeleteSession: chatDatabaseDeletion.remove,
   chatDatabaseUsageBackfill: chatDatabaseProjection.backfill,
   chatDatabaseUsage: chatDatabaseProjection.usage,
