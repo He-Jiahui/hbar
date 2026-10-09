@@ -8,6 +8,7 @@ import { MessageMarkdown } from '../../packages/app-react/src/message-markdown'
 import type { ResourceCandidate } from '@hbar/contracts/resources'
 import { resourceCopy } from '../../apps/web/src/resource-copy'
 import { acquireResourceImage } from '../../apps/web/src/resource-image'
+import { decodeResourceImage } from './resource-image-verifier'
 import { createWebLumenAppearance, DEFAULT_WEB_APPEARANCE_DIMENSIONS } from '../../apps/web/src/appearance'
 
 const locale = new URL(location.href).searchParams.get('locale') === 'zh-CN' ? 'zh-CN' : 'en-US'
@@ -15,6 +16,12 @@ const labels = resourceCopy(locale)
 const content =
   '`src/main.ts:12` · `same.ts` · `photo.png` · `missing.ts` · `C:\\My Project\\notes.txt` · `https://example.test/page`\n\n`HbarPromptComposer` and `console.log`\n\n```ts\nsrc/main.ts:12\n```'
 const source = { workspaceId: 'fixture-w', sessionId: 'fixture-s', messageId: 'fixture-m', sourceTabInstanceKey: null }
+declare global {
+  interface Window {
+    resourceImageFixture: (input: { base64: string; mime: string }) => Promise<{ width: number; height: number }>
+  }
+}
+window.resourceImageFixture = decodeResourceImage
 function App() {
   const [opened, setOpened] = useState('')
   const [model] = useState(() => {

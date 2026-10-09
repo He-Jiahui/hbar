@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { CommandError } from '@hbar/commands'
 import { createMessageResources, type MessageResourcePort } from '@hbar/app-runtime'
 import type { ResourceCandidate } from '@hbar/contracts/resources'
 import { splitResourceReferences } from '../packages/app-react/src/message-resource-model'
@@ -56,6 +57,7 @@ function fixture() {
           releases++
         },
       }),
+    fail: () => pending.reject(new CommandError('UNSUPPORTED_IMAGE', 'Unsupported image')),
   }
 }
 test('resource segmentation retains exact prose and identifies relative images and complete quoted paths', () => {
@@ -109,4 +111,17 @@ test('missing resources and retired source owners cannot produce a preview or un
   await expect(f.model.open(source, { kind: 'file', path: 'test.ts' }, () => Promise.resolve())).rejects.toMatchObject({
     code: 'TARGET_CHANGED',
   })
+})
+test('failed media can open the revalidated target with a one-time system override and no second byte read', async () => {
+  const f = fixture()
+  f.setItems([candidate('image', 'image')])
+  const opening = f.model.open(source, { kind: 'file', path: 'test.png' }, () => Promise.resolve())
+  await Bun.sleep(0)
+  f.fail()
+  await opening
+  expect(f.model.store.getState().image).toMatchObject({ status: 'failed', error: 'UNSUPPORTED_IMAGE' })
+  await f.model.openImageSystem()
+  expect(f.opened()).toBe('image')
+  expect(f.reads()).toBe(1)
+  expect(f.model.store.getState().image).toBeNull()
 })

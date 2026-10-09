@@ -42,6 +42,7 @@ export interface MessageResourceState {
     status: 'loading' | 'ready' | 'failed'
     url: string | null
     error: string | null
+    openingSystem?: boolean
   } | null
   readonly text: { candidate: ResourceCandidate; text: string } | null
 }
@@ -80,7 +81,11 @@ export function createMessageResources(port: MessageResourcePort) {
     lease = null
     store.setState({ chooser: null, image: null, text: null })
   }
-  const openCandidate = async (intent: Intent, candidate: ResourceCandidate): Promise<void> => {
+  const openCandidate = async (
+    intent: Intent,
+    candidate: ResourceCandidate,
+    modeOverride?: ResourceOpenMode,
+  ): Promise<void> => {
     fence(intent)
     const signal = intent.controller.signal
     const fresh = await port.resolve(intent.input, signal)
@@ -89,7 +94,8 @@ export function createMessageResources(port: MessageResourcePort) {
     if (!confirmed) throw new CommandError('STALE_TARGET', 'Resource disappeared')
     const input: ResourceReadInput = { ...intent.input, candidateId: confirmed.id }
     const kind = intent.input.reference.kind === 'web' ? 'web' : 'file'
-    const mode = intent.mode ?? (confirmed.kind === 'image' ? 'internal' : await port.defaultMode(kind, signal))
+    const mode =
+      modeOverride ?? intent.mode ?? (confirmed.kind === 'image' ? 'internal' : await port.defaultMode(kind, signal))
     fence(intent)
     if (mode === 'system') {
       await port.openSystem(confirmed, signal)
@@ -189,6 +195,19 @@ export function createMessageResources(port: MessageResourcePort) {
       else await openCandidate(intent, result.candidates[0]!)
     },
     select,
+    async openImageSystem() {
+      const intent = current
+      const image = store.getState().image
+      if (!intent || !image || image.openingSystem) return
+      store.setState({ image: { ...image, openingSystem: true } })
+      try {
+        await openCandidate(intent, image.candidate, 'system')
+        if (current === intent) close()
+      } catch (error) {
+        if (current === intent && !intent.controller.signal.aborted)
+          store.setState({ image: { ...image, status: 'failed', openingSystem: false, error: errorCode(error) } })
+      }
+    },
     retryImage() {
       const intent = current
       const image = store.getState().image

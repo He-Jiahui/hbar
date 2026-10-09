@@ -1,5 +1,5 @@
 import { HbarError } from '@hbar/contracts'
-import { preflightImage } from './image-preflight'
+import { preflightResourceImage } from './resource-image-preflight'
 
 /** Terminate decoding on cancellation; don't publish a URL before validation. */
 export async function acquireResourceImage(blob: Blob, signal: AbortSignal): Promise<{ url: string; release(): void }> {
@@ -56,8 +56,9 @@ export async function acquireResourceImage(blob: Blob, signal: AbortSignal): Pro
       throw error
     }
   }
-  if (['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(blob.type))
-    preflightImage(new Uint8Array(await blob.arrayBuffer()), blob.type)
+  const bytes = new Uint8Array(await blob.arrayBuffer())
+  signal.throwIfAborted()
+  preflightResourceImage(bytes, blob.type)
   await new Promise<void>((resolve, reject) => {
     const worker = new Worker(new URL('./resource-image-worker.ts', import.meta.url), { type: 'module' })
     const timeout = setTimeout(() => finish(new HbarError('TIMEOUT', 'Image decoding timed out')), 10_000)
@@ -88,7 +89,8 @@ export async function acquireResourceImage(blob: Blob, signal: AbortSignal): Pro
     }
     worker.onerror = () => finish(new HbarError('DECODE_FAILED', 'Image decoding failed'))
     worker.onmessageerror = () => finish(new HbarError('DECODE_FAILED', 'Image decoding failed'))
-    worker.postMessage({ blob })
+    if (signal.aborted) abort()
+    else worker.postMessage({ blob })
   })
   signal.throwIfAborted()
   const url = URL.createObjectURL(blob)

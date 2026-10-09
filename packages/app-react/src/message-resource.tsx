@@ -306,7 +306,7 @@ export function HbarMessageResourceLayer({
         </LumenFrame>
       </LumenDialog>
       <LumenImageGallery
-        open={state.image !== null}
+        open={state.image !== null && state.image.status !== 'failed'}
         activeKey={state.image?.candidate.id ?? ''}
         items={state.image ? [{ key: state.image.candidate.id, name: state.image.candidate.name }] : []}
         image={
@@ -323,6 +323,31 @@ export function HbarMessageResourceLayer({
         onImageError={model.imageFailed}
         fallbackFocusRef={fallback}
       />
+      <LumenDialog
+        open={state.image?.status === 'failed'}
+        size="medium"
+        title={labels.gallery.title}
+        closeLabel={labels.close}
+        onClose={model.close}
+      >
+        <LumenText as="p">{state.image?.candidate.name}</LumenText>
+        <LumenText as="p" role="alert">
+          {labels.error(state.image?.error ?? 'READ_FAILED')}
+        </LumenText>
+        <LumenFrame className="hbar-resource-image-actions">
+          <LumenButton disabled={state.image?.openingSystem} onClick={model.retryImage}>
+            {labels.gallery.retry}
+          </LumenButton>
+          <LumenButton
+            disabled={state.image?.openingSystem}
+            onClick={() => {
+              void model.openImageSystem()
+            }}
+          >
+            {labels.system}
+          </LumenButton>
+        </LumenFrame>
+      </LumenDialog>
       <LumenDialog
         open={state.text !== null}
         size="large"

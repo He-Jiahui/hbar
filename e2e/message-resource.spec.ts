@@ -4,6 +4,8 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { build, preview, type PreviewServer } from 'vite'
 import { resourceCopy } from '../apps/web/src/resource-copy'
+import { imageResourceFixtures } from '../tests/fixtures/image-resource-fixtures'
+import { resourceImageFixtures, resourceSvgFixture } from '../tests/fixtures/resource-image-fixtures'
 const root = join(process.cwd(), 'artifacts/resource-references/browser')
 let server: PreviewServer
 test.beforeAll(async () => {
@@ -32,6 +34,29 @@ test.afterAll(async () => {
     await new Promise<void>((resolve, reject) =>
       server.httpServer.close((error) => (error ? reject(error) : resolve())),
     )
+})
+test('resource image leases decode every advertised raster format and preserve native dimensions', async ({ page }) => {
+  await page.goto('http://127.0.0.1:45269/?locale=en-US')
+  for (const fixture of [...imageResourceFixtures, ...resourceImageFixtures, resourceSvgFixture]) {
+    const dimensions = await page.evaluate((input) => window.resourceImageFixture(input), fixture)
+    expect(dimensions, fixture.name).toEqual({ width: fixture.width, height: fixture.height })
+  }
+})
+test('failed image preview offers a one-time system open without reading image bytes again', async ({ page }) => {
+  const labels = resourceCopy('en-US')
+  let reads = 0
+  await page.route('**/media.svg', async (route) => {
+    reads++
+    await route.fulfill({ status: 503, contentType: 'text/html', body: 'unavailable' })
+  })
+  await page.goto('http://127.0.0.1:45269/?locale=en-US')
+  await page.getByRole('link', { name: labels.open({ kind: 'file', path: 'photo.png' }), exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: labels.gallery.title })
+  await expect(dialog.getByRole('alert')).toBeVisible()
+  await dialog.getByRole('button', { name: labels.system, exact: true }).click()
+  await expect(page.locator('[data-opened]')).toHaveText('system:photo.png')
+  await expect(dialog).not.toBeVisible()
+  expect(reads).toBe(1)
 })
 for (const [locale, width] of [
   ['en-US', 1440],

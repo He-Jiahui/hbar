@@ -14,6 +14,7 @@ import { MessageMarkdown } from '../../packages/app-react/src/message-markdown'
 import { resourceCopy } from '../../apps/web/src/resource-copy'
 import { createWebLumenAppearance, DEFAULT_WEB_APPEARANCE_DIMENSIONS } from '../../apps/web/src/appearance'
 import './resource-native-browser.css'
+import { decodeResourceImage } from './resource-image-verifier'
 
 const runtime = createAppRuntime({
   instanceId: 'native-resource-fixture',
@@ -118,10 +119,15 @@ function App() {
 }
 declare global {
   interface Window {
-    resourceNativeFixture: { readonly ids: () => string[]; close(): Promise<void> }
+    resourceNativeFixture: {
+      readonly ids: () => string[]
+      close(): Promise<void>
+      decodeImage: typeof decodeResourceImage
+    }
   }
 }
 window.resourceNativeFixture = {
+  decodeImage: decodeResourceImage,
   ids: () => Object.keys(controller.store.getState().entries),
   close: async () => {
     reactRoot.unmount()

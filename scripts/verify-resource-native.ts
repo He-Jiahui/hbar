@@ -1,6 +1,8 @@
 import { chromium } from '@playwright/test'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { imageResourceFixtures } from '../tests/fixtures/image-resource-fixtures'
+import { resourceImageFixtures, resourceSvgFixture } from '../tests/fixtures/resource-image-fixtures'
 const root = join(import.meta.dir, '..', 'artifacts/resource-references')
 const repo = join(import.meta.dir, '..').replaceAll('\\', '/')
 const origin = process.env.HBAR_NATIVE_RESOURCE_ORIGIN ?? 'http://127.0.0.1:64171'
@@ -190,6 +192,14 @@ try {
   await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).last().click()
   await waitVisibility(true)
   evidence.overlayInteractive = true
+  const images: string[] = []
+  for (const fixture of [...imageResourceFixtures, ...resourceImageFixtures, resourceSvgFixture]) {
+    const decoded = await page.evaluate((input) => window.resourceNativeFixture.decodeImage(input), fixture)
+    if (decoded.width !== fixture.width || decoded.height !== fixture.height)
+      throw new Error(`Native image dimensions changed: ${fixture.name}`)
+    images.push(fixture.name)
+  }
+  evidence.imageFormats = images
   if (process.env.HBAR_VERIFY_SYSTEM_OPEN === '1') {
     const target = join(root, 'native-system-open.txt')
     await writeFile(target, 'hbar resource system association smoke test.\n')
