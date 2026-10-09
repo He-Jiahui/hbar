@@ -10,6 +10,8 @@ import {
 } from 'react'
 import { flushSync } from 'react-dom'
 import ReactMarkdown, { type ExtraProps } from 'react-markdown'
+import { resourceReferenceSchema, parseResourceReference } from '@hbar/contracts/resources'
+import { MessageResourceLink, useMessageResources } from './message-resource'
 import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
 import type { MessageClipboardPort } from './message-copy'
 import { CodeBlockCopyAction, type HbarCodeBlockLabels } from './code-block-copy-action'
@@ -150,8 +152,28 @@ function MarkdownPre({ node, children, className }: ComponentProps<'pre'> & Extr
   )
 }
 function MarkdownLink({ node, ...props }: ComponentProps<'a'> & ExtraProps) {
+  const resources = useMessageResources()
   const files = useContext(FileContext)
   const code = useContext(CodeContext)
+  const rawResource = node?.properties.dataHbarResource
+  if (resources && files?.source && typeof rawResource === 'string') {
+    let reference: unknown
+    try {
+      reference = JSON.parse(rawResource)
+    } catch {
+      reference = null
+    }
+    const parsed = resourceReferenceSchema.safeParse(reference)
+    if (parsed.success && !files.streaming)
+      return (
+        <ImageLinkContext.Provider value={true}>
+          <MessageResourceLink reference={parsed.data} context={files}>
+            {props.children}
+          </MessageResourceLink>
+        </ImageLinkContext.Provider>
+      )
+    if (files.streaming) return props.children
+  }
   const path = node?.properties.dataHbarFilePath
   if (typeof path === 'string') {
     const line = node?.properties.dataHbarFileLine
@@ -210,9 +232,23 @@ function MarkdownLink({ node, ...props }: ComponentProps<'a'> & ExtraProps) {
 }
 
 function MarkdownImage({ node, src, alt }: ComponentProps<'img'> & ExtraProps) {
+  const resources = useMessageResources()
   const linked = useContext(ImageLinkContext)
   const code = useContext(CodeContext)
   const files = useContext(FileContext)
+  if (resources && files?.source) {
+    if (linked || files.streaming) return alt
+    const reference = typeof src === 'string' ? parseResourceReference(src, true) : null
+    if (!reference) return alt
+    return (
+      <MessageResourceLink
+        reference={reference.kind === 'web' ? { ...reference, image: true } : reference}
+        context={files}
+      >
+        {alt ?? ''}
+      </MessageResourceLink>
+    )
+  }
   const ordinal = node?.properties.dataHbarImageOrdinal
   return (
     <MessageImagePreview

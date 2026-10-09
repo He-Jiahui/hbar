@@ -8,11 +8,13 @@ import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import { sessionCjkAutolink } from './session-markdown-autolink'
 import { messageFileReferenceLinks } from './message-file-reference-links'
 import { messageImageLinks } from './message-image-links'
+import { messageResourceLinks } from './message-resource-links'
 
 /** Shared by the real Markdown renderer and the non-DOM, loaded-history index. */
 export const sessionMarkdownRemarkPlugins: PluggableList = [remarkGfm]
 export const sessionMarkdownRehypePlugins: PluggableList = [
   sessionCjkAutolink,
+  messageResourceLinks,
   messageFileReferenceLinks,
   messageImageLinks,
   [
@@ -28,6 +30,8 @@ export const sessionMarkdownRehypePlugins: PluggableList = [
           'dataHbarFileColumn',
           'dataHbarFileKind',
           'dataHbarImageOrdinal',
+          'dataHbarResource',
+          'dataHbarResourceKind',
         ],
         img: [...(defaultSchema.attributes?.img ?? []), 'dataHbarImageOrdinal'],
       },

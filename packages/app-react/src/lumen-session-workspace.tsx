@@ -1489,6 +1489,7 @@ function SessionWorkspaceContent({
         files && message.sessionId === sessionId && fileWorkspaceId
           ? {
               owner: runtime,
+              source: { workspaceId: fileWorkspaceId, sessionId: message.sessionId, messageId: message.id, sourceTabInstanceKey: sourceTab?.instanceKey ?? null },
               targetKey: JSON.stringify([
                 navigation.workspaceId,
                 message.sessionId,

@@ -3,6 +3,8 @@ import { LumenFrame, LumenText } from '@lumen/app-ui'
 import type { MessageFileReference } from './message-file-reference-model'
 import './message-file-reference.css'
 import { registerSessionNavigationChrome } from './session-navigation-chrome'
+import type { ResourceReferenceSource } from '@hbar/app-runtime'
+import { MessageResourceLink, useMessageResources } from './message-resource'
 
 export interface MessageFileReferenceLabels {
   readonly open: (reference: MessageFileReference) => string
@@ -10,6 +12,7 @@ export interface MessageFileReferenceLabels {
   readonly error: (code: string) => string
 }
 export interface MessageFileReferenceContext {
+  readonly source?: ResourceReferenceSource | undefined
   readonly owner: object
   readonly targetKey: string
   readonly labels: MessageFileReferenceLabels
@@ -19,6 +22,28 @@ export interface MessageFileReferenceContext {
 
 /** A read-only navigation affordance; errors belong beside the original reference. */
 export function MessageFileReferenceLink({
+  reference,
+  context,
+  children,
+}: {
+  readonly reference: MessageFileReference
+  readonly context: MessageFileReferenceContext
+  readonly children: ReactNode
+}) {
+  const resources = useMessageResources()
+  if (resources && context.source)
+    return (
+      <MessageResourceLink reference={{ kind: 'file', ...reference }} context={context}>
+        {children}
+      </MessageResourceLink>
+    )
+  return (
+    <LegacyFileReferenceLink reference={reference} context={context}>
+      {children}
+    </LegacyFileReferenceLink>
+  )
+}
+function LegacyFileReferenceLink({
   reference,
   context,
   children,

@@ -1,0 +1,53 @@
+.hbar-message-resource-link {
+  overflow-wrap: anywhere;
+}
+.hbar-message-resource-link > .lumen-icon,
+.hbar-resource-icon {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-inline-end: 0.3em;
+}
+.hbar-resource-icon,
+.hbar-resource-icon img {
+  inline-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  block-size: var(--hbar-app-ui-icon-sm, 0.875rem);
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+.hbar-resource-menu {
+  display: flex;
+  flex-direction: column;
+}
+.hbar-resource-menu button {
+  justify-content: flex-start;
+}
+.hbar-resource-candidates {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  overflow: auto;
+}
+.hbar-resource-candidate {
+  display: flex;
+  align-items: flex-start;
+  text-align: start;
+  justify-content: flex-start;
+  white-space: normal;
+}
+.hbar-resource-candidate > span {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  overflow-wrap: anywhere;
+}
+.hbar-resource-focus {
+  block-size: 0;
+  inline-size: 0;
+  overflow: hidden;
+}
+.hbar-resource-text {
+  min-inline-size: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: auto;
+}

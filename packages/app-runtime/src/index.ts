@@ -8,6 +8,7 @@ import {
 } from '@hbar/commands'
 /** Public application error for View-side validation without reaching into command infrastructure. */
 export { CommandError as RuntimeCommandError } from '@hbar/commands'
+export { createMessageResources, type MessageResources, type MessageResourcePort, type ResourceReferenceSource, type ResourceOpenMode } from './message-resources'
 import { applicationCommands, navigationCommands, surfaceCommands } from '@hbar/contracts/commands'
 import { budgetEditorCommands } from '@hbar/contracts/commands/budget-editor'
 import { draftCommands } from '@hbar/contracts/commands/draft'

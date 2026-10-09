@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { MessageResourceSourceProvider } from './message-resource'
 import {
   Brain,
   Check,
@@ -701,6 +702,13 @@ function MessageBlocksContent({
 
 /** Normal-flow message content; the timeline remains the owner of history paging/virtualization. */
 export function HbarMessageBlocks(props: HbarMessageBlocksProps) {
+  return (
+    <MessageResourceSourceProvider context={props.fileReferences}>
+      <MessageBlocksWithImages {...props} />
+    </MessageResourceSourceProvider>
+  )
+}
+function MessageBlocksWithImages(props: HbarMessageBlocksProps) {
   if (!props.blocks.some((block) => block.type === 'image'))
     return <MessageBlocksContent key={JSON.stringify([props.sessionId, props.messageId])} {...props} />
   return (

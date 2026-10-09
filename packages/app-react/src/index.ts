@@ -216,6 +216,7 @@ export {
 } from './prompt-template-editor'
 export { HbarRunBoard, type HbarRunBoardLabels, type HbarRunBoardProps } from './run-board'
 export type { HbarRuntimeView } from './runtime'
+export { HbarMessageResourceLayer, type MessageResourceLabels } from './message-resource'
 export {
   HbarWorkspaceTabs,
   type HbarWorkspaceTabsProps,

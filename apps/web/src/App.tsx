@@ -100,6 +100,9 @@ import { createWebSendBehaviorController, type WebSendBehaviorController } from 
 import { createHostSendBehaviorPort } from './send-behavior-settings'
 import { createWebRuntimeCopy, type WebRuntimeCopyPort } from './runtime-copy'
 import { createBrowserImageResources } from './browser-image-resources'
+import { HbarMessageResourceLayer } from '@hbar/app-react'
+import { createWebMessageResources } from './message-resource-controller'
+import { resourceCopy } from './resource-copy'
 import { sessionImageCopy } from './session-image-copy'
 import { mobileShellNavigationLabel } from './mobile-shell-navigation-copy'
 import type { HbarSessionImagesOptions } from '@hbar/app-react'
@@ -1785,6 +1788,13 @@ export default function App({
       })
     }
   }, [client, imageResources])
+  const messageResources = useMemo(() => createWebMessageResources(client, runtime.view), [client, runtime])
+  useEffect(() => {
+    const offNavigation = runtime.view.state.navigation.subscribe(messageResources.invalidate)
+    const offTabs = runtime.view.state.workspaceTabs.subscribe(messageResources.invalidate)
+    const offConnection = client.onStatus(() => messageResources.close())
+    return () => { offNavigation(); offTabs(); offConnection(); messageResources.close() }
+  }, [client, runtime, messageResources])
   const layout = useHbarRuntimeState(runtime.view.state.layout)
   const presentation = useHbarRuntimeState(runtime.view.state.presentation)
   const tabs = useHbarRuntimeState(runtime.view.state.workspaceTabs)
@@ -2011,6 +2021,7 @@ export default function App({
           />
         )}
       >
+        <HbarMessageResourceLayer model={messageResources} labels={resourceCopy(locale)}>
         <WorkbenchSurfaceCleanup key={binding.hostId ?? 'pending'} runtime={runtime} />
         <NotificationDesktopBridge locale={locale} connected={connection === 'connected'} />
         <HbarWorkspaceShell
@@ -2152,6 +2163,7 @@ export default function App({
             />
           )}
         </HbarWorkspaceShell>
+        </HbarMessageResourceLayer>
       </HbarRuntimeProvider>
     </LumenProvider>
   )

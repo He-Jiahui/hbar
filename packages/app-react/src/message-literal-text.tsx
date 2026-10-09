@@ -4,6 +4,8 @@ import { splitMessageFileReferences } from './message-file-reference-model'
 import { MessageFileReferenceLink, type MessageFileReferenceContext } from './message-file-reference'
 import { MessageImagePreview } from './message-image-preview'
 import { imageLinkSource, MAX_MESSAGE_IMAGE_PREVIEWS } from './message-image-preview-model'
+import { splitResourceReferences } from './message-resource-model'
+import { MessageResourceLink, useMessageResources } from './message-resource'
 
 /** Operator prompts are literal text, not Markdown documents or code previews. */
 export function MessageLiteralText({
@@ -13,6 +15,21 @@ export function MessageLiteralText({
   readonly text: string
   readonly fileReferences?: MessageFileReferenceContext | undefined
 }) {
+  const resources = useMessageResources()
+  if (resources && fileReferences?.source)
+    return (
+      <LumenText as="p" className="hbar-session-message-literal">
+        {splitResourceReferences(text).map((part, index) =>
+          part.kind === 'resource' ? (
+            <MessageResourceLink key={index} reference={part.reference} context={fileReferences}>
+              {part.value}
+            </MessageResourceLink>
+          ) : (
+            part.value
+          ),
+        )}
+      </LumenText>
+    )
   const parts = messageLiteralSegments(text)
   const previewIndices = new Set(
     parts
