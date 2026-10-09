@@ -2,6 +2,7 @@ import { CommandError, CommandRegistry, createCommandClient, COMMAND_PROTOCOL_VE
 import { HbarError, type ArtifactRef } from '@hbar/contracts'
 import { attachmentCommands, fileCommands } from '@hbar/contracts/commands/files'
 import type { AttachmentUploadInput } from '@hbar/contracts/commands/files'
+import type { ChatDatabaseUploadOwner } from '@hbar/contracts/commands/chat-database'
 import type { ClientTransport } from './transport'
 
 export function createFileCommandClient(client: ClientTransport) {
@@ -19,7 +20,11 @@ export function createFileCommandClient(client: ClientTransport) {
 }
 
 export interface AttachmentUploadTransport {
-  upload(file: File, signal?: AbortSignal): Promise<ArtifactRef>
+  upload(file: File, signal?: AbortSignal, options?: AttachmentUploadOptions): Promise<ArtifactRef>
+}
+export interface AttachmentUploadOptions {
+  readonly owner?: ChatDatabaseUploadOwner
+  readonly sha256?: string
 }
 
 export interface AttachmentSourcePort {
@@ -59,12 +64,14 @@ export function createAttachmentCommandClient(transport: AttachmentUploadTranspo
       if ((await sha256(file)) !== input.sha256)
         throw new CommandError('SOURCE_CHANGED', 'Attachment source content changed before upload')
       context.signal.throwIfAborted()
-      const artifact = await transport.upload(file, context.signal).catch((error: unknown) => {
-        // The command registry deliberately hides arbitrary errors; preserve the
-        // authenticated transport's typed rejection/unknown code at this boundary.
-        if (error instanceof HbarError) throw new CommandError(error.code, error.message)
-        throw error
-      })
+      const artifact = await transport
+        .upload(file, context.signal, { sha256: input.sha256, ...(input.owner ? { owner: input.owner } : {}) })
+        .catch((error: unknown) => {
+          // The command registry deliberately hides arbitrary errors; preserve the
+          // authenticated transport's typed rejection/unknown code at this boundary.
+          if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+          throw error
+        })
       if (artifact.id !== input.sha256 || artifact.size !== input.size)
         throw new CommandError('CONTENT_MISMATCH', 'Uploaded artifact does not match the selected source')
       return artifact

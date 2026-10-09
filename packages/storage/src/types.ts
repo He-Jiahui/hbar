@@ -44,6 +44,7 @@ import type { UsageReadInput, UsageReadPage } from '@hbar/usage'
 import type { GoalHistoryInput, GoalHistoryPage } from '@hbar/contracts/commands/goal-history'
 import type { NotificationStorage } from './notifications'
 import type { createChatDatabaseProjection } from './chat-database-projection'
+import type { createChatDatabaseArtifactStorage } from './chat-database-artifacts'
 import type { createChatDatabaseJournal } from './chat-database-journal'
 import type { createChatDatabaseDeletionStorage } from './chat-database-deletion'
 import type { SessionBranchExecutionRoot, SessionBranchTargetIntent, SessionBranchTargetIdentity, SessionBranchTargetRecord } from './session-branch-target'
@@ -272,6 +273,25 @@ export interface StorageMethods {
   chatDatabaseUsage: ReturnType<typeof createChatDatabaseProjection>['usage']
   chatDatabaseArtifactPage: ReturnType<typeof createChatDatabaseProjection>['artifactPage']
   chatDatabaseLogPage: ReturnType<typeof createChatDatabaseProjection>['logPage']
+  chatDatabaseDraftSync: ReturnType<typeof createChatDatabaseArtifactStorage>['sync']
+  chatDatabaseDraftList: ReturnType<typeof createChatDatabaseArtifactStorage>['list']
+  chatDatabaseInventoryBegin: ReturnType<typeof createChatDatabaseArtifactStorage>['begin']
+  chatDatabaseInventoryFinish: ReturnType<typeof createChatDatabaseArtifactStorage>['finish']
+  chatDatabaseInventoryRead: ReturnType<typeof createChatDatabaseArtifactStorage>['inventory']
+  chatDatabaseDraftBackfill: ReturnType<typeof createChatDatabaseArtifactStorage>['backfill']
+  chatDatabaseArtifactReserve: ReturnType<typeof createChatDatabaseArtifactStorage>['reserve']
+  chatDatabaseArtifactRenewUpload: ReturnType<typeof createChatDatabaseArtifactStorage>['renewUpload']
+  chatDatabaseArtifactEndUpload: ReturnType<typeof createChatDatabaseArtifactStorage>['endUpload']
+  chatDatabaseArtifactFinishUpload: ReturnType<typeof createChatDatabaseArtifactStorage>['finishUpload']
+  chatDatabaseArtifactReleaseUpload: ReturnType<typeof createChatDatabaseArtifactStorage>['releaseUpload']
+  chatDatabaseArtifactSeedLegacy: ReturnType<typeof createChatDatabaseArtifactStorage>['seedLegacy']
+  chatDatabaseLegacySettingsRefs: ReturnType<typeof createChatDatabaseArtifactStorage>['legacySettings']
+  chatDatabaseLegacySettingsComplete: ReturnType<typeof createChatDatabaseArtifactStorage>['markLegacySettingsComplete']
+  chatDatabaseReferenceHealth: ReturnType<typeof createChatDatabaseArtifactStorage>['referenceHealth']
+  chatDatabaseArtifactClaim: ReturnType<typeof createChatDatabaseArtifactStorage>['claim']
+  chatDatabaseArtifactReleaseClaim: ReturnType<typeof createChatDatabaseArtifactStorage>['releaseClaim']
+  chatDatabaseArtifactFinishReclaim: ReturnType<typeof createChatDatabaseArtifactStorage>['finishReclaim']
+  chatDatabaseArtifactReclaimReceipt: ReturnType<typeof createChatDatabaseArtifactStorage>['reclaimReceipt']
   chatDatabaseOperationAccept: ReturnType<typeof createChatDatabaseJournal>['accept']
   chatDatabaseOperationRead: ReturnType<typeof createChatDatabaseJournal>['read']
   chatDatabaseOperationUpdate: ReturnType<typeof createChatDatabaseJournal>['update']

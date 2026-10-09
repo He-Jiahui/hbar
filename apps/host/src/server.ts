@@ -29,6 +29,7 @@ import {
   createChatDatabaseCommands,
   createChatDatabaseStatisticsService,
   createChatDatabaseMaintenanceService,
+  createChatDatabaseArtifactReferenceService,
   createUsageCommands,
   createWorkflowCommands,
   createScheduleCommands,
@@ -59,7 +60,7 @@ import {
   runCommands as runDefinitions,
 } from '@hbar/contracts/commands/run'
 import { settingsCommands as settingsDefinitions } from '@hbar/contracts/commands/settings'
-import { chatDatabaseCommands as chatDatabaseDefinitions } from '@hbar/contracts/commands/chat-database'
+import { chatDatabaseCommands as chatDatabaseDefinitions, chatDatabaseUploadOwnerSchema } from '@hbar/contracts/commands/chat-database'
 import { createChatDatabaseFileScanner } from '@hbar/storage'
 import { systemCommands as systemDefinitions } from '@hbar/contracts/commands/system'
 import { usageCommands as usageDefinitions } from '@hbar/contracts/commands/usage'
@@ -275,7 +276,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     removeSession: (input) => kernel.removeChatDatabaseSession(input),
     deleted: (ids, revision) => kernel.notifyChatDatabaseDeleted(ids, revision),
   })
-  const chatDatabaseCommands = createChatDatabaseCommands(chatDatabaseStatistics, chatDatabaseMaintenance)
+  const chatDatabaseArtifactReferences = createChatDatabaseArtifactReferenceService(kernel.storage, kernel.options.layout.settings)
+  const chatDatabaseCommands = createChatDatabaseCommands(chatDatabaseStatistics, chatDatabaseMaintenance, chatDatabaseArtifactReferences)
   const usageCommands = createUsageCommands(
     new UsageService({ read: (input) => kernel.storage.call('usageEvents', input) }),
   )
@@ -1327,7 +1329,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       if (request.method === 'OPTIONS')
         return response(request, null, 204, {
           'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Filename',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Filename, X-Content-Sha256, X-Artifact-Owner',
         })
       try {
         if (url.pathname === '/healthz')
@@ -1370,7 +1372,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
           return json(request, { error: 'WebSocket upgrade required' }, 426)
         }
         if (url.pathname.startsWith('/api/')) {
-          await auth.authenticate(requestToken(request))
+          const device = await auth.authenticate(requestToken(request))
           const clientPlugin = /^\/api\/plugins\/([^/]+)\/client\.js$/.exec(url.pathname)
           if (clientPlugin && request.method === 'GET')
             return response(request, kernel.plugins.clientCode(decodeURIComponent(clientPlugin[1]!)), 200, {
@@ -1384,12 +1386,18 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
           }
           if (url.pathname === '/api/artifacts' && request.method === 'POST') {
             const name = decodeURIComponent(request.headers.get('x-filename') ?? 'image')
+            const ownerHeader = request.headers.get('x-artifact-owner')
+            if (ownerHeader && ownerHeader.length > 2048) throw new HbarError('INVALID_INPUT', 'Attachment owner header is oversized')
+            const owner = ownerHeader ? chatDatabaseUploadOwnerSchema.parse(JSON.parse(decodeURIComponent(ownerHeader))) : undefined
+            const sha256 = request.headers.get('x-content-sha256') ?? undefined
+            if (sha256 && !/^[a-f0-9]{64}$/.test(sha256)) throw new HbarError('INVALID_INPUT', 'Attachment content hash is invalid')
             return json(
               request,
               await kernel.upload(
                 name,
                 (request.headers.get('content-type') ?? '').split(';')[0]!,
                 new Uint8Array(await request.arrayBuffer()),
+                { actorId: device.id, ...(owner ? { owner } : {}), ...(sha256 ? { sha256 } : {}) },
               ),
             )
           }
@@ -1550,6 +1558,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       settingsCommands.dispose()
       chatDatabaseCommands.dispose()
       await chatDatabaseMaintenance.close()
+      await chatDatabaseArtifactReferences.close()
       await chatDatabaseStatistics.close()
       usageCommands.dispose()
       await scheduleController.close()

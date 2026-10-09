@@ -1,4 +1,5 @@
 import { z } from 'zod'
+export { collectArtifactReferenceIds } from './artifact-references'
 import { settingScopeSchema } from './settings.ts'
 import type { SettingDescriptor, SettingScope, SettingsCatalog, SettingsContribution, SettingsSnapshot } from './settings.ts'
 

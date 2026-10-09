@@ -87,6 +87,7 @@ import { CHAT_DATABASE_SQL } from './chat-database-schema'
 import { createChatDatabaseProjection } from './chat-database-projection'
 import { createChatDatabaseJournal } from './chat-database-journal'
 import { createChatDatabaseDeletionStorage } from './chat-database-deletion'
+import { createChatDatabaseArtifactStorage } from './chat-database-artifacts'
 import {
   createSessionLaunchTargetStorage,
   SESSION_LAUNCH_TARGET_RESOLUTION_SQL,
@@ -103,10 +104,11 @@ import {
   SIDEBAR_CHILD_ACTIVITY_SCHEMA_SQL,
 } from './sidebar-directory.ts'
 
-const options = workerData as { path: string; sessions?: string; diagnostics?: string; settings?: string }
+const options = workerData as { path: string; sessions?: string; diagnostics?: string; settings?: string; artifacts?: string }
 const sessionsRoot = options.sessions ?? join(dirname(options.path), 'sessions')
 const diagnosticsRoot = options.diagnostics ?? join(dirname(options.path), 'diagnostics')
 const settingsRoot = options.settings ?? join(dirname(options.path), 'settings')
+const artifactsRoot = options.artifacts ?? join(dirname(options.path), 'artifacts')
 const logWriter = new SessionLogWriter(sessionsRoot)
 const runSteering = new RunSteeringRegistry()
 const db = new Database(options.path, { create: true, strict: true })
@@ -382,6 +384,7 @@ const sessionSearch = createSessionSearchStorage(
   () => new Map(workspaceDisplayNames.read().entries.map((entry) => [entry.workspaceId, entry.displayName])),
 )
 const chatDatabaseProjection = createChatDatabaseProjection(db)
+const chatDatabaseArtifacts = createChatDatabaseArtifactStorage(db, sessionsRoot, artifactsRoot, settingsRoot)
 const chatDatabaseJournal = createChatDatabaseJournal(db)
 const chatDatabaseDeletion = createChatDatabaseDeletionStorage(db, sessionsRoot, undefined, settingsRoot)
 const sessionLaunchTarget = createSessionLaunchTargetStorage(db)
@@ -453,20 +456,28 @@ function readSettings(scope: import('@hbar/contracts').SettingScope, targetId?: 
 }
 
 function writeSettings(scope: import('@hbar/contracts').SettingScope, targetId: string | undefined, values: Record<string, unknown>, expectedRevision?: string): StoredSettings {
-  const current = readSettings(scope, targetId)
-  if (expectedRevision !== undefined && expectedRevision !== current.revision)
-    throw new HbarError('SETTINGS_CONFLICT', 'Settings changed since they were read')
-  const next: StoredSettings = { version: 1, revision: settingsRevision(values), values }
-  const path = settingsPath(scope, targetId)
-  mkdirSync(dirname(path), { recursive: true })
-  const temporary = `${path}.${process.pid}.${crypto.randomUUID()}.tmp`
   try {
-    writeFileSync(temporary, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600 })
-    renameSync(temporary, path)
-  } finally {
-    if (existsSync(temporary)) rmSync(temporary, { force: true })
+    return db.transaction(() => {
+      const current = readSettings(scope, targetId)
+      if (expectedRevision !== undefined && expectedRevision !== current.revision)
+        throw new HbarError('SETTINGS_CONFLICT', 'Settings changed since they were read')
+      const next: StoredSettings = { version: 1, revision: settingsRevision(values), values }
+      const path = settingsPath(scope, targetId)
+      chatDatabaseArtifacts.replaceLegacyValues(scope, targetId ?? null, next)
+      mkdirSync(dirname(path), { recursive: true })
+      const temporary = `${path}.${process.pid}.${crypto.randomUUID()}.tmp`
+      try {
+        writeFileSync(temporary, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600 })
+        renameSync(temporary, path)
+      } finally {
+        if (existsSync(temporary)) rmSync(temporary, { force: true })
+      }
+      return next
+    }).immediate()
+  } catch (reason) {
+    chatDatabaseArtifacts.markLegacySettingsComplete(false)
+    throw reason
   }
-  return next
 }
 
 function entityPayloadHash(commandId: string, input: unknown): string {
@@ -973,6 +984,7 @@ function indexEvent(projectId: string, event: SessionEvent, location: ReturnType
 }
 
 // JSONL is committed first. SQLite is a query projection and can be rebuilt from it.
+let eventLogWriteVersion = 0
 function appendEvent(
   sessionId: string,
   type: string,
@@ -1001,6 +1013,8 @@ function appendEvent(
     time: metadata?.time ?? Date.now(),
     version: 1,
   }
+  chatDatabaseArtifacts.registerEvent(event.eventId, data, sessionId, row.projectId as string)
+  eventLogWriteVersion++
   const location = logWriter.append(row.projectId as string, event)
   indexEvent(row.projectId as string, event, location)
   db.query('INSERT INTO events VALUES(?,?,?,?,?,?,?,?,?)').run(
@@ -1014,12 +1028,32 @@ function appendEvent(
     event.time,
     1,
   )
+  chatDatabaseArtifacts.releaseCommittedToolUploads(data, sessionId)
   db.query('UPDATE sessions SET seq=?,updatedAt=? WHERE id=?').run(event.seq, event.time, sessionId)
   const notification = notificationFromSessionEvent(event, s.workspaceId)
   if (notification) notifications.insert(notification)
   return event
 }
 const methods: StorageMethods = {
+  chatDatabaseDraftSync: chatDatabaseArtifacts.sync,
+  chatDatabaseDraftList: chatDatabaseArtifacts.list,
+  chatDatabaseInventoryBegin: chatDatabaseArtifacts.begin,
+  chatDatabaseInventoryFinish: chatDatabaseArtifacts.finish,
+  chatDatabaseInventoryRead: chatDatabaseArtifacts.inventory,
+  chatDatabaseDraftBackfill: chatDatabaseArtifacts.backfill,
+  chatDatabaseArtifactReserve: chatDatabaseArtifacts.reserve,
+  chatDatabaseArtifactRenewUpload: chatDatabaseArtifacts.renewUpload,
+  chatDatabaseArtifactEndUpload: chatDatabaseArtifacts.endUpload,
+  chatDatabaseArtifactFinishUpload: chatDatabaseArtifacts.finishUpload,
+  chatDatabaseArtifactReleaseUpload: chatDatabaseArtifacts.releaseUpload,
+  chatDatabaseArtifactSeedLegacy: chatDatabaseArtifacts.seedLegacy,
+  chatDatabaseLegacySettingsRefs: chatDatabaseArtifacts.legacySettings,
+  chatDatabaseLegacySettingsComplete: chatDatabaseArtifacts.markLegacySettingsComplete,
+  chatDatabaseReferenceHealth: chatDatabaseArtifacts.referenceHealth,
+  chatDatabaseArtifactClaim: chatDatabaseArtifacts.claim,
+  chatDatabaseArtifactReleaseClaim: chatDatabaseArtifacts.releaseClaim,
+  chatDatabaseArtifactFinishReclaim: chatDatabaseArtifacts.finishReclaim,
+  chatDatabaseArtifactReclaimReceipt: chatDatabaseArtifacts.reclaimReceipt,
   chatDatabaseOperationAccept: chatDatabaseJournal.accept,
   chatDatabaseOperationRead: chatDatabaseJournal.read,
   chatDatabaseOperationUpdate: chatDatabaseJournal.update,
@@ -2379,13 +2413,10 @@ const methods: StorageMethods = {
     ) as ArtifactRef
   },
   putDevice(device, tokenHash) {
-    db.query('INSERT INTO devices VALUES(?,?,?,?,?)').run(
-      device.id,
-      device.name,
-      tokenHash,
-      device.createdAt,
-      device.lastSeenAt,
-    )
+    db.transaction(() => {
+      db.query('INSERT INTO devices VALUES(?,?,?,?,?)').run(device.id, device.name, tokenHash, device.createdAt, device.lastSeenAt)
+      chatDatabaseArtifacts.unknownDevice(device.id)
+    }).immediate()
   },
   deviceByHash(hash) {
     return db.query('SELECT id,name,createdAt,lastSeenAt FROM devices WHERE tokenHash=?').get(hash) as Device | null
@@ -2856,19 +2887,24 @@ function reconcileSessionLogs() {
 chatDatabaseDeletion.reconcile()
 if (chatDatabaseDeletion.recoveryIssues.length) recordRecoveryDiagnostic(diagnosticsRoot, { deletedLogIssues: chatDatabaseDeletion.recoveryIssues })
 reconcileSessionLogs()
+db.exec('UPDATE chat_database_event_reference_health SET complete=1 WHERE id=1')
 
 parentPort!.on('message', ({ id, method, args }: StorageCall) => {
   let reply: StorageReply
+  const draftVersion = chatDatabaseArtifacts.writeVersion()
+  const logVersion = eventLogWriteVersion
   try {
     if (!Object.hasOwn(methods, method)) throw new Error('Unknown storage operation')
     const fn = methods[method] as (...args: unknown[]) => unknown
     reply = { id, ok: true, result: fn(...args) }
   } catch (error) {
+    if (draftVersion !== chatDatabaseArtifacts.writeVersion()) chatDatabaseArtifacts.invalidateDraftJournal()
+    if (logVersion !== eventLogWriteVersion) db.exec('UPDATE chat_database_event_reference_health SET complete=0 WHERE id=1')
     reply = {
       id,
       ok: false,
       error: error instanceof Error ? error.message : String(error),
-      code: error instanceof HbarError ? error.code : 'STORAGE_ERROR',
+      code: error instanceof HbarError ? error.code : error instanceof Error && error.message.includes('CHAT_DATABASE_ARTIFACT_CLAIMED') ? 'ARTIFACT_RESERVED' : error instanceof Error && error.message.includes('CHAT_DATABASE_ARTIFACT_DELETED') ? 'ARTIFACT_UNAVAILABLE' : 'STORAGE_ERROR',
     }
   }
   parentPort!.postMessage(reply)

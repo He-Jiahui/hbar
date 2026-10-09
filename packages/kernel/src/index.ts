@@ -1,9 +1,13 @@
-import { readdir, realpath, stat, writeFile } from 'node:fs/promises'
+import { readdir, realpath, stat } from 'node:fs/promises'
+import { writeArtifactAtomically, type ArtifactUploadOptions } from './artifact-upload'
+export type { ArtifactUploadOptions } from './artifact-upload'
 import { join, basename } from 'node:path'
 import { WorkspaceSandboxService } from './workspace-sandbox'
 import type { ChatDatabaseDeleteInput, ChatDatabaseDeleteResult } from '@hbar/storage'
 import type { ChatDatabaseSkipReason } from '@hbar/contracts/commands/chat-database'
 export { createChatDatabaseMaintenanceService } from './chat-database-maintenance'
+export { createChatDatabaseArtifactReferenceService } from './chat-database-artifact-references'
+export type { ChatDatabaseArtifactReferenceService } from './chat-database-artifact-references'
 export type { ChatDatabaseMaintenanceService, ChatDatabaseCleanupDomainPort } from './chat-database-maintenance'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
@@ -2110,7 +2114,10 @@ export class Kernel {
           const captured = await persistToolResultImages(
             name,
             executed,
-            (file, mime, bytes) => this.upload(file, mime, bytes),
+            (file, mime, bytes) => this.upload(file, mime, bytes, {
+              actorId: 'host-tools',
+              owner: { kind: 'session', id: executionIdentity.sessionId, clientRevision: 0 },
+            }),
             controller.signal,
           )
           if (captured.length) images = captured
@@ -2661,7 +2668,9 @@ export class Kernel {
     this.publishEvent(await this.storage.call('compact', sessionId, throughSeq, summary, model.id))
     return { summary }
   }
-  async upload(name: string, mime: string, bytes: Uint8Array): Promise<ArtifactRef> {
+  async upload(name: string, mime: string, bytes: Uint8Array, options?: ArtifactUploadOptions): Promise<ArtifactRef> {
+    if (this.maintenance || this.closing) throw new HbarError('BUSY', 'Host storage is in maintenance')
+    if (this.chatDatabaseWrites >= 8) throw new HbarError('BUSY', 'Attachment write concurrency is full')
     const normalizedMime = (mime.trim().split(';', 1)[0] || 'application/octet-stream').toLowerCase()
     if (normalizedMime.length > 120 || /[\r\n]/.test(normalizedMime))
       throw new HbarError('UNSUPPORTED_TYPE', 'File type is invalid')
@@ -2680,19 +2689,43 @@ export class Kernel {
       if (!valid) throw new HbarError('UNSUPPORTED_TYPE', 'Image data does not match its declared type')
     }
     const id = createHash('sha256').update(bytes).digest('hex')
+    if (options?.sha256 !== undefined && options.sha256 !== id) throw new HbarError('CONTENT_MISMATCH', 'Attachment bytes do not match their declared hash')
     const artifact = {
       id,
       name: basename(name).slice(0, 240) || 'attachment',
       mime: normalizedMime,
       size: bytes.length,
     }
-    try {
-      await writeFile(join(this.options.layout.artifacts, id), bytes, { flag: 'wx', mode: 0o600 })
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+    const leaseId = crypto.randomUUID()
+    const reservation = {
+      artifactId: id,
+      deviceId: options?.actorId ?? 'host-tools',
+      ownerId: options?.owner ? `${options.owner.kind}:${options.owner.id}` : 'preSession:unassigned',
+      ...(options?.owner ? { clientRevision: options.owner.clientRevision } : {}),
+      leaseId,
     }
-    await this.storage.call('putArtifact', artifact)
-    return artifact
+    this.chatDatabaseWrites++
+    let heartbeat: ReturnType<typeof setInterval> | undefined
+    let leaseFailure: unknown = null
+    let renewing = false
+    try {
+      await this.storage.call('chatDatabaseArtifactReserve', reservation)
+      heartbeat = setInterval(() => {
+        if (renewing) return
+        renewing = true
+        void this.storage.call('chatDatabaseArtifactRenewUpload', leaseId)
+          .catch((reason: unknown) => { leaseFailure = reason })
+          .finally(() => { renewing = false })
+      }, 30_000)
+      await writeArtifactAtomically(this.options.layout.artifacts, id, bytes)
+      if (leaseFailure) throw leaseFailure
+      await this.storage.call('chatDatabaseArtifactFinishUpload', artifact, leaseId)
+      return artifact
+    } finally {
+      clearInterval(heartbeat)
+      try { await this.storage.call('chatDatabaseArtifactEndUpload', leaseId) }
+      finally { this.chatDatabaseWrites-- }
+    }
   }
   assertIdle() {
     if (this.active.size || this.drains.size || this.admissions || this.maintenance || this.chatDatabaseWrites || this.closing)

@@ -198,6 +198,8 @@ export function createChatDatabaseDeletionStorage(
           'DELETE FROM session_search_indexed WHERE messageId IN (SELECT id FROM messages WHERE sessionId=?)',
         ).run(marker.sessionId)
         db.query('DELETE FROM settings_layers WHERE kind=? AND targetId=?').run('session', marker.sessionId)
+        db.query('DELETE FROM chat_database_artifact_refs WHERE source=? AND ownerId=?').run('legacySettings', `session:${marker.sessionId}`)
+        db.query('DELETE FROM chat_database_artifact_refs WHERE source=? AND deviceId=? AND ownerId=?').run('upload', 'host-tools', `host-tools/session:${marker.sessionId}`)
         db.query("DELETE FROM settings_receipts WHERE json_extract(receiptJson,'$.scope.targetId')=?").run(
           marker.sessionId,
         )

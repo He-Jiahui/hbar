@@ -3,10 +3,12 @@ import { HbarError } from '@hbar/contracts'
 import { chatDatabaseCommands } from '@hbar/contracts/commands/chat-database'
 import type { ChatDatabaseStatisticsService } from './chat-database-statistics'
 import type { ChatDatabaseMaintenanceService } from './chat-database-maintenance'
+import type { ChatDatabaseArtifactReferenceService } from './chat-database-artifact-references'
 
 export function createChatDatabaseCommands(
   statistics: ChatDatabaseStatisticsService,
   maintenance: ChatDatabaseMaintenanceService,
+  artifacts: ChatDatabaseArtifactReferenceService,
 ) {
   const registry = new CommandRegistry({ execution: 'host', maxConcurrent: 8 })
   const checked = async <Value>(action: () => Promise<Value>): Promise<Value> => {
@@ -22,6 +24,31 @@ export function createChatDatabaseCommands(
       throw new CommandError('INVALID_REQUEST', 'Maintenance requires a device and an idempotency key')
     return { actorId, idempotencyKey }
   }
+  const actor = (actorId: string | undefined) => {
+    if (!actorId) throw new CommandError('INVALID_REQUEST', 'Draft inventory requires an authenticated device')
+    return actorId
+  }
+  registry.register(
+    chatDatabaseCommands['chatDatabase.draft.sync'],
+    (input, context) => checked(() => artifacts.sync(input, identity(context.actorId, context.idempotencyKey))),
+    { durable: true },
+  )
+  registry.register(chatDatabaseCommands['chatDatabase.draft.list'], (input, context) =>
+    checked(() => artifacts.list(actor(context.actorId), input.after, input.limit)),
+  )
+  registry.register(
+    chatDatabaseCommands['chatDatabase.inventory.begin'],
+    (input, context) => checked(() => artifacts.begin(input, identity(context.actorId, context.idempotencyKey))),
+    { durable: true },
+  )
+  registry.register(
+    chatDatabaseCommands['chatDatabase.inventory.finish'],
+    (input, context) => checked(() => artifacts.finish(input, identity(context.actorId, context.idempotencyKey))),
+    { durable: true },
+  )
+  registry.register(chatDatabaseCommands['chatDatabase.inventory.get'], (_input, context) =>
+    checked(() => artifacts.inventory(actor(context.actorId))),
+  )
   registry.register(
     chatDatabaseCommands['chatDatabase.preview'],
     (input, context) => checked(() => maintenance.preview(input, identity(context.actorId, context.idempotencyKey))),

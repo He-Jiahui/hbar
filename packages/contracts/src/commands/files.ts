@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
 import { artifactSchema, idSchema } from '../index'
 import { workspaceFindResultSchema } from '../workspace-query'
+import { chatDatabaseUploadOwnerSchema } from './chat-database-drafts'
 
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/)
 /** A Host-owned session context, never a client-selected filesystem root. */
@@ -47,6 +48,7 @@ export const attachmentUploadInputSchema = z.strictObject({
   sourceId: z.string().min(1).max(256),
   sha256: sha256Schema,
   name: z.string().min(1).max(240),
+  owner: chatDatabaseUploadOwnerSchema.optional(),
   mime: z.string().min(1).max(120),
   size: z
     .number()

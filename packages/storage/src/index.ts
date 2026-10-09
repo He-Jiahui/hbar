@@ -34,6 +34,7 @@ export { createChatDatabaseFileScanner, emptyChatDatabaseDiskUsage } from './cha
 export type { ChatDatabaseDeleteInput, ChatDatabaseDeleteResult } from './chat-database-deletion'
 export type { ChatDatabaseCandidateCursor, ChatDatabaseCandidatePage, ChatDatabaseOperationPatch } from './chat-database-journal'
 export type { ChatDatabaseFilesPort, ChatDatabaseFileReferences } from './chat-database-files'
+export type { ChatDatabaseArtifactUploadReservation, ChatDatabaseArtifactClaimResult, ChatDatabaseArtifactReclaim } from './chat-database-artifacts'
 export * from './session-log-writer.ts'
 export * from './session-log-recovery.ts'
 export * from './project-registry.ts'
@@ -84,6 +85,7 @@ export class Storage {
         sessions: layout?.sessions,
         diagnostics: layout?.diagnostics,
         settings: layout?.settings,
+        artifacts: layout?.artifacts,
       },
     }
     this.worker = process.env.HBAR_STORAGE_WORKER

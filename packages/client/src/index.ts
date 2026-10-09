@@ -66,6 +66,7 @@ export {
   createFileCommandClient,
   type AttachmentSourcePort,
   type AttachmentUploadTransport,
+  type AttachmentUploadOptions,
 } from './files'
 export {
   createBrowserAttachmentController,
@@ -80,6 +81,8 @@ export {
 import type { ArtifactRef, HostInfo, RpcMethod, RpcParams, RpcResults, WireNotification } from '@hbar/contracts'
 
 import type { ClientTransport } from './transport'
+import type { AttachmentUploadOptions } from './files'
+import { chatDatabaseUploadOwnerSchema } from '@hbar/contracts/commands/chat-database'
 export type { ClientTransport } from './transport'
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'pairing'
 export class HbarClient implements ClientTransport {
@@ -304,7 +307,12 @@ export class HbarClient implements ClientTransport {
     this.connectPromise = undefined
     return this.connect()
   }
-  async upload(file: File, signal?: AbortSignal): Promise<ArtifactRef> {
+  async upload(file: File, signal?: AbortSignal, options?: AttachmentUploadOptions): Promise<ArtifactRef> {
+    signal?.throwIfAborted()
+    const owner = options?.owner ? chatDatabaseUploadOwnerSchema.parse(options.owner) : undefined
+    const digest = options?.sha256 ?? [...new Uint8Array(await crypto.subtle.digest('SHA-256', await file.arrayBuffer()))]
+      .map((byte) => byte.toString(16).padStart(2, '0')).join('')
+    if (!/^[a-f0-9]{64}$/.test(digest)) throw new HbarError('INVALID_INPUT', 'Attachment content hash is invalid')
     signal?.throwIfAborted()
     const response = await fetch(new URL('/api/artifacts', this.baseUrl), {
       method: 'POST',
@@ -312,6 +320,8 @@ export class HbarClient implements ClientTransport {
       headers: {
         'Content-Type': file.type,
         'X-Filename': encodeURIComponent(file.name),
+        'X-Content-Sha256': digest,
+        ...(owner ? { 'X-Artifact-Owner': encodeURIComponent(JSON.stringify(owner)) } : {}),
         ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
       },
       body: file,

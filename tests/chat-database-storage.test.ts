@@ -167,11 +167,22 @@ test('migrates genuine version-22 history in small batches and restores identica
   await owner.storage.call('ready')
   expect((await owner.storage.call('chatDatabaseUsage', { kind: 'global' })).complete).toBe(false)
   await backfill(owner.storage, 1)
-  expect(await owner.storage.call('chatDatabaseUsage', { kind: 'global' })).toEqual(original)
+  // Recreating projection tables may change SQLite's reusable pages without changing history counts.
+  const migrated = await owner.storage.call('chatDatabaseUsage', { kind: 'global' })
+  expect(migrated.freePageBytes).toBeGreaterThanOrEqual(0)
+  expect(migrated).toEqual({
+    ...original,
+    freePageBytes: migrated.freePageBytes,
+  })
   await owner.storage.close()
   owner.storage = new Storage(layout.database, layout)
   await owner.storage.call('ready')
-  expect(await owner.storage.call('chatDatabaseUsage', { kind: 'global' })).toEqual(original)
+  const restarted = await owner.storage.call('chatDatabaseUsage', { kind: 'global' })
+  expect(restarted.freePageBytes).toBeGreaterThanOrEqual(0)
+  expect(restarted).toEqual({
+    ...original,
+    freePageBytes: restarted.freePageBytes,
+  })
 })
 
 test('attachment attribution stays paged at its 100-item boundary and excludes duplicate references', async () => {
