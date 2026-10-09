@@ -12,6 +12,8 @@
 
 文件回收不跟随软链接或 Windows junction，不清理未知缓存类别、锁目录、工作树、挂载或使用中的插件资源。原始附件受消息、事件、设置、定时任务和持久草稿引用保护；索引或旧设备清单不完整时保守保留。清理意图、删除标记、附件声明和数据库维护回执写入可恢复记录，数据库重建不会复活已删除聊天。
 
+Web 会话、新聊天和外观表单的引用由 Runtime 统一声明，上传前持久记录待上传哈希并等待 Host 确认；来源描述带有窗口所有者和客户端 revision。移除附件、明确丢弃新聊天或发送成功后更新声明。会话草稿按 Host 和窗口分别保存在设备上，恢复中断的上传时保留原哈希与 reservation，显示未知结果并查询原附件。`window.open` 克隆的 sessionStorage 通过文档生命周期所有权检查分配新窗口 ID，避免覆盖另一窗口的草稿或引用。清单合并已知远端所有者，不删除其他离线窗口；Host 持久的新设备创建证明与旧设备未知清单分别处理，SQLite 重建后仍保持这一区别。
+
 布局描述为 `apps/web/src/settings-presentation.json`。页面结构依据 [Settings Form 1](https://pro.reactbits.dev/docs/app-ui/settings-form/settings-form-1) 的分组、字段流和固定保存区域，危险操作依据 [Settings Form 6](https://pro.reactbits.dev/docs/app-ui/settings-form/settings-form-6) 的说明、操作行和确认流程；公开桌面及窄屏预览经可见结构检查，落地使用 Lumen 语义主题、图标尺寸和共享浮层。
 
 浏览器验收运行 `bun run build` 后执行 `bunx playwright test e2e/chat-database-settings.spec.ts`。夹具启动独立临时 Host，使用真实 SQLite、会话日志与缓存，验证中英文、三层规则与继承、50 项分页、长标题、320px 窄屏、Escape 焦点恢复、受理响应丢失后的重连，以及真实占用变化。单元与集成测试为 `tests/chat-database-*.test.ts` 和 `tests/chat-database-settings-view.test.tsx`。仓库级检查中的既有失败应独立报告，不能用定向检查替代全仓通过声明。

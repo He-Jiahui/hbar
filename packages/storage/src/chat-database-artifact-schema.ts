@@ -1,5 +1,9 @@
 /** Idempotent completion of the artifact portion of the planned schema-23 migration. */
 export const CHAT_DATABASE_ARTIFACT_SQL = `
+CREATE TABLE IF NOT EXISTS chat_database_device_inventory_proofs (
+  deviceId TEXT PRIMARY KEY,
+  legacyRequired INTEGER NOT NULL
+);
   CREATE TABLE IF NOT EXISTS chat_database_inventory_syncs(deviceId TEXT PRIMARY KEY,inventoryId TEXT NOT NULL,manifestJson TEXT NOT NULL,revision INTEGER NOT NULL);
   CREATE TABLE IF NOT EXISTS chat_database_reference_health(id INTEGER PRIMARY KEY CHECK(id=1),draftJournalComplete INTEGER NOT NULL DEFAULT 0,legacySettingsComplete INTEGER NOT NULL DEFAULT 0);
   INSERT OR IGNORE INTO chat_database_reference_health(id) VALUES(1);

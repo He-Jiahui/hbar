@@ -60,6 +60,8 @@ export type ChatDatabaseInventoryFinishInput = z.output<typeof chatDatabaseInven
 export const chatDatabaseInventorySchema = z.strictObject({
   schemaVersion: z.literal(1),
   complete: z.boolean(),
+  /** Canonical creation proof distinguishes new devices from unknown legacy inventories. */
+  legacyRequired: z.boolean().default(true),
   inventoryId: id.nullable(),
   revision: revision.default(0),
   updatedAt: revision,

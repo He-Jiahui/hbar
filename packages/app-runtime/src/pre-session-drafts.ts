@@ -22,6 +22,7 @@ import type { ComposerPermissionEntry, ComposerPermissionState } from './compose
 import type { ComposerPlanModeEntry, ComposerPlanModeState } from './composer-plan-mode'
 import type { ComposerIntentState } from './composer-intent'
 import { registerPreSessionAttachments } from './pre-session-attachments'
+import type { DraftArtifactReferencePort } from './draft-artifact-references'
 import { readPreSessionDefaultModel } from './pre-session-default-model'
 import {
   capturePreSessionLaunchPreparation,
@@ -83,6 +84,7 @@ interface PendingSubmission {
 }
 
 interface PreSessionDraftOptions {
+  readonly references?: DraftArtifactReferencePort | undefined
   readonly navigation: StateReader<NavigationState>
   readonly controls: StateReader<SessionControlsState>
   readonly permissions: StateReader<ComposerPermissionState>
@@ -223,6 +225,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       throw new CommandError('GOAL_PREPARED', 'Retry the prepared Goal from the active Session composer')
   }
   registerPreSessionAttachments(local, {
+    references: options.references,
     read: entry,
     replace: (_draftId, value) => publish(value),
     assertEditable: requireEditable,

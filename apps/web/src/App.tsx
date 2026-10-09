@@ -89,7 +89,7 @@ import { HbarStorageLocationSettings } from '@hbar/app-react/storage-locations'
 import { createStorageLocationController, type StorageLocationController } from '@hbar/app-runtime/storage-locations'
 import { storageLocationCopy } from './storage-location-copy'
 import { chatDatabaseCopy } from './chat-database-copy'
-import { webWindowId } from './client-window-id'
+import { webWindowId, claimWebWindowId, inheritedWebWindowId } from './client-window-id'
 import { createSkillImportController } from '@hbar/app-runtime/skill-import'
 import { WebSkillImportPanel } from './SkillImportPanel'
 import { WebPreSessionLanding } from './PreSessionLanding'
@@ -390,6 +390,30 @@ function createRuntime(
     },
     budget: createBudgetCommandClient(client),
     settings: createSettingsCommandClient(client),
+    ...(hostId === null
+      ? {}
+      : {
+          draftArtifactReferences: {
+            commands: createChatDatabaseCommandClient(client),
+            namespace: webWindowId(window.sessionStorage),
+            journal: {
+              read() {
+                const key = `hbar:web:artifact-refs:${encodeURIComponent(hostId)}:${webWindowId(window.sessionStorage)}`
+                const value = window.localStorage.getItem(key)
+                return value ? (JSON.parse(value) as unknown) : null
+              },
+              write(value) {
+                const key = `hbar:web:artifact-refs:${encodeURIComponent(hostId)}:${webWindowId(window.sessionStorage)}`
+                window.localStorage.setItem(key, JSON.stringify(value))
+              },
+            },
+            onConnection(listener) {
+              const off = client.onStatus((status) => listener(status === 'connected'))
+              listener(client.connectionStatus() === 'connected')
+              return off
+            },
+          },
+        }),
     chatDatabase: {
       commands: createChatDatabaseCommandClient(client),
       ...(hostId === null
@@ -1645,7 +1669,11 @@ export default function App({
         draftPersistence: {
           read(hostId) {
             try {
-              const raw = window.localStorage.getItem(`hbar:web:drafts:${hostId}`)
+              const inherited = inheritedWebWindowId(window.sessionStorage)
+              const raw =
+                window.localStorage.getItem(`hbar:web:drafts:${encodeURIComponent(hostId)}:${webWindowId(window.sessionStorage)}`) ??
+                (inherited ? window.localStorage.getItem(`hbar:web:drafts:${encodeURIComponent(hostId)}:${inherited}`) : null) ??
+                window.localStorage.getItem(`hbar:web:drafts:${hostId}`)
               if (raw !== null && new TextEncoder().encode(raw).byteLength > 1_000_000) return undefined
               return raw === null ? undefined : restoreSessionDrafts(JSON.parse(raw))
             } catch {
@@ -1655,7 +1683,11 @@ export default function App({
           write(hostId, drafts) {
             try {
               const serialized = serializeSessionDrafts(drafts)
-              if (serialized !== null) window.localStorage.setItem(`hbar:web:drafts:${hostId}`, serialized)
+              if (serialized !== null)
+                window.localStorage.setItem(
+                  `hbar:web:drafts:${encodeURIComponent(hostId)}:${webWindowId(window.sessionStorage)}`,
+                  serialized,
+                )
             } catch {
               // Storage failures leave the in-memory draft usable.
             }
@@ -1884,9 +1916,14 @@ export default function App({
     let active = true
     const update = (status: ConnectionStatus) => {
       if (!active) return
-      const host = client.connectionHost()
-      if (status === 'connected' && (!host || !startup.confirmHost(host.instanceId))) {
-        startup.setConnection('connecting')
+      if (status === 'connected') {
+        void claimWebWindowId(window.sessionStorage)
+          .then(() => {
+            if (!active || client.connectionStatus() !== 'connected') return
+            const host = client.connectionHost()
+            startup.setConnection(host && startup.confirmHost(host.instanceId) ? 'connected' : 'connecting')
+          })
+          .catch(() => { if (active) startup.setConnection('disconnected') })
         return
       }
       startup.setConnection(status)

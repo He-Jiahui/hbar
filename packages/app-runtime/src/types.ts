@@ -170,6 +170,12 @@ export interface RuntimeOptions {
   readonly initialGlobalSettings?: GlobalSettingsStartup | undefined
   /** Session drafts captured by the endpoint owner when a runtime is recreated for the same Host. */
   readonly initialDrafts?: DraftsState | undefined
+  readonly draftArtifactReferences?: {
+    readonly commands: CommandExecutor
+    readonly namespace: string
+    readonly journal: import('./draft-artifact-references').DraftArtifactReferenceJournalPort
+    readonly onConnection?: (listener: (connected: boolean) => void) => () => void
+  }
   /** Host-owned global Settings entry preference; scoped settings keep their own explicit targets. */
   readonly settingsLanding?: {
     readonly globalGroupId: string

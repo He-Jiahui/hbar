@@ -18,6 +18,7 @@ import {
 import type { SessionExecutionPreparationPort } from './session-execution-preparation'
 import { createState } from './state'
 import { registerDraftAttachments } from './draft-attachments'
+import type { DraftArtifactReferencePort } from './draft-artifact-references'
 import { serializeMentions, validateMentions } from './composer-mentions'
 import {
   serializeComposerModelText,
@@ -104,6 +105,7 @@ export function createDrafts(
   preparation?: SessionExecutionPreparationPort,
   readConversationMessage?: ConversationMessageReader,
   initialDrafts?: DraftsState,
+  references?: DraftArtifactReferencePort,
 ) {
   const state = createState<DraftsState>(initialDrafts ?? {}, onSubscriberError)
   const actions = createState<RunActionsState>({}, onSubscriberError)
@@ -348,6 +350,7 @@ export function createDrafts(
   })
 
   registerDraftAttachments(local, {
+    references,
     read: entry,
     replace,
     uploads: attachmentCommands,

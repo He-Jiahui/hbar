@@ -117,6 +117,9 @@ export type {
   GoalHistorySnapshot,
 } from './goal-history'
 import { createDrafts } from './drafts'
+import { createDraftArtifactReferences } from './draft-artifact-references'
+export { createDraftArtifactReferences } from './draft-artifact-references'
+export type { DraftArtifactReferenceJournal, DraftArtifactReferenceJournalPort, DraftArtifactReferencePort, DraftArtifactReferenceState } from './draft-artifact-references'
 import { createPreSessionDrafts } from './pre-session-drafts'
 import { createPreSessionLaunchBranches, preSessionLaunchBranchesCommands } from './pre-session-launch-branches'
 import {
@@ -862,6 +865,9 @@ export function createAppRuntime(options: RuntimeOptions) {
     if (current.status !== 'ready' || current.sessionId !== sessionId) return null
     return current.messages.find((message) => message.sessionId === sessionId && message.id === messageId) ?? null
   }
+  const draftArtifactReferences = options.draftArtifactReferences
+    ? createDraftArtifactReferences({ ...options.draftArtifactReferences, onSubscriberError })
+    : undefined
   const drafts = createDrafts(
     local,
     options.run,
@@ -872,6 +878,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     executionPreparation,
     readConversationMessage,
     options.initialDrafts,
+    draftArtifactReferences,
   )
   const composerPermission = createComposerPermission(local, {
     configuration: options.configuration,
@@ -1051,6 +1058,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     local,
   )
   const preSessionDrafts = createPreSessionDrafts(local, {
+    references: draftArtifactReferences,
     navigation: navigation.reader,
     controls: controls.reader,
     permissions: composerPermission.reader,
@@ -1076,6 +1084,12 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     isDisposed: () => disposed,
   })
+  draftArtifactReferences?.observeAttachments('session', drafts.reader, (value) => value)
+  draftArtifactReferences?.observeAttachments('preSession', preSessionDrafts.reader, (value) => value)
+  draftArtifactReferences?.observeAppearance(settingsForms.reader, (value) => Object.fromEntries(
+    Object.entries(value.forms).map(([id, entry]) => [id, entry.form?.dirty.length ? entry.form.draft : null]),
+  ))
+  const offDraftArtifactConnection = options.draftArtifactReferences?.onConnection?.(draftArtifactReferences?.setConnected ?? (() => undefined))
   const preSessionLaunchBranchCreation = createPreSessionLaunchBranchCreation(local, {
     ...(options.sessionLaunchBranches ? { reader: options.sessionLaunchBranches } : {}),
     ...(options.sessionLaunchBranchCreation ? { manager: options.sessionLaunchBranchCreation } : {}),
@@ -1509,6 +1523,8 @@ export function createAppRuntime(options: RuntimeOptions) {
     dispose() {
       if (disposed) return
       disposed = true
+      offDraftArtifactConnection?.()
+      draftArtifactReferences?.dispose()
       messageFork.dispose()
       workspaceTabs.dispose()
       offReadingTabs()

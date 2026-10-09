@@ -34,3 +34,28 @@ test('session draft persistence rejects malformed and oversized records', () => 
   ).toEqual({})
   expect(serializeSessionDrafts({ 'session-a': { ...draft, text: 'x'.repeat(1_000_001) } })).toBeNull()
 })
+
+test('an interrupted attachment restores its original hash and reservation as unknown without an active upload', () => {
+  const upload = { sourceId: 'selected-source', sha256: 'a'.repeat(64), name: 'draft.txt', mime: 'text/plain', size: 4 }
+  const transfer = {
+    id: 'reservation',
+    ownerRevision: 4,
+    originalOperationId: null,
+    name: upload.name,
+    mime: upload.mime,
+    size: upload.size,
+    kind: 'file' as const,
+    status: 'uploading' as const,
+    upload,
+    confirmed: null,
+    error: null,
+  }
+  const serialized = serializeSessionDrafts({
+    'session-a': { ...draft, attachmentTransfers: [transfer], uploading: 1 },
+  })
+  if (!serialized) throw new Error('Fixture did not serialize')
+  const restored = restoreSessionDrafts(JSON.parse(serialized))?.['session-a']
+  expect(restored?.attachmentTransfers[0]).toEqual({ ...transfer, status: 'unknown', error: 'RESULT_UNKNOWN' })
+  expect(restored?.uploading).toBe(0)
+  expect(restored?.pendingSubmission).toEqual(draft.pendingSubmission)
+})

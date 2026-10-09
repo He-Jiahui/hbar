@@ -9,6 +9,7 @@ import {
 import { fileCommands, type AttachmentUploadInput } from '@hbar/contracts/commands/files'
 import type { SessionDraftState } from './types'
 import type { SessionExecutionPreparationPort } from './session-execution-preparation'
+import type { DraftArtifactReferencePort } from './draft-artifact-references'
 
 export interface AttachmentOwnerSnapshot {
   readonly revision: number
@@ -36,6 +37,12 @@ export interface AttachmentTransferCorePorts<OwnerId extends string, State exten
   readonly isDisposed: () => boolean
   readonly beforeReserve?: (ownerId: OwnerId, signal: AbortSignal) => Promise<void> | void
   readonly beforeUpload?: (ownerId: OwnerId, signal: AbortSignal) => Promise<void> | void
+  readonly prepareUpload?: (
+    ownerId: OwnerId,
+    snapshot: State,
+    descriptor: AttachmentUploadInput,
+    signal: AbortSignal,
+  ) => Promise<AttachmentUploadInput>
 }
 
 export interface AttachmentTransferCore<OwnerId extends string> {
@@ -224,6 +231,10 @@ export function createAttachmentTransferCore<OwnerId extends string, State exten
     let dispatched = false
     try {
       if (ports.beforeUpload) await ports.beforeUpload(target.ownerId, signal)
+      if (ports.prepareUpload) {
+        descriptor = await ports.prepareUpload(target.ownerId, ports.read(target.ownerId), descriptor, signal)
+        update(target, { upload: descriptor })
+      }
       owned(target)
       signal.throwIfAborted()
       dispatched = true
@@ -335,12 +346,14 @@ interface AttachmentDraftPorts {
   readonly queries: CommandExecutor | undefined
   readonly isDisposed: () => boolean
   readonly preparation?: SessionExecutionPreparationPort | undefined
+  readonly references?: DraftArtifactReferencePort | undefined
 }
 
 /** Session command adapter; reservations and confirmed refs remain in SessionDraftState. */
 export function registerDraftAttachments(local: CommandRegistry, ports: AttachmentDraftPorts): void {
+  const references = ports.references
   const blocked = (draft: SessionDraftState) => draft.status === 'submitting' || draft.status === 'unknown'
-  const core = createAttachmentTransferCore({
+  const core = createAttachmentTransferCore<string, SessionDraftState>({
     read: ports.read,
     replace: ports.replace,
     assertEditable: (_sessionId, draft) => {
@@ -351,6 +364,14 @@ export function registerDraftAttachments(local: CommandRegistry, ports: Attachme
     uploads: ports.uploads,
     queries: ports.queries,
     isDisposed: ports.isDisposed,
+    ...(references
+      ? {
+          prepareUpload: async (ownerId, snapshot, descriptor, signal) => ({
+            ...descriptor,
+            owner: await references.prepareUpload('session', ownerId, snapshot, descriptor, signal),
+          }),
+        }
+      : {}),
     beforeReserve: async (sessionId, signal) => {
       const target = await ports.preparation?.capture(sessionId, signal)
       if (target) ports.preparation?.assertCanPrepare(target)

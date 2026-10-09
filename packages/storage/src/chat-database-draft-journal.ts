@@ -44,6 +44,7 @@ export const chatDatabaseDraftJournalRecordSchema = z.discriminatedUnion('comman
   }),
   z.strictObject({
     commandId: z.literal('device.unknown'),
+    legacyRequired: z.boolean().default(true),
     deviceId: z.string().min(1).max(160),
     updatedAt: z.number().int().nonnegative().safe(),
   }),

@@ -93,6 +93,12 @@ export function createChatDatabaseArtifactStorage(
     return {
       schemaVersion: 1,
       complete: Boolean(row?.complete),
+      legacyRequired:
+        (db
+          .query<{ legacyRequired: number }, [string]>(
+            'SELECT legacyRequired FROM chat_database_device_inventory_proofs WHERE deviceId=?',
+          )
+          .get(deviceId)?.legacyRequired ?? 1) === 1,
       inventoryId: row?.inventoryId ?? null,
       revision: row?.revision ?? 0,
       updatedAt: row?.updatedAt ?? 0,
@@ -157,10 +163,13 @@ export function createChatDatabaseArtifactStorage(
       throw reason
     }
   }
-  function unknownDevice(deviceId: string): void {
+  function unknownDevice(deviceId: string, legacyRequired = true): void {
     if (journal.hasDevice(deviceId)) return
     const now = Date.now()
-    append({ commandId: 'device.unknown', deviceId, updatedAt: now })
+    append({ commandId: 'device.unknown', deviceId, updatedAt: now, legacyRequired })
+    db.query(
+      'INSERT INTO chat_database_device_inventory_proofs VALUES(?,?) ON CONFLICT(deviceId) DO UPDATE SET legacyRequired=excluded.legacyRequired',
+    ).run(deviceId, Number(legacyRequired))
     db.query(
       'INSERT INTO chat_database_device_inventories VALUES(?,0,?) ON CONFLICT(deviceId) DO UPDATE SET complete=0,updatedAt=excluded.updatedAt',
     ).run(deviceId, now)
@@ -287,6 +296,10 @@ export function createChatDatabaseArtifactStorage(
       return
     }
     if (record.commandId === 'device.unknown') {
+      db.query('INSERT OR IGNORE INTO chat_database_device_inventory_proofs VALUES(?,?)').run(
+        record.deviceId,
+        Number(record.legacyRequired),
+      )
       db.query('INSERT OR IGNORE INTO chat_database_device_inventories VALUES(?,0,?)').run(
         record.deviceId,
         record.updatedAt,

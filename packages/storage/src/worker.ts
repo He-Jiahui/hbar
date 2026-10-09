@@ -2450,7 +2450,7 @@ const methods: StorageMethods = {
   putDevice(device, tokenHash) {
     db.transaction(() => {
       db.query('INSERT INTO devices VALUES(?,?,?,?,?)').run(device.id, device.name, tokenHash, device.createdAt, device.lastSeenAt)
-      chatDatabaseArtifacts.unknownDevice(device.id)
+      chatDatabaseArtifacts.unknownDevice(device.id, false)
     }).immediate()
   },
   deviceByHash(hash) {

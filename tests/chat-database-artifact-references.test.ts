@@ -539,6 +539,29 @@ test('a completed legacy inventory keeps its generation and acknowledgment after
   })
 })
 
+test('canonical creation proof distinguishes fresh devices from legacy unknown devices across SQLite rebuild', async () => {
+  const f = await fixture()
+  await f.storage.call('putDevice', { id: 'new-device', name: 'fresh', createdAt: 1, lastSeenAt: 1 }, 'new-hash')
+  const db = new Database(f.layout.database, { strict: true })
+  db.query('INSERT INTO devices VALUES(?,?,?,?,?)').run('legacy-device', 'old', 'legacy-hash', 0, 0)
+  db.close()
+  await f.storage.close()
+  const current = await f.open()
+  const service = createChatDatabaseArtifactReferenceService(current, f.layout.settings)
+  try {
+    expect(await service.inventory('legacy-device')).toMatchObject({ complete: false, legacyRequired: true })
+    expect(await service.inventory('new-device')).toMatchObject({ complete: false, legacyRequired: false })
+  } finally {
+    await service.close()
+  }
+  await current.close()
+  for (const suffix of ['', '-wal', '-shm']) await rm(`${f.layout.database}${suffix}`, { force: true })
+  const rebuilt = await f.open()
+  await f.recover(rebuilt)
+  expect(await rebuilt.call('chatDatabaseInventoryRead', 'new-device')).toMatchObject({ legacyRequired: false })
+  expect(await rebuilt.call('chatDatabaseInventoryRead', 'legacy-device')).toMatchObject({ legacyRequired: true })
+})
+
 test('legacy attachment metadata is captured in bounded batches and survives SQLite rebuild without a message', async () => {
   const f = await fixture()
   const artifacts = Array.from({ length: 26 }, (_, index) => ({

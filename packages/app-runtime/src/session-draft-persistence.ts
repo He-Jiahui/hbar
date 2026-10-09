@@ -4,6 +4,7 @@ import {
   promptAttachmentSchema,
   promptMentionSchema,
   promptWorkspaceContextsSchema,
+  draftAttachmentTransferSchema,
 } from '@hbar/contracts/commands/draft'
 import { validateMentions } from './composer-mentions'
 import { serializeComposerModelText } from './composer-workspace-contexts'
@@ -24,6 +25,7 @@ const persistedDraftSchema = z
     mentions: z.array(promptMentionSchema).max(40),
     workspaceContexts: promptWorkspaceContextsSchema,
     attachments: z.array(promptAttachmentSchema).max(12),
+    attachmentTransfers: z.array(draftAttachmentTransferSchema).max(12).optional(),
     revision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
     status: z.enum(['idle', 'failed', 'unknown', 'submitting']),
     error: z.string().max(4_000).nullable(),
@@ -43,7 +45,7 @@ const envelopeSchema = z.strictObject({
   drafts: z.record(idSchema, z.unknown()).refine((value) => Object.keys(value).length <= MAX_PERSISTED_SESSION_DRAFTS),
 })
 
-/** Restores authored content and receipt ownership, never active transfers or a connection. */
+/** Restores receipt/hash ownership. Interrupted transfers become unknown and cannot be redispatched. */
 export function restoreSessionDrafts(value: unknown): DraftsState | undefined {
   const envelope = envelopeSchema.safeParse(value)
   if (!envelope.success) return undefined
@@ -61,12 +63,24 @@ export function restoreSessionDrafts(value: unknown): DraftsState | undefined {
     } catch {
       continue
     }
-    const { pendingSubmission, ...content } = draft
+    const { pendingSubmission, attachmentTransfers, ...content } = draft
     restored[sessionId] = {
       ...content,
       status: draft.status === 'submitting' ? 'unknown' : draft.status,
       error: draft.status === 'submitting' ? 'RESULT_UNKNOWN' : draft.error,
-      attachmentTransfers: [],
+      attachmentTransfers: (attachmentTransfers ?? []).map((transfer) => ({
+        ...transfer,
+        status: ['uploading', 'reconciling'].includes(transfer.status)
+          ? 'unknown'
+          : transfer.status === 'preparing'
+            ? 'failed'
+            : transfer.status,
+        error: ['uploading', 'reconciling'].includes(transfer.status)
+          ? 'RESULT_UNKNOWN'
+          : transfer.status === 'preparing'
+            ? 'SOURCE_RESELECT'
+            : transfer.error,
+      })),
       uploading: 0,
       uploadError: null,
       ...(pendingSubmission ? { pendingSubmission } : {}),
@@ -85,6 +99,7 @@ export function serializeSessionDrafts(drafts: DraftsState): string | null {
       mentions: draft.mentions,
       workspaceContexts: draft.workspaceContexts ?? [],
       attachments: draft.attachments,
+      attachmentTransfers: draft.attachmentTransfers,
       revision: draft.revision,
       status: draft.status,
       error: draft.error,

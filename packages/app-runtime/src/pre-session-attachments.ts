@@ -2,6 +2,7 @@ import { type CommandRegistry, type CommandExecutor } from '@hbar/commands'
 import type { AttachmentReservationTarget } from '@hbar/contracts/commands/draft'
 import { preSessionDraftCommands, type PreSessionDraftState } from '@hbar/contracts/commands/pre-session-draft'
 import { createAttachmentTransferCore, type AttachmentTransferTarget } from './draft-attachments'
+import type { DraftArtifactReferencePort } from './draft-artifact-references'
 
 export interface PreSessionAttachmentPorts {
   readonly read: (draftId: string) => PreSessionDraftState
@@ -11,13 +12,15 @@ export interface PreSessionAttachmentPorts {
   readonly uploads: CommandExecutor | undefined
   readonly queries: CommandExecutor | undefined
   readonly isDisposed: () => boolean
+  readonly references?: DraftArtifactReferencePort | undefined
 }
 
 /** Pre-session adapter; attachment facts stay in the canonical pre-session draft store. */
 export function registerPreSessionAttachments(local: CommandRegistry, ports: PreSessionAttachmentPorts): void {
+  const references = ports.references
   const blocked = (draft: PreSessionDraftState) =>
     ['preparing', 'creating', 'configuring', 'submitting', 'unknown', 'accepted'].includes(draft.phase)
-  const core = createAttachmentTransferCore({
+  const core = createAttachmentTransferCore<string, PreSessionDraftState>({
     read: ports.read,
     replace: ports.replace,
     assertEditable: ports.assertEditable,
@@ -26,6 +29,14 @@ export function registerPreSessionAttachments(local: CommandRegistry, ports: Pre
     uploads: ports.uploads,
     queries: ports.queries,
     isDisposed: ports.isDisposed,
+    ...(references
+      ? {
+          prepareUpload: async (ownerId, snapshot, descriptor, signal) => ({
+            ...descriptor,
+            owner: await references.prepareUpload('preSession', ownerId, snapshot, descriptor, signal),
+          }),
+        }
+      : {}),
   })
   const draftTarget = ({
     draftId,

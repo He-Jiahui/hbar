@@ -93,9 +93,14 @@ export function createChatDatabaseArtifactReferenceService(storage: StoragePort,
       await ensure()
       return storage.call('chatDatabaseInventoryFinish', input, identity)
     },
-    list: (actorId: string, after: string | null, limit: number) =>
-      storage.call('chatDatabaseDraftList', actorId, after, limit),
-    inventory: (actorId: string) => storage.call('chatDatabaseInventoryRead', actorId),
+    async list(actorId: string, after: string | null, limit: number) {
+      await ensure()
+      return storage.call('chatDatabaseDraftList', actorId, after, limit)
+    },
+    async inventory(actorId: string) {
+      await ensure()
+      return storage.call('chatDatabaseInventoryRead', actorId)
+    },
     async close(): Promise<void> {
       closed = true
       await task?.catch(() => undefined)
