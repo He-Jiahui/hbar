@@ -1,4 +1,15 @@
-import { Activity, Blocks, Circle, PanelLeftOpen, Plus, RefreshCw, Search, Settings } from 'lucide-react'
+import {
+  Activity,
+  Blocks,
+  CalendarDays,
+  Circle,
+  Command,
+  PanelLeftOpen,
+  Plus,
+  RefreshCw,
+  Search,
+  Settings,
+} from 'lucide-react'
 import type { ReactNode, Ref } from 'react'
 import { LumenFrame, LumenIcon, type LumenTone } from '@lumen/app-ui'
 import { HbarActionIconButton } from './action-icon-button'
@@ -9,6 +20,8 @@ export interface WorkspaceSidebarRailLabels {
   readonly navigation: string
   readonly newSession: string
   readonly extensions: string
+  readonly commands: string
+  readonly schedules: string
   readonly search: string
   readonly status: string
   readonly settings: string
@@ -24,12 +37,18 @@ export interface WorkspaceSidebarRailProps {
   readonly newDisabled: boolean
   readonly newBusy: boolean
   readonly extensionsSelected: boolean
+  readonly commandsSelected: boolean
+  readonly schedulesSelected: boolean
+  readonly schedulesDisabled?: boolean | undefined
+  readonly notificationNavigation?: ReactNode
   readonly searchSelected: boolean
   readonly statusSelected: boolean
   readonly settingsSelected: boolean
   readonly onExpand: () => void
   readonly onNew: () => void
   readonly onExtensions: () => void
+  readonly onCommands: () => void
+  readonly onSchedules: () => void
   readonly onSearch: () => void
   readonly onStatus: () => void
   readonly onSettings: () => void
@@ -79,12 +98,18 @@ export function WorkspaceSidebarRail({
   newDisabled,
   newBusy,
   extensionsSelected,
+  commandsSelected,
+  schedulesSelected,
+  schedulesDisabled,
+  notificationNavigation,
   searchSelected,
   statusSelected,
   settingsSelected,
   onExpand,
   onNew,
   onExtensions,
+  onCommands,
+  onSchedules,
   onSearch,
   onStatus,
   onSettings,
@@ -94,6 +119,7 @@ export function WorkspaceSidebarRail({
   return (
     <LumenFrame as="aside" className="hbar-app-react-sidebar-rail">
       <LumenFrame as="header" className="hbar-app-react-sidebar-rail-header">
+        {notificationNavigation}
         <HbarActionIconButton
           ref={expandRef}
           className="hbar-app-react-sidebar-rail-action"
@@ -109,9 +135,6 @@ export function WorkspaceSidebarRail({
           <RailAction label={labels.newSession} disabled={newDisabled || !connected} loading={newBusy} onClick={onNew}>
             <LumenIcon icon={Plus} tier="md" />
           </RailAction>
-          <RailAction label={labels.extensions} selected={extensionsSelected} onClick={onExtensions}>
-            <LumenIcon icon={Blocks} tier="md" />
-          </RailAction>
           <RailAction label={labels.search} selected={searchSelected} onClick={onSearch}>
             <LumenIcon icon={Search} tier="md" />
           </RailAction>
@@ -121,15 +144,12 @@ export function WorkspaceSidebarRail({
         ) : null}
       </LumenFrame>
       <LumenFrame as="footer" className="hbar-app-react-sidebar-rail-footer">
-        <LumenFrame
-          className="hbar-app-react-sidebar-rail-server"
-          role="status"
-          aria-label={labels.serverValue}
-          title={labels.serverValue}
-          data-tone={serverTone}
-        >
-          <LumenIcon icon={Circle} tier="sm" />
-        </LumenFrame>
+        <RailAction label={labels.extensions} selected={extensionsSelected} onClick={onExtensions}>
+          <LumenIcon icon={Blocks} tier="md" />
+        </RailAction>
+        <RailAction label={labels.commands} selected={commandsSelected} onClick={onCommands}>
+          <LumenIcon icon={Command} tier="md" />
+        </RailAction>
         {!connected && onReconnect ? (
           <RailAction label={labels.reconnect} onClick={onReconnect}>
             <LumenIcon icon={RefreshCw} tier="md" />
@@ -141,6 +161,23 @@ export function WorkspaceSidebarRail({
         <RailAction label={labels.settings} selected={settingsSelected} onClick={onSettings}>
           <LumenIcon icon={Settings} tier="md" />
         </RailAction>
+        <RailAction
+          label={labels.schedules}
+          selected={schedulesSelected}
+          disabled={schedulesDisabled}
+          onClick={onSchedules}
+        >
+          <LumenIcon icon={CalendarDays} tier="md" />
+        </RailAction>
+        <LumenFrame
+          className="hbar-app-react-sidebar-rail-server"
+          role="status"
+          aria-label={labels.serverValue}
+          title={labels.serverValue}
+          data-tone={serverTone}
+        >
+          <LumenIcon icon={Circle} tier="sm" />
+        </LumenFrame>
       </LumenFrame>
     </LumenFrame>
   )

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { lumenMenuForTrigger } from './support/lumen-controls'
+import { selectSidebarOrganization } from './support/sidebar-organization-menu'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 for (const locale of ['en-US', 'zh-CN'] as const)
@@ -16,7 +17,7 @@ for (const locale of ['en-US', 'zh-CN'] as const)
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 960 } })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root })
+      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
       const agents = createAgentCommandClient(host.client)
       const sessions = createWorkspaceSessionCommandClient(host.client)
       const copy = getShellCopy(locale)
@@ -113,7 +114,7 @@ for (const locale of ['en-US', 'zh-CN'] as const)
       await expect(firstRow()).toBeVisible()
       await expect(parentItem).toHaveAttribute('aria-expanded', 'true')
       // Same canonical hierarchy in global time mode; children never become root peers.
-      await page.getByRole('button', { name: copy.shell.sort.time.showTime, exact: true }).click()
+      await selectSidebarOrganization(page, copy.shell.sort, 'time')
       await expect(page.locator('nav[data-sidebar-organization="time"]')).toBeVisible()
       await expect(firstRow()).toBeVisible()
       await expect(parentItem).toHaveAttribute('aria-level', '2')

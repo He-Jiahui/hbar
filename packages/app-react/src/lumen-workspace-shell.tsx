@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import {
   Activity,
-  Bell,
+  CalendarDays,
   Blocks,
   ChevronDown,
   ChevronRight,
@@ -60,6 +60,7 @@ import {
   type WorkspaceNavigationSelection,
 } from './workspace-navigation-actions'
 import './lumen-workspace-shell.css'
+import './sidebar-entry-layout.css'
 import './workspace-session-entry.css'
 import './sidebar-navigation.css'
 import {
@@ -169,6 +170,8 @@ export interface HbarWorkspaceShellLabels {
   readonly workspaceActions: (name: string) => string
   readonly newSessionInWorkspace: string
   readonly workspaceFiles: string
+  readonly workspaceRunBoard: string
+  readonly schedules: string
   readonly extensionsAndSkills: string
   readonly workspaceSettings: string
   readonly pinWorkspace: string
@@ -205,6 +208,7 @@ export interface HbarWorkspaceShellProps {
   readonly sidebarResize?: LumenAppShellProps['sidebarResize']
   readonly sidebarFeedback?: ReactNode
   readonly featureNavigation?: ReactNode
+  readonly notificationNavigation?: ReactNode
   /** Host-owned title for global feature pages, including the compact mobile header. */
   readonly pageTitle?: string | undefined
   readonly toolWidthRem?: number
@@ -275,6 +279,7 @@ const workspaceShellIcons = {
   search: Search,
   'list-checks': ListChecks,
   settings: Settings,
+  calendar: CalendarDays,
   'new-session': SquarePen,
 } satisfies Readonly<Record<string, LucideIcon>>
 
@@ -950,12 +955,12 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   }, [execute])
   const settleNavigation = (operation: Promise<unknown>) => void operation.then(closeNarrowSidebar).catch(recordError)
   const openPanel = (panelId: string) => settleNavigation(execute('app.openPanel', { panelId }))
-  const openWorkspaceSurface = (workspaceId: string, surface: 'files' | 'settings') => {
+  const openWorkspaceSurface = (workspaceId: string, surface: 'files' | 'settings' | 'run-board' | 'schedules') => {
     setWorkspaceActionError(null)
     const operation =
-      surface === 'files'
-        ? execute('app.openPanel', { panelId: 'files', workspaceId, binding: 'pinned' })
-        : execute('app.openSettings', { scope: 'workspace', targetId: workspaceId, workspaceId, binding: 'pinned' })
+      surface === 'settings'
+        ? execute('app.openSettings', { scope: 'workspace', targetId: workspaceId, workspaceId, binding: 'pinned' })
+        : execute('app.openPanel', { panelId: surface, workspaceId, binding: 'pinned' })
     void operation.then(closeNarrowSidebar).catch((reason: unknown) => {
       setWorkspaceActionError({ workspaceId, code: reason instanceof Error ? reason.message : String(reason) })
     })
@@ -1112,6 +1117,8 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               expand: props.labels.showSidebar,
               newSession: props.labels.newSession,
               extensions: props.labels.extensionsAndSkills,
+              commands: props.labels.commands,
+              schedules: props.labels.schedules,
               search: props.labels.searchChats,
               status: props.labels.status,
               settings: props.labels.settings,
@@ -1124,6 +1131,10 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             newDisabled={!connected || navigationBlocked}
             newBusy={navigationBusy}
             extensionsSelected={extensionsSelected}
+            commandsSelected={presentation.modalInstanceId === 'commands'}
+            schedulesSelected={presentation.page.kind === 'schedules'}
+            schedulesDisabled={!connected || !navigation.workspaceId}
+            notificationNavigation={props.notificationNavigation}
             searchSelected={presentation.modalInstanceId === 'chat-search'}
             statusSelected={presentation.page.kind === 'status'}
             settingsSelected={presentation.page.kind === 'settings' && !extensionsSelected}
@@ -1152,6 +1163,10 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             }}
             onStatus={() => settleNavigation(execute('app.openStatus', { section: 'dashboard' }))}
             onSettings={() => settleNavigation(execute('app.openSettings', { scope: 'global' }))}
+            onCommands={() => openPanel('commands')}
+            onSchedules={() => {
+              if (navigation.workspaceId) openWorkspaceSurface(navigation.workspaceId, 'schedules')
+            }}
             onReconnect={props.onReconnect}
           >
             {!projectPicker && actionWorkspaceId === null && (
@@ -1183,15 +1198,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
         status={{ label: props.labels.server, value: serverValue, tone: serverTone }}
         brandAction={
           <LumenFrame className="hbar-app-react-sidebar-brand-actions">
-            <HbarActionIconButton
-              label={timeView ? props.labels.sort.time.showProjects : props.labels.sort.time.showTime}
-              aria-pressed={timeView}
-              data-testid="sidebar-time-toggle"
-              disabled={!connected || activityPreferenceBusy}
-              onClick={() => void execute('workspaceActivity.toggleTime', {}).catch(recordError)}
-            >
-              <LumenIcon icon={Bell} tier="md" />
-            </HbarActionIconButton>
+            {props.notificationNavigation}
             <HbarActionIconButton
               ref={sidebarFocusRef}
               label={props.labels.hideSidebar}
@@ -1199,35 +1206,6 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             >
               <WorkspaceShellIcon name="panel-close" />
             </HbarActionIconButton>
-          </LumenFrame>
-        }
-        primaryActions={
-          <LumenFrame className="hbar-app-react-sidebar-primary">
-            <WorkspaceSidebarAction
-              icon="blocks"
-              label={props.labels.extensionsAndSkills}
-              selected={extensionsSelected}
-              onClick={() => {
-                setExtensionsEntryError(null)
-                void execute('app.openSettings', { scope: 'global', section: 'skills' })
-                  .then(closeNarrowSidebar)
-                  .catch((reason: unknown) =>
-                    setExtensionsEntryError(reason instanceof Error ? reason.message : String(reason)),
-                  )
-              }}
-            />
-            {extensionsEntryError && (
-              <LumenText as="p" role="alert" className="hbar-app-react-sidebar-action-error">
-                {props.labels.error(extensionsEntryError)}
-              </LumenText>
-            )}
-            <WorkspaceSidebarAction
-              icon="command"
-              label={props.labels.commands}
-              detail={props.labels.commandShortcut}
-              selected={presentation.modalInstanceId === 'commands'}
-              onClick={() => openPanel('commands')}
-            />
           </LumenFrame>
         }
         treeAction={
@@ -1273,6 +1251,32 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           <LumenFrame className="hbar-app-react-sidebar-actions">
             {props.sidebarFeedback}
             {props.featureNavigation}
+            <WorkspaceSidebarAction
+              icon="blocks"
+              label={props.labels.extensionsAndSkills}
+              selected={extensionsSelected}
+              onClick={() => {
+                setExtensionsEntryError(null)
+                void execute('app.openSettings', { scope: 'global', section: 'skills' })
+                  .then(closeNarrowSidebar)
+                  .catch((reason: unknown) =>
+                    setExtensionsEntryError(reason instanceof Error ? reason.message : String(reason)),
+                  )
+              }}
+            />
+            {extensionsEntryError && (
+              <LumenText as="p" role="alert" className="hbar-app-react-sidebar-action-error">
+                {props.labels.error(extensionsEntryError)}
+              </LumenText>
+            )}
+            <WorkspaceSidebarAction
+              icon="command"
+              label={props.labels.commands}
+              detail={props.labels.commandShortcut}
+              aria-label={props.labels.commands}
+              selected={presentation.modalInstanceId === 'commands'}
+              onClick={() => openPanel('commands')}
+            />
             {props.connection !== 'connected' && (
               <WorkspaceSidebarAction icon="refresh" label={props.labels.reconnect} onClick={props.onReconnect} />
             )}
@@ -1282,14 +1286,26 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               selected={presentation.page.kind === 'status'}
               onClick={() => settleNavigation(execute('app.openStatus', { section: 'dashboard' }))}
             />
-            <WorkspaceSidebarAction
-              icon="settings"
-              label={props.labels.settings}
-              detail={props.labels.settingsShortcut}
-              aria-label={props.labels.settings}
-              selected={presentation.page.kind === 'settings' && !extensionsSelected}
-              onClick={() => settleNavigation(execute('app.openSettings', { scope: 'global' }))}
-            />
+            <LumenFrame className="hbar-app-react-sidebar-settings-row">
+              <WorkspaceSidebarAction
+                icon="settings"
+                label={props.labels.settings}
+                detail={props.labels.settingsShortcut}
+                aria-label={props.labels.settings}
+                selected={presentation.page.kind === 'settings' && !extensionsSelected}
+                onClick={() => settleNavigation(execute('app.openSettings', { scope: 'global' }))}
+              />
+              <WorkspaceSidebarAction
+                icon="calendar"
+                label={props.labels.schedules}
+                selected={presentation.page.kind === 'schedules'}
+                disabled={!connected || !navigation.workspaceId}
+                title={!navigation.workspaceId ? props.labels.chooseWorkspace : undefined}
+                onClick={() => {
+                  if (navigation.workspaceId) openWorkspaceSurface(navigation.workspaceId, 'schedules')
+                }}
+              />
+            </LumenFrame>
           </LumenFrame>
         }
       >
@@ -1610,6 +1626,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                               (displayNameBusy && displayNames.editor?.workspaceId !== workspace.id),
                           },
                           { id: 'files', label: props.labels.workspaceFiles },
+                          { id: 'run-board', label: props.labels.workspaceRunBoard, disabled: !connected },
                           { id: 'folders', label: props.labels.workspaceFolders.manage, disabled: !connected },
                           { id: 'settings', label: props.labels.workspaceSettings },
                           {
@@ -1650,7 +1667,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                         onAction={(action) => {
                           if (action === 'edit') editWorkspace({ workspaceId: workspace.id })
                           else if (action === 'folders') openFolders(workspace.id)
-                          else if (action === 'files' || action === 'settings')
+                          else if (action === 'files' || action === 'settings' || action === 'run-board')
                             openWorkspaceSurface(workspace.id, action)
                           else if (action === 'pin') toggleWorkspacePin(workspace.id)
                           else if (action === 'move-up' && previousProject)

@@ -1,6 +1,15 @@
 .hbar-web-notification-navigation {
   display: flex;
   align-items: center;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.hbar-app-react-sidebar-rail .hbar-web-notification-page-button {
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.25rem;
+  max-inline-size: 100%;
 }
 
 .hbar-web-notification-page-button {

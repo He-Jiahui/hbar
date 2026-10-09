@@ -1,0 +1,16 @@
+.hbar-app-react-sidebar-surface .lumen-app-host-status {
+  order: 1;
+}
+
+.hbar-app-react-sidebar-settings-row {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.hbar-app-react-sidebar-settings-row > button {
+  min-inline-size: 0;
+  inline-size: auto;
+  flex: 1 1 auto;
+}

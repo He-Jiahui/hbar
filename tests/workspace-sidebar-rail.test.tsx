@@ -8,6 +8,8 @@ const labels: WorkspaceSidebarRailLabels = {
   navigation: '工程与会话导航',
   newSession: '新建会话——这是一个足够长的中文入口标签',
   extensions: '扩展与技能（宿主提供的超长标签）',
+  commands: '命令目录',
+  schedules: '排期与定时任务',
   search: '搜索聊天记录与当前会话',
   status: '状态中心',
   settings: '设置与工作区首选项',
@@ -25,12 +27,16 @@ function render(overrides: Partial<ComponentProps<typeof WorkspaceSidebarRail>> 
       newDisabled={false}
       newBusy={false}
       extensionsSelected={false}
+      commandsSelected={false}
+      schedulesSelected={false}
       searchSelected={false}
       statusSelected={false}
       settingsSelected={false}
       onExpand={() => {}}
       onNew={() => {}}
       onExtensions={() => {}}
+      onCommands={() => {}}
+      onSchedules={() => {}}
       onSearch={() => {}}
       onStatus={() => {}}
       onSettings={() => {}}

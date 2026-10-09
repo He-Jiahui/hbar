@@ -15,6 +15,7 @@ import { createInterface } from 'node:readline'
 import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
+import { lumenMenuForTrigger } from './support/lumen-controls'
 
 const rootPrefix = 'hbar-sidebar-organization-e2e-'
 const evidenceDirectory = resolve('artifacts/sidebar-organization/hbar-e2e')
@@ -253,9 +254,14 @@ async function stopPage(f: SidebarFixture): Promise<void> {
 
 async function showSidebar(f: SidebarFixture): Promise<Locator> {
   const sidebar = f.page.locator('.hbar-app-react-project-tree')
-  if (!(await sidebar.isVisible()))
-    await f.page.getByRole('button', { name: f.copy.shell.showSidebar, exact: true }).click()
+  const show = f.page.getByRole('button', { name: f.copy.shell.showSidebar, exact: true })
+  if (
+    (await show.isVisible()) &&
+    (await f.page.locator('.hbar-app-react-shell-header').getAttribute('data-hbar-sidebar-expanded')) === 'false'
+  )
+    await show.click()
   await expect(sidebar).toBeVisible()
+  await expect(sidebar).toBeInViewport()
   return sidebar
 }
 
@@ -480,9 +486,7 @@ test.describe('sidebar organization modes', () => {
       await stopHost(host)
     }
   })
-  test('project alias order, recent activity, time groups and saved Bell return preserve the open session', async ({
-    browser,
-  }) => {
+  test('project alias order, recent activity and time view changes preserve the open session', async ({ browser }) => {
     test.setTimeout(180_000)
     const host = await startHost()
     let f: SidebarFixture | undefined
@@ -562,12 +566,17 @@ test.describe('sidebar organization modes', () => {
       const organization = await host.directory.execute('workspaceOrganization.get', {})
       expect(organization.hiddenWorkspaceIds).toContain(host.ready.hiddenWorkspaceId)
 
-      await f.page.getByTestId('sidebar-time-toggle').click()
+      await chooseOrganization(f, 'time')
       sidebar = await showSidebar(f)
       await expect(sidebar).toHaveAttribute('data-sidebar-organization', 'time')
-      const bell = f.page.getByTestId('sidebar-time-toggle')
-      await expect(bell).toHaveAttribute('aria-pressed', 'true')
-      await expect(bell).toHaveAttribute('aria-label', f.copy.shell.sort.time.showProjects)
+      // Time groups now share the persisted project folds with the project tree.
+      const closedProjects = sidebar.locator('.hbar-app-react-sidebar-time-project[aria-expanded="false"]')
+      for (let attempt = 0; attempt < host.ready.workspaces.length; attempt++) {
+        const count = await closedProjects.count()
+        if (!count) break
+        await closedProjects.first().press('ArrowRight')
+        await expect.poll(() => closedProjects.count()).toBeLessThan(count)
+      }
 
       const pageOne = await host.directory.execute('session.activity.global.list', { limit: 60 })
       expect(pageOne.items).toHaveLength(60)
@@ -610,10 +619,13 @@ test.describe('sidebar organization modes', () => {
       ).toBe('start')
       expect(
         await selectedRow.locator('.hbar-app-react-session-workspace-label').evaluate((node) => {
-          const style = getComputedStyle(node)
-          return { whiteSpace: style.whiteSpace, textOverflow: style.textOverflow, overflow: style.overflow }
+          const row = node.closest('[data-session-id]')
+          return {
+            whiteSpace: getComputedStyle(node).whiteSpace,
+            fitsRow: Boolean(row && node.getBoundingClientRect().right <= row.getBoundingClientRect().right + 1),
+          }
         }),
-      ).toEqual({ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' })
+      ).toEqual({ whiteSpace: 'nowrap', fitsRow: true })
       const yesterdayGroup = await timeGroup(sidebar, groups.yesterday)
       const last7DaysGroup = await timeGroup(sidebar, groups.last7Days)
       const last30DaysGroup = await timeGroup(sidebar, groups.last30Days)
@@ -694,7 +706,6 @@ test.describe('sidebar organization modes', () => {
       await f.page.reload()
       sidebar = await showSidebar(f)
       await expect(sidebar).toHaveAttribute('data-sidebar-organization', 'time')
-      await expect(f.page.getByTestId('sidebar-time-toggle')).toHaveAttribute('aria-pressed', 'true')
       await expect(sessionRow(sidebar, host.ready.selectedSession.id)).toHaveAttribute('data-selected', 'true')
       await expect(selectedTab).toHaveAttribute('aria-selected', 'true')
       await expect(f.page.locator('.hbar-composer-model-trigger')).toHaveText(modelText)
@@ -702,12 +713,11 @@ test.describe('sidebar organization modes', () => {
       expect(await modelCommands.execute('session.getModel', { sessionId: host.ready.selectedSession.id })).toEqual(
         beforeModel,
       )
-      const postReloadDraft = 'Bell return must keep this current unsent draft.'
+      const postReloadDraft = 'Changing organization must keep this current unsent draft.'
       await composer(f.page, f).fill(postReloadDraft)
       await expectComposerText(composer(f.page, f), postReloadDraft)
-      await f.page.getByTestId('sidebar-time-toggle').click()
+      await chooseOrganization(f, 'recentProject')
       await expect(sidebar).toHaveAttribute('data-sidebar-organization', 'recentProject')
-      await expect(f.page.getByTestId('sidebar-time-toggle')).toHaveAttribute('aria-pressed', 'false')
       await expect(selectedTab).toHaveAttribute('aria-selected', 'true')
       await expectComposerText(composer(f.page, f), postReloadDraft)
       await expectOrganizationOrder(f, sidebar, 'recentProject')
@@ -750,7 +760,7 @@ test.describe('sidebar organization modes', () => {
       if (!firstId || !firstAlias) throw new Error('Missing first narrow project')
       const firstProject = projectRow(sidebar, firstId)
       await firstProject.getByTitle(f.copy.shell.workspaceActions(firstAlias.displayName), { exact: true }).click()
-      const projectMenu = firstProject.getByRole('menu')
+      const projectMenu = await lumenMenuForTrigger(firstProject.locator('.lumen-action-menu-trigger').first())
       await expect(
         projectMenu.getByRole('menuitem', { name: f.copy.shell.sort.reorder.moveUp, exact: true }),
       ).toBeDisabled()
@@ -778,10 +788,8 @@ test.describe('sidebar organization modes', () => {
       await f.page.keyboard.press('Escape')
       await expect(trigger).toBeFocused()
 
-      const bell = f.page.getByTestId('sidebar-time-toggle')
-      await bell.click()
+      await chooseOrganization(f, 'time')
       await expect(sidebar).toHaveAttribute('data-sidebar-organization', 'time')
-      await expect(bell).toHaveAttribute('aria-pressed', 'true')
       await expect(sidebar.locator('.hbar-app-react-sidebar-time-heading').first()).toHaveText(
         f.copy.shell.sort.time.groups.running,
       )

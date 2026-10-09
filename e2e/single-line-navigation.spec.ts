@@ -6,6 +6,7 @@ import { basename, dirname, join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { completeLine } from './support/single-line-layout'
+import { selectSidebarOrganization } from './support/sidebar-organization-menu'
 
 async function removeOwnedRoot(root: string) {
   if (dirname(root) !== (await realpath(tmpdir())) || !basename(root).startsWith('hbar-single-line-navigation-'))
@@ -91,6 +92,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
           true,
         )
         const page = await context.newPage()
+        const copy = getShellCopy(locale)
         const errors: string[] = []
         page.on('pageerror', (error) => errors.push(error.message))
         await page.goto(origin)
@@ -106,7 +108,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
           .first()
         await expect(navigation).toHaveText(title)
         await completeLine(navigation)
-        await completeLine(page.locator('.hbar-web-feature-navigation > button'))
+        await completeLine(page.locator('.lumen-app-sidebar > footer .lumen-sidebar-action'))
         const pane = page.locator('.lumen-app-sidebar-content')
         const caption = navigation.locator('..')
         await clippedCaption(caption)
@@ -129,8 +131,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         expect(await caption.evaluate((node) => node.getBoundingClientRect().width)).toBe(captionWidth)
         await expect(session).toHaveAttribute('aria-selected', 'true')
         if (locale === 'zh-CN' && theme === 'dark') {
-          const timeToggle = page.getByTestId('sidebar-time-toggle')
-          await timeToggle.click()
+          await selectSidebarOrganization(page, copy.shell.sort, 'time')
           const timeView = page.locator('.hbar-app-react-sidebar-time-view')
           await expect(timeView).toBeVisible()
           const timeCaption = timeView.locator('.hbar-app-react-session-title').first()
@@ -140,8 +141,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
             timeView.locator('.hbar-app-react-sidebar-time-project-line .hbar-sidebar-caption').first(),
           )
           await pane.screenshot({ path: info.outputPath('sidebar-time.png') })
-          await expect(timeToggle).toBeEnabled()
-          await timeToggle.click()
+          await selectSidebarOrganization(page, copy.shell.sort, 'project')
           await expect(timeView).toBeHidden()
           await expect(caption).toBeVisible()
         }
@@ -164,13 +164,12 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
             expect(styles).toMatchObject({ whiteSpace: 'nowrap', scrollable: true, overflow: 'auto' })
             expect(styles.textOverflow).not.toBe('ellipsis')
           }
-          const copy = getShellCopy(locale)
           const reveal = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
           if (width < 768 && (await reveal.isVisible())) {
             await reveal.click()
             await completeLine(navigation)
             await clippedCaption(caption)
-            await completeLine(page.locator('.hbar-web-feature-navigation > button'))
+            await completeLine(page.locator('.lumen-app-sidebar > footer .lumen-sidebar-action'))
             await page.getByRole('button', { name: copy.shell.hideSidebar, exact: true }).click()
           }
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)

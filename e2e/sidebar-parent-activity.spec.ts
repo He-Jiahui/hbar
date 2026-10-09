@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
+import { selectSidebarOrganization } from './support/sidebar-organization-menu'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 async function cleanupFixture(root: string): Promise<void> {
@@ -85,7 +86,7 @@ test('Project and Time sidebar keep an idle parent active while a child works an
       await groupedParent.locator('.hbar-app-react-session-title').evaluate((node) => getComputedStyle(node).textAlign),
     ).toBe('start')
     await page.screenshot({ path: join(evidence, 'zh-project-child-working.png') })
-    await page.getByTestId('sidebar-time-toggle').click()
+    await selectSidebarOrganization(page, copy.shell.sort, 'time')
     await expect(runningGroup.locator(`[data-session-id="${sessionId}"]`)).toBeVisible()
     await expect(indicator).toHaveAttribute('data-state', 'running')
     await expect(indicator).toHaveAttribute('aria-label', copy.shell.sort.time.execution.running)
@@ -130,7 +131,7 @@ test('Project and Time sidebar keep an idle parent active while a child works an
     await expect(indicator).toHaveAttribute('aria-label', copy.shell.sort.time.execution.waiting_approval)
     expect(await indicator.locator('svg').evaluate((node) => getComputedStyle(node).animationName)).toBe('none')
     await page.screenshot({ path: join(evidence, 'zh-child-waiting.png') })
-    await page.getByTestId('sidebar-time-toggle').click()
+    await selectSidebarOrganization(page, copy.shell.sort, 'project')
     await expect(groupedIndicator).toHaveAttribute('data-state', 'waiting_approval')
     await expect(groupedIndicator).toHaveAttribute('aria-label', copy.shell.sort.time.execution.waiting_approval)
     await page.screenshot({ path: join(evidence, 'zh-project-child-waiting.png') })
@@ -148,7 +149,7 @@ test('Project and Time sidebar keep an idle parent active while a child works an
     await pane.getByRole('button', { name: copy.activity.close, exact: true }).click()
     await expect(groupedIndicator).toHaveCount(0)
     await page.screenshot({ path: join(evidence, 'zh-project-child-settled.png') })
-    await page.getByTestId('sidebar-time-toggle').click()
+    await selectSidebarOrganization(page, copy.shell.sort, 'time')
     await expect(indicator).toHaveCount(0)
     await expect(runningGroup).toHaveCount(0)
     await expect(

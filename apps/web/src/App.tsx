@@ -1353,46 +1353,6 @@ function WorkspacePromptTemplatesPage({
   )
 }
 
-function FeatureNavigation({
-  locale,
-  onOpen,
-}: {
-  readonly locale: ShellLocale
-  readonly onOpen: (panelId: 'run-board' | 'schedules' | 'prompt-templates' | 'notifications' | 'onboarding') => void
-}) {
-  const labels = globalFeatureCopy(locale)
-  const runtime = useHbarRuntime()
-  const presentation = useHbarRuntimeState(runtime.state.presentation)
-  const notificationLabels = notificationNavigationCopy(locale)
-  const items = [
-    { id: 'run-board' as const, label: labels.titles['run-board'] },
-    { id: 'schedules' as const, label: labels.titles.schedules },
-    { id: 'prompt-templates' as const, label: labels.titles['prompt-templates'] },
-    { id: 'onboarding' as const, label: labels.titles.onboarding },
-  ]
-  return (
-    <LumenFrame className="hbar-web-feature-navigation">
-      {items.map((item) => (
-        <LumenButton
-          key={item.id}
-          variant="text"
-          aria-label={item.label}
-          aria-current={presentation.page.kind === item.id ? 'page' : undefined}
-          title={item.label}
-          onClick={() => onOpen(item.id)}
-        >
-          {item.label}
-        </LumenButton>
-      ))}
-      <NotificationPageNavigation
-        labels={notificationLabels}
-        selected={presentation.page.kind === 'notifications'}
-        onOpen={() => onOpen('notifications')}
-      />
-    </LumenFrame>
-  )
-}
-
 function WorkspaceModal({
   locale,
   connected,
@@ -2075,7 +2035,13 @@ export default function App({
               ? globalFeatureCopy(locale).titles[presentation.page.kind]
               : undefined
           }
-          featureNavigation={<FeatureNavigation locale={locale} onOpen={openFeaturePanel} />}
+          notificationNavigation={
+            <NotificationPageNavigation
+              labels={notificationNavigationCopy(locale)}
+              selected={presentation.page.kind === 'notifications'}
+              onOpen={() => openFeaturePanel('notifications')}
+            />
+          }
           {...(renderDesktopLayout ? { renderLayout: renderDesktopLayout } : {})}
           toolWidthRem={toolLayout.size.preferredRem}
           toolLayout={{
