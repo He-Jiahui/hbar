@@ -11,7 +11,7 @@ import {
 import { flushSync } from 'react-dom'
 import ReactMarkdown, { type ExtraProps } from 'react-markdown'
 import { resourceReferenceSchema, parseResourceReference } from '@hbar/contracts/resources'
-import { MessageResourceLink, useMessageResources } from './message-resource'
+import { MessageResourceLink, useMessageResources, useMessageResourceSource } from './message-resource'
 import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
 import type { MessageClipboardPort } from './message-copy'
 import { CodeBlockCopyAction, type HbarCodeBlockLabels } from './code-block-copy-action'
@@ -328,10 +328,12 @@ export function MessageMarkdown({
   readonly code?: MessageCodeContext | undefined
   readonly fileReferences?: MessageFileReferenceContext | undefined
 }) {
+  const inheritedReferences = useMessageResourceSource()
+  const references = fileReferences ?? inheritedReferences
   const content = (
-    <FileContext.Provider value={fileReferences ?? null}>
+    <FileContext.Provider value={references}>
       <CodeContext.Provider
-        value={code ? { ...code, source: text, streaming: code.streaming ?? fileReferences?.streaming } : null}
+        value={code ? { ...code, source: text, streaming: code.streaming ?? references?.streaming } : null}
       >
         <ReactMarkdown
           remarkPlugins={sessionMarkdownRemarkPlugins}

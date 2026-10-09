@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { LumenProvider, LumenButton } from '@lumen/app-ui'
 import '@lumen/app-ui/styles.css'
 import { createMessageResources, type MessageResourcePort } from '@hbar/app-runtime'
-import { HbarMessageResourceLayer } from '../../packages/app-react/src/message-resource'
+import { HbarMessageResourceLayer, MessageResourceSourceProvider } from '../../packages/app-react/src/message-resource'
 import { MessageMarkdown } from '../../packages/app-react/src/message-markdown'
 import type { ResourceCandidate } from '@hbar/contracts/resources'
 import { resourceCopy } from '../../apps/web/src/resource-copy'
@@ -15,6 +15,7 @@ const locale = new URL(location.href).searchParams.get('locale') === 'zh-CN' ? '
 const labels = resourceCopy(locale)
 const content =
   '`src/main.ts:12` · `same.ts` · `photo.png` · `missing.ts` · `C:\\My Project\\notes.txt` · `https://example.test/page`\n\n`HbarPromptComposer` and `console.log`\n\n```ts\nsrc/main.ts:12\n```'
+const toolContent = 'Tool result: `src/tool.ts:7`'
 const source = { workspaceId: 'fixture-w', sessionId: 'fixture-s', messageId: 'fixture-m', sourceTabInstanceKey: null }
 declare global {
   interface Window {
@@ -86,6 +87,9 @@ function App() {
       <HbarMessageResourceLayer model={model} labels={labels}>
         <main>
           <MessageMarkdown text={content} fileReferences={fileReferences} />
+          <MessageResourceSourceProvider context={fileReferences}>
+            <MessageMarkdown text={toolContent} />
+          </MessageResourceSourceProvider>
           <output data-opened>{opened}</output>
           <LumenButton onClick={model.close}>{labels.close}</LumenButton>
         </main>
