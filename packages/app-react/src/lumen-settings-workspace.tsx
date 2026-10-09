@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   ChartNoAxesCombined,
   Cpu,
+  Database,
   MessageSquare,
   Palette,
   Puzzle,
@@ -14,7 +15,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { encodePath, type CompiledField, type FieldItemValue, type FieldValue } from '@hbar/schema-core'
-import type { SettingsWorkspaceLayout } from '@hbar/contracts/commands/settings'
+import type { SettingsWorkspaceLayout, SettingsSnapshot } from '@hbar/contracts/commands/settings'
 import {
   HbarSchemaForm,
   type HbarSchemaFormLabels,
@@ -93,8 +94,23 @@ export interface HbarSettingsWorkspaceProps {
   /** Presentation only: fixed-scope groups do not change the underlying layered form or its draft. */
   readonly groupPresentation?: readonly HbarSettingsGroupPresentation[]
   readonly layout?: SettingsWorkspaceLayout
-  readonly renderGroup?: (groupId: string) => ReactNode
+  readonly renderGroup?: (groupId: string, context: HbarSettingsGroupContext) => ReactNode | HbarSettingsGroupContent
   readonly headerActions?: ReactNode
+}
+
+export interface HbarSettingsGroupContext {
+  readonly instanceId: string | null
+  readonly scope: SettingsSnapshot['scope'] | null
+  readonly entry: SettingsFormEntry | undefined
+  readonly form: ReactNode
+  readonly saveArea: ReactNode
+}
+export interface HbarSettingsGroupContent {
+  readonly content: ReactNode
+  readonly saveArea: ReactNode
+}
+function groupContent(value: ReactNode | HbarSettingsGroupContent): value is HbarSettingsGroupContent {
+  return value !== null && typeof value === 'object' && 'content' in value && 'saveArea' in value
 }
 
 export interface HbarSettingsAdditionalGroup {
@@ -114,6 +130,7 @@ export type HbarSettingsGroupIcon =
   | 'diagnostics'
   | 'usage'
   | 'settings'
+  | 'database'
 
 export interface HbarSettingsGroupPresentation {
   readonly id: string
@@ -135,6 +152,7 @@ const groupIcons = {
   usage: ChartNoAxesCombined,
   sandbox: ShieldHalf,
   settings: Settings,
+  database: Database,
 } satisfies Readonly<Record<HbarSettingsGroupIcon, LucideIcon>>
 
 function reasonCode(reason: unknown): string {
@@ -339,22 +357,6 @@ export function HbarSettingsWorkspace({
   const invalid = Boolean(entry?.form?.issues.length)
   const canRefresh = connected && Boolean(entry) && !busy && !unknown && dirtyCount === 0
   const canSave = connected && Boolean(entry) && !busy && !unknown && !invalid && dirtyCount > 0
-  const customGroup = activeGroupId ? renderGroup?.(activeGroupId) : null
-  const suspendedCustomGroup = customGroup ? (
-    <Suspense
-      fallback={
-        <LumenText as="p" className="hbar-app-react-settings-state" role="status">
-          {labels.loading}
-        </LumenText>
-      }
-    >
-      {customGroup}
-    </Suspense>
-  ) : null
-  // Device-local groups must remain reachable when an unrelated Host form cannot load.
-  // A mixed General group can be Host-described yet must retain its device-local
-  // language controls while the Host form is unavailable.
-  const localCustomGroup = (scopePresentation === 'client' || scopePresentation === 'mixed') && customGroup
   const selectedGroup = hostGroups.find((group) => group.id === activeGroupId)
 
   const fieldContext = (field: CompiledField) => {
@@ -397,6 +399,82 @@ export function HbarSettingsWorkspace({
       </>
     )
   }
+
+  const formContent =
+    entry?.schema && entry.form ? (
+      <SettingsRecipe
+        slots={{
+          content: (
+            <HbarSchemaForm
+              schema={entry.schema}
+              state={entry.form}
+              components={components}
+              labels={{
+                ...labels.form,
+                resolve: labels.resolve,
+                help: (field) => {
+                  const key = definitions.get(field.name)?.helpKey
+                  return key ? labels.resolve(key) : undefined
+                },
+              }}
+              content={entry.content}
+              disabled={busy || unknown || !connected}
+              fieldNames={fieldNames}
+              layout={layout.fields}
+              renderFieldContext={fieldContext}
+              renderFieldActions={fieldActions}
+              onIntent={dispatchIntent}
+            />
+          ),
+        }}
+      />
+    ) : null
+  const saveArea = entry?.form ? (
+    <LumenFrame as="footer" className="hbar-app-react-settings-footer">
+      <LumenFrame className="hbar-app-react-settings-footer-inner">
+        <LumenText as="span" role="status">
+          {entry.receipt ? labels.saved : dirtyCount > 0 ? labels.unsaved(dirtyCount) : null}
+        </LumenText>
+        <LumenFrame>
+          <LumenButton disabled={!canRefresh} onClick={() => runFormCommand('refresh')}>
+            {labels.refresh}
+          </LumenButton>
+          {unknown ? (
+            <LumenButton tone="warning" disabled={!connected} onClick={() => runFormCommand('reconcile')}>
+              {labels.reconcile}
+            </LumenButton>
+          ) : (
+            <LumenButton tone="primary" disabled={!canSave} onClick={() => runFormCommand('submit')}>
+              {labels.save}
+            </LumenButton>
+          )}
+        </LumenFrame>
+      </LumenFrame>
+    </LumenFrame>
+  ) : null
+  const renderedGroup = activeGroupId
+    ? renderGroup?.(activeGroupId, {
+        instanceId: settingsPanel?.instanceId ?? null,
+        scope: entry?.scope ?? null,
+        entry,
+        form: formContent,
+        saveArea,
+      })
+    : null
+  const renderedContent = renderedGroup && groupContent(renderedGroup) ? renderedGroup : null
+  const customGroup = renderedGroup && groupContent(renderedGroup) ? renderedGroup.content : renderedGroup
+  const suspendedCustomGroup = customGroup ? (
+    <Suspense
+      fallback={
+        <LumenText as="p" className="hbar-app-react-settings-state" role="status">
+          {labels.loading}
+        </LumenText>
+      }
+    >
+      {renderedContent ? renderedContent.content : customGroup}
+    </Suspense>
+  ) : null
+  const localCustomGroup = (scopePresentation === 'client' || scopePresentation === 'mixed') && customGroup
 
   return (
     <LumenFrame
@@ -501,59 +579,10 @@ export function HbarSettingsWorkspace({
               )}
               <LumenFrame className="hbar-app-react-settings-scroll">
                 <LumenFrame className="hbar-app-react-settings-content">
-                  {suspendedCustomGroup ?? (
-                    <SettingsRecipe
-                      slots={{
-                        content: (
-                          <HbarSchemaForm
-                            schema={entry.schema}
-                            state={entry.form}
-                            components={components}
-                            labels={{
-                              ...labels.form,
-                              resolve: labels.resolve,
-                              help: (field) => {
-                                const key = definitions.get(field.name)?.helpKey
-                                return key ? labels.resolve(key) : undefined
-                              },
-                            }}
-                            content={entry.content}
-                            disabled={busy || unknown}
-                            fieldNames={fieldNames}
-                            layout={layout.fields}
-                            renderFieldContext={fieldContext}
-                            renderFieldActions={fieldActions}
-                            onIntent={dispatchIntent}
-                          />
-                        ),
-                      }}
-                    />
-                  )}
+                  {suspendedCustomGroup ?? formContent}
                 </LumenFrame>
               </LumenFrame>
-              {!customGroup && (
-                <LumenFrame as="footer" className="hbar-app-react-settings-footer">
-                  <LumenFrame className="hbar-app-react-settings-footer-inner">
-                    <LumenText as="span" role="status">
-                      {entry.receipt ? labels.saved : dirtyCount > 0 ? labels.unsaved(dirtyCount) : null}
-                    </LumenText>
-                    <LumenFrame>
-                      <LumenButton disabled={!canRefresh} onClick={() => runFormCommand('refresh')}>
-                        {labels.refresh}
-                      </LumenButton>
-                      {unknown ? (
-                        <LumenButton tone="warning" disabled={!connected} onClick={() => runFormCommand('reconcile')}>
-                          {labels.reconcile}
-                        </LumenButton>
-                      ) : (
-                        <LumenButton tone="primary" disabled={!canSave} onClick={() => runFormCommand('submit')}>
-                          {labels.save}
-                        </LumenButton>
-                      )}
-                    </LumenFrame>
-                  </LumenFrame>
-                </LumenFrame>
-              )}
+              {renderedContent ? renderedContent.saveArea : !customGroup ? saveArea : null}
             </>
           )}
         </LumenFrame>

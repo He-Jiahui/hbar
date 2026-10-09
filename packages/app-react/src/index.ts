@@ -145,6 +145,8 @@ export {
   HbarSettingsWorkspace,
   type HbarSettingsAdditionalGroup,
   type HbarSettingsGroupIcon,
+  type HbarSettingsGroupContext,
+  type HbarSettingsGroupContent,
   type HbarSettingsGroupPresentation,
   type HbarSettingsWorkspaceLabels,
   type HbarSettingsWorkspaceProps,

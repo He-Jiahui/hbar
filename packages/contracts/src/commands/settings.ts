@@ -23,6 +23,7 @@ export const settingsWorkspacePresentationSchema = z
             'extensions',
             'skills',
             'diagnostics',
+            'database',
             'usage',
             'settings',
           ]),

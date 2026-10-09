@@ -503,6 +503,7 @@ export function createChatDatabaseMaintenanceService(
           console.error('Chat database post-operation refresh failed', reason)
           return
         }
+        console.error('Chat database operation failed', state.operationId, latest.stage, reason)
         if (!closed && state.type === 'preview' && latest.cancellationRequested) {
           await finishCancelled(state.operationId)
           return

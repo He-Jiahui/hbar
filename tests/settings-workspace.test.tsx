@@ -663,6 +663,7 @@ test.each(['zh-CN', 'en-US'] as const)(
         copy.appearance.group,
         copy.settings.resolve('i18n:settings.groups.model'),
         copy.settings.resolve('i18n:settings.groups.session'),
+        copy.settings.resolve('i18n:settings.groups.chatDatabase'),
         copy.settings.resolve('i18n:settings.groups.skills'),
         copy.settings.resolve('i18n:settings.groups.extensions'),
         copy.diagnostics.title,
@@ -673,6 +674,7 @@ test.each(['zh-CN', 'en-US'] as const)(
         'palette',
         'cpu',
         'message-square',
+        'database',
         'sparkles',
         'puzzle',
         'stethoscope',
@@ -725,7 +727,7 @@ test('settings group metadata preserves long labels and ignores unknown or dupli
     expect(appearance.fixedScope).toBe(labels.clientScope)
     expect(appearance.groups.filter((group) => group.current).map((group) => group.text)).toEqual([longLabel])
     expect(appearance.groups.find((group) => group.current)?.icon).toContain('lucide-palette')
-    expect(appearance.groups).toHaveLength(7)
+    expect(appearance.groups).toHaveLength(8)
     expect(appearance.groups.map((group) => group.text)).not.toContain('重复项不得覆盖首项')
     expect(appearance.groups.map((group) => group.text)).not.toContain('客户端不得覆盖 Host 分组')
     expect(render()).not.toContain('not-registered')

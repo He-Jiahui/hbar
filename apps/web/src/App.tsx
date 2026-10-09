@@ -73,6 +73,7 @@ import {
   createModelCommandClient,
   createSchemaCallbackClient,
   createSettingsCommandClient,
+  createChatDatabaseCommandClient,
   createSystemCommandClient,
   createUsageCommandClient,
   createWorkspaceSessionCommandClient,
@@ -87,6 +88,8 @@ import { WebGeneralSettings } from './GeneralSettings'
 import { HbarStorageLocationSettings } from '@hbar/app-react/storage-locations'
 import { createStorageLocationController, type StorageLocationController } from '@hbar/app-runtime/storage-locations'
 import { storageLocationCopy } from './storage-location-copy'
+import { chatDatabaseCopy } from './chat-database-copy'
+import { webWindowId } from './client-window-id'
 import { createSkillImportController } from '@hbar/app-runtime/skill-import'
 import { WebSkillImportPanel } from './SkillImportPanel'
 import { WebPreSessionLanding } from './PreSessionLanding'
@@ -168,6 +171,11 @@ const GoalPlanWorkspace = lazySurface<ComponentProps<typeof import('@hbar/app-re
 )
 const SettingsWorkspace = lazySurface<ComponentProps<typeof import('@hbar/app-react/settings').HbarSettingsWorkspace>>(
   () => import('@hbar/app-react/settings').then((m) => ({ default: m.HbarSettingsWorkspace })),
+)
+const ChatDatabaseSettings = lazySurface<
+  ComponentProps<typeof import('@hbar/app-react/chat-database').HbarChatDatabaseSettings>
+>(
+  () => import('@hbar/app-react/chat-database').then((m) => ({ default: m.HbarChatDatabaseSettings })),
 )
 const SandboxProfileSettings = lazySurface<ComponentProps<typeof import('@hbar/app-react').HbarSandboxProfileSettings>>(
   () => import('@hbar/app-react').then((m) => ({ default: m.HbarSandboxProfileSettings })),
@@ -382,6 +390,29 @@ function createRuntime(
     },
     budget: createBudgetCommandClient(client),
     settings: createSettingsCommandClient(client),
+    chatDatabase: {
+      commands: createChatDatabaseCommandClient(client),
+      ...(hostId === null
+        ? {}
+        : {
+            journal: {
+              read() {
+                const key = `hbar:web:chat-database:${encodeURIComponent(hostId)}:${webWindowId(window.sessionStorage)}`
+                const value = window.localStorage.getItem(key)
+                return value ? (JSON.parse(value) as unknown) : null
+              },
+              write(value) {
+                const key = `hbar:web:chat-database:${encodeURIComponent(hostId)}:${webWindowId(window.sessionStorage)}`
+                window.localStorage.setItem(key, JSON.stringify(value))
+              },
+            },
+          }),
+      onConnection(listener) {
+        const off = client.onStatus((status) => listener(status === 'connected'))
+        listener(client.connectionStatus() === 'connected')
+        return off
+      },
+    },
     permissionEvents: {
       subscribe(listener) {
         return client.onEvent((event) => {
@@ -736,6 +767,7 @@ function WorkspaceBodyContent({
         layout={WEB_SETTINGS_LAYOUT}
         pendingGroups={[
           { id: 'storage', label: storageLocationCopy(locale).title, order: 37 },
+          { id: 'chatDatabase', label: chatDatabaseCopy(locale).title, order: 38 },
           { id: 'providers', label: copy.settings.resolve('i18n:settings.groups.providers'), order: 0 },
           { id: 'sandbox', label: copy.settings.resolve('i18n:settings.groups.sandbox'), order: 35 },
           { id: 'model', label: copy.settings.resolve('i18n:settings.groups.model'), order: 20 },
@@ -751,7 +783,22 @@ function WorkspaceBodyContent({
           { id: 'usage', label: copy.settingsUsage.title, order: 85 },
           { id: 'diagnostics', label: copy.diagnostics.title, order: 90 },
         ]}
-        renderGroup={(groupId) => {
+        renderGroup={(groupId, context) => {
+          if (groupId === 'chatDatabase' && context.scope && context.instanceId)
+            return {
+              content: (
+                <ChatDatabaseSettings
+                  key={`${context.instanceId}:${JSON.stringify(context.scope)}`}
+                  instanceId={context.instanceId}
+                  scope={context.scope}
+                  connected={connected}
+                  labels={chatDatabaseCopy(locale)}
+                  ruleForm={context.form}
+                  savedRevision={context.entry?.receipt?.commitId ?? ''}
+                />
+              ),
+              saveArea: context.saveArea,
+            }
           if (groupId === 'storage')
             return (
               <HbarStorageLocationSettings

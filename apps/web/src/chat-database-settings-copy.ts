@@ -79,3 +79,19 @@ export function resolveChatDatabaseSettingCopy(locale: ShellLocale, key: string)
   }
   return undefined
 }
+
+export function resolveChatDatabaseChoiceCopy(locale: ShellLocale, field: string, value: unknown): string | undefined {
+  const zh = locale === 'zh-CN'
+  if (field === 'f:chatDatabase.scheduleKind') {
+    if (value === 'daily') return zh ? '每天' : 'Daily'
+    if (value === 'weekly') return zh ? '每周' : 'Weekly'
+  }
+  if (field === 'f:chatDatabase.scheduleWeekdays' && typeof value === 'number' && value >= 0 && value <= 6) {
+    return (
+      zh
+        ? ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+        : ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    )[value]
+  }
+  return undefined
+}

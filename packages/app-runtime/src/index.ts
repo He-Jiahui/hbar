@@ -154,6 +154,9 @@ import { composerPlanChoiceCommands, registerComposerPlanChoice } from './compos
 import { sessionRenameCommands, createSessionRename } from './session-rename'
 import { sessionArchiveCommands, createSessionArchive } from './session-archive'
 import { createSettingsForms } from './settings-forms'
+import { createChatDatabaseWorkspace } from './chat-database'
+export { createChatDatabaseWorkspace, chatDatabaseViewKey } from './chat-database'
+export type { ChatDatabaseEntry, ChatDatabaseState, ChatDatabaseJournalPort, ChatDatabaseClientJournal } from './chat-database'
 import { createProviderSettings } from './provider-settings'
 import { createCommandPalette } from './command-palette'
 import { createFileWorkspace } from './file-workspace'
@@ -1022,6 +1025,8 @@ export function createAppRuntime(options: RuntimeOptions) {
     () => disposed,
     controls.settingsCommitted,
   )
+  const chatDatabase = createChatDatabaseWorkspace(options.chatDatabase?.commands, onSubscriberError, options.chatDatabase?.journal)
+  const offChatDatabaseConnection = options.chatDatabase?.onConnection?.(chatDatabase.actions.setConnected)
   const settingsUsage = createSettingsUsage(
     local,
     options.usage,
@@ -1448,6 +1453,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       sessionArchive: sessionArchive.reader,
       planProposal: planProposal.reader,
       settings: settingsForms.reader,
+      chatDatabase: chatDatabase.reader,
       providers: providerSettings.reader,
       commandPalette: commandPalette.reader,
       files: fileWorkspace.reader,
@@ -1471,6 +1477,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     commands: Object.freeze(createCommandClient(runtimeCommands, executor)),
     contextUsage: Object.freeze({ refresh: controls.refreshContext }),
     preSessionModelCatalog: preSessionModelCatalog.actions,
+    chatDatabase: chatDatabase.actions,
     conversationReading: Object.freeze({
       reader: conversationReading.reader,
       read: conversationReading.read,
@@ -1543,6 +1550,8 @@ export function createAppRuntime(options: RuntimeOptions) {
       sessionBranchTargetPicker.dispose()
       sessionRosterRefresh.dispose()
       settingsUsage.dispose()
+      offChatDatabaseConnection?.()
+      chatDatabase.dispose()
       usageRequests.dispose()
       sessionRequests.dispose()
       usageBudget?.dispose()

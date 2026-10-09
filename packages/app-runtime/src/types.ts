@@ -157,6 +157,11 @@ export interface RuntimeOptions {
   readonly usage?: CommandExecutor
   readonly budget?: BudgetCommandPort
   readonly settings?: CommandExecutor
+  readonly chatDatabase?: {
+    readonly commands: CommandExecutor
+    readonly journal?: import('./chat-database').ChatDatabaseJournalPort
+    readonly onConnection?: (listener: (connected: boolean) => void) => () => void
+  }
   /** Session approval settings invalidation; notifications are hints, never write acknowledgements. */
   readonly permissionEvents?: {
     subscribe(listener: () => void): () => void

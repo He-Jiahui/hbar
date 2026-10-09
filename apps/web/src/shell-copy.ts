@@ -2,7 +2,7 @@ import { extensionDetailCopy } from './extension-detail-copy'
 import { extensionSkillCopy } from './extension-skill-copy'
 import { fileWorkspaceCopy, fileWorkspaceErrorCopy } from './file-workspace-copy'
 import { settingsUsageCopy } from './settings-usage-copy'
-import { resolveChatDatabaseSettingCopy } from './chat-database-settings-copy'
+import { resolveChatDatabaseSettingCopy, resolveChatDatabaseChoiceCopy } from './chat-database-settings-copy'
 import { createSessionRequestLabels } from './session-request-copy'
 import { goalLifecycleCopy, goalHistoryCopy } from './goal-lifecycle-copy'
 import type { AgentProfileId } from '@hbar/contracts/commands/agents'
@@ -688,7 +688,7 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         issue.code === 'required'
           ? choose('此字段必填。', 'This field is required.')
           : choose('字段值不符合约束。', 'The value does not satisfy this field.'),
-      option: (_field, value) => option(value),
+      option: (field, value) => resolveChatDatabaseChoiceCopy(locale, field.name, value) ?? option(value),
       contentText: (text) => {
         if (text.kind === 'literal') return text.text
         if (text.key.startsWith('settings.thinkingLevels.'))
