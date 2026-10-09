@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from 'bun:test'
+import { Database } from 'bun:sqlite'
 import { createHash } from 'node:crypto'
 import { mkdtemp, readFile, readdir, rm, mkdir, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -54,7 +55,13 @@ async function fixture(http = false) {
     await client.connect()
     return { client, device, address }
   }
-  return { ...resource, connect }
+  return {
+    ...resource,
+    connect,
+    replaceKernel: (next: Kernel) => {
+      resource.kernel = next
+    },
+  }
 }
 
 test('uploads atomically publish exact bytes, repair an old partial file and leave no temporary files', async () => {
@@ -190,4 +197,147 @@ test('a redirected attachment root rejects uploads and never writes through a Wi
     await errorOf(f.kernel.upload('redirected.txt', 'text/plain', new TextEncoder().encode('protected'))),
   ).toMatchObject({ code: 'PATH_REDIRECTED' })
   expect(await readdir(outside)).toEqual([])
+})
+
+test('a complete SQLite rebuild preserves both retained-message and offline-draft artifact metadata', async () => {
+  const f = await fixture()
+  const bytes = new TextEncoder().encode('rebuildable attachment')
+  const artifact = await f.kernel.upload('offline.txt', 'text/plain', bytes, {
+    actorId: 'rebuild-device',
+    owner: { id: 'offline-draft', kind: 'session', clientRevision: 0 },
+  })
+  const workspace = (await f.kernel.storage.call('workspaces'))[0]!
+  const session = await f.kernel.createSession(workspace.id, 'retained attachment')
+  await f.kernel.storage.call('commit', session.id, 'fixture', 'user', [{ type: 'file', artifact }])
+  const draftOnly = await f.kernel.upload('draft-only.txt', 'text/plain', new TextEncoder().encode('offline-only'), {
+    actorId: 'rebuild-device',
+    owner: { id: 'only-draft', kind: 'preSession', clientRevision: 0 },
+  })
+  await f.kernel.close()
+  for (const suffix of ['', '-wal', '-shm']) await rm(`${f.kernel.options.layout.database}${suffix}`, { force: true })
+  const current = await Kernel.create({
+    home: join(f.root, 'data'),
+    workspace: f.root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  f.replaceKernel(current)
+  while (!(await current.storage.call('chatDatabaseDraftBackfill', 100)).done) {
+    /* bounded recovery */
+  }
+  expect(await current.storage.call('artifact', artifact.id)).toEqual(artifact)
+  expect(await current.storage.call('artifact', draftOnly.id)).toEqual(draftOnly)
+})
+
+test('a lost response after publication recovers metadata only when the complete file matches its reserved hash', async () => {
+  const f = await fixture()
+  const bytes = new TextEncoder().encode('published before metadata')
+  const artifact = {
+    id: createHash('sha256').update(bytes).digest('hex'),
+    name: 'unknown.txt',
+    mime: 'text/plain',
+    size: bytes.length,
+  }
+  await f.kernel.storage.call('chatDatabaseArtifactReserve', {
+    artifactId: artifact.id,
+    artifact,
+    deviceId: 'fixture',
+    ownerId: 'preSession:unknown',
+  })
+  await writeFile(join(f.kernel.options.layout.artifacts, artifact.id), bytes.subarray(0, 5))
+  expect(await errorOf(f.kernel.storage.call('artifact', artifact.id))).toMatchObject({ code: 'NOT_FOUND' })
+  await writeFile(join(f.kernel.options.layout.artifacts, artifact.id), new Uint8Array(bytes.length))
+  expect(await errorOf(f.kernel.storage.call('artifact', artifact.id))).toMatchObject({ code: 'NOT_FOUND' })
+  await writeFile(join(f.kernel.options.layout.artifacts, artifact.id), bytes)
+  expect(await f.kernel.storage.call('artifact', artifact.id)).toEqual(artifact)
+  await f.kernel.close()
+  const current = await Kernel.create({
+    home: join(f.root, 'data'),
+    workspace: f.root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  f.replaceKernel(current)
+  while (!(await current.storage.call('chatDatabaseDraftBackfill', 100)).done) {
+    /* bounded recovery */
+  }
+  expect(await current.storage.call('artifact', artifact.id)).toEqual(artifact)
+})
+
+test('the upload completion proof survives a failed metadata projection commit', async () => {
+  const f = await fixture()
+  const db = new Database(f.kernel.options.layout.database)
+  const bytes = new TextEncoder().encode('metadata projection failure')
+  const id = createHash('sha256').update(bytes).digest('hex')
+  try {
+    db.exec(
+      "CREATE TRIGGER fail_artifact_projection BEFORE INSERT ON artifacts BEGIN SELECT RAISE(ABORT,'fixture metadata projection failure'); END",
+    )
+    expect(await errorOf(f.kernel.upload('recovered.txt', 'text/plain', bytes))).toBeInstanceOf(Error)
+    db.exec('DROP TRIGGER fail_artifact_projection')
+  } finally {
+    db.close()
+  }
+  while (!(await f.kernel.storage.call('chatDatabaseDraftBackfill', 100)).done) {
+    /* canonical completion replay */
+  }
+  expect(await f.kernel.storage.call('artifact', id)).toEqual({
+    id,
+    name: 'recovered.txt',
+    mime: 'text/plain',
+    size: bytes.length,
+  })
+})
+
+test('repeating a hash preserves the original catalog metadata while each upload returns its selected filename', async () => {
+  const f = await fixture()
+  const bytes = new TextEncoder().encode('same content')
+  const first = await f.kernel.upload('first.txt', 'text/plain', bytes)
+  const second = await f.kernel.upload('second.bin', 'application/octet-stream', bytes)
+  expect(second).toMatchObject({ id: first.id, name: 'second.bin', mime: 'application/octet-stream' })
+  expect(await f.kernel.storage.call('artifact', first.id)).toEqual(first)
+  await f.kernel.close()
+  for (const suffix of ['', '-wal', '-shm']) await rm(`${f.kernel.options.layout.database}${suffix}`, { force: true })
+  const current = await Kernel.create({
+    home: join(f.root, 'data'),
+    workspace: f.root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  f.replaceKernel(current)
+  while (!(await current.storage.call('chatDatabaseDraftBackfill', 100)).done) {
+    /* canonical metadata replay */
+  }
+  expect(await current.storage.call('artifact', first.id)).toEqual(first)
+})
+
+test('a publication without its final RPC remains recoverable after a full SQLite rebuild', async () => {
+  const f = await fixture()
+  const bytes = new TextEncoder().encode('unacknowledged publication')
+  const artifact = {
+    id: createHash('sha256').update(bytes).digest('hex'),
+    name: 'unacknowledged.txt',
+    mime: 'text/plain',
+    size: bytes.length,
+  }
+  await f.kernel.storage.call('chatDatabaseArtifactReserve', {
+    artifactId: artifact.id,
+    artifact,
+    deviceId: 'fixture',
+    ownerId: 'preSession:unknown',
+  })
+  await writeFile(join(f.kernel.options.layout.artifacts, artifact.id), bytes)
+  await f.kernel.close()
+  for (const suffix of ['', '-wal', '-shm']) await rm(`${f.kernel.options.layout.database}${suffix}`, { force: true })
+  const current = await Kernel.create({
+    home: join(f.root, 'data'),
+    workspace: f.root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  f.replaceKernel(current)
+  while (!(await current.storage.call('chatDatabaseDraftBackfill', 100)).done) {
+    /* recover candidate declarations */
+  }
+  expect(await current.storage.call('artifact', artifact.id)).toEqual(artifact)
 })

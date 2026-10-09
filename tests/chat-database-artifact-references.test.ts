@@ -538,3 +538,27 @@ test('a completed legacy inventory keeps its generation and acknowledgment after
     claimed: true,
   })
 })
+
+test('legacy attachment metadata is captured in bounded batches and survives SQLite rebuild without a message', async () => {
+  const f = await fixture()
+  const artifacts = Array.from({ length: 26 }, (_, index) => ({
+    id: index.toString(16).padStart(64, '0'),
+    name: `legacy-${index}.txt`,
+    mime: 'text/plain',
+    size: 3,
+  }))
+  for (const artifact of artifacts) await f.storage.call('putArtifact', artifact)
+  let first = await f.storage.call('chatDatabaseDraftBackfill', 100)
+  expect(first.done).toBe(false)
+  first = await f.storage.call('chatDatabaseDraftBackfill', 100)
+  expect(first.done).toBe(false)
+  expect((await f.storage.call('chatDatabaseReferenceHealth')).drafts).toBe(false)
+  await f.recover()
+  expect((await f.storage.call('chatDatabaseReferenceHealth')).drafts).toBe(true)
+  await f.storage.close()
+  for (const suffix of ['', '-wal', '-shm']) await rm(`${f.layout.database}${suffix}`, { force: true })
+  const current = await f.open()
+  await f.recover(current)
+  expect(await current.call('artifact', artifacts[0]!.id)).toEqual(artifacts[0]!)
+  expect(await current.call('artifact', artifacts[25]!.id)).toEqual(artifacts[25]!)
+})

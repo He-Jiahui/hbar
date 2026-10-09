@@ -1,8 +1,15 @@
 import type { Database } from 'bun:sqlite'
-import { lstatSync, readFileSync } from 'node:fs'
+import { lstatSync, readFileSync, openSync, closeSync, fstatSync, readSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { dirname, join } from 'node:path'
 import { z } from 'zod'
-import { HbarError, collectArtifactReferenceIds, type ArtifactRef } from '@hbar/contracts'
+import {
+  HbarError,
+  artifactSchema,
+  collectArtifactReferenceIds,
+  collectArtifactReferences,
+  type ArtifactRef,
+} from '@hbar/contracts'
 import {
   chatDatabaseDraftOwnerSchema,
   chatDatabaseDraftSyncInputSchema,
@@ -29,6 +36,8 @@ export interface ChatDatabaseArtifactUploadReservation {
   ownerId: string
   clientRevision?: number
   leaseId?: string
+  artifact?: ArtifactRef
+  replacesOperationId?: string | null
 }
 export interface ChatDatabaseArtifactClaimResult {
   claimed: boolean
@@ -52,6 +61,14 @@ export function createChatDatabaseArtifactStorage(
   let deviceCursor: string | null = null
   let devicesDone = false
   let journalWriteVersion = 0
+  let journalFinished = false
+  let journalRecovery: { done: boolean; healthy: boolean; issues: string[] } = {
+    done: false,
+    healthy: false,
+    issues: [],
+  }
+  let metadataCursor: string | null = null
+  let metadataFinished = false
   const readOwner = (deviceId: string, key: string): ChatDatabaseDraftOwner | null => {
     const row = db
       .query<{ stateJson: string }, [string, string]>(
@@ -177,6 +194,9 @@ export function createChatDatabaseArtifactStorage(
   }
   function invalidateDraftJournal(): void {
     journal.reset()
+    journalFinished = false
+    metadataCursor = null
+    metadataFinished = false
     db.exec('UPDATE chat_database_reference_health SET draftJournalComplete=0 WHERE id=1')
   }
   function writeVersion(): number {
@@ -228,6 +248,23 @@ export function createChatDatabaseArtifactStorage(
     )
   }
   function recover(record: ChatDatabaseDraftJournalRecord): void {
+    if (record.commandId === 'artifact.uploadCompleted') {
+      const current =
+        db
+          .query<{ revision: number }, [string]>(
+            'SELECT revision FROM chat_database_artifact_metadata_revisions WHERE artifactId=?',
+          )
+          .get(record.artifact.id)?.revision ?? 0
+      if (current >= record.revision) return
+      db.query(
+        'INSERT INTO chat_database_artifact_metadata_revisions VALUES(?,?) ON CONFLICT(artifactId) DO UPDATE SET revision=excluded.revision',
+      ).run(record.artifact.id, record.revision)
+      db.query('INSERT INTO artifacts VALUES(?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').run(
+        record.artifact.id,
+        JSON.stringify(record.artifact),
+      )
+      return
+    }
     if (record.commandId === 'device.unknown') {
       db.query('INSERT OR IGNORE INTO chat_database_device_inventories VALUES(?,0,?)').run(
         record.deviceId,
@@ -244,6 +281,7 @@ export function createChatDatabaseArtifactStorage(
           )
           .get(value.deviceId, value.ownerId, value.artifactId)?.revision ?? 0
       if (revision >= record.revision) return
+      if (value.artifact) saveUploadCandidate(value.artifact, value.deviceId, value.replacesOperationId ?? null)
       if (record.commandId === 'artifact.uploadReleased')
         db.query('DELETE FROM chat_database_artifact_refs WHERE source=? AND ownerId=? AND artifactId=?').run(
           'upload',
@@ -321,12 +359,40 @@ export function createChatDatabaseArtifactStorage(
       devicesDone = devices.length < Math.min(limit, 100)
       return { done: false, healthy: false, issues: [] }
     }
-    const result = db.transaction(() => journal.backfill(limit, recover)).immediate()
-    if (result.done)
-      db.query('UPDATE chat_database_reference_health SET draftJournalComplete=? WHERE id=1').run(
-        Number(result.healthy),
+    if (!journalFinished) {
+      journalRecovery = db.transaction(() => journal.backfill(limit, recover)).immediate()
+      if (!journalRecovery.done) return journalRecovery
+      journalFinished = true
+    }
+    if (!metadataFinished) {
+      const batchSize = Math.min(limit, 25)
+      const rows = db
+        .query<{ id: string; data: string }, [string | null, string | null, number]>(
+          'SELECT id,data FROM artifacts WHERE (? IS NULL OR id>?) ORDER BY id LIMIT ?',
+        )
+        .all(metadataCursor, metadataCursor, batchSize)
+      durableWrite(() =>
+        db
+          .transaction(() => {
+            for (const row of rows) {
+              if (
+                !db
+                  .query('SELECT artifactId FROM chat_database_artifact_metadata_revisions WHERE artifactId=?')
+                  .get(row.id)
+              )
+                preserveMetadata(artifactSchema.parse(JSON.parse(row.data)), 'host-metadata')
+            }
+          })
+          .immediate(),
       )
-    return result
+      metadataCursor = rows.at(-1)?.id ?? metadataCursor
+      metadataFinished = rows.length < batchSize
+      if (!metadataFinished) return { done: false, healthy: false, issues: journalRecovery.issues }
+    }
+    db.query('UPDATE chat_database_reference_health SET draftJournalComplete=? WHERE id=1').run(
+      Number(journalRecovery.healthy),
+    )
+    return { ...journalRecovery, done: true }
   }
   function list(deviceId: string, after: string | null, limit = 50) {
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100)
@@ -363,6 +429,16 @@ export function createChatDatabaseArtifactStorage(
           if (state?.claimOperationId)
             throw new HbarError('ARTIFACT_RESERVED', 'Attachment reclamation owns this content hash')
           const now = Date.now()
+          const artifact = input.artifact ? artifactSchema.parse(input.artifact) : undefined
+          if (artifact && artifact.id !== id)
+            throw new HbarError('INVALID_INPUT', 'Upload metadata does not match its hash')
+          const replacesOperationId =
+            db
+              .query<{ operationId: string }, [string]>(
+                'SELECT operationId FROM chat_database_artifact_tombstones WHERE artifactId=?',
+              )
+              .get(id)?.operationId ?? null
+          if (artifact) saveUploadCandidate(artifact, input.deviceId, replacesOperationId)
           db.query(
             'INSERT INTO chat_database_artifact_state VALUES(?,?,?,0,NULL) ON CONFLICT(artifactId) DO UPDATE SET lastUploadedAt=excluded.lastUploadedAt',
           ).run(id, now, now)
@@ -371,7 +447,8 @@ export function createChatDatabaseArtifactStorage(
             db.query(
               'INSERT INTO chat_database_upload_leases VALUES(?,?,?) ON CONFLICT(leaseId) DO UPDATE SET expiresAt=excluded.expiresAt',
             ).run(input.leaseId, id, now + 120_000)
-          const { leaseId: _leaseId, ...reservation } = input
+          const { leaseId: _leaseId, ...reserved } = input
+          const reservation = { ...reserved, ...(artifact ? { artifact, replacesOperationId } : {}) }
           appendUpload('artifact.uploadReserved', reservation, now)
         })
         .immediate(),
@@ -386,30 +463,121 @@ export function createChatDatabaseArtifactStorage(
   function endUpload(leaseId: string): void {
     db.query('DELETE FROM chat_database_upload_leases WHERE leaseId=?').run(leaseId)
   }
-  function finishUpload(artifact: ArtifactRef, leaseId?: string): void {
-    db.transaction(() => {
-      if (
-        leaseId &&
-        !db
-          .query('SELECT leaseId FROM chat_database_upload_leases WHERE leaseId=? AND artifactId=? AND expiresAt>?')
-          .get(leaseId, artifact.id, Date.now())
+  function preserveMetadata(artifact: ArtifactRef, deviceId: string): void {
+    const revision = db
+      .query<{ revision: number }, [string]>(
+        'INSERT INTO chat_database_artifact_metadata_revisions VALUES(?,1) ON CONFLICT(artifactId) DO UPDATE SET revision=revision+1 RETURNING revision',
       )
-        throw new HbarError('UPLOAD_UNKNOWN', 'The attachment upload lease expired')
-      if (
-        db
-          .query(
-            'SELECT artifactId FROM chat_database_artifact_state WHERE artifactId=? AND claimOperationId IS NOT NULL',
+      .get(artifact.id)
+    if (!revision) throw new HbarError('STORAGE_ERROR', 'Artifact metadata revision was not recorded')
+    append({
+      commandId: 'artifact.uploadCompleted',
+      artifact,
+      deviceId,
+      revision: revision.revision,
+      updatedAt: Date.now(),
+    })
+  }
+  function finishUpload(artifact: ArtifactRef, leaseId?: string, deviceId = 'host-tools'): void {
+    durableWrite(() =>
+      db
+        .transaction(() => {
+          if (
+            leaseId &&
+            !db
+              .query('SELECT leaseId FROM chat_database_upload_leases WHERE leaseId=? AND artifactId=? AND expiresAt>?')
+              .get(leaseId, artifact.id, Date.now())
           )
-          .get(artifact.id)
-      )
-        throw new HbarError('ARTIFACT_RESERVED', 'Attachment reclamation owns this content hash')
-      db.query('DELETE FROM chat_database_artifact_tombstones WHERE artifactId=?').run(hash.parse(artifact.id))
-      db.query('INSERT INTO artifacts VALUES(?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').run(
-        artifact.id,
-        JSON.stringify(artifact),
-      )
-      if (leaseId) endUpload(leaseId)
-    }).immediate()
+            throw new HbarError('UPLOAD_UNKNOWN', 'The attachment upload lease expired')
+          if (
+            db
+              .query(
+                'SELECT artifactId FROM chat_database_artifact_state WHERE artifactId=? AND claimOperationId IS NOT NULL',
+              )
+              .get(artifact.id)
+          )
+            throw new HbarError('ARTIFACT_RESERVED', 'Attachment reclamation owns this content hash')
+          db.query('DELETE FROM chat_database_artifact_tombstones WHERE artifactId=?').run(hash.parse(artifact.id))
+          const existing = db
+            .query<{ data: string }, [string]>('SELECT data FROM artifacts WHERE id=?')
+            .get(artifact.id)
+          const canonical = existing ? artifactSchema.parse(JSON.parse(existing.data)) : artifact
+          preserveMetadata(canonical, deviceId)
+          db.query('INSERT OR IGNORE INTO artifacts VALUES(?,?)').run(artifact.id, JSON.stringify(canonical))
+          if (leaseId) endUpload(leaseId)
+        })
+        .immediate(),
+    )
+  }
+  function saveUploadCandidate(artifact: ArtifactRef, deviceId: string, replacesOperationId: string | null): void {
+    db.query(
+      'INSERT INTO chat_database_upload_candidates VALUES(?,?,?,?) ON CONFLICT(artifactId) DO UPDATE SET dataJson=excluded.dataJson,deviceId=excluded.deviceId,replacesOperationId=excluded.replacesOperationId',
+    ).run(artifact.id, JSON.stringify(artifact), deviceId, replacesOperationId)
+  }
+  /** A lost upload response can be recovered only from a bounded, exact content proof. */
+  function recoverUploadCandidate(artifactId: string): ArtifactRef | null {
+    return durableWrite(() =>
+      db
+        .transaction(() => {
+          const candidate = db
+            .query<{ dataJson: string; deviceId: string; replacesOperationId: string | null }, [string]>(
+              'SELECT dataJson,deviceId,replacesOperationId FROM chat_database_upload_candidates WHERE artifactId=?',
+            )
+            .get(hash.parse(artifactId))
+          if (!candidate) return null
+          const tombstone = db
+            .query<{ operationId: string }, [string]>(
+              'SELECT operationId FROM chat_database_artifact_tombstones WHERE artifactId=?',
+            )
+            .get(artifactId)
+          if (tombstone && tombstone.operationId !== candidate.replacesOperationId) return null
+          const artifact = artifactSchema.parse(JSON.parse(candidate.dataJson))
+          if (artifact.size < 1 || artifact.size > 10 * 1024 * 1024) return null
+          try {
+            const root = lstatSync(artifactsRoot)
+            if (!root.isDirectory() || root.isSymbolicLink())
+              throw new HbarError('PATH_REDIRECTED', 'Attachment root is redirected')
+            const path = join(artifactsRoot, artifactId)
+            const info = lstatSync(path)
+            if (!info.isFile() || info.isSymbolicLink())
+              throw new HbarError('PATH_REDIRECTED', 'Attachment candidate is redirected')
+            if (info.size !== artifact.size) return null
+            const descriptor = openSync(path, 'r')
+            const digest = createHash('sha256')
+            let total = 0
+            try {
+              const opened = fstatSync(descriptor)
+              if (opened.dev !== info.dev || opened.ino !== info.ino)
+                throw new HbarError('PATH_REDIRECTED', 'Attachment candidate changed')
+              const buffer = Buffer.allocUnsafe(64 * 1024)
+              while (total <= artifact.size) {
+                const size = readSync(descriptor, buffer, 0, Math.min(buffer.length, artifact.size - total + 1), total)
+                if (!size) break
+                total += size
+                digest.update(buffer.subarray(0, size))
+              }
+            } finally {
+              closeSync(descriptor)
+            }
+            const currentRoot = lstatSync(artifactsRoot)
+            if (currentRoot.isSymbolicLink() || currentRoot.dev !== root.dev || currentRoot.ino !== root.ino)
+              throw new HbarError('PATH_REDIRECTED', 'Attachment root changed')
+            if (total !== artifact.size || digest.digest('hex') !== artifactId) return null
+          } catch (reason) {
+            if (reason instanceof Error && 'code' in reason && reason.code === 'ENOENT') return null
+            throw reason
+          }
+          finishUpload(artifact, undefined, candidate.deviceId)
+          return artifact
+        })
+        .immediate(),
+    )
+  }
+  function restoreEventMetadata(data: unknown): void {
+    const references = collectArtifactReferences(data)
+    if (!references.complete) db.exec('UPDATE chat_database_event_reference_health SET complete=0 WHERE id=1')
+    for (const artifact of references.artifacts)
+      db.query('INSERT OR IGNORE INTO artifacts VALUES(?,?)').run(artifact.id, JSON.stringify(artifact))
   }
   function releaseUpload(input: ChatDatabaseArtifactUploadReservation): void {
     durableWrite(() =>
@@ -622,5 +790,7 @@ export function createChatDatabaseArtifactStorage(
     reclaimReceipt,
     invalidateDraftJournal,
     writeVersion,
+    restoreEventMetadata,
+    recoverUploadCandidate,
   }
 }

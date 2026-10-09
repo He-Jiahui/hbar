@@ -10,6 +10,8 @@ export const CHAT_DATABASE_ARTIFACT_SQL = `
   CREATE TABLE IF NOT EXISTS chat_database_upload_leases(leaseId TEXT PRIMARY KEY,artifactId TEXT NOT NULL,expiresAt INTEGER NOT NULL);
   CREATE INDEX IF NOT EXISTS chat_database_upload_leases_artifact ON chat_database_upload_leases(artifactId,expiresAt);
   CREATE TABLE IF NOT EXISTS chat_database_upload_reference_revisions(deviceId TEXT NOT NULL,ownerId TEXT NOT NULL,artifactId TEXT NOT NULL,revision INTEGER NOT NULL,PRIMARY KEY(deviceId,ownerId,artifactId));
+  CREATE TABLE IF NOT EXISTS chat_database_artifact_metadata_revisions(artifactId TEXT PRIMARY KEY,revision INTEGER NOT NULL);
+  CREATE TABLE IF NOT EXISTS chat_database_upload_candidates(artifactId TEXT PRIMARY KEY,dataJson TEXT NOT NULL,deviceId TEXT NOT NULL,replacesOperationId TEXT);
   CREATE TRIGGER IF NOT EXISTS chat_database_reference_claim_guard BEFORE INSERT ON chat_database_artifact_refs
   WHEN EXISTS(SELECT 1 FROM chat_database_artifact_state state WHERE state.artifactId=NEW.artifactId AND state.claimOperationId IS NOT NULL)
   BEGIN SELECT RAISE(ABORT,'CHAT_DATABASE_ARTIFACT_CLAIMED'); END;

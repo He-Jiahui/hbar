@@ -3,6 +3,27 @@ import { lstat, open, link, rename, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { HbarError } from '@hbar/contracts'
 import type { ChatDatabaseUploadOwner } from '@hbar/contracts/commands/chat-database'
+import type { StoragePort } from '@hbar/storage'
+
+const recoveries = new WeakMap<StoragePort, Promise<void>>()
+/** Restore per-hash metadata revisions before a new upload can allocate its completion proof. */
+export function recoverArtifactReferenceIndex(storage: StoragePort): Promise<void> {
+  const existing = recoveries.get(storage)
+  if (existing) return existing
+  const task = (async () => {
+    let batch = await storage.call('chatDatabaseDraftBackfill', 100)
+    while (!batch.done) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0))
+      batch = await storage.call('chatDatabaseDraftBackfill', 100)
+    }
+    if (!batch.healthy)
+      throw new HbarError('REFERENCE_INCOMPLETE', 'Attachment reference records need recovery before uploading')
+  })().finally(() => {
+    if (recoveries.get(storage) === task) recoveries.delete(storage)
+  })
+  recoveries.set(storage, task)
+  return task
+}
 
 export interface ArtifactUploadOptions {
   readonly actorId: string

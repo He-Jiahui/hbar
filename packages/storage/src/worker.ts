@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path'
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import {
   HbarError,
+  artifactSchema,
   contentBlockSchema,
   emptyUsage,
   idSchema,
@@ -55,7 +56,6 @@ import type { UsageReadInput, UsageReadRow } from '@hbar/usage'
 import type {
   Approval,
   ContentBlock,
-  ArtifactRef,
   Device,
   Message,
   Run,
@@ -2408,9 +2408,11 @@ const methods: StorageMethods = {
     db.query('INSERT OR IGNORE INTO artifacts VALUES(?,?)').run(artifact.id, JSON.stringify(artifact))
   },
   artifact(id) {
-    return JSON.parse(
-      (required(db.query('SELECT data FROM artifacts WHERE id=?').get(id), 'Artifact') as { data: string }).data,
-    ) as ArtifactRef
+    const row = db.query<{ data: string }, [string]>('SELECT data FROM artifacts WHERE id=?').get(id)
+    if (row) return artifactSchema.parse(JSON.parse(row.data))
+    const recovered = chatDatabaseArtifacts.recoverUploadCandidate(id)
+    if (recovered) return recovered
+    throw new HbarError('NOT_FOUND', 'Artifact not found')
   },
   putDevice(device, tokenHash) {
     db.transaction(() => {
@@ -2539,6 +2541,7 @@ const methods: StorageMethods = {
 }
 
 function restoreProjection(event: SessionEvent) {
+  chatDatabaseArtifacts.restoreEventMetadata(event.data)
   const data = event.data as Record<string, unknown>
   if (event.type === 'session.created') {
     const workspace = data.workspace as Workspace
@@ -2886,8 +2889,8 @@ function reconcileSessionLogs() {
 
 chatDatabaseDeletion.reconcile()
 if (chatDatabaseDeletion.recoveryIssues.length) recordRecoveryDiagnostic(diagnosticsRoot, { deletedLogIssues: chatDatabaseDeletion.recoveryIssues })
-reconcileSessionLogs()
 db.exec('UPDATE chat_database_event_reference_health SET complete=1 WHERE id=1')
+reconcileSessionLogs()
 
 parentPort!.on('message', ({ id, method, args }: StorageCall) => {
   let reply: StorageReply

@@ -13,7 +13,7 @@ import {
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
-import { HbarError } from '@hbar/contracts'
+import { HbarError, artifactSchema } from '@hbar/contracts'
 import {
   chatDatabaseDraftOwnerSchema,
   chatDatabaseInventorySchema,
@@ -55,7 +55,16 @@ export const chatDatabaseDraftJournalRecordSchema = z.discriminatedUnion('comman
       deviceId: z.string().min(1).max(160),
       ownerId: z.string().min(1).max(200),
       clientRevision: z.number().int().nonnegative().safe().optional(),
+      artifact: artifactSchema.optional(),
+      replacesOperationId: z.string().min(1).max(160).nullable().optional(),
     }),
+    updatedAt: z.number().int().nonnegative().safe(),
+  }),
+  z.strictObject({
+    commandId: z.literal('artifact.uploadCompleted'),
+    revision: z.number().int().positive().safe(),
+    artifact: artifactSchema,
+    deviceId: z.string().min(1).max(160),
     updatedAt: z.number().int().nonnegative().safe(),
   }),
 ])

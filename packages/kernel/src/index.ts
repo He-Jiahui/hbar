@@ -1,5 +1,5 @@
 import { readdir, realpath, stat } from 'node:fs/promises'
-import { writeArtifactAtomically, type ArtifactUploadOptions } from './artifact-upload'
+import { writeArtifactAtomically, recoverArtifactReferenceIndex, type ArtifactUploadOptions } from './artifact-upload'
 export type { ArtifactUploadOptions } from './artifact-upload'
 import { join, basename } from 'node:path'
 import { WorkspaceSandboxService } from './workspace-sandbox'
@@ -2699,6 +2699,7 @@ export class Kernel {
     const leaseId = crypto.randomUUID()
     const reservation = {
       artifactId: id,
+      artifact,
       deviceId: options?.actorId ?? 'host-tools',
       ownerId: options?.owner ? `${options.owner.kind}:${options.owner.id}` : 'preSession:unassigned',
       ...(options?.owner ? { clientRevision: options.owner.clientRevision } : {}),
@@ -2709,6 +2710,8 @@ export class Kernel {
     let leaseFailure: unknown = null
     let renewing = false
     try {
+      await recoverArtifactReferenceIndex(this.storage)
+      if (this.maintenance || this.closing) throw new HbarError('BUSY', 'Host storage is in maintenance')
       await this.storage.call('chatDatabaseArtifactReserve', reservation)
       heartbeat = setInterval(() => {
         if (renewing) return
@@ -2719,7 +2722,7 @@ export class Kernel {
       }, 30_000)
       await writeArtifactAtomically(this.options.layout.artifacts, id, bytes)
       if (leaseFailure) throw leaseFailure
-      await this.storage.call('chatDatabaseArtifactFinishUpload', artifact, leaseId)
+      await this.storage.call('chatDatabaseArtifactFinishUpload', artifact, leaseId, reservation.deviceId)
       return artifact
     } finally {
       clearInterval(heartbeat)
