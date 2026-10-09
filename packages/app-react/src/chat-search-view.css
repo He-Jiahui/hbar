@@ -32,7 +32,7 @@
 .hbar-chat-search-header input {
   min-inline-size: 0;
   flex: 1 1 auto;
-  padding: 0;
+  padding: var(--lumen-input-padding-block, 0.375rem) var(--lumen-input-padding-inline, 0.75rem);
   border: 0;
   outline: 0;
   background: transparent;

@@ -136,7 +136,6 @@
 .hbar-decision-custom :is(textarea, input) {
   inline-size: 100%;
   min-inline-size: 0;
-  padding: 10px 12px;
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
 }

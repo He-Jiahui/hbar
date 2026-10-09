@@ -83,7 +83,7 @@
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-contrast);
-  padding: 10px 12px;
+  padding: 0.75rem;
   resize: vertical;
 }
 .hbar-proposed-plan-actions > button {

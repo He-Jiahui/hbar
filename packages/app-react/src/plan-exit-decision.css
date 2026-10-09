@@ -79,7 +79,7 @@
 .hbar-plan-exit-feedback textarea {
   inline-size: 100%;
   min-inline-size: 0;
-  padding: 10px 12px;
+  padding: 0.75rem;
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
 }

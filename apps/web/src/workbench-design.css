@@ -144,7 +144,7 @@
 [data-hbar-app-ui-shell='app'] .hbar-prompt-composer .hbar-pre-session-slash-editor-input,
 [data-hbar-app-ui-shell='app'] .hbar-prompt-composer > textarea {
   min-block-size: 4.5rem;
-  padding: 0.25rem;
+  padding: 0.75rem;
   border: 0;
   border-radius: 0;
   background: transparent;
