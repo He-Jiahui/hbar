@@ -80,7 +80,9 @@ export function WorkspaceTabsController({
       kind: item.kind === 'session' && item.agentSource ? 'agent-run' : item.kind,
       title:
         item.kind === 'workbench'
-          ? copy.workbenchTitle
+          ? typeof surfaces.panels[item.panelInstanceId]?.params.title === 'string'
+            ? String(surfaces.panels[item.panelInstanceId]?.params.title)
+            : copy.workbenchTitle
           : (directory.sessions[item.sessionId]?.title ?? copy.unknownSession(item.sessionId)),
       detail: workspace ? workspaceDisplayName(workspace, displayNames) : copy.unknownWorkspace(item.workspaceId),
       activity:

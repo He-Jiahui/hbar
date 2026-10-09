@@ -1,0 +1,34 @@
+.hbar-resource-file {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+}
+.hbar-resource-file-path {
+  overflow-wrap: anywhere;
+  margin: 0;
+  padding: 0.5rem;
+  font-size: var(--hbar-font-size-caption, 0.75rem);
+}
+.hbar-resource-file-editor {
+  display: flex;
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+}
+.hbar-resource-file-editor .cm-editor {
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+.hbar-resource-file-editor .cm-scroller {
+  overflow: auto;
+  font-family: var(--hbar-font-family-mono, monospace);
+}
+.hbar-resource-file-editor .cm-gutters {
+  background: transparent;
+  color: inherit;
+}

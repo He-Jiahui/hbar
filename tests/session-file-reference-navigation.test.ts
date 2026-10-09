@@ -207,6 +207,34 @@ function fixture(readGate?: Promise<void>) {
 }
 
 describe('message file reference navigation', () => {
+  test('rejects a resource resolved against an older worktree revision before reading a file', async () => {
+    const f = fixture()
+    try {
+      await expect(
+        f.execute({
+          workspaceId: 'w',
+          sessionId: 's',
+          sourceTabInstanceKey: key,
+          messageId: 'm',
+          path: 'src/a.ts',
+          expectedTargetRevision: 0,
+        }),
+      ).rejects.toMatchObject({ code: 'TARGET_CHANGED' })
+      expect(f.files.reader.getSnapshot().entries.files?.previews).toEqual([])
+      await expect(
+        f.execute({
+          workspaceId: 'w',
+          sessionId: 's',
+          sourceTabInstanceKey: key,
+          messageId: 'm',
+          path: 'src/a.ts',
+          expectedTargetRevision: 1,
+        }),
+      ).resolves.toMatchObject({ path: 'src/a.ts' })
+    } finally {
+      f.dispose()
+    }
+  })
   test('opens and returns the active preview for a verified message', async () => {
     const f = fixture()
     const result = await f.execute({

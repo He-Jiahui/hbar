@@ -21,6 +21,7 @@ export function resourceCopy(locale: ShellLocale): MessageResourceLabels {
     system: choose('使用系统默认打开', 'Open with system default'),
     error: (code) => {
       switch (code) {
+        case 'TAB_LIMIT': return choose('页签已满，请先关闭一个再打开。', 'Close a tab before opening another resource.')
         case 'NOT_FOUND':
           return choose('未找到资源，点击可以重试。', 'Resource not found. Click to retry.')
         case 'TARGET_CHANGED':

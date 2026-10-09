@@ -100,6 +100,7 @@ const messageFileOpenInput = z
     sourceTabInstanceKey: z.string().uuid().nullable(),
     messageId: z.string().min(1).max(160),
     path: z.string().min(1).max(4000),
+    expectedTargetRevision: z.number().int().nonnegative().optional(),
     line: revealLine.optional(),
     column: revealColumn.optional(),
   })

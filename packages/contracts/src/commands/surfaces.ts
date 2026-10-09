@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
 import { idSchema } from '../index'
+import { toolWindowDescriptorSchema } from '../tool-windows'
 
 const instanceIdSchema = z.string().min(1).max(160)
 /** Built-in global destinations occupy the main workspace, independently of session tools. */
@@ -14,6 +15,10 @@ export const appPageIds = [
   'notifications',
 ] as const
 export type AppPageId = (typeof appPageIds)[number]
+export const workbenchPanelIds = ['files', 'browser', 'resource-file'] as const
+export function isWorkbenchPanelId(panelId: string): boolean {
+  return workbenchPanelIds.some((id) => id === panelId)
+}
 export const appPageKindSchema = z.enum(['session', ...appPageIds])
 const pageIds: ReadonlySet<string> = new Set(appPageIds)
 export function isAppPageId(panelId: string): panelId is AppPageId {
@@ -60,6 +65,10 @@ const panelTarget = {
   binding: panelBindingSchema.default('followActive'),
 }
 export const panelNavigationParamsSchema = z.strictObject({
+  id: z.string().uuid().optional(),
+  url: z.string().url().max(16384).optional(),
+  title: z.string().max(1024).optional(),
+  descriptor: toolWindowDescriptorSchema.optional(),
   scheduleId: idSchema.optional(),
   occurrenceId: idSchema.optional(),
   runId: idSchema.optional(),

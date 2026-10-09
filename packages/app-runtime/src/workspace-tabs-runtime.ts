@@ -6,6 +6,7 @@ import {
   type ExecuteOptions,
 } from '@hbar/commands'
 import { z } from 'zod'
+import { isWorkbenchPanelId } from '@hbar/contracts/commands/surfaces'
 import { sessionSchema, type Session } from '@hbar/contracts/directory'
 import { createState, type StateReader } from './state'
 import type { ClientPreferencesState, DirectoryState, NavigationState, SurfaceState } from './types'
@@ -302,7 +303,8 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
       if (item.kind === 'session') return true
       const panel = options.surfaces.getSnapshot().panels[item.panelInstanceId]
       return Boolean(
-        panel?.panelId === 'files' &&
+        panel &&
+        isWorkbenchPanelId(panel.panelId) &&
         panel.binding === 'pinned' &&
         panel.workspaceId === item.workspaceId &&
         panel.sessionId === item.sourceSessionId,
@@ -521,7 +523,8 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
   function workbenchPanel(ref: WorkbenchTabRef) {
     const panel = options.surfaces.getSnapshot().panels[ref.panelInstanceId]
     return Boolean(
-      panel?.panelId === 'files' &&
+      panel &&
+      isWorkbenchPanelId(panel.panelId) &&
       panel.binding === 'pinned' &&
       panel.workspaceId === ref.workspaceId &&
       panel.sessionId === ref.sourceSessionId,
@@ -532,7 +535,7 @@ export function createWorkspaceTabs(local: CommandRegistry, options: WorkspaceTa
     const panel = options.surfaces.getSnapshot().panels[panelInstanceId]
     if (
       !panel ||
-      panel.panelId !== 'files' ||
+      !isWorkbenchPanelId(panel.panelId) ||
       panel.binding !== 'pinned' ||
       panel.workspaceId !== workspaceId ||
       panel.sessionId !== sourceSessionId

@@ -6,18 +6,27 @@ import {
   type HbarClient,
 } from '@hbar/client'
 import type { ResourceCandidate } from '@hbar/contracts/resources'
+import type { ResourceReference } from '@hbar/contracts/resources'
 import type { HbarRuntimeView } from '@hbar/app-react'
 import { acquireResourceImage } from './resource-image'
 
 export interface ResourcePlatform {
   openSystem(candidate: ResourceCandidate): Promise<void>
-  openBrowser(candidate: ResourceCandidate, source: ResourceReferenceSource): Promise<void>
+  openBrowser(candidate: ResourceCandidate, source: ResourceReferenceSource, signal?: AbortSignal): Promise<void>
+  openText?(
+    candidate: ResourceCandidate,
+    text: string,
+    source: ResourceReferenceSource,
+    reference: ResourceReference,
+    signal?: AbortSignal,
+  ): Promise<void>
 }
 export function createWebMessageResources(client: HbarClient, runtime: HbarRuntimeView, platform?: ResourcePlatform) {
   const resources = createResourceCommandClient(client)
   const settings = createSettingsCommandClient(client)
   const targets = createSessionLaunchTargetReader(client)
   return createMessageResources({
+    ...(platform?.openText ? { openText: platform.openText } : {}),
     owns(source) {
       const navigation = runtime.state.navigation.getSnapshot()
       const tabs = runtime.state.workspaceTabs.getSnapshot()
@@ -62,7 +71,7 @@ export function createWebMessageResources(client: HbarClient, runtime: HbarRunti
     },
     async openBrowser(candidate, source, signal) {
       signal.throwIfAborted()
-      if (platform) return platform.openBrowser(candidate, source)
+      if (platform) return platform.openBrowser(candidate, source, signal)
       const opened = window.open(candidate.location, '_blank', 'noopener,noreferrer')
       if (opened) opened.opener = null
     },

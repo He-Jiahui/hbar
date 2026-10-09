@@ -1,5 +1,6 @@
 export interface MessageFileReference {
   readonly path: string
+  readonly expectedTargetRevision?: number
   readonly line?: number
   readonly column?: number
 }

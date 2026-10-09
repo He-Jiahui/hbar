@@ -281,6 +281,11 @@ export function createSessionFileReferenceNavigation(
       entry = options.files.getSnapshot().entries[instanceId]
       if (!entry || entry.workspaceId !== input.workspaceId || entry.sourceSessionId !== input.sessionId)
         throw new CommandError('TARGET_CHANGED', 'The Files panel target changed')
+      if (
+        input.expectedTargetRevision !== undefined &&
+        entry.sessionTarget?.expectedRevision !== input.expectedTargetRevision
+      )
+        throw new CommandError('TARGET_CHANGED', 'The session file target revision changed')
       await raceAbort(
         fileWorkspace.execute(
           'fileWorkspace.openEntry',

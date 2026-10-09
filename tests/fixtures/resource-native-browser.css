@@ -1,0 +1,15 @@
+html,
+body,
+#root {
+  block-size: 100%;
+  margin: 0;
+}
+.native-resource-fixture {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  padding: 0.5rem;
+  box-sizing: border-box;
+}

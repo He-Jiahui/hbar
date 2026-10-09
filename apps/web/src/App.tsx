@@ -103,6 +103,8 @@ import { createBrowserImageResources } from './browser-image-resources'
 import { HbarMessageResourceLayer } from '@hbar/app-react'
 import { createWebMessageResources } from './message-resource-controller'
 import { resourceCopy } from './resource-copy'
+import { ResourceBrowser, ResourceBrowserLayer, ResourceFile } from './ResourceBrowser'
+import { createResourceBrowserController, type NativeResourceBridge } from './resource-browser-controller'
 import { sessionImageCopy } from './session-image-copy'
 import { mobileShellNavigationLabel } from './mobile-shell-navigation-copy'
 import type { HbarSessionImagesOptions } from '@hbar/app-react'
@@ -920,6 +922,8 @@ function WorkspaceBodyContent({
     )
   if (activeTab?.kind === 'workbench') {
     const panel = surfaces.panels[activeTab.panelInstanceId]
+    if (panel?.panelId === 'resource-file') return <ResourceFile key={panel.instanceId} instanceId={panel.instanceId} />
+    if (panel?.panelId === 'browser' && typeof panel.params.id === 'string' && typeof panel.params.url === 'string') return <ResourceBrowser key={panel.instanceId} id={panel.params.id} url={panel.params.url} locale={locale} />
     if (!panel || panel.panelId !== 'files')
       return <LumenWorkbenchNotice title={copy.files.title} description={tabCopy.error('PANEL_NOT_FOUND')} />
     const workspace = directory.workspaces[activeTab.workspaceId]
@@ -1788,7 +1792,16 @@ export default function App({
       })
     }
   }, [client, imageResources])
-  const messageResources = useMemo(() => createWebMessageResources(client, runtime.view), [client, runtime])
+  const resourceBrowser = useMemo(() => {
+    const native = (window as Window & { __TAURI_INTERNALS__?: NativeResourceBridge }).__TAURI_INTERNALS__
+    const local = nativeConnection && new URL(client.baseUrl).origin === new URL(nativeConnection.url).origin
+    return createResourceBrowserController(runtime.view, native && local ? native : null)
+  }, [client, runtime, nativeConnection])
+  useEffect(() => {
+    const off = runtime.view.state.surfaces.subscribe(() => { void resourceBrowser.releaseRemoved().catch(() => undefined) })
+    return () => { off(); void resourceBrowser.closeAll().catch(() => undefined) }
+  }, [runtime, resourceBrowser])
+  const messageResources = useMemo(() => createWebMessageResources(client, runtime.view, resourceBrowser), [client, runtime, resourceBrowser])
   useEffect(() => {
     const offNavigation = runtime.view.state.navigation.subscribe(messageResources.invalidate)
     const offTabs = runtime.view.state.workspaceTabs.subscribe(messageResources.invalidate)
@@ -2021,6 +2034,7 @@ export default function App({
           />
         )}
       >
+        <ResourceBrowserLayer controller={resourceBrowser}>
         <HbarMessageResourceLayer model={messageResources} labels={resourceCopy(locale)}>
         <WorkbenchSurfaceCleanup key={binding.hostId ?? 'pending'} runtime={runtime} />
         <NotificationDesktopBridge locale={locale} connected={connection === 'connected'} />
@@ -2164,6 +2178,7 @@ export default function App({
           )}
         </HbarWorkspaceShell>
         </HbarMessageResourceLayer>
+        </ResourceBrowserLayer>
       </HbarRuntimeProvider>
     </LumenProvider>
   )

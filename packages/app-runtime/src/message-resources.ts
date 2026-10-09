@@ -21,6 +21,13 @@ export interface MessageResourcePort {
   defaultMode(kind: 'web' | 'file', signal: AbortSignal): Promise<ResourceOpenMode>
   openSystem(candidate: ResourceCandidate, signal: AbortSignal): Promise<void>
   openBrowser(candidate: ResourceCandidate, source: ResourceReferenceSource, signal: AbortSignal): Promise<void>
+  openText?(
+    candidate: ResourceCandidate,
+    text: string,
+    source: ResourceReferenceSource,
+    reference: ResourceReference,
+    signal: AbortSignal,
+  ): Promise<void>
   owns(source: ResourceReferenceSource): boolean
 }
 export interface MessageResourceState {
@@ -42,7 +49,12 @@ interface Intent {
   readonly input: ResourceResolveInput
   readonly source: ResourceReferenceSource
   readonly mode: ResourceOpenMode | undefined
-  readonly openFile: (reference: { path: string; line?: number; column?: number }) => Promise<void>
+  readonly openFile: (reference: {
+    path: string
+    line?: number
+    column?: number
+    expectedTargetRevision?: number
+  }) => Promise<void>
   readonly controller: AbortController
 }
 const errorCode = (error: unknown): string =>
@@ -116,6 +128,7 @@ export function createMessageResources(port: MessageResourcePort) {
       const ref = intent.input.reference
       await intent.openFile({
         path: confirmed.workspacePath,
+        expectedTargetRevision: intent.input.sessionTarget.expectedRevision,
         ...(ref.line === undefined ? {} : { line: ref.line }),
         ...(ref.column === undefined ? {} : { column: ref.column }),
       })
@@ -124,7 +137,10 @@ export function createMessageResources(port: MessageResourcePort) {
     } else {
       const result = await port.text(input, signal)
       fence(intent)
-      store.setState({ chooser: null, text: result, image: null })
+      if (port.openText) {
+        await port.openText(result.candidate, result.text, intent.source, intent.input.reference, signal)
+        store.setState({ chooser: null, text: null, image: null })
+      } else store.setState({ chooser: null, text: result, image: null })
     }
   }
   const select = async (id: string) => {

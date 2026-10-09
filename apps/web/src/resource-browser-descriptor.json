@@ -1,0 +1,11 @@
+{
+  "id": "browser",
+  "title": "Browser",
+  "icon": "globe",
+  "defaultDock": "editor",
+  "allowedDocks": ["editor"],
+  "scope": "workspace",
+  "canPopout": false,
+  "closable": true,
+  "minSize": { "width": 320, "height": 160 }
+}

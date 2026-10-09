@@ -1486,7 +1486,9 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-notification",
+ "webview2-com",
  "window-vibrancy",
+ "windows",
 ]
 
 [[package]]

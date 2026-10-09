@@ -1,4 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod resource_browser;
 
 use serde::{Deserialize, Serialize};
 use std::{
@@ -173,9 +174,10 @@ struct WindowEffectResult {
 
 #[tauri::command]
 fn set_window_effect(
-    window: tauri::WebviewWindow,
+    window: tauri::Webview,
     profile: WindowThemeProfile,
 ) -> Result<WindowEffectResult, String> {
+    let window = window.window();
     validate_window_theme(&profile)?;
     let opacity = (profile.surface.background_opacity.clamp(0.12, 1.0) * 255.0).round() as u8;
     match profile.surface.mode.as_str() {
@@ -482,7 +484,7 @@ fn is_main_workbench(label: &str, current: &tauri::Url, expected: &tauri::Url) -
 }
 
 fn require_main_workbench(
-    window: &tauri::WebviewWindow,
+    window: &tauri::Webview,
     connection: &Connection,
 ) -> Result<(), String> {
     let expected = tauri::Url::parse(&connection.url).map_err(|error| error.to_string())?;
@@ -496,7 +498,7 @@ fn require_main_workbench(
 
 #[tauri::command]
 fn connection_info(
-    window: tauri::WebviewWindow,
+    window: tauri::Webview,
     state: tauri::State<'_, Connection>,
 ) -> Result<Connection, String> {
     let expected = tauri::Url::parse(&state.url).map_err(|e| e.to_string())?;
@@ -511,7 +513,7 @@ fn connection_info(
 #[tauri::command]
 fn open_tool_window(
     app: tauri::AppHandle,
-    source: tauri::WebviewWindow,
+    source: tauri::Webview,
     options: ToolWindowOpenOptions,
 ) -> Result<String, String> {
     let label = tool_window_label(&options.window_id);
@@ -738,7 +740,7 @@ fn list_fonts() -> Vec<String> {
 
 #[tauri::command]
 fn read_ui_zoom(
-    window: tauri::WebviewWindow,
+    window: tauri::Webview,
     connection: tauri::State<'_, Connection>,
     preference: tauri::State<'_, UiZoomPath>,
 ) -> Result<Option<f64>, String> {
@@ -748,7 +750,7 @@ fn read_ui_zoom(
 
 #[tauri::command]
 fn write_ui_zoom(
-    window: tauri::WebviewWindow,
+    window: tauri::Webview,
     connection: tauri::State<'_, Connection>,
     preference: tauri::State<'_, UiZoomPath>,
     zoom: f64,
@@ -759,7 +761,7 @@ fn write_ui_zoom(
 
 #[tauri::command]
 fn native_notification_permission(
-    window: tauri::WebviewWindow,
+    window: tauri::Webview,
     connection: tauri::State<'_, Connection>,
     app: tauri::AppHandle,
 ) -> Result<String, String> {
@@ -772,7 +774,7 @@ fn native_notification_permission(
 
 #[tauri::command]
 fn request_native_notification_permission(
-    window: tauri::WebviewWindow,
+    window: tauri::Webview,
     connection: tauri::State<'_, Connection>,
     app: tauri::AppHandle,
 ) -> Result<String, String> {
@@ -785,7 +787,7 @@ fn request_native_notification_permission(
 
 #[tauri::command]
 fn send_native_notification(
-    window: tauri::WebviewWindow,
+    window: tauri::Webview,
     connection: tauri::State<'_, Connection>,
     app: tauri::AppHandle,
     state: tauri::State<'_, NativeNotificationState>,
@@ -820,7 +822,7 @@ fn send_native_notification(
 /// bounded in-memory delivery ledger to the owning WebView for verification.
 #[tauri::command]
 fn native_notification_delivery_status(
-    window: tauri::WebviewWindow,
+    window: tauri::Webview,
     connection: tauri::State<'_, Connection>,
     state: tauri::State<'_, NativeNotificationState>,
     id: String,
@@ -916,6 +918,18 @@ fn launch(app: &tauri::AppHandle) -> Result<(Connection, PathBuf), Box<dyn std::
     fs::create_dir_all(&cache_root)?;
     if let Some(connection) = existing(&settings_root, None) {
         return Ok((connection, data_root));
+    }
+    // The source launcher owns this Host and its workers. A native rebuild can
+    // overlap a source restart; never fall back to an older packaged database worker.
+    if cfg!(debug_assertions) && std::env::var("HBAR_DESKTOP_DEV").as_deref() == Ok("1") {
+        let started = Instant::now();
+        while started.elapsed() < Duration::from_secs(30) {
+            thread::sleep(Duration::from_millis(100));
+            if let Some(connection) = existing(&settings_root, None) {
+                return Ok((connection, data_root));
+            }
+        }
+        return Err("The source development Host is unavailable; see diagnostics/host-dev.log".into());
     }
     let resources = if cfg!(debug_assertions) {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../dist/desktop-resources")
@@ -1040,6 +1054,8 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
+            resource_browser::resource_browser,
+            resource_browser::resource_open_system,
             connection_info,
             open_tool_window,
             focus_tool_window,
@@ -1070,9 +1086,21 @@ fn main() {
                 data_root.join("settings").join("desktop-ui-zoom.json"),
             ));
             app.manage(NativeNotificationState::default());
+            app.manage(resource_browser::ResourceBrowsers::default());
+            app.manage(resource_browser::BrowserDataDirectory(data_root.join("cache").join("resource-browser")));
             app.manage(connection);
+            // WebView2 environment overrides affect every controller. Move the
+            // workbench overrides into its builder so resource views get their
+            // own cookie/local-storage directory and never inherit Host credentials.
+            let workbench_data_directory = std::env::var_os("WEBVIEW2_USER_DATA_FOLDER")
+                .map(PathBuf::from).unwrap_or_else(|| data_root.join("cache").join("webview-dev"));
+            let workbench_browser_arguments = std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS").unwrap_or_default();
+            std::env::remove_var("WEBVIEW2_USER_DATA_FOLDER");
+            std::env::remove_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS");
             let mut window_builder =
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::External(web_url))
+                    .data_directory(workbench_data_directory)
+                    .additional_browser_args(&workbench_browser_arguments)
                     .title("hbar")
                     .inner_size(1440.0, 960.0)
                     .min_inner_size(900.0, 600.0)
@@ -1124,7 +1152,7 @@ fn main() {
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "open" => {
-                        if let Some(window) = app.get_webview_window("main") {
+                        if let Some(window) = app.get_window("main") {
                             let _ = window.show();
                             let _ = window.set_focus();
                         }
@@ -1139,7 +1167,7 @@ fn main() {
                         ..
                     } = event
                     {
-                        if let Some(window) = tray.app_handle().get_webview_window("main") {
+                        if let Some(window) = tray.app_handle().get_window("main") {
                             let _ = window.show();
                             let _ = window.set_focus();
                         }
