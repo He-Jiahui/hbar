@@ -154,7 +154,10 @@ test('real cleanup removes sidebar and search facts, retains both drafts and tab
     await expect(page.getByRole('button', { name: copy.session.prompt.send, exact: true })).toBeDisabled()
     await page.screenshot({ path: info.outputPath('deleted-chat-draft-zh.png') })
     await composer.fill('清理后仍可编辑的原窗口草稿')
-    await expectComposerText(composer, '清理后仍可编辑的原窗口草稿')
+    await composer.press('End')
+    await composer.press('Enter')
+    await composer.pressSequentially('下一行')
+    await expectComposerText(composer, '清理后仍可编辑的原窗口草稿\n下一行')
     await page
       .getByRole('button', {
         name: copy.session.prompt.removeAttachment({ id: '', kind: 'file', name: 'deleted-chat-draft.txt' }),

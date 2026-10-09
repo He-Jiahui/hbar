@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { LumenAiChat01, LumenConversation, LumenFrame, LumenPageHeader, LumenText } from '@lumen/app-ui'
+import { LumenAiChat01, LumenConversation, LumenFrame, LumenPageHeader, LumenText, LumenTextarea } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarPromptComposer } from './prompt-composer'
 import { HbarComposerAttachmentTransfers } from './composer-attachments'
@@ -51,6 +51,16 @@ export function HbarDeletedSessionWorkspace({
         boundary="none"
         value={draft?.text ?? ''}
         labels={props.labels.prompt}
+        editor={({ value, inputLabel, placeholder, disabled, onChange }) => (
+          <LumenTextarea
+            aria-label={inputLabel}
+            placeholder={placeholder}
+            disabled={disabled}
+            rows={3}
+            value={value}
+            onChange={(event) => onChange(event.currentTarget.value)}
+          />
+        )}
         attachments={(draft?.attachments ?? []).map((attachment) => ({
           id: attachment.artifact.id,
           kind: attachment.kind,
@@ -151,6 +161,7 @@ export function HbarDeletedSessionWorkspace({
             body: (
               <LumenConversation
                 title={props.labels.conversationTitle(props.sessionTitle)}
+                header={null}
                 messages={[]}
                 empty={
                   <LumenFrame className="hbar-app-react-session-empty">

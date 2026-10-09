@@ -60,6 +60,7 @@ test('two real windows keep separate durable attachment owners, including a clos
             ([key, value]) =>
               key.startsWith('hbar:web:drafts:') &&
               key.endsWith(sessionStorage.getItem('hbar:web:window-owner') ?? '') &&
+              typeof value === 'string' &&
               value.includes('offline-draft.txt'),
           ),
         ),
