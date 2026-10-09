@@ -62,6 +62,7 @@ function sessionSidebarPage(sessions: readonly (typeof session)[]): SessionSideb
 }
 
 const labels: HbarWorkspaceShellLabels = {
+  ...getShellCopy('zh-CN').shell,
   agentTree: getShellCopy('zh-CN').shell.agentTree,
   stop: getSessionStopCopy('zh-CN'),
   main: '工作台主区域',
@@ -118,9 +119,6 @@ const labels: HbarWorkspaceShellLabels = {
   workspaceActions: (name) => `${name} 的工程操作`,
   newSessionInWorkspace: '在该工程新建会话',
   workspaceFiles: '查看该工程的文件',
-  workspaceFilesEntry: '工程文件',
-  workspaceFilesUnavailable: '先选择工程',
-  openWorkspaceFiles: (name) => `打开 ${name} 的文件`,
   extensionsAndSkills: '扩展与技能',
   workspaceSettings: '查看并编辑此工作区的设置与覆盖值',
   pinWorkspace: '置顶工程',
@@ -284,19 +282,15 @@ test('app-react renders host-owned workspace and session content from read-only 
     )
     expect(html).toContain('非常长的工程名称')
     expect(html).toContain('需要键盘导航的会话')
-    expect(html).toMatch(
-      /hbar-app-react-session-title[^>]*>需要键盘导航的会话<\/span><time[^>]*hbar-app-react-session-time/,
-    )
     expect(html).toContain('title="完整更新时间 3"')
     expect(html).toContain('aria-current="page"')
     expect(html).toContain('打开命令目录')
     expect(html).toContain(labels.searchChats)
-    expect(html.indexOf(labels.newSession)).toBeLessThan(html.indexOf(labels.extensionsAndSkills))
-    expect(html.indexOf(labels.extensionsAndSkills)).toBeLessThan(html.indexOf(labels.searchChats))
-    expect(html.indexOf(labels.searchChats)).toBeLessThan(html.indexOf(labels.commands))
-    expect(html.indexOf(labels.commands)).toBeLessThan(html.indexOf(labels.workspaceFilesEntry))
-    expect(html.indexOf(labels.workspaceFilesEntry)).toBeLessThan(html.indexOf('hbar-app-react-project-tree'))
-    expect(html).toContain(`aria-label="${labels.openWorkspaceFiles(workspace.name)}"`)
+    expect(html.indexOf(labels.extensionsAndSkills)).toBeLessThan(html.indexOf(labels.commands))
+    expect(html.indexOf(labels.commands)).toBeLessThan(html.indexOf(labels.newSession))
+    expect(html.indexOf(labels.newSession)).toBeLessThan(html.indexOf(labels.searchChats))
+    expect(html.indexOf(labels.commands)).toBeLessThan(html.indexOf('hbar-app-react-project-tree'))
+    expect(html).not.toContain(getShellCopy('zh-CN').session.tools.files)
     expect(html).toContain('打开工作区')
     expect(html).toContain('打开状态中心')
     expect(html).toContain('打开设置')
@@ -304,11 +298,6 @@ test('app-react renders host-owned workspace and session content from read-only 
     expect(html).toContain('非常长的工程名称 的工程操作')
     expect(html).toContain(labels.createSessionInWorkspace(workspace.name))
     expect(html).not.toContain(labels.newSessionInWorkspace)
-    expect(html).toContain(labels.workspaceFiles)
-    expect(html).toContain(labels.workspaceSettings)
-    expect(html).toContain('需要键盘导航的会话 的操作')
-    expect(html).toContain('重命名会话')
-    expect(html).toContain('归档会话')
     expect(html).toContain('--lumen-tool-size:26rem')
     expect(html).not.toContain('Workspace 1')
   } finally {
@@ -392,7 +381,7 @@ test('separate React runtime providers keep each window selection private', asyn
   }
 })
 
-test('English host copy renders Search, Commands, and workspace Files as separate first-level actions', async () => {
+test('English host copy keeps global navigation separate from session Project files', async () => {
   const runtime = runtimeFixture('search-entry-en')
   try {
     await prepareSidebar(runtime, { sessions: false })
@@ -412,11 +401,9 @@ test('English host copy renders Search, Commands, and workspace Files as separat
     )
     expect(html).toContain(english.searchChats)
     expect(html).toContain(english.commands)
-    expect(html).toContain(english.workspaceFilesEntry)
+    expect(html).not.toContain(getShellCopy('en-US').session.tools.files)
     expect(html).toContain(english.extensionsAndSkills)
-    expect(html).toContain(english.workspaceFilesUnavailable)
-    expect(html.indexOf(english.searchChats)).toBeLessThan(html.indexOf(english.commands))
-    expect(html.indexOf(english.commands)).toBeLessThan(html.indexOf(english.workspaceFilesEntry))
+    expect(html.indexOf(english.commands)).toBeLessThan(html.indexOf(english.searchChats))
     expect(html).toContain(english.searchShortcut)
     expect(html).toContain(english.commandShortcut)
   } finally {
@@ -539,7 +526,7 @@ test('settings and status highlight only their page while preserving the selecte
     const current: { label: string | null; text: string }[] = []
     let button: (typeof current)[number] | undefined
     await new HTMLRewriter()
-      .on('button[aria-current="page"]', {
+      .on('[aria-current="page"]', {
         element(element) {
           button = { label: element.getAttribute('aria-label'), text: '' }
           current.push(button)
@@ -555,7 +542,7 @@ test('settings and status highlight only their page while preserving the selecte
   try {
     await prepareSidebar(runtime)
     await runtime.view.commands.execute('app.setSession', { workspaceId: workspace.id, sessionId: session.id })
-    expect(await currentPageLabels()).toEqual([labels.openSession(session.title)])
+    expect(await currentPageLabels()).toEqual([session.title])
     await runtime.view.commands.execute('app.openSettings', {
       scope: 'workspace',
       targetId: workspace.id,
@@ -568,7 +555,7 @@ test('settings and status highlight only their page while preserving the selecte
       sessionId: session.id,
     })
     await runtime.view.commands.execute('app.back', {})
-    expect(await currentPageLabels()).toEqual([labels.openSession(session.title)])
+    expect(await currentPageLabels()).toEqual([session.title])
     await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'skills' })
     expect(await currentPageLabels()).toEqual([labels.extensionsAndSkills])
     await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'extensions' })
@@ -576,11 +563,11 @@ test('settings and status highlight only their page while preserving the selecte
     await runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'providers' })
     expect(await currentPageLabels()).toEqual([labels.settings])
     await runtime.view.commands.execute('app.back', {})
-    expect(await currentPageLabels()).toEqual([labels.openSession(session.title)])
+    expect(await currentPageLabels()).toEqual([session.title])
     await runtime.view.commands.execute('app.openStatus', { section: 'dashboard' })
     expect(await currentPageLabels()).toEqual([labels.status])
     await runtime.view.commands.execute('app.back', {})
-    expect(await currentPageLabels()).toEqual([labels.openSession(session.title)])
+    expect(await currentPageLabels()).toEqual([session.title])
   } finally {
     runtime.dispose()
   }

@@ -36,7 +36,7 @@ async function chooseProject(page: Page, name: string): Promise<void> {
   await expect(root).toBeHidden()
 }
 
-test('first-send project switch preserves current model and effort, then tab Files opens the actual target', async ({
+test('first-send project switch preserves current model and effort, then session Files opens the actual target', async ({
   browser,
 }, info) => {
   test.setTimeout(90_000)
@@ -187,10 +187,10 @@ test('first-send project switch preserves current model and effort, then tab Fil
     await expect(page.locator('.hbar-composer-model-trigger')).toHaveText(current.modelName)
     await expect(page.locator('.hbar-composer-thinking-trigger')).toHaveAccessibleName(highName)
 
-    // Follow the newly created tab's real Files action, not the sidebar workspace shortcut.
+    // The session header owns Files for the newly created conversation.
     await page.setViewportSize({ width: 1440, height: 900 })
     const toolbar = page
-      .locator('.hbar-workspace-tabs-tools')
+      .getByRole('group', { name: copy.session.tools.label, exact: true })
       .getByRole('button', { name: copy.session.tools.files, exact: true })
     await expect(toolbar).toBeVisible()
     await expect(page.getByRole('button', { name: copy.session.tools.files, exact: true })).toHaveCount(1)

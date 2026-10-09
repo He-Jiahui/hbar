@@ -173,10 +173,20 @@ async function captureWorkbench(
   await page.setViewportSize({ width, height: width < 600 ? 844 : 960 })
   await expect(workbench).toBeVisible()
   await expect(workbench).toContainText(expectedText)
-  await sourceTab.scrollIntoViewIfNeeded()
-  await expect(sourceTab).toBeVisible()
+  if (width >= 768) {
+    await sourceTab.scrollIntoViewIfNeeded()
+    await expect(sourceTab).toBeVisible()
+  } else {
+    const title = await sourceTab.getAttribute('aria-label')
+    if (!title) throw new Error('Expected the source conversation tab to have a title')
+    await page.locator('.hbar-mobile-header-menu-trigger').click()
+    await expect(
+      page.locator('.hbar-mobile-header-menu-content').getByRole('button').filter({ hasText: title }),
+    ).toBeVisible()
+  }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
   await page.screenshot({ path: `${evidence}/${name}-${width}.png` })
+  if (width < 768) await page.keyboard.press('Escape')
 }
 
 async function openFile(page: Page, copy: LocaleCopy, path: string): Promise<void> {
@@ -380,9 +390,13 @@ test('an isolated Files workbench reads and saves its own same-path file after s
     const sharedFiles = filesPanel(page)
     await expect(sharedFiles).toBeVisible()
     await openFile(page, copy, documentPath)
-    await expect(sharedFiles.getByLabel(copy.files.textPreview(documentPath), { exact: true })).toContainText(
-      sharedText,
-    )
+    await expect(
+      sharedFiles.getByLabel(copy.files.textPreview(documentPath), { exact: true }).getByRole('heading', {
+        level: 1,
+        name: sharedText.slice(2).trim(),
+        exact: true,
+      }),
+    ).toBeVisible()
     const sharedTarget = { sessionId: repository.shared.id, expectedRevision: 0 }
     expect(
       fileRequests.some(

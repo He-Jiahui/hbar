@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Files } from 'lucide-react'
 import { workspaceDisplayName, type createAppRuntime } from '@hbar/app-runtime'
 import { createWorkspaceTabClose } from '@hbar/app-runtime/workspace-tab-close'
 import type { HbarClient } from '@hbar/client'
@@ -13,9 +12,9 @@ import {
   type HbarWorkspaceTabCloseScope,
   type HbarWorkspaceTabItem,
 } from '@hbar/app-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
 import { workspaceTabsCopy } from './workspace-tabs-copy'
-import { getShellCopy, type ShellLocale } from './shell-copy'
+import type { ShellLocale } from './shell-copy'
 import './workspace-tabs-controller.css'
 
 type Runtime = ReturnType<typeof createAppRuntime>
@@ -44,12 +43,6 @@ export function WorkspaceTabsController({
   const presentation = useHbarRuntimeState(runtime.view.state.presentation)
   const surfaces = useHbarRuntimeState(runtime.view.state.surfaces)
   const [localError, setLocalError] = useState<string | null>(null)
-  const [sessionFilesError, setSessionFilesError] = useState<{
-    sessionId: string
-    workspaceId: string
-    sourceTabInstanceKey: string
-    code: string
-  } | null>(null)
   const closeOrigin = useRef<'tab-bar' | 'mobile-menu' | null>(null)
   const intent = useRef(0)
   const action = (task: Promise<unknown>) => {
@@ -61,7 +54,6 @@ export function WorkspaceTabsController({
   }
   const choose = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en)
   const copy = workspaceTabsCopy(choose)
-  const sessionCopy = getShellCopy(locale).session
   const coordinator = useMemo(
     () =>
       createWorkspaceTabClose({
@@ -94,54 +86,6 @@ export function WorkspaceTabsController({
     }
   })
   const busy = closeState !== null || navigation.status === 'loading'
-  const activeTab = tabs.items.find((item) => item.id === tabs.activeId)
-  const sessionTab =
-    presentation.page.kind === 'session' &&
-    activeTab?.kind === 'session' &&
-    activeTab.sessionId === navigation.sessionId &&
-    activeTab.workspaceId === navigation.workspaceId
-      ? activeTab
-      : null
-  const activeTool = presentation.toolInstanceId ? surfaces.panels[presentation.toolInstanceId] : undefined
-  const filesSelected =
-    Boolean(sessionTab) &&
-    activeTool?.panelId === 'files' &&
-    activeTool.workspaceId === sessionTab?.workspaceId &&
-    activeTool.sessionId === sessionTab?.sessionId
-  const toggleSessionFiles = () => {
-    if (!sessionTab) return
-    const target = {
-      panelId: 'files' as const,
-      workspaceId: sessionTab.workspaceId,
-      sessionId: sessionTab.sessionId,
-      sourceTabInstanceKey: sessionTab.instanceKey,
-    }
-    setSessionFilesError(null)
-    void runtime.view.commands.execute('sessionTools.toggle', target).catch((reason: unknown) => {
-      const current = runtime.view.state.navigation.getSnapshot()
-      const currentTab = runtime.view.state.workspaceTabs
-        .getSnapshot()
-        .items.find((item) => item.kind === 'session' && item.sessionId === target.sessionId)
-      if (
-        current.workspaceId !== target.workspaceId ||
-        current.sessionId !== target.sessionId ||
-        currentTab?.instanceKey !== target.sourceTabInstanceKey
-      )
-        return
-      setSessionFilesError({ ...target, code: code(reason) })
-    })
-  }
-  const mobileSessionFilesItem: HbarMobileHeaderMenuItem | null = sessionTab
-    ? {
-        id: 'files',
-        order: 1,
-        label: sessionCopy.tools.files,
-        icon: Files,
-        disabled: busy,
-        pressed: filesSelected,
-        onActivate: toggleSessionFiles,
-      }
-    : null
   const focusAfterClose = () => {
     if (coordinator.reader.getSnapshot().request !== null) return
     const origin = closeOrigin.current
@@ -228,11 +172,6 @@ export function WorkspaceTabsController({
   useHbarMobileHeaderMenuSection(
     tabs.items.length > 0 ? { id: 'workspace-tabs', order: 1, label: copy.tabs.tabs, items: mobileTabItems } : null,
   )
-  useHbarMobileHeaderMenuSection(
-    mobileSessionFilesItem
-      ? { id: 'session-tools', order: 2, label: sessionCopy.tools.label, items: [mobileSessionFilesItem] }
-      : null,
-  )
   return (
     <LumenFrame className="hbar-workspace-tabs-controller">
       {(tabs.items.length > 0 || tabs.restoreStatus === 'loading' || error) && (
@@ -252,22 +191,6 @@ export function WorkspaceTabsController({
                 }}
                 onRequestClose={requestClose}
               />
-              {sessionTab && (
-                <LumenFrame role="toolbar" aria-label={sessionCopy.tools.label} className="hbar-workspace-tabs-tools">
-                  <LumenButton
-                    variant="text"
-                    indicator="none"
-                    size="s"
-                    aria-label={sessionCopy.tools.files}
-                    title={sessionCopy.tools.files}
-                    aria-pressed={filesSelected}
-                    disabled={busy}
-                    onClick={mobileSessionFilesItem?.onActivate}
-                  >
-                    <LumenIcon icon={Files} tier="sm" />
-                  </LumenButton>
-                </LumenFrame>
-              )}
             </LumenFrame>
           ) : tabs.restoreStatus === 'loading' ? (
             <LumenText as="p" role="status">
@@ -295,14 +218,6 @@ export function WorkspaceTabsController({
               )}
             </LumenFrame>
           )}
-          {sessionTab &&
-            sessionFilesError?.sessionId === sessionTab.sessionId &&
-            sessionFilesError.workspaceId === sessionTab.workspaceId &&
-            sessionFilesError.sourceTabInstanceKey === sessionTab.instanceKey && (
-              <LumenText as="p" role="alert" className="hbar-workspace-tabs-files-error">
-                {sessionCopy.tools.error(sessionFilesError.code)}
-              </LumenText>
-            )}
         </LumenFrame>
       )}
       <LumenFrame className="hbar-workspace-tabs-content">{children}</LumenFrame>

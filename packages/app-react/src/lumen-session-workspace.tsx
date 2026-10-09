@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   Bot,
   ChartNoAxesColumnIncreasing,
-  Files,
+  FolderOpen,
   ListChecks,
   ListTodo,
   Search,
@@ -1188,7 +1188,7 @@ function SessionWorkspaceContent({
             id: 'files',
             order: 1,
             label: labels.tools.files,
-            icon: Files,
+            icon: FolderOpen,
             disabled: !sessionId,
             pressed: isToolActive('files'),
             onActivate: () => toggleTool('files'),
@@ -2548,7 +2548,7 @@ function SessionWorkspaceContent({
             {find.trigger}
             {showFilesInHeader && (
               <SessionToolButton
-                icon={Files}
+                icon={FolderOpen}
                 label={labels.tools.files}
                 selected={isToolActive('files')}
                 disabled={!sessionId}

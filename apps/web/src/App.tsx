@@ -570,7 +570,6 @@ type WorkspaceBodyProps = {
   readonly images: HbarSessionImagesOptions
   readonly files: ReturnType<typeof createFileCommandClient>
   readonly systemPrefersDark: boolean
-  readonly showSessionFilesInHeader: boolean
 }
 
 function errorCode(reason: unknown): string {
@@ -677,7 +676,6 @@ function WorkspaceBodyContent({
   images,
   files,
   systemPrefersDark,
-  showSessionFilesInHeader,
 }: WorkspaceBodyProps) {
   const copy = getShellCopy(locale)
   const selectedSendBehavior = useStore(sendBehavior.store, (state) => state.behavior)
@@ -997,7 +995,6 @@ function WorkspaceBodyContent({
         prepareAttachment={prepareAttachment}
         images={images}
         files={files}
-        showFilesInHeader={showSessionFilesInHeader}
         modelMenuPresentation={nativeDesktop ? 'native' : 'web'}
         navigationAccessory={
           activeTab?.kind === 'session' && activeTab.agentSource ? (
@@ -2155,7 +2152,6 @@ export default function App({
                 images={images}
                 files={composerFiles}
                 systemPrefersDark={systemPrefersDark}
-                showSessionFilesInHeader={false}
               />
             </WorkspaceTabsController>
           ) : (
@@ -2173,7 +2169,6 @@ export default function App({
               images={images}
               files={composerFiles}
               systemPrefersDark={systemPrefersDark}
-              showSessionFilesInHeader={true}
             />
           )}
         </HbarWorkspaceShell>

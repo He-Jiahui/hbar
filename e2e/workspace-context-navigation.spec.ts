@@ -88,7 +88,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           .getByRole('menuitem', { name: locale === 'zh-CN' ? '工作区设置' : 'Workspace settings', exact: true })
           .click()
         await expectLumenValue(page.getByRole('combobox', { name: copy.settings.scopes }), 'workspace')
-        await expect(page.getByRole('heading', { name: copy.settings.pageTitle, exact: true })).toBeVisible()
+        await expect(
+          page.getByRole('region', { name: copy.settings.pageTitle, exact: true }).getByRole('heading', {
+            name: copy.settings.pageTitle,
+            exact: true,
+          }),
+        ).toBeVisible()
         const scopes = page.getByRole('combobox', { name: copy.settings.scopes })
         await selectLumenOption(scopes, 'global')
         await expectLumenValue(scopes, 'global')
