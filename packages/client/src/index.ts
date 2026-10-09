@@ -170,7 +170,7 @@ export class HbarClient implements ClientTransport {
           resolve(host)
           for (const [sessionId, cursor] of this.follows) await this.follow(sessionId, cursor)
         } catch (error) {
-          if (error instanceof HbarError && error.code === 'UNAUTHORIZED') {
+          if (this.socket === socket && error instanceof HbarError && error.code === 'UNAUTHORIZED') {
             this.closed = true
             this.imageReadsRevoked = true
             this.imageArtifacts.invalidate()
@@ -367,6 +367,14 @@ export class HbarClient implements ClientTransport {
     this.currentHost = null
     this.rejectPending(new HbarError('DISCONNECTED', 'Connection closed; reconcile using the request id'))
     this.status('disconnected')
+  }
+  /** Replace trusted transport credentials without replacing the Client or its follow cursors. */
+  provideAuthentication(token: string): boolean {
+    if (!token || token.length > 4096) throw new HbarError('INVALID_INPUT', 'Invalid connection credentials')
+    if (token === this.token) return false
+    this.token = token
+    this.disconnect()
+    return true
   }
   connectionStatus() {
     return this.currentStatus

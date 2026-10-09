@@ -235,6 +235,22 @@ struct Connection {
     #[serde(default)]
     supervisor_pid: Option<u32>,
 }
+struct NativeConnectionPath(PathBuf);
+
+fn read_current_native_connection(path: &Path, expected: &Connection) -> Result<Connection, String> {
+    let mut bytes = Vec::new();
+    File::open(path).map_err(|_| "The local Host connection is not ready")?
+        .take(16_385).read_to_end(&mut bytes).map_err(|_| "The local Host connection could not be read")?;
+    if bytes.len() > 16_384 { return Err("The local Host connection is too large".into()); }
+    let current: Connection = serde_json::from_slice(&bytes).map_err(|_| "The local Host connection is not ready")?;
+    let url = tauri::Url::parse(&current.url).map_err(|_| "Invalid local Host origin")?;
+    let origin = tauri::Url::parse(&expected.url).map_err(|_| "Invalid workbench origin")?;
+    if url.origin() != origin.origin() || url.scheme() != "http" || url.host_str() != Some("127.0.0.1") || !url.username().is_empty() || url.password().is_some()
+        || current.token.is_empty() || current.token.len() > 4096 || current.instance_id.is_empty() || current.instance_id.len() > 256 {
+        return Err("The local Host connection does not match this workbench".into());
+    }
+    Ok(current)
+}
 
 fn launched_by(connection: &Connection, expected_pid: u32) -> bool {
     expected_pid > 0
@@ -489,7 +505,8 @@ fn require_main_workbench(
 ) -> Result<(), String> {
     let expected = tauri::Url::parse(&connection.url).map_err(|error| error.to_string())?;
     let current = window.url().map_err(|error| error.to_string())?;
-    if is_main_workbench(window.label(), &current, &expected) {
+    if is_main_workbench(window.label(), &current, &expected)
+        || (window.label() == "main" && development_web_url().is_some_and(|url| current.origin() == url.origin())) {
         Ok(())
     } else {
         Err("Desktop preferences are restricted to the local workbench".into())
@@ -500,6 +517,7 @@ fn require_main_workbench(
 fn connection_info(
     window: tauri::Webview,
     state: tauri::State<'_, Connection>,
+    path: tauri::State<'_, NativeConnectionPath>,
 ) -> Result<Connection, String> {
     let expected = tauri::Url::parse(&state.url).map_err(|e| e.to_string())?;
     if window.label() != "main" && !valid_tool_window_label(window.label())
@@ -507,7 +525,7 @@ fn connection_info(
     {
         return Err("Connection credentials are restricted to the local workbench".into());
     }
-    Ok(state.inner().clone())
+    read_current_native_connection(&path.0, state.inner())
 }
 
 #[tauri::command]
@@ -1082,6 +1100,8 @@ fn main() {
                 .append_pair("hbar-platform", platform)
                 .append_pair("hbar-material", material);
             let host_pid = connection.pid;
+            let (_, _, settings_root) = path_roots(app.handle())?;
+            app.manage(NativeConnectionPath(settings_root.join("connection.json")));
             app.manage(UiZoomPath(
                 data_root.join("settings").join("desktop-ui-zoom.json"),
             ));
@@ -1257,6 +1277,23 @@ mod tests {
         fs::create_dir(&root).expect("create isolated UI zoom fixture");
         let preference = root.join("settings").join("desktop-ui-zoom.json");
         (root, preference)
+    }
+
+    #[test]
+    fn native_connection_refresh_reads_rotated_credentials_without_crossing_origin() {
+        let (root, _) = fixture_path("native-connection");
+        let path = root.join("connection.json");
+        let expected = Connection { url: "http://127.0.0.1:4317".into(), token: "old".into(), instance_id: "old-host".into(), pid: None, supervisor_pid: None };
+        let mut current = expected.clone();
+        current.token = "rotated".into(); current.instance_id = "new-host".into();
+        fs::write(&path, serde_json::to_vec(&current).unwrap()).unwrap();
+        assert_eq!(read_current_native_connection(&path, &expected).unwrap().token, "rotated");
+        current.url = "http://127.0.0.1:4318".into();
+        fs::write(&path, serde_json::to_vec(&current).unwrap()).unwrap();
+        assert!(read_current_native_connection(&path, &expected).is_err());
+        fs::write(&path, vec![b' '; 16385]).unwrap();
+        assert!(read_current_native_connection(&path, &expected).is_err());
+        fs::remove_file(path).unwrap(); fs::remove_dir(root).unwrap();
     }
 
     #[test]

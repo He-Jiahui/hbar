@@ -144,7 +144,8 @@ import { ToolPaneLayoutFeedback } from './ToolPaneLayoutFeedback'
 import { createBrowserClientPersistence } from './client-persistence'
 import { createBrowserClientExport } from './client-export'
 import { canRenderWebSurface } from './surface-manifest'
-import type { HbarNativeConnection } from './native-connection'
+import { loadNativeConnection, type HbarNativeConnection } from './native-connection'
+import { startNativeConnectionRecovery } from './native-connection-recovery'
 import type { HbarNativeWindowContext } from './native-window'
 import { applyWebTheme, readThemeBootstrap, readThemePreference, resolveWebTheme, writeThemeBootstrap } from './theme'
 import './App.css'
@@ -1618,6 +1619,7 @@ export default function App({
   const clientUrl = nativeConnection?.url ?? window.location.origin
   const clientToken = nativeConnection?.token
   const client = useMemo(() => new HbarClient(clientUrl, clientToken), [clientToken, clientUrl])
+  useEffect(() => nativeConnection ? startNativeConnectionRecovery(client, () => loadNativeConnection(window, new URL(client.baseUrl).origin)) : undefined, [client, nativeConnection])
   const storageLocations = useMemo(() => {
     const commands = createSystemCommandClient(client)
     return createStorageLocationController({
