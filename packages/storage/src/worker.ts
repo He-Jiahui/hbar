@@ -1037,6 +1037,7 @@ const methods: StorageMethods = {
   chatDatabaseUsageBackfill: chatDatabaseProjection.backfill,
   chatDatabaseUsage: chatDatabaseProjection.usage,
   chatDatabaseArtifactPage: chatDatabaseProjection.artifactPage,
+  chatDatabaseLogPage: chatDatabaseProjection.logPage,
   ready: () => ({ version: LATEST_SCHEMA_VERSION }),
   notificationPage: (input) => notifications.page(input),
   notificationBySourceEvent: (sourceEventId) => notifications.bySourceEvent(sourceEventId),

@@ -231,3 +231,29 @@ test('reports physical disk bytes and scoped attribution without traversing Wind
   expect(scoped.disk.scopedLogBytes).toBeGreaterThan(0)
   expect(scoped.totalBytes).toBe(scoped.history.logicalBytes + scoped.disk.scopedLogBytes + 17)
 })
+
+test('workspace attribution follows the current owner after a session moves, including historical log paths and attachment references', async () => {
+  const { owner, layout } = await fixture()
+  const first = await owner.storage.call('createWorkspace', join(owner.root, 'first'), 'first')
+  const second = await owner.storage.call('createWorkspace', join(owner.root, 'second'), 'second')
+  const session = await owner.storage.call('createSession', first.id, 'moving attribution')
+  const artifact = { id: 'c'.repeat(64), name: 'shared.txt', mime: 'text/plain', size: 17 }
+  await writeFile(join(layout.artifacts, artifact.id), 'attachment bytes!')
+  await owner.storage.call('putArtifact', artifact)
+  await owner.storage.call('commit', session.id, 'fixture', 'user', [{ type: 'file', artifact }])
+  await owner.storage.call('moveSession', session.id, second.id)
+  owner.statistics = createChatDatabaseStatisticsService(
+    owner.storage,
+    new SettingsService(owner.storage),
+    createChatDatabaseFileScanner(layout),
+  )
+  const oldScope = await owner.statistics.readComplete({ kind: 'workspace', targetId: first.id })
+  const newScope = await owner.statistics.readComplete({ kind: 'workspace', targetId: second.id })
+  expect(oldScope).toMatchObject({
+    history: { sessionCount: 0 },
+    disk: { scopedLogBytes: 0, scopedAttachmentBytes: 0 },
+  })
+  expect(newScope.history.sessionCount).toBe(1)
+  expect(newScope.disk.scopedLogBytes).toBe(newScope.disk.logBytes)
+  expect(newScope.disk.scopedAttachmentBytes).toBe(17)
+})

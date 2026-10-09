@@ -271,6 +271,7 @@ export interface StorageMethods {
   chatDatabaseUsageBackfill: ReturnType<typeof createChatDatabaseProjection>['backfill']
   chatDatabaseUsage: ReturnType<typeof createChatDatabaseProjection>['usage']
   chatDatabaseArtifactPage: ReturnType<typeof createChatDatabaseProjection>['artifactPage']
+  chatDatabaseLogPage: ReturnType<typeof createChatDatabaseProjection>['logPage']
   chatDatabaseOperationAccept: ReturnType<typeof createChatDatabaseJournal>['accept']
   chatDatabaseOperationRead: ReturnType<typeof createChatDatabaseJournal>['read']
   chatDatabaseOperationUpdate: ReturnType<typeof createChatDatabaseJournal>['update']

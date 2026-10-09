@@ -9,6 +9,7 @@ import {
 } from './chat-database-sources'
 
 export function createChatDatabaseProjection(db: Database) {
+  db.exec('CREATE INDEX IF NOT EXISTS chat_database_logs_session ON session_log_files(sessionId,path)')
   function complete(): boolean {
     return !db.query('SELECT source FROM chat_database_backfill WHERE complete=0 LIMIT 1').get()
   }
@@ -104,13 +105,31 @@ export function createChatDatabaseProjection(db: Database) {
       throw new HbarError('INVALID_INPUT', 'Invalid attachment page size')
     const rows = db
       .query<{ artifactId: string }, [string, string | null, string | null, string | null, string | null, number]>(
-        `SELECT DISTINCT artifactId FROM chat_database_artifact_refs
-       WHERE CASE ? WHEN 'global' THEN 1 WHEN 'workspace' THEN workspaceId=? ELSE sessionId=? END
+        `SELECT DISTINCT artifactId FROM chat_database_artifact_refs ref LEFT JOIN sessions owner ON owner.id=ref.sessionId
+       WHERE CASE ? WHEN 'global' THEN 1 WHEN 'workspace' THEN COALESCE(owner.workspaceId,ref.workspaceId)=? ELSE ref.sessionId=? END
        AND (? IS NULL OR artifactId>?) ORDER BY artifactId LIMIT ?`,
       )
       .all(scope.kind, target, target, after, after, limit + 1)
     const ids = rows.slice(0, limit).map((row) => row.artifactId)
     return { ids, next: rows.length > limit ? (ids.at(-1) ?? null) : null }
   }
-  return { backfill, usage, artifactPage }
+  function logPage(
+    scope: ChatDatabaseScope,
+    after: string | null,
+    limit = 100,
+  ): { paths: string[]; next: string | null } {
+    const target = scopeTarget(scope)
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100)
+      throw new HbarError('INVALID_INPUT', 'Invalid log page size')
+    const rows = db
+      .query<{ path: string }, [string, string | null, string | null, string | null, string | null, number]>(
+        `SELECT files.path FROM session_log_files files JOIN sessions owner ON owner.id=files.sessionId
+       WHERE CASE ? WHEN 'global' THEN 1 WHEN 'workspace' THEN owner.workspaceId=? ELSE owner.id=? END
+       AND (? IS NULL OR files.path>?) ORDER BY files.path LIMIT ?`,
+      )
+      .all(scope.kind, target, target, after, after, limit + 1)
+    const paths = rows.slice(0, limit).map((row) => row.path)
+    return { paths, next: rows.length > limit ? (paths.at(-1) ?? null) : null }
+  }
+  return { backfill, usage, artifactPage, logPage }
 }

@@ -96,7 +96,10 @@ export function createChatDatabaseStatisticsService(
         entry.controller.signal.throwIfAborted()
         entry.disk = await files.scan(
           scope,
-          (after) => storage.call('chatDatabaseArtifactPage', scope, after, 100),
+          {
+            artifacts: (after) => storage.call('chatDatabaseArtifactPage', scope, after, 100),
+            logs: (after) => storage.call('chatDatabaseLogPage', scope, after, 100),
+          },
           entry.controller.signal,
           (disk) => {
             if (!disposed && scans.get(key(scope)) === entry) entry.disk = disk

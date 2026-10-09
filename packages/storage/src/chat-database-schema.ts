@@ -35,6 +35,7 @@ export const CHAT_DATABASE_SQL = `
     sessionId TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,messageCount INTEGER NOT NULL,
     contentBytes INTEGER NOT NULL,payloadBytes INTEGER NOT NULL,activityAt INTEGER NOT NULL,PRIMARY KEY(source,recordId));
   CREATE INDEX IF NOT EXISTS chat_database_usage_records_session ON chat_database_usage_records(sessionId);
+  CREATE INDEX IF NOT EXISTS chat_database_logs_session ON session_log_files(sessionId,path);
   CREATE TABLE IF NOT EXISTS chat_database_backfill(source TEXT PRIMARY KEY,afterId TEXT,complete INTEGER NOT NULL DEFAULT 0);
   ${chatDatabaseProjectionSources.map((source) => `INSERT OR IGNORE INTO chat_database_backfill(source) VALUES('${source.source}');`).join('\n')}
   CREATE TABLE IF NOT EXISTS chat_database_artifact_refs(source TEXT NOT NULL,ownerId TEXT NOT NULL,artifactId TEXT NOT NULL,

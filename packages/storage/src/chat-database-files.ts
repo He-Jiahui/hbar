@@ -1,5 +1,5 @@
 import { lstat, opendir } from 'node:fs/promises'
-import { basename, join, relative } from 'node:path'
+import { basename, isAbsolute, join, relative } from 'node:path'
 import { HbarError } from '@hbar/contracts'
 import type {
   ChatDatabaseCacheCategory,
@@ -8,10 +8,14 @@ import type {
 } from '@hbar/contracts/commands/chat-database'
 import type { PathLayout } from './path-layout'
 
+export interface ChatDatabaseFileReferences {
+  artifacts(after: string | null): Promise<{ ids: string[]; next: string | null }>
+  logs(after: string | null): Promise<{ paths: string[]; next: string | null }>
+}
 export interface ChatDatabaseFilesPort {
   scan(
     scope: ChatDatabaseScope,
-    artifacts: (after: string | null) => Promise<{ ids: string[]; next: string | null }>,
+    references: ChatDatabaseFileReferences,
     signal: AbortSignal,
     onProgress?: (usage: ChatDatabaseDiskUsage) => void,
   ): Promise<ChatDatabaseDiskUsage>
@@ -40,7 +44,7 @@ function errno(reason: unknown): string {
 /** Streaming async I/O bounds memory/handles and never traverses links or junctions. */
 export function createChatDatabaseFileScanner(layout: PathLayout): ChatDatabaseFilesPort {
   return {
-    async scan(scope, artifacts, signal, onProgress) {
+    async scan(scope, references, signal, onProgress) {
       const usage = emptyChatDatabaseDiskUsage()
       let failed = false
       let entries = 0
@@ -76,9 +80,28 @@ export function createChatDatabaseFileScanner(layout: PathLayout): ChatDatabaseF
         path: string,
         category: ChatDatabaseDiskUsage['issues'][number]['category'],
         missingAllowed = true,
+        managedRoot?: string,
       ): Promise<number> {
         signal.throwIfAborted()
         try {
+          if (managedRoot) {
+            const suffix = relative(managedRoot, path)
+            const parts = suffix.split(/[\\/]/)
+            if (isAbsolute(suffix) || parts.some((part) => part === '..' || part === '.')) {
+              issue(category, 'PATH_REDIRECTED')
+              return 0
+            }
+            let current = managedRoot
+            for (const part of ['', ...parts.slice(0, -1)]) {
+              signal.throwIfAborted()
+              if (part) current = join(current, part)
+              const parent = await lstat(current)
+              if (parent.isSymbolicLink() || !parent.isDirectory()) {
+                issue(category, 'PATH_REDIRECTED')
+                return 0
+              }
+            }
+          }
           const info = await lstat(path)
           if (info.isSymbolicLink() || !info.isFile()) {
             issue(category, 'PATH_REDIRECTED')
@@ -130,13 +153,18 @@ export function createChatDatabaseFileScanner(layout: PathLayout): ChatDatabaseF
       usage.shmBytes = await fileBytes(`${layout.database}-shm`, 'database')
       for await (const file of files(layout.sessions, 'logs')) {
         usage.logBytes += file.size
-        const local = relative(layout.sessions, file.path).replaceAll('\\', '/')
-        if (
-          scope.kind === 'global' ||
-          (scope.kind === 'workspace' && local.split('/')[0] === scope.targetId) ||
-          (scope.kind === 'session' && basename(file.path) === `${scope.targetId}.jsonl`)
-        )
-          usage.scopedLogBytes += file.size
+        if (scope.kind === 'global') usage.scopedLogBytes += file.size
+      }
+      if (scope.kind !== 'global') {
+        let after: string | null = null
+        do {
+          const page = await references.logs(after)
+          for (const path of page.paths)
+            usage.scopedLogBytes += await fileBytes(join(layout.sessions, path), 'logs', false, layout.sessions)
+          if (page.next !== null && page.next === after)
+            throw new HbarError('INVALID_CURSOR', 'Log cursor did not advance')
+          after = page.next
+        } while (after !== null)
       }
       for await (const file of files(layout.artifacts, 'attachments')) usage.attachmentBytes += file.size
       if (scope.kind === 'global') usage.scopedAttachmentBytes = usage.attachmentBytes
@@ -144,10 +172,15 @@ export function createChatDatabaseFileScanner(layout: PathLayout): ChatDatabaseF
         let after: string | null = null
         do {
           signal.throwIfAborted()
-          const page = await artifacts(after)
+          const page = await references.artifacts(after)
           for (const id of page.ids) {
             if (!/^[a-f0-9]{64}$/.test(id)) throw new HbarError('INVALID_OUTPUT', 'Invalid attachment identity')
-            usage.scopedAttachmentBytes += await fileBytes(join(layout.artifacts, id), 'attachments', false)
+            usage.scopedAttachmentBytes += await fileBytes(
+              join(layout.artifacts, id),
+              'attachments',
+              false,
+              layout.artifacts,
+            )
           }
           if (page.next !== null && page.next === after)
             throw new HbarError('INVALID_CURSOR', 'Attachment cursor did not advance')
