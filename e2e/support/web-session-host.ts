@@ -131,7 +131,7 @@ export async function startWebSessionHost(
     historyCount?: number
     /** Test-only authored message content; never sent to a real Provider. */
     historyText?: string
-    fixture?: 'session' | 'chat-database'
+    fixture?: 'session' | 'chat-database' | 'chat-deletion'
     goalAutoContinue?: boolean
     budgetAutoContinue?: boolean
   }>,
@@ -139,12 +139,17 @@ export async function startWebSessionHost(
   const port = options.port ?? 4317
   const child = spawn(
     bunExecutable(),
-    [options.fixture === 'chat-database' ? 'scripts/e2e-chat-database-host.ts' : 'scripts/e2e-session-host.ts'],
+    [
+      options.fixture === 'chat-database' || options.fixture === 'chat-deletion'
+        ? 'scripts/e2e-chat-database-host.ts'
+        : 'scripts/e2e-session-host.ts',
+    ],
     {
       cwd: process.cwd(),
       env: {
         ...process.env,
         HBAR_E2E_DATA_ROOT: options.root,
+        HBAR_E2E_CHAT_DELETION: options.fixture === 'chat-deletion' ? '1' : '0',
         HBAR_E2E_HOME: options.home ?? '',
         HBAR_E2E_HOST_PORT: String(port),
         HBAR_E2E_SESSION_COUNT: String(options.sessionCount ?? 1),

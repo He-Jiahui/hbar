@@ -25,7 +25,16 @@ const kernel = await Kernel.create({
 const workspace = (await kernel.storage.call('workspaces')).find((item) => item.path === root)
 if (!workspace) throw new Error('Missing fixture workspace')
 const current = await kernel.createSession(workspace.id, 'Database monitor chat — 当前聊天')
-for (let index = 0; index < 65; index++) {
+const deletion = process.env.HBAR_E2E_CHAT_DELETION === '1'
+if (deletion) {
+  const other = await kernel.createSession(workspace.id, 'Kept chat — 其他聊天')
+  for (const session of [current, other]) {
+    await kernel.storage.call('commit', session.id, `fixture-${session.id}`, 'user', [
+      { type: 'text', text: `Actual saved history in ${session.title}` },
+    ])
+  }
+}
+for (let index = 0; index < (deletion ? 0 : 65); index++) {
   const session = await kernel.createSession(
     workspace.id,
     `Archived ${String(index + 1).padStart(3, '0')} — ${'很长的历史聊天名称与英文说明 Long archived conversation title '.repeat(2)}`,
@@ -40,8 +49,8 @@ while (!(await kernel.storage.call('chatDatabaseUsageBackfill', 250)).complete) 
 }
 const db = new Database(kernel.options.layout.database, { strict: true })
 db.query(
-  'UPDATE chat_database_usage SET lastActivityAt=? WHERE sessionId IN (SELECT id FROM sessions WHERE archived=1)',
-).run(Date.now() - 100 * 86_400_000)
+  'UPDATE chat_database_usage SET lastActivityAt=? WHERE sessionId IN (SELECT id FROM sessions WHERE archived=1 OR ?=1)',
+).run(Date.now() - 100 * 86_400_000, deletion ? 1 : 0)
 db.exec(
   'CREATE TABLE browser_vacuum_fixture(bytes BLOB); INSERT INTO browser_vacuum_fixture VALUES(randomblob(2097152)); DELETE FROM browser_vacuum_fixture; PRAGMA wal_checkpoint(TRUNCATE);',
 )
@@ -49,7 +58,7 @@ db.close()
 await writeFile(join(kernel.options.layout.cache.markdown, 'expired.html'), 'rebuildable fixture cache'.repeat(100))
 await utimes(join(kernel.options.layout.cache.markdown, 'expired.html'), 0, 0)
 // Historical receipts are test-only records, while all statistics and cleanup execute on real storage.
-for (let index = 0; index < 52; index++) {
+for (let index = 0; index < (deletion ? 0 : 52); index++) {
   const time = Date.now() - 2 * 86_400_000 - index * 1000
   const operation = chatDatabaseOperationSchema.parse({
     schemaVersion: 1,

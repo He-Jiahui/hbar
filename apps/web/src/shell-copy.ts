@@ -998,6 +998,11 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
   }
   const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 })
   const error = (code: string) => {
+    if (code === 'SESSION_DELETED')
+      return choose(
+        '此聊天已被清理。未发送的草稿和附件仍保留在当前窗口。',
+        'This chat was deleted by cleanup. Unsent draft text and attachments are preserved in this window.',
+      )
     if (code === 'QUESTIONNAIRE_INCOMPLETE')
       return choose('请回答全部问题后再提交。', 'Answer every question before submitting.')
     if (code === 'RESULT_UNKNOWN')

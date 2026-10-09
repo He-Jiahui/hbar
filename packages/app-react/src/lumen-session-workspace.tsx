@@ -58,6 +58,7 @@ import {
 import { HbarSessionDecision, type HbarSessionDecisionLabels } from './session-interactions'
 import { HbarComposerModelPicker, type HbarComposerModelLabels } from './composer-model-picker'
 import { HbarPromptComposer } from './prompt-composer'
+import { HbarDeletedSessionWorkspace } from './deleted-session-workspace'
 import { useSessionReadingPosition } from './session-reading-position'
 import { HbarSessionMessageAnchors, type HbarConversationAnchorLabels } from './conversation-anchors'
 import {
@@ -444,10 +445,25 @@ function SessionWorkspaceContent({
         context={projectContext.context}
         labels={projectContextLabels}
         onRetry={projectContext.onRetry}
-        executionPath={branchTargetEntry?.workspaceId === sessionWorkspaceId ? branchTargetEntry.page?.execution.path : undefined}
-        renderBranch={projectContextLabels.target && branchTargets.available ? (branch) => (
-          <HbarSessionBranchTargetControl key={sessionId} sessionId={sessionId} workspaceId={sessionWorkspaceId} connected={connected} busy={Boolean(activeRun)} branch={branch} labels={projectContextLabels.target!} branchLabel={projectContextLabels.branch} />
-        ) : undefined}
+        executionPath={
+          branchTargetEntry?.workspaceId === sessionWorkspaceId ? branchTargetEntry.page?.execution.path : undefined
+        }
+        renderBranch={
+          projectContextLabels.target && branchTargets.available
+            ? (branch) => (
+                <HbarSessionBranchTargetControl
+                  key={sessionId}
+                  sessionId={sessionId}
+                  workspaceId={sessionWorkspaceId}
+                  connected={connected}
+                  busy={Boolean(activeRun)}
+                  branch={branch}
+                  labels={projectContextLabels.target!}
+                  branchLabel={projectContextLabels.branch}
+                />
+              )
+            : undefined
+        }
       />
     ) : null
   const execute = (name: string, input: unknown) =>
@@ -2631,9 +2647,18 @@ function SessionWorkspaceContent({
 }
 
 export function HbarSessionWorkspace(props: HbarSessionWorkspaceProps) {
+  const runtime = useHbarRuntime()
+  const navigation = useHbarRuntimeState(runtime.state.navigation)
+  const directory = useHbarRuntimeState(runtime.state.directory)
+  const deletedId =
+    navigation.sessionId && directory.deletedSessions?.[navigation.sessionId] ? navigation.sessionId : null
   return (
     <HbarSessionImageLayer options={props.images}>
-      <SessionWorkspaceContent {...props} />
+      {deletedId ? (
+        <HbarDeletedSessionWorkspace key={deletedId} {...props} sessionId={deletedId} />
+      ) : (
+        <SessionWorkspaceContent {...props} />
+      )}
     </HbarSessionImageLayer>
   )
 }

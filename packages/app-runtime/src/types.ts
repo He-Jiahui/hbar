@@ -162,6 +162,12 @@ export interface RuntimeOptions {
     readonly journal?: import('./chat-database').ChatDatabaseJournalPort
     readonly onConnection?: (listener: (connected: boolean) => void) => () => void
   }
+  readonly chatDatabaseEvents?: {
+    subscribe(
+      listener: (event: import('@hbar/contracts/commands/chat-database').ChatDatabaseDeletedEvent) => void,
+    ): () => void
+    onConnection?(listener: (connected: boolean) => void): () => void
+  }
   /** Session approval settings invalidation; notifications are hints, never write acknowledgements. */
   readonly permissionEvents?: {
     subscribe(listener: () => void): () => void
@@ -209,7 +215,10 @@ export interface RuntimeOptions {
   readonly sessionLaunchBranchCreation?: SessionLaunchBranchesManager
   /** Established-session branch/worktree execution target commands. */
   readonly sessionBranchTargets?: CommandExecutor
-  readonly sessionBranchTargetEvents?: { subscribe(listener: () => void): () => void; onConnection?(listener: (connected: boolean) => void): () => void }
+  readonly sessionBranchTargetEvents?: {
+    subscribe(listener: () => void): () => void
+    onConnection?(listener: (connected: boolean) => void): () => void
+  }
   readonly agents?: CommandExecutor
   readonly goals?: GoalPlanWorkspacePort
   /** Transport lifetime for Goal reads; a reconnect is not confirmation of an unknown action. */
@@ -1077,9 +1086,7 @@ export interface SurfaceState {
   readonly focusedPanelId: string | null
   readonly focusedWindowId: string | null
 }
-export type MainPageState =
-  | { readonly kind: 'session' }
-  | { readonly kind: AppPageId; readonly instanceId: string }
+export type MainPageState = { readonly kind: 'session' } | { readonly kind: AppPageId; readonly instanceId: string }
 export interface SessionViewContext {
   readonly workspaceId: string | null
   readonly sessionId: string | null
@@ -1101,4 +1108,5 @@ export interface NavigationState {
 export interface DirectoryState {
   readonly workspaces: Readonly<Record<string, Readonly<Workspace>>>
   readonly sessions: Readonly<Record<string, Readonly<Session>>>
+  readonly deletedSessions?: Readonly<Record<string, true>>
 }

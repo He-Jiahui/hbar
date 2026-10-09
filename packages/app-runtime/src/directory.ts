@@ -72,6 +72,8 @@ export function createDirectoryModule(
   const remote = new CommandRegistry({ execution: 'host' })
   const observational = new CommandRegistry({ execution: 'host' })
   let disposed = false
+  let deletionEpoch = 0
+  const deleted = new Map<string, true>()
   const requests = new Map<string, number>()
   let retainedActivityWorkspaceIds = new Set<string>()
   let retainedActivitySessionIds = new Set<string>()
@@ -138,6 +140,7 @@ export function createDirectoryModule(
     const entries = new Map(Object.entries(current.sessions))
     const accepted: Session[] = []
     for (const item of items) {
+      if (deleted.has(item.id)) continue
       const prior = entries.get(item.id)
       if (!prior || item.seq > prior.seq || (item.seq === prior.seq && item.updatedAt >= prior.updatedAt)) {
         entries.set(item.id, item)
@@ -181,6 +184,7 @@ export function createDirectoryModule(
     if (disposed || execution.signal?.aborted)
       throw new CommandError('QUERY_SUPERSEDED', 'Query no longer belongs to this runtime generation')
     const projection = sessionId === undefined ? undefined : captureSessionProjection(sessionId)
+    const epoch = deletionEpoch
     const key = `${name}:${JSON.stringify(input)}`
     const current = ++sequence
     requests.set(key, current)
@@ -190,6 +194,8 @@ export function createDirectoryModule(
       const result = await options.directory.execute(name, input, execution)
       if (disposed || execution.signal?.aborted)
         throw new CommandError('QUERY_SUPERSEDED', 'Query no longer belongs to this runtime generation')
+      if (epoch !== deletionEpoch && (sessionId === undefined || deleted.has(sessionId)))
+        throw new CommandError('QUERY_SUPERSEDED', 'Chat deletion superseded this directory read')
       return {
         value: result,
         latest: requests.get(key) === current,
@@ -307,6 +313,7 @@ export function createDirectoryModule(
     context: ExecuteOptions,
     preserveSelection: boolean,
   ) => {
+    if (deleted.has(input.sessionId)) return null
     const response = await read('session.get', input, context, input.sessionId)
     const item = decode(sessionSchema.nullable(), response.value)
     if (item && item.id !== input.sessionId) throw new CommandError('INVALID_OUTPUT', 'Session target mismatch')
@@ -332,6 +339,35 @@ export function createDirectoryModule(
   const queries = createCommandClient(directoryCommands, remote)
 
   return {
+    /** Canonical deletion facts never clear navigation or authored drafts. */
+    markDeleted(sessionIds: readonly string[], openTargets: readonly string[] = []) {
+      if (disposed || !sessionIds.length) return
+      if (sessionIds.length > 100)
+        throw new CommandError('CAPACITY_EXCEEDED', 'Deletion notification exceeds its bound')
+      deletionEpoch++
+      for (const id of sessionIds) {
+        deleted.delete(id)
+        deleted.set(id, true)
+      }
+      const protectedIds = new Set([
+        navigation.getSnapshot().sessionId,
+        ...openTargets,
+        ...retainedActivitySessionIds,
+        ...retainedAgentSessionIds,
+        ...[...pendingSessionProjections.values()].map((item) => item.sessionId),
+      ])
+      while (deleted.size > 2000) {
+        const oldest = [...deleted.keys()].find((id) => !protectedIds.has(id))
+        if (!oldest) break
+        deleted.delete(oldest)
+      }
+      const current = directory.reader.getSnapshot()
+      directory.replace({
+        ...current,
+        deletedSessions: Object.fromEntries(deleted),
+        sessions: Object.fromEntries(Object.entries(current.sessions).filter(([id]) => !deleted.has(id))),
+      })
+    },
     queries,
     /** A validated, bounded fact read for restore/reconciliation, without changing the observed view. */
     observeSession: (sessionId: string, execution?: ExecuteOptions) =>
@@ -433,6 +469,10 @@ export function createDirectoryModule(
       let skipped = 0
       const accepted: Session[] = []
       for (const item of confirmed) {
+        if (deleted.has(item.id)) {
+          skipped++
+          continue
+        }
         const prior = sessions[item.id]
         if (prior) {
           if (item.seq > prior.seq || (item.seq === prior.seq && item.updatedAt >= prior.updatedAt)) {

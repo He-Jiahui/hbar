@@ -177,7 +177,7 @@ export function createSessionAgentTree(registry: CommandRegistry, options: Optio
     )
   }
   async function readBranch(parentId: string, append = false, includeSessionId?: string, execution?: ExecuteOptions) {
-    if (disposed || !allocate(parentId)) return
+    if (disposed || options.directory.getSnapshot().deletedSessions?.[parentId] || !allocate(parentId)) return
     const pathIndex = current().pathIds.indexOf(parentId)
     includeSessionId ??= pathIndex < 0 ? undefined : current().pathIds[pathIndex + 1]
     const prior = current().branches[parentId]!
@@ -294,11 +294,17 @@ export function createSessionAgentTree(registry: CommandRegistry, options: Optio
     }
   }
   async function revealSelection(sessionId: string) {
+    if (options.directory.getSnapshot().deletedSessions?.[sessionId]) return
     reveal?.abort()
     const controller = new AbortController()
     reveal = controller
     const timeout = setTimeout(() => controller.abort(), 20_000)
-    const valid = () => !disposed && !controller.signal.aborted && reveal === controller && selectedId === sessionId
+    const valid = () =>
+      !disposed &&
+      !controller.signal.aborted &&
+      reveal === controller &&
+      selectedId === sessionId &&
+      !options.directory.getSnapshot().deletedSessions?.[sessionId]
     try {
       const path = await options.queries.execute(
         'session.agentAncestors.get',
@@ -347,7 +353,12 @@ export function createSessionAgentTree(registry: CommandRegistry, options: Optio
       clearTimeout(timeout)
       if (reveal === controller) {
         reveal = null
-        if (controller.signal.aborted && !disposed && selectedId === sessionId)
+        if (
+          controller.signal.aborted &&
+          !disposed &&
+          selectedId === sessionId &&
+          !options.directory.getSnapshot().deletedSessions?.[sessionId]
+        )
           state.replace({ ...current(), revealError: connected ? 'QUERY_TIMEOUT' : 'DISCONNECTED' })
       }
     }
@@ -395,6 +406,36 @@ export function createSessionAgentTree(registry: CommandRegistry, options: Optio
     }, 120)
   }
   const stopNavigation = options.navigation.subscribe(navigationChanged)
+  let seenDeletions = options.directory.getSnapshot().deletedSessions
+  const stopDirectory = options.directory.subscribe(() => {
+    const deleted = options.directory.getSnapshot().deletedSessions
+    if (disposed || deleted === seenDeletions) return
+    seenDeletions = deleted
+    const branches = { ...current().branches }
+    let changed = false
+    for (const [id, branch] of Object.entries(branches)) {
+      const rows = branch.rows.filter((row) => !deleted?.[row.sessionId])
+      if (!deleted?.[id] && rows.length === branch.rows.length) continue
+      pending.get(id)?.abort()
+      pending.delete(id)
+      if (deleted?.[id]) delete branches[id]
+      else branches[id] = { ...branch, rows, status: 'ready', error: null }
+      changed = true
+    }
+    const pathDeleted = Boolean((selectedId && deleted?.[selectedId]) || current().pathIds.some((id) => deleted?.[id]))
+    if (pathDeleted) {
+      reveal?.abort()
+      reveal = null
+    }
+    if (!changed && !pathDeleted) return
+    state.replace({
+      ...current(),
+      branches,
+      ...(pathDeleted ? { revealedRoot: null, pathIds: [], revealError: null } : {}),
+    })
+    retain()
+    queueRefresh()
+  })
   const stopFacts = options.subscribeConfirmedSessions((facts) => {
     if (projecting || disposed) return
     let changed = false
@@ -453,6 +494,7 @@ export function createSessionAgentTree(registry: CommandRegistry, options: Optio
     dispose() {
       disposed = true
       stopNavigation()
+      stopDirectory()
       stopFacts()
       stopEvents()
       stopConnection()

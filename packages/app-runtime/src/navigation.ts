@@ -201,6 +201,13 @@ export function registerNavigationCommands(
       .finally(() => selectionGuard?.dispose())
   })
   return {
+    /** Used only for a retained tab whose canonical deletion was already confirmed. */
+    selectDeletedSession(target: { readonly workspaceId: string; readonly sessionId: string }) {
+      if (isDisposed()) throw new CommandError('DISPOSED', 'Navigation is disposed')
+      generation++
+      tabs?.commitWorkspaceSelection()
+      navigation.replace({ ...target, status: 'idle', error: null })
+    },
     commitLocalSelection(closedId: string | null, next: { workspaceId: string; sessionId: string | null }) {
       const current = navigation.reader.getSnapshot()
       if (isDisposed() || current.status === 'loading' || current.sessionId !== closedId) return

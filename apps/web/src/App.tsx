@@ -253,20 +253,32 @@ function createRuntime(
     ...(initialDrafts ? { initialDrafts } : {}),
     directory: createDirectoryQueryAdapter(client),
     workspaces: createWorkspaceSessionCommandClient(client),
+    chatDatabaseEvents: {
+      subscribe: (listener) =>
+        client.onEvent((event) => {
+          if (event.method === 'chatDatabase.deleted') listener(event.params)
+        }),
+      onConnection(listener) {
+        const off = client.onStatus((status) => listener(status === 'connected'))
+        listener(client.connectionStatus() === 'connected')
+        return off
+      },
+    },
     sidebarActivityEvents: {
       subscribe(listener: () => void) {
         const off = client.onEvent((event) => {
           if (
-            event.method === 'host.changed' &&
-            [
-              'sessions',
-              'workspaces',
-              'workspace-display-names',
-              'workspace-organization',
-              'session-activity',
-              'agents',
-              'resync',
-            ].includes(event.params.kind)
+            event.method === 'chatDatabase.deleted' ||
+            (event.method === 'host.changed' &&
+              [
+                'sessions',
+                'workspaces',
+                'workspace-display-names',
+                'workspace-organization',
+                'session-activity',
+                'agents',
+                'resync',
+              ].includes(event.params.kind))
           )
             listener()
         })
@@ -764,7 +776,16 @@ function WorkspaceBodyContent({
   useEffect(() => setAgentReturn({ busy: false, error: null }), [activeTab?.id, activeTab?.instanceKey])
   useEffect(() => setWorkbenchError(null), [activeTab?.id, activeTab?.instanceKey])
   const session = navigation.sessionId ? directory.sessions[navigation.sessionId] : undefined
-  const sessionWorkspace = session ? directory.workspaces[session.workspaceId] : undefined
+  const conversation =
+    session ??
+    (navigation.sessionId && navigation.workspaceId && directory.deletedSessions?.[navigation.sessionId]
+      ? {
+          id: navigation.sessionId,
+          workspaceId: navigation.workspaceId,
+          title: tabCopy.unknownSession(navigation.sessionId),
+        }
+      : undefined)
+  const sessionWorkspace = conversation ? directory.workspaces[conversation.workspaceId] : undefined
   useEffect(() => {
     if (!session || !landingDraftId.current) return
     const draftId = landingDraftId.current
@@ -932,29 +953,35 @@ function WorkspaceBodyContent({
       />
     )
   }
-  if (session)
+  if (conversation)
     return (
       <HbarSessionWorkspace
-        sessionTitle={session.title}
-        workspaceName={sessionWorkspace ? workspaceDisplayName(sessionWorkspace, displayNames) : session.workspaceId}
+        sessionTitle={conversation.title}
+        workspaceName={
+          sessionWorkspace ? workspaceDisplayName(sessionWorkspace, displayNames) : conversation.workspaceId
+        }
         workspacePath={sessionWorkspace?.path}
-        sessionWorkspaceId={session.workspaceId}
+        sessionWorkspaceId={conversation.workspaceId}
         projectContextLabels={sessionContextCopy(locale)}
         firstSendLabels={preSessionLaunchCopy(locale).status}
-        renderLaunchControls={() => (
-          <HbarSessionLaunchLocation
-            sessionId={session.id}
-            workspaceId={session.workspaceId}
-            workspaceName={
-              sessionWorkspace ? workspaceDisplayName(sessionWorkspace, displayNames) : session.workspaceId
-            }
-            workspacePath={sessionWorkspace?.path}
-            connected={connected}
-            labels={preSessionLaunchCopy(locale).location}
-            statusLabels={preSessionLaunchCopy(locale).status}
-            moveLabels={sessionWorkspaceMoveCopy(locale)}
-          />
-        )}
+        renderLaunchControls={
+          session
+            ? () => (
+                <HbarSessionLaunchLocation
+                  sessionId={session.id}
+                  workspaceId={session.workspaceId}
+                  workspaceName={
+                    sessionWorkspace ? workspaceDisplayName(sessionWorkspace, displayNames) : session.workspaceId
+                  }
+                  workspacePath={sessionWorkspace?.path}
+                  connected={connected}
+                  labels={preSessionLaunchCopy(locale).location}
+                  statusLabels={preSessionLaunchCopy(locale).status}
+                  moveLabels={sessionWorkspaceMoveCopy(locale)}
+                />
+              )
+            : undefined
+        }
         labels={copy.session}
         describeTool={createSessionToolPresenter(locale)}
         sendBehavior={selectedSendBehavior}
@@ -1709,6 +1736,14 @@ export default function App({
   useEffect(() => {
     chatSearch.bind(binding.hostId, connection === 'connected')
   }, [binding.hostId, chatSearch, connection])
+  useEffect(
+    () =>
+      client.onEvent((event) => {
+        if (event.method === 'chatDatabase.deleted' && binding.hostId === client.connectionHost()?.instanceId)
+          chatSearch.deleted(event.params.sessionIds)
+      }),
+    [binding.hostId, chatSearch, client],
+  )
   useEffect(() => {
     const refresh = () => {
       if (document.visibilityState === 'visible') void sendBehavior.refresh()

@@ -181,6 +181,26 @@ test('Agent branches are lazy, paged, response ordered and bounded; stale paging
   }
 })
 
+test('canonical deletion removes Agent rows and selected ancestry without navigation changes or unavailable retries', async () => {
+  const f = fixture()
+  try {
+    f.children.set('parent', [row('child', 'parent', 10)])
+    f.navigation.replace({ workspaceId: workspace.id, sessionId: 'child', status: 'idle', error: null })
+    await eventually(() => f.tree.reader.getSnapshot().branches.parent?.status === 'ready')
+    f.directory.markDeleted(['child'])
+    expect(f.tree.reader.getSnapshot()).toMatchObject({ revealedRoot: null, pathIds: [], revealError: null })
+    expect(f.tree.reader.getSnapshot().branches.parent?.rows).toEqual([])
+    expect(f.navigation.reader.getSnapshot().sessionId).toBe('child')
+    const count = f.calls.length
+    await f.commands.execute('sessionAgentTree.reveal', { sessionId: 'child' })
+    expect(f.calls).toHaveLength(count)
+    f.directory.markDeleted(['parent'])
+    expect(f.tree.reader.getSnapshot().branches.parent).toBeUndefined()
+  } finally {
+    f.dispose()
+  }
+})
+
 test('Collapse cancels its read and descendants and ignores late confirmed pages', async () => {
   const f = fixture()
   let release = () => {}

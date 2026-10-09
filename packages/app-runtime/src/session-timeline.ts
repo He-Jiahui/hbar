@@ -362,6 +362,7 @@ export function createSessionTimeline(
   navigation: StateReader<NavigationState>,
   onSubscriberError: (error: unknown) => void,
   isDisposed: () => boolean,
+  isSessionDeleted: (id: string) => boolean = () => false,
 ) {
   const state = createState<SessionTimelineState>(emptyState(null, 'idle'), onSubscriberError)
   const cache = new Map<string, SessionTimelineState>()
@@ -422,6 +423,12 @@ export function createSessionTimeline(
     const intent = ++generation
     olderGeneration += 1
     close()
+    if (sessionId && isSessionDeleted(sessionId)) {
+      const unavailable = { ...emptyState(sessionId, 'error'), error: 'SESSION_DELETED' }
+      remember(unavailable)
+      void notifyHistory({ kind: 'loading', snapshot: historySnapshot() })
+      return unavailable
+    }
     if (!port || !sessionId) {
       const unavailable = emptyState(sessionId, sessionId ? 'error' : 'idle')
       remember(sessionId ? { ...unavailable, error: 'Timeline history is unavailable in this runtime' } : unavailable)
@@ -594,6 +601,17 @@ export function createSessionTimeline(
   return {
     reader: state.reader,
     history,
+    markDeleted(ids: readonly string[]) {
+      for (const id of ids) cache.delete(id)
+      const current = state.reader.getSnapshot()
+      if (current.sessionId && ids.includes(current.sessionId)) {
+        generation++
+        olderGeneration++
+        close()
+        remember({ ...emptyState(current.sessionId, 'error'), error: 'SESSION_DELETED' })
+        void notifyHistory({ kind: 'loading', snapshot: historySnapshot() })
+      }
+    },
     dispose() {
       generation += 1
       unsubscribe()

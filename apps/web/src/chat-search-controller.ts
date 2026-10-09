@@ -41,6 +41,7 @@ export interface WebChatSearchController {
   select(sessionId: string): void
   openRow(sessionId: string, workspaceId: string, navigate: (row: HbarChatSearchRow) => Promise<void>): Promise<boolean>
   retry(): void
+  deleted(sessionIds: readonly string[]): void
   dispose(): void
 }
 
@@ -326,6 +327,32 @@ export function createWebChatSearchController(
     },
     retry() {
       if (!disposed && store.getState().open) beginRead(0)
+    },
+    deleted(sessionIds) {
+      if (disposed || !store.getState().open) return
+      const currentState = store.getState()
+      const ids = new Set(sessionIds)
+      const rows = currentState.rows.filter((row) => !ids.has(row.sessionId))
+      if (rows.length === currentState.rows.length && currentState.status !== 'loading') return
+      stop()
+      const openingRow = currentState.rows.find(
+        (row) => (row.resultId ?? row.sessionId) === currentState.openingResultId,
+      )
+      if (openingRow && ids.has(openingRow.sessionId)) releaseOpeningRequest()
+      store.setState({
+        rows,
+        selectedResultId: rows.some((row) => (row.resultId ?? row.sessionId) === currentState.selectedResultId)
+          ? currentState.selectedResultId
+          : (rows[0]?.resultId ?? rows[0]?.sessionId ?? null),
+        status: rows.length
+          ? currentState.query.trim()
+            ? 'ready'
+            : 'recent'
+          : currentState.query.trim()
+            ? 'empty'
+            : 'recent',
+      })
+      if (currentState.status === 'loading' && connected) beginRead(0)
     },
     dispose() {
       if (disposed) return

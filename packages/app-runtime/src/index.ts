@@ -118,8 +118,14 @@ export type {
 } from './goal-history'
 import { createDrafts } from './drafts'
 import { createDraftArtifactReferences } from './draft-artifact-references'
+import { createSessionDeletionReconciliation } from './session-deletion-reconciliation'
 export { createDraftArtifactReferences } from './draft-artifact-references'
-export type { DraftArtifactReferenceJournal, DraftArtifactReferenceJournalPort, DraftArtifactReferencePort, DraftArtifactReferenceState } from './draft-artifact-references'
+export type {
+  DraftArtifactReferenceJournal,
+  DraftArtifactReferenceJournalPort,
+  DraftArtifactReferencePort,
+  DraftArtifactReferenceState,
+} from './draft-artifact-references'
 import { createPreSessionDrafts } from './pre-session-drafts'
 import { createPreSessionLaunchBranches, preSessionLaunchBranchesCommands } from './pre-session-launch-branches'
 import {
@@ -159,7 +165,12 @@ import { sessionArchiveCommands, createSessionArchive } from './session-archive'
 import { createSettingsForms } from './settings-forms'
 import { createChatDatabaseWorkspace } from './chat-database'
 export { createChatDatabaseWorkspace, chatDatabaseViewKey } from './chat-database'
-export type { ChatDatabaseEntry, ChatDatabaseState, ChatDatabaseJournalPort, ChatDatabaseClientJournal } from './chat-database'
+export type {
+  ChatDatabaseEntry,
+  ChatDatabaseState,
+  ChatDatabaseJournalPort,
+  ChatDatabaseClientJournal,
+} from './chat-database'
 import { createProviderSettings } from './provider-settings'
 import { createCommandPalette } from './command-palette'
 import { createFileWorkspace } from './file-workspace'
@@ -194,7 +205,10 @@ import { createStatusWorkspace } from './status-workspace'
 import { createSessionGitContext, sessionGitContextCommands } from './session-git-context'
 import { createSessionBranchTargetPicker, sessionBranchTargetPickerCommands } from './session-branch-target-picker'
 export type { SessionBranchTargetPickerState, SessionBranchTargetPickerEntry } from './session-branch-target-picker'
-export type { SessionBranchTargetPage, SessionBranchTargetSelectInput } from '@hbar/contracts/commands/session-branch-target'
+export type {
+  SessionBranchTargetPage,
+  SessionBranchTargetSelectInput,
+} from '@hbar/contracts/commands/session-branch-target'
 import { createSessionRosterRefresh, sessionRosterRefreshCommands } from './session-roster-refresh'
 export { sessionRosterRefreshCommands } from './session-roster-refresh'
 export type { SessionRosterRefreshState, SessionRosterRefreshEntry } from './session-roster-refresh'
@@ -616,7 +630,9 @@ export function createAppRuntime(options: RuntimeOptions) {
     host: options.sessionBranchTargets,
     events: options.sessionBranchTargetEvents,
     navigation: navigation.reader,
-    busy: (sessionId) => timeline.reader.getSnapshot().sessionId === sessionId && timeline.reader.getSnapshot().runs.some((run) => ['queued', 'running', 'waiting_approval'].includes(run.status)),
+    busy: (sessionId) =>
+      timeline.reader.getSnapshot().sessionId === sessionId &&
+      timeline.reader.getSnapshot().runs.some((run) => ['queued', 'running', 'waiting_approval'].includes(run.status)),
     onSubscriberError,
     isDisposed: () => disposed,
   })
@@ -693,8 +709,13 @@ export function createAppRuntime(options: RuntimeOptions) {
     preferenceCommands: local,
     preferencesReady: clientPersistence.ready,
     retryPreferencesRestore: clientPersistence.retryPreferencesRestore,
-    selectSession: (sessionId, workspaceId, execution) =>
-      local.execute('app.setSession', { sessionId, workspaceId }, execution),
+    selectSession: (sessionId, workspaceId, execution) => {
+      if (directory.reader.getSnapshot().deletedSessions?.[sessionId] && tabNavigation) {
+        tabNavigation.selectDeletedSession({ sessionId, workspaceId })
+        return Promise.resolve()
+      }
+      return local.execute('app.setSession', { sessionId, workspaceId }, execution)
+    },
     commitLocalSelection: (closedId, next) => tabNavigation?.commitLocalSelection(closedId, next),
     onSubscriberError,
   })
@@ -764,7 +785,34 @@ export function createAppRuntime(options: RuntimeOptions) {
     },
   )
   const forms = createBudgetForms(local, options.budget, onSubscriberError, () => disposed)
-  const timeline = createSessionTimeline(local, options.timeline, navigation.reader, onSubscriberError, () => disposed)
+  const timeline = createSessionTimeline(
+    local,
+    options.timeline,
+    navigation.reader,
+    onSubscriberError,
+    () => disposed,
+    (id) => Boolean(directory.reader.getSnapshot().deletedSessions?.[id]),
+  )
+  const deletionTargets = () => [
+    ...new Set(
+      [
+        navigation.reader.getSnapshot().sessionId,
+        presentation.reader.getSnapshot().returnContext?.sessionId,
+        ...workspaceTabs.reader.getSnapshot().items.flatMap((tab) => (tab.kind === 'session' ? [tab.sessionId] : [])),
+        ...Object.values(surfaces.reader.getSnapshot().panels).map((panel) => panel.sessionId),
+      ].filter((id): id is string => Boolean(id)),
+    ),
+  ]
+  const sessionDeletions = createSessionDeletionReconciliation({
+    targets: deletionTargets,
+    observe: (id, signal) => directory.observeSession(id, { signal }),
+    markDeleted(ids) {
+      directory.markDeleted(ids, deletionTargets())
+      timeline.markDeleted(ids)
+    },
+    events: options.chatDatabaseEvents,
+    onError: onSubscriberError,
+  })
   const conversationReading = createConversationReading(onSubscriberError)
   const offReadingTabs = workspaceTabs.reader.subscribe(() => {
     conversationReading.retainTargets(
@@ -1032,7 +1080,11 @@ export function createAppRuntime(options: RuntimeOptions) {
     () => disposed,
     controls.settingsCommitted,
   )
-  const chatDatabase = createChatDatabaseWorkspace(options.chatDatabase?.commands, onSubscriberError, options.chatDatabase?.journal)
+  const chatDatabase = createChatDatabaseWorkspace(
+    options.chatDatabase?.commands,
+    onSubscriberError,
+    options.chatDatabase?.journal,
+  )
   const offChatDatabaseConnection = options.chatDatabase?.onConnection?.(chatDatabase.actions.setConnected)
   const settingsUsage = createSettingsUsage(
     local,
@@ -1086,10 +1138,14 @@ export function createAppRuntime(options: RuntimeOptions) {
   })
   draftArtifactReferences?.observeAttachments('session', drafts.reader, (value) => value)
   draftArtifactReferences?.observeAttachments('preSession', preSessionDrafts.reader, (value) => value)
-  draftArtifactReferences?.observeAppearance(settingsForms.reader, (value) => Object.fromEntries(
-    Object.entries(value.forms).map(([id, entry]) => [id, entry.form?.dirty.length ? entry.form.draft : null]),
-  ))
-  const offDraftArtifactConnection = options.draftArtifactReferences?.onConnection?.(draftArtifactReferences?.setConnected ?? (() => undefined))
+  draftArtifactReferences?.observeAppearance(settingsForms.reader, (value) =>
+    Object.fromEntries(
+      Object.entries(value.forms).map(([id, entry]) => [id, entry.form?.dirty.length ? entry.form.draft : null]),
+    ),
+  )
+  const offDraftArtifactConnection = options.draftArtifactReferences?.onConnection?.(
+    draftArtifactReferences?.setConnected ?? (() => undefined),
+  )
   const preSessionLaunchBranchCreation = createPreSessionLaunchBranchCreation(local, {
     ...(options.sessionLaunchBranches ? { reader: options.sessionLaunchBranches } : {}),
     ...(options.sessionLaunchBranchCreation ? { manager: options.sessionLaunchBranchCreation } : {}),
@@ -1409,7 +1465,9 @@ export function createAppRuntime(options: RuntimeOptions) {
         if (entry.draftRevision !== undefined && draft.revision !== entry.draftRevision)
           throw new CommandError('COMMAND_CONFLICT', 'Original entry draft changed while configuring folders')
         await local.execute('preSessionDraft.setWorkspace', {
-          draftId: entry.draftId, workspaceId: result.workspace.id, expectedRevision: draft.revision,
+          draftId: entry.draftId,
+          workspaceId: result.workspace.id,
+          expectedRevision: draft.revision,
         })
       } else if (entry.createSession) {
         await executor.execute('app.createSession', { workspaceId: result.workspace.id })
@@ -1523,6 +1581,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     dispose() {
       if (disposed) return
       disposed = true
+      sessionDeletions.dispose()
       offDraftArtifactConnection?.()
       draftArtifactReferences?.dispose()
       messageFork.dispose()

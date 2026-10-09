@@ -76,6 +76,27 @@ async function settle() {
   await Bun.sleep(0)
 }
 
+test('canonical chat deletion removes search rows and preserves an unrelated selection and query', async () => {
+  const f = fixture()
+  f.owner.bind('host', true)
+  f.owner.open()
+  f.recent.resolve(page([row(0), row(1), row(2)]))
+  await settle()
+  f.owner.select('session-2')
+  f.owner.deleted(['session-0'])
+  expect(f.owner.store.getState().rows.map((item) => item.sessionId)).toEqual(['session-1', 'session-2'])
+  expect(f.owner.store.getState().selectedResultId).toBe('session-2')
+  expect(f.owner.store.getState().open).toBe(true)
+  let navigations = 0
+  expect(
+    await f.owner.openRow('session-0', 'workspace-0', async () => {
+      navigations++
+    }),
+  ).toBe(false)
+  expect(navigations).toBe(0)
+  f.owner.dispose()
+})
+
 test('opens Host-global recent eight, clamps keyboard selection, and clears on close', async () => {
   const data = fixture()
   data.owner.bind('host-a', true)

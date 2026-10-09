@@ -24,7 +24,13 @@ export interface UnverifiedSessionExecutionAccess {
   readonly kind: 'unverified'
   readonly target: SessionExecutionTarget | null
   readonly reason:
-    'no_target' | 'missing_fact' | 'target_mismatch' | 'conflicting_fact' | 'navigation_pending' | 'disposed'
+    | 'no_target'
+    | 'missing_fact'
+    | 'target_mismatch'
+    | 'conflicting_fact'
+    | 'navigation_pending'
+    | 'disposed'
+    | 'deleted'
 }
 export type SessionExecutionAccess =
   ReadySessionExecutionAccess | ArchivedSessionExecutionAccess | UnverifiedSessionExecutionAccess
@@ -128,6 +134,7 @@ export function createSessionExecutionAccess(options: SessionExecutionAccessOpti
   const get = (requested: SessionExecutionTarget): SessionExecutionAccess => {
     const target = targetCopy(requested)
     if (disposed) return unverified(target, 'disposed')
+    if (options.directory.getSnapshot().deletedSessions?.[target.sessionId]) return unverified(target, 'deleted')
     const session = canonicalFact(target)
     if (!session) return unverified(target, 'missing_fact')
     if (!matches(session, target)) return unverified(target, 'target_mismatch')
@@ -172,6 +179,8 @@ export function createSessionExecutionAccess(options: SessionExecutionAccessOpti
     get,
     assertCanPrepare(target) {
       const access = get(target)
+      if (access.kind === 'unverified' && access.reason === 'deleted')
+        throw new CommandError('SESSION_DELETED', 'The captured session was deleted')
       if (access.kind === 'archived') throw new CommandError('ARCHIVED', 'The captured session is confirmed archived')
       if (access.kind !== 'ready')
         throw new CommandError('SESSION_UNVERIFIED', 'The captured session has no verified execution access')
