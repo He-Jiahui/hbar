@@ -15,6 +15,7 @@ import {
   createComponentRegistry,
   createContentResolver,
   createForm,
+  isFieldVisible,
   decodeResourceReference,
   decodePath,
   encodeResourceReference,
@@ -87,6 +88,8 @@ function compile(description: SettingsDescription, scope: SettingsSnapshot['scop
   const components = createComponentRegistry()
   components.register('TextField', ['string'])
   components.register('NumberField', ['integer', 'number'])
+  components.register('TimePicker', ['integer'])
+  components.register('WeekdayPicker', ['integer'], [], true)
   components.register('CheckBox', ['boolean'])
   components.register('ComboBox', ['string', 'integer', 'number', 'boolean'])
   // Renderer IDs are declared by Host descriptors; runtime validation only
@@ -124,6 +127,14 @@ function compile(description: SettingsDescription, scope: SettingsSnapshot['scop
             component: field.component,
             readOnly: !field.allowedScopes.includes(scope.kind),
             ...(field.resource ? { resource: field.resource } : {}),
+            ...(field.time
+              ? {
+                  time: {
+                    minuteField: encodePath(field.time.minutePath),
+                    timezoneField: encodePath(field.time.timezonePath),
+                  },
+                }
+              : {}),
             ...(field.visibleWhen
               ? {
                   visibleWhen: {
@@ -659,12 +670,60 @@ export function createSettingsForms(
   local.register(settingsEditorCommands['settingsForm.setField'], ({ formId, field, value }) => {
     try {
       const current = ready(formId)
-      const form = setField(current.schema, current.form, field, value)
+      let form = setField(current.schema, current.form, field, value)
       const unsets = { ...current.unsets }
       delete unsets[field]
+      // Enabling a previously hidden schedule captures the client zone once.
+      // Existing saved schedules retain their zone until the user edits/enables them.
+      for (const owner of current.schema.fields) {
+        if (
+          !owner.time ||
+          owner.readOnly ||
+          isFieldVisible(owner, current.form.draft, current.form.raw) ||
+          !isFieldVisible(owner, form.draft, form.raw)
+        )
+          continue
+        form = setField(
+          current.schema,
+          form,
+          owner.time.timezoneField,
+          Intl.DateTimeFormat().resolvedOptions().timeZone,
+        )
+        delete unsets[owner.time.timezoneField]
+      }
       const next = { ...current, form, unsets, receipt: null, error: null }
       replaceEntry(formId, next)
       refreshContent(formId, field)
+      return summary(next)
+    } catch (error) {
+      throw commandError(error)
+    }
+  })
+  local.register(settingsEditorCommands['settingsForm.batch'], ({ formId, changes }) => {
+    try {
+      const current = ready(formId)
+      let form = current.form
+      const unsets = { ...current.unsets }
+      for (const change of changes) {
+        if (change.op === 'set') form = setField(current.schema, form, change.field, change.value)
+        else if (change.op === 'reset') form = resetField(current.schema, form, change.field)
+        else {
+          if (current.scope.kind === 'global')
+            throw new CommandError('INVALID_INPUT', 'Global settings do not inherit a parent scope')
+          const report = current.reports[change.field]
+          if (!report) throw new CommandError('FIELD_NOT_FOUND', 'Setting field is not registered')
+          if (report.localPresence) {
+            form = setField(current.schema, form, change.field, inputValue(current.inheritedValues[change.field]))
+            unsets[change.field] = form.revision
+            continue
+          }
+          form = resetField(current.schema, form, change.field)
+        }
+        delete unsets[change.field]
+      }
+      const next = { ...current, form, unsets, receipt: null, error: null }
+      replaceEntry(formId, next)
+      refreshContent(formId)
       return summary(next)
     } catch (error) {
       throw commandError(error)

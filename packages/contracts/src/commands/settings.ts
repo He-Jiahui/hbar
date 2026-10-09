@@ -72,6 +72,7 @@ const settingsFieldSchema = z
   .strictObject({
     path: schemaPathSchema,
     visibleWhen: settingsFieldVisibilitySchema.optional(),
+    time: z.strictObject({ minutePath: schemaPathSchema, timezonePath: schemaPathSchema }).optional(),
     type: settingTypeSchema,
     nullable: z.boolean(),
     defaultValue: settingFieldValueSchema,
@@ -170,9 +171,59 @@ export const settingsDescriptionSchema = z
     const known = new Set(paths)
     const dependenciesByPath = new Map<string, readonly string[]>()
     const visibilityByPath = new Map<string, readonly string[]>()
+    const timeParts = new Set<string>()
     for (const field of description.fields) {
       if (!groupIds.includes(field.group))
         context.addIssue({ code: 'custom', message: 'Every setting field must reference a declared group' })
+      if (field.time) {
+        const minute = description.fields.find(
+          (candidate) => JSON.stringify(candidate.path) === JSON.stringify(field.time?.minutePath),
+        )
+        const timezone = description.fields.find(
+          (candidate) => JSON.stringify(candidate.path) === JSON.stringify(field.time?.timezonePath),
+        )
+        const minuteKey = JSON.stringify(field.time.minutePath),
+          timezoneKey = JSON.stringify(field.time.timezonePath)
+        if (
+          field.component !== 'TimePicker' ||
+          field.type !== 'integer' ||
+          field.minimum !== 0 ||
+          field.maximum !== 23 ||
+          field.multiple ||
+          field.nullable ||
+          !minute ||
+          minute.type !== 'integer' ||
+          minute.minimum !== 0 ||
+          minute.maximum !== 59 ||
+          minute.multiple ||
+          minute.nullable ||
+          minute.time ||
+          !timezone ||
+          timezone.type !== 'string' ||
+          timezone.multiple ||
+          timezone.nullable ||
+          timezone.time ||
+          minute.group !== field.group ||
+          timezone.group !== field.group ||
+          minute.allowedScopes.length !== field.allowedScopes.length ||
+          timezone.allowedScopes.length !== field.allowedScopes.length ||
+          field.allowedScopes.some(
+            (scope) => !minute.allowedScopes.includes(scope) || !timezone.allowedScopes.includes(scope),
+          ) ||
+          JSON.stringify(field.path) === minuteKey ||
+          JSON.stringify(field.path) === timezoneKey ||
+          minuteKey === timezoneKey ||
+          timeParts.has(minuteKey) ||
+          timeParts.has(timezoneKey)
+        )
+          context.addIssue({
+            code: 'custom',
+            message: 'TimePicker must own compatible hour, minute and timezone fields in one group',
+          })
+        timeParts.add(minuteKey)
+        timeParts.add(timezoneKey)
+      } else if (field.component === 'TimePicker')
+        context.addIssue({ code: 'custom', message: 'TimePicker needs time field metadata' })
       const dependencies = field.content?.dependsOn.map((path) => JSON.stringify(path)) ?? []
       dependenciesByPath.set(JSON.stringify(field.path), dependencies)
       if (new Set(dependencies).size !== dependencies.length || dependencies.some((path) => !known.has(path)))

@@ -3,6 +3,14 @@ import { defineCommand } from '@hbar/commands/protocol'
 import { settingsScopeSchema } from './settings'
 
 const formIdSchema = z.string().min(1).max(512)
+const fieldNameSchema = z.string().min(1).max(1_024)
+const fieldValueSchema = z.union([
+  z.string().max(8_192),
+  z.number().finite(),
+  z.boolean(),
+  z.null(),
+  z.array(z.union([z.string().max(8_192), z.number().finite(), z.boolean()])).max(256),
+])
 const summarySchema = z.strictObject({
   formId: formIdSchema,
   scope: settingsScopeSchema,
@@ -31,6 +39,28 @@ const metadata = (id: string) => ({
 })
 
 export const settingsEditorCommands = {
+  'settingsForm.batch': defineCommand(
+    metadata('settingsForm.batch'),
+    z
+      .strictObject({
+        formId: formIdSchema,
+        changes: z
+          .array(
+            z.discriminatedUnion('op', [
+              z.strictObject({ op: z.literal('set'), field: fieldNameSchema, value: fieldValueSchema }),
+              z.strictObject({ op: z.literal('reset'), field: fieldNameSchema }),
+              z.strictObject({ op: z.literal('inherit'), field: fieldNameSchema }),
+            ]),
+          )
+          .min(1)
+          .max(8),
+      })
+      .superRefine((input, context) => {
+        if (new Set(input.changes.map((change) => change.field)).size !== input.changes.length)
+          context.addIssue({ code: 'custom', message: 'Batch setting fields must be unique' })
+      }),
+    summarySchema,
+  ),
   'settingsForm.selectGroup': defineCommand(
     metadata('settingsForm.selectGroup'),
     z.strictObject({ formId: formIdSchema, groupId: z.string().min(1).max(128) }),

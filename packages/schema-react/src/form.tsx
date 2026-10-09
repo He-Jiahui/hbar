@@ -56,13 +56,24 @@ export function HbarSchemaForm({
   onIntent,
 }: HbarSchemaFormProps) {
   const visible = fieldNames ? new Set(fieldNames) : null
+  const timeParts = new Set(
+    schema.fields.flatMap((field) => (field.time ? [field.time.minuteField, field.time.timezoneField] : [])),
+  )
   return (
     <div className="hbar-schema-form" data-field-layout={layout}>
       {schema.fields
-        .filter((field) => (!visible || visible.has(field.name)) && isFieldVisible(field, state.draft, state.raw))
+        .filter(
+          (field) =>
+            !timeParts.has(field.name) &&
+            (!visible || visible.has(field.name)) &&
+            isFieldVisible(field, state.draft, state.raw),
+        )
         .map((field) => {
           const registration = components.resolve(field.component)
-          const issue = issueFor(state, field)
+          const ownedNames = [field.name, ...(field.time ? [field.time.minuteField, field.time.timezoneField] : [])]
+          const issue = field.time
+            ? state.issues.find((candidate) => ownedNames.includes(candidate.field))
+            : issueFor(state, field)
           const fieldContent = content[field.name] ?? ({ status: 'idle' } as const)
           const help = labels.help?.(field)
           const fieldLabels: SchemaFieldLabels = {
@@ -81,6 +92,12 @@ export function HbarSchemaForm({
             openOptions: labels.openOptions,
             removeOption: labels.removeOption,
           }
+          const minute = field.time
+            ? schema.fields.find((candidate) => candidate.name === field.time?.minuteField)
+            : undefined
+          const timezone = field.time
+            ? schema.fields.find((candidate) => candidate.name === field.time?.timezoneField)
+            : undefined
           const incompatible =
             !registration ||
             !registration.descriptor.fieldTypes.includes(field.type) ||
@@ -107,6 +124,18 @@ export function HbarSchemaForm({
                     content={fieldContent}
                     labels={fieldLabels}
                     disabled={disabled}
+                    {...(minute && timezone
+                      ? {
+                          time: {
+                            minute: { field: minute, value: state.draft[minute.name], raw: state.raw[minute.name] },
+                            timezone: {
+                              field: timezone,
+                              value: state.draft[timezone.name],
+                              label: labels.resolve(timezone.labelKey),
+                            },
+                          },
+                        }
+                      : {})}
                     {...(controlRevisions[field.name] === undefined
                       ? {}
                       : { controlRevision: controlRevisions[field.name] })}
@@ -126,11 +155,15 @@ export function HbarSchemaForm({
                     {labels.contentError(fieldContent.errorCode)}
                   </small>
                 )}
-                {!field.readOnly && state.dirty.includes(field.name) && (
+                {!field.readOnly && ownedNames.some((name) => state.dirty.includes(name)) && (
                   <button
                     type="button"
                     disabled={disabled}
-                    onClick={() => onIntent({ kind: 'reset', field: field.name })}
+                    onClick={() =>
+                      onIntent(
+                        field.time ? { kind: 'resetFields', fields: ownedNames } : { kind: 'reset', field: field.name },
+                      )
+                    }
                   >
                     {labels.reset}
                   </button>

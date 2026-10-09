@@ -119,16 +119,26 @@ export const chatDatabaseSettingsFields: readonly SettingsFieldDescription[] = O
     group: 'chatDatabase',
     order: index * 10,
     component: multiple
-      ? 'MultiSelect'
+      ? 'WeekdayPicker'
       : type === 'boolean'
         ? 'Switch'
         : name === 'scheduleKind'
           ? 'PopupSelect'
-          : type === 'integer'
-            ? 'NumberField'
-            : 'TextField',
+          : name === 'scheduleHour'
+            ? 'TimePicker'
+            : type === 'integer'
+              ? 'NumberField'
+              : 'TextField',
     labelKey: `i18n:settings.chatDatabase.${name}.label`,
     helpKey: `i18n:settings.chatDatabase.${name}.help`,
+    ...(name === 'scheduleHour'
+      ? {
+          time: {
+            minutePath: [{ kind: 'field' as const, name: 'chatDatabase.scheduleMinute' }],
+            timezonePath: [{ kind: 'field' as const, name: 'chatDatabase.timezone' }],
+          },
+        }
+      : {}),
     ...(name === 'scheduleKind' ? { choices: ['daily', 'weekly'] } : {}),
     ...(multiple ? { choices: [0, 1, 2, 3, 4, 5, 6] } : {}),
     ...bounds,

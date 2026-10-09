@@ -14,6 +14,12 @@ export interface FieldVisibility {
   readonly all: readonly { readonly field: string; readonly equals: FieldValue }[]
 }
 
+/** One time editor owns existing hour, minute and timezone storage fields. */
+export interface TimeFieldDescription {
+  readonly minuteField: string
+  readonly timezoneField: string
+}
+
 export interface FormDescription {
   readonly id: string
   readonly version: number
@@ -26,6 +32,7 @@ export interface FormDescription {
         readonly readOnly?: boolean
         readonly resource?: ResourceFieldDescription
         readonly visibleWhen?: FieldVisibility
+        readonly time?: TimeFieldDescription
       }
     >
   >
@@ -42,6 +49,7 @@ export interface CompiledField {
   readonly readOnly: boolean
   readonly resource?: ResourceFieldDescription
   readonly visibleWhen?: FieldVisibility
+  readonly time?: TimeFieldDescription
   readonly minimum?: number
   readonly exclusiveMinimum?: number
   readonly maximum?: number
@@ -273,6 +281,7 @@ function compileField(
     nullable,
     readOnly: view.readOnly ?? false,
     ...(view.resource ? { resource: Object.freeze({ ...view.resource }) } : {}),
+    ...(view.time ? { time: Object.freeze({ ...view.time }) } : {}),
     ...(minimum !== undefined ? { minimum } : {}),
     ...(exclusiveMinimum !== undefined ? { exclusiveMinimum } : {}),
     ...(maximum !== undefined ? { maximum } : {}),
@@ -397,6 +406,49 @@ export function compileForm(
       throw new SchemaError('INVALID_DESCRIPTION', `Component ${field.component} requires resource metadata`)
     return field
   })
+  const timeParts = new Set<string>()
+  for (const field of fields) {
+    if (!field.time) {
+      if (field.component === 'TimePicker')
+        throw new SchemaError('INVALID_DESCRIPTION', 'TimePicker needs time field metadata')
+      continue
+    }
+    const minute = fields.find((candidate) => candidate.name === field.time?.minuteField)
+    const timezone = fields.find((candidate) => candidate.name === field.time?.timezoneField)
+    if (
+      field.component !== 'TimePicker' ||
+      field.type !== 'integer' ||
+      field.multiple ||
+      field.nullable ||
+      field.minimum !== 0 ||
+      field.maximum !== 23 ||
+      !minute ||
+      minute.type !== 'integer' ||
+      minute.multiple ||
+      minute.nullable ||
+      minute.minimum !== 0 ||
+      minute.maximum !== 59 ||
+      !timezone ||
+      timezone.type !== 'string' ||
+      timezone.multiple ||
+      timezone.nullable ||
+      minute.time ||
+      timezone.time ||
+      field.name === minute.name ||
+      field.name === timezone.name ||
+      minute.name === timezone.name ||
+      minute.readOnly !== field.readOnly ||
+      timezone.readOnly !== field.readOnly ||
+      timeParts.has(minute.name) ||
+      timeParts.has(timezone.name)
+    )
+      throw new SchemaError(
+        'INVALID_DESCRIPTION',
+        'TimePicker needs unique compatible hour, minute and timezone fields',
+      )
+    timeParts.add(minute.name)
+    timeParts.add(timezone.name)
+  }
   const compiled = fields.map((field): CompiledField => {
     const condition = description.fields[field.name]?.visibleWhen
     if (condition === undefined) return field

@@ -11,7 +11,13 @@ import {
 } from '@hbar/contracts/commands/settings'
 import type { Session, Workspace } from '@hbar/contracts/directory'
 import { HBAR_SETTINGS_DEFINITIONS, HBAR_SETTINGS_DESCRIPTION } from '@hbar/kernel'
-import { createSchemaCallbackRegistry, encodePath, type OptionContentReport } from '@hbar/schema-core'
+import {
+  createSchemaCallbackRegistry,
+  encodePath,
+  isFieldVisible,
+  type OptionContentReport,
+  type FieldValue,
+} from '@hbar/schema-core'
 import { applySettingsChanges, resolveSettings, type SettingDefinition } from '@hbar/settings-core'
 
 const workspace: Workspace = { id: 'w1', name: 'workspace', path: 'D:/workspace', createdAt: 1 }
@@ -130,6 +136,114 @@ function settingsFixture() {
     },
   }
 }
+
+test('schedule edits commit one projection, reset all time parts and retain hidden or inherited values', async () => {
+  const settings = settingsFixture()
+  const runtime = createAppRuntime({
+    instanceId: 'time-batch',
+    hostId: 'host',
+    directory,
+    settings: settings.port,
+    surfaces: { canRender: (panel) => panel === 'settings' },
+  })
+  const hour = 'f:chatDatabase.scheduleHour',
+    minute = 'f:chatDatabase.scheduleMinute',
+    timezone = 'f:chatDatabase.timezone',
+    enabled = 'f:chatDatabase.scheduleEnabled'
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: session.id })
+    await runtime.view.commands.execute('app.openSettings', { scope: 'global' })
+    const original = await waitFor(() => {
+      const settings = runtime.view.state.settings.getSnapshot()
+      const entry = settings.activeFormId ? settings.forms[settings.activeFormId] : undefined
+      return entry?.status === 'ready' ? entry : undefined
+    })
+    const formId = original.formId
+    const projections: {
+      hour: FieldValue | undefined
+      minute: FieldValue | undefined
+      timezone: FieldValue | undefined
+    }[] = []
+    const unsubscribe = runtime.view.state.settings.subscribe(() => {
+      const draft = runtime.view.state.settings.getSnapshot().forms[formId]?.form?.draft
+      projections.push({ hour: draft?.[hour], minute: draft?.[minute], timezone: draft?.[timezone] })
+    })
+    await runtime.view.commands.execute('settingsForm.batch', {
+      formId,
+      changes: [
+        { op: 'set', field: hour, value: '18' },
+        { op: 'set', field: minute, value: '45' },
+        { op: 'set', field: timezone, value: 'America/Los_Angeles' },
+      ],
+    })
+    expect(projections.length).toBeGreaterThan(0)
+    for (const projection of projections)
+      expect(projection).toEqual({ hour: 18, minute: 45, timezone: 'America/Los_Angeles' })
+    unsubscribe()
+    const entry = () => runtime.view.state.settings.getSnapshot().forms[formId]!
+    expect(entry().form?.draft).toMatchObject({ [hour]: 18, [minute]: 45, [timezone]: 'America/Los_Angeles' })
+    const prior = entry().form
+    await expect(
+      runtime.view.commands.execute('settingsForm.batch', {
+        formId,
+        changes: [
+          { op: 'set', field: hour, value: '20' },
+          { op: 'set', field: 'missing', value: 1 },
+        ],
+      }),
+    ).rejects.toThrow()
+    expect(entry().form).toBe(prior)
+    await runtime.view.commands.execute('settingsForm.setField', { formId, field: enabled, value: false })
+    expect(
+      isFieldVisible(
+        entry().schema!.fields.find((field) => field.name === hour)!,
+        entry().form!.draft,
+      ),
+    ).toBe(false)
+    expect(entry().form?.draft[minute]).toBe(45)
+    await runtime.view.commands.execute('settingsForm.setField', { formId, field: enabled, value: true })
+    expect(entry().form?.draft[timezone]).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone)
+    await runtime.view.commands.execute('settingsForm.batch', {
+      formId,
+      changes: [hour, minute, timezone].map((field) => ({ op: 'reset' as const, field })),
+    })
+    expect(entry().form?.dirty).not.toContain(hour)
+    expect(entry().form?.draft).toMatchObject({ [hour]: 3, [minute]: 0, [timezone]: 'Asia/Shanghai' })
+    await runtime.view.commands.execute('settingsForm.batch', {
+      formId,
+      changes: [
+        { op: 'set', field: hour, value: '18' },
+        { op: 'set', field: minute, value: '45' },
+      ],
+    })
+    await runtime.view.commands.execute('settingsForm.submit', { formId })
+    await runtime.view.commands.execute('app.openSettings', { scope: 'workspace', targetId: workspace.id })
+    const scoped = await waitFor(() => {
+      const settings = runtime.view.state.settings.getSnapshot()
+      const entry = settings.activeFormId ? settings.forms[settings.activeFormId] : undefined
+      return entry?.status === 'ready' && entry.scope.kind === 'workspace' ? entry : undefined
+    })
+    await runtime.view.commands.execute('settingsForm.batch', {
+      formId: scoped.formId,
+      changes: [
+        { op: 'set', field: hour, value: '9' },
+        { op: 'set', field: minute, value: '15' },
+      ],
+    })
+    await runtime.view.commands.execute('settingsForm.submit', { formId: scoped.formId })
+    await runtime.view.commands.execute('settingsForm.batch', {
+      formId: scoped.formId,
+      changes: [hour, minute, timezone].map((field) => ({ op: 'inherit' as const, field })),
+    })
+    await runtime.view.commands.execute('settingsForm.submit', { formId: scoped.formId })
+    expect(runtime.view.state.settings.getSnapshot().forms[scoped.formId]?.form?.draft).toMatchObject({
+      [hour]: 18,
+      [minute]: 45,
+    })
+  } finally {
+    runtime.dispose()
+  }
+})
 
 async function waitFor<Value>(read: () => Value | undefined): Promise<Value> {
   for (let attempt = 0; attempt < 200; attempt++) {

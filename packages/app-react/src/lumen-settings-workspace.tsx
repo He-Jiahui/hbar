@@ -323,15 +323,29 @@ export function HbarSettingsWorkspace({
     if (!entry) return
     setActionError(null)
     const request =
-      intent.kind === 'set'
-        ? runtime.commands.execute('settingsForm.setField', {
+      intent.kind === 'setFields'
+        ? runtime.commands.execute('settingsForm.batch', {
             formId: entry.formId,
-            field: intent.field,
-            value: commandFieldValue(intent.value),
+            changes: intent.values.map((value) => ({
+              op: 'set' as const,
+              field: value.field,
+              value: commandFieldValue(value.value),
+            })),
           })
-        : intent.kind === 'pick'
-          ? runtime.commands.execute('settingsForm.pickResource', { formId: entry.formId, field: intent.field })
-          : runtime.commands.execute('settingsForm.resetField', { formId: entry.formId, field: intent.field })
+        : intent.kind === 'resetFields'
+          ? runtime.commands.execute('settingsForm.batch', {
+              formId: entry.formId,
+              changes: intent.fields.map((field) => ({ op: 'reset' as const, field })),
+            })
+          : intent.kind === 'set'
+            ? runtime.commands.execute('settingsForm.setField', {
+                formId: entry.formId,
+                field: intent.field,
+                value: commandFieldValue(intent.value),
+              })
+            : intent.kind === 'pick'
+              ? runtime.commands.execute('settingsForm.pickResource', { formId: entry.formId, field: intent.field })
+              : runtime.commands.execute('settingsForm.resetField', { formId: entry.formId, field: intent.field })
     void request.catch(reportError)
   }
   const runFormCommand = (command: 'refresh' | 'submit' | 'reconcile') => {
@@ -346,10 +360,19 @@ export function HbarSettingsWorkspace({
     const request = openSettings(entry.scope.kind, targetId, groupId)
     if (request) void request.catch(reportError)
   }
-  const restoreInheritance = (field: string) => {
+  const restoreInheritance = (field: CompiledField) => {
     if (!entry) return
     setActionError(null)
-    void runtime.commands.execute('settingsForm.restoreInheritance', { formId: entry.formId, field }).catch(reportError)
+    const request = field.time
+      ? runtime.commands.execute('settingsForm.batch', {
+          formId: entry.formId,
+          changes: [field.name, field.time.minuteField, field.time.timezoneField].map((name) => ({
+            op: 'inherit' as const,
+            field: name,
+          })),
+        })
+      : runtime.commands.execute('settingsForm.restoreInheritance', { formId: entry.formId, field: field.name })
+    void request.catch(reportError)
   }
 
   const dirtyCount = new Set([...(entry?.form?.dirty ?? []), ...Object.keys(entry?.unsets ?? {})]).size
@@ -365,9 +388,10 @@ export function HbarSettingsWorkspace({
     const definition = definitions.get(field.name)
     const report = entry.reports[field.name]
     if (!definition || !report) return null
-    const source = Object.hasOwn(entry.unsets, field.name)
+    const ownedNames = [field.name, ...(field.time ? [field.time.minuteField, field.time.timezoneField] : [])]
+    const source = ownedNames.some((name) => Object.hasOwn(entry.unsets, name))
       ? labels.pendingInheritance
-      : report.localPresence
+      : ownedNames.some((name) => entry.reports[name]?.localPresence)
         ? labels.localOverride
         : labels.inheritedFrom(report.sourceLayer)
     return (
@@ -383,8 +407,9 @@ export function HbarSettingsWorkspace({
     const canRestore =
       entry.scope.kind !== 'global' &&
       !field.readOnly &&
-      !Object.hasOwn(entry.unsets, field.name) &&
-      entry.reports[field.name]?.localPresence
+      [field.name, ...(field.time ? [field.time.minuteField, field.time.timezoneField] : [])].some(
+        (name) => !Object.hasOwn(entry.unsets, name) && entry.reports[name]?.localPresence,
+      )
     return (
       <>
         {contentRecovery.field === field.name && (
@@ -392,7 +417,7 @@ export function HbarSettingsWorkspace({
         )}
         {canRestore && (
           <LumenText as="span" className="hbar-schema-form-actions">
-            <LumenButton type="button" disabled={busy || unknown} onClick={() => restoreInheritance(field.name)}>
+            <LumenButton type="button" disabled={busy || unknown} onClick={() => restoreInheritance(field)}>
               {labels.restoreInheritance}
             </LumenButton>
           </LumenText>

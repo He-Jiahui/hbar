@@ -8,6 +8,7 @@ export type {
   FieldType,
   FieldValue,
   FieldVisibility,
+  TimeFieldDescription,
 } from './schema'
 export { isFieldVisible } from './visibility'
 export {

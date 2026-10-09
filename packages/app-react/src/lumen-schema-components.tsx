@@ -23,6 +23,7 @@ import {
   type LumenControlOption,
 } from '@lumen/app-ui'
 import './lumen-schema-components.css'
+import { SchemaTimePicker } from './lumen-schema-time-picker'
 
 interface VisualOption extends LumenControlOption {
   readonly value: FieldItemValue
@@ -303,6 +304,32 @@ function ToggleGroup(props: SchemaFieldRendererProps) {
   )
 }
 
+function WeekdayPicker(props: SchemaFieldRendererProps) {
+  const selected = isMultipleValue(props.value) ? props.value : []
+  const options = fieldOptions(props)
+  return (
+    <LumenToggleGroup
+      type="multiple"
+      className="hbar-schema-weekday-picker"
+      id={`hbar-schema-field-${props.field.name}`}
+      values={selected.map(optionId)}
+      options={options}
+      disabled={props.disabled || props.field.readOnly}
+      aria-label={props.labels.label}
+      aria-invalid={Boolean(props.issue)}
+      aria-describedby={describedBy(props)}
+      onValuesChange={(ids) => {
+        if (!ids.length) return
+        props.onIntent({
+          kind: 'set',
+          field: props.field.name,
+          value: options.filter((option) => ids.includes(option.id)).map((option) => option.value),
+        })
+      }}
+    />
+  )
+}
+
 function Switch(props: SchemaFieldRendererProps) {
   return (
     <LumenToggleControl
@@ -348,6 +375,23 @@ function ResourcePicker(props: SchemaFieldRendererProps) {
 
 export function createHbarSchemaComponents(): SchemaComponentRegistry {
   const registry = createSchemaComponentRegistry()
+  registry.register(
+    'TimePicker',
+    {
+      version: 1,
+      fieldTypes: ['integer'],
+      multiple: false,
+      contentKinds: [],
+      resourceKinds: [],
+      interaction: 'inline',
+    },
+    SchemaTimePicker,
+  )
+  registry.register(
+    'WeekdayPicker',
+    { version: 1, fieldTypes: ['integer'], multiple: true, contentKinds: [], resourceKinds: [], interaction: 'inline' },
+    WeekdayPicker,
+  )
   registry.register(
     'TextField',
     { version: 1, fieldTypes: ['string'], multiple: false, contentKinds: [], resourceKinds: [], interaction: 'inline' },

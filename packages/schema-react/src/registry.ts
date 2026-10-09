@@ -39,7 +39,9 @@ export type SchemaFieldContent =
 
 export type SchemaFieldIntent =
   | { readonly kind: 'set'; readonly field: string; readonly value: FieldValue }
+  | { readonly kind: 'setFields'; readonly values: readonly { readonly field: string; readonly value: FieldValue }[] }
   | { readonly kind: 'reset'; readonly field: string }
+  | { readonly kind: 'resetFields'; readonly fields: readonly string[] }
   | { readonly kind: 'pick'; readonly field: string }
 
 export interface SchemaFieldLabels {
@@ -68,6 +70,14 @@ export interface SchemaFieldRendererProps {
   readonly labels: SchemaFieldLabels
   readonly disabled: boolean
   readonly controlRevision?: number
+  readonly time?: {
+    readonly minute: {
+      readonly field: CompiledField
+      readonly value: FieldValue | undefined
+      readonly raw: string | undefined
+    }
+    readonly timezone: { readonly field: CompiledField; readonly value: FieldValue | undefined; readonly label: string }
+  }
   readonly onIntent: (intent: SchemaFieldIntent) => void
 }
 
