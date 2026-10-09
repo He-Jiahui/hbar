@@ -45,6 +45,7 @@ import type { GoalHistoryInput, GoalHistoryPage } from '@hbar/contracts/commands
 import type { NotificationStorage } from './notifications'
 import type { createChatDatabaseProjection } from './chat-database-projection'
 import type { createChatDatabaseArtifactStorage } from './chat-database-artifacts'
+import type { createChatDatabaseResourceLedger } from './chat-database-resource-ledger'
 import type { createChatDatabaseJournal } from './chat-database-journal'
 import type { createChatDatabaseDeletionStorage } from './chat-database-deletion'
 import type { SessionBranchExecutionRoot, SessionBranchTargetIntent, SessionBranchTargetIdentity, SessionBranchTargetRecord } from './session-branch-target'
@@ -289,6 +290,10 @@ export interface StorageMethods {
   chatDatabaseLegacySettingsComplete: ReturnType<typeof createChatDatabaseArtifactStorage>['markLegacySettingsComplete']
   chatDatabaseReferenceHealth: ReturnType<typeof createChatDatabaseArtifactStorage>['referenceHealth']
   chatDatabaseArtifactClaim: ReturnType<typeof createChatDatabaseArtifactStorage>['claim']
+  chatDatabaseArtifactEligibility: ReturnType<typeof createChatDatabaseArtifactStorage>['eligibility']
+  chatDatabaseArtifactHasCause: ReturnType<typeof createChatDatabaseArtifactStorage>['hasCause']
+  chatDatabaseResourceRemove: ReturnType<typeof createChatDatabaseResourceLedger>['remove']
+  chatDatabaseResourceReceipt: ReturnType<typeof createChatDatabaseResourceLedger>['receipt']
   chatDatabaseArtifactReleaseClaim: ReturnType<typeof createChatDatabaseArtifactStorage>['releaseClaim']
   chatDatabaseArtifactFinishReclaim: ReturnType<typeof createChatDatabaseArtifactStorage>['finishReclaim']
   chatDatabaseArtifactReclaimReceipt: ReturnType<typeof createChatDatabaseArtifactStorage>['reclaimReceipt']

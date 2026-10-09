@@ -22,6 +22,7 @@ import {
   type ChatDatabaseInventoryFinishInput,
   type ChatDatabaseInventory,
   type ChatDatabaseSkipReason,
+  type ChatDatabaseScope as SettingsScope,
 } from '@hbar/contracts/commands/chat-database'
 import { createFeatureCommandReceipts, type FeatureWriteIdentity } from './feature-command-receipts'
 import { CHAT_DATABASE_ARTIFACT_SQL } from './chat-database-artifact-schema'
@@ -53,6 +54,10 @@ export function createChatDatabaseArtifactStorage(
   sessionsRoot: string,
   artifactsRoot: string,
   settingsRoot: string,
+  resources?: {
+    restore(limit: number): { done: boolean; healthy: boolean; issues: string[] }
+    settle(limit: number): { done: boolean; healthy: boolean; issues: string[] }
+  },
 ) {
   db.exec(CHAT_DATABASE_ARTIFACT_SQL)
   db.exec('UPDATE chat_database_reference_health SET draftJournalComplete=0,legacySettingsComplete=0 WHERE id=1')
@@ -69,6 +74,8 @@ export function createChatDatabaseArtifactStorage(
   }
   let metadataCursor: string | null = null
   let metadataFinished = false
+  let ownerCursor: { deviceId: string; ownerId: string } | null = null
+  let ownersFinished = false
   const readOwner = (deviceId: string, key: string): ChatDatabaseDraftOwner | null => {
     const row = db
       .query<{ stateJson: string }, [string, string]>(
@@ -98,8 +105,18 @@ export function createChatDatabaseArtifactStorage(
     deviceId: string | null,
     sessionId: string | null = null,
     workspaceId: string | null = null,
+    recovering = false,
   ): void {
-    for (const artifactId of ids)
+    for (const artifactId of ids) {
+      if (
+        recovering &&
+        db
+          .query(
+            'SELECT artifactId FROM chat_database_artifact_state WHERE artifactId=? AND claimOperationId IS NOT NULL UNION ALL SELECT artifactId FROM chat_database_artifact_tombstones WHERE artifactId=? LIMIT 1',
+          )
+          .get(artifactId, artifactId)
+      )
+        continue
       db.query('INSERT OR IGNORE INTO chat_database_artifact_refs VALUES(?,?,?,?,?,?)').run(
         source,
         id,
@@ -108,14 +125,15 @@ export function createChatDatabaseArtifactStorage(
         workspaceId,
         deviceId,
       )
+    }
   }
-  function replaceOwner(deviceId: string, owner: ChatDatabaseDraftOwner): void {
+  function replaceOwner(deviceId: string, owner: ChatDatabaseDraftOwner, recovering = false): void {
     const key = ownerKey(owner)
     const sourceId = `${deviceId}/${key}`
     db.query('DELETE FROM chat_database_artifact_refs WHERE source=? AND ownerId=?').run('draft', sourceId)
     db.query('DELETE FROM chat_database_artifact_refs WHERE source=? AND ownerId=?').run('upload', sourceId)
-    refs('draft', sourceId, owner.artifactIds, deviceId)
-    refs('upload', sourceId, owner.pendingArtifactIds, deviceId)
+    refs('draft', sourceId, owner.artifactIds, deviceId, null, null, recovering)
+    refs('upload', sourceId, owner.pendingArtifactIds, deviceId, null, null, recovering)
     db.query(
       'INSERT INTO chat_database_draft_owners VALUES(?,?,?,?,?) ON CONFLICT(deviceId,ownerId) DO UPDATE SET revision=excluded.revision,stateJson=excluded.stateJson,updatedAt=excluded.updatedAt',
     ).run(deviceId, key, owner.revision, JSON.stringify(owner), owner.updatedAt)
@@ -197,6 +215,8 @@ export function createChatDatabaseArtifactStorage(
     journalFinished = false
     metadataCursor = null
     metadataFinished = false
+    ownerCursor = null
+    ownersFinished = false
     db.exec('UPDATE chat_database_reference_health SET draftJournalComplete=0 WHERE id=1')
   }
   function writeVersion(): number {
@@ -263,6 +283,7 @@ export function createChatDatabaseArtifactStorage(
         record.artifact.id,
         JSON.stringify(record.artifact),
       )
+      db.query('DELETE FROM chat_database_artifact_tombstones WHERE artifactId=?').run(record.artifact.id)
       return
     }
     if (record.commandId === 'device.unknown') {
@@ -306,7 +327,7 @@ export function createChatDatabaseArtifactStorage(
           db.query(
             'INSERT INTO chat_database_artifact_state VALUES(?,?,?,0,NULL) ON CONFLICT(artifactId) DO UPDATE SET lastUploadedAt=MAX(lastUploadedAt,excluded.lastUploadedAt)',
           ).run(value.artifactId, record.updatedAt, record.updatedAt)
-          refs('upload', `${value.deviceId}/${value.ownerId}`, [value.artifactId], value.deviceId)
+          refs('upload', `${value.deviceId}/${value.ownerId}`, [value.artifactId], value.deviceId, null, null, true)
         }
       }
       db.query(
@@ -317,7 +338,8 @@ export function createChatDatabaseArtifactStorage(
     if (record.commandId === 'chatDatabase.draft.sync') {
       receipts.run(record.commandId, record.input, record.identity, chatDatabaseDraftOwnerSchema, () => {
         const current = readOwner(record.identity.actorId, ownerKey(record.result))
-        if (!current || current.revision < record.result.revision) replaceOwner(record.identity.actorId, record.result)
+        if (!current || current.revision < record.result.revision)
+          replaceOwner(record.identity.actorId, record.result, true)
         return record.result
       })
     } else
@@ -348,6 +370,8 @@ export function createChatDatabaseArtifactStorage(
   function backfill(limit = 100) {
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100)
       throw new HbarError('INVALID_INPUT', 'Reference backfill limit is invalid')
+    const restored = resources?.restore(limit)
+    if (restored && (!restored.done || !restored.healthy)) return restored
     if (!devicesDone) {
       const devices = db
         .query<{ id: string }, [string | null, string | null, number]>(
@@ -363,6 +387,60 @@ export function createChatDatabaseArtifactStorage(
       journalRecovery = db.transaction(() => journal.backfill(limit, recover)).immediate()
       if (!journalRecovery.done) return journalRecovery
       journalFinished = true
+    }
+    if (!ownersFinished) {
+      const rows = db
+        .query<
+          { deviceId: string; ownerId: string; stateJson: string },
+          [string | null, string | null, string | null, string | null, number]
+        >(
+          'SELECT deviceId,ownerId,stateJson FROM chat_database_draft_owners WHERE (? IS NULL OR deviceId>? OR (deviceId=? AND ownerId>?)) ORDER BY deviceId,ownerId LIMIT ?',
+        )
+        .all(
+          ownerCursor?.deviceId ?? null,
+          ownerCursor?.deviceId ?? null,
+          ownerCursor?.deviceId ?? null,
+          ownerCursor?.ownerId ?? null,
+          limit,
+        )
+      for (const row of rows) {
+        const owner = chatDatabaseDraftOwnerSchema.parse(JSON.parse(row.stateJson))
+        const ids = [...owner.artifactIds, ...owner.pendingArtifactIds]
+        for (const id of ids) {
+          if (
+            db
+              .query(
+                'SELECT artifactId FROM chat_database_artifact_state WHERE artifactId=? AND claimOperationId IS NOT NULL',
+              )
+              .get(id)
+          ) {
+            // A final canonical owner is stronger evidence than an interrupted reclaim intent.
+            db.query('UPDATE chat_database_artifact_state SET claimOperationId=NULL WHERE artifactId=?').run(id)
+          }
+          if (db.query('SELECT artifactId FROM chat_database_artifact_tombstones WHERE artifactId=?').get(id)) {
+            journalRecovery = {
+              ...journalRecovery,
+              healthy: false,
+              issues: [...journalRecovery.issues, 'ARTIFACT_OWNER_UNAVAILABLE'].slice(0, 32),
+            }
+            continue
+          }
+          refs(
+            owner.artifactIds.includes(id) ? 'draft' : 'upload',
+            `${row.deviceId}/${row.ownerId}`,
+            [id],
+            row.deviceId,
+          )
+        }
+      }
+      const last = rows.at(-1)
+      if (last) ownerCursor = { deviceId: last.deviceId, ownerId: last.ownerId }
+      ownersFinished = rows.length < limit
+      if (!ownersFinished) return { done: false, healthy: false, issues: journalRecovery.issues }
+    }
+    if (journalRecovery.healthy) {
+      const settled = resources?.settle(limit)
+      if (settled && (!settled.done || !settled.healthy)) return settled
     }
     if (!metadataFinished) {
       const batchSize = Math.min(limit, 25)
@@ -678,41 +756,65 @@ export function createChatDatabaseArtifactStorage(
       events: Boolean(events?.complete),
     }
   }
-  function claim(artifactId: string, operationId: string, cutoffAt: number): ChatDatabaseArtifactClaimResult {
+  function eligibility(
+    artifactId: string,
+    cutoffAt: number,
+    scope: SettingsScope = { kind: 'global' },
+    operationId: string | null = null,
+  ): ChatDatabaseArtifactClaimResult {
+    const health = referenceHealth()
+    if (
+      !health.drafts ||
+      !health.events ||
+      !health.legacySettings ||
+      db.query('SELECT source FROM chat_database_backfill WHERE complete=0 LIMIT 1').get()
+    )
+      return { claimed: false, reason: 'legacyArtifact' }
+    const state = db
+      .query<
+        { createdAt: number; lastUploadedAt: number; legacyProtected: number; claimOperationId: string | null },
+        [string]
+      >('SELECT * FROM chat_database_artifact_state WHERE artifactId=?')
+      .get(hash.parse(artifactId))
+    if (!state) return { claimed: false, reason: 'legacyArtifact' }
+    if (!hasCause(artifactId, scope)) return { claimed: false, reason: 'referenced' }
+    if (state.claimOperationId && state.claimOperationId !== operationId) return { claimed: false, reason: 'inUse' }
+    if (
+      db
+        .query('SELECT leaseId FROM chat_database_upload_leases WHERE artifactId=? AND expiresAt>? LIMIT 1')
+        .get(artifactId, Date.now())
+    )
+      return { claimed: false, reason: 'inUse' }
+    if (db.query('SELECT ownerId FROM chat_database_artifact_refs WHERE artifactId=? LIMIT 1').get(artifactId))
+      return { claimed: false, reason: 'referenced' }
+    if (
+      state.legacyProtected &&
+      db.query('SELECT deviceId FROM chat_database_device_inventories WHERE complete=0 LIMIT 1').get()
+    )
+      return { claimed: false, reason: 'legacyInventory' }
+    if (Math.max(state.createdAt, state.lastUploadedAt) >= cutoffAt) return { claimed: false, reason: 'retention' }
+    return { claimed: true, reason: null }
+  }
+  function hasCause(artifactId: string, scope: SettingsScope): boolean {
+    if (scope.kind === 'global') return true
+    return Boolean(
+      db
+        .query(
+          `SELECT causes.artifactId FROM chat_database_artifact_orphan_causes causes LEFT JOIN chat_database_artifact_state state ON state.artifactId=causes.artifactId WHERE causes.artifactId=? AND ${scope.kind === 'workspace' ? 'causes.workspaceId' : 'causes.sessionId'}=? AND causes.lostAt>=COALESCE(state.lastUploadedAt,0) LIMIT 1`,
+        )
+        .get(hash.parse(artifactId), scope.targetId),
+    )
+  }
+  function claim(
+    artifactId: string,
+    operationId: string,
+    cutoffAt: number,
+    scope: SettingsScope = { kind: 'global' },
+  ): ChatDatabaseArtifactClaimResult {
     return db
       .transaction(() => {
-        const health = referenceHealth()
-        if (
-          !health.drafts ||
-          !health.events ||
-          !health.legacySettings ||
-          db.query('SELECT source FROM chat_database_backfill WHERE complete=0 LIMIT 1').get()
-        )
-          return { claimed: false, reason: 'legacyArtifact' as const }
-        const state = db
-          .query<
-            { createdAt: number; lastUploadedAt: number; legacyProtected: number; claimOperationId: string | null },
-            [string]
-          >('SELECT * FROM chat_database_artifact_state WHERE artifactId=?')
-          .get(hash.parse(artifactId))
-        if (!state) return { claimed: false, reason: 'legacyArtifact' as const }
-        if (state.claimOperationId === operationId) return { claimed: true, reason: null }
-        if (state.claimOperationId) return { claimed: false, reason: 'inUse' as const }
-        if (
-          db
-            .query('SELECT leaseId FROM chat_database_upload_leases WHERE artifactId=? AND expiresAt>? LIMIT 1')
-            .get(artifactId, Date.now())
-        )
-          return { claimed: false, reason: 'inUse' as const }
-        if (db.query('SELECT ownerId FROM chat_database_artifact_refs WHERE artifactId=? LIMIT 1').get(artifactId))
-          return { claimed: false, reason: 'referenced' as const }
-        if (
-          state.legacyProtected &&
-          db.query('SELECT deviceId FROM chat_database_device_inventories WHERE complete=0 LIMIT 1').get()
-        )
-          return { claimed: false, reason: 'legacyInventory' as const }
-        if (Math.max(state.createdAt, state.lastUploadedAt) >= cutoffAt)
-          return { claimed: false, reason: 'retention' as const }
+        const result = eligibility(artifactId, cutoffAt, scope, operationId)
+        if (!result.claimed) return result
         db.query('UPDATE chat_database_artifact_state SET claimOperationId=? WHERE artifactId=?').run(
           operationId,
           artifactId,
@@ -785,6 +887,8 @@ export function createChatDatabaseArtifactStorage(
     markLegacySettingsComplete,
     referenceHealth,
     claim,
+    eligibility,
+    hasCause,
     releaseClaim,
     finishReclaim,
     reclaimReceipt,

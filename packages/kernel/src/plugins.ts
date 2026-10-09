@@ -857,6 +857,10 @@ export class PluginManager {
       config: e.info.status === 'active' ? e.info.config : e.config,
     }))
   }
+  /** Registered packages may import assets lazily even while their plugin is disabled. */
+  protectedResourceRoots(): string[] {
+    return [...new Set([...this.entries.values()].flatMap((entry) => entry.path ? [entry.path] : []))]
+  }
   clientCode(id: string): string {
     const entry = this.findEntry(id)
     if (entry?.info.status !== 'active' || !entry.clientCode)

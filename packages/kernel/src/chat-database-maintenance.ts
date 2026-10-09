@@ -19,6 +19,7 @@ import type {
 import type { SettingsService } from './settings-service'
 import type { ChatDatabaseStatisticsService } from './chat-database-statistics'
 import { resolveChatDatabasePolicy } from './chat-database-policy'
+import type { ChatDatabaseResourcePort } from './chat-database-resources'
 
 export interface ChatDatabaseCleanupDomainPort {
   protection(sessionId: string): ChatDatabaseSkipReason | null
@@ -83,6 +84,7 @@ export function createChatDatabaseMaintenanceService(
   settings: SettingsService,
   statistics: ChatDatabaseStatisticsService,
   domain: ChatDatabaseCleanupDomainPort,
+  resources?: ChatDatabaseResourcePort,
 ) {
   let closed = false
   let current: { id: string; controller: AbortController; task: Promise<void> } | null = null
@@ -97,13 +99,83 @@ export function createChatDatabaseMaintenanceService(
       completedAt: Date.now(),
     })
   }
+  const savedPolicy = (state: Pick<ChatDatabaseOperation, 'kind' | 'scope'>) =>
+    settings.get(state.kind === 'sessions' ? state.scope : { kind: 'global' })
+  async function resourcePreview(start: ChatDatabaseOperation, signal: AbortSignal): Promise<void> {
+    if (!resources || (start.kind !== 'cache' && start.kind !== 'attachments'))
+      throw new HbarError('UNSUPPORTED_OPERATION', 'Resource cleanup is not installed')
+    const id = start.operationId
+    if (start.kind === 'cache' && start.scope.kind !== 'global')
+      throw new HbarError('INVALID_SCOPE', 'Shared cache requires global scope')
+    await storage.call('chatDatabasePreviewReset', id)
+    const policy = await savedPolicy(start)
+    const rule = resolveChatDatabasePolicy(policy.resolution)
+    const cutoffAt =
+      start.createdAt - (start.kind === 'cache' ? rule.cacheRetentionDays : rule.attachmentRetentionDays) * 86_400_000
+    await storage.call('chatDatabaseOperationUpdate', id, {
+      status: 'running',
+      stage: 'scanning',
+      policyRevisions: policy.revisions,
+    })
+    await resources.prepare(signal)
+    await statistics.readComplete({ kind: 'global' }, signal)
+    let candidates = 0
+    let processed = 0
+    let estimated = 0
+    let skipped: ChatDatabaseOperation['skipped'] = []
+    let batch: ChatDatabasePreviewItem[] = []
+    async function flush(): Promise<void> {
+      if (!batch.length) return
+      await storage.call('chatDatabasePreviewAppend', id, batch)
+      batch = []
+      await storage.call('chatDatabaseOperationUpdate', id, {
+        candidateCount: candidates,
+        totalCount: processed,
+        processedCount: processed,
+        estimatedBytes: estimated,
+        skipped,
+      })
+      await yieldBatch()
+    }
+    for await (const item of resources.scan(
+      { kind: start.kind, scope: start.scope, cutoffAt, policyRevisions: policy.revisions },
+      signal,
+    )) {
+      if (await cancelled(id, signal)) {
+        await flush()
+        await finishCancelled(id)
+        return
+      }
+      batch.push(item)
+      processed++
+      if (item.skipReason) skipped = addSkip(skipped, item.skipReason)
+      else {
+        candidates++
+        estimated += item.estimatedBytes
+      }
+      if (batch.length >= 50) await flush()
+    }
+    await flush()
+    if (!sameRevisions(policy.revisions, (await savedPolicy(start)).revisions))
+      throw new HbarError('POLICY_CHANGED', 'Resource rules changed during preview')
+    if (await cancelled(id, signal)) {
+      await finishCancelled(id)
+      return
+    }
+    await storage.call('chatDatabaseOperationUpdate', id, {
+      status: 'completed',
+      stage: 'finished',
+      completedAt: Date.now(),
+      expiresAt: Date.now() + CHAT_DATABASE_PREVIEW_TTL_MS,
+    })
+  }
   async function preview(id: string, signal: AbortSignal): Promise<void> {
     const start = await storage.call('chatDatabaseOperationRead', id)
     if (await cancelled(id, signal)) {
       await finishCancelled(id)
       return
     }
-    if (start.kind !== 'sessions') throw new HbarError('UNSUPPORTED_OPERATION', 'Resource cleanup is not installed')
+    if (start.kind !== 'sessions') return resourcePreview(start, signal)
     await storage.call('chatDatabasePreviewReset', id)
     const policy = await settings.get(start.scope)
     await storage.call('chatDatabaseOperationUpdate', id, {
@@ -189,6 +261,8 @@ export function createChatDatabaseMaintenanceService(
     if (!state.previewId) throw new HbarError('INVALID_STATE', 'Cleanup requires a fixed preview')
     const previewId = state.previewId
     const fixed = await storage.call('chatDatabaseOperationRead', previewId)
+    const resourcePolicy =
+      fixed.kind === 'sessions' ? null : resolveChatDatabasePolicy((await savedPolicy(fixed)).resolution)
     await storage.call('chatDatabaseOperationUpdate', id, { status: 'running', stage: 'deleting' })
     let after: number | null = state.processedCount || null
     do {
@@ -201,8 +275,29 @@ export function createChatDatabaseMaintenanceService(
         }
         state = await storage.call('chatDatabaseOperationRead', id)
         let reason: ChatDatabaseSkipReason | null = item.eligible ? null : item.skipReason
-        let result: ChatDatabaseDeleteResult | null = null
-        if (item.eligible) {
+        let result:
+          | (Pick<ChatDatabaseDeleteResult, 'deleted' | 'reason' | 'reclaimedBytes'> & {
+              reusableBytes?: number
+              revision?: number
+            })
+          | null = null
+        if (item.eligible && item.kind !== 'sessions') {
+          result = await storage.call('chatDatabaseResourceReceipt', id, item.kind, item.id)
+          if (!result) {
+            if (!sameRevisions((await savedPolicy(fixed)).revisions, fixed.policyRevisions)) reason = 'policyChanged'
+            if (!reason && resources && resourcePolicy)
+              result = await resources.remove({
+                operationId: id,
+                scope: fixed.scope,
+                item,
+                cutoffAt:
+                  fixed.createdAt -
+                  (item.kind === 'cache' ? resourcePolicy.cacheRetentionDays : resourcePolicy.attachmentRetentionDays) *
+                    86_400_000,
+              })
+          }
+          reason = result?.reason ?? reason
+        } else if (item.eligible) {
           const exists = await storage.call('findSession', item.id)
           if (!exists && item.expectedSeq !== null && item.lastActivityAt !== null) {
             result = await domain.removeSession({
@@ -234,7 +329,7 @@ export function createChatDatabaseMaintenanceService(
               }
             }
           }
-          if (result?.deleted) domain.deleted([item.id], result.revision)
+          if (result?.deleted && result.revision !== undefined) domain.deleted([item.id], result.revision)
         }
         await storage.call('chatDatabaseOperationUpdate', id, {
           processedCount: page.positions[index]!,
@@ -300,7 +395,10 @@ export function createChatDatabaseMaintenanceService(
     async preview(input: ChatDatabasePreviewInput, identity: WriteIdentity): Promise<ChatDatabaseOperation> {
       await ready
       if (closed) throw new HbarError('DISPOSED', 'Chat database maintenance is closed')
-      if (input.kind !== 'sessions') throw new HbarError('UNSUPPORTED_OPERATION', 'Resource cleanup is not installed')
+      if (input.kind !== 'sessions' && !resources?.supports(input.kind))
+        throw new HbarError('UNSUPPORTED_OPERATION', 'Resource cleanup is not installed')
+      if ((input.kind === 'cache' || input.kind === 'database') && input.scope.kind !== 'global')
+        throw new HbarError('INVALID_SCOPE', 'Shared resource maintenance requires global scope')
       const accepted = await storage.call('chatDatabaseOperationAccept', {
         ...identity,
         operation: operation('preview', input),
@@ -321,7 +419,7 @@ export function createChatDatabaseMaintenanceService(
       const fixed = await storage.call('chatDatabaseOperationRead', input.previewId)
       if (fixed.type !== 'preview' || fixed.status !== 'completed' || !fixed.expiresAt || Date.now() >= fixed.expiresAt)
         throw new HbarError('PREVIEW_EXPIRED', 'Generate a fresh completed preview')
-      const saved = await settings.get(fixed.scope)
+      const saved = await savedPolicy(fixed)
       if (!sameRevisions(saved.revisions, fixed.policyRevisions))
         throw new HbarError('POLICY_CHANGED', 'Cleanup rules changed after preview')
       const accepted = await storage.call('chatDatabaseOperationAccept', {

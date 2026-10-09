@@ -1,11 +1,97 @@
 import { expect, test } from 'bun:test'
 import { Database } from 'bun:sqlite'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { lstat, mkdtemp, rm, utimes, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { HbarClient, createChatDatabaseCommandClient, createSettingsCommandClient } from '@hbar/client'
 import { startServer } from '../apps/host/src/server'
+import type { ChatDatabaseOperation } from '@hbar/contracts/commands/chat-database'
+
+test('paired Host commands reclaim only known cache bytes and preserve an attachment owned by an offline draft', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-chat-database-resources-host-'))
+  const kernel = await Kernel.create({
+    home: join(root, 'home'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  let host: Awaited<ReturnType<typeof startServer>> | undefined
+  let client: HbarClient | undefined
+  try {
+    host = await startServer(kernel, { port: 0 })
+    client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
+    await client.pair(host.pairing.code, 'resource settings device')
+    const commands = createChatDatabaseCommandClient(client)
+    const cache = join(kernel.options.layout.cache.markdown, 'old-preview.html')
+    await writeFile(cache, 'cache through public API')
+    await utimes(cache, 0, 0)
+    async function settled(initial: ChatDatabaseOperation) {
+      let state = initial
+      for (let attempt = 0; attempt < 300 && !['completed', 'failed', 'unknown'].includes(state.status); attempt++) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 5))
+        state = await commands.execute('chatDatabase.operation', { operationId: initial.operationId })
+      }
+      return state
+    }
+    const fixed = await settled(
+      await commands.execute(
+        'chatDatabase.preview',
+        { scope: { kind: 'global' }, kind: 'cache' },
+        { idempotencyKey: 'cache-preview' },
+      ),
+    )
+    expect(fixed).toMatchObject({ status: 'completed', candidateCount: 1 })
+    const done = await settled(
+      await commands.execute(
+        'chatDatabase.cleanup',
+        { previewId: fixed.operationId },
+        { idempotencyKey: 'cache-cleanup' },
+      ),
+    )
+    expect(done).toMatchObject({ status: 'completed', deletedCount: 1, reclaimedBytes: 24 })
+    expect(
+      await lstat(cache).then(
+        () => null,
+        (reason: unknown) => reason,
+      ),
+    ).toMatchObject({ code: 'ENOENT' })
+    const artifact = await client.upload(new File(['unsent attachment'], 'draft.txt'), undefined, {
+      owner: { id: 'window-draft', kind: 'preSession', clientRevision: 0 },
+    })
+    await commands.execute(
+      'chatDatabase.draft.sync',
+      {
+        expectedRevision: 0,
+        owner: {
+          id: 'window-draft',
+          kind: 'preSession',
+          clientRevision: 0,
+          artifactIds: [artifact.id],
+          pendingArtifactIds: [],
+        },
+      },
+      { idempotencyKey: 'offline-draft' },
+    )
+    const attachmentPreview = await settled(
+      await commands.execute(
+        'chatDatabase.preview',
+        { scope: { kind: 'global' }, kind: 'attachments' },
+        { idempotencyKey: 'attachment-preview' },
+      ),
+    )
+    const page = await commands.execute('chatDatabase.previewPage', { previewId: attachmentPreview.operationId })
+    expect(page.items.find((item) => item.id === artifact.id)).toMatchObject({
+      eligible: false,
+      skipReason: 'referenced',
+    })
+  } finally {
+    client?.disconnect()
+    await host?.close()
+    await kernel.close()
+    await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+  }
+})
 
 test('paired Client reads real scoped statistics and the saved cleanup policy through Host commands', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-chat-database-host-'))

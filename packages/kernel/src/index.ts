@@ -3,12 +3,15 @@ import { writeArtifactAtomically, recoverArtifactReferenceIndex, type ArtifactUp
 export type { ArtifactUploadOptions } from './artifact-upload'
 import { join, basename } from 'node:path'
 import { WorkspaceSandboxService } from './workspace-sandbox'
-import type { ChatDatabaseDeleteInput, ChatDatabaseDeleteResult } from '@hbar/storage'
+import type { ChatDatabaseDeleteInput, ChatDatabaseDeleteResult, ChatDatabaseResourceResult } from '@hbar/storage'
+import type { ChatDatabaseResourceRequest } from './chat-database-resources'
 import type { ChatDatabaseSkipReason } from '@hbar/contracts/commands/chat-database'
 export { createChatDatabaseMaintenanceService } from './chat-database-maintenance'
 export { createChatDatabaseArtifactReferenceService } from './chat-database-artifact-references'
 export type { ChatDatabaseArtifactReferenceService } from './chat-database-artifact-references'
 export type { ChatDatabaseMaintenanceService, ChatDatabaseCleanupDomainPort } from './chat-database-maintenance'
+export { createChatDatabaseResourceService } from './chat-database-resources'
+export type { ChatDatabaseResourcePort, ChatDatabaseResourceRequest } from './chat-database-resources'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import {
@@ -2764,6 +2767,21 @@ export class Kernel {
     }
     this.publish({ method: 'chatDatabase.deleted', params: { schemaVersion: 1, sessionIds, revision } })
     this.changed('sessions')
+  }
+  async removeChatDatabaseResource(input: ChatDatabaseResourceRequest): Promise<ChatDatabaseResourceResult> {
+    if (input.item.kind === 'cache') {
+      try { this.assertIdle() } catch (reason) {
+        if (reason instanceof HbarError && reason.code === 'BUSY') return { deleted: false, reason: 'inUse', reclaimedBytes: 0 }
+        throw reason
+      }
+      this.maintenance = true
+      try { return await this.storage.call('chatDatabaseResourceRemove', { ...input, protectedRoots: this.plugins.protectedResourceRoots() }) }
+      finally { this.maintenance = false }
+    }
+    if (this.maintenance || this.closing) return { deleted: false, reason: 'inUse', reclaimedBytes: 0 }
+    this.chatDatabaseWrites++
+    try { return await this.storage.call('chatDatabaseResourceRemove', input) }
+    finally { this.chatDatabaseWrites-- }
   }
   private async cacheSize(root: string): Promise<number> {
     let total = 0

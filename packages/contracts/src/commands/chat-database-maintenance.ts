@@ -31,6 +31,15 @@ export const chatDatabaseSkipReasonSchema = z.enum([
   'capacityUnreachable',
 ])
 export type ChatDatabaseSkipReason = z.output<typeof chatDatabaseSkipReasonSchema>
+export const chatDatabaseResourceSchema = z.strictObject({
+  path: z.string().min(1).max(4000),
+  device: z.string().min(1).max(64),
+  inode: z.string().min(1).max(64),
+  size: count,
+  modifiedNs: z.string().regex(/^-?\d{1,30}$/),
+  changedNs: z.string().regex(/^-?\d{1,30}$/),
+})
+export type ChatDatabaseResource = z.output<typeof chatDatabaseResourceSchema>
 export const chatDatabasePreviewItemSchema = z.strictObject({
   kind: chatDatabaseCleanupKindSchema,
   id,
@@ -43,6 +52,7 @@ export const chatDatabasePreviewItemSchema = z.strictObject({
   policyRevisions: z.record(z.string(), count).refine((value) => Object.keys(value).length <= 3),
   eligible: z.boolean(),
   skipReason: chatDatabaseSkipReasonSchema.nullable(),
+  resource: chatDatabaseResourceSchema.optional(),
 })
 export type ChatDatabasePreviewItem = z.output<typeof chatDatabasePreviewItemSchema>
 export const chatDatabaseOperationSchema = z.strictObject({

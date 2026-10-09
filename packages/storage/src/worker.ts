@@ -88,6 +88,7 @@ import { createChatDatabaseProjection } from './chat-database-projection'
 import { createChatDatabaseJournal } from './chat-database-journal'
 import { createChatDatabaseDeletionStorage } from './chat-database-deletion'
 import { createChatDatabaseArtifactStorage } from './chat-database-artifacts'
+import { createChatDatabaseResourceLedger } from './chat-database-resource-ledger'
 import {
   createSessionLaunchTargetStorage,
   SESSION_LAUNCH_TARGET_RESOLUTION_SQL,
@@ -104,11 +105,12 @@ import {
   SIDEBAR_CHILD_ACTIVITY_SCHEMA_SQL,
 } from './sidebar-directory.ts'
 
-const options = workerData as { path: string; sessions?: string; diagnostics?: string; settings?: string; artifacts?: string }
+const options = workerData as { path: string; sessions?: string; diagnostics?: string; settings?: string; artifacts?: string; cache?: string }
 const sessionsRoot = options.sessions ?? join(dirname(options.path), 'sessions')
 const diagnosticsRoot = options.diagnostics ?? join(dirname(options.path), 'diagnostics')
 const settingsRoot = options.settings ?? join(dirname(options.path), 'settings')
 const artifactsRoot = options.artifacts ?? join(dirname(options.path), 'artifacts')
+const cacheRoot = options.cache ?? join(dirname(options.path), 'cache')
 const logWriter = new SessionLogWriter(sessionsRoot)
 const runSteering = new RunSteeringRegistry()
 const db = new Database(options.path, { create: true, strict: true })
@@ -384,7 +386,11 @@ const sessionSearch = createSessionSearchStorage(
   () => new Map(workspaceDisplayNames.read().entries.map((entry) => [entry.workspaceId, entry.displayName])),
 )
 const chatDatabaseProjection = createChatDatabaseProjection(db)
-const chatDatabaseArtifacts = createChatDatabaseArtifactStorage(db, sessionsRoot, artifactsRoot, settingsRoot)
+const chatDatabaseResources = createChatDatabaseResourceLedger(db, sessionsRoot, artifactsRoot, cacheRoot, {
+  claim: (...args) => chatDatabaseArtifacts.claim(...args),
+  releaseClaim: (...args) => chatDatabaseArtifacts.releaseClaim(...args),
+})
+const chatDatabaseArtifacts = createChatDatabaseArtifactStorage(db, sessionsRoot, artifactsRoot, settingsRoot, chatDatabaseResources)
 const chatDatabaseJournal = createChatDatabaseJournal(db)
 const chatDatabaseDeletion = createChatDatabaseDeletionStorage(db, sessionsRoot, undefined, settingsRoot)
 const sessionLaunchTarget = createSessionLaunchTargetStorage(db)
@@ -1051,6 +1057,10 @@ const methods: StorageMethods = {
   chatDatabaseLegacySettingsComplete: chatDatabaseArtifacts.markLegacySettingsComplete,
   chatDatabaseReferenceHealth: chatDatabaseArtifacts.referenceHealth,
   chatDatabaseArtifactClaim: chatDatabaseArtifacts.claim,
+  chatDatabaseArtifactEligibility: chatDatabaseArtifacts.eligibility,
+  chatDatabaseArtifactHasCause: chatDatabaseArtifacts.hasCause,
+  chatDatabaseResourceRemove: chatDatabaseResources.remove,
+  chatDatabaseResourceReceipt: chatDatabaseResources.receipt,
   chatDatabaseArtifactReleaseClaim: chatDatabaseArtifacts.releaseClaim,
   chatDatabaseArtifactFinishReclaim: chatDatabaseArtifacts.finishReclaim,
   chatDatabaseArtifactReclaimReceipt: chatDatabaseArtifacts.reclaimReceipt,
@@ -2536,6 +2546,7 @@ const methods: StorageMethods = {
     return writeSettings(scope, targetId, values, expectedRevision)
   },
   close() {
+    chatDatabaseResources.close()
     db.close()
   },
 }

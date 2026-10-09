@@ -35,6 +35,9 @@ export type { ChatDatabaseDeleteInput, ChatDatabaseDeleteResult } from './chat-d
 export type { ChatDatabaseCandidateCursor, ChatDatabaseCandidatePage, ChatDatabaseOperationPatch } from './chat-database-journal'
 export type { ChatDatabaseFilesPort, ChatDatabaseFileReferences } from './chat-database-files'
 export type { ChatDatabaseArtifactUploadReservation, ChatDatabaseArtifactClaimResult, ChatDatabaseArtifactReclaim } from './chat-database-artifacts'
+export { createChatDatabaseResourceScanner } from './chat-database-resource-scanner'
+export type { ChatDatabaseResourceScanInput } from './chat-database-resource-scanner'
+export type { ChatDatabaseResourceResult } from './chat-database-resource-ledger'
 export * from './session-log-writer.ts'
 export * from './session-log-recovery.ts'
 export * from './project-registry.ts'
@@ -86,6 +89,7 @@ export class Storage {
         diagnostics: layout?.diagnostics,
         settings: layout?.settings,
         artifacts: layout?.artifacts,
+        cache: layout?.cacheRoot,
       },
     }
     this.worker = process.env.HBAR_STORAGE_WORKER

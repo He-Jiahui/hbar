@@ -18,6 +18,7 @@ import { HbarError } from '@hbar/contracts'
 import type { ChatDatabaseSkipReason } from '@hbar/contracts/commands/chat-database'
 import { hasActiveSessionLaunchTargetPreparation } from './session-launch-target-preparations'
 import { hasPendingSessionBranchTarget } from './session-branch-target'
+import { createChatDatabaseArtifactCauses } from './chat-database-artifact-causes'
 
 const safeId = z.string().regex(/^[a-zA-Z0-9_-]{1,160}$/)
 const markerSchema = z.strictObject({
@@ -164,7 +165,8 @@ export function createChatDatabaseDeletionStorage(
         ?.revision ?? 0
     )
   }
-  function project(marker: Marker): Marker {
+  const artifactCauses = createChatDatabaseArtifactCauses(db, sessionsRoot)
+  function project(marker: Marker, finalizeCauses = false): Marker {
     const result = db
       .transaction(() => {
         const previous = db
@@ -189,7 +191,10 @@ export function createChatDatabaseDeletionStorage(
           marker.deletedAt,
           JSON.stringify(marker),
         )
-        if (!db.query('SELECT id FROM sessions WHERE id=?').get(marker.sessionId)) return saved
+        if (!db.query('SELECT id FROM sessions WHERE id=?').get(marker.sessionId)) {
+          artifactCauses.project(marker)
+          return saved
+        }
         const before = db.query<{ freelist_count: number }, []>('PRAGMA freelist_count').get()?.freelist_count ?? 0
         db.query(
           "INSERT INTO session_search_fts(session_search_fts,rowid,normalizedBody) SELECT 'delete',id,normalizedBody FROM session_search_documents WHERE sessionId=?",
@@ -198,8 +203,15 @@ export function createChatDatabaseDeletionStorage(
           'DELETE FROM session_search_indexed WHERE messageId IN (SELECT id FROM messages WHERE sessionId=?)',
         ).run(marker.sessionId)
         db.query('DELETE FROM settings_layers WHERE kind=? AND targetId=?').run('session', marker.sessionId)
-        db.query('DELETE FROM chat_database_artifact_refs WHERE source=? AND ownerId=?').run('legacySettings', `session:${marker.sessionId}`)
-        db.query('DELETE FROM chat_database_artifact_refs WHERE source=? AND deviceId=? AND ownerId=?').run('upload', 'host-tools', `host-tools/session:${marker.sessionId}`)
+        db.query('DELETE FROM chat_database_artifact_refs WHERE source=? AND ownerId=?').run(
+          'legacySettings',
+          `session:${marker.sessionId}`,
+        )
+        db.query('DELETE FROM chat_database_artifact_refs WHERE source=? AND deviceId=? AND ownerId=?').run(
+          'upload',
+          'host-tools',
+          `host-tools/session:${marker.sessionId}`,
+        )
         db.query("DELETE FROM settings_receipts WHERE json_extract(receiptJson,'$.scope.targetId')=?").run(
           marker.sessionId,
         )
@@ -209,6 +221,8 @@ export function createChatDatabaseDeletionStorage(
         for (const table of sessionTables)
           db.query(`DELETE FROM ${identifier(table.name)} WHERE sessionId=?`).run(marker.sessionId)
         db.query('DELETE FROM sessions WHERE id=?').run(marker.sessionId)
+        if (finalizeCauses) artifactCauses.finalize(marker)
+        else artifactCauses.project(marker)
         const after = db.query<{ freelist_count: number }, []>('PRAGMA freelist_count').get()?.freelist_count ?? 0
         const pageSize = db.query<{ page_size: number }, []>('PRAGMA page_size').get()?.page_size ?? 0
         const completed = { ...saved, reusableBytes: Math.max(0, after - before) * pageSize }
@@ -358,9 +372,10 @@ export function createChatDatabaseDeletionStorage(
         )
         .all(row.id),
     })
+    artifactCauses.capture(marker.sessionId)
     writeMarker(marker)
     fault?.('marked')
-    const completed = project(marker)
+    const completed = project(marker, true)
     fault?.('projected')
     const reclaimedBytes = unlinkLogs(marker)
     fault?.('unlinked')
