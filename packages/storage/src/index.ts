@@ -31,6 +31,8 @@ export type {
 export * from './path-layout.ts'
 export * from './storage-locations.ts'
 export { createChatDatabaseFileScanner, emptyChatDatabaseDiskUsage } from './chat-database-files'
+export type { ChatDatabaseDeleteInput, ChatDatabaseDeleteResult } from './chat-database-deletion'
+export type { ChatDatabaseCandidateCursor, ChatDatabaseCandidatePage, ChatDatabaseOperationPatch } from './chat-database-journal'
 export type { ChatDatabaseFilesPort } from './chat-database-files'
 export * from './session-log-writer.ts'
 export * from './session-log-recovery.ts'

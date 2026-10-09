@@ -17,11 +17,12 @@ export interface SessionLogScan {
   truncated: { path: string; offset: number }[]
 }
 
-function files(root: string, current = root): string[] {
+function files(root: string, excluded: ReadonlySet<string>, current = root): string[] {
   try {
     return readdirSync(current, { withFileTypes: true }).flatMap((entry) => {
       const path = join(current, entry.name)
-      return entry.isDirectory() ? files(root, path) : entry.isFile() && entry.name.endsWith('.jsonl') ? [path] : []
+      if (entry.isSymbolicLink() || entry.name === '.maintenance') return []
+      return entry.isDirectory() ? files(root, excluded, path) : entry.isFile() && entry.name.endsWith('.jsonl') && !excluded.has(entry.name.slice(0, -6)) ? [path] : []
     })
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
@@ -29,10 +30,10 @@ function files(root: string, current = root): string[] {
   }
 }
 
-export function scanSessionLogs(root: string): SessionLogScan {
+export function scanSessionLogs(root: string, excluded: ReadonlySet<string> = new Set()): SessionLogScan {
   const events: RecoveredLogEvent[] = []
   const truncated: { path: string; offset: number }[] = []
-  for (const path of files(root).sort()) {
+  for (const path of files(root, excluded).sort()) {
     const bytes = readFileSync(path)
     let offset = 0
     while (offset < bytes.length) {
@@ -50,6 +51,10 @@ export function scanSessionLogs(root: string): SessionLogScan {
       }
       try {
         const event = sessionEventSchema.parse(JSON.parse(raw.toString('utf8')))
+        if (excluded.has(event.sessionId)) {
+          offset = newline + 1
+          continue
+        }
         events.push({
           event,
           relativePath: relative(root, path).replaceAll('\\', '/'),

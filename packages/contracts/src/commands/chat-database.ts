@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
 import { settingsScopeSchema, type SettingsFieldDescription } from './settings'
+import { chatDatabaseMaintenanceCommands } from './chat-database-maintenance'
+export * from './chat-database-maintenance'
 
 const bytes = z.number().int().nonnegative().safe()
 export const CHAT_DATABASE_PAGE_SIZE = 50
@@ -188,6 +190,7 @@ const metadata = (id: string) => ({
   surfaces: ['api'] as 'api'[],
 })
 export const chatDatabaseCommands = {
+  ...chatDatabaseMaintenanceCommands,
   'chatDatabase.statistics': defineCommand(
     metadata('chatDatabase.statistics'),
     z.strictObject({ scope: settingsScopeSchema, refresh: z.boolean().default(false) }),

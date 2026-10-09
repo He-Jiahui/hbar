@@ -44,6 +44,8 @@ import type { UsageReadInput, UsageReadPage } from '@hbar/usage'
 import type { GoalHistoryInput, GoalHistoryPage } from '@hbar/contracts/commands/goal-history'
 import type { NotificationStorage } from './notifications'
 import type { createChatDatabaseProjection } from './chat-database-projection'
+import type { createChatDatabaseJournal } from './chat-database-journal'
+import type { createChatDatabaseDeletionStorage } from './chat-database-deletion'
 import type { SessionBranchExecutionRoot, SessionBranchTargetIntent, SessionBranchTargetIdentity, SessionBranchTargetRecord } from './session-branch-target'
 import type { SessionBranchTargetOperation } from '@hbar/contracts/commands/session-branch-target'
 import type { createWorkspaceFolderStorage, WorkspaceFolderStorageMutation } from './workspace-folders'
@@ -269,6 +271,20 @@ export interface StorageMethods {
   chatDatabaseUsageBackfill: ReturnType<typeof createChatDatabaseProjection>['backfill']
   chatDatabaseUsage: ReturnType<typeof createChatDatabaseProjection>['usage']
   chatDatabaseArtifactPage: ReturnType<typeof createChatDatabaseProjection>['artifactPage']
+  chatDatabaseOperationAccept: ReturnType<typeof createChatDatabaseJournal>['accept']
+  chatDatabaseOperationRead: ReturnType<typeof createChatDatabaseJournal>['read']
+  chatDatabaseOperationUpdate: ReturnType<typeof createChatDatabaseJournal>['update']
+  chatDatabaseOperationCancel: ReturnType<typeof createChatDatabaseJournal>['cancel']
+  chatDatabaseOperationReconcile: ReturnType<typeof createChatDatabaseJournal>['reconcile']
+  chatDatabaseOperationReceipt: ReturnType<typeof createChatDatabaseJournal>['receipt']
+  chatDatabasePreviewAppend: ReturnType<typeof createChatDatabaseJournal>['appendItems']
+  chatDatabasePreviewPage: ReturnType<typeof createChatDatabaseJournal>['previewPage']
+  chatDatabaseCandidates: ReturnType<typeof createChatDatabaseJournal>['candidates']
+  chatDatabaseRetainedChild: ReturnType<typeof createChatDatabaseJournal>['retainedChild']
+  chatDatabaseHistory: ReturnType<typeof createChatDatabaseJournal>['history']
+  chatDatabasePending: ReturnType<typeof createChatDatabaseJournal>['pending']
+  chatDatabasePreviewReset: ReturnType<typeof createChatDatabaseJournal>['resetPreview']
+  chatDatabaseDeleteSession: ReturnType<typeof createChatDatabaseDeletionStorage>['remove']
   notificationPage: NotificationStorage['page']
   notificationBySourceEvent: NotificationStorage['bySourceEvent']
   insertNotification: NotificationStorage['insert']

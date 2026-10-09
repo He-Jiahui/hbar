@@ -54,7 +54,6 @@ export const HBAR_SETTINGS_DESCRIPTION: SettingsDescription = freeze(
       { id: 'chatDatabase', labelKey: 'i18n:settings.groups.chatDatabase', order: 38 },
     ],
     fields: [
-      ...chatDatabaseSettingsFields,
       {
         path: path('client.chatSendBehavior'),
         type: 'string',
@@ -177,6 +176,7 @@ export const HBAR_SETTINGS_DESCRIPTION: SettingsDescription = freeze(
           dependsOn: [],
         },
       },
+      ...chatDatabaseSettingsFields,
     ],
   }),
 )

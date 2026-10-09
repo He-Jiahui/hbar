@@ -12,6 +12,8 @@ import {
 import { HbarError } from '@hbar/contracts'
 import { HBAR_SETTINGS_DESCRIPTION, Kernel, MemorySecrets } from '@hbar/kernel'
 import { settingsDescriptionSchema, settingsReceiptInputSchema } from '@hbar/contracts/commands/settings'
+import { chatDatabaseSettingsFields } from '@hbar/contracts/commands/chat-database'
+import { COMPACTION_PERCENT_SETTING } from '@hbar/contracts/commands/models'
 import { compileContentGraph, createContentResolver, encodePath } from '@hbar/schema-core'
 import { startServer } from '../apps/host/src/server.ts'
 
@@ -150,15 +152,24 @@ test('typed settings commands share catalog, layered CAS and actor-scoped idempo
   expect(description).toMatchObject({
     id: 'hbar.settings',
     schemaVersion: 1,
-    groups: [{ id: 'general' }, { id: 'model' }, { id: 'session' }, { id: 'providers' }, { id: 'extensions' }],
+    groups: [
+      { id: 'general' },
+      { id: 'model' },
+      { id: 'session' },
+      { id: 'providers' },
+      { id: 'extensions' },
+      { id: 'chatDatabase' },
+    ],
   })
   expect(description.fields.map((item) => encodePath(item.path))).toEqual([
     encodePath(field('client.chatSendBehavior')),
     encodePath(field('provider.model')),
     encodePath(field('provider.thinkingLevel')),
     encodePath(field('session.defaultBudget')),
+    encodePath(field(COMPACTION_PERCENT_SETTING)),
     encodePath(field('session.approval')),
     encodePath(field('session.sandboxProfile')),
+    ...chatDatabaseSettingsFields.map((item) => encodePath(item.path)),
   ])
 
   const graph = compileContentGraph(

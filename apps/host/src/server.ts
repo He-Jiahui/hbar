@@ -28,6 +28,7 @@ import {
   createSettingsCommands,
   createChatDatabaseCommands,
   createChatDatabaseStatisticsService,
+  createChatDatabaseMaintenanceService,
   createUsageCommands,
   createWorkflowCommands,
   createScheduleCommands,
@@ -269,7 +270,12 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     settingsService,
     createChatDatabaseFileScanner(kernel.options.layout),
   )
-  const chatDatabaseCommands = createChatDatabaseCommands(chatDatabaseStatistics)
+  const chatDatabaseMaintenance = createChatDatabaseMaintenanceService(kernel.storage, settingsService, chatDatabaseStatistics, {
+    protection: (id) => kernel.chatDatabaseSessionProtection(id),
+    removeSession: (input) => kernel.removeChatDatabaseSession(input),
+    deleted: (ids, revision) => kernel.notifyChatDatabaseDeleted(ids, revision),
+  })
+  const chatDatabaseCommands = createChatDatabaseCommands(chatDatabaseStatistics, chatDatabaseMaintenance)
   const usageCommands = createUsageCommands(
     new UsageService({ read: (input) => kernel.storage.call('usageEvents', input) }),
   )
@@ -1543,6 +1549,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       runCommands.dispose()
       settingsCommands.dispose()
       chatDatabaseCommands.dispose()
+      await chatDatabaseMaintenance.close()
       await chatDatabaseStatistics.close()
       usageCommands.dispose()
       await scheduleController.close()

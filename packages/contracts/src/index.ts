@@ -1049,6 +1049,7 @@ export interface Bootstrap {
   panels: UIContribution[]
 }
 export type WireNotification =
+  | { method: 'chatDatabase.deleted'; params: import('./commands/chat-database-maintenance').ChatDatabaseDeletedEvent }
   | { method: 'notifications.created'; params: import('./commands/notifications').NotificationFreshEvent }
   | { method: 'session.event'; params: SessionEvent }
   | { method: 'session.summary'; params: SessionSummary }

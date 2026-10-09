@@ -1,6 +1,10 @@
 import { readdir, realpath, stat, writeFile } from 'node:fs/promises'
 import { join, basename } from 'node:path'
 import { WorkspaceSandboxService } from './workspace-sandbox'
+import type { ChatDatabaseDeleteInput, ChatDatabaseDeleteResult } from '@hbar/storage'
+import type { ChatDatabaseSkipReason } from '@hbar/contracts/commands/chat-database'
+export { createChatDatabaseMaintenanceService } from './chat-database-maintenance'
+export type { ChatDatabaseMaintenanceService, ChatDatabaseCleanupDomainPort } from './chat-database-maintenance'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import {
@@ -399,6 +403,7 @@ export class Kernel {
   private summaryTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private summaryPending = new Map<string, { activity?: SessionSummary['activity']; activeRunId?: string | null }>()
   private maintenance = false
+  private chatDatabaseWrites = 0
   private permissionModeValue: ApprovalMode = 'ask'
   private readonly permissionSettings: SettingsService
   private admissions = 0
@@ -2690,8 +2695,39 @@ export class Kernel {
     return artifact
   }
   assertIdle() {
-    if (this.active.size || this.drains.size || this.admissions || this.maintenance || this.closing)
+    if (this.active.size || this.drains.size || this.admissions || this.maintenance || this.chatDatabaseWrites || this.closing)
       throw new HbarError('BUSY', 'Wait for active and queued runs to settle')
+  }
+  chatDatabaseSessionProtection(sessionId: string): ChatDatabaseSkipReason | null {
+    if (this.active.has(sessionId) || this.drains.has(sessionId)) return 'active'
+    if ([...this.userInputs.values()].some(({ request }) => request.sessionId === sessionId)) return 'userInput'
+    if (this.wakeups.has(sessionId) || this.scheduledWakeups.has(sessionId)) return 'queued'
+    return null
+  }
+  removeChatDatabaseSession(input: ChatDatabaseDeleteInput): Promise<ChatDatabaseDeleteResult> {
+    return this.withSessionLaunchTargetLock(input.sessionId, async () => {
+      if (this.maintenance || this.closing) throw new HbarError('BUSY', 'Host storage is in maintenance')
+      const reason = this.chatDatabaseSessionProtection(input.sessionId)
+      if (reason) {
+        const usage = await this.storage.call('chatDatabaseUsage', { kind: 'global' })
+        return { deleted: false, reason, reclaimedBytes: 0, reusableBytes: 0, revision: usage.revision }
+      }
+      this.chatDatabaseWrites++
+      try { return await this.storage.call('chatDatabaseDeleteSession', input) } finally { this.chatDatabaseWrites-- }
+    })
+  }
+  notifyChatDatabaseDeleted(sessionIds: string[], revision: number): void {
+    if (sessionIds.length < 1 || sessionIds.length > 100) throw new HbarError('INVALID_INPUT', 'Deletion notifications are bounded')
+    for (const id of sessionIds) {
+      const timer = this.summaryTimers.get(id)
+      if (timer) clearTimeout(timer)
+      this.summaryTimers.delete(id)
+      this.summaryPending.delete(id)
+      this.wakeups.delete(id)
+      this.scheduledWakeups.cancel(id)
+    }
+    this.publish({ method: 'chatDatabase.deleted', params: { schemaVersion: 1, sessionIds, revision } })
+    this.changed('sessions')
   }
   private async cacheSize(root: string): Promise<number> {
     let total = 0

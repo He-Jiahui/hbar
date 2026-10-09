@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { Database } from 'bun:sqlite'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -61,6 +62,88 @@ test('paired Client reads real scoped statistics and the saved cleanup policy th
     expect(missing).toMatchObject({ code: 'NOT_FOUND' })
     const catalog = await client.call('command.catalog', { category: 'system.storage' })
     expect(catalog.items.some((entry) => entry.metadata.id === 'chatDatabase.statistics')).toBe(true)
+  } finally {
+    client?.disconnect()
+    await host?.close()
+    await kernel.close()
+    await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+  }
+})
+
+test('real Host accepts a fixed cleanup, survives Client disconnect, and reconciles its receipt after reconnect', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-chat-database-cleanup-host-'))
+  const kernel = await Kernel.create({
+    home: join(root, 'home'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  let host: Awaited<ReturnType<typeof startServer>> | undefined
+  let client: HbarClient | undefined
+  try {
+    const workspace = (await kernel.storage.call('workspaces'))[0]!
+    const session = await kernel.createSession(workspace.id, 'delete through public commands')
+    await kernel.storage.call('commit', session.id, 'fixture', 'user', [{ type: 'text', text: 'real cleanup data' }])
+    await kernel.storage.call('updateSession', session.id, { archived: true })
+    while (!(await kernel.storage.call('chatDatabaseUsageBackfill', 250)).complete) {
+      /* make age fixtures independent of backfill */
+    }
+    const db = new Database(kernel.options.layout.database, { strict: true })
+    db.query('UPDATE chat_database_usage SET lastActivityAt=? WHERE sessionId=?').run(
+      Date.now() - 100 * 86_400_000,
+      session.id,
+    )
+    db.close()
+    host = await startServer(kernel, { port: 0 })
+    client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
+    await client.pair(host.pairing.code, 'public cleanup device')
+    const commands = createChatDatabaseCommandClient(client)
+    const accepted = await commands.execute(
+      'chatDatabase.preview',
+      { scope: { kind: 'global' }, kind: 'sessions' },
+      { idempotencyKey: 'preview-public' },
+    )
+    let fixed = accepted
+    for (let attempt = 0; attempt < 200 && !['completed', 'failed'].includes(fixed.status); attempt++) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 5))
+      fixed = await commands.execute('chatDatabase.operation', { operationId: accepted.operationId })
+    }
+    expect(fixed).toMatchObject({ status: 'completed', candidateCount: 1 })
+    expect(
+      (await commands.execute('chatDatabase.previewPage', { previewId: fixed.operationId })).items.find(
+        (item) => item.id === session.id,
+      )?.eligible,
+    ).toBe(true)
+    const cleanup = await commands.execute(
+      'chatDatabase.cleanup',
+      { previewId: fixed.operationId },
+      { idempotencyKey: 'cleanup-public' },
+    )
+    client.disconnect()
+    await client.connect()
+    let done = await commands.execute('chatDatabase.operation', { operationId: cleanup.operationId })
+    for (let attempt = 0; attempt < 200 && !['completed', 'failed', 'unknown'].includes(done.status); attempt++) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 5))
+      done = await commands.execute('chatDatabase.operation', { operationId: cleanup.operationId })
+    }
+    expect(done).toMatchObject({ status: 'completed', deletedCount: 1 })
+    expect(done.reclaimedBytes).toBeGreaterThan(0)
+    expect(await commands.execute('chatDatabase.receipt', { idempotencyKey: 'cleanup-public' })).toEqual(done)
+    expect(
+      (
+        await commands.execute(
+          'chatDatabase.cleanup',
+          { previewId: fixed.operationId },
+          { idempotencyKey: 'cleanup-public' },
+        )
+      ).operationId,
+    ).toBe(done.operationId)
+    expect(await kernel.storage.call('findSession', session.id)).toBeNull()
+    expect(
+      (await commands.execute('chatDatabase.history', { scope: { kind: 'global' }, limit: 50 })).items.map(
+        (item) => item.operationId,
+      ),
+    ).toContain(done.operationId)
   } finally {
     client?.disconnect()
     await host?.close()

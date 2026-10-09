@@ -19,6 +19,26 @@ interface ScanEntry {
   startedAt: number
   error: string | null
 }
+function waitForStatistics(task: Promise<void> | null | undefined, signal?: AbortSignal): Promise<void> {
+  if (!task) return Promise.resolve()
+  if (!signal) return task
+  signal.throwIfAborted()
+  return new Promise<void>((resolve, reject) => {
+    const abort = () =>
+      reject(signal.reason instanceof Error ? signal.reason : new HbarError('CANCELLED', 'Statistics wait cancelled'))
+    signal.addEventListener('abort', abort, { once: true })
+    void task.then(
+      () => {
+        signal.removeEventListener('abort', abort)
+        resolve()
+      },
+      (reason: unknown) => {
+        signal.removeEventListener('abort', abort)
+        reject(reason)
+      },
+    )
+  })
+}
 export function createChatDatabaseStatisticsService(
   storage: StoragePort,
   settings: SettingsService,
@@ -128,9 +148,9 @@ export function createChatDatabaseStatisticsService(
   }
   return {
     get,
-    async readComplete(scope: ChatDatabaseScope): Promise<ChatDatabaseStatistics> {
+    async readComplete(scope: ChatDatabaseScope, signal?: AbortSignal): Promise<ChatDatabaseStatistics> {
       await get(scope, true)
-      await scans.get(key(scope))?.task
+      await waitForStatistics(scans.get(key(scope))?.task, signal)
       const result = await get(scope)
       if (!result.complete)
         throw new HbarError(result.error ?? 'STATISTICS_INCOMPLETE', 'Complete statistics are required')

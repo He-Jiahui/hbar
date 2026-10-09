@@ -85,6 +85,8 @@ import { createWorkspaceFolderStorage, WORKSPACE_FOLDERS_SQL } from './workspace
 import { createSessionSearchStorage, SESSION_SEARCH_SQL } from './session-search.ts'
 import { CHAT_DATABASE_SQL } from './chat-database-schema'
 import { createChatDatabaseProjection } from './chat-database-projection'
+import { createChatDatabaseJournal } from './chat-database-journal'
+import { createChatDatabaseDeletionStorage } from './chat-database-deletion'
 import {
   createSessionLaunchTargetStorage,
   SESSION_LAUNCH_TARGET_RESOLUTION_SQL,
@@ -380,6 +382,8 @@ const sessionSearch = createSessionSearchStorage(
   () => new Map(workspaceDisplayNames.read().entries.map((entry) => [entry.workspaceId, entry.displayName])),
 )
 const chatDatabaseProjection = createChatDatabaseProjection(db)
+const chatDatabaseJournal = createChatDatabaseJournal(db)
+const chatDatabaseDeletion = createChatDatabaseDeletionStorage(db, sessionsRoot, undefined, settingsRoot)
 const sessionLaunchTarget = createSessionLaunchTargetStorage(db)
 const sessionBranchTarget = createSessionBranchTargetStorage(db, (sessionId) => sessionLaunchTarget.read(sessionId).revision)
 const sessionLaunchTargetPreparations = createSessionLaunchTargetPreparationStorage(db)
@@ -413,6 +417,8 @@ function settingsPath(scope: import('@hbar/contracts').SettingScope, targetId?: 
   if (scope === 'global') return join(settingsRoot, 'settings.json')
   if (!targetId || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/.test(targetId))
     throw new HbarError('INVALID_INPUT', `${scope} settings require a safe target id`)
+  if (scope === 'session' && db.query('SELECT sessionId FROM chat_database_deleted_sessions WHERE sessionId=?').get(targetId))
+    throw new HbarError('SESSION_DELETED', 'Settings for this deleted session cannot be read or recreated')
   return join(settingsRoot, scope === 'project' ? 'projects' : 'sessions', `${targetId}.json`)
 }
 
@@ -480,7 +486,10 @@ function entityCommandReceipt(
   if (!row) return null
   if (row.commandId !== commandId || row.payloadHash !== payloadHash)
     throw new HbarError('IDEMPOTENCY_CONFLICT', 'Entity command key was already used with different input')
-  return sessionSchema.parse(parseJson(row.resultJson))
+  const result = z.record(z.string(), z.unknown()).parse(parseJson(row.resultJson))
+  if (typeof result.deletedSessionId === 'string' || (typeof result.id === 'string' && db.query('SELECT sessionId FROM chat_database_deleted_sessions WHERE sessionId=?').get(result.id)))
+    throw new HbarError('SESSION_DELETED', 'This request created a session that has been permanently deleted')
+  return sessionSchema.parse(result)
 }
 function storeEntityCommandReceipt(
   actorId: string,
@@ -1011,6 +1020,20 @@ function appendEvent(
   return event
 }
 const methods: StorageMethods = {
+  chatDatabaseOperationAccept: chatDatabaseJournal.accept,
+  chatDatabaseOperationRead: chatDatabaseJournal.read,
+  chatDatabaseOperationUpdate: chatDatabaseJournal.update,
+  chatDatabaseOperationCancel: chatDatabaseJournal.cancel,
+  chatDatabaseOperationReconcile: chatDatabaseJournal.reconcile,
+  chatDatabaseOperationReceipt: chatDatabaseJournal.receipt,
+  chatDatabasePreviewAppend: chatDatabaseJournal.appendItems,
+  chatDatabasePreviewPage: chatDatabaseJournal.previewPage,
+  chatDatabaseCandidates: chatDatabaseJournal.candidates,
+  chatDatabaseRetainedChild: chatDatabaseJournal.retainedChild,
+  chatDatabaseHistory: chatDatabaseJournal.history,
+  chatDatabasePending: chatDatabaseJournal.pending,
+  chatDatabasePreviewReset: chatDatabaseJournal.resetPreview,
+  chatDatabaseDeleteSession: chatDatabaseDeletion.remove,
   chatDatabaseUsageBackfill: chatDatabaseProjection.backfill,
   chatDatabaseUsage: chatDatabaseProjection.usage,
   chatDatabaseArtifactPage: chatDatabaseProjection.artifactPage,
@@ -1154,6 +1177,7 @@ const methods: StorageMethods = {
   createSession(workspaceId, title = 'New session', parentId) {
     return db.transaction(() => {
       const workspace = methods.workspace(workspaceId)
+      if (parentId) methods.session(parentId)
       const session: Session = {
         id: crypto.randomUUID(),
         workspaceId,
@@ -2767,7 +2791,7 @@ function restoreProjection(event: SessionEvent) {
 }
 
 function reconcileSessionLogs() {
-  const scan = scanSessionLogs(sessionsRoot)
+  const scan = scanSessionLogs(sessionsRoot, chatDatabaseDeletion.excluded)
   if (scan.truncated.length) recordRecoveryDiagnostic(diagnosticsRoot, { truncated: scan.truncated })
   const scanned = new Map(scan.events.map((item) => [item.event.eventId, item]))
   for (const indexed of db
@@ -2828,6 +2852,8 @@ function reconcileSessionLogs() {
   if (restored) recordRecoveryDiagnostic(diagnosticsRoot, { restored })
 }
 
+chatDatabaseDeletion.reconcile()
+if (chatDatabaseDeletion.recoveryIssues.length) recordRecoveryDiagnostic(diagnosticsRoot, { deletedLogIssues: chatDatabaseDeletion.recoveryIssues })
 reconcileSessionLogs()
 
 parentPort!.on('message', ({ id, method, args }: StorageCall) => {

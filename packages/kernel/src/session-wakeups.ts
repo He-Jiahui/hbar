@@ -33,6 +33,10 @@ export class SessionWakeups {
     return [...this.pending.values()].map(({ done }) => done)
   }
 
+  has(sessionId: string): boolean {
+    return this.pending.has(sessionId)
+  }
+
   close() {
     for (const sessionId of this.pending.keys()) this.cancel(sessionId)
   }
