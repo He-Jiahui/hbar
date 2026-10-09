@@ -2,13 +2,16 @@ import { closeSync, openSync } from 'node:fs'
 import { mkdir, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { z } from 'zod'
+import { HbarClient, createSystemCommandClient } from '@hbar/client'
 import { findFreePort, parsePort } from './dev-ports'
+import { createDesktopSourceReload, desktopHostSourceRoots, watchDesktopHostSources } from './desktop-source-reload'
 
 const connectionSchema = z.object({
   url: z.url(),
   instanceId: z.string().min(1),
   pid: z.number().int().positive(),
   supervisorPid: z.number().int().positive().optional(),
+  token: z.string().min(1),
 })
 
 /** Both native capabilities and the Host bind to loopback in desktop development. */
@@ -49,9 +52,11 @@ async function ready(
   child: Bun.Subprocess,
   verify: (response: Response) => Promise<boolean>,
   timeoutMs = 30_000,
+  signal?: AbortSignal,
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
+    signal?.throwIfAborted()
     if (child.exitCode !== null) throw new Error(`Development process exited before readiness (${child.exitCode})`)
     try {
       const response = await fetch(url, { signal: AbortSignal.timeout(1_000) })
@@ -115,8 +120,16 @@ export async function runDesktopDev(args: readonly string[] = []): Promise<numbe
     WEBVIEW2_USER_DATA_FOLDER: process.env.WEBVIEW2_USER_DATA_FOLDER ?? resolve(home, 'cache/webview-dev'),
   }
   const children: Bun.Subprocess[] = []
+  let disposeWatch = () => {}
+  let disposeReload = () => {}
+  const reloadAbort = new AbortController()
   let stopping: Promise<void> | undefined
-  const stop = () => (stopping ??= Promise.all(children.map(stopChild)).then(() => undefined))
+  const stop = () => {
+    disposeWatch()
+    disposeReload()
+    reloadAbort.abort()
+    return (stopping ??= Promise.all(children.map(stopChild)).then(() => undefined))
+  }
   const requestStop = () => {
     stop().catch((error: unknown) => console.error('Could not stop desktop development:', error))
   }
@@ -126,8 +139,6 @@ export async function runDesktopDev(args: readonly string[] = []): Promise<numbe
     const host = Bun.spawn(
       [
         process.execPath,
-        '--watch',
-        '--no-clear-screen',
         resolve(project, 'apps/host/src/main.ts'),
         '--supervisor',
         '--desktop',
@@ -156,6 +167,64 @@ export async function runDesktopDev(args: readonly string[] = []): Promise<numbe
       },
       // Watched source startup includes module loading and persisted-session recovery.
       120_000,
+    )
+    const reload = createDesktopSourceReload({
+      async reload() {
+        reloadAbort.signal.throwIfAborted()
+        const previous = connectionSchema.parse(
+          JSON.parse(await readFile(resolve(home, 'settings/connection.json'), 'utf8')),
+        )
+        if (previous.url !== hostUrl || previous.supervisorPid !== host.pid)
+          throw new Error('Refusing to reload a Host not owned by this desktop development process')
+        const client = new HbarClient(hostUrl, previous.token)
+        let timeout: ReturnType<typeof setTimeout> | undefined
+        const deadline = new Promise<never>((_resolve, reject) => {
+          timeout = setTimeout(() => reject(new Error('Host source restart request timed out')), 15_000)
+        })
+        const onAbort = () => client.disconnect()
+        reloadAbort.signal.addEventListener('abort', onAbort, { once: true })
+        try {
+          await Promise.race([
+            deadline,
+            (async () => {
+              await client.connect()
+              reloadAbort.signal.throwIfAborted()
+              const result = await createSystemCommandClient(client).execute('system.restart', {})
+              if (!result.accepted) throw new Error('Development Host refused managed source reload')
+            })(),
+          ])
+        } finally {
+          clearTimeout(timeout)
+          reloadAbort.signal.removeEventListener('abort', onAbort)
+          client.disconnect()
+        }
+        await ready(
+          `${hostUrl}/healthz`,
+          host,
+          async (response) => {
+            reloadAbort.signal.throwIfAborted()
+            const current = connectionSchema.parse(
+              JSON.parse(await readFile(resolve(home, 'settings/connection.json'), 'utf8')),
+            )
+            const health: unknown = await response.json()
+            return (
+              current.supervisorPid === host.pid &&
+              current.instanceId !== previous.instanceId &&
+              z.object({ instanceId: z.string() }).parse(health).instanceId === current.instanceId
+            )
+          },
+          120_000,
+          reloadAbort.signal,
+        )
+        console.log('Host source reloaded; native clients can reconnect.')
+      },
+      onError: (error) => {
+        if (!reloadAbort.signal.aborted) console.error('Host source reload failed:', error)
+      },
+    })
+    disposeReload = reload.dispose
+    disposeWatch = watchDesktopHostSources(await desktopHostSourceRoots(project), reload.changed, (error) =>
+      console.error('Host source watcher failed:', error),
     )
     const web = Bun.spawn(
       [node, resolve(project, 'node_modules/vite/bin/vite.js'), '--config', 'apps/web/vite.config.ts'],
