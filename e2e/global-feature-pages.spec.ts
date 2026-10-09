@@ -8,13 +8,15 @@ import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { openSessionTool } from './support/session-tools-menu'
 import { expectComposerText } from './support/composer-text'
+import { lumenMenuForTrigger } from './support/lumen-controls'
+import { openComposerTemplates } from './support/composer-templates-menu'
 
 async function showNavigation(page: Page, locale: ShellLocale) {
   const toggle = page.getByRole('button', { name: getShellCopy(locale).shell.showSidebar, exact: true })
   if ((page.viewportSize()?.width ?? 1440) < 1024)
     await expect(page.locator('.hbar-app-react-shell-header')).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
   if (await toggle.isVisible()) await toggle.click()
-  await expect(page.locator('.hbar-web-feature-navigation')).toBeInViewport()
+  await expect(page.locator('.hbar-app-react-sidebar-brand-actions')).toBeInViewport()
 }
 
 for (const locale of ['zh-CN', 'en-US'] as const) {
@@ -43,7 +45,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       const pageErrors: string[] = []
       page.on('pageerror', (error) => pageErrors.push(error.message))
       await page.goto(origin)
-      await page.locator(`[data-session-id="${host.ready.sessionId}"] .hbar-app-react-session-target`).click()
+      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const prompt = page
         .locator('.hbar-app-react-session-workspace')
         .getByRole('textbox', { name: copy.session.prompt.input, exact: true })
@@ -51,14 +53,25 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await prompt.fill(draft)
       for (const width of [1440, 960, 320]) {
         await page.setViewportSize({ width, height: 900 })
-        for (const pageId of globalFeaturePageIds) {
-          await showNavigation(page, locale)
-          const entry =
-            pageId === 'notifications'
-              ? page.getByRole('button', { name: notificationCopy(locale).bell(0), exact: true })
-              : page.getByRole('button', { name: labels.titles[pageId], exact: true })
-          await entry.focus()
-          await page.keyboard.press('Enter')
+        for (const pageId of globalFeaturePageIds.filter((id) => id !== 'onboarding')) {
+          if (pageId === 'prompt-templates') await openComposerTemplates(page, copy.session.addMenu)
+          else {
+            await showNavigation(page, locale)
+            if (pageId === 'run-board') {
+              const project = page.locator(`section[data-workspace-id="${host.ready.workspaceId}"]`).first()
+              const trigger = project.locator(':scope > .lumen-tree-row .lumen-action-menu-trigger')
+              await trigger.click()
+              const menu = await lumenMenuForTrigger(trigger)
+              await menu.getByRole('menuitem', { name: copy.shell.workspaceRunBoard, exact: true }).click()
+            } else {
+              const entry =
+                pageId === 'notifications'
+                  ? page.locator('.hbar-app-react-sidebar-brand-actions .hbar-web-notification-page-button')
+                  : page.getByRole('button', { name: copy.shell.schedules, exact: true })
+              await entry.focus()
+              await entry.press('Enter')
+            }
+          }
           const feature = page.locator(`[data-global-page="${pageId}"]`)
           await expect(feature).toBeVisible()
           await expect(feature).toBeInViewport()
@@ -67,16 +80,15 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
               .locator('.hbar-web-global-page-header')
               .getByRole('heading', { name: labels.titles[pageId], exact: true }),
           ).toBeVisible()
-          if (pageId !== 'onboarding')
-            await expect(
-              feature
-                .locator('.hbar-web-global-page-body')
-                .getByRole('heading', {
-                  name: pageId === 'notifications' ? notificationCopy(locale).title : labels.titles[pageId],
-                  exact: true,
-                })
-                .first(),
-            ).toBeVisible()
+          await expect(
+            feature
+              .locator('.hbar-web-global-page-body')
+              .getByRole('heading', {
+                name: pageId === 'notifications' ? notificationCopy(locale).title : labels.titles[pageId],
+                exact: true,
+              })
+              .first(),
+          ).toBeVisible()
           await expect(prompt).toHaveCount(0)
           await expect(page.locator('.hbar-web-tool-outlet')).toHaveCount(0)
           await expect(page.getByRole('dialog')).toHaveCount(0)
@@ -103,8 +115,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await page.setViewportSize({ width: 1440, height: 900 })
       await openSessionTool(page, copy.session.tools, 'monitoring')
       await expect(page.locator('.hbar-web-tool-outlet')).toBeVisible()
-      await showNavigation(page, locale)
-      await page.getByRole('button', { name: labels.titles['prompt-templates'], exact: true }).click()
+      await openComposerTemplates(page, copy.session.addMenu)
       await expect(page.locator('[data-global-page="prompt-templates"]')).toBeVisible()
       await expect(page.locator('.hbar-web-tool-outlet')).toHaveCount(0)
       // Switching global pages retains the original conversation return target.

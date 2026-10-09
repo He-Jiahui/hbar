@@ -575,6 +575,37 @@ function SessionWorkspaceContent({
   const [modelOpenRequest, setModelOpenRequest] = useState(0)
   const [slashOpenRequest, setSlashOpenRequest] = useState(0)
   const [slashFailure, setSlashFailure] = useState<{ sessionId: string; code: string; profileId?: string } | null>(null)
+  const [templateRouteError, setTemplateRouteError] = useState<{ sessionId: string; code: string } | null>(null)
+  const canOpenTemplates = Boolean(
+    connected &&
+    runtime.state.promptTemplates &&
+    sessionId &&
+    sessionWorkspaceId &&
+    activeConversationOwner &&
+    !workspaceMoveLocked &&
+    !firstSendLocked &&
+    !intentPending &&
+    draft?.status !== 'submitting' &&
+    draft?.status !== 'unknown',
+  )
+  const openTemplates = () => {
+    if (!canOpenTemplates || !sessionId || !sessionWorkspaceId) return
+    const targetSessionId = sessionId
+    setTemplateRouteError(null)
+    void runtime.commands
+      .execute('app.openPanel', {
+        panelId: 'prompt-templates',
+        workspaceId: sessionWorkspaceId,
+        sessionId: targetSessionId,
+        binding: 'pinned',
+      })
+      .catch((reason: unknown) =>
+        setTemplateRouteError({
+          sessionId: targetSessionId,
+          code: reason instanceof Error ? reason.message : String(reason),
+        }),
+      )
+  }
   const [workspaceContextFailure, setWorkspaceContextFailure] = useState<{ sessionId: string; message: string } | null>(
     null,
   )
@@ -2233,7 +2264,9 @@ function SessionWorkspaceContent({
                 ? labels.error(draft.error)
                 : composerModel.sessionId === sessionId && composerModel.action.status === 'unknown'
                   ? labels.modelPicker.unknown
-                  : visibleSlashFailure
+                  : templateRouteError?.sessionId === sessionId
+                    ? labels.error(templateRouteError.code)
+                    : visibleSlashFailure
           }
           controls={
             <LumenFrame className="hbar-session-composer-controls">
@@ -2244,6 +2277,7 @@ function SessionWorkspaceContent({
                 canOpenSlash={canOpenSlash}
                 onFiles={prepareAttachment ? addAttachments : undefined}
                 onOpenSlash={() => setSlashOpenRequest((request) => request + 1)}
+                templateAction={{ disabled: !canOpenTemplates, onChoose: openTemplates }}
                 goalSlotRef={intent === 'goal' ? undefined : setGoalMenuSlot}
                 triggerRef={composerGoalTrigger}
                 goalPreparedRequest={goalPreparedRequest}

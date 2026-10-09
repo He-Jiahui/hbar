@@ -1267,6 +1267,10 @@ function GlobalFeatureContent({
       <WorkspacePromptTemplatesPage
         locale={locale}
         {...(panel.workspaceId ? { workspaceId: panel.workspaceId } : {})}
+        {...(panel.sessionId ? { sessionId: panel.sessionId } : {})}
+        {...(typeof panel.params.preSessionDraftId === 'string'
+          ? { preSessionDraftId: panel.params.preSessionDraftId }
+          : {})}
       />
     )
   if (panel.panelId === 'onboarding')
@@ -1334,12 +1338,15 @@ function WorkspaceSchedulesPage({
 function WorkspacePromptTemplatesPage({
   locale,
   workspaceId,
+  sessionId,
+  preSessionDraftId,
 }: {
   readonly locale: ShellLocale
   readonly workspaceId?: string
+  readonly sessionId?: string
+  readonly preSessionDraftId?: string
 }) {
   const runtime = useHbarRuntime()
-  const navigation = useHbarRuntimeState(runtime.state.navigation)
   if (!workspaceId) return null
   return (
     <Suspense fallback={<LumenText role="status">{getShellCopy(locale).shell.loading}</LumenText>}>
@@ -1347,7 +1354,8 @@ function WorkspacePromptTemplatesPage({
         runtime={runtime}
         workspaceId={workspaceId}
         locale={locale}
-        {...(navigation.workspaceId === workspaceId && navigation.sessionId ? { sessionId: navigation.sessionId } : {})}
+        {...(sessionId ? { sessionId } : {})}
+        {...(preSessionDraftId ? { preSessionDraftId } : {})}
       />
     </Suspense>
   )

@@ -1730,6 +1730,11 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         '请在空白且可编辑的草稿中打开斜杠命令。',
         'Open slash commands from an empty, editable draft.',
       ),
+      templates: choose('提示词模板', 'Prompt templates'),
+      templatesUnavailable: choose(
+        '选择工程并连接服务端，待草稿可编辑后使用提示词模板。',
+        'Choose a project and connect to the Host, then use prompt templates when the draft is editable.',
+      ),
     },
     modelPicker: {
       title: choose('模型配置', 'Model configuration'),

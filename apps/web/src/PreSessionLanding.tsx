@@ -84,6 +84,7 @@ export function WebPreSessionLanding({
   const [openingProviders, setOpeningProviders] = useState(false)
   const [providerRouteError, setProviderRouteError] = useState<string | null>(null)
   const [slashRouteError, setSlashRouteError] = useState<string | null>(null)
+  const [templateRouteError, setTemplateRouteError] = useState<string | null>(null)
   const [slashOpenRequest, setSlashOpenRequest] = useState(0)
   const [modelOpenRequest, setModelOpenRequest] = useState(0)
   const [workspaceCursor, setWorkspaceCursor] = useState<string | null>(null)
@@ -124,6 +125,12 @@ export function WebPreSessionLanding({
         // eslint-disable-next-line react-hooks/exhaustive-deps
         if (mountLease.current !== lease) return
         if (runtime.state.presentation.getSnapshot().page.kind === 'settings') return
+        const page = runtime.state.presentation.getSnapshot().page
+        if (
+          page.kind === 'prompt-templates' &&
+          runtime.state.surfaces.getSnapshot().panels[page.instanceId]?.params.preSessionDraftId === draftId
+        )
+          return
         const firstSend = runtime.state.preSessionDrafts.getSnapshot()[draftId]
         if (firstSend?.sessionId && firstSend.phase !== 'accepted') return
         void settledWrites
@@ -716,6 +723,35 @@ export function WebPreSessionLanding({
         onFiles={prepareAttachment ? addAttachments : undefined}
         canOpenSlash={connected && Boolean(draft) && !busy && draft?.phase !== 'unknown'}
         onOpenSlash={() => setSlashOpenRequest((request) => request + 1)}
+        templateAction={{
+          disabled:
+            !connected || !runtime.state.promptTemplates || !draft?.workspaceId || busy || draft.phase === 'unknown',
+          onChoose: () => {
+            const workspaceId = draft?.workspaceId
+            if (!workspaceId) return
+            const presentation = runtime.state.presentation.getSnapshot()
+            const navigation = runtime.state.navigation.getSnapshot()
+            setTemplateRouteError(null)
+            void queue(async () => {
+              const current = runtime.state.preSessionDrafts.getSnapshot()[draftId]
+              if (
+                !alive.current ||
+                runtime.state.presentation.getSnapshot() !== presentation ||
+                runtime.state.navigation.getSnapshot() !== navigation ||
+                current?.workspaceId !== workspaceId
+              )
+                return
+              await runtime.commands.execute('app.openPanel', {
+                panelId: 'prompt-templates',
+                workspaceId,
+                binding: 'pinned',
+                params: { preSessionDraftId: draftId },
+              })
+            }).catch((reason: unknown) => {
+              if (alive.current) setTemplateRouteError(code(reason))
+            })
+          },
+        }}
         goalAction={{
           label: shell.session.intent.goalMenu,
           disabled: !connected || !draft || busy || draft.phase === 'unknown' || draft.intent === 'goal',
@@ -843,13 +879,15 @@ export function WebPreSessionLanding({
                 ? slashRouteError === 'ATTACHMENTS'
                   ? shell.session.slash.error('ATTACHMENTS')
                   : labels.slashActionFailed
-                : goalError
-                  ? labels.goalError(goalError)
-                  : openError
-                    ? labels.error(openError)
-                    : draft?.phase !== 'unknown' && draft?.error
-                      ? labels.error(draft.error)
-                      : undefined,
+                : templateRouteError
+                  ? labels.error(templateRouteError)
+                  : goalError
+                    ? labels.goalError(goalError)
+                    : openError
+                      ? labels.error(openError)
+                      : draft?.phase !== 'unknown' && draft?.error
+                        ? labels.error(draft.error)
+                        : undefined,
           context:
             preparedGoal ||
             modelGuidance ||

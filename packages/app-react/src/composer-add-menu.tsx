@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type RefObject } from 'react'
-import { Paperclip, Plus, Slash, Target } from 'lucide-react'
+import { FileText, Paperclip, Plus, Slash, Target } from 'lucide-react'
 import {
   LumenButton,
   LumenFloatingSurface,
@@ -19,9 +19,11 @@ export interface HbarComposerAddMenuLabels {
   readonly filesUnavailable: string
   readonly slash: string
   readonly slashUnavailable: string
+  readonly templates: string
+  readonly templatesUnavailable: string
 }
 
-/** A content-grown menu of at most three composer actions; the Goal slot stays mounted through async recovery. */
+/** Bounded composer actions; the Goal slot stays mounted through async recovery. */
 export function HbarComposerAddMenu({
   labels,
   canAddFiles,
@@ -29,6 +31,7 @@ export function HbarComposerAddMenu({
   onFiles,
   onOpenSlash,
   showSlash = true,
+  templateAction,
   goalAction,
   goalSlotRef,
   triggerRef,
@@ -41,6 +44,10 @@ export function HbarComposerAddMenu({
   readonly onFiles?: ((files: readonly File[]) => void) | undefined
   readonly onOpenSlash: () => void
   readonly showSlash?: boolean
+  readonly templateAction?: {
+    readonly disabled: boolean
+    readonly onChoose: () => void
+  }
   readonly goalAction?: {
     readonly label: string
     readonly disabled?: boolean
@@ -66,6 +73,7 @@ export function HbarComposerAddMenu({
   )
   const fileChoice = useRef<HTMLButtonElement>(null)
   const slashChoice = useRef<HTMLButtonElement>(null)
+  const templateChoice = useRef<HTMLButtonElement>(null)
   const goalChoice = useRef<HTMLButtonElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const consumedGoalPreparedRequest = useRef(goalPreparedRequest)
@@ -74,7 +82,14 @@ export function HbarComposerAddMenu({
     onOpen: () => setOpen(true),
     onClose: () => setOpen(false),
   })
-  const initialFocusRef = hasFiles && canAddFiles ? fileChoice : showSlash && canOpenSlash ? slashChoice : goalChoice
+  const initialFocusRef =
+    hasFiles && canAddFiles
+      ? fileChoice
+      : showSlash && canOpenSlash
+        ? slashChoice
+        : templateAction && !templateAction.disabled
+          ? templateChoice
+          : goalChoice
 
   useEffect(() => {
     if (goalPreparedRequest === consumedGoalPreparedRequest.current) return
@@ -123,6 +138,25 @@ export function HbarComposerAddMenu({
         >
           <LumenIcon icon={Slash} tier="sm" />
           {labels.slash}
+        </LumenButton>
+      )}
+      {templateAction && (
+        <LumenButton
+          ref={templateChoice}
+          type="button"
+          variant="text"
+          indicator="none"
+          className="hbar-composer-add-choice"
+          disabled={templateAction.disabled}
+          title={templateAction.disabled ? labels.templatesUnavailable : undefined}
+          aria-description={templateAction.disabled ? labels.templatesUnavailable : undefined}
+          onClick={() => {
+            setOpen(false)
+            templateAction.onChoose()
+          }}
+        >
+          <LumenIcon icon={FileText} tier="sm" />
+          {labels.templates}
         </LumenButton>
       )}
       {goalAction && (
@@ -176,7 +210,7 @@ export function HbarComposerAddMenu({
       <HbarActionIconButton
         ref={setTrigger}
         label={labels.open}
-        disabled={!canAddFiles && !(showSlash && canOpenSlash) && !hasGoal}
+        disabled={!canAddFiles && !(showSlash && canOpenSlash) && !hasGoal && !templateAction}
         aria-expanded={open}
         aria-controls={open ? id : undefined}
         aria-haspopup="dialog"

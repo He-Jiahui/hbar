@@ -26,6 +26,7 @@ export interface PromptTemplatesPageProps {
   readonly runtime: HbarRuntimeView
   readonly workspaceId: string
   readonly sessionId?: string
+  readonly preSessionDraftId?: string
   readonly locale: ShellLocale
 }
 type Target = { readonly kind: 'session' | 'pre-session'; readonly id: string }
@@ -44,13 +45,20 @@ export function validatePromptTemplateDraft(draft: PromptTemplateSaveInput, copy
 
 export function PromptTemplatesPage(props: PromptTemplatesPageProps) {
   const api = props.runtime.state.promptTemplates
-  return api ? <AvailablePromptTemplatesPage key={props.workspaceId} {...props} api={api} /> : null
+  return api ? (
+    <AvailablePromptTemplatesPage
+      key={`${props.workspaceId}:${props.sessionId ?? props.preSessionDraftId ?? ''}`}
+      {...props}
+      api={api}
+    />
+  ) : null
 }
 
 function AvailablePromptTemplatesPage({
   runtime,
   workspaceId,
   sessionId,
+  preSessionDraftId,
   locale,
   api,
 }: PromptTemplatesPageProps & {
@@ -73,7 +81,13 @@ function AvailablePromptTemplatesPage({
   }, [sessionTargets, workspaceId])
   useEffect(() => sessionTargets.retain(), [sessionTargets])
   const copy = useMemo(() => promptTemplateCopy(locale), [locale])
-  const [target, setTarget] = useState<Target | null>(sessionId ? { kind: 'session', id: sessionId } : null)
+  const [target, setTarget] = useState<Target | null>(
+    sessionId
+      ? { kind: 'session', id: sessionId }
+      : preSessionDraftId
+        ? { kind: 'pre-session', id: preSessionDraftId }
+        : null,
+  )
   const [mode, setMode] = useState<'append' | 'replace'>('append')
   const [values, setValues] = useState<Readonly<Record<string, string>>>({})
   const [message, setMessage] = useState<string | null>(null)

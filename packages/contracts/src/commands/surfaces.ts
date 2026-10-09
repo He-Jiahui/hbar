@@ -73,6 +73,7 @@ export const panelNavigationParamsSchema = z.strictObject({
   occurrenceId: idSchema.optional(),
   runId: idSchema.optional(),
   approvalId: idSchema.optional(),
+  preSessionDraftId: idSchema.optional(),
 })
 
 export const surfaceCommands = {
