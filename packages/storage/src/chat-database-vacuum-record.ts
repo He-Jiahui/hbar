@@ -32,7 +32,10 @@ export const chatDatabaseVacuumRecordSchema = z.strictObject({
   error: z.string().max(160).nullable(),
 })
 export type ChatDatabaseVacuumRecord = z.output<typeof chatDatabaseVacuumRecordSchema>
-export function createChatDatabaseVacuumRecords(sessionsRoot: string) {
+export function createChatDatabaseVacuumRecords(
+  sessionsRoot: string,
+  publication: { rename?: (source: string, target: string) => void } = {},
+) {
   const root = join(sessionsRoot, '.maintenance', 'database-maintenance')
   const path = (id: string, suffix = '.json') => {
     chatDatabaseVacuumRecordSchema.shape.operationId.parse(id)
@@ -60,7 +63,25 @@ export function createChatDatabaseVacuumRecords(sessionsRoot: string) {
     } finally {
       closeSync(descriptor)
     }
-    renameSync(temporary, target)
+    // On Windows a simultaneous short-lived receipt reader can deny replacement.
+    // Keep the fsynced original and pending file intact, and retry only sharing errors.
+    const waiter = new Int32Array(new SharedArrayBuffer(4))
+    for (let attempt = 0; ; attempt++) {
+      verifyResourcePathSync(sessionsRoot, target, true)
+      try {
+        const replace = publication.rename ?? renameSync
+        replace(temporary, target)
+        break
+      } catch (reason) {
+        const sharingError =
+          process.platform === 'win32' &&
+          reason instanceof Error &&
+          'code' in reason &&
+          ['EPERM', 'EACCES', 'EBUSY'].includes(String(reason.code))
+        if (!sharingError || attempt >= 9) throw reason
+        Atomics.wait(waiter, 0, 0, 10)
+      }
+    }
     if (process.platform !== 'win32') {
       const directory = openSync(root, 'r')
       try {
