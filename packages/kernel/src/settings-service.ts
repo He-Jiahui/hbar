@@ -54,6 +54,21 @@ export const HBAR_SETTINGS_DESCRIPTION: SettingsDescription = freeze(
       { id: 'chatDatabase', labelKey: 'i18n:settings.groups.chatDatabase', order: 38 },
     ],
     fields: [
+      ...(['web', 'file'] as const).map((kind) => ({
+        path: path(`client.resource${kind === 'web' ? 'Web' : 'File'}OpenMode`),
+        type: 'string' as const,
+        nullable: false,
+        defaultValue: 'internal',
+        choices: ['internal', 'system'],
+        allowedScopes: ['global' as const],
+        applyMode: 'immediate' as const,
+        labelKey: `i18n:settings.client.resource${kind === 'web' ? 'Web' : 'File'}OpenMode.label`,
+        helpKey: 'i18n:settings.client.resourceOpenMode.help',
+        group: 'general',
+        order: kind === 'web' ? 20 : 30,
+        component: 'PopupSelect',
+        multiple: false,
+      })),
       {
         path: path('client.chatSendBehavior'),
         type: 'string',

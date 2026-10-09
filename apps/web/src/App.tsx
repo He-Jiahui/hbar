@@ -853,7 +853,7 @@ function WorkspaceBodyContent({
               />
             )
           if (groupId === 'general' && language)
-            return (
+            return { content: (<>
               <WebGeneralSettings
                 labels={copy.general}
                 language={language}
@@ -862,7 +862,8 @@ function WorkspaceBodyContent({
                 nativeZoom={nativeDesktop}
                 connected={connected}
               />
-            )
+              {context.renderFields(['f:client.resourceWebOpenMode', 'f:client.resourceFileOpenMode'])}
+            </>), saveArea: context.saveArea }
           if (groupId === 'appearance')
             return (
               <WebAppearanceSettings

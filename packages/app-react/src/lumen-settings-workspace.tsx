@@ -103,6 +103,7 @@ export interface HbarSettingsGroupContext {
   readonly scope: SettingsSnapshot['scope'] | null
   readonly entry: SettingsFormEntry | undefined
   readonly form: ReactNode
+  readonly renderFields: (names: readonly string[]) => ReactNode
   readonly saveArea: ReactNode
 }
 export interface HbarSettingsGroupContent {
@@ -400,7 +401,7 @@ export function HbarSettingsWorkspace({
     )
   }
 
-  const formContent =
+  const renderFields = (names: readonly string[]) =>
     entry?.schema && entry.form ? (
       <SettingsRecipe
         slots={{
@@ -419,7 +420,7 @@ export function HbarSettingsWorkspace({
               }}
               content={entry.content}
               disabled={busy || unknown || !connected}
-              fieldNames={fieldNames}
+              fieldNames={names}
               layout={layout.fields}
               renderFieldContext={fieldContext}
               renderFieldActions={fieldActions}
@@ -457,7 +458,8 @@ export function HbarSettingsWorkspace({
         instanceId: settingsPanel?.instanceId ?? null,
         scope: entry?.scope ?? null,
         entry,
-        form: formContent,
+        form: renderFields(fieldNames),
+        renderFields,
         saveArea,
       })
     : null
@@ -579,7 +581,7 @@ export function HbarSettingsWorkspace({
               )}
               <LumenFrame className="hbar-app-react-settings-scroll">
                 <LumenFrame className="hbar-app-react-settings-content">
-                  {suspendedCustomGroup ?? formContent}
+                  {suspendedCustomGroup ?? renderFields(fieldNames)}
                 </LumenFrame>
               </LumenFrame>
               {renderedContent ? renderedContent.saveArea : !customGroup ? saveArea : null}

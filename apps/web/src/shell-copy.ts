@@ -78,6 +78,8 @@ function settingsChoiceLabel(locale: ShellLocale, value: unknown): string {
     locale === 'zh-CN'
       ? { ask: '逐次询问', deny: '拒绝需审批工具', sandbox: '沙盒配置', allow: '自动批准' }
       : { ask: 'Ask', deny: 'Deny approval requests', sandbox: 'Sandbox profile', allow: 'Auto-approve' }
+  if (value === 'internal') return locale === 'zh-CN' ? '内置' : 'Built-in'
+  if (value === 'system') return locale === 'zh-CN' ? '系统默认' : 'System default'
   return approval[String(value)] ?? thinkingLevelLabel(locale, value)
 }
 
@@ -548,6 +550,9 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
     ? {
         'i18n:settings.groups.model': '模型',
         'i18n:settings.groups.general': '通用',
+        'i18n:settings.client.resourceWebOpenMode.label': '网页默认打开方式',
+        'i18n:settings.client.resourceFileOpenMode.label': '文件默认打开方式',
+        'i18n:settings.client.resourceOpenMode.help': '右键可以单次选择打开方式，图片点击后在内置查看器中显示。',
         'i18n:settings.groups.session': '会话默认值',
         'i18n:settings.groups.providers': '供应商',
         'i18n:settings.groups.extensions': '插件',
@@ -572,6 +577,9 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
     : {
         'i18n:settings.groups.model': 'Model',
         'i18n:settings.groups.general': 'General',
+        'i18n:settings.client.resourceWebOpenMode.label': 'Default website opening',
+        'i18n:settings.client.resourceFileOpenMode.label': 'Default file opening',
+        'i18n:settings.client.resourceOpenMode.help': 'Right-click to override once. Images load in the built-in viewer after clicking.',
         'i18n:settings.groups.session': 'Session defaults',
         'i18n:settings.groups.providers': 'Providers',
         'i18n:settings.groups.extensions': 'Plugins',
