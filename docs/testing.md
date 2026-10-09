@@ -93,6 +93,18 @@ Provider，不能冒充真实文件读取。`e2e/file-markdown-reading.spec.ts` 
 
 Storage Worker 的退出、错误、无回复与关闭握手故障由 `tests/storage-lifecycle.test.ts` 验证。普通 RPC 默认 30 秒回复期限，关闭握手默认 5 秒；超时使当前 Storage 终止其自有 Worker，不重放写操作，并明确报告结果可能未知。真实残留测试进程与文件锁的排查边界见 [Storage Worker 生命周期](storage-worker-lifecycle.md)。单个 Bun 测试的 `--timeout` 不应被当作整个外部启动器／进程树已回收的证明；验收后还需核对 owned 进程退出。
 
+### 聊天数据库
+
+聊天数据库的统计、规则、调度、资源保护及恢复边界见[聊天数据库设置](chat-database.md)。
+`e2e/chat-database-settings.spec.ts` 在真实临时 Host 上验证英文桌面和中文窄屏的保存、继承、
+分页、实际清理、VACUUM 及丢失受理响应核对；`chat-database-drafts.spec.ts` 验证两个窗口
+的独立持久附件引用、关闭与重载；`chat-database-deletion.spec.ts` 验证在线与漏通知重连、
+侧栏与搜索同步、草稿编辑及附件移除、焦点和 320px 溢出。
+
+这些场景不使用商业模型或用户数据。维护后的搜索与新消息、删除阶段崩溃、SQLite 重建、
+上传和引用竞争、缓存重定向等由独立 `chat-database-*.test.ts` 覆盖。定向验证通过不能替代
+仓库级 lint、typecheck、基础测试及构建的实际结果。
+
 ## 性能基准
 
 Goal、Agent Plan、双预算、自主续跑和异常恢复的语义与当前验收边界见 [Session 自主执行](session-autonomy.md)。其中严格区分确定性测试、真实模型实验、预算停止和未通过的仓库级门禁。
