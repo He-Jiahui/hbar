@@ -12,6 +12,8 @@ export type { ChatDatabaseArtifactReferenceService } from './chat-database-artif
 export type { ChatDatabaseMaintenanceService, ChatDatabaseCleanupDomainPort } from './chat-database-maintenance'
 export { createChatDatabaseResourceService } from './chat-database-resources'
 export type { ChatDatabaseResourcePort, ChatDatabaseResourceRequest } from './chat-database-resources'
+export { createChatDatabaseDatabaseService } from './chat-database-database'
+export type { ChatDatabaseDatabasePort } from './chat-database-database'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import {
@@ -2737,6 +2739,20 @@ export class Kernel {
     if (this.active.size || this.drains.size || this.admissions || this.maintenance || this.chatDatabaseWrites || this.closing)
       throw new HbarError('BUSY', 'Wait for active and queued runs to settle')
   }
+  chatDatabaseIsIdle(): boolean {
+    return !this.active.size && !this.drains.size && !this.admissions && !this.maintenance && !this.chatDatabaseWrites && !this.closing
+  }
+  async maintainChatDatabase<Value>(action: () => Promise<Value>): Promise<Value> {
+    this.assertIdle()
+    this.maintenance = true
+    try {
+      if ((await this.storage.call('queuedSessions')).length) throw new HbarError('BUSY', 'Queued chats prevent database maintenance')
+      return await action()
+    } finally {
+      this.maintenance = false
+      for (const sessionId of this.wakeups) this.kick(sessionId)
+    }
+  }
   chatDatabaseSessionProtection(sessionId: string): ChatDatabaseSkipReason | null {
     if (this.active.has(sessionId) || this.drains.has(sessionId)) return 'active'
     if ([...this.userInputs.values()].some(({ request }) => request.sessionId === sessionId)) return 'userInput'
@@ -2776,7 +2792,10 @@ export class Kernel {
       }
       this.maintenance = true
       try { return await this.storage.call('chatDatabaseResourceRemove', { ...input, protectedRoots: this.plugins.protectedResourceRoots() }) }
-      finally { this.maintenance = false }
+      finally {
+        this.maintenance = false
+        for (const sessionId of this.wakeups) this.kick(sessionId)
+      }
     }
     if (this.maintenance || this.closing) return { deleted: false, reason: 'inUse', reclaimedBytes: 0 }
     this.chatDatabaseWrites++

@@ -270,6 +270,8 @@ export interface StoredSettings {
 }
 
 export interface StorageMethods {
+  chatDatabaseMaintenanceBegin(operationId: string): void
+  chatDatabaseMaintenanceEnd(operationId: string): void
   chatDatabaseUsageBackfill: ReturnType<typeof createChatDatabaseProjection>['backfill']
   chatDatabaseUsage: ReturnType<typeof createChatDatabaseProjection>['usage']
   chatDatabaseArtifactPage: ReturnType<typeof createChatDatabaseProjection>['artifactPage']

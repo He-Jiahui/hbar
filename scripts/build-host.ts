@@ -15,6 +15,7 @@ await mkdir(output, { recursive: true })
 for (const [entry, name] of [
   ['apps/host/src/main.ts', 'host.js'],
   ['packages/storage/src/worker.ts', 'storage-worker.js'],
+  ['packages/storage/src/maintenance-worker.ts', 'maintenance-worker.js'],
 ] as const) {
   await buildHostBundle(entry, name, output)
 }

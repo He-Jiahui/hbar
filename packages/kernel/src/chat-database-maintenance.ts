@@ -20,6 +20,7 @@ import type { SettingsService } from './settings-service'
 import type { ChatDatabaseStatisticsService } from './chat-database-statistics'
 import { resolveChatDatabasePolicy } from './chat-database-policy'
 import type { ChatDatabaseResourcePort } from './chat-database-resources'
+import type { ChatDatabaseDatabasePort } from './chat-database-database'
 
 export interface ChatDatabaseCleanupDomainPort {
   protection(sessionId: string): ChatDatabaseSkipReason | null
@@ -85,6 +86,7 @@ export function createChatDatabaseMaintenanceService(
   statistics: ChatDatabaseStatisticsService,
   domain: ChatDatabaseCleanupDomainPort,
   resources?: ChatDatabaseResourcePort,
+  database?: ChatDatabaseDatabasePort,
 ) {
   let closed = false
   let current: { id: string; controller: AbortController; task: Promise<void> } | null = null
@@ -169,12 +171,112 @@ export function createChatDatabaseMaintenanceService(
       expiresAt: Date.now() + CHAT_DATABASE_PREVIEW_TTL_MS,
     })
   }
+  async function databasePreview(start: ChatDatabaseOperation, signal: AbortSignal): Promise<void> {
+    if (!database || start.scope.kind !== 'global')
+      throw new HbarError('UNSUPPORTED_OPERATION', 'Database maintenance requires its global worker')
+    await storage.call('chatDatabasePreviewReset', start.operationId)
+    await storage.call('chatDatabaseOperationUpdate', start.operationId, { status: 'running', stage: 'scanning' })
+    const report = await statistics.readComplete({ kind: 'global' }, signal)
+    const item = await database.preview(report)
+    if (await cancelled(start.operationId, signal)) {
+      await finishCancelled(start.operationId)
+      return
+    }
+    await storage.call('chatDatabasePreviewAppend', start.operationId, [item])
+    await storage.call('chatDatabaseOperationUpdate', start.operationId, {
+      status: 'completed',
+      stage: 'finished',
+      completedAt: Date.now(),
+      expiresAt: Date.now() + CHAT_DATABASE_PREVIEW_TTL_MS,
+      policyRevisions: report.policyRevisions,
+      candidateCount: Number(item.eligible),
+      totalCount: 1,
+      processedCount: 1,
+      estimatedBytes: item.eligible ? item.estimatedBytes : 0,
+      skipped: item.skipReason ? [{ code: item.skipReason, count: 1 }] : [],
+    })
+  }
+  async function databaseCleanup(state: ChatDatabaseOperation, signal: AbortSignal): Promise<void> {
+    if (!database || !state.previewId)
+      throw new HbarError('UNSUPPORTED_OPERATION', 'Database maintenance worker is missing')
+    const page = await storage.call('chatDatabasePreviewPage', { previewId: state.previewId, limit: 1 })
+    const item = page.items[0]
+    if (!item) throw new HbarError('INVALID_STATE', 'Database maintenance lacks a fixed target')
+    if (!item.eligible) {
+      await storage.call('chatDatabaseOperationUpdate', state.operationId, {
+        status: 'completed',
+        stage: 'finished',
+        processedCount: 1,
+        skipped: item.skipReason ? [{ code: item.skipReason, count: 1 }] : [],
+        completedAt: Date.now(),
+      })
+      return
+    }
+    if (await cancelled(state.operationId, signal)) {
+      await finishCancelled(state.operationId)
+      return
+    }
+    if (!sameRevisions((await savedPolicy(state)).revisions, state.policyRevisions))
+      throw new HbarError('POLICY_CHANGED', 'Database maintenance rules changed')
+    await storage.call('chatDatabaseOperationUpdate', state.operationId, { status: 'running', stage: 'checkpoint' })
+    try {
+      const receipt = await database.run(state.operationId, item, signal)
+      await storage.call('chatDatabaseOperationUpdate', state.operationId, {
+        status: receipt.status,
+        stage: 'finished',
+        processedCount: 1,
+        deletedCount: Number(receipt.didVacuum),
+        reclaimedBytes: receipt.reclaimedBytes,
+        cancellationRequested: receipt.cancellationRequested,
+        completedAt: receipt.status === 'unknown' ? null : Date.now(),
+        error: receipt.error,
+      })
+    } catch (reason) {
+      if (!(reason instanceof HbarError && reason.code === 'BUSY')) throw reason
+      await storage.call('chatDatabaseOperationUpdate', state.operationId, {
+        status: 'completed',
+        stage: 'finished',
+        processedCount: 1,
+        skipped: [{ code: 'inUse', count: 1 }],
+        completedAt: Date.now(),
+      })
+    }
+    await statistics.get({ kind: 'global' }, true)
+  }
+  function overlay(state: ChatDatabaseOperation): ChatDatabaseOperation {
+    if (
+      state.kind !== 'database' ||
+      state.type !== 'cleanup' ||
+      ['completed', 'cancelled', 'failed'].includes(state.status)
+    )
+      return state
+    const receipt = database?.progress(state.operationId)
+    if (!receipt) return state
+    const active = database?.isRunning(state.operationId)
+    return {
+      ...state,
+      stage: active
+        ? receipt.stage === 'verifying' || receipt.stage === 'finished'
+          ? 'vacuum'
+          : receipt.stage
+        : 'finished',
+      status: active ? (receipt.cancellationRequested ? 'cancelRequested' : 'running') : receipt.status,
+      cancellationRequested: receipt.cancellationRequested,
+      reclaimedBytes: receipt.reclaimedBytes,
+      processedCount: active ? state.processedCount : 1,
+      deletedCount: active ? state.deletedCount : Number(receipt.didVacuum),
+      completedAt: !active && receipt.status !== 'unknown' ? receipt.updatedAt : state.completedAt,
+      updatedAt: Math.max(state.updatedAt, receipt.updatedAt),
+      error: receipt.error,
+    }
+  }
   async function preview(id: string, signal: AbortSignal): Promise<void> {
     const start = await storage.call('chatDatabaseOperationRead', id)
     if (await cancelled(id, signal)) {
       await finishCancelled(id)
       return
     }
+    if (start.kind === 'database') return databasePreview(start, signal)
     if (start.kind !== 'sessions') return resourcePreview(start, signal)
     await storage.call('chatDatabasePreviewReset', id)
     const policy = await settings.get(start.scope)
@@ -258,6 +360,7 @@ export function createChatDatabaseMaintenanceService(
   }
   async function cleanup(id: string, signal: AbortSignal): Promise<void> {
     let state = await storage.call('chatDatabaseOperationRead', id)
+    if (state.kind === 'database') return databaseCleanup(state, signal)
     if (!state.previewId) throw new HbarError('INVALID_STATE', 'Cleanup requires a fixed preview')
     const previewId = state.previewId
     const fixed = await storage.call('chatDatabaseOperationRead', previewId)
@@ -369,6 +472,10 @@ export function createChatDatabaseMaintenanceService(
     )
       .catch(async (reason: unknown) => {
         const latest = await storage.call('chatDatabaseOperationRead', state.operationId)
+        if (['completed', 'cancelled', 'failed'].includes(latest.status)) {
+          console.error('Chat database post-operation refresh failed', reason)
+          return
+        }
         if (!closed && state.type === 'preview' && latest.cancellationRequested) {
           await finishCancelled(state.operationId)
           return
@@ -395,7 +502,7 @@ export function createChatDatabaseMaintenanceService(
     async preview(input: ChatDatabasePreviewInput, identity: WriteIdentity): Promise<ChatDatabaseOperation> {
       await ready
       if (closed) throw new HbarError('DISPOSED', 'Chat database maintenance is closed')
-      if (input.kind !== 'sessions' && !resources?.supports(input.kind))
+      if (input.kind !== 'sessions' && !(input.kind === 'database' && database) && !resources?.supports(input.kind))
         throw new HbarError('UNSUPPORTED_OPERATION', 'Resource cleanup is not installed')
       if ((input.kind === 'cache' || input.kind === 'database') && input.scope.kind !== 'global')
         throw new HbarError('INVALID_SCOPE', 'Shared resource maintenance requires global scope')
@@ -436,12 +543,22 @@ export function createChatDatabaseMaintenanceService(
       if (accepted.created) launch(accepted.operation)
       return accepted.operation
     },
-    read: (id: string) => storage.call('chatDatabaseOperationRead', id),
+    read: (id: string) => storage.call('chatDatabaseOperationRead', id).then(overlay),
     page: (input: { previewId: string; after?: number | null; limit?: number }) =>
       storage.call('chatDatabasePreviewPage', input).then(({ positions: _positions, ...page }) => page),
     receipt: (identity: WriteIdentity) =>
-      storage.call('chatDatabaseOperationReceipt', identity.actorId, identity.idempotencyKey),
+      storage
+        .call('chatDatabaseOperationReceipt', identity.actorId, identity.idempotencyKey)
+        .then((state) => (state ? overlay(state) : null)),
     async cancel(id: string, identity: WriteIdentity) {
+      if (database?.isRunning(id)) {
+        database.cancel(id, identity)
+        return {
+          ...overlay(await storage.call('chatDatabaseOperationRead', id)),
+          status: 'cancelRequested' as const,
+          cancellationRequested: true,
+        }
+      }
       const result = await storage.call('chatDatabaseOperationCancel', id, identity)
       if (current?.id === id && result.type === 'preview')
         current.controller.abort(new HbarError('CANCELLED', 'Preview cancellation requested'))
@@ -454,12 +571,14 @@ export function createChatDatabaseMaintenanceService(
       launch(result)
       return result
     },
-    history: (input: ChatDatabaseHistoryInput) => storage.call('chatDatabaseHistory', input),
+    history: (input: ChatDatabaseHistoryInput) =>
+      storage.call('chatDatabaseHistory', input).then((page) => ({ ...page, items: page.items.map(overlay) })),
     async close(): Promise<void> {
       closed = true
       await ready
       current?.controller.abort(new HbarError('DISPOSED', 'Chat database maintenance is closing'))
       await current?.task
+      await database?.close()
     },
   }
 }

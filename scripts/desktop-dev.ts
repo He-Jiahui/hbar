@@ -111,6 +111,7 @@ export async function runDesktopDev(args: readonly string[] = []): Promise<numbe
     HBAR_DEV_INSTANCE_ID: crypto.randomUUID(),
     // Source workers must not pick up an installed app's bundled worker override.
     HBAR_STORAGE_WORKER: resolve(project, 'packages/storage/src/worker.ts'),
+    HBAR_MAINTENANCE_WORKER: resolve(project, 'packages/storage/src/maintenance-worker.ts'),
     WEBVIEW2_USER_DATA_FOLDER: process.env.WEBVIEW2_USER_DATA_FOLDER ?? resolve(home, 'cache/webview-dev'),
   }
   const children: Bun.Subprocess[] = []

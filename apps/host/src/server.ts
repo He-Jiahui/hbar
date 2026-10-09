@@ -31,6 +31,7 @@ import {
   createChatDatabaseMaintenanceService,
   createChatDatabaseArtifactReferenceService,
   createChatDatabaseResourceService,
+  createChatDatabaseDatabaseService,
   createUsageCommands,
   createWorkflowCommands,
   createScheduleCommands,
@@ -277,11 +278,15 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     protectedRoots: () => kernel.plugins.protectedResourceRoots(),
     remove: (input) => kernel.removeChatDatabaseResource(input),
   })
+  const chatDatabaseDatabase = createChatDatabaseDatabaseService(kernel.storage, kernel.options.layout, {
+    idle: () => kernel.chatDatabaseIsIdle(),
+    maintain: (action) => kernel.maintainChatDatabase(action),
+  })
   const chatDatabaseMaintenance = createChatDatabaseMaintenanceService(kernel.storage, settingsService, chatDatabaseStatistics, {
     protection: (id) => kernel.chatDatabaseSessionProtection(id),
     removeSession: (input) => kernel.removeChatDatabaseSession(input),
     deleted: (ids, revision) => kernel.notifyChatDatabaseDeleted(ids, revision),
-  }, chatDatabaseResources)
+  }, chatDatabaseResources, chatDatabaseDatabase)
   const chatDatabaseCommands = createChatDatabaseCommands(chatDatabaseStatistics, chatDatabaseMaintenance, chatDatabaseArtifactReferences)
   const usageCommands = createUsageCommands(
     new UsageService({ read: (input) => kernel.storage.call('usageEvents', input) }),

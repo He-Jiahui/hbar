@@ -940,6 +940,7 @@ fn launch(app: &tauri::AppHandle) -> Result<(Connection, PathBuf), Box<dyn std::
         .arg("--cache-root")
         .arg(&cache_root)
         .env("HBAR_STORAGE_WORKER", resources.join("storage-worker.js"))
+        .env("HBAR_MAINTENANCE_WORKER", resources.join("maintenance-worker.js"))
         .env("HBAR_WEB_ROOT", resources.join("web"))
         .stdin(Stdio::null())
         .stdout(log.try_clone()?)

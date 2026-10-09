@@ -85,6 +85,32 @@ test('paired Host commands reclaim only known cache bytes and preserve an attach
       eligible: false,
       skipReason: 'referenced',
     })
+    const db = new Database(kernel.options.layout.database, { strict: true })
+    db.exec(
+      'CREATE TABLE host_vacuum_fixture(data BLOB); INSERT INTO host_vacuum_fixture VALUES(randomblob(2097152)); PRAGMA wal_checkpoint(TRUNCATE); DELETE FROM host_vacuum_fixture; PRAGMA wal_checkpoint(TRUNCATE);',
+    )
+    db.close()
+    const databasePreview = await settled(
+      await commands.execute(
+        'chatDatabase.preview',
+        { scope: { kind: 'global' }, kind: 'database' },
+        { idempotencyKey: 'database-preview' },
+      ),
+    )
+    expect(databasePreview).toMatchObject({ status: 'completed', candidateCount: 1 })
+    const databaseCleanup = await settled(
+      await commands.execute(
+        'chatDatabase.cleanup',
+        { previewId: databasePreview.operationId },
+        { idempotencyKey: 'database-cleanup' },
+      ),
+    )
+    expect(databaseCleanup).toMatchObject({ status: 'completed', processedCount: 1, deletedCount: 1 })
+    expect(databaseCleanup.reclaimedBytes).toBeGreaterThan(1024 * 1024)
+    expect(await commands.execute('chatDatabase.receipt', { idempotencyKey: 'database-cleanup' })).toMatchObject({
+      operationId: databaseCleanup.operationId,
+      status: 'completed',
+    })
   } finally {
     client?.disconnect()
     await host?.close()

@@ -45,7 +45,7 @@
     "build": "vite build --config apps/web/vite.config.ts",
     "build:desktop-web": "bun run build && bun scripts/sync-desktop-web.ts",
     "native:build": "bun scripts/build-native-tools.ts",
-    "build:cli": "bun run native:build && bun build --compile apps/cli/src/main.ts packages/storage/src/worker.ts --outfile dist/hbar.exe --external @aws-sdk/client-s3 --external chromium-bidi/lib/cjs/bidiMapper/BidiMapper --external chromium-bidi/lib/cjs/cdp/CdpConnection",
+    "build:cli": "bun run native:build && bun build --compile apps/cli/src/main.ts packages/storage/src/worker.ts packages/storage/src/maintenance-worker.ts --outfile dist/hbar.exe --external @aws-sdk/client-s3 --external chromium-bidi/lib/cjs/bidiMapper/BidiMapper --external chromium-bidi/lib/cjs/cdp/CdpConnection",
     "typecheck": "node --stack-size=8192 node_modules/typescript/bin/tsc --noEmit",
     "lint": "bun scripts/lint.ts",
     "check:docs": "bun scripts/check-doc-links.ts",

@@ -113,6 +113,8 @@ const artifactsRoot = options.artifacts ?? join(dirname(options.path), 'artifact
 const cacheRoot = options.cache ?? join(dirname(options.path), 'cache')
 const logWriter = new SessionLogWriter(sessionsRoot)
 const runSteering = new RunSteeringRegistry()
+let databaseMaintenanceOwner: string | null = null
+const databaseMaintenanceReads = new Set<string>(['ready', 'deviceByHash', 'devices', 'chatDatabaseOperationRead', 'chatDatabaseOperationReceipt', 'chatDatabasePreviewPage', 'chatDatabaseHistory', 'chatDatabaseResourceReceipt', 'chatDatabaseMaintenanceEnd', 'close'])
 const db = new Database(options.path, { create: true, strict: true })
 // Configure this connection's bounded wait before WAL recovery/configuration can contend with another opener.
 db.exec('PRAGMA busy_timeout=5000;')
@@ -1041,6 +1043,17 @@ function appendEvent(
   return event
 }
 const methods: StorageMethods = {
+  chatDatabaseMaintenanceBegin(operationId) {
+    if (databaseMaintenanceOwner) throw new HbarError('BUSY', 'Database maintenance is already active')
+    // VACUUM can renumber messages. Discovery restarts without deleting stable-ID FTS documents or queues.
+    db.query('UPDATE session_search_progress SET lastMessageRowid=0 WHERE id=1').run()
+    db.clearQueryCache()
+    databaseMaintenanceOwner = operationId
+  },
+  chatDatabaseMaintenanceEnd(operationId) {
+    if (databaseMaintenanceOwner !== operationId) throw new HbarError('COMMAND_CONFLICT', 'Database maintenance owner changed')
+    databaseMaintenanceOwner = null
+  },
   chatDatabaseDraftSync: chatDatabaseArtifacts.sync,
   chatDatabaseDraftList: chatDatabaseArtifacts.list,
   chatDatabaseInventoryBegin: chatDatabaseArtifacts.begin,
@@ -2908,9 +2921,11 @@ parentPort!.on('message', ({ id, method, args }: StorageCall) => {
   const draftVersion = chatDatabaseArtifacts.writeVersion()
   const logVersion = eventLogWriteVersion
   try {
+    if (databaseMaintenanceOwner && !databaseMaintenanceReads.has(method)) throw new HbarError('BUSY', 'Chat database is in global maintenance')
     if (!Object.hasOwn(methods, method)) throw new Error('Unknown storage operation')
     const fn = methods[method] as (...args: unknown[]) => unknown
     reply = { id, ok: true, result: fn(...args) }
+    if (databaseMaintenanceOwner && method !== 'close') db.clearQueryCache()
   } catch (error) {
     if (draftVersion !== chatDatabaseArtifacts.writeVersion()) chatDatabaseArtifacts.invalidateDraftJournal()
     if (logVersion !== eventLogWriteVersion) db.exec('UPDATE chat_database_event_reference_health SET complete=0 WHERE id=1')

@@ -36,6 +36,7 @@ export type ChatDatabaseOperationPatch = Partial<
     | 'remainingBytes'
     | 'skipped'
     | 'error'
+    | 'cancellationRequested'
   >
 >
 export interface ChatDatabaseCandidateCursor {
@@ -126,6 +127,7 @@ export function createChatDatabaseJournal(db: Database) {
         return save({
           ...current,
           ...patch,
+          cancellationRequested: current.cancellationRequested || Boolean(patch.cancellationRequested),
           status:
             current.cancellationRequested && patch.status === 'running'
               ? 'cancelRequested'
