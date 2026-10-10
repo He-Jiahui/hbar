@@ -567,11 +567,14 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     }
     const encoded = JSON.stringify(value)
     const bytes = new TextEncoder().encode(encoded).byteLength
+    const accepted = socket.send(encoded)
+    // Bun returns zero for a dropped frame and -1 for an accepted queued frame.
+    // Count accepted bytes; this is not an acknowledgement from the Client.
+    if (accepted === 0) return 0
     requestDiagnostics.frame('out', bytes, {
       instanceId: kernel.instanceId,
       connectionId: socket.data.connectionId,
     })
-    socket.send(encoded)
     return bytes
   }
   broadcastFresh = (event) => {

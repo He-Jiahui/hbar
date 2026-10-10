@@ -9,6 +9,7 @@ import { createHostRequestDiagnostics } from '../apps/host/src/request-diagnosti
 import { HbarClient } from '@hbar/client'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { startServer } from '../apps/host/src/server'
+import { Storage, type StorageMethods, type StoragePort, resolvePathLayout } from '@hbar/storage'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { mkdtemp, realpath, rm } from 'node:fs/promises'
@@ -123,6 +124,114 @@ test('real local Host and Client WebSocket records success, failure and sink iso
     const owned = await realpath(root)
     expect(dirname(owned)).toBe(temporary)
     expect(basename(owned).startsWith('hbar-host-diagnostics-')).toBe(true)
+    await rm(owned, { recursive: true, force: true })
+  }
+})
+
+test('real RPC late disconnect executes a gated workspace storage delegate once and skips the reply', async () => {
+  const events: DiagnosticEvent[] = []
+  const root = await mkdtemp(join(tmpdir(), 'hbar-host-late-disconnect-'))
+  let storageCalls = 0
+  let gateEnabled = false
+  let enteredResolve: () => void = () => undefined
+  const entered = new Promise<void>((resolve) => {
+    enteredResolve = resolve
+  })
+  let release: () => void = () => undefined
+  const held = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const kernel = await Kernel.create({
+    home: join(root, 'data'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+    profile: {
+      async createStorage(home): Promise<StoragePort> {
+        const layout = await resolvePathLayout({ home })
+        const delegate = new Storage(layout.database, layout)
+        return {
+          call<K extends keyof StorageMethods>(method: K, ...args: Parameters<StorageMethods[K]>) {
+            if (!gateEnabled || method !== 'workspacePage') return delegate.call(method, ...args)
+            storageCalls++
+            enteredResolve()
+            return held.then(() => delegate.call(method, ...args))
+          },
+          close: () => delegate.close(),
+          onFatal: (listener) => delegate.onFatal(listener),
+        }
+      },
+    },
+  })
+  const host = await startServer(kernel, { port: 0, diagnosticSink: sink(events), diagnosticSampleRate: 1 })
+  const device = await host.auth.createDevice('late disconnect fixture')
+  const client = new HbarClient(`http://127.0.0.1:${host.server.port}`, device.token)
+  try {
+    await client.connect()
+    const connectedDeadline = Date.now() + 2_000
+    while (host.server.pendingWebSockets !== 1 && Date.now() < connectedDeadline)
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(host.server.pendingWebSockets).toBe(1)
+    gateEnabled = true
+    const request = client.call('workspace.list', { limit: 60 }).then(
+      () => ({ failed: false }),
+      () => ({ failed: true }),
+    )
+    const enteredDeadline = Date.now() + 2_000
+    while (storageCalls === 0 && Date.now() < enteredDeadline) await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(storageCalls).toBe(1)
+    await entered
+    client.disconnect()
+    const closedDeadline = Date.now() + 2_000
+    while (host.server.pendingWebSockets !== 0 && Date.now() < closedDeadline)
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(host.server.pendingWebSockets).toBe(0)
+    release()
+    expect(await request).toEqual({ failed: true })
+    expect(storageCalls).toBe(1)
+    const replyDeadline = Date.now() + 2_000
+    while (
+      !events.some(
+        (event) =>
+          event.event === 'rpc.reply_skipped' &&
+          event.method === 'workspace.list' &&
+          event.errorCode === 'REPLY_NOT_DELIVERED',
+      ) &&
+      Date.now() < replyDeadline
+    )
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    const skipped = events.find(
+      (event) =>
+        event.event === 'rpc.reply_skipped' &&
+        event.method === 'workspace.list' &&
+        event.errorCode === 'REPLY_NOT_DELIVERED',
+    )
+    const rpcId = skipped?.rpcId
+    expect(rpcId).toBeDefined()
+    expect(
+      events.filter(
+        (event) =>
+          event.event === 'rpc.reply_skipped' &&
+          event.method === 'workspace.list' &&
+          event.rpcId === rpcId &&
+          event.errorCode === 'REPLY_NOT_DELIVERED',
+      ),
+    ).toHaveLength(1)
+    expect(events.filter((event) => event.event === 'rpc.completed' && event.method === 'workspace.list')).toHaveLength(
+      0,
+    )
+  } finally {
+    client.disconnect()
+    release()
+    try {
+      await host.close()
+    } finally {
+      await kernel.close()
+    }
+    const temporary = await realpath(tmpdir())
+    const owned = await realpath(root)
+    expect(dirname(owned)).toBe(temporary)
+    expect(basename(owned).startsWith('hbar-host-late-disconnect-')).toBe(true)
     await rm(owned, { recursive: true, force: true })
   }
 })
