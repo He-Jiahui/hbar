@@ -98,6 +98,41 @@ export const diagnosticEventSchema = z.strictObject({
     .max(2 ** 53 - 1)
     .optional(),
   queueDepth: z.number().int().nonnegative().max(1_000_000).optional(),
+  startedStepCount: z.number().int().nonnegative().max(1_000_000).optional(),
+  completedStepCount: z.number().int().nonnegative().max(1_000_000).optional(),
+  hardStepLimit: z.number().int().positive().max(1_000_000).optional(),
+  continuationIntentId: z.string().min(1).max(160).optional(),
+  continuationGoalId: z.string().min(1).max(160).optional(),
+  continuationPhase: z.enum(['pending', 'queued', 'running', 'waiting', 'stopped']).optional(),
+  continuationReason: z
+    .enum([
+      'goal_active',
+      'model_unavailable',
+      'workflow_wait',
+      'plan_mode',
+      'budget_exhausted',
+      'paused',
+      'complete',
+      'blocked',
+      'usage_limited',
+      'no_tool_calls',
+      'no_progress',
+      'continuation_limit',
+      'disabled',
+      'interrupted',
+      'result_unknown',
+      'stale_goal',
+      'user_turn',
+      'run_failed',
+      'repair',
+      'repair_exhausted',
+      'retry_wait',
+      'retry_exhausted',
+    ])
+    .optional(),
+  continuationTriggerKind: z
+    .enum(['step_limit', 'run_completed', 'retry', 'revalidate', 'startup', 'manual', 'unknown'])
+    .optional(),
   inputEstimatedTokens: z
     .number()
     .int()

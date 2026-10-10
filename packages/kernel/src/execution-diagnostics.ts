@@ -12,6 +12,12 @@ export interface KernelRunDiagnosticIdentity extends DiagnosticCorrelation {
   readonly callId?: string | undefined
 }
 
+export interface KernelRunSettlementFacts {
+  readonly startedStepCount?: number | undefined
+  readonly completedStepCount?: number | undefined
+  readonly hardStepLimit?: number | undefined
+}
+
 export interface KernelModelDiagnosticIdentity extends KernelRunDiagnosticIdentity {
   readonly method?: string | undefined
   readonly providerId?: string | undefined
@@ -29,6 +35,38 @@ export interface KernelModelDiagnosticIdentity extends KernelRunDiagnosticIdenti
   readonly chunkIndex?: number | undefined
   readonly chunkCount?: number | undefined
   readonly thresholdRatio?: number | undefined
+}
+
+export interface KernelContinuationDiagnostic {
+  readonly sessionId: string
+  readonly runId?: string | undefined
+  readonly goalId?: string | undefined
+  readonly intentId?: string | undefined
+  readonly phase: 'pending' | 'queued' | 'running' | 'waiting' | 'stopped'
+  readonly reason:
+    | 'goal_active'
+    | 'model_unavailable'
+    | 'workflow_wait'
+    | 'plan_mode'
+    | 'budget_exhausted'
+    | 'paused'
+    | 'complete'
+    | 'blocked'
+    | 'usage_limited'
+    | 'no_tool_calls'
+    | 'no_progress'
+    | 'continuation_limit'
+    | 'disabled'
+    | 'interrupted'
+    | 'result_unknown'
+    | 'stale_goal'
+    | 'user_turn'
+    | 'run_failed'
+    | 'repair'
+    | 'repair_exhausted'
+    | 'retry_wait'
+    | 'retry_exhausted'
+  readonly triggerKind: 'step_limit' | 'run_completed' | 'retry' | 'revalidate' | 'startup' | 'manual' | 'unknown'
 }
 
 /**
@@ -110,37 +148,75 @@ export class KernelExecutionDiagnostics {
     durationMs: number,
     errorCode?: string,
     phase?: string,
+    facts?: KernelRunSettlementFacts,
   ): void {
     this.emit('run.settled', outcome === 'success' ? 'info' : 'error', identity, {
       outcome,
       durationMs: boundedDuration(durationMs),
       ...(safeErrorCode(errorCode) ? { errorCode: safeErrorCode(errorCode) } : {}),
       ...(phase && safeMethod(phase) ? { phase } : {}),
+      ...safeStepFacts(facts),
     })
   }
 
-  runFailure(identity: KernelRunDiagnosticIdentity, errorCode?: string, durationMs?: number, phase?: string): void {
+  runFailure(
+    identity: KernelRunDiagnosticIdentity,
+    errorCode?: string,
+    durationMs?: number,
+    phase?: string,
+    facts?: KernelRunSettlementFacts,
+  ): void {
     this.emit('run.failed', 'error', identity, {
       outcome: 'failure',
       ...(safeErrorCode(errorCode) ? { errorCode: safeErrorCode(errorCode) } : {}),
       ...(durationMs === undefined ? {} : { durationMs: boundedDuration(durationMs) }),
       ...(phase && safeMethod(phase) ? { phase } : {}),
+      ...safeStepFacts(facts),
     })
   }
 
-  runCancelled(identity: KernelRunDiagnosticIdentity, durationMs?: number): void {
+  continuationUpdated(value: KernelContinuationDiagnostic): void {
+    const fields: Record<string, unknown> = {
+      outcome: 'success',
+      continuationPhase: value.phase,
+      continuationReason: value.reason,
+      continuationTriggerKind: value.triggerKind,
+    }
+    if (value.goalId) fields.continuationGoalId = safeIdentifier(value.goalId)
+    if (value.intentId) fields.continuationIntentId = safeIdentifier(value.intentId)
+    this.emit(
+      'goal.continuation',
+      'info',
+      {
+        sessionId: value.sessionId,
+        ...(value.runId ? { runId: value.runId } : {}),
+      },
+      {
+        ...fields,
+      },
+    )
+  }
+
+  runCancelled(identity: KernelRunDiagnosticIdentity, durationMs?: number, facts?: KernelRunSettlementFacts): void {
     this.emit('run.cancelled', 'warn', identity, {
       outcome: 'skipped',
       errorCode: 'USER_CANCELLED',
       ...(durationMs === undefined ? {} : { durationMs: boundedDuration(durationMs) }),
+      ...safeStepFacts(facts),
     })
   }
 
-  runInterrupted(identity: KernelRunDiagnosticIdentity, errorCode = 'HOST_SHUTTING_DOWN', durationMs?: number): void {
+  runInterrupted(
+    identity: KernelRunDiagnosticIdentity,
+    errorCode = 'HOST_SHUTTING_DOWN',
+    durationMs?: number,
+    facts?: KernelRunSettlementFacts,
+  ): void {
     this.emit('run.interrupted', 'warn', identity, {
       outcome: 'unknown',
       ...(safeErrorCode(errorCode) ? { errorCode: safeErrorCode(errorCode) } : {}),
       ...(durationMs === undefined ? {} : { durationMs: boundedDuration(durationMs) }),
+      ...safeStepFacts(facts),
     })
   }
 
@@ -401,6 +477,26 @@ function compactionFields(fields: Record<string, unknown>): Record<string, unkno
 function safeMethod(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
   return /^[A-Za-z][A-Za-z0-9_.-]{0,127}$/.test(value) ? value : undefined
+}
+
+function safeStepFacts(facts: KernelRunSettlementFacts | undefined): Record<string, number> {
+  if (!facts) return {}
+  try {
+    const result: Record<string, number> = {}
+    for (const key of ['startedStepCount', 'completedStepCount', 'hardStepLimit'] as const) {
+      const value = facts[key]
+      if (
+        value !== undefined &&
+        Number.isSafeInteger(value) &&
+        value >= (key === 'hardStepLimit' ? 1 : 0) &&
+        value <= 1_000_000
+      )
+        result[key] = value
+    }
+    return result
+  } catch {
+    return {}
+  }
 }
 
 function safeErrorCode(value: string | undefined): string | undefined {

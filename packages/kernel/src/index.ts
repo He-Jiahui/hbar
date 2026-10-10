@@ -84,7 +84,7 @@ import type {
   DiagnosticScopePort,
 } from '@hbar/contracts'
 import { createKernelExecutionDiagnostics } from './execution-diagnostics'
-import type { KernelExecutionDiagnostics } from './execution-diagnostics'
+import type { KernelContinuationDiagnostic, KernelExecutionDiagnostics } from './execution-diagnostics'
 import { definePlugin, prependModelInstructions, provide, resolveToolTimeoutMs, RunControlSignal } from '@hbar/plugin-sdk'
 import type {
   CompactionProvider,
@@ -470,6 +470,7 @@ type ApprovalResolution =
 
 export class Kernel {
   private readonly executionDiagnostics: KernelExecutionDiagnostics
+  private readonly continuationDiagnosticKeys = new Map<string, string>()
   private readonly toolExecutions = new ToolExecutions()
   readonly directoryQueries: ReturnType<typeof createDirectoryQueries>
   readonly storage: StoragePort
@@ -647,6 +648,44 @@ export class Kernel {
           if (ids.has(approval.runId) && approval.status === 'pending')
             await this.resolveApproval(approval.id, 'cancelled')
       }
+    })
+    this.subscribe((event) => {
+      if (event.method === 'goal.cleared') {
+        this.continuationDiagnosticKeys.delete(event.params.sessionId)
+        return
+      }
+      if (event.method !== 'goal.updated' || !event.params.goal.continuation) return
+      const continuation = event.params.goal.continuation
+      const triggerKind = continuation.trigger.startsWith('step-limit:')
+        ? 'step_limit'
+        : continuation.trigger.startsWith('retry:')
+          ? 'retry'
+          : continuation.trigger.startsWith('revalidate:')
+            ? 'revalidate'
+            : continuation.trigger.startsWith('startup:')
+              ? 'startup'
+              : continuation.trigger === event.params.runId
+                ? 'run_completed'
+                : 'unknown'
+      const key = `${event.params.sessionId}:${continuation.intentId}:${continuation.phase}:${continuation.reason}:${triggerKind}`
+      if (this.continuationDiagnosticKeys.get(event.params.sessionId) === key) return
+      if (
+        this.continuationDiagnosticKeys.size >= 1_024 &&
+        !this.continuationDiagnosticKeys.has(event.params.sessionId)
+      ) {
+        const oldest = this.continuationDiagnosticKeys.keys().next().value
+        if (typeof oldest === 'string') this.continuationDiagnosticKeys.delete(oldest)
+      }
+      this.continuationDiagnosticKeys.set(event.params.sessionId, key)
+      this.executionDiagnostics.continuationUpdated({
+        sessionId: event.params.sessionId,
+        ...(event.params.runId ? { runId: event.params.runId } : {}),
+        ...(event.params.goal.goalId ? { goalId: event.params.goal.goalId } : {}),
+        intentId: continuation.intentId,
+        phase: continuation.phase,
+        reason: continuation.reason,
+        triggerKind,
+      } satisfies KernelContinuationDiagnostic)
     })
   }
 
@@ -1678,6 +1717,11 @@ export class Kernel {
         let status: Run['status'] = 'completed',
           failure: string | undefined,
           failureDetails: RunFailure | undefined
+        // Model-turn counts are based on durable step events, not tool calls.
+        let startedStepCount = 0
+        let completedStepCount = 0
+        const startedStepIds = new Set<string>()
+        const completedStepIds = new Set<string>()
         const modelStartedAt = new Map<string, number>()
         let branchExecutionPath: string | null = null
         let branchTargetRevision: number | null = null
@@ -1826,12 +1870,21 @@ export class Kernel {
                 truncated,
               }
             },
-            emit: (type, data, stepId) => {
+            emit: async (type, data, stepId) => {
               if (type === 'message.committed')
                 return Promise.reject(
                   new HbarError('RESERVED_EVENT', 'Drivers must commit canonical messages through commit'),
                 )
-              return this.append(sessionId, type, data, run.id, stepId)
+              const event = await this.append(sessionId, type, data, run.id, stepId)
+              if (type === 'step.started' && stepId && !startedStepIds.has(stepId) && startedStepCount < 1_000_000) {
+                startedStepIds.add(stepId)
+                startedStepCount += 1
+              }
+              if (type === 'step.ended' && stepId && !completedStepIds.has(stepId) && completedStepCount < 1_000_000) {
+                completedStepIds.add(stepId)
+                completedStepCount += 1
+              }
+              return event
             },
             commit: async (role, blocks, messageId, providerData) => {
               if (supportsSteering && role === 'user')
@@ -2096,12 +2149,16 @@ export class Kernel {
           const settledEvent = await this.storage.call('setRun', run.id, status, failure, failureDetails)
           const durationMs = Math.max(0, performance.now() - runDiagnosticStartedAt)
           if (status === 'cancelled')
-            this.executionDiagnostics.runCancelled({ sessionId, runId: run.id, requestId: run.requestId }, durationMs)
+            this.executionDiagnostics.runCancelled({ sessionId, runId: run.id, requestId: run.requestId }, durationMs, {
+              startedStepCount,
+              completedStepCount,
+            })
           else if (status === 'interrupted')
             this.executionDiagnostics.runInterrupted(
               { sessionId, runId: run.id, requestId: run.requestId },
               failureDetails?.code,
               durationMs,
+              { startedStepCount, completedStepCount },
             )
           else
             this.executionDiagnostics.runSettled(
@@ -2110,6 +2167,11 @@ export class Kernel {
               durationMs,
               failureDetails?.code,
               failureDetails?.code === RUN_STEP_LIMIT_CODE ? 'step_limit' : undefined,
+              {
+                startedStepCount,
+                completedStepCount,
+                ...(failureDetails?.code === RUN_STEP_LIMIT_CODE ? { hardStepLimit: 64 } : {}),
+              },
             )
           if (branchExecutionPath !== null && branchTargetRevision !== null) {
             const observedPath = branchExecutionPath
@@ -3438,6 +3500,7 @@ export class Kernel {
   }
   async close() {
     this.closing = true
+    this.continuationDiagnosticKeys.clear()
     this.removeStorageFatalListener?.()
     this.removeStorageFatalListener = undefined
     for (const timer of this.summaryTimers.values()) clearTimeout(timer)
