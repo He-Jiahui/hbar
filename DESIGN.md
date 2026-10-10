@@ -74,4 +74,6 @@ Lumen 现状、差距与实施边界见 [Lumen 视觉设计评审](docs/lumen-de
 
 `@lumen/app-ui` 拥有视觉原语和通用组合，`@hbar/app-react` 接入业务 ViewModel，Web 宿主提供类型化文案和数据。公共能力包括页面标题与操作组、紧凑记录、指标行、自适应工具栏和浮层；业务页面使用这些组件，Markdown、编辑器、图表等专用渲染器保留内部 DOM。
 
+容量变化只迁移同一个已经挂载的操作控件。支持时使用浏览器的 `Element.moveBefore` 保留焦点、浮层和动画；相同父容器不重复移动。关闭浮层通过公共 `focusLumenControl` 恢复原控件，包括进入“更多”的控件。侧栏布局恢复使用内部初始化命令；用户主动选择之后，迟到的初始化及快捷键响应不能覆盖选择。
+
 设计实施与实际检查结果见 [全界面评估和验收](docs/ui-visual-upgrade.md)；组件库规则见 [Lumen DESIGN.md](hbar-ui/packages/lumen-app-ui/DESIGN.md)。
