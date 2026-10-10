@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rename, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createRuntimeSkillCatalog, rankSkills, SKILL_LIMITS } from '@hbar/kernel/skills'
@@ -166,4 +166,16 @@ test('resource samples bound both file count and total path text without losing 
   expect(resources.files.reduce((total, path) => total + path.length, 0)).toBeLessThanOrEqual(
     SKILL_LIMITS.resourcePathCharacters,
   )
+})
+
+test('a directory replaced after loading cannot enumerate outside resources through the saved locator', async () => {
+  const { root, workspace, global, catalog } = await fixture()
+  const directory = await skill(global, 'swapped', 'Directory identity check')
+  const loaded = await catalog.read(workspace, { name: 'swapped', path: 'SKILL.md' })
+  const outside = join(root, 'outside')
+  await mkdir(outside)
+  await writeFile(join(outside, 'private.md'), 'Outside data')
+  await rename(directory, `${directory}-before-swap`)
+  await symlink(outside, directory, process.platform === 'win32' ? 'junction' : 'dir')
+  await expect(catalog.resources(loaded.skill.directory)).rejects.toMatchObject({ code: 'FORBIDDEN' })
 })

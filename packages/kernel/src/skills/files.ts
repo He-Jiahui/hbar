@@ -76,6 +76,8 @@ export async function readSkillText(
     if (info.isSymbolicLink()) throw new HbarError('FORBIDDEN', 'Skill resource links are not readable')
   }
   const canonicalDirectory = await realpath(directory)
+  if (canonicalDirectory !== resolve(directory) || (await lstat(directory)).isSymbolicLink())
+    throw new HbarError('FORBIDDEN', 'Skill directory changed after discovery')
   if (!withinSkillRoot(canonicalDirectory, await realpath(target)))
     throw new HbarError('FORBIDDEN', 'Skill resource escaped its directory')
   const before = await lstat(target)
@@ -149,7 +151,11 @@ export async function skillResourceFiles(directory: string, signal?: AbortSignal
       truncated = true
       return
     }
+    if ((await canonicalSkillRoot(path, directory)) !== resolve(path))
+      throw new HbarError('FORBIDDEN', 'Skill resource directory changed after discovery')
     const entries = await skillDirectoryEntries(path, SKILL_LIMITS.entries - scanned, signal)
+    if ((await canonicalSkillRoot(path, directory)) !== resolve(path))
+      throw new HbarError('FORBIDDEN', 'Skill resource directory changed while scanning')
     scanned += entries.length
     for (const entry of entries) {
       if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.isSymbolicLink()) continue
