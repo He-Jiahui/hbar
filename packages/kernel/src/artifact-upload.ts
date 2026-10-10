@@ -45,28 +45,35 @@ export async function writeArtifactAtomically(root: string, id: string, bytes: U
   }
   const validExisting = async (): Promise<boolean> => {
     await verifyRoot()
-    try {
-      const info = await lstat(target)
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      let info: Awaited<ReturnType<typeof lstat>>
+      try {
+        info = await lstat(target)
+      } catch (reason) {
+        if (codeIs(reason, 'ENOENT')) return false
+        throw reason
+      }
       if (!info.isFile() || info.isSymbolicLink())
         throw new HbarError('PATH_REDIRECTED', 'Attachment path is redirected')
       if (info.size !== bytes.length) return false
       const existing = await open(target, 'r')
+      let replaced: boolean
       try {
         const opened = await existing.stat()
-        if (opened.dev !== info.dev || opened.ino !== info.ino)
-          throw new HbarError('PATH_REDIRECTED', 'Attachment path changed during upload')
-        return (
-          createHash('sha256')
-            .update(await existing.readFile())
-            .digest('hex') === id
-        )
+        replaced = opened.dev !== info.dev || opened.ino !== info.ino
+        if (!replaced) {
+          return (
+            createHash('sha256')
+              .update(await existing.readFile())
+              .digest('hex') === id
+          )
+        }
       } finally {
         await existing.close()
       }
-    } catch (reason) {
-      if (codeIs(reason, 'ENOENT')) return false
-      throw reason
+      if (replaced) await verifyRoot()
     }
+    throw new HbarError('PATH_REDIRECTED', 'Attachment path changed during upload')
   }
   if (await validExisting()) return
   const temporary = join(root, `.upload-${id}-${crypto.randomUUID()}.pending`)
@@ -88,8 +95,13 @@ export async function writeArtifactAtomically(root: string, id: string, bytes: U
       if (!codeIs(reason, 'EEXIST')) throw reason
       if (!(await validExisting())) {
         await verifyRoot()
-        await rename(temporary, target)
-        created = false
+        try {
+          await rename(temporary, target)
+          created = false
+        } catch (reason) {
+          if (!codeIs(reason, 'EPERM') && !codeIs(reason, 'EACCES')) throw reason
+          if (!(await validExisting())) throw reason
+        }
       }
     }
   } finally {
