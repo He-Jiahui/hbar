@@ -72,7 +72,8 @@ import { HbarComposerGoal, HbarComposerIntentControls, type HbarComposerIntentLa
 import { HbarSessionUsageControl, sessionUsagePresentation, type HbarSessionUsageLabels } from './session-usage-control'
 import { HbarHistoricalPlanMessage, HbarProposedPlanMessage } from './proposed-plan-message'
 import { HbarComposerPermissionPicker, type HbarComposerPermissionLabels } from './composer-permission-picker'
-import { currentSessionRun, type HbarSessionRunLabels } from './session-run-activity'
+import { HbarSessionRunActivity, currentSessionRun, type HbarSessionRunLabels } from './session-run-activity'
+import { sessionRunFailures } from './session-run-failure-model'
 import { HbarSessionLiveStatus, type HbarSessionLiveStatusLabels } from './session-live-status'
 import { HbarQueuedUserRuns, type HbarQueuedUserRunsLabels } from './queued-user-runs'
 import { HbarSessionToolsMenu, type HbarSessionToolsMenuLabels } from './session-tools-menu'
@@ -1716,9 +1717,34 @@ function SessionWorkspaceContent({
   )
 
   const activity: ReactNode =
-    decisionProjection.fallback.length > 0 ? (
+    decisionProjection.fallback.length > 0 || sessionRunFailures(timeline.runs, sessionId).length > 0 ? (
       <LumenFrame className="hbar-app-react-session-activity">
         {decisionProjection.fallback.map(renderDecision)}
+        <HbarSessionRunActivity
+          key={sessionId}
+          runs={sessionRunFailures(timeline.runs, sessionId).map((run) => ({
+            id: run.id,
+            label: labels.timestamp(run.createdAt),
+            status: run.status,
+            detail: run.error ?? labels.runDetail(run.modelId),
+            duration: labels.runDuration(run.startedAt ?? run.createdAt, run.endedAt),
+          }))}
+          labels={labels.runs}
+          canRetryNewRun={
+            connected &&
+            activeConversationOwner &&
+            canPrepare &&
+            !firstSendLocked &&
+            !workspaceMoveLocked
+          }
+          retryingRunIds={sessionRunFailures(timeline.runs, sessionId)
+            .filter((run) => runActions[run.id]?.status === 'submitting')
+            .map((run) => run.id)}
+          onRetryRun={(operationId) => {
+            if (!sessionId) return
+            void execute('run.retry', { sessionId, operationId }).catch(() => undefined)
+          }}
+        />
       </LumenFrame>
     ) : null
 
