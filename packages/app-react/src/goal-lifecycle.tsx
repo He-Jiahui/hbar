@@ -46,11 +46,16 @@ function GoalReplacementObjectives({
       const key = `${fragment.from}:${index}`
       if (fragment.kind === 'omitted')
         return (
-          <span key={key} className="hbar-goal-diff-omission" title={labels.omitted}>
+          <LumenText as="span" key={key} className="hbar-goal-diff-omission" title={labels.omitted}>
             {labels.omission}
-          </span>
+          </LumenText>
         )
-      if (fragment.kind === 'unchanged' || !fragment.text) return <span key={key}>{fragment.text}</span>
+      if (fragment.kind === 'unchanged' || !fragment.text)
+        return (
+          <LumenText as="span" key={key}>
+            {fragment.text}
+          </LumenText>
+        )
       return before ? (
         <del key={key} title={labels.removed}>
           {fragment.text}
@@ -66,9 +71,11 @@ function GoalReplacementObjectives({
       <LumenFrame id={id} className="hbar-goal-replacement-objectives">
         <LumenFrame className="hbar-goal-diff-side">
           <LumenText as="p" className="hbar-goal-diff-label">
-            <span>{labels.previousObjective}</span>
+            <LumenText as="span">{labels.previousObjective}</LumenText>
             {difference.previous.some((fragment) => fragment.kind === 'changed' && fragment.text) && (
-              <span className="hbar-goal-diff-removed-label">{labels.removed}</span>
+              <LumenText as="span" className="hbar-goal-diff-removed-label">
+                {labels.removed}
+              </LumenText>
             )}
           </LumenText>
           <LumenText as="p" className="hbar-goal-diff-objective">
@@ -77,9 +84,11 @@ function GoalReplacementObjectives({
         </LumenFrame>
         <LumenFrame className="hbar-goal-diff-side">
           <LumenText as="p" className="hbar-goal-diff-label">
-            <span>{labels.nextObjective}</span>
+            <LumenText as="span">{labels.nextObjective}</LumenText>
             {difference.current.some((fragment) => fragment.kind === 'changed' && fragment.text) && (
-              <span className="hbar-goal-diff-added-label">{labels.added}</span>
+              <LumenText as="span" className="hbar-goal-diff-added-label">
+                {labels.added}
+              </LumenText>
             )}
           </LumenText>
           <LumenText as="p" className="hbar-goal-diff-objective">
