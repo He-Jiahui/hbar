@@ -232,6 +232,11 @@ export class RuntimeCoordinator {
     const lease = this.runs.get(runId)
     return lease ? executionOwnershipSchema.parse(lease) : null
   }
+  canIdle(owner: RuntimeOwner, sessionId: string): boolean {
+    const record = this.record(owner)
+    return record.descriptor.kind === 'kernel' && record.role === 'default' && !record.exited &&
+      !this.sessions.has(sessionId) && !this.claiming.has(sessionId) && !this.blocked.has(sessionId)
+  }
 
   async releaseExecution(lease: ExecutionOwnership): Promise<void> {
     this.assertExecution(lease)
@@ -361,8 +366,7 @@ export class RuntimeCoordinator {
   }
 
   acquireResource(owner: RuntimeOwner, key: string, execution?: ExecutionOwnership): RuntimeResourceLease | null {
-    this.assertCanWrite(owner)
-    if (execution) this.assertExecution(execution)
+    this.assertCanWrite(owner, execution)
     if (!key || key.length > 4_000) throw new HbarError('INVALID_INPUT', 'Runtime resource key is invalid')
     if (this.resourceKeys.has(key)) return null
     if (this.resources.size >= 4_096)

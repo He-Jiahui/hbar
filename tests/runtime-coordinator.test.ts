@@ -107,6 +107,18 @@ test('a shared writer failure revokes every active Session without making the he
   expect((await f.claim('a', 'new-a')).owner).toEqual(f.kernel)
 })
 
+test('a bound plugin may own execution resources but another serving capability cannot borrow that Run authority', async () => {
+  const f = fixture()
+  const lease = await f.claim()
+  const resource = f.coordinator.acquireResource(f.plugin, 'browser:owned', lease)
+  expect(resource?.executionLeaseId).toBe(lease.leaseId)
+  const unrelated = owner('unrelated')
+  f.register(unrelated, 'plugin')
+  expect(() => f.coordinator.acquireResource(unrelated, 'browser:foreign', lease)).toThrow('not bound to this Run')
+  if (!resource) throw new Error('Expected a bound resource')
+  f.coordinator.releaseResource(f.plugin, resource.id)
+})
+
 test('existing Runs retain all dependency versions and Session handoff waits for the old executor', async () => {
   const f = fixture()
   const existing = await f.claim()

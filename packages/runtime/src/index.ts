@@ -16,6 +16,7 @@ export {
 } from './coordinator'
 export { ManagedProcess, type ManagedProcessOptions } from './process'
 export { runtimeDomainError } from './errors'
+export { RuntimeCoordinatorClient, registerRuntimeCoordinatorPort, RUNTIME_COORDINATION_CONTROL_METHODS, type RuntimeCoordinatorPortOptions } from './coordinator-port'
 export {
   type RuntimeProcessContext,
   type RuntimeProcessModule,

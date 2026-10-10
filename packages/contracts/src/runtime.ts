@@ -38,6 +38,12 @@ export const executionOwnershipSchema = z.strictObject({
   versions: runtimeVersionSetSchema,
 })
 export type ExecutionOwnership = z.infer<typeof executionOwnershipSchema>
+export const runtimeToolPermitSchema = z.strictObject({
+  id: opaqueId, leaseId: opaqueId, callId: opaqueId, owner: runtimeOwnerSchema,
+})
+export const runtimeResourceLeaseSchema = z.strictObject({
+  id: opaqueId, key: z.string().min(1).max(4_000), owner: runtimeOwnerSchema, executionLeaseId: opaqueId.nullable(),
+})
 
 export const runRecoverySchema = z.strictObject({
   recoveryId: opaqueId,
