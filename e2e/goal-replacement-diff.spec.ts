@@ -107,7 +107,12 @@ test('the Goal editor hands off a pending Run and exposes its before/after recor
   const context = await browser.newContext({ locale: 'zh-CN' })
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 45488) })
+    host = await startWebSessionHost({
+      root,
+      port: Number(process.env.HBAR_E2E_HOST_PORT ?? 45488),
+      goalAutoContinue: false,
+      budgetAutoContinue: false,
+    })
     const target = host
     const { sessionId } = host.ready
     const goals = createGoalPlanCommandClient(host.client)

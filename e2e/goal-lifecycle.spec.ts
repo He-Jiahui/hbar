@@ -59,18 +59,19 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(cards.nth(3)).toContainText(objective)
       await expect(cards.nth(6)).toContainText('Second objective')
       await expect(cards.first()).not.toContainText('Current third Goal')
-      await expect(page.locator('.hbar-session-current-goal .hbar-composer-goal-strip')).toContainText(
-        'Current third Goal',
+      const currentGoalStrip = page.locator(
+        '.hbar-app-react-session-footer .hbar-session-live-status-goal .hbar-composer-goal-strip',
       )
-      await expect(page.locator('.hbar-app-react-session-footer .hbar-composer-goal-strip')).toHaveCount(0)
+      await expect(currentGoalStrip).toContainText('Current third Goal')
+      await expect(page.locator('.hbar-composer-goal-strip')).toHaveCount(1)
       await expect(page.locator('.hbar-app-react-session-empty-hero')).toHaveCount(0)
-      const headerPosition = await page.locator('.hbar-session-current-goal').evaluate((node) => {
-        const header = node.previousElementSibling?.getBoundingClientRect()
-        const strip = node.getBoundingClientRect()
-        const timeline = document.querySelector('.hbar-app-react-session-main')?.getBoundingClientRect()
-        return Boolean(header && timeline && header.bottom <= strip.top + 1 && strip.bottom <= timeline.top + 1)
+      const statusPosition = await page.locator('.hbar-app-react-session-footer').evaluate((footer) => {
+        const status = footer.querySelector('.hbar-session-live-status')?.getBoundingClientRect()
+        const strip = footer.querySelector('.hbar-session-live-status-goal')?.getBoundingClientRect()
+        const prompt = footer.querySelector('.lumen-prompt-composer-surface')?.getBoundingClientRect()
+        return Boolean(status && strip && prompt && status.top <= strip.top + 1 && strip.bottom <= prompt.top + 1)
       })
-      expect(headerPosition).toBe(true)
+      expect(statusPosition).toBe(true)
       const heading = cards.first().locator('.hbar-goal-lifecycle-heading')
       await heading.focus()
       await heading.press('Enter')
