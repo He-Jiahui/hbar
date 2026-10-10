@@ -555,21 +555,28 @@ function sessionRow(row: Row | null): Session {
 function sessionSummary(id: string): SessionSummary {
   const session = sessionRow(db.query('SELECT * FROM sessions WHERE id=?').get(id) as Row | null)
   const active = db
-    .query("SELECT * FROM runs WHERE sessionId=? AND status IN ('running','waiting_approval','queued') ORDER BY CASE status WHEN 'waiting_approval' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END, createdAt DESC LIMIT 1")
+    .query(
+      "SELECT * FROM runs WHERE sessionId=? AND status IN ('running','waiting_approval','queued') ORDER BY CASE status WHEN 'waiting_approval' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END, createdAt DESC LIMIT 1",
+    )
     .get(id) as Row | null
   const latest = db.query('SELECT * FROM runs WHERE sessionId=? ORDER BY createdAt DESC LIMIT 1').get(id) as Row | null
   const run = active ? runRow(active) : latest ? runRow(latest) : null
+  // Project only the fields needed for the activity label. Event payloads can
+  // contain multi-megabyte tool results or model output; avoid materializing
+  // and parsing those large payloads when computing a label.
   const activeEvents = active
-    ? (db.query('SELECT type,data FROM events WHERE sessionId=? AND runId=? ORDER BY seq DESC LIMIT 64').all(id, String(active.id)) as Array<{ type: string; data: string }>)
+    ? (db
+        .query(
+          "SELECT type, json_extract(data, '$.role') AS role, json_extract(data, '$.name') AS name FROM events WHERE sessionId=? AND runId=? ORDER BY seq DESC LIMIT 64",
+        )
+        .all(id, String(active.id)) as Array<{ type: string; role?: unknown; name?: unknown }>)
     : []
   const hasEvent = (type: string) => activeEvents.some((event) => event.type === type)
   const hasGoalEvent = activeEvents.some((event) => event.type.startsWith('goal.'))
   const latestTool = activeEvents.find((event) => event.type === 'tool.started')
-  const latestToolData = latestTool ? (parseJson(latestTool.data) as { name?: unknown }) : null
   const hasAssistantOutput = activeEvents.some((event) => {
     if (event.type !== 'message.committed') return false
-    const data = parseJson(event.data) as { role?: unknown }
-    return data.role === 'assistant'
+    return event.role === 'assistant'
   })
   const activity: SessionSummary['activity'] = active
     ? run?.status === 'waiting_approval'
@@ -583,9 +590,9 @@ function sessionSummary(id: string): SessionSummary {
             : hasEvent('plan.updated')
               ? 'plan'
               : latestTool
-                ? typeof latestToolData?.name === 'string' && /read|file/i.test(latestToolData.name)
-                ? 'reading'
-                : 'tool'
+                ? typeof latestTool.name === 'string' && /read|file/i.test(latestTool.name)
+                  ? 'reading'
+                  : 'tool'
                 : 'thinking'
     : run?.status === 'failed' || run?.status === 'interrupted'
       ? 'failed'
