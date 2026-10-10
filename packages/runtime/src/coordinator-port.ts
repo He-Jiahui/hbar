@@ -15,6 +15,7 @@ export const RUNTIME_COORDINATION_CONTROL_METHODS = [
 export interface RuntimeCoordinatorPortOptions {
   readonly owner: RuntimeOwner
   readonly bindings: (owner: RuntimeOwner) => RuntimeVersionSet
+  readonly canAdmit?: () => boolean
   readonly admitted?: (execution: ExecutionOwnership) => void
   readonly released?: (execution: ExecutionOwnership) => void | Promise<void>
   readonly stopped?: (owner: RuntimeOwner, runId: string) => void | Promise<void>
@@ -32,11 +33,13 @@ export function registerRuntimeCoordinatorPort(peer: IpcPeer, coordinator: Runti
   const disposers = [
     peer.register('execution.claim', procedure(claimSchema, executionOwnershipSchema.nullable(), async input => {
       if (coordinator.role(owner) === 'draining') return null
+      if (coordinator.role(owner) === 'default' && options.canAdmit && !options.canAdmit()) return null
       const lease = await coordinator.claim(owner, input.sessionId, input.runId, options.bindings(owner))
       if (lease) options.admitted?.(lease)
       return lease
     })),
-    peer.register('execution.canIdle', procedure(z.strictObject({ sessionId: id }), z.boolean(), input => coordinator.canIdle(owner, input.sessionId))),
+    peer.register('execution.canIdle', procedure(z.strictObject({ sessionId: id }), z.boolean(), input =>
+      (!options.canAdmit || options.canAdmit()) && coordinator.canIdle(owner, input.sessionId))),
     peer.register('execution.release', procedure(executionOwnershipSchema, z.undefined(), async lease => {
       ownExecution(owner, lease)
       await coordinator.requestRelease(lease, () => options.released?.(lease), () => options.releaseFailed?.(lease))

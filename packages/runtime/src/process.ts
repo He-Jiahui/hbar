@@ -23,6 +23,8 @@ export interface ManagedProcessOptions {
   readonly startupMs?: number
   readonly shutdownMs?: number
   readonly onPeer?: (peer: IpcPeer, owner: RuntimeOwner) => void
+  /** Called only after activation has been authorized, for each actual process incarnation. */
+  readonly onActivating?: (owner: RuntimeOwner, role: 'default' | 'draining', signal: AbortSignal) => void | Promise<void>
   readonly onState?: (snapshot: RuntimeGeneration) => void
   readonly onFault?: (owner: RuntimeOwner, reasonCode: string) => Promise<void>
   readonly onExit?: (owner: RuntimeOwner) => Promise<void>
@@ -59,6 +61,7 @@ export class ManagedProcess {
   private launching: Promise<void> | undefined
   private exitHandling: Promise<void> = Promise.resolve()
   private fencing: Promise<void> | undefined
+  private activation: AbortController | undefined
   private state: RuntimeGeneration
 
   constructor(private readonly options: ManagedProcessOptions) {
@@ -122,7 +125,20 @@ export class ManagedProcess {
     // Recovery targets this artifact from the point activation is authorized, even if its receipt is lost.
     this.activated = true
     this.state.role = role
+    const owner = this.owner()
+    const activation = new AbortController()
+    this.activation = activation
+    const signal = AbortSignal.any([activation.signal, AbortSignal.timeout(this.startupMs)])
+    const aborted = () => { activation.abort() }
     try {
+      if (this.options.onActivating) await new Promise<void>((resolve, reject) => {
+        const cancel = () => reject(new HbarError('RUNTIME_ACTIVATION_EXPIRED', 'Runtime activation authority expired'))
+        signal.addEventListener('abort', cancel, { once: true })
+        Promise.resolve().then(() => { signal.throwIfAborted(); return this.options.onActivating?.(owner, role, signal) })
+          .then(resolve, reject).finally(() => signal.removeEventListener('abort', cancel))
+      })
+      if (signal.aborted || this.stopped || this.state.phase !== 'ready' || !this.peer || this.owner().incarnation !== owner.incarnation)
+        throw new HbarError('RUNTIME_OWNER_REVOKED', 'Runtime activation authority expired before production started')
       await this.peer.call('runtime.activate', { role }, z.undefined(), { timeoutMs: this.startupMs })
       this.state.phase = role === 'draining' ? 'draining' : 'serving'
       this.state.lastHeartbeatAt = Date.now()
@@ -131,6 +147,9 @@ export class ManagedProcess {
     } catch (error) {
       this.fault('RUNTIME_ACTIVATION_FAILED')
       throw error
+    } finally {
+      aborted()
+      if (this.activation === activation) this.activation = undefined
     }
   }
   async drain(): Promise<RuntimeDrain> {
@@ -364,6 +383,7 @@ export class ManagedProcess {
 
   private async disposeProcess(): Promise<void> {
     this.stopped = true
+    this.activation?.abort()
     clearTimeout(this.recoveryTimer)
     clearInterval(this.monitor)
     this.state.phase = 'disposing'

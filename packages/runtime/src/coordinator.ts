@@ -87,10 +87,11 @@ export class RuntimeCoordinator {
     })
   }
 
-  activate(owner: RuntimeOwner): void {
+  activate(owner: RuntimeOwner, role: 'default' | 'draining' = 'default'): void {
     const record = this.record(owner)
     if (record.role !== 'candidate')
       throw new HbarError('RUNTIME_LIFECYCLE', 'Only a prepared candidate can become default')
+    if (role === 'draining') { record.role = 'draining'; return }
     const previous = this.defaults.get(owner.unitId)
     if (previous) {
       const old = this.owners.get(previous)

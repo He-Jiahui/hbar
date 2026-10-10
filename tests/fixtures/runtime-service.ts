@@ -10,6 +10,7 @@ const settingsSchema = z.object({
   freeze: z.boolean().optional(),
   hangDispose: z.boolean().optional(),
   crashActivations: z.number().int().nonnegative().optional(),
+  requireAuthority: z.boolean().optional(),
 })
 
 export function create(context: RuntimeProcessContext): RuntimeProcessService {
@@ -51,6 +52,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       }
     },
     async activate(role) {
+      if (settings.requireAuthority) await context.peer.call('fixture.activation', undefined, z.undefined())
       active = true
       if (settings.marker) {
         await appendFile(`${settings.marker}.jsonl`, `${JSON.stringify({ pid: process.pid, active: true, role })}\n`)

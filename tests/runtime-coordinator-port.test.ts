@@ -10,7 +10,7 @@ import { executionOwnershipSchema, runtimeResourceLeaseSchema, runtimeToolPermit
 const resources: Array<() => Promise<void>> = []
 afterEach(async () => { for (const cleanup of resources.splice(0)) await cleanup() })
 const outcome = (promise: Promise<unknown>) => promise.catch((error: unknown) => error)
-async function fixture() {
+async function fixture(canAdmit?: () => boolean) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-coordination-port-'))
   const storage = new Storage(join(root, 'state.sqlite'))
   await storage.call('ready')
@@ -33,7 +33,7 @@ async function fixture() {
     onPeer: (current, owner) => {
       peer = current
       coordinator.register(owner, { unitId: owner.unitId, generation: owner.generation, artifactId: artifact.id }, descriptor)
-      registerRuntimeCoordinatorPort(current, coordinator, { owner, bindings: caller => ({ kernel: { unitId: caller.unitId, generation: caller.generation, artifactId: artifact.id }, driver: driverVersion, plugins: [], hooks: [] }) })
+      registerRuntimeCoordinatorPort(current, coordinator, { owner, ...(canAdmit ? { canAdmit } : {}), bindings: caller => ({ kernel: { unitId: caller.unitId, generation: caller.generation, artifactId: artifact.id }, driver: driverVersion, plugins: [], hooks: [] }) })
     }, onExit: async owner => { coordinator.ownerExited(owner) },
   })
   resources.push(async () => { await managed.dispose(); await storage.close(); await rm(root, { recursive: true, force: true }) })
@@ -81,6 +81,18 @@ test('physical permits and shared resource gates stay owned by the IPC incarnati
   const deadline = Date.now() + 2_000
   while (f.coordinator.snapshot().sessions && Date.now() < deadline) await Bun.sleep(10)
   expect(f.coordinator.snapshot()).toMatchObject({ sessions: 0, physicalTools: 0, resources: 0 })
+})
+
+test('a missing dependency gates claims and idle Goal work without changing the queued Run identity', async () => {
+  let ready = false
+  const f = await fixture(() => ready)
+  await f.managed.activate()
+  f.coordinator.activate(f.managed.owner())
+  expect(await f.managed.call('fixture.claim', { sessionId: f.session.id, runId: f.run.id }, executionOwnershipSchema.nullable())).toBeNull()
+  expect(await f.managed.call('fixture.canIdle', f.session.id, z.boolean())).toBe(false)
+  expect((await f.storage.call('run', f.run.id)).status).toBe('queued')
+  ready = true
+  expect((await f.managed.call('fixture.claim', { sessionId: f.session.id, runId: f.run.id }, executionOwnershipSchema.nullable()))?.runId).toBe(f.run.id)
 })
 
 test('handoff makes the old executor stop claiming and suppress idle continuations without interrupting its pinned Run', async () => {

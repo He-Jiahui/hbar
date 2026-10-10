@@ -90,6 +90,19 @@ test('valid lease identities cannot forge their captured capability bindings', a
   f.coordinator.assertExecution(lease)
 })
 
+test('a recovered old generation opens its draining ports without stealing the current default', async () => {
+  const f = fixture()
+  const next = owner('kernel', 2)
+  f.register(next, 'kernel')
+  const recovered = owner('kernel', 1)
+  f.register(recovered, 'kernel', false)
+  f.coordinator.activate(recovered, 'draining')
+  f.coordinator.assertCanWrite(recovered)
+  expect(f.coordinator.role(recovered)).toBe('draining')
+  expect(f.coordinator.canIdle(recovered, 'old')).toBe(false)
+  expect((await f.claim('new-session', 'new-run', next)).owner).toEqual(next)
+})
+
 test('logical terminal release retains its Session and physical capacity, rejects late commits and hands off once actual work settles', async () => {
   let persisted = 0
   let resumed = 0

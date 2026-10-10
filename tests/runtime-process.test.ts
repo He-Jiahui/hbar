@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'bun:test'
-import { ManagedProcess, type ManagedProcessOptions } from '@hbar/runtime'
+import { ManagedProcess, procedure, type ManagedProcessOptions } from '@hbar/runtime'
 import { z } from 'zod'
 import { fileURLToPath } from 'node:url'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
@@ -110,6 +110,40 @@ test('a crashed serving generation recovers its same artifact with a new incarna
   expect(faults[0]?.incarnation).toBe(before.incarnation)
   expect(exits[0]?.incarnation).toBe(before.incarnation)
   expect(await runtime.call('fixture.echo', 'recovered', z.string())).toBe('recovered')
+})
+
+test('activation opens production authority before construction and repeats the gate for each recovered incarnation', async () => {
+  const authorized = new Set<string>()
+  const roles: string[] = []
+  const runtime = fixture({ configuration: { requireAuthority: true },
+    onPeer: (peer, owner) => peer.register('fixture.activation', procedure(z.undefined(), z.undefined(), () => {
+      if (!authorized.has(owner.incarnation)) throw new Error('Production authority is not activated')
+    })),
+    onActivating: (owner, role) => { authorized.add(owner.incarnation); roles.push(role) },
+  })
+  await runtime.prepare()
+  expect(authorized.size).toBe(0)
+  await runtime.activate()
+  expect(authorized.size).toBe(1)
+  await runtime.drain()
+  const before = runtime.owner().incarnation
+  await expect(runtime.call('fixture.crash', undefined, z.undefined())).rejects.toBeInstanceOf(Error)
+  await until(() => runtime.snapshot().phase === 'draining' && runtime.owner().incarnation !== before)
+  expect(authorized.size).toBe(2)
+  expect(roles).toEqual(['default', 'draining'])
+})
+
+test('a stuck activation gate expires and explicit disposal cancels it without starting production', async () => {
+  const runtime = fixture({ onActivating: async (_owner, _role, signal) => {
+    await new Promise<void>(resolve => signal.addEventListener('abort', () => resolve(), { once: true }))
+    signal.throwIfAborted()
+  } })
+  await runtime.prepare()
+  const activation = runtime.activate().catch((error: unknown) => error)
+  await Bun.sleep(10)
+  await runtime.dispose()
+  expect(await activation).toBeInstanceOf(Error)
+  expect(runtime.snapshot()).toMatchObject({ phase: 'disposed', pid: null, nextAttemptAt: null })
 })
 
 test('continuous crashes retry the activated artifact past the quick budget without reverting versions', async () => {
