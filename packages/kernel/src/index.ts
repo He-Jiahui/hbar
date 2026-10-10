@@ -47,6 +47,7 @@ import {
   automationStateSchema,
   taskNotificationSchema,
   themeProfileSchema,
+  diagnosticEvent,
 } from '@hbar/contracts'
 import type {
   ApprovalMode,
@@ -76,7 +77,11 @@ import type {
   AutomationState,
   TaskNotificationKind,
   ThinkingLevel,
+  DiagnosticSink,
+  DiagnosticScopePort,
 } from '@hbar/contracts'
+import { createKernelExecutionDiagnostics } from './execution-diagnostics'
+import type { KernelExecutionDiagnostics } from './execution-diagnostics'
 import { definePlugin, prependModelInstructions, provide, resolveToolTimeoutMs, RunControlSignal } from '@hbar/plugin-sdk'
 import type {
   CompactionProvider,
@@ -107,6 +112,7 @@ import type {
   PathLayout,
   SessionLaunchTargetMutationInput,
   SessionLaunchTargetPreparationStartMutationInput,
+  StorageFatalEvent,
   StoragePort,
 } from '@hbar/storage'
 import type {
@@ -360,6 +366,9 @@ export interface KernelOptions {
   profile?: KernelProfile | undefined
   /** Stop a Run after this much time without model output or completed work. */
   runIdleTimeoutMs?: number | undefined
+  diagnostics?: DiagnosticSink | undefined
+  diagnosticScope?: DiagnosticScopePort | undefined
+  diagnosticFullCoverage?: boolean | undefined
 }
 interface ResolvedKernelOptions extends KernelOptions {
   home: string
@@ -370,6 +379,11 @@ export interface KernelProfile {
   replacements?: Record<string, HbarPlugin>
   plugins?: HbarPlugin[]
   createStorage?(home: string): Promise<StoragePort>
+}
+
+export interface KernelStorageHealth {
+  readonly ready: boolean
+  readonly failure?: StorageFatalEvent
 }
 
 const PROVIDER_CONFIG_SCALARS = [
@@ -441,6 +455,7 @@ type ApprovalResolution =
   | { source: 'abort'; reason: unknown }
 
 export class Kernel {
+  private readonly executionDiagnostics: KernelExecutionDiagnostics
   private readonly toolExecutions = new ToolExecutions()
   readonly directoryQueries: ReturnType<typeof createDirectoryQueries>
   readonly storage: StoragePort
@@ -484,12 +499,27 @@ export class Kernel {
   private closing = false
   private automation = new Map<string, { unattended: boolean; goalEnabled: boolean }>()
   private readyForRuns = false
+  private storageFailure: StorageFatalEvent | undefined
+  private removeStorageFatalListener: (() => void) | undefined
   recovered = 0
   private constructor(
     readonly options: ResolvedKernelOptions,
     storage?: StoragePort,
   ) {
-    this.storage = storage ?? new Storage(options.layout.database, options.layout)
+    this.executionDiagnostics = createKernelExecutionDiagnostics({
+      ...(options.diagnostics ? { sink: options.diagnostics } : {}),
+      ...(options.diagnosticScope ? { scope: options.diagnosticScope } : {}),
+      instanceId: this.instanceId,
+    })
+    this.storage =
+      storage ??
+      new Storage(options.layout.database, options.layout, {
+        ...(options.diagnostics ? { diagnostics: options.diagnostics } : {}),
+        ...(options.diagnosticScope ? { diagnosticScope: options.diagnosticScope } : {}),
+        ...(options.diagnostics ? { instanceId: this.instanceId } : {}),
+        ...(options.diagnosticFullCoverage === undefined ? {} : { diagnosticsFullCoverage: options.diagnosticFullCoverage }),
+      })
+    this.removeStorageFatalListener = this.storage.onFatal?.((event) => this.handleStorageFatal(event))
     this.workspaceSandboxes = new WorkspaceSandboxService(
       this.storage,
       join(options.layout.cacheRoot, 'workspace-sandboxes'),
@@ -914,6 +944,7 @@ export class Kernel {
     activity?: SessionSummary['activity'],
     activeRunId?: string | null,
   ) {
+    if (this.storageFailure || this.closing) return
     const pending = this.summaryPending.get(sessionId) ?? {}
     this.summaryPending.set(sessionId, {
       ...pending,
@@ -930,6 +961,7 @@ export class Kernel {
     this.summaryTimers.set(sessionId, timer)
   }
   private async publishSessionSummary(sessionId: string, activity?: SessionSummary['activity'], activeRunId?: string | null) {
+    if (this.storageFailure || this.closing) return
     try {
       const summary = await this.storage.call('sessionSummary', sessionId)
       this.publish({
@@ -1447,6 +1479,7 @@ export class Kernel {
     const files = input.files ?? []
     if (input.images.length + files.length > MAX_ATTACHMENTS)
       throw new HbarError('FILE_LIMIT', `A message can include at most ${MAX_ATTACHMENTS} attachments`)
+    if (this.storageFailure) throw new HbarError('STORAGE_UNAVAILABLE', 'Storage is unavailable; restart the Host to recover')
     await this.plugins.get<BudgetService>('budget').assertCanStart(sessionId, input.source)
     input = { ...input, files }
     if (expectedLaunchTargetRevision !== undefined) {
@@ -1503,6 +1536,7 @@ export class Kernel {
         signal,
       )
       if (run.status === 'queued') {
+        this.executionDiagnostics.runAdmitted({ sessionId, requestId: run.requestId, runId: run.id })
         if (run.queuedEvent) {
           // Only a newly accepted turn clears unresolved interactive requests.
           if (input.source !== 'goal')
@@ -1534,7 +1568,10 @@ export class Kernel {
   private async drain(sessionId: string) {
     while (!this.closing) {
       this.wakeups.delete(sessionId)
-      const run = await this.storage.call('claim', sessionId)
+      const claimContext = { instanceId: this.instanceId, sessionId }
+      const run = this.options.diagnosticScope
+        ? await this.options.diagnosticScope.run(claimContext, () => this.storage.call('claim', sessionId))
+        : await this.storage.call('claim', sessionId)
       if (!run) {
         if (
           this.active.has(sessionId) ||
@@ -1574,418 +1611,481 @@ export class Kernel {
       }
       this.changed('session-activity')
       if (this.cancelled.has(run.id)) {
-        this.publishEvent(await this.storage.call('setRun', run.id, 'cancelled'))
+        const cancelContext = { instanceId: this.instanceId, sessionId, runId: run.id, requestId: run.requestId }
+        const cancelledEvent = this.options.diagnosticScope
+          ? await this.options.diagnosticScope.run(cancelContext, () => this.storage.call('setRun', run.id, 'cancelled'))
+          : await this.storage.call('setRun', run.id, 'cancelled')
+        this.publishEvent(cancelledEvent)
+        this.executionDiagnostics.runCancelled(cancelContext)
         this.cancelled.delete(run.id)
         continue
       }
-      const controller = new AbortController()
-      let scope: RuntimeScope
-      try {
-        const sessionForScope = await this.storage.call('session', sessionId)
-        const workspaceScope = await this.plugins.openScope('workspace', sessionForScope.workspaceId)
-        const sessionScope = await this.plugins.openScope('session', sessionId, workspaceScope)
-        scope = await this.plugins.openScope('run', run.id, sessionScope)
-      } catch (error) {
-        this.publishEvent(
-          await this.storage.call(
-            'setRun',
-            run.id,
-            'failed',
-            `Plugin scope failed: ${error instanceof Error ? error.message : String(error)}`,
-            classifyRunFailure(error),
-          ),
-        )
-        this.changed('sessions')
-        continue
-      }
-      scope.ctx.effect(() => () => controller.abort())
-      const idleTimeout = createRunIdleTimeout(controller, this.options.runIdleTimeoutMs)
-      this.active.set(sessionId, { run, controller, context: scope, idleTimeout })
-      if (this.cancelled.has(run.id)) controller.abort(new HbarError('USER_CANCELLED', 'Cancelled by user'))
-      let status: Run['status'] = 'completed',
-        failure: string | undefined,
-        failureDetails: RunFailure | undefined
-      let branchExecutionPath: string | null = null
-      let branchTargetRevision: number | null = null
-      try {
-        this.publishEvent(await this.storage.call('setRun', run.id, 'running'))
-        await scope.hooks.dispatch('run.start', {
-          sessionId,
-          runId: run.id,
-          run: await this.storage.call('run', run.id),
-        })
-        const session = await this.storage.call('session', sessionId)
-        const workspace = await this.storage.call('workspace', session.workspaceId)
-        const branchTarget = await this.withSessionLaunchTargetLock(sessionId, () => this.withSharedCheckoutLock(sessionId, () => this.sessionBranchTargets.prepareForRun(sessionId, controller.signal), controller.signal), controller.signal)
-        branchTargetRevision = branchTarget?.revision ?? null
-        branchExecutionPath = await this.sessionLaunchTargets.workspaceForRun(sessionId, workspace.path, controller.signal)
-        const workspaceForRun: Workspace = {
-          ...workspace,
-          path: await this.workspaceSandboxes.prepare(
-            workspace.id,
-            branchExecutionPath,
-            controller.signal,
-          ),
+      const executeClaimedRun = async (): Promise<void> => {
+        const controller = new AbortController()
+        let scope: RuntimeScope
+        try {
+          const sessionForScope = await this.storage.call('session', sessionId)
+          const workspaceScope = await this.plugins.openScope('workspace', sessionForScope.workspaceId)
+          const sessionScope = await this.plugins.openScope('session', sessionId, workspaceScope)
+          scope = await this.plugins.openScope('run', run.id, sessionScope)
+        } catch (error) {
+          this.executionDiagnostics.runFailure(
+            { sessionId, runId: run.id, requestId: run.requestId },
+            classifyRunFailure(error).code,
+          )
+          this.publishEvent(
+            await this.storage.call(
+              'setRun',
+              run.id,
+              'failed',
+              `Plugin scope failed: ${error instanceof Error ? error.message : String(error)}`,
+              classifyRunFailure(error),
+            ),
+          )
+          this.changed('sessions')
+          return
         }
-        const model = await this.plugins.get<ModelRegistry>('models').get(run.modelId)
-        const providerSnapshot = (await this.storage.call('providers')).find(
-          (candidate) => run.modelId === candidate.id || run.modelId.startsWith(`${candidate.id}/`),
-        )
-        const activeSnapshot = this.active.get(sessionId)
-        if (activeSnapshot && providerSnapshot) activeSnapshot.providerSnapshot = providerSnapshot
-        const apiKey =
-          model.protocol === 'mock' ? null : await this.plugins.get<ModelRegistry>('models').secret(model.id)
-        const content: ContentBlock[] = [
-          ...(run.input.text ? [{ type: 'text' as const, text: run.input.text }] : []),
-          ...run.input.images.map((artifact) => ({ type: 'image' as const, artifact })),
-          ...(run.input.files ?? []).map((artifact) => ({ type: 'file' as const, artifact })),
-        ]
-        const initialCommit = await this.storage.call('commit', sessionId, run.id, 'user', content)
-        this.publishEvent(initialCommit.event)
-        if (session.title === 'New session')
-          await this.updateSession(sessionId, {
-            title: (
-              run.input.text.trim() ||
-              run.input.images[0]?.name ||
-              run.input.files?.[0]?.name ||
-              'Attachment session'
-            ).slice(0, 80),
+        scope.ctx.effect(() => () => controller.abort())
+        const idleTimeout = createRunIdleTimeout(controller, this.options.runIdleTimeoutMs)
+        this.active.set(sessionId, { run, controller, context: scope, idleTimeout })
+        const runDiagnosticStartedAt = performance.now()
+        this.executionDiagnostics.runStarted({ sessionId, runId: run.id, requestId: run.requestId })
+        if (this.cancelled.has(run.id)) controller.abort(new HbarError('USER_CANCELLED', 'Cancelled by user'))
+        let status: Run['status'] = 'completed',
+          failure: string | undefined,
+          failureDetails: RunFailure | undefined
+        const modelStartedAt = new Map<string, number>()
+        let branchExecutionPath: string | null = null
+        let branchTargetRevision: number | null = null
+        try {
+          this.publishEvent(await this.storage.call('setRun', run.id, 'running'))
+          await scope.hooks.dispatch('run.start', {
+            sessionId,
+            runId: run.id,
+            run: await this.storage.call('run', run.id),
           })
-        const driver = this.plugins.get<HarnessDriver>('driver')
-        const supportsSteering =
-          driver.supportsCanonicalSteering === true && driver.supportsSteeringAdmissionClosure === true
-        const steeringDeliveries: SteeringDelivery[] = []
-        const steeringContext: RunSteeringContext | undefined = supportsSteering
-          ? { runId: run.id, initialUserMessageId: initialCommit.message.id, deliveries: steeringDeliveries }
-          : undefined
-        const activeRun = this.active.get(sessionId)
-        if (activeRun && steeringContext) activeRun.steeringContext = steeringContext
-        let steeringAfterSeq = initialCommit.message.seq
-        const closeSteering = async () => {
-          const active = this.active.get(sessionId)
-          if (active?.run.id === run.id) active.steeringReady = false
-          if (supportsSteering) await this.storage.call('closeRunSteering', sessionId, run.id)
-        }
-        const selectedTools = await scope.hooks.dispatch('tools.select', {
-          sessionId,
-          runId: run.id,
-          tools: scope.tools.list(),
-        })
-        const selectedNames = new Set(selectedTools.tools.map((tool) => tool.name))
-        const toolPresentations = captureToolPresentations(selectedNames, scope.tools)
-        const trackToolExecution = async <Result>(execution: Promise<Result>): Promise<Result> => {
-          const result = await execution
-          idleTimeout.progress()
-          return result
-        }
-        const compactAtBoundary = async () => {
-          controller.signal.throwIfAborted()
-          const request = await this.buildRequest(
+          const session = await this.storage.call('session', sessionId)
+          const workspace = await this.storage.call('workspace', session.workspaceId)
+          const branchTarget = await this.withSessionLaunchTargetLock(sessionId, () => this.withSharedCheckoutLock(sessionId, () => this.sessionBranchTargets.prepareForRun(sessionId, controller.signal), controller.signal), controller.signal)
+          branchTargetRevision = branchTarget?.revision ?? null
+          branchExecutionPath = await this.sessionLaunchTargets.workspaceForRun(sessionId, workspace.path, controller.signal)
+          const workspaceForRun: Workspace = {
+            ...workspace,
+            path: await this.workspaceSandboxes.prepare(
+              workspace.id,
+              branchExecutionPath,
+              controller.signal,
+            ),
+          }
+          const model = await this.plugins.get<ModelRegistry>('models').get(run.modelId)
+          const providerSnapshot = (await this.storage.call('providers')).find(
+            (candidate) => run.modelId === candidate.id || run.modelId.startsWith(`${candidate.id}/`),
+          )
+          const activeSnapshot = this.active.get(sessionId)
+          if (activeSnapshot && providerSnapshot) activeSnapshot.providerSnapshot = providerSnapshot
+          const apiKey =
+            model.protocol === 'mock' ? null : await this.plugins.get<ModelRegistry>('models').secret(model.id)
+          const content: ContentBlock[] = [
+            ...(run.input.text ? [{ type: 'text' as const, text: run.input.text }] : []),
+            ...run.input.images.map((artifact) => ({ type: 'image' as const, artifact })),
+            ...(run.input.files ?? []).map((artifact) => ({ type: 'file' as const, artifact })),
+          ]
+          const initialCommit = await this.storage.call('commit', sessionId, run.id, 'user', content)
+          this.publishEvent(initialCommit.event)
+          if (session.title === 'New session')
+            await this.updateSession(sessionId, {
+              title: (
+                run.input.text.trim() ||
+                run.input.images[0]?.name ||
+                run.input.files?.[0]?.name ||
+                'Attachment session'
+              ).slice(0, 80),
+            })
+          const driver = this.plugins.get<HarnessDriver>('driver')
+          const supportsSteering =
+            driver.supportsCanonicalSteering === true && driver.supportsSteeringAdmissionClosure === true
+          const steeringDeliveries: SteeringDelivery[] = []
+          const steeringContext: RunSteeringContext | undefined = supportsSteering
+            ? { runId: run.id, initialUserMessageId: initialCommit.message.id, deliveries: steeringDeliveries }
+            : undefined
+          const activeRun = this.active.get(sessionId)
+          if (activeRun && steeringContext) activeRun.steeringContext = steeringContext
+          let steeringAfterSeq = initialCommit.message.seq
+          const closeSteering = async () => {
+            const active = this.active.get(sessionId)
+            if (active?.run.id === run.id) active.steeringReady = false
+            if (supportsSteering) await this.storage.call('closeRunSteering', sessionId, run.id)
+          }
+          const selectedTools = await scope.hooks.dispatch('tools.select', {
             sessionId,
-            model,
-            scope.hooks,
-            run,
-            workspaceForRun,
-            steeringContext,
-            'context-inspection',
-          )
-          if (!contextExceedsCapacity(request)) return
-          // Inspection must remain readable after a pause/budget stop. Only
-          // an admitted execution may spend tokens on a required summary.
-          await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext)
-          await this.compactInternal(
-            sessionId,
-            model,
-            controller.signal,
-            run.id,
-            workspaceForRun,
-            steeringContext,
-            run.input.thinking,
-          )
-          controller.signal.throwIfAborted()
-          assertContextCapacity(
-            await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext),
-          )
-          idleTimeout.progress()
-        }
-        const input: DriverInput = {
-          session,
-          workspace: workspaceForRun,
-          run,
-          request: await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext),
-          apiKey,
-          signal: controller.signal,
-          tools: selectedTools.tools,
-          resolveKey: (id) => this.plugins.get<ModelRegistry>('models').secret(id),
-          readImage: async (id) => {
-            const artifact = await this.storage.call('artifact', id)
-            return {
-              mime: artifact.mime,
-              data: Buffer.from(await Bun.file(join(this.options.layout.artifacts, id)).arrayBuffer()).toString(
-                'base64',
-              ),
-            }
-          },
-          readFile: async (id) => {
-            const artifact = await this.storage.call('artifact', id)
-            const bytes = new Uint8Array(await Bun.file(join(this.options.layout.artifacts, id)).arrayBuffer())
-            if (!isTextArtifact(artifact.mime, artifact.name))
-              return { name: artifact.name, mime: artifact.mime, size: artifact.size, text: null, truncated: false }
-            let text: string | null
-            try {
-              const decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
-              text = decoded.includes('\u0000') ? null : decoded
-            } catch {
-              text = null
-            }
-            const truncated = text !== null && text.length > MAX_FILE_TEXT
-            return {
-              name: artifact.name,
-              mime: artifact.mime,
-              size: artifact.size,
-              text: text === null ? null : text.slice(0, MAX_FILE_TEXT),
-              truncated,
-            }
-          },
-          emit: (type, data, stepId) => {
-            if (type === 'message.committed')
-              return Promise.reject(
-                new HbarError('RESERVED_EVENT', 'Drivers must commit canonical messages through commit'),
-              )
-            return this.append(sessionId, type, data, run.id, stepId)
-          },
-          commit: async (role, blocks, messageId, providerData) => {
-            if (supportsSteering && role === 'user')
-              throw new HbarError('RESERVED_EVENT', 'Live user messages are owned by Host queue guidance')
-            const content = enrichToolCallPresentations(role, blocks, toolPresentations)
-            const result = await this.storage.call('commit', sessionId, run.id, role, content, messageId, providerData)
-            if (messageId) this.clearStream(messageId)
-            this.publishEvent(result.event)
+            runId: run.id,
+            tools: scope.tools.list(),
+          })
+          const selectedNames = new Set(selectedTools.tools.map((tool) => tool.name))
+          const toolPresentations = captureToolPresentations(selectedNames, scope.tools)
+          const trackToolExecution = async <Result>(execution: Promise<Result>): Promise<Result> => {
+            const result = await execution
             idleTimeout.progress()
-            return result.message
-          },
-          stream: (id, text, thinking) => {
-            const previous = this.streams.get(id)
-            if (text.length > (previous?.text.length ?? 0) || thinking.length > (previous?.thinking.length ?? 0))
-              idleTimeout.progress()
-            this.updateStream({ id, sessionId, runId: run.id, text, thinking })
-          },
-          execute: async (name, args, callId) => {
-            const effectiveMode = this.plugins.get<ModeService>('mode').effectiveMode(run)
-            const effectiveRun =
-              effectiveMode === run.input.mode ? run : { ...run, input: { ...run.input, mode: effectiveMode } }
-            const context: ToolContext = {
-              session,
-              workspace: workspaceForRun,
-              run: effectiveRun,
-              signal: controller.signal,
-              callId,
-            }
-            return trackToolExecution(this.execute(name, args, context, scope, selectedTools.tools))
-          },
-          beforeRequest: async (_request, stepId) => {
+            return result
+          }
+          const compactAtBoundary = async () => {
             controller.signal.throwIfAborted()
-            let compactedForCapacity = false
-            let request: ModelRequest
-            let advertised: { tools: ToolDefinition[]; instructions?: string }
-            for (;;) {
-              request = await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext)
-              if (
-                !compactedForCapacity &&
-                (contextExceedsCapacity(request) ||
-                  this.plugins
-                    .get<CompactionProvider>('compaction')
-                    .shouldCompact(request, (await this.compactionPercent(sessionId)) / 100))
-              ) {
-                await this.compactInternal(
-                  sessionId,
-                  model,
-                  controller.signal,
-                  run.id,
-                  workspaceForRun,
-                  steeringContext,
-                  run.input.thinking,
-                )
-                compactedForCapacity = true
-                continue
+            const request = await this.buildRequest(
+              sessionId,
+              model,
+              scope.hooks,
+              run,
+              workspaceForRun,
+              steeringContext,
+              'context-inspection',
+            )
+            if (!contextExceedsCapacity(request)) return
+            // Inspection must remain readable after a pause/budget stop. Only
+            // an admitted execution may spend tokens on a required summary.
+            await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext)
+            await this.compactInternal(
+              sessionId,
+              model,
+              controller.signal,
+              run.id,
+              workspaceForRun,
+              steeringContext,
+              run.input.thinking,
+            )
+            controller.signal.throwIfAborted()
+            assertContextCapacity(
+              await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext),
+            )
+            idleTimeout.progress()
+          }
+          const input: DriverInput = {
+            session,
+            workspace: workspaceForRun,
+            run,
+            request: await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext),
+            apiKey,
+            signal: controller.signal,
+            tools: selectedTools.tools,
+            resolveKey: (id) => this.plugins.get<ModelRegistry>('models').secret(id),
+            readImage: async (id) => {
+              const artifact = await this.storage.call('artifact', id)
+              return {
+                mime: artifact.mime,
+                data: Buffer.from(await Bun.file(join(this.options.layout.artifacts, id)).arrayBuffer()).toString(
+                  'base64',
+                ),
               }
-              request = await scope.hooks.dispatch('model.request', request)
-              const registered = await this.plugins.get<ModelRegistry>('models').get(request.model.id)
-              if (
-                request.model.baseUrl !== registered.baseUrl ||
-                request.model.protocol !== registered.protocol ||
-                request.model.model !== registered.model
-              )
-                throw new HbarError('INVALID_MODEL_OVERRIDE', 'Model hooks must select a registered provider endpoint')
-              advertised = await scope.hooks.dispatch('tools.advertise', {
+            },
+            readFile: async (id) => {
+              const artifact = await this.storage.call('artifact', id)
+              const bytes = new Uint8Array(await Bun.file(join(this.options.layout.artifacts, id)).arrayBuffer())
+              if (!isTextArtifact(artifact.mime, artifact.name))
+                return { name: artifact.name, mime: artifact.mime, size: artifact.size, text: null, truncated: false }
+              let text: string | null
+              try {
+                const decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+                text = decoded.includes('\u0000') ? null : decoded
+              } catch {
+                text = null
+              }
+              const truncated = text !== null && text.length > MAX_FILE_TEXT
+              return {
+                name: artifact.name,
+                mime: artifact.mime,
+                size: artifact.size,
+                text: text === null ? null : text.slice(0, MAX_FILE_TEXT),
+                truncated,
+              }
+            },
+            emit: (type, data, stepId) => {
+              if (type === 'message.committed')
+                return Promise.reject(
+                  new HbarError('RESERVED_EVENT', 'Drivers must commit canonical messages through commit'),
+                )
+              return this.append(sessionId, type, data, run.id, stepId)
+            },
+            commit: async (role, blocks, messageId, providerData) => {
+              if (supportsSteering && role === 'user')
+                throw new HbarError('RESERVED_EVENT', 'Live user messages are owned by Host queue guidance')
+              const content = enrichToolCallPresentations(role, blocks, toolPresentations)
+              const result = await this.storage.call('commit', sessionId, run.id, role, content, messageId, providerData)
+              if (messageId) this.clearStream(messageId)
+              this.publishEvent(result.event)
+              idleTimeout.progress()
+              return result.message
+            },
+            stream: (id, text, thinking) => {
+              const previous = this.streams.get(id)
+              if (text.length > (previous?.text.length ?? 0) || thinking.length > (previous?.thinking.length ?? 0))
+                idleTimeout.progress()
+              this.updateStream({ id, sessionId, runId: run.id, text, thinking })
+            },
+            execute: async (name, args, callId) => {
+              const effectiveMode = this.plugins.get<ModeService>('mode').effectiveMode(run)
+              const effectiveRun =
+                effectiveMode === run.input.mode ? run : { ...run, input: { ...run.input, mode: effectiveMode } }
+              const context: ToolContext = {
+                session,
+                workspace: workspaceForRun,
+                run: effectiveRun,
+                signal: controller.signal,
+                callId,
+              }
+              return trackToolExecution(this.execute(name, args, context, scope, selectedTools.tools))
+            },
+            beforeRequest: async (_request, stepId) => {
+              controller.signal.throwIfAborted()
+              let compactedForCapacity = false
+              let request: ModelRequest
+              let advertised: { tools: ToolDefinition[]; instructions?: string }
+              for (;;) {
+                request = await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext)
+                if (
+                  !compactedForCapacity &&
+                  (contextExceedsCapacity(request) ||
+                    this.plugins
+                      .get<CompactionProvider>('compaction')
+                      .shouldCompact(request, (await this.compactionPercent(sessionId)) / 100))
+                ) {
+                  await this.compactInternal(
+                    sessionId,
+                    model,
+                    controller.signal,
+                    run.id,
+                    workspaceForRun,
+                    steeringContext,
+                    run.input.thinking,
+                  )
+                  compactedForCapacity = true
+                  continue
+                }
+                request = await scope.hooks.dispatch('model.request', request)
+                const registered = await this.plugins.get<ModelRegistry>('models').get(request.model.id)
+                if (
+                  request.model.baseUrl !== registered.baseUrl ||
+                  request.model.protocol !== registered.protocol ||
+                  request.model.model !== registered.model
+                )
+                  throw new HbarError('INVALID_MODEL_OVERRIDE', 'Model hooks must select a registered provider endpoint')
+                advertised = await scope.hooks.dispatch('tools.advertise', {
+                  sessionId,
+                  runId: run.id,
+                  tools: [...input.tools],
+                })
+                if (
+                  advertised.tools.some((tool) => !input.tools.includes(tool)) ||
+                  new Set(advertised.tools.map((tool) => tool.name)).size !== advertised.tools.length ||
+                  (advertised.instructions !== undefined &&
+                    !z.string().max(16_000).safeParse(advertised.instructions).success)
+                )
+                  throw new HbarError(
+                    'INVALID_TOOL_ADVERTISEMENT',
+                    'Tool advertisements must be a unique subset of Run tools with at most 16000 instruction characters',
+                  )
+                request = {
+                  ...prependModelInstructions(request, advertised.instructions ?? ''),
+                  toolNames: advertised.tools.map((tool) => tool.name),
+                }
+                controller.signal.throwIfAborted()
+                try {
+                  assertContextCapacity(request)
+                } catch (error) {
+                  if (!(error instanceof HbarError) || error.code !== 'CONTEXT_WINDOW_EXCEEDED' || compactedForCapacity)
+                    throw error
+                  await this.compactInternal(
+                    sessionId,
+                    model,
+                    controller.signal,
+                    run.id,
+                    workspaceForRun,
+                    steeringContext,
+                    run.input.thinking,
+                  )
+                  compactedForCapacity = true
+                  continue
+                }
+                break
+              }
+              this.executionDiagnostics.modelPrepared({
                 sessionId,
                 runId: run.id,
-                tools: [...input.tools],
+                requestId: run.requestId,
+                stepId,
+                method: 'model.request',
               })
-              if (
-                advertised.tools.some((tool) => !input.tools.includes(tool)) ||
-                new Set(advertised.tools.map((tool) => tool.name)).size !== advertised.tools.length ||
-                (advertised.instructions !== undefined &&
-                  !z.string().max(16_000).safeParse(advertised.instructions).success)
+              modelStartedAt.set(stepId, performance.now())
+              this.executionDiagnostics.modelStarted({
+                sessionId,
+                runId: run.id,
+                requestId: run.requestId,
+                stepId,
+                method: 'model.request',
+              })
+              await this.append(
+                sessionId,
+                'request.started',
+                {
+                  ...describeUsageAttempt(stepId, 'model', request.model),
+                  request,
+                  tools: advertised.tools.map((tool) => ({
+                    name: tool.name,
+                    description: tool.description,
+                    timeoutMs: resolveToolTimeoutMs(tool),
+                    ...(tool.timeoutArgument ? { timeoutArgument: tool.timeoutArgument } : {}),
+                    schema: z.toJSONSchema(tool.inputSchema, { io: 'input' }),
+                  })),
+                },
+                run.id,
+                stepId,
               )
-                throw new HbarError(
-                  'INVALID_TOOL_ADVERTISEMENT',
-                  'Tool advertisements must be a unique subset of Run tools with at most 16000 instruction characters',
-                )
-              request = {
-                ...prependModelInstructions(request, advertised.instructions ?? ''),
-                toolNames: advertised.tools.map((tool) => tool.name),
-              }
-              controller.signal.throwIfAborted()
-              try {
-                assertContextCapacity(request)
-              } catch (error) {
-                if (!(error instanceof HbarError) || error.code !== 'CONTEXT_WINDOW_EXCEEDED' || compactedForCapacity)
-                  throw error
-                await this.compactInternal(
-                  sessionId,
-                  model,
-                  controller.signal,
-                  run.id,
-                  workspaceForRun,
-                  steeringContext,
-                  run.input.thinking,
-                )
-                compactedForCapacity = true
-                continue
-              }
-              break
-            }
-            await this.append(
-              sessionId,
-              'request.started',
-              {
-                ...describeUsageAttempt(stepId, 'model', request.model),
-                request,
-                tools: advertised.tools.map((tool) => ({
-                  name: tool.name,
-                  description: tool.description,
-                  timeoutMs: resolveToolTimeoutMs(tool),
-                  ...(tool.timeoutArgument ? { timeoutArgument: tool.timeoutArgument } : {}),
-                  schema: z.toJSONSchema(tool.inputSchema, { io: 'input' }),
-                })),
-              },
-              run.id,
-              stepId,
-            )
-            idleTimeout.progress()
-            return request
-          },
-          stepEnded: async (stepId) => {
-            // Tools and the assistant reply are durable at this boundary.
-            // Compact before accounting so summary usage belongs to this step.
-            await compactAtBoundary()
-            const settled = await scope.hooks.dispatch('step.end', { sessionId, runId: run.id, stepId })
-            if (settled.stop) await closeSteering()
-            return settled.stop ? { stop: settled.stop } : undefined
-          },
-          ...(supportsSteering
-            ? {
-                getSteeringMessages: async (target) => {
-                  if (target.sessionId !== sessionId || target.runId !== run.id)
-                    throw new HbarError('COMMAND_CONFLICT', 'Steering source belongs to the original Run')
-                  target.signal.throwIfAborted()
-                  controller.signal.throwIfAborted()
-                  const page = await this.storage.call('readRunSteering', {
-                    sessionId,
-                    runId: run.id,
-                    afterSeq: steeringAfterSeq,
-                    ...(target.closeWhenEmpty ? { closeWhenEmpty: true } : {}),
-                  })
-                  target.signal.throwIfAborted()
-                  controller.signal.throwIfAborted()
-                  if (page.messages.length) {
-                    const context = await this.storage.call('context', sessionId)
+              idleTimeout.progress()
+              return request
+            },
+            stepEnded: async (stepId) => {
+              const startedAt = modelStartedAt.get(stepId)
+              modelStartedAt.delete(stepId)
+              this.executionDiagnostics.modelSettled(
+                { sessionId, runId: run.id, requestId: run.requestId, stepId },
+                'success',
+                startedAt === undefined ? 0 : performance.now() - startedAt,
+              )
+              // Tools and the assistant reply are durable at this boundary.
+              // Compact before accounting so summary usage belongs to this step.
+              await compactAtBoundary()
+              const settled = await scope.hooks.dispatch('step.end', { sessionId, runId: run.id, stepId })
+              if (settled.stop) await closeSteering()
+              return settled.stop ? { stop: settled.stop } : undefined
+            },
+            ...(supportsSteering
+              ? {
+                  getSteeringMessages: async (target) => {
+                    if (target.sessionId !== sessionId || target.runId !== run.id)
+                      throw new HbarError('COMMAND_CONFLICT', 'Steering source belongs to the original Run')
                     target.signal.throwIfAborted()
                     controller.signal.throwIfAborted()
-                    const insertionAfterSeq = context.messages.at(-1)?.seq ?? initialCommit.message.seq
-                    for (const message of page.messages) steeringDeliveries.push({ message, insertionAfterSeq })
-                  }
-                  steeringAfterSeq = page.nextSeq
-                  if (page.closed) {
-                    const active = this.active.get(sessionId)
-                    if (active?.run.id === run.id) active.steeringReady = false
-                  }
-                  return page.messages
-                },
-                closeSteeringAdmission: closeSteering,
-              }
-            : {}),
-        }
-        if (supportsSteering) {
-          controller.signal.throwIfAborted()
-          await this.storage.call('openRunSteering', sessionId, run.id)
+                    const page = await this.storage.call('readRunSteering', {
+                      sessionId,
+                      runId: run.id,
+                      afterSeq: steeringAfterSeq,
+                      ...(target.closeWhenEmpty ? { closeWhenEmpty: true } : {}),
+                    })
+                    target.signal.throwIfAborted()
+                    controller.signal.throwIfAborted()
+                    if (page.messages.length) {
+                      const context = await this.storage.call('context', sessionId)
+                      target.signal.throwIfAborted()
+                      controller.signal.throwIfAborted()
+                      const insertionAfterSeq = context.messages.at(-1)?.seq ?? initialCommit.message.seq
+                      for (const message of page.messages) steeringDeliveries.push({ message, insertionAfterSeq })
+                    }
+                    steeringAfterSeq = page.nextSeq
+                    if (page.closed) {
+                      const active = this.active.get(sessionId)
+                      if (active?.run.id === run.id) active.steeringReady = false
+                    }
+                    return page.messages
+                  },
+                  closeSteeringAdmission: closeSteering,
+                }
+              : {}),
+          }
+          if (supportsSteering) {
+            controller.signal.throwIfAborted()
+            await this.storage.call('openRunSteering', sessionId, run.id)
+            const active = this.active.get(sessionId)
+            if (active?.run.id === run.id) active.steeringReady = true
+          }
+          await driver.run(input)
+          // Also covers final output from drivers that return without settling
+          // a step, or commit more content after their last settlement.
+          await compactAtBoundary()
+        } catch (error) {
+          const cause: unknown = controller.signal.aborted ? controller.signal.reason : error
+          if (!(cause instanceof RunControlSignal)) {
+            failureDetails = classifyRunFailure(cause)
+            status =
+              failureDetails.category === 'cancelled'
+                ? 'cancelled'
+                : failureDetails.category === 'interrupted'
+                  ? 'interrupted'
+                  : 'failed'
+            failure = cause instanceof Error ? cause.message : String(cause)
+            for (const [stepId, startedAt] of modelStartedAt) {
+              this.executionDiagnostics.modelFailed(
+                { sessionId, runId: run.id, requestId: run.requestId, stepId },
+                failureDetails.code,
+                performance.now() - startedAt,
+              )
+            }
+            modelStartedAt.clear()
+          }
+        } finally {
+          idleTimeout.dispose()
           const active = this.active.get(sessionId)
-          if (active?.run.id === run.id) active.steeringReady = true
-        }
-        await driver.run(input)
-        // Also covers final output from drivers that return without settling
-        // a step, or commit more content after their last settlement.
-        await compactAtBoundary()
-      } catch (error) {
-        const cause: unknown = controller.signal.aborted ? controller.signal.reason : error
-        if (!(cause instanceof RunControlSignal)) {
-          failureDetails = classifyRunFailure(cause)
-          status =
-            failureDetails.category === 'cancelled'
-              ? 'cancelled'
-              : failureDetails.category === 'interrupted'
-                ? 'interrupted'
-                : 'failed'
-          failure = cause instanceof Error ? cause.message : String(cause)
-        }
-      } finally {
-        idleTimeout.dispose()
-        const active = this.active.get(sessionId)
-        if (active?.run.id === run.id && active.steeringReady) {
-          active.steeringReady = false
-          await this.storage.call('closeRunSteering', sessionId, run.id)
-        }
-        for (const stream of this.streams.values()) if (stream.runId === run.id) this.clearStream(stream.id)
-        const settledEvent = await this.storage.call('setRun', run.id, status, failure, failureDetails)
-        if (branchExecutionPath !== null && branchTargetRevision !== null) {
-          const observedPath = branchExecutionPath
-          const observedRevision = branchTargetRevision
-          const observationSignal = AbortSignal.timeout(5_000)
-          await this.withSessionLaunchTargetLock(sessionId, () => this.withSharedCheckoutLock(sessionId, () => this.sessionBranchTargets.observeRunBranch(sessionId, run.id, observedRevision, observedPath, observationSignal), observationSignal), observationSignal).catch((error: unknown) => console.error('Session branch observation failed:', error))
-        }
-        this.publishEvent(settledEvent)
-        this.active.delete(sessionId)
-        this.cancelled.delete(run.id)
-        this.boundaryStops.delete(run.id)
-        await scope.hooks
-          .dispatch('run.end', { sessionId, runId: run.id, status, run: await this.storage.call('run', run.id) })
-          .catch((error) => console.error('Run observer failed:', error))
-        if (status === 'completed') {
-          const queued = (await this.storage.call('snapshot', sessionId, undefined, 40)).runs.some((item) => item.status === 'queued')
-          const goalState = await this.plugins.get<GoalService>('goal').get(sessionId)
-          if (!queued && (!goalState.goal || goalState.goal.status === 'complete'))
-            void this.taskNotification('completed', sessionId, run.id, '任务完成', '当前任务已完成。').catch((error) =>
-              console.error('Task notification failed:', error),
+          if (active?.run.id === run.id && active.steeringReady) {
+            active.steeringReady = false
+            await this.storage.call('closeRunSteering', sessionId, run.id)
+          }
+          for (const stream of this.streams.values()) if (stream.runId === run.id) this.clearStream(stream.id)
+          const settledEvent = await this.storage.call('setRun', run.id, status, failure, failureDetails)
+          const durationMs = Math.max(0, performance.now() - runDiagnosticStartedAt)
+          if (status === 'cancelled')
+            this.executionDiagnostics.runCancelled({ sessionId, runId: run.id, requestId: run.requestId }, durationMs)
+          else if (status === 'interrupted')
+            this.executionDiagnostics.runInterrupted(
+              { sessionId, runId: run.id, requestId: run.requestId },
+              failureDetails?.code,
+              durationMs,
             )
-        } else if (status === 'failed') {
-          const goalState = await this.plugins.get<GoalService>('goal').get(sessionId)
-          const controlled =
-            run.input.source === 'goal' ||
-            run.input.source === 'system' ||
-            ['active', 'blocked', 'usage_limited', 'budget_limited'].includes(goalState.goal?.status ?? '')
-          if (controlled)
-            void this.taskNotification(
-              'retry_failed',
-              sessionId,
-              run.id,
-              '任务失败',
-              '任务执行失败，请检查错误后重试。',
-            ).catch((error) => console.error('Task notification failed:', error))
+          else
+            this.executionDiagnostics.runSettled(
+              { sessionId, runId: run.id, requestId: run.requestId },
+              status === 'completed' ? 'success' : 'failure',
+              durationMs,
+              failureDetails?.code,
+            )
+          if (branchExecutionPath !== null && branchTargetRevision !== null) {
+            const observedPath = branchExecutionPath
+            const observedRevision = branchTargetRevision
+            const observationSignal = AbortSignal.timeout(5_000)
+            await this.withSessionLaunchTargetLock(sessionId, () => this.withSharedCheckoutLock(sessionId, () => this.sessionBranchTargets.observeRunBranch(sessionId, run.id, observedRevision, observedPath, observationSignal), observationSignal), observationSignal).catch((error: unknown) => console.error('Session branch observation failed:', error))
+          }
+          this.publishEvent(settledEvent)
+          this.active.delete(sessionId)
+          this.cancelled.delete(run.id)
+          this.boundaryStops.delete(run.id)
+          await scope.hooks
+            .dispatch('run.end', { sessionId, runId: run.id, status, run: await this.storage.call('run', run.id) })
+            .catch((error) => console.error('Run observer failed:', error))
+          if (status === 'completed') {
+            const queued = (await this.storage.call('snapshot', sessionId, undefined, 40)).runs.some((item) => item.status === 'queued')
+            const goalState = await this.plugins.get<GoalService>('goal').get(sessionId)
+            if (!queued && (!goalState.goal || goalState.goal.status === 'complete'))
+              void this.taskNotification('completed', sessionId, run.id, '任务完成', '当前任务已完成。').catch((error) =>
+                console.error('Task notification failed:', error),
+              )
+          } else if (status === 'failed') {
+            const goalState = await this.plugins.get<GoalService>('goal').get(sessionId)
+            const controlled =
+              run.input.source === 'goal' ||
+              run.input.source === 'system' ||
+              ['active', 'blocked', 'usage_limited', 'budget_limited'].includes(goalState.goal?.status ?? '')
+            if (controlled)
+              void this.taskNotification(
+                'retry_failed',
+                sessionId,
+                run.id,
+                '任务失败',
+                '任务执行失败，请检查错误后重试。',
+              ).catch((error) => console.error('Task notification failed:', error))
+          }
+          await scope.dispose()
+          this.changed('sessions')
         }
-        await scope.dispose()
-        this.changed('sessions')
       }
+      const scopeContext = { instanceId: this.instanceId, sessionId, runId: run.id, requestId: run.requestId }
+      if (this.options.diagnosticScope) await this.options.diagnosticScope.run(scopeContext, executeClaimedRun)
+      else await executeClaimedRun()
     }
   }
   private async compactionPercent(sessionId: string): Promise<number> {
@@ -2129,12 +2229,20 @@ export class Kernel {
     // cancellation must retain the original Host-owned signal independently.
     const hostSignal = context.signal
     const executionIdentity = { sessionId: context.session.id, runId: context.run.id, callId: context.callId }
+    const toolDiagnosticIdentity = {
+      sessionId: executionIdentity.sessionId,
+      runId: executionIdentity.runId,
+      callId: executionIdentity.callId,
+    }
+    const toolStartedAt = performance.now()
+    this.executionDiagnostics.toolAdmission(toolDiagnosticIdentity, name)
     const controller = new AbortController()
     const forwardAbort = () => controller.abort(hostSignal.reason)
     hostSignal.addEventListener('abort', forwardAbort, { once: true })
     if (hostSignal.aborted) forwardAbort()
     const tool = scope.tools.get(name)
     if (!tool) {
+      this.executionDiagnostics.toolFailed(toolDiagnosticIdentity, name, 'TOOL_NOT_FOUND', performance.now() - toolStartedAt)
       hostSignal.removeEventListener('abort', forwardAbort)
       throw new HbarError('TOOL_NOT_FOUND', name)
     }
@@ -2201,6 +2309,7 @@ export class Kernel {
         throw new HbarError('DENIED', denial)
       }
       if (tool.humanApproval === 'required' || (decision === 'ask' && gate === 'ask')) {
+        this.executionDiagnostics.toolApproval(toolDiagnosticIdentity, name)
         const resolution = await this.requestApproval(name, args, context, hostSignal)
         const replacementStop = this.boundaryStops.get(context.run.id)
         if (replacementStop && !hostSignal.aborted) throw replacementStop
@@ -2233,6 +2342,7 @@ export class Kernel {
         name,
         args,
       )
+      this.executionDiagnostics.toolStarted(toolDiagnosticIdentity, name)
       this.publishEvent(startEvent)
       started = true
       reporter = createToolExecutionReporter(startEvent.time, (execution) =>
@@ -2301,12 +2411,29 @@ export class Kernel {
           const resultUnknown = started && tool.effect !== 'read'
           result.details = { code: error.code, timeoutMs: error.timeoutMs, timeoutCallId: error.callId, resultUnknown }
           outcome = { kind: resultUnknown ? 'unknown' : 'failed', executionStarted: started }
+          this.executionDiagnostics.toolTimeout(toolDiagnosticIdentity, name, performance.now() - toolStartedAt)
         }
         // Only the exact Host signal reason establishes cancellation outside explicit gates.
         outcome ??=
           hostSignal.aborted && error === hostSignal.reason
             ? hostAbortToolOutcome(hostSignal.reason, started)
             : { kind: 'failed', executionStarted: started }
+        if (!(error instanceof ToolTimeoutError)) {
+          const userCancelled =
+            hostSignal.aborted &&
+            error === hostSignal.reason &&
+            error instanceof HbarError &&
+            error.code === 'USER_CANCELLED'
+          if (userCancelled)
+            this.executionDiagnostics.toolCancelled(toolDiagnosticIdentity, name, performance.now() - toolStartedAt)
+          else
+            this.executionDiagnostics.toolFailed(
+              toolDiagnosticIdentity,
+              name,
+              hostFailure.code,
+              performance.now() - toolStartedAt,
+            )
+        }
       }
     } finally {
       resumeRunIdle?.()
@@ -2331,6 +2458,12 @@ export class Kernel {
         ...(images ? { images } : {}),
       },
     ]
+    this.executionDiagnostics.toolSettled(
+      toolDiagnosticIdentity,
+      outcome?.kind === 'succeeded' ? 'success' : outcome?.kind === 'unknown' ? 'unknown' : outcome?.kind === 'cancelled' ? 'skipped' : 'failure',
+      performance.now() - toolStartedAt,
+      name,
+    )
     const event = context.parentCallId
       ? await this.storage.call(
           'append',
@@ -2739,6 +2872,32 @@ export class Kernel {
     steering?: RunSteeringContext,
     thinking?: ThinkingLevel,
   ) {
+    const startedAt = performance.now()
+    this.executionDiagnostics.compactionStarted({ ...(runId ? { sessionId, runId } : { sessionId }) })
+    try {
+      const result = await this.compactInternalWork(sessionId, model, signal, runId, workspaceOverride, steering, thinking)
+      const identity = runId ? { sessionId, runId } : { sessionId }
+      this.executionDiagnostics.compacted(identity, performance.now() - startedAt)
+      return result
+    } catch (error) {
+      const identity = runId ? { sessionId, runId } : { sessionId }
+      this.executionDiagnostics.compactionFailed(
+        identity,
+        error instanceof HbarError ? error.code : 'COMPACTION_FAILED',
+        performance.now() - startedAt,
+      )
+      throw error
+    }
+  }
+  private async compactInternalWork(
+    sessionId: string,
+    model: ProviderConfig,
+    signal: AbortSignal,
+    runId?: string,
+    workspaceOverride?: Workspace,
+    steering?: RunSteeringContext,
+    thinking?: ThinkingLevel,
+  ) {
     const request = await this.buildRequest(sessionId, model, this.hooks, undefined, workspaceOverride)
     const retain = this.plugins.get<CompactionProvider>('compaction').retainMessages
     const percent = await this.compactionPercent(sessionId)
@@ -2931,6 +3090,37 @@ export class Kernel {
       try { return await this.storage.call('chatDatabaseDeleteSession', input) } finally { this.chatDatabaseWrites-- }
     })
   }
+
+  storageHealth(): KernelStorageHealth {
+    return this.storageFailure ? { ready: false, failure: this.storageFailure } : { ready: this.readyForRuns }
+  }
+
+  private handleStorageFatal(event: StorageFatalEvent): void {
+    if (this.storageFailure) return
+    this.storageFailure = event
+    try {
+      this.options.diagnostics?.emit(
+        diagnosticEvent({
+          component: 'kernel',
+          level: 'fatal',
+          event: 'health.degraded',
+          errorCode: event.code,
+          ...(event.method ? { method: event.method } : {}),
+          outcome: 'failure',
+          workerState: 'failed',
+        }),
+      )
+    } catch {
+      // Diagnostic observers cannot affect the storage failure transition.
+    }
+    this.readyForRuns = false
+    for (const timer of this.summaryTimers.values()) clearTimeout(timer)
+    this.summaryTimers.clear()
+    this.summaryPending.clear()
+    this.scheduledWakeups.close()
+    this.wakeups.clear()
+    for (const active of this.active.values()) active.controller.abort(event)
+  }
   notifyChatDatabaseDeleted(sessionIds: string[], revision: number): void {
     if (sessionIds.length < 1 || sessionIds.length > 100) throw new HbarError('INVALID_INPUT', 'Deletion notifications are bounded')
     for (const id of sessionIds) {
@@ -3074,6 +3264,8 @@ export class Kernel {
   }
   async close() {
     this.closing = true
+    this.removeStorageFatalListener?.()
+    this.removeStorageFatalListener = undefined
     for (const timer of this.summaryTimers.values()) clearTimeout(timer)
     this.summaryTimers.clear()
     this.summaryPending.clear()
