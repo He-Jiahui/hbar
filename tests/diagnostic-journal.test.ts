@@ -65,6 +65,20 @@ test('retains failures when normal coverage is disabled and counts queue overflo
   expect(snapshot.writeFailures).toBe(0)
 })
 
+test('writes warning and fixed lifecycle facts while filtering fast success info', async () => {
+  const journal = new DiagnosticJournal({ root: await root(), enabled: false, queueEntries: 8 })
+  journal.emit(event({ event: 'storage.request.completed', level: 'info' }))
+  journal.emit(event({ event: 'rpc.completed', level: 'warn', durationMs: 125 }))
+  journal.emit(event({ event: 'sqlite.configured', component: 'sqlite', level: 'info', workerState: 'ready' }))
+  const snapshot = await journal.close()
+  const lines = (await readFile(journal.filePath, 'utf8')).trim().split('\n').filter(Boolean)
+  expect(snapshot.dropped).toBe(0)
+  expect(lines).toHaveLength(2)
+  expect(lines.join('\n')).toContain('rpc.completed')
+  expect(lines.join('\n')).toContain('sqlite.configured')
+  expect(lines.join('\n')).not.toContain('storage.request.completed')
+})
+
 test('rolls files at the configured bound and limits retained generations', async () => {
   const rootPath = await root()
   const journal = new DiagnosticJournal({ root: rootPath, enabled: true, maxBytes: 512, retention: 2 })
