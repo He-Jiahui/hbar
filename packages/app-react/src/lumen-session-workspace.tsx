@@ -2330,6 +2330,7 @@ function SessionWorkspaceContent({
                         ? labels.error(templateRouteError.code)
                         : visibleSlashFailure
             }
+            errorPresentation={visibleSlashFailure ? 'inline' : undefined}
             controls={
               <LumenFrame className="hbar-session-composer-controls">
                 <HbarComposerAddMenu

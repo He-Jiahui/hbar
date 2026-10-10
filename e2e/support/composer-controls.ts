@@ -7,10 +7,16 @@ export async function revealComposerControl(
   control: Locator,
   labels: ReturnType<typeof getShellCopy>['session']['addMenu'],
 ): Promise<void> {
-  if (!(await control.isVisible())) {
-    await page.getByRole('button', { name: labels.menu, exact: true }).click()
-  }
-  await expect(control).toBeVisible()
+  // Capacity measurement may move an initially visible control into overflow.
+  await expect(async () => {
+    if (!(await control.isVisible())) {
+      const trigger = page.getByRole('button', { name: labels.menu, exact: true })
+      if ((await trigger.isVisible()) && (await trigger.getAttribute('aria-expanded')) !== 'true') {
+        await trigger.click()
+      }
+    }
+    await expect(control).toBeVisible({ timeout: 250 })
+  }).toPass({ timeout: 10_000, intervals: [50, 100, 200] })
 }
 
 export async function openComposerFeedback(page: Page, copy: ReturnType<typeof getShellCopy>): Promise<void> {

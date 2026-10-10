@@ -851,6 +851,7 @@ export function WebPreSessionLanding({
         }
         composer={{
           value: text,
+          errorPresentation: agentPreflightFailed ? 'inline' : undefined,
           attachments: (draft?.attachments ?? []).map((attachment) => ({
             id: attachment.artifact.id,
             kind: attachment.kind,
@@ -969,7 +970,12 @@ export function WebPreSessionLanding({
               { id: 'actions', label: shell.session.addMenu.open, priority: 20, content: goalControl },
               { id: 'approval', label: shell.session.permissionPicker.title, priority: 40, content: approvalControl },
               { id: 'workspace', label: launchLabels.location.title, priority: 60, content: workspaceControl },
-              { id: 'model', label: modelLabels.title, priority: 100, content: <LumenFrame className="hbar-web-pre-session-model-controls">{modelControl}</LumenFrame> },
+              {
+                id: 'model',
+                label: modelLabels.title,
+                priority: 100,
+                content: <LumenFrame className="hbar-web-pre-session-model-controls">{modelControl}</LumenFrame>,
+              },
               { id: 'thinking', label: shell.session.modelPicker.thinking, priority: 90, content: thinkingControl },
             ],
           },

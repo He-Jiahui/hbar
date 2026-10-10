@@ -16,10 +16,12 @@ import {
 } from './composer-feedback'
 import './prompt-composer.css'
 
-type HbarPromptComposerProps = LumenPromptComposerProps & {
+export type HbarPromptComposerProps = LumenPromptComposerProps & {
   readonly backgroundAction?: ReactNode
   readonly variant?: 1 | 4 | 7
   readonly feedbackLabels?: HbarComposerFeedbackLabels
+  /** Validation failures can remain visible without opening managed feedback. */
+  readonly errorPresentation?: 'inline' | undefined
   readonly adaptiveToolbar?: {
     readonly moreLabel: string
     readonly controlsLabel: string
@@ -30,6 +32,7 @@ type HbarPromptComposerProps = LumenPromptComposerProps & {
 
 function ComposerContent(props: HbarPromptComposerProps) {
   const managed = useHbarComposerFeedbackManaged()
+  const managedError = managed && props.errorPresentation !== 'inline'
   const controls = (
     <>
       {props.controls}
@@ -55,7 +58,14 @@ function ComposerContent(props: HbarPromptComposerProps) {
           items: [
             ...props.toolbar.items,
             ...(managed && props.feedbackLabels
-              ? [{ id: 'feedback', label: props.feedbackLabels.title, priority: 80, content: <HbarComposerFeedbackTrigger /> }]
+              ? [
+                  {
+                    id: 'feedback',
+                    label: props.feedbackLabels.title,
+                    priority: 80,
+                    content: <HbarComposerFeedbackTrigger />,
+                  },
+                ]
               : []),
           ],
         }
@@ -65,11 +75,11 @@ function ComposerContent(props: HbarPromptComposerProps) {
       {...props}
       toolbar={toolbar}
       className="hbar-prompt-composer"
-      error={managed ? undefined : props.error}
+      error={managedError ? undefined : props.error}
       context={
         <>
           {props.context}
-          {managed && props.error && (
+          {managedError && props.error && (
             <HbarComposerFeedback tone="danger">
               <LumenContentText context="feedback.message" role="alert">
                 {props.error}
