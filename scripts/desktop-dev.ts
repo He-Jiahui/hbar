@@ -248,7 +248,7 @@ export async function runDesktopDev(args: readonly string[] = []): Promise<numbe
         resolve(project, 'node_modules/@tauri-apps/cli/tauri.js'),
         'dev',
         '--config',
-        JSON.stringify({ build: { devUrl: webUrl } }),
+        JSON.stringify({ build: { devUrl: webUrl }, bundle: { active: false, resources: [] } }),
         ...args,
       ],
       { cwd: resolve(project, 'apps/desktop'), env, stdio: ['inherit', 'inherit', 'inherit'], windowsHide: true },
