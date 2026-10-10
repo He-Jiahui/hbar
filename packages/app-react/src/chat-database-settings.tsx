@@ -1,6 +1,15 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Database, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
-import { LumenButton, LumenDialog, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import {
+  LumenButton,
+  LumenCollection,
+  LumenCollectionItem,
+  LumenDialog,
+  LumenDisclosure,
+  LumenFrame,
+  LumenIcon,
+  LumenText,
+} from '@lumen/app-ui'
 import { chatDatabaseViewKey } from '@hbar/app-runtime'
 import type {
   ChatDatabaseScope,
@@ -115,17 +124,16 @@ function Skips({
   readonly labels: ChatDatabaseSettingsLabels
 }) {
   return skipped.length ? (
-    <details className="hbar-chat-database-skips">
-      <summary>{labels.skipped}</summary>
-      <dl>
+    <LumenDisclosure className="hbar-chat-database-skips" summary={labels.skipped}>
+      <LumenCollection as="dl">
         {skipped.map((skip) => (
-          <div key={skip.code}>
-            <dt>{labels.skipReason(skip.code)}</dt>
-            <dd>{labels.count(skip.count)}</dd>
-          </div>
+          <LumenFrame key={skip.code}>
+            <LumenCollectionItem as="dt">{labels.skipReason(skip.code)}</LumenCollectionItem>
+            <LumenCollectionItem as="dd">{labels.count(skip.count)}</LumenCollectionItem>
+          </LumenFrame>
         ))}
-      </dl>
-    </details>
+      </LumenCollection>
+    </LumenDisclosure>
   ) : null
 }
 function Operation({
@@ -229,18 +237,20 @@ export function HbarChatDatabaseSettings({
     labels.metrics.filter((item) => (scope.kind === 'global' ? !shared : item.shared === shared))
   const renderMetrics = (shared: boolean) =>
     values && (
-      <dl className="hbar-chat-database-metrics">
+      <LumenCollection as="dl" className="hbar-chat-database-metrics">
         {metrics(shared).map((metric) => (
-          <div key={metric.id} data-database-metric={metric.id}>
-            <dt>{metric.label}</dt>
-            <dd>{metric.kind === 'bytes' ? labels.bytes(values[metric.id]) : labels.count(values[metric.id])}</dd>
-          </div>
+          <LumenFrame key={metric.id} data-database-metric={metric.id}>
+            <LumenCollectionItem as="dt">{metric.label}</LumenCollectionItem>
+            <LumenCollectionItem as="dd">
+              {metric.kind === 'bytes' ? labels.bytes(values[metric.id]) : labels.count(values[metric.id])}
+            </LumenCollectionItem>
+          </LumenFrame>
         ))}
-      </dl>
+      </LumenCollection>
     )
   return (
     <LumenFrame as="section" className="hbar-chat-database-settings" aria-label={labels.title}>
-      <header>
+      <LumenFrame as="header">
         <LumenText as="h2" variant="heading">
           <LumenIcon icon={Database} tier="md" />
           {labels.title}
@@ -248,7 +258,7 @@ export function HbarChatDatabaseSettings({
         <LumenText as="p" tone="muted">
           {labels.description}
         </LumenText>
-      </header>
+      </LumenFrame>
       {!connected && (
         <LumenText as="p" role="status">
           {labels.offline}
@@ -273,42 +283,36 @@ export function HbarChatDatabaseSettings({
         </LumenFrame>
       )}
       <LumenFrame as="section" className="hbar-chat-database-section" aria-label={labels.overview}>
-        <div className="hbar-chat-database-row">
+        <LumenFrame className="hbar-chat-database-row">
           <LumenText as="h3">{labels.overview}</LumenText>
           <LumenButton disabled={!connected || state?.loading} onClick={() => void actions.refresh(instanceId, scope)}>
             <LumenIcon icon={RefreshCw} tier="sm" />
             {labels.refresh}
           </LumenButton>
-        </div>
+        </LumenFrame>
         {report && (
-          <div className="hbar-chat-database-total">
+          <LumenFrame className="hbar-chat-database-total">
             <LumenText as="span">{report.totalKind === 'physical' ? labels.physical : labels.attributable}</LumenText>
             <LumenText as="strong">{labels.bytes(report.totalBytes)}</LumenText>
-          </div>
+          </LumenFrame>
         )}
         <LumenText as="p" tone="muted">
           {scope.kind === 'global' ? labels.totalHelp : labels.scopedHelp}
         </LumenText>
         {renderMetrics(false)}
         {report && scope.kind === 'global' && (
-          <details>
-            <summary>{labels.cacheBreakdown}</summary>
-            <dl className="hbar-chat-database-metrics">
+          <LumenDisclosure summary={labels.cacheBreakdown}>
+            <LumenCollection as="dl" className="hbar-chat-database-metrics">
               {report.disk.cacheCategories.map((item) => (
-                <div key={item.id}>
-                  <dt>{labels.cacheCategories[item.id]}</dt>
-                  <dd>{labels.bytes(item.bytes)}</dd>
-                </div>
+                <LumenFrame key={item.id}>
+                  <LumenCollectionItem as="dt">{labels.cacheCategories[item.id]}</LumenCollectionItem>
+                  <LumenCollectionItem as="dd">{labels.bytes(item.bytes)}</LumenCollectionItem>
+                </LumenFrame>
               ))}
-            </dl>
-          </details>
+            </LumenCollection>
+          </LumenDisclosure>
         )}
-        {scope.kind !== 'global' && (
-          <details>
-            <summary>{labels.shared}</summary>
-            {renderMetrics(true)}
-          </details>
-        )}
+        {scope.kind !== 'global' && <LumenDisclosure summary={labels.shared}>{renderMetrics(true)}</LumenDisclosure>}
         {report?.sampledAt ? (
           <LumenText as="p" tone="muted">
             {labels.sampledAt(report.sampledAt)}
@@ -337,16 +341,16 @@ export function HbarChatDatabaseSettings({
         {state?.task && (
           <>
             <LumenText as="p">{labels.task(state.task)}</LumenText>
-            <dl className="hbar-chat-database-metrics">
-              <div>
-                <dt>{labels.lastRun}</dt>
-                <dd>{labels.date(state.task.lastRunAt)}</dd>
-              </div>
-              <div>
-                <dt>{labels.nextRun}</dt>
-                <dd>{labels.date(state.task.nextDueAt)}</dd>
-              </div>
-            </dl>
+            <LumenCollection as="dl" className="hbar-chat-database-metrics">
+              <LumenFrame>
+                <LumenCollectionItem as="dt">{labels.lastRun}</LumenCollectionItem>
+                <LumenCollectionItem as="dd">{labels.date(state.task.lastRunAt)}</LumenCollectionItem>
+              </LumenFrame>
+              <LumenFrame>
+                <LumenCollectionItem as="dt">{labels.nextRun}</LumenCollectionItem>
+                <LumenCollectionItem as="dd">{labels.date(state.task.nextDueAt)}</LumenCollectionItem>
+              </LumenFrame>
+            </LumenCollection>
             {state.task.error && (
               <LumenText as="p" role="alert">
                 {labels.error(state.task.error)}
@@ -365,12 +369,12 @@ export function HbarChatDatabaseSettings({
         </LumenText>
         {allowedActions.map((action) => (
           <LumenFrame as="article" aria-label={action.title} className="hbar-chat-database-action" key={action.kind}>
-            <div>
+            <LumenFrame>
               <LumenText as="h4">{action.title}</LumenText>
               <LumenText as="p" tone="muted">
                 {action.help}
               </LumenText>
-            </div>
+            </LumenFrame>
             <LumenButton
               disabled={!connected || busy}
               onClick={() => void actions.preview(instanceId, scope, action.kind)}
@@ -421,7 +425,7 @@ export function HbarChatDatabaseSettings({
         ) : (
           <LumenText as="p">{labels.noRecords}</LumenText>
         )}
-        <div className="hbar-chat-database-row">
+        <LumenFrame className="hbar-chat-database-row">
           <LumenButton
             disabled={!connected || state?.loading}
             onClick={() => void actions.historyPage(instanceId, scope, null)}
@@ -434,7 +438,7 @@ export function HbarChatDatabaseSettings({
           >
             {labels.nextPage}
           </LumenButton>
-        </div>
+        </LumenFrame>
       </LumenFrame>
       <LumenDialog
         open={Boolean(confirming && preview?.operationId === confirming)}
@@ -470,9 +474,9 @@ export function HbarChatDatabaseSettings({
               <LumenIcon icon={ShieldCheck} tier="md" />
               {labels.confirmHelp}
             </LumenText>
-            <ol className="hbar-chat-database-preview-list">
+            <LumenCollection as="ol" className="hbar-chat-database-preview-list">
               {state?.previewItems.map((item) => (
-                <li key={`${item.kind}:${item.id}`}>
+                <LumenCollectionItem as="li" key={`${item.kind}:${item.id}`}>
                   <LumenText as="p">{item.title}</LumenText>
                   <LumenText as="p" tone="muted">
                     {labels.bytes(item.estimatedBytes)}
@@ -482,11 +486,11 @@ export function HbarChatDatabaseSettings({
                       {labels.skipReason(item.skipReason)}
                     </LumenText>
                   )}
-                </li>
+                </LumenCollectionItem>
               ))}
-            </ol>
+            </LumenCollection>
             <Skips skipped={preview.skipped} labels={labels} />
-            <div className="hbar-chat-database-row">
+            <LumenFrame className="hbar-chat-database-row">
               <LumenButton disabled={!connected} onClick={() => void actions.previewPage(instanceId, scope, null)}>
                 {labels.firstPage}
               </LumenButton>
@@ -496,7 +500,7 @@ export function HbarChatDatabaseSettings({
               >
                 {labels.nextPage}
               </LumenButton>
-            </div>
+            </LumenFrame>
           </LumenFrame>
         )}
       </LumenDialog>
