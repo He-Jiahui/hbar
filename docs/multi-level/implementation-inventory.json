@@ -463,6 +463,7 @@
     "app.closeTerminal",
     "app.closeWindow",
     "app.createSession",
+    "app.initializeSidebar",
     "app.openCommandForm",
     "app.openPanel",
     "app.openSettings",
