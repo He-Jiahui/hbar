@@ -60,6 +60,11 @@ import type { HbarSessionDecisionHistoryLabels } from './session-decision-histor
 import { settledSessionDecision } from './session-monitoring-decisions'
 import { HbarComposerModelPicker, type HbarComposerModelLabels } from './composer-model-picker'
 import { HbarPromptComposer } from './prompt-composer'
+import {
+  HbarComposerFeedback,
+  HbarComposerFeedbackProvider,
+  type HbarComposerFeedbackLabels,
+} from './composer-feedback'
 import { HbarDeletedSessionWorkspace } from './deleted-session-workspace'
 import { useSessionReadingPosition } from './session-reading-position'
 import { useSessionHistoryScroll } from './session-history-scroll'
@@ -143,6 +148,7 @@ import {
 } from './session-execution-notice'
 
 export interface HbarSessionWorkspaceLabels {
+  readonly composerFeedback: HbarComposerFeedbackLabels
   readonly find: HbarSessionFindLabels
   readonly anchors: HbarConversationAnchorLabels
   readonly conversationTitle: (title: string) => string
@@ -1136,7 +1142,7 @@ function SessionWorkspaceContent({
     )
   }
   const workspaceContextError =
-    workspaceContextFailure?.sessionId === sessionId ? workspaceContextFailure.message : undefined
+    connected && workspaceContextFailure?.sessionId === sessionId ? workspaceContextFailure.message : undefined
   const toolInstanceId = presentation.toolInstanceId
   const [toolFailure, setToolFailure] = useState<{
     sessionId: string
@@ -1729,7 +1735,8 @@ function SessionWorkspaceContent({
     },
   )
 
-  const currentFailure = timeline.sessionId === sessionId ? currentSessionRunFailure(timeline.runs, sessionId) : null
+  const currentFailure =
+    connected && timeline.sessionId === sessionId ? currentSessionRunFailure(timeline.runs, sessionId) : null
   const activity: ReactNode =
     decisionProjection.fallback.length > 0 || currentFailure ? (
       <LumenFrame className="hbar-app-react-session-activity">
@@ -1752,116 +1759,112 @@ function SessionWorkspaceContent({
     composerIntent.facts.sessionId === sessionId ? composerIntent.facts.snapshot?.goal : null,
   )
   const loadOlder = () => sessionId && invoke('timeline.loadOlder', { sessionId })
-  const historyNotices = sessionId ? (
-    <LumenFrame className="hbar-app-react-session-history-controls">
-      {!connected && (
-        <LumenContentText context="feedback.message" role="status">
-          {labels.disconnected}
-        </LumenContentText>
-      )}
-      {timeline.status === 'loading' && timeline.messages.length > 0 && (
-        <LumenContentText context="feedback.message" role="status">
-          {labels.refreshing}
-        </LumenContentText>
-      )}
-      {timeline.status === 'error' && timeline.messages.length > 0 && (
-        <LumenFrame className="hbar-app-react-session-history-error" role="alert">
-          <LumenContentText context="message.inline">
-            {labels.error(timeline.error ?? 'EXECUTION_FAILED')}
+  const historyNotices =
+    connected && sessionId ? (
+      <LumenFrame className="hbar-app-react-session-history-controls">
+        {timeline.status === 'loading' && timeline.messages.length > 0 && (
+          <LumenContentText context="feedback.message" role="status">
+            {labels.refreshing}
           </LumenContentText>
-          {connected && (
-            <LumenButton size="s" onClick={retryTimeline}>
-              {labels.retryTimeline}
-            </LumenButton>
-          )}
-        </LumenFrame>
-      )}
-      {timeline.olderStatus === 'limit' ? (
-        <LumenContentText context="feedback.message" role="status">
-          {labels.historyLimit}
-        </LumenContentText>
-      ) : timeline.olderStatus === 'loading' ? (
-        <LumenContentText context="feedback.message" role="status">
-          {labels.loadingOlder}
-        </LumenContentText>
-      ) : timeline.olderStatus === 'error' ? (
-        <LumenFrame className="hbar-app-react-session-history-page">
-          <LumenContentText context="message.inline" role="alert">
-            {labels.error(timeline.olderError ?? 'EXECUTION_FAILED')}
-          </LumenContentText>
-          <LumenButton size="s" disabled={!connected} onClick={loadOlder}>
-            {labels.retryHistory}
-          </LumenButton>
-        </LumenFrame>
-      ) : timeline.hasOlder ? (
-        <LumenContentText context="feedback.message" role="status">
-          {labels.loadOlder}
-        </LumenContentText>
-      ) : null}
-      {(goalHistory.available ||
-        (composerIntent.facts.sessionId === sessionId && composerIntent.facts.snapshot?.goal)) &&
-        goalHistoryProjection && (
-          <LumenFrame
-            className="hbar-app-react-session-history-page"
-            data-goal-history-gap={goalHistoryProjection.gapReason ?? undefined}
-          >
-            {goalHistoryProjection.status === 'loading' ? (
-              <LumenContentText context="message.inline" role="status">
-                {labels.goalHistory.loading}
-              </LumenContentText>
-            ) : goalHistoryProjection.gapReason ? (
-              <LumenContentText
-                context="message.inline"
-                role={goalHistoryProjection.gapReason === 'error' ? 'alert' : 'status'}
-              >
-                {labels.goalHistory.gap(goalHistoryProjection.gapReason)}
-              </LumenContentText>
-            ) : null}
-            {goalHistoryProjection.limit && (
-              <LumenContentText context="message.inline" role="status">
-                {labels.goalHistory.limit(GOAL_HISTORY_MAX_FACTS)}
-              </LumenContentText>
+        )}
+        {timeline.status === 'error' && timeline.messages.length > 0 && (
+          <LumenFrame className="hbar-app-react-session-history-error" role="alert">
+            <LumenContentText context="message.inline">
+              {labels.error(timeline.error ?? 'EXECUTION_FAILED')}
+            </LumenContentText>
+            {connected && (
+              <LumenButton size="s" onClick={retryTimeline}>
+                {labels.retryTimeline}
+              </LumenButton>
             )}
-            {goalHistory.available &&
-              goalHistoryProjection.gap &&
-              goalHistoryProjection.status !== 'loading' &&
-              goalHistoryProjection.gapReason !== 'limit' && (
-                <LumenButton
-                  size="s"
-                  disabled={
-                    !connected || timeline.status !== 'ready' || goalHistoryProjection.olderStatus === 'loading'
-                  }
-                  onClick={() => invoke('goalHistory.refresh', { sessionId })}
-                >
-                  {labels.goalHistory.refresh}
-                </LumenButton>
-              )}
-            {goalHistory.available &&
-              !goalHistoryProjection.stale &&
-              !goalHistoryProjection.limit &&
-              goalHistoryProjection.hasOlder &&
-              (!timeline.hasOlder || goalHistoryProjection.gap) && (
-                <LumenButton
-                  size="s"
-                  disabled={
-                    !connected ||
-                    timeline.status !== 'ready' ||
-                    goalHistoryProjection.status === 'loading' ||
-                    goalHistoryProjection.olderStatus === 'loading'
-                  }
-                  onClick={() => invoke('goalHistory.loadOlder', { sessionId })}
-                >
-                  {goalHistoryProjection.olderStatus === 'loading'
-                    ? labels.goalHistory.loadingOlder
-                    : goalHistoryProjection.olderStatus === 'error'
-                      ? labels.goalHistory.retryOlder
-                      : labels.goalHistory.loadOlder}
-                </LumenButton>
-              )}
           </LumenFrame>
         )}
-    </LumenFrame>
-  ) : null
+        {timeline.olderStatus === 'limit' ? (
+          <LumenContentText context="feedback.message" role="status">
+            {labels.historyLimit}
+          </LumenContentText>
+        ) : timeline.olderStatus === 'loading' ? (
+          <LumenContentText context="feedback.message" role="status">
+            {labels.loadingOlder}
+          </LumenContentText>
+        ) : timeline.olderStatus === 'error' ? (
+          <LumenFrame className="hbar-app-react-session-history-page">
+            <LumenContentText context="message.inline" role="alert">
+              {labels.error(timeline.olderError ?? 'EXECUTION_FAILED')}
+            </LumenContentText>
+            <LumenButton size="s" disabled={!connected} onClick={loadOlder}>
+              {labels.retryHistory}
+            </LumenButton>
+          </LumenFrame>
+        ) : timeline.hasOlder ? (
+          <LumenContentText context="feedback.message" role="status">
+            {labels.loadOlder}
+          </LumenContentText>
+        ) : null}
+        {(goalHistory.available ||
+          (composerIntent.facts.sessionId === sessionId && composerIntent.facts.snapshot?.goal)) &&
+          goalHistoryProjection && (
+            <LumenFrame
+              className="hbar-app-react-session-history-page"
+              data-goal-history-gap={goalHistoryProjection.gapReason ?? undefined}
+            >
+              {goalHistoryProjection.status === 'loading' ? (
+                <LumenContentText context="message.inline" role="status">
+                  {labels.goalHistory.loading}
+                </LumenContentText>
+              ) : goalHistoryProjection.gapReason ? (
+                <LumenContentText
+                  context="message.inline"
+                  role={goalHistoryProjection.gapReason === 'error' ? 'alert' : 'status'}
+                >
+                  {labels.goalHistory.gap(goalHistoryProjection.gapReason)}
+                </LumenContentText>
+              ) : null}
+              {goalHistoryProjection.limit && (
+                <LumenContentText context="message.inline" role="status">
+                  {labels.goalHistory.limit(GOAL_HISTORY_MAX_FACTS)}
+                </LumenContentText>
+              )}
+              {goalHistory.available &&
+                goalHistoryProjection.gap &&
+                goalHistoryProjection.status !== 'loading' &&
+                goalHistoryProjection.gapReason !== 'limit' && (
+                  <LumenButton
+                    size="s"
+                    disabled={
+                      !connected || timeline.status !== 'ready' || goalHistoryProjection.olderStatus === 'loading'
+                    }
+                    onClick={() => invoke('goalHistory.refresh', { sessionId })}
+                  >
+                    {labels.goalHistory.refresh}
+                  </LumenButton>
+                )}
+              {goalHistory.available &&
+                !goalHistoryProjection.stale &&
+                !goalHistoryProjection.limit &&
+                goalHistoryProjection.hasOlder &&
+                (!timeline.hasOlder || goalHistoryProjection.gap) && (
+                  <LumenButton
+                    size="s"
+                    disabled={
+                      !connected ||
+                      timeline.status !== 'ready' ||
+                      goalHistoryProjection.status === 'loading' ||
+                      goalHistoryProjection.olderStatus === 'loading'
+                    }
+                    onClick={() => invoke('goalHistory.loadOlder', { sessionId })}
+                  >
+                    {goalHistoryProjection.olderStatus === 'loading'
+                      ? labels.goalHistory.loadingOlder
+                      : goalHistoryProjection.olderStatus === 'error'
+                        ? labels.goalHistory.retryOlder
+                        : labels.goalHistory.loadOlder}
+                  </LumenButton>
+                )}
+            </LumenFrame>
+          )}
+      </LumenFrame>
+    ) : null
 
   const welcome =
     (!goalHistory.available ||
@@ -1906,9 +1909,9 @@ function SessionWorkspaceContent({
   ) : (
     <LumenFrame className="hbar-app-react-session-empty">
       <LumenContentText context="section.description">
-        {timeline.status === 'loading'
+        {connected && timeline.status === 'loading'
           ? labels.loading
-          : timeline.error
+          : connected && timeline.error
             ? labels.error(timeline.error)
             : labels.emptyHistory}
       </LumenContentText>
@@ -1958,645 +1961,660 @@ function SessionWorkspaceContent({
   })()
 
   const composer: ReactNode = sessionId ? (
-    <LumenFrame
-      className="hbar-app-react-session-footer"
-      data-hbar-composer-session={sessionId}
-      data-git-context-status={projectContext.context.status}
-    >
-      <HbarSessionLiveStatus
-        key={sessionId}
-        sessionId={sessionId}
-        timelineSessionId={timeline.sessionId}
-        owned={activeConversationOwner}
-        connected={connected}
-        run={activeRun}
-        labels={labels.liveStatus}
-        context={{
-          facts: composerIntent.facts,
-          onRefresh: () => invoke('composerIntent.refresh', { sessionId }),
-          summary: (
-            <LumenFrame className="hbar-session-current-goal" data-current-goal-session={sessionId}>
-              <HbarComposerGoal
-                key={sessionId}
-                sessionId={sessionId}
-                workspaceId={navigation.workspaceId}
-                connected={connected}
-                labels={labels.intent}
-                surface="summary"
-                embedded
-                runActive={
-                  connected &&
-                  ((timeline.sessionId === sessionId && Boolean(activeRun)) ||
-                    (selectedExecution.target?.sessionId === sessionId &&
-                      selectedExecution.target.workspaceId === sessionWorkspaceId &&
-                      selectedExecution.status === 'ready' &&
-                      selectedExecution.snapshot?.execution.activeCount !== undefined &&
-                      selectedExecution.snapshot.execution.activeCount > 0))
-                }
-                executionReadError={
-                  connected &&
-                  selectedExecution.target?.sessionId === sessionId &&
-                  selectedExecution.target.workspaceId === sessionWorkspaceId &&
-                  selectedExecution.status === 'error'
-                }
-                executionChecking={
-                  connected &&
-                  selectedExecution.target?.sessionId === sessionId &&
-                  selectedExecution.target.workspaceId === sessionWorkspaceId &&
-                  selectedExecution.status === 'loading'
-                }
-                goalTriggerRef={composerGoalTrigger}
-                canPrepare={canPrepare}
-              />
-            </LumenFrame>
-          ),
-        }}
-      />
-      <HbarSessionStopNotice region="main" />
-      <HbarSessionExecutionNotice
-        key={`${sessionId}:${sessionWorkspaceId}`}
-        status={preparationStatus}
-        workspaceName={workspaceName}
-        connected={connected}
-        labels={labels.executionAccess}
-        onOpenArchived={async () => {
-          const target = { sessionId, workspaceId: sessionWorkspaceId }
-          const selected = runtime.state.navigation.getSnapshot()
-          if (selected.sessionId !== target.sessionId || selected.workspaceId !== target.workspaceId) return
-          await runtime.commands.execute('archivedSessions.open', { workspaceId: target.workspaceId })
-          const latest = runtime.state.navigation.getSnapshot()
-          if (latest.sessionId !== target.sessionId || latest.workspaceId !== target.workspaceId) return
-          await runtime.commands.execute('app.setSidebarVisible', { visible: true })
-        }}
-      />
-      <HbarComposerGoal
-        key={sessionId}
-        sessionId={sessionId}
-        workspaceId={navigation.workspaceId}
-        connected={connected}
-        labels={labels.intent}
-        surface="submission"
-        canPrepare={canPrepare}
-      />
-      <HbarComposerAgentNotice
-        status={
-          agentAction?.status === 'succeeded' && agentAction.draftCleared && draft?.text
-            ? undefined
-            : agentAction?.status
-        }
-        agentId={agentAction?.agent?.agentId}
-        labels={labels.slash.agentNotice}
-        connected={connected}
-        onRetry={() => {
-          if (!agentAction || !sessionId || !navigation.workspaceId) return
-          void runtime.commands
-            .execute('agentComposer.invoke', {
-              sessionId: agentAction.sessionId,
-              workspaceId: agentAction.workspaceId,
-              draftText: agentAction.draftText,
-              draftRevision: agentAction.draftRevision,
-              profileId: agentAction.profileId,
-              objective: agentAction.objective,
-            })
-            .catch((reason: unknown) => {
-              setSlashFailure({
-                sessionId,
-                code:
-                  reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
-                    ? reason.code
-                    : 'EXECUTION_FAILED',
-              })
-            })
-        }}
-        onOpen={() => {
-          if (!agentAction?.agent || !sessionId || !navigation.workspaceId) return
-          void runtime.commands
-            .execute('agentComposer.openResult', {
-              sessionId: agentAction.sessionId,
-              workspaceId: agentAction.workspaceId,
-              agentId: agentAction.agent.agentId,
-            })
-            .catch((reason: unknown) => {
-              setSlashFailure({
-                sessionId,
-                code:
-                  reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
-                    ? reason.code
-                    : 'EXECUTION_FAILED',
-              })
-            })
-        }}
-      />
-      <HbarComposerAttachmentDropTarget
-        key={sessionId}
-        enabled={attachmentIntakeEnabled}
-        label={labels.attachments.drop}
-        onAdd={addAttachments}
+    <HbarComposerFeedbackProvider key={sessionId} labels={labels.composerFeedback}>
+      <LumenFrame
+        className="hbar-app-react-session-footer"
+        data-hbar-composer-session={sessionId}
+        data-git-context-status={projectContext.context.status}
       >
-        {goalConfirmation?.sessionId === sessionId &&
-          goalConfirmation.workspaceId === navigation.workspaceId &&
-          goalConfirmation.revision === draft?.revision &&
-          goalConfirmation.text === draft.text && (
-            <LumenFrame
-              className="hbar-composer-goal-confirmation"
-              role="group"
-              aria-label={
-                goalConfirmation.action === 'clear'
-                  ? labels.slash.goalConfirmClear(goalConfirmation.previousObjective)
-                  : labels.slash.goalConfirmReplace(goalConfirmation.previousObjective)
-              }
-            >
-              <LumenContentText context="message.inline">
-                {goalConfirmation.action === 'clear'
-                  ? labels.slash.goalConfirmClear(goalConfirmation.previousObjective)
-                  : labels.slash.goalConfirmReplace(goalConfirmation.previousObjective)}
-              </LumenContentText>
-              <LumenFrame className="hbar-composer-goal-confirmation-actions">
-                <LumenButton type="button" size="s" onClick={() => setGoalConfirmation(null)}>
-                  {labels.slash.goalCancel}
-                </LumenButton>
-                <LumenButton
-                  type="button"
-                  size="s"
-                  tone="danger"
-                  onClick={() => {
-                    const confirmation = goalConfirmation
-                    setGoalConfirmation(null)
-                    void runGoalSlash(
-                      confirmation,
-                      confirmation.action === 'clear'
-                        ? { action: 'clear' }
-                        : { action: 'set', objective: confirmation.objective! },
-                      confirmation.expectedGoalId,
-                    )
-                  }}
-                >
-                  {labels.slash.goalConfirm}
-                </LumenButton>
-              </LumenFrame>
-            </LumenFrame>
-          )}
-        <HbarPromptComposer
-          boundary="none"
-          value={composerDraft?.text ?? ''}
-          editor={
-            files && sessionId && navigation.workspaceId
-              ? ({ inputLabel, placeholder, disabled }) => (
-                  <HbarComposerMentionEditor
-                    key={`${sessionId}:${navigation.workspaceId}`}
-                    sessionId={sessionId}
-                    workspaceId={navigation.workspaceId!}
-                    revision={composerDraft?.revision ?? 0}
-                    text={composerDraft?.text ?? ''}
-                    mentions={composerDraft?.mentions ?? []}
-                    disabled={disabled}
-                    connected={connected}
-                    inputLabel={inputLabel}
-                    placeholder={placeholder}
-                    labels={labels.mentions}
-                    slashLabels={slashLabels}
-                    submitSlashCommands={submitSlashCommands}
-                    slashOpenRequest={slashOpenRequest}
-                    focusRequest={editorFocusRequest}
-                    sendBehavior={sendBehavior}
-                    files={files}
-                    onContent={(text, mentions, expectedRevision) =>
-                      saveComposerContent(sessionId, text, mentions, expectedRevision)
-                    }
-                    onSubmit={() => {
-                      void submitLatest(sessionId, navigation.workspaceId!)
-                    }}
-                  />
-                )
-              : undefined
-          }
-          labels={{
-            ...labels.prompt,
-            placeholder:
-              intent === 'goal'
-                ? labels.intent.goalPlaceholder
-                : planModeEntry?.status === 'ready' && planModeEntry.mode === 'plan'
-                  ? labels.intent.planPlaceholder
-                  : labels.prompt.placeholder,
-          }}
-          attachments={(draft?.attachments ?? []).map((attachment) => ({
-            id: attachment.artifact.id,
-            kind: attachment.kind,
-            name: attachment.artifact.name,
-          }))}
-          attachmentContent={
-            draft &&
-            (workspaceContexts.length > 0 || workspaceContextError || (images && draft.attachments.length > 0)) ? (
-              <>
-                <HbarComposerWorkspaceContexts
-                  contexts={workspaceContexts}
-                  attachments={!images ? draft.attachments : []}
-                  labels={labels.workspaceContexts}
-                  removeAttachmentLabel={(attachment) =>
-                    labels.prompt.removeAttachment({
-                      id: attachment.artifact.id,
-                      kind: attachment.kind,
-                      name: attachment.artifact.name,
-                    })
+        <HbarSessionLiveStatus
+          key={sessionId}
+          sessionId={sessionId}
+          timelineSessionId={timeline.sessionId}
+          owned={activeConversationOwner}
+          connected={connected}
+          run={activeRun}
+          labels={labels.liveStatus}
+          context={{
+            facts: composerIntent.facts,
+            onRefresh: () => invoke('composerIntent.refresh', { sessionId }),
+            summary: (
+              <LumenFrame className="hbar-session-current-goal" data-current-goal-session={sessionId}>
+                <HbarComposerGoal
+                  key={sessionId}
+                  sessionId={sessionId}
+                  workspaceId={navigation.workspaceId}
+                  connected={connected}
+                  labels={labels.intent}
+                  surface="summary"
+                  embedded
+                  runActive={
+                    connected &&
+                    ((timeline.sessionId === sessionId && Boolean(activeRun)) ||
+                      (selectedExecution.target?.sessionId === sessionId &&
+                        selectedExecution.target.workspaceId === sessionWorkspaceId &&
+                        selectedExecution.status === 'ready' &&
+                        selectedExecution.snapshot?.execution.activeCount !== undefined &&
+                        selectedExecution.snapshot.execution.activeCount > 0))
                   }
-                  removeDisabled={
-                    !connected ||
-                    firstSendLocked ||
-                    workspaceMoveLocked ||
-                    draft.status === 'submitting' ||
-                    draft.status === 'unknown' ||
-                    intentPending
+                  executionReadError={
+                    connected &&
+                    selectedExecution.target?.sessionId === sessionId &&
+                    selectedExecution.target.workspaceId === sessionWorkspaceId &&
+                    selectedExecution.status === 'error'
                   }
-                  error={workspaceContextError}
-                  onRemove={removeWorkspaceContext}
-                  onRemoveAttachment={(attachment) =>
-                    invoke('draft.removeAttachment', {
-                      sessionId,
-                      artifactId: attachment.artifact.id,
-                      kind: attachment.kind,
-                      expectedRevision: draft.revision,
-                    })
+                  executionChecking={
+                    connected &&
+                    selectedExecution.target?.sessionId === sessionId &&
+                    selectedExecution.target.workspaceId === sessionWorkspaceId &&
+                    selectedExecution.status === 'loading'
                   }
+                  goalTriggerRef={composerGoalTrigger}
+                  canPrepare={canPrepare}
                 />
-                {images && draft.attachments.length > 0 ? (
-                  <HbarDraftImageAttachments
-                    draft={draft}
-                    removeLabel={labels.prompt.removeAttachment}
+              </LumenFrame>
+            ),
+          }}
+        />
+        <HbarSessionStopNotice region="main" />
+        {connected && (
+          <HbarSessionExecutionNotice
+            key={`${sessionId}:${sessionWorkspaceId}`}
+            status={preparationStatus}
+            workspaceName={workspaceName}
+            connected={connected}
+            labels={labels.executionAccess}
+            onOpenArchived={async () => {
+              const target = { sessionId, workspaceId: sessionWorkspaceId }
+              const selected = runtime.state.navigation.getSnapshot()
+              if (selected.sessionId !== target.sessionId || selected.workspaceId !== target.workspaceId) return
+              await runtime.commands.execute('archivedSessions.open', { workspaceId: target.workspaceId })
+              const latest = runtime.state.navigation.getSnapshot()
+              if (latest.sessionId !== target.sessionId || latest.workspaceId !== target.workspaceId) return
+              await runtime.commands.execute('app.setSidebarVisible', { visible: true })
+            }}
+          />
+        )}
+        <HbarComposerGoal
+          key={sessionId}
+          sessionId={sessionId}
+          workspaceId={navigation.workspaceId}
+          connected={connected}
+          labels={labels.intent}
+          surface="submission"
+          canPrepare={canPrepare}
+        />
+        <HbarComposerAgentNotice
+          status={
+            agentAction?.status === 'succeeded' && agentAction.draftCleared && draft?.text
+              ? undefined
+              : agentAction?.status
+          }
+          agentId={agentAction?.agent?.agentId}
+          labels={labels.slash.agentNotice}
+          connected={connected}
+          onRetry={() => {
+            if (!agentAction || !sessionId || !navigation.workspaceId) return
+            void runtime.commands
+              .execute('agentComposer.invoke', {
+                sessionId: agentAction.sessionId,
+                workspaceId: agentAction.workspaceId,
+                draftText: agentAction.draftText,
+                draftRevision: agentAction.draftRevision,
+                profileId: agentAction.profileId,
+                objective: agentAction.objective,
+              })
+              .catch((reason: unknown) => {
+                setSlashFailure({
+                  sessionId,
+                  code:
+                    reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+                      ? reason.code
+                      : 'EXECUTION_FAILED',
+                })
+              })
+          }}
+          onOpen={() => {
+            if (!agentAction?.agent || !sessionId || !navigation.workspaceId) return
+            void runtime.commands
+              .execute('agentComposer.openResult', {
+                sessionId: agentAction.sessionId,
+                workspaceId: agentAction.workspaceId,
+                agentId: agentAction.agent.agentId,
+              })
+              .catch((reason: unknown) => {
+                setSlashFailure({
+                  sessionId,
+                  code:
+                    reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+                      ? reason.code
+                      : 'EXECUTION_FAILED',
+                })
+              })
+          }}
+        />
+        <HbarComposerAttachmentDropTarget
+          key={sessionId}
+          enabled={attachmentIntakeEnabled}
+          label={labels.attachments.drop}
+          onAdd={addAttachments}
+        >
+          {goalConfirmation?.sessionId === sessionId &&
+            goalConfirmation.workspaceId === navigation.workspaceId &&
+            goalConfirmation.revision === draft?.revision &&
+            goalConfirmation.text === draft.text && (
+              <LumenFrame
+                className="hbar-composer-goal-confirmation"
+                role="group"
+                aria-label={
+                  goalConfirmation.action === 'clear'
+                    ? labels.slash.goalConfirmClear(goalConfirmation.previousObjective)
+                    : labels.slash.goalConfirmReplace(goalConfirmation.previousObjective)
+                }
+              >
+                <LumenContentText context="message.inline">
+                  {goalConfirmation.action === 'clear'
+                    ? labels.slash.goalConfirmClear(goalConfirmation.previousObjective)
+                    : labels.slash.goalConfirmReplace(goalConfirmation.previousObjective)}
+                </LumenContentText>
+                <LumenFrame className="hbar-composer-goal-confirmation-actions">
+                  <LumenButton type="button" size="s" onClick={() => setGoalConfirmation(null)}>
+                    {labels.slash.goalCancel}
+                  </LumenButton>
+                  <LumenButton
+                    type="button"
+                    size="s"
+                    tone="danger"
+                    onClick={() => {
+                      const confirmation = goalConfirmation
+                      setGoalConfirmation(null)
+                      void runGoalSlash(
+                        confirmation,
+                        confirmation.action === 'clear'
+                          ? { action: 'clear' }
+                          : { action: 'set', objective: confirmation.objective! },
+                        confirmation.expectedGoalId,
+                      )
+                    }}
+                  >
+                    {labels.slash.goalConfirm}
+                  </LumenButton>
+                </LumenFrame>
+              </LumenFrame>
+            )}
+          <HbarPromptComposer
+            boundary="none"
+            value={composerDraft?.text ?? ''}
+            editor={
+              files && sessionId && navigation.workspaceId
+                ? ({ inputLabel, placeholder, disabled }) => (
+                    <HbarComposerMentionEditor
+                      key={`${sessionId}:${navigation.workspaceId}`}
+                      sessionId={sessionId}
+                      workspaceId={navigation.workspaceId!}
+                      revision={composerDraft?.revision ?? 0}
+                      text={composerDraft?.text ?? ''}
+                      mentions={composerDraft?.mentions ?? []}
+                      disabled={disabled}
+                      connected={connected}
+                      inputLabel={inputLabel}
+                      placeholder={placeholder}
+                      labels={labels.mentions}
+                      slashLabels={slashLabels}
+                      submitSlashCommands={submitSlashCommands}
+                      slashOpenRequest={slashOpenRequest}
+                      focusRequest={editorFocusRequest}
+                      sendBehavior={sendBehavior}
+                      files={files}
+                      onContent={(text, mentions, expectedRevision) =>
+                        saveComposerContent(sessionId, text, mentions, expectedRevision)
+                      }
+                      onSubmit={() => {
+                        void submitLatest(sessionId, navigation.workspaceId!)
+                      }}
+                    />
+                  )
+                : undefined
+            }
+            labels={{
+              ...labels.prompt,
+              placeholder:
+                intent === 'goal'
+                  ? labels.intent.goalPlaceholder
+                  : planModeEntry?.status === 'ready' && planModeEntry.mode === 'plan'
+                    ? labels.intent.planPlaceholder
+                    : labels.prompt.placeholder,
+            }}
+            attachments={(draft?.attachments ?? []).map((attachment) => ({
+              id: attachment.artifact.id,
+              kind: attachment.kind,
+              name: attachment.artifact.name,
+            }))}
+            attachmentContent={
+              draft &&
+              (workspaceContexts.length > 0 || workspaceContextError || (images && draft.attachments.length > 0)) ? (
+                <>
+                  <HbarComposerWorkspaceContexts
+                    contexts={workspaceContexts}
+                    attachments={!images ? draft.attachments : []}
+                    labels={labels.workspaceContexts}
+                    removeAttachmentLabel={(attachment) =>
+                      labels.prompt.removeAttachment({
+                        id: attachment.artifact.id,
+                        kind: attachment.kind,
+                        name: attachment.artifact.name,
+                      })
+                    }
                     removeDisabled={
+                      !connected ||
+                      firstSendLocked ||
+                      workspaceMoveLocked ||
                       draft.status === 'submitting' ||
                       draft.status === 'unknown' ||
-                      intentEntry?.submission.status === 'submitting' ||
-                      workspaceMoveLocked
+                      intentPending
                     }
-                    onRemove={(id, kind) =>
+                    error={workspaceContextError}
+                    onRemove={removeWorkspaceContext}
+                    onRemoveAttachment={(attachment) =>
                       invoke('draft.removeAttachment', {
                         sessionId,
-                        artifactId: id,
-                        kind,
+                        artifactId: attachment.artifact.id,
+                        kind: attachment.kind,
                         expectedRevision: draft.revision,
                       })
                     }
                   />
-                ) : null}
-              </>
-            ) : undefined
-          }
-          disabled={
-            !connected ||
-            firstSendLocked ||
-            workspaceMoveLocked ||
-            (!firstSendDraft && timeline.sessionId !== sessionId) ||
-            timeline.status === 'loading' ||
-            timeline.status === 'error'
-          }
-          submitting={draft?.status === 'submitting' || intentEntry?.submission.status === 'submitting'}
-          uploading={(draft?.uploading ?? 0) > 0}
-          canAddAttachments={canAddAttachments}
-          canSubmit={
-            !firstSendLocked &&
-            !workspaceMoveLocked &&
-            (canPrepare || localSlashCommand(draft?.text ?? '', slashIds) === 'settings') &&
-            (localSlashCommand(draft?.text ?? '', slashIds)
-              ? localSlashCanSubmit({
-                  draftStatus: draft?.status,
-                  modelPending,
-                  intentPending: Boolean(intentPending),
-                  permissionLocked: Boolean(permissionEntry?.locked) && !draftGoalReplacement,
-                }) &&
-                (localSlashCommand(draft?.text ?? '', slashIds) !== 'goal' ||
-                  !['submitting', 'unknown'].includes(intentEntry?.goalAction.status ?? ''))
-              : configured &&
-                (!composerPlanMode.available || planModeEntry?.status === 'ready') &&
-                !modelPending &&
-                !intentPending &&
-                attachmentTransfers.length === 0 &&
-                !permissionEntry?.locked &&
-                draft?.status !== 'unknown' &&
-                Boolean(
-                  (draft?.text.trim() || draft?.attachments.length || workspaceContexts.length) &&
-                  (intent !== 'goal' || draft?.text.trim()),
-                ))
-          }
-          canStop={Boolean(activeRun)}
-          runningActions={{
-            ...labels.runningActions,
-            submit:
-              (draft?.text.trim() || draft?.attachments.length || workspaceContexts.length) &&
-              (intent !== 'goal' || draft?.text.trim())
-                ? 'queue'
-                : 'hidden',
-          }}
-          stopping={Boolean(activeRun && !canCancelRun(activeRun.id))}
-          error={
-            draft?.uploadError && !attachmentTransfers.some((item) => item.error === draft.uploadError)
-              ? labels.attachments.error(draft.uploadError)
-              : draft?.error
-                ? labels.error(draft.error)
-                : composerModel.sessionId === sessionId && composerModel.action.status === 'unknown'
-                  ? labels.modelPicker.unknown
-                  : templateRouteError?.sessionId === sessionId
-                    ? labels.error(templateRouteError.code)
-                    : visibleSlashFailure
-          }
-          controls={
-            <LumenFrame className="hbar-session-composer-controls">
-              <HbarComposerAddMenu
-                key={`add:${sessionId}`}
-                labels={labels.addMenu}
-                canAddFiles={canAddAttachments}
-                canOpenSlash={canOpenSlash}
-                onFiles={prepareAttachment ? addAttachments : undefined}
-                onOpenSlash={() => setSlashOpenRequest((request) => request + 1)}
-                templateAction={{ disabled: !canOpenTemplates, onChoose: openTemplates }}
-                goalSlotRef={intent === 'goal' ? undefined : setGoalMenuSlot}
-                triggerRef={composerGoalTrigger}
-                goalPreparedRequest={goalPreparedRequest}
-                onGoalPrepared={() => setEditorFocusRequest((request) => request + 1)}
-              />
-              {(composerPermission.available || composerPlanMode.available) && (
-                <HbarComposerPermissionPicker
-                  key={`permission:${sessionId}`}
+                  {images && draft.attachments.length > 0 ? (
+                    <HbarDraftImageAttachments
+                      draft={draft}
+                      removeLabel={labels.prompt.removeAttachment}
+                      removeDisabled={
+                        draft.status === 'submitting' ||
+                        draft.status === 'unknown' ||
+                        intentEntry?.submission.status === 'submitting' ||
+                        workspaceMoveLocked
+                      }
+                      onRemove={(id, kind) =>
+                        invoke('draft.removeAttachment', {
+                          sessionId,
+                          artifactId: id,
+                          kind,
+                          expectedRevision: draft.revision,
+                        })
+                      }
+                    />
+                  ) : null}
+                </>
+              ) : undefined
+            }
+            disabled={
+              firstSendLocked ||
+              workspaceMoveLocked ||
+              (connected &&
+                ((!firstSendDraft && timeline.sessionId !== sessionId) ||
+                  timeline.status === 'loading' ||
+                  timeline.status === 'error'))
+            }
+            submitting={draft?.status === 'submitting' || intentEntry?.submission.status === 'submitting'}
+            uploading={(draft?.uploading ?? 0) > 0}
+            canAddAttachments={canAddAttachments}
+            canSubmit={
+              connected &&
+              !firstSendLocked &&
+              !workspaceMoveLocked &&
+              (canPrepare || localSlashCommand(draft?.text ?? '', slashIds) === 'settings') &&
+              (localSlashCommand(draft?.text ?? '', slashIds)
+                ? localSlashCanSubmit({
+                    draftStatus: draft?.status,
+                    modelPending,
+                    intentPending: Boolean(intentPending),
+                    permissionLocked: Boolean(permissionEntry?.locked) && !draftGoalReplacement,
+                  }) &&
+                  (localSlashCommand(draft?.text ?? '', slashIds) !== 'goal' ||
+                    !['submitting', 'unknown'].includes(intentEntry?.goalAction.status ?? ''))
+                : configured &&
+                  (!composerPlanMode.available || planModeEntry?.status === 'ready') &&
+                  !modelPending &&
+                  !intentPending &&
+                  attachmentTransfers.length === 0 &&
+                  !permissionEntry?.locked &&
+                  draft?.status !== 'unknown' &&
+                  Boolean(
+                    (draft?.text.trim() || draft?.attachments.length || workspaceContexts.length) &&
+                    (intent !== 'goal' || draft?.text.trim()),
+                  ))
+            }
+            canStop={Boolean(activeRun)}
+            runningActions={{
+              ...labels.runningActions,
+              submit:
+                (draft?.text.trim() || draft?.attachments.length || workspaceContexts.length) &&
+                (intent !== 'goal' || draft?.text.trim())
+                  ? 'queue'
+                  : 'hidden',
+            }}
+            stopping={Boolean(activeRun && !canCancelRun(activeRun.id))}
+            error={
+              !connected
+                ? undefined
+                : draft?.uploadError && !attachmentTransfers.some((item) => item.error === draft.uploadError)
+                  ? labels.attachments.error(draft.uploadError)
+                  : draft?.error
+                    ? labels.error(draft.error)
+                    : composerModel.sessionId === sessionId && composerModel.action.status === 'unknown'
+                      ? labels.modelPicker.unknown
+                      : templateRouteError?.sessionId === sessionId
+                        ? labels.error(templateRouteError.code)
+                        : visibleSlashFailure
+            }
+            controls={
+              <LumenFrame className="hbar-session-composer-controls">
+                <HbarComposerAddMenu
+                  key={`add:${sessionId}`}
+                  labels={labels.addMenu}
+                  canAddFiles={canAddAttachments}
+                  canOpenSlash={canOpenSlash}
+                  onFiles={prepareAttachment ? addAttachments : undefined}
+                  onOpenSlash={() => setSlashOpenRequest((request) => request + 1)}
+                  templateAction={{ disabled: !canOpenTemplates, onChoose: openTemplates }}
+                  goalSlotRef={intent === 'goal' ? undefined : setGoalMenuSlot}
+                  triggerRef={composerGoalTrigger}
+                  goalPreparedRequest={goalPreparedRequest}
+                  onGoalPrepared={() => setEditorFocusRequest((request) => request + 1)}
+                />
+                {(composerPermission.available || composerPlanMode.available) && (
+                  <HbarComposerPermissionPicker
+                    key={`permission:${sessionId}`}
+                    sessionId={sessionId}
+                    sessionLabel={sessionTitle}
+                    entry={permissionEntry}
+                    hostDefault={composerPermission.hostDefault}
+                    defaultAvailable={composerPermission.available}
+                    connected={connected}
+                    disabled={
+                      workspaceMoveLocked ||
+                      firstSendLocked ||
+                      draft?.status === 'submitting' ||
+                      draft?.status === 'unknown' ||
+                      intentPending
+                    }
+                    runActive={Boolean(activeRun)}
+                    canPrepare={canPrepare}
+                    labels={labels.permissionPicker}
+                    onRefresh={async () => {
+                      await runtime.commands.execute('composerPermission.refresh', {})
+                    }}
+                    onSelect={async (input) => {
+                      await runtime.commands.execute('composerPermission.setChoice', input)
+                    }}
+                    onReconcile={async () => {
+                      await runtime.commands.execute('composerPermission.reconcile', { sessionId })
+                    }}
+                    {...(composerPlanMode.available
+                      ? {
+                          plan: {
+                            entry: planModeEntry,
+                            onSetMode: async (mode: 'default' | 'plan', expectedRevision: number) => {
+                              await runtime.commands.execute('composerPlanMode.setMode', {
+                                sessionId,
+                                mode,
+                                expectedRevision,
+                              })
+                            },
+                            onSelectOrdinary: async (input, expectedModeRevision) => {
+                              await runtime.commands.execute('composerPlanChoice.selectOrdinary', {
+                                sessionId: input.sessionId,
+                                choice: input.choice,
+                                expectedPermissionRevision: input.expectedRevision,
+                                expectedModeRevision,
+                                ...(input.confirmAllow ? { confirmAllow: true } : {}),
+                              })
+                            },
+                            onRefresh: async () => {
+                              await runtime.commands.execute('composerPlanMode.refresh', { sessionId })
+                            },
+                            onReconcile: async () => {
+                              await runtime.commands.execute('composerPlanMode.reconcile', { sessionId })
+                            },
+                          },
+                        }
+                      : {})}
+                  />
+                )}
+                {projectContextLabels && (
+                  <LumenFrame className="hbar-session-project-context-toolbar">
+                    {projectContextView(showLaunchLocation)}
+                  </LumenFrame>
+                )}
+                <HbarComposerIntentControls
+                  key={sessionId}
+                  preferMenu
+                  menuSlot={goalMenuSlot}
+                  onPrepared={() => setGoalPreparedRequest((request) => request + 1)}
                   sessionId={sessionId}
-                  sessionLabel={sessionTitle}
-                  entry={permissionEntry}
-                  hostDefault={composerPermission.hostDefault}
-                  defaultAvailable={composerPermission.available}
                   connected={connected}
                   disabled={
                     workspaceMoveLocked ||
                     firstSendLocked ||
                     draft?.status === 'submitting' ||
                     draft?.status === 'unknown' ||
-                    intentPending
+                    Boolean(permissionEntry?.locked)
                   }
-                  runActive={Boolean(activeRun)}
                   canPrepare={canPrepare}
-                  labels={labels.permissionPicker}
-                  onRefresh={async () => {
-                    await runtime.commands.execute('composerPermission.refresh', {})
-                  }}
-                  onSelect={async (input) => {
-                    await runtime.commands.execute('composerPermission.setChoice', input)
-                  }}
-                  onReconcile={async () => {
-                    await runtime.commands.execute('composerPermission.reconcile', { sessionId })
-                  }}
-                  {...(composerPlanMode.available
-                    ? {
-                        plan: {
-                          entry: planModeEntry,
-                          onSetMode: async (mode: 'default' | 'plan', expectedRevision: number) => {
-                            await runtime.commands.execute('composerPlanMode.setMode', {
-                              sessionId,
-                              mode,
-                              expectedRevision,
-                            })
-                          },
-                          onSelectOrdinary: async (input, expectedModeRevision) => {
-                            await runtime.commands.execute('composerPlanChoice.selectOrdinary', {
-                              sessionId: input.sessionId,
-                              choice: input.choice,
-                              expectedPermissionRevision: input.expectedRevision,
-                              expectedModeRevision,
-                              ...(input.confirmAllow ? { confirmAllow: true } : {}),
-                            })
-                          },
-                          onRefresh: async () => {
-                            await runtime.commands.execute('composerPlanMode.refresh', { sessionId })
-                          },
-                          onReconcile: async () => {
-                            await runtime.commands.execute('composerPlanMode.reconcile', { sessionId })
-                          },
-                        },
-                      }
-                    : {})}
+                  labels={labels.intent}
                 />
-              )}
-              {projectContextLabels && (
-                <LumenFrame className="hbar-session-project-context-toolbar">
-                  {projectContextView(showLaunchLocation)}
-                </LumenFrame>
-              )}
-              <HbarComposerIntentControls
-                key={sessionId}
-                preferMenu
-                menuSlot={goalMenuSlot}
-                onPrepared={() => setGoalPreparedRequest((request) => request + 1)}
-                sessionId={sessionId}
-                connected={connected}
-                disabled={
-                  workspaceMoveLocked ||
-                  firstSendLocked ||
-                  draft?.status === 'submitting' ||
-                  draft?.status === 'unknown' ||
-                  Boolean(permissionEntry?.locked)
-                }
-                canPrepare={canPrepare}
-                labels={labels.intent}
-              />
-            </LumenFrame>
-          }
-          adaptiveToolbar={{
-            moreLabel: labels.addMenu.menu,
-            controlsLabel: labels.addMenu.open,
-            modelLabel: labels.modelPicker.title,
-            revealModelRequest: modelOpenRequest,
-          }}
-          context={
-            <>
-              <HbarComposerBackgroundAgentFeedback
-                kind={backgroundFeedback}
-                error={
-                  backgroundEntry?.action.error ??
-                  backgroundEntry?.action.targets.find((target) => target.error)?.error ??
-                  backgroundEntry?.error ??
-                  null
-                }
-                disabled={!connected || backgroundPending || !activeConversationOwner}
-                labels={labels.backgroundAgents}
-                onReconcile={reconcileBackground}
-                onRetry={retryBackground}
-                onRefresh={() => {
-                  if (backgroundTarget) invoke('composerBackgroundAgents.refresh', backgroundTarget)
-                }}
-              />
-              {firstSendDraft && firstSendLabels && (
-                <HbarPreSessionLaunchStatus
-                  key={firstSendDraft.draftId}
-                  draft={firstSendDraft}
-                  labels={firstSendLabels}
-                  connected={connected}
-                />
-              )}
-              {launchTargetFailure?.sessionId === sessionId && firstSendLabels && (
-                <LumenContentText context="feedback.message" role="alert">
-                  {firstSendLabels.error(launchTargetFailure.code)}
-                </LumenContentText>
-              )}
-              <HbarQueuedUserRuns
-                state={queuedUserRuns}
-                sessionId={sessionId}
-                connected={connected}
-                labels={labels.queuedUserRuns}
-                activeRunId={
-                  timeline.sessionId === sessionId &&
-                  timeline.status === 'ready' &&
-                  activeRun?.sessionId === sessionId &&
-                  activeRun.status === 'running'
-                    ? activeRun.id
-                    : null
-                }
-                onRefresh={() => void invoke('queuedUserRuns.refresh', { sessionId })}
-                onPrevious={() => void invoke('queuedUserRuns.previous', { sessionId })}
-                onNext={() => void invoke('queuedUserRuns.next', { sessionId })}
-                onStartEdit={(operationId) => void invoke('queuedUserRuns.startEdit', { sessionId, operationId })}
-                onEditText={(operationId, text) =>
-                  void invoke('queuedUserRuns.setEditText', { sessionId, operationId, text })
-                }
-                onSaveEdit={(operationId) => void invoke('queuedUserRuns.saveEdit', { sessionId, operationId })}
-                onRetryEdit={(operationId) => void invoke('queuedUserRuns.retryEdit', { sessionId, operationId })}
-                onGuide={(operationId, expectedRevision, activeRunId) =>
-                  void invoke('queuedUserRuns.guide', { sessionId, operationId, expectedRevision, activeRunId })
-                }
-                onRetryGuide={(operationId) => void invoke('queuedUserRuns.retryGuide', { sessionId, operationId })}
-                onDismissGuide={() => void invoke('queuedUserRuns.dismissGuide', { sessionId })}
-                onCancelEdit={() => void invoke('queuedUserRuns.cancelEdit', { sessionId })}
-                onRemove={(operationId, expectedRevision) =>
-                  void invoke('queuedUserRuns.remove', { sessionId, operationId, expectedRevision })
-                }
-                onRetryRemoval={(operationId) => void invoke('queuedUserRuns.retryRemoval', { sessionId, operationId })}
-                onDismissRemoval={() => void invoke('queuedUserRuns.dismissRemoval', { sessionId })}
-              />
-              <HbarComposerAttachmentTransfers
-                transfers={attachmentTransfers}
-                labels={labels.attachments}
-                connected={connected}
-                onRemove={(item) =>
-                  invoke('draft.removeAttachmentTransfer', {
-                    sessionId,
-                    reservationId: item.id,
-                    ownerRevision: item.ownerRevision,
-                  })
-                }
-                onReconcile={(item) =>
-                  invoke('draft.reconcileAttachment', {
-                    sessionId,
-                    reservationId: item.id,
-                    ownerRevision: item.ownerRevision,
-                  })
-                }
-                onAccept={(item) =>
-                  invoke('draft.acceptReadyAttachment', {
-                    sessionId,
-                    reservationId: item.id,
-                    ownerRevision: item.ownerRevision,
-                    expectedRevision: draft?.revision ?? 0,
-                  })
-                }
-              />
-            </>
-          }
-          modelPicker={
-            <LumenFrame className="hbar-session-composer-options">
-              <HbarSessionUsageControl
-                key={`usage:${sessionId}`}
-                controls={controls}
-                labels={labels.usage}
-                onOpenMonitor={() => toggleTool('monitoring')}
-                onRefresh={() => {
-                  void runtime.contextUsage.refresh(sessionId)
-                }}
-              />
-              <HbarComposerModelPicker
-                key={sessionId}
-                sessionId={sessionId}
-                connected={connected}
-                runActive={Boolean(activeRun)}
-                disabled={
-                  workspaceMoveLocked ||
-                  firstSendLocked ||
-                  draft?.status === 'submitting' ||
-                  draft?.status === 'unknown' ||
-                  intentPending ||
-                  Boolean(activeRun && canPrepare)
-                }
-                canSelect={canPrepare && !activeRun && !workspaceMoveLocked}
-                labels={labels.modelPicker}
-                menuPresentation={modelMenuPresentation}
-                openRequest={modelOpenRequest}
-                onOpened={() => {
-                  const target = pendingModelSlash.current
-                  pendingModelSlash.current = null
-                  localSlashInFlight.current = false
-                  if (target?.sessionId === sessionId && target.workspaceId === navigation.workspaceId)
-                    void clearLocalSlash(target).catch((reason: unknown) => {
-                      setSlashFailure({
-                        sessionId: target.sessionId,
-                        code:
-                          reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
-                            ? reason.code
-                            : 'EXECUTION_FAILED',
-                      })
-                    })
-                }}
-                onOpenFailed={(code) => {
-                  const target = pendingModelSlash.current
-                  pendingModelSlash.current = null
-                  localSlashInFlight.current = false
-                  if (target?.sessionId === sessionId) setSlashFailure({ sessionId, code })
-                }}
-              />
-            </LumenFrame>
-          }
-          backgroundAction={
-            !activeRun ? (
-              <HbarComposerBackgroundAgentStop
-                count={backgroundCount}
-                disabled={
-                  backgroundDisabled ||
-                  backgroundUnknown ||
-                  backgroundEntry?.action.status === 'requested' ||
-                  backgroundEntry?.action.status === 'failed'
-                }
-                pending={backgroundPending}
-                labels={labels.backgroundAgents}
-                onStop={stopBackground}
-              />
-            ) : undefined
-          }
-          onChange={(text) => {
-            setSlashFailure(null)
-            invoke('draft.setText', { sessionId, text })
-          }}
-          onAddAttachments={undefined}
-          onRemoveAttachment={(id, kind) =>
-            invoke('draft.removeAttachment', {
-              sessionId,
-              artifactId: id,
-              kind,
-              expectedRevision: draft?.revision ?? 0,
-            })
-          }
-          onSubmit={() => {
-            if (sessionId && navigation.workspaceId) void submitLatest(sessionId, navigation.workspaceId)
-          }}
-          onStop={() => {
-            if (activeRun) {
-              if (stopRun) stopRun(activeRun.id)
-              else invoke('operation.cancel', { operationId: activeRun.id })
+              </LumenFrame>
             }
-          }}
-        />
-      </HbarComposerAttachmentDropTarget>
-      {projectContextLabels && (
-        <LumenFrame className="hbar-session-project-context-below">{projectContextView(showLaunchLocation)}</LumenFrame>
-      )}
-      {sessionUsagePresentation(controls, labels.usage).notice && (
-        <LumenContentText context="feedback.message" className="hbar-session-budget-notice" role="status">
-          {sessionUsagePresentation(controls, labels.usage).notice}
-        </LumenContentText>
-      )}
-    </LumenFrame>
+            adaptiveToolbar={{
+              moreLabel: labels.addMenu.menu,
+              controlsLabel: labels.addMenu.open,
+              modelLabel: labels.modelPicker.title,
+              revealModelRequest: modelOpenRequest,
+            }}
+            context={
+              <>
+                <HbarComposerBackgroundAgentFeedback
+                  kind={connected ? backgroundFeedback : null}
+                  error={
+                    backgroundEntry?.action.error ??
+                    backgroundEntry?.action.targets.find((target) => target.error)?.error ??
+                    backgroundEntry?.error ??
+                    null
+                  }
+                  disabled={!connected || backgroundPending || !activeConversationOwner}
+                  labels={labels.backgroundAgents}
+                  onReconcile={reconcileBackground}
+                  onRetry={retryBackground}
+                  onRefresh={() => {
+                    if (backgroundTarget) invoke('composerBackgroundAgents.refresh', backgroundTarget)
+                  }}
+                />
+                {firstSendDraft && firstSendLabels && (
+                  <HbarPreSessionLaunchStatus
+                    key={firstSendDraft.draftId}
+                    draft={firstSendDraft}
+                    labels={firstSendLabels}
+                    connected={connected}
+                  />
+                )}
+                {connected && launchTargetFailure?.sessionId === sessionId && firstSendLabels && (
+                  <HbarComposerFeedback tone="danger">
+                    <LumenContentText context="feedback.message" role="alert">
+                      {firstSendLabels.error(launchTargetFailure.code)}
+                    </LumenContentText>
+                  </HbarComposerFeedback>
+                )}
+                <HbarQueuedUserRuns
+                  state={queuedUserRuns}
+                  sessionId={sessionId}
+                  connected={connected}
+                  labels={labels.queuedUserRuns}
+                  activeRunId={
+                    timeline.sessionId === sessionId &&
+                    timeline.status === 'ready' &&
+                    activeRun?.sessionId === sessionId &&
+                    activeRun.status === 'running'
+                      ? activeRun.id
+                      : null
+                  }
+                  onRefresh={() => void invoke('queuedUserRuns.refresh', { sessionId })}
+                  onPrevious={() => void invoke('queuedUserRuns.previous', { sessionId })}
+                  onNext={() => void invoke('queuedUserRuns.next', { sessionId })}
+                  onStartEdit={(operationId) => void invoke('queuedUserRuns.startEdit', { sessionId, operationId })}
+                  onEditText={(operationId, text) =>
+                    void invoke('queuedUserRuns.setEditText', { sessionId, operationId, text })
+                  }
+                  onSaveEdit={(operationId) => void invoke('queuedUserRuns.saveEdit', { sessionId, operationId })}
+                  onRetryEdit={(operationId) => void invoke('queuedUserRuns.retryEdit', { sessionId, operationId })}
+                  onGuide={(operationId, expectedRevision, activeRunId) =>
+                    void invoke('queuedUserRuns.guide', { sessionId, operationId, expectedRevision, activeRunId })
+                  }
+                  onRetryGuide={(operationId) => void invoke('queuedUserRuns.retryGuide', { sessionId, operationId })}
+                  onDismissGuide={() => void invoke('queuedUserRuns.dismissGuide', { sessionId })}
+                  onCancelEdit={() => void invoke('queuedUserRuns.cancelEdit', { sessionId })}
+                  onRemove={(operationId, expectedRevision) =>
+                    void invoke('queuedUserRuns.remove', { sessionId, operationId, expectedRevision })
+                  }
+                  onRetryRemoval={(operationId) =>
+                    void invoke('queuedUserRuns.retryRemoval', { sessionId, operationId })
+                  }
+                  onDismissRemoval={() => void invoke('queuedUserRuns.dismissRemoval', { sessionId })}
+                />
+                <HbarComposerAttachmentTransfers
+                  transfers={attachmentTransfers}
+                  labels={labels.attachments}
+                  connected={connected}
+                  onRemove={(item) =>
+                    invoke('draft.removeAttachmentTransfer', {
+                      sessionId,
+                      reservationId: item.id,
+                      ownerRevision: item.ownerRevision,
+                    })
+                  }
+                  onReconcile={(item) =>
+                    invoke('draft.reconcileAttachment', {
+                      sessionId,
+                      reservationId: item.id,
+                      ownerRevision: item.ownerRevision,
+                    })
+                  }
+                  onAccept={(item) =>
+                    invoke('draft.acceptReadyAttachment', {
+                      sessionId,
+                      reservationId: item.id,
+                      ownerRevision: item.ownerRevision,
+                      expectedRevision: draft?.revision ?? 0,
+                    })
+                  }
+                />
+              </>
+            }
+            modelPicker={
+              <LumenFrame className="hbar-session-composer-options">
+                <HbarSessionUsageControl
+                  key={`usage:${sessionId}`}
+                  controls={controls}
+                  labels={labels.usage}
+                  onOpenMonitor={() => toggleTool('monitoring')}
+                  onRefresh={() => {
+                    void runtime.contextUsage.refresh(sessionId)
+                  }}
+                />
+                <HbarComposerModelPicker
+                  key={sessionId}
+                  sessionId={sessionId}
+                  connected={connected}
+                  runActive={Boolean(activeRun)}
+                  disabled={
+                    workspaceMoveLocked ||
+                    firstSendLocked ||
+                    draft?.status === 'submitting' ||
+                    draft?.status === 'unknown' ||
+                    intentPending ||
+                    Boolean(activeRun && canPrepare)
+                  }
+                  canSelect={canPrepare && !activeRun && !workspaceMoveLocked}
+                  labels={labels.modelPicker}
+                  menuPresentation={modelMenuPresentation}
+                  openRequest={modelOpenRequest}
+                  onOpened={() => {
+                    const target = pendingModelSlash.current
+                    pendingModelSlash.current = null
+                    localSlashInFlight.current = false
+                    if (target?.sessionId === sessionId && target.workspaceId === navigation.workspaceId)
+                      void clearLocalSlash(target).catch((reason: unknown) => {
+                        setSlashFailure({
+                          sessionId: target.sessionId,
+                          code:
+                            reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+                              ? reason.code
+                              : 'EXECUTION_FAILED',
+                        })
+                      })
+                  }}
+                  onOpenFailed={(code) => {
+                    const target = pendingModelSlash.current
+                    pendingModelSlash.current = null
+                    localSlashInFlight.current = false
+                    if (target?.sessionId === sessionId) setSlashFailure({ sessionId, code })
+                  }}
+                />
+              </LumenFrame>
+            }
+            backgroundAction={
+              !activeRun ? (
+                <HbarComposerBackgroundAgentStop
+                  count={backgroundCount}
+                  disabled={
+                    backgroundDisabled ||
+                    backgroundUnknown ||
+                    backgroundEntry?.action.status === 'requested' ||
+                    backgroundEntry?.action.status === 'failed'
+                  }
+                  pending={backgroundPending}
+                  labels={labels.backgroundAgents}
+                  onStop={stopBackground}
+                />
+              ) : undefined
+            }
+            onChange={(text) => {
+              setSlashFailure(null)
+              invoke('draft.setText', { sessionId, text })
+            }}
+            onAddAttachments={undefined}
+            onRemoveAttachment={(id, kind) =>
+              invoke('draft.removeAttachment', {
+                sessionId,
+                artifactId: id,
+                kind,
+                expectedRevision: draft?.revision ?? 0,
+              })
+            }
+            onSubmit={() => {
+              if (sessionId && navigation.workspaceId) void submitLatest(sessionId, navigation.workspaceId)
+            }}
+            onStop={() => {
+              if (activeRun) {
+                if (stopRun) stopRun(activeRun.id)
+                else invoke('operation.cancel', { operationId: activeRun.id })
+              }
+            }}
+          />
+        </HbarComposerAttachmentDropTarget>
+        {projectContextLabels && (
+          <LumenFrame className="hbar-session-project-context-below">
+            {projectContextView(showLaunchLocation)}
+          </LumenFrame>
+        )}
+        {sessionUsagePresentation(controls, labels.usage).notice && (
+          <HbarComposerFeedback tone="danger">
+            <LumenContentText context="feedback.message" className="hbar-session-budget-notice" role="status">
+              {sessionUsagePresentation(controls, labels.usage).notice}
+            </LumenContentText>
+          </HbarComposerFeedback>
+        )}
+      </LumenFrame>
+    </HbarComposerFeedbackProvider>
   ) : null
 
   return (
@@ -2660,7 +2678,8 @@ function SessionWorkspaceContent({
           </>
         }
       />
-      {toolFailure?.sessionId === sessionId &&
+      {connected &&
+        toolFailure?.sessionId === sessionId &&
         toolFailure.workspaceId === navigation.workspaceId &&
         toolFailure.sourceTabInstanceKey === (sourceTab?.instanceKey ?? null) && (
           <LumenContentText context="feedback.message" role="alert">

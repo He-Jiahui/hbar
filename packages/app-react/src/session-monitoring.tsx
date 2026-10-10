@@ -141,7 +141,7 @@ export function HbarSessionMonitoring({
           className="hbar-monitoring-overview"
         >
           <HbarSessionRunHistory sessionId={sessionId} connected={connected} labels={labels.history} />
-          {facts?.status === 'error' && (
+          {connected && facts?.status === 'error' && (
             <LumenFrame className="hbar-monitoring-context-recovery">
               <LumenContentText context="feedback.message" role="alert">
                 {labels.goal.error(facts.error ?? 'EXECUTION_FAILED')}

@@ -789,6 +789,10 @@ export interface ProviderEditorDraftModel {
   readonly reasoning: boolean
   readonly inputPrice: number
   readonly outputPrice: number
+  readonly cacheReadPrice?: number
+  readonly cacheWritePrice?: number
+  readonly maxModePricingMultiplier?: number
+  readonly contextTiers?: readonly Readonly<import('@hbar/contracts').ModelContextTier>[]
   readonly thinkingLevels: readonly ThinkingLevel[]
   readonly defaultThinkingLevel: ThinkingLevel
 }

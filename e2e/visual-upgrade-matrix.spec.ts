@@ -31,6 +31,10 @@ const settings = [
 
 async function capture(page: Page, path: string) {
   await mkdir(path.substring(0, path.lastIndexOf('/')), { recursive: true })
+  const previousViewport = page.viewportSize()
+  const capturedWidth = Number(path.match(/-(320|768|1088|1440|1920)\//)?.[1])
+  if (phase === 'before' && capturedWidth && previousViewport?.width !== capturedWidth)
+    await page.setViewportSize({ width: capturedWidth, height: capturedWidth === 320 ? 720 : 960 })
   const facts = await page.evaluate(() => {
     const nodes = [...document.querySelectorAll<HTMLElement>('[data-text-context]')].filter(
       (node) =>
@@ -51,13 +55,17 @@ async function capture(page: Page, path: string) {
       scrollWidth: document.documentElement.scrollWidth,
       semanticSlots: nodes.length,
       singleLine: single,
-      visibleControls: document.querySelectorAll('button:not([disabled]), [role="tab"]').length,
+      visibleControls: [...document.querySelectorAll<HTMLElement>('button:not([disabled]), [role="tab"]')].filter(
+        (node) => node.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }),
+      ).length,
       toolPresentation: document.querySelector('[data-tool-presentation]')?.getAttribute('data-tool-presentation'),
       theme: document.documentElement.dataset.lumenMode,
     }
   })
   await page.screenshot({ path: `${path}.png` })
   await writeFile(`${path}.json`, JSON.stringify(facts, null, 2))
+  if (phase === 'before' && previousViewport && previousViewport.width !== capturedWidth)
+    await page.setViewportSize(previousViewport)
   if (phase === 'after') {
     expect(facts.scrollWidth, path).toBeLessThanOrEqual(facts.width + 1)
     expect(
@@ -148,7 +156,9 @@ for (const locale of ['zh-CN', 'en-US'] as const)
           await expect(page.locator(`[data-global-page="${id}"]`)).toBeVisible()
         }
         for (const width of [1440, 320]) {
-          await page.setViewportSize({ width, height: width === 320 ? 720 : 960 })
+          // The baseline collapses its narrow sidebar on localized callback changes.
+          // Enter pages at desktop width, then capture the actual narrow rendering without changing old code.
+          await page.setViewportSize({ width: phase === 'before' ? 1440 : width, height: width === 320 ? 720 : 960 })
           await page.goto(origin)
           await showSidebar()
           await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()

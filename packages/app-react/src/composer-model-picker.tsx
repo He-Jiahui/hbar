@@ -16,6 +16,7 @@ import type { ComposerModelState, SessionControlsState } from '@hbar/app-runtime
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { filterCatalogModels, modelIdsRequiringDisclosure, MODEL_CATALOG_PAGE_SIZE } from './model-choice-filter'
 import './composer-model-picker.css'
+import { HbarComposerFeedback } from './composer-feedback'
 
 type ModelDescriptor = ComposerModelState['models'][number]
 type ThinkingLevel = ModelDescriptor['thinkingLevels'][number]
@@ -112,7 +113,7 @@ export function composerModelPresentation(
     catalogError,
     confirmedEmpty,
     recoverProviders: state === 'unavailable' || confirmedEmpty,
-    readFailed: state === 'error' || catalogError,
+    readFailed: connected && (state === 'error' || catalogError),
     canChoose: connected && catalogReady && configuration !== null && !modelError,
   }
 }
@@ -243,7 +244,7 @@ export function HbarComposerModelPicker({
   const controls = useHbarRuntimeState(runtime.state.controls)
   const presentation = composerModelPresentation(sessionId, connected, controls, catalog)
   const model = presentation.configuration
-  const current = presentation.current
+  const current = presentation.current ?? (!connected ? model?.model : null)
   const action = catalog.sessionId === sessionId ? catalog.action : null
   const busy = action?.status === 'submitting'
   const unresolved = action?.status === 'unknown'
@@ -263,10 +264,10 @@ export function HbarComposerModelPicker({
   const thinkingId = useId()
   const [open, setOpen] = useState<'model' | 'thinking' | null>(null)
   useEffect(() => {
-    if (!runActive) return
+    if (connected && !runActive) return
     modelRef.current?.hidePopover()
     thinkingRef.current?.hidePopover()
-  }, [runActive])
+  }, [connected, runActive])
   const [query, setQuery] = useState('')
   const [limit, setLimit] = useState(COMPOSER_MODEL_PAGE_SIZE)
   const [sliderDraft, setSliderDraft] = useState<ThinkingPreview | null>(null)
@@ -535,7 +536,7 @@ export function HbarComposerModelPicker({
             : (index + 1) % options.length
     options[next]?.focus()
   }
-  const feedback = (
+  const feedback = connected ? (
     <LumenFrame className="hbar-composer-picker-feedback">
       {busy && (
         <LumenContentText context="feedback.detail" role="status">
@@ -566,7 +567,7 @@ export function HbarComposerModelPicker({
         </LumenButton>
       )}
     </LumenFrame>
-  )
+  ) : null
   const triggerName = directConfigure
     ? labels.configure
     : presentation.state === 'unavailable'
@@ -635,14 +636,26 @@ export function HbarComposerModelPicker({
           {labels.thinkingLevel(model?.thinkingLevel ?? current?.defaultThinkingLevel ?? 'off')}
         </LumenButton>
       )}
-      {!open && closedExplanation && (
-        <LumenContentText
-          context="feedback.detail"
-          className="hbar-composer-model-closed-recovery"
-          role={presentation.readFailed || presentation.state === 'unavailable' ? 'alert' : 'status'}
+      {connected && !open && closedExplanation && (
+        <HbarComposerFeedback
+          tone={presentation.readFailed || presentation.state === 'unavailable' ? 'danger' : 'neutral'}
         >
-          {closedExplanation}
-        </LumenContentText>
+          <LumenContentText
+            context="feedback.detail"
+            className="hbar-composer-model-closed-recovery"
+            role={presentation.readFailed || presentation.state === 'unavailable' ? 'alert' : 'status'}
+          >
+            {closedExplanation}
+          </LumenContentText>
+        </HbarComposerFeedback>
+      )}
+      {connected && !open && (busy || unresolved || error) && (
+        <HbarComposerFeedback
+          active={connected && Boolean(busy || unresolved || error)}
+          tone={unresolved || error ? 'danger' : 'neutral'}
+        >
+          {feedback}
+        </HbarComposerFeedback>
       )}
       <PickerPopover
         id={modelId}

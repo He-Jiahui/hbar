@@ -5,9 +5,9 @@ import { join } from 'node:path'
 import { z } from 'zod'
 import { emptyUsage } from '@hbar/contracts'
 import { GoalRuntime } from '@hbar/goal'
-import { Kernel, MemorySecrets } from '@hbar/kernel'
+import { Kernel, MemorySecrets, SettingsService } from '@hbar/kernel'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
-import type { HarnessDriver } from '@hbar/plugin-sdk'
+import type { HarnessDriver, ModeService } from '@hbar/plugin-sdk'
 
 const resources: { root: string; kernel: Kernel }[] = []
 afterEach(async () => {
@@ -17,7 +17,7 @@ afterEach(async () => {
   }
 })
 
-async function fixture() {
+async function fixture(source: 'user' | 'goal' = 'goal') {
   const root = await mkdtemp(join(tmpdir(), 'hbar-continuation-recovery-'))
   let calls = 0
   const driver = definePlugin({
@@ -67,7 +67,12 @@ async function fixture() {
     'enqueue',
     session.id,
     `goal-${intentId}`,
-    { text: 'work', images: [], source: 'goal', continuation: { goalId: goal.goalId!, intentId } },
+    {
+      text: 'work',
+      images: [],
+      source,
+      ...(source === 'goal' ? { continuation: { goalId: goal.goalId!, intentId } } : {}),
+    },
     'local-fixture',
   )
   const run = (await kernel.storage.call('claim', session.id))!
@@ -87,7 +92,8 @@ async function fixture() {
     reason: 'goal_active',
     updatedAt: Date.now(),
   }
-  await kernel.append(session.id, 'goal.updated', { goal: { ...saved, continuationIntent: intent } })
+  if (source === 'goal')
+    await kernel.append(session.id, 'goal.updated', { goal: { ...saved, continuationIntent: intent } })
   await kernel.append(
     session.id,
     'goal.run_bound',
@@ -138,7 +144,7 @@ for (const checkpointed of [false, true])
     expect(calls()).toBe(1)
   })
 
-test('startup revalidates a completed text-only turn and never wakes a legacy Goal without an intent', async () => {
+test('startup revalidates a completed text-only turn and reports a missing model for an older active Goal', async () => {
   const { kernel, resource, options, session, run, calls } = await fixture()
   await kernel.storage.call('setRun', run.id, 'completed')
   const workspace = (await kernel.storage.call('workspaces'))[0]!
@@ -152,7 +158,204 @@ test('startup revalidates a completed text-only turn and never wakes a legacy Go
     phase: 'stopped',
     reason: 'complete',
   })
-  expect((await resource.kernel.plugins.get<GoalRuntime>('goal').get(legacy.id)).goal?.continuation).toBeUndefined()
+  expect((await resource.kernel.plugins.get<GoalRuntime>('goal').get(legacy.id)).goal?.continuation).toMatchObject({
+    phase: 'waiting',
+    reason: 'model_unavailable',
+  })
+})
+
+test('startup continues a crashed active Goal in a new bound Run exactly once', async () => {
+  const { kernel, resource, options, session, run, calls } = await fixture()
+  await kernel.append(session.id, 'usage.recorded', { ...emptyUsage(), output: 2 }, run.id)
+  await kernel.close()
+  resource.kernel = await Kernel.create(options)
+  await resource.kernel.waitForIdle()
+  expect(resource.kernel.recovered).toBe(1)
+  expect(calls()).toBe(1)
+  expect((await resource.kernel.plugins.get<GoalRuntime>('goal').get(session.id)).goal).toMatchObject({
+    status: 'complete',
+    tokensUsed: 3,
+  })
+  const runs = (await resource.kernel.snapshot(session.id)).runs
+  expect(runs).toHaveLength(2)
+  expect(runs.find((item) => item.id === run.id)).toMatchObject({
+    status: 'interrupted',
+    failure: { category: 'interrupted' },
+  })
+  expect(runs.find((item) => item.id !== run.id)).toMatchObject({
+    status: 'completed',
+    input: { source: 'goal', continuation: { goalId: run.input.continuation?.goalId } },
+  })
+  await resource.kernel.close()
+  resource.kernel = await Kernel.create(options)
+  await resource.kernel.waitForIdle()
+  expect(calls()).toBe(1)
+})
+
+test('startup creates a durable continuation for an older active Goal using its configured model', async () => {
+  const { kernel, resource, options, session, run, calls } = await fixture()
+  await kernel.storage.call('setRun', run.id, 'completed')
+  const legacy = await kernel.createSession(session.workspaceId)
+  const goals = kernel.plugins.get<GoalRuntime>('goal')
+  const goal = (await goals.create(legacy.id, 'Older active goal without a continuation intent')).goal!
+  const settings = new SettingsService(kernel.storage)
+  const scope = { kind: 'session' as const, targetId: legacy.id }
+  const snapshot = await settings.get(scope)
+  await settings.apply({
+    scope,
+    schemaVersion: 1,
+    baselineRevisions: snapshot.revisions,
+    actorId: 'startup-fixture',
+    idempotencyKey: crypto.randomUUID(),
+    changes: [{ op: 'set', path: [{ kind: 'field', name: 'provider.model' }], value: 'local-fixture' }],
+  })
+  await kernel.close()
+  resource.kernel = await Kernel.create(options)
+  await resource.kernel.waitForIdle()
+  expect(calls()).toBe(2)
+  expect((await resource.kernel.plugins.get<GoalRuntime>('goal').get(legacy.id)).goal).toMatchObject({
+    goalId: goal.goalId,
+    objective: goal.objective,
+    status: 'complete',
+    tokensUsed: 1,
+  })
+  const runs = (await resource.kernel.snapshot(legacy.id)).runs
+  expect(runs).toHaveLength(1)
+  expect(runs[0]).toMatchObject({
+    status: 'completed',
+    modelId: 'local-fixture',
+    input: { source: 'goal', continuation: { goalId: goal.goalId } },
+  })
+})
+
+test('startup resumes a Goal created during a user Run before any continuation intent existed', async () => {
+  const { kernel, resource, options, session, run, calls } = await fixture('user')
+  await kernel.close()
+  resource.kernel = await Kernel.create(options)
+  await resource.kernel.waitForIdle()
+  expect(calls()).toBe(1)
+  expect((await resource.kernel.plugins.get<GoalRuntime>('goal').get(session.id)).goal?.status).toBe('complete')
+  expect((await resource.kernel.snapshot(session.id)).runs.find((item) => item.id !== run.id)).toMatchObject({
+    status: 'completed',
+    modelId: 'local-fixture',
+    input: { source: 'goal' },
+  })
+})
+
+test('an existing queued continuation keeps its original identity and is not duplicated on startup', async () => {
+  const { kernel, resource, options, session, run, saved, intent, calls } = await fixture()
+  await kernel.storage.call('setRun', run.id, 'completed')
+  const pending = { ...intent, intentId: crypto.randomUUID(), phase: 'queued', trigger: run.id }
+  await kernel.append(session.id, 'goal.updated', {
+    goal: { ...saved, accountedRuns: [run.id], continuationIntent: pending },
+  })
+  const queued = await kernel.storage.call(
+    'enqueue',
+    session.id,
+    `goal-${pending.intentId}`,
+    { text: '', images: [], source: 'goal', continuation: { goalId: pending.goalId!, intentId: pending.intentId } },
+    'local-fixture',
+  )
+  await kernel.close()
+  resource.kernel = await Kernel.create(options)
+  await resource.kernel.waitForIdle()
+  expect(calls()).toBe(1)
+  const runs = (await resource.kernel.snapshot(session.id)).runs
+  expect(runs).toHaveLength(2)
+  expect(runs.find((item) => item.id === queued.id)).toMatchObject({
+    status: 'completed',
+    requestId: `goal-${pending.intentId}`,
+  })
+})
+
+test('startup gives an already queued user turn priority without adding an automatic turn', async () => {
+  const { kernel, resource, options, session, run, calls } = await fixture('user')
+  await kernel.storage.call('setRun', run.id, 'completed')
+  const queued = await kernel.storage.call(
+    'enqueue',
+    session.id,
+    'queued-user',
+    { text: 'User finishes the goal', images: [] },
+    'local-fixture',
+  )
+  await kernel.close()
+  resource.kernel = await Kernel.create(options)
+  await resource.kernel.waitForIdle()
+  expect(calls()).toBe(1)
+  const runs = (await resource.kernel.snapshot(session.id)).runs
+  expect(runs).toHaveLength(2)
+  expect(runs.find((item) => item.id === queued.id)).toMatchObject({ status: 'completed', requestId: 'queued-user' })
+  expect(runs.some((item) => item.input.source === 'goal')).toBe(false)
+})
+
+for (const status of ['paused', 'blocked', 'complete', 'usage_limited'] as const)
+  test(`startup preserves a ${status} Goal whose Run was interrupted`, async () => {
+    const { kernel, resource, options, session, saved, intent, calls } = await fixture()
+    await kernel.append(session.id, 'goal.updated', {
+      goal: { ...saved, status, continuationIntent: { ...intent, phase: 'stopped', reason: status } },
+    })
+    await kernel.close()
+    resource.kernel = await Kernel.create(options)
+    await resource.kernel.waitForIdle()
+    expect(calls()).toBe(0)
+    expect((await resource.kernel.plugins.get<GoalRuntime>('goal').get(session.id)).goal?.status).toBe(status)
+  })
+
+test('startup respects plan mode and resumes the recovered intent when execution mode returns', async () => {
+  const { kernel, resource, options, session, calls } = await fixture()
+  await kernel.plugins.get<ModeService>('mode').set(session.id, 'plan')
+  await kernel.close()
+  resource.kernel = await Kernel.create(options)
+  await resource.kernel.waitForIdle()
+  const goals = resource.kernel.plugins.get<GoalRuntime>('goal')
+  expect(calls()).toBe(0)
+  expect((await goals.get(session.id)).goal?.continuation).toMatchObject({ phase: 'waiting', reason: 'plan_mode' })
+  await resource.kernel.plugins.get<ModeService>('mode').set(session.id, 'default')
+  await resource.kernel.waitForIdle()
+  expect(calls()).toBe(1)
+  expect((await goals.get(session.id)).goal?.status).toBe('complete')
+})
+
+test('startup restores accounting before checking the Goal allowance', async () => {
+  const { kernel, resource, options, session, run, calls } = await fixture()
+  await kernel.append(session.id, 'usage.recorded', { ...emptyUsage(), output: 100 }, run.id)
+  await kernel.close()
+  resource.kernel = await Kernel.create(options)
+  await resource.kernel.waitForIdle()
+  const goals = resource.kernel.plugins.get<GoalRuntime>('goal')
+  expect(calls()).toBe(0)
+  expect((await goals.get(session.id)).goal).toMatchObject({
+    tokensUsed: 100,
+    status: 'budget_limited',
+    continuation: { phase: 'waiting', reason: 'budget_exhausted' },
+  })
+  await goals.set(session.id, { tokenBudget: 200 })
+  await resource.kernel.waitForIdle()
+  expect(calls()).toBe(1)
+  expect((await goals.get(session.id)).goal).toMatchObject({ status: 'complete', tokensUsed: 101 })
+})
+
+test('startup preserves disabled automatic continuation', async () => {
+  const { kernel, resource, options, session, calls } = await fixture()
+  await kernel.changePlugin('goal.codex', true, { autoContinue: false })
+  await kernel.close()
+  resource.kernel = await Kernel.create(options)
+  await resource.kernel.waitForIdle()
+  expect(calls()).toBe(0)
+  expect((await resource.kernel.plugins.get<GoalRuntime>('goal').get(session.id)).goal?.status).toBe('active')
+})
+
+test('an interrupted user Run with an unknown effect cannot create a new startup continuation', async () => {
+  const { kernel, resource, options, session, run, calls } = await fixture('user')
+  await kernel.storage.call('toolStart', session.id, run.id, 'unknown-write', 'write_file', { path: 'result.txt' })
+  await kernel.close()
+  resource.kernel = await Kernel.create(options)
+  await resource.kernel.waitForIdle()
+  expect(calls()).toBe(0)
+  expect((await resource.kernel.plugins.get<GoalRuntime>('goal').get(session.id)).goal).toMatchObject({
+    status: 'paused',
+    continuation: { phase: 'stopped', reason: 'result_unknown' },
+  })
 })
 
 test('an unfinished write intent is reported unknown and is never replayed after startup', async () => {
@@ -162,11 +365,41 @@ test('an unfinished write intent is reported unknown and is never replayed after
   resource.kernel = await Kernel.create(options)
   await resource.kernel.waitForIdle()
   expect(calls()).toBe(0)
-  expect((await resource.kernel.plugins.get<GoalRuntime>('goal').get(session.id)).goal?.continuation).toMatchObject({
-    phase: 'stopped',
-    reason: 'result_unknown',
+  expect((await resource.kernel.plugins.get<GoalRuntime>('goal').get(session.id)).goal).toMatchObject({
+    status: 'paused',
+    continuation: { phase: 'stopped', reason: 'result_unknown' },
   })
 })
+
+for (const reason of [
+  'run_failed',
+  'result_unknown',
+  'retry_exhausted',
+  'repair_exhausted',
+  'continuation_limit',
+  'disabled',
+] as const)
+  test(`startup pauses an older active Goal whose continuation stopped with ${reason}`, async () => {
+    const { kernel, resource, options, session, run, saved, intent, calls } = await fixture()
+    await kernel.storage.call('setRun', run.id, 'failed', 'Execution stopped')
+    await kernel.append(
+      session.id,
+      'goal.accounted',
+      {
+        goal: { ...saved, accountedRuns: [run.id], continuationIntent: { ...intent, phase: 'stopped', reason } },
+      },
+      run.id,
+    )
+    await kernel.close()
+    resource.kernel = await Kernel.create(options)
+    await resource.kernel.waitForIdle()
+    expect(calls()).toBe(0)
+    expect((await resource.kernel.plugins.get<GoalRuntime>('goal').get(session.id)).goal).toMatchObject({
+      status: 'paused',
+      continuation: { phase: 'stopped', reason },
+      timing: { running: false },
+    })
+  })
 
 for (const reason of ['no_tool_calls', 'no_progress'])
   test(`startup revalidates an active Goal stopped by the former ${reason} heuristic exactly once`, async () => {

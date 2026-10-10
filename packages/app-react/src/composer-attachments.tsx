@@ -4,6 +4,7 @@ import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app
 import type { SessionDraftState } from '@hbar/app-runtime'
 import { composerFiles } from './composer-attachment-input'
 import './composer-attachments.css'
+import { HbarComposerFeedback, useHbarComposerFeedbackManaged } from './composer-feedback'
 
 type Transfer = SessionDraftState['attachmentTransfers'][number]
 
@@ -89,6 +90,7 @@ export function HbarComposerAttachmentTransfers({
   readonly onReconcile: (transfer: Transfer) => void
   readonly onAccept: (transfer: Transfer) => void
 }) {
+  const managed = useHbarComposerFeedbackManaged()
   if (transfers.length === 0) return null
   return (
     <LumenFrame className="hbar-composer-attachment-transfers" role="list" aria-label={labels.label}>
@@ -112,17 +114,30 @@ export function HbarComposerAttachmentTransfers({
               >
                 {transfer.name}
               </LumenContentText>
-              <LumenContentText context="control.status" className="hbar-composer-attachment-status" role="status">
-                {labels.status(transfer.status)}
-              </LumenContentText>
-              {transfer.error && (
-                <LumenContentText context="message.inline" className="hbar-composer-attachment-error">
-                  {labels.error(transfer.error)}
+              <HbarComposerFeedback tone={transfer.error || transfer.status === 'unknown' ? 'danger' : 'neutral'}>
+                {managed && <LumenContentText context="record.title">{transfer.name}</LumenContentText>}
+                <LumenContentText context="control.status" className="hbar-composer-attachment-status" role="status">
+                  {labels.status(transfer.status)}
                 </LumenContentText>
-              )}
+                {transfer.error && (
+                  <LumenContentText context="message.inline" className="hbar-composer-attachment-error">
+                    {labels.error(transfer.error)}
+                  </LumenContentText>
+                )}
+                {managed && transfer.status === 'unknown' && (
+                  <LumenButton type="button" size="s" disabled={!connected} onClick={() => onReconcile(transfer)}>
+                    {labels.reconcile(transfer.name)}
+                  </LumenButton>
+                )}
+                {managed && transfer.status === 'ready' && (
+                  <LumenButton type="button" size="s" onClick={() => onAccept(transfer)}>
+                    {labels.acceptNamed(transfer.name)}
+                  </LumenButton>
+                )}
+              </HbarComposerFeedback>
             </LumenFrame>
             <LumenFrame className="hbar-composer-attachment-actions">
-              {transfer.status === 'unknown' && (
+              {!managed && transfer.status === 'unknown' && (
                 <LumenButton
                   type="button"
                   size="s"
@@ -137,7 +152,7 @@ export function HbarComposerAttachmentTransfers({
                   {labels.check}
                 </LumenButton>
               )}
-              {transfer.status === 'ready' && (
+              {!managed && transfer.status === 'ready' && (
                 <LumenButton
                   type="button"
                   size="s"
@@ -149,12 +164,13 @@ export function HbarComposerAttachmentTransfers({
                   {labels.accept}
                 </LumenButton>
               )}
-              {removable && (
+              {(managed || removable) && (
                 <LumenButton
                   type="button"
                   size="s"
                   variant="text"
                   indicator="none"
+                  disabled={!removable}
                   aria-label={labels.remove(transfer.name)}
                   title={labels.remove(transfer.name)}
                   onClick={() => onRemove(transfer)}

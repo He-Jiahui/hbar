@@ -47,7 +47,12 @@ import {
   type HbarToolDetailsLabels,
 } from './session-tool-details'
 import { sessionToolOutcome, toolErrorPreview, toolOutcomeCounts } from './session-tool-outcome-model'
-import { ToolTiming, ToolBatchFeedback, type SessionToolFeedbackLabels } from './session-tool-feedback'
+import {
+  ToolTiming,
+  ToolBatchFeedback,
+  ToolProgressFeedback,
+  type SessionToolFeedbackLabels,
+} from './session-tool-feedback'
 import {
   rowToolActivity,
   activityCounts,
@@ -395,6 +400,13 @@ function ToolRow({
       feedback={
         activity?.batch && labels.feedback ? (
           <ToolBatchFeedback counts={activity.batch} labels={labels.feedback} />
+        ) : activity?.execution?.progress && labels.feedback ? (
+          <ToolProgressFeedback
+            progress={activity.execution.progress}
+            outcome={outcome}
+            active={active}
+            labels={labels.feedback}
+          />
         ) : null
       }
       icon={icon}

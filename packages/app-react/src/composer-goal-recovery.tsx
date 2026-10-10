@@ -26,7 +26,7 @@ export function HbarComposerGoalRecovery({
   readonly onReconcile: () => void
   readonly descriptionId?: string | undefined
 }) {
-  if (action?.status !== 'unknown') return null
+  if (!connected || action?.status !== 'unknown') return null
   const recovery = action.reconciliation
   const checking = busy || recovery?.status === 'checking' || recovery?.requestInFlight === true
   const message = !connected

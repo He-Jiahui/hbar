@@ -24,6 +24,7 @@ import {
   type SessionStopTarget,
 } from './session-stop-model'
 import './session-stop.css'
+import { HbarComposerFeedback } from './composer-feedback'
 
 export interface SessionStopLabels {
   readonly sending: string
@@ -56,7 +57,13 @@ export function useSessionStopAction() {
 
 export function HbarSessionStopNotice({ region }: { readonly region: 'main' | 'tool' }) {
   const value = useContext(SessionStopContext)
-  return value?.region === region ? value.notice : null
+  return value?.region === region ? (
+    region === 'main' && value.notice ? (
+      <HbarComposerFeedback>{value.notice}</HbarComposerFeedback>
+    ) : (
+      value.notice
+    )
+  ) : null
 }
 
 function overlayOpen() {
@@ -224,7 +231,7 @@ export function HbarSessionStopProvider({
         : labels[feedback.kind]
     : null
   const notice =
-    target && feedback ? (
+    connected && target && feedback ? (
       <LumenFrame
         className="hbar-app-react-session-stop"
         data-session-stop=""

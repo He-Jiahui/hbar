@@ -1,6 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod native_diagnostics;
 mod resource_browser;
 
+use native_diagnostics::NativeDiagnostics;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeSet, HashSet, VecDeque},
@@ -347,6 +349,9 @@ fn exit_service(app: &tauri::AppHandle) {
     let pid = app
         .try_state::<Connection>()
         .and_then(|connection| connection.pid);
+    if let Some(diagnostics) = app.try_state::<NativeDiagnostics>() {
+        diagnostics.owner_release_requested(pid, "tray");
+    }
     stop_host(pid);
     app.exit(0);
 }
@@ -870,13 +875,19 @@ fn existing(settings_root: &Path, expected_pid: Option<u32>) -> Option<Connectio
         .no_proxy()
         .build()
         .ok()?;
-    let status: serde_json::Value = client
+    let response = client
         .get(format!("{}/healthz", connection.url))
         .send()
-        .ok()?
-        .json()
         .ok()?;
-    (status["instanceId"].as_str() == Some(&connection.instance_id)).then_some(connection)
+    if !response.status().is_success() {
+        return None;
+    }
+    let status: serde_json::Value = response.json().ok()?;
+    health_matches(&status, &connection.instance_id).then_some(connection)
+}
+
+fn health_matches(status: &serde_json::Value, instance_id: &str) -> bool {
+    status["ready"].as_bool() == Some(true) && status["instanceId"].as_str() == Some(instance_id)
 }
 
 fn path_roots(
@@ -934,9 +945,14 @@ fn launch(app: &tauri::AppHandle) -> Result<(Connection, PathBuf), Box<dyn std::
     let (data_root, cache_root, settings_root) = path_roots(app)?;
     fs::create_dir_all(&settings_root)?;
     fs::create_dir_all(&cache_root)?;
+    let diagnostics = NativeDiagnostics::for_settings_root(&settings_root);
+    diagnostics.initialized();
     if let Some(connection) = existing(&settings_root, None) {
+        diagnostics.connection_reused(&connection.instance_id, connection.supervisor_pid);
+        diagnostics.host_ready(&connection);
         return Ok((connection, data_root));
     }
+    diagnostics.connection_validation_failed();
     // The source launcher owns this Host and its workers. A native rebuild can
     // overlap a source restart; never fall back to an older packaged database worker.
     if cfg!(debug_assertions) && std::env::var("HBAR_DESKTOP_DEV").as_deref() == Ok("1") {
@@ -947,6 +963,7 @@ fn launch(app: &tauri::AppHandle) -> Result<(Connection, PathBuf), Box<dyn std::
                 return Ok((connection, data_root));
             }
         }
+        diagnostics.host_start_timeout(None);
         return Err("The source development Host is unavailable; see diagnostics/host-dev.log".into());
     }
     let resources = if cfg!(debug_assertions) {
@@ -957,12 +974,12 @@ fn launch(app: &tauri::AppHandle) -> Result<(Connection, PathBuf), Box<dyn std::
     // Tauri returns verbatim Windows paths; Bun's module loader expects ordinary drive/UNC paths.
     let resources = dunce::simplified(&resources).to_path_buf();
     let executable = resources.join(if cfg!(windows) { "bun.exe" } else { "bun" });
-    let diagnostics = data_root.join("diagnostics");
-    fs::create_dir_all(&diagnostics)?;
+    let log_directory = data_root.join("diagnostics");
+    fs::create_dir_all(&log_directory)?;
     let log = OpenOptions::new()
         .create(true)
         .append(true)
-        .open(diagnostics.join("desktop-host.log"))?;
+        .open(log_directory.join("desktop-host.log"))?;
     let development_url = development_web_url();
     let mut command = Command::new(executable);
     command
@@ -993,24 +1010,34 @@ fn launch(app: &tauri::AppHandle) -> Result<(Connection, PathBuf), Box<dyn std::
         use std::os::windows::process::CommandExt;
         command.creation_flags(0x08000000);
     }
-    let mut child = command.spawn()?;
+    let mut child = match command.spawn() {
+        Ok(child) => child,
+        Err(_) => {
+            diagnostics.host_spawn_failed();
+            return Err("The local Host could not be started; see native lifecycle diagnostics".into());
+        }
+    };
     let child_pid = child.id();
+    diagnostics.host_spawned(child_pid);
     let started = Instant::now();
     loop {
         if let Some(connection) = existing(&settings_root, Some(child_pid)) {
+            diagnostics.host_ready(&connection);
             return Ok((connection, data_root));
         }
         if let Some(status) = child.try_wait()? {
+            diagnostics.host_exited(child_pid, status.code());
             return Err(format!(
                 "Host exited with {status}. See {}",
-                diagnostics.join("desktop-host.log").display()
+                log_directory.join("desktop-host.log").display()
             )
             .into());
         }
         if started.elapsed() > Duration::from_secs(30) {
+            diagnostics.host_start_timeout(Some(child_pid));
             return Err(format!(
                 "Host startup timed out. See {}",
-                diagnostics.join("desktop-host.log").display()
+                log_directory.join("desktop-host.log").display()
             )
             .into());
         }
@@ -1101,6 +1128,7 @@ fn main() {
                 .append_pair("hbar-material", material);
             let host_pid = connection.pid;
             let (_, _, settings_root) = path_roots(app.handle())?;
+            app.manage(NativeDiagnostics::for_settings_root(&settings_root));
             app.manage(NativeConnectionPath(settings_root.join("connection.json")));
             app.manage(UiZoomPath(
                 data_root.join("settings").join("desktop-ui-zoom.json"),
@@ -1143,6 +1171,9 @@ fn main() {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
                     if should_exit_service() {
+                        if let Some(diagnostics) = app_handle.try_state::<NativeDiagnostics>() {
+                            diagnostics.owner_release_requested(host_pid, "window");
+                        }
                         stop_host(host_pid);
                         app_handle.exit(0);
                     } else {
@@ -1203,6 +1234,9 @@ fn main() {
                 let pid = app
                     .try_state::<Connection>()
                     .and_then(|connection| connection.pid);
+                if let Some(diagnostics) = app.try_state::<NativeDiagnostics>() {
+                    diagnostics.owner_release_requested(pid, "process_exit");
+                }
                 stop_host(pid);
             }
         });
@@ -1228,6 +1262,27 @@ mod tests {
         ).unwrap();
         assert!(launched_by(&legacy, 42));
         assert!(!launched_by(&legacy, 7));
+    }
+
+    #[test]
+    fn native_health_reuse_requires_ready_and_matching_instance() {
+        let instance = "615fbffd-68e5-45dd-8654-f57463891d0e";
+        assert!(health_matches(
+            &serde_json::json!({"ready": true, "instanceId": instance}),
+            instance
+        ));
+        assert!(!health_matches(
+            &serde_json::json!({"ready": false, "instanceId": instance}),
+            instance
+        ));
+        assert!(!health_matches(
+            &serde_json::json!({"ready": true, "instanceId": "other"}),
+            instance
+        ));
+        assert!(!health_matches(
+            &serde_json::json!({"instanceId": instance}),
+            instance
+        ));
     }
 
     #[test]

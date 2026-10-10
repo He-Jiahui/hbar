@@ -32,6 +32,7 @@ interface Props {
 
 /** Read failures share the sidebar's scroll owner and never become tree descendants. */
 export function SidebarLoadFeedback(props: Props) {
+  if (!props.connected) return null
   const visibleWorkspaces = new Set(props.workspaceIds)
   const failedBranches = Object.entries(props.agents.branches).flatMap(([parentSessionId, branch]) => {
     const session = props.directory.sessions[parentSessionId]

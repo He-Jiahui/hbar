@@ -4,7 +4,7 @@ import { resolve, relative, isAbsolute, join } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { z } from 'zod'
 import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
-import type { HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
+import type { DiagnosticScopePort, DiagnosticSink, HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
 import type { ServerWebSocket } from 'bun'
 import {
   Kernel,
@@ -110,8 +110,10 @@ import { runBoardCommands as runBoardDefinitions } from '@hbar/contracts/command
 import { submitRunInputSchema } from '@hbar/contracts/commands/run'
 import { createScheduleService, createNotificationService } from '@hbar/kernel'
 import { createScheduleHostController } from './schedule-host-controller.ts'
+import { createHostRequestDiagnostics, safeDiagnosticId, type DiagnosticContextPort } from './request-diagnostics.ts'
 
 interface SocketData {
+  connectionId: string
   token?: string | undefined
   deviceId?: string | undefined
   initialized: boolean
@@ -141,6 +143,11 @@ export interface ServerOptions {
   key?: string
   metricsIntervalMs?: number
   restart?: () => boolean | Promise<boolean>
+  diagnosticSink?: DiagnosticSink
+  diagnosticContext?: DiagnosticContextPort
+  diagnosticSampleRate?: number
+  diagnosticFull?: boolean
+  diagnosticScope?: DiagnosticScopePort
 }
 
 function resolveModeService(kernel: Kernel): ModeService {
@@ -154,6 +161,7 @@ function resolveModeService(kernel: Kernel): ModeService {
 
 function resolveGoalService(kernel: Kernel): GoalService {
   return {
+    resumeOnStartup: () => kernel.plugins.get<GoalService>('goal').resumeOnStartup(),
     snapshot: (sessionId) => kernel.plugins.get<GoalService>('goal').snapshot(sessionId),
     get: (sessionId) => kernel.plugins.get<GoalService>('goal').get(sessionId),
     create: (sessionId, objective, tokenBudget, runId, startedAt) =>
@@ -431,6 +439,18 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const auth = new Auth(kernel.storage)
   const pairing = auth.createPairing()
   const sockets = new Set<ServerWebSocket<SocketData>>()
+  const requestDiagnostics = createHostRequestDiagnostics({
+    ...(options.diagnosticSink ? { sink: options.diagnosticSink } : {}),
+    ...(options.diagnosticContext ? { contextPort: options.diagnosticContext } : {}),
+    ...(options.diagnosticSampleRate === undefined ? {} : { sampleRate: options.diagnosticSampleRate }),
+    ...(options.diagnosticFull === undefined ? {} : { full: options.diagnosticFull }),
+    context: { instanceId: kernel.instanceId },
+  })
+  let storageFatal: import('@hbar/storage').StorageFatalEvent | undefined
+  const removeStorageFatalListener = kernel.storage.onFatal?.((event) => {
+    storageFatal = event
+    for (const socket of sockets) socket.close(1012, 'Storage is unavailable; reconnect after Host recovery')
+  })
   const systemTerminals = new SystemTerminalManager()
   let broadcastFresh: (event: import('@hbar/contracts/commands/notifications').NotificationFreshEvent) => void = () =>
     undefined
@@ -539,13 +559,23 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   function json(request: Request, data: unknown, status = 200, headers: HeadersInit = {}) {
     return response(request, JSON.stringify(data), status, { 'Content-Type': 'application/json', ...headers })
   }
-  function send(socket: ServerWebSocket<SocketData>, value: unknown) {
-    if (socket.readyState !== 1) return
+  function send(socket: ServerWebSocket<SocketData>, value: unknown): number {
+    if (socket.readyState !== 1) return 0
     if (socket.getBufferedAmount() > 4 * 1024 * 1024) {
       socket.close(1013, 'Reconnect to resynchronize')
-      return
+      return 0
     }
-    socket.send(JSON.stringify(value))
+    const encoded = JSON.stringify(value)
+    const bytes = new TextEncoder().encode(encoded).byteLength
+    const accepted = socket.send(encoded)
+    // Bun returns zero for a dropped frame and -1 for an accepted queued frame.
+    // Count accepted bytes; this is not an acknowledgement from the Client.
+    if (accepted === 0) return 0
+    requestDiagnostics.frame('out', bytes, {
+      instanceId: kernel.instanceId,
+      connectionId: socket.data.connectionId,
+    })
+    return bytes
   }
   broadcastFresh = (event) => {
     for (const socket of sockets)
@@ -1355,14 +1385,28 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
           'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Filename, X-Content-Sha256, X-Artifact-Owner',
         })
       try {
-        if (url.pathname === '/healthz')
+        if (url.pathname === '/healthz') {
+          const health = kernel.storageHealth()
+          const failure = storageFatal ?? health.failure
+          const safeFailure = failure
+            ? {
+                kind: failure.kind,
+                code: failure.code.replace(/[^A-Z0-9_.-]/g, '').slice(0, 128),
+                ...(failure.method
+                  ? { method: failure.method.replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 128) }
+                  : {}),
+                occurredAt: Number.isFinite(failure.occurredAt) ? failure.occurredAt : 0,
+              }
+            : undefined
           return json(request, {
-            ready: true,
+            ready: health.ready && !storageFatal,
+            ...(health.ready && !storageFatal ? {} : { status: 'storage-failed', ...(safeFailure ? { failure: safeFailure } : {}) }),
             version: APP_VERSION,
             protocol: PROTOCOL_VERSION,
             instanceId: kernel.instanceId,
             ...(options.dataRootId ? { dataRootId: options.dataRootId } : {}),
-          })
+          }, health.ready && !storageFatal ? 200 : 503)
+        }
         if (url.pathname === '/auth/pair' && request.method === 'POST') {
           const p = z.object({ code: z.string().max(32), name: z.string().min(1).max(100) }).parse(await request.json())
           const result = await auth.pair(p.code, p.name, host.requestIP(request)?.address ?? 'unknown')
@@ -1378,10 +1422,13 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
           })
         }
         if (url.pathname === '/rpc') {
+          if (storageFatal || !kernel.storageHealth().ready)
+            return json(request, { error: 'Storage is unavailable', code: 'STORAGE_UNAVAILABLE' }, 503)
           if (
             host.upgrade(request, {
               data: {
                 token: requestToken(request),
+                connectionId: crypto.randomUUID(),
                 initialized: false,
                 follows: new Set(),
                 operationFollows: new Set(),
@@ -1473,6 +1520,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       idleTimeout: 120,
       sendPings: true,
       open(socket) {
+        socket.data.connectionId = crypto.randomUUID()
         sockets.add(socket)
         socket.data.timer = setTimeout(() => {
           if (!socket.data.initialized) socket.close(4001, 'Handshake required')
@@ -1482,7 +1530,10 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         void (async () => {
           let id: string | number | null = null
           let admitted = false
+          let span: ReturnType<typeof requestDiagnostics.begin> | undefined
+          const bytesIn = typeof payload === 'string' ? new TextEncoder().encode(payload).byteLength : payload.byteLength
           try {
+            requestDiagnostics.frame('in', bytesIn, { instanceId: kernel.instanceId, connectionId: socket.data.connectionId })
             if (socket.data.pending >= 32) throw new HbarError('OVERLOADED', 'Too many pending requests')
             socket.data.pending++
             admitted = true
@@ -1490,21 +1541,58 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
               JSON.parse(typeof payload === 'string' ? payload : payload.toString()),
             )
             id = request.id
-            if (!Object.hasOwn(rpcSchemas, request.method)) throw new HbarError('METHOD_NOT_FOUND', request.method)
-            if (request.method !== 'system.hello') {
-              if (!socket.data.initialized) throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
-              await auth.authenticate(socket.data.token)
+            const candidateParams = request.params
+            const businessRequestId =
+              candidateParams && typeof candidateParams === 'object' && 'requestId' in candidateParams &&
+              typeof candidateParams.requestId === 'string' ? safeDiagnosticId(candidateParams.requestId) : undefined
+            const requestSpan = requestDiagnostics.begin({
+              method: request.method,
+              rpcId: request.id,
+              ...(businessRequestId ? { requestId: businessRequestId } : {}),
+              connectionId: socket.data.connectionId,
+              bytesIn,
+              pending: socket.data.pending,
+            })
+            span = requestSpan
+            requestSpan.stage('admission', socket.data.pending)
+            const correlation = {
+              instanceId: kernel.instanceId,
+              contextId: socket.data.connectionId,
+              rpcId: safeDiagnosticId(request.id) ?? 'unknown',
+              ...(businessRequestId ? { requestId: businessRequestId } : {}),
             }
-            const method = request.method as RpcMethod
-            const params = rpcSchemas[method].parse(request.params)
-            send(socket, { jsonrpc: '2.0', id, result: await invoke(method, params, socket, request.id) })
+            const execute = async () => {
+              if (!Object.hasOwn(rpcSchemas, request.method)) throw new HbarError('METHOD_NOT_FOUND', request.method)
+              if (request.method !== 'system.hello') {
+                if (!socket.data.initialized) throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
+                requestSpan.stage('auth', socket.data.pending)
+                await auth.authenticate(socket.data.token)
+              }
+              const method = request.method as RpcMethod
+              requestSpan.stage('validate', socket.data.pending)
+              const params = rpcSchemas[method].parse(request.params)
+              requestSpan.stage('invoke', socket.data.pending)
+              const result = await invoke(method, params, socket, request.id)
+              const response = { jsonrpc: '2.0', id, result }
+              requestSpan.stage('reply', socket.data.pending)
+              const bytesOut = send(socket, response)
+              if (bytesOut === 0) requestSpan.replySkipped({ pending: socket.data.pending })
+              else requestSpan.success({ bytesOut, pending: socket.data.pending })
+            }
+            if (options.diagnosticScope) await options.diagnosticScope.run(correlation, execute)
+            else await execute()
           } catch (error) {
+            const code = error instanceof HbarError || error instanceof CommandError ? error.code : 'INVALID_REQUEST'
+            if (!span) {
+              span = requestDiagnostics.begin({ method: 'rpc.invalid', rpcId: id ?? 'unknown', connectionId: socket.data.connectionId, bytesIn, pending: socket.data.pending })
+            }
+            span.failure(code, { pending: socket.data.pending })
             send(socket, {
               jsonrpc: '2.0',
               id,
               error: {
                 code: -32000,
-                data: error instanceof HbarError || error instanceof CommandError ? error.code : 'INVALID_REQUEST',
+                data: code,
                 message: error instanceof Error ? error.message : String(error),
               },
             })
@@ -1613,6 +1701,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       surfaceClients.clear()
       for (const socket of sockets) socket.close()
       await server.stop(true)
+      removeStorageFatalListener?.()
     },
   }
 }

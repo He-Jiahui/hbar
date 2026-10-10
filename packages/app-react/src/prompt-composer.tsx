@@ -1,4 +1,5 @@
 import {
+  LumenContentText,
   LumenPromptComposer,
   LumenPromptInput01,
   LumenPromptInput04,
@@ -6,26 +7,41 @@ import {
   type LumenPromptComposerProps,
 } from '@lumen/app-ui'
 import type { ReactNode } from 'react'
+import {
+  HbarComposerFeedback,
+  HbarComposerFeedbackProvider,
+  HbarComposerFeedbackTrigger,
+  useHbarComposerFeedbackManaged,
+  type HbarComposerFeedbackLabels,
+} from './composer-feedback'
 import './prompt-composer.css'
 
-export function HbarPromptComposer(
-  props: LumenPromptComposerProps & {
-    readonly backgroundAction?: ReactNode
-    readonly variant?: 1 | 4 | 7
-    readonly adaptiveToolbar?: {
-      readonly moreLabel: string
-      readonly controlsLabel: string
-      readonly modelLabel: string
-      readonly revealModelRequest: number
-    }
-  },
-) {
+type HbarPromptComposerProps = LumenPromptComposerProps & {
+  readonly backgroundAction?: ReactNode
+  readonly variant?: 1 | 4 | 7
+  readonly feedbackLabels?: HbarComposerFeedbackLabels
+  readonly adaptiveToolbar?: {
+    readonly moreLabel: string
+    readonly controlsLabel: string
+    readonly modelLabel: string
+    readonly revealModelRequest: number
+  }
+}
+
+function ComposerContent(props: HbarPromptComposerProps) {
+  const managed = useHbarComposerFeedbackManaged()
+  const controls = (
+    <>
+      {props.controls}
+      <HbarComposerFeedbackTrigger />
+    </>
+  )
   const toolbar = props.adaptiveToolbar
     ? {
         moreLabel: props.adaptiveToolbar.moreLabel,
         items: [
-          ...(props.controls
-            ? [{ id: 'actions', label: props.adaptiveToolbar.controlsLabel, priority: 50, content: props.controls }]
+          ...(props.controls || managed
+            ? [{ id: 'actions', label: props.adaptiveToolbar.controlsLabel, priority: 50, content: controls }]
             : []),
           ...(props.modelPicker
             ? [{ id: 'model', label: props.adaptiveToolbar.modelLabel, priority: 100, content: props.modelPicker }]
@@ -34,10 +50,45 @@ export function HbarPromptComposer(
         revealRequest: { id: 'model', revision: props.adaptiveToolbar.revealModelRequest },
       }
     : props.toolbar
-  const composer = <LumenPromptComposer {...props} toolbar={toolbar} className="hbar-prompt-composer" />
+  return (
+    <LumenPromptComposer
+      {...props}
+      toolbar={toolbar}
+      className="hbar-prompt-composer"
+      error={managed ? undefined : props.error}
+      context={
+        <>
+          {props.context}
+          {managed && props.error && (
+            <HbarComposerFeedback tone="danger">
+              <LumenContentText context="feedback.message" role="alert">
+                {props.error}
+              </LumenContentText>
+            </HbarComposerFeedback>
+          )}
+        </>
+      }
+      controls={controls}
+    />
+  )
+}
+
+export function HbarPromptComposer(props: HbarPromptComposerProps) {
+  const composer = <ComposerContent {...props} />
   const controlled = { body: null, composer }
-  if (props.variant === 4) return <LumenPromptInput04 controlled={controlled} />
-  if (props.variant === 7) return <LumenPromptInput07 controlled={controlled} />
-  if (props.variant === 1) return <LumenPromptInput01 controlled={controlled} />
-  return composer
+  const content =
+    props.variant === 4 ? (
+      <LumenPromptInput04 controlled={controlled} />
+    ) : props.variant === 7 ? (
+      <LumenPromptInput07 controlled={controlled} />
+    ) : props.variant === 1 ? (
+      <LumenPromptInput01 controlled={controlled} />
+    ) : (
+      composer
+    )
+  return props.feedbackLabels ? (
+    <HbarComposerFeedbackProvider labels={props.feedbackLabels}>{content}</HbarComposerFeedbackProvider>
+  ) : (
+    content
+  )
 }

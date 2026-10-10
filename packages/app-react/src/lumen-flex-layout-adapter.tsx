@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Actions, Layout, Model, type IJsonModel } from 'flexlayout-react'
 import { LumenFrame } from '@lumen/app-ui'
 import './lumen-flex-layout-adapter.css'
@@ -45,7 +45,12 @@ export function HbarFlexLayoutAdapter({
   onGeometryChange,
   className,
 }: HbarFlexLayoutAdapterProps) {
-  const model = useMemo(() => Model.fromJson(json), [json])
+  const [projection, setProjection] = useState(() => ({ source: json, model: Model.fromJson(json) }))
+  if (projection.source !== json) {
+    // Matching pane IDs must inherit their mounted view when geometry changes.
+    setProjection({ source: json, model: Model.fromJson(json, projection.model) })
+  }
+  const model = projection.model
   const frameRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ element: Element; pointerId: number } | null>(null)
   useLayoutEffect(() => {

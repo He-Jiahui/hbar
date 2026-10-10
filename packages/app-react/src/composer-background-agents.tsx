@@ -1,5 +1,6 @@
 import { LoaderCircle, Square } from 'lucide-react'
 import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
+import { HbarComposerFeedback } from './composer-feedback'
 import './composer-background-agents.css'
 
 export interface HbarComposerBackgroundAgentLabels {
@@ -91,28 +92,30 @@ export function HbarComposerBackgroundAgentFeedback({
                 : labels.failed(error ?? 'EXECUTION_FAILED')
   const failure = kind === 'failed' || kind === 'read-error'
   return (
-    <LumenFrame
-      className="hbar-composer-background-feedback"
-      data-state={kind}
-      role={failure ? 'alert' : 'status'}
-      aria-live="polite"
-    >
-      <LumenContentText context="section.description" tone={failure ? 'danger' : 'muted'}>
-        {message}
-      </LumenContentText>
-      {kind === 'unknown' || kind === 'requested' ? (
-        <LumenButton type="button" size="s" variant="text" indicator="none" disabled={disabled} onClick={onReconcile}>
-          {labels.reconcile}
-        </LumenButton>
-      ) : kind === 'failed' ? (
-        <LumenButton type="button" size="s" variant="text" indicator="none" disabled={disabled} onClick={onRetry}>
-          {labels.retry}
-        </LumenButton>
-      ) : kind === 'read-error' ? (
-        <LumenButton type="button" size="s" variant="text" indicator="none" disabled={disabled} onClick={onRefresh}>
-          {labels.refresh}
-        </LumenButton>
-      ) : null}
-    </LumenFrame>
+    <HbarComposerFeedback tone={failure || kind === 'unknown' ? 'danger' : 'neutral'}>
+      <LumenFrame
+        className="hbar-composer-background-feedback"
+        data-state={kind}
+        role={failure ? 'alert' : 'status'}
+        aria-live="polite"
+      >
+        <LumenContentText context="section.description" tone={failure ? 'danger' : 'muted'}>
+          {message}
+        </LumenContentText>
+        {kind === 'unknown' || kind === 'requested' ? (
+          <LumenButton type="button" size="s" variant="text" indicator="none" disabled={disabled} onClick={onReconcile}>
+            {labels.reconcile}
+          </LumenButton>
+        ) : kind === 'failed' ? (
+          <LumenButton type="button" size="s" variant="text" indicator="none" disabled={disabled} onClick={onRetry}>
+            {labels.retry}
+          </LumenButton>
+        ) : kind === 'read-error' ? (
+          <LumenButton type="button" size="s" variant="text" indicator="none" disabled={disabled} onClick={onRefresh}>
+            {labels.refresh}
+          </LumenButton>
+        ) : null}
+      </LumenFrame>
+    </HbarComposerFeedback>
   )
 }

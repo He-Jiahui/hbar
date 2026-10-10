@@ -562,6 +562,9 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.provider.model.help': '选择后续运行使用的供应商模型。',
         'i18n:settings.provider.thinkingLevel.label': '思考等级',
         'i18n:settings.provider.thinkingLevel.help': '可用等级会随当前模型变化。',
+        'i18n:settings.provider.maxMode.label': '默认启用 MAX 长上下文',
+        'i18n:settings.provider.maxMode.help':
+          '仅对配置了扩展窗口的模型生效，下一次运行使用最大窗口。普通模式超限仍会压缩。MAX 费率、输入阈值和可选加价在供应商的模型配置中设置；按每次请求的实际输入（含缓存）选档，对整次请求计价。',
         'i18n:settings.context.compactionPercent.label': '自动压缩阈值（%）',
         'i18n:settings.context.compactionPercent.help':
           '默认 80%，可设置 30–95%。当前会话的上下文占用达到此比例时，在下一次模型请求前压缩；输出预留空间不足时会提前触发。保存后立即采用。',
@@ -589,6 +592,9 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.provider.model.help': 'Choose the provider model used by future runs.',
         'i18n:settings.provider.thinkingLevel.label': 'Thinking level',
         'i18n:settings.provider.thinkingLevel.help': 'Available levels follow the selected model.',
+        'i18n:settings.provider.maxMode.label': 'Use MAX extended context by default',
+        'i18n:settings.provider.maxMode.help':
+          'Applies to models with configured expanded tiers on the next Run. Standard mode still compacts at capacity. Configure MAX rates, input thresholds and optional markup in the provider model editor. Actual inclusive input selects the tariff for the whole request.',
         'i18n:settings.context.compactionPercent.label': 'Auto-compaction threshold (%)',
         'i18n:settings.context.compactionPercent.help':
           'Defaults to 80%; choose 30–95%. Compact the current session before the next model request at this context occupancy, or earlier to reserve output space. Saved changes apply immediately.',
@@ -770,6 +776,32 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
     confirmRemove: choose('删除供应商', 'Delete provider'),
   }
   const dialog: HbarProviderDialogLabels = {
+    contextPricing: {
+      title: choose('MAX 窗口与计费规则', 'MAX windows and billing rules'),
+      description: choose(
+        '所有费率为 USD / 百万 tokens。MAX 使用最大窗口；实际输入（含缓存）超过阈值时，整次请求改用该档费率。等于阈值仍用较低档。留空缓存费率表示未知；留空 MAX 倍率表示不额外加价。',
+        'Rates are USD per million tokens. MAX uses the largest window. Actual inclusive input above a threshold selects that tariff for the whole request; equality keeps the lower tariff. Blank cache rates mean unknown. Blank MAX markup means no extra surcharge.',
+      ),
+      standard: choose('普通窗口与基础费率', 'Standard window and base rates'),
+      empty: choose('尚未配置扩展窗口，此模型的 MAX 开关不可用。', 'No expanded window is configured. MAX is unavailable for this model.'),
+      add: choose('添加长上下文档位', 'Add extended context tier'),
+      tier: (index, window) => choose(`长上下文档位 ${index} · ${window.toLocaleString('zh-CN')} tokens`, `Extended tier ${index} · ${window.toLocaleString('en-US')} tokens`),
+      remove: (index) => choose(`删除长上下文档位 ${index}`, `Remove extended tier ${index}`),
+      field: (key) => ({
+        'i18n:settings.providers.context.standard': choose('普通上下文窗口（tokens）', 'Standard context window (tokens)'),
+        'i18n:settings.providers.context.expanded': choose('扩展上下文窗口（tokens）', 'Expanded context window (tokens)'),
+        'i18n:settings.providers.context.threshold': choose('输入超过此值时改用本档（tokens）', 'Apply this tariff when input exceeds (tokens)'),
+        'i18n:settings.providers.context.input': choose('输入费率（USD / 百万）', 'Input rate (USD / million)'),
+        'i18n:settings.providers.context.output': choose('输出费率（USD / 百万）', 'Output rate (USD / million)'),
+        'i18n:settings.providers.context.cacheRead': choose('缓存读取费率（可选）', 'Cache read rate (optional)'),
+        'i18n:settings.providers.context.cacheWrite': choose('缓存写入费率（可选）', 'Cache write rate (optional)'),
+        'i18n:settings.providers.context.multiplier': choose('MAX 额外计费倍率（可选）', 'Extra MAX billing multiplier (optional)'),
+      })[key],
+      invalid: (code) => code === 'custom'
+        ? choose('窗口和计费阈值必须逐档递增，阈值须小于本档窗口；扩展窗口须大于普通窗口。', 'Windows and thresholds must increase by tier. Each threshold must be below its window, and expanded windows must exceed the standard window.')
+        : choose('请填写范围内的有效数值；费率不能为负，MAX 倍率须在 1–100 之间。', 'Enter a value within range. Rates cannot be negative, and MAX markup must be between 1 and 100.'),
+      required: choose('（必填）', ' (required)'),
+    },
     addTitle: choose('添加供应商', 'Add provider'),
     editTitle: (name) => choose(`编辑供应商 · ${name}`, `Edit provider · ${name}`),
     description: choose(
@@ -1752,6 +1784,15 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         '选择工程并连接服务端，待草稿可编辑后使用提示词模板。',
         'Choose a project and connect to the Host, then use prompt templates when the draft is editable.',
       ),
+    },
+    composerFeedback: {
+      title: choose('输入状态', 'Composer status'),
+      empty: choose('目前没有输入提示。', 'There are no composer notices.'),
+      close: choose('关闭输入状态', 'Close composer status'),
+      summary: (count) =>
+        count
+          ? choose(`${count} 项输入提示，查看详情`, `${count} composer notices. View details`)
+          : choose('输入状态', 'Composer status'),
     },
     modelPicker: {
       title: choose('模型配置', 'Model configuration'),
@@ -3660,6 +3701,13 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       status: '状态中心',
       settings: '设置',
       server: '服务端',
+      connectionNotice: {
+        interrupted: '服务连接已中断',
+        connecting: '正在连接服务端…',
+        pairing: '服务端需要重新配对',
+        preserved: '已有内容与草稿已保留，服务恢复后可继续操作。',
+        reconnect: '重新连接',
+      },
       connected: '已连接',
       pairing: '等待配对',
       disconnected: '未连接',
@@ -3728,6 +3776,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
         title: '新建会话',
         description: '选择一个项目，告诉助手你想构建、调试或探索什么。',
       },
+      composerFeedback: createSessionLabels('zh-CN').composerFeedback,
       prompt: { ...createSessionLabels('zh-CN').prompt, placeholder: '从这里开始提问…' },
     },
     session: createSessionLabels('zh-CN'),
@@ -3808,6 +3857,13 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
       status: 'Status center',
       settings: 'Settings',
       server: 'Server',
+      connectionNotice: {
+        interrupted: 'Server connection interrupted',
+        connecting: 'Connecting to the server…',
+        pairing: 'Server pairing required',
+        preserved: 'Existing content and drafts are preserved. Actions resume when the connection returns.',
+        reconnect: 'Reconnect',
+      },
       connected: 'Connected',
       pairing: 'Pairing required',
       disconnected: 'Disconnected',
@@ -3877,6 +3933,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
         description: 'Choose a project and tell the assistant what you want to build, debug, or explore.',
       },
       prompt: { ...createSessionLabels('en-US').prompt, placeholder: 'Ask anything…' },
+      composerFeedback: createSessionLabels('en-US').composerFeedback,
     },
     session: createSessionLabels('en-US'),
     planProposal: {

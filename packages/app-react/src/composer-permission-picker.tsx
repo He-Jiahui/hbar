@@ -21,6 +21,7 @@ import type {
   ComposerPlanModeEntry,
 } from '@hbar/app-runtime'
 import './composer-permission-picker.css'
+import { HbarComposerFeedback } from './composer-feedback'
 
 export interface HbarComposerPermissionLabels {
   readonly execution: {
@@ -214,7 +215,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
       : inheritedMode
         ? labels.inheritedTrigger(labels.options[inheritedMode].label)
         : labels.options[choice].label
-  const triggerDisabled = Boolean(props.runActive) || (!executionUnresolved && (unavailable || busy))
+  const triggerDisabled = !connected || Boolean(props.runActive) || (!executionUnresolved && (unavailable || busy))
   const planBlocked =
     executionStatus !== 'ready' ||
     preparationUnavailable ||
@@ -465,7 +466,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
             : (index + 1) % options.length
     options[next]?.focus()
   }
-  const approvalFeedback = (
+  const approvalFeedback = connected ? (
     <LumenFrame className="hbar-composer-permission-feedback">
       {entry?.status === 'unknown' ? (
         <LumenContentText context="feedback.detail" role="alert">
@@ -521,38 +522,39 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
         </LumenButton>
       )}
     </LumenFrame>
-  )
-  const executionFeedback = executionUnresolved ? (
-    <LumenFrame className="hbar-composer-permission-feedback">
-      {executionStatus === 'pending' && (
-        <LumenContentText context="feedback.detail" role="status">
-          {labels.plan.pending}
-        </LumenContentText>
-      )}
-      {executionStatus === 'checking' && (
-        <LumenContentText context="feedback.detail" role="status">
-          {labels.execution.checking}
-        </LumenContentText>
-      )}
-      {executionStatus === 'unknown' && (
-        <LumenContentText context="feedback.detail" role="alert">
-          {planReadFailed || (planEntry?.error && planEntry.error !== 'RESULT_UNKNOWN')
-            ? labels.execution.checkFailed
-            : labels.plan.unknown}
-        </LumenContentText>
-      )}
-      {executionStatus === 'loading' && (
-        <LumenContentText context="feedback.detail" role="status">
-          {labels.plan.loading}
-        </LumenContentText>
-      )}
-      {executionStatus === 'failed' && (
-        <LumenContentText context="feedback.detail" role="alert">
-          {labels.execution.readFailed}
-        </LumenContentText>
-      )}
-    </LumenFrame>
   ) : null
+  const executionFeedback =
+    connected && executionUnresolved ? (
+      <LumenFrame className="hbar-composer-permission-feedback">
+        {executionStatus === 'pending' && (
+          <LumenContentText context="feedback.detail" role="status">
+            {labels.plan.pending}
+          </LumenContentText>
+        )}
+        {executionStatus === 'checking' && (
+          <LumenContentText context="feedback.detail" role="status">
+            {labels.execution.checking}
+          </LumenContentText>
+        )}
+        {executionStatus === 'unknown' && (
+          <LumenContentText context="feedback.detail" role="alert">
+            {planReadFailed || (planEntry?.error && planEntry.error !== 'RESULT_UNKNOWN')
+              ? labels.execution.checkFailed
+              : labels.plan.unknown}
+          </LumenContentText>
+        )}
+        {executionStatus === 'loading' && (
+          <LumenContentText context="feedback.detail" role="status">
+            {labels.plan.loading}
+          </LumenContentText>
+        )}
+        {executionStatus === 'failed' && (
+          <LumenContentText context="feedback.detail" role="alert">
+            {labels.execution.readFailed}
+          </LumenContentText>
+        )}
+      </LumenFrame>
+    ) : null
   return (
     <LumenFrame className="hbar-composer-permission-picker">
       <LumenButton
@@ -588,8 +590,29 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
       </LumenButton>
       {!open && (
         <>
-          {approvalFeedback}
-          {executionFeedback}
+          <HbarComposerFeedback
+            active={
+              connected &&
+              Boolean(
+                entry?.status === 'unknown' ||
+                locked ||
+                entry?.status === 'loading' ||
+                entry?.writeUnknown ||
+                error ||
+                (hostDefault.status === 'error' && choice === 'inherit') ||
+                entry?.status === 'failed',
+              )
+            }
+            tone={error || entry?.status === 'unknown' ? 'danger' : 'neutral'}
+          >
+            {approvalFeedback}
+          </HbarComposerFeedback>
+          <HbarComposerFeedback
+            active={connected && executionUnresolved}
+            tone={executionStatus === 'unknown' || executionStatus === 'failed' ? 'danger' : 'neutral'}
+          >
+            {executionFeedback}
+          </HbarComposerFeedback>
         </>
       )}
       <LumenFrame

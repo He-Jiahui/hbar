@@ -15,11 +15,11 @@ bun run desktop:dev
 | 修改位置                                                                                         | 更新方式                                                                              |
 | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
 | `apps/web/src`、已导入的 `packages/app-react` 和 `hbar-ui/packages/lumen-app-ui` 的 TSX、TS、CSS | Vite HMR；符合 React Refresh 边界的组件保留局部状态，入口或非组件依赖变化可能刷新页面 |
-| `apps/host/src`、已导入的 kernel、contracts、插件等 TS 依赖                                      | Bun `--watch` 重启源码 Host；固定本次运行的 Host 端口，前端连接恢复                   |
+| `apps/host/src`、kernel、contracts、插件以及 storage 等独立 Worker 的源码                        | 监听源码变化，通过 `system.restart` 受控重启 Host；保持端口，前端连接恢复             |
 | `apps/desktop/src-tauri` 的 Rust 或 Tauri 配置                                                   | Tauri 开发监视器增量编译并重启桌面开发窗口                                            |
 | 原生文件查询或沙盒 Rust 模块                                                                     | 重新运行对应原生模块构建命令，再重启开发实例                                          |
 
-未被导入的文件不会主动改变正在运行的模块。后端重启会中断正在执行的任务，开发修改前应完成或取消当前任务。Storage Worker 在独立线程中运行；修改仅由 Worker 导入的文件时，应重启开发实例以加载新代码。
+后端监视范围包括 Storage 和 Maintenance 等独立 Worker 的源码，受控重启会重新加载它们。后端重启会中断正在执行的任务，开发修改前应完成或取消当前任务。
 
 Vite 的监听排除 Rust 构建、`dist`、`artifacts` 和 `.dev`，避免生成日志或缓存引发重复刷新。桌面通过注入的 Tauri 桥读取本地 Host 凭据；开发页面的 Host 地址由启动脚本明确提供，凭据不放进页面 URL。
 
@@ -36,6 +36,8 @@ bun run desktop:dev
 两个端口必须不同且可用。`HBAR_WEB_DEV_URL` 可指定带端口的本地 HTTP 根地址，并须与 `HBAR_WEB_PORT` 一致；`localhost` 会统一为 `127.0.0.1`。
 
 默认数据和 WebView2 profile 保存在 `.dev/desktop-live`，源码 Host 日志在 `diagnostics/host-dev.log`。它与已安装桌面的数据目录独立。需要其他开发实例时，用 `HBAR_HOME` 指定另一目录；已有 Host 正在占用该目录时，脚本会报错，不终止或替换该 Host。`HBAR_WORKSPACE` 可指定项目，`HBAR_DEMO=0` 可关闭 Local fixture。
+
+服务在就绪前退出或启动超时时，终端错误会标明 `Source Host` 或 `Vite`。Host 错误同时给出当前开发数据目录内的 `host-dev.log` 完整路径；源码语法错误、Storage Worker 初始化失败等原因记录在该文件中。Vite 的启动错误直接输出到启动终端。脚本仍会回收本次启动的进程，不会把已有的 HTTP 服务当成开发实例。
 
 保持启动终端运行。Ctrl+C 或 Tauri 开发进程结束时，脚本回收本次启动的 Host、Vite 和桌面进程树，保留开发数据。窗口关闭按钮沿用隐藏到托盘的行为；从托盘退出或在终端 Ctrl+C 才结束开发实例。
 

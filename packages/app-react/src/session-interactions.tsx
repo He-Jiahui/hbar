@@ -442,7 +442,7 @@ function DecisionContent({
           ) : null}
         </LumenFrame>
       ) : null}
-      {!complete && scopedAction?.error ? (
+      {connected && !complete && scopedAction?.error ? (
         <LumenContentText context="feedback.message" role="alert" className="hbar-decision-error" tone="danger">
           {labels.error(scopedAction.error)}
         </LumenContentText>

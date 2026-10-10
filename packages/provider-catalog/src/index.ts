@@ -14,6 +14,7 @@ import type {
   ProviderPresetModelsResult,
   ProviderPresetSummary,
 } from '@hbar/contracts/commands/configuration'
+import { presetContextProfile } from './context-profile'
 
 type SupportedProtocol = ProviderPresetSummary['protocol']
 
@@ -46,7 +47,7 @@ function toPresetModel(model: Model<Api>): ProviderPresetModel {
   return {
     id: model.id,
     name: model.name,
-    contextWindow: model.contextWindow,
+    ...presetContextProfile(model),
     maxOutput: model.maxTokens,
     imageInput: model.input.includes('image'),
     reasoning: model.reasoning,

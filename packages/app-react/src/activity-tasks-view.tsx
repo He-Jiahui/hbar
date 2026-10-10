@@ -55,7 +55,7 @@ export function ActivityTasksView({
           {labels.loading}
         </LumenContentText>
       )}
-      {failed && (
+      {connected && failed && (
         <LumenFrame className="hbar-session-activity-recovery">
           <LumenContentText context="feedback.message" role="alert">
             {labels.error(facts.error ?? 'EXECUTION_FAILED')}

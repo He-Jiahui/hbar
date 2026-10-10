@@ -1,6 +1,7 @@
 export { HbarRuntimeProvider, useHbarRuntime, useHbarRuntimeState } from './runtime'
 export { AgentPolicyEditor, type AgentPolicyEditorLabels } from './agent-policy-editor'
 export { FloatingSurface, useFloatingTrigger } from './floating-surface'
+export { HbarComposerFeedback, type HbarComposerFeedbackLabels } from './composer-feedback'
 export type { SessionStopLabels } from './session-stop'
 export type { WorkspaceOrganizationLabels } from './workspace-organization'
 export {

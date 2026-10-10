@@ -272,17 +272,12 @@ function RequestList({
           <LumenContentText context="control.label">{labels.refresh}</LumenContentText>
         </LumenButton>
       </LumenFrame>
-      {!connected && (
-        <LumenContentText context="feedback.message" role="status">
-          {labels.offline}
-        </LumenContentText>
-      )}
       {busy && (
         <LumenContentText context="feedback.message" role="status">
           {labels.loading}
         </LumenContentText>
       )}
-      {state.status === 'error' && (
+      {connected && state.status === 'error' && (
         <LumenContentText context="feedback.message" role="alert">
           {labels.error(state.error ?? 'EXECUTION_FAILED')}
         </LumenContentText>
@@ -383,7 +378,7 @@ export const HbarSessionRequestDetails = memo(function HbarSessionRequestDetails
       ) : (
         <LumenContentText context="section.description">{labels.raw.unavailable}</LumenContentText>
       )}
-      {timeline.olderStatus === 'error' && (
+      {connected && timeline.olderStatus === 'error' && (
         <LumenContentText context="feedback.message" role="alert">
           {labels.error(timeline.olderError ?? 'EXECUTION_FAILED')}
         </LumenContentText>

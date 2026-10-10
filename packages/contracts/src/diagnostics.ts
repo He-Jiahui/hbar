@@ -15,9 +15,21 @@ export const diagnosticEventSchema = z.strictObject({
   instanceId: z.string().min(1).max(160).optional(),
   requestId: z.string().min(1).max(160).optional(),
   rpcId: z.string().min(1).max(160).optional(),
+  storageRequestId: z.number().int().nonnegative().max(2 ** 53 - 1).optional(),
   contextId: z.string().min(1).max(160).optional(),
   sessionId: z.string().min(1).max(160).optional(),
   runId: z.string().min(1).max(160).optional(),
+  stepId: z.string().min(1).max(160).optional(),
+  callId: z.string().min(1).max(160).optional(),
+  processId: z.number().int().positive().max(2 ** 32 - 1).optional(),
+  childPid: z.number().int().positive().max(2 ** 32 - 1).optional(),
+  supervisorPid: z.number().int().positive().max(2 ** 32 - 1).optional(),
+  exitCode: z.number().int().min(-(2 ** 31)).max(2 ** 32 - 1).optional(),
+  signal: z.string().regex(/^SIG[A-Z0-9]{1,16}$/).optional(),
+  restartExpected: z.boolean().optional(),
+  recoveryAttempt: z.number().int().nonnegative().max(1_000_000).optional(),
+  recoveryLimit: z.number().int().nonnegative().max(1_000_000).optional(),
+  owner: z.enum(['window', 'tray', 'process_exit']).optional(),
   method: z
     .string()
     .regex(/^[A-Za-z][A-Za-z0-9_.-]{0,127}$/)
@@ -74,6 +86,16 @@ export const diagnosticEventSchema = z.strictObject({
     .optional(),
   dropped: z.number().int().nonnegative().max(1_000_000_000).optional(),
   sampled: z.boolean().optional(),
+  /** SQLite/Bun runtime facts captured from the live connection. These fields are safe to log. */
+  sqliteVersion: z.string().regex(/^\d+\.\d+(?:\.\d+)?$/).max(32).optional(),
+  runtimeVersion: z.string().regex(/^\d+\.\d+\.\d+$/).max(32).optional(),
+  databaseSchemaVersion: z.number().int().nonnegative().max(1_000_000).optional(),
+  userVersion: z.number().int().nonnegative().max(1_000_000).optional(),
+  journalMode: z.enum(['delete', 'truncate', 'persist', 'memory', 'wal', 'off', 'unknown']).optional(),
+  synchronous: z.number().int().nonnegative().max(3).optional(),
+  busyTimeoutMs: z.number().int().nonnegative().max(2_147_483_647).optional(),
+  foreignKeys: z.boolean().optional(),
+  pageSize: z.number().int().positive().max(1_048_576).optional(),
 })
 
 export type DiagnosticEvent = z.infer<typeof diagnosticEventSchema>

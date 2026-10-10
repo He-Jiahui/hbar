@@ -47,6 +47,7 @@ import type { createChatDatabaseProjection } from './chat-database-projection'
 import type { createChatDatabaseArtifactStorage } from './chat-database-artifacts'
 import type { createChatDatabaseResourceLedger } from './chat-database-resource-ledger'
 import type { createChatDatabaseJournal } from './chat-database-journal'
+import type { DiagnosticEvent } from '@hbar/contracts'
 import type { createChatDatabaseAutomaticPlan } from './chat-database-automatic-plan'
 import type { createChatDatabaseTaskStorage } from './chat-database-tasks'
 import type { createChatDatabaseDeletionStorage } from './chat-database-deletion'
@@ -533,3 +534,7 @@ export type StorageCall = {
 }[keyof StorageMethods]
 export type StorageReply =
   { id: number; ok: true; result: unknown } | { id: number; ok: false; error: string; code: string }
+
+/** Out-of-band worker telemetry. It never carries SQL, arguments or error text. */
+export type StorageDiagnosticMessage = { type: 'diagnostic'; event: DiagnosticEvent; operationId?: number }
+export type StorageWorkerMessage = StorageReply | StorageDiagnosticMessage

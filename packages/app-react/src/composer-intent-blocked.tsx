@@ -13,6 +13,7 @@ import {
   type ComposerIntentInteractionTarget,
 } from './composer-intent-availability'
 import './composer-intent-blocked.css'
+import { HbarComposerFeedback } from './composer-feedback'
 
 export interface HbarComposerIntentBlockedLabels {
   readonly goalRecovery: HbarComposerGoalRecoveryLabels
@@ -168,6 +169,9 @@ export function HbarComposerIntentControl({
     if (!open) returnClosedFocus()
   }, [open, busy, returnClosedFocus])
   useEffect(() => {
+    if (!connected) popup.current?.hidePopover()
+  }, [connected])
+  useEffect(() => {
     if (!open) return
     const position = () => {
       if (popup.current && anchor.current) placeGoalHelp(popup.current, anchor.current)
@@ -304,7 +308,7 @@ export function HbarComposerIntentControl({
         aria-describedby={blocked || open ? descriptionId : undefined}
         popoverTarget={blocked || open ? popupId : undefined}
         aria-busy={recoveryBusy || undefined}
-        disabled={busy && !blocked && !open}
+        disabled={!connected || (busy && !blocked && !open)}
         onClick={() => {
           if (!blocked && !open) perform()
         }}
@@ -313,10 +317,12 @@ export function HbarComposerIntentControl({
         {intent === 'goal' ? labels.goalPrepared : preferMenu ? labels.goalMenu : labels.goal}
         {intent === 'goal' && <LumenIcon icon={X} tier="sm" />}
       </LumenButton>
-      {feedback && !open && !goalUnknown && (
-        <LumenContentText context="feedback.detail" role="alert">
-          {feedback}
-        </LumenContentText>
+      {connected && feedback && !open && !goalUnknown && (
+        <HbarComposerFeedback tone="danger">
+          <LumenContentText context="feedback.detail" role="alert">
+            {feedback}
+          </LumenContentText>
+        </HbarComposerFeedback>
       )}
       <LumenFrame
         ref={popup}

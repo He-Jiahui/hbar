@@ -191,7 +191,7 @@ test('unknown feedback survives a missing/hidden row and offers only exact recei
     expect(html).toContain(labels.reconcile)
     expect(html).not.toContain(labels.refresh)
     expect(html).not.toContain('original-key')
-    expect(feedback(state, locale, false)).toContain('disabled=""')
+    expect(feedback(state, locale, false)).toBe('')
   }
 })
 
@@ -219,9 +219,7 @@ test('confirmed ACK plus failed refresh is distinct from an unknown write and ne
 test('loading, offline and capacity feedback use host copy without leaking opaque error payloads', () => {
   const labels = workspaceOrganizationCopy('zh-CN')
   expect(feedback({ status: 'loading', error: null, snapshot: null, action: idle }, 'zh-CN')).toContain(labels.loading)
-  expect(
-    feedback({ status: 'offline', error: 'DISCONNECTED', snapshot: null, action: idle }, 'zh-CN', false),
-  ).toContain(labels.initialOffline)
+  expect(feedback({ status: 'offline', error: 'DISCONNECTED', snapshot: null, action: idle }, 'zh-CN', false)).toBe('')
   expect(feedback({ status: 'error', error: 'TIMEOUT', snapshot: null, action: idle }, 'zh-CN')).toContain(
     labels.initialReadFailure,
   )

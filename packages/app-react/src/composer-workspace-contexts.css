@@ -15,6 +15,10 @@
   overflow: auto;
 }
 
+.hbar-composer-workspace-contexts:empty {
+  display: none;
+}
+
 .hbar-composer-workspace-context-card {
   display: flex;
   flex: 0 1 auto;

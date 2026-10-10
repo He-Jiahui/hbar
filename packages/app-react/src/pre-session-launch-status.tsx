@@ -3,6 +3,7 @@ import { LumenContentText, LumenButton, LumenFrame } from '@lumen/app-ui'
 import type { PreSessionDraftState } from '@hbar/app-runtime'
 import { useHbarRuntime } from './runtime'
 import { firstSendNeedsContinue } from './pre-session-launch-model'
+import { HbarComposerFeedback } from './composer-feedback'
 export { firstSendIsLocked } from './pre-session-launch-model'
 import './pre-session-launch-status.css'
 
@@ -78,50 +79,52 @@ export function HbarPreSessionLaunchStatus({
             ? labels.error(draft.error ?? 'EXECUTION_FAILED')
             : labels.preparing
   return (
-    <LumenFrame className="hbar-pre-session-launch-status" data-first-send-phase={draft.phase}>
-      <LumenContentText
-        context="feedback.message"
-        role={draft.phase === 'failed' || draft.phase === 'unknown' ? 'alert' : 'status'}
-      >
-        {error ? labels.error(error) : status}
-      </LumenContentText>
-      <LumenFrame className="hbar-pre-session-launch-actions">
-        {(draft.phase === 'unknown' || cancelRequested || paused) && !inFlight && (
-          <LumenButton
-            type="button"
-            size="s"
-            disabled={!connected || pending}
-            onClick={() => perform('preSessionDraft.reconcile')}
-          >
-            {labels.check}
-          </LumenButton>
-        )}
-        {canContinue && (
-          <LumenButton
-            type="button"
-            size="s"
-            disabled={!connected || pending}
-            onClick={() => perform('preSessionDraft.continue')}
-          >
-            {labels.continue}
-          </LumenButton>
-        )}
-        {canCancel && (
-          <LumenButton
-            type="button"
-            size="s"
-            disabled={!connected || pending}
-            onClick={() => perform('preSessionDraft.cancel')}
-          >
-            {labels.cancel}
-          </LumenButton>
-        )}
-        {draft.phase === 'failed' && !needsContinue && (
-          <LumenButton type="button" size="s" disabled={pending} onClick={() => perform('preSessionDraft.close')}>
-            {labels.dismiss}
-          </LumenButton>
-        )}
+    <HbarComposerFeedback tone={error || draft.phase === 'failed' || draft.phase === 'unknown' ? 'danger' : 'neutral'}>
+      <LumenFrame className="hbar-pre-session-launch-status" data-first-send-phase={draft.phase}>
+        <LumenContentText
+          context="feedback.message"
+          role={draft.phase === 'failed' || draft.phase === 'unknown' ? 'alert' : 'status'}
+        >
+          {error ? labels.error(error) : status}
+        </LumenContentText>
+        <LumenFrame className="hbar-pre-session-launch-actions">
+          {(draft.phase === 'unknown' || cancelRequested || paused) && !inFlight && (
+            <LumenButton
+              type="button"
+              size="s"
+              disabled={!connected || pending}
+              onClick={() => perform('preSessionDraft.reconcile')}
+            >
+              {labels.check}
+            </LumenButton>
+          )}
+          {canContinue && (
+            <LumenButton
+              type="button"
+              size="s"
+              disabled={!connected || pending}
+              onClick={() => perform('preSessionDraft.continue')}
+            >
+              {labels.continue}
+            </LumenButton>
+          )}
+          {canCancel && (
+            <LumenButton
+              type="button"
+              size="s"
+              disabled={!connected || pending}
+              onClick={() => perform('preSessionDraft.cancel')}
+            >
+              {labels.cancel}
+            </LumenButton>
+          )}
+          {draft.phase === 'failed' && !needsContinue && (
+            <LumenButton type="button" size="s" disabled={pending} onClick={() => perform('preSessionDraft.close')}>
+              {labels.dismiss}
+            </LumenButton>
+          )}
+        </LumenFrame>
       </LumenFrame>
-    </LumenFrame>
+    </HbarComposerFeedback>
   )
 }

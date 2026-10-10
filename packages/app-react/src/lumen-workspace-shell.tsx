@@ -42,6 +42,7 @@ import {
   type LumenSidebarActionProps,
 } from '@lumen/app-ui'
 import { HbarActionIconButton } from './action-icon-button'
+import { usePersistentPane } from './persistent-pane'
 import { WorkspaceSidebarRail } from './workspace-sidebar-rail'
 import { SidebarCaption } from './sidebar-caption'
 import {
@@ -105,6 +106,7 @@ import {
   useWorkspaceToolFocus,
 } from './workspace-tool-focus'
 import { HbarMobileHeaderMenu, HbarMobileHeaderMenuProvider } from './mobile-header-menu'
+import { HbarHostConnectionNotice, type HbarHostConnectionNoticeLabels } from './host-connection-notice'
 
 export interface HbarSidebarTimeLabels {
   readonly title: string
@@ -115,6 +117,7 @@ export interface HbarSidebarTimeLabels {
 }
 
 export interface HbarWorkspaceShellLabels {
+  readonly connectionNotice: HbarHostConnectionNoticeLabels
   readonly agentTree: SessionAgentTreeLabels
   readonly stop: SessionStopLabels
   readonly main: string
@@ -348,7 +351,7 @@ function NavigationActionFeedback({
   readonly targetName?: string | undefined
   readonly onReconcile: () => void
 }) {
-  if (state.status === 'idle') return null
+  if (!connected || state.status === 'idle') return null
   return (
     <LumenFrame className="hbar-app-react-navigation-feedback">
       {targetName && <LumenContentText context="record.description">{targetName}</LumenContentText>}
@@ -1118,8 +1121,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
         : props.connection === 'connecting'
           ? props.labels.loading
           : props.labels.disconnected
-  const serverTone =
-    props.connection === 'connected' ? 'success' : props.connection === 'disconnected' ? 'danger' : 'warning'
+  const serverTone = props.connection === 'connected' ? 'success' : 'warning'
   const activeWorkspaceTab = workspaceTabs.items.find((item) => item.id === workspaceTabs.activeId)
   const mobileHeaderTitle =
     props.pageTitle ??
@@ -1281,7 +1283,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
         }
         actions={
           <LumenFrame className="hbar-app-react-sidebar-actions">
-            {props.sidebarFeedback}
+            {connected && props.sidebarFeedback}
             {props.featureNavigation}
             <WorkspaceSidebarAction
               icon="activity"
@@ -2161,10 +2163,21 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       ) : null}
     </LumenFrame>
   )
+  const workspacePane = usePersistentPane(contentRegion)
+  const sessionToolPane = usePersistentPane(toolRegion)
   const shell = (
     <LumenAppShell09
       label={props.labels.main}
-      titlebar={props.titlebar}
+      titlebar={
+        <>
+          {props.titlebar}
+          <HbarHostConnectionNotice
+            connection={props.connection}
+            labels={props.labels.connectionNotice}
+            onReconnect={props.onReconnect}
+          />
+        </>
+      }
       sidebarWidthRem={railCollapsed ? props.sidebarRailWidthRem : props.sidebarWidthRem}
       sidebarLayout={railCollapsed ? undefined : props.sidebarLayout}
       sidebarResize={
@@ -2184,7 +2197,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       closeSidebarLabel={props.labels.hideSidebar}
       onCloseSidebar={() => setSidebarVisible(false)}
       header={desktopHeader}
-      tool={props.renderLayout ? null : toolRegion}
+      tool={props.renderLayout || !toolRegion ? null : sessionToolPane.outlet}
       toolLabel={props.toolLabel}
       overlay={
         <>
@@ -2209,7 +2222,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 className="hbar-desktop-tool-pane"
                 aria-label={props.toolLabel}
               >
-                {toolRegion}
+                {sessionToolPane.outlet}
               </LumenFrame>
             </LumenFloatingSurface>
           ) : null}
@@ -2230,7 +2243,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                       className="hbar-desktop-workspace-pane"
                       aria-label={props.labels.main}
                     >
-                      {contentRegion}
+                      {workspacePane.outlet}
                     </LumenFrame>
                   ),
                   'session-tool': toolRegion ? (
@@ -2249,7 +2262,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           : undefined
       }
     >
-      {contentRegion}
+      {workspacePane.outlet}
     </LumenAppShell09>
   )
   return (
@@ -2262,6 +2275,8 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
         toolPresentation={resolvedToolPresentation}
       >
         {shell}
+        {workspacePane.portal}
+        {sessionToolPane.portal}
       </HbarSessionStopProvider>
     </HbarMobileHeaderMenuProvider>
   )

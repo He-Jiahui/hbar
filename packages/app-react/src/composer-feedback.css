@@ -1,0 +1,76 @@
+.hbar-composer-feedback-trigger {
+  inline-size: var(--lumen-control-size-s, 2rem);
+  block-size: var(--lumen-control-size-s, 2rem);
+  min-inline-size: var(--lumen-control-size-s, 2rem);
+  flex: 0 0 auto;
+  padding: 0;
+}
+
+.hbar-composer-feedback-trigger[data-feedback-count='0'] {
+  color: var(--lumen-muted);
+}
+
+.hbar-composer-feedback-trigger[data-tone='danger'],
+.hbar-composer-feedback-item [role='alert'] {
+  color: var(--lumen-danger);
+}
+
+.hbar-composer-feedback-surface {
+  inline-size: min(30rem, calc(100dvw - 2rem));
+}
+
+.hbar-composer-feedback-heading {
+  display: flex;
+  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.hbar-composer-feedback-list,
+.hbar-composer-feedback-item {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.hbar-composer-feedback-list {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.hbar-composer-feedback-item + .hbar-composer-feedback-item {
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+  padding-block-start: 0.5rem;
+}
+
+.hbar-composer-feedback-item {
+  flex: 0 0 auto;
+  overflow-wrap: anywhere;
+  font-size: var(--lumen-font-size-s, 0.8125rem);
+}
+
+.hbar-composer-feedback-item p {
+  margin: 0;
+}
+
+/* These are details in a shared floating surface, outside the closed toolbar's single-line rail. */
+.hbar-composer-feedback-item
+  :is(.hbar-composer-background-feedback, .hbar-composer-intent-feedback, .hbar-session-project-context-error) {
+  flex-direction: column;
+  align-items: flex-start;
+  overflow-x: visible;
+}
+
+.hbar-composer-feedback-item .hbar-composer-background-feedback > p {
+  flex: 0 0 auto;
+}
+
+.hbar-composer-feedback-item button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}

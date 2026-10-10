@@ -121,9 +121,11 @@ test('an unsettled physical read stays locked after logical failure; offline is 
         onReconcile={() => {}}
       />,
     )
-    expect(html).toContain(connected ? labels.waiting : labels.offline)
-    expect(html).toContain('disabled=""')
-    expect(html).toContain('aria-busy="true"')
+    if (connected) {
+      expect(html).toContain(labels.waiting)
+      expect(html).toContain('disabled=""')
+      expect(html).toContain('aria-busy="true"')
+    } else expect(html).toBe('')
     expect(html).not.toContain('PRIVATE')
   }
 })

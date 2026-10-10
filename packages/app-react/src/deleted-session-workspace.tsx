@@ -58,6 +58,7 @@ export function HbarDeletedSessionWorkspace({
         boundary="none"
         value={draft?.text ?? ''}
         labels={props.labels.prompt}
+        feedbackLabels={props.labels.composerFeedback}
         editor={({ value, inputLabel, placeholder, disabled, onChange }) => (
           <LumenTextarea
             aria-label={inputLabel}

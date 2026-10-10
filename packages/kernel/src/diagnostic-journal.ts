@@ -37,6 +37,28 @@ const ALWAYS_EVENTS = new Set([
   'storage.worker_error',
   'storage.worker_exit',
   'storage.close',
+  'host.starting',
+  'host.kernel_ready',
+  'host.stopped',
+  'host.stop_requested',
+  'host.signal_received',
+  'host.stop_failed',
+  'host.startup_failed',
+  'host.shutdown_failed',
+  'supervisor.starting',
+  'supervisor.stopped',
+  'supervisor.stop_requested',
+  'supervisor.failed',
+  'supervisor.child_spawn',
+  'supervisor.child_exit',
+  'supervisor.backoff',
+  'supervisor.recovery_limit',
+  'sqlite.starting',
+  'sqlite.configured',
+  'sqlite.recovery_started',
+  'sqlite.recovery_completed',
+  'sqlite.ready',
+  'sqlite.schema_migrated',
 ])
 
 function boundedInteger(value: number | undefined, fallback: number, max: number, name: string): number {
@@ -109,8 +131,10 @@ export class DiagnosticJournal implements DiagnosticSink {
     const keep =
       this.fullCoverage ||
       this.enabled ||
+      value.level === 'warn' ||
       value.level === 'error' ||
       value.level === 'fatal' ||
+      (value.durationMs !== undefined && value.durationMs >= 100) ||
       ALWAYS_EVENTS.has(value.event)
     if (!keep) return
     this.ring.push(value)

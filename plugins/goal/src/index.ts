@@ -24,6 +24,14 @@ const MAX_EVENTS = 100_000
 const MAX_AUDIT_RUNS = 32
 const MAX_EXECUTION_FAILURE_RUNS = 32
 const MAX_ACCOUNTED_RUNS = 256
+const SESSION_STOP_REASONS = new Set<GoalContinuation['reason']>([
+  'run_failed',
+  'result_unknown',
+  'retry_exhausted',
+  'repair_exhausted',
+  'continuation_limit',
+  'disabled',
+])
 
 const runAccountingSchema = z.object({
   goalId: z.string().min(1).max(160),
@@ -184,6 +192,7 @@ class GoalRuntime implements GoalService {
   private hydrated = false
   private uncertainSessions = new Set<string>()
   private continuationTriggers = new Map<string, Set<string>>()
+  private restoredRuns = new Map<string, Run>()
 
   constructor(
     private api: HbarAPI,
@@ -197,6 +206,7 @@ class GoalRuntime implements GoalService {
     this.sequences.clear()
     this.uncertainSessions.clear()
     this.continuationTriggers.clear()
+    this.restoredRuns.clear()
     const sessions = await this.api.sessions.list()
     for (let offset = 0; offset < sessions.length; offset += 8) {
       const batch = sessions.slice(offset, offset + 8)
@@ -256,7 +266,8 @@ class GoalRuntime implements GoalService {
                   {
                     ...accounted,
                     status:
-                      run.failure?.category === 'cancelled' && ['active', 'budget_limited'].includes(accounted.status)
+                      (run.status === 'cancelled' || run.failure?.category === 'cancelled') &&
+                      ['active', 'budget_limited'].includes(accounted.status)
                         ? 'paused'
                         : accounted.status,
                     accountedRuns: [...accounted.accountedRuns, runId].slice(-MAX_ACCOUNTED_RUNS),
@@ -278,8 +289,6 @@ class GoalRuntime implements GoalService {
             if (intent && ['running', 'queued'].includes(intent.phase)) {
               const terminal = [...settled.values()].find((run) => run.input.continuation?.intentId === intent.intentId)
               if (terminal?.status === 'completed' && ['active', 'budget_limited'].includes(normalized.status)) {
-                // Resume only an explicitly persisted execution intent. Historical
-                // active Goals with no intent remain inert after upgrading.
                 await this.queueContinuation(this.withContinuation(normalized, 'running', 'goal_active'), {
                   trigger: terminal.id,
                   modelId: terminal.modelId,
@@ -308,12 +317,93 @@ class GoalRuntime implements GoalService {
               })
               normalized = this.goals.get(session.id) ?? normalized
             }
+            const lastRun = [...settled.values()]
+              .reverse()
+              .find(
+                (run) =>
+                  run.input.mode !== 'plan' &&
+                  (normalized.accountedRuns.includes(run.id) ||
+                    run.input.continuation?.goalId === normalized.goalId ||
+                    (!this.boundRuns.has(run.id) && !run.input.continuation && run.createdAt >= normalized.createdAt)),
+              )
+            const stopped = normalized.continuationIntent
+            if (
+              normalized.status === 'active' &&
+              stopped?.phase === 'stopped' &&
+              SESSION_STOP_REASONS.has(stopped.reason) &&
+              !(stopped.reason === 'run_failed' && lastRun?.failure?.category === 'interrupted')
+            )
+              normalized = this.pauseContinuation(normalized, stopped.reason)
             if (JSON.stringify(normalized) !== JSON.stringify(goal)) await this.persist(normalized)
+            if (lastRun) this.restoredRuns.set(session.id, lastRun)
           }
         }),
       )
     }
     this.hydrated = true
+  }
+
+  async resumeOnStartup(): Promise<void> {
+    await this.ready()
+    if (!this.config.autoContinue) {
+      this.restoredRuns.clear()
+      return
+    }
+    const goals = [...this.goals.values()]
+    try {
+      for (let offset = 0; offset < goals.length; offset += 8)
+        await Promise.all(
+          goals.slice(offset, offset + 8).map((restored) =>
+            this.serial(restored.threadId, async () => {
+              const goal = this.goals.get(restored.threadId)
+              if (!goal || goal.goalId !== restored.goalId || !['active', 'budget_limited'].includes(goal.status))
+                return
+              const intent = goal.continuationIntent
+              const lastRun = this.restoredRuns.get(goal.threadId)
+              if (intent && !['running', 'stopped'].includes(intent.phase) && intent.reason !== 'model_unavailable')
+                return
+              if (
+                intent?.phase === 'stopped' &&
+                !['interrupted', 'no_tool_calls', 'no_progress', 'user_turn'].includes(intent.reason) &&
+                !(intent.reason === 'run_failed' && lastRun?.failure?.category === 'interrupted')
+              )
+                return
+              // A recovered Run is a historical fact. Start a new Goal-bound turn,
+              // never replay its calls or revive its request identity.
+              if (lastRun?.failure?.category === 'result_unknown') {
+                await this.stopContinuation(goal, lastRun, 'result_unknown')
+                return
+              }
+              if (lastRun?.status === 'cancelled' || lastRun?.failure?.category === 'cancelled') {
+                await this.persist({ ...goal, status: 'paused', updatedAt: Date.now() })
+                return
+              }
+              if (lastRun && isUsageLimitError(lastRun)) {
+                await this.stopContinuation({ ...goal, status: 'usage_limited' }, lastRun, 'usage_limited')
+                return
+              }
+              if (
+                goal.status !== 'budget_limited' &&
+                lastRun?.status === 'failed' &&
+                lastRun.failure?.category !== 'interrupted'
+              ) {
+                await this.stopContinuation(goal, lastRun, 'run_failed')
+                return
+              }
+              const runs = (await this.api.sessions.snapshot(goal.threadId)).runs
+              if (runs.some((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))) return
+              const modelId = await this.replacementModel(goal.threadId, goal, lastRun ? [lastRun.id] : [])
+              await this.queueContinuation(goal, {
+                trigger: `startup:${intent?.intentId ?? lastRun?.id ?? goal.goalId}`,
+                modelId,
+                text: 'The Host restarted while this Goal was active. Review the current Goal, Agent Plan and durable tool results, then continue the remaining work. Do not repeat a committed write or an operation whose result is unknown.',
+              })
+            }),
+          ),
+        )
+    } finally {
+      this.restoredRuns.clear()
+    }
   }
 
   private async ready() {
@@ -475,7 +565,12 @@ class GoalRuntime implements GoalService {
       await this.accountProgressUnlocked(event.sessionId, event.runId, 'bound-run')
       const current = this.goals.get(event.sessionId)!
       await this.persist(
-        { ...current, status: 'paused', budgetResumeIntent: false, updatedAt: Date.now() },
+        {
+          ...this.withContinuation(current, 'stopped', 'paused'),
+          status: 'paused',
+          budgetResumeIntent: false,
+          updatedAt: Date.now(),
+        },
         event.runId,
       )
     })
@@ -558,7 +653,11 @@ class GoalRuntime implements GoalService {
     wake = true,
   ) {
     goal = await this.withBudget(goal)
-    if (goal.continuationIntent && ['paused', 'complete', 'blocked', 'usage_limited'].includes(goal.status))
+    if (
+      goal.continuationIntent &&
+      ['paused', 'complete', 'blocked', 'usage_limited'].includes(goal.status) &&
+      !(goal.status === 'paused' && goal.continuationIntent.phase === 'stopped')
+    )
       goal = this.withContinuation(goal, 'stopped', goal.status as 'paused' | 'complete' | 'blocked' | 'usage_limited')
     const event = await this.append(goal.threadId, type, { goal, ...(accounting ? { accounting } : {}) }, runId)
     this.rememberTriggers(goal)
@@ -664,7 +763,22 @@ class GoalRuntime implements GoalService {
         reason,
         updatedAt: Date.now(),
       })
-    return this.persist(this.withContinuation({ ...goal, continuationIntent: intent }, 'stopped', reason), run.id)
+    const stopped = { ...goal, continuationIntent: intent }
+    // Host shutdown retains its durable restart intent; user cancellation is a pause.
+    return this.persist(
+      reason === 'interrupted' && run.failure?.code === 'HOST_SHUTTING_DOWN'
+        ? this.withContinuation(stopped, 'stopped', reason)
+        : this.pauseContinuation(stopped, reason),
+      run.id,
+    )
+  }
+
+  private pauseContinuation(goal: PersistedGoal, reason: GoalContinuation['reason']): PersistedGoal {
+    if (goal.status === 'paused') return goal
+    const stopped = this.withContinuation(goal, 'stopped', reason)
+    return goal.status === 'active'
+      ? { ...stopped, status: 'paused', budgetResumeIntent: false, updatedAt: Date.now() }
+      : stopped
   }
 
   async requestContinuation(
@@ -680,7 +794,7 @@ class GoalRuntime implements GoalService {
 
   private async queueContinuation(
     goal: PersistedGoal,
-    input: { trigger: string; modelId: string; text?: string; retryAt?: number },
+    input: { trigger: string; modelId: string | null; text?: string; retryAt?: number },
   ) {
     if (
       !this.config.autoContinue ||
@@ -743,15 +857,10 @@ class GoalRuntime implements GoalService {
         if (waiting !== goal) await this.persist(waiting)
         return { ...event, wakeAt: intent.retryAt }
       }
-      const next = this.withContinuation(
-        goal,
-        reason
-          ? ['disabled', 'continuation_limit', 'repair_exhausted'].includes(reason)
-            ? 'stopped'
-            : 'waiting'
-          : 'queued',
-        reason ?? executionReason,
-      )
+      const next =
+        reason && SESSION_STOP_REASONS.has(reason)
+          ? this.pauseContinuation(goal, reason)
+          : this.withContinuation(goal, reason ? 'waiting' : 'queued', reason ?? executionReason)
       if (next !== goal) await this.persist(next)
       if (reason) return event
       if (intent.modelId === null) return event
@@ -776,7 +885,7 @@ class GoalRuntime implements GoalService {
     await this.serial(event.sessionId, async () => {
       const goal = this.goals.get(event.sessionId)
       if (goal?.continuationIntent && event.requestId === `goal-${goal.continuationIntent.intentId}`)
-        await this.persist(this.withContinuation(goal, 'stopped', event.unknown ? 'result_unknown' : 'run_failed'))
+        await this.persist(this.pauseContinuation(goal, event.unknown ? 'result_unknown' : 'run_failed'))
     })
   }
 
@@ -1029,7 +1138,7 @@ class GoalRuntime implements GoalService {
       const requestedStatus = input.status ?? existing.status
       const status = requestedStatus
       const goal: PersistedGoal = {
-        ...existing,
+        ...(input.status === 'paused' ? this.withContinuation(existing, 'stopped', 'paused') : existing),
         ...(objective === undefined ? {} : { objective }),
         status,
         tokenBudget: requestedBudget,
@@ -1203,7 +1312,8 @@ class GoalRuntime implements GoalService {
       }
       const usageLimited = isUsageLimitError(run) && existing.status === 'active'
       const status: GoalStatus =
-        run.failure?.category === 'cancelled' && ['active', 'budget_limited'].includes(existing.status)
+        (event.status === 'cancelled' || run.failure?.category === 'cancelled') &&
+        ['active', 'budget_limited'].includes(existing.status)
           ? 'paused'
           : usageLimited
             ? 'usage_limited'
@@ -1273,7 +1383,7 @@ class GoalRuntime implements GoalService {
           : null
       const repairing = admission?.reason === 'repair'
       if (tracking.repairKey && repairing && goal.repairKey === admission.recoveryKey && goal.repairAttempts >= 3) {
-        await this.persist(this.withContinuation(goal, 'stopped', 'repair_exhausted'), event.runId)
+        await this.stopContinuation(goal, run, 'repair_exhausted')
         return
       }
       if (!repairing && goal.repairAttempts > 0)

@@ -1,6 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 import { expect, test } from 'bun:test'
+import { productionDesignSystemFiles } from '../scripts/verify-design-system-boundaries'
 
 async function collectSourceFiles(root: string): Promise<string[]> {
   const entries = await readdir(root, { withFileTypes: true })
@@ -17,8 +18,9 @@ async function collectSourceFiles(root: string): Promise<string[]> {
 }
 
 test('production app sources use only the Lumen component boundary', async () => {
-  const roots = ['packages/app-react/src', 'apps/web/src']
-  const files = (await Promise.all(roots.map((root) => collectSourceFiles(root)))).flat()
+  const files = (await productionDesignSystemFiles()).filter(
+    (file) => /\.(?:ts|tsx)$/.test(file) && !file.replaceAll('\\', '/').includes('/apps/hbar-app-ui-preview/'),
+  )
   const violations: string[] = []
   for (const file of files) {
     const source = await readFile(file, 'utf8')

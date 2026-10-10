@@ -1,8 +1,30 @@
 import { z } from 'zod'
-export { diagnosticEventSchema, DIAGNOSTIC_SCHEMA_VERSION, diagnosticEvent, type DiagnosticEvent, type DiagnosticSink } from './diagnostics.ts'
+import { modelContextTiersSchema, maximumContextWindow } from './model-context-tiers'
+import type { ModelContextTier } from './model-context-tiers'
+export { modelContextTierSchema, modelContextTiersSchema, maximumContextWindow } from './model-context-tiers'
+export type { ModelContextTier } from './model-context-tiers'
+export {
+  diagnosticEventSchema,
+  DIAGNOSTIC_SCHEMA_VERSION,
+  diagnosticEvent,
+  type DiagnosticEvent,
+  type DiagnosticSink,
+} from './diagnostics.ts'
+export {
+  diagnosticCorrelationSchema,
+  type DiagnosticCorrelation,
+  type DiagnosticScopePort,
+  type ReadonlyDiagnosticCorrelation,
+} from './diagnostic-context.ts'
 export { collectArtifactReferenceIds, collectArtifactReferences } from './artifact-references'
 import { settingScopeSchema } from './settings.ts'
-import type { SettingDescriptor, SettingScope, SettingsCatalog, SettingsContribution, SettingsSnapshot } from './settings.ts'
+import type {
+  SettingDescriptor,
+  SettingScope,
+  SettingsCatalog,
+  SettingsContribution,
+  SettingsSnapshot,
+} from './settings.ts'
 
 export * from './settings.ts'
 export * from './theme.ts'
@@ -476,6 +498,8 @@ export const inputSchema = z.object({
   // attachments were introduced. Kernel normalization supplies an empty list.
   files: z.array(artifactSchema).max(12).optional(),
   thinking: thinkingLevelSchema.optional(),
+  /** Captured at admission; missing legacy values mean standard context. */
+  maxMode: z.boolean().optional(),
   approval: approvalModeSchema.optional(),
   /** Host-created rules for `approval: 'sandbox'`; the Host strips it for other modes. */
   sandbox: sandboxSnapshotRefSchema.optional(),
@@ -654,6 +678,10 @@ const providerModelInputSchema = z.object({
   reasoning: z.boolean().optional(),
   inputPrice: z.number().nonnegative().optional(),
   outputPrice: z.number().nonnegative().optional(),
+  cacheReadPrice: z.number().nonnegative().optional(),
+  cacheWritePrice: z.number().nonnegative().optional(),
+  contextTiers: modelContextTiersSchema.optional(),
+  maxModePricingMultiplier: z.number().finite().min(1).max(100).optional(),
   thinkingLevels: z.array(thinkingLevelSchema).min(1).max(7).optional(),
   supportedThinkingLevels: z.array(thinkingLevelSchema).min(1).max(7).optional(),
   defaultThinkingLevel: thinkingLevelSchema.optional(),
@@ -672,6 +700,10 @@ export interface ProviderModelConfig {
   reasoning: boolean
   inputPrice: number
   outputPrice: number
+  cacheReadPrice?: number
+  cacheWritePrice?: number
+  contextTiers?: ModelContextTier[]
+  maxModePricingMultiplier?: number
   thinkingLevels: ThinkingLevel[]
   supportedThinkingLevels: ThinkingLevel[]
   defaultThinkingLevel: ThinkingLevel
@@ -694,6 +726,12 @@ export interface ProviderConfig {
   reasoning: boolean
   inputPrice: number
   outputPrice: number
+  cacheReadPrice?: number
+  cacheWritePrice?: number
+  contextTiers?: ModelContextTier[]
+  maxModePricingMultiplier?: number
+  /** Run-owned effective mode; provider configuration never accepts this field. */
+  contextMode?: 'standard' | 'max'
   thinkingLevels: ThinkingLevel[]
   supportedThinkingLevels: ThinkingLevel[]
   defaultThinkingLevel: ThinkingLevel
@@ -716,6 +754,10 @@ export const providerInputSchema = z
     reasoning: z.boolean().optional(),
     inputPrice: z.number().nonnegative().optional(),
     outputPrice: z.number().nonnegative().optional(),
+    cacheReadPrice: z.number().nonnegative().optional(),
+    cacheWritePrice: z.number().nonnegative().optional(),
+    contextTiers: modelContextTiersSchema.optional(),
+    maxModePricingMultiplier: z.number().finite().min(1).max(100).optional(),
     thinkingLevels: z.array(thinkingLevelSchema).min(1).max(7).optional(),
     supportedThinkingLevels: z.array(thinkingLevelSchema).min(1).max(7).optional(),
     defaultThinkingLevel: thinkingLevelSchema.optional(),
@@ -723,6 +765,16 @@ export const providerInputSchema = z
     supportedReasoningEfforts: z.array(thinkingLevelSchema).min(1).max(7).optional(),
   })
   .superRefine((value, context) => {
+    for (const [index, model] of (value.models ?? [value]).entries()) {
+      const standard = model.contextWindow ?? value.contextWindow ?? 128_000
+      const tiers = model.contextTiers
+      if (tiers?.length && tiers[0]!.contextWindow <= standard)
+        context.addIssue({
+          code: 'custom',
+          path: value.models ? ['models', index, 'contextTiers'] : ['contextTiers'],
+          message: 'Expanded context tiers must exceed the standard context window',
+        })
+    }
     if (!value.model && !value.models?.length)
       context.addIssue({
         code: z.ZodIssueCode.custom,
@@ -745,6 +797,22 @@ export const providerInputSchema = z
 
 function uniqueThinkingLevels(levels: readonly ThinkingLevel[]): ThinkingLevel[] {
   return [...new Set(levels)]
+}
+
+function contextPricingFields(value: {
+  cacheReadPrice?: number | undefined
+  cacheWritePrice?: number | undefined
+  contextTiers?: ModelContextTier[] | undefined
+  maxModePricingMultiplier?: number | undefined
+}) {
+  return {
+    ...(value.cacheReadPrice === undefined ? {} : { cacheReadPrice: value.cacheReadPrice }),
+    ...(value.cacheWritePrice === undefined ? {} : { cacheWritePrice: value.cacheWritePrice }),
+    ...(value.contextTiers === undefined ? {} : { contextTiers: value.contextTiers }),
+    ...(value.maxModePricingMultiplier === undefined
+      ? {}
+      : { maxModePricingMultiplier: value.maxModePricingMultiplier }),
+  }
 }
 
 function normalizeProviderModel(
@@ -778,6 +846,7 @@ function normalizeProviderModel(
     reasoning,
     inputPrice: value.inputPrice ?? fallback.inputPrice,
     outputPrice: value.outputPrice ?? fallback.outputPrice,
+    ...contextPricingFields(value),
     thinkingLevels: normalizedLevels,
     supportedThinkingLevels: normalizedLevels,
     defaultThinkingLevel,
@@ -817,6 +886,10 @@ export const providerSchema = providerInputSchema.transform((value): ProviderCon
           reasoning: value.reasoning,
           inputPrice: value.inputPrice,
           outputPrice: value.outputPrice,
+          cacheReadPrice: value.cacheReadPrice,
+          cacheWritePrice: value.cacheWritePrice,
+          contextTiers: value.contextTiers,
+          maxModePricingMultiplier: value.maxModePricingMultiplier,
           thinkingLevels: value.thinkingLevels,
           supportedThinkingLevels: value.supportedThinkingLevels,
           defaultThinkingLevel: value.defaultThinkingLevel,
@@ -840,6 +913,7 @@ export const providerSchema = providerInputSchema.transform((value): ProviderCon
     reasoning: selected.reasoning,
     inputPrice: selected.inputPrice,
     outputPrice: selected.outputPrice,
+    ...contextPricingFields(selected),
     thinkingLevels: [...selected.thinkingLevels],
     supportedThinkingLevels: [...selected.supportedThinkingLevels],
     defaultThinkingLevel: selected.defaultThinkingLevel,
@@ -879,8 +953,17 @@ export function resolveProviderModel(provider: ProviderConfig, selectionId: stri
     else if (provider.models.some((model) => model.id === selectionId)) modelId = selectionId
   }
   const selected = provider.models.find((model) => model.id === modelId) ?? provider.models[0]!
+  const {
+    cacheReadPrice: _cacheRead,
+    cacheWritePrice: _cacheWrite,
+    contextTiers: _tiers,
+    maxModePricingMultiplier: _multiplier,
+    contextMode: _mode,
+    ...base
+  } = provider
   return {
-    ...provider,
+    ...base,
+    ...contextPricingFields(selected),
     model: selected.id,
     contextWindow: selected.contextWindow,
     maxOutput: selected.maxOutput,
@@ -893,6 +976,14 @@ export function resolveProviderModel(provider: ProviderConfig, selectionId: stri
     defaultThinkingLevel: selected.defaultThinkingLevel,
     defaultReasoningEffort: selected.defaultReasoningEffort,
     supportedReasoningEfforts: [...selected.supportedReasoningEfforts],
+  }
+}
+
+export function resolveModelContextMode(model: ProviderConfig, maxMode: boolean): ProviderConfig {
+  return {
+    ...model,
+    contextWindow: maxMode ? maximumContextWindow(model) : model.contextWindow,
+    contextMode: maxMode && maximumContextWindow(model) > model.contextWindow ? 'max' : 'standard',
   }
 }
 

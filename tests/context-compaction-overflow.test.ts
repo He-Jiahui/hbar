@@ -4,7 +4,14 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
-import type { DriverInput, HarnessDriver, ModelRequest } from '@hbar/plugin-sdk'
+import type {
+  BudgetService,
+  CompactionProvider,
+  DriverInput,
+  GoalService,
+  HarnessDriver,
+  ModelRequest,
+} from '@hbar/plugin-sdk'
 import { PiDriver } from '@hbar/pi-driver'
 import { estimateContextTokens } from '../packages/kernel/src/context-usage'
 import { compactionBoundary, nextSummaryChunk, summaryDocument } from '../packages/kernel/src/context-compaction'
@@ -106,6 +113,208 @@ test('a single long Run compacts completed tool groups before the next request w
     true,
   )
   expect((await kernel.snapshot(session.id)).messages).toHaveLength(12)
+})
+
+test('an over-capacity tool batch is compacted at step settlement even when no further request follows', async () => {
+  let afterStep: number | undefined
+  const { kernel, session, summaries } = await fixture(async (input) => {
+    await input.beforeRequest(input.request, 'last-tool-step')
+    await toolPair(input, 0, 19_000)
+    await input.stepEnded('last-tool-step')
+    afterStep = (await kernel.getContextUsage(input.session.id, input.request.model.id)).inputTokens ?? undefined
+  })
+  const run = await kernel.submit(
+    session.id,
+    'last-tool-step',
+    { text: 'Inspect the file.', images: [] },
+    'context-overflow',
+  )
+  await kernel.waitForIdle()
+  expect((await kernel.storage.call('run', run.id)).status).toBe('completed')
+  expect(summaries.length).toBeGreaterThan(0)
+  expect(afterStep).toBeLessThanOrEqual(3072)
+  expect((await kernel.snapshot(session.id)).messages).toHaveLength(3)
+})
+
+test.each(['user', 'goal'] as const)(
+  'a final %s Run reply forces compaction without waiting for the next turn',
+  async (source) => {
+    const { kernel, session, summaries } = await fixture(async (input) => {
+      await input.beforeRequest(input.request, 'last-reply')
+      await input.commit('assistant', [{ type: 'text', text: 'Verified result. '.repeat(1200) }])
+    })
+    if (source === 'goal') {
+      await kernel.changePlugin('goal.codex', true, { autoContinue: false })
+      await kernel.plugins.get<GoalService>('goal').create(session.id, 'Finish and verify the review.')
+    }
+    const run = await kernel.submit(
+      session.id,
+      `last-reply-${source}`,
+      { text: 'Finish the review.', images: [], source },
+      'context-overflow',
+    )
+    await kernel.waitForIdle()
+    expect((await kernel.storage.call('run', run.id)).status).toBe('completed')
+    expect(summaries.length).toBeGreaterThan(0)
+    const context = await kernel.getContextUsage(session.id, 'context-overflow')
+    expect(context.inputTokens! + context.outputReserve!).toBeLessThanOrEqual(context.contextWindow!)
+    expect((await kernel.snapshot(session.id)).messages).toHaveLength(2)
+    expect(
+      (await kernel.storage.call('events', session.id, 0)).filter((event) => event.type === 'context.compacted'),
+    ).toHaveLength(1)
+  },
+)
+
+test('post-step compaction reserves output capacity before the input meter reaches 100 percent', async () => {
+  const { kernel, session, summaries } = await fixture(async (input) => {
+    await input.beforeRequest(input.request, 'output-reserve')
+    await input.commit('assistant', [{ type: 'text', text: 'x'.repeat(9800) }])
+    const before = await kernel.getContextUsage(input.session.id, input.request.model.id)
+    expect(before.inputTokens).toBeLessThan(4096)
+    expect(before.inputTokens! + before.outputReserve!).toBeGreaterThan(4096)
+    await input.stepEnded('output-reserve')
+  })
+  const run = await kernel.submit(session.id, 'output-reserve', { text: 'Finish.', images: [] }, 'context-overflow')
+  await kernel.waitForIdle()
+  expect((await kernel.storage.call('run', run.id)).status).toBe('completed')
+  expect(summaries.length).toBeGreaterThan(0)
+})
+
+test('final admission catches output committed after the last settled step', async () => {
+  const { kernel, session, summaries } = await fixture(async (input) => {
+    await input.beforeRequest(input.request, 'settled-before-output')
+    await input.stepEnded('settled-before-output')
+    await input.commit('assistant', [{ type: 'text', text: 'x'.repeat(19_000) }])
+  })
+  const run = await kernel.submit(
+    session.id,
+    'settled-before-output',
+    { text: 'Finish.', images: [] },
+    'context-overflow',
+  )
+  await kernel.waitForIdle()
+  expect((await kernel.storage.call('run', run.id)).status).toBe('completed')
+  expect(summaries.length).toBeGreaterThan(0)
+  const usage = await kernel.getContextUsage(session.id, 'context-overflow')
+  expect(usage.inputTokens! + usage.outputReserve!).toBeLessThanOrEqual(4096)
+})
+
+test('a custom early-compaction policy cannot bypass the hard context limit', async () => {
+  const requests: ModelRequest[] = []
+  const { kernel, session, summaries } = await fixture(async (input) => {
+    requests.push(await input.beforeRequest(input.request, 'hard-limit'))
+    await toolPair(input, 0, 19_000)
+    await input.stepEnded('hard-limit')
+  })
+  kernel.plugins.get<CompactionProvider>('compaction').shouldCompact = () => false
+  for (let index = 0; index < 6; index++)
+    await kernel.storage.call('commit', session.id, 'seed', index % 2 ? 'assistant' : 'user', [
+      { type: 'text', text: 'History. '.repeat(700) },
+    ])
+  const run = await kernel.submit(session.id, 'hard-limit', { text: 'Continue.', images: [] }, 'context-overflow')
+  await kernel.waitForIdle()
+  expect((await kernel.storage.call('run', run.id)).status).toBe('completed')
+  expect(requests).toHaveLength(1)
+  expect(estimateContextTokens(requests[0]!) + requests[0]!.model.maxOutput).toBeLessThanOrEqual(4096)
+  expect(summaries.length).toBeGreaterThan(1)
+  expect(
+    (await kernel.storage.call('events', session.id, 0)).filter((event) => event.type === 'context.compacted'),
+  ).toHaveLength(2)
+})
+
+test('small settled steps and final replies do not start additional summary requests', async () => {
+  const { kernel, session, summaries } = await fixture(async (input) => {
+    await input.beforeRequest(input.request, 'small-reply')
+    await input.commit('assistant', [{ type: 'text', text: 'Done.' }])
+    await input.stepEnded('small-reply')
+  })
+  const run = await kernel.submit(session.id, 'small-reply', { text: 'Finish.', images: [] }, 'context-overflow')
+  await kernel.waitForIdle()
+  expect((await kernel.storage.call('run', run.id)).status).toBe('completed')
+  expect(summaries).toHaveLength(0)
+})
+
+test('mandatory compaction usage belongs to the owning Run and settles each Goal and Session ledger once', async () => {
+  const { kernel, session, summaries } = await fixture(
+    async (input) => {
+      await input.beforeRequest(input.request, 'account-summary')
+      await toolPair(input, 0, 19_000)
+      await input.stepEnded('account-summary')
+      await input.stepEnded('account-summary')
+    },
+    async () => ({
+      text: 'Verified file result.',
+      usage: { input: 11, output: 7, cacheRead: 0, cacheWrite: 0, cost: 0 },
+    }),
+  )
+  await kernel.changePlugin('goal.codex', true, { autoContinue: false })
+  const goals = kernel.plugins.get<GoalService>('goal')
+  const budgets = kernel.plugins.get<BudgetService>('budget')
+  await goals.create(session.id, 'Verify the file result.', 10_000)
+  await budgets.set(session.id, 10_000)
+  const run = await kernel.submit(
+    session.id,
+    'account-summary',
+    { text: 'Inspect.', images: [], source: 'goal' },
+    'context-overflow',
+  )
+  await kernel.waitForIdle()
+  expect((await kernel.storage.call('run', run.id)).status).toBe('completed')
+  expect(summaries.length).toBeGreaterThan(0)
+  expect((await goals.get(session.id)).goal?.tokensUsed).toBe(summaries.length * 18)
+  expect((await budgets.get(session.id))?.usedTokens).toBe(summaries.length * 18)
+  const facts = (await kernel.storage.call('events', session.id, 0)).filter((event) => event.type === 'usage.recorded')
+  expect(facts).toHaveLength(summaries.length)
+  expect(facts.every((event) => event.runId === run.id)).toBe(true)
+})
+
+test('failed mandatory summaries keep raw history and prevent any following inference', async () => {
+  const requests: ModelRequest[] = []
+  const { kernel, session } = await fixture(
+    async (input) => {
+      requests.push(await input.beforeRequest(input.request, 'before-summary-failure'))
+      await toolPair(input, 0, 19_000)
+      await input.stepEnded('before-summary-failure')
+      requests.push(await input.beforeRequest(input.request, 'after-summary-failure'))
+    },
+    async () => {
+      throw new HbarError('COMPACTION_FAILED', 'Summary provider is unavailable')
+    },
+  )
+  const run = await kernel.submit(session.id, 'summary-failure', { text: 'Inspect.', images: [] }, 'context-overflow')
+  await kernel.waitForIdle()
+  expect((await kernel.storage.call('run', run.id)).failure?.code).toBe('COMPACTION_FAILED')
+  expect(requests).toHaveLength(1)
+  expect((await kernel.snapshot(session.id)).messages).toHaveLength(3)
+  expect((await kernel.storage.call('context', session.id)).summary).toBeNull()
+})
+
+test('cancelling a mandatory summary does not publish partial context or resume the Run', async () => {
+  const started = Promise.withResolvers<void>()
+  const requests: ModelRequest[] = []
+  const { kernel, session } = await fixture(
+    async (input) => {
+      requests.push(await input.beforeRequest(input.request, 'before-summary-cancel'))
+      await toolPair(input, 0, 19_000)
+      await input.stepEnded('before-summary-cancel')
+      requests.push(await input.beforeRequest(input.request, 'after-summary-cancel'))
+    },
+    async (_request, _key, signal) => {
+      started.resolve()
+      if (!signal.aborted)
+        await new Promise<void>((resolve) => signal.addEventListener('abort', () => resolve(), { once: true }))
+      signal.throwIfAborted()
+      throw new Error('Unreachable after cancellation')
+    },
+  )
+  const run = await kernel.submit(session.id, 'summary-cancel', { text: 'Inspect.', images: [] }, 'context-overflow')
+  await started.promise
+  await kernel.cancel(run.id)
+  await kernel.waitForIdle()
+  expect((await kernel.storage.call('run', run.id)).status).toBe('cancelled')
+  expect(requests).toHaveLength(1)
+  expect((await kernel.snapshot(session.id)).messages).toHaveLength(3)
+  expect((await kernel.storage.call('context', session.id)).summary).toBeNull()
 })
 
 test('a persisted oversized conversation is summarized in bounded requests and preserves all canonical messages', async () => {

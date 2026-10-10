@@ -114,7 +114,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .locator('input[type="file"]')
         .setInputFiles({ name: 'rejected.txt', mimeType: 'text/plain', buffer: Buffer.from('reject') })
       const failed = page.locator('.hbar-composer-attachment-transfer[data-status="failed"]')
-      await expect(failed).toContainText(labels.error('UNSUPPORTED_TYPE'))
+      const feedbackTrigger = target.locator('.hbar-composer-feedback-trigger')
+      const feedbackPanel = page.getByRole('dialog', { name: copy.session.composerFeedback.title, exact: true })
+      await feedbackTrigger.scrollIntoViewIfNeeded()
+      await feedbackTrigger.click()
+      await expect(feedbackPanel).toContainText(labels.error('UNSUPPORTED_TYPE'))
+      await feedbackPanel.getByRole('button', { name: copy.session.composerFeedback.close, exact: true }).click()
       await failed.getByRole('button', { name: labels.remove('rejected.txt'), exact: true }).click()
       await expect(failed).toHaveCount(0)
       mode = 'unknown'
@@ -125,16 +130,21 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const unknown = page.locator('.hbar-composer-attachment-transfer[data-status="unknown"]')
       await expect(unknown).toContainText(unknownName)
       expect(uploads).toBe(4)
-      await expect(unknown.getByRole('button', { name: labels.remove(unknownName), exact: true })).toHaveCount(0)
+      await expect(unknown.getByRole('button', { name: labels.remove(unknownName), exact: true })).toBeDisabled()
       await prompt.fill('New text while result unknown — 仍保留草稿')
+      await feedbackTrigger.scrollIntoViewIfNeeded()
+      await feedbackTrigger.click()
       for (const width of [1440, 980, 480, 320]) {
         await page.setViewportSize({ width, height: 960 })
-        await expect(unknown.getByRole('button', { name: labels.reconcile(unknownName), exact: true })).toBeInViewport()
+        await expect(
+          feedbackPanel.getByRole('button', { name: labels.reconcile(unknownName), exact: true }),
+        ).toBeInViewport()
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
         await page.screenshot({ path: `artifacts/composer-attachments/unknown-${locale}-${width}.png` })
       }
       mode = 'normal'
-      await unknown.getByRole('button', { name: labels.reconcile(unknownName), exact: true }).click()
+      await feedbackPanel.getByRole('button', { name: labels.reconcile(unknownName), exact: true }).click()
+      await feedbackPanel.getByRole('button', { name: copy.session.composerFeedback.close, exact: true }).click()
       await expect(unknown).toHaveCount(0)
       await expect(page.locator('.lumen-attachment-chip').filter({ hasText: unknownName })).toBeVisible()
       expect(uploads).toBe(4)
@@ -170,7 +180,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         return data
       })
       await target.dispatchEvent('drop', { dataTransfer: over })
-      await expect(target.getByRole('alert')).toContainText(labels.error('ATTACHMENT_LIMIT'))
+      await feedbackTrigger.scrollIntoViewIfNeeded()
+      await feedbackTrigger.click()
+      await expect(feedbackPanel).toContainText(labels.error('ATTACHMENT_LIMIT'))
+      await feedbackPanel.getByRole('button', { name: copy.session.composerFeedback.close, exact: true }).click()
       expect(uploads).toBe(4)
       await page.screenshot({ path: `artifacts/composer-attachments/boundary-${locale}-320.png` })
       for (let index = 0; index < 12; index++)

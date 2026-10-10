@@ -819,6 +819,110 @@ test('provider runtime owns list, editor drafts, secrets, save, and unknown reco
   }
 })
 
+test('provider context tiers persist, validate drafts, clear optional rates, and reconcile without a second save', async () => {
+  const configuration = fixture()
+  const runtime = createAppRuntime({
+    instanceId: 'context-tier-editor',
+    hostId: 'host',
+    directory,
+    configuration: configuration.port,
+    surfaces: { canRender: (panelId) => panelId === 'settings-editor' },
+  })
+  try {
+    await runtime.view.commands.execute('app.openSettingsEditor', {
+      scope: 'global',
+      path: 'providers',
+      entryId: 'fixture',
+    })
+    const editor = await waitFor(() => runtime.view.state.providers.getSnapshot().editor ?? undefined)
+    const modelId = editor.draft.models[0]!.id
+    const target = { editorId: editor.editorId, modelId }
+    await runtime.view.commands.execute('providerEditor.addContextTier', target)
+    let current = runtime.view.state.providers.getSnapshot().editor!
+    const tierId = current.draft.models[0]!.contextTiers![0]!.id
+    expect(current.draft.models[0]!.contextTiers![0]).toMatchObject({
+      contextWindow: 256_000,
+      inputTokensAbove: 128_000,
+      inputPrice: 1,
+      outputPrice: 2,
+    })
+    await runtime.view.commands.execute('providerEditor.setContextField', {
+      ...target,
+      tierId,
+      field: 'inputPrice',
+      value: 2.5,
+    })
+    await runtime.view.commands.execute('providerEditor.setContextField', {
+      ...target,
+      tierId,
+      field: 'cacheReadPrice',
+      value: 0.25,
+    })
+    await runtime.view.commands.execute('providerEditor.setContextField', {
+      ...target,
+      tierId,
+      field: 'cacheReadPrice',
+      value: null,
+    })
+    expect(
+      runtime.view.state.providers.getSnapshot().editor!.draft.models[0]!.contextTiers![0]!.cacheReadPrice,
+    ).toBeUndefined()
+    await runtime.view.commands.execute('providerEditor.setContextField', {
+      ...target,
+      field: 'cacheWritePrice',
+      value: 3.125,
+    })
+    await runtime.view.commands.execute('providerEditor.setContextField', {
+      ...target,
+      field: 'maxModePricingMultiplier',
+      value: 1.2,
+    })
+    await runtime.view.commands.execute('providerEditor.setContextField', {
+      ...target,
+      tierId,
+      field: 'inputTokensAbove',
+      value: 999_999,
+    })
+    expect(runtime.view.state.providers.getSnapshot().editor!.draftIssues.length).toBeGreaterThan(0)
+    await expect(
+      runtime.view.commands.execute('providerEditor.save', { editorId: editor.editorId }),
+    ).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+    await runtime.view.commands.execute('providerEditor.setContextField', {
+      ...target,
+      tierId,
+      field: 'inputTokensAbove',
+      value: 128_000,
+    })
+    configuration.loseNextSave()
+    await expect(
+      runtime.view.commands.execute('providerEditor.save', { editorId: editor.editorId }),
+    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    await expect(runtime.view.commands.execute('providerEditor.addContextTier', target)).rejects.toMatchObject({
+      code: 'SUBMISSION_PENDING',
+    })
+    await runtime.view.commands.execute('providerEditor.reconcile', { editorId: editor.editorId })
+    const saved = configuration.profiles.get('fixture')!.provider.models[0]!
+    expect(saved).toMatchObject({ cacheWritePrice: 3.125, maxModePricingMultiplier: 1.2 })
+    expect(saved.contextTiers).toHaveLength(1)
+    expect(saved.contextTiers![0]!.inputPrice).toBe(2.5)
+    expect(configuration.saves).toHaveLength(1)
+    current = runtime.view.state.providers.getSnapshot().editor!
+    expect(current.draft.models[0]!.contextTiers).toEqual(saved.contextTiers)
+    await runtime.view.commands.execute('providerEditor.setProviderField', {
+      editorId: editor.editorId,
+      field: 'name',
+      value: 'Unrelated edit',
+    })
+    await runtime.view.commands.execute('providerEditor.save', { editorId: editor.editorId })
+    expect(configuration.profiles.get('fixture')!.provider.models[0]!.contextTiers).toEqual(saved.contextTiers)
+    await runtime.view.commands.execute('providerEditor.removeContextTier', { ...target, tierId })
+    await runtime.view.commands.execute('providerEditor.resetDraft', { editorId: editor.editorId })
+    expect(runtime.view.state.providers.getSnapshot().editor!.draft.models[0]!.contextTiers).toEqual(saved.contextTiers)
+  } finally {
+    runtime.dispose()
+  }
+})
+
 test('provider runtime applies paged presets and edits multi-model visibility and thinking through commands', async () => {
   const configuration = fixture()
   const runtime = createAppRuntime({

@@ -1,11 +1,13 @@
 import { LumenFrame, type LumenPromptComposerProps, type LumenPromptLabels } from '@lumen/app-ui'
 import { HbarPromptComposer } from './prompt-composer'
+import type { HbarComposerFeedbackLabels } from './composer-feedback'
 import { HbarSessionEmptyHero, type HbarSessionEmptyHeroLabels } from './session-empty-hero'
 import { HbarComposerAttachmentDropTarget } from './composer-attachments'
 import './lumen-session-workspace.css'
 import './pre-session-landing.css'
 
 export interface HbarPreSessionLandingLabels {
+  readonly composerFeedback: HbarComposerFeedbackLabels
   readonly hero: HbarSessionEmptyHeroLabels
   readonly prompt: LumenPromptLabels
 }
@@ -25,7 +27,14 @@ export interface HbarPreSessionLandingProps {
 /** The no-tab entry is a flowing page, not a simulated Host Session. */
 export function HbarPreSessionLanding({ labels, composer, attachmentDrop }: HbarPreSessionLandingProps) {
   const prompt = (
-    <HbarPromptComposer {...composer} labels={labels.prompt} boundary="none" canStop={false} onStop={() => undefined} />
+    <HbarPromptComposer
+      {...composer}
+      labels={labels.prompt}
+      feedbackLabels={labels.composerFeedback}
+      boundary="none"
+      canStop={false}
+      onStop={() => undefined}
+    />
   )
   return (
     <LumenFrame className="hbar-pre-session-landing">

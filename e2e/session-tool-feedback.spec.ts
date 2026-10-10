@@ -81,7 +81,15 @@ function input(
     isError: false,
     execution: { startedAt: now - 2000, endedAt: now - 1000, elapsedMs: 1000 },
   }
-  const messages = [{ ...message, content: [...calls, completed] }]
+  const failed = {
+    type: 'tool_result' as const,
+    callId: 'call-2',
+    name: 'read_file',
+    text: 'Controlled failure',
+    isError: true,
+    outcome: { kind: 'failed' as const, executionStarted: true },
+  }
+  const messages = [{ ...message, content: [...calls, completed, failed] }]
   const events: SessionEvent[] = [
     {
       eventId: 'start',
@@ -117,7 +125,7 @@ function input(
 
 for (const locale of ['zh-CN', 'en-US'] as const)
   for (const width of [1440, 320]) {
-    test(`timing, authentic progress and eight-call counts remain readable and freeze: ${locale} ${width}`, async ({
+    test(`thin progress bars show four proportional states below tools and freeze: ${locale} ${width}`, async ({
       browser,
     }, info) => {
       const context = await browser.newContext({ locale, viewport: { width, height: 960 } })
@@ -129,14 +137,37 @@ for (const locale of ['zh-CN', 'en-US'] as const)
         const data = input(locale === 'zh-CN' ? 'dark' : 'light')
         await page.evaluate((data) => window.toolOutcomeFixture.render(data), data)
         const active = page.locator('[data-tool-call-id="call-1"].hbar-session-tool')
-        const pending = page.locator('[data-tool-call-id="call-2"].hbar-session-tool')
-        await expect(active.locator('[data-tool-progress]')).toHaveText('25%')
+        const pending = page.locator('[data-tool-call-id="call-3"].hbar-session-tool')
+        await expect(active.locator('[data-tool-progress]')).toHaveAttribute('data-tool-progress', '25')
+        await expect(active.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1')
+        await expect(active.getByRole('progressbar')).toHaveAttribute('aria-valuemax', '4')
+        await expect(active.getByRole('progressbar')).toHaveText('')
         await expect(pending.locator('.hbar-session-disclosure-status-text')).toHaveText(
           locale === 'zh-CN' ? '待执行' : 'Pending',
         )
-        const counts = page.locator('.hbar-tool-batch-counts').first()
-        await expect(counts).toContainText(
-          locale === 'zh-CN' ? '已结束 1 · 进行中 1 · 待执行 6' : '1 settled · 1 running · 6 pending',
+        const batch = page.locator('.hbar-tool-batch-feedback').first()
+        await expect(batch.getByRole('progressbar')).toHaveAttribute(
+          'aria-valuetext',
+          locale === 'zh-CN'
+            ? '25% · 已结束 2 · 进行中 1 · 待执行 5 · 成功 1 · 失败 1'
+            : '25% · 2 settled · 1 running · 5 pending · 1 succeeded · 1 failed',
+        )
+        await expect(page.locator('.hbar-tool-batch-counts')).toHaveCount(0)
+        const segments = await batch.getByRole('progressbar').evaluate((bar) => {
+          const width = bar.getBoundingClientRect().width
+          return [...bar.children].map((segment) => ({
+            state: segment.getAttribute('data-progress-state'),
+            fraction: segment.getBoundingClientRect().width / width,
+            color: getComputedStyle(segment).backgroundColor,
+          }))
+        })
+        expect(segments.map((segment) => segment.state)).toEqual(['succeeded', 'failed', 'running', 'pending'])
+        for (const [index, fraction] of [0.125, 0.125, 0.125, 0.625].entries())
+          expect(segments[index]?.fraction).toBeCloseTo(fraction, 2)
+        expect(segments.map((segment) => segment.color)).toEqual(
+          locale === 'zh-CN'
+            ? ['rgb(238, 238, 238)', 'rgb(255, 150, 155)', 'rgb(239, 209, 122)', 'rgb(170, 170, 170)']
+            : ['rgb(23, 23, 23)', 'rgb(183, 53, 72)', 'rgb(153, 101, 0)', 'rgb(102, 102, 102)'],
         )
         const elapsed = active.locator('[data-tool-elapsed]')
         const before = Number(await elapsed.getAttribute('data-tool-elapsed'))
@@ -147,9 +178,19 @@ for (const locale of ['zh-CN', 'en-US'] as const)
         const geometry = await active.evaluate((row) => {
           const status = row.querySelector('.hbar-session-disclosure-status')?.getBoundingClientRect()
           const identity = row.querySelector('.hbar-session-disclosure-identity')?.getBoundingClientRect()
-          return { left: status?.left, right: identity?.right }
+          const progress = row.querySelector('[role="progressbar"]')?.getBoundingClientRect()
+          const trigger = row.querySelector('.hbar-session-disclosure-trigger')?.getBoundingClientRect()
+          return {
+            left: status?.left,
+            right: identity?.right,
+            progressTop: progress?.top,
+            progressHeight: progress?.height,
+            triggerBottom: trigger?.bottom,
+          }
         })
         expect(geometry.left).toBeGreaterThanOrEqual(geometry.right ?? 0)
+        expect(geometry.progressHeight).toBe(2)
+        expect(geometry.progressTop).toBeGreaterThanOrEqual(geometry.triggerBottom ?? 0)
         await page.screenshot({ path: info.outputPath(`active-${locale}-${width}.png`), fullPage: true })
         await page.evaluate((data) => window.toolOutcomeFixture.render({ ...data, connected: false }), data)
         const paused = Number(await elapsed.getAttribute('data-tool-elapsed'))
@@ -166,7 +207,15 @@ for (const locale of ['zh-CN', 'en-US'] as const)
           text: 'proof',
           isError: false,
           execution: { startedAt: 1000, endedAt: 6000, elapsedMs: 4321 },
-          batch: { total: 3, settled: 2, running: 0, pending: 0, skipped: 1, unknown: 0 },
+          batch: {
+            total: 3,
+            settled: 2,
+            running: 0,
+            pending: 0,
+            skipped: 1,
+            unknown: 0,
+            outcomes: { succeeded: 1, failed: 1 },
+          },
         }
         await page.evaluate((data) => window.toolOutcomeFixture.render(data), {
           ...data,
@@ -178,10 +227,14 @@ for (const locale of ['zh-CN', 'en-US'] as const)
         expect(Number(await elapsed.getAttribute('data-tool-elapsed'))).toBe(4321)
         await page.waitForTimeout(600)
         expect(Number(await elapsed.getAttribute('data-tool-elapsed'))).toBe(4321)
-        await expect(active.locator('.hbar-tool-batch-counts')).toContainText(
-          locale === 'zh-CN' ? '跳过 1' : '1 skipped',
+        await expect(active.getByRole('progressbar')).toHaveAttribute(
+          'aria-valuetext',
+          new RegExp(locale === 'zh-CN' ? '跳过 1' : '1 skipped'),
         )
-        await expect(active.locator('[data-tool-progress]')).toHaveText('66.6%')
+        await expect(active.locator('[data-tool-progress]')).toHaveAttribute('data-tool-progress', '66.6')
+        await expect(active.locator('[data-progress-state="succeeded"]')).toHaveCount(1)
+        await expect(active.locator('[data-progress-state="failed"]')).toHaveCount(1)
+        await expect(active.locator('[data-progress-state="running"]')).toHaveCount(0)
         await page.screenshot({ path: info.outputPath(`finished-${locale}-${width}.png`), fullPage: true })
         const unmeasured = {
           ...data,
@@ -210,6 +263,8 @@ for (const locale of ['zh-CN', 'en-US'] as const)
         await page.emulateMedia({ reducedMotion: 'reduce' })
         await expect(indicator).toHaveCSS('animation-name', 'none')
         await expect(indicator).toHaveCSS('opacity', '1')
+        await page.evaluate((data) => window.toolOutcomeFixture.render({ ...data, longLabels: true }), data)
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
         expect(errors).toEqual([])
       } finally {
         await context.close()

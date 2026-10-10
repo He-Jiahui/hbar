@@ -3,6 +3,7 @@ import { FolderOpen, Target, X } from 'lucide-react'
 import { LumenContentText, LumenButton, LumenFrame, LumenIcon, LumenInput } from '@lumen/app-ui'
 import {
   HbarComposerAddMenu,
+  HbarComposerFeedback,
   HbarComposerAttachmentTransfers,
   HbarSessionImageLayer,
   HbarPreSessionDraftImageAttachments,
@@ -784,36 +785,38 @@ export function WebPreSessionLanding({
     ) : null
   const modelGuidance =
     !modelsLoading && (modelError || models.length === 0 || providerRouteError || modelSelection.unavailable) ? (
-      <LumenFrame className="hbar-web-pre-session-model-guidance">
-        <LumenContentText
-          context="feedback.message"
-          role={modelError || providerRouteError || modelSelection.unavailable ? 'alert' : undefined}
-        >
-          {providerRouteError
-            ? labels.modelActionFailed
-            : modelError
-              ? labels.modelReadFailed
-              : modelSelection.unavailable === 'model'
-                ? labels.selectedModelUnavailable
-                : modelSelection.unavailable === 'thinking'
-                  ? labels.selectedThinkingUnavailable
-                  : labels.model.empty}
-        </LumenContentText>
-        {modelError ? (
-          <LumenButton type="button" size="s" disabled={!connected} onClick={retryModels}>
-            {labels.retryModels}
-          </LumenButton>
-        ) : models.length === 0 ? (
-          <LumenButton
-            type="button"
-            size="s"
-            disabled={!connected || openingProviders}
-            onClick={() => openProviderSettings()}
+      <HbarComposerFeedback tone="danger">
+        <LumenFrame className="hbar-web-pre-session-model-guidance">
+          <LumenContentText
+            context="feedback.message"
+            role={modelError || providerRouteError || modelSelection.unavailable ? 'alert' : undefined}
           >
-            {labels.configureProviders}
-          </LumenButton>
-        ) : null}
-      </LumenFrame>
+            {providerRouteError
+              ? labels.modelActionFailed
+              : modelError
+                ? labels.modelReadFailed
+                : modelSelection.unavailable === 'model'
+                  ? labels.selectedModelUnavailable
+                  : modelSelection.unavailable === 'thinking'
+                    ? labels.selectedThinkingUnavailable
+                    : labels.model.empty}
+          </LumenContentText>
+          {modelError ? (
+            <LumenButton type="button" size="s" disabled={!connected} onClick={retryModels}>
+              {labels.retryModels}
+            </LumenButton>
+          ) : models.length === 0 ? (
+            <LumenButton
+              type="button"
+              size="s"
+              disabled={!connected || openingProviders}
+              onClick={() => openProviderSettings()}
+            >
+              {labels.configureProviders}
+            </LumenButton>
+          ) : null}
+        </LumenFrame>
+      </HbarComposerFeedback>
     ) : null
   return (
     <HbarSessionImageLayer options={images} preSessionDraftId={draftId}>
@@ -937,9 +940,11 @@ export function WebPreSessionLanding({
                 {preparedGoal}
                 {modelGuidance}
                 {unsupportedSlash && (
-                  <LumenContentText context="feedback.message" role="status">
-                    {labels.slashRequiresSession}
-                  </LumenContentText>
+                  <HbarComposerFeedback>
+                    <LumenContentText context="feedback.message" role="status">
+                      {labels.slashRequiresSession}
+                    </LumenContentText>
+                  </HbarComposerFeedback>
                 )}
               </>
             ) : undefined,

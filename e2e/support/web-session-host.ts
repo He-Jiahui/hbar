@@ -111,7 +111,7 @@ export async function waitForWebSessionHostReady(
   }
 }
 
-function bunExecutable(): string {
+export function bunExecutable(): string {
   if (process.platform !== 'win32') return 'bun'
   const executable = (process.env.PATH ?? '')
     .split(delimiter)

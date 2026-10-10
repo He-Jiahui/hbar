@@ -288,6 +288,25 @@ export function HbarProviderDialog({
       setActionError(null)
       let request: Promise<unknown>
       switch (value.kind) {
+        case 'add-context-tier':
+          request = runtime.commands.execute('providerEditor.addContextTier', { editorId, modelId: value.modelId })
+          break
+        case 'remove-context-tier':
+          request = runtime.commands.execute('providerEditor.removeContextTier', {
+            editorId,
+            modelId: value.modelId,
+            tierId: value.tierId,
+          })
+          break
+        case 'set-context-field':
+          request = runtime.commands.execute('providerEditor.setContextField', {
+            editorId,
+            modelId: value.modelId,
+            ...(value.tierId ? { tierId: value.tierId } : {}),
+            field: value.field,
+            value: value.value,
+          })
+          break
         case 'set-provider-field':
           request = runtime.commands.execute('providerEditor.setProviderField', {
             editorId,

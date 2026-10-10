@@ -5,6 +5,10 @@
   min-inline-size: 0;
 }
 
+.hbar-queued-user-runs[data-has-content='false'] {
+  display: none;
+}
+
 .hbar-queued-user-runs-list {
   display: flex;
   flex-direction: column;

@@ -1,9 +1,10 @@
 import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
-import { HbarError, thinkingLevelSchema } from '@hbar/contracts'
+import { HbarError, maximumContextWindow, thinkingLevelSchema } from '@hbar/contracts'
 import {
   canonicalModelDescriptorId,
   modelCommands,
   modelReceiptSchema,
+  MAX_MODE_SETTING,
   type ModelDescriptor,
 } from '@hbar/contracts/commands/models'
 import { encodePath, type SchemaPath } from '@hbar/schema-core'
@@ -15,8 +16,10 @@ import { HBAR_SETTINGS_SCHEMA_VERSION, SettingsService } from './settings-servic
 const field = (name: string): SchemaPath => [{ kind: 'field', name }]
 const MODEL_PATH = field('provider.model')
 const THINKING_PATH = field('provider.thinkingLevel')
+const MAX_MODE_PATH = field(MAX_MODE_SETTING)
 const MODEL_KEY = encodePath(MODEL_PATH)
 const THINKING_KEY = encodePath(THINKING_PATH)
+const MAX_MODE_KEY = encodePath(MAX_MODE_PATH)
 
 export function toModelDescriptor(model: Awaited<ReturnType<Kernel['models']>>[number]): ModelDescriptor {
   return {
@@ -27,6 +30,12 @@ export function toModelDescriptor(model: Awaited<ReturnType<Kernel['models']>>[n
     modelName: model.modelName,
     ...(model.description ? { description: model.description } : {}),
     contextWindow: model.contextWindow,
+    ...(model.contextTiers === undefined ? {} : { contextTiers: model.contextTiers }),
+    inputPrice: model.inputPrice,
+    outputPrice: model.outputPrice,
+    ...(model.maxModePricingMultiplier === undefined
+      ? {}
+      : { maxModePricingMultiplier: model.maxModePricingMultiplier }),
     maxOutput: model.maxOutput,
     imageInput: model.imageInput,
     reasoning: model.reasoning,
@@ -73,6 +82,7 @@ export function createModelCommands(kernel: Kernel, settings: SettingsService) {
     const snapshot = await settings.get({ kind: 'session', targetId: sessionId })
     const modelReport = snapshot.resolution.reports[MODEL_KEY]!
     const thinkingReport = snapshot.resolution.reports[THINKING_KEY]!
+    const maxModeReport = snapshot.resolution.reports[MAX_MODE_KEY]!
     const modelId = typeof modelReport.effectiveValue === 'string' ? modelReport.effectiveValue : null
     const catalog = (await kernel.models({ includeHidden: true })).map(toModelDescriptor)
     const canonicalModelId = modelId === null ? null : canonicalModelDescriptorId(catalog, modelId)
@@ -90,8 +100,15 @@ export function createModelCommands(kernel: Kernel, settings: SettingsService) {
       modelId: canonicalModelId,
       model: selected ?? null,
       thinkingLevel,
+      maxMode: Boolean(
+        selected && maximumContextWindow(selected) > selected.contextWindow && maxModeReport.effectiveValue === true,
+      ),
       revisions: { ...snapshot.revisions },
-      sources: { model: modelReport.sourceLayer, thinkingLevel: thinkingReport.sourceLayer },
+      sources: {
+        model: modelReport.sourceLayer,
+        thinkingLevel: thinkingReport.sourceLayer,
+        maxMode: maxModeReport.sourceLayer,
+      },
     }
   }
 
@@ -116,6 +133,7 @@ export function createModelCommands(kernel: Kernel, settings: SettingsService) {
         revision: receipt.revision,
         modelId: value(receipt.resolution.reports[MODEL_KEY]),
         thinkingLevel: value(receipt.resolution.reports[THINKING_KEY]),
+        maxMode: value(receipt.resolution.reports[MAX_MODE_KEY]) === true,
         revisions: Object.fromEntries(receipt.resolution.layers.map((layer) => [layer.id, layer.revision])),
       })
       if (!parsed.success) throw new HbarError('INVALID_OUTPUT', 'Stored model receipt is invalid')
@@ -170,6 +188,29 @@ export function createModelCommands(kernel: Kernel, settings: SettingsService) {
           schemaVersion: HBAR_SETTINGS_SCHEMA_VERSION,
           scope: { kind: 'session', targetId: input.sessionId },
           changes: [{ op: 'set', path: THINKING_PATH, value: input.thinkingLevel }],
+          baselineRevisions: input.baselineRevisions,
+          actorId: context.actorId,
+          idempotencyKey: context.idempotencyKey,
+        })
+        return { ...(await configuration(input.sessionId)), commitId: receipt.commitId, revision: receipt.revision }
+      }),
+    { durable: true },
+  )
+
+  registry.register(
+    modelCommands['session.setMaxMode'],
+    (input, context) =>
+      translate(async () => {
+        if (!context.actorId || !context.idempotencyKey)
+          throw new HbarError('INVALID_INPUT', 'Authenticated actor and idempotency key are required')
+        const before = await configuration(input.sessionId)
+        if (!before.model) throw new HbarError('MODEL_NOT_FOUND', 'Select an available model before setting MAX')
+        if (input.enabled && maximumContextWindow(before.model) <= before.model.contextWindow)
+          throw new HbarError('MAX_MODE_UNSUPPORTED', 'The selected model has no expanded context tier')
+        const receipt = await settings.apply({
+          schemaVersion: HBAR_SETTINGS_SCHEMA_VERSION,
+          scope: { kind: 'session', targetId: input.sessionId },
+          changes: [{ op: 'set', path: MAX_MODE_PATH, value: input.enabled }],
           baselineRevisions: input.baselineRevisions,
           actorId: context.actorId,
           idempotencyKey: context.idempotencyKey,

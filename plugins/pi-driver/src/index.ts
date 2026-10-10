@@ -57,7 +57,12 @@ function modelOf(config: ProviderConfig): Model<Api> {
     reasoning: config.reasoning,
     ...(config.protocol === 'openai-responses' || config.protocol === 'openai-completions' ? { thinkingLevelMap } : {}),
     input: config.imageInput ? ['text', 'image'] : ['text'],
-    cost: { input: config.inputPrice, output: config.outputPrice, cacheRead: 0, cacheWrite: 0 },
+    cost: {
+      input: config.inputPrice,
+      output: config.outputPrice,
+      cacheRead: config.cacheReadPrice ?? 0,
+      cacheWrite: config.cacheWritePrice ?? 0,
+    },
     contextWindow: config.contextWindow,
     maxTokens: config.maxOutput,
   }

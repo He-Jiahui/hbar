@@ -78,13 +78,19 @@ export function compactionBoundary(
   return boundary ?? boundaries.at(-1)!
 }
 
+/** Hard capacity is independent of the optional early-compaction policy. */
+export function contextExceedsCapacity(request: ModelRequest): boolean {
+  return estimateContextTokens(request) + request.model.maxOutput > request.model.contextWindow
+}
+
 export function assertContextCapacity(request: ModelRequest): void {
-  const input = estimateContextTokens(request)
-  if (input + request.model.maxOutput > request.model.contextWindow)
+  if (contextExceedsCapacity(request)) {
+    const input = estimateContextTokens(request)
     throw new HbarError(
       'CONTEXT_WINDOW_EXCEEDED',
       `Context requires about ${input} input tokens plus ${request.model.maxOutput} output tokens, exceeding the ${request.model.contextWindow}-token window. Reduce the latest input or use a larger-context model.`,
     )
+  }
 }
 
 export function createSummaryRequest(request: ModelRequest, older: Message[], percent: number): ModelRequest {
