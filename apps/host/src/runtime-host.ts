@@ -274,6 +274,7 @@ export class ManagedHostRuntime implements RuntimeSystemPort {
   }
   private execution(): KernelExecutionPort {
     return {
+      canIdle: async sessionId => this.ready && this.executionReady() && this.coordinator.canIdle(this.kernelOwner, sessionId),
       claim: async sessionId => {
         if (!this.ready || !this.executionReady()) return null
         const run = await this.storage.call('nextQueuedRun', sessionId)

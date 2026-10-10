@@ -1629,6 +1629,7 @@ export class Kernel {
           [...this.userInputs.values()].some(({ request }) => request.sessionId === sessionId)
         )
           return
+        if (this.options.execution?.canIdle && !(await this.options.execution.canIdle(sessionId))) return
         const idle = await this.hooks.dispatch('session.idle', { sessionId })
         if (this.closing) return
         if (!idle.submission) {

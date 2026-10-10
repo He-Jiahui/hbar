@@ -6,6 +6,8 @@ import type { StorageMethods, StoragePort } from '@hbar/storage'
 /** Local composition ports; callbacks remain in the Kernel process, never on the IPC wire. */
 export interface KernelExecutionPort {
   claim(sessionId: string): Promise<{ run: Run; lease: ExecutionOwnership } | null>
+  /** A null claim can mean a version handoff or reconciliation gate, rather than an idle Session. */
+  canIdle?(sessionId: string): Promise<boolean>
   release(lease: ExecutionOwnership): Promise<void>
   interrupted?(lease: ExecutionOwnership, reasonCode: string): Promise<void>
   call<K extends keyof StorageMethods>(
