@@ -1,3 +1,5 @@
+@import './session-pane-density.css';
+
 .hbar-app-react-session-monitoring h2,
 .hbar-app-react-session-monitoring p {
   margin: 0;
@@ -102,4 +104,3 @@
   color: var(--lumen-muted);
   text-align: center;
 }
-@import './session-pane-density.css';
