@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { runRecoverySchema } from './runtime'
 export { diagnosticEventSchema, DIAGNOSTIC_SCHEMA_VERSION, diagnosticEvent, type DiagnosticEvent, type DiagnosticSink } from './diagnostics.ts'
 export { collectArtifactReferenceIds, collectArtifactReferences } from './artifact-references'
 import { settingScopeSchema } from './settings.ts'
@@ -572,6 +573,7 @@ export const runSchema = z.object({
   endedAt: z.number().int().nonnegative().nullable(),
   error: z.string().nullable(),
   failure: runFailureSchema.optional(),
+  recovery: runRecoverySchema.optional(),
 })
 export type Run = z.infer<typeof runSchema>
 export interface Message {

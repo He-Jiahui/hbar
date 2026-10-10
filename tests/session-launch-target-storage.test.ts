@@ -39,7 +39,7 @@ async function fixture() {
   roots.push(root)
   const path = join(root, 'storage.sqlite')
   const store = open(path)
-  expect(await store.call('ready')).toEqual({ version: 23 })
+  expect(await store.call('ready')).toEqual({ version: 24 })
   const workspace = await store.call('createWorkspace', root, 'project')
   const first = await store.call('createSession', workspace.id, 'first')
   const second = await store.call('createSession', workspace.id, 'second')
@@ -329,7 +329,7 @@ test('v9 databases migrate concurrently to v11 before serializing two stale laun
   })
   const a = open(f.path)
   const b = open(f.path)
-  expect(await Promise.all([a.call('ready'), b.call('ready')])).toEqual([{ version: 23 }, { version: 23 }])
+  expect(await Promise.all([a.call('ready'), b.call('ready')])).toEqual([{ version: 24 }, { version: 24 }])
 
   const writes = await Promise.allSettled([
     a.call('setSessionLaunchTarget', {

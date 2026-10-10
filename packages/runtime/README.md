@@ -73,3 +73,18 @@ These components provide the production composition ports. They do not replace a
 existing monolithic Host merely by adding a status row or a proxy. Host Controller,
 Kernel, capability, Storage and maintenance modules must wire their real work and
 authority through these lifecycle, routing and coordination contracts.
+
+Storage migration 24 adds durable execution ownership and recovery identities.
+Claims, revocation, release and recovery acceptance are canonical Session journal
+records and rebuild their SQLite projections. The database Worker checks each
+protected managed write against its durable lease, so a fenced incarnation cannot
+submit a late message, tool intent or Run outcome. Run observers may finish their
+journal updates after settlement, before that lease is released.
+
+Scoped recovery requires prior revocation, retains queued request identities and
+pending approvals, and preserves the interrupted Run as history. Planning and
+queueing a continuation are idempotent by predecessor and recovery identity. Unknown
+effects and pending approvals wait; cancellation, archive and the two-attempt limit
+require manual action. User queue entries take precedence over automatic recovery.
+The Kernel still has to recheck permissions, Goal control and budgets before using
+this port; these storage primitives do not themselves run or authorize a task.

@@ -41,6 +41,8 @@ import type {
 } from '@hbar/contracts/commands/run'
 import type { QueuedUserRunsInput, QueuedUserRunsPage } from '@hbar/contracts/commands/run'
 import type { UsageReadInput, UsageReadPage } from '@hbar/usage'
+import type { ExecutionOwnership, RuntimeOwner, RecoveryChain } from '@hbar/contracts/runtime'
+import type { RuntimeRecoveryScope, RuntimeRecoveryRecord } from './runtime-state'
 import type { GoalHistoryInput, GoalHistoryPage } from '@hbar/contracts/commands/goal-history'
 import type { NotificationStorage } from './notifications'
 import type { createChatDatabaseProjection } from './chat-database-projection'
@@ -495,7 +497,15 @@ export interface StorageMethods {
   approval(id: string): Approval
   toolStart(sessionId: string, runId: string, callId: string, name: string, args: unknown): SessionEvent
   toolEnd(sessionId: string, runId: string, callId: string, failed?: boolean): SessionEvent | null
-  recover(): number
+  recover(scope?: RuntimeRecoveryScope): number
+  runtimeExecutionClaim(draft: ExecutionOwnership): ExecutionOwnership | null
+  runtimeExecutionRelease(lease: ExecutionOwnership): void
+  runtimeExecutionRevoke(owner: RuntimeOwner, runIds: readonly string[]): string[]
+  runtimeExecutionRead(runId: string): { lease: ExecutionOwnership; state: string } | null
+  runtimeRecoveryPlan(predecessorRunId: string): RuntimeRecoveryRecord
+  runtimeRecoveryQueue(predecessorRunId: string, recoveryId: string): RuntimeRecoveryRecord
+  runtimeRecoveryRead(predecessorRunId: string): RuntimeRecoveryRecord | null
+  runtimeRecoveryChain(chainId: string): RecoveryChain | null
   saveProvider(provider: ProviderConfig): void
   providers(): ProviderConfig[]
   deleteProvider(id: string): void
@@ -529,7 +539,7 @@ export interface StorageMethods {
   close(): void
 }
 export type StorageCall = {
-  [K in keyof StorageMethods]: { id: number; method: K; args: Parameters<StorageMethods[K]> }
+  [K in keyof StorageMethods]: { id: number; method: K; args: Parameters<StorageMethods[K]>; authority?: ExecutionOwnership }
 }[keyof StorageMethods]
 export type StorageReply =
   { id: number; ok: true; result: unknown } | { id: number; ok: false; error: string; code: string }

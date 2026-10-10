@@ -1,6 +1,8 @@
 import { HbarError } from '@hbar/contracts'
 import { Worker } from 'node:worker_threads'
 import type { StorageMethods, StorageReply } from './types.ts'
+import type { ExecutionOwnership } from '@hbar/contracts/runtime'
+export type { RuntimeRecoveryRecord, RuntimeRecoveryScope } from './runtime-state'
 export type {
   CreateSessionCommandInput,
   ForkSessionCommandInput,
@@ -139,10 +141,19 @@ export class Storage {
     if (this.stopped || this.closing) return Promise.reject(new HbarError('STORAGE_CLOSED', 'Storage is closed'))
     return this.request(method, args, this.requestTimeoutMs)
   }
+  callOwned<K extends keyof StorageMethods>(
+    authority: ExecutionOwnership,
+    method: K,
+    ...args: Parameters<StorageMethods[K]>
+  ): Promise<ReturnType<StorageMethods[K]>> {
+    if (this.stopped || this.closing) return Promise.reject(new HbarError('STORAGE_CLOSED', 'Storage is closed'))
+    return this.request(method, args, this.requestTimeoutMs, authority)
+  }
   private request<K extends keyof StorageMethods>(
     method: K,
     args: Parameters<StorageMethods[K]>,
     timeoutMs: number,
+    authority?: ExecutionOwnership,
   ): Promise<ReturnType<StorageMethods[K]>> {
     return new Promise((resolve, reject) => {
       const id = ++this.nextId
@@ -160,7 +171,7 @@ export class Storage {
       }, timeoutMs)
       this.pending.set(id, { resolve: (value) => resolve(value as ReturnType<StorageMethods[K]>), reject, timer })
       try {
-        this.worker.postMessage({ id, method, args })
+        this.worker.postMessage({ id, method, args, ...(authority ? { authority } : {}) })
       } catch (error) {
         this.pending.delete(id)
         clearTimeout(timer)

@@ -71,6 +71,7 @@ import { recordRecoveryDiagnostic, scanSessionLogs } from './session-log-recover
 import { readActiveOperations } from './active-operations.ts'
 import { readQueuedUserRuns } from './queued-user-runs.ts'
 import { RunSteeringRegistry } from './run-steering.ts'
+import { createRuntimeState, RUNTIME_STATE_SQL } from './runtime-state'
 import { GOAL_HISTORY_INDEX_SQL, readGoalHistory } from './goal-history.ts'
 import { createNotificationStorage, NOTIFICATION_SCHEMA_SQL } from './notifications'
 import { notificationFromSessionEvent, notificationFromScheduleOccurrence } from './notification-projection'
@@ -149,7 +150,7 @@ const WORKSPACE_ACTIVITY_SQL = `
     AFTER DELETE ON sessions
     BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
 `
-const LATEST_SCHEMA_VERSION = 23
+const LATEST_SCHEMA_VERSION = 24
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
 if (schemaVersion > LATEST_SCHEMA_VERSION) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
@@ -373,12 +374,15 @@ for (const [version, sql] of [
   [21, SESSION_BRANCH_TARGET_SQL],
   [22, SESSION_BRANCH_TARGET_BRANCH_SQL],
   [23, CHAT_DATABASE_SQL],
+  [24, RUNTIME_STATE_SQL],
 ] as const) {
   if (schemaVersion >= version) continue
   db.transaction(() => {
     const current = db.query<{ user_version: number }, []>('PRAGMA user_version').get()?.user_version
     if (current === undefined) throw new HbarError('VERSION_MISMATCH', 'Could not read database migration state')
     if (current === version - 1) {
+      if (version === 24 && !db.query<{ name: string }, []>('PRAGMA table_info(runs)').all().some(column => column.name === 'recovery'))
+        db.exec('ALTER TABLE runs ADD COLUMN recovery TEXT')
       db.exec(sql)
       db.exec(`PRAGMA user_version=${version};`)
     } else if (current < version || current > LATEST_SCHEMA_VERSION) {
@@ -616,17 +620,18 @@ function sessionSummary(id: string): SessionSummary {
 }
 function runRow(row: Row | null): Run {
   const value = required(row, 'Run')
-  const { failure, ...fields } = value
+  const { failure, recovery, ...fields } = value
   return runSchema.parse({
     ...fields,
     input: parseJson(z.string().parse(value.input)),
     ...(typeof failure === 'string' ? { failure: runFailureSchema.parse(parseJson(failure)) } : {}),
+    ...(typeof recovery === 'string' ? { recovery: parseJson(recovery) } : {}),
   })
 }
 function queuedRunContentRevision(runId: string): number {
   const seq = db
     .query<{ seq: number | null }, [string]>(
-      "SELECT MAX(seq) AS seq FROM events WHERE runId=? AND type IN ('run.queued','run.inputEdited')",
+      "SELECT MAX(seq) AS seq FROM events WHERE runId=? AND type IN ('run.queued','run.recoveryQueued','run.inputEdited')",
     )
     .get(runId)?.seq
   if (seq === null || seq === undefined)
@@ -1067,7 +1072,42 @@ function appendEvent(
   if (notification) notifications.insert(notification)
   return event
 }
+const runtimeState = createRuntimeState(db, {
+  run: id => methods.run(id),
+  append: appendEvent,
+  cancelRequested: id => methods.cancelRequested(id),
+  archived: id => methods.session(id).archived,
+  start(run, startedAt) {
+    db.query("UPDATE runs SET status='running',startedAt=? WHERE id=?").run(startedAt, run.id)
+    return methods.run(run.id)
+  },
+  queue(original, recovery, chain) {
+    const run: Run = {
+      id: crypto.randomUUID(), sessionId: original.sessionId, requestId: recovery.recoveryId,
+      input: original.input, modelId: original.modelId, status: 'queued', createdAt: Date.now(),
+      startedAt: null, endedAt: null, error: null, recovery,
+    }
+    // The Session's first acceptance locks its checkout; recovery must retain that binding.
+    sessionLaunchTarget.bindToRun(run.sessionId, run.id, methods.workspace(methods.session(run.sessionId).workspaceId).path)
+    db.query(`INSERT INTO runs(id,sessionId,requestId,input,modelId,status,createdAt,startedAt,endedAt,error,recovery)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?)`).run(run.id, run.sessionId, run.requestId, JSON.stringify(run.input), run.modelId,
+      run.status, run.createdAt, null, null, null, JSON.stringify(recovery))
+    appendEvent(run.sessionId, 'run.recoveryQueued', {
+      recoveryId: recovery.recoveryId, predecessorRunId: recovery.predecessorRunId,
+      chain: { ...chain, currentRunId: run.id }, run,
+    }, run.id)
+    return run
+  },
+})
 const methods: StorageMethods = {
+  runtimeExecutionClaim: runtimeState.claim,
+  runtimeExecutionRelease: runtimeState.release,
+  runtimeExecutionRevoke: runtimeState.revoke,
+  runtimeExecutionRead: runtimeState.ownership,
+  runtimeRecoveryPlan: runtimeState.planRecovery,
+  runtimeRecoveryQueue: runtimeState.queueRecovery,
+  runtimeRecoveryRead: runtimeState.readRecovery,
+  runtimeRecoveryChain: runtimeState.readChain,
   chatDatabaseMaintenanceBegin(operationId) {
     if (databaseMaintenanceOwner) throw new HbarError('BUSY', 'Database maintenance is already active')
     // VACUUM can renumber messages. Discovery restarts without deleting stable-ID FTS documents or queues.
@@ -1541,7 +1581,7 @@ const methods: StorageMethods = {
         .get(operationId, sessionId)
       if (!row) throw new HbarError('NOT_FOUND', 'Queued Run not found in session')
       const run = runRow(row)
-      if ((run.input.source ?? 'user') !== 'user')
+      if (run.recovery || (run.input.source ?? 'user') !== 'user')
         throw new HbarError('FORBIDDEN', 'Only user queue items can be edited')
       if (run.status !== 'queued') throw new HbarError('COMMAND_CONFLICT', 'Queued Run has already started or settled')
       const result = queuedRunEditableSchema.parse({
@@ -1679,7 +1719,7 @@ const methods: StorageMethods = {
         if (queued.sessionId !== request.sessionId) throw new HbarError('NOT_FOUND', 'Queued Run not found in session')
         if (queued.status !== 'queued')
           throw new HbarError('COMMAND_CONFLICT', 'Queued Run has already started or settled')
-        if ((queued.input.source ?? 'user') !== 'user')
+        if (queued.recovery || (queued.input.source ?? 'user') !== 'user')
           throw new HbarError('FORBIDDEN', 'Only user queue items can be guided')
         const currentRevision = queuedRunContentRevision(queued.id)
         if (currentRevision !== request.expectedRevision)
@@ -1838,7 +1878,7 @@ const methods: StorageMethods = {
           .get(request.operationId, request.sessionId)
         if (!row) throw new HbarError('NOT_FOUND', 'Queued Run not found in session')
         const run = runRow(row)
-        if ((run.input.source ?? 'user') !== 'user')
+        if (run.recovery || (run.input.source ?? 'user') !== 'user')
           throw new HbarError('FORBIDDEN', 'Only user queue items can be edited')
         if (run.status !== 'queued')
           throw new HbarError('COMMAND_CONFLICT', 'Queued Run has already started or settled')
@@ -1931,7 +1971,7 @@ const methods: StorageMethods = {
           throw new HbarError('COMMAND_CONFLICT', 'Queued Run has already started or settled')
         const revision = db
           .query<{ seq: number | null }, [string]>(
-            "SELECT MAX(seq) AS seq FROM events WHERE runId=? AND type IN ('run.queued','run.inputEdited')",
+            "SELECT MAX(seq) AS seq FROM events WHERE runId=? AND type IN ('run.queued','run.recoveryQueued','run.inputEdited')",
           )
           .get(run.id)?.seq
         if (revision === null || revision === undefined)
@@ -2145,7 +2185,7 @@ const methods: StorageMethods = {
         const prior = runRow(existing)
         if (launchTarget) sessionLaunchTarget.validateReplayBinding(sessionId, launchTarget)
         const queued = db
-          .query<{ data: string }, [string]>("SELECT data FROM events WHERE runId=? AND type='run.queued' LIMIT 1")
+          .query<{ data: string }, [string]>("SELECT data FROM events WHERE runId=? AND type IN ('run.queued','run.recoveryQueued') ORDER BY seq LIMIT 1")
           .get(prior.id)
         if (!queued) throw new HbarError('RUN_JOURNAL_MISSING', 'Run acceptance event is unavailable')
         const original = runSchema.parse((parseJson(queued.data) as { run: unknown }).run)
@@ -2178,7 +2218,7 @@ const methods: StorageMethods = {
     const row = db.query('SELECT * FROM runs WHERE sessionId=? AND requestId=?').get(sessionId, requestId) as Row | null
     if (!row) return null
     const run = runRow(row)
-    const event = db.query("SELECT data FROM events WHERE runId=? AND type='run.queued' LIMIT 1").get(run.id) as {
+    const event = db.query("SELECT data FROM events WHERE runId=? AND type IN ('run.queued','run.recoveryQueued') ORDER BY seq LIMIT 1").get(run.id) as {
       data: string
     } | null
     if (!event) throw new HbarError('RUN_JOURNAL_MISSING', 'Run acceptance event is unavailable')
@@ -2187,11 +2227,12 @@ const methods: StorageMethods = {
   },
   claim: (sessionId) =>
     db.transaction(() => {
+      if (db.query("SELECT leaseId FROM runtime_execution_ownership WHERE sessionId=? AND state='active'").get(sessionId)) return null
       if (db.query("SELECT id FROM runs WHERE sessionId=? AND status IN ('running','waiting_approval')").get(sessionId))
         return null
       const row = db
         .query(
-          "SELECT * FROM runs WHERE sessionId=? AND status='queued' ORDER BY CASE WHEN json_extract(input,'$.source')='goal' THEN 1 ELSE 0 END,createdAt,rowid LIMIT 1",
+          "SELECT * FROM runs WHERE sessionId=? AND status='queued' ORDER BY CASE WHEN json_extract(input,'$.source')='goal' THEN 2 WHEN recovery IS NOT NULL THEN 1 ELSE 0 END,createdAt,rowid LIMIT 1",
         )
         .get(sessionId) as Row | null
       if (!row) return null
@@ -2340,11 +2381,19 @@ const methods: StorageMethods = {
         .run(`${runId}:${callId}`)
       return result.changes ? appendEvent(sessionId, 'tool.settled', { callId, failed }, runId) : null
     })(),
-  recover: () =>
+  recover: (scope) =>
     db.transaction(() => {
+      const ids = scope ? new Set(z.array(z.string().min(1).max(160)).max(256).parse(scope.runIds)) : null
       const active = (db.query("SELECT * FROM runs WHERE status IN ('running','waiting_approval')").all() as Row[]).map(
         runRow,
-      )
+      ).filter(run => !ids || ids.has(run.id))
+      for (const run of active) {
+        const current = runtimeState.ownership(run.id)
+        if (current?.state === 'active') {
+          if (scope) throw new HbarError('EXECUTION_OWNER_ACTIVE', 'Revoke the fault owner before scoped recovery')
+          runtimeState.revoke(current.lease.owner, [run.id])
+        }
+      }
       for (const run of active) {
         let unknownEffects = false
         const sequenceCalls = new Map<string, string>()
@@ -2375,6 +2424,9 @@ const methods: StorageMethods = {
             ),
           ),
         )
+        const pendingCalls = new Set(scope?.preserveApprovals ? db.query<{ callId: string }, [string]>(
+          "SELECT callId FROM approvals WHERE runId=? AND status='pending'",
+        ).all(run.id).map(approval => approval.callId) : [])
         for (const callId of sequenceResults) if (sequenceCalls.has(callId)) settledCalls.add(callId)
         for (const intent of db.query("SELECT * FROM tool_intents WHERE runId=? AND status='started'").all(run.id) as {
           callId: string
@@ -2406,7 +2458,7 @@ const methods: StorageMethods = {
           content: string
         }[]) {
           for (const block of JSON.parse(row.content) as Message['content'])
-            if (block.type === 'tool_call' && !settledCalls.has(block.callId)) {
+            if (block.type === 'tool_call' && !settledCalls.has(block.callId) && !pendingCalls.has(block.callId)) {
               methods.commit(run.sessionId, run.id, 'tool', [
                 {
                   type: 'tool_result',
@@ -2421,7 +2473,7 @@ const methods: StorageMethods = {
             }
         }
         db.query("UPDATE tool_intents SET status='unknown' WHERE runId=? AND status='started'").run(run.id)
-        for (const approval of db.query("SELECT id FROM approvals WHERE runId=? AND status='pending'").all(run.id) as {
+        for (const approval of (scope?.preserveApprovals ? [] : db.query("SELECT id FROM approvals WHERE runId=? AND status='pending'").all(run.id)) as {
           id: string
         }[])
           methods.resolveApproval(approval.id, 'cancelled')
@@ -2435,9 +2487,9 @@ const methods: StorageMethods = {
             retryable: false,
           },
         )
-        for (const queued of db
+        for (const queued of (scope?.preserveQueued ? [] : db
           .query("SELECT id FROM runs WHERE sessionId=? AND status='queued'")
-          .all(run.sessionId) as { id: string }[])
+          .all(run.sessionId)) as { id: string }[])
           methods.setRun(
             queued.id,
             'interrupted',
@@ -2647,6 +2699,7 @@ function restoreProjection(event: SessionEvent) {
     event.time,
     event.sessionId,
   )
+  if (runtimeState.restore(event)) return
   if (event.type === 'session.updated' || event.type === 'session.moved') {
     const value = data.session as Session
     db.query('UPDATE sessions SET workspaceId=?,title=?,archived=?,updatedAt=? WHERE id=?').run(
@@ -2662,7 +2715,7 @@ function restoreProjection(event: SessionEvent) {
       const prior = methods.run(guidance.guidedRun.id)
       const revision = db
         .query<{ seq: number | null }, [string, number]>(
-          "SELECT MAX(seq) AS seq FROM events WHERE runId=? AND seq<? AND type IN ('run.queued','run.inputEdited')",
+          "SELECT MAX(seq) AS seq FROM events WHERE runId=? AND seq<? AND type IN ('run.queued','run.recoveryQueued','run.inputEdited')",
         )
         .get(prior.id, event.seq)?.seq
       if (
@@ -2705,8 +2758,8 @@ function restoreProjection(event: SessionEvent) {
     const run = runSchema.parse(data.run)
     db.query(
       `
-      INSERT INTO runs(id,sessionId,requestId,input,modelId,status,createdAt,startedAt,endedAt,error,failure) VALUES(?,?,?,?,?,?,?,?,?,?,?)
-      ON CONFLICT(id) DO UPDATE SET status=excluded.status,startedAt=excluded.startedAt,endedAt=excluded.endedAt,error=excluded.error,failure=excluded.failure
+      INSERT INTO runs(id,sessionId,requestId,input,modelId,status,createdAt,startedAt,endedAt,error,failure,recovery) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(id) DO UPDATE SET status=excluded.status,startedAt=excluded.startedAt,endedAt=excluded.endedAt,error=excluded.error,failure=excluded.failure,recovery=excluded.recovery
     `,
     ).run(
       run.id,
@@ -2720,6 +2773,7 @@ function restoreProjection(event: SessionEvent) {
       run.endedAt,
       run.error,
       run.failure ? JSON.stringify(runFailureSchema.parse(run.failure)) : null,
+      run.recovery ? JSON.stringify(run.recovery) : null,
     )
     if (event.type === 'run.settled' && data.queueRemoval !== undefined) {
       const removal = z
@@ -2769,7 +2823,7 @@ function restoreProjection(event: SessionEvent) {
     const run = runRow(row)
     const priorRevision = db
       .query<{ seq: number | null }, [string, number]>(
-        "SELECT MAX(seq) AS seq FROM events WHERE runId=? AND seq<? AND type IN ('run.queued','run.inputEdited')",
+        "SELECT MAX(seq) AS seq FROM events WHERE runId=? AND seq<? AND type IN ('run.queued','run.recoveryQueued','run.inputEdited')",
       )
       .get(run.id, event.seq)?.seq
     if (run.status !== 'queued' || (run.input.source ?? 'user') !== 'user' || priorRevision !== edited.expectedRevision)
@@ -2947,13 +3001,29 @@ if (chatDatabaseDeletion.recoveryIssues.length) recordRecoveryDiagnostic(diagnos
 db.exec('UPDATE chat_database_event_reference_health SET complete=1 WHERE id=1')
 reconcileSessionLogs()
 
-parentPort!.on('message', ({ id, method, args }: StorageCall) => {
+function protectedRunId(method: keyof StorageMethods, args: readonly unknown[]): string | undefined {
+  if (method === 'setRun') return z.string().parse(args[0])
+  if (method === 'commit' || method === 'toolStart' || method === 'toolEnd') return z.string().parse(args[1])
+  if (method === 'append') return args[3] === undefined ? undefined : z.string().parse(args[3])
+  if (method === 'createApproval') return z.object({ runId: z.string() }).parse(args[0]).runId
+  return undefined
+}
+
+parentPort!.on('message', ({ id, method, args, authority }: StorageCall) => {
   let reply: StorageReply
   const draftVersion = chatDatabaseArtifacts.writeVersion()
   const logVersion = eventLogWriteVersion
   try {
     if (databaseMaintenanceOwner && !databaseMaintenanceReads.has(method)) throw new HbarError('BUSY', 'Chat database is in global maintenance')
     if (!Object.hasOwn(methods, method)) throw new Error('Unknown storage operation')
+    const protectedId = protectedRunId(method, args)
+    if (authority && ['commit', 'append', 'toolStart', 'toolEnd'].includes(method) && args[0] !== authority.sessionId)
+      throw new HbarError('RUNTIME_OWNER_MISMATCH', 'Execution writes must belong to their leased Session')
+    if (authority && method === 'createApproval' && args[0].sessionId !== authority.sessionId)
+      throw new HbarError('RUNTIME_OWNER_MISMATCH', 'Approval Session does not match its execution lease')
+    if (authority) runtimeState.assert(authority, protectedId, !['setRun', 'commit', 'toolStart'].includes(method))
+    else if (protectedId && runtimeState.ownership(protectedId))
+      throw new HbarError('EXECUTION_AUTHORITY_REQUIRED', 'Managed execution writes must carry their durable lease')
     const fn = methods[method] as (...args: unknown[]) => unknown
     reply = { id, ok: true, result: fn(...args) }
     if (databaseMaintenanceOwner && method !== 'close') db.clearQueryCache()
