@@ -2667,6 +2667,19 @@ export class Kernel {
   pendingUserInput(requestId: string) {
     return this.userInputs.get(requestId)?.request ?? null
   }
+  /** Pure projection for the stable listener. Neither callback functions nor private runtime objects leave the owner. */
+  runtimeView() {
+    const userInputs = [...this.userInputs.values()].map(({ request }) => request)
+    const sessionIds = new Set([...this.active.keys(), ...this.drains.keys(), ...this.wakeups,
+      ...userInputs.map(request => request.sessionId)])
+    return { userInputs, idle: this.chatDatabaseIsIdle(), protectedRoots: this.plugins.protectedResourceRoots(),
+      protection: [...sessionIds].flatMap(sessionId => {
+        const reason = this.chatDatabaseSessionProtection(sessionId)
+        return reason === 'active' || reason === 'userInput' || reason === 'queued' ? [{ sessionId, reason }] : []
+      }),
+      modes: [...this.active.values()].map(({ run }) => ({ runId: run.id, mode: this.plugins.get<ModeService>('mode').effectiveMode(run) })),
+    }
+  }
 
   private async clearPendingUserInputs(sessionId: string, reason: unknown) {
     const pending = [...this.userInputs.values()].filter(({ request }) => request.sessionId === sessionId)

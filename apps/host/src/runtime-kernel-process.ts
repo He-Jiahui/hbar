@@ -58,6 +58,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
   context.peer.register('kernel.state', procedure(z.undefined(), runtimeKernelStateSchema, () => {
     const value = application()
     return { instanceId: value.instanceId, permission: value.permissionMode(), recovered: value.recovered,
+      ...value.runtimeView(),
       active: [...value.active.values()].map(active => ({ sessionId: active.run.sessionId, runId: active.run.id })),
       tools: value.tools.list().map(tool => tool.name), plugins: value.plugins.list() }
   }))

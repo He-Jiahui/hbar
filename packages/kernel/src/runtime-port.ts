@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
-import { approvalModeSchema, inputSchema, runSchema } from '@hbar/contracts'
+import { approvalModeSchema, inputSchema, runSchema, runModeSchema, userInputRequestSchema } from '@hbar/contracts'
 import { runtimeWireNotificationSchema } from '@hbar/contracts/runtime-notifications'
 import { runCommandRecordSchema } from '@hbar/contracts/commands/run'
 import { pluginInfoSchema } from '@hbar/contracts/commands/extensions'
@@ -25,6 +25,10 @@ export const runtimeKernelStateSchema = z.strictObject({
   instanceId: id, permission: approvalModeSchema, recovered: z.number().int().nonnegative(),
   active: z.array(z.strictObject({ sessionId: id, runId: id })).max(4_096),
   tools: z.array(z.string().min(1).max(256)).max(4_096), plugins: z.array(pluginInfoSchema).max(4_096),
+  protectedRoots: z.array(z.string().min(1).max(4_000)).max(4_096), idle: z.boolean(),
+  userInputs: z.array(userInputRequestSchema).max(4_096),
+  protection: z.array(z.strictObject({ sessionId: id, reason: z.enum(['active', 'userInput', 'queued']) })).max(4_096),
+  modes: z.array(z.strictObject({ runId: id, mode: runModeSchema })).max(4_096),
 })
 export const runtimeKernelRecoverySchema = z.array(runtimeRecoveryRecordSchema).max(256)
 export const RUNTIME_KERNEL_CONTROL_METHODS = ['kernel.resume', 'kernel.fence', 'kernel.cancel', 'kernel.recover', 'kernel.recovery.resume', 'kernel.application.control', 'kernel.application.callback'] as const
