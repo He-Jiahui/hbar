@@ -55,7 +55,7 @@
 .hbar-app-react-sidebar-surface .hbar-app-react-project-tree .hbar-app-react-session-title {
   min-inline-size: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   white-space: nowrap;
 }
 

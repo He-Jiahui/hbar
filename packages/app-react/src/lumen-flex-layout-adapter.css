@@ -34,6 +34,12 @@
   min-inline-size: 0;
   flex: 1 1 auto;
 }
+
+/* Keep measurable probes in the library's layout, outside visual and accessible content. */
+.hbar-desktop-layout-projection .flexlayout__border_sizer {
+  visibility: hidden;
+  pointer-events: none;
+}
 .hbar-desktop-workspace-pane,
 .hbar-desktop-tool-pane {
   display: flex;
@@ -57,4 +63,3 @@
 .hbar-desktop-layout-projection .flexlayout__tab {
   overflow: hidden;
 }
-

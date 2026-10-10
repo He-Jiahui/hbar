@@ -1845,9 +1845,24 @@ export default function App({
       shellLayoutToFlexModel(resolvedLayout, {
         geometry: desktopLayoutGeometry ?? desktopViewportGeometry,
         sidebarVisible: presentation.sidebarOpen,
-        toolVisible: Boolean(toolPanel),
+        toolVisible:
+          Boolean(toolPanel) &&
+          desktopViewportGeometry.widthPx / desktopViewportGeometry.remPx >=
+            workspaceLayout.size.minRem +
+              toolLayout.size.minRem +
+              (presentation.sidebarOpen ? sidebarLayout.size.minRem : 0) +
+              1,
       }),
-    [resolvedLayout, desktopViewportGeometry, desktopLayoutGeometry, presentation.sidebarOpen, toolPanel],
+    [
+      resolvedLayout,
+      desktopViewportGeometry,
+      desktopLayoutGeometry,
+      presentation.sidebarOpen,
+      toolPanel,
+      workspaceLayout.size.minRem,
+      toolLayout.size.minRem,
+      sidebarLayout.size.minRem,
+    ],
   )
   const openFeaturePanel = (
     panelId: 'run-board' | 'schedules' | 'prompt-templates' | 'notifications' | 'onboarding',
@@ -1873,15 +1888,7 @@ export default function App({
       .catch(() => undefined)
   }
   const renderDesktopLayout =
-    nativeWindow &&
-    desktopViewport &&
-    (!toolPanel ||
-      desktopViewportGeometry.widthPx / (desktopLayoutGeometry?.remPx ?? desktopViewportGeometry.remPx) >=
-        workspaceLayout.size.minRem +
-          toolLayout.size.minRem +
-          (presentation.sidebarOpen ? sidebarLayout.size.minRem : 0) +
-          (1 + Number(presentation.sidebarOpen)) *
-            ((desktopLayoutGeometry?.splitterSizePx ?? 8) / (desktopLayoutGeometry?.remPx ?? 16)))
+    nativeWindow && desktopViewport
       ? (panes: Readonly<Record<'projects' | 'workspace' | 'session-tool', ReactNode>>, _shell: ReactNode) => (
           <HbarDesktopLayoutProjection
             model={desktopLayoutModel}
@@ -2056,8 +2063,10 @@ export default function App({
             />
           }
           {...(renderDesktopLayout ? { renderLayout: renderDesktopLayout } : {})}
+          desktopToolPresentation={desktopLayoutModel.layout.children?.some((node) => node.id === 'session-tool') ? 'split' : 'drawer'}
           toolWidthRem={toolLayout.size.preferredRem}
           toolLayout={{
+            constrainedPresentation: 'drawer',
             mainMinWidthRem: workspaceLayout.size.minRem,
             minWidthRem: toolLayout.size.minRem,
             maxWidthRem: toolLayout.size.maxRem,
@@ -2080,6 +2089,12 @@ export default function App({
               : undefined
           }
           connection={connection}
+          onCloseTool={() => {
+            if (presentation.toolInstanceId)
+              void runtime.view.commands
+                .execute('app.closePanel', { instanceId: presentation.toolInstanceId })
+                .catch(() => undefined)
+          }}
           onReconnect={reconnect}
           toolLabel={
             toolPanel?.panelId === 'files'

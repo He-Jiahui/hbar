@@ -35,6 +35,7 @@ import {
   LumenText,
   LumenTree,
   LumenTreeItem,
+  LumenFloatingSurface,
   type LumenIconTier,
   type LumenAppShellProps,
   type LumenToolPresentation,
@@ -224,6 +225,8 @@ export interface HbarWorkspaceShellProps {
   readonly toolRef?: LumenAppShellProps['toolRef']
   readonly resizeRef?: LumenAppShellProps['resizeRef']
   readonly onToolPresentationChange?: LumenAppShellProps['onToolPresentationChange']
+  readonly desktopToolPresentation?: LumenToolPresentation
+  readonly onCloseTool?: (() => void) | undefined
   readonly connection: 'connected' | 'connecting' | 'pairing' | 'disconnected'
   readonly onReconnect: () => void
   readonly titlebar?: ReactNode
@@ -502,7 +505,12 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   }, [runtime, reportSidebarFocusUnavailable])
   const resizeRef = useRef<HTMLElement | null>(null)
   const [toolPresentation, setToolPresentation] = useState<LumenToolPresentation>('none')
-  const resolvedToolPresentation = props.renderLayout ? (props.tool ? 'split' : 'none') : toolPresentation
+  const desktopToolDock = useRef<HTMLDivElement>(null)
+  const resolvedToolPresentation = props.renderLayout
+    ? props.tool
+      ? (props.desktopToolPresentation ?? 'split')
+      : 'none'
+    : toolPresentation
   const [toolFocusError, setToolFocusError] = useState<{ key: string; code: string } | null>(null)
   const focusSnapshot = getWorkspaceToolFocusSnapshot(
     navigation,
@@ -2147,6 +2155,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       }
       {...(props.toolWidthRem === undefined ? {} : { toolWidthRem: props.toolWidthRem })}
       toolLayout={props.toolLayout}
+      onCloseTool={props.onCloseTool}
       toolResize={props.toolResize}
       mainRef={attachMain}
       toolRef={attachTool}
@@ -2156,9 +2165,37 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       closeSidebarLabel={props.labels.hideSidebar}
       onCloseSidebar={() => setSidebarVisible(false)}
       header={desktopHeader}
-      tool={toolRegion}
+      tool={props.renderLayout ? null : toolRegion}
       toolLabel={props.toolLabel}
-      overlay={overlayRegion}
+      overlay={
+        <>
+          {overlayRegion}
+          {props.renderLayout && toolRegion ? (
+            <LumenFloatingSurface
+              mode="modal"
+              open={resolvedToolPresentation === 'drawer'}
+              docked={resolvedToolPresentation === 'split'}
+              dockRef={desktopToolDock}
+              keepMounted
+              label={props.toolLabel}
+              onClose={props.onCloseTool ?? (() => {})}
+              className="lumen-tool-drawer-surface"
+              backdropClassName="lumen-tool-drawer-root"
+              style={{ '--lumen-tool-size': `${props.toolWidthRem ?? 24}rem` } as React.CSSProperties}
+            >
+              <LumenFrame
+                as="aside"
+                ref={attachTool}
+                tabIndex={-1}
+                className="hbar-desktop-tool-pane"
+                aria-label={props.toolLabel}
+              >
+                {toolRegion}
+              </LumenFrame>
+            </LumenFloatingSurface>
+          ) : null}
+        </>
+      }
       sidebar={sidebarPane}
       slots={
         props.renderLayout
@@ -2180,13 +2217,11 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                   'session-tool': toolRegion ? (
                     <LumenFrame
                       as="aside"
-                      ref={attachTool}
+                      ref={desktopToolDock}
                       tabIndex={-1}
                       className="hbar-desktop-tool-pane"
                       aria-label={props.toolLabel}
-                    >
-                      {toolRegion}
-                    </LumenFrame>
+                    ></LumenFrame>
                   ) : null,
                 },
                 null,

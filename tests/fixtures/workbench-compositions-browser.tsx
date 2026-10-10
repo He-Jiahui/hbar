@@ -27,8 +27,10 @@ function Fixture() {
   const [last, setLast] = useState('')
   return (
     <LumenProvider
-      mode={document.documentElement.dataset.lumenMode === 'light' ? 'light' : 'dark'}
-      appearance={DEFAULT_LUMEN_APPEARANCE}
+      appearance={{
+        ...DEFAULT_LUMEN_APPEARANCE,
+        mode: document.documentElement.dataset.lumenMode === 'light' ? 'light' : 'dark',
+      }}
     >
       <LumenSurface surfaceRole="reading" className="composition-fixture">
         <LumenContentText context="page.title">{zh ? '工作台通用组件' : 'Workbench compositions'}</LumenContentText>
