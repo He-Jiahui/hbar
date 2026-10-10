@@ -11,7 +11,16 @@ import {
   type RefObject,
 } from 'react'
 import { ArrowRight, Check, ChevronDown, Search, X } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenRange, LumenContentText } from '@lumen/app-ui'
+import {
+  LumenButton,
+  LumenFrame,
+  LumenIcon,
+  LumenInput,
+  LumenRange,
+  LumenContentText,
+  LumenFloatingSurface,
+  focusLumenControl,
+} from '@lumen/app-ui'
 import type { ComposerModelState, SessionControlsState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { filterCatalogModels, modelIdsRequiringDisclosure, MODEL_CATALOG_PAGE_SIZE } from './model-choice-filter'
@@ -133,31 +142,12 @@ export function filterComposerModels(
   return filterCatalogModels(models, query, limit, selectedModelId)
 }
 
-/** Only the true overlay container is positioned, relative to its trigger group. */
-function placePopover(popover: HTMLElement, anchor: HTMLElement) {
-  const rect = anchor.getBoundingClientRect()
-  const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
-  const margin = rem
-  const gap = rem / 2
-  const width = Math.min(popover.dataset.kind === 'thinking' ? 18.75 * rem : 22.5 * rem, innerWidth - margin * 2)
-  const above = rect.top > innerHeight - rect.bottom
-  popover.style.setProperty(
-    '--composer-popup-left',
-    `${Math.max(margin, Math.min(rect.right - width, innerWidth - width - margin))}px`,
-  )
-  popover.style.setProperty('--composer-popup-top', above ? 'auto' : `${rect.bottom + gap}px`)
-  popover.style.setProperty('--composer-popup-bottom', above ? `${innerHeight - rect.top + gap}px` : 'auto')
-  popover.style.setProperty(
-    '--composer-popup-limit',
-    `${Math.max(0, (above ? rect.top : innerHeight - rect.bottom) - margin - gap)}px`,
-  )
-}
-
 function PickerPopover({
   id,
   title,
   close,
   kind,
+  open,
   presentation,
   anchor,
   children,
@@ -169,6 +159,7 @@ function PickerPopover({
   readonly title: string
   readonly close: string
   readonly kind: 'model' | 'thinking'
+  readonly open: boolean
   readonly presentation?: 'native' | 'web'
   readonly anchor: RefObject<HTMLDivElement | null>
   readonly popupRef: RefObject<HTMLDivElement | null>
@@ -177,18 +168,20 @@ function PickerPopover({
   readonly onClose: () => void
 }) {
   return (
-    <LumenFrame
+    <LumenFloatingSurface
       id={id}
-      ref={popupRef}
-      popover="auto"
+      contentRef={popupRef}
+      anchorRef={anchor}
+      open={open}
+      onClose={onClose}
+      keepMounted
+      focusBehavior="preserve"
+      restoreFocus
       role="dialog"
       aria-label={title}
       className="hbar-composer-picker-popover"
       data-kind={kind}
       data-presentation={presentation}
-      onBeforeToggle={(event) => {
-        if (event.newState === 'open' && anchor.current) placePopover(event.currentTarget, anchor.current)
-      }}
       onToggle={(event) => {
         if (event.newState === 'open') onOpen()
         else onClose()
@@ -217,7 +210,7 @@ function PickerPopover({
         </LumenFrame>
       )}
       {children}
-    </LumenFrame>
+    </LumenFloatingSurface>
   )
 }
 
@@ -338,24 +331,11 @@ export function HbarComposerModelPicker({
     }
     try {
       if (modelRef.current.matches(':popover-open')) onOpened?.()
-      else modelRef.current.showPopover()
+      else setOpen('model')
     } catch {
       onOpenFailed?.('CAPABILITY_UNAVAILABLE')
     }
   }, [openRequest, unavailable, directConfigure, openProviders, onOpened, onOpenFailed])
-  useEffect(() => {
-    if (!open) return
-    const reposition = () => {
-      const popup = open === 'model' ? modelRef.current : thinkingRef.current
-      if (popup && groupRef.current) placePopover(popup, groupRef.current)
-    }
-    window.addEventListener('resize', reposition)
-    window.addEventListener('scroll', reposition, true)
-    return () => {
-      window.removeEventListener('resize', reposition)
-      window.removeEventListener('scroll', reposition, true)
-    }
-  }, [open])
   const models = catalog.sessionId === sessionId ? catalog.models : NO_MODELS
   const disclosedModelIds = useMemo(() => modelIdsRequiringDisclosure(models, query), [models, query])
   const { groups, remaining } = filterComposerModels(models, query, limit, model?.modelId)
@@ -470,7 +450,7 @@ export function HbarComposerModelPicker({
         const active = document.activeElement
         if (active !== source && active !== document.body) return
         modelRef.current?.hidePopover()
-        modelTriggerRef.current?.focus()
+        focusLumenControl(modelTriggerRef.current)
       })
       .catch(capture)
   }
@@ -621,8 +601,7 @@ export function HbarComposerModelPicker({
         aria-expanded={directConfigure ? undefined : open === 'model'}
         aria-controls={directConfigure ? undefined : modelId}
         disabled={!connected || (disabled && !unresolved)}
-        popoverTarget={directConfigure ? undefined : modelId}
-        onClick={directConfigure ? () => openProviders() : undefined}
+        onClick={directConfigure ? () => openProviders() : () => setOpen('model')}
       >
         <LumenContentText context="control.label" title={triggerName}>
           {triggerName}
@@ -641,7 +620,7 @@ export function HbarComposerModelPicker({
           aria-expanded={open === 'thinking'}
           aria-controls={thinkingId}
           disabled={thinkingUnavailable}
-          popoverTarget={thinkingId}
+          onClick={() => setOpen('thinking')}
         >
           {effortName}
           {model?.maxMode && (
@@ -674,6 +653,7 @@ export function HbarComposerModelPicker({
       )}
       <PickerPopover
         id={modelId}
+        open={open === 'model'}
         title={labels.title}
         close={labels.close}
         kind="model"
@@ -837,6 +817,7 @@ export function HbarComposerModelPicker({
       </PickerPopover>
       <PickerPopover
         id={thinkingId}
+        open={open === 'thinking'}
         title={labels.thinking}
         close={labels.close}
         kind="thinking"

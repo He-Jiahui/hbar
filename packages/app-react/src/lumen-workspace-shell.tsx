@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react'
 import {
   Activity,
   CalendarDays,
@@ -409,6 +418,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     () => typeof window !== 'undefined' && window.matchMedia('(max-width: 63.9375rem)').matches,
   )
   const sidebarViewportOwner = useRef<{ owner: typeof runtime; narrow: boolean } | null>(null)
+  const sidebarChoiceRevision = useRef(0)
   const [workspaceTabsViewport, setWorkspaceTabsViewport] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(min-width: 48rem)').matches,
   )
@@ -976,6 +986,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   }
 
   const setSidebarVisible = (visible: boolean) => {
+    sidebarChoiceRevision.current += 1
     const trigger = [sidebarFocusRef.current, sidebarShowFocusRef.current].find(
       (node) => node !== null && node === document.activeElement,
     )
@@ -988,7 +999,15 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const closeNarrowSidebar = useCallback(async () => {
     if (window.matchMedia('(max-width: 63.9375rem)').matches) await execute('app.setSidebarVisible', { visible: false })
   }, [execute])
-  const settleNavigation = (operation: Promise<unknown>) => void operation.then(closeNarrowSidebar).catch(recordError)
+  const closeAfterNavigation = () => {
+    const revision = sidebarChoiceRevision.current
+    return () => {
+      if (revision !== sidebarChoiceRevision.current) return
+      return closeNarrowSidebar()
+    }
+  }
+  const settleNavigation = (operation: Promise<unknown>) =>
+    void operation.then(closeAfterNavigation()).catch(recordError)
   const openPanel = (panelId: string) => settleNavigation(execute('app.openPanel', { panelId }))
   const openWorkspaceSurface = (workspaceId: string, surface: 'files' | 'settings' | 'run-board' | 'schedules') => {
     setWorkspaceActionError(null)
@@ -996,7 +1015,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       surface === 'settings'
         ? execute('app.openSettings', { scope: 'workspace', targetId: workspaceId, workspaceId, binding: 'pinned' })
         : execute('app.openPanel', { panelId: surface, workspaceId, binding: 'pinned' })
-    void operation.then(closeNarrowSidebar).catch((reason: unknown) => {
+    void operation.then(closeAfterNavigation()).catch((reason: unknown) => {
       setWorkspaceActionError({ workspaceId, code: reason instanceof Error ? reason.message : String(reason) })
     })
   }
@@ -1107,11 +1126,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     }).catch(recordError)
   }
   const openSession = (workspaceId: string, sessionId: string) => {
-    void execute('app.setSession', { workspaceId, sessionId })
-      .then(() => {
-        return closeNarrowSidebar()
-      })
-      .catch(recordError)
+    void execute('app.setSession', { workspaceId, sessionId }).then(closeAfterNavigation()).catch(recordError)
   }
   const serverValue =
     props.connection === 'connected'
@@ -1308,7 +1323,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               onClick={() => {
                 setExtensionsEntryError(null)
                 void execute('app.openSettings', { scope: 'global', section: 'skills' })
-                  .then(closeNarrowSidebar)
+                  .then(closeAfterNavigation())
                   .catch((reason: unknown) =>
                     setExtensionsEntryError(reason instanceof Error ? reason.message : String(reason)),
                   )

@@ -7,6 +7,7 @@ import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { expectLumenValue } from './support/lumen-controls'
+import { openComposerFeedback, revealComposerControl } from './support/composer-controls'
 
 const base = () => `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
 
@@ -131,7 +132,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expectComposerText(prompt, '')
       await picker.getByRole('button', { name: copy.session.modelPicker.close, exact: true }).click()
 
-      await page.locator('.hbar-composer-attachment-target input[type="file"]').setInputFiles({
+      const attachmentMenu = page.getByRole('button', { name: copy.session.addMenu.open, exact: true })
+      await revealComposerControl(page, attachmentMenu, copy.session.addMenu)
+      await attachmentMenu.click()
+      const attachmentMenuId = await attachmentMenu.getAttribute('aria-controls')
+      if (!attachmentMenuId) throw new Error('The add-action trigger must identify its surface')
+      const addSurface = page.locator(`[id=${JSON.stringify(attachmentMenuId)}]`)
+      const chooserPromise = page.waitForEvent('filechooser')
+      await addSurface.getByRole('button', { name: copy.session.addMenu.files, exact: true }).click()
+      await (await chooserPromise).setFiles({
         name: 'slash-attachment.txt',
         mimeType: 'text/plain',
         buffer: Buffer.from('retain attachment'),
@@ -139,6 +148,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(page.locator('.lumen-attachment-chip').filter({ hasText: 'slash-attachment.txt' })).toBeVisible()
       await prompt.fill('/settings ')
       await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
+      await openComposerFeedback(page, copy)
       await expect(page.getByText(copy.session.slash.attachmentsBlocked, { exact: true })).toBeVisible()
       await expectComposerText(prompt, '/settings ')
       await expect(page.locator('.lumen-attachment-chip').filter({ hasText: 'slash-attachment.txt' })).toBeVisible()
@@ -184,7 +194,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
-  test(`Goal slash starts a model turn after Host setup, then supports replacement and clear: ${locale}`, async ({
+  test(`Goal slash starts one user turn and retains Host ownership for replacement and clear: ${locale}`, async ({
     browser,
   }) => {
     test.setTimeout(120_000)
@@ -260,6 +270,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         const rejected = `/goal ${unsupported}`
         await prompt.fill(rejected)
         await send.click()
+        await openComposerFeedback(page, copy)
         await expect(page.getByText(copy.session.slash.goalRequired, { exact: true })).toBeVisible()
         await expectComposerText(prompt, rejected)
         expect((await goals.execute('goal.snapshot', { sessionId: host.ready.sessionId })).goal?.goalId).toBe(
@@ -299,14 +310,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const second = (await goals.execute('goal.snapshot', { sessionId: host.ready.sessionId })).goal
       expect(second?.goalId).not.toBe(first.goalId)
       await expectComposerText(prompt, '')
-      await expect
-        .poll(
-          async () =>
-            (await host!.client.call('session.snapshot', { sessionId: host!.ready.sessionId })).runs.filter(
-              (run) => run.input.source === 'user' && run.input.text === 'Second objective',
-            ).length,
-        )
-        .toBe(1)
+      // 96445c54 gives confirmed replacements to the Host. This fixture disables
+      // automatic continuation, so the browser must not create a duplicate user turn.
+      expect(
+        (await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs.filter(
+          (run) => run.input.source === 'user' && run.input.text === 'Second objective',
+        ),
+      ).toHaveLength(0)
       await prompt.fill('/goal clear')
       await send.click()
       const clearing = page.getByRole('group', { name: copy.session.slash.goalConfirmClear('Second objective') })
@@ -321,7 +331,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         (await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs.filter(
           (run) => run.input.source === 'user' && ['First objective', 'Second objective'].includes(run.input.text),
         ),
-      ).toHaveLength(2)
+      ).toHaveLength(1)
       const longObjective = `Long Goal ${'容量Capacity目标'.repeat(280)}`
       expect(longObjective.length).toBeLessThanOrEqual(4000)
       await goals.execute('goal.create', { sessionId: host.ready.sessionId, objective: longObjective })

@@ -26,16 +26,10 @@
   color: var(--lumen-muted);
 }
 
-/* cc-haha's measured model/effort overlays anchor to the composer trigger group.
-   Only this top-layer container has coordinates. Its content stays in flex flow. */
+/* Lumen owns top-layer positioning, viewport capacity and responsive presentation. */
 .hbar-composer-picker-popover {
-  position: fixed;
-  inset: auto;
-  top: var(--composer-popup-top);
-  bottom: var(--composer-popup-bottom);
-  left: var(--composer-popup-left);
   inline-size: min(22.5rem, calc(100vw - 2rem));
-  max-block-size: min(26.25rem, var(--composer-popup-limit));
+  max-block-size: min(26.25rem, calc(100dvh - 2rem));
   margin: 0;
   padding: 0.75rem;
   border: 0.0625rem solid var(--lumen-edge);

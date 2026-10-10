@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
-import { LumenContentText, LumenButton, LumenFrame, LumenRange } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenRange, LumenFloatingSurface } from '@lumen/app-ui'
 import type { ComposerModelState } from '@hbar/app-runtime'
 import type { HbarComposerModelLabels } from './composer-model-picker'
 import { thinkingProgressPercent } from './composer-model-picker'
@@ -123,7 +123,7 @@ export function HbarPreSessionThinkingPicker({
         aria-expanded={open}
         aria-controls={popupId}
         disabled={disabled}
-        popoverTarget={popupId}
+        onClick={() => setOpen(true)}
       >
         {effortName}
         {maxMode && (
@@ -132,35 +132,19 @@ export function HbarPreSessionThinkingPicker({
           </LumenContentText>
         )}
       </LumenButton>
-      <LumenFrame
-        ref={popup}
+      <LumenFloatingSurface
+        contentRef={popup}
+        anchorRef={trigger}
+        open={open}
+        onClose={() => setOpen(false)}
+        keepMounted
+        focusBehavior="preserve"
         id={popupId}
-        popover="auto"
         role="dialog"
         aria-label={labels.thinking}
         aria-busy={busy}
         className="hbar-composer-picker-popover"
         data-kind="thinking"
-        onBeforeToggle={(event) => {
-          if (event.newState !== 'open' || !trigger.current) return
-          const rect = trigger.current.getBoundingClientRect()
-          const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
-          const width = Math.min(18.75 * rem, innerWidth - 2 * rem)
-          const above = rect.top > innerHeight - rect.bottom
-          event.currentTarget.style.setProperty(
-            '--composer-popup-left',
-            `${Math.max(rem, Math.min(rect.right - width, innerWidth - width - rem))}px`,
-          )
-          event.currentTarget.style.setProperty('--composer-popup-top', above ? 'auto' : `${rect.bottom + rem / 2}px`)
-          event.currentTarget.style.setProperty(
-            '--composer-popup-bottom',
-            above ? `${innerHeight - rect.top + rem / 2}px` : 'auto',
-          )
-          event.currentTarget.style.setProperty(
-            '--composer-popup-limit',
-            `${Math.max(0, (above ? rect.top : innerHeight - rect.bottom) - 1.5 * rem)}px`,
-          )
-        }}
         onToggle={(event) => {
           const opening = event.newState === 'open'
           setOpen(opening)
@@ -277,7 +261,7 @@ export function HbarPreSessionThinkingPicker({
             </LumenContentText>
           </LumenFrame>
         )}
-      </LumenFrame>
+      </LumenFloatingSurface>
     </LumenFrame>
   )
 }
