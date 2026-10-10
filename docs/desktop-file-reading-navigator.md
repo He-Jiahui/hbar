@@ -2,9 +2,9 @@
 
 ## 参考证据与迁移边界
 
-依据 cc-haha 的真实应用画面 [workspace-diff.webp](../../cc-haha/docs/images/app/en/workspace-diff.webp)：主区域阅读 diff，右侧独立滚动的 Changed files 列表显示当前选中行；列表上方可以切换 Changed files / All files。工具栏的分栏图标是显示／隐藏导航，不是增加并排 diff 模式。
+依据 cc-haha 的真实应用画面 [workspace-diff.webp](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/docs/images/app/en/workspace-diff.webp)：主区域阅读 diff，右侧独立滚动的 Changed files 列表显示当前选中行；列表上方可以切换 Changed files / All files。工具栏的分栏图标是显示／隐藏导航，不是增加并排 diff 模式。
 
-源码证据：[WorkspacePanel.tsx](../../cc-haha/desktop/src/components/workspace/WorkspacePanel.tsx) 的 `isNavigatorVisible`、`PanelRightClose` / `PanelRightOpen` 和 navigator view selector。普通列表与阅读区域参与布局流，迁移使用 flex，不依据截图坐标定位。
+源码证据：[WorkspacePanel.tsx](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/desktop/src/components/workspace/WorkspacePanel.tsx) 的 `isNavigatorVisible`、`PanelRightClose` / `PanelRightOpen` 和 navigator view selector。普通列表与阅读区域参与布局流，迁移使用 flex，不依据截图坐标定位。
 
 ## 本子功能实现
 

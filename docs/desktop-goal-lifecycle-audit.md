@@ -22,16 +22,16 @@ Host 的 canonical log 已保留 `goal.created`、`goal.updated`、`goal.account
 
 可核对的参考源码：
 
-- [ActiveSession.tsx](../../cc-haha/desktop/src/pages/ActiveSession.tsx)：104 为 strip 定义；114 完成隐藏；119 运行/暂停/active 文案；124 metrics；148 窄宽度隐藏 metrics；805 desktop guard；827 实际 strip 位置；854 MessageList。
-- [MessageList.tsx](../../cc-haha/desktop/src/components/chat/MessageList.tsx)：296 GoalEventCard；298 默认展开；301 metadata；308 card flow；335 body；367 continuation divider；3866 goal_event 分支。
-- [types/chat.ts](../../cc-haha/desktop/src/types/chat.ts)：308 GoalEventAction；367 goal_event DTO。
-- [chatStore.ts](../../cc-haha/desktop/src/stores/chatStore.ts)：3860 live goal_event；4587 归一化；4615 activeGoal 归并；4643 历史重建；4682 本地命令输出映射；5768 本地 Goal 命令 transcript。
-- [goal/index.ts](../../cc-haha/src/commands/goal/index.ts)：Goal 本地命令定义；[goal/goal.tsx](../../cc-haha/src/commands/goal/goal.tsx)：设置/清除的实际命令路径。
-- [ActiveSession.test.tsx](../../cc-haha/desktop/src/pages/ActiveSession.test.tsx)：519 strip；571 完成隐藏；637 活动面板不放 composer 区。 [MessageList.test.tsx](../../cc-haha/desktop/src/components/chat/MessageList.test.tsx)：1307 设置卡、1333 unlimited、1364 续作。
+- [ActiveSession.tsx](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/desktop/src/pages/ActiveSession.tsx)：104 为 strip 定义；114 完成隐藏；119 运行/暂停/active 文案；124 metrics；148 窄宽度隐藏 metrics；805 desktop guard；827 实际 strip 位置；854 MessageList。
+- [MessageList.tsx](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/desktop/src/components/chat/MessageList.tsx)：296 GoalEventCard；298 默认展开；301 metadata；308 card flow；335 body；367 continuation divider；3866 goal_event 分支。
+- [types/chat.ts](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/desktop/src/types/chat.ts)：308 GoalEventAction；367 goal_event DTO。
+- [chatStore.ts](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/desktop/src/stores/chatStore.ts)：3860 live goal_event；4587 归一化；4615 activeGoal 归并；4643 历史重建；4682 本地命令输出映射；5768 本地 Goal 命令 transcript。
+- [goal/index.ts](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/src/commands/goal/index.ts)：Goal 本地命令定义；[goal/goal.tsx](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/src/commands/goal/goal.tsx)：设置/清除的实际命令路径。
+- [ActiveSession.test.tsx](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/desktop/src/pages/ActiveSession.test.tsx)：519 strip；571 完成隐藏；637 活动面板不放 composer 区。 [MessageList.test.tsx](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/desktop/src/components/chat/MessageList.test.tsx)：1307 设置卡、1333 unlimited、1364 续作。
 
 已实际查看的画面及其证明范围：
 
-- [公开 session-main.webp](../../cc-haha/docs/images/app/zh-CN/session-main.webp)：完整应用的标题、消息区、底部 composer 层级；该画面没有 Goal，**不能证明 Goal 卡或 strip 的实测样式**。
+- [公开 session-main.webp](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/docs/images/app/zh-CN/session-main.webp)：完整应用的标题、消息区、底部 composer 层级；该画面没有 Goal，**不能证明 Goal 卡或 strip 的实测样式**。
 - [原 MessageList 1440 续作隔离截图](../artifacts/goal-continuation/reference-zh-CN-1440.png) 与 [320 续作隔离截图](../artifacts/goal-continuation/reference-zh-CN-320.png)：旧 fixture 只有“上一回复 → continuing divider → 下一回复”；不是完整应用或真实服务，**不包含设置/完成卡与 ActiveGoalStrip**。[旧 fixture main.tsx](../artifacts/goal-continuation/reference/main.tsx) 可核对输入，旧证据未被修改。
 - 新增 **原 MessageList GoalEventCard 隔离证据**：[英文 1440 展开](../artifacts/goal-lifecycle/reference-en-US-1440-expanded.png)、[中文 1440 展开](../artifacts/goal-lifecycle/reference-zh-CN-1440-expanded.png)、[英文 320 展开](../artifacts/goal-lifecycle/reference-en-US-320-expanded.png)、[中文 320 展开](../artifacts/goal-lifecycle/reference-zh-CN-320-expanded.png)。7条人工 typed `goal_event` 覆盖 created/replaced/status/paused/resumed/completed/cleared；直接 import 原 MessageList，**没有复制 GoalEventCard 源码**。这些输入不是 Host 产生的真实业务历史，不证明生命周期后端已接线。
 - 原 pane 在320宽度需要正常垂直滚动：[英文 320 尾部](../artifacts/goal-lifecycle/reference-en-US-320-expanded-tail.png)、[中文 320 尾部](../artifacts/goal-lifecycle/reference-zh-CN-320-expanded-tail.png) 可看到完成与清除卡；不是隐藏末项或按截图硬缩高度。折叠态：[英文 1440](../artifacts/goal-lifecycle/reference-en-US-1440-collapsed.png)、[中文 1440](../artifacts/goal-lifecycle/reference-zh-CN-1440-collapsed.png)、[英文 320](../artifacts/goal-lifecycle/reference-en-US-320-collapsed.png)、[中文 320](../artifacts/goal-lifecycle/reference-zh-CN-320-collapsed.png)。截图视口高度1280，只有 fixture header 与 MessageList，不模拟完整 App chrome。

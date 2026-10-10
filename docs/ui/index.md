@@ -28,7 +28,7 @@
 
 **整体视觉贴近 cc-haha，保留单页面导航。** 重做 hbar 的外壳、页面层级、工具区、设置和交互反馈；现有命令框架、Schema 设置框架、业务状态与服务器交互继续复用。
 
-总计划编写时已目视对照 **8 张 cc-haha 产品截图和 8 张 hbar 视觉产物**，涵盖会话、文件、设置、供应商编辑、命令面板、子 Agent、深色和窄屏。主要参考包括 [cc-haha 会话界面](/D:/Git/cc-haha/docs/images/app/zh-CN/session-main.webp)与[设置界面](/D:/Git/cc-haha/docs/images/app/zh-CN/settings-general.webp)。重建期间持续以真实 production preview 和 Tauri WebView 看图修正，当前 `artifacts/ui-redesign` 包含 22 个页面/组件族、212 张 PNG；ToolPane 最终矩阵把文件、Monitoring、子 Agent、Goal/Plan 在 1440、1024、390 三档并排复核，Tauri 矩阵补充默认窗、真实 900×600 内窗、流式侧栏和 Windows 标题栏。最终又对照 cc-haha 的 `session-dark.webp` 与 `settings-general.webp` 核对空间关系。R0.3 另以当前 `cc-haha` renderer、隔离 Host 和 deterministic mock CLI 补了会话、审批、设置与移动抽屉六张运行图，条件和观察见[视觉审计第 33 节](visual-audit-2026-09-19.md#33-r03-cc-haha-当前运行参考)。完整 hbar 范围和结果见[最终验证矩阵](final-validation-matrix.md)。
+总计划编写时已目视对照 **8 张 cc-haha 产品截图和 8 张 hbar 视觉产物**，涵盖会话、文件、设置、供应商编辑、命令面板、子 Agent、深色和窄屏。主要参考包括 [cc-haha 会话界面](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/docs/images/app/zh-CN/session-main.webp)与[设置界面](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/docs/images/app/zh-CN/settings-general.webp)。重建期间持续以真实 production preview 和 Tauri WebView 看图修正，当前 `artifacts/ui-redesign` 包含 22 个页面/组件族、212 张 PNG；ToolPane 最终矩阵把文件、Monitoring、子 Agent、Goal/Plan 在 1440、1024、390 三档并排复核，Tauri 矩阵补充默认窗、真实 900×600 内窗、流式侧栏和 Windows 标题栏。最终又对照 cc-haha 的 `session-dark.webp` 与 `settings-general.webp` 核对空间关系。R0.3 另以当前 `cc-haha` renderer、隔离 Host 和 deterministic mock CLI 补了会话、审批、设置与移动抽屉六张运行图，条件和观察见[视觉审计第 33 节](visual-audit-2026-09-19.md#33-r03-cc-haha-当前运行参考)。完整 hbar 范围和结果见[最终验证矩阵](final-validation-matrix.md)。
 
 新设计明确替换以下布局：
 

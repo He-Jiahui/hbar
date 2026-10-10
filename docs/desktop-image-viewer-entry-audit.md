@@ -22,9 +22,9 @@
 
 原引用（相对 `D:/Git/cc-haha`）：
 
-- [AttachmentGallery.tsx](../../cc-haha/desktop/src/components/chat/AttachmentGallery.tsx)：70状态、90来源、104布局计数、235打开、286移除、363文件能力gate、458图集接线。
-- [ImageGalleryModal.tsx](../../cc-haha/desktop/src/components/chat/ImageGalleryModal.tsx)：25 overlay登记、35键盘、58主体；[Modal.tsx](../../cc-haha/desktop/src/components/ui/Modal.tsx)：34聚焦/还焦、50 Tab/Esc、89 portal和media布局。
-- [attachmentImages.ts](../../cc-haha/desktop/src/lib/attachmentImages.ts)：14四类inline图、26路径URL、45来源顺序；[filesystem.ts](../../cc-haha/src/server/api/filesystem.ts)：78目录allowlist、114真实路径检查、140文件/容量。
+- [AttachmentGallery.tsx](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/desktop/src/components/chat/AttachmentGallery.tsx)：70状态、90来源、104布局计数、235打开、286移除、363文件能力gate、458图集接线。
+- [ImageGalleryModal.tsx](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/desktop/src/components/chat/ImageGalleryModal.tsx)：25 overlay登记、35键盘、58主体；[Modal.tsx](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/desktop/src/components/ui/Modal.tsx)：34聚焦/还焦、50 Tab/Esc、89 portal和media布局。
+- [attachmentImages.ts](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/desktop/src/lib/attachmentImages.ts)：14四类inline图、26路径URL、45来源顺序；[filesystem.ts](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/src/server/api/filesystem.ts)：78目录allowlist、114真实路径检查、140文件/容量。
 - 原历史 `b09e252f` 修复single/multiple image大小及不安全Markdown图片；`b1ecce78` 保持Markdown图片原文位置。后者涉及`InlineImageGallery`/assistant path extraction，**不是本次上传artifact scope**，不得仅靠正则扫描assistant任意URL就宣称对齐。
 
 ## 本轮新证据

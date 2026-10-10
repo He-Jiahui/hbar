@@ -2,7 +2,7 @@
 
 ## Reference evidence and interpretation
 
-- The published [English](../../cc-haha/docs/images/app/en/composer-mention.webp) and [Chinese](../../cc-haha/docs/images/app/zh-CN/composer-mention.webp) cc-haha desktop captures show a same-width menu above the composer, with file icons, name/path hierarchy and a compact keyboard-help footer. These are desktop captures; they do **not** establish a narrow-screen layout.
+- The published [English](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/docs/images/app/en/composer-mention.webp) and [Chinese](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/docs/images/app/zh-CN/composer-mention.webp) cc-haha desktop captures show a same-width menu above the composer, with file icons, name/path hierarchy and a compact keyboard-help footer. These are desktop captures; they do **not** establish a narrow-screen layout.
 - `D:/Git/cc-haha/desktop/src/components/chat/ChatInput.tsx` owns the `@` trigger, navigation and submission; `FileSearchMenu.tsx` owns browse/search rows and keyboard selection. `MentionComposer.tsx` and `composerEditor.ts` model selected entries as actual document nodes and serialize **only those nodes** to quoted path text. The reference tests at `composerEditor.test.ts:63-84` explicitly retain an identically spelled manual token as plain text.
 - hbar therefore uses a composer-relative overlay and structured draft spans, rather than treating every `@word` as a file, an attachment or an implicit file-read request.
 

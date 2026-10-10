@@ -29,12 +29,12 @@ M2 的逐项实现、截图与验证详见 [Provider 渐进编辑交付记录](d
 
 | ID  | 图像                                                                                      | 实际可见事实                                                                                                                             |
 | --- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| A1  | [添加供应商](../../cc-haha/docs/images/app/zh-CN/settings-provider-add.webp)              | 大型居中对话框保留背景上下文；标题与关闭位于顶部，预设 chips 在表单前；主要字段单列；底部取消/添加与滚动表单分离，添加在不满足条件时禁用 |
-| A2  | [常规设置](../../cc-haha/docs/images/app/zh-CN/settings-general.webp)                     | 应用主栏、设置分类栏、正文三层；设置栏图标加文字，当前项淡底和品牌色图标；主题与语言直接可选，标题/描述/操作构成重复节奏                 |
-| A3  | [Agents](../../cc-haha/docs/images/app/zh-CN/settings-agents.webp)                        | 标题与创建入口同一行；浏览摘要在列表上方；内置来源分组，行内名称、继承/来源/已生效标签提供判断依据                                       |
-| A4  | [Computer Use](../../cc-haha/docs/images/app/zh-CN/settings-computer-use.webp)            | 功能开关靠标题；环境项逐行成功/失败；缺依赖和对应安装/重新检查相邻；Python 路径有选择与应用动作                                          |
-| A5  | [Token 用量](../../cc-haha/docs/images/app/zh-CN/settings-usage.webp)                     | 设置分类直接进入用量；概况、活动热图和时间模式分层；这是阅读型 dashboard，不证明实时账单或完整计费语义                                   |
-| A6  | [技能市场](../../cc-haha/docs/images/app/zh-CN/skill-market.webp)                         | 市场是主栏一级入口；右上有来源状态与已安装技能链接；安全提醒先于搜索过滤；每张卡片带来源、说明和自己的安装动作                           |
+| A1  | [添加供应商](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/docs/images/app/zh-CN/settings-provider-add.webp)              | 大型居中对话框保留背景上下文；标题与关闭位于顶部，预设 chips 在表单前；主要字段单列；底部取消/添加与滚动表单分离，添加在不满足条件时禁用 |
+| A2  | [常规设置](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/docs/images/app/zh-CN/settings-general.webp)                     | 应用主栏、设置分类栏、正文三层；设置栏图标加文字，当前项淡底和品牌色图标；主题与语言直接可选，标题/描述/操作构成重复节奏                 |
+| A3  | [Agents](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/docs/images/app/zh-CN/settings-agents.webp)                        | 标题与创建入口同一行；浏览摘要在列表上方；内置来源分组，行内名称、继承/来源/已生效标签提供判断依据                                       |
+| A4  | [Computer Use](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/docs/images/app/zh-CN/settings-computer-use.webp)            | 功能开关靠标题；环境项逐行成功/失败；缺依赖和对应安装/重新检查相邻；Python 路径有选择与应用动作                                          |
+| A5  | [Token 用量](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/docs/images/app/zh-CN/settings-usage.webp)                     | 设置分类直接进入用量；概况、活动热图和时间模式分层；这是阅读型 dashboard，不证明实时账单或完整计费语义                                   |
+| A6  | [技能市场](https://github.com/He-Jiahui/hbar_old/blob/e28d0a653481ef41b7a329411eeb2f0fd5656731/docs/images/app/zh-CN/skill-market.webp)                         | 市场是主栏一级入口；右上有来源状态与已安装技能链接；安全提醒先于搜索过滤；每张卡片带来源、说明和自己的安装动作                           |
 | H1  | [hbar 当前设置外观](../artifacts/desktop-experience/settings-context-zh-CN-1440.png)      | 已有主栏+设置栏+正文；五个分类图标文字稳定；外观标为当前客户端；主题/尺寸仍以表单、预览和显式保存呈现                                    |
 | H2  | [hbar 较早供应商列表](../artifacts/ui-redesign/settings/after/desktop-1440-providers.png) | 紧凑列表、右上刷新/添加、每行凭据状态和更多菜单；不要把这张旧图用于断言当前主栏、页头或模型入口                                          |
 
