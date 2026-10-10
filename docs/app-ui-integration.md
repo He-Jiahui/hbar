@@ -1,19 +1,20 @@
 # app-ui integration
 
-## Current Web reset
+## Current Web integration
 
-On 2026-09-16 the old Web pages, stores, action models, plugin UI loader, layout
-adapters and overriding styles were removed at the user's request. `apps/web`
-now mounts only the structural components from `hbar-app-ui/workbench`, with
-host-supplied copy and a validated shell descriptor. It does not connect to the
-Host or expose business controls. Host/CLI functionality and the component
-preview remain available. See [the Web host boundary](../apps/web/README.md).
+The 2026-09-16 Web migration retired the legacy pages, stores, action models,
+plugin UI loader, layout adapters and overriding styles. `apps/web` now uses
+`@hbar/app-react` as its composition root and mounts the `hbar-app-ui/workbench`
+surfaces with host-supplied copy and a validated shell descriptor. The production
+entry connects the real Client and Host command catalog through the runtime;
+without a Host it keeps an actionable shell with an explicit reconnect state.
+See [the Web host boundary](../apps/web/README.md).
 
-Component tests remain active; their localized fixture data no longer imports
-the retired Web adapters. Old Web-specific tests were removed with the retired
-implementations. The current browser suite verifies the disconnected shell in
-both locales and desktop/narrow viewports. The historical integration increments
-below describe the previous implementation, not currently available Web features.
+Component tests and browser tests cover the current Host-backed workbench,
+including the disconnected fallback, both locales, desktop and narrow
+viewports, and command-driven settings/session surfaces. The historical
+integration increments below describe earlier implementation steps and their
+evidence; they do not replace the current Web runtime contract.
 
 The production entry is `hbar-app-ui`. Gallery hosts explicitly import
 `hbar-app-ui/catalog`; the 300 existing variant IDs remain stable. Production
