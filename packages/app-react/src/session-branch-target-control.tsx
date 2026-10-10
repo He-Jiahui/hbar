@@ -266,7 +266,8 @@ export function HbarSessionBranchTargetControl({
           </LumenFrame>
         )}
         {view === 'create' ? (
-          <form
+          <LumenFrame
+            as="form"
             className="hbar-session-branch-form"
             onSubmit={(event) => {
               event.preventDefault()
@@ -275,9 +276,9 @@ export function HbarSessionBranchTargetControl({
                 select({ kind, name: name.trim(), baseRef: base.ref, expectedBaseOid: base.tipOid })
             }}
           >
-            <label htmlFor={nameId}>
+            <LumenFrame as="label" htmlFor={nameId}>
               <LumenContentText context="form.label">{labels.branchName}</LumenContentText>
-            </label>
+            </LumenFrame>
             <LumenInput
               ref={nameInput}
               id={nameId}
@@ -314,7 +315,7 @@ export function HbarSessionBranchTargetControl({
             <LumenButton type="submit" variant="solid" size="s" disabled={disabled || !name.trim() || !base}>
               {switching ? labels.creating : labels.create}
             </LumenButton>
-          </form>
+          </LumenFrame>
         ) : (
           <>
             <LumenFrame className="hbar-session-branch-search">
