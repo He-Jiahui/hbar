@@ -20,7 +20,7 @@ export class RuntimePluginRelay {
     readonly storage: StableStoragePort
     readonly coordinator: RuntimeCoordinator
     readonly current: () => readonly RuntimePluginEndpoint[]
-    readonly resolve: (unitId: string, execution?: ExecutionOwnership) => RuntimePluginEndpoint
+    readonly resolve: (unitId: string, execution?: ExecutionOwnership, sessionId?: string) => RuntimePluginEndpoint
   }) {}
   attachPlugin(peer: IpcPeer, owner: RuntimeOwner): { application: RuntimeValuePort; dispose(): void } {
     const application = new RuntimeValuePort(peer, { prefix: 'plugin.application' })
@@ -46,7 +46,7 @@ export class RuntimePluginRelay {
       const execution = explicit ?? (authority.sessionId ? this.options.coordinator.executionForSession(authority.sessionId) ?? undefined : undefined)
       if (execution && execution.owner.incarnation !== owner.incarnation) throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Session capability belongs to another Kernel')
       this.options.coordinator.assertCanWrite(owner, execution)
-      const endpoint = this.options.resolve(unitId, execution), request = runtimePluginInvocationSchema.parse(description)
+      const endpoint = this.options.resolve(unitId, execution, authority.sessionId), request = runtimePluginInvocationSchema.parse(description)
       const args = z.array(z.unknown()).max(32).parse(rawArgs)
       if (typeof callback !== 'function') throw new HbarError('RUNTIME_HOST_REQUIRED', 'Plugin dispatch needs its owned host callback')
       const invokeHost = async (method: string, parameters: readonly unknown[]): Promise<unknown> => {
@@ -56,12 +56,16 @@ export class RuntimePluginRelay {
         return result
       }
       const invocationId = crypto.randomUUID()
-      const resource = execution ? this.options.coordinator.acquireResource(endpoint.owner, 'plugin.call:' + invocationId, execution) : null
-      let permitId: string | undefined
+      let callId: string | undefined
       if (request.operation === 'execute') {
         const identity = z.object({ callId: z.string().min(1).max(160), run: z.object({ id: z.string() }), session: z.object({ id: z.string() }) }).parse(args[1])
         if (!execution || identity.run.id !== execution.runId || identity.session.id !== execution.sessionId) throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Tool execution needs its durable bound Run')
-        try { permitId = this.options.coordinator.reserveTool(execution, identity.callId, endpoint.owner).id }
+        callId = identity.callId
+      }
+      const resource = execution ? this.options.coordinator.acquireResource(endpoint.owner, 'plugin.call:' + invocationId, execution) : null
+      let permitId: string | undefined
+      if (callId && execution) {
+        try { permitId = this.options.coordinator.reserveTool(execution, callId, endpoint.owner).id }
         catch (error) { if (resource) this.options.coordinator.releaseResource(endpoint.owner, resource.id); throw error }
       }
       this.pending.set(invocationId, { owner: endpoint.owner, ...(permitId ? { permitId } : {}), ...(resource ? { resourceId: resource.id } : {}) })

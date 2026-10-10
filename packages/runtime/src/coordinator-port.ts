@@ -14,7 +14,7 @@ export const RUNTIME_COORDINATION_CONTROL_METHODS = [
 ] as const
 export interface RuntimeCoordinatorPortOptions {
   readonly owner: RuntimeOwner
-  readonly bindings: (owner: RuntimeOwner) => RuntimeVersionSet
+  readonly bindings: (owner: RuntimeOwner, sessionId: string) => RuntimeVersionSet
   readonly canAdmit?: (sessionId: string) => boolean
   readonly admitted?: (execution: ExecutionOwnership) => void
   readonly released?: (execution: ExecutionOwnership) => void | Promise<void>
@@ -34,7 +34,7 @@ export function registerRuntimeCoordinatorPort(peer: IpcPeer, coordinator: Runti
     peer.register('execution.claim', procedure(claimSchema, executionOwnershipSchema.nullable(), async input => {
       if (coordinator.role(owner) === 'draining') return null
       if (coordinator.role(owner) === 'default' && options.canAdmit && !options.canAdmit(input.sessionId)) return null
-      const lease = await coordinator.claim(owner, input.sessionId, input.runId, options.bindings(owner))
+      const lease = await coordinator.claim(owner, input.sessionId, input.runId, options.bindings(owner, input.sessionId))
       if (lease) options.admitted?.(lease)
       return lease
     })),

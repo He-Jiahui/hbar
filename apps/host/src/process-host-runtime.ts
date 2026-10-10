@@ -21,6 +21,7 @@ import type { RuntimeSystemPort } from './system-commands'
 import { runtimePluginStateSchema, type RuntimePluginState } from '@hbar/plugin-sdk/runtime-plugin'
 import { RuntimePluginRelay, type RuntimePluginEndpoint } from './runtime-plugin-relay'
 import { RUNTIME_PLUGIN_CONTROL_METHODS } from './runtime-plugin-contract'
+import { RuntimeResourceRegistry } from './runtime-resource-registry'
 
 export interface ProcessHostRuntimeOptions {
   readonly layout: PathLayout
@@ -81,6 +82,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private readonly resumed = new Set<string>()
   private readonly relay: RuntimeDriverRelay
   private readonly pluginRelay: RuntimePluginRelay
+  private readonly resources: RuntimeResourceRegistry
   private readonly pluginConfigs = new Map<string, Record<string, unknown>>()
   private readonly pluginPreparingCatalog = new Set<string>()
   private readonly secrets: SecretStore
@@ -113,13 +115,15 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       },
     })
     this.relay = new RuntimeDriverRelay({ coordinator: this.coordinator, resolve: version => this.driver(version) })
+    this.resources = new RuntimeResourceRegistry(this.coordinator, this.storage)
     this.pluginRelay = new RuntimePluginRelay({ storage: this.storage, coordinator: this.coordinator,
-      current: () => this.pluginEndpoints(), resolve: (id, execution) => this.pluginEndpoint(id, execution) })
+      current: () => this.pluginEndpoints(), resolve: (id, execution, sessionId) => this.pluginEndpoint(id, execution, sessionId) })
     this.facade = new RuntimeKernelFacade({ instanceId, layout: options.layout, demo: options.demo ?? false,
       storage: this.storage, coordinator: this.coordinator, current: () => this.currentKernel(), endpoints: () => this.endpoints(),
       resolve: (target, method, args, captured) => this.resolveKernel(target, method, args, captured),
       maintain: action => this.maintain(action),
       cancel: runId => this.cancelRun(runId),
+      resourceSessions: () => this.resources.sessions(),
     })
     this.manager = new RuntimeManager({ instanceId, artifacts: this.artifacts,
       references: owner => {
@@ -302,11 +306,11 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       throw new HbarError('RUNTIME_RECOVERING', 'The bound driver is recovering')
     return { owner: record.owner, peer: record.peer, version }
   }
-  private bindings(owner: RuntimeOwner): RuntimeVersionSet {
+  private bindings(owner: RuntimeOwner, sessionId: string): RuntimeVersionSet {
     const record = this.generations.get(key(owner))
     if (!record || record.owner?.incarnation !== owner.incarnation) throw new HbarError('RUNTIME_OWNER_REVOKED', 'The claiming Kernel incarnation expired')
     const kernel = { unitId: owner.unitId, generation: owner.generation, artifactId: record.artifact.id }
-    const plugins = this.pluginEndpoints().map(endpoint => endpoint.version)
+    const plugins = this.pluginEndpoints().map(endpoint => this.resources.version(endpoint.owner.unitId, sessionId) ?? endpoint.version)
     return { kernel, driver: record.state?.driverIsolation === 'legacy' ? kernel : this.manager.currentVersion('driver.pi'), plugins,
       hooks: this.pluginEndpoints().filter(endpoint => endpoint.state.hooks.length > 0).map(endpoint => endpoint.version) }
   }
@@ -315,8 +319,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       try { return [this.pluginEndpoint(unit.descriptor.id)] } catch { return [] }
     })
   }
-  private pluginEndpoint(unitId: string, execution?: ExecutionOwnership): RuntimePluginEndpoint {
-    const version = execution?.versions.plugins.find(version => version.unitId === unitId) ?? this.manager.currentVersion(unitId)
+  private pluginEndpoint(unitId: string, execution?: ExecutionOwnership, sessionId?: string): RuntimePluginEndpoint {
+    const version = execution?.versions.plugins.find(version => version.unitId === unitId) ?? (sessionId ? this.resources.version(unitId, sessionId) : undefined) ?? this.manager.currentVersion(unitId)
     const record = this.generations.get(key(version))
     if (!record?.owner || !record.application || !record.pluginState || record.artifact.id !== version.artifactId ||
       !['serving', 'draining'].includes(record.process.snapshot().phase))
@@ -361,6 +365,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         if (artifact.descriptor.kind === 'plugin') {
           const connection = this.pluginRelay.attachPlugin(peer, owner)
           record.application = connection.application; record.cleanup.push(connection.dispose)
+          record.cleanup.push(this.resources.attach(connection.application, owner, { unitId: artifact.unitId, generation, artifactId: artifact.id }))
         }
         if (artifact.unitId === 'kernel') this.attachKernel(record, peer, owner)
       },
@@ -389,6 +394,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         if (artifact.unitId === 'kernel') { this.relay.kernelExited(owner); for (const lease of this.leases.values()) if (lease.owner.incarnation === owner.incarnation) this.stopped.add(lease.runId) }
         if (artifact.unitId === 'driver.pi') this.relay.driverExited(owner)
         if (artifact.descriptor.kind === 'plugin') this.pluginRelay.exited(owner)
+        this.resources.exited(owner)
         for (const cleanup of record.cleanup.splice(0)) cleanup()
         record.controller?.dispose(); record.controller = null
         record.application?.dispose(); record.application = null; record.peer = null
@@ -407,7 +413,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private attachKernel(record: Generation, peer: IpcPeer, owner: RuntimeOwner): void {
     record.application = new RuntimeValuePort(peer, { prefix: 'kernel.application', controlMethods: RUNTIME_APPLICATION_CONTROLS })
     record.cleanup.push(this.relay.attachKernel(peer), this.pluginRelay.attachKernel(peer, owner), registerRuntimeCoordinatorPort(peer, this.coordinator, { owner,
-      bindings: caller => this.bindings(caller), canAdmit: sessionId => this.canAdmit(sessionId),
+      bindings: (caller, sessionId) => this.bindings(caller, sessionId), canAdmit: sessionId => this.canAdmit(sessionId),
       admitted: lease => { this.leases.set(lease.runId, lease); this.schedule() },
       released: lease => this.handoff(lease),
       stopped: (_owner, runId) => { this.stopped.add(runId); this.schedule() },

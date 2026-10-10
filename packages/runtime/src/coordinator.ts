@@ -55,6 +55,7 @@ export class RuntimeCoordinator {
   private readonly sessions = new Map<string, ExecutionOwnership>()
   private readonly runs = new Map<string, ExecutionOwnership>()
   private readonly claiming = new Set<string>()
+  private readonly claimVersions = new Map<string, RuntimeVersionSet>()
   private readonly blocked = new Set<string>()
   private readonly revoking = new Set<string>()
   private readonly interruptions = new Map<string, Set<string>>()
@@ -62,6 +63,7 @@ export class RuntimeCoordinator {
   private readonly tools = new Map<string, RuntimeToolPermit>()
   private readonly toolKeys = new Map<string, string>()
   private readonly resources = new Map<string, RuntimeResourceLease>()
+  private readonly retainedSessions = new Map<string, string>()
   private readonly pendingReleases = new Map<string, { lease: ExecutionOwnership; released: () => void | Promise<void>; failed: () => void }>()
   private readonly resourceKeys = new Map<string, string>()
   private fence = 0
@@ -166,7 +168,8 @@ export class RuntimeCoordinator {
       if (
         ![...this.owners.values()].some(
           (candidate) =>
-            candidate.role === 'default' &&
+            (candidate.role === 'default' || (candidate.role === 'draining' && [...this.retainedSessions].some(([id, retainedSession]) =>
+              retainedSession === sessionId && this.resources.get(id)?.owner.incarnation === candidate.owner.incarnation))) &&
             !candidate.exited &&
             candidate.version.unitId === version.unitId &&
             candidate.version.generation === version.generation &&
@@ -176,6 +179,7 @@ export class RuntimeCoordinator {
         throw new HbarError('RUNTIME_DEPENDENCY_UNAVAILABLE', 'A bound default capability is not ready')
     }
     this.claiming.add(sessionId)
+    this.claimVersions.set(sessionId, parsed)
     const draft = executionOwnershipSchema.parse({
       leaseId: crypto.randomUUID(),
       sessionId,
@@ -211,6 +215,7 @@ export class RuntimeCoordinator {
       throw error
     } finally {
       this.claiming.delete(sessionId)
+      this.claimVersions.delete(sessionId)
     }
   }
 
@@ -424,6 +429,14 @@ export class RuntimeCoordinator {
     this.resourceKeys.set(key, resource.id)
     return resource
   }
+  /** Only the stable composition calls this after authenticating an owner-local native resource description. */
+  retainSessionResource(owner: RuntimeOwner, key: string, sessionId: string): RuntimeResourceLease {
+    if (!sessionId || sessionId.length > 160) throw new HbarError('INVALID_INPUT', 'A retained resource needs a bounded Session identity')
+    const lease = this.acquireResource(owner, key)
+    if (!lease) throw new HbarError('RUNTIME_RESOURCE_EXISTS', 'The retained resource is already owned')
+    this.retainedSessions.set(lease.id, sessionId)
+    return lease
+  }
 
   releaseResource(owner: RuntimeOwner, resourceId: string): void {
     const resource = this.resources.get(resourceId)
@@ -431,6 +444,7 @@ export class RuntimeCoordinator {
     if (!sameOwner(resource.owner, owner))
       throw new HbarError('RUNTIME_RESOURCE_OWNER_MISMATCH', 'Only the resource owner may release its lease')
     this.resources.delete(resourceId)
+    this.retainedSessions.delete(resourceId)
     this.resourceKeys.delete(resource.key)
     this.releaseSettled()
   }
@@ -444,7 +458,8 @@ export class RuntimeCoordinator {
             version.generation === owner.generation &&
             version.artifactId === this.record(owner).version.artifactId,
         ),
-      ).length,
+      ).length + [...this.claimVersions.values()].filter(set => versions(set).some(version =>
+        version.unitId === owner.unitId && version.generation === owner.generation && version.artifactId === this.record(owner).version.artifactId)).length,
       resources: [...this.resources.values()].filter((resource) => sameOwner(resource.owner, owner)).length,
       tools: [...this.tools.values()].filter((permit) => sameOwner(permit.owner, owner)).length,
     }

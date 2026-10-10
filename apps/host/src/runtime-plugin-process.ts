@@ -36,7 +36,14 @@ export function createRuntimePlugin(context: RuntimeProcessContext, factory: Run
   const fallback: RuntimePluginHostInvoker = (method, args) => values.call('host.read', [method, [...args]])
   const construct = async (shadow: boolean): Promise<Owner> => {
     const ctx = new Context(), tools = new Map<string, ToolDefinition>(), hooks = new RuntimePluginHooks(), panels = new Map<string, ToolWindowContribution>()
-    const api = createRuntimePluginAPI({ ctx, entries: tools, hooks, panels, ownerId: z.string().parse(plugins.at(-1)?.manifest.id), preparing: () => shadow, fallback })
+    const api = createRuntimePluginAPI({ ctx, entries: tools, hooks, panels, ownerId: z.string().parse(plugins.at(-1)?.manifest.id), preparing: () => shadow, fallback,
+      resources: { retain: async descriptor => {
+        if (shadow || preflight || context.preparing()) throw new HbarError('RUNTIME_PREPARING', 'A candidate cannot acquire native resources')
+        const id = z.string().uuid().parse(await values.call('resource.retain', [descriptor]))
+        let released = false
+        return async () => { if (!released) { await values.call('resource.release', [id]); released = true } }
+      } },
+    })
     const provided = new Set(plugins.flatMap(plugin => Object.keys(plugin.manifest.provides ?? {})))
     const dependencies = [...new Set(plugins.flatMap(plugin => Object.keys({ ...plugin.manifest.requires, ...plugin.manifest.optional })))].filter(name => !provided.has(name))
     provideRuntimePluginDependencies(ctx, dependencies, fallback)

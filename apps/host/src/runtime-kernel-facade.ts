@@ -29,6 +29,7 @@ export interface RuntimeKernelFacadeOptions {
   readonly maintain: <Result>(action: () => Promise<Result>) => Promise<Result>
   readonly cancel?: (runId: string) => Promise<void>
   readonly openScope?: (id: string) => Promise<KernelClientScopePort>
+  readonly resourceSessions?: () => readonly string[]
 }
 type Methods<Target extends keyof RuntimeApplicationTargets> = Extract<(typeof RUNTIME_APPLICATION_METHODS)[Target][number], keyof RuntimeApplicationTargets[Target]>
 type ApplicationMethods<Target extends keyof RuntimeApplicationTargets> = Pick<RuntimeApplicationTargets[Target], Methods<Target>>
@@ -72,7 +73,8 @@ export class RuntimeKernelFacade {
       subscribe: listener => { this.listeners.add(listener); return () => { this.listeners.delete(listener) } },
       assertIdle: () => this.assertIdle(),
       chatDatabaseIsIdle: () => this.idle(),
-      chatDatabaseSessionProtection: sessionId => options.endpoints().flatMap(endpoint => endpoint.state.protection).find(value => value.sessionId === sessionId)?.reason ?? null,
+      chatDatabaseSessionProtection: sessionId => options.endpoints().flatMap(endpoint => endpoint.state.protection).find(value => value.sessionId === sessionId)?.reason ??
+        (options.resourceSessions?.().includes(sessionId) ? 'active' : null),
       maintainChatDatabase: action => options.maintain(action),
       notifyChatDatabaseDeleted: (sessionIds, revision) => this.publish({ method: 'chatDatabase.deleted', params: { schemaVersion: 1, sessionIds, revision } }),
       pendingUserInput: requestId => options.endpoints().flatMap(endpoint => endpoint.state.userInputs).find(value => value.requestId === requestId) ?? null,

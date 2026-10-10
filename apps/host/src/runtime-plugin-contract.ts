@@ -14,6 +14,8 @@ export const RUNTIME_PLUGIN_SERVICES = {
   models: ['list', 'get', 'secret'], storage: ['call'],
 } as const
 export const runtimePluginAuthoritySchema = z.strictObject({ execution: executionOwnershipSchema.optional(), sessionId: z.string().min(1).max(160).optional() })
+export const runtimeNativeResourceSchema = z.strictObject({ kind: z.enum(['browser', 'computer', 'terminal']),
+  id: z.string().min(1).max(160), sessionId: z.string().min(1).max(160) })
 export const runtimePluginInvocationSchema = z.strictObject({ operation: z.enum(['capability', 'validate', 'execute', 'hook', 'commitGoal']),
   name: z.string().min(1).max(160), method: z.string().max(128).optional(), catalog: z.array(runtimePluginStateSchema.shape.tools.element).max(4_096),
   invocationId: z.string().uuid().optional(),
@@ -32,5 +34,6 @@ export const runtimePluginResultSchema = z.discriminatedUnion('kind', [
 export const PLUGIN_RUNTIME_FINGERPRINT = createHash('sha256').update(JSON.stringify(['hbar.plugin.runtime.v1',
   z.toJSONSchema(runtimePluginStateSchema), z.toJSONSchema(runtimePluginAuthoritySchema), z.toJSONSchema(runtimePluginConfigurationSchema),
   z.toJSONSchema(runtimePluginResultSchema), RUNTIME_PLUGIN_SERVICES, RUNTIME_PLUGIN_HOOKS,
+  z.toJSONSchema(runtimeNativeResourceSchema), ['resource.retain', 'resource.release'],
 ])).digest('hex')
 export const RUNTIME_PLUGIN_CONTROL_METHODS = ['plugin.application.callback', 'plugin.application.control'] as const

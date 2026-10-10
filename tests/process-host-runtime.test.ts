@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { MemorySecrets } from '@hbar/kernel/secrets'
-import { createPathLayout } from '@hbar/storage'
+import { createPathLayout, ensurePathLayout, Storage } from '@hbar/storage'
 import { HbarClient, createSystemCommandClient } from '@hbar/client'
 import type { WireNotification } from '@hbar/contracts'
 import { ProcessHostRuntime } from '../apps/host/src/process-host-runtime'
@@ -16,9 +16,15 @@ async function until(check: () => boolean | Promise<boolean>): Promise<void> {
   const deadline = Date.now() + 30_000
   while (!await check()) { if (Date.now() >= deadline) throw new Error('Process Host transition did not settle'); await Bun.sleep(10) }
 }
-async function fixture() {
+async function fixture(browserConfig?: Record<string, unknown>) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-process-host-'))
   const layout = createPathLayout(join(root, 'data'), join(root, 'cache'), join(root, 'pointer.json'))
+  if (browserConfig) {
+    await ensurePathLayout(layout)
+    const storage = new Storage(layout.database, layout)
+    try { await storage.call('ready'); await storage.call('setPlugin', 'browser-use.codex', true, browserConfig) }
+    finally { await storage.close() }
+  }
   const runtime = await ProcessHostRuntime.create({ layout, sourceRoot: process.cwd(), demo: true, workspace: root, secrets: new MemorySecrets() })
   resources.push(async () => { await runtime.close(); await rm(root, { recursive: true, force: true }) })
   const workspace = (await runtime.storage.call('workspaces'))[0]!
@@ -112,6 +118,39 @@ test('owned local and Plan tools validate, execute and settle through the admitt
   const events = await f.runtime.storage.call('events', f.session.id, 0, 2_000)
   expect(events.filter(event => event.type === 'tool.settled')).toHaveLength(2)
   expect(f.runtime.coordinator.snapshot()).toMatchObject({ sessions: 0, resources: 0, physicalTools: 0 })
+})
+
+test('a retained browser context survives plugin and Kernel updates until explicit close, while fresh Sessions use the new browser owner', async () => {
+  const pageServer = Bun.serve({ port: 0, fetch: () => new Response('<title>Owned context</title><p>Retained page state</p>', { headers: { 'content-type': 'text/html' } }) })
+  resources.push(async () => { await pageServer.stop(true) })
+  const f = await fixture({ backend: 'fetch', default_origin_policy: { access: 'allow' }, allow_history_access: true })
+  const browser = f.runtime.kernel.plugins.get('browser')
+  const page = await browser.navigate(f.session.id, 'http://127.0.0.1:' + pageServer.port)
+  expect(f.runtime.kernel.chatDatabaseSessionProtection(f.session.id)).toBe('active')
+  const before = f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'plugin.browser')?.generations[0]
+  const operation = f.runtime.reload((await changedPlugin(f.runtime, 'plugin.browser')).id, ['plugin.browser'])
+  await f.runtime.manager.reconcile(); await f.runtime.settled()
+  expect(f.runtime.manager.currentVersion('plugin.browser').generation).toBe(2)
+  expect((await browser.snapshot(f.session.id, page.contextId, page.pageId)).text).toContain('Retained page state')
+  const other = await f.runtime.storage.call('createSession', f.session.workspaceId)
+  const freshPage = await browser.navigate(other.id, 'http://127.0.0.1:' + pageServer.port)
+  expect(freshPage.contextId).not.toBe(page.contextId)
+  const kernelOperation = f.runtime.reload((await changedKernel(f.runtime, 'export const nativeContextRevision = 2')).id, ['kernel'])
+  await f.runtime.manager.reconcile(); await f.runtime.settled()
+  expect(f.runtime.manager.currentVersion('kernel').generation).toBe(2)
+  const run = await f.runtime.kernel.submit(f.session.id, 'retained-context-run', { text: '/tool browser_snapshot {}', images: [], approval: 'allow' }, 'local-fixture')
+  await f.runtime.waitForIdle()
+  expect(await f.runtime.storage.call('run', run.id)).toMatchObject({ status: 'completed' })
+  const ownership = await f.runtime.storage.call('runtimeExecutionRead', run.id)
+  expect(ownership?.lease.versions.plugins.find(version => version.unitId === 'plugin.browser')?.generation).toBe(1)
+  expect(f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'plugin.browser')?.generations.find(generation => generation.generation === 1)?.pid).toBe(before?.pid)
+  expect(await browser.close(f.session.id)).toEqual({ closed: true })
+  await browser.close(other.id)
+  await f.runtime.manager.reconcile()
+  await until(() => f.runtime.getReload(operation.operationId).phase === 'completed')
+  expect(f.runtime.getReload(kernelOperation.operationId).phase).toBe('completed')
+  expect(f.runtime.kernel.chatDatabaseSessionProtection(f.session.id)).toBeNull()
+  expect(f.runtime.coordinator.snapshot().resources).toBe(0)
 })
 
 test('a crashed plugin fences its bound Run, restores the activated plugin version and creates one safe successor without restarting the Kernel', async () => {

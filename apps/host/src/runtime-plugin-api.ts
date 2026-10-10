@@ -38,6 +38,7 @@ export function createRuntimePluginAPI(options: {
   readonly ownerId: string
   readonly preparing: () => boolean
   readonly fallback: RuntimePluginHostInvoker
+  readonly resources: NonNullable<HbarAPI['resources']>
 }): HbarAPI {
   const invoke = async <Result>(method: string, args: readonly unknown[]): Promise<Result> => {
     const host = scope.getStore()?.host ?? options.fallback
@@ -62,7 +63,7 @@ export function createRuntimePluginAPI(options: {
     get: name => options.entries.get(name) ?? scope.getStore()?.tools.find(tool => tool.name === name),
   }
   const api: HbarAPI = {
-    scope: { kind: 'host', id: 'host' }, restoreMode: 'projection', tools,
+    scope: { kind: 'host', id: 'host' }, restoreMode: 'projection', tools, resources: options.resources,
     hooks: { on: (event, listener) => options.hooks.on(event, listener),
       dispatch: async (event, value) => {
         if (event === 'goal.beforeComplete') {

@@ -90,6 +90,38 @@ test('valid lease identities cannot forge their captured capability bindings', a
   f.coordinator.assertExecution(lease)
 })
 
+test('new Runs may bind a draining capability only for the Session that retains its native resource', async () => {
+  const f = fixture(), next = owner('plugin.local', 2)
+  const retained = f.coordinator.retainSessionResource(f.plugin, 'native:fixture-context', 'retained-session')
+  f.register(next, 'plugin')
+  const wrong: unknown = await f.coordinator.claim(f.kernel, 'other-session', 'wrong-run', f.bindings()).catch((error: unknown) => error)
+  expect(wrong).toMatchObject({ code: 'RUNTIME_DEPENDENCY_UNAVAILABLE' })
+  const run = await f.claim('retained-session', 'retained-run')
+  expect(run.versions.plugins[0]).toEqual(version(f.plugin))
+  await f.coordinator.releaseExecution(run)
+  f.coordinator.releaseResource(f.plugin, retained.id)
+  const expired: unknown = await f.coordinator.claim(f.kernel, 'retained-session', 'expired-run', f.bindings()).catch((error: unknown) => error)
+  expect(expired).toMatchObject({ code: 'RUNTIME_DEPENDENCY_UNAVAILABLE' })
+  expect((await f.claim('fresh-session', 'fresh-run', f.kernel, f.driver, next)).versions.plugins[0]).toEqual(version(next))
+})
+
+test('an in-flight claim retains every captured generation while its native resource closes', async () => {
+  let commit: (() => void) | undefined
+  const f = fixture({ claim: lease => new Promise(resolve => { commit = () => resolve(lease) }) })
+  const retained = f.coordinator.retainSessionResource(f.plugin, 'native:closing-context', 'session')
+  const next = owner('plugin.local', 2); f.register(next, 'plugin')
+  const pending = f.claim()
+  f.coordinator.releaseResource(f.plugin, retained.id)
+  expect(f.coordinator.references(f.plugin)).toMatchObject({ runs: 1, resources: 0 })
+  if (!commit) throw new Error('The claim did not reach persistence')
+  commit()
+  const lease = await pending
+  expect(lease.versions.plugins[0]).toEqual(version(f.plugin))
+  expect(f.coordinator.references(f.plugin).runs).toBe(1)
+  await f.coordinator.releaseExecution(lease)
+  expect(f.coordinator.references(f.plugin).runs).toBe(0)
+})
+
 test('a recovered old generation opens its draining ports without stealing the current default', async () => {
   const f = fixture()
   const next = owner('kernel', 2)

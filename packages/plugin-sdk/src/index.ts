@@ -76,6 +76,9 @@ export { Context }
 export { DEFAULT_TOOL_TIMEOUT_MS, resolveToolTimeoutMs, describeToolTimeout } from './tool-timeout'
 export type { ToolTimeoutPolicy } from './tool-timeout'
 export type Disposer = () => void | Promise<void>
+export interface ManagedResourceRegistry {
+  retain(resource: { kind: 'browser' | 'computer' | 'terminal'; id: string; sessionId: string }): Promise<Disposer>
+}
 export type ScopeKind = 'host' | 'workspace' | 'session' | 'run' | 'client'
 export type ToolResultContent = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }
 export interface ScopeDescriptor {
@@ -761,6 +764,8 @@ export interface HbarAPI {
     goalEnabled?: boolean,
   ): Promise<import('@hbar/contracts').AutomationState>
   panels: { register(panel: Omit<ToolWindowContribution, 'owner'>): Disposer }
+  /** Optional stable lifecycle port. Executable/native handles remain in this plugin process. */
+  resources?: ManagedResourceRegistry
   service<T>(name: string): T
 }
 export interface UserInputService {

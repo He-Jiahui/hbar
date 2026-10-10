@@ -91,7 +91,7 @@ export class RuntimePluginAdapter {
   private async invoke<Result>(unitId: string, operation: Omit<Invocation, 'catalog'>, args: readonly unknown[], api: HbarAPI): Promise<Result> {
     const kernel = this.kernel(), execution = kernel.runtimeExecution()
     const first = args[0], context = args[1]
-    const sessionId = execution?.sessionId ?? (typeof first === 'string' && ['goal', 'plan', 'mode', 'budget', 'workflow', 'agent'].includes(operation.name) ? first :
+    const sessionId = execution?.sessionId ?? (typeof first === 'string' && ['goal', 'plan', 'mode', 'budget', 'workflow', 'agent', 'browser', 'computer'].includes(operation.name) ? first :
       first && typeof first === 'object' && 'sessionId' in first && typeof first.sessionId === 'string' ? first.sessionId : undefined)
     const contextRoot = context && typeof context === 'object' && 'workspace' in context && context.workspace && typeof context.workspace === 'object' && 'path' in context.workspace ? context.workspace.path : undefined
     const mount = kernel.workspaceSandboxes.get(typeof contextRoot === 'string' ? contextRoot : typeof first === 'string' ? first : '')
