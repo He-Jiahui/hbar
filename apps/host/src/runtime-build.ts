@@ -21,3 +21,9 @@ export function hostRuntimeBuildUnits(options: { profileModule?: string } = {}):
       define: { HBAR_EXTERNAL_DRIVER: 'true' }, external: RUNTIME_BUNDLE_EXTERNALS },
   ]
 }
+
+/** Emitted dependencies of the stable listener/supervisor require an explicit restart when changed. */
+export function hostRuntimeBaseBuildUnit(): RuntimeBuildUnit {
+  return { descriptor: { ...descriptor('base', 'base', CONTROLLER_RUNTIME_FINGERPRINT), isolation: 'base', reloadable: false },
+    entrypoint: 'apps/host/src/main.ts', external: RUNTIME_BUNDLE_EXTERNALS, resources: ['packages/runtime/src/build-worker.ts'] }
+}

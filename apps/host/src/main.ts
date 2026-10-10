@@ -91,6 +91,7 @@ export async function runHost(
       ...(values.demo !== undefined ? { demo: values.demo } : {}),
       ...(values.workspace ? { workspace: values.workspace } : {}),
       ...(values.profile ? { profileModule: resolve(values.profile) } : {}),
+      ...(process.env.HBAR_RUNTIME_WATCH === '1' ? { watchSource: true } : {}),
     })
     const host = await startServer(runtime.kernel, {
       runtime, controller: runtime.controller,

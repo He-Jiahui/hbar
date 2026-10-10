@@ -101,12 +101,21 @@ export const runtimeUnitSnapshotSchema = z.strictObject({
   queuedArtifactId: runtimeArtifactIdSchema.nullable(),
 })
 export type RuntimeUnitSnapshot = z.infer<typeof runtimeUnitSnapshotSchema>
+export const runtimeSourceReloadSchema = z.strictObject({
+  revision: z.number().int().nonnegative(),
+  phase: z.enum(['idle', 'building', 'prepared', 'applying', 'failed', 'restart_required']),
+  unitIds: z.array(runtimeUnitIdSchema).max(512),
+  operationId: opaqueId.nullable(), artifactSetId: opaqueId.nullable(),
+  reasonCode: z.string().min(1).max(128).nullable(), updatedAt: z.number().int().nonnegative(),
+})
+export type RuntimeSourceReload = z.infer<typeof runtimeSourceReloadSchema>
 export const runtimeSnapshotSchema = z.strictObject({
   revision: z.number().int().nonnegative(),
   instanceId: opaqueId,
   ready: z.boolean(),
   units: z.array(runtimeUnitSnapshotSchema).max(512),
   preparedArtifactSets: z.array(opaqueId).max(256),
+  sourceReload: runtimeSourceReloadSchema.optional(),
 })
 export type RuntimeSnapshot = z.infer<typeof runtimeSnapshotSchema>
 

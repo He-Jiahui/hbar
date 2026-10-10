@@ -2,20 +2,21 @@ import { join, resolve } from 'node:path'
 import { z } from 'zod'
 import { HbarError, providerSchema } from '@hbar/contracts'
 import { runtimeWireNotificationSchema } from '@hbar/contracts/runtime-notifications'
-import type { ExecutionOwnership, RuntimeOwner, RuntimeSnapshot, RuntimeVersion, RuntimeVersionSet } from '@hbar/contracts/runtime'
+import type { ExecutionOwnership, RuntimeOwner, RuntimeSnapshot, RuntimeSourceReload, RuntimeVersion, RuntimeVersionSet } from '@hbar/contracts/runtime'
 import type { KernelControllerPort } from '@hbar/kernel/controller'
 import { createNativeSecrets, type SecretStore } from '@hbar/kernel/secrets'
 import { RUNTIME_KERNEL_CONTROL_METHODS, runtimeKernelStateSchema, runtimeKernelRecoverySchema } from '@hbar/kernel/runtime-port'
 import { RUNTIME_APPLICATION_CONTROLS } from '@hbar/kernel/runtime-application'
 import { ManagedProcess, RuntimeArtifactStore, RuntimeCoordinator, RuntimeManager, RuntimeValuePort, procedure,
   registerRuntimeCoordinatorPort, RUNTIME_COORDINATION_CONTROL_METHODS, runtimeDomainError, type IpcPeer, type RuntimeArtifact, type RuntimeArtifactPackage, type RuntimeBuildUnit } from '@hbar/runtime'
+import { buildRuntimeArtifact, createRuntimeSourceReload, runtimeSourceRoots, watchRuntimeSources } from '@hbar/runtime'
 import { Storage, StableStoragePort, callStorageRpc, ensurePathLayout, storageRpcCallSchema, type PathLayout } from '@hbar/storage'
 import { acquireHostProcessLock } from './process-lock'
 import { RuntimeKernelFacade, type RuntimeKernelEndpoint, type RuntimeKernelState } from './runtime-kernel-facade'
 import { RuntimeDriverRelay, type RuntimeDriverEndpoint } from './runtime-driver-relay'
 import type { RuntimeControllerPort } from './runtime-controller-contract'
 import { RuntimeControllerAdapter } from './runtime-controller-adapter'
-import { hostRuntimeBuildUnits } from './runtime-build'
+import { hostRuntimeBaseBuildUnit, hostRuntimeBuildUnits } from './runtime-build'
 import type { RuntimeSystemPort } from './system-commands'
 
 export interface ProcessHostRuntimeOptions {
@@ -28,6 +29,9 @@ export interface ProcessHostRuntimeOptions {
   /** Trusted immutable build content, supplied by the packaged entry rather than a remote reload request. */
   readonly artifactPackage?: RuntimeArtifactPackage
   readonly profileModule?: string
+  readonly watchSource?: boolean
+  /** Local typed catalog override for embedding/tests. Remote reload input cannot register modules. */
+  readonly buildUnits?: readonly RuntimeBuildUnit[]
 }
 interface Generation {
   readonly artifact: RuntimeArtifact
@@ -83,11 +87,16 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private reasonCode: string | null = null
   private storageFailure: { owner: RuntimeOwner; unknown: boolean } | null = null
   private readonly pendingRevocations: Array<{ owner: RuntimeOwner; ids: string[] }> = []
+  private readonly sourceAbort = new AbortController()
+  private disposeSource = () => {}
+  private sourceBaseline: RuntimeArtifact | null = null
+  private sourceState: RuntimeSourceReload | undefined
+  private sourceTask: Promise<void> | undefined
 
   private constructor(private readonly options: ProcessHostRuntimeOptions, readonly instanceId = crypto.randomUUID()) {
     this.secrets = options.secrets ?? createNativeSecrets(options.layout.identityRoot)
     this.artifacts = new RuntimeArtifactStore(join(options.layout.cacheRoot, 'runtime-artifacts'), options.sourceRoot ?? resolve(import.meta.dir, '../../..'))
-    this.buildUnits = hostRuntimeBuildUnits(options.profileModule ? { profileModule: options.profileModule } : {})
+    this.buildUnits = options.buildUnits ?? hostRuntimeBuildUnits(options.profileModule ? { profileModule: options.profileModule } : {})
     this.coordinator = new RuntimeCoordinator({
       claim: draft => this.storage.call('runtimeExecutionClaim', draft),
       release: lease => this.storage.call('runtimeExecutionRelease', lease),
@@ -147,12 +156,14 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       runtime.initializing = false
       await runtime.resume()
       await runtime.kernel.plugins.get('goal').resumeOnStartup()
+      if (options.watchSource) await runtime.watchSource()
       return runtime
     } catch (error) { await runtime.close(); throw error }
   }
   snapshot(): RuntimeSnapshot {
     const state = this.manager.snapshot()
-    return { ...state, ready: !this.initializing && !this.closing && state.ready && this.executionReady() && this.storage.snapshot().phase === 'serving' && !this.storageFailure }
+    return { ...state, ...(this.sourceState ? { sourceReload: { ...this.sourceState, unitIds: [...this.sourceState.unitIds] } } : {}),
+      ready: !this.initializing && !this.closing && state.ready && this.executionReady() && this.storage.snapshot().phase === 'serving' && !this.storageFailure }
   }
   reload(artifactSetId: string, unitIds: readonly string[]) { return this.manager.reload(artifactSetId, unitIds) }
   getReload(id: string) { return this.manager.getReload(id) }
@@ -174,6 +185,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   close(): Promise<void> { this.closeTask ??= this.dispose(); return this.closeTask }
   private async dispose(): Promise<void> {
     this.closing = true
+    this.disposeSource(); this.sourceAbort.abort()
+    await this.sourceTask
     clearInterval(this.sweep)
     for (const record of this.generations.values()) if (record.artifact.unitId === 'kernel') await record.process.dispose()
     await this.storage.close()
@@ -185,6 +198,54 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     const artifacts: RuntimeArtifact[] = []
     for (const unit of this.buildUnits) artifacts.push(await this.artifacts.build(unit))
     return artifacts
+  }
+  private async watchSource(): Promise<void> {
+    if (this.options.artifactPackage) throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Packaged runtime source watching is unavailable')
+    this.sourceBaseline = await buildRuntimeArtifact(this.artifacts, hostRuntimeBaseBuildUnit(), this.sourceAbort.signal)
+    this.sourceState = { revision: 0, phase: 'idle', unitIds: [], operationId: null, artifactSetId: null, reasonCode: null, updatedAt: Date.now() }
+    const reload = createRuntimeSourceReload({ reload: paths => {
+      const task = this.applySourceChanges(paths).finally(() => { if (this.sourceTask === task) this.sourceTask = undefined })
+      this.sourceTask = task
+      return task
+    }, onError: error => this.sourceFailed(error) })
+    const stopWatch = watchRuntimeSources(await runtimeSourceRoots(this.artifacts.sourceRoot), reload.changed, error => this.sourceFailed(error))
+    this.disposeSource = () => { stopWatch(); reload.dispose() }
+  }
+  private sourceFailed(error: unknown): void {
+    if (this.closing) return
+    this.sourceState = { revision: (this.sourceState?.revision ?? 0) + 1, phase: 'failed', unitIds: this.sourceState?.unitIds ?? [],
+      operationId: null, artifactSetId: null, reasonCode: runtimeDomainError(error)?.code ?? 'RUNTIME_BUILD_FAILED', updatedAt: Date.now() }
+    console.error(`[hbar runtime] source update failed (${this.sourceState.reasonCode})`)
+  }
+  /** Local development input, never a network command or arbitrary artifact path. */
+  async applySourceChanges(paths: readonly string[]): Promise<void> {
+    const artifacts = this.buildUnits.map(unit => this.currentGeneration(unit.descriptor.id).artifact)
+    const changed = paths.includes('') ? artifacts.flatMap(artifact => artifact.inputs) : [...paths]
+    const affected = this.artifacts.affected(changed, [...artifacts, ...(this.sourceBaseline ? [this.sourceBaseline] : [])])
+    const nativeSource = changed.some(path => /\.(?:rs|c|cpp|h|hpp|toml|node|dll|so|dylib|wasm)$/i.test(path))
+    if (nativeSource && !affected.includes('base')) affected.push('base')
+    if (!affected.length) return
+    const revision = (this.sourceState?.revision ?? 0) + 1
+    const state: RuntimeSourceReload = { revision, phase: affected.includes('base') || nativeSource ? 'restart_required' : 'building',
+      unitIds: affected, operationId: null, artifactSetId: null, reasonCode: affected.includes('base') || nativeSource ? 'RUNTIME_RESTART_REQUIRED' : null, updatedAt: Date.now() }
+    this.sourceState = state
+    if (state.phase === 'restart_required') { console.error('[hbar runtime] stable or native source changed; explicit restart required'); return }
+    const built: RuntimeArtifact[] = []
+    try {
+      for (let offset = 0; offset < affected.length; offset += 2) {
+        const batch = affected.slice(offset, offset + 2).map(id => this.buildUnits.find(unit => unit.descriptor.id === id))
+        const result = await Promise.allSettled(batch.map(unit => {
+          if (!unit) throw new HbarError('RUNTIME_UNIT_NOT_FOUND', 'Changed source has no registered build unit')
+          return buildRuntimeArtifact(this.artifacts, unit, this.sourceAbort.signal)
+        }))
+        for (const item of result) { if (item.status === 'rejected') throw item.reason; built.push(item.value) }
+      }
+      const set = this.artifacts.registerSet(built)
+      this.sourceAbort.signal.throwIfAborted()
+      const operation = this.reload(set.id, affected)
+      this.sourceState = { ...state, phase: 'applying', artifactSetId: set.id, operationId: operation.operationId, updatedAt: Date.now() }
+      console.log(`[hbar runtime] source update ${operation.operationId}: ${affected.join(', ')}`)
+    } catch (error) { this.sourceFailed(error) }
   }
   private async waitReady(ids: readonly string[], operationId: string): Promise<void> {
     const deadline = Date.now() + 120_000

@@ -30,7 +30,7 @@ const host = Bun.spawn(
     localhostWebUrl,
     ...(Bun.argv.includes('--demo') ? ['--demo'] : []),
   ],
-  { stdio: ['ignore', 'inherit', 'inherit'], windowsHide: true },
+  { env: { ...process.env, HBAR_RUNTIME_WATCH: '1' }, stdio: ['ignore', 'inherit', 'inherit'], windowsHide: true },
 )
 const web = Bun.spawn([process.execPath, 'node_modules/vite/bin/vite.js', '--config', 'apps/web/vite.config.ts'], {
   env: {

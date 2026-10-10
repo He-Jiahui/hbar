@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 import { z } from 'zod'
 import { HbarClient, createSystemCommandClient } from '@hbar/client'
 import { findFreePort, parsePort } from './dev-ports'
-import { createDesktopSourceReload, desktopHostSourceRoots, watchDesktopHostSources } from './desktop-source-reload'
+import { monitorDesktopRuntime } from './desktop-runtime-updates'
 
 const connectionSchema = z.object({
   url: z.url(),
@@ -113,6 +113,7 @@ export async function runDesktopDev(args: readonly string[] = []): Promise<numbe
     HBAR_WEB_DEV_URL: webUrl,
     HBAR_WEB_PORT: String(webPort),
     HBAR_DESKTOP_DEV: '1',
+    HBAR_RUNTIME_WATCH: '1',
     HBAR_DEV_INSTANCE_ID: crypto.randomUUID(),
     // Source workers must not pick up an installed app's bundled worker override.
     HBAR_STORAGE_WORKER: resolve(project, 'packages/storage/src/worker.ts'),
@@ -120,14 +121,10 @@ export async function runDesktopDev(args: readonly string[] = []): Promise<numbe
     WEBVIEW2_USER_DATA_FOLDER: process.env.WEBVIEW2_USER_DATA_FOLDER ?? resolve(home, 'cache/webview-dev'),
   }
   const children: Bun.Subprocess[] = []
-  let disposeWatch = () => {}
   let disposeReload = () => {}
-  const reloadAbort = new AbortController()
   let stopping: Promise<void> | undefined
   const stop = () => {
-    disposeWatch()
     disposeReload()
-    reloadAbort.abort()
     return (stopping ??= Promise.all(children.map(stopChild)).then(() => undefined))
   }
   const requestStop = () => {
@@ -168,64 +165,29 @@ export async function runDesktopDev(args: readonly string[] = []): Promise<numbe
       // Watched source startup includes module loading and persisted-session recovery.
       120_000,
     )
-    const reload = createDesktopSourceReload({
-      async reload() {
-        reloadAbort.signal.throwIfAborted()
-        const previous = connectionSchema.parse(
-          JSON.parse(await readFile(resolve(home, 'settings/connection.json'), 'utf8')),
-        )
-        if (previous.url !== hostUrl || previous.supervisorPid !== host.pid)
-          throw new Error('Refusing to reload a Host not owned by this desktop development process')
-        const client = new HbarClient(hostUrl, previous.token)
-        let timeout: ReturnType<typeof setTimeout> | undefined
-        const deadline = new Promise<never>((_resolve, reject) => {
-          timeout = setTimeout(() => reject(new Error('Host source restart request timed out')), 15_000)
-        })
-        const onAbort = () => client.disconnect()
-        reloadAbort.signal.addEventListener('abort', onAbort, { once: true })
-        try {
-          await Promise.race([
-            deadline,
-            (async () => {
-              await client.connect()
-              reloadAbort.signal.throwIfAborted()
-              const result = await createSystemCommandClient(client).execute('system.restart', {})
-              if (!result.accepted) throw new Error('Development Host refused managed source reload')
-            })(),
-          ])
-        } finally {
-          clearTimeout(timeout)
-          reloadAbort.signal.removeEventListener('abort', onAbort)
-          client.disconnect()
-        }
-        await ready(
-          `${hostUrl}/healthz`,
-          host,
-          async (response) => {
-            reloadAbort.signal.throwIfAborted()
-            const current = connectionSchema.parse(
-              JSON.parse(await readFile(resolve(home, 'settings/connection.json'), 'utf8')),
-            )
-            const health: unknown = await response.json()
-            return (
-              current.supervisorPid === host.pid &&
-              current.instanceId !== previous.instanceId &&
-              z.object({ instanceId: z.string() }).parse(health).instanceId === current.instanceId
-            )
-          },
-          120_000,
-          reloadAbort.signal,
-        )
-        console.log('Host source reloaded; native clients can reconnect.')
+    const previous = connectionSchema.parse(JSON.parse(await readFile(resolve(home, 'settings/connection.json'), 'utf8')))
+    if (previous.url !== hostUrl || previous.supervisorPid !== host.pid)
+      throw new Error('Refusing to observe a Host not owned by this desktop development process')
+    const client = new HbarClient(hostUrl, previous.token)
+    disposeReload = () => client.disconnect()
+    await client.connect()
+    const commands = createSystemCommandClient(client)
+    const initial = await commands.execute('system.runtime.get', {})
+    const stopMonitor = monitorDesktopRuntime({
+      initial, read: () => commands.execute('system.runtime.get', {}),
+      async verifyIdentity() {
+        const current = connectionSchema.parse(JSON.parse(await readFile(resolve(home, 'settings/connection.json'), 'utf8')))
+        if (current.instanceId !== previous.instanceId || current.pid !== previous.pid || current.token !== previous.token)
+          throw new Error('Stable Host identity or credentials changed during a local source update')
       },
-      onError: (error) => {
-        if (!reloadAbort.signal.aborted) console.error('Host source reload failed:', error)
+      onUpdate: unitIds => console.log(`Host generations updated: ${unitIds.join(', ')}`),
+      onSourceStatus: state => {
+        if (state.phase === 'failed' || state.phase === 'restart_required')
+          console.error(`Host source update: ${state.phase} (${state.reasonCode ?? 'unknown'})`)
       },
+      onError: error => console.error('Could not observe Host runtime updates:', error),
     })
-    disposeReload = reload.dispose
-    disposeWatch = watchDesktopHostSources(await desktopHostSourceRoots(project), reload.changed, (error) =>
-      console.error('Host source watcher failed:', error),
-    )
+    disposeReload = () => { stopMonitor(); client.disconnect() }
     const web = Bun.spawn(
       [node, resolve(project, 'node_modules/vite/bin/vite.js'), '--config', 'apps/web/vite.config.ts'],
       {

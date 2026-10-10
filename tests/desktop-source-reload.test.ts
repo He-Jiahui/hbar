@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, realpath, rename, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import {
@@ -118,4 +118,24 @@ test('recursive watcher sees a Worker source save and releases its handles on di
     dispose()
     await rm(root, { recursive: true, force: true })
   }
+})
+
+test('rename and delete retain their actual paths and a pending reload merges the latest changes', async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'hbar-source-watch-')))
+  const received: string[][] = []
+  const controller = createDesktopSourceReload({ debounceMs: 10, reload: paths => { received.push([...paths]); return Promise.resolve() }, onError: error => { throw error } })
+  const changes = new Set<string>()
+  const dispose = watchDesktopHostSources([root], path => { changes.add(path); controller.changed(path) }, error => { throw error })
+  try {
+    const original = join(root, 'original.ts'), next = join(root, 'renamed.ts')
+    await writeFile(original, 'export const value = 1')
+    await until(() => changes.has(original))
+    await rename(original, next)
+    await until(() => changes.has(next))
+    changes.clear(); await rm(next)
+    await until(() => changes.has(next))
+    await until(() => received.some(batch => batch.includes(next)))
+    expect(received.flat()).toContain(original)
+    expect(isHostSourceChange('native/lib.rs')).toBe(true)
+  } finally { dispose(); controller.dispose(); await rm(root, { recursive: true, force: true }) }
 })
