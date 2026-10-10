@@ -1544,7 +1544,8 @@ export class Kernel {
           ),
         }
         const model = await this.plugins.get<ModelRegistry>('models').get(run.modelId)
-        const apiKey = model.protocol === 'mock' ? null : await this.secrets.get(model.id)
+        const apiKey =
+          model.protocol === 'mock' ? null : await this.plugins.get<ModelRegistry>('models').secret(model.id)
         const content: ContentBlock[] = [
           ...(run.input.text ? [{ type: 'text' as const, text: run.input.text }] : []),
           ...run.input.images.map((artifact) => ({ type: 'image' as const, artifact })),
@@ -2648,7 +2649,11 @@ export class Kernel {
       )
       const result = await this.plugins
         .get<HarnessDriver>('driver')
-        .summarize(boundedRequest, model.protocol === 'mock' ? null : await this.secrets.get(model.id), signal)
+        .summarize(
+          boundedRequest,
+          model.protocol === 'mock' ? null : await this.plugins.get<ModelRegistry>('models').secret(model.id),
+          signal,
+        )
       await this.append(
         sessionId,
         'usage.recorded',
