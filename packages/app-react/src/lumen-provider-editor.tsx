@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ProviderEditorState } from '@hbar/app-runtime'
 import {
   LumenFrame,
@@ -374,6 +374,7 @@ function ProviderPresetPicker({
   editor,
   labels,
   disabled,
+  mode,
   catalogRead,
   onRetryCatalog,
   focusCatalogTarget,
@@ -382,6 +383,7 @@ function ProviderPresetPicker({
   readonly editor: ProviderEditorState
   readonly labels: HbarProviderDialogLabels
   readonly disabled: boolean
+  readonly mode: 'create' | 'edit'
   readonly catalogRead: HbarProviderCatalogRead | null
   readonly onRetryCatalog: (editorId: string, intent: HbarProviderCatalogReadIntent) => Promise<boolean>
   readonly focusCatalogTarget: (targetId: string) => void
@@ -443,7 +445,13 @@ function ProviderPresetPicker({
             onIntent({ kind: 'load-presets', query: value, append: false })
           }}
           onOpenChange={setOpen}
-          onValueChange={(presetId) => onIntent({ kind: 'apply-preset', presetId })}
+          onValueChange={(presetId) =>
+            onIntent(
+              mode === 'create'
+                ? { kind: 'apply-preset', presetId }
+                : { kind: 'load-preset-models', presetId, query: '', append: false },
+            )
+          }
         />
         <CatalogReadFeedback
           read={fieldRead}
@@ -1081,11 +1089,6 @@ function ProviderModels({
   )
 }
 
-function sameEndpoint(left: string, right: string): boolean {
-  const normalize = (value: string) => value.trim().toLowerCase().replace(/\/+$/, '')
-  return normalize(left) === normalize(right)
-}
-
 export function HbarProviderEditorView({
   editor,
   labels,
@@ -1171,26 +1174,9 @@ export function HbarProviderEditorView({
     control?.focus()
     focusPath.current = null
   }, [focusRequest, editor.selectedModelId, editor.draft.models])
-  const compatiblePreset = useMemo(
-    () =>
-      editor.presets.items.find(
-        (preset) => preset.protocol === editor.draft.protocol && sameEndpoint(preset.baseUrl, editor.draft.baseUrl),
-      ),
-    [editor.draft.baseUrl, editor.draft.protocol, editor.presets.items],
-  )
   useEffect(() => {
-    if (editor.presets.status === 'idle')
-      onIntent({ kind: 'load-presets', query: editor.providerId ?? '', append: false })
+    if (editor.presets.status === 'idle') onIntent({ kind: 'load-presets', query: '', append: false })
   }, [editor.editorId, editor.presets.status, editor.providerId, onIntent])
-  useEffect(() => {
-    if (editor.providerId && compatiblePreset && editor.presets.status === 'ready' && !editor.presets.selectedPresetId)
-      onIntent({
-        kind: 'load-preset-models',
-        presetId: compatiblePreset.id,
-        query: '',
-        append: false,
-      })
-  }, [compatiblePreset, editor.presets.selectedPresetId, editor.presets.status, editor.providerId, onIntent])
   return (
     <LumenFrame
       ref={container}
@@ -1219,17 +1205,16 @@ export function HbarProviderEditorView({
       </LumenFrame>
       <LumenFrame as="main">
         <LumenFrame className="hbar-app-react-provider-primary-column">
-          {!editor.providerId && (
-            <ProviderPresetPicker
-              editor={editor}
-              labels={labels}
-              disabled={disabled}
-              catalogRead={catalogRead}
-              onRetryCatalog={onRetryCatalog}
-              focusCatalogTarget={focusCatalogTarget}
-              onIntent={onIntent}
-            />
-          )}
+          <ProviderPresetPicker
+            editor={editor}
+            labels={labels}
+            disabled={disabled}
+            mode={editor.providerId ? 'edit' : 'create'}
+            catalogRead={catalogRead}
+            onRetryCatalog={onRetryCatalog}
+            focusCatalogTarget={focusCatalogTarget}
+            onIntent={onIntent}
+          />
           <ProviderConnectionForm editor={validatedEditor} labels={labels} disabled={disabled} onIntent={onIntent} />
           <ProviderCredentials editor={editor} labels={labels} disabled={disabled} onIntent={onIntent} />
         </LumenFrame>

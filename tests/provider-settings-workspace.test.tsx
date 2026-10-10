@@ -170,6 +170,7 @@ test('provider list and dialog render Host descriptions without exposing a crede
     expect(dialog).toContain('Edit provider · Visible provider')
     expect(dialog).toContain('Provider ID')
     expect(dialog).toContain('Connection')
+    expect(dialog).toContain('id="provider-preset"')
     expect(dialog).toContain('Models')
     expect(dialog).toContain('Model details')
     expect(dialog).toContain('Show in model selection')
