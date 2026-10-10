@@ -94,7 +94,6 @@ function Branch({
   const children = expanded ? (
     <LumenFrame
       className="hbar-app-react-agent-branch-children"
-      data-flat-depth={nextPath.length >= 4}
       data-sidebar-level="subagent-sessions"
       aria-label={treeLabels.children(session.title)}
     >

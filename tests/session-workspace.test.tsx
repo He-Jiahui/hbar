@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { HbarRuntimeProvider, HbarSessionWorkspace } from '@hbar/app-react'
+import { HbarRuntimeProvider, HbarSessionMonitoring, HbarSessionWorkspace } from '@hbar/app-react'
 import { createAppRuntime, type BudgetCommandPort, type SessionTimelinePort } from '@hbar/app-runtime'
 import type { UsageQueryResult } from '@hbar/contracts/commands/usage'
 import { getShellCopy } from '../apps/web/src/shell-copy'
@@ -240,7 +240,7 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
       questionId: 'continue',
       answer: { kind: 'option', value: 'Yes' },
     })
-    const html = renderToStaticMarkup(
+    const workspaceHtml = renderToStaticMarkup(
       <HbarRuntimeProvider view={runtime.view}>
         <HbarSessionWorkspace
           sessionTitle={session.title}
@@ -254,6 +254,15 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
         />
       </HbarRuntimeProvider>,
     )
+    // Run history and its plan now belong to the session status tool pane.
+    // Render that host-owned surface alongside the workspace so this test
+    // keeps validating the plan projection without requiring a browser click.
+    const monitoringHtml = renderToStaticMarkup(
+      <HbarRuntimeProvider view={runtime.view}>
+        <HbarSessionMonitoring labels={getShellCopy('en-US').monitoring} connected />
+      </HbarRuntimeProvider>,
+    )
+    const html = `${workspaceHtml}${monitoringHtml}`
     expect(html).toContain('Session: Rich session')
     expect(html).toContain('<strong>safe</strong>')
     expect(html).not.toContain('<script>')
@@ -266,11 +275,14 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
     expect(html).toContain('1 of 2 completed')
     expect(html).toContain('Keep the plan attached to its run.')
     expect(html).toContain('Should we continue?')
-    expect(html).toContain('Usage and budget')
-    expect(html).toContain('Load earlier messages')
+    expect(html).toContain(getShellCopy('en-US').monitoring.title)
+    expect(html).toContain(getShellCopy('en-US').monitoring.models)
+    expect(html).toContain(labels.loadOlder)
     expect(html).toContain(`aria-label="${labels.addMenu.open}"`)
     expect(html).toContain(labels.addMenu.files)
-    expect(html).toContain('20 tokens')
+    expect(html).toMatch(
+      new RegExp(`<dt[^>]*>${getShellCopy('en-US').monitoring.totals.tokens}</dt><dd>20</dd>`),
+    )
     expect(html).toContain('Workspace 1')
     let composerBoundary: string | null = null
     let composerIndicators = 0

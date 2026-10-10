@@ -1,12 +1,14 @@
 import { expect, test } from 'bun:test'
 import { sessionContextCopy } from '../apps/web/src/session-context-copy'
 
-test('generated isolated branches have a readable bilingual caption while their full identity remains available', () => {
+test('generated isolated branches preserve their full bilingual identity while context labels stay localized', () => {
   const branch = `hbar/session-launch/${'a'.repeat(64)}`
-  expect(sessionContextCopy('zh-CN').branchCaption(branch)).toBe('隔离 · aaaaaaaa')
-  expect(sessionContextCopy('en-US').branchCaption(branch)).toBe('Isolated · aaaaaaaa')
-  expect(sessionContextCopy('zh-CN').branch(branch)).toBe(`当前分支：${branch}`)
-  expect(sessionContextCopy('en-US').branch(branch)).toBe(`Current branch: ${branch}`)
+  // The visual caption keeps the complete branch identity. The surrounding
+  // context chip exposes the localized label and title separately.
+  expect(sessionContextCopy('zh-CN').branchCaption(branch)).toBe(branch)
+  expect(sessionContextCopy('en-US').branchCaption(branch)).toBe(branch)
+  expect(sessionContextCopy('zh-CN').branch(branch)).toBe(`目标分支：${branch}`)
+  expect(sessionContextCopy('en-US').branch(branch)).toBe(`Target branch: ${branch}`)
 })
 
 test('named, long and noncanonical branches are displayed unchanged rather than guessed to be isolated', () => {

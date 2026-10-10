@@ -32,7 +32,7 @@
   padding-inline-start: 0;
 }
 /* Keep deep ancestry reachable in a narrow sidebar; semantic nesting still follows the real parent chain. */
-.hbar-app-react-agent-branch-children[data-flat-depth='true'] {
+.lumen-tree-group[data-flat-depth='true'] .hbar-app-react-agent-branch-children {
   margin-inline-start: 0;
   padding-inline-start: 0;
   border-inline-start: 0;
