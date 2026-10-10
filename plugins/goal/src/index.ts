@@ -184,6 +184,7 @@ class GoalRuntime implements GoalService {
   private hydrated = false
   private uncertainSessions = new Set<string>()
   private continuationTriggers = new Map<string, Set<string>>()
+  private restoredRuns = new Map<string, Run>()
 
   constructor(
     private api: HbarAPI,
@@ -197,6 +198,7 @@ class GoalRuntime implements GoalService {
     this.sequences.clear()
     this.uncertainSessions.clear()
     this.continuationTriggers.clear()
+    this.restoredRuns.clear()
     const sessions = await this.api.sessions.list()
     for (let offset = 0; offset < sessions.length; offset += 8) {
       const batch = sessions.slice(offset, offset + 8)
@@ -278,8 +280,6 @@ class GoalRuntime implements GoalService {
             if (intent && ['running', 'queued'].includes(intent.phase)) {
               const terminal = [...settled.values()].find((run) => run.input.continuation?.intentId === intent.intentId)
               if (terminal?.status === 'completed' && ['active', 'budget_limited'].includes(normalized.status)) {
-                // Resume only an explicitly persisted execution intent. Historical
-                // active Goals with no intent remain inert after upgrading.
                 await this.queueContinuation(this.withContinuation(normalized, 'running', 'goal_active'), {
                   trigger: terminal.id,
                   modelId: terminal.modelId,
@@ -309,11 +309,84 @@ class GoalRuntime implements GoalService {
               normalized = this.goals.get(session.id) ?? normalized
             }
             if (JSON.stringify(normalized) !== JSON.stringify(goal)) await this.persist(normalized)
+            const lastRun = [...settled.values()]
+              .reverse()
+              .find(
+                (run) =>
+                  run.input.mode !== 'plan' &&
+                  (normalized.accountedRuns.includes(run.id) ||
+                    run.input.continuation?.goalId === normalized.goalId ||
+                    (!this.boundRuns.has(run.id) && !run.input.continuation && run.createdAt >= normalized.createdAt)),
+              )
+            if (lastRun) this.restoredRuns.set(session.id, lastRun)
           }
         }),
       )
     }
     this.hydrated = true
+  }
+
+  async resumeOnStartup(): Promise<void> {
+    await this.ready()
+    if (!this.config.autoContinue) {
+      this.restoredRuns.clear()
+      return
+    }
+    const goals = [...this.goals.values()]
+    try {
+      for (let offset = 0; offset < goals.length; offset += 8)
+        await Promise.all(
+          goals.slice(offset, offset + 8).map((restored) =>
+            this.serial(restored.threadId, async () => {
+              const goal = this.goals.get(restored.threadId)
+              if (!goal || goal.goalId !== restored.goalId || !['active', 'budget_limited'].includes(goal.status))
+                return
+              const intent = goal.continuationIntent
+              const lastRun = this.restoredRuns.get(goal.threadId)
+              if (intent && !['running', 'stopped'].includes(intent.phase) && intent.reason !== 'model_unavailable')
+                return
+              if (
+                intent?.phase === 'stopped' &&
+                !['interrupted', 'no_tool_calls', 'no_progress', 'user_turn'].includes(intent.reason) &&
+                !(intent.reason === 'run_failed' && lastRun?.failure?.category === 'interrupted')
+              )
+                return
+              // A recovered Run is a historical fact. Start a new Goal-bound turn,
+              // never replay its calls or revive its request identity.
+              if (lastRun?.failure?.category === 'result_unknown') {
+                await this.stopContinuation(goal, lastRun, 'result_unknown')
+                return
+              }
+              if (lastRun?.status === 'cancelled' || lastRun?.failure?.category === 'cancelled') {
+                await this.persist({ ...goal, status: 'paused', updatedAt: Date.now() })
+                return
+              }
+              if (lastRun && isUsageLimitError(lastRun)) {
+                await this.stopContinuation({ ...goal, status: 'usage_limited' }, lastRun, 'usage_limited')
+                return
+              }
+              if (
+                goal.status !== 'budget_limited' &&
+                lastRun?.status === 'failed' &&
+                lastRun.failure?.category !== 'interrupted'
+              ) {
+                await this.stopContinuation(goal, lastRun, 'run_failed')
+                return
+              }
+              const runs = (await this.api.sessions.snapshot(goal.threadId)).runs
+              if (runs.some((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))) return
+              const modelId = await this.replacementModel(goal.threadId, goal, lastRun ? [lastRun.id] : [])
+              await this.queueContinuation(goal, {
+                trigger: `startup:${intent?.intentId ?? lastRun?.id ?? goal.goalId}`,
+                modelId,
+                text: 'The Host restarted while this Goal was active. Review the current Goal, Agent Plan and durable tool results, then continue the remaining work. Do not repeat a committed write or an operation whose result is unknown.',
+              })
+            }),
+          ),
+        )
+    } finally {
+      this.restoredRuns.clear()
+    }
   }
 
   private async ready() {
@@ -680,7 +753,7 @@ class GoalRuntime implements GoalService {
 
   private async queueContinuation(
     goal: PersistedGoal,
-    input: { trigger: string; modelId: string; text?: string; retryAt?: number },
+    input: { trigger: string; modelId: string | null; text?: string; retryAt?: number },
   ) {
     if (
       !this.config.autoContinue ||

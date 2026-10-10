@@ -329,6 +329,8 @@ export interface GoalToolResponse {
   completionBudgetReport?: string
 }
 export interface GoalService {
+  /** Restore active execution once the Host's providers and lifecycle gates are ready. */
+  resumeOnStartup(): Promise<void>
   snapshot(sessionId: string): Promise<{ value: GoalToolResponse; seq: number }>
   get(sessionId: string): Promise<GoalToolResponse>
   create(

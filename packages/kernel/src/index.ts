@@ -729,10 +729,10 @@ export class Kernel {
             reasoning: true,
           }),
         )
+      await kernel.plugins.get<GoalService>('goal').resumeOnStartup()
       kernel.readyForRuns = true
       await kernel.sessionLaunchPreparations.resumePending()
-      // Only persisted continuation intents can start new work. Old active
-      // Goals without an intent remain inert during this startup scan.
+      // Recovered Goals share the idle dispatcher with durable queued work.
       for (const session of await kernel.storage.call('sessions')) kernel.kick(session.id)
       return kernel
     } catch (error) {

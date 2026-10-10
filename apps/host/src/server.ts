@@ -154,6 +154,7 @@ function resolveModeService(kernel: Kernel): ModeService {
 
 function resolveGoalService(kernel: Kernel): GoalService {
   return {
+    resumeOnStartup: () => kernel.plugins.get<GoalService>('goal').resumeOnStartup(),
     snapshot: (sessionId) => kernel.plugins.get<GoalService>('goal').snapshot(sessionId),
     get: (sessionId) => kernel.plugins.get<GoalService>('goal').get(sessionId),
     create: (sessionId, objective, tokenBudget, runId, startedAt) =>
