@@ -212,6 +212,7 @@ export class ManagedHostRuntime implements RuntimeSystemPort {
     let record: GenerationRecord
     const managed = new ManagedProcess({ descriptor: artifact.descriptor, artifactId: artifact.id, generation,
       modulePath: join(this.artifacts.root, artifact.id, artifact.entry), parent: this.baseOwner, configuration,
+      verifyModule: async signal => { await this.artifacts.get(artifact.id); signal.throwIfAborted() },
       controlMethods: ['controller.control', 'controller.invoke'],
       ...(this.options.processCommand ? { command: this.options.processCommand } : {}),
       onPeer: (peer, owner) => {

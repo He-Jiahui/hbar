@@ -85,6 +85,24 @@ test('candidate failure and compatibility rejection never activate or schedule p
   }
 })
 
+test('a rejected registered module never spawns or imports a candidate, and stuck verification cancels on shutdown', async () => {
+  let spawned = 0
+  const invalid = fixture({ verifyModule: async () => { throw new Error('Artifact bytes changed') }, onPeer: () => { spawned++ } })
+  await expect(invalid.prepare()).rejects.toThrow('Artifact bytes changed')
+  expect(spawned).toBe(0)
+  expect(invalid.snapshot()).toMatchObject({ phase: 'failed', pid: null, nextAttemptAt: null })
+  const stuck = fixture({ verifyModule: async signal => {
+    await new Promise<void>(resolve => signal.addEventListener('abort', () => resolve(), { once: true }))
+    signal.throwIfAborted()
+  }, onPeer: () => { spawned++ } })
+  const pending = stuck.prepare().catch((error: unknown) => error)
+  await Bun.sleep(10)
+  await stuck.dispose()
+  expect(await pending).toBeInstanceOf(Error)
+  expect(spawned).toBe(0)
+  expect(stuck.snapshot().phase).toBe('disposed')
+})
+
 test('a crashed serving generation recovers its same artifact with a new incarnation and keeps its generation', async () => {
   const faults: RuntimeOwner[] = []
   const exits: RuntimeOwner[] = []
@@ -110,6 +128,20 @@ test('a crashed serving generation recovers its same artifact with a new incarna
   expect(faults[0]?.incarnation).toBe(before.incarnation)
   expect(exits[0]?.incarnation).toBe(before.incarnation)
   expect(await runtime.call('fixture.echo', 'recovered', z.string())).toBe('recovered')
+})
+
+test('recovery revalidates the selected artifact and keeps retrying that version without importing rejected bytes', async () => {
+  let verified = 0, spawned = 0
+  const runtime = fixture({ verifyModule: async () => {
+    verified++
+    if (verified > 1) throw new Error('Recovered artifact differs from registered bytes')
+  }, onPeer: () => { spawned++ } })
+  await runtime.prepare(); await runtime.activate()
+  const artifact = runtime.snapshot().artifactId
+  await expect(runtime.call('fixture.crash', undefined, z.undefined())).rejects.toBeInstanceOf(Error)
+  await until(() => verified >= 3)
+  expect(spawned).toBe(1)
+  expect(runtime.snapshot()).toMatchObject({ artifactId: artifact, generation: 1, phase: 'recovering', pid: null })
 })
 
 test('activation opens production authority before construction and repeats the gate for each recovered incarnation', async () => {

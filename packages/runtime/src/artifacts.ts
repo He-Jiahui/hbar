@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, readdir, realpath, stat, writeFile } from 'node:fs/promises'
+import { mkdir, open, readFile, readdir, realpath, stat, writeFile } from 'node:fs/promises'
 import { basename, extname, isAbsolute, join, relative, resolve } from 'node:path'
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
@@ -82,6 +82,23 @@ function fileName(name: string): string {
   if (!/^[A-Za-z0-9_.-]+$/.test(name) || name === '.' || name === '..')
     throw new HbarError('RUNTIME_ARTIFACT_INVALID', 'Artifact file name is invalid')
   return name
+}
+async function boundedArtifactRead(path: string, limit: number): Promise<Buffer> {
+  const handle = await open(path, 'r')
+  try {
+    const metadata = await handle.stat()
+    if (!metadata.isFile() || metadata.size > limit)
+      throw new HbarError('RUNTIME_ARTIFACT_LIMIT', 'Registered artifact exceeds its file byte bound')
+    const bytes = Buffer.alloc(metadata.size)
+    for (let offset = 0; offset < bytes.byteLength;) {
+      const next = await handle.read(bytes, offset, Math.min(262_144, bytes.byteLength - offset), offset)
+      if (!next.bytesRead) throw new HbarError('RUNTIME_ARTIFACT_CHANGED', 'Registered artifact changed during verification')
+      offset += next.bytesRead
+    }
+    if ((await handle.read(Buffer.alloc(1), 0, 1, bytes.byteLength)).bytesRead)
+      throw new HbarError('RUNTIME_ARTIFACT_CHANGED', 'Registered artifact grew during verification')
+    return bytes
+  } finally { await handle.close() }
 }
 
 /** Registered immutable bundles, verified again before loading. It never accepts an arbitrary reload path. */
@@ -174,6 +191,8 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
       resources: resources.sort(),
       resourceFiles: resourceFiles.map(({ sourcePath, name, sha256 }) => ({ sourcePath, name, sha256 })),
     })
+    if (Buffer.byteLength(JSON.stringify(artifact)) > 4 * 1024 * 1024)
+      throw new HbarError('RUNTIME_ARTIFACT_LIMIT', 'Runtime artifact metadata exceeds its byte bound')
     if (!this.registered.has(id) && this.registered.size >= 4_096)
       throw new HbarError('RUNTIME_ARTIFACT_CAPACITY', 'Registered artifact capacity is exhausted')
     const directory = join(this.root, id)
@@ -223,14 +242,14 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
     if (!this.registered.has(id))
       throw new HbarError('RUNTIME_ARTIFACT_UNREGISTERED', 'Runtime artifact is not registered')
     const directory = join(this.root, id)
-    const artifact = artifactSchema.parse(JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8')))
+    const artifact = artifactSchema.parse(JSON.parse((await boundedArtifactRead(join(directory, 'manifest.json'), 4 * 1024 * 1024)).toString('utf8')))
     if (artifact.id !== id || JSON.stringify(artifact) !== JSON.stringify(this.registered.get(id)))
       throw new HbarError('RUNTIME_ARTIFACT_CHANGED', 'Runtime artifact manifest changed after registration')
     for (const file of artifact.files)
-      if (sha256(await readFile(join(directory, fileName(file.name)))) !== file.sha256)
+      if (sha256(await boundedArtifactRead(join(directory, fileName(file.name)), 128 * 1024 * 1024)) !== file.sha256)
         throw new HbarError('RUNTIME_ARTIFACT_CHANGED', 'Runtime artifact content changed after preparation')
     for (const file of artifact.resourceFiles)
-      if (sha256(await readFile(join(directory, fileName(file.name)))) !== file.sha256)
+      if (sha256(await boundedArtifactRead(join(directory, fileName(file.name)), 64 * 1024 * 1024)) !== file.sha256)
         throw new HbarError('RUNTIME_ARTIFACT_CHANGED', 'Runtime resource changed after preparation')
     return artifact
   }
@@ -254,7 +273,8 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
       const artifact = await this.get(requested.id)
       const files: RuntimeArtifactPackage['units'][number]['files'] = []
       for (const file of [...artifact.files, ...artifact.resourceFiles]) {
-        const content = await readFile(join(this.root, artifact.id, fileName(file.name)))
+        const content = await boundedArtifactRead(join(this.root, artifact.id, fileName(file.name)), 128 * 1024 * 1024)
+        if (sha256(content) !== file.sha256) throw new HbarError('RUNTIME_ARTIFACT_CHANGED', 'Artifact changed during package export')
         bytes += content.byteLength
         if (bytes > 256 * 1024 * 1024) throw new HbarError('RUNTIME_PACKAGE_LIMIT', 'Runtime package exceeds its total byte bound')
         files.push({ name: file.name, base64: content.toString('base64') })
@@ -274,6 +294,8 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
     const decoded: Array<{ artifact: RuntimeArtifact; files: Array<{ name: string; bytes: Uint8Array }> }> = []
     let bytes = 0
     for (const unit of packaged.units) {
+      if (Buffer.byteLength(JSON.stringify(unit.artifact)) > 4 * 1024 * 1024)
+        throw new HbarError('RUNTIME_ARTIFACT_LIMIT', 'Runtime artifact metadata exceeds its byte bound')
       const names = [...unit.artifact.files, ...unit.artifact.resourceFiles]
       if (new Set(names.map(file => file.name)).size !== names.length || unit.files.length !== names.length)
         throw new HbarError('RUNTIME_PACKAGE_INVALID', 'Runtime package file manifest is ambiguous')
@@ -359,7 +381,10 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
       budget.bytes += metadata.size
       if (budget.bytes > 64 * 1024 * 1024 || ++budget.files > 4_096)
         throw new HbarError('RUNTIME_RESOURCE_LIMIT', 'Declared resource exceeds its byte bound')
-      const bytes = await readFile(path)
+      const bytes = await boundedArtifactRead(path, 64 * 1024 * 1024)
+      budget.bytes += bytes.byteLength - metadata.size
+      if (budget.bytes > 64 * 1024 * 1024)
+        throw new HbarError('RUNTIME_RESOURCE_LIMIT', 'Declared resource grew beyond its byte bound')
       const sourcePath = relative(sourceRoot, path).replaceAll('\\', '/')
       const hash = sha256(bytes)
       files.push({ sourcePath, name: fileName(`resource-${sha256(sourcePath)}${extname(path)}`), sha256: hash, bytes })

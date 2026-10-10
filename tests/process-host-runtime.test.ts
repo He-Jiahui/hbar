@@ -143,3 +143,19 @@ test('a failed Kernel candidate keeps the current version and does not interrupt
   expect((await f.runtime.storage.call('run', run.id)).status).toBe('completed')
   expect(await f.runtime.storage.call('runtimeRecoveryRead', run.id)).toBeNull()
 })
+
+test('tampered registered Kernel bytes are rejected before import without changing the current generation', async () => {
+  const f = await fixture()
+  const original = f.runtime.manager.currentVersion('kernel')
+  const set = await changedKernel(f.runtime, 'export const tamperTestRevision = 2')
+  const artifact = set.artifacts[0]!
+  const marker = join(f.root, 'tampered-module-imported')
+  const source = `import { writeFileSync } from 'node:fs'; writeFileSync(${JSON.stringify(marker)}, 'imported'); export function create() { throw new Error('untrusted') }`
+  await writeFile(join(f.runtime.artifacts.root, artifact.id, artifact.entry), source)
+  const operation = f.runtime.reload(set.id, ['kernel'])
+  await f.runtime.manager.reconcile()
+  expect(f.runtime.getReload(operation.operationId)).toMatchObject({ phase: 'failed', units: [{ reasonCode: 'RUNTIME_ARTIFACT_CHANGED' }] })
+  expect(f.runtime.manager.currentVersion('kernel')).toEqual(original)
+  expect(await Bun.file(marker).exists()).toBe(false)
+  expect(f.runtime.snapshot().ready).toBe(true)
+})

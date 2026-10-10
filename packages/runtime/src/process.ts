@@ -18,6 +18,8 @@ export interface ManagedProcessOptions {
   readonly generation: number
   readonly parent: RuntimeOwner
   readonly configuration?: Readonly<Record<string, unknown>>
+  /** Verify registered bytes again before every candidate import and recovery incarnation. */
+  readonly verifyModule?: (signal: AbortSignal) => Promise<void>
   readonly command?: readonly [string, ...string[]]
   readonly heartbeatMs?: number
   readonly startupMs?: number
@@ -62,6 +64,7 @@ export class ManagedProcess {
   private exitHandling: Promise<void> = Promise.resolve()
   private fencing: Promise<void> | undefined
   private activation: AbortController | undefined
+  private readonly stopController = new AbortController()
   private state: RuntimeGeneration
 
   constructor(private readonly options: ManagedProcessOptions) {
@@ -126,6 +129,7 @@ export class ManagedProcess {
     this.activated = true
     this.state.role = role
     const owner = this.owner()
+    const deadline = Date.now() + this.startupMs
     const activation = new AbortController()
     this.activation = activation
     const signal = AbortSignal.any([activation.signal, AbortSignal.timeout(this.startupMs)])
@@ -139,7 +143,7 @@ export class ManagedProcess {
       })
       if (signal.aborted || this.stopped || this.state.phase !== 'ready' || !this.peer || this.owner().incarnation !== owner.incarnation)
         throw new HbarError('RUNTIME_OWNER_REVOKED', 'Runtime activation authority expired before production started')
-      await this.peer.call('runtime.activate', { role }, z.undefined(), { timeoutMs: this.startupMs })
+      await this.peer.call('runtime.activate', { role }, z.undefined(), { timeoutMs: Math.max(1, deadline - Date.now()) })
       this.state.phase = role === 'draining' ? 'draining' : 'serving'
       this.state.lastHeartbeatAt = Date.now()
       this.healthySince = Date.now()
@@ -198,6 +202,27 @@ export class ManagedProcess {
     this.fencing = undefined
     this.publish()
     const owner = this.owner()
+    const deadline = Date.now() + this.startupMs
+    if (this.options.verifyModule) {
+      const signal = AbortSignal.any([this.stopController.signal, AbortSignal.timeout(this.startupMs)])
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const cancel = () => reject(new HbarError('RUNTIME_VERIFICATION_EXPIRED', 'Runtime module verification expired'))
+          signal.addEventListener('abort', cancel, { once: true })
+          Promise.resolve().then(() => { signal.throwIfAborted(); return this.options.verifyModule?.(signal) }).then(resolve, reject)
+            .finally(() => signal.removeEventListener('abort', cancel))
+        })
+        signal.throwIfAborted()
+      } catch (error) {
+        if (!this.stopped) {
+          this.state.phase = this.activated ? 'recovering' : 'failed'
+          this.state.reasonCode = error instanceof HbarError ? error.code : 'RUNTIME_VERIFICATION_FAILED'
+          this.publish()
+        }
+        throw error
+      }
+    }
+    if (this.stopped) throw new HbarError('RUNTIME_DISPOSED', 'Runtime process stopped before module loading')
     const child = Bun.spawn(
       this.options.command
         ? [...this.options.command]
@@ -258,7 +283,7 @@ export class ManagedProcess {
         'runtime.prepare',
         { descriptor: this.options.descriptor, configuration: this.options.configuration ?? {} },
         runtimeReadySchema,
-        { timeoutMs: this.startupMs },
+        { timeoutMs: Math.max(1, deadline - Date.now()) },
       )
       if (
         ready.contractFingerprint !== this.options.descriptor.contractFingerprint ||
@@ -383,6 +408,7 @@ export class ManagedProcess {
 
   private async disposeProcess(): Promise<void> {
     this.stopped = true
+    this.stopController.abort()
     this.activation?.abort()
     clearTimeout(this.recoveryTimer)
     clearInterval(this.monitor)
