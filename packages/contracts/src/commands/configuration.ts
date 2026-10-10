@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protocol'
 import { approvalModeSchema, idSchema, providerInputSchema, runModeSchema, thinkingLevelSchema } from '../index'
 import { modelDescriptorSchema } from './models'
+import { modelContextTiersSchema } from '../model-context-tiers'
 
 const permissionResultSchema = z.strictObject({ mode: approvalModeSchema })
 const modeResultSchema = z.strictObject({ mode: runModeSchema })
@@ -27,6 +28,9 @@ const providerPresetModelSchema = z.strictObject({
   reasoning: z.boolean(),
   inputPrice: z.number().nonnegative(),
   outputPrice: z.number().nonnegative(),
+  cacheReadPrice: z.number().finite().nonnegative().optional(),
+  cacheWritePrice: z.number().finite().nonnegative().optional(),
+  contextTiers: modelContextTiersSchema.optional(),
   thinkingLevels: z.array(thinkingLevelSchema).min(1).max(7),
   defaultThinkingLevel: thinkingLevelSchema,
 })
@@ -52,9 +56,42 @@ const providerPresetModelsResultSchema = z.strictObject({
   nextCursor: z.string().regex(/^\d+$/).max(12).nullable(),
   catalogGeneratedAt: z.number().int().nonnegative().nullable(),
 })
+export const providerContextFieldSchema = z.strictObject({
+  name: z.enum([
+    'contextWindow',
+    'inputTokensAbove',
+    'inputPrice',
+    'outputPrice',
+    'cacheReadPrice',
+    'cacheWritePrice',
+    'maxModePricingMultiplier',
+  ]),
+  type: z.enum(['integer', 'number']),
+  component: z.literal('NumberField'),
+  required: z.boolean(),
+  labelKey: z.enum([
+    'i18n:settings.providers.context.standard',
+    'i18n:settings.providers.context.expanded',
+    'i18n:settings.providers.context.threshold',
+    'i18n:settings.providers.context.input',
+    'i18n:settings.providers.context.output',
+    'i18n:settings.providers.context.cacheRead',
+    'i18n:settings.providers.context.cacheWrite',
+    'i18n:settings.providers.context.multiplier',
+  ]),
+  minimum: z.number().finite(),
+  maximum: z.number().finite().optional(),
+  order: z.number().int().nonnegative(),
+})
+export const providerContextPricingDescriptionSchema = z.strictObject({
+  maxTiers: z.number().int().min(1).max(8),
+  fields: z.array(providerContextFieldSchema).min(1).max(7),
+  tierFields: z.array(providerContextFieldSchema).min(1).max(6),
+})
 const providerEditorDescriptionSchema = z.strictObject({
   id: z.string().min(1).max(160),
   version: z.number().int().positive(),
+  contextPricing: providerContextPricingDescriptionSchema.optional(),
   fields: z
     .array(
       z.strictObject({

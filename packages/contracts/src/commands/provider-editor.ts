@@ -48,8 +48,37 @@ const modelFieldSchema = z.enum([
   'defaultThinkingLevel',
 ])
 const editorTargetSchema = z.strictObject({ editorId: editorIdSchema })
+const contextTargetSchema = editorTargetSchema.extend({ modelId: z.string().min(1).max(160) })
+const contextFieldSchema = z.enum([
+  'contextWindow',
+  'inputTokensAbove',
+  'inputPrice',
+  'outputPrice',
+  'cacheReadPrice',
+  'cacheWritePrice',
+  'maxModePricingMultiplier',
+])
 
 export const providerEditorCommands = {
+  'providerEditor.addContextTier': defineCommand(
+    metadata('providerEditor.addContextTier'),
+    contextTargetSchema,
+    summarySchema,
+  ),
+  'providerEditor.removeContextTier': defineCommand(
+    metadata('providerEditor.removeContextTier'),
+    contextTargetSchema.extend({ tierId: z.string().min(1).max(64) }),
+    summarySchema,
+  ),
+  'providerEditor.setContextField': defineCommand(
+    metadata('providerEditor.setContextField'),
+    contextTargetSchema.extend({
+      tierId: z.string().min(1).max(64).optional(),
+      field: contextFieldSchema,
+      value: z.number().finite().nullable(),
+    }),
+    summarySchema,
+  ),
   'providerEditor.refresh': defineCommand(metadata('providerEditor.refresh'), z.strictObject({}), summarySchema),
   'providerEditor.setField': defineCommand(
     metadata('providerEditor.setField'),

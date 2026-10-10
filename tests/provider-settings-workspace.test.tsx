@@ -63,7 +63,7 @@ test('advanced provider parameters are collapsed, retain saved values, and discl
     expect(collapsed).not.toContain('删除供应商')
     const invalid = render({ ...editor, draftIssues: [{ path: 'models.0.contextWindow', code: 'too_small' }] })
     expect(invalid.match(/class="hbar-provider-advanced-content" hidden=""/g)).toHaveLength(1)
-    expect(invalid).toContain(labels.validation('models.0.contextWindow', 'too_small'))
+    expect(invalid).toContain(labels.contextPricing.invalid('too_small'))
     expect(invalid).toContain(labels.modelIssues(editor.draft.models[0]?.name ?? '', 1))
     expect(invalid).toContain(labels.issues(1))
 

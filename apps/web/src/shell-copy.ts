@@ -776,6 +776,32 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
     confirmRemove: choose('删除供应商', 'Delete provider'),
   }
   const dialog: HbarProviderDialogLabels = {
+    contextPricing: {
+      title: choose('MAX 窗口与计费规则', 'MAX windows and billing rules'),
+      description: choose(
+        '所有费率为 USD / 百万 tokens。MAX 使用最大窗口；实际输入（含缓存）超过阈值时，整次请求改用该档费率。等于阈值仍用较低档。留空缓存费率表示未知；留空 MAX 倍率表示不额外加价。',
+        'Rates are USD per million tokens. MAX uses the largest window. Actual inclusive input above a threshold selects that tariff for the whole request; equality keeps the lower tariff. Blank cache rates mean unknown. Blank MAX markup means no extra surcharge.',
+      ),
+      standard: choose('普通窗口与基础费率', 'Standard window and base rates'),
+      empty: choose('尚未配置扩展窗口，此模型的 MAX 开关不可用。', 'No expanded window is configured. MAX is unavailable for this model.'),
+      add: choose('添加长上下文档位', 'Add extended context tier'),
+      tier: (index, window) => choose(`长上下文档位 ${index} · ${window.toLocaleString('zh-CN')} tokens`, `Extended tier ${index} · ${window.toLocaleString('en-US')} tokens`),
+      remove: (index) => choose(`删除长上下文档位 ${index}`, `Remove extended tier ${index}`),
+      field: (key) => ({
+        'i18n:settings.providers.context.standard': choose('普通上下文窗口（tokens）', 'Standard context window (tokens)'),
+        'i18n:settings.providers.context.expanded': choose('扩展上下文窗口（tokens）', 'Expanded context window (tokens)'),
+        'i18n:settings.providers.context.threshold': choose('输入超过此值时改用本档（tokens）', 'Apply this tariff when input exceeds (tokens)'),
+        'i18n:settings.providers.context.input': choose('输入费率（USD / 百万）', 'Input rate (USD / million)'),
+        'i18n:settings.providers.context.output': choose('输出费率（USD / 百万）', 'Output rate (USD / million)'),
+        'i18n:settings.providers.context.cacheRead': choose('缓存读取费率（可选）', 'Cache read rate (optional)'),
+        'i18n:settings.providers.context.cacheWrite': choose('缓存写入费率（可选）', 'Cache write rate (optional)'),
+        'i18n:settings.providers.context.multiplier': choose('MAX 额外计费倍率（可选）', 'Extra MAX billing multiplier (optional)'),
+      })[key],
+      invalid: (code) => code === 'custom'
+        ? choose('窗口和计费阈值必须逐档递增，阈值须小于本档窗口；扩展窗口须大于普通窗口。', 'Windows and thresholds must increase by tier. Each threshold must be below its window, and expanded windows must exceed the standard window.')
+        : choose('请填写范围内的有效数值；费率不能为负，MAX 倍率须在 1–100 之间。', 'Enter a value within range. Rates cannot be negative, and MAX markup must be between 1 and 100.'),
+      required: choose('（必填）', ' (required)'),
+    },
     addTitle: choose('添加供应商', 'Add provider'),
     editTitle: (name) => choose(`编辑供应商 · ${name}`, `Edit provider · ${name}`),
     description: choose(

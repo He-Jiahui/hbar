@@ -16,6 +16,11 @@ import {
 } from '@lumen/app-ui'
 import { Check, EyeOff, Plus, RotateCcw, Trash2, X } from 'lucide-react'
 import { HbarLumenDisclosure } from './lumen-disclosure'
+import {
+  HbarProviderContextRules,
+  type HbarProviderContextRulesLabels,
+  type HbarProviderContextIntent,
+} from './provider-context-rules'
 
 type ProviderField = 'id' | 'name' | 'visible' | 'protocol' | 'baseUrl'
 type ThinkingLevel = ProviderEditorState['draft']['models'][number]['thinkingLevels'][number]
@@ -33,6 +38,7 @@ type ModelField =
   | 'defaultThinkingLevel'
 
 export type HbarProviderEditorIntent =
+  | HbarProviderContextIntent
   | { readonly kind: 'set-provider-field'; readonly field: ProviderField; readonly value: string | boolean }
   | { readonly kind: 'set-secret'; readonly value: string }
   | { readonly kind: 'reset-draft' }
@@ -63,6 +69,7 @@ export type HbarProviderEditorIntent =
     }
 
 export interface HbarProviderDialogLabels {
+  readonly contextPricing: HbarProviderContextRulesLabels
   readonly addTitle: string
   readonly editTitle: (name: string) => string
   readonly description: string
@@ -907,6 +914,13 @@ function ModelEditor({
           onChange={(event) => set('description', event.currentTarget.value)}
         />
       </LumenFormField>
+      <HbarProviderContextRules
+        key={`${editor.editorId}:${model.id}`}
+        editor={editor}
+        labels={labels.contextPricing}
+        disabled={disabled}
+        onIntent={onIntent}
+      />
       <AdvancedSection
         label={labels.advancedModel}
         description={labels.advancedDescription}
@@ -924,20 +938,22 @@ function ModelEditor({
           onChange={(event) => set('visible', event.currentTarget.checked)}
         />
         <LumenFrame className="hbar-app-react-provider-field-row">
-          <LumenFormField
-            controlId="provider-model-context"
-            label={labels.models.contextWindow}
-            required
-            requiredIndicator={labels.requiredIndicator}
-            {...draftIssueProps(editor, path('contextWindow'), labels)}
-          >
-            <NumberInput
-              id="provider-model-context"
-              value={model.contextWindow}
-              disabled={disabled}
-              onCommit={(value) => set('contextWindow', value)}
-            />
-          </LumenFormField>
+          {!editor.description.contextPricing && (
+            <LumenFormField
+              controlId="provider-model-context"
+              label={labels.models.contextWindow}
+              required
+              requiredIndicator={labels.requiredIndicator}
+              {...draftIssueProps(editor, path('contextWindow'), labels)}
+            >
+              <NumberInput
+                id="provider-model-context"
+                value={model.contextWindow}
+                disabled={disabled}
+                onCommit={(value) => set('contextWindow', value)}
+              />
+            </LumenFormField>
+          )}
           <LumenFormField
             controlId="provider-model-output"
             label={labels.models.maxOutput}
@@ -953,32 +969,34 @@ function ModelEditor({
             />
           </LumenFormField>
         </LumenFrame>
-        <LumenFrame className="hbar-app-react-provider-field-row">
-          <LumenFormField
-            controlId="provider-model-input-price"
-            label={labels.models.inputPrice}
-            {...draftIssueProps(editor, path('inputPrice'), labels)}
-          >
-            <NumberInput
-              id="provider-model-input-price"
-              value={model.inputPrice}
-              disabled={disabled}
-              onCommit={(value) => set('inputPrice', value)}
-            />
-          </LumenFormField>
-          <LumenFormField
-            controlId="provider-model-output-price"
-            label={labels.models.outputPrice}
-            {...draftIssueProps(editor, path('outputPrice'), labels)}
-          >
-            <NumberInput
-              id="provider-model-output-price"
-              value={model.outputPrice}
-              disabled={disabled}
-              onCommit={(value) => set('outputPrice', value)}
-            />
-          </LumenFormField>
-        </LumenFrame>
+        {!editor.description.contextPricing && (
+          <LumenFrame className="hbar-app-react-provider-field-row">
+            <LumenFormField
+              controlId="provider-model-input-price"
+              label={labels.models.inputPrice}
+              {...draftIssueProps(editor, path('inputPrice'), labels)}
+            >
+              <NumberInput
+                id="provider-model-input-price"
+                value={model.inputPrice}
+                disabled={disabled}
+                onCommit={(value) => set('inputPrice', value)}
+              />
+            </LumenFormField>
+            <LumenFormField
+              controlId="provider-model-output-price"
+              label={labels.models.outputPrice}
+              {...draftIssueProps(editor, path('outputPrice'), labels)}
+            >
+              <NumberInput
+                id="provider-model-output-price"
+                value={model.outputPrice}
+                disabled={disabled}
+                onCommit={(value) => set('outputPrice', value)}
+              />
+            </LumenFormField>
+          </LumenFrame>
+        )}
         <LumenFrame className="hbar-app-react-provider-capabilities">
           <LumenToggle
             checked={model.imageInput}
@@ -1174,7 +1192,17 @@ export function HbarProviderEditorView({
       'model.defaultThinkingLevel': 'provider-model-default-thinking',
     }
     const id = ids[match ? `model.${match[2]}` : target]
-    const control = id ? container.current?.querySelector<HTMLElement>(`#${id}`) : null
+    const tierMatch = match ? /^contextTiers\.(\d+)\.(\w+)$/.exec(match[2] ?? '') : null
+    const activeModel = match ? editor.draft.models[Number(match[1])] : undefined
+    const contextTier = tierMatch ? activeModel?.contextTiers?.[Number(tierMatch[1])]?.id : 'standard'
+    const contextField = tierMatch?.[2] ?? match?.[2]
+    const contextControl =
+      contextField && /^[a-zA-Z]+$/.test(contextField) && contextTier
+        ? container.current?.querySelector<HTMLElement>(
+            `[data-context-field="${contextField}"][data-context-tier="${contextTier}"]`,
+          )
+        : null
+    const control = (id ? container.current?.querySelector<HTMLElement>(`#${id}`) : null) ?? contextControl
     control?.scrollIntoView({ block: 'nearest' })
     control?.focus()
     focusPath.current = null

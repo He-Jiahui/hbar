@@ -22,16 +22,24 @@ async function expectControlsAligned(
 }
 
 async function expectSingleScrollRegion(dialog: import('@playwright/test').Locator) {
-  const scrollableCount = await dialog.locator('main, main *').evaluateAll(
-    (elements) =>
-      elements.filter((element) => {
+  const scrollable = await dialog.locator('main, main *').evaluateAll((elements) =>
+    elements
+      .filter((element) => {
         const style = getComputedStyle(element)
         return (
-          (style.overflowY === 'auto' || style.overflowY === 'scroll') && element.scrollHeight > element.clientHeight
+          // Account for a one-pixel fractional-border rounding in Lumen controls.
+          (style.overflowY === 'auto' || style.overflowY === 'scroll') && element.scrollHeight > element.clientHeight + 1
         )
-      }).length,
+      })
+      .map((element) => ({
+        tag: element.tagName,
+        id: element.id,
+        className: element.getAttribute('class'),
+        scrollHeight: element.scrollHeight,
+        clientHeight: element.clientHeight,
+      })),
   )
-  expect(scrollableCount).toBeLessThanOrEqual(1)
+  expect(scrollable.length, JSON.stringify(scrollable)).toBeLessThanOrEqual(1)
 }
 
 const rpcShape = z
@@ -300,14 +308,18 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(customInputBox!.width).toBeGreaterThan(0)
       expect(addCustomBox!.x + addCustomBox!.width).toBeLessThanOrEqual(customActionBox!.x + customActionBox!.width + 1)
       await addCustom.click()
-      await advanced.click()
-      const contextField = dialog.getByRole('spinbutton', { name: labels.models.contextWindow, exact: true })
+      const pricing = dialog.getByRole('button', { name: labels.contextPricing.title, exact: true })
+      await pricing.click()
+      const contextField = dialog.getByRole('spinbutton', {
+        name: labels.contextPricing.field('i18n:settings.providers.context.standard'),
+        exact: true,
+      })
       await contextField.fill('123456')
       // Deliberately switch without blurring through a filler control first.
       await dialog.getByRole('button', { name: labels.models.select(firstModelName), exact: true }).click()
       await expect(dialog.locator('#provider-model-id')).toHaveValue(firstModelId)
       await dialog.getByRole('button', { name: labels.models.select('second-model'), exact: true }).click()
-      await advanced.click()
+      await pricing.click()
       await expect(contextField).toHaveValue('123456')
       const purpose = 'For short implementation and review tasks'
       await dialog.getByRole('textbox', { name: labels.models.description, exact: true }).fill(purpose)
@@ -315,13 +327,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await dialog.getByRole('button', { name: labels.models.select(firstModelName), exact: true }).click()
       await dialog.getByRole('button', { name: labels.checkConfiguration, exact: true }).click()
       await expect(dialog.locator('#provider-model-id')).toHaveValue('second-model')
-      await expect(advanced).toHaveAttribute('aria-expanded', 'true')
+      await expect(pricing).toHaveAttribute('aria-expanded', 'true')
       await expect(contextField).toBeFocused()
       await expect(dialog.getByRole('button', { name: labels.save, exact: true })).toBeDisabled()
       await contextField.fill('200000')
-      await advanced.click()
+      await pricing.click()
       await expect(contextField).toBeHidden()
-      await advanced.click()
+      await pricing.click()
       await expect(contextField).toHaveValue('200000')
       await dialog.getByRole('button', { name: labels.models.select(firstModelName), exact: true }).click()
       await advanced.click()
@@ -350,10 +362,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         )
       }
       await dialog.getByRole('button', { name: labels.models.select('second-model'), exact: true }).click()
-      await advanced.click()
-      await dialog.getByRole('spinbutton', { name: labels.models.inputPrice, exact: true }).fill('1.25')
+      await pricing.click()
+      await dialog
+        .getByRole('spinbutton', {
+          name: labels.contextPricing.field('i18n:settings.providers.context.input'),
+          exact: true,
+        })
+        .fill('1.25')
       await dialog.getByRole('button', { name: labels.models.setDefault, exact: true }).click()
-      await advanced.click()
       await dialog.getByRole('button', { name: labels.save, exact: true }).click()
       await expect(dialog).toHaveCount(0)
       expect(await originalAdd?.evaluate((element) => element.isConnected)).toBe(true)
