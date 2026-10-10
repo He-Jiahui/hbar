@@ -42,7 +42,7 @@ import {
   createNotificationCommands,
   createRunBoardCommands,
   createScheduleDueReader,
-} from '@hbar/kernel'
+} from '@hbar/kernel/controller'
 import { budgetCommands as budgetDefinitions } from '@hbar/contracts/commands/budget'
 import { agentCommands as agentDefinitions } from '@hbar/contracts/commands/agents'
 import { browserCommands as browserDefinitions } from '@hbar/contracts/commands/browser'
@@ -87,7 +87,7 @@ import { createSystemCommands } from './system-commands.ts'
 import { createSkillImportService } from '@hbar/kernel/skill-import'
 import { createExtensionCommands } from './extension-commands.ts'
 import { createSkillInspectionService } from './skill-inspection.ts'
-import type { KernelControllerPort, KernelClientScopePort } from '@hbar/kernel'
+import type { KernelControllerPort, KernelClientScopePort } from '@hbar/kernel/controller'
 import { SystemTerminalManager } from './system-terminal'
 import { sendSocketFrame, sendSocketTextFrame } from './socket-sender'
 import { isStableRpc, isRuntimeStatusRead } from './stable-rpc'
@@ -103,7 +103,7 @@ import { sandboxCommands as sandboxDefinitions } from '@hbar/contracts/commands/
 import { notificationCommands as notificationDefinitions } from '@hbar/contracts/commands/notifications'
 import { runBoardCommands as runBoardDefinitions } from '@hbar/contracts/commands/run-board'
 import { submitRunInputSchema } from '@hbar/contracts/commands/run'
-import { createScheduleService, createNotificationService } from '@hbar/kernel'
+import { createScheduleService, createNotificationService } from '@hbar/kernel/controller'
 import { createScheduleHostController } from './schedule-host-controller.ts'
 
 interface SocketData {
