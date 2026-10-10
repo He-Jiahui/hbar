@@ -219,7 +219,12 @@ if (schemaVersion > 0 && schemaVersion <= 3)
   })()
 if (schemaVersion < 5)
   db.transaction(() => {
-    db.exec('ALTER TABLE runs ADD COLUMN failure TEXT; PRAGMA user_version=5;')
+    // Some repair/import flows can lower user_version while retaining columns
+    // from a newer projection. Inspect the table before applying this additive
+    // migration so startup remains safe and legacy error text is preserved.
+    const columns = db.query<{ name: string }, []>('PRAGMA table_info(runs)').all()
+    if (!columns.some((column) => column.name === 'failure')) db.exec('ALTER TABLE runs ADD COLUMN failure TEXT;')
+    db.exec('PRAGMA user_version=5;')
   })()
 if (schemaVersion < 6)
   db.transaction(() => {
