@@ -29,13 +29,14 @@ export const runtimePluginStateSchema = z.strictObject({
   manifests: z.array(runtimePluginManifestSchema).min(1).max(16), config: z.record(z.string(), z.unknown()),
   configSchema: z.record(z.string(), z.unknown()).nullable(),
   tools: z.array(runtimePluginToolSchema).max(4_096), hooks: z.array(z.enum(RUNTIME_PLUGIN_HOOKS)).max(64),
+  panels: z.array(toolWindowContributionSchema).max(256).default([]),
   capabilities: z.record(z.string().min(1).max(160), z.array(z.string().min(1).max(128)).max(128)),
 })
 export type RuntimePluginState = z.infer<typeof runtimePluginStateSchema>
 
 const recordSchema = z.record(z.string(), z.unknown())
 /** Tool implementations are replaced by descriptions; signals and commit callbacks use their existing named ports. */
-export function describeRuntimeHook<Event extends RuntimePluginHook>(event: Event, value: HookEvents[Event]): Record<string, unknown> {
+export function describeRuntimeHook<Event extends RuntimePluginHook>(event: Event, value: HookEvents[Event], output = false): Record<string, unknown> {
   const result = { ...recordSchema.parse(value) }
   if (event === 'tools.select' || event === 'tools.advertise') {
     const tools = value as HookEvents['tools.select']
@@ -44,10 +45,12 @@ export function describeRuntimeHook<Event extends RuntimePluginHook>(event: Even
     const tool = value as HookEvents['tool.before']
     result.tool = describeRuntimeTool(tool.tool)
   }
+  if (output && result.context && typeof result.context === 'object')
+    result.context = Object.fromEntries(Object.entries(result.context).filter(([, field]) => typeof field !== 'function' && !(field instanceof AbortSignal)))
   return result
 }
 /** A Hook may select existing tools or alter their model description, without replacing authority or execution. */
-export function restoreRuntimeHook<Event extends RuntimePluginHook>(event: Event, raw: unknown, originals: readonly ToolDefinition[]): HookEvents[Event] {
+export function restoreRuntimeHook<Event extends RuntimePluginHook>(event: Event, raw: unknown, originals: readonly ToolDefinition[], originalValue?: HookEvents[Event]): HookEvents[Event] {
   const result = { ...recordSchema.parse(raw) }
   const restore = (value: unknown): ToolDefinition => {
     const description = runtimePluginToolSchema.parse(value)
@@ -58,6 +61,7 @@ export function restoreRuntimeHook<Event extends RuntimePluginHook>(event: Event
   }
   if (event === 'tools.select' || event === 'tools.advertise') result.tools = z.array(z.unknown()).max(4_096).parse(result.tools).map(restore)
   else if (event === 'tool.before' || event === 'tool.executing' || event === 'tool.settled') result.tool = restore(result.tool)
+  if (originalValue && 'context' in originalValue) result.context = originalValue.context
   // Each named Hook selects this local domain shape; every transported graph and tool descriptor is validated above.
   return result as HookEvents[Event]
 }
