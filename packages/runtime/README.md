@@ -88,3 +88,13 @@ effects and pending approvals wait; cancellation, archive and the two-attempt li
 require manual action. User queue entries take precedence over automatic recovery.
 The Kernel still has to recheck permissions, Goal control and budgets before using
 this port; these storage primitives do not themselves run or authorize a task.
+
+The Kernel's managed lifecycle defers global recovery and scheduling. Goal startup
+loads projections without repairing accounting or creating continuation intents.
+Explicit activation begins admission; draining stops new claims while existing Runs
+finish. `KernelExecutionPort` claims and releases the stable Session lease, and an
+AsyncLocalStorage scope carries that lease to every execution storage call. Run
+cleanup and interruption acknowledgement still execute when fencing rejects its
+late terminal write. Summary timers and external observers do not inherit expired
+execution authority. Stable release wakes the currently selected Kernel so queued
+work automatically crosses the version boundary.

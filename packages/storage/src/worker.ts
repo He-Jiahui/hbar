@@ -2239,6 +2239,12 @@ const methods: StorageMethods = {
       db.query("UPDATE runs SET status='running',startedAt=? WHERE id=?").run(Date.now(), row.id as string)
       return methods.run(row.id as string)
     })(),
+  nextQueuedRun(sessionId) {
+    const row = db.query<Row, [string]>(
+      "SELECT * FROM runs WHERE sessionId=? AND status='queued' ORDER BY CASE WHEN json_extract(input,'$.source')='goal' THEN 2 WHEN recovery IS NOT NULL THEN 1 ELSE 0 END,createdAt,rowid LIMIT 1",
+    ).get(sessionId)
+    return row ? runRow(row) : null
+  },
   run: (id) => runRow(db.query('SELECT * FROM runs WHERE id=?').get(id) as Row | null),
   requestCancel: (id) =>
     db.transaction(() => {

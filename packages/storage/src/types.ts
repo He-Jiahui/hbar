@@ -477,6 +477,7 @@ export interface StorageMethods {
   ): Run & { queuedEvent?: SessionEvent | undefined }
   runByRequest(sessionId: string, requestId: string): { run: Run; command: RunCommandRecord | null } | null
   claim(sessionId: string): Run | null
+  nextQueuedRun(sessionId: string): Run | null
   run(id: string): Run
   setRun(id: string, status: RunStatus, error?: string, failure?: RunFailure): SessionEvent
   reorderQueued(sessionId: string, runIds: string[]): SessionEvent[]

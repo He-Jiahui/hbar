@@ -727,6 +727,8 @@ export interface HookRegistry {
 }
 export interface HbarAPI {
   scope: ScopeDescriptor
+  /** Managed owners hydrate projections; reconciliation belongs to the stable recovery coordinator. */
+  restoreMode?: 'projection' | undefined
   tools: ToolRegistry
   hooks: HookRegistry
   sessions: SessionService

@@ -192,6 +192,7 @@ class GoalRuntime implements GoalService {
   ) {}
 
   async restore() {
+    const projectionOnly = this.api.restoreMode === 'projection'
     this.activeRuns.clear()
     this.boundRuns.clear()
     this.goals.clear()
@@ -250,7 +251,7 @@ class GoalRuntime implements GoalService {
             const run = settled.get(runId)
             if (!run) continue
             const current = this.goals.get(session.id)
-            if (current?.goalId === tracking.goalId && !current.accountedRuns.includes(runId)) {
+            if (!projectionOnly && current?.goalId === tracking.goalId && !current.accountedRuns.includes(runId)) {
               const accounted = await this.accountProgressUnlocked(session.id, runId, 'bound-run', run)
               if (accounted) {
                 const progress = auditProgress(events, runId, accounted.progressKeys)
@@ -277,7 +278,7 @@ class GoalRuntime implements GoalService {
           if (goal) {
             let normalized = await this.withBudget(goal)
             const intent = normalized.continuationIntent
-            if (intent && ['running', 'queued'].includes(intent.phase)) {
+            if (!projectionOnly && intent && ['running', 'queued'].includes(intent.phase)) {
               const terminal = [...settled.values()].find((run) => run.input.continuation?.intentId === intent.intentId)
               if (terminal?.status === 'completed' && ['active', 'budget_limited'].includes(normalized.status)) {
                 await this.queueContinuation(this.withContinuation(normalized, 'running', 'goal_active'), {
@@ -297,7 +298,7 @@ class GoalRuntime implements GoalService {
                 )
             }
             if (
-              normalized.status === 'active' &&
+              !projectionOnly && normalized.status === 'active' &&
               normalized.continuationIntent?.phase === 'stopped' &&
               ['no_tool_calls', 'no_progress'].includes(normalized.continuationIntent.reason) &&
               normalized.continuationIntent.modelId !== null
@@ -308,7 +309,7 @@ class GoalRuntime implements GoalService {
               })
               normalized = this.goals.get(session.id) ?? normalized
             }
-            if (JSON.stringify(normalized) !== JSON.stringify(goal)) await this.persist(normalized)
+            if (!projectionOnly && JSON.stringify(normalized) !== JSON.stringify(goal)) await this.persist(normalized)
             const lastRun = [...settled.values()]
               .reverse()
               .find(
