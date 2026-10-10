@@ -128,6 +128,8 @@ interface SocketData {
   }
   timer?: ReturnType<typeof setTimeout> | undefined
   scope?: RuntimeScope | undefined
+  scopeOpening?: Promise<RuntimeScope> | undefined
+  scopeDisposal?: Promise<void> | undefined
   surfaceClientId?: string | undefined
   surfaceGeneration?: number | undefined
   schemaQueries: Map<string, AbortController>
@@ -148,6 +150,10 @@ export interface ServerOptions {
   diagnosticSampleRate?: number
   diagnosticFull?: boolean
   diagnosticScope?: DiagnosticScopePort
+  /** Host-owned lifecycle seam; defaults to RuntimeScope.dispose(). */
+  clientScopeDisposer?: (scope: RuntimeScope) => Promise<void>
+  /** Host-owned scope acquisition seam; defaults to the Kernel plugin manager. */
+  clientScopeOpener?: (scopeId: string) => Promise<RuntimeScope>
 }
 
 function resolveModeService(kernel: Kernel): ModeService {
@@ -439,6 +445,58 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const auth = new Auth(kernel.storage)
   const pairing = auth.createPairing()
   const sockets = new Set<ServerWebSocket<SocketData>>()
+  const allSockets = new Set<ServerWebSocket<SocketData>>()
+  const scopeDisposals = new Set<Promise<void>>()
+  const disposeClientScope = options.clientScopeDisposer ?? ((scope: RuntimeScope) => scope.dispose())
+  const openClientScope =
+    options.clientScopeOpener ?? ((scopeId: string) => kernel.plugins.openScope('client', scopeId))
+  let closing = false
+  const disposeSocketScope = (socket: ServerWebSocket<SocketData>): Promise<void> => {
+    const existing = socket.data.scopeDisposal
+    if (existing) return existing
+    const scope = socket.data.scope
+    const opening = socket.data.scopeOpening
+    socket.data.scope = undefined
+    socket.data.scopeOpening = undefined
+    let disposal: Promise<void>
+    if (scope) disposal = Promise.resolve().then(() => disposeClientScope(scope))
+    else if (opening) disposal = opening.then((opened) => disposeClientScope(opened))
+    else return Promise.resolve()
+    socket.data.scopeDisposal = disposal
+    scopeDisposals.add(disposal)
+    void disposal.then(
+      () => {
+        scopeDisposals.delete(disposal)
+        allSockets.delete(socket)
+      },
+      () => {
+        scopeDisposals.delete(disposal)
+        allSockets.delete(socket)
+      },
+    )
+    return disposal
+  }
+  const waitForSocketScopes = async (timeoutMs: number): Promise<void> => {
+    const deadline = globalThis.performance.now() + timeoutMs
+    const failures: unknown[] = []
+    while (scopeDisposals.size) {
+      const remaining = Math.max(0, deadline - globalThis.performance.now())
+      if (!remaining) throw new HbarError('HOST_SCOPE_DISPOSAL_TIMEOUT', 'Timed out releasing Host client scopes')
+      const pending = [...scopeDisposals]
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const result = await Promise.race([
+        Promise.allSettled(pending),
+        new Promise<'timeout'>((resolve) => {
+          timer = setTimeout(() => resolve('timeout'), remaining)
+        }),
+      ])
+      if (timer !== undefined) clearTimeout(timer)
+      if (result === 'timeout')
+        throw new HbarError('HOST_SCOPE_DISPOSAL_TIMEOUT', 'Timed out releasing Host client scopes')
+      for (const item of result) if (item.status === 'rejected') failures.push(item.reason)
+    }
+    if (failures.length) throw new AggregateError(failures, 'Host client scope disposal failed')
+  }
   const requestDiagnostics = createHostRequestDiagnostics({
     ...(options.diagnosticSink ? { sink: options.diagnosticSink } : {}),
     ...(options.diagnosticContext ? { contextPort: options.diagnosticContext } : {}),
@@ -892,9 +950,23 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       case 'system.hello': {
         const params = rpcSchemas[method].parse(raw)
         if (socket.data.initialized) throw new HbarError('ALREADY_INITIALIZED', 'Connection already initialized')
+        if (closing) throw new HbarError('HOST_CLOSING', 'Host is closing')
         const token = params.token ?? socket.data.token
         const device = await auth.authenticate(token)
-        socket.data.scope = await kernel.plugins.openScope('client', crypto.randomUUID())
+        if (closing) throw new HbarError('HOST_CLOSING', 'Host is closing')
+        const opening = openClientScope(crypto.randomUUID())
+        socket.data.scopeOpening = opening
+        const scope = await opening
+        if (socket.data.scopeOpening === opening) socket.data.scopeOpening = undefined
+        if (socket.data.scopeDisposal) {
+          await socket.data.scopeDisposal
+          throw new HbarError('HOST_CLOSING', 'Host is closing')
+        }
+        if (closing) {
+          await disposeClientScope(scope)
+          throw new HbarError('HOST_CLOSING', 'Host is closing')
+        }
+        socket.data.scope = scope
         socket.data.token = token
         socket.data.deviceId = device.id
         socket.data.initialized = true
@@ -1522,6 +1594,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       open(socket) {
         socket.data.connectionId = crypto.randomUUID()
         sockets.add(socket)
+        allSockets.add(socket)
         socket.data.timer = setTimeout(() => {
           if (!socket.data.initialized) socket.close(4001, 'Handshake required')
         }, 10_000)
@@ -1621,7 +1694,18 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
             )
           }
         }
-        void socket.data.scope?.dispose().catch(console.error)
+        void disposeSocketScope(socket)
+          .catch(() => {
+            const span = requestDiagnostics.begin({
+              method: 'host.scope.dispose',
+              rpcId: 'scope',
+              connectionId: socket.data.connectionId,
+              bytesIn: 0,
+              pending: socket.data.pending,
+            })
+            span.failure('SCOPE_DISPOSE_FAILED', { pending: socket.data.pending })
+          })
+          .finally(() => allSockets.delete(socket))
       },
     },
   })
@@ -1656,6 +1740,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     pairing,
     info: hostInfo,
     async close() {
+      closing = true
       agentCommands.dispose()
       browserCommands.dispose()
       computerCommands.dispose()
@@ -1699,9 +1784,19 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       for (const pending of [...pendingSurfaceByRelay.values()])
         finishSurface(pending, { ok: false, code: 'CAPABILITY_UNAVAILABLE', message: 'Host is shutting down' })
       surfaceClients.clear()
-      for (const socket of sockets) socket.close()
+      for (const socket of allSockets) {
+        void disposeSocketScope(socket).catch(() => undefined)
+        socket.close()
+      }
+      let scopeCloseError: unknown
+      try {
+        await waitForSocketScopes(5_000)
+      } catch (error) {
+        scopeCloseError = error
+      }
       await server.stop(true)
       removeStorageFatalListener?.()
+      if (scopeCloseError !== undefined) throw scopeCloseError
     },
   }
 }
