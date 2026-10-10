@@ -10,6 +10,9 @@ export interface KernelExecutionPort {
   canIdle?(sessionId: string): Promise<boolean>
   release(lease: ExecutionOwnership): Promise<void>
   interrupted?(lease: ExecutionOwnership, reasonCode: string): Promise<void>
+  reserveTool?(lease: ExecutionOwnership, callId: string): Promise<{ readonly id: string }>
+  releaseTool?(permitId: string): Promise<void>
+  withResource?<Result>(key: string, execution: ExecutionOwnership | undefined, operation: () => Promise<Result>, signal?: AbortSignal): Promise<Result>
   call<K extends keyof StorageMethods>(
     lease: ExecutionOwnership, method: K, ...args: Parameters<StorageMethods[K]>
   ): Promise<ReturnType<StorageMethods[K]>>

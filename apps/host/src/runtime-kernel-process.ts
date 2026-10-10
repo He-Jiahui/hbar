@@ -78,6 +78,11 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
             return { run: await storage.call('run', lease.runId), lease }
           },
           canIdle: sessionId => domain(() => coordinator.canIdle(sessionId)),
+          reserveTool: (lease, callId) => domain(() => coordinator.reserveTool(lease, callId)),
+          releaseTool: id => domain(() => coordinator.releaseTool(id)),
+          withResource: (key, execution, operation, signal) => domain(() => coordinator.withResource(key, operation, {
+            ...(execution ? { execution } : {}), ...(signal ? { signal } : {}),
+          })),
           release: async lease => { await domain(() => coordinator.release(lease)); leases.delete(lease.runId) },
           interrupted: async lease => { await domain(() => coordinator.stopped(lease.runId)); leases.delete(lease.runId) },
           call: (lease, method, ...args) => domain(() => callStorageRpc({ execute: input => context.peer.call('kernel.storage', input, z.unknown()) }, method, args, lease)),

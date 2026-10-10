@@ -18,6 +18,7 @@ export interface RuntimeCoordinatorPortOptions {
   readonly admitted?: (execution: ExecutionOwnership) => void
   readonly released?: (execution: ExecutionOwnership) => void | Promise<void>
   readonly stopped?: (owner: RuntimeOwner, runId: string) => void | Promise<void>
+  readonly releaseFailed?: (execution: ExecutionOwnership) => void
 }
 function ownExecution(owner: RuntimeOwner, execution: ExecutionOwnership): void {
   if (JSON.stringify(runtimeOwnerSchema.parse(execution.owner)) !== JSON.stringify(runtimeOwnerSchema.parse(owner)))
@@ -38,8 +39,7 @@ export function registerRuntimeCoordinatorPort(peer: IpcPeer, coordinator: Runti
     peer.register('execution.canIdle', procedure(z.strictObject({ sessionId: id }), z.boolean(), input => coordinator.canIdle(owner, input.sessionId))),
     peer.register('execution.release', procedure(executionOwnershipSchema, z.undefined(), async lease => {
       ownExecution(owner, lease)
-      await coordinator.releaseExecution(lease)
-      await options.released?.(lease)
+      await coordinator.requestRelease(lease, () => options.released?.(lease), () => options.releaseFailed?.(lease))
     })),
     peer.register('execution.assert', procedure(executionOwnershipSchema, z.undefined(), lease => {
       ownExecution(owner, lease)
@@ -60,6 +60,7 @@ export function registerRuntimeCoordinatorPort(peer: IpcPeer, coordinator: Runti
 }
 /** Typed named calls; AbortSignals stay local and become ordinary IPC cancellation. */
 export class RuntimeCoordinatorClient {
+  private waitingResources = 0
   constructor(private readonly peer: IpcPeer) {}
   claim(sessionId: string, runId: string, options?: IpcCallOptions): Promise<ExecutionOwnership | null> {
     return this.peer.call('execution.claim', claimSchema.parse({ sessionId, runId }), executionOwnershipSchema.nullable(), options)
@@ -82,4 +83,27 @@ export class RuntimeCoordinatorClient {
     return this.peer.call('tool.reserve', toolSchema.parse({ execution, callId }), runtimeToolPermitSchema)
   }
   releaseTool(permitId: string): Promise<void> { return this.peer.call('tool.release', { permitId }, z.undefined()) }
+  async withResource<Result>(key: string, operation: () => Promise<Result>, options: { execution?: ExecutionOwnership; signal?: AbortSignal; timeoutMs?: number } = {}): Promise<Result> {
+    const timeout = options.timeoutMs ?? 120_000
+    if (!Number.isSafeInteger(timeout) || timeout < 1 || timeout > 120_000)
+      throw new HbarError('INVALID_INPUT', 'Resource admission requires a bounded deadline')
+    if (this.waitingResources >= 64) throw new HbarError('BUSY', 'Resource admission capacity is full')
+    this.waitingResources++
+    const deadline = Date.now() + timeout
+    let resource: RuntimeResourceLease | null = null
+    try {
+      while (!resource) {
+        options.signal?.throwIfAborted()
+        resource = await this.acquireResource(key, options.execution)
+        if (resource) break
+        if (Date.now() >= deadline) throw new HbarError('BUSY', 'Resource admission deadline expired')
+        await new Promise<void>(resolve => setTimeout(resolve, Math.min(100, deadline - Date.now())))
+      }
+      options.signal?.throwIfAborted()
+      return await operation()
+    } finally {
+      this.waitingResources--
+      if (resource) await this.releaseResource(resource.id)
+    }
+  }
 }

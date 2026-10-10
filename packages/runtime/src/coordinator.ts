@@ -62,6 +62,7 @@ export class RuntimeCoordinator {
   private readonly tools = new Map<string, RuntimeToolPermit>()
   private readonly toolKeys = new Map<string, string>()
   private readonly resources = new Map<string, RuntimeResourceLease>()
+  private readonly pendingReleases = new Map<string, { lease: ExecutionOwnership; released: () => void | Promise<void>; failed: () => void }>()
   private readonly resourceKeys = new Map<string, string>()
   private fence = 0
 
@@ -111,6 +112,8 @@ export class RuntimeCoordinator {
       throw new HbarError('EXECUTION_OWNER_REVOKED', 'Runtime write authority has been revoked')
     if (lease) {
       this.assertExecution(lease)
+      if (this.pendingReleases.has(lease.runId))
+        throw new HbarError('EXECUTION_FINISHED', 'The logical Run has finished; its retained physical capacity cannot commit')
       if (
         !versions(lease.versions).some(
           (version) =>
@@ -189,7 +192,8 @@ export class RuntimeCoordinator {
         lease.leaseId !== draft.leaseId ||
         lease.sessionId !== sessionId ||
         lease.runId !== runId ||
-        !sameOwner(lease.owner, owner)
+        !sameOwner(lease.owner, owner) ||
+        JSON.stringify(lease.versions) !== JSON.stringify(draft.versions)
       )
         throw new HbarError('EXECUTION_PROJECTION_INVALID', 'Persisted ownership does not match its claim')
       this.fence = Math.max(this.fence, lease.fence)
@@ -254,6 +258,36 @@ export class RuntimeCoordinator {
     this.blocked.delete(lease.sessionId)
   }
 
+  /** A logical terminal may precede physical tool completion. Acknowledge the request without occupying an IPC slot. */
+  async requestRelease(lease: ExecutionOwnership, released: () => void | Promise<void>, failed: () => void = () => {}): Promise<void> {
+    this.assertExecution(lease)
+    if (this.pendingReleases.has(lease.runId)) return
+    if (this.physicalReferences(lease.leaseId)) {
+      this.pendingReleases.set(lease.runId, { lease: executionOwnershipSchema.parse(lease), released, failed })
+      return
+    }
+    await this.releaseExecution(lease)
+    await this.notifyReleased(released)
+  }
+  private async notifyReleased(released: () => void | Promise<void>): Promise<void> {
+    try { await released() } catch { console.error('[hbar runtime] execution handoff observer failed') }
+  }
+  private physicalReferences(leaseId: string): boolean {
+    return [...this.tools.values()].some(permit => permit.leaseId === leaseId) ||
+      [...this.resources.values()].some(resource => resource.executionLeaseId === leaseId)
+  }
+  private releaseSettled(): void {
+    for (const [runId, pending] of this.pendingReleases) {
+      if (this.physicalReferences(pending.lease.leaseId)) continue
+      this.pendingReleases.delete(runId)
+      void this.releaseExecution(pending.lease).then(() => this.notifyReleased(pending.released)).catch(() => {
+        try { pending.failed() } catch { console.error('[hbar runtime] release failure observer failed') }
+        // A missing durable receipt keeps the Session reconciliation gate closed; it is never retried blindly.
+        console.error('[hbar runtime] deferred execution release requires reconciliation')
+      })
+    }
+  }
+
   async revoke(owner: RuntimeOwner): Promise<ExecutionOwnership[]> {
     const record = this.record(owner)
     record.role = 'fenced'
@@ -269,6 +303,7 @@ export class RuntimeCoordinator {
         ),
     )
     for (const lease of affected) {
+      this.pendingReleases.delete(lease.runId)
       this.blocked.add(lease.sessionId)
       const interrupted = this.interruptions.get(lease.runId) ?? new Set<string>()
       interrupted.add(owner.incarnation)
@@ -327,6 +362,8 @@ export class RuntimeCoordinator {
 
   reserveTool(lease: ExecutionOwnership, callId: string, physicalOwner: RuntimeOwner): RuntimeToolPermit {
     this.assertExecution(lease)
+    if (this.pendingReleases.has(lease.runId))
+      throw new HbarError('EXECUTION_FINISHED', 'A finished Run cannot start another tool')
     const owner = this.record(physicalOwner)
     if (
       owner.role === 'candidate' ||
@@ -363,6 +400,7 @@ export class RuntimeCoordinator {
       throw new HbarError('RUNTIME_TOOL_OWNER_MISMATCH', 'Only the physical tool owner may release its capacity')
     this.tools.delete(permitId)
     this.toolKeys.delete(`${permit.leaseId}:${permit.callId}`)
+    this.releaseSettled()
   }
 
   acquireResource(owner: RuntimeOwner, key: string, execution?: ExecutionOwnership): RuntimeResourceLease | null {
@@ -389,6 +427,7 @@ export class RuntimeCoordinator {
       throw new HbarError('RUNTIME_RESOURCE_OWNER_MISMATCH', 'Only the resource owner may release its lease')
     this.resources.delete(resourceId)
     this.resourceKeys.delete(resource.key)
+    this.releaseSettled()
   }
 
   references(owner: RuntimeOwner): { runs: number; resources: number; tools: number } {

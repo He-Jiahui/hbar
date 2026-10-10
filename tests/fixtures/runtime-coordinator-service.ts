@@ -12,6 +12,8 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
   context.peer.register('fixture.toolRelease', procedure(z.string(), z.undefined(), input => client.releaseTool(input)))
   context.peer.register('fixture.resource', procedure(z.string(), runtimeResourceLeaseSchema.nullable(), input => client.acquireResource(input)))
   context.peer.register('fixture.resourceRelease', procedure(z.string(), z.undefined(), input => client.releaseResource(input)))
+  context.peer.register('fixture.lock', procedure(z.strictObject({ key: z.string(), timeoutMs: z.number().int().positive(), holdMs: z.number().int().nonnegative() }), z.number(), (input, call) =>
+    client.withResource(input.key, async () => { const acquired = Date.now(); await Bun.sleep(input.holdMs); return acquired }, { signal: call.signal, timeoutMs: input.timeoutMs })))
   return {
     async prepare(input) { return { contractFingerprint: input.descriptor.contractFingerprint, storageSchema: input.descriptor.storageSchema, capabilities: ['fixture.claim'] } },
     async activate() {}, async drain() { return { runs: 0, resources: 0, requests: 0 } }, async dispose() {},

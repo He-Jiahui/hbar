@@ -727,6 +727,8 @@ export class Kernel {
     })
   }
   static async create(options: KernelOptions): Promise<Kernel> {
+    if (options.execution?.reserveTool && !options.execution.releaseTool)
+      throw new HbarError('RUNTIME_TOOL_PORT', 'Physical tool admission requires its matching release port')
     const runIdleTimeoutMs = resolveRunIdleTimeoutMs(options.runIdleTimeoutMs)
     const layout =
       options.layout ??
@@ -1390,7 +1392,9 @@ export class Kernel {
     try {
       await waitForSessionLaunchTargetLock(previous, signal)
       signal?.throwIfAborted()
-      return await action()
+      return this.options.execution?.withResource
+        ? await this.options.execution.withResource(`session-target:${sessionId}`, this.executionScope.current, action, signal)
+        : await action()
     } finally {
       release()
       void tail.then(
@@ -1433,7 +1437,9 @@ export class Kernel {
     try {
       await waitForSessionLaunchTargetLock(previous, signal)
       signal?.throwIfAborted()
-      return await action()
+      return this.options.execution?.withResource
+        ? await this.options.execution.withResource(`checkout:${key}`, this.executionScope.current, action, signal)
+        : await action()
     } finally {
       this.sharedCheckoutWaiters--
       release()
@@ -2235,6 +2241,8 @@ export class Kernel {
     let images: ArtifactRef[] | undefined
     let reporter: ReturnType<typeof createToolExecutionReporter> | undefined
     let resumeRunIdle: (() => void) | undefined
+    let permitId: string | undefined
+    let physicalAdmission = false
     const assertNotAborted = () => {
       if (!hostSignal.aborted) return
       outcome = hostAbortToolOutcome(hostSignal.reason, started)
@@ -2302,6 +2310,9 @@ export class Kernel {
       }
       assertBoundary()
       this.toolExecutions.assertAvailable(`${context.session.id}:${name}`, name)
+      const authority = this.executionScope.current
+      if (authority && this.options.execution?.reserveTool)
+        permitId = (await this.options.execution.reserveTool(authority, executionIdentity.callId)).id
       const startEvent = await this.storage.call(
         'toolStart',
         context.session.id,
@@ -2323,6 +2334,7 @@ export class Kernel {
       await reporter.start()
       resumeRunIdle = this.active.get(context.session.id)?.idleTimeout.suspend()
       const reportProgress = reporter.report
+      physicalAdmission = true
       result = await this.toolExecutions.run(
         `${context.session.id}:${name}`,
         name,
@@ -2361,6 +2373,7 @@ export class Kernel {
           if (captured.length) images = captured
           return executed
         },
+        permitId ? () => this.options.execution!.releaseTool!(permitId!) : undefined,
       )
       outcome = { kind: result.isError ? 'failed' : 'succeeded', executionStarted: started }
     } catch (error) {
@@ -2386,6 +2399,7 @@ export class Kernel {
             : { kind: 'failed', executionStarted: started }
       }
     } finally {
+      if (permitId && !physicalAdmission) await this.options.execution?.releaseTool?.(permitId)
       resumeRunIdle?.()
       hostSignal.removeEventListener('abort', forwardAbort)
       sequence?.dispose()

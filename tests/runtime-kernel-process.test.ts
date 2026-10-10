@@ -40,6 +40,7 @@ async function fixture() {
   let driverEndpoint!: RuntimeDriverEndpoint
   let selected: ManagedProcess | null = null
   let storageCalls = 0
+  let physicalToolPeak = 0
   const relay = new RuntimeDriverRelay({ coordinator, resolve: version => {
     if (version && (version.artifactId !== driverArtifact.id || version.generation !== 1))
       throw new HbarError('RUNTIME_VERSION_UNAVAILABLE', 'Expected the captured driver generation')
@@ -77,6 +78,7 @@ async function fixture() {
           if (input.authority && input.authority.owner.incarnation !== owner.incarnation)
             throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Foreign storage authority')
           coordinator.assertCanWrite(owner, input.authority)
+          physicalToolPeak = Math.max(physicalToolPeak, coordinator.snapshot().physicalTools)
           return storage.executeRpc(input)
         }))
         peer.register('kernel.secret.get', procedure(z.strictObject({ id: z.string() }), z.string().nullable(), async () => null))
@@ -94,7 +96,7 @@ async function fixture() {
     selected = kernel
     await kernel.call('kernel.resume', undefined, z.undefined())
   }
-  return { root, storage, session, coordinator, relay, driver, artifact, make, activate, storageCalls: () => storageCalls }
+  return { root, storage, session, coordinator, relay, driver, artifact, make, activate, storageCalls: () => storageCalls, toolPeak: () => physicalToolPeak }
 }
 
 test('the real Kernel candidate has no storage or recovery effects, and activated execution commits through owned IPC and a separate Pi process', async () => {
@@ -107,11 +109,12 @@ test('the real Kernel candidate has no storage or recovery effects, and activate
   expect(await outcome(peer.call('kernel.state', undefined, runtimeKernelStateSchema))).toMatchObject({ code: 'RUNTIME_PREPARING' })
   await f.activate(kernel)
   expect((await kernel.call('kernel.state', undefined, runtimeKernelStateSchema)).instanceId).toBe('stable-test-host')
-  const run = await kernel.call('kernel.submit', { sessionId: f.session.id, requestId: 'owned-kernel', input: { text: 'isolated execution', images: [] }, modelId: 'fixture' }, runSchema)
+  const run = await kernel.call('kernel.submit', { sessionId: f.session.id, requestId: 'owned-kernel', input: { text: '/tool get_goal {}', images: [] }, modelId: 'fixture' }, runSchema)
   await until(async () => (await f.storage.call('run', run.id)).status === 'completed')
   await until(() => f.coordinator.snapshot().sessions === 0)
   expect((await f.storage.call('runtimeExecutionRead', run.id))?.lease.owner).toEqual(kernel.owner())
-  expect((await f.storage.call('snapshot', f.session.id)).messages.map(message => message.role)).toEqual(['user', 'assistant'])
+  expect((await f.storage.call('snapshot', f.session.id)).messages.map(message => message.role)).toEqual(['user', 'assistant', 'tool', 'assistant'])
+  expect(f.toolPeak()).toBe(1)
   expect(f.relay.snapshot().invocations).toBe(0)
   expect(kernel.snapshot().pid).not.toBe(f.driver.snapshot().pid)
 })

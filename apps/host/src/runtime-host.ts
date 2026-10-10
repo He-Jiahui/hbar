@@ -286,8 +286,10 @@ export class ManagedHostRuntime implements RuntimeSystemPort {
         this.leases.set(run.id, lease)
         return { run: await this.storage.call('run', run.id), lease }
       },
-      call: (lease, method, ...args) => { this.coordinator.assertExecution(lease); return this.storage.callOwned(lease, method, ...args) },
-      release: async lease => { await this.coordinator.releaseExecution(lease); this.leases.delete(lease.runId) },
+      call: (lease, method, ...args) => { this.coordinator.assertCanWrite(this.kernelOwner, lease); return this.storage.callOwned(lease, method, ...args) },
+      reserveTool: async (lease, callId) => this.coordinator.reserveTool(lease, callId, this.kernelOwner),
+      releaseTool: async id => { this.coordinator.releaseTool(this.kernelOwner, id) },
+      release: async lease => { await this.coordinator.requestRelease(lease, () => { this.leases.delete(lease.runId); this.kernelValue?.wake(lease.sessionId) }) },
       interrupted: async lease => {
         this.coordinator.acknowledgeRunStopped(this.kernelOwner, lease.runId)
         this.stoppedRuns.add(lease.runId)

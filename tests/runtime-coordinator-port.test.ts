@@ -70,14 +70,16 @@ test('physical permits and shared resource gates stay owned by the IPC incarnati
   const lease = await f.managed.call('fixture.claim', { sessionId: f.session.id, runId: f.run.id }, executionOwnershipSchema.nullable())
   if (!lease) throw new Error('Expected durable ownership')
   const permit = await f.managed.call('fixture.reserve', { execution: lease, callId: 'physical' }, runtimeToolPermitSchema)
-  expect(await outcome(f.managed.call('fixture.release', lease, z.undefined()))).toMatchObject({ code: 'EXECUTION_RESOURCES_ACTIVE' })
+  await f.storage.callOwned(lease, 'setRun', f.run.id, 'completed')
+  await f.managed.call('fixture.release', lease, z.undefined())
+  expect(f.coordinator.snapshot().sessions).toBe(1)
   const resource = await f.managed.call('fixture.resource', 'maintenance:database', runtimeResourceLeaseSchema.nullable())
   if (!resource) throw new Error('Expected a shared resource lease')
   expect(await f.managed.call('fixture.resource', 'maintenance:database', runtimeResourceLeaseSchema.nullable())).toBeNull()
   await f.managed.call('fixture.toolRelease', permit.id, z.undefined())
   await f.managed.call('fixture.resourceRelease', resource.id, z.undefined())
-  await f.storage.callOwned(lease, 'setRun', f.run.id, 'completed')
-  await f.managed.call('fixture.release', lease, z.undefined())
+  const deadline = Date.now() + 2_000
+  while (f.coordinator.snapshot().sessions && Date.now() < deadline) await Bun.sleep(10)
   expect(f.coordinator.snapshot()).toMatchObject({ sessions: 0, physicalTools: 0, resources: 0 })
 })
 
@@ -100,4 +102,29 @@ test('handoff makes the old executor stop claiming and suppress idle continuatio
   await f.storage.callOwned(lease, 'setRun', f.run.id, 'completed')
   await f.managed.call('fixture.release', lease, z.undefined())
   expect(f.managed.snapshot().phase).toBe('serving')
+})
+
+test('resource admission waits for a different runtime owner and respects its deadline and cancellation', async () => {
+  const f = await fixture()
+  await f.managed.activate()
+  f.coordinator.activate(f.managed.owner())
+  const other: RuntimeOwner = { unitId: 'plugin.checkout', generation: 1, incarnation: 'checkout-owner' }
+  f.coordinator.register(other, { unitId: other.unitId, generation: 1, artifactId: 'd'.repeat(64) }, {
+    id: other.unitId, kind: 'plugin', isolation: 'process', dependencies: [], required: true,
+    reloadable: true, contractFingerprint: 'a'.repeat(64), storageSchema: 24,
+  })
+  f.coordinator.activate(other)
+  const lock = f.coordinator.acquireResource(other, 'checkout:shared')
+  if (!lock) throw new Error('Expected original checkout ownership')
+  expect(await outcome(f.managed.call('fixture.lock', { key: lock.key, timeoutMs: 30, holdMs: 0 }, z.number()))).toMatchObject({ code: 'BUSY' })
+  const controller = new AbortController()
+  const cancelled = outcome(f.managed.call('fixture.lock', { key: lock.key, timeoutMs: 1_000, holdMs: 0 }, z.number(), { signal: controller.signal }))
+  controller.abort()
+  expect(await cancelled).toBeInstanceOf(Error)
+  const waiting = f.managed.call('fixture.lock', { key: lock.key, timeoutMs: 1_000, holdMs: 10 }, z.number())
+  await Bun.sleep(100)
+  const releasedAt = Date.now()
+  f.coordinator.releaseResource(other, lock.id)
+  expect(await waiting).toBeGreaterThanOrEqual(releasedAt)
+  expect(f.coordinator.snapshot().resources).toBe(0)
 })

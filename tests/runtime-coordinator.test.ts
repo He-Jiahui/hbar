@@ -90,6 +90,52 @@ test('valid lease identities cannot forge their captured capability bindings', a
   f.coordinator.assertExecution(lease)
 })
 
+test('logical terminal release retains its Session and physical capacity, rejects late commits and hands off once actual work settles', async () => {
+  let persisted = 0
+  let resumed = 0
+  const f = fixture({ release: async () => { persisted++ } })
+  const lease = await f.claim()
+  const permit = f.coordinator.reserveTool(lease, 'ignored-abort', f.kernel)
+  await f.coordinator.requestRelease(lease, () => { resumed++ })
+  await f.coordinator.requestRelease(lease, () => { resumed++ })
+  expect(persisted).toBe(0)
+  expect(f.coordinator.snapshot()).toMatchObject({ sessions: 1, physicalTools: 1 })
+  expect(() => f.coordinator.assertCanWrite(f.kernel, lease)).toThrow('logical Run has finished')
+  const next = owner('kernel', 2)
+  f.register(next, 'kernel')
+  expect(await f.coordinator.claim(next, 'session', 'next-run', f.bindings(next))).toBeNull()
+  f.coordinator.releaseTool(f.kernel, permit.id)
+  await Bun.sleep(0)
+  expect(persisted).toBe(1)
+  expect(resumed).toBe(1)
+  expect(f.coordinator.snapshot()).toMatchObject({ sessions: 0, physicalTools: 0 })
+  expect((await f.claim('session', 'next-run', next)).owner).toEqual(next)
+})
+
+test('an unknown deferred durable release closes admission and is never blindly replayed', async () => {
+  let attempts = 0
+  let failed = 0
+  const f = fixture({ release: async () => { attempts++; throw new Error('lost receipt') } })
+  const lease = await f.claim()
+  const permit = f.coordinator.reserveTool(lease, 'physical', f.kernel)
+  await f.coordinator.requestRelease(lease, () => {}, () => { failed++ })
+  f.coordinator.releaseTool(f.kernel, permit.id)
+  await Bun.sleep(0)
+  expect(attempts).toBe(1)
+  expect(failed).toBe(1)
+  expect(f.coordinator.canIdle(f.kernel, 'session')).toBe(false)
+  expect(await f.coordinator.claim(f.kernel, 'other', 'other-run', f.bindings())).not.toBeNull()
+  expect(attempts).toBe(1)
+})
+
+test('a handoff observer error cannot undo a confirmed release or block the next Session executor', async () => {
+  const f = fixture()
+  const lease = await f.claim()
+  await f.coordinator.requestRelease(lease, () => { throw new Error('failed UI observer') })
+  expect(f.coordinator.snapshot().sessions).toBe(0)
+  expect(f.coordinator.canIdle(f.kernel, 'session')).toBe(true)
+})
+
 test('a shared writer failure revokes every active Session without making the healthy Kernel a failed owner', async () => {
   const f = fixture()
   const storage = owner('storage')
