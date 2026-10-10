@@ -25,9 +25,14 @@ import type { ChatDatabaseDatabasePort } from './chat-database-database'
 import { createChatDatabaseAutomaticPlanner, type ChatDatabaseAutomaticInput } from './chat-database-automatic-plan'
 
 export interface ChatDatabaseCleanupDomainPort {
-  protection(sessionId: string): ChatDatabaseSkipReason | null
+  protection(sessionId: string): ChatDatabaseSkipReason | null | Promise<ChatDatabaseSkipReason | null>
   removeSession(input: ChatDatabaseDeleteInput): Promise<ChatDatabaseDeleteResult>
   deleted(sessionIds: string[], revision: number): void
+}
+export interface ChatDatabaseMaintenanceLifecycle {
+  readonly recover?: boolean
+  started?(operation: ChatDatabaseOperation): Promise<void>
+  finished?(operationId: string): Promise<void>
 }
 interface WriteIdentity {
   actorId: string
@@ -89,6 +94,7 @@ export function createChatDatabaseMaintenanceService(
   domain: ChatDatabaseCleanupDomainPort,
   resources?: ChatDatabaseResourcePort,
   database?: ChatDatabaseDatabasePort,
+  lifecycle: ChatDatabaseMaintenanceLifecycle = {},
 ) {
   let closed = false
   let current: { id: string; controller: AbortController; task: Promise<void> } | null = null
@@ -306,7 +312,7 @@ export function createChatDatabaseMaintenanceService(
           return
         }
         const session = await storage.call('findSession', candidate.id)
-        let reason = candidate.skipReason ?? domain.protection(candidate.id)
+        let reason = candidate.skipReason ?? await domain.protection(candidate.id)
         let revisions: Record<string, number> = {}
         if (!session) reason = 'missing'
         else {
@@ -440,7 +446,7 @@ export function createChatDatabaseMaintenanceService(
               }
             }
           }
-          if (result?.deleted && result.revision !== undefined) domain.deleted([item.id], result.revision)
+          if (result?.deleted && result.revision !== undefined) await domain.deleted([item.id], result.revision)
         }
         await storage.call('chatDatabaseOperationUpdate', id, {
           processedCount: page.positions[index]!,
@@ -490,13 +496,14 @@ export function createChatDatabaseMaintenanceService(
       return
     }
     const controller = new AbortController()
-    const task = (
-      state.type === 'preview'
+    const task = Promise.resolve().then(async () => {
+      await lifecycle.started?.(state)
+      return state.type === 'preview'
         ? preview(state.operationId, controller.signal)
         : state.trigger === 'manual'
           ? cleanup(state.operationId, controller.signal)
           : automatic(state, controller.signal)
-    )
+    })
       .catch(async (reason: unknown) => {
         const latest = await storage.call('chatDatabaseOperationRead', state.operationId)
         if (['completed', 'cancelled', 'failed'].includes(latest.status)) {
@@ -516,15 +523,24 @@ export function createChatDatabaseMaintenanceService(
           completedAt: unknown ? null : Date.now(),
         })
       })
-      .finally(() => {
-        if (current?.id === state.operationId) current = null
+      .finally(async () => {
+        try { await lifecycle.finished?.(state.operationId) }
+        finally { if (current?.id === state.operationId) current = null }
       })
     current = { id: state.operationId, controller, task }
     void task.catch((error: unknown) => console.error('Chat database journal update failed', error))
   }
-  const ready = storage.call('chatDatabasePending').then((pending) => {
-    if (pending) launch(pending)
-  })
+  let recovered = false
+  let recoveryTask: Promise<void> | undefined
+  function resume(): Promise<void> {
+    if (closed || recovered) return Promise.resolve()
+    recoveryTask ??= storage.call('chatDatabasePending').then(pending => {
+      if (pending) launch(pending)
+      recovered = true
+    }).finally(() => { recoveryTask = undefined })
+    return recoveryTask
+  }
+  const ready = lifecycle.recover === false ? Promise.resolve() : resume()
   void ready.catch((error: unknown) => console.error('Chat database recovery failed', error))
   async function automatic(state: ChatDatabaseOperation, signal: AbortSignal): Promise<void> {
     const selected = await storage.call('chatDatabaseAutomaticPlanRead', state.operationId)
@@ -537,6 +553,8 @@ export function createChatDatabaseMaintenanceService(
     await cleanup(state.operationId, signal)
   }
   return {
+    resume,
+    currentOperationId: () => current?.id ?? null,
     async automatic(
       input: ChatDatabaseAutomaticInput,
       identity: WriteIdentity,
@@ -654,6 +672,7 @@ export function createChatDatabaseMaintenanceService(
     async close(): Promise<void> {
       closed = true
       await ready
+      await recoveryTask
       current?.controller.abort(new HbarError('DISPOSED', 'Chat database maintenance is closing'))
       await current?.task
       await database?.close()

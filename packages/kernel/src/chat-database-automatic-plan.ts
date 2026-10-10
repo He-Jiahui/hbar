@@ -24,7 +24,7 @@ export function createChatDatabaseAutomaticPlanner(
   storage: StoragePort,
   settings: SettingsService,
   statistics: ChatDatabaseStatisticsService,
-  protection: (id: string) => ChatDatabaseSkipReason | null,
+  protection: (id: string) => ChatDatabaseSkipReason | null | Promise<ChatDatabaseSkipReason | null>,
   resources?: ChatDatabaseResourcePort,
 ) {
   return async function plan(start: ChatDatabaseOperation, signal: AbortSignal): Promise<boolean> {
@@ -97,7 +97,7 @@ export function createChatDatabaseAutomaticPlanner(
         for (const candidate of page.items) {
           if (await check()) return false
           const session = await storage.call('findSession', candidate.id)
-          let reason = candidate.skipReason ?? protection(candidate.id)
+          let reason = candidate.skipReason ?? await protection(candidate.id)
           let revisions: Record<string, number> = {}
           if (!session) reason = 'missing'
           else {

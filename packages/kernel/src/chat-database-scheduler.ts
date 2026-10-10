@@ -174,9 +174,14 @@ export function createChatDatabaseScheduler(
       if (!closed) console.error('Chat database scheduler check failed', reason)
     })
   }
-  const timer = options.start === false ? null : setInterval(run, 60_000)
-  timer?.unref()
-  if (options.start !== false) run()
+  let timer: ReturnType<typeof setInterval> | null = null
+  function start(): void {
+    if (closed || timer) return
+    timer = setInterval(run, 60_000)
+    timer.unref()
+    run()
+  }
+  if (options.start !== false) start()
   async function get(scope: ChatDatabaseScope): Promise<ChatDatabaseTask> {
     const saved = await settings.get(scope)
     const policy = resolveChatDatabasePolicy(saved.resolution)
@@ -204,6 +209,7 @@ export function createChatDatabaseScheduler(
     }
   }
   return {
+    start,
     check,
     get,
     async close(): Promise<void> {

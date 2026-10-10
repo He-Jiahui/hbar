@@ -7,6 +7,7 @@ import {
   type ChatDatabaseMaintenanceWorkerPort,
   type PathLayout,
   type StoragePort,
+  type ChatDatabaseWriterHandover,
 } from '@hbar/storage'
 
 export interface ChatDatabaseDatabasePort extends Omit<ChatDatabaseMaintenanceWorkerPort, 'run'> {
@@ -21,17 +22,18 @@ export function createChatDatabaseDatabaseService(
   storage: StoragePort,
   layout: PathLayout,
   domain: {
-    idle(): boolean
+    idle(): boolean | Promise<boolean>
     maintain<Value>(action: () => Promise<Value>): Promise<Value>
+    handover?: ChatDatabaseWriterHandover
   },
 ): ChatDatabaseDatabasePort {
-  const worker = createChatDatabaseMaintenanceWorker(storage, layout)
+  const worker = createChatDatabaseMaintenanceWorker(storage, layout, 120_000, domain.handover)
   return {
     ...worker,
     async preview(statistics) {
       const info = await lstat(layout.database, { bigint: true })
       if (!info.isFile() || info.isSymbolicLink()) throw new HbarError('PATH_REDIRECTED', 'Database root is redirected')
-      const eligible = domain.idle()
+      const eligible = await domain.idle()
       return {
         kind: 'database',
         id: 'sqlite',
