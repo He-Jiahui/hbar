@@ -155,6 +155,7 @@ import { lazySurface, LazySurfaceBoundary, lazySurfaceCopy } from './lazy-surfac
 import { notificationNavigationCopy } from './notification-copy'
 import { NotificationPageNavigation } from './NotificationPageButton'
 import { navigateNotification } from './notification-navigation'
+import { createDevelopmentDiagnostics } from './development-diagnostics'
 const SchedulesPage = lazySurface<ComponentProps<typeof import('./schedules-page').SchedulesPage>>(() =>
   import('./schedules-page').then((module) => ({ default: module.SchedulesPage })),
 )
@@ -1587,7 +1588,8 @@ export default function App({
   }, [locale, runtimeCopy])
   const clientUrl = nativeConnection?.url ?? window.location.origin
   const clientToken = nativeConnection?.token
-  const client = useMemo(() => new HbarClient(clientUrl, clientToken), [clientToken, clientUrl])
+  const developmentDiagnostics = useMemo(() => createDevelopmentDiagnostics(), [])
+  const client = useMemo(() => new HbarClient(clientUrl, clientToken, developmentDiagnostics.options), [clientToken, clientUrl, developmentDiagnostics])
   useEffect(() => nativeConnection ? startNativeConnectionRecovery(client, () => loadNativeConnection(window, new URL(client.baseUrl).origin)) : undefined, [client, nativeConnection])
   const storageLocations = useMemo(() => {
     const commands = createSystemCommandClient(client)
