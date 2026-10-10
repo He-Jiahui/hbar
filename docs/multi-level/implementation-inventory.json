@@ -606,6 +606,7 @@
     "questionnaire.resetAnswers",
     "questionnaire.setAnswer",
     "runAction.reconcileCancellation",
+    "settingsForm.batch",
     "settingsForm.pickResource",
     "settingsForm.reconcile",
     "settingsForm.refresh",
