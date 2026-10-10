@@ -9,7 +9,7 @@
   gap: 0.5rem;
   padding: 0.625rem;
   background: transparent;
-  box-shadow: 0 0 1rem color-mix(in srgb, var(--lumen-ink) 12%, transparent);
+  box-shadow: none;
 }
 
 .hbar-prompt-composer > p {

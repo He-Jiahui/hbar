@@ -11,6 +11,23 @@ import {
 } from '@lumen/app-ui'
 import '../../packages/hbar-app-ui/src/theme.css'
 
+function StatefulAction({ label, onAction }: { label: string; onAction: () => void }) {
+  const [count, setCount] = useState(0)
+  return (
+    <LumenButton
+      size="s"
+      variant="text"
+      aria-label={label}
+      onClick={() => {
+        setCount((value) => value + 1)
+        onAction()
+      }}
+    >
+      {label} · {count}
+    </LumenButton>
+  )
+}
+
 function Fixture() {
   const zh = document.documentElement.lang.startsWith('zh')
   const labels = zh
@@ -41,11 +58,7 @@ function Fixture() {
             id: String(index),
             label,
             priority: index === 0 ? 100 : 10,
-            content: (
-              <LumenButton size="s" variant="text" onClick={() => setLast(label)}>
-                {label}
-              </LumenButton>
-            ),
+            content: <StatefulAction label={label} onAction={() => setLast(label)} />,
           }))}
           trailing={<LumenButton onClick={() => setLast(labels[5]!)}>{labels[5]}</LumenButton>}
         />

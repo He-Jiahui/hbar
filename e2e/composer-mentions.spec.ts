@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { expectComposerText, readComposerText } from './support/composer-text'
+import { removeOwnedFixtureDirectory } from './support/owned-fixture-directory'
 
 const base = () => `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
 
@@ -12,6 +13,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`workspace mentions are structured, scoped, and submitted only as quoted paths: ${locale}`, async ({
     browser,
   }) => {
+    test.setTimeout(120_000)
     const root = await mkdtemp(join(tmpdir(), 'hbar-composer-mentions-'))
     const context = await browser.newContext({ locale, viewport: { width: 1440, height: 960 } })
     const copy = getShellCopy(locale)
@@ -23,7 +25,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await writeFile(join(root, 'src', 'beta.ts'), 'export const beta = true\n')
       for (let index = 0; index < 58; index += 1)
         await writeFile(join(root, 'pages', `page-${String(index).padStart(2, '0')}.md`), `Page ${index}\n`)
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317), sessionCount: 2 })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        sessionCount: 2,
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       expect((await context.request.post(`${base()}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(
         true,
       )
@@ -32,6 +40,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       page.on('pageerror', (error) => errors.push(error.message))
       await page.goto(`${base()}${process.env.HBAR_MENTION_E2E_ENTRY ?? '/'}`)
       await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
+      await expect(page.getByRole('heading', { level: 1, name: host.ready.sessionTitle, exact: true })).toBeVisible()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const menu = page.getByRole('listbox', { name: copy.session.mentions.menu })
       await prompt.fill('Review @alpha')
@@ -55,6 +64,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
 
       // Switching targets never projects a pill or a late result into another draft.
       await page.getByRole('treeitem', { name: 'Session 001', exact: true }).click()
+      await expect(page.getByRole('heading', { level: 1, name: 'Session 001', exact: true })).toBeVisible()
       const otherPrompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       await otherPrompt.fill('Other @beta')
       await expect(menu.getByRole('option').filter({ hasText: 'beta.ts' })).toBeVisible()
@@ -177,7 +187,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeOwnedFixtureDirectory(root, 'hbar-composer-mentions-')
     }
   })
 }

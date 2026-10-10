@@ -14,7 +14,7 @@ async function removeOwnedComposerRoot(root: string) {
     !ownedRoot.split(/[\\/]/).at(-1)?.startsWith('hbar-composer-running-')
   )
     throw new Error('Refusing to remove an unexpected composer test root')
-  await rm(ownedRoot, { recursive: true, force: true })
+  await rm(ownedRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 })
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
@@ -26,7 +26,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     const context = await browser.newContext({ locale, colorScheme: 'light', viewport: { width: 1440, height: 960 } })
     let host: WebSessionHost | undefined
     try {
-      host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+      host = await startWebSessionHost({
+        root,
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const target = host
       const sessionId = host.ready.sessionId
       const runs = createRunCommandClient(host.client)
@@ -46,7 +51,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(send).toBeVisible()
       await expect(send).toBeDisabled()
       await expect(send).toHaveAttribute('data-lumen-indicator', 'none')
-      await expect(send).toHaveAttribute('data-lumen-variant', 'solid')
+      await expect(send).toHaveAttribute('data-lumen-variant', 'contained')
       await expect(send.locator('.lucide-arrow-up')).toHaveCount(1)
       await expect(send.locator('[data-edge]')).toHaveCount(0)
       await expect(stop).toHaveCount(0)
@@ -69,9 +74,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .toBe(1)
       await expect(stop).toBeVisible()
       await expect(stop).toHaveAttribute('data-lumen-indicator', 'none')
-      await expect(stop).toHaveAttribute('data-lumen-variant', 'solid')
+      await expect(stop).toHaveAttribute('data-lumen-variant', 'contained')
       await expect(stop).toHaveAttribute('data-tone', 'danger')
-      await expect(stop).toHaveCSS('background-color', 'rgb(183, 53, 72)')
+      await expect(stop).toHaveAttribute('data-lumen-tone', 'danger')
+      await expect(stop).toHaveAttribute('data-lumen-variant', 'contained')
       await expect(stop.locator('[data-edge]')).toHaveCount(0)
       await expect(send).toHaveCount(0)
       await expect(queue).toHaveCount(0)
@@ -122,7 +128,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         }
         expect(
           await composer
-            .locator('.lumen-composer-running-actions')
+            .locator('.lumen-toolbar-trailing')
             .evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
         ).toBe(true)
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1)

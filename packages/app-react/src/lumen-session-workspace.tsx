@@ -1540,7 +1540,12 @@ function SessionWorkspaceContent({
         files && message.sessionId === sessionId && fileWorkspaceId
           ? {
               owner: runtime,
-              source: { workspaceId: fileWorkspaceId, sessionId: message.sessionId, messageId: message.id, sourceTabInstanceKey: sourceTab?.instanceKey ?? null },
+              source: {
+                workspaceId: fileWorkspaceId,
+                sessionId: message.sessionId,
+                messageId: message.id,
+                sourceTabInstanceKey: sourceTab?.instanceKey ?? null,
+              },
               targetKey: JSON.stringify([
                 navigation.workspaceId,
                 message.sessionId,
@@ -1718,8 +1723,7 @@ function SessionWorkspaceContent({
             children: <HbarGoalLifecycleCard row={item.row} labels={labels.goalLifecycle} />,
           },
         ]
-      if (item.kind === 'goalContinuation')
-        return [] // Run boundaries, including failed Goal continuations, belong to session status.
+      if (item.kind === 'goalContinuation') return [] // Run boundaries, including failed Goal continuations, belong to session status.
       const row = rowsById.get(item.kind === 'message' ? item.projection.message.id : item.stream.id)
       return row ? [row] : []
     },
@@ -2236,6 +2240,7 @@ function SessionWorkspaceContent({
             !connected ||
             firstSendLocked ||
             workspaceMoveLocked ||
+            (!firstSendDraft && timeline.sessionId !== sessionId) ||
             timeline.status === 'loading' ||
             timeline.status === 'error'
           }
@@ -2386,6 +2391,12 @@ function SessionWorkspaceContent({
               />
             </LumenFrame>
           }
+          adaptiveToolbar={{
+            moreLabel: labels.addMenu.menu,
+            controlsLabel: labels.addMenu.open,
+            modelLabel: labels.modelPicker.title,
+            revealModelRequest: modelOpenRequest,
+          }}
           context={
             <>
               <HbarComposerBackgroundAgentFeedback
