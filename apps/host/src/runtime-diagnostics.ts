@@ -4,6 +4,8 @@ import {
   type DiagnosticSink,
   type ReadonlyDiagnosticCorrelation,
 } from '@hbar/contracts'
+import { closeSync, mkdirSync, openSync, writeSync } from 'node:fs'
+import { join } from 'node:path'
 import {
   createDiagnosticJournal,
   type DiagnosticJournal,
@@ -42,7 +44,12 @@ export interface HostRuntimeDiagnostics {
   run<T>(context: ReadonlyDiagnosticCorrelation, operation: () => T): T
   snapshot(): DiagnosticJournalSnapshot
   close(timeoutMs?: number): Promise<DiagnosticJournalSnapshot>
+  installFatalObserver(phase?: HostFatalPhase): void
+  setFatalPhase(phase: HostFatalPhase): void
+  closeFatalObserver(): void
 }
+
+export type HostFatalPhase = 'startup' | 'kernel' | 'server' | 'running' | 'closing'
 
 /** Creates the process-owned Host journal and correlation scope. */
 export function createHostRuntimeDiagnostics(options: HostRuntimeDiagnosticsOptions): HostRuntimeDiagnostics {
@@ -67,6 +74,42 @@ export function createHostRuntimeDiagnostics(options: HostRuntimeDiagnosticsOpti
   const scope = createDiagnosticScope()
   const sink = protectDiagnosticSink(journal, scope)
   let baseInstanceId = options.instanceId
+  let fatalPhase: HostFatalPhase = 'startup'
+  let fatalObserverInstalled = false
+  let fallbackWritten = false
+  const fallbackPath = join(options.root, 'hbar-host-fatal-fallback.jsonl')
+  try {
+    mkdirSync(options.root, { recursive: true })
+  } catch {
+    // Best effort: a failed directory creation must not affect the original fatal path.
+  }
+  const observeFatal = (_error: unknown, _origin: string): void => {
+    const event = {
+      component: 'host' as const,
+      level: 'fatal' as const,
+      event: 'host.uncaught_exception',
+      phase: fatalPhase,
+      outcome: 'failure' as const,
+      errorCode: 'HOST_UNCAUGHT_EXCEPTION',
+      workerState: 'failed' as const,
+      processId: process.pid,
+    }
+    emit(event)
+    if (fallbackWritten) return
+    fallbackWritten = true
+    try {
+      const line = `${JSON.stringify({ schemaVersion: 1, time: Date.now(), monotonicMs: performance.now(), ...event })}\n`
+      if (Buffer.byteLength(line) > 2 * 1024) return
+      const descriptor = openSync(fallbackPath, 'a', 0o600)
+      try {
+        writeSync(descriptor, line)
+      } finally {
+        closeSync(descriptor)
+      }
+    } catch {
+      // Fatal observation is best effort and must not alter the original exception path.
+    }
+  }
   const emit = (input: Parameters<HostRuntimeDiagnostics['emit']>[0]): void => {
     try {
       const { component, time, monotonicMs, instanceId, ...rest } = input
@@ -95,6 +138,20 @@ export function createHostRuntimeDiagnostics(options: HostRuntimeDiagnosticsOpti
     run: (context, operation) => scope.run(context, operation),
     snapshot: () => journal.snapshot(),
     close: (timeoutMs) => journal.close(timeoutMs),
+    installFatalObserver(phase = 'startup') {
+      if (fatalObserverInstalled) return
+      fatalPhase = phase
+      process.on('uncaughtExceptionMonitor', observeFatal)
+      fatalObserverInstalled = true
+    },
+    setFatalPhase(phase) {
+      fatalPhase = phase
+    },
+    closeFatalObserver() {
+      if (!fatalObserverInstalled) return
+      process.removeListener('uncaughtExceptionMonitor', observeFatal)
+      fatalObserverInstalled = false
+    },
   }
 }
 

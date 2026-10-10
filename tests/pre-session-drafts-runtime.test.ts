@@ -89,6 +89,7 @@ function defaultModelSnapshot(
   scope: { kind: 'global' } | { kind: 'workspace'; targetId: string },
   modelId: string | null,
   thinkingLevel: string | null,
+  maxMode = false,
 ): SettingsSnapshot {
   const report = (name: string, effectiveValue: unknown) => ({
     path: encodePath([{ kind: 'field', name }]),
@@ -109,6 +110,7 @@ function defaultModelSnapshot(
     resolution: {
       layers: [{ id: 'settings:global', kind: 'global', revision: 1 }],
       reports: {
+        [encodePath([{ kind: 'field', name: 'provider.maxMode' }])]: report('provider.maxMode', maxMode),
         [encodePath([{ kind: 'field', name: 'provider.model' }])]: report('provider.model', modelId),
         [encodePath([{ kind: 'field', name: 'provider.thinkingLevel' }])]: report(
           'provider.thinkingLevel',
@@ -287,7 +289,11 @@ function launchPreparationManager(
 function fixture(
   options: {
     readonly sessionSettings?: boolean
-    readonly modelDefaults?: { readonly modelId: string | null; readonly thinkingLevel: string | null }
+    readonly modelDefaults?: {
+      readonly modelId: string | null
+      readonly thinkingLevel: string | null
+      readonly maxMode?: boolean
+    }
     readonly defaultReadGate?: ReturnType<typeof gate>
     readonly invalidateApprovalOnWrite?: boolean
     readonly planMode?: boolean
@@ -312,6 +318,12 @@ function fixture(
         readonly sessionId: string
         readonly thinkingLevel: Exclude<ModelConfiguration['thinkingLevel'], null>
       }
+    | {
+        readonly name: 'session.setMaxMode'
+        readonly key: string
+        readonly sessionId: string
+        readonly enabled: boolean
+      }
   )[] = []
   let modelCatalog: readonly ModelDescriptor[] = [model]
   let modelCatalogError: CommandError | null = null
@@ -334,6 +346,7 @@ function fixture(
     files: ArtifactRef[]
     launchTargetRevision?: number
     thinkingLevel: ModelConfiguration['thinkingLevel']
+    maxMode?: boolean
     approval: 'ask' | 'deny' | 'allow' | 'sandbox' | undefined
     mode: 'default' | 'plan' | undefined
   }[] = []
@@ -353,6 +366,7 @@ function fixture(
   let loseNextPlanModeWriteReply = false
   let loseNextGoalCreateReply = false
   let loseNextThinkingWriteReply = false
+  let loseNextMaxWriteReply = false
   let failModelReads = false
   let unknownNextRun = false
   let agentProfiles: readonly AgentProfileId[] = options.agentProfiles ?? ['explore']
@@ -446,6 +460,7 @@ function fixture(
           revision: receipt.revision,
           modelId: receipt.modelId,
           thinkingLevel: receipt.thinkingLevel,
+          maxMode: receipt.maxMode ?? false,
           revisions: receipt.revisions,
         }
       }
@@ -512,6 +527,34 @@ function fixture(
         }
         return result
       }
+      if (name === 'session.setMaxMode') {
+        const input = modelCommands[name].input.parse(raw)
+        const key = options.idempotencyKey
+        if (!key) throw new Error('MAX fixture requires an idempotency key')
+        const saved = modelReceipts.get(key)
+        if (saved) return saved
+        const current = models.get(input.sessionId)
+        if (!current?.model) throw new CommandError('MODEL_NOT_FOUND', 'MAX fixture model is missing')
+        const layer = `settings:session:${input.sessionId}`
+        if (input.baselineRevisions[layer] !== current.revisions[layer])
+          throw new CommandError('VERSION_CONFLICT', 'MAX fixture revision changed')
+        const revision = (current.revisions[layer] ?? 0) + 1
+        const next: ModelConfiguration = {
+          ...current,
+          maxMode: input.enabled,
+          revisions: { ...current.revisions, [layer]: revision },
+          sources: { ...current.sources, maxMode: layer },
+        }
+        models.set(input.sessionId, next)
+        const result: ModelWriteResult = { ...next, commitId: key, revision }
+        modelReceipts.set(key, result)
+        modelWrites.push({ name: 'session.setMaxMode', key, sessionId: input.sessionId, enabled: input.enabled })
+        if (loseNextMaxWriteReply) {
+          loseNextMaxWriteReply = false
+          throw new CommandError('RESULT_UNKNOWN', 'MAX reply was lost after commit')
+        }
+        return result
+      }
       throw new Error(`Unexpected model command: ${name}`)
     },
   }
@@ -523,6 +566,7 @@ function fixture(
       const key = options.idempotencyKey
       if (!key) throw new Error('First Run requires its stable idempotency key')
       runCalls.push({
+        ...(input.input.maxMode === undefined ? {} : { maxMode: input.input.maxMode }),
         sessionId: input.sessionId,
         key,
         text: input.input.text,
@@ -605,7 +649,12 @@ function fixture(
             options.defaultReadGate.markEntered()
             await options.defaultReadGate.promise
           }
-          return defaultModelSnapshot(input.scope, options.modelDefaults.modelId, options.modelDefaults.thinkingLevel)
+          return defaultModelSnapshot(
+            input.scope,
+            options.modelDefaults.modelId,
+            options.modelDefaults.thinkingLevel,
+            options.modelDefaults.maxMode,
+          )
         }
         if (blockNextPermissionRead) {
           blockNextPermissionRead = false
@@ -889,6 +938,9 @@ function fixture(
     },
     loseThinkingWriteReply() {
       loseNextThinkingWriteReply = true
+    },
+    loseMaxWriteReply() {
+      loseNextMaxWriteReply = true
     },
     holdNextGoalCreate() {
       const held = gate()
@@ -2138,6 +2190,130 @@ test('a delayed thinking choice cannot overwrite a more recent model selection',
     expect(f.createCalls).toEqual([])
   } finally {
     held.release()
+    f.runtime.dispose()
+  }
+})
+
+test.each([false, true])(
+  'inherited MAX appears in a first-send draft only for an expanded model: %s',
+  async (expanded) => {
+    const f = fixture({ modelDefaults: { modelId: model.id, thinkingLevel: 'low', maxMode: true } })
+    f.setModelCatalog([
+      {
+        ...model,
+        ...(expanded
+          ? {
+              contextTiers: [
+                { id: 'long', contextWindow: 128_000, inputTokensAbove: 32_000, inputPrice: 2, outputPrice: 10 },
+              ],
+            }
+          : {}),
+      },
+    ])
+    try {
+      const target = await createDraft(f.runtime, { workspaceId: 'workspace-a', text: 'Retain this input' })
+      await f.runtime.view.commands.execute('preSessionDraft.resolveDefaultModel', {
+        draftId: target.draftId,
+        expectedRevision: target.revision,
+      })
+      expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+        modelId: model.id,
+        thinkingLevel: 'low',
+        maxMode: expanded,
+        text: 'Retain this input',
+      })
+      expect(f.createCalls).toHaveLength(0)
+    } finally {
+      f.runtime.dispose()
+    }
+  },
+)
+
+test('first-send MAX preserves its captured choice and reconciles a lost write without recreating the Session or charging twice', async () => {
+  const f = fixture()
+  const tiered = {
+    ...model,
+    contextTiers: [{ id: 'long', contextWindow: 128_000, inputTokensAbove: 32_000, inputPrice: 2, outputPrice: 10 }],
+  }
+  f.setModelCatalog([tiered])
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'Use extended context for this first Run',
+      modelId: model.id,
+    })
+    const chosen = await f.runtime.view.commands.execute('preSessionDraft.setMaxMode', {
+      draftId: target.draftId,
+      enabled: true,
+      expectedModelId: model.id,
+      expectedRevision: target.revision,
+    })
+    f.loseMaxWriteReply()
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: chosen.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    expect(f.createCalls).toHaveLength(1)
+    expect(f.runCalls).toHaveLength(0)
+    expect(f.runtime.view.state.preSessionDrafts.getSnapshot()[target.draftId]).toMatchObject({
+      maxMode: true,
+      phase: 'unknown',
+      unknownStage: 'model',
+    })
+    await f.runtime.view.commands.execute('preSessionDraft.reconcile', { draftId: target.draftId })
+    expect(f.createCalls).toHaveLength(1)
+    expect(f.modelWrites.filter((write) => write.name === 'session.setMaxMode')).toHaveLength(1)
+    expect(f.runCalls).toHaveLength(1)
+    expect(f.runCalls[0]?.maxMode).toBe(true)
+    expect(f.runCalls[0]?.thinkingLevel).toBe('off')
+  } finally {
+    f.runtime.dispose()
+  }
+})
+
+test('a removed first-send MAX tier blocks before Session creation and can be explicitly cleared', async () => {
+  const f = fixture()
+  f.setModelCatalog([
+    {
+      ...model,
+      contextTiers: [{ id: 'long', contextWindow: 128_000, inputTokensAbove: 32_000, inputPrice: 2, outputPrice: 10 }],
+    },
+  ])
+  try {
+    const target = await createDraft(f.runtime, {
+      workspaceId: 'workspace-a',
+      text: 'Keep this draft',
+      modelId: model.id,
+    })
+    const chosen = await f.runtime.view.commands.execute('preSessionDraft.setMaxMode', {
+      draftId: target.draftId,
+      enabled: true,
+      expectedModelId: model.id,
+      expectedRevision: target.revision,
+    })
+    f.setModelCatalog([model])
+    await expect(
+      f.runtime.view.commands.execute('preSessionDraft.submit', {
+        draftId: target.draftId,
+        expectedRevision: chosen.revision,
+      }),
+    ).rejects.toMatchObject({ code: 'MAX_MODE_UNSUPPORTED' })
+    expect(f.createCalls).toHaveLength(0)
+    const cleared = await f.runtime.view.commands.execute('preSessionDraft.setMaxMode', {
+      draftId: target.draftId,
+      enabled: false,
+      expectedModelId: model.id,
+      expectedRevision: chosen.revision,
+    })
+    await f.runtime.view.commands.execute('preSessionDraft.submit', {
+      draftId: target.draftId,
+      expectedRevision: cleared.revision,
+    })
+    expect(f.runCalls[0]?.maxMode).toBe(false)
+    expect(f.runCalls[0]?.text).toBe('Keep this draft')
+  } finally {
     f.runtime.dispose()
   }
 })

@@ -282,6 +282,19 @@ export function WebPreSessionLanding({
     })
   }
 
+  const chooseMaxMode = async (enabled: boolean, expectedModelId: string) => {
+    await queue(async () => {
+      const current = runtime.state.preSessionDrafts.getSnapshot()[draftId]
+      if (!current) throw new Error('Draft is unavailable')
+      await runtime.commands.execute('preSessionDraft.setMaxMode', {
+        draftId,
+        enabled,
+        expectedModelId,
+        expectedRevision: current.revision,
+      })
+    })
+  }
+
   const chooseApproval = (choice: ComposerPermissionChoice, confirmAllow?: true) =>
     queue(async () => {
       let current = runtime.state.preSessionDrafts.getSnapshot()[draftId]
@@ -700,6 +713,8 @@ export function WebPreSessionLanding({
         labels={shell.session.modelPicker}
         disabled={!connected || !draft || busy || draft.phase === 'unknown'}
         onChoose={chooseThinkingLevel}
+        maxMode={draft?.maxMode ?? false}
+        onMaxModeChange={chooseMaxMode}
       />
     </LumenFrame>
   )
@@ -799,7 +814,9 @@ export function WebPreSessionLanding({
                   ? labels.selectedModelUnavailable
                   : modelSelection.unavailable === 'thinking'
                     ? labels.selectedThinkingUnavailable
-                    : labels.model.empty}
+                    : modelSelection.unavailable === 'maxMode'
+                      ? shell.session.modelPicker.maxMode.unavailable
+                      : labels.model.empty}
           </LumenContentText>
           {modelError ? (
             <LumenButton type="button" size="s" disabled={!connected} onClick={retryModels}>

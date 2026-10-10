@@ -4,6 +4,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createInterface } from 'node:readline'
 import { z } from 'zod'
+import { existsSync } from 'node:fs'
 import { HbarClient } from '@hbar/client'
 import { bunExecutable, stopOwnedWebSessionHostChild } from './web-session-host'
 
@@ -30,7 +31,13 @@ async function removeRoot(root: string) {
 }
 export async function startMaxModeFixture(): Promise<MaxModeFixture> {
   const root = await mkdtemp(join(tmpdir(), 'hbar-max-ui-'))
-  await cp(resolve('dist/web'), join(root, 'assets'), { recursive: true })
+  try {
+    await cp(resolve(process.env.HBAR_MAX_WEB_ASSETS ?? 'dist/web'), join(root, 'assets'), { recursive: true })
+    if (!existsSync(join(root, 'assets', 'index.html'))) throw new Error('MAX fixture assets have no built index.html')
+  } catch (error) {
+    await removeRoot(root)
+    throw error
+  }
   const child = spawn(bunExecutable(), ['e2e/support/max-mode-host.ts'], {
     cwd: process.cwd(),
     env: { ...process.env, HBAR_MAX_TEST_ROOT: root },

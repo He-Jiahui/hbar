@@ -10,6 +10,11 @@ import { startServer } from '../../apps/host/src/server'
 const root = z.string().min(1).parse(process.env.HBAR_MAX_TEST_ROOT)
 const pi = new PiDriver()
 let release = () => {}
+let releaseRequested = false
+function releaseHold() {
+  releaseRequested = true
+  release()
+}
 const driver = definePlugin({
   manifest: {
     id: 'driver.pi',
@@ -25,7 +30,7 @@ const driver = definePlugin({
     provide<HarnessDriver>(context, 'driver', {
       async run(input) {
         await input.beforeRequest(input.request, 'fixture-step')
-        if (input.run.input.text === 'hold')
+        if (input.run.input.text === 'hold' && !releaseRequested)
           await new Promise<void>((done) => {
             release = done
           })
@@ -101,13 +106,13 @@ process.stdout.write(
 )
 const lines = createInterface({ input: process.stdin })
 lines.on('line', (line) => {
-  if (line === 'release') release()
+  if (line === 'release') releaseHold()
 })
 let closing = false
 async function close() {
   if (closing) return
   closing = true
-  release()
+  releaseHold()
   lines.close()
   await host.close()
   await kernel.close()

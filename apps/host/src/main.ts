@@ -105,10 +105,12 @@ export async function runHost(
   let kernel: Kernel | undefined
   let requestShutdown: ((exitCode: number) => void) | undefined
   let removeStorageFatalListener: (() => void) | undefined
+  let boundedFatalShutdown = false
   const diagnostics = createHostRuntimeDiagnostics({
     root: layout.diagnostics,
     fileName: 'hbar-host-diagnostics.jsonl',
   })
+  diagnostics.installFatalObserver('startup')
   hostLifecycleEvent(diagnostics, 'host.starting', {
     level: 'info',
     outcome: 'success',
@@ -120,6 +122,7 @@ export async function runHost(
     const profile = values.profile
       ? ((await import(pathToFileURL(resolve(values.profile)).href)) as { default: KernelProfile }).default
       : undefined
+    diagnostics.setFatalPhase('kernel')
     kernel = await Kernel.create({
       layout,
       diagnostics: diagnostics.sink,
@@ -136,6 +139,7 @@ export async function runHost(
       workerState: 'ready',
       processId: process.pid,
     })
+    diagnostics.setFatalPhase('server')
     const host = await startServer(kernel, {
       dataRootId,
       ...(values.host ? { hostname: values.host } : {}),
@@ -157,6 +161,7 @@ export async function runHost(
       diagnosticFull: diagnostics.snapshot().fullCoverage,
       diagnosticSampleRate: diagnostics.snapshot().fullCoverage ? 1 : 0.1,
     })
+    diagnostics.setFatalPhase('running')
     if (values.desktop) {
       const device = await host.auth.createDevice('hbar desktop')
       await writeFile(
@@ -194,6 +199,7 @@ export async function runHost(
         workerState: failure === undefined ? 'closed' : 'failed',
         processId: process.pid,
       })
+      if (!boundedFatalShutdown) diagnostics.closeFatalObserver()
       try {
         await diagnostics.close(2_000)
       } catch (error) {
@@ -210,6 +216,8 @@ export async function runHost(
     const stop = async (exitCode = 0, bounded = false) => {
       if (closing) return
       closing = true
+      boundedFatalShutdown = bounded
+      diagnostics.setFatalPhase('closing')
       hostLifecycleEvent(diagnostics, 'host.stop_requested', {
         level: 'info',
         outcome: 'success',
@@ -221,6 +229,7 @@ export async function runHost(
       if (!bounded) {
         await task
         removeStorageFatalListener?.()
+        diagnostics.closeFatalObserver()
         process.exit(exitCode)
       }
       let timer: ReturnType<typeof setTimeout> | undefined
@@ -309,6 +318,8 @@ export async function runHost(
       errorCode: 'HOST_STARTUP_FAILED',
       workerState: 'failed',
     })
+    diagnostics.setFatalPhase('closing')
+    diagnostics.closeFatalObserver()
     if (kernel) await kernel.close().catch(() => undefined)
     await diagnostics.close(2_000).catch(() => undefined)
     await rm(lock, { force: true }).catch(() => undefined)

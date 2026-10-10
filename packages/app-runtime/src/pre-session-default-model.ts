@@ -1,6 +1,6 @@
 import { CommandError, type CommandExecutor } from '@hbar/commands'
-import { thinkingLevelSchema } from '@hbar/contracts'
-import { canonicalModelDescriptorId, modelCommands } from '@hbar/contracts/commands/models'
+import { thinkingLevelSchema, maximumContextWindow } from '@hbar/contracts'
+import { canonicalModelDescriptorId, modelCommands, MAX_MODE_SETTING } from '@hbar/contracts/commands/models'
 import { settingsCommands } from '@hbar/contracts/commands/settings'
 import { encodePath } from '@hbar/schema-core'
 
@@ -51,7 +51,13 @@ export async function readPreSessionDefaultModel(
       level.success && model.thinkingLevels.includes(level.data) ? level.data : model.defaultThinkingLevel
     if (!model.thinkingLevels.includes(thinkingLevel))
       throw new CommandError('INVALID_OUTPUT', 'Default thinking level is not supported')
-    return { modelId: model.id, thinkingLevel }
+    return {
+      modelId: model.id,
+      thinkingLevel,
+      maxMode:
+        snapshot.resolution.reports[field(MAX_MODE_SETTING)]?.effectiveValue === true &&
+        maximumContextWindow(model) > model.contextWindow,
+    }
   } finally {
     clearTimeout(timeout)
     signal.removeEventListener('abort', cancel)
