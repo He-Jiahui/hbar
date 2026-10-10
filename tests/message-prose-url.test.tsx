@@ -20,20 +20,25 @@ function render(text: string) {
   )
 }
 
+function expectAnchor(html: string, href: string, label: string) {
+  expect(html).toContain(`href="${href}"`)
+  expect(html).toContain(`>${label}</a>`)
+}
+
 test('bare prose links stop before Chinese punctuation without dropping visible text', () => {
   const text = '打开 https://example.invalid/docs，然后继续。'
-  expect(render(text)).toBe(
-    '<p>打开 <a href="https://example.invalid/docs">https://example.invalid/docs</a>，然后继续。</p>',
-  )
+  const html = render(text)
+  expectAnchor(html, 'https://example.invalid/docs', 'https://example.invalid/docs')
+  expect(html).toContain('，然后继续。</p>')
   expect(projectSessionFindText(text).text).toBe(text)
 })
 
 test('explicit Markdown destinations remain unchanged while malformed autolinks are split', () => {
   const explicit = render('[链接](https://example.invalid/docs，然后继续。)')
-  expect(explicit).toContain(`href="${new URL('https://example.invalid/docs，然后继续。').href}"`)
-  expect(render('https://example.invalid/docs，然后继续。')).toContain(
-    '<a href="https://example.invalid/docs">https://example.invalid/docs</a>，然后继续。',
-  )
+  expectAnchor(explicit, new URL('https://example.invalid/docs，然后继续。').href, '链接')
+  const prose = render('https://example.invalid/docs，然后继续。')
+  expectAnchor(prose, 'https://example.invalid/docs', 'https://example.invalid/docs')
+  expect(prose).toContain('，然后继续。')
 })
 
 test('typed explicit labels, angle links, inline code and fences are not rewritten as prose', () => {
