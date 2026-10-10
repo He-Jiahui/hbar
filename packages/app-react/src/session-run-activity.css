@@ -53,6 +53,37 @@
   overflow-wrap: anywhere;
 }
 
+.hbar-session-run-model {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--lumen-muted);
+  overflow-wrap: anywhere;
+}
+
+.hbar-session-run-plan-progress {
+  inline-size: 100%;
+  block-size: 0.375rem;
+  accent-color: var(--lumen-info);
+}
+
+.hbar-session-run-plan .hbar-session-run-list > [role='listitem'] {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.hbar-session-run-plan [role='listitem'] > span {
+  flex: 1 1 10rem;
+}
+
+.hbar-session-run-plan [data-status='completed'] > svg {
+  color: var(--lumen-success);
+}
+.hbar-session-run-plan [data-status='in_progress'] > svg {
+  color: var(--lumen-info);
+}
+
 .hbar-session-run-plan-label {
   display: inline-flex;
   flex-wrap: wrap;

@@ -20,6 +20,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         root,
         port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
         goalAutoContinue: false,
+        budgetAutoContinue: false,
       })
       const client = host.client
       const sessionId = host.ready.sessionId
@@ -57,14 +58,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(olderCount).toBeGreaterThan(20)
       const details = activity.getByRole('button', { name: copy.session.runs.details(historyCount), exact: true })
       await expect(details).toHaveAttribute('aria-expanded', 'false')
-      await expect(activity.getByRole('list')).toBeHidden()
+      const history = activity.locator('.hbar-session-run-history')
+      await expect(history.getByRole('list')).toBeHidden()
       await details.focus()
       await page.keyboard.press('Enter')
-      await expect(activity.getByRole('listitem')).toHaveCount(20)
+      await expect(history.getByRole('listitem')).toHaveCount(20)
       await activity
         .getByRole('button', { name: copy.session.runs.more(Math.min(20, olderCount - 20)), exact: true })
         .click()
-      await expect(activity.getByRole('listitem')).toHaveCount(Math.min(40, olderCount))
+      await expect(history.getByRole('listitem')).toHaveCount(Math.min(40, olderCount))
       await details.click()
       for (const width of [1440, 900, 390, 320]) {
         await page.setViewportSize({ width, height: 900 })

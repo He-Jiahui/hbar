@@ -22,6 +22,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         root,
         port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
         goalAutoContinue: false,
+        budgetAutoContinue: false,
       })
       const client = host.client
       const sessionId = host.ready.sessionId
@@ -74,6 +75,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       const labels = copy.monitoring.requests
       await openSessionTool(page, copy.session.tools, 'monitoring')
       const pane = page.locator('.hbar-app-react-session-monitoring')
+      await pane.locator('.hbar-monitoring-request-disclosure > .hbar-lumen-disclosure-trigger').click()
       const requests = pane.locator('.hbar-session-requests')
       const rows = requests.locator(':scope > ul > li')
       await expect(rows).toHaveCount(50)

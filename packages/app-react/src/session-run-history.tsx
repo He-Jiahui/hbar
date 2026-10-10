@@ -8,6 +8,8 @@ import { sessionStopCanCancel } from './session-stop-model'
 import type { Run } from '@hbar/contracts'
 import { runObservedEnd, type SessionClockSample } from './session-elapsed-model'
 import { useSessionClock } from './session-tool-clock'
+import { monitoringRuns } from './session-monitoring-model'
+import { HbarSessionRunOverview, type HbarSessionRunOverviewLabels } from './session-run-overview'
 
 function RunTiming({
   run,
@@ -41,6 +43,7 @@ export interface HbarSessionRunHistoryLabels {
   readonly duration: (startedAt: number, endedAt: number | null) => string
   readonly timestamp: (value: number) => string
   readonly error: (code: string) => string
+  readonly overview: HbarSessionRunOverviewLabels
 }
 
 /** The session-status pane owns history; rows keep the original Run action identity. */
@@ -64,8 +67,9 @@ export function HbarSessionRunHistory({
   const access = useHbarRuntimeState(runtime.state.sessionExecutionAccess)
   const firstSendDrafts = useHbarRuntimeState(runtime.state.preSessionDrafts)
   const workspaceMoves = useHbarRuntimeState(runtime.state.sessionWorkspaceMove)
+  const intent = useHbarRuntimeState(runtime.state.composerIntent)
   const ownsTimeline = sessionId !== null && timeline.sessionId === sessionId
-  const runs = ownsTimeline ? timeline.runs.filter((run) => run.sessionId === sessionId) : []
+  const runs = ownsTimeline ? monitoringRuns(timeline.runs, sessionId) : []
   const cancel = (operationId: string) => {
     void runtime.commands.execute('operation.cancel', { operationId }).catch(() => undefined)
   }
@@ -105,7 +109,11 @@ export function HbarSessionRunHistory({
   const errorAction = runs
     .map((run) => runActions[run.id])
     .find((action) => action?.error && (!stopRun || action.commandId !== 'operation.cancel'))
-  const plan = ownsTimeline ? timeline.plan : null
+  const snapshot =
+    intent.facts.sessionId === sessionId && intent.facts.snapshot?.sessionId === sessionId
+      ? intent.facts.snapshot
+      : null
+  const plan = snapshot ? snapshot.plan : ownsTimeline && timeline.plan?.sessionId === sessionId ? timeline.plan : null
   return (
     <LumenFrame className="hbar-session-status-runs">
       {!ownsTimeline || timeline.status === 'loading' ? (
@@ -126,11 +134,14 @@ export function HbarSessionRunHistory({
       ) : null}
       <HbarSessionRunActivity
         key={sessionId}
+        overview={<HbarSessionRunOverview runs={runs} labels={labels.overview} />}
+        executionConfirmed={connected}
         runs={runs.map((run) => ({
           id: run.id,
           label: labels.timestamp(run.createdAt),
           status: run.status,
-          detail: run.error ?? labels.detail(run.modelId),
+          ...(run.error ? { detail: run.error } : {}),
+          model: labels.detail(run.modelId),
           duration: <RunTiming run={run} clock={timeline.toolClock} connected={connected} format={labels.duration} />,
         }))}
         labels={labels.runs}

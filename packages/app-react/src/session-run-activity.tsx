@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Activity, RotateCcw, Square } from 'lucide-react'
+import { Activity, CheckCircle2, Circle, LoaderCircle, RotateCcw, Square } from 'lucide-react'
 import {
   LumenButton,
   LumenFrame,
@@ -21,6 +21,7 @@ export type HbarSessionRunStatus = RunStatus
 export type HbarSessionRunItem = Omit<LumenRunActivityItem, 'status' | 'duration'> & {
   readonly status: HbarSessionRunStatus
   readonly duration?: ReactNode
+  readonly model?: string
 }
 
 export interface HbarSessionRunLabels extends Omit<LumenRunActivityLabels, 'statusLabel'> {
@@ -31,6 +32,7 @@ export interface HbarSessionRunLabels extends Omit<LumenRunActivityLabels, 'stat
   readonly recheckLabel: string
   readonly recheckingLabel: string
   readonly failureHistory: (count: number) => string
+  readonly unconfirmed: string
 }
 
 export interface HbarSessionRunActivityProps extends Omit<
@@ -45,6 +47,8 @@ export interface HbarSessionRunActivityProps extends Omit<
   /** null renders only collapsed history; undefined retains the usual current Run selection. */
   readonly currentRunId?: string | null
   readonly historyLabel?: ReactNode
+  readonly overview?: ReactNode
+  readonly executionConfirmed?: boolean
 }
 
 /** Prefer the actual executing Run to a newer queued Run for the current Stop target. */
@@ -66,6 +70,8 @@ export function HbarSessionRunActivity({
   unknownRetryRunIds = [],
   currentRunId,
   historyLabel,
+  overview,
+  executionConfirmed = true,
   plan,
   feedback,
   onCancelRun,
@@ -109,18 +115,24 @@ export function HbarSessionRunActivity({
   }
   const status = (run: HbarSessionRunItem) => (
     <HbarSessionExecutionStatus
-      state={run.status}
+      state={!executionConfirmed && isActive(run) ? 'unconfirmed' : run.status}
       label={
-        cancellingRunIds.includes(run.id) ? labels.cancellingLabel : (run.statusLabel ?? labels.statusLabel(run.status))
+        !executionConfirmed && isActive(run)
+          ? labels.unconfirmed
+          : cancellingRunIds.includes(run.id)
+            ? labels.cancellingLabel
+            : (run.statusLabel ?? labels.statusLabel(run.status))
       }
       tone={
         run.status === 'failed' || run.status === 'interrupted'
           ? 'danger'
-          : isActive(run)
-            ? 'warning'
-            : run.status === 'completed'
-              ? 'success'
-              : 'neutral'
+          : run.status === 'running' && executionConfirmed
+            ? 'info'
+            : run.status === 'waiting_approval' || (!executionConfirmed && isActive(run))
+              ? 'warning'
+              : run.status === 'completed'
+                ? 'success'
+                : 'neutral'
       }
     />
   )
@@ -137,9 +149,18 @@ export function HbarSessionRunActivity({
         >
           <LumenIcon icon={Activity} tier="sm" />
           {status(current)}
-          {current.duration && <LumenText as="span">{current.duration}</LumenText>}
+          {current.duration && (
+            <LumenText as="span" className="hbar-session-run-duration">
+              {current.duration}
+            </LumenText>
+          )}
           {activeCount > 1 && <LumenText as="span">{labels.activeCount(activeCount)}</LumenText>}
           {actions(current)}
+          {current.model && (
+            <LumenText as="p" className="hbar-session-run-model">
+              {current.model}
+            </LumenText>
+          )}
           {['failed', 'interrupted'].includes(current.status) && current.detail && (
             <LumenText as="p" className="hbar-session-run-error" role="alert">
               {current.detail}
@@ -147,6 +168,7 @@ export function HbarSessionRunActivity({
           )}
         </LumenFrame>
       )}
+      {overview}
       {feedback && (
         <LumenText as="p" className="hbar-session-run-error" role="alert">
           {feedback}
@@ -170,6 +192,11 @@ export function HbarSessionRunActivity({
                     {run.duration && <LumenText as="span">{run.duration}</LumenText>}
                     {actions(run)}
                   </LumenFrame>
+                  {run.model && (
+                    <LumenText as="p" className="hbar-session-run-model">
+                      {run.model}
+                    </LumenText>
+                  )}
                   {run.detail && (
                     <LumenText as="p" className="hbar-session-run-metadata">
                       {run.detail}
@@ -193,6 +220,17 @@ export function HbarSessionRunActivity({
       )}
       {plan && (plan.steps.length > 0 || plan.explanation) && (
         <LumenFrame className="hbar-session-run-plan-context" data-run-id={plan.runId ?? undefined}>
+          {plan.steps.length > 0 && (
+            <progress
+              className="hbar-session-run-plan-progress"
+              max={plan.steps.length}
+              value={plan.steps.filter((step) => step.status === 'completed').length}
+              aria-label={labels.planProgress(
+                plan.steps.filter((step) => step.status === 'completed').length,
+                plan.steps.length,
+              )}
+            />
+          )}
           <HbarLumenDisclosure
             className="hbar-session-run-plan"
             label={
@@ -211,6 +249,12 @@ export function HbarSessionRunActivity({
             <LumenFrame role="list" className="hbar-session-run-list">
               {plan.steps.map((step) => (
                 <LumenFrame role="listitem" key={step.id} data-status={step.status}>
+                  <LumenIcon
+                    tier="sm"
+                    icon={
+                      step.status === 'completed' ? CheckCircle2 : step.status === 'in_progress' ? LoaderCircle : Circle
+                    }
+                  />
                   <LumenText as="span">{step.title}</LumenText>
                   <LumenText as="small">{labels.planStatusLabel(step.status)}</LumenText>
                 </LumenFrame>

@@ -1945,6 +1945,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       retryingLabel: choose('正在重试', 'Retrying'),
       recheckLabel: choose('核对结果', 'Check result'),
       recheckingLabel: choose('正在核对结果', 'Checking result'),
+      unconfirmed: choose('离线 · 状态待确认', 'Offline · Status unconfirmed'),
       planTitle: choose('Agent 计划', 'Agent plan'),
       planProgress: (completed, total) =>
         choose(
@@ -2133,6 +2134,7 @@ function createFileLabels(locale: ShellLocale): HbarFileWorkspaceLabels {
 
 function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitoringLabels {
   const session = createSessionLabels(locale)
+  const goals = createGoalPlanWorkspaceLabels(locale)
   const zh = locale === 'zh-CN'
   const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
   const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 })
@@ -2143,9 +2145,20 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
     maximumFractionDigits: 6,
   })
   const percent = new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 1 })
+  const time = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  const at = (timestamp: number) => time.format(timestamp)
   return {
     title: choose('会话状态', 'Session status'),
     requests: createSessionRequestLabels(locale, session.messageBlocks.codeBlock),
+    decisions: session.decisions,
+    decisionHistory: session.decisionHistory,
+    goal: {
+      title: choose('当前目标', 'Current goal'),
+      status: (status) => goals.goal.statuses[status],
+      execution: goals.goal.execution,
+      error: session.error,
+      refresh: goals.refresh,
+    },
     history: {
       runs: session.runs,
       loading: session.loading,
@@ -2155,11 +2168,16 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
       duration: session.runDuration,
       timestamp: session.timestamp,
       error: session.error,
+      overview: {
+        title: choose('运行概览', 'Run overview'),
+        window: (count) =>
+          choose(`最近 ${number.format(count)} 次`, `Latest ${number.format(count)} ${count === 1 ? 'run' : 'runs'}`),
+        count: (count) => number.format(count),
+        status: session.runs.statusLabel,
+        point: (timestamp, status) => `${at(timestamp)} · ${session.runs.statusLabel(status)}`,
+      },
     },
-    description: choose(
-      '查看 Host 记录的 Token、费用、延迟与模型用量。',
-      'Inspect Host-recorded tokens, cost, latency, and model usage.',
-    ),
+    description: '',
     close: choose('关闭会话状态', 'Close session status'),
     empty: choose('当前会话还没有可靠的用量数据。', 'This session does not have reliable usage data yet.'),
     unavailable: choose('不可用', 'Unavailable'),
@@ -2171,6 +2189,31 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
       cost: choose('预计金额', 'Estimated cost'),
       cache: choose('缓存命中率', 'Cache hit rate'),
       rate: choose('Token 速率', 'Token rate'),
+    },
+    composition: {
+      title: choose('Token 构成', 'Token composition'),
+      input: choose('输入', 'Input'),
+      output: choose('输出', 'Output'),
+      cacheRead: choose('缓存读取', 'Cache read'),
+      cacheWrite: choose('缓存写入', 'Cache write'),
+      billable: choose('计费用量', 'Billable tokens'),
+      summary: (input, output) =>
+        choose(
+          `输入 ${number.format(input)}、输出 ${number.format(output)} tokens`,
+          `${number.format(input)} input and ${number.format(output)} output tokens`,
+        ),
+    },
+    chart: {
+      window: (from, to) => `${at(from)} — ${at(to)}`,
+      observed: (timestamp) => choose(`数据更新于 ${at(timestamp)}`, `Observed ${at(timestamp)}`),
+      peak: (tokens) => choose(`峰值 ${number.format(tokens)}`, `Peak ${number.format(tokens)}`),
+      bucket: (from, to, input, output) =>
+        choose(
+          `${at(from)} — ${at(to)} · 输入 ${number.format(input)} / 输出 ${number.format(output)}`,
+          `${at(from)} — ${at(to)} · ${number.format(input)} input / ${number.format(output)} output`,
+        ),
+      samples: (count) =>
+        choose(`${number.format(count)} 个样本`, `${number.format(count)} ${count === 1 ? 'sample' : 'samples'}`),
     },
     latency: {
       title: choose('延迟 p95', 'Latency p95'),
@@ -2192,6 +2235,11 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
       toolDuration: choose('工具耗时 p95', 'Tool duration p95'),
     },
     models: choose('模型用量', 'Model usage'),
+    moreModels: (count) =>
+      choose(
+        `再显示 ${number.format(count)} 个模型`,
+        `Show ${number.format(count)} more ${count === 1 ? 'model' : 'models'}`,
+      ),
     series: choose('Token 时间序列', 'Token timeline'),
     number: (value) => number.format(value),
     tokens: (value) => `${number.format(value)} tokens`,

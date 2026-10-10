@@ -56,7 +56,8 @@ import {
   type HbarConversationSelectionLabels,
 } from './conversation-selection'
 import { HbarSessionDecision, type HbarSessionDecisionLabels } from './session-interactions'
-import { HbarSessionDecisionHistory, type HbarSessionDecisionHistoryLabels } from './session-decision-history'
+import type { HbarSessionDecisionHistoryLabels } from './session-decision-history'
+import { settledSessionDecision } from './session-monitoring-decisions'
 import { HbarComposerModelPicker, type HbarComposerModelLabels } from './composer-model-picker'
 import { HbarPromptComposer } from './prompt-composer'
 import { HbarDeletedSessionWorkspace } from './deleted-session-workspace'
@@ -1427,7 +1428,12 @@ function SessionWorkspaceContent({
   const toolDecisionsByMessage = new Map(
     [...decisionProjection.byMessage].map(([messageId, rows]) => [
       messageId,
-      new Map([...rows].map(([rowKey, decisions]) => [rowKey, decisions.map(renderDecision)])),
+      new Map(
+        [...rows].map(([rowKey, decisions]) => [
+          rowKey,
+          decisions.filter((decision) => !settledSessionDecision(decision, interactions)).map(renderDecision),
+        ]),
+      ),
     ]),
   )
   const lastAssistantByRun = new Map<string, string>()
@@ -1731,14 +1737,9 @@ function SessionWorkspaceContent({
 
   const currentFailure = timeline.sessionId === sessionId ? currentSessionRunFailure(timeline.runs, sessionId) : null
   const activity: ReactNode =
-    decisionProjection.fallback.length > 0 || decisionProjection.settledHistory.length > 0 || currentFailure ? (
+    decisionProjection.fallback.length > 0 || currentFailure ? (
       <LumenFrame className="hbar-app-react-session-activity">
         {decisionProjection.fallback.map(renderDecision)}
-        <HbarSessionDecisionHistory
-          decisions={decisionProjection.settledHistory}
-          labels={labels.decisionHistory}
-          renderDecision={renderDecision}
-        />
         <HbarSessionInterruptionNotice
           status={
             currentFailure?.status === 'failed' || currentFailure?.status === 'interrupted'
