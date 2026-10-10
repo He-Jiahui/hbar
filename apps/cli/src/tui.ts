@@ -12,7 +12,8 @@ import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { approvalModeSchema } from '@hbar/contracts'
-import type { Message, PluginInfo, Run, Session, SessionEvent, SessionSnapshot, ThinkingLevel } from '@hbar/contracts'
+import type { Message, Run, Session, SessionEvent, SessionSnapshot, ThinkingLevel } from '@hbar/contracts'
+import type { PluginInfo as PluginCommandInfo } from '@hbar/contracts/commands/extensions'
 import {
   createInteractionCommandClient,
   createModelCommandClient,
@@ -443,7 +444,7 @@ export async function runTui(runtime: CliRuntime, prefill?: string, defaults?: C
     if (command === 'plugins') {
       const [action = 'list', idOrPath] = args
       const extensions = createExtensionCommandClient(runtime.client)
-      let plugins: PluginInfo[]
+      let plugins: PluginCommandInfo[]
       if (action === 'install' && idOrPath)
         plugins = await extensions.execute('plugin.install', { path: idOrPath, projectId: runtime.project.id })
       else if (action === 'enable' && idOrPath) plugins = await extensions.execute('plugin.enable', { id: idOrPath })

@@ -148,7 +148,11 @@ export function createDirectoryModule(
       }
     }
     const selected = navigation.getSnapshot().sessionId
-    while (entries.size > DIRECTORY_SESSION_CACHE_LIMIT + MAX_RETAINED_AGENT_SESSIONS) {
+    // Retained owners consume capacity only for IDs they actually retain. Using the
+    // maximum retention budget unconditionally leaves the cache at 1,320 entries
+    // during an ordinary paged list, defeating the 1,000-item bound.
+    const retainedSessionCount = new Set([...retainedActivitySessionIds, ...retainedAgentSessionIds]).size
+    while (entries.size > DIRECTORY_SESSION_CACHE_LIMIT + retainedSessionCount) {
       const candidate = [...entries.keys()].find(
         (id) => id !== selected && !retainedActivitySessionIds.has(id) && !retainedAgentSessionIds.has(id),
       )
