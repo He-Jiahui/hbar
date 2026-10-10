@@ -41,6 +41,7 @@ import {
   type LumenSidebarActionProps,
 } from '@lumen/app-ui'
 import { HbarActionIconButton } from './action-icon-button'
+import { usePersistentPane } from './persistent-pane'
 import { WorkspaceSidebarRail } from './workspace-sidebar-rail'
 import { SidebarCaption } from './sidebar-caption'
 import {
@@ -2135,6 +2136,8 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       ) : null}
     </LumenFrame>
   )
+  const workspacePane = usePersistentPane(contentRegion)
+  const sessionToolPane = usePersistentPane(toolRegion)
   const shell = (
     <LumenAppShell09
       label={props.labels.main}
@@ -2166,7 +2169,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       closeSidebarLabel={props.labels.hideSidebar}
       onCloseSidebar={() => setSidebarVisible(false)}
       header={desktopHeader}
-      tool={toolRegion}
+      tool={toolRegion ? sessionToolPane.outlet : null}
       toolLabel={props.toolLabel}
       overlay={overlayRegion}
       sidebar={sidebarPane}
@@ -2184,7 +2187,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                       className="hbar-desktop-workspace-pane"
                       aria-label={props.labels.main}
                     >
-                      {contentRegion}
+                      {workspacePane.outlet}
                     </LumenFrame>
                   ),
                   'session-tool': toolRegion ? (
@@ -2195,7 +2198,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                       className="hbar-desktop-tool-pane"
                       aria-label={props.toolLabel}
                     >
-                      {toolRegion}
+                      {sessionToolPane.outlet}
                     </LumenFrame>
                   ) : null,
                 },
@@ -2205,7 +2208,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           : undefined
       }
     >
-      {contentRegion}
+      {workspacePane.outlet}
     </LumenAppShell09>
   )
   return (
@@ -2218,6 +2221,8 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
         toolPresentation={resolvedToolPresentation}
       >
         {shell}
+        {workspacePane.portal}
+        {sessionToolPane.portal}
       </HbarSessionStopProvider>
     </HbarMobileHeaderMenuProvider>
   )

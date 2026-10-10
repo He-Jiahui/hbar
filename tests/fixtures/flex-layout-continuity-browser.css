@@ -1,0 +1,48 @@
+body {
+  margin: 0;
+}
+
+#fixture-root {
+  display: flex;
+  block-size: 100dvh;
+  min-inline-size: 0;
+}
+
+.continuity-fixture,
+.continuity-compact,
+.continuity-pane,
+.continuity-scroll {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+
+.continuity-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.continuity-pane {
+  block-size: 100%;
+}
+
+.continuity-pane-host {
+  display: flex;
+  block-size: 100%;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+
+.continuity-scroll {
+  overflow: auto;
+}
+
+.continuity-scroll p {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.5rem;
+}

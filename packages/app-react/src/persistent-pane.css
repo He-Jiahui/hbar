@@ -1,0 +1,8 @@
+.hbar-persistent-pane-outlet,
+.hbar-persistent-pane-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
