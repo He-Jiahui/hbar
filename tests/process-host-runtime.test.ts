@@ -312,6 +312,20 @@ test('stable cancellation commits during a Kernel outage and recovery cannot res
   expect(client.connectionStatus()).toBe('connected')
 })
 
+test('runtime diagnostics and liveness remain available while the request Controller is recovering', async () => {
+  const f = await fixture(), { client, host, system } = await clientFor(f.runtime)
+  const previous = f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'controller')?.generations[0]
+  if (!previous?.pid || previous.pid === process.pid) throw new Error('Expected the owned Controller PID')
+  process.kill(previous.pid, 'SIGKILL')
+  await until(() => f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'controller')?.generations[0]?.phase === 'recovering')
+  const state = await system.execute('system.runtime.get', {})
+  expect(state.instanceId).toBe(f.runtime.instanceId)
+  expect((await fetch('http://127.0.0.1:' + host.server.port + '/livez')).status).toBe(200)
+  expect(client.connectionStatus()).toBe('connected')
+  await until(() => f.runtime.snapshot().ready)
+  expect(f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'controller')?.generations[0]?.incarnation).not.toBe(previous.incarnation)
+})
+
 test('a failed Kernel candidate keeps the current version and does not interrupt a healthy conversation', async () => {
   const f = await fixture()
   const original = f.runtime.manager.currentVersion('kernel')

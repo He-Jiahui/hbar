@@ -14,7 +14,7 @@ import { Storage, StableStoragePort, callStorageRpc, ensurePathLayout, storageRp
 import { acquireHostProcessLock } from './process-lock'
 import { RuntimeKernelFacade, type RuntimeKernelEndpoint, type RuntimeKernelState } from './runtime-kernel-facade'
 import { RuntimeDriverRelay, type RuntimeDriverEndpoint } from './runtime-driver-relay'
-import type { RuntimeControllerPort } from './runtime-controller-contract'
+import { runtimeControllerRequestSchema, type RuntimeControllerPort } from './runtime-controller-contract'
 import { RuntimeControllerAdapter } from './runtime-controller-adapter'
 import { hostRuntimeBaseBuildUnit, hostRuntimeBuildUnits } from './runtime-build'
 import type { RuntimeSystemPort } from './system-commands'
@@ -64,15 +64,23 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   readonly manager: RuntimeManager
   readonly buildUnits: readonly RuntimeBuildUnit[]
   readonly facade: RuntimeKernelFacade
-  readonly controller: RuntimeControllerPort = { dispatch: (payload, invoke) => {
-    const record = this.currentGeneration('controller')
-    if (!record.controller || record.process.snapshot().phase !== 'serving')
-      return Promise.reject(new HbarError('RUNTIME_RECOVERING', 'The Controller is recovering'))
+  readonly controller: RuntimeControllerPort = { dispatch: (payload, invoke) => this.dispatchController(payload, invoke) }
+  private async dispatchController(payload: string, invoke: Parameters<RuntimeControllerPort['dispatch']>[1]): Promise<string> {
+    let record: Generation | undefined
+    try { record = this.currentGeneration('controller') } catch { /* Independent status reads remain available. */ }
+    if (!record?.controller || record.process.snapshot().phase !== 'serving') {
+      if (payload.length > 1_048_576) throw new HbarError('INVALID_REQUEST', 'Runtime status request exceeds its input bound')
+      const request = runtimeControllerRequestSchema.parse(JSON.parse(payload))
+      const command = request.method === 'command.execute' ? z.object({ commandId: z.string() }).safeParse(request.params) : null
+      if (!command?.success || !['system.runtime.get', 'system.runtime.reload.get'].includes(command.data.commandId))
+        throw new HbarError('RUNTIME_RECOVERING', 'The Controller is recovering')
+      return JSON.stringify({ jsonrpc: '2.0', id: request.id, result: await invoke(request, AbortSignal.timeout(5_000)) })
+    }
     let captured: RuntimeKernelEndpoint | undefined
     try { captured = this.currentKernel() } catch { /* Runtime status remains callable during a Kernel outage. */ }
     const endpoint = captured
     return record.controller.dispatch(payload, (request, signal) => endpoint ? this.facade.pin(endpoint, () => invoke(request, signal)) : invoke(request, signal))
-  } }
+  }
   private readonly baseOwner: RuntimeOwner = { unitId: 'base', generation: 1, incarnation: crypto.randomUUID() }
   private readonly generations = new Map<string, Generation>()
   private readonly owners = new Set<string>()
@@ -185,7 +193,16 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   }
   snapshot(): RuntimeSnapshot {
     const state = this.manager.snapshot()
-    return { ...state, ...(this.sourceState ? { sourceReload: { ...this.sourceState, unitIds: [...this.sourceState.unitIds] } } : {}),
+    let source = this.sourceState
+    if (source?.phase === 'applying' && source.operationId) {
+      try {
+        const operation = this.manager.getReload(source.operationId)
+        const phase = operation.phase === 'completed' || operation.phase === 'cancelled' ? 'idle' :
+          operation.phase === 'failed' ? 'failed' : operation.phase === 'restart_required' ? 'restart_required' : 'applying'
+        source = { ...source, phase, reasonCode: operation.units.find(unit => unit.reasonCode)?.reasonCode ?? null }
+      } catch { source = { ...source, phase: 'idle' } }
+    }
+    return { ...state, ...(source ? { sourceReload: { ...source, unitIds: [...source.unitIds] } } : {}),
       ready: !this.initializing && !this.closing && state.ready && this.executionReady() && this.storage.snapshot().phase === 'serving' && !this.storageFailure }
   }
   reload(artifactSetId: string, unitIds: readonly string[]) { return this.manager.reload(artifactSetId, unitIds) }
@@ -376,13 +393,15 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       onState: state => {
         changed()
         if (state.phase === 'serving' || state.phase === 'draining') this.transition(async () => {
-          if (this.closing || record.owner?.incarnation !== state.incarnation) return
+          if (this.closing || record.owner?.incarnation !== state.incarnation || !['serving', 'draining'].includes(record.process.snapshot().phase)) return
           if (artifact.unitId === 'storage' && state.role === 'default') await this.installStorage(record)
           if (artifact.unitId === 'kernel') await this.refresh(record)
           if (artifact.descriptor.kind === 'plugin') {
             record.pluginState = await record.process.call('plugin.state', undefined, runtimePluginStateSchema)
-            if (!this.initializing) for (const endpoint of this.endpoints())
-              await endpoint.process.call('kernel.plugins.refresh', undefined, z.undefined())
+            if (!this.initializing) for (const endpoint of this.endpoints()) {
+              try { await endpoint.process.call('kernel.plugins.refresh', undefined, z.undefined()) }
+              catch (error) { if (['serving', 'draining'].includes(endpoint.process.snapshot().phase)) throw error }
+            }
             this.pluginPreparingCatalog.delete(artifact.unitId)
           }
           if ((artifact.unitId === 'storage' || artifact.unitId === 'driver.pi') && state.role === 'default') this.resumed.clear()

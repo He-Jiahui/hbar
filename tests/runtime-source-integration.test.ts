@@ -29,6 +29,7 @@ test('a real source update replaces its Kernel alone, preserves the socket and r
     for (const id of ['controller', 'storage', 'driver.pi'])
       expect(after.units.find(unit => unit.descriptor.id === id)?.generations[0]?.pid).toBe(before.units.find(unit => unit.descriptor.id === id)?.generations[0]?.pid)
     expect(after.sourceReload?.unitIds).toEqual(['kernel'])
+    expect(after.sourceReload?.phase).toBe('idle')
     await writeFile(source, 'export const invalid = ;')
     await runtime.applySourceChanges([source]); expect(runtime.snapshot().sourceReload).toMatchObject({ phase: 'failed', reasonCode: 'RUNTIME_BUILD_FAILED' })
     expect(runtime.manager.currentVersion('kernel').generation).toBe(2)
