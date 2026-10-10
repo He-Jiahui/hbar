@@ -370,8 +370,65 @@ export interface KernelProfile {
   plugins?: HbarPlugin[]
   createStorage?(home: string): Promise<StoragePort>
 }
+
+const PROVIDER_CONFIG_SCALARS = [
+  'id',
+  'name',
+  'visible',
+  'protocol',
+  'baseUrl',
+  'model',
+  'contextWindow',
+  'maxOutput',
+  'imageInput',
+  'reasoning',
+  'inputPrice',
+  'outputPrice',
+] as const
+const PROVIDER_CONFIG_ARRAYS = ['thinkingLevels', 'supportedThinkingLevels', 'supportedReasoningEfforts'] as const
+const PROVIDER_MODEL_FIELDS = [
+  'id',
+  'name',
+  'description',
+  'visible',
+  'contextWindow',
+  'maxOutput',
+  'imageInput',
+  'reasoning',
+  'inputPrice',
+  'outputPrice',
+  'defaultThinkingLevel',
+  'defaultReasoningEffort',
+] as const
+
+function sameProviderModel(left: ProviderConfig['models'][number], right: ProviderConfig['models'][number]): boolean {
+  return (
+    PROVIDER_MODEL_FIELDS.every((field) => left[field] === right[field]) &&
+    PROVIDER_CONFIG_ARRAYS.every(
+      (field) =>
+        left[field].length === right[field].length && left[field].every((value, index) => value === right[field][index]),
+    )
+  )
+}
+
+/** Permit a catalog append during an active run while preserving every active provider fact. */
+function isActiveProviderModelAppend(existing: ProviderConfig, incoming: ProviderConfig): boolean {
+  if (existing.id !== incoming.id || incoming.models.length <= existing.models.length) return false
+  if (!PROVIDER_CONFIG_SCALARS.every((field) => existing[field] === incoming[field])) return false
+  if (
+    !PROVIDER_CONFIG_ARRAYS.every(
+      (field) =>
+        existing[field].length === incoming[field].length &&
+        existing[field].every((value, index) => value === incoming[field][index]),
+    )
+  )
+    return false
+  return existing.models.every((model, index) => sameProviderModel(model, incoming.models[index]!))
+}
+
 interface ActiveRun {
   run: Run
+  providerSnapshot?: ProviderConfig
   controller: AbortController
   context: RuntimeScope
   idleTimeout: ReturnType<typeof createRunIdleTimeout>
@@ -415,6 +472,7 @@ export class Kernel {
   private summaryTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private summaryPending = new Map<string, { activity?: SessionSummary['activity']; activeRunId?: string | null }>()
   private maintenance = false
+  private providerSaveInFlight = false
   private chatDatabaseWrites = 0
   private permissionModeValue: ApprovalMode = 'ask'
   private readonly permissionSettings: SettingsService
@@ -962,39 +1020,63 @@ export class Kernel {
     )
   }
   async saveProvider(config: ProviderInput, apiKey?: string) {
-    this.assertIdle()
-    this.maintenance = true
+    const provider = providerSchema.parse(config)
+    if (this.providerSaveInFlight) throw new HbarError('BUSY', 'Another provider update is already in progress')
+    this.providerSaveInFlight = true
     try {
-      const provider = providerSchema.parse(config)
-      if (provider.protocol === 'mock' && !this.options.demo)
-        throw new HbarError('DEMO_DISABLED', 'Fixture models are disabled')
-      if (!['http:', 'https:'].includes(new URL(provider.baseUrl).protocol))
-        throw new HbarError('INVALID_URL', 'Provider requires an HTTP or HTTPS URL')
-      if (apiKey !== undefined) {
-        if (apiKey) await this.secrets.set(provider.id, apiKey)
-        else await this.secrets.delete(provider.id)
+      if (!this.chatDatabaseIsIdle()) {
+        const existing = [...this.active.values()]
+          .map((active) => active.providerSnapshot)
+          .find((candidate) => candidate?.id === provider.id)
+        const appendWhileActive =
+          this.active.size > 0 &&
+          !this.admissions &&
+          !this.maintenance &&
+          !this.chatDatabaseWrites &&
+          !this.closing &&
+          apiKey === undefined &&
+          existing !== undefined &&
+          isActiveProviderModelAppend(existing, provider)
+        if (!appendWhileActive) throw new HbarError('BUSY', 'Wait for active and queued runs to settle')
       }
-      await this.storage.call('saveProvider', provider)
-      this.changed('models')
-      const selected = provider.models.find((model) => model.id === provider.model) ?? provider.models[0]!
-      return {
-        ...provider,
-        ...selected,
-        id: modelSelectionId(provider.id, selected.id, provider.models.length),
-        name: provider.name,
-        visible: provider.visible,
-        model: selected.id,
-        providerId: provider.id,
-        providerName: provider.name,
-        providerVisible: provider.visible,
-        modelId: selected.id,
-        modelName: selected.name,
-        modelVisible: selected.visible,
-        hasKey: provider.protocol === 'mock' ? false : Boolean(await this.secrets.get(provider.id)),
-        canExecute: provider.protocol === 'mock' ? this.options.demo === true : Boolean(await this.secrets.get(provider.id)),
+      this.maintenance = true
+      try {
+        if (provider.protocol === 'mock' && !this.options.demo)
+          throw new HbarError('DEMO_DISABLED', 'Fixture models are disabled')
+        if (!['http:', 'https:'].includes(new URL(provider.baseUrl).protocol))
+          throw new HbarError('INVALID_URL', 'Provider requires an HTTP or HTTPS URL')
+        if (apiKey !== undefined) {
+          if (apiKey) await this.secrets.set(provider.id, apiKey)
+          else await this.secrets.delete(provider.id)
+        }
+        await this.storage.call('saveProvider', provider)
+        for (const active of this.active.values()) {
+          if (active.providerSnapshot?.id === provider.id) active.providerSnapshot = provider
+        }
+        this.changed('models')
+        const selected = provider.models.find((model) => model.id === provider.model) ?? provider.models[0]!
+        return {
+          ...provider,
+          ...selected,
+          id: modelSelectionId(provider.id, selected.id, provider.models.length),
+          name: provider.name,
+          visible: provider.visible,
+          model: selected.id,
+          providerId: provider.id,
+          providerName: provider.name,
+          providerVisible: provider.visible,
+          modelId: selected.id,
+          modelName: selected.name,
+          modelVisible: selected.visible,
+          hasKey: provider.protocol === 'mock' ? false : Boolean(await this.secrets.get(provider.id)),
+          canExecute:
+            provider.protocol === 'mock' ? this.options.demo === true : Boolean(await this.secrets.get(provider.id)),
+        }
+      } finally {
+        this.maintenance = false
       }
     } finally {
-      this.maintenance = false
+      this.providerSaveInFlight = false
     }
   }
   permissionMode() {
@@ -1545,6 +1627,11 @@ export class Kernel {
           ),
         }
         const model = await this.plugins.get<ModelRegistry>('models').get(run.modelId)
+        const providerSnapshot = (await this.storage.call('providers')).find(
+          (candidate) => run.modelId === candidate.id || run.modelId.startsWith(`${candidate.id}/`),
+        )
+        const activeSnapshot = this.active.get(sessionId)
+        if (activeSnapshot && providerSnapshot) activeSnapshot.providerSnapshot = providerSnapshot
         const apiKey =
           model.protocol === 'mock' ? null : await this.plugins.get<ModelRegistry>('models').secret(model.id)
         const content: ContentBlock[] = [

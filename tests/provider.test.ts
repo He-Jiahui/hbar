@@ -6,6 +6,86 @@ import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { providerSchema } from '@hbar/contracts'
 import type { BudgetService } from '@hbar/plugin-sdk'
 
+test('active runs allow a strict provider model append and reject every other provider mutation', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-provider-append-'))
+  const kernel = await Kernel.create({
+    home: join(root, 'data'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  let runId: string | undefined
+  try {
+    const workspace = (await kernel.storage.call('workspaces'))[0]
+    if (!workspace) throw new Error('Fixture workspace missing')
+    const session = await kernel.createSession(workspace.id)
+    const run = await kernel.submit(session.id, 'append-active', { text: '/slow', images: [] }, 'local-fixture')
+    runId = run.id
+    for (let attempt = 0; attempt < 100 && kernel.streams.size === 0; attempt++) await Bun.sleep(10)
+    expect(kernel.streams.size).toBeGreaterThan(0)
+    const existing = (await kernel.storage.call('providers')).find((provider) => provider.id === 'local-fixture')
+    if (!existing) throw new Error('Fixture provider missing')
+    const append = {
+      ...existing,
+      models: [
+        ...existing.models,
+        {
+          id: 'gpt-6-astra',
+          name: 'GPT-6 Astra',
+          visible: true,
+          contextWindow: 272_000,
+          maxOutput: 128_000,
+          imageInput: true,
+          reasoning: true,
+          inputPrice: 0,
+          outputPrice: 0,
+          thinkingLevels: ['off', 'low', 'medium', 'high', 'xhigh', 'max'],
+          supportedThinkingLevels: ['off', 'low', 'medium', 'high', 'xhigh', 'max'],
+          defaultThinkingLevel: 'high',
+          defaultReasoningEffort: 'high',
+          supportedReasoningEfforts: ['off', 'low', 'medium', 'high', 'xhigh', 'max'],
+        },
+      ],
+    }
+    await kernel.saveProvider(providerSchema.parse(append))
+    expect(
+      (await kernel.storage.call('providers')).find((provider) => provider.id === 'local-fixture')?.models,
+    ).toHaveLength(2)
+    const secondAppend = {
+      ...append,
+      models: [...append.models, { ...append.models[1]!, id: 'gpt-6-nova', name: 'GPT-6 Nova' }],
+    }
+    await kernel.saveProvider(providerSchema.parse(secondAppend))
+    expect(
+      (await kernel.storage.call('providers')).find((provider) => provider.id === 'local-fixture')?.models,
+    ).toHaveLength(3)
+    await expect(kernel.saveProvider(providerSchema.parse(secondAppend))).rejects.toMatchObject({ code: 'BUSY' })
+    await expect(
+      kernel.saveProvider(
+        providerSchema.parse({
+          ...secondAppend,
+          models: secondAppend.models.map((model, index) => (index === 1 ? { ...model, name: 'Changed Astra' } : model)),
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'BUSY' })
+    await expect(kernel.saveProvider(providerSchema.parse(existing))).rejects.toMatchObject({ code: 'BUSY' })
+    await expect(
+      kernel.saveProvider(providerSchema.parse({ ...append, baseUrl: 'http://changed.invalid' })),
+    ).rejects.toMatchObject({ code: 'BUSY' })
+    await expect(
+      kernel.saveProvider(providerSchema.parse({ ...append, model: 'gpt-6-astra' })),
+    ).rejects.toMatchObject({ code: 'BUSY' })
+    await expect(
+      kernel.saveProvider(providerSchema.parse(append), 'changed-secret'),
+    ).rejects.toMatchObject({ code: 'BUSY' })
+  } finally {
+    if (runId) await kernel.cancel(runId).catch(() => undefined)
+    await kernel.waitForIdle().catch(() => undefined)
+    await kernel.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('real pi-ai OpenAI transport streams tool calls and usage through a local HTTP provider', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-provider-'))
   await writeFile(join(root, 'source.txt'), 'from file')
