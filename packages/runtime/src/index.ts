@@ -33,3 +33,9 @@ export {
   type RuntimeArtifactPort,
   type RuntimeBuildUnit,
 } from './artifacts'
+export {
+  RuntimeManager,
+  type RuntimeManagerOptions,
+  type RuntimeArtifactRegistry,
+  type ManagedGenerationPort,
+} from './manager'

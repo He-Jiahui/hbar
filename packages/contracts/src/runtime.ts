@@ -113,6 +113,7 @@ export const runtimeReloadUnitSchema = z.strictObject({
     'preparing',
     'waiting_capacity',
     'ready',
+    'activating',
     'switched',
     'draining',
     'completed',

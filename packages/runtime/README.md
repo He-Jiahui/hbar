@@ -61,3 +61,15 @@ are immutable, and their hashes are checked again before loading. Dynamic resour
 are copied into the artifact version; callers use its registered resource references
 so old Runs cannot read a later source revision. Compilation failure keeps existing
 registered artifact sets. Sets and artifacts have bounded in-memory registration.
+
+`RuntimeManager` exposes early reload operation IDs, current/selected generation
+routing and bounded incremental state. It prepares at most two candidates at once
+and retains at most two serving generations plus one candidate per unit. Further
+edits supersede unswitched candidates; retained physical Run/resource/request owners
+prevent old-generation disposal. Group preparation failures preserve other targets.
+Cancellation disposes unswitched candidates and never reverses a committed switch.
+
+These components provide the production composition ports. They do not replace an
+existing monolithic Host merely by adding a status row or a proxy. Host Controller,
+Kernel, capability, Storage and maintenance modules must wire their real work and
+authority through these lifecycle, routing and coordination contracts.

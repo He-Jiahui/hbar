@@ -23,6 +23,13 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     }),
   )
   context.peer.register(
+    'fixture.wait',
+    procedure(z.number().int().min(1).max(2_000), z.number(), async (delay) => {
+      await Bun.sleep(delay)
+      return process.pid
+    }),
+  )
+  context.peer.register(
     'fixture.crash',
     procedure(z.undefined(), z.undefined(), () => process.exit(23)),
   )
