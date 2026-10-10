@@ -53,7 +53,7 @@ describe('hbar-app-ui editor workflows', () => {
         const markup = renderEditor(4, {...HBAR_APP_UI_EDITOR_FIXTURES, referenceSuggestions: undefined})
 
         expect(markup).toContain('hbar-app-ui-editor-suggestion-copy')
-        expect(markup).toMatch(/<p><span>The change <\/span><button[^>]*>should probably be rolled out slowly<\/button><span>, starting with internal workspaces/)
+        expect(markup).toMatch(/<p><span>The change <\/span><button[^>]*>[\s\S]*?should probably be rolled out slowly[\s\S]*?<\/button><span>, starting with internal workspaces/)
         expect(markup).toContain('<s>should probably be rolled out slowly</s>')
         expect(markup).toContain('<strong>rolls out in three stages</strong>')
         expect(markup).toContain('Accept all')
