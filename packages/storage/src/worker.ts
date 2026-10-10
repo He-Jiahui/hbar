@@ -228,9 +228,18 @@ if (schemaVersion < 5)
   })()
 if (schemaVersion < 6)
   db.transaction(() => {
-    db.exec(
-      'ALTER TABLE approvals ADD COLUMN feedback TEXT; ALTER TABLE approvals ADD COLUMN decidedBy TEXT; PRAGMA user_version=6;',
+    // As with the run failure field above, a repaired database may retain one
+    // or both columns while carrying an older user_version marker. Apply only
+    // the missing additions so the migration is safe to replay.
+    const columns = new Set(
+      db
+        .query<{ name: string }, []>('PRAGMA table_info(approvals)')
+        .all()
+        .map((column) => column.name),
     )
+    if (!columns.has('feedback')) db.exec('ALTER TABLE approvals ADD COLUMN feedback TEXT;')
+    if (!columns.has('decidedBy')) db.exec('ALTER TABLE approvals ADD COLUMN decidedBy TEXT;')
+    db.exec('PRAGMA user_version=6;')
   })()
 
 if (schemaVersion < 7)
