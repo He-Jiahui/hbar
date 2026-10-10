@@ -15,6 +15,19 @@ import {
 } from '../apps/web/src/send-behavior'
 import { createWebZoomController, type WebZoomController } from '../apps/web/src/app-zoom'
 
+function htmlButtonWithText(markup: string, text: string, openingPattern?: RegExp) {
+  const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const buttonPattern = /<button\b[^>]*>[\s\S]*?<\/button>/g
+  return [...markup.matchAll(buttonPattern)].some(([button]) => {
+    const parts = button.match(/^(<button\b[^>]*>)([\s\S]*)<\/button>$/)
+    if (!parts) return false
+    const [, opening, inner] = parts
+    if (typeof opening !== 'string' || typeof inner !== 'string') return false
+    const visible = inner.replace(/<[^>]*>/g, '')
+    return (!openingPattern || openingPattern.test(opening)) && new RegExp(escaped).test(visible)
+  })
+}
+
 function html(
   language: WebLanguageController,
   labels = generalSettingsCopy(language.store.getState().locale),
@@ -117,9 +130,14 @@ test('General renders the selected applied choice after an actual owner action w
   language.select('zh-CN')
   const rendered = html(language)
   const labels = generalSettingsCopy('zh-CN')
-  expect(rendered).toMatch(
-    /<button(?=[^>]*role="radio")(?=[^>]*aria-checked="true")(?=[^>]*tabindex="0")[^>]*>简体中文<\/button>/,
-  )
+  expect(rendered).toMatch(/<button(?=[^>]*role="radio")(?=[^>]*aria-checked="true")(?=[^>]*tabindex="0")[^>]*>/)
+  expect(
+    htmlButtonWithText(
+      rendered,
+      '简体中文',
+      /(?=[^>]*\brole="radio")(?=[^>]*\baria-checked="true")(?=[^>]*\btabindex="0")/,
+    ),
+  ).toBe(true)
   expect(rendered).toContain(labels.currentLanguage('zh-CN'))
   expect(rendered).toContain(labels.saved)
   expect(rendered).not.toContain(labels.systemPolicy)
