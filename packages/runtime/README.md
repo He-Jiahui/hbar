@@ -28,3 +28,15 @@ isolated. Diagnostics never include payloads or credentials.
 `tests/runtime-ipc.test.ts` covers actual Bun IPC, fragmentation, admission,
 captured targets, cancellation, timeout, late replies, observer failure,
 serialization failure and incarnation rejection.
+
+`RuntimeCoordinator` is the stable authority for Session claims, dependency version
+bindings, shared resource gates and the Host-wide 64-tool physical capacity. Its
+persistence adapter must atomically claim/release/fence ownership. Candidates have
+no production write authority; only the default Kernel can admit new Runs. A claim
+with a missing durable receipt blocks that Session until explicit reconciliation.
+
+Revocation immediately rejects late commits and fences Runs depending on a failed
+unit. Physical tool/resource permits remain held until their actual owner releases
+them or its supervisor confirms exit. Handoff also requires the old Run executor to
+stop and all failed dependencies to exit. Retained Runs keep their bound dependency
+versions, so replacing a plugin cannot silently change an already running tool.

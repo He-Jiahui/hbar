@@ -8,3 +8,9 @@ export {
   type IpcPeerOptions,
   type IpcTransport,
 } from './ipc'
+export {
+  RuntimeCoordinator,
+  type CoordinationPersistence,
+  type RuntimeToolPermit,
+  type RuntimeResourceLease,
+} from './coordinator'
