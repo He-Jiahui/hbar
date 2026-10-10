@@ -1,4 +1,11 @@
-import { LumenButton, LumenCollection, LumenCollectionItem, LumenContentText, LumenFrame } from '@lumen/app-ui'
+import {
+  LumenButton,
+  LumenCollection,
+  LumenCollectionItem,
+  LumenContentText,
+  LumenDisclosure,
+  LumenFrame,
+} from '@lumen/app-ui'
 import type { ContextCompactionRecord, ContextHistoryPage, ContextWindowStats } from '@hbar/contracts/context-history'
 import type { SessionTimelineState } from '@hbar/app-runtime'
 import './session-context-history.css'
@@ -105,23 +112,24 @@ export function HbarContextHistory({
       data-context-history-session={sessionId}
     >
       <LumenContentText context="section.subtitle">{labels.title}</LumenContentText>
-      <details className="hbar-context-history-row" data-context-window="current">
-        <summary>{labels.current}</summary>
+      <LumenDisclosure className="hbar-context-history-row" data-context-window="current" summary={labels.current}>
         <Metrics rows={labels.metrics(page.current)} />
-      </details>
+      </LumenDisclosure>
       {records.map((record) => (
-        <details
+        <LumenDisclosure
           key={record.id}
           className="hbar-context-history-row"
           data-context-history-id={record.id}
           data-status={record.status}
+          summary={
+            <>
+              <LumenContentText context="record.title">{labels.record(record)}</LumenContentText>
+              <LumenContentText context="record.description">{labels.summary(record)}</LumenContentText>
+            </>
+          }
         >
-          <summary>
-            <LumenContentText context="record.title">{labels.record(record)}</LumenContentText>
-            <LumenContentText context="record.description">{labels.summary(record)}</LumenContentText>
-          </summary>
           <Metrics rows={[...labels.compactionMetrics(record), ...labels.metrics(record.stats)]} />
-        </details>
+        </LumenDisclosure>
       ))}
       {!records.length && <LumenContentText context="section.description">{labels.empty}</LumenContentText>}
       <LumenContentText context="section.description">{labels.estimates}</LumenContentText>
