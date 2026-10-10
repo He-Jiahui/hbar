@@ -72,6 +72,7 @@ export const preSessionDraftStateSchema = z.strictObject({
   launchSelection: sessionLaunchSelectionSchema,
   modelId: idSchema.nullable(),
   thinkingLevel: thinkingLevelSchema.nullable(),
+  maxMode: z.boolean().optional(),
   approvalChoice: preSessionApprovalChoiceSchema,
   planMode: preSessionPlanModeSchema,
   intent: preSessionIntentSchema,
@@ -192,6 +193,11 @@ export const preSessionDraftCommands = {
       expectedModelId: idSchema.nullable(),
       expectedRevision: revision,
     }),
+    result,
+  ),
+  'preSessionDraft.setMaxMode': defineCommand(
+    metadata('preSessionDraft.setMaxMode'),
+    z.strictObject({ draftId, enabled: z.boolean(), expectedModelId: idSchema.nullable(), expectedRevision: revision }),
     result,
   ),
   'preSessionDraft.setApprovalChoice': defineCommand(

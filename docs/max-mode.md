@@ -14,6 +14,20 @@ Tiers must have unique IDs, increasing windows and increasing input thresholds;
 the threshold must be below its tier's window. MAX selects the largest declared
 window. A model with no expanded tier keeps its sole window.
 
+The composer exposes **MAX extended context** as an independent switch in the
+effort menu, alongside standard/MAX capacities and each configured price
+threshold. Enabling it leaves reasoning effort unchanged. Expanded models that
+do not support reasoning expose the same switch in a **Context mode** menu.
+The trigger shows a MAX badge only when enabled. Active Runs lock the composer
+choice; external settings changes apply to the next Run.
+
+The first-send draft owns its MAX choice before a Session exists. Submission
+captures it, saves it on the newly created Session with the existing durable
+command receipt flow, and verifies the confirmed value before admitting a Run.
+A lost acknowledgement blocks duplicate writes and Runs until reconciliation.
+Removing the selected model's expanded tier rejects MAX before Session creation
+and offers a clearable switch while retaining the draft's content.
+
 The meter and compaction use the captured window and reserve maximum output
 capacity. Normal mode always compacts at the hard capacity boundary even if an
 early-compaction policy declines. Exceeding the normal window never enables MAX
@@ -58,3 +72,9 @@ one owning page scroll region, collapsible sections, nearby validation and a
 persistent save/reset footer. Bounded tier rows grow with content, and their
 schema-driven number fields wrap into fewer columns on narrow screens. Lumen
 provides the theme, field, disclosure and icon semantics.
+
+The composer uses the information hierarchy from
+[ReactBits AI Chat 9](https://pro.reactbits.dev/docs/app-ui/ai-chat/ai-chat-9) and
+[Prompt Input 2](https://pro.reactbits.dev/docs/app-ui/prompt-input/prompt-input-2):
+compact mode controls next to the model, with capacity and cost details revealed
+in the existing keyboard-accessible, viewport-bounded effort menu.

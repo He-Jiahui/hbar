@@ -15,6 +15,13 @@ const models: ModelDescriptor[] = ['fast', 'deep'].map((id) => ({
   modelId: id,
   modelName: id,
   contextWindow: 100_000,
+  ...(id === 'fast'
+    ? {
+        contextTiers: [
+          { id: 'long', contextWindow: 400_000, inputTokensAbove: 100_000, inputPrice: 2, outputPrice: 10 },
+        ],
+      }
+    : {}),
   maxOutput: 8_000,
   imageInput: true,
   reasoning: true,
@@ -59,6 +66,7 @@ function fixture() {
         modelId: models[0]!.id,
         model: models[0]!,
         thinkingLevel: 'low',
+        maxMode: false,
         revisions: { [`settings:session:${id}`]: 1 },
         sources: { model: 'global', thinkingLevel: 'global' },
       },
@@ -103,11 +111,13 @@ function fixture() {
               revision: receipt.revision,
               modelId: receipt.modelId,
               thinkingLevel: receipt.thinkingLevel,
+              maxMode: receipt.maxMode ?? false,
               revisions: receipt.revisions,
             }
           : null
       }
-      if (name !== 'session.setModel' && name !== 'session.setThinkingLevel') throw new Error('Unexpected command')
+      if (name !== 'session.setModel' && name !== 'session.setThinkingLevel' && name !== 'session.setMaxMode')
+        throw new Error('Unexpected command')
       const input = modelCommands[name].input.parse(raw)
       const key = options.idempotencyKey
       if (!key) throw new Error('Missing durable key')
@@ -130,7 +140,13 @@ function fixture() {
         status: 'configured',
         modelId: selectedModel.id,
         model: selectedModel,
-        thinkingLevel: 'thinkingLevel' in input ? input.thinkingLevel : selectedModel.defaultThinkingLevel,
+        thinkingLevel:
+          'thinkingLevel' in input
+            ? input.thinkingLevel
+            : 'enabled' in input
+              ? current.thinkingLevel
+              : selectedModel.defaultThinkingLevel,
+        maxMode: 'enabled' in input ? input.enabled : (current.maxMode ?? false),
         revisions: { ...current.revisions, [layer]: revision },
       }
       configurations.set(input.sessionId, next)
@@ -205,6 +221,40 @@ function fixture() {
     },
   }
 }
+
+test('MAX writes keep thinking independent and recover an unknown receipt without replaying or replacing newer facts', async () => {
+  const app = fixture()
+  try {
+    await app.select()
+    await app.commands.execute('composerModel.refresh', { sessionId: 'one' })
+    app.loseResponse()
+    await expect(
+      app.commands.execute('composerModel.selectMaxMode', { sessionId: 'one', enabled: true }),
+    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    expect(app.snapshot().action.status).toBe('unknown')
+    expect(app.model()?.maxMode).toBe(false)
+    await expect(
+      app.commands.execute('composerModel.selectMaxMode', { sessionId: 'one', enabled: false }),
+    ).rejects.toMatchObject({ code: 'SUBMISSION_PENDING' })
+    const latest = app.configurations.get('one')!
+    expect(latest).toMatchObject({ maxMode: true, thinkingLevel: 'low' })
+    app.configurations.set('one', {
+      ...latest,
+      maxMode: false,
+      revisions: { 'settings:session:one': (latest.revisions['settings:session:one'] ?? 0) + 1 },
+    })
+    await app.commands.execute('composerModel.reconcile', { sessionId: 'one' })
+    expect(app.snapshot().action.status).toBe('idle')
+    expect(app.model()).toMatchObject({ maxMode: false, thinkingLevel: 'low' })
+    expect(app.calls.filter((call) => call.name === 'session.setMaxMode')).toHaveLength(1)
+    await app.commands.execute('composerModel.selectModel', { sessionId: 'one', modelId: models[1]!.id })
+    await expect(
+      app.commands.execute('composerModel.selectMaxMode', { sessionId: 'one', enabled: true }),
+    ).rejects.toMatchObject({ code: 'MAX_MODE_UNSUPPORTED' })
+  } finally {
+    app.runtime.dispose()
+  }
+})
 
 test('composer catalog refresh coalesces repeated clicks and accepts an unset configuration and empty catalog', async () => {
   const app = fixture()

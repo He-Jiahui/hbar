@@ -23,7 +23,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`no-tab effort control follows the selected model's real levels: ${locale}`, () => {
     const labels = getShellCopy(locale).session.modelPicker
     const html = renderToStaticMarkup(
-      <HbarPreSessionThinkingPicker model={model} level="high" labels={labels} onChoose={async () => undefined} />,
+      <HbarPreSessionThinkingPicker
+        model={model}
+        level="high"
+        labels={labels}
+        onChoose={async () => undefined}
+        onMaxModeChange={async () => undefined}
+      />,
     )
     expect(html).toContain(labels.thinkingTrigger(labels.thinkingLevel('high')))
     expect(html).toContain(`aria-label="${labels.thinking}"`)
@@ -39,9 +45,55 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         level={null}
         labels={getShellCopy(locale).session.modelPicker}
         onChoose={async () => undefined}
+        onMaxModeChange={async () => undefined}
       />,
     )
     expect(html).toBe('')
+  })
+
+  test(`MAX remains a named independent switch on a non-reasoning model: ${locale}`, () => {
+    const labels = getShellCopy(locale).session.modelPicker
+    const html = renderToStaticMarkup(
+      <HbarPreSessionThinkingPicker
+        model={{
+          ...model,
+          reasoning: false,
+          thinkingLevels: ['off'],
+          defaultThinkingLevel: 'off',
+          contextTiers: [
+            { id: 'extended', contextWindow: 400_000, inputTokensAbove: 100_000, inputPrice: 4, outputPrice: 15 },
+          ],
+        }}
+        level="off"
+        maxMode
+        labels={labels}
+        onChoose={async () => undefined}
+        onMaxModeChange={async () => undefined}
+      />,
+    )
+    expect(html).toContain(labels.maxMode.trigger(labels.maxMode.menu))
+    expect(html).toContain(`aria-label="${labels.maxMode.title}"`)
+    expect(html).toContain(`aria-description="${labels.maxMode.description}"`)
+    expect(html).toContain('role="switch"')
+    expect(html).toContain('checked=""')
+    expect(html).not.toContain('type="range"')
+  })
+
+  test(`a removed MAX capability offers a clearable saved choice: ${locale}`, () => {
+    const labels = getShellCopy(locale).session.modelPicker
+    const html = renderToStaticMarkup(
+      <HbarPreSessionThinkingPicker
+        model={{ ...model, thinkingLevels: ['off'], defaultThinkingLevel: 'off' }}
+        level="off"
+        maxMode
+        labels={labels}
+        onChoose={async () => undefined}
+        onMaxModeChange={async () => undefined}
+      />,
+    )
+    expect(html).toContain(labels.maxMode.unavailable)
+    expect(html).toContain('checked=""')
+    expect(html).not.toContain('disabled=""')
   })
 }
 
@@ -53,6 +105,7 @@ test('an inconsistent model default never creates a fictitious effort stop', () 
       level={null}
       labels={labels}
       onChoose={async () => undefined}
+      onMaxModeChange={async () => undefined}
     />,
   )
   expect(html).toContain(labels.thinkingTrigger(labels.thinkingLevel('off')))

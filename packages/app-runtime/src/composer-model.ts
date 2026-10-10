@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { CommandError, defineCommand, type CommandExecutor, type CommandRegistry } from '@hbar/commands'
-import { idSchema, thinkingLevelSchema } from '@hbar/contracts'
+import { idSchema, maximumContextWindow, thinkingLevelSchema } from '@hbar/contracts'
 import {
   modelCommands,
   modelConfigurationSchema,
@@ -48,6 +48,11 @@ export const composerModelCommands = {
     output,
   ),
   'composerModel.reconcile': defineCommand(metadata('composerModel.reconcile'), sessionInput, output),
+  'composerModel.selectMaxMode': defineCommand(
+    metadata('composerModel.selectMaxMode'),
+    sessionInput.extend({ enabled: z.boolean() }),
+    output,
+  ),
 }
 
 interface ModelProjection {
@@ -65,11 +70,29 @@ type WriteOperation =
       readonly name: 'session.setThinkingLevel'
       readonly input: z.output<(typeof modelCommands)['session.setThinkingLevel']['input']>
     }
+  | {
+      readonly name: 'session.setMaxMode'
+      readonly input: z.output<(typeof modelCommands)['session.setMaxMode']['input']>
+    }
 type PendingWrite = WriteOperation & {
   readonly key: string
   status: 'submitting' | 'unknown'
   error: string | null
   inFlight: boolean
+}
+
+function matchesWrite(
+  configuration: Pick<ModelConfiguration, 'modelId' | 'thinkingLevel' | 'maxMode'>,
+  operation: WriteOperation,
+): boolean {
+  switch (operation.name) {
+    case 'session.setModel':
+      return configuration.modelId === operation.input.modelId
+    case 'session.setThinkingLevel':
+      return configuration.thinkingLevel === operation.input.thinkingLevel
+    case 'session.setMaxMode':
+      return configuration.maxMode === operation.input.enabled
+  }
 }
 
 function errorCode(error: unknown): string {
@@ -258,13 +281,7 @@ export function createComposerModel(
       dispatched = true
       const raw = await executor.execute(operation.name, operation.input, { idempotencyKey: operation.key, signal })
       const parsed = modelWriteResultSchema.safeParse(raw)
-      if (
-        !parsed.success ||
-        parsed.data.sessionId !== sessionId ||
-        (operation.name === 'session.setModel'
-          ? parsed.data.modelId !== operation.input.modelId
-          : parsed.data.thinkingLevel !== operation.input.thinkingLevel)
-      )
+      if (!parsed.success || parsed.data.sessionId !== sessionId || !matchesWrite(parsed.data, operation))
         throw new CommandError('INVALID_OUTPUT', 'Model confirmation does not match the requested session')
       const { commitId: _commitId, revision: _revision, ...configuration } = parsed.data
       const projected = controls.commitModel(modelConfigurationSchema.parse(configuration), projectionGeneration)
@@ -299,7 +316,7 @@ export function createComposerModel(
 
   const select = async (
     sessionId: string,
-    change: { modelId: string } | { thinkingLevel: z.output<typeof thinkingLevelSchema> },
+    change: { modelId: string } | { thinkingLevel: z.output<typeof thinkingLevelSchema> } | { enabled: boolean },
     signal: AbortSignal,
   ) => {
     requireIdle(sessionId)
@@ -335,12 +352,26 @@ export function createComposerModel(
           error: null,
           inFlight: false,
         }
-      } else {
+      } else if ('thinkingLevel' in change) {
         if (!configuration.model?.thinkingLevels.includes(change.thinkingLevel))
           throw new CommandError('INVALID_INPUT', 'Thinking level is not supported by the selected model')
         operation = {
           name: 'session.setThinkingLevel',
           input: { sessionId, thinkingLevel: change.thinkingLevel, baselineRevisions },
+          key: crypto.randomUUID(),
+          status: 'submitting',
+          error: null,
+          inFlight: false,
+        }
+      } else {
+        if (
+          !configuration.model ||
+          (change.enabled && maximumContextWindow(configuration.model) <= configuration.model.contextWindow)
+        )
+          throw new CommandError('MAX_MODE_UNSUPPORTED', 'The selected model has no expanded context tier')
+        operation = {
+          name: 'session.setMaxMode',
+          input: { sessionId, enabled: change.enabled, baselineRevisions },
           key: crypto.randomUUID(),
           status: 'submitting',
           error: null,
@@ -373,6 +404,10 @@ export function createComposerModel(
       return { sessionId }
     },
   )
+  local.register(composerModelCommands['composerModel.selectMaxMode'], async ({ sessionId, enabled }, context) => {
+    await select(sessionId, { enabled }, context.signal)
+    return { sessionId }
+  })
   local.register(composerModelCommands['composerModel.reconcile'], async ({ sessionId }, context) => {
     assertSelected(sessionId)
     const operation = pending.get(sessionId)
@@ -400,9 +435,7 @@ export function createComposerModel(
         !result ||
         result.sessionId !== sessionId ||
         result.idempotencyKey !== operation.key ||
-        (operation.name === 'session.setModel'
-          ? result.modelId !== operation.input.modelId
-          : result.thinkingLevel !== operation.input.thinkingLevel) ||
+        !matchesWrite(result, operation) ||
         !Object.hasOwn(baseline, layerId) ||
         Object.keys(result.revisions).sort().join('\0') !== Object.keys(baseline).sort().join('\0') ||
         Object.entries(baseline).some(
