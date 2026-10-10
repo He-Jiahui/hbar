@@ -10,5 +10,5 @@ export async function removeOwnedFixtureDirectory(root: string, prefix: string):
     !basename(target).startsWith(prefix)
   )
     throw new Error('Refusing to remove an unowned fixture directory')
-  await rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 })
+  await rm(target, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 })
 }

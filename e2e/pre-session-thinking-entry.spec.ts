@@ -8,6 +8,7 @@ import { preSessionCopy } from '../apps/web/src/pre-session-copy'
 import { preSessionLaunchCopy } from '../apps/web/src/pre-session-launch-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { expectComposerText } from './support/composer-text'
+import { revealComposerControl } from './support/composer-controls'
 
 test.use({ actionTimeout: 10_000 })
 
@@ -46,27 +47,34 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const prompt = landing.getByRole('textbox', { name: copy.preSession.prompt.input })
       const message = `Review this first with effort ${locale}`
       await prompt.fill(message)
-      const locationTrigger = landing.locator('.hbar-pre-session-location-picker > button')
+      const locationTrigger = page.locator('.hbar-pre-session-location-picker > button')
+      await revealComposerControl(page, locationTrigger, copy.session.addMenu)
       await locationTrigger.click()
       const locationRootBeforeDirectory = page.getByRole('dialog', { name: location.title, exact: true })
-      if (await locationRootBeforeDirectory.isVisible())
-        await locationRootBeforeDirectory.getByRole('button', { name: new RegExp(`^${location.directory}`) }).click()
+      if (await locationRootBeforeDirectory.isVisible()) {
+        const directoryAction = locationRootBeforeDirectory.getByRole('button', { name: new RegExp(`^${location.directory}`) })
+        await directoryAction.focus()
+        await page.keyboard.press('Enter')
+      }
       const directoryPicker = page.getByRole('dialog', { name: location.chooseDirectory, exact: true })
       await directoryPicker.getByRole('button', { name: new RegExp(host.ready.workspaceName) }).click()
       const locationRoot = page.getByRole('dialog', { name: location.title, exact: true })
       await expect(locationRoot).toBeVisible()
       await locationRoot.getByRole('button', { name: location.close, exact: true }).click()
       await expect(locationRoot).toBeHidden()
-      await landing.getByRole('button', { name: labels.model.trigger(null) }).click()
+      const initialModel = page.locator('.hbar-web-pre-session-model-controls .hbar-pre-session-choice-picker > button')
+      await revealComposerControl(page, initialModel, copy.session.addMenu)
+      await initialModel.click()
       await page
         .getByRole('dialog', { name: labels.model.title })
         .getByRole('button', { name: new RegExp(fixture!.modelName) })
         .click()
-      const effort = landing.locator('.hbar-pre-session-thinking-picker > button')
+      const effort = page.locator('.hbar-pre-session-thinking-picker > button')
       const initialName = copy.session.modelPicker.thinkingTrigger(
         copy.session.modelPicker.thinkingLevel(fixture!.defaultThinkingLevel),
       )
       await expect(effort).toHaveAccessibleName(initialName)
+      await revealComposerControl(page, effort, copy.session.addMenu)
       await effort.click()
       const picker = page.getByRole('dialog', { name: copy.session.modelPicker.thinking })
       const slider = picker.getByRole('slider', { name: copy.session.modelPicker.thinking })
@@ -77,6 +85,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(picker).toBeHidden()
       await expect(effort).toBeFocused()
       await expect(effort).toHaveAccessibleName(initialName)
+      await revealComposerControl(page, effort, copy.session.addMenu)
       await effort.click()
       await expect(slider).toBeFocused()
       await page.keyboard.press(targetKey)
@@ -84,7 +93,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(effort).toHaveAccessibleName(
         copy.session.modelPicker.thinkingTrigger(copy.session.modelPicker.thinkingLevel(target)),
       )
-      const modelTrigger = landing.locator('.hbar-pre-session-choice-picker > button')
+      const modelTrigger = page.locator('.hbar-pre-session-choice-picker > button')
       await expect(modelTrigger).toHaveText(fixture!.modelName)
       await expect(modelTrigger.locator('svg')).toHaveCount(1)
       await expect(modelTrigger).toHaveCSS('font-weight', '600')
@@ -102,8 +111,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const firstSend = landing.getByRole('button', { name: copy.preSession.prompt.send, exact: true })
       await expect(firstSend).toBeEnabled()
       await expect(firstSend).toHaveAttribute('data-lumen-indicator', 'none')
-      await expect(firstSend).toHaveAttribute('data-lumen-variant', 'solid')
-      await expect(firstSend).toHaveCSS('background-color', 'rgb(23, 23, 23)')
+      await expect(firstSend).toHaveAttribute('data-lumen-variant', 'contained')
+      await expect(firstSend).toHaveAttribute('data-lumen-tone', 'primary')
       await expect(firstSend.locator('.lucide-arrow-up')).toHaveCount(1)
       await page.screenshot({ path: info.outputPath(`model-ready-before-first-send-${locale}.png`) })
       await firstSend.click()
@@ -123,6 +132,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(landing).toHaveCount(0)
       const existingModel = page.locator('.hbar-composer-model-trigger')
       const existingEffort = page.locator('.hbar-composer-thinking-trigger')
+      await revealComposerControl(page, existingModel, copy.session.addMenu)
       await expect(existingModel).toHaveText(fixture!.modelName)
       await expect(existingModel.locator('svg')).toHaveCount(1)
       await expect(existingModel).toHaveCSS('font-weight', '600')
@@ -130,9 +140,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         copy.session.modelPicker.thinkingTrigger(copy.session.modelPicker.thinkingLevel(target)),
       )
       const nextPrompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
+      await page.keyboard.press('Escape')
       const nextDraft = 'Keep composing after the first send — 首发后继续编辑而不提交。'
       await nextPrompt.fill(nextDraft)
       await expect(existingModel).toBeEnabled()
+      await revealComposerControl(page, existingModel, copy.session.addMenu)
       await existingModel.click()
       const existingPicker = page.getByRole('dialog', { name: copy.session.modelPicker.title, exact: true })
       await expect(existingPicker).toBeVisible()
@@ -144,8 +156,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         .getByRole('button', { name: copy.session.prompt.send, exact: true })
       await expect(nextSend).toBeEnabled()
       await expect(nextSend).toHaveAttribute('data-lumen-indicator', 'none')
-      await expect(nextSend).toHaveAttribute('data-lumen-variant', 'solid')
-      await expect(nextSend).toHaveCSS('background-color', 'rgb(23, 23, 23)')
+      await expect(nextSend).toHaveAttribute('data-lumen-variant', 'contained')
+      await expect(nextSend).toHaveAttribute('data-lumen-tone', 'primary')
       await expect(nextSend.locator('.lucide-arrow-up')).toHaveCount(1)
       await page.screenshot({ path: info.outputPath(`model-ready-after-first-send-${locale}.png`) })
     } finally {

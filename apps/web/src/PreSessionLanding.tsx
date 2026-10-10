@@ -704,19 +704,16 @@ export function WebPreSessionLanding({
     />
   )
   const selectedModel = modelSelection.model
-  const modelControls = (
-    <LumenFrame className="hbar-web-pre-session-model-controls">
-      {modelControl}
-      <HbarPreSessionThinkingPicker
-        model={selectedModel}
-        level={draft?.thinkingLevel ?? null}
-        labels={shell.session.modelPicker}
-        disabled={!connected || !draft || busy || draft.phase === 'unknown'}
-        onChoose={chooseThinkingLevel}
-        maxMode={draft?.maxMode ?? false}
-        onMaxModeChange={chooseMaxMode}
-      />
-    </LumenFrame>
+  const thinkingControl = (
+    <HbarPreSessionThinkingPicker
+      model={selectedModel}
+      level={draft?.thinkingLevel ?? null}
+      labels={shell.session.modelPicker}
+      disabled={!connected || !draft || busy || draft.phase === 'unknown'}
+      onChoose={chooseThinkingLevel}
+      maxMode={draft?.maxMode ?? false}
+      onMaxModeChange={chooseMaxMode}
+    />
   )
   const approvalControl = (
     <HbarPreSessionApprovalPicker
@@ -965,14 +962,17 @@ export function WebPreSessionLanding({
                 )}
               </>
             ) : undefined,
-          controls: (
-            <LumenFrame className="hbar-web-pre-session-controls">
-              {goalControl}
-              {approvalControl}
-              {workspaceControl}
-            </LumenFrame>
-          ),
-          modelPicker: modelControls,
+          toolbar: {
+            moreLabel: shell.session.addMenu.menu,
+            revealRequest: modelOpenRequest > 0 ? { id: 'model', revision: modelOpenRequest } : undefined,
+            items: [
+              { id: 'actions', label: shell.session.addMenu.open, priority: 20, content: goalControl },
+              { id: 'approval', label: shell.session.permissionPicker.title, priority: 40, content: approvalControl },
+              { id: 'workspace', label: launchLabels.location.title, priority: 60, content: workspaceControl },
+              { id: 'model', label: modelLabels.title, priority: 100, content: <LumenFrame className="hbar-web-pre-session-model-controls">{modelControl}</LumenFrame> },
+              { id: 'thinking', label: shell.session.modelPicker.thinking, priority: 90, content: thinkingControl },
+            ],
+          },
           editor: ({ inputLabel, placeholder, disabled, onSubmit }) => (
             <HbarPreSessionSlashEditor
               editorRef={editor}

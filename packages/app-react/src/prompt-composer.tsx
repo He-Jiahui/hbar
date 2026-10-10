@@ -50,6 +50,16 @@ function ComposerContent(props: HbarPromptComposerProps) {
         revealRequest: { id: 'model', revision: props.adaptiveToolbar.revealModelRequest },
       }
     : props.toolbar
+      ? {
+          ...props.toolbar,
+          items: [
+            ...props.toolbar.items,
+            ...(managed && props.feedbackLabels
+              ? [{ id: 'feedback', label: props.feedbackLabels.title, priority: 80, content: <HbarComposerFeedbackTrigger /> }]
+              : []),
+          ],
+        }
+      : undefined
   return (
     <LumenPromptComposer
       {...props}

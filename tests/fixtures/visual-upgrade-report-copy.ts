@@ -20,6 +20,7 @@ export interface VisualUpgradeReportCopy {
 
 const families = {
   conversation: ['对话与输入', 'Conversation and composer'],
+  'pre-session': ['首发输入与空会话', 'First-send composer'],
   'settings-general': ['常规设置', 'General settings'],
   'settings-appearance': ['外观设置', 'Appearance settings'],
   'settings-model': ['模型设置', 'Model settings'],
