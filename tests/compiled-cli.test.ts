@@ -2,7 +2,9 @@ import { expect, test } from 'bun:test'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { optionalBundleExternals } from '../scripts/bundle-externals'
+import { buildStandaloneCli } from '../scripts/build-cli'
+import { runtimeSnapshotSchema } from '@hbar/contracts/runtime'
+import { z } from 'zod'
 
 interface JsonLine {
   type?: string
@@ -46,7 +48,7 @@ async function runGit(cwd: string, ...args: string[]): Promise<void> {
   if (result.code !== 0) throw new Error(`git ${args.join(' ')} failed: ${result.stderr}`)
 }
 
-async function terminateProcess(pid: number): Promise<void> {
+async function terminateProcess(pid: number, executable: string): Promise<void> {
   const result = await runCommand(
     [
       'pwsh',
@@ -54,14 +56,41 @@ async function terminateProcess(pid: number): Promise<void> {
       '-Command',
       [
         `$targetProcessId = ${pid}`,
+        "$expectedExecutable = [Environment]::GetEnvironmentVariable('HBAR_COMPILED_STOP_EXE')",
+        '$ownedProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $targetProcessId"',
+        'if ($ownedProcess -and $ownedProcess.ExecutablePath -ine $expectedExecutable) { throw "Test PID no longer belongs to the fixture executable" }',
         'Stop-Process -Id $targetProcessId -Force -ErrorAction SilentlyContinue',
         'Wait-Process -Id $targetProcessId -Timeout 10 -ErrorAction SilentlyContinue',
         'if (Get-Process -Id $targetProcessId -ErrorAction SilentlyContinue) { throw "Process $targetProcessId is still running" }',
       ].join('; '),
     ],
     resolve('.'),
+    { HBAR_COMPILED_STOP_EXE: executable },
   )
   if (result.code !== 0) throw new Error(`Compiled Host ${pid} did not terminate: ${result.stderr}`)
+}
+
+async function cleanupFixture(root: string, dataRoot: string, workspace: string, executable: string): Promise<void> {
+  try {
+    const connection = z.object({ pid: z.number().int().positive(), supervisorPid: z.number().int().positive().optional() })
+      .parse(JSON.parse(await readFile(join(dataRoot, 'settings', 'connection.json'), 'utf8')))
+    // Stop the exact fixture launcher first; its intentional disconnect stops the entry and all unit owners.
+    await terminateProcess(connection.supervisorPid ?? connection.pid, executable)
+    const deadline = Date.now() + 15_000
+    let confirmed = false
+    while (Date.now() < deadline) {
+      const remaining = await runCommand(['powershell', '-NoProfile', '-Command',
+        "$expectedExecutable = [Environment]::GetEnvironmentVariable('HBAR_COMPILED_STOP_EXE'); @(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -ieq $expectedExecutable }).Count"],
+      workspace, { HBAR_COMPILED_STOP_EXE: executable })
+      if (remaining.code !== 0) throw new Error('Could not confirm the fixture unit owners exited')
+      if (remaining.stdout === '0') { confirmed = true; break }
+      await Bun.sleep(100)
+    }
+    if (!confirmed) throw new Error('Fixture runtime process exit was not confirmed before cleanup')
+  } catch (error) {
+    if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error
+  }
+  await rm(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 })
 }
 
 test.skipIf(process.platform !== 'win32')(
@@ -72,7 +101,6 @@ test.skipIf(process.platform !== 'win32')(
     const workspace = join(root, 'workspace')
     const dataRoot = join(root, 'data')
     const cacheRoot = join(root, 'cache')
-    let hostPid = 0
     try {
       await Promise.all([mkdir(workspace), mkdir(dataRoot), mkdir(cacheRoot)])
       await writeFile(join(workspace, 'alpha.ts'), 'first\nneedle 世界\nlast\n', 'utf8')
@@ -85,21 +113,7 @@ test.skipIf(process.platform !== 'win32')(
       await runGit(workspace, 'add', 'alpha.ts', '.gitignore', 'patch.txt')
       await runGit(workspace, 'commit', '-m', 'compiled CLI fixture')
 
-      const build = Bun.spawn(
-        [
-          process.execPath,
-          'build',
-          '--compile',
-          'apps/cli/src/main.ts',
-          'packages/storage/src/worker.ts',
-          '--outfile',
-          executable,
-          ...optionalBundleExternals.flatMap((dependency) => ['--external', dependency]),
-        ],
-        { cwd: resolve('.'), stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' },
-      )
-      const [buildCode, buildError] = await Promise.all([build.exited, new Response(build.stderr).text()])
-      expect(buildCode, buildError).toBe(0)
+      await buildStandaloneCli(resolve('.'), executable)
 
       const run = Bun.spawn(
         [
@@ -294,10 +308,16 @@ test.skipIf(process.platform !== 'win32')(
       expect(JSON.parse(applied.stdout)).toMatchObject({ patch: { status: 'applied' } })
       expect(await readFile(join(workspace, 'patch.txt'), 'utf8')).toBe('child from compiled CLI\n')
 
+      const runtimeResult = await runCommand([...common, 'exec', 'system.runtime.get', '--input-json', '{}'], workspace)
+      expect(runtimeResult.code, runtimeResult.stderr).toBe(0)
+      const runtime = runtimeSnapshotSchema.parse(JSON.parse(runtimeResult.stdout))
+      const managedPids = runtime.units.flatMap(unit => unit.generations.map(generation => generation.pid)).filter(pid => pid !== null)
+      expect(runtime.ready).toBe(true)
+      expect(managedPids).toHaveLength(4)
       const connection = JSON.parse(await readFile(join(dataRoot, 'settings', 'connection.json'), 'utf8')) as {
         pid: number
       }
-      hostPid = connection.pid
+      const hostPid = connection.pid
       const processSnapshot = await runCommand(
         [
           'powershell',
@@ -308,7 +328,7 @@ test.skipIf(process.platform !== 'win32')(
             "$targetPid = [int][Environment]::GetEnvironmentVariable('HBAR_COMPILED_HOST_PID')",
             '$hostProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $targetPid"',
             "$sameExecutable = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -ieq 'hbar.exe' -and $_.ExecutablePath -ieq $targetPath })",
-            '$children = @(Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq $targetPid })',
+            '$children = @($sameExecutable | Where-Object { $_.ParentProcessId -eq $targetPid })',
             '[ordered]@{ hostFound = $null -ne $hostProcess; hbarProcessCount = $sameExecutable.Count; directChildCount = $children.Count; commandLine = $hostProcess.CommandLine } | ConvertTo-Json -Compress',
           ].join('; '),
         ],
@@ -321,21 +341,11 @@ test.skipIf(process.platform !== 'win32')(
       expect(processSnapshot.code, processSnapshot.stderr).toBe(0)
       expect(JSON.parse(processSnapshot.stdout)).toMatchObject({
         hostFound: true,
-        hbarProcessCount: 1,
-        directChildCount: 0,
+        hbarProcessCount: managedPids.length + 2,
+        directChildCount: managedPids.length,
       })
     } finally {
-      if (!hostPid) {
-        try {
-          hostPid =
-            (JSON.parse(await readFile(join(dataRoot, 'settings', 'connection.json'), 'utf8')) as { pid?: number })
-              .pid ?? 0
-        } catch {
-          // The compiled CLI may have failed before starting its embedded Host.
-        }
-      }
-      if (hostPid) await terminateProcess(hostPid)
-      await rm(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 })
+      await cleanupFixture(root, dataRoot, workspace, executable)
     }
   },
   90_000,

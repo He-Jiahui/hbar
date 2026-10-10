@@ -1,9 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
-import { pathToFileURL } from 'node:url'
-import type { KernelProfile } from '@hbar/kernel'
-import { Kernel } from '@hbar/kernel'
+import { runtimeDomainError } from '@hbar/runtime'
 import { getStorageLocations, resolvePathLayout } from '@hbar/storage'
 import { startServer } from './server.ts'
 import { createHostSupervisor, RESTART_EXIT_CODE } from './supervisor.ts'
@@ -12,10 +10,13 @@ import { ensureHostDataRootId } from './host-data-identity.ts'
 import { FAILURE_EXIT_CODE, installHostShutdown, registerHostProcessHandlers } from './process-shutdown'
 import { sendHostSupervisorMessage } from './supervisor-protocol'
 import { acquireHostProcessLock } from './process-lock'
+import { ProcessHostRuntime } from './process-host-runtime'
+import { embeddedRuntimePackage, hostRuntimeProcessCommand } from './runtime-package'
 
 export async function runHost(
   args: string[] = Bun.argv.slice(2),
   supervisorCommand: readonly [string, ...string[]] = [process.execPath, import.meta.path],
+  runtimeCommand: readonly [string, ...string[]] = hostRuntimeProcessCommand(),
 ): Promise<void> {
   const { values } = parseArgs({
     args,
@@ -68,13 +69,13 @@ export async function runHost(
   const lock = layout.hostLock
   const releaseLock = await acquireHostProcessLock(lock)
   let cleanup: (() => Promise<void>) | undefined
-  let kernel: Kernel | undefined
+  let runtime: ProcessHostRuntime | undefined
   let heartbeat: ReturnType<typeof setInterval> | undefined
   const requestShutdown = installHostShutdown(async () => {
     clearInterval(heartbeat)
     try {
       if (cleanup) await cleanup()
-      else await kernel?.close()
+      else await runtime?.close()
     } finally {
       await releaseLock()
     }
@@ -82,17 +83,17 @@ export async function runHost(
   registerHostProcessHandlers(requestShutdown)
   try {
     const dataRootId = await ensureHostDataRootId(layout.settings)
-    const profile = values.profile
-      ? ((await import(pathToFileURL(resolve(values.profile)).href)) as { default: KernelProfile }).default
-      : undefined
-    kernel = await Kernel.create({
+    const artifactPackage = embeddedRuntimePackage()
+    runtime = await ProcessHostRuntime.create({
       layout,
-      onFatal: () => requestShutdown(FAILURE_EXIT_CODE),
+      processCommand: runtimeCommand,
+      ...(artifactPackage ? { artifactPackage } : {}),
       ...(values.demo !== undefined ? { demo: values.demo } : {}),
       ...(values.workspace ? { workspace: values.workspace } : {}),
-      ...(profile ? { profile } : {}),
+      ...(values.profile ? { profileModule: resolve(values.profile) } : {}),
     })
-    const host = await startServer(kernel, {
+    const host = await startServer(runtime.kernel, {
+      runtime, controller: runtime.controller,
       dataRootId,
       ...(values.host ? { hostname: values.host } : {}),
       ...(values.port ? { port: Number(values.port) } : {}),
@@ -111,7 +112,7 @@ export async function runHost(
     })
     cleanup = async () => {
       await host.close()
-      await kernel?.close()
+      await runtime?.close()
     }
     if (values.desktop) {
       const device = await host.auth.createDevice('hbar desktop')
@@ -121,7 +122,7 @@ export async function runHost(
           desktopConnection(
             `${values.cert ? 'https' : 'http'}://127.0.0.1:${host.server.port}`,
             device.token,
-            kernel.instanceId,
+            runtime.instanceId,
             values.supervised ?? false,
           ),
         ),
@@ -134,8 +135,8 @@ export async function runHost(
     if (host.server.port !== undefined) sendHostSupervisorMessage({ type: 'host.ready', port: host.server.port })
     heartbeat = setInterval(() => sendHostSupervisorMessage({ type: 'host.heartbeat' }), 2_000)
     heartbeat.unref()
-  } catch {
-    console.error('[hbar] Host startup failed; supervisor will retry the managed owner')
+  } catch (error) {
+    console.error(`[hbar] Host startup failed (${runtimeDomainError(error)?.code ?? 'RUNTIME_START_FAILED'}); supervisor will retry the managed owner`)
     requestShutdown(FAILURE_EXIT_CODE)
   }
 }
