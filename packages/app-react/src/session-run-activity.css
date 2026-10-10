@@ -60,6 +60,11 @@
   overflow-wrap: anywhere;
 }
 
+.hbar-session-run-source {
+  color: var(--lumen-muted);
+  white-space: nowrap;
+}
+
 .hbar-session-run-plan-progress {
   inline-size: 100%;
   block-size: 0.375rem;

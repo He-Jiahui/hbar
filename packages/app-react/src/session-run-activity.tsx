@@ -22,6 +22,7 @@ export type HbarSessionRunItem = Omit<LumenRunActivityItem, 'status' | 'duration
   readonly status: HbarSessionRunStatus
   readonly duration?: ReactNode
   readonly model?: string
+  readonly source?: string
 }
 
 export interface HbarSessionRunLabels extends Omit<LumenRunActivityLabels, 'statusLabel'> {
@@ -156,6 +157,11 @@ export function HbarSessionRunActivity({
           )}
           {activeCount > 1 && <LumenText as="span">{labels.activeCount(activeCount)}</LumenText>}
           {actions(current)}
+          {current.source && (
+            <LumenText as="span" className="hbar-session-run-source">
+              {current.source}
+            </LumenText>
+          )}
           {current.model && (
             <LumenText as="p" className="hbar-session-run-model">
               {current.model}
@@ -190,6 +196,11 @@ export function HbarSessionRunActivity({
                     {status(run)}
                     <LumenText as="span">{run.label}</LumenText>
                     {run.duration && <LumenText as="span">{run.duration}</LumenText>}
+                    {run.source && (
+                      <LumenText as="span" className="hbar-session-run-source">
+                        {run.source}
+                      </LumenText>
+                    )}
                     {actions(run)}
                   </LumenFrame>
                   {run.model && (

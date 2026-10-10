@@ -2168,6 +2168,14 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
       duration: session.runDuration,
       timestamp: session.timestamp,
       error: session.error,
+      source: (source) =>
+        source === 'goal'
+          ? choose('目标续跑', 'Goal continuation')
+          : source === 'user'
+            ? choose('用户发起', 'User initiated')
+            : source === 'system'
+              ? choose('系统发起', 'System initiated')
+              : choose('来源未记录', 'Source not recorded'),
       overview: {
         title: choose('运行概览', 'Run overview'),
         window: (count) =>

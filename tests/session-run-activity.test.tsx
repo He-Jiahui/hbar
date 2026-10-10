@@ -172,3 +172,26 @@ test('a stale explicit Run ID cannot promote a different historical failure', ()
   expect(html).not.toContain('role="alert"')
   expect(html).toContain('data-run-id="original"')
 })
+
+for (const locale of ['zh-CN', 'en-US'] as const)
+  test(`Goal failure records retain their actual source and original status in history: ${locale}`, () => {
+    const copy = getShellCopy(locale)
+    const html = renderToStaticMarkup(
+      <HbarSessionRunActivity
+        runs={[
+          run('later', 'completed'),
+          {
+            ...run('goal-failed', 'failed'),
+            source: copy.monitoring.history.source('goal'),
+            detail: 'Actual Goal provider failure',
+          },
+        ]}
+        labels={copy.session.runs}
+      />,
+    )
+    expect(html).toContain(copy.monitoring.history.source('goal'))
+    expect(html).toContain('data-run-id="goal-failed" data-status="failed"')
+    expect(html).toContain('Actual Goal provider failure')
+    expect(html).not.toContain('role="alert"')
+    expect(copy.monitoring.history.source(undefined)).not.toBe(copy.monitoring.history.source('user'))
+  })

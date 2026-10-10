@@ -5,7 +5,7 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { delimiter, join } from 'node:path'
+import { basename, delimiter, dirname, join, resolve } from 'node:path'
 import { createInterface } from 'node:readline'
 import { z } from 'zod'
 import { getShellCopy } from '../apps/web/src/shell-copy'
@@ -50,6 +50,12 @@ async function stop(child: ChildProcess) {
   await Promise.race([exited, new Promise<void>((resolve) => setTimeout(resolve, 5000))])
   if (child.exitCode === null) child.kill('SIGKILL')
 }
+async function cleanup(root: string) {
+  const path = resolve(root)
+  if (dirname(path) !== resolve(tmpdir()) || !basename(path).startsWith('hbar-goal-message-window-'))
+    throw new Error('Refusing to remove an unexpected Goal window fixture path')
+  await rm(path, { recursive: true, force: true })
+}
 async function collect(
   page: Page,
   messages: readonly { id: string; seq: number; text: string }[],
@@ -58,7 +64,20 @@ async function collect(
   const viewport = page.locator('.lumen-conversation-messages')
   const seen = new Map<string, { kind: string; seq: number | null; text: string }>()
   const byMessage = new Map(messages.map((message) => [message.id, message.seq]))
-  await viewport.evaluate((node) => node.scrollTo({ top: 0 }))
+  // A downward gesture cancels initial/follow-latest measurement corrections
+  // without requesting an older page. Read the loaded window only after its
+  // first virtual row has actually rendered at the requested position.
+  await viewport.hover()
+  await page.mouse.wheel(0, 1)
+  await expect
+    .poll(() =>
+      viewport.evaluate(async (node) => {
+        node.scrollTo({ top: 0 })
+        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+        return node.scrollTop < 1 && node.querySelector('[data-index="0"]') !== null
+      }),
+    )
+    .toBe(true)
   for (let step = 0; step < 150; step += 1) {
     const visible = await page
       .locator('[data-message-id], [data-goal-event-id], [data-goal-continuation-run]')
@@ -91,6 +110,13 @@ async function collect(
     if (complete) return seen
   }
   throw new Error('Conversation scroll did not finish within its test bound')
+}
+
+async function loadEarlier(page: Page) {
+  const viewport = page.locator('.lumen-conversation-messages')
+  await viewport.hover()
+  const distance = await viewport.evaluate((node) => node.scrollHeight + node.clientHeight)
+  await page.mouse.wheel(0, -distance)
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
@@ -186,9 +212,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.goto(base)
       await page.getByRole('treeitem', { name: ready.sessionTitle, exact: true }).click()
       const list = page.locator('[data-hbar-app-ui-list-strategy="virtualized"]')
-      // Sixty paged messages plus the existing persistent Run's time fallback.
-      // This separator must not be mistaken for a canonical Goal lifecycle card.
-      await expect(list).toHaveAttribute('data-hbar-app-ui-message-count', '61')
+      // Run boundaries belong to status; only the sixty actual messages occupy this window.
+      await expect(list).toHaveAttribute('data-hbar-app-ui-message-count', '60')
       await expect(page.locator('[data-goal-event-id]')).toHaveCount(0)
       const firstWindow = await collect(page, ready.messages, ready)
       expect([...firstWindow.values()].filter((item) => item.kind === 'goal')).toEqual([])
@@ -199,13 +224,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const draft = 'Unsent source draft — 原会话未发送草稿'
       await prompt.fill(draft)
       failNextOlder = true
-      await page.getByRole('button', { name: copy.session.loadOlder, exact: true }).click()
+      await loadEarlier(page)
       await expect(page.locator('[data-goal-history-gap="error"]')).toBeVisible()
       expect(failures).toBe(1)
       const partial = await collect(page, ready.messages, ready)
       expect(partial.has('message:fixture-message-23')).toBe(true)
       expect(partial.has(`message:${ready.emptyInputId}`)).toBe(false)
-      expect(partial.has(`continuation:${ready.runId}`)).toBe(true)
+      expect(partial.has(`continuation:${ready.runId}`)).toBe(false)
       expect(partial.has(`message:${ready.outputId}`)).toBe(true)
       const firstFact = ready.facts[0]
       if (!firstFact) throw new Error('Missing oldest Goal fact')
@@ -219,9 +244,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(Number(await list.getAttribute('data-hbar-app-ui-message-count'))).toBeGreaterThanOrEqual(
         Number(countBeforeRecovery),
       )
-      await page.getByRole('button', { name: copy.session.loadOlder, exact: true }).click()
+      await loadEarlier(page)
       await expect(page.getByRole('button', { name: copy.session.loadOlder, exact: true })).toHaveCount(0)
-      await expect(list).toHaveAttribute('data-hbar-app-ui-message-count', '250')
+      await expect(list).toHaveAttribute('data-hbar-app-ui-message-count', '249')
       const all = await collect(page, ready.messages, ready)
       expect(all.has('message:fixture-message-1')).toBe(true)
       expect(all.has('message:fixture-message-140')).toBe(true)
@@ -233,7 +258,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(all.get(`goal:${firstFact.eventId}`)?.text).not.toContain('Current different objective')
       const ordered = [...all.values()].filter((item) => item.seq !== null).map((item) => item.seq)
       expect(ordered).toEqual([...ordered].sort((left, right) => (left ?? 0) - (right ?? 0)))
-      expect([...all.keys()].filter((key) => key === `continuation:${ready.runId}`)).toHaveLength(1)
+      expect([...all.keys()].filter((key) => key === `continuation:${ready.runId}`)).toHaveLength(0)
       expect(all.has(`message:${ready.emptyInputId}`)).toBe(false)
       await expect(prompt).toHaveText(draft)
       const saved = await client.call('session.snapshot', { sessionId: ready.sessionId, limit: 200 })
@@ -254,7 +279,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       client?.disconnect()
       await context.close()
       await stop(child)
-      await rm(root, { recursive: true, force: true })
+      await cleanup(root)
     }
   })
 }

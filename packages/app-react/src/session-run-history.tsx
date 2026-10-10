@@ -43,6 +43,7 @@ export interface HbarSessionRunHistoryLabels {
   readonly duration: (startedAt: number, endedAt: number | null) => string
   readonly timestamp: (value: number) => string
   readonly error: (code: string) => string
+  readonly source: (source: Run['input']['source']) => string
   readonly overview: HbarSessionRunOverviewLabels
 }
 
@@ -142,6 +143,7 @@ export function HbarSessionRunHistory({
           status: run.status,
           ...(run.error ? { detail: run.error } : {}),
           model: labels.detail(run.modelId),
+          source: labels.source(run.input.source),
           duration: <RunTiming run={run} clock={timeline.toolClock} connected={connected} format={labels.duration} />,
         }))}
         labels={labels.runs}

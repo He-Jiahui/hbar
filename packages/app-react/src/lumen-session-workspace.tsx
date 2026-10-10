@@ -133,7 +133,7 @@ import { useHbarMobileHeaderMenuSection, type HbarMobileHeaderMenuItem } from '.
 import { HbarSessionStopNotice, useSessionStopAction } from './session-stop'
 import { sessionStopCanCancel } from './session-stop-model'
 import type { HbarSessionFindLabels } from './session-find-view'
-import { HbarGoalContinuation, type HbarGoalContinuationLabels } from './goal-continuation'
+import type { HbarGoalContinuationLabels } from './goal-continuation'
 import { HbarGoalLifecycleCard, type HbarGoalLifecycleLabels, type HbarGoalHistoryLabels } from './goal-lifecycle'
 import { projectGoalLifecycleRows } from './goal-lifecycle-model'
 import {
@@ -1719,17 +1719,7 @@ function SessionWorkspaceContent({
           },
         ]
       if (item.kind === 'goalContinuation')
-        return [
-          {
-            id: item.continuation.id,
-            role: 'system',
-            author: labels.author.system,
-            avatar: labels.avatar.system,
-            appearance: 'transcript',
-            copyLabel: labels.copy,
-            children: <HbarGoalContinuation continuation={item.continuation} labels={labels.goalContinuation} />,
-          },
-        ]
+        return [] // Run boundaries, including failed Goal continuations, belong to session status.
       const row = rowsById.get(item.kind === 'message' ? item.projection.message.id : item.stream.id)
       return row ? [row] : []
     },
