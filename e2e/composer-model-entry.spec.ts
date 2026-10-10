@@ -385,9 +385,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-model-${locale}-${viewport.width}.png` })
         if (viewport.width === 320) {
           await expect(popup).toHaveAttribute('data-presentation', 'web')
-          // A shared anchored surface keeps a viewport inset; touch sheets are checked separately.
-          expect(bounds!.x).toBeGreaterThan(0)
-          expect(bounds!.x + bounds!.width).toBeLessThan(viewport.width)
+          // The web presentation is an edge-to-edge touch sheet; the native presentation below is anchored.
+          expect(bounds!.x).toBe(0)
+          expect(bounds!.x + bounds!.width).toBe(viewport.width)
           expect(await popup.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
           await popup.evaluate((element) => element.setAttribute('data-presentation', 'native'))
           const anchored = await popup.boundingBox()
@@ -440,10 +440,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(popup.getByRole('option').first()).toContainText('Catalog fixture 63')
       await expect(popup.getByRole('option').first()).toHaveAttribute('aria-selected', 'true')
       await expect(popup.getByRole('option').first()).toBeInViewport()
-      // Scrolling loads the next bounded page and can remove the fallback More button before a click.
-      await popup.locator('.hbar-composer-model-list').evaluate((element) => {
-        element.scrollTop = element.scrollHeight
-      })
+      const showMore = popup.locator('.hbar-composer-model-list > button')
+      await showMore.focus()
+      await page.keyboard.press('Enter')
       await expect(lateModel).toHaveCount(1)
       await expect(popup.getByRole('option').first().locator('.hbar-composer-model-name')).toHaveText(
         firstCatalogOption ?? '',
