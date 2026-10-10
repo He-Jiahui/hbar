@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from 'bun:test'
 import { Database } from 'bun:sqlite'
 import { createHash } from 'node:crypto'
-import { mkdtemp, readFile, readdir, rm, mkdir, symlink, writeFile } from 'node:fs/promises'
+import { mkdtemp, open, readFile, readdir, realpath, rm, mkdir, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
@@ -12,6 +12,7 @@ import {
   createChatDatabaseCommandClient,
 } from '@hbar/client'
 import { startServer } from '../apps/host/src/server'
+import { writeArtifactAtomically } from '../packages/kernel/src/artifact-upload'
 
 const resources: {
   root: string
@@ -81,6 +82,50 @@ test('uploads atomically publish exact bytes, repair an old partial file and lea
   expect(
     await errorOf(f.kernel.upload('forged.txt', 'text/plain', bytes, { actorId: 'fixture', sha256: '0'.repeat(64) })),
   ).toMatchObject({ code: 'CONTENT_MISMATCH' })
+})
+
+test('concurrent file-only repair accepts a complete winner and preserves a held partial error', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-artifact-upload-race-'))
+  const cleanup = async () => {
+    const resolvedRoot = await realpath(root)
+    const resolvedTemp = await realpath(tmpdir())
+    if (dirname(resolvedRoot) !== resolvedTemp || !basename(resolvedRoot).startsWith('hbar-artifact-upload-race-'))
+      throw new Error('Refusing fixture cleanup outside its temporary root')
+    await rm(resolvedRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+  }
+  try {
+    const partial = new TextEncoder().encode('old partial')
+    const bytes = new TextEncoder().encode('complete durable content')
+    const id = createHash('sha256').update(bytes).digest('hex')
+    const target = join(root, id)
+    for (let round = 0; round < 64; round += 1) {
+      await writeFile(target, partial)
+      const results = await Promise.allSettled(
+        Array.from({ length: 4 }, () => writeArtifactAtomically(root, id, bytes)),
+      )
+      expect(results.every((result) => result.status === 'fulfilled')).toBe(true)
+      expect(new Uint8Array(await readFile(target))).toEqual(bytes)
+      expect((await readdir(root)).filter((name) => name.endsWith('.pending'))).toEqual([])
+    }
+
+    await writeFile(target, partial)
+    const held = await open(target, 'r')
+    try {
+      const failure = await errorOf(writeArtifactAtomically(root, id, bytes))
+      if (process.platform === 'win32') {
+        expect(failure).toMatchObject({ code: 'EPERM' })
+        expect(new Uint8Array(await readFile(target))).toEqual(partial)
+      } else {
+        expect(failure).toBeNull()
+        expect(new Uint8Array(await readFile(target))).toEqual(bytes)
+      }
+      expect((await readdir(root)).filter((name) => name.endsWith('.pending'))).toEqual([])
+    } finally {
+      await held.close()
+    }
+  } finally {
+    await cleanup()
+  }
 })
 
 test('Client upload descriptors carry a device-bound owner and hash through HTTP, then transfer to a durable draft', async () => {
