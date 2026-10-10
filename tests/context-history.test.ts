@@ -292,3 +292,54 @@ test('a Run continuing across a compaction belongs to both context windows witho
   expect(next.stats.turns).toBe(0)
   expect(next.stats.usage.requests).toBe(1)
 })
+
+test('closed window duration and tool settlements include the compaction interval', async () => {
+  const { storage, session } = await fixture()
+  const run = await storage.call('enqueue', session.id, 'overlap', { text: 'Inspect', images: [] }, 'fixture/model')
+  await storage.call('claim', session.id)
+  await storage.call('commit', session.id, run.id, 'assistant', [
+    {
+      type: 'tool_call',
+      callId: 'read',
+      name: 'read',
+      args: { path: 'file.txt' },
+      presentation: { version: 1, kind: 'file-read', pathField: 'path' },
+    },
+  ])
+  const record = await start(storage, session.id, run.id)
+  expect(record.stats.tools.pending).toBe(1)
+  await Bun.sleep(10)
+  await storage.call('commit', session.id, run.id, 'tool', [
+    {
+      type: 'tool_result',
+      callId: 'read',
+      name: 'read',
+      text: 'Read',
+      isError: false,
+      outcome: { kind: 'succeeded', executionStarted: true },
+    },
+  ])
+  const completed = parseContextCompactionEvent(await complete(storage, record))
+  if (!completed || completed.endedAt === null) throw new Error('Missing completed window')
+  expect(completed.stats.endedAt).toBe(completed.endedAt)
+  expect(completed.stats.wallDurationMs).toBeGreaterThan(record.stats.wallDurationMs)
+  expect(completed.stats.executionMs).toBeGreaterThan(record.stats.executionMs)
+  expect(completed.stats.tools).toMatchObject({ pending: 0, succeeded: 1, successRate: 1 })
+  expect(completed.stats.files.readPaths).toBe(1)
+})
+
+test('statistics preserve numeric usage allowed by the existing accounting contract', async () => {
+  const { storage, session } = await fixture()
+  await storage.call('append', session.id, 'usage.recorded', {
+    input: 0.5,
+    output: 0.25,
+    cacheRead: 0.1,
+    cacheWrite: 0,
+    cost: 0,
+  })
+  const record = await start(storage, session.id)
+  expect(record.stats.usage.input).toBe(0.5)
+  await complete(storage, record)
+  const page = contextHistoryPageSchema.parse(await storage.call('contextHistory', { sessionId: session.id }))
+  expect(page.records[0]?.stats.usage.output).toBe(0.25)
+})

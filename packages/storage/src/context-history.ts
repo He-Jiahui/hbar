@@ -309,12 +309,13 @@ export function finishContextCompaction(
   const seq =
     db.query<{ seq: number }, [string]>('SELECT seq FROM sessions WHERE id=?').get(record.sessionId)?.seq ?? record.seq
   const compactionUsage = readWindowUsage(db, record.sessionId, record.seq, seq, 'compaction')
-  const usage = readWindowUsage(db, record.sessionId, record.stats.fromSeq, seq)
+  const endedAt = Date.now()
+  const stats = readContextWindowStats(db, record.sessionId, record.stats.fromSeq, seq, record.stats.startedAt, endedAt)
   return {
     ...record,
     ...completion,
-    endedAt: Date.now(),
+    endedAt,
     compactionUsage,
-    stats: { ...record.stats, throughSeq: seq, usage },
+    stats,
   }
 }

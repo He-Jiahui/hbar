@@ -3,10 +3,10 @@ import { z } from 'zod'
 const count = z.number().int().nonnegative()
 const duration = z.number().nonnegative()
 const tokens = z.strictObject({
-  input: count,
-  output: count,
-  cacheRead: count,
-  cacheWrite: count,
+  input: z.number().nonnegative(),
+  output: z.number().nonnegative(),
+  cacheRead: z.number().nonnegative(),
+  cacheWrite: z.number().nonnegative(),
   cost: z.number().nonnegative(),
   requests: count,
   recorded: count,
