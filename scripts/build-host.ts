@@ -6,6 +6,7 @@ import './build-native-tools'
 import { copyBuildArtifact } from './copy-build-artifact'
 import { buildHostBundle } from './build-host-bundle'
 import { syncDesktopWebResources } from './sync-desktop-web'
+import { syncHostRuntimeDependencies } from './host-runtime-dependencies'
 
 const project = resolve(import.meta.dir, '..')
 const output = resolve(project, 'dist/desktop-resources')
@@ -19,6 +20,10 @@ for (const [entry, name] of [
 ] as const) {
   await buildHostBundle(entry, name, output)
 }
+const runtimeDependencies = await syncHostRuntimeDependencies(project, output)
+console.log(
+  `Host runtime dependencies: ${runtimeDependencies.map(({ name, version }) => `${name}@${version}`).join(', ')}`,
+)
 const runtimePath = join(output, process.platform === 'win32' ? 'bun.exe' : 'bun')
 const forceRuntimeCopy = process.env.HBAR_FORCE_RUNTIME_COPY === '1'
 if (forceRuntimeCopy) {

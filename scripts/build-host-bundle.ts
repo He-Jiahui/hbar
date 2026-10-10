@@ -1,6 +1,7 @@
 import { lstat, mkdir } from 'node:fs/promises'
 import { basename, relative, resolve } from 'node:path'
 import { optionalBundleExternals } from './bundle-externals'
+import { hostRuntimeDependencies } from './host-runtime-dependencies'
 import { writeBuildArtifact } from './copy-build-artifact'
 
 type BundleArtifact = Pick<Bun.BuildArtifact, 'path' | 'arrayBuffer'>
@@ -47,7 +48,7 @@ export async function buildHostBundle(entrypoint: string, name: string, outputDi
     naming: name,
     target: 'bun',
     packages: 'bundle',
-    external: [...optionalBundleExternals],
+    external: [...optionalBundleExternals, ...hostRuntimeDependencies],
     minify: false,
     sourcemap: 'external',
   })

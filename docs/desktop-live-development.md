@@ -40,3 +40,5 @@ bun run desktop:dev
 保持启动终端运行。Ctrl+C 或 Tauri 开发进程结束时，脚本回收本次启动的 Host、Vite 和桌面进程树，保留开发数据。窗口关闭按钮沿用隐藏到托盘的行为；从托盘退出或在终端 Ctrl+C 才结束开发实例。
 
 发布仍使用 `bun run desktop:build`，它会构建网页与 Host，再生成桌面安装包。官方工作流见 [Tauri 开发说明](https://v2.tauri.app/develop/)、[Tauri 与 Vite 配置](https://v2.tauri.app/start/frontend/vite/)和 [Bun watch 模式](https://bun.sh/docs/runtime/watch-mode)。
+
+发布包将 `playwright` 和 `playwright-core` 连同包内资源放在 `runtime/node_modules`。这些依赖需要按自身目录读取 `browsers.json` 和驱动文件，保留完整包可以避免 Bun 将开发机的绝对目录写进运行时路径。`tests/build-host-bundle.test.ts` 在仓库目录不可读、自动安装被禁用且工作目录无关的进程中验证资源加载。Chromium 浏览器程序继续通过现有浏览器配置或本机 Playwright 缓存定位。
