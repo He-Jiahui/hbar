@@ -31,6 +31,12 @@ const artifactSchema = z.strictObject({
     .max(4_096),
 })
 export type RuntimeArtifact = z.infer<typeof artifactSchema>
+const packagedFileSchema = z.strictObject({ name: z.string().min(1).max(256), base64: z.string().max(179_000_000) })
+const packagedUnitSchema = z.strictObject({ artifact: artifactSchema, files: z.array(packagedFileSchema).min(1).max(4_224) })
+export const runtimeArtifactPackageSchema = z.strictObject({
+  format: z.literal(1), id: runtimeArtifactIdSchema, units: z.array(packagedUnitSchema).min(1).max(512),
+})
+export type RuntimeArtifactPackage = z.infer<typeof runtimeArtifactPackageSchema>
 export interface RuntimeArtifactSet {
   readonly id: string
   readonly artifacts: readonly RuntimeArtifact[]
@@ -51,6 +57,14 @@ export interface RuntimeArtifactPort {
 
 function sha256(value: string | Uint8Array): string {
   return createHash('sha256').update(value).digest('hex')
+}
+function packageId(units: RuntimeArtifactPackage['units']): string {
+  const hash = createHash('sha256').update('hbar-runtime-package/v1\0')
+  for (const unit of units) {
+    hash.update(JSON.stringify(unit.artifact)).update('\n')
+    for (const file of unit.files) hash.update(JSON.stringify([file.name, sha256(file.base64)])).update('\n')
+  }
+  return hash.digest('hex')
 }
 function metafilePath(input: string): string {
   // Bun 1.4 prefixes cross-drive Windows inputs with relative segments before the drive.
@@ -229,6 +243,65 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
     return Object.fromEntries(
       artifact.resourceFiles.map((file) => [file.sourcePath, join(this.root, id, fileName(file.name))]),
     )
+  }
+  /** Build-time export. The executable or desktop bundle pins the resulting package hash. */
+  async exportPackage(artifacts: readonly RuntimeArtifact[]): Promise<RuntimeArtifactPackage> {
+    if (!artifacts.length || artifacts.length > 512 || new Set(artifacts.map(value => value.unitId)).size !== artifacts.length)
+      throw new HbarError('RUNTIME_PACKAGE_INVALID', 'Runtime package needs unique registered units')
+    const units: RuntimeArtifactPackage['units'] = []
+    let bytes = 0
+    for (const requested of artifacts) {
+      const artifact = await this.get(requested.id)
+      const files: RuntimeArtifactPackage['units'][number]['files'] = []
+      for (const file of [...artifact.files, ...artifact.resourceFiles]) {
+        const content = await readFile(join(this.root, artifact.id, fileName(file.name)))
+        bytes += content.byteLength
+        if (bytes > 256 * 1024 * 1024) throw new HbarError('RUNTIME_PACKAGE_LIMIT', 'Runtime package exceeds its total byte bound')
+        files.push({ name: file.name, base64: content.toString('base64') })
+      }
+      units.push({ artifact, files })
+    }
+    return runtimeArtifactPackageSchema.parse({ format: 1, id: packageId(units), units })
+  }
+  /** Only a trusted build-pinned package can install modules; reload commands still accept registered set IDs alone. */
+  async installPackage(raw: unknown, expectedId: string): Promise<RuntimeArtifactSet> {
+    runtimeArtifactIdSchema.parse(expectedId)
+    const packaged = runtimeArtifactPackageSchema.parse(raw)
+    if (packaged.id !== expectedId || packageId(packaged.units) !== expectedId)
+      throw new HbarError('RUNTIME_PACKAGE_CHANGED', 'Runtime package differs from the build-pinned content')
+    if (new Set(packaged.units.map(unit => unit.artifact.unitId)).size !== packaged.units.length)
+      throw new HbarError('RUNTIME_PACKAGE_INVALID', 'Runtime package contains duplicate units')
+    const decoded: Array<{ artifact: RuntimeArtifact; files: Array<{ name: string; bytes: Uint8Array }> }> = []
+    let bytes = 0
+    for (const unit of packaged.units) {
+      const names = [...unit.artifact.files, ...unit.artifact.resourceFiles]
+      if (new Set(names.map(file => file.name)).size !== names.length || unit.files.length !== names.length)
+        throw new HbarError('RUNTIME_PACKAGE_INVALID', 'Runtime package file manifest is ambiguous')
+      const files: Array<{ name: string; bytes: Uint8Array }> = []
+      for (const file of unit.files) {
+        const name = fileName(file.name)
+        const expected = names.find(value => value.name === name)
+        bytes += Math.floor(file.base64.length / 4) * 3
+        if (file.base64.length > 179_000_000 || bytes > 256 * 1024 * 1024)
+          throw new HbarError('RUNTIME_PACKAGE_LIMIT', 'Runtime package exceeds its byte bound')
+        const content = Buffer.from(file.base64, 'base64')
+        if (!expected || content.toString('base64') !== file.base64 || sha256(content) !== expected.sha256 || files.some(value => value.name === name))
+          throw new HbarError('RUNTIME_PACKAGE_CHANGED', 'Runtime package file content does not match its immutable manifest')
+        files.push({ name, bytes: content })
+      }
+      decoded.push({ artifact: unit.artifact, files })
+    }
+    if (this.registered.size + decoded.filter(unit => !this.registered.has(unit.artifact.id)).length > 4_096)
+      throw new HbarError('RUNTIME_ARTIFACT_CAPACITY', 'Registered artifact capacity is exhausted')
+    // Validate every byte before installing any unit. Paths stay flat under its immutable content ID.
+    for (const unit of decoded) {
+      const directory = join(this.root, unit.artifact.id)
+      await mkdir(directory, { recursive: true })
+      for (const file of unit.files) await this.immutableWrite(join(directory, file.name), file.bytes)
+      await this.immutableWrite(join(directory, 'manifest.json'), `${JSON.stringify(unit.artifact)}\n`)
+      this.registered.set(unit.artifact.id, unit.artifact)
+    }
+    return this.registerSet(decoded.map(unit => unit.artifact))
   }
 
   affected(changedPaths: readonly string[], artifacts: readonly RuntimeArtifact[]): string[] {

@@ -37,6 +37,8 @@ export {
   type RuntimeArtifactSet,
   type RuntimeArtifactPort,
   type RuntimeBuildUnit,
+  runtimeArtifactPackageSchema,
+  type RuntimeArtifactPackage,
 } from './artifacts'
 export {
   RuntimeManager,
