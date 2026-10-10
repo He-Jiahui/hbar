@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { z } from 'zod'
-import { describeRuntimeTool, runtimeToolAdapter } from '@hbar/plugin-sdk/runtime-plugin'
+import { describeRuntimeTool, runtimeToolAdapter, describeRuntimeHook, restoreRuntimeHook } from '@hbar/plugin-sdk/runtime-plugin'
 import type { HarnessDriver, ToolDefinition } from '@hbar/plugin-sdk'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
@@ -17,6 +17,19 @@ test('plugin descriptions contain JSON alone and owner validation retains schema
   const adapter = runtimeToolAdapter(description, { validate: async (_name, args) => owned.inputSchema.parse(args), execute: async () => ({ text: 'owned' }) })
   expect(await adapter.validate?.({})).toEqual({ count: 7 })
   await expect(adapter.validate?.({ count: 0 })!).rejects.toMatchObject({ code: 'INVALID_TOOL_INPUT' })
+})
+
+test('Hook descriptions keep schemas and executors local and reject unbound tool or effect substitution', () => {
+  const tool: ToolDefinition = { name: 'read_owned', description: 'Original read tool', effect: 'read', inputSchema: z.object({ path: z.string() }),
+    execute: async () => ({ text: 'read' }) }
+  const data = describeRuntimeHook('tools.advertise', { sessionId: 'session', runId: 'run', tools: [tool] })
+  expect(() => JSON.stringify(data)).not.toThrow()
+  const updated = { ...data, tools: [{ ...describeRuntimeTool(tool), description: 'Advertised read tool' }] }
+  const restored = restoreRuntimeHook('tools.advertise', updated, [tool])
+  expect(restored.tools[0]?.inputSchema).toBe(tool.inputSchema); expect(restored.tools[0]?.execute).toBe(tool.execute)
+  expect(restored.tools[0]?.description).toBe('Advertised read tool')
+  for (const replacement of [{ name: 'write_foreign' }, { effect: 'write' }])
+    expect(() => restoreRuntimeHook('tools.select', { ...data, tools: [{ ...describeRuntimeTool(tool), ...replacement }] }, [tool])).toThrow('unbound tool')
 })
 test('the actual Kernel validates in the owner before and after Hooks and never records intent for rejected transformed arguments', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-owned-tool-'))
