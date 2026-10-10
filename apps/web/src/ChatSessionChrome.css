@@ -1,6 +1,11 @@
 .rb-chat-session-chrome {
   position: relative;
   isolation: isolate;
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+  align-items: center;
+  gap: 8px;
 }
 
 .rb-chat-session-chrome .session-header-glass,
@@ -9,18 +14,30 @@
 }
 
 .rb-chat-session-chrome .session-header-title {
+  display: flex;
+  flex: 1 1 auto;
   min-width: 0;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
 }
 
 .rb-chat-session-chrome .session-header-title h1 {
-  max-width: min(44vw, 540px);
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .rb-chat-session-chrome .session-view-tabs {
+  flex: 0 0 auto;
   margin-left: auto;
+}
+
+.rb-chat-session-chrome .session-refresh {
+  flex: 0 0 auto;
 }
 
 .rb-chat-session-chrome .session-console-context {
@@ -98,10 +115,6 @@
 }
 
 @media (max-width: 899px) {
-  .rb-chat-session-chrome .session-header-title h1 {
-    max-width: 34vw;
-  }
-
   .rb-chat-session-chrome .session-console-context {
     display: none;
   }
