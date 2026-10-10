@@ -1,7 +1,8 @@
 import { z } from 'zod'
+import { pathToFileURL } from 'node:url'
 import { HbarError, runSchema } from '@hbar/contracts'
 import { executionOwnershipSchema, type ExecutionOwnership } from '@hbar/contracts/runtime'
-import { Kernel } from '@hbar/kernel'
+import { Kernel, type KernelProfile } from '@hbar/kernel'
 import { KERNEL_RUNTIME_FINGERPRINT, runtimeKernelConfigurationSchema, runtimeKernelSubmitSchema, runtimeKernelRunSchema,
   runtimeKernelRunsSchema, runtimeKernelSessionSchema, runtimeKernelStateSchema, runtimeKernelRecoverySchema } from '@hbar/kernel/runtime-port'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
@@ -18,6 +19,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
   const leases = new Map<string, ExecutionOwnership>()
   const driver = new RuntimeDriverAdapter(context.peer, runId => leases.get(runId))
   let kernel: Kernel | undefined
+  let driverIsolation: 'managed' | 'legacy' = 'managed'
   let role: 'default' | 'draining' = 'draining'
   let unsubscribe: (() => void) | undefined
   const notifications = new RuntimeNotificationDelivery({ send: event => context.peer.notify('kernel.notification', event),
@@ -57,7 +59,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
   }
   context.peer.register('kernel.state', procedure(z.undefined(), runtimeKernelStateSchema, () => {
     const value = application()
-    return { instanceId: value.instanceId, permission: value.permissionMode(), recovered: value.recovered,
+    return { instanceId: value.instanceId, permission: value.permissionMode(), recovered: value.recovered, driverIsolation,
       ...value.runtimeView(),
       active: [...value.active.values()].map(active => ({ sessionId: active.run.sessionId, runId: active.run.id })),
       tools: value.tools.list().map(tool => tool.name), plugins: value.plugins.list() }
@@ -80,6 +82,16 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       capabilities: ['kernel.state', 'kernel.submit', 'kernel.cancel', 'kernel.fence', 'kernel.wake', 'kernel.recover', 'kernel.recovery.resume', 'kernel.resume', 'kernel.session.refresh'] } },
     async activate(selected) {
       role = selected
+      let profile: KernelProfile | undefined
+      if (configuration.profileModule) {
+        const imported: unknown = await import(pathToFileURL(configuration.profileModule).href)
+        if (!imported || typeof imported !== 'object' || !('default' in imported) || !imported.default || typeof imported.default !== 'object')
+          throw new HbarError('INVALID_PROFILE', 'The owned profile must export its Kernel configuration')
+        // This explicitly selected local module is trusted executable code. It remains in its owner, never on IPC.
+        profile = imported.default as KernelProfile
+        if (profile.createStorage) throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Custom storage needs a declared single-writer lifecycle adapter')
+        if (profile.replacements?.['driver.pi']) driverIsolation = 'legacy'
+      }
       kernel = await Kernel.create({ layout, demo: configuration.demo, instanceId: configuration.instanceId, lifecycle: 'managed',
         onFatal: () => process.exit(76),
         secrets: {
@@ -87,7 +99,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
           set: (id, value) => domain(() => context.peer.call('kernel.secret.set', { id, value }, z.undefined())),
           delete: id => domain(() => context.peer.call('kernel.secret.delete', { id }, z.undefined())),
         },
-        profile: { createStorage: async () => storage, replacements: { 'driver.pi': definePlugin({
+        profile: { ...profile, createStorage: async () => storage, replacements: { ...profile?.replacements, 'driver.pi': profile?.replacements?.['driver.pi'] ?? definePlugin({
           manifest: { id: 'driver.pi', name: 'Managed Pi harness', description: 'Version-bound named driver port',
             version: '1.0.0', apiVersion: '^1.0.0', scope: 'host', required: true, provides: { driver: '1.0.0' }, permissions: ['network'] },
           apply: owner => provide(owner, 'driver', driver),

@@ -48,6 +48,10 @@ export interface RuntimeBuildUnit {
   readonly resources?: readonly string[]
   readonly external?: readonly string[]
   readonly workers?: readonly string[]
+  /** Additional owned modules, compiled into the same immutable version without importing them during prepare. */
+  readonly modules?: readonly { readonly name: string; readonly path: string }[]
+  /** Explicit local build roots, for an authorized profile outside the repository. Never accepted on reload IPC. */
+  readonly sourceRoots?: readonly string[]
   readonly define?: Readonly<Record<string, string>>
 }
 export interface RuntimeArtifactPort {
@@ -113,6 +117,10 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
   async build(unit: RuntimeBuildUnit): Promise<RuntimeArtifact> {
     const descriptor = runtimeUnitDescriptorSchema.parse(unit.descriptor)
     const sourceRoot = await realpath(this.sourceRoot)
+    if ((unit.sourceRoots?.length ?? 0) > 8 || (unit.modules?.length ?? 0) > 16)
+      throw new HbarError('RUNTIME_BUILD_LIMIT', 'Declared module or source-root capacity is exhausted')
+    const allowedRoots = [sourceRoot]
+    for (const root of unit.sourceRoots ?? []) allowedRoots.push(await realpath(resolve(sourceRoot, root)))
     const entrypoint = await realpath(resolve(sourceRoot, unit.entrypoint))
     if (!within(sourceRoot, entrypoint))
       throw new HbarError('RUNTIME_BUILD_INVALID', 'Runtime entrypoint is outside the registered source root')
@@ -123,13 +131,25 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
       if (!within(sourceRoot, path)) throw new HbarError('RUNTIME_BUILD_INVALID', 'Runtime Worker entrypoint is outside the registered source root')
       workers.push(path)
     }
-    if (new Set([entrypoint, ...workers].map(path => basename(path, extname(path)))).size !== workers.length + 1)
+    const modules: Array<{ name: string; path: string }> = []
+    for (const module of unit.modules ?? []) {
+      const name = fileName(`${module.name}.js`)
+      const path = await realpath(resolve(sourceRoot, module.path))
+      if (!allowedRoots.some(root => within(root, path))) throw new HbarError('RUNTIME_BUILD_INVALID', 'Owned module escapes its declared build roots')
+      modules.push({ name, path })
+    }
+    const paths = [entrypoint, ...workers, ...modules.map(module => module.path)]
+    const normalize = (value: string) => process.platform === 'win32' ? value.toLowerCase() : value
+    if (new Set(paths.map(path => normalize(basename(path, extname(path))))).size !== paths.length ||
+      new Set([...paths.slice(0, workers.length + 1).map(path => normalize(`${basename(path, extname(path))}.js`)), ...modules.map(module => normalize(module.name))]).size !== paths.length)
       throw new HbarError('RUNTIME_BUILD_INVALID', 'Runtime entrypoint output names must be unique')
     const result = await Bun.build({
-      entrypoints: [entrypoint, ...workers],
+      entrypoints: paths,
+      naming: { entry: '[name].js', chunk: 'chunk-[hash].js', asset: '[name]-[hash].[ext]' },
       target: 'bun',
       format: 'esm',
-      splitting: false,
+      // Owned modules share the same SDK/Cordis/Zod identities inside this unit, while other units remain isolated.
+      splitting: modules.length > 0,
       metafile: true,
       minify: false,
       external: [...(unit.external ?? [])],
@@ -148,11 +168,11 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
       .map((input) => relative(sourceRoot, metafilePath(input)).replaceAll('\\', '/'))
       .sort()
     const outputs = await Promise.all(
-      result.outputs.map(async (output) => ({
-        name: fileName(output.path.split(/[\\/]/).at(-1) ?? 'unit.mjs'),
-        bytes: new Uint8Array(await output.arrayBuffer()),
-        kind: output.kind,
-      })),
+      result.outputs.map(async output => {
+        const original = output.path.split(/[\\/]/).at(-1) ?? 'unit.mjs'
+        const module = output.kind === 'entry-point' ? modules.find(value => basename(value.path, extname(value.path)) === basename(original, extname(original))) : undefined
+        return { name: module?.name ?? fileName(original), bytes: new Uint8Array(await output.arrayBuffer()), kind: output.kind }
+      }),
     )
     if (
       outputs.length > 128 ||

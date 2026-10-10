@@ -27,6 +27,7 @@ export interface ProcessHostRuntimeOptions {
   readonly processCommand?: readonly [string, ...string[]]
   /** Trusted immutable build content, supplied by the packaged entry rather than a remote reload request. */
   readonly artifactPackage?: RuntimeArtifactPackage
+  readonly profileModule?: string
 }
 interface Generation {
   readonly artifact: RuntimeArtifact
@@ -86,7 +87,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private constructor(private readonly options: ProcessHostRuntimeOptions, readonly instanceId = crypto.randomUUID()) {
     this.secrets = options.secrets ?? createNativeSecrets(options.layout.identityRoot)
     this.artifacts = new RuntimeArtifactStore(join(options.layout.cacheRoot, 'runtime-artifacts'), options.sourceRoot ?? resolve(import.meta.dir, '../../..'))
-    this.buildUnits = hostRuntimeBuildUnits()
+    this.buildUnits = hostRuntimeBuildUnits(options.profileModule ? { profileModule: options.profileModule } : {})
     this.coordinator = new RuntimeCoordinator({
       claim: draft => this.storage.call('runtimeExecutionClaim', draft),
       release: lease => this.storage.call('runtimeExecutionRelease', lease),
@@ -123,6 +124,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   }
   get kernel(): KernelControllerPort { return this.facade.api }
   static async create(options: ProcessHostRuntimeOptions): Promise<ProcessHostRuntime> {
+    if (options.profileModule && options.artifactPackage && !options.artifactPackage.units.some(unit => unit.artifact.unitId === 'kernel' && unit.artifact.files.some(file => file.name === 'profile.js')))
+      throw new HbarError('RUNTIME_RESTART_REQUIRED', 'The legacy profile must be included in its prepared artifact package')
     await ensurePathLayout(options.layout)
     // The initial migration installation owns the writer lease and exits before any candidate is built.
     const release = await acquireHostProcessLock(`${options.layout.database}.runtime-writer.lock`)
@@ -149,7 +152,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   }
   snapshot(): RuntimeSnapshot {
     const state = this.manager.snapshot()
-    return { ...state, ready: !this.initializing && !this.closing && state.ready && this.storage.snapshot().phase === 'serving' && !this.storageFailure }
+    return { ...state, ready: !this.initializing && !this.closing && state.ready && this.executionReady() && this.storage.snapshot().phase === 'serving' && !this.storageFailure }
   }
   reload(artifactSetId: string, unitIds: readonly string[]) { return this.manager.reload(artifactSetId, unitIds) }
   getReload(id: string) { return this.manager.getReload(id) }
@@ -222,11 +225,13 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private bindings(owner: RuntimeOwner): RuntimeVersionSet {
     const record = this.generations.get(key(owner))
     if (!record || record.owner?.incarnation !== owner.incarnation) throw new HbarError('RUNTIME_OWNER_REVOKED', 'The claiming Kernel incarnation expired')
-    return { kernel: { unitId: owner.unitId, generation: owner.generation, artifactId: record.artifact.id },
-      driver: this.manager.currentVersion('driver.pi'), plugins: [], hooks: [] }
+    const kernel = { unitId: owner.unitId, generation: owner.generation, artifactId: record.artifact.id }
+    return { kernel, driver: record.state?.driverIsolation === 'legacy' ? kernel : this.manager.currentVersion('driver.pi'), plugins: [], hooks: [] }
   }
   private executionReady(): boolean {
-    return ['storage', 'driver.pi', 'kernel'].every(id => this.manager.snapshot().units.find(unit => unit.descriptor.id === id)?.generations.some(g => g.role === 'default' && g.phase === 'serving'))
+    const kernel = this.generations.get(key(this.manager.defaultOwner('kernel')))
+    return (kernel?.state?.driverIsolation === 'legacy' ? ['storage', 'kernel'] : ['storage', 'driver.pi', 'kernel'])
+      .every(id => this.manager.snapshot().units.find(unit => unit.descriptor.id === id)?.generations.some(g => g.role === 'default' && g.phase === 'serving'))
   }
   private canAdmit(sessionId: string): boolean {
     return !this.closing && !this.initializing && !this.maintenance && this.executionReady() && this.storage.snapshot().phase === 'serving' && !this.storageFailure &&
@@ -238,7 +243,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     const paths = { dataRoot: layout.dataRoot, cacheRoot: layout.cacheRoot, pointerFile: layout.pointerFile,
       settingsRoot: layout.settings, sessionsRoot: layout.sessions, skillsRoot: layout.globalSkills, identityRoot: layout.identityRoot }
     const configuration = artifact.unitId === 'storage' ? { ...paths, database: layout.database, workerPath: join(this.artifacts.root, artifact.id, 'worker.js') } :
-      artifact.unitId === 'kernel' ? { ...paths, instanceId: this.instanceId, demo: this.options.demo ?? false } : {}
+      artifact.unitId === 'kernel' ? { ...paths, instanceId: this.instanceId, demo: this.options.demo ?? false,
+        ...(this.options.profileModule ? { profileModule: join(this.artifacts.root, artifact.id, 'profile.js') } : {}) } : {}
     let record: Generation
     const managed = new ManagedProcess({ descriptor: artifact.descriptor, artifactId: artifact.id, generation,
       modulePath: join(this.artifacts.root, artifact.id, artifact.entry), parent: this.baseOwner, configuration,

@@ -76,6 +76,45 @@ test('the same managed composition starts from build-pinned bytes when its sourc
   expect(new Set(runtime.snapshot().units.flatMap(unit => unit.generations.map(generation => generation.pid))).size).toBe(4)
 })
 
+test('a legacy profile executes locally in its managed Kernel owner, binds the actual driver owner and explicitly requires restart for code reload', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-owned-profile-'))
+  const source = await mkdtemp(join(process.cwd(), 'artifacts', 'owned-profile-'))
+  resources.push(async () => { await rm(root, { recursive: true, force: true }); await rm(source, { recursive: true, force: true }) })
+  const profileModule = join(source, 'profile.ts'), marker = join(root, 'profile-owner.json')
+  await writeFile(profileModule, `import { definePlugin, provide } from '@hbar/plugin-sdk';
+    import { emptyUsage } from '@hbar/contracts'; import { writeFileSync } from 'node:fs';
+    export default { replacements: { 'driver.pi': definePlugin({ manifest: { id: 'driver.pi', name: 'Legacy owned fixture',
+      description: 'Functions stay in their original Kernel owner', version: '1.0.0', apiVersion: '^1.0.0', scope: 'host', provides: { driver: '1.0.0' }, permissions: [] },
+      apply(context) { provide(context, 'driver', { async run(input) { writeFileSync(${JSON.stringify(marker)}, JSON.stringify({ pid: process.pid, runId: input.run.id }));
+        await input.commit('assistant', [{ type: 'text', text: 'owned legacy driver' }]); },
+        async summarize() { return { text: '', usage: emptyUsage() }; } }); } }) } }`)
+  const layout = createPathLayout(join(root, 'data'), join(root, 'cache'), join(root, 'pointer.json'))
+  const runtime = await ProcessHostRuntime.create({ layout, sourceRoot: process.cwd(), demo: true, workspace: root, profileModule, secrets: new MemorySecrets() })
+  resources.unshift(() => runtime.close())
+  const workspace = (await runtime.storage.call('workspaces'))[0]!, session = await runtime.storage.call('createSession', workspace.id)
+  const run = await runtime.kernel.submit(session.id, 'owned-profile', { text: 'legacy fixture', images: [] }, 'local-fixture')
+  await runtime.waitForIdle()
+  expect((await runtime.storage.call('run', run.id)).status).toBe('completed')
+  const ownership = await runtime.storage.call('runtimeExecutionRead', run.id)
+  expect(ownership?.lease.versions.driver).toEqual(ownership?.lease.versions.kernel)
+  const actual: unknown = JSON.parse(await readFile(marker, 'utf8'))
+  expect(actual).toMatchObject({ pid: runtime.snapshot().units.find(unit => unit.descriptor.id === 'kernel')!.generations[0]!.pid, runId: run.id })
+  const kernel = runtime.buildUnits.find(unit => unit.descriptor.id === 'kernel')!
+  const set = runtime.artifacts.registerSet([await runtime.artifacts.build(kernel)])
+  const reload = runtime.reload(set.id, ['kernel'])
+  expect(runtime.getReload(reload.operationId)).toMatchObject({ phase: 'restart_required', units: [{ reasonCode: 'RUNTIME_RESTART_REQUIRED' }] })
+  // Recovery must use the activated code, even if the original profile is edited before a failure.
+  await writeFile(profileModule, (await readFile(profileModule, 'utf8')).replace('owned legacy driver', 'unapplied source revision'))
+  const previous = runtime.snapshot().units.find(unit => unit.descriptor.id === 'kernel')!.generations[0]!
+  if (!previous.pid || previous.pid === process.pid) throw new Error('Expected the owned legacy Kernel PID')
+  process.kill(previous.pid, 'SIGKILL')
+  await until(() => runtime.snapshot().ready && runtime.snapshot().units.find(unit => unit.descriptor.id === 'kernel')?.generations[0]?.incarnation !== previous.incarnation)
+  const second = await runtime.kernel.submit(session.id, 'sealed-profile', { text: 'still the activated code', images: [] }, 'local-fixture')
+  await runtime.waitForIdle()
+  expect((await runtime.storage.call('run', second.id)).status).toBe('completed')
+  expect((await runtime.storage.call('snapshot', session.id)).messages.at(-1)?.content).toEqual([{ type: 'text', text: 'owned legacy driver' }])
+})
+
 test('a Kernel update pins the old executor, hands queued input to the new generation and keeps the socket, credentials and other process identities', async () => {
   const f = await fixture()
   const { client, host, system } = await clientFor(f.runtime)

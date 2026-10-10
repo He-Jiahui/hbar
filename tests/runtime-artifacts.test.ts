@@ -124,3 +124,24 @@ test('ownership excludes code removed from a defined isolated unit and includes 
     expect(store.affected(['worker.ts'], [artifact])).toEqual(['unit'])
   } finally { await rm(root, { recursive: true, force: true }) }
 })
+
+test('declared owned modules compile from explicit local roots, retain their code and dependencies, and cannot escape undeclared roots', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-owned-module-'))
+  const outside = await mkdtemp(join(tmpdir(), 'hbar-explicit-profile-'))
+  await writeFile(join(root, 'entry.ts'), 'export const entry = true\n')
+  await writeFile(join(outside, 'helper.ts'), 'export const version = 1\n')
+  await writeFile(join(outside, 'custom.ts'), "import { version } from './helper'; export default { version }\n")
+  const registry = new RuntimeArtifactStore(join(root, 'bundles'), root)
+  const module = { name: 'profile', path: join(outside, 'custom.ts') }
+  try {
+    expect(await registry.build({ descriptor: descriptor('owner'), entrypoint: 'entry.ts', modules: [module] }).catch((error: unknown) => error)).toMatchObject({ code: 'RUNTIME_BUILD_INVALID' })
+    const artifact = await registry.build({ descriptor: descriptor('owner'), entrypoint: 'entry.ts', modules: [module], sourceRoots: [outside] })
+    const first = await readFile(join(registry.root, artifact.id, 'profile.js'), 'utf8')
+    expect(first).toContain('version = 1')
+    expect(registry.affected([join(outside, 'helper.ts')], [artifact])).toEqual(['owner'])
+    await writeFile(join(outside, 'helper.ts'), 'export const version = 2\n')
+    const next = await registry.build({ descriptor: descriptor('owner'), entrypoint: 'entry.ts', modules: [module], sourceRoots: [outside] })
+    expect(next.id).not.toBe(artifact.id)
+    expect(await readFile(join(registry.root, artifact.id, 'profile.js'), 'utf8')).toBe(first)
+  } finally { await rm(root, { recursive: true, force: true }); await rm(outside, { recursive: true, force: true }) }
+})

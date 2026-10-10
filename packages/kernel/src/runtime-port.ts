@@ -14,6 +14,7 @@ export const runtimeKernelConfigurationSchema = z.strictObject({
   pointerFile: z.string().min(1).max(4_000), settingsRoot: z.string().min(1).max(4_000),
   sessionsRoot: z.string().min(1).max(4_000), skillsRoot: z.string().min(1).max(4_000), identityRoot: z.string().min(1).max(4_000),
   demo: z.boolean(),
+  profileModule: z.string().min(1).max(4_000).optional(),
 })
 export const runtimeKernelSubmitSchema = z.strictObject({
   sessionId: id, requestId: id, input: inputSchema, modelId: id, command: runCommandRecordSchema.optional(),
@@ -24,6 +25,7 @@ export const runtimeKernelRunSchema = z.strictObject({ runId: id })
 export const runtimeKernelRunsSchema = z.strictObject({ runIds: z.array(id).max(256) })
 export const runtimeKernelStateSchema = z.strictObject({
   instanceId: id, permission: approvalModeSchema, recovered: z.number().int().nonnegative(),
+  driverIsolation: z.enum(['managed', 'legacy']),
   active: z.array(z.strictObject({ sessionId: id, runId: id })).max(4_096),
   tools: z.array(z.string().min(1).max(256)).max(4_096), plugins: z.array(pluginInfoSchema.extend({
     configSchema: z.record(z.string(), z.unknown()).optional(),
