@@ -23,7 +23,7 @@ async function reveal(page: Page, locale: ShellLocale): Promise<void> {
 async function expectStackedFooterActions(footer: Locator, locale: ShellLocale): Promise<void> {
   const copy = getShellCopy(locale).shell
   const bounds = []
-  for (const label of [copy.extensionsAndSkills, copy.commands, copy.status, copy.settings, copy.schedules]) {
+  for (const label of [copy.status, copy.schedules, copy.extensionsAndSkills, copy.commands, copy.settings]) {
     const button = footer.getByRole('button', { name: label, exact: true })
     await expect(button).toBeVisible()
     const box = await button.boundingBox()
@@ -177,6 +177,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const rail = page.locator('.hbar-app-react-sidebar-rail')
       await expect(rail.locator('header .hbar-web-notification-page-button')).toBeVisible()
       await expect(rail.locator('footer').getByRole('button', { name: copy.shell.commands, exact: true })).toBeVisible()
+      await expectStackedFooterActions(rail.locator('footer'), locale)
       await page.screenshot({ path: info.outputPath(`rail-${locale}.png`) })
       await reveal(page, locale)
       await stopWebSessionHost(host)

@@ -1252,6 +1252,22 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             {props.sidebarFeedback}
             {props.featureNavigation}
             <WorkspaceSidebarAction
+              icon="activity"
+              label={props.labels.status}
+              selected={presentation.page.kind === 'status'}
+              onClick={() => settleNavigation(execute('app.openStatus', { section: 'dashboard' }))}
+            />
+            <WorkspaceSidebarAction
+              icon="calendar"
+              label={props.labels.schedules}
+              selected={presentation.page.kind === 'schedules'}
+              disabled={!connected || !navigation.workspaceId}
+              title={!navigation.workspaceId ? props.labels.chooseWorkspace : undefined}
+              onClick={() => {
+                if (navigation.workspaceId) openWorkspaceSurface(navigation.workspaceId, 'schedules')
+              }}
+            />
+            <WorkspaceSidebarAction
               icon="blocks"
               label={props.labels.extensionsAndSkills}
               selected={extensionsSelected}
@@ -1277,15 +1293,6 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               selected={presentation.modalInstanceId === 'commands'}
               onClick={() => openPanel('commands')}
             />
-            {props.connection !== 'connected' && (
-              <WorkspaceSidebarAction icon="refresh" label={props.labels.reconnect} onClick={props.onReconnect} />
-            )}
-            <WorkspaceSidebarAction
-              icon="activity"
-              label={props.labels.status}
-              selected={presentation.page.kind === 'status'}
-              onClick={() => settleNavigation(execute('app.openStatus', { section: 'dashboard' }))}
-            />
             <WorkspaceSidebarAction
               icon="settings"
               label={props.labels.settings}
@@ -1294,16 +1301,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               selected={presentation.page.kind === 'settings' && !extensionsSelected}
               onClick={() => settleNavigation(execute('app.openSettings', { scope: 'global' }))}
             />
-            <WorkspaceSidebarAction
-              icon="calendar"
-              label={props.labels.schedules}
-              selected={presentation.page.kind === 'schedules'}
-              disabled={!connected || !navigation.workspaceId}
-              title={!navigation.workspaceId ? props.labels.chooseWorkspace : undefined}
-              onClick={() => {
-                if (navigation.workspaceId) openWorkspaceSurface(navigation.workspaceId, 'schedules')
-              }}
-            />
+            {props.connection !== 'connected' && (
+              <WorkspaceSidebarAction icon="refresh" label={props.labels.reconnect} onClick={props.onReconnect} />
+            )}
           </LumenFrame>
         }
       >

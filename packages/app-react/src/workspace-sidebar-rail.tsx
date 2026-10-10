@@ -144,22 +144,8 @@ export function WorkspaceSidebarRail({
         ) : null}
       </LumenFrame>
       <LumenFrame as="footer" className="hbar-app-react-sidebar-rail-footer">
-        <RailAction label={labels.extensions} selected={extensionsSelected} onClick={onExtensions}>
-          <LumenIcon icon={Blocks} tier="md" />
-        </RailAction>
-        <RailAction label={labels.commands} selected={commandsSelected} onClick={onCommands}>
-          <LumenIcon icon={Command} tier="md" />
-        </RailAction>
-        {!connected && onReconnect ? (
-          <RailAction label={labels.reconnect} onClick={onReconnect}>
-            <LumenIcon icon={RefreshCw} tier="md" />
-          </RailAction>
-        ) : null}
         <RailAction label={labels.status} selected={statusSelected} onClick={onStatus}>
           <LumenIcon icon={Activity} tier="md" />
-        </RailAction>
-        <RailAction label={labels.settings} selected={settingsSelected} onClick={onSettings}>
-          <LumenIcon icon={Settings} tier="md" />
         </RailAction>
         <RailAction
           label={labels.schedules}
@@ -169,6 +155,20 @@ export function WorkspaceSidebarRail({
         >
           <LumenIcon icon={CalendarDays} tier="md" />
         </RailAction>
+        <RailAction label={labels.extensions} selected={extensionsSelected} onClick={onExtensions}>
+          <LumenIcon icon={Blocks} tier="md" />
+        </RailAction>
+        <RailAction label={labels.commands} selected={commandsSelected} onClick={onCommands}>
+          <LumenIcon icon={Command} tier="md" />
+        </RailAction>
+        <RailAction label={labels.settings} selected={settingsSelected} onClick={onSettings}>
+          <LumenIcon icon={Settings} tier="md" />
+        </RailAction>
+        {!connected && onReconnect ? (
+          <RailAction label={labels.reconnect} onClick={onReconnect}>
+            <LumenIcon icon={RefreshCw} tier="md" />
+          </RailAction>
+        ) : null}
         <LumenFrame
           className="hbar-app-react-sidebar-rail-server"
           role="status"
