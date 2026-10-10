@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
-import { LumenButton, LumenContentText, LumenIcon } from '@lumen/app-ui'
+import { LumenButton, LumenContentText, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import './activity-text.css'
 
 export interface ActivityTextLabels {
@@ -46,7 +46,7 @@ export function ActivityText({
     </LumenContentText>
   )
   return (
-    <div ref={container} className="hbar-activity-text">
+    <LumenFrame ref={container} className="hbar-activity-text">
       {children ? children(caption) : caption}
       {overflows && (
         <LumenButton
@@ -61,6 +61,6 @@ export function ActivityText({
           <LumenContentText context="control.label">{expanded ? labels.collapse : labels.expand}</LumenContentText>
         </LumenButton>
       )}
-    </div>
+    </LumenFrame>
   )
 }
