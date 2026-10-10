@@ -95,6 +95,8 @@ export type SessionDecision =
 export interface SessionDecisionProjection {
   readonly byMessage: ReadonlyMap<string, ReadonlyMap<string, readonly SessionDecision[]>>
   readonly fallback: readonly SessionDecision[]
+  /** Settled decisions whose tool call is outside the loaded window; hosts may reveal them through a bounded history view. */
+  readonly settledHistory: readonly SessionDecision[]
 }
 export function sessionDecisionAction(
   decision: SessionDecision,
@@ -210,11 +212,19 @@ export function projectSessionDecisions(
   }
   const byMessage = new Map<string, Map<string, SessionDecision[]>>()
   const fallback: SessionDecision[] = []
+  const settledHistory: SessionDecision[] = []
   for (const decision of decisions) {
     const matches = calls.get(scoped(decision.sessionId, decision.runId, decision.callId))
     const match = matches?.length === 1 && matches[0]?.call.name === decision.tool ? matches[0] : undefined
     if (!match) {
-      fallback.push(decision)
+      const action = sessionDecisionAction(decision, input.actions)
+      const uncertain = action?.status === 'unknown' || action?.status === 'submitting' || action?.status === 'failed'
+      const actionable =
+        decision.kind === 'approval'
+          ? decision.approval.status === 'pending'
+          : decision.pending || decision.fact === null
+      if (actionable || uncertain) fallback.push(decision)
+      else settledHistory.push(decision)
       continue
     }
     const rows = byMessage.get(match.message.id) ?? new Map<string, SessionDecision[]>()
@@ -222,5 +232,5 @@ export function projectSessionDecisions(
     rows.set(key, [...(rows.get(key) ?? []), decision])
     byMessage.set(match.message.id, rows)
   }
-  return { byMessage, fallback }
+  return { byMessage, fallback, settledHistory }
 }

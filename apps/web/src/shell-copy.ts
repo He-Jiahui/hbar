@@ -1081,6 +1081,11 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     retryHistory: choose('重试加载更早消息', 'Retry earlier messages'),
     retryTimeline: choose('重试会话加载', 'Retry session history'),
     historyLimit: choose('已达到此窗口的 1,000 条消息上限。', 'This window reached its 1,000-message history limit.'),
+    decisionHistory: {
+      title: choose('已处理的确认记录', 'Resolved decisions'),
+      loadMore: choose('加载更多记录', 'Load more records'),
+      count: (count) => choose(`${count} 条已处理记录`, `${count} resolved records`),
+    },
     find: sessionFindCopy(locale),
     anchors: {
       navigation: (first, last, total) =>

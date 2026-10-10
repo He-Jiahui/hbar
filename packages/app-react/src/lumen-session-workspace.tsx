@@ -56,6 +56,7 @@ import {
   type HbarConversationSelectionLabels,
 } from './conversation-selection'
 import { HbarSessionDecision, type HbarSessionDecisionLabels } from './session-interactions'
+import { HbarSessionDecisionHistory, type HbarSessionDecisionHistoryLabels } from './session-decision-history'
 import { HbarComposerModelPicker, type HbarComposerModelLabels } from './composer-model-picker'
 import { HbarPromptComposer } from './prompt-composer'
 import { HbarDeletedSessionWorkspace } from './deleted-session-workspace'
@@ -193,6 +194,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly backgroundAgents: HbarComposerBackgroundAgentLabels
   readonly queuedUserRuns: HbarQueuedUserRunsLabels
   readonly decisions: HbarSessionDecisionLabels
+  readonly decisionHistory: HbarSessionDecisionHistoryLabels
   readonly goalContinuation: HbarGoalContinuationLabels
   readonly goalLifecycle: HbarGoalLifecycleLabels
   readonly goalHistory: HbarGoalHistoryLabels
@@ -1717,9 +1719,16 @@ function SessionWorkspaceContent({
   )
 
   const activity: ReactNode =
-    decisionProjection.fallback.length > 0 || sessionRunFailures(timeline.runs, sessionId).length > 0 ? (
+    decisionProjection.fallback.length > 0 ||
+    decisionProjection.settledHistory.length > 0 ||
+    sessionRunFailures(timeline.runs, sessionId).length > 0 ? (
       <LumenFrame className="hbar-app-react-session-activity">
         {decisionProjection.fallback.map(renderDecision)}
+        <HbarSessionDecisionHistory
+          decisions={decisionProjection.settledHistory}
+          labels={labels.decisionHistory}
+          renderDecision={renderDecision}
+        />
         <HbarSessionRunActivity
           key={sessionId}
           runs={sessionRunFailures(timeline.runs, sessionId).map((run) => ({

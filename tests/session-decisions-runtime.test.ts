@@ -322,6 +322,54 @@ test('only unique same-session/run/call/tool calls receive decisions; duplicates
   expect(approval).toMatchObject({ kind: 'approval', approval: { args: decisionApproval.args } })
 })
 
+test('settled decisions missing from the loaded message window stay out of fallback while pending and uncertain decisions remain actionable', () => {
+  const current = decisionsTimeline()
+  const settled = {
+    ...current,
+    approvals: [{ ...decisionApproval, status: 'allowed' as const }],
+    userInputs: [],
+    messages: [],
+  }
+  const settledProjection = projectSessionDecisions({ ...settled, actions: {} })
+  expect(settledProjection.fallback).toEqual([])
+  expect(settledProjection.settledHistory).toHaveLength(1)
+  expect(settledProjection.settledHistory[0]).toMatchObject({ kind: 'approval', approval: { status: 'allowed' } })
+  const retained = projectSessionDecisions({
+    ...settled,
+    approvals: Array.from({ length: 5 }, (_, index) => ({
+      ...decisionApproval,
+      id: `approval-${index}`,
+      callId: `missing-call-${index}`,
+      status: 'allowed' as const,
+      createdAt: index,
+    })),
+    actions: {},
+  })
+  expect(retained.fallback).toEqual([])
+  expect(retained.settledHistory).toHaveLength(5)
+
+  const uncertain = projectSessionDecisions({
+    ...settled,
+    actions: {
+      'approval:approval': {
+        id: 'approval:approval',
+        kind: 'approval',
+        sessionId: 'one',
+        targetId: 'approval',
+        status: 'unknown',
+        error: 'RESULT_UNKNOWN',
+        approval: { ...decisionApproval, status: 'allowed' as const },
+      },
+    },
+  })
+  expect(uncertain.fallback).toHaveLength(1)
+  expect(uncertain.fallback[0]).toMatchObject({ kind: 'approval', approval: { status: 'allowed' } })
+
+  const pending = projectSessionDecisions({ ...current, messages: [], actions: {} })
+  expect(pending.fallback).toHaveLength(2)
+  expect(pending.fallback.map((decision) => decision.kind)).toEqual(['approval', 'questionnaire'])
+})
+
 test('historical questionnaire completion is restored only from validated matching tool results', () => {
   const current = answeredTimeline()
   expect(questionnaireFact(decisionRequest, current.messages, [])).toMatchObject({
@@ -466,6 +514,7 @@ test('decision projection has explicit empty and 1–3 questionnaire bounds, and
   expect(projectSessionDecisions({ ...base, messages: [], approvals: [], userInputs: [], actions: {} })).toEqual({
     byMessage: new Map(),
     fallback: [],
+    settledHistory: [],
   })
   for (const count of [0, 1, 3, 4]) {
     const questions = Array.from({ length: count }, (_, index) => ({

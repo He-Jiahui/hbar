@@ -54,6 +54,11 @@ export {
   type HbarSessionDecisionLabels,
 } from './session-interactions'
 export {
+  HbarSessionDecisionHistory,
+  type HbarSessionDecisionHistoryLabels,
+  type HbarSessionDecisionHistoryProps,
+} from './session-decision-history'
+export {
   HbarProposedPlan,
   type HbarProposedPlanProps,
   type HbarProposedPlanLabels,

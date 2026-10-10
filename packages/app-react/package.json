@@ -24,7 +24,8 @@
     "./settings-usage": "./src/settings-usage.tsx",
     "./usage-features": "./src/usage-features.tsx",
     "./diagnostics": "./src/system-diagnostics.tsx",
-    "./providers": "./src/provider-settings.tsx"
+    "./providers": "./src/provider-settings.tsx",
+    "./session-decision-history": "./src/session-decision-history.tsx"
   },
   "sideEffects": [
     "**/*.css"
