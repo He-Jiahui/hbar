@@ -18,6 +18,7 @@ import {
   LumenFrame,
   LumenIcon,
   LumenImageGallery,
+  LumenImage,
   LumenText,
   type LumenImageGalleryLabels,
 } from '@lumen/app-ui'
@@ -115,7 +116,7 @@ function ResourceFavicon({ url }: { readonly url: string }) {
   return (
     <LumenFrame as="span" ref={root} className="hbar-resource-icon" aria-hidden="true">
       {visible && !failed ? (
-        <img
+        <LumenImage
           src={`${origin}/favicon.ico`}
           alt=""
           referrerPolicy="no-referrer"
