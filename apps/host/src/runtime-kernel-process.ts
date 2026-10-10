@@ -5,8 +5,9 @@ import { Kernel } from '@hbar/kernel'
 import { KERNEL_RUNTIME_FINGERPRINT, runtimeKernelConfigurationSchema, runtimeKernelSubmitSchema, runtimeKernelRunSchema,
   runtimeKernelRunsSchema, runtimeKernelSessionSchema, runtimeKernelStateSchema, runtimeKernelRecoverySchema } from '@hbar/kernel/runtime-port'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
+import { RUNTIME_APPLICATION_METHODS, RUNTIME_APPLICATION_CONTROLS } from '@hbar/kernel/runtime-application'
 import { createPathLayout, callStorageRpc, STORAGE_SCHEMA_VERSION, runtimeRecoveryRecordSchema, type StoragePort } from '@hbar/storage'
-import { RuntimeCoordinatorClient, procedure, runtimeDomainError, type RuntimeProcessContext, type RuntimeProcessService } from '@hbar/runtime'
+import { RuntimeCoordinatorClient, RuntimeValuePort, procedure, runtimeDomainError, type RuntimeProcessContext, type RuntimeProcessService } from '@hbar/runtime'
 import { RuntimeDriverAdapter } from './runtime-driver-adapter'
 
 /** The candidate validates its ports; construction and every production action wait until activation. */
@@ -29,6 +30,23 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     if (context.preparing() || !kernel) throw new HbarError('RUNTIME_PREPARING', 'Kernel preflight cannot invoke production')
     return kernel
   }
+  const values = new RuntimeValuePort(context.peer, { prefix: 'kernel.application', controlMethods: RUNTIME_APPLICATION_CONTROLS })
+  const capabilities = new Set(['goal', 'plan', 'mode', 'budget', 'workflow', 'agent', 'browser', 'computer', 'execution', 'git'])
+  for (const [target, methods] of Object.entries(RUNTIME_APPLICATION_METHODS))
+    for (const method of methods) values.register(`${target}.${method}`, args => {
+      const value = application()
+      const object: unknown = target === 'kernel' ? value : target === 'plugins' ? value.plugins :
+        target === 'directory' ? value.directoryQueries : target === 'schema' ? value.schemaCallbacks :
+        target === 'sandbox' ? value.sandboxProfiles : target === 'workspaceSandbox' ? value.workspaceSandboxes :
+        target === 'launchTarget' ? value.sessionLaunchTargets : target === 'branchTarget' ? value.sessionBranchTargets :
+        target === 'workspaceQuery' ? value.plugins.get<import('@hbar/plugin-sdk').ExecutionProvider>('execution').workspaceQuery :
+        capabilities.has(target) ? value.plugins.get(target) : undefined
+      if (!object || typeof object !== 'object' || !(method in object))
+        throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'Declared application capability is unavailable in this generation')
+      const implementation: unknown = Reflect.get(object, method)
+      if (typeof implementation !== 'function') throw new HbarError('RUNTIME_METHOD_UNAVAILABLE', 'Declared application method is not callable')
+      return Reflect.apply(implementation, object, args)
+    })
   const storage: StoragePort = {
     call: (method, ...args) => domain(() => callStorageRpc({ execute: input => context.peer.call('kernel.storage', input, z.unknown()) }, method, args)),
     close: async () => {},
@@ -91,6 +109,6 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       // The stable composition activates all selected bindings before explicitly opening this scheduling gate.
     },
     async drain() { role = 'draining'; kernel?.beginDrain(); return { runs: kernel?.active.size ?? 0, requests: 0, resources: 0 } },
-    async dispose() { role = 'draining'; kernel?.beginDrain(); await kernel?.close(); driver.dispose() },
+    async dispose() { role = 'draining'; kernel?.beginDrain(); await kernel?.close(); driver.dispose(); values.dispose() },
   }
 }

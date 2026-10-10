@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 const domainErrorSchema = z.object({
-  name: z.literal('HbarError'), code: z.string().regex(/^[A-Z][A-Z0-9_.-]{0,127}$/), message: z.string(),
+  name: z.enum(['HbarError', 'CommandError']), code: z.string().regex(/^[A-Z][A-Z0-9_.-]{0,127}$/), message: z.string(),
 })
 /** Immutable bundles have distinct constructors. Validate the public error data instead of class identity. */
 export function runtimeDomainError(error: unknown): { code: string; message: string } | null {

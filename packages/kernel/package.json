@@ -7,6 +7,7 @@
     ".": "./src/index.ts",
     "./controller": "./src/controller.ts",
     "./runtime-port": "./src/runtime-port.ts",
+    "./runtime-application": "./src/runtime-application.ts",
     "./diagnostics": "./src/diagnostic-journal.ts",
     "./session-search-commands": "./src/session-search-commands.ts",
     "./skill-import": "./src/skill-import-service.ts"

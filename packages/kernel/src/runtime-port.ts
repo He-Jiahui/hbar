@@ -4,6 +4,7 @@ import { approvalModeSchema, inputSchema, runSchema } from '@hbar/contracts'
 import { runCommandRecordSchema } from '@hbar/contracts/commands/run'
 import { pluginInfoSchema } from '@hbar/contracts/commands/extensions'
 import { runtimeRecoveryRecordSchema } from '@hbar/storage'
+import { RUNTIME_APPLICATION_METHODS } from './runtime-application'
 
 const id = z.string().min(1).max(160)
 export const runtimeKernelConfigurationSchema = z.strictObject({
@@ -25,8 +26,9 @@ export const runtimeKernelStateSchema = z.strictObject({
   tools: z.array(z.string().min(1).max(256)).max(4_096), plugins: z.array(pluginInfoSchema).max(4_096),
 })
 export const runtimeKernelRecoverySchema = z.array(runtimeRecoveryRecordSchema).max(256)
-export const RUNTIME_KERNEL_CONTROL_METHODS = ['kernel.resume', 'kernel.fence', 'kernel.cancel', 'kernel.recover', 'kernel.recovery.resume'] as const
+export const RUNTIME_KERNEL_CONTROL_METHODS = ['kernel.resume', 'kernel.fence', 'kernel.cancel', 'kernel.recover', 'kernel.recovery.resume', 'kernel.application.control', 'kernel.application.callback'] as const
 export const KERNEL_RUNTIME_FINGERPRINT = createHash('sha256').update(JSON.stringify([
   'hbar.kernel.runtime.v1', z.toJSONSchema(runtimeKernelConfigurationSchema), z.toJSONSchema(runtimeKernelSubmitSchema),
+  RUNTIME_APPLICATION_METHODS,
   z.toJSONSchema(runtimeKernelStateSchema), z.toJSONSchema(runSchema), z.toJSONSchema(runtimeKernelRecoverySchema),
 ])).digest('hex')

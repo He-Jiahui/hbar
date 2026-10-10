@@ -4,9 +4,10 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { HbarError, providerSchema, runSchema } from '@hbar/contracts'
-import { ManagedProcess, RuntimeArtifactStore, RuntimeCoordinator, registerRuntimeCoordinatorPort, RUNTIME_COORDINATION_CONTROL_METHODS, procedure, type IpcPeer } from '@hbar/runtime'
+import { ManagedProcess, RuntimeArtifactStore, RuntimeCoordinator, RuntimeValuePort, registerRuntimeCoordinatorPort, RUNTIME_COORDINATION_CONTROL_METHODS, procedure, type IpcPeer } from '@hbar/runtime'
 import { Storage, createPathLayout, ensurePathLayout, storageRpcCallSchema } from '@hbar/storage'
 import { KERNEL_RUNTIME_FINGERPRINT, RUNTIME_KERNEL_CONTROL_METHODS, runtimeKernelStateSchema } from '@hbar/kernel/runtime-port'
+import { callRuntimeApplication, RUNTIME_APPLICATION_CONTROLS } from '@hbar/kernel/runtime-application'
 import { RuntimeDriverRelay, type RuntimeDriverEndpoint } from '../apps/host/src/runtime-driver-relay'
 import { DRIVER_RUNTIME_FINGERPRINT } from '../apps/host/src/runtime-driver-contract'
 import type { RuntimeOwner, RuntimeUnitDescriptor } from '@hbar/contracts/runtime'
@@ -47,7 +48,8 @@ async function fixture() {
     return driverEndpoint
   } })
   const children: ManagedProcess[] = []
-  resources.push(async () => { selected = null; for (const child of children.reverse()) await child.dispose(); await storage.close(); await rm(root, { recursive: true, force: true }) })
+  const channels: RuntimeValuePort[] = []
+  resources.push(async () => { selected = null; for (const child of children.reverse()) await child.dispose(); for (const channel of channels) channel.dispose(); await storage.close(); await rm(root, { recursive: true, force: true }) })
   const driver = new ManagedProcess({ descriptor: driverDescriptor, artifactId: driverArtifact.id, modulePath: await registry.modulePath(driverArtifact.id), generation: 1, parent: base,
     onPeer: (peer, owner) => {
       const version = { unitId: owner.unitId, generation: owner.generation, artifactId: driverArtifact.id }
@@ -88,7 +90,9 @@ async function fixture() {
     })
     children.push(kernel)
     await kernel.prepare()
-    return { kernel, peer: currentPeer }
+    const application = new RuntimeValuePort(currentPeer, { prefix: 'kernel.application', controlMethods: RUNTIME_APPLICATION_CONTROLS })
+    channels.push(application)
+    return { kernel, peer: currentPeer, application }
   }
   const activate = async (kernel: ManagedProcess) => {
     coordinator.activate(kernel.owner())
@@ -136,4 +140,28 @@ test('a second Kernel generation accepts new queued work while the Session remai
   expect((await f.storage.call('runtimeExecutionRead', queued.id))?.lease.owner.generation).toBe(2)
   expect((await second.call('kernel.state', undefined, runtimeKernelStateSchema)).instanceId).toBe('stable-test-host')
   expect(f.driver.snapshot().phase).toBe('serving')
+})
+
+test('declared application methods and revision callbacks execute in the real Kernel while optional data, signals and bytes keep their contract', async () => {
+  const f = await fixture()
+  const { kernel, application } = await f.make()
+  expect(await outcome(callRuntimeApplication(application, 'kernel', 'models', []))).toMatchObject({ code: 'RUNTIME_PREPARING' })
+  expect(f.storageCalls()).toBe(0)
+  await f.activate(kernel)
+  expect((await callRuntimeApplication(application, 'kernel', 'models', [])).some(model => model.id === 'fixture')).toBe(true)
+  expect(await outcome(callRuntimeApplication(application, 'directory', 'execute', ['workspace.get', { id: 'invalid-input-key' }]))).toMatchObject({ code: 'INVALID_INPUT' })
+  expect(await outcome(callRuntimeApplication(application, 'directory', 'execute', ['session.list', { workspaceId: 'missing-workspace' }]))).toMatchObject({ code: 'WORKSPACE_NOT_FOUND' })
+  const plan = await callRuntimeApplication(application, 'plan', 'update', [f.session.id, [{ step: 'Check owned application ports', status: 'in_progress' }]])
+  let committed = 0
+  await callRuntimeApplication(application, 'plan', 'withRevision', [f.session.id, plan.revision, async () => { committed++ }])
+  expect(committed).toBe(1)
+  expect(application.snapshot().callbacks).toBe(0)
+  expect(await outcome(callRuntimeApplication(application, 'plan', 'withRevision', [f.session.id, plan.revision + 1, async () => { committed++ }]))).toMatchObject({ code: 'PLAN_REVISION_CONFLICT' })
+  expect(committed).toBe(1)
+  const artifact = await callRuntimeApplication(application, 'kernel', 'upload', ['plain.txt', 'text/plain', new TextEncoder().encode('plain bytes'), undefined])
+  expect(artifact.size).toBe(11)
+  const stopped = new AbortController(); stopped.abort()
+  expect(await outcome(callRuntimeApplication(application, 'execution', 'exec', [f.root, 'must not execute', stopped.signal]))).toBeInstanceOf(Error)
+  expect(await outcome(application.call('kernel.close', []))).toMatchObject({ code: 'RUNTIME_METHOD_UNAVAILABLE' })
+  expect(kernel.snapshot().phase).toBe('serving')
 })
