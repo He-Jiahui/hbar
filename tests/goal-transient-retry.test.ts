@@ -111,21 +111,35 @@ test('Bun socket interruption resumes with bounded backoff and settled usage wit
 
 test('transient retry exhaustion is bounded, durable and not a fabricated blocker', async () => {
   let calls = 0
-  const { kernel, goals, session, options, resource } = await fixture(async () => {
+  let failing = true
+  const { kernel, goals, session, options, resource } = await fixture(async (input) => {
     calls++
-    throw new Error('429 rate limit')
+    if (failing) throw new Error('429 rate limit')
+    expect((await resource.kernel.storage.call('run', input.run.id)).status).toBe('running')
+    expect((await resource.kernel.plugins.get<GoalService>('goal').get(session.id)).goal?.status).toBe('active')
+    await complete(input)
   })
   await kernel.submit(session.id, 'start', { text: 'Work', images: [] }, 'local-fixture')
   await kernel.waitForIdle()
   expect(calls).toBe(3)
   expect((await goals.get(session.id)).goal).toMatchObject({
-    status: 'active',
+    status: 'paused',
     continuation: { phase: 'stopped', reason: 'retry_exhausted' },
+    timing: { running: false },
   })
   await kernel.close()
   resource.kernel = await Kernel.create(options)
   await resource.kernel.waitForIdle()
   expect(calls).toBe(3)
+  const restored = resource.kernel.plugins.get<GoalService>('goal')
+  const paused = (await restored.get(session.id)).goal!
+  expect(paused).toMatchObject({ status: 'paused', continuation: { reason: 'retry_exhausted' } })
+  expect((await resource.kernel.snapshot(session.id)).runs.every((run) => run.status === 'failed')).toBe(true)
+  failing = false
+  await restored.set(session.id, { status: 'active', expectedGoalId: paused.goalId })
+  await resource.kernel.waitForIdle()
+  expect(calls).toBe(4)
+  expect((await restored.get(session.id)).goal).toMatchObject({ status: 'complete', tokensUsed: 4 })
 })
 
 test('a pending backoff survives restart and resumes the same intent once', async () => {
@@ -190,5 +204,40 @@ for (const [code, message, reason] of [
     await kernel.submit(session.id, 'start', { text: 'Work', images: [] }, 'local-fixture')
     await kernel.waitForIdle()
     expect(calls).toBe(1)
-    expect((await goals.get(session.id)).goal?.continuation).toMatchObject({ phase: 'stopped', reason })
+    expect((await goals.get(session.id)).goal).toMatchObject({
+      status: reason === 'usage_limited' ? 'usage_limited' : 'paused',
+      continuation: { phase: 'stopped', reason },
+      timing: { running: false },
+    })
+  })
+
+for (const automatic of [false, true])
+  test(`stopping a ${automatic ? 'Goal continuation' : 'user Run'} also pauses its Goal`, async () => {
+    let started!: (input: DriverInput) => void
+    const running = new Promise<DriverInput>((resolve) => {
+      started = resolve
+    })
+    let calls = 0
+    const { kernel, goals, session } = await fixture(async (input) => {
+      calls++
+      if (automatic && input.run.input.source !== 'goal') return
+      started(input)
+      await new Promise<void>((_resolve, reject) => {
+        const cancel = () => reject(input.signal.reason)
+        if (input.signal.aborted) cancel()
+        else input.signal.addEventListener('abort', cancel, { once: true })
+      })
+    })
+    await kernel.submit(session.id, 'start', { text: 'Work', images: [] }, 'local-fixture')
+    const input = await running
+    expect((await goals.get(session.id)).goal).toMatchObject({ status: 'active', timing: { running: true } })
+    await kernel.cancel(input.run.id)
+    await kernel.waitForIdle()
+    expect((await kernel.storage.call('run', input.run.id)).status).toBe('cancelled')
+    expect((await goals.get(session.id)).goal).toMatchObject({
+      status: 'paused',
+      tokensUsed: automatic ? 2 : 1,
+      timing: { running: false },
+    })
+    expect(calls).toBe(automatic ? 2 : 1)
   })

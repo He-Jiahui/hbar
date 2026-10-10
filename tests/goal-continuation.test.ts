@@ -144,9 +144,10 @@ test('an explicit continuation ceiling still stops with its own visible reason',
   await kernel.submit(session.id, 'start', { text: 'Work', images: [] }, 'local-fixture')
   await kernel.waitForIdle()
   expect(turns).toBe(3)
-  expect((await goals.get(session.id)).goal?.continuation).toMatchObject({
-    phase: 'stopped',
-    reason: 'continuation_limit',
+  expect((await goals.get(session.id)).goal).toMatchObject({
+    status: 'paused',
+    continuation: { phase: 'stopped', reason: 'continuation_limit' },
+    timing: { running: false },
   })
 })
 
@@ -310,7 +311,11 @@ test('failed admission has a persistent stop reason instead of an unexplained qu
   const goal = (await goals.create(session.id, 'Invalid admission')).goal!
   await goals.requestContinuation(session.id, { goalId: goal.goalId!, trigger: 'review', modelId: 'missing-model' })
   await kernel.waitForIdle()
-  expect((await goals.get(session.id)).goal?.continuation).toMatchObject({ phase: 'stopped', reason: 'run_failed' })
+  expect((await goals.get(session.id)).goal).toMatchObject({
+    status: 'paused',
+    continuation: { phase: 'stopped', reason: 'run_failed' },
+    timing: { running: false },
+  })
   expect((await kernel.snapshot(session.id)).runs).toHaveLength(0)
 })
 

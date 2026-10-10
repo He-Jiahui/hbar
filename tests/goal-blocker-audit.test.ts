@@ -177,7 +177,7 @@ test('an execution failure reports a stopped run instead of inventing a genuine 
   await kernel.submit(session.id, 'failed-provider', { text: '/fail', images: [] }, 'local-fixture')
   await kernel.waitForIdle()
   expect((await goals.get(session.id)).goal).toMatchObject({
-    status: 'active',
+    status: 'paused',
     continuation: { phase: 'stopped', reason: 'run_failed' },
   })
   expect((await goals.get(session.id)).goal?.blockerAudit).toBeUndefined()
