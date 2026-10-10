@@ -228,14 +228,25 @@ test('wrong include types, sparse values and array accessors are not coerced', (
   expect(invoked).toBe(0)
 })
 
-test('summary preserves complete 160-plus-character values and reports bounded source extraction explicitly', () => {
+test('compact commands use a script action while complete source remains available for reading and copy', () => {
   for (const count of [0, 1, 160, 161, TOOL_SUMMARY_CODE_POINTS, TOOL_SUMMARY_CODE_POINTS + 1]) {
     const result = en(call(command, { script: '😀'.repeat(count) }))
-    if (count <= TOOL_SUMMARY_CODE_POINTS) expect(result.summary).toBe(count === 0 ? undefined : '😀'.repeat(count))
-    else expect(result.summary).toEndWith('[truncated; expand Input for the original]')
+    if (count <= 160) expect(result.summary).toBe(count === 0 ? undefined : '😀'.repeat(count))
+    else expect(result.summary).toBe('Run script')
+    if (count > 0) expect(result.command).toBe('😀'.repeat(count))
     expect(points(result.summary)).toBeLessThanOrEqual(TOOL_SUMMARY_CODE_POINTS)
     expect(result.summary ?? '').not.toContain('\ufffd')
   }
+})
+
+test('script summaries distinguish PowerShell without inferring execution or results', () => {
+  const script = "$ErrorActionPreference='Continue'\r\nSet-Location -LiteralPath 'C:\\fixture'\r\nGet-Content file.txt"
+  const input = call(command, { script })
+  expect(en(input).summary).toBe('Run PowerShell script')
+  expect(zh(input).summary).toBe('执行 PowerShell 脚本')
+  expect(en(input).summaryFormat).toBe('text')
+  expect(en(input).command).toBe(script)
+  expect(en(call(command, { script: 'printf hello\nprintf world' })).summary).toBe('Run script')
 })
 
 test('titles remain at most 4000 code points including localized truncation notices', () => {
@@ -279,7 +290,8 @@ test('long path uses a bounded tail for a real leaf and marks incomplete head in
 
 test('line breaks and dangerous directional controls cannot create spoofed lines or reversed targets', () => {
   const result = en(call(command, { script: 'first\r\nsecond\tthird\u202efake\u2066x\u2069\u061c\u0000\u001b' }))
-  expect(result.summary).toBe('first second third\\u202efake\\u2066x\\u2069\\u061c\\u0000\\u001b')
+  expect(result.summary).toBe('Run script')
+  expect(result.title).toContain('first second third\\u202efake\\u2066x\\u2069\\u061c\\u0000\\u001b')
   for (const control of ['\r', '\n', '\t', '\u202e', '\u2066', '\u2069', '\u061c', '\u0000', '\u001b']) {
     expect(result.title).not.toContain(control)
   }

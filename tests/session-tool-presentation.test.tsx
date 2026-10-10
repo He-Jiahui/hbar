@@ -163,7 +163,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     expect(legacy).toContain('custom_tool × 2')
   })
 
-  test(`error preview retains priority while requested context remains inspectable: ${locale}`, () => {
+  test(`failed rows keep requested action context and expose the outcome without inline result payload: ${locale}`, () => {
     const call = makeCall('failed')
     const html = renderToStaticMarkup(
       <HbarMessageBlocks
@@ -184,10 +184,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         describeTool={createSessionToolPresenter(locale)}
       />,
     )
-    expect(html).toContain('Original failure')
+    expect(html).not.toContain('Original failure')
     expect(html).toContain('same-file.txt')
     expect(html).toContain('data-outcome="failed"')
-    expect(html).toContain('data-format="text"')
+    expect(html).toContain('data-format="code"')
     expect(html).toContain('aria-expanded="false"')
     expect(html).not.toContain('<pre')
   })

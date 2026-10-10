@@ -17,7 +17,7 @@ import {
   Terminal,
   Wrench,
 } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText, LumenToolCalls } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenText, LumenContentText, LumenToolCalls } from '@lumen/app-ui'
 import { MessageMarkdown, MessageInlineMarkdown } from './message-markdown'
 import type { MessageFileReferenceContext } from './message-file-reference'
 import { MessageLiteralText } from './message-literal-text'
@@ -241,19 +241,23 @@ function Disclosure({
       <LumenText as="span" className="hbar-session-disclosure-identity" data-inline-scroll>
         <LumenText as="span" className="hbar-session-disclosure-label">
           {tool ? <LumenIcon icon={icon} tier="sm" /> : null}
-          <LumenText
-            as="span"
+          <LumenContentText
+            context="control.label"
             className="lumen-effect hbar-session-disclosure-label-text"
             data-lumen-state={live ? 'running' : 'idle'}
             title={label}
           >
             {label}
-          </LumenText>
+          </LumenContentText>
         </LumenText>
         {preview ? (
-          <LumenText as="span" className="hbar-session-disclosure-preview" data-format={previewFormat}>
+          <LumenContentText
+            context="tool.summary"
+            className="hbar-session-disclosure-preview"
+            data-format={previewFormat}
+          >
             {previewMarkdown ? <MessageInlineMarkdown text={preview} /> : preview}
-          </LumenText>
+          </LumenContentText>
         ) : null}
       </LumenText>
       {status}
@@ -367,15 +371,16 @@ function ToolRow({
 }) {
   const presentation = row.call && describeTool ? describeTool(row.call) : undefined
   const icon = toolIcons[presentation?.icon ?? 'tool']
-  const errorPreview = toolErrorPreview(row.result, labels.showFullContent)
+  const fallbackError = toolErrorPreview(row.result, labels.showFullContent)
+  const errorPreview = fallbackError && !/^\s*[[{]/u.test(fallbackError) ? fallbackError : undefined
   const outcome = sessionToolOutcome(row.result)
   const activity = rowToolActivity(row, toolActivity)
   const active = toolActivity ? Boolean(activity?.active) : running && outcome === 'pending'
   const disclosure = (
     <Disclosure
       label={presentation?.label ?? labels.tool(row.name)}
-      preview={errorPreview || presentation?.summary}
-      previewFormat={errorPreview ? 'text' : presentation?.summaryFormat}
+      preview={presentation?.summary || errorPreview}
+      previewFormat={presentation?.summary ? presentation.summaryFormat : 'text'}
       title={presentation?.title}
       status={
         <ToolStatus
