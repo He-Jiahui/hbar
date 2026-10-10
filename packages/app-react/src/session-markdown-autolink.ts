@@ -7,6 +7,13 @@ function autoLinkParts(node: Element, source: string): ElementContent[] | null {
   const end = node.position?.end.offset
   if (start === undefined || end === undefined || !/^https?:\/\//i.test(source.slice(start, end))) return null
   const visible = node.children.map((child) => (child.type === 'text' ? child.value : '')).join('')
+  // A Markdown link's position includes its destination, while its visible
+  // label can be arbitrary text. Only rewrite links whose visible text is
+  // itself an autolink literal; otherwise an explicit destination such as
+  // `[docs](https://example.test)` would be mistaken for prose and lose its
+  // href. Typed labels beginning with a URL are still excluded by the source
+  // position check above because their node starts at `[`.
+  if (!/^https?:\/\//i.test(visible)) return null
   const parts = messageLiteralSegments(visible)
   return parts.map((part): ElementContent =>
     part.kind === 'url'
