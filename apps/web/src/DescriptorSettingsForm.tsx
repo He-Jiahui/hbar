@@ -120,7 +120,7 @@ function SettingValueEditor({
   const raw = value ?? ''
   if (schema.format === 'textarea') {
     return (
-      <textarea
+      <LumenTextarea
         aria-label={path}
         value={String(raw)}
         minLength={schema.minLength}
@@ -131,7 +131,7 @@ function SettingValueEditor({
     )
   }
   return (
-    <input
+    <LumenInput
       aria-label={path}
       type={scalarInputType(schema)}
       value={String(raw)}

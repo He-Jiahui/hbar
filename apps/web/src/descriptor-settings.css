@@ -37,6 +37,8 @@
 .descriptor-setting-control > select,
 .descriptor-setting-field > input:not([type='checkbox']),
 .descriptor-setting-field > select { flex: 1; min-width: 0; }
+.descriptor-setting-control > .lumen-outlined-field,
+.descriptor-setting-field > .lumen-outlined-field { flex: 1; min-width: 0; }
 .descriptor-setting-object,
 .descriptor-setting-array { display: grid; gap: 8px; width: 100%; }
 .descriptor-setting-array-row > :first-child { flex: 1; }

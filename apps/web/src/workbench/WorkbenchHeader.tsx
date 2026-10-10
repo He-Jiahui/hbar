@@ -1,6 +1,6 @@
 import type { ConnectionStatus } from '@hbar/client'
 import type { HostInfo, Workspace } from '@hbar/contracts'
-import { Command, FolderOpen, PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react'
+import { ChevronDown, Command, FolderOpen, PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react'
 import { LumenButton, LumenIconButton, LumenSelect } from '@lumen/app-ui'
 import GlassSurface from '../react-bits/GlassSurface'
 import { StatusBadge, referenceAttributes } from '../react-bits'
