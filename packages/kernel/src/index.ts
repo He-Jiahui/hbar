@@ -710,7 +710,9 @@ export class Kernel {
           !provider.models.some((model) => `${provider.id}/${model.id}` === id)
         )
           throw new HbarError('MODEL_NOT_FOUND', `Model ${id} not found`)
-        return resolveProviderModel(provider, id)
+        // Keep the selection identity through request hooks and endpoint validation.
+        // Collapsing it to the provider id would resolve the primary model again.
+        return { ...resolveProviderModel(provider, id), id }
       },
       secret: async (id) => {
         const providers = await this.storage.call('providers')
