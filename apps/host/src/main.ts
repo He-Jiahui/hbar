@@ -8,6 +8,7 @@ import { getStorageLocations, resolvePathLayout } from '@hbar/storage'
 import { startServer } from './server.ts'
 import { createHostSupervisor, RESTART_EXIT_CODE } from './supervisor.ts'
 import { desktopConnection } from './desktop-connection.ts'
+import { ensureHostDataRootId } from './host-data-identity.ts'
 
 export async function runHost(
   args: string[] = Bun.argv.slice(2),
@@ -75,6 +76,7 @@ export async function runHost(
   let kernel: Kernel | undefined
   let requestShutdown: ((exitCode: number) => void) | undefined
   try {
+    const dataRootId = await ensureHostDataRootId(layout.settings)
     const profile = values.profile
       ? ((await import(pathToFileURL(resolve(values.profile)).href)) as { default: KernelProfile }).default
       : undefined
@@ -85,6 +87,7 @@ export async function runHost(
       ...(profile ? { profile } : {}),
     })
     const host = await startServer(kernel, {
+      dataRootId,
       ...(values.host ? { hostname: values.host } : {}),
       ...(values.port ? { port: Number(values.port) } : {}),
       ...(values.desktop ? { desktop: true } : {}),

@@ -8,6 +8,8 @@ export const hostInfoSchema = z.strictObject({
   version: z.string().min(1).max(64),
   protocol: z.number().int().positive(),
   instanceId: idSchema,
+  /** Stable identity for one persisted Host settings root; absent on older Hosts. */
+  dataRootId: idSchema.optional(),
   platform: z.string().min(1).max(64),
   addresses: z.array(z.string().min(1).max(4_000)).max(256),
   activeRuns: z.number().int().nonnegative(),

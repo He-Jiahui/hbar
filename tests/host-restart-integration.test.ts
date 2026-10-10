@@ -9,6 +9,7 @@ interface ConnectionRecord {
   readonly token: string
   readonly pid: number
   readonly instanceId: string
+  readonly dataRootId?: string
 }
 
 async function until<Value>(operation: () => Promise<Value>, timeoutMs = 20_000): Promise<Value> {
@@ -57,6 +58,7 @@ test('supervised Host accepts restart, preserves its address, and serves a new i
     firstClient = new HbarClient(first.url, first.token)
     const initialHost = await firstClient.connect()
     expect(initialHost.instanceId).toBe(first.instanceId)
+    expect(initialHost.dataRootId).toBeString()
     expect(await createSystemCommandClient(firstClient).execute('system.restart', {})).toEqual({
       accepted: true,
       restartRequired: false,
@@ -76,6 +78,7 @@ test('supervised Host accepts restart, preserves its address, and serves a new i
     secondClient = new HbarClient(second.url, first.token)
     const restartedHost = await secondClient.connect()
     expect(restartedHost.instanceId).toBe(second.instanceId)
+    expect(restartedHost.dataRootId).toBe(initialHost.dataRootId)
   } finally {
     firstClient?.disconnect()
     secondClient?.disconnect()

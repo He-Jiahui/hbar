@@ -98,6 +98,7 @@ import type { WebLanguageController } from './language'
 import type { WebZoomController } from './app-zoom'
 import { createWebSendBehaviorController, type WebSendBehaviorController } from './send-behavior'
 import { createHostSendBehaviorPort } from './send-behavior-settings'
+import { hostPersistenceId } from './host-identity'
 import { createWebRuntimeCopy, type WebRuntimeCopyPort } from './runtime-copy'
 import { createBrowserImageResources } from './browser-image-resources'
 import { HbarMessageResourceLayer } from '@hbar/app-react'
@@ -1714,8 +1715,10 @@ export default function App({
   useEffect(
     () =>
       client.onEvent((event) => {
-        if (event.method === 'chatDatabase.deleted' && binding.hostId === client.connectionHost()?.instanceId)
-          chatSearch.deleted(event.params.sessionIds)
+        if (event.method === 'chatDatabase.deleted') {
+          const host = client.connectionHost()
+          if (host && binding.hostId === hostPersistenceId(host)) chatSearch.deleted(event.params.sessionIds)
+        }
       }),
     [binding.hostId, chatSearch, client],
   )
@@ -1947,7 +1950,7 @@ export default function App({
           .then(() => {
             if (!active || client.connectionStatus() !== 'connected') return
             const host = client.connectionHost()
-            startup.setConnection(host && startup.confirmHost(host.instanceId) ? 'connected' : 'connecting')
+            startup.setConnection(host && startup.confirmHost(hostPersistenceId(host)) ? 'connected' : 'connecting')
           })
           .catch(() => { if (active) startup.setConnection('disconnected') })
         return

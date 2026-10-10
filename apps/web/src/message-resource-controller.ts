@@ -9,6 +9,7 @@ import type { ResourceCandidate } from '@hbar/contracts/resources'
 import type { ResourceReference } from '@hbar/contracts/resources'
 import type { HbarRuntimeView } from '@hbar/app-react'
 import { acquireResourceImage } from './resource-image'
+import { hostPersistenceId } from './host-identity'
 
 export interface ResourcePlatform {
   openSystem(candidate: ResourceCandidate): Promise<void>
@@ -31,7 +32,10 @@ export function createWebMessageResources(client: HbarClient, runtime: HbarRunti
       const navigation = runtime.state.navigation.getSnapshot()
       const tabs = runtime.state.workspaceTabs.getSnapshot()
       return (
-        client.connectionHost()?.instanceId === runtime.hostId &&
+        (() => {
+          const host = client.connectionHost()
+          return host !== null && hostPersistenceId(host) === runtime.hostId
+        })() &&
         navigation.workspaceId === source.workspaceId &&
         navigation.sessionId === source.sessionId &&
         (source.sourceTabInstanceKey === null ||

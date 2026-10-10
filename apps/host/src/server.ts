@@ -131,6 +131,7 @@ interface SocketData {
   schemaQueries: Map<string, AbortController>
 }
 export interface ServerOptions {
+  readonly dataRootId?: string
   hostname?: string
   port?: number
   origins?: string[]
@@ -508,6 +509,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     version: APP_VERSION,
     protocol: PROTOCOL_VERSION,
     instanceId: kernel.instanceId,
+    ...(options.dataRootId ? { dataRootId: options.dataRootId } : {}),
     platform: process.platform,
     addresses: (hostname === '127.0.0.1' ? ['127.0.0.1'] : addresses).map(
       (ip) => `${secure ? 'https' : 'http'}://${ip}:${server.port}`,
@@ -1359,6 +1361,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
             version: APP_VERSION,
             protocol: PROTOCOL_VERSION,
             instanceId: kernel.instanceId,
+            ...(options.dataRootId ? { dataRootId: options.dataRootId } : {}),
           })
         if (url.pathname === '/auth/pair' && request.method === 'POST') {
           const p = z.object({ code: z.string().max(32), name: z.string().min(1).max(100) }).parse(await request.json())

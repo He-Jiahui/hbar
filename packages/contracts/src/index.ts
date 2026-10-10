@@ -1036,6 +1036,8 @@ export interface HostInfo {
   version: string
   protocol: number
   instanceId: string
+  /** Stable identity for one persisted Host settings root; absent on older Hosts. */
+  dataRootId?: string
   platform: string
   addresses: string[]
   activeRuns: number

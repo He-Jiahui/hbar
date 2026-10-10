@@ -7,6 +7,7 @@ import {
   type GlobalSettingsStartup,
 } from '@hbar/app-runtime'
 import { createWebStartupRuntime } from '../apps/web/src/startup-runtime'
+import { hostPersistenceId } from '../apps/web/src/host-identity'
 import type { AppearanceEditorPort } from '../apps/web/src/appearance-editor'
 import { resetWebAppearancePreferences, saveWebAppearancePreferences } from '../apps/web/src/appearance'
 
@@ -270,7 +271,9 @@ test('pending bootstrap and local draft are never overwritten by the pending run
 test('same confirmed Host reconnect keeps runtime, subscriptions, revision and unsaved draft', async () => {
   const f = fixture()
   try {
-    f.owner.confirmHost('same-host')
+    const firstProcess = { instanceId: 'same-process-a', dataRootId: 'same-data-root' }
+    const restartedProcess = { instanceId: 'same-process-b', dataRootId: 'same-data-root' }
+    f.owner.confirmHost(hostPersistenceId(firstProcess))
     const confirmed = f.owner.store.getState()
     await confirmed.runtime.ready
     await confirmed.runtime.view.commands.execute('app.openSettings', { scope: 'global', section: 'appearance' })
@@ -281,7 +284,7 @@ test('same confirmed Host reconnect keeps runtime, subscriptions, revision and u
     confirmed.appearanceEditor.change('theme', 'dark')
     f.owner.setConnection('connected')
     f.owner.setConnection('disconnected')
-    expect(f.owner.confirmHost('same-host')).toBe(true)
+    expect(f.owner.confirmHost(hostPersistenceId(restartedProcess))).toBe(true)
     f.owner.setConnection('connected')
     const reconnected = f.owner.store.getState()
     expect(reconnected.runtime).toBe(confirmed.runtime)
