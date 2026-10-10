@@ -1924,6 +1924,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     runs: {
       title: choose('Agent Activity', 'Agent activity'),
       details: (count) => choose(`运行详情 · ${count} 次`, `Run details · ${count}`),
+      failureHistory: (count) => choose(`历史运行错误 · ${count} 次`, `Past run errors · ${count}`),
       more: (count) => choose(`再显示 ${count} 次运行`, `Show ${count} more runs`),
       activeCount: (count) => choose(`${count} 次运行正在执行或排队`, `${count} runs active or queued`),
       emptyTitle: choose('尚无运行', 'No runs yet'),

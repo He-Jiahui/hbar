@@ -135,3 +135,40 @@ test('normal sessions retain new Retry behavior and cannot gain read-only recove
   expect(foreign).not.toContain(labels.recheckLabel)
   expect(foreign).not.toContain(labels.retryLabel)
 })
+
+for (const locale of ['zh-CN', 'en-US'] as const)
+  for (const count of [0, 1, 20, 21, 80, 81])
+    test(`past failures remain collapsed without a live error banner: ${locale}, ${count}`, () => {
+      const labels = getShellCopy(locale).session.runs
+      const html = renderToStaticMarkup(
+        <HbarSessionRunActivity
+          runs={Array.from({ length: count }, (_, index) => run(String(index), 'failed'))}
+          labels={labels}
+          currentRunId={null}
+          historyLabel={labels.failureHistory(Math.min(count, 80))}
+          onRetryRun={() => {}}
+        />,
+      )
+      if (!count) expect(html).toBe('')
+      else {
+        expect(html).toContain(labels.failureHistory(Math.min(count, 80)))
+        expect(html).toContain('aria-expanded="false"')
+        expect(html).toContain('hidden=""')
+        expect(html).not.toContain('hbar-session-run-current')
+        expect(html).not.toContain('role="alert"')
+        expect(html.match(/role="listitem"/g)?.length ?? 0).toBe(Math.min(count, 20))
+      }
+    })
+
+test('a stale explicit Run ID cannot promote a different historical failure', () => {
+  const html = renderToStaticMarkup(
+    <HbarSessionRunActivity
+      runs={[run('original', 'failed')]}
+      labels={getShellCopy('zh-CN').session.runs}
+      currentRunId="removed"
+    />,
+  )
+  expect(html).not.toContain('hbar-session-run-current')
+  expect(html).not.toContain('role="alert"')
+  expect(html).toContain('data-run-id="original"')
+})

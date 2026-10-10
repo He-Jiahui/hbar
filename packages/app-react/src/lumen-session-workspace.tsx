@@ -74,7 +74,7 @@ import { HbarSessionUsageControl, sessionUsagePresentation, type HbarSessionUsag
 import { HbarHistoricalPlanMessage, HbarProposedPlanMessage } from './proposed-plan-message'
 import { HbarComposerPermissionPicker, type HbarComposerPermissionLabels } from './composer-permission-picker'
 import { HbarSessionRunActivity, currentSessionRun, type HbarSessionRunLabels } from './session-run-activity'
-import { sessionRunFailures } from './session-run-failure-model'
+import { currentSessionRunFailure, sessionRunFailures } from './session-run-failure-model'
 import { HbarSessionLiveStatus, type HbarSessionLiveStatusLabels } from './session-live-status'
 import { HbarQueuedUserRuns, type HbarQueuedUserRunsLabels } from './queued-user-runs'
 import { HbarSessionToolsMenu, type HbarSessionToolsMenuLabels } from './session-tools-menu'
@@ -1718,10 +1718,13 @@ function SessionWorkspaceContent({
     },
   )
 
+  const runFailures = timeline.sessionId === sessionId ? sessionRunFailures(timeline.runs, sessionId) : []
+  const currentFailure =
+    timeline.sessionId === sessionId ? currentSessionRunFailure(timeline.runs, sessionId) : null
   const activity: ReactNode =
     decisionProjection.fallback.length > 0 ||
     decisionProjection.settledHistory.length > 0 ||
-    sessionRunFailures(timeline.runs, sessionId).length > 0 ? (
+    runFailures.length > 0 ? (
       <LumenFrame className="hbar-app-react-session-activity">
         {decisionProjection.fallback.map(renderDecision)}
         <HbarSessionDecisionHistory
@@ -1731,7 +1734,9 @@ function SessionWorkspaceContent({
         />
         <HbarSessionRunActivity
           key={sessionId}
-          runs={sessionRunFailures(timeline.runs, sessionId).map((run) => ({
+          currentRunId={currentFailure?.id ?? null}
+          historyLabel={currentFailure ? undefined : labels.runs.failureHistory(runFailures.length)}
+          runs={runFailures.map((run) => ({
             id: run.id,
             label: labels.timestamp(run.createdAt),
             status: run.status,
@@ -1746,7 +1751,7 @@ function SessionWorkspaceContent({
             !firstSendLocked &&
             !workspaceMoveLocked
           }
-          retryingRunIds={sessionRunFailures(timeline.runs, sessionId)
+          retryingRunIds={runFailures
             .filter((run) => runActions[run.id]?.status === 'submitting')
             .map((run) => run.id)}
           onRetryRun={(operationId) => {

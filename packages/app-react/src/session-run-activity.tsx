@@ -30,6 +30,7 @@ export interface HbarSessionRunLabels extends Omit<LumenRunActivityLabels, 'stat
   readonly activeCount: (count: number) => string
   readonly recheckLabel: string
   readonly recheckingLabel: string
+  readonly failureHistory: (count: number) => string
 }
 
 export interface HbarSessionRunActivityProps extends Omit<
@@ -41,6 +42,9 @@ export interface HbarSessionRunActivityProps extends Omit<
   readonly canRetryNewRun?: boolean
   readonly canCancelRun?: (operationId: string) => boolean
   readonly unknownRetryRunIds?: readonly string[]
+  /** null renders only collapsed history; undefined retains the usual current Run selection. */
+  readonly currentRunId?: string | null
+  readonly historyLabel?: ReactNode
 }
 
 /** Prefer the actual executing Run to a newer queued Run for the current Stop target. */
@@ -60,6 +64,8 @@ export function HbarSessionRunActivity({
   canRetryNewRun = true,
   canCancelRun,
   unknownRetryRunIds = [],
+  currentRunId,
+  historyLabel,
   plan,
   feedback,
   onCancelRun,
@@ -69,7 +75,7 @@ export function HbarSessionRunActivity({
   const ids = new Set<string>()
   // The timeline owns an 80-Run window; the view grows only by explicit 20-row pages.
   const runs = sourceRuns.filter((run) => !ids.has(run.id) && Boolean(ids.add(run.id))).slice(0, MAX_RUNS)
-  const current = currentSessionRun(runs)
+  const current = currentRunId === undefined ? currentSessionRun(runs) : runs.find((run) => run.id === currentRunId)
   const others = runs.filter((run) => run.id !== current?.id)
   const isActive = (run: HbarSessionRunItem) => ['queued', 'running', 'waiting_approval'].includes(run.status)
   const activeCount = runs.filter(isActive).length
@@ -118,7 +124,7 @@ export function HbarSessionRunActivity({
     />
   )
 
-  if (!current && !plan && !feedback) return null
+  if (!runs.length && !plan && !feedback) return null
   return (
     <LumenFrame as="section" className="hbar-session-run-activity" aria-label={labels.title}>
       {current && (
@@ -145,12 +151,14 @@ export function HbarSessionRunActivity({
           {feedback}
         </LumenText>
       )}
-      {current && (
-        <HbarLumenDisclosure label={labels.details(runs.length)} className="hbar-session-run-history">
-          <LumenFrame className="hbar-session-run-row">
-            <LumenText as="span">{current.label}</LumenText>
-            {current.detail && <LumenText as="span">{current.detail}</LumenText>}
-          </LumenFrame>
+      {runs.length > 0 && (
+        <HbarLumenDisclosure label={historyLabel ?? labels.details(runs.length)} className="hbar-session-run-history">
+          {current && (
+            <LumenFrame className="hbar-session-run-row">
+              <LumenText as="span">{current.label}</LumenText>
+              {current.detail && <LumenText as="span">{current.detail}</LumenText>}
+            </LumenFrame>
+          )}
           {others.length > 0 && (
             <LumenFrame role="list" className="hbar-session-run-list">
               {others.slice(0, visible).map((run) => (
