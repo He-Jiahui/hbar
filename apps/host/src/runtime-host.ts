@@ -11,6 +11,8 @@ import { RuntimeDriverAdapter } from './runtime-driver-adapter'
 import { DRIVER_RUNTIME_FINGERPRINT } from './runtime-driver-contract'
 import { acquireHostProcessLock } from './process-lock'
 import type { RuntimeSystemPort } from './system-commands'
+import { RuntimeControllerAdapter } from './runtime-controller-adapter'
+import { CONTROLLER_RUNTIME_FINGERPRINT, type RuntimeControllerPort } from './runtime-controller-contract'
 
 export interface ManagedHostRuntimeOptions extends Omit<KernelOptions, 'layout' | 'lifecycle' | 'execution'> {
   readonly layout: PathLayout
@@ -22,6 +24,7 @@ interface GenerationRecord {
   readonly process: ManagedProcess
   owner: RuntimeOwner | null
   adapter: RuntimeDriverAdapter | null
+  controller: RuntimeControllerAdapter | null
 }
 interface InterruptedOwner {
   readonly owner: RuntimeOwner
@@ -41,6 +44,10 @@ const driverDescriptor: RuntimeUnitDescriptor = {
   id: 'driver.pi', kind: 'driver', isolation: 'process', dependencies: [], required: true, reloadable: true,
   contractFingerprint: DRIVER_RUNTIME_FINGERPRINT, storageSchema: STORAGE_SCHEMA_VERSION,
 }
+const controllerDescriptor: RuntimeUnitDescriptor = {
+  id: 'controller', kind: 'controller', isolation: 'process', dependencies: [], required: true, reloadable: true,
+  contractFingerprint: CONTROLLER_RUNTIME_FINGERPRINT, storageSchema: STORAGE_SCHEMA_VERSION,
+}
 const key = (owner: Pick<RuntimeOwner, 'unitId' | 'generation'>) => `${owner.unitId}:${owner.generation}`
 
 /** Composition root for the stable writer and version-bound driver. The embedded Kernel is explicitly restart-only. */
@@ -50,6 +57,13 @@ export class ManagedHostRuntime implements RuntimeSystemPort {
   readonly coordinator: RuntimeCoordinator
   readonly manager: RuntimeManager
   readonly buildUnits: readonly RuntimeBuildUnit[]
+  readonly controller: RuntimeControllerPort = { dispatch: (payload, invoke) => {
+    const version = this.manager.currentVersion('controller')
+    const generation = this.generations.get(key(version))
+    if (!generation?.controller || generation.process.snapshot().phase !== 'serving')
+      return Promise.reject(new HbarError('RUNTIME_RECOVERING', 'The Controller is recovering'))
+    return generation.controller.dispatch(payload, invoke)
+  } }
   private kernelValue: Kernel | undefined
   private readonly kernelOwner: RuntimeOwner = { unitId: 'kernel', generation: 1, incarnation: crypto.randomUUID() }
   private readonly baseOwner: RuntimeOwner = { unitId: 'base', generation: 1, incarnation: crypto.randomUUID() }
@@ -72,6 +86,7 @@ export class ManagedHostRuntime implements RuntimeSystemPort {
     this.buildUnits = [
       { descriptor: storageDescriptor, entrypoint: 'apps/host/src/runtime-storage-process.ts', workers: ['packages/storage/src/worker.ts'] },
       { descriptor: driverDescriptor, entrypoint: 'apps/host/src/runtime-driver-process.ts' },
+      { descriptor: controllerDescriptor, entrypoint: 'apps/host/src/runtime-controller-process.ts' },
     ]
     this.coordinator = new RuntimeCoordinator({
       claim: draft => this.storage.call('runtimeExecutionClaim', draft),
@@ -197,12 +212,14 @@ export class ManagedHostRuntime implements RuntimeSystemPort {
     let record: GenerationRecord
     const managed = new ManagedProcess({ descriptor: artifact.descriptor, artifactId: artifact.id, generation,
       modulePath: join(this.artifacts.root, artifact.id, artifact.entry), parent: this.baseOwner, configuration,
+      controlMethods: ['controller.control', 'controller.invoke'],
       ...(this.options.processCommand ? { command: this.options.processCommand } : {}),
       onPeer: (peer, owner) => {
         this.coordinator.register(owner, { unitId: artifact.unitId, generation, artifactId: artifact.id }, artifact.descriptor)
         this.registeredOwners.add(owner.incarnation)
         record.owner = owner
         if (artifact.unitId === 'driver.pi') record.adapter = new RuntimeDriverAdapter(peer, runId => this.leases.get(runId))
+        if (artifact.unitId === 'controller') record.controller = new RuntimeControllerAdapter(peer)
       },
       onState: state => {
         changed()
@@ -216,6 +233,7 @@ export class ManagedHostRuntime implements RuntimeSystemPort {
       onFault: (owner, reason) => this.fault(owner, reason),
       onExit: async owner => {
         if (artifact.unitId === 'driver.pi') { record.adapter?.dispose(new HbarError('EXECUTION_OWNER_REVOKED', 'Driver process exited')); record.adapter = null }
+        if (artifact.unitId === 'controller') { record.controller?.dispose(); record.controller = null }
         this.coordinator.ownerExited(owner)
         const interruption = this.interrupted.get(owner.incarnation)
         if (interruption) interruption.exited = true
@@ -225,7 +243,7 @@ export class ManagedHostRuntime implements RuntimeSystemPort {
         }
       },
     })
-    record = { artifact, process: managed, owner: null, adapter: null }
+    record = { artifact, process: managed, owner: null, adapter: null, controller: null }
     this.generations.set(`${artifact.unitId}:${generation}`, record)
     return managed
   }
@@ -257,7 +275,7 @@ export class ManagedHostRuntime implements RuntimeSystemPort {
   private execution(): KernelExecutionPort {
     return {
       claim: async sessionId => {
-        if (!this.ready || !this.manager.snapshot().ready) return null
+        if (!this.ready || !this.executionReady()) return null
         const run = await this.storage.call('nextQueuedRun', sessionId)
         if (!run) return null
         const lease = await this.coordinator.claim(this.kernelOwner, sessionId, run.id, {
@@ -285,6 +303,7 @@ export class ManagedHostRuntime implements RuntimeSystemPort {
   }
   private async fault(owner: RuntimeOwner, reason: string): Promise<void> {
     if (this.closing || this.coordinator.role(owner) === 'candidate') return
+    if (owner.unitId === 'controller') { await this.coordinator.revoke(owner); return }
     this.ready = false
     this.kernelValue?.beginDrain()
     if (owner.unitId === 'storage') {
@@ -299,7 +318,7 @@ export class ManagedHostRuntime implements RuntimeSystemPort {
     await revocation
   }
   private async restoreExecution(): Promise<void> {
-    if (!this.kernelValue || this.closing || !this.manager.snapshot().ready || this.storage.snapshot().phase !== 'serving') return
+    if (!this.kernelValue || this.closing || !this.executionReady() || this.storage.snapshot().phase !== 'serving') return
     for (const [incarnation, failure] of this.interrupted) {
       if (!failure.exited || failure.leases.some(lease => !this.stoppedRuns.has(lease.runId))) continue
       for (const lease of failure.leases) {
@@ -315,6 +334,10 @@ export class ManagedHostRuntime implements RuntimeSystemPort {
     this.ready = true
     this.transitionError = null
     await this.kernel.activate()
+  }
+  private executionReady(): boolean {
+    return this.manager.snapshot().units.filter(unit => unit.descriptor.kind === 'storage' || unit.descriptor.kind === 'driver')
+      .every(unit => unit.generations.some(generation => generation.role === 'default' && generation.phase === 'serving'))
   }
   private async recoverStartup(): Promise<void> {
     let recovered = 0

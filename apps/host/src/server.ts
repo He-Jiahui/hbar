@@ -96,7 +96,8 @@ import { createExtensionCommands } from './extension-commands.ts'
 import { createSkillInspectionService } from './skill-inspection.ts'
 import type { RuntimeScope } from '@hbar/kernel'
 import { SystemTerminalManager } from './system-terminal'
-import { sendSocketFrame } from './socket-sender'
+import { sendSocketFrame, sendSocketTextFrame } from './socket-sender'
+import { isStableRpc, isRuntimeStatusRead } from './stable-rpc'
 import { UsageService } from '@hbar/usage'
 import { PerformanceCollector } from '@hbar/metrics'
 import { createHostPerformanceProvider } from './performance-provider.ts'
@@ -132,6 +133,7 @@ interface SocketData {
   schemaQueries: Map<string, AbortController>
 }
 export interface ServerOptions {
+  readonly controller?: import('./runtime-controller-contract').RuntimeControllerPort
   readonly runtime?: import('./system-commands').RuntimeSystemPort
   readonly dataRootId?: string
   hostname?: string
@@ -571,6 +573,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       const revoked = (await kernel.storage.call('devices')).some((device) => device.id === id)
       if (!revoked) return { revoked: false }
       await kernel.storage.call('revokeDevice', id)
+      auth.invalidateDevice(id)
       for (const peer of sockets)
         if (peer.data.deviceId === id) {
           send(peer, { jsonrpc: '2.0', method: 'auth.revoked', params: { reason: 'Device access revoked' } })
@@ -1354,14 +1357,17 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
           'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Filename, X-Content-Sha256, X-Artifact-Owner',
         })
       try {
-        if (url.pathname === '/healthz')
+        if (url.pathname === '/livez') return json(request, { alive: true, instanceId: kernel.instanceId })
+        if (url.pathname === '/healthz') {
+          const ready = options.runtime?.snapshot().ready ?? true
           return json(request, {
-            ready: true,
+            ready,
             version: APP_VERSION,
             protocol: PROTOCOL_VERSION,
             instanceId: kernel.instanceId,
             ...(options.dataRootId ? { dataRootId: options.dataRootId } : {}),
-          })
+          }, ready ? 200 : 503)
+        }
         if (url.pathname === '/auth/pair' && request.method === 'POST') {
           const p = z.object({ code: z.string().max(32), name: z.string().min(1).max(100) }).parse(await request.json())
           const result = await auth.pair(p.code, p.name, host.requestIP(request)?.address ?? 'unknown')
@@ -1485,6 +1491,27 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
             if (socket.data.pending >= 32) throw new HbarError('OVERLOADED', 'Too many pending requests')
             socket.data.pending++
             admitted = true
+            let stable = false
+            if (options.controller) {
+              const text = typeof payload === 'string' ? payload : payload.toString()
+              try {
+                const envelope = rpcRequestSchema.safeParse(JSON.parse(text))
+                if (envelope.success) { id = envelope.data.id; stable = isStableRpc(envelope.data.method, envelope.data.params) }
+              } catch { /* The Controller returns a correlated response for every valid envelope. */ }
+              if (!stable) {
+                const frame = await options.controller.dispatch(text, async (request, signal) => {
+                  signal.throwIfAborted()
+                  if (request.method !== 'system.hello') {
+                    if (!socket.data.initialized) throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
+                    await auth.authenticate(socket.data.token)
+                  }
+                  signal.throwIfAborted()
+                  return invoke(request.method, rpcSchemas[request.method].parse(request.params), socket, request.id)
+                })
+                sendSocketTextFrame(socket, frame)
+                return
+              }
+            }
             const request = rpcRequestSchema.parse(
               JSON.parse(typeof payload === 'string' ? payload : payload.toString()),
             )
@@ -1492,7 +1519,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
             if (!Object.hasOwn(rpcSchemas, request.method)) throw new HbarError('METHOD_NOT_FOUND', request.method)
             if (request.method !== 'system.hello') {
               if (!socket.data.initialized) throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
-              await auth.authenticate(socket.data.token)
+              if (isRuntimeStatusRead(request.method, request.params)) await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
+              else await auth.authenticate(socket.data.token)
             }
             const method = request.method as RpcMethod
             const params = rpcSchemas[method].parse(request.params)

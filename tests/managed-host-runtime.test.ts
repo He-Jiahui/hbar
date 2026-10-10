@@ -46,7 +46,7 @@ test('the composition runs real Storage and Pi child processes and commits a fen
 
 test('a local driver update pins the active Run, keeps the Storage process and authenticated WebSocket, and sends new work to the new generation', async () => {
   const f = await fixture()
-  const host = await startServer(f.runtime.kernel, { port: 0, runtime: f.runtime })
+  const host = await startServer(f.runtime.kernel, { port: 0, runtime: f.runtime, controller: f.runtime.controller })
   const client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
   resources.unshift(async () => { client.disconnect(); await host.close() })
   await client.pair(host.pairing.code, 'managed runtime update')
@@ -80,7 +80,7 @@ test('a local driver update pins the active Run, keeps the Storage process and a
 
 test('a killed driver revokes its old Run and resumes once on the same activated artifact while the server connection remains live', async () => {
   const f = await fixture()
-  const host = await startServer(f.runtime.kernel, { port: 0, runtime: f.runtime })
+  const host = await startServer(f.runtime.kernel, { port: 0, runtime: f.runtime, controller: f.runtime.controller })
   const client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
   resources.unshift(async () => { client.disconnect(); await host.close() })
   await client.pair(host.pairing.code, 'managed runtime recovery')
@@ -144,6 +144,10 @@ test('an idle storage failure verifies the replacement before reopening admissio
 
 test('a failed storage call is never replayed and unresolved admission remains fenced after process recovery', async () => {
   const f = await fixture()
+  const host = await startServer(f.runtime.kernel, { port: 0, runtime: f.runtime, controller: f.runtime.controller })
+  const client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
+  resources.unshift(async () => { client.disconnect(); await host.close() })
+  await client.pair(host.pairing.code, 'Storage status recovery')
   const original = f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'storage')!.generations[0]!
   const pending = f.runtime.storage.call('setSetting', 'unknown-receipt', 'must not replay').catch((error: unknown) => error)
   if (!original.pid || original.pid === process.pid) throw new Error('Expected the owned storage PID')
@@ -153,6 +157,8 @@ test('a failed storage call is never replayed and unresolved admission remains f
   await f.runtime.settled()
   expect(f.runtime.storage.snapshot().phase).toBe('fenced')
   expect(f.runtime.snapshot().ready).toBe(false)
+  expect((await createSystemCommandClient(client).execute('system.runtime.get', {})).ready).toBe(false)
+  expect(await client.call('workspace.list', {}).catch((error: unknown) => error)).toMatchObject({ code: 'RUNTIME_PROCESS_EXITED' })
   expect(await f.runtime.storage.call('setSetting', 'retry', 'forbidden').catch((error: unknown) => error)).toMatchObject({ code: 'RUNTIME_PROCESS_EXITED' })
 })
 
@@ -178,4 +184,78 @@ test('a read-only candidate failure preserves the default driver and does not re
   await f.runtime.kernel.waitForIdle()
   expect((await f.runtime.storage.call('run', run.id)).status).toBe('completed')
   expect(await f.runtime.storage.call('runtimeRecoveryRead', run.id)).toBeNull()
+})
+
+test('Controller replacement pins an accepted request while keeping the external socket, identity and unrelated processes', async () => {
+  const f = await fixture()
+  let release!: () => void, entered!: () => void
+  const held = new Promise<void>(resolve => { release = resolve })
+  const admitted = new Promise<void>(resolve => { entered = resolve })
+  const host = await startServer(f.runtime.kernel, { port: 0, runtime: f.runtime, controller: {
+    dispatch: (payload, invoke) => f.runtime.controller.dispatch(payload, async (request, signal) => {
+      if (request.method === 'workspace.list') { entered(); await held }
+      signal.throwIfAborted()
+      return invoke(request, signal)
+    }),
+  } })
+  const client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
+  resources.unshift(async () => { release(); client.disconnect(); await host.close() })
+  await client.pair(host.pairing.code, 'Controller replacement')
+  const original = f.runtime.snapshot()
+  const pending = client.call('workspace.list', {})
+  await admitted
+  const sourceRoot = await mkdtemp(join(process.cwd(), 'artifacts', 'managed-controller-update-'))
+  resources.push(() => rm(sourceRoot, { recursive: true, force: true }))
+  const source = join(sourceRoot, 'controller.ts')
+  await writeFile(source, `${(await readFile('apps/host/src/runtime-controller-process.ts', 'utf8')).replace("'./runtime-controller-contract'", "'../../apps/host/src/runtime-controller-contract'")}\nexport const revision = 2\n`)
+  const build = f.runtime.buildUnits.find(unit => unit.descriptor.id === 'controller')!
+  const set = f.runtime.artifacts.registerSet([await f.runtime.artifacts.build({ ...build, entrypoint: source })])
+  const operation = f.runtime.reload(set.id, ['controller'])
+  await f.runtime.manager.reconcile()
+  await f.runtime.settled()
+  const state = f.runtime.snapshot()
+  expect(f.runtime.manager.currentVersion('controller').generation).toBe(2)
+  expect(state.units.find(unit => unit.descriptor.id === 'controller')?.generations).toHaveLength(2)
+  expect(state.units.find(unit => unit.descriptor.id === 'driver.pi')?.generations[0]?.pid).toBe(original.units.find(unit => unit.descriptor.id === 'driver.pi')?.generations[0]?.pid)
+  expect((await createSystemCommandClient(client).execute('system.runtime.get', {})).instanceId).toBe(original.instanceId)
+  release()
+  expect((await pending).items).toHaveLength(1)
+  await f.runtime.manager.reconcile()
+  expect(f.runtime.getReload(operation.operationId).phase).toBe('completed')
+  expect(client.connectionStatus()).toBe('connected')
+})
+
+test('a Controller crash gives an accepted request its real failure, preserves execution and serves recovery management and liveness', async () => {
+  const f = await fixture()
+  let release!: () => void, entered!: () => void
+  const held = new Promise<void>(resolve => { release = resolve })
+  const admitted = new Promise<void>(resolve => { entered = resolve })
+  const host = await startServer(f.runtime.kernel, { port: 0, runtime: f.runtime, controller: {
+    dispatch: (payload, invoke) => f.runtime.controller.dispatch(payload, async (request, signal) => {
+      if (request.method === 'workspace.list') { entered(); await held }
+      signal.throwIfAborted()
+      return invoke(request, signal)
+    }),
+  } })
+  const url = `http://127.0.0.1:${host.server.port}`
+  const client = new HbarClient(url)
+  resources.unshift(async () => { release(); client.disconnect(); await host.close() })
+  await client.pair(host.pairing.code, 'Controller recovery')
+  const original = f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'controller')!.generations[0]!
+  const run = await f.runtime.kernel.submit(f.session.id, 'healthy-during-controller-fault', { text: '/slow', images: [] }, 'local-fixture')
+  const pending = client.call('workspace.list', {}).catch((error: unknown) => error)
+  await admitted
+  if (!original.pid || original.pid === process.pid) throw new Error('Expected the owned Controller PID')
+  process.kill(original.pid, 'SIGKILL')
+  expect(await pending).toMatchObject({ code: 'IPC_DISCONNECTED' })
+  expect(client.connectionStatus()).toBe('connected')
+  expect((await fetch(`${url}/livez`)).status).toBe(200)
+  expect((await fetch(`${url}/healthz`)).status).toBe(503)
+  expect((await createSystemCommandClient(client).execute('system.runtime.get', {})).ready).toBe(false)
+  release()
+  await until(() => f.runtime.snapshot().ready)
+  await f.runtime.kernel.waitForIdle()
+  expect((await f.runtime.storage.call('run', run.id)).status).toBe('completed')
+  expect(await f.runtime.storage.call('runtimeRecoveryRead', run.id)).toBeNull()
+  expect(f.runtime.manager.currentVersion('controller')).toMatchObject({ generation: 1, artifactId: original.artifactId })
 })

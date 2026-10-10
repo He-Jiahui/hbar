@@ -15,6 +15,7 @@ export {
   type RuntimeResourceLease,
 } from './coordinator'
 export { ManagedProcess, type ManagedProcessOptions } from './process'
+export { runtimeDomainError } from './errors'
 export {
   type RuntimeProcessContext,
   type RuntimeProcessModule,
