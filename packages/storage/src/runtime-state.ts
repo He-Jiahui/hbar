@@ -32,6 +32,7 @@ export interface RuntimeRecoveryScope {
   readonly runIds: readonly string[]
   readonly preserveQueued?: boolean
   readonly preserveApprovals?: boolean
+  readonly reconcileInterrupted?: boolean
 }
 export interface RuntimeStatePort {
   run(id: string): Run
@@ -42,6 +43,7 @@ export interface RuntimeStatePort {
   start(run: Run, startedAt: number): Run
   /** Atomically append one canonical record containing both Run and recovery identity. */
   queue(original: Run, relationship: RunRecovery, chain: RecoveryChain): Run
+  reconcile(run: Run): void
 }
 
 function parseJson(text: string): unknown { return JSON.parse(text) }
@@ -175,6 +177,35 @@ export function createRuntimeState(db: Database, port: RuntimeStatePort) {
     },
     readRecovery,
     readChain,
+    holdRecovery(predecessorRunId: string, recoveryId: string, reasonCode: string | null): RuntimeRecoveryRecord {
+      return db.transaction(() => {
+        const record = readRecovery(predecessorRunId)
+        if (!record || record.recoveryId !== recoveryId) throw new HbarError('RECOVERY_NOT_FOUND', 'Recovery identity does not match its durable record')
+        if (record.run || record.chain.status === 'manual_required') return record
+        const code = reason(port.run(predecessorRunId)) ?? (reasonCode === null ? null : z.string().min(1).max(128).parse(reasonCode))
+        if (record.chain.reasonCode === code && record.chain.status === (code ? 'waiting' : 'pending')) return record
+        return publish({ ...record, chain: { ...record.chain, status: code ? 'waiting' : 'pending', reasonCode: code, updatedAt: Date.now() } })
+      }).immediate()
+    },
+    reconcileRecovery(predecessorRunId: string, recoveryId: string): void {
+      db.transaction(() => {
+        const record = readRecovery(predecessorRunId)
+        const run = port.run(predecessorRunId)
+        if (!record || record.recoveryId !== recoveryId || record.run || run.status !== 'interrupted' || reason(run))
+          throw new HbarError('RECOVERY_NOT_READY', 'Reconciliation requires a known interrupted recovery predecessor')
+        port.reconcile(run)
+      }).immediate()
+    },
+    appendRecovery(predecessorRunId: string, recoveryId: string, type: string, data: unknown): SessionEvent {
+      return db.transaction(() => {
+        const record = readRecovery(predecessorRunId)
+        const run = port.run(predecessorRunId)
+        const permitted = new Set(['goal.accounted', 'goal.updated', 'goal.run_bound', 'budget.accounted'])
+        if (!record || record.recoveryId !== recoveryId || record.run || run.status !== 'interrupted' || !permitted.has(type))
+          throw new HbarError('RECOVERY_WRITE_FORBIDDEN', 'Reconciliation may only append accounting for its interrupted predecessor')
+        return port.append(run.sessionId, type, data, run.id)
+      }).immediate()
+    },
     planRecovery(predecessorRunId: string): RuntimeRecoveryRecord {
       return db.transaction(() => {
         const previous = readRecovery(predecessorRunId)

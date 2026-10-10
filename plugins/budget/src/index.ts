@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { createHash } from 'node:crypto'
 import { HbarError, idSchema, usageSchema } from '@hbar/contracts'
-import type { RunSource, SessionEvent, Usage } from '@hbar/contracts'
+import type { Run, RunSource, SessionEvent, Usage } from '@hbar/contracts'
 import { budgetReceiptSchema, setBudgetInputSchema } from '@hbar/contracts/commands/budget'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
 import { appendModelContext, definePlugin, provide } from '@hbar/plugin-sdk'
@@ -148,7 +148,7 @@ export class BudgetRuntime {
     // Usage facts may have committed just before the Host lost its step/end
     // callback. Reconcile them before exposing a budget or admitting a model.
     const prior = this.budgets.get(sessionId)
-    if (prior) {
+    if (prior && this.api.restoreMode !== 'projection') {
       const delta = tokenDelta(events, prior.usageThroughSeq)
       if (delta > 0)
         await this.persist(
@@ -305,6 +305,10 @@ export class BudgetRuntime {
 
   async accountRun(event: HookEvents['run.end']) {
     return this.accountUsage(event.sessionId, event.runId, event)
+  }
+  async reconcileRun(run: Run): Promise<void> {
+    await this.restoreSession(run.sessionId)
+    await this.accountRun({ sessionId: run.sessionId, runId: run.id, status: run.status, run })
   }
 
   async accountStep(event: HookEvents['step.end']) {

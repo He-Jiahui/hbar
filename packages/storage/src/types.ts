@@ -507,6 +507,10 @@ export interface StorageMethods {
   runtimeRecoveryQueue(predecessorRunId: string, recoveryId: string): RuntimeRecoveryRecord
   runtimeRecoveryRead(predecessorRunId: string): RuntimeRecoveryRecord | null
   runtimeRecoveryChain(chainId: string): RecoveryChain | null
+  runtimeRecoveryHold(predecessorRunId: string, recoveryId: string, reasonCode: string | null): RuntimeRecoveryRecord
+  runtimeRecoveryReconcile(predecessorRunId: string, recoveryId: string): void
+  runtimeRecoveryAppend(predecessorRunId: string, recoveryId: string, type: string, data: unknown): SessionEvent
+  recoveryInputMessage(runId: string): Message | null
   saveProvider(provider: ProviderConfig): void
   providers(): ProviderConfig[]
   deleteProvider(id: string): void

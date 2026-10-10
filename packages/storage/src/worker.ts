@@ -1076,6 +1076,7 @@ const runtimeState = createRuntimeState(db, {
   run: id => methods.run(id),
   append: appendEvent,
   cancelRequested: id => methods.cancelRequested(id),
+  reconcile: run => { methods.recover({ runIds: [run.id], preserveQueued: true, preserveApprovals: true, reconcileInterrupted: true }) },
   archived: id => methods.session(id).archived,
   start(run, startedAt) {
     db.query("UPDATE runs SET status='running',startedAt=? WHERE id=?").run(startedAt, run.id)
@@ -1108,6 +1109,19 @@ const methods: StorageMethods = {
   runtimeRecoveryQueue: runtimeState.queueRecovery,
   runtimeRecoveryRead: runtimeState.readRecovery,
   runtimeRecoveryChain: runtimeState.readChain,
+  runtimeRecoveryHold: runtimeState.holdRecovery,
+  runtimeRecoveryReconcile: runtimeState.reconcileRecovery,
+  runtimeRecoveryAppend: runtimeState.appendRecovery,
+  recoveryInputMessage(runId) {
+    let run = methods.run(runId)
+    for (let index = 0; index < 3; index++) {
+      const row = db.query<Row, [string]>("SELECT * FROM messages WHERE runId=? AND role='user' ORDER BY seq LIMIT 1").get(run.id)
+      if (row) return messageRow(row)
+      if (!run.recovery) return null
+      run = methods.run(run.recovery.predecessorRunId)
+    }
+    return null
+  },
   chatDatabaseMaintenanceBegin(operationId) {
     if (databaseMaintenanceOwner) throw new HbarError('BUSY', 'Database maintenance is already active')
     // VACUUM can renumber messages. Discovery restarts without deleting stable-ID FTS documents or queues.
@@ -2390,7 +2404,9 @@ const methods: StorageMethods = {
   recover: (scope) =>
     db.transaction(() => {
       const ids = scope ? new Set(z.array(z.string().min(1).max(160)).max(256).parse(scope.runIds)) : null
-      const active = (db.query("SELECT * FROM runs WHERE status IN ('running','waiting_approval')").all() as Row[]).map(
+      const active = (db.query(scope?.reconcileInterrupted
+        ? "SELECT * FROM runs WHERE status IN ('running','waiting_approval','interrupted')"
+        : "SELECT * FROM runs WHERE status IN ('running','waiting_approval')").all() as Row[]).map(
         runRow,
       ).filter(run => !ids || ids.has(run.id))
       for (const run of active) {
@@ -2483,7 +2499,7 @@ const methods: StorageMethods = {
           id: string
         }[])
           methods.resolveApproval(approval.id, 'cancelled')
-        methods.setRun(
+        if (run.status !== 'interrupted') methods.setRun(
           run.id,
           'interrupted',
           'Host stopped before this run settled. Inspect tool outcomes before resuming.',

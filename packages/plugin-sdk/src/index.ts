@@ -332,6 +332,8 @@ export interface GoalToolResponse {
   completionBudgetReport?: string
 }
 export interface GoalService {
+  reconcileRun?(run: Run): Promise<void>
+  recoveryReason?(run: Run): Promise<string | null>
   /** Restore active execution once the Host's providers and lifecycle gates are ready. */
   resumeOnStartup(): Promise<void>
   snapshot(sessionId: string): Promise<{ value: GoalToolResponse; seq: number }>
@@ -432,6 +434,7 @@ export interface ModeService {
   commitExit<T extends { modeEvent: SessionEvent | null }>(sessionId: string, commit: () => Promise<T>): Promise<T>
 }
 export interface BudgetService {
+  reconcileRun?(run: Run): Promise<void>
   get(sessionId: string): Promise<SessionBudget | null>
   set(sessionId: string, limit: number): Promise<SessionBudget>
   setCommand(

@@ -15,8 +15,13 @@ export interface KernelExecutionPort {
 
 export class KernelExecutionScope {
   private readonly context = new AsyncLocalStorage<ExecutionOwnership>()
+  private readonly recovery = new AsyncLocalStorage<{ runId: string; recoveryId: string; sessionId: string }>()
   constructor(private readonly execution: KernelExecutionPort | undefined) {}
   get current(): ExecutionOwnership | undefined { return this.context.getStore() }
+  get currentRecovery() { return this.recovery.getStore() }
+  reconcile<Result>(context: { runId: string; recoveryId: string; sessionId: string }, operation: () => Promise<Result>): Promise<Result> {
+    return this.recovery.run(context, operation)
+  }
   bind<Args extends unknown[], Result>(operation: (...args: Args) => Result): (...args: Args) => Result {
     const captured = AsyncLocalStorage.snapshot()
     return (...args) => captured(operation, ...args)

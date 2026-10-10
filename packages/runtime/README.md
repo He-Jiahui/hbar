@@ -98,3 +98,13 @@ cleanup and interruption acknowledgement still execute when fencing rejects its
 late terminal write. Summary timers and external observers do not inherit expired
 execution authority. Stable release wakes the currently selected Kernel so queued
 work automatically crosses the version boundary.
+
+`RuntimeRecoveryService` reconciles only supplied Run identities. It holds a durable
+recovery record while models, permissions, sandbox snapshots, execution mode, Goal
+control or budgets are unavailable. Original approval and sandbox authority cannot
+expand silently. Goal and budget reconciliation uses the predecessor's restricted
+accounting port before admission. The resumed driver receives settled context and
+an explicit instruction to continue unfinished work; its initial user message is
+reused when already committed. Duplicate failure notifications do not produce
+duplicate Run identities. These use cases are exercised with the real Kernel and
+Storage Worker, including user-priority queues and interrupted-before-message work.

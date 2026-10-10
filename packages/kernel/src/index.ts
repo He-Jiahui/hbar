@@ -1,5 +1,8 @@
 import { readdir, realpath, stat } from 'node:fs/promises'
 import { KernelExecutionScope, type KernelExecutionPort } from './runtime-execution'
+import { RuntimeRecoveryService } from './runtime-recovery'
+export { RuntimeRecoveryService } from './runtime-recovery'
+export type { RuntimeRecoveryAdmission } from './runtime-recovery'
 import type { ExecutionOwnership } from '@hbar/contracts/runtime'
 export type { KernelExecutionPort } from './runtime-execution'
 import { writeArtifactAtomically, recoverArtifactReferenceIndex, type ArtifactUploadOptions } from './artifact-upload'
@@ -450,6 +453,7 @@ type ApprovalResolution =
 
 export class Kernel {
   private readonly executionScope: KernelExecutionScope
+  private readonly runtimeRecovery: RuntimeRecoveryService
   private readonly toolExecutions = new ToolExecutions()
   readonly directoryQueries: ReturnType<typeof createDirectoryQueries>
   readonly storage: StoragePort
@@ -502,6 +506,14 @@ export class Kernel {
     this.storage = this.executionScope.storage(storage ?? new Storage(options.layout.database, options.layout, {
       ...(options.onFatal ? { onFatal: options.onFatal } : {}),
     }))
+    this.runtimeRecovery = new RuntimeRecoveryService(this.storage, {
+      reconcile: (run, record) => this.executionScope.reconcile({ runId: run.id, sessionId: run.sessionId, recoveryId: record.recoveryId }, async () => {
+        await this.plugins.get<BudgetService>('budget').reconcileRun?.(run)
+        await this.plugins.get<GoalService>('goal').reconcileRun?.(run)
+      }),
+      check: run => this.checkRuntimeRecovery(run),
+      publish: record => { this.changed('runtime-recovery'); if (record.run) this.kick(record.chain.sessionId) },
+    })
     this.workspaceSandboxes = new WorkspaceSandboxService(
       this.storage,
       join(options.layout.cacheRoot, 'workspace-sandboxes'),
@@ -776,6 +788,29 @@ export class Kernel {
     for (const { run, controller } of this.active.values())
       if (ids.has(run.id)) controller.abort(new HbarError('EXECUTION_OWNER_REVOKED', 'The runtime owner lost execution authority'))
   }
+  recoverRuns(runIds: readonly string[]) { return this.runtimeRecovery.recover(runIds) }
+  resumeRecovery(predecessorRunId: string) { return this.runtimeRecovery.resume(predecessorRunId) }
+  private async checkRuntimeRecovery(run: Run): Promise<string | null> {
+    try {
+      if (this.closing || this.maintenance) return 'KERNEL_NOT_AVAILABLE'
+      if ((await this.storage.call('session', run.sessionId)).archived) return 'ARCHIVED'
+      if (await this.storage.call('cancelRequested', run.id)) return 'USER_CANCELLED'
+      const model = await this.plugins.get<ModelRegistry>('models').get(run.modelId)
+      if (run.input.images.length && !model.imageInput) return 'UNSUPPORTED_IMAGE'
+      const current = await this.sessionPermissionMode(run.sessionId)
+      if ((run.input.approval ?? current) !== current) return 'PERMISSION_CHANGED'
+      if (current === 'sandbox') {
+        const snapshot = await this.sandboxProfiles.createSnapshot(await this.sessionSandboxProfileId(run.sessionId))
+        if (snapshot.digest !== run.input.sandbox?.digest) return 'SANDBOX_CHANGED'
+      }
+      const mode = await this.plugins.get<ModeService>('mode').get(run.sessionId)
+      if ((run.input.mode ?? mode.mode) !== mode.mode) return 'MODE_CHANGED'
+      await this.plugins.get<BudgetService>('budget').assertCanStart(run.sessionId, run.input.source)
+      const goals = this.plugins.get<GoalService>('goal')
+      if (!goals.recoveryReason && (await goals.get(run.sessionId)).goal) return 'PLUGIN_RECOVERY_RESTART_REQUIRED'
+      return (await goals.recoveryReason?.(run)) ?? null
+    } catch (error) { return error instanceof HbarError ? error.code : 'RECOVERY_ADMISSION_FAILED' }
+  }
   private async restoreAutomation() {
     this.automation.clear()
     for (const session of await this.storage.call('sessions')) {
@@ -935,7 +970,12 @@ export class Kernel {
     this.publish({ method: 'host.changed', params: { kind } })
   }
   async append(sessionId: string, type: string, data: unknown, runId?: string, stepId?: string) {
-    const event = await this.storage.call('append', sessionId, type, data, runId, stepId)
+    const recovery = this.executionScope.currentRecovery
+    if (recovery && (sessionId !== recovery.sessionId || (runId !== undefined && runId !== recovery.runId) || stepId !== undefined))
+      throw new HbarError('RECOVERY_WRITE_FORBIDDEN', 'Recovery accounting must belong to its predecessor')
+    const event = recovery
+      ? await this.storage.call('runtimeRecoveryAppend', recovery.runId, recovery.recoveryId, type, data)
+      : await this.storage.call('append', sessionId, type, data, runId, stepId)
     this.publishEvent(event)
     return event
   }
@@ -1659,6 +1699,10 @@ export class Kernel {
     let branchExecutionPath: string | null = null
     let branchTargetRevision: number | null = null
     try {
+      if (run.recovery) {
+        const reason = await this.checkRuntimeRecovery(run)
+        if (reason) throw new HbarError(reason, 'Recovered execution is waiting for its original control conditions')
+      }
       this.publishEvent(await this.storage.call('setRun', run.id, 'running'))
       await scope.hooks.dispatch('run.start', {
         sessionId,
@@ -1691,8 +1735,11 @@ export class Kernel {
         ...run.input.images.map((artifact) => ({ type: 'image' as const, artifact })),
         ...(run.input.files ?? []).map((artifact) => ({ type: 'file' as const, artifact })),
       ]
-      const initialCommit = await this.storage.call('commit', sessionId, run.id, 'user', content)
-      this.publishEvent(initialCommit.event)
+      const retainedInput = run.recovery ? await this.storage.call('recoveryInputMessage', run.id) : null
+      const initialCommit = retainedInput
+        ? { message: retainedInput, event: null }
+        : await this.storage.call('commit', sessionId, run.id, 'user', content)
+      if (initialCommit.event) this.publishEvent(initialCommit.event)
       if (session.title === 'New session')
         await this.updateSession(sessionId, {
           title: (
@@ -2063,7 +2110,7 @@ export class Kernel {
       ? buildSteeringContext(context.messages, { ...steering, compactedThroughSeq: context.throughSeq })
       : context.messages
     return hooks.dispatch('context.build', {
-      system: `You are hbar, a coding assistant. Work in ${workspace.path}. Use the available tools. Respect approval results. Report uncertainty and errors accurately.${this.workspaceSandboxes.instructions(workspace.path)}${context.summary ? `\n\nEarlier conversation summary:\n${context.summary}` : ''}`,
+      system: `You are hbar, a coding assistant. Work in ${workspace.path}. Use the available tools. Respect approval results. Report uncertainty and errors accurately.${this.workspaceSandboxes.instructions(workspace.path)}${run?.recovery ? '\nThis Run safely continues an interrupted execution. Use the durable conversation and tool results below. Continue only unfinished work under the original authorization; do not repeat committed operations or perform an operation whose prior result is unknown.' : ''}${context.summary ? `\n\nEarlier conversation summary:\n${context.summary}` : ''}`,
       messages:
         context.summary && messages[0]?.role !== 'user'
           ? [
