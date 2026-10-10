@@ -132,6 +132,7 @@ interface SocketData {
   schemaQueries: Map<string, AbortController>
 }
 export interface ServerOptions {
+  readonly runtime?: import('./system-commands').RuntimeSystemPort
   readonly dataRootId?: string
   hostname?: string
   port?: number
@@ -550,6 +551,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   }
   const systemCommands = createSystemCommands({
     hostInfo,
+    ...(options.runtime ? { runtime: options.runtime } : {}),
     async diagnose() {
       return {
         database: await kernel.storage.call('stats'),
