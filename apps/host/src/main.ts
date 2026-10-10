@@ -6,9 +6,10 @@ import type { KernelProfile } from '@hbar/kernel'
 import { Kernel } from '@hbar/kernel'
 import { getStorageLocations, resolvePathLayout } from '@hbar/storage'
 import { startServer } from './server.ts'
-import { createHostSupervisor, RESTART_EXIT_CODE } from './supervisor.ts'
+import { createHostSupervisor, RESTART_EXIT_CODE, STORAGE_FAILURE_RESTART_EXIT_CODE } from './supervisor.ts'
 import { desktopConnection } from './desktop-connection.ts'
 import { ensureHostDataRootId } from './host-data-identity.ts'
+import { createHostRuntimeDiagnostics, hostLifecycleEvent } from './runtime-diagnostics.ts'
 
 export async function runHost(
   args: string[] = Bun.argv.slice(2),
@@ -42,16 +43,44 @@ export async function runHost(
   })
   const home = layout.dataRoot
   if (values.supervisor) {
+    const diagnostics = createHostRuntimeDiagnostics({
+      root: layout.diagnostics,
+      fileName: 'hbar-supervisor-diagnostics.jsonl',
+    })
     const supervisor = createHostSupervisor({
       command: supervisorCommand,
       hostArgs: args,
       connectionFile: async () => join((await getStorageLocations(layout)).saved.settingsRoot, 'connection.json'),
-      onExit: (event) => console.error(`[hbar supervisor] child exit ${JSON.stringify(event)}`),
+      diagnostics,
+      onExit: (event) =>
+        console.error(`[hbar supervisor] child exit code=${event.code} expected=${event.expectedRestart}`),
     })
-    const stopSupervisor = () => supervisor.stop()
-    process.on('SIGINT', stopSupervisor)
-    process.on('SIGTERM', stopSupervisor)
-    process.exit(await supervisor.run())
+    const stopSupervisor = (signal: NodeJS.Signals) => {
+      hostLifecycleEvent(diagnostics, 'supervisor.stop_requested', { level: 'info', outcome: 'success', signal })
+      supervisor.stop()
+    }
+    process.on('SIGINT', () => stopSupervisor('SIGINT'))
+    process.on('SIGTERM', () => stopSupervisor('SIGTERM'))
+    hostLifecycleEvent(diagnostics, 'supervisor.starting', {
+      level: 'info',
+      outcome: 'success',
+      processId: process.pid,
+    })
+    try {
+      const exitCode = await supervisor.run()
+      hostLifecycleEvent(diagnostics, 'supervisor.stopped', { level: 'info', outcome: 'success' })
+      process.exitCode = exitCode
+      return
+    } catch {
+      hostLifecycleEvent(diagnostics, 'supervisor.failed', {
+        level: 'error',
+        outcome: 'failure',
+        errorCode: 'SUPERVISOR_FAILED',
+      })
+      throw new Error('Host supervisor failed')
+    } finally {
+      await diagnostics.close(2_000)
+    }
   }
   await mkdir(home, { recursive: true })
   const lock = layout.hostLock
@@ -75,6 +104,17 @@ export async function runHost(
   let cleanup: (() => Promise<void>) | undefined
   let kernel: Kernel | undefined
   let requestShutdown: ((exitCode: number) => void) | undefined
+  let removeStorageFatalListener: (() => void) | undefined
+  const diagnostics = createHostRuntimeDiagnostics({
+    root: layout.diagnostics,
+    fileName: 'hbar-host-diagnostics.jsonl',
+  })
+  hostLifecycleEvent(diagnostics, 'host.starting', {
+    level: 'info',
+    outcome: 'success',
+    workerState: 'starting',
+    processId: process.pid,
+  })
   try {
     const dataRootId = await ensureHostDataRootId(layout.settings)
     const profile = values.profile
@@ -82,9 +122,19 @@ export async function runHost(
       : undefined
     kernel = await Kernel.create({
       layout,
+      diagnostics: diagnostics.sink,
+      diagnosticScope: diagnostics.scope,
+      diagnosticFullCoverage: diagnostics.snapshot().fullCoverage,
       ...(values.demo !== undefined ? { demo: values.demo } : {}),
       ...(values.workspace ? { workspace: values.workspace } : {}),
       ...(profile ? { profile } : {}),
+    })
+    diagnostics.setInstanceId(kernel.instanceId)
+    hostLifecycleEvent(diagnostics, 'host.kernel_ready', {
+      level: 'info',
+      outcome: 'success',
+      workerState: 'ready',
+      processId: process.pid,
     })
     const host = await startServer(kernel, {
       dataRootId,
@@ -102,6 +152,10 @@ export async function runHost(
         setTimeout(() => requestShutdown?.(RESTART_EXIT_CODE), 100)
         return true
       },
+      diagnosticSink: diagnostics.sink,
+      diagnosticScope: diagnostics.scope,
+      diagnosticFull: diagnostics.snapshot().fullCoverage,
+      diagnosticSampleRate: diagnostics.snapshot().fullCoverage ? 1 : 0.1,
     })
     if (values.desktop) {
       const device = await host.auth.createDevice('hbar desktop')
@@ -120,31 +174,144 @@ export async function runHost(
     }
     console.log(`hbar ${host.info().version} | ${home}`)
     for (const address of host.info().addresses) console.log(`  ${address}`)
-    console.log(`Pairing code: ${host.pairing.code} (expires in 5 minutes)`)
+    if (process.stdout.isTTY) console.log(`Pairing code: ${host.pairing.code} (expires in 5 minutes)`)
     cleanup = async () => {
-      await host.close()
-      await kernel?.close()
-      await rm(lock, { force: true })
+      let failure: unknown
+      try {
+        await host.close()
+      } catch (error) {
+        failure ??= error
+      }
+      try {
+        await kernel?.close()
+      } catch (error) {
+        failure ??= error
+      }
+      hostLifecycleEvent(diagnostics, failure === undefined ? 'host.stopped' : 'host.stop_failed', {
+        level: failure === undefined ? 'info' : 'error',
+        outcome: failure === undefined ? 'success' : 'failure',
+        ...(failure === undefined ? {} : { errorCode: 'HOST_SHUTDOWN_FAILED' }),
+        workerState: failure === undefined ? 'closed' : 'failed',
+        processId: process.pid,
+      })
+      try {
+        await diagnostics.close(2_000)
+      } catch (error) {
+        failure ??= error
+      }
+      try {
+        await rm(lock, { force: true })
+      } catch (error) {
+        failure ??= error
+      }
+      if (failure !== undefined) throw failure
     }
     let closing = false
-    const stop = async (exitCode = 0) => {
+    const stop = async (exitCode = 0, bounded = false) => {
       if (closing) return
       closing = true
-      await cleanup?.()
-      process.exit(exitCode)
+      hostLifecycleEvent(diagnostics, 'host.stop_requested', {
+        level: 'info',
+        outcome: 'success',
+        exitCode,
+        processId: process.pid,
+        workerState: 'closing',
+      })
+      const task = cleanup?.()
+      if (!bounded) {
+        await task
+        removeStorageFatalListener?.()
+        process.exit(exitCode)
+      }
+      let timer: ReturnType<typeof setTimeout> | undefined
+      try {
+        const boundedCleanup = task?.catch(() => undefined)
+        const deadline = new Promise<void>((resolve) => {
+          timer = setTimeout(resolve, 2_000)
+        })
+        await Promise.race([boundedCleanup ?? Promise.resolve(), deadline])
+      } catch {
+        // A dead Storage worker can reject normal cleanup; the supervised exit remains authoritative.
+        console.error('[hbar] bounded storage recovery shutdown did not complete')
+      } finally {
+        if (timer !== undefined) clearTimeout(timer)
+        try {
+          await rm(lock, { force: true })
+        } catch {
+          console.error('[hbar] bounded storage recovery could not remove the Host lock')
+        } finally {
+          removeStorageFatalListener?.()
+          process.exit(exitCode)
+        }
+      }
     }
     requestShutdown = (exitCode) => {
-      void stop(exitCode)
+      void stop(exitCode).catch(() => {
+        hostLifecycleEvent(diagnostics, 'host.shutdown_failed', {
+          level: 'error',
+          outcome: 'failure',
+          errorCode: 'HOST_SHUTDOWN_FAILED',
+        })
+        process.exitCode = exitCode
+      })
+    }
+    if (values.supervised) {
+      removeStorageFatalListener = kernel.storage.onFatal?.((event) => {
+        hostLifecycleEvent(diagnostics, 'storage.fatal', {
+          level: 'fatal',
+          outcome: 'failure',
+          errorCode: event.code,
+          ...(event.method === undefined ? {} : { method: event.method }),
+          workerState: 'failed',
+        })
+        void stop(STORAGE_FAILURE_RESTART_EXIT_CODE, true).catch(() => {
+          hostLifecycleEvent(diagnostics, 'host.shutdown_failed', {
+            level: 'fatal',
+            outcome: 'failure',
+            errorCode: 'HOST_FATAL_SHUTDOWN_FAILED',
+          })
+          process.exitCode = STORAGE_FAILURE_RESTART_EXIT_CODE
+        })
+      })
     }
     process.on('SIGINT', () => {
-      void stop()
+      hostLifecycleEvent(diagnostics, 'host.signal_received', {
+        level: 'info',
+        signal: 'SIGINT',
+        processId: process.pid,
+      })
+      void stop().catch(() => {
+        hostLifecycleEvent(diagnostics, 'host.shutdown_failed', {
+          level: 'error',
+          outcome: 'failure',
+          errorCode: 'HOST_SHUTDOWN_FAILED',
+        })
+      })
     })
     process.on('SIGTERM', () => {
-      void stop()
+      hostLifecycleEvent(diagnostics, 'host.signal_received', {
+        level: 'info',
+        signal: 'SIGTERM',
+        processId: process.pid,
+      })
+      void stop().catch(() => {
+        hostLifecycleEvent(diagnostics, 'host.shutdown_failed', {
+          level: 'error',
+          outcome: 'failure',
+          errorCode: 'HOST_SHUTDOWN_FAILED',
+        })
+      })
     })
   } catch (error) {
-    await kernel?.close()
-    await rm(lock, { force: true })
+    hostLifecycleEvent(diagnostics, 'host.startup_failed', {
+      level: 'error',
+      outcome: 'failure',
+      errorCode: 'HOST_STARTUP_FAILED',
+      workerState: 'failed',
+    })
+    if (kernel) await kernel.close().catch(() => undefined)
+    await diagnostics.close(2_000).catch(() => undefined)
+    await rm(lock, { force: true }).catch(() => undefined)
     throw error
   }
 }

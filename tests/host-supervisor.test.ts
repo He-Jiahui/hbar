@@ -2,7 +2,7 @@ import { afterEach, expect, test } from 'bun:test'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createHostSupervisor } from '../apps/host/src/supervisor.ts'
+import { createHostSupervisor, STORAGE_FAILURE_RESTART_EXIT_CODE } from '../apps/host/src/supervisor.ts'
 
 let root = ''
 afterEach(async () => {
@@ -84,4 +84,31 @@ test('supervisor ignores exit observer failures', async () => {
     },
   })
   expect(await supervisor.run()).toBe(23)
+})
+
+test('supervisor bounds storage failure recovery attempts', async () => {
+  root = await mkdtemp(join(tmpdir(), 'hbar-supervisor-storage-'))
+  const entrypoint = join(root, 'fake-host.ts')
+  const connectionFile = join(root, 'connection.json')
+  const log = join(root, 'args.jsonl')
+  await writeFile(
+    entrypoint,
+    `import { appendFile, writeFile } from 'node:fs/promises'
+await appendFile(${JSON.stringify(log)}, JSON.stringify(Bun.argv.slice(2)) + '\\n')
+await writeFile(${JSON.stringify(connectionFile)}, JSON.stringify({ url: 'http://127.0.0.1:43124' }))
+process.exit(${STORAGE_FAILURE_RESTART_EXIT_CODE})
+`,
+  )
+  const events: Array<{ code: number; expectedRestart: boolean; recoveryAttempt?: number; recoveryLimit?: number }> = []
+  const supervisor = createHostSupervisor({
+    command: [process.execPath, entrypoint],
+    hostArgs: ['--port', '0'],
+    connectionFile,
+    stdio: 'ignore',
+    onExit: (event) => events.push(event),
+  })
+  expect(await supervisor.run()).toBe(1)
+  expect(events.filter((event) => event.code === STORAGE_FAILURE_RESTART_EXIT_CODE)).toHaveLength(4)
+  expect(events[2]).toMatchObject({ code: STORAGE_FAILURE_RESTART_EXIT_CODE, recoveryAttempt: 3, recoveryLimit: 3 })
+  expect(events[3]).toMatchObject({ code: STORAGE_FAILURE_RESTART_EXIT_CODE, expectedRestart: false, recoveryAttempt: 4, recoveryLimit: 3 })
 })
