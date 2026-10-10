@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from 'zustand'
-import { LumenButton, LumenFrame, LumenInput, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenCollection, LumenCollectionItem, LumenFrame, LumenInput, LumenText } from '@lumen/app-ui'
 import type { SkillImportController } from '@hbar/app-runtime/skill-import'
 import type { SkillImportJob, SkillImportPreview, SkillImportWarning } from '@hbar/contracts/commands/skill-import'
 import './skill-import-panel.css'
@@ -170,9 +170,9 @@ export function HbarSkillImportPanel({
                   {labels.truncated}
                 </LumenText>
               )}
-              <ul className="hbar-skill-import-candidates">
+              <LumenCollection as="ul" className="hbar-skill-import-candidates">
                 {preview.candidates.slice(state.page * 20, (state.page + 1) * 20).map((candidate) => (
-                  <li key={candidate.sourcePath}>
+                  <LumenCollectionItem as="li" key={candidate.sourcePath}>
                     <LumenText as="strong">{candidate.name}</LumenText>
                     <LumenText as="span">{labels.candidateStatus[candidate.status]}</LumenText>
                     <LumenText as="small" tone="muted">
@@ -186,9 +186,9 @@ export function HbarSkillImportPanel({
                         {labels.warnings[warning]}
                       </LumenText>
                     ))}
-                  </li>
+                  </LumenCollectionItem>
                 ))}
-              </ul>
+              </LumenCollection>
               {pages > 1 && (
                 <LumenFrame className="hbar-skill-import-actions">
                   <LumenButton
