@@ -6,6 +6,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { RuntimeOwner, RuntimeUnitDescriptor } from '@hbar/contracts/runtime'
+import { internalRuntimeCommand } from '../apps/cli/src/host-process'
 
 const instances: ManagedProcess[] = []
 const roots: string[] = []
@@ -71,6 +72,16 @@ test('a candidate prepares without activation, then serves and drains in its own
   await runtime.dispose()
   expect(runtime.snapshot().phase).toBe('disposed')
   expect(await readFile(marker, 'utf8')).toBe('1')
+})
+
+test('the lightweight CLI runtime role owns a real IPC service independently of interactive command startup', async () => {
+  const runtime = fixture({ command: internalRuntimeCommand(), heartbeatMs: 200, startupMs: 5_000, shutdownMs: 500 })
+  await runtime.prepare()
+  expect(runtime.snapshot()).toMatchObject({ phase: 'ready', role: 'candidate' })
+  await runtime.activate()
+  expect(await runtime.call('fixture.echo', 'CLI runtime role', z.string())).toBe('CLI runtime role')
+  await runtime.dispose()
+  expect(runtime.snapshot().phase).toBe('disposed')
 })
 
 test('candidate failure and compatibility rejection never activate or schedule production recovery', async () => {
