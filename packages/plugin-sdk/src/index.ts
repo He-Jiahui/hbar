@@ -146,6 +146,8 @@ export interface ToolDefinition extends ToolTimeoutPolicy {
   inputJsonSchema?: Readonly<Record<string, unknown>>
   /** Isolated tools validate in their owner before and after Hook transformation, before approval or durable intent. */
   validate?(args: unknown): Promise<Record<string, unknown>>
+  /** Declared managed owner; admission retains capacity until this process confirms physical completion. */
+  runtimeOwner?: string
   effect: 'read' | 'write' | 'process' | 'network'
   /** Requested-input display only; the Host captures this declaration, never localized text or execution proof. */
   presentation?: ToolPresentationDeclaration
@@ -436,7 +438,7 @@ export interface WorkflowService {
 export interface ModeService {
   get(sessionId: string): Promise<{ mode: RunMode }>
   set(sessionId: string, mode: RunMode): Promise<{ mode: RunMode }>
-  effectiveMode(run: Run): RunMode
+  effectiveMode(run: Run): RunMode | Promise<RunMode>
   /** Serialize the approved Run transition with ordinary session mode writes. */
   commitExit<T extends { modeEvent: SessionEvent | null }>(sessionId: string, commit: () => Promise<T>): Promise<T>
 }

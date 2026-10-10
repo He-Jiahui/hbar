@@ -9,10 +9,17 @@ export const RUNTIME_PLUGIN_SERVICES = {
   mode: [...RUNTIME_APPLICATION_METHODS.mode, 'effectiveMode'], budget: [...RUNTIME_APPLICATION_METHODS.budget, 'refreshSession'],
   workflow: RUNTIME_APPLICATION_METHODS.workflow, agent: RUNTIME_APPLICATION_METHODS.agent, git: RUNTIME_APPLICATION_METHODS.git,
   browser: RUNTIME_APPLICATION_METHODS.browser, computer: RUNTIME_APPLICATION_METHODS.computer, execution: RUNTIME_APPLICATION_METHODS.execution,
+  'browser-use': RUNTIME_APPLICATION_METHODS.browser, 'computer-use': RUNTIME_APPLICATION_METHODS.computer,
   workspaceQuery: RUNTIME_APPLICATION_METHODS.workspaceQuery, 'workspace-directories': ['resolve'],
   models: ['list', 'get', 'secret'], storage: ['call'],
 } as const
 export const runtimePluginAuthoritySchema = z.strictObject({ execution: executionOwnershipSchema.optional(), sessionId: z.string().min(1).max(160).optional() })
+export const runtimePluginInvocationSchema = z.strictObject({ operation: z.enum(['capability', 'validate', 'execute', 'hook', 'commitGoal']),
+  name: z.string().min(1).max(160), method: z.string().max(128).optional(), catalog: z.array(runtimePluginStateSchema.shape.tools.element).max(4_096),
+  invocationId: z.string().uuid().optional(),
+  mount: z.strictObject({ root: z.string().min(1).max(4_000), folders: z.array(z.strictObject({ alias: z.string().min(1).max(160), path: z.string().min(1).max(4_000) })).max(256) }).optional(),
+})
+export const runtimePluginCatalogSchema = z.array(z.strictObject({ unitId: z.string().min(1).max(160), state: runtimePluginStateSchema })).max(128)
 export const runtimePluginConfigurationSchema = z.strictObject({
   dataRoot: z.string().min(1).max(4_000), cacheRoot: z.string().min(1).max(4_000),
   config: z.record(z.string(), z.unknown()).default({}),

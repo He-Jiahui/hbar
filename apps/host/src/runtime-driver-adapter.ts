@@ -67,7 +67,7 @@ export class RuntimeDriverAdapter implements HarnessDriver {
       ...(this.ownership ? { ownership: this.ownership(input.run.id) } : {}),
       apiKey: input.apiKey, steering: Boolean(input.getSteeringMessages && input.closeSteeringAdmission),
       tools: input.tools.map(tool => ({ name: tool.name, description: tool.description, effect: tool.effect,
-        inputSchema: z.toJSONSchema(tool.inputSchema, { io: 'input' }), timeoutMs: resolveToolTimeoutMs(tool),
+        inputSchema: tool.inputJsonSchema ?? z.toJSONSchema(tool.inputSchema, { io: 'input' }), timeoutMs: resolveToolTimeoutMs(tool),
         ...(tool.timeoutArgument ? { timeoutArgument: tool.timeoutArgument } : {}),
       })),
     })

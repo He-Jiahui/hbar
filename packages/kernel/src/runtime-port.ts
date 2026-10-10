@@ -15,6 +15,7 @@ export const runtimeKernelConfigurationSchema = z.strictObject({
   sessionsRoot: z.string().min(1).max(4_000), skillsRoot: z.string().min(1).max(4_000), identityRoot: z.string().min(1).max(4_000),
   demo: z.boolean(),
   profileModule: z.string().min(1).max(4_000).optional(),
+  isolatedPlugins: z.boolean().optional(),
 })
 export const runtimeKernelSubmitSchema = z.strictObject({
   sessionId: id, requestId: id, input: inputSchema, modelId: id, command: runCommandRecordSchema.optional(),

@@ -18,6 +18,9 @@ import type { RuntimeControllerPort } from './runtime-controller-contract'
 import { RuntimeControllerAdapter } from './runtime-controller-adapter'
 import { hostRuntimeBaseBuildUnit, hostRuntimeBuildUnits } from './runtime-build'
 import type { RuntimeSystemPort } from './system-commands'
+import { runtimePluginStateSchema, type RuntimePluginState } from '@hbar/plugin-sdk/runtime-plugin'
+import { RuntimePluginRelay, type RuntimePluginEndpoint } from './runtime-plugin-relay'
+import { RUNTIME_PLUGIN_CONTROL_METHODS } from './runtime-plugin-contract'
 
 export interface ProcessHostRuntimeOptions {
   readonly layout: PathLayout
@@ -41,6 +44,7 @@ interface Generation {
   controller: RuntimeControllerAdapter | null
   application: RuntimeValuePort | null
   state: RuntimeKernelState | null
+  pluginState: RuntimePluginState | null
   refresh: Promise<void> | null
   cleanup: Array<() => void>
 }
@@ -76,6 +80,9 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private readonly stopped = new Set<string>()
   private readonly resumed = new Set<string>()
   private readonly relay: RuntimeDriverRelay
+  private readonly pluginRelay: RuntimePluginRelay
+  private readonly pluginConfigs = new Map<string, Record<string, unknown>>()
+  private readonly pluginPreparingCatalog = new Set<string>()
   private readonly secrets: SecretStore
   private readonly sweep: ReturnType<typeof setInterval>
   private transitions: Promise<void> = Promise.resolve()
@@ -106,6 +113,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       },
     })
     this.relay = new RuntimeDriverRelay({ coordinator: this.coordinator, resolve: version => this.driver(version) })
+    this.pluginRelay = new RuntimePluginRelay({ storage: this.storage, coordinator: this.coordinator,
+      current: () => this.pluginEndpoints(), resolve: (id, execution) => this.pluginEndpoint(id, execution) })
     this.facade = new RuntimeKernelFacade({ instanceId, layout: options.layout, demo: options.demo ?? false,
       storage: this.storage, coordinator: this.coordinator, current: () => this.currentKernel(), endpoints: () => this.endpoints(),
       resolve: (target, method, args, captured) => this.resolveKernel(target, method, args, captured),
@@ -148,6 +157,15 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       const infrastructure = ['storage', 'driver.pi', 'controller']
       const first = runtime.manager.reload(prepared.id, infrastructure, true)
       await runtime.waitReady(infrastructure, first.operationId)
+      const stored = await runtime.storage.call('plugins')
+      const owners: Record<string, string> = { 'execution.local': 'plugin.local', 'tools.workspace': 'plugin.local', 'plan.codex': 'plugin.plan',
+        'budget.codex': 'plugin.budget', 'goal.codex': 'plugin.goal', 'git.codex': 'plugin.git', 'agent.codex': 'plugin.agent',
+        'workflow.focus': 'plugin.workflow', 'browser-use.codex': 'plugin.browser', 'computer-use.codex': 'plugin.computer' }
+      for (const entry of stored) if (!entry.projectId && owners[entry.id]) runtime.pluginConfigs.set(owners[entry.id] ?? '', entry.config)
+      for (const unit of runtime.buildUnits.filter(unit => unit.descriptor.kind === 'plugin')) {
+        const operation = runtime.manager.reload(prepared.id, [unit.descriptor.id], true)
+        await runtime.waitReady([unit.descriptor.id], operation.operationId)
+      }
       const kernel = runtime.manager.reload(prepared.id, ['kernel'], true)
       await runtime.waitReady(['kernel'], kernel.operationId)
       if (options.workspace) await runtime.kernel.createWorkspace(options.workspace)
@@ -288,15 +306,33 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     const record = this.generations.get(key(owner))
     if (!record || record.owner?.incarnation !== owner.incarnation) throw new HbarError('RUNTIME_OWNER_REVOKED', 'The claiming Kernel incarnation expired')
     const kernel = { unitId: owner.unitId, generation: owner.generation, artifactId: record.artifact.id }
-    return { kernel, driver: record.state?.driverIsolation === 'legacy' ? kernel : this.manager.currentVersion('driver.pi'), plugins: [], hooks: [] }
+    const plugins = this.pluginEndpoints().map(endpoint => endpoint.version)
+    return { kernel, driver: record.state?.driverIsolation === 'legacy' ? kernel : this.manager.currentVersion('driver.pi'), plugins,
+      hooks: this.pluginEndpoints().filter(endpoint => endpoint.state.hooks.length > 0).map(endpoint => endpoint.version) }
+  }
+  private pluginEndpoints(): RuntimePluginEndpoint[] {
+    return this.buildUnits.filter(unit => unit.descriptor.kind === 'plugin').flatMap(unit => {
+      try { return [this.pluginEndpoint(unit.descriptor.id)] } catch { return [] }
+    })
+  }
+  private pluginEndpoint(unitId: string, execution?: ExecutionOwnership): RuntimePluginEndpoint {
+    const version = execution?.versions.plugins.find(version => version.unitId === unitId) ?? this.manager.currentVersion(unitId)
+    const record = this.generations.get(key(version))
+    if (!record?.owner || !record.application || !record.pluginState || record.artifact.id !== version.artifactId ||
+      !['serving', 'draining'].includes(record.process.snapshot().phase))
+      throw new HbarError('RUNTIME_RECOVERING', 'The bound plugin is recovering')
+    if (execution && !execution.versions.plugins.some(item => item.unitId === unitId && item.generation === version.generation))
+      throw new HbarError('RUNTIME_VERSION_MISMATCH', 'The plugin is absent from this execution binding')
+    return { owner: record.owner, application: record.application, state: record.pluginState, version }
   }
   private executionReady(): boolean {
     const kernel = this.generations.get(key(this.manager.defaultOwner('kernel')))
-    return (kernel?.state?.driverIsolation === 'legacy' ? ['storage', 'kernel'] : ['storage', 'driver.pi', 'kernel'])
+    return (kernel?.state?.driverIsolation === 'legacy' ? ['storage', 'kernel'] : ['storage', 'driver.pi', 'kernel', ...this.buildUnits.filter(unit => unit.descriptor.kind === 'plugin').map(unit => unit.descriptor.id)])
       .every(id => this.manager.snapshot().units.find(unit => unit.descriptor.id === id)?.generations.some(g => g.role === 'default' && g.phase === 'serving'))
   }
   private canAdmit(sessionId: string): boolean {
     return !this.closing && !this.initializing && !this.maintenance && this.executionReady() && this.storage.snapshot().phase === 'serving' && !this.storageFailure &&
+      !this.pluginPreparingCatalog.size &&
       ![...this.interrupted.values()].some(failure => failure.leases.some(lease => lease.sessionId === sessionId)) &&
       ![...this.leases.values()].some(lease => lease.sessionId === sessionId && !this.coordinator.execution(lease.runId))
   }
@@ -306,12 +342,15 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       settingsRoot: layout.settings, sessionsRoot: layout.sessions, skillsRoot: layout.globalSkills, identityRoot: layout.identityRoot }
     const configuration = artifact.unitId === 'storage' ? { ...paths, database: layout.database, workerPath: join(this.artifacts.root, artifact.id, 'worker.js') } :
       artifact.unitId === 'kernel' ? { ...paths, instanceId: this.instanceId, demo: this.options.demo ?? false,
-        ...(this.options.profileModule ? { profileModule: join(this.artifacts.root, artifact.id, 'profile.js') } : {}) } : {}
+        isolatedPlugins: this.buildUnits.some(unit => unit.descriptor.kind === 'plugin'),
+        ...(this.options.profileModule ? { profileModule: join(this.artifacts.root, artifact.id, 'profile.js') } : {}) } :
+      artifact.descriptor.kind === 'plugin' ? { dataRoot: layout.dataRoot, cacheRoot: layout.cacheRoot, config: this.pluginConfigs.get(artifact.unitId) ?? {} } : {}
     let record: Generation
     const managed = new ManagedProcess({ descriptor: artifact.descriptor, artifactId: artifact.id, generation,
       modulePath: join(this.artifacts.root, artifact.id, artifact.entry), parent: this.baseOwner, configuration,
       verifyModule: async signal => { await this.artifacts.get(artifact.id); signal.throwIfAborted() },
-      controlMethods: [...RUNTIME_KERNEL_CONTROL_METHODS, ...RUNTIME_COORDINATION_CONTROL_METHODS, 'controller.control', 'controller.invoke'],
+      controlMethods: [...RUNTIME_KERNEL_CONTROL_METHODS, ...RUNTIME_COORDINATION_CONTROL_METHODS, ...RUNTIME_PLUGIN_CONTROL_METHODS,
+        'kernel.plugins.callback', 'kernel.plugins.control', 'controller.control', 'controller.invoke'],
       ...(this.options.processCommand ? { command: this.options.processCommand } : {}),
       onPeer: (peer, owner) => {
         record.owner = owner; record.peer = peer
@@ -319,15 +358,28 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         this.owners.add(owner.incarnation)
         if (artifact.unitId === 'driver.pi') record.cleanup.push(this.relay.attachDriver(peer))
         if (artifact.unitId === 'controller') record.controller = new RuntimeControllerAdapter(peer)
+        if (artifact.descriptor.kind === 'plugin') {
+          const connection = this.pluginRelay.attachPlugin(peer, owner)
+          record.application = connection.application; record.cleanup.push(connection.dispose)
+        }
         if (artifact.unitId === 'kernel') this.attachKernel(record, peer, owner)
       },
-      onActivating: (owner, role, signal) => { signal.throwIfAborted(); this.coordinator.activate(owner, role) },
+      onActivating: (owner, role, signal) => {
+        signal.throwIfAborted(); this.coordinator.activate(owner, role)
+        if (artifact.descriptor.kind === 'plugin' && role === 'default') this.pluginPreparingCatalog.add(artifact.unitId)
+      },
       onState: state => {
         changed()
         if (state.phase === 'serving' || state.phase === 'draining') this.transition(async () => {
           if (this.closing || record.owner?.incarnation !== state.incarnation) return
           if (artifact.unitId === 'storage' && state.role === 'default') await this.installStorage(record)
           if (artifact.unitId === 'kernel') await this.refresh(record)
+          if (artifact.descriptor.kind === 'plugin') {
+            record.pluginState = await record.process.call('plugin.state', undefined, runtimePluginStateSchema)
+            if (!this.initializing) for (const endpoint of this.endpoints())
+              await endpoint.process.call('kernel.plugins.refresh', undefined, z.undefined())
+            this.pluginPreparingCatalog.delete(artifact.unitId)
+          }
           if ((artifact.unitId === 'storage' || artifact.unitId === 'driver.pi') && state.role === 'default') this.resumed.clear()
           this.schedule()
         })
@@ -336,6 +388,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       onExit: async owner => {
         if (artifact.unitId === 'kernel') { this.relay.kernelExited(owner); for (const lease of this.leases.values()) if (lease.owner.incarnation === owner.incarnation) this.stopped.add(lease.runId) }
         if (artifact.unitId === 'driver.pi') this.relay.driverExited(owner)
+        if (artifact.descriptor.kind === 'plugin') this.pluginRelay.exited(owner)
         for (const cleanup of record.cleanup.splice(0)) cleanup()
         record.controller?.dispose(); record.controller = null
         record.application?.dispose(); record.application = null; record.peer = null
@@ -347,13 +400,13 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         this.schedule()
       },
     })
-    record = { artifact, process: managed, owner: null, peer: null, controller: null, application: null, state: null, refresh: null, cleanup: [] }
+    record = { artifact, process: managed, owner: null, peer: null, controller: null, application: null, state: null, pluginState: null, refresh: null, cleanup: [] }
     this.generations.set(`${artifact.unitId}:${generation}`, record)
     return managed
   }
   private attachKernel(record: Generation, peer: IpcPeer, owner: RuntimeOwner): void {
     record.application = new RuntimeValuePort(peer, { prefix: 'kernel.application', controlMethods: RUNTIME_APPLICATION_CONTROLS })
-    record.cleanup.push(this.relay.attachKernel(peer), registerRuntimeCoordinatorPort(peer, this.coordinator, { owner,
+    record.cleanup.push(this.relay.attachKernel(peer), this.pluginRelay.attachKernel(peer, owner), registerRuntimeCoordinatorPort(peer, this.coordinator, { owner,
       bindings: caller => this.bindings(caller), canAdmit: sessionId => this.canAdmit(sessionId),
       admitted: lease => { this.leases.set(lease.runId, lease); this.schedule() },
       released: lease => this.handoff(lease),
@@ -479,7 +532,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private async handoff(lease: ExecutionOwnership): Promise<void> {
     await this.replay(lease.sessionId)
     const current = this.currentKernel()
-    if (current.owner.incarnation !== lease.owner.incarnation)
+    if (current.owner.incarnation !== lease.owner.incarnation || lease.versions.plugins.some(version => this.manager.currentVersion(version.unitId).generation !== version.generation))
       await current.process.call('kernel.session.refresh', { sessionId: lease.sessionId }, z.undefined(), { timeoutMs: 120_000 })
     this.leases.delete(lease.runId)
     this.schedule()
@@ -489,6 +542,11 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     let runId: string | undefined, sessionId: string | undefined
     if (target === 'kernel' && method === 'cancel' && typeof args[0] === 'string') runId = args[0]
     if (['goal', 'plan', 'mode', 'budget', 'workflow', 'agent'].includes(target) && typeof args[0] === 'string') sessionId = args[0]
+    if (['goal', 'plan', 'mode', 'budget', 'workflow', 'agent'].includes(target) && args[0] && typeof args[0] === 'object') {
+      const input = z.object({ sessionId: z.string().optional(), parentSessionId: z.string().optional() }).safeParse(args[0])
+      if (input.success) sessionId = input.data.sessionId ?? input.data.parentSessionId
+    }
+    if (target === 'kernel' && ['submit', 'compact', 'snapshot', 'getContextUsage', 'automationGet', 'automationSet', 'updateSession'].includes(method) && typeof args[0] === 'string') sessionId = args[0]
     if (target === 'kernel' && method === 'resolveApproval' && typeof args[0] === 'string') runId = (await this.storage.call('approval', args[0])).runId
     if (target === 'kernel' && method === 'resolvePlanExit' && typeof args[0] === 'object' && args[0] !== null) {
       const input = z.object({ sessionId: z.string() }).safeParse(args[0]); if (input.success) sessionId = input.data.sessionId

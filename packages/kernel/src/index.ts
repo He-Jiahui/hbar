@@ -138,6 +138,7 @@ import type {
 } from '@hbar/contracts/commands/run'
 import piPlugin from '@hbar/pi-driver'
 declare const HBAR_EXTERNAL_DRIVER: boolean
+declare const HBAR_EXTERNAL_PLUGINS: boolean
 import localTools, { localExecutionPlugin } from '@hbar/local-tools'
 import goalPlugin from '@hbar/goal'
 import planPlugin from '@hbar/plan'
@@ -882,7 +883,11 @@ export class Kernel {
       if (!external) throw new HbarError('RUNTIME_DRIVER_REQUIRED', 'The isolated Kernel needs its declared driver port')
       this.plugins.add(external)
     } else this.plugins.add(piPlugin)
-    this.plugins.add(
+    if (typeof HBAR_EXTERNAL_PLUGINS !== 'undefined' && HBAR_EXTERNAL_PLUGINS) {
+      const port = this.options.profile?.replacements?.['execution.local']
+      if (!port) throw new HbarError('RUNTIME_PLUGIN_REQUIRED', 'The isolated Kernel needs its execution capability port')
+      this.plugins.add(port)
+    } else this.plugins.add(
       localExecutionPlugin(
         [this.options.layout.dataRoot],
         {
@@ -939,15 +944,23 @@ export class Kernel {
           }),
       }),
     )
-    this.plugins.add(localTools)
-    this.plugins.add(goalPlugin)
-    this.plugins.add(planPlugin)
-    this.plugins.add(budgetPlugin)
-    this.plugins.add(agentPlugin)
-    this.plugins.add(workflowPlugin)
-    this.plugins.add(gitPlugin)
-    this.plugins.add(browserPlugin)
-    this.plugins.add(computerPlugin)
+    if (typeof HBAR_EXTERNAL_PLUGINS !== 'undefined' && HBAR_EXTERNAL_PLUGINS) {
+      for (const id of ['tools.workspace', 'goal.codex', 'plan.codex', 'budget.codex', 'agent.codex', 'workflow.focus', 'git.codex', 'browser-use.codex', 'computer-use.codex']) {
+        const port = this.options.profile?.replacements?.[id]
+        if (!port) throw new HbarError('RUNTIME_PLUGIN_REQUIRED', `The isolated Kernel needs its declared ${id} port`)
+        this.plugins.add(port)
+      }
+    } else {
+      this.plugins.add(localTools)
+      this.plugins.add(goalPlugin)
+      this.plugins.add(planPlugin)
+      this.plugins.add(budgetPlugin)
+      this.plugins.add(agentPlugin)
+      this.plugins.add(workflowPlugin)
+      this.plugins.add(gitPlugin)
+      this.plugins.add(browserPlugin)
+      this.plugins.add(computerPlugin)
+    }
   }
   subscribe(listener: (event: WireNotification) => unknown) {
     this.listeners.add(listener)
@@ -1694,6 +1707,7 @@ export class Kernel {
       return
     }
     scope.ctx.effect(() => () => controller.abort())
+    scope.tools.pinParent()
     const idleTimeout = createRunIdleTimeout(controller, this.options.runIdleTimeoutMs)
     const lease = this.executionScope.current
     this.active.set(sessionId, { run, controller, context: scope, idleTimeout, ...(lease ? { lease } : {}) })
@@ -1844,7 +1858,7 @@ export class Kernel {
           this.updateStream({ id, sessionId, runId: run.id, text, thinking })
         },
         execute: async (name, args, callId) => {
-          const effectiveMode = this.plugins.get<ModeService>('mode').effectiveMode(run)
+          const effectiveMode = await this.plugins.get<ModeService>('mode').effectiveMode(run)
           const effectiveRun =
             effectiveMode === run.input.mode ? run : { ...run, input: { ...run.input, mode: effectiveMode } }
           const context: ToolContext = {
@@ -1939,7 +1953,7 @@ export class Kernel {
                 description: tool.description,
                 timeoutMs: resolveToolTimeoutMs(tool),
                 ...(tool.timeoutArgument ? { timeoutArgument: tool.timeoutArgument } : {}),
-                schema: z.toJSONSchema(tool.inputSchema, { io: 'input' }),
+                schema: tool.inputJsonSchema ?? z.toJSONSchema(tool.inputSchema, { io: 'input' }),
               })),
             },
             run.id,
@@ -2137,7 +2151,7 @@ export class Kernel {
         purpose,
         thinking: normalizeThinkingLevel(model, run?.input.thinking),
         ...(run ? { runId: run.id } : {}),
-        ...(run ? { mode: this.plugins.get<ModeService>('mode').effectiveMode(run) } : {}),
+        ...(run ? { mode: await this.plugins.get<ModeService>('mode').effectiveMode(run) } : {}),
         ...(run?.input.source ? { source: run.input.source } : {}),
       },
     })
@@ -2296,7 +2310,7 @@ export class Kernel {
       assertBoundary()
       this.toolExecutions.assertAvailable(`${context.session.id}:${name}`, name)
       const authority = this.executionScope.current
-      if (authority && this.options.execution?.reserveTool)
+      if (authority && this.options.execution?.reserveTool && !tool.runtimeOwner)
         permitId = (await this.options.execution.reserveTool(authority, executionIdentity.callId)).id
       const startEvent = await this.storage.call(
         'toolStart',
@@ -2651,6 +2665,7 @@ export class Kernel {
     return this.userInputs.get(requestId)?.request ?? null
   }
   /** Pure projection for the stable listener. Neither callback functions nor private runtime objects leave the owner. */
+  runtimeExecution(): import('@hbar/contracts/runtime').ExecutionOwnership | undefined { return this.executionScope.current }
   runtimeView() {
     const userInputs = [...this.userInputs.values()].map(({ request }) => request)
     const sessionIds = new Set([...this.active.keys(), ...this.drains.keys(), ...this.wakeups,
@@ -2660,7 +2675,7 @@ export class Kernel {
         const reason = this.chatDatabaseSessionProtection(sessionId)
         return reason === 'active' || reason === 'userInput' || reason === 'queued' ? [{ sessionId, reason }] : []
       }),
-      modes: [...this.active.values()].map(({ run }) => ({ runId: run.id, mode: this.plugins.get<ModeService>('mode').effectiveMode(run) })),
+      modes: [...this.active.values()].map(({ run }) => ({ runId: run.id, mode: run.input.mode ?? 'default' })),
     }
   }
 
@@ -2736,6 +2751,7 @@ export class Kernel {
       if (resolved.modeEvent.eventId !== resolved.event.eventId) this.publishEvent(resolved.modeEvent)
       try {
         const run = await this.storage.call('run', input.runId)
+        active.run = run
         await active.context.hooks.dispatch('run.modeChanged', {
           sessionId: input.sessionId,
           runId: input.runId,

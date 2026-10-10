@@ -4,6 +4,7 @@ import { STORAGE_RPC_FINGERPRINT, STORAGE_SCHEMA_VERSION } from '@hbar/storage'
 import type { RuntimeUnitDescriptor } from '@hbar/contracts/runtime'
 import { DRIVER_RUNTIME_FINGERPRINT } from './runtime-driver-contract'
 import { CONTROLLER_RUNTIME_FINGERPRINT } from './runtime-controller-contract'
+import { PLUGIN_RUNTIME_FINGERPRINT } from './runtime-plugin-contract'
 import { dirname } from 'node:path'
 
 const descriptor = (id: string, kind: RuntimeUnitDescriptor['kind'], fingerprint: string, dependencies: string[] = []): RuntimeUnitDescriptor => ({
@@ -12,13 +13,21 @@ const descriptor = (id: string, kind: RuntimeUnitDescriptor['kind'], fingerprint
 })
 /** One catalog is shared by source development and packaged startup. It imports public contracts alone. */
 export function hostRuntimeBuildUnits(options: { profileModule?: string } = {}): readonly RuntimeBuildUnit[] {
+  const plugins: readonly [string, string, readonly string[]][] = options.profileModule ? [] : [
+    ['local', 'local', ['storage']], ['plan', 'plan', ['storage']], ['budget', 'budget', ['storage']],
+    ['goal', 'goal', ['storage', 'plugin.plan', 'plugin.budget']], ['git', 'git', ['plugin.local']],
+    ['agent', 'agent', ['plugin.budget', 'plugin.git']], ['workflow', 'workflow', ['storage', 'plugin.agent', 'plugin.git', 'plugin.goal', 'plugin.plan']],
+    ['browser', 'browser', []], ['computer', 'computer', []],
+  ]
   return [
     { descriptor: descriptor('storage', 'storage', STORAGE_RPC_FINGERPRINT), entrypoint: 'apps/host/src/runtime-storage-process.ts', workers: ['packages/storage/src/worker.ts'] },
     { descriptor: { ...descriptor('driver.pi', 'driver', DRIVER_RUNTIME_FINGERPRINT), required: !options.profileModule }, entrypoint: 'apps/host/src/runtime-driver-process.ts' },
     { descriptor: descriptor('controller', 'controller', CONTROLLER_RUNTIME_FINGERPRINT), entrypoint: 'apps/host/src/runtime-controller-process.ts' },
-    { descriptor: { ...descriptor('kernel', 'kernel', KERNEL_RUNTIME_FINGERPRINT, ['storage', 'driver.pi']), reloadable: !options.profileModule }, entrypoint: 'apps/host/src/runtime-kernel-process.ts',
+    ...plugins.map(([id, entry, dependencies]) => ({ descriptor: descriptor('plugin.' + id, 'plugin', PLUGIN_RUNTIME_FINGERPRINT, [...dependencies]),
+      entrypoint: 'apps/host/src/runtime-' + entry + '-process.ts', external: RUNTIME_BUNDLE_EXTERNALS })),
+    { descriptor: { ...descriptor('kernel', 'kernel', KERNEL_RUNTIME_FINGERPRINT, ['storage', 'driver.pi', ...plugins.map(([id]) => 'plugin.' + id)]), reloadable: !options.profileModule }, entrypoint: 'apps/host/src/runtime-kernel-process.ts',
       ...(options.profileModule ? { modules: [{ name: 'profile', path: options.profileModule }], sourceRoots: [dirname(options.profileModule)] } : {}),
-      define: { HBAR_EXTERNAL_DRIVER: 'true' }, external: RUNTIME_BUNDLE_EXTERNALS },
+      define: { HBAR_EXTERNAL_DRIVER: 'true', HBAR_EXTERNAL_PLUGINS: options.profileModule ? 'false' : 'true' }, external: RUNTIME_BUNDLE_EXTERNALS },
   ]
 }
 

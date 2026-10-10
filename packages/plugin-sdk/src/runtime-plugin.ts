@@ -57,7 +57,7 @@ export function restoreRuntimeHook<Event extends RuntimePluginHook>(event: Event
     const original = originals.find(tool => tool.name === description.name)
     if (!original || original.effect !== description.effect)
       throw new HbarError('RUNTIME_TOOL_MISMATCH', 'A Hook cannot introduce an unbound tool or change its effect')
-    return { ...original, description: description.description }
+    return original.description === description.description ? original : { ...original, description: description.description }
   }
   if (event === 'tools.select' || event === 'tools.advertise') result.tools = z.array(z.unknown()).max(4_096).parse(result.tools).map(restore)
   else if (event === 'tool.before' || event === 'tool.executing' || event === 'tool.settled') result.tool = restore(result.tool)

@@ -32,6 +32,8 @@ import {
 export class Tools implements ToolRegistry {
   constructor(private parent?: ToolRegistry) {}
   private entries = new Map<string, ToolDefinition>()
+  /** A Run captures inherited executable definitions before its tool selection. */
+  pinParent(): void { if (this.parent) { this.parent = new ToolsSnapshot(this.parent.list()) } }
   register(tool: ToolDefinition): Disposer {
     if (!/^[a-zA-Z][a-zA-Z0-9_]{0,63}$/.test(tool.name)) throw new Error(`Invalid tool name: ${tool.name}`)
     if (this.entries.has(tool.name)) throw new Error(`Duplicate tool: ${tool.name}`)
@@ -71,6 +73,13 @@ export class Tools implements ToolRegistry {
       ...new Map([...(this.parent?.list() ?? []), ...this.entries.values()].map((tool) => [tool.name, tool])).values(),
     ]
   }
+}
+class ToolsSnapshot implements ToolRegistry {
+  private readonly entries: Map<string, ToolDefinition>
+  constructor(tools: readonly ToolDefinition[]) { this.entries = new Map(tools.map(tool => [tool.name, tool])) }
+  get(name: string): ToolDefinition | undefined { return this.entries.get(name) }
+  list(): ToolDefinition[] { return [...this.entries.values()] }
+  register(): Disposer { throw new HbarError('RUNTIME_TOOL_IMMUTABLE', 'Captured Run tools cannot be replaced') }
 }
 export class Hooks implements HookRegistry {
   constructor(private parent?: HookRegistry) {}
@@ -274,6 +283,14 @@ export class PluginManager {
     private options: { pluginRoot?: string; pluginLock?: string; pluginExtract?: string } = {},
   ) {
     new HbarService(this.ctx, this.makeAPI('core', this.ctx))
+  }
+  /** Owner-local public API for typed isolated capability adapters. Context remains private to this process. */
+  runtimeAPI(): HbarAPI { return this.makeAPI('core', this.ctx) }
+  /** The isolated owner supplies its checked JSON schema; executable validators remain in that owner. */
+  setRuntimeMetadata(id: string, metadata: { config: Record<string, unknown>; configSchema: Record<string, unknown> | null }): void {
+    const entry = this.findEntry(id)
+    if (!entry) throw new HbarError('PLUGIN_NOT_FOUND', 'The runtime metadata owner is not registered')
+    entry.info = { ...entry.info, config: metadata.config, configSchema: metadata.configSchema ?? undefined }
   }
   private makeAPI(
     owner: string,

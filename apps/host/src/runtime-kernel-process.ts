@@ -10,6 +10,7 @@ import { RUNTIME_APPLICATION_METHODS, RUNTIME_APPLICATION_CONTROLS } from '@hbar
 import { createPathLayout, callStorageRpc, STORAGE_SCHEMA_VERSION, runtimeRecoveryRecordSchema, type StoragePort } from '@hbar/storage'
 import { RuntimeCoordinatorClient, RuntimeValuePort, RuntimeNotificationDelivery, procedure, runtimeDomainError, type RuntimeProcessContext, type RuntimeProcessService } from '@hbar/runtime'
 import { RuntimeDriverAdapter } from './runtime-driver-adapter'
+import { RuntimePluginAdapter } from './runtime-plugin-adapter'
 
 /** The candidate validates its ports; construction and every production action wait until activation. */
 export function create(context: RuntimeProcessContext): RuntimeProcessService {
@@ -18,6 +19,10 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
   const coordinator = new RuntimeCoordinatorClient(context.peer)
   const leases = new Map<string, ExecutionOwnership>()
   const driver = new RuntimeDriverAdapter(context.peer, runId => leases.get(runId))
+  const plugins = new RuntimePluginAdapter(context.peer, () => {
+    if (!kernel) throw new HbarError('RUNTIME_PREPARING', 'Plugin adapters need their constructed local Kernel')
+    return kernel
+  })
   let kernel: Kernel | undefined
   let driverIsolation: 'managed' | 'legacy' = 'managed'
   let role: 'default' | 'draining' = 'draining'
@@ -57,12 +62,12 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     call: (method, ...args) => domain(() => callStorageRpc({ execute: input => context.peer.call('kernel.storage', input, z.unknown()) }, method, args)),
     close: async () => {},
   }
-  context.peer.register('kernel.state', procedure(z.undefined(), runtimeKernelStateSchema, () => {
+  context.peer.register('kernel.state', procedure(z.undefined(), runtimeKernelStateSchema, async () => {
     const value = application()
     return { instanceId: value.instanceId, permission: value.permissionMode(), recovered: value.recovered, driverIsolation,
-      ...value.runtimeView(),
+      ...await value.runtimeView(),
       active: [...value.active.values()].map(active => ({ sessionId: active.run.sessionId, runId: active.run.id })),
-      tools: value.tools.list().map(tool => tool.name), plugins: value.plugins.list() }
+      tools: value.tools.list().map(tool => tool.name), plugins: plugins.projectInfo(value.plugins.list()) }
   }))
   context.peer.register('kernel.submit', procedure(runtimeKernelSubmitSchema, runSchema, (input, call) => application().submit(
     input.sessionId, input.requestId, input.input, input.modelId, input.command, call.signal, input.expectedLaunchTargetRevision)))
@@ -70,6 +75,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
   context.peer.register('kernel.fence', procedure(runtimeKernelRunsSchema, z.undefined(), input => application().fenceRuns(input.runIds)))
   context.peer.register('kernel.wake', procedure(runtimeKernelSessionSchema, z.undefined(), input => { if (role === 'default') application().wake(input.sessionId) }))
   context.peer.register('kernel.session.refresh', procedure(runtimeKernelSessionSchema, z.undefined(), input => application().refreshSessionProjection(input.sessionId)))
+  context.peer.register('kernel.plugins.refresh', procedure(z.undefined(), z.undefined(), () => plugins.refresh()))
   context.peer.register('kernel.recover', procedure(runtimeKernelRunsSchema, runtimeKernelRecoverySchema, input => application().recoverRuns(input.runIds)))
   context.peer.register('kernel.recovery.resume', procedure(runtimeKernelRunSchema, runtimeRecoveryRecordSchema, input => application().resumeRecovery(input.runId)))
   context.peer.register('kernel.resume', procedure(z.undefined(), z.undefined(), async () => {
@@ -99,7 +105,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
           set: (id, value) => domain(() => context.peer.call('kernel.secret.set', { id, value }, z.undefined())),
           delete: id => domain(() => context.peer.call('kernel.secret.delete', { id }, z.undefined())),
         },
-        profile: { ...profile, createStorage: async () => storage, replacements: { ...profile?.replacements, 'driver.pi': profile?.replacements?.['driver.pi'] ?? definePlugin({
+        profile: { ...profile, createStorage: async () => storage, replacements: { ...(configuration.isolatedPlugins ? await plugins.load() : {}), ...profile?.replacements, 'driver.pi': profile?.replacements?.['driver.pi'] ?? definePlugin({
           manifest: { id: 'driver.pi', name: 'Managed Pi harness', description: 'Version-bound named driver port',
             version: '1.0.0', apiVersion: '^1.0.0', scope: 'host', required: true, provides: { driver: '1.0.0' }, permissions: ['network'] },
           apply: owner => provide(owner, 'driver', driver),
@@ -124,10 +130,11 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
           call: (lease, method, ...args) => domain(() => callStorageRpc({ execute: input => context.peer.call('kernel.storage', input, z.unknown()) }, method, args, lease)),
         },
       })
+      if (configuration.isolatedPlugins) plugins.publishMetadata()
       unsubscribe = kernel.subscribe(event => notifications.publish(event))
       // The stable composition activates all selected bindings before explicitly opening this scheduling gate.
     },
     async drain() { role = 'draining'; kernel?.beginDrain(); return { runs: kernel?.active.size ?? 0, requests: 0, resources: 0 } },
-    async dispose() { role = 'draining'; kernel?.beginDrain(); unsubscribe?.(); notifications.dispose(); await kernel?.close(); driver.dispose(); values.dispose() },
+    async dispose() { role = 'draining'; kernel?.beginDrain(); unsubscribe?.(); notifications.dispose(); await kernel?.close(); plugins.dispose(); driver.dispose(); values.dispose() },
   }
 }

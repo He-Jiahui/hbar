@@ -34,6 +34,17 @@ async function changedKernel(runtime: ProcessHostRuntime, suffix: string) {
   const unit = runtime.buildUnits.find(value => value.descriptor.id === 'kernel')!
   return runtime.artifacts.registerSet([await runtime.artifacts.build({ ...unit, entrypoint: source })])
 }
+async function changedPlugin(runtime: ProcessHostRuntime, id: string) {
+  const root = await mkdtemp(join(process.cwd(), 'artifacts', 'process-plugin-update-'))
+  resources.push(() => rm(root, { recursive: true, force: true }))
+  const unit = runtime.buildUnits.find(value => value.descriptor.id === id)
+  if (!unit) throw new Error('Expected a declared plugin build unit')
+  const source = join(root, 'plugin.ts')
+  const implementation = (await readFile(unit.entrypoint, 'utf8')).replaceAll("'./", "'../../apps/host/src/")
+  await writeFile(source, implementation + '\nexport const compatiblePluginRevision = 2\n')
+  const artifact = await runtime.artifacts.build({ ...unit, entrypoint: source })
+  return runtime.artifacts.registerSet([artifact])
+}
 async function clientFor(runtime: ProcessHostRuntime) {
   const host = await startServer(runtime.kernel, { port: 0, runtime, controller: runtime.controller })
   const client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
@@ -43,18 +54,81 @@ async function clientFor(runtime: ProcessHostRuntime) {
   return { client, host, system: createSystemCommandClient(client) }
 }
 
-test('the production composition activates four independent Bun processes and commits through the single owned Storage writer', async () => {
+test('the production composition activates independent Bun owners including nine plugin units and commits through the single owned Storage writer', async () => {
   const f = await fixture()
   const snapshot = f.runtime.snapshot()
   expect(snapshot.ready).toBe(true)
   const pids = snapshot.units.flatMap(unit => unit.generations.map(generation => generation.pid))
-  expect(new Set(pids).size).toBe(4)
+  expect(new Set(pids).size).toBe(13)
   expect(pids.includes(process.pid)).toBe(false)
   const run = await f.runtime.kernel.submit(f.session.id, 'process-request', { text: '/tool get_goal {}', images: [] }, 'local-fixture')
   await f.runtime.waitForIdle()
-  expect((await f.runtime.storage.call('run', run.id)).status).toBe('completed')
+  expect(await f.runtime.storage.call('run', run.id)).toMatchObject({ status: 'completed' })
   expect(await f.runtime.storage.call('runtimeExecutionRead', run.id)).toMatchObject({ state: 'released', lease: { versions: { kernel: { generation: 1 }, driver: { generation: 1 } } } })
   expect(f.runtime.coordinator.snapshot()).toMatchObject({ sessions: 0, physicalTools: 0, resources: 0 })
+  const kernelVersion = f.runtime.manager.currentVersion('kernel')
+  const kernelArtifact = await f.runtime.artifacts.get(kernelVersion.artifactId)
+  expect(kernelArtifact.inputs).not.toContain('plugins/goal/src/index.ts')
+  expect(kernelArtifact.inputs).not.toContain('plugins/local-tools/src/index.ts')
+  const plugins = f.runtime.kernel.plugins.list()
+  expect(plugins.find(plugin => plugin.id === 'goal.codex')?.configSchema?.properties).toHaveProperty('autoContinue')
+  const { client } = await clientFor(f.runtime)
+  expect((await client.call('system.bootstrap', {})).plugins.find(plugin => plugin.id === 'goal.codex')?.configSchema?.properties).toHaveProperty('autoContinue')
+})
+
+test('a compatible Goal plugin update preserves the Kernel and socket, pins the active Run and hands queued work to the new plugin generation', async () => {
+  const f = await fixture(), { client, host } = await clientFor(f.runtime)
+  const before = f.runtime.snapshot(), oldKernel = f.runtime.manager.defaultOwner('kernel')
+  const first = await f.runtime.kernel.submit(f.session.id, 'old-plugin', { text: '/slow', images: [] }, 'local-fixture')
+  await until(() => f.runtime.coordinator.execution(first.id) !== null)
+  const set = await changedPlugin(f.runtime, 'plugin.goal')
+  const operation = f.runtime.reload(set.id, ['plugin.goal'])
+  await f.runtime.manager.reconcile(); await f.runtime.settled()
+  expect(f.runtime.manager.currentVersion('plugin.goal').generation).toBe(2)
+  expect(f.runtime.coordinator.execution(first.id)?.versions.plugins.find(version => version.unitId === 'plugin.goal')?.generation).toBe(1)
+  expect(f.runtime.manager.defaultOwner('kernel')).toEqual(oldKernel)
+  const second = await f.runtime.kernel.submit(f.session.id, 'new-plugin', { text: '/tool get_goal {}', images: [] }, 'local-fixture')
+  await f.runtime.waitForIdle()
+  expect(await f.runtime.storage.call('run', first.id)).toMatchObject({ status: 'completed' })
+  expect(await f.runtime.storage.call('run', second.id)).toMatchObject({ status: 'completed' })
+  const execution = await f.runtime.storage.call('runtimeExecutionRead', second.id)
+  expect(execution?.lease.versions.plugins.find(version => version.unitId === 'plugin.goal')?.generation).toBe(2)
+  expect(f.runtime.getReload(operation.operationId).phase).toBe('completed')
+  for (const unit of before.units.filter(unit => unit.descriptor.id !== 'plugin.goal'))
+    expect(f.runtime.snapshot().units.find(current => current.descriptor.id === unit.descriptor.id)?.generations[0]?.pid).toBe(unit.generations[0]?.pid)
+  expect(client.connectionStatus()).toBe('connected'); expect(host.info().instanceId).toBe(before.instanceId)
+})
+
+test('owned local and Plan tools validate, execute and settle through the admitted Run gateway', async () => {
+  const f = await fixture()
+  await writeFile(join(f.root, 'input.txt'), 'owned workspace read')
+  const read = await f.runtime.kernel.submit(f.session.id, 'owned-local-read', { text: '/tool read_file {"path":"input.txt"}', images: [] }, 'local-fixture')
+  await f.runtime.waitForIdle()
+  expect(await f.runtime.storage.call('run', read.id)).toMatchObject({ status: 'completed' })
+  const plan = await f.runtime.kernel.submit(f.session.id, 'owned-plan', { text: '/tool update_plan {"plan":[{"step":"Verify the owned gateway","status":"in_progress"}]}', images: [], approval: 'allow' }, 'local-fixture')
+  await f.runtime.waitForIdle()
+  expect(await f.runtime.storage.call('run', plan.id)).toMatchObject({ status: 'completed' })
+  expect(await f.runtime.kernel.plugins.get('plan').get(f.session.id)).toMatchObject({ plan: [{ step: 'Verify the owned gateway', status: 'in_progress' }] })
+  const events = await f.runtime.storage.call('events', f.session.id, 0, 2_000)
+  expect(events.filter(event => event.type === 'tool.settled')).toHaveLength(2)
+  expect(f.runtime.coordinator.snapshot()).toMatchObject({ sessions: 0, resources: 0, physicalTools: 0 })
+})
+
+test('a crashed plugin fences its bound Run, restores the activated plugin version and creates one safe successor without restarting the Kernel', async () => {
+  const f = await fixture(), kernel = f.runtime.manager.defaultOwner('kernel')
+  const run = await f.runtime.kernel.submit(f.session.id, 'plugin-fault', { text: '/slow', images: [] }, 'local-fixture')
+  await until(() => f.runtime.coordinator.execution(run.id) !== null)
+  const previous = f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'plugin.goal')?.generations[0]
+  if (!previous?.pid || previous.pid === process.pid) throw new Error('Expected the owned Goal PID')
+  process.kill(previous.pid, 'SIGKILL')
+  await until(() => f.runtime.snapshot().ready && f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'plugin.goal')?.generations[0]?.incarnation !== previous.incarnation)
+  await f.runtime.waitForIdle()
+  expect(f.runtime.manager.defaultOwner('kernel')).toEqual(kernel)
+  expect(await f.runtime.storage.call('run', run.id)).toMatchObject({ status: 'interrupted' })
+  const snapshot = await f.runtime.storage.call('snapshot', f.session.id)
+  const successors = snapshot.runs.filter(next => next.recovery?.predecessorRunId === run.id)
+  expect(successors).toHaveLength(1); expect(successors[0]?.status).toBe('completed')
+  expect(snapshot.messages.filter(message => message.role === 'user')).toHaveLength(1)
 })
 
 test('the same managed composition starts from build-pinned bytes when its source root is unavailable', async () => {
@@ -73,7 +147,7 @@ test('the same managed composition starts from build-pinned bytes when its sourc
   expect((await runtime.storage.call('run', run.id)).status).toBe('completed')
   expect((await client.call('system.bootstrap', {})).models.some(model => model.id === 'local-fixture')).toBe(true)
   expect(runtime.snapshot().ready).toBe(true)
-  expect(new Set(runtime.snapshot().units.flatMap(unit => unit.generations.map(generation => generation.pid))).size).toBe(4)
+  expect(new Set(runtime.snapshot().units.flatMap(unit => unit.generations.map(generation => generation.pid))).size).toBe(13)
 })
 
 test('a legacy profile executes locally in its managed Kernel owner, binds the actual driver owner and explicitly requires restart for code reload', async () => {

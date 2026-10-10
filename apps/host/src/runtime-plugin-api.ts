@@ -6,8 +6,10 @@ import { runtimeToolAdapter, describeRuntimeHook, restoreRuntimeHook, type Runti
 import { RUNTIME_PLUGIN_SERVICES } from './runtime-plugin-contract'
 
 export type RuntimePluginHostInvoker = (method: string, args: readonly unknown[]) => Promise<unknown>
-export interface RuntimePluginInvocationScope { readonly host: RuntimePluginHostInvoker; readonly tools: readonly ToolDefinition[]; readonly pending: Set<Promise<unknown>> }
+export interface RuntimePluginInvocationScope { readonly host: RuntimePluginHostInvoker; readonly tools: readonly ToolDefinition[]; readonly pending: Set<Promise<unknown>>;
+  readonly mount?: { readonly root: string; readonly folders: readonly { readonly alias: string; readonly path: string }[] } }
 const scope = new AsyncLocalStorage<RuntimePluginInvocationScope>()
+export const runtimePluginInvocation = () => scope.getStore()
 export const withRuntimePluginInvocation = <Result>(value: RuntimePluginInvocationScope, operation: () => Promise<Result>): Promise<Result> => scope.run(value, operation)
 
 export class RuntimePluginHooks implements HookRegistry {
@@ -95,14 +97,13 @@ export function createRuntimePluginAPI(options: {
   new HbarService(options.ctx, api)
   return api
 }
-export function provideRuntimePluginDependencies(ctx: Context, names: readonly string[]): void {
+export function provideRuntimePluginDependencies(ctx: Context, names: readonly string[], fallback: RuntimePluginHostInvoker): void {
   for (const name of names) {
     if (!Object.hasOwn(RUNTIME_PLUGIN_SERVICES, name)) throw new HbarError('RUNTIME_RESTART_REQUIRED', 'The plugin needs an undeclared capability adapter')
     const methods = RUNTIME_PLUGIN_SERVICES[name as keyof typeof RUNTIME_PLUGIN_SERVICES]
     const value: Record<string, unknown> = {}
     for (const method of methods) value[method] = (...args: unknown[]) => {
-      const host = scope.getStore()?.host
-      if (!host) throw new HbarError('RUNTIME_PREPARING', 'Cross-plugin capabilities require an admitted invocation')
+      const host = scope.getStore()?.host ?? fallback
       return host(`service.${name}.${method}`, args)
     }
     provide(ctx, name, value)

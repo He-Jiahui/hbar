@@ -366,6 +366,11 @@ export class WorkflowRuntime implements WorkflowService {
         `Workflow replay for ${sessionId} exceeded ${this.config.maxRestoreEvents} events`,
       )
     for (const event of events) this.applyEvent(sessionId, event)
+    if (this.api.restoreMode === 'projection') {
+      const plan = await this.agentPlans.get(sessionId)
+      if (plan) this.agentPlanSnapshots.set(sessionId, plan)
+      return
+    }
     const interrupted = this.workflows.get(sessionId)
     if (interrupted?.pendingMutations?.length) {
       await this.persistWorkflow(
@@ -2754,7 +2759,7 @@ export const workflowPlugin = definePlugin({
       api.service<GitService>('git'),
     )
     await runtime.restore()
-    await runtime.resumeDelegations()
+    if (api.restoreMode !== 'projection') await runtime.resumeDelegations()
     provide<WorkflowService>(ctx, 'workflow', runtime)
     api.hooks.on('run.start', (event) => runtime.startReviewer(event))
     api.hooks.on('context.build', (request) => runtime.decorate(request))
