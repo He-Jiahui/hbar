@@ -86,11 +86,27 @@ async function connection(layout: CliRuntime['layout']): Promise<ConnectionFile 
 }
 
 async function startHost(layout: CliRuntime['layout'], project: string, demo: boolean) {
+  let existingOwner = false
+  try {
+    const record: unknown = JSON.parse(await readFile(`${layout.hostLock}.supervisor`, 'utf8'))
+    if (typeof record === 'object' && record !== null && 'pid' in record && typeof record.pid === 'number' && Number.isSafeInteger(record.pid) && record.pid > 0) {
+      try { process.kill(record.pid, 0); existingOwner = true } catch { /* Owner has exited. */ }
+    }
+  } catch { /* No launcher has claimed this isolated data root yet. */ }
+  if (existingOwner) {
+    const deadline = Date.now() + 120_000
+    while (Date.now() < deadline) {
+      if (await connection(layout)) return
+      await Bun.sleep(100)
+    }
+    throw new Error('The managed Host is recovering; inspect its diagnostics before starting another owner')
+  }
   await mkdir(layout.dataRoot, { recursive: true })
   const logPath = join(layout.diagnostics, 'host.log')
   await mkdir(layout.diagnostics, { recursive: true })
   const log = openSync(logPath, 'a', 0o600)
   const command = hostProcessCommand([
+    '--supervisor',
     '--desktop',
     '--host',
     '127.0.0.1',

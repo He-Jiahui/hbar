@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { Database } from 'bun:sqlite'
 import { encodePath } from '@hbar/schema-core'
+import { z } from 'zod'
 
 let root = ''
 let dataRoot = ''
@@ -40,6 +41,23 @@ async function runGit(cwd: string, ...args: string[]) {
   if (code !== 0) throw new Error(`git ${args.join(' ')} failed: ${stderr}`)
 }
 
+async function stopOwnedHost(isolatedDataRoot: string, fallbackPid = 0): Promise<void> {
+  let host = fallbackPid
+  let supervisor: number | undefined
+  try {
+    const record = z.object({ pid: z.number().int().positive(), supervisorPid: z.number().int().positive().optional() })
+      .parse(JSON.parse(await readFile(join(isolatedDataRoot, 'settings', 'connection.json'), 'utf8')))
+    host = record.pid
+    supervisor = record.supervisorPid
+  } catch { /* Some argument tests never start a Host. */ }
+  // These PIDs belong to this fixture's isolated data root. Stop its launcher before its child.
+  for (const pid of [supervisor, host]) {
+    if (!pid) continue
+    try { process.kill(pid, 'SIGTERM') } catch { /* Already exited. */ }
+  }
+  await Bun.sleep(200)
+}
+
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), 'hbar-cli-'))
   dataRoot = join(root, 'data')
@@ -49,22 +67,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  try {
-    const connection = JSON.parse(await readFile(join(dataRoot, 'settings', 'connection.json'), 'utf8')) as {
-      pid?: number
-    }
-    hostPid = connection.pid ?? hostPid
-  } catch {
-    // The help and argument tests do not create a Host.
-  }
-  if (hostPid) {
-    try {
-      process.kill(hostPid, 'SIGTERM')
-    } catch {
-      // The Host may already have exited after a failed integration assertion.
-    }
-    await Bun.sleep(200)
-  }
+  await stopOwnedHost(dataRoot, hostPid)
   await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
 })
 
@@ -81,7 +84,6 @@ test('command catalog opens without a configured model or a selected session', a
   const isolatedCache = join(isolated, 'cache')
   const isolatedProject = join(isolated, 'project')
   await mkdir(isolatedProject, { recursive: true })
-  let pid = 0
   try {
     const result = await run([
       '--data-root',
@@ -133,16 +135,8 @@ test('command catalog opens without a configured model or a selected session', a
     } finally {
       db.close()
     }
-    pid = (JSON.parse(await readFile(join(isolatedData, 'settings', 'connection.json'), 'utf8')) as { pid: number }).pid
   } finally {
-    if (pid) {
-      try {
-        process.kill(pid, 'SIGTERM')
-      } catch {
-        /* Host may have already exited. */
-      }
-      await Bun.sleep(200)
-    }
+    await stopOwnedHost(isolatedData)
     await rm(isolated, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
   }
 })
@@ -457,7 +451,6 @@ test('exec agent patch commands isolate, query, apply, and report conflicts thro
   const isolatedData = join(isolated, 'data')
   const isolatedCache = join(isolated, 'cache')
   await mkdir(isolatedProject)
-  let pid = 0
   try {
     await writeFile(join(isolatedProject, 'patch.txt'), 'parent\n')
     await runGit(isolatedProject, 'init')
@@ -539,16 +532,8 @@ test('exec agent patch commands isolate, query, apply, and report conflicts thro
     expect(JSON.parse(conflict.stdout)).toMatchObject({ patch: { status: 'conflict' } })
     expect(conflict.stderr).toContain('Agent patch conflicts with the parent workspace')
     expect(await readFile(join(isolatedProject, 'patch.txt'), 'utf8')).toBe('parent changed concurrently\n')
-    pid = (JSON.parse(await readFile(join(isolatedData, 'settings', 'connection.json'), 'utf8')) as { pid: number }).pid
   } finally {
-    if (pid) {
-      try {
-        process.kill(pid, 'SIGTERM')
-      } catch {
-        /* Host may have already exited. */
-      }
-      await Bun.sleep(200)
-    }
+    await stopOwnedHost(isolatedData)
     await rm(isolated, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
   }
 })
@@ -918,7 +903,7 @@ test('exec system commands query diagnostics, validate roots, and manage pairing
   expect((JSON.parse(pairing.stdout) as { code: string }).code).toHaveLength(8)
   const restart = await run([...common, 'exec', 'system.restart'])
   expect(restart.code).toBe(0)
-  expect(JSON.parse(restart.stdout)).toEqual({ accepted: false, restartRequired: true })
+  expect(JSON.parse(restart.stdout)).toEqual({ accepted: true, restartRequired: false })
 })
 
 test('exec client connection commands expose status and disconnect without Host-side registration', async () => {

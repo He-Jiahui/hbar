@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { pathToFileURL } from 'node:url'
@@ -9,6 +9,9 @@ import { startServer } from './server.ts'
 import { createHostSupervisor, RESTART_EXIT_CODE } from './supervisor.ts'
 import { desktopConnection } from './desktop-connection.ts'
 import { ensureHostDataRootId } from './host-data-identity.ts'
+import { FAILURE_EXIT_CODE, installHostShutdown, registerHostProcessHandlers } from './process-shutdown'
+import { sendHostSupervisorMessage } from './supervisor-protocol'
+import { acquireHostProcessLock } from './process-lock'
 
 export async function runHost(
   args: string[] = Bun.argv.slice(2),
@@ -35,46 +38,48 @@ export async function runHost(
     },
   })
   const layout = await resolvePathLayout({
-    preferPointer: values.desktop === true && (values.supervised === true || values.supervisor === true),
+    preferPointer: values.desktop === true,
     home: values.home ?? process.env.HBAR_HOME,
     dataRoot: values['data-root'] ?? process.env.HBAR_DATA_ROOT,
     cacheRoot: values['cache-root'] ?? process.env.HBAR_CACHE_ROOT,
   })
   const home = layout.dataRoot
-  if (values.supervisor) {
+  if (values.supervisor || !values.supervised) {
+    const releaseSupervisorLock = await acquireHostProcessLock(`${layout.hostLock}.supervisor`)
     const supervisor = createHostSupervisor({
       command: supervisorCommand,
       hostArgs: args,
       connectionFile: async () => join((await getStorageLocations(layout)).saved.settingsRoot, 'connection.json'),
       onExit: (event) => console.error(`[hbar supervisor] child exit ${JSON.stringify(event)}`),
     })
-    const stopSupervisor = () => supervisor.stop()
+    const stopSupervisor = () => {
+      void supervisor.stop().catch(() => {
+        console.error('[hbar supervisor] shutdown could not confirm process exit')
+        process.exit(FAILURE_EXIT_CODE)
+      })
+    }
     process.on('SIGINT', stopSupervisor)
     process.on('SIGTERM', stopSupervisor)
-    process.exit(await supervisor.run())
+    let exitCode: number
+    try { exitCode = await supervisor.run() } finally { await releaseSupervisorLock() }
+    process.exit(exitCode)
   }
   await mkdir(home, { recursive: true })
   const lock = layout.hostLock
-  await mkdir(resolve(lock, '..'), { recursive: true })
-  try {
-    await writeFile(lock, JSON.stringify({ pid: process.pid }), { flag: 'wx', mode: 0o600 })
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
-    const previous = JSON.parse(await readFile(lock, 'utf8')) as { pid: number }
-    let alive = true
-    try {
-      process.kill(previous.pid, 0)
-    } catch (check) {
-      if ((check as NodeJS.ErrnoException).code === 'ESRCH') alive = false
-      else throw check
-    }
-    if (alive) throw new Error(`A host already owns this data directory (PID ${previous.pid})`, { cause: error })
-    await rm(lock)
-    await writeFile(lock, JSON.stringify({ pid: process.pid }), { flag: 'wx', mode: 0o600 })
-  }
+  const releaseLock = await acquireHostProcessLock(lock)
   let cleanup: (() => Promise<void>) | undefined
   let kernel: Kernel | undefined
-  let requestShutdown: ((exitCode: number) => void) | undefined
+  let heartbeat: ReturnType<typeof setInterval> | undefined
+  const requestShutdown = installHostShutdown(async () => {
+    clearInterval(heartbeat)
+    try {
+      if (cleanup) await cleanup()
+      else await kernel?.close()
+    } finally {
+      await releaseLock()
+    }
+  })
+  registerHostProcessHandlers(requestShutdown)
   try {
     const dataRootId = await ensureHostDataRootId(layout.settings)
     const profile = values.profile
@@ -82,6 +87,7 @@ export async function runHost(
       : undefined
     kernel = await Kernel.create({
       layout,
+      onFatal: () => requestShutdown(FAILURE_EXIT_CODE),
       ...(values.demo !== undefined ? { demo: values.demo } : {}),
       ...(values.workspace ? { workspace: values.workspace } : {}),
       ...(profile ? { profile } : {}),
@@ -98,11 +104,15 @@ export async function runHost(
         ? { staticRoot: values['web-root'] ?? process.env.HBAR_WEB_ROOT! }
         : {}),
       restart() {
-        if (!values.supervised || !requestShutdown) return false
-        setTimeout(() => requestShutdown?.(RESTART_EXIT_CODE), 100)
+        if (!values.supervised) return false
+        setTimeout(() => requestShutdown(RESTART_EXIT_CODE), 100)
         return true
       },
     })
+    cleanup = async () => {
+      await host.close()
+      await kernel?.close()
+    }
     if (values.desktop) {
       const device = await host.auth.createDevice('hbar desktop')
       await writeFile(
@@ -121,31 +131,12 @@ export async function runHost(
     console.log(`hbar ${host.info().version} | ${home}`)
     for (const address of host.info().addresses) console.log(`  ${address}`)
     console.log(`Pairing code: ${host.pairing.code} (expires in 5 minutes)`)
-    cleanup = async () => {
-      await host.close()
-      await kernel?.close()
-      await rm(lock, { force: true })
-    }
-    let closing = false
-    const stop = async (exitCode = 0) => {
-      if (closing) return
-      closing = true
-      await cleanup?.()
-      process.exit(exitCode)
-    }
-    requestShutdown = (exitCode) => {
-      void stop(exitCode)
-    }
-    process.on('SIGINT', () => {
-      void stop()
-    })
-    process.on('SIGTERM', () => {
-      void stop()
-    })
-  } catch (error) {
-    await kernel?.close()
-    await rm(lock, { force: true })
-    throw error
+    if (host.server.port !== undefined) sendHostSupervisorMessage({ type: 'host.ready', port: host.server.port })
+    heartbeat = setInterval(() => sendHostSupervisorMessage({ type: 'host.heartbeat' }), 2_000)
+    heartbeat.unref()
+  } catch {
+    console.error('[hbar] Host startup failed; supervisor will retry the managed owner')
+    requestShutdown(FAILURE_EXIT_CODE)
   }
 }
 

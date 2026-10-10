@@ -9,6 +9,7 @@ interface ConnectionRecord {
   readonly token: string
   readonly pid: number
   readonly instanceId: string
+  readonly supervisorPid?: number
   readonly dataRootId?: string
 }
 
@@ -24,7 +25,7 @@ async function until<Value>(operation: () => Promise<Value>, timeoutMs = 20_000)
   }
 }
 
-test('supervised Host accepts restart, preserves its address, and serves a new instance', async () => {
+test('supervised Host accepts restart and recovers an abrupt crash at its preserved address', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-host-restart-'))
   const dataRoot = join(root, 'data')
   const cacheRoot = join(root, 'cache')
@@ -35,7 +36,6 @@ test('supervised Host accepts restart, preserves its address, and serves a new i
     [
       process.execPath,
       resolve('apps/host/src/main.ts'),
-      '--supervisor',
       '--desktop',
       '--port',
       '0',
@@ -55,6 +55,12 @@ test('supervised Host accepts restart, preserves its address, and serves a new i
   try {
     const first = await until(async () => JSON.parse(await readFile(connectionFile, 'utf8')) as ConnectionRecord)
     latestPid = first.pid
+    expect(first.supervisorPid).toBe(supervisor.pid)
+    const duplicate = Bun.spawn([
+      process.execPath, resolve('apps/host/src/main.ts'), '--supervisor', '--data-root', dataRoot, '--cache-root', cacheRoot,
+    ], { stdin: 'ignore', stdout: 'ignore', stderr: 'ignore', windowsHide: true, timeout: 5_000, killSignal: 'SIGKILL' })
+    expect(await duplicate.exited).toBe(1)
+    expect(supervisor.exitCode).toBeNull()
     firstClient = new HbarClient(first.url, first.token)
     const initialHost = await firstClient.connect()
     expect(initialHost.instanceId).toBe(first.instanceId)
@@ -79,6 +85,20 @@ test('supervised Host accepts restart, preserves its address, and serves a new i
     const restartedHost = await secondClient.connect()
     expect(restartedHost.instanceId).toBe(second.instanceId)
     expect(restartedHost.dataRootId).toBe(initialHost.dataRootId)
+    process.kill(second.pid, 'SIGKILL')
+    const recovered = await until(async () => {
+      const value = JSON.parse(await readFile(connectionFile, 'utf8')) as ConnectionRecord
+      if (value.pid === second.pid) throw new Error('Crashed Host has not recovered')
+      if (!(await fetch(`${value.url}/healthz`)).ok) throw new Error('Recovered Host is not ready')
+      return value
+    })
+    latestPid = recovered.pid
+    expect(recovered.url).toBe(first.url)
+    await until(async () => {
+      if (secondClient?.connectionHost()?.instanceId !== recovered.instanceId)
+        throw new Error('The SDK has not reconnected to the recovered Host')
+    })
+    expect(supervisor.exitCode).toBeNull()
   } finally {
     firstClient?.disconnect()
     secondClient?.disconnect()

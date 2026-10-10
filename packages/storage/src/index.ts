@@ -58,6 +58,8 @@ export interface StoragePort {
 export interface StorageLifecycleOptions {
   readonly requestTimeoutMs?: number
   readonly closeTimeoutMs?: number
+  /** Fatal Worker failure belongs to its managed owner; unknown calls are never replayed here. */
+  readonly onFatal?: (error: HbarError) => void
 }
 
 interface PendingRequest {
@@ -83,9 +85,11 @@ export class Storage {
   private terminating: Promise<void> | null = null
   private readonly requestTimeoutMs: number
   private readonly closeTimeoutMs: number
+  private readonly onFatal: ((error: HbarError) => void) | undefined
   constructor(path: string, layout?: PathLayout, lifecycle: StorageLifecycleOptions = {}) {
     this.requestTimeoutMs = timeoutOption(lifecycle.requestTimeoutMs, 30_000)
     this.closeTimeoutMs = timeoutOption(lifecycle.closeTimeoutMs, 5_000)
+    this.onFatal = lifecycle.onFatal
     const options = {
       workerData: {
         path,
@@ -104,7 +108,7 @@ export class Storage {
         : new Worker(new URL('./worker.ts', import.meta.url), options)
     this.exited = new Promise((resolve) => {
       this.worker.once('exit', (code: number) => {
-        this.stop(new HbarError('STORAGE_WORKER_EXITED', `Storage worker exited with code ${code}`))
+        this.fail(new HbarError('STORAGE_WORKER_EXITED', `Storage worker exited with code ${code}`))
         resolve()
       })
     })
@@ -117,7 +121,7 @@ export class Storage {
       else handler.reject(new HbarError(reply.code, reply.error))
     })
     this.worker.on('error', (event) => {
-      this.stop(
+      this.fail(
         new HbarError(
           'STORAGE_WORKER_FAILED',
           `Storage worker failed: ${event instanceof Error ? event.message : String(event)}`,
@@ -144,7 +148,7 @@ export class Storage {
       const id = ++this.nextId
       const timer = setTimeout(() => {
         // A timed-out write may have committed. Fail the owner without replaying it or accepting more work.
-        this.stop(
+        this.fail(
           new HbarError(
             'STORAGE_TIMEOUT',
             `Storage ${method} did not reply within ${timeoutMs}ms; result may be unknown`,
@@ -163,6 +167,13 @@ export class Storage {
         reject(error)
       }
     })
+  }
+  private fail(error: HbarError): void {
+    const notify = !this.stopped && !this.closing
+    this.stop(error)
+    if (notify) {
+      try { this.onFatal?.(error) } catch { console.error('[hbar storage] fatal observer failed') }
+    }
   }
   private stop(error: Error): void {
     this.stopped = true

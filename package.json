@@ -15,7 +15,7 @@
   ],
   "scripts": {
     "dev": "bun run native:build && bun scripts/dev.ts",
-    "host": "bun run native:build && bun apps/host/src/main.ts",
+    "host": "bun run native:build && bun apps/host/src/main.ts --supervisor",
     "cli": "bun run native:build && bun apps/cli/src/main.ts",
     "hbar": "bun run native:build && bun apps/cli/src/main.ts",
     "pair": "bun scripts/pair.ts",

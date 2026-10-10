@@ -359,6 +359,8 @@ export interface KernelOptions {
   profile?: KernelProfile | undefined
   /** Stop a Run after this much time without model output or completed work. */
   runIdleTimeoutMs?: number | undefined
+  /** The composition root owns recovery of a failed Storage Worker. */
+  onFatal?: ((error: HbarError) => void) | undefined
 }
 interface ResolvedKernelOptions extends KernelOptions {
   home: string
@@ -488,7 +490,9 @@ export class Kernel {
     readonly options: ResolvedKernelOptions,
     storage?: StoragePort,
   ) {
-    this.storage = storage ?? new Storage(options.layout.database, options.layout)
+    this.storage = storage ?? new Storage(options.layout.database, options.layout, {
+      ...(options.onFatal ? { onFatal: options.onFatal } : {}),
+    })
     this.workspaceSandboxes = new WorkspaceSandboxService(
       this.storage,
       join(options.layout.cacheRoot, 'workspace-sandboxes'),
