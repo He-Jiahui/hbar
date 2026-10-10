@@ -159,16 +159,97 @@ for (const locale of ['zh-CN', 'en-US'] as const)
         await page.mouse.move(1, 1)
         await page.waitForTimeout(300)
         const start = await sample()
+        // Sample the actual CSS transition on its browser timeline. Separate CDP
+        // round trips can otherwise compare different instants under CPU load.
+        await action.evaluate((node) => {
+          type MotionSample = { level: number; width: number; height: number; animation: string }
+          type MotionTarget = HTMLElement & {
+            acceptanceMotion?: {
+              middle?: MotionSample
+              reverse?: MotionSample
+              enterDuration?: number
+              reverseDuration?: number
+              reverseTransition?: Animation
+            }
+          }
+          const target = node as MotionTarget
+          const motion: NonNullable<MotionTarget['acceptanceMotion']> = {}
+          target.acceptanceMotion = motion
+          const capture = (): MotionSample => {
+            const style = getComputedStyle(target)
+            const box = target.getBoundingClientRect()
+            return {
+              level: Number(style.getPropertyValue('--lumen-effect-level')),
+              width: box.width,
+              height: box.height,
+              animation: style.animationName,
+            }
+          }
+          const effectTransition = () => {
+            // Flush the :hover change before finding its native CSSTransition.
+            getComputedStyle(target).getPropertyValue('--lumen-effect-level')
+            const transition = target
+              .getAnimations()
+              .find((animation) => animation instanceof CSSTransition && animation.transitionProperty === '--lumen-effect-level')
+            if (!transition) throw new Error('The effect intensity must have a CSS transition')
+            return transition
+          }
+          target.addEventListener(
+            'pointerenter',
+            () => {
+              const transition = effectTransition()
+              const duration = transition.effect?.getComputedTiming().duration
+              if (typeof duration !== 'number' || duration <= 0) throw new Error('Hover transition must animate')
+              motion.enterDuration = duration
+              transition.pause()
+              transition.currentTime = duration / 3
+              motion.middle = capture()
+            },
+            { once: true },
+          )
+          target.addEventListener(
+            'pointerleave',
+            () => {
+              const transition = effectTransition()
+              const duration = transition.effect?.getComputedTiming().duration
+              if (typeof duration !== 'number' || duration <= 0) throw new Error('Reverse transition must animate')
+              motion.reverseDuration = duration
+              transition.pause()
+              transition.currentTime = 0
+              motion.reverse = capture()
+              motion.reverseTransition = transition
+            },
+            { once: true },
+          )
+        })
         await action.hover()
-        await page.waitForTimeout(80)
-        const middle = await sample()
         await page.mouse.move(1, 1)
-        const reverse = await sample()
+        const motion = await action.evaluate((node) => {
+          const target = node as HTMLElement & {
+            acceptanceMotion?: {
+              middle?: { level: number; width: number; height: number; animation: string }
+              reverse?: { level: number; width: number; height: number; animation: string }
+              enterDuration?: number
+              reverseDuration?: number
+              reverseTransition?: Animation
+            }
+          }
+          const motion = target.acceptanceMotion
+          if (!motion?.middle || !motion.reverse || !motion.reverseTransition) throw new Error('Native pointer transition samples missing')
+          motion.reverseTransition.play()
+          return {
+            middle: motion.middle,
+            reverse: motion.reverse,
+            enterDuration: motion.enterDuration,
+            reverseDuration: motion.reverseDuration,
+          }
+        })
+        const { middle, reverse } = motion
         await page.waitForTimeout(300)
         const end = await sample()
         expect(middle.level).toBeGreaterThan(start.level)
         expect(middle.level).toBeLessThan(0.29)
-        expect(Math.abs(reverse.level - middle.level)).toBeLessThan(0.1)
+        expect(Math.abs(reverse.level - middle.level)).toBeLessThan(0.001)
         expect(Math.abs(end.level - start.level)).toBeLessThan(0.01)
         expect(new Set([start, middle, reverse, end].map((state) => `${state.width}:${state.height}`)).size).toBe(1)
         const running = page.getByRole('button', { name: copy.toggleRun, exact: true })
@@ -189,7 +270,7 @@ for (const locale of ['zh-CN', 'en-US'] as const)
         await writeFile(
           `${directory}/motion.json`,
           JSON.stringify(
-            { start, middle, reverse, end, reducedMotion: true, forcedColorsFocus: true, completeClipboard: true },
+            { start, ...motion, end, reducedMotion: true, forcedColorsFocus: true, completeClipboard: true },
             null,
             2,
           ),
