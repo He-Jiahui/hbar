@@ -285,26 +285,30 @@ for (const locale of ['en-US', 'zh-CN'] as const)
           streaming: true,
         })
         await expect(summary).toHaveAttribute('aria-expanded', 'false')
+        const activityText = labels.activity({
+          thinkingCount: 0,
+          toolCounts: [
+            { name: 'read_fixture', count: 2 },
+            { name: 'write_fixture', count: 1 },
+          ],
+          failedCount: 1,
+          outcomeCounts: {
+            succeeded: 0,
+            failed: 1,
+            denied: 1,
+            cancelled: 1,
+            interrupted: 0,
+            unknown: 0,
+            'legacy-error': 0,
+            'legacy-result': 0,
+            pending: 0,
+          },
+        })
+        // Activity labels may be returned as semantic parts so the renderer
+        // can style each segment. Playwright's text matcher accepts a string;
+        // compare the same flattened text that the DOM exposes.
         await expect(summary).toHaveText(
-          labels.activity({
-            thinkingCount: 0,
-            toolCounts: [
-              { name: 'read_fixture', count: 2 },
-              { name: 'write_fixture', count: 1 },
-            ],
-            failedCount: 1,
-            outcomeCounts: {
-              succeeded: 0,
-              failed: 1,
-              denied: 1,
-              cancelled: 1,
-              interrupted: 0,
-              unknown: 0,
-              'legacy-error': 0,
-              'legacy-result': 0,
-              pending: 0,
-            },
-          }),
+          typeof activityText === 'string' ? activityText : activityText.map((part) => part.text).join(''),
         )
         await summary.focus()
         await page.keyboard.press('Enter')

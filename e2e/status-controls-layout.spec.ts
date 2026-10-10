@@ -108,8 +108,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         const exportBounds = await exportTrigger.boundingBox()
         expect(controlsBounds).not.toBeNull()
         expect(exportBounds).not.toBeNull()
-        expect((controlsBounds?.right ?? 0) - (exportBounds?.right ?? 0)).toBeGreaterThanOrEqual(0)
-        expect((controlsBounds?.right ?? 0) - (exportBounds?.right ?? 0)).toBeLessThan(20)
+        // Locator.boundingBox exposes x/width rather than DOMRect.right.
+        const controlsRight = (controlsBounds?.x ?? 0) + (controlsBounds?.width ?? 0)
+        const exportRight = (exportBounds?.x ?? 0) + (exportBounds?.width ?? 0)
+        expect(controlsRight - exportRight).toBeGreaterThanOrEqual(0)
+        expect(controlsRight - exportRight).toBeLessThan(20)
 
         await exportTrigger.click()
         const exportMenu = page.getByRole('menu', { name: copy.status.usage.export, exact: true })

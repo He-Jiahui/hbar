@@ -40,6 +40,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         root,
         port: Number(process.env.HBAR_E2E_ACTIVE_LOCATION_HOST_PORT ?? (locale === 'en-US' ? 48739 : 48740)),
       })
+      // Keep a stable, narrowed reference for callbacks that run after the
+      // assignment. TypeScript cannot retain the narrowing of the mutable
+      // outer `host` variable inside the polling callback.
+      const activeHost = host
       const branch = execFileSync('git', ['branch', '--show-current'], {
         cwd: root,
         encoding: 'utf8',
@@ -47,39 +51,42 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       }).trim()
       expect(branch).not.toBe('')
 
-      expect((await context.request.post(`${base()}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(
-        true,
-      )
+      expect(
+        (await context.request.post(`${base()}/auth/token`, { data: { token: activeHost.ready.token } })).ok(),
+      ).toBe(true)
       const page = await context.newPage()
       const errors: string[] = []
       page.on('pageerror', (error) => errors.push(error.message))
       const copy = getShellCopy(locale)
       const contextCopy = sessionContextCopy(locale)
       await page.goto(`${base()}/apps/web/`)
-      await page.getByTitle(copy.shell.workspaceActions(host.ready.workspaceName), { exact: true }).waitFor()
-      const expand = page.getByRole('treeitem', { expanded: false, name: host.ready.workspaceName, exact: true })
+      await page.getByTitle(copy.shell.workspaceActions(activeHost.ready.workspaceName), { exact: true }).waitFor()
+      const expand = page.getByRole('treeitem', { expanded: false, name: activeHost.ready.workspaceName, exact: true })
       if (await expand.isVisible()) await expand.click()
-      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
+      await page.getByRole('treeitem', { name: activeHost.ready.sessionTitle, exact: true }).click()
       await expect(page.locator('html')).toHaveAttribute('data-lumen-mode', colorScheme)
 
       // Empty sessions expose the launch-location picker. Establish one local
       // fixture run before checking the confirmed, read-only Git context.
-      const runs = createRunCommandClient(host.client)
+      const runs = createRunCommandClient(activeHost.client)
       await runs.execute(
         'run.submit',
         {
-          sessionId: host.ready.sessionId,
+          sessionId: activeHost.ready.sessionId,
           modelId: 'local-fixture',
           input: { text: 'Confirm the active composer location', images: [], approval: 'deny' },
         },
         { idempotencyKey: crypto.randomUUID() },
       )
       await expect
-        .poll(async () => (await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs.length)
+        .poll(
+          async () =>
+            (await activeHost.client.call('session.snapshot', { sessionId: activeHost.ready.sessionId })).runs.length,
+        )
         .toBe(1)
 
       const project = page.getByRole('group', {
-        name: contextCopy.project(host.ready.workspaceName),
+        name: contextCopy.project(activeHost.ready.workspaceName),
         exact: true,
       })
       await expect(project).toBeVisible()
