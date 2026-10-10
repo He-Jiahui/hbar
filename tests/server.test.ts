@@ -1,11 +1,11 @@
 import { afterEach, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { HbarError } from '@hbar/contracts'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { HbarClient, createDirectoryQueryAdapter } from '@hbar/client'
 import { createAppRuntime } from '@hbar/app-runtime'
+import { pathPointerSchema } from '@hbar/storage'
 import { startServer } from '../apps/host/src/server.ts'
 
 const cleanups: (() => Promise<void>)[] = []
@@ -16,6 +16,7 @@ async function fixture(desktop = false) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-server-'))
   const kernel = await Kernel.create({
     home: join(root, 'data'),
+    pointerFile: join(root, 'system', 'paths.json'),
     demo: true,
     workspace: root,
     secrets: new MemorySecrets(),
@@ -91,15 +92,19 @@ test('revoking a paired device closes its authority', async () => {
   await expect(host.auth.authenticate(second.token)).rejects.toThrow('revoked')
   external.disconnect()
 })
-test('setting paths reports that the Host must be restarted', async () => {
+test('setting paths persists only the isolated bootstrap pointer and requires a restart', async () => {
   const { client, root } = await fixture()
   const nextDataRoot = join(root, 'next-data')
   const nextCacheRoot = join(root, 'next-cache')
   const result = await client.call('system.paths.set', { dataRoot: nextDataRoot, cacheRoot: nextCacheRoot })
   expect(result.restartRequired).toBe(true)
-  expect(result.restartMessage).toBe('Please exit and restart the Host to apply the new paths')
   expect(result.dataRoot).toBe(nextDataRoot)
   expect(result.cacheRoot).toBe(nextCacheRoot)
+  expect(result.pointerFile).toBe(join(root, 'system', 'paths.json'))
+  expect(pathPointerSchema.parse(JSON.parse(await readFile(result.pointerFile, 'utf8')))).toMatchObject({
+    dataRoot: nextDataRoot,
+    cacheRoot: nextCacheRoot,
+  })
 })
 test('skills listing exposes global skill directories through the paired Host', async () => {
   const { client, kernel } = await fixture()
@@ -111,15 +116,9 @@ test('skills listing exposes global skill directories through the paired Host', 
     { id: 'demo-skill', path: join(paths.skills, 'global', 'demo-skill') },
   ])
 })
-test('unsupported restart reports an explicit error', async () => {
+test('a Host without a restart supervisor reports that a manual restart is required', async () => {
   const { client } = await fixture()
-  try {
-    await client.call('system.restart', {})
-    throw new Error('system.restart unexpectedly succeeded')
-  } catch (error) {
-    expect(error).toBeInstanceOf(HbarError)
-    expect((error as HbarError).code).toBe('RESTART_UNSUPPORTED')
-  }
+  expect(await client.call('system.restart', {})).toEqual({ accepted: false, restartRequired: true })
 })
 test('permission mode is exposed through the paired host and persists for future runs', async () => {
   const { client, kernel } = await fixture()
