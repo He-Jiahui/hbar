@@ -8,6 +8,7 @@ import { HbarClient, createSystemCommandClient } from '@hbar/client'
 import type { WireNotification } from '@hbar/contracts'
 import { ProcessHostRuntime } from '../apps/host/src/process-host-runtime'
 import { startServer } from '../apps/host/src/server'
+import { buildRuntimePackage } from '../scripts/build-runtime-package'
 
 const resources: Array<() => Promise<void>> = []
 afterEach(async () => { for (const cleanup of resources.splice(0)) await cleanup() })
@@ -54,6 +55,25 @@ test('the production composition activates four independent Bun processes and co
   expect((await f.runtime.storage.call('run', run.id)).status).toBe('completed')
   expect(await f.runtime.storage.call('runtimeExecutionRead', run.id)).toMatchObject({ state: 'released', lease: { versions: { kernel: { generation: 1 }, driver: { generation: 1 } } } })
   expect(f.runtime.coordinator.snapshot()).toMatchObject({ sessions: 0, physicalTools: 0, resources: 0 })
+})
+
+test('the same managed composition starts from build-pinned bytes when its source root is unavailable', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-packaged-process-host-'))
+  resources.push(() => rm(root, { recursive: true, force: true }))
+  const artifactPackage = await buildRuntimePackage(process.cwd(), join(root, 'build'))
+  const layout = createPathLayout(join(root, 'data'), join(root, 'cache'), join(root, 'pointer.json'))
+  const runtime = await ProcessHostRuntime.create({ layout, sourceRoot: join(root, 'absent-source'), artifactPackage,
+    demo: true, workspace: root, secrets: new MemorySecrets() })
+  resources.unshift(() => runtime.close())
+  const workspace = (await runtime.storage.call('workspaces'))[0]!
+  const session = await runtime.storage.call('createSession', workspace.id)
+  const { client } = await clientFor(runtime)
+  const run = await runtime.kernel.submit(session.id, 'packaged-runtime', { text: '/tool get_goal {}', images: [] }, 'local-fixture')
+  await runtime.waitForIdle()
+  expect((await runtime.storage.call('run', run.id)).status).toBe('completed')
+  expect((await client.call('system.bootstrap', {})).models.some(model => model.id === 'local-fixture')).toBe(true)
+  expect(runtime.snapshot().ready).toBe(true)
+  expect(new Set(runtime.snapshot().units.flatMap(unit => unit.generations.map(generation => generation.pid))).size).toBe(4)
 })
 
 test('a Kernel update pins the old executor, hands queued input to the new generation and keeps the socket, credentials and other process identities', async () => {

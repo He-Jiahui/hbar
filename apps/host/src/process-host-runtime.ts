@@ -2,20 +2,20 @@ import { join, resolve } from 'node:path'
 import { z } from 'zod'
 import { HbarError, providerSchema } from '@hbar/contracts'
 import { runtimeWireNotificationSchema } from '@hbar/contracts/runtime-notifications'
-import type { ExecutionOwnership, RuntimeOwner, RuntimeSnapshot, RuntimeUnitDescriptor, RuntimeVersion, RuntimeVersionSet } from '@hbar/contracts/runtime'
+import type { ExecutionOwnership, RuntimeOwner, RuntimeSnapshot, RuntimeVersion, RuntimeVersionSet } from '@hbar/contracts/runtime'
 import type { KernelControllerPort } from '@hbar/kernel/controller'
 import { createNativeSecrets, type SecretStore } from '@hbar/kernel/secrets'
-import { KERNEL_RUNTIME_FINGERPRINT, RUNTIME_KERNEL_CONTROL_METHODS, runtimeKernelStateSchema, runtimeKernelRecoverySchema } from '@hbar/kernel/runtime-port'
+import { RUNTIME_KERNEL_CONTROL_METHODS, runtimeKernelStateSchema, runtimeKernelRecoverySchema } from '@hbar/kernel/runtime-port'
 import { RUNTIME_APPLICATION_CONTROLS } from '@hbar/kernel/runtime-application'
 import { ManagedProcess, RuntimeArtifactStore, RuntimeCoordinator, RuntimeManager, RuntimeValuePort, procedure,
-  registerRuntimeCoordinatorPort, RUNTIME_COORDINATION_CONTROL_METHODS, RUNTIME_BUNDLE_EXTERNALS, runtimeDomainError, type IpcPeer, type RuntimeArtifact, type RuntimeBuildUnit } from '@hbar/runtime'
-import { Storage, StableStoragePort, callStorageRpc, ensurePathLayout, storageRpcCallSchema, STORAGE_RPC_FINGERPRINT, STORAGE_SCHEMA_VERSION, type PathLayout } from '@hbar/storage'
+  registerRuntimeCoordinatorPort, RUNTIME_COORDINATION_CONTROL_METHODS, runtimeDomainError, type IpcPeer, type RuntimeArtifact, type RuntimeArtifactPackage, type RuntimeBuildUnit } from '@hbar/runtime'
+import { Storage, StableStoragePort, callStorageRpc, ensurePathLayout, storageRpcCallSchema, type PathLayout } from '@hbar/storage'
 import { acquireHostProcessLock } from './process-lock'
 import { RuntimeKernelFacade, type RuntimeKernelEndpoint, type RuntimeKernelState } from './runtime-kernel-facade'
 import { RuntimeDriverRelay, type RuntimeDriverEndpoint } from './runtime-driver-relay'
-import { DRIVER_RUNTIME_FINGERPRINT } from './runtime-driver-contract'
-import { CONTROLLER_RUNTIME_FINGERPRINT, type RuntimeControllerPort } from './runtime-controller-contract'
+import type { RuntimeControllerPort } from './runtime-controller-contract'
 import { RuntimeControllerAdapter } from './runtime-controller-adapter'
+import { hostRuntimeBuildUnits } from './runtime-build'
 import type { RuntimeSystemPort } from './system-commands'
 
 export interface ProcessHostRuntimeOptions {
@@ -25,6 +25,8 @@ export interface ProcessHostRuntimeOptions {
   readonly secrets?: SecretStore
   readonly sourceRoot?: string
   readonly processCommand?: readonly [string, ...string[]]
+  /** Trusted immutable build content, supplied by the packaged entry rather than a remote reload request. */
+  readonly artifactPackage?: RuntimeArtifactPackage
 }
 interface Generation {
   readonly artifact: RuntimeArtifact
@@ -43,14 +45,6 @@ interface Interruption {
   exited: boolean
 }
 const key = (version: Pick<RuntimeVersion, 'unitId' | 'generation'>) => `${version.unitId}:${version.generation}`
-const descriptor = (id: string, kind: RuntimeUnitDescriptor['kind'], fingerprint: string, dependencies: string[] = []): RuntimeUnitDescriptor => ({
-  id, kind, dependencies, isolation: 'process', required: true, reloadable: true,
-  contractFingerprint: fingerprint, storageSchema: STORAGE_SCHEMA_VERSION,
-})
-const storageDescriptor = descriptor('storage', 'storage', STORAGE_RPC_FINGERPRINT)
-const driverDescriptor = descriptor('driver.pi', 'driver', DRIVER_RUNTIME_FINGERPRINT)
-const controllerDescriptor = descriptor('controller', 'controller', CONTROLLER_RUNTIME_FINGERPRINT)
-const kernelDescriptor = descriptor('kernel', 'kernel', KERNEL_RUNTIME_FINGERPRINT, ['storage', 'driver.pi'])
 
 /** Stable composition root. Executable Kernel/driver/controller implementations live exclusively in their child processes. */
 export class ProcessHostRuntime implements RuntimeSystemPort {
@@ -92,12 +86,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private constructor(private readonly options: ProcessHostRuntimeOptions, readonly instanceId = crypto.randomUUID()) {
     this.secrets = options.secrets ?? createNativeSecrets(options.layout.identityRoot)
     this.artifacts = new RuntimeArtifactStore(join(options.layout.cacheRoot, 'runtime-artifacts'), options.sourceRoot ?? resolve(import.meta.dir, '../../..'))
-    this.buildUnits = [
-      { descriptor: storageDescriptor, entrypoint: 'apps/host/src/runtime-storage-process.ts', workers: ['packages/storage/src/worker.ts'] },
-      { descriptor: driverDescriptor, entrypoint: 'apps/host/src/runtime-driver-process.ts' },
-      { descriptor: controllerDescriptor, entrypoint: 'apps/host/src/runtime-controller-process.ts' },
-      { descriptor: kernelDescriptor, entrypoint: 'apps/host/src/runtime-kernel-process.ts', define: { HBAR_EXTERNAL_DRIVER: 'true' }, external: RUNTIME_BUNDLE_EXTERNALS },
-    ]
+    this.buildUnits = hostRuntimeBuildUnits()
     this.coordinator = new RuntimeCoordinator({
       claim: draft => this.storage.call('runtimeExecutionClaim', draft),
       release: lease => this.storage.call('runtimeExecutionRelease', lease),
@@ -141,9 +130,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     try { await installation.call('ready') } finally { try { await installation.close() } finally { await release() } }
     const runtime = new ProcessHostRuntime(options)
     try {
-      const artifacts: RuntimeArtifact[] = []
-      for (const unit of runtime.buildUnits) artifacts.push(await runtime.artifacts.build(unit))
-      const prepared = runtime.artifacts.registerSet(artifacts)
+      const prepared = options.artifactPackage ? await runtime.artifacts.installPackage(options.artifactPackage, options.artifactPackage.id) :
+        runtime.artifacts.registerSet(await runtime.buildInitial())
       const infrastructure = ['storage', 'driver.pi', 'controller']
       const first = runtime.manager.reload(prepared.id, infrastructure, true)
       await runtime.waitReady(infrastructure, first.operationId)
@@ -173,7 +161,9 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     while (true) {
       await this.refreshKernels()
       const active = await this.storage.call('runtimeActiveRuns', '')
-      if (!active.length && this.coordinator.snapshot().sessions === 0 && !this.interrupted.size && this.endpoints().every(endpoint => endpoint.state.idle)) return
+      const queued = await this.storage.call('queuedSessions')
+      if (!active.length && !queued.length && !this.leases.size && !this.scheduled && this.coordinator.snapshot().sessions === 0 &&
+        !this.interrupted.size && this.endpoints().every(endpoint => endpoint.state.idle)) return
       if (Date.now() >= deadline) throw new HbarError('RUNTIME_WAIT_TIMEOUT', 'Runtime execution has not settled')
       await Bun.sleep(20)
     }
@@ -187,6 +177,11 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     await this.manager.close()
     await this.transitions
     this.facade.dispose()
+  }
+  private async buildInitial(): Promise<RuntimeArtifact[]> {
+    const artifacts: RuntimeArtifact[] = []
+    for (const unit of this.buildUnits) artifacts.push(await this.artifacts.build(unit))
+    return artifacts
   }
   private async waitReady(ids: readonly string[], operationId: string): Promise<void> {
     const deadline = Date.now() + 120_000
