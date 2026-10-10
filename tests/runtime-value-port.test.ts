@@ -101,3 +101,25 @@ test('a callback returning across an independent IPC dispatch context retains it
     expect(f.local.snapshot().callbacks).toBe(0)
   } finally { f.close() }
 })
+
+test('nested named callbacks and local cancellation preserve each owner scope and release every reference', async () => {
+  const f = fixture(), scope = new AsyncLocalStorage<string>()
+  let late: (() => Promise<unknown>) | undefined
+  try {
+    f.remote.register('guarded.commit', async ([host]) => {
+      if (typeof host !== 'function') throw new Error('Expected the declared host callback')
+      return scope.run('plugin-owner', () => {
+        const result: unknown = Reflect.apply(host, undefined, [async () => scope.getStore(), new AbortController().signal])
+        return result
+      })
+    })
+    const result = await scope.run('kernel-owner', () => f.local.call('guarded.commit', [async (commit: () => Promise<string>, signal: AbortSignal) => {
+      expect(scope.getStore()).toBe('kernel-owner'); expect(signal).toBeInstanceOf(AbortSignal)
+      late = commit
+      return { caller: scope.getStore(), committedBy: await commit() }
+    }]))
+    expect(result).toEqual({ caller: 'kernel-owner', committedBy: 'plugin-owner' })
+    expect(f.local.snapshot().callbacks).toBe(0); expect(f.remote.snapshot().callbacks).toBe(0)
+    await expect(late!()).rejects.toMatchObject({ code: 'RUNTIME_CALLBACK_EXPIRED' })
+  } finally { f.close() }
+})

@@ -157,9 +157,14 @@ export class RuntimeValuePort {
       case 'signal': return signal
       case 'callback': return async (...args: unknown[]) => {
         signal.throwIfAborted()
-        const state = this.encoding()
-        const result = await this.peer.call(`${this.options.prefix}.callback`, { id: value.id, args: args.map(item => this.encode(item, state)) }, valueSchema, { signal })
-        return this.decode(result, signal)
+        const callbacks: string[] = [], signals: AbortSignal[] = [signal]
+        const state = this.encoding(callbacks, signals)
+        try {
+          const described = args.map(item => this.encode(item, state))
+          const nestedSignal = AbortSignal.any(signals)
+          const result = await this.peer.call(`${this.options.prefix}.callback`, { id: value.id, args: described }, valueSchema, { signal: nestedSignal })
+          return this.decode(result, nestedSignal)
+        } finally { for (const id of callbacks) this.callbacks.delete(id) }
       }
     }
   }
