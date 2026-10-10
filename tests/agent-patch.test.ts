@@ -64,6 +64,8 @@ async function fixture(usePatchDriver = true) {
       ...(usePatchDriver ? { profile: { replacements: { 'driver.pi': driver } } } : {}),
     })
   let kernel = await open()
+  await kernel.changePlugin('git.codex', true, { worktreeRoot: join(root, '.hbar-worktrees') })
+  await kernel.changePlugin('budget.codex', true, { autoContinue: false })
   let workspace = (await kernel.storage.call('workspaces')).find((entry) => entry.path === root)!
   let parent = await kernel.createSession(workspace.id, 'parent')
   let host = await startServer(kernel, { port: 0 })
