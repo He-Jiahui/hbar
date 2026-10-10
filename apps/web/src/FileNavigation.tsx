@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react'
 import type { FileEntry } from '@hbar/contracts'
+import { LumenButton, LumenIconButton, LumenInput } from '@lumen/app-ui'
 import { useConnection } from './stores'
 import AnimatedList from './react-bits/AnimatedList'
 import GlassSurface from './react-bits/GlassSurface'

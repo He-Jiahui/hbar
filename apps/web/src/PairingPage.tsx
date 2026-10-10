@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, Circle, LoaderCircle, Network, ShieldCheck } from 'lucide-react'
+import { LumenInput } from '@lumen/app-ui'
 import { refreshCatalog, useConnection } from './stores'
 import GlassSurface from './react-bits/GlassSurface'
 import GlareButton from './react-bits/GlareButton'

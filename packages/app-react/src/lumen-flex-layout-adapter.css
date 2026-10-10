@@ -43,3 +43,18 @@
   flex-direction: column;
   overflow: hidden;
 }
+
+.hbar-desktop-workspace-pane > *,
+.hbar-desktop-tool-pane > *,
+.hbar-desktop-layout-projection .flexlayout__tabset,
+.hbar-desktop-layout-projection .flexlayout__tabset_content,
+.hbar-desktop-layout-projection .flexlayout__tab {
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+
+.hbar-desktop-layout-projection .flexlayout__tabset_content,
+.hbar-desktop-layout-projection .flexlayout__tab {
+  overflow: hidden;
+}
+

@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { ArrowRight, File, Folder, Search } from 'lucide-react'
 import { defaultKeymap, history, historyKeymap, insertNewline, invertedEffects } from '@codemirror/commands'
 import { Compartment, EditorState, Prec, StateEffect, StateField, Transaction } from '@codemirror/state'
-import { Decoration, EditorView, keymap, placeholder, WidgetType } from '@codemirror/view'
+import { Decoration, drawSelection, EditorView, keymap, placeholder, WidgetType } from '@codemirror/view'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import {
   isWorkspaceRelativePath,
@@ -13,6 +13,7 @@ import {
 import { mapMentionSpans, nearestMentionBoundary } from './composer-mention-model'
 import { HbarComposerSlashMenu, type HbarComposerSlashLabels } from './composer-slash-menu'
 import { shouldSubmitExactSlashOnSend, slashMatches, slashTokenAt, type LocalSlashCommand } from './composer-slash'
+import { FloatingSurface } from './floating-surface'
 import './composer-mention-editor.css'
 
 const MAX_ROWS = 50
@@ -326,6 +327,7 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
             transaction.docChanged ? [setMentions.of(transaction.startState.field(mentionField))] : [],
           ),
           EditorView.lineWrapping,
+          drawSelection({ cursorBlinkRate: 0 }),
           placeholderSlot.current.of(placeholder(current.placeholder)),
           EditorView.contentAttributes.of({ 'aria-label': current.inputLabel, 'aria-multiline': 'true' }),
           editable.current.of(EditorView.editable.of(!current.disabled)),
@@ -741,139 +743,161 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
   return (
     <LumenFrame className="hbar-composer-mention-root">
       <LumenFrame ref={host} className="hbar-composer-mention-editor" data-placeholder={props.placeholder} />
-      {slashTrigger && props.connected && !props.disabled && (
-        <HbarComposerSlashMenu
-          id={slashMenuId}
-          term={slashTrigger.term}
-          selected={slashSelected}
-          labels={props.slashLabels}
-          onSelect={chooseSlash}
-          onHover={setSlashSelected}
-        />
-      )}
-      {trigger && (!props.disabled || !props.connected) && (
-        <LumenFrame id={menuId} className="hbar-composer-mention-menu" role="listbox" aria-label={props.labels.menu}>
-          <LumenFrame className="hbar-composer-mention-heading">
-            <LumenIcon icon={Search} tier="sm" />
-            <LumenText>
-              {browsePath !== '.'
-                ? props.labels.browsing(browsePath)
-                : trigger.term
-                  ? props.labels.search
-                  : props.labels.browsing(props.labels.root)}
-            </LumenText>
-            {browsePath !== '.' && (
-              <LumenButton
-                size="s"
-                variant="text"
-                indicator="none"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => {
-                  setBrowsePath(parent(browsePath))
-                  setSelected(0)
-                }}
-              >
-                {props.labels.root}
-              </LumenButton>
-            )}
-          </LumenFrame>
-          {!props.connected ? (
-            <LumenText className="hbar-composer-mention-feedback" role="status">
-              {props.labels.disconnected}
-            </LumenText>
-          ) : search?.status === 'loading' ? (
-            <LumenText className="hbar-composer-mention-feedback" role="status">
-              {props.labels.loading}
-            </LumenText>
-          ) : search?.status === 'error' ? (
-            <LumenFrame className="hbar-composer-mention-feedback" role="alert">
-              <LumenText>{props.labels.error(search.error ?? 'EXECUTION_FAILED')}</LumenText>
-              <LumenButton size="s" variant="text" indicator="none" onClick={() => setGeneration((value) => value + 1)}>
-                {props.labels.retry}
-              </LumenButton>
+      <FloatingSurface
+        open={Boolean(
+          (slashTrigger && props.connected && !props.disabled) || (trigger && (!props.disabled || !props.connected)),
+        )}
+        anchorRef={host}
+        focusBehavior="preserve"
+        label={slashTrigger ? props.slashLabels.menu : props.labels.menu}
+        className="hbar-composer-completion-surface"
+        onClose={() => {
+          dismissedRef.current = triggerRef.current
+          slashDismissedRef.current = slashTriggerRef.current
+          setTrigger(null)
+          setSlashTrigger(null)
+          setSearch(null)
+        }}
+      >
+        {slashTrigger && props.connected && !props.disabled && (
+          <HbarComposerSlashMenu
+            id={slashMenuId}
+            term={slashTrigger.term}
+            selected={slashSelected}
+            labels={props.slashLabels}
+            onSelect={chooseSlash}
+            onHover={setSlashSelected}
+          />
+        )}
+        {trigger && (!props.disabled || !props.connected) && (
+          <LumenFrame id={menuId} className="hbar-composer-mention-menu" role="listbox" aria-label={props.labels.menu}>
+            <LumenFrame className="hbar-composer-mention-heading">
+              <LumenIcon icon={Search} tier="sm" />
+              <LumenText>
+                {browsePath !== '.'
+                  ? props.labels.browsing(browsePath)
+                  : trigger.term
+                    ? props.labels.search
+                    : props.labels.browsing(props.labels.root)}
+              </LumenText>
+              {browsePath !== '.' && (
+                <LumenButton
+                  size="s"
+                  variant="text"
+                  indicator="none"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    setBrowsePath(parent(browsePath))
+                    setSelected(0)
+                  }}
+                >
+                  {props.labels.root}
+                </LumenButton>
+              )}
             </LumenFrame>
-          ) : search?.choices.length ? (
-            <LumenFrame ref={resultsRef} className="hbar-composer-mention-results">
-              {search.choices.map((item, index) => (
-                <LumenFrame className="hbar-composer-mention-row" key={`${item.directory}:${item.path}`}>
-                  <LumenButton
-                    id={`${menuId}-option-${index}`}
-                    role="option"
-                    aria-selected={index === selected}
-                    aria-label={props.labels.select(item.label)}
-                    className="hbar-composer-mention-choice"
-                    size="s"
-                    variant="text"
-                    indicator="none"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onMouseEnter={() => setSelected(index)}
-                    onClick={() => choose(item, false)}
-                    title={item.path}
-                  >
-                    <LumenIcon icon={item.directory ? Folder : File} tier="sm" />
-                    <LumenText>{item.label}</LumenText>
-                    <LumenText className="hbar-composer-mention-path">
-                      {parent(item.path) === '.' ? props.labels.root : parent(item.path)}
-                    </LumenText>
-                  </LumenButton>
-                  {item.directory && (
+            {!props.connected ? (
+              <LumenText className="hbar-composer-mention-feedback" role="status">
+                {props.labels.disconnected}
+              </LumenText>
+            ) : search?.status === 'loading' ? (
+              <LumenText className="hbar-composer-mention-feedback" role="status">
+                {props.labels.loading}
+              </LumenText>
+            ) : search?.status === 'error' ? (
+              <LumenFrame className="hbar-composer-mention-feedback" role="alert">
+                <LumenText>{props.labels.error(search.error ?? 'EXECUTION_FAILED')}</LumenText>
+                <LumenButton
+                  size="s"
+                  variant="text"
+                  indicator="none"
+                  onClick={() => setGeneration((value) => value + 1)}
+                >
+                  {props.labels.retry}
+                </LumenButton>
+              </LumenFrame>
+            ) : search?.choices.length ? (
+              <LumenFrame ref={resultsRef} className="hbar-composer-mention-results">
+                {search.choices.map((item, index) => (
+                  <LumenFrame className="hbar-composer-mention-row" key={`${item.directory}:${item.path}`}>
                     <LumenButton
+                      id={`${menuId}-option-${index}`}
+                      role="option"
+                      aria-selected={index === selected}
+                      aria-label={props.labels.select(item.label)}
+                      className="hbar-composer-mention-choice"
                       size="s"
                       variant="text"
                       indicator="none"
-                      aria-label={props.labels.browse(item.label)}
-                      title={props.labels.browse(item.label)}
                       onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => choose(item, true)}
+                      onMouseEnter={() => setSelected(index)}
+                      onClick={() => choose(item, false)}
+                      title={item.path}
                     >
-                      <LumenIcon icon={ArrowRight} tier="sm" />
+                      <LumenIcon icon={item.directory ? Folder : File} tier="sm" />
+                      <LumenText>{item.label}</LumenText>
+                      <LumenText className="hbar-composer-mention-path">
+                        {parent(item.path) === '.' ? props.labels.root : parent(item.path)}
+                      </LumenText>
                     </LumenButton>
-                  )}
-                </LumenFrame>
-              ))}
-              {search.nextCursor && search.choices.length < 200 && (
-                <LumenButton
-                  size="s"
-                  variant="text"
-                  indicator="none"
-                  disabled={search.loadingMore}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={loadMore}
-                >
-                  {props.labels.more}
-                </LumenButton>
-              )}
-            </LumenFrame>
-          ) : search?.status === 'ready' ? (
-            <LumenFrame className="hbar-composer-mention-feedback" role="status">
-              <LumenText>{search.nextCursor ? props.labels.emptyPage : props.labels.empty}</LumenText>
-              {search.nextCursor && (
-                <LumenButton
-                  size="s"
-                  variant="text"
-                  indicator="none"
-                  disabled={search.loadingMore}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={loadMore}
-                >
-                  {props.labels.more}
-                </LumenButton>
-              )}
-            </LumenFrame>
-          ) : null}
-          {search?.truncated && (
-            <LumenText className="hbar-composer-mention-feedback" role="status">
-              {props.labels.truncated}
-            </LumenText>
-          )}
-          {search && search.choices.length >= 200 && search.nextCursor && (
-            <LumenText className="hbar-composer-mention-feedback" role="status">
-              {props.labels.limit}
-            </LumenText>
-          )}
-          <LumenText className="hbar-composer-mention-footer">{props.labels.hint}</LumenText>
-        </LumenFrame>
-      )}
+                    {item.directory && (
+                      <LumenButton
+                        size="s"
+                        variant="text"
+                        indicator="none"
+                        aria-label={props.labels.browse(item.label)}
+                        title={props.labels.browse(item.label)}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => choose(item, true)}
+                      >
+                        <LumenIcon icon={ArrowRight} tier="sm" />
+                      </LumenButton>
+                    )}
+                  </LumenFrame>
+                ))}
+                {search.nextCursor && search.choices.length < 200 && (
+                  <LumenButton
+                    size="s"
+                    variant="text"
+                    indicator="none"
+                    disabled={search.loadingMore}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={loadMore}
+                  >
+                    {props.labels.more}
+                  </LumenButton>
+                )}
+              </LumenFrame>
+            ) : search?.status === 'ready' ? (
+              <LumenFrame className="hbar-composer-mention-feedback" role="status">
+                <LumenText>{search.nextCursor ? props.labels.emptyPage : props.labels.empty}</LumenText>
+                {search.nextCursor && (
+                  <LumenButton
+                    size="s"
+                    variant="text"
+                    indicator="none"
+                    disabled={search.loadingMore}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={loadMore}
+                  >
+                    {props.labels.more}
+                  </LumenButton>
+                )}
+              </LumenFrame>
+            ) : null}
+            {search?.truncated && (
+              <LumenText className="hbar-composer-mention-feedback" role="status">
+                {props.labels.truncated}
+              </LumenText>
+            )}
+            {search && search.choices.length >= 200 && search.nextCursor && (
+              <LumenText className="hbar-composer-mention-feedback" role="status">
+                {props.labels.limit}
+              </LumenText>
+            )}
+            <LumenText className="hbar-composer-mention-footer">{props.labels.hint}</LumenText>
+          </LumenFrame>
+        )}
+      </FloatingSurface>
       {localError && (
         <LumenText className="hbar-composer-mention-feedback" role="alert">
           {props.labels.error(localError)}

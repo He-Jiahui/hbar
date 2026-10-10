@@ -9,7 +9,12 @@
   backdrop-filter: blur(var(--lumen-floating-blur, 1.2rem));
 }
 @media (max-width: 40rem) and (pointer: coarse) {
-  .hbar-floating-surface {
+  .hbar-floating-surface:not(.hbar-floating-completion) {
     padding: 1rem;
   }
+}
+
+.hbar-floating-completion::backdrop {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }

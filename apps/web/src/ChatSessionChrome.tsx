@@ -1,3 +1,4 @@
+import { LumenIconButton } from '@lumen/app-ui'
 import { FolderOpen, GitBranch, RefreshCw } from 'lucide-react'
 import type { GitInfo, Run, Session, Workspace } from '@hbar/contracts'
 import GlassSurface from './react-bits/GlassSurface'
@@ -47,11 +48,7 @@ export default function ChatSessionChrome({
       >
         <GlassSurface className="session-header-glass" width="100%" height="100%" aria-hidden="true" />
         <div className="session-header-title">
-          <span className="session-header-mark" aria-hidden="true">
-            h
-          </span>
           <h1 title={sessionTitle}>{sessionTitle}</h1>
-          <span className="session-runtime">Pi</span>
           {view === 'console' && modelContext && (
             <span className="session-console-context" title={t('currentModelThinking')}>
               {modelContext} · thinking:{thinkingContext ?? 'off'}
@@ -68,16 +65,18 @@ export default function ChatSessionChrome({
           ]}
           onChange={onViewChange}
         />
-        <button
+        <LumenIconButton
           type="button"
           className="session-refresh"
+          size="s"
+          indicator="none"
+          label={t('refreshSession')}
           title={t('refreshSession')}
-          aria-label={t('refreshSession')}
           disabled={!sessionId}
           onClick={() => void onRefresh()}
         >
-          <RefreshCw size={15} />
-        </button>
+          <RefreshCw size={15} aria-hidden="true" />
+        </LumenIconButton>
       </header>
       {showContext && (
         <div

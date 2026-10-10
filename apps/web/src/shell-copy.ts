@@ -2138,7 +2138,6 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
       timestamp: session.timestamp,
       error: session.error,
     },
-
     description: choose(
       '查看 Host 记录的 Token、费用、延迟与模型用量。',
       'Inspect Host-recorded tokens, cost, latency, and model usage.',

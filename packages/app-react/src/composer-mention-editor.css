@@ -29,7 +29,26 @@
 }
 
 .hbar-composer-mention-editor .cm-focused {
-  outline: none;
+  outline: 0.125rem solid color-mix(in srgb, var(--lumen-ink) 45%, transparent);
+  outline-offset: -0.125rem;
+  border-radius: 0.375rem;
+}
+
+.hbar-composer-mention-editor .cm-content {
+  caret-color: var(--lumen-ink);
+}
+
+.hbar-composer-mention-editor .cm-cursor,
+.hbar-composer-mention-editor .cm-dropCursor {
+  border-inline-start: 0.125rem solid var(--lumen-ink);
+}
+
+.hbar-composer-mention-editor .cm-selectionBackground {
+  background: color-mix(in srgb, var(--lumen-ink) 14%, transparent);
+}
+
+.hbar-composer-mention-editor .cm-focused .cm-selectionBackground {
+  background: color-mix(in srgb, var(--lumen-ink) 24%, transparent);
 }
 
 .hbar-composer-mention-editor .cm-placeholder {
@@ -47,19 +66,11 @@
 }
 
 .hbar-composer-mention-menu {
-  position: absolute;
-  z-index: 12;
-  inset-inline: -0.625rem;
-  bottom: calc(100% + 0.4rem);
   display: flex;
   min-inline-size: 0;
   max-block-size: min(45vh, 19rem);
   flex-direction: column;
   overflow: hidden;
-  border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.65rem;
-  background: var(--lumen-contrast);
-  box-shadow: 0 0.65rem 1.75rem rgb(0 0 0 / 18%);
 }
 
 .hbar-composer-mention-heading,
@@ -127,4 +138,9 @@
 
 .hbar-composer-mention-footer {
   border-top: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-composer-completion-surface {
+  inline-size: min(32rem, calc(100vw - 2rem));
+  padding: 0;
 }

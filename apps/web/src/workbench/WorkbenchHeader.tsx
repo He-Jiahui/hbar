@@ -1,6 +1,7 @@
 import type { ConnectionStatus } from '@hbar/client'
 import type { HostInfo, Workspace } from '@hbar/contracts'
-import { ChevronDown, Command, FolderOpen, PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react'
+import { Command, FolderOpen, PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react'
+import { LumenButton, LumenIconButton, LumenSelect } from '@lumen/app-ui'
 import GlassSurface from '../react-bits/GlassSurface'
 import { StatusBadge, referenceAttributes } from '../react-bits'
 import { useLocale } from '../locale'
@@ -52,16 +53,17 @@ export default function WorkbenchHeader({
     >
       <GlassSurface className="chrome-glass" width="100%" height="100%" aria-hidden="true" />
       <div className="shell-header-leading">
-        <button
+        <LumenIconButton
           type="button"
           className="sidebar-toggle"
           title={t('sessionSidebar')}
-          aria-label={t('sessionSidebar')}
+          label={t('sessionSidebar')}
           aria-expanded={sidebarOpen}
+          indicator="none"
           onClick={onToggleSidebar}
         >
-          {sidebarOpen ? <PanelLeftClose size={17} /> : <PanelLeftOpen size={17} />}
-        </button>
+          {sidebarOpen ? <PanelLeftClose size={17} aria-hidden="true" /> : <PanelLeftOpen size={17} aria-hidden="true" />}
+        </LumenIconButton>
         <div className="brand" aria-label="hbar">
           hbar
           <span aria-hidden="true" />
@@ -73,8 +75,9 @@ export default function WorkbenchHeader({
         <label className="workspace-switcher">
           <span className="workspace-switcher-copy">
             <span className="workspace-switcher-eyebrow">{t('workspace')}</span>
-            <select
+            <LumenSelect
               className="workspace-select"
+              variant="plain"
               aria-label={t('selectWorkspace')}
               value={workspaceId}
               onChange={(event) => onSelectWorkspace(event.target.value)}
@@ -87,23 +90,26 @@ export default function WorkbenchHeader({
                   {workspace.name}
                 </option>
               ))}
-            </select>
+            </LumenSelect>
           </span>
           <ChevronDown className="workspace-switcher-chevron" size={13} aria-hidden="true" />
         </label>
-        <button
+        <LumenIconButton
           type="button"
           className="add-workspace"
           title={t('addWorkspace')}
-          aria-label={t('addWorkspace')}
+          label={t('addWorkspace')}
+          indicator="none"
           onClick={onAddWorkspace}
         >
-          <Plus size={14} />
-        </button>
+          <Plus size={14} aria-hidden="true" />
+        </LumenIconButton>
       </div>
       <span className="top-spacer" />
-      <button
+      <LumenButton
         type="button"
+        variant="text"
+        indicator="none"
         className="top-command"
         title={`${t('commandPalette')}（Ctrl+Shift+P）`}
         aria-label={t('commandPalette')}
@@ -112,7 +118,7 @@ export default function WorkbenchHeader({
         <Command size={17} aria-hidden="true" />
         <span>{t('commandShort')}</span>
         <kbd>Ctrl⇧P</kbd>
-      </button>
+      </LumenButton>
       <StatusBadge
         status={connectionReady ? 'success' : 'warning'}
         className={`host-status ${connectionReady ? 'success' : 'warning'}`}

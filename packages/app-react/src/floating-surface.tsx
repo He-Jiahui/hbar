@@ -12,6 +12,8 @@ type AppFloatingSurfaceProps = HTMLAttributes<HTMLDivElement> & {
   readonly onClose: () => void
   readonly anchorRef: RefObject<HTMLElement | null>
   readonly initialFocusRef?: RefObject<HTMLElement | null>
+  /** Completion menus keep the editing selection and mobile keyboard active. */
+  readonly focusBehavior?: 'surface' | 'preserve'
   readonly label: string
   readonly material?: ThemeProfile['surface']
 }
@@ -32,6 +34,7 @@ export function FloatingSurface({
   onClose,
   anchorRef,
   initialFocusRef,
+  focusBehavior = 'surface',
   label,
   children,
   className,
@@ -39,6 +42,7 @@ export function FloatingSurface({
   ...attributes
 }: AppFloatingSurfaceProps) {
   const sheetModal =
+    focusBehavior === 'surface' &&
     typeof window !== 'undefined' &&
     window.matchMedia('(max-width: 40rem) and (pointer: coarse)').matches
   return (
@@ -49,11 +53,18 @@ export function FloatingSurface({
       mode="anchored"
       anchorRef={anchorRef}
       initialFocusRef={initialFocusRef}
+      focusBehavior={focusBehavior}
       label={label}
       role={attributes.role ?? 'dialog'}
       aria-modal={sheetModal || undefined}
       material={mapMaterial(material)}
-      className={`hbar-floating-surface ${className ?? ''}`}
+      className={[
+        'hbar-floating-surface',
+        focusBehavior === 'preserve' ? 'hbar-floating-completion' : '',
+        className ?? '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
       {children}
     </LumenFloatingSurface>

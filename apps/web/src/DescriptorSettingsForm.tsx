@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { LumenButton, LumenCheckBoxControl, LumenInput, LumenSelect, LumenTextarea } from '@lumen/app-ui'
 import type { JsonSchemaDescriptor, ResolvedSetting, SettingDescriptor, SettingsSnapshot } from '@hbar/contracts'
 import './descriptor-settings.css'
 import { useLocale, type LocaleMessageKey } from './locale'
@@ -74,16 +75,16 @@ function SettingValueEditor({
   }
   if (schema.enum?.length) {
     return (
-      <select aria-label={path} value={String(value ?? '')} onChange={(event) => {
+      <LumenSelect aria-label={path} value={String(value ?? '')} onChange={(event) => {
         const candidate = schema.enum?.find((option) => String(option) === event.target.value)
         onChange(candidate)
       }}>
         {schema.enum.map((option) => <option value={String(option)} key={String(option)}>{String(option)}</option>)}
-      </select>
+      </LumenSelect>
     )
   }
   if (schema.type === 'boolean') {
-    return <input aria-label={path} type="checkbox" checked={value === true} onChange={(event) => onChange(event.target.checked)} />
+    return <LumenCheckBoxControl aria-label={path} checked={value === true} onChange={(event) => onChange(event.target.checked)} />
   }
   if (schema.type === 'object') {
     const record = objectValue(value)
@@ -109,10 +110,10 @@ function SettingValueEditor({
         {items.map((item, index) => (
           <div className="descriptor-setting-array-row" key={`${path}-${index}`}>
             <SettingValueEditor schema={schema.items!} value={item} path={`${path}[${index}]`} t={t} onChange={(next) => onChange(items.map((current, itemIndex) => itemIndex === index ? next : current))} />
-            <button type="button" className="text-command" onClick={() => onChange(items.filter((_, itemIndex) => itemIndex !== index))}>{t('delete')}</button>
+            <LumenButton type="button" variant="text" indicator="none" className="text-command" onClick={() => onChange(items.filter((_, itemIndex) => itemIndex !== index))}>{t('delete')}</LumenButton>
           </div>
         ))}
-        <button type="button" className="button" disabled={schema.maxItems !== undefined && items.length >= schema.maxItems} onClick={() => onChange([...items, displayValue(schema.items!, undefined) ?? ''])}>{t('addItem')}</button>
+        <LumenButton type="button" variant="outlined" indicator="none" className="button" disabled={schema.maxItems !== undefined && items.length >= schema.maxItems} onClick={() => onChange([...items, displayValue(schema.items!, undefined) ?? ''])}>{t('addItem')}</LumenButton>
       </div>
     )
   }

@@ -15,6 +15,50 @@
   overflow: hidden;
 }
 
+/* The shared tree intentionally preserves max-content rows for standalone
+   tree demos. The production project tree must instead yield to its pane so
+   long workspace/session labels never create a second horizontal viewport. */
+.hbar-app-react-sidebar-surface .lumen-app-sidebar-content,
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree,
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-item,
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-row,
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-group {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.hbar-app-react-sidebar-surface .lumen-app-sidebar-content {
+  overflow-x: hidden;
+}
+
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-row {
+  overflow: hidden;
+}
+
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-row > * {
+  min-inline-size: 0;
+}
+
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-row > .hbar-app-react-workspace-line,
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .lumen-tree-row > .hbar-app-react-session-row {
+  overflow: hidden;
+}
+
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .hbar-app-react-workspace-row,
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .hbar-app-react-session-target,
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .hbar-app-react-session-label {
+  min-inline-size: 0;
+  overflow: hidden;
+}
+
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .hbar-app-react-workspace-row > [data-variant],
+.hbar-app-react-sidebar-surface .hbar-app-react-project-tree .hbar-app-react-session-title {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .hbar-app-react-sidebar-surface > .lumen-app-sidebar > header {
   min-block-size: 0;
   flex: 0 1 auto;
