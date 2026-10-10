@@ -3,6 +3,8 @@ import { ArrowDown, ArrowUp, ChevronRight, Folder, FolderOpen, Plus, Trash2 } fr
 import {
   LumenButton,
   LumenCheckBoxControl,
+  LumenCollection,
+  LumenCollectionItem,
   LumenDialog,
   LumenFormField,
   LumenFrame,
@@ -28,6 +30,7 @@ export interface WorkspaceFoldersLabels {
   readonly browserHint: string
   readonly alias: string
   readonly aliasHint: string
+  readonly folderCaption: (name: string) => string
   readonly path: string
   readonly pathHint: string
   readonly addPath: string
@@ -327,14 +330,18 @@ export function WorkspaceFoldersDialog({
             </LumenFrame>
             <LumenText as="p">{labels.aliasHint}</LumenText>
             {state.folders.length === 0 && <LumenText as="p">{labels.empty}</LumenText>}
-            <ol className="hbar-workspace-folder-list" aria-label={labels.folders}>
+            <LumenCollection as="ol" className="hbar-workspace-folder-list" aria-label={labels.folders}>
               {state.folders.map((folder, index) => (
-                <li key={folder.id} className="hbar-workspace-folder" data-folder-id={folder.id}>
+                <LumenCollectionItem
+                  as="li"
+                  key={folder.id}
+                  className="hbar-workspace-folder"
+                  data-folder-id={folder.id}
+                >
                   <LumenFrame className="hbar-workspace-folder-header">
                     <LumenIcon icon={Folder} tier="sm" />
                     <LumenText as="strong" title={folder.alias}>
-                      {folder.alias || labels.alias}
-                      {'/'}
+                      {labels.folderCaption(folder.alias || labels.alias)}
                     </LumenText>
                     {index === 0 && (
                       <LumenText as="small" className="hbar-workspace-folder-primary">
@@ -399,9 +406,9 @@ export function WorkspaceFoldersDialog({
                       />
                     </LumenFormField>
                   </LumenFrame>
-                </li>
+                </LumenCollectionItem>
               ))}
-            </ol>
+            </LumenCollection>
             {state.workspaceId && !locked && (
               <LumenButton
                 variant="text"

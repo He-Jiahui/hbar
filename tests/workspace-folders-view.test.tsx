@@ -49,7 +49,10 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       expect(html).not.toContain('<select')
       expect(html).not.toContain('<option')
       if (count === 0) expect(html).toContain(labels.empty)
-      else expect(html).toContain(labels.primary)
+      else {
+        expect(html).toContain(labels.primary)
+        expect(html).toContain(labels.folderCaption('folder-0'))
+      }
     })
   }
 }

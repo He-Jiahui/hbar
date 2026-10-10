@@ -41,6 +41,7 @@ export function workspaceFoldersCopy(locale: ShellLocale): WorkspaceFoldersLabel
     aliasHint: zh
       ? '通过短名称访问，例如 frontend/、backend/。名称须唯一，可使用文字、数字、点、短横线和下划线。'
       : 'Access roots with short names such as frontend/ or backend/. Use unique letters, digits, dots, hyphens or underscores.',
+    folderCaption: (name) => `${name}/`,
     path: zh ? '服务端目录' : 'Server folder',
     pathHint: zh
       ? '输入绝对路径，或点击右侧按钮浏览。'
