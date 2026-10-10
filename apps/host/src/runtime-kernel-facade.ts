@@ -27,6 +27,7 @@ export interface RuntimeKernelFacadeOptions {
   readonly endpoints: () => readonly RuntimeKernelEndpoint[]
   readonly resolve: (target: string, method: string, args: readonly unknown[], captured?: RuntimeKernelEndpoint) => RuntimeKernelEndpoint | Promise<RuntimeKernelEndpoint>
   readonly maintain: <Result>(action: () => Promise<Result>) => Promise<Result>
+  readonly cancel?: (runId: string) => Promise<void>
   readonly openScope?: (id: string) => Promise<KernelClientScopePort>
 }
 type Methods<Target extends keyof RuntimeApplicationTargets> = Extract<(typeof RUNTIME_APPLICATION_METHODS)[Target][number], keyof RuntimeApplicationTargets[Target]>
@@ -62,6 +63,7 @@ export class RuntimeKernelFacade {
     const self = this
     this.api = {
       ...this.methods('kernel'), instanceId: options.instanceId, options: { layout: options.layout, demo: options.demo }, storage: options.storage,
+      ...(options.cancel ? { cancel: options.cancel } : {}),
       get recovered() { return self.recovered },
       active: { get size() { return options.coordinator.snapshot().sessions }, has: sessionId => options.coordinator.executionForSession(sessionId) !== null },
       streams: this.streams,

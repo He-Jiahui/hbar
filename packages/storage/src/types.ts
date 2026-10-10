@@ -508,6 +508,7 @@ export interface StorageMethods {
   runtimeRecoveryPlan(predecessorRunId: string): RuntimeRecoveryRecord
   runtimeRecoveryQueue(predecessorRunId: string, recoveryId: string): RuntimeRecoveryRecord
   runtimeRecoveryRead(predecessorRunId: string): RuntimeRecoveryRecord | null
+  runtimeRecoveryCancel(runId: string): { run: Run; events: SessionEvent[] }
   runtimeRecoveryChain(chainId: string): RecoveryChain | null
   runtimeRecoveryHold(predecessorRunId: string, recoveryId: string, reasonCode: string | null): RuntimeRecoveryRecord
   runtimeRecoveryReconcile(predecessorRunId: string, recoveryId: string): void

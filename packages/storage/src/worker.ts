@@ -1077,6 +1077,7 @@ const runtimeState = createRuntimeState(db, {
   run: id => methods.run(id),
   append: appendEvent,
   cancelRequested: id => methods.cancelRequested(id),
+  requestCancel: id => methods.requestCancel(id),
   reconcile: run => { methods.recover({ runIds: [run.id], preserveQueued: true, preserveApprovals: true, reconcileInterrupted: true }) },
   archived: id => methods.session(id).archived,
   start(run, startedAt) {
@@ -1109,6 +1110,7 @@ const methods: StorageMethods = {
   runtimeRecoveryPlan: runtimeState.planRecovery,
   runtimeRecoveryQueue: runtimeState.queueRecovery,
   runtimeRecoveryRead: runtimeState.readRecovery,
+  runtimeRecoveryCancel: runtimeState.cancelRecovery,
   runtimeRecoveryChain: runtimeState.readChain,
   runtimeRecoveryHold: runtimeState.holdRecovery,
   runtimeRecoveryReconcile: runtimeState.reconcileRecovery,
@@ -2275,7 +2277,7 @@ const methods: StorageMethods = {
   requestCancel: (id) =>
     db.transaction(() => {
       const run = methods.run(id)
-      if (['guided', 'completed', 'cancelled', 'failed', 'interrupted'].includes(run.status))
+      if (['guided', 'completed', 'cancelled', 'failed'].includes(run.status))
         return { run, event: null }
       runSteering.close(run.sessionId, run.id)
       if (run.status === 'queued') {

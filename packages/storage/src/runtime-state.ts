@@ -38,6 +38,7 @@ export interface RuntimeStatePort {
   run(id: string): Run
   append(sessionId: string, type: string, data: unknown, runId: string): SessionEvent
   cancelRequested(id: string): boolean
+  requestCancel(id: string): { run: Run; event: SessionEvent | null }
   archived(sessionId: string): boolean
   /** Called in the same SQLite transaction as the ownership record. */
   start(run: Run, startedAt: number): Run
@@ -177,6 +178,22 @@ export function createRuntimeState(db: Database, port: RuntimeStatePort) {
     },
     readRecovery,
     readChain,
+    cancelRecovery(runId: string): { run: Run; events: SessionEvent[] } {
+      return db.transaction(() => {
+        const original = port.run(runId)
+        const recovery = readRecovery(runId)
+        const chainId = original.recovery?.chainId ?? recovery?.chain.chainId
+        const chain = chainId ? readChain(chainId) : null
+        const ids = new Set([original.id, ...(chain ? [chain.rootRunId, chain.currentRunId] : [])])
+        const events: SessionEvent[] = []
+        // The chain has at most two continuations. Cancellation and queueing share this writer transaction.
+        for (const id of ids) {
+          const cancelled = port.requestCancel(id)
+          if (cancelled.event) events.push(cancelled.event)
+        }
+        return { run: port.run(chain?.currentRunId ?? original.id), events }
+      }).immediate()
+    },
     holdRecovery(predecessorRunId: string, recoveryId: string, reasonCode: string | null): RuntimeRecoveryRecord {
       return db.transaction(() => {
         const record = readRecovery(predecessorRunId)

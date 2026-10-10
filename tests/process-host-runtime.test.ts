@@ -179,6 +179,26 @@ test('a killed Kernel is fenced and resumes its interrupted conversation once wh
   expect(current.generation).toBe(original.generation)
 })
 
+test('stable cancellation commits during a Kernel outage and recovery cannot resume the cancelled Run', async () => {
+  const f = await fixture()
+  const { client } = await clientFor(f.runtime)
+  const original = f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'kernel')!.generations[0]!
+  const run = await f.runtime.kernel.submit(f.session.id, 'cancel-during-fault', { text: '/slow', images: [] }, 'local-fixture')
+  await until(() => f.runtime.facade.streams.size > 0)
+  if (!original.pid || original.pid === process.pid) throw new Error('Expected an owned Kernel PID')
+  process.kill(original.pid, 'SIGKILL')
+  await until(() => f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'kernel')!.generations[0]!.phase === 'recovering')
+  await client.call('run.cancel', { runId: run.id })
+  expect(await f.runtime.storage.call('cancelRequested', run.id)).toBe(true)
+  await until(() => f.runtime.snapshot().ready)
+  await f.runtime.waitForIdle()
+  const recovery = await f.runtime.storage.call('runtimeRecoveryRead', run.id)
+  expect(recovery?.run).toBeNull()
+  expect(recovery?.chain.reasonCode).toBe('USER_CANCELLED')
+  expect((await f.runtime.storage.call('run', run.id)).status).toBe('interrupted')
+  expect(client.connectionStatus()).toBe('connected')
+})
+
 test('a failed Kernel candidate keeps the current version and does not interrupt a healthy conversation', async () => {
   const f = await fixture()
   const original = f.runtime.manager.currentVersion('kernel')

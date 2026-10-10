@@ -117,6 +117,19 @@ test('an unknown side effect preserves waiting without driver execution', async 
   expect(f.executions).toHaveLength(0)
 })
 
+test('cancellation of an interrupted predecessor is durable and prevents its recovery round', async () => {
+  const f = await fixture()
+  const record = (await f.kernel.recoverRuns([f.original.id]))[0]!
+  const cancelled = await f.storage.call('runtimeRecoveryCancel', f.original.id)
+  expect(cancelled.run.status).toBe('cancelled')
+  expect((await f.storage.call('run', f.original.id)).status).toBe('interrupted')
+  expect(await f.storage.call('cancelRequested', f.original.id)).toBe(true)
+  expect((await f.storage.call('run', record.run!.id)).status).toBe('cancelled')
+  await f.kernel.activate(); await f.kernel.waitForIdle()
+  expect(f.executions).toHaveLength(0)
+  expect((await f.storage.call('runtimeRecoveryCancel', f.original.id)).events).toEqual([])
+})
+
 test('pending approval remains pending across fault recovery and cancellation prevents queueing', async () => {
   const f = await fixture()
   await f.storage.call('createApproval', { id: 'pending', sessionId: f.session.id, runId: f.original.id, callId: 'call', tool: 'write_file', args: {}, status: 'pending', createdAt: Date.now() })

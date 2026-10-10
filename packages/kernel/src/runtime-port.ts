@@ -22,6 +22,7 @@ export const runtimeKernelSubmitSchema = z.strictObject({
 })
 export const runtimeKernelSessionSchema = z.strictObject({ sessionId: id })
 export const runtimeKernelRunSchema = z.strictObject({ runId: id })
+export const runtimeKernelCancelSchema = runtimeKernelRunSchema.extend({ persisted: z.literal(true).optional() })
 export const runtimeKernelRunsSchema = z.strictObject({ runIds: z.array(id).max(256) })
 export const runtimeKernelStateSchema = z.strictObject({
   instanceId: id, permission: approvalModeSchema, recovered: z.number().int().nonnegative(),
@@ -43,6 +44,7 @@ export const KERNEL_RUNTIME_FINGERPRINT = createHash('sha256').update(JSON.strin
   'hbar.kernel.runtime.v1', z.toJSONSchema(runtimeKernelConfigurationSchema), z.toJSONSchema(runtimeKernelSubmitSchema),
   RUNTIME_APPLICATION_METHODS,
   RUNTIME_KERNEL_CONTROL_METHODS,
+  z.toJSONSchema(runtimeKernelCancelSchema),
   z.toJSONSchema(runtimeWireNotificationSchema),
   z.toJSONSchema(runtimeKernelStateSchema), z.toJSONSchema(runSchema), z.toJSONSchema(runtimeKernelRecoverySchema),
 ])).digest('hex')

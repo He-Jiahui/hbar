@@ -4,7 +4,7 @@ import { HbarError, runSchema } from '@hbar/contracts'
 import { executionOwnershipSchema, type ExecutionOwnership } from '@hbar/contracts/runtime'
 import { Kernel, type KernelProfile } from '@hbar/kernel'
 import { KERNEL_RUNTIME_FINGERPRINT, runtimeKernelConfigurationSchema, runtimeKernelSubmitSchema, runtimeKernelRunSchema,
-  runtimeKernelRunsSchema, runtimeKernelSessionSchema, runtimeKernelStateSchema, runtimeKernelRecoverySchema } from '@hbar/kernel/runtime-port'
+  runtimeKernelRunsSchema, runtimeKernelSessionSchema, runtimeKernelStateSchema, runtimeKernelRecoverySchema, runtimeKernelCancelSchema } from '@hbar/kernel/runtime-port'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import { RUNTIME_APPLICATION_METHODS, RUNTIME_APPLICATION_CONTROLS } from '@hbar/kernel/runtime-application'
 import { createPathLayout, callStorageRpc, STORAGE_SCHEMA_VERSION, runtimeRecoveryRecordSchema, type StoragePort } from '@hbar/storage'
@@ -66,7 +66,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
   }))
   context.peer.register('kernel.submit', procedure(runtimeKernelSubmitSchema, runSchema, (input, call) => application().submit(
     input.sessionId, input.requestId, input.input, input.modelId, input.command, call.signal, input.expectedLaunchTargetRevision)))
-  context.peer.register('kernel.cancel', procedure(runtimeKernelRunSchema, z.undefined(), input => application().cancel(input.runId)))
+  context.peer.register('kernel.cancel', procedure(runtimeKernelCancelSchema, z.undefined(), input => application().cancel(input.runId, input.persisted)))
   context.peer.register('kernel.fence', procedure(runtimeKernelRunsSchema, z.undefined(), input => application().fenceRuns(input.runIds)))
   context.peer.register('kernel.wake', procedure(runtimeKernelSessionSchema, z.undefined(), input => { if (role === 'default') application().wake(input.sessionId) }))
   context.peer.register('kernel.session.refresh', procedure(runtimeKernelSessionSchema, z.undefined(), input => application().refreshSessionProjection(input.sessionId)))

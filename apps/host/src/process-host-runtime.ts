@@ -110,6 +110,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       storage: this.storage, coordinator: this.coordinator, current: () => this.currentKernel(), endpoints: () => this.endpoints(),
       resolve: (target, method, args, captured) => this.resolveKernel(target, method, args, captured),
       maintain: action => this.maintain(action),
+      cancel: runId => this.cancelRun(runId),
     })
     this.manager = new RuntimeManager({ instanceId, artifacts: this.artifacts,
       references: owner => {
@@ -502,6 +503,19 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       return endpoint
     }
     return sessionId ? this.currentKernel() : captured ?? this.currentKernel()
+  }
+  private async cancelRun(runId: string): Promise<void> {
+    const result = await this.storage.call('runtimeRecoveryCancel', runId)
+    for (const event of result.events) this.facade.replay({ method: 'session.event', params: event })
+    const lease = this.coordinator.execution(result.run.id)
+    const endpoint = lease ? this.endpoints().find(value => value.owner.incarnation === lease.owner.incarnation) : null
+    if (endpoint && ['serving', 'draining'].includes(endpoint.process.snapshot().phase)) {
+      try { await endpoint.process.call('kernel.cancel', { runId: result.run.id, persisted: true }, z.undefined()) }
+      catch (error) {
+        if (!['IPC_DISCONNECTED', 'RUNTIME_RECOVERING', 'RUNTIME_OWNER_REVOKED'].includes(runtimeDomainError(error)?.code ?? '')) throw error
+      }
+    }
+    this.schedule()
   }
   private async replay(sessionId: string): Promise<void> {
     let cursor = this.facade.cursor(sessionId)

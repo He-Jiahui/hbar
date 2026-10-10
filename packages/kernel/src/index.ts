@@ -2756,7 +2756,8 @@ export class Kernel {
     })
     return resolved.approval
   }
-  async cancel(runId: string) {
+  async cancel(runId: string, persisted = false) {
+    const observed = this.cancelled.has(runId)
     const activeRun = [...this.active.values()].find(active => active.run.id === runId)
     const { run, event } = await this.storage.call('requestCancel', runId)
     if (event) this.publishEvent(event)
@@ -2765,7 +2766,7 @@ export class Kernel {
       for (const active of this.active.values())
         if (active.run.id === runId) active.controller.abort(new HbarError('USER_CANCELLED', 'Cancelled by user'))
     } else this.cancelled.delete(runId)
-    if (event) await this.executionScope.run(activeRun?.lease, () => this.hooks.dispatch('run.cancelRequested', { sessionId: run.sessionId, runId, run }))
+    if (event || (persisted && !observed)) await this.executionScope.run(activeRun?.lease, () => this.hooks.dispatch('run.cancelRequested', { sessionId: run.sessionId, runId, run }))
   }
   async reorderQueued(sessionId: string, runIds: string[]) {
     const events = await this.storage.call('reorderQueued', sessionId, runIds)
