@@ -42,13 +42,15 @@ ordinary Run tool selection:
   continues a long instruction file. Follow `nextOffset` with the same revision
   until it is null. File paths are relative to the selected skill directory.
 
-Each model request receives a bounded metadata catalog in the existing dynamic
+When skills are available, model requests receive a bounded metadata catalog in the existing dynamic
 context. It prioritizes current task wording, including continuous Chinese text,
 and instructs the model to proactively select a skill for an explicit request or
 a clear semantic match. The model announces the selected skills and reads their
 complete instructions before applying them. Omitted entries remain discoverable
 through `skill_search`; only selected instructions and required references enter
 conversation history. No additional model request generates a skill summary.
+Healthy empty catalogs do not append repeated instructions; native discovery
+tools remain available to refresh newly installed skills.
 
 Explicit-only entries are omitted from automatic suggestions unless named in
 the current task. Their invocation policy is also included in search results.

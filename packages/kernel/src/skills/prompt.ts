@@ -6,6 +6,8 @@ function data(value: unknown): string {
   return JSON.stringify(value).replaceAll('<', '\\u003c').replaceAll('>', '\\u003e')
 }
 export function renderSkillContext(request: ModelRequest, catalog: SkillCatalogSnapshot): string {
+  // Native search stays available, but an empty healthy catalog needs no repeated context suffix.
+  if (!catalog.skills.length && !catalog.warnings.length && !catalog.truncated) return ''
   const lastUser = request.messages.findLast((message) => message.role === 'user')
   const task =
     lastUser?.content

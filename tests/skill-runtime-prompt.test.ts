@@ -99,5 +99,8 @@ test('large catalogs and small windows retain complete guidance and a bounded di
   expect(large).toContain('catalog is incomplete')
   expect(large).toContain('browse omitted entries')
   expect(renderSkillContext(request('Inspect', 2_000), source)).toBe('')
-  expect(renderSkillContext(request('Inspect'), catalog([]))).toContain('Catalog contains 0 skills')
+  expect(renderSkillContext(request('Inspect'), catalog([]))).toBe('')
+  expect(renderSkillContext(request('Inspect'), { ...catalog([]), warnings: ['SKILL_DISCOVERY_FAILED'] })).toContain(
+    'Some entries could not be discovered',
+  )
 })
