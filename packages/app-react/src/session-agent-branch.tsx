@@ -39,6 +39,7 @@ interface Props {
   readonly onExitBatchSelection: () => void
   readonly metadata?: SessionNavigationRowMetadata | undefined
   readonly execution?: SessionActivityIndicatorContent | undefined
+  readonly showLoadFeedback?: boolean
 }
 interface Projection {
   readonly tree: SessionAgentTreeState
@@ -120,7 +121,7 @@ function Branch({
           {treeLabels.empty}
         </LumenText>
       )}
-      {branch?.error && (
+      {props.showLoadFeedback !== false && branch?.error && (
         <LumenFrame className="hbar-app-react-agent-branch-feedback" role="alert">
           <LumenText as="p" size="s" variant="supporting">
             {treeLabels.error(branch.error)}

@@ -228,6 +228,55 @@
   padding-block-end: 1rem;
 }
 
+.hbar-app-react-sidebar-list {
+  display: flex;
+  min-inline-size: 0;
+  min-block-size: 0;
+  flex: 1 1 0;
+  flex-direction: column;
+  overflow: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+.hbar-app-react-sidebar-surface .hbar-app-react-sidebar-list > .hbar-app-react-project-tree {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.hbar-app-react-sidebar-load-feedback,
+.hbar-app-react-sidebar-load-feedback-group {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.hbar-app-react-sidebar-load-feedback {
+  flex: 0 0 auto;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+  padding: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.hbar-app-react-sidebar-load-feedback:empty {
+  display: none;
+}
+
+.hbar-app-react-sidebar-load-feedback .hbar-app-react-roster-feedback,
+.hbar-app-react-sidebar-load-feedback .hbar-app-react-organization-feedback,
+.hbar-app-react-sidebar-load-feedback .hbar-app-react-pin-feedback {
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0;
+}
+
+.hbar-app-react-sidebar-load-feedback p {
+  margin: 0;
+  font-size: 0.75rem;
+}
+
 .hbar-app-react-workspace-row,
 .hbar-app-react-session-target {
   display: flex;
@@ -400,15 +449,10 @@
 }
 
 .hbar-app-react-session-list p,
-.hbar-app-react-project-tree > p,
-.hbar-app-react-project-tree + [role='alert'] {
+.hbar-app-react-project-tree > p {
   margin: 0;
   padding: 0.5rem 0.75rem;
   font-size: 0.75rem;
-}
-
-.hbar-app-react-project-tree + [role='alert'] {
-  color: var(--lumen-danger);
 }
 
 .hbar-app-react-sidebar-actions {

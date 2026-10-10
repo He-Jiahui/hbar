@@ -68,12 +68,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       let release: (() => void) | undefined
       let disconnectBrowser: (() => Promise<void>) | undefined
       const held = new Set<string | number>()
+      let rosterReads = 0
       await page.routeWebSocket('**/rpc', (socket) => {
         const server = socket.connectToServer()
         disconnectBrowser = () => socket.close({ code: 1012, reason: 'Isolated roster reconnect fixture' })
         socket.onMessage((message) => {
           if (typeof message === 'string') {
             const parsed = rpcShape.safeParse(JSON.parse(message))
+            if (parsed.success && parsed.data.params?.commandId === 'session.list') rosterReads += 1
             if (
               parsed.success &&
               parsed.data.id !== undefined &&
@@ -126,8 +128,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(project().locator(`[data-session-id="${later.id}"]`)).toBeVisible()
       await expand(otherWorkspace.name)
       await otherProject().getByRole('treeitem', { name: otherSession.title, exact: true }).click()
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(otherSession.title)
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
-      await prompt.fill('Keep the original draft — 保留原会话输入')
+      await prompt.pressSequentially('Keep the original draft — 保留原会话输入')
+      await page.clock.runFor(100)
+      await expectComposerText(prompt, 'Keep the original draft — 保留原会话输入')
       const refreshProject = async (name: string) => {
         await sidebar.getByTitle(copy.shell.workspaceActions(name), { exact: true }).click()
         await page.getByRole('menuitem', { name: copy.shell.roster.refreshWorkspace(name), exact: true }).click()
@@ -154,13 +159,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
 
       queryMode = 'fail'
       await refreshProject(host.ready.workspaceName)
-      await expect(project().getByRole('alert')).toContainText(copy.shell.roster.failure('CONNECTION_CLOSED'))
+      const feedback = sidebar.locator(`[data-sidebar-feedback-workspace-id="${host.ready.workspaceId}"]`)
+      await expect(feedback.getByRole('alert')).toContainText(copy.shell.roster.failure('CONNECTION_CLOSED'))
+      await expect(sidebar.getByRole('tree').getByRole('alert')).toHaveCount(0)
       await expect(project().locator(`[data-session-id="${later.id}"]`)).toContainText(changedTitle)
       await expectComposerText(prompt, 'Keep the original draft — 保留原会话输入')
       await page.screenshot({ path: `artifacts/session-roster-refresh/error-${locale}-1440.png` })
       queryMode = 'normal'
-      await project().getByRole('button', { name: copy.shell.roster.retry, exact: true }).click()
-      await expect(project().getByRole('alert')).toHaveCount(0)
+      await feedback.getByRole('button', { name: copy.shell.roster.retry, exact: true }).click()
+      await expect(feedback).toHaveCount(0)
 
       // Focus auto refresh observes external rename without selecting its target.
       await commands.execute('session.rename', {
@@ -175,6 +182,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expectComposerText(prompt, 'Keep the original draft — 保留原会话输入')
 
       // A hidden document does not poll; becoming visible and the foreground timer refresh independently.
+      await expect(sidebar.getByRole('button', { name: copy.shell.roster.refreshExpanded, exact: true })).toBeEnabled()
       await commands.execute('session.rename', {
         sessionId: created.id,
         title: 'Visibility updated — 可见性刷新',
@@ -184,8 +192,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
         document.dispatchEvent(new Event('visibilitychange'))
       })
+      const hiddenReads = rosterReads
       await page.clock.fastForward(30_001)
-      await expect(project().locator(`[data-session-id="${created.id}"]`)).toContainText('Focus updated')
+      // Confirmed Host events can still update a row while hidden; only roster polling must stop.
+      expect(rosterReads).toBe(hiddenReads)
       await page.evaluate(() => {
         Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' })
         document.dispatchEvent(new Event('visibilitychange'))
