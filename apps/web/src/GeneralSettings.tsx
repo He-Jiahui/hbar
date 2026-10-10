@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type MouseEvent } from 'react'
 import { useStore } from 'zustand'
-import { LumenContentText, LumenButton, LumenFrame, LumenRange, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenRange, LumenText, LumenToggleGroup } from '@lumen/app-ui'
 import { WEB_LANGUAGE_CHOICES, type WebLanguageController, type WebLanguagePreference } from './language'
 import { WEB_SEND_BEHAVIORS, type WebSendBehavior, type WebSendBehaviorController } from './send-behavior'
 import { DEFAULT_WEB_ZOOM, MAX_WEB_ZOOM, MIN_WEB_ZOOM, type WebZoomController } from './app-zoom'
@@ -305,8 +305,11 @@ export function WebGeneralSettings({
   readonly connected?: boolean | undefined
 }) {
   const state = useStore(language.store)
+  const languageChoices = useRef<HTMLDivElement>(null)
   const retry = (_event: MouseEvent<HTMLButtonElement>, action: () => void) => {
     action()
+    const selected = language.store.getState().preference
+    languageChoices.current?.querySelector<HTMLButtonElement>(`[role="radio"][data-value="${selected}"]`)?.focus()
   }
   return (
     <LumenFrame as="section" className="hbar-web-general-settings">
@@ -328,26 +331,18 @@ export function WebGeneralSettings({
         <LumenContentText context="section.description" id="hbar-general-language-help" tone="muted">
           {labels.languageDescription}
         </LumenContentText>
-        <LumenFrame
-          role="radiogroup"
+        <LumenToggleGroup
+          ref={languageChoices}
+          type="single"
+          value={state.preference}
+          options={WEB_LANGUAGE_CHOICES.map((choice) => ({ id: choice, label: labels.options[choice] }))}
+          onValueChange={(value) => {
+            if (value === 'system' || value === 'zh-CN' || value === 'en-US') language.select(value)
+          }}
           aria-labelledby="hbar-general-language-label"
           aria-describedby="hbar-general-language-help"
           className="hbar-web-general-choices"
-        >
-          {WEB_LANGUAGE_CHOICES.map((choice) => (
-            <LumenButton
-              key={choice}
-              variant="outlined"
-              indicator="none"
-              role="radio"
-              aria-checked={state.preference === choice}
-              tabIndex={state.preference === choice ? 0 : -1}
-              onClick={() => language.select(choice)}
-            >
-              {labels.options[choice]}
-            </LumenButton>
-          ))}
-        </LumenFrame>
+        />
         <LumenContentText context="section.description" tone="muted">
           {labels.currentLanguage(state.locale)}
         </LumenContentText>

@@ -137,34 +137,12 @@
   margin-block-end: 0.25rem;
 }
 
-/* Language choice group: LumenButton handles selection via aria-checked/variant. */
-.hbar-web-general-choices,
 .hbar-web-general-feedback {
   display: flex;
   min-inline-size: 0;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-}
-
-.hbar-web-general-choices > button {
-  max-inline-size: 100%;
-  border: 0.0625rem solid var(--lumen-edge);
-  overflow-wrap: anywhere;
-}
-
-.hbar-web-general-choices > button[aria-checked='true'],
-.hbar-web-general-choices > button[aria-checked='true']:hover,
-.hbar-web-general-choices > button[aria-checked='true']:active {
-  --lumen-action-color: var(--lumen-contrast);
-  border-color: var(--lumen-ink);
-  background: var(--lumen-ink);
-  box-shadow: none;
-}
-
-.hbar-web-general-choices > button:focus-visible {
-  outline: 0.125rem solid var(--lumen-ink);
-  outline-offset: 0.125rem;
 }
 
 .hbar-web-general-feedback > p {

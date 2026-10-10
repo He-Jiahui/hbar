@@ -10,6 +10,7 @@ import { chatDatabaseCopy } from '../apps/web/src/chat-database-copy'
 import { selectLumenOption } from './support/lumen-controls'
 import { openSessionTool } from './support/session-tools-menu'
 import { removeOwnedFixtureDirectory } from './support/owned-fixture-directory'
+import { measureVisibleLumenContrast } from './support/text-contrast'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 const phase = process.env.HBAR_VISUAL_PHASE === 'before' ? 'before' : 'after'
@@ -62,8 +63,9 @@ async function capture(page: Page, path: string) {
       theme: document.documentElement.dataset.lumenMode,
     }
   })
+  const contrast = phase === 'after' ? await page.evaluate(measureVisibleLumenContrast) : []
   await page.screenshot({ path: `${path}.png` })
-  await writeFile(`${path}.json`, JSON.stringify(facts, null, 2))
+  await writeFile(`${path}.json`, JSON.stringify({ ...facts, contrast }, null, 2))
   if (phase === 'before' && previousViewport && previousViewport.width !== capturedWidth)
     await page.setViewportSize(previousViewport)
   if (phase === 'after') {
@@ -71,6 +73,10 @@ async function capture(page: Page, path: string) {
     expect(
       facts.singleLine.filter((node) => node.wrap !== 'nowrap' || node.ellipsis),
       path,
+    ).toEqual([])
+    expect(
+      contrast.filter((sample) => sample.ratio < sample.minimum),
+      `${path}: contrast`,
     ).toEqual([])
   }
 }
@@ -187,7 +193,10 @@ for (const locale of ['zh-CN', 'en-US'] as const)
                           ? copy.diagnostics.title
                           : copy.settings.resolve(`i18n:settings.groups.${group}`)
             if (await navigation.isVisible()) await navigation.getByRole('button', { name: label, exact: true }).click()
-            else await selectLumenOption(page.getByRole('combobox', { name: copy.settings.groups, exact: true }), { label })
+            else
+              await selectLumenOption(page.getByRole('combobox', { name: copy.settings.groups, exact: true }), {
+                label,
+              })
             await expect(page.locator('.hbar-app-react-settings-content')).toBeVisible()
             await expect(page.locator('.hbar-app-react-settings-state')).toHaveCount(0)
             await capture(page, `${directory}/settings-${group}`)

@@ -11,7 +11,7 @@ export interface VisualUpgradeReportCopy {
   readonly failed: string
   readonly missing: string
   readonly retry: string
-  readonly provenance: string
+  readonly provenance: (revision: string | undefined) => string
   readonly acceptance: string
   readonly locales: Readonly<Record<'zh-CN' | 'en-US', string>>
   readonly themes: Readonly<Record<'dark' | 'light', string>>
@@ -66,7 +66,7 @@ export function visualUpgradeReportCopy(locale: 'zh-CN' | 'en-US'): VisualUpgrad
         failed: '无法读取验收截图，请重新生成或重试。',
         missing: '此组合没有截图。详细覆盖范围见验收记录。',
         retry: '重新读取',
-        provenance: '代码版本',
+        provenance: (revision) => `代码版本 · ${revision ?? '未载入'}`,
         acceptance: '打开交互验收预览',
         locales: { 'zh-CN': '中文', 'en-US': 'English' },
         themes: { dark: '深色', light: '浅色' },
@@ -86,7 +86,7 @@ export function visualUpgradeReportCopy(locale: 'zh-CN' | 'en-US'): VisualUpgrad
         failed: 'Capture evidence is unavailable. Regenerate the evidence or retry.',
         missing: 'No capture for this combination. See the validation record for coverage.',
         retry: 'Reload records',
-        provenance: 'Source revision',
+        provenance: (revision) => `Source revision · ${revision ?? 'Not loaded'}`,
         acceptance: 'Open interactive acceptance',
         locales: { 'zh-CN': '中文', 'en-US': 'English' },
         themes: { dark: 'Dark', light: 'Light' },

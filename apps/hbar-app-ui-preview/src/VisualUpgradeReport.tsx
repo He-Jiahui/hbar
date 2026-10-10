@@ -163,7 +163,7 @@ export function VisualUpgradeReport({
                 <LumenFrame as="section" key={phase} className="visual-report-column">
                   <LumenContentText context="section.title">{copy[phase]}</LumenContentText>
                   <LumenContentText context="section.description" tone="muted">
-                    {copy.provenance} · {data.evidence?.[phase]}
+                    {copy.provenance(data.evidence?.[phase])}
                   </LumenContentText>
                   {capture ? (
                     <CaptureImage key={capture.src} capture={capture} copy={copy} />
