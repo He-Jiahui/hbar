@@ -1665,52 +1665,76 @@ export class Kernel {
           },
           beforeRequest: async (_request, stepId) => {
             controller.signal.throwIfAborted()
-            let request = await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext)
-            if (
-              this.plugins
-                .get<CompactionProvider>('compaction')
-                .shouldCompact(request, (await this.compactionPercent(sessionId)) / 100)
-            ) {
-              await this.compactInternal(
-                sessionId,
-                model,
-                controller.signal,
-                run.id,
-                workspaceForRun,
-                steeringContext,
-                run.input.thinking,
-              )
+            let compactedForCapacity = false
+            let request: ModelRequest
+            let advertised: { tools: ToolDefinition[]; instructions?: string }
+            for (;;) {
               request = await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext)
-            }
-            request = await scope.hooks.dispatch('model.request', request)
-            const registered = await this.plugins.get<ModelRegistry>('models').get(request.model.id)
-            if (
-              request.model.baseUrl !== registered.baseUrl ||
-              request.model.protocol !== registered.protocol ||
-              request.model.model !== registered.model
-            )
-              throw new HbarError('INVALID_MODEL_OVERRIDE', 'Model hooks must select a registered provider endpoint')
-            const advertised = await scope.hooks.dispatch('tools.advertise', {
-              sessionId,
-              runId: run.id,
-              tools: [...input.tools],
-            })
-            if (
-              advertised.tools.some((tool) => !input.tools.includes(tool)) ||
-              new Set(advertised.tools.map((tool) => tool.name)).size !== advertised.tools.length ||
-              (advertised.instructions !== undefined &&
-                !z.string().max(16_000).safeParse(advertised.instructions).success)
-            )
-              throw new HbarError(
-                'INVALID_TOOL_ADVERTISEMENT',
-                'Tool advertisements must be a unique subset of Run tools with at most 16000 instruction characters',
+              if (
+                !compactedForCapacity &&
+                this.plugins
+                  .get<CompactionProvider>('compaction')
+                  .shouldCompact(request, (await this.compactionPercent(sessionId)) / 100)
+              ) {
+                await this.compactInternal(
+                  sessionId,
+                  model,
+                  controller.signal,
+                  run.id,
+                  workspaceForRun,
+                  steeringContext,
+                  run.input.thinking,
+                )
+                compactedForCapacity = true
+                continue
+              }
+              request = await scope.hooks.dispatch('model.request', request)
+              const registered = await this.plugins.get<ModelRegistry>('models').get(request.model.id)
+              if (
+                request.model.baseUrl !== registered.baseUrl ||
+                request.model.protocol !== registered.protocol ||
+                request.model.model !== registered.model
               )
-            request = {
-              ...prependModelInstructions(request, advertised.instructions ?? ''),
-              toolNames: advertised.tools.map((tool) => tool.name),
+                throw new HbarError('INVALID_MODEL_OVERRIDE', 'Model hooks must select a registered provider endpoint')
+              advertised = await scope.hooks.dispatch('tools.advertise', {
+                sessionId,
+                runId: run.id,
+                tools: [...input.tools],
+              })
+              if (
+                advertised.tools.some((tool) => !input.tools.includes(tool)) ||
+                new Set(advertised.tools.map((tool) => tool.name)).size !== advertised.tools.length ||
+                (advertised.instructions !== undefined &&
+                  !z.string().max(16_000).safeParse(advertised.instructions).success)
+              )
+                throw new HbarError(
+                  'INVALID_TOOL_ADVERTISEMENT',
+                  'Tool advertisements must be a unique subset of Run tools with at most 16000 instruction characters',
+                )
+              request = {
+                ...prependModelInstructions(request, advertised.instructions ?? ''),
+                toolNames: advertised.tools.map((tool) => tool.name),
+              }
+              controller.signal.throwIfAborted()
+              try {
+                assertContextCapacity(request)
+              } catch (error) {
+                if (!(error instanceof HbarError) || error.code !== 'CONTEXT_WINDOW_EXCEEDED' || compactedForCapacity)
+                  throw error
+                await this.compactInternal(
+                  sessionId,
+                  model,
+                  controller.signal,
+                  run.id,
+                  workspaceForRun,
+                  steeringContext,
+                  run.input.thinking,
+                )
+                compactedForCapacity = true
+                continue
+              }
+              break
             }
-            controller.signal.throwIfAborted()
-            assertContextCapacity(request)
             await this.append(
               sessionId,
               'request.started',

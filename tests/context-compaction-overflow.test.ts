@@ -165,6 +165,27 @@ test('a single oversized completed tool result can be summarized while its raw o
   })
 })
 
+test('rechecks capacity after request hooks and compacts before admitting the provider request', async () => {
+  const requests: ModelRequest[] = []
+  const { kernel, session, summaries } = await fixture(async (input) => {
+    requests.push(await input.beforeRequest(input.request, 'hooked-capacity'))
+  })
+  for (let index = 0; index < 5; index++)
+    await kernel.storage.call('commit', session.id, 'seed', index % 2 ? 'assistant' : 'user', [
+      { type: 'text', text: `History ${index} ${'h'.repeat(2600)}` },
+    ])
+  kernel.hooks.on('model.request', (request) => ({
+    ...request,
+    system: `${request.system}\n${'hook-instruction '.repeat(300)}`,
+  }))
+  const run = await kernel.submit(session.id, 'hooked-capacity', { text: 'Continue.', images: [] }, 'context-overflow')
+  await kernel.waitForIdle()
+  expect((await kernel.storage.call('run', run.id)).status).toBe('completed')
+  expect(summaries.length).toBeGreaterThan(0)
+  expect(requests).toHaveLength(1)
+  expect(estimateContextTokens(requests[0]!) + requests[0]!.model.maxOutput).toBeLessThanOrEqual(4096)
+})
+
 test.each(['failure', 'cancellation'] as const)(
   'partial summary %s does not publish a compaction or discard history',
   async (outcome) => {
