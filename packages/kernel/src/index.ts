@@ -27,6 +27,7 @@ import { compactionInputThreshold, describeContextUsage, estimateContextTokens }
 import {
   assertContextCapacity,
   compactionBoundary,
+  contextExceedsCapacity,
   createSummaryRequest,
   MAX_COMPACTION_CHUNKS,
   nextSummaryChunk,
@@ -1677,6 +1678,36 @@ export class Kernel {
           idleTimeout.progress()
           return result
         }
+        const compactAtBoundary = async () => {
+          controller.signal.throwIfAborted()
+          const request = await this.buildRequest(
+            sessionId,
+            model,
+            scope.hooks,
+            run,
+            workspaceForRun,
+            steeringContext,
+            'context-inspection',
+          )
+          if (!contextExceedsCapacity(request)) return
+          // Inspection must remain readable after a pause/budget stop. Only
+          // an admitted execution may spend tokens on a required summary.
+          await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext)
+          await this.compactInternal(
+            sessionId,
+            model,
+            controller.signal,
+            run.id,
+            workspaceForRun,
+            steeringContext,
+            run.input.thinking,
+          )
+          controller.signal.throwIfAborted()
+          assertContextCapacity(
+            await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext),
+          )
+          idleTimeout.progress()
+        }
         const input: DriverInput = {
           session,
           workspace: workspaceForRun,
@@ -1761,9 +1792,10 @@ export class Kernel {
               request = await this.buildRequest(sessionId, model, scope.hooks, run, workspaceForRun, steeringContext)
               if (
                 !compactedForCapacity &&
-                this.plugins
-                  .get<CompactionProvider>('compaction')
-                  .shouldCompact(request, (await this.compactionPercent(sessionId)) / 100)
+                (contextExceedsCapacity(request) ||
+                  this.plugins
+                    .get<CompactionProvider>('compaction')
+                    .shouldCompact(request, (await this.compactionPercent(sessionId)) / 100))
               ) {
                 await this.compactInternal(
                   sessionId,
@@ -1845,6 +1877,9 @@ export class Kernel {
             return request
           },
           stepEnded: async (stepId) => {
+            // Tools and the assistant reply are durable at this boundary.
+            // Compact before accounting so summary usage belongs to this step.
+            await compactAtBoundary()
             const settled = await scope.hooks.dispatch('step.end', { sessionId, runId: run.id, stepId })
             if (settled.stop) await closeSteering()
             return settled.stop ? { stop: settled.stop } : undefined
@@ -1889,6 +1924,9 @@ export class Kernel {
           if (active?.run.id === run.id) active.steeringReady = true
         }
         await driver.run(input)
+        // Also covers final output from drivers that return without settling
+        // a step, or commit more content after their last settlement.
+        await compactAtBoundary()
       } catch (error) {
         const cause: unknown = controller.signal.aborted ? controller.signal.reason : error
         if (!(cause instanceof RunControlSignal)) {
