@@ -118,15 +118,17 @@ function assertLifecycle(
   responseStatus?: number,
   purpose: 'compaction' | 'model' = 'compaction',
   protocol: 'openai-completions' | 'openai-responses' = 'openai-completions',
+  transportKind?: ModelDiagnosticEvent['transportKind'],
 ) {
   const started = events.filter((event) => event.phase === 'started')
   const terminals = events.filter((event) => event.phase === terminal)
   const terminalEvents = events.filter((event) => ['settled', 'failed', 'cancelled'].includes(event.phase))
   const responses = events.filter((event) => event.phase === 'response')
+  const transports = events.filter((event) => event.phase === 'transport_failure')
   expect(started).toHaveLength(1)
   expect(terminals).toHaveLength(1)
   expect(terminalEvents).toHaveLength(1)
-  expect(events).toHaveLength(started.length + responses.length + terminalEvents.length)
+  expect(events).toHaveLength(started.length + responses.length + transports.length + terminalEvents.length)
   expect(started[0]).toMatchObject({ phase: 'started', purpose })
   expect(terminals[0]).toMatchObject({ phase: terminal, purpose })
   expect(started[0]?.modelSelectionId).toBe('niuma_openai/gpt-6.1-sol')
@@ -140,6 +142,12 @@ function assertLifecycle(
     expect(responses).toHaveLength(1)
     expect(responses[0]?.httpStatus).toBe(responseStatus)
     expect(responses[0]?.upstreamRequestIdSha256).toBe(requestIdHash)
+  }
+  if (transportKind === undefined) expect(transports).toHaveLength(0)
+  else {
+    expect(transports).toHaveLength(1)
+    expect(transports[0]).toMatchObject({ phase: 'transport_failure', purpose, transportKind })
+    expect(transports[0]?.modelRequestId).toBe(started[0]?.modelRequestId)
   }
   expect(JSON.stringify(events)).not.toContain('fixture-only')
   expect(JSON.stringify(events)).not.toContain('canary')
@@ -365,7 +373,7 @@ test('Pi compaction diagnostics report abort and malformed provider conversion a
     await awaitArrival(requestSeen.promise, 'compaction provider request')
     controller.abort()
     expect(await pendingOutcome).toBeInstanceOf(Error)
-    assertLifecycle(events, 'cancelled')
+    assertLifecycle(events, 'cancelled', undefined, 'compaction', 'openai-completions', 'abort')
   } finally {
     controller.abort()
     await pendingOutcome
@@ -479,8 +487,13 @@ test('ordinary Pi.run emits one model lifecycle pair for success, provider error
       purpose: 'model',
       stopReason: 'aborted',
     })
+    expect(events.filter((event) => event.phase === 'transport_failure')).toHaveLength(1)
+    expect(events.find((event) => event.phase === 'transport_failure')).toMatchObject({
+      purpose: 'model',
+      transportKind: 'abort',
+    })
     expect(events.filter((event) => event.phase === 'response')).toHaveLength(0)
-    expect(events).toHaveLength(2)
+    expect(events).toHaveLength(3)
   } finally {
     controller.abort()
     await pendingOutcome
@@ -598,9 +611,63 @@ test('OpenAI Responses abort after request arrival emits no response phase', asy
     await awaitArrival(requestSeen.promise, 'Responses provider request')
     controller.abort()
     expect(await pendingOutcome).toBeInstanceOf(Error)
-    assertLifecycle(events, 'cancelled', undefined, 'compaction', 'openai-responses')
+    assertLifecycle(events, 'cancelled', undefined, 'compaction', 'openai-responses', 'abort')
   } finally {
     controller.abort()
+    await pendingOutcome
+    await fixture.server.stop(true)
+  }
+})
+
+test('transport diagnostics preserve connection refusal for compaction and ordinary model calls without raw errors', async () => {
+  const probe = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: () => new Response('unused') })
+  const unavailableBaseUrl = `http://127.0.0.1:${probe.port}/v1`
+  await probe.stop(true)
+
+  const summaryEvents: ModelDiagnosticEvent[] = []
+  await expect(
+    new PiDriver().summarize(request(unavailableBaseUrl), 'fixture-only', AbortSignal.timeout(5_000), (event) =>
+      summaryEvents.push(event),
+    ),
+  ).rejects.toThrow()
+  assertLifecycle(summaryEvents, 'failed', undefined, 'compaction', 'openai-completions', 'connection')
+  expect(summaryEvents.find((event) => event.phase === 'transport_failure')?.transportCode).toBe('ConnectionRefused')
+  expect(JSON.stringify(summaryEvents)).not.toContain(unavailableBaseUrl)
+
+  const runEvents: ModelDiagnosticEvent[] = []
+  await expect(
+    new PiDriver().run(runInput(unavailableBaseUrl, AbortSignal.timeout(5_000), runEvents)),
+  ).rejects.toThrow()
+  assertLifecycle(runEvents, 'failed', undefined, 'model', 'openai-completions', 'connection')
+  expect(runEvents.find((event) => event.phase === 'transport_failure')?.transportCode).toBe('ConnectionRefused')
+  expect(JSON.stringify(runEvents)).not.toContain(unavailableBaseUrl)
+})
+
+test('transport diagnostics classify a real provider timeout and retain cancellation semantics', async () => {
+  const requestSeen = Promise.withResolvers<void>()
+  const fixture = await startFixture(async () => {
+    requestSeen.resolve()
+    await Bun.sleep(500)
+    return new Response(chunk('late') + chunk('', 'stop') + 'data: [DONE]\n\n', { headers: sseHeaders })
+  })
+  let pendingOutcome: Promise<unknown> = Promise.resolve(null)
+  try {
+    const events: ModelDiagnosticEvent[] = []
+    const pending = new PiDriver().summarize(
+      request(fixture.baseUrl),
+      'fixture-only',
+      AbortSignal.timeout(100),
+      (event) => events.push(event),
+    )
+    pendingOutcome = pending.then(
+      () => null,
+      (error: unknown) => error,
+    )
+    await awaitArrival(requestSeen.promise, 'timeout provider request')
+    expect(await pendingOutcome).toBeInstanceOf(Error)
+    assertLifecycle(events, 'cancelled', undefined, 'compaction', 'openai-completions', 'timeout')
+    expect(JSON.stringify(events)).not.toContain('127.0.0.1')
+  } finally {
     await pendingOutcome
     await fixture.server.stop(true)
   }

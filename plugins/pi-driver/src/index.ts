@@ -32,7 +32,12 @@ import type {
 import type { ContentBlock, Message, ProviderConfig, ThinkingLevel, Usage } from '@hbar/contracts'
 import { appendProviderContext, splitModelContext } from './model-context'
 import { createDriverSteeringReader } from './steering'
-import { withProviderResponseDiagnostics } from './provider-http-diagnostics'
+import {
+  withProviderResponseDiagnostics,
+  type TransportFailureCode,
+  type TransportFailureKind,
+  type TransportFailureObserver,
+} from './provider-http-diagnostics'
 
 const piUsage = (): PiUsage => ({
   input: 0,
@@ -213,6 +218,7 @@ function streamProvider(
   runtimeContext = '',
   sessionId?: string,
   onResponse?: (response: ProviderResponse) => void,
+  onTransportFailure?: TransportFailureObserver,
 ): AssistantMessageEventStream {
   const model = modelOf(config)
   const reasoning = normalizeThinkingLevel(config, thinking)
@@ -222,7 +228,7 @@ function streamProvider(
     maxTokens: config.maxOutput,
     maxRetries: 0,
     ...(onResponse && (config.protocol === 'openai-responses' || config.protocol === 'openai-completions')
-      ? { fetch: withProviderResponseDiagnostics(globalThis.fetch, onResponse) }
+      ? { fetch: withProviderResponseDiagnostics(globalThis.fetch, onResponse, onTransportFailure) }
       : {}),
     ...(sessionId ? { sessionId } : {}),
     ...(config.protocol === 'openai-responses' || config.protocol === 'openai-completions'
@@ -288,6 +294,26 @@ function responseDiagnostic(
     protocol: request.model.protocol,
     httpStatus: response.status,
     upstreamRequestIdSha256,
+  })
+}
+function transportFailureDiagnostic(
+  callback: ((event: ModelDiagnosticEvent) => void) | undefined,
+  request: ModelRequest,
+  modelRequestId: string,
+  kind: TransportFailureKind,
+  code: TransportFailureCode | undefined,
+  purpose: 'model' | 'compaction',
+): void {
+  emitModelDiagnostic(callback, {
+    phase: 'transport_failure',
+    purpose,
+    providerId: diagnosticProviderId(request.model.id),
+    modelSelectionId: request.model.id,
+    modelRequestId,
+    model: request.model.model,
+    protocol: request.model.protocol,
+    transportKind: kind,
+    transportCode: code,
   })
 }
 function diagnosticProviderId(selectionId: string): string {
@@ -594,6 +620,8 @@ export class PiDriver implements HarnessDriver {
           context.context,
           input.session.id,
           (response) => responseDiagnostic(input.onModelDiagnostic, request, response, modelRequestId, 'model'),
+          (kind, code) =>
+            transportFailureDiagnostic(input.onModelDiagnostic, request, modelRequestId, kind, code, 'model'),
         )
       } catch (error) {
         if (error instanceof RunControlSignal && !input.signal.aborted) throw error
@@ -705,6 +733,7 @@ export class PiDriver implements HarnessDriver {
         '',
         request.context?.sessionId,
         (response) => responseDiagnostic(onDiagnostic, request, response, modelRequestId, 'compaction'),
+        (kind, code) => transportFailureDiagnostic(onDiagnostic, request, modelRequestId, kind, code, 'compaction'),
       )
       for await (const event of stream) {
         void event

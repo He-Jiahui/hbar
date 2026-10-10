@@ -204,3 +204,91 @@ for (const failsAfterFirstChunk of [false, true]) {
     }
   })
 }
+
+test('real Kernel compaction preserves context when transport connection is refused', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-compaction-diagnostic-transport-'))
+  const probe = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: () => new Response('unused') })
+  const baseUrl = `http://127.0.0.1:${probe.port}/v1`
+  await probe.stop(true)
+  const events: DiagnosticEvent[] = []
+  let kernel: Kernel | undefined
+  let safelyClosed = false
+  try {
+    kernel = await Kernel.create({
+      home: join(root, 'data'),
+      workspace: root,
+      secrets: new MemorySecrets(),
+      diagnostics: { emit: (event) => events.push(event) },
+    })
+    await kernel.saveProvider(
+      {
+        id: 'catalog',
+        name: 'Transport fixture',
+        protocol: 'openai-completions',
+        baseUrl,
+        model: 'selected',
+        contextWindow: 4096,
+        maxOutput: 512,
+        models: [{ id: 'selected' }],
+      },
+      'private-key-canary',
+    )
+    const workspace = (await kernel.storage.call('workspaces'))[0]
+    if (!workspace) throw new Error('Transport fixture workspace missing')
+    const session = await kernel.createSession(workspace.id)
+    for (let index = 0; index < 18; index++)
+      await kernel.storage.call('commit', session.id, 'fixture-seed', index % 2 ? 'assistant' : 'user', [
+        { type: 'text', text: `private-prompt-canary ${index} ${'x'.repeat(1500)}` },
+      ])
+    const originalContext = await kernel.storage.call('context', session.id)
+    const originalHistory = (await kernel.snapshot(session.id)).messages
+    let failure: unknown
+    try {
+      await kernel.compact(session.id, 'catalog/selected', AbortSignal.timeout(5_000))
+    } catch (error) {
+      failure = error
+    }
+    expect(failure).toBeInstanceOf(Error)
+    const own = events.filter((event) => event.sessionId === session.id)
+    const start = own.find((event) => event.event === 'provider.request_started')
+    const transport = own.find((event) => event.event === 'provider.transport_failure')
+    const terminal = own.find((event) => event.event === 'provider.request_settled')
+    expect(start).toMatchObject({
+      providerId: 'catalog',
+      modelSelectionId: 'catalog/selected',
+      method: 'context.compaction',
+    })
+    expect(start?.modelRequestId).toBeTruthy()
+    expect(start?.attemptId).toBeTruthy()
+    expect(transport).toMatchObject({
+      modelRequestId: start?.modelRequestId,
+      attemptId: start?.attemptId,
+      phase: 'transport_failure',
+      level: 'error',
+      outcome: 'failure',
+      transportKind: 'connection',
+      transportCode: 'ConnectionRefused',
+    })
+    expect(terminal).toMatchObject({
+      modelRequestId: start?.modelRequestId,
+      attemptId: start?.attemptId,
+      outcome: 'failure',
+    })
+    expect(own.some((event) => event.event === 'provider.response')).toBeFalse()
+    expect(await kernel.storage.call('context', session.id)).toEqual(originalContext)
+    expect((await kernel.snapshot(session.id)).messages).toEqual(originalHistory)
+    const serialized = JSON.stringify(own)
+    expect(serialized).not.toContain('private-key-canary')
+    expect(serialized).not.toContain('private-prompt-canary')
+    expect(serialized).not.toContain(baseUrl)
+  } finally {
+    try {
+      if (kernel) {
+        await kernel.close()
+        safelyClosed = true
+      }
+    } finally {
+      if (safelyClosed) await removeOwnedCompactionFixture(root)
+    }
+  }
+})

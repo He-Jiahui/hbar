@@ -1860,6 +1860,8 @@ export class Kernel {
               }
               if (event.phase === 'started') this.executionDiagnostics.providerRequestStarted(identity)
               else if (event.phase === 'response') this.executionDiagnostics.providerResponse(identity)
+              else if (event.phase === 'transport_failure')
+                this.executionDiagnostics.providerTransportFailure(identity, event.transportKind, event.transportCode)
               else if (event.phase === 'settled')
                 this.executionDiagnostics.providerRequestSettled(identity, 'success', event.durationMs ?? 0)
               else if (event.phase === 'cancelled')
@@ -3050,6 +3052,8 @@ export class Kernel {
               }
               if (event.phase === 'started') this.executionDiagnostics.providerRequestStarted(identity)
               else if (event.phase === 'response') this.executionDiagnostics.providerResponse(identity)
+              else if (event.phase === 'transport_failure')
+                this.executionDiagnostics.providerTransportFailure(identity, event.transportKind, event.transportCode)
               else if (event.phase === 'settled')
                 this.executionDiagnostics.providerRequestSettled(identity, 'success', event.durationMs ?? 0)
               else if (event.phase === 'cancelled')

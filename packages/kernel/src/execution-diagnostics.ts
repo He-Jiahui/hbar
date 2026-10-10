@@ -1,4 +1,4 @@
-import { diagnosticEvent, type DiagnosticCorrelation, type DiagnosticSink } from '@hbar/contracts'
+import { diagnosticEvent, type DiagnosticCorrelation, type DiagnosticEvent, type DiagnosticSink } from '@hbar/contracts'
 import type { DiagnosticScopePort } from '@hbar/contracts'
 
 export interface KernelExecutionDiagnosticsOptions {
@@ -158,6 +158,18 @@ export class KernelExecutionDiagnostics {
     this.emit('provider.response', (identity.httpStatus ?? 0) >= 400 ? 'warn' : 'info', identity, {
       outcome: 'unknown',
       phase: 'response',
+    })
+  }
+  providerTransportFailure(
+    identity: KernelModelDiagnosticIdentity,
+    transportKind?: DiagnosticEvent['transportKind'],
+    transportCode?: DiagnosticEvent['transportCode'],
+  ): void {
+    this.emit('provider.transport_failure', transportKind === 'abort' ? 'warn' : 'error', identity, {
+      outcome: transportKind === 'abort' ? 'skipped' : 'failure',
+      phase: 'transport_failure',
+      ...(transportKind ? { transportKind } : {}),
+      ...(transportCode ? { transportCode } : {}),
     })
   }
   providerRequestSettled(

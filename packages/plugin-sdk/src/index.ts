@@ -303,7 +303,7 @@ export interface HarnessDriver {
 }
 
 export interface ModelDiagnosticEvent {
-  readonly phase: 'started' | 'response' | 'settled' | 'failed' | 'cancelled'
+  readonly phase: 'started' | 'response' | 'transport_failure' | 'settled' | 'failed' | 'cancelled'
   readonly purpose: 'model' | 'compaction'
   readonly providerId: string
   readonly modelSelectionId: string
@@ -311,6 +311,19 @@ export interface ModelDiagnosticEvent {
   readonly attemptId?: string | undefined
   readonly upstreamRequestIdSha256?: string | undefined
   readonly httpStatus?: number | undefined
+  readonly transportKind?: 'abort' | 'timeout' | 'connection' | 'unknown' | undefined
+  readonly transportCode?:
+    | 'ECONNREFUSED'
+    | 'ConnectionRefused'
+    | 'ECONNRESET'
+    | 'ETIMEDOUT'
+    | 'EAI_AGAIN'
+    | 'ENOTFOUND'
+    | 'ENETUNREACH'
+    | 'EHOSTUNREACH'
+    | 'EPIPE'
+    | 'UND_ERR_CONNECT_TIMEOUT'
+    | undefined
   readonly model: string
   readonly protocol: string
   readonly stopReason?: 'stop' | 'toolUse' | 'length' | 'aborted' | 'error' | undefined

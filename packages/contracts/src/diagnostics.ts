@@ -52,6 +52,21 @@ export const diagnosticEventSchema = z.strictObject({
   stopReason: z.enum(['stop', 'toolUse', 'length', 'aborted', 'error']).optional(),
   httpStatus: z.number().int().min(100).max(599).optional(),
   upstreamRequestIdSha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  transportKind: z.enum(['abort', 'timeout', 'connection', 'unknown']).optional(),
+  transportCode: z
+    .enum([
+      'ECONNREFUSED',
+      'ConnectionRefused',
+      'ECONNRESET',
+      'ETIMEDOUT',
+      'EAI_AGAIN',
+      'ENOTFOUND',
+      'ENETUNREACH',
+      'EHOSTUNREACH',
+      'EPIPE',
+      'UND_ERR_CONNECT_TIMEOUT',
+    ])
+    .optional(),
   errorCode: z
     .string()
     .regex(/^[A-Z][A-Z0-9_.-]{0,127}$/)
