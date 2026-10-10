@@ -49,7 +49,7 @@ export { createChatDatabaseResourceScanner } from './chat-database-resource-scan
 export type { ChatDatabaseResourceScanInput } from './chat-database-resource-scanner'
 export type { ChatDatabaseResourceResult } from './chat-database-resource-ledger'
 export { createChatDatabaseMaintenanceWorker } from './chat-database-maintenance-worker'
-export type { ChatDatabaseMaintenanceWorkerPort } from './chat-database-maintenance-worker'
+export type { ChatDatabaseMaintenanceWorkerPort, ChatDatabaseWriterHandover } from './chat-database-maintenance-worker'
 export type { ChatDatabaseVacuumRecord } from './chat-database-vacuum-record'
 export * from './session-log-writer.ts'
 export * from './session-log-recovery.ts'

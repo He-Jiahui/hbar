@@ -19,40 +19,63 @@ export async function create(context: RuntimeProcessContext): Promise<RuntimePro
   let releaseWriter: (() => Promise<void>) | undefined
   let calls = 0
   let draining = false
+  let suspended: string | null = null
+  const verify = () => {
+    if (!existsSync(configuration.database)) return
+    const database = new Database(configuration.database, { readonly: true, strict: true })
+    try {
+      const version = z.object({ user_version: z.number().int() }).parse(database.query('PRAGMA user_version').get()).user_version
+      if (version !== STORAGE_SCHEMA_VERSION) throw new HbarError('RESTART_REQUIRED', 'Storage candidate requires an incompatible schema migration')
+      const integrity = z.object({ quick_check: z.literal('ok') }).safeParse(database.query('PRAGMA quick_check(1)').get())
+      if (!integrity.success) throw new HbarError('STORAGE_INTEGRITY_UNKNOWN', 'Storage candidate could not confirm database integrity')
+    } finally { database.close() }
+  }
+  const open = async () => {
+    verify()
+    releaseWriter = await acquireHostProcessLock(`${configuration.database}.runtime-writer.lock`).catch(() => {
+      throw new HbarError('STORAGE_WRITER_ACTIVE', 'The previous storage process still owns the database writer')
+    })
+    try {
+      if (configuration.workerPath) process.env.HBAR_STORAGE_WORKER = configuration.workerPath
+      storage = new Storage(configuration.database, layout, { onFatal: () => process.exit(76) })
+      await storage.call('ready')
+    } catch (error) {
+      await storage?.close()
+      storage = undefined
+      await releaseWriter()
+      releaseWriter = undefined
+      throw error
+    }
+  }
   context.peer.register('storage.call', procedure(storageRpcCallSchema, z.unknown(), async input => {
-    if (context.preparing() || !storage || draining) throw new HbarError('STORAGE_WRITER_UNAVAILABLE', 'Storage writer is not serving')
+    if (context.preparing() || !storage || draining || suspended) throw new HbarError('STORAGE_WRITER_UNAVAILABLE', 'Storage writer is not serving')
     calls++
     try { return await storage.executeRpc(input) } finally { calls-- }
   }))
+  const maintenance = z.strictObject({ operationId: z.string().min(1).max(160) })
+  context.peer.register('storage.suspend', procedure(maintenance, z.undefined(), async ({ operationId }) => {
+    if (context.preparing() || !storage || draining || suspended || calls) throw new HbarError('STORAGE_WRITER_UNAVAILABLE', 'Storage calls must drain before maintenance')
+    suspended = operationId
+    await storage.call('chatDatabaseMaintenanceBegin', operationId)
+    await storage.close()
+    storage = undefined
+    await releaseWriter?.()
+    releaseWriter = undefined
+  }))
+  context.peer.register('storage.resume', procedure(maintenance, z.undefined(), async ({ operationId }) => {
+    if (context.preparing() || suspended !== operationId || storage || draining || calls) throw new HbarError('STORAGE_RECONCILIATION_REQUIRED', 'The suspended writer identity changed')
+    await open()
+    suspended = null
+  }))
   return {
     async prepare() {
-      if (existsSync(configuration.database)) {
-        const database = new Database(configuration.database, { readonly: true, strict: true })
-        try {
-          const version = z.object({ user_version: z.number().int() }).parse(database.query('PRAGMA user_version').get()).user_version
-          if (version !== STORAGE_SCHEMA_VERSION) throw new HbarError('RESTART_REQUIRED', 'Storage candidate requires an incompatible schema migration')
-          const integrity = z.object({ quick_check: z.literal('ok') }).safeParse(database.query('PRAGMA quick_check(1)').get())
-          if (!integrity.success) throw new HbarError('STORAGE_INTEGRITY_UNKNOWN', 'Storage candidate could not confirm database integrity')
-        } finally { database.close() }
-      }
-      return { contractFingerprint: STORAGE_RPC_FINGERPRINT, storageSchema: STORAGE_SCHEMA_VERSION, capabilities: ['storage.call'] }
+      verify()
+      return { contractFingerprint: STORAGE_RPC_FINGERPRINT, storageSchema: STORAGE_SCHEMA_VERSION, capabilities: ['storage.call', 'storage.suspend', 'storage.resume'] }
     },
     async activate(role) {
       if (role !== 'default') throw new HbarError('STORAGE_WRITER_UNAVAILABLE', 'Only the default storage process may own the writer')
       // This process-lifetime OS lease remains held until the Worker has actually exited.
-      releaseWriter = await acquireHostProcessLock(`${configuration.database}.runtime-writer.lock`).catch(() => {
-        throw new HbarError('STORAGE_WRITER_ACTIVE', 'The previous storage process still owns the database writer')
-      })
-      try {
-        if (configuration.workerPath) process.env.HBAR_STORAGE_WORKER = configuration.workerPath
-        storage = new Storage(configuration.database, layout, { onFatal: () => process.exit(76) })
-        await storage.call('ready')
-      } catch (error) {
-        await storage?.close()
-        await releaseWriter()
-        releaseWriter = undefined
-        throw error
-      }
+      await open()
     },
     async drain() { draining = true; return { requests: calls, runs: 0, resources: storage ? 1 : 0 } },
     async dispose() {

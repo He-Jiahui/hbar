@@ -94,3 +94,45 @@ test('queued calls expire without dispatching and explicit close rejects waiting
   expect(port.snapshot()).toMatchObject({ phase: 'closed', queued: 0, bufferedBytes: 0 })
   expect(() => port.install(writer(1))).toThrow('old writer')
 })
+
+test('maintenance drains calls and waits for Worker exit, keeps a single owner, and resumes queued calls only after verification', async () => {
+  const accepted = deferred<unknown>(), suspending = deferred<void>(), joined = deferred<void>(), verified = deferred<void>()
+  const events: string[] = []
+  let calls = 0
+  const port = new StableStoragePort(1_000)
+  port.install({ ...writer(1, () => ++calls === 1 ? accepted.promise : Promise.resolve({ version: 24 })),
+    suspend: async id => { events.push('suspend:' + id); suspending.resolve(); await joined.promise; events.push('joined') },
+    resume: async id => { events.push('verify:' + id); await verified.promise; events.push('reopened') },
+  })
+  const first = port.call('ready'), maintenance = port.beginMaintenance('vacuum')
+  const waiting = port.call('ready')
+  expect(events).toEqual([])
+  accepted.resolve({ version: 24 }); await first; await suspending.promise
+  expect(events).toEqual(['suspend:vacuum'])
+  expect(port.snapshot()).toMatchObject({ phase: 'handover', queued: 1, owner: owner(1) })
+  expect(await outcome(port.beginHandover())).toMatchObject({ code: 'STORAGE_MAINTENANCE_ACTIVE' })
+  joined.resolve(); await maintenance
+  expect(await outcome(port.endMaintenance('another'))).toMatchObject({ code: 'STORAGE_RECONCILIATION_REQUIRED' })
+  const end = port.endMaintenance('vacuum')
+  expect(calls).toBe(1)
+  verified.resolve(); await end
+  expect(await waiting).toEqual({ version: 24 })
+  expect(events).toEqual(['suspend:vacuum', 'joined', 'verify:vacuum', 'reopened'])
+  expect(port.snapshot()).toMatchObject({ phase: 'serving', owner: owner(1), inFlight: 0 })
+  await port.close()
+})
+
+test('unconfirmed maintenance Worker exit or failed reopen keeps admission fenced', async () => {
+  const port = new StableStoragePort(20)
+  port.install({ ...writer(1), suspend: async () => {}, resume: async () => { throw new Error('integrity') } })
+  await port.beginMaintenance('vacuum')
+  expect(await outcome(port.endMaintenance('vacuum'))).toMatchObject({ message: 'integrity' })
+  expect(port.snapshot()).toMatchObject({ phase: 'fenced', reasonCode: 'STORAGE_INTEGRITY_UNKNOWN' })
+  expect(await outcome(port.call('ready'))).toMatchObject({ code: 'STORAGE_INTEGRITY_UNKNOWN' })
+  await port.close()
+  const blocked = new StableStoragePort(20)
+  blocked.install({ ...writer(1), suspend: () => new Promise(() => {}), resume: async () => {} })
+  expect(await outcome(blocked.beginMaintenance('vacuum'))).toMatchObject({ code: 'STORAGE_EXIT_UNCONFIRMED' })
+  expect(blocked.snapshot().phase).toBe('fenced')
+  await blocked.close()
+})

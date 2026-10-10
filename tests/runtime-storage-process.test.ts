@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { ManagedProcess, RuntimeArtifactStore } from '@hbar/runtime'
 import { StableStoragePort, Storage, createPathLayout, ensurePathLayout, callStorageRpc, scanSessionLogs, STORAGE_RPC_FINGERPRINT, STORAGE_SCHEMA_VERSION, STORAGE_RPC_METHODS } from '@hbar/storage'
 import type { RuntimeUnitDescriptor } from '@hbar/contracts/runtime'
+import { acquireHostProcessLock } from '../apps/host/src/process-lock'
 
 const resources: { root: string; processes: ManagedProcess[]; port: StableStoragePort }[] = []
 afterEach(async () => {
@@ -46,6 +47,8 @@ async function fixture() {
     return process
   }
   const install = (process: ManagedProcess) => port.install({ owner: process.owner(), retire: () => process.dispose(),
+    suspend: operationId => process.call('storage.suspend', { operationId }, z.undefined()),
+    resume: operationId => process.call('storage.resume', { operationId }, z.undefined()),
     call: (method, args, authority) => callStorageRpc({ execute: input => process.call('storage.call', input, z.unknown()) }, method, args, authority),
   })
   return { root, layout, registry, descriptor, artifact, port, session, make, install }
@@ -76,6 +79,24 @@ test('prepared storage has no writer, and a real process/Worker switch preserves
   await f.port.call('setSetting', 'generation', 'two')
   expect(await f.port.call('getSetting', 'candidate')).toBeNull()
   expect(scanSessionLogs(f.layout.sessions).events.map(item => item.hash)).toEqual(originalLog)
+})
+
+test('managed maintenance joins the old Storage Worker and releases the OS writer lease before reopening the same process', async () => {
+  const f = await fixture(), process = await f.make(1)
+  await process.activate(); f.install(process)
+  await f.port.call('setSetting', 'maintenance', 'preserved')
+  const pid = process.snapshot().pid
+  expect(await outcome(acquireHostProcessLock(`${f.layout.database}.runtime-writer.lock`))).toBeInstanceOf(Error)
+  await f.port.beginMaintenance('verified-vacuum')
+  expect(await outcome(process.call('storage.call', { method: 'ready', args: [] }, z.unknown()))).toMatchObject({ code: 'STORAGE_WRITER_UNAVAILABLE' })
+  const release = await acquireHostProcessLock(`${f.layout.database}.runtime-writer.lock`)
+  expect(process.snapshot().pid).toBe(pid)
+  const waiting = f.port.call('getSetting', 'maintenance')
+  await release()
+  await f.port.endMaintenance('verified-vacuum')
+  expect(await waiting).toBe('preserved')
+  expect(process.snapshot()).toMatchObject({ phase: 'serving', pid })
+  expect(await outcome(acquireHostProcessLock(`${f.layout.database}.runtime-writer.lock`))).toBeInstanceOf(Error)
 })
 
 test('a second activated process cannot write while the existing Worker owner still holds its OS lease', async () => {
