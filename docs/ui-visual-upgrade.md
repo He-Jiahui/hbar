@@ -81,6 +81,10 @@
 
 随后整合 `a21997b1`，最终 13 个诊断测试、严格范围 lint 和完整类型检查通过。最终 Web／Host 资源按 `296c4816` 重新构建并使用官方 `tauri bundle` 更新 NSIS；该增量没有修改 Rust 源码，保留已经通过标准构建的 Rust EXE。真实包复核追加首发工具栏没有旧滚动轨道的断言。最终日志为 `tests-latest-diagnostics-merge.log`、`typecheck-final-delivery.log`、`packaged-final-passed.log`。
 
+交付整合期间，主干新增 `f4855a44`、`d16f9e4a` 的离线反馈保留修复，以及 `142cc92f` 的现行模型／推理验收修正，已合并保留。最终全量 React 为 **1,049 通过、3 失败**；剩余为中英文归档输入区的旧禁用断言及未知模型恢复断言，均属于此前在未修改 `0a5bbefc` 源码中复现的基线集合，没有新增失败。日志为 `tests-delivery-last-react.log`。最新严格类型及对应范围 lint 通过。
+
+这次最终资源按 `c64b123b` 对应的运行时代码构建：Web 包含离线反馈修复，Host 包含真实 HTTP 诊断；后续模型验收提交只修改测试。包复核为 `packaged-last-verified.log`。主干整合时逐项校验保留了原工作区 6 个待提交文件、141 个未跟踪项和原暂存状态，未提交其他任务的修改；干净交付工作树及 Lumen 工作树没有源码残留。
+
 ## 可交互验收和证据来源
 
 预览入口为 `workbench-acceptance.html` 和 `visual-report.html`。前者组合真实 Lumen 页面标题、表面、工具行、指标、操作栏及弹窗；后者提供按页面、语言、主题和窗口宽度切换的前后截图。执行 `bun scripts/publish-visual-upgrade-evidence.ts` 发布 PNG 与受限索引，再执行 `bun run app-ui:build` 构建预览。发布目录已加入忽略规则，服务日志、认证信息和浏览器 trace 不进入可见证据页。
