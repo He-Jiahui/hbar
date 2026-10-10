@@ -334,6 +334,8 @@ export interface GoalToolResponse {
   completionBudgetReport?: string
 }
 export interface GoalService {
+  /** Read the canonical Session journal without accounting, continuation or external effects. */
+  refreshSession?(sessionId: string): Promise<void>
   reconcileRun?(run: Run): Promise<void>
   recoveryReason?(run: Run): Promise<string | null>
   /** Restore active execution once the Host's providers and lifecycle gates are ready. */
@@ -356,6 +358,7 @@ export interface GoalService {
   ): Promise<void>
 }
 export interface PlanService {
+  refreshSession?(sessionId: string): Promise<void>
   snapshot(sessionId: string): Promise<{ value: PlanState | null; seq: number }>
   get(sessionId: string): Promise<PlanState | null>
   /** Hold the observed plan revision stable while committing a dependent fact. */
@@ -436,6 +439,7 @@ export interface ModeService {
   commitExit<T extends { modeEvent: SessionEvent | null }>(sessionId: string, commit: () => Promise<T>): Promise<T>
 }
 export interface BudgetService {
+  refreshSession?(sessionId: string): Promise<void>
   reconcileRun?(run: Run): Promise<void>
   get(sessionId: string): Promise<SessionBudget | null>
   set(sessionId: string, limit: number): Promise<SessionBudget>

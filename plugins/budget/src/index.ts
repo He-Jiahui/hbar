@@ -106,6 +106,9 @@ export class BudgetRuntime {
         'BUDGET_RESTORE_LIMIT',
         `Budget replay for ${sessionId} exceeded ${MAX_RESTORE_EVENTS} events`,
       )
+    this.budgets.delete(sessionId)
+    this.commandReceipts.delete(sessionId)
+    this.uncertainSessions.delete(sessionId)
     for (const event of events) {
       if (event.type === 'budget.cleared') {
         const parsed = budgetClearedEventSchema.safeParse(event.data)
@@ -309,6 +312,10 @@ export class BudgetRuntime {
   async reconcileRun(run: Run): Promise<void> {
     await this.restoreSession(run.sessionId)
     await this.accountRun({ sessionId: run.sessionId, runId: run.id, status: run.status, run })
+  }
+  async refreshSession(sessionId: string): Promise<void> {
+    if (this.api.restoreMode !== 'projection') throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Budget handoff requires projection-only restore')
+    await this.serial(sessionId, () => this.restoreSession(sessionId))
   }
 
   async accountStep(event: HookEvents['step.end']) {

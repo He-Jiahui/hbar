@@ -36,10 +36,11 @@ export const runtimeKernelStateSchema = z.strictObject({
   modes: z.array(z.strictObject({ runId: id, mode: runModeSchema })).max(4_096),
 })
 export const runtimeKernelRecoverySchema = z.array(runtimeRecoveryRecordSchema).max(256)
-export const RUNTIME_KERNEL_CONTROL_METHODS = ['kernel.resume', 'kernel.fence', 'kernel.cancel', 'kernel.recover', 'kernel.recovery.resume', 'kernel.application.control', 'kernel.application.callback'] as const
+export const RUNTIME_KERNEL_CONTROL_METHODS = ['kernel.resume', 'kernel.fence', 'kernel.cancel', 'kernel.recover', 'kernel.recovery.resume', 'kernel.session.refresh', 'kernel.wake', 'kernel.application.control', 'kernel.application.callback'] as const
 export const KERNEL_RUNTIME_FINGERPRINT = createHash('sha256').update(JSON.stringify([
   'hbar.kernel.runtime.v1', z.toJSONSchema(runtimeKernelConfigurationSchema), z.toJSONSchema(runtimeKernelSubmitSchema),
   RUNTIME_APPLICATION_METHODS,
+  RUNTIME_KERNEL_CONTROL_METHODS,
   z.toJSONSchema(runtimeWireNotificationSchema),
   z.toJSONSchema(runtimeKernelStateSchema), z.toJSONSchema(runSchema), z.toJSONSchema(runtimeKernelRecoverySchema),
 ])).digest('hex')

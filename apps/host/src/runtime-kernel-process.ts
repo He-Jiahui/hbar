@@ -67,6 +67,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
   context.peer.register('kernel.cancel', procedure(runtimeKernelRunSchema, z.undefined(), input => application().cancel(input.runId)))
   context.peer.register('kernel.fence', procedure(runtimeKernelRunsSchema, z.undefined(), input => application().fenceRuns(input.runIds)))
   context.peer.register('kernel.wake', procedure(runtimeKernelSessionSchema, z.undefined(), input => { if (role === 'default') application().wake(input.sessionId) }))
+  context.peer.register('kernel.session.refresh', procedure(runtimeKernelSessionSchema, z.undefined(), input => application().refreshSessionProjection(input.sessionId)))
   context.peer.register('kernel.recover', procedure(runtimeKernelRunsSchema, runtimeKernelRecoverySchema, input => application().recoverRuns(input.runIds)))
   context.peer.register('kernel.recovery.resume', procedure(runtimeKernelRunSchema, runtimeRecoveryRecordSchema, input => application().resumeRecovery(input.runId)))
   context.peer.register('kernel.resume', procedure(z.undefined(), z.undefined(), async () => {
@@ -76,7 +77,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
   context.peer.register('kernel.permission.set', procedure(z.strictObject({ mode: z.enum(['ask', 'allow', 'deny', 'sandbox']) }), z.strictObject({ mode: z.enum(['ask', 'allow', 'deny', 'sandbox']) }), input => application().setPermissionMode(input.mode)))
   return {
     async prepare() { return { contractFingerprint: KERNEL_RUNTIME_FINGERPRINT, storageSchema: STORAGE_SCHEMA_VERSION,
-      capabilities: ['kernel.state', 'kernel.submit', 'kernel.cancel', 'kernel.fence', 'kernel.wake', 'kernel.recover', 'kernel.recovery.resume', 'kernel.resume'] } },
+      capabilities: ['kernel.state', 'kernel.submit', 'kernel.cancel', 'kernel.fence', 'kernel.wake', 'kernel.recover', 'kernel.recovery.resume', 'kernel.resume', 'kernel.session.refresh'] } },
     async activate(selected) {
       role = selected
       kernel = await Kernel.create({ layout, demo: configuration.demo, instanceId: configuration.instanceId, lifecycle: 'managed',

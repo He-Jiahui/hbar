@@ -94,6 +94,7 @@ import type {
   CompactionProvider,
   BudgetService,
   GoalService,
+  PlanService,
   DriverInput,
   HarnessDriver,
   ModelRegistry,
@@ -773,6 +774,15 @@ export class Kernel {
       if (ids.has(run.id)) controller.abort(new HbarError('EXECUTION_OWNER_REVOKED', 'The runtime owner lost execution authority'))
   }
   recoverRuns(runIds: readonly string[]) { return this.runtimeRecovery.recover(runIds) }
+  async refreshSessionProjection(sessionId: string): Promise<void> {
+    if (this.active.has(sessionId)) throw new HbarError('BUSY', 'An active executor retains its own Session projection')
+    const budget = this.plugins.get<BudgetService>('budget'), goal = this.plugins.get<GoalService>('goal'), plan = this.plugins.get<PlanService>('plan')
+    if (!budget.refreshSession || !goal.refreshSession || !plan.refreshSession)
+      throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Session capability providers need a declared projection handoff contract')
+    await budget.refreshSession(sessionId)
+    await goal.refreshSession(sessionId)
+    await plan.refreshSession(sessionId)
+  }
   resumeRecovery(predecessorRunId: string) { return this.runtimeRecovery.resume(predecessorRunId) }
   private async checkRuntimeRecovery(run: Run): Promise<string | null> {
     try {

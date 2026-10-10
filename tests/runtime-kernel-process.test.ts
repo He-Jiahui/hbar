@@ -215,6 +215,11 @@ test('the real HTTP/WS listener uses a remote Kernel facade for bootstrap, comma
     await until(async () => (await f.storage.call('run', accepted.operationId)).status === 'completed')
     await until(() => delivered.some(event => event.method === 'session.event' && event.params.runId === accepted.operationId && event.params.type === 'run.settled'))
     expect(facade.api.streams.size).toBe(0)
+    const settled = delivered.find(event => event.method === 'session.event' && event.params.runId === accepted.operationId && event.params.type === 'run.settled')!
+    facade.replay(settled)
+    facade.receive(kernel.owner(), { method: 'stream.update', params: { id: 'late-live-fragment', runId: accepted.operationId, sessionId: f.session.id,
+      operation: 'reset', text: 'Queued before durable completion', thinking: '', textOffset: 0, thinkingOffset: 0, version: 1 } })
+    expect(facade.api.streams.size).toBe(0)
     expect(client.connectionStatus()).toBe('connected')
     expect(host.info().instanceId).toBe(facade.api.instanceId)
     unsubscribe()

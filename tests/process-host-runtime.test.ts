@@ -67,6 +67,11 @@ test('a Kernel update pins the old executor, hands queued input to the new gener
   await f.runtime.manager.reconcile(); await f.runtime.settled()
   expect(f.runtime.manager.currentVersion('kernel').generation).toBe(2)
   expect(f.runtime.coordinator.execution(first.id)?.versions.kernel.generation).toBe(1)
+  // These updates happen in the old executor after the new generation finished its initial projection.
+  await f.runtime.kernel.plugins.get('goal').set(f.session.id, { objective: 'Preserve the latest Session state during handoff', status: 'paused' })
+  const latestPlan = await f.runtime.kernel.plugins.get('plan').update(f.session.id, [{ step: 'Use the canonical handoff state', status: 'in_progress' }])
+  const receipt = await f.runtime.kernel.plugins.get('budget').setCommand({ sessionId: f.session.id, tokens: 100_000, expectedRevision: null },
+    { actorId: 'handoff-fixture', requestId: 'budget-handoff', idempotencyKey: 'budget-handoff' })
   const second = await f.runtime.kernel.submit(f.session.id, 'new-kernel', { text: 'new queued input', images: [] }, 'local-fixture')
   expect((await f.runtime.storage.call('run', second.id)).status).toBe('queued')
   expect(f.runtime.coordinator.executionForSession(f.session.id)?.runId).toBe(first.id)
@@ -78,6 +83,10 @@ test('a Kernel update pins the old executor, hands queued input to the new gener
   await f.runtime.waitForIdle()
   expect((await f.runtime.storage.call('run', first.id)).status).toBe('completed')
   expect((await f.runtime.storage.call('runtimeExecutionRead', second.id))?.lease.versions.kernel.generation).toBe(2)
+  expect((await f.runtime.kernel.plugins.get('goal').get(f.session.id)).goal?.status).toBe('paused')
+  expect((await f.runtime.kernel.plugins.get('plan').get(f.session.id))?.revision).toBe(latestPlan.revision)
+  expect((await f.runtime.kernel.plugins.get('budget').get(f.session.id))?.usedTokens).toBeGreaterThan(0)
+  expect(await f.runtime.kernel.plugins.get('budget').getCommandReceipt(f.session.id, 'handoff-fixture', 'budget-handoff')).toEqual(receipt)
   await f.runtime.manager.reconcile()
   expect(f.runtime.getReload(operation.operationId).phase).toBe('completed')
 })

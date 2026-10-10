@@ -928,6 +928,28 @@ class GoalRuntime implements GoalService {
     }
     await this.accountRun({ sessionId: run.sessionId, runId: run.id, status: run.status, run })
   }
+  async refreshSession(sessionId: string): Promise<void> {
+    await this.serial(sessionId, async () => {
+      const events = await this.api.sessions.events(sessionId, 0, MAX_EVENTS + 1)
+      if (events.length > MAX_EVENTS) throw new HbarError('GOAL_RESTORE_LIMIT', 'Goal handoff exceeded its journal limit')
+      this.goals.delete(sessionId); this.sequences.delete(sessionId); this.continuationTriggers.delete(sessionId)
+      this.uncertainSessions.delete(sessionId); this.restoredRuns.delete(sessionId)
+      for (const [runId, accounting] of this.activeRuns) if (accounting.sessionId === sessionId) this.activeRuns.delete(runId)
+      for (const event of events) {
+        if (event.type === 'goal.cleared') { this.goals.delete(sessionId); this.sequences.set(sessionId, event.seq); this.continuationTriggers.delete(sessionId); continue }
+        const goal = eventGoal(event)
+        if (goal) {
+          if (goal.threadId !== sessionId) throw new HbarError('GOAL_REPLAY', 'Goal handoff journal belongs to another Session')
+          this.goals.set(sessionId, goal); this.sequences.set(sessionId, event.seq); this.rememberTriggers(goal)
+        }
+        if (event.runId && ['goal.run_bound', 'goal.created', 'goal.accounted'].includes(event.type)) {
+          const checkpoint = z.object({ accounting: runAccountingSchema }).safeParse(event.data)
+          if (checkpoint.success) { this.activeRuns.set(event.runId, checkpoint.data.accounting); this.boundRuns.add(event.runId) }
+        }
+      }
+      for (const runId of this.goals.get(sessionId)?.accountedRuns ?? []) this.activeRuns.delete(runId)
+    })
+  }
   async recoveryReason(run: Run): Promise<string | null> {
     await this.ready()
     this.assertKnown(run.sessionId)

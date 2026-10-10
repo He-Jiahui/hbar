@@ -235,7 +235,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   }
   private canAdmit(sessionId: string): boolean {
     return !this.closing && !this.initializing && !this.maintenance && this.executionReady() && this.storage.snapshot().phase === 'serving' && !this.storageFailure &&
-      ![...this.interrupted.values()].some(failure => failure.leases.some(lease => lease.sessionId === sessionId))
+      ![...this.interrupted.values()].some(failure => failure.leases.some(lease => lease.sessionId === sessionId)) &&
+      ![...this.leases.values()].some(lease => lease.sessionId === sessionId && !this.coordinator.execution(lease.runId))
   }
   private createGeneration(artifact: RuntimeArtifact, generation: number, changed: () => void): ManagedProcess {
     const layout = this.options.layout
@@ -291,7 +292,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     record.cleanup.push(this.relay.attachKernel(peer), registerRuntimeCoordinatorPort(peer, this.coordinator, { owner,
       bindings: caller => this.bindings(caller), canAdmit: sessionId => this.canAdmit(sessionId),
       admitted: lease => { this.leases.set(lease.runId, lease); this.schedule() },
-      released: async lease => { await this.replay(lease.sessionId); this.leases.delete(lease.runId); this.schedule(); await this.wake(lease.sessionId) },
+      released: lease => this.handoff(lease),
       stopped: (_owner, runId) => { this.stopped.add(runId); this.schedule() },
       releaseFailed: () => { this.reasonCode = 'EXECUTION_RECONCILIATION_REQUIRED'; this.schedule() },
     }))
@@ -376,6 +377,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private async reconcile(): Promise<void> {
     if (this.closing || !this.executionReady() || this.storage.snapshot().phase !== 'serving') return
     const kernel = this.currentKernel()
+    for (const lease of this.leases.values()) if (!this.coordinator.execution(lease.runId) &&
+      ![...this.interrupted.values()].some(failure => failure.leases.some(value => value.runId === lease.runId))) await this.handoff(lease)
     for (const [incarnation, failure] of this.interrupted) {
       if (!failure.exited) continue
       for (const lease of [...failure.leases]) {
@@ -409,6 +412,15 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     if (!this.canAdmit(sessionId)) return
     await this.currentKernel().process.call('kernel.wake', { sessionId }, z.undefined())
   }
+  private async handoff(lease: ExecutionOwnership): Promise<void> {
+    await this.replay(lease.sessionId)
+    const current = this.currentKernel()
+    if (current.owner.incarnation !== lease.owner.incarnation)
+      await current.process.call('kernel.session.refresh', { sessionId: lease.sessionId }, z.undefined(), { timeoutMs: 120_000 })
+    this.leases.delete(lease.runId)
+    this.schedule()
+    await this.wake(lease.sessionId)
+  }
   private async resolveKernel(target: string, method: string, args: readonly unknown[], captured?: RuntimeKernelEndpoint): Promise<RuntimeKernelEndpoint> {
     let runId: string | undefined, sessionId: string | undefined
     if (target === 'kernel' && method === 'cancel' && typeof args[0] === 'string') runId = args[0]
@@ -426,7 +438,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       if (!endpoint) throw new HbarError('RUNTIME_RECOVERING', 'The execution owner is recovering')
       return endpoint
     }
-    return captured ?? this.currentKernel()
+    return sessionId ? this.currentKernel() : captured ?? this.currentKernel()
   }
   private async replay(sessionId: string): Promise<void> {
     let cursor = this.facade.cursor(sessionId)

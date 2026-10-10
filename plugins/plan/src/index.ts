@@ -105,6 +105,13 @@ class PlanRuntime implements PlanService {
       )
     for (const event of events) this.applyEvent(sessionId, event)
   }
+  async refreshSession(sessionId: string): Promise<void> {
+    await this.serial(sessionId, async () => {
+      this.plans.delete(sessionId); this.sequences.delete(sessionId); this.revisions.delete(sessionId); this.modes.delete(sessionId)
+      for (const [runId, owner] of this.exitedRuns) if (owner === sessionId) this.exitedRuns.delete(runId)
+      await this.restoreSession(sessionId)
+    })
+  }
 
   private applyEvent(sessionId: string, event: SessionEvent) {
     if (event.type === 'plan_exit.resolved') {

@@ -39,6 +39,7 @@ export class RuntimeKernelFacade {
   private readonly context = new AsyncLocalStorage<RuntimeKernelEndpoint>()
   private readonly listeners = new Set<(event: WireNotification) => unknown>()
   private readonly cursors = new Map<string, number>()
+  private readonly settledRuns = new Set<string>()
   private recovered = 0
   constructor(private readonly options: RuntimeKernelFacadeOptions) {
     const directory = new CommandRegistry({ execution: 'host' })
@@ -97,6 +98,8 @@ export class RuntimeKernelFacade {
   receive(owner: RuntimeOwner, event: WireNotification): void {
     const endpoint = this.options.endpoints().find(value => value.owner.incarnation === owner.incarnation)
     if (!endpoint || !['serving', 'draining'].includes(endpoint.process.snapshot().phase)) return
+    this.recordSettlement(event)
+    if (event.method === 'stream.update' && this.settledRuns.has(event.params.runId)) return
     if (!this.applyCursor(event)) return
     if (event.method === 'stream.update') {
       const delta = event.params
@@ -117,12 +120,19 @@ export class RuntimeKernelFacade {
   }
   cursor(sessionId: string): number { return this.cursors.get(sessionId) ?? 0 }
   replay(event: WireNotification): void {
+    this.recordSettlement(event)
     if (!this.applyCursor(event)) return
     if (event.method === 'session.event' && event.params.type === 'run.settled')
       for (const [id, stream] of this.streams) if (stream.runId === event.params.runId) this.streams.delete(id)
     this.publish(event)
   }
-  dispose(): void { this.listeners.clear(); this.streams.clear(); this.cursors.clear() }
+  dispose(): void { this.listeners.clear(); this.streams.clear(); this.cursors.clear(); this.settledRuns.clear() }
+  private recordSettlement(event: WireNotification): void {
+    if (event.method !== 'session.event' || event.params.type !== 'run.settled' || !event.params.runId) return
+    if (this.settledRuns.size >= 4_096) this.settledRuns.delete(this.settledRuns.values().next().value!)
+    this.settledRuns.add(event.params.runId)
+    for (const [id, stream] of this.streams) if (stream.runId === event.params.runId) this.streams.delete(id)
+  }
   private applyCursor(event: WireNotification): boolean {
     if (event.method !== 'session.event') return true
     const previous = this.cursor(event.params.sessionId)
