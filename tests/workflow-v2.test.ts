@@ -661,7 +661,9 @@ test('read-only reviewer approval survives restart and stale or rejected verdict
       evidence: [{ source: 'agent' }, { source: 'reviewer', outcome: 'approved' }],
     },
   })
+})
 
+test('rejected and stale reviewer verdicts cannot advance Plan', async () => {
   const rejectedFixture = await fixture()
   const rejectedPlan = await rejectedFixture.plans.update(rejectedFixture.session.id, [
     { step: 'Reject this review', status: 'in_progress' },
