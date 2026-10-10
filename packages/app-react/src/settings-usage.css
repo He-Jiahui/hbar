@@ -71,22 +71,11 @@
   flex-wrap: wrap;
   min-inline-size: 0;
   gap: 0.5rem;
+  overflow-x: auto;
 }
 .hbar-settings-usage-buckets > button {
-  display: flex;
-  flex: 1 1 12rem;
-  min-inline-size: 0;
-  max-inline-size: 100%;
-  overflow-wrap: anywhere;
-  text-align: start;
-  white-space: normal;
-}
-.hbar-settings-usage-buckets > button span:not([data-edge]) {
-  display: block;
-  min-inline-size: 0;
-  max-inline-size: 100%;
-  overflow-wrap: anywhere;
-  white-space: normal;
+  flex: 0 0 auto;
+  min-inline-size: max-content;
   text-align: start;
 }
 .hbar-settings-usage-model-list {

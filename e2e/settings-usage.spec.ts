@@ -380,9 +380,20 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           expect(
             await region.evaluate((element) => {
               const bounds = element.getBoundingClientRect()
+              const collection = element.querySelector<HTMLElement>('.hbar-settings-usage-buckets')
+              if (!collection || collection.getBoundingClientRect().width > bounds.width + 1) return false
+              if (!['auto', 'scroll'].includes(getComputedStyle(collection).overflowX)) return false
               return [...element.querySelectorAll<HTMLElement>('[data-settings-usage-bucket]')].every((button) => {
-                const buttonBounds = button.getBoundingClientRect()
-                return buttonBounds.left >= bounds.left - 1 && buttonBounds.right <= bounds.right + 1
+                const label = button.querySelector<HTMLElement>('[data-text-context="control.label"]')
+                if (!label) return false
+                const style = getComputedStyle(label)
+                // Complete dates remain single-line; necessary width belongs to the local collection.
+                return (
+                  style.whiteSpace === 'nowrap' &&
+                  style.textOverflow !== 'ellipsis' &&
+                  label.scrollWidth <= label.clientWidth + 1 &&
+                  button.scrollWidth <= button.clientWidth + 1
+                )
               })
             }),
           ).toBe(true)
