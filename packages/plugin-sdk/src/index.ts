@@ -246,6 +246,8 @@ export interface DriverInput {
   tools: ToolDefinition[]
   apiKey: string | null
   signal: AbortSignal
+  /** Bounded observational model lifecycle metadata. Callback failures are ignored by the Host. */
+  onModelDiagnostic?(event: ModelDiagnosticEvent): void
   resolveKey(modelId: string): Promise<string | null>
   readImage(id: string): Promise<{ mime: string; data: string }>
   readFile(id: string): Promise<{
@@ -292,7 +294,26 @@ export interface HarnessDriver {
    * admission requires both capabilities; legacy polling alone is not safe. */
   readonly supportsSteeringAdmissionClosure?: boolean
   run(input: DriverInput): Promise<void>
-  summarize(request: ModelRequest, apiKey: string | null, signal: AbortSignal): Promise<{ text: string; usage: Usage }>
+  summarize(
+    request: ModelRequest,
+    apiKey: string | null,
+    signal: AbortSignal,
+    onDiagnostic?: (event: ModelDiagnosticEvent) => void,
+  ): Promise<{ text: string; usage: Usage }>
+}
+
+export interface ModelDiagnosticEvent {
+  readonly phase: 'started' | 'settled' | 'failed' | 'cancelled'
+  readonly purpose: 'model' | 'compaction'
+  readonly providerId: string
+  readonly modelSelectionId: string
+  readonly modelRequestId?: string | undefined
+  readonly attemptId?: string | undefined
+  readonly model: string
+  readonly protocol: string
+  readonly stopReason?: 'stop' | 'toolUse' | 'length' | 'aborted' | 'error' | undefined
+  readonly errorCode?: string | undefined
+  readonly durationMs?: number | undefined
 }
 export interface SessionService {
   /** Host-owned layered settings bridge; plugins never reach into SettingsService or Storage internals. */

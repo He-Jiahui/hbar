@@ -14,6 +14,19 @@ export interface KernelRunDiagnosticIdentity extends DiagnosticCorrelation {
 
 export interface KernelModelDiagnosticIdentity extends KernelRunDiagnosticIdentity {
   readonly method?: string | undefined
+  readonly providerId?: string | undefined
+  readonly modelSelectionId?: string | undefined
+  readonly modelRequestId?: string | undefined
+  readonly attemptId?: string | undefined
+  readonly model?: string | undefined
+  readonly protocol?: string | undefined
+  readonly stopReason?: 'stop' | 'toolUse' | 'length' | 'aborted' | 'error' | undefined
+  readonly inputEstimatedTokens?: number | undefined
+  readonly inputLimit?: number | undefined
+  readonly summaryMaxOutput?: number | undefined
+  readonly chunkIndex?: number | undefined
+  readonly chunkCount?: number | undefined
+  readonly thresholdRatio?: number | undefined
 }
 
 /**
@@ -50,6 +63,35 @@ export class KernelExecutionDiagnostics {
 
   compactionStarted(identity: KernelRunDiagnosticIdentity): void {
     this.emit('context.compaction_started', 'debug', identity, { outcome: 'success' })
+  }
+
+  compactionStage(
+    identity: KernelModelDiagnosticIdentity,
+    stage:
+      | 'prepared'
+      | 'summary_started'
+      | 'summary_completed'
+      | 'summary_failed'
+      | 'summary_cancelled'
+      | 'chunk_limit'
+      | 'rebuilt_capacity'
+      | 'persist_started'
+      | 'persist_completed'
+      | 'persist_failed',
+    fields: Record<string, unknown> = {},
+    outcome: 'success' | 'failure' | 'unknown' | 'skipped' = stage === 'summary_failed' ||
+    stage === 'persist_failed' ||
+    stage === 'chunk_limit'
+      ? 'failure'
+      : stage === 'summary_cancelled'
+        ? 'skipped'
+        : 'success',
+  ): void {
+    this.emit('context.compaction_stage', outcome === 'failure' ? 'error' : 'debug', identity, {
+      outcome,
+      phase: stage,
+      ...compactionFields(fields),
+    })
   }
 
   compactionFailed(identity: KernelRunDiagnosticIdentity, errorCode?: string, durationMs?: number): void {
@@ -106,6 +148,19 @@ export class KernelExecutionDiagnostics {
 
   modelStarted(identity: KernelModelDiagnosticIdentity): void {
     this.emit('model.started', 'info', identity, { outcome: 'success' })
+  }
+  providerRequestStarted(identity: KernelModelDiagnosticIdentity): void {
+    this.emit('provider.request_started', 'info', identity, { outcome: 'success' })
+  }
+  providerRequestSettled(
+    identity: KernelModelDiagnosticIdentity,
+    outcome: 'success' | 'failure' | 'skipped',
+    durationMs: number,
+  ): void {
+    this.emit('provider.request_settled', outcome === 'success' ? 'info' : 'error', identity, {
+      outcome,
+      durationMs: boundedDuration(durationMs),
+    })
   }
 
   modelFailed(identity: KernelModelDiagnosticIdentity, errorCode?: string, durationMs?: number): void {
@@ -212,7 +267,7 @@ export class KernelExecutionDiagnostics {
   private emit(
     event: string,
     level: 'debug' | 'info' | 'warn' | 'error',
-    identity: KernelRunDiagnosticIdentity & { method?: string | undefined },
+    identity: KernelModelDiagnosticIdentity,
     fields: Record<string, unknown>,
   ): void {
     if (!this.sink) return
@@ -242,9 +297,7 @@ export class KernelExecutionDiagnostics {
   }
 }
 
-function identityToEvent(
-  identity: KernelRunDiagnosticIdentity & { method?: string | undefined },
-): Record<string, unknown> {
+function identityToEvent(identity: KernelModelDiagnosticIdentity): Record<string, unknown> {
   const result: Record<string, unknown> = {}
   for (const key of ['instanceId', 'contextId', 'rpcId', 'requestId', 'sessionId', 'runId'] as const) {
     const value = identity[key]
@@ -253,11 +306,62 @@ function identityToEvent(
   if (identity.stepId !== undefined) result.stepId = safeIdentifier(identity.stepId)
   if (identity.callId !== undefined) result.callId = safeIdentifier(identity.callId)
   if (identity.method !== undefined) result.method = identity.method
+  for (const key of [
+    'providerId',
+    'modelSelectionId',
+    'modelRequestId',
+    'attemptId',
+    'model',
+    'protocol',
+    'stopReason',
+  ] as const) {
+    const value = identity[key]
+    if (typeof value === 'string' && value.length > 0 && value.length <= 160 && safeDiagnosticString(key, value))
+      result[key] = value
+  }
+  for (const key of ['inputEstimatedTokens', 'inputLimit', 'summaryMaxOutput', 'chunkIndex', 'chunkCount'] as const) {
+    const value = identity[key]
+    if (
+      value !== undefined &&
+      Number.isSafeInteger(value) &&
+      value >= 0 &&
+      value <= (key === 'chunkIndex' || key === 'chunkCount' ? 1_000_000 : Number.MAX_SAFE_INTEGER)
+    )
+      result[key] = value
+  }
+  if (
+    identity.thresholdRatio !== undefined &&
+    Number.isFinite(identity.thresholdRatio) &&
+    identity.thresholdRatio >= 0 &&
+    identity.thresholdRatio <= 1
+  )
+    result.thresholdRatio = identity.thresholdRatio
   return result
+}
+
+function safeDiagnosticString(key: string, value: string): boolean {
+  if (key === 'stopReason') return ['stop', 'toolUse', 'length', 'aborted', 'error'].includes(value)
+  if (key === 'protocol') return /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(value)
+  if (key === 'providerId') return /^[A-Za-z0-9_.:-]{1,160}$/.test(value)
+  if (key === 'modelSelectionId') return /^[A-Za-z0-9_.:/@+-]{1,160}$/.test(value)
+  return /^[A-Za-z0-9_.:/@+-]{1,160}$/.test(value)
 }
 
 function safeIdentifier(value: string): string {
   return value.length <= 160 ? value : value.slice(0, 160)
+}
+
+function compactionFields(fields: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {}
+  for (const key of ['inputEstimatedTokens', 'inputLimit', 'summaryMaxOutput', 'chunkIndex', 'chunkCount'] as const) {
+    const value = fields[key]
+    if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= Number.MAX_SAFE_INTEGER)
+      result[key] = value
+  }
+  const threshold = fields.thresholdRatio
+  if (typeof threshold === 'number' && Number.isFinite(threshold) && threshold >= 0 && threshold <= 1)
+    result.thresholdRatio = threshold
+  return result
 }
 
 function safeMethod(value: unknown): string | undefined {
