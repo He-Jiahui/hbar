@@ -107,3 +107,20 @@ test('build and artifact set failures cannot replace a registered compatible ver
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test('ownership excludes code removed from a defined isolated unit and includes its actual Worker bundle', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-artifact-output-'))
+  await writeFile(join(root, 'unrelated.ts'), 'export function unused() { return "unrelated" }\n')
+  await writeFile(join(root, 'used.ts'), 'export const used = 1\n')
+  await writeFile(join(root, 'worker.ts'), 'export const workerVersion = 1\n')
+  await writeFile(join(root, 'entry.ts'), "import { unused } from './unrelated'; import { used } from './used'; export function create() { if (!ISOLATED) return unused(); return used }\n")
+  const store = new RuntimeArtifactStore(join(root, 'bundles'), root)
+  try {
+    const artifact = await store.build({ descriptor: descriptor('unit'), entrypoint: 'entry.ts', workers: ['worker.ts'], define: { ISOLATED: 'true' } })
+    expect(artifact.inputs).toContain('used.ts')
+    expect(artifact.inputs).toContain('worker.ts')
+    expect(artifact.inputs).not.toContain('unrelated.ts')
+    expect(store.affected(['unrelated.ts'], [artifact])).toHaveLength(0)
+    expect(store.affected(['worker.ts'], [artifact])).toEqual(['unit'])
+  } finally { await rm(root, { recursive: true, force: true }) }
+})

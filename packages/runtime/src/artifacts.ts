@@ -42,6 +42,7 @@ export interface RuntimeBuildUnit {
   readonly resources?: readonly string[]
   readonly external?: readonly string[]
   readonly workers?: readonly string[]
+  readonly define?: Readonly<Record<string, string>>
 }
 export interface RuntimeArtifactPort {
   get(id: string): Promise<RuntimeArtifact>
@@ -101,12 +102,18 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
       metafile: true,
       minify: false,
       external: [...(unit.external ?? []), '*.node'],
+      define: unit.define ?? {},
     }).catch((error: unknown) => {
       throw new HbarError('RUNTIME_BUILD_FAILED', 'Runtime candidate did not compile', { cause: error })
     })
     if (!result.success) throw new HbarError('RUNTIME_BUILD_FAILED', 'Runtime candidate did not compile')
-    const metafile = z.object({ inputs: z.record(z.string(), z.unknown()) }).parse(result.metafile)
-    const inputs = Object.keys(metafile.inputs)
+    const metafile = z.object({
+      inputs: z.record(z.string(), z.unknown()),
+      outputs: z.record(z.string(), z.object({ inputs: z.record(z.string(), z.object({ bytesInOutput: z.number().nonnegative() })) })),
+    }).parse(result.metafile)
+    const included = new Set(Object.values(metafile.outputs).flatMap(output =>
+      Object.entries(output.inputs).flatMap(([input, contribution]) => contribution.bytesInOutput > 0 ? [input] : [])))
+    const inputs = Object.keys(metafile.inputs).filter(input => included.has(input))
       .map((input) => relative(sourceRoot, metafilePath(input)).replaceAll('\\', '/'))
       .sort()
     const outputs = await Promise.all(
