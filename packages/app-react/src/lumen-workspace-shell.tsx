@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import {
   Activity,
   CalendarDays,
@@ -688,7 +688,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     if (props.connection === 'connected' && projectPicker) void loadWorkspaces()
   }, [loadWorkspaces, projectPicker, props.connection])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const narrow = window.matchMedia('(max-width: 63.9375rem)')
     const closeNarrowSidebar = (event: MediaQueryListEvent | MediaQueryList) => {
       const previous = sidebarViewportOwner.current

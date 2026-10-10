@@ -36,30 +36,6 @@
   overflow: visible;
 }
 
-.hbar-session-activity-workspace .lumen-tool-pane-heading {
-  flex-wrap: wrap;
-  gap: 0.25rem 0.5rem;
-  overflow: visible;
-}
-
-.hbar-session-activity-workspace .lumen-tool-pane-heading h2,
-.hbar-session-activity-workspace .lumen-tool-pane-heading span {
-  min-inline-size: 0;
-  max-inline-size: 100%;
-  flex: 0 1 auto;
-  font-size: var(--lumen-font-size);
-  line-height: 1.4;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.hbar-session-activity-workspace .lumen-tool-pane-heading span {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  overflow: hidden;
-}
-
 .hbar-session-activity-body > section {
   flex: 0 0 auto;
 }

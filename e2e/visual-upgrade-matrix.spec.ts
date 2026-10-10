@@ -187,7 +187,7 @@ for (const locale of ['zh-CN', 'en-US'] as const)
                           ? copy.diagnostics.title
                           : copy.settings.resolve(`i18n:settings.groups.${group}`)
             if (await navigation.isVisible()) await navigation.getByRole('button', { name: label, exact: true }).click()
-            else await selectLumenOption(page.getByRole('combobox', { name: copy.settings.groups, exact: true }), group)
+            else await selectLumenOption(page.getByRole('combobox', { name: copy.settings.groups, exact: true }), { label })
             await expect(page.locator('.hbar-app-react-settings-content')).toBeVisible()
             await expect(page.locator('.hbar-app-react-settings-state')).toHaveCount(0)
             await capture(page, `${directory}/settings-${group}`)
@@ -212,6 +212,15 @@ for (const locale of ['zh-CN', 'en-US'] as const)
           await page.keyboard.press('Escape')
           for (const tool of ['files', 'activity', 'monitoring', 'agents', 'goals', 'settings'] as const) {
             await openSessionTool(page, copy.session.tools, tool)
+            const toolSelector = {
+              files: '.hbar-app-react-file-workspace',
+              activity: '.hbar-session-activity-workspace',
+              monitoring: '.hbar-app-react-session-monitoring',
+              agents: '.hbar-app-react-agent-workspace',
+              goals: '.hbar-app-react-goal-plan-workspace',
+              settings: '.hbar-app-react-settings-workspace',
+            }[tool]
+            await expect(page.locator(toolSelector)).toBeVisible()
             await capture(page, `${directory}/session-${tool}`)
             // Reloading restores the saved panel ID and width, then returns to a predictable reading entry.
             await page.goto(origin)
@@ -223,9 +232,10 @@ for (const locale of ['zh-CN', 'en-US'] as const)
         for (const width of [768, 1088, 1920]) {
           await page.setViewportSize({ width, height: width === 768 ? 480 : 960 })
           await page.goto(origin)
-          await showSidebar()
-          if (phase === 'after')
+          if (phase === 'after') {
+            await showSidebar()
             await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
+          }
           await capture(page, `${output}/${locale}-${theme}-${width}/conversation`)
         }
         expect(errors).toEqual([])

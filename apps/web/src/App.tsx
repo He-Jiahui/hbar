@@ -1907,7 +1907,7 @@ export default function App({
         )
       : undefined
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (layout.status !== 'ready') return
     const syncKey = `sidebar:${layout.source}`
     if (layoutVisibilitySync.current === syncKey) return
