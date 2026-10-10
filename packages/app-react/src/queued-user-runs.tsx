@@ -225,55 +225,56 @@ export function HbarQueuedUserRuns({
                         {labels.attachments(item.attachmentCount)}
                       </LumenText>
                     )}
-
-                    {activeRunId && (!guide || guide.status === 'failed') && (
+                    <LumenFrame className="hbar-queued-user-run-actions">
+                      {activeRunId && (!guide || guide.status === 'failed') && (
+                        <LumenButton
+                          size="s"
+                          variant="text"
+                          indicator="none"
+                          className="hbar-queued-user-run-guide"
+                          aria-label={labels.guide(position)}
+                          title={labels.guide(position)}
+                          disabled={
+                            !actionable ||
+                            Boolean(removal || editing || (current.guiding && current.guiding.status !== 'failed'))
+                          }
+                          onClick={() => onGuide(item.operationId, item.revision, activeRunId)}
+                        >
+                          <LumenIcon icon={CornerDownRight} tier="sm" />
+                          {labels.guideLabel}
+                        </LumenButton>
+                      )}
                       <LumenButton
                         size="s"
                         variant="text"
                         indicator="none"
-                        className="hbar-queued-user-run-guide"
-                        aria-label={labels.guide(position)}
-                        title={labels.guide(position)}
+                        className="hbar-queued-user-run-edit"
+                        aria-label={labels.edit(position)}
+                        title={labels.edit(position)}
                         disabled={
                           !actionable ||
                           Boolean(removal || editing || (current.guiding && current.guiding.status !== 'failed'))
                         }
-                        onClick={() => onGuide(item.operationId, item.revision, activeRunId)}
+                        onClick={() => onStartEdit(item.operationId)}
                       >
-                        <LumenIcon icon={CornerDownRight} tier="sm" />
-                        {labels.guideLabel}
+                        <LumenIcon icon={Pencil} tier="sm" />
                       </LumenButton>
-                    )}
-                    <LumenButton
-                      size="s"
-                      variant="text"
-                      indicator="none"
-                      className="hbar-queued-user-run-edit"
-                      aria-label={labels.edit(position)}
-                      title={labels.edit(position)}
-                      disabled={
-                        !actionable ||
-                        Boolean(removal || editing || (current.guiding && current.guiding.status !== 'failed'))
-                      }
-                      onClick={() => onStartEdit(item.operationId)}
-                    >
-                      <LumenIcon icon={Pencil} tier="sm" />
-                    </LumenButton>
-                    <LumenButton
-                      size="s"
-                      variant="text"
-                      indicator="none"
-                      className="hbar-queued-user-run-remove"
-                      aria-label={labels.remove(position)}
-                      title={labels.remove(position)}
-                      disabled={
-                        !actionable ||
-                        Boolean(removal || editing || (current.guiding && current.guiding.status !== 'failed'))
-                      }
-                      onClick={() => onRemove(item.operationId, item.revision)}
-                    >
-                      <LumenIcon icon={Trash2} tier="sm" />
-                    </LumenButton>
+                      <LumenButton
+                        size="s"
+                        variant="text"
+                        indicator="none"
+                        className="hbar-queued-user-run-remove"
+                        aria-label={labels.remove(position)}
+                        title={labels.remove(position)}
+                        disabled={
+                          !actionable ||
+                          Boolean(removal || editing || (current.guiding && current.guiding.status !== 'failed'))
+                        }
+                        onClick={() => onRemove(item.operationId, item.revision)}
+                      >
+                        <LumenIcon icon={Trash2} tier="sm" />
+                      </LumenButton>
+                    </LumenFrame>
                   </>
                 )}
               </LumenFrame>
