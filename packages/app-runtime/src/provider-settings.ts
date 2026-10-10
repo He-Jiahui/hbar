@@ -1398,7 +1398,8 @@ export function createProviderSettings(
       const model = current.presets.models.find((item) => item.id === modelId)
       if (!preset || current.presets.selectedPresetId !== presetId || !model)
         throw new CommandError('NOT_FOUND', 'Preset model is unavailable')
-      if (preset.protocol !== current.draft.protocol || preset.baseUrl !== current.draft.baseUrl)
+      // A model preset supplies metadata; a compatible relay keeps its user-owned endpoint.
+      if (preset.protocol !== current.draft.protocol)
         throw new CommandError('INVALID_INPUT', 'Preset model does not match the provider transport')
       if (current.draft.models.some((item) => item.id === modelId))
         throw new CommandError('COMMAND_CONFLICT', 'Provider model id already exists')

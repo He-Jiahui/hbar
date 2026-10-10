@@ -932,6 +932,116 @@ test('provider runtime applies paged presets and edits multi-model visibility an
   }
 })
 
+for (const baseUrl of ['https://proxy.example.invalid/v1', `${openAiPreset.baseUrl}/`]) {
+  test(`same-protocol model presets preserve the provider endpoint and credential at ${baseUrl}`, async () => {
+    const configuration = fixture()
+    configuration.profiles.set('fixture', {
+      provider: providerSchema.parse({ ...provider('fixture', 'Relay provider'), baseUrl }),
+      hasKey: true,
+    })
+    const runtime = createAppRuntime({
+      instanceId: 'provider-preset-custom-endpoint',
+      hostId: 'host',
+      directory,
+      configuration: configuration.port,
+      surfaces: { canRender: (panelId) => panelId === 'settings-editor' },
+    })
+    try {
+      await runtime.view.commands.execute('app.openSettingsEditor', {
+        scope: 'global',
+        path: 'providers',
+        entryId: 'fixture',
+        instanceId: 'provider-preset-custom-endpoint-editor',
+      })
+      const editor = await waitFor(() => runtime.view.state.providers.getSnapshot().editor ?? undefined)
+      await runtime.view.commands.execute('providerEditor.loadPresets', {
+        editorId: editor.editorId,
+        query: 'openai',
+        append: false,
+      })
+      await runtime.view.commands.execute('providerEditor.loadPresetModels', {
+        editorId: editor.editorId,
+        presetId: openAiPreset.id,
+        append: false,
+      })
+      await runtime.view.commands.execute('providerEditor.addPresetModel', {
+        editorId: editor.editorId,
+        presetId: openAiPreset.id,
+        modelId: 'gpt-5.4-mini',
+      })
+      const updated = runtime.view.state.providers.getSnapshot().editor
+      expect(updated?.draft).toMatchObject({
+        id: 'fixture',
+        name: 'Relay provider',
+        protocol: 'openai-responses',
+        baseUrl,
+        model: 'model-1',
+        models: [{ id: 'model-1' }, { id: 'gpt-5.4-mini', contextWindow: 400_000, defaultThinkingLevel: 'low' }],
+      })
+      expect(updated?.selectedModelId).toBe('gpt-5.4-mini')
+      expect(updated?.draftIssues).toEqual([])
+      await runtime.view.commands.execute('providerEditor.setDefaultModel', {
+        editorId: editor.editorId,
+        modelId: 'gpt-5.4-mini',
+      })
+      await runtime.view.commands.execute('providerEditor.save', { editorId: editor.editorId })
+      expect(configuration.profiles.get('fixture')?.provider.baseUrl).toBe(baseUrl)
+      expect(configuration.profiles.get('fixture')?.provider.model).toBe('gpt-5.4-mini')
+      expect(configuration.profiles.get('fixture')?.hasKey).toBe(true)
+      expect(configurationCommands['provider.save'].input.parse(configuration.saves[0]).apiKey).toBeUndefined()
+      expect(runtime.view.state.providers.getSnapshot().editor?.draftDirty).toEqual([])
+    } finally {
+      runtime.dispose()
+    }
+  })
+}
+
+test('model presets still reject an incompatible transport without changing the provider draft', async () => {
+  const configuration = fixture()
+  configuration.profiles.set('fixture', {
+    provider: providerSchema.parse({ ...provider('fixture', 'Anthropic relay'), protocol: 'anthropic-messages' }),
+    hasKey: true,
+  })
+  const runtime = createAppRuntime({
+    instanceId: 'provider-preset-incompatible-transport',
+    hostId: 'host',
+    directory,
+    configuration: configuration.port,
+    surfaces: { canRender: (panelId) => panelId === 'settings-editor' },
+  })
+  try {
+    await runtime.view.commands.execute('app.openSettingsEditor', {
+      scope: 'global',
+      path: 'providers',
+      entryId: 'fixture',
+      instanceId: 'provider-preset-incompatible-editor',
+    })
+    const editor = await waitFor(() => runtime.view.state.providers.getSnapshot().editor ?? undefined)
+    await runtime.view.commands.execute('providerEditor.loadPresets', {
+      editorId: editor.editorId,
+      query: 'openai',
+      append: false,
+    })
+    await runtime.view.commands.execute('providerEditor.loadPresetModels', {
+      editorId: editor.editorId,
+      presetId: openAiPreset.id,
+      append: false,
+    })
+    const before = runtime.view.state.providers.getSnapshot().editor?.draft
+    await expect(
+      runtime.view.commands.execute('providerEditor.addPresetModel', {
+        editorId: editor.editorId,
+        presetId: openAiPreset.id,
+        modelId: 'gpt-5.4-mini',
+      }),
+    ).rejects.toMatchObject({ code: 'INVALID_INPUT' })
+    expect(runtime.view.state.providers.getSnapshot().editor?.draft).toEqual(before)
+    expect(configuration.saves).toHaveLength(0)
+  } finally {
+    runtime.dispose()
+  }
+})
+
 test('provider save refreshes loaded settings model content without rebuilding the form', async () => {
   const configuration = fixture()
   const callbacks = createSchemaCallbackRegistry()
