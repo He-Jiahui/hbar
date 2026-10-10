@@ -70,11 +70,17 @@ test('settings description rejects type drift, duplicate paths and dynamic depen
     }).success,
   ).toBe(false)
   const cyclic = structuredClone(HBAR_SETTINGS_DESCRIPTION)
-  cyclic.fields[1]!.content = {
+  const modelField = cyclic.fields.find((item) => encodePath(item.path) === encodePath(field('provider.model')))
+  const thinkingField = cyclic.fields.find(
+    (item) => encodePath(item.path) === encodePath(field('provider.thinkingLevel')),
+  )
+  expect(modelField).toBeDefined()
+  expect(thinkingField).toBeDefined()
+  modelField!.content = {
     kind: 'options',
     callbackId: 'settings.getModels',
     callbackVersion: 1,
-    dependsOn: [cyclic.fields[2]!.path],
+    dependsOn: [thinkingField!.path],
   }
   expect(settingsDescriptionSchema.safeParse(cyclic).success).toBe(false)
 })
@@ -162,6 +168,8 @@ test('typed settings commands share catalog, layered CAS and actor-scoped idempo
     ],
   })
   expect(description.fields.map((item) => encodePath(item.path))).toEqual([
+    encodePath(field('client.resourceWebOpenMode')),
+    encodePath(field('client.resourceFileOpenMode')),
     encodePath(field('client.chatSendBehavior')),
     encodePath(field('provider.model')),
     encodePath(field('provider.thinkingLevel')),
