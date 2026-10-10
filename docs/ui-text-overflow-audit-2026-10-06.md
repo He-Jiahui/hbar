@@ -4,7 +4,7 @@
 
 This is a static reachability audit of the current web application, not a claim that every string has been measured in a browser. The cut starts at `apps/web/src/main.tsx` → `LanguageApp` → `apps/web/src/App.tsx`, follows the eagerly rendered and lazy `@hbar/app-react` surfaces, and includes the two web CSS files that are imported by that app (`workbench-design.css` and `PreSessionLanding.css`). It excludes CSS and components that are only part of `apps/web/src/react-bits/**`, the old unmounted web workbench/ReactBits surfaces, and reference/retired files.
 
-The scan was performed against the working tree after the title patches recorded by the parent task (`97566da5`, `e9c2e10b`, `b2d4d329`). Line numbers below are source anchors, not API contracts; they should be refreshed if the files move.
+The scan was performed against the working tree after the title patches recorded by the parent task (`97566da5`, `e9c2e10b`, `b2d4d329`). Line numbers below are source anchors, not API contracts; they should be refreshed if the files move. References to removed Web panels such as `GitPanel.tsx`, `ActivityPanel.tsx`, `FileNavigation.tsx`, `FloatingLayer.tsx`, and the former `production-context`/`ui-plugins` adapters are historical audit scope only; they do not describe current App reachability or ownership.
 
 The selector inventory records that initial cut. The bounded follow-up section below supersedes its historical gap notes for the five patched surfaces; remaining capacity limits are not silently removed.
 

@@ -25,9 +25,9 @@
 
 ## 已落地的组件级绑定
 
-下列条目是生产组件的实际落点，不是参考画廊 fixture。每个根节点都会写入 `data-reactbits-skill`、具体 `data-reactbits-reference`，并在有纯投影时写入 `data-reactbits-adapter`；业务数据仍由 hbar 的 Zustand/Client 契约提供。
+下列条目是本次组合审计记录的目标与已存在的生产落点，不能把表中的参考名称当作当前已挂载组件。当前生产组合根位于 `apps/web/src/react-bits/production.tsx`，公开导出包括 `ReferenceSurface`、`ReferenceContextRail`、`ReferenceSectionHeader`、`ReferenceMetricStrip` 和 `ReferenceTabs`；业务数据仍由 hbar 的 Zustand/Client 契约提供。参考画廊、适配器和未被 `App.tsx` 挂载的旧 Web surface 仍是 fixture/历史资产。
 
-| hbar 组件 | 具体参考 URL | 采用的逻辑、层级和风格 | 生产事实来源 |
+| 组合组件或历史落点 | 具体参考 URL | 采用的逻辑、层级和风格 | 事实来源或现状 |
 | --- | --- | --- | --- |
 | `DiagnosePanel`、`PluginDiagnostics` | [monitoring](https://pro.reactbits.dev/docs/app-ui/monitoring)、[dashboard](https://pro.reactbits.dev/docs/app-ui/dashboard)、[card](https://pro.reactbits.dev/docs/app-ui/card)、[list](https://pro.reactbits.dev/docs/app-ui/list) | health header、三列状态卡、按需展开的工具/JSON 详情、插件列表密度、失败后就地 retry；使用 `GlassSurface`、`SpotlightCard`、`AnimatedList`，不补虚构 uptime 或趋势图 | `system.diagnose`、插件 doctor/graph/lock RPC；adapter `activity` 只投影已有 runs/events |
 | `TerminalPanel` | [tool-calls-5](https://pro.reactbits.dev/docs/app-ui/tool-calls/tool-calls-5)、[agent-activity-5](https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-5)、[prompt-input-1](https://pro.reactbits.dev/docs/app-ui/prompt-input/prompt-input-1)、[command-menu](https://pro.reactbits.dev/docs/app-ui/command-menu) | command/output hierarchy、日志滚动、取消和审批卡；当真实 `tool_result.details` 提供 `stdout`/`stderr`/`exitCode` 时才显示对应页签和退出码，否则保持原始结果文本 | `SessionSnapshot.messages/streams/approvals`、terminal command registry；adapter `session-chat`/`session-events` |
@@ -39,7 +39,7 @@
 
 ## 交付顺序
 
-1. 组合层和 typed projection（本次建立）：`ReferenceSurface`、`ReferenceSectionHeader`、`ReferenceMetricStrip`、`ReferenceTabs`、`useReferenceProductionContext`。
+1. 组合层和 typed projection（已存在的公共组合层）：`ReferenceSurface`、`ReferenceContextRail`、`ReferenceSectionHeader`、`ReferenceMetricStrip`、`ReferenceTabs`。`useReferenceProductionContext` 已退休，不能作为现行 API 或挂载证明。
 2. 会话/模型/composer/审批：把聊天内容顺序、上下文、模型详情、权限决策和真实 usage 接入组合层。
 3. Activity/Tool/Plan/Usage：把 runs、events、terminal/browser/diff 详情与计划/预算进度组织成可切换工具窗口。
 4. Shell/sidebar/mobile/command：统一外壳、侧栏、tab/rail/sheet 和 command palette 的来源标记与响应式行为。
@@ -50,7 +50,8 @@
 
 ## 诚实边界与验收记录
 
-- 生产入口不直接导入 `react-bits/reference/variants`；参考画廊仍是独立 clean-room fixture。`bun run check:reactbits-reference` 必须保持 `38 categories, 300 variants` 通过。
+- 生产入口不直接导入 `react-bits/reference/variants`；参考画廊仍是独立 clean-room fixture。`apps/web/src/react-bits/reference/adapters` 只提供参考投影/审计资产，不拥有生产 renderer 选择权。`bun run check:reactbits-reference` 必须保持 `38 categories, 300 variants` 通过。
 - 目前没有协议支持的 citations、multi-agent handoff、单工具 retry、artifact version history、usage 时间序列、商业 paywall、账户级认证或 scheduling，不在生产界面填充假数据；对应 URL 只用于未来布局和状态语言。`PairingPage` 实现的是 Host 配对，不是账户体系。
+- 旧 `production-context`、旧 `ui-plugins`/stores 适配层和旧独立 Web panels 不属于当前生产组合根；它们的历史审计描述不表示现行挂载能力。`@hbar/ui-sdk` 的公开 renderer 契约只注册 slot，schema 的路径/形状校验不提供权限或资产 ownership 保障；宿主 renderer 优先级、冲突诊断、停用回退和插件资产归属仍未迁移。
 - 终端 stdout/stderr 只在 `tool_result.details` 中存在并通过 primitive 校验时展示；xterm PTY 的合并流不会被拆成伪造的两个流。
 - 固定视口回归目标为 1280×720、768×900、390×844。Playwright 针对工具窗口、诊断、配对、命令、设置和移动导航已覆盖；本环境的 CUA 浏览器入口因 Codex auth method `apikey` 不可用，未将 CUA 结果写成已通过，改用 Playwright 截图进行视觉核对。

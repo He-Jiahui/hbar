@@ -9,8 +9,8 @@
 
 ## 实现边界
 
-`ThemeProfile` 是唯一持久化主题模型。Web 组件只能消费 `theme-store.ts` 投影到 `document.documentElement` 的语义变量；可信主题插件只能贡献经过 contracts schema 校验的 token、受管 `assets/` 路径和 renderer slot，不能注入任意 CSS、远程图片或脚本。
+`ThemeProfile` 是唯一持久化主题模型。Web 组件只能消费 `theme-store.ts` 投影到 `document.documentElement` 的语义变量。当前公开 contracts 只校验主题 token 与受管 `assets/` 路径的形状；插件 renderer 的注册契约仍由 `@hbar/ui-sdk` 提供，但宿主的 renderer 选择、诊断和插件资产归属运行时尚未迁移到新的 Web 组合根，因此不能把 schema 校验描述成运行时权限覆盖。主题贡献不能注入任意 CSS、远程图片或脚本。
 
-Markdown、CodeMirror、Patch 和 Git Diff 都有内置 renderer。Git Diff 默认使用 CodeMirror Merge 的 before/after 视图；不能解析的 unified diff 回退到安全的逐行 PatchViewer。插件停用、冲突或异常时回退到内置实现。
+Markdown、CodeMirror、Patch 和 Git Diff 都有内置 renderer。Git Diff 默认使用 CodeMirror Merge 的 before/after 视图；不能解析的 unified diff 回退到安全的逐行内置渲染。插件 renderer 的优先级选择与诊断属于尚未迁移的能力，当前生产 Web 组合根不承诺插件停用、冲突或异常时的动态选择回退。
 
 所有菜单、popover、tooltip、context menu 和 modal 都通过 `FloatingSurface`，由共享层负责 portal、最高层级、模糊、Escape、外部 pointerdown 和视口边界。

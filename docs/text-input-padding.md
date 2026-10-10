@@ -35,11 +35,11 @@
 | ------------------------------------------------------------------------------------------------------------------------------- | ---: | -------------------- |
 | [apps/web/src/AppearanceSettings.tsx](../apps/web/src/AppearanceSettings.tsx)                                                   |    1 | 已修正（共享）       |
 | [apps/web/src/DescriptorSettingsForm.tsx](../apps/web/src/DescriptorSettingsForm.tsx)                                           |    2 | 未在当前业务使用     |
-| [apps/web/src/FileNavigation.tsx](../apps/web/src/FileNavigation.tsx)                                                           |    1 | 未在当前业务使用     |
-| [apps/web/src/GitContextSwitcher.tsx](../apps/web/src/GitContextSwitcher.tsx)                                                   |    1 | 未在当前业务使用     |
-| [apps/web/src/GitPanel.tsx](../apps/web/src/GitPanel.tsx)                                                                       |    1 | 未在当前业务使用     |
-| [apps/web/src/PairingPage.tsx](../apps/web/src/PairingPage.tsx)                                                                 |    2 | 未在当前业务使用     |
-| [apps/web/src/PluginRow.tsx](../apps/web/src/PluginRow.tsx)                                                                     |    2 | 未在当前业务使用     |
+| `apps/web/src/FileNavigation.tsx`（历史路径，已移除）                                                                            |    1 | 历史审计资产，当前无挂载 |
+| `apps/web/src/GitContextSwitcher.tsx`（历史路径，已移除）                                                                        |    1 | 历史审计资产，当前无挂载 |
+| `apps/web/src/GitPanel.tsx`（历史路径，已移除）                                                                                   |    1 | 历史审计资产，当前无挂载 |
+| `apps/web/src/PairingPage.tsx`（历史路径，已移除）                                                                               |    2 | 历史审计资产，当前无挂载 |
+| `apps/web/src/PluginRow.tsx`（历史路径，已移除）                                                                                  |    2 | 历史审计资产，当前无挂载 |
 | [apps/web/src/PreSessionLanding.tsx](../apps/web/src/PreSessionLanding.tsx)                                                     |    1 | 已修正（共享）       |
 | [apps/web/src/prompt-templates-page.tsx](../apps/web/src/prompt-templates-page.tsx)                                             |    5 | 已修正（共享）       |
 | [apps/web/src/react-bits/components/ActivitySurface.tsx](../apps/web/src/react-bits/components/ActivitySurface.tsx)             |    1 | 未在当前业务使用     |
