@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import {
   createBudgetCommandClient,
   createNotificationCommandClient,
@@ -18,6 +18,29 @@ async function reveal(page: Page, locale: ShellLocale): Promise<void> {
   const button = page.getByRole('button', { name: getShellCopy(locale).shell.showSidebar, exact: true })
   if (await button.isVisible()) await button.click()
   await expect(page.locator('.hbar-app-react-sidebar-surface')).toBeVisible()
+}
+
+async function expectStackedFooterActions(footer: Locator, locale: ShellLocale): Promise<void> {
+  const copy = getShellCopy(locale).shell
+  const bounds = []
+  for (const label of [copy.extensionsAndSkills, copy.commands, copy.status, copy.settings, copy.schedules]) {
+    const button = footer.getByRole('button', { name: label, exact: true })
+    await expect(button).toBeVisible()
+    const box = await button.boundingBox()
+    if (!box) throw new Error(`Footer action must remain measurable: ${label}`)
+    bounds.push(box)
+  }
+  const first = bounds[0]
+  if (!first) throw new Error('Footer actions must not be empty')
+  let bottom = first.y
+  for (const box of bounds) {
+    expect(box.x).toBeCloseTo(first.x, 1)
+    expect(box.width).toBeCloseTo(first.width, 1)
+    expect(box.height).toBeCloseTo(first.height, 1)
+    expect(box.y).toBeGreaterThanOrEqual(bottom)
+    bottom = box.y + box.height
+  }
+  expect(await footer.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
 }
 
 async function removeFixture(root: string): Promise<void> {
@@ -115,6 +138,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         const settings = footer.getByRole('button', { name: copy.shell.settings, exact: true })
         const schedules = footer.getByRole('button', { name: copy.shell.schedules, exact: true })
         expect(await schedules.getAttribute('class')).toBe(await settings.getAttribute('class'))
+        await footer.screenshot({ path: info.outputPath(`footer-${locale}-${width}.png`) })
+        await expectStackedFooterActions(footer, locale)
         const statusBox = await footer.locator('.lumen-app-host-status').boundingBox()
         const settingsBox = await settings.boundingBox()
         const schedulesBox = await schedules.boundingBox()

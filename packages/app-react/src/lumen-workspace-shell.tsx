@@ -1286,26 +1286,24 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               selected={presentation.page.kind === 'status'}
               onClick={() => settleNavigation(execute('app.openStatus', { section: 'dashboard' }))}
             />
-            <LumenFrame className="hbar-app-react-sidebar-settings-row">
-              <WorkspaceSidebarAction
-                icon="settings"
-                label={props.labels.settings}
-                detail={props.labels.settingsShortcut}
-                aria-label={props.labels.settings}
-                selected={presentation.page.kind === 'settings' && !extensionsSelected}
-                onClick={() => settleNavigation(execute('app.openSettings', { scope: 'global' }))}
-              />
-              <WorkspaceSidebarAction
-                icon="calendar"
-                label={props.labels.schedules}
-                selected={presentation.page.kind === 'schedules'}
-                disabled={!connected || !navigation.workspaceId}
-                title={!navigation.workspaceId ? props.labels.chooseWorkspace : undefined}
-                onClick={() => {
-                  if (navigation.workspaceId) openWorkspaceSurface(navigation.workspaceId, 'schedules')
-                }}
-              />
-            </LumenFrame>
+            <WorkspaceSidebarAction
+              icon="settings"
+              label={props.labels.settings}
+              detail={props.labels.settingsShortcut}
+              aria-label={props.labels.settings}
+              selected={presentation.page.kind === 'settings' && !extensionsSelected}
+              onClick={() => settleNavigation(execute('app.openSettings', { scope: 'global' }))}
+            />
+            <WorkspaceSidebarAction
+              icon="calendar"
+              label={props.labels.schedules}
+              selected={presentation.page.kind === 'schedules'}
+              disabled={!connected || !navigation.workspaceId}
+              title={!navigation.workspaceId ? props.labels.chooseWorkspace : undefined}
+              onClick={() => {
+                if (navigation.workspaceId) openWorkspaceSurface(navigation.workspaceId, 'schedules')
+              }}
+            />
           </LumenFrame>
         }
       >
