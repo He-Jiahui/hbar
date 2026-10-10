@@ -28,7 +28,7 @@ test('file Markdown renders semantic content and never loads or executes embedde
   expect(html).toContain('<ol>')
   expect(html).toContain('<strong>检查</strong>')
   expect(html).toContain('<table>')
-  expect(html).toContain('const ready = true')
+  expect(html).toMatch(/<code[^>]*data-code-highlight="plain"[^>]*>[\s\S]*const[\s\S]*ready = [\s\S]*true[\s\S]*<\/code>/)
   expect(html).toContain('图片未加载：很长的中文图片说明')
   expect(html).not.toMatch(/<(?:img|script|iframe)|\shref=|\ssrc=/)
 })
