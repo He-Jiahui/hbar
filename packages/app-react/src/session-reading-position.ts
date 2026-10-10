@@ -18,6 +18,7 @@ import { sessionSearchHitBox } from './session-search-hit'
 const MAX_OLDER_PAGES = 17 // Existing timeline bound: 1,000 messages in 60-message pages.
 const READ_TIMEOUT_MS = 12_000
 const ALIGN_TIMEOUT_MS = 500
+const MAX_SCROLL_RETRIES = 3
 
 /** Geometry belongs to the reader, not to a second message/content cache. */
 export function measureConversationReading(viewport: HTMLElement): ConversationReadingPosition {
@@ -79,11 +80,15 @@ export function useSessionReadingPosition(options: ReadingOptions) {
   const workspaceId = target?.workspaceId
   const sessionId = target?.sessionId
   const sourceTabInstanceKey = target?.sourceTabInstanceKey
+  const [scrollRetryState, setScrollRetryState] = useState<{ ticketId: string | null; attempt: number }>({
+    ticketId: null,
+    attempt: 0,
+  })
   const requested = useHbarRuntimeState(runtime.conversationReading.navigation)
   const latest = useRef(options)
   latest.current = options
   const completedNavigation = useRef<{ scope: string | null; revision: number } | null>(null)
-  const ticket = useMemo(() => {
+  const baseTicket = useMemo(() => {
     if (!workspaceId || !sessionId || !sourceTabInstanceKey) return null
     const source = { workspaceId, sessionId, sourceTabInstanceKey }
     const intent =
@@ -121,6 +126,14 @@ export function useSessionReadingPosition(options: ReadingOptions) {
       : null
     // A snapshot is captured once per reader identity; its own scroll writes must not restart restoration.
   }, [runtime, scope, workspaceId, sessionId, sourceTabInstanceKey, requested, ready])
+  const ticket = useMemo(() => {
+    if (!baseTicket) return null
+    const attempt = scrollRetryState.ticketId === baseTicket.scroll.requestId ? scrollRetryState.attempt : 0
+    return {
+      ...baseTicket,
+      scroll: { ...baseTicket.scroll, requestId: `${baseTicket.scroll.requestId}:${attempt}` },
+    }
+  }, [baseTicket, scrollRetryState])
   const [finished, setFinished] = useState<string | null>(null)
   const finishedRequest = useRef<string | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
@@ -201,12 +214,7 @@ export function useSessionReadingPosition(options: ReadingOptions) {
     }
     if (!restoring || !scope || !target || available || pendingRead.current) return
     if (olderStatus === 'loading') return
-    if (
-      !hasOlder ||
-      olderStatus === 'error' ||
-      olderStatus === 'limit' ||
-      readBudget.current.attempts >= MAX_OLDER_PAGES
-    ) {
+    if (!hasOlder || olderStatus === 'limit' || readBudget.current.attempts >= MAX_OLDER_PAGES) {
       finish(true)
       return
     }
@@ -227,13 +235,23 @@ export function useSessionReadingPosition(options: ReadingOptions) {
         clearTimeout(read.timer)
         if (pendingRead.current === read) pendingRead.current = null
         if (read.cancelled || !isCurrent(captured)) return
-        if (!result.loaded) finish(true)
-        else setRetry((value) => value + 1)
+        if (!result.loaded) {
+          // A page can race with an already merged snapshot (or be empty while
+          // the server still reports an older cursor). Keep the target-owned
+          // read alive while progress remains possible; the bounded budget
+          // above turns a genuinely exhausted/unstable read into a recoverable
+          // failure instead of jumping to the latest message.
+          if (result.hasOlder && readBudget.current.attempts < MAX_OLDER_PAGES) setRetry((value) => value + 1)
+          else finish(true)
+        } else setRetry((value) => value + 1)
       },
       () => {
         clearTimeout(read.timer)
         if (pendingRead.current === read) pendingRead.current = null
-        if (!read.cancelled && isCurrent(captured)) finish(true)
+        if (!read.cancelled && isCurrent(captured)) {
+          if (readBudget.current.attempts < MAX_OLDER_PAGES) setRetry((value) => value + 1)
+          else finish(true)
+        }
       },
     )
   }, [
@@ -348,8 +366,19 @@ export function useSessionReadingPosition(options: ReadingOptions) {
         ),
       )
     }
-    if (result.status === 'unavailable') finish(!atSavedPosition(viewport.current))
-    else {
+    if (result.status === 'unavailable') {
+      if (atSavedPosition(viewport.current)) finish()
+      else if (available && isCurrent(ticket.source)) {
+        const attempt = scrollRetryState.ticketId === baseTicket?.scroll.requestId ? scrollRetryState.attempt : 0
+        if (attempt >= MAX_SCROLL_RETRIES) finish(true)
+        else
+          setScrollRetryState((current) => {
+            const ticketId = baseTicket?.scroll.requestId ?? null
+            const nextAttempt = current.ticketId === ticketId ? current.attempt + 1 : 1
+            return { ticketId, attempt: nextAttempt }
+          })
+      } else finish(true)
+    } else {
       const element = result.viewport
       viewport.current = element
       if (ticket.saved.atEnd) {
@@ -359,6 +388,7 @@ export function useSessionReadingPosition(options: ReadingOptions) {
       }
       const callId = ticket.intent?.callId
       let stable = 0
+      let missingRowFrames = 0
       let geometry: string | null = null
       const align = () => {
         // A replaced runtime's callback must never finish/cancel the new
@@ -372,9 +402,16 @@ export function useSessionReadingPosition(options: ReadingOptions) {
           (candidate) => candidate.dataset.messageId === ticket.saved.messageId,
         )
         if (!row) {
-          finish(true)
+          // Virtualized rows can be absent for a frame while the controlled
+          // scroll request expands the surrounding range. Keep the request
+          // alive for a bounded number of frames; the settle timer still
+          // validates the actual reading range before reporting failure.
+          const alignment = pendingAlignment.current
+          if (++missingRowFrames <= 30 && alignment) alignment.frame = requestAnimationFrame(align)
+          else finish(!atSavedPosition(element))
           return
         }
+        missingRowFrames = 0
         const call = callId
           ? [...row.querySelectorAll<HTMLElement>('[data-tool-call-id]')].find(
               (node) => node.dataset.toolCallId === callId,

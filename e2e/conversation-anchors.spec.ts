@@ -3,6 +3,8 @@ import { createWorkspaceSessionCommandClient } from '@hbar/client'
 import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
+import { z } from 'zod'
+import { chatSearchCopy } from '../apps/web/src/chat-search-copy'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
@@ -24,6 +26,12 @@ async function aligned(viewport: Locator, messageId: string): Promise<boolean> {
     return Math.abs(gap) < Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
   }, messageId)
 }
+
+const rpcCommand = z.object({
+  id: z.union([z.string(), z.number()]).optional(),
+  method: z.string().optional(),
+  params: z.record(z.string(), z.unknown()).optional(),
+})
 
 for (const locale of ['zh-CN', 'en-US'] as const) {
   test(`real user anchors preview, page, seek virtual history and retain the draft: ${locale}`, async ({
@@ -52,10 +60,18 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       const rail = page.locator('.hbar-conversation-anchor-rail')
       const viewport = page.locator('.lumen-conversation-messages')
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
+      await expect(page.locator('[data-hbar-composer-session]')).toHaveAttribute(
+        'data-hbar-composer-session',
+        host.ready.sessionId,
+      )
+      await expect(prompt).toHaveAttribute('contenteditable', 'true')
       const draft = '保留这份未发送草稿 🧭 Keep this draft'
       await expect(page.getByRole('heading', { level: 1, name: host.ready.sessionTitle, exact: true })).toBeVisible()
       await expect(prompt).toBeEnabled()
-      await prompt.fill(draft)
+      await prompt.focus()
+      await page.keyboard.press('ControlOrMeta+A')
+      await page.keyboard.insertText(draft)
+      await expectComposerText(prompt, draft)
       await expect(rail).toHaveAttribute('aria-label', copy.session.anchors.navigation(25, 30, 30))
       expect(await rail.locator('[data-conversation-anchor]').count()).toBe(6)
       await rail.getByRole('button', { name: copy.session.anchors.previous, exact: true }).click()
@@ -224,6 +240,226 @@ test('one long Chinese and emoji turn has a bounded preview on desktop and narro
       await expect(tooltip).toHaveCount(0)
     }
     expect(errors).toEqual([])
+  } finally {
+    if (host) await stopWebSessionHost(host)
+    await context.close()
+    await removeFixture(root)
+  }
+})
+
+test('conversation navigation retries a transient older-page failure before reaching the target', async ({
+  browser,
+}) => {
+  test.setTimeout(90_000)
+  const root = await mkdtemp(join(tmpdir(), 'hbar-conversation-anchors-'))
+  const context = await browser.newContext({
+    locale: 'zh-CN',
+    colorScheme: 'dark',
+    viewport: { width: 1440, height: 960 },
+  })
+  let host: WebSessionHost | undefined
+  let failOlder = false
+  let restoreArmed = false
+  let injected = 0
+  let restorationRequests = 0
+  try {
+    host = await startWebSessionHost({
+      root,
+      port: Number(process.env.HBAR_E2E_HOST_PORT ?? 45642),
+      historyCount: 180,
+      goalAutoContinue: false,
+    })
+    const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 45641}`
+    expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
+    const page = await context.newPage()
+    const pageErrors: string[] = []
+    page.on('pageerror', (error) => pageErrors.push(error.message))
+    await page.routeWebSocket('**/rpc', (socket) => {
+      const server = socket.connectToServer()
+      socket.onMessage((message) => {
+        let parsed: ReturnType<typeof rpcCommand.safeParse> | null = null
+        if (typeof message === 'string') {
+          try {
+            parsed = rpcCommand.safeParse(JSON.parse(message))
+          } catch {
+            parsed = null
+          }
+        }
+        const params = parsed?.success ? parsed.data.params : undefined
+        if (
+          parsed?.success &&
+          parsed.data.method === 'session.snapshot' &&
+          params &&
+          params.sessionId === host?.ready.sessionId &&
+          typeof params.before === 'number'
+        ) {
+          if (restoreArmed) restorationRequests += 1
+          if (failOlder) {
+            failOlder = false
+            injected += 1
+            socket.send(
+              JSON.stringify({
+                jsonrpc: '2.0',
+                id: parsed.data.id,
+                error: { code: -32603, message: 'Injected older-page read failure', data: 'READ_FAILED' },
+              }),
+            )
+            return
+          }
+        }
+        server.send(message)
+      })
+      server.onMessage((message) => socket.send(message))
+    })
+    const copy = getShellCopy('zh-CN')
+    await page.goto(base)
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
+    const rail = page.locator('.hbar-conversation-anchor-rail')
+    const viewport = page.locator('.lumen-conversation-messages')
+    const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
+    await expect(page.locator('[data-hbar-composer-session]')).toHaveAttribute(
+      'data-hbar-composer-session',
+      host.ready.sessionId,
+    )
+    await expect(prompt).toHaveAttribute('contenteditable', 'true')
+    const draft = '保留这份未发送草稿 🧭 Keep this draft'
+    await prompt.focus()
+    await page.keyboard.press('ControlOrMeta+A')
+    await page.keyboard.insertText(draft)
+    await expectComposerText(prompt, draft)
+    await rail.getByRole('button', { name: copy.session.anchors.previous, exact: true }).click()
+    await rail.locator('[data-conversation-anchor="history-121"]').click()
+    await expect.poll(() => aligned(viewport, 'history-121')).toBe(true)
+    restoreArmed = true
+    failOlder = true
+    await rail.getByRole('button', { name: copy.session.anchors.older, exact: true }).click()
+    await expect.poll(() => injected).toBe(1)
+    await expect.poll(() => restorationRequests).toBeGreaterThan(0)
+    await rail.getByRole('button', { name: copy.session.anchors.retryOlder, exact: true }).click()
+    await expect(rail).toHaveAttribute('aria-label', copy.session.anchors.navigation(25, 48, 60))
+    await rail.getByRole('button', { name: copy.session.anchors.previous, exact: true }).click()
+    await rail.locator('[data-conversation-anchor="history-65"]').click()
+    await expect.poll(() => aligned(viewport, 'history-65')).toBe(true)
+    await expect(page.locator('.hbar-app-react-session-main')).toHaveAttribute('data-reading-restoring', 'false')
+    await expect(rail).toHaveAttribute('aria-busy', 'false')
+    await expect(rail).toHaveAttribute('aria-label', copy.session.anchors.navigation(1, 24, 60))
+    await rail.getByRole('button', { name: copy.session.anchors.next, exact: true }).click()
+    await expect(rail).toHaveAttribute('aria-label', copy.session.anchors.navigation(25, 48, 60))
+    await rail.getByRole('button', { name: copy.session.anchors.previous, exact: true }).click()
+    await expect(rail).toHaveAttribute('aria-label', copy.session.anchors.navigation(1, 24, 60))
+    await rail.locator('[data-conversation-anchor="history-65"]').click()
+    await expect.poll(() => aligned(viewport, 'history-65')).toBe(true)
+    await expect(page.locator('.hbar-app-react-session-main')).toHaveAttribute('data-reading-restoring', 'false')
+    await expectComposerText(prompt, draft)
+    expect(pageErrors).toEqual([])
+  } finally {
+    if (host) await stopWebSessionHost(host)
+    await context.close()
+    await removeFixture(root)
+  }
+})
+
+test('conversation reading automatically retries older history after a search jump failure', async ({ browser }) => {
+  test.setTimeout(90_000)
+  const root = await mkdtemp(join(tmpdir(), 'hbar-conversation-anchors-'))
+  const context = await browser.newContext({
+    locale: 'en-US',
+    viewport: { width: 1440, height: 960 },
+  })
+  let host: WebSessionHost | undefined
+  let failOlder = false
+  let injected = 0
+  let olderReads = 0
+  try {
+    host = await startWebSessionHost({
+      root,
+      port: Number(process.env.HBAR_E2E_HOST_PORT ?? 45642),
+      historyCount: 180,
+      goalAutoContinue: false,
+    })
+    const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 45641}`
+    expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
+    const page = await context.newPage()
+    const pageErrors: string[] = []
+    page.on('pageerror', (error) => pageErrors.push(error.message))
+    await page.routeWebSocket('**/rpc', (socket) => {
+      const server = socket.connectToServer()
+      socket.onMessage((message) => {
+        let parsed: ReturnType<typeof rpcCommand.safeParse> | null = null
+        if (typeof message === 'string') {
+          try {
+            parsed = rpcCommand.safeParse(JSON.parse(message))
+          } catch {
+            parsed = null
+          }
+        }
+        const params = parsed?.success ? parsed.data.params : undefined
+        if (
+          parsed?.success &&
+          parsed.data.method === 'session.snapshot' &&
+          host &&
+          params &&
+          params.sessionId === host.ready.sessionId &&
+          typeof params.before === 'number'
+        ) {
+          olderReads += 1
+          if (failOlder) {
+            failOlder = false
+            injected += 1
+            socket.send(
+              JSON.stringify({
+                jsonrpc: '2.0',
+                id: parsed.data.id,
+                error: { code: -32603, message: 'Injected older-page read failure', data: 'READ_FAILED' },
+              }),
+            )
+            return
+          }
+        }
+        server.send(message)
+      })
+      server.onMessage((message) => socket.send(message))
+    })
+    const copy = getShellCopy('en-US')
+    const searchCopy = chatSearchCopy('en-US')
+    const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
+    const draft = 'Keep this unsent search recovery draft'
+    await page.goto(base)
+    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
+    await expect(page.locator('[data-hbar-composer-session]')).toHaveAttribute(
+      'data-hbar-composer-session',
+      host.ready.sessionId,
+    )
+    await expect(prompt).toHaveAttribute('contenteditable', 'true')
+    await prompt.focus()
+    await page.keyboard.press('ControlOrMeta+A')
+    await page.keyboard.insertText(draft)
+    await expectComposerText(prompt, draft)
+    const initial = await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })
+    expect(initial.messages.map((message) => message.id).sort()).toEqual(
+      Array.from({ length: 60 }, (_, index) => `history-${index + 121}`).sort(),
+    )
+    expect(initial.messages.some((message) => message.id === 'history-64')).toBe(false)
+    await expect(page.locator('[data-message-id="history-180"]')).toBeVisible()
+    await expect(page.locator('[data-message-id="history-64"]')).toHaveCount(0)
+
+    await page.getByRole('button', { name: copy.shell.searchChats, exact: true }).click()
+    const dialog = page.locator('.hbar-app-react-chat-search-dialog[role="dialog"]')
+    const input = dialog.getByRole('combobox', { name: searchCopy.search, exact: true })
+    await expect(input).toBeFocused()
+    await input.fill('History message 64')
+    const result = dialog.getByRole('option')
+    await expect(result).toHaveCount(1)
+    failOlder = true
+    await result.click()
+
+    const viewport = page.locator('.lumen-conversation-messages')
+    await expect.poll(() => injected).toBe(1)
+    await expect.poll(() => olderReads).toBeGreaterThan(1)
+    await expect.poll(() => aligned(viewport, 'history-64')).toBe(true)
+    await expect(page.locator('.hbar-app-react-session-main')).toHaveAttribute('data-reading-restoring', 'false')
+    await expectComposerText(prompt, draft)
+    expect(pageErrors).toEqual([])
   } finally {
     if (host) await stopWebSessionHost(host)
     await context.close()

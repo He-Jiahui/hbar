@@ -110,20 +110,48 @@ async function fixture(withAliases = true) {
   }
 }
 
-async function options(html: string, select: string) {
-  const result: { value: string | null; text: string; selected: boolean }[] = []
+type SemanticChoice = { value: string | null; text: string }
+
+/**
+ * LumenPopupSelect is a button/listbox control rather than a native select.
+ * Static rendering contains the selected combobox value; the transient
+ * listbox is intentionally mounted only while open.  Read that public
+ * semantic control instead of depending on implementation-only `<option>`
+ * markup.
+ */
+async function selectedChoice(html: string, selector: string): Promise<SemanticChoice | null> {
+  let value: string | null = null
+  let text = ''
   await new HTMLRewriter()
-    .on(`${select} option`, {
+    .on(selector, {
       element(element) {
-        result.push({ value: element.getAttribute('value'), text: '', selected: element.hasAttribute('selected') })
+        value = element.getAttribute('data-value')
       },
+    })
+    .on(`${selector} .lumen-popup-select-label`, {
       text(chunk) {
-        const current = result.at(-1)
-        if (current) current.text += chunk.text
+        text += chunk.text
       },
     })
     .transform(new Response(html))
     .text()
+  return value === null ? null : { value, text }
+}
+
+async function selectedChoices(
+  runtime: ReturnType<typeof createAppRuntime>,
+  locale: ShellLocale,
+  commandId: 'app.setWorkspace' | 'app.setSession',
+  field: 'workspaceId' | 'sessionId',
+  ids: readonly string[],
+) {
+  const result: SemanticChoice[] = []
+  for (const id of ids) {
+    await runtime.view.commands.execute('commandPalette.setParameter', { field, value: id })
+    const choice = await selectedChoice(palette(runtime, locale), `#hbar-command-${field}`)
+    if (!choice) throw new Error(`Missing semantic command control for ${commandId}/${field}`)
+    result.push(choice)
+  }
   return result
 }
 
@@ -143,7 +171,7 @@ async function openPalette(
   await runtime.view.commands.execute('commandPalette.openCommand', { commandId })
 }
 
-test('legacy null and confirmed empty alias snapshots both render canonical project names and real paths', async () => {
+test('legacy null and confirmed empty alias snapshots render canonical semantic controls and real paths', async () => {
   for (const available of [false, true]) {
     const f = await fixture(available)
     try {
@@ -151,9 +179,10 @@ test('legacy null and confirmed empty alias snapshots both render canonical proj
         available ? { schemaVersion: 1, revision: 0, entries: [] } : null,
       )
       await openPalette(f.runtime, 'app.setWorkspace')
-      const choices = (await options(palette(f.runtime, 'en-US'), '#hbar-command-workspaceId')).filter((item) =>
-        workspaces.some((workspace) => workspace.id === item.value),
-      )
+      const choices = await selectedChoices(f.runtime, 'en-US', 'app.setWorkspace', 'workspaceId', [
+        workspaceB.id,
+        workspaceA.id,
+      ])
       expect(choices.map((item) => item.value)).toEqual([workspaceB.id, workspaceA.id])
       const copy = getShellCopy('en-US').commandPalette
       expect(choices.map((item) => item.text)).toEqual([
@@ -168,7 +197,7 @@ test('legacy null and confirmed empty alias snapshots both render canonical proj
 })
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
-  test(`${locale}: command choices project aliases, preserve real IDs and captured parameters through rename/reset`, async () => {
+  test(`${locale}: command semantic controls preserve real IDs and captured parameters through rename/reset`, async () => {
     const f = await fixture()
     const { runtime } = f
     try {
@@ -178,36 +207,33 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const navigation = runtime.view.state.navigation.getSnapshot()
       const alias = '同名项目 — Equal project aliases'
       await f.replace(workspaces.map((workspace) => ({ workspaceId: workspace.id, displayName: alias })))
-      let choices = (await options(palette(runtime, locale), '#hbar-command-workspaceId')).filter((item) =>
-        workspaces.some((workspace) => workspace.id === item.value),
-      )
-      expect(choices.map((item) => item.value)).toEqual([workspaceA.id, workspaceB.id])
-      expect(choices.map((item) => item.text)).toEqual([
-        getShellCopy(locale).commandPalette.workspaceOption(alias, workspaceA.path),
-        getShellCopy(locale).commandPalette.workspaceOption(alias, workspaceB.path),
-      ])
-      expect(choices.find((item) => item.selected)?.value).toBe(workspaceB.id)
+      let choice = await selectedChoice(palette(runtime, locale), '#hbar-command-workspaceId')
+      expect(choice).toEqual({
+        value: workspaceB.id,
+        text: getShellCopy(locale).commandPalette.workspaceOption(alias, workspaceB.path),
+      })
       expect(runtime.view.state.commandPalette.getSnapshot().draft).toBe(draft)
       expect(runtime.view.state.navigation.getSnapshot()).toBe(navigation)
 
       await f.replace([{ workspaceId: workspaceA.id, displayName: 'A new display caption' }])
-      choices = (await options(palette(runtime, locale), '#hbar-command-workspaceId')).filter((item) =>
-        workspaces.some((workspace) => workspace.id === item.value),
-      )
-      expect(choices.map((item) => item.value)).toEqual([workspaceA.id, workspaceB.id])
-      expect(choices.find((item) => item.value === workspaceB.id)?.text).toBe(
-        getShellCopy(locale).commandPalette.workspaceOption(workspaceB.name, workspaceB.path),
-      )
+      choice = await selectedChoice(palette(runtime, locale), '#hbar-command-workspaceId')
+      expect(choice?.text).toBe(getShellCopy(locale).commandPalette.workspaceOption(workspaceB.name, workspaceB.path))
       expect(runtime.view.state.commandPalette.getSnapshot().draft).toBe(draft)
 
       await openPalette(runtime, 'app.setSession')
-      const sessionChoices = await options(palette(runtime, locale), '#hbar-command-sessionId')
-      expect(sessionChoices.find((item) => item.value === sessionA.id)?.text).toBe(
+      const sessionChoices = await selectedChoices(runtime, locale, 'app.setSession', 'sessionId', [
+        sessionA.id,
+        sessionB.id,
+      ])
+      expect(sessionChoices[0]?.text).toBe(
         getShellCopy(locale).commandPalette.sessionOption(sessionA.title, 'A new display caption'),
       )
       await f.replace([])
-      const resetChoices = await options(palette(runtime, locale), '#hbar-command-sessionId')
-      expect(resetChoices.find((item) => item.value === sessionA.id)?.text).toBe(
+      const resetChoices = await selectedChoices(runtime, locale, 'app.setSession', 'sessionId', [
+        sessionA.id,
+        sessionB.id,
+      ])
+      expect(resetChoices[0]?.text).toBe(
         getShellCopy(locale).commandPalette.sessionOption(sessionA.title, workspaceA.name),
       )
       expect(runtime.view.state.directory.getSnapshot().workspaces[workspaceA.id]).toEqual(workspaceA)
@@ -272,7 +298,7 @@ test('pinned settings use the original project alias and keep schema draft, scop
   }
 })
 
-test('Git project options use stable alias sorting without changing repository targets or issuing new reads', async () => {
+test('Git repository semantic control keeps stable aliases, targets, and read count', async () => {
   const f = await fixture()
   const { runtime } = f
   try {
@@ -293,16 +319,17 @@ test('Git project options use stable alias sorting without changing repository t
           <HbarStatusWorkspace labels={getShellCopy('zh-CN').status} />
         </HbarRuntimeProvider>,
       )
-    let choices = await options(render(), '#hbar-status-git-repository')
-    expect(choices.map((item) => item.value)).toEqual([workspaceA.id, workspaceB.id])
-    expect(choices.map((item) => item.text)).toEqual([
-      getShellCopy('zh-CN').status.git.workspaceOption('同名 Git project', workspaceA.path),
-      getShellCopy('zh-CN').status.git.workspaceOption('同名 Git project', workspaceB.path),
-    ])
-    expect(choices.find((item) => item.selected)?.value).toBe(workspaceA.id)
+    let choice = await selectedChoice(render(), '#hbar-status-git-repository')
+    expect(choice).toEqual({
+      value: workspaceA.id,
+      text: getShellCopy('zh-CN').status.git.workspaceOption('同名 Git project', workspaceA.path),
+    })
     await f.replace([])
-    choices = await options(render(), '#hbar-status-git-repository')
-    expect(choices.map((item) => item.value)).toEqual([workspaceB.id, workspaceA.id])
+    choice = await selectedChoice(render(), '#hbar-status-git-repository')
+    expect(choice).toEqual({
+      value: workspaceA.id,
+      text: getShellCopy('zh-CN').status.git.workspaceOption(workspaceA.name, workspaceA.path),
+    })
     expect(runtime.view.state.status.getSnapshot().entries[panel.instanceId]).toBe(status)
     expect(f.reads.filter((name) => name.startsWith('git.'))).toEqual(gitReads)
   } finally {

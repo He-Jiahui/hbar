@@ -66,6 +66,29 @@
   min-inline-size: 0;
   gap: 0.75rem;
 }
+.hbar-settings-usage-buckets {
+  display: flex;
+  flex-wrap: wrap;
+  min-inline-size: 0;
+  gap: 0.5rem;
+}
+.hbar-settings-usage-buckets > button {
+  display: flex;
+  flex: 1 1 12rem;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+  text-align: start;
+  white-space: normal;
+}
+.hbar-settings-usage-buckets > button span:not([data-edge]) {
+  display: block;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  text-align: start;
+}
 .hbar-settings-usage-model-list {
   display: flex;
   flex-direction: column;
@@ -73,15 +96,6 @@
   margin: 0;
   padding: 0;
   list-style: none;
-}
-/* The percentage-valued data bars need a definite plot axis, not a content-height panel. */
-.hbar-settings-usage-activity > .lumen-bar-series {
-  block-size: 7rem;
-  flex: 0 0 auto;
-}
-.hbar-settings-usage-activity > .lumen-bar-series > button {
-  min-inline-size: 0;
-  padding: 0;
 }
 .hbar-settings-usage-model-list > li {
   display: flex;

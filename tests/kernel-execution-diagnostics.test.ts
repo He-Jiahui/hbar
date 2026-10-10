@@ -51,6 +51,15 @@ test('kernel execution diagnostics records redacted run/model/tool lifecycle met
   expect(events.at(-1)?.durationMs).toBe(30)
 })
 
+test('kernel execution diagnostics preserves the bounded slice phase without error text', () => {
+  const events: DiagnosticEvent[] = []
+  const diagnostics = createKernelExecutionDiagnostics({ sink: collector(events) })
+  diagnostics.runSettled(identity, 'failure', 64, 'RUN_STEP_LIMIT', 'step_limit')
+  expect(events[0]).toMatchObject({ event: 'run.settled', errorCode: 'RUN_STEP_LIMIT', phase: 'step_limit' })
+  expect(JSON.stringify(events)).not.toContain('Run reached the 64-step limit')
+  expect(diagnosticEventSchema.safeParse(events[0]).success).toBe(true)
+})
+
 test('kernel execution diagnostics does not attach background Runs to an ambient RPC scope', () => {
   const events: DiagnosticEvent[] = []
   const scope = createDiagnosticScope()

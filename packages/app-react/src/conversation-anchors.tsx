@@ -205,6 +205,9 @@ export function HbarConversationAnchorRail({
             <LumenReadingMarker
               key={anchor.messageId}
               className="hbar-conversation-anchor"
+              variant="text"
+              indicator="none"
+              size="s"
               data-conversation-anchor={anchor.messageId}
               label={labels.jump(page.start + index + 1, titleOf(anchor))}
               current={anchor.messageId === activeId}

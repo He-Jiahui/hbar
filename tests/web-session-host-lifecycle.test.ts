@@ -1,6 +1,10 @@
 import { expect, test } from 'bun:test'
 import { spawn, type ChildProcess } from 'node:child_process'
-import { stopOwnedWebSessionHostChild, waitForWebSessionHostReady } from '../e2e/support/web-session-host'
+import {
+  createWebSessionHostLifecycleDiagnostics,
+  stopOwnedWebSessionHostChild,
+  waitForWebSessionHostReady,
+} from '../e2e/support/web-session-host'
 
 const ready = {
   token: 'owned-fixture-token',
@@ -82,5 +86,45 @@ test('a failed spawn rejects promptly and releases startup observers without an 
   })
   await expect(waitForWebSessionHostReady(child, 5_000)).rejects.toHaveProperty('code', 'ENOENT')
   expect(child.pid).toBeUndefined()
+  expectReleased(child)
+})
+
+test('opt-in lifecycle telemetry records only bounded redacted child facts', async () => {
+  const child = start("console.error('EADDRINUSE secret-fixture-token'); setInterval(() => {}, 1000)")
+  const diagnostics = createWebSessionHostLifecycleDiagnostics(child, true)
+  const observedLogs: string[] = []
+  const originalConsoleError = console.error
+  console.error = (...args: Parameters<typeof console.error>) => {
+    observedLogs.push(args.map(String).join(' '))
+  }
+  try {
+    diagnostics.mark('ready')
+    diagnostics.mark('client_connected')
+    const deadline = Date.now() + 1_000
+    while (diagnostics.snapshot().stderrBytes === 0 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
+    const beforeStop = diagnostics.snapshot()
+    expect(beforeStop.enabled).toBe(true)
+    expect(beforeStop.pid).toBe(child.pid ?? null)
+    expect(beforeStop.stderrBytes).toBeGreaterThan(0)
+    expect(beforeStop.stderrCodes).toEqual(['EADDRINUSE'])
+    expect(beforeStop.stderrSha256).toHaveLength(64)
+    expect(beforeStop).not.toHaveProperty('stderr')
+    expect(beforeStop).not.toHaveProperty('token')
+  } finally {
+    try {
+      diagnostics.mark('stop_requested')
+      await stopOwnedWebSessionHostChild(child)
+      diagnostics.mark('stopped')
+      const afterStop = diagnostics.snapshot()
+      expect(afterStop.stage).toBe('stopped')
+      expect(observedLogs.join('\n')).not.toContain('secret-fixture-token')
+      expect(observedLogs.join('\n')).not.toContain('token')
+    } finally {
+      diagnostics.dispose()
+      console.error = originalConsoleError
+    }
+  }
   expectReleased(child)
 })

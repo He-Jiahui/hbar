@@ -89,10 +89,7 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
           data: series.map((p) => ({
             value: p.input + p.output,
             itemStyle: {
-              color:
-                bucketId === String(p.start)
-                  ? 'var(--lumen-accent, #7c6af7)'
-                  : 'color-mix(in srgb, var(--lumen-accent, #7c6af7) 55%, transparent)',
+              opacity: bucketId === String(p.start) ? 1 : 0.55,
             },
           })),
         },
@@ -206,12 +203,33 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
           <LumenFrame as="section" className="hbar-settings-usage-activity" aria-label={labels.activity}>
             <LumenContentText context="section.subtitle">{labels.activity}</LumenContentText>
             {report.series.length > 0 ? (
-              <EchartsChart
-                height="9rem"
-                label={labels.activity}
-                className="hbar-settings-usage-echarts"
-                option={activityOption}
-              />
+              <>
+                <EchartsChart
+                  height="9rem"
+                  label={labels.activity}
+                  className="hbar-settings-usage-echarts"
+                  option={activityOption}
+                />
+                <LumenFrame as="div" className="hbar-settings-usage-buckets" role="group" aria-label={labels.activity}>
+                  {report.series.map((bucket) => {
+                    const id = String(bucket.start)
+                    const selected = id === bucketId
+                    return (
+                      <LumenButton
+                        key={id}
+                        type="button"
+                        size="s"
+                        variant={selected ? 'outlined' : 'text'}
+                        aria-pressed={selected}
+                        data-settings-usage-bucket={id}
+                        onClick={() => setBucketId(id)}
+                      >
+                        {labels.bucket(bucket.start, bucket.end, bucket.input + bucket.output)}
+                      </LumenButton>
+                    )
+                  })}
+                </LumenFrame>
+              </>
             ) : (
               <LumenContentText context="form.description" tone="muted">
                 {labels.empty}

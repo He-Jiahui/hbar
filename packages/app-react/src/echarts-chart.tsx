@@ -8,43 +8,43 @@
  * Usage:
  *   <EchartsChart option={echartsOption} height="12rem" label="Token usage" />
  */
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import * as echarts from 'echarts/core'
 import { BarChart, LineChart } from 'echarts/charts'
-import {
-  GridComponent,
-  TooltipComponent,
-  TitleComponent,
-  LegendComponent,
-} from 'echarts/components'
+import { GridComponent, TooltipComponent, TitleComponent, LegendComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import type { EChartsOption } from 'echarts'
+import { LumenFrame } from '@lumen/app-ui'
 
-echarts.use([
-  BarChart,
-  LineChart,
-  GridComponent,
-  TooltipComponent,
-  TitleComponent,
-  LegendComponent,
-  CanvasRenderer,
-])
+echarts.use([BarChart, LineChart, GridComponent, TooltipComponent, TitleComponent, LegendComponent, CanvasRenderer])
 
 export type { EChartsOption }
 
-/** Read a single CSS custom property value from the document root. */
-function token(name: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+/** Resolve a CSS token to a Canvas-safe color; ECharts does not evaluate var()/color-mix(). */
+function colorToken(name: string): string {
+  const probe = document.createElement('span')
+  probe.style.color = `var(${name})`
+  probe.style.display = 'none'
+  document.body.appendChild(probe)
+  const resolved = getComputedStyle(probe).color.trim()
+  probe.remove()
+  return resolved || getComputedStyle(document.documentElement).color.trim() || 'transparent'
 }
 
 /** Build a minimal echarts theme from the current lumen CSS tokens. */
 function buildTheme() {
+  const root = getComputedStyle(document.documentElement)
+  const fontSize = Number.parseFloat(root.fontSize)
   return {
-    textStyle: { color: token('--lumen-ink') || '#eeeeee', fontFamily: 'inherit', fontSize: 12 },
-    axisLabel: { color: token('--lumen-muted') || '#aaaaaa' },
-    axisLine: { lineStyle: { color: token('--lumen-edge') || 'rgba(255,255,255,0.17)' } },
-    splitLine: { lineStyle: { color: token('--lumen-edge') || 'rgba(255,255,255,0.17)' } },
-    itemStyle: { color: token('--lumen-accent') || '#7c6af7' },
+    textStyle: {
+      color: colorToken('--lumen-ink'),
+      ...(root.fontFamily ? { fontFamily: root.fontFamily } : {}),
+      ...(Number.isFinite(fontSize) && fontSize > 0 ? { fontSize } : {}),
+    },
+    axisLabel: { color: colorToken('--lumen-muted') },
+    axisLine: { lineStyle: { color: colorToken('--lumen-edge') } },
+    splitLine: { lineStyle: { color: colorToken('--lumen-edge') } },
+    itemStyle: { color: colorToken('--lumen-accent') },
     backgroundColor: 'transparent',
   }
 }
@@ -58,51 +58,78 @@ export interface EchartsChartProps {
   readonly className?: string
 }
 
-const REDUCED_MOTION = typeof window !== 'undefined'
-  ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  : false
+function reducedMotion() {
+  return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
 
 export function EchartsChart({ option, height = '10rem', label, className }: EchartsChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const instanceRef = useRef<echarts.ECharts | null>(null)
+  const optionRef = useRef(option)
+  optionRef.current = option
+
+  const applyOption = useCallback((chart: echarts.ECharts) => {
+    const theme = buildTheme()
+    const current = optionRef.current
+    const axisTheme = {
+      axisLine: { lineStyle: { color: theme.axisLine.lineStyle.color } },
+      axisLabel: { color: theme.axisLabel.color },
+      splitLine: { lineStyle: { color: theme.splitLine.lineStyle.color } },
+    }
+    const themed: EChartsOption = {
+      animation: !reducedMotion(),
+      textStyle: theme.textStyle,
+      color: [theme.itemStyle.color],
+      grid: { left: 48, right: 12, top: 12, bottom: 32, containLabel: false },
+      ...current,
+      ...(current.xAxis
+        ? {
+            xAxis: Array.isArray(current.xAxis)
+              ? current.xAxis.map((axis) => ({ ...axisTheme, ...axis }))
+              : { ...axisTheme, ...current.xAxis },
+          }
+        : {}),
+      ...(current.yAxis
+        ? {
+            yAxis: Array.isArray(current.yAxis)
+              ? current.yAxis.map((axis) => ({ ...axisTheme, ...axis }))
+              : { ...axisTheme, ...current.yAxis },
+          }
+        : {}),
+    }
+    chart.setOption(themed, { notMerge: false, lazyUpdate: true })
+  }, [])
 
   // Init chart once on mount.
   useLayoutEffect(() => {
     if (!containerRef.current) return
-    const theme = buildTheme()
     const chart = echarts.init(containerRef.current, undefined, { renderer: 'canvas' })
     instanceRef.current = chart
-    chart.setOption({
-      animation: !REDUCED_MOTION,
-      animationDuration: 220,
-      animationEasing: 'cubicOut',
-      textStyle: theme.textStyle,
-      grid: { left: 48, right: 12, top: 12, bottom: 32, containLabel: false },
-      ...option,
-      xAxis: Array.isArray(option.xAxis)
-        ? (option.xAxis as object[]).map((a) => ({ axisLine: { lineStyle: { color: theme.axisLine.lineStyle.color } }, axisLabel: { color: theme.axisLabel.color }, splitLine: { lineStyle: { color: theme.splitLine.lineStyle.color } }, ...a as object }))
-        : option.xAxis
-          ? { axisLine: { lineStyle: { color: theme.axisLine.lineStyle.color } }, axisLabel: { color: theme.axisLabel.color }, splitLine: { lineStyle: { color: theme.splitLine.lineStyle.color } }, ...option.xAxis as object }
-          : undefined,
-      yAxis: Array.isArray(option.yAxis)
-        ? (option.yAxis as object[]).map((a) => ({ axisLine: { lineStyle: { color: theme.axisLine.lineStyle.color } }, axisLabel: { color: theme.axisLabel.color }, splitLine: { lineStyle: { color: theme.splitLine.lineStyle.color } }, ...a as object }))
-        : option.yAxis
-          ? { axisLine: { lineStyle: { color: theme.axisLine.lineStyle.color } }, axisLabel: { color: theme.axisLabel.color }, splitLine: { lineStyle: { color: theme.splitLine.lineStyle.color } }, ...option.yAxis as object }
-          : undefined,
-    })
+    applyOption(chart)
+    const observer = new MutationObserver(() => applyOption(chart))
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] })
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const motionChanged = () => applyOption(chart)
+    if (media.addEventListener) media.addEventListener('change', motionChanged)
+    else media.addListener?.(motionChanged)
     return () => {
+      observer.disconnect()
+      if (media.removeEventListener) media.removeEventListener('change', motionChanged)
+      else media.removeListener?.(motionChanged)
       chart.dispose()
       instanceRef.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [applyOption])
 
   // Update option on every render except the first (init handles that).
   const isMounted = useRef(false)
   useEffect(() => {
-    if (!isMounted.current) { isMounted.current = true; return }
-    instanceRef.current?.setOption(option, { notMerge: false, lazyUpdate: true })
-  }, [option])
+    if (!isMounted.current) {
+      isMounted.current = true
+      return
+    }
+    if (instanceRef.current) applyOption(instanceRef.current)
+  }, [option, applyOption])
 
   // Resize chart when container dimensions change.
   useEffect(() => {
@@ -114,7 +141,7 @@ export function EchartsChart({ option, height = '10rem', label, className }: Ech
   }, [])
 
   return (
-    <div
+    <LumenFrame
       ref={containerRef}
       role="img"
       aria-label={label}

@@ -16,6 +16,7 @@ import { streamSimple as openaiCompletions } from '@earendil-works/pi-ai/api/ope
 import { streamSimple as openaiResponses } from '@earendil-works/pi-ai/api/openai-responses'
 import { streamSimple as anthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages'
 import { z } from 'zod'
+import { HbarError, RUN_STEP_LIMIT_CODE } from '@hbar/contracts'
 import { providerFailure } from './provider-failure'
 import { definePlugin, describeToolTimeout, provide, RunControlSignal } from '@hbar/plugin-sdk'
 import { createUsageFact } from '@hbar/usage'
@@ -406,7 +407,7 @@ export class PiDriver implements HarnessDriver {
         firstThinking = false
         firstText = false
         stepCount++
-        if (stepCount > 64) throw new Error('Run reached the 64-step limit')
+        if (stepCount > 64) throw new HbarError(RUN_STEP_LIMIT_CODE, 'Run reached the 64-step limit')
         await input.emit('step.started', { step: stepCount }, stepId)
       } else if (event.type === 'message_start' && event.message.role === 'assistant') {
         streamId = crypto.randomUUID()

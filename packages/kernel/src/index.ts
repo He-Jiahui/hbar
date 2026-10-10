@@ -36,6 +36,7 @@ import {
 } from './context-compaction'
 import {
   HbarError,
+  RUN_STEP_LIMIT_CODE,
   approvalModeSchema,
   inputSchema,
   modelSelectionId,
@@ -1648,6 +1649,8 @@ export class Kernel {
           this.executionDiagnostics.runFailure(
             { sessionId, runId: run.id, requestId: run.requestId },
             classifyRunFailure(error).code,
+            undefined,
+            classifyRunFailure(error).code === RUN_STEP_LIMIT_CODE ? 'step_limit' : undefined,
           )
           this.publishEvent(
             await this.storage.call(
@@ -2073,6 +2076,7 @@ export class Kernel {
               status === 'completed' ? 'success' : 'failure',
               durationMs,
               failureDetails?.code,
+              failureDetails?.code === RUN_STEP_LIMIT_CODE ? 'step_limit' : undefined,
             )
           if (branchExecutionPath !== null && branchTargetRevision !== null) {
             const observedPath = branchExecutionPath
