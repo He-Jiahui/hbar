@@ -6,6 +6,7 @@ import {
 } from '@hbar/contracts'
 import type { SessionTimelineState } from '@hbar/app-runtime'
 import type { SessionToolRow } from './session-message-model'
+import { sessionToolOutcome } from './session-tool-outcome-model'
 
 export interface SessionToolActivity {
   readonly callId: string
@@ -25,6 +26,7 @@ export interface ToolActivityCounts {
   readonly pending: number
   readonly skipped: number
   readonly unknown: number
+  readonly outcomes?: ToolBatchProgress['outcomes']
 }
 export function toolActivityKey(callId: string, name: string): string {
   return JSON.stringify([callId, name])
@@ -121,14 +123,20 @@ export function activityCounts(
   let settled = 0,
     running = 0,
     pending = 0,
-    unknown = 0
+    unknown = 0,
+    succeeded = 0,
+    failed = 0
   for (const row of rows) {
-    if (row.result) settled++
-    else if (rowToolActivity(row, activities)?.active) running++
+    if (row.result) {
+      settled++
+      const outcome = sessionToolOutcome(row.result)
+      if (outcome === 'succeeded' || outcome === 'legacy-result') succeeded++
+      else if (outcome === 'failed') failed++
+    } else if (rowToolActivity(row, activities)?.active) running++
     else if (!activities || rowToolActivity(row, activities)?.pending) pending++
     else unknown++
   }
-  return { total: rows.length, settled, running, pending, skipped: 0, unknown }
+  return { total: rows.length, settled, running, pending, skipped: 0, unknown, outcomes: { succeeded, failed } }
 }
 
 export function toolElapsed(activity: SessionToolActivity, now: number): number | undefined {

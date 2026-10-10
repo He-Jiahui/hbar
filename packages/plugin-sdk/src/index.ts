@@ -43,6 +43,7 @@ import type {
   ToolWindowContribution,
   ToolProgress,
   ToolExecution,
+  ToolOutcome,
   Usage,
   Workspace,
   SettingsContributionInput,
@@ -96,6 +97,8 @@ export interface ToolResult {
   hostControl?: GoalReplacementStop | undefined
   /** Host-owned measured execution metadata; plugin values are replaced at the gateway. */
   execution?: ToolExecution | undefined
+  /** Host-owned settlement; plugin values are replaced at the execution gateway. */
+  outcome?: ToolOutcome | undefined
 }
 export interface ToolContext {
   session: Session

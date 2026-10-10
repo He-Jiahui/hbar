@@ -26,8 +26,13 @@ export const toolBatchProgressSchema = z
     pending: z.number().int().min(0).max(8),
     skipped: z.number().int().min(0).max(8),
     unknown: z.number().int().min(0).max(1),
+    /** Absent on older history; remaining settled outcomes are neither success nor failure. */
+    outcomes: z
+      .strictObject({ succeeded: z.number().int().min(0).max(8), failed: z.number().int().min(0).max(8) })
+      .optional(),
   })
   .refine((value) => value.settled + value.running + value.pending + value.skipped + value.unknown === value.total)
+  .refine((value) => !value.outcomes || value.outcomes.succeeded + value.outcomes.failed <= value.settled)
 export type ToolBatchProgress = z.infer<typeof toolBatchProgressSchema>
 
 export const toolExecutionEventSchema = z.strictObject({

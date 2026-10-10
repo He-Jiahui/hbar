@@ -7,7 +7,8 @@ import { basename, delimiter, dirname, join, resolve } from 'node:path'
 import { createInterface } from 'node:readline'
 import { z } from 'zod'
 import { HbarClient, createRunCommandClient } from '@hbar/client'
-import type { Approval, ContentBlock } from '@hbar/contracts'
+import { diagnosticEventSchema } from '@hbar/contracts'
+import type { Approval, ContentBlock, DiagnosticEvent } from '@hbar/contracts'
 import { sessionSchema, workspaceSchema } from '@hbar/contracts/directory'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 
@@ -39,6 +40,8 @@ interface Fixture {
   readonly copy: ReturnType<typeof getShellCopy>
   readonly browserCommands: string[]
   readonly errors: string[]
+  readonly diagnostics: DiagnosticEvent[]
+  readonly diagnosticReads: Promise<void>[]
 }
 function bunExecutable(): string {
   const executable = (process.env.PATH ?? '')
@@ -130,10 +133,39 @@ async function start(
     expect((await context.request.post(`${ready.url}/auth/token`, { data: { token: ready.token } })).ok()).toBe(true)
     const page = await context.newPage()
     const errors: string[] = []
+    const diagnostics: DiagnosticEvent[] = []
+    const diagnosticReads: Promise<void>[] = []
     const browserCommands: string[] = []
     page.on('pageerror', (error) => errors.push(error.message))
     page.on('console', (message) => {
-      if (['error', 'warning'].includes(message.type())) errors.push(message.text())
+      if (!['error', 'warning'].includes(message.type())) return
+      const diagnostic = message.text().startsWith('[hbar diagnostic]') ? message.args()[1] : undefined
+      if (!diagnostic) {
+        errors.push(message.text())
+        return
+      }
+      if (diagnosticReads.length >= 2048 || diagnostics.length >= 2048) {
+        errors.push('Browser diagnostic observation capacity exceeded')
+        return
+      }
+      const reading = diagnostic
+        .jsonValue()
+        .then((value: unknown) => {
+          const event = diagnosticEventSchema.parse(value)
+          // This empty workspace has no Git repository; initial reads may precede the hello handshake.
+          if (
+            event.component === 'client' &&
+            event.method === 'command.execute' &&
+            ((event.event === 'rpc.admission_rejected' && event.errorCode === 'DISCONNECTED') ||
+              (event.event === 'rpc.error' && event.errorCode === 'GIT_OPERATION_FAILED'))
+          )
+            diagnostics.push(event)
+          else errors.push(JSON.stringify({ event: event.event, method: event.method, errorCode: event.errorCode }))
+        })
+        .catch(() => {
+          errors.push('Invalid browser diagnostic')
+        })
+      diagnosticReads.push(reading)
     })
     page.on('websocket', (socket) =>
       socket.on('framesent', (frame) => {
@@ -178,7 +210,20 @@ async function start(
       }
     }
     await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
-    return { root, directory, child, context, page, observer, ready, copy, browserCommands, errors }
+    return {
+      root,
+      directory,
+      child,
+      context,
+      page,
+      observer,
+      ready,
+      copy,
+      browserCommands,
+      errors,
+      diagnostics,
+      diagnosticReads,
+    }
   } catch (error) {
     await context.close()
     observer?.disconnect()
@@ -202,7 +247,11 @@ async function capture(f: Fixture, name: string) {
   }))
   expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.width + 1)
   await f.page.screenshot({ path: join(f.directory, `${name}.png`) })
-  await writeFile(join(f.directory, `${name}.json`), JSON.stringify(geometry, null, 2))
+  await Promise.all(f.diagnosticReads.splice(0))
+  await writeFile(
+    join(f.directory, `${name}.json`),
+    JSON.stringify({ ...geometry, diagnostics: f.diagnostics }, null, 2),
+  )
 }
 
 async function originalResult(f: Fixture, operationId: string, toolName: string): Promise<ToolResult> {
@@ -291,8 +340,10 @@ test('real Host tool feedback advances measured progress and restores batch timi
       )
     const timed = await submit('tool_feedback_read')
     const timedRow = f.page.locator('.hbar-session-tool[data-tool-name="tool_feedback_read"]')
-    await expect(timedRow.locator('[data-tool-progress]')).toHaveText('25%')
+    await expect(timedRow.locator('[data-tool-progress]')).toHaveAttribute('data-tool-progress', '25')
+    await expect(timedRow.locator('[data-progress-state="running"]')).toHaveCount(1)
     await expect(timedRow.locator('[data-tool-elapsed]')).toHaveAttribute('data-tool-active', 'true')
+    f.child.stdin?.write('continue-feedback\n')
     await expect
       .poll(async () => (await runs.execute('operation.get', { operationId: timed.operationId })).status)
       .toBe('completed')
@@ -302,17 +353,34 @@ test('real Host tool feedback advances measured progress and restores batch timi
     await verifyRow(f, timedResult, 'succeeded', 'timed-final')
     const batch = await submit('tool_feedback_batch')
     const batchRow = f.page.locator('.hbar-session-tool[data-tool-name="tool_feedback_batch"]')
-    await expect(batchRow.locator('.hbar-tool-batch-counts')).toContainText('已结束 1 · 进行中 1 · 待执行 1')
-    await expect(batchRow.locator('[data-tool-progress]')).toHaveText('33.3%')
+    await expect(batchRow.getByRole('progressbar')).toHaveAttribute(
+      'aria-valuetext',
+      '33.3% · 已结束 1 · 进行中 1 · 待执行 1 · 成功 1 · 失败 0',
+    )
+    await expect(batchRow.locator('[data-tool-progress]')).toHaveAttribute('data-tool-progress', '33.3')
     await capture(f, 'batch-running')
+    f.child.stdin?.write('continue-feedback\n')
     await expect
       .poll(async () => (await runs.execute('operation.get', { operationId: batch.operationId })).status)
       .toBe('completed')
     const batchResult = await originalResult(f, batch.operationId, 'tool_feedback_batch')
-    expect(batchResult.batch).toEqual({ total: 3, settled: 3, running: 0, pending: 0, skipped: 0, unknown: 0 })
+    expect(batchResult.batch).toEqual({
+      total: 3,
+      settled: 3,
+      running: 0,
+      pending: 0,
+      skipped: 0,
+      unknown: 0,
+      outcomes: { succeeded: 3, failed: 0 },
+    })
     await f.page.reload()
-    await expect(batchRow.locator('.hbar-tool-batch-counts')).toContainText('已结束 3 · 进行中 0 · 待执行 0')
-    await expect(batchRow.locator('[data-tool-progress]')).toHaveText('100%')
+    await expect(batchRow.getByRole('progressbar')).toHaveAttribute(
+      'aria-valuetext',
+      '100% · 已结束 3 · 进行中 0 · 待执行 0 · 成功 3 · 失败 0',
+    )
+    await expect(batchRow.locator('[data-tool-progress]')).toHaveAttribute('data-tool-progress', '100')
+    await expect(batchRow.locator('[data-progress-state="succeeded"]')).toHaveCount(1)
+    await expect(batchRow.locator('[data-progress-state="failed"]')).toHaveCount(0)
     await verifyRow(f, batchResult, 'succeeded', 'batch-refreshed')
     expect(f.errors).toEqual([])
   } finally {

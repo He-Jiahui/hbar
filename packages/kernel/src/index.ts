@@ -2277,7 +2277,7 @@ export class Kernel {
     }
     const execution = await reporter?.finish()
     const batch = sequence?.progress()
-    result = { ...result, hostFailure, hostControl, execution }
+    result = { ...result, hostFailure, hostControl, execution, outcome }
     if (result.text.length > 128_000) result = { ...result, text: `${result.text.slice(0, 128_000)}\n[truncated]` }
     const content: ContentBlock[] = [
       {

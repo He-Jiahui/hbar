@@ -19,6 +19,16 @@ test('execution contracts reject fabricated percentages, contradictory counts an
   expect(
     toolBatchProgressSchema.safeParse({ total: 3, settled: 1, running: 1, pending: 0, skipped: 0, unknown: 0 }).success,
   ).toBe(false)
+  const batch = { total: 3, settled: 1, running: 1, pending: 1, skipped: 0, unknown: 0 }
+  expect(toolBatchProgressSchema.safeParse(batch).success).toBe(true)
+  expect(toolBatchProgressSchema.safeParse({ ...batch, outcomes: { succeeded: 1, failed: 0 } }).success).toBe(true)
+  for (const outcomes of [
+    { succeeded: 1, failed: 1 },
+    { succeeded: -1, failed: 0 },
+    { succeeded: 0.5, failed: 0 },
+    { succeeded: 1 },
+  ])
+    expect(toolBatchProgressSchema.safeParse({ ...batch, outcomes }).success).toBe(false)
 })
 
 test('monotonic timing, bounded progress bursts, latest final progress and closed callback lifetime', async () => {
@@ -89,7 +99,11 @@ test('real Host publishes timing/progress, restores active facts, freezes result
         await context.reportProgress?.({ completed: 1, total: 4 })
         await gate
         await context.reportProgress?.({ completed: 2, total: 4 })
-        return { text: 'proof', execution: { startedAt: 1, endedAt: 1, elapsedMs: 999_999 } }
+        return {
+          text: 'proof',
+          execution: { startedAt: 1, endedAt: 1, elapsedMs: 999_999 },
+          outcome: { kind: 'failed', executionStarted: false },
+        }
       },
     })
     const workspace = (await kernel.storage.call('workspaces'))[0]
@@ -117,6 +131,7 @@ test('real Host publishes timing/progress, restores active facts, freezes result
     expect(result.execution?.elapsedMs).toBeLessThan(999_999)
     expect(result.execution?.progress).toEqual({ completed: 2, total: 4 })
     expect(result.execution?.endedAt).toBeDefined()
+    expect(result.outcome).toEqual({ kind: 'succeeded', executionStarted: true })
     expect((await kernel.snapshot(session.id)).messages).toEqual(snapshot.messages)
     if (!captured) throw new Error('Progress port missing')
     await expect(captured({ completed: 3, total: 4 })).rejects.toBeDefined()
@@ -146,12 +161,22 @@ test('real Host publishes timing/progress, restores active facts, freezes result
       .flatMap((message) => message.content)
       .find((block) => block.type === 'tool_result' && block.name === 'timing_batch_fixture')
     expect(batchResult).toMatchObject({
-      batch: { total: 3, settled: 2, running: 0, pending: 0, skipped: 1, unknown: 0 },
+      batch: {
+        total: 3,
+        settled: 2,
+        running: 0,
+        pending: 0,
+        skipped: 1,
+        unknown: 0,
+        outcomes: { succeeded: 1, failed: 1 },
+      },
     })
     const progress = (await kernel.storage.call('events', session.id, 0)).filter(
       (event) => event.type === 'tool.sequence_progress',
     )
-    expect(progress[0]?.data).toMatchObject({ progress: { total: 3, settled: 0, running: 0, pending: 3 } })
+    expect(progress[0]?.data).toMatchObject({
+      progress: { total: 3, settled: 0, running: 0, pending: 3, outcomes: { succeeded: 0, failed: 0 } },
+    })
     expect(
       progress.some(
         (event) => toolBatchProgressSchema.safeParse((event.data as { progress: unknown }).progress).success,

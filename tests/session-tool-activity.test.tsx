@@ -11,6 +11,8 @@ import {
   toolElapsed,
 } from '../packages/app-react/src/session-tool-activity-model'
 import { buildMessageRows } from '../packages/app-react/src/session-message-model'
+import { ToolBatchFeedback, ToolProgressFeedback } from '../packages/app-react/src/session-tool-feedback'
+import { toolFeedbackLabels } from '../apps/web/src/session-tool-feedback-copy'
 
 const call = { type: 'tool_call' as const, callId: 'read', name: 'read_file', args: { path: 'source.ts' } }
 const messages: Message[] = [
@@ -112,7 +114,7 @@ test('final results freeze measured time, survive paged history and override obs
   expect(rowToolActivity({ ...row, result: { ...row.result, execution: undefined } })?.execution).toBeUndefined()
 })
 for (const locale of ['zh-CN', 'en-US'] as const) {
-  test(`localized compact UI renders real percentage, duration and batch counts; no legacy time invented (${locale})`, () => {
+  test(`localized compact UI renders batch progress below the tool, with measured duration and accessible counts (${locale})`, () => {
     const labels = getShellCopy(locale).session.messageBlocks
     const final = {
       type: 'tool_result' as const,
@@ -121,12 +123,25 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       text: 'proof',
       isError: false,
       execution: { startedAt: 49_000, endedAt: 50_000, elapsedMs: 1400, progress: { completed: 2, total: 4 } },
-      batch: { total: 3, settled: 1, running: 1, pending: 1, skipped: 0, unknown: 0 },
+      batch: {
+        total: 3,
+        settled: 1,
+        running: 1,
+        pending: 1,
+        skipped: 0,
+        unknown: 0,
+        outcomes: { succeeded: 1, failed: 0 },
+      },
     }
     const html = renderToStaticMarkup(
       <HbarMessageBlocks sessionId="session" messageId="message" blocks={[call, final]} labels={labels} />,
     )
-    expect(html).toContain('50%')
+    expect(html).toContain('data-tool-progress="33.3"')
+    expect(html).not.toContain('>33.3%<')
+    expect(html).not.toContain('hbar-tool-batch-counts')
+    expect(html).toContain('data-progress-state="succeeded"')
+    expect(html).toContain('data-progress-state="running"')
+    expect(html).toContain('data-progress-state="pending"')
     expect(html).toContain(locale === 'zh-CN' ? '耗时 1 秒' : 'Took 1 s')
     expect(html).toContain(locale === 'zh-CN' ? '已结束 1' : '1 settled')
     const legacy = renderToStaticMarkup(
@@ -140,4 +155,82 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
     expect(legacy).not.toContain('data-tool-elapsed')
     expect(legacy).not.toContain('progressbar')
   })
+
+  test(`four proportional states preserve Host labels without adding visible progress text (${locale})`, () => {
+    const labels = toolFeedbackLabels(locale)
+    const counts = {
+      total: 4,
+      settled: 2,
+      running: 1,
+      pending: 1,
+      skipped: 0,
+      unknown: 0,
+      outcomes: { succeeded: 1, failed: 1 },
+    }
+    const html = renderToStaticMarkup(<ToolBatchFeedback counts={counts} labels={labels} />)
+    expect(html).toContain('aria-valuenow="2"')
+    expect(html).toContain('aria-valuemax="4"')
+    expect(html).toContain(`aria-label="${labels.progressAccessible(2, 4)}"`)
+    expect(html).toContain(`aria-valuetext="50% · ${labels.counts(counts)}"`)
+    for (const state of ['succeeded', 'failed', 'running', 'pending'])
+      expect(html).toContain(`data-progress-state="${state}" aria-hidden="true" style="flex-grow:1"`)
+    expect(html).not.toContain('>50%<')
+  })
+
+  test(`a tool's actual work progress changes color with its outcome and freezes when disconnected (${locale})`, () => {
+    const labels = toolFeedbackLabels(locale)
+    const progress = { completed: 1, total: 4 }
+    for (const [outcome, active, state] of [
+      ['pending', true, 'running'],
+      ['failed', false, 'failed'],
+      ['succeeded', false, 'succeeded'],
+    ] as const) {
+      const html = renderToStaticMarkup(
+        <ToolProgressFeedback progress={progress} outcome={outcome} active={active} labels={labels} />,
+      )
+      expect(html).toContain('data-tool-progress="25"')
+      expect(html).toContain(`data-progress-state="${state}" aria-hidden="true" style="flex-grow:1"`)
+      expect(html).toContain('data-progress-state="pending" aria-hidden="true" style="flex-grow:3"')
+    }
+    const offline = renderToStaticMarkup(
+      <ToolProgressFeedback progress={progress} outcome="pending" active={false} labels={labels} />,
+    )
+    expect(offline).not.toContain('data-progress-state="running"')
+    expect(offline).toContain('data-progress-state="pending" aria-hidden="true" style="flex-grow:4"')
+  })
 }
+
+test('batch colors distinguish canonical failures and preserve cancelled, interrupted and unknown results', () => {
+  const rows = (['succeeded', 'failed', 'cancelled', 'interrupted', 'unknown', 'denied'] as const).map(
+    (kind, index) => ({
+      ...toolRow(),
+      id: String(index),
+      result: {
+        type: 'tool_result' as const,
+        callId: String(index),
+        name: 'read_file',
+        text: 'proof',
+        isError: kind !== 'succeeded',
+        outcome: {
+          kind,
+          executionStarted: true,
+        },
+      },
+    }),
+  )
+  expect(activityCounts(rows)).toMatchObject({
+    total: 6,
+    settled: 6,
+    outcomes: { succeeded: 1, failed: 1 },
+  })
+})
+
+test('empty feedback is omitted; unclassified legacy batches keep their real progress without claiming success', () => {
+  const labels = toolFeedbackLabels('zh-CN')
+  const empty = { total: 0, settled: 0, running: 0, pending: 0, skipped: 0, unknown: 0 }
+  expect(renderToStaticMarkup(<ToolBatchFeedback counts={empty} labels={labels} />)).toBe('')
+  const legacy = renderToStaticMarkup(<ToolBatchFeedback counts={{ ...empty, total: 3, settled: 3 }} labels={labels} />)
+  expect(legacy).toContain('data-tool-progress="100"')
+  expect(legacy).not.toContain('data-progress-state="succeeded"')
+  expect(legacy).toContain('data-progress-state="pending"')
+})

@@ -19,11 +19,17 @@ export function toolFeedbackLabels(locale: 'zh-CN' | 'en-US'): SessionToolFeedba
     duration: (milliseconds, state) =>
       `${zh ? (state === 'running' ? '已执行' : state === 'settled' ? '耗时' : '最后记录') : state === 'running' ? 'Elapsed' : state === 'settled' ? 'Took' : 'Last observed'} ${duration(milliseconds)}`,
     cumulativeDuration: (milliseconds) => `${zh ? '累计耗时' : 'Cumulative time'} ${duration(milliseconds)}`,
-    counts: ({ settled, running, pending, skipped, unknown }) =>
+    counts: ({ settled, running, pending, skipped, unknown, outcomes }) =>
       [
         zh ? `已结束 ${settled}` : `${settled} settled`,
         zh ? `进行中 ${running}` : `${running} running`,
         zh ? `待执行 ${pending}` : `${pending} pending`,
+        ...(outcomes
+          ? [
+              zh ? `成功 ${outcomes.succeeded}` : `${outcomes.succeeded} succeeded`,
+              zh ? `失败 ${outcomes.failed}` : `${outcomes.failed} failed`,
+            ]
+          : []),
         ...(skipped ? [zh ? `跳过 ${skipped}` : `${skipped} skipped`] : []),
         ...(unknown ? [zh ? `结果未知 ${unknown}` : `${unknown} unknown`] : []),
       ].join(' · '),

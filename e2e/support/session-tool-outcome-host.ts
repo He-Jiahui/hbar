@@ -29,6 +29,23 @@ const layout = await resolvePathLayout({
 const kernel = await Kernel.create({ layout, workspace: workspacePath, demo: true, secrets: new MemorySecrets() })
 let host: Awaited<ReturnType<typeof startServer>> | undefined
 let closing: Promise<void> | undefined
+let continueFeedback: (() => void) | undefined
+function waitForFeedback(signal: AbortSignal): Promise<void> {
+  signal.throwIfAborted()
+  return new Promise<void>((done, reject) => {
+    const finish = (error?: unknown) => {
+      clearTimeout(timer)
+      signal.removeEventListener('abort', aborted)
+      continueFeedback = undefined
+      if (error === undefined) done()
+      else reject(error)
+    }
+    const aborted = () => finish(signal.reason)
+    const timer = setTimeout(() => finish(new Error('Feedback fixture observation timed out')), 30_000)
+    continueFeedback = () => finish()
+    signal.addEventListener('abort', aborted, { once: true })
+  })
+}
 function close(): Promise<void> {
   closing ??= (async () => {
     try {
@@ -56,6 +73,7 @@ try {
         for (let completed = 0; completed <= 4; completed++) {
           await context.reportProgress?.({ completed, total: 4 })
           if (completed === 4) break
+          if (completed === 1) await waitForFeedback(context.signal)
           context.signal.throwIfAborted()
           await Bun.file(join(workspacePath, 'known-readable.txt')).text()
           await delay(400, undefined, { signal: context.signal })
@@ -88,6 +106,7 @@ try {
   const input = createInterface({ input: process.stdin })
   await new Promise<void>((done) => {
     input.on('line', (line) => {
+      if (line === 'continue-feedback') continueFeedback?.()
       if (line === 'stop') done()
     })
     input.once('close', done)

@@ -52,7 +52,15 @@ export function createToolSequenceExecutor(
         if (call.name === parentName) throw new HbarError('TOOL_SEQUENCE_RECURSION', 'A sequence cannot invoke itself')
       }
       const results: ToolSequenceResult[] = []
-      progress = { total: calls.length, settled: 0, running: 0, pending: calls.length, skipped: 0, unknown: 0 }
+      progress = {
+        total: calls.length,
+        settled: 0,
+        running: 0,
+        pending: calls.length,
+        skipped: 0,
+        unknown: 0,
+        outcomes: { succeeded: 0, failed: 0 },
+      }
       await publishProgress()
       try {
         for (const [index, call] of calls.entries()) {
@@ -77,7 +85,15 @@ export function createToolSequenceExecutor(
             parentCallId: context.callId,
           })
           lifetime.signal.throwIfAborted()
-          progress = { ...progress, settled: index + 1, running: 0 }
+          progress = {
+            ...progress,
+            settled: index + 1,
+            running: 0,
+            outcomes: {
+              succeeded: (progress.outcomes?.succeeded ?? 0) + Number(result.outcome?.kind === 'succeeded'),
+              failed: (progress.outcomes?.failed ?? 0) + Number(result.outcome?.kind === 'failed'),
+            },
+          }
           await publishProgress()
           if (result.hostControl) throw new RunControlSignal(result.hostControl)
           const needsInspection = result.content?.some((block) => block.type === 'image') ?? false
