@@ -71,6 +71,8 @@
 
 严格 TypeScript、Web 与预览构建通过，保留既有的 chunk 大小提示。独立 Lumen pnpm 类型、构建与改动范围 lint 通过；生产导入边界、文案、图标及本轮变更样式的流式布局守卫通过。本轮设计文件的 21 个本地链接通过；全库文档检查仍报告 752 个历史失效链接，主要包含未随干净工作树保留的旧验收产物，未清除其他任务的文档。
 
+最终完整 `bun run lint` 检查 3,443 个受维护文件，分 54 个有界批次，退出码为 0。执行期间新增的浏览器时间轴验收和并入的文件发布代码另做严格范围 lint，退出码也为 0。严格 TypeScript 在最新主干整合后再次通过。日志为 `lint-delivery-final.log`、`lint-preview-delivery.log`、`lint-final-master-increment.log` 和 `typecheck-delivery-final.log`，均位于 `artifacts/visual-upgrade`。
+
 ## 可交互验收和证据来源
 
 预览入口为 `workbench-acceptance.html` 和 `visual-report.html`。前者组合真实 Lumen 页面标题、表面、工具行、指标、操作栏及弹窗；后者提供按页面、语言、主题和窗口宽度切换的前后截图。执行 `bun scripts/publish-visual-upgrade-evidence.ts` 发布 PNG 与受限索引，再执行 `bun run app-ui:build` 构建预览。发布目录已加入忽略规则，服务日志、认证信息和浏览器 trace 不进入可见证据页。
