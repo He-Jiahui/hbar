@@ -134,6 +134,7 @@ import type {
   RunCommandRecord,
 } from '@hbar/contracts/commands/run'
 import piPlugin from '@hbar/pi-driver'
+declare const HBAR_EXTERNAL_DRIVER: boolean
 import localTools, { localExecutionPlugin } from '@hbar/local-tools'
 import goalPlugin from '@hbar/goal'
 import planPlugin from '@hbar/plan'
@@ -891,7 +892,11 @@ export class Kernel {
         apply: (ctx) => provide(ctx, 'models', registry),
       }),
     )
-    this.plugins.add(piPlugin)
+    if (typeof HBAR_EXTERNAL_DRIVER !== 'undefined' && HBAR_EXTERNAL_DRIVER) {
+      const external = this.options.profile?.replacements?.['driver.pi']
+      if (!external) throw new HbarError('RUNTIME_DRIVER_REQUIRED', 'The isolated Kernel needs its declared driver port')
+      this.plugins.add(external)
+    } else this.plugins.add(piPlugin)
     this.plugins.add(
       localExecutionPlugin(
         [this.options.layout.dataRoot],

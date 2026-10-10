@@ -578,7 +578,7 @@ export class PiDriver implements HarnessDriver {
     }
   }
 }
-export default definePlugin({
+export default /* @__PURE__ */ definePlugin({
   manifest: {
     id: 'driver.pi',
     name: 'Pi harness',
