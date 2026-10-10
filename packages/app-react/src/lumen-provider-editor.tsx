@@ -96,6 +96,8 @@ export interface HbarProviderDialogLabels {
   readonly sections: {
     readonly preset: string
     readonly presetDescription: string
+    readonly presetEdit: string
+    readonly presetEditDescription: string
     readonly connection: string
     readonly connectionDescription: string
     readonly credentials: string
@@ -416,7 +418,10 @@ function ProviderPresetPicker({
   }, [fieldRead?.status])
   return (
     <LumenFrame as="section" className="hbar-app-react-provider-section">
-      <SectionHeading title={labels.sections.preset} description={labels.sections.presetDescription} />
+      <SectionHeading
+        title={mode === 'edit' ? labels.sections.presetEdit : labels.sections.preset}
+        description={mode === 'edit' ? labels.sections.presetEditDescription : labels.sections.presetDescription}
+      />
       <LumenFormField controlId="provider-preset" label={labels.preset.label}>
         <LumenComboBox
           id="provider-preset"

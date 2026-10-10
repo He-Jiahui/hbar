@@ -132,6 +132,11 @@ test('provider list and dialog render Host descriptions without exposing a crede
     surfaces: { canRender: (panelId) => panelId === 'settings-editor' },
   })
   const copy = getShellCopy('en-US')
+  const zhCopy = getShellCopy('zh-CN')
+  expect(copy.providers.dialog.sections.preset).toBe('Start from a preset')
+  expect(copy.providers.dialog.sections.presetDescription).toContain('load its protocol, endpoint, and first model')
+  expect(zhCopy.providers.dialog.sections.presetEdit).toBe('模型目录来源')
+  expect(zhCopy.providers.dialog.sections.presetEditDescription).toContain('现有连接设置保持不变')
   expect(copy.providers.dialog.preset.readError('DISCONNECTED')).toContain('Reconnect')
   expect(copy.providers.dialog.preset.readError('CAPABILITY_UNAVAILABLE').toLowerCase()).toContain('continue manually')
   expect(copy.providers.dialog.models.catalogReadError('TIMEOUT')).toContain('Reconnect')
@@ -168,6 +173,8 @@ test('provider list and dialog render Host descriptions without exposing a crede
       </HbarRuntimeProvider>,
     )
     expect(dialog).toContain('Edit provider · Visible provider')
+    expect(dialog).toContain('Model catalog source')
+    expect(dialog).toContain('Existing connection settings stay unchanged.')
     expect(dialog).toContain('Provider ID')
     expect(dialog).toContain('Connection')
     expect(dialog).toContain('id="provider-preset"')
@@ -185,6 +192,8 @@ test('provider list and dialog render Host descriptions without exposing a crede
       </HbarRuntimeProvider>,
     )
     expect(chinese).toContain('编辑供应商 · Visible provider')
+    expect(chinese).toContain('模型目录来源')
+    expect(chinese).toContain('选择模型目录来源以添加模型；现有连接设置保持不变。')
     expect(chinese).toContain('连接')
     expect(chinese).toContain('模型详情')
     expect(chinese).toContain('在模型选择中显示')

@@ -826,6 +826,11 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
         '选择供应商后会载入推荐协议、地址和首个模型，之后仍可逐项调整。',
         'Choose a provider to load its protocol, endpoint, and first model, then adjust any field.',
       ),
+      presetEdit: choose('模型目录来源', 'Model catalog source'),
+      presetEditDescription: choose(
+        '选择模型目录来源以添加模型；现有连接设置保持不变。',
+        'Choose a model catalog source to add models. Existing connection settings stay unchanged.',
+      ),
       connection: choose('连接', 'Connection'),
       connectionDescription: choose(
         '供应商标识、协议和 API 地址。',
