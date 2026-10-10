@@ -404,32 +404,71 @@ export class LocalExecution implements ExecutionProvider {
       onAbort()
     }, timeoutMs)
     let truncated = false
-    async function collect(stream: ReadableStream<Uint8Array>) {
+    async function collect(stream: ReadableStream<Uint8Array>, childExited: Promise<number>) {
       const decoder = new TextDecoder()
+      const reader = stream.getReader()
       let text = ''
-      for await (const bytes of stream) {
-        text += decoder.decode(bytes, { stream: true })
-        if (text.length > 64_000) {
-          text = text.slice(-64_000)
-          truncated = true
+      let cancelTimer: ReturnType<typeof setTimeout> | undefined
+      let cancelResolve: (() => void) | undefined
+      let finished = false
+      let drainCutoff = false
+      const cancelAfterExit = childExited.then(
+        () =>
+          new Promise<void>((resolve) => {
+            cancelResolve = resolve
+            // A direct shell can exit while a detached descendant still owns the
+            // inherited pipe handle. Drain a short grace window, then cancel the
+            // reader so tool settlement does not wait for that unknown process.
+            if (finished) resolve()
+            else
+              cancelTimer = setTimeout(() => {
+                drainCutoff = true
+                void reader.cancel().catch(() => undefined)
+                resolve()
+              }, 250)
+          }),
+      )
+      try {
+        while (true) {
+          const next = await Promise.race([
+            reader.read(),
+            cancelAfterExit.then(() => ({ done: true as const, value: undefined })),
+          ])
+          if (next.done) break
+          text += decoder.decode(next.value, { stream: true })
+          if (text.length > 64_000) {
+            text = text.slice(-64_000)
+            truncated = true
+          }
         }
+        return { text: text + decoder.decode(), drainCutoff }
+      } finally {
+        finished = true
+        if (cancelTimer) clearTimeout(cancelTimer)
+        cancelResolve?.()
+        reader.releaseLock()
       }
-      return text + decoder.decode()
     }
+    const childExited = child.exited
+    const stdoutPromise = collect(child.stdout, childExited)
+    const stderrPromise = collect(child.stderr, childExited)
     try {
-      const [stdout, stderr, code] = await Promise.all([collect(child.stdout), collect(child.stderr), child.exited])
+      const [stdoutResult, stderrResult, code] = await Promise.all([stdoutPromise, stderrPromise, childExited])
+      const stdout = stdoutResult.text
+      const stderr = stderrResult.text
+      const drainCutoff = stdoutResult.drainCutoff || stderrResult.drainCutoff
       if (terminating) await terminating
       signal.throwIfAborted()
       if (timedOut)
         return {
-          text: `${stdout}${stderr}\nTool shell timed out after ${timeoutMs} milliseconds; its process was terminated. The Agent may continue.`,
+          text: `${stdout}${stderr}${drainCutoff ? '\n[tool output drain cutoff]' : ''}\nTool shell timed out after ${timeoutMs} milliseconds; its process was terminated. The Agent may continue.`,
           isError: true,
-          details: { code: 'TOOL_TIMEOUT', exitCode: code, timeoutMs, truncated },
+          details: { code: 'TOOL_TIMEOUT', exitCode: code, timeoutMs, truncated, drainCutoff },
         }
       return {
-        text: `${stdout}${stderr}${truncated ? '\n[output truncated to retained tail]' : ''}`,
+        text: `${stdout}${stderr}${truncated ? '\n[output truncated to retained tail]' : ''}${drainCutoff ? '\n[tool output drain cutoff]' : ''}`,
         isError: code !== 0,
-        details: { code, truncated },
+        details: { code, truncated, drainCutoff },
       }
     } finally {
       clearTimeout(timeout)
