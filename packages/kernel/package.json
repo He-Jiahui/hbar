@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./diagnostics": "./src/diagnostic-journal.ts",
     "./session-search-commands": "./src/session-search-commands.ts",
     "./skill-import": "./src/skill-import-service.ts"
   },

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+export { diagnosticEventSchema, DIAGNOSTIC_SCHEMA_VERSION, diagnosticEvent, type DiagnosticEvent, type DiagnosticSink } from './diagnostics.ts'
 export { collectArtifactReferenceIds, collectArtifactReferences } from './artifact-references'
 import { settingScopeSchema } from './settings.ts'
 import type { SettingDescriptor, SettingScope, SettingsCatalog, SettingsContribution, SettingsSnapshot } from './settings.ts'
