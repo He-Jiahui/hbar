@@ -65,6 +65,21 @@ test('the database fences late commits and preserves unrelated ownership and que
   expect((await storage.call('snapshot', session.id)).messages).toHaveLength(1)
 })
 
+test('restart reconciliation pages unfinished Runs and also includes terminal results whose release receipt was lost', async () => {
+  const f = await fixture()
+  const run = await f.queue('completed-with-stale-authority')
+  const lease = await f.claim(run.id)
+  expect(await f.storage.call('runtimeActiveRuns', '', 1)).toMatchObject([{ id: run.id }])
+  await f.storage.callOwned(lease, 'setRun', run.id, 'completed')
+  expect(await f.storage.call('runtimeActiveRuns')).toEqual([])
+  expect(await f.storage.call('runtimeUnreleasedExecutions')).toEqual([lease])
+  expect(await f.storage.call('runtimeUnreleasedExecutions', lease.leaseId)).toEqual([])
+  await f.storage.call('runtimeExecutionRevoke', lease.owner, [run.id])
+  expect(await f.storage.call('runtimeUnreleasedExecutions')).toEqual([])
+  expect((await f.storage.call('run', run.id)).status).toBe('completed')
+  await rejects(f.storage.call('runtimeActiveRuns', '', 257), 'STORAGE_ERROR')
+})
+
 test('ordinary and Goal recovery enqueue once, retain committed context, and prefer user input', async () => {
   const { storage, session, queue, claim, interrupt } = await fixture()
   const run = await queue('goal', 'goal')

@@ -503,6 +503,8 @@ export interface StorageMethods {
   runtimeExecutionRelease(lease: ExecutionOwnership): void
   runtimeExecutionRevoke(owner: RuntimeOwner, runIds: readonly string[]): string[]
   runtimeExecutionRead(runId: string): { lease: ExecutionOwnership; state: string } | null
+  runtimeActiveRuns(after?: string, limit?: number): Run[]
+  runtimeUnreleasedExecutions(after?: string, limit?: number): ExecutionOwnership[]
   runtimeRecoveryPlan(predecessorRunId: string): RuntimeRecoveryRecord
   runtimeRecoveryQueue(predecessorRunId: string, recoveryId: string): RuntimeRecoveryRecord
   runtimeRecoveryRead(predecessorRunId: string): RuntimeRecoveryRecord | null

@@ -370,6 +370,8 @@ export interface KernelOptions {
   /** Managed activation never runs global recovery or starts scheduling during construction. */
   lifecycle?: 'automatic' | 'managed' | undefined
   execution?: KernelExecutionPort | undefined
+  /** The stable Host owns identity across managed Kernel generations. */
+  instanceId?: string | undefined
 }
 interface ResolvedKernelOptions extends KernelOptions {
   home: string
@@ -466,7 +468,7 @@ export class Kernel {
   readonly hooks = new Hooks()
   readonly schemaCallbacks = createSchemaCallbackRegistry()
   readonly plugins: PluginManager
-  readonly instanceId = crypto.randomUUID()
+  readonly instanceId: string
   readonly secrets: SecretStore
   readonly streams = new Map<string, LiveStream>()
   private streamPublished = new Map<string, { text: string; thinking: string; version: number }>()
@@ -502,6 +504,7 @@ export class Kernel {
     readonly options: ResolvedKernelOptions,
     storage?: StoragePort,
   ) {
+    this.instanceId = z.string().min(1).max(160).parse(options.instanceId ?? crypto.randomUUID())
     this.executionScope = new KernelExecutionScope(options.execution)
     this.storage = this.executionScope.storage(storage ?? new Storage(options.layout.database, options.layout, {
       ...(options.onFatal ? { onFatal: options.onFatal } : {}),

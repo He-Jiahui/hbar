@@ -17,6 +17,7 @@ import {
   settingScopeSchema,
 } from '@hbar/contracts'
 import { z } from 'zod'
+import { executionOwnershipSchema } from '@hbar/contracts/runtime'
 import {
   workspaceSchema,
   sessionSchema,
@@ -2258,6 +2259,17 @@ const methods: StorageMethods = {
       "SELECT * FROM runs WHERE sessionId=? AND status='queued' ORDER BY CASE WHEN json_extract(input,'$.source')='goal' THEN 2 WHEN recovery IS NOT NULL THEN 1 ELSE 0 END,createdAt,rowid LIMIT 1",
     ).get(sessionId)
     return row ? runRow(row) : null
+  },
+  runtimeActiveRuns(after = '', limit = 256) {
+    const cursor = z.string().max(160).parse(after)
+    const take = z.number().int().min(1).max(256).parse(limit)
+    return db.query<Row, [string, number]>("SELECT * FROM runs WHERE status IN ('running','waiting_approval') AND id>? ORDER BY id LIMIT ?").all(cursor, take).map(runRow)
+  },
+  runtimeUnreleasedExecutions(after = '', limit = 256) {
+    const cursor = z.string().max(160).parse(after)
+    const take = z.number().int().min(1).max(256).parse(limit)
+    return db.query<{ leaseJson: string }, [string, number]>("SELECT leaseJson FROM runtime_execution_ownership WHERE state='active' AND leaseId>? ORDER BY leaseId LIMIT ?").all(cursor, take)
+      .map(row => executionOwnershipSchema.parse(JSON.parse(row.leaseJson)))
   },
   run: (id) => runRow(db.query('SELECT * FROM runs WHERE id=?').get(id) as Row | null),
   requestCancel: (id) =>

@@ -221,6 +221,7 @@ export class RuntimeCoordinator {
       active.fence !== parsed.fence ||
       active.sessionId !== parsed.sessionId ||
       !sameOwner(active.owner, parsed.owner) ||
+      JSON.stringify(active.versions) !== JSON.stringify(parsed.versions) ||
       this.revoking.has(parsed.owner.incarnation) ||
       this.blocked.has(parsed.sessionId)
     )
@@ -254,7 +255,7 @@ export class RuntimeCoordinator {
     this.revoking.add(owner.incarnation)
     const affected = [...this.runs.values()].filter(
       (lease) =>
-        sameOwner(lease.owner, owner) ||
+        record.descriptor.kind === 'storage' || sameOwner(lease.owner, owner) ||
         versions(lease.versions).some(
           (version) =>
             version.unitId === owner.unitId &&

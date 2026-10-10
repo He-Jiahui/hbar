@@ -78,6 +78,35 @@ test('candidates have no write authority and only a default Kernel can claim a R
   expect((await f.claim('session', 'new', candidate)).owner.incarnation).toBe(candidate.incarnation)
 })
 
+test('valid lease identities cannot forge their captured capability bindings', async () => {
+  const f = fixture()
+  const lease = await f.claim()
+  const next = owner('plugin.local', 2)
+  f.register(next, 'plugin')
+  const forged = structuredClone(lease)
+  forged.versions.plugins = [version(next)]
+  expect(() => f.coordinator.assertExecution(forged)).toThrow('invalid or revoked owner')
+  expect(() => f.coordinator.assertCanWrite(next, forged)).toThrow('invalid or revoked owner')
+  f.coordinator.assertExecution(lease)
+})
+
+test('a shared writer failure revokes every active Session without making the healthy Kernel a failed owner', async () => {
+  const f = fixture()
+  const storage = owner('storage')
+  f.register(storage, 'storage')
+  const a = await f.claim('a', 'run-a'), b = await f.claim('b', 'run-b')
+  expect((await f.coordinator.revoke(storage)).map(lease => lease.runId)).toEqual(['run-a', 'run-b'])
+  expect(f.coordinator.role(f.kernel)).toBe('default')
+  expect(() => f.coordinator.assertExecution(a)).toThrow('invalid or revoked owner')
+  expect(() => f.coordinator.assertExecution(b)).toThrow('invalid or revoked owner')
+  f.coordinator.ownerExited(storage)
+  f.coordinator.acknowledgeRunStopped(f.kernel, a.runId)
+  f.coordinator.acknowledgeRunStopped(f.kernel, b.runId)
+  f.coordinator.reconciled('a')
+  f.coordinator.reconciled('b')
+  expect((await f.claim('a', 'new-a')).owner).toEqual(f.kernel)
+})
+
 test('existing Runs retain all dependency versions and Session handoff waits for the old executor', async () => {
   const f = fixture()
   const existing = await f.claim()

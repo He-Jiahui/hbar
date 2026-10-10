@@ -1,20 +1,18 @@
 import { z } from 'zod'
-import { createHash } from 'node:crypto'
 import { HbarError } from '@hbar/contracts'
 import { PiDriver } from '@hbar/pi-driver'
 import type { DriverInput, ToolDefinition } from '@hbar/plugin-sdk'
 import {
-  runtimeDriverStartSchema, runtimeDriverCallbackSchema, runtimeDriverCancelSchema, runtimeDriverSummarySchema,
+  runtimeDriverStartSchema, runtimeDriverCancelSchema, runtimeDriverSummarySchema,
   runtimeDriverSummaryResultSchema, runtimeModelRequestSchema, runtimeMessageSchema, runtimeToolResultSchema,
   runtimeDriverStepResultSchema, runtimeDriverEventResultSchema,
   type RuntimeDriverCallbackValue,
 } from '@hbar/plugin-sdk/runtime-driver'
 import { procedure, type RuntimeProcessContext, type RuntimeProcessService } from '@hbar/runtime'
 import { STORAGE_SCHEMA_VERSION } from '@hbar/storage'
+import { DRIVER_RUNTIME_FINGERPRINT } from './runtime-driver-contract'
+export { DRIVER_RUNTIME_FINGERPRINT } from './runtime-driver-contract'
 
-export const DRIVER_RUNTIME_FINGERPRINT = createHash('sha256').update(JSON.stringify([
-  z.toJSONSchema(runtimeDriverStartSchema, { io: 'input' }), z.toJSONSchema(runtimeDriverCallbackSchema, { io: 'input' }),
-])).digest('hex')
 export function create(context: RuntimeProcessContext): RuntimeProcessService {
   const driver = new PiDriver()
   const active = new Map<string, { controller: AbortController; cancellation: ReturnType<typeof setTimeout> | undefined }>()
