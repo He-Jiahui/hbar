@@ -5,6 +5,7 @@ import { LumenButton, LumenFrame, LumenIcon, LumenContentText } from '@lumen/app
 import type { SessionGitContextState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './session-project-context.css'
+import { HbarComposerFeedback } from './composer-feedback'
 
 const REFRESH_INTERVAL_MS = 60_000
 
@@ -73,30 +74,36 @@ export function HbarSessionProjectContext({
             </LumenFrame>
           )}
       {!connected && (
-        <LumenContentText context="control.status" tone="subtle">
-          {labels.disconnected}
-        </LumenContentText>
+        <HbarComposerFeedback>
+          <LumenContentText context="control.status" tone="subtle">
+            {labels.disconnected}
+          </LumenContentText>
+        </HbarComposerFeedback>
       )}
       {loading && (
-        <LumenContentText context="control.status" tone="subtle" role="status">
-          {labels.loading}
-        </LumenContentText>
+        <HbarComposerFeedback>
+          <LumenContentText context="control.status" tone="subtle" role="status">
+            {labels.loading}
+          </LumenContentText>
+        </HbarComposerFeedback>
       )}
       {error && (
-        <LumenFrame className="hbar-session-project-context-error" role="status">
-          <LumenContentText
-            context="control.status"
-            tone="danger"
-            aria-label={errorLabel ?? undefined}
-            title={errorLabel ?? undefined}
-          >
-            {errorLabel}
-          </LumenContentText>
-          <LumenButton size="s" variant="text" onClick={onRetry}>
-            <LumenIcon icon={RotateCw} tier="sm" />
-            {labels.retry}
-          </LumenButton>
-        </LumenFrame>
+        <HbarComposerFeedback tone="danger">
+          <LumenFrame className="hbar-session-project-context-error" role="status">
+            <LumenContentText
+              context="control.status"
+              tone="danger"
+              aria-label={errorLabel ?? undefined}
+              title={errorLabel ?? undefined}
+            >
+              {errorLabel}
+            </LumenContentText>
+            <LumenButton size="s" variant="text" onClick={onRetry}>
+              <LumenIcon icon={RotateCw} tier="sm" />
+              {labels.retry}
+            </LumenButton>
+          </LumenFrame>
+        </HbarComposerFeedback>
       )}
     </LumenFrame>
   )

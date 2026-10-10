@@ -15,6 +15,7 @@ import { HbarComposerSlashMenu, type HbarComposerSlashLabels } from './composer-
 import { shouldSubmitExactSlashOnSend, slashMatches, slashTokenAt, type LocalSlashCommand } from './composer-slash'
 import { FloatingSurface } from './floating-surface'
 import './composer-mention-editor.css'
+import { HbarComposerFeedback } from './composer-feedback'
 
 const MAX_ROWS = 50
 type Candidate = { readonly path: string; readonly directory: boolean; readonly label: string }
@@ -899,9 +900,11 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
         )}
       </FloatingSurface>
       {localError && (
-        <LumenText className="hbar-composer-mention-feedback" role="alert">
-          {props.labels.error(localError)}
-        </LumenText>
+        <HbarComposerFeedback tone="danger">
+          <LumenText className="hbar-composer-mention-feedback" role="alert">
+            {props.labels.error(localError)}
+          </LumenText>
+        </HbarComposerFeedback>
       )}
     </LumenFrame>
   )

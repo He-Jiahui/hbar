@@ -13,6 +13,7 @@ import {
   type ComposerIntentInteractionTarget,
 } from './composer-intent-availability'
 import './composer-intent-blocked.css'
+import { HbarComposerFeedback } from './composer-feedback'
 
 export interface HbarComposerIntentBlockedLabels {
   readonly goalRecovery: HbarComposerGoalRecoveryLabels
@@ -317,9 +318,11 @@ export function HbarComposerIntentControl({
         {intent === 'goal' && <LumenIcon icon={X} tier="sm" />}
       </LumenButton>
       {connected && feedback && !open && !goalUnknown && (
-        <LumenContentText context="feedback.detail" role="alert">
-          {feedback}
-        </LumenContentText>
+        <HbarComposerFeedback tone="danger">
+          <LumenContentText context="feedback.detail" role="alert">
+            {feedback}
+          </LumenContentText>
+        </HbarComposerFeedback>
       )}
       <LumenFrame
         ref={popup}

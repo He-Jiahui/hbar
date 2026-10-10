@@ -21,6 +21,7 @@ import type {
   ComposerPlanModeEntry,
 } from '@hbar/app-runtime'
 import './composer-permission-picker.css'
+import { HbarComposerFeedback } from './composer-feedback'
 
 export interface HbarComposerPermissionLabels {
   readonly execution: {
@@ -589,8 +590,29 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
       </LumenButton>
       {!open && (
         <>
-          {approvalFeedback}
-          {executionFeedback}
+          <HbarComposerFeedback
+            active={
+              connected &&
+              Boolean(
+                entry?.status === 'unknown' ||
+                locked ||
+                entry?.status === 'loading' ||
+                entry?.writeUnknown ||
+                error ||
+                (hostDefault.status === 'error' && choice === 'inherit') ||
+                entry?.status === 'failed',
+              )
+            }
+            tone={error || entry?.status === 'unknown' ? 'danger' : 'neutral'}
+          >
+            {approvalFeedback}
+          </HbarComposerFeedback>
+          <HbarComposerFeedback
+            active={connected && executionUnresolved}
+            tone={executionStatus === 'unknown' || executionStatus === 'failed' ? 'danger' : 'neutral'}
+          >
+            {executionFeedback}
+          </HbarComposerFeedback>
         </>
       )}
       <LumenFrame

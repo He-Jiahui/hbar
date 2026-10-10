@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Archive, ShieldQuestion } from 'lucide-react'
 import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import type { SessionExecutionAccess, SessionExecutionTarget } from '@hbar/app-runtime'
+import { HbarComposerFeedback } from './composer-feedback'
 
 export interface HbarSessionExecutionLabels {
   readonly archived: string
@@ -61,23 +62,25 @@ export function HbarSessionExecutionNotice({
       })
   }
   return (
-    <LumenFrame className="hbar-session-execution-notice" data-session-execution-access={status}>
-      <LumenFrame className="hbar-session-execution-summary" role="status">
-        <LumenIcon icon={status === 'archived' ? Archive : ShieldQuestion} tier="sm" />
-        <LumenText as="span" className="hbar-session-execution-copy">
-          {status === 'archived' ? labels.archived : labels.unverified}
-        </LumenText>
+    <HbarComposerFeedback>
+      <LumenFrame className="hbar-session-execution-notice" data-session-execution-access={status}>
+        <LumenFrame className="hbar-session-execution-summary" role="status">
+          <LumenIcon icon={status === 'archived' ? Archive : ShieldQuestion} tier="sm" />
+          <LumenText as="span" className="hbar-session-execution-copy">
+            {status === 'archived' ? labels.archived : labels.unverified}
+          </LumenText>
+        </LumenFrame>
+        {status === 'archived' && (
+          <LumenButton size="s" variant="text" indicator="none" disabled={!connected || opening} onClick={open}>
+            {opening ? labels.opening : labels.openArchived(workspaceName)}
+          </LumenButton>
+        )}
+        {error && (
+          <LumenText as="p" role="alert">
+            {labels.error(error)}
+          </LumenText>
+        )}
       </LumenFrame>
-      {status === 'archived' && (
-        <LumenButton size="s" variant="text" indicator="none" disabled={!connected || opening} onClick={open}>
-          {opening ? labels.opening : labels.openArchived(workspaceName)}
-        </LumenButton>
-      )}
-      {error && (
-        <LumenText as="p" role="alert">
-          {labels.error(error)}
-        </LumenText>
-      )}
-    </LumenFrame>
+    </HbarComposerFeedback>
   )
 }

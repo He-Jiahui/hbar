@@ -8,6 +8,7 @@ import { HbarComposerGoalRecovery, type HbarComposerGoalRecoveryLabels } from '.
 import { canReturnGoalClearFocus, sameGoalClearFocusScope, type GoalClearFocusScope } from './composer-goal-clear-focus'
 import { HbarGoalTiming } from './session-goal-timing'
 import './composer-intent-controls.css'
+import { HbarComposerFeedback } from './composer-feedback'
 
 type Goal = NonNullable<NonNullable<ComposerIntentState['facts']['snapshot']>['goal']>
 
@@ -378,24 +379,26 @@ export function HbarComposerGoal({
         </LumenFrame>
       )}
       {connected && showSummary && visibleGoal && executionReadError && (
-        <LumenFrame className="hbar-composer-goal-confirm" role="status">
-          <LumenText as="span">{labels.executionReadFailed}</LumenText>
-          <LumenButton
-            type="button"
-            size="s"
-            variant="text"
-            indicator="none"
-            disabled={!connected || !workspaceId}
-            onClick={() => {
-              if (!workspaceId) return
-              void runtime.commands
-                .execute('selectedSessionExecution.refresh', { sessionId, workspaceId })
-                .catch(() => {})
-            }}
-          >
-            {labels.retryExecution}
-          </LumenButton>
-        </LumenFrame>
+        <HbarComposerFeedback tone="danger">
+          <LumenFrame className="hbar-composer-goal-confirm" role="status">
+            <LumenText as="span">{labels.executionReadFailed}</LumenText>
+            <LumenButton
+              type="button"
+              size="s"
+              variant="text"
+              indicator="none"
+              disabled={!connected || !workspaceId}
+              onClick={() => {
+                if (!workspaceId) return
+                void runtime.commands
+                  .execute('selectedSessionExecution.refresh', { sessionId, workspaceId })
+                  .catch(() => {})
+              }}
+            >
+              {labels.retryExecution}
+            </LumenButton>
+          </LumenFrame>
+        </HbarComposerFeedback>
       )}
       {showSummary && clearTarget && clearTarget === goal?.goalId && (
         <LumenFrame role="group" aria-label={labels.clear} className="hbar-composer-goal-confirm">
@@ -423,61 +426,73 @@ export function HbarComposerGoal({
           </LumenButton>
         </LumenFrame>
       )}
-      {((showSummary && actionPending) || (showSubmission && submitting)) && (
-        <LumenText as="p" role="status">
-          {labels.pending}
-        </LumenText>
-      )}
-      {showSubmission && entry?.submission.status === 'partial' && (
-        <LumenText as="p" role="status">
-          {labels.partial}
-        </LumenText>
-      )}
-      {connected &&
-        (showSummary && actionUnknown ? (
-          <HbarComposerGoalRecovery
-            action={entry?.goalAction}
-            connected={connected}
-            labels={labels.recovery}
-            onReconcile={reconcile}
-          />
-        ) : unknown ? (
-          <LumenFrame className="hbar-composer-intent-feedback" role="alert">
-            <LumenText as="span">{labels.unknown}</LumenText>
-            <LumenButton type="button" size="s" disabled={!connected} onClick={reconcile}>
-              {labels.reconcile}
-            </LumenButton>
-          </LumenFrame>
-        ) : (
-          error && (
-            <LumenText as="p" role="alert">
-              {labels.error(error)}
-            </LumenText>
-          )
-        ))}
-      {connected &&
-        showSummary &&
-        !unknown &&
-        facts?.status === 'error' &&
-        facts.error !== 'CAPABILITY_UNAVAILABLE' && (
-          <LumenFrame className="hbar-composer-intent-feedback" role="alert">
-            <LumenText as="span">{labels.error(facts.error ?? 'EXECUTION_FAILED')}</LumenText>
-            <LumenButton
-              type="button"
-              size="s"
-              disabled={!connected}
-              onClick={() => {
-                const generation = lifetime.current
-                setLocalError(null)
-                void runtime.commands.execute('composerIntent.refresh', { sessionId }).catch((reason: unknown) => {
-                  if (generation === lifetime.current) setLocalError(commandCode(reason))
-                })
-              }}
-            >
-              {labels.refresh}
-            </LumenButton>
-          </LumenFrame>
+      <HbarComposerFeedback
+        active={Boolean(
+          (showSummary && actionPending) ||
+          (showSubmission && (submitting || entry?.submission.status === 'partial')) ||
+          (connected &&
+            (unknown ||
+              error ||
+              (showSummary && facts?.status === 'error' && facts.error !== 'CAPABILITY_UNAVAILABLE'))),
         )}
+        tone={unknown || error || facts?.status === 'error' ? 'danger' : 'neutral'}
+      >
+        {((showSummary && actionPending) || (showSubmission && submitting)) && (
+          <LumenText as="p" role="status">
+            {labels.pending}
+          </LumenText>
+        )}
+        {showSubmission && entry?.submission.status === 'partial' && (
+          <LumenText as="p" role="status">
+            {labels.partial}
+          </LumenText>
+        )}
+        {connected &&
+          (showSummary && actionUnknown ? (
+            <HbarComposerGoalRecovery
+              action={entry?.goalAction}
+              connected={connected}
+              labels={labels.recovery}
+              onReconcile={reconcile}
+            />
+          ) : unknown ? (
+            <LumenFrame className="hbar-composer-intent-feedback" role="alert">
+              <LumenText as="span">{labels.unknown}</LumenText>
+              <LumenButton type="button" size="s" disabled={!connected} onClick={reconcile}>
+                {labels.reconcile}
+              </LumenButton>
+            </LumenFrame>
+          ) : (
+            error && (
+              <LumenText as="p" role="alert">
+                {labels.error(error)}
+              </LumenText>
+            )
+          ))}
+        {connected &&
+          showSummary &&
+          !unknown &&
+          facts?.status === 'error' &&
+          facts.error !== 'CAPABILITY_UNAVAILABLE' && (
+            <LumenFrame className="hbar-composer-intent-feedback" role="alert">
+              <LumenText as="span">{labels.error(facts.error ?? 'EXECUTION_FAILED')}</LumenText>
+              <LumenButton
+                type="button"
+                size="s"
+                disabled={!connected}
+                onClick={() => {
+                  const generation = lifetime.current
+                  setLocalError(null)
+                  void runtime.commands.execute('composerIntent.refresh', { sessionId }).catch((reason: unknown) => {
+                    if (generation === lifetime.current) setLocalError(commandCode(reason))
+                  })
+                }}
+              >
+                {labels.refresh}
+              </LumenButton>
+            </LumenFrame>
+          )}
+      </HbarComposerFeedback>
     </LumenFrame>
   )
 }

@@ -9,6 +9,7 @@ test('no-tab landing renders host-owned welcome and composer in reading order fo
     const html = renderToStaticMarkup(
       <HbarPreSessionLanding
         labels={{
+          composerFeedback: copy.preSession.composerFeedback,
           hero: {
             ...copy.preSession.hero,
             description: `${copy.preSession.hero.description} ${'长期上下文 '.repeat(30)}`,

@@ -149,7 +149,10 @@ test('page controls, error recovery and offline states remain explicit', () => {
   expect(render({ ...state, status: 'error', error: 'DISCONNECTED' })).toContain('错误：DISCONNECTED')
   expect(render({ ...state, status: 'loading' })).toContain('正在读取')
   expect(render(state, 'one', false)).toContain('离线')
-  expect(render(state, 'one', false)).not.toContain('下一页')
+  const offline = render(state, 'one', false)
+  expect(offline).toContain('1 个附件')
+  expect(offline).toContain('下一页')
+  expect(offline.match(/<button\b[^>]*>/g)?.every((button) => button.includes('disabled=""'))).toBe(true)
 })
 
 test('unknown and failed removals show local recovery even after the queue becomes empty', () => {

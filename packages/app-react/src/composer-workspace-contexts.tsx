@@ -1,6 +1,7 @@
 import { FileText, MessageSquare, X } from 'lucide-react'
 import { LumenButton, LumenDisclosure, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import type { SessionDraftState } from '@hbar/app-runtime'
+import { HbarComposerFeedback } from './composer-feedback'
 import './composer-workspace-contexts.css'
 
 type WorkspaceContext = NonNullable<SessionDraftState['workspaceContexts']>[number]
@@ -43,9 +44,11 @@ export function HbarComposerWorkspaceContexts({
   return (
     <LumenFrame className="hbar-composer-workspace-contexts">
       {error && (
-        <LumenText as="p" className="hbar-composer-workspace-context-error" role="alert">
-          {error}
-        </LumenText>
+        <HbarComposerFeedback tone="danger">
+          <LumenText as="p" className="hbar-composer-workspace-context-error" role="alert">
+            {error}
+          </LumenText>
+        </HbarComposerFeedback>
       )}
       {contexts.length > 0 && (
         <LumenFrame className="hbar-composer-workspace-context-list" role="list" aria-label={labels.label}>

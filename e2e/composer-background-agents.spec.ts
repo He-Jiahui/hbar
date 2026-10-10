@@ -179,7 +179,12 @@ test('composer stops its captured background Agents without replacing Send or ca
     await expect(backgroundStop).toBeEnabled()
     lose = true
     await backgroundStop.click()
-    const feedback = composer.locator('.hbar-composer-background-feedback')
+    await expect.poll(() => sentCancels.includes(original.agentId)).toBe(true)
+    await composer.locator('.hbar-composer-feedback-trigger').scrollIntoViewIfNeeded()
+    await composer.locator('.hbar-composer-feedback-trigger').click()
+    const feedback = page
+      .getByRole('dialog', { name: copy.session.composerFeedback.title, exact: true })
+      .locator('.hbar-composer-background-feedback')
     await expect(feedback).toHaveAttribute('data-state', 'unknown')
     await expect(feedback).toContainText(labels.unknown)
     const newcomer = await createWaiting(parent, '稍后创建 · 不属于原停止请求', 'newcomer.txt')

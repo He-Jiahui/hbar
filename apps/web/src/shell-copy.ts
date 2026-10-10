@@ -1753,6 +1753,15 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         'Choose a project and connect to the Host, then use prompt templates when the draft is editable.',
       ),
     },
+    composerFeedback: {
+      title: choose('输入状态', 'Composer status'),
+      empty: choose('目前没有输入提示。', 'There are no composer notices.'),
+      close: choose('关闭输入状态', 'Close composer status'),
+      summary: (count) =>
+        count
+          ? choose(`${count} 项输入提示，查看详情`, `${count} composer notices. View details`)
+          : choose('输入状态', 'Composer status'),
+    },
     modelPicker: {
       title: choose('模型配置', 'Model configuration'),
       choose: choose('选择模型', 'Choose a model'),
@@ -3730,6 +3739,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
         title: '新建会话',
         description: '选择一个项目，告诉助手你想构建、调试或探索什么。',
       },
+      composerFeedback: createSessionLabels('zh-CN').composerFeedback,
       prompt: { ...createSessionLabels('zh-CN').prompt, placeholder: '从这里开始提问…' },
     },
     session: createSessionLabels('zh-CN'),
@@ -3886,6 +3896,7 @@ const copies: Readonly<Record<ShellLocale, ShellCopy>> = {
         description: 'Choose a project and tell the assistant what you want to build, debug, or explore.',
       },
       prompt: { ...createSessionLabels('en-US').prompt, placeholder: 'Ask anything…' },
+      composerFeedback: createSessionLabels('en-US').composerFeedback,
     },
     session: createSessionLabels('en-US'),
     planProposal: {

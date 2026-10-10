@@ -1,0 +1,16 @@
+html,
+body,
+#root {
+  margin: 0;
+  min-block-size: 100dvh;
+}
+.composer-stability-fixture {
+  display: flex;
+  min-block-size: 100dvh;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.composer-stability-fixture .hbar-app-react-session-footer {
+  inline-size: 100%;
+  box-sizing: border-box;
+}
