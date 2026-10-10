@@ -53,3 +53,11 @@ process. Fault callbacks fence authority, and exit callbacks reconcile resources
 failed reconciliation keeps the generation unavailable. Explicit disposal cancels
 recovery and kills a stuck owner at the shutdown deadline. Actual process tests
 exercise compatibility failures, repeated crashes, heartbeat stalls and disposal.
+
+`RuntimeArtifactStore` builds registered units with Bun metafiles and stores bundles
+by content hash. Dependency ownership comes from actual build inputs, explicit
+capability dependencies and declared dynamic resources. Bundle and resource bytes
+are immutable, and their hashes are checked again before loading. Dynamic resources
+are copied into the artifact version; callers use its registered resource references
+so old Runs cannot read a later source revision. Compilation failure keeps existing
+registered artifact sets. Sets and artifacts have bounded in-memory registration.

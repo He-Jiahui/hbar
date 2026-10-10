@@ -26,3 +26,10 @@ export {
   runtimeReadySchema,
   runtimeDrainSchema,
 } from './lifecycle'
+export {
+  RuntimeArtifactStore,
+  type RuntimeArtifact,
+  type RuntimeArtifactSet,
+  type RuntimeArtifactPort,
+  type RuntimeBuildUnit,
+} from './artifacts'
