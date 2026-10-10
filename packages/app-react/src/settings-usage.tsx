@@ -1,13 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
-import {
-  LumenButton,
-  LumenFrame,
-  LumenIcon,
-  LumenText,
-  LumenUsage01,
-  LumenUsage02,
-} from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenText, LumenUsage01, LumenUsage02 } from '@lumen/app-ui'
 import type { SettingsUsageReport, SettingsUsageWindow } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { EchartsChart, type EChartsOption } from './echarts-chart'
@@ -96,9 +89,7 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
           data: series.map((p) => ({
             value: p.input + p.output,
             itemStyle: {
-              color: bucketId === String(p.start)
-                ? 'var(--lumen-accent, #7c6af7)'
-                : 'color-mix(in srgb, var(--lumen-accent, #7c6af7) 55%, transparent)',
+              opacity: bucketId === String(p.start) ? 1 : 0.55,
             },
           })),
         },
@@ -112,7 +103,11 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
           title: labels.summary,
           description: labels.description,
           metrics: [
-            { id: 'tokens', label: labels.tokens, value: labels.tokenCount(report.totals.input + report.totals.output) },
+            {
+              id: 'tokens',
+              label: labels.tokens,
+              value: labels.tokenCount(report.totals.input + report.totals.output),
+            },
             { id: 'input', label: labels.input, value: labels.tokenCount(report.totals.input) },
             { id: 'output', label: labels.output, value: labels.tokenCount(report.totals.output) },
             { id: 'cost', label: labels.cost, value: costValue(report.cost, labels) },
@@ -127,7 +122,10 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
           rows: models.map((model) => ({
             id: model.modelSelectionId,
             model: labels.model(model.providerId, model.modelId),
-            share: report.totals.input + report.totals.output > 0 ? ((model.input + model.output) / (report.totals.input + report.totals.output)) * 100 : 0,
+            share:
+              report.totals.input + report.totals.output > 0
+                ? ((model.input + model.output) / (report.totals.input + report.totals.output)) * 100
+                : 0,
             shareLabel: labels.tokenCount(model.input + model.output),
             spend: costValue(model.cost, labels),
             change: '',
@@ -205,14 +203,37 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
           <LumenFrame as="section" className="hbar-settings-usage-activity" aria-label={labels.activity}>
             <LumenText as="h3">{labels.activity}</LumenText>
             {report.series.length > 0 ? (
-              <EchartsChart
-                height="9rem"
-                label={labels.activity}
-                className="hbar-settings-usage-echarts"
-                option={activityOption}
-              />
+              <>
+                <EchartsChart
+                  height="9rem"
+                  label={labels.activity}
+                  className="hbar-settings-usage-echarts"
+                  option={activityOption}
+                />
+                <LumenFrame as="div" className="hbar-settings-usage-buckets" role="group" aria-label={labels.activity}>
+                  {report.series.map((bucket) => {
+                    const id = String(bucket.start)
+                    const selected = id === bucketId
+                    return (
+                      <LumenButton
+                        key={id}
+                        type="button"
+                        size="s"
+                        variant={selected ? 'outlined' : 'text'}
+                        aria-pressed={selected}
+                        data-settings-usage-bucket={id}
+                        onClick={() => setBucketId(id)}
+                      >
+                        {labels.bucket(bucket.start, bucket.end, bucket.input + bucket.output)}
+                      </LumenButton>
+                    )
+                  })}
+                </LumenFrame>
+              </>
             ) : (
-              <LumenText as="p" tone="muted">{labels.empty}</LumenText>
+              <LumenText as="p" tone="muted">
+                {labels.empty}
+              </LumenText>
             )}
             {selectedBucket && (
               <LumenText as="p" role="status">
@@ -238,4 +259,3 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
     </LumenFrame>
   )
 }
-
