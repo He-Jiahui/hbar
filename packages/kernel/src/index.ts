@@ -1842,6 +1842,27 @@ export class Kernel {
                 idleTimeout.progress()
               this.updateStream({ id, sessionId, runId: run.id, text, thinking })
             },
+            onModelDiagnostic: (event) => {
+              const method = event.purpose === 'compaction' ? 'context.compaction' : 'model.request'
+              const identity = {
+                sessionId,
+                runId: run.id,
+                requestId: run.requestId,
+                method,
+                providerId: event.providerId,
+                modelSelectionId: event.modelSelectionId,
+                modelRequestId: event.modelRequestId,
+                model: event.model,
+                protocol: event.protocol,
+                stopReason: event.stopReason,
+              }
+              if (event.phase === 'started') this.executionDiagnostics.providerRequestStarted(identity)
+              else if (event.phase === 'settled')
+                this.executionDiagnostics.providerRequestSettled(identity, 'success', event.durationMs ?? 0)
+              else if (event.phase === 'cancelled')
+                this.executionDiagnostics.providerRequestSettled(identity, 'skipped', event.durationMs ?? 0)
+              else this.executionDiagnostics.providerRequestSettled(identity, 'failure', event.durationMs ?? 0)
+            },
             execute: async (name, args, callId) => {
               const effectiveMode = this.plugins.get<ModeService>('mode').effectiveMode(run)
               const effectiveRun =
@@ -2966,43 +2987,107 @@ export class Kernel {
         thinking: normalizeThinkingLevel(model, thinking),
       },
     }
-    const summarize = async (boundedRequest: ModelRequest) => {
+    const compactionIdentity = {
+      sessionId,
+      ...(runId ? { runId } : {}),
+      method: 'context.compaction',
+      providerId: model.id.split('/', 1)[0] ?? model.id,
+      modelSelectionId: model.id,
+      model: model.model,
+      protocol: model.protocol,
+    }
+    this.executionDiagnostics.compactionStage(compactionIdentity, 'prepared', {
+      inputEstimatedTokens: estimateContextTokens(summarization),
+      inputLimit: Math.min(model.contextWindow - summarization.model.maxOutput, Math.floor(model.contextWindow * 0.75)),
+      summaryMaxOutput: summarization.model.maxOutput,
+      thresholdRatio: percent / 100,
+    })
+    let completedChunks = 0
+    const summarize = async (boundedRequest: ModelRequest, chunkIndex: number) => {
       signal.throwIfAborted()
       assertContextCapacity(boundedRequest)
       const attemptId = crypto.randomUUID()
-      await this.append(
-        sessionId,
-        'compaction.request',
-        { ...describeUsageAttempt(attemptId, 'compaction', boundedRequest.model), request: boundedRequest },
-        runId,
-        attemptId,
-      )
-      const result = await this.plugins
-        .get<HarnessDriver>('driver')
-        .summarize(
-          boundedRequest,
-          model.protocol === 'mock' ? null : await this.plugins.get<ModelRegistry>('models').secret(model.id),
-          signal,
+      const attemptIdentity = { ...compactionIdentity, attemptId, chunkIndex }
+      const budget = {
+        inputEstimatedTokens: estimateContextTokens(boundedRequest),
+        inputLimit: Math.min(
+          boundedRequest.model.contextWindow - boundedRequest.model.maxOutput,
+          Math.floor(boundedRequest.model.contextWindow * 0.75),
+        ),
+        summaryMaxOutput: boundedRequest.model.maxOutput,
+        chunkIndex,
+        chunkCount: completedChunks,
+      }
+      this.executionDiagnostics.compactionStage(attemptIdentity, 'summary_started', budget)
+      try {
+        await this.append(
+          sessionId,
+          'compaction.request',
+          { ...describeUsageAttempt(attemptId, 'compaction', boundedRequest.model), request: boundedRequest },
+          runId,
+          attemptId,
         )
-      await this.append(
-        sessionId,
-        'usage.recorded',
-        createUsageFact({ usage: result.usage, runId, attemptId, source: 'compaction', model: boundedRequest.model }),
-        runId,
-        attemptId,
-      )
-      signal.throwIfAborted()
-      if (!result.text.trim()) throw new HbarError('COMPACTION_FAILED', 'Provider returned an empty summary')
-      return result.text
+        const result = await this.plugins
+          .get<HarnessDriver>('driver')
+          .summarize(
+            boundedRequest,
+            model.protocol === 'mock' ? null : await this.plugins.get<ModelRegistry>('models').secret(model.id),
+            signal,
+            (event) => {
+              const identity = {
+                ...attemptIdentity,
+                providerId: event.providerId,
+                modelSelectionId: event.modelSelectionId,
+                modelRequestId: event.modelRequestId,
+                model: event.model,
+                protocol: event.protocol,
+                stopReason: event.stopReason,
+              }
+              if (event.phase === 'started') this.executionDiagnostics.providerRequestStarted(identity)
+              else if (event.phase === 'settled')
+                this.executionDiagnostics.providerRequestSettled(identity, 'success', event.durationMs ?? 0)
+              else if (event.phase === 'cancelled')
+                this.executionDiagnostics.providerRequestSettled(identity, 'skipped', event.durationMs ?? 0)
+              else this.executionDiagnostics.providerRequestSettled(identity, 'failure', event.durationMs ?? 0)
+            },
+          )
+        await this.append(
+          sessionId,
+          'usage.recorded',
+          createUsageFact({ usage: result.usage, runId, attemptId, source: 'compaction', model: boundedRequest.model }),
+          runId,
+          attemptId,
+        )
+        signal.throwIfAborted()
+        if (!result.text.trim()) throw new HbarError('COMPACTION_FAILED', 'Provider returned an empty summary')
+        completedChunks++
+        this.executionDiagnostics.compactionStage(attemptIdentity, 'summary_completed', {
+          ...budget,
+          chunkCount: completedChunks,
+        })
+        return result.text
+      } catch (error) {
+        this.executionDiagnostics.compactionStage(
+          attemptIdentity,
+          signal.aborted ? 'summary_cancelled' : 'summary_failed',
+          budget,
+        )
+        throw error
+      }
     }
     const document = summaryDocument(summarization)
     let offset = 0
     let summary = ''
     for (let chunk = 0; offset < document.length; chunk++) {
-      if (chunk >= MAX_COMPACTION_CHUNKS)
+      if (chunk >= MAX_COMPACTION_CHUNKS) {
+        this.executionDiagnostics.compactionStage(compactionIdentity, 'chunk_limit', {
+          chunkIndex: chunk,
+          chunkCount: completedChunks,
+        })
         throw new HbarError('COMPACTION_LIMIT', 'History exceeds the bounded compaction chunk limit')
+      }
       const next = nextSummaryChunk(summarization, document, offset, summary)
-      summary = await summarize(next.request)
+      summary = await summarize(next.request, chunk)
       offset = next.nextOffset
     }
     const throughSeq = older.at(-1)?.seq ?? storedContext.throughSeq
@@ -3029,12 +3114,29 @@ export class Kernel {
               ...retained,
             ],
     }
-    if (estimateContextTokens(rebuilt) + model.maxOutput > model.contextWindow)
-      throw new HbarError(
-        'COMPACTION_FAILED',
-        'Generated summary and retained history exceed the model context capacity',
-      )
-    this.publishEvent(await this.storage.call('compact', sessionId, throughSeq, summary, model.id))
+    const rebuiltTokens = estimateContextTokens(rebuilt)
+    const rebuiltWithinCapacity = rebuiltTokens + model.maxOutput <= model.contextWindow
+    this.executionDiagnostics.compactionStage(
+      compactionIdentity,
+      'rebuilt_capacity',
+      {
+        inputEstimatedTokens: rebuiltTokens,
+        inputLimit: model.contextWindow - model.maxOutput,
+        chunkCount: completedChunks,
+      },
+      rebuiltWithinCapacity ? 'success' : 'failure',
+    )
+    if (!rebuiltWithinCapacity) {
+      throw new HbarError('COMPACTION_FAILED', 'Generated summary and retained history exceed the model context capacity')
+    }
+    this.executionDiagnostics.compactionStage(compactionIdentity, 'persist_started', { chunkCount: completedChunks })
+    try {
+      this.publishEvent(await this.storage.call('compact', sessionId, throughSeq, summary, model.id))
+      this.executionDiagnostics.compactionStage(compactionIdentity, 'persist_completed', { chunkCount: completedChunks })
+    } catch (error) {
+      this.executionDiagnostics.compactionStage(compactionIdentity, 'persist_failed', { chunkCount: completedChunks })
+      throw error
+    }
     return { summary }
   }
   async upload(name: string, mime: string, bytes: Uint8Array, options?: ArtifactUploadOptions): Promise<ArtifactRef> {

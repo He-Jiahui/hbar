@@ -21,7 +21,13 @@ import { providerFailure } from './provider-failure'
 import { definePlugin, describeToolTimeout, provide, RunControlSignal } from '@hbar/plugin-sdk'
 import { createUsageFact } from '@hbar/usage'
 import { DEFAULT_THINKING_LEVELS, normalizeThinkingLevel } from '@hbar/contracts'
-import type { DriverInput, HarnessDriver, ModelRequest, ToolResultContent } from '@hbar/plugin-sdk'
+import type {
+  DriverInput,
+  HarnessDriver,
+  ModelDiagnosticEvent,
+  ModelRequest,
+  ToolResultContent,
+} from '@hbar/plugin-sdk'
 import type { ContentBlock, Message, ProviderConfig, ThinkingLevel, Usage } from '@hbar/contracts'
 import { appendProviderContext, splitModelContext } from './model-context'
 import { createDriverSteeringReader } from './steering'
@@ -245,6 +251,21 @@ function streamProvider(
   }
 }
 
+function emitModelDiagnostic(
+  callback: ((event: ModelDiagnosticEvent) => void) | undefined,
+  event: ModelDiagnosticEvent,
+): void {
+  try {
+    callback?.(event)
+  } catch {
+    // Diagnostics are observational and must not alter provider/error semantics.
+  }
+}
+function diagnosticProviderId(selectionId: string): string {
+  const value = selectionId.split('/', 1)[0] ?? selectionId
+  return value.slice(0, 160)
+}
+
 async function toPiMessages(
   messages: Message[],
   model: ProviderConfig,
@@ -364,6 +385,9 @@ export class PiDriver implements HarnessDriver {
       attemptModel = input.request.model,
       firstThinking = false,
       firstText = false
+    let modelDiagnosticStartedAt = 0
+    let modelRequestId = ''
+    let modelTerminalEmitted = false
     const completedTools = new Set<string>()
     let goalStopped = false
     let requestFailure: unknown
@@ -436,6 +460,32 @@ export class PiDriver implements HarnessDriver {
       } else if (event.type === 'message_end') {
         if (event.message.role === 'assistant') {
           const message = event.message
+          if (
+            message.stopReason === 'error' ||
+            message.stopReason === 'aborted' ||
+            message.stopReason === 'stop' ||
+            message.stopReason === 'toolUse' ||
+            message.stopReason === 'length'
+          )
+            if (!modelTerminalEmitted)
+              emitModelDiagnostic(input.onModelDiagnostic, {
+                phase:
+                  message.stopReason === 'aborted'
+                    ? 'cancelled'
+                    : message.stopReason === 'error'
+                      ? 'failed'
+                      : 'settled',
+                purpose: 'model',
+                providerId: diagnosticProviderId(attemptModel.id),
+                modelSelectionId: attemptModel.id,
+                modelRequestId,
+                model: attemptModel.model,
+                protocol: attemptModel.protocol,
+                stopReason: message.stopReason,
+                durationMs:
+                  modelDiagnosticStartedAt > 0 ? Math.max(0, performance.now() - modelDiagnosticStartedAt) : undefined,
+              })
+          modelTerminalEmitted = true
           await input.emit(
             'usage.recorded',
             createUsageFact({
@@ -483,6 +533,19 @@ export class PiDriver implements HarnessDriver {
           request.model.protocol === 'openai-responses' || request.model.protocol === 'openai-completions'
             ? splitModelContext(request)
             : { instructions: request.system, context: '' }
+        modelRequestId = stepId
+        modelTerminalEmitted = false
+        if (!modelTerminalEmitted)
+          emitModelDiagnostic(input.onModelDiagnostic, {
+            phase: 'started',
+            purpose: 'model',
+            providerId: diagnosticProviderId(request.model.id),
+            modelSelectionId: request.model.id,
+            modelRequestId,
+            model: request.model.model,
+            protocol: request.model.protocol,
+          })
+        modelDiagnosticStartedAt = performance.now()
         return streamProvider(
           request.model,
           {
@@ -505,6 +568,20 @@ export class PiDriver implements HarnessDriver {
       } catch (error) {
         if (error instanceof RunControlSignal && !input.signal.aborted) throw error
         requestFailure = error
+        if (!modelTerminalEmitted)
+          emitModelDiagnostic(input.onModelDiagnostic, {
+            phase: input.signal.aborted ? 'cancelled' : 'failed',
+            purpose: 'model',
+            providerId: diagnosticProviderId(input.request.model.id),
+            modelSelectionId: input.request.model.id,
+            modelRequestId,
+            model: input.request.model.model,
+            protocol: input.request.model.protocol,
+            stopReason: input.signal.aborted ? 'aborted' : 'error',
+            durationMs:
+              modelDiagnosticStartedAt > 0 ? Math.max(0, performance.now() - modelDiagnosticStartedAt) : undefined,
+          })
+        modelTerminalEmitted = true
         return failedStream(modelOf(input.request.model), error, input.signal.aborted)
       }
     }
@@ -548,39 +625,114 @@ export class PiDriver implements HarnessDriver {
       if (requestFailure !== undefined) throw requestFailure
       if (failure) throw attemptModel.protocol === 'mock' ? new Error(failure) : providerFailure(failure)
     } catch (error) {
+      if (modelRequestId && !modelTerminalEmitted)
+        emitModelDiagnostic(input.onModelDiagnostic, {
+          phase: input.signal.aborted ? 'cancelled' : 'failed',
+          purpose: 'model',
+          providerId: diagnosticProviderId(attemptModel.id),
+          modelSelectionId: attemptModel.id,
+          modelRequestId,
+          model: attemptModel.model,
+          protocol: attemptModel.protocol,
+          stopReason: input.signal.aborted ? 'aborted' : 'error',
+          durationMs:
+            modelDiagnosticStartedAt > 0 ? Math.max(0, performance.now() - modelDiagnosticStartedAt) : undefined,
+        })
+      modelTerminalEmitted = modelTerminalEmitted || Boolean(modelRequestId)
       if (!(error instanceof RunControlSignal) || input.signal.aborted) throw error
     } finally {
       await input.closeSteeringAdmission?.()
     }
   }
-  async summarize(request: ModelRequest, apiKey: string | null, signal: AbortSignal) {
-    const stream = streamProvider(
-      request.model,
-      {
-        systemPrompt: request.system,
-        messages: await toPiMessages(request.messages, { ...request.model, imageInput: true }, undefined, undefined),
-      },
-      apiKey,
-      signal,
-      request.context?.thinking,
-      '',
-      request.context?.sessionId,
-    )
-    for await (const event of stream) {
-      void event
-      signal.throwIfAborted()
-    }
-    const message = await stream.result()
-    if (message.stopReason === 'error' || message.stopReason === 'aborted')
-      throw request.model.protocol === 'mock'
-        ? new Error(message.errorMessage ?? 'Compaction failed')
-        : providerFailure(message.errorMessage ?? 'Compaction failed')
-    return {
-      text: message.content
-        .filter((c) => c.type === 'text')
-        .map((c) => c.text)
-        .join('\n'),
-      usage: normalizeUsage(message.usage),
+  async summarize(
+    request: ModelRequest,
+    apiKey: string | null,
+    signal: AbortSignal,
+    onDiagnostic?: (event: ModelDiagnosticEvent) => void,
+  ) {
+    const startedAt = performance.now()
+    const modelRequestId = crypto.randomUUID()
+    let terminalEmitted = false
+    emitModelDiagnostic(onDiagnostic, {
+      phase: 'started',
+      purpose: 'compaction',
+      providerId: diagnosticProviderId(request.model.id),
+      modelSelectionId: request.model.id,
+      modelRequestId,
+      model: request.model.model,
+      protocol: request.model.protocol,
+    })
+    try {
+      const stream = streamProvider(
+        request.model,
+        {
+          systemPrompt: request.system,
+          messages: await toPiMessages(request.messages, { ...request.model, imageInput: true }, undefined, undefined),
+        },
+        apiKey,
+        signal,
+        request.context?.thinking,
+        '',
+        request.context?.sessionId,
+      )
+      for await (const event of stream) {
+        void event
+        signal.throwIfAborted()
+      }
+      const message = await stream.result()
+      if (message.stopReason === 'error' || message.stopReason === 'aborted') {
+        terminalEmitted = true
+        emitModelDiagnostic(onDiagnostic, {
+          phase: message.stopReason === 'aborted' ? 'cancelled' : 'failed',
+          purpose: 'compaction',
+          providerId: diagnosticProviderId(request.model.id),
+          modelSelectionId: request.model.id,
+          modelRequestId,
+          model: request.model.model,
+          protocol: request.model.protocol,
+          stopReason: message.stopReason,
+          durationMs: Math.max(0, performance.now() - startedAt),
+        })
+        throw request.model.protocol === 'mock'
+          ? new Error(message.errorMessage ?? 'Compaction failed')
+          : providerFailure(message.errorMessage ?? 'Compaction failed')
+      }
+      if (!terminalEmitted)
+        emitModelDiagnostic(onDiagnostic, {
+          phase: 'settled',
+          purpose: 'compaction',
+          providerId: diagnosticProviderId(request.model.id),
+          modelSelectionId: request.model.id,
+          modelRequestId,
+          model: request.model.model,
+          protocol: request.model.protocol,
+          stopReason:
+            message.stopReason === 'toolUse' || message.stopReason === 'length' || message.stopReason === 'stop'
+              ? message.stopReason
+              : 'stop',
+          durationMs: Math.max(0, performance.now() - startedAt),
+        })
+      return {
+        text: message.content
+          .filter((c) => c.type === 'text')
+          .map((c) => c.text)
+          .join('\n'),
+        usage: normalizeUsage(message.usage),
+      }
+    } catch (error) {
+      if (!terminalEmitted)
+        emitModelDiagnostic(onDiagnostic, {
+          phase: signal.aborted ? 'cancelled' : 'failed',
+          purpose: 'compaction',
+          providerId: diagnosticProviderId(request.model.id),
+          modelSelectionId: request.model.id,
+          modelRequestId,
+          model: request.model.model,
+          protocol: request.model.protocol,
+          stopReason: signal.aborted ? 'aborted' : 'error',
+          durationMs: Math.max(0, performance.now() - startedAt),
+        })
+      throw error
     }
   }
 }
