@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./diagnostics": "./src/diagnostics.ts",
+    "./diagnostic-context": "./src/diagnostic-context.ts",
     "./decision": "./src/decision.ts",
     "./sandbox": "./src/sandbox.ts",
     "./commands": "./src/commands/index.ts",

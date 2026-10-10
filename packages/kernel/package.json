@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./diagnostics": "./src/diagnostic-journal.ts",
+    "./diagnostic-scope": "./src/diagnostic-scope.ts",
     "./session-search-commands": "./src/session-search-commands.ts",
     "./skill-import": "./src/skill-import-service.ts"
   },
