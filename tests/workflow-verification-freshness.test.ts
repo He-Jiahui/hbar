@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from 'bun:test'
+import { createHash } from 'node:crypto'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -24,7 +25,12 @@ afterEach(async () => {
   }
 })
 
-async function fixture() {
+type WorkspaceExpectation = { kind: 'textContains'; value: string } | { kind: 'sha256'; value: string }
+
+async function fixture(
+  initialVerifier: 'tool' | 'workspace' = 'tool',
+  workspaceExpectation: WorkspaceExpectation = { kind: 'textContains', value: 'correct proof' },
+) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-proof-freshness-'))
   await writeFile(join(root, 'proof.txt'), 'correct proof')
   const kernel = await Kernel.create({
@@ -42,7 +48,7 @@ async function fixture() {
   const workflows = kernel.plugins.get<WorkflowService>('workflow')
   await goals.create(session.id, 'Keep the proof correct until completion')
   const plan = await plans.update(session.id, [{ step: 'Produce verified proof', status: 'in_progress' }])
-  const focus = async (tools = ['read_file', 'write_file']) =>
+  const focus = async (tools = ['read_file', 'write_file'], verifier: 'tool' | 'workspace' = initialVerifier) =>
     workflows.focus(
       session.id,
       0,
@@ -54,11 +60,18 @@ async function fixture() {
           {
             id: 'content',
             description: 'Current proof is correct',
-            verifier: {
-              kind: 'tool',
-              toolName: tools.includes('delayed_read') ? 'delayed_read' : 'read_file',
-              result: { kind: 'textContains', value: 'correct proof' },
-            },
+            verifier:
+              verifier === 'workspace'
+                ? {
+                    kind: 'workspace',
+                    path: 'proof.txt',
+                    expectation: workspaceExpectation,
+                  }
+                : {
+                    kind: 'tool',
+                    toolName: tools.includes('delayed_read') ? 'delayed_read' : 'read_file',
+                    result: { kind: 'textContains', value: 'correct proof' },
+                  },
           },
         ],
       },
@@ -87,6 +100,84 @@ async function fixture() {
     )
   return { root, kernel, session, workflows, goals, plans, focus, run, check, complete }
 }
+
+async function replaceReadFileResult(
+  kernel: Awaited<ReturnType<typeof Kernel.create>>,
+  result: { text: string; details?: unknown; content?: { type: 'image'; data: string; mimeType: string }[] },
+) {
+  await kernel.changePlugin('tools.workspace', false)
+  let calls = 0
+  kernel.tools.register({
+    name: 'read_file',
+    description: 'Fixture read result',
+    inputSchema: z.object({ path: z.string() }),
+    effect: 'read',
+    workspaceAccess: { kind: 'paths', arguments: [{ field: 'path', access: 'read' }] },
+    execute: async () => {
+      calls++
+      return result
+    },
+  })
+  return () => calls
+}
+
+test('workspace verifiers accept absolute full-file reads and reject ranged reads', async () => {
+  const { root, run, check } = await fixture('workspace')
+
+  await run('read_file', { path: join(root, 'proof.txt'), startLine: 1, lineCount: 1 })
+  expect((await check()).status).toBe('pending')
+
+  await run('read_file', { path: join(root, 'proof.txt') })
+  expect((await check()).status).toBe('passed')
+})
+
+test('workspace verifiers fail when a complete read contains the wrong text', async () => {
+  const { root, run, check } = await fixture('workspace')
+  await run('read_file', { path: join(root, 'proof.txt') })
+  expect((await check()).status).toBe('passed')
+
+  await run('write_file', { path: 'proof.txt', text: 'wrong proof' })
+  await run('read_file', { path: join(root, 'proof.txt') })
+  expect((await check()).status).toBe('failed')
+})
+
+test('outside workspace reads do not produce workspace verifier evidence', async () => {
+  const { root, run, check } = await fixture('workspace')
+  await run('read_file', { path: join(root, '..', 'outside-proof.txt') })
+  expect((await check()).status).toBe('pending')
+})
+
+test('workspace text verifiers reject truncated read results', async () => {
+  const { root, kernel, run, check } = await fixture('workspace')
+  const calls = await replaceReadFileResult(kernel, { text: 'correct proof', details: { truncated: true } })
+  await run('read_file', { path: join(root, 'proof.txt') })
+  expect(calls()).toBe(1)
+  expect((await check()).status).toBe('pending')
+})
+
+test('workspace text verifiers reject image-only read results', async () => {
+  const { root, kernel, run, check } = await fixture('workspace')
+  const calls = await replaceReadFileResult(kernel, {
+    text: 'correct proof',
+    content: [{ type: 'image', data: 'AA==', mimeType: 'image/png' }],
+  })
+  await run('read_file', { path: join(root, 'proof.txt') })
+  expect(calls()).toBe(1)
+  expect((await check()).status).toBe('pending')
+})
+
+test('workspace sha256 verifiers pass the complete file and fail a changed file', async () => {
+  const { root, run, check } = await fixture('workspace', {
+    kind: 'sha256',
+    value: createHash('sha256').update('correct proof').digest('hex'),
+  })
+  await run('read_file', { path: join(root, 'proof.txt') })
+  expect((await check()).status).toBe('passed')
+
+  await writeFile(join(root, 'proof.txt'), 'changed proof')
+  await run('read_file', { path: join(root, 'proof.txt') })
+  expect((await check()).status).toBe('failed')
+})
 
 test('a later write invalidates earlier verification and completion requires a new passing read', async () => {
   const { run, check, complete, goals, session } = await fixture()

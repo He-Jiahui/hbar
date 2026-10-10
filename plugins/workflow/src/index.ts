@@ -273,6 +273,7 @@ function evaluateToolCheck(
   name: string,
   args: Record<string, unknown>,
   result: ToolResult,
+  workspacePath?: string,
 ): 'passed' | 'failed' | null {
   if (check.verifier.kind === 'tool') {
     if (check.verifier.toolName !== name || !expectedArgumentsMatch(check.verifier.expectedArguments, args)) return null
@@ -285,9 +286,32 @@ function evaluateToolCheck(
     return JSON.stringify(canonical(actual)) === JSON.stringify(canonical(predicate.value)) ? 'passed' : 'failed'
   }
   if (check.verifier.kind === 'workspace') {
-    if (name !== 'read_file' || args.path !== check.verifier.path) return null
+    if (name !== 'read_file' || !workspacePath || typeof args.path !== 'string') return null
+    // Workspace verifiers are defined in workspace-relative paths, while a
+    // native read_file call may use either a relative or absolute path. Keep
+    // the comparison inside the authorized workspace and canonicalize both
+    // forms before matching. A ranged read cannot prove a whole-file check.
+    const requested = resolve(workspacePath, args.path)
+    const relativePath = relative(workspacePath, requested).replaceAll('\\', '/') || '.'
+    if (
+      relativePath === '..' ||
+      relativePath.startsWith('../') ||
+      isAbsolute(relativePath) ||
+      normalizedScopePath(relativePath) !== normalizedScopePath(check.verifier.path) ||
+      args.startLine !== undefined ||
+      args.lineCount !== undefined
+    )
+      return null
     if (result.isError) return 'failed'
     if (check.verifier.expectation.kind === 'exists') return 'passed'
+    if (
+      (result.details &&
+        typeof result.details === 'object' &&
+        'truncated' in result.details &&
+        result.details.truncated === true) ||
+      result.content?.some((entry) => entry.type === 'image')
+    )
+      return null
     if (check.verifier.expectation.kind === 'textContains')
       return result.text.includes(check.verifier.expectation.value) ? 'passed' : 'failed'
     return createHash('sha256').update(result.text).digest('hex') === check.verifier.expectation.value
@@ -2388,7 +2412,7 @@ export class WorkflowRuntime implements WorkflowService {
       if (!item) return
       const evaluations = item.acceptanceChecks.flatMap((check) => {
         if (check.verifier.kind === 'user') return []
-        const outcome = evaluateToolCheck(check, name, args, result)
+        const outcome = evaluateToolCheck(check, name, args, result, context.workspace.path)
         return outcome ? [{ check, outcome }] : []
       })
       const marksVerification = tool.effect !== 'read' && !result.isError
