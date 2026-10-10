@@ -110,14 +110,17 @@ test('the Goal editor hands off a pending Run and exposes its before/after recor
     host = await startWebSessionHost({
       root,
       port: Number(process.env.HBAR_E2E_HOST_PORT ?? 45488),
-      goalAutoContinue: false,
       budgetAutoContinue: false,
     })
     const target = host
     const { sessionId } = host.ready
     const goals = createGoalPlanCommandClient(host.client)
     const runs = createRunCommandClient(host.client)
-    await goals.execute('goal.create', { sessionId, objective: '验证旧目标，删除旧动作' })
+    // Keep replacement auto-continuation enabled so the editor handoff still
+    // exercises its real Goal-owned Run. A one-token inherited budget makes
+    // that intentional continuation settle once, then stop at the budget
+    // boundary instead of spawning the unbounded no-progress chain.
+    await goals.execute('goal.create', { sessionId, objective: '验证旧目标，删除旧动作', tokenBudget: 1 })
     const copy = getShellCopy('zh-CN')
     const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 45487}`
     expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
