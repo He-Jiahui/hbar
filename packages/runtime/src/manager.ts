@@ -249,6 +249,11 @@ export class RuntimeManager {
       throw new HbarError('RUNTIME_RECOVERING', 'Runtime default version is unavailable')
     return { unitId, generation: current.generation, artifactId: current.artifactId }
   }
+  defaultOwner(unitId: string): RuntimeOwner {
+    const current = this.units.get(unitId)?.current
+    if (!current) throw new HbarError('RUNTIME_RECOVERING', 'Runtime default is unavailable')
+    return current.owner()
+  }
   call<Output>(
     unitId: string,
     method: string,

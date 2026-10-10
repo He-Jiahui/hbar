@@ -16,6 +16,7 @@ export {
 } from './coordinator'
 export { ManagedProcess, type ManagedProcessOptions } from './process'
 export { runtimeDomainError } from './errors'
+export { RUNTIME_BUNDLE_EXTERNALS } from './bundle-externals'
 export { RuntimeValuePort, type RuntimeValuePortOptions } from './value-port'
 export { RuntimeNotificationDelivery, type RuntimeNotificationDeliveryOptions } from './notification-delivery'
 export { RuntimeCoordinatorClient, registerRuntimeCoordinatorPort, RUNTIME_COORDINATION_CONTROL_METHODS, type RuntimeCoordinatorPortOptions } from './coordinator-port'

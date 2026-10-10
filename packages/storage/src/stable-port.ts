@@ -2,6 +2,7 @@ import { HbarError } from '@hbar/contracts'
 import { RUNTIME_LIMITS, type ExecutionOwnership, type RuntimeOwner } from '@hbar/contracts/runtime'
 import type { StorageMethods } from './types'
 import type { StoragePort } from './index'
+import { storageRpcCallSchema, type StorageRpcCall } from './rpc'
 
 export interface ManagedStorageWriter {
   readonly owner: RuntimeOwner
@@ -54,6 +55,11 @@ export class StableStoragePort implements StoragePort {
   }
   callOwned<K extends keyof StorageMethods>(authority: ExecutionOwnership, method: K, ...args: Parameters<StorageMethods[K]>): Promise<ReturnType<StorageMethods[K]>> {
     return this.admit(method, args, authority)
+  }
+  executeRpc(raw: StorageRpcCall): Promise<unknown> {
+    const input = storageRpcCallSchema.parse(raw)
+    // The receiving Worker validates the concrete method's arguments. This is the same boundary as Storage.executeRpc.
+    return this.admit(input.method, input.args as Parameters<StorageMethods[typeof input.method]>, input.authority)
   }
   private admit<K extends keyof StorageMethods>(method: K, args: Parameters<StorageMethods[K]>, authority?: ExecutionOwnership): Promise<ReturnType<StorageMethods[K]>> {
     if (this.phase === 'closed' || this.phase === 'fenced')

@@ -1,6 +1,8 @@
 import { readdir, realpath, stat } from 'node:fs/promises'
 import { KernelExecutionScope, type KernelExecutionPort } from './runtime-execution'
 import { RuntimeRecoveryService } from './runtime-recovery'
+import { createNativeSecrets, type SecretStore } from './secrets'
+export { MemorySecrets, createNativeSecrets, type SecretStore } from './secrets'
 export { RuntimeRecoveryService } from './runtime-recovery'
 export type { RuntimeRecoveryAdmission } from './runtime-recovery'
 import type { ExecutionOwnership } from '@hbar/contracts/runtime'
@@ -329,35 +331,6 @@ function waitForSessionLaunchTargetLock(previous: Promise<void>, signal?: AbortS
   })
 }
 
-export interface SecretStore {
-  get(id: string): Promise<string | null>
-  set(id: string, value: string): Promise<void>
-  delete(id: string): Promise<void>
-}
-export class MemorySecrets implements SecretStore {
-  private values = new Map<string, string>()
-  async get(id: string) {
-    return this.values.get(id) ?? null
-  }
-  async set(id: string, value: string) {
-    this.values.set(id, value)
-  }
-  async delete(id: string) {
-    this.values.delete(id)
-  }
-}
-class NativeSecrets implements SecretStore {
-  constructor(private namespace: string) {}
-  get(id: string) {
-    return Bun.secrets.get({ service: this.namespace, name: id })
-  }
-  async set(id: string, value: string) {
-    await Bun.secrets.set({ service: this.namespace, name: id, value })
-  }
-  async delete(id: string) {
-    await Bun.secrets.delete({ service: this.namespace, name: id })
-  }
-}
 export interface KernelOptions {
   /** Former single-root option, retained for embedded and test callers. */
   home?: string | undefined
@@ -578,7 +551,7 @@ export class Kernel {
     })
     this.secrets =
       options.secrets ??
-      new NativeSecrets(`hbar.${createHash('sha256').update(options.layout.identityRoot).digest('hex').slice(0, 20)}`)
+      createNativeSecrets(options.layout.identityRoot)
     this.plugins = new PluginManager(
       this.storage,
       {

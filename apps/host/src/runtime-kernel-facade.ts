@@ -25,7 +25,7 @@ export interface RuntimeKernelFacadeOptions {
   readonly coordinator: RuntimeCoordinator
   readonly current: () => RuntimeKernelEndpoint
   readonly endpoints: () => readonly RuntimeKernelEndpoint[]
-  readonly resolve: (target: string, method: string, args: readonly unknown[]) => RuntimeKernelEndpoint | Promise<RuntimeKernelEndpoint>
+  readonly resolve: (target: string, method: string, args: readonly unknown[], captured?: RuntimeKernelEndpoint) => RuntimeKernelEndpoint | Promise<RuntimeKernelEndpoint>
   readonly maintain: <Result>(action: () => Promise<Result>) => Promise<Result>
   readonly openScope?: (id: string) => Promise<KernelClientScopePort>
 }
@@ -38,6 +38,7 @@ export class RuntimeKernelFacade {
   readonly streams = new Map<string, LiveStream>()
   private readonly context = new AsyncLocalStorage<RuntimeKernelEndpoint>()
   private readonly listeners = new Set<(event: WireNotification) => unknown>()
+  private readonly cursors = new Map<string, number>()
   private recovered = 0
   constructor(private readonly options: RuntimeKernelFacadeOptions) {
     const directory = new CommandRegistry({ execution: 'host' })
@@ -96,6 +97,7 @@ export class RuntimeKernelFacade {
   receive(owner: RuntimeOwner, event: WireNotification): void {
     const endpoint = this.options.endpoints().find(value => value.owner.incarnation === owner.incarnation)
     if (!endpoint || !['serving', 'draining'].includes(endpoint.process.snapshot().phase)) return
+    if (!this.applyCursor(event)) return
     if (event.method === 'stream.update') {
       const delta = event.params
       const previous = this.streams.get(delta.id)
@@ -113,7 +115,22 @@ export class RuntimeKernelFacade {
       for (const [id, stream] of this.streams) if (stream.runId === event.params.runId) this.streams.delete(id)
     this.publish(event)
   }
-  dispose(): void { this.listeners.clear(); this.streams.clear() }
+  cursor(sessionId: string): number { return this.cursors.get(sessionId) ?? 0 }
+  replay(event: WireNotification): void {
+    if (!this.applyCursor(event)) return
+    if (event.method === 'session.event' && event.params.type === 'run.settled')
+      for (const [id, stream] of this.streams) if (stream.runId === event.params.runId) this.streams.delete(id)
+    this.publish(event)
+  }
+  dispose(): void { this.listeners.clear(); this.streams.clear(); this.cursors.clear() }
+  private applyCursor(event: WireNotification): boolean {
+    if (event.method !== 'session.event') return true
+    const previous = this.cursor(event.params.sessionId)
+    if (event.params.seq <= previous) return false
+    if (!this.cursors.has(event.params.sessionId) && this.cursors.size >= 4_096) this.cursors.delete(this.cursors.keys().next().value!)
+    this.cursors.set(event.params.sessionId, event.params.seq)
+    return true
+  }
   private selected(): RuntimeKernelEndpoint { return this.context.getStore() ?? this.options.current() }
   private idle(): boolean {
     return this.options.coordinator.snapshot().sessions === 0 && this.options.coordinator.snapshot().physicalTools === 0 &&
@@ -127,7 +144,9 @@ export class RuntimeKernelFacade {
     }
   }
   private async call<Result>(target: string, method: string, args: readonly unknown[]): Promise<Result> {
-    const endpoint = this.context.getStore() ?? await this.options.resolve(target, method, args)
+    const endpoint = await this.options.resolve(target, method, args, this.context.getStore())
+    if (!['serving', 'draining'].includes(endpoint.process.snapshot().phase))
+      throw new HbarError('RUNTIME_RECOVERING', 'The requested Kernel owner is recovering')
     try { return await this.pin(endpoint, () => endpoint.application.call<Result>(`${target}.${method}`, args, { timeoutMs: 120_000 })) }
     catch (error) { const known = runtimeDomainError(error); if (known) throw new HbarError(known.code, known.message); throw error }
   }

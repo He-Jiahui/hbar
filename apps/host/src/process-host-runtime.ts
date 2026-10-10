@@ -1,0 +1,465 @@
+import { join, resolve } from 'node:path'
+import { z } from 'zod'
+import { HbarError, providerSchema } from '@hbar/contracts'
+import { runtimeWireNotificationSchema } from '@hbar/contracts/runtime-notifications'
+import type { ExecutionOwnership, RuntimeOwner, RuntimeSnapshot, RuntimeUnitDescriptor, RuntimeVersion, RuntimeVersionSet } from '@hbar/contracts/runtime'
+import type { KernelControllerPort } from '@hbar/kernel/controller'
+import { createNativeSecrets, type SecretStore } from '@hbar/kernel/secrets'
+import { KERNEL_RUNTIME_FINGERPRINT, RUNTIME_KERNEL_CONTROL_METHODS, runtimeKernelStateSchema, runtimeKernelRecoverySchema } from '@hbar/kernel/runtime-port'
+import { RUNTIME_APPLICATION_CONTROLS } from '@hbar/kernel/runtime-application'
+import { ManagedProcess, RuntimeArtifactStore, RuntimeCoordinator, RuntimeManager, RuntimeValuePort, procedure,
+  registerRuntimeCoordinatorPort, RUNTIME_COORDINATION_CONTROL_METHODS, RUNTIME_BUNDLE_EXTERNALS, runtimeDomainError, type IpcPeer, type RuntimeArtifact, type RuntimeBuildUnit } from '@hbar/runtime'
+import { Storage, StableStoragePort, callStorageRpc, ensurePathLayout, storageRpcCallSchema, STORAGE_RPC_FINGERPRINT, STORAGE_SCHEMA_VERSION, type PathLayout } from '@hbar/storage'
+import { acquireHostProcessLock } from './process-lock'
+import { RuntimeKernelFacade, type RuntimeKernelEndpoint, type RuntimeKernelState } from './runtime-kernel-facade'
+import { RuntimeDriverRelay, type RuntimeDriverEndpoint } from './runtime-driver-relay'
+import { DRIVER_RUNTIME_FINGERPRINT } from './runtime-driver-contract'
+import { CONTROLLER_RUNTIME_FINGERPRINT, type RuntimeControllerPort } from './runtime-controller-contract'
+import { RuntimeControllerAdapter } from './runtime-controller-adapter'
+import type { RuntimeSystemPort } from './system-commands'
+
+export interface ProcessHostRuntimeOptions {
+  readonly layout: PathLayout
+  readonly demo?: boolean
+  readonly workspace?: string
+  readonly secrets?: SecretStore
+  readonly sourceRoot?: string
+  readonly processCommand?: readonly [string, ...string[]]
+}
+interface Generation {
+  readonly artifact: RuntimeArtifact
+  readonly process: ManagedProcess
+  owner: RuntimeOwner | null
+  peer: IpcPeer | null
+  controller: RuntimeControllerAdapter | null
+  application: RuntimeValuePort | null
+  state: RuntimeKernelState | null
+  refresh: Promise<void> | null
+  cleanup: Array<() => void>
+}
+interface Interruption {
+  readonly owner: RuntimeOwner
+  readonly leases: ExecutionOwnership[]
+  exited: boolean
+}
+const key = (version: Pick<RuntimeVersion, 'unitId' | 'generation'>) => `${version.unitId}:${version.generation}`
+const descriptor = (id: string, kind: RuntimeUnitDescriptor['kind'], fingerprint: string, dependencies: string[] = []): RuntimeUnitDescriptor => ({
+  id, kind, dependencies, isolation: 'process', required: true, reloadable: true,
+  contractFingerprint: fingerprint, storageSchema: STORAGE_SCHEMA_VERSION,
+})
+const storageDescriptor = descriptor('storage', 'storage', STORAGE_RPC_FINGERPRINT)
+const driverDescriptor = descriptor('driver.pi', 'driver', DRIVER_RUNTIME_FINGERPRINT)
+const controllerDescriptor = descriptor('controller', 'controller', CONTROLLER_RUNTIME_FINGERPRINT)
+const kernelDescriptor = descriptor('kernel', 'kernel', KERNEL_RUNTIME_FINGERPRINT, ['storage', 'driver.pi'])
+
+/** Stable composition root. Executable Kernel/driver/controller implementations live exclusively in their child processes. */
+export class ProcessHostRuntime implements RuntimeSystemPort {
+  readonly storage = new StableStoragePort()
+  readonly artifacts: RuntimeArtifactStore
+  readonly coordinator: RuntimeCoordinator
+  readonly manager: RuntimeManager
+  readonly buildUnits: readonly RuntimeBuildUnit[]
+  readonly facade: RuntimeKernelFacade
+  readonly controller: RuntimeControllerPort = { dispatch: (payload, invoke) => {
+    const record = this.currentGeneration('controller')
+    if (!record.controller || record.process.snapshot().phase !== 'serving')
+      return Promise.reject(new HbarError('RUNTIME_RECOVERING', 'The Controller is recovering'))
+    let captured: RuntimeKernelEndpoint | undefined
+    try { captured = this.currentKernel() } catch { /* Runtime status remains callable during a Kernel outage. */ }
+    const endpoint = captured
+    return record.controller.dispatch(payload, (request, signal) => endpoint ? this.facade.pin(endpoint, () => invoke(request, signal)) : invoke(request, signal))
+  } }
+  private readonly baseOwner: RuntimeOwner = { unitId: 'base', generation: 1, incarnation: crypto.randomUUID() }
+  private readonly generations = new Map<string, Generation>()
+  private readonly owners = new Set<string>()
+  private readonly leases = new Map<string, ExecutionOwnership>()
+  private readonly interrupted = new Map<string, Interruption>()
+  private readonly stopped = new Set<string>()
+  private readonly resumed = new Set<string>()
+  private readonly relay: RuntimeDriverRelay
+  private readonly secrets: SecretStore
+  private readonly sweep: ReturnType<typeof setInterval>
+  private transitions: Promise<void> = Promise.resolve()
+  private closing = false
+  private closeTask: Promise<void> | undefined
+  private initializing = true
+  private maintenance = false
+  private scheduled = false
+  private reasonCode: string | null = null
+  private storageFailure: { owner: RuntimeOwner; unknown: boolean } | null = null
+  private readonly pendingRevocations: Array<{ owner: RuntimeOwner; ids: string[] }> = []
+
+  private constructor(private readonly options: ProcessHostRuntimeOptions, readonly instanceId = crypto.randomUUID()) {
+    this.secrets = options.secrets ?? createNativeSecrets(options.layout.identityRoot)
+    this.artifacts = new RuntimeArtifactStore(join(options.layout.cacheRoot, 'runtime-artifacts'), options.sourceRoot ?? resolve(import.meta.dir, '../../..'))
+    this.buildUnits = [
+      { descriptor: storageDescriptor, entrypoint: 'apps/host/src/runtime-storage-process.ts', workers: ['packages/storage/src/worker.ts'] },
+      { descriptor: driverDescriptor, entrypoint: 'apps/host/src/runtime-driver-process.ts' },
+      { descriptor: controllerDescriptor, entrypoint: 'apps/host/src/runtime-controller-process.ts' },
+      { descriptor: kernelDescriptor, entrypoint: 'apps/host/src/runtime-kernel-process.ts', define: { HBAR_EXTERNAL_DRIVER: 'true' }, external: RUNTIME_BUNDLE_EXTERNALS },
+    ]
+    this.coordinator = new RuntimeCoordinator({
+      claim: draft => this.storage.call('runtimeExecutionClaim', draft),
+      release: lease => this.storage.call('runtimeExecutionRelease', lease),
+      revoke: async (owner, ids) => {
+        if (this.storageFailure) { this.pendingRevocations.push({ owner, ids: [...ids] }); return }
+        await this.storage.call('runtimeExecutionRevoke', owner, ids)
+      },
+    })
+    this.relay = new RuntimeDriverRelay({ coordinator: this.coordinator, resolve: version => this.driver(version) })
+    this.facade = new RuntimeKernelFacade({ instanceId, layout: options.layout, demo: options.demo ?? false,
+      storage: this.storage, coordinator: this.coordinator, current: () => this.currentKernel(), endpoints: () => this.endpoints(),
+      resolve: (target, method, args, captured) => this.resolveKernel(target, method, args, captured),
+      maintain: action => this.maintain(action),
+    })
+    this.manager = new RuntimeManager({ instanceId, artifacts: this.artifacts,
+      references: owner => {
+        const refs = this.owners.has(owner.incarnation) ? this.coordinator.references(owner) : { runs: 0, resources: 0, tools: 0 }
+        const retained = [...this.leases.values()].filter(lease => [lease.versions.kernel, lease.versions.driver, ...lease.versions.plugins, ...lease.versions.hooks]
+          .some(version => version.unitId === owner.unitId && version.generation === owner.generation)).length
+        return { ...refs, runs: Math.max(refs.runs, retained) }
+      },
+      create: (artifact, generation, changed) => this.createGeneration(artifact, generation, changed),
+      beforeActivate: async owner => {
+        if (owner.unitId === 'storage' && this.storage.snapshot().owner) await this.storage.beginHandover()
+      },
+      afterDispose: owner => {
+        if (this.owners.has(owner.incarnation)) { this.coordinator.disposeOwner(owner); this.owners.delete(owner.incarnation) }
+        this.generations.delete(key(owner))
+      },
+    })
+    for (const unit of this.buildUnits) this.manager.register(unit.descriptor)
+    this.sweep = setInterval(() => this.schedule(), 1_000)
+    this.sweep.unref()
+  }
+  get kernel(): KernelControllerPort { return this.facade.api }
+  static async create(options: ProcessHostRuntimeOptions): Promise<ProcessHostRuntime> {
+    await ensurePathLayout(options.layout)
+    // The initial migration installation owns the writer lease and exits before any candidate is built.
+    const release = await acquireHostProcessLock(`${options.layout.database}.runtime-writer.lock`)
+    const installation = new Storage(options.layout.database, options.layout)
+    try { await installation.call('ready') } finally { try { await installation.close() } finally { await release() } }
+    const runtime = new ProcessHostRuntime(options)
+    try {
+      const artifacts: RuntimeArtifact[] = []
+      for (const unit of runtime.buildUnits) artifacts.push(await runtime.artifacts.build(unit))
+      const prepared = runtime.artifacts.registerSet(artifacts)
+      const infrastructure = ['storage', 'driver.pi', 'controller']
+      const first = runtime.manager.reload(prepared.id, infrastructure, true)
+      await runtime.waitReady(infrastructure, first.operationId)
+      const kernel = runtime.manager.reload(prepared.id, ['kernel'], true)
+      await runtime.waitReady(['kernel'], kernel.operationId)
+      if (options.workspace) await runtime.kernel.createWorkspace(options.workspace)
+      if (options.demo) await runtime.storage.call('saveProvider', providerSchema.parse({ id: 'local-fixture', name: 'Local fixture',
+        protocol: 'mock', baseUrl: 'http://127.0.0.1', model: 'fixture', imageInput: true, reasoning: true }))
+      await runtime.recoverStartup()
+      runtime.initializing = false
+      await runtime.resume()
+      await runtime.kernel.plugins.get('goal').resumeOnStartup()
+      return runtime
+    } catch (error) { await runtime.close(); throw error }
+  }
+  snapshot(): RuntimeSnapshot {
+    const state = this.manager.snapshot()
+    return { ...state, ready: !this.initializing && !this.closing && state.ready && this.storage.snapshot().phase === 'serving' && !this.storageFailure }
+  }
+  reload(artifactSetId: string, unitIds: readonly string[]) { return this.manager.reload(artifactSetId, unitIds) }
+  getReload(id: string) { return this.manager.getReload(id) }
+  cancelReload(id: string) { return this.manager.cancelReload(id) }
+  async settled(): Promise<void> { await this.transitions }
+  async waitForIdle(timeoutMs = 120_000): Promise<void> {
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 120_000) throw new HbarError('INVALID_INPUT', 'Idle wait needs a bounded deadline')
+    const deadline = Date.now() + timeoutMs
+    while (true) {
+      await this.refreshKernels()
+      const active = await this.storage.call('runtimeActiveRuns', '')
+      if (!active.length && this.coordinator.snapshot().sessions === 0 && !this.interrupted.size && this.endpoints().every(endpoint => endpoint.state.idle)) return
+      if (Date.now() >= deadline) throw new HbarError('RUNTIME_WAIT_TIMEOUT', 'Runtime execution has not settled')
+      await Bun.sleep(20)
+    }
+  }
+  close(): Promise<void> { this.closeTask ??= this.dispose(); return this.closeTask }
+  private async dispose(): Promise<void> {
+    this.closing = true
+    clearInterval(this.sweep)
+    for (const record of this.generations.values()) if (record.artifact.unitId === 'kernel') await record.process.dispose()
+    await this.storage.close()
+    await this.manager.close()
+    await this.transitions
+    this.facade.dispose()
+  }
+  private async waitReady(ids: readonly string[], operationId: string): Promise<void> {
+    const deadline = Date.now() + 120_000
+    while (Date.now() < deadline) {
+      await this.manager.reconcile()
+      await this.settled()
+      if (ids.every(id => this.manager.snapshot().units.find(unit => unit.descriptor.id === id)?.generations.some(g => g.role === 'default' && g.phase === 'serving'))) return
+      const operation = this.manager.getReload(operationId)
+      if (['failed', 'restart_required', 'cancelled'].includes(operation.phase))
+        throw new HbarError('RUNTIME_START_FAILED', `Managed activation failed: ${operation.units.map(unit => `${unit.unitId}:${unit.reasonCode ?? unit.phase}`).join(', ')}`)
+      await Bun.sleep(20)
+    }
+    throw new HbarError('RUNTIME_START_TIMEOUT', 'Managed runtime activation exceeded its deadline')
+  }
+  private currentGeneration(unitId: string): Generation {
+    const record = this.generations.get(key(this.manager.defaultOwner(unitId)))
+    if (!record) throw new HbarError('RUNTIME_RECOVERING', 'The requested runtime default is unavailable')
+    return record
+  }
+  private endpoint(record: Generation): RuntimeKernelEndpoint | null {
+    if (!record.owner || !record.application || !record.state) return null
+    return { owner: record.owner, process: record.process, application: record.application, state: record.state }
+  }
+  private currentKernel(): RuntimeKernelEndpoint {
+    const endpoint = this.endpoint(this.currentGeneration('kernel'))
+    if (!endpoint) throw new HbarError('RUNTIME_RECOVERING', 'The Kernel projection is being restored')
+    return endpoint
+  }
+  private endpoints(): RuntimeKernelEndpoint[] {
+    return [...this.generations.values()].flatMap(record => record.artifact.unitId === 'kernel' ? [this.endpoint(record)].filter(value => value !== null) : [])
+  }
+  private driver(version = this.manager.currentVersion('driver.pi')): RuntimeDriverEndpoint {
+    const record = this.generations.get(key(version))
+    if (!record?.owner || !record.peer || record.artifact.id !== version.artifactId || !['serving', 'draining'].includes(record.process.snapshot().phase))
+      throw new HbarError('RUNTIME_RECOVERING', 'The bound driver is recovering')
+    return { owner: record.owner, peer: record.peer, version }
+  }
+  private bindings(owner: RuntimeOwner): RuntimeVersionSet {
+    const record = this.generations.get(key(owner))
+    if (!record || record.owner?.incarnation !== owner.incarnation) throw new HbarError('RUNTIME_OWNER_REVOKED', 'The claiming Kernel incarnation expired')
+    return { kernel: { unitId: owner.unitId, generation: owner.generation, artifactId: record.artifact.id },
+      driver: this.manager.currentVersion('driver.pi'), plugins: [], hooks: [] }
+  }
+  private executionReady(): boolean {
+    return ['storage', 'driver.pi', 'kernel'].every(id => this.manager.snapshot().units.find(unit => unit.descriptor.id === id)?.generations.some(g => g.role === 'default' && g.phase === 'serving'))
+  }
+  private canAdmit(sessionId: string): boolean {
+    return !this.closing && !this.initializing && !this.maintenance && this.executionReady() && this.storage.snapshot().phase === 'serving' && !this.storageFailure &&
+      ![...this.interrupted.values()].some(failure => failure.leases.some(lease => lease.sessionId === sessionId))
+  }
+  private createGeneration(artifact: RuntimeArtifact, generation: number, changed: () => void): ManagedProcess {
+    const layout = this.options.layout
+    const paths = { dataRoot: layout.dataRoot, cacheRoot: layout.cacheRoot, pointerFile: layout.pointerFile,
+      settingsRoot: layout.settings, sessionsRoot: layout.sessions, skillsRoot: layout.globalSkills, identityRoot: layout.identityRoot }
+    const configuration = artifact.unitId === 'storage' ? { ...paths, database: layout.database, workerPath: join(this.artifacts.root, artifact.id, 'worker.js') } :
+      artifact.unitId === 'kernel' ? { ...paths, instanceId: this.instanceId, demo: this.options.demo ?? false } : {}
+    let record: Generation
+    const managed = new ManagedProcess({ descriptor: artifact.descriptor, artifactId: artifact.id, generation,
+      modulePath: join(this.artifacts.root, artifact.id, artifact.entry), parent: this.baseOwner, configuration,
+      controlMethods: [...RUNTIME_KERNEL_CONTROL_METHODS, ...RUNTIME_COORDINATION_CONTROL_METHODS, 'controller.control', 'controller.invoke'],
+      ...(this.options.processCommand ? { command: this.options.processCommand } : {}),
+      onPeer: (peer, owner) => {
+        record.owner = owner; record.peer = peer
+        this.coordinator.register(owner, { unitId: artifact.unitId, generation, artifactId: artifact.id }, artifact.descriptor)
+        this.owners.add(owner.incarnation)
+        if (artifact.unitId === 'driver.pi') record.cleanup.push(this.relay.attachDriver(peer))
+        if (artifact.unitId === 'controller') record.controller = new RuntimeControllerAdapter(peer)
+        if (artifact.unitId === 'kernel') this.attachKernel(record, peer, owner)
+      },
+      onActivating: (owner, role, signal) => { signal.throwIfAborted(); this.coordinator.activate(owner, role) },
+      onState: state => {
+        changed()
+        if (state.phase === 'serving' || state.phase === 'draining') this.transition(async () => {
+          if (this.closing || record.owner?.incarnation !== state.incarnation) return
+          if (artifact.unitId === 'storage' && state.role === 'default') await this.installStorage(record)
+          if (artifact.unitId === 'kernel') await this.refresh(record)
+          if ((artifact.unitId === 'storage' || artifact.unitId === 'driver.pi') && state.role === 'default') this.resumed.clear()
+          this.schedule()
+        })
+      },
+      onFault: (owner, reason) => this.fault(owner, reason),
+      onExit: async owner => {
+        if (artifact.unitId === 'kernel') { this.relay.kernelExited(owner); for (const lease of this.leases.values()) if (lease.owner.incarnation === owner.incarnation) this.stopped.add(lease.runId) }
+        if (artifact.unitId === 'driver.pi') this.relay.driverExited(owner)
+        for (const cleanup of record.cleanup.splice(0)) cleanup()
+        record.controller?.dispose(); record.controller = null
+        record.application?.dispose(); record.application = null; record.peer = null
+        this.coordinator.ownerExited(owner)
+        this.resumed.delete(owner.incarnation)
+        const interruption = this.interrupted.get(owner.incarnation)
+        if (interruption) interruption.exited = true
+        else if (this.owners.has(owner.incarnation)) { this.coordinator.disposeOwner(owner); this.owners.delete(owner.incarnation) }
+        this.schedule()
+      },
+    })
+    record = { artifact, process: managed, owner: null, peer: null, controller: null, application: null, state: null, refresh: null, cleanup: [] }
+    this.generations.set(`${artifact.unitId}:${generation}`, record)
+    return managed
+  }
+  private attachKernel(record: Generation, peer: IpcPeer, owner: RuntimeOwner): void {
+    record.application = new RuntimeValuePort(peer, { prefix: 'kernel.application', controlMethods: RUNTIME_APPLICATION_CONTROLS })
+    record.cleanup.push(this.relay.attachKernel(peer), registerRuntimeCoordinatorPort(peer, this.coordinator, { owner,
+      bindings: caller => this.bindings(caller), canAdmit: sessionId => this.canAdmit(sessionId),
+      admitted: lease => { this.leases.set(lease.runId, lease); this.schedule() },
+      released: async lease => { await this.replay(lease.sessionId); this.leases.delete(lease.runId); this.schedule(); await this.wake(lease.sessionId) },
+      stopped: (_owner, runId) => { this.stopped.add(runId); this.schedule() },
+      releaseFailed: () => { this.reasonCode = 'EXECUTION_RECONCILIATION_REQUIRED'; this.schedule() },
+    }))
+    record.cleanup.push(peer.register('kernel.storage', procedure(storageRpcCallSchema, z.unknown(), input => {
+      if (input.authority && input.authority.owner.incarnation !== owner.incarnation)
+        throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Kernel storage authority belongs to another executor')
+      this.coordinator.assertCanWrite(owner, input.authority)
+      return this.storage.executeRpc(input)
+    })))
+    const id = z.string().min(1).max(160)
+    record.cleanup.push(peer.register('kernel.secret.get', procedure(z.strictObject({ id }), z.string().nullable(), input => {
+      this.coordinator.assertCanWrite(owner); return this.secrets.get(input.id)
+    })), peer.register('kernel.secret.set', procedure(z.strictObject({ id, value: z.string().max(1_048_576) }), z.undefined(), input => {
+      this.coordinator.assertCanWrite(owner); return this.secrets.set(input.id, input.value)
+    })), peer.register('kernel.secret.delete', procedure(z.strictObject({ id }), z.undefined(), input => {
+      this.coordinator.assertCanWrite(owner); return this.secrets.delete(input.id)
+    })), peer.onEvent('kernel.notification', runtimeWireNotificationSchema, event => {
+      this.facade.receive(owner, event); this.scheduleRefresh(record)
+    }))
+  }
+  private transition(operation: () => Promise<void>): void {
+    this.transitions = this.transitions.then(operation).catch(error => {
+      this.reasonCode = runtimeDomainError(error)?.code ?? 'RUNTIME_RECONCILIATION_FAILED'
+      console.error(`[hbar runtime] transition failed (${this.reasonCode})`)
+    })
+  }
+  private schedule(): void {
+    if (this.scheduled || this.closing || this.initializing) return
+    this.scheduled = true
+    this.transition(async () => { try { await this.reconcile() } finally { this.scheduled = false } })
+  }
+  private scheduleRefresh(record: Generation): void {
+    if (record.refresh || this.closing) return
+    void this.refresh(record).catch(() => { /* The owner fault path reconciles any unavailable projection. */ })
+  }
+  private refresh(record: Generation): Promise<void> {
+    if (record.refresh) return record.refresh
+    const owner = record.owner
+    record.refresh = record.process.call('kernel.state', undefined, runtimeKernelStateSchema).then(state => {
+      if (record.owner?.incarnation === owner?.incarnation) record.state = state
+    }).finally(() => { record.refresh = null })
+    return record.refresh
+  }
+  private async refreshKernels(): Promise<void> {
+    for (const record of this.generations.values()) if (record.artifact.unitId === 'kernel' && ['serving', 'draining'].includes(record.process.snapshot().phase)) {
+      try { await this.refresh(record) } catch (error) {
+        if (['serving', 'draining'].includes(record.process.snapshot().phase)) throw error
+      }
+    }
+  }
+  private async installStorage(record: Generation): Promise<void> {
+    if (!record.owner || this.storage.snapshot().owner?.incarnation === record.owner.incarnation) return
+    if (this.storageFailure) {
+      if (this.storageFailure.unknown) throw new HbarError('STORAGE_RESULT_UNKNOWN', 'The old writer has unresolved in-flight outcomes')
+      const previous = this.storageFailure.owner
+      if (!this.interrupted.get(previous.incarnation)?.exited) throw new HbarError('STORAGE_EXIT_UNCONFIRMED', 'The old writer has not exited')
+      for (const revoke of this.pendingRevocations) await record.process.call('storage.call', { method: 'runtimeExecutionRevoke', args: [revoke.owner, revoke.ids] }, z.unknown())
+      this.pendingRevocations.length = 0
+      this.storage.reconcileExited(previous)
+      this.storageFailure = null
+    }
+    this.storage.install({ owner: record.owner, retire: () => record.process.dispose(),
+      call: (method, args, authority) => callStorageRpc({ execute: input => record.process.call('storage.call', input, z.unknown()) }, method, args, authority),
+    })
+  }
+  private async fault(owner: RuntimeOwner, reason: string): Promise<void> {
+    if (this.closing || this.coordinator.role(owner) === 'candidate') return
+    if (owner.unitId !== 'controller') this.resumed.clear()
+    const affected = [...this.leases.values()].filter(lease => owner.unitId === 'storage' ||
+      [lease.versions.kernel, lease.versions.driver, ...lease.versions.plugins, ...lease.versions.hooks].some(v => v.unitId === owner.unitId && v.generation === owner.generation))
+    this.interrupted.set(owner.incarnation, { owner, leases: affected, exited: false })
+    if (owner.unitId === 'storage') { this.storageFailure = { owner, unknown: this.storage.snapshot().inFlight > 0 }; this.storage.fence(reason) }
+    const revoked = this.coordinator.revoke(owner)
+    for (const endpoint of this.endpoints()) {
+      const ids = affected.filter(lease => lease.owner.incarnation === endpoint.owner.incarnation).map(lease => lease.runId)
+      if (ids.length && endpoint.owner.incarnation !== owner.incarnation)
+        void endpoint.process.call('kernel.fence', { runIds: ids }, z.undefined()).catch(() => {})
+    }
+    await revoked
+    this.schedule()
+  }
+  private async reconcile(): Promise<void> {
+    if (this.closing || !this.executionReady() || this.storage.snapshot().phase !== 'serving') return
+    const kernel = this.currentKernel()
+    for (const [incarnation, failure] of this.interrupted) {
+      if (!failure.exited) continue
+      for (const lease of [...failure.leases]) {
+        if (!this.stopped.has(lease.runId) || this.relay.hasRun(lease.runId)) continue
+        try { this.coordinator.reconciled(lease.sessionId) }
+        catch (error) { if (runtimeDomainError(error)?.code === 'EXECUTION_RESOURCES_ACTIVE' || runtimeDomainError(error)?.code === 'EXECUTION_OWNER_ALIVE') continue; throw error }
+        // Keep the pending identity until recovery and durable delivery complete, so a failed receipt can safely be retried.
+        await kernel.process.call('kernel.recover', { runIds: [lease.runId] }, runtimeKernelRecoverySchema, { timeoutMs: 120_000 })
+        await this.replay(lease.sessionId)
+        this.leases.delete(lease.runId); this.stopped.delete(lease.runId)
+        const index = failure.leases.findIndex(value => value.runId === lease.runId)
+        if (index >= 0) failure.leases.splice(index, 1)
+        await this.wake(lease.sessionId)
+      }
+      if (!failure.leases.length) {
+        this.interrupted.delete(incarnation)
+        if (this.owners.has(incarnation)) { this.coordinator.disposeOwner(failure.owner); this.owners.delete(incarnation) }
+      }
+    }
+    await this.refreshKernels()
+    await this.resume()
+  }
+  private async resume(): Promise<void> {
+    if (this.closing || this.initializing || !this.executionReady() || this.storage.snapshot().phase !== 'serving') return
+    const kernel = this.currentKernel()
+    if (this.resumed.has(kernel.owner.incarnation)) return
+    await kernel.process.call('kernel.resume', undefined, z.undefined(), { timeoutMs: 120_000 })
+    this.resumed.add(kernel.owner.incarnation)
+  }
+  private async wake(sessionId: string): Promise<void> {
+    if (!this.canAdmit(sessionId)) return
+    await this.currentKernel().process.call('kernel.wake', { sessionId }, z.undefined())
+  }
+  private async resolveKernel(target: string, method: string, args: readonly unknown[], captured?: RuntimeKernelEndpoint): Promise<RuntimeKernelEndpoint> {
+    let runId: string | undefined, sessionId: string | undefined
+    if (target === 'kernel' && method === 'cancel' && typeof args[0] === 'string') runId = args[0]
+    if (['goal', 'plan', 'mode', 'budget', 'workflow', 'agent'].includes(target) && typeof args[0] === 'string') sessionId = args[0]
+    if (target === 'kernel' && method === 'resolveApproval' && typeof args[0] === 'string') runId = (await this.storage.call('approval', args[0])).runId
+    if (target === 'kernel' && method === 'resolvePlanExit' && typeof args[0] === 'object' && args[0] !== null) {
+      const input = z.object({ sessionId: z.string() }).safeParse(args[0]); if (input.success) sessionId = input.data.sessionId
+    }
+    if (target === 'kernel' && method === 'resolveUserInput' && typeof args[0] === 'string') {
+      const request = this.kernel.pendingUserInput(args[0]); if (request) runId = request.runId
+    }
+    const lease = runId ? this.coordinator.execution(runId) : sessionId ? this.coordinator.executionForSession(sessionId) : null
+    if (lease) {
+      const endpoint = this.endpoints().find(value => value.owner.incarnation === lease.owner.incarnation)
+      if (!endpoint) throw new HbarError('RUNTIME_RECOVERING', 'The execution owner is recovering')
+      return endpoint
+    }
+    return captured ?? this.currentKernel()
+  }
+  private async replay(sessionId: string): Promise<void> {
+    let cursor = this.facade.cursor(sessionId)
+    for (let page = 0; page < 4_096; page++) {
+      const events = await this.storage.call('events', sessionId, cursor, 256)
+      if (!events.length) return
+      for (const event of events) this.facade.replay({ method: 'session.event', params: event })
+      cursor = events.at(-1)!.seq
+      if (events.length < 256) return
+    }
+    throw new HbarError('RUNTIME_REPLAY_LIMIT', 'Recovery replay exceeded its bounded journal window')
+  }
+  private async recoverStartup(): Promise<void> {
+    let cursor = '', recovered = 0
+    while (true) {
+      const leases = await this.storage.call('runtimeUnreleasedExecutions', cursor)
+      if (!leases.length) break
+      for (const lease of leases) await this.storage.call('runtimeExecutionRevoke', lease.owner, [lease.runId])
+      cursor = leases.at(-1)!.leaseId
+    }
+    cursor = ''
+    while (true) {
+      const runs = await this.storage.call('runtimeActiveRuns', cursor)
+      if (!runs.length) break
+      await this.currentKernel().process.call('kernel.recover', { runIds: runs.map(run => run.id) }, runtimeKernelRecoverySchema, { timeoutMs: 120_000 })
+      recovered += runs.length; cursor = runs.at(-1)!.id
+    }
+    this.facade.setRecovered(recovered)
+  }
+  private async maintain<Result>(action: () => Promise<Result>): Promise<Result> {
+    this.kernel.assertIdle()
+    if (this.maintenance) throw new HbarError('BUSY', 'Database maintenance is already active')
+    this.maintenance = true
+    try { return await action() } finally { this.maintenance = false; this.schedule() }
+  }
+}

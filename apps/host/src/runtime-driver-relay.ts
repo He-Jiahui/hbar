@@ -113,4 +113,5 @@ export class RuntimeDriverRelay {
     }
   }
   snapshot() { return { invocations: this.invocations.size } }
+  hasRun(runId: string): boolean { return [...this.invocations.values()].some(value => value.execution.runId === runId) }
 }
