@@ -1,4 +1,4 @@
-import { expect, test, type BrowserContext, type Page } from '@playwright/test'
+import { expect, test, type BrowserContext, type Locator, type Page } from '@playwright/test'
 import {
   createConfigurationCommandClient,
   createGoalPlanCommandClient,
@@ -12,7 +12,9 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { z } from 'zod'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
+import { workspaceTabsCopy } from '../apps/web/src/workspace-tabs-copy'
 import { expectComposerText } from './support/composer-text'
+import { revealComposerControl } from './support/composer-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
@@ -54,18 +56,67 @@ async function removeOwnedRoot(root: string): Promise<void> {
   await rm(resolved, { recursive: true, force: true })
 }
 
+async function cleanupExecutionAccessFixture(
+  contexts: readonly BrowserContext[],
+  host: WebSessionHost | undefined,
+  root: string,
+): Promise<void> {
+  const errors: unknown[] = []
+  for (const context of contexts) {
+    try {
+      await context.close()
+    } catch (reason) {
+      errors.push(reason)
+    }
+  }
+  let hostStopped = host === undefined
+  if (host) {
+    try {
+      await stopWebSessionHost(host)
+      hostStopped = true
+    } catch (reason) {
+      errors.push(reason)
+    }
+  }
+  if (hostStopped) {
+    try {
+      await removeOwnedRoot(root)
+    } catch (reason) {
+      errors.push(reason)
+    }
+  }
+  if (errors.length === 1) throw errors[0]
+  if (errors.length > 1)
+    throw new AggregateError(errors, 'Execution-access fixture cleanup failed', { cause: errors[0] })
+}
+
 async function authenticate(context: BrowserContext, host: WebSessionHost): Promise<void> {
   expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
 }
 
 async function showSidebar(page: Page, locale: ShellLocale): Promise<void> {
-  const show = page.getByRole('button', { name: getShellCopy(locale).shell.showSidebar, exact: true })
-  if (await show.isVisible()) await show.click()
+  const labels = getShellCopy(locale).shell
+  const expanded = page.locator('[data-hbar-sidebar-expanded]')
+  await expect(expanded).toHaveAttribute('data-hbar-sidebar-expanded', /^(true|false)$/)
+  if (
+    (await page.locator('[data-hbar-composer-session]').count()) === 0 &&
+    (await page.evaluate(() => innerWidth < 1024))
+  )
+    await expect(expanded).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
+  if ((await expanded.getAttribute('data-hbar-sidebar-expanded')) === 'false')
+    await page.getByRole('button', { name: labels.showSidebar, exact: true }).click()
+  await expect(expanded).toHaveAttribute('data-hbar-sidebar-expanded', 'true')
+  await expect(page.getByRole('complementary', { name: labels.projectsAndSessions, exact: true })).toBeVisible()
 }
 
 async function hideSidebar(page: Page, locale: ShellLocale): Promise<void> {
+  const expanded = page.locator('[data-hbar-sidebar-expanded]')
+  await expect(expanded).toHaveAttribute('data-hbar-sidebar-expanded', /^(true|false)$/)
+  if ((await expanded.getAttribute('data-hbar-sidebar-expanded')) === 'false') return
   const hide = page.getByRole('button', { name: getShellCopy(locale).shell.hideSidebar, exact: true })
-  if (await hide.isVisible()) await hide.click()
+  await expect(hide).toBeVisible()
+  await hide.click()
+  await expect(expanded).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
 }
 
 async function refreshRoster(page: Page, host: WebSessionHost, locale: ShellLocale, archived = true): Promise<void> {
@@ -75,7 +126,18 @@ async function refreshRoster(page: Page, host: WebSessionHost, locale: ShellLoca
   await page
     .getByRole('menuitem', { name: labels.roster.refreshWorkspace(host.ready.workspaceName), exact: true })
     .click()
-  await expect(page.locator(`[data-session-id="${host.ready.sessionId}"]`)).toHaveCount(archived ? 0 : 1)
+  await expect(page.locator(`.hbar-app-react-session-row[data-session-id="${host.ready.sessionId}"]`)).toHaveCount(
+    archived ? 0 : 1,
+  )
+}
+
+async function openSession(page: Page, locale: ShellLocale, sessionId: string, title: string): Promise<void> {
+  await showSidebar(page, locale)
+  const row = page.locator(`.hbar-app-react-session-row[data-session-id="${sessionId}"]`)
+  await expect(row).toBeVisible()
+  await expect(row).toContainText(title)
+  await row.locator('xpath=ancestor::*[@role="treeitem"][1]').click()
+  await expect(page.locator(`[data-hbar-composer-session="${sessionId}"]`)).toBeVisible()
 }
 
 async function dropFile(page: Page, name: string): Promise<void> {
@@ -112,12 +174,83 @@ async function assertNoticeFirstLine(page: Page): Promise<void> {
   expect(flow).toEqual({ display: 'flex', wrap: 'nowrap', sameFirstLine: true, iconBeforeCopy: true })
 }
 
+async function openComposerFeedback(page: Page, locale: ShellLocale): Promise<Locator> {
+  const copy = getShellCopy(locale)
+  const labels = copy.session.composerFeedback
+  const current = page.getByRole('dialog', { name: labels.title, exact: true })
+  if (await current.isVisible()) return current
+  await page.keyboard.press('Escape')
+  const trigger = page.locator('.hbar-composer-feedback-trigger')
+  await revealComposerControl(page, trigger, copy.session.addMenu)
+  const surfaceId = await trigger.getAttribute('aria-controls')
+  if (!surfaceId) throw new Error('Composer feedback trigger must own a feedback surface')
+  if ((await trigger.getAttribute('aria-expanded')) !== 'true') await trigger.click()
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  const surface = page.locator(`[id="${surfaceId}"]`)
+  await expect(surface).toBeVisible()
+  await expect(surface).toHaveAttribute('aria-label', labels.title)
+  return surface
+}
+
+async function openPermissionPicker(page: Page, locale: ShellLocale): Promise<Locator> {
+  const copy = getShellCopy(locale)
+  await page.keyboard.press('Escape')
+  const trigger = page.locator('.hbar-composer-permission-trigger')
+  await revealComposerControl(page, trigger, copy.session.addMenu)
+  await trigger.click()
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  const surfaceId = await trigger.getAttribute('aria-controls')
+  if (!surfaceId) throw new Error('Execution options trigger must own its dialog')
+  const surface = page.locator(`[id="${surfaceId}"]`)
+  await expect(surface).toBeVisible()
+  await expect(surface).toHaveAttribute('role', 'dialog')
+  return surface
+}
+
+async function selectMobileSessionTab(page: Page, locale: ShellLocale, title: string): Promise<void> {
+  await page.locator('.hbar-mobile-header-menu-trigger').click()
+  const section = page.locator('.hbar-mobile-header-menu-content').getByRole('region', {
+    name: workspaceTabsCopy((zh, en) => (locale === 'zh-CN' ? zh : en)).tabs.tabs,
+    exact: true,
+  })
+  const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  await section.getByRole('button', { name: new RegExp(`^${escapedTitle}(?: — |$)`) }).click()
+  await expect(page.locator('.hbar-mobile-header-menu-content')).toHaveCount(0)
+}
+
+async function openSessionMonitoring(page: Page, locale: ShellLocale): Promise<Locator> {
+  const copy = getShellCopy(locale)
+  await page.locator('.hbar-mobile-header-menu-trigger').click()
+  const menu = page.locator('.hbar-mobile-header-menu-content')
+  await menu
+    .getByRole('region', { name: copy.session.tools.label, exact: true })
+    .getByRole('button', { name: copy.session.tools.monitoring, exact: true })
+    .click()
+  const pane = page.locator('.hbar-app-react-session-monitoring')
+  await expect(pane).toBeVisible()
+  return pane
+}
+
+async function openResolvedDecision(page: Page, locale: ShellLocale, decisionId: string): Promise<Locator> {
+  const copy = getShellCopy(locale)
+  const pane = await openSessionMonitoring(page, locale)
+  const disclosure = pane.getByRole('button', { name: copy.session.decisionHistory.title, exact: true })
+  if ((await disclosure.getAttribute('aria-expanded')) !== 'true') await disclosure.click()
+  await expect(disclosure).toHaveAttribute('aria-expanded', 'true')
+  return pane.locator(`[data-decision-id="${decisionId}"]`)
+}
+
 async function observeWrites(page: Page) {
   const commands: string[] = []
   const uploads: string[] = []
   const restoreIds = new Set<string | number>()
   let holdRestore = false
   let releaseRestore: (() => void) | null = null
+  let holdingRestoreFrames = false
+  let heldRestoreFrames: Array<string | Buffer> = []
+  let heldRestoreBytes = 0
+  const MAX_HELD_RESTORE_FRAMES = 128
+  const MAX_HELD_RESTORE_BYTES = 1024 * 1024
   page.on('request', (request) => {
     if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/artifacts') uploads.push(request.url())
   })
@@ -134,20 +267,53 @@ async function observeWrites(page: Page) {
         if (command && preparationCommands.has(command)) commands.push(command)
         if (parsed.success && command === 'session.archive' && parsed.data.id !== undefined) {
           const input = z.object({ archived: z.boolean() }).passthrough().safeParse(parsed.data.params?.input)
-          if (input.success && !input.data.archived) restoreIds.add(parsed.data.id)
+          if (input.success && !input.data.archived) {
+            restoreIds.add(parsed.data.id)
+            if (holdRestore) {
+              // Delay this observer's entire post-command stream, rather than only
+              // the RPC reply. Host session.updated/host.changed facts are part of
+              // the same observer contract and must not race the held reply.
+              holdingRestoreFrames = true
+              heldRestoreFrames = []
+              heldRestoreBytes = 0
+            }
+          }
         }
       }
       server.send(message)
     })
     server.onMessage((message) => {
+      if (holdingRestoreFrames) {
+        const bytes = typeof message === 'string' ? new TextEncoder().encode(message).byteLength : message.length
+        heldRestoreBytes += bytes
+        if (heldRestoreFrames.length >= MAX_HELD_RESTORE_FRAMES || heldRestoreBytes > MAX_HELD_RESTORE_BYTES)
+          throw new Error('The held restore observer stream exceeded its bounded frame budget')
+        heldRestoreFrames.push(message)
+      }
       if (typeof message === 'string') {
         const parsed = rpcEnvelope.safeParse(JSON.parse(message))
-        if (parsed.success && parsed.data.id !== undefined && restoreIds.delete(parsed.data.id) && holdRestore) {
-          releaseRestore = () => socket.send(message)
-          return
+        if (
+          parsed.success &&
+          parsed.data.id !== undefined &&
+          restoreIds.delete(parsed.data.id) &&
+          holdingRestoreFrames
+        ) {
+          releaseRestore = () => {
+            const frames = heldRestoreFrames
+            heldRestoreFrames = []
+            heldRestoreBytes = 0
+            holdingRestoreFrames = false
+            holdRestore = false
+            releaseRestore = null
+            for (const frame of frames) socket.send(frame)
+          }
         }
       }
-      socket.send(message)
+      if (!holdingRestoreFrames) {
+        // The release callback owns the queued restore reply and every preceding
+        // observer frame. Other requests continue to pass through normally.
+        socket.send(message)
+      }
     })
   })
   return {
@@ -160,8 +326,6 @@ async function observeWrites(page: Page) {
     releaseRestore: () => {
       if (!releaseRestore) throw new Error('The actual Host restore reply is not held')
       const release = releaseRestore
-      releaseRestore = null
-      holdRestore = false
       release()
     },
   }
@@ -243,7 +407,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     let host: WebSessionHost | undefined
     try {
       await mkdir(`${evidence}/${phase}`, { recursive: true })
-      host = await startWebSessionHost({ root, port, historyCount: 4, goalAutoContinue: false })
+      host = await startWebSessionHost({
+        root,
+        port,
+        historyCount: 4,
+        goalAutoContinue: false,
+        budgetAutoContinue: false,
+      })
       const sessions = createWorkspaceSessionCommandClient(host.client)
       const models = createModelCommandClient(host.client)
       const configuration = createConfigurationCommandClient(host.client)
@@ -270,10 +440,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         [narrow, narrowDraft],
       ] as const) {
         await observer.goto(base)
-        await showSidebar(observer, locale)
-        await observer.getByRole('treeitem', { name: title, exact: true }).click()
+        await openSession(observer, locale, host.ready.sessionId, title)
+        await expect(observer.locator(`[data-hbar-composer-session="${sessionId}"]`)).toBeVisible()
         const prompt = observer.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
         await expect(prompt).toBeEditable()
+        const attachmentSurface = observer.locator('.hbar-composer-attachment-target .lumen-prompt-composer-surface')
+        await expect(attachmentSurface).not.toHaveAttribute('data-lumen-state', 'disabled')
+        await expect(observer.locator('.hbar-composer-add-root input[type="file"]')).toBeEnabled()
         await prompt.fill(value)
         await dropFile(observer, attachmentName)
         await expect(observer.locator('.lumen-attachment-chip').filter({ hasText: attachmentName })).toBeVisible()
@@ -308,13 +481,22 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       // First-red baseline is captured above before this assertion; the final source must pass it.
       await expect(page.getByRole('button', { name: copy.session.prompt.send, exact: true })).toBeDisabled()
       await expect(narrow.getByRole('button', { name: copy.session.prompt.send, exact: true })).toBeDisabled()
-      await expect(page.locator('[data-session-execution-access="archived"]')).toBeVisible()
-      await expect(narrow.locator('[data-session-execution-access="archived"]')).toBeVisible()
+      const feedbackSurface = await openComposerFeedback(page, locale)
+      const narrowFeedbackSurface = await openComposerFeedback(narrow, locale)
+      const notice = feedbackSurface.locator('[data-session-execution-access="archived"]')
+      const narrowNotice = narrowFeedbackSurface.locator('[data-session-execution-access="archived"]')
+      await expect(notice).toBeVisible()
+      await expect(narrowNotice).toBeVisible()
       await assertNoticeFirstLine(page)
       await assertNoticeFirstLine(narrow)
+      await narrowFeedbackSurface
+        .getByRole('button', { name: copy.session.composerFeedback.close, exact: true })
+        .click()
+      await expect(narrowFeedbackSurface).not.toBeVisible()
       await expect(page.getByRole('button', { name: copy.session.intent.resume, exact: true })).toBeDisabled()
       // The readonly Goal entry explains its blocker, but cannot prepare or change mode.
       const plus = page.getByRole('button', { name: copy.session.addMenu.open, exact: true })
+      await revealComposerControl(page, plus, copy.session.addMenu)
       await plus.click()
       const goalEntry = page
         .getByRole('group', { name: copy.session.addMenu.menu })
@@ -346,8 +528,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(await narrow.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await narrow.screenshot({ path: `${evidence}/${phase}/readonly-model-${locale}-320.png` })
       await narrowModel.getByRole('button', { name: copy.session.modelPicker.close, exact: true }).click()
-      const picker = page.locator('.hbar-composer-permission-picker')
-      await picker.locator('.hbar-composer-permission-trigger').click()
+      const picker = await openPermissionPicker(page, locale)
       for (const option of await picker.getByRole('menuitemradio').all()) await expect(option).toBeDisabled()
       await expect(picker.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label })).toBeDisabled()
       await page.screenshot({ path: `${evidence}/${phase}/readonly-permission-plan-${locale}-1440.png` })
@@ -358,7 +539,16 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(narrowWrites.uploads).toHaveLength(narrowUploadCount)
       expect(await models.execute('session.getModel', { sessionId })).toEqual(modelBefore)
       expect(await configuration.execute('mode.get', { sessionId })).toEqual(modeBefore)
-      expect(await goals.execute('goal.snapshot', { sessionId })).toEqual(goalBefore)
+      const goalAfter = await goals.execute('goal.snapshot', { sessionId })
+      if (!goalBefore.goal?.timing || !goalAfter.goal?.timing) throw new Error('Goal timing sample is missing')
+      expect(goalAfter.goal.timing.observedAt).toBeGreaterThanOrEqual(goalBefore.goal.timing.observedAt)
+      expect({
+        ...goalAfter,
+        goal: {
+          ...goalAfter.goal,
+          timing: { ...goalAfter.goal.timing, observedAt: goalBefore.goal.timing.observedAt },
+        },
+      }).toEqual(goalBefore)
       expect((await host.client.call('session.snapshot', { sessionId })).runs).toHaveLength(0)
       await expectComposerText(prompt, draft)
       await expectComposerText(narrowPrompt, narrowDraft)
@@ -366,9 +556,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(await narrow.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: `${evidence}/${phase}/gated-${locale}-1440.png` })
       await narrow.screenshot({ path: `${evidence}/${phase}/gated-${locale}-320.png` })
-      const notice = page.locator('[data-session-execution-access="archived"]')
+      await openComposerFeedback(page, locale)
       await expect(notice).toContainText(copy.session.executionAccess.archived)
-      expect(await notice.evaluate((element) => Boolean(element.closest('.hbar-app-react-session-footer')))).toBe(true)
       await notice
         .getByRole('button', { name: copy.session.executionAccess.openArchived(host.ready.workspaceName), exact: true })
         .click()
@@ -384,14 +573,16 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect.poll(writes.hasHeldRestoreReply).toBe(true)
       // Host really restored it, but this observer has not received that response/fact yet.
       expect((await sessions.execute('session.get', { sessionId }))?.archived).toBe(false)
-      await expect(notice).toBeVisible()
+      const heldFeedbackSurface = await openComposerFeedback(page, locale)
+      const heldRestoreNotice = heldFeedbackSurface.locator('[data-session-execution-access="archived"]')
+      await expect(heldRestoreNotice).toBeVisible()
       await expect(page.getByRole('button', { name: copy.session.prompt.send, exact: true })).toBeDisabled()
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(title)
       await expectComposerText(prompt, draft)
       await page.screenshot({ path: `${evidence}/${phase}/restore-reply-held-${locale}-1440.png` })
       writes.releaseRestore()
       await expect.poll(async () => (await sessions.execute('session.get', { sessionId }))?.archived).toBe(false)
-      await expect(notice).toHaveCount(0)
+      await expect(heldRestoreNotice).toHaveCount(0)
       await expect(page.getByRole('button', { name: copy.session.prompt.send, exact: true })).toBeEnabled()
       await expect(page.getByRole('button', { name: copy.session.intent.resume, exact: true })).toBeEnabled()
       await expect(page.getByRole('tab', { name: title, exact: true })).toHaveCount(0)
@@ -430,10 +621,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       )
       expect(errors).toEqual([])
     } finally {
-      await context.close()
-      await narrowContext.close()
-      if (host) await stopWebSessionHost(host)
-      await removeOwnedRoot(root)
+      await cleanupExecutionAccessFixture([context, narrowContext], host, root)
     }
   })
 }
@@ -448,7 +636,7 @@ for (const kind of ['model', 'mode', 'run'] as const) {
     let host: WebSessionHost | undefined
     try {
       await mkdir(`${evidence}/${phase}`, { recursive: true })
-      host = await startWebSessionHost({ root, port, goalAutoContinue: false })
+      host = await startWebSessionHost({ root, port, goalAutoContinue: false, budgetAutoContinue: false })
       const originalHost = host
       const sessionId = host.ready.sessionId
       const sessions = createWorkspaceSessionCommandClient(host.client)
@@ -459,9 +647,10 @@ for (const kind of ['model', 'mode', 'run'] as const) {
       const command = kind === 'model' ? 'session.setThinkingLevel' : kind === 'mode' ? 'mode.set' : 'run.submit'
       const intercepted = await loseOneAcceptedReply(page, command)
       await page.goto(base)
-      await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
+      await openSession(page, 'en-US', sessionId, host.ready.sessionTitle)
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const draft = `Original ${kind} unknown draft — 未确认时保留原目标`
+      await expect.poll(async () => (await prompt.getAttribute('contenteditable')) === 'true').toBe(true)
       await expect(prompt).toBeEditable()
       await prompt.fill(draft)
       if (kind === 'model') {
@@ -477,14 +666,16 @@ for (const kind of ['model', 'mode', 'run'] as const) {
         ).toBeVisible()
         expect((await models.execute('session.getModel', { sessionId })).thinkingLevel).toBe('max')
       } else if (kind === 'mode') {
-        const picker = page.locator('.hbar-composer-permission-picker')
-        await picker.locator('.hbar-composer-permission-trigger').click()
+        const picker = await openPermissionPicker(page, 'en-US')
         await picker.getByRole('menuitemradio', { name: copy.session.permissionPicker.plan.label }).click()
         await expect(picker.getByText(copy.session.permissionPicker.plan.unknown)).toBeVisible()
         expect(await host.client.call('mode.get', { sessionId })).toEqual({ mode: 'plan' })
       } else {
         await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
-        await expect(page.getByRole('button', { name: copy.session.intent.reconcile, exact: true })).toBeVisible()
+        const submitFeedback = await openComposerFeedback(page, 'en-US')
+        await expect(
+          submitFeedback.getByRole('button', { name: copy.session.intent.reconcile, exact: true }),
+        ).toBeVisible()
         await expect
           .poll(async () =>
             (await originalHost.client.call('session.snapshot', { sessionId })).runs.map((run) => run.status),
@@ -497,7 +688,9 @@ for (const kind of ['model', 'mode', 'run'] as const) {
       expect(intercepted.commands.filter((value) => value === command)).toHaveLength(1)
       await sessions.execute('session.archive', { sessionId, archived: true })
       await refreshRoster(page, host, 'en-US')
-      await expect(page.locator('[data-session-execution-access="archived"]')).toBeVisible()
+      const feedbackSurface = await openComposerFeedback(page, 'en-US')
+      const notice = feedbackSurface.locator('[data-session-execution-access="archived"]')
+      await expect(notice).toBeVisible()
       const before = intercepted.commands.length
       if (kind === 'model') {
         await page.locator('.hbar-composer-model-trigger').click()
@@ -523,8 +716,7 @@ for (const kind of ['model', 'mode', 'run'] as const) {
         )
         expect(intercepted.commands.slice(before)).toContain('session.getModelReceipt')
       } else if (kind === 'mode') {
-        const picker = page.locator('.hbar-composer-permission-picker')
-        await picker.locator('.hbar-composer-permission-trigger').click()
+        const picker = await openPermissionPicker(page, 'en-US')
         await expect(
           picker.getByRole('button', { name: copy.session.permissionPicker.plan.recheck, exact: true }),
         ).toBeEnabled()
@@ -542,7 +734,8 @@ for (const kind of ['model', 'mode', 'run'] as const) {
       expect(intercepted.commands.slice(before).filter((value) => preparationCommands.has(value))).toEqual([])
       await expectComposerText(prompt, kind === 'run' ? `${draft} — newer edit after the lost reply` : draft)
       await expect(page.getByRole('button', { name: copy.session.prompt.send, exact: true })).toBeDisabled()
-      await expect(page.locator('[data-session-execution-access="archived"]')).toBeVisible()
+      const finalFeedback = await openComposerFeedback(page, 'en-US')
+      await expect(finalFeedback.locator('[data-session-execution-access="archived"]')).toBeVisible()
       expect((await host.client.call('session.snapshot', { sessionId })).runs).toHaveLength(kind === 'run' ? 1 : 0)
       await page.screenshot({ path: `${evidence}/${phase}/unknown-${kind}-reconciled-1440.png` })
       await writeFile(
@@ -560,9 +753,7 @@ for (const kind of ['model', 'mode', 'run'] as const) {
         ),
       )
     } finally {
-      await context.close()
-      if (host) await stopWebSessionHost(host)
-      await removeOwnedRoot(root)
+      await cleanupExecutionAccessFixture([context], host, root)
     }
   })
 }
@@ -574,7 +765,7 @@ test('original active approval rejects archive as BUSY and Stop cancels without 
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 320, height: 960 } })
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, port, goalAutoContinue: false })
+    host = await startWebSessionHost({ root, port, goalAutoContinue: false, budgetAutoContinue: false })
     const sessionId = host.ready.sessionId
     const sessions = createWorkspaceSessionCommandClient(host.client)
     const runs = createRunCommandClient(host.client)
@@ -582,8 +773,7 @@ test('original active approval rejects archive as BUSY and Stop cancels without 
     await authenticate(context, host)
     const page = await context.newPage()
     await page.goto(base)
-    await showSidebar(page, 'en-US')
-    await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
+    await openSession(page, 'en-US', sessionId, host.ready.sessionTitle)
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     await expect(prompt).toBeEditable()
     const accepted = await runs.execute(
@@ -615,9 +805,7 @@ test('original active approval rejects archive as BUSY and Stop cancels without 
     expect(existsSync(join(root, 'must-not-execute.txt'))).toBe(false)
     expect((await sessions.execute('session.get', { sessionId }))?.archived).toBe(false)
   } finally {
-    await context.close()
-    if (host) await stopWebSessionHost(host)
-    await removeOwnedRoot(root)
+    await cleanupExecutionAccessFixture([context], host, root)
   }
 })
 
@@ -628,7 +816,13 @@ test('archive A never gates B; explicit restore and rapid A/B selection retain e
   const context = await browser.newContext({ locale: 'zh-CN', viewport: { width: 320, height: 960 } })
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, port, sessionCount: 2, goalAutoContinue: false })
+    host = await startWebSessionHost({
+      root,
+      port,
+      sessionCount: 2,
+      goalAutoContinue: false,
+      budgetAutoContinue: false,
+    })
     const sessions = createWorkspaceSessionCommandClient(host.client)
     const all = await sessions.execute('session.list', { workspaceId: host.ready.workspaceId, limit: 100 })
     const a = all.items.find((session) => session.id === host?.ready.sessionId)
@@ -646,12 +840,11 @@ test('archive A never gates B; explicit restore and rapid A/B selection retain e
     const page = await context.newPage()
     await page.goto(base)
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
-    await showSidebar(page, 'zh-CN')
-    await page.getByRole('treeitem', { name: a.title, exact: true }).click()
+    await openSession(page, 'zh-CN', a.id, a.title)
     await expect(prompt).toBeEditable()
     await prompt.fill('Draft A — A原始草稿')
     await showSidebar(page, 'zh-CN')
-    await page.getByRole('treeitem', { name: b.title, exact: true }).click()
+    await openSession(page, 'zh-CN', b.id, b.title)
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(b.title)
     await prompt.fill('Draft B — B原始草稿')
     await sessions.execute('session.archive', { sessionId: a.id, archived: true })
@@ -673,12 +866,18 @@ test('archive A never gates B; explicit restore and rapid A/B selection retain e
     await hideSidebar(page, 'zh-CN')
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(b.title)
     await expect(page.getByRole('tab', { name: a.title, exact: true })).toHaveCount(0)
-    await showSidebar(page, 'zh-CN')
-    await page.getByRole('treeitem', { name: a.title, exact: true }).click()
+    await openSession(page, 'zh-CN', a.id, a.title)
     await expectComposerText(prompt, 'Draft A — A原始草稿')
-    for (const title of [b.title, a.title, b.title, a.title])
-      await page.getByRole('tab', { name: title, exact: true }).click()
+    for (const title of [b.title, a.title, b.title, a.title]) await selectMobileSessionTab(page, 'zh-CN', title)
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(a.title)
+    await expectComposerText(prompt, 'Draft A — A原始草稿')
+    await selectMobileSessionTab(page, 'zh-CN', b.title)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(b.title)
+    await expect(page.locator(`[data-hbar-composer-session="${b.id}"]`)).toBeVisible()
+    await expectComposerText(prompt, 'Draft B — B原始草稿')
+    await selectMobileSessionTab(page, 'zh-CN', a.title)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(a.title)
+    await expect(page.locator(`[data-hbar-composer-session="${a.id}"]`)).toBeVisible()
     await expectComposerText(prompt, 'Draft A — A原始草稿')
     await expect(page.locator('[data-session-execution-access]')).toHaveCount(0)
     await expect(page.getByRole('button', { name: copy.session.prompt.send, exact: true })).toBeEnabled()
@@ -686,9 +885,7 @@ test('archive A never gates B; explicit restore and rapid A/B selection retain e
     expect((await host.client.call('session.snapshot', { sessionId: a.id })).runs).toHaveLength(0)
     expect((await host.client.call('session.snapshot', { sessionId: b.id })).runs).toHaveLength(0)
   } finally {
-    await context.close()
-    if (host) await stopWebSessionHost(host)
-    await removeOwnedRoot(root)
+    await cleanupExecutionAccessFixture([context], host, root)
   }
 })
 
@@ -699,7 +896,7 @@ test('archived completed proposal cannot create a detached Run while its documen
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 320, height: 960 } })
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, port, goalAutoContinue: false })
+    host = await startWebSessionHost({ root, port, goalAutoContinue: false, budgetAutoContinue: false })
     const originalHost = host
     const sessionId = host.ready.sessionId
     const runs = createRunCommandClient(host.client)
@@ -731,8 +928,7 @@ test('archived completed proposal cannot create a detached Run while its documen
     const page = await context.newPage()
     const writes = await observeWrites(page)
     await page.goto(base)
-    await showSidebar(page, 'en-US')
-    await page.getByRole('treeitem', { name: snapshot.session.title, exact: true }).click()
+    await openSession(page, 'en-US', sessionId, snapshot.session.title)
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     await expect(prompt).toBeEditable()
     await prompt.fill('Unsent proposal-independent draft')
@@ -756,9 +952,7 @@ test('archived completed proposal cannot create a detached Run while its documen
     await proposal.scrollIntoViewIfNeeded()
     await page.screenshot({ path: `${evidence}/${phase}/archived-detached-proposal-320.png` })
   } finally {
-    await context.close()
-    if (host) await stopWebSessionHost(host)
-    await removeOwnedRoot(root)
+    await cleanupExecutionAccessFixture([context], host, root)
   }
 })
 
@@ -769,7 +963,7 @@ test('same-Run Plan Exit is not a new-Run gate; active archive is BUSY and its o
   const context = await browser.newContext({ locale: 'zh-CN', viewport: { width: 320, height: 960 } })
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, port, goalAutoContinue: false })
+    host = await startWebSessionHost({ root, port, goalAutoContinue: false, budgetAutoContinue: false })
     const originalHost = host
     const sessionId = host.ready.sessionId
     const sessions = createWorkspaceSessionCommandClient(host.client)
@@ -800,8 +994,7 @@ test('same-Run Plan Exit is not a new-Run gate; active archive is BUSY and its o
     const page = await context.newPage()
     const writes = await observeWrites(page)
     await page.goto(base)
-    await showSidebar(page, 'zh-CN')
-    await page.getByRole('treeitem', { name: snapshot.session.title, exact: true }).click()
+    await openSession(page, 'zh-CN', sessionId, snapshot.session.title)
     await expect(sessions.execute('session.archive', { sessionId, archived: true })).rejects.toMatchObject({
       code: 'BUSY',
     })
@@ -823,19 +1016,33 @@ test('same-Run Plan Exit is not a new-Run gate; active archive is BUSY and its o
     await expect
       .poll(async () => (await runs.execute('operation.get', { operationId: accepted.operationId })).status)
       .toBe('completed')
-    await expect(card.getByRole('status')).toHaveText(copy.session.decisions.planExit.continued)
+    const resolved = await openResolvedDecision(page, 'zh-CN', approval.id)
+    await expect(resolved.getByRole('status')).toHaveText(copy.session.decisions.planExit.continued)
+    await page
+      .locator('.hbar-app-react-session-monitoring')
+      .getByRole('button', { name: copy.monitoring.close, exact: true })
+      .click()
     expect(writes.commands).toEqual([])
     expect((await host.client.call('session.snapshot', { sessionId })).runs).toHaveLength(1)
     await sessions.execute('session.archive', { sessionId, archived: true })
     await refreshRoster(page, host, 'zh-CN')
     await hideSidebar(page, 'zh-CN')
-    await expect(card.getByRole('status')).toHaveText(copy.session.decisions.planExit.continued)
-    await expect(card.getByRole('button')).toHaveCount(0)
-    await expect(page.locator('[data-session-execution-access="archived"]')).toBeVisible()
+    const feedbackSurface = await openComposerFeedback(page, 'zh-CN')
+    const notice = feedbackSurface.locator('[data-session-execution-access="archived"]')
+    await expect(notice).toBeVisible()
+    await page.keyboard.press('Escape')
+    await hideSidebar(page, 'zh-CN')
+    const archivedResolved = await openResolvedDecision(page, 'zh-CN', approval.id)
+    await expect(archivedResolved.getByRole('status')).toHaveText(copy.session.decisions.planExit.continued)
+    await expect(archivedResolved.getByRole('button')).toHaveCount(0)
+    await page
+      .locator('.hbar-app-react-session-monitoring')
+      .getByRole('button', { name: copy.monitoring.close, exact: true })
+      .click()
+    const finalFeedback = await openComposerFeedback(page, 'zh-CN')
+    await expect(finalFeedback.locator('[data-session-execution-access="archived"]')).toBeVisible()
   } finally {
-    await context.close()
-    if (host) await stopWebSessionHost(host)
-    await removeOwnedRoot(root)
+    await cleanupExecutionAccessFixture([context], host, root)
   }
 })
 
@@ -847,7 +1054,7 @@ test('archived unknown run.retry keeps only the original read-only receipt actio
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 320, height: 960 } })
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, port, goalAutoContinue: false })
+    host = await startWebSessionHost({ root, port, goalAutoContinue: false, budgetAutoContinue: false })
     const originalHost = host
     const sessionId = host.ready.sessionId
     const runs = createRunCommandClient(host.client)
@@ -866,12 +1073,12 @@ test('archived unknown run.retry keeps only the original read-only receipt actio
     const page = await context.newPage()
     const intercepted = await loseOneAcceptedReply(page, 'run.retry', true)
     await page.goto(base)
-    await showSidebar(page, 'en-US')
-    await page.getByRole('treeitem', { name: snapshot.session.title, exact: true }).click()
+    await openSession(page, 'en-US', sessionId, snapshot.session.title)
     const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
     await expect(prompt).toBeEditable()
     const draft = 'Retry-independent unsent draft — 不消费原稿'
     await prompt.fill(draft)
+    await page.getByRole('button', { name: copy.session.interruption.openStatus, exact: true }).click()
     const original = page.locator(`[data-run-id="${accepted.operationId}"]`)
     await original.getByRole('button', { name: copy.session.runs.retryLabel, exact: true }).click()
     await expect.poll(intercepted.hasHeldAcceptedReply).toBe(true)
@@ -889,9 +1096,20 @@ test('archived unknown run.retry keeps only the original read-only receipt actio
     expect(intercepted.replyWasLost()).toBe(true)
     expect(intercepted.commands.filter((command) => command === 'run.retry')).toHaveLength(1)
     await sessions.execute('session.archive', { sessionId, archived: true })
+    await page
+      .locator('.hbar-app-react-session-monitoring')
+      .getByRole('button', { name: copy.monitoring.close, exact: true })
+      .click()
     await refreshRoster(page, host, 'en-US')
     await hideSidebar(page, 'en-US')
-    await expect(page.locator('[data-session-execution-access="archived"]')).toBeVisible()
+    const feedbackSurface = await openComposerFeedback(page, 'en-US')
+    const notice = feedbackSurface.locator('[data-session-execution-access="archived"]')
+    await expect(notice).toBeVisible()
+    await page.keyboard.press('Escape')
+    await hideSidebar(page, 'en-US')
+    const pane = await openSessionMonitoring(page, 'en-US')
+    const details = pane.getByRole('button', { name: copy.session.runs.details(2), exact: true })
+    if ((await details.getAttribute('aria-expanded')) !== 'true') await details.click()
     const check = original.getByRole('button', { name: copy.session.runs.recheckLabel, exact: true })
     await expect(check).toBeEnabled()
     await expect(page.getByRole('button', { name: copy.session.runs.retryLabel, exact: true })).toHaveCount(0)
@@ -910,6 +1128,7 @@ test('archived unknown run.retry keeps only the original read-only receipt actio
     expect(intercepted.commands.slice(before).filter((command) => preparationCommands.has(command))).toEqual([])
     expect(intercepted.commands.filter((command) => command === 'run.retry')).toHaveLength(1)
     expect((await host.client.call('session.snapshot', { sessionId })).runs).toHaveLength(2)
+    await pane.getByRole('button', { name: copy.monitoring.close, exact: true }).click()
     await expectComposerText(prompt, draft)
     await expect(page.getByRole('button', { name: copy.session.prompt.send, exact: true })).toBeDisabled()
     await page.screenshot({ path: `${evidence}/${phase}/unknown-retry-confirmed-320.png` })
@@ -928,8 +1147,6 @@ test('archived unknown run.retry keeps only the original read-only receipt actio
       ),
     )
   } finally {
-    await context.close()
-    if (host) await stopWebSessionHost(host)
-    await removeOwnedRoot(root)
+    await cleanupExecutionAccessFixture([context], host, root)
   }
 })

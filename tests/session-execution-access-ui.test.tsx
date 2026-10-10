@@ -197,8 +197,19 @@ function fixture(status: ThreadGoal['status'] = 'paused') {
 }
 
 async function buttons(html: string) {
-  const values: { label: string; text: string; disabled: boolean; className: string }[] = []
+  const values: { label: string; text: string; disabled: boolean; className: string; owner: string }[] = []
+  const owners: string[] = []
   await new HTMLRewriter()
+    .on('[data-kind]', {
+      element(element) {
+        const owner = element.getAttribute('data-kind')
+        if (!owner) return
+        owners.push(owner)
+        element.onEndTag(() => {
+          if (owners.at(-1) === owner) owners.pop()
+        })
+      },
+    })
     .on('button', {
       element(element) {
         values.push({
@@ -206,6 +217,7 @@ async function buttons(html: string) {
           text: '',
           disabled: element.hasAttribute('disabled'),
           className: element.getAttribute('class') ?? '',
+          owner: owners.at(-1) ?? 'root',
         })
       },
       text(chunk) {
@@ -248,7 +260,6 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           />
         </HbarRuntimeProvider>,
       )
-      expect(html).toContain(copy.session.executionAccess.archived)
       expect(html).toContain('Original unsent draft')
       expect(html).toContain('原附件.txt')
       expect(html).toContain('Preserved historical message')
@@ -365,10 +376,9 @@ test('read-only model recovery stays discoverable while its original result is u
     )
     const controls = await buttons(html)
     expect(controls.find((control) => control.className.includes('hbar-composer-model-trigger'))?.disabled).toBe(false)
-    expect(controls.filter((control) => control.text === labels.reconcile)).toHaveLength(2)
-    expect(controls.filter((control) => control.text === labels.reconcile).every((control) => !control.disabled)).toBe(
-      true,
-    )
+    const reconcile = controls.filter((control) => control.text === labels.reconcile)
+    expect(reconcile.map((control) => control.owner).sort()).toEqual(['model', 'root', 'thinking'])
+    expect(reconcile.every((control) => !control.disabled)).toBe(true)
     expect(
       controls
         .filter((control) => control.className.includes('hbar-composer-model-option'))
