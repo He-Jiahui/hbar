@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { HbarError } from '@hbar/contracts'
 import { procedure, type IpcPeer, type IpcCallOptions } from './ipc'
 
@@ -116,7 +117,11 @@ export class RuntimeValuePort {
     if (typeof value === 'function' && state.callbacks) {
       if (this.callbacks.size >= 256) throw new HbarError('RUNTIME_CALLBACK_CAPACITY', 'Local callback capacity is exhausted')
       const id = crypto.randomUUID()
-      this.callbacks.set(id, (...args) => Reflect.apply(value, undefined, args))
+      const captured = AsyncLocalStorage.snapshot()
+      this.callbacks.set(id, (...args) => captured(() => {
+        const result: unknown = Reflect.apply(value, undefined, args)
+        return result
+      }))
       state.callbacks.push(id)
       return { kind: 'callback', id }
     }

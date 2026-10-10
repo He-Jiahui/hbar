@@ -1,17 +1,19 @@
 import { expect, test } from 'bun:test'
 import { z } from 'zod'
+import { AsyncLocalStorage, AsyncResource } from 'node:async_hooks'
 import { IpcPeer, RuntimeValuePort } from '@hbar/runtime'
 
 function fixture() {
+  const transport = new AsyncResource('isolated-runtime-transport')
   let child!: IpcPeer
   const parent = new IpcPeer({ owner: { unitId: 'base', generation: 1, incarnation: 'value-base' }, remote: { unitId: 'kernel', generation: 1, incarnation: 'value-kernel' },
-    transport: { send: frame => child.receive(JSON.parse(JSON.stringify(frame))) }, controlMethods: ['application.callback'] })
+    transport: { send: frame => transport.runInAsyncScope(() => child.receive(JSON.parse(JSON.stringify(frame)))) }, controlMethods: ['application.callback'] })
   child = new IpcPeer({ owner: parent.remote, remote: parent.owner,
-    transport: { send: frame => parent.receive(JSON.parse(JSON.stringify(frame))) }, controlMethods: ['application.callback'] })
+    transport: { send: frame => transport.runInAsyncScope(() => parent.receive(JSON.parse(JSON.stringify(frame)))) }, controlMethods: ['application.callback'] })
   let entered = 0
   const local = new RuntimeValuePort(parent, { prefix: 'application', controlMethods: ['approval.resolve'], callbackScope: action => { entered++; return action() } })
   const remote = new RuntimeValuePort(child, { prefix: 'application', controlMethods: ['approval.resolve'] })
-  return { local, remote, entered: () => entered, close() { local.dispose(); remote.dispose(); parent.close(); child.close() } }
+  return { local, remote, entered: () => entered, close() { local.dispose(); remote.dispose(); parent.close(); child.close(); transport.emitDestroy() } }
 }
 
 test('plain descriptions preserve optional arguments and bytes while named callbacks stay in their owner scope', async () => {
@@ -80,6 +82,22 @@ test('only declared application controls use the control port and an invalid ret
     f.remote.register('invalid.response', () => new Date())
     await expect(f.local.call('invalid.response', [])).rejects.toMatchObject({ code: 'IPC_SERIALIZATION' })
     expect(await f.local.call<string>('approval.resolve', ['next-approval'])).toBe('next-approval')
+    expect(f.local.snapshot().callbacks).toBe(0)
+  } finally { f.close() }
+})
+
+test('a callback returning across an independent IPC dispatch context retains its original local execution authority', async () => {
+  const f = fixture()
+  const scope = new AsyncLocalStorage<{ owner: string; fence: number }>()
+  try {
+    f.remote.register('commit', async ([callback]) => {
+      expect(scope.getStore()).toBeUndefined()
+      if (typeof callback !== 'function') throw new Error('Expected a named callback')
+      return Reflect.apply(callback, undefined, [])
+    })
+    expect(await scope.run({ owner: 'original-kernel', fence: 42 }, () =>
+      f.local.call<{ owner: string; fence: number }>('commit', [() => scope.getStore()]))).toEqual({ owner: 'original-kernel', fence: 42 })
+    expect(scope.getStore()).toBeUndefined()
     expect(f.local.snapshot().callbacks).toBe(0)
   } finally { f.close() }
 })
