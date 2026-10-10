@@ -3,8 +3,24 @@ import { createRunCommandClient, createWorkspaceSessionCommandClient } from '@hb
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { z } from 'zod'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+
+const rpcEnvelope = z
+  .object({
+    params: z
+      .object({
+        commandId: z.string().optional(),
+        input: z
+          .object({ sessionId: z.string().optional(), operationId: z.string().optional() })
+          .passthrough()
+          .optional(),
+      })
+      .passthrough()
+      .optional(),
+  })
+  .passthrough()
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
   test(`failed Run feedback stays beside its conversation and retries the captured Run: ${locale}`, async ({
@@ -53,18 +69,16 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         const server = socket.connectToServer()
         socket.onMessage((message) => {
           if (typeof message === 'string') {
-            const envelope = JSON.parse(message) as {
-              method?: string
-              params?: { commandId?: string; input?: { sessionId?: string; operationId?: string } }
-            }
+            const envelope = rpcEnvelope.safeParse(JSON.parse(message))
             if (
-              envelope.params?.commandId === 'run.retry' &&
-              envelope.params.input?.sessionId &&
-              envelope.params.input.operationId
+              envelope.success &&
+              envelope.data.params?.commandId === 'run.retry' &&
+              envelope.data.params.input?.sessionId &&
+              envelope.data.params.input.operationId
             )
               retryRequests.push({
-                sessionId: envelope.params.input.sessionId,
-                operationId: envelope.params.input.operationId,
+                sessionId: envelope.data.params.input.sessionId,
+                operationId: envelope.data.params.input.operationId,
               })
           }
           server.send(message)
