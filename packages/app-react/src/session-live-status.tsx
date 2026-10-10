@@ -1,11 +1,12 @@
 import { useId, useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenStatus, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import type { ComposerIntentState } from '@hbar/app-runtime'
 import type { RunStatus } from '@hbar/contracts'
 import { projectActivityTasks } from './activity-tasks-model'
 import { ActivityTasksView, type ActivityTaskLabels } from './activity-tasks-view'
 import './session-live-status.css'
+import { HbarSessionExecutionStatus } from './session-execution-status'
 
 export interface HbarSessionLiveStatusLabels {
   readonly label: string
@@ -108,8 +109,9 @@ export function HbarSessionLiveStatus({
         )}
         {(currentRun || (visible && !connected)) && (
           <LumenFrame role="status" aria-live="polite" aria-atomic="true" className="hbar-session-live-status-badge">
-            <LumenStatus
-              value={connected && currentRun ? labels.statusLabel(currentRun.status) : labels.offline}
+            <HbarSessionExecutionStatus
+              state={connected && currentRun ? currentRun.status : 'unconfirmed'}
+              label={connected && currentRun ? labels.statusLabel(currentRun.status) : labels.offline}
               tone={
                 !connected || currentRun?.status === 'waiting_approval'
                   ? 'warning'

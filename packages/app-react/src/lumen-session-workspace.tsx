@@ -76,6 +76,7 @@ import { HbarComposerPermissionPicker, type HbarComposerPermissionLabels } from 
 import { HbarSessionRunActivity, currentSessionRun, type HbarSessionRunLabels } from './session-run-activity'
 import { currentSessionRunFailure, sessionRunFailures } from './session-run-failure-model'
 import { HbarSessionLiveStatus, type HbarSessionLiveStatusLabels } from './session-live-status'
+import { HbarSessionExecutionStatus } from './session-execution-status'
 import { HbarQueuedUserRuns, type HbarQueuedUserRunsLabels } from './queued-user-runs'
 import { HbarSessionToolsMenu, type HbarSessionToolsMenuLabels } from './session-tools-menu'
 import { addComposerAttachments, type HbarSessionAttachmentSelection } from './composer-attachment-input'
@@ -408,7 +409,12 @@ function SessionWorkspaceContent({
   const modelPending =
     composerModel.sessionId === sessionId &&
     (composerModel.action.status === 'submitting' || composerModel.action.status === 'unknown')
-  const activeRuns = timeline.runs.filter((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))
+  const activeRuns =
+    timeline.sessionId === sessionId
+      ? timeline.runs.filter(
+          (run) => run.sessionId === sessionId && ['queued', 'running', 'waiting_approval'].includes(run.status),
+        )
+      : []
   const activeRun = currentSessionRun(activeRuns)
   const canCancelRun = (operationId: string) =>
     sessionStopCanCancel(
@@ -2608,17 +2614,24 @@ function SessionWorkspaceContent({
       <LumenPageHeader
         title={sessionTitle}
         context={workspaceName}
-        status={
-          activeRun
-            ? {
-                label: labels.runs.statusLabel(activeRun.status),
-                tone: activeRun.status === 'waiting_approval' ? 'warning' : 'success',
-              }
-            : undefined
-        }
         actionsLabel={labels.tools.label}
         actions={
           <>
+            {activeRun && (
+              <LumenFrame role="status" aria-live="polite" aria-atomic="true">
+                <HbarSessionExecutionStatus
+                  state={connected ? activeRun.status : 'unconfirmed'}
+                  label={connected ? labels.runs.statusLabel(activeRun.status) : labels.liveStatus.offline}
+                  tone={
+                    !connected || activeRun.status === 'waiting_approval'
+                      ? 'warning'
+                      : activeRun.status === 'running'
+                        ? 'info'
+                        : 'neutral'
+                  }
+                />
+              </LumenFrame>
+            )}
             {find.trigger}
             {showFilesInHeader && (
               <SessionToolButton

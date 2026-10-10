@@ -4,7 +4,6 @@ import {
   LumenButton,
   LumenFrame,
   LumenIcon,
-  LumenStatus,
   LumenText,
   type LumenRunActivityItem,
   type LumenRunActivityLabels,
@@ -13,6 +12,7 @@ import {
 import type { RunStatus } from '@hbar/contracts'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import './session-run-activity.css'
+import { HbarSessionExecutionStatus } from './session-execution-status'
 
 const PAGE_SIZE = 20
 const MAX_RUNS = 80
@@ -108,8 +108,9 @@ export function HbarSessionRunActivity({
     ) : null
   }
   const status = (run: HbarSessionRunItem) => (
-    <LumenStatus
-      value={
+    <HbarSessionExecutionStatus
+      state={run.status}
+      label={
         cancellingRunIds.includes(run.id) ? labels.cancellingLabel : (run.statusLabel ?? labels.statusLabel(run.status))
       }
       tone={

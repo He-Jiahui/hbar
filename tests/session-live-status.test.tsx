@@ -27,6 +27,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       expect(html).toContain('data-session-live-status="original-run"')
       expect(html).toContain('data-session-id="current-session"')
       expect(html).toContain('role="status"')
+      expect(html.includes('hbar-session-execution-spinner')).toBe(status === 'running')
       expect(html).toContain('aria-live="polite"')
       expect(html).toContain(
         'data-tone="' + (status === 'running' ? 'info' : status === 'queued' ? 'neutral' : 'warning'),
@@ -58,6 +59,7 @@ test('offline status stays honest and uses long localized Host copy without a cl
   expect(html).toContain(labels.label)
   expect(html).toContain(labels.offline)
   expect(html).not.toContain(labels.statusLabel('running'))
+  expect(html).not.toContain('hbar-session-execution-spinner')
   expect(html).toContain('data-run-status="unconfirmed"')
 })
 
