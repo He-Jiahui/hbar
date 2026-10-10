@@ -627,6 +627,7 @@
     "statusWorkspace.setGitQuery",
     "statusWorkspace.setPerformanceQuery",
     "statusWorkspace.setUsageQuery",
+    "timeline.contextHistory",
     "timeline.loadOlder",
     "timeline.retry",
     "workflowWorkspace.acceptCheck",
