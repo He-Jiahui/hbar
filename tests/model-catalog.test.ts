@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   DEFAULT_THINKING_LEVELS,
+  canonicalProviderModelSelectionId,
   modelSelectionId,
   providerSchema,
 } from '@hbar/contracts'
@@ -112,4 +113,18 @@ test('kernel exposes provider groups with independent model and thinking metadat
   await kernel.waitForIdle()
   const request = (await kernel.storage.call('events', session.id, 0)).find((event) => event.type === 'request.started')
   expect((request?.data as { request?: { model?: { model?: string } } }).request?.model?.model).toBe('deep')
+})
+
+test('legacy provider selection resolves to the configured primary after a provider gains models', () => {
+  const provider = providerSchema.parse({
+    id: 'niuma_openai',
+    name: 'Niuma OpenAI',
+    protocol: 'openai-responses',
+    baseUrl: 'https://example.test/v1',
+    model: 'gpt-6.1-sol',
+    models: [{ id: 'gpt-6.1-sol' }, { id: 'gpt-6-astra' }],
+  })
+  expect(canonicalProviderModelSelectionId(provider, provider.id)).toBe('niuma_openai/gpt-6.1-sol')
+  expect(canonicalProviderModelSelectionId(provider, 'niuma_openai/gpt-6-astra')).toBe('niuma_openai/gpt-6-astra')
+  expect(canonicalProviderModelSelectionId(provider, 'other-provider')).toBe('other-provider')
 })

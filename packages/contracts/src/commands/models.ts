@@ -37,9 +37,16 @@ export const modelDescriptorSchema = z.strictObject({
   thinkingLevels: z.array(thinkingLevelSchema).min(1).max(7),
   defaultThinkingLevel: thinkingLevelSchema,
   hasKey: z.boolean(),
+  /** True only for the provider's configured primary model. */
+  primary: z.boolean().optional(),
   /** Provider readiness for executing a new run. Mock/demo providers are executable without credentials. */
   canExecute: z.boolean().optional(),
 })
+/** Preserve a legacy provider-only setting only when the catalog identifies its primary model. */
+export function canonicalModelDescriptorId(models: readonly ModelDescriptor[], selectionId: string): string {
+  if (models.some((model) => model.id === selectionId)) return selectionId
+  return models.find((model) => model.providerId === selectionId && model.primary === true)?.id ?? selectionId
+}
 export const modelConfigurationSchema = z.strictObject({
   sessionId: idSchema,
   status: z.enum(['unset', 'configured', 'unavailable']),

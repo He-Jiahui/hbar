@@ -858,6 +858,18 @@ export function providerModelSelectionId(provider: ProviderConfig, modelId: stri
   return modelSelectionId(provider.id, modelId, provider.models.length)
 }
 
+/**
+ * Resolves the only legacy alias that is safe after a provider gains models.
+ * A one-model provider historically persisted its provider id as the selection;
+ * once it has multiple models that id must continue to mean its configured
+ * primary model. Unknown or explicit model selections are left untouched.
+ */
+export function canonicalProviderModelSelectionId(provider: ProviderConfig, selectionId: string): string {
+  if (selectionId !== provider.id || provider.models.length <= 1) return selectionId
+  const primary = provider.models.find((model) => model.id === provider.model)
+  return primary ? providerModelSelectionId(provider, primary.id) : selectionId
+}
+
 export function resolveProviderModel(provider: ProviderConfig, selectionId: string): ProviderConfig {
   let modelId = provider.model
   if (selectionId !== provider.id) {
@@ -900,6 +912,7 @@ export function normalizeThinkingLevel(
 export interface ModelInfo extends ProviderConfig {
   hasKey: boolean
   canExecute?: boolean
+  primary?: boolean
   providerId: string
   providerName: string
   providerVisible: boolean

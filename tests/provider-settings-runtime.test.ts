@@ -1180,6 +1180,32 @@ test('global provider default uses the configured multi-model primary in one fie
   }
 })
 
+test('global provider default migrates a legacy provider-only selection to its configured primary', async () => {
+  const fixture = globalDefaultFixture('target')
+  try {
+    await fixture.openProviders()
+    await waitFor(() =>
+      fixture.runtime.view.state.providers.getSnapshot().globalDefault.modelSelectionId === 'target/secondary'
+        ? true
+        : undefined,
+    )
+    expect(fixture.runtime.view.state.providers.getSnapshot().globalDefault).toMatchObject({
+      status: 'ready',
+      providerId: 'target',
+      modelSelectionId: 'target/secondary',
+      modelId: 'secondary',
+      selectable: true,
+    })
+    const result = await fixture.runtime.view.commands.execute('providerEditor.setGlobalDefault', {
+      providerId: 'target',
+    })
+    expect(result).toMatchObject({ status: 'succeeded', modelSelectionId: 'target/secondary' })
+    expect(fixture.selectedModel()).toBe('target/secondary')
+  } finally {
+    fixture.runtime.dispose()
+  }
+})
+
 test('setting the already active provider default preserves its selected non-primary global model without writing', async () => {
   const fixture = globalDefaultFixture('target/first')
   try {

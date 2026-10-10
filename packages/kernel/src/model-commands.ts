@@ -1,6 +1,11 @@
 import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
 import { HbarError, thinkingLevelSchema } from '@hbar/contracts'
-import { modelCommands, modelReceiptSchema, type ModelDescriptor } from '@hbar/contracts/commands/models'
+import {
+  canonicalModelDescriptorId,
+  modelCommands,
+  modelReceiptSchema,
+  type ModelDescriptor,
+} from '@hbar/contracts/commands/models'
 import { encodePath, type SchemaPath } from '@hbar/schema-core'
 import type { SettingReport } from '@hbar/settings-core'
 import type { Kernel } from './index'
@@ -29,6 +34,7 @@ export function toModelDescriptor(model: Awaited<ReturnType<Kernel['models']>>[n
     defaultThinkingLevel: model.defaultThinkingLevel,
     hasKey: model.hasKey,
     ...(model.canExecute === undefined ? {} : { canExecute: model.canExecute }),
+    ...(model.primary === undefined ? {} : { primary: model.primary }),
   }
 }
 
@@ -43,7 +49,9 @@ export function createModelSettingsValidator(kernel: Kernel): SettingsCandidateV
     const thinking = value(resolution.reports[THINKING_KEY])
     if (selected === null && thinking === null) return
     const includesModelSelection = changes.some((change) => encodePath(change.path) === MODEL_KEY)
-    const model = (await kernel.models({ includeHidden: !includesModelSelection })).find((item) => item.id === selected)
+    const catalog = (await kernel.models({ includeHidden: !includesModelSelection })).map(toModelDescriptor)
+    const canonicalSelected = typeof selected === 'string' ? canonicalModelDescriptorId(catalog, selected) : selected
+    const model = catalog.find((item) => item.id === canonicalSelected)
     if (!model) throw new HbarError('MODEL_NOT_FOUND', `Configured model ${String(selected)} was not found`)
     const parsedThinking = thinkingLevelSchema.safeParse(thinking)
     if (thinking !== null && (!parsedThinking.success || !model.thinkingLevels.includes(parsedThinking.data)))
@@ -66,9 +74,9 @@ export function createModelCommands(kernel: Kernel, settings: SettingsService) {
     const modelReport = snapshot.resolution.reports[MODEL_KEY]!
     const thinkingReport = snapshot.resolution.reports[THINKING_KEY]!
     const modelId = typeof modelReport.effectiveValue === 'string' ? modelReport.effectiveValue : null
-    const selected = modelId
-      ? (await kernel.models({ includeHidden: true })).find((model) => model.id === modelId)
-      : undefined
+    const catalog = (await kernel.models({ includeHidden: true })).map(toModelDescriptor)
+    const canonicalModelId = modelId === null ? null : canonicalModelDescriptorId(catalog, modelId)
+    const selected = modelId ? catalog.find((model) => model.id === canonicalModelId) : undefined
     const parsedThinking = thinkingLevelSchema.safeParse(thinkingReport.effectiveValue)
     const rawThinking = parsedThinking.success ? parsedThinking.data : null
     const thinkingLevel = selected
@@ -79,8 +87,8 @@ export function createModelCommands(kernel: Kernel, settings: SettingsService) {
     return {
       sessionId,
       status: modelId === null ? ('unset' as const) : selected ? ('configured' as const) : ('unavailable' as const),
-      modelId,
-      model: selected ? toModelDescriptor(selected) : null,
+      modelId: canonicalModelId,
+      model: selected ?? null,
       thinkingLevel,
       revisions: { ...snapshot.revisions },
       sources: { model: modelReport.sourceLayer, thinkingLevel: thinkingReport.sourceLayer },
@@ -152,7 +160,9 @@ export function createModelCommands(kernel: Kernel, settings: SettingsService) {
           throw new HbarError('INVALID_INPUT', 'Authenticated actor and idempotency key are required')
         const before = await settings.get({ kind: 'session', targetId: input.sessionId })
         const modelId = value(before.resolution.reports[MODEL_KEY])
-        const selected = (await kernel.models({ includeHidden: true })).find((model) => model.id === modelId)
+        const catalog = (await kernel.models({ includeHidden: true })).map(toModelDescriptor)
+        const canonicalModelId = typeof modelId === 'string' ? canonicalModelDescriptorId(catalog, modelId) : modelId
+        const selected = catalog.find((model) => model.id === canonicalModelId)
         if (!selected) throw new HbarError('MODEL_NOT_FOUND', 'Select an available model before setting thinking')
         if (!selected.thinkingLevels.includes(input.thinkingLevel))
           throw new HbarError('THINKING_LEVEL_UNSUPPORTED', `${input.thinkingLevel} is unavailable for ${selected.id}`)

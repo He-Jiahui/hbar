@@ -1,6 +1,6 @@
 import { CommandError, type CommandExecutor } from '@hbar/commands'
 import { thinkingLevelSchema } from '@hbar/contracts'
-import { modelCommands } from '@hbar/contracts/commands/models'
+import { canonicalModelDescriptorId, modelCommands } from '@hbar/contracts/commands/models'
 import { settingsCommands } from '@hbar/contracts/commands/settings'
 import { encodePath } from '@hbar/schema-core'
 
@@ -41,7 +41,8 @@ export async function readPreSessionDefaultModel(
     )
     if (new Set(catalog.map((model) => model.id)).size !== catalog.length)
       throw new CommandError('INVALID_OUTPUT', 'Default model catalog contains duplicate IDs')
-    const model = catalog.find((item) => item.id === modelId)
+    const canonicalModelId = canonicalModelDescriptorId(catalog, modelId)
+    const model = catalog.find((item) => item.id === canonicalModelId)
     if (!model) throw new CommandError('MODEL_NOT_FOUND', 'Default model is no longer available')
     const level = thinkingLevelSchema.safeParse(
       snapshot.resolution.reports[field('provider.thinkingLevel')]?.effectiveValue,

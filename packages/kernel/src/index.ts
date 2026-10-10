@@ -944,6 +944,7 @@ export class Kernel {
               modelId: model.id,
               modelName: model.name,
               modelVisible: model.visible,
+              primary: model.id === provider.model,
               hasKey,
               canExecute: provider.protocol === 'mock' ? this.options.demo === true : hasKey,
             }))

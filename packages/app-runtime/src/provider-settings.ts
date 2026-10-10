@@ -1,6 +1,7 @@
 import { CommandError, type CommandRegistry } from '@hbar/commands'
 import {
   HbarError,
+  canonicalProviderModelSelectionId,
   providerModelSelectionId,
   providerInputSchema,
   providerSchema,
@@ -68,20 +69,23 @@ function globalDefaultState(
   profiles: readonly ProviderSettingsProfile[],
   catalog: readonly ModelDescriptor[],
 ): ProviderGlobalDefaultState {
-  const selectedModel = modelSelectionId ? catalog.find((model) => model.id === modelSelectionId) : undefined
   let selectedProfileModel:
     { readonly profile: ProviderSettingsProfile; readonly model: ProviderConfig['models'][number] } | undefined
+  let canonicalSelectionId = modelSelectionId
   if (modelSelectionId) {
     for (const profile of profiles) {
+      const candidateSelectionId = canonicalProviderModelSelectionId(profile.provider, modelSelectionId)
       const model = profile.provider.models.find(
-        (candidate) => providerModelSelectionId(profile.provider, candidate.id) === modelSelectionId,
+        (candidate) => providerModelSelectionId(profile.provider, candidate.id) === candidateSelectionId,
       )
       if (model) {
         selectedProfileModel = { profile, model }
+        canonicalSelectionId = candidateSelectionId
         break
       }
     }
   }
+  const selectedModel = canonicalSelectionId ? catalog.find((model) => model.id === canonicalSelectionId) : undefined
   const catalogMatchesProfile =
     Boolean(selectedModel && selectedProfileModel) &&
     selectedModel?.providerId === selectedProfileModel?.profile.provider.id &&
@@ -89,7 +93,7 @@ function globalDefaultState(
   const available = modelSelectionId === null || catalogMatchesProfile
   return {
     status: available ? 'ready' : 'unavailable',
-    modelSelectionId,
+    modelSelectionId: canonicalSelectionId,
     providerId: selectedProfileModel?.profile.provider.id ?? selectedModel?.providerId ?? null,
     providerName: selectedProfileModel?.profile.provider.name ?? selectedModel?.providerName ?? null,
     modelId: selectedProfileModel?.model.id ?? selectedModel?.modelId ?? null,
@@ -557,6 +561,7 @@ export function createProviderSettings(
     return {
       snapshot,
       catalog,
+      rawModelSelectionId: modelSelectionId,
       projection: globalDefaultState(modelSelectionId, profiles, catalog),
     }
   }
@@ -723,7 +728,10 @@ export function createProviderSettings(
         throw new CommandError('VERSION_CONFLICT', 'Provider primary model changed; refresh the provider list')
 
       const latestGlobalDefault = globalDefaultState(facts.projection.modelSelectionId, latestProfiles, facts.catalog)
-      if (latestGlobalDefault.providerId === providerId) {
+      // A provider-only legacy alias must be rewritten after a provider gains
+      // models. Any explicit canonical model selection for that provider,
+      // including a non-primary model, is already an intentional choice.
+      if (latestGlobalDefault.providerId === providerId && facts.rawModelSelectionId !== providerId) {
         const action = {
           status: 'succeeded' as const,
           providerId,
