@@ -61,6 +61,7 @@ export function AgentModelPicker({
     setOpen(value)
   })
   const selected = catalog.models.find((model) => model.id === value)
+  const unavailableDraft = value && !selected ? value : null
   const currentLabel = selected?.modelName ?? (value ? labels.unavailable(value) : labels.choose)
   const { groups, remaining } = filterCatalogModels(catalog.models, query, limit, value)
   const moveOption = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -178,6 +179,26 @@ export function AgentModelPicker({
           </LumenFrame>
         )}
         <LumenFrame className="hbar-agent-model-list" role="listbox" aria-label={labels.title}>
+          {unavailableDraft && (
+            <LumenButton
+              type="button"
+              variant="text"
+              indicator="none"
+              role="option"
+              aria-selected="true"
+              disabled
+              aria-label={labels.unavailable(unavailableDraft)}
+              title={labels.unavailable(unavailableDraft)}
+              className="hbar-agent-model-unavailable"
+            >
+              <LumenText as="span" className="hbar-agent-model-option-text">
+                <LumenText as="span">{labels.unavailable(unavailableDraft)}</LumenText>
+                <LumenText as="small" title={unavailableDraft}>
+                  {unavailableDraft}
+                </LumenText>
+              </LumenText>
+            </LumenButton>
+          )}
           {groups.map(([providerId, group]) => (
             <LumenFrame key={providerId} as="section" className="hbar-agent-model-group">
               <LumenText as="h3">{group.name}</LumenText>
@@ -210,7 +231,7 @@ export function AgentModelPicker({
               ))}
             </LumenFrame>
           ))}
-          {catalog.status === 'ready' && !groups.length && (
+          {catalog.status === 'ready' && !groups.length && !unavailableDraft && (
             <LumenText as="p">{catalog.models.length ? labels.noMatches : labels.empty}</LumenText>
           )}
           {remaining > 0 && (

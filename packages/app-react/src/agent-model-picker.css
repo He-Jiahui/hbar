@@ -32,7 +32,7 @@
 
 .hbar-agent-model-picker,
 .hbar-agent-model-heading {
-  overflow-x: auto;
+  overflow-x: visible;
 }
 
 .hbar-agent-model-heading > strong {
@@ -89,12 +89,18 @@
 }
 
 .hbar-agent-model-option-text {
-  flex: 1 0 auto;
+  flex: 1 1 auto;
+  min-inline-size: 0;
   gap: 0.125rem;
 }
 
 .hbar-agent-model-option-text > * {
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+}
+
+.hbar-agent-model-unavailable {
+  color: var(--lumen-muted);
+  cursor: not-allowed;
 }
 
 .hbar-agent-model-option-text small {
