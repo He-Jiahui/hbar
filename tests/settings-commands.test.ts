@@ -173,6 +173,7 @@ test('typed settings commands share catalog, layered CAS and actor-scoped idempo
     encodePath(field('client.chatSendBehavior')),
     encodePath(field('provider.model')),
     encodePath(field('provider.thinkingLevel')),
+    encodePath(field('provider.maxMode')),
     encodePath(field('session.defaultBudget')),
     encodePath(field(COMPACTION_PERCENT_SETTING)),
     encodePath(field('session.approval')),
