@@ -2,7 +2,6 @@ import {
   useCallback,
   useEffect,
   useId,
-  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -10,8 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import './GlassSurface.css'
-import { mergeThemeContributions, useThemeSettings } from '../theme-store'
-import { useUIPlugins } from '../ui-plugins'
+import { useThemeSettings } from '../theme-store'
 
 type Channel = 'R' | 'G' | 'B'
 type BlendMode =
@@ -117,15 +115,13 @@ export default function GlassSurface({
   style,
   ...rest
 }: GlassSurfaceProps) {
-  const themeProfile = useThemeSettings((state) => state.profile)
-  const profileExplicit = useThemeSettings((state) => state.profileExplicit)
-  const themeContributions = useUIPlugins((state) => state.themes)
-  const effectiveTheme = useMemo(() => mergeThemeContributions(themeProfile, themeContributions, profileExplicit), [profileExplicit, themeContributions, themeProfile])
+  const effectiveTheme = useThemeSettings((state) => state.profile)
   const prefersReducedMotion = usePrefersReducedMotion()
-  const motionDisabled = effectiveTheme.motion.intensity === 'off' || (effectiveTheme.motion.respectReducedMotion && prefersReducedMotion)
+  const motionDisabled =
+    effectiveTheme.motion.intensity === 'off' || (effectiveTheme.motion.respectReducedMotion && prefersReducedMotion)
   const resolvedBorderRadius = borderRadius ?? effectiveTheme.surface.cornerRadius
   const resolvedBlur = blur ?? effectiveTheme.surface.blurAmount
-  const resolvedDisplace = motionDisabled ? 0 : displace ?? effectiveTheme.surface.displacementScale
+  const resolvedDisplace = motionDisabled ? 0 : (displace ?? effectiveTheme.surface.displacementScale)
   const resolvedBackgroundOpacity = backgroundOpacity ?? effectiveTheme.surface.backgroundOpacity
   const resolvedSaturation = saturation ?? effectiveTheme.surface.saturation / 100
   const resolvedAberration = motionDisabled ? 0 : effectiveTheme.surface.aberrationIntensity
@@ -173,7 +169,17 @@ export default function GlassSurface({
       channel.ref.current?.setAttribute('yChannelSelector', yChannel)
     }
     gaussianBlurRef.current?.setAttribute('stdDeviation', String(resolvedDisplace))
-  }, [distortionScale, greenOffset, redOffset, blueOffset, resolvedAberration, updateDisplacementMap, xChannel, yChannel, resolvedDisplace])
+  }, [
+    distortionScale,
+    greenOffset,
+    redOffset,
+    blueOffset,
+    resolvedAberration,
+    updateDisplacementMap,
+    xChannel,
+    yChannel,
+    resolvedDisplace,
+  ])
 
   useEffect(() => {
     const element = containerRef.current
@@ -211,7 +217,12 @@ export default function GlassSurface({
             <feDisplacementMap ref={redChannelRef} in="SourceGraphic" in2="map" result="dispRed" />
             <feColorMatrix in="dispRed" type="matrix" values="1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0" result="red" />
             <feDisplacementMap ref={greenChannelRef} in="SourceGraphic" in2="map" result="dispGreen" />
-            <feColorMatrix in="dispGreen" type="matrix" values="0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0" result="green" />
+            <feColorMatrix
+              in="dispGreen"
+              type="matrix"
+              values="0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0"
+              result="green"
+            />
             <feDisplacementMap ref={blueChannelRef} in="SourceGraphic" in2="map" result="dispBlue" />
             <feColorMatrix in="dispBlue" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0" result="blue" />
             <feBlend in="red" in2="green" mode="screen" result="rg" />

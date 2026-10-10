@@ -41,7 +41,6 @@ export {
   type ReferenceSurfaceProps,
   type ReferenceTabsProps,
 } from './production'
-export { useReferenceProductionContext, useReferenceProjections } from './production-context'
 export {
   default as ModelPickerSurface,
   type ReactBitsModelOption,
@@ -85,10 +84,7 @@ export {
   type UserInputSurfaceLabels,
   type UserInputSurfaceProps,
 } from './components/UserInputSurface'
-export {
-  default as ChatStreamSurface,
-  type ChatStreamSurfaceProps,
-} from './components/ChatStreamSurface'
+export { default as ChatStreamSurface, type ChatStreamSurfaceProps } from './components/ChatStreamSurface'
 export {
   default as RunOutcomeSurface,
   type RunOutcomeSurfaceLabels,
