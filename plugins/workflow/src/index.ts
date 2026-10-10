@@ -1992,7 +1992,10 @@ export class WorkflowRuntime implements WorkflowService {
   canAutoContinue(sessionId: string) {
     const workflow = this.workflows.get(sessionId)
     if (!workflow || ['completed', 'cancelled'].includes(workflow.status)) return true
-    if (workflow.status !== 'active') return false
+    // Verification of agent-owned/tool-owned checks is still an executable
+    // phase. Only user review, blocked work, delegation, and pending user
+    // checks must hold automatic Goal continuation.
+    if (!['active', 'verifying'].includes(workflow.status)) return false
     if (!workflow.activeItemId) return true
     const item = workflow.workItems.find((candidate) => candidate.id === workflow.activeItemId)
     if (!item || item.owner.kind !== 'main' || ['blocked', 'delegated', 'completed'].includes(item.status)) return false
