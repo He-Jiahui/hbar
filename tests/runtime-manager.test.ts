@@ -198,6 +198,43 @@ test('a local reload changes only its unit generation and old bound work retains
   expect(f.manager.snapshot().instanceId).toBe('stable-host')
 })
 
+test('JavaScript can reload with the same native assets, while changed native bytes require restart before any candidate is created', async () => {
+  const f = fixture()
+  const binary = { name: 'workspace-query.node', sha256: 'b'.repeat(64) }
+  const initial = { ...artifact(1), files: [...artifact(1).files, binary] }
+  f.sets.set('native-initial', { id: 'native-initial', createdAt: Date.now(), artifacts: [initial] })
+  await f.completed(f.manager.reload('native-initial', ['plugin'], true).operationId)
+  const compatible = { ...artifact(2), files: [{ name: 'unit.js', sha256: 'c'.repeat(64) }, binary] }
+  f.sets.set('compatible-native', { id: 'compatible-native', createdAt: Date.now(), artifacts: [compatible] })
+  await f.completed(f.manager.reload('compatible-native', ['plugin']).operationId)
+  const current = f.manager.currentVersion('plugin')
+  const created = f.created.length
+  const changed = { ...artifact(3), files: [...artifact(3).files, { ...binary, sha256: 'd'.repeat(64) }] }
+  f.sets.set('changed-native', { id: 'changed-native', createdAt: Date.now(), artifacts: [changed] })
+  const operation = f.manager.reload('changed-native', ['plugin']).operationId
+  expect(f.manager.getReload(operation)).toMatchObject({ phase: 'restart_required', units: [{ reasonCode: 'RUNTIME_NATIVE_RESTART_REQUIRED' }] })
+  expect(f.manager.currentVersion('plugin')).toEqual(current)
+  expect(f.created.length).toBe(created)
+})
+
+test('adding, removing or changing declared native resources blocks the whole reload group and keeps unrelated defaults', async () => {
+  const resource = { sourcePath: 'native/helper.dll', name: 'resource-helper.dll', sha256: 'b'.repeat(64) }
+  for (const change of ['add', 'remove', 'change'] as const) {
+    const f = fixture({ units: ['plugin', 'independent'] })
+    const initial = { ...artifact(1), resourceFiles: change === 'add' ? [] : [resource] }
+    f.sets.set('initial-native', { id: 'initial-native', createdAt: Date.now(), artifacts: [initial, artifact(1, manifest('independent'))] })
+    await f.completed(f.manager.reload('initial-native', ['plugin', 'independent'], true).operationId)
+    const plugin = f.manager.currentVersion('plugin'), independent = f.manager.currentVersion('independent')
+    const candidate = { ...artifact(2), resourceFiles: change === 'remove' ? [] : [{ ...resource, sha256: change === 'change' ? 'c'.repeat(64) : resource.sha256 }] }
+    f.sets.set('native-group', { id: 'native-group', createdAt: Date.now(), artifacts: [candidate, artifact(2, manifest('independent'))] })
+    const operation = f.manager.reload('native-group', ['plugin', 'independent']).operationId
+    await f.manager.reconcile()
+    expect(f.manager.getReload(operation).phase).toBe('restart_required')
+    expect(f.manager.currentVersion('plugin')).toEqual(plugin)
+    expect(f.manager.currentVersion('independent')).toEqual(independent)
+  }
+})
+
 test('two serving generations retain at most one candidate and continuous edits keep only the latest candidate', async () => {
   const f = fixture()
   await f.completed(f.reload(1))

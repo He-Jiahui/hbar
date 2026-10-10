@@ -49,6 +49,7 @@ interface Unit {
   readonly generations: Map<number, ManagedGenerationPort>
   nextGeneration: number
   current: ManagedGenerationPort | null
+  currentArtifact: RuntimeArtifact | null
   candidate: Candidate | null
   queued: Candidate | null
   processing: Promise<void> | null
@@ -98,6 +99,13 @@ class PreparationCapacity {
 function finished(operation: RuntimeReload): boolean {
   return ['completed', 'failed', 'cancelled', 'restart_required'].includes(operation.phase)
 }
+function nativeFingerprint(artifact: RuntimeArtifact): string {
+  const native = /\.(?:node|dll|so|dylib|exe|pyd|wasm)$/i
+  return JSON.stringify([
+    ...artifact.files.filter(file => native.test(file.name)).map(file => [file.name, file.sha256] as const),
+    ...artifact.resourceFiles.filter(file => native.test(file.sourcePath)).map(file => [file.sourcePath, file.sha256] as const),
+  ].sort((left, right) => left[0].localeCompare(right[0])))
+}
 
 /** Stable default routing and at most two serving generations plus one read-only candidate per unit. */
 export class RuntimeManager {
@@ -131,6 +139,7 @@ export class RuntimeManager {
       generations: new Map(),
       nextGeneration: 0,
       current: null,
+      currentArtifact: null,
       candidate: null,
       queued: null,
       processing: null,
@@ -206,6 +215,10 @@ export class RuntimeManager {
         artifact.descriptor.isolation !== unit.descriptor.isolation
       ) {
         this.update(operationId, unit.descriptor.id, 'restart_required', 'RUNTIME_RESTART_REQUIRED')
+        continue
+      }
+      if (unit.currentArtifact && nativeFingerprint(unit.currentArtifact) !== nativeFingerprint(artifact)) {
+        this.update(operationId, unit.descriptor.id, 'restart_required', 'RUNTIME_NATIVE_RESTART_REQUIRED')
         continue
       }
       if (unit.current?.snapshot().artifactId === artifact.id) {
@@ -402,6 +415,7 @@ export class RuntimeManager {
       }
       if (candidate.cancelled || this.stopped) continue
       unit.current = generation
+      unit.currentArtifact = candidate.artifact
       unit.candidate = null
       const operation = this.operations.get(candidate.operationId)
       if (operation) {
