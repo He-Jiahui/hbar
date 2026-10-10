@@ -9,7 +9,7 @@ import {
   type RuntimeUnitDescriptor,
 } from '@hbar/contracts/runtime'
 
-const artifactSchema = z.strictObject({
+export const runtimeArtifactSchema = z.strictObject({
   id: runtimeArtifactIdSchema,
   unitId: z.string().min(1).max(160),
   descriptor: runtimeUnitDescriptorSchema,
@@ -30,6 +30,7 @@ const artifactSchema = z.strictObject({
     )
     .max(4_096),
 })
+const artifactSchema = runtimeArtifactSchema
 export type RuntimeArtifact = z.infer<typeof artifactSchema>
 const packagedFileSchema = z.strictObject({ name: z.string().min(1).max(256), base64: z.string().max(179_000_000) })
 const packagedUnitSchema = z.strictObject({ artifact: artifactSchema, files: z.array(packagedFileSchema).min(1).max(4_224) })
@@ -255,6 +256,19 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
   }
   forgetSet(id: string): void {
     this.sets.delete(id)
+  }
+
+  /** Accept only a local builder's descriptor, then verify its immutable files before exposing a reload set. */
+  async acceptBuild(raw: unknown): Promise<RuntimeArtifact> {
+    const artifact = artifactSchema.parse(raw)
+    const existing = this.registered.get(artifact.id)
+    if (existing && JSON.stringify(existing) !== JSON.stringify(artifact))
+      throw new HbarError('RUNTIME_ARTIFACT_CHANGED', 'The builder descriptor conflicts with a registered artifact')
+    if (!existing && this.registered.size >= 4_096)
+      throw new HbarError('RUNTIME_ARTIFACT_CAPACITY', 'Registered artifact capacity is exhausted')
+    this.registered.set(artifact.id, artifact)
+    try { return await this.get(artifact.id) }
+    catch (error) { if (!existing) this.registered.delete(artifact.id); throw error }
   }
 
   async get(id: string): Promise<RuntimeArtifact> {
