@@ -141,7 +141,13 @@ test('RPC stopped Goal admission is not unknown and explicit resume restores its
     const accepted = await client.call('run.start', input)
     await kernel.waitForIdle()
     expect((await kernel.storage.call('run', accepted.id)).status).toBe('completed')
-    expect((await kernel.snapshot(session.id)).runs).toHaveLength(1)
+    const runs = (await kernel.snapshot(session.id)).runs
+    // Resuming an explicit Goal also admits its persisted continuation. The
+    // retried RPC key must remain a separate accepted Run instead of becoming
+    // RESULT_UNKNOWN or replacing that continuation.
+    expect(runs).toHaveLength(2)
+    expect(runs.filter((run) => run.id === accepted.id)).toHaveLength(1)
+    expect(runs.filter((run) => run.input.continuation?.goalId).length).toBe(1)
   } finally {
     client.disconnect()
     await host.close()
