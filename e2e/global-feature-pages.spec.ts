@@ -14,7 +14,7 @@ import { openComposerTemplates } from './support/composer-templates-menu'
 async function showNavigation(page: Page, locale: ShellLocale) {
   const toggle = page.getByRole('button', { name: getShellCopy(locale).shell.showSidebar, exact: true })
   if ((page.viewportSize()?.width ?? 1440) < 1024)
-    await expect(page.locator('.hbar-app-react-shell-header')).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
+    await expect(page.locator('.hbar-app-react-shell-content')).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
   if (await toggle.isVisible()) await toggle.click()
   await expect(page.locator('.hbar-app-react-sidebar-brand-actions')).toBeInViewport()
 }

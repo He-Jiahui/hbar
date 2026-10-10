@@ -28,11 +28,13 @@ export function WorkspaceTabsController({
   runtime,
   client,
   locale,
+  leadingNavigation,
   children,
 }: {
   readonly runtime: Runtime
   readonly client: HbarClient
   readonly locale: ShellLocale
+  readonly leadingNavigation?: ReactNode
   readonly children: ReactNode
 }) {
   const tabs = useHbarRuntimeState(runtime.view.state.workspaceTabs)
@@ -172,31 +174,38 @@ export function WorkspaceTabsController({
   useHbarMobileHeaderMenuSection(
     tabs.items.length > 0 ? { id: 'workspace-tabs', order: 1, label: copy.tabs.tabs, items: mobileTabItems } : null,
   )
+  const showBar = tabs.items.length > 0 || (leadingNavigation !== undefined && leadingNavigation !== null)
   return (
     <LumenFrame className="hbar-workspace-tabs-controller">
-      {(tabs.items.length > 0 || tabs.restoreStatus === 'loading' || error) && (
+      {(showBar || tabs.restoreStatus === 'loading' || error) && (
         <LumenFrame className="hbar-workspace-tabs-region">
-          {tabs.items.length > 0 ? (
+          {showBar && (
             <LumenFrame className="hbar-workspace-tabs-bar">
-              <HbarWorkspaceTabs
-                items={items}
-                activeId={presentation.page.kind === 'session' ? tabs.activeId : null}
-                busy={busy}
-                labels={copy.tabs}
-                onSelect={(id) => {
-                  action(runtime.view.commands.execute('workspaceTabs.select', { id }))
-                }}
-                onMove={(id, beforeId) => {
-                  action(runtime.view.commands.execute('workspaceTabs.move', { id, beforeId }))
-                }}
-                onRequestClose={requestClose}
-              />
+              {leadingNavigation !== undefined && leadingNavigation !== null && (
+                <LumenFrame className="hbar-workspace-tabs-leading">{leadingNavigation}</LumenFrame>
+              )}
+              {tabs.items.length > 0 && (
+                <HbarWorkspaceTabs
+                  items={items}
+                  activeId={presentation.page.kind === 'session' ? tabs.activeId : null}
+                  busy={busy}
+                  labels={copy.tabs}
+                  onSelect={(id) => {
+                    action(runtime.view.commands.execute('workspaceTabs.select', { id }))
+                  }}
+                  onMove={(id, beforeId) => {
+                    action(runtime.view.commands.execute('workspaceTabs.move', { id, beforeId }))
+                  }}
+                  onRequestClose={requestClose}
+                />
+              )}
             </LumenFrame>
-          ) : tabs.restoreStatus === 'loading' ? (
+          )}
+          {tabs.items.length === 0 && tabs.restoreStatus === 'loading' && (
             <LumenText as="p" role="status">
               {copy.restoring}
             </LumenText>
-          ) : null}
+          )}
           {error && (
             <LumenFrame className="hbar-workspace-tabs-feedback">
               <LumenText as="p" role="alert">

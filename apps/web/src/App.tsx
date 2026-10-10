@@ -2116,23 +2116,30 @@ export default function App({
           }
         >
           {workspaceLayout.config.tabs.visible && workspaceLayout.config.tabs.placement === 'before-content' ? (
-            <WorkspaceTabsController runtime={runtime} client={client} locale={locale}>
-              <WorkspaceBody
-                storageLocations={storageLocations}
-                appRuntime={runtime}
-                appearanceEditor={appearanceEditor}
+            ({ leadingNavigation }) => (
+              <WorkspaceTabsController
+                runtime={runtime}
+                client={client}
                 locale={locale}
-                language={language}
-                sendBehavior={sendBehavior}
-                zoom={zoom}
-                nativeDesktop={Boolean(nativeWindow)}
-                connected={connection === 'connected'}
-                prepareAttachment={attachmentController.prepare}
-                images={images}
-                files={composerFiles}
-                systemPrefersDark={systemPrefersDark}
-              />
-            </WorkspaceTabsController>
+                leadingNavigation={leadingNavigation}
+              >
+                <WorkspaceBody
+                  storageLocations={storageLocations}
+                  appRuntime={runtime}
+                  appearanceEditor={appearanceEditor}
+                  locale={locale}
+                  language={language}
+                  sendBehavior={sendBehavior}
+                  zoom={zoom}
+                  nativeDesktop={Boolean(nativeWindow)}
+                  connected={connection === 'connected'}
+                  prepareAttachment={attachmentController.prepare}
+                  images={images}
+                  files={composerFiles}
+                  systemPrefersDark={systemPrefersDark}
+                />
+              </WorkspaceTabsController>
+            )
           ) : (
             <WorkspaceBody
               storageLocations={storageLocations}

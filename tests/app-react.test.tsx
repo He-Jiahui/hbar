@@ -227,6 +227,45 @@ async function prepareSidebar(
     })
 }
 
+test('desktop content can place sidebar reveal before its tabs without a separate shell header', async () => {
+  const runtime = runtimeFixture()
+  try {
+    await prepareSidebar(runtime)
+    const render = () =>
+      renderToStaticMarkup(
+        <HbarRuntimeProvider view={runtime.view}>
+          <HbarWorkspaceShell
+            labels={labels}
+            mobileNavigationLabel="Session tools and tabs"
+            sidebarWidthRem={17}
+            connection="connected"
+            onReconnect={() => {}}
+            renderLayout={(panes) => panes.workspace}
+          >
+            {({ leadingNavigation }) => (
+              <div className="fixture-tab-row" data-leading-present={Boolean(leadingNavigation)}>
+                {leadingNavigation}
+                <button role="tab">宿主页签</button>
+              </div>
+            )}
+          </HbarWorkspaceShell>
+        </HbarRuntimeProvider>,
+      )
+    await runtime.view.commands.execute('app.setSidebarVisible', { visible: false })
+    const closed = render()
+    expect(closed).toContain(`aria-label="${labels.showSidebar}"`)
+    expect(closed).toContain('data-hbar-sidebar-reveal="tabs"')
+    expect(closed).not.toContain('lumen-desktop-shell-header')
+    expect(closed.indexOf('fixture-tab-row')).toBeLessThan(closed.indexOf(`aria-label="${labels.showSidebar}"`))
+    expect(closed.indexOf(`aria-label="${labels.showSidebar}"`)).toBeLessThan(closed.indexOf('role="tab"'))
+    await runtime.view.commands.execute('app.setSidebarVisible', { visible: true })
+    expect(render()).toContain('data-leading-present="false"')
+    expect(render()).not.toContain('data-hbar-sidebar-reveal="tabs"')
+  } finally {
+    runtime.dispose()
+  }
+})
+
 test('desktop projection keeps a reachable sidebar reveal without empty default header regions', async () => {
   const runtime = runtimeFixture()
   try {

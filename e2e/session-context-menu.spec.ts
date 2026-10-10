@@ -70,7 +70,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(menuBounds!.x + menuBounds!.width).toBeLessThanOrEqual(viewport!.width)
       expect(menuBounds!.y + menuBounds!.height).toBeLessThanOrEqual(viewport!.height)
       await expect(menu.getByRole('menuitem', { name: copy.shell.renameSession, exact: true })).toBeFocused()
-      await expect(page.locator('.hbar-app-react-shell-header-active-title')).toHaveText(host.ready.sessionTitle)
+      await expect(
+        page.getByRole('tab', { name: host.ready.sessionTitle, exact: true, includeHidden: true }),
+      ).toHaveAttribute('aria-selected', 'true')
       await expectComposerText(prompt, 'Keep the current conversation draft')
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: `artifacts/session-context-menu/${locale}-open.png` })
@@ -86,7 +88,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await input.press('Enter')
       await expect(input).toHaveCount(0)
       await expect(otherRow).toContainText('Renamed through row actions')
-      await expect(page.locator('.hbar-app-react-shell-header-active-title')).toHaveText(host.ready.sessionTitle)
+      await expect(
+        page.getByRole('tab', { name: host.ready.sessionTitle, exact: true, includeHidden: true }),
+      ).toHaveAttribute('aria-selected', 'true')
       await expectComposerText(prompt, 'Keep the current conversation draft')
       const renamedMenu = otherRow.getByRole('menu', {
         name: copy.shell.sessionActions('Renamed through row actions'),

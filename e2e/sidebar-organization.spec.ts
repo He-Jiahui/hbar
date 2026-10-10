@@ -257,7 +257,7 @@ async function showSidebar(f: SidebarFixture): Promise<Locator> {
   const show = f.page.getByRole('button', { name: f.copy.shell.showSidebar, exact: true })
   if (
     (await show.isVisible()) &&
-    (await f.page.locator('.hbar-app-react-shell-header').getAttribute('data-hbar-sidebar-expanded')) === 'false'
+    (await f.page.locator('.hbar-app-react-shell-content').getAttribute('data-hbar-sidebar-expanded')) === 'false'
   )
     await show.click()
   await expect(sidebar).toBeVisible()

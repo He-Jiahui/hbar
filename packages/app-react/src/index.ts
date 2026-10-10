@@ -68,6 +68,7 @@ export { createHbarSchemaComponents } from './lumen-schema-components'
 export {
   HbarWorkspaceShell,
   type HbarWorkspaceShellLabels,
+  type HbarWorkspaceShellContentControls,
   type HbarSidebarTimeLabels,
   type HbarWorkspaceShellProps,
 } from './lumen-workspace-shell'

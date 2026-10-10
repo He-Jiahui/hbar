@@ -199,6 +199,11 @@ export interface HbarWorkspaceShellLabels {
   readonly error: (code: string) => string
 }
 
+export interface HbarWorkspaceShellContentControls {
+  /** Render beside the workspace tabs, outside their scrollable tablist. */
+  readonly leadingNavigation: ReactNode
+}
+
 export interface HbarWorkspaceShellProps {
   readonly labels: HbarWorkspaceShellLabels
   readonly mobileNavigationLabel: string
@@ -232,7 +237,7 @@ export interface HbarWorkspaceShellProps {
     panes: Readonly<Record<'projects' | 'workspace' | 'session-tool', ReactNode>>,
     shell: ReactNode,
   ) => ReactNode
-  readonly children: ReactNode
+  readonly children: ReactNode | ((controls: HbarWorkspaceShellContentControls) => ReactNode)
 }
 
 /**
@@ -397,6 +402,16 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const [sidebarViewportNarrow, setSidebarViewportNarrow] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(max-width: 63.9375rem)').matches,
   )
+  const [workspaceTabsViewport, setWorkspaceTabsViewport] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 48rem)').matches,
+  )
+  useEffect(() => {
+    const viewport = window.matchMedia('(min-width: 48rem)')
+    const update = () => setWorkspaceTabsViewport(viewport.matches)
+    update()
+    viewport.addEventListener('change', update)
+    return () => viewport.removeEventListener('change', update)
+  }, [])
   const railCollapsed = props.sidebarRailWidthRem !== undefined && !sidebarViewportNarrow && !presentation.sidebarOpen
   const rosterRefresh = useHbarRuntimeState(runtime.state.sessionRosterRefresh)
   const sessionArchive = useHbarRuntimeState(runtime.state.sessionArchive)
@@ -945,7 +960,10 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   }
 
   const setSidebarVisible = (visible: boolean) => {
-    if (document.activeElement === sidebarFocusRef.current) sidebarToggleFocus.current = sidebarFocusRef.current
+    const trigger = [sidebarFocusRef.current, sidebarShowFocusRef.current].find(
+      (node) => node !== null && node === document.activeElement,
+    )
+    if (trigger) sidebarToggleFocus.current = trigger
     void execute('app.setSidebarVisible', { visible }).catch((reason: unknown) => {
       sidebarToggleFocus.current = null
       recordError(reason)
@@ -1894,11 +1912,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     </LumenFrame>
   )
   const headerRegion = shellSlots?.header ?? (
-    <LumenFrame
-      className="hbar-app-react-shell-header"
-      data-hbar-sidebar-expanded={presentation.sidebarOpen}
-      data-hbar-app-ui-component="app-shell-09-header"
-    >
+    <LumenFrame className="hbar-app-react-shell-header" data-hbar-app-ui-component="app-shell-09-header">
       <HbarActionIconButton
         ref={sidebarShowFocusRef}
         label={props.labels.showSidebar}
@@ -1915,26 +1929,43 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       <HbarMobileHeaderMenu label={props.mobileNavigationLabel} />
     </LumenFrame>
   )
-  const desktopHeader = props.renderLayout
-    ? (shellSlots?.header ??
-      (!presentation.sidebarOpen ? (
-        <LumenFrame className="hbar-app-react-desktop-reveal-header">
-          <LumenNavbar01
-            slots={{
-              leading: (
-                <HbarActionIconButton
-                  ref={sidebarShowFocusRef}
-                  label={props.labels.showSidebar}
-                  onClick={() => setSidebarVisible(true)}
-                >
-                  <WorkspaceShellIcon name="menu" />
-                </HbarActionIconButton>
-              ),
-            }}
-          />
-        </LumenFrame>
-      ) : undefined))
-    : headerRegion
+  const contentOwnsNavigation =
+    typeof props.children === 'function' &&
+    shellSlots?.content == null &&
+    (props.renderLayout !== undefined || workspaceTabsViewport)
+  const leadingNavigation =
+    contentOwnsNavigation && !presentation.sidebarOpen && (props.renderLayout || !railCollapsed) ? (
+      <HbarActionIconButton
+        ref={sidebarShowFocusRef}
+        label={props.labels.showSidebar}
+        data-hbar-sidebar-reveal="tabs"
+        onClick={() => setSidebarVisible(true)}
+      >
+        <WorkspaceShellIcon name="menu" />
+      </HbarActionIconButton>
+    ) : null
+  const desktopHeader = contentOwnsNavigation
+    ? shellSlots?.header
+    : props.renderLayout
+      ? (shellSlots?.header ??
+        (!presentation.sidebarOpen ? (
+          <LumenFrame className="hbar-app-react-desktop-reveal-header">
+            <LumenNavbar01
+              slots={{
+                leading: (
+                  <HbarActionIconButton
+                    ref={sidebarShowFocusRef}
+                    label={props.labels.showSidebar}
+                    onClick={() => setSidebarVisible(true)}
+                  >
+                    <WorkspaceShellIcon name="menu" />
+                  </HbarActionIconButton>
+                ),
+              }}
+            />
+          </LumenFrame>
+        ) : undefined))
+      : headerRegion
   const toolRegion = shellSlots?.context ? (
     <LumenAppShell04 toolLabel={props.toolLabel} slots={{ context: shellSlots.context }} />
   ) : props.tool ? (
@@ -2091,8 +2122,13 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     </>
   )
   const contentRegion = (
-    <LumenFrame className="hbar-app-react-shell-content" data-hbar-app-ui-component="app-shell-09-content">
-      {shellSlots?.content ?? props.children}
+    <LumenFrame
+      className="hbar-app-react-shell-content"
+      data-hbar-sidebar-expanded={presentation.sidebarOpen}
+      data-hbar-app-ui-component="app-shell-09-content"
+    >
+      {shellSlots?.content ??
+        (typeof props.children === 'function' ? props.children({ leadingNavigation }) : props.children)}
       {shellSlots?.composer ? (
         <LumenFrame data-hbar-app-ui-component="prompt-input-04-composer">{shellSlots.composer}</LumenFrame>
       ) : null}
