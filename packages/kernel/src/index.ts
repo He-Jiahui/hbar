@@ -2240,14 +2240,14 @@ export class Kernel {
     }
     try {
       assertBoundary()
-      const initial = tool.inputSchema.parse(rawArgs) as Record<string, unknown>
+      const initial = tool.validate ? await tool.validate(rawArgs) : tool.inputSchema.parse(rawArgs) as Record<string, unknown>
       const transformed = await scope.hooks.dispatch('tool.before', {
         name,
         args: structuredClone(initial),
         context,
         tool,
       })
-      const args = tool.inputSchema.parse(transformed.args) as Record<string, unknown>
+      const args = tool.validate ? await tool.validate(transformed.args) : tool.inputSchema.parse(transformed.args) as Record<string, unknown>
       const timeoutMs = resolveToolTimeoutMs(tool, args)
       assertBoundary()
       executedArgs = args

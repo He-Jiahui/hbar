@@ -144,6 +144,8 @@ export interface ToolDefinition extends ToolTimeoutPolicy {
   inputSchema: z.ZodType
   /** Plain model-facing parameter description for an isolated driver; execution still validates inputSchema in its owner. */
   inputJsonSchema?: Readonly<Record<string, unknown>>
+  /** Isolated tools validate in their owner before and after Hook transformation, before approval or durable intent. */
+  validate?(args: unknown): Promise<Record<string, unknown>>
   effect: 'read' | 'write' | 'process' | 'network'
   /** Requested-input display only; the Host captures this declaration, never localized text or execution proof. */
   presentation?: ToolPresentationDeclaration
