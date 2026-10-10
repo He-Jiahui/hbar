@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { HbarError, runSchema, threadGoalSchema, usageSchema } from '@hbar/contracts'
+import { HbarError, RUN_STEP_LIMIT_CODE, runSchema, threadGoalSchema, usageSchema } from '@hbar/contracts'
 import type { GoalStatus, Run, SessionEvent, ThreadGoal, Usage } from '@hbar/contracts'
 import { appendModelContext, definePlugin, provide, RunControlSignal } from '@hbar/plugin-sdk'
 import type {
@@ -1340,6 +1340,22 @@ class GoalRuntime implements GoalService {
       )
       this.activeRuns.delete(event.runId)
       if (['failed', 'interrupted'].includes(event.status) && goal.status !== 'budget_limited') {
+        const boundedSliceWithProgress =
+          goal.status === 'active' &&
+          this.config.autoContinue &&
+          event.status === 'failed' &&
+          run.failure?.code === RUN_STEP_LIMIT_CODE &&
+          run.failure.category === 'execution' &&
+          run.failure.retryable === false &&
+          progress.progress
+        if (boundedSliceWithProgress) {
+          await this.queueContinuation(goal, {
+            trigger: `step-limit:${run.id}`,
+            modelId: run.modelId,
+            text: 'The previous Goal turn reached its bounded execution slice after durable progress. Continue from the current Goal, Plan and durable results; do not repeat committed writes or operations whose result is unknown.',
+          })
+          return
+        }
         if (
           goal.status === 'active' &&
           run.failure?.category === 'transient' &&

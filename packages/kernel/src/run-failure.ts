@@ -1,4 +1,4 @@
-import { HbarError } from '@hbar/contracts'
+import { HbarError, RUN_STEP_LIMIT_CODE } from '@hbar/contracts'
 import type { RunFailure } from '@hbar/contracts'
 
 /** Preserve typed Host failures. Text matching is only a legacy/provider fallback. */
@@ -19,6 +19,7 @@ export function classifyRunFailure(error: unknown): RunFailure {
     return { code, category: 'result_unknown', retryable: false }
   if (code === 'PROVIDER_CONNECTION_FAILED' || code === 'PROVIDER_STREAM_INTERRUPTED')
     return { code, category: 'transient', retryable: true }
+  if (code === RUN_STEP_LIMIT_CODE) return { code: RUN_STEP_LIMIT_CODE, category: 'execution', retryable: false }
   if (/(insufficient (?:credits|quota)|usage[_ -]?limit|quota (?:exceeded|exhausted))/i.test(message))
     return { code: code ?? 'PROVIDER_USAGE_LIMIT', category: 'usage_limit', retryable: false }
   if (

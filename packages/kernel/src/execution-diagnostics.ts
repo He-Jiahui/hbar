@@ -65,19 +65,22 @@ export class KernelExecutionDiagnostics {
     outcome: 'success' | 'failure' | 'unknown' | 'skipped',
     durationMs: number,
     errorCode?: string,
+    phase?: string,
   ): void {
     this.emit('run.settled', outcome === 'success' ? 'info' : 'error', identity, {
       outcome,
       durationMs: boundedDuration(durationMs),
       ...(safeErrorCode(errorCode) ? { errorCode: safeErrorCode(errorCode) } : {}),
+      ...(phase && safeMethod(phase) ? { phase } : {}),
     })
   }
 
-  runFailure(identity: KernelRunDiagnosticIdentity, errorCode?: string, durationMs?: number): void {
+  runFailure(identity: KernelRunDiagnosticIdentity, errorCode?: string, durationMs?: number, phase?: string): void {
     this.emit('run.failed', 'error', identity, {
       outcome: 'failure',
       ...(safeErrorCode(errorCode) ? { errorCode: safeErrorCode(errorCode) } : {}),
       ...(durationMs === undefined ? {} : { durationMs: boundedDuration(durationMs) }),
+      ...(phase && safeMethod(phase) ? { phase } : {}),
     })
   }
 

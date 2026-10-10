@@ -2,7 +2,7 @@ import { afterEach, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { HbarError } from '@hbar/contracts'
+import { HbarError, RUN_STEP_LIMIT_CODE } from '@hbar/contracts'
 import type { RunFailure } from '@hbar/contracts'
 import { Kernel, MemorySecrets, createRunCommands } from '@hbar/kernel'
 import type { BudgetService, GoalService } from '@hbar/plugin-sdk'
@@ -48,6 +48,19 @@ test('failure classification distinguishes explicit cancellation, allowance, tra
     retryable: false,
   })
   expect(classifyRunFailure(new Error('unexpected'))).toMatchObject({ category: 'execution', retryable: false })
+})
+
+test('the bounded driver slice has a typed terminal code and never matches ordinary text', () => {
+  expect(classifyRunFailure(new HbarError(RUN_STEP_LIMIT_CODE, 'arbitrary text'))).toEqual({
+    code: RUN_STEP_LIMIT_CODE,
+    category: 'execution',
+    retryable: false,
+  })
+  expect(classifyRunFailure(new Error('Run reached the 64-step limit'))).toEqual({
+    code: 'RUN_FAILED',
+    category: 'execution',
+    retryable: false,
+  })
 })
 
 test('Bun provider socket closure is transient but typed Host failures and unknown effects are not', () => {

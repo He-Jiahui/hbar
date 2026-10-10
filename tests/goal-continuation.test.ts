@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
-import { emptyUsage } from '@hbar/contracts'
+import { HbarError, RUN_STEP_LIMIT_CODE, emptyUsage } from '@hbar/contracts'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import type { DriverInput, GoalService, HarnessDriver, ModeService } from '@hbar/plugin-sdk'
@@ -88,6 +88,76 @@ test('default Goal executes more than eight autonomous turns with durable Plan p
   const snapshot = await kernel.snapshot(session.id)
   expect(snapshot.runs.filter((run) => run.input.source === 'goal')).toHaveLength(11)
   expect(new Set(snapshot.runs.map((run) => run.requestId)).size).toBe(12)
+})
+
+test('an active Goal resumes once after a typed 64-step terminal with durable progress', async () => {
+  let turns = 0
+  const { kernel, session, goals } = await fixture(async (input) => {
+    turns++
+    await call(input, 'update_plan', {
+      plan: [{ step: `Committed slice ${turns}`, status: turns === 2 ? 'completed' : 'in_progress' }],
+    })
+    if (turns === 1) throw new HbarError(RUN_STEP_LIMIT_CODE, 'Run reached the 64-step limit')
+    await call(input, 'update_goal', { status: 'complete' })
+  })
+  await goals.create(session.id, 'Continue bounded slices')
+  const originalGoal = (await goals.get(session.id)).goal!
+  await kernel.submit(session.id, 'start', { text: 'Work', images: [] }, 'local-fixture')
+  await kernel.waitForIdle()
+  expect(turns).toBe(2)
+  expect((await goals.get(session.id)).goal).toMatchObject({ status: 'complete' })
+  const runs = (await kernel.snapshot(session.id)).runs
+  expect(runs.filter((run) => run.input.source === 'goal')).toHaveLength(1)
+  const continuationRun = runs.find((run) => run.input.source === 'goal')
+  expect(continuationRun?.input.continuation?.goalId).toBe(originalGoal.goalId)
+  expect((await goals.get(session.id)).goal?.goalId).toBe(originalGoal.goalId)
+  const planUpdates = (await kernel.storage.call('events', session.id, 0)).filter(
+    (event) => event.type === 'plan.updated',
+  )
+  expect(planUpdates.length).toBeGreaterThanOrEqual(2)
+  const failedRun = runs.find((run) => run.status === 'failed')
+  expect(failedRun?.failure).toEqual({
+    code: RUN_STEP_LIMIT_CODE,
+    category: 'execution',
+    retryable: false,
+  })
+  const goalUpdates = (await kernel.storage.call('events', session.id, 0))
+    .filter((event) => event.type === 'goal.updated')
+    .map((event) =>
+      z
+        .object({
+          goal: z.object({
+            goalId: z.string(),
+            continuationIntent: z.object({ intentId: z.string(), trigger: z.string() }).nullable(),
+          }),
+        })
+        .safeParse(event.data),
+    )
+    .flatMap((parsed) => (parsed.success && parsed.data.goal.continuationIntent ? [parsed.data.goal] : []))
+  const continuationGoal = goalUpdates.find(
+    (goal) => goal.continuationIntent?.intentId === continuationRun?.input.continuation?.intentId,
+  )
+  expect(continuationGoal?.goalId).toBe(originalGoal.goalId)
+  expect(continuationGoal?.continuationIntent?.trigger).toBe(`step-limit:${failedRun?.id}`)
+})
+
+test('step-limit continuation requires durable progress and its typed code', async () => {
+  for (const mode of ['no-progress', 'ordinary-error'] as const) {
+    let turns = 0
+    const { kernel, session, goals } = await fixture(async (input) => {
+      turns++
+      if (mode === 'ordinary-error')
+        await call(input, 'update_plan', { plan: [{ step: 'Durable', status: 'in_progress' }] })
+      throw mode === 'no-progress'
+        ? new HbarError(RUN_STEP_LIMIT_CODE, 'Run reached the 64-step limit')
+        : new Error('Run reached the 64-step limit')
+    })
+    await goals.create(session.id, `Stop ${mode}`)
+    await kernel.submit(session.id, 'start', { text: 'Work', images: [] }, 'local-fixture')
+    await kernel.waitForIdle()
+    expect(turns).toBe(1)
+    expect((await goals.get(session.id)).goal).toMatchObject({ status: 'paused' })
+  }
 })
 
 test('text-only automatic turns revalidate the Goal and continue until completion is recorded', async () => {

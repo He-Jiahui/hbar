@@ -568,6 +568,8 @@ export const runStatusSchema = z.enum([
   'interrupted',
 ])
 export type RunStatus = z.infer<typeof runStatusSchema>
+/** Stable code for the driver's bounded execution slice. */
+export const RUN_STEP_LIMIT_CODE = 'RUN_STEP_LIMIT' as const
 export const runFailureSchema = z.object({
   code: z.string().min(1).max(160),
   category: z.enum([
