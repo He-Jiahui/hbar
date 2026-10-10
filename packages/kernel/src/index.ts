@@ -399,6 +399,9 @@ const PROVIDER_CONFIG_SCALARS = [
   'reasoning',
   'inputPrice',
   'outputPrice',
+  'cacheReadPrice',
+  'cacheWritePrice',
+  'maxModePricingMultiplier',
 ] as const
 const PROVIDER_CONFIG_ARRAYS = ['thinkingLevels', 'supportedThinkingLevels', 'supportedReasoningEfforts'] as const
 const PROVIDER_MODEL_FIELDS = [
@@ -412,12 +415,16 @@ const PROVIDER_MODEL_FIELDS = [
   'reasoning',
   'inputPrice',
   'outputPrice',
+  'cacheReadPrice',
+  'cacheWritePrice',
+  'maxModePricingMultiplier',
   'defaultThinkingLevel',
   'defaultReasoningEffort',
 ] as const
 
 function sameProviderModel(left: ProviderConfig['models'][number], right: ProviderConfig['models'][number]): boolean {
   return (
+    JSON.stringify(left.contextTiers ?? []) === JSON.stringify(right.contextTiers ?? []) &&
     PROVIDER_MODEL_FIELDS.every((field) => left[field] === right[field]) &&
     PROVIDER_CONFIG_ARRAYS.every(
       (field) =>
@@ -430,6 +437,7 @@ function sameProviderModel(left: ProviderConfig['models'][number], right: Provid
 function isActiveProviderModelAppend(existing: ProviderConfig, incoming: ProviderConfig): boolean {
   if (existing.id !== incoming.id || incoming.models.length <= existing.models.length) return false
   if (!PROVIDER_CONFIG_SCALARS.every((field) => existing[field] === incoming[field])) return false
+  if (JSON.stringify(existing.contextTiers ?? []) !== JSON.stringify(incoming.contextTiers ?? [])) return false
   if (
     !PROVIDER_CONFIG_ARRAYS.every(
       (field) =>
@@ -1023,7 +1031,7 @@ export class Kernel {
           return provider.models
             .filter((model) => options.includeHidden || model.visible)
             .map((model) => ({
-              ...provider,
+              ...resolveProviderModel(provider, `${provider.id}/${model.id}`),
               ...model,
               id: modelSelectionId(provider.id, model.id, provider.models.length),
               name: provider.name,
