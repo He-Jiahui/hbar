@@ -38,7 +38,7 @@ The verified production bundle is `artifacts/mixed-material-draft/web`, with
 `index-DfoZ8U7d.js` and `index-CNnIh6g1.css`. The test accepts an optional capture
 directory so these regression captures do not overwrite the earlier photo UI
 evidence. Root visually inspected
-[the narrow accepted Goal state](../artifacts/mixed-material-draft/accepted-goal-zh-CN-320.png):
+`the narrow accepted Goal state`（历史产物未随当前仓库提供；原路径：`../artifacts/mixed-material-draft/accepted-goal-zh-CN-320.png`）:
 the response remains in history and the composer is ready for new input without
 the sent attachment tiles. This regression fix does not claim new visual parity
 or a native Tauri/file-dialog acceptance run.

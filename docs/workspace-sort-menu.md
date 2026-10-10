@@ -32,8 +32,8 @@ Wide layouts can open the flyout on mouse hover. In constrained layouts, where t
 
 Final build: `artifacts/workspace-sort/web`, JS `index-YdfZ0jnW.js`, CSS `index-BaSs1SAu.css`. Build passed with the existing large-chunk warning; no bundle-size or native performance result is claimed. The final temporary-real-Host run is `test-results/workspace-sort-v4`: three tests passed in 19.5s, comprising the new two-locale sort flow and two existing hide/restore regressions. The sort fixture creates six projects and 120 Sessions; its update leader lies outside the first 100 ID rows. The flow checks Host-backed group and Session order, appending all 115 primary-project Sessions without dropping the first page, pin/hidden preservation, current Session/draft preservation, persisted selection after reload, viewport bounds, checked state, and keyboard focus. No Run or external model request is executed.
 
-- [English wide created-time menu](../artifacts/project-sort-reference/hbar-e2e/en-US-1440-created-sort-submenu.png)
-- [Chinese narrow created-time menu](../artifacts/project-sort-reference/hbar-e2e/zh-CN-320-created-sort-submenu.png)
+- `English wide created-time menu`（历史产物未随当前仓库提供；原路径：`../artifacts/project-sort-reference/hbar-e2e/en-US-1440-created-sort-submenu.png`）
+- `Chinese narrow created-time menu`（历史产物未随当前仓库提供；原路径：`../artifacts/project-sort-reference/hbar-e2e/zh-CN-320-created-sort-submenu.png`）
 - [Runtime ownership, limits and regressions](workspace-activity-runtime.md)
 - [Session activity query](session-activity.md)
 

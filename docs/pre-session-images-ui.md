@@ -28,9 +28,9 @@ supports layout and entry placement, not successful decoding of a real photo.
 Hbar's final captures use the production Web bundle and an isolated temporary
 Host with an original generated colored PNG fixture:
 
-- [Desktop composer](../artifacts/pre-session-images/plan-en-US-1440.png).
-- [Narrow Goal composer](../artifacts/pre-session-images/ready-goal-zh-CN-320.png).
-- [Open gallery](../artifacts/pre-session-images/gallery-goal-en-US.png).
+- `Desktop composer`（历史产物未随当前仓库提供；原路径：`../artifacts/pre-session-images/plan-en-US-1440.png`）.
+- `Narrow Goal composer`（历史产物未随当前仓库提供；原路径：`../artifacts/pre-session-images/ready-goal-zh-CN-320.png`）.
+- `Open gallery`（历史产物未随当前仓库提供；原路径：`../artifacts/pre-session-images/gallery-goal-en-US.png`）.
 
 Root inspected the desktop, narrow Goal and open-gallery images. No fixed
 screenshot coordinates or new content positioning were used; the existing

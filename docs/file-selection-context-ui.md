@@ -34,12 +34,12 @@ in-memory workspace API responses, not a native CC Host or paid provider.
 Root inspected the styled desktop/narrow selected-text action, source comment
 editor, diff comment editor and resulting reference card:
 
-- [CC selected-text menu, desktop](../artifacts/file-selection-reference/desktop-1440-source-selection-menu.png).
-- [CC selected-text menu, narrow](../artifacts/file-selection-reference/narrow-320-source-selection-menu.png).
-- [CC source inline note](../artifacts/file-selection-reference/desktop-1440-source-inline-comment-editor.png).
-- [CC diff inline note, desktop](../artifacts/file-selection-reference/desktop-1440-diff-comment-editor.png).
-- [CC diff inline note, narrow](../artifacts/file-selection-reference/narrow-320-diff-comment-editor.png).
-- [CC resulting source card](../artifacts/file-selection-reference/desktop-1440-source-reference-added.png).
+- `CC selected-text menu, desktop`（历史产物未随当前仓库提供；原路径：`../artifacts/file-selection-reference/desktop-1440-source-selection-menu.png`）.
+- `CC selected-text menu, narrow`（历史产物未随当前仓库提供；原路径：`../artifacts/file-selection-reference/narrow-320-source-selection-menu.png`）.
+- `CC source inline note`（历史产物未随当前仓库提供；原路径：`../artifacts/file-selection-reference/desktop-1440-source-inline-comment-editor.png`）.
+- `CC diff inline note, desktop`（历史产物未随当前仓库提供；原路径：`../artifacts/file-selection-reference/desktop-1440-diff-comment-editor.png`）.
+- `CC diff inline note, narrow`（历史产物未随当前仓库提供；原路径：`../artifacts/file-selection-reference/narrow-320-diff-comment-editor.png`）.
+- `CC resulting source card`（历史产物未随当前仓库提供；原路径：`../artifacts/file-selection-reference/desktop-1440-source-reference-added.png`）.
 
 The first fixture attempt lacked Tailwind scanning and was rejected as visual
 evidence. These files were regenerated after importing the original theme and

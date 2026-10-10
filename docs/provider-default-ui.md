@@ -30,9 +30,9 @@ the before/after reports record that Set default calls the original activation
 flow and writes that provider's configured main model globally. Hbar preserves
 the global-default behavior and edit/delete entrances, but omits Test because
 the row flow has no corresponding supported Host capability. See
-[`en-1440-provider-default-actions-visible.png`](../artifacts/provider-default-reference/en-1440-provider-default-actions-visible.png),
-[`en-1440-provider-default-report.json`](../artifacts/provider-default-reference/en-1440-provider-default-report.json),
-and the fixture's [provenance and limitations](../artifacts/provider-default-reference/README.md).
+``en-1440-provider-default-actions-visible.png``（历史产物未随当前仓库提供；原路径：`../artifacts/provider-default-reference/en-1440-provider-default-actions-visible.png`）,
+``en-1440-provider-default-report.json``（历史产物未随当前仓库提供；原路径：`../artifacts/provider-default-reference/en-1440-provider-default-report.json`）,
+and the fixture's `provenance and limitations`（历史产物未随当前仓库提供；原路径：`../artifacts/provider-default-reference/README.md`）.
 
 The 320px Simplified Chinese captures show that the original list still exposes
 row actions, while its header and long labels are severely cramped; the report
@@ -42,9 +42,9 @@ are evidence limitations, not acceptance criteria. Hbar uses semantic flex
 flow with wrapping metadata and action groups. The `provider.list` contract
 bounds the collection to 256 entries, and the existing Settings pane owns
 scrolling for its content rather than reproducing the original narrow clipping.
-Compare [`zh-320-provider-default-before.png`](../artifacts/provider-default-reference/zh-320-provider-default-before.png),
-[`zh-320-provider-default-after.png`](../artifacts/provider-default-reference/zh-320-provider-default-after.png),
-and [`zh-320-provider-default-report.json`](../artifacts/provider-default-reference/zh-320-provider-default-report.json).
+Compare ``zh-320-provider-default-before.png``（历史产物未随当前仓库提供；原路径：`../artifacts/provider-default-reference/zh-320-provider-default-before.png`）,
+``zh-320-provider-default-after.png``（历史产物未随当前仓库提供；原路径：`../artifacts/provider-default-reference/zh-320-provider-default-after.png`）,
+and ``zh-320-provider-default-report.json``（历史产物未随当前仓库提供；原路径：`../artifacts/provider-default-reference/zh-320-provider-default-report.json`）.
 
 The pure row-presentation tests cover a selected non-primary model, an
 unavailable current global selection, an inactive target with no credential,
