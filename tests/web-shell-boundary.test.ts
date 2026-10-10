@@ -52,6 +52,8 @@ test('Web surface manifest assigns every production surface to one outlet', () =
     settings: 'page',
     status: 'page',
     files: 'tool',
+    browser: 'page',
+    'resource-file': 'page',
     activity: 'tool',
     monitoring: 'tool',
     agents: 'tool',
@@ -66,6 +68,8 @@ test('Web surface manifest assigns every production surface to one outlet', () =
     onboarding: 'page',
   })
   expect(canRenderWebSurface('files')).toBe(true)
+  expect(canRenderWebSurface('browser')).toBe(true)
+  expect(canRenderWebSurface('resource-file')).toBe(true)
   expect(canRenderWebSurface('activity')).toBe(true)
   expect(canRenderWebSurface('chat-search')).toBe(true)
   expect(canRenderWebSurface('extensions')).toBe(false)
