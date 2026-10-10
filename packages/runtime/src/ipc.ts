@@ -580,13 +580,15 @@ export class IpcPeer {
   }
 
   private sendError(callId: string, error: unknown): Promise<void> {
-    const validCode = error instanceof HbarError && /^[A-Z][A-Z0-9_.-]{0,127}$/.test(error.code)
+    // Immutable bundles contain their own contracts class. The error descriptor is validated
+    // structurally so a legitimate domain error survives this local module boundary.
+    const descriptor = error instanceof Error ? z.object({ name: z.literal('HbarError'), code: z.string().regex(/^[A-Z][A-Z0-9_.-]{0,127}$/), message: z.string() }).safeParse(error) : null
     return this.sendMessage({
       kind: 'reply',
       id: callId,
       ok: false,
-      code: validCode ? error.code : 'IPC_PROCEDURE_FAILED',
-      message: validCode ? error.message.slice(0, 1_600) : 'Runtime procedure failed',
+      code: descriptor?.success ? descriptor.data.code : 'IPC_PROCEDURE_FAILED',
+      message: descriptor?.success ? descriptor.data.message.slice(0, 1_600) : 'Runtime procedure failed',
     })
   }
 

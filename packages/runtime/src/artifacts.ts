@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, readdir, realpath, stat, writeFile } from 'node:fs/promises'
-import { extname, isAbsolute, join, relative, resolve } from 'node:path'
+import { basename, extname, isAbsolute, join, relative, resolve } from 'node:path'
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
 import {
@@ -41,6 +41,7 @@ export interface RuntimeBuildUnit {
   readonly entrypoint: string
   readonly resources?: readonly string[]
   readonly external?: readonly string[]
+  readonly workers?: readonly string[]
 }
 export interface RuntimeArtifactPort {
   get(id: string): Promise<RuntimeArtifact>
@@ -83,8 +84,17 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
     const entrypoint = await realpath(resolve(sourceRoot, unit.entrypoint))
     if (!within(sourceRoot, entrypoint))
       throw new HbarError('RUNTIME_BUILD_INVALID', 'Runtime entrypoint is outside the registered source root')
+    if ((unit.workers?.length ?? 0) > 16) throw new HbarError('RUNTIME_BUILD_LIMIT', 'Runtime Worker entrypoint capacity is exhausted')
+    const workers: string[] = []
+    for (const input of unit.workers ?? []) {
+      const path = await realpath(resolve(sourceRoot, input))
+      if (!within(sourceRoot, path)) throw new HbarError('RUNTIME_BUILD_INVALID', 'Runtime Worker entrypoint is outside the registered source root')
+      workers.push(path)
+    }
+    if (new Set([entrypoint, ...workers].map(path => basename(path, extname(path)))).size !== workers.length + 1)
+      throw new HbarError('RUNTIME_BUILD_INVALID', 'Runtime entrypoint output names must be unique')
     const result = await Bun.build({
-      entrypoints: [entrypoint],
+      entrypoints: [entrypoint, ...workers],
       target: 'bun',
       format: 'esm',
       splitting: false,
@@ -111,7 +121,7 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
       outputs.reduce((bytes, output) => bytes + output.bytes.byteLength, 0) > 128 * 1024 * 1024
     )
       throw new HbarError('RUNTIME_BUILD_LIMIT', 'Runtime bundle output exceeds its bound')
-    const entry = outputs.find((output) => output.kind === 'entry-point')?.name
+    const entry = outputs.find((output) => output.kind === 'entry-point' && basename(output.name, extname(output.name)) === basename(entrypoint, extname(entrypoint)))?.name
     if (!entry) throw new HbarError('RUNTIME_BUILD_FAILED', 'Runtime build has no process module')
     const files = outputs
       .map((output) => ({ name: output.name, sha256: sha256(output.bytes) }))

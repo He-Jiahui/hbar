@@ -108,3 +108,17 @@ an explicit instruction to continue unfinished work; its initial user message is
 reused when already committed. Duplicate failure notifications do not produce
 duplicate Run identities. These use cases are exercised with the real Kernel and
 Storage Worker, including user-priority queues and interrupted-before-message work.
+
+`StableStoragePort` bounds physical and waiting calls across all Kernel generations.
+Writer handover stops admission, drains accepted calls and requires actual process
+exit before installing another writer. Deadlines and unknown outcomes fence the
+port; requests already dispatched are never replayed to a replacement. Explicit
+shutdown rejects waiting calls and has a bounded exit-confirmation deadline.
+
+The Storage process performs read-only schema/integrity preflight and owns its
+SQLite Worker only after activation. An OS-lifetime writer lease rejects a second
+process while the original Worker is alive. Bun bundles the Worker into the same
+immutable artifact as its owner, so source edits cannot change an old generation's
+Worker entry. The generated public method catalog bounds RPC names and validates
+ownership descriptors. Real process tests verify sole-writer authority, deferred
+candidate writes, committed-state retention and actual exit before handover.

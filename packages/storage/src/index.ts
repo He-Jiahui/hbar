@@ -2,7 +2,13 @@ import { HbarError } from '@hbar/contracts'
 import { Worker } from 'node:worker_threads'
 import type { StorageMethods, StorageReply } from './types.ts'
 import type { ExecutionOwnership } from '@hbar/contracts/runtime'
+import { storageRpcCallSchema } from './rpc'
 export type { RuntimeRecoveryRecord, RuntimeRecoveryScope } from './runtime-state'
+export { StableStoragePort } from './stable-port'
+export type { ManagedStorageWriter, StableStorageSnapshot } from './stable-port'
+export { storageRpcCallSchema, storageRpcInput, callStorageRpc } from './rpc'
+export type { StorageRpcCall, StorageRpcPort } from './rpc'
+export { STORAGE_RPC_METHODS, STORAGE_RPC_FINGERPRINT, STORAGE_SCHEMA_VERSION } from './rpc-catalog'
 export type {
   CreateSessionCommandInput,
   ForkSessionCommandInput,
@@ -148,6 +154,11 @@ export class Storage {
   ): Promise<ReturnType<StorageMethods[K]>> {
     if (this.stopped || this.closing) return Promise.reject(new HbarError('STORAGE_CLOSED', 'Storage is closed'))
     return this.request(method, args, this.requestTimeoutMs, authority)
+  }
+  executeRpc(raw: import('./rpc').StorageRpcCall): Promise<unknown> {
+    const input = storageRpcCallSchema.parse(raw)
+    if (this.stopped || this.closing) return Promise.reject(new HbarError('STORAGE_CLOSED', 'Storage is closed'))
+    return this.request(input.method, input.args as Parameters<StorageMethods[typeof input.method]>, this.requestTimeoutMs, input.authority)
   }
   private request<K extends keyof StorageMethods>(
     method: K,

@@ -1,0 +1,101 @@
+import { afterEach, expect, test } from 'bun:test'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { z } from 'zod'
+import { ManagedProcess, RuntimeArtifactStore } from '@hbar/runtime'
+import { StableStoragePort, Storage, createPathLayout, ensurePathLayout, callStorageRpc, scanSessionLogs, STORAGE_RPC_FINGERPRINT, STORAGE_SCHEMA_VERSION, STORAGE_RPC_METHODS } from '@hbar/storage'
+import type { RuntimeUnitDescriptor } from '@hbar/contracts/runtime'
+
+const resources: { root: string; processes: ManagedProcess[]; port: StableStoragePort }[] = []
+afterEach(async () => {
+  for (const entry of resources.splice(0)) {
+    await entry.port.close()
+    await Promise.all(entry.processes.map(process => process.dispose()))
+    await rm(entry.root, { recursive: true, force: true })
+  }
+})
+const outcome = (promise: Promise<unknown>) => promise.catch((error: unknown) => error)
+async function fixture() {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-storage-process-'))
+  const layout = createPathLayout(join(root, 'data'), join(root, 'cache'), join(root, 'pointer.json'))
+  await ensurePathLayout(layout)
+  const initial = new Storage(layout.database, layout)
+  await initial.call('ready')
+  const workspace = await initial.call('createWorkspace', root, 'fixture')
+  const session = await initial.call('createSession', workspace.id)
+  await initial.close()
+  const descriptor: RuntimeUnitDescriptor = {
+    id: 'storage', kind: 'storage', isolation: 'process', dependencies: [], required: true, reloadable: true,
+    contractFingerprint: STORAGE_RPC_FINGERPRINT, storageSchema: STORAGE_SCHEMA_VERSION,
+  }
+  const registry = new RuntimeArtifactStore(join(root, 'bundles'), process.cwd())
+  const artifact = await registry.build({ descriptor, entrypoint: 'apps/host/src/runtime-storage-process.ts', workers: ['packages/storage/src/worker.ts'] })
+  const port = new StableStoragePort(5000)
+  const entry = { root, port, processes: [] as ManagedProcess[] }
+  resources.push(entry)
+  const make = async (generation: number) => {
+    const process = new ManagedProcess({ descriptor, artifactId: artifact.id, modulePath: await registry.modulePath(artifact.id), generation,
+      parent: { unitId: 'base', generation: 1, incarnation: 'stable-base' },
+      configuration: { database: layout.database, dataRoot: layout.dataRoot, cacheRoot: layout.cacheRoot, pointerFile: layout.pointerFile,
+        settingsRoot: layout.settings, sessionsRoot: layout.sessions, skillsRoot: layout.globalSkills, identityRoot: layout.identityRoot,
+        workerPath: join(registry.root, artifact.id, 'worker.js') },
+    })
+    entry.processes.push(process)
+    await process.prepare()
+    return process
+  }
+  const install = (process: ManagedProcess) => port.install({ owner: process.owner(), retire: () => process.dispose(),
+    call: (method, args, authority) => callStorageRpc({ execute: input => process.call('storage.call', input, z.unknown()) }, method, args, authority),
+  })
+  return { root, layout, registry, descriptor, artifact, port, session, make, install }
+}
+
+test('prepared storage has no writer, and a real process/Worker switch preserves committed data and sole writer authority', async () => {
+  const f = await fixture()
+  const first = await f.make(1)
+  const originalLog = scanSessionLogs(f.layout.sessions).events.map(item => item.hash)
+  expect(originalLog.length).toBeGreaterThan(0)
+  expect(f.artifact.inputs).toContain('packages/storage/src/worker.ts')
+  expect(f.artifact.files.some(file => file.name === 'worker.js')).toBe(true)
+  expect(first.snapshot().phase).toBe('ready')
+  expect(await outcome(first.call('storage.call', { method: 'setSetting', args: ['candidate', 'write'] }, z.unknown()))).toMatchObject({ code: 'RUNTIME_RECOVERING' })
+  await first.activate()
+  f.install(first)
+  await f.port.call('setSetting', 'generation', 'one')
+  const second = await f.make(2)
+  expect(await f.port.call('getSetting', 'generation')).toBe('one')
+  const oldPid = first.snapshot().pid
+  await f.port.beginHandover()
+  expect(first.snapshot()).toMatchObject({ phase: 'disposed', pid: null })
+  const waiting = f.port.call('getSetting', 'generation')
+  await second.activate()
+  f.install(second)
+  expect(await waiting).toBe('one')
+  expect(second.snapshot().pid).not.toBe(oldPid)
+  await f.port.call('setSetting', 'generation', 'two')
+  expect(await f.port.call('getSetting', 'candidate')).toBeNull()
+  expect(scanSessionLogs(f.layout.sessions).events.map(item => item.hash)).toEqual(originalLog)
+})
+
+test('a second activated process cannot write while the existing Worker owner still holds its OS lease', async () => {
+  const f = await fixture()
+  const first = await f.make(1), candidate = await f.make(2)
+  await first.activate()
+  f.install(first)
+  expect(await outcome(candidate.activate())).toMatchObject({ code: 'STORAGE_WRITER_ACTIVE' })
+  await candidate.dispose()
+  expect(await f.port.call('ready')).toEqual({ version: 24 })
+})
+
+test('the public storage RPC catalog contains every declared method exactly once', async () => {
+  const types = await Bun.file('packages/storage/src/types.ts').text()
+  const port = types.slice(types.indexOf('export interface StorageMethods'), types.indexOf('export type StorageCall'))
+  const declared = [...port.matchAll(/^ {2}(\w+)(?:\(|:)/gm)].map(match => {
+    if (!match[1]) throw new Error('Missing storage method name')
+    return match[1]
+  }).sort()
+  const actual: string[] = [...STORAGE_RPC_METHODS]
+  expect(actual.sort()).toEqual(declared)
+  expect(new Set(STORAGE_RPC_METHODS).size).toBe(STORAGE_RPC_METHODS.length)
+})
