@@ -18,6 +18,7 @@ export default defineConfig({
         visualLanguage: fileURLToPath(new URL('./visual-language.html', import.meta.url)),
         componentGallery: fileURLToPath(new URL('./components.html', import.meta.url)),
         workbenchAcceptance: fileURLToPath(new URL('./workbench-acceptance.html', import.meta.url)),
+        visualReport: fileURLToPath(new URL('./visual-report.html', import.meta.url)),
       },
     },
   },

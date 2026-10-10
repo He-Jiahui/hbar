@@ -1,0 +1,41 @@
+.visual-report {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lumen-space-section);
+  padding: var(--lumen-space-section);
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-inline-size: 0;
+  color: var(--lumen-ink);
+  background: var(--lumen-canvas);
+}
+.visual-report-controls,
+.visual-report-comparison {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--lumen-space-group);
+  min-inline-size: 0;
+}
+.visual-report-controls > * {
+  flex: 1 1 12rem;
+  min-inline-size: 0;
+}
+.visual-report-column {
+  display: flex;
+  flex: 1 1 32rem;
+  flex-direction: column;
+  gap: var(--lumen-space-group);
+  min-inline-size: 0;
+}
+.visual-report-image {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  border: 0.0625rem solid var(--lumen-line);
+}
+.visual-report-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--lumen-space-group);
+}
