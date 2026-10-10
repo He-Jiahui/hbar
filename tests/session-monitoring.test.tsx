@@ -78,6 +78,17 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(html).toContain(labels.history.runs.details(1))
       expect(html).toContain('data-run-id="original-failure"')
       expect(html).toContain(labels.empty)
+      expect((html.match(/role="tab"/g) ?? []).length).toBe(3)
+      expect(html).toContain(labels.tabs.overview)
+      expect(html).not.toContain('data-usage-id=')
+      const paired = renderToStaticMarkup(
+        <HbarRuntimeProvider view={runtime.view}>
+          <HbarSessionMonitoring labels={labels} connected />
+          <HbarSessionMonitoring labels={labels} connected />
+        </HbarRuntimeProvider>,
+      )
+      const ids = [...paired.matchAll(/\sid="([^"]+)"/g)].map((match) => match[1])
+      expect(new Set(ids).size).toBe(ids.length)
       expect((html.match(/hbar-session-run-activity/g) ?? []).length).toBe(1)
       const offline = renderToStaticMarkup(
         <HbarRuntimeProvider view={runtime.view}>

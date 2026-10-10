@@ -2149,6 +2149,11 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
   const at = (timestamp: number) => time.format(timestamp)
   return {
     title: choose('会话状态', 'Session status'),
+    tabs: {
+      overview: choose('概览', 'Overview'),
+      requests: choose('请求', 'Requests'),
+      messages: choose('原始消息', 'Raw messages'),
+    },
     requests: createSessionRequestLabels(locale, session.messageBlocks.codeBlock),
     decisions: session.decisions,
     decisionHistory: session.decisionHistory,

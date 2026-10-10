@@ -10,6 +10,8 @@
 }
 
 .hbar-monitoring-content,
+.hbar-monitoring-overview,
+.hbar-monitoring-detail-panel,
 .hbar-session-status-runs,
 .hbar-monitoring-usage,
 .hbar-monitoring-composition,
@@ -24,8 +26,18 @@
 }
 
 .hbar-monitoring-content {
-  padding: 16px;
-  gap: 20px;
+  padding: var(--lumen-space-group);
+  gap: var(--lumen-space-group);
+}
+
+.hbar-monitoring-overview {
+  gap: var(--lumen-space-section);
+}
+
+.hbar-monitoring-content > .lumen-tabs {
+  flex: 0 0 auto;
+  padding-block-end: 8px;
+  border-block-end: 0.0625rem solid var(--lumen-line);
 }
 
 .hbar-session-status-runs {
@@ -129,10 +141,9 @@
 }
 
 .hbar-app-react-session-monitoring .hbar-session-run-current {
-  padding: 12px;
-  border: 0.0625rem solid var(--lumen-line);
-  border-radius: var(--lumen-radius-surface);
-  background: var(--lumen-frost);
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .hbar-app-react-session-monitoring .hbar-session-run-duration {

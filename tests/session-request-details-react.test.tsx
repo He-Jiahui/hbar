@@ -17,6 +17,17 @@ test('per-request latency keeps a valid zero timestamp and distinguishes missing
 })
 
 for (const locale of ['zh-CN', 'en-US'] as const) {
+  test(`compact request copy omits missing facts without hiding measured zero values: ${locale}`, () => {
+    const labels = getShellCopy(locale).monitoring.requests
+    const item = sessionRequestItem()
+    const missing = labels.summary(140, null, { ...item.cost, availability: 'unavailable', value: null })
+    expect(missing).toBe('140 tokens')
+    expect(missing).not.toContain(labels.unavailable)
+    const measured = labels.summary(0, 0, { ...item.cost, availability: 'available', value: 0, estimated: false })
+    expect(measured).toContain('0 tokens')
+    expect(measured).toContain('0 ms')
+    expect(measured).toContain(labels.cost({ ...item.cost, availability: 'available', value: 0, estimated: false }))
+  })
   test(`request details preserve cache accounting, unavailable cost and lazy raw data: ${locale}`, () => {
     const labels = getShellCopy(locale).monitoring.requests
     const item = sessionRequestItem()
