@@ -1,0 +1,30 @@
+.hbar-host-connection-notice {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-inline-size: 0;
+  padding: 0.625rem 0.875rem;
+  border-block-end: 0.0625rem solid var(--lumen-border);
+  color: var(--lumen-text);
+}
+
+.hbar-host-connection-notice > .lumen-icon {
+  color: var(--lumen-warning);
+}
+
+.hbar-host-connection-message {
+  display: flex;
+  flex: 1 1 16rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.hbar-host-connection-notice > button {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+}

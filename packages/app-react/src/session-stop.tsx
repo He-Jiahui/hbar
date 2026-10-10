@@ -224,7 +224,7 @@ export function HbarSessionStopProvider({
         : labels[feedback.kind]
     : null
   const notice =
-    target && feedback ? (
+    connected && target && feedback ? (
       <LumenFrame
         className="hbar-app-react-session-stop"
         data-session-stop=""

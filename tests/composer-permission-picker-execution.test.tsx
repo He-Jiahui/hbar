@@ -59,6 +59,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       expect(close).toBeDefined()
       expect(close).not.toContain('disabled=""')
     })
+    test(`${locale}: offline execution ${state.label} disables its entry and defers local feedback`, () => {
+      const input = props(locale, state.entry)
+      const html = renderToStaticMarkup(<HbarComposerPermissionPicker {...input} connected={false} />)
+      const trigger = html.match(/<button[^>]*class="[^"]*hbar-composer-permission-trigger[^>]*>/)?.[0]
+      expect(trigger).toContain('disabled=""')
+      const outsidePopover = html.slice(0, html.indexOf('popover="auto"'))
+      expect(outsidePopover).not.toContain('class="hbar-composer-permission-feedback"')
+      expect(html.match(/<button[^>]*role="menuitemradio"[^>]*disabled=""/g)).toHaveLength(6)
+    })
   }
 
   test(`${locale}: a fresh view projection of shared owner reading displays checking and disables reconciliation`, () => {

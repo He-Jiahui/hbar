@@ -153,6 +153,7 @@ export function WorkspaceOrganizationFeedback({
                     : labels.revealed(targetName)
               : null
   const readProblem = state.status === 'error' || state.status === 'offline'
+  if (!connected) return null
   if (!message && !readProblem && state.status !== 'loading') return null
   return (
     <LumenFrame className="hbar-app-react-organization-feedback" data-testid="workspace-organization-feedback">

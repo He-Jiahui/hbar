@@ -1136,7 +1136,7 @@ function SessionWorkspaceContent({
     )
   }
   const workspaceContextError =
-    workspaceContextFailure?.sessionId === sessionId ? workspaceContextFailure.message : undefined
+    connected && workspaceContextFailure?.sessionId === sessionId ? workspaceContextFailure.message : undefined
   const toolInstanceId = presentation.toolInstanceId
   const [toolFailure, setToolFailure] = useState<{
     sessionId: string
@@ -1718,14 +1718,14 @@ function SessionWorkspaceContent({
             children: <HbarGoalLifecycleCard row={item.row} labels={labels.goalLifecycle} />,
           },
         ]
-      if (item.kind === 'goalContinuation')
-        return [] // Run boundaries, including failed Goal continuations, belong to session status.
+      if (item.kind === 'goalContinuation') return [] // Run boundaries, including failed Goal continuations, belong to session status.
       const row = rowsById.get(item.kind === 'message' ? item.projection.message.id : item.stream.id)
       return row ? [row] : []
     },
   )
 
-  const currentFailure = timeline.sessionId === sessionId ? currentSessionRunFailure(timeline.runs, sessionId) : null
+  const currentFailure =
+    connected && timeline.sessionId === sessionId ? currentSessionRunFailure(timeline.runs, sessionId) : null
   const activity: ReactNode =
     decisionProjection.fallback.length > 0 || currentFailure ? (
       <LumenFrame className="hbar-app-react-session-activity">
@@ -1748,111 +1748,107 @@ function SessionWorkspaceContent({
     composerIntent.facts.sessionId === sessionId ? composerIntent.facts.snapshot?.goal : null,
   )
   const loadOlder = () => sessionId && invoke('timeline.loadOlder', { sessionId })
-  const historyNotices = sessionId ? (
-    <LumenFrame className="hbar-app-react-session-history-controls">
-      {!connected && (
-        <LumenText as="p" role="status">
-          {labels.disconnected}
-        </LumenText>
-      )}
-      {timeline.status === 'loading' && timeline.messages.length > 0 && (
-        <LumenText as="p" role="status">
-          {labels.refreshing}
-        </LumenText>
-      )}
-      {timeline.status === 'error' && timeline.messages.length > 0 && (
-        <LumenFrame className="hbar-app-react-session-history-error" role="alert">
-          <LumenText as="span">{labels.error(timeline.error ?? 'EXECUTION_FAILED')}</LumenText>
-          {connected && (
-            <LumenButton size="s" onClick={retryTimeline}>
-              {labels.retryTimeline}
-            </LumenButton>
-          )}
-        </LumenFrame>
-      )}
-      {timeline.olderStatus === 'limit' ? (
-        <LumenText as="p" role="status">
-          {labels.historyLimit}
-        </LumenText>
-      ) : timeline.olderStatus === 'loading' ? (
-        <LumenText as="p" role="status">
-          {labels.loadingOlder}
-        </LumenText>
-      ) : timeline.olderStatus === 'error' ? (
-        <LumenFrame className="hbar-app-react-session-history-page">
-          <LumenText as="span" role="alert">
-            {labels.error(timeline.olderError ?? 'EXECUTION_FAILED')}
+  const historyNotices =
+    connected && sessionId ? (
+      <LumenFrame className="hbar-app-react-session-history-controls">
+        {timeline.status === 'loading' && timeline.messages.length > 0 && (
+          <LumenText as="p" role="status">
+            {labels.refreshing}
           </LumenText>
-          <LumenButton size="s" disabled={!connected} onClick={loadOlder}>
-            {labels.retryHistory}
-          </LumenButton>
-        </LumenFrame>
-      ) : timeline.hasOlder ? (
-        <LumenText as="p" role="status">
-          {labels.loadOlder}
-        </LumenText>
-      ) : null}
-      {(goalHistory.available ||
-        (composerIntent.facts.sessionId === sessionId && composerIntent.facts.snapshot?.goal)) &&
-        goalHistoryProjection && (
-          <LumenFrame
-            className="hbar-app-react-session-history-page"
-            data-goal-history-gap={goalHistoryProjection.gapReason ?? undefined}
-          >
-            {goalHistoryProjection.status === 'loading' ? (
-              <LumenText as="span" role="status">
-                {labels.goalHistory.loading}
-              </LumenText>
-            ) : goalHistoryProjection.gapReason ? (
-              <LumenText as="span" role={goalHistoryProjection.gapReason === 'error' ? 'alert' : 'status'}>
-                {labels.goalHistory.gap(goalHistoryProjection.gapReason)}
-              </LumenText>
-            ) : null}
-            {goalHistoryProjection.limit && (
-              <LumenText as="span" role="status">
-                {labels.goalHistory.limit(GOAL_HISTORY_MAX_FACTS)}
-              </LumenText>
+        )}
+        {timeline.status === 'error' && timeline.messages.length > 0 && (
+          <LumenFrame className="hbar-app-react-session-history-error" role="alert">
+            <LumenText as="span">{labels.error(timeline.error ?? 'EXECUTION_FAILED')}</LumenText>
+            {connected && (
+              <LumenButton size="s" onClick={retryTimeline}>
+                {labels.retryTimeline}
+              </LumenButton>
             )}
-            {goalHistory.available &&
-              goalHistoryProjection.gap &&
-              goalHistoryProjection.status !== 'loading' &&
-              goalHistoryProjection.gapReason !== 'limit' && (
-                <LumenButton
-                  size="s"
-                  disabled={
-                    !connected || timeline.status !== 'ready' || goalHistoryProjection.olderStatus === 'loading'
-                  }
-                  onClick={() => invoke('goalHistory.refresh', { sessionId })}
-                >
-                  {labels.goalHistory.refresh}
-                </LumenButton>
-              )}
-            {goalHistory.available &&
-              !goalHistoryProjection.stale &&
-              !goalHistoryProjection.limit &&
-              goalHistoryProjection.hasOlder &&
-              (!timeline.hasOlder || goalHistoryProjection.gap) && (
-                <LumenButton
-                  size="s"
-                  disabled={
-                    !connected ||
-                    timeline.status !== 'ready' ||
-                    goalHistoryProjection.status === 'loading' ||
-                    goalHistoryProjection.olderStatus === 'loading'
-                  }
-                  onClick={() => invoke('goalHistory.loadOlder', { sessionId })}
-                >
-                  {goalHistoryProjection.olderStatus === 'loading'
-                    ? labels.goalHistory.loadingOlder
-                    : goalHistoryProjection.olderStatus === 'error'
-                      ? labels.goalHistory.retryOlder
-                      : labels.goalHistory.loadOlder}
-                </LumenButton>
-              )}
           </LumenFrame>
         )}
-    </LumenFrame>
-  ) : null
+        {timeline.olderStatus === 'limit' ? (
+          <LumenText as="p" role="status">
+            {labels.historyLimit}
+          </LumenText>
+        ) : timeline.olderStatus === 'loading' ? (
+          <LumenText as="p" role="status">
+            {labels.loadingOlder}
+          </LumenText>
+        ) : timeline.olderStatus === 'error' ? (
+          <LumenFrame className="hbar-app-react-session-history-page">
+            <LumenText as="span" role="alert">
+              {labels.error(timeline.olderError ?? 'EXECUTION_FAILED')}
+            </LumenText>
+            <LumenButton size="s" disabled={!connected} onClick={loadOlder}>
+              {labels.retryHistory}
+            </LumenButton>
+          </LumenFrame>
+        ) : timeline.hasOlder ? (
+          <LumenText as="p" role="status">
+            {labels.loadOlder}
+          </LumenText>
+        ) : null}
+        {(goalHistory.available ||
+          (composerIntent.facts.sessionId === sessionId && composerIntent.facts.snapshot?.goal)) &&
+          goalHistoryProjection && (
+            <LumenFrame
+              className="hbar-app-react-session-history-page"
+              data-goal-history-gap={goalHistoryProjection.gapReason ?? undefined}
+            >
+              {goalHistoryProjection.status === 'loading' ? (
+                <LumenText as="span" role="status">
+                  {labels.goalHistory.loading}
+                </LumenText>
+              ) : goalHistoryProjection.gapReason ? (
+                <LumenText as="span" role={goalHistoryProjection.gapReason === 'error' ? 'alert' : 'status'}>
+                  {labels.goalHistory.gap(goalHistoryProjection.gapReason)}
+                </LumenText>
+              ) : null}
+              {goalHistoryProjection.limit && (
+                <LumenText as="span" role="status">
+                  {labels.goalHistory.limit(GOAL_HISTORY_MAX_FACTS)}
+                </LumenText>
+              )}
+              {goalHistory.available &&
+                goalHistoryProjection.gap &&
+                goalHistoryProjection.status !== 'loading' &&
+                goalHistoryProjection.gapReason !== 'limit' && (
+                  <LumenButton
+                    size="s"
+                    disabled={
+                      !connected || timeline.status !== 'ready' || goalHistoryProjection.olderStatus === 'loading'
+                    }
+                    onClick={() => invoke('goalHistory.refresh', { sessionId })}
+                  >
+                    {labels.goalHistory.refresh}
+                  </LumenButton>
+                )}
+              {goalHistory.available &&
+                !goalHistoryProjection.stale &&
+                !goalHistoryProjection.limit &&
+                goalHistoryProjection.hasOlder &&
+                (!timeline.hasOlder || goalHistoryProjection.gap) && (
+                  <LumenButton
+                    size="s"
+                    disabled={
+                      !connected ||
+                      timeline.status !== 'ready' ||
+                      goalHistoryProjection.status === 'loading' ||
+                      goalHistoryProjection.olderStatus === 'loading'
+                    }
+                    onClick={() => invoke('goalHistory.loadOlder', { sessionId })}
+                  >
+                    {goalHistoryProjection.olderStatus === 'loading'
+                      ? labels.goalHistory.loadingOlder
+                      : goalHistoryProjection.olderStatus === 'error'
+                        ? labels.goalHistory.retryOlder
+                        : labels.goalHistory.loadOlder}
+                  </LumenButton>
+                )}
+            </LumenFrame>
+          )}
+      </LumenFrame>
+    ) : null
 
   const welcome =
     (!goalHistory.available ||
@@ -1897,9 +1893,9 @@ function SessionWorkspaceContent({
   ) : (
     <LumenFrame className="hbar-app-react-session-empty">
       <LumenText as="p">
-        {timeline.status === 'loading'
+        {connected && timeline.status === 'loading'
           ? labels.loading
-          : timeline.error
+          : connected && timeline.error
             ? labels.error(timeline.error)
             : labels.emptyHistory}
       </LumenText>
@@ -2004,22 +2000,24 @@ function SessionWorkspaceContent({
         }}
       />
       <HbarSessionStopNotice region="main" />
-      <HbarSessionExecutionNotice
-        key={`${sessionId}:${sessionWorkspaceId}`}
-        status={preparationStatus}
-        workspaceName={workspaceName}
-        connected={connected}
-        labels={labels.executionAccess}
-        onOpenArchived={async () => {
-          const target = { sessionId, workspaceId: sessionWorkspaceId }
-          const selected = runtime.state.navigation.getSnapshot()
-          if (selected.sessionId !== target.sessionId || selected.workspaceId !== target.workspaceId) return
-          await runtime.commands.execute('archivedSessions.open', { workspaceId: target.workspaceId })
-          const latest = runtime.state.navigation.getSnapshot()
-          if (latest.sessionId !== target.sessionId || latest.workspaceId !== target.workspaceId) return
-          await runtime.commands.execute('app.setSidebarVisible', { visible: true })
-        }}
-      />
+      {connected && (
+        <HbarSessionExecutionNotice
+          key={`${sessionId}:${sessionWorkspaceId}`}
+          status={preparationStatus}
+          workspaceName={workspaceName}
+          connected={connected}
+          labels={labels.executionAccess}
+          onOpenArchived={async () => {
+            const target = { sessionId, workspaceId: sessionWorkspaceId }
+            const selected = runtime.state.navigation.getSnapshot()
+            if (selected.sessionId !== target.sessionId || selected.workspaceId !== target.workspaceId) return
+            await runtime.commands.execute('archivedSessions.open', { workspaceId: target.workspaceId })
+            const latest = runtime.state.navigation.getSnapshot()
+            if (latest.sessionId !== target.sessionId || latest.workspaceId !== target.workspaceId) return
+            await runtime.commands.execute('app.setSidebarVisible', { visible: true })
+          }}
+        />
+      )}
       <HbarComposerGoal
         key={sessionId}
         sessionId={sessionId}
@@ -2233,16 +2231,15 @@ function SessionWorkspaceContent({
             ) : undefined
           }
           disabled={
-            !connected ||
             firstSendLocked ||
             workspaceMoveLocked ||
-            timeline.status === 'loading' ||
-            timeline.status === 'error'
+            (connected && (timeline.status === 'loading' || timeline.status === 'error'))
           }
           submitting={draft?.status === 'submitting' || intentEntry?.submission.status === 'submitting'}
           uploading={(draft?.uploading ?? 0) > 0}
           canAddAttachments={canAddAttachments}
           canSubmit={
+            connected &&
             !firstSendLocked &&
             !workspaceMoveLocked &&
             (canPrepare || localSlashCommand(draft?.text ?? '', slashIds) === 'settings') &&
@@ -2278,15 +2275,17 @@ function SessionWorkspaceContent({
           }}
           stopping={Boolean(activeRun && !canCancelRun(activeRun.id))}
           error={
-            draft?.uploadError && !attachmentTransfers.some((item) => item.error === draft.uploadError)
-              ? labels.attachments.error(draft.uploadError)
-              : draft?.error
-                ? labels.error(draft.error)
-                : composerModel.sessionId === sessionId && composerModel.action.status === 'unknown'
-                  ? labels.modelPicker.unknown
-                  : templateRouteError?.sessionId === sessionId
-                    ? labels.error(templateRouteError.code)
-                    : visibleSlashFailure
+            !connected
+              ? undefined
+              : draft?.uploadError && !attachmentTransfers.some((item) => item.error === draft.uploadError)
+                ? labels.attachments.error(draft.uploadError)
+                : draft?.error
+                  ? labels.error(draft.error)
+                  : composerModel.sessionId === sessionId && composerModel.action.status === 'unknown'
+                    ? labels.modelPicker.unknown
+                    : templateRouteError?.sessionId === sessionId
+                      ? labels.error(templateRouteError.code)
+                      : visibleSlashFailure
           }
           controls={
             <LumenFrame className="hbar-session-composer-controls">
@@ -2389,7 +2388,7 @@ function SessionWorkspaceContent({
           context={
             <>
               <HbarComposerBackgroundAgentFeedback
-                kind={backgroundFeedback}
+                kind={connected ? backgroundFeedback : null}
                 error={
                   backgroundEntry?.action.error ??
                   backgroundEntry?.action.targets.find((target) => target.error)?.error ??
@@ -2412,45 +2411,49 @@ function SessionWorkspaceContent({
                   connected={connected}
                 />
               )}
-              {launchTargetFailure?.sessionId === sessionId && firstSendLabels && (
+              {connected && launchTargetFailure?.sessionId === sessionId && firstSendLabels && (
                 <LumenText as="p" role="alert">
                   {firstSendLabels.error(launchTargetFailure.code)}
                 </LumenText>
               )}
-              <HbarQueuedUserRuns
-                state={queuedUserRuns}
-                sessionId={sessionId}
-                connected={connected}
-                labels={labels.queuedUserRuns}
-                activeRunId={
-                  timeline.sessionId === sessionId &&
-                  timeline.status === 'ready' &&
-                  activeRun?.sessionId === sessionId &&
-                  activeRun.status === 'running'
-                    ? activeRun.id
-                    : null
-                }
-                onRefresh={() => void invoke('queuedUserRuns.refresh', { sessionId })}
-                onPrevious={() => void invoke('queuedUserRuns.previous', { sessionId })}
-                onNext={() => void invoke('queuedUserRuns.next', { sessionId })}
-                onStartEdit={(operationId) => void invoke('queuedUserRuns.startEdit', { sessionId, operationId })}
-                onEditText={(operationId, text) =>
-                  void invoke('queuedUserRuns.setEditText', { sessionId, operationId, text })
-                }
-                onSaveEdit={(operationId) => void invoke('queuedUserRuns.saveEdit', { sessionId, operationId })}
-                onRetryEdit={(operationId) => void invoke('queuedUserRuns.retryEdit', { sessionId, operationId })}
-                onGuide={(operationId, expectedRevision, activeRunId) =>
-                  void invoke('queuedUserRuns.guide', { sessionId, operationId, expectedRevision, activeRunId })
-                }
-                onRetryGuide={(operationId) => void invoke('queuedUserRuns.retryGuide', { sessionId, operationId })}
-                onDismissGuide={() => void invoke('queuedUserRuns.dismissGuide', { sessionId })}
-                onCancelEdit={() => void invoke('queuedUserRuns.cancelEdit', { sessionId })}
-                onRemove={(operationId, expectedRevision) =>
-                  void invoke('queuedUserRuns.remove', { sessionId, operationId, expectedRevision })
-                }
-                onRetryRemoval={(operationId) => void invoke('queuedUserRuns.retryRemoval', { sessionId, operationId })}
-                onDismissRemoval={() => void invoke('queuedUserRuns.dismissRemoval', { sessionId })}
-              />
+              {connected && (
+                <HbarQueuedUserRuns
+                  state={queuedUserRuns}
+                  sessionId={sessionId}
+                  connected={connected}
+                  labels={labels.queuedUserRuns}
+                  activeRunId={
+                    timeline.sessionId === sessionId &&
+                    timeline.status === 'ready' &&
+                    activeRun?.sessionId === sessionId &&
+                    activeRun.status === 'running'
+                      ? activeRun.id
+                      : null
+                  }
+                  onRefresh={() => void invoke('queuedUserRuns.refresh', { sessionId })}
+                  onPrevious={() => void invoke('queuedUserRuns.previous', { sessionId })}
+                  onNext={() => void invoke('queuedUserRuns.next', { sessionId })}
+                  onStartEdit={(operationId) => void invoke('queuedUserRuns.startEdit', { sessionId, operationId })}
+                  onEditText={(operationId, text) =>
+                    void invoke('queuedUserRuns.setEditText', { sessionId, operationId, text })
+                  }
+                  onSaveEdit={(operationId) => void invoke('queuedUserRuns.saveEdit', { sessionId, operationId })}
+                  onRetryEdit={(operationId) => void invoke('queuedUserRuns.retryEdit', { sessionId, operationId })}
+                  onGuide={(operationId, expectedRevision, activeRunId) =>
+                    void invoke('queuedUserRuns.guide', { sessionId, operationId, expectedRevision, activeRunId })
+                  }
+                  onRetryGuide={(operationId) => void invoke('queuedUserRuns.retryGuide', { sessionId, operationId })}
+                  onDismissGuide={() => void invoke('queuedUserRuns.dismissGuide', { sessionId })}
+                  onCancelEdit={() => void invoke('queuedUserRuns.cancelEdit', { sessionId })}
+                  onRemove={(operationId, expectedRevision) =>
+                    void invoke('queuedUserRuns.remove', { sessionId, operationId, expectedRevision })
+                  }
+                  onRetryRemoval={(operationId) =>
+                    void invoke('queuedUserRuns.retryRemoval', { sessionId, operationId })
+                  }
+                  onDismissRemoval={() => void invoke('queuedUserRuns.dismissRemoval', { sessionId })}
+                />
+              )}
               <HbarComposerAttachmentTransfers
                 transfers={attachmentTransfers}
                 labels={labels.attachments}
@@ -2644,7 +2647,8 @@ function SessionWorkspaceContent({
           </>
         }
       />
-      {toolFailure?.sessionId === sessionId &&
+      {connected &&
+        toolFailure?.sessionId === sessionId &&
         toolFailure.workspaceId === navigation.workspaceId &&
         toolFailure.sourceTabInstanceKey === (sourceTab?.instanceKey ?? null) && (
           <LumenText as="p" role="alert">

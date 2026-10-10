@@ -244,6 +244,8 @@ test('stale/read-error/offline copy is safe and long localized recovery content 
   const offline = await render({ ...input, connected: false, labels })
   expect(offline).toContain('data-model-state="offline"')
   expect(offline).toContain(labels.offline)
+  expect(offline).not.toContain('hbar-composer-model-closed-recovery')
+  expect(offline).toContain(input.controls.model?.model?.modelName ?? '')
   expect(
     (await markup(offline)).find((button) => button.className.includes('hbar-composer-model-trigger'))?.disabled,
   ).toBe(true)

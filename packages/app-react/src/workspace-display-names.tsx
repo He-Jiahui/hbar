@@ -432,7 +432,7 @@ export function WorkspaceDisplayNameFeedback({
       }
     })()
   }
-  if (state.editor?.open) return null
+  if (!connected || state.editor?.open) return null
   const uncertain = actionUncertain(state)
   const busy = working || actionBusy(state)
   const message = actionMessage(state, labels)

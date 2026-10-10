@@ -122,7 +122,7 @@ export function HbarSessionRunHistory({
           {labels.loading}
         </LumenText>
       ) : null}
-      {ownsTimeline && timeline.status === 'error' ? (
+      {connected && ownsTimeline && timeline.status === 'error' ? (
         <LumenFrame role="alert">
           <LumenText as="p">{labels.error(timeline.error ?? 'EXECUTION_FAILED')}</LumenText>
           <LumenButton size="s" variant="text" indicator="none" disabled={!connected} onClick={refresh}>
@@ -198,7 +198,7 @@ export function HbarSessionRunHistory({
                 .map((run) => run.id)
             : []
         }
-        feedback={errorAction?.error ? labels.error(errorAction.error) : undefined}
+        feedback={connected && errorAction?.error ? labels.error(errorAction.error) : undefined}
         onCancelRun={connected ? (operationId) => (stopRun ? stopRun(operationId) : cancel(operationId)) : undefined}
         onRetryRun={connected ? retry : undefined}
       />
