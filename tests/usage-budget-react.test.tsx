@@ -5,6 +5,19 @@ import { createState } from '../packages/app-runtime/src/state'
 import { createUsageBudget } from '../packages/app-runtime/src/usage-budget'
 import { HbarUsageBudget, type HbarUsageBudgetLabels } from '../packages/app-react/src/usage-budget'
 
+function htmlButtonWithText(markup: string, text: string, openingPattern?: RegExp) {
+  const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const buttonPattern = /<button\b[^>]*>[\s\S]*?<\/button>/g
+  return [...markup.matchAll(buttonPattern)].some(([button]) => {
+    const parts = button.match(/^(<button\b[^>]*>)([\s\S]*)<\/button>$/)
+    if (!parts) return false
+    const [, opening, inner] = parts
+    if (typeof opening !== 'string' || typeof inner !== 'string') return false
+    const visible = inner.replace(/<[^>]*>/g, '')
+    return (!openingPattern || openingPattern.test(opening)) && new RegExp(escaped).test(visible)
+  })
+}
+
 const copies: readonly HbarUsageBudgetLabels[] = [
   {
     title: 'Session token budget',
@@ -56,7 +69,7 @@ for (const labels of copies) {
     const unknown = renderToStaticMarkup(<HbarUsageBudget runtime={runtime} labels={labels} />)
     expect(unknown).toContain(labels.unknown)
     expect(unknown).toContain(labels.pendingTarget('original-a'))
-    expect(unknown).toMatch(new RegExp(`<button[^>]*>[^<]*${labels.reconcile}`))
+    expect(htmlButtonWithText(unknown, labels.reconcile)).toBe(true)
     expect(unknown).toContain('disabled=""')
     runtime.dispose()
   })
