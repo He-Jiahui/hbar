@@ -7,6 +7,7 @@ import {
   queuedRunEditTextReceiptSchema,
   queuedRunGuideReceiptSchema,
   queuedRunGuidedOperationId as guidedOperationId,
+  admitOperationRecovery,
   queuedRunRemoveReceiptSchema,
 } from '@hbar/contracts/commands/run'
 import type {
@@ -211,6 +212,7 @@ export function createOperationWatcher(client: OperationWatchTransport) {
         loading = true,
         overflow = false
       const seen = new Set<string>()
+      const runIds = new Set([operationId])
       const pending: SessionEvent[] = []
       const emit = (update: Parameters<typeof onUpdate>[0]) => {
         try {
@@ -220,7 +222,8 @@ export function createOperationWatcher(client: OperationWatchTransport) {
         }
       }
       const deliver = (event: SessionEvent) => {
-        if (event.runId !== operationId && guidedOperationId(event) !== operationId) return
+        admitOperationRecovery(event, runIds)
+        if ((!event.runId || !runIds.has(event.runId)) && guidedOperationId(event) !== operationId) return
         if (seen.has(event.eventId)) return
         seen.add(event.eventId)
         if (seen.size > 4096) seen.delete(seen.values().next().value!)
@@ -228,9 +231,10 @@ export function createOperationWatcher(client: OperationWatchTransport) {
         emit({ kind: 'event', event })
       }
       const offEvent = client.onEvent((notification) => {
+        if (notification.method === 'session.event') admitOperationRecovery(notification.params, runIds)
         if (
           notification.method !== 'session.event' ||
-          (notification.params.runId !== operationId && guidedOperationId(notification.params) !== operationId) ||
+          ((!notification.params.runId || !runIds.has(notification.params.runId)) && guidedOperationId(notification.params) !== operationId) ||
           closed
         )
           return
@@ -244,6 +248,7 @@ export function createOperationWatcher(client: OperationWatchTransport) {
         loading = true
         try {
           const result = operationWatchResultSchema.parse(await client.call('operation.watch', { operationId, cursor }))
+          if (result.snapshot.executionRunId) runIds.add(result.snapshot.executionRunId)
           if (closed) return
           if (result.reset || overflow) emit({ kind: 'reset', snapshot: result.snapshot })
           else for (const event of result.events) deliver(event)
@@ -269,6 +274,7 @@ export function createOperationWatcher(client: OperationWatchTransport) {
       }
       try {
         const initial = operationWatchResultSchema.parse(await client.call('operation.watch', { operationId, cursor }))
+        if (initial.snapshot.executionRunId) runIds.add(initial.snapshot.executionRunId)
         cursor = Math.max(cursor, initial.cursor)
         if (overflow) {
           pending.length = 0
@@ -276,7 +282,8 @@ export function createOperationWatcher(client: OperationWatchTransport) {
           return { initial: { ...initial, events: [], reset: true }, close }
         }
         for (const event of initial.events) {
-          if (event.runId === operationId || guidedOperationId(event) === operationId) seen.add(event.eventId)
+          admitOperationRecovery(event, runIds)
+          if ((event.runId && runIds.has(event.runId)) || guidedOperationId(event) === operationId) seen.add(event.eventId)
         }
         loading = false
         for (const event of pending.splice(0)) deliver(event)

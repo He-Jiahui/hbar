@@ -8,12 +8,13 @@ import {
   createConnectionCommands,
   createInteractionCommandClient,
   createModelCommandClient,
+  createRunCommandClient,
   createWorkspaceSessionCommandClient,
 } from '@hbar/client'
 import { NamedContextStore } from './context.ts'
 import { resolvePathLayout } from '@hbar/storage'
 import { hostProcessCommand } from './host-process.ts'
-import { queuedRunGuidedOperationId } from '@hbar/contracts/commands/run'
+import { queuedRunGuidedOperationId, admitOperationRecovery } from '@hbar/contracts/commands/run'
 import type {
   ApprovalMode,
   Bootstrap,
@@ -321,22 +322,45 @@ export async function waitForRun(
   observer: RunObserver = {},
 ): Promise<RunResult> {
   const interactions = createInteractionCommandClient(client)
+  const operations = createRunCommandClient(client)
+  const runIds = new Set([run.id])
+  let executionRunId = run.id
   const events: SessionEvent[] = []
   const seen = new Set<string>()
   const approvals = new Set<string>()
   let settled = false
-  let unsubscribe = () => {}
   let streamedText = false
+  let probing = false
+  let recoveryReason: string | null = null
+  const completion = Promise.withResolvers<void>()
+  const probe = async () => {
+    if (settled || probing) return
+    probing = true
+    try {
+      const state = await operations.execute('operation.get', { operationId: run.id })
+      executionRunId = state.executionRunId ?? run.id
+      recoveryReason = state.recovery?.reasonCode ?? null
+      runIds.add(executionRunId)
+      const active = ['queued', 'running', 'waiting_approval', 'cancelRequested'].includes(state.status) || state.recoveryPending ||
+        (state.recovery && ['pending', 'running'].includes(state.recovery.status))
+      if (!active) { settled = true; completion.resolve() }
+    } catch {
+      // Safe reads retry while an owner or connection is recovering; accepted work is never resubmitted.
+    } finally { probing = false }
+  }
   if (output === 'jsonl') jsonLine({ type: 'run.started', runId: run.id, sessionId: run.sessionId })
-  const done = new Promise<void>((resolveDone, reject) => {
-    unsubscribe = client.onEvent((notification) => {
-      if (notification.method === 'stream.update' && notification.params.runId === run.id) {
+  const done = completion.promise
+  const reject = completion.reject
+  const timer = setInterval(() => { probe().catch(reject) }, 500)
+  timer.unref()
+  const unsubscribe = client.onEvent((notification) => {
+      if (notification.method === 'stream.update' && runIds.has(notification.params.runId)) {
         const delta = notification.params
         observer.onDelta?.(delta)
         if (output === 'jsonl')
           jsonLine({
             type: 'message.delta',
-            runId: run.id,
+            runId: delta.runId,
             sessionId: run.sessionId,
             streamId: delta.id,
             operation: delta.operation,
@@ -356,13 +380,17 @@ export async function waitForRun(
       }
       if (notification.method !== 'session.event') return
       const event = notification.params
+      admitOperationRecovery(event, runIds)
+      if (event.type === 'run.recoveryQueued' && event.runId && runIds.has(event.runId)) executionRunId = event.runId
       const guided = queuedRunGuidedOperationId(event) === run.id
-      if (event.runId !== run.id && !guided) return
+      if ((!event.runId || !runIds.has(event.runId)) && !guided) return
       if (seen.has(event.eventId)) return
       seen.add(event.eventId)
+      if (seen.size > 4_096) seen.delete(seen.values().next().value!)
       events.push(event)
+      if (events.length > 4_096) events.shift()
       observer.onEvent?.(event)
-      if (output === 'jsonl') jsonLine(eventLine(event, run))
+      if (output === 'jsonl') jsonLine(eventLine(event, { ...run, id: event.runId ?? run.id }))
       else if (output === 'text' && event.type === 'tool.started') {
         const data = event.data as { name?: unknown }
         process.stderr.write(`\n[tool] ${String(data.name ?? 'unknown')}\n`)
@@ -396,23 +424,23 @@ export async function waitForRun(
         }
       }
       if (event.type === 'run.settled' || guided) {
-        settled = true
-        resolveDone()
+        // An interrupted identity stays truthful; only the recovery chain's eventual terminal result ends the waiter.
+        probe().catch(reject)
       }
-    })
   })
+  const offStatus = client.onStatus(status => { if (status === 'disconnected') reject(new Error('Run observation stopped because the connection was explicitly closed or authorization was revoked')) })
   try {
     await client.follow(session.id, session.seq)
-    const immediate = await client.call('session.snapshot', { sessionId: session.id })
-    const current = immediate.runs.find((item) => item.id === run.id)
-    if (current && !['queued', 'running', 'waiting_approval'].includes(current.status)) settled = true
+    await probe()
     if (!settled) await done
   } finally {
     unsubscribe()
+    offStatus()
+    clearInterval(timer)
   }
   const snapshot = await client.call('session.snapshot', { sessionId: session.id })
   const assistant = snapshot.messages
-    .filter((message) => message.runId === run.id && message.role === 'assistant')
+    .filter((message) => message.runId === executionRunId && message.role === 'assistant')
     .at(-1)
   if (output === 'text') {
     if (!streamedText && assistant)
@@ -424,8 +452,8 @@ export async function waitForRun(
       )
     process.stdout.write('\n')
   }
-  const finalRun = snapshot.runs.find((item) => item.id === run.id) ?? run
+  const finalRun = snapshot.runs.find((item) => item.id === executionRunId) ?? run
   if (finalRun.status !== 'completed' && finalRun.status !== 'guided')
-    throw new Error(`Run ${finalRun.status}: ${finalRun.error ?? 'no details'}`)
+    throw new Error(`Run ${finalRun.status}: ${recoveryReason ?? finalRun.error ?? 'no details'}`)
   return { run: finalRun, snapshot, assistant, events }
 }

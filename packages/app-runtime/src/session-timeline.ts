@@ -8,9 +8,11 @@ import {
   userInputRequestSchema,
   toolExecutionEventSchema,
   toolBatchEventSchema,
+  runFailureSchema,
 } from '@hbar/contracts'
 import { sessionTimelineCommands } from '@hbar/contracts/commands/session-timeline'
-import { queuedRunGuidanceSchema, type QueuedRunGuidance } from '@hbar/contracts/commands/run'
+import { queuedRunGuidanceSchema, admitOperationRecovery, type QueuedRunGuidance } from '@hbar/contracts/commands/run'
+import { runRecoverySchema } from '@hbar/contracts/runtime'
 import type {
   Approval,
   LiveStream,
@@ -54,6 +56,8 @@ const runSchema = z.object({
   startedAt: z.number().int().nonnegative().nullable(),
   endedAt: z.number().int().nonnegative().nullable(),
   error: z.string().nullable(),
+  failure: runFailureSchema.optional(),
+  recovery: runRecoverySchema.optional(),
 })
 const approvalSchema = z.object({
   id: z.string().min(1),
@@ -276,9 +280,12 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
         streams = Object.fromEntries(Object.entries(streams).filter(([, stream]) => stream.runId !== event.runId))
       }
     }
-  } else if (['run.queued', 'run.status', 'run.settled'].includes(event.type) && data) {
+  } else if (['run.queued', 'run.status', 'run.settled', 'run.recoveryQueued', 'execution.claimed'].includes(event.type) && data) {
     const parsed = runSchema.safeParse(data.run)
-    if (parsed.success) {
+    const ids = new Set(parsed.success && parsed.data.recovery ? [parsed.data.recovery.predecessorRunId] : [])
+    admitOperationRecovery(event, ids)
+    if (parsed.success && parsed.data.sessionId === event.sessionId &&
+      (event.type !== 'run.recoveryQueued' || ids.has(parsed.data.id))) {
       if (!toolClock || event.time >= toolClock.hostTime) toolClock = { hostTime: event.time, receivedAt: Date.now() }
       runs = [...upsert(runs, parsed.data as Run, (item) => item.id, MAX_RUNS)].sort(
         (a, b) => b.createdAt - a.createdAt,

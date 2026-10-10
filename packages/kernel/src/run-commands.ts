@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { CommandError, CommandRegistry, createCommandClient, type CommandContext } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
-import { runCommands, runCommandRecordSchema } from '@hbar/contracts/commands/run'
+import { runCommands, runCommandRecordSchema, operationSnapshotSchema } from '@hbar/contracts/commands/run'
 import type { QueuedRunGuideReceipt, RunAccepted, RunCommandRecord, SubmitRunInput } from '@hbar/contracts/commands/run'
 import type { Run } from '@hbar/contracts'
 import type { RunCommandKernelPort } from './controller-port'
@@ -291,18 +291,26 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
   )
   registry.register(runCommands['operation.get'], async ({ operationId }) => {
     try {
-      const run = await kernel.storage.call('run', operationId)
+      const original = await kernel.storage.call('run', operationId)
+      const record = await kernel.storage.call('runtimeRecoveryRead', operationId)
+      const chainId = original.recovery?.chainId ?? record?.chain.chainId
+      const chain = chainId ? await kernel.storage.call('runtimeRecoveryChain', chainId) : null
+      const run = chain ? await kernel.storage.call('run', chain.currentRunId) : original
       const cancelRequested =
         ['running', 'waiting_approval'].includes(run.status) &&
-        (await kernel.storage.call('cancelRequested', operationId))
+        (await kernel.storage.call('cancelRequested', run.id))
+      const pending = run.status === 'interrupted' && !await kernel.storage.call('cancelRequested', run.id) &&
+        (chain ? ['pending', 'running'].includes(chain.status) : Boolean(await kernel.storage.call('runtimeExecutionRead', run.id)))
       return {
-        operationId: run.id,
+        operationId: original.id,
         sessionId: run.sessionId,
         status: cancelRequested ? ('cancelRequested' as const) : run.status,
         startedAt: run.startedAt,
         endedAt: run.endedAt,
         error: run.error,
         ...(run.failure ? { failure: run.failure } : {}),
+        ...(chain ? { executionRunId: run.id, recovery: chain } : {}),
+        ...(pending ? { recoveryPending: true } : {}),
       }
     } catch (error) {
       if (error instanceof HbarError) throw new CommandError(error.code, error.message)
@@ -314,7 +322,8 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
     async ({ operationId }) => {
       try {
         await kernel.cancel(operationId)
-        const run = await kernel.storage.call('run', operationId)
+        const state = operationSnapshotSchema.parse(await registry.execute('operation.get', { operationId }))
+        const run = await kernel.storage.call('run', state.executionRunId ?? operationId)
         if (run.status === 'queued' || run.status === 'running' || run.status === 'waiting_approval')
           return { operationId, status: 'cancelRequested' as const }
         return { operationId, status: run.status }

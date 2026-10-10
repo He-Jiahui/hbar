@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { createAppRuntime, type SessionTimelinePort, type SessionTimelineUpdate } from '@hbar/app-runtime'
 import { createSessionTimelineClient } from '@hbar/client'
-import type { PlanState, SessionEvent, SessionSnapshot, StreamDelta, WireNotification } from '@hbar/contracts'
+import type { PlanState, Run, SessionEvent, SessionSnapshot, StreamDelta, WireNotification } from '@hbar/contracts'
 
 const workspace = { id: 'workspace', path: 'D:/workspace', name: 'Workspace', createdAt: 1 }
 const sessions = [
@@ -86,6 +86,33 @@ function directory() {
     },
   }
 }
+
+test('recovery queue and execution facts project the successor while preserving the real interrupted predecessor and messages', async () => {
+  const original: Run = { id: 'original', sessionId: 'session-one', requestId: 'user-input', input: { text: 'Continue once', images: [] }, modelId: 'fixture',
+    status: 'interrupted', createdAt: 1, startedAt: 1, endedAt: 2, error: 'Owner exited', failure: { code: 'EXECUTION_INTERRUPTED', category: 'interrupted', retryable: true } }
+  const successor: Run = { ...original, id: 'successor', requestId: 'recovery-id', status: 'queued', createdAt: 3, startedAt: null, endedAt: null, error: null,
+    recovery: { recoveryId: 'recovery-id', chainId: 'chain', rootRunId: original.id, predecessorRunId: original.id, attempt: 1 } }
+  delete successor.failure
+  let publish: ((value: SessionTimelineUpdate) => void) | undefined
+  const runtime = createAppRuntime({ instanceId: 'recovery-timeline', hostId: 'host', directory: directory(), timeline: {
+    snapshot: async () => ({ ...snapshot('session-one', 1, 'Committed context'), runs: [original] }),
+    watch: async (_id, _cursor, listener) => { publish = listener; return () => {} },
+  } })
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: 'session-one' }); await waitFor(() => Boolean(publish))
+    publish?.({ kind: 'event', event: event('session-one', 2, 'run.recoveryQueued', {
+      recoveryId: 'recovery-id', predecessorRunId: original.id, run: successor,
+      chain: { chainId: 'chain', sessionId: 'session-one', rootRunId: original.id, currentRunId: successor.id, attempts: 1, status: 'running', reasonCode: null, updatedAt: 3 },
+    }, successor.id) })
+    await waitFor(() => runtime.view.state.timeline.getSnapshot().runs.length === 2)
+    expect(runtime.view.state.timeline.getSnapshot().runs[0]?.recovery).toEqual(successor.recovery)
+    publish?.({ kind: 'event', event: event('session-one', 3, 'execution.claimed', { run: { ...successor, status: 'running', startedAt: 4 } }, successor.id) })
+    await waitFor(() => runtime.view.state.timeline.getSnapshot().cursor === 3)
+    expect(runtime.view.state.timeline.getSnapshot().runs[0]?.status).toBe('running')
+    expect(runtime.view.state.timeline.getSnapshot().runs.find(run => run.id === original.id)?.failure).toEqual(original.failure)
+    expect(runtime.view.state.timeline.getSnapshot().messages).toHaveLength(1)
+  } finally { runtime.dispose() }
+})
 
 test('resnapshot preserves resolved ordinary approval facts for loaded history but drops missing pending requests', async () => {
   const resolved = {

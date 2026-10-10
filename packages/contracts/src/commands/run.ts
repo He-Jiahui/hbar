@@ -3,6 +3,8 @@ import { defineCommand } from '@hbar/commands/protocol'
 import { idSchema, inputSchema, runFailureSchema, sessionEventSchema } from '../index'
 import type { SessionEvent } from '../index'
 import { activeOperationsInputSchema, activeOperationsPageSchema } from './active-operations'
+import { recoveryChainSchema } from '../runtime'
+export { admitOperationRecovery } from '../operation-recovery'
 export {
   ACTIVE_OPERATION_INTENT_PREVIEW_MAX_CODE_POINTS,
   activeOperationsInputSchema,
@@ -100,6 +102,9 @@ export const operationSnapshotSchema = z.strictObject({
   endedAt: z.number().int().nonnegative().nullable(),
   error: z.string().nullable(),
   failure: runFailureSchema.optional(),
+  executionRunId: idSchema.optional(),
+  recovery: recoveryChainSchema.optional(),
+  recoveryPending: z.boolean().optional(),
 })
 export const operationCancelResultSchema = z.strictObject({
   operationId: idSchema,

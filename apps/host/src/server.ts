@@ -61,6 +61,7 @@ import { interactionCommands as interactionDefinitions } from '@hbar/contracts/c
 import { modelCommands as modelDefinitions } from '@hbar/contracts/commands/models'
 import {
   queuedRunGuidedOperationId as guidedOperationId,
+  admitOperationRecovery,
   runCommands as runDefinitions,
 } from '@hbar/contracts/commands/run'
 import { settingsCommands as settingsDefinitions } from '@hbar/contracts/commands/settings'
@@ -112,6 +113,7 @@ interface SocketData {
   initialized: boolean
   follows: Set<string>
   operationFollows: Set<string>
+  operationChains: Map<string, Set<string>>
   metricsFollowing: boolean
   pending: number
   terminals: Set<string>
@@ -672,14 +674,18 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         if (!socket.data.operationFollows.has(input.operationId) && socket.data.operationFollows.size >= 128)
           throw new HbarError('BUSY', 'Too many watched operations')
         socket.data.operationFollows.add(input.operationId)
+        const ids = socket.data.operationChains.get(input.operationId) ?? new Set([input.operationId])
+        if (snapshot.executionRunId) ids.add(snapshot.executionRunId)
+        socket.data.operationChains.set(input.operationId, ids)
         const events = await kernel.storage.call('events', snapshot.sessionId, input.cursor, 201)
+        for (const event of events) admitOperationRecovery(event, ids)
         const reset = events.length > 200 || input.cursor > session.seq
         return {
           snapshot,
           events: reset
             ? []
             : events.filter(
-                (event) => event.runId === input.operationId || guidedOperationId(event) === input.operationId,
+                (event) => (event.runId !== null && ids.has(event.runId)) || guidedOperationId(event) === input.operationId,
               ),
           cursor: session.seq,
           reset,
@@ -688,6 +694,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       case 'operation.unwatch': {
         const input = rpcSchemas[method].parse(raw)
         socket.data.operationFollows.delete(input.operationId)
+        socket.data.operationChains.delete(input.operationId)
         return null
       }
       case 'metrics.watch': {
@@ -1383,6 +1390,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
                 initialized: false,
                 follows: new Set(),
                 operationFollows: new Set(),
+                operationChains: new Map(),
                 metricsFollowing: false,
                 schemaQueries: new Map(),
                 pending: 0,
@@ -1571,7 +1579,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       if (!socket.data.initialized) continue
       if (event.method === 'session.event' || event.method === 'stream.update') {
         const bySession = socket.data.follows.has(event.params.sessionId)
-        const byOperation = Boolean(event.params.runId && socket.data.operationFollows.has(event.params.runId))
+        if (event.method === 'session.event') for (const ids of socket.data.operationChains.values()) admitOperationRecovery(event.params, ids)
+        const byOperation = Boolean(event.params.runId && [...socket.data.operationChains.values()].some(ids => ids.has(event.params.runId!)))
         const guidedId = event.method === 'session.event' ? guidedOperationId(event.params) : null
         const byGuidedOperation = guidedId !== null && socket.data.operationFollows.has(guidedId)
         if (!bySession && !byOperation && !byGuidedOperation) continue
