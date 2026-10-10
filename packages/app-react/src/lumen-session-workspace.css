@@ -37,6 +37,21 @@
   flex-wrap: nowrap;
   gap: 8px;
   padding: 8px 12px;
+  overflow: hidden;
+}
+
+.hbar-app-react-session-workspace .lumen-page-heading {
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.hbar-app-react-session-workspace .lumen-page-heading h1,
+.hbar-app-react-session-workspace .lumen-page-heading p {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hbar-app-react-session-workspace .lumen-page-heading h1 {
@@ -49,6 +64,7 @@
 
 .hbar-app-react-session-workspace .lumen-page-header-end,
 .hbar-app-react-session-workspace .lumen-page-actions {
+  flex: 0 0 auto;
   max-inline-size: 100%;
   flex-wrap: nowrap;
 }
