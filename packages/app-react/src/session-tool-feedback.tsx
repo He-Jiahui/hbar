@@ -65,14 +65,8 @@ export function ToolProgressFeedback({
   readonly active: boolean
   readonly labels: SessionToolFeedbackLabels
 }) {
-  const state: ProgressState =
-    outcome === 'succeeded' || outcome === 'legacy-result'
-      ? 'succeeded'
-      : outcome === 'failed'
-        ? 'failed'
-        : active
-          ? 'running'
-          : 'pending'
+  if (outcome !== 'pending') return null
+  const state: ProgressState = active ? 'running' : 'pending'
   return (
     <LumenFrame className="hbar-tool-progress-feedback">
       <ProgressBar
@@ -119,10 +113,12 @@ export function ToolTiming({
 export function ToolBatchFeedback({
   counts,
   activities,
+  finished = false,
   labels,
 }: {
   readonly counts: ToolActivityCounts
   readonly activities?: readonly (SessionToolActivity | undefined)[]
+  readonly finished?: boolean
   readonly labels: SessionToolFeedbackLabels
 }) {
   const now = useSessionClock(activities?.some((activity) => activity?.active) ?? false)
@@ -132,6 +128,8 @@ export function ToolBatchFeedback({
       ? durations.reduce((sum, duration) => sum + (duration ?? 0), 0)
       : undefined
   if (counts.total === 0) return null
+  const showProgress = !finished && (counts.running > 0 || counts.pending > 0)
+  if (!showProgress && totalDuration === undefined) return null
   const succeeded = counts.outcomes?.succeeded ?? 0
   const failed = counts.outcomes?.failed ?? 0
   return (
@@ -145,17 +143,19 @@ export function ToolBatchFeedback({
           {labels.cumulativeDuration(totalDuration)}
         </LumenContentText>
       ) : null}
-      <ProgressBar
-        progress={{ completed: counts.settled, total: counts.total }}
-        segments={[
-          { state: 'succeeded', value: succeeded },
-          { state: 'failed', value: failed },
-          { state: 'running', value: counts.running },
-          { state: 'pending', value: counts.total - succeeded - failed - counts.running },
-        ]}
-        counts={counts}
-        labels={labels}
-      />
+      {showProgress ? (
+        <ProgressBar
+          progress={{ completed: counts.settled, total: counts.total }}
+          segments={[
+            { state: 'succeeded', value: succeeded },
+            { state: 'failed', value: failed },
+            { state: 'running', value: counts.running },
+            { state: 'pending', value: counts.total - succeeded - failed - counts.running },
+          ]}
+          counts={counts}
+          labels={labels}
+        />
+      ) : null}
     </LumenFrame>
   )
 }

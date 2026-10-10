@@ -399,7 +399,7 @@ function ToolRow({
       live={active}
       feedback={
         activity?.batch && labels.feedback ? (
-          <ToolBatchFeedback counts={activity.batch} labels={labels.feedback} />
+          <ToolBatchFeedback counts={activity.batch} finished={Boolean(row.result)} labels={labels.feedback} />
         ) : activity?.execution?.progress && labels.feedback ? (
           <ToolProgressFeedback
             progress={activity.execution.progress}

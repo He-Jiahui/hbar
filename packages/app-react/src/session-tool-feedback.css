@@ -50,10 +50,10 @@
   background: var(--lumen-muted);
 }
 .hbar-tool-progress-segment[data-progress-state='succeeded'] {
-  background: var(--lumen-success);
+  background: var(--lumen-ink);
 }
 .hbar-tool-progress-segment[data-progress-state='running'] {
-  background: var(--lumen-info);
+  background: var(--lumen-warning);
 }
 .hbar-tool-progress-segment[data-progress-state='failed'] {
   background: var(--lumen-danger);

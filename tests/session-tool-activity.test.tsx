@@ -114,7 +114,7 @@ test('final results freeze measured time, survive paged history and override obs
   expect(rowToolActivity({ ...row, result: { ...row.result, execution: undefined } })?.execution).toBeUndefined()
 })
 for (const locale of ['zh-CN', 'en-US'] as const) {
-  test(`localized compact UI renders batch progress below the tool, with measured duration and accessible counts (${locale})`, () => {
+  test(`a final tool result hides batch progress even with stale running counts and retains its measured duration (${locale})`, () => {
     const labels = getShellCopy(locale).session.messageBlocks
     const final = {
       type: 'tool_result' as const,
@@ -136,14 +136,11 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
     const html = renderToStaticMarkup(
       <HbarMessageBlocks sessionId="session" messageId="message" blocks={[call, final]} labels={labels} />,
     )
-    expect(html).toContain('data-tool-progress="33.3"')
-    expect(html).not.toContain('>33.3%<')
+    expect(html).not.toContain('progressbar')
+    expect(html).not.toContain('hbar-tool-progress-feedback')
+    expect(html).not.toContain('hbar-tool-batch-feedback')
     expect(html).not.toContain('hbar-tool-batch-counts')
-    expect(html).toContain('data-progress-state="succeeded"')
-    expect(html).toContain('data-progress-state="running"')
-    expect(html).toContain('data-progress-state="pending"')
     expect(html).toContain(locale === 'zh-CN' ? '耗时 1 秒' : 'Took 1 s')
-    expect(html).toContain(locale === 'zh-CN' ? '已结束 1' : '1 settled')
     const legacy = renderToStaticMarkup(
       <HbarMessageBlocks
         sessionId="session"
@@ -177,26 +174,35 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
     expect(html).not.toContain('>50%<')
   })
 
-  test(`a tool's actual work progress changes color with its outcome and freezes when disconnected (${locale})`, () => {
+  test(`a tool's progress is visible while working, frozen offline and absent for every final outcome (${locale})`, () => {
     const labels = toolFeedbackLabels(locale)
     const progress = { completed: 1, total: 4 }
-    for (const [outcome, active, state] of [
-      ['pending', true, 'running'],
-      ['failed', false, 'failed'],
-      ['succeeded', false, 'succeeded'],
-    ] as const) {
-      const html = renderToStaticMarkup(
-        <ToolProgressFeedback progress={progress} outcome={outcome} active={active} labels={labels} />,
-      )
-      expect(html).toContain('data-tool-progress="25"')
-      expect(html).toContain(`data-progress-state="${state}" aria-hidden="true" style="flex-grow:1"`)
-      expect(html).toContain('data-progress-state="pending" aria-hidden="true" style="flex-grow:3"')
-    }
+    const html = renderToStaticMarkup(
+      <ToolProgressFeedback progress={progress} outcome="pending" active={true} labels={labels} />,
+    )
+    expect(html).toContain('data-tool-progress="25"')
+    expect(html).toContain('data-progress-state="running" aria-hidden="true" style="flex-grow:1"')
+    expect(html).toContain('data-progress-state="pending" aria-hidden="true" style="flex-grow:3"')
     const offline = renderToStaticMarkup(
       <ToolProgressFeedback progress={progress} outcome="pending" active={false} labels={labels} />,
     )
     expect(offline).not.toContain('data-progress-state="running"')
     expect(offline).toContain('data-progress-state="pending" aria-hidden="true" style="flex-grow:4"')
+    for (const outcome of [
+      'succeeded',
+      'failed',
+      'cancelled',
+      'interrupted',
+      'unknown',
+      'denied',
+      'legacy-result',
+      'legacy-error',
+    ] as const)
+      expect(
+        renderToStaticMarkup(
+          <ToolProgressFeedback progress={progress} outcome={outcome} active={false} labels={labels} />,
+        ),
+      ).toBe('')
   })
 }
 
@@ -225,12 +231,27 @@ test('batch colors distinguish canonical failures and preserve cancelled, interr
   })
 })
 
-test('empty feedback is omitted; unclassified legacy batches keep their real progress without claiming success', () => {
+test('finished batches omit progress for complete, skipped and unknown work while preserving cumulative timing', () => {
   const labels = toolFeedbackLabels('zh-CN')
   const empty = { total: 0, settled: 0, running: 0, pending: 0, skipped: 0, unknown: 0 }
   expect(renderToStaticMarkup(<ToolBatchFeedback counts={empty} labels={labels} />)).toBe('')
   const legacy = renderToStaticMarkup(<ToolBatchFeedback counts={{ ...empty, total: 3, settled: 3 }} labels={labels} />)
-  expect(legacy).toContain('data-tool-progress="100"')
-  expect(legacy).not.toContain('data-progress-state="succeeded"')
-  expect(legacy).toContain('data-progress-state="pending"')
+  expect(legacy).toBe('')
+  for (const counts of [
+    { ...empty, total: 3, settled: 2, skipped: 1 },
+    { ...empty, total: 3, settled: 2, unknown: 1 },
+  ]) {
+    const html = renderToStaticMarkup(
+      <ToolBatchFeedback
+        counts={counts}
+        activities={[
+          { callId: 'read', active: false, observedAt: 0, execution: { startedAt: 1, endedAt: 1001, elapsedMs: 1000 } },
+        ]}
+        labels={labels}
+      />,
+    )
+    expect(html).not.toContain('progressbar')
+    expect(html).toContain('data-tool-total-elapsed="1000"')
+    expect(html).toContain(labels.cumulativeDuration(1000))
+  }
 })
