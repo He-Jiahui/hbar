@@ -16,6 +16,7 @@ function service(overrides: Partial<BrowserUseService> = {}): BrowserUseService 
   return {
     status: async () => ({ available: true, contexts: [page], history: [page.url] }),
     navigate: async () => page,
+    go: async () => page,
     snapshot: async () => ({ page, text: 'snapshot', truncated: false }),
     click: async () => page,
     type: async () => page,

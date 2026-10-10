@@ -107,6 +107,8 @@ function service(overrides: Partial<GitService> = {}): GitService {
       gap: false,
     }),
     commit: async () => commit,
+    stage: async (_cwd, paths) => ({ paths }),
+    unstage: async (_cwd, paths) => ({ paths }),
     branch: async () => [],
     worktree: async () => [],
     launchBranchSnapshot: async () => ({ repository: { kind: 'not-repository' }, branches: [], incomplete: false }),
