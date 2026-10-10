@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { LumenButton, LumenFrame, LumenText, LumenToggle } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenToggle } from '@lumen/app-ui'
 import { HbarNotifications, useHbarRuntimeState, type HbarRuntimeView } from '@hbar/app-react'
 import type { NotificationRecord } from '@hbar/contracts/commands/notifications'
 import type { ShellLocale } from './shell-copy'
@@ -76,9 +76,9 @@ export function NotificationsPage({ runtime, locale, onNavigate, variant = 1, na
   return (
     <LumenFrame className="hbar-web-notifications-page" aria-busy={state.status === 'loading'}>
       {state.error ? (
-        <LumenText role="alert" tone="danger">
+        <LumenContentText context="message.inline" role="alert" tone="danger">
           {state.error}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {state.mutation === 'unknown' ? (
         <LumenButton
@@ -115,7 +115,11 @@ export function NotificationsPage({ runtime, locale, onNavigate, variant = 1, na
               !state.preferences || permissionPending || state.mutation === 'submitting' || state.mutation === 'unknown'
             }
           />
-          {permissionError ? <LumenText role="alert">{labels.permissionDenied}</LumenText> : null}
+          {permissionError ? (
+            <LumenContentText context="message.inline" role="alert">
+              {labels.permissionDenied}
+            </LumenContentText>
+          ) : null}
         </LumenFrame>
       ) : null}
       <HbarNotifications
@@ -129,7 +133,9 @@ export function NotificationsPage({ runtime, locale, onNavigate, variant = 1, na
           {labels.loadMore}
         </LumenButton>
       ) : null}
-      {tab === 1 && atCapacity ? <LumenText>{labels.capacity(state.items.length)}</LumenText> : null}
+      {tab === 1 && atCapacity ? (
+        <LumenContentText context="message.inline">{labels.capacity(state.items.length)}</LumenContentText>
+      ) : null}
     </LumenFrame>
   )
 }

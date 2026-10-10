@@ -12,7 +12,7 @@ import {
   type HbarWorkspaceTabCloseScope,
   type HbarWorkspaceTabItem,
 } from '@hbar/app-react'
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame } from '@lumen/app-ui'
 import { workspaceTabsCopy } from './workspace-tabs-copy'
 import type { ShellLocale } from './shell-copy'
 import './workspace-tabs-controller.css'
@@ -202,15 +202,15 @@ export function WorkspaceTabsController({
             </LumenFrame>
           )}
           {tabs.items.length === 0 && tabs.restoreStatus === 'loading' && (
-            <LumenText as="p" role="status">
+            <LumenContentText context="feedback.message" role="status">
               {copy.restoring}
-            </LumenText>
+            </LumenContentText>
           )}
           {error && (
             <LumenFrame className="hbar-workspace-tabs-feedback">
-              <LumenText as="p" role="alert">
+              <LumenContentText context="feedback.message" role="alert">
                 {copy.error(error)}
-              </LumenText>
+              </LumenContentText>
               {restoreError && (
                 <LumenButton
                   variant="text"

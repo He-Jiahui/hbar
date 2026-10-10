@@ -19,7 +19,7 @@
 
 .hbar-composer-intents > button {
   gap: 0.25rem;
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 
 .hbar-composer-intents [aria-pressed='true'] {
@@ -33,7 +33,7 @@
   min-inline-size: 0;
   flex-direction: column;
   gap: 0.375rem;
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 
 .hbar-composer-goal-context:empty {
@@ -52,7 +52,7 @@
 
 .hbar-composer-goal-context[data-embedded] .hbar-composer-goal-objective {
   overflow: hidden;
-  text-overflow: ellipsis;
+  text-overflow: clip;
 }
 
 .hbar-composer-goal-context[data-embedded] .hbar-composer-goal-summary {

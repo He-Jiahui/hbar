@@ -22,7 +22,7 @@
   justify-content: center;
   flex-wrap: wrap;
   gap: 4px 8px;
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
   line-height: 1.5;
 }
 
@@ -37,5 +37,5 @@
 }
 
 .hbar-goal-continuation-status {
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }

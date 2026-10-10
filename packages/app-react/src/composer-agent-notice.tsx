@@ -1,5 +1,5 @@
 import { Bot } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import './composer-agent-notice.css'
 
 export interface HbarComposerAgentNoticeLabels {
@@ -29,9 +29,9 @@ export function HbarComposerAgentNotice({
   return (
     <LumenFrame className="hbar-composer-agent-notice" role={status === 'unknown' ? 'alert' : 'status'}>
       <LumenIcon icon={Bot} tier="sm" />
-      <LumenText as="span" className="hbar-composer-agent-notice-text">
+      <LumenContentText context="message.inline" className="hbar-composer-agent-notice-text">
         {status === 'submitting' ? labels.creating : status === 'unknown' ? labels.unknown : labels.created}
-      </LumenText>
+      </LumenContentText>
       {status === 'unknown' && (
         <LumenButton size="s" disabled={!connected} onClick={onRetry}>
           {labels.retry}

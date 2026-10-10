@@ -54,7 +54,7 @@
 }
 
 .hbar-web-pre-session-path > label {
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
   font-weight: 600;
 }
 

@@ -49,17 +49,17 @@
 .hbar-app-react-session-workspace .lumen-page-heading h1,
 .hbar-app-react-session-workspace .lumen-page-heading p {
   min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-x: auto;
+  text-overflow: clip;
   white-space: nowrap;
 }
 
 .hbar-app-react-session-workspace .lumen-page-heading h1 {
-  font-size: 1rem;
+  font-size: calc(var(--lumen-font-size) * 1.142857);
 }
 
 .hbar-app-react-session-workspace .lumen-page-heading p {
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 
 .hbar-app-react-session-workspace .lumen-page-header-end,
@@ -190,7 +190,7 @@
 
 .hbar-app-react-session-empty-title {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: calc(var(--lumen-font-size) * 1.714286);
   font-weight: 700;
   line-height: 1.25;
   overflow-wrap: anywhere;
@@ -199,7 +199,7 @@
 .hbar-app-react-session-empty-description {
   margin: 0;
   color: var(--lumen-muted);
-  font-size: 0.875rem;
+  font-size: var(--lumen-font-size);
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
@@ -216,11 +216,11 @@
   }
 
   .hbar-app-react-session-empty-title {
-    font-size: 1.25rem;
+    font-size: calc(var(--lumen-font-size) * 1.428571);
   }
 
   .hbar-app-react-session-empty-description {
-    font-size: 0.75rem;
+    font-size: calc(var(--lumen-font-size) * 0.857143);
   }
 }
 
@@ -230,7 +230,7 @@
 .hbar-app-react-session-empty p {
   margin: 0;
   color: var(--lumen-muted);
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
   text-align: center;
 }
 
@@ -324,7 +324,7 @@
 .hbar-session-budget-notice {
   margin: 0;
   color: var(--lumen-danger);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   overflow-wrap: anywhere;
 }
 
@@ -340,7 +340,7 @@
 .hbar-session-execution-notice {
   padding-block: 0.25rem;
   color: var(--lumen-muted);
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
 
   overflow-x: auto;
 }

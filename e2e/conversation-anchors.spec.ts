@@ -39,6 +39,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         port: Number(process.env.HBAR_E2E_HOST_PORT ?? 45642),
         historyCount: 180,
         goalAutoContinue: false,
+        budgetAutoContinue: false,
       })
       const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 45641}`
       expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
@@ -52,6 +53,8 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       const viewport = page.locator('.lumen-conversation-messages')
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const draft = '保留这份未发送草稿 🧭 Keep this draft'
+      await expect(page.getByRole('heading', { level: 1, name: host.ready.sessionTitle, exact: true })).toBeVisible()
+      await expect(prompt).toBeEnabled()
       await prompt.fill(draft)
       await expect(rail).toHaveAttribute('aria-label', copy.session.anchors.navigation(25, 30, 30))
       expect(await rail.locator('[data-conversation-anchor]').count()).toBe(6)
@@ -207,7 +210,8 @@ test('one long Chinese and emoji turn has a bounded preview on desktop and narro
       await expect(tooltip.locator('p')).toContainText(prefix)
       expect((await tooltip.locator('strong').textContent())?.length).toBeLessThan(180)
       expect((await tooltip.locator('p').textContent())?.length).toBeLessThan(300)
-      expect(await tooltip.locator('p').evaluate((element) => getComputedStyle(element).webkitLineClamp)).toBe('3')
+      expect(await tooltip.locator('p').evaluate((element) => getComputedStyle(element).webkitLineClamp)).toBe('none')
+      expect(await tooltip.locator('p').evaluate((element) => getComputedStyle(element).overflowY)).toBe('auto')
       const box = await tooltip.boundingBox()
       expect(box).not.toBeNull()
       expect(box!.x).toBeGreaterThanOrEqual(0)

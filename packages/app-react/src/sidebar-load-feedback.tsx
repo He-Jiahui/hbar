@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame } from '@lumen/app-ui'
 import type {
   DirectoryState,
   SessionAgentTreeState,
@@ -53,9 +53,9 @@ export function SidebarLoadFeedback(props: Props) {
               className="hbar-app-react-sidebar-load-feedback-group"
               data-sidebar-feedback-workspace-id={workspaceId}
             >
-              <LumenText as="strong" size="s">
+              <LumenContentText context="record.title" size="s">
                 {props.workspaceName(workspaceId)}
-              </LumenText>
+              </LumenContentText>
               {roster?.status === 'error' && (
                 <SessionRosterFeedback
                   entry={roster}
@@ -66,7 +66,7 @@ export function SidebarLoadFeedback(props: Props) {
               )}
               {page?.error && (
                 <LumenFrame className="hbar-app-react-organization-feedback" role="alert">
-                  <LumenText as="p">{props.labels.error(page.error)}</LumenText>
+                  <LumenContentText context="section.description">{props.labels.error(page.error)}</LumenContentText>
                   <LumenButton
                     size="s"
                     variant="outlined"
@@ -86,11 +86,13 @@ export function SidebarLoadFeedback(props: Props) {
           className="hbar-app-react-sidebar-load-feedback-group"
           data-agent-feedback-session-id={session.id}
         >
-          <LumenText as="strong" size="s">
+          <LumenContentText context="record.title" size="s">
             {props.labels.agents.children(session.title)}
-          </LumenText>
+          </LumenContentText>
           <LumenFrame className="hbar-app-react-organization-feedback" role="alert">
-            <LumenText as="p">{props.labels.agents.error(branch.error ?? 'QUERY_FAILED')}</LumenText>
+            <LumenContentText context="section.description">
+              {props.labels.agents.error(branch.error ?? 'QUERY_FAILED')}
+            </LumenContentText>
             <LumenButton
               size="s"
               variant="outlined"

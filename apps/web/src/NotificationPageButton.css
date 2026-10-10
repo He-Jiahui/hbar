@@ -21,6 +21,6 @@
   border-radius: 1rem;
   background: var(--lumen-surface);
   border: 0.0625rem solid var(--lumen-edge);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   font-variant-numeric: tabular-nums;
 }

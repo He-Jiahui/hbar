@@ -1,13 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
-import {
-  LumenButton,
-  LumenFrame,
-  LumenIcon,
-  LumenText,
-  LumenUsage01,
-  LumenUsage02,
-} from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon, LumenUsage01, LumenUsage02 } from '@lumen/app-ui'
 import type { SettingsUsageReport, SettingsUsageWindow } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { EchartsChart, type EChartsOption } from './echarts-chart'
@@ -96,9 +89,10 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
           data: series.map((p) => ({
             value: p.input + p.output,
             itemStyle: {
-              color: bucketId === String(p.start)
-                ? 'var(--lumen-accent, #7c6af7)'
-                : 'color-mix(in srgb, var(--lumen-accent, #7c6af7) 55%, transparent)',
+              color:
+                bucketId === String(p.start)
+                  ? 'var(--lumen-accent, #7c6af7)'
+                  : 'color-mix(in srgb, var(--lumen-accent, #7c6af7) 55%, transparent)',
             },
           })),
         },
@@ -112,7 +106,11 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
           title: labels.summary,
           description: labels.description,
           metrics: [
-            { id: 'tokens', label: labels.tokens, value: labels.tokenCount(report.totals.input + report.totals.output) },
+            {
+              id: 'tokens',
+              label: labels.tokens,
+              value: labels.tokenCount(report.totals.input + report.totals.output),
+            },
             { id: 'input', label: labels.input, value: labels.tokenCount(report.totals.input) },
             { id: 'output', label: labels.output, value: labels.tokenCount(report.totals.output) },
             { id: 'cost', label: labels.cost, value: costValue(report.cost, labels) },
@@ -127,7 +125,10 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
           rows: models.map((model) => ({
             id: model.modelSelectionId,
             model: labels.model(model.providerId, model.modelId),
-            share: report.totals.input + report.totals.output > 0 ? ((model.input + model.output) / (report.totals.input + report.totals.output)) * 100 : 0,
+            share:
+              report.totals.input + report.totals.output > 0
+                ? ((model.input + model.output) / (report.totals.input + report.totals.output)) * 100
+                : 0,
             shareLabel: labels.tokenCount(model.input + model.output),
             spend: costValue(model.cost, labels),
             change: '',
@@ -141,10 +142,10 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
     <LumenFrame as="section" className="hbar-settings-usage" aria-label={labels.title}>
       <LumenFrame as="header" className="hbar-settings-usage-header">
         <LumenFrame className="hbar-settings-usage-intro">
-          <LumenText as="h2">{labels.title}</LumenText>
-          <LumenText as="p" tone="muted">
+          <LumenContentText context="section.title">{labels.title}</LumenContentText>
+          <LumenContentText context="form.description" tone="muted">
             {labels.description}
-          </LumenText>
+          </LumenContentText>
         </LumenFrame>
         <LumenButton type="button" variant="text" disabled={!connected || loading} onClick={refresh}>
           <LumenIcon icon={RefreshCw} tier="sm" />
@@ -167,43 +168,43 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
         ))}
       </LumenFrame>
       {loading && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {!connected && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.offline}
-        </LumenText>
+        </LumenContentText>
       )}
       {entry?.error && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {labels.error(entry.error)}
-        </LumenText>
+        </LumenContentText>
       )}
       {report && (loading || entry?.error || !connected) && (
-        <LumenText as="p" tone="muted">
+        <LumenContentText context="form.description" tone="muted">
           {labels.oldResult}
-        </LumenText>
+        </LumenContentText>
       )}
       {report && (
         <>
-          <LumenText as="p" tone="muted" className="hbar-settings-usage-observed">
+          <LumenContentText context="form.description" tone="muted" className="hbar-settings-usage-observed">
             {labels.observedAt(report.observedAt)}
-          </LumenText>
+          </LumenContentText>
           {report.gap && (
-            <LumenText as="p" role="status">
+            <LumenContentText context="feedback.message" role="status">
               {labels.gap}
-            </LumenText>
+            </LumenContentText>
           )}
           {report.totals.attempts === 0 && (
-            <LumenText as="p" role="status">
+            <LumenContentText context="feedback.message" role="status">
               {labels.empty}
-            </LumenText>
+            </LumenContentText>
           )}
           <LumenUsage01 content={usageContent} className="hbar-settings-usage-lumen" />
           <LumenFrame as="section" className="hbar-settings-usage-activity" aria-label={labels.activity}>
-            <LumenText as="h3">{labels.activity}</LumenText>
+            <LumenContentText context="section.subtitle">{labels.activity}</LumenContentText>
             {report.series.length > 0 ? (
               <EchartsChart
                 height="9rem"
@@ -212,12 +213,14 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
                 option={activityOption}
               />
             ) : (
-              <LumenText as="p" tone="muted">{labels.empty}</LumenText>
+              <LumenContentText context="form.description" tone="muted">
+                {labels.empty}
+              </LumenContentText>
             )}
             {selectedBucket && (
-              <LumenText as="p" role="status">
+              <LumenContentText context="feedback.message" role="status">
                 {labels.bucket(selectedBucket.start, selectedBucket.end, selectedBucket.input + selectedBucket.output)}
-              </LumenText>
+              </LumenContentText>
             )}
           </LumenFrame>
           <LumenFrame as="section" className="hbar-settings-usage-models" aria-label={labels.models}>
@@ -228,9 +231,9 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
             ))}
             <LumenUsage02 content={usageContent} className="hbar-settings-usage-lumen" />
             {models.length > SETTINGS_USAGE_MODELS_PER_PAGE && (
-              <LumenText as="p" className="hbar-settings-usage-pagination">
+              <LumenContentText context="form.description" className="hbar-settings-usage-pagination">
                 {labels.page(1, Math.min(SETTINGS_USAGE_MODELS_PER_PAGE, models.length), models.length)}
-              </LumenText>
+              </LumenContentText>
             )}
           </LumenFrame>
         </>
@@ -238,4 +241,3 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
     </LumenFrame>
   )
 }
-

@@ -1,4 +1,4 @@
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarSessionRunActivity, type HbarSessionRunLabels } from './session-run-activity'
 import { sessionPreparationStatus } from './session-execution-notice'
@@ -25,12 +25,12 @@ function RunTiming({
   const now = useSessionClock(connected && Boolean(clock) && ['running', 'waiting_approval'].includes(run.status))
   const end = runObservedEnd(run, clock, now, connected)
   return (
-    <LumenText
-      as="span"
+    <LumenContentText
+      context="message.inline"
       data-run-elapsed={end === null ? undefined : Math.max(0, end - (run.startedAt ?? run.createdAt))}
     >
       {format(run.startedAt ?? run.createdAt, end)}
-    </LumenText>
+    </LumenContentText>
   )
 }
 
@@ -118,20 +118,22 @@ export function HbarSessionRunHistory({
   return (
     <LumenFrame className="hbar-session-status-runs">
       {!ownsTimeline || timeline.status === 'loading' ? (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {ownsTimeline && timeline.status === 'error' ? (
         <LumenFrame role="alert">
-          <LumenText as="p">{labels.error(timeline.error ?? 'EXECUTION_FAILED')}</LumenText>
+          <LumenContentText context="section.description">
+            {labels.error(timeline.error ?? 'EXECUTION_FAILED')}
+          </LumenContentText>
           <LumenButton size="s" variant="text" indicator="none" disabled={!connected} onClick={refresh}>
             {labels.retry}
           </LumenButton>
         </LumenFrame>
       ) : null}
       {ownsTimeline && timeline.status === 'ready' && runs.length === 0 ? (
-        <LumenText as="p">{labels.empty}</LumenText>
+        <LumenContentText context="section.description">{labels.empty}</LumenContentText>
       ) : null}
       <HbarSessionRunActivity
         key={sessionId}

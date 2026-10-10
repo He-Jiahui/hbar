@@ -1,4 +1,4 @@
-import { LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenFrame } from '@lumen/app-ui'
 import { runStatusSchema, type Run, type RunStatus } from '@hbar/contracts'
 import { monitoringRunCounts } from './session-monitoring-model'
 
@@ -23,10 +23,10 @@ export function HbarSessionRunOverview({
   return (
     <LumenFrame as="section" className="hbar-monitoring-run-overview" aria-label={labels.title}>
       <LumenFrame className="hbar-monitoring-section-heading">
-        <LumenText as="h3">{labels.title}</LumenText>
-        <LumenText as="span" tone="muted">
+        <LumenContentText context="section.subtitle">{labels.title}</LumenContentText>
+        <LumenContentText context="message.inline" tone="muted">
           {labels.window(runs.length)}
-        </LumenText>
+        </LumenContentText>
       </LumenFrame>
       <LumenFrame className="hbar-monitoring-run-strip" aria-hidden="true">
         {[...runs].reverse().map((run) => (
@@ -38,8 +38,8 @@ export function HbarSessionRunOverview({
           .filter((status) => counts[status] > 0)
           .map((status) => (
             <LumenFrame role="listitem" key={status} data-status={status}>
-              <LumenText as="span">{labels.status(status)}</LumenText>
-              <LumenText as="strong">{labels.count(counts[status])}</LumenText>
+              <LumenContentText context="message.inline">{labels.status(status)}</LumenContentText>
+              <LumenContentText context="record.title">{labels.count(counts[status])}</LumenContentText>
             </LumenFrame>
           ))}
       </LumenFrame>

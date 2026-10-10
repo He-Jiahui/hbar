@@ -6,7 +6,7 @@
   block-size: 100%;
   overflow: hidden;
   color: var(--lumen-ink);
-  background: var(--lumen-frost);
+  background: var(--lumen-canvas);
 }
 
 .hbar-app-react-status-lumen-monitoring,
@@ -166,7 +166,7 @@
 
 .hbar-app-react-status-workspace > main > section > h2,
 .hbar-app-react-status-details > .hbar-lumen-disclosure-trigger {
-  font-size: 0.875rem;
+  font-size: var(--lumen-font-size);
   font-weight: 650;
   line-height: 1.3;
 }
@@ -212,9 +212,8 @@
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.75rem;
-  border: 0.0625rem solid var(--lumen-edge);
-  border-radius: var(--lumen-radius-control);
-  background: var(--lumen-reading);
+  border-block-start: 0.0625rem solid var(--lumen-line);
+  background: transparent;
 }
 
 .hbar-app-react-status-empty-chart {

@@ -13,6 +13,7 @@ import {
   Type,
 } from 'lucide-react'
 import {
+  LumenContentText,
   LumenButton,
   LumenDialog,
   LumenFrame,
@@ -225,14 +226,14 @@ export function MessageResourceLink({
       </LumenFrame>
       <LumenFrame as="span" ref={feedback} data-session-find-exclude="resource-navigation">
         {status.busy && (
-          <LumenText as="small" role="status">
+          <LumenContentText context="record.description" role="status">
             {labels.opening}
-          </LumenText>
+          </LumenContentText>
         )}
         {status.error && (
-          <LumenText as="small" role="alert">
+          <LumenContentText context="record.description" role="alert">
             {labels.error(status.error)}
-          </LumenText>
+          </LumenContentText>
         )}
       </LumenFrame>
       <FloatingSurface
@@ -277,8 +278,16 @@ export function HbarMessageResourceLayer({
         onClose={model.close}
       >
         <LumenFrame className="hbar-resource-candidates">
-          {state.chooser?.truncated && <LumenText role="status">{labels.truncated}</LumenText>}
-          {state.chooser?.error && <LumenText role="alert">{labels.error(state.chooser.error)}</LumenText>}
+          {state.chooser?.truncated && (
+            <LumenContentText context="message.inline" role="status">
+              {labels.truncated}
+            </LumenContentText>
+          )}
+          {state.chooser?.error && (
+            <LumenContentText context="message.inline" role="alert">
+              {labels.error(state.chooser.error)}
+            </LumenContentText>
+          )}
           {state.chooser?.candidates.map((candidate) => (
             <LumenButton
               key={candidate.id}
@@ -297,10 +306,10 @@ export function HbarMessageResourceLayer({
                 }
               />
               <LumenFrame as="span">
-                <LumenText as="strong">{candidate.name}</LumenText>
-                <LumenText as="span" tone="muted">
+                <LumenContentText context="popover.title">{candidate.name}</LumenContentText>
+                <LumenContentText context="control.label" tone="muted">
                   {candidate.location}
-                </LumenText>
+                </LumenContentText>
               </LumenFrame>
             </LumenButton>
           ))}
@@ -331,10 +340,10 @@ export function HbarMessageResourceLayer({
         closeLabel={labels.close}
         onClose={model.close}
       >
-        <LumenText as="p">{state.image?.candidate.name}</LumenText>
-        <LumenText as="p" role="alert">
+        <LumenContentText context="dialog.body">{state.image?.candidate.name}</LumenContentText>
+        <LumenContentText context="dialog.body" role="alert">
           {labels.error(state.image?.error ?? 'READ_FAILED')}
-        </LumenText>
+        </LumenContentText>
         <LumenFrame className="hbar-resource-image-actions">
           <LumenButton disabled={state.image?.openingSystem} onClick={model.retryImage}>
             {labels.gallery.retry}
@@ -358,9 +367,9 @@ export function HbarMessageResourceLayer({
       >
         {state.text && (
           <>
-            <LumenText as="p" tone="muted">
+            <LumenContentText context="dialog.body" tone="muted">
               {state.text.candidate.location}
-            </LumenText>
+            </LumenContentText>
             <LumenText as="pre" className="hbar-resource-text" tabIndex={0}>
               {state.text.text}
             </LumenText>

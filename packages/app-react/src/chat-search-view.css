@@ -84,7 +84,7 @@
   margin: 0;
   padding: 0.25rem 0.75rem;
   color: var(--lumen-muted);
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
 }
 
 .hbar-chat-search-row {
@@ -167,7 +167,7 @@
 .hbar-chat-search-row-heading time {
   flex: 0 0 auto;
   color: var(--lumen-muted);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   text-align: end;
   white-space: nowrap;
 }
@@ -175,7 +175,7 @@
 .hbar-chat-search-row-context,
 .hbar-chat-search-snippet {
   color: var(--lumen-muted);
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
 }
 
 .hbar-chat-search-row-context > span:first-child {
@@ -188,8 +188,7 @@
 .hbar-chat-search-row-context > span + span {
   flex: 0 0 auto;
   max-inline-size: 100%;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 
 .hbar-chat-search-row-context {
@@ -203,7 +202,7 @@
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-frost);
   color: var(--lumen-ink);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   white-space: nowrap;
 }
 
@@ -251,7 +250,7 @@
 
 .hbar-chat-search-row-status,
 .hbar-chat-search-row-error {
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
   overflow-wrap: anywhere;
 }
 
@@ -262,7 +261,7 @@
   padding: 0.5rem 1rem;
   border-block-start: 0.0625rem solid var(--lumen-edge);
   color: var(--lumen-muted);
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
   overflow-wrap: anywhere;
 }
 
@@ -275,7 +274,7 @@
   padding: 0.625rem 1.25rem;
   border-block-start: 0.0625rem solid var(--lumen-edge);
   color: var(--lumen-muted);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 
 .hbar-chat-search-footer > span {

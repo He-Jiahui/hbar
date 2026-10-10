@@ -1,6 +1,6 @@
 import { useId, useRef, useState, type KeyboardEvent } from 'react'
 import { Check, ChevronDown, Search, X } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon, LumenInput } from '@lumen/app-ui'
 import type { AgentWorkspaceState } from '@hbar/app-runtime'
 import { filterCatalogModels, MODEL_CATALOG_PAGE_SIZE } from './model-choice-filter'
 import { FloatingSurface, useFloatingTrigger } from './floating-surface'
@@ -101,30 +101,30 @@ export function AgentModelPicker({
         aria-expanded={open}
         title={currentLabel}
       >
-        <LumenText as="span" className="hbar-agent-model-current">
+        <LumenContentText context="control.label" className="hbar-agent-model-current">
           {currentLabel}
-        </LumenText>
+        </LumenContentText>
         <LumenIcon icon={ChevronDown} tier="sm" />
       </LumenButton>
       {!open && catalog.status === 'loading' && (
-        <LumenText as="small" role="status">
+        <LumenContentText context="record.description" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {!open && catalog.status === 'error' && (
         <LumenFrame className="hbar-agent-model-feedback">
-          <LumenText as="small" role="alert">
+          <LumenContentText context="record.description" role="alert">
             {labels.error(catalog.error ?? 'READ_FAILED')}
-          </LumenText>
+          </LumenContentText>
           <LumenButton type="button" size="s" disabled={!connected} onClick={onRetry}>
             {labels.retry}
           </LumenButton>
         </LumenFrame>
       )}
       {!open && closedEmpty && (
-        <LumenText as="small" role="status">
+        <LumenContentText context="record.description" role="status">
           {labels.empty}
-        </LumenText>
+        </LumenContentText>
       )}
       <FloatingSurface
         open={open}
@@ -143,7 +143,7 @@ export function AgentModelPicker({
         }}
       >
         <LumenFrame className="hbar-agent-model-heading">
-          <LumenText as="strong">{labels.title}</LumenText>
+          <LumenContentText context="popover.title">{labels.title}</LumenContentText>
           <LumenButton
             type="button"
             size="s"
@@ -170,15 +170,15 @@ export function AgentModelPicker({
           />
         </LumenFrame>
         {catalog.status === 'loading' && (
-          <LumenText as="p" role="status">
+          <LumenContentText context="popover.body" role="status">
             {labels.loading}
-          </LumenText>
+          </LumenContentText>
         )}
         {catalog.status === 'error' && (
           <LumenFrame className="hbar-agent-model-feedback">
-            <LumenText as="p" role="alert">
+            <LumenContentText context="popover.body" role="alert">
               {labels.error(catalog.error ?? 'READ_FAILED')}
-            </LumenText>
+            </LumenContentText>
             <LumenButton type="button" size="s" disabled={!connected} onClick={onRetry}>
               {labels.retry}
             </LumenButton>
@@ -197,17 +197,17 @@ export function AgentModelPicker({
               title={labels.unavailable(unavailableDraft)}
               className="hbar-agent-model-unavailable"
             >
-              <LumenText as="span" className="hbar-agent-model-option-text">
-                <LumenText as="span">{labels.unavailable(unavailableDraft)}</LumenText>
-                <LumenText as="small" title={unavailableDraft}>
+              <LumenContentText context="control.label" className="hbar-agent-model-option-text">
+                <LumenContentText context="control.label">{labels.unavailable(unavailableDraft)}</LumenContentText>
+                <LumenContentText context="choice.description" title={unavailableDraft}>
                   {unavailableDraft}
-                </LumenText>
-              </LumenText>
+                </LumenContentText>
+              </LumenContentText>
             </LumenButton>
           )}
           {groups.map(([providerId, group]) => (
             <LumenFrame key={providerId} as="section" className="hbar-agent-model-group">
-              <LumenText as="h3">{group.name}</LumenText>
+              <LumenContentText context="section.subtitle">{group.name}</LumenContentText>
               {group.models.map((model) => (
                 <LumenButton
                   key={model.id}
@@ -224,21 +224,23 @@ export function AgentModelPicker({
                     setOpen(false)
                   }}
                 >
-                  <LumenText as="span" className="hbar-agent-model-option-text">
-                    <LumenText as="span" title={model.modelName}>
+                  <LumenContentText context="control.label" className="hbar-agent-model-option-text">
+                    <LumenContentText context="control.label" title={model.modelName}>
                       {model.modelName}
-                    </LumenText>
-                    <LumenText as="small" title={model.modelId}>
+                    </LumenContentText>
+                    <LumenContentText context="choice.description" title={model.modelId}>
                       {model.modelId}
-                    </LumenText>
-                  </LumenText>
+                    </LumenContentText>
+                  </LumenContentText>
                   {model.id === value && <LumenIcon icon={Check} tier="sm" />}
                 </LumenButton>
               ))}
             </LumenFrame>
           ))}
           {catalog.status === 'ready' && !groups.length && !unavailableDraft && (
-            <LumenText as="p">{catalog.models.length ? labels.noMatches : labels.empty}</LumenText>
+            <LumenContentText context="popover.body">
+              {catalog.models.length ? labels.noMatches : labels.empty}
+            </LumenContentText>
           )}
           {remaining > 0 && (
             <LumenButton

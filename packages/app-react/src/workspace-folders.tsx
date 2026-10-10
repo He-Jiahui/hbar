@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from 'react'
 import { ArrowDown, ArrowUp, ChevronRight, Folder, FolderOpen, Plus, Trash2 } from 'lucide-react'
 import {
+  LumenContentText,
   LumenButton,
   LumenCheckBoxControl,
   LumenCollection,
@@ -11,7 +12,6 @@ import {
   LumenIcon,
   LumenInput,
   LumenPopupSelect,
-  LumenText,
   LumenTree,
   LumenTreeItem,
 } from '@lumen/app-ui'
@@ -180,7 +180,7 @@ export function WorkspaceFoldersDialog({
       }
     >
       <LumenFrame className="hbar-workspace-folders-body" data-testid="workspace-folders-editor">
-        <LumenText as="p">{browsing ? labels.browserHint : labels.description}</LumenText>
+        <LumenContentText context="dialog.body">{browsing ? labels.browserHint : labels.description}</LumenContentText>
         <LumenFormField controlId={`${id}-path`} label={labels.path} description={labels.pathHint}>
           <LumenFrame className="hbar-workspace-folder-path-row">
             <LumenInput
@@ -243,9 +243,13 @@ export function WorkspaceFoldersDialog({
                     {labels.selectCurrent}
                   </LumenButton>
                 </LumenFrame>
-                <LumenText as="p" className="hbar-workspace-folder-current" title={state.page.path}>
+                <LumenContentText
+                  context="dialog.body"
+                  className="hbar-workspace-folder-current"
+                  title={state.page.path}
+                >
                   {state.page.path}
-                </LumenText>
+                </LumenContentText>
                 <LumenTree
                   label={labels.folders}
                   aria-multiselectable="true"
@@ -270,9 +274,13 @@ export function WorkspaceFoldersDialog({
                             onChange={() => intent('workspaceFolders.toggle', { path: folder.path })}
                           />
                           <LumenIcon icon={Folder} tier="sm" />
-                          <LumenText as="span" className="hbar-workspace-folder-browser-label" title={folder.path}>
+                          <LumenContentText
+                            context="metadata"
+                            className="hbar-workspace-folder-browser-label"
+                            title={folder.path}
+                          >
                             {folder.name}
-                          </LumenText>
+                          </LumenContentText>
                           <HbarActionIconButton
                             label={labels.openFolder(folder.name)}
                             disabled={disabled}
@@ -285,21 +293,23 @@ export function WorkspaceFoldersDialog({
                     />
                   ))}
                 </LumenTree>
-                {state.page.items.length === 0 && <LumenText as="p">{labels.emptyDirectory}</LumenText>}
+                {state.page.items.length === 0 && (
+                  <LumenContentText context="dialog.body">{labels.emptyDirectory}</LumenContentText>
+                )}
                 {state.page.nextCursor && (
                   <LumenButton variant="text" disabled={disabled} onClick={() => browse(state.page!.path, true)}>
                     {labels.loadMore}
                   </LumenButton>
                 )}
                 {state.page.scanTruncated && (
-                  <LumenText as="p" role="status">
+                  <LumenContentText context="dialog.body" role="status">
                     {labels.scanTruncated}
-                  </LumenText>
+                  </LumenContentText>
                 )}
               </>
             )}
             <LumenFrame className="hbar-workspace-folder-selection" aria-label={labels.selected(state.selected.length)}>
-              <LumenText as="strong">{labels.selected(state.selected.length)}</LumenText>
+              <LumenContentText context="popover.title">{labels.selected(state.selected.length)}</LumenContentText>
               {state.selected.map((path) => (
                 <LumenButton
                   key={path}
@@ -311,12 +321,12 @@ export function WorkspaceFoldersDialog({
                   aria-label={labels.selectFolder(path)}
                   onClick={() => intent('workspaceFolders.toggle', { path })}
                 >
-                  <LumenText as="span" className="hbar-workspace-folder-selection-name">
+                  <LumenContentText context="control.label" className="hbar-workspace-folder-selection-name">
                     {path
                       .replace(/[\\/]+$/, '')
                       .split(/[\\/]/)
                       .at(-1) || path}
-                  </LumenText>
+                  </LumenContentText>
                   <LumenIcon icon={Trash2} tier="sm" />
                 </LumenButton>
               ))}
@@ -325,11 +335,13 @@ export function WorkspaceFoldersDialog({
         ) : (
           <>
             <LumenFrame className="hbar-workspace-folders-heading">
-              <LumenText as="strong">{labels.folders}</LumenText>
-              <LumenText as="small">{labels.count(state.folders.length, WORKSPACE_FOLDER_LIMIT)}</LumenText>
+              <LumenContentText context="popover.title">{labels.folders}</LumenContentText>
+              <LumenContentText context="record.description">
+                {labels.count(state.folders.length, WORKSPACE_FOLDER_LIMIT)}
+              </LumenContentText>
             </LumenFrame>
-            <LumenText as="p">{labels.aliasHint}</LumenText>
-            {state.folders.length === 0 && <LumenText as="p">{labels.empty}</LumenText>}
+            <LumenContentText context="dialog.body">{labels.aliasHint}</LumenContentText>
+            {state.folders.length === 0 && <LumenContentText context="dialog.body">{labels.empty}</LumenContentText>}
             <LumenCollection as="ol" className="hbar-workspace-folder-list" aria-label={labels.folders}>
               {state.folders.map((folder, index) => (
                 <LumenCollectionItem
@@ -340,13 +352,13 @@ export function WorkspaceFoldersDialog({
                 >
                   <LumenFrame className="hbar-workspace-folder-header">
                     <LumenIcon icon={Folder} tier="sm" />
-                    <LumenText as="strong" title={folder.alias}>
+                    <LumenContentText context="popover.title" title={folder.alias}>
                       {labels.folderCaption(folder.alias || labels.alias)}
-                    </LumenText>
+                    </LumenContentText>
                     {index === 0 && (
-                      <LumenText as="small" className="hbar-workspace-folder-primary">
+                      <LumenContentText context="record.description" className="hbar-workspace-folder-primary">
                         {labels.primary}
-                      </LumenText>
+                      </LumenContentText>
                     )}
                     <LumenFrame className="hbar-workspace-folder-priority">
                       <HbarActionIconButton
@@ -420,33 +432,33 @@ export function WorkspaceFoldersDialog({
                 {labels.refresh}
               </LumenButton>
             )}
-            <LumenText as="p">{labels.removeHint}</LumenText>
+            <LumenContentText context="dialog.body">{labels.removeHint}</LumenContentText>
           </>
         )}
         {!connected && (
-          <LumenText as="p" role="alert">
+          <LumenContentText context="dialog.body" role="alert">
             {labels.offline}
-          </LumenText>
+          </LumenContentText>
         )}
         {state.status in labels.status && (
-          <LumenText as="p" role="status">
+          <LumenContentText context="dialog.body" role="status">
             {labels.status[state.status as keyof typeof labels.status]}
-          </LumenText>
+          </LumenContentText>
         )}
         {state.validation && (
-          <LumenText as="p" role="alert">
+          <LumenContentText context="dialog.body" role="alert">
             {labels.validation[state.validation]}
-          </LumenText>
+          </LumenContentText>
         )}
         {state.error && (
-          <LumenText as="p" role="alert">
+          <LumenContentText context="dialog.body" role="alert">
             {labels.error(state.error)}
-          </LumenText>
+          </LumenContentText>
         )}
         {unexpectedFailure && (
-          <LumenText as="p" role="alert">
+          <LumenContentText context="dialog.body" role="alert">
             {labels.unexpectedFailure}
-          </LumenText>
+          </LumenContentText>
         )}
         {state.status === 'unknown' && (
           <LumenFrame className="hbar-workspace-folders-actions">

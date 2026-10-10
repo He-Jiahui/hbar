@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
-import { LumenButton, LumenFrame, LumenRange, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenRange } from '@lumen/app-ui'
 import type { ComposerModelState } from '@hbar/app-runtime'
 import type { HbarComposerModelLabels } from './composer-model-picker'
 import { thinkingProgressPercent } from './composer-model-picker'
@@ -163,12 +163,12 @@ export function HbarPreSessionThinkingPicker({
         }}
       >
         <LumenFrame className="hbar-composer-thinking-heading">
-          <LumenText as="strong" className="hbar-composer-thinking-value">
+          <LumenContentText context="record.title" className="hbar-composer-thinking-value">
             {labels.thinkingLevel(selectedLevel)}
-          </LumenText>
-          <LumenText as="span" className="hbar-composer-thinking-context">
+          </LumenContentText>
+          <LumenContentText context="message.inline" className="hbar-composer-thinking-context">
             {labels.thinking}
-          </LumenText>
+          </LumenContentText>
         </LumenFrame>
         <LumenFrame
           className="hbar-composer-thinking-scale"
@@ -216,7 +216,9 @@ export function HbarPreSessionThinkingPicker({
         </LumenFrame>
         {error && (
           <LumenFrame className="hbar-composer-picker-feedback">
-            <LumenText role="alert">{labels.error(error)}</LumenText>
+            <LumenContentText context="message.inline" role="alert">
+              {labels.error(error)}
+            </LumenContentText>
           </LumenFrame>
         )}
       </LumenFrame>

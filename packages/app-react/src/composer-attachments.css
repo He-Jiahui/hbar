@@ -50,15 +50,15 @@
 }
 
 .hbar-composer-attachment-name {
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
 }
 .hbar-composer-attachment-status {
   color: var(--lumen-muted);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 .hbar-composer-attachment-error {
   color: var(--lumen-danger);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 .hbar-composer-attachment-transfer[data-status='ready'] .hbar-composer-attachment-error {
   color: var(--lumen-muted);

@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { LumenAiChat01, LumenConversation, LumenFrame, LumenPageHeader, LumenText, LumenTextarea } from '@lumen/app-ui'
+import {
+  LumenContentText,
+  LumenAiChat01,
+  LumenConversation,
+  LumenFrame,
+  LumenPageHeader,
+  LumenTextarea,
+} from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarPromptComposer } from './prompt-composer'
 import { HbarComposerAttachmentTransfers } from './composer-attachments'
@@ -165,9 +172,9 @@ export function HbarDeletedSessionWorkspace({
                 messages={[]}
                 empty={
                   <LumenFrame className="hbar-app-react-session-empty">
-                    <LumenText as="p" role="status">
+                    <LumenContentText context="feedback.message" role="status">
                       {props.labels.error('SESSION_DELETED')}
-                    </LumenText>
+                    </LumenContentText>
                   </LumenFrame>
                 }
                 composer={composer}

@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { Check, Copy, LoaderCircle, RotateCcw } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import type { MessageClipboardPort } from './message-copy'
 import { copyCodeText, MAX_CODE_BLOCK_COPY_CHARACTERS, type CodeBlockCopyInput } from './code-block-copy'
 import type { HbarDiagramLabels } from './markdown-diagram-model'
@@ -104,7 +104,7 @@ function CopyAction({ labels, clipboard, source, owner, text }: CodeTextCopyActi
           icon={status === 'copied' ? Check : status === 'copying' ? LoaderCircle : failure ? RotateCcw : Copy}
           tier="sm"
         />
-        <LumenText as="span" aria-live="polite">
+        <LumenContentText context="control.label" aria-live="polite">
           {status === 'copied'
             ? labels.copied
             : status === 'copying'
@@ -112,12 +112,17 @@ function CopyAction({ labels, clipboard, source, owner, text }: CodeTextCopyActi
               : failure
                 ? labels.retry
                 : labels.copy}
-        </LumenText>
+        </LumenContentText>
       </LumenButton>
       {notice && (
-        <LumenText as="span" id={noticeId} role={failure ? 'alert' : 'status'} tone={failure ? 'danger' : 'muted'}>
+        <LumenContentText
+          context="message.inline"
+          id={noticeId}
+          role={failure ? 'alert' : 'status'}
+          tone={failure ? 'danger' : 'muted'}
+        >
           {notice}
-        </LumenText>
+        </LumenContentText>
       )}
     </LumenFrame>
   )

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { LumenText } from '@lumen/app-ui/primitives'
+import { LumenContentText } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from '@hbar/app-react'
 import { createNativeNotificationPort } from './native-notifications'
 import { createNotificationDesktopDelivery } from './notification-desktop-delivery'
@@ -54,8 +54,8 @@ export function NotificationDesktopBridge({
     return () => delivery.dispose()
   }, [native, nativeWindow, notificationRuntime, labels])
   return failed && state.preferences?.nativeEnabled ? (
-    <LumenText role="alert" tone="danger">
+    <LumenContentText context="feedback.detail" role="alert" tone="danger">
       {labels.deliveryFailed}
-    </LumenText>
+    </LumenContentText>
   ) : null
 }

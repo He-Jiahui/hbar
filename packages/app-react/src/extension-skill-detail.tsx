@@ -1,6 +1,14 @@
 import { useEffect, useId, useRef, type KeyboardEvent } from 'react'
 import { ArrowLeft, FileText, Folder, RefreshCw } from 'lucide-react'
-import { LumenButton, LumenCollection, LumenCollectionItem, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import {
+  LumenContentText,
+  LumenButton,
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenIcon,
+  LumenText,
+} from '@lumen/app-ui'
 import type { ExtensionWorkspaceEntryState } from '@hbar/app-runtime'
 import { MessageMarkdown } from './message-markdown'
 import { ExtensionPagination, type ExtensionPaginationLabels } from './extension-pagination'
@@ -43,9 +51,9 @@ function SkillSummary({ skill, labels }: { readonly skill: Skill; readonly label
   return (
     <LumenFrame as="section" className="hbar-app-react-skill-summary">
       <LumenFrame as="header">
-        <LumenText as="h3">{skill.displayName}</LumenText>
+        <LumenContentText context="section.subtitle">{skill.displayName}</LumenContentText>
       </LumenFrame>
-      {skill.description && <LumenText as="p">{skill.description}</LumenText>}
+      {skill.description && <LumenContentText context="section.description">{skill.description}</LumenContentText>}
       <LumenCollection as="dl">
         <LumenFrame>
           <LumenCollectionItem as="dt">{labels.path}</LumenCollectionItem>
@@ -61,19 +69,19 @@ function SkillSummary({ skill, labels }: { readonly skill: Skill; readonly label
         </LumenFrame>
       </LumenCollection>
       {skill.filesTruncated && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.filesTruncated}
-        </LumenText>
+        </LumenContentText>
       )}
       {!skill.entryPath && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.missingEntry}
-        </LumenText>
+        </LumenContentText>
       )}
       {skill.entryTruncated && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.entryTruncated}
-        </LumenText>
+        </LumenContentText>
       )}
     </LumenFrame>
   )
@@ -111,9 +119,9 @@ function SkillFiles({
     <LumenFrame className="hbar-app-react-skill-files-layout">
       <LumenFrame as="section" className="hbar-app-react-skill-file-index" aria-label={labels.files}>
         {!skill.files.length ? (
-          <LumenText as="p" className="hbar-app-react-skill-empty">
+          <LumenContentText context="section.description" className="hbar-app-react-skill-empty">
             {labels.noFiles}
-          </LumenText>
+          </LumenContentText>
         ) : (
           <LumenCollection as="ul">
             {files.map((file: SkillFile) => (
@@ -131,10 +139,10 @@ function SkillFiles({
                   }}
                 >
                   <LumenIcon icon={FileText} tier="sm" />
-                  <LumenText as="span" className="hbar-app-react-skill-file-index-copy">
-                    <LumenText as="strong">{file.path}</LumenText>
-                    <LumenText as="small">{labels.fileSize(file.size)}</LumenText>
-                  </LumenText>
+                  <LumenContentText context="control.label" className="hbar-app-react-skill-file-index-copy">
+                    <LumenContentText context="choice.title">{file.path}</LumenContentText>
+                    <LumenContentText context="choice.description">{labels.fileSize(file.size)}</LumenContentText>
+                  </LumenContentText>
                 </LumenButton>
               </LumenCollectionItem>
             ))}
@@ -149,15 +157,15 @@ function SkillFiles({
         aria-label={selectedPath ?? labels.files}
       >
         {detail.file.status === 'loading' && (
-          <LumenText as="p" role="status">
+          <LumenContentText context="feedback.message" role="status">
             {labels.fileLoading}
-          </LumenText>
+          </LumenContentText>
         )}
         {detail.file.status === 'missing' && (
           <LumenFrame className="hbar-app-react-skill-file-error">
-            <LumenText as="p" role="status">
+            <LumenContentText context="feedback.message" role="status">
               {labels.fileMissing}
-            </LumenText>
+            </LumenContentText>
             {selectedPath && (
               <LumenButton type="button" variant="text" disabled={!connected} onClick={() => onOpenFile(selectedPath)}>
                 <LumenIcon icon={RefreshCw} tier="sm" />
@@ -168,9 +176,9 @@ function SkillFiles({
         )}
         {detail.file.status === 'error' && (
           <LumenFrame className="hbar-app-react-skill-file-error">
-            <LumenText as="p" role="alert">
+            <LumenContentText context="feedback.message" role="alert">
               {labels.fileError(detail.file.error ?? 'EXECUTION_FAILED')}
-            </LumenText>
+            </LumenContentText>
             {selectedPath && (
               <LumenButton type="button" variant="text" disabled={!connected} onClick={() => onOpenFile(selectedPath)}>
                 <LumenIcon icon={RefreshCw} tier="sm" />
@@ -183,7 +191,7 @@ function SkillFiles({
           <>
             <LumenFrame as="header" className="hbar-app-react-skill-file-heading">
               <LumenIcon icon={FileText} tier="sm" />
-              <LumenText as="strong">{selectedFile.path}</LumenText>
+              <LumenContentText context="record.title">{selectedFile.path}</LumenContentText>
             </LumenFrame>
             <LumenFrame className="hbar-app-react-skill-file-content" tabIndex={0}>
               {selectedFile.path !== skill.entryPath && /\.md$/i.test(selectedFile.path) ? (
@@ -196,17 +204,17 @@ function SkillFiles({
                 </LumenText>
               )}
               {selectedFile.truncated && (
-                <LumenText as="p" role="status">
+                <LumenContentText context="feedback.message" role="status">
                   {labels.fileTruncated}
-                </LumenText>
+                </LumenContentText>
               )}
             </LumenFrame>
           </>
         )}
         {detail.file.status === 'idle' && !selectedFile && (
-          <LumenText as="p" className="hbar-app-react-skill-empty">
+          <LumenContentText context="section.description" className="hbar-app-react-skill-empty">
             {skill.files.length ? labels.noSelectedFile : labels.noFiles}
-          </LumenText>
+          </LumenContentText>
         )}
       </LumenFrame>
     </LumenFrame>
@@ -270,19 +278,19 @@ export function ExtensionSkillDetail({
         )}
       </LumenFrame>
       {detail.status === 'loading' && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {detail.status === 'error' && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {labels.error(detail.error ?? 'EXECUTION_FAILED')}
-        </LumenText>
+        </LumenContentText>
       )}
       {detail.status === 'missing' && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.missing}
-        </LumenText>
+        </LumenContentText>
       )}
       {skill && (
         <>
@@ -324,7 +332,7 @@ export function ExtensionSkillDetail({
             >
               <LumenIcon icon={Folder} tier="sm" />
               {labels.files}
-              <LumenText as="small">{labels.fileCount(skill.files.length)}</LumenText>
+              <LumenContentText context="choice.description">{labels.fileCount(skill.files.length)}</LumenContentText>
             </LumenButton>
           </LumenFrame>
           {detail.view === 'overview' ? (
@@ -337,7 +345,7 @@ export function ExtensionSkillDetail({
               {skill.body.trim() ? (
                 <MessageMarkdown text={skill.body} />
               ) : (
-                <LumenText as="p">{labels.noOverview}</LumenText>
+                <LumenContentText context="section.description">{labels.noOverview}</LumenContentText>
               )}
             </LumenFrame>
           ) : (

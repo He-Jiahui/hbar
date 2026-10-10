@@ -39,7 +39,7 @@
 
 .hbar-session-live-status-progress {
   color: var(--lumen-muted);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 
 .hbar-session-live-status[data-run-status] .hbar-composer-goal-status {
@@ -100,12 +100,12 @@
 }
 
 .hbar-session-live-status-details h3 {
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
 }
 
 .hbar-session-live-status-objective p {
   white-space: pre-wrap;
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
 }
 
 .hbar-session-live-status-details .hbar-activity-task-list {

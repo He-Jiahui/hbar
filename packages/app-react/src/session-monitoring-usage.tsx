@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { LumenButton, LumenCompactMetrics, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenCompactMetrics, LumenFrame } from '@lumen/app-ui'
 import type { UsageQueryResult } from '@hbar/contracts/commands/usage'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import { monitoringModels, monitoringUsageBuckets, SESSION_MONITORING_MODEL_PAGE } from './session-monitoring-model'
@@ -69,10 +69,10 @@ function TokenTimeline({
   return (
     <LumenFrame as="section" className="hbar-monitoring-token-timeline" aria-label={labels.series}>
       <LumenFrame as="header" className="hbar-monitoring-section-heading">
-        <LumenText as="h3">{labels.series}</LumenText>
-        <LumenText as="span" tone="muted">
+        <LumenContentText context="section.subtitle">{labels.series}</LumenContentText>
+        <LumenContentText context="message.inline" tone="muted">
           {labels.chart.peak(maximum)}
-        </LumenText>
+        </LumenContentText>
       </LumenFrame>
       {buckets.length > 0 ? (
         <svg
@@ -121,15 +121,15 @@ function TokenTimeline({
           })}
         </svg>
       ) : (
-        <LumenText as="p" tone="muted">
+        <LumenContentText context="section.description" tone="muted">
           {labels.unavailable}
-        </LumenText>
+        </LumenContentText>
       )}
-      <LumenText as="p" className="hbar-monitoring-chart-caption" aria-live="polite">
+      <LumenContentText context="section.description" className="hbar-monitoring-chart-caption" aria-live="polite">
         {point
           ? labels.chart.bucket(point.start, point.end, point.input, point.output)
           : labels.chart.window(report.window.from, report.window.to)}
-      </LumenText>
+      </LumenContentText>
     </LumenFrame>
   )
 }
@@ -178,7 +178,7 @@ export function HbarSessionMonitoringUsage({
         ]}
       />
       <LumenFrame as="section" className="hbar-monitoring-composition">
-        <LumenText as="h3">{labels.composition.title}</LumenText>
+        <LumenContentText context="section.subtitle">{labels.composition.title}</LumenContentText>
         <LumenFrame className="hbar-monitoring-composition-body">
           <svg
             className="hbar-monitoring-token-ring"
@@ -223,7 +223,7 @@ export function HbarSessionMonitoringUsage({
       </LumenFrame>
       <TokenTimeline report={report} labels={labels} />
       <LumenFrame as="section" className="hbar-monitoring-models" aria-label={labels.models}>
-        <LumenText as="h3">{labels.models}</LumenText>
+        <LumenContentText context="section.subtitle">{labels.models}</LumenContentText>
         <LumenFrame role="list">
           {models.slice(0, visibleModels).map((model) => {
             const amount = model.input + model.output
@@ -236,13 +236,13 @@ export function HbarSessionMonitoringUsage({
                 data-model-usage={model.modelSelectionId}
                 className="hbar-monitoring-model-row"
               >
-                <LumenText as="p" className="hbar-monitoring-model-name">
+                <LumenContentText context="section.description" className="hbar-monitoring-model-name">
                   {name}
-                </LumenText>
+                </LumenContentText>
                 <LumenFrame className="hbar-monitoring-model-values">
-                  <LumenText as="span">{labels.tokens(amount)}</LumenText>
-                  <LumenText as="span">{labels.percent(fraction)}</LumenText>
-                  <LumenText as="span">{value(model.cost, labels.currency)}</LumenText>
+                  <LumenContentText context="message.inline">{labels.tokens(amount)}</LumenContentText>
+                  <LumenContentText context="message.inline">{labels.percent(fraction)}</LumenContentText>
+                  <LumenContentText context="message.inline">{value(model.cost, labels.currency)}</LumenContentText>
                 </LumenFrame>
                 <LumenFrame className="hbar-monitoring-model-track" aria-hidden="true">
                   <LumenFrame as="span" style={{ inlineSize: `${fraction * 100}%` }} />
@@ -252,9 +252,9 @@ export function HbarSessionMonitoringUsage({
           })}
         </LumenFrame>
         {models.length === 0 && (
-          <LumenText as="p" tone="muted">
+          <LumenContentText context="section.description" tone="muted">
             {labels.unavailable}
-          </LumenText>
+          </LumenContentText>
         )}
         {visibleModels < models.length && (
           <LumenButton
@@ -277,10 +277,10 @@ export function HbarSessionMonitoringUsage({
             return (
               <LumenFrame key={id} className="hbar-monitoring-latency-row">
                 <LumenFrame className="hbar-monitoring-section-heading">
-                  <LumenText as="span">{label}</LumenText>
-                  <LumenText as="strong">
+                  <LumenContentText context="control.label">{label}</LumenContentText>
+                  <LumenContentText context="choice.title">
                     {available ? labels.duration(latency.p95 ?? 0) : labels.unavailable}
-                  </LumenText>
+                  </LumenContentText>
                 </LumenFrame>
                 {available && (
                   <LumenFrame className="hbar-monitoring-model-track" aria-hidden="true">
@@ -292,9 +292,9 @@ export function HbarSessionMonitoringUsage({
                     />
                   </LumenFrame>
                 )}
-                <LumenText as="small" tone="muted">
+                <LumenContentText context="choice.description" tone="muted">
                   {labels.chart.samples(latency.sampleCount)}
-                </LumenText>
+                </LumenContentText>
               </LumenFrame>
             )
           })}
@@ -348,9 +348,9 @@ export function HbarSessionMonitoringUsage({
           />
         </HbarLumenDisclosure>
       )}
-      <LumenText as="p" tone="muted" className="hbar-monitoring-observed">
+      <LumenContentText context="section.description" tone="muted" className="hbar-monitoring-observed">
         {labels.chart.observed(report.observedAt)}
-      </LumenText>
+      </LumenContentText>
     </LumenFrame>
   )
 }

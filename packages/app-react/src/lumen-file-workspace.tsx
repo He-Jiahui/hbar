@@ -1,8 +1,8 @@
 import { ArrowLeft, FolderTree, Maximize2, MessageCircle, PanelRightClose, PanelRightOpen, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
+  LumenContentText,
   LumenFrame,
-  LumenText,
   LumenButton,
   LumenDialog,
   LumenIcon,
@@ -569,7 +569,9 @@ export function HbarFileWorkspace({
             </LumenButton>
           ) : undefined
         }
-        error={actionError ? <LumenText as="p">{actionError}</LumenText> : undefined}
+        error={
+          actionError ? <LumenContentText context="section.description">{actionError}</LumenContentText> : undefined
+        }
         busy={Boolean(
           !entry ||
           (!document &&
@@ -591,7 +593,7 @@ export function HbarFileWorkspace({
         )}
         {previewFeedback?.target === target && (
           <LumenFrame className="hbar-file-preview-feedback" role="alert">
-            <LumenText as="p">{previewFeedback.message}</LumenText>
+            <LumenContentText context="section.description">{previewFeedback.message}</LumenContentText>
             {previewFeedback.blockedId &&
               previewFeedback.blockedId !== previewId &&
               previews.some((item) => item.id === previewFeedback.blockedId) && (
@@ -703,23 +705,23 @@ export function HbarFileWorkspace({
                         )}
                       </LumenFrame>
                       {addHint && (
-                        <LumenText as="p" role="status" className="hbar-file-add-feedback">
+                        <LumenContentText context="feedback.message" role="status" className="hbar-file-add-feedback">
                           {addHint}
-                        </LumenText>
+                        </LumenContentText>
                       )}
                       {feedback && (
-                        <LumenText
-                          as="p"
+                        <LumenContentText
+                          context="feedback.message"
                           role={feedback.kind === 'error' ? 'alert' : 'status'}
                           className="hbar-file-add-feedback"
                         >
                           {feedback.message}
-                        </LumenText>
+                        </LumenContentText>
                       )}
                       {markdownFile && entry?.documentMode === 'preview' && !renderedMarkdown && (
-                        <LumenText as="p" role="status" className="hbar-file-add-feedback">
+                        <LumenContentText context="feedback.message" role="status" className="hbar-file-add-feedback">
                           {labels.markdownTooLarge}
-                        </LumenText>
+                        </LumenContentText>
                       )}
                       {editing ? (
                         <LumenTextarea
@@ -764,14 +766,14 @@ export function HbarFileWorkspace({
                         />
                       )}
                       {unknown && document.error && (
-                        <LumenText as="p" role="alert">
+                        <LumenContentText context="feedback.message" role="alert">
                           {labels.error(document.error)}
-                        </LumenText>
+                        </LumenContentText>
                       )}
                       <LumenFrame as="footer">
-                        <LumenText as="span" role="status">
+                        <LumenContentText context="message.inline" role="status">
                           {dirty ? labels.dirty : document.status === 'succeeded' ? labels.saved : null}
-                        </LumenText>
+                        </LumenContentText>
                         {dirty && !unknown && (
                           <LumenButton
                             disabled={!connected || busy || document.status === 'loading'}
@@ -944,12 +946,12 @@ export function HbarFileWorkspace({
           </>
         }
       >
-        <LumenText as="p" className="hbar-app-react-file-reload-target">
+        <LumenContentText context="dialog.body" className="hbar-app-react-file-reload-target">
           {reloadTarget?.path}
-        </LumenText>
-        <LumenText as="p" className="hbar-app-react-file-reload-description">
+        </LumenContentText>
+        <LumenContentText context="dialog.body" className="hbar-app-react-file-reload-description">
           {labels.reloadDescription}
-        </LumenText>
+        </LumenContentText>
       </LumenDialog>
     </>
   )

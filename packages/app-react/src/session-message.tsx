@@ -238,8 +238,8 @@ function Disclosure({
       onKeyDown={scrollInlineText}
     >
       {!tool ? <LumenIcon icon={icon} tier="sm" /> : null}
-      <LumenText as="span" className="hbar-session-disclosure-identity" data-inline-scroll>
-        <LumenText as="span" className="hbar-session-disclosure-label">
+      <LumenContentText context="control.label" className="hbar-session-disclosure-identity" data-inline-scroll>
+        <LumenContentText context="control.label" className="hbar-session-disclosure-label">
           {tool ? <LumenIcon icon={icon} tier="sm" /> : null}
           <LumenContentText
             context="control.label"
@@ -249,7 +249,7 @@ function Disclosure({
           >
             {label}
           </LumenContentText>
-        </LumenText>
+        </LumenContentText>
         {preview ? (
           <LumenContentText
             context="tool.summary"
@@ -259,7 +259,7 @@ function Disclosure({
             {previewMarkdown ? <MessageInlineMarkdown text={preview} /> : preview}
           </LumenContentText>
         ) : null}
-      </LumenText>
+      </LumenContentText>
       {status}
       <LumenIcon icon={open ? ChevronDown : ChevronRight} tier="sm" />
     </LumenButton>
@@ -324,25 +324,25 @@ function ToolStatus({
           ? labels.incomplete
           : labels[outcome]
   return (
-    <LumenText
-      as="span"
+    <LumenContentText
+      context="control.status"
       className="hbar-session-disclosure-status"
       data-status-tone={tone}
       data-timed={Boolean(activity?.execution && labels.feedback)}
     >
-      <LumenText as="span" className="hbar-tool-status-caption">
+      <LumenContentText context="control.status" className="hbar-tool-status-caption">
         <LumenText
           as="span"
           className="lumen-effect hbar-session-tool-status-indicator"
           data-lumen-state={active ? 'running' : 'idle'}
           aria-hidden="true"
         />
-        <LumenText as="span" className="hbar-session-disclosure-status-text" title={label}>
+        <LumenContentText context="control.status" className="hbar-session-disclosure-status-text" title={label}>
           {label}
-        </LumenText>
-      </LumenText>
+        </LumenContentText>
+      </LumenContentText>
       {activity && labels.feedback ? <ToolTiming activity={activity} labels={labels.feedback} /> : null}
-    </LumenText>
+    </LumenContentText>
   )
 }
 
@@ -548,15 +548,15 @@ function Activity({
           data-lumen-state={active ? 'running' : 'idle'}
           aria-hidden="true"
         />
-        <LumenText as="span" className="hbar-session-activity-summary-text" data-inline-scroll>
+        <LumenContentText context="control.label" className="hbar-session-activity-summary-text" data-inline-scroll>
           {typeof activity === 'string'
             ? activity
             : activity.map((part, index) => (
-                <LumenText as="span" key={index} data-activity-role={part.role}>
+                <LumenContentText context="control.label" key={index} data-activity-role={part.role}>
                   {part.text}
-                </LumenText>
+                </LumenContentText>
               ))}
-        </LumenText>
+        </LumenContentText>
         <LumenIcon icon={open ? ChevronDown : ChevronRight} tier="sm" />
       </LumenButton>
       {tools.length > 1 && labels.feedback ? (
@@ -695,10 +695,10 @@ function MessageBlocksContent({
             )}
           </LumenFrame>
         ) : (
-          <LumenText as="span" key={group.id} className="hbar-session-message-attachment">
+          <LumenContentText context="message.inline" key={group.id} className="hbar-session-message-attachment">
             <LumenIcon icon={FileText} tier="sm" />
             {labels.attachment(group.block.type, group.block.artifact.name)}
-          </LumenText>
+          </LumenContentText>
         ),
       )}
     </LumenFrame>
@@ -819,29 +819,29 @@ function MessageActionBarContent({
         </LumenButton>
       ) : null}
       {fork?.status === 'submitting' || fork?.status === 'unknown' ? (
-        <LumenText as="span" role="status">
+        <LumenContentText context="message.inline" role="status">
           {fork.label}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {fork?.error ? (
-        <LumenText as="span" role="alert">
+        <LumenContentText context="message.inline" role="alert">
           {fork.error}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {status === 'copied' || status === 'copying' ? (
-        <LumenText as="span" role="status">
+        <LumenContentText context="message.inline" role="status">
           {label}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {failure ? (
-        <LumenText as="span" role="alert">
+        <LumenContentText context="message.inline" role="alert">
           {status === 'unavailable' ? labels.copyUnavailable : labels.copyFailed}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {metadata ? (
-        <LumenText as="span" className="hbar-session-message-metadata">
+        <LumenContentText context="message.inline" className="hbar-session-message-metadata">
           {metadata}
-        </LumenText>
+        </LumenContentText>
       ) : null}
     </LumenFrame>
   )

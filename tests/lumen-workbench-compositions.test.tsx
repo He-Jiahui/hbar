@@ -7,7 +7,21 @@ import {
   LumenContentText,
   LumenAdaptiveToolbar,
   LumenButton,
+  LumenProvider,
+  DEFAULT_LUMEN_APPEARANCE,
+  LumenReadingMarker,
+  LumenActionMenu,
 } from '@lumen/app-ui'
+
+test('named secondary destinations use a complete text action while legacy icon menus remain compatible', () => {
+  const html = renderToStaticMarkup(<LumenActionMenu label="更多页面" labelVisible items={[]} onAction={() => {}} />)
+  expect(html).toContain('data-lumen-variant="text"')
+  expect(html).toContain('data-text-context="control.label"')
+  expect(html).toContain('aria-label="更多页面"')
+  const legacy = renderToStaticMarkup(<LumenActionMenu label="更多页面" items={[]} onAction={() => {}} />)
+  expect(legacy).toContain('class="lumen-action-menu-trigger"')
+  expect(legacy).not.toContain('lumen-action-menu-trigger-label')
+})
 
 test('surface hierarchy opts in without changing legacy material or host content', () => {
   const legacy = renderToStaticMarkup(<LumenSurface>保留原有内容</LumenSurface>)
@@ -21,6 +35,33 @@ test('surface hierarchy opts in without changing legacy material or host content
   expect(reading).toContain('data-surface-role="reading"')
   expect(reading).toContain('data-material="solid"')
   expect(reading).toContain('阅读内容')
+})
+
+test('an application surface scope respects explicit roles and keeps overlay material independent', () => {
+  const html = renderToStaticMarkup(
+    <LumenProvider appearance={DEFAULT_LUMEN_APPEARANCE} surfaceRole="reading" withCssBaseline={false}>
+      <LumenSurface boundary="horizontal">Continuous reading</LumenSurface>
+      <LumenSurface surfaceRole="navigation">Navigation</LumenSurface>
+      <LumenSurface elevation="overlay">Overlay</LumenSurface>
+      <LumenProvider appearance={DEFAULT_LUMEN_APPEARANCE} withCssBaseline={false}>
+        <LumenSurface>Legacy reference</LumenSurface>
+      </LumenProvider>
+    </LumenProvider>,
+  )
+  expect(html).toContain('data-surface-role="reading"')
+  expect(html).toContain('data-surface-role="navigation"')
+  expect(html).toContain('data-surface-role="overlay"')
+  expect((html.match(/data-surface-role=/g) ?? []).length).toBe(3)
+})
+
+test('reading markers have stable semantic selection, full names and disabled action ownership', () => {
+  const html = renderToStaticMarkup(
+    <LumenReadingMarker label="跳转到完整原文 🧭" current disabled data-conversation-anchor="exact-message-id" />,
+  )
+  expect(html).toContain('aria-current="location"')
+  expect(html).toContain('aria-label="跳转到完整原文 🧭"')
+  expect(html).toContain('disabled=""')
+  expect(html).toContain('data-conversation-anchor="exact-message-id"')
 })
 
 test('record and metric composition retain long localized values and their reading order', () => {

@@ -35,5 +35,5 @@
 .hbar-app-react-organization-feedback p {
   margin: 0;
   overflow-wrap: anywhere;
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }

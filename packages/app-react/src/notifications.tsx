@@ -1,6 +1,6 @@
 import {
+  LumenContentText,
   LumenNotifications,
-  LumenText,
   type LumenNotificationsContent,
   type LumenNotificationEntry,
 } from '@lumen/app-ui'
@@ -234,9 +234,9 @@ export function HbarNotifications({ runtime, labels, onNavigate, variant = 1, on
   return (
     <>
       {actionError ? (
-        <LumenText role="alert" tone="danger">
+        <LumenContentText context="message.inline" role="alert" tone="danger">
           {actionError}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       <LumenNotifications
         variant={variant}

@@ -1,5 +1,5 @@
 import { Fragment, useState, type ReactNode } from 'react'
-import { LumenFrame, LumenButton, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenFrame, LumenButton } from '@lumen/app-ui'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import type { SessionDecision } from '@hbar/app-runtime'
 import './session-decision-history.css'
@@ -25,7 +25,7 @@ export function HbarSessionDecisionHistory({ decisions, labels, renderDecision }
   return (
     <HbarLumenDisclosure className="hbar-session-decision-history-disclosure" label={labels.title}>
       <LumenFrame className="hbar-session-decision-history" data-visible-count={visible.length}>
-        <LumenText as="p">{labels.count(decisions.length)}</LumenText>
+        <LumenContentText context="section.description">{labels.count(decisions.length)}</LumenContentText>
         {visible.map((decision) => (
           <Fragment key={`${decision.kind}:${decision.id}`}>{renderDecision(decision)}</Fragment>
         ))}

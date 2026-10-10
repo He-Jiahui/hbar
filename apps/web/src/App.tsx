@@ -32,6 +32,7 @@ import type { GlobalSettingsStartup, PanelSurface } from '@hbar/app-runtime'
 import { useStore } from 'zustand'
 import { CommandError } from '@hbar/commands'
 import { ArrowLeft } from 'lucide-react'
+import { GlobalFeatureNavigation } from './GlobalFeatureNavigation'
 import {
   applyLumenAppearance,
   LumenButton,
@@ -1782,6 +1783,7 @@ export default function App({
   }, [client, runtime, messageResources])
   const layout = useHbarRuntimeState(runtime.view.state.layout)
   const presentation = useHbarRuntimeState(runtime.view.state.presentation)
+  const activeNavigation = useHbarRuntimeState(runtime.view.state.navigation)
   const tabs = useHbarRuntimeState(runtime.view.state.workspaceTabs)
   const surfaces = useHbarRuntimeState(runtime.view.state.surfaces)
   const preferences = useHbarRuntimeState(runtime.view.state.preferences)
@@ -2001,7 +2003,7 @@ export default function App({
   }
 
   return (
-    <LumenProvider appearance={lumenAppearance}>
+    <LumenProvider appearance={lumenAppearance} surfaceRole="reading" data-hbar-layout-state={layout.status}>
       <HbarRuntimeProvider
         view={runtime.view}
         renderSkillImport={(instanceId, connected) => (
@@ -2060,6 +2062,14 @@ export default function App({
               labels={notificationNavigationCopy(locale)}
               selected={presentation.page.kind === 'notifications'}
               onOpen={() => openFeaturePanel('notifications')}
+            />
+          }
+          featureNavigation={
+            <GlobalFeatureNavigation
+              locale={locale}
+              connected={connection === 'connected'}
+              hasWorkspace={Boolean(activeNavigation.workspaceId)}
+              onOpen={openFeaturePanel}
             />
           }
           {...(renderDesktopLayout ? { renderLayout: renderDesktopLayout } : {})}

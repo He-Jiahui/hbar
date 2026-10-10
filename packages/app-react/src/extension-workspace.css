@@ -31,7 +31,7 @@
 }
 
 .hbar-app-react-extension-filter {
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   color: var(--lumen-muted);
 }
 
@@ -103,7 +103,7 @@
 .hbar-app-react-extension-open-copy > span,
 .hbar-app-react-extension-open-copy > small {
   color: var(--lumen-muted);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   line-height: 1.45;
 }
 
@@ -122,19 +122,18 @@
 
 .hbar-app-react-plugin-detail-summary,
 .hbar-app-react-plugin-capability {
-  border: 0.0625rem solid var(--lumen-edge);
-  border-radius: var(--lumen-radius-control);
-  background: var(--lumen-reading);
-  padding: 1rem;
+  border-block-start: 0.0625rem solid var(--lumen-line);
+  background: transparent;
+  padding-block: var(--lumen-space-group);
 }
 
 .hbar-app-react-plugin-detail-summary h3 {
-  font-size: 1.125rem;
+  font-size: calc(var(--lumen-font-size) * 1.285714);
 }
 
 .hbar-app-react-plugin-capability h4 {
   margin: 0;
-  font-size: 0.875rem;
+  font-size: var(--lumen-font-size);
 }
 
 .hbar-app-react-plugin-detail-summary dl {
@@ -154,7 +153,7 @@
 .hbar-app-react-plugin-capability p,
 .hbar-app-react-plugin-capability small {
   color: var(--lumen-muted);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   line-height: 1.5;
 }
 
@@ -184,7 +183,7 @@
 .hbar-app-react-plugin-detail-summary p,
 .hbar-app-react-plugin-detail-summary dd,
 .hbar-app-react-plugin-capability code {
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
   line-height: 1.5;
 }
 
@@ -295,13 +294,13 @@
 
 .hbar-app-react-extension-workspace h2,
 .hbar-app-react-extension-title {
-  font-size: 0.875rem;
+  font-size: var(--lumen-font-size);
   overflow-wrap: anywhere;
 }
 
 .hbar-app-react-extension-workspace h3,
 .hbar-app-react-extension-collection-heading {
-  font-size: 0.875rem;
+  font-size: var(--lumen-font-size);
 }
 
 .hbar-app-react-extension-heading p,
@@ -319,7 +318,7 @@
 .hbar-app-react-extension-plugin p,
 .hbar-app-react-extension-plugin dl,
 .hbar-app-react-extension-skill-content > span {
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   line-height: 1.45;
 }
 
@@ -342,7 +341,7 @@
   align-items: flex-start;
   gap: 0.5rem;
   overflow-wrap: anywhere;
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 
   overflow-x: auto;
 }

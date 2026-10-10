@@ -119,11 +119,11 @@ export function HbarSessionRawMessages({
   const count = Math.min(visible, ordered.length)
   return (
     <LumenFrame className="hbar-session-raw-messages">
-      <LumenText as="p" tone="muted">
+      <LumenContentText context="section.description" tone="muted">
         {labels.raw.count(count, ordered.length)}
-      </LumenText>
+      </LumenContentText>
       {ordered.length === 0 ? (
-        <LumenText as="p">{labels.raw.empty}</LumenText>
+        <LumenContentText context="section.description">{labels.raw.empty}</LumenContentText>
       ) : (
         <LumenCollection as="ul">
           {ordered.slice(0, count).map((message) => (
@@ -207,13 +207,13 @@ export function HbarSessionRequestRecord({
       <HbarLumenDisclosure label={labels.raw.runMessages} open={rawMessages} onOpenChange={setRawMessages}>
         {rawMessages && (
           <>
-            <LumenText as="p" tone="muted">
+            <LumenContentText context="section.description" tone="muted">
               {labels.raw.scope}
-            </LumenText>
+            </LumenContentText>
             {runMessages !== null && item.runId !== null ? (
               <HbarSessionRawMessages key={item.runId} identity={item.runId} messages={runMessages} labels={labels} />
             ) : (
-              <LumenText as="p">{labels.raw.unavailable}</LumenText>
+              <LumenContentText context="section.description">{labels.raw.unavailable}</LumenContentText>
             )}
           </>
         )}
@@ -257,7 +257,7 @@ function RequestList({
   return (
     <LumenFrame className="hbar-session-requests" aria-label={labels.title}>
       <LumenFrame as="header">
-        <LumenText as="h2">{labels.title}</LumenText>
+        <LumenContentText context="section.title">{labels.title}</LumenContentText>
         <LumenButton
           size="s"
           variant="text"
@@ -269,29 +269,31 @@ function RequestList({
           }}
         >
           <LumenIcon icon={RotateCw} tier="sm" />
-          <LumenText as="span">{labels.refresh}</LumenText>
+          <LumenContentText context="control.label">{labels.refresh}</LumenContentText>
         </LumenButton>
       </LumenFrame>
       {!connected && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.offline}
-        </LumenText>
+        </LumenContentText>
       )}
       {busy && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {state.status === 'error' && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {labels.error(state.error ?? 'EXECUTION_FAILED')}
-        </LumenText>
+        </LumenContentText>
       )}
-      {state.status === 'ready' && state.items.length === 0 && <LumenText as="p">{labels.empty}</LumenText>}
+      {state.status === 'ready' && state.items.length === 0 && (
+        <LumenContentText context="section.description">{labels.empty}</LumenContentText>
+      )}
       {state.gap && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.gap}
-        </LumenText>
+        </LumenContentText>
       )}
       <LumenCollection as="ul" aria-busy={busy}>
         {state.items.map((item) => (
@@ -338,9 +340,9 @@ function RequestList({
         </LumenButton>
       )}
       {!state.hasMore && state.items.length >= USAGE_REQUEST_MAX_ITEMS && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.limit(state.items.length)}
-        </LumenText>
+        </LumenContentText>
       )}
     </LumenFrame>
   )
@@ -379,17 +381,17 @@ export const HbarSessionRequestDetails = memo(function HbarSessionRequestDetails
       {messages ? (
         <HbarSessionRawMessages key={sessionId} identity={sessionId} messages={messages} labels={labels} />
       ) : (
-        <LumenText as="p">{labels.raw.unavailable}</LumenText>
+        <LumenContentText context="section.description">{labels.raw.unavailable}</LumenContentText>
       )}
       {timeline.olderStatus === 'error' && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {labels.error(timeline.olderError ?? 'EXECUTION_FAILED')}
-        </LumenText>
+        </LumenContentText>
       )}
       {timeline.olderStatus === 'limit' && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.raw.olderLimit}
-        </LumenText>
+        </LumenContentText>
       )}
       {timeline.hasOlder && timeline.olderStatus !== 'limit' && (
         <LumenButton

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { EditorState } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers } from '@codemirror/view'
 import { defaultKeymap } from '@codemirror/commands'
-import { LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenFrame } from '@lumen/app-ui'
 import type { ResourceTextEntry } from './resource-browser-controller'
 import './ResourceFileEditor.css'
 export function ResourceFileEditor({ entry }: { readonly entry: ResourceTextEntry }) {
@@ -31,9 +31,9 @@ export function ResourceFileEditor({ entry }: { readonly entry: ResourceTextEntr
   }, [entry])
   return (
     <LumenFrame className="hbar-resource-file">
-      <LumenText as="p" className="hbar-resource-file-path">
+      <LumenContentText context="section.description" className="hbar-resource-file-path">
         {entry.candidate.location}
-      </LumenText>
+      </LumenContentText>
       <LumenFrame ref={root} className="hbar-resource-file-editor" />
     </LumenFrame>
   )

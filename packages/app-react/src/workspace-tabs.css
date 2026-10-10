@@ -32,7 +32,7 @@
   border-color: var(--lumen-edge-strong, var(--lumen-edge));
 }
 .hbar-workspace-tab-select {
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
   display: flex;
   flex: 1;
   min-inline-size: 0;

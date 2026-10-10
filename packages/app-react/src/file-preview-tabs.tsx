@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Circle, FileDiff, FileText, X } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenIconButton, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon, LumenIconButton } from '@lumen/app-ui'
 import './file-preview-tabs.css'
 import { revealInlineItem } from './inline-item-reveal'
 
@@ -163,18 +163,22 @@ export function HbarFilePreviewTabs({ items: source, activeId, labels, onSelect,
               onKeyDown={(event) => keyDown(event, index)}
             >
               <LumenIcon icon={item.kind === 'document' ? FileText : FileDiff} tier="sm" />
-              <LumenText as="span">{item.path.replaceAll('\\', '/').split('/').at(-1) ?? item.path}</LumenText>
-              {item.kind !== 'document' && <LumenText as="small">{labels.kind(item.kind)}</LumenText>}
+              <LumenContentText context="control.label">
+                {item.path.replaceAll('\\', '/').split('/').at(-1) ?? item.path}
+              </LumenContentText>
+              {item.kind !== 'document' && (
+                <LumenContentText context="choice.description">{labels.kind(item.kind)}</LumenContentText>
+              )}
               {item.protection && (
-                <LumenText
-                  as="small"
+                <LumenContentText
+                  context="choice.description"
                   id={`file-preview-status-${item.id}`}
                   title={labels.status(item.protection)}
                   className="hbar-file-preview-status"
                   aria-label={labels.status(item.protection)}
                 >
                   <LumenIcon icon={Circle} tier="sm" />
-                </LumenText>
+                </LumenContentText>
               )}
             </LumenButton>
             <LumenIconButton

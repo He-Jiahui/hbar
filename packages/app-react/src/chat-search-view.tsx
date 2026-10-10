@@ -6,6 +6,7 @@ import {
   type SessionSearchSource,
 } from '@hbar/contracts/commands/session-search'
 import {
+  LumenContentText,
   LumenButton,
   LumenFrame,
   LumenIcon,
@@ -137,9 +138,14 @@ export function highlightedChatSearchText(text: string, highlights: readonly Hba
     if (start < cursor) continue
     if (start > cursor) segments.push(text.slice(cursor, start))
     segments.push(
-      <LumenText as="span" role="mark" className="hbar-chat-search-highlight" key={`${start}:${end}`}>
+      <LumenContentText
+        context="message.inline"
+        role="mark"
+        className="hbar-chat-search-highlight"
+        key={`${start}:${end}`}
+      >
         {text.slice(start, end)}
-      </LumenText>,
+      </LumenContentText>,
     )
     cursor = end
   }
@@ -263,13 +269,13 @@ export function HbarChatSearchView({
       </LumenFrame>
       <LumenFrame className="hbar-chat-search-pane">
         {status === 'recent' && visible.length > 0 && (
-          <LumenText as="p" className="hbar-chat-search-recent">
+          <LumenContentText context="section.description" className="hbar-chat-search-recent">
             {labels.recent}
-          </LumenText>
+          </LumenContentText>
         )}
         {statusText && (
           <LumenFrame className="hbar-chat-search-feedback" role={status === 'error' ? 'alert' : 'status'}>
-            <LumenText as="p">{statusText}</LumenText>
+            <LumenContentText context="section.description">{statusText}</LumenContentText>
             {(status === 'error' || status === 'disconnected' || status === 'indexing') && (
               <LumenButton type="button" variant="text" indicator="none" onClick={onRetry}>
                 {labels.retry}
@@ -310,14 +316,14 @@ export function HbarChatSearchView({
               onFocus={() => onSelect(row.resultId ?? row.sessionId)}
               onClick={() => onOpen(row.resultId ?? row.sessionId, row.workspaceId)}
             >
-              <LumenText as="span" className="hbar-chat-search-source">
+              <LumenContentText context="control.label" className="hbar-chat-search-source">
                 {labels.sources[row.source ?? (status === 'recent' ? 'title' : 'conversation')]}
-              </LumenText>
+              </LumenContentText>
               <LumenFrame className="hbar-chat-search-row-body">
-                <LumenText as="span" className="hbar-chat-search-row-heading">
-                  <LumenText as="span" className="hbar-chat-search-row-title" title={row.title}>
+                <LumenContentText context="record.description" className="hbar-chat-search-row-heading">
+                  <LumenContentText context="record.title" className="hbar-chat-search-row-title" title={row.title}>
                     {row.title}
-                  </LumenText>
+                  </LumenContentText>
                   <LumenText
                     as="time"
                     dateTime={
@@ -329,41 +335,56 @@ export function HbarChatSearchView({
                   >
                     {labels.time(row.updatedAt)}
                   </LumenText>
-                </LumenText>
-                <LumenText as="span" className="hbar-chat-search-row-context">
-                  <LumenText as="span" title={row.workspaceName}>
+                </LumenContentText>
+                <LumenContentText context="record.description" className="hbar-chat-search-row-context">
+                  <LumenContentText context="record.description" title={row.workspaceName}>
                     {row.workspaceName}
-                  </LumenText>
+                  </LumenContentText>
                   {status !== 'recent' && (
-                    <LumenText as="span">{labels.matches(row.matchCount, row.matchCountCapped)}</LumenText>
+                    <LumenContentText context="metadata">
+                      {labels.matches(row.matchCount, row.matchCountCapped)}
+                    </LumenContentText>
                   )}
-                </LumenText>
+                </LumenContentText>
                 {status !== 'recent' &&
                   row.snippets.slice(0, 3).map((snippet) => (
-                    <LumenText as="span" key={snippet.messageId ?? 'title'} className="hbar-chat-search-snippet">
+                    <LumenContentText
+                      context="record.description"
+                      key={snippet.messageId ?? 'title'}
+                      className="hbar-chat-search-snippet"
+                    >
                       {row.source !== 'title' && (
-                        <LumenText
-                          as="span"
+                        <LumenContentText
+                          context="metadata"
                           className="hbar-chat-search-snippet-role"
                           title={labels.role(snippet.role)}
                         >
                           {labels.role(snippet.role)}
-                        </LumenText>
+                        </LumenContentText>
                       )}
-                      <LumenText as="span" className="hbar-chat-search-snippet-text" title={snippet.text}>
+                      <LumenContentText
+                        context="record.description"
+                        className="hbar-chat-search-snippet-text"
+                        title={snippet.text}
+                      >
                         {highlightedChatSearchText(snippet.text, snippet.highlights)}
-                      </LumenText>
-                    </LumenText>
+                      </LumenContentText>
+                    </LumenContentText>
                   ))}
                 {openingResultId === (row.resultId ?? row.sessionId) && (
-                  <LumenText as="span" className="hbar-chat-search-row-status" role="status">
+                  <LumenContentText context="control.status" className="hbar-chat-search-row-status" role="status">
                     {labels.opening(row.title)}
-                  </LumenText>
+                  </LumenContentText>
                 )}
                 {openError?.sessionId === (row.resultId ?? row.sessionId) && (
-                  <LumenText as="span" className="hbar-chat-search-row-error" role="alert">
+                  <LumenContentText
+                    context="feedback.detail"
+                    tone="danger"
+                    className="hbar-chat-search-row-error"
+                    role="alert"
+                  >
                     {openError.message}
-                  </LumenText>
+                  </LumenContentText>
                 )}
               </LumenFrame>
             </LumenButton>
@@ -371,20 +392,20 @@ export function HbarChatSearchView({
         </LumenFrame>
       </LumenFrame>
       {(truncated || (status === 'ready' && rows.length > 50)) && (
-        <LumenText as="p" className="hbar-chat-search-truncated" role="status">
+        <LumenContentText context="feedback.message" className="hbar-chat-search-truncated" role="status">
           {labels.truncated}
-        </LumenText>
+        </LumenContentText>
       )}
       <LumenFrame as="footer" className="hbar-chat-search-footer">
-        <LumenText as="span">
+        <LumenContentText context="message.inline">
           <LumenText as="kbd">{labels.navigateKey}</LumenText> {labels.navigate}
-        </LumenText>
-        <LumenText as="span">
+        </LumenContentText>
+        <LumenContentText context="message.inline">
           <LumenText as="kbd">{labels.selectKey}</LumenText> {labels.select}
-        </LumenText>
-        <LumenText as="span">
+        </LumenContentText>
+        <LumenContentText context="message.inline">
           <LumenText as="kbd">{labels.closeKey}</LumenText> {labels.closeHint}
-        </LumenText>
+        </LumenContentText>
       </LumenFrame>
     </LumenFrame>
   )

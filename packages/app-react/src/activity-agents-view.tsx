@@ -1,12 +1,12 @@
 import { Bot, ChevronRight } from 'lucide-react'
 import {
+  LumenContentText,
   LumenButton,
   LumenCollection,
   LumenCollectionItem,
   LumenFrame,
   LumenIcon,
   LumenStatus,
-  LumenText,
 } from '@lumen/app-ui'
 import type { ActivityAgentEntryState } from '@hbar/app-runtime'
 import { ActivityText, type ActivityTextLabels } from './activity-text'
@@ -72,24 +72,26 @@ export function ActivityAgentsView({
   return (
     <LumenFrame as="section" className="hbar-activity-agents" aria-label={labels.title}>
       <LumenFrame className="hbar-activity-section-heading">
-        <LumenText as="h3">{labels.title}</LumenText>
+        <LumenContentText context="section.subtitle">{labels.title}</LumenContentText>
         {items.length > 0 && (
-          <LumenText as="span">
+          <LumenContentText context="message.inline">
             {labels.count(items.length, items.filter(active).length, Boolean(entry?.nextCursor))}
-          </LumenText>
+          </LumenContentText>
         )}
       </LumenFrame>
       {(!entry || entry.status === 'loading') && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
-      {entry?.status === 'unavailable' && <LumenText as="p">{labels.unavailable}</LumenText>}
+      {entry?.status === 'unavailable' && (
+        <LumenContentText context="section.description">{labels.unavailable}</LumenContentText>
+      )}
       {entry?.status === 'error' && (
         <LumenFrame className="hbar-session-activity-recovery">
-          <LumenText as="p" role="alert">
+          <LumenContentText context="feedback.message" role="alert">
             {labels.error(entry.error ?? 'EXECUTION_FAILED')}
-          </LumenText>
+          </LumenContentText>
           <LumenButton size="s" disabled={!connected} onClick={onRefresh}>
             {labels.retry}
           </LumenButton>
@@ -119,15 +121,15 @@ export function ActivityAgentsView({
                 )}
               </ActivityText>
               {opening?.agentId === agent.agentId && (
-                <LumenText as="p" role={opening.status === 'error' ? 'alert' : 'status'}>
+                <LumenContentText context="feedback.message" role={opening.status === 'error' ? 'alert' : 'status'}>
                   {opening.status === 'opening' ? labels.opening : labels.error(opening.error ?? 'EXECUTION_FAILED')}
-                </LumenText>
+                </LumenContentText>
               )}
             </LumenCollectionItem>
           ))}
         </LumenCollection>
       )}
-      {entry?.limitReached && <LumenText as="p">{labels.limitReached}</LumenText>}
+      {entry?.limitReached && <LumenContentText context="section.description">{labels.limitReached}</LumenContentText>}
       {entry?.status === 'ready' && entry.nextCursor && !entry.limitReached && (
         <LumenButton size="s" disabled={!connected} onClick={onLoadMore}>
           {labels.loadMore}

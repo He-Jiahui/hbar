@@ -1,5 +1,5 @@
 import type { GoalPlanWorkspaceEntryState } from '@hbar/app-runtime'
-import { LumenCompactMetrics, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenCompactMetrics, LumenFrame } from '@lumen/app-ui'
 
 type ThreadGoal = NonNullable<GoalPlanWorkspaceEntryState['goal']>
 type ExecutionBudget = NonNullable<ThreadGoal['executionBudget']>
@@ -64,22 +64,24 @@ export function HbarGoalExecutionState({
           },
         ]}
       />
-      <LumenText as="p">
+      <LumenContentText context="section.description">
         {continuation
           ? labels.state(labels.phases[continuation.phase], labels.reasons[continuation.reason])
           : labels.noIntent}
-      </LumenText>
+      </LumenContentText>
       {continuation?.phase === 'waiting' &&
         continuation.reason === 'retry_wait' &&
-        continuation.retryAt !== undefined && <LumenText as="p">{labels.retryAt(continuation.retryAt)}</LumenText>}
+        continuation.retryAt !== undefined && (
+          <LumenContentText context="section.description">{labels.retryAt(continuation.retryAt)}</LumenContentText>
+        )}
       {goal.blockerAudit && (
-        <LumenText as="p">
+        <LumenContentText context="section.description">
           {labels.blocker(
             goal.blockerAudit.reason,
             goal.blockerAudit.consecutiveTurns,
             goal.blockerAudit.requiredTurns,
           )}
-        </LumenText>
+        </LumenContentText>
       )}
     </LumenFrame>
   )

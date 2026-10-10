@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
-import { LumenButton, LumenCollection, LumenCollectionItem, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenCollection, LumenCollectionItem, LumenFrame } from '@lumen/app-ui'
 import { SESSION_ARCHIVE_BATCH_MAX_ITEMS } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './session-archive.css'
@@ -163,15 +163,17 @@ export function SessionArchiveBatchPanel({
     >
       {batch.status === 'idle' ? (
         <>
-          <LumenText as="strong">{labels.selectionTitle}</LumenText>
-          <LumenText as="p" role="status">
+          <LumenContentText context="record.title">{labels.selectionTitle}</LumenContentText>
+          <LumenContentText context="feedback.message" role="status">
             {labels.selectedCount(selectedTargets.length, SESSION_ARCHIVE_BATCH_MAX_ITEMS)}
-          </LumenText>
-          <LumenText as="small">{labels.maximumHint(SESSION_ARCHIVE_BATCH_MAX_ITEMS)}</LumenText>
+          </LumenContentText>
+          <LumenContentText context="record.description">
+            {labels.maximumHint(SESSION_ARCHIVE_BATCH_MAX_ITEMS)}
+          </LumenContentText>
           {commandError && (
-            <LumenText as="p" role="alert">
+            <LumenContentText context="feedback.message" role="alert">
               {labels.error(commandError)}
-            </LumenText>
+            </LumenContentText>
           )}
           <LumenFrame className="hbar-app-react-session-archive-actions">
             <LumenButton size="s" variant="text" disabled={selectedTargets.length === 0} onClick={onClearSelection}>
@@ -187,8 +189,10 @@ export function SessionArchiveBatchPanel({
         </>
       ) : (
         <>
-          <LumenText as="strong">{labels.previewTitle(batch.items.length)}</LumenText>
-          {singleWorkspaceName && <LumenText as="small">{labels.project(singleWorkspaceName)}</LumenText>}
+          <LumenContentText context="record.title">{labels.previewTitle(batch.items.length)}</LumenContentText>
+          {singleWorkspaceName && (
+            <LumenContentText context="record.description">{labels.project(singleWorkspaceName)}</LumenContentText>
+          )}
           <LumenCollection as="ol" className="hbar-app-react-session-archive-batch-list">
             {batch.items.map((item) => {
               const workspace = directory.workspaces[item.target.workspaceId]
@@ -199,39 +203,48 @@ export function SessionArchiveBatchPanel({
                   data-session-id={item.target.sessionId}
                   data-result={item.status}
                 >
-                  <LumenText as="span" className="hbar-app-react-session-archive-batch-target">
+                  <LumenContentText context="message.inline" className="hbar-app-react-session-archive-batch-target">
                     {workspaceIds.size === 1
                       ? item.target.title
                       : `${workspace?.name ?? item.target.workspaceId}: ${item.target.title}`}
-                  </LumenText>
+                  </LumenContentText>
                   {item.status === 'pending' && batch.status === 'confirming' && (
-                    <LumenText as="small">{labels.pending}</LumenText>
+                    <LumenContentText context="record.description">{labels.pending}</LumenContentText>
                   )}
-                  {item.status === 'submitting' && <LumenText as="small">{labels.processing}</LumenText>}
-                  {item.status === 'archived' && <LumenText as="small">{labels.archived(item.target.title)}</LumenText>}
+                  {item.status === 'submitting' && (
+                    <LumenContentText context="record.description">{labels.processing}</LumenContentText>
+                  )}
+                  {item.status === 'archived' && (
+                    <LumenContentText context="record.description">
+                      {labels.archived(item.target.title)}
+                    </LumenContentText>
+                  )}
                   {item.status === 'failed' && (
-                    <LumenText as="small" role="alert">
+                    <LumenContentText context="record.description" role="alert">
                       {labels.failed(item.target.title, item.error ?? 'UNKNOWN')}
-                    </LumenText>
+                    </LumenContentText>
                   )}
                   {item.status === 'unknown' && (
-                    <LumenText as="small" role="alert">
+                    <LumenContentText context="record.description" role="alert">
                       {labels.unknown(item.target.title)}
-                    </LumenText>
+                    </LumenContentText>
                   )}
                 </LumenCollectionItem>
               )
             })}
           </LumenCollection>
           {stateMessage && (
-            <LumenText as="p" role={batch.status === 'unknown' || batch.status === 'partial' ? 'alert' : 'status'}>
+            <LumenContentText
+              context="feedback.message"
+              role={batch.status === 'unknown' || batch.status === 'partial' ? 'alert' : 'status'}
+            >
               {stateMessage}
-            </LumenText>
+            </LumenContentText>
           )}
           {commandError && (
-            <LumenText as="p" role="alert">
+            <LumenContentText context="feedback.message" role="alert">
               {labels.error(commandError)}
-            </LumenText>
+            </LumenContentText>
           )}
           <LumenFrame className="hbar-app-react-session-archive-actions">
             {batch.status === 'confirming' && (
@@ -343,11 +356,13 @@ export function SessionArchiveFeedback({
         }
       }}
     >
-      <LumenText as="strong">
+      <LumenContentText context="record.title">
         {target.archived ? labels.confirmTitle(target.title) : labels.restoreTitle(target.title)}
-      </LumenText>
-      {target.archived && !succeeded && <LumenText as="p">{labels.description}</LumenText>}
-      <LumenText as="p" role={unknown || mutation.status === 'failed' ? 'alert' : 'status'}>
+      </LumenContentText>
+      {target.archived && !succeeded && (
+        <LumenContentText context="section.description">{labels.description}</LumenContentText>
+      )}
+      <LumenContentText context="feedback.message" role={unknown || mutation.status === 'failed' ? 'alert' : 'status'}>
         {checking
           ? labels.checking
           : unknown
@@ -363,7 +378,7 @@ export function SessionArchiveFeedback({
                 : mutation.error
                   ? labels.error(mutation.error)
                   : null}
-      </LumenText>
+      </LumenContentText>
       <LumenFrame className="hbar-app-react-session-archive-actions">
         {succeeded ? (
           <LumenButton ref={result} size="s" onClick={() => invoke('dismiss')}>
@@ -458,7 +473,7 @@ export function ArchivedSessions({
   return (
     <LumenFrame as="section" className="hbar-app-react-archived-sessions" aria-label={labels.listTitle(workspaceName)}>
       <LumenFrame className="hbar-app-react-session-archive-actions">
-        <LumenText as="strong">{labels.listTitle(workspaceName)}</LumenText>
+        <LumenContentText context="record.title">{labels.listTitle(workspaceName)}</LumenContentText>
         <LumenButton
           size="s"
           variant="text"
@@ -477,24 +492,26 @@ export function ArchivedSessions({
           {labels.close}
         </LumenButton>
       </LumenFrame>
-      <LumenText as="small">{labels.page(list.page)}</LumenText>
+      <LumenContentText context="record.description">{labels.page(list.page)}</LumenContentText>
       {loading && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {list.error && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {labels.error(list.error)}
-        </LumenText>
+        </LumenContentText>
       )}
       {stale && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {labels.error('PAGE_STALE')}
-        </LumenText>
+        </LumenContentText>
       )}
       {list.status === 'ready' && !stale && sessions.length === 0 && (
-        <LumenText as="p">{list.page === 1 && list.nextCursor === null ? labels.empty : labels.emptyPage}</LumenText>
+        <LumenContentText context="section.description">
+          {list.page === 1 && list.nextCursor === null ? labels.empty : labels.emptyPage}
+        </LumenContentText>
       )}
       {sessions.map((session) => {
         const own =
@@ -512,7 +529,7 @@ export function ArchivedSessions({
               <SessionArchiveFeedback labels={labels} connected={connected} />
             ) : (
               <>
-                <LumenText as="span">{session.title}</LumenText>
+                <LumenContentText context="message.inline">{session.title}</LumenContentText>
                 <LumenButton
                   size="s"
                   disabled={!connected || mutationLocked}

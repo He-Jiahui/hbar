@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { Maximize, Minus, Plus, Workflow } from 'lucide-react'
-import { LumenButton, LumenDialog, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenDialog, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import { clampDiagramZoom, fitDiagramZoom, type HbarDiagramLabels } from './markdown-diagram-model'
 import { renderMarkdownDiagram, type DiagramRenderResult } from './markdown-diagram-render'
 import { registerSessionCodeBlock } from './session-code-block-dom'
@@ -163,7 +163,7 @@ export function MarkdownDiagram({
       <LumenFrame ref={header} className="hbar-message-code-header" data-session-find-exclude="code-chrome">
         <LumenFrame className="hbar-message-code-metadata">
           <LumenIcon icon={Workflow} tier="sm" />
-          <LumenText as="span">{labels.title}</LumenText>
+          <LumenContentText context="message.inline">{labels.title}</LumenContentText>
         </LumenFrame>
         <LumenFrame className="hbar-diagram-actions">
           <LumenButton
@@ -210,13 +210,13 @@ export function MarkdownDiagram({
           </LumenButton>
         ) : (
           <LumenFrame className="hbar-diagram-status">
-            <LumenText as="p" role="status">
+            <LumenContentText context="feedback.message" role="status">
               {streaming
                 ? labels.generating
                 : result?.status === 'failed'
                   ? labels.failure(result.reason)
                   : labels.loading}
-            </LumenText>
+            </LumenContentText>
             {result?.status === 'failed' &&
               (result.reason === 'busy' || result.reason === 'failed' || result.reason === 'invalid') && (
                 <LumenButton size="s" variant="text" indicator="none" onClick={() => setRetry((value) => value + 1)}>
@@ -319,9 +319,9 @@ export function MarkdownDiagram({
                 <LumenFrame className="hbar-diagram-svg" dangerouslySetInnerHTML={{ __html: ready.previewSvg }} />
               </LumenFrame>
             </LumenFrame>
-            <LumenText as="p" className="hbar-diagram-help" tone="muted">
+            <LumenContentText context="dialog.body" className="hbar-diagram-help" tone="muted">
               {labels.panHelp}
-            </LumenText>
+            </LumenContentText>
           </LumenDialog>
         )}
       </LumenFrame>

@@ -1,4 +1,4 @@
-import { LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenFrame } from '@lumen/app-ui'
 import type { ToolProgress } from '@hbar/contracts'
 import { useSessionClock } from './session-tool-clock'
 import { toolElapsed, type SessionToolActivity, type ToolActivityCounts } from './session-tool-activity-model'
@@ -21,8 +21,8 @@ function Percentage({
 }) {
   const percentage = Math.floor((progress.completed / progress.total) * 1000) / 10
   return (
-    <LumenText
-      as="span"
+    <LumenContentText
+      context="metadata"
       className="hbar-tool-percentage"
       data-tool-progress={percentage}
       role="progressbar"
@@ -32,7 +32,7 @@ function Percentage({
       aria-label={labels.progressAccessible(progress.completed, progress.total)}
     >
       {labels.progress(percentage)}
-    </LumenText>
+    </LumenContentText>
   )
 }
 export function ToolTiming({
@@ -46,15 +46,20 @@ export function ToolTiming({
   const elapsed = toolElapsed(activity, now)
   if (elapsed === undefined) return null
   return (
-    <LumenText as="span" className="hbar-tool-timing" data-tool-elapsed={elapsed} data-tool-active={activity.active}>
-      <LumenText as="span">
+    <LumenContentText
+      context="metadata"
+      className="hbar-tool-timing"
+      data-tool-elapsed={elapsed}
+      data-tool-active={activity.active}
+    >
+      <LumenContentText context="message.inline">
         {labels.duration(
           elapsed,
           activity.active ? 'running' : activity.execution?.endedAt !== undefined ? 'settled' : 'lastKnown',
         )}
-      </LumenText>
+      </LumenContentText>
       {activity.execution?.progress ? <Percentage progress={activity.execution.progress} labels={labels} /> : null}
-    </LumenText>
+    </LumenContentText>
   )
 }
 export function ToolBatchFeedback({
@@ -74,17 +79,17 @@ export function ToolBatchFeedback({
       : undefined
   return (
     <LumenFrame className="hbar-tool-batch-feedback" data-tool-batch="true">
-      <LumenText as="span" className="hbar-tool-batch-counts">
+      <LumenContentText context="metadata" className="hbar-tool-batch-counts">
         {labels.counts(counts)}
-      </LumenText>
-      <LumenText as="span" className="hbar-tool-batch-metrics">
+      </LumenContentText>
+      <LumenContentText context="message.inline" className="hbar-tool-batch-metrics">
         {totalDuration !== undefined ? (
-          <LumenText as="span" data-tool-total-elapsed={totalDuration}>
+          <LumenContentText context="message.inline" data-tool-total-elapsed={totalDuration}>
             {labels.cumulativeDuration(totalDuration)}
-          </LumenText>
+          </LumenContentText>
         ) : null}
         <Percentage progress={{ completed: counts.settled, total: counts.total }} labels={labels} />
-      </LumenText>
+      </LumenContentText>
     </LumenFrame>
   )
 }

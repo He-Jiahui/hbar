@@ -9,7 +9,7 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react'
-import { LumenButton, LumenFrame, LumenText, type LumenToolPresentation } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, type LumenToolPresentation } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { canFocusWorkspaceElement } from './workspace-tool-focus'
 import {
@@ -232,11 +232,13 @@ export function HbarSessionStopProvider({
         data-stop-state={feedback.kind}
       >
         <LumenFrame className="hbar-app-react-session-stop-message" role="status" aria-live="polite" aria-atomic="true">
-          <LumenText as="p">{text}</LumenText>
+          <LumenContentText context="section.description">{text}</LumenContentText>
           {feedback.error && feedback.error !== 'RESULT_UNKNOWN' && feedback.kind !== 'failed' && !terminal && (
-            <LumenText as="small">{labels.failure(feedback.error)}</LumenText>
+            <LumenContentText context="record.description">{labels.failure(feedback.error)}</LumenContentText>
           )}
-          {!connected && !terminal && <LumenText as="small">{labels.offline}</LumenText>}
+          {!connected && !terminal && (
+            <LumenContentText context="record.description">{labels.offline}</LumenContentText>
+          )}
         </LumenFrame>
         <LumenFrame className="hbar-app-react-session-stop-actions">
           {feedback.kind !== 'sending' && (

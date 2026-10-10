@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
-import { LumenButton, LumenFrame, LumenImage, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenImage } from '@lumen/app-ui'
 import { imageSourceName, remoteImageSource } from './message-image-preview-model'
 import { useMessageImagePreviewLabels, type MessageImagePreviewLabels } from './message-image-preview-context'
 import { registerSessionNavigationChrome } from './session-navigation-chrome'
@@ -37,15 +37,15 @@ function ImagePreview({
         />
       </LumenFrame>
       {status === 'loading' && (
-        <LumenText as="span" role="status">
+        <LumenContentText context="message.inline" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {status === 'failed' && (
         <LumenFrame as="span" className="hbar-message-image-preview-error">
-          <LumenText as="span" role="alert">
+          <LumenContentText context="message.inline" role="alert">
             {labels.failed}
-          </LumenText>
+          </LumenContentText>
           <LumenButton
             type="button"
             variant="text"

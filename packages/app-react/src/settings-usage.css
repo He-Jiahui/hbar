@@ -54,7 +54,7 @@
   text-align: center;
 }
 .hbar-settings-usage-metric > strong {
-  font-size: 1.5rem;
+  font-size: calc(var(--lumen-font-size) * 1.714286);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;

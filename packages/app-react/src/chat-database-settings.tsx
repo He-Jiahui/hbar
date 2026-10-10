@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Database, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
 import {
+  LumenContentText,
   LumenButton,
   LumenCollection,
   LumenCollectionItem,
@@ -158,9 +159,9 @@ function Operation({
       data-operation-status={operation.status}
     >
       <LumenFrame className="hbar-chat-database-row">
-        <LumenText as="p" role={active ? 'status' : undefined}>
+        <LumenContentText context="feedback.message" role={active ? 'status' : undefined}>
           {labels.operation(operation)}
-        </LumenText>
+        </LumenContentText>
         {onCancel && active && (
           <LumenButton disabled={!connected || operation.cancellationRequested} onClick={onCancel}>
             {labels.cancel}
@@ -172,13 +173,13 @@ function Operation({
           </LumenButton>
         )}
       </LumenFrame>
-      <LumenText as="p" tone="muted">
+      <LumenContentText context="form.description" tone="muted">
         {labels.outcome(operation)}
-      </LumenText>
+      </LumenContentText>
       {operation.error && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {labels.error(operation.error)}
-        </LumenText>
+        </LumenContentText>
       )}
       <Skips skipped={operation.skipped} labels={labels} />
     </LumenFrame>
@@ -251,29 +252,29 @@ export function HbarChatDatabaseSettings({
   return (
     <LumenFrame as="section" className="hbar-chat-database-settings" aria-label={labels.title}>
       <LumenFrame as="header">
-        <LumenText as="h2" variant="heading">
+        <LumenContentText context="section.title">
           <LumenIcon icon={Database} tier="md" />
           {labels.title}
-        </LumenText>
-        <LumenText as="p" tone="muted">
+        </LumenContentText>
+        <LumenContentText context="form.description" tone="muted">
           {labels.description}
-        </LumenText>
+        </LumenContentText>
       </LumenFrame>
       {!connected && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.offline}
-        </LumenText>
+        </LumenContentText>
       )}
       {state?.error && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {labels.error(state.error)}
-        </LumenText>
+        </LumenContentText>
       )}
       {state?.unknown && (
         <LumenFrame className="hbar-chat-database-row">
-          <LumenText as="p" role="status">
+          <LumenContentText context="feedback.message" role="status">
             {labels.unknown}
-          </LumenText>
+          </LumenContentText>
           <LumenButton
             disabled={!connected || state.writing}
             onClick={() => void actions.retryOriginal(instanceId, scope)}
@@ -284,7 +285,7 @@ export function HbarChatDatabaseSettings({
       )}
       <LumenFrame as="section" className="hbar-chat-database-section" aria-label={labels.overview}>
         <LumenFrame className="hbar-chat-database-row">
-          <LumenText as="h3">{labels.overview}</LumenText>
+          <LumenContentText context="section.subtitle">{labels.overview}</LumenContentText>
           <LumenButton disabled={!connected || state?.loading} onClick={() => void actions.refresh(instanceId, scope)}>
             <LumenIcon icon={RefreshCw} tier="sm" />
             {labels.refresh}
@@ -292,13 +293,15 @@ export function HbarChatDatabaseSettings({
         </LumenFrame>
         {report && (
           <LumenFrame className="hbar-chat-database-total">
-            <LumenText as="span">{report.totalKind === 'physical' ? labels.physical : labels.attributable}</LumenText>
-            <LumenText as="strong">{labels.bytes(report.totalBytes)}</LumenText>
+            <LumenContentText context="message.inline">
+              {report.totalKind === 'physical' ? labels.physical : labels.attributable}
+            </LumenContentText>
+            <LumenContentText context="record.title">{labels.bytes(report.totalBytes)}</LumenContentText>
           </LumenFrame>
         )}
-        <LumenText as="p" tone="muted">
+        <LumenContentText context="form.description" tone="muted">
           {scope.kind === 'global' ? labels.totalHelp : labels.scopedHelp}
-        </LumenText>
+        </LumenContentText>
         {renderMetrics(false)}
         {report && scope.kind === 'global' && (
           <LumenDisclosure summary={labels.cacheBreakdown}>
@@ -314,33 +317,33 @@ export function HbarChatDatabaseSettings({
         )}
         {scope.kind !== 'global' && <LumenDisclosure summary={labels.shared}>{renderMetrics(true)}</LumenDisclosure>}
         {report?.sampledAt ? (
-          <LumenText as="p" tone="muted">
+          <LumenContentText context="form.description" tone="muted">
             {labels.sampledAt(report.sampledAt)}
-          </LumenText>
+          </LumenContentText>
         ) : null}
         {(state?.loading || report?.status === 'scanning') && (
-          <LumenText as="p" role="status">
+          <LumenContentText context="feedback.message" role="status">
             {labels.loading}
-          </LumenText>
+          </LumenContentText>
         )}
         {report && !report.complete && (
-          <LumenText as="p" role="status">
+          <LumenContentText context="feedback.message" role="status">
             {labels.incomplete}
-          </LumenText>
+          </LumenContentText>
         )}
       </LumenFrame>
       <LumenFrame as="section" className="hbar-chat-database-section" aria-label={labels.rules}>
-        <LumenText as="h3">{labels.rules}</LumenText>
-        <LumenText as="p" tone="muted">
+        <LumenContentText context="section.subtitle">{labels.rules}</LumenContentText>
+        <LumenContentText context="form.description" tone="muted">
           {labels.rulesHelp}
-        </LumenText>
+        </LumenContentText>
         {ruleForm}
       </LumenFrame>
       <LumenFrame as="section" className="hbar-chat-database-section" aria-label={labels.automatic}>
-        <LumenText as="h3">{labels.automatic}</LumenText>
+        <LumenContentText context="section.subtitle">{labels.automatic}</LumenContentText>
         {state?.task && (
           <>
-            <LumenText as="p">{labels.task(state.task)}</LumenText>
+            <LumenContentText context="form.description">{labels.task(state.task)}</LumenContentText>
             <LumenCollection as="dl" className="hbar-chat-database-metrics">
               <LumenFrame>
                 <LumenCollectionItem as="dt">{labels.lastRun}</LumenCollectionItem>
@@ -352,28 +355,28 @@ export function HbarChatDatabaseSettings({
               </LumenFrame>
             </LumenCollection>
             {state.task.error && (
-              <LumenText as="p" role="alert">
+              <LumenContentText context="feedback.message" role="alert">
                 {labels.error(state.task.error)}
-              </LumenText>
+              </LumenContentText>
             )}
           </>
         )}
-        <LumenText as="p" tone="muted">
+        <LumenContentText context="form.description" tone="muted">
           {labels.savedRules}
-        </LumenText>
+        </LumenContentText>
       </LumenFrame>
       <LumenFrame as="section" className="hbar-chat-database-section" aria-label={labels.manual}>
-        <LumenText as="h3">{labels.manual}</LumenText>
-        <LumenText as="p" tone="muted">
+        <LumenContentText context="section.subtitle">{labels.manual}</LumenContentText>
+        <LumenContentText context="form.description" tone="muted">
           {labels.manualHelp}
-        </LumenText>
+        </LumenContentText>
         {allowedActions.map((action) => (
           <LumenFrame as="article" aria-label={action.title} className="hbar-chat-database-action" key={action.kind}>
             <LumenFrame>
               <LumenText as="h4">{action.title}</LumenText>
-              <LumenText as="p" tone="muted">
+              <LumenContentText context="form.description" tone="muted">
                 {action.help}
-              </LumenText>
+              </LumenContentText>
             </LumenFrame>
             <LumenButton
               disabled={!connected || busy}
@@ -402,7 +405,7 @@ export function HbarChatDatabaseSettings({
               </LumenButton>
             )}
             {preview.status === 'completed' && preview.candidateCount === 0 && (
-              <LumenText as="p">{labels.noCandidates}</LumenText>
+              <LumenContentText context="form.description">{labels.noCandidates}</LumenContentText>
             )}
           </>
         )}
@@ -417,13 +420,13 @@ export function HbarChatDatabaseSettings({
         )}
       </LumenFrame>
       <LumenFrame as="section" className="hbar-chat-database-section" aria-label={labels.records}>
-        <LumenText as="h3">{labels.records}</LumenText>
+        <LumenContentText context="section.subtitle">{labels.records}</LumenContentText>
         {state?.history.length ? (
           state.history.map((item) => (
             <Operation key={item.operationId} operation={item} labels={labels} connected={connected} />
           ))
         ) : (
-          <LumenText as="p">{labels.noRecords}</LumenText>
+          <LumenContentText context="form.description">{labels.noRecords}</LumenContentText>
         )}
         <LumenFrame className="hbar-chat-database-row">
           <LumenButton
@@ -465,26 +468,26 @@ export function HbarChatDatabaseSettings({
       >
         {preview && (
           <LumenFrame className="hbar-chat-database-confirm">
-            <LumenText as="p">{labels.scope(scope)}</LumenText>
-            <LumenText as="p">{labels.previewSummary(preview)}</LumenText>
-            <LumenText as="p" tone="muted">
+            <LumenContentText context="dialog.body">{labels.scope(scope)}</LumenContentText>
+            <LumenContentText context="dialog.body">{labels.previewSummary(preview)}</LumenContentText>
+            <LumenContentText context="dialog.body" tone="muted">
               {labels.expiresAt(preview.expiresAt)}
-            </LumenText>
-            <LumenText as="p">
+            </LumenContentText>
+            <LumenContentText context="dialog.body">
               <LumenIcon icon={ShieldCheck} tier="md" />
               {labels.confirmHelp}
-            </LumenText>
+            </LumenContentText>
             <LumenCollection as="ol" className="hbar-chat-database-preview-list">
               {state?.previewItems.map((item) => (
                 <LumenCollectionItem as="li" key={`${item.kind}:${item.id}`}>
-                  <LumenText as="p">{item.title}</LumenText>
-                  <LumenText as="p" tone="muted">
+                  <LumenContentText context="dialog.body">{item.title}</LumenContentText>
+                  <LumenContentText context="dialog.body" tone="muted">
                     {labels.bytes(item.estimatedBytes)}
-                  </LumenText>
+                  </LumenContentText>
                   {item.skipReason && (
-                    <LumenText as="p" tone="muted">
+                    <LumenContentText context="dialog.body" tone="muted">
                       {labels.skipReason(item.skipReason)}
-                    </LumenText>
+                    </LumenContentText>
                   )}
                 </LumenCollectionItem>
               ))}

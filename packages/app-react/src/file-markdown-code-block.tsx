@@ -1,6 +1,6 @@
 import { createContext, useContext, useId, useLayoutEffect, useState, type ComponentProps } from 'react'
 import type { ExtraProps } from 'react-markdown'
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
 import { CodeTextCopyAction, type HbarCodeBlockLabels } from './code-block-copy-action'
 import type { MessageClipboardPort } from './message-copy'
 import { CODE_BLOCK_PREVIEW_LINES, markdownCodeBlock } from './markdown-code-block-model'
@@ -35,8 +35,8 @@ function FileCodeBlock({
     <LumenFrame className="hbar-message-code hbar-file-markdown-code" data-code-occurrence={code.occurrenceId}>
       <LumenFrame className="hbar-message-code-header">
         <LumenFrame className="hbar-message-code-metadata">
-          <LumenText as="span">{context.labels.language(code.language)}</LumenText>
-          <LumenText as="span">{context.labels.lines(code.lines)}</LumenText>
+          <LumenContentText context="message.inline">{context.labels.language(code.language)}</LumenContentText>
+          <LumenContentText context="message.inline">{context.labels.lines(code.lines)}</LumenContentText>
         </LumenFrame>
         <CodeTextCopyAction
           identity={['file', context.previewId, context.path, code.occurrenceId]}

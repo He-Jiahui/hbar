@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowUpRight } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import { useHbarRuntime } from './runtime'
 import './agent-tool-open.css'
 
@@ -83,9 +83,9 @@ export function HbarAgentToolOpen({
         {busy ? labels.opening : labels.open}
       </LumenButton>
       {error && (
-        <LumenText as="span" role="alert">
+        <LumenContentText context="message.inline" role="alert">
           {labels.error(error)}
-        </LumenText>
+        </LumenContentText>
       )}
     </LumenFrame>
   )

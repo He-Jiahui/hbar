@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { Bot, ChartNoAxesColumnIncreasing, Check, Ellipsis, ListTodo, Settings } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import { sessionToolsMenuPosition } from './session-tools-menu-model'
 import './session-tools-menu.css'
 
@@ -115,7 +115,7 @@ export function HbarSessionToolsMenu({
         }}
       >
         <LumenIcon icon={Ellipsis} tier="sm" />
-        <LumenText as="span">{labels.more}</LumenText>
+        <LumenContentText context="control.label">{labels.more}</LumenContentText>
       </LumenButton>
       <LumenFrame
         ref={popup}
@@ -161,9 +161,9 @@ export function HbarSessionToolsMenu({
             }}
           >
             <LumenIcon icon={tool.icon} tier="sm" />
-            <LumenText as="span" className="hbar-session-tools-menu-label">
+            <LumenContentText context="control.label" className="hbar-session-tools-menu-label">
               {labels[tool.id]}
-            </LumenText>
+            </LumenContentText>
             {selected === tool.id && <LumenIcon icon={Check} tier="sm" />}
           </LumenButton>
         ))}
@@ -179,9 +179,9 @@ export function HbarSessionToolsMenu({
           }}
         >
           <LumenIcon icon={Settings} tier="sm" />
-          <LumenText as="span" className="hbar-session-tools-menu-label">
+          <LumenContentText context="control.label" className="hbar-session-tools-menu-label">
             {labels.settings}
-          </LumenText>
+          </LumenContentText>
         </LumenButton>
       </LumenFrame>
     </LumenFrame>

@@ -1,4 +1,12 @@
-import { LumenButton, LumenFormField, LumenFrame, LumenInput, LumenPromptInput04, LumenTextarea, LumenText } from '@lumen/app-ui'
+import {
+  LumenContentText,
+  LumenButton,
+  LumenFormField,
+  LumenFrame,
+  LumenInput,
+  LumenPromptInput04,
+  LumenTextarea,
+} from '@lumen/app-ui'
 import type { PromptTemplateVariable } from '@hbar/contracts/commands/prompt-templates'
 
 export interface PromptTemplateEditorLabels {
@@ -29,12 +37,10 @@ export interface PromptTemplateEditorProps {
 export function PromptTemplateEditor(props: PromptTemplateEditorProps) {
   const content = (
     <LumenFrame as="section" aria-label={props.labels.title} className="hbar-prompt-template-editor">
-      <LumenText as="h2" variant="title">
-        {props.labels.title}
-      </LumenText>
-      <LumenText as="p" tone="muted">
+      <LumenContentText context="section.title">{props.labels.title}</LumenContentText>
+      <LumenContentText context="section.description" tone="muted">
         {props.labels.detail}
-      </LumenText>
+      </LumenContentText>
       <LumenFormField controlId="prompt-template-name" label={props.labels.name}>
         <LumenInput
           disabled={props.disabled}
@@ -52,14 +58,18 @@ export function PromptTemplateEditor(props: PromptTemplateEditorProps) {
       <LumenFrame aria-label={props.labels.variables}>
         {props.variables.map((variable, index) => (
           <LumenFrame key={index}>
-            <LumenText as="span">{variable.label}</LumenText>
-            <LumenText as="span" tone={variable.present ? 'success' : 'muted'}>
+            <LumenContentText context="message.inline">{variable.label}</LumenContentText>
+            <LumenContentText context="message.inline" tone={variable.present ? 'success' : 'muted'}>
               {variable.present ? props.labels.valid : props.labels.invalid}
-            </LumenText>
+            </LumenContentText>
           </LumenFrame>
         ))}
       </LumenFrame>
-      {props.validation ? <LumenText tone="danger">{props.validation}</LumenText> : null}
+      {props.validation ? (
+        <LumenContentText context="message.inline" tone="danger">
+          {props.validation}
+        </LumenContentText>
+      ) : null}
       <LumenFrame as="footer">
         <LumenButton tone="primary" disabled={!props.canSave} onClick={props.onSave}>
           {props.labels.save}

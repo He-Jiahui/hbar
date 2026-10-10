@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from 'react'
 import { Ellipsis, X, type LucideIcon } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import { FloatingSurface, useFloatingTrigger } from './floating-surface'
 import './mobile-header-menu.css'
 
@@ -188,7 +188,7 @@ export function HbarMobileHeaderMenu({ label }: { readonly label: string }) {
               className="hbar-mobile-header-menu-section"
               aria-label={section.label}
             >
-              <LumenText as="strong">{section.label}</LumenText>
+              <LumenContentText context="popover.title">{section.label}</LumenContentText>
               <LumenFrame className="hbar-mobile-header-menu-items">
                 {section.items.map((item) => (
                   <LumenFrame key={item.id} className="hbar-mobile-header-menu-item-row">
@@ -202,7 +202,7 @@ export function HbarMobileHeaderMenu({ label }: { readonly label: string }) {
                       onClick={() => activate(item.onActivate)}
                     >
                       {item.icon && <LumenIcon icon={item.icon} tier="sm" />}
-                      <LumenText as="span">{item.label}</LumenText>
+                      <LumenContentText context="control.label">{item.label}</LumenContentText>
                     </LumenButton>
                     {item.close && (
                       <LumenButton

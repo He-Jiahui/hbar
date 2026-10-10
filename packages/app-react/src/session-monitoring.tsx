@@ -1,6 +1,6 @@
 import { useId, useMemo, useState } from 'react'
 import { ChartNoAxesColumnIncreasing } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenText, LumenToolPane, LumenTabs, LumenContentText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenToolPane, LumenTabs, LumenContentText } from '@lumen/app-ui'
 import { projectSessionDecisions } from '@hbar/app-runtime'
 import type { ThreadGoal } from '@hbar/contracts'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
@@ -143,9 +143,9 @@ export function HbarSessionMonitoring({
           <HbarSessionRunHistory sessionId={sessionId} connected={connected} labels={labels.history} />
           {facts?.status === 'error' && (
             <LumenFrame className="hbar-monitoring-context-recovery">
-              <LumenText as="p" role="alert">
+              <LumenContentText context="feedback.message" role="alert">
                 {labels.goal.error(facts.error ?? 'EXECUTION_FAILED')}
-              </LumenText>
+              </LumenContentText>
               <LumenButton
                 size="s"
                 variant="text"
@@ -164,16 +164,16 @@ export function HbarSessionMonitoring({
               className="hbar-monitoring-goal"
               label={
                 <LumenFrame as="span" className="hbar-monitoring-section-heading">
-                  <LumenText as="span">{labels.goal.title}</LumenText>
-                  <LumenText as="span" tone="muted">
+                  <LumenContentText context="control.label">{labels.goal.title}</LumenContentText>
+                  <LumenContentText context="control.label" tone="muted">
                     {labels.goal.status(goal.status)}
-                  </LumenText>
+                  </LumenContentText>
                 </LumenFrame>
               }
             >
-              <LumenText as="p" className="hbar-monitoring-objective">
+              <LumenContentText context="section.description" className="hbar-monitoring-objective">
                 {goal.objective}
-              </LumenText>
+              </LumenContentText>
               <HbarGoalExecutionState
                 goal={goal}
                 remainingTokens={snapshot?.remainingTokens ?? null}
@@ -182,16 +182,16 @@ export function HbarSessionMonitoring({
             </HbarLumenDisclosure>
           )}
           {report?.gap && (
-            <LumenText as="p" className="hbar-app-react-monitoring-gap" role="status">
+            <LumenContentText context="feedback.message" className="hbar-app-react-monitoring-gap" role="status">
               {labels.gap}
-            </LumenText>
+            </LumenContentText>
           )}
           {report ? (
             <HbarSessionMonitoringUsage key={`usage:${sessionId}`} report={report} labels={labels} />
           ) : (
-            <LumenText as="p" className="hbar-app-react-monitoring-empty">
+            <LumenContentText context="section.description" className="hbar-app-react-monitoring-empty">
               {labels.empty}
-            </LumenText>
+            </LumenContentText>
           )}
           <HbarSessionDecisionHistory
             key={`decisions:${sessionId}`}

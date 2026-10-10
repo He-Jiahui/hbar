@@ -133,7 +133,7 @@
 
 .hbar-app-react-shell-header strong {
   flex: 0 0 auto;
-  font-size: 0.875rem;
+  font-size: var(--lumen-font-size);
   white-space: nowrap;
 }
 
@@ -174,7 +174,7 @@
   padding: 0.25rem 0.75rem;
   overflow-wrap: anywhere;
   color: var(--lumen-danger);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 
 .hbar-app-react-sidebar-query-actions {
@@ -274,7 +274,7 @@
 
 .hbar-app-react-sidebar-load-feedback p {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 
 .hbar-app-react-workspace-row,
@@ -311,7 +311,7 @@
   min-inline-size: 0;
   margin: 0;
   overflow-wrap: anywhere;
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 
 .hbar-app-react-workspace-row [data-variant],
@@ -403,7 +403,7 @@
 .hbar-app-react-session-time {
   flex: 0 0 auto;
   color: var(--lumen-muted);
-  font-size: 0.6875rem;
+  font-size: calc(var(--lumen-font-size) * 0.785714);
   white-space: nowrap;
 }
 
@@ -417,7 +417,7 @@
 }
 
 .hbar-app-react-session-rename-label {
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   color: var(--lumen-muted);
 }
 
@@ -445,14 +445,14 @@
 
 .hbar-app-react-session-rename-recovery strong {
   overflow-wrap: anywhere;
-  font-size: 0.875rem;
+  font-size: var(--lumen-font-size);
 }
 
 .hbar-app-react-session-list p,
 .hbar-app-react-project-tree > p {
   margin: 0;
   padding: 0.5rem 0.75rem;
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 
 .hbar-app-react-sidebar-actions {
@@ -472,7 +472,7 @@
   margin: 0;
   padding: 0;
   overflow-wrap: anywhere;
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 
 .hbar-app-react-navigation-feedback [role='alert'] {
@@ -577,7 +577,7 @@
     flex: 1 1 0;
     margin: 0;
     color: var(--lumen-ink);
-    font-size: 0.9375rem;
+    font-size: calc(var(--lumen-font-size) * 1.071429);
     font-weight: 650;
     line-height: 1.25;
     overflow-x: auto;

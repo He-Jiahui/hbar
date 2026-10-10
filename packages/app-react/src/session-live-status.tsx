@@ -1,6 +1,6 @@
 import { useId, useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import type { ComposerIntentState } from '@hbar/app-runtime'
 import type { RunStatus } from '@hbar/contracts'
 import { projectActivityTasks } from './activity-tasks-model'
@@ -88,19 +88,15 @@ export function HbarSessionLiveStatus({
             onClick={() => setExpandedSession(expanded ? null : sessionId)}
           >
             <LumenIcon icon={expanded ? ChevronDown : ChevronRight} tier="sm" />
-            <LumenText as="strong" variant="label">
-              {labels.label}
-            </LumenText>
+            <LumenContentText context="choice.title">{labels.label}</LumenContentText>
             {Boolean(tasks?.steps.length) && (
-              <LumenText as="span" className="hbar-session-live-status-progress">
+              <LumenContentText context="control.status" className="hbar-session-live-status-progress">
                 {labels.tasks.progress(tasks?.completed ?? 0, tasks?.steps.length ?? 0)}
-              </LumenText>
+              </LumenContentText>
             )}
           </LumenButton>
         ) : currentRun ? (
-          <LumenText as="strong" variant="label">
-            {labels.label}
-          </LumenText>
+          <LumenContentText context="record.title">{labels.label}</LumenContentText>
         ) : null}
         {summaryOwned && (
           <LumenFrame key="goal" className="hbar-session-live-status-goal">
@@ -141,11 +137,11 @@ export function HbarSessionLiveStatus({
               onRefresh={context.onRefresh}
             />
           )}
-          {tasks?.explanation && <LumenText as="p">{tasks.explanation}</LumenText>}
+          {tasks?.explanation && <LumenContentText context="section.description">{tasks.explanation}</LumenContentText>}
           {goal && (
             <LumenFrame as="section" className="hbar-session-live-status-objective" aria-label={labels.goal}>
-              <LumenText as="h3">{labels.goal}</LumenText>
-              <LumenText as="p">{goal.objective}</LumenText>
+              <LumenContentText context="section.subtitle">{labels.goal}</LumenContentText>
+              <LumenContentText context="section.description">{goal.objective}</LumenContentText>
             </LumenFrame>
           )}
         </LumenFrame>

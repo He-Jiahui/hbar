@@ -1,4 +1,4 @@
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame } from '@lumen/app-ui'
 import type { ExtensionWorkspaceEntryState } from '@hbar/app-runtime'
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
 
@@ -115,19 +115,19 @@ export function ExtensionCollectionFeedback({
       data-collection-status={state?.status ?? 'idle'}
     >
       {loading ? (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       ) : failed ? (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {labels.error(state.error)}
-        </LumenText>
+        </LumenContentText>
       ) : !state?.hasSnapshot ? (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.notLoaded}
-        </LumenText>
+        </LumenContentText>
       ) : null}
-      {stale && <LumenText as="p">{labels.stale}</LumenText>}
+      {stale && <LumenContentText context="section.description">{labels.stale}</LumenContentText>}
       {(failed || retryRequested) && (
         <LumenButton
           ref={button}

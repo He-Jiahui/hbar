@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { FileText, Image, LoaderCircle, RefreshCw, X } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import type { SessionDraftState } from '@hbar/app-runtime'
 import { composerFiles } from './composer-attachment-input'
 import './composer-attachments.css'
@@ -66,7 +66,7 @@ export function HbarComposerAttachmentDropTarget({
       {children}
       {enabled && dragging && (
         <LumenFrame className="hbar-composer-attachment-drop-overlay" role="status">
-          <LumenText>{label}</LumenText>
+          <LumenContentText context="message.inline">{label}</LumenContentText>
         </LumenFrame>
       )}
     </LumenFrame>
@@ -105,16 +105,20 @@ export function HbarComposerAttachmentTransfers({
           >
             <LumenIcon icon={busy ? LoaderCircle : transfer.kind === 'image' ? Image : FileText} tier="sm" />
             <LumenFrame className="hbar-composer-attachment-transfer-copy">
-              <LumenText as="span" className="hbar-composer-attachment-name" title={transfer.name}>
+              <LumenContentText
+                context="message.inline"
+                className="hbar-composer-attachment-name"
+                title={transfer.name}
+              >
                 {transfer.name}
-              </LumenText>
-              <LumenText as="span" className="hbar-composer-attachment-status" role="status">
+              </LumenContentText>
+              <LumenContentText context="control.status" className="hbar-composer-attachment-status" role="status">
                 {labels.status(transfer.status)}
-              </LumenText>
+              </LumenContentText>
               {transfer.error && (
-                <LumenText as="span" className="hbar-composer-attachment-error">
+                <LumenContentText context="message.inline" className="hbar-composer-attachment-error">
                   {labels.error(transfer.error)}
-                </LumenText>
+                </LumenContentText>
               )}
             </LumenFrame>
             <LumenFrame className="hbar-composer-attachment-actions">

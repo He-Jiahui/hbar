@@ -1,10 +1,10 @@
 import { useCallback, useEffect } from 'react'
 import { ListTodo, RefreshCw } from 'lucide-react'
 import {
+  LumenContentText,
   LumenCollection,
   LumenCollectionItem,
   LumenFrame,
-  LumenText,
   LumenButton,
   LumenCompactMetrics,
   LumenFormField,
@@ -211,20 +211,24 @@ export function HbarGoalPlanWorkspace({
           body: (
             <>
               {!canPrepare && (
-                <LumenText as="p" role="status" data-goal-execution-access={preparationStatus}>
+                <LumenContentText
+                  context="feedback.message"
+                  role="status"
+                  data-goal-execution-access={preparationStatus}
+                >
                   {preparationStatus === 'archived'
                     ? labels.executionAccess.archived
                     : labels.executionAccess.unverified}
-                </LumenText>
+                </LumenContentText>
               )}
               {!entry || entry.status === 'loading' ? (
-                <LumenText as="p" className="hbar-app-react-goal-plan-loading">
+                <LumenContentText context="section.description" className="hbar-app-react-goal-plan-loading">
                   {labels.loading}
-                </LumenText>
+                </LumenContentText>
               ) : entry.error ? (
-                <LumenText as="p" className="hbar-app-react-goal-plan-loading" role="alert">
+                <LumenContentText context="feedback.message" className="hbar-app-react-goal-plan-loading" role="alert">
                   {labels.error(entry.error)}
-                </LumenText>
+                </LumenContentText>
               ) : view === 'goal' ? (
                 <LumenFrame as="main" className="hbar-app-react-goal-editor-view">
                   <LumenFrame
@@ -255,9 +259,9 @@ export function HbarGoalPlanWorkspace({
                         />
                       </LumenFormField>
                       {entry.goal && entry.goalDraft.objective !== entry.goalDraft.baseline.objective && (
-                        <LumenText as="p" role="note">
+                        <LumenContentText context="feedback.message" role="note">
                           {labels.goal.replacementWarning}
-                        </LumenText>
+                        </LumenContentText>
                       )}
                       <HbarLumenDisclosure
                         label={labels.goal.advanced}
@@ -288,14 +292,14 @@ export function HbarGoalPlanWorkspace({
                       </HbarLumenDisclosure>
                     </LumenFrame>
                     {entry.goalAction.error && (
-                      <LumenText as="p" role="alert">
+                      <LumenContentText context="feedback.message" role="alert">
                         {labels.error(entry.goalAction.error)}
-                      </LumenText>
+                      </LumenContentText>
                     )}
                     {entry.goalAction.status === 'succeeded' && (
-                      <LumenText as="p" role="status">
+                      <LumenContentText context="feedback.message" role="status">
                         {labels.goal.saved}
-                      </LumenText>
+                      </LumenContentText>
                     )}
                     <LumenFrame as="footer">
                       <LumenButton
@@ -329,7 +333,7 @@ export function HbarGoalPlanWorkspace({
                 <LumenFrame as="main" className="hbar-app-react-goal-plan-overview">
                   <LumenFrame as="section">
                     <LumenFrame as="header">
-                      <LumenText as="h2">{labels.goal.title}</LumenText>
+                      <LumenContentText context="section.title">{labels.goal.title}</LumenContentText>
                       {entry.goal && (
                         <LumenStatus
                           value={labels.goal.statuses[entry.goal.status]}
@@ -339,9 +343,9 @@ export function HbarGoalPlanWorkspace({
                     </LumenFrame>
                     {entry.goal ? (
                       <>
-                        <LumenText as="p" className="hbar-app-react-goal-objective">
+                        <LumenContentText context="section.description" className="hbar-app-react-goal-objective">
                           {entry.goal.objective}
-                        </LumenText>
+                        </LumenContentText>
                         <GoalMetrics
                           goal={entry.goal}
                           receivedAt={entry.goalReceivedAt}
@@ -355,19 +359,19 @@ export function HbarGoalPlanWorkspace({
                         />
                       </>
                     ) : (
-                      <LumenText as="p" className="hbar-app-react-goal-plan-empty">
+                      <LumenContentText context="section.description" className="hbar-app-react-goal-plan-empty">
                         {labels.goal.composerHint}
-                      </LumenText>
+                      </LumenContentText>
                     )}
                     {entry.goalAction.status === 'succeeded' && (
-                      <LumenText as="p" role="status">
+                      <LumenContentText context="feedback.message" role="status">
                         {entry.goal ? labels.goal.saved : labels.goal.cleared}
-                      </LumenText>
+                      </LumenContentText>
                     )}
                     {entry.goalAction.error && (
-                      <LumenText as="p" role="alert">
+                      <LumenContentText context="feedback.message" role="alert">
                         {labels.error(entry.goalAction.error)}
-                      </LumenText>
+                      </LumenContentText>
                     )}
                     <LumenFrame as="footer">
                       <LumenButton
@@ -381,44 +385,44 @@ export function HbarGoalPlanWorkspace({
                   </LumenFrame>
                   <LumenFrame as="section">
                     <LumenFrame as="header">
-                      <LumenText as="h2">{labels.plan.title}</LumenText>
-                      <LumenText as="span" className="hbar-app-react-plan-count">
+                      <LumenContentText context="section.title">{labels.plan.title}</LumenContentText>
+                      <LumenContentText context="metadata" className="hbar-app-react-plan-count">
                         {labels.plan.count(entry.plan?.plan.length ?? 0)}
-                      </LumenText>
+                      </LumenContentText>
                     </LumenFrame>
                     {entry.plan ? (
                       <>
                         {entry.plan.explanation && (
-                          <LumenText as="p" className="hbar-app-react-plan-explanation">
+                          <LumenContentText context="section.description" className="hbar-app-react-plan-explanation">
                             {entry.plan.explanation}
-                          </LumenText>
+                          </LumenContentText>
                         )}
                         <LumenCollection as="ol" className="hbar-app-react-plan-summary">
                           {entry.plan.plan.map((step, index) => (
                             <LumenCollectionItem key={`${index}-${step.step}`}>
-                              <LumenText as="span" aria-hidden="true">
+                              <LumenContentText context="message.inline" aria-hidden="true">
                                 {index + 1}
-                              </LumenText>
-                              <LumenText as="strong">{step.step}</LumenText>
+                              </LumenContentText>
+                              <LumenContentText context="record.title">{step.step}</LumenContentText>
                               <LumenStatus value={labels.plan.statuses[step.status]} tone={stepTone(step.status)} />
                             </LumenCollectionItem>
                           ))}
                         </LumenCollection>
                       </>
                     ) : (
-                      <LumenText as="p" className="hbar-app-react-goal-plan-empty">
+                      <LumenContentText context="section.description" className="hbar-app-react-goal-plan-empty">
                         {labels.plan.empty}
-                      </LumenText>
+                      </LumenContentText>
                     )}
                     {entry.planAction.status === 'succeeded' && (
-                      <LumenText as="p" role="status">
+                      <LumenContentText context="feedback.message" role="status">
                         {entry.plan ? labels.plan.saved : labels.plan.cleared}
-                      </LumenText>
+                      </LumenContentText>
                     )}
                     {entry.planAction.error && (
-                      <LumenText as="p" role="alert">
+                      <LumenContentText context="feedback.message" role="alert">
                         {labels.error(entry.planAction.error)}
-                      </LumenText>
+                      </LumenContentText>
                     )}
                   </LumenFrame>
                   <HbarWorkflowOverview

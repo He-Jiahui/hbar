@@ -1,5 +1,5 @@
 import { LoaderCircle, Square } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import './composer-background-agents.css'
 
 export interface HbarComposerBackgroundAgentLabels {
@@ -97,9 +97,9 @@ export function HbarComposerBackgroundAgentFeedback({
       role={failure ? 'alert' : 'status'}
       aria-live="polite"
     >
-      <LumenText as="p" tone={failure ? 'danger' : 'muted'}>
+      <LumenContentText context="section.description" tone={failure ? 'danger' : 'muted'}>
         {message}
-      </LumenText>
+      </LumenContentText>
       {kind === 'unknown' || kind === 'requested' ? (
         <LumenButton type="button" size="s" variant="text" indicator="none" disabled={disabled} onClick={onReconcile}>
           {labels.reconcile}

@@ -4,7 +4,7 @@
   flex-wrap: nowrap;
   align-items: center;
   gap: 0.25rem 0.5rem;
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
 
   overflow-x: auto;
 }

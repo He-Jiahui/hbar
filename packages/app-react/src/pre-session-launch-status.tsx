@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame } from '@lumen/app-ui'
 import type { PreSessionDraftState } from '@hbar/app-runtime'
 import { useHbarRuntime } from './runtime'
 import { firstSendNeedsContinue } from './pre-session-launch-model'
@@ -79,9 +79,12 @@ export function HbarPreSessionLaunchStatus({
             : labels.preparing
   return (
     <LumenFrame className="hbar-pre-session-launch-status" data-first-send-phase={draft.phase}>
-      <LumenText as="p" role={draft.phase === 'failed' || draft.phase === 'unknown' ? 'alert' : 'status'}>
+      <LumenContentText
+        context="feedback.message"
+        role={draft.phase === 'failed' || draft.phase === 'unknown' ? 'alert' : 'status'}
+      >
         {error ? labels.error(error) : status}
-      </LumenText>
+      </LumenContentText>
       <LumenFrame className="hbar-pre-session-launch-actions">
         {(draft.phase === 'unknown' || cancelRequested || paused) && !inFlight && (
           <LumenButton

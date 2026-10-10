@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { LumenFrame, LumenText, LumenButton, LumenDialog } from '@lumen/app-ui'
+import { LumenContentText, LumenFrame, LumenButton, LumenDialog } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { ProviderListView, type ProviderListViewLabels, type ProviderListViewItem } from './provider-list-view'
 import {
@@ -72,16 +72,16 @@ export function HbarProviderSettings({
   }
   if (providers.status === 'idle' || (providers.status === 'loading' && !providers.list))
     return (
-      <LumenText as="p" className="hbar-app-react-provider-state" role="status">
+      <LumenContentText context="feedback.message" className="hbar-app-react-provider-state" role="status">
         {labels.loading}
-      </LumenText>
+      </LumenContentText>
     )
   if (providers.status === 'error' || !providers.listSchema || !providers.list)
     return (
       <LumenFrame className="hbar-app-react-provider-state">
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {labels.error(actionError ?? providers.error ?? 'CAPABILITY_UNAVAILABLE')}
-        </LumenText>
+        </LumenContentText>
         <LumenButton variant="outlined" disabled={!connected} onClick={refresh}>
           {labels.refresh}
         </LumenButton>
@@ -165,9 +165,9 @@ export function HbarProviderSettings({
         }}
       />
       {actionError && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {labels.error(actionError)}
-        </LumenText>
+        </LumenContentText>
       )}
       <LumenDialog
         open={Boolean(removeTarget)}
@@ -190,9 +190,9 @@ export function HbarProviderSettings({
           </>
         }
       >
-        <LumenText as="p" className="hbar-app-react-provider-delete-copy">
+        <LumenContentText context="dialog.body" className="hbar-app-react-provider-delete-copy">
           {labels.deleteConfirmDescription(removeTarget?.name ?? '')}
-        </LumenText>
+        </LumenContentText>
       </LumenDialog>
     </LumenFrame>
   )
@@ -469,18 +469,18 @@ export function HbarProviderDialog({
           </>
         }
       >
-        <LumenText as="p" className="hbar-app-react-provider-delete-copy">
+        <LumenContentText context="dialog.body" className="hbar-app-react-provider-delete-copy">
           {labels.discardDescription}
-        </LumenText>
+        </LumenContentText>
       </LumenDialog>
     </>
   )
   if (!editor)
     return wrap(
       <LumenFrame as="section" className="hbar-app-react-provider-dialog hbar-app-react-provider-state">
-        <LumenText as="p" role={providers.status === 'error' ? 'alert' : 'status'}>
+        <LumenContentText context="feedback.message" role={providers.status === 'error' ? 'alert' : 'status'}>
           {providers.status === 'error' ? labels.error(providers.error ?? 'FORM_NOT_READY') : labels.loading}
-        </LumenText>
+        </LumenContentText>
         <LumenButton variant="outlined" onClick={back}>
           {labels.back}
         </LumenButton>

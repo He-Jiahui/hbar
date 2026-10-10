@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, type MouseEvent, type RefObject } from 'react'
 import { ChevronRight, Puzzle, RefreshCw, SearchX, X } from 'lucide-react'
 import {
+  LumenContentText,
   LumenButton,
   LumenCollection,
   LumenCollectionItem,
@@ -11,7 +12,6 @@ import {
   LumenStatus,
   LumenIntegrations02,
   LumenIntegrations01,
-  LumenText,
 } from '@lumen/app-ui'
 import { extensionWorkspacePage, type ExtensionWorkspaceEntryState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState, useHbarSkillImportSurface } from './runtime'
@@ -92,8 +92,8 @@ function ExtensionNoMatches({
   return (
     <LumenFrame className="hbar-app-react-extension-no-matches" role="status">
       <LumenIcon icon={SearchX} tier="lg" />
-      <LumenText as="strong">{title}</LumenText>
-      <LumenText as="p">{labels.noMatchesHint}</LumenText>
+      <LumenContentText context="record.title">{title}</LumenContentText>
+      <LumenContentText context="section.description">{labels.noMatchesHint}</LumenContentText>
       <LumenButton type="button" variant="outlined" onClick={onClear}>
         {labels.clearSearch}
       </LumenButton>
@@ -236,15 +236,15 @@ export function HbarExtensionWorkspace({
               className="hbar-app-react-extension-title"
               id={`${instanceId}-extensions-title`}
             >
-              <LumenText as="span">{navigation.title}</LumenText>
+              <LumenContentText context="message.inline">{navigation.title}</LumenContentText>
             </LumenFrame>
-            <LumenText as="p">{navigation.description}</LumenText>
-            {!collection && <LumenText as="small">{labels.hostWide}</LumenText>}
+            <LumenContentText context="section.description">{navigation.description}</LumenContentText>
+            {!collection && <LumenContentText context="record.description">{labels.hostWide}</LumenContentText>}
             {collection === 'plugins' && plugins?.hasSnapshot && page && (
-              <LumenText as="small">{labels.pluginCount(page.pluginCount)}</LumenText>
+              <LumenContentText context="record.description">{labels.pluginCount(page.pluginCount)}</LumenContentText>
             )}
             {collection === 'skills' && skills?.hasSnapshot && page && (
-              <LumenText as="small">{labels.skillCount(page.skillCount)}</LumenText>
+              <LumenContentText context="record.description">{labels.skillCount(page.skillCount)}</LumenContentText>
             )}
           </LumenFrame>
           <LumenFrame>
@@ -277,9 +277,9 @@ export function HbarExtensionWorkspace({
           list: (
             <LumenFrame className="hbar-app-react-extension-browser" hidden={Boolean(detail || skillDetail)}>
               {collection !== 'skills' && entry?.error === 'CAPACITY_EXCEEDED' && (
-                <LumenText as="p" role="alert">
+                <LumenContentText context="feedback.message" role="alert">
                   {labels.detail.actions.error(entry.error)}
-                </LumenText>
+                </LumenContentText>
               )}
               <>
                 <LumenFrame className="hbar-app-react-extension-filter">
@@ -311,9 +311,9 @@ export function HbarExtensionWorkspace({
                     )}
                   </LumenFrame>
                   {collection === 'skills' && query.trim() && skills?.status === 'ready' && page && (
-                    <LumenText as="small" role="status">
+                    <LumenContentText context="record.description" role="status">
                       {labels.skillSearchResults(page.skillCount, entry?.skills.length ?? 0)}
-                    </LumenText>
+                    </LumenContentText>
                   )}
                 </LumenFrame>
                 {collection !== 'skills' && (
@@ -332,10 +332,12 @@ export function HbarExtensionWorkspace({
                           ref={pluginsHeading}
                           tabIndex={-1}
                         >
-                          <LumenText as="span">{labels.plugins}</LumenText>
+                          <LumenContentText context="message.inline">{labels.plugins}</LumenContentText>
                         </LumenFrame>
                         {plugins?.hasSnapshot && page && (
-                          <LumenText as="small">{labels.pluginCount(page.pluginCount)}</LumenText>
+                          <LumenContentText context="record.description">
+                            {labels.pluginCount(page.pluginCount)}
+                          </LumenContentText>
                         )}
                       </LumenFrame>
                     )}
@@ -355,9 +357,9 @@ export function HbarExtensionWorkspace({
                       (entry.plugins.length && collection === 'plugins' ? (
                         <ExtensionNoMatches title={labels.noMatchingPlugins} labels={labels} onClear={clearQuery} />
                       ) : (
-                        <LumenText as="p" className="hbar-app-react-extension-empty">
+                        <LumenContentText context="section.description" className="hbar-app-react-extension-empty">
                           {entry.plugins.length ? labels.noMatches : labels.noPlugins}
-                        </LumenText>
+                        </LumenContentText>
                       ))
                     ) : (
                       <LumenCollection as="ul" className="hbar-app-react-extension-list">
@@ -385,11 +387,16 @@ export function HbarExtensionWorkspace({
                                 }}
                               >
                                 <LumenIcon icon={Puzzle} tier="md" />
-                                <LumenText as="span" className="hbar-app-react-extension-open-copy">
-                                  <LumenText as="strong">{plugin.name}</LumenText>
-                                  <LumenText as="small">{labels.pluginMetadata(plugin.id, plugin.version)}</LumenText>
-                                  <LumenText as="span">{plugin.description}</LumenText>
-                                </LumenText>
+                                <LumenContentText
+                                  context="control.label"
+                                  className="hbar-app-react-extension-open-copy"
+                                >
+                                  <LumenContentText context="choice.title">{plugin.name}</LumenContentText>
+                                  <LumenContentText context="choice.description">
+                                    {labels.pluginMetadata(plugin.id, plugin.version)}
+                                  </LumenContentText>
+                                  <LumenContentText context="choice.description">{plugin.description}</LumenContentText>
+                                </LumenContentText>
                                 <LumenStatus
                                   value={labels.status[plugin.status]}
                                   tone={
@@ -402,19 +409,23 @@ export function HbarExtensionWorkspace({
                                 />
                                 <LumenIcon icon={ChevronRight} tier="md" />
                               </LumenButton>
-                              <LumenText as="small">{plugin.packageName ?? plugin.path ?? plugin.id}</LumenText>
+                              <LumenContentText context="record.description">
+                                {plugin.packageName ?? plugin.path ?? plugin.id}
+                              </LumenContentText>
                               {action?.status === 'unknown' && (
-                                <LumenText as="p" role="status">
+                                <LumenContentText context="feedback.message" role="status">
                                   {labels.detail.actions.unknown}
-                                </LumenText>
+                                </LumenContentText>
                               )}
                               {action?.error && action.status === 'failed' && (
-                                <LumenText as="p" role="alert">
+                                <LumenContentText context="feedback.message" role="alert">
                                   {labels.detail.actions.error(action.error)}
-                                </LumenText>
+                                </LumenContentText>
                               )}
                               <LumenFrame as="footer">
-                                {plugin.required && <LumenText as="small">{labels.required}</LumenText>}
+                                {plugin.required && (
+                                  <LumenContentText context="record.description">{labels.required}</LumenContentText>
+                                )}
                                 {action?.status === 'unknown' ? (
                                   <LumenButton
                                     variant="outlined"
@@ -482,10 +493,12 @@ export function HbarExtensionWorkspace({
                           ref={skillsHeading}
                           tabIndex={-1}
                         >
-                          <LumenText as="span">{labels.skills}</LumenText>
+                          <LumenContentText context="message.inline">{labels.skills}</LumenContentText>
                         </LumenFrame>
                         {skills?.hasSnapshot && page && (
-                          <LumenText as="small">{labels.skillCount(page.skillCount)}</LumenText>
+                          <LumenContentText context="record.description">
+                            {labels.skillCount(page.skillCount)}
+                          </LumenContentText>
                         )}
                       </LumenFrame>
                     )}
@@ -506,9 +519,9 @@ export function HbarExtensionWorkspace({
                       (entry.skills.length && collection === 'skills' ? (
                         <ExtensionNoMatches title={labels.noMatchingSkills} labels={labels} onClear={clearQuery} />
                       ) : (
-                        <LumenText as="p" className="hbar-app-react-extension-empty">
+                        <LumenContentText context="section.description" className="hbar-app-react-extension-empty">
                           {entry.skills.length ? labels.noMatches : labels.noSkills}
-                        </LumenText>
+                        </LumenContentText>
                       ))
                     ) : (
                       <LumenCollection
@@ -532,11 +545,11 @@ export function HbarExtensionWorkspace({
                               }}
                             >
                               <LumenFrame className="hbar-app-react-extension-skill-content">
-                                <LumenText as="strong">{skill.id}</LumenText>
-                                <LumenText as="small" title={skill.path}>
+                                <LumenContentText context="choice.title">{skill.id}</LumenContentText>
+                                <LumenContentText context="choice.description" title={skill.path}>
                                   {skill.path}
-                                </LumenText>
-                                <LumenText as="span">{labels.skillScope}</LumenText>
+                                </LumenContentText>
+                                <LumenContentText context="control.label">{labels.skillScope}</LumenContentText>
                               </LumenFrame>
                             </LumenButton>
                             <LumenStatus

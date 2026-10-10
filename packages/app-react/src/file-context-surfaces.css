@@ -24,7 +24,7 @@
   justify-content: flex-end;
   color: var(--lumen-muted);
   font: inherit;
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   user-select: none;
 }
 

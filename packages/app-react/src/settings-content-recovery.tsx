@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame } from '@lumen/app-ui'
 import type { SettingsFormEntry } from '@hbar/app-runtime'
 import { useHbarRuntime, type HbarRuntimeView } from './runtime'
 
@@ -195,19 +195,19 @@ export function SettingsContentRecovery({
         {labels.retry}
       </LumenButton>
       {controller.pending && (
-        <LumenText as="small" role="status">
+        <LumenContentText context="form.help" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {!controller.connected && (
-        <LumenText as="small" role="status">
+        <LumenContentText context="form.help" role="status">
           {labels.offline}
-        </LumenText>
+        </LumenContentText>
       )}
       {controller.error && (
-        <LumenText as="small" role="alert">
+        <LumenContentText context="form.help" role="alert">
           {labels.error(controller.error)}
-        </LumenText>
+        </LumenContentText>
       )}
     </LumenFrame>
   )

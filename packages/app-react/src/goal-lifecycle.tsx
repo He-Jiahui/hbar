@@ -1,6 +1,6 @@
 import { useId, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Target } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import type { GoalHistoryProjection, GoalHistorySnapshot } from '@hbar/app-runtime'
 import type { GoalLifecycleAction, GoalLifecycleRow } from './goal-lifecycle-model'
 import { excerptGoalObjective, goalObjectiveDiff, type GoalObjectiveFragment } from './goal-objective-diff'
@@ -46,15 +46,20 @@ function GoalReplacementObjectives({
       const key = `${fragment.from}:${index}`
       if (fragment.kind === 'omitted')
         return (
-          <LumenText as="span" key={key} className="hbar-goal-diff-omission" title={labels.omitted}>
+          <LumenContentText
+            context="message.inline"
+            key={key}
+            className="hbar-goal-diff-omission"
+            title={labels.omitted}
+          >
             {labels.omission}
-          </LumenText>
+          </LumenContentText>
         )
       if (fragment.kind === 'unchanged' || !fragment.text)
         return (
-          <LumenText as="span" key={key}>
+          <LumenContentText context="message.inline" key={key}>
             {fragment.text}
-          </LumenText>
+          </LumenContentText>
         )
       return before ? (
         <del key={key} title={labels.removed}>
@@ -70,30 +75,30 @@ function GoalReplacementObjectives({
     <LumenFrame className="hbar-goal-replacement" role="group" aria-label={labels.comparison}>
       <LumenFrame id={id} className="hbar-goal-replacement-objectives">
         <LumenFrame className="hbar-goal-diff-side">
-          <LumenText as="p" className="hbar-goal-diff-label">
-            <LumenText as="span">{labels.previousObjective}</LumenText>
+          <LumenContentText context="section.description" className="hbar-goal-diff-label">
+            <LumenContentText context="message.inline">{labels.previousObjective}</LumenContentText>
             {difference.previous.some((fragment) => fragment.kind === 'changed' && fragment.text) && (
-              <LumenText as="span" className="hbar-goal-diff-removed-label">
+              <LumenContentText context="metadata" className="hbar-goal-diff-removed-label">
                 {labels.removed}
-              </LumenText>
+              </LumenContentText>
             )}
-          </LumenText>
-          <LumenText as="p" className="hbar-goal-diff-objective">
+          </LumenContentText>
+          <LumenContentText context="section.description" className="hbar-goal-diff-objective">
             {renderFragments(difference.previous, true)}
-          </LumenText>
+          </LumenContentText>
         </LumenFrame>
         <LumenFrame className="hbar-goal-diff-side">
-          <LumenText as="p" className="hbar-goal-diff-label">
-            <LumenText as="span">{labels.nextObjective}</LumenText>
+          <LumenContentText context="section.description" className="hbar-goal-diff-label">
+            <LumenContentText context="message.inline">{labels.nextObjective}</LumenContentText>
             {difference.current.some((fragment) => fragment.kind === 'changed' && fragment.text) && (
-              <LumenText as="span" className="hbar-goal-diff-added-label">
+              <LumenContentText context="metadata" className="hbar-goal-diff-added-label">
                 {labels.added}
-              </LumenText>
+              </LumenContentText>
             )}
-          </LumenText>
-          <LumenText as="p" className="hbar-goal-diff-objective">
+          </LumenContentText>
+          <LumenContentText context="section.description" className="hbar-goal-diff-objective">
             {renderFragments(difference.current, false)}
-          </LumenText>
+          </LumenContentText>
         </LumenFrame>
       </LumenFrame>
       {long && (
@@ -167,13 +172,13 @@ export function HbarGoalLifecycleCard({
       >
         <LumenIcon icon={expanded ? ChevronDown : ChevronRight} tier="sm" />
         <LumenIcon icon={Target} tier="sm" />
-        <LumenText as="span" className="hbar-goal-lifecycle-title">
+        <LumenContentText context="control.label" className="hbar-goal-lifecycle-title">
           {title}
-        </LumenText>
+        </LumenContentText>
         {goal && (
-          <LumenText as="span" className="hbar-goal-lifecycle-status">
+          <LumenContentText context="control.status" className="hbar-goal-lifecycle-status">
             {labels.statuses[goal.status]}
-          </LumenText>
+          </LumenContentText>
         )}
       </LumenButton>
       <LumenFrame id={bodyId} className="hbar-goal-lifecycle-body" hidden={!expanded}>
@@ -181,13 +186,13 @@ export function HbarGoalLifecycleCard({
           <GoalReplacementObjectives previous={previousObjective} current={goal.objective} labels={labels} />
         ) : (
           <>
-            <LumenText
-              as="p"
+            <LumenContentText
+              context="section.description"
               id={objectiveId}
               className={longObjective && !fullObjective ? 'hbar-goal-lifecycle-objective-preview' : undefined}
             >
               {objective}
-            </LumenText>
+            </LumenContentText>
             {longObjective && (
               <LumenButton
                 type="button"
@@ -206,10 +211,14 @@ export function HbarGoalLifecycleCard({
         )}
         {goal && (
           <LumenFrame className="hbar-goal-lifecycle-metadata">
-            <LumenText as="span">{labels.statuses[goal.status]}</LumenText>
-            <LumenText as="span">{labels.budget(goal.tokensUsed, goal.tokenBudget)}</LumenText>
+            <LumenContentText context="message.inline">{labels.statuses[goal.status]}</LumenContentText>
+            <LumenContentText context="message.inline">
+              {labels.budget(goal.tokensUsed, goal.tokenBudget)}
+            </LumenContentText>
             {goal.continuationCount !== undefined && (
-              <LumenText as="span">{labels.continuations(goal.continuationCount)}</LumenText>
+              <LumenContentText context="message.inline">
+                {labels.continuations(goal.continuationCount)}
+              </LumenContentText>
             )}
           </LumenFrame>
         )}

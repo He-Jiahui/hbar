@@ -16,10 +16,10 @@
 }
 
 .hbar-app-react-run-board h2 {
-  font-size: 1rem;
+  font-size: calc(var(--lumen-font-size) * 1.142857);
 }
 .hbar-app-react-run-board h3 {
-  font-size: 0.875rem;
+  font-size: var(--lumen-font-size);
 }
 
 .hbar-app-react-run-board-header,
@@ -41,7 +41,7 @@
 .hbar-app-react-run-board-pagination,
 .hbar-app-react-run-board-column > header > span,
 .hbar-app-react-run-board-column > p {
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   opacity: 0.7;
 }
 
@@ -113,11 +113,11 @@
   outline-offset: 0.25rem;
 }
 .hbar-app-react-run-card-open > strong {
-  font-size: 0.875rem;
+  font-size: var(--lumen-font-size);
 }
 .hbar-app-react-run-card-open > span,
 .hbar-app-react-run-card > p {
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 .hbar-app-react-run-card footer {
   display: flex;

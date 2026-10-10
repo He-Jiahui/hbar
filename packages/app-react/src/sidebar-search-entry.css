@@ -11,7 +11,7 @@
   border-radius: 0.5rem;
   background: var(--lumen-contrast);
   color: var(--lumen-muted);
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
   text-align: start;
 }
 
@@ -26,7 +26,7 @@
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: 0.25rem;
   padding: 1px 4px;
-  font-size: 0.625rem;
+  font-size: calc(var(--lumen-font-size) * 0.714286);
   line-height: 1.3;
 }
 

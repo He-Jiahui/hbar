@@ -11,6 +11,7 @@ export const globalFeaturePageIds = [
 export type GlobalFeaturePageId = (typeof globalFeaturePageIds)[number]
 
 export interface GlobalFeatureCopy {
+  readonly navigation: string
   readonly titles: Readonly<Record<GlobalFeaturePageId, string>>
   readonly back: string
   readonly workspaceRequired: string
@@ -21,6 +22,7 @@ export interface GlobalFeatureCopy {
 export function globalFeatureCopy(locale: ShellLocale): GlobalFeatureCopy {
   const zh = locale === 'zh-CN'
   return {
+    navigation: zh ? '更多页面' : 'More pages',
     titles: {
       'run-board': zh ? '运行看板' : 'Run board',
       schedules: zh ? '排期' : 'Schedules',

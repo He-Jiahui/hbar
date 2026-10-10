@@ -104,7 +104,8 @@ test('appearance settings renders host copy and shared design-system primitives'
     },
   )
   const html = renderToStaticMarkup(<WebAppearanceSettings labels={labels} editor={editor} systemPrefersDark />)
-  expect(html).toContain('data-variant="body">Appearance</h2>')
+  expect(html).toContain('data-variant="heading">Appearance</h2>')
+  expect(html).toContain('data-text-context="section.title"')
   expect(html).toContain('Applies globally on this device')
   expect(html).toContain('aria-label="Live preview"')
   expect(html).toContain('data-lumen-mode="dark"')

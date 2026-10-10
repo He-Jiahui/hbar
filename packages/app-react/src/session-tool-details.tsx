@@ -1,5 +1,5 @@
 import { useId, useMemo, useState } from 'react'
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
 import type { MessageClipboardPort } from './message-copy'
 import { toolInputText, type SessionToolRow } from './session-message-model'
 import { ToolResultCopyAction, type HbarToolResultCopyLabels } from './tool-result-copy-action'
@@ -132,9 +132,9 @@ function CommandDetails({
   return (
     <LumenFrame className="hbar-session-command" data-outcome={outcome}>
       <LumenFrame className="hbar-session-command-input">
-        <LumenText as="span" className="hbar-session-tool-heading">
+        <LumenContentText context="message.inline" className="hbar-session-tool-heading">
           {labels.command}
-        </LumenText>
+        </LumenContentText>
         <DetailText text={command} labels={labels} language="shellscript" owner={copyOwner} />
       </LumenFrame>
       {row.result && (
@@ -145,9 +145,9 @@ function CommandDetails({
           data-content-kind="output"
         >
           <LumenFrame className="hbar-session-tool-result-heading">
-            <LumenText as="span" className="hbar-session-tool-heading">
+            <LumenContentText context="message.inline" className="hbar-session-tool-heading">
               {failed ? labels.errorOutput : labels.output}
-            </LumenText>
+            </LumenContentText>
             <LumenFrame className="hbar-session-command-output-actions">
               {reading.changed && (
                 <LumenButton
@@ -186,9 +186,9 @@ function CommandDetails({
               <>
                 <SourceText text={success ? visible.slice(0, window.previewEnd) : visible} owner={copyOwner} />
                 {success && window.collapsible && (
-                  <LumenText as="span" data-command-output-tail="" hidden={folded}>
+                  <LumenContentText context="message.inline" data-command-output-tail="" hidden={folded}>
                     <SourceText text={visible.slice(window.previewEnd)} owner={copyOwner} />
-                  </LumenText>
+                  </LumenContentText>
                 )}
               </>
             ) : reading.changed && !rawView ? (
@@ -267,9 +267,9 @@ export function SessionToolDetails({
     <>
       {row.call ? (
         <LumenFrame className="hbar-session-tool-section" data-content-kind="input">
-          <LumenText as="span" className="hbar-session-tool-heading">
+          <LumenContentText context="message.inline" className="hbar-session-tool-heading">
             {labels.input}
-          </LumenText>
+          </LumenContentText>
           <DetailText
             text={presentation?.input?.text ?? toolInputText(row.call.args, labels.unavailableInput)}
             labels={labels}
@@ -287,9 +287,9 @@ export function SessionToolDetails({
           data-content-kind="output"
         >
           <LumenFrame className="hbar-session-tool-result-heading">
-            <LumenText as="span" className="hbar-session-tool-heading">
+            <LumenContentText context="message.inline" className="hbar-session-tool-heading">
               {labels.output}
-            </LumenText>
+            </LumenContentText>
             <ToolResultCopyAction
               sessionId={sessionId}
               messageId={messageId}

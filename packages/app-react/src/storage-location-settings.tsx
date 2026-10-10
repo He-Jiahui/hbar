@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useStore } from 'zustand'
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
 import { HbarSchemaForm, type HbarSchemaFormLabels } from '@hbar/schema-react'
 import type { StorageLocationController } from '@hbar/app-runtime/storage-locations'
 import { createHbarSchemaComponents } from './lumen-schema-components'
@@ -45,17 +45,13 @@ export function HbarStorageLocationSettings({
   const unknown = form?.status === 'unknown'
   return (
     <LumenFrame as="section" className="hbar-storage-settings" aria-label={labels.title}>
-      <LumenText as="h2" variant="heading">
-        {labels.title}
-      </LumenText>
-      <LumenText as="p" tone="muted">
+      <LumenContentText context="section.title">{labels.title}</LumenContentText>
+      <LumenContentText context="form.description" tone="muted">
         {labels.description}
-      </LumenText>
+      </LumenContentText>
       {state.snapshot && (
         <LumenFrame className="hbar-storage-settings-pointer">
-          <LumenText as="span" variant="label">
-            {labels.pointer}
-          </LumenText>
+          <LumenContentText context="message.inline">{labels.pointer}</LumenContentText>
           <LumenText as="code">{state.snapshot.pointerFile}</LumenText>
         </LumenFrame>
       )}
@@ -68,9 +64,9 @@ export function HbarStorageLocationSettings({
           layout="stacked"
           disabled={!connected || state.loading}
           renderFieldContext={(field) => (
-            <LumenText as="small" tone="muted">
+            <LumenContentText context="form.help" tone="muted">
               {labels.active(state.snapshot!.active[field.name as keyof typeof state.snapshot.active])}
-            </LumenText>
+            </LumenContentText>
           )}
           onIntent={(intent) => {
             if (intent.kind === 'set' && typeof intent.value === 'string') controller.edit(intent.field, intent.value)
@@ -79,34 +75,34 @@ export function HbarStorageLocationSettings({
         />
       )}
       {state.loading && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {state.error && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {labels.error(state.error)}
-        </LumenText>
+        </LumenContentText>
       )}
       {unknown && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.unknown}
-        </LumenText>
+        </LumenContentText>
       )}
       {state.snapshot?.restartRequired && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.pending}
-        </LumenText>
+        </LumenContentText>
       )}
       {form?.status === 'succeeded' && !state.snapshot?.restartRequired && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.saved}
-        </LumenText>
+        </LumenContentText>
       )}
       {state.restart === 'manual' && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.manualRestart}
-        </LumenText>
+        </LumenContentText>
       )}
       <LumenFrame className="hbar-storage-settings-actions">
         {unknown && (

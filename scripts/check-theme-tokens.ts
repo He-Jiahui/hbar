@@ -7,9 +7,11 @@ const measuredReferencePrefix = 'apps/web/src/react-bits/reference/variants/'
 const violations: string[] = []
 const seen = new Set<string>()
 const staged = Bun.spawnSync(['git', 'diff', '--cached', '--quiet']).exitCode === 1
-const diff = Bun.spawnSync(staged
-  ? ['git', 'diff', '--cached', '--unified=0', '--', 'apps/web/src']
-  : ['git', 'diff', 'HEAD^', 'HEAD', '--unified=0', '--', 'apps/web/src'])
+const diff = Bun.spawnSync(
+  staged
+    ? ['git', 'diff', '--cached', '--unified=0', '--', 'apps/web/src']
+    : ['git', 'diff', 'HEAD^', 'HEAD', '--unified=0', '--', 'apps/web/src'],
+)
 const lines = new TextDecoder().decode(diff.stdout).split(/\r?\n/)
 let currentFile = ''
 for (const line of lines) {
@@ -27,7 +29,13 @@ for (const line of lines) {
   if (allowlist.has(display) || display.startsWith(measuredReferencePrefix)) continue
   const cssLiteral = /#[0-9a-f]{3,8}\b|(?:rgba?|hsla?)\s*\(/i.test(line)
   const cssTypographyValue = /(?:font-size|font-family)\s*:\s*([^;]+)/i.exec(line)?.[1]?.trim()
-  const cssTypography = Boolean(cssTypographyValue && !/^var\s*\(/i.test(cssTypographyValue))
+  const consumesThemeTypography =
+    cssTypographyValue &&
+    (/^var\s*\(/i.test(cssTypographyValue) ||
+      (/^calc\s*\(/i.test(cssTypographyValue) &&
+        /var\s*\(--(?:lumen|hbar)-/i.test(cssTypographyValue) &&
+        !/\b\d+(?:\.\d+)?px\b/i.test(cssTypographyValue)))
+  const cssTypography = Boolean(cssTypographyValue && !consumesThemeTypography)
   const inlineTypography = /\b(?:fontSize|fontFamily)\s*:/.test(line) && !/var\(--/.test(line)
   if ((cssLiteral || cssTypography || inlineTypography) && !seen.has(display)) {
     seen.add(display)

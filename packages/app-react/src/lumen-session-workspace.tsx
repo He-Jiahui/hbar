@@ -10,8 +10,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import {
+  LumenContentText,
   LumenFrame,
-  LumenText,
   LumenButton,
   LumenConversation,
   LumenAiChat01,
@@ -1674,11 +1674,11 @@ function SessionWorkspaceContent({
               copyLabel={message.role === 'user' ? labels.messageActions.copyMessage : undefined}
               fork={forkActionFor(message)}
               metadata={
-                <LumenText as="span">
+                <LumenContentText context="message.inline">
                   {messageFork.actions[forkKey(message)]?.status === 'created'
                     ? labels.messageFork.createdAfterTimestamp(labels.timestamp(message.createdAt))
                     : labels.timestamp(message.createdAt)}
-                </LumenText>
+                </LumenContentText>
               }
             />
           ) : null,
@@ -1755,18 +1755,20 @@ function SessionWorkspaceContent({
   const historyNotices = sessionId ? (
     <LumenFrame className="hbar-app-react-session-history-controls">
       {!connected && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.disconnected}
-        </LumenText>
+        </LumenContentText>
       )}
       {timeline.status === 'loading' && timeline.messages.length > 0 && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.refreshing}
-        </LumenText>
+        </LumenContentText>
       )}
       {timeline.status === 'error' && timeline.messages.length > 0 && (
         <LumenFrame className="hbar-app-react-session-history-error" role="alert">
-          <LumenText as="span">{labels.error(timeline.error ?? 'EXECUTION_FAILED')}</LumenText>
+          <LumenContentText context="message.inline">
+            {labels.error(timeline.error ?? 'EXECUTION_FAILED')}
+          </LumenContentText>
           {connected && (
             <LumenButton size="s" onClick={retryTimeline}>
               {labels.retryTimeline}
@@ -1775,26 +1777,26 @@ function SessionWorkspaceContent({
         </LumenFrame>
       )}
       {timeline.olderStatus === 'limit' ? (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.historyLimit}
-        </LumenText>
+        </LumenContentText>
       ) : timeline.olderStatus === 'loading' ? (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.loadingOlder}
-        </LumenText>
+        </LumenContentText>
       ) : timeline.olderStatus === 'error' ? (
         <LumenFrame className="hbar-app-react-session-history-page">
-          <LumenText as="span" role="alert">
+          <LumenContentText context="message.inline" role="alert">
             {labels.error(timeline.olderError ?? 'EXECUTION_FAILED')}
-          </LumenText>
+          </LumenContentText>
           <LumenButton size="s" disabled={!connected} onClick={loadOlder}>
             {labels.retryHistory}
           </LumenButton>
         </LumenFrame>
       ) : timeline.hasOlder ? (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.loadOlder}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {(goalHistory.available ||
         (composerIntent.facts.sessionId === sessionId && composerIntent.facts.snapshot?.goal)) &&
@@ -1804,18 +1806,21 @@ function SessionWorkspaceContent({
             data-goal-history-gap={goalHistoryProjection.gapReason ?? undefined}
           >
             {goalHistoryProjection.status === 'loading' ? (
-              <LumenText as="span" role="status">
+              <LumenContentText context="message.inline" role="status">
                 {labels.goalHistory.loading}
-              </LumenText>
+              </LumenContentText>
             ) : goalHistoryProjection.gapReason ? (
-              <LumenText as="span" role={goalHistoryProjection.gapReason === 'error' ? 'alert' : 'status'}>
+              <LumenContentText
+                context="message.inline"
+                role={goalHistoryProjection.gapReason === 'error' ? 'alert' : 'status'}
+              >
                 {labels.goalHistory.gap(goalHistoryProjection.gapReason)}
-              </LumenText>
+              </LumenContentText>
             ) : null}
             {goalHistoryProjection.limit && (
-              <LumenText as="span" role="status">
+              <LumenContentText context="message.inline" role="status">
                 {labels.goalHistory.limit(GOAL_HISTORY_MAX_FACTS)}
-              </LumenText>
+              </LumenContentText>
             )}
             {goalHistory.available &&
               goalHistoryProjection.gap &&
@@ -1900,13 +1905,13 @@ function SessionWorkspaceContent({
     <HbarSessionEmptyHero labels={labels.emptyHero} />
   ) : (
     <LumenFrame className="hbar-app-react-session-empty">
-      <LumenText as="p">
+      <LumenContentText context="section.description">
         {timeline.status === 'loading'
           ? labels.loading
           : timeline.error
             ? labels.error(timeline.error)
             : labels.emptyHistory}
-      </LumenText>
+      </LumenContentText>
       {connected && timeline.status === 'error' && sessionId && (
         <LumenButton size="s" onClick={retryTimeline}>
           {labels.retryTimeline}
@@ -2101,11 +2106,11 @@ function SessionWorkspaceContent({
                   : labels.slash.goalConfirmReplace(goalConfirmation.previousObjective)
               }
             >
-              <LumenText as="span">
+              <LumenContentText context="message.inline">
                 {goalConfirmation.action === 'clear'
                   ? labels.slash.goalConfirmClear(goalConfirmation.previousObjective)
                   : labels.slash.goalConfirmReplace(goalConfirmation.previousObjective)}
-              </LumenText>
+              </LumenContentText>
               <LumenFrame className="hbar-composer-goal-confirmation-actions">
                 <LumenButton type="button" size="s" onClick={() => setGoalConfirmation(null)}>
                   {labels.slash.goalCancel}
@@ -2424,9 +2429,9 @@ function SessionWorkspaceContent({
                 />
               )}
               {launchTargetFailure?.sessionId === sessionId && firstSendLabels && (
-                <LumenText as="p" role="alert">
+                <LumenContentText context="feedback.message" role="alert">
                   {firstSendLabels.error(launchTargetFailure.code)}
-                </LumenText>
+                </LumenContentText>
               )}
               <HbarQueuedUserRuns
                 state={queuedUserRuns}
@@ -2587,9 +2592,9 @@ function SessionWorkspaceContent({
         <LumenFrame className="hbar-session-project-context-below">{projectContextView(showLaunchLocation)}</LumenFrame>
       )}
       {sessionUsagePresentation(controls, labels.usage).notice && (
-        <LumenText as="p" className="hbar-session-budget-notice" role="status">
+        <LumenContentText context="feedback.message" className="hbar-session-budget-notice" role="status">
           {sessionUsagePresentation(controls, labels.usage).notice}
-        </LumenText>
+        </LumenContentText>
       )}
     </LumenFrame>
   ) : null
@@ -2658,9 +2663,9 @@ function SessionWorkspaceContent({
       {toolFailure?.sessionId === sessionId &&
         toolFailure.workspaceId === navigation.workspaceId &&
         toolFailure.sourceTabInstanceKey === (sourceTab?.instanceKey ?? null) && (
-          <LumenText as="p" role="alert">
+          <LumenContentText context="feedback.message" role="alert">
             {labels.tools.error(toolFailure.code)}
-          </LumenText>
+          </LumenContentText>
         )}
       {navigationAccessory}
       <LumenFrame
@@ -2715,9 +2720,9 @@ function SessionWorkspaceContent({
                 beforeMessages={
                   <>
                     {reading.unavailable && (
-                      <LumenText as="p" role="status">
+                      <LumenContentText context="feedback.message" role="status">
                         {labels.readingPositionUnavailable}
-                      </LumenText>
+                      </LumenContentText>
                     )}
                     {historyNotices}
                   </>

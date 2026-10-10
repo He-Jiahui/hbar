@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { FolderOpen, Target, X } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon, LumenInput } from '@lumen/app-ui'
 import {
   HbarComposerAddMenu,
   HbarComposerAttachmentTransfers,
@@ -640,9 +640,9 @@ export function WebPreSessionLanding({
             {openingPath ? labels.openingWorkspace : labels.addWorkspace}
           </LumenButton>
           {pathError && (
-            <LumenText as="p" role="alert">
+            <LumenContentText context="feedback.message" role="alert">
               {labels.error(pathError)}
-            </LumenText>
+            </LumenContentText>
           )}
         </LumenFrame>
       )}
@@ -663,9 +663,9 @@ export function WebPreSessionLanding({
       loading={modelsLoading}
       extra={(closePicker) =>
         modelsLoading ? (
-          <LumenText as="p" role="status">
+          <LumenContentText context="feedback.message" role="status">
             {labels.checkingModels}
-          </LumenText>
+          </LumenContentText>
         ) : modelError ? (
           <LumenFrame className="hbar-web-pre-session-model-actions">
             <LumenButton type="button" size="s" disabled={!connected} onClick={retryModels}>
@@ -778,14 +778,17 @@ export function WebPreSessionLanding({
         onClick={() => chooseGoalIntent('default')}
       >
         <LumenIcon icon={Target} tier="sm" />
-        <LumenText as="span">{shell.session.intent.goalPrepared}</LumenText>
+        <LumenContentText context="control.label">{shell.session.intent.goalPrepared}</LumenContentText>
         <LumenIcon icon={X} tier="sm" />
       </LumenButton>
     ) : null
   const modelGuidance =
     !modelsLoading && (modelError || models.length === 0 || providerRouteError || modelSelection.unavailable) ? (
       <LumenFrame className="hbar-web-pre-session-model-guidance">
-        <LumenText as="p" role={modelError || providerRouteError || modelSelection.unavailable ? 'alert' : undefined}>
+        <LumenContentText
+          context="feedback.message"
+          role={modelError || providerRouteError || modelSelection.unavailable ? 'alert' : undefined}
+        >
           {providerRouteError
             ? labels.modelActionFailed
             : modelError
@@ -795,7 +798,7 @@ export function WebPreSessionLanding({
                 : modelSelection.unavailable === 'thinking'
                   ? labels.selectedThinkingUnavailable
                   : labels.model.empty}
-        </LumenText>
+        </LumenContentText>
         {modelError ? (
           <LumenButton type="button" size="s" disabled={!connected} onClick={retryModels}>
             {labels.retryModels}
@@ -934,9 +937,9 @@ export function WebPreSessionLanding({
                 {preparedGoal}
                 {modelGuidance}
                 {unsupportedSlash && (
-                  <LumenText as="p" role="status">
+                  <LumenContentText context="feedback.message" role="status">
                     {labels.slashRequiresSession}
-                  </LumenText>
+                  </LumenContentText>
                 )}
               </>
             ) : undefined,

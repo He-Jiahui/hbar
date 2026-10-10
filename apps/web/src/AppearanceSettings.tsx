@@ -2,6 +2,7 @@ import { type FormEvent } from 'react'
 import { Palette } from 'lucide-react'
 import { useStore } from 'zustand'
 import {
+  LumenContentText,
   LumenButton,
   LumenFrame,
   LumenFormField,
@@ -116,14 +117,14 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
     <LumenFrame as="form" className="hbar-web-appearance-settings" onSubmit={submit}>
       <LumenFrame as="header" className="hbar-web-appearance-heading">
         <LumenFrame>
-          <LumenText as="h2">{labels.title}</LumenText>
-          <LumenText as="p" tone="muted" variant="supporting">
+          <LumenContentText context="section.title">{labels.title}</LumenContentText>
+          <LumenContentText context="section.description" tone="muted">
             {labels.description}
-          </LumenText>
+          </LumenContentText>
         </LumenFrame>
-        <LumenText as="p" className="hbar-web-appearance-scope" tone="subtle" variant="supporting">
+        <LumenContentText context="section.description" className="hbar-web-appearance-scope" tone="subtle">
           {labels.deviceScope}
-        </LumenText>
+        </LumenContentText>
       </LumenFrame>
 
       <LumenFrame className="hbar-web-appearance-fields">
@@ -131,9 +132,9 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
           <LumenText as="legend" id="hbar-appearance-theme-label" variant="label">
             {labels.theme.label}
           </LumenText>
-          <LumenText as="p" id="hbar-appearance-theme-description" tone="muted" variant="supporting">
+          <LumenContentText context="section.description" id="hbar-appearance-theme-description" tone="muted">
             {labels.theme.description}
-          </LumenText>
+          </LumenContentText>
           <LumenFrame className="hbar-web-appearance-theme-choices">
             <LumenToggleGroup
               id="hbar-appearance-theme"
@@ -164,10 +165,10 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
         style={{ colorScheme: previewTheme }}
       >
         <LumenFrame as="header">
-          <LumenText as="h3">{labels.preview.title}</LumenText>
-          <LumenText as="p" tone="muted" variant="supporting">
+          <LumenContentText context="section.subtitle">{labels.preview.title}</LumenContentText>
+          <LumenContentText context="section.description" tone="muted">
             {labels.preview.description}
-          </LumenText>
+          </LumenContentText>
         </LumenFrame>
         <LumenFrame className="hbar-web-appearance-preview-controls">
           <LumenFormField controlId="hbar-appearance-preview-input" label={labels.preview.label}>
@@ -205,11 +206,10 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
 
       <LumenFrame as="footer" className="hbar-web-appearance-actions">
         <LumenFrame className="hbar-web-appearance-feedback">
-          <LumenText
-            as="span"
+          <LumenContentText
+            context="message.inline"
             role={state.error ? 'alert' : 'status'}
             tone={state.error ? 'danger' : 'muted'}
-            variant="supporting"
           >
             {pendingIdentity
               ? labels.identityPending
@@ -232,20 +232,24 @@ export function WebAppearanceSettings({ labels, editor, systemPrefersDark }: Web
                               ? labels.saved
                               : labels.volatile
                             : null}
-          </LumenText>
+          </LumenContentText>
           {state.status === 'conflict' && state.checked && (
             <LumenFrame className="hbar-web-appearance-recovery">
-              {state.action?.kind === 'reset' && <LumenText as="p">{labels.resetConflict}</LumenText>}
-              <LumenText as="p">
+              {state.action?.kind === 'reset' && (
+                <LumenContentText context="section.description">{labels.resetConflict}</LumenContentText>
+              )}
+              <LumenContentText context="section.description">
                 {labels.latest(
                   themeOptionLabel(labels, state.latest.theme),
                   labels.sizeOption('controlSize', state.latest.controlSize),
                   labels.sizeOption('textSize', state.latest.textSize),
                   labels.sizeOption('cornerSize', state.latest.cornerSize),
                 )}
-              </LumenText>
+              </LumenContentText>
               {progress.count > 0 && progress.count < progress.total && (
-                <LumenText as="p">{labels.partial(progress.count, progress.total)}</LumenText>
+                <LumenContentText context="section.description">
+                  {labels.partial(progress.count, progress.total)}
+                </LumenContentText>
               )}
               <LumenFrame>
                 <LumenButton type="button" size="s" variant="outlined" indicator="none" onClick={editor.continueDraft}>

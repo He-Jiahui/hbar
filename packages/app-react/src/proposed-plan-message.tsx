@@ -1,6 +1,6 @@
 import { Fragment, useMemo } from 'react'
 import { parseProposedPlan, type PlanProposalDocument } from '@hbar/app-runtime'
-import { LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenFrame } from '@lumen/app-ui'
 import { HbarMessageBlocks, MessageMarkdown, type HbarMessageBlocksProps } from './session-message'
 import { HbarProposedPlan, type HbarProposedPlanProps } from './proposed-plan'
 import { planTextSegments } from './session-message-text'
@@ -61,7 +61,7 @@ export function HbarHistoricalPlanMessage({
             )}
             {segment.insertPlan && (
               <LumenFrame className="hbar-proposed-plan" as="section" aria-label={readOnlyLabel}>
-                <LumenText as="strong">{readOnlyLabel}</LumenText>
+                <LumenContentText context="record.title">{readOnlyLabel}</LumenContentText>
                 <LumenFrame className="hbar-proposed-plan-document" tabIndex={0} data-session-find-segment="proposal">
                   <MessageMarkdown
                     text={document.markdown}

@@ -4,10 +4,24 @@ import {
   auditProductionCss,
   auditProductionDesignSystem,
   auditProductionTsx,
+  productionDesignSystemFiles,
 } from '../scripts/verify-design-system-boundaries'
 
-test('every production and preview visible element is rendered through Lumen components', async () => {
+test('the application and acceptance-preview graph use Lumen, with dedicated renderer DOM kept internal', async () => {
   expect(await auditProductionDesignSystem()).toEqual([])
+})
+
+test('production scanning includes lazy business surfaces and excludes independent references and inactive legacy shells', async () => {
+  const files = (await productionDesignSystemFiles()).map((file) => file.replaceAll('\\', '/'))
+  expect(files.some((file) => file.endsWith('/apps/web/src/App.tsx'))).toBe(true)
+  expect(files.some((file) => file.endsWith('/packages/app-react/src/conversation-anchors.tsx'))).toBe(true)
+  expect(files.some((file) => file.endsWith('/apps/web/src/prompt-templates-page.tsx'))).toBe(true)
+  expect(files.some((file) => file.includes('/react-bits/reference/'))).toBe(false)
+  expect(files.some((file) => file.endsWith('/apps/web/src/ChatSessionChrome.tsx'))).toBe(false)
+  expect(files.some((file) => file.includes('/hbar-ui/'))).toBe(false)
+  expect(
+    auditProductionTsx('packages/app-react/src/message-markdown.tsx', '<button>Unsafe renderer action</button>'),
+  ).toHaveLength(1)
 })
 
 test('design-system boundary guard rejects native visible elements, numeric sizes, and page-owned primitive visuals', () => {

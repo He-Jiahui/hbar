@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Bot, ExternalLink, Plus, RefreshCw } from 'lucide-react'
 import {
+  LumenContentText,
   LumenCollection,
   LumenCollectionItem,
   LumenFrame,
@@ -299,8 +300,8 @@ export function HbarAgentWorkspace({
       {view === 'create' && entry ? (
         <LumenFrame as="main" className="hbar-app-react-agent-create-view">
           <LumenFrame>
-            <LumenText as="h2">{labels.createTitle}</LumenText>
-            <LumenText as="p">{labels.createScope}</LumenText>
+            <LumenContentText context="section.title">{labels.createTitle}</LumenContentText>
+            <LumenContentText context="section.description">{labels.createScope}</LumenContentText>
           </LumenFrame>
           <LumenFrame
             as="form"
@@ -342,7 +343,9 @@ export function HbarAgentWorkspace({
                   onValueChange={(value) => setField('profileId', value)}
                 />
               </LumenFormField>
-              {entry.draft.profileId === 'explore' && <LumenText as="p">{labels.exploreHint}</LumenText>}
+              {entry.draft.profileId === 'explore' && (
+                <LumenContentText context="section.description">{labels.exploreHint}</LumenContentText>
+              )}
               <LumenFormField controlId={`${instanceId}-agent-selection`} label={labels.selectionMode}>
                 <LumenPopupSelect
                   id={`${instanceId}-agent-selection`}
@@ -429,17 +432,17 @@ export function HbarAgentWorkspace({
                     onValueChange={(value) => setField('sandboxProfileId', value)}
                   />
                   {sandboxProfiles.list.error && (
-                    <LumenText as="p" role="alert">
+                    <LumenContentText context="feedback.message" role="alert">
                       {labels.error(sandboxProfiles.list.error)}
-                    </LumenText>
+                    </LumenContentText>
                   )}
                 </LumenFormField>
               )}
             </LumenFrame>
             {entry.creation.error && (
-              <LumenText as="p" role="alert">
+              <LumenContentText context="feedback.message" role="alert">
                 {labels.error(entry.creation.error)}
-              </LumenText>
+              </LumenContentText>
             )}
             <LumenButton disabled={!connected || entry.creation.status === 'submitting'} tone="primary" type="submit">
               {entry.creation.status === 'submitting'
@@ -453,17 +456,17 @@ export function HbarAgentWorkspace({
       ) : selectedAgent && entry ? (
         <LumenFrame as="main" className="hbar-app-react-agent-detail">
           <LumenFrame className="hbar-app-react-agent-detail-heading">
-            <LumenText as="h2">{labels.detailTitle}</LumenText>
+            <LumenContentText context="section.title">{labels.detailTitle}</LumenContentText>
             <LumenStatus value={labels.status(selectedAgent.status)} tone={tone(selectedAgent.status)} />
           </LumenFrame>
           {entry.creation.status === 'succeeded' && entry.selectedAgentId === selectedAgent.agentId && (
-            <LumenText as="p" role="status">
+            <LumenContentText context="feedback.message" role="status">
               {labels.created}
-            </LumenText>
+            </LumenContentText>
           )}
           <LumenFrame as="section">
-            <LumenText as="h3">{labels.objective}</LumenText>
-            <LumenText as="p">{selectedAgent.objective}</LumenText>
+            <LumenContentText context="section.subtitle">{labels.objective}</LumenContentText>
+            <LumenContentText context="section.description">{selectedAgent.objective}</LumenContentText>
           </LumenFrame>
           <LumenCompactMetrics
             label={labels.detailTitle}
@@ -506,28 +509,28 @@ export function HbarAgentWorkspace({
             ]}
           />
           {selectedAgent.dispatchConfiguration?.selection && (
-            <LumenText as="p">
+            <LumenContentText context="section.description">
               {labels.selectionSummary(
                 labels.policy.difficulties[selectedAgent.dispatchConfiguration.selection.difficulty],
                 selectedAgent.dispatchConfiguration.selection.weight,
               )}
-            </LumenText>
+            </LumenContentText>
           )}
-          <LumenText as="p">{labels.configurationHint}</LumenText>
+          <LumenContentText context="section.description">{labels.configurationHint}</LumenContentText>
           {selectedAgent.error && (
-            <LumenText as="p" role="alert">
+            <LumenContentText context="feedback.message" role="alert">
               {selectedAgent.error}
-            </LumenText>
+            </LumenContentText>
           )}
           {selectedAction?.error && (
-            <LumenText as="p" role="alert">
+            <LumenContentText context="feedback.message" role="alert">
               {labels.error(selectedAction.error)}
-            </LumenText>
+            </LumenContentText>
           )}
           {openState?.agentId === selectedAgent.agentId && openState.error && (
-            <LumenText as="p" role="alert">
+            <LumenContentText context="feedback.message" role="alert">
               {labels.openSessionError(openState.error)}
-            </LumenText>
+            </LumenContentText>
           )}
           <LumenFrame as="footer">
             <LumenButton
@@ -542,11 +545,11 @@ export function HbarAgentWorkspace({
               onClick={() => openSession(selectedAgent)}
             >
               <LumenIcon icon={ExternalLink} tier="sm" />
-              <LumenText as="span">
+              <LumenContentText context="control.label">
                 {openState?.agentId === selectedAgent.agentId && openState.status === 'submitting'
                   ? labels.openingSession
                   : labels.openSession}
-              </LumenText>
+              </LumenContentText>
             </LumenButton>
             {!terminal(selectedAgent.status) && (
               <LumenButton
@@ -566,18 +569,18 @@ export function HbarAgentWorkspace({
       ) : (
         <LumenFrame as="main" className="hbar-app-react-agent-list" aria-label={labels.title}>
           <LumenFrame as="header">
-            <LumenText as="h2">{labels.count(entry?.items.length ?? 0)}</LumenText>
+            <LumenContentText context="section.title">{labels.count(entry?.items.length ?? 0)}</LumenContentText>
           </LumenFrame>
           {!entry || entry.status === 'loading' ? (
-            <LumenText as="p">{labels.loading}</LumenText>
+            <LumenContentText context="section.description">{labels.loading}</LumenContentText>
           ) : entry.error ? (
-            <LumenText as="p" role="alert">
+            <LumenContentText context="feedback.message" role="alert">
               {labels.error(entry.error)}
-            </LumenText>
+            </LumenContentText>
           ) : entry.items.length === 0 ? (
-            <LumenText as="p" className="hbar-app-react-agent-empty">
+            <LumenContentText context="section.description" className="hbar-app-react-agent-empty">
               {labels.empty}
-            </LumenText>
+            </LumenContentText>
           ) : (
             <LumenCollection as="ul">
               {entry.items.map((agent) => (
@@ -588,13 +591,13 @@ export function HbarAgentWorkspace({
                     aria-label={labels.showDetails(agent.objective)}
                     onClick={() => invoke('agentWorkspace.showAgent', { instanceId, agentId: agent.agentId })}
                   >
-                    <LumenText as="span">
-                      <LumenText as="strong">{agent.objective}</LumenText>
+                    <LumenContentText context="control.label">
+                      <LumenContentText context="choice.title">{agent.objective}</LumenContentText>
                       <LumenStatus value={labels.status(agent.status)} tone={tone(agent.status)} />
-                    </LumenText>
-                    <LumenText as="small">
+                    </LumenContentText>
+                    <LumenContentText context="choice.description">
                       {labels.summary(agent.modelId, agent.tokenBudget, agent.profileId)}
-                    </LumenText>
+                    </LumenContentText>
                     <LumenText as="time" dateTime={new Date(agent.createdAt).toISOString()}>
                       {labels.timestamp(agent.createdAt)}
                     </LumenText>

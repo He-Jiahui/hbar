@@ -1,4 +1,4 @@
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame } from '@lumen/app-ui'
 import type { DirectoryState, SessionAgentTreeState } from '@hbar/app-runtime'
 import type { Session } from '@hbar/contracts/directory'
 import type { SessionActivityExecution } from '@hbar/contracts/sidebar-directory'
@@ -112,20 +112,20 @@ function Branch({
         />
       ))}
       {branch?.status === 'loading' && (
-        <LumenText as="p" role="status" size="s" variant="supporting">
+        <LumenContentText context="feedback.message" role="status" size="s">
           {treeLabels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {branch?.status === 'ready' && rows.length === 0 && (
-        <LumenText as="p" size="s" variant="supporting">
+        <LumenContentText context="section.description" size="s">
           {treeLabels.empty}
-        </LumenText>
+        </LumenContentText>
       )}
       {props.showLoadFeedback !== false && branch?.error && (
         <LumenFrame className="hbar-app-react-agent-branch-feedback" role="alert">
-          <LumenText as="p" size="s" variant="supporting">
+          <LumenContentText context="section.description" size="s">
             {treeLabels.error(branch.error)}
-          </LumenText>
+          </LumenContentText>
           <LumenButton
             size="s"
             variant="outlined"
@@ -137,9 +137,9 @@ function Branch({
         </LumenFrame>
       )}
       {branch?.limitReached && (
-        <LumenText as="p" size="s" variant="supporting">
+        <LumenContentText context="section.description" size="s">
           {treeLabels.capacity}
-        </LumenText>
+        </LumenContentText>
       )}
       {branch?.nextCursor && (
         <LumenButton
@@ -187,14 +187,15 @@ function Branch({
         }}
         treeAdornment={
           count > 0 ? (
-            <LumenText
+            <LumenContentText
+              context="metadata"
               className="hbar-app-react-agent-branch-count"
               size="s"
-              variant="supporting"
+
               title={treeLabels.count(count)}
             >
               {count}
-            </LumenText>
+            </LumenContentText>
           ) : null
         }
       />

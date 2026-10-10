@@ -21,7 +21,7 @@
 
 .hbar-agent-tool-open > span {
   max-inline-size: 24rem;
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   color: var(--lumen-danger);
   overflow-wrap: anywhere;
 }

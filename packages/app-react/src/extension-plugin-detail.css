@@ -16,7 +16,7 @@
 
 .hbar-app-react-plugin-actions > p {
   color: var(--lumen-muted);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   line-height: 1.5;
   overflow-wrap: anywhere;
 }

@@ -35,7 +35,7 @@ export function SidebarCaption({
       title={title}
     >
       <LumenFrame as="span" ref={content} className="hbar-sidebar-caption-text">
-        <LumenContentText context="navigation.caption" size="s">
+        <LumenContentText context="navigation.item" size="s">
           {text}
         </LumenContentText>
       </LumenFrame>

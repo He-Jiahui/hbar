@@ -3,7 +3,7 @@
 }
 
 .hbar-app-react-file-workbench {
-  background: var(--lumen-frost);
+  background: var(--lumen-canvas);
 }
 
 .hbar-app-react-file-workbench > .lumen-tool-pane-toolbar {
@@ -306,7 +306,7 @@
   padding: 0.75rem;
   overflow: auto;
   font-family: ui-monospace, 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
   line-height: 1.5;
   white-space: pre;
 }
@@ -326,7 +326,7 @@
 .lumen-file-document-body footer [role='status'] {
   flex: 0 0 auto;
   color: var(--lumen-muted);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   white-space: nowrap;
 }
 

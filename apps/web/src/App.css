@@ -14,7 +14,7 @@
   flex-wrap: wrap;
   gap: 4px 8px;
   padding: 6px 12px;
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   overflow-wrap: anywhere;
 }
 .hbar-web-tool-layout-feedback [role='alert'] {

@@ -1,5 +1,5 @@
 import { useId, type ReactNode } from 'react'
-import { LumenFrame, LumenText, LumenTreeItem } from '@lumen/app-ui'
+import { LumenContentText, LumenFrame, LumenTreeItem } from '@lumen/app-ui'
 import type { SidebarTimeGroup, SidebarTimeGroupId } from './sidebar-time-groups'
 import './sidebar-time-view.css'
 
@@ -57,9 +57,9 @@ export function SidebarTimeView({
             key={group.id}
             aria-labelledby={headingId}
           >
-            <LumenText as="h2" className="hbar-app-react-sidebar-time-heading" id={headingId}>
+            <LumenContentText context="section.title" className="hbar-app-react-sidebar-time-heading" id={headingId}>
               {labels[group.id]}
-            </LumenText>
+            </LumenContentText>
             <LumenFrame className="hbar-app-react-sidebar-time-rows">
               {[...projects.values()].map(({ project, sessionIds }) => (
                 <LumenTreeItem

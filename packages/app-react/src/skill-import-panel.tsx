@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from 'zustand'
-import { LumenButton, LumenCollection, LumenCollectionItem, LumenFrame, LumenInput, LumenText } from '@lumen/app-ui'
+import {
+  LumenContentText,
+  LumenButton,
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenInput,
+} from '@lumen/app-ui'
 import type { SkillImportController } from '@hbar/app-runtime/skill-import'
 import type { SkillImportJob, SkillImportPreview, SkillImportWarning } from '@hbar/contracts/commands/skill-import'
 import './skill-import-panel.css'
@@ -75,10 +82,10 @@ export function HbarSkillImportPanel({
       </LumenButton>
       {expanded && (
         <LumenFrame as="section" className="hbar-skill-import-body" aria-label={labels.title}>
-          <LumenText as="h3">{labels.title}</LumenText>
-          <LumenText as="p" tone="muted">
+          <LumenContentText context="section.subtitle">{labels.title}</LumenContentText>
+          <LumenContentText context="section.description" tone="muted">
             {labels.description}
-          </LumenText>
+          </LumenContentText>
           <LumenFrame role="group" aria-label={labels.source} className="hbar-skill-import-actions">
             {(['claude', 'codex'] as const).map((source) => (
               <LumenButton
@@ -93,7 +100,7 @@ export function HbarSkillImportPanel({
             ))}
           </LumenFrame>
           <LumenFrame as="label" className="hbar-skill-import-source">
-            <LumenText as="span">{labels.sourceRoot}</LumenText>
+            <LumenContentText context="message.inline">{labels.sourceRoot}</LumenContentText>
             <LumenInput
               aria-label={labels.sourceRoot}
               placeholder={labels.automaticSource}
@@ -142,49 +149,55 @@ export function HbarSkillImportPanel({
             )}
           </LumenFrame>
           {state.error && (
-            <LumenText as="p" role="alert">
+            <LumenContentText context="feedback.message" role="alert">
               {labels.error(state.error)}
-            </LumenText>
+            </LumenContentText>
           )}
           {state.status === 'unknown' && (
-            <LumenText as="p" role="status">
+            <LumenContentText context="feedback.message" role="status">
               {labels.unknown}
-            </LumenText>
+            </LumenContentText>
           )}
           {state.job && (
-            <LumenText as="p" role="status">
+            <LumenContentText context="feedback.message" role="status">
               {labels.result(state.job)}
-            </LumenText>
+            </LumenContentText>
           )}
           {preview && (
             <>
-              <LumenText as="p">{labels.sourcePaths(preview.sourceRoots)}</LumenText>
-              <LumenText as="p">{labels.destination(preview.destination)}</LumenText>
+              <LumenContentText context="section.description">
+                {labels.sourcePaths(preview.sourceRoots)}
+              </LumenContentText>
+              <LumenContentText context="section.description">
+                {labels.destination(preview.destination)}
+              </LumenContentText>
               {!preview.candidates.length && (
-                <LumenText as="p" role="status">
+                <LumenContentText context="feedback.message" role="status">
                   {labels.empty}
-                </LumenText>
+                </LumenContentText>
               )}
               {preview.truncated && (
-                <LumenText as="p" role="status">
+                <LumenContentText context="feedback.message" role="status">
                   {labels.truncated}
-                </LumenText>
+                </LumenContentText>
               )}
               <LumenCollection as="ul" className="hbar-skill-import-candidates">
                 {preview.candidates.slice(state.page * 20, (state.page + 1) * 20).map((candidate) => (
                   <LumenCollectionItem as="li" key={candidate.sourcePath}>
-                    <LumenText as="strong">{candidate.name}</LumenText>
-                    <LumenText as="span">{labels.candidateStatus[candidate.status]}</LumenText>
-                    <LumenText as="small" tone="muted">
+                    <LumenContentText context="record.title">{candidate.name}</LumenContentText>
+                    <LumenContentText context="message.inline">
+                      {labels.candidateStatus[candidate.status]}
+                    </LumenContentText>
+                    <LumenContentText context="record.description" tone="muted">
                       {candidate.sourcePath}
-                    </LumenText>
-                    <LumenText as="small" tone="muted">
+                    </LumenContentText>
+                    <LumenContentText context="record.description" tone="muted">
                       {labels.capacity(candidate.files, candidate.bytes)}
-                    </LumenText>
+                    </LumenContentText>
                     {candidate.warnings.map((warning) => (
-                      <LumenText as="small" key={warning}>
+                      <LumenContentText context="record.description" key={warning}>
                         {labels.warnings[warning]}
-                      </LumenText>
+                      </LumenContentText>
                     ))}
                   </LumenCollectionItem>
                 ))}
@@ -198,7 +211,7 @@ export function HbarSkillImportPanel({
                   >
                     {labels.previous}
                   </LumenButton>
-                  <LumenText as="span">{labels.page(state.page + 1, pages)}</LumenText>
+                  <LumenContentText context="message.inline">{labels.page(state.page + 1, pages)}</LumenContentText>
                   <LumenButton
                     variant="text"
                     disabled={state.page + 1 >= pages}
