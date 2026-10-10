@@ -303,12 +303,14 @@ export interface HarnessDriver {
 }
 
 export interface ModelDiagnosticEvent {
-  readonly phase: 'started' | 'settled' | 'failed' | 'cancelled'
+  readonly phase: 'started' | 'response' | 'settled' | 'failed' | 'cancelled'
   readonly purpose: 'model' | 'compaction'
   readonly providerId: string
   readonly modelSelectionId: string
   readonly modelRequestId?: string | undefined
   readonly attemptId?: string | undefined
+  readonly upstreamRequestIdSha256?: string | undefined
+  readonly httpStatus?: number | undefined
   readonly model: string
   readonly protocol: string
   readonly stopReason?: 'stop' | 'toolUse' | 'length' | 'aborted' | 'error' | undefined

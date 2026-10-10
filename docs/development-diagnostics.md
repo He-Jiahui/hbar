@@ -51,6 +51,18 @@ Native Tauri 诊断使用同步、尽力而为的独立实现：单文件 128 Ki
 
 例如 `sessionSummary` 超时应按以下顺序查：先看 Host 的 `rpc.failed` 是否停留在 `invoke`；再看 `storage.request_dispatched` 与相同 `storageRequestId` 的 `sqlite.request_started`、执行耗时和安全错误码；最后看 adapter 的 `storage.timeout`、`storage.worker_exit` 和 `storage.close`。Worker start 只能证明进入执行阶段，单凭它仍不能断定 SQL 锁或文件 IO 是原因。完整覆盖时有 dispatch 而没有 Worker start，说明问题尚未进入该请求的 Worker handler；还需核对 Worker 健康、排队和诊断丢弃计数。日志缺失不能排除日志写入失败或强制退出，当前也没有精确 queue wait 测量。
 
+## 模型请求、上下文压缩与供应商响应
+
+模型诊断中的几个请求身份有不同生命周期，不能互相替代：`providerId` 是注册供应商的稳定 ID，`modelSelectionId` 是 Host 选择的规范模型 ID（例如带供应商前缀的选择值），`modelRequestId` 是本地一次模型请求的 ID。普通模型请求复用该 step 的用量 attempt 身份；摘要请求另有 Kernel 产生的 `attemptId`，将摘要阶段与其用量事实关联，它不代表普通模型 `stepId`。一次 Run 可以产生多个 attempt；上游返回的 `x-request-id` 即使存在，也只能作为脱敏后的 `upstreamRequestIdSha256`，不能写入或覆盖本地 `modelRequestId`。
+
+上下文压缩按阶段读取 `context.compaction_stage`：`prepared` 表示输入已经准备，`summary_started`/`summary_completed`/`summary_failed`/`summary_cancelled` 表示摘要模型生命周期，`chunk_limit` 表示分块次数门禁，`rebuilt_capacity` 表示重建后的容量，`persist_started`/`persist_completed`/`persist_failed` 表示摘要事实持久化。阶段事件只允许有限的预算数、输入估算 token 数、输入上限和 chunk index/count；耗时由供应商请求终态与压缩汇总事件记录，不能由阶段名推断摘要内容已经成功写入。预算用量和 chunk 计数描述容量处理，不能当作供应商 HTTP 成功。
+
+供应商 HTTP 响应与模型业务终态分开记录。`phase=response` 只表示 per-request transport 收到了一个真实 HTTP `Response`；其 `httpStatus` 必须是 100–599 的整数。OpenAI Completions 和 OpenAI Responses 两个本地协议都通过每次请求自己的 `fetch` wrapper 捕获状态，包括 200、401 和 502；wrapper 原样返回响应，不读取响应 body，也不修改 SDK 的异常。没有收到 `Response`（例如 abort、DNS 或连接建立失败）时不生成状态。SDK 的 `onResponse` 只覆盖 `withResponse()` 成功路径，不能单独承担失败状态采集。当前 `maxRetries: 0` 的请求边界必须保持，状态采集不能引入隐藏重试。
+
+如果响应含有 allowlist 内的 `x-request-id`，长度不超过 256 字符时日志只保存其 SHA-256（`upstreamRequestIdSha256`），过长值丢弃，不保存原始 header。请求先记录 `started`，随后可能记录 `response`，最终独立记录 `settled`、`failed` 或 `cancelled`。Driver 的响应回调映射成 Host 日志 `provider.response`；HTTP 401/502 响应以 warn 级保留，也可以同时有模型失败终态；HTTP 200 则可能因为流解析失败而有响应与失败。`failed` 表示模型业务流程失败，不能仅凭响应阶段推断模型输出或 Run 已失败；反过来，当前 `model.settled` 事件只表示模型步骤的 bookkeeping 终态，不能被当作 API 已返回成功。
+
+本地适配器当前明确覆盖 OpenAI Completions 与 OpenAI Responses 两种协议。Anthropic 或其他协议是否发出相同的响应阶段，需要以最终 Host/Provider 实现和对应的真实测试为准；本手册不提前声明其他协议、安装版本、原生桌面或全矩阵已经部署或通过。
+
 ## SQLite 与 Storage 故障
 
 Storage 使用 `bun:sqlite` 的单 Worker/单连接模型。启动时连接配置为：

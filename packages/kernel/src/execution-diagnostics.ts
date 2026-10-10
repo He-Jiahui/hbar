@@ -21,6 +21,8 @@ export interface KernelModelDiagnosticIdentity extends KernelRunDiagnosticIdenti
   readonly model?: string | undefined
   readonly protocol?: string | undefined
   readonly stopReason?: 'stop' | 'toolUse' | 'length' | 'aborted' | 'error' | undefined
+  readonly httpStatus?: number | undefined
+  readonly upstreamRequestIdSha256?: string | undefined
   readonly inputEstimatedTokens?: number | undefined
   readonly inputLimit?: number | undefined
   readonly summaryMaxOutput?: number | undefined
@@ -151,6 +153,12 @@ export class KernelExecutionDiagnostics {
   }
   providerRequestStarted(identity: KernelModelDiagnosticIdentity): void {
     this.emit('provider.request_started', 'info', identity, { outcome: 'success' })
+  }
+  providerResponse(identity: KernelModelDiagnosticIdentity): void {
+    this.emit('provider.response', (identity.httpStatus ?? 0) >= 400 ? 'warn' : 'info', identity, {
+      outcome: 'unknown',
+      phase: 'response',
+    })
   }
   providerRequestSettled(
     identity: KernelModelDiagnosticIdentity,
@@ -336,6 +344,15 @@ function identityToEvent(identity: KernelModelDiagnosticIdentity): Record<string
     identity.thresholdRatio <= 1
   )
     result.thresholdRatio = identity.thresholdRatio
+  if (
+    identity.httpStatus !== undefined &&
+    Number.isInteger(identity.httpStatus) &&
+    identity.httpStatus >= 100 &&
+    identity.httpStatus <= 599
+  )
+    result.httpStatus = identity.httpStatus
+  if (identity.upstreamRequestIdSha256 !== undefined && /^[a-f0-9]{64}$/.test(identity.upstreamRequestIdSha256))
+    result.upstreamRequestIdSha256 = identity.upstreamRequestIdSha256
   return result
 }
 
@@ -355,7 +372,12 @@ function compactionFields(fields: Record<string, unknown>): Record<string, unkno
   const result: Record<string, unknown> = {}
   for (const key of ['inputEstimatedTokens', 'inputLimit', 'summaryMaxOutput', 'chunkIndex', 'chunkCount'] as const) {
     const value = fields[key]
-    if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= Number.MAX_SAFE_INTEGER)
+    if (
+      typeof value === 'number' &&
+      Number.isSafeInteger(value) &&
+      value >= 0 &&
+      value <= (key === 'chunkIndex' || key === 'chunkCount' ? 1_000_000 : Number.MAX_SAFE_INTEGER)
+    )
       result[key] = value
   }
   const threshold = fields.thresholdRatio

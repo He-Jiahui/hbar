@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { createHash } from 'node:crypto'
 import {
   providerModelSelectionId,
   providerSchema,
@@ -52,6 +53,15 @@ const request = (baseUrl: string) => ({
   model: model(baseUrl),
   context: { sessionId: 'diagnostic-session', thinking: 'xhigh' as const },
 })
+const responsesRequest = (baseUrl: string) => ({
+  ...(() => {
+    const base = request(baseUrl)
+    return { ...base, model: { ...base.model, protocol: 'openai-responses' as const } }
+  })(),
+})
+const UPSTREAM_REQUEST_ID = 'fixture-upstream-request-42'
+const requestIdHash = createHash('sha256').update(UPSTREAM_REQUEST_ID).digest('hex')
+const sseHeaders = { 'content-type': 'text/event-stream', 'x-request-id': UPSTREAM_REQUEST_ID }
 
 function chunk(content: string, finishReason: string | null = null) {
   return `data: ${JSON.stringify({
@@ -63,21 +73,74 @@ function chunk(content: string, finishReason: string | null = null) {
   })}\n\n`
 }
 
+function responseEvent(type: string, data: Record<string, unknown>) {
+  return `event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`
+}
+
+function responsesTextSse(text: string) {
+  const content = { type: 'output_text', text, annotations: [] }
+  const item = {
+    id: 'msg_responses_fixture',
+    type: 'message',
+    role: 'assistant',
+    status: 'completed',
+    content: [content],
+  }
+  return (
+    responseEvent('response.created', { response: { id: 'resp_fixture', status: 'in_progress' } }) +
+    responseEvent('response.output_item.added', { output_index: 0, item: { ...item, content: [] } }) +
+    responseEvent('response.content_part.added', {
+      output_index: 0,
+      content_index: 0,
+      part: { ...content, text: '' },
+    }) +
+    responseEvent('response.output_text.delta', { output_index: 0, content_index: 0, delta: text }) +
+    responseEvent('response.output_item.done', { output_index: 0, item }) +
+    responseEvent('response.completed', {
+      response: {
+        id: 'resp_fixture',
+        status: 'completed',
+        output: [item],
+        usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+      },
+    })
+  )
+}
+
 async function startFixture(response: (request: Request) => Response | Promise<Response>) {
   const server = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: response })
   return { server, baseUrl: `http://127.0.0.1:${server.port}/v1` }
 }
 
-function assertLifecycle(events: readonly ModelDiagnosticEvent[], terminal: ModelDiagnosticEvent['phase']) {
-  expect(events).toHaveLength(2)
-  expect(events[0]).toMatchObject({ phase: 'started', purpose: 'compaction' })
-  expect(events[1]).toMatchObject({ phase: terminal, purpose: 'compaction' })
-  expect(events[0]?.modelSelectionId).toBe('niuma_openai/gpt-6.1-sol')
-  expect(events[0]?.providerId).toBe('niuma_openai')
-  expect(events[0]?.model).toBe('gpt-6.1-sol')
-  expect(events[0]?.protocol).toBe('openai-completions')
-  expect(events[0]?.modelRequestId).toBeTruthy()
-  expect(events[1]?.modelRequestId).toBe(events[0]?.modelRequestId)
+function assertLifecycle(
+  events: readonly ModelDiagnosticEvent[],
+  terminal: ModelDiagnosticEvent['phase'],
+  responseStatus?: number,
+  purpose: 'compaction' | 'model' = 'compaction',
+  protocol: 'openai-completions' | 'openai-responses' = 'openai-completions',
+) {
+  const started = events.filter((event) => event.phase === 'started')
+  const terminals = events.filter((event) => event.phase === terminal)
+  const terminalEvents = events.filter((event) => ['settled', 'failed', 'cancelled'].includes(event.phase))
+  const responses = events.filter((event) => event.phase === 'response')
+  expect(started).toHaveLength(1)
+  expect(terminals).toHaveLength(1)
+  expect(terminalEvents).toHaveLength(1)
+  expect(events).toHaveLength(started.length + responses.length + terminalEvents.length)
+  expect(started[0]).toMatchObject({ phase: 'started', purpose })
+  expect(terminals[0]).toMatchObject({ phase: terminal, purpose })
+  expect(started[0]?.modelSelectionId).toBe('niuma_openai/gpt-6.1-sol')
+  expect(started[0]?.providerId).toBe('niuma_openai')
+  expect(started[0]?.model).toBe('gpt-6.1-sol')
+  expect(started[0]?.protocol).toBe(protocol)
+  expect(started[0]?.modelRequestId).toBeTruthy()
+  expect(terminals[0]?.modelRequestId).toBe(started[0]?.modelRequestId)
+  if (responseStatus === undefined) expect(responses).toHaveLength(0)
+  else {
+    expect(responses).toHaveLength(1)
+    expect(responses[0]?.httpStatus).toBe(responseStatus)
+    expect(responses[0]?.upstreamRequestIdSha256).toBe(requestIdHash)
+  }
   expect(JSON.stringify(events)).not.toContain('fixture-only')
   expect(JSON.stringify(events)).not.toContain('canary')
   expect(
@@ -99,8 +162,14 @@ async function awaitArrival(arrival: Promise<void>, label: string): Promise<void
   }
 }
 
-function runInput(baseUrl: string, signal: AbortSignal, events: ModelDiagnosticEvent[]): DriverInput {
-  const selection = model(baseUrl)
+function runInput(
+  baseUrl: string,
+  signal: AbortSignal,
+  events: ModelDiagnosticEvent[],
+  protocol: 'openai-completions' | 'openai-responses' = 'openai-completions',
+): DriverInput {
+  const selectedModel = model(baseUrl)
+  const selection = protocol === 'openai-responses' ? { ...selectedModel, protocol } : selectedModel
   const session = sessionSchema.parse({
     id: 'run-session',
     workspaceId: 'run-workspace',
@@ -177,7 +246,7 @@ test('Pi compaction diagnostics preserve selection identity and one started/term
     const body = z.object({ model: z.string() }).parse(await request.json())
     expect(body.model).toBe('gpt-6.1-sol')
     return new Response(chunk('summary') + chunk('', 'stop') + 'data: [DONE]\n\n', {
-      headers: { 'content-type': 'text/event-stream' },
+      headers: sseHeaders,
     })
   })
   try {
@@ -189,7 +258,7 @@ test('Pi compaction diagnostics preserve selection identity and one started/term
       (event) => events.push(event),
     )
     expect(result.text).toBe('summary')
-    assertLifecycle(events, 'settled')
+    assertLifecycle(events, 'settled', 200)
   } finally {
     await fixture.server.stop(true)
   }
@@ -204,8 +273,8 @@ test('Pi compaction diagnostics preserve selection identity and one started/term
       (event) => events.push(event),
     )
     expect(result.text).toBe('partial')
-    assertLifecycle(events, 'settled')
-    expect(events[1]?.stopReason).toBe('length')
+    assertLifecycle(events, 'settled', 200)
+    expect(events.find((event) => event.phase === 'settled')?.stopReason).toBe('length')
   } finally {
     await lengthFixture.server.stop(true)
   }
@@ -215,14 +284,17 @@ async function fixtureForFinish(reason: 'length') {
   return startFixture(
     () =>
       new Response(chunk('partial', reason) + 'data: [DONE]\n\n', {
-        headers: { 'content-type': 'text/event-stream' },
+        headers: sseHeaders,
       }),
   )
 }
 
 test('Pi compaction diagnostics report provider errors without leaking generic upstream text or API keys', async () => {
   const fixture = await startFixture(() =>
-    Response.json({ error: { message: 'genericUpstream canary secret' } }, { status: 502 }),
+    Response.json(
+      { error: { message: 'genericUpstream canary secret' } },
+      { status: 502, headers: { 'x-request-id': UPSTREAM_REQUEST_ID } },
+    ),
   )
   try {
     const events: ModelDiagnosticEvent[] = []
@@ -231,9 +303,36 @@ test('Pi compaction diagnostics report provider errors without leaking generic u
         events.push(event),
       ),
     ).rejects.toThrow()
-    assertLifecycle(events, 'failed')
+    assertLifecycle(events, 'failed', 502)
     expect(JSON.stringify(events)).not.toContain('genericUpstream')
     expect(JSON.stringify(events)).not.toContain('secret')
+  } finally {
+    await fixture.server.stop(true)
+  }
+})
+
+test('Pi compaction diagnostics retain a 401 response classification without retaining its body', async () => {
+  const fixture = await startFixture(
+    () =>
+      new Response(JSON.stringify({ error: { message: 'unauthorized canary body' }, unknownHeader: 'secret' }), {
+        status: 401,
+        headers: {
+          'content-type': 'application/json',
+          'x-request-id': UPSTREAM_REQUEST_ID,
+          'x-unknown-header': 'secret',
+        },
+      }),
+  )
+  try {
+    const events: ModelDiagnosticEvent[] = []
+    await expect(
+      new PiDriver().summarize(request(fixture.baseUrl), 'fixture-only', AbortSignal.timeout(5_000), (event) =>
+        events.push(event),
+      ),
+    ).rejects.toThrow()
+    assertLifecycle(events, 'failed', 401)
+    expect(JSON.stringify(events)).not.toContain('unauthorized canary')
+    expect(JSON.stringify(events)).not.toContain('unknownHeader')
   } finally {
     await fixture.server.stop(true)
   }
@@ -245,7 +344,7 @@ test('Pi compaction diagnostics report abort and malformed provider conversion a
     requestSeen.resolve()
     await Bun.sleep(200)
     return new Response(chunk('late') + chunk('', 'stop') + 'data: [DONE]\n\n', {
-      headers: { 'content-type': 'text/event-stream' },
+      headers: sseHeaders,
     })
   })
   const controller = new AbortController()
@@ -273,9 +372,7 @@ test('Pi compaction diagnostics report abort and malformed provider conversion a
     await abortFixture.server.stop(true)
   }
 
-  const malformed = await startFixture(
-    () => new Response('data: {not-json}\n\n', { headers: { 'content-type': 'text/event-stream' } }),
-  )
+  const malformed = await startFixture(() => new Response('data: {not-json}\n\n', { headers: sseHeaders }))
   try {
     const events: ModelDiagnosticEvent[] = []
     await expect(
@@ -283,7 +380,7 @@ test('Pi compaction diagnostics report abort and malformed provider conversion a
         events.push(event),
       ),
     ).rejects.toThrow()
-    assertLifecycle(events, 'failed')
+    assertLifecycle(events, 'failed', 200)
   } finally {
     await malformed.server.stop(true)
   }
@@ -293,7 +390,7 @@ test('a diagnostic callback that throws does not change a successful provider re
   const fixture = await startFixture(
     () =>
       new Response(chunk('summary') + chunk('', 'stop') + 'data: [DONE]\n\n', {
-        headers: { 'content-type': 'text/event-stream' },
+        headers: sseHeaders,
       }),
   )
   try {
@@ -315,28 +412,42 @@ test('ordinary Pi.run emits one model lifecycle pair for success, provider error
   const success = await startFixture(
     () =>
       new Response(chunk('answer') + chunk('', 'stop') + 'data: [DONE]\n\n', {
-        headers: { 'content-type': 'text/event-stream' },
+        headers: sseHeaders,
       }),
   )
   try {
     const events: ModelDiagnosticEvent[] = []
     await new PiDriver().run(runInput(success.baseUrl, AbortSignal.timeout(5_000), events))
-    expect(events).toHaveLength(2)
-    expect(events[0]).toMatchObject({ phase: 'started', purpose: 'model' })
-    expect(events[1]).toMatchObject({ phase: 'settled', purpose: 'model', stopReason: 'stop' })
-    expect(events[1]?.modelRequestId).toBe(events[0]?.modelRequestId)
+    const successStarted = events.find((event) => event.phase === 'started')
+    const successTerminal = events.find((event) => event.phase === 'settled')
+    const successResponse = events.find((event) => event.phase === 'response')
+    expect(successStarted).toMatchObject({ purpose: 'model' })
+    expect(successTerminal).toMatchObject({ purpose: 'model', stopReason: 'stop' })
+    expect(successTerminal?.modelRequestId).toBe(successStarted?.modelRequestId)
+    expect(successResponse).toMatchObject({ httpStatus: 200, upstreamRequestIdSha256: requestIdHash })
+    expect(events).toHaveLength(3)
   } finally {
     await success.server.stop(true)
   }
 
-  const failed = await startFixture(() =>
-    Response.json({ error: { message: 'genericUpstream canary' } }, { status: 502 }),
+  const failed = await startFixture(
+    () =>
+      new Response(JSON.stringify({ error: { message: 'genericUpstream canary' } }), {
+        status: 502,
+        headers: { 'content-type': 'application/json', 'x-request-id': UPSTREAM_REQUEST_ID },
+      }),
   )
   try {
     const events: ModelDiagnosticEvent[] = []
     await expect(new PiDriver().run(runInput(failed.baseUrl, AbortSignal.timeout(5_000), events))).rejects.toThrow()
-    expect(events).toHaveLength(2)
-    expect(events[1]).toMatchObject({ phase: 'failed', purpose: 'model', stopReason: 'error' })
+    const failedStarted = events.find((event) => event.phase === 'started')
+    const failedTerminal = events.find((event) => event.phase === 'failed')
+    const failedResponse = events.find((event) => event.phase === 'response')
+    expect(failedStarted).toMatchObject({ purpose: 'model' })
+    expect(failedTerminal).toMatchObject({ purpose: 'model', stopReason: 'error' })
+    expect(failedTerminal?.modelRequestId).toBe(failedStarted?.modelRequestId)
+    expect(failedResponse).toMatchObject({ httpStatus: 502, upstreamRequestIdSha256: requestIdHash })
+    expect(events).toHaveLength(3)
     expect(JSON.stringify(events)).not.toContain('genericUpstream')
   } finally {
     await failed.server.stop(true)
@@ -347,7 +458,7 @@ test('ordinary Pi.run emits one model lifecycle pair for success, provider error
     runRequest.resolve()
     await Bun.sleep(200)
     return new Response(chunk('late') + chunk('', 'stop') + 'data: [DONE]\n\n', {
-      headers: { 'content-type': 'text/event-stream' },
+      headers: sseHeaders,
     })
   })
   const controller = new AbortController()
@@ -362,8 +473,14 @@ test('ordinary Pi.run emits one model lifecycle pair for success, provider error
     await awaitArrival(runRequest.promise, 'ordinary provider request')
     controller.abort()
     expect(await pendingOutcome).toBeInstanceOf(Error)
+    expect(events.filter((event) => event.phase === 'started')).toHaveLength(1)
+    expect(events.filter((event) => event.phase === 'cancelled')).toHaveLength(1)
+    expect(events.find((event) => event.phase === 'cancelled')).toMatchObject({
+      purpose: 'model',
+      stopReason: 'aborted',
+    })
+    expect(events.filter((event) => event.phase === 'response')).toHaveLength(0)
     expect(events).toHaveLength(2)
-    expect(events[1]).toMatchObject({ phase: 'cancelled', purpose: 'model', stopReason: 'aborted' })
   } finally {
     controller.abort()
     await pendingOutcome
@@ -373,7 +490,7 @@ test('ordinary Pi.run emits one model lifecycle pair for success, provider error
   const callback = await startFixture(
     () =>
       new Response(chunk('answer') + chunk('', 'stop') + 'data: [DONE]\n\n', {
-        headers: { 'content-type': 'text/event-stream' },
+        headers: sseHeaders,
       }),
   )
   try {
@@ -386,5 +503,105 @@ test('ordinary Pi.run emits one model lifecycle pair for success, provider error
     expect(events).toHaveLength(0)
   } finally {
     await callback.server.stop(true)
+  }
+})
+
+test('OpenAI Responses compaction and ordinary inference retain response metadata on a real SSE success', async () => {
+  const fixture = await startFixture(async (request) => {
+    expect(new URL(request.url).pathname).toBe('/v1/responses')
+    expect(request.headers.get('authorization')).toBe('Bearer fixture-only')
+    const body = z
+      .object({ model: z.string(), input: z.array(z.unknown()) })
+      .passthrough()
+      .parse(await request.json())
+    expect(body.model).toBe('gpt-6.1-sol')
+    return new Response(responsesTextSse('summary'), { headers: sseHeaders })
+  })
+  try {
+    const summaryEvents: ModelDiagnosticEvent[] = []
+    const summary = await new PiDriver().summarize(
+      responsesRequest(fixture.baseUrl),
+      'fixture-only',
+      AbortSignal.timeout(5_000),
+      (event) => summaryEvents.push(event),
+    )
+    expect(summary.text).toBe('summary')
+    assertLifecycle(summaryEvents, 'settled', 200, 'compaction', 'openai-responses')
+
+    const runEvents: ModelDiagnosticEvent[] = []
+    await new PiDriver().run(runInput(fixture.baseUrl, AbortSignal.timeout(5_000), runEvents, 'openai-responses'))
+    assertLifecycle(runEvents, 'settled', 200, 'model', 'openai-responses')
+  } finally {
+    await fixture.server.stop(true)
+  }
+})
+
+test('OpenAI Responses provider errors preserve 401 and 502 status plus request identity without body leakage', async () => {
+  for (const status of [401, 502] as const) {
+    const fixture = await startFixture(async (request) => {
+      expect(new URL(request.url).pathname).toBe('/v1/responses')
+      const body = z
+        .object({ model: z.string(), input: z.array(z.unknown()) })
+        .passthrough()
+        .parse(await request.json())
+      expect(body.model).toBe('gpt-6.1-sol')
+      return Response.json(
+        { error: { message: `responses-${status} genericUpstream canary` }, unknownHeader: 'secret' },
+        {
+          status,
+          headers: { 'x-request-id': UPSTREAM_REQUEST_ID, 'x-unknown-header': 'secret' },
+        },
+      )
+    })
+    try {
+      const events: ModelDiagnosticEvent[] = []
+      await expect(
+        new PiDriver().summarize(
+          responsesRequest(fixture.baseUrl),
+          'fixture-only',
+          AbortSignal.timeout(5_000),
+          (event) => events.push(event),
+        ),
+      ).rejects.toThrow()
+      assertLifecycle(events, 'failed', status, 'compaction', 'openai-responses')
+      expect(JSON.stringify(events)).not.toContain('genericUpstream')
+      expect(JSON.stringify(events)).not.toContain('unknownHeader')
+      expect(JSON.stringify(events)).not.toContain('secret')
+    } finally {
+      await fixture.server.stop(true)
+    }
+  }
+})
+
+test('OpenAI Responses abort after request arrival emits no response phase', async () => {
+  const requestSeen = Promise.withResolvers<void>()
+  const fixture = await startFixture(async (request) => {
+    expect(new URL(request.url).pathname).toBe('/v1/responses')
+    requestSeen.resolve()
+    await Bun.sleep(200)
+    return new Response(responsesTextSse('late'), { headers: sseHeaders })
+  })
+  const controller = new AbortController()
+  let pendingOutcome: Promise<unknown> = Promise.resolve(null)
+  try {
+    const events: ModelDiagnosticEvent[] = []
+    const pending = new PiDriver().summarize(
+      responsesRequest(fixture.baseUrl),
+      'fixture-only',
+      controller.signal,
+      (event) => events.push(event),
+    )
+    pendingOutcome = pending.then(
+      () => null,
+      (error: unknown) => error,
+    )
+    await awaitArrival(requestSeen.promise, 'Responses provider request')
+    controller.abort()
+    expect(await pendingOutcome).toBeInstanceOf(Error)
+    assertLifecycle(events, 'cancelled', undefined, 'compaction', 'openai-responses')
+  } finally {
+    controller.abort()
+    await pendingOutcome
+    await fixture.server.stop(true)
   }
 })

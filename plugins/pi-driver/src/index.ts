@@ -9,6 +9,7 @@ import type {
   Message as PiMessage,
   Model,
   SimpleStreamOptions,
+  ProviderResponse,
   ThinkingLevelMap,
   Usage as PiUsage,
 } from '@earendil-works/pi-ai'
@@ -31,6 +32,7 @@ import type {
 import type { ContentBlock, Message, ProviderConfig, ThinkingLevel, Usage } from '@hbar/contracts'
 import { appendProviderContext, splitModelContext } from './model-context'
 import { createDriverSteeringReader } from './steering'
+import { withProviderResponseDiagnostics } from './provider-http-diagnostics'
 
 const piUsage = (): PiUsage => ({
   input: 0,
@@ -210,6 +212,7 @@ function streamProvider(
   thinking: ThinkingLevel | undefined = undefined,
   runtimeContext = '',
   sessionId?: string,
+  onResponse?: (response: ProviderResponse) => void,
 ): AssistantMessageEventStream {
   const model = modelOf(config)
   const reasoning = normalizeThinkingLevel(config, thinking)
@@ -218,6 +221,9 @@ function streamProvider(
     signal,
     maxTokens: config.maxOutput,
     maxRetries: 0,
+    ...(onResponse && (config.protocol === 'openai-responses' || config.protocol === 'openai-completions')
+      ? { fetch: withProviderResponseDiagnostics(globalThis.fetch, onResponse) }
+      : {}),
     ...(sessionId ? { sessionId } : {}),
     ...(config.protocol === 'openai-responses' || config.protocol === 'openai-completions'
       ? { samplingParams: { parallel_tool_calls: true } }
@@ -260,6 +266,29 @@ function emitModelDiagnostic(
   } catch {
     // Diagnostics are observational and must not alter provider/error semantics.
   }
+}
+
+function responseDiagnostic(
+  callback: ((event: ModelDiagnosticEvent) => void) | undefined,
+  request: ModelRequest,
+  response: ProviderResponse,
+  modelRequestId: string,
+  purpose: 'model' | 'compaction',
+): void {
+  const id = response.headers['x-request-id']
+  const upstreamRequestIdSha256 =
+    id && id.length <= 256 ? new Bun.CryptoHasher('sha256').update(id).digest('hex') : undefined
+  emitModelDiagnostic(callback, {
+    phase: 'response',
+    purpose,
+    providerId: diagnosticProviderId(request.model.id),
+    modelSelectionId: request.model.id,
+    modelRequestId,
+    model: request.model.model,
+    protocol: request.model.protocol,
+    httpStatus: response.status,
+    upstreamRequestIdSha256,
+  })
 }
 function diagnosticProviderId(selectionId: string): string {
   const value = selectionId.split('/', 1)[0] ?? selectionId
@@ -564,6 +593,7 @@ export class PiDriver implements HarnessDriver {
           input.run.input.thinking,
           context.context,
           input.session.id,
+          (response) => responseDiagnostic(input.onModelDiagnostic, request, response, modelRequestId, 'model'),
         )
       } catch (error) {
         if (error instanceof RunControlSignal && !input.signal.aborted) throw error
@@ -674,6 +704,7 @@ export class PiDriver implements HarnessDriver {
         request.context?.thinking,
         '',
         request.context?.sessionId,
+        (response) => responseDiagnostic(onDiagnostic, request, response, modelRequestId, 'compaction'),
       )
       for await (const event of stream) {
         void event
