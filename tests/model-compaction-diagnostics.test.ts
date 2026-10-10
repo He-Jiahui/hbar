@@ -66,7 +66,10 @@ for (const failsAfterFirstChunk of [false, true]) {
         expect(body.model).toBe('selected')
         calls++
         if (failsAfterFirstChunk && calls === 2)
-          return Response.json({ error: { message: 'private-error-canary' } }, { status: 400 })
+          return Response.json(
+            { error: { message: 'private-error-canary' } },
+            { status: 400, headers: { 'x-request-id': `private-request-canary-${calls}` } },
+          )
         const message = {
           id: `summary-${calls}`,
           object: 'chat.completion.chunk',
@@ -78,7 +81,11 @@ for (const failsAfterFirstChunk of [false, true]) {
         }
         const done = { ...message, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] }
         return new Response(`data: ${JSON.stringify(message)}\n\ndata: ${JSON.stringify(done)}\n\ndata: [DONE]\n\n`, {
-          headers: { 'content-type': 'text/event-stream' },
+          headers: {
+            'content-type': 'text/event-stream',
+            'x-request-id': `private-request-canary-${calls}`,
+            'x-private-canary': 'private-header-canary',
+          },
         })
       },
     })
@@ -129,8 +136,10 @@ for (const failsAfterFirstChunk of [false, true]) {
       const own = events.filter((event) => event.sessionId === session.id)
       const starts = own.filter((event) => event.event === 'provider.request_started')
       const terminals = own.filter((event) => event.event === 'provider.request_settled')
+      const responses = own.filter((event) => event.event === 'provider.response')
       expect(starts).toHaveLength(calls)
       expect(terminals).toHaveLength(calls)
+      expect(responses).toHaveLength(calls)
       for (const start of starts) {
         expect(start).toMatchObject({
           providerId: 'catalog',
@@ -141,6 +150,12 @@ for (const failsAfterFirstChunk of [false, true]) {
         expect(start.attemptId).toBeTruthy()
         expect(start.stepId).toBeUndefined()
         expect(terminals.filter((event) => event.modelRequestId === start.modelRequestId)).toHaveLength(1)
+        const response = responses.find((event) => event.modelRequestId === start.modelRequestId)
+        expect(response?.attemptId).toBe(start.attemptId)
+        expect(response?.httpStatus).toBe(failsAfterFirstChunk && start.chunkIndex === 1 ? 400 : 200)
+        expect(response?.upstreamRequestIdSha256).toBe(
+          new Bun.CryptoHasher('sha256').update(`private-request-canary-${(start.chunkIndex ?? 0) + 1}`).digest('hex'),
+        )
       }
       const summaryStarts = own.filter(
         (event) => event.event === 'context.compaction_stage' && event.phase === 'summary_started',
@@ -174,6 +189,8 @@ for (const failsAfterFirstChunk of [false, true]) {
       expect(serialized).not.toContain('private-key-canary')
       expect(serialized).not.toContain('private-prompt-canary')
       expect(serialized).not.toContain('private-error-canary')
+      expect(serialized).not.toContain('private-request-canary')
+      expect(serialized).not.toContain('private-header-canary')
     } finally {
       try {
         if (kernel) {

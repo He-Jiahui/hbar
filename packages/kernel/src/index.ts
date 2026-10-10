@@ -1855,8 +1855,11 @@ export class Kernel {
                 model: event.model,
                 protocol: event.protocol,
                 stopReason: event.stopReason,
+                httpStatus: event.httpStatus,
+                upstreamRequestIdSha256: event.upstreamRequestIdSha256,
               }
               if (event.phase === 'started') this.executionDiagnostics.providerRequestStarted(identity)
+              else if (event.phase === 'response') this.executionDiagnostics.providerResponse(identity)
               else if (event.phase === 'settled')
                 this.executionDiagnostics.providerRequestSettled(identity, 'success', event.durationMs ?? 0)
               else if (event.phase === 'cancelled')
@@ -3042,8 +3045,11 @@ export class Kernel {
                 model: event.model,
                 protocol: event.protocol,
                 stopReason: event.stopReason,
+                httpStatus: event.httpStatus,
+                upstreamRequestIdSha256: event.upstreamRequestIdSha256,
               }
               if (event.phase === 'started') this.executionDiagnostics.providerRequestStarted(identity)
+              else if (event.phase === 'response') this.executionDiagnostics.providerResponse(identity)
               else if (event.phase === 'settled')
                 this.executionDiagnostics.providerRequestSettled(identity, 'success', event.durationMs ?? 0)
               else if (event.phase === 'cancelled')
