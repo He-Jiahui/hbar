@@ -277,3 +277,18 @@ test('legacy result success is unknown, while unexecuted calls remain pending', 
   expect(current.tools).toMatchObject({ total: 2, unknown: 1, pending: 1, succeeded: 0, successRate: null })
   expect(current.files.reads).toBe(0)
 })
+
+test('a Run continuing across a compaction belongs to both context windows without a new user turn', async () => {
+  const { storage, session } = await fixture()
+  const run = await storage.call('enqueue', session.id, 'long-run', { text: 'Continue', images: [] }, 'fixture/model')
+  await storage.call('claim', session.id)
+  await storage.call('append', session.id, 'request.started', { attemptId: 'first' }, run.id)
+  const first = await start(storage, session.id, run.id)
+  await complete(storage, first)
+  await storage.call('append', session.id, 'request.started', { attemptId: 'next' }, run.id)
+  const next = await start(storage, session.id, run.id)
+  expect(next.window).toBe(2)
+  expect(next.stats.runs).toBe(1)
+  expect(next.stats.turns).toBe(0)
+  expect(next.stats.usage.requests).toBe(1)
+})

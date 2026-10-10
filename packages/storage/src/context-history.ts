@@ -187,7 +187,7 @@ export function readContextWindowStats(
     .query<{ turns: number; runs: number }, [string, number, number]>(
       `
     SELECT COUNT(DISTINCT CASE WHEN type='message.committed' AND json_extract(data,'$.role')='user' THEN seq END) AS turns,
-      COUNT(DISTINCT CASE WHEN type IN ('run.status','run.settled') THEN runId END) AS runs
+      COUNT(DISTINCT CASE WHEN type IN ('run.status','run.settled','request.started','compaction.request','message.committed','tool.started') THEN runId END) AS runs
     FROM events WHERE sessionId=? AND seq>? AND seq<=?
   `,
     )
