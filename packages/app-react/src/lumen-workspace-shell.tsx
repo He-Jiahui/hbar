@@ -747,13 +747,17 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       )
       if (!shortcut) return
       event.preventDefault()
+      const choiceRevision = sidebarChoiceRevision.current
       void (
         shortcut === 'settings'
           ? execute('app.openSettings', { scope: 'global' })
           : execute('app.openPanel', { panelId: shortcut })
       )
         .then(() => {
-          if (window.matchMedia('(max-width: 63.9375rem)').matches)
+          if (
+            choiceRevision === sidebarChoiceRevision.current &&
+            window.matchMedia('(max-width: 63.9375rem)').matches
+          )
             return execute('app.setSidebarVisible', { visible: false })
           return undefined
         })
