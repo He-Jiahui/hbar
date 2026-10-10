@@ -86,13 +86,23 @@ import type { ArtifactRef, HostInfo, RpcMethod, RpcParams, RpcResults, WireNotif
 import type { ClientTransport } from './transport'
 import type { AttachmentUploadOptions } from './files'
 import { chatDatabaseUploadOwnerSchema } from '@hbar/contracts/commands/chat-database'
+import { HbarClientDiagnostics, type HbarClientOptions } from './diagnostics'
+export { HbarClientDiagnostics, type ClientDiagnosticInput, type HbarClientOptions } from './diagnostics'
 export type { ClientTransport } from './transport'
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'pairing'
 export class HbarClient implements ClientTransport {
   private socket: WebSocket | undefined
   private pending = new Map<
     number,
-    { resolve(value: unknown): void; reject(error: Error): void; timer: ReturnType<typeof setTimeout> }
+    {
+      resolve(value: unknown): void
+      reject(error: Error): void
+      timer: ReturnType<typeof setTimeout>
+      method: RpcMethod
+      requestId?: string | undefined
+      startedAt: number
+      bytesOut: number
+    }
   >()
   private nextId = 0
   private events = new Set<(event: WireNotification) => void>()
@@ -107,10 +117,13 @@ export class HbarClient implements ClientTransport {
   private imageHostId: string | null = null
   private imageReadsRevoked = false
   private readonly imageArtifacts: ReturnType<typeof createImageArtifactReader>
+  private readonly diagnostics: HbarClientDiagnostics
   constructor(
     readonly baseUrl: string,
     private token?: string,
+    options?: HbarClientOptions,
   ) {
+    this.diagnostics = new HbarClientDiagnostics(options)
     this.imageArtifacts = createImageArtifactReader({
       baseUrl,
       token: () => this.token,
@@ -134,8 +147,24 @@ export class HbarClient implements ClientTransport {
     for (const listener of this.statuses) listener(status)
   }
   private rejectPending(error: HbarError) {
-    for (const pending of this.pending.values()) {
+    for (const [id, pending] of this.pending) {
       clearTimeout(pending.timer)
+      this.diagnostics.emit(
+        {
+          event: 'rpc.pending_rejected',
+          level: 'warn',
+          phase: 'connection',
+          rpcId: String(id),
+          method: pending.method,
+          requestId: pending.requestId,
+          errorCode: error.code,
+          outcome: 'unknown',
+          durationMs: performance.now() - pending.startedAt,
+          bytesOut: pending.bytesOut,
+          pending: this.pending.size,
+        },
+        true,
+      )
       pending.reject(error)
     }
     this.pending.clear()
@@ -149,6 +178,7 @@ export class HbarClient implements ClientTransport {
       previous?.close()
     }
     this.closed = false
+    this.diagnostics.emit({ event: 'connection.attempt', level: 'info', phase: 'connect', outcome: 'unknown' }, true)
     this.status('connecting')
     const url = new URL('/rpc', this.baseUrl)
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -157,6 +187,7 @@ export class HbarClient implements ClientTransport {
       this.socket = socket
       socket.onopen = async () => {
         if (this.socket !== socket) return socket.close()
+        this.diagnostics.emit({ event: 'connection.open', level: 'debug', phase: 'transport', outcome: 'unknown' }, true)
         try {
           const host = await this.call('system.hello', { protocol: PROTOCOL_VERSION, token: this.token })
           if (this.socket !== socket || this.closed) throw new HbarError('DISCONNECTED', 'Connection changed')
@@ -166,10 +197,21 @@ export class HbarClient implements ClientTransport {
           this.imageReadsRevoked = false
           this.retry = 0
           this.currentHost = host
+          this.diagnostics.emit({ event: 'connection.connected', level: 'info', phase: 'hello', instanceId: host.instanceId, outcome: 'success' }, true)
           this.status('connected')
           resolve(host)
           for (const [sessionId, cursor] of this.follows) await this.follow(sessionId, cursor)
         } catch (error) {
+          this.diagnostics.emit(
+            {
+              event: 'connection.hello_failed',
+              level: 'error',
+              phase: 'hello',
+              errorCode: error instanceof HbarError ? error.code : 'CONNECTION_FAILED',
+              outcome: 'failure',
+            },
+            true,
+          )
           if (this.socket === socket && error instanceof HbarError && error.code === 'UNAUTHORIZED') {
             this.closed = true
             this.imageReadsRevoked = true
@@ -196,7 +238,27 @@ export class HbarClient implements ClientTransport {
             if (!pending) return
             clearTimeout(pending.timer)
             this.pending.delete(message.id)
-            if (message.error) pending.reject(new HbarError(message.error.data ?? 'RPC_ERROR', message.error.message))
+            const durationMs = performance.now() - pending.startedAt
+            const errorCode = message.error?.data ?? 'RPC_ERROR'
+            this.diagnostics.emit(
+              {
+                event: message.error ? 'rpc.error' : 'rpc.settled',
+                level: message.error ? 'error' : 'debug',
+                phase: 'response',
+                instanceId: this.currentHost?.instanceId,
+                rpcId: String(message.id),
+                requestId: pending.requestId,
+                method: pending.method,
+                ...(message.error ? { errorCode } : {}),
+                outcome: message.error ? 'failure' : 'success',
+                durationMs,
+                bytesIn: new TextEncoder().encode(String(event.data)).byteLength,
+                bytesOut: pending.bytesOut,
+                pending: this.pending.size,
+              },
+              Boolean(message.error) || durationMs >= 100,
+            )
+            if (message.error) pending.reject(new HbarError(errorCode, message.error.message))
             else pending.resolve(message.result)
           } else if (message.method) {
             const notification = message as unknown as WireNotification
@@ -206,6 +268,7 @@ export class HbarClient implements ClientTransport {
                 Math.max(this.follows.get(notification.params.sessionId) ?? 0, notification.params.seq),
               )
             if (notification.method === 'auth.revoked') {
+              this.diagnostics.emit({ event: 'connection.revoked', level: 'warn', phase: 'auth', instanceId: this.currentHost?.instanceId, outcome: 'failure', errorCode: 'UNAUTHORIZED' }, true)
               this.closed = true
               this.imageReadsRevoked = true
               this.imageArtifacts.invalidate()
@@ -218,17 +281,22 @@ export class HbarClient implements ClientTransport {
           console.error('Invalid host message:', error)
         }
       }
-      socket.onerror = () => reject(new Error('Cannot connect to hbar host'))
+      socket.onerror = () => {
+        this.diagnostics.emit({ event: 'connection.error', level: 'error', phase: 'transport', errorCode: 'CONNECTION_FAILED', outcome: 'failure' }, true)
+        reject(new Error('Cannot connect to hbar host'))
+      }
       socket.onclose = () => {
         if (this.socket !== socket) return
         this.socket = undefined
         this.connectPromise = undefined
         this.currentHost = null
+        this.diagnostics.emit({ event: 'connection.closed', level: this.closed ? 'info' : 'warn', phase: 'transport', outcome: this.closed ? 'success' : 'unknown' }, true)
         this.rejectPending(new HbarError('DISCONNECTED', 'Connection closed; reconcile using the request id'))
         if (!this.closed) {
           this.status('disconnected')
           this.retryTimer = setTimeout(
             () => {
+              this.diagnostics.emit({ event: 'connection.reconnect', level: 'info', phase: 'retry', outcome: 'unknown' }, true)
               void this.connect().catch(() => {})
             },
             Math.min(10_000, 300 * 2 ** this.retry++),
@@ -239,10 +307,18 @@ export class HbarClient implements ClientTransport {
     return this.connectPromise
   }
   call<M extends RpcMethod>(method: M, params: RpcParams<M>): Promise<RpcResults[M]> {
-    if (this.socket?.readyState !== WebSocket.OPEN)
+    if (this.socket?.readyState !== WebSocket.OPEN) {
+      this.diagnostics.emit({ event: 'rpc.admission_rejected', level: 'warn', phase: 'admission', method, errorCode: 'DISCONNECTED', outcome: 'failure', pending: this.pending.size }, true)
       return Promise.reject(new HbarError('DISCONNECTED', 'Host is not connected'))
+    }
     return new Promise((resolve, reject) => {
       const id = ++this.nextId
+      const startedAt = performance.now()
+      const requestId =
+        typeof params === 'object' && params !== null && 'requestId' in params && typeof params.requestId === 'string'
+          ? params.requestId.slice(0, 160)
+          : undefined
+      let bytesOut = 0
       const longRunning =
         method === 'context.compact' ||
         (method === 'command.execute' &&
@@ -253,12 +329,23 @@ export class HbarClient implements ClientTransport {
       const timer = setTimeout(
         () => {
           this.pending.delete(id)
+          this.diagnostics.emit({ event: 'rpc.timeout', level: 'error', phase: 'timeout', instanceId: this.currentHost?.instanceId, rpcId: String(id), requestId, method, errorCode: 'TIMEOUT', outcome: 'unknown', durationMs: performance.now() - startedAt, bytesOut, pending: this.pending.size }, true)
           reject(new HbarError('TIMEOUT', 'Request timed out'))
         },
         longRunning ? 300_000 : 30_000,
       )
-      this.pending.set(id, { resolve: (value) => resolve(value as RpcResults[M]), reject, timer })
-      this.socket!.send(JSON.stringify({ jsonrpc: '2.0', id, method, params }))
+      const message = JSON.stringify({ jsonrpc: '2.0', id, method, params })
+      bytesOut = new TextEncoder().encode(message).byteLength
+      this.pending.set(id, { resolve: (value) => resolve(value as RpcResults[M]), reject, timer, method, requestId, startedAt, bytesOut })
+      this.diagnostics.emit({ event: 'rpc.sent', level: 'debug', phase: 'transport', instanceId: this.currentHost?.instanceId, rpcId: String(id), requestId, method, outcome: 'unknown', bytesOut, pending: this.pending.size }, false)
+      try {
+        this.socket!.send(message)
+      } catch (error) {
+        this.pending.delete(id)
+        clearTimeout(timer)
+        this.diagnostics.emit({ event: 'rpc.send_error', level: 'error', phase: 'transport', instanceId: this.currentHost?.instanceId, rpcId: String(id), requestId, method, errorCode: error instanceof HbarError ? error.code : 'SEND_FAILED', outcome: 'failure', bytesOut, pending: this.pending.size }, true)
+        reject(error instanceof Error ? error : new Error('RPC send failed'))
+      }
     })
   }
   async follow(sessionId: string, cursor: number) {
