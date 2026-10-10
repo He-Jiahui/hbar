@@ -7,6 +7,14 @@ export interface HostSupervisorOptions {
   readonly hostArgs: readonly string[]
   readonly connectionFile: string | (() => Promise<string>)
   readonly stdio?: 'inherit' | 'ignore'
+  /** Receives a bounded, secret-free record for every supervised child exit. */
+  readonly onExit?: (event: HostSupervisorExit) => void
+}
+
+export interface HostSupervisorExit {
+  readonly code: number
+  readonly signal: NodeJS.Signals | null
+  readonly expectedRestart: boolean
 }
 
 function supervisedArguments(input: readonly string[], port?: number): string[] {
@@ -63,6 +71,17 @@ export function createHostSupervisor(options: HostSupervisorOptions) {
           windowsHide: true,
         })
         const code = await child.exited
+        const event: HostSupervisorExit = {
+          code,
+          signal: child.signalCode ?? null,
+          expectedRestart: code === RESTART_EXIT_CODE,
+        }
+        try {
+          options.onExit?.(event)
+        } catch {
+          // Diagnostics must never change restart or shutdown behavior.
+          console.error('[hbar supervisor] exit observer failed')
+        }
         child = null
         if (stopped) return 0
         if (code !== RESTART_EXIT_CODE) return code

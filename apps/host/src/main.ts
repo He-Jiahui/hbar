@@ -45,6 +45,7 @@ export async function runHost(
       command: supervisorCommand,
       hostArgs: args,
       connectionFile: async () => join((await getStorageLocations(layout)).saved.settingsRoot, 'connection.json'),
+      onExit: (event) => console.error(`[hbar supervisor] child exit ${JSON.stringify(event)}`),
     })
     const stopSupervisor = () => supervisor.stop()
     process.on('SIGINT', stopSupervisor)
