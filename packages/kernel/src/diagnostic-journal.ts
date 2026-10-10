@@ -134,6 +134,7 @@ export class DiagnosticJournal implements DiagnosticSink {
       value.level === 'warn' ||
       value.level === 'error' ||
       value.level === 'fatal' ||
+      (value.durationMs !== undefined && value.durationMs >= 100) ||
       ALWAYS_EVENTS.has(value.event)
     if (!keep) return
     this.ring.push(value)
