@@ -38,6 +38,18 @@ function expandedKeys(content: ApiKeysContent, count: number): ApiKeysContent {
   }
 }
 
+function renderedButtons(markup: string): string[] {
+  return markup.match(/<button\b[^>]*>[\s\S]*?<\/button>/g) ?? []
+}
+
+function visibleButtonText(button: string): string {
+  return button
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#x27;/g, "'")
+    .trim()
+}
+
 describe('integrations reference API keys', () => {
   test('renders the native five-column source table and keeps each key action reachable in its scroll region', () => {
     const content = withApiKeyFlow(createIntegrationApiKeysReferenceFixture())
@@ -47,11 +59,15 @@ describe('integrations reference API keys', () => {
     expect(markup).toContain('Keys inherit the permissions of the workspace they belong to.')
     expect(markup).toContain('role="region"')
     expect(markup).toContain('tabindex="0"')
-    expect(markup.match(/<th\b/g)).toHaveLength(5)
+    expect(markup.match(/<th\b[^>]*scope="col"/g)).toHaveLength(5)
     expect(markup.match(/<tr data-hbar-app-ui-item-id=/g)).toHaveLength(4)
+    expect(markup.match(/<td\b/g)).toHaveLength(20)
     expect(markup.match(/aria-label="Reveal key"/g)).toHaveLength(4)
     expect(markup.match(/aria-label="Copy key"/g)).toHaveLength(4)
-    expect(markup.match(/>Rotate<\/button>/g)).toHaveLength(4)
+    expect(markup.match(/aria-label="Revoke [^"]+"/g)).toHaveLength(4)
+    const buttons = renderedButtons(markup)
+    expect(buttons).toHaveLength(17)
+    expect(buttons.filter((button) => visibleButtonText(button) === 'Rotate')).toHaveLength(4)
     expect(markup).toContain('Revoke Billing worker')
     expect(markup).toContain('4 keys · revoking takes effect immediately')
     expect(markup).not.toContain('preview-only-key-for-billing-worker')
