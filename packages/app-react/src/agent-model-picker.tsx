@@ -62,6 +62,7 @@ export function AgentModelPicker({
   })
   const selected = catalog.models.find((model) => model.id === value)
   const unavailableDraft = value && !selected ? value : null
+  const closedEmpty = catalog.status === 'ready' && catalog.models.length === 0 && !unavailableDraft
   const currentLabel = selected?.modelName ?? (value ? labels.unavailable(value) : labels.choose)
   const { groups, remaining } = filterCatalogModels(catalog.models, query, limit, value)
   const moveOption = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -119,6 +120,11 @@ export function AgentModelPicker({
             {labels.retry}
           </LumenButton>
         </LumenFrame>
+      )}
+      {!open && closedEmpty && (
+        <LumenText as="small" role="status">
+          {labels.empty}
+        </LumenText>
       )}
       <FloatingSurface
         open={open}

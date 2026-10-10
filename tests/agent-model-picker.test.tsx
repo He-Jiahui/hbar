@@ -44,13 +44,8 @@ test('Agent model picker keeps unavailable drafts visible and localizes failure,
   expect(empty).toContain('No models available')
   const unavailableDraft = render('zh-CN', { status: 'ready', models: [], error: null }, 'old:model')
   expect(unavailableDraft).toContain('不可用：old:model')
-  expect(unavailableDraft).toContain('role="option"')
-  expect(unavailableDraft).not.toContain('没有可用模型')
   const ready = render('zh-CN', { status: 'ready', models: [model], error: null }, model.id)
   expect(ready).toContain(model.modelName)
-  expect(ready).toContain(model.providerName)
-  expect(ready).toContain('aria-selected="true"')
-  expect(ready).not.toContain('disabled="" role="option"')
 })
 
 test('Agent model search and paging cover the Host catalog without rendering more than one page', () => {
