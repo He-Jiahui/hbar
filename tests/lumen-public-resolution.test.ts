@@ -138,5 +138,5 @@ test('maintained Bun test entries retain native and quality gates with the hbar 
   expect(manifest.scripts.test).toBe(
     'bun run native:build && bun test ./tests ./packages/kernel/src/schedule-runner.test.ts ./packages/kernel/src/schedule-service.test.ts --tsconfig-override ./tsconfig.json --timeout 20000',
   )
-  expect(manifest.scripts.check).toBe('bun run lint && bun run typecheck && bun run test')
+  expect(manifest.scripts.check).toBe('bun run lint && bun run typecheck && bun run check:theme-tokens && bun run test')
 })
