@@ -1,6 +1,7 @@
 import { Context, Service } from 'cordis'
 export type { DecisionContext, DecisionService } from './decision'
 export { appendModelContext, prependModelInstructions } from './model-context'
+export { SKILL_TOOL_NAMES } from './skills'
 export { RunControlSignal, type GoalReplacementStop } from './run-control'
 import type { GoalReplacementStop } from './run-control'
 import type { ToolTimeoutPolicy } from './tool-timeout'
@@ -229,6 +230,10 @@ export interface ModelRequest {
   toolNames?: readonly string[]
   context?: {
     sessionId: string
+    /** Actual execution root, including an isolated worktree or mounted workspace. */
+    workspacePath?: string | undefined
+    /** Captured Run tools after all selection hooks; context cannot advertise excluded capabilities. */
+    selectedToolNames?: readonly string[] | undefined
     /** Context inspection decorates a read-only projection without admitting a model execution. */
     purpose?: 'execution' | 'context-inspection'
     runId?: string | undefined

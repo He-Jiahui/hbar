@@ -154,3 +154,16 @@ test('rejects symlink escapes, traversal, binaries, oversize resources and cance
   await expect(catalog.search(workspace, {}, controller.signal)).rejects.toMatchObject({ code: 'CANCELLED' })
   expect((await catalog.resources(directory)).files).not.toContain('escape/private.md')
 })
+
+test('resource samples bound both file count and total path text without losing the truncation signal', async () => {
+  const { global, catalog } = await fixture()
+  const directory = await skill(global, 'many-assets', 'Resource sample bounds')
+  for (let index = 0; index < 100; index++)
+    await writeFile(join(directory, `${String(index).padStart(3, '0')}-${'n'.repeat(85)}.md`), 'Asset')
+  const resources = await catalog.resources(directory)
+  expect(resources.truncated).toBe(true)
+  expect(resources.files.length).toBeLessThan(SKILL_LIMITS.files)
+  expect(resources.files.reduce((total, path) => total + path.length, 0)).toBeLessThanOrEqual(
+    SKILL_LIMITS.resourcePathCharacters,
+  )
+})

@@ -18,7 +18,7 @@ import type {
   AgentRecord,
   AgentPolicySetInput,
 } from '@hbar/contracts/commands/agents'
-import { definePlugin, provide } from '@hbar/plugin-sdk'
+import { definePlugin, provide, SKILL_TOOL_NAMES } from '@hbar/plugin-sdk'
 import type {
   AgentService,
   BudgetService,
@@ -49,6 +49,7 @@ const PROFILE_DEFINITIONS = {
     instructions:
       'You are an Explore child agent. Investigate the assigned objective using read-only workspace tools. Do not modify files, run processes, or claim changes were made. Report findings with concrete file paths and uncertainty.',
     toolNames: new Set([
+      ...SKILL_TOOL_NAMES,
       'read_file',
       'search_text',
       'find_files',

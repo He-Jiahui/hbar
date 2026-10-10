@@ -30,6 +30,46 @@ entries, 1,024 discovered skills, twenty search results per page, 256 KiB per
 file, 24,000 characters per read page, and one hundred sampled resource files.
 A truncated catalog is reported explicitly instead of claimed complete.
 
+The built-in `tools.skills` plugin adds three read-only native tools to the
+ordinary Run tool selection:
+
+- `skill_search({ query?, cursor?, limit? })` searches metadata or browses the full
+  catalog when the query is empty. Follow `nextCursor`; a stale cursor requires a
+  fresh search.
+- `skill({ name })` loads the selected `SKILL.md`, its current directory and a
+  bounded resource listing. Names and catalog IDs are accepted.
+- `skill_read({ name, path, offset?, revision? })` reads required references or
+  continues a long instruction file. Follow `nextOffset` with the same revision
+  until it is null. File paths are relative to the selected skill directory.
+
+Each model request receives a bounded metadata catalog in the existing dynamic
+context. It prioritizes current task wording, including continuous Chinese text,
+and instructs the model to proactively select a skill for an explicit request or
+a clear semantic match. The model announces the selected skills and reads their
+complete instructions before applying them. Omitted entries remain discoverable
+through `skill_search`; only selected instructions and required references enter
+conversation history. No additional model request generates a skill summary.
+
+Explicit-only entries are omitted from automatic suggestions unless named in
+the current task. Their invocation policy is also included in search results.
+The prompt requires a user request before applying them. Skill results remain
+ordinary persisted tool results; after compaction, the model is told to reread
+relevant instructions when they are absent, and to handle missing or changed
+entries with an accurate fallback.
+
+Plan mode and Explore child agents can use these read-only tools. Focused
+workflows keep bounded skill instruction reads available independently of task
+file scopes; script execution and task writes still pass the original workflow,
+approval and Plan mode gates. A Run's selected tools remain the hard ceiling: if
+skill tools are excluded, its model context does not advertise the catalog.
+Discovery uses the actual Run workspace, including isolated execution roots, and
+the configured global skills root from storage locations.
+
+Resource listings are capped at 100 files and 8,000 path characters. Metadata
+context is capped at 24 entries and 12,000 characters, with a smaller budget for
+small model windows. Full catalogs and file contents remain paginated rather
+than silently represented as complete.
+
 The reference mechanisms were inspected in the user's local checkouts:
 
 - Codex: `codex-rs/ext/skills/src/catalog_prompt.rs`, `host_roots.rs`,

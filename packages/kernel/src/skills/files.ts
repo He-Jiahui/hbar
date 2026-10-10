@@ -11,6 +11,7 @@ export const SKILL_LIMITS = Object.freeze({
   fileBytes: 262_144,
   pageCharacters: 24_000,
   files: 100,
+  resourcePathCharacters: 8_000,
   concurrency: 4,
   cachedWorkspaces: 16,
   cacheMilliseconds: 2_000,
@@ -141,19 +142,29 @@ export async function skillDirectoryEntries(path: string, remaining: number, sig
 export async function skillResourceFiles(directory: string, signal?: AbortSignal) {
   const files: string[] = []
   let scanned = 0
+  let pathCharacters = 0
   let truncated = false
   async function visit(path: string, depth: number): Promise<void> {
     if (depth > SKILL_LIMITS.depth || scanned >= SKILL_LIMITS.entries || files.length >= SKILL_LIMITS.files) {
       truncated = true
       return
     }
-    for (const entry of await skillDirectoryEntries(path, SKILL_LIMITS.entries - scanned, signal)) {
-      scanned++
+    const entries = await skillDirectoryEntries(path, SKILL_LIMITS.entries - scanned, signal)
+    scanned += entries.length
+    for (const entry of entries) {
       if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.isSymbolicLink()) continue
       const child = join(path, entry.name)
       if (entry.isDirectory()) await visit(child, depth + 1)
-      else if (entry.isFile()) files.push(relative(directory, child).split(sep).join('/'))
-      if (files.length >= SKILL_LIMITS.files) {
+      else if (entry.isFile()) {
+        const resource = relative(directory, child).split(sep).join('/')
+        if (pathCharacters + resource.length > SKILL_LIMITS.resourcePathCharacters) {
+          truncated = true
+          break
+        }
+        files.push(resource)
+        pathCharacters += resource.length
+      }
+      if (truncated || files.length >= SKILL_LIMITS.files) {
         truncated = true
         break
       }

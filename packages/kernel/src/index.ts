@@ -142,6 +142,7 @@ import browserPlugin from '@hbar/browser-use'
 import computerPlugin from '@hbar/computer-use'
 import agentPlugin from '@hbar/agent'
 import workflowPlugin from '@hbar/workflow'
+import { runtimeSkillsPlugin } from './skills/plugin'
 import { Hooks, PluginManager, Tools } from './plugins.ts'
 import type { RuntimeScope } from './plugins.ts'
 export type { RuntimeScope } from './plugins.ts'
@@ -461,6 +462,7 @@ interface ActiveRun {
   idleTimeout: ReturnType<typeof createRunIdleTimeout>
   steeringReady?: boolean
   steeringContext?: RunSteeringContext
+  selectedToolNames?: readonly string[]
 }
 type ApprovalResolution =
   | { source: 'approval'; status: 'allowed' | 'denied' | 'cancelled'; feedback?: string }
@@ -915,6 +917,7 @@ export class Kernel {
       }),
     )
     this.plugins.add(localTools)
+    this.plugins.add(runtimeSkillsPlugin(this.options.layout.globalSkills))
     this.plugins.add(goalPlugin)
     this.plugins.add(planPlugin)
     this.plugins.add(budgetPlugin)
@@ -1746,6 +1749,8 @@ export class Kernel {
             tools: scope.tools.list(),
           })
           const selectedNames = new Set(selectedTools.tools.map((tool) => tool.name))
+          const selectedRun = this.active.get(sessionId)
+          if (selectedRun?.run.id === run.id) selectedRun.selectedToolNames = [...selectedNames]
           const toolPresentations = captureToolPresentations(selectedNames, scope.tools)
           const trackToolExecution = async <Result>(execution: Promise<Result>): Promise<Result> => {
             const result = await execution
@@ -2236,6 +2241,10 @@ export class Kernel {
       model,
       context: {
         sessionId,
+        workspacePath: workspace.path,
+        ...(this.active.get(sessionId)?.selectedToolNames
+          ? { selectedToolNames: this.active.get(sessionId)?.selectedToolNames }
+          : {}),
         purpose,
         thinking: normalizeThinkingLevel(model, run?.input.thinking),
         ...(run ? { runId: run.id } : {}),
