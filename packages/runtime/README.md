@@ -122,3 +122,12 @@ immutable artifact as its owner, so source edits cannot change an old generation
 Worker entry. The generated public method catalog bounds RPC names and validates
 ownership descriptors. Real process tests verify sole-writer authority, deferred
 candidate writes, committed-state retention and actual exit before handover.
+
+The isolated Pi driver receives plain Run, model and parameter descriptions. Named
+callbacks preserve the original Kernel execution context for message commits,
+before-request hooks, tool execution and steering. It returns a start acknowledgement
+and a separate terminal notification instead of holding a model execution in an IPC
+call slot. Cancellation carries its original cause; stopped callback owners cannot
+receive late replies after disposal. Streams coalesce within a bounded buffer, and
+the active driver has a 64-invocation limit. Model parameter descriptions never
+replace the actual tool input validation and permission gateway in its owner.
