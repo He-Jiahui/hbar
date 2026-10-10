@@ -66,6 +66,7 @@ import type {
   Workspace,
 } from '@hbar/contracts'
 import type { StorageCall, StorageMethods, StorageReply, StoredSettingsLayer } from './types.ts'
+import { createStorageWorkerDiagnostics, safeStorageErrorCode } from './worker-diagnostics.ts'
 import { SessionLogWriter } from './session-log-writer.ts'
 import { recordRecoveryDiagnostic, scanSessionLogs } from './session-log-recovery.ts'
 import { readActiveOperations } from './active-operations.ts'
@@ -107,7 +108,17 @@ import {
   SIDEBAR_CHILD_ACTIVITY_SCHEMA_SQL,
 } from './sidebar-directory.ts'
 
-const options = workerData as { path: string; sessions?: string; diagnostics?: string; settings?: string; artifacts?: string; cache?: string }
+const options = workerData as {
+  path: string
+  sessions?: string
+  diagnostics?: string
+  settings?: string
+  artifacts?: string
+  cache?: string
+  diagnosticsEnabled?: boolean
+  diagnosticsFullCoverage?: boolean
+  instanceId?: string
+}
 const sessionsRoot = options.sessions ?? join(dirname(options.path), 'sessions')
 const diagnosticsRoot = options.diagnostics ?? join(dirname(options.path), 'diagnostics')
 const settingsRoot = options.settings ?? join(dirname(options.path), 'settings')
@@ -117,10 +128,112 @@ const logWriter = new SessionLogWriter(sessionsRoot)
 const runSteering = new RunSteeringRegistry()
 let databaseMaintenanceOwner: string | null = null
 const databaseMaintenanceReads = new Set<string>(['ready', 'deviceByHash', 'devices', 'chatDatabaseOperationRead', 'chatDatabaseOperationReceipt', 'chatDatabasePreviewPage', 'chatDatabaseHistory', 'chatDatabaseResourceReceipt', 'chatDatabaseMaintenanceEnd', 'close'])
-const db = new Database(options.path, { create: true, strict: true })
+const workerDiagnostics = createStorageWorkerDiagnostics({
+  enabled: options.diagnosticsEnabled ?? options.diagnostics !== undefined,
+  ...(options.diagnosticsFullCoverage === undefined ? {} : { fullCoverage: options.diagnosticsFullCoverage }),
+  ...(options.instanceId === undefined ? {} : { instanceId: options.instanceId }),
+  port: parentPort,
+})
+let startupPhase: 'open' | 'configure' | 'migration' | 'recovery' | 'ready' = 'open'
+process.on('uncaughtExceptionMonitor', () => {
+  // This hook observes initialization failures before the worker exits. It does not
+  // intercept or recover from the exception, so the parent still owns lifecycle state.
+  workerDiagnostics.emit({
+    event: 'sqlite.worker_uncaught',
+    phase: startupPhase,
+    level: 'fatal',
+    outcome: 'failure',
+    errorCode: 'SQLITE_WORKER_UNCAUGHT',
+    workerState: 'failed',
+  })
+})
+workerDiagnostics.emit({ event: 'sqlite.starting', phase: 'open', level: 'info', workerState: 'starting' })
+startupPhase = 'open'
+let db: Database
+try {
+  db = new Database(options.path, { create: true, strict: true })
+} catch (error) {
+  workerDiagnostics.emit({
+    event: 'sqlite.open_failed',
+    phase: 'open',
+    level: 'fatal',
+    outcome: 'failure',
+    errorCode: safeStorageErrorCode(error, 'SQLITE_OPEN_FAILED'),
+    workerState: 'failed',
+  })
+  throw error
+}
 // Configure this connection's bounded wait before WAL recovery/configuration can contend with another opener.
-db.exec('PRAGMA busy_timeout=5000;')
-db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL;')
+startupPhase = 'configure'
+try {
+  db.exec('PRAGMA busy_timeout=5000;')
+  db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL;')
+} catch (error) {
+  workerDiagnostics.emit({
+    event: 'sqlite.configure_failed',
+    phase: 'configure',
+    level: 'fatal',
+    outcome: 'failure',
+    errorCode: safeStorageErrorCode(error, 'SQLITE_CONFIG_FAILED'),
+    workerState: 'failed',
+  })
+  throw error
+}
+function readSqliteFacts(): {
+  sqliteVersion: string
+  journalMode: 'delete' | 'truncate' | 'persist' | 'memory' | 'wal' | 'off' | 'unknown'
+  synchronous: number
+  busyTimeoutMs: number
+  foreignKeys: boolean
+  pageSize: number
+  userVersion: number
+} {
+  const sqliteVersion = z.strictObject({ version: z.string().regex(/^\d+\.\d+(?:\.\d+)?$/).max(32) })
+    .parse(db.query('SELECT sqlite_version() AS version').get()).version
+  const journalMode = z.strictObject({ journal_mode: z.enum(['delete', 'truncate', 'persist', 'memory', 'wal', 'off']) })
+    .parse(db.query('PRAGMA journal_mode').get()).journal_mode
+  const synchronous = z.strictObject({ synchronous: z.number().int().min(0).max(3) })
+    .parse(db.query('PRAGMA synchronous').get()).synchronous
+  const busyTimeoutMs = z.strictObject({ timeout: z.number().int().min(0).max(2_147_483_647) })
+    .parse(db.query('PRAGMA busy_timeout').get()).timeout
+  const foreignKeys = z.strictObject({ foreign_keys: z.union([z.literal(0), z.literal(1)]) })
+    .parse(db.query('PRAGMA foreign_keys').get()).foreign_keys === 1
+  const pageSize = z.strictObject({ page_size: z.number().int().min(1).max(1_048_576) })
+    .parse(db.query('PRAGMA page_size').get()).page_size
+  const userVersion = z.strictObject({ user_version: z.number().int().min(0).max(1_000_000) })
+    .parse(db.query('PRAGMA user_version').get()).user_version
+  return { sqliteVersion, journalMode, synchronous, busyTimeoutMs, foreignKeys, pageSize, userVersion }
+}
+try {
+  const facts = readSqliteFacts()
+  workerDiagnostics.emit({
+    event: 'sqlite.configured',
+    phase: 'configure',
+    level: 'info',
+    outcome: 'success',
+    workerState: 'starting',
+    sqliteVersion: facts.sqliteVersion,
+    runtimeVersion: Bun.version,
+    databaseSchemaVersion: facts.userVersion,
+    userVersion: facts.userVersion,
+    journalMode: facts.journalMode,
+    synchronous: facts.synchronous,
+    busyTimeoutMs: facts.busyTimeoutMs,
+    foreignKeys: facts.foreignKeys,
+    pageSize: facts.pageSize,
+  })
+} catch (error) {
+  workerDiagnostics.emit({
+    event: 'sqlite.facts_failed',
+    phase: 'configure',
+    level: 'fatal',
+    outcome: 'failure',
+    errorCode: safeStorageErrorCode(error, 'SQLITE_FACTS_FAILED'),
+    workerState: 'failed',
+  })
+  throw error
+}
+startupPhase = 'migration'
 const WORKSPACE_ACTIVITY_SQL = `
   CREATE TABLE IF NOT EXISTS directory_activity_revision(
     id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL CHECK(revision>=0)
@@ -151,6 +264,7 @@ const WORKSPACE_ACTIVITY_SQL = `
 `
 const LATEST_SCHEMA_VERSION = 23
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
+const schemaStartedAt = performance.now()
 if (schemaVersion > LATEST_SCHEMA_VERSION) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
   db.transaction(() => {
@@ -2942,23 +3056,105 @@ function reconcileSessionLogs() {
   if (restored) recordRecoveryDiagnostic(diagnosticsRoot, { restored })
 }
 
-chatDatabaseDeletion.reconcile()
-if (chatDatabaseDeletion.recoveryIssues.length) recordRecoveryDiagnostic(diagnosticsRoot, { deletedLogIssues: chatDatabaseDeletion.recoveryIssues })
-db.exec('UPDATE chat_database_event_reference_health SET complete=1 WHERE id=1')
-reconcileSessionLogs()
+startupPhase = 'recovery'
+const recoveryStartedAt = performance.now()
+workerDiagnostics.emit({ event: 'sqlite.recovery_started', phase: 'recovery', level: 'info', workerState: 'starting' })
+try {
+  chatDatabaseDeletion.reconcile()
+  if (chatDatabaseDeletion.recoveryIssues.length) recordRecoveryDiagnostic(diagnosticsRoot, { deletedLogIssues: chatDatabaseDeletion.recoveryIssues })
+  db.exec('UPDATE chat_database_event_reference_health SET complete=1 WHERE id=1')
+  reconcileSessionLogs()
+} catch (error) {
+  workerDiagnostics.emit({
+    event: 'sqlite.recovery_failed',
+    phase: 'recovery',
+    level: 'fatal',
+    outcome: 'failure',
+    errorCode: safeStorageErrorCode(error, 'SQLITE_RECOVERY_FAILED'),
+    workerState: 'failed',
+  })
+  throw error
+}
+workerDiagnostics.emit({
+  event: 'sqlite.recovery_completed',
+  phase: 'recovery',
+  level: 'info',
+  outcome: 'success',
+  workerState: 'starting',
+  durationMs: Math.max(0, performance.now() - recoveryStartedAt),
+})
+
+startupPhase = 'ready'
+try {
+  const facts = readSqliteFacts()
+  workerDiagnostics.emit({
+    event: 'sqlite.ready',
+    phase: 'ready',
+    level: 'info',
+    outcome: 'success',
+    workerState: 'ready',
+    durationMs: Math.max(0, performance.now() - schemaStartedAt),
+    sqliteVersion: facts.sqliteVersion,
+    runtimeVersion: Bun.version,
+    databaseSchemaVersion: facts.userVersion,
+    userVersion: facts.userVersion,
+    journalMode: facts.journalMode,
+    synchronous: facts.synchronous,
+    busyTimeoutMs: facts.busyTimeoutMs,
+    foreignKeys: facts.foreignKeys,
+    pageSize: facts.pageSize,
+  })
+  if (schemaVersion !== facts.userVersion) {
+    workerDiagnostics.emit({
+      event: 'sqlite.schema_migrated',
+      phase: 'migration',
+      level: 'info',
+      outcome: 'success',
+      workerState: 'ready',
+      durationMs: Math.max(0, performance.now() - schemaStartedAt),
+      databaseSchemaVersion: facts.userVersion,
+      userVersion: facts.userVersion,
+    })
+  }
+} catch (error) {
+  workerDiagnostics.emit({
+    event: 'sqlite.ready_failed',
+    phase: 'ready',
+    level: 'fatal',
+    outcome: 'failure',
+    errorCode: safeStorageErrorCode(error, 'SQLITE_READY_FAILED'),
+    workerState: 'failed',
+  })
+  throw error
+}
 
 parentPort!.on('message', ({ id, method, args }: StorageCall) => {
+  const startedAt = performance.now()
   let reply: StorageReply
-  const draftVersion = chatDatabaseArtifacts.writeVersion()
-  const logVersion = eventLogWriteVersion
+  workerDiagnostics.started(id, String(method))
+  let draftVersion: number | null = null
+  let logVersion = eventLogWriteVersion
   try {
+    draftVersion = chatDatabaseArtifacts.writeVersion()
+    logVersion = eventLogWriteVersion
     if (databaseMaintenanceOwner && !databaseMaintenanceReads.has(method)) throw new HbarError('BUSY', 'Chat database is in global maintenance')
     if (!Object.hasOwn(methods, method)) throw new Error('Unknown storage operation')
     const fn = methods[method] as (...args: unknown[]) => unknown
     reply = { id, ok: true, result: fn(...args) }
     if (databaseMaintenanceOwner && method !== 'close') db.clearQueryCache()
+    workerDiagnostics.operation(id, String(method), startedAt, 'success')
   } catch (error) {
-    if (draftVersion !== chatDatabaseArtifacts.writeVersion()) chatDatabaseArtifacts.invalidateDraftJournal()
+    workerDiagnostics.emit({
+      event: 'sqlite.request_error_caught',
+      phase: 'catch',
+      level: 'error',
+      method: String(method),
+      storageRequestId: id,
+      operationId: id,
+      outcome: 'failure',
+      sampled: true,
+    })
+    if (draftVersion !== null && draftVersion !== chatDatabaseArtifacts.writeVersion()) chatDatabaseArtifacts.invalidateDraftJournal()
     if (logVersion !== eventLogWriteVersion) db.exec('UPDATE chat_database_event_reference_health SET complete=0 WHERE id=1')
     reply = {
       id,
@@ -2966,6 +3162,17 @@ parentPort!.on('message', ({ id, method, args }: StorageCall) => {
       error: error instanceof Error ? error.message : String(error),
       code: error instanceof HbarError ? error.code : error instanceof Error && error.message.includes('CHAT_DATABASE_ARTIFACT_CLAIMED') ? 'ARTIFACT_RESERVED' : error instanceof Error && error.message.includes('CHAT_DATABASE_ARTIFACT_DELETED') ? 'ARTIFACT_UNAVAILABLE' : 'STORAGE_ERROR',
     }
+    workerDiagnostics.emit({
+      event: 'sqlite.request_reply_built',
+      phase: 'reply',
+      level: 'debug',
+      method: String(method),
+      storageRequestId: id,
+      operationId: id,
+      outcome: 'failure',
+      sampled: true,
+    })
+    workerDiagnostics.operation(id, String(method), startedAt, 'failure', error)
   }
   parentPort!.postMessage(reply)
 })
