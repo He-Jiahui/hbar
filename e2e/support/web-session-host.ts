@@ -134,6 +134,8 @@ export async function startWebSessionHost(
     fixture?: 'session' | 'chat-database' | 'chat-deletion'
     goalAutoContinue?: boolean
     budgetAutoContinue?: boolean
+    /** Archived source for paired historical UI evidence; ordinary scenarios use the current checkout. */
+    sourceRoot?: string
   }>,
 ): Promise<WebSessionHost> {
   const port = options.port ?? 4317
@@ -145,7 +147,7 @@ export async function startWebSessionHost(
         : 'scripts/e2e-session-host.ts',
     ],
     {
-      cwd: process.cwd(),
+      cwd: options.sourceRoot ?? process.cwd(),
       env: {
         ...process.env,
         HBAR_E2E_DATA_ROOT: options.root,

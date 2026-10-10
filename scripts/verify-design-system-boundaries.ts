@@ -144,6 +144,7 @@ export async function productionDesignSystemFiles(root = process.cwd()): Promise
   const pending = [
     resolve(root, 'apps/web/src/LanguageApp.tsx'),
     resolve(root, 'apps/hbar-app-ui-preview/src/main.tsx'),
+    resolve(root, 'apps/hbar-app-ui-preview/src/WorkbenchAcceptance.tsx'),
   ]
   const visited = new Set<string>()
   const owned = (file: string) =>
