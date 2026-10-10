@@ -153,7 +153,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(feedback).toContainText(f.names.readFailure('EXECUTION_FAILED'))
       await expect(feedback).not.toContainText(/PRIVATE|EXECUTION_FAILED|RESULT_UNKNOWN/)
       await expect(feedback.getByRole('button', { name: f.names.reconcile, exact: true })).toHaveCount(0)
-      await expect(row(f).locator('.hbar-app-react-project-menu summary')).toBeFocused()
+      await expect(row(f).locator('.hbar-app-react-project-menu .lumen-action-menu-trigger')).toBeFocused()
       expect(injection.writes()).toBe(1)
       expect((await api.execute('workspaceDisplayNames.get', {})).entries).toEqual([
         { workspaceId: f.ready.firstWorkspace.id, displayName: 'Confirmed name' },
