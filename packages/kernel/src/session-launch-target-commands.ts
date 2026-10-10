@@ -8,7 +8,7 @@ import {
   sessionLaunchTargetSetReceiptSchema,
 } from '@hbar/contracts/commands/session-launch-target'
 import type { SessionLaunchTargetSetInput } from '@hbar/contracts/commands/session-launch-target'
-import type { Kernel } from './index'
+import type { SessionLaunchTargetCommandKernelPort } from './controller-port'
 
 const rejectedBeforeCommit = new Set([
   'COMMAND_CONFLICT',
@@ -24,7 +24,7 @@ function requestsEqual(left: SessionLaunchTargetSetInput, right: SessionLaunchTa
   return JSON.stringify(left) === JSON.stringify(right)
 }
 
-export function createSessionLaunchTargetCommands(kernel: Kernel, changed: () => void) {
+export function createSessionLaunchTargetCommands(kernel: SessionLaunchTargetCommandKernelPort, changed: () => void) {
   const registry = new CommandRegistry({ execution: 'host' })
   const read = async <Value>(operation: () => Promise<Value>): Promise<Value> => {
     try {

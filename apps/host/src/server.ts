@@ -7,7 +7,6 @@ import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas 
 import type { HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
 import type { ServerWebSocket } from 'bun'
 import {
-  Kernel,
   SettingsService,
   createAgentCommands,
   createBrowserCommands,
@@ -77,24 +76,18 @@ import {
 } from '@hbar/contracts/commands'
 import { CommandError } from '@hbar/commands/protocol'
 import type {
-  BrowserUseService,
-  AgentService,
-  BudgetService,
-  ComputerUseService,
   ExecutionProvider,
-  GitService,
   GoalService,
   ModeService,
   PlanService,
   WorkspaceQueryProvider,
-  WorkflowService,
 } from '@hbar/plugin-sdk'
 import { Auth, requestToken } from './auth.ts'
 import { createSystemCommands } from './system-commands.ts'
 import { createSkillImportService } from '@hbar/kernel/skill-import'
 import { createExtensionCommands } from './extension-commands.ts'
 import { createSkillInspectionService } from './skill-inspection.ts'
-import type { RuntimeScope } from '@hbar/kernel'
+import type { KernelControllerPort, KernelClientScopePort } from '@hbar/kernel'
 import { SystemTerminalManager } from './system-terminal'
 import { sendSocketFrame, sendSocketTextFrame } from './socket-sender'
 import { isStableRpc, isRuntimeStatusRead } from './stable-rpc'
@@ -127,7 +120,7 @@ interface SocketData {
     onExit(terminalId: string, code: number | null, signal: string | null): void
   }
   timer?: ReturnType<typeof setTimeout> | undefined
-  scope?: RuntimeScope | undefined
+  scope?: KernelClientScopePort | undefined
   surfaceClientId?: string | undefined
   surfaceGeneration?: number | undefined
   schemaQueries: Map<string, AbortController>
@@ -147,60 +140,60 @@ export interface ServerOptions {
   restart?: () => boolean | Promise<boolean>
 }
 
-function resolveModeService(kernel: Kernel): ModeService {
+function resolveModeService(kernel: KernelControllerPort): ModeService {
   return {
-    get: (sessionId) => kernel.plugins.get<ModeService>('mode').get(sessionId),
-    set: (sessionId, mode) => kernel.plugins.get<ModeService>('mode').set(sessionId, mode),
-    effectiveMode: (run) => kernel.plugins.get<ModeService>('mode').effectiveMode(run),
-    commitExit: (sessionId, commit) => kernel.plugins.get<ModeService>('mode').commitExit(sessionId, commit),
+    get: (sessionId) => kernel.plugins.get('mode').get(sessionId),
+    set: (sessionId, mode) => kernel.plugins.get('mode').set(sessionId, mode),
+    effectiveMode: (run) => kernel.plugins.get('mode').effectiveMode(run),
+    commitExit: (sessionId, commit) => kernel.plugins.get('mode').commitExit(sessionId, commit),
   }
 }
 
-function resolveGoalService(kernel: Kernel): GoalService {
+function resolveGoalService(kernel: KernelControllerPort): GoalService {
   return {
-    resumeOnStartup: () => kernel.plugins.get<GoalService>('goal').resumeOnStartup(),
-    snapshot: (sessionId) => kernel.plugins.get<GoalService>('goal').snapshot(sessionId),
-    get: (sessionId) => kernel.plugins.get<GoalService>('goal').get(sessionId),
+    resumeOnStartup: () => kernel.plugins.get('goal').resumeOnStartup(),
+    snapshot: (sessionId) => kernel.plugins.get('goal').snapshot(sessionId),
+    get: (sessionId) => kernel.plugins.get('goal').get(sessionId),
     create: (sessionId, objective, tokenBudget, runId, startedAt) =>
-      kernel.plugins.get<GoalService>('goal').create(sessionId, objective, tokenBudget, runId, startedAt),
-    set: (sessionId, input) => kernel.plugins.get<GoalService>('goal').set(sessionId, input),
+      kernel.plugins.get('goal').create(sessionId, objective, tokenBudget, runId, startedAt),
+    set: (sessionId, input) => kernel.plugins.get('goal').set(sessionId, input),
     update: (sessionId, status, runId, reason) =>
-      kernel.plugins.get<GoalService>('goal').update(sessionId, status, runId, reason),
-    clear: (sessionId, expectedGoalId) => kernel.plugins.get<GoalService>('goal').clear(sessionId, expectedGoalId),
+      kernel.plugins.get('goal').update(sessionId, status, runId, reason),
+    clear: (sessionId, expectedGoalId) => kernel.plugins.get('goal').clear(sessionId, expectedGoalId),
     requestContinuation: (sessionId, input) =>
-      kernel.plugins.get<GoalService>('goal').requestContinuation(sessionId, input),
+      kernel.plugins.get('goal').requestContinuation(sessionId, input),
   }
 }
 
-function resolvePlanService(kernel: Kernel): PlanService {
+function resolvePlanService(kernel: KernelControllerPort): PlanService {
   return {
-    snapshot: (sessionId) => kernel.plugins.get<PlanService>('plan').snapshot(sessionId),
-    get: (sessionId) => kernel.plugins.get<PlanService>('plan').get(sessionId),
+    snapshot: (sessionId) => kernel.plugins.get('plan').snapshot(sessionId),
+    get: (sessionId) => kernel.plugins.get('plan').get(sessionId),
     withRevision: (sessionId, revision, commit) =>
-      kernel.plugins.get<PlanService>('plan').withRevision(sessionId, revision, commit),
+      kernel.plugins.get('plan').withRevision(sessionId, revision, commit),
     update: (sessionId, plan, explanation, turnId, expectedRevision) =>
-      kernel.plugins.get<PlanService>('plan').update(sessionId, plan, explanation, turnId, expectedRevision),
-    clear: (sessionId, expectedRevision) => kernel.plugins.get<PlanService>('plan').clear(sessionId, expectedRevision),
+      kernel.plugins.get('plan').update(sessionId, plan, explanation, turnId, expectedRevision),
+    clear: (sessionId, expectedRevision) => kernel.plugins.get('plan').clear(sessionId, expectedRevision),
   }
 }
 
-function resolveExecutionProvider(kernel: Kernel): ExecutionProvider {
+function resolveExecutionProvider(kernel: KernelControllerPort): ExecutionProvider {
   return {
-    list: (workspace, path) => kernel.plugins.get<ExecutionProvider>('execution').list(workspace, path),
-    read: (workspace, path) => kernel.plugins.get<ExecutionProvider>('execution').read(workspace, path),
-    readBytes: (workspace, path) => kernel.plugins.get<ExecutionProvider>('execution').readBytes(workspace, path),
-    write: (workspace, path, text) => kernel.plugins.get<ExecutionProvider>('execution').write(workspace, path, text),
+    list: (workspace, path) => kernel.plugins.get('execution').list(workspace, path),
+    read: (workspace, path) => kernel.plugins.get('execution').read(workspace, path),
+    readBytes: (workspace, path) => kernel.plugins.get('execution').readBytes(workspace, path),
+    write: (workspace, path, text) => kernel.plugins.get('execution').write(workspace, path, text),
     exec: (workspace, command, signal) =>
-      kernel.plugins.get<ExecutionProvider>('execution').exec(workspace, command, signal),
+      kernel.plugins.get('execution').exec(workspace, command, signal),
     get workspaceQuery(): WorkspaceQueryProvider {
-      const query = kernel.plugins.get<ExecutionProvider>('execution').workspaceQuery
+      const query = kernel.plugins.get('execution').workspaceQuery
       if (!query) throw new HbarError('CAPABILITY_UNAVAILABLE', 'Workspace path search is unavailable')
       return query
     },
   }
 }
 
-export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
+export async function startServer(kernel: KernelControllerPort, options: ServerOptions = {}) {
   const performance = new PerformanceCollector(
     createHostPerformanceProvider(async () => ({
       activeRuns: kernel.active.size,
@@ -211,9 +204,9 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   )
   await performance.start()
   const metricsCommands = createMetricsCommands(performance)
-  const agentCommands = createAgentCommands(kernel.plugins.get<AgentService>('agent'))
-  const browserCommands = createBrowserCommands(kernel.plugins.get<BrowserUseService>('browser'))
-  const computerCommands = createComputerCommands(kernel.plugins.get<ComputerUseService>('computer'))
+  const agentCommands = createAgentCommands(kernel.plugins.get('agent'))
+  const browserCommands = createBrowserCommands(kernel.plugins.get('browser'))
+  const computerCommands = createComputerCommands(kernel.plugins.get('computer'))
   const configurationCommands = createConfigurationCommands(kernel, resolveModeService(kernel))
   const skillInspection = createSkillInspectionService(kernel.options.layout.globalSkills)
   const skillImport = createSkillImportService({
@@ -238,7 +231,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     skills: (signal) => skillInspection.list(signal),
     skillInspection,
   })
-  const gitCommands = createGitCommands(kernel.plugins.get<GitService>('git'), {
+  const gitCommands = createGitCommands(kernel.plugins.get('git'), {
     storage: kernel.storage,
     resolveSessionPath: (sessionId, workspacePath, signal) =>
       kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
@@ -249,10 +242,10 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   )
   const sessionLaunchBranchesCommands = createSessionLaunchBranchesCommands(
     kernel.storage,
-    kernel.plugins.get<GitService>('git'),
+    kernel.plugins.get('git'),
   )
   const sessionBranchTargetCommands = createSessionBranchTargetCommands(kernel)
-  const budgetCommands = createBudgetCommands(kernel.plugins.get<BudgetService>('budget'))
+  const budgetCommands = createBudgetCommands(kernel.plugins.get('budget'))
   const fileCommands = createFileCommands(kernel.storage, resolveExecutionProvider(kernel), {
     resolveWorkspacePath: (workspaceId, path, signal) => kernel.workspaceSandboxes.prepare(workspaceId, path, signal),
     resolveSessionPath: (sessionId, workspacePath, signal) =>
@@ -307,7 +300,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   const usageCommands = createUsageCommands(
     new UsageService({ read: (input) => kernel.storage.call('usageEvents', input) }),
   )
-  const workflowCommands = createWorkflowCommands(kernel.plugins.get<WorkflowService>('workflow'))
+  const workflowCommands = createWorkflowCommands(kernel.plugins.get('workflow'))
   const sessionSearchCommands = createSessionSearchCommands(kernel.storage)
   const scheduleService = createScheduleService({
     list: (workspaceId, after, limit) => kernel.storage.call('schedulePage', workspaceId, after, limit),
@@ -941,7 +934,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'goal.get': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GoalService>('goal').get(p.sessionId)
+        return kernel.plugins.get('goal').get(p.sessionId)
       }
       case 'goal.create': {
         const p = rpcSchemas[method].parse(raw)
@@ -961,7 +954,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'plan.get': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<PlanService>('plan').get(p.sessionId)
+        return kernel.plugins.get('plan').get(p.sessionId)
       }
       case 'plan.update': {
         const p = rpcSchemas[method].parse(raw)
@@ -973,7 +966,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'mode.get': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ModeService>('mode').get(p.sessionId)
+        return kernel.plugins.get('mode').get(p.sessionId)
       }
       case 'mode.set': {
         const p = rpcSchemas[method].parse(raw)
@@ -981,7 +974,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'budget.get': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BudgetService>('budget').get(p.sessionId)
+        return kernel.plugins.get('budget').get(p.sessionId)
       }
       case 'budget.set': {
         const p = rpcSchemas[method].parse(raw)
@@ -998,19 +991,19 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'git.status': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GitService>('git').status(p.cwd)
+        return kernel.plugins.get('git').status(p.cwd)
       }
       case 'git.info': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GitService>('git').info(p.cwd)
+        return kernel.plugins.get('git').info(p.cwd)
       }
       case 'git.diff': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GitService>('git').diff(p.cwd, p)
+        return kernel.plugins.get('git').diff(p.cwd, p)
       }
       case 'git.log': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GitService>('git').log(p.cwd, p.limit)
+        return kernel.plugins.get('git').log(p.cwd, p.limit)
       }
       case 'git.commit': {
         const p = rpcSchemas[method].parse(raw)
@@ -1018,11 +1011,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'git.stage': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GitService>('git').stage(p.cwd, p.paths)
+        return kernel.plugins.get('git').stage(p.cwd, p.paths)
       }
       case 'git.unstage': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GitService>('git').unstage(p.cwd, p.paths)
+        return kernel.plugins.get('git').unstage(p.cwd, p.paths)
       }
       case 'git.branch': {
         const p = rpcSchemas[method].parse(raw)
@@ -1034,7 +1027,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'git.diff_to_remote': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GitService>('git').diffToRemote(p.cwd, undefined, p.paths)
+        return kernel.plugins.get('git').diffToRemote(p.cwd, undefined, p.paths)
       }
       case 'workspace.create': {
         const p = rpcSchemas[method].parse(raw)
@@ -1217,7 +1210,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         return extensionCommands.execute('plugin.doctor', {})
       case 'browser.status': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BrowserUseService>('browser').status(p.sessionId)
+        return kernel.plugins.get('browser').status(p.sessionId)
       }
       case 'browser.navigate': {
         const p = rpcSchemas[method].parse(raw)
@@ -1225,11 +1218,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'browser.go': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BrowserUseService>('browser').go(p.sessionId, p.action, p.contextId, p.pageId)
+        return kernel.plugins.get('browser').go(p.sessionId, p.action, p.contextId, p.pageId)
       }
       case 'browser.snapshot': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BrowserUseService>('browser').snapshot(p.sessionId, p.contextId, p.pageId)
+        return kernel.plugins.get('browser').snapshot(p.sessionId, p.contextId, p.pageId)
       }
       case 'browser.click': {
         const p = rpcSchemas[method].parse(raw)
@@ -1246,7 +1239,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       case 'browser.screenshot': {
         const p = rpcSchemas[method].parse(raw)
         return kernel.plugins
-          .get<BrowserUseService>('browser')
+          .get('browser')
           .screenshot(p.sessionId, p.fullPage, p.contextId, p.pageId)
       }
       case 'browser.evaluate': {
@@ -1259,15 +1252,15 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'browser.history': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BrowserUseService>('browser').history(p.sessionId, p.contextId)
+        return kernel.plugins.get('browser').history(p.sessionId, p.contextId)
       }
       case 'computer.status': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ComputerUseService>('computer').status(p.sessionId)
+        return kernel.plugins.get('computer').status(p.sessionId)
       }
       case 'computer.screenshot': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ComputerUseService>('computer').screenshot(p.sessionId, p.appId)
+        return kernel.plugins.get('computer').screenshot(p.sessionId, p.appId)
       }
       case 'computer.click': {
         const p = rpcSchemas[method].parse(raw)
@@ -1314,7 +1307,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         const p = rpcSchemas[method].parse(raw)
         const workspace = await kernel.storage.call('workspace', p.workspaceId)
         const root = await kernel.workspaceSandboxes.prepare(workspace.id, workspace.path, AbortSignal.timeout(30_000))
-        const text = await kernel.plugins.get<ExecutionProvider>('execution').read(root, p.path)
+        const text = await kernel.plugins.get('execution').read(root, p.path)
         return {
           text,
           path: p.path,
@@ -1325,7 +1318,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         const p = rpcSchemas[method].parse(raw)
         const workspace = await kernel.storage.call('workspace', p.workspaceId)
         const root = await kernel.workspaceSandboxes.prepare(workspace.id, workspace.path, AbortSignal.timeout(30_000))
-        const details = await kernel.plugins.get<ExecutionProvider>('execution').write(root, p.path, p.text, {
+        const details = await kernel.plugins.get('execution').write(root, p.path, p.text, {
           ...(p.expectedRevision ? { expectedRevision: p.expectedRevision } : {}),
         })
         return {
@@ -1338,7 +1331,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         const p = rpcSchemas[method].parse(raw)
         const workspace = await kernel.storage.call('workspace', p.workspaceId)
         const root = await kernel.workspaceSandboxes.prepare(workspace.id, workspace.path, AbortSignal.timeout(30_000))
-        return kernel.plugins.get<ExecutionProvider>('execution').list(root, p.path)
+        return kernel.plugins.get('execution').list(root, p.path)
       }
     }
     throw new HbarError('METHOD_NOT_FOUND', method)

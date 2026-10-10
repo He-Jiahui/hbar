@@ -4,7 +4,7 @@ import { configurationCommands } from '@hbar/contracts/commands/configuration'
 import type { ProviderEditorDescription } from '@hbar/contracts/commands/configuration'
 import type { ModeService } from '@hbar/plugin-sdk'
 import { createPiProviderPresetCatalog, ProviderPresetNotFoundError } from '@hbar/provider-catalog'
-import type { Kernel } from './index'
+import type { ConfigurationCommandKernelPort } from './controller-port'
 import { toModelDescriptor } from './model-commands'
 
 export const HBAR_PROVIDER_EDITOR_DESCRIPTION: ProviderEditorDescription = Object.freeze({
@@ -170,7 +170,7 @@ export const HBAR_PROVIDER_EDITOR_DESCRIPTION: ProviderEditorDescription = Objec
   ],
 })
 
-export function createConfigurationCommands(kernel: Kernel, modes: ModeService) {
+export function createConfigurationCommands(kernel: ConfigurationCommandKernelPort, modes: ModeService) {
   const registry = new CommandRegistry({ execution: 'host' })
   const providerPresets = createPiProviderPresetCatalog()
   const translate = async <Value>(operation: () => Promise<Value>): Promise<Value> => {

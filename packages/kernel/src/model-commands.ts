@@ -8,7 +8,7 @@ import {
 } from '@hbar/contracts/commands/models'
 import { encodePath, type SchemaPath } from '@hbar/schema-core'
 import type { SettingReport } from '@hbar/settings-core'
-import type { Kernel } from './index'
+import type { ModelCommandKernelPort } from './controller-port'
 import type { SettingsCandidateValidator } from './settings-service'
 import { HBAR_SETTINGS_SCHEMA_VERSION, SettingsService } from './settings-service'
 
@@ -18,7 +18,7 @@ const THINKING_PATH = field('provider.thinkingLevel')
 const MODEL_KEY = encodePath(MODEL_PATH)
 const THINKING_KEY = encodePath(THINKING_PATH)
 
-export function toModelDescriptor(model: Awaited<ReturnType<Kernel['models']>>[number]): ModelDescriptor {
+export function toModelDescriptor(model: Awaited<ReturnType<ModelCommandKernelPort['models']>>[number]): ModelDescriptor {
   return {
     id: model.id,
     providerId: model.providerId,
@@ -42,7 +42,7 @@ function value(report: SettingReport | undefined): unknown {
   return report?.effectiveValue
 }
 
-export function createModelSettingsValidator(kernel: Kernel): SettingsCandidateValidator {
+export function createModelSettingsValidator(kernel: ModelCommandKernelPort): SettingsCandidateValidator {
   return async ({ changes, resolution }) => {
     if (!changes.some((change) => [MODEL_KEY, THINKING_KEY].includes(encodePath(change.path)))) return
     const selected = value(resolution.reports[MODEL_KEY])
@@ -59,7 +59,7 @@ export function createModelSettingsValidator(kernel: Kernel): SettingsCandidateV
   }
 }
 
-export function createModelCommands(kernel: Kernel, settings: SettingsService) {
+export function createModelCommands(kernel: ModelCommandKernelPort, settings: SettingsService) {
   const registry = new CommandRegistry({ execution: 'host' })
   const translate = async <Value>(operation: () => Promise<Value>): Promise<Value> => {
     try {

@@ -5,6 +5,11 @@ export { RuntimeRecoveryService } from './runtime-recovery'
 export type { RuntimeRecoveryAdmission } from './runtime-recovery'
 import type { ExecutionOwnership } from '@hbar/contracts/runtime'
 export type { KernelExecutionPort } from './runtime-execution'
+export type {
+  ConfigurationCommandKernelPort, RunCommandKernelPort, InteractionCommandKernelPort, ModelCommandKernelPort,
+  WorkspaceSessionCommandKernelPort, SessionLaunchTargetCommandKernelPort, SessionBranchTargetCommandKernelPort,
+  SandboxCommandPort, KernelControllerPort, KernelControllerCapabilities, KernelPluginControllerPort, KernelClientScopePort,
+} from './controller-port'
 import { writeArtifactAtomically, recoverArtifactReferenceIndex, type ArtifactUploadOptions } from './artifact-upload'
 export type { ArtifactUploadOptions } from './artifact-upload'
 import { join, basename } from 'node:path'

@@ -1,7 +1,8 @@
 import { CommandError, CommandRegistry, createCommandClient, type CommandContext } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import { sandboxCommands } from '@hbar/contracts/commands/sandbox'
-import type { SandboxProfileService, SandboxWriteIdentity } from './sandbox-service'
+import type { SandboxWriteIdentity } from './sandbox-service'
+import type { SandboxCommandPort } from './controller-port'
 
 function translate(error: unknown): never {
   if (error instanceof CommandError) throw error
@@ -15,7 +16,7 @@ function writeIdentity(context: CommandContext): SandboxWriteIdentity {
   return { actorId: context.actorId, idempotencyKey: context.idempotencyKey }
 }
 
-export function createSandboxCommands(service: SandboxProfileService) {
+export function createSandboxCommands(service: SandboxCommandPort) {
   const registry = new CommandRegistry({ execution: 'host' })
   registry.register(sandboxCommands['sandbox.list'], async () => ({ items: await service.list() }))
   registry.register(sandboxCommands['sandbox.get'], ({ id }) => service.get(id).catch(translate))

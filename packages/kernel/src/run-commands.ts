@@ -4,7 +4,7 @@ import { HbarError } from '@hbar/contracts'
 import { runCommands, runCommandRecordSchema } from '@hbar/contracts/commands/run'
 import type { QueuedRunGuideReceipt, RunAccepted, RunCommandRecord, SubmitRunInput } from '@hbar/contracts/commands/run'
 import type { Run } from '@hbar/contracts'
-import type { Kernel } from './index'
+import type { RunCommandKernelPort } from './controller-port'
 
 function accepted(run: Run, command: RunCommandRecord): RunAccepted {
   return {
@@ -19,7 +19,7 @@ function accepted(run: Run, command: RunCommandRecord): RunAccepted {
   }
 }
 
-export function createRunCommands(kernel: Kernel) {
+export function createRunCommands(kernel: RunCommandKernelPort) {
   const registry = new CommandRegistry({ execution: 'host' })
   const locks = new Map<string, Promise<void>>()
   const uncertainSessions = new Set<string>()

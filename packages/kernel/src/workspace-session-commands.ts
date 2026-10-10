@@ -1,12 +1,12 @@
 import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import { workspaceSessionCommands } from '@hbar/contracts/commands/workspaces'
-import type { Kernel } from './index'
+import type { WorkspaceSessionCommandKernelPort } from './controller-port'
 import { registerWorkspaceOrganizationCommands } from './workspace-organization-commands'
 import { registerWorkspaceDisplayNamesCommands } from './workspace-display-names-commands'
 import { registerWorkspaceFolderCommands } from './workspace-folders'
 
-export function createWorkspaceSessionCommands(kernel: Kernel) {
+export function createWorkspaceSessionCommands(kernel: WorkspaceSessionCommandKernelPort) {
   const registry = new CommandRegistry({ execution: 'host' })
   registerWorkspaceFolderCommands(
     registry,
