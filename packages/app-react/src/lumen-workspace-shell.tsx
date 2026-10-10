@@ -405,6 +405,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const [sidebarViewportNarrow, setSidebarViewportNarrow] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(max-width: 63.9375rem)').matches,
   )
+  const sidebarViewportOwner = useRef<{ owner: typeof runtime; narrow: boolean } | null>(null)
   const [workspaceTabsViewport, setWorkspaceTabsViewport] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(min-width: 48rem)').matches,
   )
@@ -687,8 +688,12 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   useEffect(() => {
     const narrow = window.matchMedia('(max-width: 63.9375rem)')
     const closeNarrowSidebar = (event: MediaQueryListEvent | MediaQueryList) => {
+      const previous = sidebarViewportOwner.current
+      const enteredNarrow = previous?.owner !== runtime || previous.narrow !== event.matches
+      sidebarViewportOwner.current = { owner: runtime, narrow: event.matches }
       setSidebarViewportNarrow(event.matches)
       if (
+        enteredNarrow &&
         shouldCollapseWorkspaceSidebar(
           event.matches,
           runtime.state.presentation.getSnapshot().sidebarOpen,
@@ -700,7 +705,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     closeNarrowSidebar(narrow)
     narrow.addEventListener('change', closeNarrowSidebar)
     return () => narrow.removeEventListener('change', closeNarrowSidebar)
-  }, [execute, recordError, runtime.state.presentation])
+  }, [execute, recordError, runtime, runtime.state.presentation])
 
   useEffect(() => {
     if (navigation.workspaceId)
