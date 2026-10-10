@@ -101,7 +101,7 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
       splitting: false,
       metafile: true,
       minify: false,
-      external: [...(unit.external ?? []), '*.node'],
+      external: [...(unit.external ?? [])],
       define: unit.define ?? {},
     }).catch((error: unknown) => {
       throw new HbarError('RUNTIME_BUILD_FAILED', 'Runtime candidate did not compile', { cause: error })
