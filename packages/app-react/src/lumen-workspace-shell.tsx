@@ -713,7 +713,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           document.querySelector('dialog:modal') !== null,
         )
       )
-        void execute('app.setSidebarVisible', { visible: false }).catch(recordError)
+        void execute(previous?.owner !== runtime ? 'app.initializeSidebar' : 'app.setSidebarVisible', {
+          visible: false,
+        }).catch(recordError)
     }
     closeNarrowSidebar(narrow)
     narrow.addEventListener('change', closeNarrowSidebar)

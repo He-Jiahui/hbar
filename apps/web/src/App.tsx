@@ -1913,7 +1913,7 @@ export default function App({
     if (layoutVisibilitySync.current === syncKey) return
     layoutVisibilitySync.current = syncKey
     void runtime.view.commands
-      .execute('app.setSidebarVisible', { visible: sidebarLayout.visible })
+      .execute('app.initializeSidebar', { visible: sidebarLayout.visible })
       .catch(() => undefined)
   }, [layout.source, layout.status, runtime.view.commands, sidebarLayout.visible])
 
