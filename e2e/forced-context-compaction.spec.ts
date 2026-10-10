@@ -127,7 +127,9 @@ test('the final Pi reply forces compaction and refreshes the composer meter with
       contentType: 'application/json',
     })
     await page.screenshot({ path: info.outputPath('forced-compaction-desktop.png') })
+    await dialog.getByRole('button', { name: copy.session.usage.close, exact: true }).click()
     await page.setViewportSize({ width: 390, height: 844 })
+    await page.getByRole('button', { name: copy.session.addMenu.menu, exact: true }).click()
     await expect(trigger).toBeVisible()
     await expectComposerText(draft, unsent)
     await page.screenshot({ path: info.outputPath('forced-compaction-narrow.png') })

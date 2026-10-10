@@ -100,6 +100,12 @@ export {
   type HbarSessionLiveStatusProps,
 } from './session-live-status'
 export {
+  HbarContextHistory,
+  HbarContextCompactionNotice,
+  type HbarContextHistoryLabels,
+  type ContextHistoryMetric,
+} from './session-context-history'
+export {
   HbarSessionEmptyHero,
   showSessionEmptyHero,
   type HbarSessionEmptyHeroLabels,

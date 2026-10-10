@@ -290,6 +290,8 @@ export async function startWebSessionHost(
     fixture?: 'session' | 'chat-database' | 'chat-deletion'
     goalAutoContinue?: boolean
     budgetAutoContinue?: boolean
+    /** Bounded delay in the local summary fixture, only for observing compaction lifecycle. */
+    compactionDelayMs?: number
     /** Archived source for paired historical UI evidence; ordinary scenarios use the current checkout. */
     sourceRoot?: string
   }>,
@@ -315,6 +317,7 @@ export async function startWebSessionHost(
         HBAR_E2E_HISTORY_TEXT: options.historyText ?? '',
         HBAR_E2E_GOAL_AUTO_CONTINUE: options.goalAutoContinue === false ? '0' : '1',
         HBAR_E2E_BUDGET_AUTO_CONTINUE: options.budgetAutoContinue === false ? '0' : '1',
+        HBAR_E2E_COMPACTION_DELAY_MS: options.compactionDelayMs ? String(options.compactionDelayMs) : '',
         HBAR_E2E_WEB_ORIGIN: `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`,
       },
       stdio: ['ignore', 'pipe', 'pipe'],

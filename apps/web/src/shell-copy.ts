@@ -7,6 +7,7 @@ import { createSessionRequestLabels } from './session-request-copy'
 import { goalLifecycleCopy, goalHistoryCopy } from './goal-lifecycle-copy'
 import type { AgentProfileId } from '@hbar/contracts/commands/agents'
 import { toolFeedbackLabels } from './session-tool-feedback-copy'
+import { contextHistoryCopy } from './context-history-copy'
 import type {
   HbarAgentWorkspaceLabels,
   HbarMessageActivityPart,
@@ -1114,6 +1115,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       openStatus: choose('查看会话状态', 'View session status'),
     },
     liveStatus: {
+      history: contextHistoryCopy(locale),
       label: choose('会话状态', 'Session status'),
       offline: choose('离线 · 状态待确认', 'Offline · Status unconfirmed'),
       statusLabel: (status) => statusLabels[status],

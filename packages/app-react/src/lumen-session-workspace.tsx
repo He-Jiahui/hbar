@@ -83,6 +83,7 @@ import { currentSessionRun, type HbarSessionRunLabels } from './session-run-acti
 import { currentSessionRunFailure } from './session-run-failure-model'
 import { HbarSessionInterruptionNotice, type HbarSessionInterruptionLabels } from './session-interruption-notice'
 import { HbarSessionLiveStatus, type HbarSessionLiveStatusLabels } from './session-live-status'
+import { HbarContextCompactionNotice } from './session-context-history'
 import { HbarSessionExecutionStatus } from './session-execution-status'
 import { HbarQueuedUserRuns, type HbarQueuedUserRunsLabels } from './queued-user-runs'
 import { HbarSessionToolsMenu, type HbarSessionToolsMenuLabels } from './session-tools-menu'
@@ -1967,6 +1968,15 @@ function SessionWorkspaceContent({
         data-hbar-composer-session={sessionId}
         data-git-context-status={projectContext.context.status}
       >
+        {labels.liveStatus.history && (
+          <HbarContextCompactionNotice
+            record={timeline.sessionId === sessionId ? timeline.activeCompaction : null}
+            sessionId={sessionId}
+            owned={activeConversationOwner}
+            connected={connected}
+            labels={labels.liveStatus.history}
+          />
+        )}
         <HbarSessionLiveStatus
           key={sessionId}
           sessionId={sessionId}
@@ -1975,6 +1985,19 @@ function SessionWorkspaceContent({
           connected={connected}
           run={activeRun}
           labels={labels.liveStatus}
+          history={{
+            page: timeline.contextHistory,
+            status: timeline.contextHistoryStatus,
+            error: timeline.contextHistoryError,
+            before: timeline.contextHistoryBefore,
+            onRetry: () =>
+              invoke('timeline.contextHistory', {
+                sessionId,
+                ...(timeline.contextHistoryRequestBefore ? { before: timeline.contextHistoryRequestBefore } : {}),
+              }),
+            onLoad: (before) =>
+              invoke('timeline.contextHistory', { sessionId, ...(before === undefined ? {} : { before }) }),
+          }}
           context={{
             facts: composerIntent.facts,
             onRefresh: () => invoke('composerIntent.refresh', { sessionId }),

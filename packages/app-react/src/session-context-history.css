@@ -1,0 +1,90 @@
+.hbar-context-compaction-notice {
+  display: flex;
+  min-inline-size: 0;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 0.0625rem solid var(--lumen-warning);
+  border-radius: var(--lumen-radius-control);
+  background: color-mix(in srgb, var(--lumen-warning) 12%, var(--lumen-reading));
+  color: var(--lumen-ink);
+  overflow-wrap: anywhere;
+}
+
+.hbar-context-compaction-notice [data-text-context='record.title'] {
+  color: var(--lumen-warning);
+}
+
+.hbar-context-history {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.hbar-context-history-row {
+  min-inline-size: 0;
+  padding-block: 0.375rem;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+
+.hbar-context-history-row > summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.hbar-context-history-row > summary > * {
+  margin-inline-end: 0.5rem;
+}
+
+.hbar-context-history-row[data-status='failed'] > summary,
+.hbar-context-history-row[data-status='interrupted'] > summary {
+  color: var(--lumen-danger);
+}
+
+.hbar-context-history-row[data-status='running'] > summary {
+  color: var(--lumen-warning);
+}
+
+.hbar-context-history-metrics {
+  display: flex;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-block: 0.5rem;
+}
+
+.hbar-context-history-metric {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+}
+
+.hbar-context-history-metric dt {
+  flex: 1 1 8rem;
+  color: var(--lumen-muted);
+}
+
+.hbar-context-history-metric dd {
+  flex: 2 1 14rem;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.hbar-context-history-metric > * {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.hbar-context-history-actions {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}

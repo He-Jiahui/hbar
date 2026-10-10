@@ -7,6 +7,8 @@ import { projectActivityTasks } from './activity-tasks-model'
 import { ActivityTasksView, type ActivityTaskLabels } from './activity-tasks-view'
 import './session-live-status.css'
 import { HbarSessionExecutionStatus } from './session-execution-status'
+import { HbarContextHistory, type HbarContextHistoryLabels } from './session-context-history'
+import type { ContextHistoryPage } from '@hbar/contracts/context-history'
 
 export interface HbarSessionLiveStatusLabels {
   readonly label: string
@@ -16,6 +18,7 @@ export interface HbarSessionLiveStatusLabels {
   readonly collapse: string
   readonly goal: string
   readonly tasks: ActivityTaskLabels
+  readonly history?: HbarContextHistoryLabels
 }
 
 export interface HbarSessionLiveStatusProps {
@@ -30,6 +33,14 @@ export interface HbarSessionLiveStatusProps {
     readonly summary: ReactNode
     readonly onRefresh: () => void
   }
+  readonly history?: {
+    readonly page: ContextHistoryPage | undefined
+    readonly status: 'idle' | 'loading' | 'error' | undefined
+    readonly error: string | null | undefined
+    readonly before: number | null | undefined
+    readonly onLoad: (before?: number) => void
+    readonly onRetry?: () => void
+  }
 }
 
 /** Docked session context. The expanded pane owns scrolling for the Host's bounded 100-step Plan. */
@@ -41,6 +52,7 @@ export function HbarSessionLiveStatus({
   run,
   labels,
   context,
+  history,
 }: HbarSessionLiveStatusProps) {
   const [expandedSession, setExpandedSession] = useState<string | null>(null)
   const contentId = useId()
@@ -55,7 +67,16 @@ export function HbarSessionLiveStatus({
       : null
   const goal = snapshot?.goal?.threadId === sessionId && snapshot.goal.status !== 'complete' ? snapshot.goal : null
   const tasks = context ? projectActivityTasks(context.facts, sessionId) : null
-  const hasDetails = Boolean(goal || tasks?.steps.length || tasks?.explanation || tasks?.failed)
+  const currentHistory = timelineSessionId === sessionId && history?.page?.sessionId === sessionId ? history : undefined
+  const hasHistory = Boolean(
+    labels.history &&
+    currentHistory &&
+    (currentHistory.page?.records.length ||
+      currentHistory.page?.current.turns ||
+      currentHistory.page?.current.tools.total ||
+      currentHistory.page?.current.usage.recorded),
+  )
+  const hasDetails = Boolean(goal || tasks?.steps.length || tasks?.explanation || tasks?.failed || hasHistory)
   const visible = Boolean(currentRun || hasDetails)
   const summaryOwned = context?.facts.sessionId === sessionId
   if (!owned) return null
@@ -143,6 +164,18 @@ export function HbarSessionLiveStatus({
               <LumenContentText context="section.subtitle">{labels.goal}</LumenContentText>
               <LumenContentText context="section.description">{goal.objective}</LumenContentText>
             </LumenFrame>
+          )}
+          {labels.history && hasHistory && currentHistory && (
+            <HbarContextHistory
+              sessionId={sessionId}
+              page={currentHistory.page}
+              status={currentHistory.status}
+              error={currentHistory.error}
+              before={currentHistory.before}
+              onLoad={currentHistory.onLoad}
+              {...(currentHistory.onRetry ? { onRetry: currentHistory.onRetry } : {})}
+              labels={labels.history}
+            />
           )}
         </LumenFrame>
       )}

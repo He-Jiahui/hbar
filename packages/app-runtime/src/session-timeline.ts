@@ -10,6 +10,12 @@ import {
   toolBatchEventSchema,
 } from '@hbar/contracts'
 import { sessionTimelineCommands } from '@hbar/contracts/commands/session-timeline'
+import {
+  contextHistoryPageSchema,
+  parseContextCompactionEvent,
+  type ContextHistoryInput,
+  type ContextHistoryPage,
+} from '@hbar/contracts/context-history'
 import { queuedRunGuidanceSchema, type QueuedRunGuidance } from '@hbar/contracts/commands/run'
 import type {
   Approval,
@@ -85,6 +91,11 @@ function emptyState(sessionId: string | null, status: SessionTimelineState['stat
     cursor: 0,
     hasOlder: false,
     error: null,
+    activeCompaction: null,
+    contextHistoryStatus: 'idle',
+    contextHistoryError: null,
+    contextHistoryBefore: null,
+    contextHistoryRequestBefore: null,
   }
 }
 
@@ -118,6 +129,15 @@ function fromSnapshot(
     userInputs: snapshot.userInputs.slice(0, MAX_USER_INPUTS),
     plan: plan === undefined ? (previous?.plan ?? null) : plan,
     usage: { ...snapshot.usage },
+    ...(snapshot.contextHistory
+      ? {
+          contextHistory: contextHistoryPageSchema.parse(snapshot.contextHistory),
+          activeCompaction: snapshot.contextHistory.records.find((record) => record.status === 'running') ?? null,
+        }
+      : { activeCompaction: null }),
+    contextHistoryBefore: null,
+    contextHistoryStatus: 'idle',
+    contextHistoryError: null,
     streams: Object.fromEntries(snapshot.streams.map((stream) => [stream.id, { ...stream }])),
     events: [],
     cursor: snapshot.cursor,
@@ -228,6 +248,24 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
   let streams = current.streams
   let toolEvents = current.toolEvents
   let toolClock = current.toolClock
+  let contextHistory = current.contextHistory
+  let activeCompaction = current.activeCompaction
+  const compaction = parseContextCompactionEvent(event)
+  if (compaction) {
+    activeCompaction =
+      compaction.status === 'running' ? compaction : activeCompaction?.id === compaction.id ? null : activeCompaction
+    if (contextHistory && !current.contextHistoryBefore) {
+      const records = [compaction, ...contextHistory.records.filter((record) => record.id !== compaction.id)].sort(
+        (a, b) => b.seq - a.seq,
+      )
+      contextHistory = {
+        ...contextHistory,
+        records: records.slice(0, 10),
+        before: records.slice(0, 10).at(-1)?.seq ?? null,
+        hasOlder: contextHistory.hasOlder || records.length > 10,
+      }
+    }
+  }
 
   if (
     event.runId &&
@@ -329,6 +367,8 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
     plan,
     usage,
     streams,
+    ...(contextHistory ? { contextHistory } : {}),
+    activeCompaction: activeCompaction ?? null,
     ...(toolEvents ? { toolEvents } : {}),
     ...(toolClock ? { toolClock } : {}),
     events: [...current.events, event].slice(-MAX_EVENTS),
@@ -370,6 +410,11 @@ export function createSessionTimeline(
   let olderGeneration = 0
   let closeWatch: (() => void | Promise<void>) | undefined
   let watching = false
+  let contextTimer: ReturnType<typeof setTimeout> | undefined
+  let contextReading = false
+  let contextDirty = false
+  let contextGeneration = 0
+  let contextInFlight: Promise<ContextHistoryPage> | null = null
   const historyListeners = new Set<(update: GoalHistoryTimelineUpdate) => void | Promise<void>>()
   const historySnapshot = (): GoalHistoryTimelineSnapshot => {
     const current = state.reader.getSnapshot()
@@ -414,10 +459,95 @@ export function createSessionTimeline(
   }
 
   const close = () => {
+    clearTimeout(contextTimer)
+    contextTimer = undefined
+    contextReading = false
+    contextDirty = false
+    contextGeneration++
     const current = closeWatch
     closeWatch = undefined
     watching = false
     if (current) void Promise.resolve(current()).catch(() => {})
+  }
+  const readContextPage = async (input: ContextHistoryInput, current: () => boolean) => {
+    while (contextInFlight) {
+      await contextInFlight.catch(() => undefined)
+      if (!current()) return undefined
+    }
+    const read = port?.contextHistory
+    if (!read || !current()) return undefined
+    const pending = read(input)
+    contextInFlight = pending
+    try {
+      return await pending
+    } finally {
+      if (contextInFlight === pending) contextInFlight = null
+    }
+  }
+  // One actual metadata request across navigation and paging; superseded queued reads never reach the Host.
+  const refreshContext = (sessionId: string) => {
+    if (!port?.contextHistory || contextTimer) return
+    if (contextReading) {
+      contextDirty = true
+      return
+    }
+    const selection = generation,
+      contextSelection = contextGeneration
+    contextTimer = setTimeout(() => {
+      contextTimer = undefined
+      contextReading = true
+      const cursor = state.reader.getSnapshot().cursor
+      void readContextPage(
+        { sessionId },
+        () => !isDisposed() && selection === generation && contextSelection === contextGeneration,
+      )
+        .then((value) => {
+          if (
+            isDisposed() ||
+            selection !== generation ||
+            contextSelection !== contextGeneration ||
+            navigation.getSnapshot().sessionId !== sessionId
+          )
+            return
+          if (!value) return
+          const page = contextHistoryPageSchema.parse(value)
+          if (page.sessionId !== sessionId) throw new Error('Context history belongs to another session')
+          const current = state.reader.getSnapshot()
+          if (current.cursor !== cursor) {
+            contextDirty = true
+            return
+          }
+          remember({
+            ...current,
+            contextHistory:
+              current.contextHistoryBefore && current.contextHistory
+                ? { ...current.contextHistory, current: page.current }
+                : page,
+            activeCompaction: page.records.find((record) => record.status === 'running') ?? null,
+            contextHistoryError:
+              current.contextHistoryStatus === 'error' ? (current.contextHistoryError ?? null) : null,
+          })
+        })
+        .catch((error: unknown) => {
+          if (
+            selection === generation &&
+            contextSelection === contextGeneration &&
+            navigation.getSnapshot().sessionId === sessionId
+          )
+            remember({
+              ...state.reader.getSnapshot(),
+              contextHistoryError: error instanceof Error ? error.message : String(error),
+            })
+        })
+        .finally(() => {
+          if (selection !== generation || contextSelection !== contextGeneration) return
+          contextReading = false
+          if (contextDirty) {
+            contextDirty = false
+            refreshContext(sessionId)
+          }
+        })
+    }, 250)
   }
   const load = async (sessionId: string | null) => {
     const intent = ++generation
@@ -492,6 +622,13 @@ export function createSessionTimeline(
           }
         }
         remember(update.kind === 'event' ? projectEvent(current, update.event) : projectStream(current, update.stream))
+        if (
+          update.kind === 'event' &&
+          ['run.settled', 'tool.settled', 'usage.recorded', 'context.compacted', 'context.compaction.settled'].includes(
+            update.event.type,
+          )
+        )
+          refreshContext(sessionId)
         if (update.kind === 'event')
           void notifyHistory({ kind: 'event', snapshot: historySnapshot(), event: update.event })
       })
@@ -577,6 +714,70 @@ export function createSessionTimeline(
           olderError: error instanceof Error ? error.message : String(error),
         })
       throw error
+    }
+  })
+
+  local.register(sessionTimelineCommands['timeline.contextHistory'], async ({ sessionId, before }) => {
+    if (!port?.contextHistory) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Context history unavailable')
+    if (navigation.getSnapshot().sessionId !== sessionId || state.reader.getSnapshot().sessionId !== sessionId)
+      throw new CommandError('INVALID_INPUT', 'Context history target is not selected')
+    const selection = generation,
+      intent = ++contextGeneration
+    clearTimeout(contextTimer)
+    contextTimer = undefined
+    contextReading = true
+    contextDirty = false
+    remember({
+      ...state.reader.getSnapshot(),
+      contextHistoryStatus: 'loading',
+      contextHistoryError: null,
+      contextHistoryRequestBefore: before ?? null,
+    })
+    try {
+      const value = await readContextPage(
+        { sessionId, ...(before === undefined ? {} : { before }), limit: 10 },
+        () => !isDisposed() && selection === generation && intent === contextGeneration,
+      )
+      if (
+        isDisposed() ||
+        selection !== generation ||
+        intent !== contextGeneration ||
+        navigation.getSnapshot().sessionId !== sessionId
+      )
+        return { sessionId, loaded: 0, hasOlder: false }
+      if (!value) return { sessionId, loaded: 0, hasOlder: false }
+      const page = contextHistoryPageSchema.parse(value)
+      if (page.sessionId !== sessionId) throw new Error('Context history belongs to another session')
+      if (before !== undefined && page.records.some((record) => record.seq >= before))
+        throw new Error('Context history cursor is invalid')
+      const current = state.reader.getSnapshot()
+      remember({
+        ...current,
+        contextHistory: page,
+        contextHistoryBefore: before ?? null,
+        contextHistoryStatus: 'idle',
+        contextHistoryError: null,
+        ...(before === undefined
+          ? { activeCompaction: page.records.find((record) => record.status === 'running') ?? null }
+          : {}),
+      })
+      return { sessionId, loaded: page.records.length, hasOlder: page.hasOlder }
+    } catch (error) {
+      if (selection === generation && intent === contextGeneration && navigation.getSnapshot().sessionId === sessionId)
+        remember({
+          ...state.reader.getSnapshot(),
+          contextHistoryStatus: 'error',
+          contextHistoryError: error instanceof Error ? error.message : String(error),
+        })
+      throw error
+    } finally {
+      if (selection === generation && intent === contextGeneration) {
+        contextReading = false
+        if (contextDirty) {
+          contextDirty = false
+          refreshContext(sessionId)
+        }
+      }
     }
   })
 
