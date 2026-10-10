@@ -482,7 +482,7 @@ export class Kernel {
   private drains = new Map<string, Promise<void>>()
   private scheduledWakeups = new SessionWakeups((sessionId) => this.kick(sessionId))
   private wakeups = new Set<string>()
-  private listeners = new Set<(event: WireNotification) => void>()
+  private listeners = new Set<(event: WireNotification) => unknown>()
   private approvals = new Map<string, (resolution: ApprovalResolution) => void>()
   private boundaryStops = new Map<string, RunControlSignal>()
   private userInputs = new Map<
@@ -966,7 +966,7 @@ export class Kernel {
     this.plugins.add(browserPlugin)
     this.plugins.add(computerPlugin)
   }
-  subscribe(listener: (event: WireNotification) => void) {
+  subscribe(listener: (event: WireNotification) => unknown) {
     this.listeners.add(listener)
     return () => {
       this.listeners.delete(listener)
@@ -975,7 +975,9 @@ export class Kernel {
   private publish(event: WireNotification) {
     for (const listener of [...this.listeners]) {
       try {
-        this.executionScope.observe(() => listener(event))
+        void Promise.resolve(this.executionScope.observe(() => listener(event))).catch((error: unknown) => {
+          console.error('Subscriber failed:', error)
+        })
       } catch (error) {
         console.error('Subscriber failed:', error)
       }

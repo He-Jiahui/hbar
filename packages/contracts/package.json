@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./runtime": "./src/runtime.ts",
+    "./runtime-notifications": "./src/runtime-notifications.ts",
     "./diagnostics": "./src/diagnostics.ts",
     "./decision": "./src/decision.ts",
     "./sandbox": "./src/sandbox.ts",

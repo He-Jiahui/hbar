@@ -3,7 +3,8 @@ import { z } from 'zod'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { HbarError, providerSchema, runSchema } from '@hbar/contracts'
+import { HbarError, providerSchema, runSchema, type WireNotification } from '@hbar/contracts'
+import { runtimeWireNotificationSchema } from '@hbar/contracts/runtime-notifications'
 import { ManagedProcess, RuntimeArtifactStore, RuntimeCoordinator, RuntimeValuePort, registerRuntimeCoordinatorPort, RUNTIME_COORDINATION_CONTROL_METHODS, procedure, type IpcPeer } from '@hbar/runtime'
 import { Storage, createPathLayout, ensurePathLayout, storageRpcCallSchema } from '@hbar/storage'
 import { KERNEL_RUNTIME_FINGERPRINT, RUNTIME_KERNEL_CONTROL_METHODS, runtimeKernelStateSchema } from '@hbar/kernel/runtime-port'
@@ -49,6 +50,7 @@ async function fixture() {
   } })
   const children: ManagedProcess[] = []
   const channels: RuntimeValuePort[] = []
+  const notifications: Array<{ owner: RuntimeOwner; event: WireNotification }> = []
   resources.push(async () => { selected = null; for (const child of children.reverse()) await child.dispose(); for (const channel of channels) channel.dispose(); await storage.close(); await rm(root, { recursive: true, force: true }) })
   const driver = new ManagedProcess({ descriptor: driverDescriptor, artifactId: driverArtifact.id, modulePath: await registry.modulePath(driverArtifact.id), generation: 1, parent: base,
     onPeer: (peer, owner) => {
@@ -70,6 +72,7 @@ async function fixture() {
       controlMethods: [...RUNTIME_COORDINATION_CONTROL_METHODS, ...RUNTIME_KERNEL_CONTROL_METHODS],
       onPeer: (peer, owner) => {
         currentPeer = peer
+        peer.onEvent('kernel.notification', runtimeWireNotificationSchema, event => { notifications.push({ owner, event }) })
         coordinator.register(owner, { unitId: owner.unitId, generation, artifactId: artifact.id }, descriptor)
         registerRuntimeCoordinatorPort(peer, coordinator, { owner,
           bindings: caller => ({ kernel: { unitId: caller.unitId, generation: caller.generation, artifactId: artifact.id }, driver: driverEndpoint.version, plugins: [], hooks: [] }),
@@ -100,7 +103,7 @@ async function fixture() {
     selected = kernel
     await kernel.call('kernel.resume', undefined, z.undefined())
   }
-  return { root, storage, session, coordinator, relay, driver, artifact, make, activate, storageCalls: () => storageCalls, toolPeak: () => physicalToolPeak }
+  return { root, storage, session, coordinator, relay, driver, artifact, make, activate, notifications, storageCalls: () => storageCalls, toolPeak: () => physicalToolPeak }
 }
 
 test('the real Kernel candidate has no storage or recovery effects, and activated execution commits through owned IPC and a separate Pi process', async () => {
@@ -119,6 +122,10 @@ test('the real Kernel candidate has no storage or recovery effects, and activate
   expect((await f.storage.call('runtimeExecutionRead', run.id))?.lease.owner).toEqual(kernel.owner())
   expect((await f.storage.call('snapshot', f.session.id)).messages.map(message => message.role)).toEqual(['user', 'assistant', 'tool', 'assistant'])
   expect(f.toolPeak()).toBe(1)
+  await until(() => f.notifications.some(({ event }) => event.method === 'session.event' && event.params.runId === run.id && event.params.type === 'run.settled'))
+  const sequences = f.notifications.flatMap(({ event }) => event.method === 'session.event' && event.params.sessionId === f.session.id ? [event.params.seq] : [])
+  expect(sequences).toEqual([...sequences].sort((left, right) => left - right))
+  expect(f.notifications.filter(({ event }) => event.method === 'session.event' && event.params.runId === run.id).every(({ owner }) => owner.incarnation === kernel.owner().incarnation)).toBe(true)
   expect(f.relay.snapshot().invocations).toBe(0)
   expect(kernel.snapshot().pid).not.toBe(f.driver.snapshot().pid)
 })
@@ -149,7 +156,7 @@ test('declared application methods and revision callbacks execute in the real Ke
   expect(f.storageCalls()).toBe(0)
   await f.activate(kernel)
   expect((await callRuntimeApplication(application, 'kernel', 'models', [])).some(model => model.id === 'fixture')).toBe(true)
-  expect(await outcome(callRuntimeApplication(application, 'directory', 'execute', ['workspace.get', { id: 'invalid-input-key' }]))).toMatchObject({ code: 'INVALID_INPUT' })
+  expect(await outcome(application.call('directory.execute', ['workspace.get', { id: 'invalid-input-key' }]))).toMatchObject({ code: 'INVALID_INPUT' })
   expect(await outcome(callRuntimeApplication(application, 'directory', 'execute', ['session.list', { workspaceId: 'missing-workspace' }]))).toMatchObject({ code: 'WORKSPACE_NOT_FOUND' })
   const plan = await callRuntimeApplication(application, 'plan', 'update', [f.session.id, [{ step: 'Check owned application ports', status: 'in_progress' }]])
   let committed = 0

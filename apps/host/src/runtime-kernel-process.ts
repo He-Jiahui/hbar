@@ -7,7 +7,7 @@ import { KERNEL_RUNTIME_FINGERPRINT, runtimeKernelConfigurationSchema, runtimeKe
 import { definePlugin, provide } from '@hbar/plugin-sdk'
 import { RUNTIME_APPLICATION_METHODS, RUNTIME_APPLICATION_CONTROLS } from '@hbar/kernel/runtime-application'
 import { createPathLayout, callStorageRpc, STORAGE_SCHEMA_VERSION, runtimeRecoveryRecordSchema, type StoragePort } from '@hbar/storage'
-import { RuntimeCoordinatorClient, RuntimeValuePort, procedure, runtimeDomainError, type RuntimeProcessContext, type RuntimeProcessService } from '@hbar/runtime'
+import { RuntimeCoordinatorClient, RuntimeValuePort, RuntimeNotificationDelivery, procedure, runtimeDomainError, type RuntimeProcessContext, type RuntimeProcessService } from '@hbar/runtime'
 import { RuntimeDriverAdapter } from './runtime-driver-adapter'
 
 /** The candidate validates its ports; construction and every production action wait until activation. */
@@ -19,6 +19,10 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
   const driver = new RuntimeDriverAdapter(context.peer, runId => leases.get(runId))
   let kernel: Kernel | undefined
   let role: 'default' | 'draining' = 'draining'
+  let unsubscribe: (() => void) | undefined
+  const notifications = new RuntimeNotificationDelivery({ send: event => context.peer.notify('kernel.notification', event),
+    diagnostic: code => { console.error(`[hbar kernel] invalid observer event (${code})`) },
+    failed: code => { console.error(`[hbar kernel] event delivery failed (${code})`); process.exit(76) } })
   const domain = async <Result>(action: () => Promise<Result>): Promise<Result> => {
     try { return await action() } catch (error) {
       const known = runtimeDomainError(error)
@@ -106,9 +110,10 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
           call: (lease, method, ...args) => domain(() => callStorageRpc({ execute: input => context.peer.call('kernel.storage', input, z.unknown()) }, method, args, lease)),
         },
       })
+      unsubscribe = kernel.subscribe(event => notifications.publish(event))
       // The stable composition activates all selected bindings before explicitly opening this scheduling gate.
     },
     async drain() { role = 'draining'; kernel?.beginDrain(); return { runs: kernel?.active.size ?? 0, requests: 0, resources: 0 } },
-    async dispose() { role = 'draining'; kernel?.beginDrain(); await kernel?.close(); driver.dispose(); values.dispose() },
+    async dispose() { role = 'draining'; kernel?.beginDrain(); unsubscribe?.(); notifications.dispose(); await kernel?.close(); driver.dispose(); values.dispose() },
   }
 }

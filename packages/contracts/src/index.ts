@@ -1075,10 +1075,10 @@ export type WireNotification =
   | { method: 'stream.update'; params: StreamDelta }
   | { method: 'metrics.sample'; params: import('./metrics').PerformanceSample }
   | { method: 'host.changed'; params: { kind: string } }
-  | { method: 'goal.updated'; params: { sessionId: string; runId: string | null; goal: ThreadGoal; seq?: number } }
-  | { method: 'goal.cleared'; params: { sessionId: string; seq?: number } }
-  | { method: 'plan.updated'; params: PlanState & { seq?: number } }
-  | { method: 'plan.cleared'; params: { sessionId: string; seq?: number } }
+  | { method: 'goal.updated'; params: { sessionId: string; runId: string | null; goal: ThreadGoal; seq?: number | undefined } }
+  | { method: 'goal.cleared'; params: { sessionId: string; seq?: number | undefined } }
+  | { method: 'plan.updated'; params: PlanState & { seq?: number | undefined } }
+  | { method: 'plan.cleared'; params: { sessionId: string; seq?: number | undefined } }
   | {
       method: 'workflow.updated'
       params: { sessionId: string; snapshot: import('./workflow').WorkflowSnapshot }
@@ -1098,7 +1098,7 @@ export type WireNotification =
   | { method: 'user_input.requested'; params: UserInputRequest }
   | {
       method: 'user_input.resolved'
-      params: { requestId: string; sessionId: string; cancelled: boolean; response?: UserInputResponse }
+      params: { requestId: string; sessionId: string; cancelled: boolean; response?: UserInputResponse | undefined }
     }
   | { method: 'auth.revoked'; params: { reason: string } }
   | { method: 'terminal.output'; params: { terminalId: string; data: string } }

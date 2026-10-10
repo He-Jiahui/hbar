@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { approvalModeSchema, inputSchema, runSchema } from '@hbar/contracts'
+import { runtimeWireNotificationSchema } from '@hbar/contracts/runtime-notifications'
 import { runCommandRecordSchema } from '@hbar/contracts/commands/run'
 import { pluginInfoSchema } from '@hbar/contracts/commands/extensions'
 import { runtimeRecoveryRecordSchema } from '@hbar/storage'
@@ -30,5 +31,6 @@ export const RUNTIME_KERNEL_CONTROL_METHODS = ['kernel.resume', 'kernel.fence', 
 export const KERNEL_RUNTIME_FINGERPRINT = createHash('sha256').update(JSON.stringify([
   'hbar.kernel.runtime.v1', z.toJSONSchema(runtimeKernelConfigurationSchema), z.toJSONSchema(runtimeKernelSubmitSchema),
   RUNTIME_APPLICATION_METHODS,
+  z.toJSONSchema(runtimeWireNotificationSchema),
   z.toJSONSchema(runtimeKernelStateSchema), z.toJSONSchema(runSchema), z.toJSONSchema(runtimeKernelRecoverySchema),
 ])).digest('hex')
