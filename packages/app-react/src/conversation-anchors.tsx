@@ -9,7 +9,7 @@ import {
   type KeyboardEvent,
 } from 'react'
 import { ChevronDown, ChevronUp, History } from 'lucide-react'
-import { LumenFloatingSurface, LumenIcon } from '@lumen/app-ui'
+import { LumenButton, LumenFloatingSurface, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import type { ConversationReadingTarget, SessionTimelineState } from '@hbar/app-runtime'
 import { useHbarRuntime, type HbarRuntimeView } from './runtime'
 import {
@@ -140,8 +140,9 @@ export function HbarConversationAnchorRail({
           ? labels.historyLimit
           : labels.older
   return (
-    <aside className="hbar-conversation-anchor-lane">
-      <nav
+    <LumenFrame as="aside" className="hbar-conversation-anchor-lane">
+      <LumenFrame
+        as="nav"
         ref={nav}
         className="hbar-conversation-anchor-rail"
         aria-label={labels.navigation(
@@ -168,9 +169,12 @@ export function HbarConversationAnchorRail({
         }}
       >
         {(hasOlder || olderStatus === 'error') && (
-          <button
+          <LumenButton
             type="button"
             className="hbar-conversation-anchor-control"
+            variant="text"
+            indicator="none"
+            size="s"
             aria-label={historyLabel}
             title={historyLabel}
             disabled={!canLoadOlder || olderStatus === 'loading' || olderStatus === 'limit'}
@@ -181,25 +185,31 @@ export function HbarConversationAnchorRail({
             }}
           >
             <LumenIcon icon={History} tier="sm" />
-          </button>
+          </LumenButton>
         )}
         {page.hasPrevious && (
-          <button
+          <LumenButton
             type="button"
             className="hbar-conversation-anchor-control"
+            variant="text"
+            indicator="none"
+            size="s"
             aria-label={labels.previous}
             title={labels.previous}
             onClick={() => choosePage(page.previousId)}
           >
             <LumenIcon icon={ChevronUp} tier="sm" />
-          </button>
+          </LumenButton>
         )}
-        <div className="hbar-conversation-anchor-list">
+        <LumenFrame className="hbar-conversation-anchor-list">
           {page.items.map((anchor, index) => (
-            <button
+            <LumenButton
               key={anchor.messageId}
               type="button"
               className="hbar-conversation-anchor"
+              variant="text"
+              indicator="none"
+              size="s"
               data-conversation-anchor={anchor.messageId}
               aria-label={labels.jump(page.start + index + 1, titleOf(anchor))}
               aria-current={anchor.messageId === activeId ? 'location' : undefined}
@@ -223,22 +233,25 @@ export function HbarConversationAnchorRail({
                 onNavigate(anchor.messageId)
               }}
             >
-              <span aria-hidden="true" className="hbar-conversation-anchor-mark" />
-            </button>
+              <LumenText as="span" aria-hidden="true" className="hbar-conversation-anchor-mark" />
+            </LumenButton>
           ))}
-        </div>
+        </LumenFrame>
         {page.nextId && (
-          <button
+          <LumenButton
             type="button"
             className="hbar-conversation-anchor-control"
+            variant="text"
+            indicator="none"
+            size="s"
             aria-label={labels.next}
             title={labels.next}
             onClick={() => choosePage(page.nextId)}
           >
             <LumenIcon icon={ChevronDown} tier="sm" />
-          </button>
+          </LumenButton>
         )}
-      </nav>
+      </LumenFrame>
       <LumenFloatingSurface
         key={preview?.messageId}
         id={tooltipId}
@@ -255,12 +268,12 @@ export function HbarConversationAnchorRail({
       >
         {preview && (
           <>
-            <strong>{titleOf(preview)}</strong>
-            {preview.preview && <p>{preview.preview}</p>}
+            <LumenText as="strong">{titleOf(preview)}</LumenText>
+            {preview.preview && <LumenText as="p">{preview.preview}</LumenText>}
           </>
         )}
       </LumenFloatingSurface>
-    </aside>
+    </LumenFrame>
   )
 }
 
