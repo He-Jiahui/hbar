@@ -212,6 +212,9 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
             reasoning: true,
             thinkingLevels: ['low'],
             defaultThinkingLevel: 'low',
+            contextTiers: [
+              { id: 'max', contextWindow: 200_000, inputTokensAbove: 100_000, inputPrice: 1, outputPrice: 2 },
+            ],
             hasKey: true,
           },
           thinkingLevel: 'low',
@@ -268,7 +271,7 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
     expect(html).not.toContain('<script>')
     expect(html).toContain('next prompt')
     expect(html).toContain('aria-label="Choose model: Fixture Model"')
-    expect(html).toContain('aria-valuetext="Low"')
+    expect(html).toContain(`aria-label="${labels.modelPicker.maxMode.menu}"`)
     expect(html).toContain('aria-haspopup="dialog"')
     expect(html).toContain(getShellCopy('en-US').session.decisions.approval)
     expect(html).toContain('Agent plan')
@@ -280,9 +283,7 @@ test('session workspace renders sanitized timeline, command-owned forms and reli
     expect(html).toContain(labels.loadOlder)
     expect(html).toContain(`aria-label="${labels.addMenu.open}"`)
     expect(html).toContain(labels.addMenu.files)
-    expect(html).toMatch(
-      new RegExp(`<dt[^>]*>${getShellCopy('en-US').monitoring.totals.tokens}</dt><dd>20</dd>`),
-    )
+    expect(html).toMatch(new RegExp(`<dt[^>]*>${getShellCopy('en-US').monitoring.totals.tokens}</dt><dd>20</dd>`))
     expect(html).toContain('Workspace 1')
     let composerBoundary: string | null = null
     let composerIndicators = 0
