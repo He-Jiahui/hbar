@@ -41,6 +41,15 @@ function socialFlow(overrides: Partial<LumenChatSocialReferenceFlow> = {}): Lume
   return { composer: composer(), ...overrides }
 }
 
+function buttonTextForAction(markup: string, action: string): string[] {
+  const escapedAction = action.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return [
+    ...markup.matchAll(
+      new RegExp(`<button\\b(?=[^>]*data-hbar-app-ui-action="${escapedAction}")[^>]*>([\\s\\S]*?)</button>`, 'g'),
+    ),
+  ].map(([, content]) => content?.replace(/<[^>]*>/g, '').trim() ?? '')
+}
+
 describe('source Direct conversation reference', () => {
   test('keeps the five source contacts, Sofia thread, native search and source contact actions', () => {
     const content = createChatDirectReferenceFixture()
@@ -161,7 +170,8 @@ describe('source social discussion reference', () => {
     expect(markup).toContain('Exactly. We capped ourselves at two hues')
     expect(markup).toContain('aria-label="Reply to Marcus Bell"')
     expect(markup.match(/class="[^"]*lumen-chat-social-reply-action[^"]*"/g)).toHaveLength(2)
-    expect(markup.match(/>Reply<\/button>/g)).toHaveLength(3)
+    expect(buttonTextForAction(markup, 'social:reply-to')).toEqual(['Reply', 'Reply'])
+    expect(buttonTextForAction(markup, 'send')).toEqual(['Reply'])
   })
 
   test('handles empty, one, duplicate and stale nested replies', () => {
@@ -264,6 +274,7 @@ describe('source social discussion reference', () => {
 
     expect(markup).toContain('Gefällt mir')
     expect(markup).toContain('aria-label="Auf die Antwort von Marcus Bell antworten"')
-    expect(markup).toContain('>Antworten</button>')
+    expect(buttonTextForAction(markup, 'social:reply-to')).toEqual(['Antworten', 'Antworten'])
+    expect(buttonTextForAction(markup, 'send')).toEqual(['Antworten'])
   })
 })
