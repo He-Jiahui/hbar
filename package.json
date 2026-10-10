@@ -95,6 +95,7 @@
     "@hbar/pi-driver": "workspace:*",
     "@hbar/plan": "workspace:*",
     "@hbar/plugin-sdk": "workspace:*",
+    "@hbar/runtime": "workspace:*",
     "@hbar/schema-core": "workspace:*",
     "@hbar/schema-react": "workspace:*",
     "@hbar/settings-core": "workspace:*",

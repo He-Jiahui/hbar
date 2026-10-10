@@ -29,6 +29,7 @@
         "@hbar/pi-driver": "workspace:*",
         "@hbar/plan": "workspace:*",
         "@hbar/plugin-sdk": "workspace:*",
+        "@hbar/runtime": "workspace:*",
         "@hbar/schema-core": "workspace:*",
         "@hbar/schema-react": "workspace:*",
         "@hbar/settings-core": "workspace:*",
@@ -273,6 +274,14 @@
       "dependencies": {
         "@earendil-works/pi-ai": "1.1.0",
         "@hbar/contracts": "workspace:*",
+      },
+    },
+    "packages/runtime": {
+      "name": "@hbar/runtime",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hbar/contracts": "workspace:*",
+        "zod": "4.5.4",
       },
     },
     "packages/schema-core": {
@@ -638,6 +647,8 @@
     "@hbar/plugin-sdk": ["@hbar/plugin-sdk@workspace:packages/plugin-sdk"],
 
     "@hbar/provider-catalog": ["@hbar/provider-catalog@workspace:packages/provider-catalog"],
+
+    "@hbar/runtime": ["@hbar/runtime@workspace:packages/runtime"],
 
     "@hbar/schema-core": ["@hbar/schema-core@workspace:packages/schema-core"],
 
