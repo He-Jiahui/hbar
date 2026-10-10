@@ -20,7 +20,7 @@ const labels = {
   stop: 'Stop',
   uploading: 'Uploading',
   addAttachment: 'Attach',
-  removeAttachment: ({ name }: { name: string }) => `Remove ${name}`,
+  removeAttachment: ({ name, id }: { name: string; id: string }) => `Remove ${name} (${id})`,
 }
 const base = {
   value: 'hello',
@@ -66,7 +66,9 @@ test.each([LumenPromptInput01, LumenPromptInput04, LumenPromptInput07])(
 test.each([LumenAgentApproval01, LumenAgentApproval02, LumenAgentApproval06])(
   'approval numbered controlled slots render host decision',
   (Variant) => {
-    const html = renderToStaticMarkup(<Variant controlled={{ body: <div data-testid="decision">host decision</div> }} />)
+    const html = renderToStaticMarkup(
+      <Variant controlled={{ body: <div data-testid="decision">host decision</div> }} />,
+    )
     expect(html).toContain('data-testid="decision"')
     expect(html).toContain('host decision')
   },
@@ -74,8 +76,15 @@ test.each([LumenAgentApproval01, LumenAgentApproval02, LumenAgentApproval06])(
 
 test('composer parity keeps host gates, deduplicates attachment identity and preserves original removal id', () => {
   const html = renderToStaticMarkup(<HbarPromptComposer {...base} disabled />)
-  expect(html.match(/data-kind="file"/g)).toHaveLength(1)
-  expect(html).toContain('Remove a.txt')
+  // The fallback is rendered by LumenChip. Its semantic identity is exposed
+  // through the component data attribute and attachment class; `data-kind`
+  // belongs to other Lumen surfaces and is not emitted by prompt chips.
+  expect(html.match(/class="[^"]*\blumen-attachment-chip\b[^"]*"/g)).toHaveLength(1)
+  expect(html).toContain('data-lumen-component="chip"')
+  // Lumen derives the chip key from kind:id, then strips that prefix before
+  // invoking the host removal label/callback. Include the id in the label so
+  // SSR verifies the original id survives that round trip.
+  expect(html).toContain('Remove a.txt (a)')
   expect(html).toContain('disabled=""')
   expect(html).toContain('hbar-prompt-composer')
 })
