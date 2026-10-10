@@ -236,6 +236,10 @@ export class RuntimeCoordinator {
     const lease = this.runs.get(runId)
     return lease ? executionOwnershipSchema.parse(lease) : null
   }
+  executionForSession(sessionId: string): ExecutionOwnership | null {
+    const lease = this.sessions.get(sessionId)
+    return lease ? executionOwnershipSchema.parse(lease) : null
+  }
   canIdle(owner: RuntimeOwner, sessionId: string): boolean {
     const record = this.record(owner)
     return record.descriptor.kind === 'kernel' && record.role === 'default' && !record.exited &&

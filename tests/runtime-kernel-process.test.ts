@@ -13,6 +13,9 @@ import { RuntimeDriverRelay, type RuntimeDriverEndpoint } from '../apps/host/src
 import { DRIVER_RUNTIME_FINGERPRINT } from '../apps/host/src/runtime-driver-contract'
 import type { RuntimeOwner, RuntimeUnitDescriptor } from '@hbar/contracts/runtime'
 import { optionalBundleExternals } from '../scripts/bundle-externals'
+import { RuntimeKernelFacade, type RuntimeKernelEndpoint, type RuntimeKernelState } from '../apps/host/src/runtime-kernel-facade'
+import { startServer } from '../apps/host/src/server'
+import { HbarClient, createRunCommandClient } from '@hbar/client'
 
 const resources: Array<() => Promise<void>> = []
 afterEach(async () => { for (const cleanup of resources.splice(0)) await cleanup() })
@@ -41,6 +44,7 @@ async function fixture() {
   const base: RuntimeOwner = { unitId: 'base', generation: 1, incarnation: 'kernel-process-test-base' }
   let driverEndpoint!: RuntimeDriverEndpoint
   let selected: ManagedProcess | null = null
+  let facade: RuntimeKernelFacade | undefined
   let storageCalls = 0
   let physicalToolPeak = 0
   const relay = new RuntimeDriverRelay({ coordinator, resolve: version => {
@@ -50,8 +54,9 @@ async function fixture() {
   } })
   const children: ManagedProcess[] = []
   const channels: RuntimeValuePort[] = []
+  const endpoints: RuntimeKernelEndpoint[] = []
   const notifications: Array<{ owner: RuntimeOwner; event: WireNotification }> = []
-  resources.push(async () => { selected = null; for (const child of children.reverse()) await child.dispose(); for (const channel of channels) channel.dispose(); await storage.close(); await rm(root, { recursive: true, force: true }) })
+  resources.push(async () => { facade?.dispose(); facade = undefined; selected = null; for (const child of children.reverse()) await child.dispose(); for (const channel of channels) channel.dispose(); await storage.close(); await rm(root, { recursive: true, force: true }) })
   const driver = new ManagedProcess({ descriptor: driverDescriptor, artifactId: driverArtifact.id, modulePath: await registry.modulePath(driverArtifact.id), generation: 1, parent: base,
     onPeer: (peer, owner) => {
       const version = { unitId: owner.unitId, generation: owner.generation, artifactId: driverArtifact.id }
@@ -72,7 +77,7 @@ async function fixture() {
       controlMethods: [...RUNTIME_COORDINATION_CONTROL_METHODS, ...RUNTIME_KERNEL_CONTROL_METHODS],
       onPeer: (peer, owner) => {
         currentPeer = peer
-        peer.onEvent('kernel.notification', runtimeWireNotificationSchema, event => { notifications.push({ owner, event }) })
+        peer.onEvent('kernel.notification', runtimeWireNotificationSchema, event => { notifications.push({ owner, event }); facade?.receive(owner, event) })
         coordinator.register(owner, { unitId: owner.unitId, generation, artifactId: artifact.id }, descriptor)
         registerRuntimeCoordinatorPort(peer, coordinator, { owner,
           bindings: caller => ({ kernel: { unitId: caller.unitId, generation: caller.generation, artifactId: artifact.id }, driver: driverEndpoint.version, plugins: [], hooks: [] }),
@@ -103,7 +108,23 @@ async function fixture() {
     selected = kernel
     await kernel.call('kernel.resume', undefined, z.undefined())
   }
-  return { root, storage, session, coordinator, relay, driver, artifact, make, activate, notifications, storageCalls: () => storageCalls, toolPeak: () => physicalToolPeak }
+  const expose = async (kernel: ManagedProcess, application: RuntimeValuePort) => {
+    const state: RuntimeKernelState = await kernel.call('kernel.state', undefined, runtimeKernelStateSchema)
+    const endpoint = { owner: kernel.owner(), process: kernel, application, state }
+    endpoints.push(endpoint)
+    const current = () => endpoints.find(value => value.owner.incarnation === selected?.owner().incarnation) ?? endpoint
+    facade ??= new RuntimeKernelFacade({ layout, demo: true, storage, coordinator, instanceId: state.instanceId,
+      current, endpoints: () => endpoints, maintain: async action => action(),
+      resolve: (target, method, args) => {
+        const id = typeof args[0] === 'string' ? args[0] : undefined
+        const lease = id ? target === 'kernel' && method === 'cancel' ? coordinator.execution(id) :
+          ['goal', 'plan', 'mode', 'budget', 'workflow', 'agent'].includes(target) ? coordinator.executionForSession(id) : null : null
+        return endpoints.find(value => value.owner.incarnation === lease?.owner.incarnation) ?? current()
+      },
+    })
+    return { facade, endpoint }
+  }
+  return { root, storage, session, coordinator, relay, driver, artifact, make, activate, expose, notifications, storageCalls: () => storageCalls, toolPeak: () => physicalToolPeak }
 }
 
 test('the real Kernel candidate has no storage or recovery effects, and activated execution commits through owned IPC and a separate Pi process', async () => {
@@ -171,4 +192,31 @@ test('declared application methods and revision callbacks execute in the real Ke
   expect(await outcome(callRuntimeApplication(application, 'execution', 'exec', [f.root, 'must not execute', stopped.signal]))).toBeInstanceOf(Error)
   expect(await outcome(application.call('kernel.close', []))).toMatchObject({ code: 'RUNTIME_METHOD_UNAVAILABLE' })
   expect(kernel.snapshot().phase).toBe('serving')
+})
+
+test('the real HTTP/WS listener uses a remote Kernel facade for bootstrap, commands, terminal events and stable connection identity', async () => {
+  const f = await fixture()
+  const { kernel, application } = await f.make()
+  await f.activate(kernel)
+  const { facade } = await f.expose(kernel, application)
+  const host = await startServer(facade.api, { port: 0 })
+  const client = new HbarClient(`http://127.0.0.1:${host.server.port}`)
+  try {
+    await client.pair(host.pairing.code, 'remote Kernel facade')
+    expect((await client.connect()).instanceId).toBe('stable-test-host')
+    expect((await client.call('system.bootstrap', {})).models.some(model => model.id === 'fixture')).toBe(true)
+    expect((await facade.api.plugins.graph()).nodes.length).toBeGreaterThan(0)
+    expect(facade.api.plugins.list().length).toBeGreaterThan(0)
+    const delivered: WireNotification[] = []
+    const unsubscribe = client.onEvent(event => { delivered.push(event) })
+    await client.follow(f.session.id, 0)
+    const accepted = await createRunCommandClient(client).execute('run.submit', { sessionId: f.session.id, modelId: 'fixture',
+      input: { text: '/tool get_goal {}', images: [] } }, { requestId: 'facade-request', idempotencyKey: 'facade-request' })
+    await until(async () => (await f.storage.call('run', accepted.operationId)).status === 'completed')
+    await until(() => delivered.some(event => event.method === 'session.event' && event.params.runId === accepted.operationId && event.params.type === 'run.settled'))
+    expect(facade.api.streams.size).toBe(0)
+    expect(client.connectionStatus()).toBe('connected')
+    expect(host.info().instanceId).toBe(facade.api.instanceId)
+    unsubscribe()
+  } finally { client.disconnect(); await host.close() }
 })

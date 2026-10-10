@@ -34,8 +34,12 @@ export interface KernelControllerCapabilities {
 }
 export interface KernelClientScopePort { dispose(): Promise<void> }
 export type KernelPluginControllerPort = Pick<Kernel['plugins'],
-  'list' | 'remove' | 'resolve' | 'graph' | 'lock' | 'doctor' | 'protectedResourceRoots' | 'clientCode' | 'assetPath'
+  'list' | 'remove' | 'lock' | 'protectedResourceRoots' | 'assetPath'
 > & {
+  resolve(...args: Parameters<Kernel['plugins']['resolve']>): ReturnType<Kernel['plugins']['resolve']> | Promise<ReturnType<Kernel['plugins']['resolve']>>
+  graph(...args: Parameters<Kernel['plugins']['graph']>): ReturnType<Kernel['plugins']['graph']> | Promise<ReturnType<Kernel['plugins']['graph']>>
+  doctor(): ReturnType<Kernel['plugins']['doctor']> | Promise<ReturnType<Kernel['plugins']['doctor']>>
+  clientCode(id: string): string | Promise<string>
   get<Capability extends keyof KernelControllerCapabilities>(capability: Capability): KernelControllerCapabilities[Capability]
   openScope(kind: 'client', id: string): Promise<KernelClientScopePort>
 }

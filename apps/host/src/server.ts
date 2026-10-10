@@ -1397,7 +1397,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
           const device = await auth.authenticate(requestToken(request))
           const clientPlugin = /^\/api\/plugins\/([^/]+)\/client\.js$/.exec(url.pathname)
           if (clientPlugin && request.method === 'GET')
-            return response(request, kernel.plugins.clientCode(decodeURIComponent(clientPlugin[1]!)), 200, {
+            return response(request, await kernel.plugins.clientCode(decodeURIComponent(clientPlugin[1]!)), 200, {
               'Content-Type': 'text/javascript; charset=utf-8',
             })
           const pluginAsset = /^\/api\/plugins\/([^/]+)\/assets\/(.+)$/.exec(url.pathname)
