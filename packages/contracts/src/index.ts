@@ -498,6 +498,8 @@ export const inputSchema = z.object({
   // attachments were introduced. Kernel normalization supplies an empty list.
   files: z.array(artifactSchema).max(12).optional(),
   thinking: thinkingLevelSchema.optional(),
+  /** Captured at admission; missing legacy values mean standard context. */
+  maxMode: z.boolean().optional(),
   approval: approvalModeSchema.optional(),
   /** Host-created rules for `approval: 'sandbox'`; the Host strips it for other modes. */
   sandbox: sandboxSnapshotRefSchema.optional(),

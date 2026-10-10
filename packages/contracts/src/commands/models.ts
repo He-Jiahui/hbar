@@ -1,11 +1,13 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
 import { idSchema, thinkingLevelSchema } from '../index'
+import { modelContextTiersSchema } from '../model-context-tiers'
 
 export const DEFAULT_COMPACTION_PERCENT = 80
 export const MIN_COMPACTION_PERCENT = 30
 export const MAX_COMPACTION_PERCENT = 95
 export const COMPACTION_PERCENT_SETTING = 'context.compactionPercent'
+export const MAX_MODE_SETTING = 'provider.maxMode'
 
 /** Current retained context, never cumulative usage accounting. Counts are Host estimates. */
 export const sessionContextUsageSchema = z.strictObject({
@@ -15,6 +17,7 @@ export const sessionContextUsageSchema = z.strictObject({
   estimated: z.literal(true),
   inputTokens: z.number().int().nonnegative().nullable(),
   contextWindow: z.number().int().positive().nullable(),
+  contextMode: z.enum(['standard', 'max']).optional(),
   outputReserve: z.number().int().nonnegative().nullable(),
   compactionPercent: z.number().min(MIN_COMPACTION_PERCENT).max(MAX_COMPACTION_PERCENT),
   /** Input threshold after allowing room for the model's maximum output. */
@@ -31,6 +34,10 @@ export const modelDescriptorSchema = z.strictObject({
   modelName: z.string().min(1).max(160),
   description: z.string().max(160).optional(),
   contextWindow: z.number().int().positive(),
+  contextTiers: modelContextTiersSchema.optional(),
+  inputPrice: z.number().finite().nonnegative().optional(),
+  outputPrice: z.number().finite().nonnegative().optional(),
+  maxModePricingMultiplier: z.number().finite().min(1).max(100).optional(),
   maxOutput: z.number().int().positive(),
   imageInput: z.boolean(),
   reasoning: z.boolean(),
@@ -53,8 +60,9 @@ export const modelConfigurationSchema = z.strictObject({
   modelId: idSchema.nullable(),
   model: modelDescriptorSchema.nullable(),
   thinkingLevel: thinkingLevelSchema.nullable(),
+  maxMode: z.boolean().optional(),
   revisions: z.record(z.string(), z.number().int().nonnegative()),
-  sources: z.strictObject({ model: z.string(), thinkingLevel: z.string() }),
+  sources: z.strictObject({ model: z.string(), thinkingLevel: z.string(), maxMode: z.string().optional() }),
 })
 export const modelWriteResultSchema = modelConfigurationSchema.extend({
   commitId: idSchema,
@@ -68,6 +76,7 @@ export const modelReceiptSchema = z.strictObject({
   revision: z.number().int().positive(),
   modelId: idSchema.nullable(),
   thinkingLevel: thinkingLevelSchema.nullable(),
+  maxMode: z.boolean().optional(),
   revisions: z.record(z.string(), z.number().int().nonnegative()),
 })
 const metadata = (id: string, kind: 'command' | 'query', scope: 'global' | 'session') => ({
@@ -146,6 +155,15 @@ export const modelCommands = {
     z.strictObject({
       sessionId: idSchema,
       thinkingLevel: thinkingLevelSchema,
+      baselineRevisions: z.record(z.string(), z.number().int().nonnegative()),
+    }),
+    modelWriteResultSchema,
+  ),
+  'session.setMaxMode': defineCommand(
+    metadata('session.setMaxMode', 'command', 'session'),
+    z.strictObject({
+      sessionId: idSchema,
+      enabled: z.boolean(),
       baselineRevisions: z.record(z.string(), z.number().int().nonnegative()),
     }),
     modelWriteResultSchema,

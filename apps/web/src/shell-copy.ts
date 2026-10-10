@@ -562,6 +562,9 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.provider.model.help': '选择后续运行使用的供应商模型。',
         'i18n:settings.provider.thinkingLevel.label': '思考等级',
         'i18n:settings.provider.thinkingLevel.help': '可用等级会随当前模型变化。',
+        'i18n:settings.provider.maxMode.label': '默认启用 MAX 长上下文',
+        'i18n:settings.provider.maxMode.help':
+          '仅对配置了扩展窗口的模型生效，下一次运行使用最大窗口。普通模式超限仍会压缩。MAX 费率、输入阈值和可选加价在供应商的模型配置中设置；按每次请求的实际输入（含缓存）选档，对整次请求计价。',
         'i18n:settings.context.compactionPercent.label': '自动压缩阈值（%）',
         'i18n:settings.context.compactionPercent.help':
           '默认 80%，可设置 30–95%。当前会话的上下文占用达到此比例时，在下一次模型请求前压缩；输出预留空间不足时会提前触发。保存后立即采用。',
@@ -589,6 +592,9 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.provider.model.help': 'Choose the provider model used by future runs.',
         'i18n:settings.provider.thinkingLevel.label': 'Thinking level',
         'i18n:settings.provider.thinkingLevel.help': 'Available levels follow the selected model.',
+        'i18n:settings.provider.maxMode.label': 'Use MAX extended context by default',
+        'i18n:settings.provider.maxMode.help':
+          'Applies to models with configured expanded tiers on the next Run. Standard mode still compacts at capacity. Configure MAX rates, input thresholds and optional markup in the provider model editor. Actual inclusive input selects the tariff for the whole request.',
         'i18n:settings.context.compactionPercent.label': 'Auto-compaction threshold (%)',
         'i18n:settings.context.compactionPercent.help':
           'Defaults to 80%; choose 30–95%. Compact the current session before the next model request at this context occupancy, or earlier to reserve output space. Saved changes apply immediately.',

@@ -45,7 +45,7 @@ export type ModelContextTier = z.output<typeof modelContextTierSchema>
 
 export function maximumContextWindow(model: {
   readonly contextWindow: number
-  readonly contextTiers?: readonly ModelContextTier[]
+  readonly contextTiers?: readonly ModelContextTier[] | undefined
 }): number {
   return Math.max(model.contextWindow, model.contextTiers?.at(-1)?.contextWindow ?? model.contextWindow)
 }

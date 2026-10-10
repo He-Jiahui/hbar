@@ -21,6 +21,7 @@ import { z } from 'zod'
 import {
   COMPACTION_PERCENT_SETTING,
   DEFAULT_COMPACTION_PERCENT,
+  MAX_MODE_SETTING,
   type SessionContextUsage,
 } from '@hbar/contracts/commands/models'
 import { compactionInputThreshold, describeContextUsage, estimateContextTokens } from './context-usage'
@@ -41,6 +42,7 @@ import {
   normalizeThinkingLevel,
   providerSchema,
   resolveProviderModel,
+  resolveModelContextMode,
   userInputRequestSchema,
   userInputResponseSchema,
   settingScopeSchema,
@@ -1512,7 +1514,13 @@ export class Kernel {
       if (!input.text.trim() && !input.images.length && !files.length && !['goal', 'system'].includes(input.source ?? 'user'))
         throw new HbarError('EMPTY_INPUT', 'Enter a message or attach an image or file')
       const model = await this.plugins.get<ModelRegistry>('models').get(modelId)
-      input = { ...input, thinking: normalizeThinkingLevel(model, input.thinking, mode === 'plan') }
+      const requestedMaxMode = input.maxMode ?? (await this.maxModePreference(sessionId))
+      const contextModel = resolveModelContextMode(model, requestedMaxMode)
+      input = {
+        ...input,
+        thinking: normalizeThinkingLevel(model, input.thinking, mode === 'plan'),
+        maxMode: contextModel.contextMode === 'max',
+      }
       input = { ...input, approval: input.approval ?? (await this.sessionPermissionMode(sessionId)) }
       input = await this.admitSandbox(sessionId, input)
       if (input.images.length && !model.imageInput)
@@ -1685,7 +1693,10 @@ export class Kernel {
               controller.signal,
             ),
           }
-          const model = await this.plugins.get<ModelRegistry>('models').get(run.modelId)
+          const model = resolveModelContextMode(
+            await this.plugins.get<ModelRegistry>('models').get(run.modelId),
+            run.input.maxMode === true,
+          )
           const providerSnapshot = (await this.storage.call('providers')).find(
             (candidate) => run.modelId === candidate.id || run.modelId.startsWith(`${candidate.id}/`),
           )
@@ -1875,6 +1886,17 @@ export class Kernel {
                   request.model.model !== registered.model
                 )
                   throw new HbarError('INVALID_MODEL_OVERRIDE', 'Model hooks must select a registered provider endpoint')
+                const allowed = resolveModelContextMode(registered, run.input.maxMode === true)
+                if (request.model.contextWindow > allowed.contextWindow || request.model.maxOutput > allowed.maxOutput)
+                  throw new HbarError('INVALID_MODEL_OVERRIDE', 'Model hooks cannot expand the captured context mode')
+                request = {
+                  ...request,
+                  model: {
+                    ...allowed,
+                    contextWindow: request.model.contextWindow,
+                    maxOutput: request.model.maxOutput,
+                  },
+                }
                 advertised = await scope.hooks.dispatch('tools.advertise', {
                   sessionId,
                   runId: run.id,
@@ -2096,6 +2118,11 @@ export class Kernel {
       else await executeClaimedRun()
     }
   }
+  private async maxModePreference(sessionId: string): Promise<boolean> {
+    const snapshot = await this.permissionSettings.get({ kind: 'session', targetId: sessionId })
+    return snapshot.resolution.reports[encodePath([{ kind: 'field', name: MAX_MODE_SETTING }])]?.effectiveValue === true
+  }
+
   private async compactionPercent(sessionId: string): Promise<number> {
     const snapshot = await this.permissionSettings.get({ kind: 'session', targetId: sessionId })
     const report = snapshot.resolution.reports[encodePath([{ kind: 'field', name: COMPACTION_PERCENT_SETTING }])]
@@ -2126,7 +2153,10 @@ export class Kernel {
         remainingTokens: null,
         observedAt: Date.now(),
       }
-    const model = await this.plugins.get<ModelRegistry>('models').get(modelId)
+    const model = resolveModelContextMode(
+      await this.plugins.get<ModelRegistry>('models').get(modelId),
+      active ? active.run.input.maxMode === true : await this.maxModePreference(sessionId),
+    )
     const request = await this.buildRequest(
       sessionId,
       model,
@@ -2864,7 +2894,10 @@ export class Kernel {
     try {
       return await this.compactInternal(
         sessionId,
-        await this.plugins.get<ModelRegistry>('models').get(modelId),
+        resolveModelContextMode(
+          await this.plugins.get<ModelRegistry>('models').get(modelId),
+          await this.maxModePreference(sessionId),
+        ),
         signal ? AbortSignal.any([signal, AbortSignal.timeout(120_000)]) : AbortSignal.timeout(120_000),
       )
     } finally {
