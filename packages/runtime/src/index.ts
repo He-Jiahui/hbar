@@ -14,3 +14,15 @@ export {
   type RuntimeToolPermit,
   type RuntimeResourceLease,
 } from './coordinator'
+export { ManagedProcess, type ManagedProcessOptions } from './process'
+export {
+  type RuntimeProcessContext,
+  type RuntimeProcessModule,
+  type RuntimeProcessService,
+  type RuntimePreparation,
+  type RuntimeReady,
+  type RuntimeDrain,
+  runtimePrepareSchema,
+  runtimeReadySchema,
+  runtimeDrainSchema,
+} from './lifecycle'

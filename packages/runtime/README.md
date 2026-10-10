@@ -40,3 +40,16 @@ unit. Physical tool/resource permits remain held until their actual owner releas
 them or its supervisor confirms exit. Handoff also requires the old Run executor to
 stop and all failed dependencies to exit. Retained Runs keep their bound dependency
 versions, so replacing a plugin cannot silently change an already running tool.
+
+`ManagedProcess` hosts an immutable module artifact in a Bun subprocess using
+`prepare / activate / drain / dispose`. Preparation validates its reported public
+contract and storage schema. Candidates that fail never activate or restart. An
+activated generation retains its artifact and generation number through recovery,
+but receives a new incarnation and PID. Default and draining roles remain distinct
+during recovery so an old generation cannot briefly restart new-work admission.
+
+Heartbeat loss, abnormal exit and timed-out physical IPC calls terminate the owning
+process. Fault callbacks fence authority, and exit callbacks reconcile resources;
+failed reconciliation keeps the generation unavailable. Explicit disposal cancels
+recovery and kills a stuck owner at the shutdown deadline. Actual process tests
+exercise compatibility failures, repeated crashes, heartbeat stalls and disposal.
