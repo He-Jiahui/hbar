@@ -96,6 +96,7 @@ import { createExtensionCommands } from './extension-commands.ts'
 import { createSkillInspectionService } from './skill-inspection.ts'
 import type { RuntimeScope } from '@hbar/kernel'
 import { SystemTerminalManager } from './system-terminal'
+import { sendSocketFrame } from './socket-sender'
 import { UsageService } from '@hbar/usage'
 import { PerformanceCollector } from '@hbar/metrics'
 import { createHostPerformanceProvider } from './performance-provider.ts'
@@ -541,12 +542,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     return response(request, JSON.stringify(data), status, { 'Content-Type': 'application/json', ...headers })
   }
   function send(socket: ServerWebSocket<SocketData>, value: unknown) {
-    if (socket.readyState !== 1) return
-    if (socket.getBufferedAmount() > 4 * 1024 * 1024) {
-      socket.close(1013, 'Reconnect to resynchronize')
-      return
-    }
-    socket.send(JSON.stringify(value))
+    return sendSocketFrame(socket, value)
   }
   broadcastFresh = (event) => {
     for (const socket of sockets)
@@ -1512,7 +1508,10 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
           } finally {
             if (admitted) socket.data.pending--
           }
-        })()
+        })().catch(() => {
+          console.error('[hbar] RPC callback failed')
+          try { socket.close(1011, 'Request failed; reconnect to reconcile') } catch { /* Transport already failed. */ }
+        })
       },
       close(socket) {
         clearTimeout(socket.data.timer)

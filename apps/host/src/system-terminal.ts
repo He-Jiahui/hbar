@@ -19,6 +19,9 @@ export interface SystemTerminalCallbacks {
 export class SystemTerminalManager {
   private readonly terminals = new Map<string, ManagedTerminal>()
   private readonly decoder = new TextDecoder()
+  private notify(callback: () => void): void {
+    try { callback() } catch { console.error('[hbar] terminal observer failed') }
+  }
 
   open(owner: string, workspaceId: string, cwd: string, cols: number, rows: number, callbacks: SystemTerminalCallbacks): TerminalInfo {
     const id = crypto.randomUUID()
@@ -55,7 +58,7 @@ export class SystemTerminalManager {
       if (didExit) return
       didExit = true
       this.terminals.delete(id)
-      callbacks.onExit(id, code, signal)
+      this.notify(() => callbacks.onExit(id, code, signal))
     }
     const terminal = new Bun.Terminal({
       cols,
@@ -69,7 +72,7 @@ export class SystemTerminalManager {
           return
         }
         managed.outputBuffer = `${managed.outputBuffer}${output}`.slice(-128_000)
-        managed.callbacks?.onOutput(id, output)
+        this.notify(() => managed.callbacks?.onOutput(id, output))
       },
       exit: (_terminal, code, signal) => notifyExit(null, signal ?? (code === 0 ? null : `pty:${code}`)),
     })
@@ -81,7 +84,7 @@ export class SystemTerminalManager {
     })
     const info: TerminalInfo = { id, workspaceId, cwd, shell: shell[0]!, cols, rows, startedAt }
     this.terminals.set(id, { info, owner, process: processRef, terminal, outputBuffer: initialOutput, callbacks })
-    void processRef.exited.then((code) => notifyExit(code, null))
+    void processRef.exited.then((code) => notifyExit(code, null)).catch(() => notifyExit(null, 'process-error'))
     return info
   }
 
@@ -92,7 +95,7 @@ export class SystemTerminalManager {
       if (terminal.outputBuffer) {
         const buffered = terminal.outputBuffer
         terminal.outputBuffer = ''
-        queueMicrotask(() => callbacks.onOutput(terminal.info.id, buffered))
+        queueMicrotask(() => this.notify(() => callbacks.onOutput(terminal.info.id, buffered)))
       }
       return [terminal.info]
     })

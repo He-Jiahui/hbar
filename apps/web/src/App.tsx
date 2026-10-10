@@ -1969,7 +1969,6 @@ export default function App({
         const status = client.connectionStatus()
         if (status === 'pairing') startup.setConnection(status)
         else {
-          client.disconnect()
           startup.setConnection('disconnected')
         }
       })
@@ -1987,7 +1986,6 @@ export default function App({
         const status = client.connectionStatus()
         if (status === 'pairing') startup.setConnection(status)
         else {
-          client.disconnect()
           startup.setConnection('disconnected')
         }
       })
