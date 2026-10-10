@@ -73,6 +73,8 @@ import { readActiveOperations } from './active-operations.ts'
 import { readQueuedUserRuns } from './queued-user-runs.ts'
 import { RunSteeringRegistry } from './run-steering.ts'
 import { GOAL_HISTORY_INDEX_SQL, readGoalHistory } from './goal-history.ts'
+import { beginContextCompaction, finishContextCompaction, readContextHistory } from './context-history'
+import { contextCompactionRecordSchema } from '@hbar/contracts/context-history'
 import { createNotificationStorage, NOTIFICATION_SCHEMA_SQL } from './notifications'
 import { notificationFromSessionEvent, notificationFromScheduleOccurrence } from './notification-projection'
 import { createPromptTemplateStorage, PROMPT_TEMPLATES_SQL } from './prompt-templates'
@@ -532,6 +534,7 @@ const sessionBranchTarget = createSessionBranchTargetStorage(db, (sessionId) => 
 const sessionLaunchTargetPreparations = createSessionLaunchTargetPreparationStorage(db)
 
 db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
+db.exec('CREATE INDEX IF NOT EXISTS events_session_type_seq ON events(sessionId,type,seq);')
 db.exec(`CREATE INDEX IF NOT EXISTS events_guidance_run_seq ON events(sessionId,runId,seq)
   WHERE type='message.committed' AND json_extract(data,'$.queueGuidance.activeRunId') IS NOT NULL;`)
 db.exec('CREATE INDEX IF NOT EXISTS events_run_type_seq ON events(sessionId,runId,type,seq);')
@@ -1623,6 +1626,7 @@ const methods: StorageMethods = {
       approvals,
       userInputs: [],
       usage,
+      contextHistory: readContextHistory(db, { sessionId }),
       cursor: session.seq,
       streams: [],
       toolObservedAt: Date.now(),
@@ -2112,9 +2116,45 @@ const methods: StorageMethods = {
       ).map(messageRow),
     }
   },
-  compact: (sessionId, throughSeq, summary, modelId) =>
+  contextHistory: (input) => readContextHistory(db, input),
+  compactionStart: (input) =>
     db.transaction(() => {
-      const event = appendEvent(sessionId, 'context.compacted', { throughSeq, summary, modelId })
+      const compaction = beginContextCompaction(db, input)
+      return appendEvent(input.sessionId, 'context.compaction.started', { compaction }, input.runId ?? undefined)
+    })(),
+  compactionFinish: (record, completion) =>
+    db.transaction(() => {
+      const latest = db
+        .query<{ data: string }, [string, string]>(
+          "SELECT data FROM events WHERE sessionId=? AND json_extract(data,'$.compaction.id')=? ORDER BY seq DESC LIMIT 1",
+        )
+        .get(record.sessionId, record.id)
+      const data = latest
+        ? z.object({ compaction: contextCompactionRecordSchema }).parse(JSON.parse(latest.data) as unknown)
+        : null
+      if (!data || data.compaction.status !== 'running') return null
+      const compaction = finishContextCompaction(db, data.compaction, completion)
+      return appendEvent(record.sessionId, 'context.compaction.settled', { compaction }, record.runId ?? undefined)
+    })(),
+  compact: (sessionId, throughSeq, summary, modelId, telemetry) =>
+    db.transaction(() => {
+      const compaction = telemetry
+        ? finishContextCompaction(db, telemetry.record, {
+            status: 'completed',
+            durationMs: telemetry.durationMs,
+            afterTokens: telemetry.afterTokens,
+            summaryTokens: telemetry.summaryTokens,
+            retainedMessages: telemetry.retainedMessages,
+            chunks: telemetry.chunks,
+            errorCode: null,
+          })
+        : undefined
+      const event = appendEvent(
+        sessionId,
+        'context.compacted',
+        { throughSeq, summary, modelId, ...(compaction ? { compaction } : {}) },
+        compaction?.runId ?? undefined,
+      )
       db.query('INSERT INTO compactions VALUES(?,?,?,?)').run(sessionId, throughSeq, summary, event.seq)
       return event
     })(),
@@ -2435,7 +2475,7 @@ const methods: StorageMethods = {
       const modeEvent = decision === 'implement' ? event : null
       return { approval: resolved, event, modeEvent }
     })(),
-  toolStart: (sessionId, runId, callId, name, args) =>
+  toolStart: (sessionId, runId, callId, name, args, presentation) =>
     db.transaction(() => {
       db.query('INSERT INTO tool_intents VALUES(?,?,?,?,?,?)').run(
         `${runId}:${callId}`,
@@ -2445,7 +2485,12 @@ const methods: StorageMethods = {
         name,
         'started',
       )
-      return appendEvent(sessionId, 'tool.started', { callId, name, args }, runId)
+      return appendEvent(
+        sessionId,
+        'tool.started',
+        { callId, name, args, ...(presentation ? { presentation } : {}) },
+        runId,
+      )
     })(),
   toolEnd: (sessionId, runId, callId, failed = false) =>
     db.transaction(() => {
@@ -2456,6 +2501,31 @@ const methods: StorageMethods = {
     })(),
   recover: () =>
     db.transaction(() => {
+      const interruptedCompactions = db
+        .query<{ data: string }, []>(
+          `
+        SELECT data FROM events AS start WHERE type='context.compaction.started'
+          AND NOT EXISTS (SELECT 1 FROM events AS terminal WHERE terminal.sessionId=start.sessionId
+            AND terminal.seq>start.seq AND terminal.type IN ('context.compacted','context.compaction.settled')
+            AND json_extract(terminal.data,'$.compaction.id')=json_extract(start.data,'$.compaction.id'))
+      `,
+        )
+        .all()
+      for (const row of interruptedCompactions) {
+        const parsed = z
+          .object({ compaction: contextCompactionRecordSchema })
+          .safeParse(JSON.parse(row.data) as unknown)
+        if (parsed.success)
+          methods.compactionFinish(parsed.data.compaction, {
+            status: 'interrupted',
+            durationMs: null,
+            afterTokens: null,
+            summaryTokens: null,
+            retainedMessages: null,
+            chunks: 0,
+            errorCode: 'HOST_INTERRUPTED',
+          })
+      }
       const active = (db.query("SELECT * FROM runs WHERE status IN ('running','waiting_approval')").all() as Row[]).map(
         runRow,
       )
@@ -2611,7 +2681,13 @@ const methods: StorageMethods = {
   },
   plugins: () =>
     (
-      db.query('SELECT * FROM plugins').all() as { id: string; projectId: string; enabled: number; config: string; path: string | null }[]
+      db.query('SELECT * FROM plugins').all() as {
+        id: string
+        projectId: string
+        enabled: number
+        config: string
+        path: string | null
+      }[]
     ).map((row) => ({
       ...row,
       ...(row.projectId ? { projectId: row.projectId } : {}),

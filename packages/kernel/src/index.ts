@@ -226,6 +226,7 @@ import { createRunIdleTimeout, resolveRunIdleTimeoutMs } from './run-idle-timeou
 import { ToolExecutions, ToolTimeoutError } from './tool-timeout'
 import { hostAbortToolOutcome } from './tool-outcome'
 import { captureToolPresentations, enrichToolCallPresentations } from './tool-presentation'
+import { createContextCompactionJournal } from './context-compaction-journal'
 import { persistToolResultImages } from './tool-result-images'
 import { SessionWakeups } from './session-wakeups.ts'
 import { createToolSequenceExecutor } from './tool-sequence'
@@ -571,6 +572,7 @@ export class Kernel {
       () => this.changed('sandbox-profiles'),
     )
     this.directoryQueries = createDirectoryQueries({
+      contextHistory: (input) => this.storage.call('contextHistory', input),
       workspacePage: (input) => this.storage.call('workspacePage', input),
       workspaceSidebarPage: (input) => this.storage.call('workspaceSidebarPage', input),
       globalSessionActivityPage: (input) => this.storage.call('globalSessionActivityPage', input),
@@ -2409,6 +2411,7 @@ export class Kernel {
         context.callId,
         name,
         args,
+        captureToolPresentations(new Set([name]), scope.tools).get(name),
       )
       this.executionDiagnostics.toolStarted(toolDiagnosticIdentity, name)
       this.publishEvent(startEvent)
@@ -2944,14 +2947,16 @@ export class Kernel {
     thinking?: ThinkingLevel,
   ) {
     const startedAt = performance.now()
+    const journal = createContextCompactionJournal(this.storage, (event) => this.publishEvent(event), sessionId, runId)
     this.executionDiagnostics.compactionStarted({ ...(runId ? { sessionId, runId } : { sessionId }) })
     try {
-      const result = await this.compactInternalWork(sessionId, model, signal, runId, workspaceOverride, steering, thinking)
+      const result = await this.compactInternalWork(journal, sessionId, model, signal, runId, workspaceOverride, steering, thinking)
       const identity = runId ? { sessionId, runId } : { sessionId }
       this.executionDiagnostics.compacted(identity, performance.now() - startedAt)
       return result
     } catch (error) {
       const identity = runId ? { sessionId, runId } : { sessionId }
+      await journal.fail(error, signal.aborted)
       this.executionDiagnostics.compactionFailed(
         identity,
         error instanceof HbarError ? error.code : 'COMPACTION_FAILED',
@@ -2961,6 +2966,7 @@ export class Kernel {
     }
   }
   private async compactInternalWork(
+    journal: ReturnType<typeof createContextCompactionJournal>,
     sessionId: string,
     model: ProviderConfig,
     signal: AbortSignal,
@@ -2983,6 +2989,7 @@ export class Kernel {
       return { summary: '' }
     }
     const older = request.messages.slice(0, boundary)
+    await journal.start(model.id, model.contextWindow, estimateContextTokens(request))
     const summarization: ModelRequest = {
       ...createSummaryRequest(request, older, percent),
       context: {
@@ -3071,6 +3078,7 @@ export class Kernel {
         signal.throwIfAborted()
         if (!result.text.trim()) throw new HbarError('COMPACTION_FAILED', 'Provider returned an empty summary')
         completedChunks++
+        journal.chunkCompleted()
         this.executionDiagnostics.compactionStage(attemptIdentity, 'summary_completed', {
           ...budget,
           chunkCount: completedChunks,
@@ -3141,7 +3149,7 @@ export class Kernel {
     }
     this.executionDiagnostics.compactionStage(compactionIdentity, 'persist_started', { chunkCount: completedChunks })
     try {
-      this.publishEvent(await this.storage.call('compact', sessionId, throughSeq, summary, model.id))
+      await journal.complete(throughSeq, summary, model.id, rebuiltTokens, retained.length, completedChunks)
       this.executionDiagnostics.compactionStage(compactionIdentity, 'persist_completed', { chunkCount: completedChunks })
     } catch (error) {
       this.executionDiagnostics.compactionStage(compactionIdentity, 'persist_failed', { chunkCount: completedChunks })

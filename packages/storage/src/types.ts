@@ -42,6 +42,7 @@ import type {
 import type { QueuedUserRunsInput, QueuedUserRunsPage } from '@hbar/contracts/commands/run'
 import type { UsageReadInput, UsageReadPage } from '@hbar/usage'
 import type { GoalHistoryInput, GoalHistoryPage } from '@hbar/contracts/commands/goal-history'
+import type { ContextHistoryInput, ContextHistoryPage, ContextCompactionRecord } from '@hbar/contracts/context-history'
 import type { NotificationStorage } from './notifications'
 import type { createChatDatabaseProjection } from './chat-database-projection'
 import type { createChatDatabaseArtifactStorage } from './chat-database-artifacts'
@@ -398,10 +399,27 @@ export interface StorageMethods {
   sessionLaunchTarget(sessionId: string): SessionLaunchTarget
   sessionLaunchTargetRuntime(sessionId: string): SessionLaunchTargetRuntimeSnapshot
   sessionBranchTargetOperation(input: SessionBranchTargetIdentity): SessionBranchTargetRecord | null
-  pendingSessionBranchTargetOperation(sessionId: string, actorId?: string): { operationId: string; owned: boolean; idempotencyKey?: string; request?: import('@hbar/contracts/commands/session-branch-target').SessionBranchTargetSelectInput } | null
+  pendingSessionBranchTargetOperation(
+    sessionId: string,
+    actorId?: string,
+  ): {
+    operationId: string
+    owned: boolean
+    idempotencyKey?: string
+    request?: import('@hbar/contracts/commands/session-branch-target').SessionBranchTargetSelectInput
+  } | null
   beginSessionBranchTarget(input: SessionBranchTargetIntent): SessionBranchTargetRecord
-  observeSessionBranchTargetRun(input: { sessionId: string; runId: string; expectedRevision: number; targetPath: string; branch: string }): boolean
-  finishSessionBranchTarget(input: SessionBranchTargetIdentity, result: { status: 'ready' | 'failed' | 'unknown'; error?: { code: string; message: string } }): SessionBranchTargetOperation
+  observeSessionBranchTargetRun(input: {
+    sessionId: string
+    runId: string
+    expectedRevision: number
+    targetPath: string
+    branch: string
+  }): boolean
+  finishSessionBranchTarget(
+    input: SessionBranchTargetIdentity,
+    result: { status: 'ready' | 'failed' | 'unknown'; error?: { code: string; message: string } },
+  ): SessionBranchTargetOperation
   sessionLaunchTargetBindingForPath(targetPath: string): SessionLaunchTargetBinding | null
   activeSharedCheckoutPaths(excludeSessionId?: string): string[]
   setSessionLaunchTarget(input: SessionLaunchTargetMutationInput): SessionLaunchTargetSetReceipt
@@ -441,6 +459,17 @@ export interface StorageMethods {
     providerData?: unknown,
   ): { message: Message; event: SessionEvent }
   snapshot(sessionId: string, before?: number, limit?: number): SessionSnapshot
+  contextHistory(input: ContextHistoryInput): ContextHistoryPage
+  compactionStart(
+    input: Pick<ContextCompactionRecord, 'id' | 'sessionId' | 'runId' | 'modelId' | 'contextWindow' | 'beforeTokens'>,
+  ): SessionEvent
+  compactionFinish(
+    record: ContextCompactionRecord,
+    completion: Pick<
+      ContextCompactionRecord,
+      'status' | 'durationMs' | 'afterTokens' | 'summaryTokens' | 'retainedMessages' | 'chunks' | 'errorCode'
+    >,
+  ): SessionEvent | null
   activeOperations(input: ActiveOperationsInput): ActiveOperationsPage
   queuedUserRuns(input: QueuedUserRunsInput): QueuedUserRunsPage
   queuedRunEditable(input: QueuedRunEditableInput): QueuedRunEditable
@@ -460,7 +489,20 @@ export interface StorageMethods {
   }
   queuedRunRemoveReceipt(actorId: string, idempotencyKey: string, sessionId: string): QueuedRunRemoveReceipt | null
   context(sessionId: string): { messages: Message[]; summary: string | null; throughSeq: number }
-  compact(sessionId: string, throughSeq: number, summary: string, modelId: string): SessionEvent
+  compact(
+    sessionId: string,
+    throughSeq: number,
+    summary: string,
+    modelId: string,
+    telemetry?: {
+      record: ContextCompactionRecord
+      durationMs: number
+      afterTokens: number
+      summaryTokens: number
+      retainedMessages: number
+      chunks: number
+    },
+  ): SessionEvent
   fork(sessionId: string, atSeq?: number): Session
   forkSessionCommand(input: ForkSessionCommandInput): Session
   forkFromMessageCommand(input: ForkFromMessageCommandInput): Session
@@ -494,7 +536,14 @@ export interface StorageMethods {
     actorId: string,
   ): { approval: Approval; event: SessionEvent; modeEvent: SessionEvent | null }
   approval(id: string): Approval
-  toolStart(sessionId: string, runId: string, callId: string, name: string, args: unknown): SessionEvent
+  toolStart(
+    sessionId: string,
+    runId: string,
+    callId: string,
+    name: string,
+    args: unknown,
+    presentation?: import('@hbar/contracts').ToolCallPresentation,
+  ): SessionEvent
   toolEnd(sessionId: string, runId: string, callId: string, failed?: boolean): SessionEvent | null
   recover(): number
   saveProvider(provider: ProviderConfig): void
@@ -507,9 +556,23 @@ export interface StorageMethods {
   devices(): Device[]
   revokeDevice(id: string): void
   setPlugin(id: string, enabled: boolean, config: Record<string, unknown>, path?: string, projectId?: string): void
-  setPlugins(plugins: { id: string; enabled: boolean; config: Record<string, unknown>; path?: string | undefined; projectId?: string | undefined }[]): void
+  setPlugins(
+    plugins: {
+      id: string
+      enabled: boolean
+      config: Record<string, unknown>
+      path?: string | undefined
+      projectId?: string | undefined
+    }[],
+  ): void
   removePlugin(id: string, projectId?: string): void
-  plugins(): { id: string; enabled: boolean; config: Record<string, unknown>; path: string | null; projectId?: string | undefined }[]
+  plugins(): {
+    id: string
+    enabled: boolean
+    config: Record<string, unknown>
+    path: string | null
+    projectId?: string | undefined
+  }[]
   stats(): Record<string, number>
   getSetting(key: string): string | null
   setSetting(key: string, value: string): void

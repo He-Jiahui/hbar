@@ -71,6 +71,8 @@
     "./metrics": "./src/metrics.ts",
     "./workspace-query": "./src/workspace-query.ts",
     "./usage": "./src/usage.ts",
+    "./context-history": "./src/context-history.ts",
+    "./commands/context-history": "./src/commands/context-history.ts",
     "./workflow": "./src/workflow.ts"
   },
   "dependencies": {

@@ -668,6 +668,8 @@ export interface SessionSnapshot {
   /** Bounded latest execution facts for reconnect; completed timing also lives in tool results. */
   toolEvents?: SessionEvent[]
   toolObservedAt?: number
+  /** Durable, paged compaction/window telemetry, independent of the loaded message page. */
+  contextHistory?: import('./context-history').ContextHistoryPage
 }
 const providerModelInputSchema = z.object({
   id: z.string().min(1).max(160),
