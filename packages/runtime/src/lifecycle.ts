@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { runtimeUnitDescriptorSchema } from '@hbar/contracts/runtime'
 import type { IpcPeer } from './ipc'
+export const RUNTIME_CONTROL_METHODS = Object.freeze(['runtime.prepare', 'runtime.activate', 'runtime.drain', 'runtime.dispose', 'runtime.exit'])
 
 export const runtimePrepareSchema = z.strictObject({
   descriptor: runtimeUnitDescriptorSchema,

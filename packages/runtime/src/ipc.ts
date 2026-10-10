@@ -104,10 +104,14 @@ export interface IpcPeerOptions {
   readonly fragmentTimeoutMs?: number
   readonly onFailure?: (error: HbarError) => void
   readonly onTimeout?: (requestId: string) => void
+  /** Reserve physical slots for named control ports so approval/cancel cannot queue behind blocked work. */
+  readonly controlMethods?: readonly string[]
+  readonly reservedControl?: number
 }
 
 interface Pending {
   readonly id: string
+  readonly control: boolean
   encoded: string | undefined
   readonly bytes: number
   readonly resolve: (value: unknown) => void
@@ -224,10 +228,14 @@ export class IpcPeer {
   private readonly pending = new Map<string, Pending>()
   private queue: string[] = []
   private running = 0
+  private runningNormal = 0
   private queuedBytes = 0
   private readonly incoming = new Map<string, Incoming>()
   private incomingQueue: string[] = []
   private incomingRunning = 0
+  private incomingRunningNormal = 0
+  private readonly controlMethods: ReadonlySet<string>
+  private readonly normalCapacity: number
   private incomingBytes = 0
   private readonly procedures = new Map<string, IpcProcedure>()
   private readonly events = new Map<string, Set<(input: unknown) => void>>()
@@ -245,6 +253,11 @@ export class IpcPeer {
     this.owner = Object.freeze(runtimeOwnerSchema.parse(options.owner))
     this.remote = Object.freeze(runtimeOwnerSchema.parse(options.remote))
     this.maximumInFlight = limit(options.inFlight, RUNTIME_LIMITS.inFlight)
+    this.controlMethods = new Set(z.array(methodName).max(128).parse(options.controlMethods ?? []))
+    const reserved = options.reservedControl ?? (this.controlMethods.size ? Math.min(8, this.maximumInFlight - 1) : 0)
+    if (!Number.isSafeInteger(reserved) || reserved < 0 || reserved >= this.maximumInFlight)
+      throw new RangeError('Invalid IPC reserved control capacity')
+    this.normalCapacity = this.maximumInFlight - reserved
     this.maximumQueued = limit(options.queued, RUNTIME_LIMITS.queued)
     this.maximumBytes = limit(options.bufferedBytes, RUNTIME_LIMITS.bufferedBytes)
     this.maximumMessage = limit(options.messageBytes, RUNTIME_LIMITS.messageBytes)
@@ -315,13 +328,14 @@ export class IpcPeer {
       return Promise.reject(error)
     }
     if (
-      (this.running >= this.maximumInFlight && this.queue.length >= this.maximumQueued) ||
+      ((this.controlMethods.has(method) ? this.running >= this.maximumInFlight : this.runningNormal >= this.normalCapacity) && this.queue.length >= this.maximumQueued) ||
       this.queuedBytes + bytes > this.maximumBytes
     )
       return Promise.reject(new HbarError('IPC_BUSY', 'Runtime request capacity is exhausted'))
     return new Promise<Output>((resolve, reject) => {
       const pending: Pending = {
         id: callId,
+        control: this.controlMethods.has(method),
         encoded,
         bytes,
         resolve(value) {
@@ -432,11 +446,13 @@ export class IpcPeer {
     this.pending.clear()
     this.queue = []
     this.running = 0
+    this.runningNormal = 0
     this.queuedBytes = 0
     for (const request of this.incoming.values()) request.controller.abort(error)
     this.incoming.clear()
     this.incomingQueue = []
     this.incomingRunning = 0
+    this.incomingRunningNormal = 0
     this.incomingBytes = 0
     for (const assembly of this.assemblies.values()) clearTimeout(assembly.timer)
     this.assemblies.clear()
@@ -475,12 +491,15 @@ export class IpcPeer {
 
   private drain(): void {
     while (!this.failure && this.running < this.maximumInFlight && this.queue.length) {
-      const callId = this.queue.shift()!
+      const controlIndex = this.queue.findIndex(id => this.pending.get(id)?.control)
+      if (controlIndex < 0 && this.runningNormal >= this.normalCapacity) break
+      const callId = this.queue.splice(controlIndex < 0 ? 0 : controlIndex, 1)[0]!
       const pending = this.pending.get(callId)
       if (!pending) continue
       this.queuedBytes -= pending.bytes
       pending.started = true
       this.running++
+      if (!pending.control) this.runningNormal++
       const encoded = pending.encoded
       pending.encoded = undefined
       if (encoded === undefined) {
@@ -498,6 +517,7 @@ export class IpcPeer {
         if (!pending || !pending.started) return
         this.pending.delete(message.id)
         this.running--
+        if (!pending.control) this.runningNormal--
         if (!pending.settled) {
           this.settle(pending)
           if (message.ok) pending.resolve(message.result)
@@ -527,7 +547,7 @@ export class IpcPeer {
           return
         }
         if (
-          (this.incomingRunning >= this.maximumInFlight && this.incomingQueue.length >= this.maximumQueued) ||
+          ((this.controlMethods.has(message.method) ? this.incomingRunning >= this.maximumInFlight : this.incomingRunningNormal >= this.normalCapacity) && this.incomingQueue.length >= this.maximumQueued) ||
           this.incomingBytes + bytes > this.maximumBytes
         ) {
           void this.sendError(message.id, new HbarError('IPC_BUSY', 'Runtime execution capacity is exhausted')).catch(
@@ -546,17 +566,25 @@ export class IpcPeer {
 
   private drainIncoming(): void {
     while (!this.failure && this.incomingRunning < this.maximumInFlight && this.incomingQueue.length) {
-      const callId = this.incomingQueue.shift()!
+      const controlIndex = this.incomingQueue.findIndex(id => {
+        const method = this.incoming.get(id)?.message.method
+        return method !== undefined && this.controlMethods.has(method)
+      })
+      if (controlIndex < 0 && this.incomingRunningNormal >= this.normalCapacity) break
+      const callId = this.incomingQueue.splice(controlIndex < 0 ? 0 : controlIndex, 1)[0]!
       const request = this.incoming.get(callId)
       if (!request) continue
       request.started = true
       this.incomingRunning++
+      const control = this.controlMethods.has(request.message.method)
+      if (!control) this.incomingRunningNormal++
       void this.invoke(request)
         .catch(() => this.close())
         .finally(() => {
           if (!this.incoming.delete(callId)) return
           this.incomingBytes -= request.bytes
           this.incomingRunning--
+          if (!control) this.incomingRunningNormal--
           this.drainIncoming()
         })
     }

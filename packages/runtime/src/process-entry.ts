@@ -9,6 +9,7 @@ import {
   runtimeReadySchema,
   type RuntimeProcessModule,
   type RuntimeProcessService,
+  RUNTIME_CONTROL_METHODS,
 } from './lifecycle'
 
 export async function runRuntimeProcess(): Promise<void> {
@@ -36,6 +37,7 @@ export async function runRuntimeProcess(): Promise<void> {
   const peer = new IpcPeer({
     owner,
     remote,
+    controlMethods: z.array(z.string().min(1).max(128)).max(128).parse(JSON.parse(process.env.HBAR_RUNTIME_CONTROL_METHODS ?? JSON.stringify(RUNTIME_CONTROL_METHODS))),
     transport: {
       send(frame) {
         if (!process.send) throw new Error('Runtime parent has exited')

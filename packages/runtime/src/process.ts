@@ -9,7 +9,7 @@ import {
   type RuntimeUnitDescriptor,
 } from '@hbar/contracts/runtime'
 import { IpcPeer, type IpcCallOptions } from './ipc'
-import { runtimeDrainSchema, runtimeReadySchema, type RuntimeDrain } from './lifecycle'
+import { RUNTIME_CONTROL_METHODS, runtimeDrainSchema, runtimeReadySchema, type RuntimeDrain } from './lifecycle'
 
 export interface ManagedProcessOptions {
   readonly descriptor: RuntimeUnitDescriptor
@@ -30,6 +30,7 @@ export interface ManagedProcessOptions {
   readonly retrySlowMs?: number
   readonly healthyResetMs?: number
   readonly jitter?: number
+  readonly controlMethods?: readonly string[]
 }
 
 function duration(value: number | undefined, fallback: number): number {
@@ -194,6 +195,7 @@ export class ManagedProcess {
           HBAR_RUNTIME_PARENT: JSON.stringify(this.options.parent),
           HBAR_RUNTIME_MODULE: this.options.modulePath,
           HBAR_RUNTIME_HEARTBEAT_MS: String(this.heartbeatMs),
+          HBAR_RUNTIME_CONTROL_METHODS: JSON.stringify([...RUNTIME_CONTROL_METHODS, ...(this.options.controlMethods ?? [])]),
         },
         ipc: (message: unknown) => {
           if (this.child === child) this.peer?.receive(message)
@@ -205,6 +207,7 @@ export class ManagedProcess {
     const peer = new IpcPeer({
       owner: this.options.parent,
       remote: owner,
+      controlMethods: [...RUNTIME_CONTROL_METHODS, ...(this.options.controlMethods ?? [])],
       transport: { send: (frame) => child.send(frame) },
       onFailure: () => this.fault('RUNTIME_IPC_FAILED'),
       onTimeout: () => this.fault('RUNTIME_CALL_TIMEOUT'),

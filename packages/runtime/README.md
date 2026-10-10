@@ -131,3 +131,10 @@ call slot. Cancellation carries its original cause; stopped callback owners cann
 receive late replies after disposal. Streams coalesce within a bounded buffer, and
 the active driver has a 64-invocation limit. Model parameter descriptions never
 replace the actual tool input validation and permission gateway in its owner.
+
+Managed channels reserve eight of their 64 physical slots for named lifecycle and
+control procedures. Normal callbacks can queue while blocked model/tools wait, but
+approval, cancellation and shutdown still have physical admission capacity. The
+receiver enforces this independently of the sender. Queue, bytes and cancellation
+accounting retain the same bounds; a logical timeout still does not release the
+physical work slot. Additional Kernel control names are supplied by its composition.
