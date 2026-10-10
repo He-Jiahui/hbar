@@ -1,0 +1,14 @@
+.hbar-session-interruption-notice {
+  display: flex;
+  min-inline-size: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-block: 8px;
+  color: var(--lumen-danger);
+  font-size: var(--hbar-session-meta-size, var(--lumen-font-size));
+}
+
+.hbar-session-interruption-notice > .lumen-button {
+  margin-inline-start: auto;
+}

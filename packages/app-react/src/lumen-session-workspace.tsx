@@ -73,8 +73,9 @@ import { HbarComposerGoal, HbarComposerIntentControls, type HbarComposerIntentLa
 import { HbarSessionUsageControl, sessionUsagePresentation, type HbarSessionUsageLabels } from './session-usage-control'
 import { HbarHistoricalPlanMessage, HbarProposedPlanMessage } from './proposed-plan-message'
 import { HbarComposerPermissionPicker, type HbarComposerPermissionLabels } from './composer-permission-picker'
-import { HbarSessionRunActivity, currentSessionRun, type HbarSessionRunLabels } from './session-run-activity'
-import { currentSessionRunFailure, sessionRunFailures } from './session-run-failure-model'
+import { currentSessionRun, type HbarSessionRunLabels } from './session-run-activity'
+import { currentSessionRunFailure } from './session-run-failure-model'
+import { HbarSessionInterruptionNotice, type HbarSessionInterruptionLabels } from './session-interruption-notice'
 import { HbarSessionLiveStatus, type HbarSessionLiveStatusLabels } from './session-live-status'
 import { HbarSessionExecutionStatus } from './session-execution-status'
 import { HbarQueuedUserRuns, type HbarQueuedUserRunsLabels } from './queued-user-runs'
@@ -150,6 +151,7 @@ export interface HbarSessionWorkspaceLabels {
   readonly disconnected: string
   readonly executionAccess: HbarSessionExecutionLabels
   readonly liveStatus: HbarSessionLiveStatusLabels
+  readonly interruption: HbarSessionInterruptionLabels
   readonly refreshing: string
   readonly loadOlder: string
   readonly loadingOlder: string
@@ -1147,7 +1149,10 @@ function SessionWorkspaceContent({
     activeTool?.panelId === panelId &&
     activeTool.workspaceId === navigation.workspaceId &&
     activeTool.sessionId === sessionId
-  const toggleTool = (panelId: 'files' | 'activity' | 'monitoring' | 'agents' | 'goals') => {
+  const toggleTool = (
+    panelId: 'files' | 'activity' | 'monitoring' | 'agents' | 'goals',
+    command: 'sessionTools.toggle' | 'sessionTools.open' = 'sessionTools.toggle',
+  ) => {
     if (!sessionId || !navigation.workspaceId) return
     const target = {
       panelId,
@@ -1156,7 +1161,7 @@ function SessionWorkspaceContent({
       sourceTabInstanceKey: sourceTab?.instanceKey ?? null,
     }
     setToolFailure(null)
-    void runtime.commands.execute('sessionTools.toggle', target).catch((reason: unknown) => {
+    void runtime.commands.execute(command, target).catch((reason: unknown) => {
       const current = runtime.state.navigation.getSnapshot()
       const currentTab = runtime.state.workspaceTabs
         .getSnapshot()
@@ -1724,13 +1729,9 @@ function SessionWorkspaceContent({
     },
   )
 
-  const runFailures = timeline.sessionId === sessionId ? sessionRunFailures(timeline.runs, sessionId) : []
-  const currentFailure =
-    timeline.sessionId === sessionId ? currentSessionRunFailure(timeline.runs, sessionId) : null
+  const currentFailure = timeline.sessionId === sessionId ? currentSessionRunFailure(timeline.runs, sessionId) : null
   const activity: ReactNode =
-    decisionProjection.fallback.length > 0 ||
-    decisionProjection.settledHistory.length > 0 ||
-    runFailures.length > 0 ? (
+    decisionProjection.fallback.length > 0 || decisionProjection.settledHistory.length > 0 || currentFailure ? (
       <LumenFrame className="hbar-app-react-session-activity">
         {decisionProjection.fallback.map(renderDecision)}
         <HbarSessionDecisionHistory
@@ -1738,32 +1739,14 @@ function SessionWorkspaceContent({
           labels={labels.decisionHistory}
           renderDecision={renderDecision}
         />
-        <HbarSessionRunActivity
-          key={sessionId}
-          currentRunId={currentFailure?.id ?? null}
-          historyLabel={currentFailure ? undefined : labels.runs.failureHistory(runFailures.length)}
-          runs={runFailures.map((run) => ({
-            id: run.id,
-            label: labels.timestamp(run.createdAt),
-            status: run.status,
-            detail: run.error ?? labels.runDetail(run.modelId),
-            duration: labels.runDuration(run.startedAt ?? run.createdAt, run.endedAt),
-          }))}
-          labels={labels.runs}
-          canRetryNewRun={
-            connected &&
-            activeConversationOwner &&
-            canPrepare &&
-            !firstSendLocked &&
-            !workspaceMoveLocked
+        <HbarSessionInterruptionNotice
+          status={
+            currentFailure?.status === 'failed' || currentFailure?.status === 'interrupted'
+              ? currentFailure.status
+              : null
           }
-          retryingRunIds={runFailures
-            .filter((run) => runActions[run.id]?.status === 'submitting')
-            .map((run) => run.id)}
-          onRetryRun={(operationId) => {
-            if (!sessionId) return
-            void execute('run.retry', { sessionId, operationId }).catch(() => undefined)
-          }}
+          labels={labels.interruption}
+          onOpenStatus={() => toggleTool('monitoring', 'sessionTools.open')}
         />
       </LumenFrame>
     ) : null

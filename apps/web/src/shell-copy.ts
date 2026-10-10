@@ -1047,6 +1047,13 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       }
   return {
     conversationTitle: (title) => choose(`会话：${title}`, `Session: ${title}`),
+    interruption: {
+      status: {
+        failed: choose('本次运行失败', 'This run failed'),
+        interrupted: choose('本次运行意外中断', 'This run was interrupted'),
+      },
+      openStatus: choose('查看会话状态', 'View session status'),
+    },
     liveStatus: {
       label: choose('会话状态', 'Session status'),
       offline: choose('离线 · 状态待确认', 'Offline · Status unconfirmed'),

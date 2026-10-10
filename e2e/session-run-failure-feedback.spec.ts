@@ -6,6 +6,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { z } from 'zod'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { openSessionTool } from './support/session-tools-menu'
 
 const rpcEnvelope = z
   .object({
@@ -30,7 +31,7 @@ async function removeFixture(root: string): Promise<void> {
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
-  test(`failed Run feedback stays beside its conversation and retries the captured Run: ${locale}`, async ({
+  test(`run history belongs only to status and interruption feedback disappears on recovery: ${locale}`, async ({
     browser,
   }, info) => {
     test.setTimeout(90_000)
@@ -103,11 +104,21 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expect(page.getByRole('tab', { name: title, exact: true })).toHaveAttribute('aria-selected', 'true')
       }
       await select(first.title)
-      const activity = page.locator('.hbar-app-react-session-workspace .hbar-session-run-activity')
+      const conversation = page.locator('.hbar-app-react-session-workspace')
+      const notice = conversation.locator('.hbar-session-interruption-notice')
+      await expect(notice).toContainText(copy.session.interruption.status.failed)
+      await expect(conversation.locator('.hbar-session-run-activity')).toHaveCount(0)
+      await expect(conversation).not.toContainText(failedRun.error)
+      await notice.getByRole('button', { name: copy.session.interruption.openStatus, exact: true }).click()
+      const monitoring = page.locator('.hbar-app-react-session-monitoring')
+      const activity = monitoring.locator('.hbar-session-run-activity')
       const failure = activity.locator(`[data-run-id="${failed.operationId}"]`)
-      await expect(activity).toBeVisible()
+      await expect(monitoring).toBeVisible()
       await expect(failure).toHaveAttribute('data-status', 'failed')
       await expect(failure).toContainText(failedRun.error)
+      // Viewing an already open status pane must keep it open.
+      await notice.getByRole('button', { name: copy.session.interruption.openStatus, exact: true }).click()
+      await expect(monitoring).toBeVisible()
 
       const retry = failure.getByRole('button', { name: copy.session.runs.retryLabel, exact: true })
       await expect(retry).toBeVisible()
@@ -130,26 +141,38 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         { idempotencyKey: crypto.randomUUID() },
       )
       await expect(page.locator('[data-session-live-status]')).toHaveAttribute('data-run-status', 'running')
-      await expect(activity.locator('.hbar-session-run-current')).toHaveCount(0)
-      await expect(activity.getByRole('alert')).toHaveCount(0)
-      const past = activity.getByRole('button', { name: copy.session.runs.failureHistory(2), exact: true })
+      await expect(notice).toHaveCount(0)
+      await expect(conversation.locator('.hbar-session-run-activity')).toHaveCount(0)
+      await expect(conversation).not.toContainText(failedRun.error)
+      const past = activity.locator('.hbar-session-run-history > .hbar-lumen-disclosure-trigger')
       await expect(past).toHaveAttribute('aria-expanded', 'false')
       await expect(failure).toBeHidden()
-      await page.screenshot({ path: info.outputPath('running-with-past-errors-folded.png') })
       await past.click()
       await expect(failure).toBeVisible()
       await expect(failure).toContainText(failedRun.error)
+      await page.screenshot({ path: info.outputPath('clean-conversation-with-status-history.png') })
       await past.click()
       await runs.execute('operation.cancel', { operationId: continuation.operationId })
       await expect
         .poll(async () => (await runs.execute('operation.get', { operationId: continuation.operationId })).status)
         .toBe('cancelled')
       await page.reload()
-      await expect(activity.locator('.hbar-session-run-current')).toHaveCount(0)
+      await expect(page.getByRole('tab', { name: first.title, exact: true })).toHaveAttribute('aria-selected', 'true')
+      await openSessionTool(page, copy.session.tools, 'monitoring')
+      await expect(monitoring).toBeVisible()
+      await expect(notice).toHaveCount(0)
+      await expect(conversation.locator('.hbar-session-run-activity')).toHaveCount(0)
       await expect(past).toHaveAttribute('aria-expanded', 'false')
 
+      await page.setViewportSize({ width: 390, height: 844 })
+      await page.getByRole('button', { name: copy.monitoring.close, exact: true }).click()
+      await expect(conversation.locator('.hbar-session-run-activity')).toHaveCount(0)
+      await page.screenshot({ path: info.outputPath('recovered-conversation-narrow.png') })
+
+      await page.setViewportSize({ width: 1440, height: 900 })
       await select(second.title)
       await expect(page.locator('.hbar-app-react-session-workspace .hbar-session-run-activity')).toHaveCount(0)
+      await expect(notice).toHaveCount(0)
       await expect(page.locator(`[data-run-id="${failed.operationId}"]`)).toHaveCount(0)
       expect(errors).toEqual([])
     } finally {
