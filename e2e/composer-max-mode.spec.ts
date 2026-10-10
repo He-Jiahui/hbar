@@ -143,7 +143,8 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await trigger.click()
       const popup = page.getByRole('dialog', { name: copy.session.modelPicker.thinking, exact: true })
       const toggle = popup.getByLabel(copy.session.modelPicker.maxMode.title, { exact: true })
-      await toggle.check()
+      await toggle.click()
+      await expect(toggle).toBeChecked()
       await expect(trigger).toHaveAccessibleName(
         copy.session.modelPicker.maxMode.trigger(
           copy.session.modelPicker.thinkingTrigger(copy.session.modelPicker.thinkingLevel('high')),
@@ -166,6 +167,14 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         .toBe(true)
       expect((await models.execute('session.getContextUsage', { sessionId: created.id })).contextWindow).toBe(16_384)
       await expect(page.getByText('MAX fixture completed.', { exact: true })).toBeVisible()
+      await expect
+        .poll(async () => {
+          const snapshot = await host.client.call('session.snapshot', { sessionId: created.id, limit: 60 })
+          return snapshot.runs
+            .filter((run) => run.input.source === 'user' && run.input.text === 'First MAX message')
+            .map((run) => ({ maxMode: run.input.maxMode, status: run.status }))
+        })
+        .toEqual([{ maxMode: true, status: 'completed' }])
       expect(errors).toEqual([])
     } finally {
       await context.close()
