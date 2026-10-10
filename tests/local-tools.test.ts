@@ -207,6 +207,43 @@ test('managed search_text exposes full-scan counts and continues from the displa
   })
 })
 
+test('shell preserves Windows PowerShell UTF-8 stdout and stderr', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-local-shell-encoding-'))
+  const execution = new LocalExecution()
+  try {
+    const command =
+      process.platform === 'win32'
+        ? "Write-Output '中文输出'; Write-Error '错误文本'"
+        : "printf '中文输出\\n'; printf '错误文本\\n' >&2"
+    const result = await execution.exec(root, command, new AbortController().signal, { timeoutMs: 5_000 })
+    expect(result.text).toContain('中文输出')
+    expect(result.text).toContain('错误文本')
+    expect(result.details).toMatchObject({ code: process.platform === 'win32' ? 1 : 0, truncated: false })
+    expect(result.isError).toBe(process.platform === 'win32')
+  } finally {
+    execution.dispose()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('shell keeps timeout and cancellation terminal semantics', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-local-shell-lifecycle-'))
+  const execution = new LocalExecution()
+  const sleepCommand = process.platform === 'win32' ? 'Start-Sleep -Seconds 5' : 'sleep 5'
+  try {
+    const timedOut = await execution.exec(root, sleepCommand, new AbortController().signal, { timeoutMs: 25 })
+    expect(timedOut).toMatchObject({ isError: true, details: { code: 'TOOL_TIMEOUT', truncated: false } })
+
+    const controller = new AbortController()
+    const cancelled = execution.exec(root, sleepCommand, controller.signal, { timeoutMs: 5_000 })
+    setTimeout(() => controller.abort(), 25)
+    await expect(cancelled).rejects.toThrow()
+  } finally {
+    execution.dispose()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('local writes immediately invalidate cached ranged reads', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-local-write-cache-'))
   const execution = new LocalExecution()

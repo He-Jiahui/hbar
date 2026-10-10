@@ -322,7 +322,14 @@ export class LocalExecution implements ExecutionProvider {
     }
     const argv =
       process.platform === 'win32'
-        ? ['powershell.exe', '-NoLogo', '-NoProfile', '-NonInteractive', '-Command', command]
+        ? [
+            'powershell.exe',
+            '-NoLogo',
+            '-NoProfile',
+            '-NonInteractive',
+            '-Command',
+            '$utf8 = New-Object System.Text.UTF8Encoding($false); [Console]::InputEncoding = $utf8; [Console]::OutputEncoding = $utf8; $OutputEncoding = $utf8; ' + command,
+          ]
         : ['/bin/sh', '-c', command]
 
     // Route through the OS-level sandbox addon when confinement is requested.
