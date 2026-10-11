@@ -218,11 +218,16 @@ test('finished activity is a light collapsed summary while active activity expos
   expect(finished).toContain('aria-expanded="false"')
   expect(finished).toContain('草稿与会话位置保持不变。')
   expect(finished).not.toContain('输入参数')
-  const active = renderToStaticMarkup(<HbarMessageBlocks {...props} streaming />)
+  const stillRunning = renderToStaticMarkup(<HbarMessageBlocks {...props} streaming />)
+  expect(stillRunning).toContain('aria-expanded="false"')
+  expect(stillRunning).not.toContain('/workspace/src/composer.tsx')
+  const active = renderToStaticMarkup(
+    <HbarMessageBlocks {...props} blocks={messageBlocks.filter((block) => block.type !== 'tool_result')} streaming />,
+  )
   expect(active).toContain('aria-expanded="true"')
   expect(active).toContain('正在思考')
   expect(active).toContain('/workspace/src/composer.tsx')
-  expect(active).toContain('已有结果')
+  expect(active).toContain('进行中')
   expect(active).not.toContain('3 tests passed')
 })
 

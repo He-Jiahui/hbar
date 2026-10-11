@@ -125,7 +125,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     expect(html).toContain(getShellCopy(locale).session.messageBlocks.toolResultCopy.copy)
   })
 
-  test(`activity keeps distinct real names and mixed same-name history truthful: ${locale}`, () => {
+  test(`activity counts semantic families across distinct names and mixed same-name history: ${locale}`, () => {
     const labels = getShellCopy(locale).session.messageBlocks
     const describeTool = createSessionToolPresenter(locale)
     const distinct = renderToStaticMarkup(
@@ -138,8 +138,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       />,
     )
     const label = locale === 'zh-CN' ? '读取文件' : 'Read file'
-    expect(distinct).toContain(`${label} (first_plugin) × 1`)
-    expect(distinct).toContain(`${label} (second_plugin) × 1`)
+    expect(distinct).toContain(`${locale === 'zh-CN' ? label : 'Read files'} × 2`)
+    expect(distinct).not.toContain('first_plugin')
     const mixed = renderToStaticMarkup(
       <HbarMessageBlocks
         sessionId="s"
@@ -149,7 +149,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         describeTool={describeTool}
       />,
     )
-    expect(mixed).toContain('custom_tool × 3')
+    expect(mixed).toContain(`${locale === 'zh-CN' ? label : 'Read files'} × 2`)
+    expect(mixed).toContain(`${locale === 'zh-CN' ? '执行终端' : 'Terminal commands'} × 1`)
     expect(mixed).not.toContain(`${label} × 3`)
     const legacy = renderToStaticMarkup(
       <HbarMessageBlocks
@@ -160,7 +161,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         describeTool={describeTool}
       />,
     )
-    expect(legacy).toContain('custom_tool × 2')
+    expect(legacy).toContain(`${locale === 'zh-CN' ? '工具调用' : 'Tool calls'} × 1`)
+    expect(legacy).toContain(`${locale === 'zh-CN' ? label : 'Read files'} × 1`)
   })
 
   test(`failed rows keep requested action context and expose the outcome without inline result payload: ${locale}`, () => {
@@ -213,7 +215,7 @@ for (const count of [0, 1, 100, 101]) {
     )
     expect(html.match(/data-presentation-icon="file"/g) ?? []).toHaveLength(count)
     if (count) expect(html).toContain(longLabel)
-    if (count > 1) expect(html).toContain(`${longLabel} × ${count}`)
+    if (count > 1) expect(html).toContain(`读取文件 × ${count}`)
     expect(html).not.toContain('<pre')
   })
 }

@@ -10,10 +10,13 @@
   flex-direction: column;
 }
 
-.hbar-session-message-blocks {
+.hbar-session-message-blocks,
+.hbar-session-activity {
   --hbar-session-prose-size: calc(var(--lumen-font-size) * 1.05);
   --hbar-session-detail-size: calc(var(--lumen-font-size) * 0.95);
   --hbar-session-caption-size: calc(var(--lumen-font-size) * 0.9);
+}
+.hbar-session-message-blocks {
   gap: 12px;
 }
 .hbar-session-disclosure-heading {
@@ -86,9 +89,8 @@
   flex: 1 1 auto;
   min-inline-size: 0;
   overflow-wrap: anywhere;
-  overflow-x: auto;
-  scrollbar-width: none;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: start;
 }
 .hbar-session-disclosure-label {
   flex: 0 0 auto;
@@ -236,6 +238,7 @@
   border-inline-start: 0.0625rem solid var(--lumen-edge);
   margin-inline-start: 4px;
   padding-inline-start: 12px;
+  gap: 8px;
 }
 .hbar-session-disclosure-content {
   gap: 8px;

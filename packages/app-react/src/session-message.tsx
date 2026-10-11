@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { Children, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { MessageResourceSourceProvider } from './message-resource'
 import {
   Brain,
@@ -46,7 +46,15 @@ import {
   type HbarMessageToolPresentation,
   type HbarToolDetailsLabels,
 } from './session-tool-details'
-import { sessionToolOutcome, toolErrorPreview, toolOutcomeCounts } from './session-tool-outcome-model'
+import { sessionToolOutcome, toolErrorPreview } from './session-tool-outcome-model'
+import { HbarActivityDisclosure } from './session-activity-disclosure'
+import {
+  summarizeMessageActivity,
+  type HbarMessageActivitySummary,
+  type SessionActivityCategory,
+  type SessionActivityRow,
+} from './session-activity-group-model'
+export type { HbarMessageActivitySummary } from './session-activity-group-model'
 import {
   ToolTiming,
   ToolBatchFeedback,
@@ -66,15 +74,8 @@ import {
   type HbarMessageImageRenderer,
 } from './session-images'
 
-export interface HbarMessageActivitySummary {
-  readonly thinkingCount: number
-  readonly toolCounts: readonly { readonly name: string; readonly displayName?: string; readonly count: number }[]
-  readonly failedCount: number
-  readonly outcomeCounts: ReturnType<typeof toolOutcomeCounts>
-}
-
 export interface HbarMessageActivityPart {
-  readonly role: 'thinking' | 'tool' | 'count' | 'danger' | 'warning' | 'separator'
+  readonly role: 'thinking' | 'tool' | 'count' | 'danger' | 'warning' | 'success' | 'separator'
   readonly text: string
 }
 
@@ -106,6 +107,8 @@ export interface HbarMessageBlocksProps {
   readonly textFormat?: 'literal' | 'markdown' | undefined
   readonly results?: readonly SessionToolResult[]
   readonly streaming?: boolean
+  /** The owning timeline supplies the disclosure when grouping across original messages. */
+  readonly activityDisplay?: 'auto' | 'rows'
   readonly toolActivity?: SessionToolActivities | undefined
   readonly labels: HbarMessageBlocksLabels
   /** Local read-only output actions remain available in archived history. */
@@ -442,7 +445,31 @@ function ToolRow({
   )
 }
 
-type ActivityRow = Extract<SessionMessageRow, { kind: 'thinking' | 'tool' }>
+type ActivityRow = SessionActivityRow
+
+/** The Host presenter owns action semantics, including safe fallbacks for historical tools. */
+export function messageActivitySummary(
+  rows: readonly ActivityRow[],
+  labels: HbarMessageBlocksLabels,
+  describeTool?: HbarMessageBlocksProps['describeTool'],
+): HbarMessageActivitySummary {
+  return summarizeMessageActivity(rows, (row) => {
+    const presentation = row.call && describeTool?.(row.call)
+    const categories: Readonly<Record<HbarMessageToolPresentation['icon'], SessionActivityCategory>> = {
+      tool: 'tool',
+      file: 'file-read',
+      'file-write': 'file-write',
+      'file-edit': 'file-edit',
+      terminal: 'terminal',
+      directory: 'directory',
+      search: 'search',
+    }
+    return {
+      category: categories[presentation?.icon ?? 'tool'],
+      displayName: presentation?.label || labels.tool(row.name),
+    }
+  })
+}
 
 function Activity({
   rows,
@@ -455,6 +482,7 @@ function Activity({
   copyOwner,
   renderToolAction,
   toolActivity,
+  activityDisplay,
 }: {
   readonly rows: readonly ActivityRow[]
   readonly streaming: boolean
@@ -466,49 +494,27 @@ function Activity({
   readonly copyOwner?: HbarMessageBlocksProps['copyOwner']
   readonly renderToolAction?: HbarMessageBlocksProps['renderToolAction']
   readonly toolActivity?: SessionToolActivities | undefined
+  readonly activityDisplay?: HbarMessageBlocksProps['activityDisplay']
 }) {
-  const [pinnedOpen, setPinnedOpen] = useState<boolean | null>(null)
-  const contentId = useId()
-  const open = pinnedOpen ?? streaming
-  const toolCounts = new Map<string, { name: string; displayName: string; count: number }>()
-  for (const row of rows) {
-    if (row.kind !== 'tool') continue
-    const displayName = (row.call && describeTool?.(row.call).label) || labels.tool(row.name)
-    const prior = toolCounts.get(row.name)
-    // Count by real name, never by translation. Mixed historical semantics use
-    // the original name rather than attributing every call to its latest label.
-    if (prior) {
-      prior.count += 1
-      if (prior.displayName !== displayName) prior.displayName = labels.tool(row.name)
-    } else toolCounts.set(row.name, { name: row.name, displayName, count: 1 })
-  }
-  const outcomeCounts = toolOutcomeCounts(rows.filter((row): row is SessionToolRow => row.kind === 'tool'))
-  const activity = labels.activity({
-    thinkingCount: rows.filter((row) => row.kind === 'thinking').length,
-    toolCounts: [...toolCounts.values()],
-    failedCount: outcomeCounts.failed,
-    outcomeCounts,
-  })
-  const summary = typeof activity === 'string' ? activity : activity.map((part) => part.text).join('')
+  const activity = labels.activity(messageActivitySummary(rows, labels, describeTool))
   const tools = rows.filter((row): row is SessionToolRow => row.kind === 'tool')
   const counts = activityCounts(tools, toolActivity)
-  const active =
-    (streaming && rows.some((row) => row.kind === 'thinking')) || (toolActivity ? counts.running > 0 : streaming)
+  const active = counts.running > 0 || (streaming && (tools.length === 0 || tools.some((row) => !row.result)))
   const children = rows.map((row) =>
     row.kind === 'thinking' ? (
       <Disclosure
         key={row.id}
-        label={streaming ? labels.thinking : labels.thought}
-        preview={thinkingPreview(row.text, streaming)}
+        label={active ? labels.thinking : labels.thought}
+        preview={thinkingPreview(row.text, active)}
         previewMarkdown
-        live={streaming}
+        live={active}
         icon={Brain}
         className="hbar-session-thinking"
       >
         <LumenFrame
           className="lumen-effect hbar-session-thinking-content"
-          data-live={streaming}
-          data-lumen-state={streaming ? 'running' : 'idle'}
+          data-live={active}
+          data-lumen-state={active ? 'running' : 'idle'}
         >
           <MessageMarkdown
             text={row.text}
@@ -540,48 +546,24 @@ function Activity({
       />
     ),
   )
-  if (rows.length === 1) return <LumenFrame className="hbar-session-activity">{children}</LumenFrame>
+  if (rows.length === 1 || activityDisplay === 'rows')
+    return <LumenFrame className="hbar-session-activity">{children}</LumenFrame>
   return (
-    <LumenFrame className="hbar-session-activity" data-live={active}>
-      <LumenButton
-        variant="text"
-        indicator="none"
-        size="s"
-        className="hbar-session-activity-summary"
-        title={summary}
-        aria-expanded={open}
-        aria-controls={contentId}
-        onClick={() => setPinnedOpen(!open)}
-        onKeyDown={scrollInlineText}
-      >
-        <LumenText
-          as="span"
-          className="lumen-effect hbar-session-tool-status-indicator"
-          data-lumen-state={active ? 'running' : 'idle'}
-          aria-hidden="true"
-        />
-        <LumenContentText context="control.label" className="hbar-session-activity-summary-text" data-inline-scroll>
-          {typeof activity === 'string'
-            ? activity
-            : activity.map((part, index) => (
-                <LumenContentText context="control.label" key={index} data-activity-role={part.role}>
-                  {part.text}
-                </LumenContentText>
-              ))}
-        </LumenContentText>
-        <LumenIcon icon={open ? ChevronDown : ChevronRight} tier="sm" />
-      </LumenButton>
-      {tools.length > 1 && labels.feedback ? (
-        <ToolBatchFeedback
-          counts={counts}
-          activities={tools.map((row) => rowToolActivity(row, toolActivity))}
-          labels={labels.feedback}
-        />
-      ) : null}
-      <LumenFrame id={contentId} className="hbar-session-activity-steps" hidden={!open}>
-        {open ? children : null}
-      </LumenFrame>
-    </LumenFrame>
+    <HbarActivityDisclosure
+      summary={activity}
+      active={active}
+      feedback={
+        active && tools.length > 1 && labels.feedback ? (
+          <ToolBatchFeedback
+            counts={counts}
+            activities={tools.map((row) => rowToolActivity(row, toolActivity))}
+            labels={labels.feedback}
+          />
+        ) : null
+      }
+    >
+      {children}
+    </HbarActivityDisclosure>
   )
 }
 
@@ -602,6 +584,7 @@ function MessageBlocksContent({
   renderImages,
   renderToolAction,
   toolActivity,
+  activityDisplay,
 }: HbarMessageBlocksProps) {
   const rows = buildMessageRows(blocks, results)
   const groups: Array<
@@ -611,12 +594,14 @@ function MessageBlocksContent({
     | { readonly kind: 'images'; readonly id: string; readonly images: readonly HbarMessageImageOccurrence[] }
   > = []
   let activity: ActivityRow[] = []
+  let toolsSettled: boolean | null = null
   let images: HbarMessageImageOccurrence[] = []
   let imageOrdinal = 0
   const flush = () => {
     const first = activity[0]
     if (first) groups.push({ id: first.id, rows: activity })
     activity = []
+    toolsSettled = null
   }
   const flushImages = () => {
     const first = images[0]
@@ -630,11 +615,20 @@ function MessageBlocksContent({
       continue
     }
     flushImages()
-    if (row.kind === 'tool' && (toolDecisions?.has(row.id) || renderToolAction?.(row))) {
+    if (
+      row.kind === 'tool' &&
+      (Children.count(toolDecisions?.get(row.id)) > 0 || (!row.result && renderToolAction?.(row)))
+    ) {
       flush()
       groups.push(row)
-    } else if (row.kind === 'thinking' || row.kind === 'tool') activity.push(row)
-    else {
+    } else if (row.kind === 'thinking' || row.kind === 'tool') {
+      if (row.kind === 'tool') {
+        const settled = Boolean(row.result)
+        if (toolsSettled !== null && toolsSettled !== settled) flush()
+        toolsSettled = settled
+      }
+      activity.push(row)
+    } else {
       flush()
       groups.push(row)
     }
@@ -657,6 +651,7 @@ function MessageBlocksContent({
             copyOwner={copyOwner}
             renderToolAction={renderToolAction}
             toolActivity={toolActivity}
+            activityDisplay={activityDisplay}
           />
         ) : group.kind === 'images' ? (
           <LumenFrame key={group.id} className="hbar-session-message-images">

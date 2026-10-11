@@ -583,7 +583,8 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.groups.general': 'General',
         'i18n:settings.client.resourceWebOpenMode.label': 'Default website opening',
         'i18n:settings.client.resourceFileOpenMode.label': 'Default file opening',
-        'i18n:settings.client.resourceOpenMode.help': 'Right-click to override once. Images load in the built-in viewer after clicking.',
+        'i18n:settings.client.resourceOpenMode.help':
+          'Right-click to override once. Images load in the built-in viewer after clicking.',
         'i18n:settings.groups.session': 'Session defaults',
         'i18n:settings.groups.providers': 'Providers',
         'i18n:settings.groups.extensions': 'Plugins',
@@ -1244,10 +1245,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       codeBlock: codeBlockCopyLabels(locale),
       thinking: choose('思考中', 'Thinking'),
       thought: choose('思考', 'Thought'),
-      activity: ({ thinkingCount, toolCounts, failedCount, outcomeCounts }) => {
-        const displayCounts = new Map<string, number>()
-        for (const { displayName } of toolCounts)
-          if (displayName) displayCounts.set(displayName, (displayCounts.get(displayName) ?? 0) + 1)
+      activity: ({ thinkingCount, actionCounts, failedCount, outcomeCounts, successRate }) => {
         const sections: HbarMessageActivityPart[][] = []
         if (thinkingCount)
           sections.push([
@@ -1259,9 +1257,18 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
               ),
             },
           ])
-        for (const { name, displayName, count } of toolCounts) {
-          const collision = displayName && (displayCounts.get(displayName) ?? 0) > 1
-          const title = displayName ? (collision ? `${displayName} (${name})` : displayName) : name
+        const categories = [
+          ['tool', choose('工具调用', 'Tool calls')],
+          ['file-read', choose('读取文件', 'Read files')],
+          ['file-write', choose('写入文件', 'Write files')],
+          ['file-edit', choose('编辑文件', 'Edit files')],
+          ['terminal', choose('执行终端', 'Terminal commands')],
+          ['directory', choose('列出目录', 'List directories')],
+          ['search', choose('搜索', 'Searches')],
+        ] as const
+        for (const [category, title] of categories) {
+          const count = actionCounts[category]
+          if (!count) continue
           sections.push([
             { role: 'tool', text: title },
             { role: 'count', text: ` × ${count}` },
@@ -1285,6 +1292,16 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
             : '',
         ]
         for (const text of warnings) if (text) sections.push([{ role: 'warning', text }])
+        if (successRate !== null)
+          sections.push([
+            {
+              role: 'success',
+              text: choose(
+                `成功率 ${Math.round(successRate * 100)}%`,
+                `Success rate ${Math.round(successRate * 100)}%`,
+              ),
+            },
+          ])
         return sections.flatMap((parts, index) => (index ? [{ role: 'separator', text: ' · ' }, ...parts] : parts))
       },
       tool: (name) => name,
@@ -2099,14 +2116,27 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         'Estimates the retained messages, summary and system context in this session; unsent drafts are excluded. Model tokenization, tool definitions and image encoding may differ.',
       ),
       trigger: (value) => choose(`查看当前上下文：${value}`, `View current context: ${value}`),
-      usedPercent: (value) => choose(`${number.format(Math.round(value))}% 已用`, `${number.format(Math.round(value))}% used`),
-      windowUsage: (used, limit) => choose(`约 ${number.format(used)} / ${number.format(limit)} tokens`, `About ${number.format(used)} of ${number.format(limit)} tokens`),
-      threshold: (percent, tokens) => `${number.format(Math.round(percent * 10) / 10)}% · ${number.format(tokens)} tokens`,
+      usedPercent: (value) =>
+        choose(`${number.format(Math.round(value))}% 已用`, `${number.format(Math.round(value))}% used`),
+      windowUsage: (used, limit) =>
+        choose(
+          `约 ${number.format(used)} / ${number.format(limit)} tokens`,
+          `About ${number.format(used)} of ${number.format(limit)} tokens`,
+        ),
+      threshold: (percent, tokens) =>
+        `${number.format(Math.round(percent * 10) / 10)}% · ${number.format(tokens)} tokens`,
       compactionThreshold: choose('自动压缩阈值', 'Auto-compaction threshold'),
       effectiveThreshold: choose('输出预留后的触发点', 'Trigger after output reserve'),
-      untilCompaction: (tokens) => choose(`距离压缩约 ${number.format(tokens)} tokens`, `About ${number.format(tokens)} tokens until compaction`),
-      compactionPending: choose('已达触发点；下次模型请求前压缩可归档的历史。', 'Threshold reached; compact eligible history before the next model request.'),
-      thresholdLegend: choose('圆环表示当前占用，刻度表示压缩触发点。可在设置 → 模型中调整阈值；压缩需要已有可归档的历史。', 'The arc shows current occupancy; the mark shows the compaction point. Adjust the threshold in Settings → Model. Compaction needs eligible history.'),
+      untilCompaction: (tokens) =>
+        choose(`距离压缩约 ${number.format(tokens)} tokens`, `About ${number.format(tokens)} tokens until compaction`),
+      compactionPending: choose(
+        '已达触发点；下次模型请求前压缩可归档的历史。',
+        'Threshold reached; compact eligible history before the next model request.',
+      ),
+      thresholdLegend: choose(
+        '圆环表示当前占用，刻度表示压缩触发点。可在设置 → 模型中调整阈值；压缩需要已有可归档的历史。',
+        'The arc shows current occupancy; the mark shows the compaction point. Adjust the threshold in Settings → Model. Compaction needs eligible history.',
+      ),
       outputReserve: choose('输出预留 tokens', 'Output reserve tokens'),
       remaining: choose('剩余上下文 tokens', 'Remaining context tokens'),
       noModel: choose('未选择模型', 'No model selected'),

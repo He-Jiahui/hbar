@@ -84,6 +84,9 @@ import { currentSessionRunFailure } from './session-run-failure-model'
 import { HbarSessionInterruptionNotice, type HbarSessionInterruptionLabels } from './session-interruption-notice'
 import { HbarSessionLiveStatus, type HbarSessionLiveStatusLabels } from './session-live-status'
 import { HbarContextCompactionNotice, HbarContextCompactionMarker } from './session-context-history'
+import { HbarActivityDisclosure } from './session-activity-disclosure'
+import { groupCompletedSessionActivities } from './session-activity-group-model'
+import { messageActivitySummary } from './session-message'
 import { HbarSessionExecutionStatus } from './session-execution-status'
 import { HbarQueuedUserRuns, type HbarQueuedUserRunsLabels } from './queued-user-runs'
 import { HbarSessionToolsMenu, type HbarSessionToolsMenuLabels } from './session-tools-menu'
@@ -1436,10 +1439,10 @@ function SessionWorkspaceContent({
     [...decisionProjection.byMessage].map(([messageId, rows]) => [
       messageId,
       new Map(
-        [...rows].map(([rowKey, decisions]) => [
-          rowKey,
-          decisions.filter((decision) => !settledSessionDecision(decision, interactions)).map(renderDecision),
-        ]),
+        [...rows].flatMap(([rowKey, decisions]) => {
+          const pending = decisions.filter((decision) => !settledSessionDecision(decision, interactions))
+          return pending.length ? [[rowKey, pending.map(renderDecision)] as const] : []
+        }),
       ),
     ]),
   )
@@ -1540,6 +1543,21 @@ function SessionWorkspaceContent({
     await runtime.commands.execute('draft.addConversationSelection', input)
     return true
   }
+  const sequence = groupCompletedSessionActivities(
+    projectSessionTimelineSequence(timeline, goalLifecycleRows),
+    ({ message }) =>
+      Boolean(
+        toolDecisionsByMessage.get(message.id)?.size ||
+        proposal?.target.messageId === message.id ||
+        forkActionFor(message) ||
+        messageFork.actions[forkKey(message)]?.status === 'created',
+      ),
+  )
+  const groupedMessageIds = new Set(
+    sequence.flatMap((item) =>
+      item.kind === 'activityGroup' ? item.projections.map(({ message }) => message.id) : [],
+    ),
+  )
   const messageRows: LumenMessageProps[] = [
     ...projectedMessages.map(({ message, blocks, results }) => {
       const fileWorkspaceId = navigation.workspaceId
@@ -1611,6 +1629,7 @@ function SessionWorkspaceContent({
           />
         ) : message.role === 'assistant' ? (
           <HbarHistoricalPlanMessage
+            activityDisplay={groupedMessageIds.has(message.id) ? 'rows' : 'auto'}
             toolActivity={toolActivities.get(message.runId) ?? EMPTY_TOOL_ACTIVITIES}
             fileReferences={fileReferences}
             copyOwner={runtime}
@@ -1618,7 +1637,7 @@ function SessionWorkspaceContent({
             messageId={message.id}
             blocks={blocks}
             results={results}
-            streaming={unfinishedRuns.has(message.runId)}
+            streaming={!groupedMessageIds.has(message.id) && unfinishedRuns.has(message.runId)}
             labels={labels.messageBlocks}
             describeTool={describeTool}
             renderToolAction={toolActionForMessage(message.id)}
@@ -1627,6 +1646,7 @@ function SessionWorkspaceContent({
           />
         ) : (
           <HbarMessageBlocks
+            activityDisplay={groupedMessageIds.has(message.id) ? 'rows' : 'auto'}
             toolActivity={toolActivities.get(message.runId) ?? EMPTY_TOOL_ACTIVITIES}
             fileReferences={fileReferences}
             copyOwner={runtime}
@@ -1635,7 +1655,7 @@ function SessionWorkspaceContent({
             blocks={blocks}
             textFormat={message.role === 'user' ? 'literal' : 'markdown'}
             results={results}
-            streaming={unfinishedRuns.has(message.runId)}
+            streaming={!groupedMessageIds.has(message.id) && unfinishedRuns.has(message.runId)}
             labels={labels.messageBlocks}
             describeTool={describeTool}
             renderToolAction={toolActionForMessage(message.id)}
@@ -1716,46 +1736,67 @@ function SessionWorkspaceContent({
   ]
 
   const rowsById = new Map(messageRows.map((row) => [row.id, row]))
-  const messages: LumenMessageProps[] = projectSessionTimelineSequence(timeline, goalLifecycleRows).flatMap(
-    (item): LumenMessageProps[] => {
-      if (item.kind === 'contextCompaction')
-        return labels.liveStatus.history
-          ? [
-              {
-                id: `context-compaction:${item.marker.id}`,
-                role: 'system',
-                author: labels.author.system,
-                avatar: labels.avatar.system,
-                appearance: 'transcript',
-                copyLabel: labels.copy,
-                actions: null,
-                children: (
-                  <HbarContextCompactionMarker
-                    marker={item.marker}
-                    sessionId={sessionId ?? ''}
-                    labels={labels.liveStatus.history}
-                  />
-                ),
-              },
-            ]
-          : []
-      if (item.kind === 'goalLifecycle')
-        return [
-          {
-            id: item.row.id,
-            role: 'system',
-            author: labels.author.system,
-            avatar: labels.avatar.system,
-            appearance: 'transcript',
-            copyLabel: labels.copy,
-            children: <HbarGoalLifecycleCard row={item.row} labels={labels.goalLifecycle} />,
-          },
-        ]
-      if (item.kind === 'goalContinuation') return [] // Run boundaries, including failed Goal continuations, belong to session status.
-      const row = rowsById.get(item.kind === 'message' ? item.projection.message.id : item.stream.id)
-      return row ? [row] : []
-    },
-  )
+  const messages: LumenMessageProps[] = sequence.flatMap((item): LumenMessageProps[] => {
+    if (item.kind === 'activityGroup') {
+      const first = rowsById.get(item.id)
+      if (!first) return []
+      return [
+        {
+          ...first,
+          actions: null,
+          children: (
+            <HbarActivityDisclosure
+              summary={labels.messageBlocks.activity(
+                messageActivitySummary(item.rows, labels.messageBlocks, describeTool),
+              )}
+            >
+              {item.projections.map(({ message }) => (
+                <LumenFrame key={message.id} data-activity-message-id={message.id}>
+                  {rowsById.get(message.id)?.children}
+                </LumenFrame>
+              ))}
+            </HbarActivityDisclosure>
+          ),
+        },
+      ]
+    }
+    if (item.kind === 'contextCompaction')
+      return labels.liveStatus.history
+        ? [
+            {
+              id: `context-compaction:${item.marker.id}`,
+              role: 'system',
+              author: labels.author.system,
+              avatar: labels.avatar.system,
+              appearance: 'transcript',
+              copyLabel: labels.copy,
+              actions: null,
+              children: (
+                <HbarContextCompactionMarker
+                  marker={item.marker}
+                  sessionId={sessionId ?? ''}
+                  labels={labels.liveStatus.history}
+                />
+              ),
+            },
+          ]
+        : []
+    if (item.kind === 'goalLifecycle')
+      return [
+        {
+          id: item.row.id,
+          role: 'system',
+          author: labels.author.system,
+          avatar: labels.avatar.system,
+          appearance: 'transcript',
+          copyLabel: labels.copy,
+          children: <HbarGoalLifecycleCard row={item.row} labels={labels.goalLifecycle} />,
+        },
+      ]
+    if (item.kind === 'goalContinuation') return [] // Run boundaries, including failed Goal continuations, belong to session status.
+    const row = rowsById.get(item.kind === 'message' ? item.projection.message.id : item.stream.id)
+    return row ? [row] : []
+  })
 
   const currentFailure =
     connected && timeline.sessionId === sessionId ? currentSessionRunFailure(timeline.runs, sessionId) : null

@@ -1,5 +1,6 @@
 /* Session reading roles derive from the host palette in both color schemes. */
-.hbar-session-message-blocks {
+.hbar-session-message-blocks,
+.hbar-session-activity {
   --hbar-session-body: color-mix(in srgb, var(--lumen-ink) 94%, var(--lumen-info));
   --hbar-session-secondary: color-mix(in srgb, var(--lumen-ink) 68%, var(--lumen-info));
   --hbar-session-heading: color-mix(in srgb, var(--lumen-info) 78%, var(--lumen-ink));
@@ -153,6 +154,9 @@
 }
 .hbar-session-activity-summary-text [data-activity-role='warning'] {
   color: var(--lumen-warning);
+}
+.hbar-session-activity-summary-text [data-activity-role='success'] {
+  color: var(--lumen-success);
 }
 .hbar-session-activity-summary-text [data-activity-role='separator'] {
   color: var(--lumen-muted);

@@ -287,6 +287,16 @@ for (const locale of ['en-US', 'zh-CN'] as const)
         await expect(summary).toHaveAttribute('aria-expanded', 'false')
         const activityText = labels.activity({
           thinkingCount: 0,
+          actionCounts: {
+            tool: 3,
+            'file-read': 0,
+            'file-write': 0,
+            'file-edit': 0,
+            terminal: 0,
+            directory: 0,
+            search: 0,
+          },
+          successRate: 0,
           toolCounts: [
             { name: 'read_fixture', count: 2 },
             { name: 'write_fixture', count: 1 },

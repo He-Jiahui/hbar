@@ -42,6 +42,9 @@ export {
 } from './session-message'
 export type { HbarCodeBlockLabels } from './code-block-copy-action'
 export { projectSessionMessages, type SessionMessageProjection } from './session-message-model'
+export { groupCompletedSessionActivities, type SessionActivitySequenceItem } from './session-activity-group-model'
+export { messageActivitySummary } from './session-message'
+export { HbarActivityDisclosure, type HbarActivityDisclosureProps } from './session-activity-disclosure'
 export {
   HbarConversationAnchorRail,
   type HbarConversationAnchorRailProps,
