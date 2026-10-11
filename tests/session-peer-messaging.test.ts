@@ -24,7 +24,9 @@ interface PeerFixture {
   readonly submissions: Array<{ sessionId: string; input: Run['input']; command: RunCommandRecord }>
   setRunning(sessionId: string, operationId: string): void
   setGuideFailure(enabled: boolean): void
+  setGuideUnknownFailure(enabled: boolean): void
   setGuideAckLoss(enabled: boolean): void
+  setGuideAckWithoutReceipt(enabled: boolean): void
   finishActiveOnSubmit(enabled: boolean): void
   setArchived(sessionId: string, archived: boolean): void
   send(input?: Partial<PeerMessageSendInput>, key?: string): Promise<unknown>
@@ -92,7 +94,9 @@ function fixture(): PeerFixture {
   const guideCalls: PeerFixture['guideCalls'][number][] = []
   const submissions: PeerFixture['submissions'][number][] = []
   let guideFailure = false
+  let guideUnknownFailure = false
   let guideAckLoss = false
+  let guideAckWithoutReceipt = false
   let finishActiveDuringSubmit = false
   let created = 0
   const storage = {
@@ -184,8 +188,7 @@ function fixture(): PeerFixture {
     }) {
       guideCalls.push({ operationId: request.operationId, activeRunId: request.activeRunId, key: idempotencyKey })
       if (guideFailure) throw new HbarError('COMMAND_CONFLICT', 'No longer accepting guidance')
-      const operation = runs.get(request.operationId)
-      if (operation) runs.set(operation.id, { ...operation, status: 'guided' })
+      if (guideUnknownFailure) throw new HbarError('STORAGE_UNAVAILABLE', 'Guide outcome is unknown')
       const receipt: QueuedRunGuideReceipt = {
         commandId: 'queuedRun.guide' as const,
         commandVersion: 1 as const,
@@ -202,6 +205,9 @@ function fixture(): PeerFixture {
         queueRevision: request.expectedRevision,
         guidedAt: 2,
       }
+      if (guideAckWithoutReceipt) return receipt
+      const operation = runs.get(request.operationId)
+      if (operation) runs.set(operation.id, { ...operation, status: 'guided' })
       guideReceipts.set(idempotencyKey, receipt)
       if (guideAckLoss) throw new HbarError('STORAGE_UNAVAILABLE', 'Acknowledgement lost after persistence')
       return receipt
@@ -212,8 +218,14 @@ function fixture(): PeerFixture {
     setGuideFailure(enabled: boolean) {
       guideFailure = enabled
     },
+    setGuideUnknownFailure(enabled: boolean) {
+      guideUnknownFailure = enabled
+    },
     setGuideAckLoss(enabled: boolean) {
       guideAckLoss = enabled
+    },
+    setGuideAckWithoutReceipt(enabled: boolean) {
+      guideAckWithoutReceipt = enabled
     },
     finishActiveOnSubmit(enabled: boolean) {
       finishActiveDuringSubmit = enabled
@@ -239,7 +251,9 @@ function fixture(): PeerFixture {
     submissions,
     setRunning: port.setRunning,
     setGuideFailure: port.setGuideFailure,
+    setGuideUnknownFailure: port.setGuideUnknownFailure,
     setGuideAckLoss: port.setGuideAckLoss,
+    setGuideAckWithoutReceipt: port.setGuideAckWithoutReceipt,
     finishActiveOnSubmit: port.finishActiveOnSubmit,
     setArchived: port.setArchived,
     send(input = {}, key = 'peer-key') {
@@ -392,6 +406,24 @@ test('a post-commit guide acknowledgement loss reconciles to the active target R
   expect(state.submissions).toHaveLength(1)
 })
 
+test('a successful guide acknowledgement without its durable receipt is unknown, not queued', async () => {
+  const state = fixture()
+  state.setRunning(targetId, 'active-target-run')
+  state.setGuideAckWithoutReceipt(true)
+  await expectCode(state.send(), 'RESULT_UNKNOWN')
+  expect(state.submissions).toHaveLength(1)
+  expect(state.runs.get('peer-run-1')?.status).toBe('queued')
+})
+
+test('an unknown guide error with a still-queued Run is not reported as queued', async () => {
+  const state = fixture()
+  state.setRunning(targetId, 'active-target-run')
+  state.setGuideUnknownFailure(true)
+  await expectCode(state.send(), 'RESULT_UNKNOWN')
+  expect(state.submissions).toHaveLength(1)
+  expect(state.runs.get('peer-run-1')?.status).toBe('queued')
+})
+
 test('delivery is reconciled when the active target ends between read and admission', async () => {
   const state = fixture()
   state.setRunning(targetId, 'active-target-run')
@@ -402,7 +434,7 @@ test('delivery is reconciled when the active target ends between read and admiss
   expect(state.runs.get(receipt.operationId)?.status).toBe('running')
 })
 
-test('failed guidance leaves one queued Run and replay never admits a duplicate', async () => {
+test('a known no-effect guidance conflict leaves one queued Run and replay never admits a duplicate', async () => {
   const state = fixture()
   state.setRunning(targetId, 'active-target-run')
   state.setGuideFailure(true)
