@@ -72,6 +72,8 @@
     "./workspace-query": "./src/workspace-query.ts",
     "./usage": "./src/usage.ts",
     "./tool-activity": "./src/tool-activity.ts",
+    "./run-file-changes": "./src/run-file-changes.ts",
+    "./commands/run-file-changes": "./src/commands/run-file-changes.ts",
     "./session-observability": "./src/session-observability.ts",
     "./commands/session-observability": "./src/commands/session-observability.ts",
     "./context-history": "./src/context-history.ts",

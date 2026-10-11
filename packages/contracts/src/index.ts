@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { toolActivitySchema } from './tool-activity'
+import { toolFileChangesSchema, runFileChangesSummarySchema } from './run-file-changes'
 import { modelContextTiersSchema, maximumContextWindow } from './model-context-tiers'
 import type { ModelContextTier } from './model-context-tiers'
 export { modelContextTierSchema, modelContextTiersSchema, maximumContextWindow } from './model-context-tiers'
@@ -96,6 +97,7 @@ export const contentBlockSchema = z.discriminatedUnion('type', [
       isError: z.boolean(),
       details: z.unknown().optional(),
       activity: toolActivitySchema.optional(),
+      fileChanges: toolFileChangesSchema.optional(),
       outcome: toolOutcomeSchema.optional(),
       execution: toolExecutionSchema.optional(),
       batch: toolBatchProgressSchema.optional(),
@@ -600,6 +602,7 @@ export const runSchema = z.object({
   endedAt: z.number().int().nonnegative().nullable(),
   error: z.string().nullable(),
   failure: runFailureSchema.optional(),
+  fileChanges: runFileChangesSummarySchema.optional(),
 })
 export type Run = z.infer<typeof runSchema>
 export interface Message {

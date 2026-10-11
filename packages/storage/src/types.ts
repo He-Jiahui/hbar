@@ -523,6 +523,10 @@ export interface StorageMethods {
   claim(sessionId: string): Run | null
   run(id: string): Run
   setRun(id: string, status: RunStatus, error?: string, failure?: RunFailure): SessionEvent
+  runFileChanges(sessionId: string, runId: string, after?: string, limit?: number): import('@hbar/contracts/run-file-changes').RunFileChangesPage
+  runFileChangeDiff(sessionId: string, runId: string, path: string, offset: number): import('@hbar/contracts/run-file-changes').RunFileChangeDiff
+  runFileChangeVersions(sessionId: string, runId: string): import('./run-file-changes').RunFileChangeVersion[]
+  undoRunFileChanges(sessionId: string, runId: string): SessionEvent
   reorderQueued(sessionId: string, runIds: string[]): SessionEvent[]
   requestCancel(id: string): { run: Run; event: SessionEvent | null }
   cancelRequested(id: string): boolean

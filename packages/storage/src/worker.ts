@@ -1,5 +1,14 @@
 import { Database } from 'bun:sqlite'
 import { readContextCompactionMarkers } from './context-compaction-markers'
+import {
+  RUN_FILE_CHANGES_SQL,
+  projectRunFileChanges,
+  finishRunFileChanges,
+  readRunFileChangesSummary,
+  readRunFileChangePage,
+  readRunFileChangeDiff,
+  readRunFileChangeVersions,
+} from './run-file-changes'
 import { workerData, parentPort } from 'node:worker_threads'
 import { createHash } from 'node:crypto'
 import { dirname, join } from 'node:path'
@@ -266,7 +275,7 @@ const WORKSPACE_ACTIVITY_SQL = `
     AFTER DELETE ON sessions
     BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
 `
-const LATEST_SCHEMA_VERSION = 23
+const LATEST_SCHEMA_VERSION = 24
 const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
 const schemaStartedAt = performance.now()
 if (schemaVersion > LATEST_SCHEMA_VERSION) throw new Error(`Unsupported database version ${schemaVersion}`)
@@ -491,6 +500,7 @@ for (const [version, sql] of [
   [21, SESSION_BRANCH_TARGET_SQL],
   [22, SESSION_BRANCH_TARGET_BRANCH_SQL],
   [23, CHAT_DATABASE_SQL],
+  [24, RUN_FILE_CHANGES_SQL],
 ] as const) {
   if (schemaVersion >= version) continue
   db.transaction(() => {
@@ -739,6 +749,7 @@ function runRow(row: Row | null): Run {
   return runSchema.parse({
     ...fields,
     input: parseJson(z.string().parse(value.input)),
+    fileChanges: readRunFileChangesSummary(db, z.string().parse(value.id)),
     ...(typeof failure === 'string' ? { failure: runFailureSchema.parse(parseJson(failure)) } : {}),
   })
 }
@@ -1182,6 +1193,7 @@ function appendEvent(
   )
   chatDatabaseArtifacts.releaseCommittedToolUploads(data, sessionId)
   db.query('UPDATE sessions SET seq=?,updatedAt=? WHERE id=?').run(event.seq, event.time, sessionId)
+  projectRunFileChanges(db, event)
   const notification = notificationFromSessionEvent(event, s.workspaceId)
   if (notification) notifications.insert(notification)
   return event
@@ -2374,6 +2386,30 @@ const methods: StorageMethods = {
       return methods.run(row.id as string)
     })(),
   run: (id) => runRow(db.query('SELECT * FROM runs WHERE id=?').get(id) as Row | null),
+  runFileChanges(sessionId, runId, after, limit = 50) {
+    if (methods.run(runId).sessionId !== sessionId)
+      throw new HbarError('STALE_TARGET', 'Run belongs to another session')
+    return { sessionId, runId, ...readRunFileChangePage(db, runId, after, Math.min(50, Math.max(1, limit))) }
+  },
+  runFileChangeDiff(sessionId, runId, path, offset) {
+    if (methods.run(runId).sessionId !== sessionId)
+      throw new HbarError('STALE_TARGET', 'Run belongs to another session')
+    return { sessionId, runId, path, ...readRunFileChangeDiff(db, runId, path, offset) }
+  },
+  runFileChangeVersions(sessionId, runId) {
+    if (methods.run(runId).sessionId !== sessionId)
+      throw new HbarError('STALE_TARGET', 'Run belongs to another session')
+    return readRunFileChangeVersions(db, runId)
+  },
+  undoRunFileChanges(sessionId, runId) {
+    return db.transaction(() => {
+      const run = methods.run(runId)
+      if (run.sessionId !== sessionId) throw new HbarError('STALE_TARGET', 'Run belongs to another session')
+      if (!run.fileChanges?.canUndo) throw new HbarError('UNDO_UNAVAILABLE', 'This Run has no reversible file changes')
+      const fileChanges = { ...run.fileChanges, canUndo: false, undoneAt: Date.now() }
+      return appendEvent(sessionId, 'run.filesUndone', { run: { ...run, fileChanges } }, runId)
+    })()
+  },
   requestCancel: (id) =>
     db.transaction(() => {
       const run = methods.run(id)
@@ -2411,6 +2447,7 @@ const methods: StorageMethods = {
         parsedFailure ? JSON.stringify(parsedFailure) : null,
         id,
       )
+      if (settled) finishRunFileChanges(db, id, methods.session(run.sessionId).seq + 1)
       const event = appendEvent(run.sessionId, settled ? 'run.settled' : 'run.status', { run: methods.run(id) }, id)
       if (settled) runSteering.retire(run.sessionId, run.id)
       return event
@@ -2808,6 +2845,7 @@ const methods: StorageMethods = {
 
 function restoreProjection(event: SessionEvent) {
   chatDatabaseArtifacts.restoreEventMetadata(event.data)
+  projectRunFileChanges(db, event)
   const data = event.data as Record<string, unknown>
   if (event.type === 'session.created') {
     const workspace = data.workspace as Workspace
@@ -2912,7 +2950,7 @@ function restoreProjection(event: SessionEvent) {
       event.seq,
       z.array(contentBlockSchema).parse(data.content),
     )
-  } else if (['run.queued', 'run.status', 'run.settled'].includes(event.type)) {
+  } else if (['run.queued', 'run.status', 'run.settled', 'run.filesUndone'].includes(event.type)) {
     const run = runSchema.parse(data.run)
     db.query(
       `
@@ -2932,6 +2970,7 @@ function restoreProjection(event: SessionEvent) {
       run.error,
       run.failure ? JSON.stringify(runFailureSchema.parse(run.failure)) : null,
     )
+    if (event.type === 'run.settled') finishRunFileChanges(db, run.id, event.seq)
     if (event.type === 'run.settled' && data.queueRemoval !== undefined) {
       const removal = z
         .strictObject({

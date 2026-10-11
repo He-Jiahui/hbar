@@ -324,7 +324,7 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
         streams = Object.fromEntries(Object.entries(streams).filter(([, stream]) => stream.runId !== event.runId))
       }
     }
-  } else if (['run.queued', 'run.status', 'run.settled'].includes(event.type) && data) {
+  } else if (['run.queued', 'run.status', 'run.settled', 'run.filesUndone'].includes(event.type) && data) {
     const parsed = runSchema.safeParse(data.run)
     if (parsed.success) {
       if (!toolClock || event.time >= toolClock.hostTime) toolClock = { hostTime: event.time, receivedAt: Date.now() }

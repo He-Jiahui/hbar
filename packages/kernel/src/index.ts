@@ -26,6 +26,9 @@ import {
 } from '@hbar/contracts/commands/models'
 import { compactionInputThreshold, describeContextUsage, estimateContextTokens } from './context-usage'
 import { toolActivitySchema } from '@hbar/contracts/tool-activity'
+import { toolFileChangesSchema } from '@hbar/contracts/run-file-changes'
+import { undoRunFileChanges } from './run-file-changes'
+import type { ExecutionProvider } from '@hbar/plugin-sdk'
 import {
   assertContextCapacity,
   compactionBoundary,
@@ -1387,6 +1390,37 @@ export class Kernel {
       .map(({ request }) => request)
     return snapshot
   }
+  async undoFileChanges(sessionId: string, runId: string, signal: AbortSignal): Promise<void> {
+    await this.withSessionLaunchTargetLock(
+      sessionId,
+      () =>
+        this.withSharedCheckoutLock(
+          sessionId,
+          async () => {
+            const session = await this.storage.call('session', sessionId)
+            const workspace = await this.storage.call('workspace', session.workspaceId)
+            const path = await this.sessionLaunchTargets.workspaceForRun(sessionId, workspace.path, signal)
+            await this.assertSharedCheckoutIdle(path, signal)
+            const event = await undoRunFileChanges(
+              this.storage,
+              this.plugins.get<ExecutionProvider>('execution'),
+              {
+                resolveSessionPath: (id, root, cancellation) =>
+                  this.sessionLaunchTargets.workspaceForRun(id, root, cancellation),
+                resolveWorkspacePath: (id, root, cancellation) =>
+                  this.workspaceSandboxes.prepare(id, root, cancellation),
+              },
+              sessionId,
+              runId,
+              signal,
+            )
+            if (event) this.publishEvent(event)
+          },
+          signal,
+        ),
+      signal,
+    )
+  }
   private async withSessionLaunchTargetLock<Value>(
     sessionId: string,
     action: () => Promise<Value>,
@@ -2408,6 +2442,7 @@ export class Kernel {
     // cancellation must retain the original Host-owned signal independently.
     const hostSignal = context.signal
     const executionIdentity = { sessionId: context.session.id, runId: context.run.id, callId: context.callId }
+    const executionRoot = context.workspace.path
     const toolDiagnosticIdentity = {
       sessionId: executionIdentity.sessionId,
       runId: executionIdentity.runId,
@@ -2443,6 +2478,7 @@ export class Kernel {
     let hostControl: ToolResult['hostControl']
     let outcome: ToolOutcome | undefined
     let images: ArtifactRef[] | undefined
+    let completedFileChanges: ToolResult['fileChanges']
     let reporter: ReturnType<typeof createToolExecutionReporter> | undefined
     let resumeRunIdle: (() => void) | undefined
     const assertNotAborted = () => {
@@ -2559,6 +2595,7 @@ export class Kernel {
             ...(environment ? { environment } : {}),
             ...(osConfinement ? { osConfinement } : {}),
           })
+          completedFileChanges = executed.fileChanges
           if (controller.signal.reason instanceof ToolTimeoutError) controller.signal.throwIfAborted()
           executed = (await scope.hooks.dispatch('tool.after', { name, result: executed, context })).result
           if (controller.signal.reason instanceof ToolTimeoutError) controller.signal.throwIfAborted()
@@ -2624,6 +2661,8 @@ export class Kernel {
     const batch = sequence?.progress()
     const measured = toolActivitySchema.safeParse(result.activity)
     const activity = started && measured.success ? measured.data : undefined
+    const changedFiles = started && (tool.effect === 'write' || tool.effect === 'process')
+      ? toolFileChangesSchema.safeParse({ root: executionRoot, files: completedFileChanges }) : null
     result = { ...result, activity, hostFailure, hostControl, execution, outcome }
     if (result.text.length > 128_000) result = { ...result, text: `${result.text.slice(0, 128_000)}\n[truncated]` }
     const content: ContentBlock[] = [
@@ -2635,6 +2674,7 @@ export class Kernel {
         isError: Boolean(result.isError),
         details: result.details,
         ...(activity ? { activity } : {}),
+        ...(changedFiles?.success ? { fileChanges: changedFiles.data } : {}),
         outcome,
         ...(execution ? { execution } : {}),
         ...(batch ? { batch } : {}),

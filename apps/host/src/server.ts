@@ -262,11 +262,16 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   )
   const sessionBranchTargetCommands = createSessionBranchTargetCommands(kernel)
   const budgetCommands = createBudgetCommands(kernel.plugins.get<BudgetService>('budget'))
-  const fileCommands = createFileCommands(kernel.storage, resolveExecutionProvider(kernel), {
-    resolveWorkspacePath: (workspaceId, path, signal) => kernel.workspaceSandboxes.prepare(workspaceId, path, signal),
-    resolveSessionPath: (sessionId, workspacePath, signal) =>
-      kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
-  })
+  const fileCommands = createFileCommands(
+    kernel.storage,
+    resolveExecutionProvider(kernel),
+    {
+      resolveWorkspacePath: (workspaceId, path, signal) => kernel.workspaceSandboxes.prepare(workspaceId, path, signal),
+      resolveSessionPath: (sessionId, workspacePath, signal) =>
+        kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
+    },
+    { undo: (sessionId, runId, signal) => kernel.undoFileChanges(sessionId, runId, signal) },
+  )
   const goalPlanCommands = createGoalPlanCommands(
     resolveGoalService(kernel),
     resolvePlanService(kernel),

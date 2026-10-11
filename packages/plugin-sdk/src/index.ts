@@ -95,6 +95,8 @@ export interface ToolResult {
   details?: unknown
   /** Optional measured facts, validated and persisted by the Host with the tool result. */
   activity?: import('@hbar/contracts/tool-activity').ToolActivity | undefined
+  /** Exact versions written by this call, for a durable per-Run review and guarded undo. */
+  fileChanges?: readonly import('@hbar/contracts/run-file-changes').ToolFileChange[] | undefined
   /** Host-owned failure metadata. The execution gateway overwrites any plugin-provided value. */
   hostFailure?: { code: string; executionStarted: boolean } | undefined
   /** Host-owned normal termination. Plugins cannot manufacture this at the execution gateway. */
@@ -202,7 +204,13 @@ export interface ExecutionProvider {
     path: string,
     text: string,
     options?: { expectedRevision?: string },
-  ): Promise<{ before: string; after: string; path: string; revision: string }>
+  ): Promise<{ before: string; after: string; path: string; revision: string; created?: boolean }>
+  /** Restore a bounded set of exact text versions after verifying every current version. */
+  restoreFiles?(
+    workspace: string,
+    changes: readonly import('@hbar/contracts/run-file-changes').ToolFileChange[],
+    signal: AbortSignal,
+  ): Promise<void>
   exec(workspace: string, command: string, signal: AbortSignal, options?: ExecOptions): Promise<ToolResult>
   workspaceQuery?: WorkspaceQueryProvider
   dispose?(): void | Promise<void>
