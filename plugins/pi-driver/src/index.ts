@@ -926,7 +926,8 @@ export class PiDriver implements HarnessDriver {
         signal.throwIfAborted()
       }
       const message = await stream.result()
-      if (message.stopReason === 'error' || message.stopReason === 'aborted') {
+      if (message.stopReason === 'error' || message.stopReason === 'aborted' || message.stopReason === 'length') {
+        const incomplete = message.stopReason === 'length'
         terminalEmitted = true
         emitModelDiagnostic(onDiagnostic, {
           phase: message.stopReason === 'aborted' ? 'cancelled' : 'failed',
@@ -946,8 +947,11 @@ export class PiDriver implements HarnessDriver {
             streamState,
             diagnosticStopReason(message.stopReason),
           ),
+          ...(incomplete ? { errorCode: 'COMPACTION_INCOMPLETE' } : {}),
           durationMs: Math.max(0, performance.now() - startedAt),
         })
+        if (incomplete)
+          throw new HbarError('COMPACTION_INCOMPLETE', 'Provider summary stopped before completion (length)')
         throw request.model.protocol === 'mock'
           ? new Error(message.errorMessage ?? 'Compaction failed')
           : providerFailure(message.errorMessage ?? 'Compaction failed')
@@ -961,10 +965,7 @@ export class PiDriver implements HarnessDriver {
           modelRequestId,
           model: request.model.model,
           protocol: request.model.protocol,
-          stopReason:
-            message.stopReason === 'toolUse' || message.stopReason === 'length' || message.stopReason === 'stop'
-              ? message.stopReason
-              : 'stop',
+          stopReason: message.stopReason === 'toolUse' || message.stopReason === 'stop' ? message.stopReason : 'stop',
           ...terminalProviderFacts(
             latestResponse,
             latestTransportKind,
