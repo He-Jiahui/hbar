@@ -25,21 +25,33 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
-.hbar-settings-usage-windows,
-.hbar-settings-usage-pagination {
+.hbar-settings-usage-windows {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
 }
-.hbar-settings-usage-pagination > button {
+.hbar-settings-usage-pagination {
+  display: flex;
   min-inline-size: 0;
-  max-inline-size: 100%;
+  flex-direction: column;
+  gap: 0.5rem;
 }
-.hbar-settings-usage-pagination > button > [data-text-context='control.label'] {
+.hbar-settings-usage-pagination-actions {
+  display: flex;
   min-inline-size: 0;
-  max-inline-size: 100%;
-  overflow: hidden;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  overflow-x: auto;
+}
+.hbar-settings-usage-pagination-actions > button {
+  flex: 0 0 auto;
+  min-inline-size: max-content;
+}
+.hbar-settings-usage-pagination > span {
+  flex: 0 0 auto;
+  overflow-wrap: anywhere;
 }
 .hbar-settings-usage-summary {
   display: flex;
@@ -109,8 +121,7 @@
   min-inline-size: 0;
   overflow-wrap: anywhere;
 }
-.hbar-settings-usage-model-list span,
-.hbar-settings-usage-pagination > span {
+.hbar-settings-usage-model-list span {
   overflow-wrap: anywhere;
 }
 @media (max-width: 40rem) {

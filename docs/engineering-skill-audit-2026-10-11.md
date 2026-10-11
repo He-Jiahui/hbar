@@ -81,6 +81,14 @@ Harness 审查核对工具意图与持久结果、Host 拥有的计时/进度、
 
 此阶段 Web 构建和修改文件的零警告 ESLint 通过。主工作区完整 TypeScript 首轮到达默认 4 GiB 堆上限；8 GiB 复核仅报告其他任务未提交的 `session-timeline.ts` 中未使用的 `Run` import。保留其原有改动及真实检查状态，不把此结果写为完整类型检查通过。日志位于 `artifacts/skills-standards-visual-main/`，浏览器失败与最终回归产物位于 `test-results/skills-standards-visual-main/`。
 
+### 用量分页完整文字与滚动归属
+
+按当前 `DESIGN.md` 的完整单行控件规则，主干修正首轮为防止 320px 溢出而裁切分页标签的处理。实测长标签文本约 840px，却只获得约 270px 的显示区域；新增真实浏览器断言在修复前失败。现在完整按钮使用自身内容宽度，仅动作行局部水平滚动，页码/总数保留在独立可见的文本流。动作行可用键盘滚动，前后页仍绑定原报告，不新增 Host 读取。
+
+两项分页浏览器用例通过，包含中英文 × 明暗 × 320/390/900/1440 × 100%/125% 文字的 32 组几何、焦点与截图检查。验证标签无内部裁切、全页无横向溢出、页码保持可见，以及 Enter 翻页和首末边界；人工查看浅色 320px 和暗色放大截图。15 项用量/公开组件/文案相邻测试（156 次断言）、修改文件零警告 ESLint、Web 构建和 flow/content/icon guard 通过。
+
+参考：ReactBits [Analytics](https://pro.reactbits.dev/docs/app-ui/analytics) 与 [Data Table](https://pro.reactbits.dev/docs/app-ui/data-table) 的数据列表、范围状态与就近分页层级；沿用 Lumen 公共控件、宿主文案和自然 flex 流，不引入新的色板或固定内容高度。成对截图与日志位于 `test-results/skills-standards-visual-main/pagination-before`、`pagination-final` 和 `artifacts/skills-standards-visual-main/pagination-*.log`。完整类型门禁仍按本节前述主工作区失败记录处理。
+
 ## 结论边界
 
 以上是当前核心路径的工程与行为审查，不是每个页面、每种供应商或每种操作系统的全面认证。原生桌面 smoke、所有主题颜色的对比度、掉电/介质故障和大规模生产负载不属于已完成的验证。Web 构建仍有既有的 1500 kB chunk 体积提示。Bun 1.4.0 在指定根 tsconfig 的运行中仍打印 directory mismatch 诊断；通过的测试均有真实计数和 0 返回码，不将该输出解释为上游问题已经修复。

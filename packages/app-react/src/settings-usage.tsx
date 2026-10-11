@@ -256,29 +256,36 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
             <LumenUsage02 content={usageContent} className="hbar-settings-usage-lumen" />
             {models.length > SETTINGS_USAGE_MODELS_PER_PAGE && (
               <LumenFrame as="nav" className="hbar-settings-usage-pagination" aria-label={labels.models}>
-                <LumenButton
-                  type="button"
-                  size="s"
-                  variant="text"
-                  disabled={modelPage === 0}
-                  title={labels.previous}
-                  onClick={() => moveModelPage(-1)}
-                >
-                  {labels.previous}
-                </LumenButton>
                 <LumenContentText context="form.description" role="status">
                   {labels.page(modelStart + 1, modelStart + pageModels.length, models.length)}
                 </LumenContentText>
-                <LumenButton
-                  type="button"
-                  size="s"
-                  variant="text"
-                  disabled={modelPage === lastModelPage}
-                  title={labels.next}
-                  onClick={() => moveModelPage(1)}
+                <LumenFrame
+                  className="hbar-settings-usage-pagination-actions"
+                  role="group"
+                  aria-label={labels.models}
+                  tabIndex={0}
                 >
-                  {labels.next}
-                </LumenButton>
+                  <LumenButton
+                    type="button"
+                    size="s"
+                    variant="text"
+                    disabled={modelPage === 0}
+                    title={labels.previous}
+                    onClick={() => moveModelPage(-1)}
+                  >
+                    {labels.previous}
+                  </LumenButton>
+                  <LumenButton
+                    type="button"
+                    size="s"
+                    variant="text"
+                    disabled={modelPage === lastModelPage}
+                    title={labels.next}
+                    onClick={() => moveModelPage(1)}
+                  >
+                    {labels.next}
+                  </LumenButton>
+                </LumenFrame>
               </LumenFrame>
             )}
           </LumenFrame>

@@ -68,42 +68,89 @@ test('model pagination binds visible records and keyboard actions to the current
   await expect(page.getByText(labels.noModels, { exact: true })).toBeVisible()
 })
 
-test('localized pagination stays reachable at 320px with long host labels and keeps the selected page', async ({
+test('localized pagination keeps complete labels in its own scroll row across theme, width and text scale', async ({
   page,
 }, testInfo) => {
+  test.setTimeout(120_000)
   await mount(page)
   const english = getShellCopy('en-US').settingsUsage
   await page.getByRole('navigation').getByRole('button', { name: english.next, exact: true }).click()
   for (const locale of ['zh-CN', 'en-US'] as const) {
     const labels = getShellCopy(locale).settingsUsage
-    await page.evaluate((value) => window.hbarUsagePaginationFixture.render(value, true), locale)
-    await page.setViewportSize({ width: 320, height: 700 })
-    const pager = page.getByRole('navigation', { name: labels.models })
-    await expect(pager.getByRole('status')).toHaveText(labels.page(9, 16, 17))
-    const next = pager.getByRole('button', { name: labels.next.repeat(20), exact: true })
-    await next.scrollIntoViewIfNeeded()
-    const geometry = await page.evaluate(() => ({
-      width: window.innerWidth,
-      scrollWidth: document.documentElement.scrollWidth,
-      elements: [...document.querySelectorAll<HTMLElement>('*')]
-        .filter((element) => element.getBoundingClientRect().right > window.innerWidth + 1)
-        .slice(0, 20)
-        .map((element) => ({
-          tag: element.tagName,
-          className: element.className,
-          width: element.getBoundingClientRect().width,
-          minimum: getComputedStyle(element).minInlineSize,
-          overflow: getComputedStyle(element).overflowX,
-          whiteSpace: getComputedStyle(element).whiteSpace,
-        })),
-    }))
-    await expect
-      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), {
-        message: JSON.stringify(geometry),
+    for (const mode of ['light', 'dark'] as const) {
+      await page.evaluate(({ locale, mode }) => window.hbarUsagePaginationFixture.render(locale, true, mode), {
+        locale,
+        mode,
       })
-      .toBe(true)
-    await next.focus()
-    await expect(next).toBeFocused()
-    await page.screenshot({ path: testInfo.outputPath(`pagination-${locale}-320.png`) })
+      for (const width of [320, 390, 900, 1440]) {
+        for (const scale of [100, 125]) {
+          await page.setViewportSize({ width, height: 700 })
+          await page.evaluate((value) => {
+            document.documentElement.style.fontSize = `${value}%`
+          }, scale)
+          const pager = page.getByRole('navigation', { name: labels.models })
+          await expect(pager.getByRole('status')).toHaveText(labels.page(9, 16, 17))
+          const next = pager.getByRole('button', { name: labels.next.repeat(20), exact: true })
+          await next.scrollIntoViewIfNeeded()
+          const geometry = await page.evaluate(() => ({
+            width: window.innerWidth,
+            scrollWidth: document.documentElement.scrollWidth,
+            elements: [...document.querySelectorAll<HTMLElement>('*')]
+              .filter((element) => element.getBoundingClientRect().right > window.innerWidth + 1)
+              .slice(0, 20)
+              .map((element) => ({
+                tag: element.tagName,
+                className: element.className,
+                width: element.getBoundingClientRect().width,
+                minimum: getComputedStyle(element).minInlineSize,
+                overflow: getComputedStyle(element).overflowX,
+                whiteSpace: getComputedStyle(element).whiteSpace,
+              })),
+          }))
+          await expect
+            .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), {
+              message: JSON.stringify(geometry),
+            })
+            .toBe(true)
+          await page.screenshot({ path: testInfo.outputPath(`pagination-${locale}-${mode}-${width}-${scale}.png`) })
+          const reading = await next.evaluate((element) => {
+            const label = element.querySelector<HTMLElement>('[data-text-context="control.label"]')
+            if (!label || !element.parentElement) throw new Error('Missing real pagination label or owner')
+            const range = document.createRange()
+            range.selectNodeContents(label)
+            return {
+              labelWidth: label.getBoundingClientRect().width,
+              textWidth: range.getBoundingClientRect().width,
+              whiteSpace: getComputedStyle(label).whiteSpace,
+              ownerWidth: element.parentElement.clientWidth,
+              ownerContent: element.parentElement.scrollWidth,
+              ownerOverflow: getComputedStyle(element.parentElement).overflowX,
+            }
+          })
+          expect(reading.labelWidth).toBeGreaterThanOrEqual(reading.textWidth - 1)
+          expect(reading.whiteSpace).toBe('nowrap')
+          expect(reading.ownerContent).toBeGreaterThan(reading.ownerWidth)
+          expect(reading.ownerOverflow).toBe('auto')
+          await expect(pager.getByRole('status')).toBeInViewport()
+          const actions = pager.getByRole('group', { name: labels.models, exact: true })
+          await actions.evaluate((element) => {
+            element.scrollLeft = 0
+          })
+          await actions.focus()
+          await expect(actions).toBeFocused()
+          await page.keyboard.press('ArrowRight')
+          await expect.poll(() => actions.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0)
+          await next.focus()
+          await expect(next).toBeFocused()
+        }
+      }
+    }
   }
+  const labels = getShellCopy('en-US').settingsUsage
+  const pager = page.getByRole('navigation', { name: labels.models })
+  await pager.getByRole('button', { name: labels.next.repeat(20), exact: true }).press('Enter')
+  await expect(pager.getByRole('status')).toHaveText(labels.page(17, 17, 17))
+  await expect(pager.getByRole('button', { name: labels.next.repeat(20), exact: true })).toBeDisabled()
+  await pager.getByRole('button', { name: labels.previous.repeat(20), exact: true }).press('Enter')
+  await expect(pager.getByRole('status')).toHaveText(labels.page(9, 16, 17))
 })

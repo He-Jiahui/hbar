@@ -10,7 +10,7 @@ import '@lumen/app-ui/styles.css'
 
 interface FixtureApi {
   replace(count: number): Promise<void>
-  render(locale: 'zh-CN' | 'en-US', longLabels?: boolean): void
+  render(locale: 'zh-CN' | 'en-US', longLabels?: boolean, mode?: 'light' | 'dark'): void
   requests(): number
 }
 declare global {
@@ -43,7 +43,7 @@ window.hbarUsagePaginationFixture = {
     modelCount = count
     await runtime.view.commands.execute('settingsUsage.refresh', { instanceId: 'settings' })
   },
-  render(locale, longLabels = false) {
+  render(locale, longLabels = false, mode = 'light') {
     const copy = getShellCopy(locale).settingsUsage
     const labels = longLabels
       ? {
@@ -53,8 +53,9 @@ window.hbarUsagePaginationFixture = {
           description: copy.description.repeat(10),
         }
       : copy
+    document.documentElement.dataset.lumenMode = mode
     root.render(
-      <LumenProvider appearance={DEFAULT_LUMEN_APPEARANCE}>
+      <LumenProvider appearance={{ ...DEFAULT_LUMEN_APPEARANCE, mode }}>
         <HbarRuntimeProvider view={runtime.view}>
           <HbarSettingsUsage instanceId="settings" connected labels={labels} />
         </HbarRuntimeProvider>
