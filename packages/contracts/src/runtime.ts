@@ -109,6 +109,15 @@ export const runtimeSourceReloadSchema = z.strictObject({
   reasonCode: z.string().min(1).max(128).nullable(), updatedAt: z.number().int().nonnegative(),
 })
 export type RuntimeSourceReload = z.infer<typeof runtimeSourceReloadSchema>
+export const runtimeAdmissionSchema = z.strictObject({
+  phase: z.enum(['initializing', 'serving', 'recovering', 'handover', 'stopped']),
+  reasonCode: z.string().min(1).max(128).nullable(),
+  storage: z.strictObject({
+    phase: z.enum(['waiting', 'serving', 'handover', 'fenced', 'closed']),
+    owner: runtimeOwnerSchema.nullable(), inFlight: z.number().int().min(0).max(64), queued: z.number().int().min(0).max(256),
+    bufferedBytes: z.number().int().nonnegative(), reasonCode: z.string().min(1).max(128).nullable(),
+  }),
+})
 export const runtimeSnapshotSchema = z.strictObject({
   revision: z.number().int().nonnegative(),
   instanceId: opaqueId,
@@ -116,6 +125,7 @@ export const runtimeSnapshotSchema = z.strictObject({
   units: z.array(runtimeUnitSnapshotSchema).max(512),
   preparedArtifactSets: z.array(opaqueId).max(256),
   sourceReload: runtimeSourceReloadSchema.optional(),
+  admission: runtimeAdmissionSchema.optional(),
 })
 export type RuntimeSnapshot = z.infer<typeof runtimeSnapshotSchema>
 
@@ -164,8 +174,17 @@ export const runtimeDeltaSchema = z.strictObject({
   revision: z.number().int().positive(),
   units: z.array(runtimeUnitSnapshotSchema).max(32),
   operations: z.array(runtimeReloadSchema).max(16),
+  instanceId: opaqueId.optional(), ready: z.boolean().optional(),
+  sourceReload: runtimeSourceReloadSchema.optional(), admission: runtimeAdmissionSchema.optional(),
+  preparedArtifactSets: z.array(opaqueId).max(256).optional(),
 })
 export type RuntimeDelta = z.infer<typeof runtimeDeltaSchema>
+export const runtimeWatchInputSchema = z.strictObject({ cursor: z.number().int().nonnegative().optional() })
+export const runtimeWatchResultSchema = z.strictObject({
+  revision: z.number().int().nonnegative(), snapshot: runtimeSnapshotSchema.nullable(),
+  events: z.array(runtimeDeltaSchema).max(64), reset: z.boolean(),
+})
+export type RuntimeWatchResult = z.infer<typeof runtimeWatchResultSchema>
 
 export const RUNTIME_LIMITS = Object.freeze({
   inFlight: 64,

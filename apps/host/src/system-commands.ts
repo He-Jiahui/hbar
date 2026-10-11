@@ -3,10 +3,12 @@ import { HbarError } from '@hbar/contracts'
 import type { Device, HostInfo, PluginInfo } from '@hbar/contracts'
 import { systemCommands } from '@hbar/contracts/commands/system'
 import type { StorageLocationApply, StorageLocationSnapshot } from '@hbar/contracts/commands/storage-locations'
-import type { RuntimeSnapshot, RuntimeReload } from '@hbar/contracts/runtime'
+import type { RuntimeSnapshot, RuntimeReload, RuntimeDelta, RuntimeWatchResult } from '@hbar/contracts/runtime'
 export interface RuntimeSystemPort {
   readonly maintenance?: import('./runtime-maintenance-contract').RuntimeMaintenancePort
   authenticationAvailable?(): boolean
+  subscribe?(listener: (delta: RuntimeDelta) => void): () => void
+  watch?(cursor?: number): RuntimeWatchResult
   snapshot(): RuntimeSnapshot
   reload(artifactSetId: string, unitIds: readonly string[]): { operationId: string }
   getReload(operationId: string): RuntimeReload

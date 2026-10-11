@@ -25,6 +25,7 @@ import { RuntimeResourceRegistry } from './runtime-resource-registry'
 import { RuntimeMaintenanceRelay, type RuntimeMaintenanceEndpoint } from './runtime-maintenance-relay'
 import { RUNTIME_MAINTENANCE_CONTROL_METHODS } from './runtime-maintenance-contract'
 import { createRuntimeControllerServices } from './runtime-controller-services'
+import { RuntimeStatusFeed } from './runtime-status-feed'
 
 export interface ProcessHostRuntimeOptions {
   readonly layout: PathLayout
@@ -70,6 +71,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   readonly maintenance: RuntimeMaintenanceRelay
   readonly controller: RuntimeControllerPort
   private controllerStarted = false
+  private readonly statusFeed: RuntimeStatusFeed
+  private readonly disposeStatus: () => void
   private async dispatchController(payload: string, invoke: Parameters<RuntimeControllerPort['dispatch']>[1], authorize?: Parameters<RuntimeControllerPort['dispatch']>[2]): Promise<string> {
     let record: Generation | undefined
     try { record = this.currentGeneration('controller') } catch { /* Independent status reads remain available. */ }
@@ -172,6 +175,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       },
     })
     for (const unit of this.buildUnits) this.manager.register(unit.descriptor)
+    this.statusFeed = new RuntimeStatusFeed(() => this.readSnapshot())
+    this.disposeStatus = this.manager.subscribe(delta => this.statusFeed.accept(delta))
     const self = this
     this.controller = { dispatch: (payload, invoke, authorize) => this.dispatchController(payload, invoke, authorize),
       get application() {
@@ -185,7 +190,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         })
       },
     }
-    this.sweep = setInterval(() => this.schedule(), 1_000)
+    this.sweep = setInterval(() => { this.schedule(); this.statusFeed.refresh() }, 1_000)
     this.sweep.unref()
   }
   get kernel(): KernelControllerPort { return this.facade.api }
@@ -248,7 +253,10 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       return runtime
     } catch (error) { await runtime.close(); throw error }
   }
-  snapshot(): RuntimeSnapshot {
+  snapshot(): RuntimeSnapshot { return this.statusFeed.snapshot() }
+  subscribe(listener: Parameters<RuntimeStatusFeed['subscribe']>[0]) { return this.statusFeed.subscribe(listener) }
+  watch(cursor?: number) { return this.statusFeed.watch(cursor) }
+  private readSnapshot(): RuntimeSnapshot {
     const state = this.manager.snapshot()
     let source = this.sourceState
     if (source?.phase === 'applying' && source.operationId) {
@@ -259,8 +267,13 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         source = { ...source, phase, reasonCode: operation.units.find(unit => unit.reasonCode)?.reasonCode ?? null }
       } catch { source = { ...source, phase: 'idle' } }
     }
-    return { ...state, ...(source ? { sourceReload: { ...source, unitIds: [...source.unitIds] } } : {}),
-      ready: !this.initializing && !this.closing && state.ready && this.executionReady() && this.storage.snapshot().phase === 'serving' && !this.storageFailure }
+    const storage = this.storage.snapshot()
+    const ready = !this.initializing && !this.closing && state.ready && this.executionReady() && storage.phase === 'serving' && !this.storageFailure
+    return { ...state, ...(source ? { sourceReload: { ...source, unitIds: [...source.unitIds] } } : {}), ready,
+      admission: { phase: this.closing ? 'stopped' : this.initializing ? 'initializing' : storage.phase === 'handover' ? 'handover' : ready ? 'serving' : 'recovering',
+        reasonCode: ready ? null : storage.reasonCode ?? this.reasonCode ?? state.units.flatMap(unit => unit.generations).find(g => g.role === 'default' && g.reasonCode)?.reasonCode ?? null,
+        storage },
+    }
   }
   reload(artifactSetId: string, unitIds: readonly string[]) { return this.manager.reload(artifactSetId, unitIds) }
   getReload(id: string) { return this.manager.getReload(id) }
@@ -282,6 +295,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   close(): Promise<void> { this.closeTask ??= this.dispose(); return this.closeTask }
   private async dispose(): Promise<void> {
     this.closing = true
+    this.disposeStatus(); this.statusFeed.close()
     this.disposeSource(); this.sourceAbort.abort()
     await this.sourceTask
     clearInterval(this.sweep)
