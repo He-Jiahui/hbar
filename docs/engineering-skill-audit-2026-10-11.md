@@ -113,6 +113,16 @@ Harness 审查核对工具意图与持久结果、Host 拥有的计时/进度、
 
 日志、截图和 trace 位于 `artifacts/skills-standards-visual-main/stop-layer-*.log`、`stop-layer-accepted/` 和 `test-results/skills-standards-visual-main/stop-layer-accepted/`。其他任务存储合并的中途冲突曾使一次完整 TypeScript 检查失败；原任务解决冲突并提交后完整检查再次通过。最新修复通过同一严格根配置的完整增量 TypeScript 编译（缓存仅保存于忽略的 artifacts），所有启用的严格规则保持不变。其余已通过的 20 项涵盖 ECharts、用量分页、全局连接、真实用量、会话工具导航、状态筛选器和运行活动；后续生产视觉修改仍按受影响路径增量复核。
 
+### 性能页的单一读数与紧凑标题
+
+真实主干截图发现，`01a6fdb0` 同时挂载的 overview、explorer、monitoring 预设与实际性能内容重复：状态中心出现三次标题和多套 CPU 读数，内容挤压了实际图表。额外两套时间序列投影还把不可用样本转换为零，绕过了首轮 `6f7d942d` 修正的 ECharts 数据路径。现移除重复的性能预设及其投影，仅保留共享 Lumen 指标组件、真实 ECharts CPU 图表与 Host/磁盘详情；所有 CPU 曲线由同一 nullable 数据模型提供，`connectNulls:false` 保留缺口。用量 dashboard 的既有投影独立绑定其 Usage report。
+
+标题布局同时复现了横向 `16rem` flex-basis 在移动纵向布局中变成高度的问题：实际标题/说明约 42px，却占 256px。修复前浏览器几何回归失败。状态中心明确采用可伸缩的横向 flex 流，标题消耗剩余宽度，返回/刷新与文字在同一行，段落按内容自然换行。没有新增固定内容高度、坐标、颜色或字体。
+
+6 项真实 Host 浏览器用例通过，其中新增中英文 × 明暗 4 项，各验证 1440/900/390/320；另外 2 项核对原 Usage 筛选器和浮层。断言单一标题、内容高度、标题栏行归属、Canvas 初始化/尺寸、全页无横向溢出，以及切换 Host 指标范围和两分钟窗口后查询与可见图表更新。人工查看英文桌面与中文深色 320px 截图。7 项性能/指标测试（61 次断言）通过，静态可访问读数只保留 System CPU / Host CPU 两个图表名称；旧预设的合并标签和柱状样式断言改为实际语义图表断言。完整严格增量 TypeScript、零警告 scoped lint、Web 构建、格式及 flow/content/icon guard 通过。
+
+参考：ReactBits [Analytics](https://pro.reactbits.dev/docs/app-ui/analytics) 的筛选器、指标与趋势阅读层级，沿用当前 Lumen 组件与宿主文案。成对截图和日志位于 `test-results/skills-standards-visual-main/performance-before`、`performance-final` 与 `artifacts/skills-standards-visual-main/performance-*.log`；原生未托管 Kernel 夹具的运行时管理状态明确显示不可用，没有把它写成已通过独立进程 Host 验收。
+
 ## 结论边界
 
 以上是当前核心路径的工程与行为审查，不是每个页面、每种供应商或每种操作系统的全面认证。原生桌面 smoke、所有主题颜色的对比度、掉电/介质故障和大规模生产负载不属于已完成的验证。Web 构建仍有既有的 1500 kB chunk 体积提示。Bun 1.4.0 在指定根 tsconfig 的运行中仍打印 directory mismatch 诊断；通过的测试均有真实计数和 0 返回码，不将该输出解释为上游问题已经修复。

@@ -9,7 +9,6 @@
   background: var(--lumen-canvas);
 }
 
-.hbar-app-react-status-lumen-monitoring,
 .hbar-app-react-status-lumen-usage {
   min-inline-size: 0;
   margin-block: 0.75rem;
@@ -17,7 +16,14 @@
 
 .hbar-app-react-status-workspace > .lumen-page-header {
   flex: 0 0 auto;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
   min-block-size: 3.75rem;
+}
+
+.hbar-app-react-status-workspace > .lumen-page-header > .lumen-page-heading {
+  flex-basis: 0;
 }
 
 .hbar-app-react-status-controls {

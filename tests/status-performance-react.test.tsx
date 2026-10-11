@@ -76,12 +76,16 @@ test('performance dashboard renders bounded Host process and availability facts'
     expect(html).not.toContain('<select')
     expect(html).toContain('role="combobox"')
     expect(html).toContain('lumen-compact-metrics')
-    expect(html).toContain('aria-label="CPU timeline"')
     expect(html).toContain('class="hbar-app-react-status-echarts"')
-    expect(html).toContain('block-size:42%')
     const disclosures: { label: string; expanded: string | null; contentId: string | null }[] = []
     const hiddenContent = new Map<string, boolean>()
+    const chartLabels: string[] = []
     await new HTMLRewriter()
+      .on('[role="img"]', {
+        element(element) {
+          chartLabels.push(element.getAttribute('aria-label') ?? '')
+        },
+      })
       .on('button[aria-expanded][aria-controls]', {
         element(element) {
           disclosures.push({
@@ -103,6 +107,7 @@ test('performance dashboard renders bounded Host process and availability facts'
       })
       .transform(new Response(html))
       .text()
+    expect(chartLabels).toEqual(['System CPU', 'Host CPU'])
     // The process details start collapsed and the named control targets the hidden content.
     const processDisclosure = disclosures.find((disclosure) => disclosure.label === 'Host process')
     expect(processDisclosure?.expanded).toBe('false')

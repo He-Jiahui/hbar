@@ -16,12 +16,9 @@ import {
   LumenNavigationButton,
   LumenPageHeader,
   LumenPopupSelect,
-  LumenMonitoring01,
   LumenUsage01,
   LumenUsage08,
-  LumenDashboard01,
   LumenDashboard02,
-  LumenDashboard10,
 } from '@lumen/app-ui'
 import { workspaceDisplayName, type StatusWorkspaceEntryState } from '@hbar/app-runtime'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
@@ -362,34 +359,6 @@ export function HbarStatusWorkspace({
     if (!gitQuery?.workspaceId) return
     invoke('statusWorkspace.setGitQuery', { instanceId, ...gitQuery, ...patch })
   }
-  const monitoringContent = report
-    ? {
-        health: {
-          labels: {
-            title: labels.process,
-            detail: labels.description,
-            refresh: labels.refresh,
-            chart: labels.trends,
-            incidents: labels.resources,
-            empty: labels.loading,
-          },
-          metrics: metrics([
-            ...(includeSystem ? (['systemCpuPercent'] as const) : []),
-            ...(includeHost ? (['hostCpuPercent'] as const) : []),
-          ]).map((item) => ({ ...item, tone: 'neutral' as const })),
-          series: (report.points ?? []).map((point) => {
-            const key = includeHost && !includeSystem ? 'hostCpuPercent' : 'systemCpuPercent'
-            const metric = point.readings[key]
-            return {
-              id: String(point.start),
-              value: metric.availability === 'available' && metric.value !== null ? metric.value : 0,
-            }
-          }),
-          incidents: [],
-          listStrategy: { kind: 'content-grown' as const, expectedMaximum: 12 },
-        },
-      }
-    : undefined
   const usageContent = usageReport
     ? {
         overview: {
@@ -408,73 +377,39 @@ export function HbarStatusWorkspace({
         },
       }
     : undefined
-  const dashboardContent = report
+  const dashboardContent = usageReport
     ? {
-        overview: {
-          labels: {
-            title: labels.title,
-            detail: labels.description,
-            period: labels.performanceFilters.timeWindow,
-            chart: (label: string) => label,
-            empty: labels.unavailable(null),
-          },
-          metrics: metrics(['systemCpuPercent', 'hostCpuPercent']),
-          listStrategy: { kind: 'content-grown' as const, expectedMaximum: 8 },
-        },
-        explorer: {
-          labels: {
-            title: labels.title,
-            detail: labels.description,
-            measures: labels.performanceFilters.target,
-            chart: (label: string) => label,
-            empty: labels.unavailable(null),
-          },
-          measures: (['systemCpuPercent', 'hostCpuPercent'] as const).map((key) => ({
-            id: key,
-            label: labels.readings[key],
-            series: (report.points ?? []).map((point) => ({
-              id: String(point.start),
-              value:
-                point.readings[key].availability === 'available' && point.readings[key].value !== null
-                  ? point.readings[key].value
-                  : 0,
-            })),
-          })),
-          initialMeasureId: includeHost && !includeSystem ? 'hostCpuPercent' : 'systemCpuPercent',
-        },
         /* throughput projection is mounted by the usage section when the usage dashboard is available. */
-        throughput: usageReport
-          ? {
-              labels: {
-                title: labels.usage.title,
-                detail: labels.description,
-                ranges: labels.usage.timeWindow,
-                chart: labels.usage.timeline,
-                chartTitle: labels.usage.timeline,
-                source: labels.usage.models,
-                value: labels.usage.tokens,
-                share: labels.usage.cost,
-                empty: labels.unavailable(null),
-              },
-              ranges: [{ id: usageQuery?.window ?? 'current', label: labels.usage.timeWindow }],
-              initialRangeId: usageQuery?.window ?? 'current',
-              series: usageReport.series.map((point) => ({
-                id: String(point.start),
-                value: point.input + point.output,
-              })),
-              breakdown: usageReport.models.map((model) => ({
-                id: model.modelSelectionId,
-                source: `${model.providerId} / ${model.modelId}`,
-                value: labels.tokenCount(model.input + model.output),
-                share: labels.percent(
-                  usageReport.totals.input + usageReport.totals.output > 0
-                    ? ((model.input + model.output) / (usageReport.totals.input + usageReport.totals.output)) * 100
-                    : 0,
-                ),
-              })),
-              listStrategy: { kind: 'content-grown' as const, expectedMaximum: 12 },
-            }
-          : undefined,
+        throughput: {
+          labels: {
+            title: labels.usage.title,
+            detail: labels.description,
+            ranges: labels.usage.timeWindow,
+            chart: labels.usage.timeline,
+            chartTitle: labels.usage.timeline,
+            source: labels.usage.models,
+            value: labels.usage.tokens,
+            share: labels.usage.cost,
+            empty: labels.unavailable(null),
+          },
+          ranges: [{ id: usageQuery?.window ?? 'current', label: labels.usage.timeWindow }],
+          initialRangeId: usageQuery?.window ?? 'current',
+          series: usageReport.series.map((point) => ({
+            id: String(point.start),
+            value: point.input + point.output,
+          })),
+          breakdown: usageReport.models.map((model) => ({
+            id: model.modelSelectionId,
+            source: `${model.providerId} / ${model.modelId}`,
+            value: labels.tokenCount(model.input + model.output),
+            share: labels.percent(
+              usageReport.totals.input + usageReport.totals.output > 0
+                ? ((model.input + model.output) / (usageReport.totals.input + usageReport.totals.output)) * 100
+                : 0,
+            ),
+          })),
+          listStrategy: { kind: 'content-grown' as const, expectedMaximum: 12 },
+        },
       }
     : undefined
   const toggleGitSource = (source: StatusWorkspaceEntryState['gitQuery']['sources'][number], checked: boolean) => {
@@ -518,10 +453,8 @@ export function HbarStatusWorkspace({
           </LumenNavigationButton>
         ))}
       </LumenFrame>
-      {section === 'dashboard' && performanceQuery && dashboardContent && (
+      {section === 'dashboard' && performanceQuery && (
         <>
-          <LumenDashboard01 content={dashboardContent} className="hbar-app-react-status-lumen-dashboard" />
-          <LumenDashboard10 content={dashboardContent} className="hbar-app-react-status-lumen-dashboard" />
           <LumenFrame
             className="hbar-app-react-status-controls"
             role="group"
@@ -565,9 +498,6 @@ export function HbarStatusWorkspace({
             </LumenFormField>
           </LumenFrame>
         </>
-      )}
-      {section === 'dashboard' && monitoringContent && (
-        <LumenMonitoring01 content={monitoringContent} className="hbar-app-react-status-lumen-monitoring" />
       )}
       {section === 'usage' && usageContent && (
         <LumenUsage01 content={usageContent} className="hbar-app-react-status-lumen-usage" />
