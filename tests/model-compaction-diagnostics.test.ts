@@ -176,6 +176,12 @@ for (const failsAfterFirstChunk of [false, true]) {
       const context = await kernel.storage.call('context', session.id)
       if (failsAfterFirstChunk) {
         expect(terminals.at(-1)?.outcome).toBe('failure')
+        expect(terminals.at(-1)).toMatchObject({
+          httpStatus: 400,
+          failureKind: 'http',
+          failurePhase: 'response',
+          errorCode: 'PROVIDER_HTTP_ERROR',
+        })
         expect(own.some((event) => event.phase === 'summary_failed')).toBeTrue()
         expect(own.some((event) => event.phase === 'persist_completed')).toBeFalse()
         expect(context).toEqual(originalContext)
@@ -273,6 +279,11 @@ test('real Kernel compaction preserves context when transport connection is refu
       modelRequestId: start?.modelRequestId,
       attemptId: start?.attemptId,
       outcome: 'failure',
+      failureKind: 'transport',
+      failurePhase: 'fetch',
+      transportKind: 'connection',
+      transportCode: 'ConnectionRefused',
+      errorCode: 'PROVIDER_CONNECTION_FAILED',
     })
     expect(own.some((event) => event.event === 'provider.response')).toBeFalse()
     expect(await kernel.storage.call('context', session.id)).toEqual(originalContext)

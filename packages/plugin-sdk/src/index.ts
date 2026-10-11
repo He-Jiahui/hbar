@@ -11,6 +11,7 @@ export type { ToolPresentationDeclaration } from '@hbar/contracts'
 import type {
   Approval,
   ContentBlock,
+  DiagnosticEvent,
   FileEntry,
   Message,
   ProviderConfig,
@@ -333,6 +334,8 @@ export interface ModelDiagnosticEvent {
   readonly protocol: string
   readonly stopReason?: 'stop' | 'toolUse' | 'length' | 'aborted' | 'error' | undefined
   readonly errorCode?: string | undefined
+  readonly failureKind?: DiagnosticEvent['failureKind'] | undefined
+  readonly failurePhase?: DiagnosticEvent['failurePhase'] | undefined
   readonly durationMs?: number | undefined
 }
 export interface SessionService {

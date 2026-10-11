@@ -143,11 +143,39 @@ function assertLifecycle(
     expect(responses[0]?.httpStatus).toBe(responseStatus)
     expect(responses[0]?.upstreamRequestIdSha256).toBe(requestIdHash)
   }
+  expect(terminals[0]?.httpStatus).toBe(responseStatus)
+  if (responseStatus !== undefined) expect(terminals[0]?.upstreamRequestIdSha256).toBe(requestIdHash)
+  else expect(terminals[0]?.upstreamRequestIdSha256).toBeUndefined()
   if (transportKind === undefined) expect(transports).toHaveLength(0)
   else {
     expect(transports).toHaveLength(1)
     expect(transports[0]).toMatchObject({ phase: 'transport_failure', purpose, transportKind })
     expect(transports[0]?.modelRequestId).toBe(started[0]?.modelRequestId)
+    expect(terminals[0]?.transportKind).toBe(transportKind)
+    expect(terminals[0]?.transportCode).toBe(transports[0]?.transportCode)
+  }
+  if (terminal === 'failed') {
+    const failureKind =
+      transportKind === undefined
+        ? responseStatus === undefined
+          ? 'unknown'
+          : responseStatus >= 400
+            ? 'http'
+            : 'stream'
+        : 'transport'
+    const failurePhase =
+      failureKind === 'transport'
+        ? 'fetch'
+        : failureKind === 'http'
+          ? 'response'
+          : failureKind === 'stream'
+            ? 'stream'
+            : 'terminal'
+    expect(terminals[0]).toMatchObject({ failureKind, failurePhase })
+  } else {
+    expect(terminals[0]?.failureKind).toBeUndefined()
+    expect(terminals[0]?.failurePhase).toBeUndefined()
+    expect(terminals[0]?.errorCode).toBeUndefined()
   }
   expect(JSON.stringify(events)).not.toContain('fixture-only')
   expect(JSON.stringify(events)).not.toContain('canary')
@@ -452,9 +480,17 @@ test('ordinary Pi.run emits one model lifecycle pair for success, provider error
     const failedTerminal = events.find((event) => event.phase === 'failed')
     const failedResponse = events.find((event) => event.phase === 'response')
     expect(failedStarted).toMatchObject({ purpose: 'model' })
-    expect(failedTerminal).toMatchObject({ purpose: 'model', stopReason: 'error' })
+    expect(failedTerminal).toMatchObject({
+      purpose: 'model',
+      stopReason: 'error',
+      failureKind: 'http',
+      failurePhase: 'response',
+      errorCode: 'PROVIDER_HTTP_ERROR',
+      httpStatus: 502,
+    })
     expect(failedTerminal?.modelRequestId).toBe(failedStarted?.modelRequestId)
     expect(failedResponse).toMatchObject({ httpStatus: 502, upstreamRequestIdSha256: requestIdHash })
+    expect(events.filter((event) => event.phase === 'failed')).toHaveLength(1)
     expect(events).toHaveLength(3)
     expect(JSON.stringify(events)).not.toContain('genericUpstream')
   } finally {
@@ -669,6 +705,61 @@ test('transport diagnostics classify a real provider timeout and retain cancella
     expect(JSON.stringify(events)).not.toContain('127.0.0.1')
   } finally {
     await pendingOutcome
+    await fixture.server.stop(true)
+  }
+})
+
+test('Pi.run retains HTTP 200 on stream failure and emits one terminal failure for both OpenAI protocols', async () => {
+  for (const protocol of ['openai-completions', 'openai-responses'] as const) {
+    const fixture = await startFixture(() => new Response('data: {not-json}\n\n', { headers: sseHeaders }))
+    try {
+      const events: ModelDiagnosticEvent[] = []
+      await expect(
+        new PiDriver().run(runInput(fixture.baseUrl, AbortSignal.timeout(5_000), events, protocol)),
+      ).rejects.toThrow()
+      const terminals = events.filter(
+        (event) => event.phase === 'failed' || event.phase === 'cancelled' || event.phase === 'settled',
+      )
+      expect(terminals).toHaveLength(1)
+      expect(terminals[0]).toMatchObject({
+        purpose: 'model',
+        stopReason: 'error',
+        httpStatus: 200,
+        failureKind: 'stream',
+        failurePhase: 'stream',
+      })
+      expect(terminals[0]?.modelRequestId).toBe(events.find((event) => event.phase === 'started')?.modelRequestId)
+    } finally {
+      await fixture.server.stop(true)
+    }
+  }
+})
+
+test('Pi diagnostics isolate response facts across a failed model call, compaction and a refused request', async () => {
+  const fixture = await startFixture(() =>
+    Response.json(
+      { error: { message: 'private-error-canary' } },
+      { status: 502, headers: { 'x-request-id': UPSTREAM_REQUEST_ID } },
+    ),
+  )
+  const driver = new PiDriver()
+  try {
+    const failed: ModelDiagnosticEvent[] = []
+    await expect(driver.run(runInput(fixture.baseUrl, AbortSignal.timeout(5_000), failed))).rejects.toThrow()
+    assertLifecycle(failed, 'failed', 502, 'model')
+    const failedRequestId = failed.find((event) => event.phase === 'started')?.modelRequestId
+    await fixture.server.stop(true)
+    const refused: ModelDiagnosticEvent[] = []
+    await expect(
+      driver.summarize(responsesRequest(fixture.baseUrl), 'fixture-only', AbortSignal.timeout(5_000), (event) =>
+        refused.push(event),
+      ),
+    ).rejects.toThrow()
+    assertLifecycle(refused, 'failed', undefined, 'compaction', 'openai-responses', 'connection')
+    expect(refused.find((event) => event.phase === 'started')?.modelRequestId).not.toBe(failedRequestId)
+    expect(JSON.stringify(refused)).not.toContain(requestIdHash)
+    expect(JSON.stringify([...failed, ...refused])).not.toContain('private-error-canary')
+  } finally {
     await fixture.server.stop(true)
   }
 })

@@ -28,6 +28,59 @@ const identity = {
   requestId: 'request-1',
 }
 
+test('provider terminal diagnostics retain typed failure and response facts without payloads', () => {
+  const events: DiagnosticEvent[] = []
+  const diagnostics = createKernelExecutionDiagnostics({ sink: collector(events) })
+  const failed = {
+    ...identity,
+    method: 'model.request',
+    modelRequestId: 'model-request-stream-failed',
+    providerId: 'fixture',
+    model: 'gpt-6.1-sol',
+    protocol: 'openai-responses',
+    stopReason: 'error' as const,
+    httpStatus: 200,
+    upstreamRequestIdSha256: 'a'.repeat(64),
+    failureKind: 'stream' as const,
+    failurePhase: 'stream' as const,
+    errorCode: 'PROVIDER_STREAM_INTERRUPTED',
+  }
+  diagnostics.providerRequestSettled(failed, 'failure', 37)
+  diagnostics.modelFailed(failed, failed.errorCode, 37)
+  expect(events.map((event) => event.event)).toEqual(['provider.request_settled', 'model.failed'])
+  for (const event of events) {
+    expect(event).toMatchObject({
+      modelRequestId: failed.modelRequestId,
+      httpStatus: 200,
+      failureKind: 'stream',
+      failurePhase: 'stream',
+      errorCode: failed.errorCode,
+    })
+    expect(diagnosticEventSchema.safeParse(event).success).toBe(true)
+  }
+  diagnostics.providerRequestSettled(
+    {
+      ...identity,
+      modelRequestId: 'model-request-transport',
+      transportKind: 'connection',
+      transportCode: 'ECONNREFUSED',
+      failureKind: 'transport',
+      failurePhase: 'fetch',
+      errorCode: 'PROVIDER_CONNECTION_FAILED',
+    },
+    'failure',
+    1,
+  )
+  expect(events.at(-1)).toMatchObject({
+    transportKind: 'connection',
+    transportCode: 'ECONNREFUSED',
+    failureKind: 'transport',
+    failurePhase: 'fetch',
+  })
+  expect(events.at(-1)?.httpStatus).toBeUndefined()
+  expect(events.at(-1)?.upstreamRequestIdSha256).toBeUndefined()
+})
+
 test('kernel execution diagnostics records redacted run/model/tool lifecycle metadata', () => {
   const events: DiagnosticEvent[] = []
   const diagnostics = createKernelExecutionDiagnostics({ sink: collector(events) })
@@ -122,6 +175,99 @@ test('real Kernel local fixture emits run and model lifecycle diagnostics withou
   }
 })
 
+for (const protocol of ['openai-completions', 'openai-responses'] as const) {
+  for (const httpStatus of [200, 502] as const) {
+    test(`real Kernel retains one provider failure with HTTP ${httpStatus} for ${protocol}`, async () => {
+      const root = await mkdtemp(join(tmpdir(), 'hbar-kernel-execution-provider-'))
+      const events: DiagnosticEvent[] = []
+      let requests = 0
+      const provider = Bun.serve({
+        hostname: '127.0.0.1',
+        port: 0,
+        fetch() {
+          requests += 1
+          return httpStatus === 200
+            ? new Response('data: {not-json}\n\n', {
+                headers: { 'content-type': 'text/event-stream', 'x-request-id': 'private-request-canary' },
+              })
+            : Response.json(
+                { error: { message: 'private-error-canary' } },
+                { status: httpStatus, headers: { 'x-request-id': 'private-request-canary' } },
+              )
+        },
+      })
+      let kernel: Kernel | undefined
+      try {
+        kernel = await Kernel.create({
+          home: join(root, 'data'),
+          workspace: root,
+          secrets: new MemorySecrets(),
+          diagnostics: collector(events),
+        })
+        await kernel.saveProvider(
+          {
+            id: 'catalog',
+            name: 'Diagnostic fixture',
+            protocol,
+            baseUrl: `http://127.0.0.1:${provider.port}/v1`,
+            model: 'selected',
+            contextWindow: 4096,
+            maxOutput: 512,
+            models: [{ id: 'selected' }],
+          },
+          'private-key-canary',
+        )
+        const workspace = (await kernel.storage.call('workspaces'))[0]
+        if (!workspace) throw new Error('Provider diagnostics fixture workspace missing')
+        const session = await kernel.createSession(workspace.id)
+        const run = await kernel.submit(
+          session.id,
+          'provider-terminal-failure',
+          { text: 'private-prompt-canary', images: [] },
+          'catalog/selected',
+        )
+        await kernel.waitForIdle()
+        expect((await kernel.storage.call('run', run.id)).status).toBe('failed')
+        const own = events.filter((event) => event.runId === run.id)
+        const terminals = own.filter((event) => event.event === 'provider.request_settled')
+        const failed = own.filter((event) => event.event === 'model.failed')
+        expect(requests).toBe(1)
+        expect(terminals).toHaveLength(1)
+        expect(failed).toHaveLength(1)
+        for (const event of [...terminals, ...failed]) {
+          expect(event).toMatchObject({
+            httpStatus,
+            protocol,
+            outcome: 'failure',
+            failureKind: httpStatus === 200 ? 'stream' : 'http',
+            failurePhase: httpStatus === 200 ? 'stream' : 'response',
+            errorCode: httpStatus === 200 ? 'PROVIDER_STREAM_INTERRUPTED' : 'PROVIDER_HTTP_ERROR',
+          })
+          expect(event.upstreamRequestIdSha256).toMatch(/^[a-f0-9]{64}$/)
+          expect(diagnosticEventSchema.safeParse(event).success).toBe(true)
+        }
+        expect(failed[0]?.modelRequestId).toBe(terminals[0]?.modelRequestId)
+        expect(failed[0]?.stepId).toBe(terminals[0]?.modelRequestId)
+        const history = await kernel.storage.call('events', session.id, 0, 2000)
+        const durableSteps = history.filter((event) => event.runId === run.id && event.type === 'step.ended')
+        expect(own.filter((event) => event.event === 'model.settled')).toHaveLength(durableSteps.length)
+        const serialized = JSON.stringify(own)
+        for (const canary of [
+          'private-prompt-canary',
+          'private-key-canary',
+          'private-error-canary',
+          'private-request-canary',
+        ])
+          expect(serialized).not.toContain(canary)
+      } finally {
+        await kernel?.close()
+        await provider.stop(true)
+        await removeFixture(root)
+      }
+    }, 20_000)
+  }
+}
+
 test('real Kernel cancellation emits a terminal cancellation diagnostic', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-kernel-execution-cancel-diagnostics-'))
   const events: DiagnosticEvent[] = []
@@ -160,15 +306,47 @@ test('queued Runs receive their own diagnostic scope instead of the admitting RP
     diagnostics: protectDiagnosticSink(collector(events), scope),
     diagnosticScope: scope,
   })
+  const entered = diagnosticGate()
+  const gate = diagnosticGate()
+  kernel.tools.register({
+    name: 'diagnostic_scope_gate',
+    description: 'Gate the first Run until its successor is durably queued',
+    effect: 'read',
+    inputSchema: z.object({}),
+    async execute(_args, context) {
+      context.signal.throwIfAborted()
+      entered.release()
+      const releaseOnAbort = (): void => gate.release()
+      context.signal.addEventListener('abort', releaseOnAbort, { once: true })
+      try {
+        await gate.promise
+        context.signal.throwIfAborted()
+        return { text: 'gate released' }
+      } finally {
+        context.signal.removeEventListener('abort', releaseOnAbort)
+      }
+    },
+  })
   try {
     const workspace = (await kernel.storage.call('workspaces'))[0]
     if (!workspace) throw new Error('Kernel fixture did not create a workspace')
     const session = await kernel.createSession(workspace.id)
     const runs = await scope.run({ rpcId: 'rpc-admission' }, async () => {
-      const first = await kernel.submit(session.id, 'queued-first', { text: '/slow', images: [] }, 'local-fixture')
+      const first = await kernel.submit(
+        session.id,
+        'queued-first',
+        { text: '/tool diagnostic_scope_gate {}', images: [], approval: 'allow' },
+        'local-fixture',
+      )
       const second = await kernel.submit(session.id, 'queued-second', { text: 'hello', images: [] }, 'local-fixture')
       return [first, second]
     })
+    await entered.promise
+    expect(kernel.active.get(session.id)?.run.id).toBe(runs[0]?.id)
+    const queued = runs[1]
+    if (!queued) throw new Error('Queued diagnostics fixture did not submit a successor')
+    expect((await kernel.storage.call('run', queued.id)).status).toBe('queued')
+    gate.release()
     await kernel.waitForIdle()
     const admittedEvents = events.filter((event) => event.event === 'run.admitted')
     expect(admittedEvents).toHaveLength(2)
@@ -191,6 +369,7 @@ test('queued Runs receive their own diagnostic scope instead of the admitting RP
       expect(correlated.every((event) => event.rpcId === undefined)).toBe(true)
     }
   } finally {
+    gate.release()
     await kernel.close()
     await removeFixture(root)
   }

@@ -1723,6 +1723,7 @@ export class Kernel {
         const startedStepIds = new Set<string>()
         const completedStepIds = new Set<string>()
         const modelStartedAt = new Map<string, number>()
+        const reportedModelFailures = new Set<string>()
         let branchExecutionPath: string | null = null
         let branchTargetRevision: number | null = null
         try {
@@ -1917,6 +1918,11 @@ export class Kernel {
                 stopReason: event.stopReason,
                 httpStatus: event.httpStatus,
                 upstreamRequestIdSha256: event.upstreamRequestIdSha256,
+                transportKind: event.transportKind,
+                transportCode: event.transportCode,
+                failureKind: event.failureKind,
+                failurePhase: event.failurePhase,
+                errorCode: event.errorCode,
               }
               if (event.phase === 'started') this.executionDiagnostics.providerRequestStarted(identity)
               else if (event.phase === 'response') this.executionDiagnostics.providerResponse(identity)
@@ -1926,7 +1932,17 @@ export class Kernel {
                 this.executionDiagnostics.providerRequestSettled(identity, 'success', event.durationMs ?? 0)
               else if (event.phase === 'cancelled')
                 this.executionDiagnostics.providerRequestSettled(identity, 'skipped', event.durationMs ?? 0)
-              else this.executionDiagnostics.providerRequestSettled(identity, 'failure', event.durationMs ?? 0)
+              else {
+                this.executionDiagnostics.providerRequestSettled(identity, 'failure', event.durationMs ?? 0)
+                if (event.modelRequestId && !reportedModelFailures.has(event.modelRequestId)) {
+                  reportedModelFailures.add(event.modelRequestId)
+                  this.executionDiagnostics.modelFailed(
+                    { ...identity, stepId: event.modelRequestId },
+                    event.errorCode,
+                    event.durationMs,
+                  )
+                }
+              }
             },
             execute: async (name, args, callId) => {
               const effectiveMode = this.plugins.get<ModeService>('mode').effectiveMode(run)
@@ -2063,6 +2079,7 @@ export class Kernel {
             stepEnded: async (stepId) => {
               const startedAt = modelStartedAt.get(stepId)
               modelStartedAt.delete(stepId)
+              reportedModelFailures.delete(stepId)
               this.executionDiagnostics.modelSettled(
                 { sessionId, runId: run.id, requestId: run.requestId, stepId },
                 'success',
@@ -2130,6 +2147,7 @@ export class Kernel {
                   : 'failed'
             failure = cause instanceof Error ? cause.message : String(cause)
             for (const [stepId, startedAt] of modelStartedAt) {
+              if (reportedModelFailures.has(stepId)) continue
               this.executionDiagnostics.modelFailed(
                 { sessionId, runId: run.id, requestId: run.requestId, stepId },
                 failureDetails.code,
@@ -3127,6 +3145,11 @@ export class Kernel {
                 stopReason: event.stopReason,
                 httpStatus: event.httpStatus,
                 upstreamRequestIdSha256: event.upstreamRequestIdSha256,
+                transportKind: event.transportKind,
+                transportCode: event.transportCode,
+                failureKind: event.failureKind,
+                failurePhase: event.failurePhase,
+                errorCode: event.errorCode,
               }
               if (event.phase === 'started') this.executionDiagnostics.providerRequestStarted(identity)
               else if (event.phase === 'response') this.executionDiagnostics.providerResponse(identity)

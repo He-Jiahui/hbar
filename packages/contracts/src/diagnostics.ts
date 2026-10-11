@@ -67,6 +67,9 @@ export const diagnosticEventSchema = z.strictObject({
       'UND_ERR_CONNECT_TIMEOUT',
     ])
     .optional(),
+  /** Fixed classifications from observed provider transport/response/terminal facts. */
+  failureKind: z.enum(['transport', 'http', 'stream', 'unknown']).optional(),
+  failurePhase: z.enum(['fetch', 'response', 'stream', 'terminal']).optional(),
   errorCode: z
     .string()
     .regex(/^[A-Z][A-Z0-9_.-]{0,127}$/)

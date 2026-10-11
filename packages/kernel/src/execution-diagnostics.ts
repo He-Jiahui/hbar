@@ -1,4 +1,10 @@
-import { diagnosticEvent, type DiagnosticCorrelation, type DiagnosticEvent, type DiagnosticSink } from '@hbar/contracts'
+import {
+  diagnosticEvent,
+  diagnosticEventSchema,
+  type DiagnosticCorrelation,
+  type DiagnosticEvent,
+  type DiagnosticSink,
+} from '@hbar/contracts'
 import type { DiagnosticScopePort } from '@hbar/contracts'
 
 export interface KernelExecutionDiagnosticsOptions {
@@ -29,6 +35,11 @@ export interface KernelModelDiagnosticIdentity extends KernelRunDiagnosticIdenti
   readonly stopReason?: 'stop' | 'toolUse' | 'length' | 'aborted' | 'error' | undefined
   readonly httpStatus?: number | undefined
   readonly upstreamRequestIdSha256?: string | undefined
+  readonly transportKind?: DiagnosticEvent['transportKind'] | undefined
+  readonly transportCode?: DiagnosticEvent['transportCode'] | undefined
+  readonly failureKind?: DiagnosticEvent['failureKind'] | undefined
+  readonly failurePhase?: DiagnosticEvent['failurePhase'] | undefined
+  readonly errorCode?: string | undefined
   readonly inputEstimatedTokens?: number | undefined
   readonly inputLimit?: number | undefined
   readonly summaryMaxOutput?: number | undefined
@@ -441,6 +452,11 @@ function identityToEvent(identity: KernelModelDiagnosticIdentity): Record<string
     result.httpStatus = identity.httpStatus
   if (identity.upstreamRequestIdSha256 !== undefined && /^[a-f0-9]{64}$/.test(identity.upstreamRequestIdSha256))
     result.upstreamRequestIdSha256 = identity.upstreamRequestIdSha256
+  for (const key of ['transportKind', 'transportCode', 'failureKind', 'failurePhase'] as const) {
+    const value = identity[key]
+    if (value !== undefined && diagnosticEventSchema.shape[key].safeParse(value).success) result[key] = value
+  }
+  if (safeErrorCode(identity.errorCode)) result.errorCode = safeErrorCode(identity.errorCode)
   return result
 }
 

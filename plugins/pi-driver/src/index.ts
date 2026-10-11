@@ -316,6 +316,52 @@ function transportFailureDiagnostic(
     transportCode: code,
   })
 }
+function terminalProviderFacts(
+  response: ProviderResponse | undefined,
+  transportKind: TransportFailureKind | undefined,
+  transportCode: TransportFailureCode | undefined,
+  failed: boolean,
+): Pick<
+  ModelDiagnosticEvent,
+  | 'failureKind'
+  | 'failurePhase'
+  | 'errorCode'
+  | 'httpStatus'
+  | 'upstreamRequestIdSha256'
+  | 'transportKind'
+  | 'transportCode'
+> {
+  const responseStatus = response?.status
+  const requestId = response?.headers['x-request-id']
+  const upstreamRequestIdSha256 =
+    requestId && requestId.length <= 256 ? new Bun.CryptoHasher('sha256').update(requestId).digest('hex') : undefined
+  const responseFacts = {
+    ...(responseStatus === undefined ? {} : { httpStatus: responseStatus }),
+    ...(upstreamRequestIdSha256 === undefined ? {} : { upstreamRequestIdSha256 }),
+    ...(transportKind === undefined ? {} : { transportKind }),
+    ...(transportCode === undefined ? {} : { transportCode }),
+  }
+  if (!failed) return responseFacts
+  if (transportKind)
+    return {
+      ...responseFacts,
+      failureKind: 'transport',
+      failurePhase: 'fetch',
+      errorCode:
+        transportKind === 'timeout'
+          ? 'PROVIDER_REQUEST_TIMEOUT'
+          : transportKind === 'abort'
+            ? 'PROVIDER_ABORTED'
+            : transportKind === 'connection'
+              ? 'PROVIDER_CONNECTION_FAILED'
+              : 'PROVIDER_TRANSPORT_FAILED',
+    }
+  if (responseStatus !== undefined && responseStatus >= 400)
+    return { ...responseFacts, failureKind: 'http', failurePhase: 'response', errorCode: 'PROVIDER_HTTP_ERROR' }
+  if (responseStatus !== undefined)
+    return { ...responseFacts, failureKind: 'stream', failurePhase: 'stream', errorCode: 'PROVIDER_STREAM_INTERRUPTED' }
+  return { ...responseFacts, failureKind: 'unknown', failurePhase: 'terminal', errorCode: 'PROVIDER_UNKNOWN' }
+}
 function diagnosticProviderId(selectionId: string): string {
   const value = selectionId.split('/', 1)[0] ?? selectionId
   return value.slice(0, 160)
@@ -446,6 +492,9 @@ export class PiDriver implements HarnessDriver {
     const completedTools = new Set<string>()
     let goalStopped = false
     let requestFailure: unknown
+    let latestResponse: ProviderResponse | undefined
+    let latestTransportKind: TransportFailureKind | undefined
+    let latestTransportCode: TransportFailureCode | undefined
     const readSteering = createDriverSteeringReader(input)
     const pollSteering = async (closeWhenEmpty?: true) => {
       if (input.signal.aborted || goalStopped || requestFailure !== undefined) return []
@@ -537,6 +586,12 @@ export class PiDriver implements HarnessDriver {
                 model: attemptModel.model,
                 protocol: attemptModel.protocol,
                 stopReason: message.stopReason,
+                ...terminalProviderFacts(
+                  latestResponse,
+                  latestTransportKind,
+                  latestTransportCode,
+                  message.stopReason === 'error',
+                ),
                 durationMs:
                   modelDiagnosticStartedAt > 0 ? Math.max(0, performance.now() - modelDiagnosticStartedAt) : undefined,
               })
@@ -590,6 +645,9 @@ export class PiDriver implements HarnessDriver {
             : { instructions: request.system, context: '' }
         modelRequestId = stepId
         modelTerminalEmitted = false
+        latestResponse = undefined
+        latestTransportKind = undefined
+        latestTransportCode = undefined
         if (!modelTerminalEmitted)
           emitModelDiagnostic(input.onModelDiagnostic, {
             phase: 'started',
@@ -619,9 +677,15 @@ export class PiDriver implements HarnessDriver {
           input.run.input.thinking,
           context.context,
           input.session.id,
-          (response) => responseDiagnostic(input.onModelDiagnostic, request, response, modelRequestId, 'model'),
-          (kind, code) =>
-            transportFailureDiagnostic(input.onModelDiagnostic, request, modelRequestId, kind, code, 'model'),
+          (response) => {
+            latestResponse = response
+            responseDiagnostic(input.onModelDiagnostic, request, response, modelRequestId, 'model')
+          },
+          (kind, code) => {
+            latestTransportKind = kind
+            latestTransportCode = code
+            transportFailureDiagnostic(input.onModelDiagnostic, request, modelRequestId, kind, code, 'model')
+          },
         )
       } catch (error) {
         if (error instanceof RunControlSignal && !input.signal.aborted) throw error
@@ -636,6 +700,7 @@ export class PiDriver implements HarnessDriver {
             model: input.request.model.model,
             protocol: input.request.model.protocol,
             stopReason: input.signal.aborted ? 'aborted' : 'error',
+            ...terminalProviderFacts(latestResponse, latestTransportKind, latestTransportCode, !input.signal.aborted),
             durationMs:
               modelDiagnosticStartedAt > 0 ? Math.max(0, performance.now() - modelDiagnosticStartedAt) : undefined,
           })
@@ -693,6 +758,7 @@ export class PiDriver implements HarnessDriver {
           model: attemptModel.model,
           protocol: attemptModel.protocol,
           stopReason: input.signal.aborted ? 'aborted' : 'error',
+          ...terminalProviderFacts(latestResponse, latestTransportKind, latestTransportCode, !input.signal.aborted),
           durationMs:
             modelDiagnosticStartedAt > 0 ? Math.max(0, performance.now() - modelDiagnosticStartedAt) : undefined,
         })
@@ -711,6 +777,9 @@ export class PiDriver implements HarnessDriver {
     const startedAt = performance.now()
     const modelRequestId = crypto.randomUUID()
     let terminalEmitted = false
+    let latestResponse: ProviderResponse | undefined
+    let latestTransportKind: TransportFailureKind | undefined
+    let latestTransportCode: TransportFailureCode | undefined
     emitModelDiagnostic(onDiagnostic, {
       phase: 'started',
       purpose: 'compaction',
@@ -732,8 +801,15 @@ export class PiDriver implements HarnessDriver {
         request.context?.thinking,
         '',
         request.context?.sessionId,
-        (response) => responseDiagnostic(onDiagnostic, request, response, modelRequestId, 'compaction'),
-        (kind, code) => transportFailureDiagnostic(onDiagnostic, request, modelRequestId, kind, code, 'compaction'),
+        (response) => {
+          latestResponse = response
+          responseDiagnostic(onDiagnostic, request, response, modelRequestId, 'compaction')
+        },
+        (kind, code) => {
+          latestTransportKind = kind
+          latestTransportCode = code
+          transportFailureDiagnostic(onDiagnostic, request, modelRequestId, kind, code, 'compaction')
+        },
       )
       for await (const event of stream) {
         void event
@@ -751,6 +827,12 @@ export class PiDriver implements HarnessDriver {
           model: request.model.model,
           protocol: request.model.protocol,
           stopReason: message.stopReason,
+          ...terminalProviderFacts(
+            latestResponse,
+            latestTransportKind,
+            latestTransportCode,
+            message.stopReason === 'error',
+          ),
           durationMs: Math.max(0, performance.now() - startedAt),
         })
         throw request.model.protocol === 'mock'
@@ -770,6 +852,7 @@ export class PiDriver implements HarnessDriver {
             message.stopReason === 'toolUse' || message.stopReason === 'length' || message.stopReason === 'stop'
               ? message.stopReason
               : 'stop',
+          ...terminalProviderFacts(latestResponse, latestTransportKind, latestTransportCode, false),
           durationMs: Math.max(0, performance.now() - startedAt),
         })
       return {
@@ -790,6 +873,7 @@ export class PiDriver implements HarnessDriver {
           model: request.model.model,
           protocol: request.model.protocol,
           stopReason: signal.aborted ? 'aborted' : 'error',
+          ...terminalProviderFacts(latestResponse, latestTransportKind, latestTransportCode, !signal.aborted),
           durationMs: Math.max(0, performance.now() - startedAt),
         })
       throw error
