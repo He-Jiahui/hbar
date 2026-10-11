@@ -188,7 +188,7 @@ export class ManagedProcess {
       this.healthySince = Date.now()
       this.publish()
     } catch (error) {
-      this.fault('RUNTIME_ACTIVATION_FAILED')
+      this.fault(error instanceof HbarError ? error.code : 'RUNTIME_ACTIVATION_FAILED')
       throw error
     } finally {
       aborted()

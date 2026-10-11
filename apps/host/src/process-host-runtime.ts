@@ -1068,6 +1068,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         if (artifact.unitId === 'kernel') this.attachKernel(record, peer, owner)
       },
       onActivating: async (owner, role, signal) => {
+        if (artifact.unitId === 'storage' && this.storageFailure?.unknown)
+          throw new HbarError('STORAGE_RESULT_UNKNOWN', 'Unconfirmed writes require reconciliation before opening a replacement writer')
         if (artifact.unitId === 'storage' && this.maintenance.isWriting())
           throw new HbarError(
             'STORAGE_MAINTENANCE_ACTIVE',
@@ -1338,7 +1340,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     )
     this.interrupted.set(owner.incarnation, { owner, leases: affected, exited: false })
     if (owner.unitId === 'storage') {
-      this.storageFailure = { owner, unknown: this.storage.snapshot().inFlight > 0 }
+      this.storageFailure = { owner, unknown: this.storage.writeCallsInFlight > 0 }
       this.storage.fence(reason)
     }
     const revoked = this.coordinator.revoke(owner)

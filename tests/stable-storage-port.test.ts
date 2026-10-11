@@ -8,6 +8,23 @@ function deferred<Value>() {
   return { promise, resolve }
 }
 const outcome = (promise: Promise<unknown>) => promise.catch((error: unknown) => error)
+
+test('lost reads do not create unknown write outcomes, while a dispatched write remains counted through fencing', async () => {
+  const physical = deferred<unknown>(), port = new StableStoragePort(1000)
+  port.install(writer(1, () => physical.promise))
+  const read = port.call('getSetting', 'policy')
+  const write = port.call('setSetting', 'policy', 'deny')
+  expect(port.snapshot()).toMatchObject({ inFlight: 2 })
+  expect(port.writeCallsInFlight).toBe(1)
+  port.fence('STORAGE_RESULT_UNKNOWN')
+  expect(port.snapshot()).toMatchObject({ phase: 'fenced', inFlight: 2 })
+  expect(port.writeCallsInFlight).toBe(1)
+  physical.resolve('deny'); await Promise.all([read, write])
+  await new Promise(resolve => setTimeout(resolve, 0))
+  expect(port.snapshot()).toMatchObject({ inFlight: 0 })
+  expect(port.writeCallsInFlight).toBe(0)
+  await port.close()
+})
 function writer(generation: number, operate: () => Promise<unknown> = async () => undefined, retire: () => Promise<void> = async () => {}) {
   const value: ManagedStorageWriter = {
     owner: owner(generation),
