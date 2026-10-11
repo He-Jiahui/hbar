@@ -156,6 +156,7 @@ import piPlugin from '@hbar/pi-driver'
 declare const HBAR_EXTERNAL_DRIVER: boolean
 declare const HBAR_EXTERNAL_PLUGINS: boolean
 import localTools, { localExecutionPlugin } from '@hbar/local-tools'
+import imageGenerationPlugin from '@hbar/image-generation'
 import goalPlugin from '@hbar/goal'
 import planPlugin from '@hbar/plan'
 import budgetPlugin from '@hbar/budget'
@@ -1110,6 +1111,7 @@ export class Kernel {
       }
     } else {
       this.plugins.add(localTools)
+      this.plugins.add(imageGenerationPlugin)
       this.plugins.add(goalPlugin)
       this.plugins.add(planPlugin)
       this.plugins.add(budgetPlugin)

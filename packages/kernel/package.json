@@ -21,6 +21,7 @@
     "@hbar/agent": "workspace:*",
     "@hbar/commands": "workspace:*",
     "@hbar/contracts": "workspace:*",
+    "@hbar/image-generation": "workspace:*",
     "@hbar/provider-catalog": "workspace:*",
     "@hbar/schema-core": "workspace:*",
     "@hbar/settings-core": "workspace:*",

@@ -135,6 +135,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@hbar/commands": "workspace:*",
+        "@hbar/image-generation": "workspace:*",
         "@hbar/runtime-native": "workspace:*",
       },
     },
@@ -264,6 +265,7 @@
         "@hbar/agent": "workspace:*",
         "@hbar/commands": "workspace:*",
         "@hbar/contracts": "workspace:*",
+        "@hbar/image-generation": "workspace:*",
         "@hbar/provider-catalog": "workspace:*",
         "@hbar/schema-core": "workspace:*",
         "@hbar/settings-core": "workspace:*",
@@ -429,6 +431,15 @@
         "@hbar/contracts": "workspace:*",
         "@hbar/plugin-sdk": "workspace:*",
         "zod": "^4.5.4",
+      },
+    },
+    "plugins/image-generation": {
+      "name": "@hbar/image-generation",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hbar/contracts": "workspace:*",
+        "@hbar/plugin-sdk": "workspace:*",
+        "zod": "4.5.4",
       },
     },
     "plugins/local-tools": {
@@ -682,6 +693,8 @@
     "@hbar/goal": ["@hbar/goal@workspace:plugins/goal"],
 
     "@hbar/host": ["@hbar/host@workspace:apps/host"],
+
+    "@hbar/image-generation": ["@hbar/image-generation@workspace:plugins/image-generation"],
 
     "@hbar/kernel": ["@hbar/kernel@workspace:packages/kernel"],
 
