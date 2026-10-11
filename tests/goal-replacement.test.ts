@@ -90,6 +90,12 @@ test('missing replacement data and missing Run context safely decorate fresh and
       expect(decorated.system).toContain('A legacy objective')
       expect(decorated.system).not.toContain('<goal_replacement>')
     }
+    const goalRun = goals.decorate({
+      ...request,
+      context: { sessionId: f.session.id, source: 'goal' },
+    })
+    expect(goalRun.system).toContain('<active_goal>')
+    expect(goalRun.system).toContain('Continue working toward the active thread goal.')
   }
   check(f.goals)
   await f.kernel.close()
@@ -132,25 +138,36 @@ test('decorates the authoritative non-active Goal state without scheduling or mu
   expect(afterDecoration.seq).toBe(goalBeforeDecoration.seq)
   expect((await f.kernel.snapshot(f.session.id)).runs).toEqual(sessionBeforeDecoration.runs)
 
+  await f.goals.set(f.session.id, {
+    objective: 'A <paused> & replacement',
+    status: 'paused',
+    expectedGoalId: paused.value.goal!.goalId,
+  })
+  const replaced = await f.goals.snapshot(f.session.id)
+  expect(f.goals.decorate(request).system).toContain('A &lt;paused&gt; &amp; replacement')
+
   for (const status of ['blocked', 'usage_limited'] as const) {
-    await f.goals.set(f.session.id, { status, expectedGoalId: paused.value.goal!.goalId })
+    await f.goals.set(f.session.id, { status, expectedGoalId: replaced.value.goal!.goalId })
     const current = await f.goals.snapshot(f.session.id)
     expect(f.goals.decorate(request).system).toContain(`Status: ${status}`)
-    expect((await f.goals.snapshot(f.session.id)).value.goal).toEqual(current.value.goal)
+    const after = await f.goals.snapshot(f.session.id)
+    expect(after.value.goal).toMatchObject({ goalId: current.value.goal!.goalId, status })
+    expect(after.seq).toBe(current.seq)
   }
-  await f.goals.set(f.session.id, { status: 'budget_limited', expectedGoalId: paused.value.goal!.goalId })
+  await f.goals.set(f.session.id, { status: 'budget_limited', expectedGoalId: replaced.value.goal!.goalId })
+  expect(() => f.goals.decorate(request)).toThrow('Goal token budget exhausted')
   const budgetRequest: ModelRequest = {
     ...request,
     context: { sessionId: f.session.id, purpose: 'context-inspection' },
   }
   expect(f.goals.decorate(budgetRequest).system).toContain('Status: budget_limited')
 
-  await f.goals.set(f.session.id, { status: 'complete', expectedGoalId: paused.value.goal!.goalId })
+  await f.goals.set(f.session.id, { status: 'complete', expectedGoalId: replaced.value.goal!.goalId })
   expect(f.goals.decorate(request).system).toContain('Status: complete')
-  await f.goals.clear(f.session.id, paused.value.goal!.goalId)
+  await f.goals.clear(f.session.id, replaced.value.goal!.goalId)
   const cleared = f.goals.decorate(request)
   expect(cleared.system).toContain('<current_goal status="none">')
-  expect(cleared.system).not.toContain('A paused objective')
+  expect(cleared.system).not.toContain('A &lt;paused&gt; &amp; replacement')
 })
 
 for (const source of ['user', 'goal'] as const) {
