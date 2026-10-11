@@ -61,4 +61,27 @@ export default tseslint.config(
     files: ['eslint.config.js'],
     ...tseslint.configs.disableTypeChecked,
   },
+  {
+    files: [
+      'apps/**/*.{ts,tsx}',
+      'packages/**/*.{ts,tsx}',
+      'plugins/**/*.{ts,tsx}',
+      'hbar-ui/packages/lumen-app-ui/src/**/*.{ts,tsx}',
+    ],
+    ignores: ['**/*.test.ts', '**/*.test.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@mui/internal-test-utils',
+              message:
+                'This is the test-only Lumen renderer adapter; production code must use public component contracts.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 )
