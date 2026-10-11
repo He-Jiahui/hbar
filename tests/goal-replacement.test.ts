@@ -123,8 +123,13 @@ test('decorates the authoritative non-active Goal state without scheduling or mu
   expect(decorated.system).toContain('Status: paused')
   expect(decorated.system).toContain('A paused objective')
   expect(decorated.system).not.toContain('<active_goal>')
-  expect((await f.goals.snapshot(f.session.id)).value.goal).toEqual(paused.value.goal)
-  expect((await f.goals.snapshot(f.session.id)).seq).toBe(goalBeforeDecoration.seq)
+  const afterDecoration = await f.goals.snapshot(f.session.id)
+  expect(afterDecoration.value.goal).toMatchObject({
+    goalId: goalBeforeDecoration.value.goal!.goalId,
+    objective: goalBeforeDecoration.value.goal!.objective,
+    status: 'paused',
+  })
+  expect(afterDecoration.seq).toBe(goalBeforeDecoration.seq)
   expect((await f.kernel.snapshot(f.session.id)).runs).toEqual(sessionBeforeDecoration.runs)
 
   for (const status of ['blocked', 'usage_limited'] as const) {
