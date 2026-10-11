@@ -123,9 +123,10 @@ test('snapshot read phases correlate with the real Worker request and preserve p
       'usage',
       'runs',
       'context-history',
+      'context-compactions',
       'tool-events',
     ])
-    expect(phases).toHaveLength(16)
+    expect(phases).toHaveLength(18)
     for (const event of phases) {
       expect(event).toMatchObject({
         component: 'sqlite',
