@@ -942,7 +942,7 @@ export class PiDriver implements HarnessDriver {
             latestResponse,
             latestTransportKind,
             latestTransportCode,
-            message.stopReason === 'error',
+            message.stopReason === 'error' || incomplete,
             latestTransportPhase,
             streamState,
             diagnosticStopReason(message.stopReason),

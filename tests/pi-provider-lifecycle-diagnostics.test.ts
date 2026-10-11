@@ -302,15 +302,17 @@ test('Pi compaction diagnostics preserve selection identity and one started/term
   const lengthFixture = await fixtureForFinish('length')
   try {
     const events: ModelDiagnosticEvent[] = []
-    const result = await new PiDriver().summarize(
-      request(lengthFixture.baseUrl),
-      'fixture-only',
-      AbortSignal.timeout(5_000),
-      (event) => events.push(event),
-    )
-    expect(result.text).toBe('partial')
-    assertLifecycle(events, 'settled', 200)
-    expect(events.find((event) => event.phase === 'settled')?.stopReason).toBe('length')
+    await expect(
+      new PiDriver().summarize(request(lengthFixture.baseUrl), 'fixture-only', AbortSignal.timeout(5_000), (event) =>
+        events.push(event),
+      ),
+    ).rejects.toMatchObject({ code: 'COMPACTION_INCOMPLETE' })
+    assertLifecycle(events, 'failed', 200)
+    expect(events.find((event) => event.phase === 'failed')).toMatchObject({
+      stopReason: 'length',
+      streamSubtype: 'incomplete',
+      errorCode: 'COMPACTION_INCOMPLETE',
+    })
   } finally {
     await lengthFixture.server.stop(true)
   }
