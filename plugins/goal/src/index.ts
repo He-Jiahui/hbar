@@ -1411,8 +1411,9 @@ class GoalRuntime implements GoalService {
 
   decorate(request: ModelRequest): ModelRequest {
     const sessionId = request.context?.sessionId
-    if (sessionId) this.assertKnown(sessionId)
-    const goal = sessionId ? this.goals.get(sessionId) : undefined
+    if (!sessionId) return request
+    this.assertKnown(sessionId)
+    const goal = this.goals.get(sessionId)
     if (sessionId && request.context?.runId && request.context.purpose !== 'context-inspection')
       this.assertRunCurrent(sessionId, request.context.runId)
     if (
@@ -1424,7 +1425,31 @@ class GoalRuntime implements GoalService {
         'GOAL_BUDGET_EXHAUSTED',
         `Goal token budget exhausted (${goal.tokensUsed}/${goal.tokenBudget})`,
       )
-    if (!goal || goal.status !== 'active') return request
+    if (!goal) {
+      return appendModelContext(
+        request,
+        [
+          '<current_goal status="none">',
+          'There is no persistent Goal for this session. Do not infer an active Goal from earlier messages.',
+          '</current_goal>',
+        ].join('\n'),
+      )
+    }
+    if (goal.status !== 'active') {
+      return appendModelContext(
+        request,
+        [
+          '<current_goal>',
+          `- Goal ID: ${escapeXml(goal.goalId)}`,
+          `- Status: ${goal.status}`,
+          'This is the authoritative current persistent Goal state. Do not resume it, queue a continuation, or treat it as active unless an explicit user or system control changes its status.',
+          '<objective>',
+          escapeXml(goal.objective),
+          '</objective>',
+          '</current_goal>',
+        ].join('\n'),
+      )
+    }
     const remaining = goal.tokenBudget === null ? 'unbounded' : String(Math.max(0, goal.tokenBudget - goal.tokensUsed))
     const continuation =
       request.context?.source === 'goal'
@@ -1446,6 +1471,8 @@ class GoalRuntime implements GoalService {
     const previousObjective = replacement?.previousObjective
     const prompt = [
       '<active_goal>',
+      `- Goal ID: ${escapeXml(goal.goalId)}`,
+      '- Status: active',
       ...continuation,
       ...(typeof previousObjective === 'string' &&
       typeof replacement?.firstRunId === 'string' &&
