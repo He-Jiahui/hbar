@@ -42,13 +42,15 @@ export function NotificationPageNavigation({
   labels,
   selected,
   onOpen,
-}: Omit<NotificationPageButtonProps, 'unreadCount'>) {
+  connected,
+}: Omit<NotificationPageButtonProps, 'unreadCount'> & { readonly connected: boolean }) {
   const runtime = useHbarRuntime()
   const notifications = runtime.state.notifications
   const state = useHbarRuntimeState(notifications.reader)
   useEffect(() => {
+    if (!connected) return
     void notifications.runtime.refresh({}).catch(() => undefined)
-  }, [notifications.runtime])
+  }, [connected, notifications.runtime])
   return (
     <LumenFrame className="hbar-web-notification-navigation">
       <NotificationPageButton labels={labels} unreadCount={state.unreadCount} selected={selected} onOpen={onOpen} />

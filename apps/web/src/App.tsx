@@ -2061,6 +2061,7 @@ export default function App({
             <NotificationPageNavigation
               labels={notificationNavigationCopy(locale)}
               selected={presentation.page.kind === 'notifications'}
+              connected={connection === 'connected'}
               onOpen={() => openFeaturePanel('notifications')}
             />
           }
