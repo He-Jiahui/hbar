@@ -106,13 +106,6 @@ export class ManagedHostRuntime implements RuntimeSystemPort {
       instanceId, artifacts: this.artifacts,
       references: owner => this.registeredOwners.has(owner.incarnation) ? this.coordinator.references(owner) : { runs: 0, resources: 0, tools: 0 },
       create: (artifact, generation, changed) => this.createGeneration(artifact, generation, changed),
-      beforeActivate: async owner => {
-        if (owner.unitId === 'storage' && this.storage.snapshot().owner) {
-          this.ready = false
-          this.kernelValue?.beginDrain()
-          await this.storage.beginHandover()
-        }
-      },
       afterDispose: owner => {
         if (this.registeredOwners.has(owner.incarnation)) {
           this.coordinator.disposeOwner(owner)
@@ -221,6 +214,13 @@ export class ManagedHostRuntime implements RuntimeSystemPort {
         record.owner = owner
         if (artifact.unitId === 'driver.pi') record.adapter = new RuntimeDriverAdapter(peer, runId => this.leases.get(runId))
         if (artifact.unitId === 'controller') record.controller = new RuntimeControllerAdapter(peer)
+      },
+      onActivating: async (owner, _role, signal) => {
+        if (owner.unitId === 'storage' && this.storage.snapshot().phase === 'serving' && this.storage.snapshot().owner) {
+          signal.throwIfAborted(); this.ready = false; this.kernelValue?.beginDrain()
+          await this.storage.beginHandover()
+          signal.throwIfAborted()
+        }
       },
       onState: state => {
         changed()

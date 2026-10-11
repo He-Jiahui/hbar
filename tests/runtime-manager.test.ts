@@ -122,7 +122,8 @@ function fixture(
     failedArtifact?: number
     gate?: Promise<void>
     units?: string[]
-    beforeActivate?: (owner: RuntimeOwner, artifact: RuntimeArtifact) => Promise<void>
+    beforeActivate?: (owner: RuntimeOwner, artifact: RuntimeArtifact, signal: AbortSignal) => Promise<void>
+    activationPreparationMs?: number
   } = {},
 ) {
   const sets = new Map<string, RuntimeArtifactSet>()
@@ -142,6 +143,7 @@ function fixture(
     },
     sweepMs: 10,
     ...(options.beforeActivate ? { beforeActivate: options.beforeActivate } : {}),
+    ...(options.activationPreparationMs ? { activationPreparationMs: options.activationPreparationMs } : {}),
     references: (owner) => ({ runs: references.get(owner.incarnation) ?? 0, resources: 0, tools: 0 }),
     create(artifact, generation, changed) {
       const value = new Generation(
@@ -292,7 +294,7 @@ test('cancelled prepared candidates release their process but preserve the activ
   expect(f.created.at(-1)?.state.phase).toBe('disposed')
 })
 
-test('an activation handoff cannot be cancelled halfway through granting production authority', async () => {
+test('a readiness wait remains cancellable before the default route switches and a late result cannot activate it', async () => {
   const handoff = deferred()
   const f = fixture({
     beforeActivate: async (_owner, artifact) => {
@@ -300,13 +302,37 @@ test('an activation handoff cannot be cancelled halfway through granting product
     },
   })
   await f.completed(f.reload(1))
+  const original = f.manager.currentVersion('plugin')
   const operation = f.reload(2)
   await until(() => f.manager.getReload(operation).phase === 'activating')
-  expect(f.manager.cancelReload(operation).cancellable).toBe(false)
-  expect(f.manager.getReload(operation).units[0]?.phase).toBe('activating')
+  expect(f.manager.getReload(operation).cancellable).toBe(true)
+  expect(f.manager.cancelReload(operation).phase).toBe('cancelled')
   handoff.release()
-  await f.completed(operation)
-  expect(f.manager.currentVersion('plugin').artifactId).toBe(artifact(2).id)
+  await f.manager.reconcile()
+  expect(f.manager.currentVersion('plugin')).toEqual(original)
+  expect(f.manager.getReload(operation).switchedAt).toBeNull()
+})
+
+test('a readiness hook that ignores cancellation expires without changing the default version', async () => {
+  const f = fixture({ activationPreparationMs: 25,
+    beforeActivate: async (_owner, artifact) => { if (artifact.id === '2'.padStart(64, '0')) await new Promise(() => {}) },
+  })
+  await f.completed(f.reload(1))
+  const original = f.manager.currentVersion('plugin'), operation = f.reload(2)
+  await until(() => f.manager.getReload(operation).phase === 'failed')
+  expect(f.manager.getReload(operation).units[0]?.reasonCode).toBe('RUNTIME_ACTIVATION_PREPARATION_TIMEOUT')
+  expect(f.manager.currentVersion('plugin')).toEqual(original)
+})
+
+test('deliberate manager shutdown cancels an unswitched readiness hook even when that hook never returns', async () => {
+  const f = fixture({ beforeActivate: async (_owner, artifact) => { if (artifact.id === '2'.padStart(64, '0')) await new Promise(() => {}) } })
+  await f.completed(f.reload(1))
+  const operation = f.reload(2)
+  await until(() => f.manager.getReload(operation).phase === 'activating')
+  await f.manager.close()
+  expect(f.manager.getReload(operation).phase).toBe('cancelled')
+  expect(f.created.every(generation => generation.snapshot().phase === 'disposed')).toBe(true)
+  expect(f.manager.getReload(operation).switchedAt).toBeNull()
 })
 
 test('candidate preparation concurrency is two even for a larger multi-unit operation', async () => {
@@ -405,10 +431,11 @@ test('the manager can replace a real Bun unit without changing an unrelated chil
   const before = manager.snapshot()
   const originalPid = before.units.find((unit) => unit.descriptor.id === 'plugin')?.generations[0]?.pid
   if (typeof originalPid !== 'number') throw new Error('The original managed unit has no live PID')
-  const inFlight = manager.call('plugin', 'fixture.wait', 300, z.number())
+  const inFlight = manager.call('plugin', 'fixture.wait', 300, z.number()).catch((error: unknown) => error)
   sets.set('second', { id: 'second', createdAt: Date.now(), artifacts: [artifact(2)] })
   const reload = manager.reload('second', ['plugin']).operationId
-  await until(() => manager.currentVersion('plugin').artifactId === artifact(2).id)
+  await until(() => manager.snapshot().units.find(unit => unit.descriptor.id === 'plugin')?.generations.some(generation =>
+    generation.role === 'default' && generation.artifactId === artifact(2).id && generation.phase === 'serving') ?? false)
   expect(await inFlight).toBe(originalPid)
   await until(() => manager.getReload(reload).phase === 'completed')
   const after = manager.snapshot()

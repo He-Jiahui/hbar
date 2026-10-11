@@ -149,10 +149,9 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         return { ...refs, runs: Math.max(refs.runs, retained) }
       },
       create: (artifact, generation, changed) => this.createGeneration(artifact, generation, changed),
-      beforeActivate: async owner => {
+      beforeActivate: async (owner, _artifact, signal) => {
         if (owner.unitId === 'storage' && this.storage.snapshot().owner) {
-          await this.maintenance.waitForWriter(AbortSignal.timeout(120_000))
-          await this.storage.beginHandover()
+          await this.maintenance.waitForWriter(signal)
         }
       },
       afterDispose: owner => {
@@ -406,8 +405,10 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         }
         if (artifact.unitId === 'kernel') this.attachKernel(record, peer, owner)
       },
-      onActivating: (owner, role, signal) => {
+      onActivating: async (owner, role, signal) => {
         if (artifact.unitId === 'storage' && this.maintenance.isWriting()) throw new HbarError('STORAGE_MAINTENANCE_ACTIVE', 'The maintenance writer must finish verification before storage activation')
+        if (artifact.unitId === 'storage' && this.storage.snapshot().phase === 'serving' && this.storage.snapshot().owner?.incarnation !== owner.incarnation)
+          await this.storage.beginHandover()
         signal.throwIfAborted(); this.coordinator.activate(owner, role)
         if (artifact.descriptor.kind === 'plugin' && role === 'default') this.pluginPreparingCatalog.add(artifact.unitId)
       },

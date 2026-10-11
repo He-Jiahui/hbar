@@ -30,7 +30,9 @@ export interface RuntimeManagerOptions {
   readonly artifacts: RuntimeArtifactRegistry
   readonly create: (artifact: RuntimeArtifact, generation: number, changed: () => void) => ManagedGenerationPort
   readonly references: (owner: RuntimeOwner) => { runs: number; resources: number; tools: number }
-  readonly beforeActivate?: (owner: RuntimeOwner, artifact: RuntimeArtifact) => Promise<void>
+  /** Cancellable readiness checks alone. Production authority and writer retirement belong to activate(). */
+  readonly beforeActivate?: (owner: RuntimeOwner, artifact: RuntimeArtifact, signal: AbortSignal) => Promise<void>
+  readonly activationPreparationMs?: number
   readonly afterDispose?: (owner: RuntimeOwner) => void
   readonly sweepMs?: number
 }
@@ -122,6 +124,9 @@ export class RuntimeManager {
   private closing: Promise<void> | undefined
 
   constructor(private readonly options: RuntimeManagerOptions) {
+    const activationPreparationMs = options.activationPreparationMs ?? RUNTIME_LIMITS.startupMs
+    if (!Number.isSafeInteger(activationPreparationMs) || activationPreparationMs < 1 || activationPreparationMs > RUNTIME_LIMITS.startupMs)
+      throw new RangeError('Invalid activation preparation deadline')
     const sweepMs = options.sweepMs ?? 1_000
     if (!Number.isSafeInteger(sweepMs) || sweepMs < 1) throw new RangeError('Invalid runtime sweep duration')
     this.sweep = setInterval(() => {
@@ -398,22 +403,19 @@ export class RuntimeManager {
       }
       const generation = candidate.generation
       const previous = unit.current
-      candidate.committing = true
       this.update(candidate.operationId, unit.descriptor.id, 'activating')
       try {
-        await this.options.beforeActivate?.(generation.owner(), candidate.artifact)
+        await this.beforeActivation(candidate, generation.owner())
       } catch (error) {
-        candidate.committing = false
-        candidate.cancelled = true
-        this.update(
-          candidate.operationId,
-          unit.descriptor.id,
-          'failed',
-          error instanceof HbarError ? error.code : 'RUNTIME_ACTIVATION_PREPARATION_FAILED',
-        )
+        if (!candidate.cancelled) {
+          candidate.cancelled = true
+          this.update(candidate.operationId, unit.descriptor.id, 'failed',
+            error instanceof HbarError ? error.code : 'RUNTIME_ACTIVATION_PREPARATION_FAILED')
+        }
         continue
       }
       if (candidate.cancelled || this.stopped) continue
+      candidate.committing = true
       unit.current = generation
       unit.currentArtifact = candidate.artifact
       unit.candidate = null
@@ -445,6 +447,31 @@ export class RuntimeManager {
       else if (activated) this.update(candidate.operationId, unit.descriptor.id, 'completed')
       this.changed(unit.descriptor.id)
       await this.collect(unit)
+    }
+  }
+
+  private async beforeActivation(candidate: Candidate, owner: RuntimeOwner): Promise<void> {
+    if (!this.options.beforeActivate) return
+    const controller = new AbortController()
+    const cancel = () => controller.abort(new HbarError('RUNTIME_CANCELLED', 'Runtime readiness wait was cancelled'))
+    const timer = setTimeout(() => controller.abort(new HbarError('RUNTIME_ACTIVATION_PREPARATION_TIMEOUT', 'Runtime readiness did not finish before its deadline')),
+      this.options.activationPreparationMs ?? RUNTIME_LIMITS.startupMs)
+    candidate.controller.signal.addEventListener('abort', cancel, { once: true })
+    if (candidate.controller.signal.aborted) cancel()
+    let aborted: (() => void) | undefined
+    try {
+      await Promise.race([
+        Promise.resolve().then(() => { controller.signal.throwIfAborted(); return this.options.beforeActivate?.(owner, candidate.artifact, controller.signal) }),
+        new Promise<never>((_, reject) => {
+          aborted = () => reject(controller.signal.reason instanceof HbarError ? controller.signal.reason : new HbarError('RUNTIME_CANCELLED', 'Readiness was cancelled'))
+          controller.signal.addEventListener('abort', aborted, { once: true })
+          if (controller.signal.aborted) aborted()
+        }),
+      ])
+    } finally {
+      clearTimeout(timer); candidate.controller.signal.removeEventListener('abort', cancel)
+      if (aborted) controller.signal.removeEventListener('abort', aborted)
+      controller.abort()
     }
   }
 
@@ -507,7 +534,7 @@ export class RuntimeManager {
     else if (phases.some((phase) => phase === 'draining' || phase === 'switched')) operation.phase = 'draining'
     else if (phases.some((phase) => phase === 'activating')) operation.phase = 'activating'
     else operation.phase = 'preparing'
-    operation.cancellable = phases.some((phase) => ['queued', 'preparing', 'ready', 'waiting_capacity'].includes(phase))
+    operation.cancellable = phases.some((phase) => ['queued', 'preparing', 'ready', 'waiting_capacity', 'activating'].includes(phase))
     this.changed(undefined, operationId)
   }
 
