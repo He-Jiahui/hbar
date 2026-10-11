@@ -65,6 +65,17 @@
       ]
     },
     {
+      "id": "runtime",
+      "owner": "Stable Host runtime and authenticated subscription adapter",
+      "stateOwner": "Runtime manager and applied client cursor",
+      "category": "system.extensions",
+      "milestone": "runtime-recovery",
+      "status": "complete-managed-runtime-commands-and-bounded-status-feed",
+      "rpc": ["system.runtime.watch", "system.runtime.unwatch"],
+      "additionalCommands": ["system.runtime.get", "system.runtime.reload", "system.runtime.reload.get", "system.runtime.reload.cancel"],
+      "tests": ["tests/runtime-system-commands.test.ts", "tests/client-runtime-status.test.ts", "tests/runtime-status-feed.test.ts"]
+    },
+    {
       "id": "paths",
       "owner": "Host paths service",
       "stateOwner": "Host path configuration",

@@ -203,11 +203,12 @@ test('Controller replacement pins an accepted request while keeping the external
   await client.pair(host.pairing.code, 'Controller replacement')
   const original = f.runtime.snapshot()
   const pending = client.call('workspace.list', {})
+  void pending.catch(() => {})
   await admitted
   const sourceRoot = await mkdtemp(join(process.cwd(), 'artifacts', 'managed-controller-update-'))
   resources.push(() => rm(sourceRoot, { recursive: true, force: true }))
   const source = join(sourceRoot, 'controller.ts')
-  await writeFile(source, `${(await readFile('apps/host/src/runtime-controller-process.ts', 'utf8')).replace("'./runtime-controller-contract'", "'../../apps/host/src/runtime-controller-contract'")}\nexport const revision = 2\n`)
+  await writeFile(source, `${(await readFile('apps/host/src/runtime-controller-process.ts', 'utf8')).replaceAll("'./", "'../../apps/host/src/")}\nexport const revision = 2\n`)
   const build = f.runtime.buildUnits.find(unit => unit.descriptor.id === 'controller')!
   const set = f.runtime.artifacts.registerSet([await f.runtime.artifacts.build({ ...build, entrypoint: source })])
   const operation = f.runtime.reload(set.id, ['controller'])

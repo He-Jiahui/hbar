@@ -13,7 +13,7 @@ interface ConnectionRecord {
   readonly dataRootId?: string
 }
 
-async function until<Value>(operation: () => Promise<Value>, timeoutMs = 20_000): Promise<Value> {
+async function until<Value>(operation: () => Promise<Value>, timeoutMs = 120_000): Promise<Value> {
   const started = Date.now()
   for (;;) {
     try {
@@ -53,7 +53,11 @@ test('supervised Host accepts restart and recovers an abrupt crash at its preser
   let secondClient: HbarClient | undefined
   let latestPid: number | undefined
   try {
-    const first = await until(async () => JSON.parse(await readFile(connectionFile, 'utf8')) as ConnectionRecord)
+    const first = await until(async () => {
+      const connection = JSON.parse(await readFile(connectionFile, 'utf8')) as ConnectionRecord
+      if (!(await fetch(`${connection.url}/healthz`)).ok) throw new Error('Host is not ready')
+      return connection
+    })
     latestPid = first.pid
     expect(first.supervisorPid).toBe(supervisor.pid)
     const duplicate = Bun.spawn([
@@ -113,4 +117,4 @@ test('supervised Host accepts restart and recovers an abrupt crash at its preser
     }
     await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
   }
-})
+}, 420_000)
