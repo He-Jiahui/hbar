@@ -69,7 +69,7 @@ async function readBounded(response: Response, maximum: number, signal: AbortSig
       if (done) break
       size += value.byteLength
       if (size > maximum) {
-        await reader.cancel('response size limit exceeded')
+        await reader.cancel('response size limit exceeded').catch(() => {})
         throw new HbarError('IMAGE_RESPONSE_LIMIT', 'Image provider response exceeds the 14 MiB limit')
       }
       chunks.push(value)
@@ -276,12 +276,12 @@ async function generate(
     )
   }
   if (!response.ok) {
-    await response.body?.cancel()
+    await response.body?.cancel().catch(() => {})
     throw new HbarError('IMAGE_PROVIDER_HTTP', `Image provider returned HTTP ${response.status}`)
   }
   const contentType = response.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase()
   if (contentType !== 'application/json') {
-    await response.body?.cancel()
+    await response.body?.cancel().catch(() => {})
     throw new HbarError('IMAGE_PROVIDER_INVALID', 'Image provider must return an application/json response')
   }
   const body = await readBounded(response, MAX_RESPONSE_BYTES, signal)

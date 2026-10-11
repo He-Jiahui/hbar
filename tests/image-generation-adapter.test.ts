@@ -80,6 +80,62 @@ test('HTTP and truncated JSON failures are concise and do not copy provider bodi
   ).rejects.toMatchObject({ code: 'IMAGE_PROVIDER_INVALID', message: 'Image provider returned invalid JSON' })
 })
 
+test('response cleanup failures preserve HTTP, content-type, and response-limit errors', async () => {
+  const cases = [
+    {
+      callId: 'cleanup-http',
+      contentType: 'application/json',
+      expected: 'Image provider returned HTTP 503',
+      status: 503,
+    },
+    {
+      callId: 'cleanup-content-type',
+      contentType: 'text/html',
+      expected: 'Image provider must return an application/json response',
+      status: 200,
+    },
+    {
+      callId: 'cleanup-response-limit',
+      contentType: 'application/json',
+      expected: 'Image provider response exceeds the 14 MiB limit',
+      oversized: true,
+      status: 200,
+    },
+  ] as const
+  const errors: string[] = []
+  const cancellationCounts: number[] = []
+
+  for (const fixture of cases) {
+    let cancelCalls = 0
+    const tool = createImageGenerationTool(
+      registry(),
+      async () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              if ('oversized' in fixture && fixture.oversized) controller.enqueue(new Uint8Array(15 * 1024 * 1024))
+            },
+            cancel() {
+              cancelCalls += 1
+              throw new Error('fixture cleanup rejection')
+            },
+          }),
+          { headers: { 'Content-Type': fixture.contentType }, status: fixture.status },
+        ),
+    )
+    try {
+      await tool.execute(input(fixture.callId), context(new AbortController().signal, fixture.callId))
+      errors.push('request unexpectedly succeeded')
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error))
+    }
+    cancellationCounts.push(cancelCalls)
+  }
+
+  expect(errors).toEqual(cases.map(({ expected }) => expected))
+  expect(cancellationCounts).toEqual([1, 1, 1])
+})
+
 test('oversized response streams are cancelled at the hard response limit', async () => {
   let cancelled = false
   const chunk = new Uint8Array(8 * 1024 * 1024)
@@ -94,6 +150,7 @@ test('oversized response streams are cancelled at the hard response limit', asyn
           },
           cancel() {
             cancelled = true
+            throw new Error('fixture cleanup rejection')
           },
         }),
         { headers: { 'Content-Type': 'application/json' } },
@@ -137,6 +194,7 @@ test('cancellation while reading a streaming body releases the response reader',
           },
           cancel() {
             cancelled = true
+            throw new Error('fixture cleanup rejection')
           },
         }),
         { headers: { 'Content-Type': 'application/json' } },
