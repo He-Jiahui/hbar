@@ -108,6 +108,7 @@ Usage:
   hbar exec connection.status|connection.connect|connection.disconnect|connection.reconnect
   hbar exec pairing.accept <code> <deviceName>
   hbar exec run.submit --message <text> --session <id|name> --idempotency-key <key>
+  hbar exec session.message.send --input-json <sender/target/workspace/model/text> --idempotency-key <key>
   hbar exec run.retry <operationId> --session <id|name> --idempotency-key <key>
   hbar exec context.compact --session <id|name> --model <provider/model|id|name>
   hbar exec operation.get|operation.cancel <operationId>

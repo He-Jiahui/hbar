@@ -63,6 +63,34 @@ export const submitRunInputSchema = z.strictObject({
   input: inputSchema,
   expectedLaunchTargetRevision: z.number().int().nonnegative().safe().optional(),
 })
+
+export const peerMessageSendInputSchema = z.strictObject({
+  senderSessionId: idSchema,
+  targetSessionId: idSchema,
+  workspaceId: idSchema,
+  modelId: idSchema,
+  text: z.string().trim().min(1).max(20_000),
+})
+export const peerMessageReceiptSchema = z.strictObject({
+  commandId: z.literal('session.message.send'),
+  commandVersion: z.literal(1),
+  idempotencyKey: z.string().min(1).max(128),
+  messageId: idSchema.nullable(),
+  senderSessionId: idSchema,
+  targetSessionId: idSchema,
+  workspaceId: idSchema,
+  status: z.enum(['accepted', 'queued']),
+  delivery: z.enum(['new_run', 'steered', 'queued']),
+  operationId: idSchema,
+  targetRunId: idSchema.nullable(),
+  eventId: idSchema.nullable(),
+  sessionSeq: z.number().int().nonnegative(),
+  acceptedAt: z.number().int().nonnegative(),
+  deliveredAt: z.number().int().nonnegative().nullable(),
+})
+export type PeerMessageSendInput = z.output<typeof peerMessageSendInputSchema>
+export type PeerMessageReceipt = z.output<typeof peerMessageReceiptSchema>
+
 export const retryRunInputSchema = z.strictObject({
   sessionId: idSchema,
   operationId: idSchema,
@@ -129,6 +157,33 @@ export interface OperationWatchResult {
 }
 
 export const runCommands = {
+  'session.message.send': defineCommand(
+    {
+      id: 'session.message.send',
+      version: 1,
+      owner: 'hbar.run',
+      kind: 'command',
+      execution: 'host',
+      stateEffect: 'persistent',
+      category: 'workspace.session',
+      scope: 'session',
+      titleKey: 'commands.session.message.send.title',
+      descriptionKey: 'commands.session.message.send.description',
+      surfaces: ['cli', 'api'],
+      idempotency: 'required',
+      cli: {
+        arguments: [
+          { field: 'senderSessionId', type: 'string', flag: 'sender-session' },
+          { field: 'targetSessionId', type: 'string', flag: 'target-session' },
+          { field: 'workspaceId', type: 'string', flag: 'workspace' },
+          { field: 'modelId', type: 'string', flag: 'model' },
+          { field: 'text', type: 'string', flag: 'text' },
+        ],
+      },
+    },
+    peerMessageSendInputSchema,
+    peerMessageReceiptSchema,
+  ),
   'queuedRun.getEditable': defineCommand(
     {
       id: 'queuedRun.getEditable',

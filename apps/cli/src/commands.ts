@@ -1211,6 +1211,32 @@ export async function runCliCommand(
     if (await runMetricsCommand(args, runtime, output)) return true
     const commands = createBudgetCommandClient(runtime.client)
     const runs = createRunCommandClient(runtime.client)
+    if (action === 'session.message.send') {
+      if (!args.idempotencyKey)
+        throw new CommandError('INVALID_INPUT', '--idempotency-key is required for session.message.send')
+      if (!args.inputJson)
+        throw new CommandError(
+          'INVALID_INPUT',
+          'Provide the explicit sender, target, workspace, model and text in --input-json',
+        )
+      let rawInput: unknown
+      try {
+        rawInput = JSON.parse(args.inputJson) as unknown
+      } catch {
+        throw new CommandError('INVALID_INPUT', '--input-json must contain JSON')
+      }
+      const parsed = runCommands[action].input.safeParse(rawInput)
+      if (!parsed.success) throw validationError('INVALID_INPUT', parsed.error)
+      output(
+        JSON.stringify(
+          await runs.execute(action, parsed.data, {
+            idempotencyKey: args.idempotencyKey,
+            ...(args.requestId ? { requestId: args.requestId } : {}),
+          }),
+        ),
+      )
+      return true
+    }
     if (action === 'receipt') {
       const runReceipt = selector === 'run.submit' || selector === 'run.retry'
       const key = runReceipt ? args.commandArgs[2] : selector

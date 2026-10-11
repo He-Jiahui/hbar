@@ -512,6 +512,14 @@ export const inputSchema = z.object({
   sandbox: sandboxSnapshotRefSchema.optional(),
   mode: runModeSchema.optional(),
   source: runSourceSchema.optional(),
+  /** Host-authored delivery provenance; the public run.submit command strips this field. */
+  peerMessage: z.strictObject({
+    senderSessionId: idSchema,
+    targetSessionId: idSchema,
+    workspaceId: idSchema,
+    idempotencyKey: z.string().min(1).max(128),
+    queuedBehindActive: z.boolean(),
+  }).optional(),
   continuation: z.object({ goalId: idSchema, intentId: idSchema }).optional(),
 })
 export type UserInput = z.infer<typeof inputSchema>

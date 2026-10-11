@@ -2459,6 +2459,28 @@ const methods: StorageMethods = {
     const data = JSON.parse(event.data) as { command?: unknown }
     return { run, command: data.command ? runCommandRecordSchema.parse(data.command) : null }
   },
+  runByRequestInWorkspace(workspaceId, requestId) {
+    const row = db
+      .query('SELECT runs.* FROM runs JOIN sessions ON sessions.id=runs.sessionId WHERE sessions.workspaceId=? AND runs.requestId=? LIMIT 1')
+      .get(workspaceId, requestId) as Row | null
+    if (row) {
+      const run = runRow(row)
+      const event = db.query("SELECT data FROM events WHERE runId=? AND type IN ('run.queued','run.recoveryQueued') ORDER BY seq LIMIT 1").get(run.id) as {
+        data: string
+      } | null
+      if (!event) throw new HbarError('RUN_JOURNAL_MISSING', 'Run acceptance event is unavailable')
+      const data = JSON.parse(event.data) as { command?: unknown }
+      return { run, command: data.command ? runCommandRecordSchema.parse(data.command) : null }
+    }
+    const manual = db
+      .query<{ recordJson: string }, [string, string]>(
+        "SELECT runtime_recovery.recordJson FROM runtime_recovery JOIN sessions ON sessions.id=json_extract(runtime_recovery.recordJson,'$.chain.sessionId') WHERE sessions.workspaceId=? AND json_extract(runtime_recovery.recordJson,'$.manual.requestId')=? LIMIT 1",
+      )
+      .get(workspaceId, requestId)
+    if (!manual) return null
+    const record = z.object({ run: runSchema.nullable(), manual: runtimeManualRecoverySchema }).parse(JSON.parse(manual.recordJson))
+    return record.run ? { run: methods.run(record.run.id), command: record.manual.command } : null
+  },
   claim: (sessionId) =>
     db.transaction(() => {
       if (db.query("SELECT leaseId FROM runtime_execution_ownership WHERE sessionId=? AND state='active'").get(sessionId)) return null

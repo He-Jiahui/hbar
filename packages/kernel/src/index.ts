@@ -1987,7 +1987,7 @@ export class Kernel {
       const retainedInput = run.recovery ? await this.storage.call('recoveryInputMessage', run.id) : null
       const initialCommit = retainedInput
         ? { message: retainedInput, event: null }
-        : await this.storage.call('commit', sessionId, run.id, 'user', content)
+        : await this.storage.call('commit', sessionId, run.id, 'user', content, undefined, run.input.peerMessage)
       if (initialCommit.event) this.publishEvent(initialCommit.event)
       idleTimeout.progress()
       if (session.title === 'New session')
