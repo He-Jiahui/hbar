@@ -29,7 +29,7 @@ export function createRunCommandClient(client: ClientTransport) {
       if (id === 'operation.cancel' && options?.signal?.aborted)
         throw new CommandError('CANCELLED', 'Cancellation was not dispatched')
       if (
-        ['run.submit', 'run.retry', 'queuedRun.editText', 'queuedRun.remove', 'queuedRun.guide'].includes(id) &&
+        ['run.submit', 'run.retry', 'queuedRun.editText', 'queuedRun.remove', 'queuedRun.guide', 'session.message.send'].includes(id) &&
         !options?.idempotencyKey
       )
         throw new CommandError('INVALID_INPUT', `An idempotency key is required for ${id}`)

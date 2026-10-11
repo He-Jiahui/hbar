@@ -527,6 +527,7 @@ export interface StorageMethods {
     launchTarget?: SessionLaunchTargetBindingInput,
   ): Run & { queuedEvent?: SessionEvent | undefined }
   runByRequest(sessionId: string, requestId: string): { run: Run; command: RunCommandRecord | null } | null
+  runByRequestInWorkspace(workspaceId: string, requestId: string): { run: Run; command: RunCommandRecord | null } | null
   claim(sessionId: string): Run | null
   nextQueuedRun(sessionId: string): Run | null
   run(id: string): Run
