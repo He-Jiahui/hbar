@@ -1,5 +1,6 @@
 import { join } from 'node:path'
 import localTools, { localExecutionPlugin } from '@hbar/local-tools'
+import imageGenerationPlugin from '@hbar/image-generation'
 import type { RuntimeProcessContext } from '@hbar/runtime'
 import { createRuntimePlugin } from './runtime-plugin-process'
 import { runtimePluginConfigurationSchema } from './runtime-plugin-contract'
@@ -19,5 +20,6 @@ export const create = (context: RuntimeProcessContext) => {
       { get: root => { const mount = runtimePluginInvocation()?.mount; return mount?.root === root ? mount : undefined },
         verify: async (mount, signal) => { await host('workspace.mount.verify', [mount, signal]) } }),
     localTools,
+    imageGenerationPlugin,
   ] })
 }

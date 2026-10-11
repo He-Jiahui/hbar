@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./image-preflight": "./src/image-preflight.ts",
     "./runtime": "./src/runtime.ts",
     "./runtime-notifications": "./src/runtime-notifications.ts",
     "./diagnostics": "./src/diagnostics.ts",

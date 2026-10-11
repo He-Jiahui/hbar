@@ -6,6 +6,7 @@
   "exports": "./src/main.ts",
   "dependencies": {
     "@hbar/commands": "workspace:*",
+    "@hbar/image-generation": "workspace:*",
     "@hbar/runtime-native": "workspace:*"
   }
 }
