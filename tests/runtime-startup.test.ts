@@ -21,7 +21,7 @@ async function remove(root: string): Promise<void> {
   if (path.startsWith('..') || !path.startsWith('runtime-startup-')) throw new Error('Refuse unowned fixture removal')
   await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
 }
-async function blockedKernel() {
+async function blockedKernel(activatedFailure = false) {
   const root = await mkdtemp(join(process.cwd(), 'artifacts', 'runtime-startup-'))
   const gate = join(root, 'allow-kernel'),
     source = join(root, 'kernel.ts')
@@ -29,13 +29,13 @@ async function blockedKernel() {
     "'./",
     "'../../apps/host/src/",
   )
-  const anchor = 'async prepare() {'
+  const anchor = activatedFailure ? 'async activate(selected) {' : 'async prepare() {'
   expect(code.split(anchor)).toHaveLength(2)
   await writeFile(
     source,
     `import { existsSync as startupGateExists } from 'node:fs'\n${code.replace(
       anchor,
-      `async prepare() { if (!startupGateExists(${JSON.stringify(gate)})) throw new HbarError('STARTUP_GATE_CLOSED', 'Readonly startup gate is closed');`,
+      `${anchor} if (!startupGateExists(${JSON.stringify(gate)})) throw new HbarError('STARTUP_GATE_CLOSED', 'Startup gate is closed');`,
     )}`,
   )
   const layout = createPathLayout(join(root, 'data'), join(root, 'cache'), join(root, 'pointer.json'))
@@ -49,9 +49,60 @@ async function blockedKernel() {
     demo: true,
     workspace: root,
     buildUnits,
+    watchSource: activatedFailure,
   })
-  return { root, gate, runtime }
+  return { root, gate, source, code, runtime }
 }
+
+test('a corrected source candidate can replace a continuously failing activated default during cold startup', async () => {
+  const f = await blockedKernel(true)
+  let host: Awaited<ReturnType<typeof startServer>> | undefined
+  let client: HbarClient | undefined
+  try {
+    host = await startServer(f.runtime.kernel, { port: 0, runtime: f.runtime, controller: f.runtime.controller })
+    await until(
+      () =>
+        f.runtime
+          .snapshot()
+          .units.find((unit) => unit.descriptor.id === 'kernel')
+          ?.generations.some((generation) => generation.role === 'default' && generation.phase === 'recovering') ===
+        true,
+    )
+    const before = f.runtime.snapshot()
+    expect(before.ready).toBe(false)
+    expect(before.sourceReload?.phase).toBe('idle')
+    const pids = before.units
+      .filter((unit) => unit.descriptor.id !== 'kernel')
+      .flatMap((unit) =>
+        unit.generations
+          .filter((generation) => generation.role === 'default')
+          .map((generation) => [unit.descriptor.id, generation.pid] as const),
+      )
+    const device = await host.auth.createDevice('failed activated startup fixture')
+    client = new HbarClient(`http://127.0.0.1:${host.server.port}`, device.token)
+    await client.connect()
+    await writeFile(f.source, `${f.code}\nexport const correctedStartupRevision = 2`)
+    await f.runtime.applySourceChanges([f.source])
+    await f.runtime.ready()
+    const after = f.runtime.snapshot()
+    expect(after.ready).toBe(true)
+    expect(after.instanceId).toBe(before.instanceId)
+    expect(f.runtime.manager.currentVersion('kernel').generation).toBe(2)
+    for (const [id, pid] of pids)
+      expect(
+        after.units
+          .find((unit) => unit.descriptor.id === id)
+          ?.generations.find((generation) => generation.role === 'default')?.pid,
+      ).toBe(pid)
+    expect(client.connectionStatus()).toBe('connected')
+    expect((await fetch(`http://127.0.0.1:${host.server.port}/healthz`)).status).toBe(200)
+  } finally {
+    client?.disconnect()
+    await host?.close()
+    await f.runtime.close()
+    await remove(f.root)
+  }
+}, 120_000)
 
 test('first-start Kernel failure keeps liveness, authenticated status and the socket, then activates only the missing units', async () => {
   const f = await blockedKernel()

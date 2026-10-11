@@ -425,7 +425,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     this.sourceAbort.signal.throwIfAborted()
     this.startupNextAttemptAt = null
     try {
-      if (!this.initialArtifacts || options.watchSource)
+      if (!this.initialArtifacts || (options.watchSource && !this.sourceBaseline))
         this.initialArtifacts = options.artifactPackage
           ? await this.artifacts.installPackage(options.artifactPackage, options.artifactPackage.id)
           : this.artifacts.registerSet(await this.buildInitial())
@@ -481,6 +481,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
           if (!entry.projectId && owners[entry.id]) this.pluginConfigs.set(owners[entry.id] ?? '', entry.config)
         this.configurationLoaded = true
       }
+      if (options.watchSource && !this.sourceBaseline) await this.watchSource()
       for (const unit of this.buildUnits.filter((unit) => unit.descriptor.kind === 'plugin'))
         await this.initializeUnit(prepared, unit.descriptor.id)
       await this.initializeUnit(prepared, 'kernel')
@@ -504,7 +505,6 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         await this.recoverStartup()
         this.startupRecovered = true
       }
-      if (options.watchSource && !this.sourceBaseline) await this.watchSource()
       this.initializing = false
       if (this.buildUnits.some((unit) => unit.descriptor.id === 'maintenance')) await this.maintenance.reconcile()
       await this.resume()
@@ -523,8 +523,18 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     const unit = this.manager.snapshot().units.find((unit) => unit.descriptor.id === id)
     const defaults = unit?.generations.filter((generation) => generation.role === 'default') ?? []
     if (defaults.some((generation) => generation.phase === 'serving')) return
+    const latest = this.initialArtifacts ?? prepared
+    const desired = latest.artifacts.find((artifact) => artifact.unitId === id)
     const pending = unit?.queuedArtifactId || unit?.generations.some((generation) => generation.role === 'candidate')
-    const operation = defaults.length || pending ? undefined : this.manager.reload(prepared.id, [id], true)
+    const replaceFailedSource =
+      this.options.watchSource &&
+      desired &&
+      defaults.length &&
+      defaults.every((generation) => generation.artifactId !== desired.id)
+    const operation =
+      pending || (defaults.length && !replaceFailedSource)
+        ? undefined
+        : this.manager.reload(latest.id, [id], !defaults.length)
     await this.waitReady([id], operation?.operationId)
   }
   snapshot(): RuntimeSnapshot {
@@ -718,14 +728,26 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   }
   /** Local development input, never a network command or arbitrary artifact path. */
   async applySourceChanges(paths: readonly string[]): Promise<void> {
-    const artifacts = this.buildUnits.map((unit) => this.currentGeneration(unit.descriptor.id).artifact)
+    const snapshot = this.manager.snapshot()
+    const artifacts = this.buildUnits.map((unit) => {
+      const current = snapshot.units
+        .find((value) => value.descriptor.id === unit.descriptor.id)
+        ?.generations.find((generation) => generation.role === 'default')
+      const artifact =
+        (current ? this.generations.get(key(current))?.artifact : undefined) ??
+        this.initialArtifacts?.artifacts.find((artifact) => artifact.unitId === unit.descriptor.id)
+      if (!artifact)
+        throw new HbarError('RUNTIME_PREPARING', 'Source ownership is waiting for its initial artifact graph')
+      return artifact
+    })
     const changed = paths.includes('') ? artifacts.flatMap((artifact) => artifact.inputs) : [...paths]
     const affected = this.artifacts.affected(changed, [
       ...artifacts,
       ...(this.sourceBaseline ? [this.sourceBaseline] : []),
     ])
-    const nativeSource = changed.some((path) => /\.(?:rs|c|cpp|h|hpp|toml|node|dll|so|dylib|wasm)$/i.test(path) ||
-      /(?:^|[\\/])Cargo\.lock$/.test(path))
+    const nativeSource = changed.some(
+      (path) => /\.(?:rs|c|cpp|h|hpp|toml|node|dll|so|dylib|wasm)$/i.test(path) || /(?:^|[\\/])Cargo\.lock$/.test(path),
+    )
     if (nativeSource && !affected.includes('base')) affected.push('base')
     if (!affected.length) return
     const revision = (this.sourceState?.revision ?? 0) + 1
@@ -762,6 +784,12 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       }
       const set = this.artifacts.registerSet(built)
       this.sourceAbort.signal.throwIfAborted()
+      if (this.initializing && this.initialArtifacts)
+        this.initialArtifacts = this.artifacts.registerSet(
+          this.initialArtifacts.artifacts.map(
+            (artifact) => built.find((replacement) => replacement.unitId === artifact.unitId) ?? artifact,
+          ),
+        )
       const operation = this.reload(set.id, affected)
       this.sourceState = {
         ...state,
