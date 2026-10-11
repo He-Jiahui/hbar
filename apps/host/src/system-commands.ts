@@ -5,6 +5,8 @@ import { systemCommands } from '@hbar/contracts/commands/system'
 import type { StorageLocationApply, StorageLocationSnapshot } from '@hbar/contracts/commands/storage-locations'
 import type { RuntimeSnapshot, RuntimeReload } from '@hbar/contracts/runtime'
 export interface RuntimeSystemPort {
+  readonly maintenance?: import('./runtime-maintenance-contract').RuntimeMaintenancePort
+  authenticationAvailable?(): boolean
   snapshot(): RuntimeSnapshot
   reload(artifactSetId: string, unitIds: readonly string[]): { operationId: string }
   getReload(operationId: string): RuntimeReload

@@ -22,6 +22,8 @@ import { runtimePluginStateSchema, type RuntimePluginState } from '@hbar/plugin-
 import { RuntimePluginRelay, type RuntimePluginEndpoint } from './runtime-plugin-relay'
 import { RUNTIME_PLUGIN_CONTROL_METHODS } from './runtime-plugin-contract'
 import { RuntimeResourceRegistry } from './runtime-resource-registry'
+import { RuntimeMaintenanceRelay, type RuntimeMaintenanceEndpoint } from './runtime-maintenance-relay'
+import { RUNTIME_MAINTENANCE_CONTROL_METHODS } from './runtime-maintenance-contract'
 
 export interface ProcessHostRuntimeOptions {
   readonly layout: PathLayout
@@ -64,6 +66,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   readonly manager: RuntimeManager
   readonly buildUnits: readonly RuntimeBuildUnit[]
   readonly facade: RuntimeKernelFacade
+  readonly maintenance: RuntimeMaintenanceRelay
   readonly controller: RuntimeControllerPort = { dispatch: (payload, invoke) => this.dispatchController(payload, invoke) }
   private async dispatchController(payload: string, invoke: Parameters<RuntimeControllerPort['dispatch']>[1]): Promise<string> {
     let record: Generation | undefined
@@ -99,7 +102,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private closing = false
   private closeTask: Promise<void> | undefined
   private initializing = true
-  private maintenance = false
+  private maintaining = false
   private scheduled = false
   private reasonCode: string | null = null
   private storageFailure: { owner: RuntimeOwner; unknown: boolean } | null = null
@@ -118,6 +121,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       claim: draft => this.storage.call('runtimeExecutionClaim', draft),
       release: lease => this.storage.call('runtimeExecutionRelease', lease),
       revoke: async (owner, ids) => {
+        // Controller/Maintenance faults without Run claims need no database projection write.
+        if (!ids.length) return
         if (this.storageFailure) { this.pendingRevocations.push({ owner, ids: [...ids] }); return }
         await this.storage.call('runtimeExecutionRevoke', owner, ids)
       },
@@ -133,6 +138,9 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       cancel: runId => this.cancelRun(runId),
       resourceSessions: () => this.resources.sessions(),
     })
+    this.maintenance = new RuntimeMaintenanceRelay({ layout: options.layout, storage: this.storage, coordinator: this.coordinator,
+      kernel: this.kernel, current: () => this.maintenanceEndpoint(this.manager.defaultOwner('maintenance')),
+      resolve: owner => this.maintenanceEndpoint(owner), changed: () => this.schedule() })
     this.manager = new RuntimeManager({ instanceId, artifacts: this.artifacts,
       references: owner => {
         const refs = this.owners.has(owner.incarnation) ? this.coordinator.references(owner) : { runs: 0, resources: 0, tools: 0 }
@@ -142,7 +150,10 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       },
       create: (artifact, generation, changed) => this.createGeneration(artifact, generation, changed),
       beforeActivate: async owner => {
-        if (owner.unitId === 'storage' && this.storage.snapshot().owner) await this.storage.beginHandover()
+        if (owner.unitId === 'storage' && this.storage.snapshot().owner) {
+          await this.maintenance.waitForWriter(AbortSignal.timeout(120_000))
+          await this.storage.beginHandover()
+        }
       },
       afterDispose: owner => {
         if (this.owners.has(owner.incarnation)) { this.coordinator.disposeOwner(owner); this.owners.delete(owner.incarnation) }
@@ -154,6 +165,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     this.sweep.unref()
   }
   get kernel(): KernelControllerPort { return this.facade.api }
+  authenticationAvailable(): boolean { return this.storage.snapshot().phase === 'serving' && !this.storageFailure }
   static async create(options: ProcessHostRuntimeOptions): Promise<ProcessHostRuntime> {
     if (options.profileModule && options.artifactPackage && !options.artifactPackage.units.some(unit => unit.artifact.unitId === 'kernel' && unit.artifact.files.some(file => file.name === 'profile.js')))
       throw new HbarError('RUNTIME_RESTART_REQUIRED', 'The legacy profile must be included in its prepared artifact package')
@@ -180,11 +192,16 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       }
       const kernel = runtime.manager.reload(prepared.id, ['kernel'], true)
       await runtime.waitReady(['kernel'], kernel.operationId)
+      if (runtime.buildUnits.some(unit => unit.descriptor.id === 'maintenance')) {
+        const maintenance = runtime.manager.reload(prepared.id, ['maintenance'], true)
+        await runtime.waitReady(['maintenance'], maintenance.operationId)
+      }
       if (options.workspace) await runtime.kernel.createWorkspace(options.workspace)
       if (options.demo) await runtime.storage.call('saveProvider', providerSchema.parse({ id: 'local-fixture', name: 'Local fixture',
         protocol: 'mock', baseUrl: 'http://127.0.0.1', model: 'fixture', imageInput: true, reasoning: true }))
       await runtime.recoverStartup()
       runtime.initializing = false
+      if (runtime.buildUnits.some(unit => unit.descriptor.id === 'maintenance')) await runtime.maintenance.reconcile()
       await runtime.resume()
       await runtime.kernel.plugins.get('goal').resumeOnStartup()
       if (options.watchSource) await runtime.watchSource()
@@ -352,7 +369,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       .every(id => this.manager.snapshot().units.find(unit => unit.descriptor.id === id)?.generations.some(g => g.role === 'default' && g.phase === 'serving'))
   }
   private canAdmit(sessionId: string): boolean {
-    return !this.closing && !this.initializing && !this.maintenance && this.executionReady() && this.storage.snapshot().phase === 'serving' && !this.storageFailure &&
+    return !this.closing && !this.initializing && !this.maintaining && !this.maintenance.isWriting() && this.executionReady() && this.storage.snapshot().phase === 'serving' && !this.storageFailure &&
       !this.pluginPreparingCatalog.size &&
       ![...this.interrupted.values()].some(failure => failure.leases.some(lease => lease.sessionId === sessionId)) &&
       ![...this.leases.values()].some(lease => lease.sessionId === sessionId && !this.coordinator.execution(lease.runId))
@@ -362,6 +379,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     const paths = { dataRoot: layout.dataRoot, cacheRoot: layout.cacheRoot, pointerFile: layout.pointerFile,
       settingsRoot: layout.settings, sessionsRoot: layout.sessions, skillsRoot: layout.globalSkills, identityRoot: layout.identityRoot }
     const configuration = artifact.unitId === 'storage' ? { ...paths, database: layout.database, workerPath: join(this.artifacts.root, artifact.id, 'worker.js') } :
+      artifact.unitId === 'maintenance' ? { ...paths, workerPath: join(this.artifacts.root, artifact.id, 'maintenance-worker.js') } :
       artifact.unitId === 'kernel' ? { ...paths, instanceId: this.instanceId, demo: this.options.demo ?? false,
         isolatedPlugins: this.buildUnits.some(unit => unit.descriptor.kind === 'plugin'),
         ...(this.options.profileModule ? { profileModule: join(this.artifacts.root, artifact.id, 'profile.js') } : {}) } :
@@ -371,6 +389,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       modulePath: join(this.artifacts.root, artifact.id, artifact.entry), parent: this.baseOwner, configuration,
       verifyModule: async signal => { await this.artifacts.get(artifact.id); signal.throwIfAborted() },
       controlMethods: [...RUNTIME_KERNEL_CONTROL_METHODS, ...RUNTIME_COORDINATION_CONTROL_METHODS, ...RUNTIME_PLUGIN_CONTROL_METHODS,
+        ...RUNTIME_MAINTENANCE_CONTROL_METHODS,
         'kernel.plugins.callback', 'kernel.plugins.control', 'controller.control', 'controller.invoke'],
       ...(this.options.processCommand ? { command: this.options.processCommand } : {}),
       onPeer: (peer, owner) => {
@@ -379,6 +398,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         this.owners.add(owner.incarnation)
         if (artifact.unitId === 'driver.pi') record.cleanup.push(this.relay.attachDriver(peer))
         if (artifact.unitId === 'controller') record.controller = new RuntimeControllerAdapter(peer)
+        if (artifact.unitId === 'maintenance') record.cleanup.push(this.maintenance.attach(peer, owner, { unitId: artifact.unitId, generation, artifactId: artifact.id }))
         if (artifact.descriptor.kind === 'plugin') {
           const connection = this.pluginRelay.attachPlugin(peer, owner)
           record.application = connection.application; record.cleanup.push(connection.dispose)
@@ -387,6 +407,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         if (artifact.unitId === 'kernel') this.attachKernel(record, peer, owner)
       },
       onActivating: (owner, role, signal) => {
+        if (artifact.unitId === 'storage' && this.maintenance.isWriting()) throw new HbarError('STORAGE_MAINTENANCE_ACTIVE', 'The maintenance writer must finish verification before storage activation')
         signal.throwIfAborted(); this.coordinator.activate(owner, role)
         if (artifact.descriptor.kind === 'plugin' && role === 'default') this.pluginPreparingCatalog.add(artifact.unitId)
       },
@@ -413,6 +434,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         if (artifact.unitId === 'kernel') { this.relay.kernelExited(owner); for (const lease of this.leases.values()) if (lease.owner.incarnation === owner.incarnation) this.stopped.add(lease.runId) }
         if (artifact.unitId === 'driver.pi') this.relay.driverExited(owner)
         if (artifact.descriptor.kind === 'plugin') this.pluginRelay.exited(owner)
+        this.maintenance.exited(owner)
         this.resources.exited(owner)
         for (const cleanup of record.cleanup.splice(0)) cleanup()
         record.controller?.dispose(); record.controller = null
@@ -497,6 +519,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       this.storageFailure = null
     }
     this.storage.install({ owner: record.owner, retire: () => record.process.dispose(),
+      suspend: operationId => record.process.call('storage.suspend', { operationId }, z.undefined()),
+      resume: operationId => record.process.call('storage.resume', { operationId }, z.undefined()),
       call: (method, args, authority) => callStorageRpc({ execute: input => record.process.call('storage.call', input, z.unknown()) }, method, args, authority),
     })
   }
@@ -517,6 +541,10 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     this.schedule()
   }
   private async reconcile(): Promise<void> {
+    if (!this.closing && this.buildUnits.some(unit => unit.descriptor.id === 'maintenance')) {
+      try { await this.maintenance.reconcile() }
+      catch (error) { if (['serving', 'draining'].includes(this.currentGeneration('maintenance').process.snapshot().phase)) throw error }
+    }
     if (this.closing || !this.executionReady() || this.storage.snapshot().phase !== 'serving') return
     const kernel = this.currentKernel()
     for (const lease of this.leases.values()) if (!this.coordinator.execution(lease.runId) &&
@@ -630,8 +658,14 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   }
   private async maintain<Result>(action: () => Promise<Result>): Promise<Result> {
     this.kernel.assertIdle()
-    if (this.maintenance) throw new HbarError('BUSY', 'Database maintenance is already active')
-    this.maintenance = true
-    try { return await action() } finally { this.maintenance = false; this.schedule() }
+    if (this.maintaining) throw new HbarError('BUSY', 'Database maintenance is already active')
+    this.maintaining = true
+    try { return await action() } finally { this.maintaining = false; this.schedule() }
+  }
+  private maintenanceEndpoint(owner: RuntimeOwner): RuntimeMaintenanceEndpoint {
+    const record = this.generations.get(key(owner))
+    if (!record?.owner || record.owner.incarnation !== owner.incarnation || !['serving', 'draining'].includes(record.process.snapshot().phase))
+      throw new HbarError('RUNTIME_RECOVERING', 'The Maintenance owner is recovering')
+    return { owner, process: record.process, version: { unitId: owner.unitId, generation: owner.generation, artifactId: record.artifact.id } }
   }
 }

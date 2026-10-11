@@ -65,7 +65,7 @@ test('the production composition activates independent Bun owners including nine
   const snapshot = f.runtime.snapshot()
   expect(snapshot.ready).toBe(true)
   const pids = snapshot.units.flatMap(unit => unit.generations.map(generation => generation.pid))
-  expect(new Set(pids).size).toBe(13)
+  expect(new Set(pids).size).toBe(14)
   expect(pids.includes(process.pid)).toBe(false)
   const run = await f.runtime.kernel.submit(f.session.id, 'process-request', { text: '/tool get_goal {}', images: [] }, 'local-fixture')
   await f.runtime.waitForIdle()
@@ -186,7 +186,7 @@ test('the same managed composition starts from build-pinned bytes when its sourc
   expect((await runtime.storage.call('run', run.id)).status).toBe('completed')
   expect((await client.call('system.bootstrap', {})).models.some(model => model.id === 'local-fixture')).toBe(true)
   expect(runtime.snapshot().ready).toBe(true)
-  expect(new Set(runtime.snapshot().units.flatMap(unit => unit.generations.map(generation => generation.pid))).size).toBe(13)
+  expect(new Set(runtime.snapshot().units.flatMap(unit => unit.generations.map(generation => generation.pid))).size).toBe(14)
 })
 
 test('a legacy profile executes locally in its managed Kernel owner, binds the actual driver owner and explicitly requires restart for code reload', async () => {

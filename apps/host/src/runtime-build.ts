@@ -5,6 +5,7 @@ import type { RuntimeUnitDescriptor } from '@hbar/contracts/runtime'
 import { DRIVER_RUNTIME_FINGERPRINT } from './runtime-driver-contract'
 import { CONTROLLER_RUNTIME_FINGERPRINT } from './runtime-controller-contract'
 import { PLUGIN_RUNTIME_FINGERPRINT } from './runtime-plugin-contract'
+import { MAINTENANCE_RUNTIME_FINGERPRINT } from './runtime-maintenance-contract'
 import { dirname } from 'node:path'
 
 const descriptor = (id: string, kind: RuntimeUnitDescriptor['kind'], fingerprint: string, dependencies: string[] = []): RuntimeUnitDescriptor => ({
@@ -23,6 +24,8 @@ export function hostRuntimeBuildUnits(options: { profileModule?: string } = {}):
     { descriptor: descriptor('storage', 'storage', STORAGE_RPC_FINGERPRINT), entrypoint: 'apps/host/src/runtime-storage-process.ts', workers: ['packages/storage/src/worker.ts'] },
     { descriptor: { ...descriptor('driver.pi', 'driver', DRIVER_RUNTIME_FINGERPRINT), required: !options.profileModule }, entrypoint: 'apps/host/src/runtime-driver-process.ts' },
     { descriptor: descriptor('controller', 'controller', CONTROLLER_RUNTIME_FINGERPRINT), entrypoint: 'apps/host/src/runtime-controller-process.ts' },
+    { descriptor: descriptor('maintenance', 'maintenance', MAINTENANCE_RUNTIME_FINGERPRINT, ['storage', 'kernel']),
+      entrypoint: 'apps/host/src/runtime-maintenance-process.ts', workers: ['packages/storage/src/maintenance-worker.ts'] },
     ...plugins.map(([id, entry, dependencies]) => ({ descriptor: descriptor('plugin.' + id, 'plugin', PLUGIN_RUNTIME_FINGERPRINT, [...dependencies]),
       entrypoint: 'apps/host/src/runtime-' + entry + '-process.ts', external: RUNTIME_BUNDLE_EXTERNALS })),
     { descriptor: { ...descriptor('kernel', 'kernel', KERNEL_RUNTIME_FINGERPRINT, ['storage', 'driver.pi', ...plugins.map(([id]) => 'plugin.' + id)]), reloadable: !options.profileModule }, entrypoint: 'apps/host/src/runtime-kernel-process.ts',
@@ -34,5 +37,6 @@ export function hostRuntimeBuildUnits(options: { profileModule?: string } = {}):
 /** Emitted dependencies of the stable listener/supervisor require an explicit restart when changed. */
 export function hostRuntimeBaseBuildUnit(): RuntimeBuildUnit {
   return { descriptor: { ...descriptor('base', 'base', CONTROLLER_RUNTIME_FINGERPRINT), isolation: 'base', reloadable: false },
-    entrypoint: 'apps/host/src/main.ts', external: RUNTIME_BUNDLE_EXTERNALS, resources: ['packages/runtime/src/build-worker.ts'] }
+    entrypoint: 'apps/host/src/main.ts', external: RUNTIME_BUNDLE_EXTERNALS, resources: ['packages/runtime/src/build-worker.ts'],
+    define: { HBAR_MANAGED_MAINTENANCE: 'true' } }
 }

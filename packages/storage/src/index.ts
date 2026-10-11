@@ -51,6 +51,7 @@ export type { ChatDatabaseResourceResult } from './chat-database-resource-ledger
 export { createChatDatabaseMaintenanceWorker } from './chat-database-maintenance-worker'
 export type { ChatDatabaseMaintenanceWorkerPort, ChatDatabaseWriterHandover } from './chat-database-maintenance-worker'
 export type { ChatDatabaseVacuumRecord } from './chat-database-vacuum-record'
+export { chatDatabaseVacuumRecordSchema, createChatDatabaseVacuumRecords } from './chat-database-vacuum-record'
 export * from './session-log-writer.ts'
 export * from './session-log-recovery.ts'
 export * from './project-registry.ts'

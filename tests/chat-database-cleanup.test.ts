@@ -59,7 +59,7 @@ async function fixture(
       hooks.afterDelete?.(input, result)
       return result
     },
-    deleted: (ids) => deleted.push(...ids),
+    deleted: (ids) => { deleted.push(...ids) },
   })
   const resource = { root, storage, service, statistics }
   resources.push(resource)

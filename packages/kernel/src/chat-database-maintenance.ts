@@ -27,7 +27,7 @@ import { createChatDatabaseAutomaticPlanner, type ChatDatabaseAutomaticInput } f
 export interface ChatDatabaseCleanupDomainPort {
   protection(sessionId: string): ChatDatabaseSkipReason | null | Promise<ChatDatabaseSkipReason | null>
   removeSession(input: ChatDatabaseDeleteInput): Promise<ChatDatabaseDeleteResult>
-  deleted(sessionIds: string[], revision: number): void
+  deleted(sessionIds: string[], revision: number): void | Promise<void>
 }
 export interface ChatDatabaseMaintenanceLifecycle {
   readonly recover?: boolean

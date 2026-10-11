@@ -21,7 +21,7 @@ export interface ChatDatabaseMaintenanceWorkerPort {
   close(): Promise<void>
 }
 export interface ChatDatabaseWriterHandover {
-  begin(operationId: string): Promise<void>
+  begin(operationId: string): Promise<void | { verificationOnly: boolean }>
   /** The maintenance Worker has exited; the receipt confirms the file is safe to reopen. */
   end(operationId: string, receipt: ChatDatabaseVacuumRecord): Promise<void>
 }
@@ -143,13 +143,12 @@ export function createChatDatabaseMaintenanceWorker(
       const task = (async () => {
         const prior = progress(id)
         if (prior?.integrityVerified && ['completed', 'cancelled'].includes(prior.status)) return prior
-        if (handover) await handover.begin(id)
-        else await storage.call('chatDatabaseMaintenanceBegin', id)
+        const ownership = handover ? await handover.begin(id) : await storage.call('chatDatabaseMaintenanceBegin', id)
         let verified = false
         let receipt: ChatDatabaseVacuumRecord | null = null
         try {
           // Any durable receipt means execution may already have happened. Only verify its outcome.
-          let result = await execute(id, flags, prior ? 'verify' : 'run')
+          let result = await execute(id, flags, prior || ownership?.verificationOnly ? 'verify' : 'run')
           result ??= await execute(id, flags, 'verify')
           if (!result || !result.integrityVerified)
             throw new HbarError('DATABASE_INTEGRITY', 'Database maintenance result needs offline recovery')

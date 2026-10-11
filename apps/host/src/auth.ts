@@ -8,7 +8,7 @@ export class Auth {
   private attempts = new Map<string, { count: number; resetAt: number }>()
   private internalDevices = new Map<string, Device>()
   private verifiedDevices = new Map<string, Device>()
-  constructor(private storage: StoragePort) {}
+  constructor(private storage: StoragePort, private readonly options: { available?(): boolean } = {}) {}
   createPairing() {
     this.pairing = {
       code: String(randomInt(10 ** (PAIRING_CODE_LENGTH - 1), 10 ** PAIRING_CODE_LENGTH)),
@@ -71,12 +71,16 @@ export class Auth {
   invalidateDevice(deviceId: string): void {
     for (const [hash, device] of this.verifiedDevices) if (device.id === deviceId) this.verifiedDevices.delete(hash)
   }
-  /** Only recovery status reads may retain the already authenticated connection identity during a writer fault. */
+  /** Recovery status and cooperative cancellation retain only an already authenticated connection identity. */
   async authenticateStatus(token: string | undefined, deviceId: string | undefined): Promise<Device> {
+    const known = token && deviceId ? this.verifiedDevices.get(this.hash(token)) : null
+    if (this.options.available?.() === false) {
+      if (!known || known.id !== deviceId) throw new HbarError('UNAUTHORIZED', 'An authenticated connection is required during writer recovery')
+      return known
+    }
     try { return await this.authenticate(token) }
     catch (error) {
       if (!(error instanceof HbarError) || !/^(?:IPC_|STORAGE_|RUNTIME_)/.test(error.code)) throw error
-      const known = token && deviceId ? this.verifiedDevices.get(this.hash(token)) : null
       if (!known || known.id !== deviceId) throw error
       return known
     }

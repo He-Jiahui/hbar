@@ -26,13 +26,6 @@ import {
   createModelSettingsValidator,
   createRunCommands,
   createSettingsCommands,
-  createChatDatabaseCommands,
-  createChatDatabaseStatisticsService,
-  createChatDatabaseMaintenanceService,
-  createChatDatabaseArtifactReferenceService,
-  createChatDatabaseResourceService,
-  createChatDatabaseDatabaseService,
-  createChatDatabaseScheduler,
   createUsageCommands,
   createWorkflowCommands,
   createScheduleCommands,
@@ -66,7 +59,6 @@ import {
 } from '@hbar/contracts/commands/run'
 import { settingsCommands as settingsDefinitions } from '@hbar/contracts/commands/settings'
 import { chatDatabaseCommands as chatDatabaseDefinitions, chatDatabaseUploadOwnerSchema } from '@hbar/contracts/commands/chat-database'
-import { createChatDatabaseFileScanner } from '@hbar/storage'
 import { systemCommands as systemDefinitions } from '@hbar/contracts/commands/system'
 import { usageCommands as usageDefinitions } from '@hbar/contracts/commands/usage'
 import { workflowCommands as workflowDefinitions } from '@hbar/contracts/commands/workflows'
@@ -91,7 +83,7 @@ import { createSkillInspectionService } from './skill-inspection.ts'
 import type { KernelControllerPort, KernelClientScopePort } from '@hbar/kernel/controller'
 import { SystemTerminalManager } from './system-terminal'
 import { sendSocketFrame, sendSocketTextFrame } from './socket-sender'
-import { isStableRpc, isRuntimeStatusRead } from './stable-rpc'
+import { isStableRpc, isRecoveryControl } from './stable-rpc'
 import { UsageService } from '@hbar/usage'
 import { PerformanceCollector } from '@hbar/metrics'
 import { createHostPerformanceProvider } from './performance-provider.ts'
@@ -106,6 +98,7 @@ import { runBoardCommands as runBoardDefinitions } from '@hbar/contracts/command
 import { submitRunInputSchema } from '@hbar/contracts/commands/run'
 import { createScheduleService, createNotificationService } from '@hbar/kernel/controller'
 import { createScheduleHostController } from './schedule-host-controller.ts'
+declare const HBAR_MANAGED_MAINTENANCE: boolean
 
 interface SocketData {
   token?: string | undefined
@@ -272,33 +265,16 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
   const modelCommands = createModelCommands(kernel, settingsService)
   const runCommands = createRunCommands(kernel)
   const settingsCommands = createSettingsCommands(settingsService)
-  const chatDatabaseStatistics = createChatDatabaseStatisticsService(
-    kernel.storage,
-    settingsService,
-    createChatDatabaseFileScanner(kernel.options.layout),
-  )
   const resourceCommands = createResourceCommands(kernel.storage, resolveExecutionProvider(kernel), {
     resolveWorkspacePath: (workspaceId, path, signal) => kernel.workspaceSandboxes.prepare(workspaceId, path, signal),
     resolveSessionPath: (sessionId, workspacePath, signal) => kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
   }, [kernel.options.layout.settings, kernel.options.layout.artifacts, kernel.options.layout.sessions,
     kernel.options.layout.databases, kernel.options.layout.connectionFile,
     kernel.options.layout.hostLock, kernel.options.layout.diagnostics])
-  const chatDatabaseArtifactReferences = createChatDatabaseArtifactReferenceService(kernel.storage, kernel.options.layout.settings)
-  const chatDatabaseResources = createChatDatabaseResourceService(kernel.storage, kernel.options.layout, chatDatabaseArtifactReferences, {
-    protectedRoots: () => kernel.plugins.protectedResourceRoots(),
-    remove: (input) => kernel.removeChatDatabaseResource(input),
-  })
-  const chatDatabaseDatabase = createChatDatabaseDatabaseService(kernel.storage, kernel.options.layout, {
-    idle: () => kernel.chatDatabaseIsIdle(),
-    maintain: (action) => kernel.maintainChatDatabase(action),
-  })
-  const chatDatabaseMaintenance = createChatDatabaseMaintenanceService(kernel.storage, settingsService, chatDatabaseStatistics, {
-    protection: (id) => kernel.chatDatabaseSessionProtection(id),
-    removeSession: (input) => kernel.removeChatDatabaseSession(input),
-    deleted: (ids, revision) => kernel.notifyChatDatabaseDeleted(ids, revision),
-  }, chatDatabaseResources, chatDatabaseDatabase)
-  const chatDatabaseScheduler = createChatDatabaseScheduler(kernel.storage, settingsService, chatDatabaseStatistics, chatDatabaseMaintenance)
-  const chatDatabaseCommands = createChatDatabaseCommands(chatDatabaseStatistics, chatDatabaseMaintenance, chatDatabaseArtifactReferences, chatDatabaseScheduler)
+  const chatDatabaseCommands = options.runtime?.maintenance ??
+    (typeof HBAR_MANAGED_MAINTENANCE !== 'undefined' && HBAR_MANAGED_MAINTENANCE
+      ? (() => { throw new HbarError('RUNTIME_RECOVERING', 'The managed Maintenance port is required') })()
+      : (await import('./chat-database-host-controller')).createChatDatabaseHostController(kernel, settingsService))
   const usageCommands = createUsageCommands(
     new UsageService({ read: (input) => kernel.storage.call('usageEvents', input) }),
   )
@@ -428,7 +404,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     ),
   )
   const hostname = options.hostname ?? '127.0.0.1'
-  const auth = new Auth(kernel.storage)
+  const auth = new Auth(kernel.storage, { available: () => options.runtime?.authenticationAvailable?.() ?? true })
   const pairing = auth.createPairing()
   const sockets = new Set<ServerWebSocket<SocketData>>()
   const systemTerminals = new SystemTerminalManager()
@@ -1504,7 +1480,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
                   signal.throwIfAborted()
                   if (request.method !== 'system.hello') {
                     if (!socket.data.initialized) throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
-                    await auth.authenticate(socket.data.token)
+                    if (isRecoveryControl(request.method, request.params)) await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
+                    else await auth.authenticate(socket.data.token)
                   }
                   signal.throwIfAborted()
                   return invoke(request.method, rpcSchemas[request.method].parse(request.params), socket, request.id)
@@ -1520,7 +1497,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
             if (!Object.hasOwn(rpcSchemas, request.method)) throw new HbarError('METHOD_NOT_FOUND', request.method)
             if (request.method !== 'system.hello') {
               if (!socket.data.initialized) throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
-              if (isRuntimeStatusRead(request.method, request.params)) await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
+              if (isRecoveryControl(request.method, request.params)) await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
               else await auth.authenticate(socket.data.token)
             }
             const method = request.method as RpcMethod
@@ -1623,11 +1600,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       performance.stop()
       runCommands.dispose()
       settingsCommands.dispose()
-      chatDatabaseCommands.dispose()
-      await chatDatabaseScheduler.close()
-      await chatDatabaseMaintenance.close()
-      await chatDatabaseArtifactReferences.close()
-      await chatDatabaseStatistics.close()
+      await chatDatabaseCommands.dispose()
       usageCommands.dispose()
       await scheduleController.close()
       unsubscribe()

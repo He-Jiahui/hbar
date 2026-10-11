@@ -29,3 +29,23 @@ test('only previously verified connection identities may read runtime status dur
   auth.invalidateDevice(paired.device.id)
   expect(await auth.authenticateStatus(paired.token, paired.device.id).catch((failure: unknown) => failure)).toMatchObject({ code: 'STORAGE_RESULT_UNKNOWN' })
 })
+
+test('an unavailable writer does not delay verified recovery controls or authenticate new identities from the cache', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-auth-status-'))
+  const storage = new Storage(join(root, 'state.sqlite'))
+  resources.push(async () => { await storage.close(); await rm(root, { recursive: true, force: true }) })
+  await storage.call('ready')
+  let available = true, calls = 0
+  const port: StoragePort = { call: (method, ...args) => { calls++; return storage.call(method, ...args) }, close: async () => {} }
+  const auth = new Auth(port, { available: () => available })
+  const paired = await auth.createDevice('maintenance control')
+  await auth.authenticate(paired.token)
+  const originalCalls = calls
+  available = false
+  expect((await auth.authenticateStatus(paired.token, paired.device.id)).id).toBe(paired.device.id)
+  expect(await auth.authenticateStatus('unverified-token', paired.device.id).catch((error: unknown) => error)).toMatchObject({ code: 'UNAUTHORIZED' })
+  expect(await auth.authenticateStatus(paired.token, 'another-device').catch((error: unknown) => error)).toMatchObject({ code: 'UNAUTHORIZED' })
+  auth.invalidateDevice(paired.device.id)
+  expect(await auth.authenticateStatus(paired.token, paired.device.id).catch((error: unknown) => error)).toMatchObject({ code: 'UNAUTHORIZED' })
+  expect(calls).toBe(originalCalls)
+})
