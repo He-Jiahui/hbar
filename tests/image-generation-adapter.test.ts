@@ -216,3 +216,45 @@ test('cache accounts for retained base64 string memory and evicts to stay within
   await tool.execute(input('memory-1'), context(new AbortController().signal, 'memory-1'))
   expect(requests).toBe(4)
 })
+
+test('provider responses must contain exactly one generated image', async () => {
+  const base64 = validPng.toString('base64')
+  for (const [callId, data] of [
+    ['empty-images', []],
+    ['multiple-images', [{ b64_json: base64 }, { b64_json: base64 }]],
+  ] as const) {
+    const tool = createImageGenerationTool(registry(), async () => Response.json({ data }))
+    await expect(tool.execute(input(callId), context(new AbortController().signal, callId))).rejects.toMatchObject({
+      code: 'IMAGE_PROVIDER_INVALID',
+      message: 'Image provider response must include exactly one generated image',
+    })
+  }
+})
+
+test('late Response after abort cancels its body and preserves the original abort reason', async () => {
+  const controller = new AbortController()
+  let releaseFetch: (() => void) | undefined
+  let cancelled = false
+  const fetchGate = new Promise<void>((resolve) => {
+    releaseFetch = resolve
+  })
+  const tool = createImageGenerationTool(registry(), async () => {
+    await fetchGate
+    controller.abort(new DOMException('Abort before Response resolved', 'AbortError'))
+    return new Response(
+      new ReadableStream<Uint8Array>({
+        start(stream) {
+          stream.enqueue(new TextEncoder().encode('{"data":['))
+        },
+        cancel() {
+          cancelled = true
+        },
+      }),
+      { headers: { 'Content-Type': 'application/json' } },
+    )
+  })
+  const operation = tool.execute(input('late response after cancellation'), context(controller.signal, 'late-response'))
+  releaseFetch?.()
+  await expect(operation).rejects.toMatchObject({ name: 'AbortError', message: 'Abort before Response resolved' })
+  expect(cancelled).toBeTrue()
+})

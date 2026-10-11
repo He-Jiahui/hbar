@@ -36,10 +36,7 @@ const imageInputSchema = z.strictObject({
   output_format: z.enum(['png', 'jpeg', 'webp']).default('png'),
 })
 const imageResponseSchema = z.object({
-  data: z
-    .array(z.object({ b64_json: z.string().min(1).optional() }))
-    .min(1)
-    .max(4),
+  data: z.array(z.object({ b64_json: z.string().min(1).optional() })).length(1),
 })
 type ImageInput = z.output<typeof imageInputSchema>
 type GeneratedImage = { readonly data: string; readonly mimeType: string; readonly bytes: number }
@@ -47,9 +44,14 @@ type ImageResult = { readonly text: string; readonly images: readonly GeneratedI
 type ImageFetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
 
 async function readBounded(response: Response, maximum: number, signal: AbortSignal): Promise<Uint8Array> {
+  if (signal.aborted) {
+    await response.body?.cancel(signal.reason).catch(() => {})
+    signal.throwIfAborted()
+  }
   const declared = Number(response.headers.get('content-length'))
   if (Number.isFinite(declared) && declared > maximum) {
     await response.body?.cancel().catch(() => {})
+    signal.throwIfAborted()
     throw new HbarError('IMAGE_RESPONSE_LIMIT', 'Image provider response exceeds the 14 MiB limit')
   }
   if (!response.body) throw new HbarError('IMAGE_PROVIDER_EMPTY', 'Image provider returned an empty response')
@@ -74,6 +76,7 @@ async function readBounded(response: Response, maximum: number, signal: AbortSig
     }
     signal.throwIfAborted()
   } catch (error) {
+    await reader.cancel(signal.aborted ? signal.reason : error).catch(() => {})
     if (signal.aborted) signal.throwIfAborted()
     throw error
   } finally {
@@ -98,7 +101,7 @@ function idempotencyIdentity(runId: string, callId: string, input: ImageInput): 
 function responseResult(value: unknown, input: ImageInput): ImageResult {
   const parsed = imageResponseSchema.safeParse(value)
   if (!parsed.success)
-    throw new HbarError('IMAGE_PROVIDER_INVALID', 'Image provider response did not include generated image bytes')
+    throw new HbarError('IMAGE_PROVIDER_INVALID', 'Image provider response must include exactly one generated image')
   const images: GeneratedImage[] = []
   let totalBytes = 0
   for (const item of parsed.data.data) {
