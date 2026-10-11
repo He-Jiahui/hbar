@@ -815,11 +815,37 @@ export class Kernel {
     this.kick(record.run.sessionId)
     return record.run
   }
+  private async driverCompletionCommitted(run: Run): Promise<boolean> {
+    const ids = new Set([run.id])
+    let predecessor = run
+    for (let depth = 0; predecessor.recovery && depth < 32; depth++) {
+      predecessor = await this.storage.call('run', predecessor.recovery.predecessorRunId)
+      if (predecessor.sessionId !== run.sessionId || ids.has(predecessor.id))
+        throw new HbarError('SESSION_LOG_CORRUPTED', 'Driver completion lineage is cyclic or belongs to another Session')
+      ids.add(predecessor.id)
+    }
+    if (predecessor.recovery) throw new HbarError('SESSION_LOG_CORRUPTED', 'Driver completion lineage exceeds its recovery limit')
+    let after = 0
+    while (true) {
+      const events = await this.storage.call('events', run.sessionId, after, 16)
+      if (!events.length) return false
+      for (const event of events)
+        if (event.runId && ids.has(event.runId) && event.type === 'run.driverCompleted') {
+          z.strictObject({ version: z.literal(1) }).parse(event.data)
+          return true
+        }
+      const next = events.at(-1)?.seq
+      if (next === undefined || next <= after) throw new HbarError('SESSION_LOG_CORRUPTED', 'Driver completion cursor did not advance')
+      after = next
+    }
+  }
   private async checkRuntimeRecovery(run: Run): Promise<string | null> {
     try {
       if (this.closing || this.maintenance) return 'KERNEL_NOT_AVAILABLE'
       if ((await this.storage.call('session', run.sessionId)).archived) return 'ARCHIVED'
       if (await this.storage.call('cancelRequested', run.id)) return 'USER_CANCELLED'
+      // Verified finished work only reconciles its terminal identity; it acquires no new execution authorization.
+      if (await this.driverCompletionCommitted(run)) return null
       const model = await this.plugins.get<ModelRegistry>('models').get(run.modelId)
       if (run.input.images.length && !model.imageInput) return 'UNSUPPORTED_IMAGE'
       const current = await this.sessionPermissionMode(run.sessionId)
@@ -1763,6 +1789,7 @@ export class Kernel {
     let status: Run['status'] = 'completed',
       failure: string | undefined,
       failureDetails: RunFailure | undefined
+    let driverCompletionRecorded = false
     let branchExecutionPath: string | null = null
     let branchTargetRevision: number | null = null
     try {
@@ -1771,6 +1798,11 @@ export class Kernel {
         if (reason) throw new HbarError(reason, 'Recovered execution is waiting for its original control conditions')
       }
       this.publishEvent(await this.storage.call('setRun', run.id, 'running'))
+      if (run.recovery && await this.driverCompletionCommitted(run)) {
+        controller.signal.throwIfAborted()
+        if (await this.storage.call('cancelRequested', run.id)) throw new HbarError('USER_CANCELLED', 'Cancelled by user')
+        return
+      }
       await scope.hooks.dispatch('run.start', {
         sessionId,
         runId: run.id,
@@ -1882,12 +1914,15 @@ export class Kernel {
             truncated,
           }
         },
-        emit: (type, data, stepId) => {
+        emit: async (type, data, stepId) => {
           if (type === 'message.committed')
             return Promise.reject(
               new HbarError('RESERVED_EVENT', 'Drivers must commit canonical messages through commit'),
             )
-          return this.append(sessionId, type, data, run.id, stepId)
+          if (type === 'run.driverCompleted') z.strictObject({ version: z.literal(1) }).parse(data)
+          const event = await this.append(sessionId, type, data, run.id, stepId)
+          if (type === 'run.driverCompleted') driverCompletionRecorded = true
+          return event
         },
         commit: async (role, blocks, messageId, providerData) => {
           if (supportsSteering && role === 'user')
@@ -2055,6 +2090,7 @@ export class Kernel {
         if (active?.run.id === run.id) active.steeringReady = true
       }
       await driver.run(input)
+      if (!driverCompletionRecorded) await this.append(sessionId, 'run.driverCompleted', { version: 1 }, run.id)
     } catch (error) {
       const cause: unknown = controller.signal.aborted ? controller.signal.reason : error
       if (!(cause instanceof RunControlSignal)) {

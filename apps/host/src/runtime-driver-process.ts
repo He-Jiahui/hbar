@@ -88,7 +88,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       } : {}),
     }
     void Promise.resolve().then(() => driver.run(run)).then(
-      async () => { await flush(); await context.peer.notify('driver.terminal', { invocationId: input.invocationId, ok: true, reasonCode: null }) },
+      async () => { await run.emit('run.driverCompleted', { version: 1 }); await flush(); await context.peer.notify('driver.terminal', { invocationId: input.invocationId, ok: true, reasonCode: null }) },
       async (error: unknown) => {
         const cause: unknown = controller.signal.aborted ? controller.signal.reason : error
         await context.peer.notify('driver.terminal', { invocationId: input.invocationId, ok: false, reasonCode: cause instanceof Error && 'code' in cause && typeof cause.code === 'string' ? cause.code.slice(0, 128) : 'DRIVER_EXECUTION_FAILED' })

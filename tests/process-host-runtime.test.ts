@@ -484,6 +484,31 @@ test('stable cancellation commits during a Kernel outage and recovery cannot res
   expect(client.connectionStatus()).toBe('connected')
 })
 
+test('a Kernel fault after the real Pi completion receipt reconciles the outcome without another model execution', async () => {
+  const f = await fixture()
+  const set = await changedKernel(f.runtime, 'export const completionReceiptFaultFixture = true', source => {
+    const anchor = 'unsubscribe = kernel.subscribe'
+    if (source.split(anchor).length !== 2) throw new Error('Expected the activated Kernel subscription')
+    return source.replace(anchor, `const completionCall = kernel.storage.call.bind(kernel.storage); kernel.storage.call = async (method, ...args) => { if (method === 'setRun' && args[1] === 'completed' && (await completionCall('run', args[0])).requestId === 'receipt-gap') await new Promise(() => {}); return completionCall(method, ...args) }; ${anchor}`)
+  })
+  f.runtime.reload(set.id, ['kernel'])
+  await f.runtime.manager.reconcile(); await f.runtime.settled()
+  await until(() => f.runtime.snapshot().ready && f.runtime.manager.currentVersion('kernel').generation === 2)
+  const run = await f.runtime.kernel.submit(f.session.id, 'receipt-gap', { text: 'Return the final result once', images: [] }, 'local-fixture')
+  await until(async () => (await f.runtime.storage.call('events', f.session.id, 0, 2000)).some(event => event.runId === run.id && event.type === 'run.driverCompleted'))
+  const owner = f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'kernel')?.generations.find(generation => generation.role === 'default')
+  if (!owner?.pid || owner.pid === process.pid) throw new Error('Expected the retained Kernel process')
+  process.kill(owner.pid, 'SIGKILL')
+  await f.runtime.waitForIdle()
+  const recovery = await f.runtime.storage.call('runtimeRecoveryRead', run.id)
+  if (!recovery?.run) throw new Error('Expected the receipt reconciliation identity')
+  expect((await f.runtime.storage.call('run', recovery.run.id)).status).toBe('completed')
+  expect((await f.runtime.storage.call('run', run.id)).status).toBe('interrupted')
+  const snapshot = await f.runtime.storage.call('snapshot', f.session.id)
+  expect(snapshot.messages.filter(message => message.runId === recovery.run!.id)).toHaveLength(0)
+  expect((await f.runtime.storage.call('events', f.session.id, 0, 2000)).filter(event => event.type === 'run.driverCompleted')).toHaveLength(1)
+}, 120_000)
+
 test('runtime diagnostics and liveness remain available while the request Controller is recovering', async () => {
   const f = await fixture(), { client, host, system } = await clientFor(f.runtime)
   const previous = f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'controller')?.generations[0]

@@ -267,6 +267,21 @@ test('a retained manual request waits for durable approval, then admits once wit
   }
 })
 
+for (const source of ['user', 'goal'] as const) test(`${source} recovery reconciles a committed driver completion without a second model request or repeated result`, async () => {
+  const f = await fixture(source)
+  await f.storage.call('commit', f.session.id, f.original.id, 'assistant', [{ type: 'text', text: 'Final committed result' }])
+  await f.storage.call('append', f.session.id, 'run.driverCompleted', { version: 1 }, f.original.id)
+  if (source === 'goal') await f.kernel.plugins.get<GoalService>('goal').set(f.session.id, { status: 'complete' })
+  await f.storage.call('deleteProvider', 'fixture')
+  const record = (await f.kernel.recoverRuns([f.original.id]))[0]
+  if (!record?.run) throw new Error('Expected completion reconciliation to retain a successor identity')
+  await f.kernel.activate(); await f.kernel.waitForIdle()
+  expect(f.executions).toHaveLength(0)
+  expect((await f.storage.call('run', f.original.id)).status).toBe('interrupted')
+  expect((await f.storage.call('run', record.run.id)).status).toBe('completed')
+  expect((await f.storage.call('snapshot', f.session.id)).messages.flatMap(message => message.content).filter(block => block.type === 'text' && block.text === 'Final committed result')).toHaveLength(1)
+})
+
 for (const source of ['user', 'goal'] as const)
   test(`${source} recovery retains one user message and one settled effect across duplicate fault notifications`, async () => {
     const f = await fixture(source)
@@ -347,6 +362,7 @@ test('paused Goal and exhausted budgets cannot automatically resume the interrup
 test('an unknown side effect preserves waiting without driver execution', async () => {
   const f = await fixture()
   await f.storage.call('toolStart', f.session.id, f.original.id, 'unknown', 'write_file', {})
+  await f.storage.call('append', f.session.id, 'run.driverCompleted', { version: 1 }, f.original.id)
   const unknown = await f.kernel.recoverRuns([f.original.id])
   expect(unknown[0]?.chain.reasonCode).toBe('EFFECT_UNKNOWN')
   expect(unknown[0]?.run).toBeNull()
