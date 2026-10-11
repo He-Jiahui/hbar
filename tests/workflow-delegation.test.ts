@@ -78,6 +78,7 @@ async function fixture() {
     profile: { replacements: { 'driver.pi': driver } },
   })
   resources.push({ root, kernel })
+  await kernel.changePlugin('git.codex', true, { worktreeRoot: join(root, '.hbar-worktrees') })
   await kernel.changePlugin('goal.codex', true, { autoContinue: false, maxContinuations: 0 })
   const workspace = (await kernel.storage.call('workspaces')).find((entry) => entry.path === root)!
   const session = await kernel.createSession(workspace.id, 'parent')
@@ -157,6 +158,7 @@ test('workflow delegation limits concurrency, queues the remainder, and requires
   const cancelledAgent = await resource.agents.result(resource.session.id, cancelled.agentId!)
   const cancelledSession = await resource.kernel.storage.call('session', cancelledAgent.sessionId)
   const cancelledWorkspace = await resource.kernel.storage.call('workspace', cancelledSession.workspaceId)
+  expect(cancelledWorkspace.path).toStartWith(join(resource.root, '.hbar-worktrees'))
   const revised = await resource.workflows.checkpoint(
     resource.session.id,
     cancelled.itemId,
