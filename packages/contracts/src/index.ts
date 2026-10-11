@@ -700,6 +700,8 @@ const providerModelInputSchema = z.object({
   contextWindow: z.number().int().min(1024).max(10_000_000).optional(),
   maxOutput: z.number().int().min(64).max(10_000_000).optional(),
   imageInput: z.boolean().optional(),
+  /** Explicit opt-in for this model at the provider's OpenAI Images API route. */
+  imageGeneration: z.boolean().optional(),
   reasoning: z.boolean().optional(),
   inputPrice: z.number().nonnegative().optional(),
   outputPrice: z.number().nonnegative().optional(),
@@ -722,6 +724,7 @@ export interface ProviderModelConfig {
   contextWindow: number
   maxOutput: number
   imageInput: boolean
+  imageGeneration: boolean
   reasoning: boolean
   inputPrice: number
   outputPrice: number
@@ -748,6 +751,7 @@ export interface ProviderConfig {
   contextWindow: number
   maxOutput: number
   imageInput: boolean
+  imageGeneration: boolean
   reasoning: boolean
   inputPrice: number
   outputPrice: number
@@ -776,6 +780,7 @@ export const providerInputSchema = z
     contextWindow: z.number().int().min(1024).max(10_000_000).optional(),
     maxOutput: z.number().int().min(64).max(10_000_000).optional(),
     imageInput: z.boolean().optional(),
+    imageGeneration: z.boolean().optional(),
     reasoning: z.boolean().optional(),
     inputPrice: z.number().nonnegative().optional(),
     outputPrice: z.number().nonnegative().optional(),
@@ -846,6 +851,7 @@ function normalizeProviderModel(
     contextWindow: number
     maxOutput: number
     imageInput: boolean
+    imageGeneration: boolean
     reasoning: boolean
     inputPrice: number
     outputPrice: number
@@ -868,6 +874,7 @@ function normalizeProviderModel(
     contextWindow: value.contextWindow ?? fallback.contextWindow,
     maxOutput: value.maxOutput ?? fallback.maxOutput,
     imageInput: value.imageInput ?? fallback.imageInput,
+    imageGeneration: value.imageGeneration ?? fallback.imageGeneration,
     reasoning,
     inputPrice: value.inputPrice ?? fallback.inputPrice,
     outputPrice: value.outputPrice ?? fallback.outputPrice,
@@ -891,6 +898,7 @@ export const providerSchema = providerInputSchema.transform((value): ProviderCon
     contextWindow: value.contextWindow ?? 128_000,
     maxOutput: value.maxOutput ?? 8192,
     imageInput: value.imageInput ?? false,
+    imageGeneration: value.imageGeneration ?? false,
     reasoning: value.reasoning ?? providerThinkingLevels.some((level) => level !== 'off'),
     inputPrice: value.inputPrice ?? 0,
     outputPrice: value.outputPrice ?? 0,
@@ -908,6 +916,7 @@ export const providerSchema = providerInputSchema.transform((value): ProviderCon
           contextWindow: value.contextWindow,
           maxOutput: value.maxOutput,
           imageInput: value.imageInput,
+          imageGeneration: value.imageGeneration,
           reasoning: value.reasoning,
           inputPrice: value.inputPrice,
           outputPrice: value.outputPrice,
@@ -935,6 +944,7 @@ export const providerSchema = providerInputSchema.transform((value): ProviderCon
     contextWindow: selected.contextWindow,
     maxOutput: selected.maxOutput,
     imageInput: selected.imageInput,
+    imageGeneration: selected.imageGeneration,
     reasoning: selected.reasoning,
     inputPrice: selected.inputPrice,
     outputPrice: selected.outputPrice,
@@ -993,6 +1003,7 @@ export function resolveProviderModel(provider: ProviderConfig, selectionId: stri
     contextWindow: selected.contextWindow,
     maxOutput: selected.maxOutput,
     imageInput: selected.imageInput,
+    imageGeneration: selected.imageGeneration,
     reasoning: selected.reasoning,
     inputPrice: selected.inputPrice,
     outputPrice: selected.outputPrice,

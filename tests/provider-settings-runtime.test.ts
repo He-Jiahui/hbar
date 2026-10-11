@@ -1386,8 +1386,11 @@ test('unknown global provider default reconciles only the exact receipt and does
     expect(result).toMatchObject({ status: 'succeeded', providerId: 'target', modelSelectionId: 'target/secondary' })
     expect(fixture.writes).toHaveLength(1)
     expect(fixture.receiptReads).toHaveLength(1)
-    expect(fixture.receiptReads[0]?.key).toBe(fixture.writes[0]?.idempotencyKey)
-    expect(fixture.receiptReads[0]?.input).toEqual(fixture.writes[0]?.input)
+    const receiptRead = fixture.receiptReads[0]
+    const write = fixture.writes[0]
+    if (!receiptRead || !write?.idempotencyKey) throw new Error('Expected the original global-default receipt lookup')
+    expect(receiptRead.key).toBe(write.idempotencyKey)
+    expect(receiptRead.input).toEqual(write.input)
   } finally {
     fixture.runtime.dispose()
   }
@@ -1525,5 +1528,38 @@ test('a contextual default read cannot write after its Providers category or sco
       release()
       fixture.runtime.dispose()
     }
+  }
+})
+
+test('provider editor preserves an explicitly configured image generation model during ordinary edits', async () => {
+  const configuration = fixture()
+  const profile = configuration.profiles.get('fixture')
+  if (!profile) throw new Error('Provider fixture is missing')
+  configuration.profiles.set('fixture', {
+    ...profile,
+    provider: providerSchema.parse({
+      ...profile.provider,
+      models: profile.provider.models.map((entry) => ({ ...entry, imageGeneration: true })),
+    }),
+  })
+  const { runtime } = modelInvalidationRuntime(configuration)
+  try {
+    await runtime.view.commands.execute('app.openSettingsEditor', {
+      scope: 'global',
+      path: 'providers',
+      entryId: 'fixture',
+      instanceId: 'image-generation-provider-editor',
+    })
+    const editor = await waitFor(() => runtime.view.state.providers.getSnapshot().editor ?? undefined)
+    await runtime.view.commands.execute('providerEditor.setProviderField', {
+      editorId: editor.editorId,
+      field: 'name',
+      value: 'Edited provider',
+    })
+    await runtime.view.commands.execute('providerEditor.save', { editorId: editor.editorId })
+    const saved = configurationCommands['provider.save'].input.parse(configuration.saves[0])
+    expect(saved.provider.models?.map((entry) => [entry.id, entry.imageGeneration])).toEqual([['model-1', true]])
+  } finally {
+    runtime.dispose()
   }
 })

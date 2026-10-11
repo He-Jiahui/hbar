@@ -788,6 +788,8 @@ export interface ProviderEditorDraftModel {
   readonly contextWindow: number
   readonly maxOutput: number
   readonly imageInput: boolean
+  /** Preserved from the stored provider model; configured through provider.save JSON. */
+  readonly imageGeneration?: boolean
   readonly reasoning: boolean
   readonly inputPrice: number
   readonly outputPrice: number
