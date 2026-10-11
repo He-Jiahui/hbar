@@ -166,6 +166,7 @@ test('real Kernel local fixture emits run and model lifecycle diagnostics withou
     const eventNames = events.map((event) => event.event)
     for (const expected of ['run.started', 'model.prepared', 'model.started', 'model.settled', 'run.settled'])
       expect(eventNames.includes(expected)).toBe(true)
+    expect(events.find((event) => event.event === 'model.settled' && event.runId === run.id)?.outcome).toBe('success')
     const serialized = JSON.stringify(events)
     expect(serialized).not.toContain('hello')
     expect(serialized).not.toContain('prompt')

@@ -1932,6 +1932,7 @@ export class Kernel {
     const startedStepIds = new Set<string>(), completedStepIds = new Set<string>()
     const modelStartedAt = new Map<string, number>()
     const reportedModelFailures = new Set<string>()
+    const reportedModelCancellations = new Set<string>()
     let driverCompletionRecorded = false
     let branchExecutionPath: string | null = null
     let branchTargetRevision: number | null = null
@@ -2112,6 +2113,7 @@ export class Kernel {
               }
               if (type === 'step.ended' && stepId && !completedStepIds.has(stepId) && completedStepCount < 1_000_000) {
                 completedStepIds.add(stepId)
+                // This counts durable ended steps, including failed/cancelled model turns.
                 completedStepCount += 1
               }
           if (type === 'run.driverCompleted') driverCompletionRecorded = true
@@ -2167,9 +2169,10 @@ export class Kernel {
                 this.executionDiagnostics.providerTransportFailure(identity, event.transportKind, event.transportCode)
               else if (event.phase === 'settled')
                 this.executionDiagnostics.providerRequestSettled(identity, 'success', event.durationMs ?? 0)
-              else if (event.phase === 'cancelled')
+              else if (event.phase === 'cancelled') {
                 this.executionDiagnostics.providerRequestSettled(identity, 'skipped', event.durationMs ?? 0)
-              else {
+                if (event.modelRequestId) reportedModelCancellations.add(event.modelRequestId)
+              } else {
                 this.executionDiagnostics.providerRequestSettled(identity, 'failure', event.durationMs ?? 0)
                 if (event.modelRequestId && !reportedModelFailures.has(event.modelRequestId)) {
                   reportedModelFailures.add(event.modelRequestId)
@@ -2313,16 +2316,19 @@ export class Kernel {
           return request
         },
         stepEnded: async (stepId) => {
-              const startedAt = modelStartedAt.get(stepId)
-              modelStartedAt.delete(stepId)
-              reportedModelFailures.delete(stepId)
-              this.executionDiagnostics.modelSettled(
-                { sessionId, runId: run.id, requestId: run.requestId, stepId },
-                'success',
-                startedAt === undefined ? 0 : performance.now() - startedAt,
-              )
+          const startedAt = modelStartedAt.get(stepId)
+          modelStartedAt.delete(stepId)
+          const failed = reportedModelFailures.has(stepId)
+          const cancelled = !failed && (controller.signal.aborted || reportedModelCancellations.has(stepId))
+          this.executionDiagnostics.modelSettled(
+            { sessionId, runId: run.id, requestId: run.requestId, stepId },
+            failed ? 'failure' : cancelled ? 'skipped' : 'success',
+            startedAt === undefined ? 0 : performance.now() - startedAt,
+          )
 
-          await compactAtBoundary()
+          // A failed or cancelled turn must not start new model work at its end.
+          // In particular, a summary failure must not replace the original provider error.
+          if (!failed && !cancelled) await compactAtBoundary()
           const settled = await scope.hooks.dispatch('step.end', { sessionId, runId: run.id, stepId })
           if (settled.stop) await closeSteering()
           return settled.stop ? { stop: settled.stop } : undefined
