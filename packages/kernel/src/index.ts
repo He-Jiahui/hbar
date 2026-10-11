@@ -103,6 +103,8 @@ import type {
 } from '@hbar/contracts'
 import { createKernelExecutionDiagnostics } from './execution-diagnostics'
 import type { KernelContinuationDiagnostic, KernelExecutionDiagnostics } from './execution-diagnostics'
+import { SessionSummaryCoordinator } from './session-summary-coordinator'
+import type { SessionSummaryOverride } from './session-summary-coordinator'
 import { definePlugin, prependModelInstructions, provide, resolveToolTimeoutMs, RunControlSignal } from '@hbar/plugin-sdk'
 import type {
   CompactionProvider,
@@ -476,6 +478,7 @@ type ApprovalResolution =
 
 export class Kernel {
   private readonly executionScope: KernelExecutionScope
+  private readonly sessionSummaryCoordinator: SessionSummaryCoordinator
   private readonly runtimeRecovery: RuntimeRecoveryService
   private readonly executionDiagnostics: KernelExecutionDiagnostics
   private readonly continuationDiagnosticKeys = new Map<string, string>()
@@ -508,8 +511,6 @@ export class Kernel {
   >()
   private cancelled = new Set<string>()
   private streamTimers = new Map<string, ReturnType<typeof setTimeout>>()
-  private summaryTimers = new Map<string, ReturnType<typeof setTimeout>>()
-  private summaryPending = new Map<string, { activity?: SessionSummary['activity']; activeRunId?: string | null }>()
   private maintenance = false
   private providerSaveInFlight = false
   private chatDatabaseWrites = 0
@@ -535,6 +536,10 @@ export class Kernel {
     this.preparing = options.lifecycle === 'candidate'
     if (this.preparing && !storage) throw new HbarError('RUNTIME_PREPARING', 'Candidate construction requires an explicit read-only Storage port')
     this.executionScope = new KernelExecutionScope(options.execution)
+    this.sessionSummaryCoordinator = new SessionSummaryCoordinator(
+      (sessionId, override, isCurrent) => this.publishSessionSummary(sessionId, override, isCurrent),
+      { setTimer: (callback, delayMs) => this.executionScope.observe(() => setTimeout(callback, delayMs)) },
+    )
     const suppliedStorage = storage ?? new Storage(options.layout.database, options.layout, {
       ...(options.diagnostics ? { diagnostics: options.diagnostics } : {}),
       ...(options.diagnosticScope ? { diagnosticScope: options.diagnosticScope } : {}),
@@ -1164,30 +1169,25 @@ export class Kernel {
     activeRunId?: string | null,
   ) {
     if (this.storageFailure || this.closing) return
-    const pending = this.summaryPending.get(sessionId) ?? {}
-    this.summaryPending.set(sessionId, {
-      ...pending,
-      ...(activity ? { activity } : {}),
-      ...(activeRunId === undefined ? {} : { activeRunId }),
-    })
-    if (this.summaryTimers.has(sessionId)) return
-    const timer = this.executionScope.observe(() => setTimeout(() => {
-      this.summaryTimers.delete(sessionId)
-      const override = this.summaryPending.get(sessionId)
-      this.summaryPending.delete(sessionId)
-      void this.publishSessionSummary(sessionId, override?.activity, override?.activeRunId)
-    }, 80))
-    this.summaryTimers.set(sessionId, timer)
+    this.sessionSummaryCoordinator.schedule(sessionId, activity, activeRunId)
   }
-  private async publishSessionSummary(sessionId: string, activity?: SessionSummary['activity'], activeRunId?: string | null) {
-    if (this.storageFailure || this.closing) return
+  private async publishSessionSummary(
+    sessionId: string,
+    override: SessionSummaryOverride,
+    isCurrent: () => boolean,
+  ) {
+    if (this.storageFailure || this.closing || !isCurrent()) return
     try {
       const summary = await this.storage.call('sessionSummary', sessionId)
+      if (this.storageFailure || this.closing || !isCurrent()) return
       this.publish({
         method: 'session.summary',
         params: {
           ...summary,
-          ...(activity && (activeRunId === undefined || activeRunId === summary.activeRunId) ? { activity } : {}),
+          ...(override.activity &&
+          (override.activeRunId === undefined || override.activeRunId === summary.activeRunId)
+            ? { activity: override.activity }
+            : {}),
         },
       })
     } catch (error) {
@@ -3678,9 +3678,7 @@ export class Kernel {
       // Diagnostic observers cannot affect the storage failure transition.
     }
     this.readyForRuns = false
-    for (const timer of this.summaryTimers.values()) clearTimeout(timer)
-    this.summaryTimers.clear()
-    this.summaryPending.clear()
+    this.sessionSummaryCoordinator.close()
     this.scheduledWakeups.close()
     this.wakeups.clear()
     for (const active of this.active.values()) active.controller.abort(event)
@@ -3688,10 +3686,7 @@ export class Kernel {
   notifyChatDatabaseDeleted(sessionIds: string[], revision: number): void {
     if (sessionIds.length < 1 || sessionIds.length > 100) throw new HbarError('INVALID_INPUT', 'Deletion notifications are bounded')
     for (const id of sessionIds) {
-      const timer = this.summaryTimers.get(id)
-      if (timer) clearTimeout(timer)
-      this.summaryTimers.delete(id)
-      this.summaryPending.delete(id)
+      this.sessionSummaryCoordinator.cancel(id)
       this.wakeups.delete(id)
       this.scheduledWakeups.cancel(id)
     }
@@ -3831,9 +3826,7 @@ export class Kernel {
     this.continuationDiagnosticKeys.clear()
     this.removeStorageFatalListener?.()
     this.removeStorageFatalListener = undefined
-    for (const timer of this.summaryTimers.values()) clearTimeout(timer)
-    this.summaryTimers.clear()
-    this.summaryPending.clear()
+    this.sessionSummaryCoordinator.close()
     this.scheduledWakeups.close()
     this.schemaCallbacks.dispose()
     this.directoryQueries.dispose()
