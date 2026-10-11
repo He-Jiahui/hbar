@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { createAgentCommandClient, createWorkspaceSessionCommandClient } from '@hbar/client'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
@@ -8,6 +8,7 @@ import { getShellCopy } from '../apps/web/src/shell-copy'
 import { workspaceTabsCopy } from '../apps/web/src/workspace-tabs-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { openSessionTool } from './support/session-tools-menu'
+import { removeOwnedFixtureDirectory } from './support/owned-fixture-directory'
 
 const base = () => `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
 const childTitle = 'Isolated review child with a long title'
@@ -96,7 +97,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     } finally {
       await context.close()
       if (host) await stopWebSessionHost(host)
-      await rm(root, { recursive: true, force: true })
+      await removeOwnedFixtureDirectory(root, 'hbar-agent-child-return-')
     }
   })
 }
@@ -184,6 +185,6 @@ test('a lost Agent read stays in the original detail and an explicit retry opens
   } finally {
     await context.close()
     if (host) await stopWebSessionHost(host)
-    await rm(root, { recursive: true, force: true })
+    await removeOwnedFixtureDirectory(root, 'hbar-agent-child-unknown-')
   }
 })
