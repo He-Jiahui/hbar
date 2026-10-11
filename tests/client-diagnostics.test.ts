@@ -1,5 +1,6 @@
-import { expect, test } from 'bun:test'
+import { expect, spyOn, test } from 'bun:test'
 import { HbarClient, type HbarClientOptions } from '@hbar/client'
+import { CONTEXT_COMPACTION_RPC_TIMEOUT_MS } from '@hbar/contracts/commands/run'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { startServer } from '../apps/host/src/server'
 import { mkdtemp, realpath, rm } from 'node:fs/promises'
@@ -252,3 +253,83 @@ test('a real local WebSocket retains command identity through timeout and pendin
     await server.stop(true)
   }
 }, 60_000)
+
+test('the real client schedules and clears compaction RPC deadlines without changing ordinary RPCs', async () => {
+  let received = 0
+  const server = Bun.serve({
+    port: 0,
+    fetch(request, instance) {
+      return instance.upgrade(request) ? undefined : new Response('not found', { status: 404 })
+    },
+    websocket: {
+      message(socket, value) {
+        const request = z
+          .object({ id: z.number(), method: z.string() })
+          .passthrough()
+          .parse(JSON.parse(String(value)))
+        if (request.method === 'system.hello') {
+          socket.send(
+            JSON.stringify({
+              jsonrpc: '2.0',
+              id: request.id,
+              result: {
+                version: 'fixture',
+                protocol: PROTOCOL_VERSION,
+                instanceId: '00000000-0000-4000-8000-000000000001',
+                platform: 'fixture',
+                addresses: [],
+                activeRuns: 0,
+                demo: true,
+              },
+            }),
+          )
+          return
+        }
+        received++
+        socket.send(JSON.stringify({ jsonrpc: '2.0', id: request.id, result: { summary: 'done' } }))
+      },
+    },
+  })
+  const client = new HbarClient(`http://127.0.0.1:${server.port}`)
+  const setTimer = spyOn(globalThis, 'setTimeout')
+  const clearTimer = spyOn(globalThis, 'clearTimeout')
+  try {
+    await client.connect()
+    const cases: { request(): Promise<unknown>; timeoutMs: number }[] = [
+      {
+        request: () => client.call('context.compact', { sessionId: 'session', modelId: 'model' }),
+        timeoutMs: CONTEXT_COMPACTION_RPC_TIMEOUT_MS,
+      },
+      {
+        request: () =>
+          client.call('command.execute', {
+            protocol: 1,
+            requestId: 'context-compact-rpc-fixture',
+            commandId: 'context.compact',
+            commandVersion: 1,
+            input: { sessionId: 'session', modelId: 'model' },
+          }),
+        timeoutMs: CONTEXT_COMPACTION_RPC_TIMEOUT_MS,
+      },
+      { request: () => client.call('session.snapshot', { sessionId: 'session' }), timeoutMs: 30_000 },
+    ]
+    for (const item of cases) {
+      const firstTimer = setTimer.mock.calls.length
+      const firstClear = clearTimer.mock.calls.length
+      const firstReceived = received
+      await item.request()
+      expect(received).toBe(firstReceived + 1)
+      const timerIndex = setTimer.mock.calls.findIndex(
+        ([, delay], index) => index >= firstTimer && delay === item.timeoutMs,
+      )
+      expect(timerIndex).toBeGreaterThanOrEqual(0)
+      const scheduled = setTimer.mock.results[timerIndex]?.value
+      expect(clearTimer.mock.calls.slice(firstClear).some(([cleared]) => cleared === scheduled)).toBe(true)
+    }
+  } finally {
+    client.disconnect()
+    setTimer.mockRestore()
+    clearTimer.mockRestore()
+    await server.stop(true)
+  }
+})

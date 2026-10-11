@@ -1,6 +1,7 @@
 import { HbarError } from '@hbar/contracts'
+import { CONTEXT_COMPACTION_KERNEL_TIMEOUT_MS } from '@hbar/contracts/commands/run'
 
-export const AUTO_COMPACTION_TIMEOUT_MS = 300_000
+export const AUTO_COMPACTION_TIMEOUT_MS = CONTEXT_COMPACTION_KERNEL_TIMEOUT_MS
 
 export function resolveCompactionTimeoutMs(value: number | undefined): number {
   if (value === undefined) return AUTO_COMPACTION_TIMEOUT_MS

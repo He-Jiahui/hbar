@@ -1,4 +1,5 @@
 import { artifactSchema, HbarError, PROTOCOL_VERSION, rpcSchemas } from '@hbar/contracts'
+import { CONTEXT_COMPACTION_RPC_TIMEOUT_MS } from '@hbar/contracts/commands/run'
 import { createImageArtifactReader, type ImageArtifactReadOptions, type ImageArtifactBytes } from './image-artifacts'
 export {
   MAX_IMAGE_ARTIFACT_BYTES,
@@ -90,6 +91,16 @@ import { HbarClientDiagnostics, type HbarClientOptions } from './diagnostics'
 export { HbarClientDiagnostics, type ClientDiagnosticInput, type HbarClientOptions } from './diagnostics'
 export type { ClientTransport } from './transport'
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'pairing'
+
+function resolveRpcTimeoutMs(method: RpcMethod, params: unknown): number {
+  if (method === 'context.compact') return CONTEXT_COMPACTION_RPC_TIMEOUT_MS
+  if (method === 'command.execute') {
+    const invocation = rpcSchemas['command.execute'].safeParse(params)
+    if (invocation.success && invocation.data.commandId === 'context.compact')
+      return CONTEXT_COMPACTION_RPC_TIMEOUT_MS
+  }
+  return 30_000
+}
 
 function commandDiagnosticIdentity(method: RpcMethod, params: unknown) {
   if (method !== 'command.execute') return undefined
@@ -336,20 +347,14 @@ export class HbarClient implements ClientTransport {
           ? params.requestId.slice(0, 160)
           : undefined
       let bytesOut = 0
-      const longRunning =
-        method === 'context.compact' ||
-        (method === 'command.execute' &&
-          typeof params === 'object' &&
-          params !== null &&
-          'commandId' in params &&
-          params.commandId === 'context.compact')
+      const timeoutMs = resolveRpcTimeoutMs(method, params)
       const timer = setTimeout(
         () => {
           this.pending.delete(id)
           this.diagnostics.emit({ event: 'rpc.timeout', level: 'error', phase: 'timeout', instanceId: this.currentHost?.instanceId, rpcId: String(id), requestId, method, commandId, errorCode: 'TIMEOUT', outcome: 'unknown', durationMs: performance.now() - startedAt, bytesOut, pending: this.pending.size }, true)
           reject(new HbarError('TIMEOUT', 'Request timed out'))
         },
-        longRunning ? 300_000 : 30_000,
+        timeoutMs,
       )
       const message = JSON.stringify({ jsonrpc: '2.0', id, method, params })
       bytesOut = new TextEncoder().encode(message).byteLength
