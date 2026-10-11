@@ -59,7 +59,10 @@ export interface EchartsChartProps {
 }
 
 function reducedMotion() {
-  return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  return (
+    (typeof document !== 'undefined' && document.documentElement.dataset.lumenMotion === 'off') ||
+    (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+  )
 }
 
 export function EchartsChart({ option, height = '10rem', label, className }: EchartsChartProps) {
@@ -134,7 +137,7 @@ export function EchartsChart({ option, height = '10rem', label, className }: Ech
     const observer = new MutationObserver(refresh)
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['class', 'style', 'data-theme', 'data-lumen-mode'],
+      attributeFilter: ['class', 'style', 'data-theme', 'data-lumen-mode', 'data-lumen-motion'],
     })
     const media = window.matchMedia('(prefers-reduced-motion: reduce)')
     if (media.addEventListener) media.addEventListener('change', refresh)

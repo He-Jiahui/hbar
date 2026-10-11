@@ -159,3 +159,19 @@ test('live Lumen mode changes repaint Canvas on the same instance and default to
   await expect(page.locator('img[data-audit-marker=tooltip]')).toHaveCount(0)
   await page.screenshot({ path: testInfo.outputPath('chart-theme-tooltip.png') })
 })
+
+test('the Lumen application motion switch overrides explicit animations and restores them on the same chart', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await mount(page)
+  await show(page)
+  const initial = await snapshot(page)
+  await page.evaluate(() => document.documentElement.setAttribute('data-lumen-motion', 'off'))
+  await expect.poll(async () => (await snapshot(page)).option.animation).toBe(false)
+  expect((await snapshot(page)).option.series.every((series) => series?.animation === false)).toBe(true)
+  await page.evaluate(() => document.documentElement.setAttribute('data-lumen-motion', 'on'))
+  await expect.poll(async () => (await snapshot(page)).option.animation).toBe(true)
+  expect((await snapshot(page)).option.series.every((series) => series?.animation === true)).toBe(true)
+  expect((await snapshot(page)).id).toBe(initial.id)
+})
