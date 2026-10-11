@@ -1797,6 +1797,7 @@ export class Kernel {
         if (reason) throw new HbarError(reason, 'Recovered execution is waiting for its original control conditions')
       }
       this.publishEvent(await this.storage.call('setRun', run.id, 'running'))
+      idleTimeout.progress()
       if (run.recovery && await this.driverCompletionCommitted(run)) {
         controller.signal.throwIfAborted()
         if (await this.storage.call('cancelRequested', run.id)) throw new HbarError('USER_CANCELLED', 'Cancelled by user')
@@ -1807,11 +1808,15 @@ export class Kernel {
         runId: run.id,
         run: await this.storage.call('run', run.id),
       })
+      idleTimeout.progress()
       const session = await this.storage.call('session', sessionId)
       const workspace = await this.storage.call('workspace', session.workspaceId)
+      idleTimeout.progress()
       const branchTarget = await this.withSessionLaunchTargetLock(sessionId, () => this.withSharedCheckoutLock(sessionId, () => this.sessionBranchTargets.prepareForRun(sessionId, controller.signal), controller.signal), controller.signal)
+      idleTimeout.progress()
       branchTargetRevision = branchTarget?.revision ?? null
       branchExecutionPath = await this.sessionLaunchTargets.workspaceForRun(sessionId, workspace.path, controller.signal)
+      idleTimeout.progress()
       const workspaceForRun: Workspace = {
         ...workspace,
         path: await this.workspaceSandboxes.prepare(
@@ -1820,6 +1825,7 @@ export class Kernel {
           controller.signal,
         ),
       }
+      idleTimeout.progress()
       const model = await this.plugins.get<ModelRegistry>('models').get(run.modelId)
       const providerSnapshot = (await this.storage.call('providers')).find(
         (candidate) => run.modelId === candidate.id || run.modelId.startsWith(`${candidate.id}/`),
@@ -1828,6 +1834,7 @@ export class Kernel {
       if (activeSnapshot && providerSnapshot) activeSnapshot.providerSnapshot = providerSnapshot
       const apiKey =
         model.protocol === 'mock' ? null : await this.plugins.get<ModelRegistry>('models').secret(model.id)
+      idleTimeout.progress()
       const content: ContentBlock[] = [
         ...(run.input.text ? [{ type: 'text' as const, text: run.input.text }] : []),
         ...run.input.images.map((artifact) => ({ type: 'image' as const, artifact })),
@@ -1838,6 +1845,7 @@ export class Kernel {
         ? { message: retainedInput, event: null }
         : await this.storage.call('commit', sessionId, run.id, 'user', content)
       if (initialCommit.event) this.publishEvent(initialCommit.event)
+      idleTimeout.progress()
       if (session.title === 'New session')
         await this.updateSession(sessionId, {
           title: (
@@ -1868,6 +1876,7 @@ export class Kernel {
         tools: scope.tools.list(),
       })
       scope.tools.pinParent()
+      idleTimeout.progress()
       const selectedNames = new Set(selectedTools.tools.map((tool) => tool.name))
       const toolPresentations = captureToolPresentations(selectedNames, scope.tools)
       const trackToolExecution = async <Result>(execution: Promise<Result>): Promise<Result> => {
@@ -2089,6 +2098,7 @@ export class Kernel {
         const active = this.active.get(sessionId)
         if (active?.run.id === run.id) active.steeringReady = true
       }
+      idleTimeout.progress()
       await driver.run(input)
       if (!driverCompletionRecorded) await this.append(sessionId, 'run.driverCompleted', { version: 1 }, run.id)
     } catch (error) {

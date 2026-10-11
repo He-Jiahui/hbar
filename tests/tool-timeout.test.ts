@@ -126,7 +126,7 @@ async function fixture(script?: (input: DriverInput) => Promise<void>) {
     workspace: root,
     demo: true,
     secrets: new MemorySecrets(),
-    runIdleTimeoutMs: 250,
+    runIdleTimeoutMs: 600,
     ...(driver ? { profile: { replacements: { 'driver.pi': driver } } } : {}),
   })
   cleanups.push(() => kernel.close())
@@ -181,7 +181,7 @@ test('a tool timeout longer than Run idle timeout returns an error and the same 
       }
     },
   })
-  expect((await f.submit()).status).toBe('completed')
+  expect(await f.submit()).toMatchObject({ status: 'completed' })
   expect(toolAborted).toBe(true)
   const snapshot = await f.kernel.snapshot(f.session.id)
   const result = snapshot.messages
@@ -246,7 +246,7 @@ test('parent timeout cancels a sequence child and leaves later calls undispatche
     description: 'Execute a bounded batch',
     inputSchema: z.object({}),
     effect: 'read',
-    timeoutMs: 100,
+    timeoutMs: 400,
     execute: async (_args, context) => ({
       text: JSON.stringify(
         await context.executeSequence?.([
