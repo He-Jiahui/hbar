@@ -18,6 +18,8 @@ export { createChatDatabaseDatabaseService } from './chat-database-database'
 export type { ChatDatabaseDatabasePort } from './chat-database-database'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
+import { SessionSummaryCoordinator } from './session-summary-coordinator'
+import type { SessionSummaryOverride } from './session-summary-coordinator'
 import {
   COMPACTION_PERCENT_SETTING,
   DEFAULT_COMPACTION_PERCENT,
@@ -475,6 +477,7 @@ type ApprovalResolution =
   | { source: 'abort'; reason: unknown }
 
 export class Kernel {
+  private readonly sessionSummaryCoordinator: SessionSummaryCoordinator
   private readonly executionDiagnostics: KernelExecutionDiagnostics
   private readonly continuationDiagnosticKeys = new Map<string, string>()
   private readonly toolExecutions = new ToolExecutions()
@@ -506,8 +509,6 @@ export class Kernel {
   >()
   private cancelled = new Set<string>()
   private streamTimers = new Map<string, ReturnType<typeof setTimeout>>()
-  private summaryTimers = new Map<string, ReturnType<typeof setTimeout>>()
-  private summaryPending = new Map<string, { activity?: SessionSummary['activity']; activeRunId?: string | null }>()
   private maintenance = false
   private providerSaveInFlight = false
   private chatDatabaseWrites = 0
@@ -540,6 +541,9 @@ export class Kernel {
         ...(options.diagnostics ? { instanceId: this.instanceId } : {}),
         ...(options.diagnosticFullCoverage === undefined ? {} : { diagnosticsFullCoverage: options.diagnosticFullCoverage }),
       })
+    this.sessionSummaryCoordinator = new SessionSummaryCoordinator(
+      (sessionId, override, isCurrent) => this.publishSessionSummary(sessionId, override, isCurrent),
+    )
     this.removeStorageFatalListener = this.storage.onFatal?.((event) => this.handleStorageFatal(event))
     this.workspaceSandboxes = new WorkspaceSandboxService(
       this.storage,
@@ -1013,31 +1017,23 @@ export class Kernel {
     activeRunId?: string | null,
   ) {
     if (this.storageFailure || this.closing) return
-    const pending = this.summaryPending.get(sessionId) ?? {}
-    this.summaryPending.set(sessionId, {
-      ...pending,
-      ...(activity ? { activity } : {}),
-      ...(activeRunId === undefined ? {} : { activeRunId }),
-    })
-    if (this.summaryTimers.has(sessionId)) return
-    const timer = setTimeout(() => {
-      this.summaryTimers.delete(sessionId)
-      const override = this.summaryPending.get(sessionId)
-      this.summaryPending.delete(sessionId)
-      void this.publishSessionSummary(sessionId, override?.activity, override?.activeRunId)
-    }, 80)
-    this.summaryTimers.set(sessionId, timer)
+    this.sessionSummaryCoordinator.schedule(sessionId, activity, activeRunId)
   }
-  private async publishSessionSummary(sessionId: string, activity?: SessionSummary['activity'], activeRunId?: string | null) {
-    if (this.storageFailure || this.closing) return
+  private async publishSessionSummary(
+    sessionId: string,
+    override: SessionSummaryOverride,
+    isCurrent: () => boolean,
+  ) {
+    if (this.storageFailure || this.closing || !isCurrent()) return
     try {
       const summary = await this.storage.call('sessionSummary', sessionId)
+      if (this.storageFailure || this.closing || !isCurrent()) return
       this.publish({
         method: 'session.summary',
         params: {
           ...summary,
-          ...(activity ? { activity } : {}),
-          ...(activeRunId === undefined ? {} : { activeRunId }),
+          ...(override.activity ? { activity: override.activity } : {}),
+          ...(override.activeRunId === undefined ? {} : { activeRunId: override.activeRunId }),
         },
       })
     } catch (error) {
@@ -3418,9 +3414,7 @@ export class Kernel {
       // Diagnostic observers cannot affect the storage failure transition.
     }
     this.readyForRuns = false
-    for (const timer of this.summaryTimers.values()) clearTimeout(timer)
-    this.summaryTimers.clear()
-    this.summaryPending.clear()
+    this.sessionSummaryCoordinator.close()
     this.scheduledWakeups.close()
     this.wakeups.clear()
     for (const active of this.active.values()) active.controller.abort(event)
@@ -3428,10 +3422,7 @@ export class Kernel {
   notifyChatDatabaseDeleted(sessionIds: string[], revision: number): void {
     if (sessionIds.length < 1 || sessionIds.length > 100) throw new HbarError('INVALID_INPUT', 'Deletion notifications are bounded')
     for (const id of sessionIds) {
-      const timer = this.summaryTimers.get(id)
-      if (timer) clearTimeout(timer)
-      this.summaryTimers.delete(id)
-      this.summaryPending.delete(id)
+      this.sessionSummaryCoordinator.cancel(id)
       this.wakeups.delete(id)
       this.scheduledWakeups.cancel(id)
     }
@@ -3571,9 +3562,7 @@ export class Kernel {
     this.continuationDiagnosticKeys.clear()
     this.removeStorageFatalListener?.()
     this.removeStorageFatalListener = undefined
-    for (const timer of this.summaryTimers.values()) clearTimeout(timer)
-    this.summaryTimers.clear()
-    this.summaryPending.clear()
+    this.sessionSummaryCoordinator.close()
     this.scheduledWakeups.close()
     this.schemaCallbacks.dispose()
     this.directoryQueries.dispose()
