@@ -191,7 +191,7 @@ test('public context.compact preserves the existing summary and history when Pi 
     const modelId = provider(`http://127.0.0.1:${server.port}/v1`).model.id
     await expect(
       createRunCommandClient(client).execute('context.compact', { sessionId: session.id, modelId }),
-    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+    ).rejects.toMatchObject({ code: 'COMPACTION_INCOMPLETE' })
 
     expect(await kernel.storage.call('context', session.id)).toEqual(beforeContext)
     const afterSnapshot = await kernel.snapshot(session.id)

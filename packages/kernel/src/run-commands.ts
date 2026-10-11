@@ -349,6 +349,7 @@ export function createRunCommands(kernel: Kernel) {
             'DEMO_DISABLED',
             'BUSY',
             'COMPACTION_FAILED',
+            'COMPACTION_INCOMPLETE',
             'COMPACTION_LIMIT',
             'CONTEXT_WINDOW_EXCEEDED',
           ].includes(error.code)
