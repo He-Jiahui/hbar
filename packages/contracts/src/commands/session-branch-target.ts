@@ -23,44 +23,72 @@ export const sessionBranchTargetListInputSchema = z.strictObject({
   limit: z.number().int().min(1).max(50).default(25),
   cursor: z.string().min(1).max(2_048).optional(),
 })
-export const sessionBranchTargetPageSchema = z.strictObject({
-  sessionId: idSchema,
-  workspaceId: idSchema,
-  revision,
-  execution,
-  /** Current creation base remains available even outside the visible branch page. */
-  base: z.strictObject({ name, ref, tipOid: oid }).nullable(),
-  branches: z
-    .array(
-      z
-        .strictObject({
-          name,
-          ref,
-          tipOid: oid,
-          current: z.boolean(),
-          /** A registered local worktree is an available directory, rather than a disabled branch. */
-          worktreePath: z.string().min(1).max(4_000).nullable(),
+export const sessionBranchTargetPageSchema = z
+  .strictObject({
+    /** Absence retains the legacy Git response shape in both transport directions. */
+    repository: z.enum(['git', 'plain']).optional(),
+    sessionId: idSchema,
+    workspaceId: idSchema,
+    revision,
+    execution: execution.extend({ kind: z.enum(['checkout', 'worktree', 'directory']) }),
+    /** Current creation base remains available even outside the visible branch page. */
+    base: z.strictObject({ name, ref, tipOid: oid }).nullable(),
+    branches: z
+      .array(
+        z
+          .strictObject({
+            name,
+            ref,
+            tipOid: oid,
+            current: z.boolean(),
+            /** A registered local worktree is an available directory, rather than a disabled branch. */
+            worktreePath: z.string().min(1).max(4_000).nullable(),
+          })
+          .refine((branch) => branch.ref === `refs/heads/${branch.name}`),
+      )
+      .max(50),
+    nextCursor: z.string().min(1).max(2_048).nullable(),
+    incomplete: z.boolean(),
+    /** Recovers the original key after reload; another actor's key is never exposed. */
+    pending: z
+      .strictObject({
+        operationId: idSchema,
+        owned: z.boolean(),
+        idempotencyKey: z.string().min(1).max(128).optional(),
+        request: z.lazy(() => sessionBranchTargetSelectInputSchema).optional(),
+      })
+      .refine((value) =>
+        value.owned
+          ? value.idempotencyKey !== undefined && value.request !== undefined
+          : value.idempotencyKey === undefined && value.request === undefined,
+      )
+      .nullable(),
+  })
+  .superRefine((page, context) => {
+    if (page.repository !== 'plain') {
+      if (page.execution.kind === 'directory')
+        context.addIssue({
+          code: 'custom',
+          path: ['execution', 'kind'],
+          message: 'Git pages require a checkout or worktree',
         })
-        .refine((branch) => branch.ref === `refs/heads/${branch.name}`),
+      return
+    }
+    if (page.execution.kind !== 'directory' || page.execution.branch !== null)
+      context.addIssue({ code: 'custom', path: ['execution'], message: 'Plain directories have no Git branch target' })
+    if (
+      page.base !== null ||
+      page.branches.length !== 0 ||
+      page.nextCursor !== null ||
+      page.incomplete ||
+      page.pending !== null
     )
-    .max(50),
-  nextCursor: z.string().min(1).max(2_048).nullable(),
-  incomplete: z.boolean(),
-  /** Recovers the original key after reload; another actor's key is never exposed. */
-  pending: z
-    .strictObject({
-      operationId: idSchema,
-      owned: z.boolean(),
-      idempotencyKey: z.string().min(1).max(128).optional(),
-      request: z.lazy(() => sessionBranchTargetSelectInputSchema).optional(),
-    })
-    .refine((value) =>
-      value.owned
-        ? value.idempotencyKey !== undefined && value.request !== undefined
-        : value.idempotencyKey === undefined && value.request === undefined,
-    )
-    .nullable(),
-})
+      context.addIssue({
+        code: 'custom',
+        path: ['repository'],
+        message: 'Plain directories cannot expose Git refs or operations',
+      })
+  })
 export const sessionBranchTargetChoiceSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('branch'), ref, expectedOid: oid }),
   z.strictObject({ kind: z.literal('new-branch'), name, baseRef: ref, expectedBaseOid: oid }),

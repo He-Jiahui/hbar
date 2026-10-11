@@ -13,6 +13,7 @@ import type { PathLayout, StoragePort, SessionBranchTargetRecord, SessionBranchT
 import {
   branchGitOutput,
   branchRepository,
+  inspectBranchRepository,
   branchWorktrees,
   insideBranchPath,
   sameBranchPath,
@@ -129,12 +130,23 @@ export class SessionBranchTargetService {
       throw new HbarError('STALE_TARGET', 'The session belongs to another workspace')
     const workspace = await this.storage.call('workspace', workspaceId)
     const runtime = await this.storage.call('sessionLaunchTargetRuntime', sessionId)
-    const registered = await branchRepository(this.git, workspace.path, signal)
+    const registered = await inspectBranchRepository(this.git, workspace.path, signal)
     const path = runtime.branchTarget?.targetPath ?? runtime.binding?.targetPath ?? workspace.path
+    if (registered.kind === 'plain') {
+      if (
+        runtime.branchTarget ||
+        runtime.branchTargetPending ||
+        runtime.binding?.head ||
+        runtime.binding?.branch ||
+        !sameBranchPath(path, workspace.path)
+      )
+        throw new HbarError('SESSION_BRANCH_TARGET_CHANGED', 'The task repository is no longer available')
+      return { kind: 'plain' as const, session, workspace, runtime, registered }
+    }
     const execution = await branchRepository(this.git, path, signal)
     if (!sameBranchPath(registered.common, execution.common))
       throw new HbarError('SESSION_BRANCH_TARGET_CHANGED', 'The execution checkout belongs to another repository')
-    return { session, workspace, runtime, registered, execution }
+    return { kind: 'git' as const, session, workspace, runtime, registered, execution }
   }
 
   list(raw: unknown, signal: AbortSignal, actorId?: string) {
@@ -143,6 +155,26 @@ export class SessionBranchTargetService {
   private async listInternal(raw: unknown, signal: AbortSignal, actorId?: string) {
     const input = sessionBranchTargetListInputSchema.parse(raw)
     const context = await this.context(input.sessionId, input.workspaceId, signal)
+    if (context.kind === 'plain') {
+      const latest = await this.storage.call('sessionLaunchTargetRuntime', input.sessionId)
+      if (latest.target.workspaceId !== input.workspaceId || latest.target.revision !== context.runtime.target.revision)
+        throw new HbarError('COMMAND_CONFLICT', 'The execution target changed during repository discovery')
+      if (latest.branchTarget || latest.branchTargetPending)
+        throw new HbarError('SESSION_BRANCH_TARGET_CHANGED', 'The task repository changed during discovery')
+      signal.throwIfAborted()
+      return sessionBranchTargetPageSchema.parse({
+        repository: 'plain',
+        sessionId: input.sessionId,
+        workspaceId: input.workspaceId,
+        revision: latest.target.revision,
+        execution: { path: context.registered.path, kind: 'directory', branch: null },
+        base: null,
+        branches: [],
+        nextCursor: null,
+        incomplete: false,
+        pending: null,
+      })
+    }
     const [refsResult, worktreeResult, currentResult] = await Promise.all([
       this.git(
         context.registered.root,
@@ -271,6 +303,8 @@ export class SessionBranchTargetService {
         : this.reconcile(lookup, signal)
     }
     const context = await this.context(request.sessionId, request.workspaceId, signal)
+    if (context.kind === 'plain')
+      throw new HbarError('CAPABILITY_UNAVAILABLE', 'Branch targets require a Git repository')
     if (context.runtime.target.revision !== request.expectedRevision)
       throw new HbarError('COMMAND_CONFLICT', 'Refresh before switching execution targets')
     const choice = request.choice

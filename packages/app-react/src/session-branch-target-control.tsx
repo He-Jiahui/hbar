@@ -61,6 +61,7 @@ export function HbarSessionBranchTargetControl({
   const captured = projection.entries[sessionId]
   const entry = captured?.workspaceId === workspaceId ? captured : undefined
   const page = entry?.page
+  const unavailable = page?.repository === 'plain'
   const branchName = page?.execution.branch ?? branch
   const anchor = useRef<HTMLButtonElement>(null)
   const searchInput = useRef<HTMLInputElement>(null)
@@ -76,7 +77,7 @@ export function HbarSessionBranchTargetControl({
   const [base, setBase] = useState<BranchBase | null>(null)
   const switching = entry?.phase === 'switching'
   const unknown = entry?.phase === 'unknown'
-  const disabled = !connected || busy || switching || unknown
+  const disabled = unavailable || !connected || busy || switching || unknown
   const loading = entry?.phase === 'loading'
   const invoke = (search = '') =>
     void runtime.commands
@@ -84,14 +85,14 @@ export function HbarSessionBranchTargetControl({
       .catch(() => undefined)
   const close = () => setOpen(false)
   useEffect(() => {
-    if (!open || view === 'create') return
+    if (!open || view === 'create' || unavailable) return
     const timer = window.setTimeout(() => {
       void runtime.commands
         .execute('sessionBranchTargetPicker.refresh', { sessionId, workspaceId, search: query })
         .catch(() => undefined)
     }, 150)
     return () => window.clearTimeout(timer)
-  }, [open, view, query, runtime.commands, sessionId, workspaceId])
+  }, [open, view, query, runtime.commands, sessionId, workspaceId, unavailable])
   useEffect(() => {
     if (open && view === 'create') nameInput.current?.focus()
   }, [open, view])
@@ -143,6 +144,7 @@ export function HbarSessionBranchTargetControl({
             : (current + 1) % options.length
     options[next]?.focus()
   }
+  if (unavailable) return null
   return (
     <>
       <LumenButton

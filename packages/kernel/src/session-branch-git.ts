@@ -1,5 +1,5 @@
-import { realpath } from 'node:fs/promises'
-import { isAbsolute, relative, resolve, sep } from 'node:path'
+import { lstat, realpath } from 'node:fs/promises'
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { HbarError } from '@hbar/contracts'
 import type { SessionBranchExecutionRoot } from '@hbar/storage'
 
@@ -22,15 +22,53 @@ export function branchGitOutput(result: BranchGitResult): string {
   if (result.code !== 0) throw new HbarError('GIT_OPERATION_FAILED', 'Git could not verify the session branch target')
   return result.stdout.trim()
 }
-export async function branchRepository(git: BranchGit, path: string, signal: AbortSignal) {
+async function hasBranchMetadata(path: string, signal: AbortSignal): Promise<boolean> {
+  let directory = path
+  for (let depth = 0; depth < 256; depth++) {
+    signal.throwIfAborted()
+    try {
+      await lstat(join(directory, '.git'))
+      return true
+    } catch (error) {
+      if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT')) throw error
+    }
+    const parent = dirname(directory)
+    if (parent === directory) return false
+    directory = parent
+  }
+  throw new HbarError('GIT_REPOSITORY_SCOPE', 'Repository ancestry exceeds its supported bound')
+}
+
+/** A missing repository is a capability fact; existing invalid metadata remains an error. */
+export async function inspectBranchRepository(git: BranchGit, path: string, signal: AbortSignal) {
   const canonical = await realpath(path)
-  const top = branchGitOutput(await git(canonical, ['rev-parse', '--show-toplevel'], signal))
+  const probe = await git(canonical, ['rev-parse', '--show-toplevel'], signal)
+  signal.throwIfAborted()
+  if (
+    probe.code === 128 &&
+    probe.stdout.trim() === '' &&
+    /^fatal: not a git repository(?: \(or any of the parent directories\))?: \.git$/u.test(
+      probe.stderr.trim().split(/\r?\n/u)[0] ?? '',
+    ) &&
+    !(await hasBranchMetadata(canonical, signal))
+  )
+    return { kind: 'plain' as const, path: canonical }
+  const top = branchGitOutput(probe)
+  if (!top) throw new HbarError('INVALID_OUTPUT', 'Git returned an empty checkout root')
   const root = await realpath(isAbsolute(top) ? top : resolve(canonical, top))
   if (!insideBranchPath(root, canonical))
     throw new HbarError('GIT_REPOSITORY_SCOPE', 'The execution directory is outside its checkout')
   const commonValue = branchGitOutput(await git(canonical, ['rev-parse', '--git-common-dir'], signal))
+  if (!commonValue) throw new HbarError('INVALID_OUTPUT', 'Git returned an empty common directory')
   const common = await realpath(isAbsolute(commonValue) ? commonValue : resolve(canonical, commonValue))
-  return { path: canonical, root, common }
+  return { kind: 'git' as const, path: canonical, root, common }
+}
+
+export async function branchRepository(git: BranchGit, path: string, signal: AbortSignal) {
+  const repository = await inspectBranchRepository(git, path, signal)
+  if (repository.kind === 'plain')
+    throw new HbarError('GIT_OPERATION_FAILED', 'Git could not verify the session branch target')
+  return repository
 }
 export function branchWorktrees(output: string): { path: string; ref: string | null }[] {
   const entries: { path: string; ref: string | null }[] = []

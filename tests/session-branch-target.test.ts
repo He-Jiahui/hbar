@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { createPathLayout, ensurePathLayout, Storage } from '@hbar/storage'
@@ -50,18 +50,22 @@ async function gitOk(cwd: string, args: string[]) {
 async function fixture(
   execute: BranchGit = git,
   guard: (path: string, signal: AbortSignal) => Promise<void> = async () => undefined,
+  plain = false,
 ) {
   const root = await mkdtemp(join(tmpdir(), prefix))
   const repository = join(root, 'repository')
   await mkdir(repository)
-  await gitOk(repository, ['init', '-q', '-b', 'main'])
-  await gitOk(repository, ['config', 'user.name', 'hbar test'])
-  await gitOk(repository, ['config', 'user.email', 'hbar@example.invalid'])
   await writeFile(join(repository, 'file.txt'), 'main\n')
-  await gitOk(repository, ['add', '.'])
-  await gitOk(repository, ['commit', '-q', '-m', 'initial'])
-  const oid = await gitOk(repository, ['rev-parse', 'HEAD'])
-  await gitOk(repository, ['branch', 'feature/target'])
+  let oid = 'a'.repeat(40)
+  if (!plain) {
+    await gitOk(repository, ['init', '-q', '-b', 'main'])
+    await gitOk(repository, ['config', 'user.name', 'hbar test'])
+    await gitOk(repository, ['config', 'user.email', 'hbar@example.invalid'])
+    await gitOk(repository, ['add', '.'])
+    await gitOk(repository, ['commit', '-q', '-m', 'initial'])
+    oid = await gitOk(repository, ['rev-parse', 'HEAD'])
+    await gitOk(repository, ['branch', 'feature/target'])
+  }
   const layout = createPathLayout(join(root, 'host-data'), join(root, 'cache'), join(root, 'pointer.json'))
   await ensurePathLayout(layout)
   const storage = new Storage(layout.database, layout)
@@ -73,7 +77,20 @@ async function fixture(
   resources.push({ root, storage, launch, service })
   const base = { sessionId: session.id, workspaceId: workspace.id, expectedRevision: 0 }
   const identity = { actorId: 'fixture-actor', idempotencyKey: crypto.randomUUID() }
-  return { root, repository, layout, storage, workspace, session, launch, service, oid, base, identity }
+  return {
+    root,
+    repository,
+    layout,
+    storage,
+    workspace,
+    session,
+    launch,
+    service,
+    oid,
+    base,
+    identity,
+    listTarget: { sessionId: session.id, workspaceId: workspace.id },
+  }
 }
 async function accept(f: Awaited<ReturnType<typeof fixture>>, key = crypto.randomUUID()) {
   const run = await f.storage.call(
@@ -329,4 +346,98 @@ test('bounded branch pages reject a cursor when AI creates a branch between page
     ),
     'STALE_CURSOR',
   )
+})
+
+test('plain directories return a successful directory page and cannot start branch mutations during a queued Run', async () => {
+  const f = await fixture(git, async () => undefined, true)
+  const run = await accept(f)
+  const page = await f.service.list(f.listTarget, new AbortController().signal)
+  expect(page).toMatchObject({
+    repository: 'plain',
+    sessionId: f.session.id,
+    workspaceId: f.workspace.id,
+    revision: 0,
+    execution: { path: f.repository, kind: 'directory', branch: null },
+    base: null,
+    branches: [],
+    nextCursor: null,
+    incomplete: false,
+    pending: null,
+  })
+  await expectCode(
+    f.service.select(
+      {
+        ...f.base,
+        choice: { kind: 'new-branch', name: 'never-created', baseRef: 'refs/heads/main', expectedBaseOid: f.oid },
+      },
+      f.identity,
+      new AbortController().signal,
+    ),
+    'CAPABILITY_UNAVAILABLE',
+  )
+  expect(await f.storage.call('sessionBranchTargetOperation', { ...f.identity, sessionId: f.session.id })).toBeNull()
+  expect((await f.storage.call('run', run.id)).status).toBe('queued')
+  expect(await readFile(join(f.repository, 'file.txt'), 'utf8')).toBe('main\n')
+  await expectCode(lstat(join(f.repository, '.git')), 'ENOENT')
+  await expectCode(
+    f.service.list({ ...f.listTarget, workspaceId: 'different-workspace' }, new AbortController().signal),
+    'STALE_TARGET',
+  )
+})
+
+test('empty Git metadata stays a real repository failure rather than a plain-directory page', async () => {
+  const f = await fixture(git, async () => undefined, true)
+  await mkdir(join(f.repository, '.git'))
+  await expectCode(f.service.list(f.listTarget, new AbortController().signal), 'GIT_OPERATION_FAILED')
+  expect((await lstat(join(f.repository, '.git'))).isDirectory()).toBe(true)
+})
+
+test('Git permission, unsafe-directory and malformed-probe failures never become plain capabilities', async () => {
+  let result = { code: 128, stdout: '', stderr: 'fatal: detected dubious ownership in repository' }
+  const f = await fixture(
+    async () => result,
+    async () => undefined,
+    true,
+  )
+  for (const stderr of [
+    'fatal: detected dubious ownership in repository',
+    'fatal: Permission denied',
+    'fatal: bad config line 1 in file .git/config',
+  ]) {
+    result = { code: 128, stdout: '', stderr }
+    await expectCode(f.service.list(f.listTarget, new AbortController().signal), 'GIT_OPERATION_FAILED')
+  }
+  result = { code: 0, stdout: '', stderr: '' }
+  await expectCode(f.service.list(f.listTarget, new AbortController().signal), 'INVALID_OUTPUT')
+  result = {
+    code: 128,
+    stdout: 'unexpected output',
+    stderr: 'fatal: not a git repository (or any of the parent directories): .git',
+  }
+  await expectCode(f.service.list(f.listTarget, new AbortController().signal), 'GIT_OPERATION_FAILED')
+  result = { code: 128, stdout: '', stderr: 'fatal: not a git repository: /explicit/missing/git-dir' }
+  await expectCode(f.service.list(f.listTarget, new AbortController().signal), 'GIT_OPERATION_FAILED')
+})
+
+test('plain-directory discovery rejects a concurrent execution-target revision change', async () => {
+  let changeTarget = async () => undefined
+  const f = await fixture(
+    async (cwd, args, signal) => {
+      const result = await git(cwd, args, signal)
+      await changeTarget()
+      return result
+    },
+    async () => undefined,
+    true,
+  )
+  changeTarget = async () => {
+    await f.launch.set({
+      actorId: 'fixture-actor',
+      idempotencyKey: crypto.randomUUID(),
+      sessionId: f.session.id,
+      expectedRevision: 0,
+      selection: { mode: 'isolated-worktree', branch: { kind: 'new', name: 'delayed-target' } },
+    })
+  }
+  await expectCode(f.service.list(f.listTarget, new AbortController().signal), 'COMMAND_CONFLICT')
 })
