@@ -150,6 +150,10 @@ async function sidebar(fixture: Fixture, visible: boolean): Promise<void> {
     name: visible ? copy.shell.showSidebar : copy.shell.hideSidebar,
     exact: true,
   })
+  if (
+    (await page.locator('[data-hbar-sidebar-expanded]').getAttribute('data-hbar-sidebar-expanded')) === String(visible)
+  )
+    return
   if (await button.isVisible()) await button.click()
   await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute(
     'data-hbar-sidebar-expanded',
@@ -184,7 +188,7 @@ function tool(fixture: Fixture, id: Tool) {
     agents: '.hbar-app-react-agent-workspace',
     goals: '.hbar-app-react-goal-plan-workspace',
   }[id]
-  return fixture.page.locator('.lumen-app-tool-drawer').locator(selector)
+  return fixture.page.locator('.lumen-app-tool-content').locator(selector)
 }
 async function open(fixture: Fixture, id: Tool): Promise<void> {
   if (id === 'files')
@@ -255,11 +259,16 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await prompt(fixture).fill(draftB)
       await open(fixture, 'monitoring')
       for (const width of [1440, 900, 390, 320]) {
-        await page.setViewportSize({ width, height: 960 })
+        // Navigate through the real sidebar outside the modal drawer, then
+        // verify each restored pane and its drafts at the requested width.
+        await page.setViewportSize({ width: 1440, height: 960 })
         await select(fixture, a)
+        await page.setViewportSize({ width, height: 960 })
         await assertA(fixture, draftA)
         await capture(fixture, 'A-restored-files', width)
+        await page.setViewportSize({ width: 1440, height: 960 })
         await select(fixture, b)
+        await page.setViewportSize({ width, height: 960 })
         await expect(tool(fixture, 'monitoring')).toBeVisible()
         await expectComposerText(prompt(fixture), draftB)
         await capture(fixture, 'B-original-monitoring', width)
