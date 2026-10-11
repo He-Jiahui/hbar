@@ -13,7 +13,7 @@ export function classifyRunFailure(error: unknown): RunFailure {
       budgetSource: code === 'GOAL_BUDGET_EXHAUSTED' ? 'goal' : 'session',
     }
   if (code === 'USER_CANCELLED') return { code, category: 'cancelled', retryable: false }
-  if (code === 'RUN_TIMEOUT') return { code, category: 'timeout', retryable: false }
+  if (code === 'RUN_TIMEOUT' || code === 'COMPACTION_TIMEOUT') return { code, category: 'timeout', retryable: false }
   if (code === 'HOST_SHUTTING_DOWN') return { code, category: 'interrupted', retryable: false }
   if (code === 'RESULT_UNKNOWN' || code === 'EFFECT_UNKNOWN')
     return { code, category: 'result_unknown', retryable: false }

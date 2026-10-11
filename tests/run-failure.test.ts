@@ -38,6 +38,11 @@ test('failure classification distinguishes explicit cancellation, allowance, tra
     retryable: false,
   })
   expect(classifyRunFailure(new HbarError('RUN_TIMEOUT', 'arbitrary text')).category).toBe('timeout')
+  expect(classifyRunFailure(new HbarError('COMPACTION_TIMEOUT', 'arbitrary text'))).toEqual({
+    code: 'COMPACTION_TIMEOUT',
+    category: 'timeout',
+    retryable: false,
+  })
   expect(classifyRunFailure(new HbarError('RESULT_UNKNOWN', 'arbitrary text')).retryable).toBe(false)
   expect(classifyRunFailure(new Error('429 too many requests'))).toMatchObject({
     category: 'transient',

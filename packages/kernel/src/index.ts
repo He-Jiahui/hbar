@@ -223,6 +223,7 @@ import { createAgentSessionConfiguration } from './agent-session-configuration'
 import { createSchemaCallbackRegistry, encodePath } from '@hbar/schema-core'
 import { createUsageFact, describeUsageAttempt } from '@hbar/usage'
 import { classifyRunFailure } from './run-failure.ts'
+import { createBoundedCompactionSignal, resolveCompactionTimeoutMs } from './compaction-timeout.ts'
 import { createRunIdleTimeout, resolveRunIdleTimeoutMs } from './run-idle-timeout'
 import { ToolExecutions, ToolTimeoutError } from './tool-timeout'
 import { hostAbortToolOutcome } from './tool-outcome'
@@ -374,11 +375,14 @@ export interface KernelOptions {
   diagnostics?: DiagnosticSink | undefined
   diagnosticScope?: DiagnosticScopePort | undefined
   diagnosticFullCoverage?: boolean | undefined
+  /** Bounded test seam; production callers use the 120-second default. */
+  compactionTimeoutMs?: number | undefined
 }
 interface ResolvedKernelOptions extends KernelOptions {
   home: string
   layout: PathLayout
   runIdleTimeoutMs: number
+  compactionTimeoutMs: number
 }
 export interface KernelProfile {
   replacements?: Record<string, HbarPlugin>
@@ -787,7 +791,13 @@ export class Kernel {
         pointerFile: options.pointerFile,
       }))
     await ensurePathLayout(layout)
-    const resolved: ResolvedKernelOptions = { ...options, home: layout.dataRoot, layout, runIdleTimeoutMs }
+    const resolved: ResolvedKernelOptions = {
+      ...options,
+      home: layout.dataRoot,
+      layout,
+      runIdleTimeoutMs,
+      compactionTimeoutMs: resolveCompactionTimeoutMs(options.compactionTimeoutMs),
+    }
     const kernel = new Kernel(resolved, await options.profile?.createStorage?.(layout.dataRoot))
     try {
       await kernel.storage.call('ready')
@@ -3020,7 +3030,7 @@ export class Kernel {
           await this.plugins.get<ModelRegistry>('models').get(modelId),
           await this.maxModePreference(sessionId),
         ),
-        signal ? AbortSignal.any([signal, AbortSignal.timeout(120_000)]) : AbortSignal.timeout(120_000),
+        signal ?? new AbortController().signal,
       )
     } finally {
       this.maintenance = false
@@ -3036,22 +3046,36 @@ export class Kernel {
     thinking?: ThinkingLevel,
   ) {
     const startedAt = performance.now()
+    const bounded = createBoundedCompactionSignal(signal, this.options.compactionTimeoutMs)
+    const effectiveSignal = bounded.signal
     const journal = createContextCompactionJournal(this.storage, (event) => this.publishEvent(event), sessionId, runId)
     this.executionDiagnostics.compactionStarted({ ...(runId ? { sessionId, runId } : { sessionId }) })
     try {
-      const result = await this.compactInternalWork(journal, sessionId, model, signal, runId, workspaceOverride, steering, thinking)
+      const result = await this.compactInternalWork(
+        journal,
+        sessionId,
+        model,
+        effectiveSignal,
+        runId,
+        workspaceOverride,
+        steering,
+        thinking,
+      )
       const identity = runId ? { sessionId, runId } : { sessionId }
       this.executionDiagnostics.compacted(identity, performance.now() - startedAt)
       return result
     } catch (error) {
       const identity = runId ? { sessionId, runId } : { sessionId }
-      await journal.fail(error, signal.aborted)
+      const failure = bounded.timedOut() ? new HbarError('COMPACTION_TIMEOUT', 'Context compaction timed out') : error
+      await journal.fail(failure, effectiveSignal.aborted && !bounded.timedOut())
       this.executionDiagnostics.compactionFailed(
         identity,
-        error instanceof HbarError ? error.code : 'COMPACTION_FAILED',
+        failure instanceof HbarError ? failure.code : 'COMPACTION_FAILED',
         performance.now() - startedAt,
       )
-      throw error
+      throw failure
+    } finally {
+      bounded.dispose()
     }
   }
   private async compactInternalWork(
