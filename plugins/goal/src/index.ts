@@ -1411,8 +1411,9 @@ class GoalRuntime implements GoalService {
 
   decorate(request: ModelRequest): ModelRequest {
     const sessionId = request.context?.sessionId
-    if (sessionId) this.assertKnown(sessionId)
-    const goal = sessionId ? this.goals.get(sessionId) : undefined
+    if (!sessionId) return request
+    this.assertKnown(sessionId)
+    const goal = this.goals.get(sessionId)
     if (sessionId && request.context?.runId && request.context.purpose !== 'context-inspection')
       this.assertRunCurrent(sessionId, request.context.runId)
     if (
