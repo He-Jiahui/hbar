@@ -60,6 +60,10 @@ function peerGuideKey(actorId: string, input: PeerMessageSendInput, idempotencyK
     .digest('hex')}`
 }
 
+type PeerGuideAttempt =
+  | { readonly kind: 'acknowledged'; readonly receipt: QueuedRunGuideReceipt }
+  | { readonly kind: 'error'; readonly error: unknown }
+
 export function createRunCommands(kernel: RunCommandKernelPort) {
   const registry = new CommandRegistry({ execution: 'host' })
   const locks = new Map<string, Promise<void>>()
@@ -84,6 +88,7 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
     idempotencyKey: string,
     requestId: string,
     operationId: string,
+    guideAttempt: PeerGuideAttempt | null,
   ) {
     try {
       const canonical = await kernel.storage.call('runByRequestInWorkspace', input.workspaceId, requestId)
@@ -97,6 +102,35 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
       )
       if (guideReceipt && guideReceipt.operationId !== operationId)
         throw new CommandError('RESULT_UNKNOWN', 'Peer message guide receipt does not match its Run')
+      if (guideReceipt && guideAttempt?.kind === 'acknowledged') {
+        const acknowledged = guideAttempt.receipt
+        if (
+          acknowledged.commandId !== guideReceipt.commandId ||
+          acknowledged.commandVersion !== guideReceipt.commandVersion ||
+          acknowledged.sessionId !== guideReceipt.sessionId ||
+          acknowledged.operationId !== guideReceipt.operationId ||
+          acknowledged.activeRunId !== guideReceipt.activeRunId ||
+          acknowledged.status !== guideReceipt.status ||
+          acknowledged.operationStatus !== guideReceipt.operationStatus ||
+          acknowledged.messageId !== guideReceipt.messageId ||
+          acknowledged.eventId !== guideReceipt.eventId ||
+          acknowledged.idempotencyKey !== guideReceipt.idempotencyKey ||
+          acknowledged.revision !== guideReceipt.revision ||
+          acknowledged.sessionSeq !== guideReceipt.sessionSeq ||
+          acknowledged.queueRevision !== guideReceipt.queueRevision ||
+          acknowledged.guidedAt !== guideReceipt.guidedAt
+        )
+          throw new CommandError('RESULT_UNKNOWN', 'Peer message guide acknowledgement conflicts with its receipt')
+      }
+      if (!guideReceipt && guideAttempt?.kind === 'acknowledged')
+        throw new CommandError('RESULT_UNKNOWN', 'Peer message guide acknowledgement has no durable receipt')
+      if (
+        !guideReceipt &&
+        guideAttempt?.kind === 'error' &&
+        (!(guideAttempt.error instanceof HbarError || guideAttempt.error instanceof CommandError) ||
+          guideAttempt.error.code !== 'COMMAND_CONFLICT')
+      )
+        throw new CommandError('RESULT_UNKNOWN', 'Peer message guidance outcome requires reconciliation')
       if (!guideReceipt && canonical.run.status === 'guided')
         throw new CommandError('RESULT_UNKNOWN', 'Peer message guidance receipt is unavailable')
       const active = await kernel.storage.call('activeOperations', { sessionId: input.targetSessionId, limit: 20 })
@@ -328,12 +362,13 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
             )
               throw new CommandError('IDEMPOTENCY_CONFLICT', 'Message key was used with different input')
             const currentTarget = await kernel.storage.call('session', input.targetSessionId)
-            let guideReceipt = await kernel.storage.call(
+            const guideReceipt = await kernel.storage.call(
               'queuedRunGuideReceipt',
               actorId,
               peerGuideKey(actorId, input, idempotencyKey),
               input.targetSessionId,
             )
+            let guideAttempt: PeerGuideAttempt | null = null
             if (!guideReceipt && prior.run.status === 'queued') {
               const active = await kernel.storage.call('activeOperations', {
                 sessionId: input.targetSessionId,
@@ -347,18 +382,21 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
               const item = queued.items.find((candidate) => candidate.operationId === prior.run.id)
               if (activeRun && item) {
                 try {
-                  guideReceipt = await kernel.guideQueuedRun({
-                    actorId,
-                    idempotencyKey: peerGuideKey(actorId, input, idempotencyKey),
-                    request: {
-                      sessionId: input.targetSessionId,
-                      operationId: prior.run.id,
-                      activeRunId: activeRun.operationId,
-                      expectedRevision: item.revision,
-                    },
-                  })
-                } catch {
-                  // The canonical guide receipt and Run journal below resolve a lost acknowledgement.
+                  guideAttempt = {
+                    kind: 'acknowledged',
+                    receipt: await kernel.guideQueuedRun({
+                      actorId,
+                      idempotencyKey: peerGuideKey(actorId, input, idempotencyKey),
+                      request: {
+                        sessionId: input.targetSessionId,
+                        operationId: prior.run.id,
+                        activeRunId: activeRun.operationId,
+                        expectedRevision: item.revision,
+                      },
+                    }),
+                  }
+                } catch (error) {
+                  guideAttempt = { kind: 'error', error }
                 }
               }
             }
@@ -368,6 +406,7 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
               idempotencyKey,
               requestId,
               prior.run.id,
+              guideAttempt,
             )
             const canonicalGuideReceipt = reconciled.guideReceipt ?? undefined
             const delivery = canonicalGuideReceipt
@@ -418,27 +457,38 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
             if (error instanceof HbarError) throw new CommandError(error.code, error.message)
             throw new CommandError('RESULT_UNKNOWN', 'Peer message acceptance requires reconciliation')
           }
+          let guideAttempt: PeerGuideAttempt | null = null
           if (activeRun?.status === 'running' || activeRun?.status === 'waiting_approval') {
             try {
               const queued = await kernel.storage.call('queuedUserRuns', { sessionId: target.id, limit: 20 })
               const item = queued.items.find((candidate) => candidate.operationId === run.id)
               if (item) {
-                await kernel.guideQueuedRun({
-                  actorId,
-                  idempotencyKey: peerGuideKey(actorId, input, idempotencyKey),
-                  request: {
-                    sessionId: target.id,
-                    operationId: run.id,
-                    activeRunId: activeRun.operationId,
-                    expectedRevision: item.revision,
-                  },
-                })
+                guideAttempt = {
+                  kind: 'acknowledged',
+                  receipt: await kernel.guideQueuedRun({
+                    actorId,
+                    idempotencyKey: peerGuideKey(actorId, input, idempotencyKey),
+                    request: {
+                      sessionId: target.id,
+                      operationId: run.id,
+                      activeRunId: activeRun.operationId,
+                      expectedRevision: item.revision,
+                    },
+                  }),
+                }
               }
-            } catch {
-              // Reconcile the persisted guide receipt and Run state before reporting delivery.
+            } catch (error) {
+              guideAttempt = { kind: 'error', error }
             }
           }
-          const reconciled = await reconcilePeerDelivery(actorId, input, idempotencyKey, requestId, run.id)
+          const reconciled = await reconcilePeerDelivery(
+            actorId,
+            input,
+            idempotencyKey,
+            requestId,
+            run.id,
+            guideAttempt,
+          )
           const canonicalGuideReceipt = reconciled.guideReceipt ?? undefined
           const delivery = canonicalGuideReceipt
             ? 'steered'
