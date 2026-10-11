@@ -258,6 +258,7 @@ function createRuntime(
   return createAppRuntime({
     instanceId: crypto.randomUUID(),
     hostId: hostId ?? 'pending:identity',
+    ...(hostId ? { hostRuntimeStatus: client.runtimeStatus } : {}),
     initialGlobalSettings,
     ...(initialDrafts ? { initialDrafts } : {}),
     directory: createDirectoryQueryAdapter(client),
@@ -1978,7 +1979,6 @@ export default function App({
         const status = client.connectionStatus()
         if (status === 'pairing') startup.setConnection(status)
         else {
-          client.disconnect()
           startup.setConnection('disconnected')
         }
       })
@@ -1996,7 +1996,6 @@ export default function App({
         const status = client.connectionStatus()
         if (status === 'pairing') startup.setConnection(status)
         else {
-          client.disconnect()
           startup.setConnection('disconnected')
         }
       })
@@ -2021,6 +2020,7 @@ export default function App({
         <NotificationDesktopBridge locale={locale} connected={connection === 'connected'} />
         <HbarWorkspaceShell
           labels={copy.shell}
+          runtimeStatusLabels={copy.diagnostics.runtime}
           mobileNavigationLabel={mobileShellNavigationLabel(locale)}
           locale={locale}
           titlebar={

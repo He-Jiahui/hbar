@@ -605,7 +605,7 @@ export class PiDriver implements HarnessDriver {
       name: tool.name,
       label: tool.name,
       description: `${tool.description}\n${describeToolTimeout(tool)}`,
-      parameters: Type.Unsafe(z.toJSONSchema(tool.inputSchema, { io: 'input' })),
+      parameters: Type.Unsafe(tool.inputJsonSchema ?? z.toJSONSchema(tool.inputSchema, { io: 'input' })),
       executionMode: 'sequential',
       execute: async (callId, args) => {
         const result = await input.execute(tool.name, args as Record<string, unknown>, callId)
@@ -1010,7 +1010,7 @@ export class PiDriver implements HarnessDriver {
     }
   }
 }
-export default definePlugin({
+export default /* @__PURE__ */ definePlugin({
   manifest: {
     id: 'driver.pi',
     name: 'Pi harness',

@@ -5,6 +5,7 @@
   "type": "module",
   "exports": "./src/main.ts",
   "dependencies": {
-    "@hbar/commands": "workspace:*"
+    "@hbar/commands": "workspace:*",
+    "@hbar/runtime-native": "workspace:*"
   }
 }

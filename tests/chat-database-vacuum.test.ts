@@ -387,7 +387,7 @@ test('a timed-out worker exits before recovery verifies SQLite and releases the 
   ).toEqual([{ type: 'text', text: 'verified writes resume' }])
 })
 
-test('an uncommitted maintenance intent remains unknown until explicit reconciliation safely finishes it', async () => {
+test('repeated verification of an uncertain maintenance intent never automatically repeats VACUUM', async () => {
   const f = await fixture()
   const db = new Database(f.layout.database, { strict: true })
   const revision = db.query<{ schema_version: number }, []>('PRAGMA schema_version').get()!.schema_version
@@ -415,9 +415,9 @@ test('an uncommitted maintenance intent remains unknown until explicit reconcili
     integrityVerified: true,
     didVacuum: false,
   })
-  const completed = await worker.run('interrupted-before-vacuum', new AbortController().signal)
-  expect(completed).toMatchObject({ status: 'completed', integrityVerified: true, didVacuum: true })
-  expect(completed.reclaimedBytes).toBeGreaterThan(3 * 1024 * 1024)
+  const verified = await worker.run('interrupted-before-vacuum', new AbortController().signal)
+  expect(verified).toMatchObject({ status: 'unknown', integrityVerified: true, didVacuum: false, reclaimedBytes: 0 })
+  expect((await f.storage.call('chatDatabaseUsage', { kind: 'global' })).freePageBytes).toBeGreaterThan(3 * 1024 * 1024)
 })
 
 test('cancellation during VACUUM stays pending until its actual completed result is verified', async () => {

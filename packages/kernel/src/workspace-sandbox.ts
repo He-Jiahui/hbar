@@ -1,10 +1,10 @@
 import { createHash } from 'node:crypto'
 import { mkdir, lstat, realpath, symlink } from 'node:fs/promises'
 import { join, resolve, isAbsolute } from 'node:path'
-import { mountedPath } from '@hbar/local-tools'
+import { mountedPath } from '@hbar/local-tools/workspace-mounts'
 import { HbarError } from '@hbar/contracts'
 import type { StoragePort } from '@hbar/storage'
-import type { WorkspaceMount, WorkspaceMountAccess } from '@hbar/local-tools'
+import type { WorkspaceMount, WorkspaceMountAccess } from '@hbar/local-tools/workspace-mounts'
 
 const key = (path: string) => (process.platform === 'win32' ? path.toLowerCase() : path)
 

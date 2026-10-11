@@ -41,7 +41,7 @@ async function fixture(hooks: { afterDelete?: (sessionId: string) => void } = {}
       if (result.deleted) hooks.afterDelete?.(input.sessionId)
       return result
     },
-    deleted: (ids) => deleted.push(...ids),
+    deleted: (ids) => { deleted.push(...ids) },
   })
   const now = Date.now()
   const scheduler = createChatDatabaseScheduler(storage, settings, statistics, service, {

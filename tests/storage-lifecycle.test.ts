@@ -66,3 +66,28 @@ test('invalid lifecycle timeouts fail before spawning a Storage worker', () => {
     expect(() => fixture('reply.sqlite', { closeTimeoutMs: value })).toThrow(RangeError)
   }
 })
+
+test('a fatal Worker observer is notified once after pending requests settle and cannot break cleanup', async () => {
+  const codes: string[] = []
+  const storage = fixture('silent.sqlite', {
+    requestTimeoutMs: 100,
+    onFatal(error) { codes.push(error.code); throw new Error('diagnostic fixture') },
+  })
+  const outcomes = await Promise.all([
+    storage.call('ready').catch((error: unknown) => error),
+    storage.call('ready').catch((error: unknown) => error),
+  ])
+  expect(outcomes.every(outcome => outcome instanceof Error)).toBe(true)
+  await storage.close()
+  expect(codes).toEqual(['STORAGE_TIMEOUT'])
+})
+
+test('intentional shutdown, including a stalled close, never requests owner recovery', async () => {
+  const codes: string[] = []
+  for (const name of ['reply.sqlite', 'silent-close.sqlite']) {
+    const storage = fixture(name, { closeTimeoutMs: 100, onFatal: error => { codes.push(error.code) } })
+    await storage.call('ready')
+    await storage.close().catch(() => {})
+  }
+  expect(codes).toEqual([])
+})

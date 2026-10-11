@@ -200,7 +200,8 @@ export async function stopOwnedWebSessionHostChild(child: ChildProcess): Promise
       if (onExit) child.off('exit', onExit)
     })
   const exit = waitForExit(5_000)
-  child.kill()
+  if (child.stdin?.writable) child.stdin.end('close\n')
+  else child.kill()
   await exit
   if (!ended()) {
     const forcedExit = waitForExit(2_000)
@@ -297,7 +298,7 @@ export async function startWebSessionHost(
     historyCount?: number
     /** Test-only authored message content; never sent to a real Provider. */
     historyText?: string
-    fixture?: 'session' | 'chat-database' | 'chat-deletion' | 'file-changes'
+    fixture?: 'session' | 'chat-database' | 'chat-deletion' | 'runtime-status' | 'file-changes'
     goalAutoContinue?: boolean
     budgetAutoContinue?: boolean
     /** Bounded delay in the local summary fixture, only for observing compaction lifecycle. */
@@ -310,10 +311,12 @@ export async function startWebSessionHost(
   const child = spawn(
     bunExecutable(),
     [
-      options.fixture === 'chat-database' || options.fixture === 'chat-deletion'
-        ? 'scripts/e2e-chat-database-host.ts'
-        : options.fixture === 'file-changes'
-          ? 'scripts/e2e-run-file-changes-host.ts'
+      options.fixture === 'runtime-status'
+        ? 'scripts/e2e-runtime-status-host.ts'
+        : options.fixture === 'chat-database' || options.fixture === 'chat-deletion'
+          ? 'scripts/e2e-chat-database-host.ts'
+          : options.fixture === 'file-changes'
+            ? 'scripts/e2e-run-file-changes-host.ts'
           : 'scripts/e2e-session-host.ts',
     ],
     {
@@ -332,14 +335,14 @@ export async function startWebSessionHost(
         HBAR_E2E_COMPACTION_DELAY_MS: options.compactionDelayMs ? String(options.compactionDelayMs) : '',
         HBAR_E2E_WEB_ORIGIN: `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`,
       },
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: [options.fixture === 'runtime-status' ? 'pipe' : 'ignore', 'pipe', 'pipe'],
       windowsHide: true,
     },
   )
   const diagnostics = createWebSessionHostLifecycleDiagnostics(child)
   let ready: WebSessionHostReady
   try {
-    ready = await waitForWebSessionHostReady(child)
+    ready = await waitForWebSessionHostReady(child, options.fixture === 'runtime-status' ? 120_000 : 20_000)
     diagnostics.mark('ready')
   } catch (error) {
     diagnostics.mark('startup_failed')

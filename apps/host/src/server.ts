@@ -6,110 +6,32 @@ import { z } from 'zod'
 import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
 import type { DiagnosticScopePort, DiagnosticSink, HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
 import type { ServerWebSocket } from 'bun'
+
+import { queuedRunGuidedOperationId as guidedOperationId, admitOperationRecovery } from '@hbar/contracts/commands/run'
+
 import {
-  Kernel,
-  SettingsService,
-  createAgentCommands,
-  createBrowserCommands,
-  createComputerCommands,
-  createConfigurationCommands,
-  createGitCommands,
-  createWorkspaceSessionCommands,
-  createSessionLaunchTargetCommands,
-  createSessionLaunchBranchesCommands,
-  createSessionBranchTargetCommands,
-  createBudgetCommands,
-  createFileCommands,
-  createResourceCommands,
-  createGoalPlanCommands,
-  createInteractionCommands,
-  createModelCommands,
-  createModelSettingsValidator,
-  createRunCommands,
-  createSettingsCommands,
-  createChatDatabaseCommands,
-  createChatDatabaseStatisticsService,
-  createChatDatabaseMaintenanceService,
-  createChatDatabaseArtifactReferenceService,
-  createChatDatabaseResourceService,
-  createChatDatabaseDatabaseService,
-  createChatDatabaseScheduler,
-  createUsageCommands,
-  createWorkflowCommands,
-  createScheduleCommands,
-  createPromptTemplateCommands,
-  createSandboxCommands,
-  createSandboxSettingsValidator,
-  createNotificationCommands,
-  createRunBoardCommands,
-  createScheduleDueReader,
-} from '@hbar/kernel'
-import { budgetCommands as budgetDefinitions } from '@hbar/contracts/commands/budget'
-import { agentCommands as agentDefinitions } from '@hbar/contracts/commands/agents'
-import { browserCommands as browserDefinitions } from '@hbar/contracts/commands/browser'
-import { computerCommands as computerDefinitions } from '@hbar/contracts/commands/computer'
-import { configurationCommands as configurationDefinitions } from '@hbar/contracts/commands/configuration'
-import { gitCommands as gitDefinitions } from '@hbar/contracts/commands/git'
-import { workspaceSessionCommands as workspaceSessionDefinitions } from '@hbar/contracts/commands/workspaces'
-import { sessionLaunchTargetCommands as sessionLaunchTargetDefinitions } from '@hbar/contracts/commands/session-launch-target'
-import { sessionLaunchBranchesCommands as sessionLaunchBranchesDefinitions } from '@hbar/contracts/commands/session-launch-branches'
-import { sessionBranchTargetCommands as sessionBranchTargetDefinitions } from '@hbar/contracts/commands/session-branch-target'
-import { fileCommands as fileDefinitions } from '@hbar/contracts/commands/files'
-import { resourceCommands as resourceDefinitions } from '@hbar/contracts/commands/resources'
-import { extensionCommands as extensionDefinitions } from '@hbar/contracts/commands/extensions'
-import { goalPlanCommands as goalPlanDefinitions } from '@hbar/contracts/commands/goals'
-import { interactionCommands as interactionDefinitions } from '@hbar/contracts/commands/interaction'
-import { modelCommands as modelDefinitions } from '@hbar/contracts/commands/models'
-import {
-  queuedRunGuidedOperationId as guidedOperationId,
-  runCommands as runDefinitions,
-} from '@hbar/contracts/commands/run'
-import { settingsCommands as settingsDefinitions } from '@hbar/contracts/commands/settings'
-import { chatDatabaseCommands as chatDatabaseDefinitions, chatDatabaseUploadOwnerSchema } from '@hbar/contracts/commands/chat-database'
-import { createChatDatabaseFileScanner } from '@hbar/storage'
+  chatDatabaseUploadOwnerSchema,
+  chatDatabaseCommands as chatDatabaseDefinitions,
+} from '@hbar/contracts/commands/chat-database'
 import { systemCommands as systemDefinitions } from '@hbar/contracts/commands/system'
-import { usageCommands as usageDefinitions } from '@hbar/contracts/commands/usage'
-import { workflowCommands as workflowDefinitions } from '@hbar/contracts/commands/workflows'
+
 import { metricsCommands as metricsDefinitions } from '@hbar/contracts/commands/metrics'
-import {
-  directoryCommands as directoryDefinitions,
-  surfaceCommands as surfaceDefinitions,
-} from '@hbar/contracts/commands'
+import { surfaceCommands as surfaceDefinitions } from '@hbar/contracts/commands'
 import { CommandError } from '@hbar/commands/protocol'
-import type {
-  BrowserUseService,
-  AgentService,
-  BudgetService,
-  ComputerUseService,
-  ExecutionProvider,
-  GitService,
-  GoalService,
-  ModeService,
-  PlanService,
-  WorkspaceQueryProvider,
-  WorkflowService,
-} from '@hbar/plugin-sdk'
+
 import { Auth, requestToken } from './auth.ts'
 import { createSystemCommands } from './system-commands.ts'
-import { createSkillImportService } from '@hbar/kernel/skill-import'
-import { createExtensionCommands } from './extension-commands.ts'
-import { createSkillInspectionService } from './skill-inspection.ts'
-import type { RuntimeScope } from '@hbar/kernel'
+
+import type { KernelControllerPort, KernelClientScopePort } from '@hbar/kernel/controller'
 import { SystemTerminalManager } from './system-terminal'
-import { UsageService } from '@hbar/usage'
+import { sendSocketFrame, sendSocketTextFrame } from './socket-sender'
+import { isStableRpc, isRecoveryControl } from './stable-rpc'
+
 import { PerformanceCollector } from '@hbar/metrics'
 import { createHostPerformanceProvider } from './performance-provider.ts'
 import { createMetricsCommands } from './metrics-commands.ts'
-import { createSessionSearchCommands } from '@hbar/kernel/session-search-commands'
-import { sessionSearchCommands as sessionSearchDefinitions } from '@hbar/contracts/commands/session-search'
-import { scheduleCommands as scheduleDefinitions } from '@hbar/contracts/commands/schedules'
-import { promptTemplateCommands as promptTemplateDefinitions } from '@hbar/contracts/commands/prompt-templates'
-import { sandboxCommands as sandboxDefinitions } from '@hbar/contracts/commands/sandbox'
-import { notificationCommands as notificationDefinitions } from '@hbar/contracts/commands/notifications'
-import { runBoardCommands as runBoardDefinitions } from '@hbar/contracts/commands/run-board'
-import { submitRunInputSchema } from '@hbar/contracts/commands/run'
-import { createScheduleService, createNotificationService } from '@hbar/kernel'
-import { createScheduleHostController } from './schedule-host-controller.ts'
+
+declare const HBAR_MANAGED_CONTROLLER: boolean
 import { createHostRequestDiagnostics, safeDiagnosticId, type DiagnosticContextPort } from './request-diagnostics.ts'
 
 interface SocketData {
@@ -119,7 +41,9 @@ interface SocketData {
   initialized: boolean
   follows: Set<string>
   operationFollows: Set<string>
+  operationChains: Map<string, Set<string>>
   metricsFollowing: boolean
+  runtimeDispose?: (() => void) | undefined
   pending: number
   terminals: Set<string>
   terminalCallbacks?: {
@@ -127,14 +51,16 @@ interface SocketData {
     onExit(terminalId: string, code: number | null, signal: string | null): void
   }
   timer?: ReturnType<typeof setTimeout> | undefined
-  scope?: RuntimeScope | undefined
-  scopeOpening?: Promise<RuntimeScope> | undefined
+  scope?: KernelClientScopePort | undefined
+  scopeOpening?: Promise<KernelClientScopePort> | undefined
   scopeDisposal?: Promise<void> | undefined
   surfaceClientId?: string | undefined
   surfaceGeneration?: number | undefined
   schemaQueries: Map<string, AbortController>
 }
 export interface ServerOptions {
+  readonly controller?: import('./runtime-controller-contract').RuntimeControllerPort
+  readonly runtime?: import('./system-commands').RuntimeSystemPort
   readonly dataRootId?: string
   hostname?: string
   port?: number
@@ -151,308 +77,78 @@ export interface ServerOptions {
   diagnosticFull?: boolean
   diagnosticScope?: DiagnosticScopePort
   /** Host-owned lifecycle seam; defaults to RuntimeScope.dispose(). */
-  clientScopeDisposer?: (scope: RuntimeScope) => Promise<void>
+  clientScopeDisposer?: (scope: KernelClientScopePort) => Promise<void>
   /** Host-owned scope acquisition seam; defaults to the Kernel plugin manager. */
-  clientScopeOpener?: (scopeId: string) => Promise<RuntimeScope>
+  clientScopeOpener?: (scopeId: string) => Promise<KernelClientScopePort>
 }
 
-function resolveModeService(kernel: Kernel): ModeService {
-  return {
-    get: (sessionId) => kernel.plugins.get<ModeService>('mode').get(sessionId),
-    set: (sessionId, mode) => kernel.plugins.get<ModeService>('mode').set(sessionId, mode),
-    effectiveMode: (run) => kernel.plugins.get<ModeService>('mode').effectiveMode(run),
-    commitExit: (sessionId, commit) => kernel.plugins.get<ModeService>('mode').commitExit(sessionId, commit),
-  }
-}
-
-function resolveGoalService(kernel: Kernel): GoalService {
-  return {
-    resumeOnStartup: () => kernel.plugins.get<GoalService>('goal').resumeOnStartup(),
-    snapshot: (sessionId) => kernel.plugins.get<GoalService>('goal').snapshot(sessionId),
-    get: (sessionId) => kernel.plugins.get<GoalService>('goal').get(sessionId),
-    create: (sessionId, objective, tokenBudget, runId, startedAt) =>
-      kernel.plugins.get<GoalService>('goal').create(sessionId, objective, tokenBudget, runId, startedAt),
-    set: (sessionId, input) => kernel.plugins.get<GoalService>('goal').set(sessionId, input),
-    update: (sessionId, status, runId, reason) =>
-      kernel.plugins.get<GoalService>('goal').update(sessionId, status, runId, reason),
-    clear: (sessionId, expectedGoalId) => kernel.plugins.get<GoalService>('goal').clear(sessionId, expectedGoalId),
-    requestContinuation: (sessionId, input) =>
-      kernel.plugins.get<GoalService>('goal').requestContinuation(sessionId, input),
-  }
-}
-
-function resolvePlanService(kernel: Kernel): PlanService {
-  return {
-    snapshot: (sessionId) => kernel.plugins.get<PlanService>('plan').snapshot(sessionId),
-    get: (sessionId) => kernel.plugins.get<PlanService>('plan').get(sessionId),
-    withRevision: (sessionId, revision, commit) =>
-      kernel.plugins.get<PlanService>('plan').withRevision(sessionId, revision, commit),
-    update: (sessionId, plan, explanation, turnId, expectedRevision) =>
-      kernel.plugins.get<PlanService>('plan').update(sessionId, plan, explanation, turnId, expectedRevision),
-    clear: (sessionId, expectedRevision) => kernel.plugins.get<PlanService>('plan').clear(sessionId, expectedRevision),
-  }
-}
-
-function resolveExecutionProvider(kernel: Kernel): ExecutionProvider {
-  return {
-    list: (workspace, path) => kernel.plugins.get<ExecutionProvider>('execution').list(workspace, path),
-    read: (workspace, path) => kernel.plugins.get<ExecutionProvider>('execution').read(workspace, path),
-    readBytes: (workspace, path) => kernel.plugins.get<ExecutionProvider>('execution').readBytes(workspace, path),
-    write: (workspace, path, text) => kernel.plugins.get<ExecutionProvider>('execution').write(workspace, path, text),
-    exec: (workspace, command, signal) =>
-      kernel.plugins.get<ExecutionProvider>('execution').exec(workspace, command, signal),
-    get workspaceQuery(): WorkspaceQueryProvider {
-      const query = kernel.plugins.get<ExecutionProvider>('execution').workspaceQuery
-      if (!query) throw new HbarError('CAPABILITY_UNAVAILABLE', 'Workspace path search is unavailable')
-      return query
-    },
-  }
-}
-
-export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
+export async function startServer(kernel: KernelControllerPort, options: ServerOptions = {}) {
   const performance = new PerformanceCollector(
-    createHostPerformanceProvider(async () => ({
-      activeRuns: kernel.active.size,
-      queuedRuns: (await kernel.storage.call('queuedSessions')).length,
-      managedChildProcesses: null,
-    })),
+    createHostPerformanceProvider(async () => {
+      const runtime = options.runtime?.snapshot()
+      return {
+        activeRuns: kernel.active.size,
+        queuedRuns:
+          runtime && !options.runtime?.authenticationAvailable?.()
+            ? null
+            : (await kernel.storage.call('queuedSessions')).length,
+        managedChildProcesses: runtime
+          ? runtime.units.flatMap((unit) => unit.generations).filter((generation) => generation.pid !== null).length
+          : null,
+      }
+    }),
     { intervalMs: options.metricsIntervalMs },
   )
   await performance.start()
   const metricsCommands = createMetricsCommands(performance)
-  const agentCommands = createAgentCommands(kernel.plugins.get<AgentService>('agent'))
-  const browserCommands = createBrowserCommands(() => kernel.plugins.get<BrowserUseService>('browser'))
-  const computerCommands = createComputerCommands(kernel.plugins.get<ComputerUseService>('computer'))
-  const configurationCommands = createConfigurationCommands(kernel, resolveModeService(kernel))
-  const skillInspection = createSkillInspectionService(kernel.options.layout.globalSkills)
-  const skillImport = createSkillImportService({
-    destination: kernel.options.layout.globalSkills,
-    journalRoot: resolve(kernel.options.layout.settings, 'skill-imports'),
-  })
-  const extensionCommands = createExtensionCommands({
-    skillImport,
-    list: () => kernel.plugins.list(),
-    set: (id, enabled, config) => kernel.changePlugin(id, enabled, config),
-    install: (path, projectId) => kernel.installPlugin(path, projectId),
-    async remove(id) {
-      kernel.assertIdle()
-      const result = await kernel.plugins.remove(id)
-      kernel.changed('plugins')
-      return result
-    },
-    resolve: (id) => kernel.plugins.resolve(id),
-    graph: () => kernel.plugins.graph(),
-    lock: () => kernel.plugins.lock(),
-    doctor: () => kernel.plugins.doctor(),
-    skills: (signal) => skillInspection.list(signal),
-    skillInspection,
-  })
-  const gitCommands = createGitCommands(kernel.plugins.get<GitService>('git'), {
-    storage: kernel.storage,
-    resolveSessionPath: (sessionId, workspacePath, signal) =>
-      kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
-  })
-  const workspaceSessionCommands = createWorkspaceSessionCommands(kernel)
-  const sessionLaunchTargetCommands = createSessionLaunchTargetCommands(kernel, () =>
-    kernel.changed('session-launch-target'),
-  )
-  const sessionLaunchBranchesCommands = createSessionLaunchBranchesCommands(
-    kernel.storage,
-    kernel.plugins.get<GitService>('git'),
-  )
-  const sessionBranchTargetCommands = createSessionBranchTargetCommands(kernel)
-  const budgetCommands = createBudgetCommands(kernel.plugins.get<BudgetService>('budget'))
-  const fileCommands = createFileCommands(
-    kernel.storage,
-    resolveExecutionProvider(kernel),
-    {
-      resolveWorkspacePath: (workspaceId, path, signal) => kernel.workspaceSandboxes.prepare(workspaceId, path, signal),
-      resolveSessionPath: (sessionId, workspacePath, signal) =>
-        kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
-    },
-    { undo: (sessionId, runId, signal) => kernel.undoFileChanges(sessionId, runId, signal) },
-  )
-  const goalPlanCommands = createGoalPlanCommands(
-    resolveGoalService(kernel),
-    resolvePlanService(kernel),
-    kernel.storage,
-  )
-  const interactionCommands = createInteractionCommands(kernel)
-  const validateModelSettings = createModelSettingsValidator(kernel)
-  const validateSandboxSettings = createSandboxSettingsValidator(kernel.sandboxProfiles)
-  const settingsService = new SettingsService(
-    kernel.storage,
-    async (candidate) => {
-      await validateModelSettings(candidate)
-      await validateSandboxSettings(candidate)
-    },
-    () => kernel.changed('settings'),
-  )
-  const modelCommands = createModelCommands(kernel, settingsService)
-  const runCommands = createRunCommands(kernel)
-  const settingsCommands = createSettingsCommands(settingsService)
-  const chatDatabaseStatistics = createChatDatabaseStatisticsService(
-    kernel.storage,
-    settingsService,
-    createChatDatabaseFileScanner(kernel.options.layout),
-  )
-  const resourceCommands = createResourceCommands(kernel.storage, resolveExecutionProvider(kernel), {
-    resolveWorkspacePath: (workspaceId, path, signal) => kernel.workspaceSandboxes.prepare(workspaceId, path, signal),
-    resolveSessionPath: (sessionId, workspacePath, signal) => kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
-  }, [kernel.options.layout.settings, kernel.options.layout.artifacts, kernel.options.layout.sessions,
-    kernel.options.layout.databases, kernel.options.layout.connectionFile,
-    kernel.options.layout.hostLock, kernel.options.layout.diagnostics])
-  const chatDatabaseArtifactReferences = createChatDatabaseArtifactReferenceService(kernel.storage, kernel.options.layout.settings)
-  const chatDatabaseResources = createChatDatabaseResourceService(kernel.storage, kernel.options.layout, chatDatabaseArtifactReferences, {
-    protectedRoots: () => kernel.plugins.protectedResourceRoots(),
-    remove: (input) => kernel.removeChatDatabaseResource(input),
-  })
-  const chatDatabaseDatabase = createChatDatabaseDatabaseService(kernel.storage, kernel.options.layout, {
-    idle: () => kernel.chatDatabaseIsIdle(),
-    maintain: (action) => kernel.maintainChatDatabase(action),
-  })
-  const chatDatabaseMaintenance = createChatDatabaseMaintenanceService(kernel.storage, settingsService, chatDatabaseStatistics, {
-    protection: (id) => kernel.chatDatabaseSessionProtection(id),
-    removeSession: (input) => kernel.removeChatDatabaseSession(input),
-    deleted: (ids, revision) => kernel.notifyChatDatabaseDeleted(ids, revision),
-  }, chatDatabaseResources, chatDatabaseDatabase)
-  const chatDatabaseScheduler = createChatDatabaseScheduler(kernel.storage, settingsService, chatDatabaseStatistics, chatDatabaseMaintenance)
-  const chatDatabaseCommands = createChatDatabaseCommands(chatDatabaseStatistics, chatDatabaseMaintenance, chatDatabaseArtifactReferences, chatDatabaseScheduler)
-  const usageCommands = createUsageCommands(
-    new UsageService({ read: (input) => kernel.storage.call('usageEvents', input) }),
-  )
-  const workflowCommands = createWorkflowCommands(kernel.plugins.get<WorkflowService>('workflow'))
-  const sessionSearchCommands = createSessionSearchCommands(kernel.storage)
-  const scheduleService = createScheduleService({
-    list: (workspaceId, after, limit) => kernel.storage.call('schedulePage', workspaceId, after, limit),
-    get: (scheduleId) => kernel.storage.call('schedule', scheduleId),
-    create: (input, identity) => kernel.storage.call('createSchedule', input, identity),
-    update: (input, identity) => kernel.storage.call('updateSchedule', input, identity),
-    delete: (scheduleId, expectedRevision, identity) =>
-      kernel.storage.call('deleteSchedule', scheduleId, expectedRevision, identity),
-    occurrences: (scheduleId, after, limit) => kernel.storage.call('scheduleOccurrences', scheduleId, after, limit),
-    claim: (scheduleId, dueAt, now) => kernel.storage.call('claimScheduleOccurrence', scheduleId, dueAt, now),
-    transition: (id, status, runId, error, sessionId) =>
-      kernel.storage.call('transitionScheduleOccurrence', id, status, runId, error, sessionId),
-  })
-  const scheduleCommands = createScheduleCommands(scheduleService, {
-    lookup: (commandId, input, identity) => kernel.storage.call('scheduleReceipt', commandId, input, identity),
-  })
-  const sandboxCommandService = createSandboxCommands(kernel.sandboxProfiles)
-  const promptTemplateCommands = createPromptTemplateCommands({
-    list: (input) => kernel.storage.call('promptTemplatePage', input),
-    get: (id) => kernel.storage.call('promptTemplate', id),
-    save: (input, identity) => kernel.storage.call('savePromptTemplate', input, identity),
-    delete: (input, identity) => kernel.storage.call('deletePromptTemplate', input, identity),
-    receipt: (commandId, input, identity) => kernel.storage.call('promptTemplateReceipt', commandId, input, identity),
-  })
-  const notificationService = createNotificationService({
-    storage: {
-      insertNotification: (record) => kernel.storage.call('insertNotification', record),
-      notificationPage: (input) => kernel.storage.call('notificationPage', input),
-      notificationBySourceEvent: (sourceEventId) => kernel.storage.call('notificationBySourceEvent', sourceEventId),
-      markNotificationRead: (id, readAt, identity) => kernel.storage.call('markNotificationRead', id, readAt, identity),
-      markAllNotificationsRead: (readAt, identity) => kernel.storage.call('markAllNotificationsRead', readAt, identity),
-      notificationPreferences: () => kernel.storage.call('notificationPreferences'),
-      setNotificationPreferences: (input, identity) =>
-        kernel.storage.call('setNotificationPreferences', input, identity),
-      notificationReceipt: (commandId, input, identity) =>
-        kernel.storage.call('notificationReceipt', commandId, input, identity),
-    },
-    publish: (event) => kernel.changed(event.params.kind),
-    publishFresh: (event) => broadcastFresh(event),
-  })
-  const notificationCommands = createNotificationCommands(notificationService)
-  const runBoardCommands = createRunBoardCommands(kernel.storage)
-  const readDueSchedules = createScheduleDueReader({
-    enabledPage: (after, limit) => kernel.storage.call('enabledSchedules', after, limit),
-    runtime: (id) => kernel.storage.call('scheduleRuntime', id),
-    recordCandidate: (id, dueAt, now) => kernel.storage.call('recordScheduleCandidate', id, dueAt, now),
-  })
-  const scheduleController = createScheduleHostController({
-    service: scheduleService,
-    actorId: 'hbar:scheduler',
-    runCommands: {
-      execute: (id, input, options) =>
-        id === 'run.submit'
-          ? runCommands.execute(id, submitRunInputSchema.parse(input), options)
-          : runCommands.execute(id, z.strictObject({ operationId: z.string().min(1) }).parse(input), options),
-      getReceipt: (_commandId, sessionId, actorId, idempotencyKey) =>
-        runCommands.getReceipt('run.submit', sessionId, actorId, idempotencyKey),
-    },
-    prepareSession: async (input) => {
-      if (input.sessionId || input.target === 'existing-session') {
-        if (!input.sessionId) throw new HbarError('INVALID_INPUT', 'Scheduled target session is required')
-        const session = await kernel.storage.call('session', input.sessionId)
-        if (session.workspaceId !== input.workspaceId || session.archived)
-          throw new HbarError('COMMAND_CONFLICT', 'Scheduled target session is unavailable')
-        return { sessionId: session.id }
-      }
-      const created = await kernel.storage.call('createSessionCommand', {
-        actorId: 'hbar:scheduler',
-        idempotencyKey: `schedule-session:${input.occurrenceId}`,
-        workspaceId: input.workspaceId,
-        title: 'Scheduled run',
-      })
-      kernel.changed('sessions')
-      return { sessionId: created.id }
-    },
-    reader: {
-      enabledSchedules: async (after: string | null, limit: number) =>
-        (await kernel.storage.call('enabledSchedules', after, limit)).items,
-      activeScheduleOccurrences: (limit, after) => kernel.storage.call('activeScheduleOccurrences', limit, after),
-      dueScheduleOccurrences: readDueSchedules,
-    },
-    onFailure: ({ occurrenceId }) => notificationService.publishSource(`schedule:${occurrenceId}:failed`),
-  })
-  const commandServices = [
-    { definitions: agentDefinitions, service: agentCommands },
-    { definitions: browserDefinitions, service: browserCommands },
-    { definitions: computerDefinitions, service: computerCommands },
-    { definitions: configurationDefinitions, service: configurationCommands },
-    { definitions: extensionDefinitions, service: extensionCommands },
-    { definitions: gitDefinitions, service: gitCommands },
-    { definitions: directoryDefinitions, service: kernel.directoryQueries },
-    { definitions: sessionSearchDefinitions, service: sessionSearchCommands },
-    { definitions: workspaceSessionDefinitions, service: workspaceSessionCommands },
-    { definitions: sessionLaunchTargetDefinitions, service: sessionLaunchTargetCommands },
-    { definitions: sessionLaunchBranchesDefinitions, service: sessionLaunchBranchesCommands },
-    { definitions: sessionBranchTargetDefinitions, service: sessionBranchTargetCommands },
-    { definitions: budgetDefinitions, service: budgetCommands },
-    { definitions: fileDefinitions, service: fileCommands },
-    { definitions: resourceDefinitions, service: resourceCommands },
-    { definitions: goalPlanDefinitions, service: goalPlanCommands },
-    { definitions: interactionDefinitions, service: interactionCommands },
-    { definitions: modelDefinitions, service: modelCommands },
-    { definitions: metricsDefinitions, service: metricsCommands },
-    { definitions: runDefinitions, service: runCommands },
-    { definitions: settingsDefinitions, service: settingsCommands },
-    { definitions: chatDatabaseDefinitions, service: chatDatabaseCommands },
-    { definitions: usageDefinitions, service: usageCommands },
-    { definitions: workflowDefinitions, service: workflowCommands },
-    { definitions: scheduleDefinitions, service: scheduleCommands },
-    { definitions: promptTemplateDefinitions, service: promptTemplateCommands },
-    { definitions: sandboxDefinitions, service: sandboxCommandService },
-    { definitions: notificationDefinitions, service: notificationCommands },
-    { definitions: runBoardDefinitions, service: runBoardCommands },
-  ]
-  const commandDispatchers = new Map<string, (value: unknown, actorId: string) => Promise<unknown>>(
-    commandServices.flatMap(({ definitions, service }) =>
-      Object.keys(definitions).map((id) => [id, service.dispatch] as const),
-    ),
-  )
-  const commandDescribers = new Map(
-    commandServices.flatMap(({ definitions, service }) =>
-      Object.keys(definitions).map((id) => [id, () => service.describe(id)] as const),
-    ),
-  )
+  const application: import('./runtime-controller-services').ControllerServerApplication =
+    options.controller?.application ??
+    (typeof HBAR_MANAGED_CONTROLLER !== 'undefined' && HBAR_MANAGED_CONTROLLER
+      ? (() => {
+          throw new HbarError('RUNTIME_RECOVERING', 'The owned Controller application is required')
+        })()
+      : (await import('./controller-application')).createControllerApplication(kernel, {
+          ...(options.runtime?.maintenance ? { maintenance: options.runtime.maintenance } : {}),
+          publishFresh: (event) => broadcastFresh(event),
+        }))
+  const {
+    browserCommands,
+    computerCommands,
+    configurationCommands,
+    extensionCommands,
+    gitCommands,
+    workspaceSessionCommands,
+    budgetCommands,
+    goalPlanCommands,
+    interactionCommands,
+    runCommands,
+    resourceCommands,
+    notificationService,
+    scheduleController,
+    commandServices,
+    commandDispatchers,
+    commandDescribers,
+  } = application
+  commandServices.push({ commandIds: Object.keys(metricsDefinitions), service: metricsCommands })
+  for (const id of Object.keys(metricsDefinitions)) {
+    commandDispatchers.set(id, metricsCommands.dispatch)
+    commandDescribers.set(id, () => metricsCommands.describe(id))
+  }
+  if (options.runtime?.maintenance && options.controller?.application) {
+    const maintenance = options.runtime.maintenance
+    commandServices.push({ commandIds: Object.keys(chatDatabaseDefinitions), service: maintenance })
+    for (const id of Object.keys(chatDatabaseDefinitions)) {
+      commandDispatchers.set(id, maintenance.dispatch)
+      commandDescribers.set(id, () => maintenance.describe(id))
+    }
+  }
   const hostname = options.hostname ?? '127.0.0.1'
-  const auth = new Auth(kernel.storage)
+  const auth = new Auth(kernel.storage, { available: () => options.runtime?.authenticationAvailable?.() ?? true })
   const pairing = auth.createPairing()
   const sockets = new Set<ServerWebSocket<SocketData>>()
   const allSockets = new Set<ServerWebSocket<SocketData>>()
   const scopeDisposals = new Set<Promise<void>>()
-  const disposeClientScope = options.clientScopeDisposer ?? ((scope: RuntimeScope) => scope.dispose())
+  const disposeClientScope = options.clientScopeDisposer ?? ((scope: KernelClientScopePort) => scope.dispose())
   const openClientScope =
     options.clientScopeOpener ?? ((scopeId: string) => kernel.plugins.openScope('client', scopeId))
   let closing = false
@@ -622,22 +318,9 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   function json(request: Request, data: unknown, status = 200, headers: HeadersInit = {}) {
     return response(request, JSON.stringify(data), status, { 'Content-Type': 'application/json', ...headers })
   }
-  function send(socket: ServerWebSocket<SocketData>, value: unknown): number {
-    if (socket.readyState !== 1) return 0
-    if (socket.getBufferedAmount() > 4 * 1024 * 1024) {
-      socket.close(1013, 'Reconnect to resynchronize')
-      return 0
-    }
-    const encoded = JSON.stringify(value)
-    const bytes = new TextEncoder().encode(encoded).byteLength
-    const accepted = socket.send(encoded)
-    // Bun returns zero for a dropped frame and -1 for an accepted queued frame.
-    // Count accepted bytes; this is not an acknowledgement from the Client.
-    if (accepted === 0) return 0
-    requestDiagnostics.frame('out', bytes, {
-      instanceId: kernel.instanceId,
-      connectionId: socket.data.connectionId,
-    })
+  function send(socket: ServerWebSocket<SocketData>, value: unknown) {
+    const bytes = sendSocketFrame(socket, value)
+    if (bytes > 0) requestDiagnostics.frame('out', bytes, { instanceId: kernel.instanceId, connectionId: socket.data.connectionId })
     return bytes
   }
   broadcastFresh = (event) => {
@@ -646,6 +329,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   }
   const systemCommands = createSystemCommands({
     hostInfo,
+    ...(options.runtime ? { runtime: options.runtime } : {}),
     async diagnose() {
       return {
         database: await kernel.storage.call('stats'),
@@ -665,6 +349,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       const revoked = (await kernel.storage.call('devices')).some((device) => device.id === id)
       if (!revoked) return { revoked: false }
       await kernel.storage.call('revokeDevice', id)
+      auth.invalidateDevice(id)
       for (const peer of sockets)
         if (peer.data.deviceId === id) {
           send(peer, { jsonrpc: '2.0', method: 'auth.revoked', params: { reason: 'Device access revoked' } })
@@ -717,10 +402,26 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     rpcId: string | number,
   ): Promise<unknown> {
     switch (method) {
+      case 'system.runtime.watch': {
+        const input = rpcSchemas[method].parse(raw)
+        const runtime = options.runtime
+        if (!runtime?.watch || !runtime.subscribe)
+          throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Runtime subscriptions require the managed Host entry')
+        socket.data.runtimeDispose ??= runtime.subscribe((delta) => {
+          if (socket.data.initialized) send(socket, { jsonrpc: '2.0', method: 'system.runtime.delta', params: delta })
+        })
+        return runtime.watch(input.cursor)
+      }
+      case 'system.runtime.unwatch': {
+        socket.data.runtimeDispose?.()
+        socket.data.runtimeDispose = undefined
+        return null
+      }
       case 'command.execute': {
         const invocation = rpcSchemas[method].parse(raw)
         if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
-        const dispatch = commandDispatchers.get(invocation.commandId)
+        const dispatch =
+          commandDispatchers.get(invocation.commandId) ?? application.resolveCommand?.(invocation.commandId)?.dispatch
         if (!dispatch) throw new HbarError('COMMAND_NOT_FOUND', 'Command is not registered on this Host')
         return dispatch(invocation, socket.data.deviceId)
       }
@@ -746,7 +447,12 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'command.describe': {
         const input = rpcSchemas[method].parse(raw)
-        const describe = commandDescribers.get(input.commandId)
+        const describe =
+          commandDescribers.get(input.commandId) ??
+          (() => {
+            const service = application.resolveCommand?.(input.commandId)
+            return service ? () => service.describe(input.commandId) : null
+          })()
         if (!describe) throw new HbarError('COMMAND_NOT_FOUND', 'Command is not registered on this Host')
         return describe()
       }
@@ -770,14 +476,19 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         if (!socket.data.operationFollows.has(input.operationId) && socket.data.operationFollows.size >= 128)
           throw new HbarError('BUSY', 'Too many watched operations')
         socket.data.operationFollows.add(input.operationId)
+        const ids = socket.data.operationChains.get(input.operationId) ?? new Set([input.operationId])
+        if (snapshot.executionRunId) ids.add(snapshot.executionRunId)
+        socket.data.operationChains.set(input.operationId, ids)
         const events = await kernel.storage.call('events', snapshot.sessionId, input.cursor, 201)
+        for (const event of events) admitOperationRecovery(event, ids)
         const reset = events.length > 200 || input.cursor > session.seq
         return {
           snapshot,
           events: reset
             ? []
             : events.filter(
-                (event) => event.runId === input.operationId || guidedOperationId(event) === input.operationId,
+                (event) =>
+                  (event.runId !== null && ids.has(event.runId)) || guidedOperationId(event) === input.operationId,
               ),
           cursor: session.seq,
           reset,
@@ -786,6 +497,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       case 'operation.unwatch': {
         const input = rpcSchemas[method].parse(raw)
         socket.data.operationFollows.delete(input.operationId)
+        socket.data.operationChains.delete(input.operationId)
         return null
       }
       case 'metrics.watch': {
@@ -982,7 +694,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
             send(socket, { jsonrpc: '2.0', method: 'terminal.exit', params: { terminalId, code, signal } }),
         }
         socket.data.terminalCallbacks = terminalCallbacks
-        for (const terminal of systemTerminals.attach(device.id, terminalCallbacks)) socket.data.terminals.add(terminal.id)
+        for (const terminal of systemTerminals.attach(device.id, terminalCallbacks))
+          socket.data.terminals.add(terminal.id)
         clearTimeout(socket.data.timer)
         return hostInfo()
       }
@@ -1046,7 +759,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'goal.get': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GoalService>('goal').get(p.sessionId)
+        return kernel.plugins.get('goal').get(p.sessionId)
       }
       case 'goal.create': {
         const p = rpcSchemas[method].parse(raw)
@@ -1066,7 +779,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'plan.get': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<PlanService>('plan').get(p.sessionId)
+        return kernel.plugins.get('plan').get(p.sessionId)
       }
       case 'plan.update': {
         const p = rpcSchemas[method].parse(raw)
@@ -1078,7 +791,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'mode.get': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ModeService>('mode').get(p.sessionId)
+        return kernel.plugins.get('mode').get(p.sessionId)
       }
       case 'mode.set': {
         const p = rpcSchemas[method].parse(raw)
@@ -1086,7 +799,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'budget.get': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BudgetService>('budget').get(p.sessionId)
+        return kernel.plugins.get('budget').get(p.sessionId)
       }
       case 'budget.set': {
         const p = rpcSchemas[method].parse(raw)
@@ -1103,19 +816,19 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'git.status': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GitService>('git').status(p.cwd)
+        return kernel.plugins.get('git').status(p.cwd)
       }
       case 'git.info': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GitService>('git').info(p.cwd)
+        return kernel.plugins.get('git').info(p.cwd)
       }
       case 'git.diff': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GitService>('git').diff(p.cwd, p)
+        return kernel.plugins.get('git').diff(p.cwd, p)
       }
       case 'git.log': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GitService>('git').log(p.cwd, p.limit)
+        return kernel.plugins.get('git').log(p.cwd, p.limit)
       }
       case 'git.commit': {
         const p = rpcSchemas[method].parse(raw)
@@ -1123,11 +836,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'git.stage': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GitService>('git').stage(p.cwd, p.paths)
+        return kernel.plugins.get('git').stage(p.cwd, p.paths)
       }
       case 'git.unstage': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GitService>('git').unstage(p.cwd, p.paths)
+        return kernel.plugins.get('git').unstage(p.cwd, p.paths)
       }
       case 'git.branch': {
         const p = rpcSchemas[method].parse(raw)
@@ -1139,7 +852,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'git.diff_to_remote': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<GitService>('git').diffToRemote(p.cwd, undefined, p.paths)
+        return kernel.plugins.get('git').diffToRemote(p.cwd, undefined, p.paths)
       }
       case 'workspace.create': {
         const p = rpcSchemas[method].parse(raw)
@@ -1224,11 +937,19 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'terminal.open': {
         const p = rpcSchemas[method].parse(raw)
-        if (socket.data.terminals.size >= 8) throw new HbarError('OVERLOADED', 'A connection may own at most 8 terminals')
+        if (socket.data.terminals.size >= 8)
+          throw new HbarError('OVERLOADED', 'A connection may own at most 8 terminals')
         const workspace = await kernel.storage.call('workspace', p.workspaceId)
         const callbacks = socket.data.terminalCallbacks
         if (!callbacks) throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
-        const info = systemTerminals.open(socket.data.deviceId!, workspace.id, workspace.path, p.cols, p.rows, callbacks)
+        const info = systemTerminals.open(
+          socket.data.deviceId!,
+          workspace.id,
+          workspace.path,
+          p.cols,
+          p.rows,
+          callbacks,
+        )
         socket.data.terminals.add(info.id)
         return info
       }
@@ -1322,7 +1043,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         return extensionCommands.execute('plugin.doctor', {})
       case 'browser.status': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BrowserUseService>('browser').status(p.sessionId)
+        return kernel.plugins.get('browser').status(p.sessionId)
       }
       case 'browser.navigate': {
         const p = rpcSchemas[method].parse(raw)
@@ -1330,11 +1051,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'browser.go': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BrowserUseService>('browser').go(p.sessionId, p.action, p.contextId, p.pageId)
+        return kernel.plugins.get('browser').go(p.sessionId, p.action, p.contextId, p.pageId)
       }
       case 'browser.snapshot': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BrowserUseService>('browser').snapshot(p.sessionId, p.contextId, p.pageId)
+        return kernel.plugins.get('browser').snapshot(p.sessionId, p.contextId, p.pageId)
       }
       case 'browser.click': {
         const p = rpcSchemas[method].parse(raw)
@@ -1350,9 +1071,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'browser.screenshot': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins
-          .get<BrowserUseService>('browser')
-          .screenshot(p.sessionId, p.fullPage, p.contextId, p.pageId)
+        return kernel.plugins.get('browser').screenshot(p.sessionId, p.fullPage, p.contextId, p.pageId)
       }
       case 'browser.evaluate': {
         const p = rpcSchemas[method].parse(raw)
@@ -1364,15 +1083,15 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       }
       case 'browser.history': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<BrowserUseService>('browser').history(p.sessionId, p.contextId)
+        return kernel.plugins.get('browser').history(p.sessionId, p.contextId)
       }
       case 'computer.status': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ComputerUseService>('computer').status(p.sessionId)
+        return kernel.plugins.get('computer').status(p.sessionId)
       }
       case 'computer.screenshot': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins.get<ComputerUseService>('computer').screenshot(p.sessionId, p.appId)
+        return kernel.plugins.get('computer').screenshot(p.sessionId, p.appId)
       }
       case 'computer.click': {
         const p = rpcSchemas[method].parse(raw)
@@ -1419,7 +1138,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         const p = rpcSchemas[method].parse(raw)
         const workspace = await kernel.storage.call('workspace', p.workspaceId)
         const root = await kernel.workspaceSandboxes.prepare(workspace.id, workspace.path, AbortSignal.timeout(30_000))
-        const text = await kernel.plugins.get<ExecutionProvider>('execution').read(root, p.path)
+        const text = await kernel.plugins.get('execution').read(root, p.path)
         return {
           text,
           path: p.path,
@@ -1430,7 +1149,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         const p = rpcSchemas[method].parse(raw)
         const workspace = await kernel.storage.call('workspace', p.workspaceId)
         const root = await kernel.workspaceSandboxes.prepare(workspace.id, workspace.path, AbortSignal.timeout(30_000))
-        const details = await kernel.plugins.get<ExecutionProvider>('execution').write(root, p.path, p.text, {
+        const details = await kernel.plugins.get('execution').write(root, p.path, p.text, {
           ...(p.expectedRevision ? { expectedRevision: p.expectedRevision } : {}),
         })
         return {
@@ -1443,7 +1162,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
         const p = rpcSchemas[method].parse(raw)
         const workspace = await kernel.storage.call('workspace', p.workspaceId)
         const root = await kernel.workspaceSandboxes.prepare(workspace.id, workspace.path, AbortSignal.timeout(30_000))
-        return kernel.plugins.get<ExecutionProvider>('execution').list(root, p.path)
+        return kernel.plugins.get('execution').list(root, p.path)
       }
     }
     throw new HbarError('METHOD_NOT_FOUND', method)
@@ -1462,27 +1181,28 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
           'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Filename, X-Content-Sha256, X-Artifact-Owner',
         })
       try {
+        if (url.pathname === '/livez') return json(request, { alive: true, instanceId: kernel.instanceId })
         if (url.pathname === '/healthz') {
-          const health = kernel.storageHealth()
-          const failure = storageFatal ?? health.failure
-          const safeFailure = failure
-            ? {
-                kind: failure.kind,
-                code: failure.code.replace(/[^A-Z0-9_.-]/g, '').slice(0, 128),
-                ...(failure.method
-                  ? { method: failure.method.replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 128) }
-                  : {}),
-                occurredAt: Number.isFinite(failure.occurredAt) ? failure.occurredAt : 0,
-              }
-            : undefined
-          return json(request, {
-            ready: health.ready && !storageFatal,
-            ...(health.ready && !storageFatal ? {} : { status: 'storage-failed', ...(safeFailure ? { failure: safeFailure } : {}) }),
-            version: APP_VERSION,
-            protocol: PROTOCOL_VERSION,
-            instanceId: kernel.instanceId,
-            ...(options.dataRootId ? { dataRootId: options.dataRootId } : {}),
-          }, health.ready && !storageFatal ? 200 : 503)
+          const runtime = options.runtime?.snapshot()
+          const ready = runtime?.ready ?? (!storageFatal && kernel.storageHealth().ready)
+          return json(
+            request,
+            {
+              ready,
+              version: APP_VERSION,
+              protocol: PROTOCOL_VERSION,
+              instanceId: kernel.instanceId,
+              ...(runtime?.admission
+                ? {
+                    phase: runtime.admission.phase,
+                    reasonCode: runtime.admission.reasonCode,
+                    nextAttemptAt: runtime.admission.startup?.nextAttemptAt ?? null,
+                  }
+                : {}),
+              ...(options.dataRootId ? { dataRootId: options.dataRootId } : {}),
+            },
+            ready ? 200 : 503,
+          )
         }
         if (url.pathname === '/auth/pair' && request.method === 'POST') {
           const p = z.object({ code: z.string().max(32), name: z.string().min(1).max(100) }).parse(await request.json())
@@ -1499,7 +1219,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
           })
         }
         if (url.pathname === '/rpc') {
-          if (storageFatal || !kernel.storageHealth().ready)
+          if (!options.runtime && (storageFatal || !kernel.storageHealth().ready))
             return json(request, { error: 'Storage is unavailable', code: 'STORAGE_UNAVAILABLE' }, 503)
           if (
             host.upgrade(request, {
@@ -1509,6 +1229,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
                 initialized: false,
                 follows: new Set(),
                 operationFollows: new Set(),
+                operationChains: new Map(),
                 metricsFollowing: false,
                 schemaQueries: new Map(),
                 pending: 0,
@@ -1523,22 +1244,32 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
           const device = await auth.authenticate(requestToken(request))
           const clientPlugin = /^\/api\/plugins\/([^/]+)\/client\.js$/.exec(url.pathname)
           if (clientPlugin && request.method === 'GET')
-            return response(request, kernel.plugins.clientCode(decodeURIComponent(clientPlugin[1]!)), 200, {
+            return response(request, await kernel.plugins.clientCode(decodeURIComponent(clientPlugin[1]!)), 200, {
               'Content-Type': 'text/javascript; charset=utf-8',
             })
           const pluginAsset = /^\/api\/plugins\/([^/]+)\/assets\/(.+)$/.exec(url.pathname)
           if (pluginAsset && request.method === 'GET') {
-            const assetPath = await kernel.plugins.assetPath(decodeURIComponent(pluginAsset[1]!), decodeURIComponent(pluginAsset[2]!))
+            const assetPath = await kernel.plugins.assetPath(
+              decodeURIComponent(pluginAsset[1]!),
+              decodeURIComponent(pluginAsset[2]!),
+            )
             const file = Bun.file(assetPath)
-            return response(request, file, 200, { 'Content-Type': file.type || 'application/octet-stream', 'Content-Security-Policy': "default-src 'none'" })
+            return response(request, file, 200, {
+              'Content-Type': file.type || 'application/octet-stream',
+              'Content-Security-Policy': "default-src 'none'",
+            })
           }
           if (url.pathname === '/api/artifacts' && request.method === 'POST') {
             const name = decodeURIComponent(request.headers.get('x-filename') ?? 'image')
             const ownerHeader = request.headers.get('x-artifact-owner')
-            if (ownerHeader && ownerHeader.length > 2048) throw new HbarError('INVALID_INPUT', 'Attachment owner header is oversized')
-            const owner = ownerHeader ? chatDatabaseUploadOwnerSchema.parse(JSON.parse(decodeURIComponent(ownerHeader))) : undefined
+            if (ownerHeader && ownerHeader.length > 2048)
+              throw new HbarError('INVALID_INPUT', 'Attachment owner header is oversized')
+            const owner = ownerHeader
+              ? chatDatabaseUploadOwnerSchema.parse(JSON.parse(decodeURIComponent(ownerHeader)))
+              : undefined
             const sha256 = request.headers.get('x-content-sha256') ?? undefined
-            if (sha256 && !/^[a-f0-9]{64}$/.test(sha256)) throw new HbarError('INVALID_INPUT', 'Attachment content hash is invalid')
+            if (sha256 && !/^[a-f0-9]{64}$/.test(sha256))
+              throw new HbarError('INVALID_INPUT', 'Attachment content hash is invalid')
             return json(
               request,
               await kernel.upload(
@@ -1554,7 +1285,8 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
             if (body.length > 24_000) throw new HbarError('INVALID_INPUT', 'Resource request is oversized')
             const media = await resourceCommands.readMedia(JSON.parse(body), request.signal)
             return response(request, new Blob([new Uint8Array(media.bytes)], { type: media.mime }), 200, {
-              'Content-Type': media.mime, 'Cache-Control': 'no-store',
+              'Content-Type': media.mime,
+              'Cache-Control': 'no-store',
               'Content-Security-Policy': "default-src 'none'; sandbox",
               'X-Content-Type-Options': 'nosniff',
             })
@@ -1615,6 +1347,60 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
             if (socket.data.pending >= 32) throw new HbarError('OVERLOADED', 'Too many pending requests')
             socket.data.pending++
             admitted = true
+            let stable = false
+            if (options.controller) {
+              const text = typeof payload === 'string' ? payload : payload.toString()
+              try {
+                const envelope = rpcRequestSchema.safeParse(JSON.parse(text))
+                if (envelope.success) {
+                  id = envelope.data.id
+                  stable = isStableRpc(envelope.data.method, envelope.data.params)
+                  if (!stable) {
+                    span = requestDiagnostics.begin({ method: envelope.data.method, rpcId: envelope.data.id,
+                      connectionId: socket.data.connectionId, bytesIn, pending: socket.data.pending })
+                    span.stage('admission', socket.data.pending)
+                  }
+                }
+              } catch {
+                /* The Controller returns a correlated response for every valid envelope. */
+              }
+              if (!stable) {
+                span?.stage('invoke', socket.data.pending)
+                const frame = await options.controller.dispatch(
+                  text,
+                  async (request, signal) => {
+                    signal.throwIfAborted()
+                    if (request.method !== 'system.hello') {
+                      if (!socket.data.initialized)
+                        throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
+                      if (isRecoveryControl(request.method, request.params))
+                        await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
+                      else await auth.authenticate(socket.data.token)
+                    }
+                    signal.throwIfAborted()
+                    return invoke(request.method, rpcSchemas[request.method].parse(request.params), socket, request.id)
+                  },
+                  async (request, signal) => {
+                    signal.throwIfAborted()
+                    if (!socket.data.initialized || !socket.data.deviceId)
+                      throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
+                    if (isRecoveryControl(request.method, request.params))
+                      await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
+                    else await auth.authenticate(socket.data.token)
+                    signal.throwIfAborted()
+                    return { actorId: socket.data.deviceId, host: hostInfo() }
+                  },
+                )
+                span?.stage('reply', socket.data.pending)
+                const bytesOut = sendSocketTextFrame(socket, frame)
+                if (bytesOut > 0) requestDiagnostics.frame('out', bytesOut, { instanceId: kernel.instanceId, connectionId: socket.data.connectionId })
+                const outcome = z.object({ error: z.object({ data: z.object({ code: z.string().max(128) }).optional() }).optional() }).safeParse(JSON.parse(frame))
+                if (outcome.success && outcome.data.error) span?.failure(outcome.data.error.data?.code ?? 'INVALID_REQUEST', { pending: socket.data.pending })
+                else if (bytesOut === 0) span?.replySkipped({ pending: socket.data.pending })
+                else span?.success({ bytesOut, pending: socket.data.pending })
+                return
+              }
+            }
             const request = rpcRequestSchema.parse(
               JSON.parse(typeof payload === 'string' ? payload : payload.toString()),
             )
@@ -1644,7 +1430,9 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
               if (request.method !== 'system.hello') {
                 if (!socket.data.initialized) throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
                 requestSpan.stage('auth', socket.data.pending)
-                await auth.authenticate(socket.data.token)
+                if (isRecoveryControl(request.method, request.params))
+                  await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
+                else await auth.authenticate(socket.data.token)
               }
               const method = request.method as RpcMethod
               requestSpan.stage('validate', socket.data.pending)
@@ -1677,9 +1465,18 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
           } finally {
             if (admitted) socket.data.pending--
           }
-        })()
+        })().catch(() => {
+          console.error('[hbar] RPC callback failed')
+          try {
+            socket.close(1011, 'Request failed; reconnect to reconcile')
+          } catch {
+            /* Transport already failed. */
+          }
+        })
       },
       close(socket) {
+        socket.data.runtimeDispose?.()
+        socket.data.runtimeDispose = undefined
         clearTimeout(socket.data.timer)
         if (socket.data.deviceId && socket.data.terminalCallbacks)
           systemTerminals.detach(socket.data.deviceId, socket.data.terminalCallbacks)
@@ -1725,7 +1522,11 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
       if (!socket.data.initialized) continue
       if (event.method === 'session.event' || event.method === 'stream.update') {
         const bySession = socket.data.follows.has(event.params.sessionId)
-        const byOperation = Boolean(event.params.runId && socket.data.operationFollows.has(event.params.runId))
+        if (event.method === 'session.event')
+          for (const ids of socket.data.operationChains.values()) admitOperationRecovery(event.params, ids)
+        const byOperation = Boolean(
+          event.params.runId && [...socket.data.operationChains.values()].some((ids) => ids.has(event.params.runId!)),
+        )
         const guidedId = event.method === 'session.event' ? guidedOperationId(event.params) : null
         const byGuidedOperation = guidedId !== null && socket.data.operationFollows.has(guidedId)
         if (!bySession && !byOperation && !byGuidedOperation) continue
@@ -1746,44 +1547,12 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
     info: hostInfo,
     async close() {
       closing = true
-      agentCommands.dispose()
-      browserCommands.dispose()
-      computerCommands.dispose()
-      configurationCommands.dispose()
-      extensionCommands.dispose()
-      await skillImport.dispose()
-      gitCommands.dispose()
-      workspaceSessionCommands.dispose()
-      sessionLaunchTargetCommands.dispose()
-      sessionLaunchBranchesCommands.dispose()
-      sessionBranchTargetCommands.dispose()
-      await sessionSearchCommands.dispose()
-      budgetCommands.dispose()
-      fileCommands.dispose()
-      resourceCommands.dispose()
-      goalPlanCommands.dispose()
-      workflowCommands.dispose()
-      interactionCommands.dispose()
-      modelCommands.dispose()
+      await application.dispose()
       metricsCommands.dispose()
       performance.stop()
-      runCommands.dispose()
-      settingsCommands.dispose()
-      chatDatabaseCommands.dispose()
-      await chatDatabaseScheduler.close()
-      await chatDatabaseMaintenance.close()
-      await chatDatabaseArtifactReferences.close()
-      await chatDatabaseStatistics.close()
-      usageCommands.dispose()
-      await scheduleController.close()
       unsubscribe()
       systemTerminals.closeAll()
       while (notificationTasks.size) await Promise.allSettled([...notificationTasks])
-      scheduleCommands.dispose()
-      promptTemplateCommands.dispose()
-      sandboxCommandService.dispose()
-      notificationCommands.dispose()
-      runBoardCommands.dispose()
       systemCommands.dispose()
       unsubscribeMetrics()
       for (const pending of [...pendingSurfaceByRelay.values()])

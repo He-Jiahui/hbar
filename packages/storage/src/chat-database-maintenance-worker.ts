@@ -20,10 +20,16 @@ export interface ChatDatabaseMaintenanceWorkerPort {
   cancel(operationId: string, identity: { actorId: string; idempotencyKey: string }): void
   close(): Promise<void>
 }
+export interface ChatDatabaseWriterHandover {
+  begin(operationId: string): Promise<void | { verificationOnly: boolean }>
+  /** The maintenance Worker has exited; the receipt confirms the file is safe to reopen. */
+  end(operationId: string, receipt: ChatDatabaseVacuumRecord): Promise<void>
+}
 export function createChatDatabaseMaintenanceWorker(
   storage: StoragePort,
   layout: PathLayout,
   timeoutMs = 120_000,
+  handover?: ChatDatabaseWriterHandover,
 ): ChatDatabaseMaintenanceWorkerPort {
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 600_000)
     throw new HbarError('INVALID_INPUT', 'Maintenance worker timeout is invalid')
@@ -137,21 +143,27 @@ export function createChatDatabaseMaintenanceWorker(
       const task = (async () => {
         const prior = progress(id)
         if (prior?.integrityVerified && ['completed', 'cancelled'].includes(prior.status)) return prior
-        await storage.call('chatDatabaseMaintenanceBegin', id)
+        const ownership = handover ? await handover.begin(id) : await storage.call('chatDatabaseMaintenanceBegin', id)
         let verified = false
+        let receipt: ChatDatabaseVacuumRecord | null = null
         try {
-          let result = await execute(id, flags, prior?.status === 'unknown' ? 'run' : prior ? 'verify' : 'run')
+          // Any durable receipt means execution may already have happened. Only verify its outcome.
+          let result = await execute(id, flags, prior || ownership?.verificationOnly ? 'verify' : 'run')
           result ??= await execute(id, flags, 'verify')
           if (!result || !result.integrityVerified)
             throw new HbarError('DATABASE_INTEGRITY', 'Database maintenance result needs offline recovery')
           verified = true
+          receipt = result
           return {
             ...result,
             cancellationRequested:
               result.cancellationRequested || records.cancelled(id) || Atomics.load(flags, 0) === 1,
           }
         } finally {
-          if (verified) await storage.call('chatDatabaseMaintenanceEnd', id)
+          if (verified && receipt) {
+            if (handover) await handover.end(id, receipt)
+            else await storage.call('chatDatabaseMaintenanceEnd', id)
+          }
         }
       })().finally(() => {
         signal.removeEventListener('abort', cancel)

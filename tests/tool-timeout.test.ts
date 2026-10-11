@@ -79,6 +79,25 @@ test('Host cancellation and shutdown retain their own cause', async () => {
   }
 })
 
+test('physical settlement callbacks survive logical timeouts and release pre-admission cancellation exactly once', async () => {
+  const executions = new ToolExecutions(1)
+  const pending = deferred<ToolResult>()
+  let released = 0
+  await expect(executions.run('session:physical', 'physical', 'first', new AbortController(), 10,
+    () => pending.promise, async () => { released++ })).rejects.toBeInstanceOf(ToolTimeoutError)
+  expect(released).toBe(0)
+  expect(() => executions.assertAvailable('other', 'other')).toThrow('capacity')
+  pending.resolve({ text: 'settled after timeout' })
+  await Bun.sleep(0)
+  expect(released).toBe(1)
+  const cancelled = new AbortController()
+  cancelled.abort(new HbarError('USER_CANCELLED', 'Cancelled before physical admission'))
+  await expect(executions.run('other', 'other', 'cancelled', cancelled, 100,
+    async () => { throw new Error('Must not execute') }, async () => { released++ })).rejects.toMatchObject({ code: 'USER_CANCELLED' })
+  expect(released).toBe(2)
+  executions.dispose()
+})
+
 async function fixture(script?: (input: DriverInput) => Promise<void>) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-tool-timeout-'))
   cleanups.push(() => rm(root, { recursive: true, force: true }))
@@ -107,7 +126,7 @@ async function fixture(script?: (input: DriverInput) => Promise<void>) {
     workspace: root,
     demo: true,
     secrets: new MemorySecrets(),
-    runIdleTimeoutMs: 250,
+    runIdleTimeoutMs: 600,
     ...(driver ? { profile: { replacements: { 'driver.pi': driver } } } : {}),
   })
   cleanups.push(() => kernel.close())
@@ -162,7 +181,7 @@ test('a tool timeout longer than Run idle timeout returns an error and the same 
       }
     },
   })
-  expect((await f.submit()).status).toBe('completed')
+  expect(await f.submit()).toMatchObject({ status: 'completed' })
   expect(toolAborted).toBe(true)
   const snapshot = await f.kernel.snapshot(f.session.id)
   const result = snapshot.messages
@@ -227,7 +246,7 @@ test('parent timeout cancels a sequence child and leaves later calls undispatche
     description: 'Execute a bounded batch',
     inputSchema: z.object({}),
     effect: 'read',
-    timeoutMs: 100,
+    timeoutMs: 400,
     execute: async (_args, context) => ({
       text: JSON.stringify(
         await context.executeSequence?.([

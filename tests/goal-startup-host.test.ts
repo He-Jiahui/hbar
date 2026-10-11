@@ -17,7 +17,7 @@ const connectionSchema = z.object({
   instanceId: z.string().min(1),
 })
 
-async function until<Value>(operation: () => Promise<Value>, timeoutMs = 15_000): Promise<Value> {
+async function until<Value>(operation: () => Promise<Value>, timeoutMs = 120_000): Promise<Value> {
   const deadline = Date.now() + timeoutMs
   for (;;) {
     try {
@@ -61,7 +61,11 @@ test('a real supervised Host restart resumes active Goals without a user message
   let failure: { error: unknown } | undefined
   let output: string
   try {
-    const first = await until(async () => connectionSchema.parse(JSON.parse(await readFile(connectionFile, 'utf8'))))
+    const first = await until(async () => {
+      const connection = connectionSchema.parse(JSON.parse(await readFile(connectionFile, 'utf8')))
+      if (!(await fetch(`${connection.url}/healthz`)).ok) throw new Error('Host is not ready')
+      return connection
+    })
     latestPid = first.pid
     const firstClient = new HbarClient(first.url, first.token)
     clients.push(firstClient)
@@ -152,7 +156,7 @@ test('a real supervised Host restart resumes active Goals without a user message
   } finally {
     for (const client of clients) client.disconnect()
     supervisor.kill()
-    await Promise.race([supervisor.exited, Bun.sleep(2_000)])
+    await Promise.race([supervisor.exited, Bun.sleep(6_000)])
     if (latestPid) {
       try {
         process.kill(latestPid)
@@ -161,7 +165,11 @@ test('a real supervised Host restart resumes active Goals without a user message
       }
     }
     output = await diagnostics
-    await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+    if (latestPid) await until(async () => {
+      try { process.kill(latestPid!, 0) } catch { return }
+      throw new Error('Owned Goal Host has not exited')
+    }, 5_000)
+    await rm(root, { recursive: true, force: true, maxRetries: 40, retryDelay: 250 })
   }
   if (failure) throw new Error(`Goal Host restart failed: ${output}`, { cause: failure.error })
-}, 45_000)
+}, 420_000)

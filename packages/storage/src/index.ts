@@ -5,7 +5,17 @@ import {
   type ReadonlyDiagnosticCorrelation,
 } from '@hbar/contracts'
 import { Worker } from 'node:worker_threads'
-import type { StorageMethods, StorageWorkerMessage } from './types.ts'
+import type { StorageMethods } from './types.ts'
+import type { ExecutionOwnership } from '@hbar/contracts/runtime'
+import { storageRpcCallSchema } from './rpc'
+export type { RuntimeRecoveryRecord, RuntimeRecoveryScope, RuntimeManualRecovery } from './runtime-state'
+export { runtimeRecoveryRecordSchema, runtimeManualRecoverySchema } from './runtime-state'
+export { StableStoragePort } from './stable-port'
+export type { ManagedStorageWriter, StableStorageSnapshot } from './stable-port'
+export { storageRpcCallSchema, storageRpcInput, callStorageRpc } from './rpc'
+export type { StorageRpcCall, StorageRpcPort } from './rpc'
+export { STORAGE_RPC_METHODS, STORAGE_RPC_FINGERPRINT, STORAGE_SCHEMA_VERSION } from './rpc-catalog'
+import type { StorageWorkerMessage } from './types.ts'
 import { createStorageRequestDiagnostics } from './request-diagnostics.ts'
 export type {
   CreateSessionCommandInput,
@@ -54,8 +64,9 @@ export { createChatDatabaseResourceScanner } from './chat-database-resource-scan
 export type { ChatDatabaseResourceScanInput } from './chat-database-resource-scanner'
 export type { ChatDatabaseResourceResult } from './chat-database-resource-ledger'
 export { createChatDatabaseMaintenanceWorker } from './chat-database-maintenance-worker'
-export type { ChatDatabaseMaintenanceWorkerPort } from './chat-database-maintenance-worker'
+export type { ChatDatabaseMaintenanceWorkerPort, ChatDatabaseWriterHandover } from './chat-database-maintenance-worker'
 export type { ChatDatabaseVacuumRecord } from './chat-database-vacuum-record'
+export { chatDatabaseVacuumRecordSchema, createChatDatabaseVacuumRecords } from './chat-database-vacuum-record'
 export * from './session-log-writer.ts'
 export * from './session-log-recovery.ts'
 export * from './project-registry.ts'
@@ -89,8 +100,13 @@ export interface StorageFatalEvent {
 export type StorageFatalListener = (event: StorageFatalEvent) => void
 
 export interface StorageLifecycleOptions {
+  /** Construct the actual Worker without acquiring production write authority. */
+  readonly preflight?: boolean
+  readonly workerPath?: string
   readonly requestTimeoutMs?: number
   readonly closeTimeoutMs?: number
+  /** Fatal Worker failure belongs to its managed owner; unknown calls are never replayed here. */
+  readonly onFatal?: (error: HbarError) => void
   readonly maxPendingRequests?: number
   readonly diagnostics?: DiagnosticSink
   readonly diagnosticScope?: DiagnosticScopePort
@@ -127,6 +143,7 @@ export class Storage {
   private fatalListeners = new Set<StorageFatalListener>()
   private readonly requestTimeoutMs: number
   private readonly closeTimeoutMs: number
+  private readonly notifyFatalError: ((error: HbarError) => void) | undefined
   private readonly maxPendingRequests: number
   private readonly diagnostics: ReturnType<typeof createStorageRequestDiagnostics>
   constructor(path: string, layout?: PathLayout, lifecycle: StorageLifecycleOptions = {}) {
@@ -145,9 +162,11 @@ export class Storage {
       ...(lifecycle.instanceId === undefined ? {} : { instanceId: lifecycle.instanceId }),
       ...(lifecycle.diagnosticsFullCoverage === undefined ? {} : { fullCoverage: lifecycle.diagnosticsFullCoverage }),
     })
+    this.notifyFatalError = lifecycle.onFatal
     const options = {
       workerData: {
         path,
+        preflight: lifecycle.preflight === true,
         sessions: layout?.sessions,
         diagnostics: layout?.diagnostics,
         settings: layout?.settings,
@@ -158,8 +177,9 @@ export class Storage {
         ...(lifecycle.instanceId === undefined ? {} : { instanceId: lifecycle.instanceId }),
       },
     }
-    this.worker = process.env.HBAR_STORAGE_WORKER
-      ? new Worker(process.env.HBAR_STORAGE_WORKER, options)
+    const workerPath = lifecycle.workerPath ?? process.env.HBAR_STORAGE_WORKER
+    this.worker = workerPath
+      ? new Worker(workerPath, options)
       : Bun.isStandaloneExecutable
         ? // Bun only embeds Worker entrypoints referenced by a direct path literal matching the build input.
           new Worker('./packages/storage/src/worker.ts', options)
@@ -218,10 +238,25 @@ export class Storage {
     if (this.stopped || this.closing) return Promise.reject(new HbarError('STORAGE_CLOSED', 'Storage is closed'))
     return this.request(method, args, this.requestTimeoutMs)
   }
+  callOwned<K extends keyof StorageMethods>(
+    authority: ExecutionOwnership,
+    method: K,
+    ...args: Parameters<StorageMethods[K]>
+  ): Promise<ReturnType<StorageMethods[K]>> {
+    if (this.stopped || this.closing) return Promise.reject(new HbarError('STORAGE_CLOSED', 'Storage is closed'))
+    return this.request(method, args, this.requestTimeoutMs, authority)
+  }
+  executeRpc(raw: import('./rpc').StorageRpcCall): Promise<unknown> {
+    const input = storageRpcCallSchema.parse(raw)
+    if (this.stopped || this.closing) return Promise.reject(new HbarError('STORAGE_CLOSED', 'Storage is closed'))
+    return this.request(input.method, input.args as Parameters<StorageMethods[typeof input.method]>, this.requestTimeoutMs, input.authority, input.diagnostic)
+  }
   private request<K extends keyof StorageMethods>(
     method: K,
     args: Parameters<StorageMethods[K]>,
     timeoutMs: number,
+    authority?: ExecutionOwnership,
+    diagnostic?: import('@hbar/contracts').ReadonlyDiagnosticCorrelation,
   ): Promise<ReturnType<StorageMethods[K]>> {
     if (method !== 'close' && this.pending.size >= this.maxPendingRequests) {
       this.diagnostics.record({
@@ -238,7 +273,7 @@ export class Storage {
     return new Promise((resolve, reject) => {
       const id = ++this.nextId
       const startedAt = performance.now()
-      const correlation = this.diagnostics.capture()
+      const correlation = diagnostic ?? this.diagnostics.capture()
       const timer = setTimeout(() => {
         // A timed-out write may have committed. Fail the owner without replaying it or accepting more work.
         const error = new HbarError(
@@ -269,7 +304,7 @@ export class Storage {
         ...(correlation === undefined ? {} : { correlation }),
       })
       try {
-        this.worker.postMessage({ id, method, args })
+        this.worker.postMessage({ id, method, args, ...(authority ? { authority } : {}) })
         this.diagnostics.dispatched({
           id,
           method: String(method),
@@ -300,6 +335,9 @@ export class Storage {
     this.stop(error)
     if (this.fatalNotified) return
     this.fatalNotified = true
+    if (!this.closing) {
+      try { this.notifyFatalError?.(error) } catch { console.error('[hbar storage] fatal observer failed') }
+    }
     const event: StorageFatalEvent = {
       kind: details.kind,
       code: error.code,
@@ -395,3 +433,5 @@ export class Storage {
     }
   }
 }
+export { STORAGE_PREFLIGHT_METHODS, assertStoragePreflightMethod } from './preflight'
+export { createMaintenanceWorkerPreflight } from './maintenance-worker-preflight'

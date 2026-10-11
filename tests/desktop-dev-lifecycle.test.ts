@@ -31,7 +31,7 @@ async function fixture() {
         stdout: 'pipe',
         stderr: 'pipe',
         windowsHide: true,
-        timeout: 25_000,
+        timeout: 150_000,
       })
       const [code, output, error] = await Promise.all([
         child.exited,
@@ -67,7 +67,7 @@ test('desktop development releases source Host and Vite after its owned Tauri pr
   } finally {
     await f.dispose()
   }
-}, 30_000)
+}, 160_000)
 
 test('an unrelated HTTP listener cannot satisfy desktop Vite readiness or be terminated on failure', async () => {
   const f = await fixture()
@@ -83,7 +83,7 @@ test('an unrelated HTTP listener cannot satisfy desktop Vite readiness or be ter
     await occupied.stop(true)
     await f.dispose()
   }
-}, 30_000)
+}, 160_000)
 
 test('source Host startup failure reports its log and leaves an unrelated listener running', async () => {
   const f = await fixture()

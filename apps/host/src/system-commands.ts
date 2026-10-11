@@ -3,6 +3,17 @@ import { HbarError } from '@hbar/contracts'
 import type { Device, HostInfo, PluginInfo } from '@hbar/contracts'
 import { systemCommands } from '@hbar/contracts/commands/system'
 import type { StorageLocationApply, StorageLocationSnapshot } from '@hbar/contracts/commands/storage-locations'
+import type { RuntimeSnapshot, RuntimeReload, RuntimeDelta, RuntimeWatchResult } from '@hbar/contracts/runtime'
+export interface RuntimeSystemPort {
+  readonly maintenance?: import('./runtime-maintenance-contract').RuntimeMaintenancePort
+  authenticationAvailable?(): boolean
+  subscribe?(listener: (delta: RuntimeDelta) => void): () => void
+  watch?(cursor?: number): RuntimeWatchResult
+  snapshot(): RuntimeSnapshot
+  reload(artifactSetId: string, unitIds: readonly string[]): { operationId: string }
+  getReload(operationId: string): RuntimeReload
+  cancelReload(operationId: string): RuntimeReload
+}
 
 export interface SystemPaths {
   dataRoot: string
@@ -37,6 +48,7 @@ export interface SystemCommandDependencies {
   revokeDevice(id: string): Promise<{ revoked: boolean }>
   createPairing(): { code: string; expiresAt: number }
   restart?(): boolean | Promise<boolean>
+  runtime?: RuntimeSystemPort
 }
 
 export function createSystemCommands(dependencies: SystemCommandDependencies) {
@@ -49,6 +61,14 @@ export function createSystemCommands(dependencies: SystemCommandDependencies) {
       throw error
     }
   }
+  const runtime = (): RuntimeSystemPort => {
+    if (!dependencies.runtime) throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Start the managed Host entry to install runtime unit management')
+    return dependencies.runtime
+  }
+  registry.register(systemCommands['system.runtime.get'], () => translate(() => runtime().snapshot()))
+  registry.register(systemCommands['system.runtime.reload'], input => translate(() => runtime().reload(input.artifactSetId, input.unitIds)))
+  registry.register(systemCommands['system.runtime.reload.get'], input => translate(() => runtime().getReload(input.operationId)))
+  registry.register(systemCommands['system.runtime.reload.cancel'], input => translate(() => runtime().cancelReload(input.operationId)))
 
   registry.register(systemCommands['system.diagnose'], async () => ({
     host: dependencies.hostInfo(),

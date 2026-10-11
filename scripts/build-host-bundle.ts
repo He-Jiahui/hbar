@@ -40,7 +40,7 @@ export async function writeBundleArtifacts(
   }
 }
 
-export async function buildHostBundle(entrypoint: string, name: string, outputDirectory: string): Promise<void> {
+export async function buildHostBundle(entrypoint: string, name: string, outputDirectory: string, define: Readonly<Record<string, string>> = {}): Promise<void> {
   // No outdir: Bun otherwise unconditionally rewrites native assets, including
   // byte-identical DLLs loaded by a running Windows desktop Host (3897025).
   const build = await Bun.build({
@@ -51,6 +51,7 @@ export async function buildHostBundle(entrypoint: string, name: string, outputDi
     external: [...optionalBundleExternals, ...hostRuntimeDependencies],
     minify: false,
     sourcemap: 'external',
+    define,
   })
   if (!build.success) throw new AggregateError(build.logs, `Failed to build ${entrypoint}`)
   await writeBundleArtifacts(outputDirectory, build.outputs)

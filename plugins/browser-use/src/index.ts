@@ -313,6 +313,7 @@ interface PageState extends BrowserPage {
 
 export class BrowserRuntime implements BrowserUseService {
   private contexts = new Map<string, Map<string, Map<string, PageState>>>()
+  private readonly resources = new Map<string, import('@hbar/plugin-sdk').Disposer>()
   private readonly backend: BrowserBackend
   constructor(
     private readonly api: HbarAPI,
@@ -345,6 +346,8 @@ export class BrowserRuntime implements BrowserUseService {
       if (sessions.size >= this.config.maxContexts)
         throw new HbarError('BROWSER_CONTEXT_LIMIT', 'Browser context limit reached')
       pages = new Map()
+      if (this.api.resources) this.resources.set(sessionId + ':' + contextId,
+        await this.api.resources.retain({ kind: 'browser', id: contextId, sessionId }))
       sessions.set(contextId, pages)
     }
     return { sessions, contextId, pages }
@@ -540,8 +543,11 @@ export class BrowserRuntime implements BrowserUseService {
   async close(sessionId: string, contextId?: string, pageId?: string, signal = new AbortController().signal) {
     await this.session(sessionId)
     if (!contextId) {
-      for (const id of this.contexts.get(sessionId)?.keys() ?? [])
+      for (const id of this.contexts.get(sessionId)?.keys() ?? []) {
         await this.bounded(signal, (boundedSignal) => this.backend.close(id, undefined, boundedSignal))
+        await this.resources.get(sessionId + ':' + id)?.()
+        this.resources.delete(sessionId + ':' + id)
+      }
       const closed = this.contexts.delete(sessionId)
       if (closed) this.api.changed('browser')
       return { closed }
@@ -552,6 +558,12 @@ export class BrowserRuntime implements BrowserUseService {
     await this.bounded(signal, (boundedSignal) => this.backend.close(contextId, pageId, boundedSignal))
     if (pageId) pages.delete(pageId)
     else sessions?.delete(contextId)
+    if (!pageId || !pages.size) {
+      if (pageId) await this.bounded(signal, boundedSignal => this.backend.close(contextId, undefined, boundedSignal))
+      sessions?.delete(contextId)
+      await this.resources.get(sessionId + ':' + contextId)?.()
+      this.resources.delete(sessionId + ':' + contextId)
+    }
     if (sessions && sessions.size === 0) this.contexts.delete(sessionId)
     this.api.notify({ method: 'browser.changed', params: { sessionId, contextId } })
     this.api.changed('browser')
@@ -569,10 +581,12 @@ export class BrowserRuntime implements BrowserUseService {
 
   async dispose() {
     for (const [sessionId, sessions] of this.contexts) {
-      for (const contextId of sessions.keys()) await this.backend.close(contextId).catch(() => {})
+      for (const contextId of sessions.keys()) await this.backend.close(contextId)
       this.contexts.delete(sessionId)
     }
     await this.backend.dispose?.()
+    for (const release of this.resources.values()) await release()
+    this.resources.clear()
   }
 }
 
@@ -741,9 +755,7 @@ export const browserPlugin = definePlugin({
     const runtime = new BrowserRuntime(ctx.hbar.api, browserConfigSchema.parse(rawConfig))
     provide<BrowserUseService>(ctx, 'browser', runtime)
     provide<BrowserUseService>(ctx, 'browser-use', runtime)
-    ctx.effect(() => () => {
-      void runtime.dispose()
-    })
+    ctx.effect(() => () => runtime.dispose())
     for (const tool of browserTools(runtime)) ctx.hbar.api.tools.register(tool)
   },
 })

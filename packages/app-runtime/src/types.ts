@@ -7,6 +7,7 @@ import type {
   ExecuteOptions,
 } from '@hbar/commands'
 import type { Session, Workspace } from '@hbar/contracts/directory'
+import type { HostRuntimeStatusPort } from './host-runtime-status'
 import type { AppPageId } from '@hbar/contracts/commands/surfaces'
 import type { BudgetReceipt, SetBudgetInput } from '@hbar/contracts/commands/budget'
 import type { DraftAttachmentTransfer, PromptAttachment, PromptWorkspaceContext } from '@hbar/contracts/commands/draft'
@@ -233,6 +234,7 @@ export interface RuntimeOptions {
   }
   readonly extensions?: CommandExecutor
   readonly system?: CommandExecutor
+  readonly hostRuntimeStatus?: HostRuntimeStatusPort
   readonly metrics?: CommandExecutor
   readonly git?: CommandExecutor
   readonly commandCatalog?: CommandCatalogPort

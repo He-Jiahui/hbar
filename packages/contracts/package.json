@@ -5,6 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./runtime": "./src/runtime.ts",
+    "./runtime-notifications": "./src/runtime-notifications.ts",
     "./diagnostics": "./src/diagnostics.ts",
     "./diagnostic-context": "./src/diagnostic-context.ts",
     "./decision": "./src/decision.ts",

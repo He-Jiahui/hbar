@@ -3,6 +3,7 @@ import { defineCommand, type CommandMetadataInput } from '@hbar/commands/protoco
 import { idSchema, PAIRING_CODE_LENGTH } from '../index'
 import { pluginInfoSchema } from './extensions'
 import { storageLocationApplySchema, storageLocationSnapshotSchema } from './storage-locations'
+import { runtimeSnapshotSchema, runtimeReloadSchema, runtimeUnitIdSchema } from '../runtime'
 
 export const hostInfoSchema = z.strictObject({
   version: z.string().min(1).max(64),
@@ -78,6 +79,22 @@ const rootsCli = {
 }
 
 export const systemCommands = {
+  'system.runtime.get': defineCommand(metadata('system.runtime.get', 'query', 'none'), z.strictObject({}), runtimeSnapshotSchema),
+  'system.runtime.reload': defineCommand(
+    { ...metadata('system.runtime.reload', 'command', 'application'), visibility: 'advanced', cli: { arguments: [
+      { field: 'artifactSetId', type: 'string', flag: 'artifacts' }, { field: 'unitIds', type: 'json', flag: 'units' },
+    ] } },
+    z.strictObject({ artifactSetId: idSchema, unitIds: z.array(runtimeUnitIdSchema).min(1).max(512).refine(ids => new Set(ids).size === ids.length) }),
+    z.strictObject({ operationId: idSchema }),
+  ),
+  'system.runtime.reload.get': defineCommand(
+    { ...metadata('system.runtime.reload.get', 'query', 'none'), cli: { arguments: [{ field: 'operationId', type: 'string', position: 0 }] } },
+    z.strictObject({ operationId: idSchema }), runtimeReloadSchema,
+  ),
+  'system.runtime.reload.cancel': defineCommand(
+    { ...metadata('system.runtime.reload.cancel', 'command', 'application'), cli: { arguments: [{ field: 'operationId', type: 'string', position: 0 }] } },
+    z.strictObject({ operationId: idSchema }), runtimeReloadSchema,
+  ),
   'system.storage.get': defineCommand(
     metadata('system.storage.get', 'query', 'none'),
     z.strictObject({}),

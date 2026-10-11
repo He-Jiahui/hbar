@@ -4,7 +4,7 @@ import {
   ScheduleRunFailure,
   type ScheduleExecutionPort,
   type ScheduleService,
-} from '@hbar/kernel'
+} from '@hbar/kernel/controller'
 import { operationSnapshotSchema, runAcceptedSchema, submitRunInputSchema } from '@hbar/contracts/commands/run'
 
 export interface ScheduleHostReader {

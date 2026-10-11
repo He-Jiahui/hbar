@@ -38,9 +38,10 @@ export class ToolExecutions {
     controller: AbortController,
     timeoutMs: number,
     operation: () => Promise<Result>,
+    settled?: () => Promise<void>,
   ): Promise<Result> {
-    controller.signal.throwIfAborted()
-    this.assertAvailable(key, name)
+    try { controller.signal.throwIfAborted(); this.assertAvailable(key, name) }
+    catch (error) { await settled?.(); throw error }
     this.active.set(key, controller)
     return new Promise<Result>((resolve, reject) => {
       let cancellationTimer: ReturnType<typeof setTimeout> | undefined
@@ -67,15 +68,19 @@ export class ToolExecutions {
           return operation()
         })
         .then(
-          (result) => {
+          async (result) => {
+            clearTimeout(timer)
+            await settled?.()
             cleanup()
             resolve(result)
           },
-          (error: unknown) => {
+          async (error: unknown) => {
+            clearTimeout(timer)
+            await settled?.()
             cleanup()
             reject(error)
           },
-        )
+        ).catch((error: unknown) => { cleanup(); reject(error) })
     })
   }
 

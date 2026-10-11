@@ -152,7 +152,7 @@ function hasQueueEventAfter(timeline: SessionTimelineState, cursor: number): boo
     const event = timeline.events[index]
     if (!event || event.seq <= cursor) break
     if (
-      ['run.queued', 'run.status', 'run.settled', 'run.inputEdited'].includes(event.type) ||
+      ['run.queued', 'run.status', 'run.settled', 'run.inputEdited', 'run.recoveryQueued'].includes(event.type) ||
       isQueuedRunGuidanceEvent(event)
     )
       return true

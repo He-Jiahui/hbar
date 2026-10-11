@@ -13,7 +13,7 @@ interface WriteIdentity {
   idempotencyKey: string
 }
 const absent = (reason: unknown) => reason instanceof Error && 'code' in reason && reason.code === 'ENOENT'
-export function createChatDatabaseArtifactReferenceService(storage: StoragePort, settingsRoot: string) {
+export function createChatDatabaseArtifactReferenceService(storage: StoragePort, settingsRoot: string, options: { recover?: boolean } = {}) {
   let closed = false
   let task: Promise<void> | null = null
   async function recover(): Promise<void> {
@@ -76,7 +76,7 @@ export function createChatDatabaseArtifactReferenceService(storage: StoragePort,
     task = next
     return next
   }
-  const ready = ensure()
+  const ready = options.recover === false ? Promise.resolve() : ensure()
   void ready.catch((reason: unknown) => console.error('Attachment reference recovery failed', reason))
   return {
     ensure,

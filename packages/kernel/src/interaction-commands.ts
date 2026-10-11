@@ -1,9 +1,9 @@
 import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import { interactionCommands } from '@hbar/contracts/commands/interaction'
-import type { Kernel } from './index'
+import type { InteractionCommandKernelPort } from './controller-port'
 
-export function createInteractionCommands(kernel: Kernel) {
+export function createInteractionCommands(kernel: InteractionCommandKernelPort) {
   const registry = new CommandRegistry({ execution: 'host' })
   const translate = async <Value>(operation: () => Promise<Value>): Promise<Value> => {
     try {

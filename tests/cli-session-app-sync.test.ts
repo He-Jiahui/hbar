@@ -110,23 +110,26 @@ async function readConnection(root: string) {
       url: z.string().url(),
       token: z.string().min(1),
       pid: z.number().int().positive(),
+      supervisorPid: z.number().int().positive().optional(),
       instanceId: z.string().min(1).optional(),
     })
     .parse(JSON.parse(await readFile(join(root, 'data', 'settings', 'connection.json'), 'utf8')))
 }
 
-const hostIdentitySchema = z.object({
+const processIdentitySchema = z.object({
   pid: z.number().int().positive(),
+  parentPid: z.number().int().nonnegative(),
   creationDate: z.string().min(1),
   commandLine: z.string().min(1),
 })
+const hostIdentitySchema = processIdentitySchema.extend({ supervisor: processIdentitySchema.optional() })
 const psSingle = (value: string) => "'" + value.replaceAll("'", "''") + "'"
 
-function captureOwnedHost(connection: { pid: number }, root: string) {
+function captureOwnedHost(connection: { pid: number; supervisorPid?: number | undefined }, root: string): z.infer<typeof hostIdentitySchema> {
   const command =
     '$p=Get-CimInstance Win32_Process -Filter "ProcessId=' +
     connection.pid +
-    '"; if($null -eq $p){exit 2}; [ordered]@{pid=[int]$p.ProcessId;creationDate=[string]$p.CreationDate;commandLine=[string]$p.CommandLine}|ConvertTo-Json -Compress'
+    '"; if($null -eq $p){exit 2}; [ordered]@{pid=[int]$p.ProcessId;parentPid=[int]$p.ParentProcessId;creationDate=[string]$p.CreationDate;commandLine=[string]$p.CommandLine}|ConvertTo-Json -Compress'
   const output = Bun.spawnSync(['powershell', '-NoProfile', '-Command', command], { windowsHide: true })
   if (output.exitCode !== 0) throw new Error('Owned Host process identity unavailable')
   const identity = hostIdentitySchema.parse(JSON.parse(new TextDecoder().decode(output.stdout)))
@@ -137,10 +140,14 @@ function captureOwnedHost(connection: { pid: number }, root: string) {
     expected.some((value) => !identity.commandLine.includes(value))
   )
     throw new Error('Owned Host command identity mismatch')
-  return identity
+  if (connection.supervisorPid === undefined) return identity
+  if (identity.parentPid !== connection.supervisorPid) throw new Error('Owned supervisor parent identity mismatch')
+  const supervisor = captureOwnedHost({ pid: connection.supervisorPid }, root)
+  return { ...identity, supervisor }
 }
 
 async function stopOwnedHost(connection: { pid: number }, root: string, captured: z.infer<typeof hostIdentitySchema>) {
+  if (captured.supervisor) await stopOwnedHost({ pid: captured.supervisor.pid }, root, captured.supervisor)
   if (!Number.isInteger(connection.pid) || connection.pid <= 0) throw new Error('Invalid owned Host PID')
   const dataRoot = join(root, 'data')
   const cacheRoot = join(root, 'cache')
@@ -173,7 +180,7 @@ async function cleanup(root: string, connection?: { pid: number }, captured?: z.
   const parent = await realpath(tmpdir())
   if (dirname(actual) !== parent || !basename(actual).startsWith('hbar-cli-sync-'))
     throw new Error('Refusing to remove an unowned CLI sync fixture')
-  await rm(actual, { recursive: true, force: true })
+  await rm(actual, { recursive: true, force: true, maxRetries: 30, retryDelay: 100 })
 }
 
 async function waitOperation(root: string, project: string, sessionId: string, operationId: string) {

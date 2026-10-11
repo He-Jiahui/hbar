@@ -1,0 +1,15 @@
+{
+  "name": "@hbar/runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./entry": "./src/process-entry.ts"
+  },
+  "dependencies": {
+    "@hbar/contracts": "workspace:*",
+    "typescript": "6.0.2",
+    "zod": "4.5.4"
+  }
+}

@@ -399,7 +399,7 @@ export const computerPlugin = definePlugin({
     const runtime = new ComputerRuntime(ctx.hbar.api, config)
     provide<ComputerUseService>(ctx, 'computer', runtime)
     provide<ComputerUseService>(ctx, 'computer-use', runtime)
-    ctx.effect(() => () => { void runtime.dispose() })
+    ctx.effect(() => () => runtime.dispose())
     for (const tool of computerTools(runtime)) ctx.hbar.api.tools.register(tool)
   },
 })

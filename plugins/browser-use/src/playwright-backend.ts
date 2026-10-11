@@ -182,14 +182,9 @@ export class PlaywrightBrowserBackend implements BrowserBackend {
       this.pages.delete(key(contextId, pageId))
       return
     }
-    for (const [pageKey, page] of this.pages) {
-      if (pageKey.startsWith(`${contextId}:`)) {
-        await page.close({ runBeforeUnload: false }).catch(() => {})
-        this.pages.delete(pageKey)
-      }
-    }
     const context = this.contexts.get(contextId)
-    if (context) await context.close().catch(() => {})
+    if (context) await context.close()
+    for (const pageKey of this.pages.keys()) if (pageKey.startsWith(`${contextId}:`)) this.pages.delete(pageKey)
     this.contexts.delete(contextId)
     this.histories.delete(contextId)
   }
@@ -199,11 +194,10 @@ export class PlaywrightBrowserBackend implements BrowserBackend {
   }
 
   async dispose() {
-    for (const context of this.contexts.values()) await context.close().catch(() => {})
+    await this.browser?.close()
     this.pages.clear()
     this.contexts.clear()
     this.histories.clear()
-    await this.browser?.close().catch(() => {})
     this.browser = undefined
   }
 }

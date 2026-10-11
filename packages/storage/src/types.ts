@@ -41,6 +41,8 @@ import type {
 } from '@hbar/contracts/commands/run'
 import type { QueuedUserRunsInput, QueuedUserRunsPage } from '@hbar/contracts/commands/run'
 import type { UsageReadInput, UsageReadPage } from '@hbar/usage'
+import type { ExecutionOwnership, RuntimeOwner, RecoveryChain } from '@hbar/contracts/runtime'
+import type { RuntimeRecoveryScope, RuntimeRecoveryRecord } from './runtime-state'
 import type { GoalHistoryInput, GoalHistoryPage } from '@hbar/contracts/commands/goal-history'
 import type { ContextHistoryInput, ContextHistoryPage, ContextCompactionRecord } from '@hbar/contracts/context-history'
 import type { NotificationStorage } from './notifications'
@@ -52,7 +54,12 @@ import type { DiagnosticEvent } from '@hbar/contracts'
 import type { createChatDatabaseAutomaticPlan } from './chat-database-automatic-plan'
 import type { createChatDatabaseTaskStorage } from './chat-database-tasks'
 import type { createChatDatabaseDeletionStorage } from './chat-database-deletion'
-import type { SessionBranchExecutionRoot, SessionBranchTargetIntent, SessionBranchTargetIdentity, SessionBranchTargetRecord } from './session-branch-target'
+import type {
+  SessionBranchExecutionRoot,
+  SessionBranchTargetIntent,
+  SessionBranchTargetIdentity,
+  SessionBranchTargetRecord,
+} from './session-branch-target'
 import type { SessionBranchTargetOperation } from '@hbar/contracts/commands/session-branch-target'
 import type { createWorkspaceFolderStorage, WorkspaceFolderStorageMutation } from './workspace-folders'
 import type { createPromptTemplateStorage } from './prompt-templates'
@@ -521,6 +528,7 @@ export interface StorageMethods {
   ): Run & { queuedEvent?: SessionEvent | undefined }
   runByRequest(sessionId: string, requestId: string): { run: Run; command: RunCommandRecord | null } | null
   claim(sessionId: string): Run | null
+  nextQueuedRun(sessionId: string): Run | null
   run(id: string): Run
   setRun(id: string, status: RunStatus, error?: string, failure?: RunFailure): SessionEvent
   runFileChanges(sessionId: string, runId: string, after?: string, limit?: number): import('@hbar/contracts/run-file-changes').RunFileChangesPage
@@ -552,7 +560,27 @@ export interface StorageMethods {
     presentation?: import('@hbar/contracts').ToolCallPresentation,
   ): SessionEvent
   toolEnd(sessionId: string, runId: string, callId: string, failed?: boolean): SessionEvent | null
-  recover(): number
+  recover(scope?: RuntimeRecoveryScope): number
+  runtimeExecutionClaim(draft: ExecutionOwnership): ExecutionOwnership | null
+  runtimeExecutionRelease(lease: ExecutionOwnership): void
+  runtimeExecutionRevoke(owner: RuntimeOwner, runIds: readonly string[]): string[]
+  runtimeExecutionRead(runId: string): { lease: ExecutionOwnership; state: string } | null
+  runtimeActiveRuns(after?: string, limit?: number): Run[]
+  runtimeUnreleasedExecutions(after?: string, limit?: number): ExecutionOwnership[]
+  runtimeRecoveryPlan(predecessorRunId: string): RuntimeRecoveryRecord
+  runtimeRecoveryQueue(predecessorRunId: string, recoveryId: string): RuntimeRecoveryRecord
+  runtimeRecoveryRead(predecessorRunId: string): RuntimeRecoveryRecord | null
+  runtimeRecoveryCancel(runId: string): { run: Run; events: SessionEvent[] }
+  runtimeRecoveryChain(chainId: string): RecoveryChain | null
+  runtimeRecoveryHold(
+    predecessorRunId: string,
+    recoveryId: string,
+    reasonCode: string | null,
+    manual?: import('./runtime-state').RuntimeManualRecovery,
+  ): RuntimeRecoveryRecord
+  runtimeRecoveryReconcile(predecessorRunId: string, recoveryId: string): void
+  runtimeRecoveryAppend(predecessorRunId: string, recoveryId: string, type: string, data: unknown): SessionEvent
+  recoveryInputMessage(runId: string): Message | null
   saveProvider(provider: ProviderConfig): void
   providers(): ProviderConfig[]
   deleteProvider(id: string): void
@@ -590,7 +618,12 @@ export interface StorageMethods {
     values: Record<string, unknown>,
     expectedRevision?: string,
   ): StoredSettings
-  deleteSetting(scope: SettingScope, targetId: string | undefined, key: string, expectedRevision?: string): StoredSettings
+  deleteSetting(
+    scope: SettingScope,
+    targetId: string | undefined,
+    key: string,
+    expectedRevision?: string,
+  ): StoredSettings
   settingsLayers(ids: string[]): StoredSettingsLayer[]
   settingsReceipt(
     actorId: string,
@@ -600,7 +633,12 @@ export interface StorageMethods {
   close(): void
 }
 export type StorageCall = {
-  [K in keyof StorageMethods]: { id: number; method: K; args: Parameters<StorageMethods[K]> }
+  [K in keyof StorageMethods]: {
+    id: number
+    method: K
+    args: Parameters<StorageMethods[K]>
+    authority?: ExecutionOwnership
+  }
 }[keyof StorageMethods]
 export type StorageReply =
   { id: number; ok: true; result: unknown } | { id: number; ok: false; error: string; code: string }

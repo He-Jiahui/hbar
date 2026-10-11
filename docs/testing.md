@@ -113,6 +113,46 @@ Storage Worker 的退出、错误、无回复与关闭握手故障由 `tests/sto
 上传和引用竞争、缓存重定向等由独立 `chat-database-*.test.ts` 覆盖。定向验证通过不能替代
 仓库级 lint、typecheck、基础测试及构建的实际结果。
 
+## 运行单元恢复与热重载验收
+
+2026-10-11，在 `codex/host-runtime-implementation` 隔离工作树、Windows 和 Bun 1.4.0 上完成本轮验收。行为、公开操作和首次安装要求见[运行单元恢复与热重载](runtime-recovery.md)。所有 Host、数据库、浏览器和终端 fixture 使用本轮创建的独立目录；没有重启正在使用的 Host，也没有使用用户 Session 或商业模型。
+
+| 门禁 | 实际结果与范围 |
+| --- | --- |
+| 严格 lint | 维护源文件全量清单分批检查，新增文件和最后增量另行检查；3,538 个文件，0 错误、0 警告，使用同一根 `eslint.config.js` 和 `--max-warnings 0` |
+| Typecheck | 全仓 TypeScript `--noEmit` 通过；使用项目声明的 TypeScript 6.0.2，未放宽类型约束 |
+| 基础测试 | 完整覆盖 897 个文件，共 5,907 项：5,895 通过、12 失败；失败项均在实施前基线中存在，不能宣称全仓测试通过 |
+| Web E2E | `connection-recovery.spec.ts` 与 `runtime-status.spec.ts` 共 3 项通过；首次握手失败自动恢复，中英文状态、局部更新、进程故障和连接保留 |
+| Web / Host / Desktop 构建 | Web、14 单元产物、Host 和 Tauri debug EXE 构建通过；使用 `--debug --no-bundle`，没有执行 NSIS 安装包验收 |
+| 隔离 native smoke | 真实 Tauri / WebView、14 业务单元和 16 个 Bun 进程；实际杀死 fixture Kernel 后恢复，身份、凭据、其他 13 单元 PID 与 WebSocket 保持，页面错误为空 |
+| 原生资源保留 | 真实浏览器 DOM 状态跨 Browser 插件及 Kernel 替换保留；真实终端的 shell 变量和 terminal ID 跨 Kernel / Controller 替换保留，关闭后释放 |
+| Standalone CLI | 编译后二进制启动嵌入 Host、14 单元和原生查询引擎；1 项真实测试、26 个断言通过 |
+| 并发测量 | 8 Session、16 mock Run、8 个并行查询，旧/新 Run 绑定不同 Kernel 代，13 个无关 PID 和连接稳定；具体延迟、内存和队列采样见下述脚本及运行文档 |
+| 文档链接 | 全仓检查仍有 762 个历史截图或审计产物缺失；隔离工作树没有这些未跟踪产物，不伪造文件消除失败，本次新增/修改文档链接另行核对 |
+
+基础测试采用 64 文件分批、新建 Bun 进程执行；含较多构建和原生生命周期场景的一批进一步逐文件隔离。首次单进程全仓尝试出现 Windows 原生 I/O 异常退出（`GetQueuedCompletionStatusEx` / `PostQueuedCompletionStatus`），多文件复验也出现过连续 `Bundle failed`；相应文件在新进程逐一复验，保留原失败日志。这是本机观察到的测试运行限制，未将其归因于已证实的 Bun 缺陷。首次 lint 单实例尝试达到 Node 堆上限，随后按同一维护清单、同一规则以新进程完成剩余检查；没有通过排除源文件或关闭规则通过门禁。
+
+原基线为 5,643 通过、13 失败。本轮剩余 12 项涉及 Lumen 边界 2 项、sandbox popup 1 项、归档 composer 中英文 2 项、模型与 Plan 的只读恢复 2 项、Workspace alias 展示 4 项及组织设置 unknown receipt 1 项；Web composition root 的旧失败已在当前接入中消除。修复 Goal 重启测试的 Windows 临时目录清理竞争后，其所在 64 文件整批 455 项通过；Controller 的旧 56 槽等待改为双向预算下的 24 个普通槽，4 项实际进程测试通过。
+
+本轮本地日志保存在忽略的 `artifacts/` 中：`runtime-final-base-result.json` 汇总实际覆盖及与基线的失败比对；`runtime-base-batches/` 保存各批日志，`02-rechecked.log` 为 Goal 所在整批复验，`09-isolated/` 为逐文件日志。严格检查清单与结果、Web E2E、桌面构建和 CLI 分别保存在 `runtime-lint-files.json`、`runtime-lint-result.json`、`runtime-final-e2e-complete.log`、`runtime-final-desktop-delivery.log` 和 `runtime-final-cli-delivery.log`。这些生成产物没有作为源码提交，不把未来 checkout 中缺少日志视为测试已运行。
+
+重点故障注入由 `runtime-process`、`runtime-native-tree`、`runtime-ipc`、`runtime-controller-process`、`runtime-driver-process`、`runtime-plugin-process`、`runtime-storage-fault-host`、`runtime-storage-process`、`runtime-maintenance-process`、`stable-storage-port` 和 `storage-worker-preflight` 测试覆盖。它们核对真正的物理退出、心跳与退避、主动停机、候选只读、异常回调、控制容量、唯一写入者和未知写入门禁。`kernel-runtime-recovery`、`goal-startup-host`、`recovery-lineage-host` 和 `process-host-runtime` 核对完成回执、工具意图、恢复去重、普通对话与 Goal、审批/取消/预算/用户队列和 CLI 恢复链。`runtime-artifacts`、`runtime-manager`、`runtime-source-integration`、`runtime-formal-reload` 与 `process-host-runtime` 覆盖实际归属、两代容量、连续保存合并、不自动回退、真实资源和显式应用；单测存在断言与实际通过必须区分。
+
+可以从仓库根目录复跑以下代表性入口；桌面构建先进入 VS x64 工具环境，独立原生 smoke 使用本机 WebView2 和刚构建的 debug EXE。性能与终端脚本启动自己的源码 Host，不能将它们当作正式部署升级命令。
+
+```powershell
+bun test ./tests/runtime-process.test.ts ./tests/runtime-ipc.test.ts ./tests/runtime-manager.test.ts --tsconfig-override ./tsconfig.json
+bun test ./tests/process-host-runtime.test.ts --tsconfig-override ./tsconfig.json --timeout 120000
+bun test ./tests/kernel-runtime-recovery.test.ts --tsconfig-override ./tsconfig.json --timeout 120000
+bun test ./tests/compiled-cli.test.ts --tsconfig-override ./tsconfig.json --timeout 120000
+bun scripts/desktop.ts build --debug --no-bundle
+bun scripts/verify-runtime-desktop.ts
+bun scripts/verify-runtime-terminal.ts
+bun scripts/measure-runtime.ts
+```
+
+源码只准备、后续显式应用单独由 `tests/runtime-formal-reload.test.ts` 验证。E2E 使用不冲突的隔离端口，并执行 `bun @playwright/test/cli.js test e2e/runtime-status.spec.ts e2e/connection-recovery.spec.ts`。原生与性能脚本保存结果/截图至 `artifacts/runtime-native-smoke/` 和 `artifacts/runtime-measurement/`，只回收通过目录和进程身份验证的自有 fixture。Windows 进程树和本机原生浏览器已实测；Linux/macOS 原生退出行为、安装包发布及商业供应商没有在本轮执行，不宣称通过。
+
 ## 性能基准
 
 Goal、Agent Plan、双预算、自主续跑和异常恢复的语义与当前验收边界见 [Session 自主执行](session-autonomy.md)。其中严格区分确定性测试、真实模型实验、预算停止和未通过的仓库级门禁。
@@ -143,3 +183,15 @@ Goal、Agent Plan、双预算、自主续跑和异常恢复的语义与当前验
 - 中文输入法组合期间 Enter 不提交，组合完成后才按常规键盘行为发送。
 - 拖动停靠布局、调整分栏、切换标签后刷新；手机应保持单面板、附件与长代码不撑开页面。
 - 在普通 LAN 上，确认 Windows 防火墙允许所选端口；在其他网络通过 VPN 或 TLS 配置访问。
+
+### 与主干整合验证（2026-10-11）
+
+合并 `master` 的诊断、MAX 模式、技能运行时与 Run 文件变更实现时，迁移 24 的两种历史布局通过幂等迁移 25 补齐。两种布局升级、保留 Session 数据、完整性检查及候选只读预检共 2 项通过。
+
+整合过程使用同一严格 ESLint 配置检查冲突解决及新增接线文件，0 错误、0 警告；全仓 TypeScript `--noEmit` 通过。定向验证包括恢复/存储契约/Supervisor 15 项、MAX/技能/文件变更/迁移 26 项、Goal 恢复与原有暂停及预算控制 41 项、Worker/Storage 诊断与恢复 33 项。部分用例重叠，这些数字不作为不重复的总计。
+
+实际受管进程场景分批验证 Controller、Kernel、插件替换、资源保留、旧代绑定、取消、单次恢复、订阅游标与失败候选；实际 `runHost` 验证 Host、Kernel、Storage Worker 的关联诊断及日志内容隔离。Bun 长串构建测试中出现过启动超时；终止本轮旧测试进程后，崩溃恢复及剩余场景在新进程复测通过。整合验证没有重新执行上一表中的完整基础测试、桌面构建、原生桌面 smoke 或性能测量，上表属于合并前交付记录。
+
+最新主干的连接抽屉整合沿用宿主文案与 Lumen 主题，内容契约及图标等级 guard 均通过；相关存储/文件变更/性能模型 23 项、维护的 Lumen 组件 84 项、首次连接失败和中英文运行状态 Web E2E 3 项通过。实际 Host 诊断测试 32 个断言、Windows CLI/App 会话恢复同步及 fixture Supervisor 清理复测通过。
+
+纳入 `aff2a23c` 的已完成轮次文件变更后，统一使用公开 Run schema 保留文件摘要与恢复关系；Timeline/文件审查/双语 UI 共 24 项通过，60 个整合源文件严格 lint 为 0 错误、0 警告，全仓类型检查通过。Playwright 使用预览服务器，首次测试误用了旧 Web 产物；重新 Web 构建后，文件变更 2 项、运行状态 2 项及首次握手恢复 1 项，共 5 项在最新产物上通过。

@@ -6,22 +6,21 @@ import type { DriverInput } from '@hbar/plugin-sdk'
 export const DRIVER_STEERING_BATCH_LIMIT = 20
 export const DRIVER_STEERING_DEADLINE_MS = 5_000
 
-const messageSchema = z.object({
-  id: idSchema,
-  sessionId: idSchema,
-  runId: idSchema,
-  role: z.literal('user'),
-  content: z.array(contentBlockSchema).max(25),
-  seq: z.number().int().positive(),
-  createdAt: z.number().int().nonnegative(),
-  providerData: z.unknown().optional(),
-})
-
 type SteeringInput = Pick<DriverInput, 'session' | 'run' | 'request' | 'signal' | 'getSteeringMessages'>
 
 /** A bounded, Run-owned adapter. Its caller translates failure into the Pi loop's
  * no-rejection polling contract, then fails the Run before any new inference. */
 export function createDriverSteeringReader(input: SteeringInput) {
+  const messageSchema = z.object({
+    id: idSchema,
+    sessionId: idSchema,
+    runId: idSchema,
+    role: z.literal('user'),
+    content: z.array(contentBlockSchema).max(25),
+    seq: z.number().int().positive(),
+    createdAt: z.number().int().nonnegative(),
+    providerData: z.unknown().optional(),
+  })
   const seen = new Map(input.request.messages.map((message) => [message.id, message.seq]))
   let lastSequence = input.request.messages.reduce((last, message) => Math.max(last, message.seq), 0)
   let failed = false

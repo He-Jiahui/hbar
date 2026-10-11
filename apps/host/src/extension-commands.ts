@@ -10,13 +10,13 @@ export interface ExtensionCommandDependencies {
   set(id: string, enabled: boolean, config?: Record<string, unknown>): Promise<PluginInfo[]>
   install(path: string, projectId?: string): Promise<PluginInfo[]>
   remove(id: string): Promise<PluginInfo[]>
-  resolve(id?: string): { order: string[]; enabled: string[] }
+  resolve(id?: string): { order: string[]; enabled: string[] } | Promise<{ order: string[]; enabled: string[] }>
   graph(): {
     nodes: { id: string; version: string; enabled: boolean }[]
     edges: { from: string; to: string; kind: string; range: string }[]
-  }
+  } | Promise<{ nodes: { id: string; version: string; enabled: boolean }[]; edges: { from: string; to: string; kind: string; range: string }[] }>
   lock(): Promise<{ version: 1; plugins: Record<string, unknown> }>
-  doctor(): { ok: boolean; errors: string[]; order?: string[] }
+  doctor(): { ok: boolean; errors: string[]; order?: string[] } | Promise<{ ok: boolean; errors: string[]; order?: string[] }>
   skills(signal?: AbortSignal): Promise<SkillDescriptor[]>
   skillInspection?: SkillInspectionService
   skillImport?: SkillImportService

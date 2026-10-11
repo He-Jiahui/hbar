@@ -5,6 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./workspace-directories": "./src/workspace-directories.ts"
+    "./workspace-directories": "./src/workspace-directories.ts",
+    "./runtime-driver": "./src/runtime-driver.ts",
+    "./runtime-plugin": "./src/runtime-plugin.ts"
   }
 }

@@ -116,6 +116,7 @@ import {
 } from './workspace-tool-focus'
 import { HbarMobileHeaderMenu, HbarMobileHeaderMenuProvider } from './mobile-header-menu'
 import { HbarHostConnectionNotice, type HbarHostConnectionNoticeLabels } from './host-connection-notice'
+import { HbarRuntimeStatusNotice, type HbarRuntimeStatusLabels } from './host-runtime-status'
 
 export interface HbarSidebarTimeLabels {
   readonly title: string
@@ -218,6 +219,7 @@ export interface HbarWorkspaceShellContentControls {
 }
 
 export interface HbarWorkspaceShellProps {
+  readonly runtimeStatusLabels?: HbarRuntimeStatusLabels
   readonly labels: HbarWorkspaceShellLabels
   readonly mobileNavigationLabel: string
   readonly locale?: SidebarLocale
@@ -2191,11 +2193,16 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     </LumenFrame>
   )
   const connectionNotice = (
-    <HbarHostConnectionNotice
-      connection={props.connection}
-      labels={props.labels.connectionNotice}
-      onReconnect={props.onReconnect}
-    />
+    <>
+      <HbarHostConnectionNotice
+        connection={props.connection}
+        labels={props.labels.connectionNotice}
+        onReconnect={props.onReconnect}
+      />
+      {props.runtimeStatusLabels && (
+        <HbarRuntimeStatusNotice connected={connected} labels={props.runtimeStatusLabels} />
+      )}
+    </>
   )
   const connectionInDrawer = Boolean(toolRegion) && resolvedToolPresentation === 'drawer'
   const workspacePane = usePersistentPane(contentRegion)

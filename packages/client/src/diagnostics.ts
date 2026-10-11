@@ -1,6 +1,8 @@
 import { diagnosticEvent, type DiagnosticEvent, type DiagnosticSink } from '@hbar/contracts'
 
 export interface HbarClientOptions {
+  /** Bounds transport opening and the initial hello, including a silent peer. */
+  readonly connectTimeoutMs?: number | undefined
   /** Receives redacted, bounded client lifecycle and RPC diagnostics. */
   readonly diagnosticSink?: DiagnosticSink | undefined
   /** Fraction of successful fast calls to retain. Errors and slow calls are always retained. */

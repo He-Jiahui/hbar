@@ -17,7 +17,7 @@ import {
   type ContextHistoryInput,
   type ContextHistoryPage,
 } from '@hbar/contracts/context-history'
-import { queuedRunGuidanceSchema, type QueuedRunGuidance } from '@hbar/contracts/commands/run'
+import { queuedRunGuidanceSchema, admitOperationRecovery, type QueuedRunGuidance } from '@hbar/contracts/commands/run'
 import type {
   Approval,
   LiveStream,
@@ -303,12 +303,14 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
         streams = Object.fromEntries(Object.entries(streams).filter(([, stream]) => stream.runId !== event.runId))
       }
     }
-  } else if (['run.queued', 'run.status', 'run.settled', 'run.filesUndone'].includes(event.type) && data) {
+  } else if (['run.queued', 'run.status', 'run.settled', 'run.filesUndone', 'run.recoveryQueued', 'execution.claimed'].includes(event.type) && data) {
     const parsed = runSchema.safeParse(data.run)
+    const ids = new Set(parsed.success && parsed.data.recovery ? [parsed.data.recovery.predecessorRunId] : [])
+    admitOperationRecovery(event, ids)
     if (
-      parsed.success &&
-      parsed.data.sessionId === current.sessionId &&
-      (!event.runId || parsed.data.id === event.runId)
+      parsed.success && parsed.data.sessionId === current.sessionId &&
+      (!event.runId || parsed.data.id === event.runId) &&
+      (event.type !== 'run.recoveryQueued' || ids.has(parsed.data.id))
     ) {
       if (!toolClock || event.time >= toolClock.hostTime) toolClock = { hostTime: event.time, receivedAt: Date.now() }
       runs = [...upsert<Run>(runs, parsed.data, (item) => item.id, MAX_RUNS)].sort((a, b) => b.createdAt - a.createdAt)

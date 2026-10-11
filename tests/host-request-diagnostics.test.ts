@@ -243,7 +243,7 @@ test('Host close owns an in-flight client scope acquisition and disposes it once
 })
 
 test('Host scope disposal rejection is surfaced and a stuck disposer returns after the fixed bound', async () => {
-  const createFixture = async (disposer: (scope: import('@hbar/kernel').RuntimeScope) => Promise<void>) => {
+  const createFixture = async (disposer: (scope: import('@hbar/kernel/controller').KernelClientScopePort) => Promise<void>) => {
     const root = await mkdtemp(join(tmpdir(), 'hbar-host-scope-bound-'))
     const kernel = await Kernel.create({
       home: join(root, 'data'),

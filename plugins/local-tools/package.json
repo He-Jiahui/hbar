@@ -3,9 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
-    "./native-query": "./src/native-query.ts"
+    "./native-query": "./src/native-query.ts",
+    "./workspace-mounts": "./src/workspace-mounts.ts"
   },
   "dependencies": {
     "@codemirror/merge": "6.8.0"

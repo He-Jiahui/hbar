@@ -17,7 +17,7 @@ export function readQueuedUserRuns(db: Database, value: QueuedUserRunsInput): Qu
   return db.transaction(() => {
     const session = db.query<{ seq: number }, [string]>('SELECT seq FROM sessions WHERE id=?').get(sessionId)
     if (!session) throw new HbarError('NOT_FOUND', 'Session not found')
-    const sourceFilter = "(json_extract(input,'$.source')='user' OR json_extract(input,'$.source') IS NULL)"
+    const sourceFilter = "recovery IS NULL AND (json_extract(input,'$.source')='user' OR json_extract(input,'$.source') IS NULL)"
     const total =
       db
         .query<{ count: number }, [string]>(
@@ -31,9 +31,9 @@ export function readQueuedUserRuns(db: Database, value: QueuedUserRunsInput): Qu
     const anchor = cursor
       ? db
           .query<
-            { rowid: number; sessionId: string; createdAt: number; status: string; source: string | null },
+            { rowid: number; sessionId: string; createdAt: number; status: string; source: string | null; recovery: string | null },
             [string]
-          >("SELECT rowid,sessionId,createdAt,status,json_extract(input,'$.source') AS source FROM runs WHERE id=?")
+          >("SELECT rowid,sessionId,createdAt,status,recovery,json_extract(input,'$.source') AS source FROM runs WHERE id=?")
           .get(cursor.afterOperationId)
       : null
     if (
@@ -41,6 +41,7 @@ export function readQueuedUserRuns(db: Database, value: QueuedUserRunsInput): Qu
       (!anchor ||
         anchor.sessionId !== sessionId ||
         anchor.status !== 'queued' ||
+        anchor.recovery !== null ||
         (anchor.source !== null && anchor.source !== 'user'))
     )
       throw new HbarError('INVALID_CURSOR', 'Queue cursor does not belong to this session')

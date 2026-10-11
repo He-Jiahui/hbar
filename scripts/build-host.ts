@@ -7,18 +7,23 @@ import { copyBuildArtifact } from './copy-build-artifact'
 import { buildHostBundle } from './build-host-bundle'
 import { syncDesktopWebResources } from './sync-desktop-web'
 import { syncHostRuntimeDependencies } from './host-runtime-dependencies'
+import { buildRuntimePackage } from './build-runtime-package'
 
 const project = resolve(import.meta.dir, '..')
 const output = resolve(project, 'dist/desktop-resources')
 const nativeOutput = resolve(project, 'dist/native')
 // Playwright loads these optional BiDi mappers only for BiDi connections.
 await mkdir(output, { recursive: true })
+const packaged = await buildRuntimePackage(project, resolve(project, 'artifacts/desktop-runtime-build'))
 for (const [entry, name] of [
   ['apps/host/src/main.ts', 'host.js'],
+  ['apps/host/src/runtime-entry.ts', 'runtime-entry.js'],
   ['packages/storage/src/worker.ts', 'storage-worker.js'],
   ['packages/storage/src/maintenance-worker.ts', 'maintenance-worker.js'],
 ] as const) {
-  await buildHostBundle(entry, name, output)
+  await buildHostBundle(entry, name, output, name === 'host.js' ? {
+    HBAR_RUNTIME_PACKAGE_JSON: JSON.stringify(JSON.stringify(packaged)), HBAR_RUNTIME_ENTRY_FILE: JSON.stringify('runtime-entry.js'),
+  } : {})
 }
 const runtimeDependencies = await syncHostRuntimeDependencies(project, output)
 console.log(

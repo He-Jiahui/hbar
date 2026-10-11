@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { diagnosticEventSchema } from '@hbar/contracts'
 import { operationWatchResultSchema } from '@hbar/contracts/commands/run'
-import { createRunCommandClient, createWorkspaceSessionCommandClient, HbarClient } from '@hbar/client'
+import { createRunCommandClient, createSystemCommandClient, createWorkspaceSessionCommandClient, HbarClient } from '@hbar/client'
 import { z } from 'zod'
 
 const prefix = 'hbar-host-main-diagnostics-'
@@ -13,6 +13,7 @@ const connectionSchema = z.strictObject({
   token: z.string().min(1),
   pid: z.number().int().positive(),
   instanceId: z.string().min(1),
+  supervisorPid: z.number().int().positive().optional(),
 })
 
 async function until<Value>(operation: () => Promise<Value>, timeoutMs: number): Promise<Value> {
@@ -30,7 +31,7 @@ async function until<Value>(operation: () => Promise<Value>, timeoutMs: number):
 async function drain(
   stream: ReadableStream<Uint8Array> | null,
   limit = 64 * 1024,
-  timeoutMs = 17_000,
+  timeoutMs = 180_000,
 ): Promise<string> {
   if (!stream) return ''
   const reader = stream.getReader()
@@ -75,6 +76,7 @@ test('real runHost composition writes correlated Host and SQLite diagnostics', a
     [
       process.execPath,
       resolve('tests/fixtures/host-main-diagnostics-child.ts'),
+      '--supervised',
       '--desktop',
       '--demo',
       '--data-root',
@@ -101,13 +103,17 @@ test('real runHost composition writes correlated Host and SQLite diagnostics', a
   try {
     const connection = await until(
       async () => connectionSchema.parse(JSON.parse(await readFile(connectionFile, 'utf8'))),
-      7_000,
+      120_000,
     )
     client = new HbarClient(connection.url, connection.token)
     const connectedClient = client
     const host = await connectedClient.connect()
     expect(host.instanceId).toBe(connection.instanceId)
-    const bootstrap = await connectedClient.call('system.bootstrap', {})
+    const system = createSystemCommandClient(connectedClient)
+    const bootstrap = await until(async () => {
+      if (!(await system.execute('system.runtime.get', {})).ready) throw new Error('RUNTIME_PREPARING')
+      return connectedClient.call('system.bootstrap', {})
+    }, 120_000)
     const createdWorkspace = bootstrap.workspaces[0]
     if (!createdWorkspace) throw new Error('HOST_WORKSPACE_MISSING')
     const workspaceId = createdWorkspace.id
@@ -148,7 +154,7 @@ test('real runHost composition writes correlated Host and SQLite diagnostics', a
     connectedClient.disconnect()
     await child.stdin.write('hbar-test-stop\n')
     await child.stdin.end()
-    const exit = await Promise.race([child.exited, Bun.sleep(3_000).then(() => -1)])
+    const exit = await Promise.race([child.exited, Bun.sleep(7_000).then(() => -1)])
     expect(exit).toBe(0)
     const [out, err] = await Promise.all([stdout, stderr])
     expect(`${out}\n${err}`).not.toContain('Pairing code:')

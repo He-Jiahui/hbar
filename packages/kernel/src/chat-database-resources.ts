@@ -37,7 +37,7 @@ export function createChatDatabaseResourceService(
   layout: PathLayout,
   references: Pick<ChatDatabaseArtifactReferenceService, 'ensure'>,
   domain: {
-    protectedRoots(): string[]
+    protectedRoots(): string[] | Promise<string[]>
     remove(input: ChatDatabaseResourceRequest): Promise<ChatDatabaseResourceResult>
   },
 ): ChatDatabaseResourcePort {
@@ -49,8 +49,8 @@ export function createChatDatabaseResourceService(
       await references.ensure()
       signal.throwIfAborted()
     },
-    scan(input, signal) {
-      return scanner.scan({ ...input, protectedRoots: domain.protectedRoots() }, signal)
+    async *scan(input, signal) {
+      yield* scanner.scan({ ...input, protectedRoots: await domain.protectedRoots() }, signal)
     },
     remove(input) {
       if (input.item.kind !== 'attachments' && input.item.kind !== 'cache')

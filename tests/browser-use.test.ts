@@ -46,6 +46,29 @@ class FakeBrowser implements BrowserBackend {
   async history() { return ['https://allowed.example/'] }
 }
 
+test('managed browser resources stay retained after a failed close and release only after actual context disposal', async () => {
+  const { api } = fakeApi(), backend = new FakeBrowser()
+  let allowClose = false, released = 0, retained = 0
+  backend.close = async () => {
+    if (!allowClose) throw new Error('Native close did not complete')
+    backend.pages.clear()
+  }
+  api.resources = { retain: async () => { retained++; return async () => { expect(backend.pages.size).toBe(0); released++ } } }
+  const runtime = new BrowserRuntime(api, browserConfigSchema.parse({ default_origin_policy: { access: 'allow' } }), backend)
+  await runtime.navigate('session-1', 'https://allowed.example/')
+  const failed: unknown = await runtime.close('session-1').catch((error: unknown) => error)
+  expect(failed).toBeInstanceOf(Error); expect(released).toBe(0); expect(retained).toBe(1)
+  expect((await runtime.status('session-1')).contexts).toHaveLength(1)
+  const stopped: unknown = await runtime.dispose().catch((error: unknown) => error)
+  expect(stopped).toBeInstanceOf(Error); expect(released).toBe(0)
+  allowClose = true
+  await runtime.close('session-1')
+  expect(released).toBe(1)
+  await runtime.navigate('session-1', 'https://allowed.example/again')
+  await runtime.dispose()
+  expect(retained).toBe(2); expect(released).toBe(2)
+})
+
 test('browser runtime enforces origin and CDP policy while keeping bounded state', async () => {
   const { api, notifications } = fakeApi()
   const backend = new FakeBrowser()

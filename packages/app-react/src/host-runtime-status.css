@@ -1,0 +1,42 @@
+.hbar-runtime-status-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-inline-size: 0;
+  padding: 0.625rem 0.875rem;
+  border-block-end: 0.0625rem solid var(--lumen-border);
+  color: var(--lumen-text);
+  overflow-wrap: anywhere;
+}
+.hbar-runtime-status-notice > button {
+  margin-inline-start: auto;
+}
+.hbar-runtime-status-generations {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hbar-runtime-status-generation {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: 0.25rem;
+  padding-block: 0.625rem;
+  border-block-end: 0.0625rem solid var(--lumen-border);
+  overflow-wrap: anywhere;
+}
+.hbar-runtime-status-generation:last-child {
+  border-block-end: 0;
+}
+.hbar-runtime-status-generation-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+  min-inline-size: 0;
+}

@@ -13,6 +13,7 @@
     "@hbar/commands": "workspace:*",
     "@hbar/contracts": "workspace:*",
     "@hbar/host": "workspace:*",
+    "@hbar/runtime-native": "workspace:*",
     "@hbar/storage": "workspace:*",
     "@hbar/terminal": "workspace:*",
     "@opentui/core": "0.4.5"

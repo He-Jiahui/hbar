@@ -1,9 +1,9 @@
 import { CommandError, CommandRegistry, createCommandClient } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import { sessionBranchTargetCommands } from '@hbar/contracts/commands/session-branch-target'
-import type { Kernel } from './index'
+import type { SessionBranchTargetCommandKernelPort } from './controller-port'
 
-export function createSessionBranchTargetCommands(kernel: Kernel) {
+export function createSessionBranchTargetCommands(kernel: SessionBranchTargetCommandKernelPort) {
   const registry = new CommandRegistry({ execution: 'host' })
   const translate = async <Value>(action: () => Promise<Value>): Promise<Value> => {
     try {

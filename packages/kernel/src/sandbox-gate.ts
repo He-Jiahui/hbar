@@ -1,6 +1,6 @@
 import { realpath } from 'node:fs/promises'
 import { basename, dirname, join, resolve, relative, isAbsolute } from 'node:path'
-import { mountedPath, type WorkspaceMount } from '@hbar/local-tools'
+import { mountedPath, type WorkspaceMount } from '@hbar/local-tools/workspace-mounts'
 import type { ToolDefinition } from '@hbar/plugin-sdk'
 import type { ResolvedSandboxProfile } from '@hbar/contracts/sandbox'
 import {

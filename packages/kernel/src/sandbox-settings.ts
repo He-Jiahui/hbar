@@ -1,13 +1,13 @@
 import { HbarError } from '@hbar/contracts'
 import { sandboxProfileIdSchema } from '@hbar/contracts/sandbox'
 import { encodePath } from '@hbar/schema-core'
-import type { SandboxProfileService } from './sandbox-service'
+import type { SandboxCommandPort } from './controller-port'
 import { SESSION_SANDBOX_PROFILE_SETTING_PATH, type SettingsCandidateValidator } from './settings-service'
 
 const PROFILE_KEY = encodePath(SESSION_SANDBOX_PROFILE_SETTING_PATH)
 
 /** Reject selecting a profile that does not exist when the selection itself changes. */
-export function createSandboxSettingsValidator(profiles: SandboxProfileService): SettingsCandidateValidator {
+export function createSandboxSettingsValidator(profiles: Pick<SandboxCommandPort, 'get'>): SettingsCandidateValidator {
   return async ({ changes, resolution }) => {
     if (!changes.some((change) => encodePath(change.path) === PROFILE_KEY)) return
     const id = sandboxProfileIdSchema.safeParse(resolution.reports[PROFILE_KEY]?.effectiveValue)
