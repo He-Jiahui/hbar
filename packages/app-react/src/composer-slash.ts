@@ -1,4 +1,5 @@
-export type LocalSlashCommand = 'model' | 'settings' | 'goal' | 'agent' | `agent ${string}` | 'agents' | 'cost' | 'help'
+export type LocalSlashCommand =
+  'model' | 'settings' | 'goal' | 'agent' | `agent ${string}` | 'agents' | 'cost' | 'help' | 'compact'
 const unsupportedGoalArguments = new Set(['status', 'pause', 'resume', 'complete'])
 
 /** Execute only a fully typed, selected, Host-enabled slash item on the configured send key. */
@@ -29,6 +30,7 @@ export function localSlashCommand(text: string, available: readonly LocalSlashCo
   if (value === '/agents' && available.includes('agents')) return 'agents'
   if (value === '/cost' && available.includes('cost')) return 'cost'
   if (value === '/help' && available.includes('help')) return 'help'
+  if (value === '/compact' && available.includes('compact')) return 'compact'
   if (/^\/goal(?:\s|$)/.test(value) && available.includes('goal')) return 'goal'
   // `/agent` is a parent-session prompt. Keep it in the suggestion catalog for
   // completion, but let the normal Run path preserve its text and attachments.

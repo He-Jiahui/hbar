@@ -1747,6 +1747,11 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
           description: choose('查看本会话用量和成本', 'Show this session’s usage and costs'),
         },
         { id: 'help', label: '/help', description: choose('浏览可用命令', 'Browse available commands') },
+        {
+          id: 'compact',
+          label: '/compact',
+          description: choose('压缩当前会话的上下文', 'Compact this session’s context'),
+        },
       ],
       select: (name) => choose(`补全 ${name}`, `Complete ${name}`),
       hint: choose(
@@ -1813,7 +1818,17 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         ),
       goalConfirm: choose('确认', 'Confirm'),
       goalCancel: choose('取消', 'Cancel'),
-      error: (code) => choose(`本地命令未完成：${code}`, `Local command did not complete: ${code}`),
+      error: (code) =>
+        code === 'COMPACTION_BUSY' || code === 'BUSY'
+          ? choose(
+              '请等待当前任务或上下文压缩结束后重试。',
+              'Wait for the active task or context compaction to finish, then retry.',
+            )
+          : code === 'NOTHING_TO_COMPACT'
+            ? choose('当前没有可压缩的历史上下文。', 'There is no eligible context history to compact yet.')
+            : code === 'MODEL_NOT_CONFIGURED'
+              ? choose('请先为当前会话选择可用模型。', 'Choose an available model for this session first.')
+              : choose(`本地命令未完成：${code}`, `Local command did not complete: ${code}`),
     },
     addMenu: {
       open: choose('更多操作', 'More actions'),

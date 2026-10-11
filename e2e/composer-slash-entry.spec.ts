@@ -37,7 +37,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(
         menu.getByRole('option', { name: copy.session.slash.select('/agent explore'), exact: true }),
       ).toBeVisible()
-      await expect(menu.getByRole('option')).toHaveCount(8)
+      await expect(menu.getByRole('option')).toHaveCount(9)
       await prompt.dispatchEvent('compositionstart', { data: '中' })
       await prompt.dispatchEvent('keydown', {
         key: 'Enter',
@@ -107,7 +107,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       for (const width of [1440, 320]) {
         await page.setViewportSize({ width, height: 800 })
         await prompt.fill('/')
-        await expect(menu.getByRole('option')).toHaveCount(8)
+        await expect(menu.getByRole('option')).toHaveCount(9)
         await page.screenshot({ path: `artifacts/reference-ux-v2/slash-catalog-${locale}-${width}.png` })
         await prompt.fill('/mo')
         await expect(menu.getByRole('option')).toHaveCount(1)
@@ -140,13 +140,16 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const addSurface = page.locator(`[id=${JSON.stringify(attachmentMenuId)}]`)
       const chooserPromise = page.waitForEvent('filechooser')
       await addSurface.getByRole('button', { name: copy.session.addMenu.files, exact: true }).click()
-      await (await chooserPromise).setFiles({
+      await (
+        await chooserPromise
+      ).setFiles({
         name: 'slash-attachment.txt',
         mimeType: 'text/plain',
         buffer: Buffer.from('retain attachment'),
       })
       await expect(page.locator('.lumen-attachment-chip').filter({ hasText: 'slash-attachment.txt' })).toBeVisible()
       await prompt.fill('/settings ')
+      await expectComposerText(prompt, '/settings ')
       await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
       await openComposerFeedback(page, copy)
       await expect(page.getByText(copy.session.slash.attachmentsBlocked, { exact: true })).toBeVisible()
@@ -172,13 +175,13 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expectComposerText(other, '')
       await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await expectComposerText(prompt, '/settings')
-      await prompt.fill('/compact')
+      await prompt.fill('/skills')
       await expect(menu).toHaveCount(0)
       await prompt.press('Enter')
       await expect
         .poll(async () =>
           (await host!.client.call('session.snapshot', { sessionId: host!.ready.sessionId, limit: 20 })).runs.some(
-            (run) => run.input.source === 'user' && run.input.text === '/compact',
+            (run) => run.input.source === 'user' && run.input.text === '/skills',
           ),
         )
         .toBe(true)

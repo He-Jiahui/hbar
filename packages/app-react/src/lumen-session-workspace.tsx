@@ -643,7 +643,14 @@ function SessionWorkspaceContent({
     objective?: string
   } | null>(null)
   const slashIds = slashLabels.commands.map((item) => item.id)
-  const sessionSlashSubmitCandidates: readonly LocalSlashCommand[] = ['model', 'settings', 'agents', 'cost', 'help']
+  const sessionSlashSubmitCandidates: readonly LocalSlashCommand[] = [
+    'model',
+    'settings',
+    'agents',
+    'cost',
+    'help',
+    'compact',
+  ]
   const submitSlashCommands = sessionSlashSubmitCandidates.filter((command) => slashIds.includes(command))
   useEffect(() => {
     pendingModelSlash.current = null
@@ -903,7 +910,12 @@ function SessionWorkspaceContent({
         localSlashInFlight.current
       )
         return
-      if (latest.mentions.length || latest.attachments.length || latest.attachmentTransfers.length) {
+      if (
+        latest.mentions.length ||
+        latest.attachments.length ||
+        latest.attachmentTransfers.length ||
+        (slash === 'compact' && latest.workspaceContexts?.length)
+      ) {
         setSlashFailure({ sessionId: targetSessionId, code: 'ATTACHMENTS' })
         return
       }
@@ -914,6 +926,20 @@ function SessionWorkspaceContent({
       }
       if (slash === 'model' && !canPrepareTarget(targetSessionId, targetWorkspaceId)) return
       const target = { sessionId: targetSessionId, workspaceId: targetWorkspaceId, revision: latest.revision }
+      if (slash === 'compact') {
+        const currentTimeline = runtime.state.timeline.getSnapshot()
+        if (currentTimeline.sessionId !== targetSessionId || currentTimeline.status !== 'ready') return
+        if (
+          currentTimeline.runs.some(
+            (run) =>
+              run.sessionId === targetSessionId && ['queued', 'running', 'waiting_approval'].includes(run.status),
+          ) ||
+          currentTimeline.activeCompaction?.status === 'running'
+        ) {
+          setSlashFailure({ sessionId: targetSessionId, code: 'COMPACTION_BUSY' })
+          return
+        }
+      }
       if (slash === 'goal') {
         if (['submitting', 'unknown'].includes(currentIntent?.goalAction.status ?? '')) return
         const command = localGoalSlash(latest.text)
@@ -955,6 +981,15 @@ function SessionWorkspaceContent({
         if (slash === 'model') {
           pendingModelSlash.current = target
           setModelOpenRequest((value) => value + 1)
+        } else if (slash === 'compact') {
+          const modelState = runtime.state.controls.getSnapshot()
+          const currentModel = modelState.sessionId === targetSessionId ? modelState.model : null
+          if (currentModel?.status !== 'configured' || !currentModel.modelId) {
+            setSlashFailure({ sessionId: targetSessionId, code: 'MODEL_NOT_CONFIGURED' })
+            return
+          }
+          await execute('context.compact', { sessionId: targetSessionId, modelId: currentModel.modelId })
+          await clearLocalSlash(target)
         } else if (slash === 'cost' || slash === 'agents') {
           const opened = await runtime.commands.execute('sessionTools.open', {
             panelId: slash === 'agents' ? 'agents' : 'monitoring',
@@ -1999,7 +2034,13 @@ function SessionWorkspaceContent({
       intentEntry?.goalAction.status === 'succeeded'
     )
       return undefined
-    if (slashFailure.code === 'ATTACHMENTS' && !draft?.attachments.length && !attachmentTransfers.length)
+    if (
+      slashFailure.code === 'ATTACHMENTS' &&
+      !draft?.attachments.length &&
+      !draft?.mentions.length &&
+      !draft?.workspaceContexts?.length &&
+      !attachmentTransfers.length
+    )
       return undefined
     switch (slashFailure.code) {
       case 'ATTACHMENTS':
@@ -2355,6 +2396,8 @@ function SessionWorkspaceContent({
                     intentPending: Boolean(intentPending),
                     permissionLocked: Boolean(permissionEntry?.locked) && !draftGoalReplacement,
                   }) &&
+                  (localSlashCommand(draft?.text ?? '', slashIds) !== 'compact' ||
+                    (!activeRun && timeline.activeCompaction?.status !== 'running')) &&
                   (localSlashCommand(draft?.text ?? '', slashIds) !== 'goal' ||
                     !['submitting', 'unknown'].includes(intentEntry?.goalAction.status ?? ''))
                 : configured &&

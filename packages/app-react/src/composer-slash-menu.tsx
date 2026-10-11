@@ -1,4 +1,4 @@
-import { Bot, Box, CircleDollarSign, HelpCircle, Settings, Target } from 'lucide-react'
+import { Bot, Box, CircleDollarSign, HelpCircle, Minimize2, Settings, Target } from 'lucide-react'
 import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import type { AgentComposerState } from '@hbar/app-runtime'
 import { slashMatches, type LocalSlashCommand } from './composer-slash'
@@ -94,7 +94,9 @@ export function HbarComposerSlashMenu({
                           ? CircleDollarSign
                           : command === 'help'
                             ? HelpCircle
-                            : Settings
+                            : command === 'compact'
+                              ? Minimize2
+                              : Settings
                 }
                 tier="sm"
               />
