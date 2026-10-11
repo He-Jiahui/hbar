@@ -221,7 +221,12 @@ async function start(browser: Browser, locale: ShellLocale, width: number): Prom
     await expect(page.locator('script[type="module"][src]')).toHaveAttribute('src', `/assets/${asset}`)
     const copy = getShellCopy(locale)
     const show = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
-    if (await show.isVisible()) await show.click()
+    if (width === 320) {
+      await expect(show).toBeVisible()
+      await show.click()
+    }
+    await expect(page.locator('.lumen-app-shell')).toHaveAttribute('data-sidebar-open', 'true')
+    await expect(page.locator('.hbar-app-react-shell-content')).toHaveAttribute('data-hbar-sidebar-expanded', 'true')
     await expect(page.locator(`[data-workspace-id="${ready.visibleWorkspace.id}"]`)).toBeVisible()
     await expect(page.locator(`[data-workspace-id="${ready.hiddenWorkspace.id}"]`)).toBeVisible()
     return {
