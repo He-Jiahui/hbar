@@ -96,6 +96,33 @@ async function capture(page: Page, name: string): Promise<void> {
     body: Buffer.from(JSON.stringify({ viewport: page.viewportSize(), nodes: layout }, null, 2)),
     contentType: 'application/json',
   })
+  const headerFlow = await page.locator('.hbar-web-global-page-header').evaluate((header) => {
+    const style = getComputedStyle(header)
+    const content = [...header.querySelectorAll('h1, button')]
+      .map((node) => node.getBoundingClientRect())
+      .filter((box) => box.width > 0 && box.height > 0)
+    const spacing = [style.paddingTop, style.paddingBottom, style.borderTopWidth, style.borderBottomWidth]
+      .map((value) => Number.parseFloat(value))
+      .reduce((sum, value) => sum + value, 0)
+    const gap = Number.parseFloat(style.rowGap) || 0
+    const flowChildren = [...header.children].filter((node) => {
+      const childStyle = getComputedStyle(node)
+      return childStyle.display !== 'none' && childStyle.position !== 'absolute' && childStyle.position !== 'fixed'
+    })
+    return {
+      height: header.getBoundingClientRect().height,
+      contentCount: content.length,
+      flowChildCount: flowChildren.length,
+      stackedContentHeight:
+        content.reduce((sum, box) => sum + box.height, 0) + spacing + gap * Math.max(0, flowChildren.length - 1),
+    }
+  })
+  await test.info().attach(`${name}-header-flow`, {
+    body: Buffer.from(JSON.stringify(headerFlow, null, 2)),
+    contentType: 'application/json',
+  })
+  expect(headerFlow.contentCount).toBeGreaterThan(0)
+  expect(headerFlow.height).toBeLessThanOrEqual(headerFlow.stackedContentHeight + 1)
 }
 
 async function assertNoHorizontalOverflow(scope: Locator): Promise<void> {
