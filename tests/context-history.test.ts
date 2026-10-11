@@ -71,22 +71,33 @@ function marker(event: SessionEvent) {
 }
 
 test('completed markers persist trigger and follow the message page without carrying summary bodies', async () => {
-  const { storage, session } = await fixture()
+  const { root, storage, session } = await fixture()
   await storage.call('commit', session.id, 'seed', 'user', [{ type: 'text', text: 'Before manual compaction' }])
   const manual = await complete(storage, await start(storage, session.id))
   const boundary = await storage.call('commit', session.id, 'seed', 'assistant', [
     { type: 'text', text: 'After manual compaction' },
   ])
   const automatic = await complete(storage, await start(storage, session.id, 'run-automatic'))
+  const automaticRecord = parseContextCompactionEvent(automatic)
+  if (!automaticRecord) throw new Error('Missing completed compaction details')
   const cancelled = await start(storage, session.id)
   await storage.call('compactionFinish', cancelled, { ...failed, status: 'cancelled' })
   const recent = await storage.call('snapshot', session.id, undefined, 1)
   expect(recent.contextCompactions).toEqual([marker(automatic)])
   expect(recent.contextCompactions?.[0]?.trigger).toBe('automatic')
+  expect(recent.contextCompactions?.[0]?.details).toEqual({
+    startedAt: automaticRecord.startedAt,
+    durationMs: 250,
+    contextWindow: 10000,
+    beforeTokens: 8000,
+    afterTokens: 1000,
+  })
   expect(JSON.stringify(recent.contextCompactions)).not.toContain('Saved summary')
   const older = await storage.call('snapshot', session.id, boundary.message.seq, 1)
   expect(older.contextCompactions).toEqual([marker(manual)])
   expect(older.contextCompactions?.[0]?.trigger).toBe('manual')
+  expect(older.contextCompactions?.[0]?.details?.durationMs).toBe(250)
+  expect(older.contextCompactions?.[0]?.details?.startedAt).toBe(parseContextCompactionEvent(manual)?.startedAt)
   expect((await storage.call('snapshot', session.id)).contextCompactions).toHaveLength(2)
   expect(
     parseContextCompactionMarker({
@@ -96,9 +107,19 @@ test('completed markers persist trigger and follow the message page without carr
   ).toBeNull()
   const legacy = await storage.call('compact', session.id, boundary.message.seq, 'Legacy summary', 'fixture/model')
   expect(parseContextCompactionMarker(legacy)?.trigger).toBeNull()
-  expect((await storage.call('snapshot', session.id)).contextCompactions?.at(-1)).toEqual(
+  expect(parseContextCompactionMarker(legacy)?.details).toBeUndefined()
+  expect((await storage.call('snapshot', session.id)).contextCompactions?.at(-1)).toEqual(marker(legacy))
+  const resource = resources.find((value) => value.storage === storage)
+  if (!resource) throw new Error('Missing owned storage fixture')
+  await storage.close()
+  const reopened = new Storage(join(root, 'test.sqlite'))
+  resource.storage = reopened
+  await reopened.call('ready')
+  expect((await reopened.call('snapshot', session.id)).contextCompactions).toEqual([
+    marker(manual),
+    marker(automatic),
     marker(legacy),
-  )
+  ])
 })
 
 test('window history records actual accounting, duration, tool outcomes and successful file paths', async () => {

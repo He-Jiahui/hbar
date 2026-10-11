@@ -6,6 +6,16 @@ export const contextCompactionTriggerSchema = z.enum(['automatic', 'manual'])
 export type ContextCompactionTrigger = z.output<typeof contextCompactionTriggerSchema>
 export const MAX_CONTEXT_COMPACTION_MARKERS = 1_000
 
+/** Persisted measurements for a completed transcript row; legacy facts may omit them. */
+export const contextCompactionDetailsSchema = z.strictObject({
+  startedAt: count,
+  durationMs: duration.nullable(),
+  contextWindow: count.positive(),
+  beforeTokens: count,
+  afterTokens: count.nullable(),
+})
+export type ContextCompactionDetails = z.output<typeof contextCompactionDetailsSchema>
+
 /** Small, completed conversation facts, loaded alongside the paged messages; no summary body. */
 export const contextCompactionMarkerSchema = z.strictObject({
   id: z.string().min(1),
@@ -13,6 +23,7 @@ export const contextCompactionMarkerSchema = z.strictObject({
   seq: count,
   time: count,
   trigger: contextCompactionTriggerSchema.nullable(),
+  details: contextCompactionDetailsSchema.optional(),
 })
 export type ContextCompactionMarker = z.output<typeof contextCompactionMarkerSchema>
 const tokens = z.strictObject({
@@ -131,6 +142,17 @@ export function parseContextCompactionMarker(event: {
     seq: event.seq,
     time: event.time,
     trigger: record?.trigger ?? null,
+    ...(record
+      ? {
+          details: {
+            startedAt: record.startedAt,
+            durationMs: record.durationMs,
+            contextWindow: record.contextWindow,
+            beforeTokens: record.beforeTokens,
+            afterTokens: record.afterTokens,
+          },
+        }
+      : {}),
   })
   return marker.success ? marker.data : null
 }
