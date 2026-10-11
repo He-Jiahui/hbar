@@ -757,10 +757,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           : execute('app.openPanel', { panelId: shortcut })
       )
         .then(() => {
-          if (
-            choiceRevision === sidebarChoiceRevision.current &&
-            window.matchMedia('(max-width: 63.9375rem)').matches
-          )
+          if (choiceRevision === sidebarChoiceRevision.current && window.matchMedia('(max-width: 63.9375rem)').matches)
             return execute('app.setSidebarVisible', { visible: false })
           return undefined
         })
@@ -2185,19 +2182,28 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       ) : null}
     </LumenFrame>
   )
+  const connectionNotice = (
+    <HbarHostConnectionNotice
+      connection={props.connection}
+      labels={props.labels.connectionNotice}
+      onReconnect={props.onReconnect}
+    />
+  )
+  const connectionInDrawer = Boolean(toolRegion) && resolvedToolPresentation === 'drawer'
   const workspacePane = usePersistentPane(contentRegion)
-  const sessionToolPane = usePersistentPane(toolRegion)
+  const sessionToolPane = usePersistentPane(
+    <>
+      {connectionInDrawer ? connectionNotice : null}
+      {toolRegion}
+    </>,
+  )
   const shell = (
     <LumenAppShell09
       label={props.labels.main}
       titlebar={
         <>
           {props.titlebar}
-          <HbarHostConnectionNotice
-            connection={props.connection}
-            labels={props.labels.connectionNotice}
-            onReconnect={props.onReconnect}
-          />
+          {connectionInDrawer ? null : connectionNotice}
         </>
       }
       sidebarWidthRem={railCollapsed ? props.sidebarRailWidthRem : props.sidebarWidthRem}
