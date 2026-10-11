@@ -302,6 +302,20 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
     this.sets.delete(id)
   }
 
+  /** Keep live generations and pending operations; expire only unused registry metadata, never immutable files. */
+  compactMetadata(references: { readonly artifactIds: readonly string[]; readonly setIds: readonly string[] }, keep = 128): void {
+    if (!Number.isSafeInteger(keep) || keep < 1 || keep > 128)
+      throw new HbarError('INVALID_INPUT', 'Artifact history needs a bounded retention count')
+    const sets = new Set([...references.setIds, ...[...this.sets.keys()].slice(-keep)])
+    for (const id of this.sets.keys()) if (!sets.has(id)) this.sets.delete(id)
+    const artifacts = new Set([
+      ...references.artifactIds,
+      ...[...this.sets.values()].flatMap(set => set.artifacts.map(artifact => artifact.id)),
+      ...[...this.registered.keys()].slice(-keep),
+    ])
+    for (const id of this.registered.keys()) if (!artifacts.has(id)) this.registered.delete(id)
+  }
+
   /** Accept only a local builder's descriptor, then verify its immutable files before exposing a reload set. */
   async acceptBuild(raw: unknown): Promise<RuntimeArtifact> {
     const artifact = artifactSchema.parse(raw)

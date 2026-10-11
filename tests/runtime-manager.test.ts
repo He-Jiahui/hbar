@@ -186,6 +186,9 @@ test('a local reload changes only its unit generation and old bound work retains
   f.references.set('plugin-1', 1)
   const operation = f.reload(2, ['plugin'])
   await until(() => f.manager.currentVersion('plugin').generation === 2)
+  expect(f.manager.artifactReferences().artifactIds).toContain(artifact(1).id)
+  expect(f.manager.artifactReferences().artifactIds).toContain(artifact(2).id)
+  expect(f.manager.artifactReferences().setIds).toContain('set-2')
   expect(f.manager.currentVersion('independent')).toEqual(independent)
   expect(await f.manager.call('plugin', 'echo', 'old', z.object({ generation: z.number() }), {}, old)).toMatchObject({
     generation: 1,
@@ -196,6 +199,7 @@ test('a local reload changes only its unit generation and old bound work retains
   expect(f.manager.getReload(operation).phase).toBe('draining')
   f.references.delete('plugin-1')
   await f.completed(operation)
+  expect(f.manager.artifactReferences().setIds).toEqual([])
   expect(f.manager.snapshot().units.find((unit) => unit.descriptor.id === 'plugin')?.generations).toHaveLength(1)
   expect(f.manager.snapshot().instanceId).toBe('stable-host')
 })

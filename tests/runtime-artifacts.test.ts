@@ -84,6 +84,32 @@ test('port-only dependencies do not cascade reloads, while emitted shared code s
   }
 })
 
+test('metadata compaction retains live generations and pending sets without deleting immutable bundles', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-artifact-retention-'))
+  const source = join(root, 'source')
+  await mkdir(source)
+  const store = new RuntimeArtifactStore(join(root, 'bundles'), source)
+  const versions = []
+  const sets = []
+  try {
+    for (let revision = 0; revision < 8; revision++) {
+      await writeFile(join(source, 'entry.ts'), `export const revision = ${revision}\n`)
+      const artifact = await store.build({ descriptor: descriptor('owner'), entrypoint: 'entry.ts' })
+      versions.push(artifact)
+      sets.push(store.registerSet([artifact]))
+    }
+    const live = versions[0]!, pending = sets[1]!, expired = versions[2]!
+    const expiredPath = await store.modulePath(expired.id)
+    store.compactMetadata({ artifactIds: [live.id], setIds: [pending.id] }, 2)
+    expect(await store.get(live.id)).toEqual(live)
+    expect(store.artifactSet(pending.id)).toEqual(pending)
+    expect(store.preparedSets()).toHaveLength(3)
+    await expect(store.get(expired.id)).rejects.toMatchObject({ code: 'RUNTIME_ARTIFACT_UNREGISTERED' })
+    expect(await Bun.file(expiredPath).exists()).toBe(true)
+    expect(() => store.compactMetadata({ artifactIds: [], setIds: [] }, 129)).toThrow()
+  } finally { await rm(root, { recursive: true, force: true }) }
+})
+
 test('new source content and declared dynamic resources affect hashes and explicit capability dependents', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-artifact-resources-'))
   const source = join(root, 'source')

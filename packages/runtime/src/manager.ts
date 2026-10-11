@@ -163,6 +163,15 @@ export class RuntimeManager {
       preparedArtifactSets: this.options.artifacts.preparedSets(),
     })
   }
+  artifactReferences(): { artifactIds: string[]; setIds: string[] } {
+    return {
+      artifactIds: [...new Set([...this.units.values()].flatMap(unit => [
+        ...[...unit.generations.values()].map(generation => generation.snapshot().artifactId),
+        ...[unit.currentArtifact, unit.candidate?.artifact, unit.queued?.artifact].flatMap(artifact => artifact ? [artifact.id] : []),
+      ]))],
+      setIds: [...new Set([...this.operations.values()].filter(operation => !finished(operation)).map(operation => operation.artifactSetId))],
+    }
+  }
   subscribe(listener: (delta: RuntimeDelta) => void): () => void {
     this.listeners.add(listener)
     return () => {

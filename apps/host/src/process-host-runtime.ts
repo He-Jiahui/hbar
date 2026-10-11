@@ -728,6 +728,11 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   }
   /** Local development input, never a network command or arbitrary artifact path. */
   async applySourceChanges(paths: readonly string[]): Promise<void> {
+    const references = this.manager.artifactReferences()
+    this.artifacts.compactMetadata({
+      artifactIds: [...references.artifactIds, ...(this.initialArtifacts?.artifacts.map(artifact => artifact.id) ?? []), ...(this.sourceBaseline ? [this.sourceBaseline.id] : [])],
+      setIds: [...references.setIds, ...(this.initialArtifacts ? [this.initialArtifacts.id] : []), ...(this.sourceState?.artifactSetId ? [this.sourceState.artifactSetId] : [])],
+    })
     const snapshot = this.manager.snapshot()
     const artifacts = this.buildUnits.map((unit) => {
       const current = snapshot.units
