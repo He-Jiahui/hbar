@@ -409,6 +409,17 @@ function terminalProviderFacts(
         : {}),
       ...stream?.facts(streamFallback),
     }
+  const streamFacts = stream?.facts(streamFallback)
+  // Provider errors can make the SDK abort its reader as cleanup. Keep the
+  // observed stream error as the cause when the caller has not cancelled.
+  if (responseStatus !== undefined && responseStatus < 400 && streamFacts?.streamSubtype === 'provider_error')
+    return {
+      ...responseFacts,
+      failureKind: 'stream',
+      failurePhase: 'stream',
+      errorCode: 'PROVIDER_STREAM_INTERRUPTED',
+      ...streamFacts,
+    }
   if (transportKind)
     return {
       ...responseFacts,

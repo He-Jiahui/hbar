@@ -383,3 +383,48 @@ test('response.completed is observed before a kept-open body is cancelled by the
     await fixture.server.stop(true)
   }
 })
+
+test('a kept-open provider error remains the terminal cause when SDK cleanup aborts its body reader', async () => {
+  const fixture = await startFixture(
+    () =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(
+              new TextEncoder().encode(
+                `event:error\ndata: ${JSON.stringify({
+                  error: { code: 'server_error', message: bodyCanary },
+                })}\n\n`,
+              ),
+            )
+            // Leave the upstream body open. The SDK cancels it after reading error.
+          },
+        }),
+        { status: 200, headers },
+      ),
+  )
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(new DOMException('fixture watchdog', 'TimeoutError')), 2_000)
+  try {
+    const diagnostics: ModelDiagnosticEvent[] = []
+    await expect(
+      new PiDriver().summarize(request(fixture.baseUrl), apiKey, controller.signal, (item) => diagnostics.push(item)),
+    ).rejects.toThrow()
+    expect(controller.signal.aborted).toBe(false)
+    assertOneFailure(diagnostics, 'upstream')
+    const terminal = diagnostics.find((item) => item.phase === 'failed')
+    expect(terminal).toMatchObject({
+      failureKind: 'stream',
+      failurePhase: 'stream',
+      errorCode: 'PROVIDER_STREAM_INTERRUPTED',
+      stopReason: 'error',
+      streamSubtype: 'provider_error',
+      streamErrorClass: 'upstream',
+    })
+    expect(terminal?.errorCode).not.toBe('PROVIDER_ABORTED')
+  } finally {
+    clearTimeout(timeout)
+    controller.abort()
+    await fixture.server.stop(true)
+  }
+})
