@@ -77,7 +77,9 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await page.getByRole('treeitem', { name: before.session.title, exact: true }).click()
       const draft = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       await expect(draft).toBeEditable()
+      await expect(draft).toHaveClass(/cm-content/)
       await draft.fill('/comp')
+      await expectComposerText(draft, '/comp')
       const menu = page.getByRole('listbox', { name: copy.session.slash.menu, exact: true })
       await expect(menu.getByRole('option')).toHaveCount(1)
       await page.keyboard.press('Tab')
@@ -107,7 +109,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       if (!marker) throw new Error('Missing slash compaction record')
       expect(marker.trigger).toBe('manual')
       await expect(page.locator(`[data-context-compaction-marker="${marker.id}"]`)).toHaveText(
-        history.compacted('manual'),
+        history.completed(marker),
       )
       await page.setViewportSize({ width: 320, height: 960 })
       await page.locator(`[data-context-compaction-marker="${marker.id}"]`).scrollIntoViewIfNeeded()
@@ -138,6 +140,7 @@ test('/compact with no eligible history reports the reason and retains the comma
     await page.goto(base())
     await page.getByRole('treeitem', { name: ready.sessionTitle, exact: true }).click()
     const draft = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
+    await expect(draft).toHaveClass(/cm-content/)
     await draft.fill('/compact')
     await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
     await expect(page.getByText(copy.session.slash.error('NOTHING_TO_COMPACT'), { exact: true })).toBeVisible()

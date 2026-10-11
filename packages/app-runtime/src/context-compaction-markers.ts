@@ -19,7 +19,8 @@ export function mergeContextCompactionMarkers(
     const record = parsed.data
     if (record.sessionId !== sessionId || record.seq < fromSeq || record.seq > throughSeq) continue
     const previous = records.get(record.id)
-    if (!previous || previous.seq < record.seq) records.set(record.id, record)
+    if (!previous || previous.seq < record.seq || (previous.seq === record.seq && !previous.details && record.details))
+      records.set(record.id, record)
   }
   return [...records.values()].sort((a, b) => a.seq - b.seq).slice(-MAX_CONTEXT_COMPACTION_MARKERS)
 }

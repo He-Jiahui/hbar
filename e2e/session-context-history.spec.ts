@@ -28,7 +28,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       host = await startWebSessionHost({
         root,
         port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
-        compactionDelayMs: 3000,
+        compactionDelayMs: 5000,
         sessionCount: 2,
         goalAutoContinue: false,
         budgetAutoContinue: false,
@@ -79,6 +79,32 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       )
       const notice = page.locator('.hbar-context-compaction-notice')
       await expect(notice).toContainText(labels.notice)
+      const elapsed = notice.locator('[data-context-compaction-elapsed]')
+      const firstElapsed = Math.floor(Number(await elapsed.getAttribute('data-context-compaction-elapsed')) / 1000)
+      await expect
+        .poll(async () => Math.floor(Number(await elapsed.getAttribute('data-context-compaction-elapsed')) / 1000))
+        .toBeGreaterThan(firstElapsed)
+      const active = (await client.call('session.snapshot', { sessionId })).contextHistory?.records.find(
+        (value) => value.status === 'running',
+      )
+      if (!active) throw new Error('Missing active compaction measurements')
+      await notice.hover()
+      const tooltip = page.getByRole('tooltip', { name: labels.detailsLabel, exact: true })
+      for (const line of labels.activeDetails(active)) await expect(tooltip).toContainText(line)
+      expect(await tooltip.evaluate((element) => element.parentElement === document.body)).toBe(true)
+      const hintStyle = await tooltip.evaluate((element) => ({
+        position: getComputedStyle(element).position,
+        align: getComputedStyle(element).textAlign,
+        blur: getComputedStyle(element).backdropFilter,
+        topLayer: element.matches(':popover-open'),
+      }))
+      expect(hintStyle.position).toBe('fixed')
+      expect(['start', 'left']).toContain(hintStyle.align)
+      expect(hintStyle.blur).not.toBe('none')
+      expect(hintStyle.topLayer).toBe(true)
+      await page.screenshot({ path: info.outputPath(`compacting-details-${locale}.png`) })
+      await page.keyboard.press('Escape')
+      await expect(tooltip).toHaveCount(0)
       const spinner = notice.locator('.hbar-session-execution-spinner')
       await expect(spinner).toBeVisible()
       expect(await spinner.evaluate((element) => getComputedStyle(element).animationName)).toBe(
@@ -111,12 +137,25 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       if (!record || record.afterTokens === null) throw new Error('Missing durable compaction telemetry')
       expect(record.status).toBe('completed')
       expect(record.trigger).toBe('automatic')
+      const fact = snapshot.contextCompactions?.find((value) => value.id === record.id)
+      if (!fact?.details) throw new Error('Missing completed marker measurements')
       const marker = page.locator(`[data-context-compaction-marker="${record.id}"]`)
-      await expect(marker).toHaveText(labels.compacted('automatic'))
+      await expect(marker).toHaveText(labels.completed(fact))
       await expect(marker).toHaveCount(1)
-      expect(record.durationMs).toBeGreaterThanOrEqual(3000)
+      expect(record.durationMs).toBeGreaterThanOrEqual(5000)
       expect(record.beforeTokens).toBeGreaterThan(record.afterTokens)
       expect(record.compactionUsage.recorded).toBeGreaterThan(0)
+      await marker.scrollIntoViewIfNeeded()
+      await marker.hover()
+      for (const line of labels.completedDetails(fact)) await expect(tooltip).toContainText(line)
+      await page.screenshot({ path: info.outputPath(`compacted-details-${locale}.png`) })
+      await page.mouse.move(12, 12)
+      await expect(tooltip).toHaveCount(0)
+      await marker.focus()
+      await expect(tooltip).toBeVisible()
+      await expect(marker).toHaveAttribute('aria-describedby', (await tooltip.getAttribute('id')) ?? '')
+      await page.keyboard.press('Escape')
+      await expect(tooltip).toHaveCount(0)
       await status.getByRole('button', { name: copy.session.liveStatus.expand, exact: true }).click()
       const history = status
         .getByRole('region', { name: copy.session.liveStatus.label, exact: true })
@@ -148,7 +187,10 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await status.getByRole('button', { name: copy.session.liveStatus.expand, exact: true }).click()
       await expect(status.locator(`[data-context-history-id="${record.id}"]`)).toBeVisible()
       await expect(marker).toHaveCount(1)
-      await expect(marker).toHaveText(labels.compacted('automatic'))
+      await expect(marker).toHaveText(labels.completed(fact))
+      await marker.hover()
+      for (const line of labels.completedDetails(fact)) await expect(tooltip).toContainText(line)
+      await page.keyboard.press('Escape')
       await expect(notice).toHaveCount(0)
       await expectComposerText(draft, unsent)
       const other = (await client.call('session.list', { workspaceId: ready.workspaceId })).items.find(
@@ -233,21 +275,39 @@ test('manual compaction spins while active and leaves a durable transcript recor
     if (!record) throw new Error('Manual compaction was not recorded')
     expect(record.trigger).toBe('manual')
     expect(record.status).toBe('completed')
+    const fact = snapshot.contextCompactions?.find((value) => value.id === record.id)
+    if (!fact?.details) throw new Error('Missing manual marker measurements')
     const marker = page.locator(`[data-context-compaction-marker="${record.id}"]`)
-    await expect(marker).toHaveText('上下文已手动压缩')
+    await expect(marker).toHaveText(labels.completed(fact))
     await marker.scrollIntoViewIfNeeded()
     await page.screenshot({ path: info.outputPath('manual-compacted-desktop.png') })
     await page.setViewportSize({ width: 320, height: 960 })
     await expect(marker).toBeVisible()
+    await marker.hover()
+    const tooltip = page.getByRole('tooltip', { name: labels.detailsLabel, exact: true })
+    for (const line of labels.completedDetails(fact)) await expect(tooltip).toContainText(line)
+    const bounds = await tooltip.boundingBox()
+    expect(bounds && bounds.x >= 0 && bounds.x + bounds.width <= 320).toBe(true)
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
     ).toBe(true)
     await page.screenshot({ path: info.outputPath('manual-compacted-320.png') })
+    const copy = getShellCopy('zh-CN')
+    const draft = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
+    await draft.click()
+    await expect(tooltip).toHaveCount(0)
+    await marker.hover()
+    await expect(tooltip).toBeVisible()
+    await draft.fill('/')
+    await expect(page.getByRole('listbox', { name: copy.session.slash.menu, exact: true })).toBeVisible()
+    await expect(tooltip).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    await draft.fill('')
     await page.setViewportSize({ width: 1440, height: 960 })
     await page.reload()
     await page.getByRole('treeitem', { name: ready.sessionTitle, exact: true }).click()
     await expect(marker).toHaveCount(1)
-    await expect(marker).toHaveText(labels.compacted('manual'))
+    await expect(marker).toHaveText(labels.completed(fact))
     await expect(notice).toHaveCount(0)
   } finally {
     await context.close()

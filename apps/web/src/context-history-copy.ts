@@ -19,10 +19,30 @@ export function contextHistoryCopy(locale: SupportedLocale): HbarContextHistoryL
       : `${number(tokens)} / ${number(capacity)} token · ${number(Number(((tokens / capacity) * 100).toFixed(1)))}%`
   const compacted: HbarContextHistoryLabels['compacted'] = (trigger) =>
     trigger === 'automatic'
-      ? choose('上下文已自动压缩', 'Context automatically compacted')
+      ? choose('上下文已[自动]压缩', 'Context automatically compacted')
       : trigger === 'manual'
-        ? choose('上下文已手动压缩', 'Context manually compacted')
+        ? choose('上下文已[手动]压缩', 'Context manually compacted')
         : choose('上下文已压缩', 'Context compacted')
+  const minutes = (ms: number | null | undefined) => {
+    if (ms === null || ms === undefined) return unknown
+    const seconds = Math.floor(Math.max(0, ms) / 1000)
+    return choose(
+      `${number(Math.floor(seconds / 60))}分${number(seconds % 60)}秒`,
+      `${number(Math.floor(seconds / 60))}m ${number(seconds % 60)}s`,
+    )
+  }
+  const startTime = (timestamp: number | undefined, withDate: boolean) => {
+    if (timestamp === undefined) return unknown
+    const date = new Date(timestamp)
+    if (!Number.isFinite(date.getTime())) return unknown
+    const two = (value: number) => String(value).padStart(2, '0')
+    const time = `${two(date.getHours())}:${two(date.getMinutes())}:${two(date.getSeconds())}`
+    return withDate ? `${date.getFullYear()}:${two(date.getMonth() + 1)}:${two(date.getDate())} ${time}` : time
+  }
+  const windowSpace = (tokens: number | null | undefined, capacity: number | undefined) =>
+    tokens === null || tokens === undefined || capacity === undefined
+      ? unknown
+      : `${number(tokens)} tokens(${number(Number(((tokens / capacity) * 100).toFixed(1)))}%)`
   const status = (value: ContextCompactionRecord) =>
     ({
       running: choose('正在压缩', 'Compacting'),
@@ -34,6 +54,27 @@ export function contextHistoryCopy(locale: SupportedLocale): HbarContextHistoryL
   return {
     notice: choose('正在压缩上下文', 'Compacting context'),
     compacted,
+    elapsed: (ms) => choose(`· 已进行${minutes(ms)}`, `· Elapsed ${minutes(ms)}`),
+    completed: (marker) =>
+      `${compacted(marker.trigger)} · ${choose(`共耗时${minutes(marker.details?.durationMs)}`, `Took ${minutes(marker.details?.durationMs)}`)}`,
+    detailsLabel: choose('上下文压缩详情', 'Context compaction details'),
+    activeDetails: (record) => [
+      choose(`从 ${startTime(record.startedAt, false)} 开始`, `Started at ${startTime(record.startedAt, false)}`),
+      choose(
+        `从 ${windowSpace(record.beforeTokens, record.contextWindow)} 上下文窗口空间压缩（估算）`,
+        `Compacting from ${windowSpace(record.beforeTokens, record.contextWindow)} context window usage (estimated)`,
+      ),
+    ],
+    completedDetails: (marker) => [
+      choose(
+        `从 ${startTime(marker.details?.startedAt, true)} 开始`,
+        `Started at ${startTime(marker.details?.startedAt, true)}`,
+      ),
+      choose(
+        `从 ${windowSpace(marker.details?.beforeTokens, marker.details?.contextWindow)} 上下文窗口空间压缩到 ${windowSpace(marker.details?.afterTokens, marker.details?.contextWindow)}（估算）`,
+        `Compacted context window usage from ${windowSpace(marker.details?.beforeTokens, marker.details?.contextWindow)} to ${windowSpace(marker.details?.afterTokens, marker.details?.contextWindow)} (estimated)`,
+      ),
+    ],
     offline: choose('连接中断，正在重新确认上下文压缩状态', 'Disconnected; confirming context compaction status'),
     title: choose('上下文窗口与压缩历史', 'Context windows and compaction history'),
     current: choose('当前窗口明细', 'Current window details'),

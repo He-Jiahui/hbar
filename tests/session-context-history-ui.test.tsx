@@ -16,7 +16,9 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
     expect(notice).toContain(labels.notice)
     expect(notice).toContain('role="status"')
     expect(notice).toContain('hbar-session-execution-spinner')
-    expect(notice).toContain('80%')
+    expect(notice).toContain(labels.elapsed(0))
+    expect(notice).toContain('aria-live="off"')
+    expect(labels.activeDetails(active)[1]).toContain('80%')
     expect(
       renderToStaticMarkup(
         <HbarContextCompactionNotice

@@ -29,11 +29,33 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
     const long = 'A long translated completion record '.repeat(30)
     expect(
       renderToStaticMarkup(
-        <HbarContextCompactionMarker marker={marker(2)} sessionId="session" labels={{ compacted: () => long }} />,
+        <HbarContextCompactionMarker
+          marker={marker(2)}
+          sessionId="session"
+          labels={{ ...labels, completed: () => long }}
+        />,
       ),
     ).toContain(long)
   })
 }
+
+test('completed rows show measured duration and keep missing legacy measurements unknown', () => {
+  const labels = contextHistoryCopy('zh-CN')
+  const measured = marker(2, {
+    details: { startedAt: 1000, durationMs: 123456, contextWindow: 150000, beforeTokens: 120000, afterTokens: 7500 },
+  })
+  const html = renderToStaticMarkup(
+    <HbarContextCompactionMarker marker={measured} sessionId="session" labels={labels} />,
+  )
+  expect(html).toContain('上下文已[自动]压缩 · 共耗时2分3秒')
+  expect(html).toContain('tabindex="0"')
+  expect(html).not.toContain('hbar-session-execution-spinner')
+  const legacy = renderToStaticMarkup(
+    <HbarContextCompactionMarker marker={marker(3)} sessionId="session" labels={labels} />,
+  )
+  expect(legacy).toContain('共耗时未知')
+  expect(legacy).not.toContain('共耗时0分0秒')
+})
 
 test('completed facts retain exact sequence order around messages and precede uncommitted streams', () => {
   const result = projectSessionTimelineSequence({
@@ -88,4 +110,13 @@ test('page merge preserves loaded older records, rejects future facts and prunes
   const older = mergeContextCompactionMarkers('session', recent, [marker(5), marker(90)], 0, 100)
   expect(older.map((value) => value.seq)).toEqual([5, 80, 90])
   expect(mergeContextCompactionMarkers('session', older, [], 50, 100).map((value) => value.seq)).toEqual([80, 90])
+})
+
+test('reload enriches a cached completion fact without losing measurements to a legacy duplicate', () => {
+  const legacy = marker(90)
+  const measured = marker(90, {
+    details: { startedAt: 1000, durationMs: 1500, contextWindow: 10000, beforeTokens: 8000, afterTokens: 1000 },
+  })
+  expect(mergeContextCompactionMarkers('session', [legacy], [measured])).toEqual([measured])
+  expect(mergeContextCompactionMarkers('session', [measured], [legacy])).toEqual([measured])
 })

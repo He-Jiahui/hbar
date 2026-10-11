@@ -6,7 +6,9 @@ import {
   LumenDisclosure,
   LumenFrame,
   LumenIcon,
+  LumenFloatingSurface,
 } from '@lumen/app-ui'
+import { useEffect, useId, useRef, useState, type HTMLAttributes, type ReactNode } from 'react'
 import { ScrollText } from 'lucide-react'
 import type {
   ContextCompactionMarker,
@@ -17,6 +19,7 @@ import type {
 } from '@hbar/contracts/context-history'
 import type { SessionTimelineState } from '@hbar/app-runtime'
 import { HbarSessionExecutionStatus } from './session-execution-status'
+import { useSessionClock } from './session-tool-clock'
 import './session-context-history.css'
 
 export interface ContextHistoryMetric {
@@ -29,6 +32,11 @@ export interface HbarContextHistoryLabels {
   readonly notice: string
   readonly offline: string
   readonly compacted: (trigger: ContextCompactionTrigger | null) => string
+  readonly elapsed: (durationMs: number) => string
+  readonly completed: (marker: ContextCompactionMarker) => string
+  readonly detailsLabel: string
+  readonly activeDetails: (record: ContextCompactionRecord) => readonly [string, string]
+  readonly completedDetails: (marker: ContextCompactionMarker) => readonly [string, string]
   readonly title: string
   readonly current: string
   readonly empty: string
@@ -46,6 +54,93 @@ export interface HbarContextHistoryLabels {
   readonly compactionMetrics: (value: ContextCompactionRecord) => readonly ContextHistoryMetric[]
 }
 
+/** Two content-grown detail lines; shared Lumen owns the portal, viewport and dismissal. */
+function CompactionHint({
+  identity,
+  label,
+  details,
+  children,
+  ...attributes
+}: HTMLAttributes<HTMLDivElement> & {
+  readonly identity: string
+  readonly label: string
+  readonly details: readonly [string, string]
+  readonly children: ReactNode
+}) {
+  const anchor = useRef<HTMLDivElement>(null)
+  const surface = useRef<HTMLDivElement>(null)
+  const closing = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const tooltipId = useId()
+  const [preview, setPreview] = useState<string | null>(null)
+  const open = preview === identity
+  const cancelClose = () => {
+    if (closing.current) clearTimeout(closing.current)
+    closing.current = undefined
+  }
+  const reveal = () => {
+    cancelClose()
+    setPreview(identity)
+  }
+  const close = () => {
+    cancelClose()
+    setPreview(null)
+  }
+  const leave = (target: EventTarget | null) => {
+    if (target instanceof Node && (anchor.current?.contains(target) || surface.current?.contains(target))) return
+    // A short handoff lets the pointer cross the shared surface's anchor gap.
+    cancelClose()
+    closing.current = setTimeout(close, 150)
+  }
+  useEffect(
+    () => () => {
+      if (closing.current) clearTimeout(closing.current)
+    },
+    [],
+  )
+  return (
+    <>
+      <LumenFrame
+        {...attributes}
+        ref={anchor}
+        tabIndex={0}
+        aria-describedby={open ? tooltipId : undefined}
+        onPointerEnter={(event) => {
+          if (event.pointerType !== 'touch') reveal()
+        }}
+        onPointerLeave={(event) => {
+          if (!anchor.current?.contains(document.activeElement)) leave(event.relatedTarget)
+        }}
+        onFocus={reveal}
+        onBlur={(event) => leave(event.relatedTarget)}
+      >
+        {children}
+      </LumenFrame>
+      <LumenFloatingSurface
+        id={tooltipId}
+        role="tooltip"
+        label={label}
+        open={open}
+        onClose={close}
+        anchorRef={anchor}
+        contentRef={surface}
+        placement="above"
+        focusBehavior="preserve"
+        trapFocus={false}
+        restoreFocus={false}
+        className="hbar-context-compaction-details"
+        onPointerEnter={reveal}
+        onPointerLeave={(event) => leave(event.relatedTarget)}
+      >
+        {details.map((line, index) => (
+          <LumenContentText key={index} context="popover.body">
+            {line}
+          </LumenContentText>
+        ))}
+      </LumenFloatingSurface>
+    </>
+  )
+}
+
 export function HbarContextCompactionNotice({
   record,
   sessionId,
@@ -59,13 +154,19 @@ export function HbarContextCompactionNotice({
   readonly connected: boolean
   readonly labels: HbarContextHistoryLabels
 }) {
+  const active = owned && record?.sessionId === sessionId && record.status === 'running'
+  const now = useSessionClock(active && connected)
   if (!owned || record?.sessionId !== sessionId || record.status !== 'running') return null
+  const elapsedMs = Math.max(0, (now || record.startedAt) - record.startedAt)
   return (
-    <LumenFrame
+    <CompactionHint
+      identity={record.id}
+      label={labels.detailsLabel}
+      details={labels.activeDetails(record)}
       className="hbar-context-compaction-notice"
       role="status"
       aria-live="polite"
-      aria-atomic="true"
+      aria-atomic="false"
       data-context-compaction={record.id}
       data-session-id={sessionId}
       data-connected={connected}
@@ -75,8 +176,12 @@ export function HbarContextCompactionNotice({
         label={connected ? labels.notice : labels.offline}
         tone="warning"
       />
-      <LumenContentText context="record.description">{labels.summary(record)}</LumenContentText>
-    </LumenFrame>
+      {connected && (
+        <LumenContentText context="control.status" aria-live="off" data-context-compaction-elapsed={elapsedMs}>
+          {labels.elapsed(elapsedMs)}
+        </LumenContentText>
+      )}
+    </CompactionHint>
   )
 }
 
@@ -88,19 +193,22 @@ export function HbarContextCompactionMarker({
 }: {
   readonly marker: ContextCompactionMarker
   readonly sessionId: string
-  readonly labels: Pick<HbarContextHistoryLabels, 'compacted'>
+  readonly labels: Pick<HbarContextHistoryLabels, 'completed' | 'detailsLabel' | 'completedDetails'>
 }) {
   if (marker.sessionId !== sessionId) return null
   return (
-    <LumenFrame
+    <CompactionHint
+      identity={marker.id}
+      label={labels.detailsLabel}
+      details={labels.completedDetails(marker)}
       className="hbar-context-compaction-marker"
       data-context-compaction-marker={marker.id}
       data-session-id={sessionId}
       data-trigger={marker.trigger ?? 'unknown'}
     >
       <LumenIcon icon={ScrollText} tier="sm" />
-      <LumenContentText context="record.description">{labels.compacted(marker.trigger)}</LumenContentText>
-    </LumenFrame>
+      <LumenContentText context="record.description">{labels.completed(marker)}</LumenContentText>
+    </CompactionHint>
   )
 }
 
