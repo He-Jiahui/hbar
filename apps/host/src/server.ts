@@ -6,99 +6,29 @@ import { z } from 'zod'
 import { APP_VERSION, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
 import type { HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
 import type { ServerWebSocket } from 'bun'
-import {
-  SettingsService,
-  createAgentCommands,
-  createBrowserCommands,
-  createComputerCommands,
-  createConfigurationCommands,
-  createGitCommands,
-  createWorkspaceSessionCommands,
-  createSessionLaunchTargetCommands,
-  createSessionLaunchBranchesCommands,
-  createSessionBranchTargetCommands,
-  createBudgetCommands,
-  createFileCommands,
-  createResourceCommands,
-  createGoalPlanCommands,
-  createInteractionCommands,
-  createModelCommands,
-  createModelSettingsValidator,
-  createRunCommands,
-  createSettingsCommands,
-  createUsageCommands,
-  createWorkflowCommands,
-  createScheduleCommands,
-  createPromptTemplateCommands,
-  createSandboxCommands,
-  createSandboxSettingsValidator,
-  createNotificationCommands,
-  createRunBoardCommands,
-  createScheduleDueReader,
-} from '@hbar/kernel/controller'
-import { budgetCommands as budgetDefinitions } from '@hbar/contracts/commands/budget'
-import { agentCommands as agentDefinitions } from '@hbar/contracts/commands/agents'
-import { browserCommands as browserDefinitions } from '@hbar/contracts/commands/browser'
-import { computerCommands as computerDefinitions } from '@hbar/contracts/commands/computer'
-import { configurationCommands as configurationDefinitions } from '@hbar/contracts/commands/configuration'
-import { gitCommands as gitDefinitions } from '@hbar/contracts/commands/git'
-import { workspaceSessionCommands as workspaceSessionDefinitions } from '@hbar/contracts/commands/workspaces'
-import { sessionLaunchTargetCommands as sessionLaunchTargetDefinitions } from '@hbar/contracts/commands/session-launch-target'
-import { sessionLaunchBranchesCommands as sessionLaunchBranchesDefinitions } from '@hbar/contracts/commands/session-launch-branches'
-import { sessionBranchTargetCommands as sessionBranchTargetDefinitions } from '@hbar/contracts/commands/session-branch-target'
-import { fileCommands as fileDefinitions } from '@hbar/contracts/commands/files'
-import { resourceCommands as resourceDefinitions } from '@hbar/contracts/commands/resources'
-import { extensionCommands as extensionDefinitions } from '@hbar/contracts/commands/extensions'
-import { goalPlanCommands as goalPlanDefinitions } from '@hbar/contracts/commands/goals'
-import { interactionCommands as interactionDefinitions } from '@hbar/contracts/commands/interaction'
-import { modelCommands as modelDefinitions } from '@hbar/contracts/commands/models'
-import {
-  queuedRunGuidedOperationId as guidedOperationId,
-  admitOperationRecovery,
-  runCommands as runDefinitions,
-} from '@hbar/contracts/commands/run'
-import { settingsCommands as settingsDefinitions } from '@hbar/contracts/commands/settings'
-import { chatDatabaseCommands as chatDatabaseDefinitions, chatDatabaseUploadOwnerSchema } from '@hbar/contracts/commands/chat-database'
+
+import { queuedRunGuidedOperationId as guidedOperationId, admitOperationRecovery } from '@hbar/contracts/commands/run'
+
+import { chatDatabaseUploadOwnerSchema, chatDatabaseCommands as chatDatabaseDefinitions } from '@hbar/contracts/commands/chat-database'
 import { systemCommands as systemDefinitions } from '@hbar/contracts/commands/system'
-import { usageCommands as usageDefinitions } from '@hbar/contracts/commands/usage'
-import { workflowCommands as workflowDefinitions } from '@hbar/contracts/commands/workflows'
+
 import { metricsCommands as metricsDefinitions } from '@hbar/contracts/commands/metrics'
-import {
-  directoryCommands as directoryDefinitions,
-  surfaceCommands as surfaceDefinitions,
-} from '@hbar/contracts/commands'
+import { surfaceCommands as surfaceDefinitions } from '@hbar/contracts/commands'
 import { CommandError } from '@hbar/commands/protocol'
-import type {
-  ExecutionProvider,
-  GoalService,
-  ModeService,
-  PlanService,
-  WorkspaceQueryProvider,
-} from '@hbar/plugin-sdk'
+
 import { Auth, requestToken } from './auth.ts'
 import { createSystemCommands } from './system-commands.ts'
-import { createSkillImportService } from '@hbar/kernel/skill-import'
-import { createExtensionCommands } from './extension-commands.ts'
-import { createSkillInspectionService } from './skill-inspection.ts'
+
 import type { KernelControllerPort, KernelClientScopePort } from '@hbar/kernel/controller'
 import { SystemTerminalManager } from './system-terminal'
 import { sendSocketFrame, sendSocketTextFrame } from './socket-sender'
 import { isStableRpc, isRecoveryControl } from './stable-rpc'
-import { UsageService } from '@hbar/usage'
+
 import { PerformanceCollector } from '@hbar/metrics'
 import { createHostPerformanceProvider } from './performance-provider.ts'
 import { createMetricsCommands } from './metrics-commands.ts'
-import { createSessionSearchCommands } from '@hbar/kernel/session-search-commands'
-import { sessionSearchCommands as sessionSearchDefinitions } from '@hbar/contracts/commands/session-search'
-import { scheduleCommands as scheduleDefinitions } from '@hbar/contracts/commands/schedules'
-import { promptTemplateCommands as promptTemplateDefinitions } from '@hbar/contracts/commands/prompt-templates'
-import { sandboxCommands as sandboxDefinitions } from '@hbar/contracts/commands/sandbox'
-import { notificationCommands as notificationDefinitions } from '@hbar/contracts/commands/notifications'
-import { runBoardCommands as runBoardDefinitions } from '@hbar/contracts/commands/run-board'
-import { submitRunInputSchema } from '@hbar/contracts/commands/run'
-import { createScheduleService, createNotificationService } from '@hbar/kernel/controller'
-import { createScheduleHostController } from './schedule-host-controller.ts'
-declare const HBAR_MANAGED_MAINTENANCE: boolean
+
+declare const HBAR_MANAGED_CONTROLLER: boolean
 
 interface SocketData {
   token?: string | undefined
@@ -135,59 +65,6 @@ export interface ServerOptions {
   restart?: () => boolean | Promise<boolean>
 }
 
-function resolveModeService(kernel: KernelControllerPort): ModeService {
-  return {
-    get: (sessionId) => kernel.plugins.get('mode').get(sessionId),
-    set: (sessionId, mode) => kernel.plugins.get('mode').set(sessionId, mode),
-    effectiveMode: (run) => kernel.plugins.get('mode').effectiveMode(run),
-    commitExit: (sessionId, commit) => kernel.plugins.get('mode').commitExit(sessionId, commit),
-  }
-}
-
-function resolveGoalService(kernel: KernelControllerPort): GoalService {
-  return {
-    resumeOnStartup: () => kernel.plugins.get('goal').resumeOnStartup(),
-    snapshot: (sessionId) => kernel.plugins.get('goal').snapshot(sessionId),
-    get: (sessionId) => kernel.plugins.get('goal').get(sessionId),
-    create: (sessionId, objective, tokenBudget, runId, startedAt) =>
-      kernel.plugins.get('goal').create(sessionId, objective, tokenBudget, runId, startedAt),
-    set: (sessionId, input) => kernel.plugins.get('goal').set(sessionId, input),
-    update: (sessionId, status, runId, reason) =>
-      kernel.plugins.get('goal').update(sessionId, status, runId, reason),
-    clear: (sessionId, expectedGoalId) => kernel.plugins.get('goal').clear(sessionId, expectedGoalId),
-    requestContinuation: (sessionId, input) =>
-      kernel.plugins.get('goal').requestContinuation(sessionId, input),
-  }
-}
-
-function resolvePlanService(kernel: KernelControllerPort): PlanService {
-  return {
-    snapshot: (sessionId) => kernel.plugins.get('plan').snapshot(sessionId),
-    get: (sessionId) => kernel.plugins.get('plan').get(sessionId),
-    withRevision: (sessionId, revision, commit) =>
-      kernel.plugins.get('plan').withRevision(sessionId, revision, commit),
-    update: (sessionId, plan, explanation, turnId, expectedRevision) =>
-      kernel.plugins.get('plan').update(sessionId, plan, explanation, turnId, expectedRevision),
-    clear: (sessionId, expectedRevision) => kernel.plugins.get('plan').clear(sessionId, expectedRevision),
-  }
-}
-
-function resolveExecutionProvider(kernel: KernelControllerPort): ExecutionProvider {
-  return {
-    list: (workspace, path) => kernel.plugins.get('execution').list(workspace, path),
-    read: (workspace, path) => kernel.plugins.get('execution').read(workspace, path),
-    readBytes: (workspace, path) => kernel.plugins.get('execution').readBytes(workspace, path),
-    write: (workspace, path, text) => kernel.plugins.get('execution').write(workspace, path, text),
-    exec: (workspace, command, signal) =>
-      kernel.plugins.get('execution').exec(workspace, command, signal),
-    get workspaceQuery(): WorkspaceQueryProvider {
-      const query = kernel.plugins.get('execution').workspaceQuery
-      if (!query) throw new HbarError('CAPABILITY_UNAVAILABLE', 'Workspace path search is unavailable')
-      return query
-    },
-  }
-}
-
 export async function startServer(kernel: KernelControllerPort, options: ServerOptions = {}) {
   const performance = new PerformanceCollector(
     createHostPerformanceProvider(async () => ({
@@ -199,210 +76,47 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
   )
   await performance.start()
   const metricsCommands = createMetricsCommands(performance)
-  const agentCommands = createAgentCommands(kernel.plugins.get('agent'))
-  const browserCommands = createBrowserCommands(kernel.plugins.get('browser'))
-  const computerCommands = createComputerCommands(kernel.plugins.get('computer'))
-  const configurationCommands = createConfigurationCommands(kernel, resolveModeService(kernel))
-  const skillInspection = createSkillInspectionService(kernel.options.layout.globalSkills)
-  const skillImport = createSkillImportService({
-    destination: kernel.options.layout.globalSkills,
-    journalRoot: resolve(kernel.options.layout.settings, 'skill-imports'),
-  })
-  const extensionCommands = createExtensionCommands({
-    skillImport,
-    list: () => kernel.plugins.list(),
-    set: (id, enabled, config) => kernel.changePlugin(id, enabled, config),
-    install: (path, projectId) => kernel.installPlugin(path, projectId),
-    async remove(id) {
-      kernel.assertIdle()
-      const result = await kernel.plugins.remove(id)
-      kernel.changed('plugins')
-      return result
-    },
-    resolve: (id) => kernel.plugins.resolve(id),
-    graph: () => kernel.plugins.graph(),
-    lock: () => kernel.plugins.lock(),
-    doctor: () => kernel.plugins.doctor(),
-    skills: (signal) => skillInspection.list(signal),
-    skillInspection,
-  })
-  const gitCommands = createGitCommands(kernel.plugins.get('git'), {
-    storage: kernel.storage,
-    resolveSessionPath: (sessionId, workspacePath, signal) =>
-      kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
-  })
-  const workspaceSessionCommands = createWorkspaceSessionCommands(kernel)
-  const sessionLaunchTargetCommands = createSessionLaunchTargetCommands(kernel, () =>
-    kernel.changed('session-launch-target'),
-  )
-  const sessionLaunchBranchesCommands = createSessionLaunchBranchesCommands(
-    kernel.storage,
-    kernel.plugins.get('git'),
-  )
-  const sessionBranchTargetCommands = createSessionBranchTargetCommands(kernel)
-  const budgetCommands = createBudgetCommands(kernel.plugins.get('budget'))
-  const fileCommands = createFileCommands(kernel.storage, resolveExecutionProvider(kernel), {
-    resolveWorkspacePath: (workspaceId, path, signal) => kernel.workspaceSandboxes.prepare(workspaceId, path, signal),
-    resolveSessionPath: (sessionId, workspacePath, signal) =>
-      kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
-  })
-  const goalPlanCommands = createGoalPlanCommands(
-    resolveGoalService(kernel),
-    resolvePlanService(kernel),
-    kernel.storage,
-  )
-  const interactionCommands = createInteractionCommands(kernel)
-  const validateModelSettings = createModelSettingsValidator(kernel)
-  const validateSandboxSettings = createSandboxSettingsValidator(kernel.sandboxProfiles)
-  const settingsService = new SettingsService(
-    kernel.storage,
-    async (candidate) => {
-      await validateModelSettings(candidate)
-      await validateSandboxSettings(candidate)
-    },
-    () => kernel.changed('settings'),
-  )
-  const modelCommands = createModelCommands(kernel, settingsService)
-  const runCommands = createRunCommands(kernel)
-  const settingsCommands = createSettingsCommands(settingsService)
-  const resourceCommands = createResourceCommands(kernel.storage, resolveExecutionProvider(kernel), {
-    resolveWorkspacePath: (workspaceId, path, signal) => kernel.workspaceSandboxes.prepare(workspaceId, path, signal),
-    resolveSessionPath: (sessionId, workspacePath, signal) => kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
-  }, [kernel.options.layout.settings, kernel.options.layout.artifacts, kernel.options.layout.sessions,
-    kernel.options.layout.databases, kernel.options.layout.connectionFile,
-    kernel.options.layout.hostLock, kernel.options.layout.diagnostics])
-  const chatDatabaseCommands = options.runtime?.maintenance ??
-    (typeof HBAR_MANAGED_MAINTENANCE !== 'undefined' && HBAR_MANAGED_MAINTENANCE
-      ? (() => { throw new HbarError('RUNTIME_RECOVERING', 'The managed Maintenance port is required') })()
-      : (await import('./chat-database-host-controller')).createChatDatabaseHostController(kernel, settingsService))
-  const usageCommands = createUsageCommands(
-    new UsageService({ read: (input) => kernel.storage.call('usageEvents', input) }),
-  )
-  const workflowCommands = createWorkflowCommands(kernel.plugins.get('workflow'))
-  const sessionSearchCommands = createSessionSearchCommands(kernel.storage)
-  const scheduleService = createScheduleService({
-    list: (workspaceId, after, limit) => kernel.storage.call('schedulePage', workspaceId, after, limit),
-    get: (scheduleId) => kernel.storage.call('schedule', scheduleId),
-    create: (input, identity) => kernel.storage.call('createSchedule', input, identity),
-    update: (input, identity) => kernel.storage.call('updateSchedule', input, identity),
-    delete: (scheduleId, expectedRevision, identity) =>
-      kernel.storage.call('deleteSchedule', scheduleId, expectedRevision, identity),
-    occurrences: (scheduleId, after, limit) => kernel.storage.call('scheduleOccurrences', scheduleId, after, limit),
-    claim: (scheduleId, dueAt, now) => kernel.storage.call('claimScheduleOccurrence', scheduleId, dueAt, now),
-    transition: (id, status, runId, error, sessionId) =>
-      kernel.storage.call('transitionScheduleOccurrence', id, status, runId, error, sessionId),
-  })
-  const scheduleCommands = createScheduleCommands(scheduleService, {
-    lookup: (commandId, input, identity) => kernel.storage.call('scheduleReceipt', commandId, input, identity),
-  })
-  const sandboxCommandService = createSandboxCommands(kernel.sandboxProfiles)
-  const promptTemplateCommands = createPromptTemplateCommands({
-    list: (input) => kernel.storage.call('promptTemplatePage', input),
-    get: (id) => kernel.storage.call('promptTemplate', id),
-    save: (input, identity) => kernel.storage.call('savePromptTemplate', input, identity),
-    delete: (input, identity) => kernel.storage.call('deletePromptTemplate', input, identity),
-    receipt: (commandId, input, identity) => kernel.storage.call('promptTemplateReceipt', commandId, input, identity),
-  })
-  const notificationService = createNotificationService({
-    storage: {
-      insertNotification: (record) => kernel.storage.call('insertNotification', record),
-      notificationPage: (input) => kernel.storage.call('notificationPage', input),
-      notificationBySourceEvent: (sourceEventId) => kernel.storage.call('notificationBySourceEvent', sourceEventId),
-      markNotificationRead: (id, readAt, identity) => kernel.storage.call('markNotificationRead', id, readAt, identity),
-      markAllNotificationsRead: (readAt, identity) => kernel.storage.call('markAllNotificationsRead', readAt, identity),
-      notificationPreferences: () => kernel.storage.call('notificationPreferences'),
-      setNotificationPreferences: (input, identity) =>
-        kernel.storage.call('setNotificationPreferences', input, identity),
-      notificationReceipt: (commandId, input, identity) =>
-        kernel.storage.call('notificationReceipt', commandId, input, identity),
-    },
-    publish: (event) => kernel.changed(event.params.kind),
-    publishFresh: (event) => broadcastFresh(event),
-  })
-  const notificationCommands = createNotificationCommands(notificationService)
-  const runBoardCommands = createRunBoardCommands(kernel.storage)
-  const readDueSchedules = createScheduleDueReader({
-    enabledPage: (after, limit) => kernel.storage.call('enabledSchedules', after, limit),
-    runtime: (id) => kernel.storage.call('scheduleRuntime', id),
-    recordCandidate: (id, dueAt, now) => kernel.storage.call('recordScheduleCandidate', id, dueAt, now),
-  })
-  const scheduleController = createScheduleHostController({
-    service: scheduleService,
-    actorId: 'hbar:scheduler',
-    runCommands: {
-      execute: (id, input, options) =>
-        id === 'run.submit'
-          ? runCommands.execute(id, submitRunInputSchema.parse(input), options)
-          : runCommands.execute(id, z.strictObject({ operationId: z.string().min(1) }).parse(input), options),
-      getReceipt: (_commandId, sessionId, actorId, idempotencyKey) =>
-        runCommands.getReceipt('run.submit', sessionId, actorId, idempotencyKey),
-    },
-    prepareSession: async (input) => {
-      if (input.sessionId || input.target === 'existing-session') {
-        if (!input.sessionId) throw new HbarError('INVALID_INPUT', 'Scheduled target session is required')
-        const session = await kernel.storage.call('session', input.sessionId)
-        if (session.workspaceId !== input.workspaceId || session.archived)
-          throw new HbarError('COMMAND_CONFLICT', 'Scheduled target session is unavailable')
-        return { sessionId: session.id }
-      }
-      const created = await kernel.storage.call('createSessionCommand', {
-        actorId: 'hbar:scheduler',
-        idempotencyKey: `schedule-session:${input.occurrenceId}`,
-        workspaceId: input.workspaceId,
-        title: 'Scheduled run',
-      })
-      kernel.changed('sessions')
-      return { sessionId: created.id }
-    },
-    reader: {
-      enabledSchedules: async (after: string | null, limit: number) =>
-        (await kernel.storage.call('enabledSchedules', after, limit)).items,
-      activeScheduleOccurrences: (limit, after) => kernel.storage.call('activeScheduleOccurrences', limit, after),
-      dueScheduleOccurrences: readDueSchedules,
-    },
-    onFailure: ({ occurrenceId }) => notificationService.publishSource(`schedule:${occurrenceId}:failed`),
-  })
-  const commandServices = [
-    { definitions: agentDefinitions, service: agentCommands },
-    { definitions: browserDefinitions, service: browserCommands },
-    { definitions: computerDefinitions, service: computerCommands },
-    { definitions: configurationDefinitions, service: configurationCommands },
-    { definitions: extensionDefinitions, service: extensionCommands },
-    { definitions: gitDefinitions, service: gitCommands },
-    { definitions: directoryDefinitions, service: kernel.directoryQueries },
-    { definitions: sessionSearchDefinitions, service: sessionSearchCommands },
-    { definitions: workspaceSessionDefinitions, service: workspaceSessionCommands },
-    { definitions: sessionLaunchTargetDefinitions, service: sessionLaunchTargetCommands },
-    { definitions: sessionLaunchBranchesDefinitions, service: sessionLaunchBranchesCommands },
-    { definitions: sessionBranchTargetDefinitions, service: sessionBranchTargetCommands },
-    { definitions: budgetDefinitions, service: budgetCommands },
-    { definitions: fileDefinitions, service: fileCommands },
-    { definitions: resourceDefinitions, service: resourceCommands },
-    { definitions: goalPlanDefinitions, service: goalPlanCommands },
-    { definitions: interactionDefinitions, service: interactionCommands },
-    { definitions: modelDefinitions, service: modelCommands },
-    { definitions: metricsDefinitions, service: metricsCommands },
-    { definitions: runDefinitions, service: runCommands },
-    { definitions: settingsDefinitions, service: settingsCommands },
-    { definitions: chatDatabaseDefinitions, service: chatDatabaseCommands },
-    { definitions: usageDefinitions, service: usageCommands },
-    { definitions: workflowDefinitions, service: workflowCommands },
-    { definitions: scheduleDefinitions, service: scheduleCommands },
-    { definitions: promptTemplateDefinitions, service: promptTemplateCommands },
-    { definitions: sandboxDefinitions, service: sandboxCommandService },
-    { definitions: notificationDefinitions, service: notificationCommands },
-    { definitions: runBoardDefinitions, service: runBoardCommands },
-  ]
-  const commandDispatchers = new Map<string, (value: unknown, actorId: string) => Promise<unknown>>(
-    commandServices.flatMap(({ definitions, service }) =>
-      Object.keys(definitions).map((id) => [id, service.dispatch] as const),
-    ),
-  )
-  const commandDescribers = new Map(
-    commandServices.flatMap(({ definitions, service }) =>
-      Object.keys(definitions).map((id) => [id, () => service.describe(id)] as const),
-    ),
-  )
+  const application =
+    options.controller?.application ??
+    (typeof HBAR_MANAGED_CONTROLLER !== 'undefined' && HBAR_MANAGED_CONTROLLER
+      ? (() => {
+          throw new HbarError('RUNTIME_RECOVERING', 'The owned Controller application is required')
+        })()
+      : (await import('./controller-application')).createControllerApplication(kernel, {
+          ...(options.runtime?.maintenance ? { maintenance: options.runtime.maintenance } : {}),
+          publishFresh: (event) => broadcastFresh(event),
+        }))
+  const {
+    browserCommands,
+    computerCommands,
+    configurationCommands,
+    extensionCommands,
+    gitCommands,
+    workspaceSessionCommands,
+    budgetCommands,
+    goalPlanCommands,
+    interactionCommands,
+    runCommands,
+    resourceCommands,
+    notificationService,
+    scheduleController,
+    commandServices,
+    commandDispatchers,
+    commandDescribers,
+  } = application
+  commandServices.push({ commandIds: Object.keys(metricsDefinitions), service: metricsCommands })
+  for (const id of Object.keys(metricsDefinitions)) {
+    commandDispatchers.set(id, metricsCommands.dispatch)
+    commandDescribers.set(id, () => metricsCommands.describe(id))
+  }
+  if (options.runtime?.maintenance && options.controller?.application) {
+    const maintenance = options.runtime.maintenance
+    commandServices.push({ commandIds: Object.keys(chatDatabaseDefinitions), service: maintenance })
+    for (const id of Object.keys(chatDatabaseDefinitions)) {
+      commandDispatchers.set(id, maintenance.dispatch)
+      commandDescribers.set(id, () => maintenance.describe(id))
+    }
+  }
   const hostname = options.hostname ?? '127.0.0.1'
   const auth = new Auth(kernel.storage, { available: () => options.runtime?.authenticationAvailable?.() ?? true })
   const pairing = auth.createPairing()
@@ -661,7 +375,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
           events: reset
             ? []
             : events.filter(
-                (event) => (event.runId !== null && ids.has(event.runId)) || guidedOperationId(event) === input.operationId,
+                (event) =>
+                  (event.runId !== null && ids.has(event.runId)) || guidedOperationId(event) === input.operationId,
               ),
           cursor: session.seq,
           reset,
@@ -853,7 +568,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
             send(socket, { jsonrpc: '2.0', method: 'terminal.exit', params: { terminalId, code, signal } }),
         }
         socket.data.terminalCallbacks = terminalCallbacks
-        for (const terminal of systemTerminals.attach(device.id, terminalCallbacks)) socket.data.terminals.add(terminal.id)
+        for (const terminal of systemTerminals.attach(device.id, terminalCallbacks))
+          socket.data.terminals.add(terminal.id)
         clearTimeout(socket.data.timer)
         return hostInfo()
       }
@@ -1095,11 +811,19 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       }
       case 'terminal.open': {
         const p = rpcSchemas[method].parse(raw)
-        if (socket.data.terminals.size >= 8) throw new HbarError('OVERLOADED', 'A connection may own at most 8 terminals')
+        if (socket.data.terminals.size >= 8)
+          throw new HbarError('OVERLOADED', 'A connection may own at most 8 terminals')
         const workspace = await kernel.storage.call('workspace', p.workspaceId)
         const callbacks = socket.data.terminalCallbacks
         if (!callbacks) throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
-        const info = systemTerminals.open(socket.data.deviceId!, workspace.id, workspace.path, p.cols, p.rows, callbacks)
+        const info = systemTerminals.open(
+          socket.data.deviceId!,
+          workspace.id,
+          workspace.path,
+          p.cols,
+          p.rows,
+          callbacks,
+        )
         socket.data.terminals.add(info.id)
         return info
       }
@@ -1221,9 +945,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       }
       case 'browser.screenshot': {
         const p = rpcSchemas[method].parse(raw)
-        return kernel.plugins
-          .get('browser')
-          .screenshot(p.sessionId, p.fullPage, p.contextId, p.pageId)
+        return kernel.plugins.get('browser').screenshot(p.sessionId, p.fullPage, p.contextId, p.pageId)
       }
       case 'browser.evaluate': {
         const p = rpcSchemas[method].parse(raw)
@@ -1336,13 +1058,17 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         if (url.pathname === '/livez') return json(request, { alive: true, instanceId: kernel.instanceId })
         if (url.pathname === '/healthz') {
           const ready = options.runtime?.snapshot().ready ?? true
-          return json(request, {
-            ready,
-            version: APP_VERSION,
-            protocol: PROTOCOL_VERSION,
-            instanceId: kernel.instanceId,
-            ...(options.dataRootId ? { dataRootId: options.dataRootId } : {}),
-          }, ready ? 200 : 503)
+          return json(
+            request,
+            {
+              ready,
+              version: APP_VERSION,
+              protocol: PROTOCOL_VERSION,
+              instanceId: kernel.instanceId,
+              ...(options.dataRootId ? { dataRootId: options.dataRootId } : {}),
+            },
+            ready ? 200 : 503,
+          )
         }
         if (url.pathname === '/auth/pair' && request.method === 'POST') {
           const p = z.object({ code: z.string().max(32), name: z.string().min(1).max(100) }).parse(await request.json())
@@ -1386,17 +1112,27 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
             })
           const pluginAsset = /^\/api\/plugins\/([^/]+)\/assets\/(.+)$/.exec(url.pathname)
           if (pluginAsset && request.method === 'GET') {
-            const assetPath = await kernel.plugins.assetPath(decodeURIComponent(pluginAsset[1]!), decodeURIComponent(pluginAsset[2]!))
+            const assetPath = await kernel.plugins.assetPath(
+              decodeURIComponent(pluginAsset[1]!),
+              decodeURIComponent(pluginAsset[2]!),
+            )
             const file = Bun.file(assetPath)
-            return response(request, file, 200, { 'Content-Type': file.type || 'application/octet-stream', 'Content-Security-Policy': "default-src 'none'" })
+            return response(request, file, 200, {
+              'Content-Type': file.type || 'application/octet-stream',
+              'Content-Security-Policy': "default-src 'none'",
+            })
           }
           if (url.pathname === '/api/artifacts' && request.method === 'POST') {
             const name = decodeURIComponent(request.headers.get('x-filename') ?? 'image')
             const ownerHeader = request.headers.get('x-artifact-owner')
-            if (ownerHeader && ownerHeader.length > 2048) throw new HbarError('INVALID_INPUT', 'Attachment owner header is oversized')
-            const owner = ownerHeader ? chatDatabaseUploadOwnerSchema.parse(JSON.parse(decodeURIComponent(ownerHeader))) : undefined
+            if (ownerHeader && ownerHeader.length > 2048)
+              throw new HbarError('INVALID_INPUT', 'Attachment owner header is oversized')
+            const owner = ownerHeader
+              ? chatDatabaseUploadOwnerSchema.parse(JSON.parse(decodeURIComponent(ownerHeader)))
+              : undefined
             const sha256 = request.headers.get('x-content-sha256') ?? undefined
-            if (sha256 && !/^[a-f0-9]{64}$/.test(sha256)) throw new HbarError('INVALID_INPUT', 'Attachment content hash is invalid')
+            if (sha256 && !/^[a-f0-9]{64}$/.test(sha256))
+              throw new HbarError('INVALID_INPUT', 'Attachment content hash is invalid')
             return json(
               request,
               await kernel.upload(
@@ -1412,7 +1148,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
             if (body.length > 24_000) throw new HbarError('INVALID_INPUT', 'Resource request is oversized')
             const media = await resourceCommands.readMedia(JSON.parse(body), request.signal)
             return response(request, new Blob([new Uint8Array(media.bytes)], { type: media.mime }), 200, {
-              'Content-Type': media.mime, 'Cache-Control': 'no-store',
+              'Content-Type': media.mime,
+              'Cache-Control': 'no-store',
               'Content-Security-Policy': "default-src 'none'; sandbox",
               'X-Content-Type-Options': 'nosniff',
             })
@@ -1473,19 +1210,39 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
               const text = typeof payload === 'string' ? payload : payload.toString()
               try {
                 const envelope = rpcRequestSchema.safeParse(JSON.parse(text))
-                if (envelope.success) { id = envelope.data.id; stable = isStableRpc(envelope.data.method, envelope.data.params) }
-              } catch { /* The Controller returns a correlated response for every valid envelope. */ }
+                if (envelope.success) {
+                  id = envelope.data.id
+                  stable = isStableRpc(envelope.data.method, envelope.data.params)
+                }
+              } catch {
+                /* The Controller returns a correlated response for every valid envelope. */
+              }
               if (!stable) {
-                const frame = await options.controller.dispatch(text, async (request, signal) => {
-                  signal.throwIfAborted()
-                  if (request.method !== 'system.hello') {
-                    if (!socket.data.initialized) throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
-                    if (isRecoveryControl(request.method, request.params)) await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
+                const frame = await options.controller.dispatch(
+                  text,
+                  async (request, signal) => {
+                    signal.throwIfAborted()
+                    if (request.method !== 'system.hello') {
+                      if (!socket.data.initialized)
+                        throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
+                      if (isRecoveryControl(request.method, request.params))
+                        await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
+                      else await auth.authenticate(socket.data.token)
+                    }
+                    signal.throwIfAborted()
+                    return invoke(request.method, rpcSchemas[request.method].parse(request.params), socket, request.id)
+                  },
+                  async (request, signal) => {
+                    signal.throwIfAborted()
+                    if (!socket.data.initialized || !socket.data.deviceId)
+                      throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
+                    if (isRecoveryControl(request.method, request.params))
+                      await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
                     else await auth.authenticate(socket.data.token)
-                  }
-                  signal.throwIfAborted()
-                  return invoke(request.method, rpcSchemas[request.method].parse(request.params), socket, request.id)
-                })
+                    signal.throwIfAborted()
+                    return { actorId: socket.data.deviceId, host: hostInfo() }
+                  },
+                )
                 sendSocketTextFrame(socket, frame)
                 return
               }
@@ -1497,7 +1254,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
             if (!Object.hasOwn(rpcSchemas, request.method)) throw new HbarError('METHOD_NOT_FOUND', request.method)
             if (request.method !== 'system.hello') {
               if (!socket.data.initialized) throw new HbarError('UNAUTHORIZED', 'Initialize the connection first')
-              if (isRecoveryControl(request.method, request.params)) await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
+              if (isRecoveryControl(request.method, request.params))
+                await auth.authenticateStatus(socket.data.token, socket.data.deviceId)
               else await auth.authenticate(socket.data.token)
             }
             const method = request.method as RpcMethod
@@ -1518,7 +1276,11 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
           }
         })().catch(() => {
           console.error('[hbar] RPC callback failed')
-          try { socket.close(1011, 'Request failed; reconnect to reconcile') } catch { /* Transport already failed. */ }
+          try {
+            socket.close(1011, 'Request failed; reconnect to reconcile')
+          } catch {
+            /* Transport already failed. */
+          }
         })
       },
       close(socket) {
@@ -1556,8 +1318,11 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       if (!socket.data.initialized) continue
       if (event.method === 'session.event' || event.method === 'stream.update') {
         const bySession = socket.data.follows.has(event.params.sessionId)
-        if (event.method === 'session.event') for (const ids of socket.data.operationChains.values()) admitOperationRecovery(event.params, ids)
-        const byOperation = Boolean(event.params.runId && [...socket.data.operationChains.values()].some(ids => ids.has(event.params.runId!)))
+        if (event.method === 'session.event')
+          for (const ids of socket.data.operationChains.values()) admitOperationRecovery(event.params, ids)
+        const byOperation = Boolean(
+          event.params.runId && [...socket.data.operationChains.values()].some((ids) => ids.has(event.params.runId!)),
+        )
         const guidedId = event.method === 'session.event' ? guidedOperationId(event.params) : null
         const byGuidedOperation = guidedId !== null && socket.data.operationFollows.has(guidedId)
         if (!bySession && !byOperation && !byGuidedOperation) continue
@@ -1577,40 +1342,12 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     pairing,
     info: hostInfo,
     async close() {
-      agentCommands.dispose()
-      browserCommands.dispose()
-      computerCommands.dispose()
-      configurationCommands.dispose()
-      extensionCommands.dispose()
-      await skillImport.dispose()
-      gitCommands.dispose()
-      workspaceSessionCommands.dispose()
-      sessionLaunchTargetCommands.dispose()
-      sessionLaunchBranchesCommands.dispose()
-      sessionBranchTargetCommands.dispose()
-      await sessionSearchCommands.dispose()
-      budgetCommands.dispose()
-      fileCommands.dispose()
-      resourceCommands.dispose()
-      goalPlanCommands.dispose()
-      workflowCommands.dispose()
-      interactionCommands.dispose()
-      modelCommands.dispose()
+      await application.dispose()
       metricsCommands.dispose()
       performance.stop()
-      runCommands.dispose()
-      settingsCommands.dispose()
-      await chatDatabaseCommands.dispose()
-      usageCommands.dispose()
-      await scheduleController.close()
       unsubscribe()
       systemTerminals.closeAll()
       while (notificationTasks.size) await Promise.allSettled([...notificationTasks])
-      scheduleCommands.dispose()
-      promptTemplateCommands.dispose()
-      sandboxCommandService.dispose()
-      notificationCommands.dispose()
-      runBoardCommands.dispose()
       systemCommands.dispose()
       unsubscribeMetrics()
       for (const pending of [...pendingSurfaceByRelay.values()])

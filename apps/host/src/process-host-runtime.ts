@@ -24,6 +24,7 @@ import { RUNTIME_PLUGIN_CONTROL_METHODS } from './runtime-plugin-contract'
 import { RuntimeResourceRegistry } from './runtime-resource-registry'
 import { RuntimeMaintenanceRelay, type RuntimeMaintenanceEndpoint } from './runtime-maintenance-relay'
 import { RUNTIME_MAINTENANCE_CONTROL_METHODS } from './runtime-maintenance-contract'
+import { createRuntimeControllerServices } from './runtime-controller-services'
 
 export interface ProcessHostRuntimeOptions {
   readonly layout: PathLayout
@@ -67,8 +68,9 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   readonly buildUnits: readonly RuntimeBuildUnit[]
   readonly facade: RuntimeKernelFacade
   readonly maintenance: RuntimeMaintenanceRelay
-  readonly controller: RuntimeControllerPort = { dispatch: (payload, invoke) => this.dispatchController(payload, invoke) }
-  private async dispatchController(payload: string, invoke: Parameters<RuntimeControllerPort['dispatch']>[1]): Promise<string> {
+  readonly controller: RuntimeControllerPort
+  private controllerStarted = false
+  private async dispatchController(payload: string, invoke: Parameters<RuntimeControllerPort['dispatch']>[1], authorize?: Parameters<RuntimeControllerPort['dispatch']>[2]): Promise<string> {
     let record: Generation | undefined
     try { record = this.currentGeneration('controller') } catch { /* Independent status reads remain available. */ }
     if (!record?.controller || record.process.snapshot().phase !== 'serving') {
@@ -82,7 +84,9 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     let captured: RuntimeKernelEndpoint | undefined
     try { captured = this.currentKernel() } catch { /* Runtime status remains callable during a Kernel outage. */ }
     const endpoint = captured
-    return record.controller.dispatch(payload, (request, signal) => endpoint ? this.facade.pin(endpoint, () => invoke(request, signal)) : invoke(request, signal))
+    const adapter = record.controller
+    const dispatch = () => adapter.dispatch(payload, invoke, authorize)
+    return endpoint ? this.facade.pin(endpoint, dispatch) : dispatch()
   }
   private readonly baseOwner: RuntimeOwner = { unitId: 'base', generation: 1, incarnation: crypto.randomUUID() }
   private readonly generations = new Map<string, Generation>()
@@ -168,10 +172,39 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       },
     })
     for (const unit of this.buildUnits) this.manager.register(unit.descriptor)
+    const self = this
+    this.controller = { dispatch: (payload, invoke, authorize) => this.dispatchController(payload, invoke, authorize),
+      get application() {
+        return createRuntimeControllerServices({ catalog: () => {
+          const catalog = self.controllerAdapter().list()
+          return { ...catalog, items: catalog.items.filter(item => !item.metadata.id.startsWith('chatDatabase.')) }
+        },
+          call: (service, method, args) => self.controllerAdapter().service(service, method, args),
+          start: async () => { self.controllerStarted = true; await self.controllerAdapter().resume() },
+          stop: async () => { self.controllerStarted = false; await self.controllerAdapter().pause() },
+        })
+      },
+    }
     this.sweep = setInterval(() => this.schedule(), 1_000)
     this.sweep.unref()
   }
   get kernel(): KernelControllerPort { return this.facade.api }
+  private controllerAdapter(): RuntimeControllerAdapter {
+    const record = this.currentGeneration('controller')
+    if (!record.controller || record.process.snapshot().phase !== 'serving') throw new HbarError('RUNTIME_RECOVERING', 'The Controller command owner is recovering')
+    return record.controller
+  }
+  private controllerProjection(): RuntimeKernelState {
+    try { return this.facade.projection() }
+    catch (error) {
+      if (runtimeDomainError(error)?.code !== 'RUNTIME_RECOVERING') throw error
+      const previous = [...this.generations.values()].filter(record => record.artifact.unitId === 'kernel').findLast(record => record.state)?.state
+      if (!previous) throw error
+      // Read-only descriptions remain available for operation queries and stable cancellation.
+      // Executable calls still verify the live owner in RuntimeKernelFacade and the coordinator.
+      return runtimeKernelStateSchema.parse({ ...previous, idle: false, active: [...this.leases.values()].map(lease => ({ sessionId: lease.sessionId, runId: lease.runId })) })
+    }
+  }
   authenticationAvailable(): boolean { return this.storage.snapshot().phase === 'serving' && !this.storageFailure }
   static async create(options: ProcessHostRuntimeOptions): Promise<ProcessHostRuntime> {
     if (options.profileModule && options.artifactPackage && !options.artifactPackage.units.some(unit => unit.artifact.unitId === 'kernel' && unit.artifact.files.some(file => file.name === 'profile.js')))
@@ -387,6 +420,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       settingsRoot: layout.settings, sessionsRoot: layout.sessions, skillsRoot: layout.globalSkills, identityRoot: layout.identityRoot }
     const configuration = artifact.unitId === 'storage' ? { ...paths, database: layout.database, workerPath: join(this.artifacts.root, artifact.id, 'worker.js') } :
       artifact.unitId === 'maintenance' ? { ...paths, workerPath: join(this.artifacts.root, artifact.id, 'maintenance-worker.js') } :
+      artifact.unitId === 'controller' ? { ...paths, instanceId: this.instanceId, demo: this.options.demo ?? false } :
       artifact.unitId === 'kernel' ? { ...paths, instanceId: this.instanceId, demo: this.options.demo ?? false,
         isolatedPlugins: this.buildUnits.some(unit => unit.descriptor.kind === 'plugin'),
         ...(this.options.profileModule ? { profileModule: join(this.artifacts.root, artifact.id, 'profile.js') } : {}) } :
@@ -397,14 +431,19 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       verifyModule: async signal => { await this.artifacts.get(artifact.id); signal.throwIfAborted() },
       controlMethods: [...RUNTIME_KERNEL_CONTROL_METHODS, ...RUNTIME_COORDINATION_CONTROL_METHODS, ...RUNTIME_PLUGIN_CONTROL_METHODS,
         ...RUNTIME_MAINTENANCE_CONTROL_METHODS,
-        'kernel.plugins.callback', 'kernel.plugins.control', 'controller.control', 'controller.invoke'],
+        'kernel.plugins.callback', 'kernel.plugins.control', 'controller.control', 'controller.invoke', 'controller.authorize',
+        'controller.application.control', 'controller.application.callback', 'controller.background.scope', 'controller.resume', 'controller.pause'],
       ...(this.options.processCommand ? { command: this.options.processCommand } : {}),
       onPeer: (peer, owner) => {
         record.owner = owner; record.peer = peer
         this.coordinator.register(owner, { unitId: artifact.unitId, generation, artifactId: artifact.id }, artifact.descriptor)
         this.owners.add(owner.incarnation)
         if (artifact.unitId === 'driver.pi') record.cleanup.push(this.relay.attachDriver(peer))
-        if (artifact.unitId === 'controller') record.controller = new RuntimeControllerAdapter(peer)
+        if (artifact.unitId === 'controller') record.controller = new RuntimeControllerAdapter(peer, { kernel: this.kernel, maintenance: this.maintenance,
+          projection: () => this.controllerProjection(), background: () => this.coordinator.role(owner) === 'default',
+          admitsApplications: () => ['default', 'draining'].includes(this.coordinator.role(owner)),
+          fresh: event => this.facade.replay({ method: 'notifications.created', params: event }),
+        })
         if (artifact.unitId === 'maintenance') record.cleanup.push(this.maintenance.attach(peer, owner, { unitId: artifact.unitId, generation, artifactId: artifact.id }))
         if (artifact.descriptor.kind === 'plugin') {
           const connection = this.pluginRelay.attachPlugin(peer, owner)
@@ -423,6 +462,10 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       onState: state => {
         changed()
         if (state.phase === 'serving' || state.phase === 'draining') this.transition(async () => {
+          if (artifact.unitId === 'controller' && state.role === 'default') {
+            await record.controller?.refreshCatalog()
+            if (this.controllerStarted) await record.controller?.resume()
+          }
           if (this.closing || record.owner?.incarnation !== state.incarnation || !['serving', 'draining'].includes(record.process.snapshot().phase)) return
           if (artifact.unitId === 'storage' && state.role === 'default') await this.installStorage(record)
           if (artifact.unitId === 'kernel') await this.refresh(record)

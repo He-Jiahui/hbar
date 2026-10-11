@@ -95,6 +95,14 @@ export class RuntimeKernelFacade {
     }
   }
   pin<Result>(endpoint: RuntimeKernelEndpoint, operation: () => Result): Result { return this.context.run(endpoint, operation) }
+  projection(): RuntimeKernelState {
+    return runtimeKernelStateSchema.parse({ ...this.selected().state, recovered: this.recovered, idle: this.idle(),
+      active: this.options.endpoints().flatMap(endpoint => endpoint.state.active),
+      modes: this.options.endpoints().flatMap(endpoint => endpoint.state.modes),
+      userInputs: this.options.endpoints().flatMap(endpoint => endpoint.state.userInputs),
+      protection: this.options.endpoints().flatMap(endpoint => endpoint.state.protection),
+    })
+  }
   setRecovered(count: number): void {
     if (!Number.isSafeInteger(count) || count < 0) throw new HbarError('INVALID_INPUT', 'Invalid recovered Run count')
     this.recovered = count

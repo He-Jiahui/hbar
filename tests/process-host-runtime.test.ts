@@ -9,6 +9,7 @@ import { HbarError, type WireNotification } from '@hbar/contracts'
 import { ProcessHostRuntime } from '../apps/host/src/process-host-runtime'
 import { startServer } from '../apps/host/src/server'
 import { buildRuntimePackage } from '../scripts/build-runtime-package'
+import { hostRuntimeBaseBuildUnit } from '../apps/host/src/runtime-build'
 
 const resources: Array<() => Promise<void>> = []
 afterEach(async () => { for (const cleanup of resources.splice(0)) await cleanup() })
@@ -50,6 +51,15 @@ async function changedPlugin(runtime: ProcessHostRuntime, id: string) {
   await writeFile(source, implementation + '\nexport const compatiblePluginRevision = 2\n')
   const artifact = await runtime.artifacts.build({ ...unit, entrypoint: source })
   return runtime.artifacts.registerSet([artifact])
+}
+async function changedController(runtime: ProcessHostRuntime) {
+  const root = await mkdtemp(join(process.cwd(), 'artifacts', 'process-controller-update-'))
+  resources.push(() => rm(root, { recursive: true, force: true }))
+  const unit = runtime.buildUnits.find(value => value.descriptor.id === 'controller')!
+  const source = join(root, 'controller.ts')
+  const implementation = (await readFile(unit.entrypoint, 'utf8')).replaceAll("'./", "'../../apps/host/src/")
+  await writeFile(source, implementation.replace("  values.register('service',", "  if (application) application.commandDispatchers.set('permission.get', async () => { throw new HbarError('CONTROLLER_OWNED_MARKER', String(process.pid)) })\n  values.register('service',"))
+  return runtime.artifacts.registerSet([await runtime.artifacts.build({ ...unit, entrypoint: source })])
 }
 async function clientFor(runtime: ProcessHostRuntime) {
   const host = await startServer(runtime.kernel, { port: 0, runtime, controller: runtime.controller })
@@ -104,6 +114,56 @@ test('a compatible Goal plugin update preserves the Kernel and socket, pins the 
     expect(f.runtime.snapshot().units.find(current => current.descriptor.id === unit.descriptor.id)?.generations[0]?.pid).toBe(unit.generations[0]?.pid)
   expect(client.connectionStatus()).toBe('connected'); expect(host.info().instanceId).toBe(before.instanceId)
 })
+
+test('owned Controller commands switch locally, retain the accepted request generation and keep the listener and every other owner', async () => {
+  const f = await fixture(), { client, host } = await clientFor(f.runtime)
+  const before = f.runtime.snapshot()
+  const payload = (id: string) => JSON.stringify({ jsonrpc: '2.0', id, method: 'command.execute', params: {
+    protocol: 1, requestId: id, commandId: 'permission.get', commandVersion: 1, input: {},
+  } })
+  let entered = false, release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  const previous = f.runtime.controller.dispatch(payload('captured-controller'), async () => { throw new Error('Business adapters must execute in the Controller owner') },
+    async () => { entered = true; await gate; return { actorId: 'owned-controller-fixture', host: host.info() } }).catch((error: unknown) => error)
+  try {
+    await until(() => entered)
+    const reload = f.runtime.reload((await changedController(f.runtime)).id, ['controller'])
+    await f.runtime.manager.reconcile(); await f.runtime.settled()
+    expect(f.runtime.manager.currentVersion('controller').generation).toBe(2)
+    const current = f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'controller')?.generations.find(g => g.role === 'default')
+    const result = await client.call('command.execute', { protocol: 1, requestId: 'owned-controller-marker', commandId: 'permission.get', commandVersion: 1, input: {} }).catch((error: unknown) => error)
+    expect(result).toMatchObject({ code: 'CONTROLLER_OWNED_MARKER', message: String(current?.pid) })
+    release()
+    const captured = await previous
+    if (typeof captured !== 'string') throw captured
+    expect(JSON.parse(captured)).toMatchObject({ id: 'captured-controller', result: { mode: 'ask' } })
+    await f.runtime.manager.reconcile()
+    await until(() => f.runtime.getReload(reload.operationId).phase === 'completed')
+    for (const unit of before.units.filter(unit => unit.descriptor.id !== 'controller'))
+      expect(f.runtime.snapshot().units.find(value => value.descriptor.id === unit.descriptor.id)?.generations[0]?.pid).toBe(unit.generations[0]?.pid)
+    expect(client.connectionStatus()).toBe('connected')
+    expect(host.info().instanceId).toBe(before.instanceId)
+    const base = await f.runtime.artifacts.build(hostRuntimeBaseBuildUnit())
+    const active = await Promise.all(f.runtime.snapshot().units.map(unit => f.runtime.artifacts.get(f.runtime.manager.currentVersion(unit.descriptor.id).artifactId)))
+    expect(base.inputs).not.toContain('packages/kernel/src/configuration-commands.ts')
+    expect(f.runtime.artifacts.affected(['packages/kernel/src/configuration-commands.ts'], [...active, base])).toEqual(['controller'])
+  } finally { release(); await previous }
+}, 120_000)
+
+test('owned Controller commands persist mutations and keep control calls responsive under concurrent reads', async () => {
+  const f = await fixture(), { client } = await clientFor(f.runtime)
+  const changed = await client.call('command.execute', { protocol: 1, requestId: 'owned-permission', commandId: 'permission.set', commandVersion: 1, input: { mode: 'allow' } })
+  expect(changed).toEqual({ mode: 'allow' })
+  await until(async () => (await client.call('permission.get', {})).mode === 'allow')
+  const reads = Promise.all(Array.from({ length: 24 }, () => client.call('permission.get', {}))).catch((error: unknown) => error)
+  const run = await client.call('run.start', { sessionId: f.session.id, requestId: 'owned-controller-run', modelId: 'local-fixture', input: { text: '/slow', images: [] } })
+  await until(() => f.runtime.coordinator.execution(run.id) !== null)
+  await client.call('run.cancel', { runId: run.id })
+  expect(await reads).toEqual(Array.from({ length: 24 }, () => ({ mode: 'allow' })))
+  await f.runtime.waitForIdle()
+  expect(await f.runtime.storage.call('run', run.id)).toMatchObject({ status: 'cancelled' })
+  expect(client.connectionStatus()).toBe('connected')
+}, 120_000)
 
 test('owned local and Plan tools validate, execute and settle through the admitted Run gateway', async () => {
   const f = await fixture()

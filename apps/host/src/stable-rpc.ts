@@ -2,7 +2,7 @@ import { rpcSchemas } from '@hbar/contracts'
 
 const connectionMethods = new Set([
   'system.hello', 'session.follow', 'session.unfollow', 'operation.watch', 'operation.unwatch', 'metrics.watch', 'metrics.unwatch',
-  'terminal.open', 'terminal.write', 'terminal.resize', 'terminal.close', 'terminal.list',
+  'terminal.open', 'terminal.input', 'terminal.resize', 'terminal.close', 'terminal.list',
   'surface.register', 'surface.unregister', 'surface.list', 'surface.invoke', 'surface.resolve',
 ])
 const managementCommands = new Set(['system.runtime.get', 'system.runtime.reload', 'system.runtime.reload.get', 'system.runtime.reload.cancel'])

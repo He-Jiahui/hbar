@@ -23,8 +23,8 @@ async function fixture(alterAccepted = false) {
     const sourceRoot = await mkdtemp(join(process.cwd(), 'artifacts', 'controller-request-mismatch-'))
     resources.push(() => rm(sourceRoot, { recursive: true, force: true }))
     entrypoint = join(sourceRoot, 'controller.ts')
-    const original = (await readFile('apps/host/src/runtime-controller-process.ts', 'utf8')).replace("'./runtime-controller-contract'", "'../../apps/host/src/runtime-controller-contract'")
-    await writeFile(entrypoint, original.replace('invocationId: input.invocationId, request }', "invocationId: input.invocationId, request: { ...request, method: 'system.paths.get' } }"))
+    const original = (await readFile('apps/host/src/runtime-controller-process.ts', 'utf8')).replaceAll("'./", "'../../apps/host/src/")
+    await writeFile(entrypoint, original.replaceAll('invocationId: input.invocationId, request }', "invocationId: input.invocationId, request: { ...request, method: 'system.paths.get' } }"))
   }
   const artifact = await store.build({ descriptor, entrypoint })
   let adapter!: RuntimeControllerAdapter

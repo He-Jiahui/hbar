@@ -23,7 +23,8 @@ export function hostRuntimeBuildUnits(options: { profileModule?: string } = {}):
   return [
     { descriptor: descriptor('storage', 'storage', STORAGE_RPC_FINGERPRINT), entrypoint: 'apps/host/src/runtime-storage-process.ts', workers: ['packages/storage/src/worker.ts'] },
     { descriptor: { ...descriptor('driver.pi', 'driver', DRIVER_RUNTIME_FINGERPRINT), required: !options.profileModule }, entrypoint: 'apps/host/src/runtime-driver-process.ts' },
-    { descriptor: descriptor('controller', 'controller', CONTROLLER_RUNTIME_FINGERPRINT), entrypoint: 'apps/host/src/runtime-controller-process.ts' },
+    { descriptor: descriptor('controller', 'controller', CONTROLLER_RUNTIME_FINGERPRINT), entrypoint: 'apps/host/src/runtime-controller-process.ts',
+      define: { HBAR_MANAGED_MAINTENANCE: 'true' }, external: RUNTIME_BUNDLE_EXTERNALS },
     { descriptor: descriptor('maintenance', 'maintenance', MAINTENANCE_RUNTIME_FINGERPRINT, ['storage', 'kernel']),
       entrypoint: 'apps/host/src/runtime-maintenance-process.ts', workers: ['packages/storage/src/maintenance-worker.ts'] },
     ...plugins.map(([id, entry, dependencies]) => ({ descriptor: descriptor('plugin.' + id, 'plugin', PLUGIN_RUNTIME_FINGERPRINT, [...dependencies]),
@@ -38,5 +39,5 @@ export function hostRuntimeBuildUnits(options: { profileModule?: string } = {}):
 export function hostRuntimeBaseBuildUnit(): RuntimeBuildUnit {
   return { descriptor: { ...descriptor('base', 'base', CONTROLLER_RUNTIME_FINGERPRINT), isolation: 'base', reloadable: false },
     entrypoint: 'apps/host/src/main.ts', external: RUNTIME_BUNDLE_EXTERNALS, resources: ['packages/runtime/src/build-worker.ts'],
-    define: { HBAR_MANAGED_MAINTENANCE: 'true' } }
+    define: { HBAR_MANAGED_MAINTENANCE: 'true', HBAR_MANAGED_CONTROLLER: 'true' } }
 }

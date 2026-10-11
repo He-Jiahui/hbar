@@ -3,13 +3,14 @@ import { sessionSearchCommands } from '@hbar/contracts/commands/session-search'
 import type { StoragePort } from '@hbar/storage'
 
 /** Search is a read use-case over a disposable Storage projection, never direct UI/database access. */
-export function createSessionSearchCommands(storage: StoragePort) {
+export function createSessionSearchCommands(storage: StoragePort, options: { readonly start?: boolean } = {}) {
   const registry = new CommandRegistry({ execution: 'host' })
   let disposed = false
   let timer: ReturnType<typeof setTimeout> | null = null
   let background: Promise<void> | null = null
   let pendingStep: Promise<{ complete: boolean }> | null = null
   let consecutiveFailures = 0
+  let started = options.start ?? true
 
   const advance = (): Promise<{ complete: boolean }> => {
     if (pendingStep) return pendingStep
@@ -28,7 +29,7 @@ export function createSessionSearchCommands(storage: StoragePort) {
   }
 
   const schedule = (delayMs: number): void => {
-    if (disposed || timer || background) return
+    if (disposed || !started || timer || background) return
     timer = setTimeout(() => {
       timer = null
       background = (async () => {
@@ -67,6 +68,17 @@ export function createSessionSearchCommands(storage: StoragePort) {
     },
     describe: (id: string) => registry.describe(id),
     list: () => registry.list({ limit: 100 }),
+    start() {
+      if (disposed) return
+      started = true
+      schedule(0)
+    },
+    async pause() {
+      started = false
+      if (timer) clearTimeout(timer)
+      timer = null
+      await background
+    },
     async dispose() {
       disposed = true
       registry.dispose()
