@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type { ExecutionOwnership } from '@hbar/contracts/runtime'
 import type { Run } from '@hbar/contracts'
-import type { StorageMethods, StoragePort } from '@hbar/storage'
+import type { StorageFatalListener, StorageMethods, StoragePort } from '@hbar/storage'
 
 /** Local composition ports; callbacks remain in the Kernel process, never on the IPC wire. */
 export interface KernelExecutionPort {
@@ -32,12 +32,14 @@ export class KernelExecutionScope {
     return (...args) => captured(operation, ...args)
   }
   storage(source: StoragePort): StoragePort {
+    const onFatal = source.onFatal
     return {
       call: <K extends keyof StorageMethods>(method: K, ...args: Parameters<StorageMethods[K]>) => {
         const lease = this.context.getStore()
         return lease && this.execution ? this.execution.call(lease, method, ...args) : source.call(method, ...args)
       },
       close: () => source.close(),
+      ...(onFatal ? { onFatal: (listener: StorageFatalListener) => onFatal.call(source, listener) } : {}),
     }
   }
   run<Result>(lease: ExecutionOwnership | undefined, operation: () => Promise<Result>): Promise<Result> {

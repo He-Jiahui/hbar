@@ -30,6 +30,7 @@ import { isStableRpc, isRecoveryControl } from './stable-rpc'
 import { PerformanceCollector } from '@hbar/metrics'
 import { createHostPerformanceProvider } from './performance-provider.ts'
 import { createMetricsCommands } from './metrics-commands.ts'
+import type { StorageFatalEvent } from '@hbar/storage'
 
 declare const HBAR_MANAGED_CONTROLLER: boolean
 import { createHostRequestDiagnostics, safeDiagnosticId, type DiagnosticContextPort } from './request-diagnostics.ts'
@@ -205,7 +206,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     ...(options.diagnosticFull === undefined ? {} : { full: options.diagnosticFull }),
     context: { instanceId: kernel.instanceId },
   })
-  let storageFatal: import('@hbar/storage').StorageFatalEvent | undefined
+  let storageFatal: StorageFatalEvent | undefined
   const removeStorageFatalListener = kernel.storage.onFatal?.((event) => {
     storageFatal = event
     for (const socket of sockets) socket.close(1012, 'Storage is unavailable; reconnect after Host recovery')
@@ -1184,11 +1185,24 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         if (url.pathname === '/livez') return json(request, { alive: true, instanceId: kernel.instanceId })
         if (url.pathname === '/healthz') {
           const runtime = options.runtime?.snapshot()
-          const ready = runtime?.ready ?? (!storageFatal && kernel.storageHealth().ready)
+          const storageHealth = kernel.storageHealth()
+          const fatal = storageFatal ?? storageHealth.failure
+          const ready = !fatal && (runtime?.ready ?? storageHealth.ready)
+          const safeFailure = fatal
+            ? {
+                kind: fatal.kind,
+                code: fatal.code.replace(/[^A-Z0-9_.-]/g, '').slice(0, 128),
+                ...(fatal.method
+                  ? { method: fatal.method.replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 128) }
+                  : {}),
+                occurredAt: Number.isFinite(fatal.occurredAt) ? fatal.occurredAt : 0,
+              }
+            : undefined
           return json(
             request,
             {
               ready,
+              ...(fatal ? { status: 'storage-failed', failure: safeFailure } : {}),
               version: APP_VERSION,
               protocol: PROTOCOL_VERSION,
               instanceId: kernel.instanceId,
