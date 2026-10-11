@@ -4,7 +4,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { expect, test } from 'bun:test'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { definePlugin, provide, type HarnessDriver } from '@hbar/plugin-sdk'
-import { createImageGenerationPlugin } from '../plugins/image-generation/src/index'
+import { createImageGenerationPlugin } from '@hbar/image-generation'
 
 async function removeFixture(root: string, prefix: string): Promise<void> {
   const actual = await realpath(root)

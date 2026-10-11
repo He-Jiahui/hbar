@@ -3,7 +3,7 @@ import { providerSchema, runSchema } from '@hbar/contracts'
 import { sessionSchema, workspaceSchema } from '@hbar/contracts/directory'
 import type { ModelRegistry, ToolContext } from '@hbar/plugin-sdk'
 import { z } from 'zod'
-import { createImageGenerationTool } from '../plugins/image-generation/src/index'
+import { createImageGenerationTool } from '@hbar/image-generation'
 
 const provider = providerSchema.parse({
   id: 'adapter-images',
