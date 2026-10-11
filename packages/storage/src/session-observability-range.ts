@@ -27,9 +27,9 @@ export function observabilityRange(
   const boundaries =
     input.scope === 'window'
       ? `SELECT seq,time,'' label FROM events WHERE sessionId=?1 AND type='context.compacted'`
-      : `SELECT e.seq,e.time,SUBSTR(COALESCE(json_extract(e.data,'$.content[0].text'),''),1,200) label
+      : `SELECT e.seq,e.time,SUBSTR(COALESCE(json_extract(e.data,'$.content[0].text'),''),1,100) label
        FROM events e LEFT JOIN runs r ON r.id=e.runId WHERE e.sessionId=?1 AND e.type='message.committed'
-        AND json_extract(e.data,'$.role')='user' AND COALESCE(json_extract(r.input,'$.source'),'user')!='goal'`
+        AND json_extract(e.data,'$.role')='user' AND (json_extract(e.data,'$.queueGuidance') IS NOT NULL OR COALESCE(json_extract(r.input,'$.source'),'user')='user')`
   const latest = db
     .query<{ seq: number }, [string]>(`SELECT seq FROM (${boundaries}) ORDER BY seq DESC LIMIT 1`)
     .get(input.sessionId)

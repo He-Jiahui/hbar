@@ -199,6 +199,8 @@ export {
   type HbarFilePreviewCloseScope,
 } from './file-preview-tabs'
 export { HbarSessionMonitoring, type HbarSessionMonitoringLabels } from './session-monitoring'
+export { HbarSessionObservability } from './session-observability'
+export type { HbarSessionObservabilityLabels } from './session-observability-labels'
 export { sessionRunFailures } from './session-run-failure-model'
 export { HbarSessionRequestDetails, type HbarSessionRequestLabels } from './session-request-details'
 export {

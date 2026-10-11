@@ -27,6 +27,7 @@ export const toolActivitySchema = z.strictObject({
       completed: z.boolean(),
       offset: count,
       characters: count,
+      totalCharacters: count.optional(),
     })
     .optional(),
 })

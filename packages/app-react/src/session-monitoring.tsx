@@ -13,8 +13,10 @@ import { HbarSessionDecisionHistory, type HbarSessionDecisionHistoryLabels } fro
 import { HbarSessionDecision, type HbarSessionDecisionLabels } from './session-interactions'
 import { monitoringDecisions } from './session-monitoring-decisions'
 import './session-monitoring.css'
+import { HbarSessionObservability, type HbarSessionObservabilityLabels } from './session-observability'
 
 export interface HbarSessionMonitoringLabels extends HbarSessionMonitoringUsageLabels {
+  readonly observability: HbarSessionObservabilityLabels
   readonly history: HbarSessionRunHistoryLabels
   readonly requests: HbarSessionRequestLabels
   readonly decisions: HbarSessionDecisionLabels
@@ -186,7 +188,9 @@ export function HbarSessionMonitoring({
               {labels.gap}
             </LumenContentText>
           )}
-          {report ? (
+          {sessionId && runtime.state.sessionObservability.available ? (
+            <HbarSessionObservability sessionId={sessionId} connected={connected} labels={labels.observability} />
+          ) : report ? (
             <HbarSessionMonitoringUsage key={`usage:${sessionId}`} report={report} labels={labels} />
           ) : (
             <LumenContentText context="section.description" className="hbar-app-react-monitoring-empty">

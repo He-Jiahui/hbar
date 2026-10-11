@@ -27,7 +27,7 @@ export function observabilityDetails(
       prefix: TOOL_FACTS_SQL,
       descending: false,
       select: `SELECT skillId id,MAX(skillName) label,MAX(revision) secondary,
-      SUM(completed) count,SUM(instruction AND offset=0) succeeded,SUM(NOT instruction) failed,${duration},NULL status,MAX(time) time,
+      (SELECT COALESCE(SUM(used),0) FROM skill_uses u WHERE u.skillId=skills.skillId) count,SUM(instruction AND offset=0) succeeded,SUM(NOT instruction) failed,${duration},NULL status,MAX(time) time,
       NULL linesRead,NULL patches,NULL addedLines,NULL removedLines,NULL beforeTokens,NULL afterTokens,NULL input,NULL output,NULL cost,NULL pricing
       FROM skills GROUP BY skillId`,
     },
@@ -60,9 +60,15 @@ export function observabilityDetails(
     requests: {
       prefix: USAGE_FACTS_SQL,
       descending: true,
-      select: `SELECT printf('%016d',seq)||':'||attemptId id,model label,source secondary,1 count,
+      select: `SELECT printf('%016d',s.seq)||':'||s.attemptId id,COALESCE(u.model,s.model,r.modelId,'unknown') label,s.source secondary,1 count,
+      0 succeeded,0 failed,u.durationMs,u.durationMs averageMs,CASE WHEN u.attemptId IS NULL THEN r.status END status,
+      s.time time,NULL linesRead,NULL patches,NULL addedLines,NULL removedLines,
+      NULL beforeTokens,NULL afterTokens,u.input,u.output,u.cost,COALESCE(u.pricing,s.pricing) pricing
+      FROM starts s LEFT JOIN usage u ON u.attemptId=s.attemptId AND (u.runId=s.runId OR u.runId IS NULL AND s.runId IS NULL)
+      LEFT JOIN runs r ON r.id=s.runId WHERE s.seq>?2 AND s.seq<=?3
+      UNION ALL SELECT printf('%016d',seq)||':'||attemptId id,model label,source secondary,1 count,
       0 succeeded,0 failed,durationMs,durationMs averageMs,NULL status,time,NULL linesRead,NULL patches,NULL addedLines,NULL removedLines,
-      NULL beforeTokens,NULL afterTokens,input,output,cost,pricing FROM usage`,
+      NULL beforeTokens,NULL afterTokens,input,output,cost,pricing FROM usage u WHERE NOT EXISTS(SELECT 1 FROM starts s WHERE s.attemptId=u.attemptId AND (s.runId=u.runId OR s.runId IS NULL AND u.runId IS NULL))`,
     },
   }
   const source = sources[kind]

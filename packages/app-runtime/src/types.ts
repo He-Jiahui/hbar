@@ -1013,6 +1013,9 @@ export type SessionTimelineUpdate =
   | { readonly kind: 'reset' }
 
 export interface SessionTimelinePort {
+  observability?(
+    input: import('@hbar/contracts/session-observability').SessionObservabilityInput,
+  ): Promise<import('@hbar/contracts/session-observability').SessionObservabilityReport>
   contextHistory?(
     input: import('@hbar/contracts/context-history').ContextHistoryInput,
   ): Promise<import('@hbar/contracts/context-history').ContextHistoryPage>

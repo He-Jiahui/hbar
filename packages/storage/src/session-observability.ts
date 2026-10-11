@@ -41,6 +41,10 @@ export function readSessionObservability(db: Database, value: SessionObservabili
       SELECT COALESCE(SUM(input),0) input,COALESCE(SUM(output),0) output,COALESCE(SUM(cacheRead),0) cacheRead,
         COALESCE(SUM(cacheWrite),0) cacheWrite,COUNT(*) recorded,COUNT(DISTINCT model) models,
         (SELECT COUNT(DISTINCT COALESCE(runId,'')||':'||attemptId) FROM starts WHERE seq>?2 AND seq<=?3) requests,
+        (SELECT COUNT(DISTINCT runId) FROM events WHERE sessionId=?1 AND seq>?2 AND seq<=?3 AND type IN ('run.status','run.settled','message.committed','request.started','compaction.request','tool.started')) runs,
+        (SELECT COUNT(*) FROM events e LEFT JOIN runs r ON r.id=e.runId WHERE e.sessionId=?1 AND e.seq>?2 AND e.seq<=?3
+          AND e.type='message.committed' AND json_extract(e.data,'$.role')='user'
+          AND (json_extract(e.data,'$.queueGuidance') IS NOT NULL OR COALESCE(json_extract(r.input,'$.source'),'user')='user')) turns,
         CASE WHEN COUNT(*)=COUNT(cost) THEN COALESCE(SUM(cost),0) END cost,COALESCE(SUM(cost),0) knownCost,COUNT(cost) pricedRequests,
         CASE WHEN COUNT(*)=COUNT(eligibleInput) THEN 1.0*SUM(cacheRead)/NULLIF(SUM(eligibleInput),0) END cacheHitRate,
         1.0*SUM(cacheRead)/NULLIF(SUM(input),0) cacheInputShare,SUM(durationMs) durationMs,COUNT(durationMs) timingSamples,
@@ -52,7 +56,8 @@ export function readSessionObservability(db: Database, value: SessionObservabili
     const skills = db
       .query<Record<string, unknown>, [string, number, number]>(
         `${TOOL_FACTS_SQL}
-      SELECT COUNT(DISTINCT CASE WHEN completed THEN skillId END) used,COALESCE(SUM(completed),0) uses,
+      SELECT (SELECT COUNT(DISTINCT CASE WHEN used THEN skillId END) FROM skill_uses) used,
+        (SELECT COALESCE(SUM(used),0) FROM skill_uses) uses,
         COALESCE(SUM(instruction AND offset=0),0) loads,COALESCE(SUM(NOT instruction),0) resourceReads FROM skills`,
       )
       .get(...args)

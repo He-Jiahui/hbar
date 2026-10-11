@@ -16,7 +16,14 @@ WITH call_events AS (
 ), result_events AS (
  SELECT e.runId,e.seq,e.time,json_extract(b.value,'$.callId') callId,json_extract(b.value,'$.name') name,
   json_extract(b.value,'$.outcome.kind') outcome,json_extract(b.value,'$.execution.elapsedMs') elapsedMs,
-  json_extract(b.value,'$.execution.endedAt') endedAt,json_extract(b.value,'$.activity') activity
+  json_extract(b.value,'$.execution.endedAt') endedAt,
+  COALESCE(json_extract(b.value,'$.activity'),CASE WHEN json_extract(b.value,'$.name') IN ('skill','skill_read')
+   AND json_extract(b.value,'$.details.kind')='skill-read' THEN json_object('skill',json_object(
+    'id','legacy:'||json_extract(b.value,'$.details.name'),'name',json_extract(b.value,'$.details.name'),
+    'resource',json_extract(b.value,'$.details.path'),'revision',json_extract(b.value,'$.details.revision'),
+    'instruction',json_extract(b.value,'$.details.path')='SKILL.md',
+    'completed',json_extract(b.value,'$.name')='skill' AND json_extract(b.value,'$.details.path')='SKILL.md' AND json_extract(b.value,'$.details.endOfFile')=1,
+    'offset',CASE WHEN json_extract(b.value,'$.name')='skill' THEN 0 END)) END) activity
  FROM events e,json_each(e.data,'$.content') b WHERE e.sessionId=?1
   AND e.type IN ('message.committed','tool.sequence_result') AND json_extract(b.value,'$.type')='tool_result'
 ), results AS (
@@ -53,14 +60,27 @@ WITH call_events AS (
  SELECT *,json_extract(activity,'$.skill.id') skillId,json_extract(activity,'$.skill.name') skillName,
   json_extract(activity,'$.skill.completed') completed,json_extract(activity,'$.skill.instruction') instruction,
   json_extract(activity,'$.skill.offset') offset,json_extract(activity,'$.skill.resource') resource,
-  json_extract(activity,'$.skill.revision') revision
+  json_extract(activity,'$.skill.revision') revision,json_extract(activity,'$.skill.characters') characters,
+  json_extract(activity,'$.skill.totalCharacters') totalCharacters,
+  COALESCE((SELECT MAX(e.seq) FROM events e WHERE e.sessionId=?1 AND e.type='context.compacted' AND e.seq<tools.seq),0) windowSeq
  FROM tools WHERE outcome='succeeded' AND json_extract(activity,'$.skill.id') IS NOT NULL
+), skill_pages AS (
+ SELECT *,MAX(offset+characters) OVER(PARTITION BY runId,skillId,revision,windowSeq ORDER BY offset,seq ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) earlierThrough
+ FROM skills WHERE instruction=1
+), skill_uses AS (
+ SELECT runId,skillId,revision,windowSeq,
+ CASE WHEN MAX(totalCharacters) IS NULL THEN MAX(completed)
+  ELSE MIN(offset)=0 AND MAX(offset+characters)>=MAX(totalCharacters)
+   AND SUM(CASE WHEN offset>COALESCE(earlierThrough,0) THEN 1 ELSE 0 END)=0 END used
+ FROM skill_pages GROUP BY runId,skillId,revision,windowSeq
 )
 `
 
 export const USAGE_FACTS_SQL = `
 WITH starts AS (
- SELECT runId,MIN(seq) seq,MIN(time) time,COALESCE(json_extract(data,'$.attemptId'),stepId,eventId) attemptId
+ SELECT runId,MIN(seq) seq,MIN(time) time,COALESCE(json_extract(data,'$.attemptId'),stepId,eventId) attemptId,
+  MAX(json_extract(data,'$.modelSelectionId')) model,MAX(json_extract(data,'$.pricing')) pricing,
+  CASE WHEN MAX(type='compaction.request') THEN 'compaction' ELSE 'model' END source
  FROM events WHERE sessionId=?1 AND type IN ('request.started','compaction.request')
  GROUP BY runId,attemptId
 ), usage_events AS (

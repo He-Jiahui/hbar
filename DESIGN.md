@@ -70,6 +70,10 @@ Lumen 现状、差距与实施边界见 [Lumen 视觉设计评审](docs/lumen-de
 
 ## 布局与公共组件边界
 
+会话状态中的完整观测以“范围选择 → 用量与速率 → 执行与资源 → 活动记录”展开。范围支持 Session、用户对话及成功压缩之间的窗口，上一／下一范围与回到最新就近呈现。实际请求耗时构成速率分母；缓存命中率和缓存读取占输入分开显示。Token 使用细条及至多 40 列时间分布，工具／终端使用真实结果比例与文字图例，压缩前后使用统一尺度的两条长度。颜色延续 Lumen accent、success、warning、danger 与 muted；文字同时承担状态含义。
+
+技能、工具、文件、命令、压缩和价格快照通过每页 20 条的活动记录展开，完整汇总不受可见页数量限制。沿用 [Analytics](https://pro.reactbits.dev/docs/app-ui/analytics) 的范围控件与指标层级、[AI Usage](https://pro.reactbits.dev/docs/app-ui/ai-usage) 的用量构成及 [Agent Activity 4](https://pro.reactbits.dev/docs/app-ui/agent-activity/agent-activity-4) 的轻量记录组织；布局由 flex 自然流动，窄面板选项自动换行，滚动仅属于工具面板 body。缺失测量保持不可用，完整技能加载和累计补丁统计就近说明口径。
+
 布局描述 v4 保留旧版显隐及宽度；新建和重置布局默认关闭右侧工具。工具打开后为主内容保留 32rem 阅读预算，实际容器不足时使用右侧抽屉，极窄时覆盖可用内容区。停靠与抽屉、桌面布局与自适应外壳共用同一面板实例，保留阅读位置、输入状态与选择。短视口侧栏的底部入口自行滚动，项目列表仍能使用。
 
 `@lumen/app-ui` 拥有视觉原语和通用组合，`@hbar/app-react` 接入业务 ViewModel，Web 宿主提供类型化文案和数据。公共能力包括页面标题与操作组、紧凑记录、指标行、自适应工具栏和浮层；业务页面使用这些组件，Markdown、编辑器、图表等专用渲染器保留内部 DOM。

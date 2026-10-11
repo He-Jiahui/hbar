@@ -8,6 +8,7 @@ import { goalLifecycleCopy, goalHistoryCopy } from './goal-lifecycle-copy'
 import type { AgentProfileId } from '@hbar/contracts/commands/agents'
 import { toolFeedbackLabels } from './session-tool-feedback-copy'
 import { contextHistoryCopy } from './context-history-copy'
+import { sessionObservabilityCopy } from './session-observability-copy'
 import type {
   HbarAgentWorkspaceLabels,
   HbarMessageActivityPart,
@@ -2293,7 +2294,7 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
   const percent = new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 1 })
   const time = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   const at = (timestamp: number) => time.format(timestamp)
-  return {
+  const labels: Omit<HbarSessionMonitoringLabels, 'observability'> = {
     title: choose('会话状态', 'Session status'),
     tabs: {
       overview: choose('概览', 'Overview'),
@@ -2408,6 +2409,7 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
     rate: (value) => choose(`${number.format(value)} Token/秒`, `${number.format(value)} tokens/s`),
     model: (provider, model) => `${provider} / ${model}`,
   }
+  return { ...labels, observability: sessionObservabilityCopy(locale, labels) }
 }
 
 function createSessionActivityLabels(locale: ShellLocale): HbarSessionActivityLabels {

@@ -90,6 +90,56 @@ async function compact(f: Awaited<ReturnType<typeof fixture>>, completed: boolea
 }
 
 describe('Session SQLite observability', () => {
+  test('skill coverage is deduplicated within each context window and requires every page', async () => {
+    const f = await fixture()
+    const base = {
+      id: 'paged-skill',
+      name: 'Paged skill',
+      resource: 'SKILL.md',
+      revision: 'r',
+      instruction: true,
+      completed: false,
+      totalCharacters: 9,
+    }
+    for (const [id, offset, characters] of [
+      ['start', 0, 3],
+      ['end', 6, 3],
+    ] as const)
+      await tool(f, id, 'file-read', 'succeeded', 1, { skill: { ...base, offset, characters } })
+    expect((await f.storage.call('sessionObservability', { sessionId: f.session.id })).skills.uses).toBe(0)
+    await tool(f, 'middle', 'file-read', 'succeeded', 1, { skill: { ...base, offset: 3, characters: 3 } })
+    await tool(f, 'duplicate', 'file-read', 'succeeded', 1, { skill: { ...base, offset: 0, characters: 9 } })
+    expect((await f.storage.call('sessionObservability', { sessionId: f.session.id })).skills.uses).toBe(1)
+    await compact(f, true)
+    await tool(f, 'new-context', 'file-read', 'succeeded', 1, { skill: { ...base, offset: 0, characters: 9 } })
+    expect(
+      (await f.storage.call('sessionObservability', { sessionId: f.session.id, scope: 'window' })).skills.uses,
+    ).toBe(1)
+    expect((await f.storage.call('sessionObservability', { sessionId: f.session.id })).skills).toMatchObject({
+      used: 1,
+      uses: 2,
+    })
+  })
+  test('preserves usable legacy skill evidence and failed requests without invented measurements', async () => {
+    const f = await fixture()
+    await f.storage.call('commit', f.session.id, f.run.id, 'tool', [
+      {
+        type: 'tool_result',
+        name: 'skill',
+        callId: 'legacy',
+        text: 'old instructions',
+        isError: false,
+        outcome: { kind: 'succeeded', executionStarted: true },
+        details: { kind: 'skill-read', name: 'Legacy skill', path: 'SKILL.md', revision: 'old', endOfFile: true },
+      },
+    ])
+    await f.storage.call('append', f.session.id, 'request.started', { attemptId: 'failed-request' }, f.run.id)
+    await f.storage.call('setRun', f.run.id, 'failed', 'Provider unavailable')
+    const report = await f.storage.call('sessionObservability', { sessionId: f.session.id, detail: 'requests' })
+    expect(report.skills).toMatchObject({ used: 1, uses: 1, loads: 1 })
+    expect(report.records).toHaveLength(1)
+    expect(report.records[0]).toMatchObject({ status: 'failed', input: null, output: null, cost: null })
+  })
   test('uses historical price snapshots, deduplicates usage and attributes late accounting to the original turn', async () => {
     const f = await fixture()
     await f.storage.call('append', f.session.id, 'request.started', { attemptId: 'attempt' }, f.run.id)
@@ -169,6 +219,13 @@ describe('Session SQLite observability', () => {
       expect(report.usage.input).toBe(0)
       expect(report.range.scope).toBe(scope)
     }
+  })
+  test('continuous emoji text stays within the UTF-16 label contract', async () => {
+    const f = await fixture()
+    await f.storage.call('commit', f.session.id, f.run.id, 'user', [{ type: 'text', text: '🧭'.repeat(300) }])
+    const report = await f.storage.call('sessionObservability', { sessionId: f.session.id, scope: 'turn' })
+    expect(report.range.label.length).toBeLessThanOrEqual(200)
+    expect(report.range.label).not.toContain('\uFFFD')
   })
   test('deduplicates tools, usage and nested results and measures real outcome/timing samples', async () => {
     const f = await fixture()

@@ -74,6 +74,8 @@ export const sessionObservabilityReportSchema = z.strictObject({
     cacheRead: tokens,
     cacheWrite: tokens,
     requests: count,
+    runs: count,
+    turns: count,
     recorded: count,
     models: count,
     cost: measured,

@@ -89,6 +89,9 @@ import { createSessionTools, sessionToolCommands } from './session-tools'
 import { isSessionToolProtected } from './session-tool-retention'
 export { sessionToolCommands } from './session-tools'
 import { createSessionTimeline } from './session-timeline'
+import { createSessionObservabilityReaders } from './session-observability'
+export type { SessionObservabilityState, SessionObservabilityReader } from './session-observability'
+export { createSessionObservabilityReaders } from './session-observability'
 import { createConversationReading } from './conversation-reading'
 export { createConversationReading } from './conversation-reading'
 export type {
@@ -794,6 +797,11 @@ export function createAppRuntime(options: RuntimeOptions) {
     () => disposed,
     (id) => Boolean(directory.reader.getSnapshot().deletedSessions?.[id]),
   )
+  const sessionObservability = createSessionObservabilityReaders({
+    read: options.timeline?.observability?.bind(options.timeline),
+    updates: timeline.reader,
+    onSubscriberError,
+  })
   const deletionTargets = () => [
     ...new Set(
       [
@@ -1518,6 +1526,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       settingsUsage: settingsUsage.reader,
       usageRequests: { reader: usageRequests.reader, runtime: usageRequests },
       sessionRequests: { create: sessionRequests.create },
+      sessionObservability: { available: sessionObservability.available, create: sessionObservability.create },
       usageBudget: usageBudget ? { state: usageBudget.state, runtime: usageBudget } : null,
       composerIntent: composerIntent.reader,
       composerPermission: composerPermission.reader,
@@ -1630,6 +1639,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       chatDatabase.dispose()
       usageRequests.dispose()
       sessionRequests.dispose()
+      sessionObservability.dispose()
       usageBudget?.dispose()
       composerIntent.dispose()
       composerPermission.dispose()

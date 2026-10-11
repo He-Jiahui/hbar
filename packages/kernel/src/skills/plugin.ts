@@ -81,6 +81,7 @@ export function runtimeSkillsPlugin(globalRoot: string) {
                   ),
                 offset: args.offset ?? 0,
                 characters: result.text.length,
+                totalCharacters: result.totalCharacters,
               },
             },
             details: {
