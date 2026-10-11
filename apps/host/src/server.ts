@@ -38,6 +38,7 @@ interface SocketData {
   operationFollows: Set<string>
   operationChains: Map<string, Set<string>>
   metricsFollowing: boolean
+  runtimeDispose?: (() => void) | undefined
   pending: number
   terminals: Set<string>
   terminalCallbacks?: {
@@ -311,6 +312,19 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     rpcId: string | number,
   ): Promise<unknown> {
     switch (method) {
+      case 'system.runtime.watch': {
+        const input = rpcSchemas[method].parse(raw)
+        const runtime = options.runtime
+        if (!runtime?.watch || !runtime.subscribe) throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Runtime subscriptions require the managed Host entry')
+        socket.data.runtimeDispose ??= runtime.subscribe(delta => {
+          if (socket.data.initialized) send(socket, { jsonrpc: '2.0', method: 'system.runtime.delta', params: delta })
+        })
+        return runtime.watch(input.cursor)
+      }
+      case 'system.runtime.unwatch': {
+        socket.data.runtimeDispose?.(); socket.data.runtimeDispose = undefined
+        return null
+      }
       case 'command.execute': {
         const invocation = rpcSchemas[method].parse(raw)
         if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
@@ -1284,6 +1298,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         })
       },
       close(socket) {
+        socket.data.runtimeDispose?.(); socket.data.runtimeDispose = undefined
         clearTimeout(socket.data.timer)
         if (socket.data.deviceId && socket.data.terminalCallbacks)
           systemTerminals.detach(socket.data.deviceId, socket.data.terminalCallbacks)

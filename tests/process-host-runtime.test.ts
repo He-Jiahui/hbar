@@ -444,6 +444,25 @@ test('runtime diagnostics and liveness remain available while the request Contro
   expect(f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'controller')?.generations[0]?.incarnation).not.toBe(previous.incarnation)
 })
 
+test('a paired runtime subscription receives bounded local reload deltas and restores its cursor after reconnect', async () => {
+  const f = await fixture(), { client } = await clientFor(f.runtime)
+  const revisions: number[] = []
+  const dispose = client.runtimeStatus.subscribe(state => { if (state.snapshot) revisions.push(state.snapshot.revision) })
+  try {
+    await client.runtimeStatus.refresh()
+    expect(client.runtimeStatus.state().snapshot).toMatchObject({ ready: true, instanceId: f.runtime.snapshot().instanceId })
+    const initial = client.runtimeStatus.state().snapshot!.revision
+    const reload = f.runtime.reload((await changedController(f.runtime)).id, ['controller'])
+    await f.runtime.manager.reconcile(); await f.runtime.settled()
+    await until(() => client.runtimeStatus.state().snapshot?.units.find(unit => unit.descriptor.id === 'controller')?.generations.some(g => g.role === 'default' && g.generation === 2) ?? false)
+    expect(client.runtimeStatus.state().operations.some(operation => operation.operationId === reload.operationId)).toBe(true)
+    client.disconnect(); await client.connect(); await client.runtimeStatus.refresh()
+    expect(client.runtimeStatus.state().snapshot?.revision).toBeGreaterThan(initial)
+    expect(revisions.every((revision, index) => index === 0 || revision >= revisions[index - 1]!)).toBe(true)
+    expect(client.runtimeStatus.state().errorCode).toBeNull()
+  } finally { dispose() }
+}, 120_000)
+
 test('a failed Kernel candidate keeps the current version and does not interrupt a healthy conversation', async () => {
   const f = await fixture()
   const original = f.runtime.manager.currentVersion('kernel')

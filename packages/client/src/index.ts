@@ -82,6 +82,8 @@ export {
   type BrowserResourcePickerOptions,
 } from './browser-resource-picker'
 import type { ArtifactRef, HostInfo, RpcMethod, RpcParams, RpcResults, WireNotification } from '@hbar/contracts'
+import { RuntimeStatusClient } from './runtime-status'
+export { RuntimeStatusClient, type RuntimeStatusState } from './runtime-status'
 
 import type { ClientTransport } from './transport'
 import type { AttachmentUploadOptions } from './files'
@@ -91,6 +93,7 @@ export { HbarClientDiagnostics, type ClientDiagnosticInput, type HbarClientOptio
 export type { ClientTransport } from './transport'
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'pairing'
 export class HbarClient implements ClientTransport {
+  readonly runtimeStatus: RuntimeStatusClient
   private socket: WebSocket | undefined
   private pending = new Map<
     number,
@@ -127,6 +130,8 @@ export class HbarClient implements ClientTransport {
     options?: HbarClientOptions,
   ) {
     this.connectTimeoutMs = options?.connectTimeoutMs ?? 10_000
+    this.runtimeStatus = new RuntimeStatusClient({ watch: cursor => this.call('system.runtime.watch', cursor === undefined ? {} : { cursor }),
+      unwatch: () => this.call('system.runtime.unwatch', {}) })
     if (!Number.isSafeInteger(this.connectTimeoutMs) || this.connectTimeoutMs < 1 || this.connectTimeoutMs > 2_147_483_647)
       throw new RangeError('connectTimeoutMs must be a positive timer-safe integer')
     this.diagnostics = new HbarClientDiagnostics(options)
@@ -150,6 +155,7 @@ export class HbarClient implements ClientTransport {
   }
   private status(status: ConnectionStatus) {
     this.currentStatus = status
+    this.runtimeStatus.connection(status === 'connected' ? this.currentHost?.instanceId ?? null : null)
     this.dispatch(this.statuses, status)
   }
   private dispatch<Value>(listeners: ReadonlySet<(value: Value) => void>, value: Value): boolean {
@@ -285,7 +291,7 @@ export class HbarClient implements ClientTransport {
             id?: number
             result?: unknown
             error?: { message: string; data?: string }
-            method?: WireNotification['method']
+            method?: WireNotification['method'] | 'system.runtime.delta'
             params: unknown
           }
           if (message.id !== undefined) {
@@ -316,6 +322,7 @@ export class HbarClient implements ClientTransport {
             if (message.error) pending.reject(new HbarError(errorCode, message.error.message))
             else pending.resolve(message.result)
           } else if (message.method) {
+            if (message.method === 'system.runtime.delta') { this.runtimeStatus.receive(message.params); return }
             const notification = message as unknown as WireNotification
             if (notification.method === 'auth.revoked') {
               this.diagnostics.emit({ event: 'connection.revoked', level: 'warn', phase: 'auth', instanceId: this.currentHost?.instanceId, outcome: 'failure', errorCode: 'UNAUTHORIZED' }, true)

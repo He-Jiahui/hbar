@@ -549,6 +549,8 @@ export async function invokeControllerRpc(
     case 'schema.content.query':
     case 'schema.content.cancel':
     case 'system.hello':
+    case 'system.runtime.watch':
+    case 'system.runtime.unwatch':
     case 'system.bootstrap':
     case 'system.diagnose':
     case 'system.skills.list':

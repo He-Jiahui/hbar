@@ -1,7 +1,7 @@
 import { rpcSchemas } from '@hbar/contracts'
 
 const connectionMethods = new Set([
-  'system.hello', 'session.follow', 'session.unfollow', 'operation.watch', 'operation.unwatch', 'metrics.watch', 'metrics.unwatch',
+  'system.hello', 'system.runtime.watch', 'system.runtime.unwatch', 'session.follow', 'session.unfollow', 'operation.watch', 'operation.unwatch', 'metrics.watch', 'metrics.unwatch',
   'terminal.open', 'terminal.input', 'terminal.resize', 'terminal.close', 'terminal.list',
   'surface.register', 'surface.unregister', 'surface.list', 'surface.invoke', 'surface.resolve',
 ])
@@ -15,6 +15,7 @@ export function isStableRpc(method: string, params: unknown): boolean {
   return input.success && (managementCommands.has(input.data.commandId) || maintenanceControls.has(input.data.commandId))
 }
 export function isRecoveryControl(method: string, params: unknown): boolean {
+  if (method === 'system.runtime.watch' || method === 'system.runtime.unwatch') return true
   if (isRuntimeStatusRead(method, params)) return true
   if (method !== 'command.execute') return false
   const input = rpcSchemas['command.execute'].safeParse(params)

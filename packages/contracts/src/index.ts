@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { runRecoverySchema } from './runtime'
+import { runRecoverySchema, runtimeWatchInputSchema } from './runtime'
 export { diagnosticEventSchema, DIAGNOSTIC_SCHEMA_VERSION, diagnosticEvent, type DiagnosticEvent, type DiagnosticSink } from './diagnostics.ts'
 export { collectArtifactReferenceIds, collectArtifactReferences } from './artifact-references'
 import { settingScopeSchema } from './settings.ts'
@@ -1115,6 +1115,8 @@ export type WireNotification =
     }
 
 export const rpcSchemas = {
+  'system.runtime.watch': runtimeWatchInputSchema,
+  'system.runtime.unwatch': z.strictObject({}),
   'command.execute': invocationSchema,
   'command.catalog': z.strictObject({
     category: z.string().min(1).max(128).optional(),
@@ -1443,6 +1445,8 @@ export const rpcSchemas = {
 export type RpcMethod = keyof typeof rpcSchemas
 export type RpcParams<M extends RpcMethod> = z.input<(typeof rpcSchemas)[M]>
 export interface RpcResults {
+  'system.runtime.watch': import('./runtime').RuntimeWatchResult
+  'system.runtime.unwatch': null
   'command.execute': unknown
   'command.catalog': {
     revision: number
