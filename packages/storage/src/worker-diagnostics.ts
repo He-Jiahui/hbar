@@ -50,6 +50,8 @@ export function safeStorageErrorCode(error: unknown, fallback = 'STORAGE_ERROR')
 
 export function createStorageWorkerDiagnostics(options: StorageWorkerDiagnosticOptions = {}) {
   let sequence = 0
+  let phaseSequence = 0
+  let currentOperation: { id: number; method: string } | null = null
   let dropped = 0
   const enabled = options.enabled ?? true
   const fullCoverage = options.fullCoverage ?? false
@@ -122,10 +124,70 @@ export function createStorageWorkerDiagnostics(options: StorageWorkerDiagnosticO
     })
   }
 
+  /** Worker methods are synchronous; nested reads retain the owning request identity. */
+  function withOperation<T>(id: number, method: string, action: () => T): T {
+    const previous = currentOperation
+    currentOperation = { id, method }
+    try {
+      return action()
+    } finally {
+      currentOperation = previous
+    }
+  }
+
+  function readPhase<T>(
+    phase:
+      | 'session'
+      | 'messages'
+      | 'pending-approvals'
+      | 'resolved-approvals'
+      | 'usage'
+      | 'context-history'
+      | 'runs'
+      | 'tool-events',
+    action: () => T,
+  ): T {
+    const owner = currentOperation
+    if (!enabled || !owner) return action()
+    const startedAt = performance.now()
+    const identity = { method: owner.method, storageRequestId: owner.id, operationId: owner.id, phase }
+    if (fullCoverage) emit({ ...identity, event: 'sqlite.read_phase_started', level: 'debug', outcome: 'unknown' })
+    try {
+      const result = action()
+      const durationMs = Math.max(0, performance.now() - startedAt)
+      phaseSequence += 1
+      if (fullCoverage || durationMs >= 100 || phaseSequence % FAST_SAMPLE_EVERY === 0)
+        emit({
+          ...identity,
+          event: 'sqlite.read_phase_completed',
+          level: durationMs >= 100 ? 'warn' : 'debug',
+          outcome: 'success',
+          durationMs,
+          executionMs: durationMs,
+          sampled: true,
+        })
+      return result
+    } catch (error) {
+      const durationMs = Math.max(0, performance.now() - startedAt)
+      emit({
+        ...identity,
+        event: 'sqlite.read_phase_failed',
+        level: 'error',
+        outcome: 'failure',
+        errorCode: safeStorageErrorCode(error),
+        durationMs,
+        executionMs: durationMs,
+      })
+      throw error
+    }
+  }
+
   return {
     emit,
     started,
     operation,
+    withOperation,
+    readPhase,
     getDroppedCount: () => dropped,
   }
 }

@@ -61,6 +61,115 @@ async function closeFixture(
   await cleanupDatabaseRoot(root)
 }
 
+test('snapshot read phases correlate with the real Worker request and preserve paged facts', async () => {
+  const root = await makeDatabaseRoot()
+  const scope = createDiagnosticScope()
+  const events: ReturnType<typeof diagnosticEventSchema.parse>[] = []
+  const storage = new Storage(join(root, 'snapshot.sqlite'), undefined, {
+    diagnostics: { emit: (event) => events.push(diagnosticEventSchema.parse(event)) },
+    diagnosticScope: scope,
+    diagnosticsFullCoverage: true,
+    instanceId: 'snapshot-phase-instance',
+    requestTimeoutMs: 5000,
+  })
+  try {
+    await storage.call('ready')
+    const workspace = await storage.call('createWorkspace', root, 'Snapshot phase fixture')
+    const first = await storage.call('createSession', workspace.id)
+    const second = await storage.call('createSession', workspace.id)
+    const run = await storage.call(
+      'enqueue',
+      first.id,
+      'snapshot-run',
+      { text: 'fixture', images: [] },
+      'fixture/model',
+    )
+    const canary = 'private snapshot message and usage details'
+    await storage.call('commit', first.id, run.id, 'user', [{ type: 'text', text: canary }])
+    await storage.call('commit', first.id, run.id, 'assistant', [{ type: 'text', text: 'second message' }])
+    await storage.call('append', first.id, 'usage.recorded', {
+      input: 17,
+      output: 5,
+      cacheRead: 3,
+      cacheWrite: 2,
+      cost: 0.25,
+    })
+    const [page, other] = await Promise.all([
+      scope.run({ rpcId: 'rpc-first-page', requestId: 'snapshot-first', sessionId: first.id }, () =>
+        storage.call('snapshot', first.id, undefined, 1),
+      ),
+      scope.run({ rpcId: 'rpc-other-page', requestId: 'snapshot-other', sessionId: second.id }, () =>
+        storage.call('snapshot', second.id, undefined, 1),
+      ),
+    ])
+    expect(page.messages).toHaveLength(1)
+    expect(page.messages[0]?.content).toEqual([{ type: 'text', text: 'second message' }])
+    expect(page.hasOlder).toBe(true)
+    expect(page.usage).toEqual({ input: 17, output: 5, cacheRead: 3, cacheWrite: 2, cost: 0.25 })
+    expect(other.messages).toEqual([])
+    expect(other.usage.input).toBe(0)
+    const dispatch = events.find(
+      (event) => event.event === 'storage.request_dispatched' && event.requestId === 'snapshot-first',
+    )
+    expect(dispatch?.storageRequestId).toBeDefined()
+    const phases = events.filter(
+      (event) => event.event.startsWith('sqlite.read_phase_') && event.requestId === 'snapshot-first',
+    )
+    expect(phases.filter((event) => event.event === 'sqlite.read_phase_started').map((event) => event.phase)).toEqual([
+      'session',
+      'messages',
+      'pending-approvals',
+      'resolved-approvals',
+      'usage',
+      'runs',
+      'context-history',
+      'tool-events',
+    ])
+    expect(phases).toHaveLength(16)
+    for (const event of phases) {
+      expect(event).toMatchObject({
+        component: 'sqlite',
+        method: 'snapshot',
+        storageRequestId: dispatch?.storageRequestId,
+        requestId: 'snapshot-first',
+        rpcId: 'rpc-first-page',
+        sessionId: first.id,
+      })
+      expect(event.sessionId).not.toBe(second.id)
+      if (event.event === 'sqlite.read_phase_completed') expect(event.durationMs).toBeGreaterThanOrEqual(0)
+    }
+    expect(JSON.stringify(events)).not.toContain(canary)
+    let missingFailure: unknown
+    try {
+      await observePhase('snapshot-missing', events, () =>
+        scope.run({ requestId: 'snapshot-missing' }, () => storage.call('snapshot', 'missing-session')),
+      )
+    } catch (error) {
+      missingFailure = error
+    }
+    expect(missingFailure).toMatchObject({ code: 'NOT_FOUND' })
+    const failed = events.filter(
+      (event) => event.event.startsWith('sqlite.read_phase_') && event.requestId === 'snapshot-missing',
+    )
+    expect(failed.map((event) => [event.phase, event.outcome])).toEqual([
+      ['session', 'unknown'],
+      ['session', 'failure'],
+    ])
+    expect(
+      (
+        await scope.run({ requestId: 'snapshot-recovered', sessionId: first.id }, () =>
+          storage.call('snapshot', first.id, undefined, 1),
+        )
+      ).cursor,
+    ).toBe(page.cursor)
+    expect(
+      events.some((event) => event.event === 'sqlite.read_phase_completed' && event.requestId === 'snapshot-recovered'),
+    ).toBe(true)
+  } finally {
+    await closeFixture(storage, root, events, 'snapshot-phase-close')
+  }
+}, 15_000)
+
 function expectDispatchWorkerSettlement(
   events: readonly ReturnType<typeof diagnosticEventSchema.parse>[],
   storageRequestId: number,

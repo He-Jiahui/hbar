@@ -1577,23 +1577,30 @@ const methods: StorageMethods = {
       return { message, event }
     })(),
   snapshot(sessionId, before, limit = 60) {
-    const session = methods.session(sessionId)
-    const rows = db
-      .query('SELECT * FROM messages WHERE sessionId=? AND seq<? ORDER BY seq DESC LIMIT ?')
-      .all(sessionId, before ?? Number.MAX_SAFE_INTEGER, limit + 1) as Row[]
-    const messages = rows.slice(0, limit).reverse().map(messageRow)
-    const approvals = (
-      db
-        .query("SELECT * FROM approvals WHERE sessionId=? AND status='pending' ORDER BY createdAt,id LIMIT 80")
-        .all(sessionId) as Row[]
-    ).map(approvalRow)
+    const session = workerDiagnostics.readPhase('session', () => methods.session(sessionId))
+    const { messages, hasOlder } = workerDiagnostics.readPhase('messages', () => {
+      const rows = db
+        .query('SELECT * FROM messages WHERE sessionId=? AND seq<? ORDER BY seq DESC LIMIT ?')
+        .all(sessionId, before ?? Number.MAX_SAFE_INTEGER, limit + 1) as Row[]
+      return { messages: rows.slice(0, limit).reverse().map(messageRow), hasOlder: rows.length > limit }
+    })
+    const approvals = workerDiagnostics.readPhase('pending-approvals', () =>
+      (
+        db
+          .query("SELECT * FROM approvals WHERE sessionId=? AND status='pending' ORDER BY createdAt,id LIMIT 80")
+          .all(sessionId) as Row[]
+      ).map(approvalRow),
+    )
     // Pending decisions keep priority; resolved facts belong only to this loaded
     // message page and retain their original session/Run/call/tool identity.
     if (messages.length && approvals.length < 80) {
       const pageIds = messages.map((message) => message.id)
-      const completed = db
-        .query(
-          `
+      const completed = workerDiagnostics.readPhase(
+        'resolved-approvals',
+        () =>
+          db
+            .query(
+              `
           SELECT DISTINCT approvals.* FROM approvals
           JOIN messages ON messages.sessionId=approvals.sessionId AND messages.runId=approvals.runId
           JOIN json_each(messages.content) AS block
@@ -1605,35 +1612,42 @@ const methods: StorageMethods = {
             AND messages.id IN (${pageIds.map(() => '?').join(',')})
           ORDER BY approvals.createdAt DESC,approvals.id LIMIT ?
         `,
-        )
-        .all(sessionId, ...pageIds, 80 - approvals.length) as Row[]
+            )
+            .all(sessionId, ...pageIds, 80 - approvals.length) as Row[],
+      )
       approvals.push(...completed.map(approvalRow))
     }
-    const usage = emptyUsage()
-    for (const row of db
-      .query("SELECT data FROM events WHERE sessionId=? AND type='usage.recorded'")
-      .all(sessionId) as { data: string }[]) {
-      const item = JSON.parse(row.data) as Usage
-      for (const key of Object.keys(usage) as (keyof Usage)[]) usage[key] += item[key] ?? 0
-    }
+    const usage = workerDiagnostics.readPhase('usage', () => {
+      const total = emptyUsage()
+      for (const row of db
+        .query("SELECT data FROM events WHERE sessionId=? AND type='usage.recorded'")
+        .all(sessionId) as { data: string }[]) {
+        const item = JSON.parse(row.data) as Usage
+        for (const key of Object.keys(total) as (keyof Usage)[]) total[key] += item[key] ?? 0
+      }
+      return total
+    })
     return {
       session,
       messages,
-      hasOlder: rows.length > limit,
-      runs: (
-        db.query('SELECT * FROM runs WHERE sessionId=? ORDER BY createdAt DESC LIMIT 40').all(sessionId) as Row[]
-      ).map(runRow),
+      hasOlder,
+      runs: workerDiagnostics.readPhase('runs', () =>
+        (db.query('SELECT * FROM runs WHERE sessionId=? ORDER BY createdAt DESC LIMIT 40').all(sessionId) as Row[]).map(
+          runRow,
+        ),
+      ),
       approvals,
       userInputs: [],
       usage,
-      contextHistory: readContextHistory(db, { sessionId }),
+      contextHistory: workerDiagnostics.readPhase('context-history', () => readContextHistory(db, { sessionId })),
       cursor: session.seq,
       streams: [],
       toolObservedAt: Date.now(),
-      toolEvents: (
-        db
-          .query(
-            `
+      toolEvents: workerDiagnostics.readPhase('tool-events', () =>
+        (
+          db
+            .query(
+              `
           SELECT * FROM (
             SELECT *, ROW_NUMBER() OVER (
               PARTITION BY runId,type,COALESCE(json_extract(data,'$.callId'),json_extract(data,'$.parentCallId'))
@@ -1642,11 +1656,12 @@ const methods: StorageMethods = {
             FROM events WHERE sessionId=? AND type IN ('tool.execution','tool.sequence_progress')
           ) WHERE ordinal=1 ORDER BY seq DESC LIMIT 1000
         `,
-          )
-          .all(sessionId) as Row[]
-      )
-        .reverse()
-        .map(eventRow),
+            )
+            .all(sessionId) as Row[]
+        )
+          .reverse()
+          .map(eventRow),
+      ),
     }
   },
   activeOperations: (input) => readActiveOperations(db, input),
@@ -3216,7 +3231,7 @@ parentPort!.on('message', ({ id, method, args }: StorageCall) => {
     if (databaseMaintenanceOwner && !databaseMaintenanceReads.has(method)) throw new HbarError('BUSY', 'Chat database is in global maintenance')
     if (!Object.hasOwn(methods, method)) throw new Error('Unknown storage operation')
     const fn = methods[method] as (...args: unknown[]) => unknown
-    reply = { id, ok: true, result: fn(...args) }
+    reply = { id, ok: true, result: workerDiagnostics.withOperation(id, String(method), () => fn(...args)) }
     if (databaseMaintenanceOwner && method !== 'close') db.clearQueryCache()
     workerDiagnostics.operation(id, String(method), startedAt, 'success')
   } catch (error) {

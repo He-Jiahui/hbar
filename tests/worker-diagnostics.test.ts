@@ -89,3 +89,78 @@ test('slow successes are retained and throwing error getters are isolated', () =
     storageRequestId: 2,
   })
 })
+
+test('read phases retain their request owner, preserve results and expose the last started phase', () => {
+  const messages: StorageWorkerDiagnosticMessage[] = []
+  const diagnostics = createStorageWorkerDiagnostics({
+    fullCoverage: true,
+    port: { postMessage: (message) => messages.push(message) },
+  })
+  const value = { payload: 'private canary must not enter diagnostics' }
+  expect(diagnostics.withOperation(41, 'snapshot', () => diagnostics.readPhase('messages', () => value))).toBe(value)
+  expect(messages.map((message) => [message.event.event, message.event.phase, message.operationId])).toEqual([
+    ['sqlite.read_phase_started', 'messages', 41],
+    ['sqlite.read_phase_completed', 'messages', 41],
+  ])
+  for (const message of messages) {
+    expect(diagnosticEventSchema.parse(message.event)).toEqual(message.event)
+    expect(message.event).toMatchObject({ method: 'snapshot', storageRequestId: 41 })
+  }
+  expect(JSON.stringify(messages)).not.toContain(value.payload)
+  expect(diagnostics.readPhase('usage', () => value)).toBe(value)
+  expect(messages).toHaveLength(2)
+})
+
+test('failed nested phases restore the outer owner without changing the thrown error', () => {
+  const messages: StorageWorkerDiagnosticMessage[] = []
+  const diagnostics = createStorageWorkerDiagnostics({
+    fullCoverage: true,
+    port: { postMessage: (message) => messages.push(message) },
+  })
+  const failure = Object.assign(new Error('private SQL and credentials'), { code: 'SQLITE_BUSY' })
+  diagnostics.withOperation(42, 'snapshot', () => {
+    expect(() =>
+      diagnostics.withOperation(43, 'snapshot', () =>
+        diagnostics.readPhase('context-history', () => {
+          throw failure
+        }),
+      ),
+    ).toThrow(failure)
+    diagnostics.readPhase('runs', () => [])
+  })
+  expect(messages.map((message) => message.operationId)).toEqual([43, 43, 42, 42])
+  expect(messages[1]?.event).toMatchObject({
+    event: 'sqlite.read_phase_failed',
+    errorCode: 'SQLITE_BUSY',
+    outcome: 'failure',
+  })
+  expect(JSON.stringify(messages)).not.toContain('private SQL')
+  const before = messages.length
+  expect(diagnostics.readPhase('messages', () => 1)).toBe(1)
+  expect(messages).toHaveLength(before)
+})
+
+test('phase diagnostics isolate a throwing sink and preserve failure identity', () => {
+  const diagnostics = createStorageWorkerDiagnostics({
+    fullCoverage: true,
+    port: {
+      postMessage: () => {
+        throw new Error('sink failed')
+      },
+    },
+  })
+  const failure = new Error('original failure')
+  expect(diagnostics.withOperation(44, 'snapshot', () => diagnostics.readPhase('usage', () => 7))).toBe(7)
+  let caught: unknown
+  try {
+    diagnostics.withOperation(45, 'snapshot', () =>
+      diagnostics.readPhase('messages', () => {
+        throw failure
+      }),
+    )
+  } catch (error) {
+    caught = error
+  }
+  expect(caught).toBe(failure)
+  expect(diagnostics.getDroppedCount()).toBe(4)
+})
