@@ -41,8 +41,12 @@ export function ObservabilityTokenChart({
   readonly labels: HbarSessionObservabilityLabels
 }) {
   const maximum = Math.max(1, ...report.series.map((bucket) => bucket.input + bucket.output))
-  const width = 320 / Math.max(1, report.series.length)
   const bucketMs = Math.max(1, Math.ceil((report.range.endedAt - report.range.startedAt + 1) / 40))
+  const bucketCount = Math.min(
+    40,
+    Math.max(1, Math.ceil((report.range.endedAt - report.range.startedAt + 1) / bucketMs)),
+  )
+  const width = 320 / bucketCount
   const [focused, setFocused] = useState<number | null>(null)
   const selected = report.series.find((bucket) => bucket.start === focused)
   return (
@@ -64,7 +68,11 @@ export function ObservabilityTokenChart({
           {[2, 35, 68, 102].map((y) => (
             <path key={y} className="hbar-monitoring-chart-line" d={`M0 ${y}H320`} />
           ))}
-          {report.series.map((bucket, index) => {
+          {report.series.map((bucket) => {
+            const index = Math.min(
+              bucketCount - 1,
+              Math.max(0, Math.round((bucket.start - report.range.startedAt) / bucketMs)),
+            )
             const input = (bucket.input / maximum) * 100,
               output = (bucket.output / maximum) * 100
             const caption = labels.chart.bucket(bucket.start, bucket.start + bucketMs, bucket.input, bucket.output)

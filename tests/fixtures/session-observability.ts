@@ -1,7 +1,35 @@
 import {
   sessionObservabilityReportSchema,
+  observabilityRecordSchema,
+  type ObservabilityRecord,
   type SessionObservabilityReport,
 } from '@hbar/contracts/session-observability'
+
+export function observabilityRecord(value: Partial<ObservabilityRecord> = {}): ObservabilityRecord {
+  return observabilityRecordSchema.parse({
+    id: 'measured-record',
+    label: 'measured activity',
+    secondary: null,
+    count: 1,
+    succeeded: 0,
+    failed: 0,
+    durationMs: null,
+    averageMs: null,
+    status: null,
+    time: null,
+    linesRead: null,
+    patches: null,
+    addedLines: null,
+    removedLines: null,
+    beforeTokens: null,
+    afterTokens: null,
+    input: null,
+    output: null,
+    cost: null,
+    pricing: null,
+    ...value,
+  })
+}
 
 /** Test-authored data enters the same public schema as the Host response. */
 export function observabilityReport(
@@ -46,6 +74,7 @@ export function observabilityReport(
       output: 30,
       cacheRead: 40,
       cacheWrite: 10,
+      billableTokens: 110,
       requests: 2,
       recorded: 2,
       runs: 1,
@@ -60,6 +89,14 @@ export function observabilityReport(
       tokensPerSecond: 300,
       outputPerSecond: 60,
       timingSamples: 2,
+    },
+    latency: { firstText: { p95Ms: 40, samples: 2 }, response: { p95Ms: 250, samples: 2 } },
+    execution: {
+      requestConcurrency: 1,
+      toolConcurrency: null,
+      totalRunDurationMs: 600,
+      runP95Ms: 600,
+      runTimingSamples: 1,
     },
     tools: activity,
     terminal: activity,

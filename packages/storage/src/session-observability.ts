@@ -9,6 +9,7 @@ import { HbarError } from '@hbar/contracts'
 import { observabilityRange } from './session-observability-range'
 import { observabilityDetails } from './session-observability-details'
 import { TOOL_FACTS_SQL, USAGE_FACTS_SQL, COMPACTION_FACTS_SQL } from './session-observability-facts'
+import { readObservabilityPerformance } from './session-observability-performance'
 
 function activity(db: Database, args: [string, number, number], terminal: boolean) {
   return db
@@ -39,8 +40,12 @@ export function readSessionObservability(db: Database, value: SessionObservabili
       .query<Record<string, unknown>, [string, number, number]>(
         `${USAGE_FACTS_SQL}
       SELECT COALESCE(SUM(input),0) input,COALESCE(SUM(output),0) output,COALESCE(SUM(cacheRead),0) cacheRead,
-        COALESCE(SUM(cacheWrite),0) cacheWrite,COUNT(*) recorded,COUNT(DISTINCT model) models,
-        (SELECT COUNT(DISTINCT COALESCE(runId,'')||':'||attemptId) FROM starts WHERE seq>?2 AND seq<=?3) requests,
+        COALESCE(SUM(cacheWrite),0) cacheWrite,COALESCE(SUM(MAX(0,input-cacheRead)+output),0) billableTokens,
+        COUNT(*) recorded,COUNT(DISTINCT model) models,
+        (SELECT COUNT(*) FROM (
+          SELECT runId,attemptId FROM starts WHERE seq>?2 AND seq<=?3
+          UNION SELECT runId,attemptId FROM usage
+        )) requests,
         (SELECT COUNT(DISTINCT runId) FROM events WHERE sessionId=?1 AND seq>?2 AND seq<=?3 AND type IN ('run.status','run.settled','message.committed','request.started','compaction.request','tool.started')) runs,
         (SELECT COUNT(*) FROM events e LEFT JOIN runs r ON r.id=e.runId WHERE e.sessionId=?1 AND e.seq>?2 AND e.seq<=?3
           AND e.type='message.committed' AND json_extract(e.data,'$.role')='user'
@@ -102,6 +107,7 @@ export function readSessionObservability(db: Database, value: SessionObservabili
       observedAt: Date.now(),
       range,
       usage,
+      ...readObservabilityPerformance(db, args, range),
       tools: activity(db, args, false),
       terminal: activity(db, args, true),
       skills,

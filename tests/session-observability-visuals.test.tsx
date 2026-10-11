@@ -8,9 +8,10 @@ import {
 import {
   ObservabilityRecordMetrics,
   ObservabilitySections,
+  ObservabilityPerformance,
 } from '../packages/app-react/src/session-observability-metrics'
 import { getShellCopy } from '../apps/web/src/shell-copy'
-import { observabilityReport } from './fixtures/session-observability'
+import { observabilityReport, observabilityRecord } from './fixtures/session-observability'
 import { observabilityRecordSchema } from '@hbar/contracts/session-observability'
 
 for (const locale of ['zh-CN', 'en-US'] as const)
@@ -47,6 +48,56 @@ for (const locale of ['zh-CN', 'en-US'] as const)
         <ObservabilityTokenChart report={{ ...observabilityReport(), series: [] }} labels={labels} />,
       )
       expect(empty).not.toContain('<svg')
+    })
+    test('time gaps keep their physical position rather than compressing adjacent samples together', () => {
+      const base = observabilityReport()
+      const html = renderToStaticMarkup(
+        <ObservabilityTokenChart
+          report={{
+            ...base,
+            range: { ...base.range, startedAt: 0, endedAt: 3999 },
+            series: [
+              { start: 0, input: 40, output: 10, cacheRead: 0 },
+              { start: 3900, input: 5, output: 1, cacheRead: 0 },
+            ],
+          }}
+          labels={labels}
+        />,
+      )
+      expect(html).toContain('x="1.44"')
+      expect(html).toContain('x="313.44"')
+    })
+    test('individual records show the measured success denominator, compaction expansion and model share', () => {
+      const render = (detail: 'tools' | 'compactions' | 'models', value: Parameters<typeof observabilityRecord>[0]) =>
+        renderToStaticMarkup(
+          <ObservabilityRecordMetrics
+            detail={detail}
+            record={observabilityRecord(value)}
+            labels={labels}
+            totalTokens={300}
+          />,
+        )
+      const tools = render('tools', { count: 8, succeeded: 3, failed: 1 })
+      expect(tools).toContain(labels.percent(0.75))
+      expect(tools).not.toContain(labels.percent(0.375))
+      const compaction = render('compactions', { beforeTokens: 8000, afterTokens: 10000 })
+      expect(compaction).toContain(labels.percent(-0.25))
+      expect(compaction).toContain(labels.number(-2000))
+      const model = render('models', { input: 120, output: 30 })
+      expect(model).toContain(labels.percent(0.5))
+      expect(model).toContain(labels.fields.tokenShare)
+      expect(model).toContain(labels.unavailable)
+      expect(model).not.toContain(labels.currency(0))
+    })
+    test('existing latency and execution information keeps real samples and missing measurements', () => {
+      const html = renderToStaticMarkup(<ObservabilityPerformance report={observabilityReport()} labels={labels} />)
+      expect(html).toContain(labels.latency.title)
+      expect(html).toContain(labels.duration(40))
+      expect(html).toContain(labels.duration(250))
+      expect(html).toContain(labels.chart.samples(2))
+      expect(html).toContain(labels.execution.requestConcurrency)
+      expect(html).toContain(labels.execution.toolConcurrency)
+      expect(html).toContain(labels.unavailable)
     })
     test('all resource metrics come from typed host copy and missing prices cannot read as a zero quote', () => {
       const report = observabilityReport()

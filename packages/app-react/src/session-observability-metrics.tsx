@@ -7,6 +7,7 @@ import type {
 } from '@hbar/contracts/session-observability'
 import { ObservabilityCompression, ObservabilityOutcomes } from './session-observability-charts'
 import type { HbarSessionObservabilityLabels } from './session-observability-labels'
+import { HbarLumenDisclosure } from './lumen-disclosure'
 
 export function ObservabilityMetrics({ entries }: { readonly entries: readonly { label: string; value: string }[] }) {
   return (
@@ -23,10 +24,12 @@ export function ObservabilityRecordMetrics({
   record,
   detail,
   labels,
+  totalTokens,
 }: {
   readonly record: ObservabilityRecord
   readonly detail: ObservabilityDetail
   readonly labels: HbarSessionObservabilityLabels
+  readonly totalTokens?: number
 }) {
   const number = (value: number | null) => (value === null ? labels.unavailable : labels.number(value))
   const entries: { label: string; value: string }[] = []
@@ -41,6 +44,13 @@ export function ObservabilityRecordMetrics({
       { label: labels.fields.count, value: number(record.count) },
       { label: labels.outcomes.succeeded, value: number(record.succeeded) },
       { label: labels.outcomes.failed, value: number(record.failed) },
+      {
+        label: labels.fields.successRate,
+        value:
+          record.succeeded + record.failed > 0
+            ? labels.percent(record.succeeded / (record.succeeded + record.failed))
+            : labels.unavailable,
+      },
     )
   if (detail === 'files')
     entries.push(
@@ -55,18 +65,43 @@ export function ObservabilityRecordMetrics({
     entries.push(
       { label: labels.fields.before, value: number(record.beforeTokens) },
       { label: labels.fields.after, value: number(record.afterTokens) },
+      {
+        label: labels.fields.removedTokens,
+        value:
+          record.beforeTokens === null || record.afterTokens === null
+            ? labels.unavailable
+            : labels.number(record.beforeTokens - record.afterTokens),
+      },
+      {
+        label: labels.fields.reduction,
+        value:
+          record.beforeTokens === null || record.afterTokens === null || record.beforeTokens === 0
+            ? labels.unavailable
+            : labels.percent((record.beforeTokens - record.afterTokens) / record.beforeTokens),
+      },
     )
-  if (detail === 'requests')
+  if (detail === 'requests' || detail === 'models')
     entries.push(
       { label: labels.composition.input, value: number(record.input) },
       { label: labels.composition.output, value: number(record.output) },
       { label: labels.totals.cost, value: record.cost === null ? labels.unavailable : labels.currency(record.cost) },
     )
+  if (detail === 'models')
+    entries.push(
+      { label: labels.totals.attempts, value: number(record.count) },
+      {
+        label: labels.fields.tokenShare,
+        value:
+          !totalTokens || record.input === null || record.output === null
+            ? labels.unavailable
+            : labels.percent((record.input + record.output) / totalTokens),
+      },
+    )
   entries.push({
     label: labels.fields.duration,
     value: record.durationMs === null ? labels.unavailable : labels.duration(record.durationMs),
   })
-  if (detail === 'tools' || detail === 'terminal')
+  if (detail === 'tools' || detail === 'terminal' || detail === 'models')
     entries.push({
       label: labels.fields.average,
       value: record.averageMs === null ? labels.unavailable : labels.duration(record.averageMs),
@@ -84,6 +119,48 @@ export function ObservabilityRecordMetrics({
           {labels.price(record.pricing)}
         </LumenContentText>
       )}
+    </>
+  )
+}
+
+export function ObservabilityPerformance({
+  report,
+  labels,
+}: {
+  readonly report: SessionObservabilityReport
+  readonly labels: HbarSessionObservabilityLabels
+}) {
+  const duration = (value: number | null) => (value === null ? labels.unavailable : labels.duration(value))
+  const number = (value: number | null) => (value === null ? labels.unavailable : labels.number(value))
+  return (
+    <>
+      <HbarLumenDisclosure label={labels.latency.title}>
+        <ObservabilityMetrics
+          entries={[
+            { label: labels.latency.firstToken, value: duration(report.latency.firstText.p95Ms) },
+            { label: labels.latency.response, value: duration(report.latency.response.p95Ms) },
+          ]}
+        />
+        <LumenContentText context="section.description" tone="muted">
+          {labels.list([
+            labels.latency.firstToken,
+            labels.chart.samples(report.latency.firstText.samples),
+            labels.latency.response,
+            labels.chart.samples(report.latency.response.samples),
+          ])}
+        </LumenContentText>
+      </HbarLumenDisclosure>
+      <HbarLumenDisclosure label={labels.execution.title}>
+        <ObservabilityMetrics
+          entries={[
+            { label: labels.execution.requestConcurrency, value: number(report.execution.requestConcurrency) },
+            { label: labels.execution.toolConcurrency, value: number(report.execution.toolConcurrency) },
+            { label: labels.execution.totalDuration, value: duration(report.execution.totalRunDurationMs) },
+            { label: labels.execution.runDuration, value: duration(report.execution.runP95Ms) },
+            { label: labels.execution.toolDuration, value: duration(report.tools.p95Ms) },
+          ]}
+        />
+      </HbarLumenDisclosure>
     </>
   )
 }
@@ -171,6 +248,11 @@ export function ObservabilitySections({
             </LumenFrame>
             {activity && <ObservabilityOutcomes value={activity} labels={labels} />}
             <ObservabilityMetrics entries={metrics} />
+            {activity && (
+              <LumenContentText context="section.description" tone="muted">
+                {labels.list([labels.fields.duration, labels.chart.samples(activity.timingSamples)])}
+              </LumenContentText>
+            )}
             {section === 'skills' && (
               <LumenContentText context="section.description" tone="muted">
                 {labels.skillNote}
@@ -190,6 +272,11 @@ export function ObservabilitySections({
                   labels={labels}
                 />
               )}
+            {section === 'compactions' && (
+              <LumenContentText context="section.description" tone="muted">
+                {labels.list([labels.fields.reduction, labels.chart.samples(report.compactions.measured)])}
+              </LumenContentText>
+            )}
           </LumenFrame>
         )
       })}

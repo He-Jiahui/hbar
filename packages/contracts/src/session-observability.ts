@@ -5,7 +5,15 @@ const count = z.number().int().nonnegative()
 const tokens = z.number().finite().nonnegative()
 const measured = z.number().finite().nonnegative().nullable()
 export const observabilityScopeSchema = z.enum(['session', 'turn', 'window'])
-export const observabilityDetailSchema = z.enum(['skills', 'tools', 'files', 'terminal', 'compactions', 'requests'])
+export const observabilityDetailSchema = z.enum([
+  'skills',
+  'tools',
+  'files',
+  'terminal',
+  'compactions',
+  'requests',
+  'models',
+])
 export const sessionObservabilityInputSchema = z.strictObject({
   sessionId: z.string().min(1).max(256),
   scope: observabilityScopeSchema.default('session'),
@@ -73,6 +81,7 @@ export const sessionObservabilityReportSchema = z.strictObject({
     output: tokens,
     cacheRead: tokens,
     cacheWrite: tokens,
+    billableTokens: tokens,
     requests: count,
     runs: count,
     turns: count,
@@ -87,6 +96,17 @@ export const sessionObservabilityReportSchema = z.strictObject({
     tokensPerSecond: measured,
     outputPerSecond: measured,
     timingSamples: count,
+  }),
+  latency: z.strictObject({
+    firstText: z.strictObject({ p95Ms: measured, samples: count }),
+    response: z.strictObject({ p95Ms: measured, samples: count }),
+  }),
+  execution: z.strictObject({
+    requestConcurrency: measured,
+    toolConcurrency: measured,
+    totalRunDurationMs: measured,
+    runP95Ms: measured,
+    runTimingSamples: count,
   }),
   tools: activitySummarySchema,
   terminal: activitySummarySchema,

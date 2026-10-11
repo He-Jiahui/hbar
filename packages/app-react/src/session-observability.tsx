@@ -9,6 +9,7 @@ import {
   ObservabilityMetrics,
   ObservabilityRecordMetrics,
   ObservabilitySections,
+  ObservabilityPerformance,
 } from './session-observability-metrics'
 import type { HbarSessionObservabilityLabels } from './session-observability-labels'
 import './session-observability.css'
@@ -18,10 +19,12 @@ export type { HbarSessionObservabilityLabels } from './session-observability-lab
 function Dashboard({
   owner,
   connected,
+  active,
   labels,
 }: {
   readonly owner: SessionObservabilityReader
   readonly connected: boolean
+  readonly active: boolean
   readonly labels: HbarSessionObservabilityLabels
 }) {
   const state = useHbarRuntimeState(owner.reader)
@@ -37,15 +40,15 @@ function Dashboard({
   const percent = (value: number | null) => (value === null ? labels.unavailable : labels.percent(value))
   const metric = (label: string, value: string) => ({ label, value })
   useEffect(() => {
-    owner.setConnected(connected)
-  }, [owner, connected])
+    owner.setConnected(connected && active)
+  }, [owner, connected, active])
   useEffect(() => owner.retain(), [owner])
   const scopes = (['session', 'turn', 'window'] as const).map((id) => ({
     id,
     label: labels.scopes[id],
     disabled: !connected,
   }))
-  const detailKinds = ['skills', 'tools', 'files', 'terminal', 'compactions', 'requests'] as const
+  const detailKinds = ['skills', 'tools', 'files', 'terminal', 'compactions', 'requests', 'models'] as const
   return (
     <LumenFrame
       as="section"
@@ -151,7 +154,7 @@ function Dashboard({
             ]}
           />
           <LumenContentText context="section.description" tone="muted">
-            {labels.coverage(report.usage.recorded, report.usage.requests)} · {labels.rateNote}
+            {labels.list([labels.coverage(report.usage.recorded, report.usage.requests), labels.rateNote])}
           </LumenContentText>
           <LumenFrame className="hbar-monitoring-composition">
             <LumenContentText context="section.subtitle">{labels.composition.title}</LumenContentText>
@@ -169,11 +172,13 @@ function Dashboard({
                 metric(labels.composition.output, number(report.usage.output)),
                 metric(labels.composition.cacheRead, number(report.usage.cacheRead)),
                 metric(labels.composition.cacheWrite, number(report.usage.cacheWrite)),
+                metric(labels.composition.billable, number(report.usage.billableTokens)),
               ]}
             />
           </LumenFrame>
           <ObservabilityTokenChart report={report} labels={labels} />
           <ObservabilitySections report={report} labels={labels} connected={connected} onDetail={showRecords} />
+          <ObservabilityPerformance report={report} labels={labels} />
           <LumenFrame as="section" className="hbar-observability-records" ref={recordsElement}>
             <LumenContentText context="section.subtitle">{labels.details}</LumenContentText>
             <LumenTabs
@@ -194,25 +199,46 @@ function Dashboard({
               {report.detail === state.detail ? (
                 report.records.length > 0 ? (
                   report.records.map((record) => (
-                    <HbarLumenDisclosure
+                    <LumenFrame
                       key={record.id}
-                      className="hbar-observability-record"
-                      label={
-                        <LumenFrame as="span" className="hbar-observability-record-label">
-                          <LumenContentText context="control.label">{record.label}</LumenContentText>
-                          <LumenContentText context="message.inline" tone="muted">
-                            {record.status && Object.hasOwn(labels.outcomes, record.status)
-                              ? labels.outcomes[record.status as keyof typeof labels.outcomes]
-                              : labels.number(record.count)}
-                          </LumenContentText>
-                        </LumenFrame>
-                      }
+                      {...(state.detail === 'models' ? { 'data-model-usage': record.id } : {})}
                     >
-                      <LumenContentText context="section.description" tone="muted">
-                        {record.time === null ? labels.unavailable : labels.timestamp(record.time)}
-                      </LumenContentText>
-                      <ObservabilityRecordMetrics record={record} detail={state.detail} labels={labels} />
-                    </HbarLumenDisclosure>
+                      <HbarLumenDisclosure
+                        className="hbar-observability-record"
+                        label={
+                          <LumenFrame as="span" className="hbar-observability-record-label">
+                            <LumenContentText context="control.label">{record.label}</LumenContentText>
+                            <LumenContentText context="message.inline" tone="muted">
+                              {record.status && Object.hasOwn(labels.outcomes, record.status)
+                                ? labels.outcomes[record.status as keyof typeof labels.outcomes]
+                                : state.detail === 'models'
+                                  ? labels.tokens((record.input ?? 0) + (record.output ?? 0))
+                                  : labels.number(record.count)}
+                            </LumenContentText>
+                          </LumenFrame>
+                        }
+                      >
+                        <LumenContentText context="section.description" tone="muted">
+                          {record.time === null ? labels.unavailable : labels.timestamp(record.time)}
+                        </LumenContentText>
+                        <ObservabilityRecordMetrics
+                          record={record}
+                          detail={state.detail}
+                          labels={labels}
+                          totalTokens={report.usage.input + report.usage.output}
+                        />
+                        {state.detail === 'models' && report.usage.input + report.usage.output > 0 && (
+                          <LumenFrame className="hbar-monitoring-model-track" aria-hidden="true">
+                            <LumenFrame
+                              as="span"
+                              style={{
+                                inlineSize: `${(((record.input ?? 0) + (record.output ?? 0)) / (report.usage.input + report.usage.output)) * 100}%`,
+                              }}
+                            />
+                          </LumenFrame>
+                        )}
+                      </HbarLumenDisclosure>
+                    </LumenFrame>
                   ))
                 ) : (
                   <LumenContentText context="section.description" tone="muted">
@@ -248,7 +274,7 @@ function Dashboard({
             </LumenFrame>
           </LumenFrame>
           <LumenContentText context="section.description" tone="muted">
-            {labels.measurementNote} · {labels.chart.observed(report.observedAt)}
+            {labels.list([labels.measurementNote, labels.chart.observed(report.observedAt)])}
           </LumenContentText>
         </>
       )}
@@ -259,13 +285,15 @@ function Dashboard({
 export function HbarSessionObservability({
   sessionId,
   connected,
+  active = true,
   labels,
 }: {
   readonly sessionId: string
   readonly connected: boolean
+  readonly active?: boolean
   readonly labels: HbarSessionObservabilityLabels
 }) {
   const runtime = useHbarRuntime()
   const owner = useMemo(() => runtime.state.sessionObservability.create(sessionId), [runtime, sessionId])
-  return <Dashboard owner={owner} connected={connected} labels={labels} />
+  return <Dashboard owner={owner} connected={connected} active={active} labels={labels} />
 }

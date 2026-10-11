@@ -8,6 +8,7 @@ import type { HbarSessionMonitoringUsageLabels } from './session-monitoring-usag
 export type ObservabilityField =
   | 'outputRate'
   | 'cacheShare'
+  | 'tokenShare'
   | 'knownCost'
   | 'successRate'
   | 'duration'
@@ -65,4 +66,5 @@ export interface HbarSessionObservabilityLabels extends HbarSessionMonitoringUsa
   readonly page: (page: number) => string
   readonly timestamp: (time: number) => string
   readonly price: (pricing: NonNullable<ObservabilityRecord['pricing']>) => string
+  readonly list: (items: readonly string[]) => string
 }

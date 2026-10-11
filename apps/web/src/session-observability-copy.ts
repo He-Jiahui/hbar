@@ -8,6 +8,7 @@ export function sessionObservabilityCopy(
   const choose = (chinese: string, english: string) => (zh ? chinese : english)
   return {
     ...base,
+    list: (items) => items.join(' · '),
     scopeTitle: choose('统计范围', 'Statistics scope'),
     scopes: {
       session: choose('整个会话', 'Session'),
@@ -21,10 +22,12 @@ export function sessionObservabilityCopy(
       terminal: choose('终端执行', 'Terminal'),
       compactions: choose('上下文压缩', 'Compactions'),
       requests: choose('模型请求', 'Model requests'),
+      models: base.models,
     },
     fields: {
       outputRate: choose('输出速率', 'Output rate'),
       cacheShare: choose('缓存读取占输入', 'Cached input share'),
+      tokenShare: choose('Token 占比', 'Token share'),
       knownCost: choose('已知费用', 'Known cost'),
       successRate: choose('成功率', 'Success rate'),
       duration: choose('累计耗时', 'Total duration'),

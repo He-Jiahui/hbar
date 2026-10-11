@@ -16,6 +16,14 @@ export function observabilityDetails(
   limit: number,
 ) {
   const sources: Record<ObservabilityDetail, { prefix: string; select: string; descending: boolean }> = {
+    models: {
+      prefix: USAGE_FACTS_SQL,
+      descending: false,
+      select: `SELECT model id,model label,NULL secondary,COUNT(*) count,0 succeeded,0 failed,${duration},
+      NULL status,MAX(time) time,NULL linesRead,NULL patches,NULL addedLines,NULL removedLines,
+      NULL beforeTokens,NULL afterTokens,SUM(input) input,SUM(output) output,
+      CASE WHEN COUNT(*)=COUNT(cost) THEN SUM(cost) END cost,NULL pricing FROM usage GROUP BY model`,
+    },
     tools: {
       prefix: TOOL_FACTS_SQL,
       descending: false,
@@ -26,7 +34,9 @@ export function observabilityDetails(
     skills: {
       prefix: TOOL_FACTS_SQL,
       descending: false,
-      select: `SELECT skillId id,MAX(skillName) label,MAX(revision) secondary,
+      select: `SELECT skillId id,
+      (SELECT skillName FROM skills s WHERE s.skillId=skills.skillId ORDER BY time DESC,seq DESC LIMIT 1) label,
+      (SELECT revision FROM skills s WHERE s.skillId=skills.skillId AND s.instruction=1 ORDER BY time DESC,seq DESC LIMIT 1) secondary,
       (SELECT COALESCE(SUM(used),0) FROM skill_uses u WHERE u.skillId=skills.skillId) count,SUM(instruction AND offset=0) succeeded,SUM(NOT instruction) failed,${duration},NULL status,MAX(time) time,
       NULL linesRead,NULL patches,NULL addedLines,NULL removedLines,NULL beforeTokens,NULL afterTokens,NULL input,NULL output,NULL cost,NULL pricing
       FROM skills GROUP BY skillId`,

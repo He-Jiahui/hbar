@@ -183,13 +183,18 @@ export function HbarSessionMonitoring({
               />
             </HbarLumenDisclosure>
           )}
-          {report?.gap && (
+          {report?.gap && !runtime.state.sessionObservability.available && (
             <LumenContentText context="feedback.message" className="hbar-app-react-monitoring-gap" role="status">
               {labels.gap}
             </LumenContentText>
           )}
           {sessionId && runtime.state.sessionObservability.available ? (
-            <HbarSessionObservability sessionId={sessionId} connected={connected} labels={labels.observability} />
+            <HbarSessionObservability
+              sessionId={sessionId}
+              connected={connected}
+              active={selected === 'overview'}
+              labels={labels.observability}
+            />
           ) : report ? (
             <HbarSessionMonitoringUsage key={`usage:${sessionId}`} report={report} labels={labels} />
           ) : (

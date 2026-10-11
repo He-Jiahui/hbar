@@ -6,6 +6,7 @@ import { Storage } from '@hbar/storage'
 import type { ToolActivity } from '@hbar/contracts/tool-activity'
 import { sessionObservabilityReportSchema } from '@hbar/contracts/session-observability'
 import { parseContextCompactionEvent } from '@hbar/contracts/context-history'
+import { Database } from 'bun:sqlite'
 
 const resources: { root: string; storage: Storage }[] = []
 afterEach(async () => {
@@ -90,6 +91,214 @@ async function compact(f: Awaited<ReturnType<typeof fixture>>, completed: boolea
 }
 
 describe('Session SQLite observability', () => {
+  test('skill details use the latest instruction revision and never substitute a resource hash', async () => {
+    const f = await fixture()
+    const base = {
+      id: 'versioned-skill',
+      resource: 'SKILL.md',
+      instruction: true,
+      completed: true,
+      offset: 0,
+      characters: 3,
+      totalCharacters: 3,
+    }
+    await tool(f, 'old-version', 'file-read', 'succeeded', 1, { skill: { ...base, name: 'Zulu', revision: 'z' } })
+    await tool(f, 'new-version', 'file-read', 'succeeded', 1, { skill: { ...base, name: 'Alpha', revision: 'a' } })
+    await tool(f, 'reference', 'file-read', 'succeeded', 1, {
+      skill: {
+        ...base,
+        name: 'Alpha',
+        revision: 'resource-hash',
+        instruction: false,
+        completed: false,
+        resource: 'references/guide.md',
+      },
+    })
+    const report = await f.storage.call('sessionObservability', { sessionId: f.session.id, detail: 'skills' })
+    expect(report.records[0]).toMatchObject({
+      id: 'versioned-skill',
+      label: 'Alpha',
+      secondary: 'a',
+      count: 2,
+      failed: 1,
+    })
+  })
+  test('keeps scoped model shares, measured latency and concurrency, with clipped Run durations', async () => {
+    const f = await fixture()
+    const origin = Date.now() - 10_000
+    const timedEvents: { eventId: string; time: number }[] = []
+    const append = async (type: string, data: unknown, time: number) => {
+      const event = await f.storage.call('append', f.session.id, type, data, f.run.id)
+      timedEvents.push({ eventId: event.eventId, time: origin + time })
+    }
+    const pricing = {
+      available: true,
+      currency: 'USD',
+      inputPerMillion: 2,
+      outputPerMillion: 8,
+      cacheReadPerMillion: 0.5,
+      cacheWritePerMillion: null,
+      source: 'provider-config',
+      version: 'original',
+      effectiveAt: null,
+    }
+    await append('request.started', { attemptId: 'a' }, 100)
+    await append('request.started', { attemptId: 'b' }, 150)
+    await append('request.started', { attemptId: 'c' }, 200)
+    for (const [attemptId, time] of [
+      ['a', 140],
+      ['b', 230],
+      ['c', 250],
+      ['c', 280],
+    ] as const)
+      await append('attempt.firstText', { attemptId }, time)
+    for (const [attemptId, modelSelectionId, time, cost, output, cacheRead, available] of [
+      ['a', 'original/model', 200, 0.125, 20, 40, true],
+      ['b', 'other/model', 350, 0, 20, 0, false],
+      ['c', 'original/model', 300, 0.25, 10, 0, true],
+    ] as const)
+      await append(
+        'usage.recorded',
+        {
+          usageId: attemptId,
+          attemptId,
+          modelSelectionId,
+          input: 100,
+          output,
+          cacheRead,
+          cacheWrite: 0,
+          cost,
+          pricing: { ...pricing, available },
+        },
+        time,
+      )
+    await append('request.started', { attemptId: 'untimed' }, 500)
+    await append('attempt.firstText', { attemptId: 'untimed' }, 480)
+    const toolResults: { eventId: string; start: number; end: number }[] = []
+    for (const [id, start, end] of [
+      ['one', 100, 200],
+      ['two', 150, 350],
+      ['three', 200, 300],
+    ] as const) {
+      const result = await tool(f, id, 'command', 'succeeded', end - start)
+      toolResults.push({ eventId: result.event.eventId, start: origin + start, end: origin + end })
+    }
+    const compacted = await compact(f, true)
+    if (!compacted) throw new Error('Missing successful compaction event')
+    timedEvents.push({ eventId: compacted.eventId, time: origin + 800 })
+    const secondTurn = await f.storage.call('commit', f.session.id, f.run.id, 'user', [
+      { type: 'text', text: 'second task' },
+    ])
+    timedEvents.push({ eventId: secondTurn.event.eventId, time: origin + 850 })
+    await append('request.started', { attemptId: 'new-window' }, 900)
+    await append('attempt.firstText', { attemptId: 'new-window' }, 960)
+    await append(
+      'usage.recorded',
+      {
+        usageId: 'new-window',
+        attemptId: 'new-window',
+        modelSelectionId: 'fresh/model',
+        input: 500,
+        output: 50,
+        cacheRead: 0,
+        cacheWrite: 0,
+        cost: 0.75,
+        pricing,
+      },
+      1300,
+    )
+    await f.storage.call('setRun', f.run.id, 'completed')
+    const db = new Database(join(f.root, 'session.sqlite'))
+    try {
+      db.transaction(() => {
+        db.query('UPDATE sessions SET createdAt=? WHERE id=?').run(origin, f.session.id)
+        db.query('UPDATE events SET time=? WHERE eventId=?').run(origin + 50, f.turn.event.eventId)
+        db.query('UPDATE runs SET startedAt=?,endedAt=? WHERE id=?').run(origin + 50, origin + 1400, f.run.id)
+        for (const event of timedEvents)
+          db.query('UPDATE events SET time=? WHERE eventId=?').run(event.time, event.eventId)
+        for (const result of toolResults)
+          db.query(
+            "UPDATE events SET data=json_set(data,'$.content[0].execution.startedAt',?,'$.content[0].execution.endedAt',?) WHERE eventId=?",
+          ).run(result.start, result.end, result.eventId)
+      })()
+    } finally {
+      db.close()
+    }
+    const all = await f.storage.call('sessionObservability', { sessionId: f.session.id, detail: 'models' })
+    expect(all.latency).toEqual({ firstText: { p95Ms: 80, samples: 4 }, response: { p95Ms: 400, samples: 4 } })
+    expect(all.execution).toMatchObject({
+      requestConcurrency: 2,
+      toolConcurrency: 2,
+      totalRunDurationMs: 1350,
+      runP95Ms: 1350,
+    })
+    expect(all.usage.billableTokens).toBe(860)
+    const original = all.records.find((record) => record.id === 'original/model')
+    expect(original).toMatchObject({ count: 2, input: 200, output: 30, cost: 0.375 })
+    expect(all.records.find((record) => record.id === 'other/model')?.cost).toBeNull()
+    const first = await f.storage.call('sessionObservability', {
+      sessionId: f.session.id,
+      scope: 'window',
+      anchor: 0,
+      detail: 'models',
+    })
+    expect(first.latency.response).toEqual({ p95Ms: 200, samples: 3 })
+    expect(first.execution).toMatchObject({ totalRunDurationMs: 750, runP95Ms: 750 })
+    expect(first.records).toHaveLength(2)
+    const window = await f.storage.call('sessionObservability', {
+      sessionId: f.session.id,
+      scope: 'window',
+      detail: 'models',
+    })
+    expect(window.latency.firstText).toEqual({ p95Ms: 60, samples: 1 })
+    expect(window.execution).toMatchObject({ totalRunDurationMs: 600, runP95Ms: 600 })
+    expect(window.records.map((record) => record.id)).toEqual(['fresh/model'])
+    expect(
+      (await f.storage.call('sessionObservability', { sessionId: f.session.id, scope: 'turn' })).execution
+        .totalRunDurationMs,
+    ).toBe(550)
+  })
+  test('legacy calls without a Run still pair with their result and do not duplicate measured files', async () => {
+    const f = await fixture()
+    await f.storage.call('append', f.session.id, 'message.committed', {
+      content: [
+        {
+          type: 'tool_call',
+          name: 'read_file',
+          callId: 'legacy-call',
+          args: { path: 'legacy.txt' },
+          presentation: { version: 1, kind: 'file-read', pathField: 'path' },
+        },
+      ],
+    })
+    await f.storage.call('append', f.session.id, 'tool.sequence_result', {
+      content: [
+        {
+          type: 'tool_result',
+          name: 'read_file',
+          callId: 'legacy-call',
+          text: 'private',
+          isError: false,
+          outcome: { kind: 'succeeded', executionStarted: true },
+          activity: {
+            files: [
+              {
+                path: 'legacy.txt',
+                operation: 'read',
+                linesRead: 2,
+                patches: null,
+                addedLines: null,
+                removedLines: null,
+              },
+            ],
+          },
+        },
+      ],
+    })
+    const report = await f.storage.call('sessionObservability', { sessionId: f.session.id })
+    expect(report.tools).toMatchObject({ total: 1, succeeded: 1, pending: 0 })
+    expect(report.files).toMatchObject({ reads: 1, readPaths: 1, linesRead: 2 })
+  })
   test('skill coverage is deduplicated within each context window and requires every page', async () => {
     const f = await fixture()
     const base = {
@@ -209,6 +418,7 @@ describe('Session SQLite observability', () => {
     expect(partial.usage.cost).toBeNull()
     expect(partial.usage.knownCost).toBe(0.125)
     expect(partial.usage.pricedRequests).toBe(1)
+    expect(partial.usage).toMatchObject({ requests: 2, recorded: 2 })
   })
   test('all scopes are valid when empty, bounded details never include private bodies', async () => {
     const f = await fixture()

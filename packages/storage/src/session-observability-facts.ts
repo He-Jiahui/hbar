@@ -16,7 +16,7 @@ WITH call_events AS (
 ), result_events AS (
  SELECT e.runId,e.seq,e.time,json_extract(b.value,'$.callId') callId,json_extract(b.value,'$.name') name,
   json_extract(b.value,'$.outcome.kind') outcome,json_extract(b.value,'$.execution.elapsedMs') elapsedMs,
-  json_extract(b.value,'$.execution.endedAt') endedAt,
+  json_extract(b.value,'$.execution.endedAt') endedAt,json_extract(b.value,'$.execution.startedAt') startedAt,
   COALESCE(json_extract(b.value,'$.activity'),CASE WHEN json_extract(b.value,'$.name') IN ('skill','skill_read')
    AND json_extract(b.value,'$.details.kind')='skill-read' THEN json_object('skill',json_object(
     'id','legacy:'||json_extract(b.value,'$.details.name'),'name',json_extract(b.value,'$.details.name'),
@@ -34,14 +34,15 @@ WITH call_events AS (
   CASE WHEN c.presentation IS NOT NULL THEN json_extract(c.args,'$.'||COALESCE(json_extract(c.presentation,'$.pathField'),json_extract(c.presentation,'$.commandField'))) END label,
   COALESCE(r.outcome,CASE WHEN r.callId IS NOT NULL THEN 'unknown'
    WHEN state.status IN ('completed','failed','cancelled','interrupted','guided') THEN CASE WHEN c.executed=1 THEN 'unknown' ELSE 'cancelled' END ELSE 'pending' END) outcome,
-  CASE WHEN r.endedAt IS NOT NULL THEN r.elapsedMs END durationMs,r.activity
- FROM calls c LEFT JOIN results r ON r.runId=c.runId AND r.callId=c.callId AND r.name=c.name AND r.ordinal=1
+  CASE WHEN r.endedAt IS NOT NULL THEN r.elapsedMs END durationMs,r.activity,
+  COALESCE(r.startedAt,CASE WHEN c.executed=1 THEN c.time END) startedAt,r.endedAt
+ FROM calls c LEFT JOIN results r ON r.runId IS c.runId AND r.callId=c.callId AND r.name=c.name AND r.ordinal=1
  LEFT JOIN runs state ON state.id=c.runId
  WHERE c.ordinal=1
  UNION ALL
  SELECT r.runId,r.callId,r.name,r.seq,r.time,'tool',NULL,COALESCE(r.outcome,'unknown'),
-  CASE WHEN r.endedAt IS NOT NULL THEN r.elapsedMs END,r.activity
- FROM results r WHERE r.ordinal=1 AND NOT EXISTS(SELECT 1 FROM calls c WHERE c.runId=r.runId AND c.callId=r.callId AND c.name=r.name)
+  CASE WHEN r.endedAt IS NOT NULL THEN r.elapsedMs END,r.activity,r.startedAt,r.endedAt
+ FROM results r WHERE r.ordinal=1 AND NOT EXISTS(SELECT 1 FROM calls c WHERE c.runId IS r.runId AND c.callId=r.callId AND c.name=r.name)
 ), tools AS (
  SELECT * FROM all_tools WHERE seq>?2 AND seq<=?3
 ), measured_files AS (
@@ -55,7 +56,7 @@ WITH call_events AS (
  UNION ALL
  SELECT t.*,REPLACE(t.label,'\\','/'),CASE WHEN t.kind='file-read' THEN 'read' ELSE 'write' END,NULL,NULL,NULL,NULL
  FROM tools t WHERE t.outcome='succeeded' AND t.kind IN ('file-read','file-write','file-edit')
-  AND t.label IS NOT NULL AND NOT EXISTS(SELECT 1 FROM measured_files f WHERE f.runId=t.runId AND f.callId=t.callId AND f.name=t.name)
+  AND t.label IS NOT NULL AND NOT EXISTS(SELECT 1 FROM measured_files f WHERE f.runId IS t.runId AND f.callId=t.callId AND f.name=t.name)
 ), skills AS (
  SELECT *,json_extract(activity,'$.skill.id') skillId,json_extract(activity,'$.skill.name') skillName,
   json_extract(activity,'$.skill.completed') completed,json_extract(activity,'$.skill.instruction') instruction,
