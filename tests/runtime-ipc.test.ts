@@ -38,6 +38,24 @@ function deferred() {
   })
   return { promise, release: () => release() }
 }
+
+test('default duplex IPC remains within 64 physical calls and 256 queued calls per unit', async () => {
+  const peers = paired(), gate = deferred()
+  peers.left.register('duplex', procedure(z.number(), z.number(), async value => { await gate.promise; return value }))
+  peers.right.register('duplex', procedure(z.number(), z.number(), async value => { await gate.promise; return value }))
+  const pending = Promise.allSettled([
+    ...Array.from({ length: 160 }, (_, index) => peers.left.call('duplex', index, z.number())),
+    ...Array.from({ length: 160 }, (_, index) => peers.right.call('duplex', index, z.number())),
+  ])
+  try {
+    await until(() => peers.left.snapshot().inFlight === 32 && peers.left.snapshot().incoming === 32)
+    expect(peers.left.snapshot().inFlight + peers.left.snapshot().incoming).toBe(64)
+    expect(peers.left.snapshot().queued + peers.right.snapshot().queued).toBe(256)
+    expect(await peers.left.call('duplex', 161, z.number()).catch((error: unknown) => error)).toMatchObject({ code: 'IPC_BUSY' })
+    gate.release()
+    expect((await pending).filter(result => result.status === 'fulfilled')).toHaveLength(320)
+  } finally { gate.release(); await pending; peers.close() }
+})
 async function until(check: () => boolean) {
   const deadline = Date.now() + 3_000
   while (!check()) {

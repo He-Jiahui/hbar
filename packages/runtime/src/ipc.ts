@@ -253,13 +253,14 @@ export class IpcPeer {
   constructor(private readonly options: IpcPeerOptions) {
     this.owner = Object.freeze(runtimeOwnerSchema.parse(options.owner))
     this.remote = Object.freeze(runtimeOwnerSchema.parse(options.remote))
-    this.maximumInFlight = limit(options.inFlight, RUNTIME_LIMITS.inFlight)
+    // Each owner can serve and initiate calls simultaneously; split the default unit budget across directions.
+    this.maximumInFlight = limit(options.inFlight, RUNTIME_LIMITS.inFlight / 2)
     this.controlMethods = new Set(z.array(methodName).max(128).parse(options.controlMethods ?? []))
     const reserved = options.reservedControl ?? (this.controlMethods.size ? Math.min(8, this.maximumInFlight - 1) : 0)
     if (!Number.isSafeInteger(reserved) || reserved < 0 || reserved >= this.maximumInFlight)
       throw new RangeError('Invalid IPC reserved control capacity')
     this.normalCapacity = this.maximumInFlight - reserved
-    this.maximumQueued = limit(options.queued, RUNTIME_LIMITS.queued)
+    this.maximumQueued = limit(options.queued, RUNTIME_LIMITS.queued / 2)
     this.maximumBytes = limit(options.bufferedBytes, RUNTIME_LIMITS.bufferedBytes)
     this.maximumMessage = limit(options.messageBytes, RUNTIME_LIMITS.messageBytes)
     this.timeoutMs = limit(options.timeoutMs, 30_000)
