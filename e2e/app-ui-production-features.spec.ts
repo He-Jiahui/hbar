@@ -1,18 +1,26 @@
 import { expect, test, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test'
-import { createNotificationCommandClient, createRunCommandClient, createRunBoardCommandClient } from '@hbar/client'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import {
+  createGoalPlanCommandClient,
+  createNotificationCommandClient,
+  createRunCommandClient,
+  createRunBoardCommandClient,
+  createWorkspaceSessionCommandClient,
+} from '@hbar/client'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { promptTemplateCopy } from '../apps/web/src/prompt-template-copy'
 import { scheduleCopy } from '../apps/web/src/schedule-copy'
 import { notificationCopy } from '../apps/web/src/notification-copy'
+import { globalFeatureCopy } from '../apps/web/src/global-feature-copy'
+import { runBoardCopy } from '../apps/web/src/run-board-copy'
+import { removeOwnedFixtureDirectory } from './support/owned-fixture-directory'
 import { expectLumenValue, selectLumenOption } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host.ts'
 
 const WEB_PORT = Number(process.env.HBAR_E2E_PORT ?? 4329)
 const HOST_PORT = Number(process.env.HBAR_E2E_HOST_PORT ?? 4337)
-const artifactRoot = 'artifacts/app-ui-migration-audit'
 
 async function authenticate(context: BrowserContext, token: string): Promise<void> {
   const response = await context.request.post(`http://127.0.0.1:${WEB_PORT}/auth/token`, { data: { token } })
@@ -23,18 +31,71 @@ async function openSession(page: Page, host: WebSessionHost, locale: 'en-US' | '
   const copy = getShellCopy(locale)
   await page.goto(`http://127.0.0.1:${WEB_PORT}`)
   await expect(page.getByText(copy.shell.connected, { exact: true }).first()).toBeVisible()
-  const sessionEntry = page.locator(`[data-session-id="${host.ready.sessionId}"]`)
+  const sessionEntry = page.locator(`.hbar-app-react-session-row[data-session-id="${host.ready.sessionId}"]`)
   await expect(sessionEntry).toBeVisible()
   await sessionEntry.click()
 }
 
-async function openFeature(page: Page, label: string): Promise<void> {
-  await page.getByRole('button', { name: label, exact: true }).click()
+async function openFeature(
+  page: Page,
+  locale: 'en-US' | 'zh-CN',
+  feature: 'prompt-templates' | 'schedules' | 'run-board',
+): Promise<void> {
+  const copy = globalFeatureCopy(locale)
+  if (feature === 'schedules') {
+    await page.getByRole('button', { name: copy.titles[feature], exact: true }).click()
+    return
+  }
+  const showSidebar = page.getByRole('button', { name: getShellCopy(locale).shell.showSidebar, exact: true })
+  if (await showSidebar.isVisible()) await showSidebar.click()
+  const navigation = page.getByRole('button', { name: copy.navigation, exact: true })
+  await expect(navigation).toBeVisible()
+  await navigation.click()
+  const menu = page.getByRole('menu', { name: copy.navigation, exact: true })
+  await expect(menu).toBeVisible()
+  await menu.getByRole('menuitem', { name: copy.titles[feature], exact: true }).click()
 }
 
 async function capture(page: Page, name: string): Promise<void> {
-  await mkdir(artifactRoot, { recursive: true })
-  await page.screenshot({ path: join(artifactRoot, name), fullPage: true })
+  const path = test.info().outputPath(name)
+  await page.screenshot({ path, fullPage: true })
+  await test.info().attach(name, { path, contentType: 'image/png' })
+  const layout = await page.evaluate(() =>
+    [
+      ...document.querySelectorAll(
+        '.hbar-web-global-page-header, .lumen-page-heading, .hbar-web-global-page-body, ' +
+          '.hbar-prompt-templates-page, .hbar-prompt-templates-page > header, .hbar-prompt-template-list, ' +
+          '.hbar-app-ui-notifications-preferences, .hbar-app-ui-notifications-preferences-header, ' +
+          '.hbar-app-ui-notifications-preferences-main, .hbar-app-ui-notifications-preferences-scroll',
+      ),
+    ]
+      .slice(0, 25)
+      .map((node) => {
+        const box = node.getBoundingClientRect()
+        const style = getComputedStyle(node)
+        return {
+          tag: node.tagName,
+          className: node.getAttribute('class'),
+          width: box.width,
+          height: box.height,
+          clientWidth: node.clientWidth,
+          scrollWidth: node.scrollWidth,
+          scrollLeft: node.scrollLeft,
+          display: style.display,
+          flex: style.flex,
+          flexDirection: style.flexDirection,
+          alignItems: style.alignItems,
+          minBlockSize: style.minBlockSize,
+          minInlineSize: style.minInlineSize,
+          overflowX: style.overflowX,
+          overflowY: style.overflowY,
+        }
+      }),
+  )
+  await test.info().attach(`${name}-layout`, {
+    body: Buffer.from(JSON.stringify({ viewport: page.viewportSize(), nodes: layout }, null, 2)),
+    contentType: 'application/json',
+  })
 }
 
 async function assertNoHorizontalOverflow(scope: Locator): Promise<void> {
@@ -42,6 +103,46 @@ async function assertNoHorizontalOverflow(scope: Locator): Promise<void> {
     clientWidth: element.clientWidth,
     scrollWidth: element.scrollWidth,
   }))
+  if (geometry.scrollWidth > geometry.clientWidth + 1) {
+    const layout = await scope.evaluate((element) => {
+      const owner = element.getBoundingClientRect()
+      const inspect = (node: Element) => {
+        const box = node.getBoundingClientRect()
+        const style = getComputedStyle(node)
+        return {
+          tag: node.tagName,
+          className: node.getAttribute('class'),
+          role: node.getAttribute('role'),
+          width: box.width,
+          left: box.left - owner.left,
+          right: box.right - owner.left,
+          clientWidth: node.clientWidth,
+          scrollWidth: node.scrollWidth,
+          display: style.display,
+          flex: style.flex,
+          minInlineSize: style.minInlineSize,
+          maxInlineSize: style.maxInlineSize,
+          overflowX: style.overflowX,
+          containerType: style.containerType,
+        }
+      }
+      return {
+        viewportWidth: window.innerWidth,
+        owner: inspect(element),
+        oversizedDescendants: [...element.querySelectorAll('*')]
+          .slice(0, 400)
+          .filter(
+            (node) => node.getBoundingClientRect().right > owner.right + 1 || node.scrollWidth > node.clientWidth + 1,
+          )
+          .slice(0, 40)
+          .map(inspect),
+      }
+    })
+    await test.info().attach('horizontal-overflow-layout', {
+      body: Buffer.from(JSON.stringify(layout, null, 2)),
+      contentType: 'application/json',
+    })
+  }
   expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth + 1)
 }
 
@@ -111,17 +212,55 @@ async function withHost<T>(
   callback: (page: Page, host: WebSessionHost) => Promise<T>,
 ): Promise<T> {
   const root = await mkdtemp(join(tmpdir(), 'hbar-app-ui-features-'))
-  const host = await startWebSessionHost({ root, port: HOST_PORT })
-  const context = await browser.newContext({ locale, viewport: { width: 1440, height: 960 } })
+  let host: WebSessionHost | undefined
+  let context: BrowserContext | undefined
+  let outcome: { kind: 'completed'; value: T } | { kind: 'failed'; error: unknown }
   try {
+    host = await startWebSessionHost({ root, port: HOST_PORT, goalAutoContinue: false, budgetAutoContinue: false })
+    context = await browser.newContext({ locale, viewport: { width: 1440, height: 960 } })
     await context.addInitScript((value) => localStorage.setItem('hbar:web:language', value), locale)
     await authenticate(context, host.ready.token)
-    return await callback(await context.newPage(), host)
-  } finally {
-    await context.close()
-    await stopWebSessionHost(host)
-    await rm(root, { recursive: true, force: true })
+    const page = await context.newPage()
+    const pageErrors: string[] = []
+    page.on('pageerror', (error) => {
+      if (pageErrors.length < 20) pageErrors.push(`${error.name}: ${error.message.slice(0, 1000)}`)
+    })
+    const value = await callback(page, host)
+    expect(pageErrors).toEqual([])
+    outcome = { kind: 'completed', value }
+  } catch (error) {
+    outcome = { kind: 'failed', error }
   }
+  const cleanupErrors: unknown[] = []
+  let contextClosed = context === undefined
+  if (context)
+    try {
+      await context.close()
+      contextClosed = true
+    } catch (error) {
+      cleanupErrors.push(error)
+    }
+  let hostStopped = false
+  if (host)
+    try {
+      await stopWebSessionHost(host)
+      hostStopped = true
+    } catch (error) {
+      cleanupErrors.push(error)
+    }
+  if (hostStopped && contextClosed)
+    try {
+      await removeOwnedFixtureDirectory(root, 'hbar-app-ui-features-')
+    } catch (error) {
+      cleanupErrors.push(error)
+    }
+  if (cleanupErrors.length)
+    throw new AggregateError(
+      [...(outcome.kind === 'failed' ? [outcome.error] : []), ...cleanupErrors],
+      'App UI fixture cleanup failed; preserve its directory',
+    )
+  if (outcome.kind === 'failed') throw outcome.error
+  return outcome.value
 }
 
 test.describe('production app-ui feature surfaces', () => {
@@ -137,7 +276,7 @@ test.describe('production app-ui feature surfaces', () => {
           locale === 'zh-CN'
             ? '用于窄面板验收的发布模板长标题'.repeat(4)
             : 'Release template with a deliberately long title for narrow panes'
-        await openFeature(page, templateCopy.title)
+        await openFeature(page, locale, 'prompt-templates')
         await page.getByRole('button', { name: templateCopy.create, exact: true }).click()
         const editor = page.locator('.hbar-prompt-template-editor')
         await page.getByRole('textbox', { name: templateCopy.editor.body, exact: true }).fill('Release build')
@@ -178,6 +317,7 @@ test.describe('production app-ui feature surfaces', () => {
           await page.setViewportSize({ width, height: 720 })
           await assertNoHorizontalOverflow(page.locator('.hbar-prompt-template-list'))
           await assertActionFlow(templateRow.locator('.hbar-prompt-actions'))
+          if (width === 320) await capture(page, `templates-${locale}-long-title-320.png`)
         }
         await page.setViewportSize({ width: 1440, height: 960 })
         await page.getByRole('button', { name: templateName, exact: true }).click()
@@ -189,17 +329,25 @@ test.describe('production app-ui feature surfaces', () => {
         await selectLumenOption(page.getByRole('combobox', { name: templateCopy.mode }), 'append')
         await page.getByRole('button', { name: templateCopy.apply, exact: true }).click()
         await expect(page.locator('.hbar-prompt-message')).toContainText(templateCopy.applied)
+        await page.getByRole('button', { name: globalFeatureCopy(locale).back, exact: true }).click()
         const prompt = page.getByRole('textbox', { name: getShellCopy(locale).session.prompt.input })
         await expect(prompt).toContainText(/Release production/)
         await prompt.fill('Existing draft before replacement')
+        await openFeature(page, locale, 'prompt-templates')
+        await page.getByRole('button', { name: templateName, exact: true }).click()
         await selectLumenOption(page.getByRole('combobox', { name: templateCopy.target }), {
           label: host.ready.sessionTitle,
         })
+        await page.getByRole('textbox', { name: 'Environment' }).fill('production')
         await selectLumenOption(page.getByRole('combobox', { name: templateCopy.mode }), 'replace')
         await page.getByRole('button', { name: templateCopy.apply, exact: true }).click()
         await expect(page.getByRole('alert')).toContainText(templateCopy.confirmReplace)
         await page.getByRole('button', { name: templateCopy.confirmReplace }).click()
-        await expect(prompt).toContainText('Release production')
+        await expect(page.locator('.hbar-prompt-message')).toContainText(templateCopy.applied)
+        await page.getByRole('button', { name: globalFeatureCopy(locale).back, exact: true }).click()
+        await expect(prompt).toHaveText('Release production')
+        await openFeature(page, locale, 'prompt-templates')
+        await page.getByRole('button', { name: templateName, exact: true }).click()
         await page.getByRole('button', { name: templateCopy.createPreDraft, exact: true }).click()
         await expectLumenValue(page.getByRole('combobox', { name: templateCopy.target }), /pre-session/)
         await page.getByRole('button', { name: templateCopy.edit, exact: true }).click()
@@ -224,7 +372,7 @@ test.describe('production app-ui feature surfaces', () => {
     await withHost(browser, 'en-US', async (page, host) => {
       await openSession(page, host, 'en-US')
       const copy = scheduleCopy('en-US')
-      await openFeature(page, copy.title)
+      await openFeature(page, 'en-US', 'schedules')
       const schedule = page.locator('.hbar-schedule-page')
       await schedule.getByLabel(copy.name).fill('Nightly verification')
       await schedule.getByLabel(copy.prompt).fill('Run the nightly verification')
@@ -369,7 +517,9 @@ test.describe('production app-ui feature surfaces', () => {
         .first()
         .click()
       await expect(page.getByRole('heading', { name: notificationLabels.title }).first()).toHaveCount(0)
-      await expect(page.locator(`[data-session-id="${host.ready.sessionId}"]`)).toHaveAttribute('data-selected', 'true')
+      await expect(
+        page.locator(`.hbar-app-react-session-row[data-session-id="${host.ready.sessionId}"]`),
+      ).toHaveAttribute('data-selected', 'true')
       await bell.click()
       await page.getByRole('button', { name: notificationLabels.preferencesTab, exact: true }).click()
       const desktop = page.getByRole('switch').first()
@@ -399,7 +549,22 @@ test.describe('production app-ui feature surfaces', () => {
     test.setTimeout(120_000)
     await withHost(browser, 'en-US', async (page, host) => {
       const runs = createRunCommandClient(host.client)
-      await runs.execute(
+      const copy = runBoardCopy('en-US')
+      const sessions = createWorkspaceSessionCommandClient(host.client)
+      const plan = await createGoalPlanCommandClient(host.client).execute('plan.update', {
+        sessionId: host.ready.sessionId,
+        expectedRevision: 0,
+        plan: [
+          { step: 'Prepare board evidence', status: 'completed' },
+          { step: 'Inspect retry details', status: 'in_progress' },
+        ],
+      })
+      await openSession(page, host, 'en-US')
+      await openFeature(page, 'en-US', 'run-board')
+      const board = page.getByRole('region', { name: globalFeatureCopy('en-US').titles['run-board'], exact: true })
+      await expect(board.getByRole('heading', { name: 'Run board' }).first()).toBeVisible()
+      await expect(page.getByRole('button', { name: /Move|Add card|New card/ })).toHaveCount(0)
+      const slow = await runs.execute(
         'run.submit',
         {
           sessionId: host.ready.sessionId,
@@ -408,42 +573,67 @@ test.describe('production app-ui feature surfaces', () => {
         },
         { idempotencyKey: crypto.randomUUID() },
       )
-      await openSession(page, host, 'en-US')
-      await openFeature(page, 'Run board')
-      await expect(page.getByRole('heading', { name: 'Run board' }).first()).toBeVisible()
-      await expect(page.getByRole('button', { name: /Move|Add card|New card/ })).toHaveCount(0)
-      await expect(page.getByRole('button', { name: /Cancel run/ }).first()).toBeVisible()
-      await page
-        .getByRole('button', { name: /Cancel run/ })
-        .first()
-        .click()
-      await expect(page.getByText(/Cancelled|cancelled/i).first()).toBeVisible()
-      await runs.execute(
+      const slowCard = board.locator('article').filter({ has: page.getByText(slow.operationId, { exact: true }) })
+      const slowTarget = await sessions.execute('session.get', { sessionId: host.ready.sessionId })
+      if (!slowTarget) throw new Error('Cancellation session is missing')
+      const cancel = slowCard.getByRole('button', { name: copy.cancelRun(slowTarget.title), exact: true })
+      await expect(cancel).toBeVisible()
+      await cancel.click()
+      await expect
+        .poll(async () => (await runs.execute('operation.get', { operationId: slow.operationId })).status)
+        .toBe('cancelled')
+      const failed = await runs.execute(
         'run.submit',
         { sessionId: host.ready.sessionId, modelId: 'local-fixture', input: { text: '/fail board retry', images: [] } },
         { idempotencyKey: crypto.randomUUID() },
       )
       await expect
-        .poll(async () =>
-          (
-            await createRunBoardCommandClient(host.client).list({
-              workspaceId: host.ready.workspaceId,
-              limit: 50,
-              statuses: [],
-            })
-          ).items.some((item) => item.run.status === 'failed'),
-        )
-        .toBe(true)
-      await page
-        .getByRole('button', { name: /Retry run/ })
-        .first()
+        .poll(async () => (await runs.execute('operation.get', { operationId: failed.operationId })).status)
+        .toBe('failed')
+      const failedCard = board.locator('article').filter({ has: page.getByText(failed.operationId, { exact: true }) })
+      const failedTarget = await sessions.execute('session.get', { sessionId: host.ready.sessionId })
+      if (!failedTarget) throw new Error('Retry session is missing')
+      await failedCard.getByRole('button', { name: copy.retryRun(failedTarget.title), exact: true }).click()
+      const runBoard = createRunBoardCommandClient(host.client)
+      const retryRuns = async () =>
+        (
+          await runBoard.list({
+            workspaceId: host.ready.workspaceId,
+            sessionId: host.ready.sessionId,
+            limit: 50,
+            statuses: [],
+          })
+        ).items.filter((item) => ![slow.operationId, failed.operationId].includes(item.run.id))
+      await expect.poll(async () => (await retryRuns()).length).toBe(1)
+      const retried = (await retryRuns())[0]
+      if (!retried) throw new Error('Accepted retry is missing from the original session board')
+      expect(retried.run.id).not.toBe(failed.operationId)
+      expect(retried.run.requestId).not.toBe(failed.requestId)
+      expect(retried.run.sessionId).toBe(host.ready.sessionId)
+      expect(retried.run.modelId).toBe('local-fixture')
+      const retryCard = board.locator('article').filter({ has: page.getByText(retried.run.id, { exact: true }) })
+      await expect(retryCard).toBeVisible()
+      await retryCard
+        .getByRole('button')
+        .filter({ has: page.getByText(retried.run.id, { exact: true }) })
         .click()
-      await expect(page.getByText(/queued|running/i).first()).toBeVisible()
-      await page
-        .getByRole('button', { name: /Open|View details/ })
-        .first()
-        .click()
-      await expect(page.getByText(host.ready.sessionTitle, { exact: true }).first()).toBeVisible()
+      const target = await createWorkspaceSessionCommandClient(host.client).execute('session.get', {
+        sessionId: host.ready.sessionId,
+      })
+      if (!target) throw new Error('Original retry session is missing')
+      const details = page.getByRole('dialog', { name: target.title, exact: true })
+      await expect(details).toBeVisible()
+      await expect(details.getByText(copy.planSteps(plan.plan.length, plan.revision), { exact: true })).toBeVisible()
+      for (const step of plan.plan) {
+        await expect(
+          details.getByText(copy.cardLabel(step.step, copy.statusLabel(step.status)), { exact: true }),
+        ).toBeVisible()
+      }
+      await details.getByRole('button', { name: copy.openRun(target.title), exact: true }).click()
+      await expect(
+        page.locator(`.hbar-app-react-session-row[data-session-id="${host.ready.sessionId}"]`),
+      ).toHaveAttribute('data-selected', 'true')
+      await openFeature(page, 'en-US', 'run-board')
       await capture(page, 'run-board-1440.png')
       await page.setViewportSize({ width: 320, height: 720 })
       await expect(page.locator('html')).toHaveJSProperty('scrollWidth', 320)

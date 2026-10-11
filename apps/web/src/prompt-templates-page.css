@@ -95,6 +95,7 @@
 .hbar-prompt-templates-page header > :first-child,
 .hbar-prompt-template-list article > :first-child {
   min-inline-size: 0;
+  max-inline-size: 100%;
   flex: 1 1 18rem;
 }
 
@@ -121,8 +122,19 @@
   overflow-wrap: anywhere;
 }
 
+.hbar-prompt-template-list article > :first-child > button {
+  max-inline-size: 100%;
+}
+
+.hbar-prompt-template-list article > :first-child > button > span {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 .hbar-prompt-actions,
 .hbar-prompt-pagination {
+  max-inline-size: 100%;
   flex: 0 0 auto;
   justify-content: flex-end;
 }
@@ -185,6 +197,11 @@
   .hbar-prompt-actions,
   .hbar-prompt-pagination {
     justify-content: flex-start;
+  }
+
+  .hbar-prompt-templates-page header > :first-child,
+  .hbar-prompt-template-list article > :first-child {
+    flex-basis: auto;
   }
 
   .hbar-prompt-actions > *,
