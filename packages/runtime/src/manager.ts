@@ -543,9 +543,15 @@ export class RuntimeManager {
     if (operationId) this.changedOperations.add(operationId)
     if (this.flushing) return
     this.flushing = true
-    queueMicrotask(() => {
+    queueMicrotask(() => this.flush())
+  }
+  private flush(): void {
+    if (this.stopped) {
       this.flushing = false
-      while (this.changedUnits.size || this.changedOperations.size) {
+      this.changedUnits.clear(); this.changedOperations.clear()
+      return
+    }
+    if (this.changedUnits.size || this.changedOperations.size) {
         const unitIds = [...this.changedUnits].slice(0, 32)
         const operationIds = [...this.changedOperations].slice(0, 16)
         for (const id of unitIds) this.changedUnits.delete(id)
@@ -568,8 +574,10 @@ export class RuntimeManager {
             console.error('[hbar runtime] status observer failed')
           }
         }
-      }
-    })
+    }
+    // Reentrant observers may produce more changes. Yield between bounded batches so heartbeats and requests can run.
+    if (this.changedUnits.size || this.changedOperations.size) setTimeout(() => this.flush(), 0)
+    else this.flushing = false
   }
 
   private async closeUnits(): Promise<void> {

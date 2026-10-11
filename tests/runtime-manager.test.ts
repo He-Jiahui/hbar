@@ -391,6 +391,22 @@ test('subscribed deltas are bounded and an observer cannot corrupt another obser
   expect(f.manager.snapshot().units.some((unit) => unit.descriptor.id === 'corrupted observer input')).toBe(false)
 })
 
+test('a reentrant status observer cannot starve unrelated event-loop work with an endless microtask flush', async () => {
+  const f = fixture()
+  await f.completed(f.reload(1))
+  let callbacks = 0
+  const unsubscribe = f.manager.subscribe(() => {
+    callbacks++
+    if (callbacks < 25) f.reload(1)
+  })
+  const heartbeat = new Promise<number>(resolve => setTimeout(() => resolve(callbacks), 0))
+  f.reload(1)
+  expect(await heartbeat).toBeLessThan(25)
+  await until(() => callbacks >= 25)
+  unsubscribe()
+  expect(f.manager.currentVersion('plugin').generation).toBe(1)
+})
+
 test('the manager can replace a real Bun unit without changing an unrelated child PID or Host identity', async () => {
   const sets = new Map<string, RuntimeArtifactSet>()
   const manager = new RuntimeManager({
