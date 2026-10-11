@@ -55,6 +55,8 @@ test('a real source update replaces its Kernel alone, preserves the socket and r
     expect(runtime.manager.currentVersion('kernel').generation).toBe(2)
     await runtime.applySourceChanges(['plugins/local-tools/native/src/lib.rs'])
     expect(runtime.snapshot().sourceReload?.phase).toBe('restart_required')
+    await runtime.applySourceChanges(['plugins/local-tools/native/Cargo.lock'])
+    expect(runtime.snapshot().sourceReload?.phase).toBe('restart_required')
     await runtime.applySourceChanges(['apps/host/src/server.ts'])
     expect(runtime.snapshot().sourceReload).toMatchObject({ phase: 'restart_required', unitIds: ['base'] })
     expect(client.connectionStatus()).toBe('connected')

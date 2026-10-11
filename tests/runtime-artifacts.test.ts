@@ -18,6 +18,24 @@ function descriptor(id: string, dependencies: string[] = []): RuntimeUnitDescrip
   }
 }
 
+test('intermediate zero-byte re-exports retain ownership through multiple linked barrels', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-live-barrels-'))
+  const store = new RuntimeArtifactStore(join(root, 'bundles'), root)
+  try {
+    await writeFile(join(root, 'leaf.ts'), 'export const value=1')
+    await writeFile(join(root, 'inner.ts'), "export {value} from './leaf'")
+    await writeFile(join(root, 'outer.ts'), "import {value} from './inner'; export {value}")
+    await writeFile(join(root, 'entry.ts'), "export {value} from './outer'")
+    const artifact = await store.build({ descriptor: descriptor('linked'), entrypoint: 'entry.ts' })
+    expect(artifact.inputs).toEqual(['entry.ts', 'inner.ts', 'leaf.ts', 'outer.ts'])
+    expect(store.affected(['inner.ts'], [artifact])).toEqual(['linked'])
+    expect(store.affected(['outer.ts'], [artifact])).toEqual(['linked'])
+    await writeFile(join(root, 'inner.ts'), 'export const value=2')
+    const changed = await store.build({ descriptor: descriptor('linked'), entrypoint: 'entry.ts' })
+    expect(changed.id).not.toBe(artifact.id)
+  } finally { await rm(root, { recursive: true, force: true }) }
+})
+
 test('immutable builds derive actual source ownership and reject modified registered artifacts', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-artifacts-'))
   const source = join(root, 'source')

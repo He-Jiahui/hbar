@@ -724,7 +724,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       ...artifacts,
       ...(this.sourceBaseline ? [this.sourceBaseline] : []),
     ])
-    const nativeSource = changed.some((path) => /\.(?:rs|c|cpp|h|hpp|toml|node|dll|so|dylib|wasm)$/i.test(path))
+    const nativeSource = changed.some((path) => /\.(?:rs|c|cpp|h|hpp|toml|node|dll|so|dylib|wasm)$/i.test(path) ||
+      /(?:^|[\\/])Cargo\.lock$/.test(path))
     if (nativeSource && !affected.includes('base')) affected.push('base')
     if (!affected.length) return
     const revision = (this.sourceState?.revision ?? 0) + 1

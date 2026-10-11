@@ -284,6 +284,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@hbar/contracts": "workspace:*",
+        "typescript": "6.0.2",
         "zod": "4.5.4",
       },
     },

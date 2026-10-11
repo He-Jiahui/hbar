@@ -3,6 +3,7 @@ import { mkdir, open, readFile, readdir, realpath, stat, writeFile } from 'node:
 import { basename, extname, isAbsolute, join, relative, resolve } from 'node:path'
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
+import { includeLinkedReexports } from './source-ownership'
 import {
   runtimeArtifactIdSchema,
   runtimeUnitDescriptorSchema,
@@ -177,7 +178,7 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
     if (!result.success) throw new HbarError('RUNTIME_BUILD_FAILED', 'Runtime candidate did not compile')
     const metafile = z
       .object({
-        inputs: z.record(z.string(), z.unknown()),
+        inputs: z.record(z.string(), z.object({ imports: z.array(z.object({ path: z.string() })) })),
         outputs: z.record(
           z.string(),
           z.object({ inputs: z.record(z.string(), z.object({ bytesInOutput: z.number().nonnegative() })) }),
@@ -191,11 +192,11 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
         ),
       ),
     )
+    for (const input of Object.keys(metafile.inputs))
+      if (paths.some((path) => normalize(path) === normalize(metafilePath(input)))) included.add(input)
+    await includeLinkedReexports(metafile.inputs, included, sourceRoot, metafilePath)
     const inputs = Object.keys(metafile.inputs)
-      // Entry re-exports can contribute zero attributed bytes while still choosing the live export bindings.
-      .filter(
-        (input) => included.has(input) || paths.some((path) => normalize(path) === normalize(metafilePath(input))),
-      )
+      .filter((input) => included.has(input))
       .map((input) => relative(sourceRoot, metafilePath(input)).replaceAll('\\', '/'))
       .sort()
     const outputs = await Promise.all(
@@ -244,7 +245,7 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
         hash: await this.hashResource(path, sourceRoot, resourceFiles, resourceBudget),
       })
     }
-    const id = sha256(JSON.stringify({ descriptor, entry, files, resources: resourceFingerprints }))
+    const id = sha256(JSON.stringify({ descriptor, entry, files, inputs, resources: resourceFingerprints }))
     const artifact = artifactSchema.parse({
       id,
       unitId: descriptor.id,

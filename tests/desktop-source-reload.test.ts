@@ -25,6 +25,8 @@ test('server roots include independently loaded Workers and plugins while client
   expect(roots.some((root) => /app-react|app-runtime|apps[\\/]web/.test(root))).toBe(false)
   expect(isHostSourceChange('src/worker.ts')).toBe(true)
   expect(isHostSourceChange('new-module.ts')).toBe(true)
+  expect(isHostSourceChange('native/Cargo.lock')).toBe(true)
+  expect(isHostSourceChange('target/Cargo.lock')).toBe(false)
   for (const path of [
     'node_modules/package/index.ts',
     'artifacts/log.json',
