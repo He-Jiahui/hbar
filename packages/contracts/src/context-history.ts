@@ -2,6 +2,19 @@ import { z } from 'zod'
 
 const count = z.number().int().nonnegative()
 const duration = z.number().nonnegative()
+export const contextCompactionTriggerSchema = z.enum(['automatic', 'manual'])
+export type ContextCompactionTrigger = z.output<typeof contextCompactionTriggerSchema>
+export const MAX_CONTEXT_COMPACTION_MARKERS = 1_000
+
+/** Small, completed conversation facts, loaded alongside the paged messages; no summary body. */
+export const contextCompactionMarkerSchema = z.strictObject({
+  id: z.string().min(1),
+  sessionId: z.string().min(1),
+  seq: count,
+  time: count,
+  trigger: contextCompactionTriggerSchema.nullable(),
+})
+export type ContextCompactionMarker = z.output<typeof contextCompactionMarkerSchema>
 const tokens = z.strictObject({
   input: z.number().nonnegative(),
   output: z.number().nonnegative(),
@@ -41,6 +54,8 @@ export const contextCompactionRecordSchema = z.strictObject({
   id: z.string().min(1),
   sessionId: z.string().min(1),
   runId: z.string().min(1).nullable(),
+  /** Older journal records have no trigger; their provenance must stay unknown. */
+  trigger: contextCompactionTriggerSchema.optional(),
   seq: count,
   window: count.positive(),
   modelId: z.string().min(1),
@@ -90,4 +105,32 @@ export function parseContextCompactionEvent(event: { type: string; data: unknown
   if (event.type === 'context.compacted' && record.status !== 'completed') return null
   if (event.type === 'context.compaction.settled' && ['running', 'completed'].includes(record.status)) return null
   return record
+}
+
+export function parseContextCompactionMarker(event: {
+  type: string
+  data: unknown
+  sessionId: string
+  seq: number
+  eventId: string
+  time: number
+}): ContextCompactionMarker | null {
+  if (event.type !== 'context.compacted') return null
+  const envelope = z.object({ compaction: z.unknown().optional() }).safeParse(event.data)
+  if (!envelope.success) return null
+  const record = parseContextCompactionEvent(event)
+  if (envelope.data.compaction !== undefined && !record) return null
+  if (
+    !record &&
+    !z.object({ throughSeq: count, summary: z.string(), modelId: z.string().min(1) }).safeParse(event.data).success
+  )
+    return null
+  const marker = contextCompactionMarkerSchema.safeParse({
+    id: record?.id ?? event.eventId,
+    sessionId: event.sessionId,
+    seq: event.seq,
+    time: event.time,
+    trigger: record?.trigger ?? null,
+  })
+  return marker.success ? marker.data : null
 }

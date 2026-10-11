@@ -266,6 +266,9 @@ test('mandatory compaction usage belongs to the owning Run and settles each Goal
   const facts = (await kernel.storage.call('events', session.id, 0)).filter((event) => event.type === 'usage.recorded')
   expect(facts).toHaveLength(summaries.length)
   expect(facts.every((event) => event.runId === run.id)).toBe(true)
+  const snapshot = await kernel.snapshot(session.id)
+  expect(snapshot.contextHistory?.records[0]?.trigger).toBe('automatic')
+  expect(snapshot.contextCompactions?.every((marker) => marker.trigger === 'automatic')).toBe(true)
 })
 
 test('failed mandatory summaries keep raw history and prevent any following inference', async () => {
@@ -330,6 +333,9 @@ test('a persisted oversized conversation is summarized in bounded requests and p
   expect(summaries.length).toBeGreaterThan(1)
   expect(after.inputTokens! + after.outputReserve!).toBeLessThanOrEqual(4096)
   expect((await kernel.snapshot(session.id)).messages).toHaveLength(18)
+  const snapshot = await kernel.snapshot(session.id)
+  expect(snapshot.contextHistory?.records[0]?.trigger).toBe('manual')
+  expect(snapshot.contextCompactions?.[0]?.trigger).toBe('manual')
 })
 
 test('a single oversized new user input is rejected locally rather than being sent over capacity', async () => {

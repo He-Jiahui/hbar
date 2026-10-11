@@ -670,6 +670,8 @@ export interface SessionSnapshot {
   toolObservedAt?: number
   /** Durable, paged compaction/window telemetry, independent of the loaded message page. */
   contextHistory?: import('./context-history').ContextHistoryPage
+  /** Completed compaction facts scoped to the loaded message page, at most 1,000. */
+  contextCompactions?: import('./context-history').ContextCompactionMarker[]
 }
 const providerModelInputSchema = z.object({
   id: z.string().min(1).max(160),

@@ -461,7 +461,9 @@ export interface StorageMethods {
   snapshot(sessionId: string, before?: number, limit?: number): SessionSnapshot
   contextHistory(input: ContextHistoryInput): ContextHistoryPage
   compactionStart(
-    input: Pick<ContextCompactionRecord, 'id' | 'sessionId' | 'runId' | 'modelId' | 'contextWindow' | 'beforeTokens'>,
+    input: Pick<ContextCompactionRecord, 'id' | 'sessionId' | 'runId' | 'modelId' | 'contextWindow' | 'beforeTokens'> & {
+      trigger: NonNullable<ContextCompactionRecord['trigger']>
+    },
   ): SessionEvent
   compactionFinish(
     record: ContextCompactionRecord,

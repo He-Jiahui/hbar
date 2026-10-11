@@ -3,8 +3,10 @@ import { basename, dirname, join } from 'node:path'
 import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { Storage } from '@hbar/storage'
+import type { SessionEvent } from '@hbar/contracts'
 import {
   parseContextCompactionEvent,
+  parseContextCompactionMarker,
   contextHistoryPageSchema,
   type ContextCompactionRecord,
 } from '@hbar/contracts/context-history'
@@ -33,6 +35,7 @@ async function start(storage: Storage, sessionId: string, runId: string | null =
     id: crypto.randomUUID(),
     sessionId,
     runId,
+    trigger: runId ? 'automatic' : 'manual',
     modelId: 'fixture/model',
     contextWindow: 10000,
     beforeTokens: 8000,
@@ -60,6 +63,43 @@ const failed = {
   chunks: 0,
   errorCode: 'COMPACTION_FAILED',
 }
+
+function marker(event: SessionEvent) {
+  const value = parseContextCompactionMarker(event)
+  if (!value) throw new Error('Expected a completed compaction marker')
+  return value
+}
+
+test('completed markers persist trigger and follow the message page without carrying summary bodies', async () => {
+  const { storage, session } = await fixture()
+  await storage.call('commit', session.id, 'seed', 'user', [{ type: 'text', text: 'Before manual compaction' }])
+  const manual = await complete(storage, await start(storage, session.id))
+  const boundary = await storage.call('commit', session.id, 'seed', 'assistant', [
+    { type: 'text', text: 'After manual compaction' },
+  ])
+  const automatic = await complete(storage, await start(storage, session.id, 'run-automatic'))
+  const cancelled = await start(storage, session.id)
+  await storage.call('compactionFinish', cancelled, { ...failed, status: 'cancelled' })
+  const recent = await storage.call('snapshot', session.id, undefined, 1)
+  expect(recent.contextCompactions).toEqual([marker(automatic)])
+  expect(recent.contextCompactions?.[0]?.trigger).toBe('automatic')
+  expect(JSON.stringify(recent.contextCompactions)).not.toContain('Saved summary')
+  const older = await storage.call('snapshot', session.id, boundary.message.seq, 1)
+  expect(older.contextCompactions).toEqual([marker(manual)])
+  expect(older.contextCompactions?.[0]?.trigger).toBe('manual')
+  expect((await storage.call('snapshot', session.id)).contextCompactions).toHaveLength(2)
+  expect(
+    parseContextCompactionMarker({
+      ...automatic,
+      data: { compaction: { ...parseContextCompactionEvent(automatic), status: 'failed' } },
+    }),
+  ).toBeNull()
+  const legacy = await storage.call('compact', session.id, boundary.message.seq, 'Legacy summary', 'fixture/model')
+  expect(parseContextCompactionMarker(legacy)?.trigger).toBeNull()
+  expect((await storage.call('snapshot', session.id)).contextCompactions?.at(-1)).toEqual(
+    marker(legacy),
+  )
+})
 
 test('window history records actual accounting, duration, tool outcomes and successful file paths', async () => {
   const { storage, session } = await fixture()

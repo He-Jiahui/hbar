@@ -143,6 +143,7 @@ export function createStorageWorkerDiagnostics(options: StorageWorkerDiagnosticO
       | 'resolved-approvals'
       | 'usage'
       | 'context-history'
+      | 'context-compactions'
       | 'runs'
       | 'tool-events',
     action: () => T,

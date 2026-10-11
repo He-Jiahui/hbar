@@ -260,7 +260,9 @@ export function readContextHistory(db: Database, value: ContextHistoryInput): Co
 
 export function beginContextCompaction(
   db: Database,
-  input: Pick<ContextCompactionRecord, 'id' | 'sessionId' | 'runId' | 'modelId' | 'contextWindow' | 'beforeTokens'>,
+  input: Pick<ContextCompactionRecord, 'id' | 'sessionId' | 'runId' | 'modelId' | 'contextWindow' | 'beforeTokens'> & {
+    trigger: NonNullable<ContextCompactionRecord['trigger']>
+  },
 ): ContextCompactionRecord {
   const session = db
     .query<{ seq: number; createdAt: number }, [string]>('SELECT seq,createdAt FROM sessions WHERE id=?')

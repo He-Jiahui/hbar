@@ -1,4 +1,5 @@
 import { Database } from 'bun:sqlite'
+import { readContextCompactionMarkers } from './context-compaction-markers'
 import { workerData, parentPort } from 'node:worker_threads'
 import { createHash } from 'node:crypto'
 import { dirname, join } from 'node:path'
@@ -1640,6 +1641,9 @@ const methods: StorageMethods = {
       userInputs: [],
       usage,
       contextHistory: workerDiagnostics.readPhase('context-history', () => readContextHistory(db, { sessionId })),
+      contextCompactions: workerDiagnostics.readPhase('context-compactions', () =>
+        readContextCompactionMarkers(db, sessionId, hasOlder ? (messages[0]?.seq ?? 0) : 0, before ?? session.seq + 1),
+      ),
       cursor: session.seq,
       streams: [],
       toolObservedAt: Date.now(),

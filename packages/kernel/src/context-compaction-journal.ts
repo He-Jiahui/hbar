@@ -18,6 +18,7 @@ export function createContextCompactionJournal(
         id: crypto.randomUUID(),
         sessionId,
         runId: runId ?? null,
+        trigger: runId ? 'automatic' : 'manual',
         modelId,
         contextWindow,
         beforeTokens,
