@@ -1,6 +1,7 @@
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright'
 import { HbarError } from '@hbar/contracts'
 import type { BrowserBackend, BrowserBackendPage } from './index.ts'
+import { resolveBrowserExecutable } from './browser-executable.ts'
 
 export interface PlaywrightBrowserOptions {
   headless: boolean
@@ -28,11 +29,18 @@ export class PlaywrightBrowserBackend implements BrowserBackend {
 
   constructor(private readonly options: PlaywrightBrowserOptions) {}
 
+  private resolveExecutable() {
+    return resolveBrowserExecutable(this.options.executablePath, {
+      bundledPath: chromium.executablePath(),
+      platform: process.platform,
+      environment: process.env,
+    })
+  }
+
   async available() {
     if (this.launchFailure) return false
     try {
-      const executable = this.options.executablePath ?? chromium.executablePath()
-      return await Bun.file(executable).exists()
+      return (await this.resolveExecutable()) !== undefined
     } catch {
       return false
     }
@@ -41,14 +49,12 @@ export class PlaywrightBrowserBackend implements BrowserBackend {
   private async ensureBrowser() {
     if (this.browser) return this.browser
     if (this.launchFailure) throw this.launchFailure
-    if (!(await this.available())) {
-      this.launchFailure = unavailable('Playwright Chromium executable is unavailable')
-      throw this.launchFailure
-    }
     try {
+      const executablePath = await this.resolveExecutable()
+      if (!executablePath) throw unavailable('No installed browser executable is available')
       this.browser = await chromium.launch({
         headless: this.options.headless,
-        ...(this.options.executablePath ? { executablePath: this.options.executablePath } : {}),
+        executablePath,
       })
       return this.browser
     } catch (error) {
@@ -101,7 +107,9 @@ export class PlaywrightBrowserBackend implements BrowserBackend {
 
   async navigate(contextId: string, pageId: string, url: string, signal: AbortSignal) {
     const page = await this.page(contextId, pageId)
-    await this.guarded(page, signal, () => page.goto(url, { waitUntil: 'domcontentloaded', timeout: this.options.timeoutMs }).then(() => undefined))
+    await this.guarded(page, signal, () =>
+      page.goto(url, { waitUntil: 'domcontentloaded', timeout: this.options.timeoutMs }).then(() => undefined),
+    )
     const result = await this.metadata(page)
     const history = this.histories.get(contextId) ?? []
     this.histories.set(contextId, [...history.filter((entry) => entry !== result.url), result.url].slice(-100))
@@ -269,10 +277,13 @@ export class AutoBrowserBackend implements BrowserBackend {
     await this.primary.close(contextId, pageId, signal)
     await this.fallback.close(contextId, pageId, signal)
     if (pageId) this.selected.delete(key(contextId, pageId))
-    else for (const pageKey of this.selected.keys()) if (pageKey.startsWith(`${contextId}:`)) this.selected.delete(pageKey)
+    else
+      for (const pageKey of this.selected.keys()) if (pageKey.startsWith(`${contextId}:`)) this.selected.delete(pageKey)
   }
   async history(contextId: string) {
-    return [...new Set([...(await this.primary.history(contextId)), ...(await this.fallback.history(contextId))])].slice(-100)
+    return [
+      ...new Set([...(await this.primary.history(contextId)), ...(await this.fallback.history(contextId))]),
+    ].slice(-100)
   }
   async dispose() {
     await this.primary.dispose?.()
