@@ -1932,6 +1932,13 @@ export class Kernel {
                 transportCode: event.transportCode,
                 failureKind: event.failureKind,
                 failurePhase: event.failurePhase,
+                streamSubtype: event.streamSubtype,
+                streamEventCount: event.streamEventCount,
+                streamTextChars: event.streamTextChars,
+                streamThinkingChars: event.streamThinkingChars,
+                streamFirstEventMs: event.streamFirstEventMs,
+                streamLastEventMs: event.streamLastEventMs,
+                streamErrorClass: event.streamErrorClass,
                 errorCode: event.errorCode,
               }
               if (event.phase === 'started') this.executionDiagnostics.providerRequestStarted(identity)
@@ -3173,6 +3180,13 @@ export class Kernel {
                 transportCode: event.transportCode,
                 failureKind: event.failureKind,
                 failurePhase: event.failurePhase,
+                streamSubtype: event.streamSubtype,
+                streamEventCount: event.streamEventCount,
+                streamTextChars: event.streamTextChars,
+                streamThinkingChars: event.streamThinkingChars,
+                streamFirstEventMs: event.streamFirstEventMs,
+                streamLastEventMs: event.streamLastEventMs,
+                streamErrorClass: event.streamErrorClass,
                 errorCode: event.errorCode,
               }
               if (event.phase === 'started') this.executionDiagnostics.providerRequestStarted(identity)

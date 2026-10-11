@@ -460,6 +460,7 @@ test('ordinary Pi.run emits one model lifecycle pair for success, provider error
     expect(successStarted).toMatchObject({ purpose: 'model' })
     expect(successTerminal).toMatchObject({ purpose: 'model', stopReason: 'stop' })
     expect(successTerminal?.modelRequestId).toBe(successStarted?.modelRequestId)
+    expect(successTerminal).toMatchObject({ streamSubtype: 'completed', streamEventCount: 2, streamTextChars: 6 })
     expect(successResponse).toMatchObject({ httpStatus: 200, upstreamRequestIdSha256: requestIdHash })
     expect(events).toHaveLength(3)
   } finally {
@@ -735,6 +736,135 @@ test('Pi.run retains HTTP 200 on stream failure and emits one terminal failure f
   }
 })
 
+test('HTTP 200 provider error events emit bounded stream facts without event text', async () => {
+  for (const protocol of ['openai-responses'] as const) {
+    const fixture = await startFixture(
+      () =>
+        new Response(
+          'data: {"type":"response.failed","response":{"status":"failed","error":{"code":"server_error","message":"private-stream-body"}}}\n\n',
+          { headers: sseHeaders },
+        ),
+    )
+    try {
+      const events: ModelDiagnosticEvent[] = []
+      await expect(
+        new PiDriver().run(runInput(fixture.baseUrl, AbortSignal.timeout(5_000), events, protocol)),
+      ).rejects.toThrow()
+      const streamEvents = events.filter((event) => event.streamSubtype === 'provider_error')
+      expect(streamEvents).toHaveLength(1)
+      expect(streamEvents[0]).toMatchObject({
+        phase: 'failed',
+        purpose: 'model',
+        streamSubtype: 'provider_error',
+        streamEventCount: 1,
+        streamErrorClass: 'upstream',
+        errorCode: 'PROVIDER_STREAM_INTERRUPTED',
+      })
+      expect(streamEvents[0]?.modelRequestId).toBe(events.find((event) => event.phase === 'started')?.modelRequestId)
+      expect(JSON.stringify(events)).not.toContain('private-stream-body')
+      expect(JSON.stringify(events)).not.toContain('server_error')
+    } finally {
+      await fixture.server.stop(true)
+    }
+  }
+})
+
+test('named SSE error and anonymous error envelope are classified with bounded allowlisted codes', async () => {
+  const cases = [
+    {
+      protocol: 'openai-responses' as const,
+      body: 'event: error\ndata: {"error":{"code":"invalid_api_key","message":"private auth text"}}\n\n',
+      expected: 'authentication',
+    },
+    {
+      protocol: 'openai-completions' as const,
+      body: 'data: {"error":{"code":"rate_limit_exceeded","message":"private rate text"}}\n\n',
+      expected: 'rate_limit',
+    },
+  ]
+  for (const fixtureCase of cases) {
+    const fixture = await startFixture(() => new Response(fixtureCase.body, { headers: sseHeaders }))
+    try {
+      const events: ModelDiagnosticEvent[] = []
+      await expect(
+        new PiDriver().run(runInput(fixture.baseUrl, AbortSignal.timeout(5_000), events, fixtureCase.protocol)),
+      ).rejects.toThrow()
+      const terminal = events.find((event) => event.phase === 'failed')
+      expect(terminal).toMatchObject({
+        httpStatus: 200,
+        streamSubtype: 'provider_error',
+        streamErrorClass: fixtureCase.expected,
+      })
+      expect(JSON.stringify(events)).not.toContain('private auth text')
+      expect(JSON.stringify(events)).not.toContain('private rate text')
+      expect(JSON.stringify(events)).not.toContain('invalid_api_key')
+      expect(JSON.stringify(events)).not.toContain('rate_limit_exceeded')
+    } finally {
+      await fixture.server.stop(true)
+    }
+  }
+})
+
+test('HTTP 200 stalled body abort is classified per attempt without buffering the body', async () => {
+  const fixture = await startFixture(() => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(chunk('partial')))
+      },
+    })
+    return new Response(body, { headers: sseHeaders })
+  })
+  try {
+    const events: ModelDiagnosticEvent[] = []
+    await expect(
+      new PiDriver().run(runInput(fixture.baseUrl, AbortSignal.timeout(100), events, 'openai-completions')),
+    ).rejects.toThrow()
+    const terminal = events.filter((event) => ['failed', 'cancelled', 'settled'].includes(event.phase))
+    expect(terminal).toHaveLength(1)
+    expect(terminal[0]).toMatchObject({
+      httpStatus: 200,
+      transportKind: 'timeout',
+      failurePhase: 'stream',
+      streamSubtype: 'aborted',
+      streamTextChars: 7,
+    })
+    expect(JSON.stringify(events)).not.toContain('partial')
+  } finally {
+    await fixture.server.stop(true)
+  }
+})
+
+test('HTTP 200 response.completed followed by an open body records progress before bounded abort', async () => {
+  const fixture = await startFixture(() => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(responsesTextSse('bounded fixture output')))
+      },
+    })
+    return new Response(body, { headers: sseHeaders })
+  })
+  try {
+    const events: ModelDiagnosticEvent[] = []
+    await expect(
+      new PiDriver().summarize(responsesRequest(fixture.baseUrl), 'fixture-only', AbortSignal.timeout(100), (event) =>
+        events.push(event),
+      ),
+    ).rejects.toThrow()
+    const terminal = events.find((event) => event.phase === 'cancelled')
+    expect(terminal).toMatchObject({
+      stopReason: 'aborted',
+      httpStatus: 200,
+      streamSubtype: 'completed',
+      streamTextChars: 'bounded fixture output'.length,
+    })
+    expect(terminal?.streamEventCount).toBeGreaterThan(0)
+    expect(terminal?.streamFirstEventMs).toBeLessThanOrEqual(terminal?.streamLastEventMs ?? -1)
+    expect(JSON.stringify(events)).not.toContain('bounded fixture output')
+  } finally {
+    await fixture.server.stop(true)
+  }
+})
+
 test('Pi diagnostics isolate response facts across a failed model call, compaction and a refused request', async () => {
   const fixture = await startFixture(() =>
     Response.json(
@@ -759,6 +889,110 @@ test('Pi diagnostics isolate response facts across a failed model call, compacti
     expect(refused.find((event) => event.phase === 'started')?.modelRequestId).not.toBe(failedRequestId)
     expect(JSON.stringify(refused)).not.toContain(requestIdHash)
     expect(JSON.stringify([...failed, ...refused])).not.toContain('private-error-canary')
+  } finally {
+    await fixture.server.stop(true)
+  }
+})
+
+test('two provider steps within one Run keep independent stream counts and upstream identities', async () => {
+  const firstText = 'text before the fixture tool'
+  const firstThinking = 'private-thinking-canary'
+  const finalText = 'final answer'
+  let requests = 0
+  const fixture = await startFixture(() => {
+    const index = ++requests
+    if (index > 2) throw new Error('Unexpected third provider request')
+    const body =
+      index === 1
+        ? `data: ${JSON.stringify({
+            id: 'fixture-first',
+            object: 'chat.completion.chunk',
+            created: 1,
+            model: 'gpt-6.1-sol',
+            choices: [
+              { index: 0, delta: { content: firstText, reasoning_content: firstThinking }, finish_reason: null },
+            ],
+          })}\n\n` +
+          `data: ${JSON.stringify({
+            id: 'fixture-first',
+            object: 'chat.completion.chunk',
+            created: 1,
+            model: 'gpt-6.1-sol',
+            choices: [
+              {
+                index: 0,
+                delta: {
+                  tool_calls: [
+                    {
+                      index: 0,
+                      id: 'fixture-call',
+                      type: 'function',
+                      function: { name: 'fixture_read', arguments: '{}' },
+                    },
+                  ],
+                },
+                finish_reason: null,
+              },
+            ],
+          })}\n\n` +
+          chunk('', 'tool_calls') +
+          'data: [DONE]\n\n'
+        : chunk(finalText) + chunk('', 'stop') + 'data: [DONE]\n\n'
+    return new Response(body, { headers: { ...sseHeaders, 'x-request-id': `fixture-step-${index}` } })
+  })
+  try {
+    const diagnostics: ModelDiagnosticEvent[] = []
+    const input = runInput(fixture.baseUrl, AbortSignal.timeout(5_000), diagnostics)
+    input.tools = [
+      {
+        name: 'fixture_read',
+        description: 'Return a fixed fixture value.',
+        inputSchema: z.strictObject({}),
+        effect: 'read',
+        execute: async () => ({ text: 'fixture result' }),
+      },
+    ]
+    let executed = 0
+    input.execute = async (name) => {
+      expect(name).toBe('fixture_read')
+      executed++
+      return { text: 'fixture result', isError: false }
+    }
+    await new PiDriver().run(input)
+    expect(requests).toBe(2)
+    expect(executed).toBe(1)
+    const starts = diagnostics.filter((item) => item.phase === 'started')
+    const terminals = diagnostics.filter((item) => ['failed', 'cancelled', 'settled'].includes(item.phase))
+    expect(starts).toHaveLength(2)
+    expect(terminals).toHaveLength(2)
+    expect(new Set(starts.map((item) => item.modelRequestId)).size).toBe(2)
+    for (const [index, terminal] of terminals.entries()) {
+      expect(terminal.modelRequestId).toBe(starts[index]?.modelRequestId)
+      expect(terminal.upstreamRequestIdSha256).toBe(
+        createHash('sha256')
+          .update(`fixture-step-${index + 1}`)
+          .digest('hex'),
+      )
+    }
+    expect(terminals[0]).toMatchObject({
+      phase: 'settled',
+      stopReason: 'toolUse',
+      streamSubtype: 'completed',
+      streamEventCount: 3,
+      streamTextChars: firstText.length,
+      streamThinkingChars: firstThinking.length,
+    })
+    expect(terminals[1]).toMatchObject({
+      phase: 'settled',
+      stopReason: 'stop',
+      streamSubtype: 'completed',
+      streamEventCount: 2,
+      streamTextChars: finalText.length,
+      streamThinkingChars: 0,
+    })
+    expect(JSON.stringify(diagnostics)).not.toContain(firstThinking)
+    expect(JSON.stringify(diagnostics)).not.toContain(firstText)
+    expect(JSON.stringify(diagnostics)).not.toContain(finalText)
   } finally {
     await fixture.server.stop(true)
   }

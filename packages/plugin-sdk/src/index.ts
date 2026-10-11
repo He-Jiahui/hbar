@@ -336,6 +336,13 @@ export interface ModelDiagnosticEvent {
   readonly errorCode?: string | undefined
   readonly failureKind?: DiagnosticEvent['failureKind'] | undefined
   readonly failurePhase?: DiagnosticEvent['failurePhase'] | undefined
+  readonly streamSubtype?: DiagnosticEvent['streamSubtype'] | undefined
+  readonly streamEventCount?: number | undefined
+  readonly streamTextChars?: number | undefined
+  readonly streamThinkingChars?: number | undefined
+  readonly streamFirstEventMs?: number | undefined
+  readonly streamLastEventMs?: number | undefined
+  readonly streamErrorClass?: DiagnosticEvent['streamErrorClass'] | undefined
   readonly durationMs?: number | undefined
 }
 export interface SessionService {

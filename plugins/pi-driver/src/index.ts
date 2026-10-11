@@ -38,6 +38,7 @@ import {
   type TransportFailureKind,
   type TransportFailureObserver,
 } from './provider-http-diagnostics'
+import { ProviderStreamObservation } from './provider-stream-diagnostics'
 
 const piUsage = (): PiUsage => ({
   input: 0,
@@ -219,6 +220,9 @@ function streamProvider(
   sessionId?: string,
   onResponse?: (response: ProviderResponse) => void,
   onTransportFailure?: TransportFailureObserver,
+  onStreamEvent?: (event: unknown) => void,
+  onProviderError?: (errorCode?: unknown) => void,
+  onBodyEof?: () => void,
 ): AssistantMessageEventStream {
   const model = modelOf(config)
   const reasoning = normalizeThinkingLevel(config, thinking)
@@ -228,7 +232,26 @@ function streamProvider(
     maxTokens: config.maxOutput,
     maxRetries: 0,
     ...(onResponse && (config.protocol === 'openai-responses' || config.protocol === 'openai-completions')
-      ? { fetch: withProviderResponseDiagnostics(globalThis.fetch, onResponse, onTransportFailure) }
+      ? {
+          fetch: withProviderResponseDiagnostics(
+            globalThis.fetch,
+            onResponse,
+            onTransportFailure,
+            onProviderError,
+            onBodyEof,
+          ),
+        }
+      : {}),
+    ...(onStreamEvent && (config.protocol === 'openai-responses' || config.protocol === 'openai-completions')
+      ? {
+          onProviderStreamEvent: (event: unknown) => {
+            try {
+              onStreamEvent(event)
+            } catch {
+              // Observation must not alter provider semantics.
+            }
+          },
+        }
       : {}),
     ...(sessionId ? { sessionId } : {}),
     ...(config.protocol === 'openai-responses' || config.protocol === 'openai-completions'
@@ -296,6 +319,11 @@ function responseDiagnostic(
     upstreamRequestIdSha256,
   })
 }
+function diagnosticStopReason(reason: AssistantMessage['stopReason']): ModelDiagnosticEvent['stopReason'] {
+  return reason === 'stop' || reason === 'toolUse' || reason === 'length' || reason === 'aborted' || reason === 'error'
+    ? reason
+    : undefined
+}
 function transportFailureDiagnostic(
   callback: ((event: ModelDiagnosticEvent) => void) | undefined,
   request: ModelRequest,
@@ -303,6 +331,7 @@ function transportFailureDiagnostic(
   kind: TransportFailureKind,
   code: TransportFailureCode | undefined,
   purpose: 'model' | 'compaction',
+  failurePhase: 'fetch' | 'stream' = 'fetch',
 ): void {
   emitModelDiagnostic(callback, {
     phase: 'transport_failure',
@@ -314,6 +343,8 @@ function transportFailureDiagnostic(
     protocol: request.model.protocol,
     transportKind: kind,
     transportCode: code,
+    failureKind: 'transport',
+    failurePhase,
   })
 }
 function terminalProviderFacts(
@@ -321,6 +352,9 @@ function terminalProviderFacts(
   transportKind: TransportFailureKind | undefined,
   transportCode: TransportFailureCode | undefined,
   failed: boolean,
+  transportPhase: 'fetch' | 'stream' | undefined = undefined,
+  stream?: ProviderStreamObservation,
+  stopReason?: ModelDiagnosticEvent['stopReason'],
 ): Pick<
   ModelDiagnosticEvent,
   | 'failureKind'
@@ -330,6 +364,13 @@ function terminalProviderFacts(
   | 'upstreamRequestIdSha256'
   | 'transportKind'
   | 'transportCode'
+  | 'streamSubtype'
+  | 'streamEventCount'
+  | 'streamTextChars'
+  | 'streamThinkingChars'
+  | 'streamFirstEventMs'
+  | 'streamLastEventMs'
+  | 'streamErrorClass'
 > {
   const responseStatus = response?.status
   const requestId = response?.headers['x-request-id']
@@ -341,12 +382,38 @@ function terminalProviderFacts(
     ...(transportKind === undefined ? {} : { transportKind }),
     ...(transportCode === undefined ? {} : { transportCode }),
   }
-  if (!failed) return responseFacts
+  const streamFallback =
+    stopReason === 'aborted'
+      ? 'aborted'
+      : stopReason === 'length'
+        ? 'incomplete'
+        : stopReason === 'stop' || stopReason === 'toolUse'
+          ? 'completed'
+          : 'unknown'
+  if (!failed)
+    return {
+      ...responseFacts,
+      ...(transportKind && responseStatus !== undefined
+        ? {
+            failureKind: 'transport' as const,
+            failurePhase: 'stream' as const,
+            errorCode:
+              transportKind === 'timeout'
+                ? 'PROVIDER_REQUEST_TIMEOUT'
+                : transportKind === 'abort'
+                  ? 'PROVIDER_ABORTED'
+                  : transportKind === 'connection'
+                    ? 'PROVIDER_CONNECTION_FAILED'
+                    : 'PROVIDER_TRANSPORT_FAILED',
+          }
+        : {}),
+      ...stream?.facts(streamFallback),
+    }
   if (transportKind)
     return {
       ...responseFacts,
       failureKind: 'transport',
-      failurePhase: 'fetch',
+      failurePhase: transportPhase ?? 'fetch',
       errorCode:
         transportKind === 'timeout'
           ? 'PROVIDER_REQUEST_TIMEOUT'
@@ -355,11 +422,18 @@ function terminalProviderFacts(
             : transportKind === 'connection'
               ? 'PROVIDER_CONNECTION_FAILED'
               : 'PROVIDER_TRANSPORT_FAILED',
+      ...stream?.facts(streamFallback === 'aborted' ? 'aborted' : 'transport_error'),
     }
   if (responseStatus !== undefined && responseStatus >= 400)
     return { ...responseFacts, failureKind: 'http', failurePhase: 'response', errorCode: 'PROVIDER_HTTP_ERROR' }
   if (responseStatus !== undefined)
-    return { ...responseFacts, failureKind: 'stream', failurePhase: 'stream', errorCode: 'PROVIDER_STREAM_INTERRUPTED' }
+    return {
+      ...responseFacts,
+      failureKind: 'stream',
+      failurePhase: 'stream',
+      errorCode: 'PROVIDER_STREAM_INTERRUPTED',
+      ...stream?.facts(streamFallback),
+    }
   return { ...responseFacts, failureKind: 'unknown', failurePhase: 'terminal', errorCode: 'PROVIDER_UNKNOWN' }
 }
 function diagnosticProviderId(selectionId: string): string {
@@ -495,6 +569,8 @@ export class PiDriver implements HarnessDriver {
     let latestResponse: ProviderResponse | undefined
     let latestTransportKind: TransportFailureKind | undefined
     let latestTransportCode: TransportFailureCode | undefined
+    let latestTransportPhase: 'fetch' | 'stream' | undefined
+    let streamState = new ProviderStreamObservation()
     const readSteering = createDriverSteeringReader(input)
     const pollSteering = async (closeWhenEmpty?: true) => {
       if (input.signal.aborted || goalStopped || requestFailure !== undefined) return []
@@ -591,6 +667,9 @@ export class PiDriver implements HarnessDriver {
                   latestTransportKind,
                   latestTransportCode,
                   message.stopReason === 'error',
+                  latestTransportPhase,
+                  streamState,
+                  message.stopReason,
                 ),
                 durationMs:
                   modelDiagnosticStartedAt > 0 ? Math.max(0, performance.now() - modelDiagnosticStartedAt) : undefined,
@@ -648,6 +727,8 @@ export class PiDriver implements HarnessDriver {
         latestResponse = undefined
         latestTransportKind = undefined
         latestTransportCode = undefined
+        latestTransportPhase = undefined
+        streamState = new ProviderStreamObservation()
         if (!modelTerminalEmitted)
           emitModelDiagnostic(input.onModelDiagnostic, {
             phase: 'started',
@@ -681,11 +762,15 @@ export class PiDriver implements HarnessDriver {
             latestResponse = response
             responseDiagnostic(input.onModelDiagnostic, request, response, modelRequestId, 'model')
           },
-          (kind, code) => {
+          (kind, code, phase) => {
             latestTransportKind = kind
             latestTransportCode = code
-            transportFailureDiagnostic(input.onModelDiagnostic, request, modelRequestId, kind, code, 'model')
+            latestTransportPhase = phase
+            transportFailureDiagnostic(input.onModelDiagnostic, request, modelRequestId, kind, code, 'model', phase)
           },
+          (event) => streamState.observe(event),
+          (errorCode) => streamState.markProviderError(errorCode),
+          () => streamState.markEof(),
         )
       } catch (error) {
         if (error instanceof RunControlSignal && !input.signal.aborted) throw error
@@ -700,7 +785,15 @@ export class PiDriver implements HarnessDriver {
             model: input.request.model.model,
             protocol: input.request.model.protocol,
             stopReason: input.signal.aborted ? 'aborted' : 'error',
-            ...terminalProviderFacts(latestResponse, latestTransportKind, latestTransportCode, !input.signal.aborted),
+            ...terminalProviderFacts(
+              latestResponse,
+              latestTransportKind,
+              latestTransportCode,
+              !input.signal.aborted,
+              latestTransportPhase,
+              streamState,
+              input.signal.aborted ? 'aborted' : 'error',
+            ),
             durationMs:
               modelDiagnosticStartedAt > 0 ? Math.max(0, performance.now() - modelDiagnosticStartedAt) : undefined,
           })
@@ -780,6 +873,8 @@ export class PiDriver implements HarnessDriver {
     let latestResponse: ProviderResponse | undefined
     let latestTransportKind: TransportFailureKind | undefined
     let latestTransportCode: TransportFailureCode | undefined
+    let latestTransportPhase: 'fetch' | 'stream' | undefined
+    const streamState = new ProviderStreamObservation()
     emitModelDiagnostic(onDiagnostic, {
       phase: 'started',
       purpose: 'compaction',
@@ -805,11 +900,15 @@ export class PiDriver implements HarnessDriver {
           latestResponse = response
           responseDiagnostic(onDiagnostic, request, response, modelRequestId, 'compaction')
         },
-        (kind, code) => {
+        (kind, code, phase) => {
           latestTransportKind = kind
           latestTransportCode = code
-          transportFailureDiagnostic(onDiagnostic, request, modelRequestId, kind, code, 'compaction')
+          latestTransportPhase = phase
+          transportFailureDiagnostic(onDiagnostic, request, modelRequestId, kind, code, 'compaction', phase)
         },
+        (event) => streamState.observe(event),
+        (errorCode) => streamState.markProviderError(errorCode),
+        () => streamState.markEof(),
       )
       for await (const event of stream) {
         void event
@@ -832,6 +931,9 @@ export class PiDriver implements HarnessDriver {
             latestTransportKind,
             latestTransportCode,
             message.stopReason === 'error',
+            latestTransportPhase,
+            streamState,
+            diagnosticStopReason(message.stopReason),
           ),
           durationMs: Math.max(0, performance.now() - startedAt),
         })
@@ -852,7 +954,15 @@ export class PiDriver implements HarnessDriver {
             message.stopReason === 'toolUse' || message.stopReason === 'length' || message.stopReason === 'stop'
               ? message.stopReason
               : 'stop',
-          ...terminalProviderFacts(latestResponse, latestTransportKind, latestTransportCode, false),
+          ...terminalProviderFacts(
+            latestResponse,
+            latestTransportKind,
+            latestTransportCode,
+            false,
+            latestTransportPhase,
+            streamState,
+            diagnosticStopReason(message.stopReason),
+          ),
           durationMs: Math.max(0, performance.now() - startedAt),
         })
       return {
@@ -873,7 +983,15 @@ export class PiDriver implements HarnessDriver {
           model: request.model.model,
           protocol: request.model.protocol,
           stopReason: signal.aborted ? 'aborted' : 'error',
-          ...terminalProviderFacts(latestResponse, latestTransportKind, latestTransportCode, !signal.aborted),
+          ...terminalProviderFacts(
+            latestResponse,
+            latestTransportKind,
+            latestTransportCode,
+            !signal.aborted,
+            latestTransportPhase,
+            streamState,
+            signal.aborted ? 'aborted' : 'error',
+          ),
           durationMs: Math.max(0, performance.now() - startedAt),
         })
       throw error

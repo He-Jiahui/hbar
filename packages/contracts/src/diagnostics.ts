@@ -73,6 +73,38 @@ export const diagnosticEventSchema = z.strictObject({
   /** Fixed classifications from observed provider transport/response/terminal facts. */
   failureKind: z.enum(['transport', 'http', 'stream', 'unknown']).optional(),
   failurePhase: z.enum(['fetch', 'response', 'stream', 'terminal']).optional(),
+  /** Per provider attempt: parsed event count, UTF-16 delta lengths and elapsed times. Never event content. */
+  streamSubtype: z
+    .enum(['completed', 'incomplete', 'provider_error', 'transport_error', 'eof', 'aborted', 'unknown'])
+    .optional(),
+  streamErrorClass: z
+    .enum(['authentication', 'rate_limit', 'context_capacity', 'invalid_request', 'upstream', 'unknown'])
+    .optional(),
+  streamEventCount: z.number().int().nonnegative().max(1_000_000).optional(),
+  streamTextChars: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(2 ** 31 - 1)
+    .optional(),
+  streamThinkingChars: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(2 ** 31 - 1)
+    .optional(),
+  streamFirstEventMs: z
+    .number()
+    .finite()
+    .nonnegative()
+    .max(2 ** 53 - 1)
+    .optional(),
+  streamLastEventMs: z
+    .number()
+    .finite()
+    .nonnegative()
+    .max(2 ** 53 - 1)
+    .optional(),
   errorCode: z
     .string()
     .regex(/^[A-Z][A-Z0-9_.-]{0,127}$/)

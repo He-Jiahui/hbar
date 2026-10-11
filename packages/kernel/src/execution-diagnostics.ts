@@ -39,6 +39,13 @@ export interface KernelModelDiagnosticIdentity extends KernelRunDiagnosticIdenti
   readonly transportCode?: DiagnosticEvent['transportCode'] | undefined
   readonly failureKind?: DiagnosticEvent['failureKind'] | undefined
   readonly failurePhase?: DiagnosticEvent['failurePhase'] | undefined
+  readonly streamSubtype?: DiagnosticEvent['streamSubtype'] | undefined
+  readonly streamEventCount?: number | undefined
+  readonly streamTextChars?: number | undefined
+  readonly streamThinkingChars?: number | undefined
+  readonly streamFirstEventMs?: number | undefined
+  readonly streamLastEventMs?: number | undefined
+  readonly streamErrorClass?: DiagnosticEvent['streamErrorClass'] | undefined
   readonly errorCode?: string | undefined
   readonly inputEstimatedTokens?: number | undefined
   readonly inputLimit?: number | undefined
@@ -453,6 +460,23 @@ function identityToEvent(identity: KernelModelDiagnosticIdentity): Record<string
   if (identity.upstreamRequestIdSha256 !== undefined && /^[a-f0-9]{64}$/.test(identity.upstreamRequestIdSha256))
     result.upstreamRequestIdSha256 = identity.upstreamRequestIdSha256
   for (const key of ['transportKind', 'transportCode', 'failureKind', 'failurePhase'] as const) {
+    const value = identity[key]
+    if (value !== undefined && diagnosticEventSchema.shape[key].safeParse(value).success) result[key] = value
+  }
+  if (identity.streamSubtype && diagnosticEventSchema.shape.streamSubtype.safeParse(identity.streamSubtype).success)
+    result.streamSubtype = identity.streamSubtype
+  if (
+    identity.streamErrorClass &&
+    diagnosticEventSchema.shape.streamErrorClass.safeParse(identity.streamErrorClass).success
+  )
+    result.streamErrorClass = identity.streamErrorClass
+  for (const key of [
+    'streamEventCount',
+    'streamTextChars',
+    'streamThinkingChars',
+    'streamFirstEventMs',
+    'streamLastEventMs',
+  ] as const) {
     const value = identity[key]
     if (value !== undefined && diagnosticEventSchema.shape[key].safeParse(value).success) result[key] = value
   }
