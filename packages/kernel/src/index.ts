@@ -581,6 +581,7 @@ export class Kernel {
     )
     this.directoryQueries = createDirectoryQueries({
       contextHistory: (input) => this.storage.call('contextHistory', input),
+      sessionObservability: (input) => this.storage.call('sessionObservability', input),
       workspacePage: (input) => this.storage.call('workspacePage', input),
       workspaceSidebarPage: (input) => this.storage.call('workspaceSidebarPage', input),
       globalSessionActivityPage: (input) => this.storage.call('globalSessionActivityPage', input),

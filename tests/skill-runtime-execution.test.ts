@@ -110,6 +110,9 @@ for (const task of ['请帮我编写验证证明文件', 'Use $proof-writing to 
         .flatMap((message) => message.content)
         .flatMap((block) => (block.type === 'tool_result' && block.activity ? [block.activity] : []))
       expect(activities.filter((activity) => activity.skill?.completed)).toHaveLength(1)
+      const report = await kernel.directoryQueries.execute('session.observability', { sessionId, detail: 'files' })
+      expect(report.skills).toMatchObject({ used: 1, uses: 1, resourceReads: 1 })
+      expect(report.files).toMatchObject({ writes: 1, measuredWrites: 1, addedLines: 1 })
       expect(activities.find((activity) => activity.skill?.resource === 'references/recipe.md')?.skill?.completed).toBe(
         false,
       )

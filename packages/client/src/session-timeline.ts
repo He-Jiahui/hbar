@@ -2,6 +2,7 @@ import type { PlanState, SessionEvent, SessionSnapshot, StreamDelta, WireNotific
 import type { ClientTransport } from './transport'
 import { COMMAND_PROTOCOL_VERSION, createCommandClient } from '@hbar/commands'
 import { contextHistoryCommands } from '@hbar/contracts/commands/context-history'
+import { sessionObservabilityCommands } from '@hbar/contracts/commands/session-observability'
 import type { ContextHistoryInput } from '@hbar/contracts/context-history'
 
 type SessionTimelineUpdate =
@@ -17,18 +18,24 @@ export interface SessionTimelineTransport extends ClientTransport {
 
 /** Adapt the reconnecting Client stream to the app-runtime timeline port. */
 export function createSessionTimelineClient(client: SessionTimelineTransport) {
-  const history = createCommandClient(contextHistoryCommands, {
-    execute(commandId, input, options) {
-      return client.call('command.execute', {
-        protocol: COMMAND_PROTOCOL_VERSION,
-        requestId: options?.requestId ?? crypto.randomUUID(),
-        commandId,
-        commandVersion: 1,
-        input,
-      })
+  const history = createCommandClient(
+    { ...contextHistoryCommands, ...sessionObservabilityCommands },
+    {
+      execute(commandId, input, options) {
+        return client.call('command.execute', {
+          protocol: COMMAND_PROTOCOL_VERSION,
+          requestId: options?.requestId ?? crypto.randomUUID(),
+          commandId,
+          commandVersion: 1,
+          input,
+        })
+      },
     },
-  })
+  )
   return {
+    observability(input: import('@hbar/contracts/session-observability').SessionObservabilityInput) {
+      return history.execute('session.observability', input)
+    },
     contextHistory(input: ContextHistoryInput) {
       return history.execute('session.contextHistory', input)
     },

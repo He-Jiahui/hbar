@@ -74,6 +74,7 @@ import { readActiveOperations } from './active-operations.ts'
 import { readQueuedUserRuns } from './queued-user-runs.ts'
 import { RunSteeringRegistry } from './run-steering.ts'
 import { GOAL_HISTORY_INDEX_SQL, readGoalHistory } from './goal-history.ts'
+import { readSessionObservability } from './session-observability.ts'
 import { beginContextCompaction, finishContextCompaction, readContextHistory } from './context-history'
 import { contextCompactionRecordSchema } from '@hbar/contracts/context-history'
 import { createNotificationStorage, NOTIFICATION_SCHEMA_SQL } from './notifications'
@@ -2136,6 +2137,7 @@ const methods: StorageMethods = {
     }
   },
   contextHistory: (input) => readContextHistory(db, input),
+  sessionObservability: (input) => readSessionObservability(db, input),
   compactionStart: (input) =>
     db.transaction(() => {
       const compaction = beginContextCompaction(db, input)

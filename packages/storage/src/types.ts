@@ -460,6 +460,7 @@ export interface StorageMethods {
   ): { message: Message; event: SessionEvent }
   snapshot(sessionId: string, before?: number, limit?: number): SessionSnapshot
   contextHistory(input: ContextHistoryInput): ContextHistoryPage
+  sessionObservability(input: import('@hbar/contracts/session-observability').SessionObservabilityInput): import('@hbar/contracts/session-observability').SessionObservabilityReport
   compactionStart(
     input: Pick<ContextCompactionRecord, 'id' | 'sessionId' | 'runId' | 'modelId' | 'contextWindow' | 'beforeTokens'> & {
       trigger: NonNullable<ContextCompactionRecord['trigger']>
