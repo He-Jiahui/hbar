@@ -27,6 +27,7 @@ import { workspaceDisplayName, type StatusWorkspaceEntryState } from '@hbar/app-
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import { EchartsChart, type EChartsOption } from './echarts-chart'
+import { cpuPerformanceChartData, type CpuReadingKey } from './status-performance-chart-model'
 import './lumen-status-workspace.css'
 
 type PerformanceReport = NonNullable<StatusWorkspaceEntryState['performance']>
@@ -280,16 +281,13 @@ export function HbarStatusWorkspace({
         }
       return { id: key, label: labels.readings[key], value: formatMetric(metric, labels) }
     })
-  const chart = (key: 'systemCpuPercent' | 'hostCpuPercent') => {
-    const points = (report?.points ?? []).map((point) => {
-      const metric = point.readings[key]
-      return metric.availability === 'available' && metric.value !== null ? metric.value : 0
-    })
+  const chart = (key: CpuReadingKey) => {
+    const points = cpuPerformanceChartData(report?.points ?? [], key)
     const option: EChartsOption = {
       tooltip: { trigger: 'axis' },
       xAxis: { type: 'category', data: (report?.points ?? []).map((p) => String(p.start)), axisLabel: { show: false } },
       yAxis: { type: 'value', min: 0, max: 100, minInterval: 10 },
-      series: [{ type: 'line', data: points, smooth: true, areaStyle: { opacity: 0.15 } }],
+      series: [{ type: 'line', data: points, connectNulls: false, smooth: true, areaStyle: { opacity: 0.15 } }],
     }
     return (
       <EchartsChart

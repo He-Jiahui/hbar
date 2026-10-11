@@ -520,6 +520,14 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   }, [runtime, reportSidebarFocusUnavailable])
   const resizeRef = useRef<HTMLElement | null>(null)
   const [toolPresentation, setToolPresentation] = useState<LumenToolPresentation>('none')
+  const [narrowHeader, setNarrowHeader] = useState(false)
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 47.9375rem)')
+    const update = () => setNarrowHeader(media.matches)
+    update()
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
   const desktopToolDock = useRef<HTMLDivElement>(null)
   const resolvedToolPresentation = props.renderLayout
     ? props.tool
@@ -757,10 +765,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
           : execute('app.openPanel', { panelId: shortcut })
       )
         .then(() => {
-          if (
-            choiceRevision === sidebarChoiceRevision.current &&
-            window.matchMedia('(max-width: 63.9375rem)').matches
-          )
+          if (choiceRevision === sidebarChoiceRevision.current && window.matchMedia('(max-width: 63.9375rem)').matches)
             return execute('app.setSidebarVisible', { visible: false })
           return undefined
         })
@@ -1994,7 +1999,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       </HbarActionIconButton>
     ) : null
   const desktopHeader = contentOwnsNavigation
-    ? shellSlots?.header
+    ? (shellSlots?.header ?? (narrowHeader ? headerRegion : undefined))
     : props.renderLayout
       ? (shellSlots?.header ??
         (!presentation.sidebarOpen ? (
@@ -2185,19 +2190,28 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       ) : null}
     </LumenFrame>
   )
+  const connectionNotice = (
+    <HbarHostConnectionNotice
+      connection={props.connection}
+      labels={props.labels.connectionNotice}
+      onReconnect={props.onReconnect}
+    />
+  )
+  const connectionInDrawer = Boolean(toolRegion) && resolvedToolPresentation === 'drawer'
   const workspacePane = usePersistentPane(contentRegion)
-  const sessionToolPane = usePersistentPane(toolRegion)
+  const sessionToolPane = usePersistentPane(
+    <>
+      {connectionInDrawer ? connectionNotice : null}
+      {toolRegion}
+    </>,
+  )
   const shell = (
     <LumenAppShell09
       label={props.labels.main}
       titlebar={
         <>
           {props.titlebar}
-          <HbarHostConnectionNotice
-            connection={props.connection}
-            labels={props.labels.connectionNotice}
-            onReconnect={props.onReconnect}
-          />
+          {connectionInDrawer ? null : connectionNotice}
         </>
       }
       sidebarWidthRem={railCollapsed ? props.sidebarRailWidthRem : props.sidebarWidthRem}

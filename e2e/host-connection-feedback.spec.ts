@@ -123,7 +123,20 @@ for (const locale of ['zh-CN', 'en-US'] as const)
       await expectComposerText(prompt, `${draft} + local edit`)
       for (const width of [1440, 390, 320]) {
         await page.setViewportSize({ width, height: 1000 })
+        await expect(notice).toHaveCount(1)
         await expect(notice).toBeInViewport()
+        for (const foreground of [
+          notice,
+          notice.getByRole('button', { name: copy.shell.connectionNotice.reconnect, exact: true }),
+        ])
+          await expect
+            .poll(() =>
+              foreground.evaluate((node) => {
+                const box = node.getBoundingClientRect()
+                return node.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2))
+              }),
+            )
+            .toBe(true)
         expect(await notice.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true)
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
         await page.screenshot({ path: info.outputPath(`connection-interrupted-${width}.png`) })
