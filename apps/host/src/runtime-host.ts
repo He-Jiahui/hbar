@@ -78,6 +78,7 @@ export class ManagedHostRuntime implements RuntimeSystemPort {
   private closingTask: Promise<void> | undefined
   private ready = false
   private transitionError: string | null = null
+  private recoveryRetry: ReturnType<typeof setTimeout> | undefined
   private recoveringStorage: { owner: RuntimeOwner; unknown: boolean } | null = null
   private readonly pendingStorageRevocations: Array<{ owner: RuntimeOwner; ids: string[] }> = []
 
@@ -189,6 +190,7 @@ export class ManagedHostRuntime implements RuntimeSystemPort {
   private async closeRuntime(): Promise<void> {
     this.closing = true
     this.ready = false
+    clearTimeout(this.recoveryRetry)
     await this.kernelValue?.close()
     await this.storage.close()
     await this.manager.close()
@@ -254,6 +256,13 @@ export class ManagedHostRuntime implements RuntimeSystemPort {
       this.ready = false
       this.kernelValue?.beginDrain()
       console.error(`[hbar runtime] transition failed: ${this.transitionError}`)
+      if (!this.closing && this.interrupted.size && !this.recoveryRetry) {
+        this.recoveryRetry = setTimeout(() => {
+          this.recoveryRetry = undefined
+          if (!this.closing) this.transition(() => this.restoreExecution())
+        }, 1_000)
+        this.recoveryRetry.unref()
+      }
     })
   }
   private async installStorage(record: GenerationRecord): Promise<void> {
@@ -325,12 +334,12 @@ export class ManagedHostRuntime implements RuntimeSystemPort {
     if (!this.kernelValue || this.closing || !this.executionReady() || this.storage.snapshot().phase !== 'serving') return
     for (const [incarnation, failure] of this.interrupted) {
       if (!failure.exited || failure.leases.some(lease => !this.stoppedRuns.has(lease.runId))) continue
+      await this.kernel.recoverRuns(failure.leases.map(lease => lease.runId))
       for (const lease of failure.leases) {
         this.coordinator.reconciled(lease.sessionId)
         this.leases.delete(lease.runId)
         this.stoppedRuns.delete(lease.runId)
       }
-      await this.kernel.recoverRuns(failure.leases.map(lease => lease.runId))
       this.interrupted.delete(incarnation)
       if (this.registeredOwners.has(incarnation)) { this.coordinator.disposeOwner(failure.owner); this.registeredOwners.delete(incarnation) }
     }

@@ -106,6 +106,28 @@ test('a killed driver revokes its old Run and resumes once on the same activated
   expect((await createSystemCommandClient(client).execute('system.runtime.get', {})).instanceId).toBe(state.instanceId)
 })
 
+test('a transient recovery receipt failure retains fault ownership until a successful retry', async () => {
+  const f = await fixture()
+  const recover = f.runtime.kernel.recoverRuns.bind(f.runtime.kernel)
+  let attempts = 0
+  f.runtime.kernel.recoverRuns = async ids => {
+    if (++attempts === 1) throw new Error('Injected lost recovery receipt')
+    return recover(ids)
+  }
+  const driver = f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'driver.pi')!.generations[0]!
+  const run = await f.runtime.kernel.submit(f.session.id, 'retry-recovery-receipt', { text: '/slow', images: [] }, 'local-fixture')
+  await until(() => f.runtime.kernel.streams.size > 0)
+  if (!driver.pid || driver.pid === process.pid) throw new Error('Expected an owned driver')
+  process.kill(driver.pid, 'SIGKILL')
+  await until(() => f.runtime.snapshot().ready && attempts >= 2)
+  await f.runtime.settled()
+  await f.runtime.kernel.waitForIdle()
+  const recovery = await f.runtime.storage.call('runtimeRecoveryRead', run.id)
+  expect(recovery?.run?.recovery?.attempt).toBe(1)
+  expect((await f.runtime.storage.call('run', recovery!.run!.id)).status).toBe('completed')
+  expect(f.runtime.coordinator.snapshot().blockedSessions).toEqual([])
+})
+
 test('a prepared storage update hands over its sole writer while retaining the active Run and unrelated driver PID', async () => {
   const f = await fixture()
   const original = f.runtime.snapshot()
