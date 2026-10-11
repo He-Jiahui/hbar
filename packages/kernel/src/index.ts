@@ -34,6 +34,7 @@ import {
   MAX_COMPACTION_CHUNKS,
   nextSummaryChunk,
   summaryDocument,
+  summaryThinkingLevel,
 } from './context-compaction'
 import {
   HbarError,
@@ -3121,7 +3122,7 @@ export class Kernel {
         ...request.context,
         sessionId,
         ...(runId ? { runId } : {}),
-        thinking: normalizeThinkingLevel(model, thinking),
+        thinking: summaryThinkingLevel(model, thinking),
       },
     }
     const compactionIdentity = {
