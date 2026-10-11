@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { commandIdSchema } from '@hbar/commands/protocol'
 
 /** Versioned, deliberately small set of fields permitted in a diagnostic record. */
 export const diagnosticEventSchema = z.strictObject({
@@ -34,6 +35,8 @@ export const diagnosticEventSchema = z.strictObject({
     .string()
     .regex(/^[A-Za-z][A-Za-z0-9_.-]{0,127}$/)
     .optional(),
+  /** Stable command identity only; command inputs never enter diagnostic records. */
+  commandId: commandIdSchema.optional(),
   providerId: z
     .string()
     .regex(/^[A-Za-z0-9_.:-]{1,160}$/)

@@ -15,6 +15,7 @@ export interface ClientDiagnosticInput {
   readonly requestId?: string | undefined
   readonly rpcId?: string | undefined
   readonly method?: string | undefined
+  readonly commandId?: DiagnosticEvent['commandId'] | undefined
   readonly errorCode?: string | undefined
   readonly outcome?: DiagnosticEvent['outcome'] | undefined
   readonly durationMs?: number | undefined
@@ -74,6 +75,7 @@ export class HbarClientDiagnostics {
         ...(validOpaque(input.requestId) ? { requestId: validOpaque(input.requestId) } : {}),
         ...(validOpaque(input.rpcId) ? { rpcId: validOpaque(input.rpcId) } : {}),
         ...(validMethod(input.method) ? { method: validMethod(input.method) } : {}),
+        ...(input.commandId !== undefined ? { commandId: input.commandId } : {}),
         ...(input.errorCode && /^[A-Z][A-Z0-9_.-]{0,127}$/.test(input.errorCode) ? { errorCode: input.errorCode } : {}),
         ...(input.outcome ? { outcome: input.outcome } : {}),
         ...(durationMs !== undefined ? { durationMs } : {}),
