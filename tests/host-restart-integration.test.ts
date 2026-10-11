@@ -107,7 +107,7 @@ test('supervised Host accepts restart and recovers an abrupt crash at its preser
     firstClient?.disconnect()
     secondClient?.disconnect()
     supervisor.kill()
-    await Promise.race([supervisor.exited, Bun.sleep(2_000)])
+    await Promise.race([supervisor.exited, Bun.sleep(6_000)])
     if (latestPid) {
       try {
         process.kill(latestPid)
@@ -115,6 +115,10 @@ test('supervised Host accepts restart and recovers an abrupt crash at its preser
         // The supervisor normally terminates its active Host before this fallback.
       }
     }
-    await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+    if (latestPid) await until(async () => {
+      try { process.kill(latestPid!, 0) } catch { return }
+      throw new Error('Owned Host has not exited')
+    }, 5_000)
+    await rm(root, { recursive: true, force: true, maxRetries: 40, retryDelay: 250 })
   }
 }, 420_000)
