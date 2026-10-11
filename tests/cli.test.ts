@@ -556,7 +556,10 @@ test('exec agent patch commands isolate, query, apply, and report conflicts thro
 test('exec browser commands navigate, inspect, and close the selected session page', async () => {
   const page = Bun.serve({
     port: 0,
-    fetch: () => new Response('<html><head><title>CLI Browser</title></head><body>command page</body></html>'),
+    fetch: () =>
+      new Response('<html><head><title>CLI Browser</title></head><body>command page</body></html>', {
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      }),
   })
   try {
     const common = ['--demo', '--data-root', dataRoot, '--cache-root', cacheRoot, '--project', project]
