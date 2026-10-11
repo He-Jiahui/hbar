@@ -9,7 +9,7 @@ import { definePlugin, provide, type HarnessDriver } from '@hbar/plugin-sdk'
 test('image_generate uses the saved model credential, settles a durable tool result, and does not regenerate a replayed call id', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-image-generation-'))
   const png = Buffer.from(
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aTi0AAAAASUVORK5CYII=',
+    'iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAYAAAC56t6BAAAAFElEQVR4AWISClv9H4SZGKAAzgAAAAD//92949EAAAAGSURBVAMAWpUEKyHawvcAAAAASUVORK5CYII=',
     'base64',
   )
   const base64 = png.toString('base64')

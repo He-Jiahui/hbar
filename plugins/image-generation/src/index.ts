@@ -1,11 +1,29 @@
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
+import { preflightImage } from '@hbar/contracts/image-preflight'
 import { definePlugin, type ModelRegistry, type ToolDefinition } from '@hbar/plugin-sdk'
 
 const MAX_PROMPT_CHARACTERS = 32_000
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 const MAX_RESPONSE_BYTES = 14 * 1024 * 1024
+const DEFAULT_MAX_IN_FLIGHT_REQUESTS = 2
+const DEFAULT_MAX_CACHE_ENTRIES = 16
+const DEFAULT_MAX_CACHED_RESULT_MEMORY_BYTES = 32 * 1024 * 1024
+const STRING_MEMORY_BYTES_PER_CODE_UNIT = 2
+interface ImageGenerationToolOptions {
+  readonly timeoutMs?: number
+  readonly maxInFlightRequests?: number
+  readonly maxCacheEntries?: number
+  readonly maxCachedResultMemoryBytes?: number
+}
+
+function boundedOption(value: number | undefined, fallback: number, maximum: number, name: string): number {
+  if (value === undefined) return fallback
+  if (!Number.isSafeInteger(value) || value < 1 || value > maximum)
+    throw new RangeError(`${name} must be an integer from 1 through ${maximum}`)
+  return value
+}
 const imageInputSchema = z.strictObject({
   model: z
     .string()
@@ -28,25 +46,12 @@ type GeneratedImage = { readonly data: string; readonly mimeType: string; readon
 type ImageResult = { readonly text: string; readonly images: readonly GeneratedImage[] }
 type ImageFetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
 
-function imageMime(bytes: Uint8Array): string {
-  if (bytes.byteLength >= 8 && Buffer.from(bytes.subarray(0, 8)).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])))
-    return 'image/png'
-  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg'
-  if (
-    bytes.byteLength >= 12 &&
-    Buffer.from(bytes.subarray(0, 4)).toString('ascii') === 'RIFF' &&
-    Buffer.from(bytes.subarray(8, 12)).toString('ascii') === 'WEBP'
-  )
-    return 'image/webp'
-  if (bytes.byteLength >= 6 && ['GIF87a', 'GIF89a'].includes(Buffer.from(bytes.subarray(0, 6)).toString('ascii')))
-    return 'image/gif'
-  throw new HbarError('INVALID_IMAGE', 'Image provider returned bytes with an unsupported or invalid image signature')
-}
-
 async function readBounded(response: Response, maximum: number, signal: AbortSignal): Promise<Uint8Array> {
   const declared = Number(response.headers.get('content-length'))
-  if (Number.isFinite(declared) && declared > maximum)
+  if (Number.isFinite(declared) && declared > maximum) {
+    await response.body?.cancel().catch(() => {})
     throw new HbarError('IMAGE_RESPONSE_LIMIT', 'Image provider response exceeds the 14 MiB limit')
+  }
   if (!response.body) throw new HbarError('IMAGE_PROVIDER_EMPTY', 'Image provider returned an empty response')
   const reader = response.body.getReader()
   const chunks: Uint8Array[] = []
@@ -104,7 +109,12 @@ function responseResult(value: unknown, input: ImageInput): ImageResult {
     const bytes = Buffer.from(item.b64_json, 'base64')
     if (bytes.toString('base64').replace(/=+$/, '') !== item.b64_json.replace(/=+$/, ''))
       throw new HbarError('IMAGE_PROVIDER_INVALID', 'Image provider returned invalid base64 bytes')
-    const mimeType = imageMime(bytes)
+    let mimeType: string
+    try {
+      mimeType = preflightImage(bytes, `image/${input.output_format === 'jpeg' ? 'jpeg' : input.output_format}`).mime
+    } catch {
+      throw new HbarError('IMAGE_PROVIDER_INVALID', 'Image provider returned an incomplete or invalid image')
+    }
     if (mimeType !== `image/${input.output_format === 'jpeg' ? 'jpeg' : input.output_format}`)
       throw new HbarError('IMAGE_PROVIDER_INVALID', 'Image bytes do not match the requested output format')
     totalBytes += bytes.byteLength
@@ -118,18 +128,40 @@ function responseResult(value: unknown, input: ImageInput): ImageResult {
 export function createImageGenerationTool(
   registry: ModelRegistry,
   fetcher: ImageFetcher = globalThis.fetch,
+  options: ImageGenerationToolOptions = {},
 ): ToolDefinition {
+  const timeoutMs = boundedOption(options.timeoutMs, 120_000, 120_000, 'timeoutMs')
+  const maxInFlightRequests = boundedOption(
+    options.maxInFlightRequests,
+    DEFAULT_MAX_IN_FLIGHT_REQUESTS,
+    DEFAULT_MAX_IN_FLIGHT_REQUESTS,
+    'maxInFlightRequests',
+  )
+  const maxCacheEntries = boundedOption(
+    options.maxCacheEntries,
+    DEFAULT_MAX_CACHE_ENTRIES,
+    DEFAULT_MAX_CACHE_ENTRIES,
+    'maxCacheEntries',
+  )
+  const maxCachedResultMemoryBytes = boundedOption(
+    options.maxCachedResultMemoryBytes,
+    DEFAULT_MAX_CACHED_RESULT_MEMORY_BYTES,
+    DEFAULT_MAX_CACHED_RESULT_MEMORY_BYTES,
+    'maxCachedResultMemoryBytes',
+  )
   const completed = new Map<
     string,
-    { readonly identity: string; readonly result: Promise<ImageResult>; settled: boolean }
+    { readonly identity: string; readonly result: Promise<ImageResult>; settled: boolean; memoryBytes: number }
   >()
+  let inFlight = 0
+  let cachedResultMemoryBytes = 0
   return {
     name: 'image_generate',
     description:
       'Generate one image from a prompt using a configured OpenAI Images API compatible provider model. Use only a model explicitly saved with imageGeneration=true. Returns durable image attachments. Each call may incur provider charges; never retry after an unknown timeout without checking the existing tool result.',
     inputSchema: imageInputSchema,
     effect: 'network',
-    timeoutMs: 120_000,
+    timeoutMs,
     async execute(args, context) {
       const input = imageInputSchema.parse(args)
       const model = await registry.get(input.model)
@@ -148,31 +180,64 @@ export function createImageGenerationTool(
       if (cached) {
         if (cached.identity !== identity)
           throw new HbarError('IDEMPOTENCY_CONFLICT', 'Image tool call id was reused with different parameters')
+        const key = `${context.session.id}:${context.run.id}:${context.callId}`
+        completed.delete(key)
+        completed.set(key, cached)
         return toToolResult(await cached.result)
       }
-      if (completed.size >= 256) {
-        const expired = [...completed].find(([, entry]) => entry.settled)?.[0]
-        if (expired) completed.delete(expired)
-        else
-          throw new HbarError(
-            'IMAGE_GENERATION_BUSY',
-            'Image generation has reached its bounded in-flight request limit',
-          )
-      }
-      const operation = generate(fetcher, apiKey, model.baseUrl, model.model, input, context.signal)
+      if (inFlight >= maxInFlightRequests)
+        throw new HbarError('IMAGE_GENERATION_BUSY', 'Image generation has reached its in-flight request limit')
       const key = `${context.session.id}:${context.run.id}:${context.callId}`
-      const entry = { identity, result: operation, settled: false }
+      if (completed.size >= maxCacheEntries)
+        evictOldestSettled(completed, (bytes) => (cachedResultMemoryBytes -= bytes))
+      if (completed.size >= maxCacheEntries)
+        throw new HbarError('IMAGE_GENERATION_BUSY', 'Image generation result cache is full of active requests')
+      inFlight += 1
+      const operation = generate(fetcher, apiKey, model.baseUrl, model.model, input, context.signal)
+      const entry = { identity, result: operation, settled: false, memoryBytes: 0 }
       completed.set(key, entry)
       try {
         const result = await operation
         entry.settled = true
+        entry.memoryBytes = result.images.reduce(
+          (total, image) => total + image.data.length * STRING_MEMORY_BYTES_PER_CODE_UNIT,
+          0,
+        )
+        while (cachedResultMemoryBytes + entry.memoryBytes > maxCachedResultMemoryBytes) {
+          if (!evictOldestSettled(completed, (bytes) => (cachedResultMemoryBytes -= bytes), key)) break
+        }
+        if (cachedResultMemoryBytes + entry.memoryBytes <= maxCachedResultMemoryBytes)
+          cachedResultMemoryBytes += entry.memoryBytes
+        else {
+          completed.delete(key)
+          entry.memoryBytes = 0
+        }
         return toToolResult(result)
       } catch (error) {
         entry.settled = true
         throw error
+      } finally {
+        inFlight -= 1
       }
     },
   }
+}
+
+function evictOldestSettled(
+  cache: Map<
+    string,
+    { readonly identity: string; readonly result: Promise<ImageResult>; settled: boolean; memoryBytes: number }
+  >,
+  onEvict: (memoryBytes: number) => void,
+  excluding?: string,
+): boolean {
+  for (const [key, entry] of cache) {
+    if (key === excluding || !entry.settled) continue
+    cache.delete(key)
+    onEvict(entry.memoryBytes)
+    return true
+  }
+  return false
 }
 
 async function generate(
@@ -237,19 +302,23 @@ function toToolResult(result: ImageResult) {
   }
 }
 
-export default definePlugin({
-  manifest: {
-    id: 'image-generation.openai-compatible',
-    name: 'OpenAI compatible image generation',
-    version: '1.0.0',
-    apiVersion: '^1.0.0',
-    scope: 'host',
-    description: 'Generate durable image artifacts through an explicitly enabled provider model',
-    requires: { models: '^1.0.0' },
-    permissions: ['network', 'credentials'],
-  },
-  apply(context) {
-    const register = context.hbar.api.tools.register
-    register(createImageGenerationTool(context.hbar.api.service<ModelRegistry>('models')))
-  },
-})
+export function createImageGenerationPlugin(options: ImageGenerationToolOptions = {}) {
+  return definePlugin({
+    manifest: {
+      id: 'image-generation.openai-compatible',
+      name: 'OpenAI compatible image generation',
+      version: '1.0.0',
+      apiVersion: '^1.0.0',
+      scope: 'host',
+      description: 'Generate durable image artifacts through an explicitly enabled provider model',
+      requires: { models: '^1.0.0' },
+      permissions: ['network', 'credentials'],
+    },
+    apply(context) {
+      const register = context.hbar.api.tools.register
+      register(createImageGenerationTool(context.hbar.api.service<ModelRegistry>('models'), globalThis.fetch, options))
+    },
+  })
+}
+
+export default createImageGenerationPlugin()

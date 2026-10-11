@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { providerSchema, runSchema } from '@hbar/contracts'
 import { sessionSchema, workspaceSchema } from '@hbar/contracts/directory'
 import type { ModelRegistry, ToolContext } from '@hbar/plugin-sdk'
+import { z } from 'zod'
 import { createImageGenerationTool } from '../plugins/image-generation/src/index'
 
 const provider = providerSchema.parse({
@@ -52,6 +53,14 @@ function registry(): ModelRegistry {
 }
 function input(prompt: string) {
   return { model: provider.id, prompt }
+}
+
+const validPng = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAYAAAC56t6BAAAAFElEQVR4AWISClv9H4SZGKAAzgAAAAD//92949EAAAAGSURBVAMAWpUEKyHawvcAAAAASUVORK5CYII=',
+  'base64',
+)
+function jsonImage(bytes: Uint8Array = validPng): Response {
+  return Response.json({ data: [{ b64_json: Buffer.from(bytes).toString('base64') }] })
 }
 
 test('HTTP and truncated JSON failures are concise and do not copy provider bodies into results', async () => {
@@ -138,4 +147,72 @@ test('cancellation while reading a streaming body releases the response reader',
   controller.abort(new DOMException('Fixture cancellation', 'AbortError'))
   await expect(operation).rejects.toMatchObject({ name: 'AbortError', message: 'Fixture cancellation' })
   expect(cancelled).toBeTrue()
+})
+
+test('returned PNGs require a complete CRC-valid container and valid image fixture bytes', async () => {
+  const malformed = [
+    validPng.subarray(0, 8),
+    validPng.subarray(0, validPng.length - 5),
+    (() => {
+      const corrupt = Uint8Array.from(validPng)
+      corrupt[29] = (corrupt[29] ?? 0) ^ 1
+      return corrupt
+    })(),
+  ]
+  for (const [index, bytes] of malformed.entries()) {
+    const tool = createImageGenerationTool(registry(), async () => jsonImage(bytes))
+    await expect(
+      tool.execute(input(`invalid PNG ${index}`), context(new AbortController().signal, `invalid-png-${index}`)),
+    ).rejects.toMatchObject({
+      code: 'IMAGE_PROVIDER_INVALID',
+      message: 'Image provider returned an incomplete or invalid image',
+    })
+  }
+
+  const tool = createImageGenerationTool(registry(), async () => jsonImage())
+  const result = await tool.execute(input('valid PNG'), context(new AbortController().signal, 'valid-png'))
+  expect(result.content).toMatchObject([{ type: 'image', mimeType: 'image/png' }])
+})
+
+test('two in-flight requests are the hard limit and oldest settled results are evicted', async () => {
+  const calls: string[] = []
+  let release: (() => void) | undefined
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const tool = createImageGenerationTool(registry(), async (_request, init) => {
+    const request = z.object({ prompt: z.string() }).parse(JSON.parse(String(init?.body)))
+    calls.push(request.prompt)
+    if (calls.length <= 2) await gate
+    return jsonImage()
+  })
+  const first = tool.execute(input('first'), context(new AbortController().signal, 'cache-1'))
+  const second = tool.execute(input('second'), context(new AbortController().signal, 'cache-2'))
+  await Bun.sleep(10)
+  await expect(tool.execute(input('third'), context(new AbortController().signal, 'cache-3'))).rejects.toMatchObject({
+    code: 'IMAGE_GENERATION_BUSY',
+  })
+  release?.()
+  await Promise.all([first, second])
+  for (let index = 3; index <= 17; index++)
+    await tool.execute(input(`cached ${index}`), context(new AbortController().signal, `cache-${index}`))
+  await tool.execute(input('first'), context(new AbortController().signal, 'cache-1'))
+  expect(calls).toHaveLength(18)
+})
+
+test('cache accounts for retained base64 string memory and evicts to stay within its byte budget', async () => {
+  let requests = 0
+  const base64Bytes = Buffer.from(validPng).toString('base64').length * 2
+  const tool = createImageGenerationTool(
+    registry(),
+    async () => {
+      requests += 1
+      return jsonImage()
+    },
+    { maxCachedResultMemoryBytes: base64Bytes * 2 },
+  )
+  for (const callId of ['memory-1', 'memory-2', 'memory-3'])
+    await tool.execute(input(callId), context(new AbortController().signal, callId))
+  await tool.execute(input('memory-1'), context(new AbortController().signal, 'memory-1'))
+  expect(requests).toBe(4)
 })
