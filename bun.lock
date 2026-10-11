@@ -235,6 +235,7 @@
         "@hbar/schema-core": "workspace:*",
         "@hbar/settings-core": "workspace:*",
         "@hbar/usage": "workspace:*",
+        "@hbar/web-search": "workspace:*",
         "@hbar/workflow": "workspace:*",
         "cron-parser": "5.10.1",
         "zod": "4.5.4",
@@ -457,6 +458,15 @@
         "@hbar/contracts": "workspace:*",
         "@hbar/plugin-sdk": "workspace:*",
         "zod": "^4.5.4",
+      },
+    },
+    "plugins/web-search": {
+      "name": "@hbar/web-search",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hbar/contracts": "workspace:*",
+        "@hbar/plugin-sdk": "workspace:*",
+        "zod": "4.5.4",
       },
     },
     "plugins/workflow": {
@@ -727,6 +737,8 @@
     "@hbar/usage": ["@hbar/usage@workspace:packages/usage"],
 
     "@hbar/web": ["@hbar/web@workspace:apps/web"],
+
+    "@hbar/web-search": ["@hbar/web-search@workspace:plugins/web-search"],
 
     "@hbar/workflow": ["@hbar/workflow@workspace:plugins/workflow"],
 
