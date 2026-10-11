@@ -64,8 +64,11 @@ test('reserved control calls retain physical capacity when normal requests occup
   let release!: () => void
   const held = new Promise<void>(resolve => { release = resolve })
   const waiting = Array.from({ length: 56 }, (_, id) => f.adapter.dispatch(request(id), async () => { await held; return null }))
-  while (f.managed.snapshot().references.requests < 56) await Bun.sleep(5)
   try {
+    // The unit budget is split into 32 slots per direction, with 8 reserved for control calls.
+    const deadline = Date.now() + 10_000
+    while (f.managed.snapshot().references.requests < 24 && Date.now() < deadline) await Bun.sleep(5)
+    expect(f.managed.snapshot().references.requests).toBe(24)
     expect(JSON.parse(await f.adapter.dispatch(request('cancel', 'run.cancel', { runId: 'run' }), async () => ({ accepted: true })))).toMatchObject({ id: 'cancel', result: { accepted: true } })
   } finally { release(); await Promise.all(waiting) }
 })
