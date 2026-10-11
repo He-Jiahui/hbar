@@ -1737,6 +1737,7 @@ export class Kernel {
         const completedStepIds = new Set<string>()
         const modelStartedAt = new Map<string, number>()
         const reportedModelFailures = new Set<string>()
+        const reportedModelCancellations = new Set<string>()
         let branchExecutionPath: string | null = null
         let branchTargetRevision: number | null = null
         try {
@@ -1950,9 +1951,10 @@ export class Kernel {
                 this.executionDiagnostics.providerTransportFailure(identity, event.transportKind, event.transportCode)
               else if (event.phase === 'settled')
                 this.executionDiagnostics.providerRequestSettled(identity, 'success', event.durationMs ?? 0)
-              else if (event.phase === 'cancelled')
+              else if (event.phase === 'cancelled') {
                 this.executionDiagnostics.providerRequestSettled(identity, 'skipped', event.durationMs ?? 0)
-              else {
+                if (event.modelRequestId) reportedModelCancellations.add(event.modelRequestId)
+              } else {
                 this.executionDiagnostics.providerRequestSettled(identity, 'failure', event.durationMs ?? 0)
                 if (event.modelRequestId && !reportedModelFailures.has(event.modelRequestId)) {
                   reportedModelFailures.add(event.modelRequestId)
@@ -2099,15 +2101,14 @@ export class Kernel {
             stepEnded: async (stepId) => {
               const startedAt = modelStartedAt.get(stepId)
               modelStartedAt.delete(stepId)
-              reportedModelFailures.delete(stepId)
+              const failed = reportedModelFailures.has(stepId)
+              const cancelled = !failed && (controller.signal.aborted || reportedModelCancellations.has(stepId))
               this.executionDiagnostics.modelSettled(
                 { sessionId, runId: run.id, requestId: run.requestId, stepId },
-                'success',
+                failed ? 'failure' : cancelled ? 'skipped' : 'success',
                 startedAt === undefined ? 0 : performance.now() - startedAt,
               )
-              // Tools and the assistant reply are durable at this boundary.
-              // Compact before accounting so summary usage belongs to this step.
-              await compactAtBoundary()
+              if (!failed && !cancelled) await compactAtBoundary()
               const settled = await scope.hooks.dispatch('step.end', { sessionId, runId: run.id, stepId })
               if (settled.stop) await closeSteering()
               return settled.stop ? { stop: settled.stop } : undefined
