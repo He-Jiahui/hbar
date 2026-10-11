@@ -88,6 +88,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private readonly generations = new Map<string, Generation>()
   private readonly owners = new Set<string>()
   private readonly leases = new Map<string, ExecutionOwnership>()
+  private readonly pendingClaims = new Map<string, { readonly draft: ExecutionOwnership; failed: boolean }>()
   private readonly interrupted = new Map<string, Interruption>()
   private readonly stopped = new Set<string>()
   private readonly resumed = new Set<string>()
@@ -118,7 +119,14 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     this.artifacts = new RuntimeArtifactStore(join(options.layout.cacheRoot, 'runtime-artifacts'), options.sourceRoot ?? resolve(import.meta.dir, '../../..'))
     this.buildUnits = options.buildUnits ?? hostRuntimeBuildUnits(options.profileModule ? { profileModule: options.profileModule } : {})
     this.coordinator = new RuntimeCoordinator({
-      claim: draft => this.storage.call('runtimeExecutionClaim', draft),
+      claim: async draft => {
+        this.pendingClaims.set(draft.runId, { draft, failed: false })
+        this.leases.set(draft.runId, draft)
+        const lease = await this.storage.call('runtimeExecutionClaim', draft)
+        if (lease) this.leases.set(lease.runId, lease)
+        else { this.pendingClaims.delete(draft.runId); this.leases.delete(draft.runId) }
+        return lease
+      },
       release: lease => this.storage.call('runtimeExecutionRelease', lease),
       revoke: async (owner, ids) => {
         // Controller/Maintenance faults without Run claims need no database projection write.
@@ -456,7 +464,11 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     record.application = new RuntimeValuePort(peer, { prefix: 'kernel.application', controlMethods: RUNTIME_APPLICATION_CONTROLS })
     record.cleanup.push(this.relay.attachKernel(peer), this.pluginRelay.attachKernel(peer, owner), registerRuntimeCoordinatorPort(peer, this.coordinator, { owner,
       bindings: (caller, sessionId) => this.bindings(caller, sessionId), canAdmit: sessionId => this.canAdmit(sessionId),
-      admitted: lease => { this.leases.set(lease.runId, lease); this.schedule() },
+      admitted: lease => { this.pendingClaims.delete(lease.runId); this.leases.set(lease.runId, lease); this.schedule() },
+      claimFailed: (_owner, _sessionId, runId) => {
+        const pending = this.pendingClaims.get(runId)
+        if (pending) { pending.failed = true; this.stopped.add(runId); this.schedule() }
+      },
       released: lease => this.handoff(lease),
       stopped: (_owner, runId) => { this.stopped.add(runId); this.schedule() },
       releaseFailed: () => { this.reasonCode = 'EXECUTION_RECONCILIATION_REQUIRED'; this.schedule() },
@@ -548,29 +560,57 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     }
     if (this.closing || !this.executionReady() || this.storage.snapshot().phase !== 'serving') return
     const kernel = this.currentKernel()
+    for (const pending of [...this.pendingClaims.values()]) {
+      if (!pending.failed || [...this.interrupted.values()].some(failure => failure.leases.some(lease => lease.runId === pending.draft.runId))) continue
+      await this.reconcileClaim(pending.draft, kernel)
+    }
     for (const lease of this.leases.values()) if (!this.coordinator.execution(lease.runId) &&
+      !this.pendingClaims.has(lease.runId) &&
       ![...this.interrupted.values()].some(failure => failure.leases.some(value => value.runId === lease.runId))) await this.handoff(lease)
     for (const [incarnation, failure] of this.interrupted) {
       if (!failure.exited) continue
       for (const lease of [...failure.leases]) {
+        const pending = this.pendingClaims.get(lease.runId)
+        if (pending && !pending.failed) continue
         if (!this.stopped.has(lease.runId) || this.relay.hasRun(lease.runId)) continue
         try { this.coordinator.reconciled(lease.sessionId) }
         catch (error) { if (runtimeDomainError(error)?.code === 'EXECUTION_RESOURCES_ACTIVE' || runtimeDomainError(error)?.code === 'EXECUTION_OWNER_ALIVE') continue; throw error }
         // Keep the pending identity until recovery and durable delivery complete, so a failed receipt can safely be retried.
-        await kernel.process.call('kernel.recover', { runIds: [lease.runId] }, runtimeKernelRecoverySchema, { timeoutMs: 120_000 })
-        await this.replay(lease.sessionId)
-        this.leases.delete(lease.runId); this.stopped.delete(lease.runId)
+        if (pending) await this.reconcileClaim(pending.draft, kernel)
+        else {
+          await kernel.process.call('kernel.recover', { runIds: [lease.runId] }, runtimeKernelRecoverySchema, { timeoutMs: 120_000 })
+          await this.replay(lease.sessionId)
+          this.leases.delete(lease.runId); this.stopped.delete(lease.runId)
+          await this.wake(lease.sessionId)
+        }
         const index = failure.leases.findIndex(value => value.runId === lease.runId)
         if (index >= 0) failure.leases.splice(index, 1)
         await this.wake(lease.sessionId)
       }
       if (!failure.leases.length) {
+        if (this.owners.has(incarnation)) {
+          const references = this.coordinator.references(failure.owner)
+          if (references.runs || references.tools || references.resources) continue
+          this.coordinator.disposeOwner(failure.owner); this.owners.delete(incarnation)
+        }
         this.interrupted.delete(incarnation)
-        if (this.owners.has(incarnation)) { this.coordinator.disposeOwner(failure.owner); this.owners.delete(incarnation) }
       }
     }
     await this.refreshKernels()
     await this.resume()
+  }
+  private async reconcileClaim(draft: ExecutionOwnership, kernel: RuntimeKernelEndpoint): Promise<void> {
+    const receipt = await this.storage.call('runtimeExecutionRead', draft.runId)
+    if (receipt && (receipt.lease.leaseId !== draft.leaseId || receipt.lease.owner.incarnation !== draft.owner.incarnation ||
+      JSON.stringify(receipt.lease.versions) !== JSON.stringify(draft.versions)))
+      throw new HbarError('EXECUTION_PROJECTION_INVALID', 'A failed claim receipt does not match its captured owner and versions')
+    if (receipt?.state === 'active') await this.storage.call('runtimeExecutionRevoke', receipt.lease.owner, [draft.runId])
+    this.coordinator.reconciled(draft.sessionId)
+    const run = await this.storage.call('run', draft.runId)
+    if (run.status !== 'queued') await kernel.process.call('kernel.recover', { runIds: [draft.runId] }, runtimeKernelRecoverySchema, { timeoutMs: 120_000 })
+    await this.replay(draft.sessionId)
+    this.leases.delete(draft.runId); this.pendingClaims.delete(draft.runId); this.stopped.delete(draft.runId)
+    await this.wake(draft.sessionId)
   }
   private async resume(): Promise<void> {
     if (this.closing || this.initializing || !this.executionReady() || this.storage.snapshot().phase !== 'serving') return

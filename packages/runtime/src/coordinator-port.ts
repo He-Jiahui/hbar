@@ -17,6 +17,8 @@ export interface RuntimeCoordinatorPortOptions {
   readonly bindings: (owner: RuntimeOwner, sessionId: string) => RuntimeVersionSet
   readonly canAdmit?: (sessionId: string) => boolean
   readonly admitted?: (execution: ExecutionOwnership) => void
+  /** The claim did not return authority to the caller. Reconcile its durable receipt rather than retrying the write. */
+  readonly claimFailed?: (owner: RuntimeOwner, sessionId: string, runId: string) => void
   readonly released?: (execution: ExecutionOwnership) => void | Promise<void>
   readonly stopped?: (owner: RuntimeOwner, runId: string) => void | Promise<void>
   readonly releaseFailed?: (execution: ExecutionOwnership) => void
@@ -34,7 +36,9 @@ export function registerRuntimeCoordinatorPort(peer: IpcPeer, coordinator: Runti
     peer.register('execution.claim', procedure(claimSchema, executionOwnershipSchema.nullable(), async input => {
       if (coordinator.role(owner) === 'draining') return null
       if (coordinator.role(owner) === 'default' && options.canAdmit && !options.canAdmit(input.sessionId)) return null
-      const lease = await coordinator.claim(owner, input.sessionId, input.runId, options.bindings(owner, input.sessionId))
+      let lease: ExecutionOwnership | null
+      try { lease = await coordinator.claim(owner, input.sessionId, input.runId, options.bindings(owner, input.sessionId)) }
+      catch (error) { options.claimFailed?.(owner, input.sessionId, input.runId); throw error }
       if (lease) options.admitted?.(lease)
       return lease
     })),

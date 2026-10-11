@@ -3,9 +3,9 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { MemorySecrets } from '@hbar/kernel/secrets'
-import { createPathLayout, ensurePathLayout, Storage } from '@hbar/storage'
+import { createPathLayout, ensurePathLayout, Storage, type StorageMethods } from '@hbar/storage'
 import { HbarClient, createSystemCommandClient } from '@hbar/client'
-import type { WireNotification } from '@hbar/contracts'
+import { HbarError, type WireNotification } from '@hbar/contracts'
 import { ProcessHostRuntime } from '../apps/host/src/process-host-runtime'
 import { startServer } from '../apps/host/src/server'
 import { buildRuntimePackage } from '../scripts/build-runtime-package'
@@ -169,6 +169,64 @@ test('a crashed plugin fences its bound Run, restores the activated plugin versi
   expect(successors).toHaveLength(1); expect(successors[0]?.status).toBe('completed')
   expect(snapshot.messages.filter(message => message.role === 'user')).toHaveLength(1)
 })
+
+test('a plugin exit while a durable claim receipt is pending reconciles the non-delivered authority and creates one successor', async () => {
+  const f = await fixture(), { client } = await clientFor(f.runtime)
+  const kernel = f.runtime.manager.defaultOwner('kernel')
+  const original = f.runtime.storage.call.bind(f.runtime.storage)
+  let held = false, writes = 0, release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  f.runtime.storage.call = async <K extends keyof StorageMethods>(method: K, ...args: Parameters<StorageMethods[K]>): Promise<ReturnType<StorageMethods[K]>> => {
+    const result = await original(method, ...args)
+    if (method === 'runtimeExecutionClaim' && ++writes === 1) { held = true; await gate }
+    return result
+  }
+  try {
+    const run = await f.runtime.kernel.submit(f.session.id, 'claim-owner-exit', { text: 'safe pending claim', images: [] }, 'local-fixture')
+    await until(() => held)
+    expect(f.runtime.coordinator.execution(run.id)).toBeNull()
+    const previous = f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'plugin.goal')?.generations[0]
+    if (!previous?.pid || previous.pid === process.pid) throw new Error('Expected the owned Goal PID')
+    process.kill(previous.pid, 'SIGKILL')
+    await until(() => f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'plugin.goal')?.generations[0]?.incarnation !== previous.incarnation)
+    release()
+    await f.runtime.waitForIdle()
+    expect(await original('run', run.id)).toMatchObject({ status: 'interrupted' })
+    const snapshot = await original('snapshot', f.session.id)
+    expect(snapshot.runs.filter(next => next.recovery?.predecessorRunId === run.id)).toHaveLength(1)
+    expect(snapshot.runs.find(next => next.recovery?.predecessorRunId === run.id)?.status).toBe('completed')
+    expect(snapshot.messages.filter(message => message.role === 'user')).toHaveLength(1)
+    expect(writes).toBe(2)
+    expect(f.runtime.manager.defaultOwner('kernel')).toEqual(kernel)
+    expect(f.runtime.coordinator.snapshot()).toMatchObject({ sessions: 0, resources: 0, physicalTools: 0 })
+    expect(client.connectionStatus()).toBe('connected')
+  } finally { release(); f.runtime.storage.call = original }
+}, 120_000)
+
+test('a lost durable claim receipt is read and revoked before one safe continuation without repeating the original write', async () => {
+  const f = await fixture()
+  const original = f.runtime.storage.call.bind(f.runtime.storage)
+  let writes = 0
+  f.runtime.storage.call = async <K extends keyof StorageMethods>(method: K, ...args: Parameters<StorageMethods[K]>): Promise<ReturnType<StorageMethods[K]>> => {
+    const result = await original(method, ...args)
+    if (method === 'runtimeExecutionClaim' && ++writes === 1) throw new HbarError('IPC_RESULT_UNKNOWN', 'Injected lost claim receipt')
+    return result
+  }
+  try {
+    const run = await f.runtime.kernel.submit(f.session.id, 'lost-claim-receipt', { text: 'safe claim reconciliation', images: [] }, 'local-fixture')
+    await until(() => writes > 0)
+    await f.runtime.waitForIdle()
+    expect(await original('run', run.id)).toMatchObject({ status: 'interrupted' })
+    expect(await original('runtimeExecutionRead', run.id)).toMatchObject({ state: 'revoked' })
+    const snapshot = await original('snapshot', f.session.id)
+    const successors = snapshot.runs.filter(next => next.recovery?.predecessorRunId === run.id)
+    expect(successors).toHaveLength(1)
+    expect(successors[0]?.status).toBe('completed')
+    expect(snapshot.messages.filter(message => message.role === 'user')).toHaveLength(1)
+    expect(writes).toBe(2)
+    expect(f.runtime.coordinator.snapshot()).toMatchObject({ sessions: 0, resources: 0, physicalTools: 0 })
+  } finally { f.runtime.storage.call = original }
+}, 120_000)
 
 test('the same managed composition starts from build-pinned bytes when its source root is unavailable', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-packaged-process-host-'))

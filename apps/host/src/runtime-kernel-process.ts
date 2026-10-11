@@ -114,7 +114,11 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
           claim: async sessionId => {
             const next = await storage.call('nextQueuedRun', sessionId)
             if (!next) return null
-            const lease = await domain(() => coordinator.claim(sessionId, next.id))
+            const lease = await domain(() => coordinator.claim(sessionId, next.id)).catch(() => {
+              // The stable coordinator records failed claim delivery and reconciles the durable receipt.
+              // A failed admission has no executor to abort and must not crash unrelated Sessions.
+              throw new HbarError('EXECUTION_RECONCILIATION_REQUIRED', 'The execution claim requires durable receipt reconciliation')
+            })
             if (!lease) return null
             leases.set(lease.runId, executionOwnershipSchema.parse(lease))
             return { run: await storage.call('run', lease.runId), lease }
