@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { createRunCommandClient } from '@hbar/client'
+import { createRunCommandClient, createWorkspaceSessionCommandClient } from '@hbar/client'
 import { execFileSync } from 'node:child_process'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -39,6 +39,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       host = await startWebSessionHost({
         root,
         port: Number(process.env.HBAR_E2E_ACTIVE_LOCATION_HOST_PORT ?? (locale === 'en-US' ? 48739 : 48740)),
+        budgetAutoContinue: false,
       })
       // Keep a stable, narrowed reference for callbacks that run after the
       // assignment. TypeScript cannot retain the narrowing of the mutable
@@ -50,6 +51,23 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         windowsHide: true,
       }).trim()
       expect(branch).not.toBe('')
+      const directory = createWorkspaceSessionCommandClient(activeHost.client)
+      const shortName = 'Location fixture'
+      const longName = locale === 'zh-CN' ? `${'长期工程名称'.repeat(13)}甲乙` : `${'Long workspace '.repeat(5)}ABCDE`
+      let displayName = shortName
+      const initialNames = await directory.execute('workspaceDisplayNames.get', {})
+      await directory.execute(
+        'workspaceDisplayNames.apply',
+        {
+          expectedRevision: initialNames.revision,
+          workspaceId: activeHost.ready.workspaceId,
+          expectedDisplayName:
+            initialNames.entries.find((entry) => entry.workspaceId === activeHost.ready.workspaceId)?.displayName ??
+            null,
+          displayName,
+        },
+        { idempotencyKey: crypto.randomUUID() },
+      )
 
       expect(
         (await context.request.post(`${base()}/auth/token`, { data: { token: activeHost.ready.token } })).ok(),
@@ -60,16 +78,16 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const copy = getShellCopy(locale)
       const contextCopy = sessionContextCopy(locale)
       await page.goto(`${base()}/apps/web/`)
-      await page.getByTitle(copy.shell.workspaceActions(activeHost.ready.workspaceName), { exact: true }).waitFor()
-      const expand = page.getByRole('treeitem', { expanded: false, name: activeHost.ready.workspaceName, exact: true })
+      await page.getByTitle(copy.shell.workspaceActions(displayName), { exact: true }).waitFor()
+      const expand = page.getByRole('treeitem', { expanded: false, name: displayName, exact: true })
       if (await expand.isVisible()) await expand.click()
       await page.getByRole('treeitem', { name: activeHost.ready.sessionTitle, exact: true }).click()
       await expect(page.locator('html')).toHaveAttribute('data-lumen-mode', colorScheme)
 
       // Empty sessions expose the launch-location picker. Establish one local
-      // fixture run before checking the confirmed, read-only Git context.
+      // fixture run before checking the confirmed Git context and branch target.
       const runs = createRunCommandClient(activeHost.client)
-      await runs.execute(
+      const submitted = await runs.execute(
         'run.submit',
         {
           sessionId: activeHost.ready.sessionId,
@@ -79,19 +97,22 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         { idempotencyKey: crypto.randomUUID() },
       )
       await expect
-        .poll(
-          async () =>
-            (await activeHost.client.call('session.snapshot', { sessionId: activeHost.ready.sessionId })).runs.length,
-        )
-        .toBe(1)
+        .poll(async () => (await runs.execute('operation.get', { operationId: submitted.operationId })).status)
+        .toBe('completed')
+      expect(
+        (await activeHost.client.call('session.snapshot', { sessionId: activeHost.ready.sessionId })).runs,
+      ).toHaveLength(1)
 
-      const project = page.getByRole('group', {
-        name: contextCopy.project(activeHost.ready.workspaceName),
+      let project = page.getByRole('group', {
+        name: contextCopy.project(displayName),
         exact: true,
       })
       await expect(project).toBeVisible()
       await expect(project.getByTitle(contextCopy.branch(branch), { exact: true })).toBeVisible()
-      await expect(project.locator('button')).toHaveCount(0)
+      await expect(project.getByRole('button', { name: contextCopy.branch(branch), exact: true })).toHaveAttribute(
+        'aria-haspopup',
+        'dialog',
+      )
 
       const toolbarContext = page.locator('.hbar-session-project-context-toolbar')
       const belowContext = page.locator('.hbar-session-project-context-below')
@@ -101,28 +122,92 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const usage = page.locator('.hbar-session-usage-control')
       const modelPicker = page.locator('.hbar-composer-model-picker')
       const send = page.getByRole('button', { name: copy.session.prompt.send, exact: true })
+      const editor = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const intentLabels = copy.session.intent
       const addMenuTrigger = page.getByRole('button', { name: copy.session.addMenu.open, exact: true })
       const addMenu = page.getByRole('group', { name: copy.session.addMenu.menu, exact: true })
-      // Desktop order follows the verified full-ChatInput CC capture; narrow widths are regression-only
-      // because no matching narrow active Git-chip capture is available.
+      const actionsDock = page.locator('[data-toolbar-item="actions"]')
+      const modelDock = page.locator('[data-toolbar-item="model"]')
+      const overflowTrigger = page.getByRole('button', { name: copy.session.addMenu.menu, exact: true })
+      const overflow = page.getByRole('dialog', { name: copy.session.addMenu.menu, exact: true })
+      // Measured controls may overflow at desktop widths with a long project name.
+      // The project must remain directly visible while More is closed in every case.
       const viewports = [
-        { name: 'desktop-1440x900', width: 1440, height: 900, wide: true },
-        { name: 'desktop-900x900', width: 900, height: 900, wide: true },
-        { name: 'narrow-390x844', width: 390, height: 844, wide: false },
-        { name: 'narrow-320x844', width: 320, height: 844, wide: false },
+        { name: 'desktop-1920x900', width: 1920, height: 900, projectName: shortName },
+        { name: 'desktop-1440x900', width: 1440, height: 900, projectName: shortName },
+        { name: 'desktop-900x900', width: 900, height: 900, projectName: shortName },
+        { name: 'narrow-390x844', width: 390, height: 844, projectName: shortName },
+        { name: 'narrow-320x844', width: 320, height: 844, projectName: shortName },
+        { name: 'long-project-1440x900', width: 1440, height: 900, projectName: longName },
+        { name: 'long-project-320x844', width: 320, height: 844, projectName: longName },
       ] as const
 
       let goalSelected = false
+      const placements: Array<{
+        viewport: string
+        stage: 'default' | 'after-interactions'
+        context: 'inline' | 'below'
+        actionsOverflowed: boolean
+        modelOverflowed: boolean
+        goalSelected: boolean
+      }> = []
       for (const viewport of viewports) {
+        await editor.focus()
+        await expect(editor).toBeFocused()
+        if (displayName !== viewport.projectName) {
+          const names = await directory.execute('workspaceDisplayNames.get', {})
+          const receipt = await directory.execute(
+            'workspaceDisplayNames.apply',
+            {
+              expectedRevision: names.revision,
+              workspaceId: activeHost.ready.workspaceId,
+              expectedDisplayName: displayName,
+              displayName: viewport.projectName,
+            },
+            { idempotencyKey: crypto.randomUUID() },
+          )
+          expect(receipt.changed).toBe(true)
+          displayName = viewport.projectName
+          project = page.getByRole('group', { name: contextCopy.project(displayName), exact: true })
+        }
         await page.setViewportSize({ width: viewport.width, height: viewport.height })
+        await page.evaluate(
+          () => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))),
+        )
+        // Resizing can reveal a focused overflow control. Close that real surface
+        // before checking the default, closed-menu project presentation.
+        if ((await overflowTrigger.isVisible()) && (await overflowTrigger.getAttribute('aria-expanded')) === 'true') {
+          await page.keyboard.press('Escape')
+          await editor.focus()
+        }
         await expect(project).toBeVisible()
         await expect(project.getByTitle(contextCopy.branch(branch), { exact: true })).toBeVisible()
-        await expect(project.locator('button')).toHaveCount(0)
-        await expect(modelPicker).toBeVisible()
+        await expect(project.getByRole('button', { name: contextCopy.branch(branch), exact: true })).toHaveCount(1)
         await expect(send).toBeVisible()
 
-        if (viewport.wide) {
+        const actionsOverflowed = await actionsDock.evaluate((element) => element.hasAttribute('hidden'))
+        const modelOverflowed = await modelDock.evaluate((element) => element.hasAttribute('hidden'))
+        if (actionsOverflowed || modelOverflowed) {
+          await expect(overflowTrigger).toBeVisible()
+          await expect(overflowTrigger).toHaveAttribute('aria-expanded', 'false')
+          await expect(overflow).toBeHidden()
+          await expect(project).toBeVisible()
+          await overflowTrigger.click()
+          await expect(overflow).toBeVisible()
+          await expect(project).toBeVisible()
+          await expect(project).toHaveCount(1)
+          if (actionsOverflowed) await expect(permission).toBeVisible()
+          if (modelOverflowed) await expect(modelPicker).toBeVisible()
+          await page.keyboard.press('Escape')
+          await editor.focus()
+          await expect(editor).toBeFocused()
+          await expect(overflow).toBeHidden()
+          await expect(project).toBeVisible()
+        }
+        if (!modelOverflowed) await expect(modelPicker).toBeVisible()
+
+        if (await toolbarContext.isVisible()) {
+          expect(actionsOverflowed).toBe(false)
           await expect(permission).toBeVisible()
           await expect(usage).toBeVisible()
           await expect(toolbarContext).toBeVisible()
@@ -152,11 +237,21 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
             precedesUsage: true,
           })
 
-          if (viewport.name === 'desktop-1440x900') {
+          if (viewport.name === 'desktop-1920x900') {
+            // Keep the verified default state: preparing a Goal may legitimately
+            // move the larger controls group into overflow at the same width.
+            placements.push({
+              viewport: viewport.name,
+              stage: 'default',
+              context: 'inline',
+              actionsOverflowed,
+              modelOverflowed,
+              goalSelected,
+            })
             // Default Goal is portalled into the closed More-actions menu, so it is intentionally
             // excluded from the default visible-order check above.
             await page.screenshot({
-              path: join(screenshotDirectory, 'desktop-1440x900-default.png'),
+              path: join(screenshotDirectory, 'desktop-1920x900-default.png'),
               fullPage: true,
             })
             await addMenuTrigger.click()
@@ -176,16 +271,24 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
             } else {
               await goalChoice.click()
               await expect(addMenu).toBeHidden()
+              const goalOverflowed = await actionsDock.evaluate((element) => element.hasAttribute('hidden'))
+              if (goalOverflowed && !(await overflow.isVisible())) await overflowTrigger.click()
               await expect(intent).toBeVisible()
               await expect(intent.getByRole('button', { name: intentLabels.cancelGoal, exact: true })).toHaveAttribute(
                 'aria-pressed',
                 'true',
               )
               goalSelected = true
+              if (goalOverflowed) {
+                if (await overflow.isVisible()) await page.keyboard.press('Escape')
+                await editor.focus()
+                await expect(overflow).toBeHidden()
+                await expect(project).toBeVisible()
+              }
             }
           }
 
-          if (goalSelected) {
+          if (goalSelected && (await toolbarContext.isVisible())) {
             await expect(intent).toBeVisible()
             await expect(intent.getByRole('button', { name: intentLabels.cancelGoal, exact: true })).toHaveAttribute(
               'aria-pressed',
@@ -218,6 +321,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           await expect(belowContext).toBeVisible()
         }
 
+        placements.push({
+          viewport: viewport.name,
+          stage: 'after-interactions',
+          context: (await toolbarContext.isVisible()) ? 'inline' : 'below',
+          actionsOverflowed: await actionsDock.evaluate((element) => element.hasAttribute('hidden')),
+          modelOverflowed: await modelDock.evaluate((element) => element.hasAttribute('hidden')),
+          goalSelected,
+        })
+
         const documentWidth = await page.evaluate(() => document.documentElement.scrollWidth)
         expect(documentWidth).toBeLessThanOrEqual(viewport.width + 1)
         await page.screenshot({
@@ -225,6 +337,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           fullPage: true,
         })
       }
+      expect(placements.some((placement) => placement.context === 'inline')).toBe(true)
+      expect(placements.some((placement) => placement.context === 'below' && placement.actionsOverflowed)).toBe(true)
+      expect(goalSelected).toBe(true)
       expect(errors).toEqual([])
       await writeFile(
         join(screenshotDirectory, 'capture-metadata.json'),
@@ -239,13 +354,16 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
             browserVersion: browser.version(),
             goalSelected,
             viewports,
+            placements,
             pageErrors: errors,
             boundaries: {
               nativeDesktop: false,
-              messagesLoaded: false,
+              messagesLoaded: true,
+              sdkFixtureRunSubmitted: true,
               sendClicked: false,
               hostGoalCreated: false,
               launchSelectionChanged: false,
+              temporaryWorkspaceDisplayNameChanged: true,
               userPreferencesChanged: false,
               narrowReferenceParity: false,
             },

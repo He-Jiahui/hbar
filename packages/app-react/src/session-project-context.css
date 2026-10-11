@@ -52,6 +52,18 @@
   scrollbar-width: thin;
 }
 
+/* The host-owned actions item can overflow even in a wide pane with long labels. */
+.hbar-app-react-session-footer:has([data-toolbar-item='actions'][hidden]) .hbar-session-project-context-below {
+  display: flex;
+}
+
+.hbar-app-react-session-footer:has([data-toolbar-item='actions'][hidden]):has(
+    .lumen-composer-toolbar > button[aria-expanded='true']
+  )
+  .hbar-session-project-context-below {
+  display: none;
+}
+
 .hbar-app-react-session-footer[data-git-context-status='error'] .hbar-session-project-context-toolbar {
   display: none;
 }
