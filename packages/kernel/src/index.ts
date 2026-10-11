@@ -102,6 +102,7 @@ import type {
   DiagnosticScopePort,
 } from '@hbar/contracts'
 import { createKernelExecutionDiagnostics } from './execution-diagnostics'
+import { kernelCapabilityPlugins } from './plugin-composition'
 import type { KernelContinuationDiagnostic, KernelExecutionDiagnostics } from './execution-diagnostics'
 import { definePlugin, prependModelInstructions, provide, resolveToolTimeoutMs, RunControlSignal } from '@hbar/plugin-sdk'
 import type {
@@ -1103,6 +1104,9 @@ export class Kernel {
           }),
       }),
     )
+    for (const plugin of kernelCapabilityPlugins(
+      typeof HBAR_EXTERNAL_PLUGINS !== 'undefined' && HBAR_EXTERNAL_PLUGINS,
+    )) this.plugins.add(plugin)
     if (typeof HBAR_EXTERNAL_PLUGINS !== 'undefined' && HBAR_EXTERNAL_PLUGINS) {
       for (const id of ['tools.workspace', 'goal.codex', 'plan.codex', 'budget.codex', 'agent.codex', 'workflow.focus', 'git.codex', 'browser-use.codex', 'computer-use.codex']) {
         const port = this.options.profile?.replacements?.[id]
