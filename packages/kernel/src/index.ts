@@ -1781,7 +1781,6 @@ export class Kernel {
       return
     }
     scope.ctx.effect(() => () => controller.abort())
-    scope.tools.pinParent()
     const idleTimeout = createRunIdleTimeout(controller, this.options.runIdleTimeoutMs)
     const lease = this.executionScope.current
     this.active.set(sessionId, { run, controller, context: scope, idleTimeout, ...(lease ? { lease } : {}) })
@@ -1868,6 +1867,7 @@ export class Kernel {
         runId: run.id,
         tools: scope.tools.list(),
       })
+      scope.tools.pinParent()
       const selectedNames = new Set(selectedTools.tools.map((tool) => tool.name))
       const toolPresentations = captureToolPresentations(selectedNames, scope.tools)
       const trackToolExecution = async <Result>(execution: Promise<Result>): Promise<Result> => {
