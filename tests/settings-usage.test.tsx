@@ -5,49 +5,8 @@ import { createAppRuntime } from '@hbar/app-runtime'
 import { HbarRuntimeProvider, HbarSettingsUsage, SETTINGS_USAGE_MODELS_PER_PAGE } from '@hbar/app-react'
 import { usageQueryInputSchema, type UsageQueryInput, type UsageQueryResult } from '@hbar/contracts/commands/usage'
 import { getShellCopy } from '../apps/web/src/shell-copy'
+import { settingsUsageReport as report } from './fixtures/settings-usage-report'
 
-function report(input: UsageQueryInput, modelCount = 1): UsageQueryResult {
-  const cost = {
-    value: null,
-    unit: 'USD' as const,
-    availability: 'unavailable' as const,
-    reason: 'PRICING_NOT_AVAILABLE',
-    source: 'test-ledger',
-    estimated: false,
-    sampleCount: 1,
-  }
-  const metric = { ...cost, unit: 'ratio' as const }
-  const rate = { ...cost, unit: 'tokens_per_second' as const }
-  const latency = {
-    p50: null,
-    p95: null,
-    unit: 'milliseconds' as const,
-    availability: 'unavailable' as const,
-    reason: 'NO_SAMPLES',
-    sampleCount: 0,
-  }
-  const totals = { input: 200, output: 80, cacheRead: 40, cacheWrite: 0, billableTokens: 240, attempts: 1, runs: 1 }
-  return {
-    accountingVersion: 1,
-    scope: input.scope,
-    window: { from: input.from ?? 0, to: input.to ?? Date.now(), bucketMs: input.bucketMs },
-    observedAt: Date.now(),
-    gap: false,
-    totals,
-    cost,
-    cacheHitRate: metric,
-    rates: { input: rate, output: rate, total: rate },
-    latency: { firstProviderEvent: latency, firstThinking: latency, firstText: latency, response: latency },
-    series: [{ start: input.from ?? 0, end: (input.from ?? 0) + input.bucketMs, ...totals, cost }],
-    models: Array.from({ length: modelCount }, (_, i) => ({
-      providerId: 'provider',
-      modelId: `model-${i}`,
-      modelSelectionId: `provider:model-${i}`,
-      ...totals,
-      cost,
-    })),
-  }
-}
 const directory: CommandExecutor = {
   execute: (name) =>
     Promise.resolve(name === 'workspace.get' || name === 'session.get' ? null : { items: [], nextCursor: null }),
@@ -382,9 +341,10 @@ test('both locale Views use true metrics, no invented cost, bounded rows, empty 
         expect(html).toContain(labels.costUnavailable)
         expect(html).not.toContain('$0.00')
         expect(html).toContain(longLabels.description)
-        expect((html.match(/class="hbar-settings-usage-model-row"/g) ?? []).length).toBe(
-          Math.min(count, SETTINGS_USAGE_MODELS_PER_PAGE),
-        )
+        const visibleRows = (
+          html.match(/<div\b[^>]*class="[^"]*\bhbar-settings-usage-model-row\b[^"]*"[^>]*>/g) ?? []
+        ).filter((row) => !/\shidden(?:\s|=|>)/.test(row))
+        expect(visibleRows.length).toBe(Math.min(count, SETTINGS_USAGE_MODELS_PER_PAGE))
         if (count > 8) expect(html).toContain(labels.page(1, 8, count))
         if (count === 0) {
           expect(html).toContain(labels.empty)

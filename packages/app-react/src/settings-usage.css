@@ -32,6 +32,15 @@
   align-items: center;
   gap: 0.5rem;
 }
+.hbar-settings-usage-pagination > button {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+.hbar-settings-usage-pagination > button > [data-text-context='control.label'] {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow: hidden;
+}
 .hbar-settings-usage-summary {
   display: flex;
   flex-wrap: wrap;
