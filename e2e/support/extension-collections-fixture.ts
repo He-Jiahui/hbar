@@ -64,6 +64,7 @@ export async function routeExtensionCollectionFaults(page: Page) {
     remaining: number
     matched: number
     diagnostics: number
+    rpcIds: Set<string>
   }[] = []
   const held: { ticket: number; connection: number; release: (fail: boolean) => void }[] = []
   let tickets = 0
@@ -128,6 +129,7 @@ export async function routeExtensionCollectionFaults(page: Page) {
             else errors.push('Response observation capacity exceeded')
             if (entry.rule) {
               entry.rule.matched++
+              entry.rule.rpcIds.add(String(id))
               if (entry.rule.rule.kind === 'hold')
                 held.push({
                   ticket: entry.rule.ticket,
@@ -158,7 +160,7 @@ export async function routeExtensionCollectionFaults(page: Page) {
       if (!Number.isInteger(times) || times < 1 || times > 16 || rules.length >= 64)
         throw new Error('Invalid bounded read fault')
       const ticket = ++tickets
-      rules.push({ ticket, rule, remaining: times, matched: 0, diagnostics: 0 })
+      rules.push({ ticket, rule, remaining: times, matched: 0, diagnostics: 0, rpcIds: new Set() })
       return ticket
     },
     pending(ticket: number): number {
@@ -185,7 +187,13 @@ export async function routeExtensionCollectionFaults(page: Page) {
         (event.commandId !== 'plugin.list' && event.commandId !== 'skill.list')
       )
         return false
-      const rule = rules.find((item) => item.rule.command === event.commandId && item.matched > item.diagnostics)
+      const rule = rules.find(
+        (item) =>
+          item.rule.command === event.commandId &&
+          event.rpcId !== undefined &&
+          item.rpcIds.has(event.rpcId) &&
+          item.matched > item.diagnostics,
+      )
       if (!rule) return false
       rule.diagnostics++
       return true
