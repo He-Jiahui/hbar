@@ -123,6 +123,7 @@ test('Goal rows merge by seq around messages, hidden Goal envelopes and stream b
   const sequence = projectSessionTimelineSequence(
     {
       sessionId: 'session',
+      contextCompactions: [{ id: 'compaction', sessionId: 'session', seq: 5, time: 5, trigger: 'manual' }],
       messages: [
         sessionMessage([{ type: 'text', text: 'Before' }], { id: 'before', seq: 1 }),
         sessionMessage([], { id: 'empty', role: 'user', runId: 'auto', seq: 3 }),
@@ -156,9 +157,11 @@ test('Goal rows merge by seq around messages, hidden Goal envelopes and stream b
           ? item.row.seq
           : item.kind === 'goalContinuation'
             ? 'auto'
-            : 'stream',
+            : item.kind === 'contextCompaction'
+              ? item.marker.seq
+              : 'stream',
     ),
-  ).toEqual(['before', 2, 'auto', 4, 'after', 7, 'stream'])
+  ).toEqual(['before', 2, 'auto', 4, 5, 'after', 7, 'stream'])
   expect(
     projectSessionTimelineSequence({ sessionId: 'session', messages: [], runs: [], streams: {} }, rows).map(
       (item) => item.kind,

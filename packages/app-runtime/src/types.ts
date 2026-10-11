@@ -1053,6 +1053,7 @@ export interface SessionTimelineState {
   readonly contextHistoryBefore?: number | null
   readonly contextHistoryRequestBefore?: number | null
   readonly activeCompaction?: import('@hbar/contracts/context-history').ContextCompactionRecord | null
+  readonly contextCompactions?: readonly import('@hbar/contracts/context-history').ContextCompactionMarker[]
   readonly sessionId: string | null
   readonly status: 'idle' | 'loading' | 'ready' | 'error'
   readonly olderStatus: 'idle' | 'loading' | 'error' | 'limit'

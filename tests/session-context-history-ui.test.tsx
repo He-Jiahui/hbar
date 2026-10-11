@@ -15,6 +15,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
     )
     expect(notice).toContain(labels.notice)
     expect(notice).toContain('role="status"')
+    expect(notice).toContain('hbar-session-execution-spinner')
     expect(notice).toContain('80%')
     expect(
       renderToStaticMarkup(
@@ -64,6 +65,7 @@ test('foreign sessions, settled runs and non-owning panes cannot display an acti
   )
   expect(disconnected).toContain(labels.offline)
   expect(disconnected).not.toContain(labels.notice)
+  expect(disconnected).not.toContain('hbar-session-execution-spinner')
   expect(
     renderToStaticMarkup(
       <HbarContextHistory

@@ -13,6 +13,7 @@ import { sessionTimelineCommands } from '@hbar/contracts/commands/session-timeli
 import {
   contextHistoryPageSchema,
   parseContextCompactionEvent,
+  parseContextCompactionMarker,
   type ContextHistoryInput,
   type ContextHistoryPage,
 } from '@hbar/contracts/context-history'
@@ -29,6 +30,7 @@ import type {
 } from '@hbar/contracts'
 import { z } from 'zod'
 import { createState, type StateReader } from './state'
+import { mergeContextCompactionMarkers } from './context-compaction-markers'
 import type { GoalHistoryTimelinePort, GoalHistoryTimelineSnapshot, GoalHistoryTimelineUpdate } from './goal-history'
 import type { NavigationState, SessionTimelinePort, SessionTimelineState } from './types'
 
@@ -92,6 +94,7 @@ function emptyState(sessionId: string | null, status: SessionTimelineState['stat
     hasOlder: false,
     error: null,
     activeCompaction: null,
+    contextCompactions: [],
     contextHistoryStatus: 'idle',
     contextHistoryError: null,
     contextHistoryBefore: null,
@@ -129,6 +132,13 @@ function fromSnapshot(
     userInputs: snapshot.userInputs.slice(0, MAX_USER_INPUTS),
     plan: plan === undefined ? (previous?.plan ?? null) : plan,
     usage: { ...snapshot.usage },
+    contextCompactions: mergeContextCompactionMarkers(
+      snapshot.session.id,
+      previous?.contextCompactions,
+      snapshot.contextCompactions,
+      messages.length >= MAX_MESSAGES ? (messages[0]?.seq ?? 0) : 0,
+      snapshot.cursor,
+    ),
     ...(snapshot.contextHistory
       ? {
           contextHistory: contextHistoryPageSchema.parse(snapshot.contextHistory),
@@ -357,6 +367,17 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
       }
   }
 
+  const marker = parseContextCompactionMarker(event)
+  const contextCompactions =
+    marker || messages[0]?.seq !== current.messages[0]?.seq
+      ? mergeContextCompactionMarkers(
+          event.sessionId,
+          current.contextCompactions,
+          marker ? [marker] : [],
+          messages.length >= MAX_MESSAGES ? (messages[0]?.seq ?? 0) : 0,
+          event.seq,
+        )
+      : (current.contextCompactions ?? [])
   return {
     ...current,
     status: 'ready',
@@ -369,6 +390,7 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
     streams,
     ...(contextHistory ? { contextHistory } : {}),
     activeCompaction: activeCompaction ?? null,
+    contextCompactions,
     ...(toolEvents ? { toolEvents } : {}),
     ...(toolClock ? { toolClock } : {}),
     events: [...current.events, event].slice(-MAX_EVENTS),
@@ -694,6 +716,13 @@ export function createSessionTimeline(
         olderStatus: messages.length >= MAX_MESSAGES && snapshot.hasOlder ? 'limit' : 'idle',
         olderError: null,
         messages,
+        contextCompactions: mergeContextCompactionMarkers(
+          sessionId,
+          latest.contextCompactions,
+          snapshot.contextCompactions,
+          messages.length >= MAX_MESSAGES ? (messages[0]?.seq ?? 0) : 0,
+          latest.cursor,
+        ),
         approvals: mergeApprovals(latest.approvals, snapshot.approvals),
         hasOlder: snapshot.hasOlder,
       }

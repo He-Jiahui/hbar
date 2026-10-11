@@ -5,9 +5,18 @@ import {
   LumenContentText,
   LumenDisclosure,
   LumenFrame,
+  LumenIcon,
 } from '@lumen/app-ui'
-import type { ContextCompactionRecord, ContextHistoryPage, ContextWindowStats } from '@hbar/contracts/context-history'
+import { ScrollText } from 'lucide-react'
+import type {
+  ContextCompactionMarker,
+  ContextCompactionRecord,
+  ContextCompactionTrigger,
+  ContextHistoryPage,
+  ContextWindowStats,
+} from '@hbar/contracts/context-history'
 import type { SessionTimelineState } from '@hbar/app-runtime'
+import { HbarSessionExecutionStatus } from './session-execution-status'
 import './session-context-history.css'
 
 export interface ContextHistoryMetric {
@@ -19,6 +28,7 @@ export interface ContextHistoryMetric {
 export interface HbarContextHistoryLabels {
   readonly notice: string
   readonly offline: string
+  readonly compacted: (trigger: ContextCompactionTrigger | null) => string
   readonly title: string
   readonly current: string
   readonly empty: string
@@ -60,8 +70,36 @@ export function HbarContextCompactionNotice({
       data-session-id={sessionId}
       data-connected={connected}
     >
-      <LumenContentText context="record.title">{connected ? labels.notice : labels.offline}</LumenContentText>
+      <HbarSessionExecutionStatus
+        state={connected ? 'running' : 'unconfirmed'}
+        label={connected ? labels.notice : labels.offline}
+        tone="warning"
+      />
       <LumenContentText context="record.description">{labels.summary(record)}</LumenContentText>
+    </LumenFrame>
+  )
+}
+
+/** A content-grown row in the pane-owned conversation; durable facts supply identity and provenance. */
+export function HbarContextCompactionMarker({
+  marker,
+  sessionId,
+  labels,
+}: {
+  readonly marker: ContextCompactionMarker
+  readonly sessionId: string
+  readonly labels: Pick<HbarContextHistoryLabels, 'compacted'>
+}) {
+  if (marker.sessionId !== sessionId) return null
+  return (
+    <LumenFrame
+      className="hbar-context-compaction-marker"
+      data-context-compaction-marker={marker.id}
+      data-session-id={sessionId}
+      data-trigger={marker.trigger ?? 'unknown'}
+    >
+      <LumenIcon icon={ScrollText} tier="sm" />
+      <LumenContentText context="record.description">{labels.compacted(marker.trigger)}</LumenContentText>
     </LumenFrame>
   )
 }

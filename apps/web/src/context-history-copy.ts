@@ -17,16 +17,23 @@ export function contextHistoryCopy(locale: SupportedLocale): HbarContextHistoryL
     tokens === null
       ? unknown
       : `${number(tokens)} / ${number(capacity)} token · ${number(Number(((tokens / capacity) * 100).toFixed(1)))}%`
-  const status = (value: ContextCompactionRecord['status']) =>
+  const compacted: HbarContextHistoryLabels['compacted'] = (trigger) =>
+    trigger === 'automatic'
+      ? choose('上下文已自动压缩', 'Context automatically compacted')
+      : trigger === 'manual'
+        ? choose('上下文已手动压缩', 'Context manually compacted')
+        : choose('上下文已压缩', 'Context compacted')
+  const status = (value: ContextCompactionRecord) =>
     ({
       running: choose('正在压缩', 'Compacting'),
-      completed: choose('已压缩', 'Compacted'),
+      completed: compacted(value.trigger ?? null),
       failed: choose('压缩失败', 'Compaction failed'),
       cancelled: choose('压缩已取消', 'Compaction cancelled'),
       interrupted: choose('压缩中断', 'Compaction interrupted'),
-    })[value]
+    })[value.status]
   return {
     notice: choose('正在压缩上下文', 'Compacting context'),
+    compacted,
     offline: choose('连接中断，正在重新确认上下文压缩状态', 'Disconnected; confirming context compaction status'),
     title: choose('上下文窗口与压缩历史', 'Context windows and compaction history'),
     current: choose('当前窗口明细', 'Current window details'),
@@ -52,10 +59,7 @@ export function contextHistoryCopy(locale: SupportedLocale): HbarContextHistoryL
     retry: choose('重新读取', 'Retry'),
     error: (message) => choose(`窗口数据读取失败：${message}`, `Window data could not be loaded: ${message}`),
     record: (value) =>
-      choose(
-        `窗口 ${number(value.window)} · ${status(value.status)}`,
-        `Window ${number(value.window)} · ${status(value.status)}`,
-      ),
+      choose(`窗口 ${number(value.window)} · ${status(value)}`, `Window ${number(value.window)} · ${status(value)}`),
     summary: (value) =>
       value.status === 'running'
         ? occupancy(value.beforeTokens, value.contextWindow)

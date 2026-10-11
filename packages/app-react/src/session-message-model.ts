@@ -1,5 +1,6 @@
 import type { SessionTimelineState } from '@hbar/app-runtime'
 import type { GoalLifecycleRow } from './goal-lifecycle-model'
+import { MAX_CONTEXT_COMPACTION_MARKERS, type ContextCompactionMarker } from '@hbar/contracts/context-history'
 
 export type SessionMessage = SessionTimelineState['messages'][number]
 export type SessionMessageBlock = SessionMessage['content'][number]
@@ -48,6 +49,7 @@ export type SessionTimelineSequenceItem =
   | { readonly kind: 'stream'; readonly stream: SessionTimelineState['streams'][string] }
   | { readonly kind: 'goalContinuation'; readonly continuation: GoalContinuationBoundary }
   | { readonly kind: 'goalLifecycle'; readonly row: GoalLifecycleRow }
+  | { readonly kind: 'contextCompaction'; readonly marker: ContextCompactionMarker }
 
 /**
  * Reuse the paged message projection and persistent continuation identity to mark
@@ -58,7 +60,7 @@ export type SessionTimelineSequenceItem =
  * Missing paged-out Runs do not acquire markers and no extra history is fetched.
  */
 export function projectSessionTimelineSequence(
-  timeline: Pick<SessionTimelineState, 'sessionId' | 'messages' | 'runs' | 'streams'>,
+  timeline: Pick<SessionTimelineState, 'sessionId' | 'messages' | 'runs' | 'streams' | 'contextCompactions'>,
   goalRows: readonly GoalLifecycleRow[] = [],
 ): readonly SessionTimelineSequenceItem[] {
   const sessionId = timeline.sessionId
@@ -127,12 +129,30 @@ export function projectSessionTimelineSequence(
   // its exact order against messages and empty-envelope continuation anchors.
   // Unanchored Run markers retain their existing placement; they cannot invent
   // a Goal sequence or lifecycle event. Remaining committed facts precede streams.
-  const pending = [...goalRows].filter((row) => row.sessionId === sessionId).sort((a, b) => a.seq - b.seq)
+  const compactions = new Map<string, ContextCompactionMarker>()
+  for (const marker of timeline.contextCompactions ?? [])
+    if (marker.sessionId === sessionId && !compactions.has(marker.id)) compactions.set(marker.id, marker)
+  const pending = [
+    ...goalRows
+      .filter((row) => row.sessionId === sessionId)
+      .map((row) => ({
+        seq: row.seq,
+        time: row.time,
+        item: { kind: 'goalLifecycle', row } satisfies SessionTimelineSequenceItem,
+      })),
+    ...[...compactions.values()]
+      .sort((a, b) => a.seq - b.seq)
+      .slice(-MAX_CONTEXT_COMPACTION_MARKERS)
+      .map((marker) => ({
+        seq: marker.seq,
+        time: marker.time,
+        item: { kind: 'contextCompaction', marker } satisfies SessionTimelineSequenceItem,
+      })),
+  ].sort((a, b) => a.seq - b.seq)
   const merged: SessionTimelineSequenceItem[] = []
   let goalIndex = 0
   const emitThrough = (seq: number) => {
-    while (goalIndex < pending.length && pending[goalIndex]!.seq <= seq)
-      merged.push({ kind: 'goalLifecycle', row: pending[goalIndex++]! })
+    while (goalIndex < pending.length && pending[goalIndex]!.seq <= seq) merged.push(pending[goalIndex++]!.item)
   }
   for (const [index, item] of result.entries()) {
     if (item.kind === 'message') emitThrough(item.projection.message.seq)
@@ -161,7 +181,7 @@ export function projectSessionTimelineSequence(
         pending[goalIndex]!.seq < ceiling &&
         pending[goalIndex]!.time <= item.continuation.createdAt
       )
-        merged.push({ kind: 'goalLifecycle', row: pending[goalIndex++]! })
+        merged.push(pending[goalIndex++]!.item)
     }
     merged.push(item)
   }

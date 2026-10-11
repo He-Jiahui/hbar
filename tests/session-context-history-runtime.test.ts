@@ -38,6 +38,15 @@ function fixture(read?: (before?: number) => Promise<ContextHistoryPage>) {
     hasOlder: false,
     streams: [],
     contextHistory: current,
+    contextCompactions: current.records
+      .filter((record) => record.status === 'completed')
+      .map((record) => ({
+        id: record.id,
+        sessionId: record.sessionId,
+        seq: record.seq + 1,
+        time: record.endedAt ?? 0,
+        trigger: record.trigger ?? null,
+      })),
   })
   const runtime = createAppRuntime({
     instanceId: 'context-history',
@@ -93,15 +102,33 @@ test('reload restores active telemetry and completion removes the notice before 
     await runtime.view.commands.execute('app.setSession', { sessionId: 'session-one' })
     await waitFor(() => runtime.view.state.timeline.getSnapshot().status === 'ready')
     expect(runtime.view.state.timeline.getSnapshot().activeCompaction?.id).toBe('compaction-1')
-    const completed = contextRecord()
+    const completed = contextRecord({ trigger: 'automatic' })
     setPage(contextHistoryPage([completed]))
     emit(event('context.compacted', 12, { compaction: completed }))
     expect(runtime.view.state.timeline.getSnapshot().activeCompaction).toBeNull()
     expect(runtime.view.state.timeline.getSnapshot().contextHistory?.records[0]?.status).toBe('completed')
+    expect(runtime.view.state.timeline.getSnapshot().contextCompactions?.[0]?.trigger).toBe('automatic')
     emit(event('context.compacted', 12, { compaction: completed }))
     expect(runtime.view.state.timeline.getSnapshot().contextHistory?.records).toHaveLength(1)
+    expect(runtime.view.state.timeline.getSnapshot().contextCompactions).toHaveLength(1)
     await runtime.view.commands.execute('timeline.retry', { sessionId: 'session-one' })
     expect(runtime.view.state.timeline.getSnapshot().contextHistory?.records[0]?.afterTokens).toBe(1000)
+    expect(runtime.view.state.timeline.getSnapshot().contextCompactions?.map((marker) => marker.id)).toEqual([
+      'compaction-1',
+    ])
+  } finally {
+    runtime.dispose()
+  }
+})
+
+test('cancelled compaction removes activity without adding a completed conversation record', async () => {
+  const { runtime, emit } = fixture()
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: 'session-one' })
+    await waitFor(() => runtime.view.state.timeline.getSnapshot().status === 'ready')
+    emit(event('context.compaction.settled', 12, { compaction: contextRecord({ status: 'cancelled' }) }))
+    expect(runtime.view.state.timeline.getSnapshot().activeCompaction).toBeNull()
+    expect(runtime.view.state.timeline.getSnapshot().contextCompactions).toEqual([])
   } finally {
     runtime.dispose()
   }

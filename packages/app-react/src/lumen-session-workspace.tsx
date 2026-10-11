@@ -83,7 +83,7 @@ import { currentSessionRun, type HbarSessionRunLabels } from './session-run-acti
 import { currentSessionRunFailure } from './session-run-failure-model'
 import { HbarSessionInterruptionNotice, type HbarSessionInterruptionLabels } from './session-interruption-notice'
 import { HbarSessionLiveStatus, type HbarSessionLiveStatusLabels } from './session-live-status'
-import { HbarContextCompactionNotice } from './session-context-history'
+import { HbarContextCompactionNotice, HbarContextCompactionMarker } from './session-context-history'
 import { HbarSessionExecutionStatus } from './session-execution-status'
 import { HbarQueuedUserRuns, type HbarQueuedUserRunsLabels } from './queued-user-runs'
 import { HbarSessionToolsMenu, type HbarSessionToolsMenuLabels } from './session-tools-menu'
@@ -1718,6 +1718,27 @@ function SessionWorkspaceContent({
   const rowsById = new Map(messageRows.map((row) => [row.id, row]))
   const messages: LumenMessageProps[] = projectSessionTimelineSequence(timeline, goalLifecycleRows).flatMap(
     (item): LumenMessageProps[] => {
+      if (item.kind === 'contextCompaction')
+        return labels.liveStatus.history
+          ? [
+              {
+                id: `context-compaction:${item.marker.id}`,
+                role: 'system',
+                author: labels.author.system,
+                avatar: labels.avatar.system,
+                appearance: 'transcript',
+                copyLabel: labels.copy,
+                actions: null,
+                children: (
+                  <HbarContextCompactionMarker
+                    marker={item.marker}
+                    sessionId={sessionId ?? ''}
+                    labels={labels.liveStatus.history}
+                  />
+                ),
+              },
+            ]
+          : []
       if (item.kind === 'goalLifecycle')
         return [
           {

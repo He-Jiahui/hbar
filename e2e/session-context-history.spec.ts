@@ -79,6 +79,14 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       )
       const notice = page.locator('.hbar-context-compaction-notice')
       await expect(notice).toContainText(labels.notice)
+      const spinner = notice.locator('.hbar-session-execution-spinner')
+      await expect(spinner).toBeVisible()
+      expect(await spinner.evaluate((element) => getComputedStyle(element).animationName)).toBe(
+        'hbar-session-execution-spin',
+      )
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      expect(await spinner.evaluate((element) => getComputedStyle(element).animationName)).toBe('none')
+      await page.emulateMedia({ reducedMotion: 'no-preference' })
       const status = page.locator('.hbar-app-react-session-footer > .hbar-session-live-status')
       await expect(status).toBeVisible()
       const boxes = await Promise.all([notice.boundingBox(), status.boundingBox()])
@@ -102,6 +110,10 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       const record = snapshot.contextHistory?.records[0]
       if (!record || record.afterTokens === null) throw new Error('Missing durable compaction telemetry')
       expect(record.status).toBe('completed')
+      expect(record.trigger).toBe('automatic')
+      const marker = page.locator(`[data-context-compaction-marker="${record.id}"]`)
+      await expect(marker).toHaveText(labels.compacted('automatic'))
+      await expect(marker).toHaveCount(1)
       expect(record.durationMs).toBeGreaterThanOrEqual(3000)
       expect(record.beforeTokens).toBeGreaterThan(record.afterTokens)
       expect(record.compactionUsage.recorded).toBeGreaterThan(0)
@@ -135,6 +147,8 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       await page.getByRole('treeitem', { name: reloadedSession.title, exact: true }).click()
       await status.getByRole('button', { name: copy.session.liveStatus.expand, exact: true }).click()
       await expect(status.locator(`[data-context-history-id="${record.id}"]`)).toBeVisible()
+      await expect(marker).toHaveCount(1)
+      await expect(marker).toHaveText(labels.compacted('automatic'))
       await expect(notice).toHaveCount(0)
       await expectComposerText(draft, unsent)
       const other = (await client.call('session.list', { workspaceId: ready.workspaceId })).items.find(
@@ -143,6 +157,7 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
       if (!other) throw new Error('Missing second session')
       await page.getByRole('treeitem', { name: other.title, exact: true }).click()
       await expect(page.locator(`[data-context-history-id="${record.id}"]`)).toHaveCount(0)
+      await expect(marker).toHaveCount(0)
       await info.attach('window-statistics', {
         body: Buffer.from(JSON.stringify(record)),
         contentType: 'application/json',
@@ -155,3 +170,88 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
     }
   })
 }
+
+test('manual compaction spins while active and leaves a durable transcript record', async ({ browser }, info) => {
+  test.setTimeout(90000)
+  const root = await mkdtemp(join(tmpdir(), 'hbar-context-history-browser-'))
+  const context = await browser.newContext({
+    locale: 'zh-CN',
+    colorScheme: 'dark',
+    viewport: { width: 1440, height: 960 },
+  })
+  let host: WebSessionHost | undefined
+  try {
+    host = await startWebSessionHost({
+      root,
+      port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+      historyCount: 18,
+      historyText: 'Authored history. '.repeat(60),
+      compactionDelayMs: 1500,
+      goalAutoContinue: false,
+      budgetAutoContinue: false,
+    })
+    const { client, ready } = host
+    const sessionId = ready.sessionId
+    await client.call('provider.save', {
+      provider: {
+        id: 'manual-context',
+        name: 'Manual context fixture',
+        protocol: 'mock',
+        baseUrl: 'http://localhost',
+        model: 'manual-context',
+        contextWindow: 8192,
+        maxOutput: 256,
+      },
+    })
+    const models = createModelCommandClient(client)
+    const previous = await models.execute('session.getModel', { sessionId })
+    await models.execute(
+      'session.setModel',
+      { sessionId, modelId: 'manual-context', baselineRevisions: previous.revisions },
+      { idempotencyKey: crypto.randomUUID() },
+    )
+    const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
+    expect((await context.request.post(`${base}/auth/token`, { data: { token: ready.token } })).ok()).toBe(true)
+    const page = await context.newPage()
+    const labels = contextHistoryCopy('zh-CN')
+    await page.goto(base)
+    await page.getByRole('treeitem', { name: ready.sessionTitle, exact: true }).click()
+    const pending = createRunCommandClient(client)
+      .execute('context.compact', { sessionId, modelId: 'manual-context' })
+      .then(
+        (value) => ({ value }),
+        (error: unknown) => ({ error }),
+      )
+    const notice = page.locator('.hbar-context-compaction-notice')
+    await expect(notice).toContainText(labels.notice)
+    await expect(notice.locator('.hbar-session-execution-spinner')).toBeVisible()
+    const completed = await pending
+    if ('error' in completed) throw completed.error
+    await expect(notice).toHaveCount(0)
+    const snapshot = await client.call('session.snapshot', { sessionId })
+    const record = snapshot.contextHistory?.records[0]
+    if (!record) throw new Error('Manual compaction was not recorded')
+    expect(record.trigger).toBe('manual')
+    expect(record.status).toBe('completed')
+    const marker = page.locator(`[data-context-compaction-marker="${record.id}"]`)
+    await expect(marker).toHaveText('上下文已手动压缩')
+    await marker.scrollIntoViewIfNeeded()
+    await page.screenshot({ path: info.outputPath('manual-compacted-desktop.png') })
+    await page.setViewportSize({ width: 320, height: 960 })
+    await expect(marker).toBeVisible()
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
+    ).toBe(true)
+    await page.screenshot({ path: info.outputPath('manual-compacted-320.png') })
+    await page.setViewportSize({ width: 1440, height: 960 })
+    await page.reload()
+    await page.getByRole('treeitem', { name: ready.sessionTitle, exact: true }).click()
+    await expect(marker).toHaveCount(1)
+    await expect(marker).toHaveText(labels.compacted('manual'))
+    await expect(notice).toHaveCount(0)
+  } finally {
+    await context.close()
+    if (host) await stopWebSessionHost(host)
+    await cleanup(root)
+  }
+})
