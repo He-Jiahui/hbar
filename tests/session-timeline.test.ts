@@ -1,7 +1,15 @@
 import { expect, test } from 'bun:test'
 import { createAppRuntime, type SessionTimelinePort, type SessionTimelineUpdate } from '@hbar/app-runtime'
 import { createSessionTimelineClient } from '@hbar/client'
-import type { PlanState, SessionEvent, SessionSnapshot, StreamDelta, WireNotification } from '@hbar/contracts'
+import {
+  runSchema,
+  type PlanState,
+  type SessionEvent,
+  type SessionSnapshot,
+  type StreamDelta,
+  type WireNotification,
+} from '@hbar/contracts'
+import { fileChangeSummary } from './fixtures/run-file-changes'
 
 const workspace = { id: 'workspace', path: 'D:/workspace', name: 'Workspace', createdAt: 1 }
 const sessions = [
@@ -86,6 +94,60 @@ function directory() {
     },
   }
 }
+
+test('live Run settlements and undo preserve canonical file summaries and reject a foreign Run', async () => {
+  let update: ((value: SessionTimelineUpdate) => void) | undefined
+  const timeline: SessionTimelinePort = {
+    async snapshot() {
+      return snapshot('session-one', 1, 'Final reply')
+    },
+    async watch(_id, _cursor, listener) {
+      update = listener
+      return () => {}
+    },
+  }
+  const runtime = createAppRuntime({
+    instanceId: 'file-summary-live',
+    hostId: 'host',
+    directory: directory(),
+    timeline,
+  })
+  try {
+    await runtime.view.commands.execute('app.setSession', { sessionId: 'session-one' })
+    await waitFor(() => Boolean(update))
+    const run = runSchema.parse({
+      id: 'run',
+      sessionId: 'session-one',
+      requestId: 'request',
+      input: { text: 'edit', images: [] },
+      modelId: 'mock',
+      status: 'failed',
+      createdAt: 1,
+      startedAt: 1,
+      endedAt: 2,
+      error: 'later failure',
+      fileChanges: fileChangeSummary(10, { seq: 2 }),
+    })
+    update?.({ kind: 'event', event: event('session-one', 2, 'run.settled', { run }, run.id) })
+    expect(runtime.view.state.timeline.getSnapshot().runs[0]?.fileChanges).toEqual(run.fileChanges)
+    const undone = { ...run, fileChanges: { ...fileChangeSummary(10, { seq: 2 }), canUndo: false, undoneAt: 3 } }
+    update?.({ kind: 'event', event: event('session-one', 3, 'run.filesUndone', { run: undone }, run.id) })
+    expect(runtime.view.state.timeline.getSnapshot().runs[0]?.fileChanges?.undoneAt).toBe(3)
+    update?.({
+      kind: 'event',
+      event: event(
+        'session-one',
+        4,
+        'run.settled',
+        { run: { ...run, id: 'foreign', sessionId: 'session-two' } },
+        'foreign',
+      ),
+    })
+    expect(runtime.view.state.timeline.getSnapshot().runs).toHaveLength(1)
+  } finally {
+    runtime.dispose()
+  }
+})
 
 test('resnapshot preserves resolved ordinary approval facts for loaded history but drops missing pending requests', async () => {
   const resolved = {

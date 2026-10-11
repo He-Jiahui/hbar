@@ -8,6 +8,7 @@ import { goalLifecycleCopy, goalHistoryCopy } from './goal-lifecycle-copy'
 import type { AgentProfileId } from '@hbar/contracts/commands/agents'
 import { toolFeedbackLabels } from './session-tool-feedback-copy'
 import { contextHistoryCopy } from './context-history-copy'
+import { runFileChangesCopy } from './run-file-changes-copy'
 import { sessionObservabilityCopy } from './session-observability-copy'
 import type {
   HbarAgentWorkspaceLabels,
@@ -1347,6 +1348,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       attachment: (kind, name) =>
         choose(`${kind === 'image' ? '图片' : '文件'}：${name}`, `${kind === 'image' ? 'Image' : 'File'}: ${name}`),
     },
+    fileChanges: runFileChangesCopy(locale),
     messageActions: {
       copy: choose('复制回复', 'Copy reply'),
       copyMessage: choose('复制消息', 'Copy message'),

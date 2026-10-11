@@ -156,9 +156,12 @@ export function readRunFileChangeVersions(db: Database, runId: string): RunFileC
     .filter((file) => file.before !== file.after)
 }
 export function readRunFileChangePage(db: Database, runId: string, after: string | undefined, limit: number) {
-  const items = rows(db, runId)
-    .filter((row) => row.metadata && (!after || row.path > after))
-    .map((row) => runChangedFileSchema.parse(JSON.parse(row.metadata ?? '{}') as unknown))
+  const items = db
+    .query<{ metadata: string }, [string, string | null, string | null, number]>(
+      'SELECT metadata FROM run_file_changes WHERE runId=? AND metadata IS NOT NULL AND (? IS NULL OR path>?) ORDER BY path LIMIT ?',
+    )
+    .all(runId, after ?? null, after ?? null, limit + 1)
+    .map((row) => runChangedFileSchema.parse(JSON.parse(row.metadata) as unknown))
   return {
     summary: readRunFileChangesSummary(db, runId) ?? null,
     items: items.slice(0, limit),

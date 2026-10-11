@@ -178,6 +178,9 @@ export type {
 import { createProviderSettings } from './provider-settings'
 import { createCommandPalette } from './command-palette'
 import { createFileWorkspace } from './file-workspace'
+import { createRunFileChanges } from './run-file-changes'
+export { runFileChangeReviewKey, EMPTY_FILE_CHANGE_REVIEW, MAX_FILE_CHANGE_REVIEWS } from './run-file-changes'
+export type { RunFileChangeReview, RunFileChangesState } from './run-file-changes'
 import { createSessionFileReferenceNavigation, sessionFileReferenceCommands } from './session-file-reference-navigation'
 export { createSessionFileReferenceNavigation, sessionFileReferenceCommands } from './session-file-reference-navigation'
 export { filteredFileChanges, FILE_CHANGES_PAGE_SIZE } from './file-workspace-changes'
@@ -516,6 +519,7 @@ export function createAppRuntime(options: RuntimeOptions) {
   const surfaces = createState<SurfaceState>(startup.surfaces, onSubscriberError)
   const presentation = createState<PresentationState>(startup.presentation, onSubscriberError)
   const usageRequests = createUsageRequests(options.usage ? { usage: options.usage } : {})
+  const runFileChanges = createRunFileChanges(options.files, onSubscriberError)
   const sessionRequests = createSessionRequests({
     ...(options.usage ? { usage: options.usage } : {}),
     onSubscriberError,
@@ -1539,6 +1543,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       providers: providerSettings.reader,
       commandPalette: commandPalette.reader,
       files: fileWorkspace.reader,
+      runFileChanges: runFileChanges.reader,
       agents: agentWorkspace.reader,
       agentPolicies: agentPolicies.reader,
       composerBackgroundAgents: composerBackgroundAgents.reader,
@@ -1558,6 +1563,14 @@ export function createAppRuntime(options: RuntimeOptions) {
     }),
     commands: Object.freeze(createCommandClient(runtimeCommands, executor)),
     contextUsage: Object.freeze({ refresh: controls.refreshContext }),
+    runFileChanges: Object.freeze({
+      readFiles: runFileChanges.readFiles,
+      readDiff: runFileChanges.readDiff,
+      collapse: runFileChanges.collapse,
+      closeDiff: runFileChanges.closeDiff,
+      undo: runFileChanges.undo,
+      release: runFileChanges.release,
+    }),
     preSessionModelCatalog: preSessionModelCatalog.actions,
     chatDatabase: chatDatabase.actions,
     conversationReading: Object.freeze({
@@ -1651,6 +1664,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       providerSettings.dispose()
       commandPalette.dispose()
       fileWorkspace.dispose()
+      runFileChanges.dispose()
       agentWorkspace.dispose()
       agentPolicies.dispose()
       composerBackgroundAgents.dispose()

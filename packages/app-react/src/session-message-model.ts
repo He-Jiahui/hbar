@@ -1,6 +1,7 @@
 import type { SessionTimelineState } from '@hbar/app-runtime'
 import type { GoalLifecycleRow } from './goal-lifecycle-model'
 import { MAX_CONTEXT_COMPACTION_MARKERS, type ContextCompactionMarker } from '@hbar/contracts/context-history'
+import type { RunFileChangesSummary } from '@hbar/contracts/run-file-changes'
 
 export type SessionMessage = SessionTimelineState['messages'][number]
 export type SessionMessageBlock = SessionMessage['content'][number]
@@ -50,6 +51,12 @@ export type SessionTimelineSequenceItem =
   | { readonly kind: 'goalContinuation'; readonly continuation: GoalContinuationBoundary }
   | { readonly kind: 'goalLifecycle'; readonly row: GoalLifecycleRow }
   | { readonly kind: 'contextCompaction'; readonly marker: ContextCompactionMarker }
+  | {
+      readonly kind: 'runFileChanges'
+      readonly sessionId: string
+      readonly runId: string
+      readonly summary: RunFileChangesSummary
+    }
 
 /**
  * Reuse the paged message projection and persistent continuation identity to mark
@@ -133,6 +140,35 @@ export function projectSessionTimelineSequence(
   for (const marker of timeline.contextCompactions ?? [])
     if (marker.sessionId === sessionId && !compactions.has(marker.id)) compactions.set(marker.id, marker)
   const pending = [
+    ...[
+      ...new Map(
+        timeline.runs
+          .filter(
+            (run) =>
+              run.sessionId === sessionId &&
+              run.fileChanges &&
+              run.fileChanges.totalFiles > 0 &&
+              run.fileChanges.seq >= (rawMessages[0]?.seq ?? 0) &&
+              !['queued', 'running', 'waiting_approval'].includes(run.status),
+          )
+          .map((run) => [run.id, run] as const),
+      ).values(),
+    ].flatMap((run) =>
+      run.fileChanges
+        ? [
+            {
+              seq: run.fileChanges.seq,
+              time: run.endedAt ?? run.createdAt,
+              item: {
+                kind: 'runFileChanges',
+                sessionId,
+                runId: run.id,
+                summary: run.fileChanges,
+              } satisfies SessionTimelineSequenceItem,
+            },
+          ]
+        : [],
+    ),
     ...goalRows
       .filter((row) => row.sessionId === sessionId)
       .map((row) => ({

@@ -1,7 +1,7 @@
 import { CommandError, type CommandRegistry } from '@hbar/commands'
 import {
   contentBlockSchema,
-  inputSchema,
+  runSchema,
   planStateSchema,
   sessionEventSchema,
   usageSchema,
@@ -42,27 +42,6 @@ const MAX_EVENTS = 1_000
 const MAX_CACHED_SESSIONS = 8
 const PAGE_SIZE = 60
 
-const runSchema = z.object({
-  id: z.string().min(1),
-  sessionId: z.string().min(1),
-  requestId: z.string().min(1),
-  input: inputSchema,
-  modelId: z.string().min(1),
-  status: z.enum([
-    'queued',
-    'running',
-    'waiting_approval',
-    'guided',
-    'completed',
-    'cancelled',
-    'failed',
-    'interrupted',
-  ]),
-  createdAt: z.number().int().nonnegative(),
-  startedAt: z.number().int().nonnegative().nullable(),
-  endedAt: z.number().int().nonnegative().nullable(),
-  error: z.string().nullable(),
-})
 const approvalSchema = z.object({
   id: z.string().min(1),
   sessionId: z.string().min(1),
@@ -326,11 +305,13 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
     }
   } else if (['run.queued', 'run.status', 'run.settled', 'run.filesUndone'].includes(event.type) && data) {
     const parsed = runSchema.safeParse(data.run)
-    if (parsed.success) {
+    if (
+      parsed.success &&
+      parsed.data.sessionId === current.sessionId &&
+      (!event.runId || parsed.data.id === event.runId)
+    ) {
       if (!toolClock || event.time >= toolClock.hostTime) toolClock = { hostTime: event.time, receivedAt: Date.now() }
-      runs = [...upsert(runs, parsed.data as Run, (item) => item.id, MAX_RUNS)].sort(
-        (a, b) => b.createdAt - a.createdAt,
-      )
+      runs = [...upsert<Run>(runs, parsed.data, (item) => item.id, MAX_RUNS)].sort((a, b) => b.createdAt - a.createdAt)
       if (event.type === 'run.settled')
         streams = Object.fromEntries(Object.entries(streams).filter(([, stream]) => stream.runId !== parsed.data.id))
     }
