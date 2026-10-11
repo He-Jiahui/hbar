@@ -11,6 +11,9 @@ import { runCommands } from '@hbar/contracts/commands/run'
 import { sessionSchema, workspaceSchema } from '@hbar/contracts/directory'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
+import { openComposerFeedback } from './support/composer-controls'
+import { openSessionTool } from './support/session-tools-menu'
+import { expectFileReadingFlow } from './support/file-reading-flow'
 
 const prefix = 'hbar-session-stop-ui-'
 const evidence = resolve(process.env.HBAR_STOP_SHORTCUT_EVIDENCE ?? 'artifacts/session-stop-shortcut/browser')
@@ -18,6 +21,14 @@ const fileName = 'original-draft.md'
 const originalFile = '# Original file\nNever save by shortcut.\n'
 const dirtyFile = '# Unsaved file retained — 未保存文件保留\n'
 const attachmentName = 'original-stop-attachment.txt'
+const diagnosticSchema = z.object({
+  component: z.literal('client'),
+  level: z.enum(['warn', 'error']),
+  event: z.string().min(1).max(128),
+  errorCode: z.string().max(128).optional(),
+  method: z.string().max(128).optional(),
+  commandId: z.string().max(128).optional(),
+})
 const readySchema = z.object({
   url: z.url(),
   token: z.string(),
@@ -188,6 +199,9 @@ interface Fixture {
   readonly faults: Awaited<ReturnType<typeof routeFaults>>
   readonly errors: string[]
   readonly warnings: string[]
+  readonly diagnostics: z.infer<typeof diagnosticSchema>[]
+  readonly startupDiagnostics: z.infer<typeof diagnosticSchema>[]
+  readonly consoleReads: Promise<void>[]
   readonly runs: ReturnType<typeof createRunCommandClient>
   readonly setupRunIds: string[]
   readonly cleanupCancelIds: string[]
@@ -223,7 +237,7 @@ async function cleanup(child: ChildProcess, root: string, directory: string): Pr
 }
 
 async function start(browser: Browser, locale: ShellLocale, width: number, phase: string): Promise<Fixture> {
-  const assets = resolve(process.env.HBAR_STOP_SHORTCUT_WEB_DIST ?? 'dist/web')
+  const assets = resolve(process.env.HBAR_STOP_SHORTCUT_WEB_DIST ?? process.env.HBAR_E2E_PREVIEW_DIST ?? 'dist/web')
   if (!existsSync(join(assets, 'index.html'))) throw new Error('Frozen Web assets are missing')
   const directory = join(evidence, `${phase}-${locale}-${width}`)
   await mkdir(directory, { recursive: true })
@@ -233,7 +247,7 @@ async function start(browser: Browser, locale: ShellLocale, width: number, phase
     stdio: ['pipe', 'pipe', 'pipe'],
     env: { ...process.env, HBAR_STOP_SHORTCUT_ROOT: root, HBAR_STOP_SHORTCUT_WEB_DIST: assets },
   })
-  const context = await browser.newContext({ locale, viewport: { width, height: 960 } })
+  const context = await browser.newContext({ locale, viewport: { width: 1440, height: 960 } })
   let external: HbarClient | undefined
   let stderr = ''
   child.stderr?.on('data', (value: Buffer) => {
@@ -270,9 +284,34 @@ async function start(browser: Browser, locale: ShellLocale, width: number, phase
     const page = await context.newPage()
     const errors: string[] = [],
       warnings: string[] = []
+    const consoleReads: Promise<void>[] = []
+    const diagnostics: z.infer<typeof diagnosticSchema>[] = []
+    const startupDiagnostics: z.infer<typeof diagnosticSchema>[] = []
+    let initializing = true
     page.on('pageerror', (error) => errors.push(error.message))
     page.on('console', (message) => {
-      if (message.type() === 'error' || message.type() === 'warning') warnings.push(message.text())
+      if (message.type() !== 'error' && message.type() !== 'warning') return
+      if (message.text().startsWith('[hbar diagnostic]')) {
+        const duringInitialization = initializing
+        consoleReads.push(
+          Promise.resolve()
+            .then(async () => {
+              const diagnostic = diagnosticSchema.parse(await message.args()[1]?.jsonValue())
+              if (
+                duringInitialization &&
+                diagnostic.event === 'rpc.admission_rejected' &&
+                diagnostic.errorCode === 'DISCONNECTED' &&
+                diagnostic.method === 'command.execute' &&
+                diagnostic.level === 'warn'
+              )
+                startupDiagnostics.push(diagnostic)
+              else diagnostics.push(diagnostic)
+            })
+            .catch(() => {
+              errors.push('Unreadable structured client diagnostic')
+            }),
+        )
+      } else warnings.push(message.text())
     })
     const faults = await routeFaults(page)
     await page.goto(ready.url)
@@ -293,6 +332,9 @@ async function start(browser: Browser, locale: ShellLocale, width: number, phase
       faults,
       errors,
       warnings,
+      diagnostics,
+      startupDiagnostics,
+      consoleReads,
       runs: createRunCommandClient(external),
       setupRunIds: [],
       cleanupCancelIds: [],
@@ -309,6 +351,8 @@ async function start(browser: Browser, locale: ShellLocale, width: number, phase
       }
     }
     await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    if (await show.isVisible()) await show.click()
+    await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', 'true')
     await project.getByRole('treeitem', { name: ready.firstSession.title, exact: true }).click()
     const hide = page.getByRole('button', { name: f.copy.shell.hideSidebar, exact: true })
     if (await hide.isVisible()) {
@@ -319,7 +363,9 @@ async function start(browser: Browser, locale: ShellLocale, width: number, phase
       }
     }
     await expect(page.locator('[data-hbar-sidebar-expanded]')).toHaveAttribute('data-hbar-sidebar-expanded', 'false')
+    await page.setViewportSize({ width, height: 960 })
     await expect(composer(f)).toBeVisible()
+    initializing = false
     return f
   } catch (error) {
     await context.close()
@@ -341,7 +387,7 @@ function composer(f: Fixture) {
   return f.page.getByRole('textbox', { name: f.copy.session.prompt.input, exact: true, includeHidden: true })
 }
 function files(f: Fixture) {
-  return f.page.locator('.lumen-app-tool-drawer .hbar-app-react-file-workspace')
+  return f.page.locator('.hbar-app-react-file-workspace')
 }
 function notice(f: Fixture) {
   return f.page.locator('.hbar-app-react-session-stop[data-session-stop]:visible')
@@ -364,7 +410,7 @@ async function seedDraft(f: Fixture): Promise<string> {
 }
 
 async function openDirtyFiles(f: Fixture) {
-  await f.page.getByRole('button', { name: f.copy.session.tools.files, exact: true }).click()
+  await openSessionTool(f.page, f.copy.session.tools, 'files')
   await files(f).getByRole('button', { name: fileName, exact: true }).click()
   await files(f).getByRole('button', { name: f.copy.files.edit, exact: true }).click()
   const editor = files(f).getByRole('textbox', { name: fileName, exact: true })
@@ -373,7 +419,7 @@ async function openDirtyFiles(f: Fixture) {
   return editor
 }
 
-async function submitPending(f: Fixture, suffix: string, queued = false): Promise<string> {
+async function submitPending(f: Fixture, suffix: string, queuedBehind?: string): Promise<string> {
   const target = `never-write-${suffix}.txt`
   const result = await f.runs.execute(
     'run.submit',
@@ -391,15 +437,14 @@ async function submitPending(f: Fixture, suffix: string, queued = false): Promis
   f.setupRunIds.push(result.operationId)
   await expect
     .poll(async () => (await f.runs.execute('operation.get', { operationId: result.operationId })).status)
-    .toBe(queued ? 'queued' : 'waiting_approval')
-  if (queued) {
-    await expect(f.page.locator('.hbar-session-run-current')).toContainText(f.copy.session.runs.activeCount(2))
-  } else {
-    await expect(f.page.locator(`.hbar-session-run-current[data-run-id="${result.operationId}"]`)).toHaveAttribute(
-      'data-status',
-      'waiting_approval',
-    )
-  }
+    .toBe(queuedBehind ? 'queued' : 'waiting_approval')
+  const status = f.page.locator(`.hbar-session-live-status[data-session-id="${f.ready.firstSession.id}"]`)
+  await expect(status).toHaveAttribute('data-session-live-status', queuedBehind ?? result.operationId)
+  await expect(status).toHaveAttribute('data-run-status', 'waiting_approval')
+  await expect(status.locator('.hbar-session-live-status-badge')).toHaveText(
+    f.copy.session.liveStatus.statusLabel('waiting_approval'),
+  )
+  if (!(await files(f).isVisible())) await expect(status).toBeVisible()
   return result.operationId
 }
 
@@ -430,10 +475,11 @@ async function capture(f: Fixture, name: string): Promise<void> {
     expect(geometry.notice.x + geometry.notice.width).toBeLessThanOrEqual(f.width + 1)
   }
   await f.page.screenshot({ path: join(f.directory, `${name}.png`) })
+  await expectFileReadingFlow(f.page)
   await writeFile(join(f.directory, `${name}.json`), JSON.stringify(geometry, null, 2))
 }
 
-async function assertHost(f: Fixture, suffixes: readonly string[]): Promise<void> {
+async function assertHost(f: Fixture, suffixes: readonly string[], faultDiagnostics = false): Promise<void> {
   const snapshot = await f.external.call('session.snapshot', { sessionId: f.ready.firstSession.id })
   expect(snapshot.runs).toHaveLength(f.setupRunIds.length)
   expect(snapshot.runs.every((run) => run.status === 'cancelled')).toBe(true)
@@ -447,7 +493,31 @@ async function assertHost(f: Fixture, suffixes: readonly string[]): Promise<void
     ),
   ).toEqual([])
   expect(f.errors).toEqual([])
+  await Promise.all(f.consoleReads)
   expect(f.warnings).toEqual([])
+  expect(f.startupDiagnostics.length).toBeLessThanOrEqual(16)
+  expect(f.diagnostics).toEqual([
+    // This fixture starts a local Kernel server, not the managed process Host entry.
+    {
+      component: 'client',
+      level: 'error',
+      event: 'rpc.error',
+      errorCode: 'RUNTIME_RESTART_REQUIRED',
+      method: 'system.runtime.watch',
+    },
+    ...(faultDiagnostics
+      ? [
+          { errorCode: 'TIMEOUT', commandId: 'operation.cancel' },
+          { errorCode: 'EXECUTION_FAILED', commandId: 'operation.get' },
+        ].map((identity) => ({
+          component: 'client',
+          level: 'error',
+          event: 'rpc.error',
+          ...identity,
+          method: 'command.execute',
+        }))
+      : []),
+  ])
   expect(f.faults.errors).toEqual([])
   await writeFile(
     join(f.directory, 'observation.json'),
@@ -467,6 +537,8 @@ async function assertHost(f: Fixture, suffixes: readonly string[]): Promise<void
         neverWroteTargets: true,
         errors: f.errors,
         warnings: f.warnings,
+        diagnostics: f.diagnostics,
+        startupDiagnostics: f.startupDiagnostics,
       },
       null,
       2,
@@ -491,15 +563,39 @@ for (const locale of ['en-US', 'zh-CN'] as const)
           .poll(async () => (await f.runs.execute('operation.get', { operationId: first })).status)
           .toBe('cancelled')
         await expect(composer(f)).toBeFocused()
+        await openComposerFeedback(f.page, f.copy)
         await expect(notice(f)).toHaveAttribute('data-operation-id', first)
         await capture(f, 'composer-cancelled')
         await assertPreserved(f, draft, false)
+        await f.page.keyboard.press('Escape')
         const editor = await openDirtyFiles(f)
         const editorIdentity = await editor.elementHandle()
         if (!editorIdentity) throw new Error('Original Files editor identity is missing')
         const active = await submitPending(f, 'executing')
-        const queued = await submitPending(f, 'queued', true)
-        await editor.focus()
+        const queued = await submitPending(f, 'queued', active)
+        // A higher native popover inside the tool must retain keyboard ownership.
+        await files(f).evaluate((element, label) => {
+          const popup = document.createElement('div')
+          popup.popover = 'manual'
+          popup.setAttribute('role', 'menu')
+          popup.dataset.stopOverlayProbe = 'true'
+          const button = document.createElement('button')
+          button.textContent = label
+          popup.append(button)
+          element.append(popup)
+          popup.showPopover()
+          button.focus()
+        }, f.copy.files.keepDraft)
+        await f.page.keyboard.press('Meta+.')
+        expect(f.faults.count('operation.cancel')).toBe(1)
+        expect((await f.runs.execute('operation.get', { operationId: active })).status).toBe('waiting_approval')
+        await f.page.locator('[data-stop-overlay-probe]').evaluate((element) => {
+          if (!(element instanceof HTMLElement)) throw new Error('Missing owned overlay fixture')
+          element.hidePopover()
+          element.remove()
+        })
+        await editor.click()
+        await expect(editor).toBeFocused()
         await f.page.keyboard.press('Meta+.')
         await expect
           .poll(async () => (await f.runs.execute('operation.get', { operationId: active })).status)
@@ -511,9 +607,14 @@ for (const locale of ['en-US', 'zh-CN'] as const)
             .map((request) => request.operationId),
         ).toEqual([first, active])
         await expect(editor).toBeFocused()
-        expect(
-          await editorIdentity.evaluate((element) => element.isConnected && element === document.activeElement),
-        ).toBe(true)
+        await expect
+          .poll(() =>
+            editorIdentity.evaluate((element) => ({
+              connected: element.isConnected,
+              focused: element === document.activeElement,
+            })),
+          )
+          .toEqual({ connected: true, focused: true })
         await capture(f, 'files-cancelled')
         await assertPreserved(f, draft)
         // The newer queued operation was not selected by the shortcut. Stop it explicitly via the setup observer.
@@ -588,7 +689,7 @@ for (const [locale, width] of [
       expect(f.faults.count('operation.cancel')).toBe(1)
       await assertPreserved(f, draft)
       await capture(f, 'recovered')
-      await assertHost(f, ['unknown'])
+      await assertHost(f, ['unknown'], true)
     } finally {
       await stop(f)
     }

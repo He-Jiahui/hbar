@@ -66,14 +66,22 @@ export function HbarSessionStopNotice({ region }: { readonly region: 'main' | 't
   ) : null
 }
 
-function overlayOpen() {
-  return (
-    Boolean(document.querySelector('dialog:modal,[popover]:popover-open')) ||
-    [...document.querySelectorAll<HTMLElement>('[role="menu"],[role="listbox"],[aria-modal="true"]')].some(
-      // Descendants of a closed disclosure may retain a geometry box. They do
-      // not own keyboard input until the browser actually renders them.
-      (element) => canFocusWorkspaceElement(element) && element.checkVisibility(),
-    )
+function overlayOpen(ownedTool: HTMLElement | null) {
+  const toolModal = ownedTool?.closest<HTMLElement>(
+    '[data-lumen-floating-mode="modal"][data-lumen-floating-open="true"][aria-modal="true"],dialog.lumen-app-tool-drawer:modal',
+  )
+  const modalRoot = toolModal?.closest<HTMLElement>('[data-lumen-floating-root="true"]')
+  const toolLayer =
+    modalRoot && modalRoot.dataset.lumenFloatingId === toolModal?.dataset.lumenFloatingId ? modalRoot : null
+  return [
+    ...document.querySelectorAll<HTMLElement>(
+      'dialog:modal,[popover]:popover-open,[role="menu"],[role="listbox"],[aria-modal="true"]',
+    ),
+  ].some(
+    // The tool's own modal is a workspace. Every other visible overlay keeps
+    // ownership; descendants of a closed disclosure do not own keyboard input.
+    (element) =>
+      element !== toolModal && element !== toolLayer && canFocusWorkspaceElement(element) && element.checkVisibility(),
   )
 }
 
@@ -144,6 +152,13 @@ export function HbarSessionStopProvider({
     }),
     [runtime],
   )
+  const blockingOverlay = useCallback(
+    (current: SessionStopSnapshot) =>
+      overlayOpen(
+        committed.current.toolPresentation === 'drawer' && sessionStopToolMatches(current) ? toolRef.current : null,
+      ),
+    [toolRef],
+  )
   const cancel = (operationId: string) => {
     const current = read()
     const currentScope = sessionStopScope(current)
@@ -152,7 +167,7 @@ export function HbarSessionStopProvider({
       current.navigation !== navigation ||
       !sameSessionStopScope(scope, currentScope) ||
       !sessionStopCanCancel(current, operationId) ||
-      overlayOpen()
+      blockingOverlay(current)
     )
       return
     setSelected({ owner: runtime, target: { ...currentScope, operationId } })
@@ -178,7 +193,11 @@ export function HbarSessionStopProvider({
               ? 'tool'
               : 'outside'
       if (
-        !shouldStopSessionKey(event, { scope: region, mainVisible, toolVisible, overlayOpen: overlayOpen() }, current)
+        !shouldStopSessionKey(
+          event,
+          { scope: region, mainVisible, toolVisible, overlayOpen: blockingOverlay(current) },
+          current,
+        )
       )
         return
       const target = sessionStopTarget(current)
@@ -189,7 +208,7 @@ export function HbarSessionStopProvider({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [runtime, read, mainRef, toolRef])
+  }, [runtime, read, mainRef, toolRef, blockingOverlay])
 
   // On returning to a session, unresolved canonical actions remain recoverable.
   // Old terminal completions are never resurrected after a tab/owner lifetime change.
@@ -212,7 +231,7 @@ export function HbarSessionStopProvider({
       !target ||
       currentSnapshot.navigation !== navigation ||
       !sameSessionStopScope(target, sessionStopScope(currentSnapshot)) ||
-      overlayOpen()
+      blockingOverlay(currentSnapshot)
     )
       return
     const current = sessionStopFeedback(currentSnapshot, target)
