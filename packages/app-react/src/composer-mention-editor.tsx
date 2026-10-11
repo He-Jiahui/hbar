@@ -421,17 +421,19 @@ export function HbarComposerMentionEditor(props: HbarComposerMentionEditorProps)
           ),
           EditorView.updateListener.of((update) => {
             if (suppressRef.current) return
-            if (update.focusChanged && !update.view.hasFocus) {
-              setTrigger(null)
-              setSlashTrigger(null)
-              setSearch(null)
-              return
-            }
+            // A final DOM input can be read in the same update that loses focus.
+            // Persist that document before dismissing its editing disclosures.
             if (update.docChanged) {
               dismissedRef.current = null
               slashDismissedRef.current = null
               write(update.view)
               setLocalError(null)
+            }
+            if (update.focusChanged && !update.view.hasFocus) {
+              setTrigger(null)
+              setSlashTrigger(null)
+              setSearch(null)
+              return
             }
             if (update.docChanged || update.selectionSet) {
               const next = triggerAt(update.view, revisionRef.current)

@@ -135,6 +135,12 @@ Harness 审查核对工具意图与持久结果、Host 拥有的计时/进度、
 
 公共修复提交为 Lumen `25b900206f`，仅提交锚点归属和容量测量两个 hunk；原有 placement API、会话组合和 README 草稿未混入。主仓库更新该 gitlink、停止提示和验收。恢复截图已查看，证据位于 `artifacts/skills-standards-visual-main/stop-recovery-focus/`，日志与 trace 位于对应 `stop-recovery-focus*.log` 和 `test-results/skills-standards-visual-main/stop-recovery-focus/`；容量抖动逐帧证据位于 `stop-composer-widths/`。
 
+### 编辑器失焦边界的末次输入
+
+扩展导航矩阵的英文场景在首次工具往返后得到空草稿，原断言保留。查证 `8ca15923d` 的 CodeMirror update listener：同一次 update 若包含文档变化和失焦，会先执行失焦清理并 return，跳过向宿主写入文档。现将已有的 docChanged 写入放在失焦清理之前；受控同步仍由原 suppress guard 保护，失焦仍关闭 mention/slash 搜索浮层，没有新增第二份草稿状态。
+
+同一真实 Host 英文导航用例在修复后通过，沿用原输入和工具往返断言，覆盖 1440/900/390/320。14 项 mention 映射/撰写区相邻测试（303 次断言）、完整严格增量 TypeScript、零警告 scoped lint、Web 构建、格式和 content/icon guard 通过；完整的相关浏览器矩阵在下一节统一记录。
+
 ## 结论边界
 
 以上是当前核心路径的工程与行为审查，不是每个页面、每种供应商或每种操作系统的全面认证。原生桌面 smoke、所有主题颜色的对比度、掉电/介质故障和大规模生产负载不属于已完成的验证。Web 构建仍有既有的 1500 kB chunk 体积提示。Bun 1.4.0 在指定根 tsconfig 的运行中仍打印 directory mismatch 诊断；通过的测试均有真实计数和 0 返回码，不将该输出解释为上游问题已经修复。
