@@ -831,12 +831,20 @@ export class Kernel {
   private async restoreAutomation() {
     this.automation.clear()
     for (const session of await this.storage.call('sessions')) {
-      const events = await this.storage.call('events', session.id, 0, 2_000)
-      for (const event of events) {
-        if (event.type !== 'automation.changed') continue
-        const parsed = automationStateSchema.safeParse(event.data)
-        if (parsed.success && parsed.data.sessionId === session.id)
-          this.automation.set(session.id, { unattended: parsed.data.unattended, goalEnabled: parsed.data.goalEnabled })
+      let cursor = 0
+      while (true) {
+        const events = await this.storage.call('events', session.id, cursor, 128)
+        for (const event of events) {
+          if (event.seq <= cursor)
+            throw new HbarError('RECOVERY_EVENT_ORDER', 'Automation history must advance its applied cursor')
+          cursor = event.seq
+          if (event.type !== 'automation.changed') continue
+          const parsed = automationStateSchema.safeParse(event.data)
+          if (parsed.success && parsed.data.sessionId === session.id)
+            this.automation.set(session.id, { unattended: parsed.data.unattended, goalEnabled: parsed.data.goalEnabled })
+        }
+        if (events.length < 128) break
+        await Bun.sleep(0)
       }
     }
   }
