@@ -30,6 +30,7 @@ test('provider schema expands legacy single-model configs and preserves model ca
   expect(legacy.visible).toBeTrue()
   expect(legacy.models[0]?.visible).toBeTrue()
   expect(legacy.models[0]?.thinkingLevels).toEqual(['off'])
+  expect(legacy.models[0]?.imageGeneration).toBeFalse()
   expect(legacy.defaultThinkingLevel).toBe('off')
 
   const multi = providerSchema.parse({
@@ -40,7 +41,7 @@ test('provider schema expands legacy single-model configs and preserves model ca
     model: 'reasoning',
     reasoning: true,
     models: [
-      { id: 'fast', thinkingLevels: ['off', 'low'], defaultThinkingLevel: 'low' },
+      { id: 'fast', thinkingLevels: ['off', 'low'], defaultThinkingLevel: 'low', imageGeneration: true },
       {
         id: 'reasoning',
         thinkingLevels: DEFAULT_THINKING_LEVELS,
@@ -51,6 +52,7 @@ test('provider schema expands legacy single-model configs and preserves model ca
   })
   expect(multi.models.map((model) => model.id)).toEqual(['fast', 'reasoning', 'plain'])
   expect(multi.models[0]?.defaultThinkingLevel).toBe('low')
+  expect(multi.models[0]?.imageGeneration).toBeTrue()
   expect(multi.models[1]?.defaultThinkingLevel).toBe('high')
   expect(multi.models[2]?.reasoning).toBeFalse()
   expect(multi.models[2]?.visible).toBeFalse()

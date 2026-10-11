@@ -19,6 +19,8 @@ hbar exec permission.set allow
 hbar exec mode.get --session <Session ID|名称>
 hbar exec mode.set plan --session <Session ID|名称>
 hbar exec provider.save --input-json '{"provider":{"id":"openai","name":"OpenAI","protocol":"openai-responses","baseUrl":"https://api.openai.com/v1","model":"gpt-5"},"apiKey":"..."}'
+
+To explicitly enable an OpenAI Images compatible model, add `imageGeneration: true` to that model in the provider passed to `provider.save`. The `image_generate` tool only accepts model selections with this flag; it posts to `<baseUrl>/images/generations`, stores validated image bytes as authenticated artifacts, and may incur provider charges.
 hbar exec provider.delete openai
 hbar exec system.diagnose
 hbar exec system.paths.get
