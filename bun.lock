@@ -399,6 +399,9 @@
     "plugins/local-tools": {
       "name": "@hbar/local-tools",
       "version": "0.1.0",
+      "dependencies": {
+        "@codemirror/merge": "6.8.0",
+      },
     },
     "plugins/pi-driver": {
       "name": "@hbar/pi-driver",

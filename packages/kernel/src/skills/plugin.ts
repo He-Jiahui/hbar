@@ -4,6 +4,7 @@ import { appendModelContext, definePlugin } from '@hbar/plugin-sdk'
 import type { ToolContext, ToolResult } from '@hbar/plugin-sdk'
 import { createRuntimeSkillCatalog, skillReadInputSchema, skillSearchInputSchema } from './catalog'
 import { renderSkillContext } from './prompt'
+import { createSkillReadObservation } from './read-observation'
 
 const loadSchema = z.strictObject({ name: z.string().min(1).max(160) })
 const SKILL_TOOL_DESCRIPTIONS = {
@@ -33,6 +34,8 @@ export function runtimeSkillsPlugin(globalRoot: string) {
     apply(ctx) {
       const api = ctx.hbar.api
       const catalog = createRuntimeSkillCatalog(globalRoot)
+      const observations = createSkillReadObservation()
+      ctx.effect(() => () => observations.dispose())
       ctx.effect(() => () => catalog.dispose())
       const read = async (
         args: z.output<typeof skillReadInputSchema>,
@@ -59,6 +62,27 @@ export function runtimeSkillsPlugin(globalRoot: string) {
           }
           return {
             text: JSON.stringify(output),
+            activity: {
+              skill: {
+                id: result.skill.id,
+                name: result.skill.name,
+                resource: result.path,
+                revision: result.revision,
+                instruction: result.path.replaceAll('\\', '/') === 'SKILL.md',
+                completed:
+                  result.path.replaceAll('\\', '/') === 'SKILL.md' &&
+                  observations.observe(
+                    context.run.id,
+                    result.skill.id,
+                    result.revision,
+                    args.offset ?? 0,
+                    result.text.length,
+                    result.totalCharacters,
+                  ),
+                offset: args.offset ?? 0,
+                characters: result.text.length,
+              },
+            },
             details: {
               kind: 'skill-read',
               name: result.skill.name,

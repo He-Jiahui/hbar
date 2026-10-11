@@ -93,6 +93,8 @@ export interface ToolResult {
   content?: ToolResultContent[]
   isError?: boolean
   details?: unknown
+  /** Optional measured facts, validated and persisted by the Host with the tool result. */
+  activity?: import('@hbar/contracts/tool-activity').ToolActivity | undefined
   /** Host-owned failure metadata. The execution gateway overwrites any plugin-provided value. */
   hostFailure?: { code: string; executionStarted: boolean } | undefined
   /** Host-owned normal termination. Plugins cannot manufacture this at the execution gateway. */

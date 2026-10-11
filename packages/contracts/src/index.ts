@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { toolActivitySchema } from './tool-activity'
 import { modelContextTiersSchema, maximumContextWindow } from './model-context-tiers'
 import type { ModelContextTier } from './model-context-tiers'
 export { modelContextTierSchema, modelContextTiersSchema, maximumContextWindow } from './model-context-tiers'
@@ -94,6 +95,7 @@ export const contentBlockSchema = z.discriminatedUnion('type', [
       text: z.string(),
       isError: z.boolean(),
       details: z.unknown().optional(),
+      activity: toolActivitySchema.optional(),
       outcome: toolOutcomeSchema.optional(),
       execution: toolExecutionSchema.optional(),
       batch: toolBatchProgressSchema.optional(),

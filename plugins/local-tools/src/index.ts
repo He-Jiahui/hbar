@@ -17,6 +17,7 @@ import {
 } from '@hbar/contracts/workspace-query'
 import { WorkspaceQueryRuntime } from './workspace-query'
 import { formatSearchText } from './search-output'
+import { fileReadActivity, fileWriteActivity } from './file-activity'
 import { mountedPath, mountedWorkspaceQuery, type WorkspaceMountAccess } from './workspace-mounts'
 export type { WorkspaceMountAccess, WorkspaceMount } from './workspace-mounts'
 export { mountedPath } from './workspace-mounts'
@@ -328,7 +329,8 @@ export class LocalExecution implements ExecutionProvider {
             '-NoProfile',
             '-NonInteractive',
             '-Command',
-            '$utf8 = New-Object System.Text.UTF8Encoding($false); [Console]::InputEncoding = $utf8; [Console]::OutputEncoding = $utf8; $OutputEncoding = $utf8; ' + command,
+            '$utf8 = New-Object System.Text.UTF8Encoding($false); [Console]::InputEncoding = $utf8; [Console]::OutputEncoding = $utf8; $OutputEncoding = $utf8; ' +
+              command,
           ]
         : ['/bin/sh', '-c', command]
 
@@ -548,6 +550,7 @@ export default definePlugin({
           const bounded = byteBoundedText([result.text])
           return {
             text: bounded.text,
+            activity: fileReadActivity(path, result.text),
             details: {
               startLine: result.startLine,
               endLine: result.endLine,
@@ -563,12 +566,14 @@ export default definePlugin({
         if (mimeType)
           return {
             text: `Read image file ${path} [${mimeType}]`,
+            activity: fileReadActivity(path, null),
             content: [
               { type: 'text', text: `Read image file ${path} [${mimeType}]` },
               { type: 'image', data: Buffer.from(bytes).toString('base64'), mimeType },
             ],
           }
-        return { text: decodeUtf8(bytes) }
+        const text = decodeUtf8(bytes)
+        return { text, activity: fileReadActivity(path, text) }
       },
     })
     if (execution.workspaceQuery) {
@@ -654,7 +659,11 @@ export default definePlugin({
       execute: async (args, c) => {
         c.signal.throwIfAborted()
         const details = await execution.write(c.workspace.path, args.path as string, args.text as string)
-        return { text: `Wrote ${args.path}`, details }
+        return {
+          text: `Wrote ${args.path}`,
+          details,
+          activity: fileWriteActivity(details.path, 'write', details.before, details.after),
+        }
       },
     })
     register({
@@ -675,7 +684,11 @@ export default definePlugin({
           args.path as string,
           before.replace(oldText, args.newText as string),
         )
-        return { text: `Edited ${args.path}`, details }
+        return {
+          text: `Edited ${args.path}`,
+          details,
+          activity: fileWriteActivity(details.path, 'edit', details.before, details.after),
+        }
       },
     })
     register({

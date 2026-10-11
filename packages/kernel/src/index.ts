@@ -25,6 +25,7 @@ import {
   type SessionContextUsage,
 } from '@hbar/contracts/commands/models'
 import { compactionInputThreshold, describeContextUsage, estimateContextTokens } from './context-usage'
+import { toolActivitySchema } from '@hbar/contracts/tool-activity'
 import {
   assertContextCapacity,
   compactionBoundary,
@@ -2619,7 +2620,9 @@ export class Kernel {
     }
     const execution = await reporter?.finish()
     const batch = sequence?.progress()
-    result = { ...result, hostFailure, hostControl, execution, outcome }
+    const measured = toolActivitySchema.safeParse(result.activity)
+    const activity = started && measured.success ? measured.data : undefined
+    result = { ...result, activity, hostFailure, hostControl, execution, outcome }
     if (result.text.length > 128_000) result = { ...result, text: `${result.text.slice(0, 128_000)}\n[truncated]` }
     const content: ContentBlock[] = [
       {
@@ -2629,6 +2632,7 @@ export class Kernel {
         text: result.text,
         isError: Boolean(result.isError),
         details: result.details,
+        ...(activity ? { activity } : {}),
         outcome,
         ...(execution ? { execution } : {}),
         ...(batch ? { batch } : {}),
