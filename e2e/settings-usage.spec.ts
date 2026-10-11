@@ -83,10 +83,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
     try {
       host = await startWebSessionHost({
         root,
-        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 44873),
+        port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
         goalAutoContinue: false,
       })
-      const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 44875}`
+      const base = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
       expect((await context.request.post(`${base}/auth/token`, { data: { token: host.ready.token } })).ok()).toBe(true)
       const page = await context.newPage()
       const errors: string[] = []
