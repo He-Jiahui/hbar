@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Storage } from '@hbar/storage'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
+import { LocalExecution } from '@hbar/local-tools'
 import { HbarClient, createFileCommandClient } from '@hbar/client'
 import { startServer } from '../apps/host/src/server'
 import type { ToolFileChange } from '@hbar/contracts/run-file-changes'
@@ -191,6 +192,25 @@ test('guarded restore checks every file before mutation and rolls back a write f
     ['a', 'new a'],
     ['b', 'new b'],
   ])
+})
+test('text write receipts preserve UTF-8 BOM and CRLF bytes for an exact restore', async () => {
+  const { root } = await fixture()
+  const execution = new LocalExecution()
+  const original = '\uFEFFconst value = 1\r\n'
+  await writeFile(join(root, 'bom.ts'), original, 'utf8')
+  try {
+    const receipt = await execution.write(root, 'bom.ts', 'const value = 2\n')
+    expect(receipt.before).toBe(original)
+    expect(receipt.created).toBe(false)
+    await execution.restoreFiles(
+      root,
+      [{ path: receipt.path, before: receipt.before, after: receipt.after }],
+      AbortSignal.timeout(5000),
+    )
+    expect(await readFile(join(root, 'bom.ts'))).toEqual(Buffer.from(original, 'utf8'))
+  } finally {
+    execution.workspaceQuery.dispose()
+  }
 })
 test('file mutation gates serialize overlapping batches and release failed operations', async () => {
   const queue = new FileMutationQueue()
