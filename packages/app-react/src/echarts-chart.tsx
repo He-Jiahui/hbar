@@ -1,7 +1,7 @@
 /**
  * Shared echarts React wrapper for hbar visualisation surfaces.
  *
- * Reads lumen CSS token values at mount/resize so charts always match the
+ * Reads lumen CSS token values at mount and theme changes so charts match the
  * active theme without a JS theme registry. Respects prefers-reduced-motion
  * by disabling echarts animations when the user has requested it.
  *
@@ -71,17 +71,26 @@ export function EchartsChart({ option, height = '10rem', label, className }: Ech
   const applyOption = useCallback((chart: echarts.ECharts) => {
     const theme = buildTheme()
     const current = optionRef.current
+    const reduce = reducedMotion()
     const axisTheme = {
       axisLine: { lineStyle: { color: theme.axisLine.lineStyle.color } },
       axisLabel: { color: theme.axisLabel.color },
       splitLine: { lineStyle: { color: theme.splitLine.lineStyle.color } },
     }
     const themed: EChartsOption = {
-      animation: !reducedMotion(),
       textStyle: theme.textStyle,
       color: [theme.itemStyle.color],
       grid: { left: 48, right: 12, top: 12, bottom: 32, containLabel: false },
       ...current,
+      animation: reduce ? false : (current.animation ?? true),
+      series: (Array.isArray(current.series) ? current.series : current.series ? [current.series] : []).map(
+        (series) => ({
+          ...series,
+          animation: reduce ? false : (series.animation ?? current.animation ?? true),
+        }),
+      ),
+      xAxis: [],
+      yAxis: [],
       ...(current.xAxis
         ? {
             xAxis: Array.isArray(current.xAxis)
@@ -97,48 +106,53 @@ export function EchartsChart({ option, height = '10rem', label, className }: Ech
           }
         : {}),
     }
-    chart.setOption(themed, { notMerge: false, lazyUpdate: true })
+    // Reconcile structural collections by ID; normal merge keeps removed series/axes alive.
+    // Leave legend state on the existing instance so theme/data updates preserve user selections.
+    chart.setOption(themed, { replaceMerge: ['series', 'xAxis', 'yAxis'], lazyUpdate: true })
   }, [])
 
-  // Init chart once on mount.
+  // Initialize only after layout gives the container usable dimensions, including hidden panes.
   useLayoutEffect(() => {
-    if (!containerRef.current) return
-    const chart = echarts.init(containerRef.current, undefined, { renderer: 'canvas' })
-    instanceRef.current = chart
-    applyOption(chart)
-    const observer = new MutationObserver(() => applyOption(chart))
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] })
+    const container = containerRef.current
+    if (!container) return
+    const synchronize = () => {
+      if (container.clientWidth <= 0 || container.clientHeight <= 0) return
+      const chart = instanceRef.current
+      if (chart) chart.resize()
+      else {
+        const initialized = echarts.init(container, undefined, { renderer: 'canvas' })
+        instanceRef.current = initialized
+        applyOption(initialized)
+      }
+    }
+    synchronize()
+    const resizeObserver = new ResizeObserver(synchronize)
+    resizeObserver.observe(container)
+    const refresh = () => {
+      if (instanceRef.current) applyOption(instanceRef.current)
+    }
+    const observer = new MutationObserver(refresh)
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class', 'style', 'data-theme', 'data-lumen-mode'],
+    })
     const media = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const motionChanged = () => applyOption(chart)
-    if (media.addEventListener) media.addEventListener('change', motionChanged)
-    else media.addListener?.(motionChanged)
+    if (media.addEventListener) media.addEventListener('change', refresh)
+    else media.addListener?.(refresh)
     return () => {
+      resizeObserver.disconnect()
       observer.disconnect()
-      if (media.removeEventListener) media.removeEventListener('change', motionChanged)
-      else media.removeListener?.(motionChanged)
-      chart.dispose()
+      if (media.removeEventListener) media.removeEventListener('change', refresh)
+      else media.removeListener?.(refresh)
+      instanceRef.current?.dispose()
       instanceRef.current = null
     }
   }, [applyOption])
 
-  // Update option on every render except the first (init handles that).
-  const isMounted = useRef(false)
+  // A delayed initialization reads optionRef, so hidden panes receive the latest option.
   useEffect(() => {
-    if (!isMounted.current) {
-      isMounted.current = true
-      return
-    }
     if (instanceRef.current) applyOption(instanceRef.current)
   }, [option, applyOption])
-
-  // Resize chart when container dimensions change.
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const observer = new ResizeObserver(() => instanceRef.current?.resize())
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
 
   return (
     <LumenFrame
