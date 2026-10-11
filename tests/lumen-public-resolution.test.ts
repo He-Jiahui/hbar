@@ -116,8 +116,17 @@ test('public entry resolution keeps strict checking enabled without narrowing re
     'noUnusedParameters',
   ] as const)
     expect(options[flag]).toBe(true)
-  expect(options.paths && Object.keys(options.paths).sort()).toEqual(publicEntries.map((entry) => entry.name).sort())
+  expect(options.paths && Object.keys(options.paths).sort()).toEqual(
+    [...publicEntries.map((entry) => entry.name), '@mui/internal-test-utils'].sort(),
+  )
   for (const entry of publicEntries) expect(options.paths?.[entry.name]).toHaveLength(1)
+  const renderer = ts.resolveModuleName(
+    '@mui/internal-test-utils',
+    resolve(packageRoot, 'src/session-composer.test.tsx'),
+    options,
+    ts.sys,
+  ).resolvedModule
+  expect(resolve(renderer?.resolvedFileName ?? '')).toBe(resolve(root, 'tests/lumen/renderer.tsx'))
   for (const file of [
     'apps/web/src/App.tsx',
     'apps/hbar-app-ui-preview/src/app-shell-contracts-preview-model.ts',
@@ -126,17 +135,23 @@ test('public entry resolution keeps strict checking enabled without narrowing re
     'plugins/agent/src/index.ts',
     'scripts/desktop-smoke.ts',
     'tests/lumen-public-resolution.test.ts',
+    'tests/lumen/renderer.tsx',
+    'tests/lumen/setup.ts',
     'e2e/message-file-reference.spec.ts',
+    'vitest.lumen.config.ts',
   ])
     expect(fileNames.map((name) => resolve(name))).toContain(resolve(root, file))
 })
 
 test('maintained Bun test entries retain native and quality gates with the hbar compiler configuration', async () => {
   const manifest = z
-    .object({ scripts: z.object({ test: z.string(), check: z.string() }) })
+    .object({ scripts: z.object({ test: z.string(), 'test:lumen': z.string(), check: z.string() }) })
     .parse(await Bun.file(resolve(root, 'package.json')).json())
   expect(manifest.scripts.test).toBe(
     'bun run native:build && bun test ./tests ./packages/kernel/src/schedule-runner.test.ts ./packages/kernel/src/schedule-service.test.ts --tsconfig-override ./tsconfig.json --timeout 20000',
   )
-  expect(manifest.scripts.check).toBe('bun run lint && bun run typecheck && bun run check:theme-tokens && bun run test')
+  expect(manifest.scripts['test:lumen']).toBe('vitest run --config vitest.lumen.config.ts')
+  expect(manifest.scripts.check).toBe(
+    'bun run lint && bun run typecheck && bun run check:theme-tokens && bun run test && bun run test:lumen',
+  )
 })
