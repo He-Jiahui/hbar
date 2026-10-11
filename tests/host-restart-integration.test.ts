@@ -75,6 +75,7 @@ test('supervised Host accepts restart, preserves its address, and serves a new i
     latestPid = second.pid
     expect(second.url).toBe(first.url)
     expect(second.instanceId).not.toBe(first.instanceId)
+    expect(second.token).toBe(first.token)
     secondClient = new HbarClient(second.url, first.token)
     const restartedHost = await secondClient.connect()
     expect(restartedHost.instanceId).toBe(second.instanceId)

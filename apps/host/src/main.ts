@@ -7,7 +7,7 @@ import { Kernel } from '@hbar/kernel'
 import { getStorageLocations, resolvePathLayout } from '@hbar/storage'
 import { startServer } from './server.ts'
 import { createHostSupervisor, RESTART_EXIT_CODE, STORAGE_FAILURE_RESTART_EXIT_CODE } from './supervisor.ts'
-import { desktopConnection } from './desktop-connection.ts'
+import { desktopConnection, desktopConnectionToken, resolveDesktopDevice } from './desktop-connection.ts'
 import { ensureHostDataRootId } from './host-data-identity.ts'
 import { createHostRuntimeDiagnostics, hostLifecycleEvent } from './runtime-diagnostics.ts'
 
@@ -163,7 +163,18 @@ export async function runHost(
     })
     diagnostics.setFatalPhase('running')
     if (values.desktop) {
-      const device = await host.auth.createDevice('hbar desktop')
+      let device: Awaited<ReturnType<typeof resolveDesktopDevice>>
+      let persistedToken: string | undefined
+      try {
+        persistedToken = desktopConnectionToken(JSON.parse(await readFile(layout.connectionFile, 'utf8')) as unknown)
+      } catch (error) {
+        const code =
+          error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
+            ? error.code
+            : undefined
+        if (code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error
+      }
+      device = await resolveDesktopDevice(host.auth, persistedToken)
       await writeFile(
         layout.connectionFile,
         JSON.stringify(
