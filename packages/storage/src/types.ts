@@ -52,7 +52,12 @@ import type { createChatDatabaseJournal } from './chat-database-journal'
 import type { createChatDatabaseAutomaticPlan } from './chat-database-automatic-plan'
 import type { createChatDatabaseTaskStorage } from './chat-database-tasks'
 import type { createChatDatabaseDeletionStorage } from './chat-database-deletion'
-import type { SessionBranchExecutionRoot, SessionBranchTargetIntent, SessionBranchTargetIdentity, SessionBranchTargetRecord } from './session-branch-target'
+import type {
+  SessionBranchExecutionRoot,
+  SessionBranchTargetIntent,
+  SessionBranchTargetIdentity,
+  SessionBranchTargetRecord,
+} from './session-branch-target'
 import type { SessionBranchTargetOperation } from '@hbar/contracts/commands/session-branch-target'
 import type { createWorkspaceFolderStorage, WorkspaceFolderStorageMutation } from './workspace-folders'
 import type { createPromptTemplateStorage } from './prompt-templates'
@@ -399,10 +404,27 @@ export interface StorageMethods {
   sessionLaunchTarget(sessionId: string): SessionLaunchTarget
   sessionLaunchTargetRuntime(sessionId: string): SessionLaunchTargetRuntimeSnapshot
   sessionBranchTargetOperation(input: SessionBranchTargetIdentity): SessionBranchTargetRecord | null
-  pendingSessionBranchTargetOperation(sessionId: string, actorId?: string): { operationId: string; owned: boolean; idempotencyKey?: string; request?: import('@hbar/contracts/commands/session-branch-target').SessionBranchTargetSelectInput } | null
+  pendingSessionBranchTargetOperation(
+    sessionId: string,
+    actorId?: string,
+  ): {
+    operationId: string
+    owned: boolean
+    idempotencyKey?: string
+    request?: import('@hbar/contracts/commands/session-branch-target').SessionBranchTargetSelectInput
+  } | null
   beginSessionBranchTarget(input: SessionBranchTargetIntent): SessionBranchTargetRecord
-  observeSessionBranchTargetRun(input: { sessionId: string; runId: string; expectedRevision: number; targetPath: string; branch: string }): boolean
-  finishSessionBranchTarget(input: SessionBranchTargetIdentity, result: { status: 'ready' | 'failed' | 'unknown'; error?: { code: string; message: string } }): SessionBranchTargetOperation
+  observeSessionBranchTargetRun(input: {
+    sessionId: string
+    runId: string
+    expectedRevision: number
+    targetPath: string
+    branch: string
+  }): boolean
+  finishSessionBranchTarget(
+    input: SessionBranchTargetIdentity,
+    result: { status: 'ready' | 'failed' | 'unknown'; error?: { code: string; message: string } },
+  ): SessionBranchTargetOperation
   sessionLaunchTargetBindingForPath(targetPath: string): SessionLaunchTargetBinding | null
   activeSharedCheckoutPaths(excludeSessionId?: string): string[]
   setSessionLaunchTarget(input: SessionLaunchTargetMutationInput): SessionLaunchTargetSetReceipt
@@ -510,7 +532,12 @@ export interface StorageMethods {
   runtimeRecoveryRead(predecessorRunId: string): RuntimeRecoveryRecord | null
   runtimeRecoveryCancel(runId: string): { run: Run; events: SessionEvent[] }
   runtimeRecoveryChain(chainId: string): RecoveryChain | null
-  runtimeRecoveryHold(predecessorRunId: string, recoveryId: string, reasonCode: string | null): RuntimeRecoveryRecord
+  runtimeRecoveryHold(
+    predecessorRunId: string,
+    recoveryId: string,
+    reasonCode: string | null,
+    manual?: import('./runtime-state').RuntimeManualRecovery,
+  ): RuntimeRecoveryRecord
   runtimeRecoveryReconcile(predecessorRunId: string, recoveryId: string): void
   runtimeRecoveryAppend(predecessorRunId: string, recoveryId: string, type: string, data: unknown): SessionEvent
   recoveryInputMessage(runId: string): Message | null
@@ -524,9 +551,23 @@ export interface StorageMethods {
   devices(): Device[]
   revokeDevice(id: string): void
   setPlugin(id: string, enabled: boolean, config: Record<string, unknown>, path?: string, projectId?: string): void
-  setPlugins(plugins: { id: string; enabled: boolean; config: Record<string, unknown>; path?: string | undefined; projectId?: string | undefined }[]): void
+  setPlugins(
+    plugins: {
+      id: string
+      enabled: boolean
+      config: Record<string, unknown>
+      path?: string | undefined
+      projectId?: string | undefined
+    }[],
+  ): void
   removePlugin(id: string, projectId?: string): void
-  plugins(): { id: string; enabled: boolean; config: Record<string, unknown>; path: string | null; projectId?: string | undefined }[]
+  plugins(): {
+    id: string
+    enabled: boolean
+    config: Record<string, unknown>
+    path: string | null
+    projectId?: string | undefined
+  }[]
   stats(): Record<string, number>
   getSetting(key: string): string | null
   setSetting(key: string, value: string): void
@@ -537,7 +578,12 @@ export interface StorageMethods {
     values: Record<string, unknown>,
     expectedRevision?: string,
   ): StoredSettings
-  deleteSetting(scope: SettingScope, targetId: string | undefined, key: string, expectedRevision?: string): StoredSettings
+  deleteSetting(
+    scope: SettingScope,
+    targetId: string | undefined,
+    key: string,
+    expectedRevision?: string,
+  ): StoredSettings
   settingsLayers(ids: string[]): StoredSettingsLayer[]
   settingsReceipt(
     actorId: string,
@@ -547,7 +593,12 @@ export interface StorageMethods {
   close(): void
 }
 export type StorageCall = {
-  [K in keyof StorageMethods]: { id: number; method: K; args: Parameters<StorageMethods[K]>; authority?: ExecutionOwnership }
+  [K in keyof StorageMethods]: {
+    id: number
+    method: K
+    args: Parameters<StorageMethods[K]>
+    authority?: ExecutionOwnership
+  }
 }[keyof StorageMethods]
 export type StorageReply =
   { id: number; ok: true; result: unknown } | { id: number; ok: false; error: string; code: string }

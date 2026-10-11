@@ -73,7 +73,7 @@ import { recordRecoveryDiagnostic, scanSessionLogs } from './session-log-recover
 import { readActiveOperations } from './active-operations.ts'
 import { readQueuedUserRuns } from './queued-user-runs.ts'
 import { RunSteeringRegistry } from './run-steering.ts'
-import { createRuntimeState, RUNTIME_STATE_SQL } from './runtime-state'
+import { createRuntimeState, RUNTIME_STATE_SQL, runtimeManualRecoverySchema } from './runtime-state'
 import { GOAL_HISTORY_INDEX_SQL, readGoalHistory } from './goal-history.ts'
 import { createNotificationStorage, NOTIFICATION_SCHEMA_SQL } from './notifications'
 import { notificationFromSessionEvent, notificationFromScheduleOccurrence } from './notification-projection'
@@ -98,6 +98,7 @@ import {
   createSessionLaunchTargetStorage,
   SESSION_LAUNCH_TARGET_RESOLUTION_SQL,
   SESSION_LAUNCH_TARGET_SQL,
+  sessionLaunchTargetBindingSchema,
 } from './session-launch-target.ts'
 import {
   createSessionLaunchTargetPreparationStorage,
@@ -1094,24 +1095,27 @@ const runtimeState = createRuntimeState(db, {
   requestCancel: id => methods.requestCancel(id),
   reconcile: run => { methods.recover({ runIds: [run.id], preserveQueued: true, preserveApprovals: true, reconcileInterrupted: true }) },
   archived: id => methods.session(id).archived,
+  restoreBinding: binding => sessionLaunchTarget.restoreBinding(binding),
   start(run, startedAt) {
     db.query("UPDATE runs SET status='running',startedAt=? WHERE id=?").run(startedAt, run.id)
     return methods.run(run.id)
   },
-  queue(original, recovery, chain) {
+  queue(original, recovery, chain, manual) {
     const run: Run = {
       id: crypto.randomUUID(), sessionId: original.sessionId, requestId: recovery.recoveryId,
       input: original.input, modelId: original.modelId, status: 'queued', createdAt: Date.now(),
       startedAt: null, endedAt: null, error: null, recovery,
     }
     // The Session's first acceptance locks its checkout; recovery must retain that binding.
-    sessionLaunchTarget.bindToRun(run.sessionId, run.id, methods.workspace(methods.session(run.sessionId).workspaceId).path)
+    const launchTarget = sessionLaunchTarget.bindToRun(run.sessionId, run.id, methods.workspace(methods.session(run.sessionId).workspaceId).path)
     db.query(`INSERT INTO runs(id,sessionId,requestId,input,modelId,status,createdAt,startedAt,endedAt,error,recovery)
       VALUES(?,?,?,?,?,?,?,?,?,?,?)`).run(run.id, run.sessionId, run.requestId, JSON.stringify(run.input), run.modelId,
       run.status, run.createdAt, null, null, null, JSON.stringify(recovery))
     appendEvent(run.sessionId, 'run.recoveryQueued', {
       recoveryId: recovery.recoveryId, predecessorRunId: recovery.predecessorRunId,
       chain: { ...chain, currentRunId: run.id }, run,
+      ...(manual ? { manual } : {}),
+      launchTarget,
     }, run.id)
     return run
   },
@@ -1131,13 +1135,18 @@ const methods: StorageMethods = {
   runtimeRecoveryAppend: runtimeState.appendRecovery,
   recoveryInputMessage(runId) {
     let run = methods.run(runId)
-    for (let index = 0; index < 3; index++) {
+    const sessionId = run.sessionId
+    const visited = new Set<string>()
+    for (let index = 0; index < 33; index++) {
+      if (visited.has(run.id) || run.sessionId !== sessionId)
+        throw new HbarError('SESSION_LOG_CORRUPTED', 'Recovery input lineage is cyclic or belongs to another Session')
+      visited.add(run.id)
       const row = db.query<Row, [string]>("SELECT * FROM messages WHERE runId=? AND role='user' ORDER BY seq LIMIT 1").get(run.id)
       if (row) return messageRow(row)
       if (!run.recovery) return null
       run = methods.run(run.recovery.predecessorRunId)
     }
-    return null
+    throw new HbarError('RECOVERY_TOTAL_LIMIT', 'Recovery input lineage exceeds its bounded history')
   },
   chatDatabaseMaintenanceBegin(operationId) {
     if (databaseMaintenanceOwner) throw new HbarError('BUSY', 'Database maintenance is already active')
@@ -2238,16 +2247,21 @@ const methods: StorageMethods = {
         endedAt: null,
         error: null,
       }
-      sessionLaunchTarget.bindToRun(sessionId, run.id, methods.workspace(owner.workspaceId).path, launchTarget)
+      const retainedLaunchTarget = sessionLaunchTarget.bindToRun(sessionId, run.id, methods.workspace(owner.workspaceId).path, launchTarget)
       db.query(
         'INSERT INTO runs(id,sessionId,requestId,input,modelId,status,createdAt,startedAt,endedAt,error) VALUES(?,?,?,?,?,?,?,?,?,?)',
       ).run(run.id, sessionId, requestId, JSON.stringify(input), modelId, 'queued', run.createdAt, null, null, null)
-      const queuedEvent = appendEvent(sessionId, 'run.queued', { run, ...(command ? { command } : {}) }, run.id)
+      const queuedEvent = appendEvent(sessionId, 'run.queued', { run, launchTarget: retainedLaunchTarget, ...(command ? { command } : {}) }, run.id)
       return { ...run, queuedEvent }
     })(),
   runByRequest(sessionId, requestId) {
     const row = db.query('SELECT * FROM runs WHERE sessionId=? AND requestId=?').get(sessionId, requestId) as Row | null
-    if (!row) return null
+    if (!row) {
+      const manual = db.query<{ recordJson: string }, [string, string]>("SELECT recordJson FROM runtime_recovery WHERE json_extract(recordJson,'$.manual.requestId')=? AND json_extract(recordJson,'$.chain.sessionId')=? LIMIT 1").get(requestId, sessionId)
+      if (!manual) return null
+      const record = z.object({ run: runSchema.nullable(), manual: runtimeManualRecoverySchema }).parse(JSON.parse(manual.recordJson))
+      return record.run ? { run: methods.run(record.run.id), command: record.manual.command } : null
+    }
     const run = runRow(row)
     const event = db.query("SELECT data FROM events WHERE runId=? AND type IN ('run.queued','run.recoveryQueued') ORDER BY seq LIMIT 1").get(run.id) as {
       data: string
@@ -2806,6 +2820,12 @@ function restoreProjection(event: SessionEvent) {
     )
   } else if (['run.queued', 'run.status', 'run.settled'].includes(event.type)) {
     const run = runSchema.parse(data.run)
+    if (event.type === 'run.queued' && data.launchTarget !== undefined) {
+      const binding = sessionLaunchTargetBindingSchema.parse(data.launchTarget)
+      if (binding.sessionId !== event.sessionId)
+        throw new HbarError('SESSION_LOG_CORRUPTED', 'Canonical checkout belongs to another Session')
+      sessionLaunchTarget.restoreBinding(binding)
+    }
     db.query(
       `
       INSERT INTO runs(id,sessionId,requestId,input,modelId,status,createdAt,startedAt,endedAt,error,failure,recovery) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)

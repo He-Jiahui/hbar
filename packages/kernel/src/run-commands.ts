@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { z } from 'zod'
 import { CommandError, CommandRegistry, createCommandClient, type CommandContext } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import { runCommands, runCommandRecordSchema, operationSnapshotSchema } from '@hbar/contracts/commands/run'
@@ -22,7 +23,6 @@ function accepted(run: Run, command: RunCommandRecord): RunAccepted {
 export function createRunCommands(kernel: RunCommandKernelPort) {
   const registry = new CommandRegistry({ execution: 'host' })
   const locks = new Map<string, Promise<void>>()
-  const uncertainSessions = new Set<string>()
   async function serial<T>(key: string, action: () => Promise<T>): Promise<T> {
     const previous = locks.get(key) ?? Promise.resolve()
     let release!: () => void
@@ -82,8 +82,6 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
         .digest('hex'),
     })
     return serial(scope, async () => {
-      if (uncertainSessions.has(input.sessionId))
-        throw new CommandError('RESULT_UNKNOWN', 'Run journal requires Host recovery')
       let prior: RunAccepted | null
       try {
         prior = await lookup(input, command, requestId)
@@ -92,16 +90,58 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
         throw new CommandError('RESULT_UNKNOWN', 'Run journal is unavailable')
       }
       if (prior) return prior
+      let continuingFrom: string | undefined
       try {
-        const run = await kernel.submit(
-          input.sessionId,
-          requestId,
-          input.input,
-          input.modelId,
-          command,
-          context.signal,
-          input.expectedLaunchTargetRevision,
-        )
+        let run: Run
+        if (identity.id === 'run.retry') {
+          const source = z.object({ operationId: z.string() }).parse(identity.input)
+          let predecessor = await kernel.storage.call('run', source.operationId)
+          const planned = await kernel.storage.call('runtimeRecoveryRead', predecessor.id)
+          const chain = await kernel.storage.call(
+            'runtimeRecoveryChain',
+            predecessor.recovery?.chainId ?? planned?.chain.chainId ?? `recovery:${predecessor.id}`,
+          )
+          if (chain && chain.currentRunId !== predecessor.id)
+            predecessor = await kernel.storage.call('run', chain.currentRunId)
+          if (predecessor.status === 'interrupted' || predecessor.failure?.category === 'result_unknown') {
+            continuingFrom = predecessor.id
+            if (predecessor.failure?.category === 'result_unknown')
+              throw new HbarError('EFFECT_UNKNOWN', 'Reconcile the existing side effect before continuing')
+            if (!kernel.continueInterrupted)
+              throw new HbarError(
+                'RUNTIME_RESTART_REQUIRED',
+                'Interrupted retries require the safe continuation lifecycle',
+              )
+            run = await kernel.continueInterrupted(predecessor.id, { requestId, command })
+            const receipt = await lookup(input, command, requestId)
+            if (receipt) return receipt
+            throw new HbarError('RESULT_UNKNOWN', 'Continuation acceptance requires its canonical receipt')
+          } else {
+            if (chain)
+              throw new HbarError(
+                'CONTINUATION_ALREADY_EXISTS',
+                'Observe the latest recovery outcome before replaying a historical task',
+              )
+            run = await kernel.submit(
+              input.sessionId,
+              requestId,
+              input.input,
+              input.modelId,
+              command,
+              context.signal,
+              input.expectedLaunchTargetRevision,
+            )
+          }
+        } else
+          run = await kernel.submit(
+            input.sessionId,
+            requestId,
+            input.input,
+            input.modelId,
+            command,
+            context.signal,
+            input.expectedLaunchTargetRevision,
+          )
         return accepted(run, command)
       } catch (error) {
         // Admission may have committed before the response was lost. Inspect the canonical queued fact.
@@ -110,10 +150,24 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
           recovered = await lookup(input, command, requestId)
         } catch (lookupError) {
           if (lookupError instanceof CommandError) throw lookupError
-          uncertainSessions.add(input.sessionId)
           throw new CommandError('RESULT_UNKNOWN', 'Run acceptance requires reconciliation')
         }
         if (recovered) return recovered
+        if (continuingFrom && error instanceof HbarError) {
+          if (
+            error.code === 'EFFECT_UNKNOWN' ||
+            error.code === 'CONTINUATION_ALREADY_EXISTS' ||
+            error.code === 'RUNTIME_RESTART_REQUIRED'
+          )
+            throw new CommandError(error.code, error.message)
+          const record = await kernel.storage.call('runtimeRecoveryRead', continuingFrom)
+          if (
+            record?.manual?.requestId === requestId &&
+            !record.run &&
+            ['waiting', 'manual_required'].includes(record.chain.status)
+          )
+            throw new CommandError(record.chain.reasonCode ?? error.code, error.message)
+        }
         if (
           error instanceof HbarError &&
           [
@@ -147,10 +201,12 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
             'SESSION_LAUNCH_TARGET_TIMEOUT',
             'USER_CANCELLED',
             'HOST_SHUTTING_DOWN',
+            'EXECUTION_UNSETTLED',
+            'RECOVERY_TOTAL_LIMIT',
+            'CONTINUATION_ALREADY_EXISTS',
           ].includes(error.code)
         )
           throw new CommandError(error.code, error.message)
-        uncertainSessions.add(input.sessionId)
         throw new CommandError('RESULT_UNKNOWN', 'Run acceptance requires reconciliation')
       }
     })
@@ -297,10 +353,13 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
       const chain = chainId ? await kernel.storage.call('runtimeRecoveryChain', chainId) : null
       const run = chain ? await kernel.storage.call('run', chain.currentRunId) : original
       const cancelRequested =
-        ['running', 'waiting_approval'].includes(run.status) &&
-        (await kernel.storage.call('cancelRequested', run.id))
-      const pending = run.status === 'interrupted' && !await kernel.storage.call('cancelRequested', run.id) &&
-        (chain ? ['pending', 'running'].includes(chain.status) : Boolean(await kernel.storage.call('runtimeExecutionRead', run.id)))
+        ['running', 'waiting_approval'].includes(run.status) && (await kernel.storage.call('cancelRequested', run.id))
+      const pending =
+        run.status === 'interrupted' &&
+        !(await kernel.storage.call('cancelRequested', run.id)) &&
+        (chain
+          ? ['pending', 'running'].includes(chain.status)
+          : Boolean(await kernel.storage.call('runtimeExecutionRead', run.id)))
       return {
         operationId: original.id,
         sessionId: run.sessionId,
@@ -372,8 +431,6 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
       actorId: string,
       idempotencyKey: string,
     ): Promise<RunAccepted | null> {
-      if (uncertainSessions.has(sessionId))
-        throw new CommandError('RESULT_UNKNOWN', 'Run journal requires Host recovery')
       const scope = receiptScope(commandId, sessionId, actorId, idempotencyKey)
       const requestId = `command-${createHash('sha256').update(scope).digest('hex')}`
       let found

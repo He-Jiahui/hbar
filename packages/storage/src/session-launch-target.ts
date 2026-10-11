@@ -151,6 +151,17 @@ const bindingInputSchema = z
       (input.selection.mode === 'shared-current' ? input.head === null : input.head !== null),
     'Binding branch and head must match the selected target',
   )
+export const sessionLaunchTargetBindingSchema = z
+  .strictObject({
+    ...bindingFieldsSchema,
+    boundRunId: idSchema,
+    boundAt: z.number().int().nonnegative().safe(),
+  })
+  .refine(({ boundRunId, boundAt, ...input }) => {
+    void boundRunId
+    void boundAt
+    return bindingInputSchema.safeParse(input).success
+  }, 'Binding branch and head must match the selected target')
 const bindingCandidateSchema = z.strictObject({
   ...bindingFieldsSchema,
   requirePreparedTarget: z.literal(true).optional(),
@@ -273,7 +284,11 @@ export function createSessionLaunchTargetStorage(db: Database) {
     if (!row) return null
     const binding = readBinding(row.sessionId)
     const branchTarget = readSessionBranchExecutionRoot(db, row.sessionId)
-    return binding && (binding.selection.mode === 'isolated-worktree' || (branchTarget?.revision === binding.expectedRevision && branchTarget.kind === 'worktree')) ? binding : null
+    return binding &&
+      (binding.selection.mode === 'isolated-worktree' ||
+        (branchTarget?.revision === binding.expectedRevision && branchTarget.kind === 'worktree'))
+      ? binding
+      : null
   }
 
   function read(sessionId: string): SessionLaunchTarget {
@@ -574,7 +589,8 @@ export function createSessionLaunchTargetStorage(db: Database) {
     } else if (binding.selection.mode === 'shared-branch') {
       const branchTarget = readSessionBranchExecutionRoot(db, sessionId)
       if (
-        (binding.targetPath !== workspacePath && !(branchTarget?.revision === binding.expectedRevision && branchTarget.targetPath === binding.targetPath)) ||
+        (binding.targetPath !== workspacePath &&
+          !(branchTarget?.revision === binding.expectedRevision && branchTarget.targetPath === binding.targetPath)) ||
         !selectedBranchMatches(binding.selection, binding.branch) ||
         binding.head !== binding.selection.branch.tipOid
       )
@@ -631,6 +647,41 @@ export function createSessionLaunchTargetStorage(db: Database) {
     beginPreparation,
     updatePreparation,
     bindToRun,
+    restoreBinding(raw: SessionLaunchTargetBinding): void {
+      const binding = sessionLaunchTargetBindingSchema.parse(raw)
+      session(binding.sessionId)
+      const previous = readBinding(binding.sessionId)
+      if (previous) {
+        if (
+          previous.expectedRevision !== binding.expectedRevision ||
+          previous.targetPath !== binding.targetPath ||
+          previous.branch !== binding.branch ||
+          previous.head !== binding.head ||
+          !sameSelection(previous.selection, binding.selection)
+        )
+          throw new HbarError('SESSION_LOG_CORRUPTED', 'Canonical checkout binding conflicts with its projection')
+        return
+      }
+      if (binding.expectedRevision > 0)
+        db.query(
+          'INSERT OR IGNORE INTO session_launch_targets(sessionId,revision,selectionJson,updatedAt) VALUES(?,?,?,?)',
+        ).run(binding.sessionId, binding.expectedRevision, JSON.stringify(binding.selection), binding.boundAt)
+      const current = read(binding.sessionId)
+      if (current.revision !== binding.expectedRevision || !sameSelection(current.selection, binding.selection))
+        throw new HbarError('SESSION_LOG_CORRUPTED', 'Canonical checkout selection conflicts with its projection')
+      db.query(
+        'INSERT INTO session_launch_target_bindings(sessionId,revision,selectionJson,targetPath,branch,head,boundRunId,boundAt) VALUES(?,?,?,?,?,?,?,?)',
+      ).run(
+        binding.sessionId,
+        binding.expectedRevision,
+        JSON.stringify(binding.selection),
+        binding.targetPath,
+        binding.branch,
+        binding.head,
+        binding.boundRunId,
+        binding.boundAt,
+      )
+    },
     validateReplayBinding,
   }
 }

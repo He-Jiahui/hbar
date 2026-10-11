@@ -67,7 +67,9 @@ export const runRecoverySchema = z.strictObject({
   chainId: opaqueId,
   rootRunId: opaqueId,
   predecessorRunId: opaqueId,
-  attempt: z.number().int().min(1).max(2),
+  attempt: z.number().int().min(1).max(32),
+  automaticAttempt: z.number().int().min(0).max(2).optional(),
+  manual: z.boolean().optional(),
 })
 export type RunRecovery = z.infer<typeof runRecoverySchema>
 export const recoveryChainSchema = z.strictObject({
@@ -75,7 +77,8 @@ export const recoveryChainSchema = z.strictObject({
   sessionId: opaqueId,
   rootRunId: opaqueId,
   currentRunId: opaqueId,
-  attempts: z.number().int().min(0).max(2),
+  attempts: z.number().int().min(0).max(32),
+  automaticAttempts: z.number().int().min(0).max(2).optional(),
   status: z.enum(['pending', 'waiting', 'running', 'settled', 'manual_required']),
   reasonCode: z.string().min(1).max(128).nullable(),
   updatedAt: z.number().int().nonnegative(),

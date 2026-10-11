@@ -807,6 +807,14 @@ export class Kernel {
     await plan.refreshSession(sessionId)
   }
   resumeRecovery(predecessorRunId: string) { return this.runtimeRecovery.resume(predecessorRunId) }
+  async continueInterrupted(predecessorRunId: string, manual: import('@hbar/storage').RuntimeManualRecovery): Promise<Run> {
+    const record = await this.runtimeRecovery.resumeManual(predecessorRunId, manual)
+    if (!record.run) throw new HbarError(record.chain.reasonCode ?? 'RECOVERY_WAITING', 'Continuation is waiting for its existing controls or effect reconciliation')
+    if (!record.manual || record.manual.requestId !== manual.requestId || record.manual.command.inputHash !== manual.command.inputHash || record.manual.command.actorId !== manual.command.actorId)
+      throw new HbarError('CONTINUATION_ALREADY_EXISTS', 'Observe the existing recovery chain before creating another continuation')
+    this.kick(record.run.sessionId)
+    return record.run
+  }
   private async checkRuntimeRecovery(run: Run): Promise<string | null> {
     try {
       if (this.closing || this.maintenance) return 'KERNEL_NOT_AVAILABLE'
