@@ -211,10 +211,11 @@ test('automatic compaction bounds a hanging HTTP 200 summary and preserves raw c
 })
 
 test('compaction limits reject invalid values and keep the production ceiling', () => {
-  expect(resolveCompactionTimeoutMs(undefined)).toBe(120_000)
-  expect(AUTO_COMPACTION_TIMEOUT_MS).toBe(120_000)
+  expect(resolveCompactionTimeoutMs(undefined)).toBe(300_000)
+  expect(AUTO_COMPACTION_TIMEOUT_MS).toBe(300_000)
   expect(resolveCompactionTimeoutMs(1)).toBe(1)
-  for (const value of [0, -1, 1.5, 120_001, NaN, Infinity]) {
+  expect(resolveCompactionTimeoutMs(300_000)).toBe(300_000)
+  for (const value of [0, -1, 1.5, 300_001, NaN, Infinity]) {
     expect(() => resolveCompactionTimeoutMs(value)).toThrow(HbarError)
   }
 })

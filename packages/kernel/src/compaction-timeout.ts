@@ -1,11 +1,11 @@
 import { HbarError } from '@hbar/contracts'
 
-export const AUTO_COMPACTION_TIMEOUT_MS = 120_000
+export const AUTO_COMPACTION_TIMEOUT_MS = 300_000
 
 export function resolveCompactionTimeoutMs(value: number | undefined): number {
   if (value === undefined) return AUTO_COMPACTION_TIMEOUT_MS
   if (!Number.isInteger(value) || value < 1 || value > AUTO_COMPACTION_TIMEOUT_MS)
-    throw new HbarError('INVALID_INPUT', 'Compaction timeout must be an integer from 1 to 120000 milliseconds')
+    throw new HbarError('INVALID_INPUT', 'Compaction timeout must be an integer from 1 to 300000 milliseconds')
   return value
 }
 
