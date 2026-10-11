@@ -853,9 +853,11 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       kernel,
       driver: record.state?.driverIsolation === 'legacy' ? kernel : this.manager.currentVersion('driver.pi'),
       plugins,
-      hooks: this.pluginEndpoints()
-        .filter((endpoint) => endpoint.state.hooks.length > 0)
-        .map((endpoint) => endpoint.version),
+      hooks: plugins.filter((version) => {
+        const state = this.generations.get(key(version))?.pluginState
+        if (!state) throw new HbarError('RUNTIME_RECOVERING', 'The retained plugin Hook metadata is unavailable')
+        return state.hooks.length > 0
+      }),
     }
   }
   private pluginEndpoints(): RuntimePluginEndpoint[] {

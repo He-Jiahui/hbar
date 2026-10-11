@@ -3,6 +3,8 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { Kernel, MemorySecrets, SettingsService } from '@hbar/kernel'
+import { definePlugin, provide, type HarnessDriver } from '@hbar/plugin-sdk'
+import { emptyUsage, providerSchema } from '@hbar/contracts'
 import { encodePath } from '@hbar/schema-core'
 
 const approvalPath = [{ kind: 'field' as const, name: 'session.approval' }]
@@ -127,3 +129,48 @@ test('session approval setting persists, inherits the Host default, and snapshot
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test('an older Kernel reads a tightened shared policy before its next tool, while preserving its original admission', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-shared-run-policy-'))
+  const workspace = join(root, 'workspace')
+  await mkdir(workspace, { recursive: true })
+  let release!: () => void
+  let entered!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  const running = new Promise<void>(resolve => { entered = resolve })
+  const driver = definePlugin({
+    manifest: { id: 'driver.pi', name: 'Retained executor', description: 'Verify authoritative policy', version: '1.0.0', apiVersion: '^1.0.0', scope: 'host', provides: { driver: '1.0.0' }, permissions: [] },
+    apply(ctx) {
+      provide<HarnessDriver>(ctx, 'driver', {
+        async run(input) {
+          entered(); await gate
+          await input.commit('assistant', [{ type: 'tool_call', callId: 'retained-write', name: 'write_file', args: { path: 'blocked-old-owner.txt', text: 'must not execute' } }])
+          const result = await input.execute('write_file', { path: 'blocked-old-owner.txt', text: 'must not execute' }, 'retained-write')
+          expect(result.isError).toBe(true)
+          expect(result.text).toContain('approval policy changed')
+          await input.commit('assistant', [{ type: 'text', text: 'The tightened policy stopped the write.' }])
+        },
+        summarize: async () => ({ text: '', usage: emptyUsage() }),
+      })
+    },
+  })
+  const older = await Kernel.create({ home: join(root, 'data'), workspace, demo: true, lifecycle: 'managed', secrets: new MemorySecrets(), profile: { replacements: { 'driver.pi': driver } } })
+  let newer: Kernel | undefined
+  try {
+    await older.setPermissionMode('allow')
+    const target = await older.storage.call('createWorkspace', workspace, 'retained policy')
+    const session = await older.createSession(target.id)
+    await older.storage.call('saveProvider', providerSchema.parse({ id: 'local-fixture', name: 'Fixture', protocol: 'mock', baseUrl: 'http://127.0.0.1', model: 'fixture' }))
+    await older.activate()
+    const run = await older.submit(session.id, 'retained-policy', { text: 'perform the write later', images: [], permissionAtAdmission: 'deny' }, 'local-fixture')
+    await running
+    expect(run.input.permissionAtAdmission).toBe('allow')
+    newer = await Kernel.create({ home: join(root, 'data'), demo: true, lifecycle: 'managed', secrets: new MemorySecrets(), profile: { createStorage: async () => ({ call: (method, ...args) => older.storage.call(method, ...args), close: async () => {} }) } })
+    await newer.setPermissionMode('deny')
+    expect(older.permissionMode()).toBe('allow')
+    expect(await older.sessionPermissionMode(session.id)).toBe('deny')
+    release(); await older.waitForIdle()
+    expect(await Bun.file(join(workspace, 'blocked-old-owner.txt')).exists()).toBe(false)
+    expect((await older.storage.call('events', session.id, 0)).filter(event => event.type === 'tool.started')).toHaveLength(0)
+  } finally { release(); await newer?.close(); await older.close(); await rm(root, { recursive: true, force: true }) }
+}, 40_000)

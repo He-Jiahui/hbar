@@ -577,7 +577,7 @@ export class Kernel {
             settings: this.permissionSettings,
             model: (id) => this.plugins.get<ModelRegistry>('models').get(id),
             runs: async (id) => (await this.snapshot(id)).runs,
-            permission: () => this.permissionModeValue,
+            permission: sessionId => this.sessionPermissionMode(sessionId),
           }),
           get: (id) => this.storage.call('session', id),
           list: async (workspaceId) => {
@@ -823,7 +823,7 @@ export class Kernel {
       const model = await this.plugins.get<ModelRegistry>('models').get(run.modelId)
       if (run.input.images.length && !model.imageInput) return 'UNSUPPORTED_IMAGE'
       const current = await this.sessionPermissionMode(run.sessionId)
-      if ((run.input.approval ?? current) !== current) return 'PERMISSION_CHANGED'
+      if ((run.input.permissionAtAdmission ?? run.input.approval ?? current) !== current) return 'PERMISSION_CHANGED'
       if (current === 'sandbox') {
         const snapshot = await this.sandboxProfiles.createSnapshot(await this.sessionSandboxProfileId(run.sessionId))
         if (snapshot.digest !== run.input.sandbox?.digest) return 'SANDBOX_CHANGED'
@@ -1215,7 +1215,11 @@ export class Kernel {
     if (!report) throw new HbarError('SETTING_NOT_FOUND', 'Session approval setting is unavailable')
     const override = approvalModeSchema.nullable().safeParse(report.effectiveValue)
     if (!override.success) throw new HbarError('INVALID_SETTING', 'Session approval setting is invalid')
-    return override.data ?? this.permissionModeValue
+    if (override.data !== null) return override.data
+    const stored = await this.storage.call('getSetting', 'permission.mode')
+    const current = approvalModeSchema.safeParse(stored ?? 'ask')
+    if (!current.success) throw new HbarError('INVALID_SETTING', 'The current Host approval policy is invalid')
+    return current.data
   }
   async sessionSandboxProfileId(sessionId: string) {
     const snapshot = await this.permissionSettings.get({ kind: 'session', targetId: sessionId })
@@ -1224,6 +1228,11 @@ export class Kernel {
     const id = sandboxProfileIdSchema.safeParse(report.effectiveValue)
     if (!id.success) throw new HbarError('INVALID_SETTING', 'Session sandbox profile setting is invalid')
     return id.data
+  }
+  private async assertRunPermission(run: Run): Promise<void> {
+    if (run.input.permissionAtAdmission !== undefined &&
+      run.input.permissionAtAdmission !== await this.sessionPermissionMode(run.sessionId))
+      throw new HbarError('PERMISSION_CHANGED', 'The current approval policy changed after Run admission')
   }
   /** Pin the sandbox rules a Run is admitted with; other approval modes never carry them. */
   private async admitSandbox(sessionId: string, input: UserInput): Promise<UserInput> {
@@ -1601,7 +1610,8 @@ export class Kernel {
         throw new HbarError('EMPTY_INPUT', 'Enter a message or attach an image or file')
       const model = await this.plugins.get<ModelRegistry>('models').get(modelId)
       input = { ...input, thinking: normalizeThinkingLevel(model, input.thinking, mode === 'plan') }
-      input = { ...input, approval: input.approval ?? (await this.sessionPermissionMode(sessionId)) }
+      const permissionAtAdmission = await this.sessionPermissionMode(sessionId)
+      input = { ...input, approval: input.approval ?? permissionAtAdmission, permissionAtAdmission }
       input = await this.admitSandbox(sessionId, input)
       if (input.images.length && !model.imageInput)
         throw new HbarError('UNSUPPORTED_IMAGE', 'Selected model does not accept images')
@@ -2303,6 +2313,7 @@ export class Kernel {
       const timeoutMs = resolveToolTimeoutMs(tool, args)
       assertBoundary()
       executedArgs = args
+      await this.assertRunPermission(context.run)
       const mode = context.run.input.approval ?? this.permissionModeValue
       let decision = await this.plugins.get<PolicyProvider>('policy').decide(tool, args, context)
       let denial = 'Tool denied by policy'
@@ -2346,6 +2357,7 @@ export class Kernel {
         }
       }
       assertBoundary()
+      await this.assertRunPermission(context.run)
       this.toolExecutions.assertAvailable(`${context.session.id}:${name}`, name)
       const authority = this.executionScope.current
       if (authority && this.options.execution?.reserveTool && !tool.runtimeOwner)
@@ -2380,6 +2392,7 @@ export class Kernel {
         timeoutMs,
         async () => {
           await scope.hooks.dispatch('tool.executing', { name, args: structuredClone(args), context, tool })
+          await this.assertRunPermission(context.run)
           assertBoundary()
           controller.signal.throwIfAborted()
           // These execution fields are Host-owned, even when hooks mutate ToolContext.

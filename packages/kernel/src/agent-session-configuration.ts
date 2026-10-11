@@ -36,7 +36,7 @@ export function createAgentSessionConfiguration(options: {
   readonly settings: SettingsService
   readonly model: ModelRegistry['get']
   readonly runs: (sessionId: string) => Promise<readonly Run[]>
-  readonly permission: () => ApprovalMode
+  readonly permission: (sessionId: string) => ApprovalMode | Promise<ApprovalMode>
 }): NonNullable<SessionService['agentConfiguration']> {
   return {
     async policy(sessionId) {
@@ -81,7 +81,7 @@ export function createAgentSessionConfiguration(options: {
       const modelValue = value('provider.model')
       let modelId = typeof modelValue === 'string' ? modelValue : null
       let thinkingLevel = thinkingLevelSchema.nullable().parse(value('provider.thinkingLevel'))
-      let approval = approvalModeSchema.nullable().parse(value('session.approval')) ?? options.permission()
+      let approval = approvalModeSchema.nullable().parse(value('session.approval')) ?? await options.permission(sessionId)
       let sandboxProfileId = sandboxProfileIdSchema.parse(value('session.sandboxProfile'))
       let sandbox: Run['input']['sandbox']
       // Automated dispatch inherits its admitted parent Run, not mutable defaults.

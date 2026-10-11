@@ -478,6 +478,8 @@ export const inputSchema = z.object({
   files: z.array(artifactSchema).max(12).optional(),
   thinking: thinkingLevelSchema.optional(),
   approval: approvalModeSchema.optional(),
+  /** Host-owned policy at admission; later changes must reach executors retained by an older generation. */
+  permissionAtAdmission: approvalModeSchema.optional(),
   /** Host-created rules for `approval: 'sandbox'`; the Host strips it for other modes. */
   sandbox: sandboxSnapshotRefSchema.optional(),
   mode: runModeSchema.optional(),

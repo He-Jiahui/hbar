@@ -41,14 +41,14 @@ async function changedKernel(runtime: ProcessHostRuntime, suffix: string, transf
   const unit = runtime.buildUnits.find(value => value.descriptor.id === 'kernel')!
   return runtime.artifacts.registerSet([await runtime.artifacts.build({ ...unit, entrypoint: source })])
 }
-async function changedPlugin(runtime: ProcessHostRuntime, id: string) {
+async function changedPlugin(runtime: ProcessHostRuntime, id: string, transform: (source: string) => string = source => source) {
   const root = await mkdtemp(join(process.cwd(), 'artifacts', 'process-plugin-update-'))
   resources.push(() => rm(root, { recursive: true, force: true }))
   const unit = runtime.buildUnits.find(value => value.descriptor.id === id)
   if (!unit) throw new Error('Expected a declared plugin build unit')
   const source = join(root, 'plugin.ts')
   const implementation = (await readFile(unit.entrypoint, 'utf8')).replaceAll("'./", "'../../apps/host/src/")
-  await writeFile(source, implementation + '\nexport const compatiblePluginRevision = 2\n')
+  await writeFile(source, transform(implementation) + '\nexport const compatiblePluginRevision = 2\n')
   const artifact = await runtime.artifacts.build({ ...unit, entrypoint: source })
   return runtime.artifacts.registerSet([artifact])
 }
@@ -232,7 +232,11 @@ test('a retained browser context survives plugin and Kernel updates until explic
   const page = await browser.navigate(f.session.id, 'http://127.0.0.1:' + pageServer.port)
   expect(f.runtime.kernel.chatDatabaseSessionProtection(f.session.id)).toBe('active')
   const before = f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'plugin.browser')?.generations[0]
-  const operation = f.runtime.reload((await changedPlugin(f.runtime, 'plugin.browser')).id, ['plugin.browser'])
+  const operation = f.runtime.reload((await changedPlugin(f.runtime, 'plugin.browser', source => {
+    const anchor = 'plugins: [plugin]'
+    if (source.split(anchor).length !== 2) throw new Error('Expected the owned browser factory')
+    return source.replace(anchor, "plugins: [{ ...plugin, async apply(ctx, config) { await plugin.apply(ctx, config); ctx.hbar.api.hooks.on('context.build', request => request) } }]")
+  })).id, ['plugin.browser'])
   await f.runtime.manager.reconcile(); await f.runtime.settled()
   expect(f.runtime.manager.currentVersion('plugin.browser').generation).toBe(2)
   expect((await browser.snapshot(f.session.id, page.contextId, page.pageId)).text).toContain('Retained page state')
@@ -247,6 +251,12 @@ test('a retained browser context survives plugin and Kernel updates until explic
   expect(await f.runtime.storage.call('run', run.id)).toMatchObject({ status: 'completed' })
   const ownership = await f.runtime.storage.call('runtimeExecutionRead', run.id)
   expect(ownership?.lease.versions.plugins.find(version => version.unitId === 'plugin.browser')?.generation).toBe(1)
+  for (const hook of ownership?.lease.versions.hooks ?? [])
+    expect(ownership?.lease.versions.plugins.find(version => version.unitId === hook.unitId)).toEqual(hook)
+  expect(ownership?.lease.versions.hooks.find(version => version.unitId === 'plugin.browser')).toBeUndefined()
+  const freshRun = await f.runtime.kernel.submit(other.id, 'fresh-hook-binding', { text: 'Verify the fresh Hook owner', images: [] }, 'local-fixture')
+  await f.runtime.waitForIdle()
+  expect((await f.runtime.storage.call('runtimeExecutionRead', freshRun.id))?.lease.versions.hooks.find(version => version.unitId === 'plugin.browser')?.generation).toBe(2)
   expect(f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'plugin.browser')?.generations.find(generation => generation.generation === 1)?.pid).toBe(before?.pid)
   expect(await browser.close(f.session.id)).toEqual({ closed: true })
   await browser.close(other.id)
