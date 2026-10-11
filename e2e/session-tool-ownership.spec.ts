@@ -20,6 +20,7 @@ const aDisk = '# Original A disk\n'
 const cDisk = '# Independent C disk\n'
 const aDirty = '# Unsaved A file\n不得切换到其他工程或自动保存\n'
 const cDirty = '# Unsaved C file\nC 的独立文件草稿\n'
+const pinnedCDirty = '# Unsaved project C file\n工程固定入口的独立草稿\n'
 const materialName = 'A-original-material.md'
 const latePath = 'A-delayed-original-read.md'
 const lateText = '# Delayed A-only read\nNot a B document\n'
@@ -139,10 +140,13 @@ async function start(
   }
 }
 async function stop(fixture: Fixture): Promise<void> {
-  await fixture.context.close()
-  await stopWebSessionHost(fixture.host)
-  await expect.poll(() => fixture.host.child.exitCode !== null || fixture.host.child.signalCode !== null).toBe(true)
-  await removeRoot(fixture.root)
+  try {
+    await fixture.context.close()
+  } finally {
+    await stopWebSessionHost(fixture.host)
+    await expect.poll(() => fixture.host.child.exitCode !== null || fixture.host.child.signalCode !== null).toBe(true)
+    await removeRoot(fixture.root)
+  }
 }
 async function sidebar(fixture: Fixture, visible: boolean): Promise<void> {
   const { page, copy } = fixture
@@ -371,20 +375,25 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await filesMenu.getByRole('menuitem', { name: copy.shell.workspaceFiles, exact: true }).click()
       await sidebar(fixture, false)
       await expect(files.getByTitle(secondWorkspace.name, { exact: true })).toBeVisible()
-      // The project-only pinned entry can start in its own browser view. Both
-      // panes use the same bounded workspace/path document fact, not a copy.
+      // Session Files capture the Host-owned session/revision; the project-only
+      // pinned entry has its own scope. Keep both drafts without transferring
+      // unsaved text across execution targets (a99b3668).
       if (!(await files.getByRole('textbox', { name: cPath, exact: true }).isVisible()))
         await files.getByRole('button', { name: cPath, exact: true }).click()
       await files.getByRole('button', { name: copy.files.edit, exact: true }).click()
-      await expect(files.getByRole('textbox', { name: cPath, exact: true })).toHaveValue(cDirty)
+      const pinnedEditor = files.getByRole('textbox', { name: cPath, exact: true })
+      await expect(pinnedEditor).toHaveValue(cDisk)
+      await pinnedEditor.fill(pinnedCDirty)
       for (const session of [b, a]) {
         await select(fixture, session)
         await expect(files.getByTitle(secondWorkspace.name, { exact: true })).toBeVisible()
-        await expect(files.getByRole('textbox', { name: cPath, exact: true })).toHaveValue(cDirty)
+        await expect(pinnedEditor).toHaveValue(pinnedCDirty)
       }
       await capture(fixture, 'project-pinned-C-over-A', 1440)
       await close(fixture, 'files')
       await expectComposerText(prompt(fixture), draftA)
+      await select(fixture, c)
+      await expect(files.getByRole('textbox', { name: cPath, exact: true })).toHaveValue(cDirty)
       await select(fixture, b)
       await expect(page.locator('.lumen-app-tool-drawer')).toHaveCount(0)
       await select(fixture, a)
@@ -408,7 +417,11 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(page.locator('.lumen-app-tool-drawer')).toHaveCount(0)
       for (const width of [1440, 900, 390, 320]) await capture(fixture, 'A-workbench-after-B-tool', width)
       await workbench.getByRole('button', { name: copy.files.returnToConversation, exact: true }).click()
-      await expect(page.getByRole('tab', { name: a.title, exact: true })).toHaveAttribute('aria-selected', 'true')
+      await expect(page.getByRole('tab', { name: a.title, exact: true, includeHidden: true })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
+      await expect(page.getByRole('region', { name: a.title, exact: true })).toBeVisible()
       await expect(page.locator('.lumen-app-tool-drawer')).toHaveCount(0)
       await expectComposerText(prompt(fixture), draftA)
       await page.setViewportSize({ width: 1440, height: 960 })
@@ -431,6 +444,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
             c: c.id,
             pinnedWorkspaceId: secondWorkspace.id,
             pinnedNotRetargeted: true,
+            projectDraftPreserved: true,
+            sessionDraftPreservedWithoutSharing: true,
             originalWorkbenchFile: aPath,
             sourceDockRemainsClosed: true,
             fileDirty: true,
@@ -691,7 +706,14 @@ test('original unknown save and delayed read survive session switches without re
     await expect(tool(fixture, 'monitoring')).toBeVisible()
     await expect(files).toHaveCount(0)
     await select(fixture, a)
-    await expect(files.getByLabel(copy.files.textPreview(latePath), { exact: true })).toHaveText(lateText)
+    const preview = files.getByLabel(copy.files.textPreview(latePath), { exact: true })
+    await expect(preview.getByRole('heading', { name: 'Delayed A-only read', level: 1, exact: true })).toBeVisible()
+    await expect(preview.getByText('Not a B document', { exact: true })).toBeVisible()
+    await files.getByRole('button', { name: copy.files.source, exact: true }).click()
+    await expect(preview.locator('[data-source-code="0"]')).toHaveText('# Delayed A-only read')
+    await expect(preview.locator('[data-source-code="1"]')).toHaveText('Not a B document')
+    await files.getByRole('button', { name: copy.files.preview, exact: true }).click()
+    await expect(preview.getByRole('heading', { name: 'Delayed A-only read', level: 1, exact: true })).toBeVisible()
     expect(deliveredLate).toBe(true)
     await capture(fixture, 'delayed-read-still-original-A', 1440)
     // The text proves that the captured reply has now been applied. Re-select
