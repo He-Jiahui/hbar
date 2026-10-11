@@ -39,11 +39,19 @@ async function fixture(gate: 'job' | 'writer') {
   database.close()
   const delay = `await Bun.write(${JSON.stringify(marker)}, JSON.stringify({ pid: process.pid })); while (!await Bun.file(${JSON.stringify(release)}).exists()) await Bun.sleep(10);`
   let owner = (await readFile('apps/host/src/runtime-maintenance-process.ts', 'utf8')).replaceAll("'./", "'../../apps/host/src/")
-  if (gate === 'job') owner = owner.replace("started: operation => context.peer.call('maintenance.job.started', { operation }, z.undefined()),", `started: async operation => { await context.peer.call('maintenance.job.started', { operation }, z.undefined()); ${delay} },`)
+  if (gate === 'job') {
+    const anchor = "started: (operation) => context.peer.call('maintenance.job.started', { operation }, z.undefined()),"
+    if (owner.split(anchor).length !== 2) throw new Error('Maintenance job fault injection anchor changed')
+    owner = owner.replace(anchor, `started: async operation => { await context.peer.call('maintenance.job.started', { operation }, z.undefined()); ${delay} },`)
+  }
   const ownerPath = join(source, 'owner.ts')
   await writeFile(ownerPath, owner)
-  let worker = (await readFile('packages/storage/src/maintenance-worker.ts', 'utf8')).replace("'./chat-database-vacuum'", "'../../packages/storage/src/chat-database-vacuum'")
-  if (gate === 'writer') worker = worker.replace('runChatDatabaseVacuum(input)', `runChatDatabaseVacuum(input, async () => { ${delay} })`)
+  let worker = (await readFile('packages/storage/src/maintenance-worker.ts', 'utf8')).replaceAll("'./", "'../../packages/storage/src/")
+  if (gate === 'writer') {
+    const anchor = 'runChatDatabaseVacuum(input)'
+    if (worker.split(anchor).length !== 2) throw new Error('Maintenance writer fault injection anchor changed')
+    worker = worker.replace(anchor, `runChatDatabaseVacuum(input, async () => { ${delay} })`)
+  }
   const workerPath = join(source, 'maintenance-worker.ts')
   await writeFile(workerPath, worker)
   const units = hostRuntimeBuildUnits().map(unit => unit.descriptor.id === 'maintenance' ? { ...unit, entrypoint: ownerPath, workers: [workerPath] } : unit)
@@ -92,6 +100,23 @@ test('an owned maintenance job stays on its old generation while a compatible up
   for (const unit of before.units.filter(unit => unit.descriptor.id !== 'maintenance'))
     expect(f.runtime.snapshot().units.find(current => current.descriptor.id === unit.descriptor.id)?.generations[0]?.pid).toBe(unit.generations[0]?.pid)
   expect(f.runtime.coordinator.snapshot().resources).toBe(0)
+}, 120_000)
+
+test('an actual Maintenance candidate Worker failure preserves every serving owner and the stable connection', async () => {
+  const f = await fixture('job'), before = f.runtime.snapshot()
+  await f.runtime.waitForIdle()
+  await writeFile(join(f.source, 'maintenance-worker.ts'), "throw new Error('Injected Maintenance candidate Worker startup failure')\n")
+  const unit = f.runtime.buildUnits.find(unit => unit.descriptor.id === 'maintenance')!
+  const set = f.runtime.artifacts.registerSet([await f.runtime.artifacts.build(unit)])
+  const operation = f.runtime.reload(set.id, ['maintenance'])
+  await f.runtime.manager.reconcile(); await f.runtime.settled()
+  expect(f.runtime.getReload(operation.operationId)).toMatchObject({ phase: 'failed', switchedAt: null, units: [{ reasonCode: 'MAINTENANCE_WORKER_FAILED' }] })
+  expect(f.runtime.manager.currentVersion('maintenance').generation).toBe(1)
+  expect(f.runtime.snapshot().ready).toBe(true)
+  for (const unit of before.units)
+    expect(f.runtime.snapshot().units.find(value => value.descriptor.id === unit.descriptor.id)?.generations.find(value => value.role === 'default')?.pid).toBe(unit.generations[0]?.pid)
+  expect(f.client.connectionStatus()).toBe('connected')
+  expect(f.host.info().instanceId).toBe(before.instanceId)
 }, 120_000)
 
 test('a lost maintenance process is verified without replaying VACUUM, restores the sole writer and keeps the stable socket and runtime queries', async () => {

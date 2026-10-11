@@ -1,10 +1,18 @@
 import { expect, test } from 'bun:test'
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, relative, resolve } from 'node:path'
 import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { Storage, createPathLayout, ensurePathLayout, scanSessionLogs, STORAGE_SCHEMA_VERSION } from '@hbar/storage'
+import { fileURLToPath } from 'node:url'
+import {
+  Storage,
+  createPathLayout,
+  ensurePathLayout,
+  scanSessionLogs,
+  STORAGE_SCHEMA_VERSION,
+  createMaintenanceWorkerPreflight,
+} from '@hbar/storage'
 
 async function removeOwned(root: string) {
   const path = relative(resolve(tmpdir()), resolve(root))
@@ -25,7 +33,9 @@ test('actual Worker preflight constructs its full method table without a databas
   const probe = new Storage(layout.database, layout, { preflight: true })
   try {
     expect(await probe.call('ready')).toEqual({ version: STORAGE_SCHEMA_VERSION })
-    expect(await probe.call('setSetting', 'forbidden', 'must-not-write').catch((error: unknown) => error)).toMatchObject({
+    expect(
+      await probe.call('setSetting', 'forbidden', 'must-not-write').catch((error: unknown) => error),
+    ).toMatchObject({
       code: 'RUNTIME_PREPARING',
     })
     expect(existsSync(layout.database)).toBe(false)
@@ -60,7 +70,9 @@ test('a readonly actual Worker probe leaves the database, WAL and canonical rece
     const logs = scanSessionLogs(layout.sessions).events.map((event) => event.hash)
     probe = new Storage(layout.database, layout, { preflight: true })
     expect(await probe.call('ready')).toEqual({ version: STORAGE_SCHEMA_VERSION })
-    expect(await probe.call('setSetting', 'forbidden', 'must-not-write').catch((error: unknown) => error)).toMatchObject({
+    expect(
+      await probe.call('setSetting', 'forbidden', 'must-not-write').catch((error: unknown) => error),
+    ).toMatchObject({
       code: 'RUNTIME_PREPARING',
     })
     await probe.close()
@@ -75,3 +87,58 @@ test('a readonly actual Worker probe leaves the database, WAL and canonical rece
     await removeOwned(root)
   }
 })
+
+test('actual Maintenance Worker preparation closes its thread without creating a database, receipt or job', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-worker-preflight-'))
+  const layout = createPathLayout(join(root, 'data'), join(root, 'cache'), join(root, 'pointer.json'))
+  const probe = createMaintenanceWorkerPreflight(
+    layout,
+    fileURLToPath(new URL('../packages/storage/src/maintenance-worker.ts', import.meta.url)),
+  )
+  try {
+    await probe.ready
+    await probe.close()
+    expect(await readdir(root)).toEqual([])
+  } finally {
+    await probe.close()
+    await removeOwned(root)
+  }
+})
+
+test('an actual Maintenance Worker constructor failure is reported and joined before preparation returns', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-worker-preflight-'))
+  const layout = createPathLayout(join(root, 'data'), join(root, 'cache'), join(root, 'pointer.json'))
+  const source = join(root, 'worker.ts')
+  await writeFile(source, "throw new Error('Injected maintenance constructor failure')\n")
+  const probe = createMaintenanceWorkerPreflight(layout, source)
+  try {
+    expect(await probe.ready.catch((error: unknown) => error)).toMatchObject({ code: 'MAINTENANCE_WORKER_FAILED' })
+    await probe.close()
+    expect((await readdir(root)).sort()).toEqual(['worker.ts'])
+  } finally {
+    await probe.close()
+    await removeOwned(root)
+  }
+})
+
+test('an acknowledged Maintenance Worker that keeps its event loop alive cannot report readiness before actual exit', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-worker-preflight-'))
+  const layout = createPathLayout(join(root, 'data'), join(root, 'cache'), join(root, 'pointer.json'))
+  const source = join(root, 'worker.ts')
+  await writeFile(
+    source,
+    `import { parentPort } from 'node:worker_threads'; parentPort.postMessage({ ok: true, prepared: true, schemaRevision: ${STORAGE_SCHEMA_VERSION} }); setInterval(() => {}, 1000)\n`,
+  )
+  const probe = createMaintenanceWorkerPreflight(layout, source)
+  const started = Date.now()
+  try {
+    expect(await probe.ready.catch((error: unknown) => error)).toMatchObject({
+      code: 'MAINTENANCE_PREFLIGHT_EXIT_UNCONFIRMED',
+    })
+    await probe.close()
+    expect(Date.now() - started).toBeLessThan(10_000)
+  } finally {
+    await probe.close()
+    await removeOwned(root)
+  }
+}, 40_000)

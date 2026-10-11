@@ -230,3 +230,4 @@ export class Storage {
   }
 }
 export { STORAGE_PREFLIGHT_METHODS, assertStoragePreflightMethod } from './preflight'
+export { createMaintenanceWorkerPreflight } from './maintenance-worker-preflight'
