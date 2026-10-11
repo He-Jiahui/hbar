@@ -588,6 +588,18 @@ export class AgentRuntime implements AgentService {
     }
   }
 
+  /** Agent work is complete after its owning Run settles; budget continuation
+   * must not manufacture an empty follow-up Run for the child session. */
+  async beforeBudgetContinue(event: HookEvents['budget.beforeContinue']) {
+    if (!event.allowed) return event
+    const seed = await this.created(event.sessionId)
+    if (!seed) return event
+    const snapshot = await this.sessions.snapshot(event.sessionId)
+    const owningRun = snapshot.runs.find((run) => run.requestId === seed.requestId)
+    if (owningRun?.status === 'completed') return { ...event, allowed: false }
+    return event
+  }
+
   private async persistPatch(seed: CreatedAgent, patch: AgentPatch) {
     const data = patchEventSchema.parse({ patch })
     await this.sessions.append(seed.sessionId, 'agent.patch.updated', data)
@@ -812,6 +824,7 @@ export const agentPlugin = definePlugin({
       return event
     })
     api.hooks.on('run.end', (event) => runtime.finish(event))
+    api.hooks.on('budget.beforeContinue', (event) => runtime.beforeBudgetContinue(event))
   },
 })
 

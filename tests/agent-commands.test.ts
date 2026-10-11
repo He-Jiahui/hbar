@@ -173,6 +173,35 @@ test('agent commands create one budgeted child session per actor key and recover
   expect((await reopened.storage.call('workspace', workspace.id)).id).toBe(workspace.id)
 })
 
+test('completed child Agent vetoes budget-only continuation Runs', async () => {
+  const resource = await fixture()
+  const { kernel, parent, commands } = resource
+  const child = await commands.execute(
+    'agent.create',
+    {
+      parentSessionId: parent.id,
+      objective: 'Return AGENT-BUDGET-CONTINUE-OK after a bounded read-only check.',
+      modelId: 'local-fixture',
+      profileId: 'explore',
+      tokenBudget: 50_000,
+      approval: 'deny',
+    },
+    { idempotencyKey: 'agent-budget-continuation-veto' },
+  )
+  await kernel.waitForIdle()
+  const snapshot = await kernel.storage.call('snapshot', child.sessionId)
+  const budget = await kernel.plugins.get<BudgetService>('budget').get(child.sessionId)
+  expect(budget).toMatchObject({ phase: 'active' })
+  expect(budget?.remainingTokens).toBeGreaterThan(0)
+  expect(snapshot.runs[0]?.status).toBe('completed')
+  expect(snapshot.runs).toHaveLength(1)
+  expect(snapshot.runs[0]?.input.text).toContain('AGENT-BUDGET-CONTINUE-OK')
+  expect(snapshot.runs.some((run) => run.input.text === '')).toBe(false)
+  expect(
+    (await commands.execute('agent.result.get', { parentSessionId: parent.id, agentId: child.agentId })).status,
+  ).toBe('completed')
+})
+
 test('Host-owned Explore profile keeps the exact objective and advertises only read tools', async () => {
   const resource = await fixture()
   const { root, kernel, parent, client, commands } = resource
