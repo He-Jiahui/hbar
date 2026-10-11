@@ -44,7 +44,8 @@ export async function stopOwnedWebSessionHostChild(child: ChildProcess): Promise
       if (onExit) child.off('exit', onExit)
     })
   const exit = waitForExit(5_000)
-  child.kill()
+  if (child.stdin?.writable) child.stdin.end('close\n')
+  else child.kill()
   await exit
   if (!ended()) {
     const forcedExit = waitForExit(2_000)
@@ -131,7 +132,7 @@ export async function startWebSessionHost(
     historyCount?: number
     /** Test-only authored message content; never sent to a real Provider. */
     historyText?: string
-    fixture?: 'session' | 'chat-database' | 'chat-deletion'
+    fixture?: 'session' | 'chat-database' | 'chat-deletion' | 'runtime-status'
     goalAutoContinue?: boolean
     budgetAutoContinue?: boolean
   }>,
@@ -140,9 +141,11 @@ export async function startWebSessionHost(
   const child = spawn(
     bunExecutable(),
     [
-      options.fixture === 'chat-database' || options.fixture === 'chat-deletion'
-        ? 'scripts/e2e-chat-database-host.ts'
-        : 'scripts/e2e-session-host.ts',
+      options.fixture === 'runtime-status'
+        ? 'scripts/e2e-runtime-status-host.ts'
+        : options.fixture === 'chat-database' || options.fixture === 'chat-deletion'
+          ? 'scripts/e2e-chat-database-host.ts'
+          : 'scripts/e2e-session-host.ts',
     ],
     {
       cwd: process.cwd(),
@@ -159,11 +162,11 @@ export async function startWebSessionHost(
         HBAR_E2E_BUDGET_AUTO_CONTINUE: options.budgetAutoContinue === false ? '0' : '1',
         HBAR_E2E_WEB_ORIGIN: `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`,
       },
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: [options.fixture === 'runtime-status' ? 'pipe' : 'ignore', 'pipe', 'pipe'],
       windowsHide: true,
     },
   )
-  const ready = await waitForWebSessionHostReady(child)
+  const ready = await waitForWebSessionHostReady(child, options.fixture === 'runtime-status' ? 120_000 : 20_000)
   const url = `http://127.0.0.1:${port}`
   const client = new HbarClient(url, ready.token)
   try {

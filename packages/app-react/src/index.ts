@@ -204,6 +204,7 @@ export { HbarExtensionWorkspace, type HbarExtensionWorkspaceLabels } from './ext
 export { ExtensionSkillDetail, type ExtensionSkillDetailLabels } from './extension-skill-detail'
 export { HbarStatusWorkspace, type HbarStatusWorkspaceLabels } from './lumen-status-workspace'
 export { HbarSystemDiagnostics, type HbarSystemDiagnosticsLabels } from './system-diagnostics'
+export { HbarRuntimeStatusNotice, HbarRuntimeStatusDetails, type HbarRuntimeStatusLabels } from './host-runtime-status'
 export {
   HbarSandboxProfileSettings,
   HbarSandboxProfilesView,

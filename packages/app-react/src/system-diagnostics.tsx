@@ -2,11 +2,13 @@ import { useEffect } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { LumenButton, LumenCollection, LumenCollectionItem, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import { HbarRuntimeStatusDiagnostics, type HbarRuntimeStatusLabels } from './host-runtime-status'
 import './system-diagnostics.css'
 
 const DATABASE_PREVIEW_LIMIT = 12
 
 export interface HbarSystemDiagnosticsLabels {
+  readonly runtime: HbarRuntimeStatusLabels
   readonly title: string
   readonly description: string
   readonly refresh: string
@@ -46,6 +48,7 @@ export function HbarSystemDiagnostics({ instanceId, connected, labels }: HbarSys
   const report = entry?.report
   const loading = entry?.status === 'loading'
   const refresh = () => {
+    void runtime.hostRuntimeStatus.refresh()
     void runtime.commands.execute('systemDiagnostics.refresh', { instanceId }).catch(() => undefined)
   }
   useEffect(() => {
@@ -90,6 +93,7 @@ export function HbarSystemDiagnostics({ instanceId, connected, labels }: HbarSys
           )}
         </LumenFrame>
       )}
+      <HbarRuntimeStatusDiagnostics labels={labels.runtime} />
       {report && (
         <LumenFrame className="hbar-system-diagnostics-results">
           <LumenFrame as="section" className="hbar-system-diagnostics-section" aria-label={labels.host}>

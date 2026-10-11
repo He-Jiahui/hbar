@@ -228,6 +228,9 @@ export { settingsUsageCommands, SETTINGS_USAGE_MAX_BUCKETS } from './settings-us
 export type { SettingsUsageWindow, SettingsUsageReport, SettingsUsageEntry, SettingsUsageState } from './settings-usage'
 export type { SessionGitContextState } from './session-git-context'
 import { createSystemDiagnostics, systemDiagnosticsCommands } from './system-diagnostics'
+import { createHostRuntimeStatus } from './host-runtime-status'
+export { hostRuntimePhase } from './host-runtime-status'
+export type { HostRuntimeStatusState, HostRuntimeStatusPort, HostRuntimePhase } from './host-runtime-status'
 import { createSandboxProfiles, sandboxProfileEditorCommands } from './sandbox-profiles'
 import { createClientPersistence } from './client-persistence'
 import { createWorkspacePins, workspacePinCommands } from './workspace-pins'
@@ -1279,6 +1282,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     onSubscriberError,
     () => disposed,
   )
+  const hostRuntimeStatus = createHostRuntimeStatus(options.hostId, options.hostRuntimeStatus, onSubscriberError)
   const sandboxProfiles = createSandboxProfiles(local, {
     sandbox: options.sandbox,
     events: options.sandboxEvents,
@@ -1539,6 +1543,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       extensions: extensionWorkspace.reader,
       status: statusWorkspace.reader,
       diagnostics: systemDiagnostics.reader,
+      hostRuntimeStatus: hostRuntimeStatus.reader,
       sandboxProfiles: sandboxProfiles.reader,
       layout: clientPersistence.layout,
       preferences: clientPersistence.preferences,
@@ -1549,6 +1554,7 @@ export function createAppRuntime(options: RuntimeOptions) {
     }),
     commands: Object.freeze(createCommandClient(runtimeCommands, executor)),
     contextUsage: Object.freeze({ refresh: controls.refreshContext }),
+    hostRuntimeStatus: Object.freeze({ refresh: hostRuntimeStatus.refresh }),
     preSessionModelCatalog: preSessionModelCatalog.actions,
     chatDatabase: chatDatabase.actions,
     conversationReading: Object.freeze({
@@ -1651,6 +1657,7 @@ export function createAppRuntime(options: RuntimeOptions) {
       extensionWorkspace.dispose()
       statusWorkspace.dispose()
       systemDiagnostics.dispose()
+      hostRuntimeStatus.dispose()
       sandboxProfiles.dispose()
       offRunBoardEvents?.()
       runBoard.dispose()

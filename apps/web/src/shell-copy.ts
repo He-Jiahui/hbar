@@ -1,4 +1,5 @@
 import { extensionDetailCopy } from './extension-detail-copy'
+import { hostRuntimeStatusCopy } from './host-runtime-status-copy'
 import { extensionSkillCopy } from './extension-skill-copy'
 import { fileWorkspaceCopy, fileWorkspaceErrorCopy } from './file-workspace-copy'
 import { settingsUsageCopy } from './settings-usage-copy'
@@ -3180,6 +3181,7 @@ function createSystemDiagnosticsLabels(locale: ShellLocale): HbarSystemDiagnosti
   const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
   const number = new Intl.NumberFormat(locale)
   return {
+    runtime: hostRuntimeStatusCopy(locale),
     title: choose('诊断', 'Diagnostics'),
     description: choose(
       '查看当前 Host 报告的运行与存储摘要。此页不会清理或修改数据。',
