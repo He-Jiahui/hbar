@@ -15,8 +15,8 @@ const fixtureStyles = `
   .lumen-controls-panel > .lumen-toggle { min-inline-size: 0; flex: 1 1 16rem; }
   .lumen-controls-panel > .lumen-control { min-inline-size: 0; flex: 1 1 16rem; }
   .lumen-controls-outside { align-self: flex-start; }
-  .lumen-context-panel { display: flex; min-inline-size: 0; max-inline-size: 100%; flex-wrap: wrap; gap: .5rem; overflow: hidden; }
-  .lumen-context-panel > .hbar-session-project-context { min-inline-size: 0; max-inline-size: 100%; }
+  .lumen-context-panel { display: flex; min-inline-size: 0; max-inline-size: 100%; flex-wrap: wrap; gap: .5rem; overflow-x: auto; overflow-y: hidden; }
+  .lumen-context-panel > .hbar-session-project-context { flex: 0 0 auto; }
   .lumen-surface-fixture { display: flex; min-inline-size: 0; flex-wrap: wrap; gap: .5rem; }
   .lumen-dialog-fixture { display: flex; min-inline-size: 0; flex-direction: column; gap: .75rem; padding: 1rem; }
   #control-state { overflow-wrap: anywhere; }
@@ -70,6 +70,20 @@ async function assertTriggerAndSurfaceGeometry(page: Page, trigger: Locator): Pr
   return surface
 }
 
+async function assertFullControlLabel(label: Locator): Promise<void> {
+  const geometry = await label.evaluate((element) => {
+    const range = document.createRange()
+    range.selectNodeContents(element)
+    const style = getComputedStyle(element)
+    return {
+      fullTextFits: range.getBoundingClientRect().width <= element.clientWidth + 1,
+      whitespace: style.whiteSpace,
+      overflow: style.textOverflow,
+    }
+  })
+  expect(geometry).toEqual({ fullTextFits: true, whitespace: 'nowrap', overflow: 'clip' })
+}
+
 test.describe('Lumen production controls geometry and keyboard contract', () => {
   for (const locale of ['en-US', 'zh-CN'] as const) {
     const longProtocolLabel =
@@ -106,7 +120,16 @@ test.describe('Lumen production controls geometry and keyboard contract', () => 
         await expect(shortContextName).toHaveText('hbar')
         expect(await shortContextName.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
         await expect(longContextName).toHaveAttribute('title', 'D:/fixtures/a-deliberately-long-project-name')
-        expect(await longContextName.evaluate((element) => getComputedStyle(element).textOverflow)).toBe('ellipsis')
+        await assertFullControlLabel(longContextName)
+        const contextRail = page.getByRole('region', { name: 'Session project context geometry', exact: true })
+        const needsScroll = await contextRail.evaluate((element) => element.scrollWidth > element.clientWidth + 1)
+        if (viewport.width <= 390) expect(needsScroll).toBe(true)
+        if (needsScroll) {
+          await contextRail.focus()
+          await page.keyboard.press('ArrowRight')
+          await expect.poll(() => contextRail.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0)
+          await contextRail.evaluate((element) => (element.scrollLeft = 0))
+        }
         await expect(contexts.nth(1).locator('.hbar-session-project-context-branch')).toHaveAttribute(
           'title',
           /feature\/long-branch-name-that-must-remain-available-in-title/,
@@ -143,9 +166,20 @@ test.describe('Lumen production controls geometry and keyboard contract', () => 
         await expect(protocolListbox).toBeHidden()
         await expect(protocol).toBeFocused()
         await protocol.click()
-        await page.locator('.lumen-controls-outside').click()
+        const outside = page.locator('.lumen-controls-outside')
+        await outside.scrollIntoViewIfNeeded()
+        await expect
+          .poll(() =>
+            outside.evaluate((element) => {
+              const box = element.getBoundingClientRect()
+              const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+              return hit !== null && element.contains(hit)
+            }),
+          )
+          .toBe(true)
+        await outside.click()
         await expect(protocolListbox).toBeHidden()
-        await expect(page.locator('.lumen-controls-outside')).toBeFocused()
+        await expect(outside).toBeFocused()
 
         await selectLumenOption(protocol, { label: longProtocolLabel })
         await expectLumenValue(protocol, 'long-protocol')
@@ -153,7 +187,16 @@ test.describe('Lumen production controls geometry and keyboard contract', () => 
           locale === 'zh-CN' ? '一个很长的协议标签' : 'A deliberately long protocol label',
         )
         await assertNoViewportOverflow(page, viewport.width)
-        expect(await shortLabel.evaluate((element) => getComputedStyle(element).textOverflow)).toBe('ellipsis')
+        await assertFullControlLabel(shortLabel)
+        const protocolRail = protocol.locator(
+          'xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " lumen-popup-select ")][1]',
+        )
+        if (await protocolRail.evaluate((element) => element.scrollWidth > element.clientWidth + 1)) {
+          await protocol.focus()
+          await protocolRail.evaluate((element) => (element.scrollLeft = 0))
+          await page.keyboard.press('ArrowRight')
+          await expect.poll(() => protocolRail.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0)
+        }
 
         await model.click()
         const modelListbox = await listboxFor(model)

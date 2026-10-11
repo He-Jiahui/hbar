@@ -144,6 +144,9 @@ function LumenControlsFixture() {
     <LumenProvider appearance={{ ...DEFAULT_LUMEN_APPEARANCE, mode, controlSize }} withCssBaseline={false}>
       <main className="lumen-controls-fixture">
         <h1>{copy.title}</h1>
+        <button type="button" className="lumen-controls-outside">
+          {copy.outside}
+        </button>
         <section className="lumen-controls-panel" aria-label="Lumen control panel">
           <LumenFormField controlId="protocol-select" label={copy.protocol}>
             <LumenPopupSelect
@@ -262,7 +265,7 @@ function LumenControlsFixture() {
           />
           <output data-testid="last-action">{lastAction}</output>
         </section>
-        <section className="lumen-context-panel" aria-label="Session project context geometry">
+        <section className="lumen-context-panel" aria-label="Session project context geometry" tabIndex={0}>
           <HbarSessionProjectContext
             workspaceName="hbar"
             workspacePath="D:/fixtures/hbar"
@@ -296,9 +299,6 @@ function LumenControlsFixture() {
             onRetry={() => undefined}
           />
         </section>
-        <button type="button" className="lumen-controls-outside">
-          {copy.outside}
-        </button>
         <output data-testid="control-state">
           {JSON.stringify({ protocol, model, thinking, capabilities, enabled })}
         </output>
