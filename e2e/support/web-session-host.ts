@@ -298,7 +298,7 @@ export async function startWebSessionHost(
     historyCount?: number
     /** Test-only authored message content; never sent to a real Provider. */
     historyText?: string
-    fixture?: 'session' | 'chat-database' | 'chat-deletion' | 'runtime-status'
+    fixture?: 'session' | 'chat-database' | 'chat-deletion' | 'runtime-status' | 'file-changes'
     goalAutoContinue?: boolean
     budgetAutoContinue?: boolean
     /** Bounded delay in the local summary fixture, only for observing compaction lifecycle. */
@@ -315,6 +315,8 @@ export async function startWebSessionHost(
         ? 'scripts/e2e-runtime-status-host.ts'
         : options.fixture === 'chat-database' || options.fixture === 'chat-deletion'
           ? 'scripts/e2e-chat-database-host.ts'
+          : options.fixture === 'file-changes'
+            ? 'scripts/e2e-run-file-changes-host.ts'
           : 'scripts/e2e-session-host.ts',
     ],
     {

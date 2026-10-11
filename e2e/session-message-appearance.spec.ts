@@ -1,10 +1,20 @@
 import { expect, test } from '@playwright/test'
-import { createGoalPlanCommandClient, createRunCommandClient } from '@hbar/client'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { createGoalPlanCommandClient, createRunCommandClient, createWorkspaceSessionCommandClient } from '@hbar/client'
+import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+
+async function cleanup(root: string) {
+  const target = await realpath(root)
+  if (
+    dirname(target).toLowerCase() !== (await realpath(tmpdir())).toLowerCase() ||
+    !basename(target).startsWith('hbar-message-appearance-')
+  )
+    throw new Error('Non-owned message appearance fixture')
+  await rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 250 })
+}
 
 test('message reading surfaces stay quiet while tool disclosures retain keyboard feedback', async ({
   browser,
@@ -13,7 +23,12 @@ test('message reading surfaces stay quiet while tool disclosures retain keyboard
   const root = await mkdtemp(join(tmpdir(), 'hbar-message-appearance-'))
   let host: WebSessionHost | undefined
   try {
-    host = await startWebSessionHost({ root, port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317) })
+    host = await startWebSessionHost({
+      root,
+      port: Number(process.env.HBAR_E2E_HOST_PORT ?? 4317),
+      goalAutoContinue: false,
+      budgetAutoContinue: false,
+    })
     const sessionId = host.ready.sessionId
     const goals = createGoalPlanCommandClient(host.client)
     await createRunCommandClient(host.client).execute(
@@ -31,6 +46,8 @@ test('message reading surfaces stay quiet while tool disclosures retain keyboard
     await expect
       .poll(async () => (await goals.execute('plan.get', { sessionId }))?.plan[0]?.step)
       .toBe('Verify the conversation reading surface')
+    const session = await createWorkspaceSessionCommandClient(host.client).execute('session.get', { sessionId })
+    if (!session) throw new Error('Missing message appearance session')
 
     for (const theme of ['light', 'dark'] as const) {
       for (const width of [1440, 900, 390, 320]) {
@@ -52,7 +69,7 @@ test('message reading surfaces stay quiet while tool disclosures retain keyboard
           await page.addInitScript((value) => localStorage.setItem('hbar:web:theme', value), theme)
           await page.goto(base)
           if (width < 1024) await page.getByRole('button', { name: '显示工程与会话侧栏' }).click()
-          await page.getByRole('button', { name: /^打开会话 / }).click()
+          await page.getByRole('treeitem', { name: session.title, exact: true }).click()
           const messages = page.locator('.lumen-message-transcript')
           await expect(messages).toHaveCount(3)
           await expect(messages.locator('[data-edge]')).toHaveCount(0)
@@ -102,6 +119,6 @@ test('message reading surfaces stay quiet while tool disclosures retain keyboard
     }
   } finally {
     if (host) await stopWebSessionHost(host)
-    await rm(root, { recursive: true, force: true })
+    await cleanup(root)
   }
 })

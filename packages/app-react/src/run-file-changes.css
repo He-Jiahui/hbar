@@ -1,0 +1,168 @@
+.hbar-run-file-changes {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.875rem;
+  background: var(--lumen-frost);
+  overflow: hidden;
+}
+.hbar-run-file-change-header,
+.hbar-run-file-change-actions,
+.hbar-run-file-change-footer,
+.hbar-run-file-change-pagination,
+.hbar-run-file-change-counts,
+.hbar-run-file-change-feedback {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-inline-size: 0;
+}
+.hbar-run-file-change-header,
+.hbar-run-file-change-footer,
+.hbar-run-file-change-pagination,
+.hbar-run-file-change-feedback {
+  flex-wrap: wrap;
+}
+.hbar-run-file-change-header {
+  gap: 0.875rem;
+  padding: 0.9375rem;
+}
+.hbar-run-file-change-icon {
+  display: flex;
+  flex: 0 0 auto;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: var(--lumen-canvas);
+}
+.hbar-run-file-change-heading {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 9rem;
+  min-inline-size: 0;
+  gap: 0.25rem;
+}
+.hbar-run-file-change-heading > p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.hbar-run-file-change-actions {
+  margin-inline-start: auto;
+  flex-wrap: wrap;
+}
+.hbar-run-file-change-actions > button,
+.hbar-run-file-change-footer > button,
+.hbar-run-file-change-pagination > button {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  block-size: auto;
+  white-space: normal;
+}
+.hbar-run-file-change-actions > button > [data-text-context='control.label'],
+.hbar-run-file-change-footer > button > [data-text-context='control.label'],
+.hbar-run-file-change-pagination > button > [data-text-context='control.label'] {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.hbar-run-file-change-counts {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.hbar-run-file-change-counts [data-delta='added'] {
+  color: var(--lumen-success);
+}
+.hbar-run-file-change-counts [data-delta='removed'] {
+  color: var(--lumen-danger);
+}
+.hbar-run-file-change-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0.3125rem 0.9375rem;
+  list-style: none;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+.hbar-run-file-change-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-inline-size: 0;
+}
+.hbar-run-file-change-row > .hbar-run-file-change-path {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  padding: 0.625rem 0;
+  justify-content: flex-start;
+  block-size: auto;
+  text-align: start;
+}
+.hbar-run-file-change-path-text {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.hbar-run-file-change-prefix {
+  color: var(--lumen-muted);
+}
+.hbar-run-file-change-footer {
+  justify-content: space-between;
+  padding: 0.25rem 0.625rem;
+  background: var(--lumen-surface);
+}
+.hbar-run-file-change-feedback {
+  padding: 0.5rem 0.9375rem;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.hbar-run-file-change-review {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: 0.5rem;
+  padding: 0.75rem 0.9375rem;
+  border-block-start: 0.0625rem solid var(--lumen-edge);
+}
+.hbar-run-file-change-review[hidden] {
+  display: none;
+}
+.hbar-run-file-change-review > p {
+  margin: 0;
+}
+.hbar-run-file-change-review-title {
+  overflow-wrap: anywhere;
+}
+.hbar-run-file-change-diff {
+  min-inline-size: 0;
+  overflow-x: auto;
+  border: 0.0625rem solid var(--lumen-edge);
+  border-radius: 0.375rem;
+  background: var(--lumen-canvas);
+}
+.hbar-run-file-change-diff-line {
+  display: flex;
+  align-items: baseline;
+  min-inline-size: max-content;
+  gap: 0.5rem;
+  padding: 0.125rem 0.5rem;
+  font-family: var(--lumen-font-mono, monospace);
+}
+.hbar-run-file-change-line-number {
+  flex: 0 0 3.5em;
+  text-align: end;
+  color: var(--lumen-muted);
+  font-variant-numeric: tabular-nums;
+}
+.hbar-run-file-change-diff-line > code {
+  white-space: pre;
+  font-family: inherit;
+}
+.hbar-run-file-change-diff-line[data-kind='added'] {
+  background: color-mix(in srgb, var(--lumen-success) 8%, transparent);
+  color: var(--lumen-success);
+}
+.hbar-run-file-change-diff-line[data-kind='removed'] {
+  background: color-mix(in srgb, var(--lumen-danger) 8%, transparent);
+  color: var(--lumen-danger);
+}

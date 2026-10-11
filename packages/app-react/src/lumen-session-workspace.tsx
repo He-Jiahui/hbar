@@ -48,6 +48,8 @@ import {
   type HbarMessageForkAction,
 } from './session-message'
 import { projectSessionMessages, projectSessionTimelineSequence } from './session-message-model'
+import { HbarRunFileChangesConnected, type HbarRunFileChangesLabels } from './run-file-changes'
+import type { HbarRunFileChangeRenderer } from './run-file-change-renderer'
 import { projectToolActivities, EMPTY_TOOL_ACTIVITIES } from './session-tool-activity-model'
 import { conversationMessageExpectedText, type ConversationSelectionSubmission } from './conversation-selection-model'
 import {
@@ -193,6 +195,8 @@ export interface HbarSessionWorkspaceLabels {
   readonly permissionPicker: HbarComposerPermissionLabels
   readonly messageBlocks: HbarMessageBlocksLabels
   readonly messageActions: HbarMessageActionLabels
+  /** Omitted only by hosts that do not expose file-change review. */
+  readonly fileChanges?: HbarRunFileChangesLabels
   readonly agentToolOpen: HbarAgentToolOpenLabels
   readonly messageFork: {
     readonly ready: string
@@ -254,6 +258,7 @@ export interface HbarSessionWorkspaceProps {
   readonly renderLaunchControls?: (() => ReactNode) | undefined
   readonly images?: HbarSessionImagesOptions | undefined
   readonly modelMenuPresentation?: 'native' | 'web' | undefined
+  readonly fileChangeRenderer?: HbarRunFileChangeRenderer | undefined
 }
 
 function SessionToolButton({
@@ -304,6 +309,7 @@ function SessionWorkspaceContent({
   renderLaunchControls,
   images,
   modelMenuPresentation,
+  fileChangeRenderer,
 }: HbarSessionWorkspaceProps) {
   const runtime = useHbarRuntime()
   const stopRun = useSessionStopAction()
@@ -1771,6 +1777,9 @@ function SessionWorkspaceContent({
   ]
 
   const rowsById = new Map(messageRows.map((row) => [row.id, row]))
+  const summarizedRuns = new Set(
+    sequence.flatMap((item) => (item.kind === 'runFileChanges' && labels.fileChanges ? [item.runId] : [])),
+  )
   const messages: LumenMessageProps[] = sequence.flatMap((item): LumenMessageProps[] => {
     if (item.kind === 'activityGroup') {
       const first = rowsById.get(item.id)
@@ -1828,9 +1837,45 @@ function SessionWorkspaceContent({
           children: <HbarGoalLifecycleCard row={item.row} labels={labels.goalLifecycle} />,
         },
       ]
+    if (item.kind === 'runFileChanges')
+      return labels.fileChanges
+        ? [
+            {
+              id: `run-file-changes:${item.runId}`,
+              role: 'system',
+              author: labels.author.system,
+              avatar: labels.avatar.system,
+              appearance: 'transcript',
+              copyLabel: labels.copy,
+              actions: rowsById.get(lastAssistantByRun.get(item.runId) ?? '')?.actions ?? null,
+              children: (
+                <HbarRunFileChangesConnected
+                  sessionId={item.sessionId}
+                  runId={item.runId}
+                  summary={item.summary}
+                  labels={labels.fileChanges}
+                  connected={connected}
+                  renderer={fileChangeRenderer}
+                />
+              ),
+            },
+          ]
+        : []
     if (item.kind === 'goalContinuation') return [] // Run boundaries, including failed Goal continuations, belong to session status.
     const row = rowsById.get(item.kind === 'message' ? item.projection.message.id : item.stream.id)
-    return row ? [row] : []
+    return row
+      ? [
+          {
+            ...row,
+            actions:
+              item.kind === 'message' &&
+              summarizedRuns.has(item.projection.message.runId) &&
+              lastAssistantByRun.get(item.projection.message.runId) === row.id
+                ? null
+                : row.actions,
+          },
+        ]
+      : []
   })
 
   const currentFailure =

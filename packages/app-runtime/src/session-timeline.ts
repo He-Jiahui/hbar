@@ -1,14 +1,13 @@
 import { CommandError, type CommandRegistry } from '@hbar/commands'
 import {
   contentBlockSchema,
-  inputSchema,
+  runSchema,
   planStateSchema,
   sessionEventSchema,
   usageSchema,
   userInputRequestSchema,
   toolExecutionEventSchema,
   toolBatchEventSchema,
-  runFailureSchema,
 } from '@hbar/contracts'
 import { sessionTimelineCommands } from '@hbar/contracts/commands/session-timeline'
 import {
@@ -19,7 +18,6 @@ import {
   type ContextHistoryPage,
 } from '@hbar/contracts/context-history'
 import { queuedRunGuidanceSchema, admitOperationRecovery, type QueuedRunGuidance } from '@hbar/contracts/commands/run'
-import { runRecoverySchema } from '@hbar/contracts/runtime'
 import type {
   Approval,
   LiveStream,
@@ -44,29 +42,6 @@ const MAX_EVENTS = 1_000
 const MAX_CACHED_SESSIONS = 8
 const PAGE_SIZE = 60
 
-const runSchema = z.object({
-  id: z.string().min(1),
-  sessionId: z.string().min(1),
-  requestId: z.string().min(1),
-  input: inputSchema,
-  modelId: z.string().min(1),
-  status: z.enum([
-    'queued',
-    'running',
-    'waiting_approval',
-    'guided',
-    'completed',
-    'cancelled',
-    'failed',
-    'interrupted',
-  ]),
-  createdAt: z.number().int().nonnegative(),
-  startedAt: z.number().int().nonnegative().nullable(),
-  endedAt: z.number().int().nonnegative().nullable(),
-  error: z.string().nullable(),
-  failure: runFailureSchema.optional(),
-  recovery: runRecoverySchema.optional(),
-})
 const approvalSchema = z.object({
   id: z.string().min(1),
   sessionId: z.string().min(1),
@@ -332,12 +307,13 @@ function projectEvent(current: SessionTimelineState, event: SessionEvent): Sessi
     const parsed = runSchema.safeParse(data.run)
     const ids = new Set(parsed.success && parsed.data.recovery ? [parsed.data.recovery.predecessorRunId] : [])
     admitOperationRecovery(event, ids)
-    if (parsed.success && parsed.data.sessionId === event.sessionId &&
-      (event.type !== 'run.recoveryQueued' || ids.has(parsed.data.id))) {
+    if (
+      parsed.success && parsed.data.sessionId === current.sessionId &&
+      (!event.runId || parsed.data.id === event.runId) &&
+      (event.type !== 'run.recoveryQueued' || ids.has(parsed.data.id))
+    ) {
       if (!toolClock || event.time >= toolClock.hostTime) toolClock = { hostTime: event.time, receivedAt: Date.now() }
-      runs = [...upsert(runs, parsed.data as Run, (item) => item.id, MAX_RUNS)].sort(
-        (a, b) => b.createdAt - a.createdAt,
-      )
+      runs = [...upsert<Run>(runs, parsed.data, (item) => item.id, MAX_RUNS)].sort((a, b) => b.createdAt - a.createdAt)
       if (event.type === 'run.settled')
         streams = Object.fromEntries(Object.entries(streams).filter(([, stream]) => stream.runId !== parsed.data.id))
     }

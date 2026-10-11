@@ -52,7 +52,9 @@ function identities(items: readonly SessionTimelineSequenceItem[]) {
           ? `continuation:${item.continuation.runId}`
           : item.kind === 'goalLifecycle'
             ? `goal:${item.row.eventId}`
-            : `context:${item.marker.id}`,
+            : item.kind === 'runFileChanges'
+              ? `files:${item.runId}`
+              : `context:${item.marker.id}`,
   )
 }
 

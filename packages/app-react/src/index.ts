@@ -42,6 +42,8 @@ export {
 } from './session-message'
 export type { HbarCodeBlockLabels } from './code-block-copy-action'
 export { projectSessionMessages, type SessionMessageProjection } from './session-message-model'
+export { HbarRunFileChanges, type HbarRunFileChangesLabels } from './run-file-changes'
+export type { HbarRunFileChangeRenderer } from './run-file-change-renderer'
 export { groupCompletedSessionActivities, type SessionActivitySequenceItem } from './session-activity-group-model'
 export { messageActivitySummary } from './session-message'
 export { HbarActivityDisclosure, type HbarActivityDisclosureProps } from './session-activity-disclosure'
