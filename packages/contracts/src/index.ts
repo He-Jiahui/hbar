@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { runRecoverySchema, runtimeWatchInputSchema } from './runtime'
 import { toolActivitySchema } from './tool-activity'
 import { toolFileChangesSchema, runFileChangesSummarySchema } from './run-file-changes'
 import { modelContextTiersSchema, maximumContextWindow } from './model-context-tiers'
@@ -506,8 +505,6 @@ export const inputSchema = z.object({
   /** Captured at admission; missing legacy values mean standard context. */
   maxMode: z.boolean().optional(),
   approval: approvalModeSchema.optional(),
-  /** Host-owned policy at admission; later changes must reach executors retained by an older generation. */
-  permissionAtAdmission: approvalModeSchema.optional(),
   /** Host-created rules for `approval: 'sandbox'`; the Host strips it for other modes. */
   sandbox: sandboxSnapshotRefSchema.optional(),
   mode: runModeSchema.optional(),
@@ -605,7 +602,6 @@ export const runSchema = z.object({
   endedAt: z.number().int().nonnegative().nullable(),
   error: z.string().nullable(),
   failure: runFailureSchema.optional(),
-  recovery: runRecoverySchema.optional(),
   fileChanges: runFileChangesSummarySchema.optional(),
 })
 export type Run = z.infer<typeof runSchema>
@@ -1179,10 +1175,10 @@ export type WireNotification =
   | { method: 'stream.update'; params: StreamDelta }
   | { method: 'metrics.sample'; params: import('./metrics').PerformanceSample }
   | { method: 'host.changed'; params: { kind: string } }
-  | { method: 'goal.updated'; params: { sessionId: string; runId: string | null; goal: ThreadGoal; seq?: number | undefined } }
-  | { method: 'goal.cleared'; params: { sessionId: string; seq?: number | undefined } }
-  | { method: 'plan.updated'; params: PlanState & { seq?: number | undefined } }
-  | { method: 'plan.cleared'; params: { sessionId: string; seq?: number | undefined } }
+  | { method: 'goal.updated'; params: { sessionId: string; runId: string | null; goal: ThreadGoal; seq?: number } }
+  | { method: 'goal.cleared'; params: { sessionId: string; seq?: number } }
+  | { method: 'plan.updated'; params: PlanState & { seq?: number } }
+  | { method: 'plan.cleared'; params: { sessionId: string; seq?: number } }
   | {
       method: 'workflow.updated'
       params: { sessionId: string; snapshot: import('./workflow').WorkflowSnapshot }
@@ -1202,7 +1198,7 @@ export type WireNotification =
   | { method: 'user_input.requested'; params: UserInputRequest }
   | {
       method: 'user_input.resolved'
-      params: { requestId: string; sessionId: string; cancelled: boolean; response?: UserInputResponse | undefined }
+      params: { requestId: string; sessionId: string; cancelled: boolean; response?: UserInputResponse }
     }
   | { method: 'auth.revoked'; params: { reason: string } }
   | { method: 'terminal.output'; params: { terminalId: string; data: string } }
@@ -1219,8 +1215,6 @@ export type WireNotification =
     }
 
 export const rpcSchemas = {
-  'system.runtime.watch': runtimeWatchInputSchema,
-  'system.runtime.unwatch': z.strictObject({}),
   'command.execute': invocationSchema,
   'command.catalog': z.strictObject({
     category: z.string().min(1).max(128).optional(),
@@ -1549,8 +1543,6 @@ export const rpcSchemas = {
 export type RpcMethod = keyof typeof rpcSchemas
 export type RpcParams<M extends RpcMethod> = z.input<(typeof rpcSchemas)[M]>
 export interface RpcResults {
-  'system.runtime.watch': import('./runtime').RuntimeWatchResult
-  'system.runtime.unwatch': null
   'command.execute': unknown
   'command.catalog': {
     revision: number

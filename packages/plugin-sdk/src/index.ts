@@ -78,9 +78,6 @@ export { Context }
 export { DEFAULT_TOOL_TIMEOUT_MS, resolveToolTimeoutMs, describeToolTimeout } from './tool-timeout'
 export type { ToolTimeoutPolicy } from './tool-timeout'
 export type Disposer = () => void | Promise<void>
-export interface ManagedResourceRegistry {
-  retain(resource: { kind: 'browser' | 'computer' | 'terminal'; id: string; sessionId: string }): Promise<Disposer>
-}
 export type ScopeKind = 'host' | 'workspace' | 'session' | 'run' | 'client'
 export type ToolResultContent = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }
 export interface ScopeDescriptor {
@@ -151,12 +148,6 @@ export interface ToolDefinition extends ToolTimeoutPolicy {
   name: string
   description: string
   inputSchema: z.ZodType
-  /** Plain model-facing parameter description for an isolated driver; execution still validates inputSchema in its owner. */
-  inputJsonSchema?: Readonly<Record<string, unknown>>
-  /** Isolated tools validate in their owner before and after Hook transformation, before approval or durable intent. */
-  validate?(args: unknown): Promise<Record<string, unknown>>
-  /** Declared managed owner; admission retains capacity until this process confirms physical completion. */
-  runtimeOwner?: string
   effect: 'read' | 'write' | 'process' | 'network'
   /** Requested-input display only; the Host captures this declaration, never localized text or execution proof. */
   presentation?: ToolPresentationDeclaration
@@ -402,10 +393,6 @@ export interface GoalToolResponse {
   completionBudgetReport?: string
 }
 export interface GoalService {
-  /** Read the canonical Session journal without accounting, continuation or external effects. */
-  refreshSession?(sessionId: string): Promise<void>
-  reconcileRun?(run: Run): Promise<void>
-  recoveryReason?(run: Run): Promise<string | null>
   /** Restore active execution once the Host's providers and lifecycle gates are ready. */
   resumeOnStartup(): Promise<void>
   snapshot(sessionId: string): Promise<{ value: GoalToolResponse; seq: number }>
@@ -426,7 +413,6 @@ export interface GoalService {
   ): Promise<void>
 }
 export interface PlanService {
-  refreshSession?(sessionId: string): Promise<void>
   snapshot(sessionId: string): Promise<{ value: PlanState | null; seq: number }>
   get(sessionId: string): Promise<PlanState | null>
   /** Hold the observed plan revision stable while committing a dependent fact. */
@@ -502,13 +488,11 @@ export interface WorkflowService {
 export interface ModeService {
   get(sessionId: string): Promise<{ mode: RunMode }>
   set(sessionId: string, mode: RunMode): Promise<{ mode: RunMode }>
-  effectiveMode(run: Run): RunMode | Promise<RunMode>
+  effectiveMode(run: Run): RunMode
   /** Serialize the approved Run transition with ordinary session mode writes. */
   commitExit<T extends { modeEvent: SessionEvent | null }>(sessionId: string, commit: () => Promise<T>): Promise<T>
 }
 export interface BudgetService {
-  refreshSession?(sessionId: string): Promise<void>
-  reconcileRun?(run: Run): Promise<void>
   get(sessionId: string): Promise<SessionBudget | null>
   set(sessionId: string, limit: number): Promise<SessionBudget>
   setCommand(
@@ -804,8 +788,6 @@ export interface HookRegistry {
 }
 export interface HbarAPI {
   scope: ScopeDescriptor
-  /** Managed owners hydrate projections; reconciliation belongs to the stable recovery coordinator. */
-  restoreMode?: 'projection' | undefined
   tools: ToolRegistry
   hooks: HookRegistry
   sessions: SessionService
@@ -825,8 +807,6 @@ export interface HbarAPI {
     goalEnabled?: boolean,
   ): Promise<import('@hbar/contracts').AutomationState>
   panels: { register(panel: Omit<ToolWindowContribution, 'owner'>): Disposer }
-  /** Optional stable lifecycle port. Executable/native handles remain in this plugin process. */
-  resources?: ManagedResourceRegistry
   service<T>(name: string): T
 }
 export interface UserInputService {
