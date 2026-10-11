@@ -515,8 +515,11 @@ test('a failed Kernel candidate keeps the current version and does not interrupt
   const root = await mkdtemp(join(process.cwd(), 'artifacts', 'process-host-failed-'))
   resources.push(() => rm(root, { recursive: true, force: true }))
   const source = join(root, 'kernel.ts')
-  await writeFile(source, (await readFile('apps/host/src/runtime-kernel-process.ts', 'utf8')).replaceAll("'./", "'../../apps/host/src/")
-    .replace('async prepare() { return', "async prepare() { throw new HbarError('PREPARE_FAILED', 'Injected readonly failure'); return"))
+  const originalSource = await readFile('apps/host/src/runtime-kernel-process.ts', 'utf8')
+  const anchor = 'async prepare() {'
+  expect(originalSource.split(anchor)).toHaveLength(2)
+  await writeFile(source, originalSource.replaceAll("'./", "'../../apps/host/src/")
+    .replace(anchor, "async prepare() { throw new HbarError('PREPARE_FAILED', 'Injected readonly failure');"))
   const unit = f.runtime.buildUnits.find(value => value.descriptor.id === 'kernel')!
   const failed = f.runtime.artifacts.registerSet([await f.runtime.artifacts.build({ ...unit, entrypoint: source })])
   expect(failed.id).not.toBe(set.id)

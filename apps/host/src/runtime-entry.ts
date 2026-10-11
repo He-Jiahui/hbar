@@ -1,3 +1,5 @@
 import { runRuntimeProcess } from '@hbar/runtime/entry'
+import { enterRuntimeProcessGroup, exitRuntimeProcessGroup } from '@hbar/runtime-native'
 
-await runRuntimeProcess()
+enterRuntimeProcessGroup()
+await runRuntimeProcess({ exit: exitRuntimeProcessGroup })

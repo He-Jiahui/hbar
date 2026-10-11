@@ -6,6 +6,8 @@ import {
   runtimeGenerationSchema,
   type RuntimeGeneration,
   type RuntimeOwner,
+  type RuntimeProcessTree,
+  type RuntimeProcessTreePort,
   type RuntimeUnitDescriptor,
 } from '@hbar/contracts/runtime'
 import { IpcPeer, type IpcCallOptions } from './ipc'
@@ -21,12 +23,18 @@ export interface ManagedProcessOptions {
   /** Verify registered bytes again before every candidate import and recovery incarnation. */
   readonly verifyModule?: (signal: AbortSignal) => Promise<void>
   readonly command?: readonly [string, ...string[]]
+  /** Local native lifetime port; descendants must exit before execution ownership is released. */
+  readonly processTree?: RuntimeProcessTreePort
   readonly heartbeatMs?: number
   readonly startupMs?: number
   readonly shutdownMs?: number
   readonly onPeer?: (peer: IpcPeer, owner: RuntimeOwner) => void
   /** Called only after activation has been authorized, for each actual process incarnation. */
-  readonly onActivating?: (owner: RuntimeOwner, role: 'default' | 'draining', signal: AbortSignal) => void | Promise<void>
+  readonly onActivating?: (
+    owner: RuntimeOwner,
+    role: 'default' | 'draining',
+    signal: AbortSignal,
+  ) => void | Promise<void>
   readonly onState?: (snapshot: RuntimeGeneration) => void
   readonly onFault?: (owner: RuntimeOwner, reasonCode: string) => Promise<void>
   readonly onExit?: (owner: RuntimeOwner) => Promise<void>
@@ -35,6 +43,15 @@ export interface ManagedProcessOptions {
   readonly healthyResetMs?: number
   readonly jitter?: number
   readonly controlMethods?: readonly string[]
+}
+
+interface Retirement {
+  readonly owner: RuntimeOwner
+  readonly tree: Promise<RuntimeProcessTree | undefined>
+  readonly deliberate: boolean
+  fence: Promise<void> | undefined
+  release: Promise<void> | undefined
+  joined: boolean
 }
 
 function duration(value: number | undefined, fallback: number): number {
@@ -63,6 +80,9 @@ export class ManagedProcess {
   private launching: Promise<void> | undefined
   private exitHandling: Promise<void> = Promise.resolve()
   private fencing: Promise<void> | undefined
+  private tree: RuntimeProcessTree | undefined
+  private retirement: Retirement | undefined
+  private retiring: Promise<void> | undefined
   private activation: AbortController | undefined
   private readonly stopController = new AbortController()
   private state: RuntimeGeneration
@@ -133,17 +153,34 @@ export class ManagedProcess {
     const activation = new AbortController()
     this.activation = activation
     const signal = AbortSignal.any([activation.signal, AbortSignal.timeout(this.startupMs)])
-    const aborted = () => { activation.abort() }
+    const aborted = () => {
+      activation.abort()
+    }
     try {
-      if (this.options.onActivating) await new Promise<void>((resolve, reject) => {
-        const cancel = () => reject(new HbarError('RUNTIME_ACTIVATION_EXPIRED', 'Runtime activation authority expired'))
-        signal.addEventListener('abort', cancel, { once: true })
-        Promise.resolve().then(() => { signal.throwIfAborted(); return this.options.onActivating?.(owner, role, signal) })
-          .then(resolve, reject).finally(() => signal.removeEventListener('abort', cancel))
-      })
-      if (signal.aborted || this.stopped || this.state.phase !== 'ready' || !this.peer || this.owner().incarnation !== owner.incarnation)
+      if (this.options.onActivating)
+        await new Promise<void>((resolve, reject) => {
+          const cancel = () =>
+            reject(new HbarError('RUNTIME_ACTIVATION_EXPIRED', 'Runtime activation authority expired'))
+          signal.addEventListener('abort', cancel, { once: true })
+          Promise.resolve()
+            .then(() => {
+              signal.throwIfAborted()
+              return this.options.onActivating?.(owner, role, signal)
+            })
+            .then(resolve, reject)
+            .finally(() => signal.removeEventListener('abort', cancel))
+        })
+      if (
+        signal.aborted ||
+        this.stopped ||
+        this.state.phase !== 'ready' ||
+        !this.peer ||
+        this.owner().incarnation !== owner.incarnation
+      )
         throw new HbarError('RUNTIME_OWNER_REVOKED', 'Runtime activation authority expired before production started')
-      await this.peer.call('runtime.activate', { role }, z.undefined(), { timeoutMs: Math.max(1, deadline - Date.now()) })
+      await this.peer.call('runtime.activate', { role }, z.undefined(), {
+        timeoutMs: Math.max(1, deadline - Date.now()),
+      })
       this.state.phase = role === 'draining' ? 'draining' : 'serving'
       this.state.lastHeartbeatAt = Date.now()
       this.healthySince = Date.now()
@@ -194,6 +231,8 @@ export class ManagedProcess {
 
   private async launch(): Promise<void> {
     if (this.stopped) throw new HbarError('RUNTIME_DISPOSED', 'Runtime generation is disposed')
+    await this.retire()
+    if (this.stopped) throw new HbarError('RUNTIME_DISPOSED', 'Runtime generation is disposed')
     this.state.incarnation = crypto.randomUUID()
     this.state.phase = 'preparing'
     this.state.nextAttemptAt = null
@@ -207,9 +246,15 @@ export class ManagedProcess {
       const signal = AbortSignal.any([this.stopController.signal, AbortSignal.timeout(this.startupMs)])
       try {
         await new Promise<void>((resolve, reject) => {
-          const cancel = () => reject(new HbarError('RUNTIME_VERIFICATION_EXPIRED', 'Runtime module verification expired'))
+          const cancel = () =>
+            reject(new HbarError('RUNTIME_VERIFICATION_EXPIRED', 'Runtime module verification expired'))
           signal.addEventListener('abort', cancel, { once: true })
-          Promise.resolve().then(() => { signal.throwIfAborted(); return this.options.verifyModule?.(signal) }).then(resolve, reject)
+          Promise.resolve()
+            .then(() => {
+              signal.throwIfAborted()
+              return this.options.verifyModule?.(signal)
+            })
+            .then(resolve, reject)
             .finally(() => signal.removeEventListener('abort', cancel))
         })
         signal.throwIfAborted()
@@ -235,12 +280,20 @@ export class ManagedProcess {
         serialization: 'json',
         env: {
           ...process.env,
+          ...this.options.processTree?.environment,
           HBAR_RUNTIME_SELF: JSON.stringify(owner),
           HBAR_RUNTIME_PARENT: JSON.stringify(this.options.parent),
           HBAR_RUNTIME_MODULE: this.options.modulePath,
-          HBAR_RUNTIME_PREPARATION: this.activated ? 'recovery' : this.options.generation === 1 ? 'startup' : 'candidate',
+          HBAR_RUNTIME_PREPARATION: this.activated
+            ? 'recovery'
+            : this.options.generation === 1
+              ? 'startup'
+              : 'candidate',
           HBAR_RUNTIME_HEARTBEAT_MS: String(this.heartbeatMs),
-          HBAR_RUNTIME_CONTROL_METHODS: JSON.stringify([...RUNTIME_CONTROL_METHODS, ...(this.options.controlMethods ?? [])]),
+          HBAR_RUNTIME_CONTROL_METHODS: JSON.stringify([
+            ...RUNTIME_CONTROL_METHODS,
+            ...(this.options.controlMethods ?? []),
+          ]),
         },
         ipc: (message: unknown) => {
           if (this.child === child) this.peer?.receive(message)
@@ -258,12 +311,19 @@ export class ManagedProcess {
       onTimeout: () => this.fault('RUNTIME_CALL_TIMEOUT'),
     })
     this.peer = peer
+    const attachment = this.options.processTree
+      ? this.options.processTree.attach(
+          child.pid,
+          AbortSignal.any([this.stopController.signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]),
+        )
+      : Promise.resolve(undefined)
+    void attachment.catch(() => {})
     peer.onEvent('runtime.heartbeat', z.strictObject({ time: z.number().int().nonnegative() }), () => {
       this.state.lastHeartbeatAt = Date.now()
     })
     void child.exited
       .then(() => {
-        this.exitHandling = this.exited(child, peer, owner)
+        this.exitHandling = this.exited(child, peer, owner, attachment)
         return this.exitHandling
       })
       .catch(() => {
@@ -272,6 +332,15 @@ export class ManagedProcess {
       })
     try {
       this.options.onPeer?.(peer, owner)
+      const tree = await attachment
+      if (this.child !== child || this.stopped) {
+        tree?.terminate()
+        throw new HbarError(
+          'RUNTIME_OWNER_REVOKED',
+          'Runtime owner exited before native process ownership was established',
+        )
+      }
+      this.tree = tree
       this.monitor = setInterval(
         () => {
           if (this.stopped || this.child !== child || this.state.phase === 'preparing') return
@@ -326,14 +395,28 @@ export class ManagedProcess {
       this.publish()
     })
     this.publish()
+    this.terminate(this.child)
+  }
+
+  private terminate(child: Bun.Subprocess): void {
     try {
-      this.child.kill('SIGKILL')
+      this.tree?.terminate()
     } catch {
-      console.error('[hbar runtime] process termination failed')
+      console.error('[hbar runtime] descendant termination needs reconciliation')
+    }
+    try {
+      if (child.exitCode === null) child.kill('SIGKILL')
+    } catch {
+      console.error('[hbar runtime] owner termination failed')
     }
   }
 
-  private async exited(child: Bun.Subprocess, peer: IpcPeer, owner: RuntimeOwner): Promise<void> {
+  private async exited(
+    child: Bun.Subprocess,
+    peer: IpcPeer,
+    owner: RuntimeOwner,
+    tree: Promise<RuntimeProcessTree | undefined>,
+  ): Promise<void> {
     if (this.child !== child) return
     clearInterval(this.monitor)
     const deliberate = this.stopped
@@ -349,20 +432,87 @@ export class ManagedProcess {
       void this.fencing?.catch(() => {})
     }
     this.child = undefined
+    this.tree = undefined
     this.peer = undefined
     this.state.pid = null
     peer.close()
     this.publish()
-    const outcomes = await Promise.allSettled([
-      this.fencing,
-      Promise.resolve().then(() => this.options.onExit?.(owner)),
-    ])
-    if (outcomes.some((outcome) => outcome.status === 'rejected')) {
-      this.state.reasonCode = 'RUNTIME_EXIT_RECONCILIATION_FAILED'
+    this.retirement = { owner, tree, deliberate, fence: this.fencing, release: undefined, joined: false }
+    try {
+      await this.retire()
+    } catch (error) {
+      this.state.reasonCode = error instanceof HbarError ? error.code : 'RUNTIME_EXIT_RECONCILIATION_FAILED'
       this.publish()
-      return
+    } finally {
+      if (!deliberate && this.activated) this.scheduleRecovery()
     }
-    if (!deliberate && this.activated) this.scheduleRecovery()
+  }
+
+  private retire(): Promise<void> {
+    if (!this.retirement) return Promise.resolve()
+    this.retiring ??= this.reconcileRetirement(this.retirement).finally(() => {
+      this.retiring = undefined
+    })
+    return this.retiring
+  }
+
+  private async bounded<Value>(pending: Promise<Value>, deadline: number): Promise<Value> {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      return await Promise.race([
+        pending,
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(
+            () =>
+              reject(
+                new HbarError('RUNTIME_EXIT_RECONCILIATION_FAILED', 'Execution ownership retirement has not completed'),
+              ),
+            Math.max(1, deadline - Date.now()),
+          )
+        }),
+      ])
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
+  private async reconcileRetirement(retirement: Retirement): Promise<void> {
+    const deadline = Date.now() + this.shutdownMs
+    // The module is never imported before attachment succeeds; a failed attachment has no owned descendants.
+    const tree = await this.bounded(
+      retirement.tree.catch(() => undefined),
+      deadline,
+    )
+    if (!retirement.joined) {
+      tree?.terminate()
+      await tree?.join(Math.max(1, deadline - Date.now()))
+      tree?.close()
+      retirement.joined = true
+    }
+    if (!retirement.deliberate) {
+      retirement.fence ??= Promise.resolve().then(() =>
+        this.options.onFault?.(retirement.owner, this.state.reasonCode ?? 'RUNTIME_PROCESS_EXITED'),
+      )
+      try {
+        await this.bounded(retirement.fence, deadline)
+      } catch (error) {
+        // Keep a still-pending fence, but allow a rejected durable write to retry on the next backoff.
+        void retirement.fence.catch(() => {
+          retirement.fence = undefined
+        })
+        throw error
+      }
+    }
+    retirement.release ??= Promise.resolve().then(() => this.options.onExit?.(retirement.owner))
+    try {
+      await this.bounded(retirement.release, deadline)
+    } catch (error) {
+      void retirement.release.catch(() => {
+        retirement.release = undefined
+      })
+      throw error
+    }
+    if (this.retirement === retirement) this.retirement = undefined
   }
 
   private scheduleRecovery(): void {
@@ -408,6 +558,7 @@ export class ManagedProcess {
   }
 
   private async disposeProcess(): Promise<void> {
+    const end = Date.now() + this.shutdownMs
     this.stopped = true
     this.stopController.abort()
     this.activation?.abort()
@@ -419,21 +570,17 @@ export class ManagedProcess {
     const peer = this.peer
     if (child) {
       const deadline = setTimeout(() => {
-        if (child.exitCode === null) {
-          try {
-            child.kill('SIGKILL')
-          } catch {
-            console.error('[hbar runtime] disposal termination failed')
-          }
-        }
+        this.terminate(child)
       }, this.shutdownMs)
       try {
-        await peer?.call('runtime.dispose', undefined, z.undefined(), { timeoutMs: this.shutdownMs })
-        await peer?.call('runtime.exit', undefined, z.undefined(), { timeoutMs: this.shutdownMs })
+        await peer?.call('runtime.dispose', undefined, z.undefined(), { timeoutMs: Math.max(1, end - Date.now()) })
+        await peer?.call('runtime.exit', undefined, z.undefined(), { timeoutMs: Math.max(1, end - Date.now()) })
       } catch {
         /* The deadline is enforced by termination of the owning process. */
       }
-      if (!(await this.waitForExit(child, this.shutdownMs))) child.kill('SIGKILL')
+      if (!(await this.waitForExit(child, Math.max(1, end - Date.now())))) {
+        this.terminate(child)
+      }
       if (!(await this.waitForExit(child, this.shutdownMs)))
         throw new HbarError('RUNTIME_EXIT_UNKNOWN', 'Runtime process exit could not be confirmed')
       await this.exitHandling
@@ -441,6 +588,7 @@ export class ManagedProcess {
     }
     await this.launching?.catch(() => {})
     await this.recovering?.catch(() => {})
+    await this.retire()
     this.state.phase = 'disposed'
     this.state.nextAttemptAt = null
     this.state.pid = null

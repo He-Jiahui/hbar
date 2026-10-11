@@ -332,7 +332,7 @@ export class RuntimeCoordinator {
     return affected.map((lease) => executionOwnershipSchema.parse(lease))
   }
 
-  /** Only call after the supervisor has observed this exact process exiting. */
+  /** Only call after the supervisor confirms the exact owner's entire native process tree exited. */
   ownerExited(owner: RuntimeOwner): { tools: RuntimeToolPermit[]; resources: RuntimeResourceLease[] } {
     const record = this.record(owner)
     record.exited = true

@@ -96,6 +96,7 @@
     "@hbar/plan": "workspace:*",
     "@hbar/plugin-sdk": "workspace:*",
     "@hbar/runtime": "workspace:*",
+    "@hbar/runtime-native": "workspace:*",
     "@hbar/schema-core": "workspace:*",
     "@hbar/schema-react": "workspace:*",
     "@hbar/settings-core": "workspace:*",

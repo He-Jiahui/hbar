@@ -14,6 +14,17 @@ export const runtimeOwnerSchema = z.strictObject({
 })
 export type RuntimeOwner = z.infer<typeof runtimeOwnerSchema>
 
+/** Local supervision ports. Native handles and functions never cross the IPC boundary. */
+export interface RuntimeProcessTree {
+  terminate(): void
+  join(timeoutMs: number): Promise<void>
+  close(): void
+}
+export interface RuntimeProcessTreePort {
+  readonly environment: Readonly<Record<string, string>>
+  attach(pid: number, signal: AbortSignal): Promise<RuntimeProcessTree>
+}
+
 export const runtimeVersionSchema = z.strictObject({
   unitId: runtimeUnitIdSchema,
   generation: z.number().int().positive(),
@@ -39,10 +50,16 @@ export const executionOwnershipSchema = z.strictObject({
 })
 export type ExecutionOwnership = z.infer<typeof executionOwnershipSchema>
 export const runtimeToolPermitSchema = z.strictObject({
-  id: opaqueId, leaseId: opaqueId, callId: opaqueId, owner: runtimeOwnerSchema,
+  id: opaqueId,
+  leaseId: opaqueId,
+  callId: opaqueId,
+  owner: runtimeOwnerSchema,
 })
 export const runtimeResourceLeaseSchema = z.strictObject({
-  id: opaqueId, key: z.string().min(1).max(4_000), owner: runtimeOwnerSchema, executionLeaseId: opaqueId.nullable(),
+  id: opaqueId,
+  key: z.string().min(1).max(4_000),
+  owner: runtimeOwnerSchema,
+  executionLeaseId: opaqueId.nullable(),
 })
 
 export const runRecoverySchema = z.strictObject({
@@ -105,8 +122,10 @@ export const runtimeSourceReloadSchema = z.strictObject({
   revision: z.number().int().nonnegative(),
   phase: z.enum(['idle', 'building', 'prepared', 'applying', 'failed', 'restart_required']),
   unitIds: z.array(runtimeUnitIdSchema).max(512),
-  operationId: opaqueId.nullable(), artifactSetId: opaqueId.nullable(),
-  reasonCode: z.string().min(1).max(128).nullable(), updatedAt: z.number().int().nonnegative(),
+  operationId: opaqueId.nullable(),
+  artifactSetId: opaqueId.nullable(),
+  reasonCode: z.string().min(1).max(128).nullable(),
+  updatedAt: z.number().int().nonnegative(),
 })
 export type RuntimeSourceReload = z.infer<typeof runtimeSourceReloadSchema>
 export const runtimeAdmissionSchema = z.strictObject({
@@ -114,8 +133,11 @@ export const runtimeAdmissionSchema = z.strictObject({
   reasonCode: z.string().min(1).max(128).nullable(),
   storage: z.strictObject({
     phase: z.enum(['waiting', 'serving', 'handover', 'fenced', 'closed']),
-    owner: runtimeOwnerSchema.nullable(), inFlight: z.number().int().min(0).max(64), queued: z.number().int().min(0).max(256),
-    bufferedBytes: z.number().int().nonnegative(), reasonCode: z.string().min(1).max(128).nullable(),
+    owner: runtimeOwnerSchema.nullable(),
+    inFlight: z.number().int().min(0).max(64),
+    queued: z.number().int().min(0).max(256),
+    bufferedBytes: z.number().int().nonnegative(),
+    reasonCode: z.string().min(1).max(128).nullable(),
   }),
 })
 export const runtimeSnapshotSchema = z.strictObject({
@@ -174,15 +196,19 @@ export const runtimeDeltaSchema = z.strictObject({
   revision: z.number().int().positive(),
   units: z.array(runtimeUnitSnapshotSchema).max(32),
   operations: z.array(runtimeReloadSchema).max(16),
-  instanceId: opaqueId.optional(), ready: z.boolean().optional(),
-  sourceReload: runtimeSourceReloadSchema.optional(), admission: runtimeAdmissionSchema.optional(),
+  instanceId: opaqueId.optional(),
+  ready: z.boolean().optional(),
+  sourceReload: runtimeSourceReloadSchema.optional(),
+  admission: runtimeAdmissionSchema.optional(),
   preparedArtifactSets: z.array(opaqueId).max(256).optional(),
 })
 export type RuntimeDelta = z.infer<typeof runtimeDeltaSchema>
 export const runtimeWatchInputSchema = z.strictObject({ cursor: z.number().int().nonnegative().optional() })
 export const runtimeWatchResultSchema = z.strictObject({
-  revision: z.number().int().nonnegative(), snapshot: runtimeSnapshotSchema.nullable(),
-  events: z.array(runtimeDeltaSchema).max(64), reset: z.boolean(),
+  revision: z.number().int().nonnegative(),
+  snapshot: runtimeSnapshotSchema.nullable(),
+  events: z.array(runtimeDeltaSchema).max(64),
+  reset: z.boolean(),
 })
 export type RuntimeWatchResult = z.infer<typeof runtimeWatchResultSchema>
 

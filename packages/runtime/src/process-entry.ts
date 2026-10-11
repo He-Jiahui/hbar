@@ -12,7 +12,8 @@ import {
   RUNTIME_CONTROL_METHODS,
 } from './lifecycle'
 
-export async function runRuntimeProcess(): Promise<void> {
+export async function runRuntimeProcess(options: { readonly exit?: (code: number) => never } = {}): Promise<void> {
+  const exit = options.exit ?? ((code: number) => process.exit(code))
   const owner = runtimeOwnerSchema.parse(JSON.parse(process.env.HBAR_RUNTIME_SELF ?? 'null'))
   const remote = runtimeOwnerSchema.parse(JSON.parse(process.env.HBAR_RUNTIME_PARENT ?? 'null'))
   const modulePath = process.env.HBAR_RUNTIME_MODULE
@@ -23,7 +24,7 @@ export async function runRuntimeProcess(): Promise<void> {
   const stop = (code: number) => {
     if (exiting) return
     exiting = true
-    const deadline = setTimeout(() => process.exit(code), RUNTIME_LIMITS.shutdownMs)
+    const deadline = setTimeout(() => exit(code), RUNTIME_LIMITS.shutdownMs)
     void Promise.resolve()
       .then(() => service?.dispose())
       .catch(() => {
@@ -31,7 +32,7 @@ export async function runRuntimeProcess(): Promise<void> {
       })
       .finally(() => {
         clearTimeout(deadline)
-        process.exit(code)
+        exit(code)
       })
   }
   const peer = new IpcPeer({

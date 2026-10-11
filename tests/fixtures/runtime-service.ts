@@ -31,6 +31,18 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     }),
   )
   context.peer.register(
+    'fixture.spawn',
+    procedure(z.undefined(), z.number().int().positive(), () => {
+      if (!active) throw new HbarError('RUNTIME_PREPARING', 'Fixture is not active')
+      const leaf = Bun.spawn([process.execPath, '-e', 'setInterval(() => {}, 1000)'], {
+        stdio: ['ignore', 'ignore', 'ignore'],
+        windowsHide: true,
+      })
+      void leaf.exited.catch(() => {})
+      return leaf.pid
+    }),
+  )
+  context.peer.register(
     'fixture.crash',
     procedure(z.undefined(), z.undefined(), () => process.exit(23)),
   )

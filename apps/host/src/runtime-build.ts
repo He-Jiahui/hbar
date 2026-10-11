@@ -38,6 +38,7 @@ export function hostRuntimeBuildUnits(options: { profileModule?: string } = {}):
 /** Emitted dependencies of the stable listener/supervisor require an explicit restart when changed. */
 export function hostRuntimeBaseBuildUnit(): RuntimeBuildUnit {
   return { descriptor: { ...descriptor('base', 'base', CONTROLLER_RUNTIME_FINGERPRINT), isolation: 'base', reloadable: false },
-    entrypoint: 'apps/host/src/main.ts', external: RUNTIME_BUNDLE_EXTERNALS, resources: ['packages/runtime/src/build-worker.ts'],
+    entrypoint: 'apps/host/src/main.ts', external: RUNTIME_BUNDLE_EXTERNALS, resources: ['packages/runtime/src/build-worker.ts',
+      'packages/runtime-native/native/src/lib.rs', 'packages/runtime-native/native/Cargo.toml', 'packages/runtime-native/native/Cargo.lock'],
     define: { HBAR_MANAGED_MAINTENANCE: 'true', HBAR_MANAGED_CONTROLLER: 'true' } }
 }

@@ -3,11 +3,12 @@ import { readdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 const backendPackages = new Set(['commands', 'contracts', 'kernel', 'metrics', 'plugin-sdk', 'provider-catalog',
-  'runtime', 'schema-core', 'settings-core', 'storage', 'terminal', 'usage'])
+  'runtime', 'runtime-native', 'schema-core', 'settings-core', 'storage', 'terminal', 'usage'])
 export async function runtimeSourceRoots(project: string): Promise<string[]> {
   const packages = await readdir(resolve(project, 'packages'), { withFileTypes: true })
   return [resolve(project, 'apps/host/src'), resolve(project, 'plugins'),
-    ...packages.filter(entry => entry.isDirectory() && backendPackages.has(entry.name)).map(entry => resolve(project, 'packages', entry.name, 'src'))]
+    ...packages.filter(entry => entry.isDirectory() && backendPackages.has(entry.name)).map(entry =>
+      entry.name === 'runtime-native' ? resolve(project, 'packages', entry.name) : resolve(project, 'packages', entry.name, 'src'))]
 }
 export function isRuntimeSourceChange(filename: string): boolean {
   const parts = filename.replaceAll('\\', '/').split('/')

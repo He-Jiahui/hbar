@@ -98,14 +98,26 @@ test('candidate failure and compatibility rejection never activate or schedule p
 
 test('a rejected registered module never spawns or imports a candidate, and stuck verification cancels on shutdown', async () => {
   let spawned = 0
-  const invalid = fixture({ verifyModule: async () => { throw new Error('Artifact bytes changed') }, onPeer: () => { spawned++ } })
+  const invalid = fixture({
+    verifyModule: async () => {
+      throw new Error('Artifact bytes changed')
+    },
+    onPeer: () => {
+      spawned++
+    },
+  })
   await expect(invalid.prepare()).rejects.toThrow('Artifact bytes changed')
   expect(spawned).toBe(0)
   expect(invalid.snapshot()).toMatchObject({ phase: 'failed', pid: null, nextAttemptAt: null })
-  const stuck = fixture({ verifyModule: async signal => {
-    await new Promise<void>(resolve => signal.addEventListener('abort', () => resolve(), { once: true }))
-    signal.throwIfAborted()
-  }, onPeer: () => { spawned++ } })
+  const stuck = fixture({
+    verifyModule: async (signal) => {
+      await new Promise<void>((resolve) => signal.addEventListener('abort', () => resolve(), { once: true }))
+      signal.throwIfAborted()
+    },
+    onPeer: () => {
+      spawned++
+    },
+  })
   const pending = stuck.prepare().catch((error: unknown) => error)
   await Bun.sleep(10)
   await stuck.dispose()
@@ -142,12 +154,19 @@ test('a crashed serving generation recovers its same artifact with a new incarna
 })
 
 test('recovery revalidates the selected artifact and keeps retrying that version without importing rejected bytes', async () => {
-  let verified = 0, spawned = 0
-  const runtime = fixture({ verifyModule: async () => {
-    verified++
-    if (verified > 1) throw new Error('Recovered artifact differs from registered bytes')
-  }, onPeer: () => { spawned++ } })
-  await runtime.prepare(); await runtime.activate()
+  let verified = 0,
+    spawned = 0
+  const runtime = fixture({
+    verifyModule: async () => {
+      verified++
+      if (verified > 1) throw new Error('Recovered artifact differs from registered bytes')
+    },
+    onPeer: () => {
+      spawned++
+    },
+  })
+  await runtime.prepare()
+  await runtime.activate()
   const artifact = runtime.snapshot().artifactId
   await expect(runtime.call('fixture.crash', undefined, z.undefined())).rejects.toBeInstanceOf(Error)
   await until(() => verified >= 3)
@@ -158,11 +177,19 @@ test('recovery revalidates the selected artifact and keeps retrying that version
 test('activation opens production authority before construction and repeats the gate for each recovered incarnation', async () => {
   const authorized = new Set<string>()
   const roles: string[] = []
-  const runtime = fixture({ configuration: { requireAuthority: true },
-    onPeer: (peer, owner) => peer.register('fixture.activation', procedure(z.undefined(), z.undefined(), () => {
-      if (!authorized.has(owner.incarnation)) throw new Error('Production authority is not activated')
-    })),
-    onActivating: (owner, role) => { authorized.add(owner.incarnation); roles.push(role) },
+  const runtime = fixture({
+    configuration: { requireAuthority: true },
+    onPeer: (peer, owner) =>
+      peer.register(
+        'fixture.activation',
+        procedure(z.undefined(), z.undefined(), () => {
+          if (!authorized.has(owner.incarnation)) throw new Error('Production authority is not activated')
+        }),
+      ),
+    onActivating: (owner, role) => {
+      authorized.add(owner.incarnation)
+      roles.push(role)
+    },
   })
   await runtime.prepare()
   expect(authorized.size).toBe(0)
@@ -177,10 +204,12 @@ test('activation opens production authority before construction and repeats the 
 })
 
 test('a stuck activation gate expires and explicit disposal cancels it without starting production', async () => {
-  const runtime = fixture({ onActivating: async (_owner, _role, signal) => {
-    await new Promise<void>(resolve => signal.addEventListener('abort', () => resolve(), { once: true }))
-    signal.throwIfAborted()
-  } })
+  const runtime = fixture({
+    onActivating: async (_owner, _role, signal) => {
+      await new Promise<void>((resolve) => signal.addEventListener('abort', () => resolve(), { once: true }))
+      signal.throwIfAborted()
+    },
+  })
   await runtime.prepare()
   const activation = runtime.activate().catch((error: unknown) => error)
   await Bun.sleep(10)
@@ -275,11 +304,14 @@ test('generation observers cannot change startup, failure or disposal behavior',
   expect(runtime.snapshot().phase).toBe('disposed')
 })
 
-test('failed fencing diagnostics still settle pending requests and confirm the actual child exit', async () => {
-  let exited = 0
+test('failed durable fencing retains ownership and retries before admitting a recovered incarnation', async () => {
+  let exited = 0,
+    faults = 0,
+    allowed = false
   const runtime = fixture({
     async onFault() {
-      throw new Error('projection unavailable')
+      faults++
+      if (!allowed) throw new Error('projection unavailable')
     },
     async onExit() {
       exited++
@@ -291,8 +323,61 @@ test('failed fencing diagnostics still settle pending requests and confirm the a
     code: 'IPC_DISCONNECTED',
   })
   await until(() => runtime.snapshot().reasonCode === 'RUNTIME_EXIT_RECONCILIATION_FAILED')
-  expect(exited).toBe(1)
+  expect(exited).toBe(0)
   expect(runtime.snapshot().pid).toBeNull()
-  expect(runtime.snapshot().nextAttemptAt).toBeNull()
+  await until(() => faults >= 2)
+  expect(exited).toBe(0)
+  allowed = true
+  await until(() => runtime.snapshot().phase === 'serving')
+  expect(exited).toBe(1)
   await runtime.dispose()
+})
+
+test('an unconfirmed native exit keeps the old ownership and prevents a replacement until join succeeds', async () => {
+  let joined = false,
+    attempts = 0,
+    released = 0,
+    launched = 0
+  const runtime = fixture({
+    onPeer: () => {
+      launched++
+    },
+    onExit: async () => {
+      released++
+    },
+    processTree: {
+      environment: {},
+      async attach() {
+        return {
+          terminate() {},
+          close() {
+            if (!joined) throw new Error('Native tree still alive')
+          },
+          async join() {
+            attempts++
+            if (!joined) throw new Error('Native tree exit could not be confirmed')
+          },
+        }
+      },
+    },
+  })
+  try {
+    await runtime.prepare()
+    await runtime.activate()
+    const previous = runtime.owner().incarnation
+    const crash = await runtime.call('fixture.crash', undefined, z.undefined()).catch((error: unknown) => error)
+    expect(crash).toMatchObject({ code: 'IPC_DISCONNECTED' })
+    await until(() => attempts >= 2)
+    expect(launched).toBe(1)
+    expect(released).toBe(0)
+    expect(runtime.owner().incarnation).toBe(previous)
+    expect(runtime.snapshot().pid).toBeNull()
+    joined = true
+    await until(() => runtime.snapshot().phase === 'serving' && runtime.owner().incarnation !== previous)
+    expect(launched).toBe(2)
+    expect(released).toBe(1)
+  } finally {
+    joined = true
+    await runtime.dispose()
+  }
 })

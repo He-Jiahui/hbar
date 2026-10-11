@@ -30,6 +30,7 @@
         "@hbar/plan": "workspace:*",
         "@hbar/plugin-sdk": "workspace:*",
         "@hbar/runtime": "workspace:*",
+        "@hbar/runtime-native": "workspace:*",
         "@hbar/schema-core": "workspace:*",
         "@hbar/schema-react": "workspace:*",
         "@hbar/settings-core": "workspace:*",
@@ -93,6 +94,7 @@
         "@hbar/commands": "workspace:*",
         "@hbar/contracts": "workspace:*",
         "@hbar/host": "workspace:*",
+        "@hbar/runtime-native": "workspace:*",
         "@hbar/storage": "workspace:*",
         "@hbar/terminal": "workspace:*",
         "@opentui/core": "0.4.5",
@@ -122,6 +124,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@hbar/commands": "workspace:*",
+        "@hbar/runtime-native": "workspace:*",
       },
     },
     "apps/web": {
@@ -278,6 +281,14 @@
     },
     "packages/runtime": {
       "name": "@hbar/runtime",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hbar/contracts": "workspace:*",
+        "zod": "4.5.4",
+      },
+    },
+    "packages/runtime-native": {
+      "name": "@hbar/runtime-native",
       "version": "0.1.0",
       "dependencies": {
         "@hbar/contracts": "workspace:*",
@@ -649,6 +660,8 @@
     "@hbar/provider-catalog": ["@hbar/provider-catalog@workspace:packages/provider-catalog"],
 
     "@hbar/runtime": ["@hbar/runtime@workspace:packages/runtime"],
+
+    "@hbar/runtime-native": ["@hbar/runtime-native@workspace:packages/runtime-native"],
 
     "@hbar/schema-core": ["@hbar/schema-core@workspace:packages/schema-core"],
 

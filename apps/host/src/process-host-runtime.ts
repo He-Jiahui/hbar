@@ -26,6 +26,8 @@ import { RuntimeMaintenanceRelay, type RuntimeMaintenanceEndpoint } from './runt
 import { RUNTIME_MAINTENANCE_CONTROL_METHODS } from './runtime-maintenance-contract'
 import { createRuntimeControllerServices } from './runtime-controller-services'
 import { RuntimeStatusFeed } from './runtime-status-feed'
+import { createRuntimeProcessTreePort } from '@hbar/runtime-native'
+import { hostRuntimeProcessCommand } from './runtime-package'
 
 export interface ProcessHostRuntimeOptions {
   readonly layout: PathLayout
@@ -62,6 +64,7 @@ const key = (version: Pick<RuntimeVersion, 'unitId' | 'generation'>) => `${versi
 
 /** Stable composition root. Executable Kernel/driver/controller implementations live exclusively in their child processes. */
 export class ProcessHostRuntime implements RuntimeSystemPort {
+  private readonly processTree = createRuntimeProcessTreePort()
   readonly storage = new StableStoragePort()
   readonly artifacts: RuntimeArtifactStore
   readonly coordinator: RuntimeCoordinator
@@ -447,7 +450,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         ...RUNTIME_MAINTENANCE_CONTROL_METHODS,
         'kernel.plugins.callback', 'kernel.plugins.control', 'controller.control', 'controller.invoke', 'controller.authorize',
         'controller.application.control', 'controller.application.callback', 'controller.background.scope', 'controller.resume', 'controller.pause'],
-      ...(this.options.processCommand ? { command: this.options.processCommand } : {}),
+      command: this.options.processCommand ?? hostRuntimeProcessCommand(), processTree: this.processTree,
       onPeer: (peer, owner) => {
         record.owner = owner; record.peer = peer
         this.coordinator.register(owner, { unitId: artifact.unitId, generation, artifactId: artifact.id }, artifact.descriptor)

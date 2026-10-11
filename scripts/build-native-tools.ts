@@ -32,3 +32,12 @@ const output = join(project, 'plugins/local-tools/native/hbar_workspace_query.no
 await mkdir(resolve(output, '..'), { recursive: true })
 await copyBuildArtifact(library, output)
 console.log(`Native workspace query module: ${basename(output)}`)
+const runtime = Bun.spawn(
+  [process.execPath, join(project, 'scripts/build-runtime-native.ts'), ...(profile === 'debug' ? ['--debug'] : [])],
+  {
+    cwd: project,
+    stdio: ['ignore', 'inherit', 'inherit'],
+    windowsHide: true,
+  },
+)
+if ((await runtime.exited) !== 0) process.exit(runtime.exitCode ?? 1)
