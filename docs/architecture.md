@@ -15,19 +15,25 @@ flowchart TB
   Web --> Runtime[app-runtime / Zustand vanilla]
   Runtime --> Commands[commands / schema-core / settings-core]
   Web --> SDK[统一 Client SDK]
-  SDK <-->|HTTP / JSON-RPC over WebSocket| Host[Bun Host]
-  Host --> Core[Session / Run / Step / Attempt]
-  Host --> Cordis[Cordis 插件与作用域]
-  Core --> Driver[Pi HarnessDriver]
+  SDK <-->|HTTP / JSON-RPC over WebSocket| Host[稳定 Bun Host：监听 / 身份 / 协调端口]
+  Supervisor[Supervisor：退出恢复 / 退避] --> Host
+  Host --> Controller[受管 Controller 进程]
+  Controller --> Core[受管 Kernel：Session / Run / Step / Attempt]
+  Host --> Cordis[9 个内置插件受管进程]
+  Core --> Driver[受管 Pi HarnessDriver 进程]
   Core --> Gate[校验 / 最终参数 / 审批 / 意图日志]
   Gate --> Exec[ExecutionProvider]
-  Core --> Worker[Storage Worker]
+  Core --> Storage[唯一写入者 Storage 进程]
+  Storage --> Worker[Storage Worker]
   Worker --> SQLite[SQLite WAL / 事件与投影]
   Core --> Assets[内容哈希附件]
-  Cordis -.后续能力提供者.-> Native[独立 Rust 原生进程]
+  Host --> Maintenance[受管 Maintenance 进程 / Worker]
+  Host --> Native[Rust 原生进程树生命周期端口]
 ```
 
 Host 与 UI 的进程生命周期分离。React 业务组件通过 SDK 访问 Host；只有桌面适配模块导入 Tauri API。Rust 负责桌面集成，目前没有将 Session 或模型调用搬入 Rust。原生能力未来通过独立进程实现，必须支持由无 UI 的 Host 启动。
+
+标准内置组合包含 14 个业务运行单元。Supervisor、稳定 Host、Controller、Kernel、Pi、9 个内置插件、Storage 和 Maintenance 的生命周期与入口一致；普通兼容更新不更换稳定 Host PID、端口、设备凭据或连接。Kernel、插件及 Hook 的版本由 Run 的执行所有权固定。完整边界、初次安装的重启要求、存储交接、连续失败退避和实际验收见[运行单元恢复与热重载](runtime-recovery.md)。
 
 ## 运行模型
 
@@ -40,11 +46,11 @@ Host 与 UI 的进程生命周期分离。React 业务组件通过 SDK 访问 Ho
 - 扩展点为 `context.build`、`model.request`、`tool.before`、`tool.after`、`step.end`、`run.end`。
 - 取消请求立即中止对应 AbortController。排队输入可单独取消。窗口关闭、浏览器断线不会取消 Run。
 
-默认限制：单 Run 20 分钟、64 个 Step，Shell 120 秒；工作区文件读写 2 MiB，聊天附件 10 MiB、每条输入最多 12 个混合附件，文本附件传给模型前最多 120,000 个字符，WS 输入帧 1 MiB、每个连接最多 32 个在途命令，慢客户端断开后以快照恢复。默认工具顺序执行。可信插件必须遵守 AbortSignal 和 disposer，故意忽略它们的插件需要未来的进程隔离才能强制约束。
+默认限制：Run 连续 20 分钟没有有效进展才超时，64 个 Step，Shell 120 秒；工作区文件读写 2 MiB，聊天附件 10 MiB、每条输入最多 12 个混合附件，文本附件传给模型前最多 120,000 个字符，WS 输入帧 1 MiB、每个连接最多 32 个在途命令，慢客户端断开后以连续已应用游标或受控快照恢复。默认工具顺序执行。内置执行器位于受管进程内；超时的物理执行仍占容量，直到真实结算或确认所属进程树退出。无法完成兼容预检的自定义插件明确要求重启。
 
 ## 持久化与恢复
 
-`bun:sqlite` 仅由独立 Worker 访问。WAL、FULL synchronous、事务确保事件追加、Session 序号和消息/运行投影一致。每个持久事件包含 `eventId/sessionId/seq/runId/stepId/version`。请求事件保存最终 system、消息、模型描述和工具 schema；消息事件包含规范化内容及供应商原始元数据，附件通过哈希引用恢复。
+`bun:sqlite` 的业务写入仅由 Storage 进程所属的独立 Worker 访问；候选完整性探针只读打开数据库，Maintenance 通过共享门禁交接写入权。WAL、FULL synchronous、事务确保事件追加、Session 序号和消息/运行投影一致。每个持久事件包含 `eventId/sessionId/seq/runId/stepId/version`。请求事件保存最终 system、消息、模型描述和工具 schema；消息事件包含规范化内容及供应商原始元数据，附件通过哈希引用恢复。
 
 聊天数据库的附件保护使用独立引用投影。设备可通过 `chatDatabase.draft.sync` 声明会话、新聊天和外观草稿的已确认及待上传哈希，并通过带 generation 和 revision 的完整清单确认旧设备数据；窗口关闭和设备离线不会释放声明。引用声明及上传元数据记录在 `sessions/.maintenance/artifact-drafts` 的有界 JSONL 中，写入并 fsync 后才返回确认，SQLite 重建时分批恢复。旧附件索引每批最多 25 项补齐持久元数据，保留聊天日志中的附件描述也会重建索引。
 
@@ -62,9 +68,9 @@ Host 与 UI 的进程生命周期分离。React 业务组件通过 SDK 访问 Ho
 
 工具流程固定为：参数 schema → 插件前置处理 → 再次校验最终参数 → 策略/人工审批 → 记录意图 → 执行 → 后置处理 → 结果提交 → 意图结算。审批显示的就是最终参数。默认允许工作区内读取，写入和 Shell 请求批准。路径会检查实际路径和符号链接，Host 数据目录不向文件工具开放；批准的 Shell 和可信插件依然具备操作系统用户权限。
 
-重启会把活动 Run 标记为 interrupted，未结算意图标记为 unknown，并写入要求核实的工具结果。没有开始执行的调用补充中断结果，保持工具调用协议完整。依赖该中断运行的原队列被保留并标记中断，不会自动重放未知副作用。插件和供应商就绪后，`GoalService.resumeOnStartup` 为仍在进行中且符合执行条件的目标恢复持久续跑意图，经空闲调度器创建新的 Goal 绑定 Run；暂停和其他停止约束保留，旧运行及其工具结果不被重放。恢复规则与验证见 [Session 自主执行](session-autonomy.md#续跑规则)。
+进程故障先撤销所属执行权，阻止迟到提交，再确认原进程和资源树退出。范围限定的恢复将原 Run 保留为 interrupted，核对工具意图和规范日志；结果不明或审批未决时保持等待，不重放副作用。普通对话和活动 Goal 均可创建带持久恢复标识的新 Run，复用已提交用户输入、上下文和工具结果。完成回执已提交时只对账终态，不再次请求模型。用户排队输入优先，权限、暂停、取消、模型、预算和 Goal 状态仍约束新执行；每条链最多两次自动续跑，之后允许在原控制条件内人工继续。完整恢复链语义见[运行单元恢复与热重载](runtime-recovery.md)，Goal 自主规则见 [Session 自主执行](session-autonomy.md#续跑规则)。
 
-数据库以 `PRAGMA user_version` 管理版本。当前版本为 23，包含设置 layer、命令回执、Session 实体回执，以及聊天数据库统计、清理作业和附件引用投影；初始化和前向迁移在事务中执行，遇到未来版本拒绝打开。插件状态表使用 `(id, projectId)` 复合主键，以便同一个插件包同时拥有全局安装和多个项目安装；项目作用域运行时优先使用项目实例，否则回退全局实例。后续版本只能追加前向事务迁移；升级前备份整个数据目录，备份活跃数据库应使用 SQLite backup 或先停止 Host，不能只复制主文件而忽略 WAL。
+数据库以 `PRAGMA user_version` 管理版本。当前版本为 24，新增可由规范日志重建的执行所有权、恢复链和恢复去重投影，保留设置 layer、命令回执、Session 实体回执，以及聊天数据库统计、清理作业和附件引用投影；初始化和前向迁移在事务中执行，遇到未来版本拒绝打开。插件状态表使用 `(id, projectId)` 复合主键，以便同一个插件包同时拥有全局安装和多个项目安装；项目作用域运行时优先使用项目实例，否则回退全局实例。后续版本只能追加前向事务迁移；升级前备份整个数据目录，备份活跃数据库应使用 SQLite backup 或先停止 Host，不能只复制主文件而忽略 WAL。
 
 摘要压缩在完整对话边界发生，原始消息不删除。上下文从最近摘要及之后的消息重建。分支以已结算 Run 边界截取，复制规范化历史与供应商元数据，后续写入独立。摘要 token 消耗计入同一 Session 用量。
 
