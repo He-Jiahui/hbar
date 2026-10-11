@@ -12,7 +12,6 @@ import type {
   HarnessDriver,
   ModelRequest,
 } from '@hbar/plugin-sdk'
-import { PiDriver } from '@hbar/pi-driver'
 import { estimateContextTokens } from '../packages/kernel/src/context-usage'
 import { compactionBoundary, nextSummaryChunk, summaryDocument } from '../packages/kernel/src/context-compaction'
 import { providerSchema, HbarError } from '@hbar/contracts'
@@ -32,7 +31,6 @@ afterEach(async () => {
 async function fixture(run: HarnessDriver['run'], summarizeOverride?: HarnessDriver['summarize']) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-context-overflow-'))
   const summaries: ModelRequest[] = []
-  const pi = new PiDriver()
   const driver = definePlugin({
     manifest: {
       id: 'driver.pi',
@@ -54,7 +52,22 @@ async function fixture(run: HarnessDriver['run'], summarizeOverride?: HarnessDri
           expect(estimateContextTokens(request) + request.model.maxOutput).toBeLessThanOrEqual(
             request.model.contextWindow,
           )
-          return summarizeOverride ? summarizeOverride(request, key, signal) : pi.summarize(request, key, signal)
+          if (summarizeOverride) return summarizeOverride(request, key, signal)
+          signal.throwIfAborted()
+          // These tests exercise compaction boundaries and capacity, not semantic summarization.
+          // Keep the provider result bounded and explicit instead of relying on the mock model's
+          // prompt-matching echo, which grows with each history chunk.
+          const text = `Fixture-only compact result for ${request.messages.length} messages; semantic recall is not asserted.`
+          return {
+            text,
+            usage: {
+              input: estimateContextTokens(request),
+              output: Math.ceil(text.length / 4),
+              cacheRead: 0,
+              cacheWrite: 0,
+              cost: 0,
+            },
+          }
         },
       })
     },
