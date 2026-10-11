@@ -148,7 +148,7 @@ export const STORAGE_RPC_METHODS = [
   "run",
   "runBoard",
   "runByRequest",
-  "runByRequestInWorkspace",
+  'runByRequestInWorkspace',
   "runFileChangeDiff",
   "runFileChangeVersions",
   "runFileChanges",

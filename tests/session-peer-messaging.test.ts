@@ -342,7 +342,9 @@ test('peer send creates only a user Run and leaves a paused Goal paused in the r
       targetSessionId: target.id,
       workspaceId: workspace.id,
     })
-    expect(context.messages.some((message) => message.runId === targetRun.id && message.role === 'assistant')).toBe(true)
+    expect(context.messages.some((message) => message.runId === targetRun.id && message.role === 'assistant')).toBe(
+      true,
+    )
     expect((await goals.get(target.id)).goal).toMatchObject({ goalId: pausedGoal.goal.goalId, status: 'paused' })
   } finally {
     await kernel.close()

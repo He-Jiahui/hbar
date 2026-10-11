@@ -134,7 +134,9 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
       if (!guideReceipt && canonical.run.status === 'guided')
         throw new CommandError('RESULT_UNKNOWN', 'Peer message guidance receipt is unavailable')
       const active = await kernel.storage.call('activeOperations', { sessionId: input.targetSessionId, limit: 20 })
-      const activeRun = active.items.find((item) => ['running', 'waiting_approval', 'cancelRequested'].includes(item.status))
+      const activeRun = active.items.find((item) =>
+        ['running', 'waiting_approval', 'cancelRequested'].includes(item.status),
+      )
       return { run: canonical.run, guideReceipt, activeRun }
     } catch (error) {
       if (error instanceof CommandError && error.code === 'RESULT_UNKNOWN') throw error
