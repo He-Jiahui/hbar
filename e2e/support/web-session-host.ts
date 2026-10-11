@@ -277,6 +277,16 @@ export function bunExecutable(): string {
   return executable
 }
 
+/** Keep the fixture's listener and preview proxy on the same allocated Host port. */
+export function resolveWebSessionHostPort(explicitPort?: number): number {
+  return z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(65_535)
+    .parse(explicitPort ?? process.env.HBAR_E2E_HOST_PORT ?? 4317)
+}
+
 export async function startWebSessionHost(
   options: Readonly<{
     root: string
@@ -296,7 +306,7 @@ export async function startWebSessionHost(
     sourceRoot?: string
   }>,
 ): Promise<WebSessionHost> {
-  const port = options.port ?? 4317
+  const port = resolveWebSessionHostPort(options.port)
   const child = spawn(
     bunExecutable(),
     [

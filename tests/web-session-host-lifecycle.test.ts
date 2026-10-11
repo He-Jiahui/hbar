@@ -4,6 +4,7 @@ import {
   createWebSessionHostLifecycleDiagnostics,
   stopOwnedWebSessionHostChild,
   waitForWebSessionHostReady,
+  resolveWebSessionHostPort,
 } from '../e2e/support/web-session-host'
 
 const ready = {
@@ -21,6 +22,28 @@ const expectReleased = (child: ChildProcess) => {
   expect(child.listenerCount('error')).toBe(0)
   expect(child.stderr?.listenerCount('data')).toBe(0)
 }
+
+test('the fixture listener follows its allocated proxy port and explicit targets take precedence', () => {
+  const previous = process.env.HBAR_E2E_HOST_PORT
+  try {
+    delete process.env.HBAR_E2E_HOST_PORT
+    expect(resolveWebSessionHostPort()).toBe(4317)
+    process.env.HBAR_E2E_HOST_PORT = '52966'
+    expect(resolveWebSessionHostPort()).toBe(52966)
+    expect(resolveWebSessionHostPort(52967)).toBe(52967)
+    process.env.HBAR_E2E_HOST_PORT = 'invalid'
+    expect(resolveWebSessionHostPort(52967)).toBe(52967)
+    expect(() => resolveWebSessionHostPort()).toThrow()
+    for (const invalid of ['', '0', '-1', '65536', '1.5', 'NaN']) {
+      process.env.HBAR_E2E_HOST_PORT = invalid
+      expect(() => resolveWebSessionHostPort()).toThrow()
+    }
+    expect(() => resolveWebSessionHostPort(0)).toThrow()
+  } finally {
+    if (previous === undefined) delete process.env.HBAR_E2E_HOST_PORT
+    else process.env.HBAR_E2E_HOST_PORT = previous
+  }
+})
 
 test('a startup timeout terminates its owned child before rejecting and releases all observation resources', async () => {
   const child = start('setInterval(() => {}, 1000)')
