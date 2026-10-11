@@ -436,13 +436,14 @@ export class PluginManager {
     }
     return plugin.manifest.id
   }
-  async start() {
+  async start(options: { readonly rejectLocal?: boolean } = {}) {
     for (const stored of await this.storage.call('plugins')) {
       const relativePath = this.options.pluginRoot && stored.path
         ? relative(this.options.pluginRoot, stored.path).replaceAll('\\', '/')
         : ''
       const projectId = stored.projectId ?? (relativePath.startsWith('projects/') ? relativePath.split('/')[1] : undefined)
       if (stored.path && !this.findEntry(stored.id, projectId)) {
+        if (options.rejectLocal) throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Installed custom plugins need a declared read-only preparation and state compatibility contract')
         try {
           await this.loadLocal(stored.path, projectId)
         } catch (error) {

@@ -69,6 +69,7 @@ export async function runRuntimeProcess(): Promise<void> {
       // The trusted registered artifact is built against RuntimeProcessModule. Its wire values are still validated.
       const module = imported as RuntimeProcessModule
       service = await module.create({
+        purpose: z.enum(['startup', 'candidate', 'recovery']).parse(process.env.HBAR_RUNTIME_PREPARATION ?? 'candidate'),
         peer,
         configuration: input.configuration,
         preparing: () => phase === 'preparing' || phase === 'ready',

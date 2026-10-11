@@ -32,12 +32,12 @@ async function fixture(browserConfig?: Record<string, unknown>) {
   const session = await runtime.storage.call('createSession', workspace.id)
   return { root, runtime, session }
 }
-async function changedKernel(runtime: ProcessHostRuntime, suffix: string) {
+async function changedKernel(runtime: ProcessHostRuntime, suffix: string, transform: (source: string) => string = source => source) {
   const root = await mkdtemp(join(process.cwd(), 'artifacts', 'process-host-update-'))
   resources.push(() => rm(root, { recursive: true, force: true }))
   const source = join(root, 'kernel.ts')
   const implementation = (await readFile('apps/host/src/runtime-kernel-process.ts', 'utf8')).replaceAll("'./", "'../../apps/host/src/")
-  await writeFile(source, `${implementation}\n${suffix}\n`)
+  await writeFile(source, `${transform(implementation)}\n${suffix}\n`)
   const unit = runtime.buildUnits.find(value => value.descriptor.id === 'kernel')!
   return runtime.artifacts.registerSet([await runtime.artifacts.build({ ...unit, entrypoint: source })])
 }
@@ -91,6 +91,50 @@ test('the production composition activates independent Bun owners including nine
   const { client } = await clientFor(f.runtime)
   expect((await client.call('system.bootstrap', {})).plugins.find(plugin => plugin.id === 'goal.codex')?.configSchema?.properties).toHaveProperty('autoContinue')
 })
+
+test('actual Kernel construction failures and candidate writes fail before routing changes and leave all serving owners and the socket intact', async () => {
+  const f = await fixture(), { client, host } = await clientFor(f.runtime)
+  const before = f.runtime.snapshot()
+  const run = await f.runtime.kernel.submit(f.session.id, 'preflight-existing-work', { text: '/slow', images: [] }, 'local-fixture')
+  await until(() => f.runtime.coordinator.execution(run.id) !== null)
+  for (const mode of ['construction', 'write'] as const) {
+    const set = await changedKernel(f.runtime, '', source => {
+      const anchor = '    return Kernel.create({'
+      if (source.split(anchor).length !== 2) throw new Error('Kernel construction preflight anchor changed')
+      return source.replace(anchor, mode === 'construction'
+        ? `    if (lifecycle === 'candidate') throw new HbarError('KERNEL_CONSTRUCTION_INVALID', 'Injected constructor failure')\n${anchor}`
+        : `    if (lifecycle === 'candidate') await storage.call('setSetting', 'preflight.forbidden', true)\n${anchor}`)
+    })
+    const operation = f.runtime.reload(set.id, ['kernel'])
+    await f.runtime.manager.reconcile(); await f.runtime.settled()
+    expect(f.runtime.getReload(operation.operationId)).toMatchObject({ phase: 'failed', switchedAt: null, units: [{ unitId: 'kernel', reasonCode: mode === 'construction' ? 'KERNEL_CONSTRUCTION_INVALID' : 'RUNTIME_PREPARING' }] })
+    expect(f.runtime.manager.currentVersion('kernel').generation).toBe(1)
+    expect(f.runtime.snapshot().ready).toBe(true)
+    for (const unit of before.units)
+      expect(f.runtime.snapshot().units.find(value => value.descriptor.id === unit.descriptor.id)?.generations.find(value => value.role === 'default')?.pid).toBe(unit.generations[0]?.pid)
+  }
+  expect(await f.runtime.storage.call('getSetting', 'preflight.forbidden')).toBeNull()
+  await f.runtime.waitForIdle()
+  const settled = await f.runtime.storage.call('run', run.id)
+  expect(settled.status).toBe('completed')
+  expect(settled.recovery).toBeUndefined()
+  expect((await f.runtime.storage.call('runtimeExecutionRead', run.id))?.lease.owner.generation).toBe(1)
+  expect(client.connectionStatus()).toBe('connected')
+  expect(host.info().instanceId).toBe(before.instanceId)
+}, 120_000)
+
+test('a custom plugin without candidate lifecycle support reports restart before evaluating its code or switching Kernel routing', async () => {
+  const f = await fixture()
+  const source = join(f.root, 'unsupported-plugin.ts')
+  await writeFile(source, "throw new Error('Custom plugin code must not run during preflight')\n")
+  await f.runtime.storage.call('setPlugin', 'third-party.custom', true, {}, source)
+  const before = f.runtime.manager.currentVersion('kernel')
+  const operation = f.runtime.reload((await changedKernel(f.runtime, 'export const customPreflightRevision = 2')).id, ['kernel'])
+  await f.runtime.manager.reconcile(); await f.runtime.settled()
+  expect(f.runtime.getReload(operation.operationId)).toMatchObject({ phase: 'restart_required', switchedAt: null, units: [{ reasonCode: 'RUNTIME_RESTART_REQUIRED' }] })
+  expect(f.runtime.manager.currentVersion('kernel')).toEqual(before)
+  expect(f.runtime.snapshot().ready).toBe(true)
+}, 120_000)
 
 test('a compatible Goal plugin update preserves the Kernel and socket, pins the active Run and hands queued work to the new plugin generation', async () => {
   const f = await fixture(), { client, host } = await clientFor(f.runtime)

@@ -36,7 +36,7 @@ export class RuntimePluginRelay {
   attachKernel(peer: IpcPeer, owner: RuntimeOwner): () => void {
     const application = new RuntimeValuePort(peer, { prefix: 'kernel.plugins' })
     application.register('catalog', () => {
-      this.options.coordinator.assertCanWrite(owner)
+      this.options.coordinator.assertCanRead(owner)
       return this.options.current().map(endpoint => ({ unitId: endpoint.owner.unitId, state: endpoint.state }))
     })
     application.register('invoke', async ([unitValue, authorityValue, description, rawArgs, callback], signal) => {

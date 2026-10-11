@@ -238,6 +238,7 @@ export class ManagedProcess {
           HBAR_RUNTIME_SELF: JSON.stringify(owner),
           HBAR_RUNTIME_PARENT: JSON.stringify(this.options.parent),
           HBAR_RUNTIME_MODULE: this.options.modulePath,
+          HBAR_RUNTIME_PREPARATION: this.activated ? 'recovery' : this.options.generation === 1 ? 'startup' : 'candidate',
           HBAR_RUNTIME_HEARTBEAT_MS: String(this.heartbeatMs),
           HBAR_RUNTIME_CONTROL_METHODS: JSON.stringify([...RUNTIME_CONTROL_METHODS, ...(this.options.controlMethods ?? [])]),
         },

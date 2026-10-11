@@ -109,6 +109,7 @@ import type {
 import {
   Storage,
   ensurePathLayout,
+  assertStoragePreflightMethod,
   resolvePathLayout,
   validatePathRoots,
   writePathPointer,
@@ -349,7 +350,7 @@ export interface KernelOptions {
   /** The composition root owns recovery of a failed Storage Worker. */
   onFatal?: ((error: HbarError) => void) | undefined
   /** Managed activation never runs global recovery or starts scheduling during construction. */
-  lifecycle?: 'automatic' | 'managed' | undefined
+  lifecycle?: 'automatic' | 'managed' | 'candidate' | undefined
   execution?: KernelExecutionPort | undefined
   /** The stable Host owns identity across managed Kernel generations. */
   instanceId?: string | undefined
@@ -480,16 +481,27 @@ export class Kernel {
   private closing = false
   private automation = new Map<string, { unattended: boolean; goalEnabled: boolean }>()
   private readyForRuns = false
+  private preparing = false
   recovered = 0
   private constructor(
     readonly options: ResolvedKernelOptions,
     storage?: StoragePort,
   ) {
     this.instanceId = z.string().min(1).max(160).parse(options.instanceId ?? crypto.randomUUID())
+    this.preparing = options.lifecycle === 'candidate'
+    if (this.preparing && !storage) throw new HbarError('RUNTIME_PREPARING', 'Candidate construction requires an explicit read-only Storage port')
     this.executionScope = new KernelExecutionScope(options.execution)
-    this.storage = this.executionScope.storage(storage ?? new Storage(options.layout.database, options.layout, {
+    const suppliedStorage = storage ?? new Storage(options.layout.database, options.layout, {
       ...(options.onFatal ? { onFatal: options.onFatal } : {}),
-    }))
+    })
+    const guardedStorage: StoragePort = {
+      call: (method, ...args) => {
+        if (this.preparing) assertStoragePreflightMethod(method)
+        return suppliedStorage.call(method, ...args)
+      },
+      close: () => suppliedStorage.close(),
+    }
+    this.storage = this.executionScope.storage(guardedStorage)
     this.runtimeRecovery = new RuntimeRecoveryService(this.storage, {
       reconcile: (run, record) => this.executionScope.reconcile({ runId: run.id, sessionId: run.sessionId, recoveryId: record.recoveryId }, async () => {
         await this.plugins.get<BudgetService>('budget').reconcileRun?.(run)
@@ -559,7 +571,7 @@ export class Kernel {
       {
         tools: this.tools,
         hooks: this.hooks,
-        ...(options.lifecycle === 'managed' ? { restoreMode: 'projection' as const } : {}),
+        ...(options.lifecycle === 'managed' || options.lifecycle === 'candidate' ? { restoreMode: 'projection' as const } : {}),
         sessions: {
           agentConfiguration: createAgentSessionConfiguration({
             settings: this.permissionSettings,
@@ -713,7 +725,7 @@ export class Kernel {
         cacheRoot: options.cacheRoot,
         pointerFile: options.pointerFile,
       }))
-    await ensurePathLayout(layout)
+    if (options.lifecycle !== 'candidate') await ensurePathLayout(layout)
     const resolved: ResolvedKernelOptions = { ...options, home: layout.dataRoot, layout, runIdleTimeoutMs }
     const kernel = new Kernel(resolved, await options.profile?.createStorage?.(layout.dataRoot))
     try {
@@ -721,14 +733,15 @@ export class Kernel {
       const storedPermission = await kernel.storage.call('getSetting', 'permission.mode')
       const parsedPermission = approvalModeSchema.safeParse(storedPermission)
       kernel.permissionModeValue = parsedPermission.success ? parsedPermission.data : 'ask'
-      if (options.lifecycle !== 'managed') kernel.recovered = await kernel.storage.call('recover')
+      const automatic = !options.lifecycle || options.lifecycle === 'automatic'
+      if (automatic) kernel.recovered = await kernel.storage.call('recover')
       await kernel.restoreAutomation()
       kernel.registerDefaults()
       for (const [id, plugin] of Object.entries(options.profile?.replacements ?? {})) kernel.plugins.replace(id, plugin)
       for (const plugin of options.profile?.plugins ?? []) kernel.plugins.add(plugin)
-      await kernel.plugins.start()
-      if (options.lifecycle !== 'managed' && options.workspace) await kernel.createWorkspace(options.workspace)
-      if (options.lifecycle !== 'managed' && options.demo)
+      await kernel.plugins.start({ rejectLocal: options.lifecycle === 'candidate' })
+      if (automatic && options.workspace) await kernel.createWorkspace(options.workspace)
+      if (automatic && options.demo)
         await kernel.storage.call(
           'saveProvider',
           providerSchema.parse({
@@ -741,22 +754,31 @@ export class Kernel {
             reasoning: true,
           }),
         )
-      if (options.lifecycle !== 'managed') {
+      if (automatic) {
         await kernel.plugins.get<GoalService>('goal').resumeOnStartup()
         await kernel.activate()
       }
       return kernel
     } catch (error) {
-      await kernel.storage.close()
+      await kernel.close()
       throw error
     }
   }
   async activate(role: 'default' | 'draining' = 'default'): Promise<void> {
+    if (this.preparing) throw new HbarError('RUNTIME_PREPARING', 'Candidate Kernel cannot start execution')
     if (this.closing) throw new HbarError('KERNEL_CLOSED', 'The Kernel is closed')
     this.readyForRuns = role === 'default'
     if (!this.readyForRuns) return
     await this.sessionLaunchPreparations.resumePending()
     for (const session of await this.storage.call('sessions')) this.kick(session.id)
+  }
+  async completePreparation(): Promise<void> {
+    if (this.closing) throw new HbarError('KERNEL_CLOSED', 'The Kernel is closed')
+    if (!this.preparing) return
+    const stored = approvalModeSchema.safeParse(await this.storage.call('getSetting', 'permission.mode'))
+    this.permissionModeValue = stored.success ? stored.data : 'ask'
+    await this.restoreAutomation()
+    this.preparing = false
   }
   beginDrain(): void {
     this.readyForRuns = false

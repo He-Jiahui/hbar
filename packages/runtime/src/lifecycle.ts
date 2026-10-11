@@ -28,6 +28,7 @@ export interface RuntimeProcessService {
   dispose(): Promise<void>
 }
 export interface RuntimeProcessContext {
+  readonly purpose?: 'startup' | 'candidate' | 'recovery'
   readonly peer: IpcPeer
   readonly configuration: Readonly<Record<string, unknown>>
   readonly preparing: () => boolean

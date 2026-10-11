@@ -89,6 +89,11 @@ export class RuntimeCoordinator {
     })
   }
 
+  assertCanRead(owner: RuntimeOwner): void {
+    const record = this.record(owner)
+    if (record.exited || record.role === 'fenced')
+      throw new HbarError('RUNTIME_OWNER_REVOKED', 'The reading runtime incarnation has been revoked')
+  }
   activate(owner: RuntimeOwner, role: 'default' | 'draining' = 'default'): void {
     const record = this.record(owner)
     if (record.role !== 'candidate')

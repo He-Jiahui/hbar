@@ -66,6 +66,7 @@ test('candidates have no write authority and only a default Kernel can claim a R
   const f = fixture()
   const candidate = owner('kernel', 2)
   f.register(candidate, 'kernel', false)
+  expect(() => f.coordinator.assertCanRead(candidate)).not.toThrow()
   expect(() => f.coordinator.assertCanWrite(candidate)).toThrow('candidates cannot write')
   await expect(f.coordinator.claim(candidate, 'session', 'run', f.bindings(candidate))).rejects.toMatchObject({
     code: 'RUNTIME_NOT_DEFAULT',
@@ -76,6 +77,18 @@ test('candidates have no write authority and only a default Kernel can claim a R
     code: 'RUNTIME_NOT_DEFAULT',
   })
   expect((await f.claim('session', 'new', candidate)).owner.incarnation).toBe(candidate.incarnation)
+})
+
+test('candidate metadata reads lose authority when their incarnation is revoked or exits', async () => {
+  const f = fixture(), candidate = owner('kernel', 2)
+  f.register(candidate, 'kernel', false)
+  f.coordinator.assertCanRead(candidate)
+  await f.coordinator.revoke(candidate)
+  expect(() => f.coordinator.assertCanRead(candidate)).toThrow('revoked')
+  const next = owner('kernel', 3)
+  f.register(next, 'kernel', false)
+  f.coordinator.ownerExited(next)
+  expect(() => f.coordinator.assertCanRead(next)).toThrow('revoked')
 })
 
 test('valid lease identities cannot forge their captured capability bindings', async () => {

@@ -10,7 +10,7 @@ import { RUNTIME_APPLICATION_CONTROLS } from '@hbar/kernel/runtime-application'
 import { ManagedProcess, RuntimeArtifactStore, RuntimeCoordinator, RuntimeManager, RuntimeValuePort, procedure,
   registerRuntimeCoordinatorPort, RUNTIME_COORDINATION_CONTROL_METHODS, runtimeDomainError, type IpcPeer, type RuntimeArtifact, type RuntimeArtifactPackage, type RuntimeBuildUnit } from '@hbar/runtime'
 import { buildRuntimeArtifact, createRuntimeSourceReload, runtimeSourceRoots, watchRuntimeSources } from '@hbar/runtime'
-import { Storage, StableStoragePort, callStorageRpc, ensurePathLayout, storageRpcCallSchema, type PathLayout } from '@hbar/storage'
+import { Storage, StableStoragePort, callStorageRpc, ensurePathLayout, storageRpcCallSchema, assertStoragePreflightMethod, type PathLayout } from '@hbar/storage'
 import { acquireHostProcessLock } from './process-lock'
 import { RuntimeKernelFacade, type RuntimeKernelEndpoint, type RuntimeKernelState } from './runtime-kernel-facade'
 import { RuntimeDriverRelay, type RuntimeDriverEndpoint } from './runtime-driver-relay'
@@ -518,6 +518,12 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     return managed
   }
   private attachKernel(record: Generation, peer: IpcPeer, owner: RuntimeOwner): void {
+    record.cleanup.push(peer.register('kernel.preflight.read', procedure(storageRpcCallSchema, z.unknown(), input => {
+      this.coordinator.assertCanRead(owner)
+      if (input.authority) throw new HbarError('RUNTIME_PREPARING', 'Candidate reads cannot carry execution authority')
+      assertStoragePreflightMethod(input.method)
+      return this.storage.executeRpc(input)
+    })))
     record.application = new RuntimeValuePort(peer, { prefix: 'kernel.application', controlMethods: RUNTIME_APPLICATION_CONTROLS })
     record.cleanup.push(this.relay.attachKernel(peer), this.pluginRelay.attachKernel(peer, owner), registerRuntimeCoordinatorPort(peer, this.coordinator, { owner,
       bindings: (caller, sessionId) => this.bindings(caller, sessionId), canAdmit: sessionId => this.canAdmit(sessionId),
