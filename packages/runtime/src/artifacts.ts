@@ -30,6 +30,7 @@ export const runtimeArtifactSchema = z.strictObject({
       }),
     )
     .max(4_096),
+  pluginConfiguration: z.record(z.string(), z.json()).optional(),
 })
 const artifactSchema = runtimeArtifactSchema
 export type RuntimeArtifact = z.infer<typeof artifactSchema>
@@ -350,6 +351,25 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
       if (sha256(await boundedArtifactRead(join(directory, fileName(file.name)), 64 * 1024 * 1024)) !== file.sha256)
         throw new HbarError('RUNTIME_ARTIFACT_CHANGED', 'Runtime resource changed after preparation')
     return artifact
+  }
+
+  async configurePlugin(id: string, configuration: Record<string, unknown>): Promise<RuntimeArtifact> {
+    const original = await this.get(id)
+    if (original.descriptor.kind !== 'plugin') throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Configuration variants require an owned plugin')
+    const pluginConfiguration = z.record(z.string(), z.json()).parse(configuration)
+    if (Buffer.byteLength(JSON.stringify(pluginConfiguration)) > 1024 * 1024)
+      throw new HbarError('RUNTIME_CONFIGURATION_LIMIT', 'Plugin configuration exceeds its byte bound')
+    const { id: _id, pluginConfiguration: _previous, ...metadata } = original
+    const artifact = artifactSchema.parse({ ...metadata, pluginConfiguration, id: sha256(JSON.stringify({ metadata, pluginConfiguration })) })
+    if (!this.registered.has(artifact.id) && this.registered.size >= 4_096)
+      throw new HbarError('RUNTIME_ARTIFACT_CAPACITY', 'Registered artifact capacity is exhausted')
+    const directory = join(this.root, artifact.id)
+    await mkdir(directory, { recursive: true })
+    for (const file of [...original.files, ...original.resourceFiles])
+      await this.immutableWrite(join(directory, fileName(file.name)), await boundedArtifactRead(join(this.root, id, fileName(file.name)), 128 * 1024 * 1024))
+    await this.immutableWrite(join(directory, 'manifest.json'), `${JSON.stringify(artifact)}\n`)
+    this.registered.set(artifact.id, artifact)
+    return artifactSchema.parse(artifact)
   }
   async modulePath(id: string): Promise<string> {
     const artifact = await this.get(id)

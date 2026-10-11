@@ -92,6 +92,30 @@ test('the production composition activates independent Bun owners including nine
   expect((await client.call('system.bootstrap', {})).plugins.find(plugin => plugin.id === 'goal.codex')?.configSchema?.properties).toHaveProperty('autoContinue')
 })
 
+test('owned plugin configuration validates its candidate and replaces only the configured owner with durable restart settings', async () => {
+  const f = await fixture(), { client } = await clientFor(f.runtime)
+  const before = f.runtime.snapshot()
+  const id = 'browser-use.codex'
+  const invalid = await client.call('plugin.set', { id, enabled: true, config: { backend: 'invalid' } }).catch((error: unknown) => error)
+  expect(invalid).toBeInstanceOf(Error)
+  expect(f.runtime.manager.currentVersion('plugin.browser').generation).toBe(1)
+  const configured = await client.call('plugin.set', { id, enabled: true, config: { backend: 'fetch', maxContexts: 2, default_origin_policy: { access: 'allow' } } })
+  expect(configured.find(plugin => plugin.id === id)?.config).toMatchObject({ backend: 'fetch', maxContexts: 2 })
+  const selected = f.runtime.manager.currentVersion('plugin.browser')
+  expect(selected.generation).toBeGreaterThan(1)
+  for (const unit of before.units.filter(unit => unit.descriptor.id !== 'plugin.browser'))
+    expect(f.runtime.snapshot().units.find(value => value.descriptor.id === unit.descriptor.id)?.generations[0]?.pid).toBe(unit.generations[0]?.pid)
+  expect((await f.runtime.storage.call('plugins')).find(plugin => plugin.id === id)?.config).toMatchObject({ backend: 'fetch', maxContexts: 2 })
+  const current = f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'plugin.browser')!.generations.find(generation => generation.role === 'default')!
+  if (!current.pid || current.pid === process.pid) throw new Error('Expected an owned browser plugin')
+  process.kill(current.pid, 'SIGKILL')
+  await until(() => f.runtime.snapshot().ready && f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'plugin.browser')?.generations.find(generation => generation.role === 'default')?.incarnation !== current.incarnation)
+  await f.runtime.settled()
+  expect(f.runtime.manager.currentVersion('plugin.browser')).toEqual(selected)
+  expect(f.runtime.kernel.plugins.list().find(plugin => plugin.id === id)?.config).toMatchObject({ backend: 'fetch', maxContexts: 2 })
+  expect(client.connectionStatus()).toBe('connected')
+}, 120_000)
+
 test('actual Kernel construction failures and candidate writes fail before routing changes and leave all serving owners and the socket intact', async () => {
   const f = await fixture(), { client, host } = await clientFor(f.runtime)
   const before = f.runtime.snapshot()

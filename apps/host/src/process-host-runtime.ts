@@ -239,6 +239,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       resolve: (target, method, args, captured) => this.resolveKernel(target, method, args, captured),
       maintain: (action) => this.maintain(action),
       cancel: (runId) => this.cancelRun(runId),
+      configurePlugin: (...args) => this.configurePlugin(...args),
       resourceSessions: () => this.resources.sessions(),
     })
     this.maintenance = new RuntimeMaintenanceRelay({
@@ -618,6 +619,38 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   async settled(): Promise<void> {
     await this.transitions
   }
+  private async configurePlugin(id: string, enabled: boolean, config?: Record<string, unknown>, projectId?: string) {
+    z.string().min(1).max(160).parse(id)
+    z.boolean().parse(enabled)
+    if (projectId) throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Project plugin configuration requires a compatible owned lifecycle')
+    return this.maintain(async () => {
+      const endpoint = this.pluginEndpoints().find(value => value.state.manifests.some(manifest => manifest.id === id))
+      if (!endpoint) throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Custom plugin configuration requires an owned compatible lifecycle')
+      const manifest = endpoint.state.manifests.find(value => value.id === id)!
+      if (endpoint.state.manifests.at(-1)?.id !== id)
+        throw new HbarError('RUNTIME_RESTART_REQUIRED', 'This shared plugin group has no independent configuration lifecycle')
+      if (!enabled) throw new HbarError(manifest.required ? 'REQUIRED_PLUGIN' : 'RUNTIME_RESTART_REQUIRED', 'Removing a plugin capability requires an explicit restart')
+      if (!config) return this.kernel.plugins.list()
+      const original = this.currentGeneration(endpoint.owner.unitId).artifact
+      const artifact = await this.artifacts.configurePlugin(original.id, config)
+      const set = this.artifacts.registerSet([artifact])
+      const operation = this.reload(set.id, [endpoint.owner.unitId])
+      await this.manager.reconcile()
+      await this.settled()
+      const result = this.getReload(operation.operationId)
+      if (!['completed', 'draining'].includes(result.phase)) {
+        if (result.cancellable) this.cancelReload(operation.operationId)
+        throw new HbarError(result.units.find(unit => unit.reasonCode)?.reasonCode ?? 'RUNTIME_CONFIGURATION_FAILED', 'The plugin configuration did not become a serving version')
+      }
+      const current = this.pluginEndpoint(endpoint.owner.unitId)
+      this.pluginConfigs.set(endpoint.owner.unitId, current.state.config)
+      await this.storage.call('setPlugin', id, true, current.state.config)
+      for (const kernel of this.endpoints()) await kernel.process.call('kernel.plugins.refresh', undefined, z.undefined())
+      await this.refreshKernels()
+      this.facade.api.changed('plugins')
+      return this.currentKernel().state.plugins
+    })
+  }
   async waitForIdle(timeoutMs = 120_000): Promise<void> {
     if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 120_000)
       throw new HbarError('INVALID_INPUT', 'Idle wait needs a bounded deadline')
@@ -994,7 +1027,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
                 ? {
                     dataRoot: layout.dataRoot,
                     cacheRoot: layout.cacheRoot,
-                    config: this.pluginConfigs.get(artifact.unitId) ?? {},
+                    config: artifact.pluginConfiguration ?? this.pluginConfigs.get(artifact.unitId) ?? {},
                   }
                 : {}
     let record: Generation

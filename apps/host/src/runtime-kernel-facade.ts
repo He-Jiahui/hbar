@@ -33,6 +33,7 @@ export interface RuntimeKernelFacadeOptions {
   ) => RuntimeKernelEndpoint | Promise<RuntimeKernelEndpoint>
   readonly maintain: <Result>(action: () => Promise<Result>) => Promise<Result>
   readonly cancel?: (runId: string) => Promise<void>
+  readonly configurePlugin?: KernelControllerPort['changePlugin']
   readonly openScope?: (id: string) => Promise<KernelClientScopePort>
   readonly resourceSessions?: () => readonly string[]
 }
@@ -90,6 +91,10 @@ export class RuntimeKernelFacade {
     const self = this
     this.api = {
       ...this.methods('kernel'),
+      ...(options.configurePlugin ? {
+        changePlugin: options.configurePlugin,
+        changePluginTree: async () => { throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Changing the plugin capability graph requires an explicit restart') },
+      } : {}),
       instanceId: options.instanceId,
       options: { layout: options.layout, demo: options.demo },
       storage: options.storage,
