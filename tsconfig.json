@@ -21,7 +21,8 @@
     "paths": {
       "@lumen/app-ui": ["./hbar-ui/packages/lumen-app-ui/src/index.ts"],
       "@lumen/app-ui/catalog": ["./hbar-ui/packages/lumen-app-ui/src/catalog.ts"],
-      "@lumen/app-ui/variants": ["./hbar-ui/packages/lumen-app-ui/src/variants/index.ts"]
+      "@lumen/app-ui/variants": ["./hbar-ui/packages/lumen-app-ui/src/variants/index.ts"],
+      "@mui/internal-test-utils": ["./tests/lumen/renderer.tsx"]
     }
   },
   "include": [
@@ -36,7 +37,8 @@
     "e2e/**/*.ts",
     "e2e/**/*.tsx",
     "examples/**/*.ts",
-    "playwright.config.ts"
+    "playwright.config.ts",
+    "vitest.lumen.config.ts"
   ],
   "exclude": ["node_modules", "dist", "**/artifacts/**", "apps/desktop/src-tauri/target"]
 }

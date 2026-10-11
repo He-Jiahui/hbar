@@ -127,7 +127,7 @@ function imageMime(bytes: Uint8Array): string | undefined {
 
 function decodeUtf8(bytes: Uint8Array): string {
   try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+    return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes)
   } catch {
     throw new HbarError('UNSUPPORTED_TYPE', 'File is neither valid UTF-8 text nor a supported image')
   }

@@ -10,6 +10,14 @@
 
 崩溃测试启动额外 Bun 进程，在已提交工具意图且实际写入完成、结果尚未提交时终止进程，重新打开同一数据目录，检查 WAL 历史和 unknown 结果，不重放调用。它不宣称覆盖所有磁盘故障或断电场景。
 
+### Lumen 宿主组件测试
+
+`bun run test:lumen` 使用根 `vitest.lumen.config.ts` 执行已声明 Lumen workspace 的组件测试；`bun run check` 在 Bun 基础测试后执行同一入口。Vitest、jsdom、Testing Library 和 Chai DOM 均为固定版本的测试依赖，正常生产构建不导入它们。
+
+子模块没有保留 MUI monorepo 的私有 `@mui/internal-test-utils` 实现。根 TypeScript 路径与此 Vitest 配置将已有测试中的该名称映射到 `tests/lumen/renderer.tsx`：适配器使用公开 Testing Library API，提供渲染、受控 props 更新、用户事件与 fake-clock 的 React act 结算。它只用于测试；生产源码由严格 lint 禁止导入。每例结束释放 DOM、计时器、spy 和临时全局变量。
+
+这些 jsdom 测试检查对话滚动、文件预览、图片导航、Composer 和侧栏分隔条的交互契约；几何、真实 Canvas、主题、溢出与原生窗口继续使用对应 Playwright/桌面验收。配置限制单个测试 Worker，以及每例和 hook 的等待预算。
+
 ### 定向测试路径与审计浏览器探针
 
 定向运行具体测试文件时使用 `./tests/...`，不要省略 `./`。Bun 将未带路径前缀的参数视作名称过滤器，会递归发现工作区测试；审计产物较多时，这会把发现时间误认为测试或编译卡住。具体文件路径可以避免这次全树发现，测试断言不变。参见 [Bun 测试运行器说明](https://bun.com/docs/test)。
@@ -183,3 +191,5 @@ Goal、Agent Plan、双预算、自主续跑和异常恢复的语义与当前验
 整合过程使用同一严格 ESLint 配置检查冲突解决及新增接线文件，0 错误、0 警告；全仓 TypeScript `--noEmit` 通过。定向验证包括恢复/存储契约/Supervisor 15 项、MAX/技能/文件变更/迁移 26 项、Goal 恢复与原有暂停及预算控制 41 项、Worker/Storage 诊断与恢复 33 项。部分用例重叠，这些数字不作为不重复的总计。
 
 实际受管进程场景分批验证 Controller、Kernel、插件替换、资源保留、旧代绑定、取消、单次恢复、订阅游标与失败候选；实际 `runHost` 验证 Host、Kernel、Storage Worker 的关联诊断及日志内容隔离。Bun 长串构建测试中出现过启动超时；终止本轮旧测试进程后，崩溃恢复及剩余场景在新进程复测通过。整合验证没有重新执行上一表中的完整基础测试、桌面构建、原生桌面 smoke 或性能测量，上表属于合并前交付记录。
+
+最新主干的连接抽屉整合沿用宿主文案与 Lumen 主题，内容契约及图标等级 guard 均通过；相关存储/文件变更/性能模型 23 项、维护的 Lumen 组件 84 项、首次连接失败和中英文运行状态 Web E2E 3 项通过。实际 Host 诊断测试 32 个断言、Windows CLI/App 会话恢复同步及 fixture Supervisor 清理复测通过。

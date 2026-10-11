@@ -124,12 +124,17 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           } else {
             await moreAction.press('ArrowDown')
             const menuAction = menu.getByRole('menuitemcheckbox', { name: panel.label, exact: true })
+            for (
+              let step = 0;
+              step < 4 && !(await menuAction.evaluate((node) => node === document.activeElement));
+              step++
+            )
+              await page.keyboard.press('ArrowDown')
             await expect(menuAction).toBeFocused()
             await page.keyboard.press(index % 2 ? 'Space' : 'Enter')
           }
-          const pane = page.getByRole('region', { name: panel.title, exact: true }).filter({
-            has: page.getByRole('button', { name: panel.close, exact: true }),
-          })
+          const pane = page.locator('.lumen-app-tool-content')
+          await expect(pane).toHaveAttribute('aria-label', panel.title)
           await expect(pane).toBeVisible()
           if (viewport.width > 1024) {
             if (directAction) await expect(directAction).toHaveAttribute('aria-pressed', 'true')
@@ -206,7 +211,6 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const titleHeading = page.locator('.hbar-app-react-shell-header-active-title')
       const trigger = page.locator('.hbar-mobile-header-menu-trigger')
       const panel = page.locator('.hbar-mobile-header-menu-content')
-      await expect(trigger).toHaveAttribute('aria-label', mobileShellNavigationLabel(locale))
       const tools = () => panel.getByRole('region', { name: copy.session.tools.label, exact: true })
       const menuTool = (label: string) => tools().getByRole('button', { name: label, exact: true })
       const tabs = () => panel.getByRole('region', { name: tabCopy.tabs.tabs, exact: true })
@@ -216,6 +220,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         { width: 320, height: 560 },
       ]) {
         await page.setViewportSize(viewport)
+        await expect(trigger).toHaveAttribute('aria-label', mobileShellNavigationLabel(locale))
         await expect(titleHeading).toHaveText(title)
         await expect(titleHeading).toBeVisible()
         await expect(page.locator('.hbar-app-react-session-workspace > .lumen-page-header')).toBeHidden()
@@ -227,7 +232,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           overflow: getComputedStyle(element).textOverflow,
         }))
         expect(titleGeometry.scrollWidth).toBeGreaterThan(titleGeometry.width)
-        expect(titleGeometry.overflow).toBe('ellipsis')
+        expect(titleGeometry.overflow).toBe('clip')
+        await expect(titleHeading).toHaveAttribute('title', title)
         expect(before).toBeLessThanOrEqual(64)
         const screenshotSize = viewport.height === 560 ? '320x560' : String(viewport.width)
         await page.screenshot({ path: `${evidence}/shell-${locale}-${screenshotSize}-closed.png` })
@@ -260,7 +266,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           }
         })
         expect(openGeometry.headerHeight).toBeCloseTo(before, 1)
-        expect(openGeometry.positioning).toBe('absolute')
+        expect(openGeometry.positioning).toBe('fixed')
         expect(openGeometry.panelTop).toBeGreaterThanOrEqual(openGeometry.triggerBottom - 1)
         expect(openGeometry.panelRight).toBeLessThanOrEqual(openGeometry.viewportWidth + 1)
         expect(openGeometry.panelBottom).toBeLessThanOrEqual(openGeometry.viewportHeight + 1)
@@ -325,7 +331,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
 
         await trigger.click()
         await menuTool(copy.session.tools.files).click()
-        const files = page.locator('.lumen-app-tool-drawer')
+        const files = page.locator('.lumen-app-tool-content')
         await expect(files).toBeVisible()
         await expect(files.getByRole('button', { name: copy.files.close, exact: true })).toBeVisible()
         await files.getByRole('button', { name: copy.files.close, exact: true }).click()
@@ -509,7 +515,7 @@ test('primary Activity and labelled secondary tools preserve current-session dra
     await page.screenshot({ path: 'artifacts/session-tools-menu-v13/zh-tools-narrow.png' })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
     await page.keyboard.press('Enter')
-    const monitoring = page.locator('.lumen-app-tool-drawer')
+    const monitoring = page.locator('.lumen-app-tool-content')
     await expect(monitoring).toBeVisible()
     await monitoring.getByRole('button', { name: copy.monitoring.close, exact: true }).click()
     await expect(mobileTrigger).toBeFocused()

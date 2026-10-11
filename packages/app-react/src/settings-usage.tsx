@@ -60,6 +60,7 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
   const report = entry?.report
   const loading = entry?.status === 'loading'
   const [bucketId, setBucketId] = useState<string | null>(null)
+  const [modelNavigation, setModelNavigation] = useState({ report, instanceId, page: 0 })
   useEffect(() => {
     if (connected) void runtime.commands.execute('settingsUsage.refresh', { instanceId }).catch(() => undefined)
   }, [connected, instanceId, runtime])
@@ -70,6 +71,16 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
   const selectWindow = (window: SettingsUsageWindow) =>
     void runtime.commands.execute('settingsUsage.setWindow', { instanceId, window }).catch(() => undefined)
   const models = report?.models ?? []
+  const lastModelPage = Math.max(0, Math.ceil(models.length / SETTINGS_USAGE_MODELS_PER_PAGE) - 1)
+  // Navigation belongs to this exact summary; a refresh or retarget immediately returns to its first page.
+  const modelPage =
+    modelNavigation.report === report && modelNavigation.instanceId === instanceId
+      ? Math.min(modelNavigation.page, lastModelPage)
+      : 0
+  const modelStart = modelPage * SETTINGS_USAGE_MODELS_PER_PAGE
+  const pageModels = models.slice(modelStart, modelStart + SETTINGS_USAGE_MODELS_PER_PAGE)
+  const moveModelPage = (direction: -1 | 1) =>
+    setModelNavigation({ report, instanceId, page: Math.max(0, Math.min(lastModelPage, modelPage + direction)) })
   const selectedBucket = report?.series.find((item) => String(item.start) === bucketId)
   const windows = labels.windows.filter((item, index, all) => all.findIndex((other) => other.id === item.id) === index)
 
@@ -119,7 +130,7 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
           description: labels.description,
           strategy: 'content-grown' as const,
           emptyLabel: labels.noModels,
-          rows: models.map((model) => ({
+          rows: pageModels.map((model) => ({
             id: model.modelSelectionId,
             model: labels.model(model.providerId, model.modelId),
             share:
@@ -242,16 +253,40 @@ export function HbarSettingsUsage({ instanceId, connected, labels }: HbarSetting
             )}
           </LumenFrame>
           <LumenFrame as="section" className="hbar-settings-usage-models" aria-label={labels.models}>
-            {models.slice(0, SETTINGS_USAGE_MODELS_PER_PAGE).map((model) => (
-              <LumenFrame key={`compat-${model.modelSelectionId}`} className="hbar-settings-usage-model-row" hidden>
-                {labels.model(model.providerId, model.modelId)}
-              </LumenFrame>
-            ))}
             <LumenUsage02 content={usageContent} className="hbar-settings-usage-lumen" />
             {models.length > SETTINGS_USAGE_MODELS_PER_PAGE && (
-              <LumenContentText context="form.description" className="hbar-settings-usage-pagination">
-                {labels.page(1, Math.min(SETTINGS_USAGE_MODELS_PER_PAGE, models.length), models.length)}
-              </LumenContentText>
+              <LumenFrame as="nav" className="hbar-settings-usage-pagination" aria-label={labels.models}>
+                <LumenContentText context="form.description" role="status">
+                  {labels.page(modelStart + 1, modelStart + pageModels.length, models.length)}
+                </LumenContentText>
+                <LumenFrame
+                  className="hbar-settings-usage-pagination-actions"
+                  role="group"
+                  aria-label={labels.models}
+                  tabIndex={0}
+                >
+                  <LumenButton
+                    type="button"
+                    size="s"
+                    variant="text"
+                    disabled={modelPage === 0}
+                    title={labels.previous}
+                    onClick={() => moveModelPage(-1)}
+                  >
+                    {labels.previous}
+                  </LumenButton>
+                  <LumenButton
+                    type="button"
+                    size="s"
+                    variant="text"
+                    disabled={modelPage === lastModelPage}
+                    title={labels.next}
+                    onClick={() => moveModelPage(1)}
+                  >
+                    {labels.next}
+                  </LumenButton>
+                </LumenFrame>
+              </LumenFrame>
             )}
           </LumenFrame>
         </>
