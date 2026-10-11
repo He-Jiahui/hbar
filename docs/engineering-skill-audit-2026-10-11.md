@@ -89,6 +89,18 @@ Harness 审查核对工具意图与持久结果、Host 拥有的计时/进度、
 
 参考：ReactBits [Analytics](https://pro.reactbits.dev/docs/app-ui/analytics) 与 [Data Table](https://pro.reactbits.dev/docs/app-ui/data-table) 的数据列表、范围状态与就近分页层级；沿用 Lumen 公共控件、宿主文案和自然 flex 流，不引入新的色板或固定内容高度。成对截图与日志位于 `test-results/skills-standards-visual-main/pagination-before`、`pagination-final` 和 `artifacts/skills-standards-visual-main/pagination-*.log`。完整类型门禁仍按本节前述主工作区失败记录处理。
 
+### 文件阅读密度与完整标题
+
+真实 Host 的窄屏截图暴露了文件编辑器上方的大片空白。查证 Lumen `864bc53b0d` 后复现：公共文件容器把每个直接子节点都设为可增长，后加载的同等优先级规则覆盖了宿主控制栏与提示的内容高度。320px 实测控制栏占约 250px，实际三行按钮只需约 96px；提示也被拉伸至约 234px。公共默认规则改用 `:where` 降低优先级，使宿主声明的内容高度生效，编辑器继续占剩余空间。修复前的几何回归失败；修复后分别按按钮行、间距和提示文字行距测量，不使用截图固定高度。
+
+文件标题同时遵守当前完整文字规则：移除省略号，保留完整单行内容，仅标题区域原生横向滚动，并提供可聚焦的路径名称和 Lumen 语义焦点色。浏览器核对文字实际宽度、无省略号、方向键滚动和全页无横向溢出。没有增加业务状态或改变保存权限，原会话与固定工程文件仍各自保留未保存内容。
+
+11 项真实 Host 场景通过，包含原 7 项工具归属/预览/未知保存场景和新增的中英文 × 明暗 4 项；明暗通过系统媒体偏好进入应用真实外观路径，每项检查 1440/390/320、草稿、原磁盘内容和未触发执行。人工查看浅色英文与深色中文窄屏截图。27 项文件/Markdown 相邻测试（245 次断言）、5 个 Lumen 套件的 84 项测试、Web 构建、修改文件根维护配置下的零警告 ESLint、flow/content/icon guard 通过。主工作区先前的 `Run` 未使用导入已由原任务提交 `aff2a23c` 解决；8 GiB 堆的完整严格 TypeScript 此时通过，保留前两阶段的历史失败记录。
+
+子模块自带格式/lint 配置依赖当前未安装的 MUI 私有 `@mui/internal-code-infra`，直接执行该配置失败。公共文件使用 pnpm 12.3.4 隔离运行 Prettier 3.9.6 按原有格式检查，并接受根维护配置的严格 lint、类型、Lumen 测试与实际 Web 构建；未声称整个 MUI 单独发布工具链通过。日志、修复前后 trace 位于 `artifacts/skills-standards-visual-main/file-flow-*.log` 与 `test-results/skills-standards-visual-main/file-flow-*`；已查看截图位于 `artifacts/session-tool-ownership/final/file-reading-light-en-US-320.png` 和 `file-reading-dark-zh-CN-320.png`。
+
+公共组件修复提交为 Lumen `7f2c1b9c73`；主仓库仅更新该 gitlink、相应浏览器验收和本文，子模块中原有会话组件与组合布局修改继续由原任务维护。参考：ReactBits [File Manager](https://pro.reactbits.dev/docs/app-ui/file-manager) 与 [Editor](https://pro.reactbits.dev/docs/app-ui/editor) 的文件标题、模式动作和文档阅读层级，按现有 Lumen 文件组件与宿主内容流实现。
+
 ## 结论边界
 
 以上是当前核心路径的工程与行为审查，不是每个页面、每种供应商或每种操作系统的全面认证。原生桌面 smoke、所有主题颜色的对比度、掉电/介质故障和大规模生产负载不属于已完成的验证。Web 构建仍有既有的 1500 kB chunk 体积提示。Bun 1.4.0 在指定根 tsconfig 的运行中仍打印 directory mismatch 诊断；通过的测试均有真实计数和 0 返回码，不将该输出解释为上游问题已经修复。

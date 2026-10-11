@@ -10,6 +10,7 @@ import { expectComposerText } from './support/composer-text'
 import { lumenMenuForTrigger } from './support/lumen-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 import { openSessionTool } from './support/session-tools-menu'
+import { expectFileReadingFlow } from './support/file-reading-flow'
 
 const origin = `http://127.0.0.1:${process.env.HBAR_E2E_PORT ?? 4329}`
 const port = Number(process.env.HBAR_E2E_HOST_PORT ?? 4317)
@@ -240,12 +241,40 @@ async function capture(fixture: Fixture, name: string, width: number): Promise<v
   await sidebar(fixture, false)
   expect(await fixture.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
   await fixture.page.screenshot({ path: `${evidence}/${name}-${fixture.locale}-${width}.png` })
+  await expectFileReadingFlow(fixture.page)
 }
 async function assertNoExecution(fixture: Fixture): Promise<void> {
   for (const session of [fixture.a, fixture.b, fixture.c])
     expect((await fixture.host.client.call('session.snapshot', { sessionId: session.id })).runs).toHaveLength(0)
   expect(fixture.writes).toEqual([])
   expect(fixture.errors).toEqual([])
+}
+
+for (const locale of ['en-US', 'zh-CN'] as const) {
+  for (const mode of ['light', 'dark'] as const) {
+    test(`file reading flow follows the system theme on real Host data without changing drafts: ${locale} ${mode}`, async ({
+      browser,
+    }) => {
+      test.setTimeout(120_000)
+      const fixture = await start(browser, locale)
+      try {
+        const draft = await seedA(fixture)
+        await fixture.page.emulateMedia({ colorScheme: mode })
+        await expect(fixture.page.locator('html')).toHaveAttribute('data-lumen-mode', mode)
+        for (const width of [1440, 390, 320]) {
+          await capture(fixture, `file-reading-${mode}`, width)
+          await expect(tool(fixture, 'files').getByRole('textbox', { name: aPath, exact: true })).toHaveValue(aDirty)
+          expect(await readFile(join(fixture.root, aPath), 'utf8')).toBe(aDisk)
+        }
+        await fixture.page.setViewportSize({ width: 1440, height: 960 })
+        await close(fixture, 'files')
+        await expectComposerText(prompt(fixture), draft)
+        await assertNoExecution(fixture)
+      } finally {
+        await stop(fixture)
+      }
+    })
+  }
 }
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
