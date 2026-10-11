@@ -224,12 +224,16 @@ test('owned local and Plan tools validate, execute and settle through the admitt
   expect(f.runtime.coordinator.snapshot()).toMatchObject({ sessions: 0, resources: 0, physicalTools: 0 })
 })
 
-test('a retained browser context survives plugin and Kernel updates until explicit close, while fresh Sessions use the new browser owner', async () => {
-  const pageServer = Bun.serve({ port: 0, fetch: () => new Response('<title>Owned context</title><p>Retained page state</p>', { headers: { 'content-type': 'text/html' } }) })
+for (const backend of ['fetch', 'playwright'] as const) {
+const nativeBrowser = process.env.HBAR_TEST_BROWSER_EXECUTABLE ?? 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'
+const runTest = backend === 'playwright' && !await Bun.file(nativeBrowser).exists() ? test.skip : test
+runTest(`a retained ${backend} browser context survives plugin and Kernel updates until explicit close, while fresh Sessions use the new browser owner`, async () => {
+  const pageServer = Bun.serve({ port: 0, fetch: () => new Response('<title>Owned context</title><p>Retained page state</p><button id="increment" onclick="this.textContent=\'Counter: 1\'">Counter: 0</button>', { headers: { 'content-type': 'text/html' } }) })
   resources.push(async () => { await pageServer.stop(true) })
-  const f = await fixture({ backend: 'fetch', default_origin_policy: { access: 'allow' }, allow_history_access: true })
+  const f = await fixture({ backend, ...(backend === 'playwright' ? { executablePath: nativeBrowser, headless: true } : {}), default_origin_policy: { access: 'allow' }, allow_history_access: true })
   const browser = f.runtime.kernel.plugins.get('browser')
   const page = await browser.navigate(f.session.id, 'http://127.0.0.1:' + pageServer.port)
+  if (backend === 'playwright') await browser.click(f.session.id, '#increment', page.contextId, page.pageId)
   expect(f.runtime.kernel.chatDatabaseSessionProtection(f.session.id)).toBe('active')
   const before = f.runtime.snapshot().units.find(unit => unit.descriptor.id === 'plugin.browser')?.generations[0]
   const operation = f.runtime.reload((await changedPlugin(f.runtime, 'plugin.browser', source => {
@@ -240,6 +244,7 @@ test('a retained browser context survives plugin and Kernel updates until explic
   await f.runtime.manager.reconcile(); await f.runtime.settled()
   expect(f.runtime.manager.currentVersion('plugin.browser').generation).toBe(2)
   expect((await browser.snapshot(f.session.id, page.contextId, page.pageId)).text).toContain('Retained page state')
+  if (backend === 'playwright') expect((await browser.snapshot(f.session.id, page.contextId, page.pageId)).text).toContain('Counter: 1')
   const other = await f.runtime.storage.call('createSession', f.session.workspaceId)
   const freshPage = await browser.navigate(other.id, 'http://127.0.0.1:' + pageServer.port)
   expect(freshPage.contextId).not.toBe(page.contextId)
@@ -265,7 +270,8 @@ test('a retained browser context survives plugin and Kernel updates until explic
   expect(f.runtime.getReload(kernelOperation.operationId).phase).toBe('completed')
   expect(f.runtime.kernel.chatDatabaseSessionProtection(f.session.id)).toBeNull()
   expect(f.runtime.coordinator.snapshot().resources).toBe(0)
-})
+}, 120_000)
+}
 
 test('a crashed plugin fences its bound Run, restores the activated plugin version and creates one safe successor without restarting the Kernel', async () => {
   const f = await fixture(), kernel = f.runtime.manager.defaultOwner('kernel')
