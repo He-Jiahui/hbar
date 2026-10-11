@@ -62,7 +62,11 @@ export async function runHost(
     process.on('SIGINT', stopSupervisor)
     process.on('SIGTERM', stopSupervisor)
     let exitCode: number
-    try { exitCode = await supervisor.run() } finally { await releaseSupervisorLock() }
+    try {
+      exitCode = await supervisor.run()
+    } finally {
+      await releaseSupervisorLock()
+    }
     process.exit(exitCode)
   }
   await mkdir(home, { recursive: true })
@@ -84,7 +88,7 @@ export async function runHost(
   try {
     const dataRootId = await ensureHostDataRootId(layout.settings)
     const artifactPackage = embeddedRuntimePackage()
-    runtime = await ProcessHostRuntime.create({
+    runtime = await ProcessHostRuntime.open({
       layout,
       processCommand: runtimeCommand,
       ...(artifactPackage ? { artifactPackage } : {}),
@@ -94,7 +98,8 @@ export async function runHost(
       ...(process.env.HBAR_RUNTIME_WATCH === '1' ? { watchSource: true } : {}),
     })
     const host = await startServer(runtime.kernel, {
-      runtime, controller: runtime.controller,
+      runtime,
+      controller: runtime.controller,
       dataRootId,
       ...(values.host ? { hostname: values.host } : {}),
       ...(values.port ? { port: Number(values.port) } : {}),
@@ -115,7 +120,14 @@ export async function runHost(
       await host.close()
       await runtime?.close()
     }
+    console.log(`hbar ${host.info().version} | ${home}`)
+    for (const address of host.info().addresses) console.log(`  ${address}`)
+    console.log(`Pairing code: ${host.pairing.code} (expires in 5 minutes)`)
+    if (host.server.port !== undefined) sendHostSupervisorMessage({ type: 'host.ready', port: host.server.port })
+    heartbeat = setInterval(() => sendHostSupervisorMessage({ type: 'host.heartbeat' }), 2_000)
+    heartbeat.unref()
     if (values.desktop) {
+      await runtime.authenticationReady()
       const device = await host.auth.createDevice('hbar desktop')
       await writeFile(
         layout.connectionFile,
@@ -130,14 +142,10 @@ export async function runHost(
         { mode: 0o600 },
       )
     }
-    console.log(`hbar ${host.info().version} | ${home}`)
-    for (const address of host.info().addresses) console.log(`  ${address}`)
-    console.log(`Pairing code: ${host.pairing.code} (expires in 5 minutes)`)
-    if (host.server.port !== undefined) sendHostSupervisorMessage({ type: 'host.ready', port: host.server.port })
-    heartbeat = setInterval(() => sendHostSupervisorMessage({ type: 'host.heartbeat' }), 2_000)
-    heartbeat.unref()
   } catch (error) {
-    console.error(`[hbar] Host startup failed (${runtimeDomainError(error)?.code ?? 'RUNTIME_START_FAILED'}); supervisor will retry the managed owner`)
+    console.error(
+      `[hbar] Host startup failed (${runtimeDomainError(error)?.code ?? 'RUNTIME_START_FAILED'}); supervisor will retry the managed owner`,
+    )
     requestShutdown(FAILURE_EXIT_CODE)
   }
 }

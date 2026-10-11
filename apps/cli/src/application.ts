@@ -190,7 +190,10 @@ try {
     args.command === 'diagnose' ||
     (args.command === 'config' && (!args.commandArgs[0] || ['show', 'paths'].includes(args.commandArgs[0])))
   ) {
-    const { client } = await openCatalogClient(args)
+    const { client } = await openCatalogClient({
+      ...args,
+      requireReady: !args.commandArgs[0]?.startsWith('system.runtime.'),
+    })
     try {
       const commandArgs =
         args.command === 'diagnose'

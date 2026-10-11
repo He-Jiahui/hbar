@@ -11,13 +11,18 @@ const resultSchema = z.discriminatedUnion('ok', [
 ])
 
 /** Readiness includes the actual thread exit; no writer handover or maintenance job is started. */
-export function createMaintenanceWorkerPreflight(layout: PathLayout, workerPath: string) {
+export function createMaintenanceWorkerPreflight(
+  layout: PathLayout,
+  workerPath: string,
+  options: { readonly allowMigration?: boolean } = {},
+) {
   const worker = new Worker(workerPath, {
     workerData: {
       path: layout.database,
       sessionsRoot: layout.sessions,
       operationId: 'runtime-preflight',
       mode: 'preflight',
+      ...(options.allowMigration ? { allowMigration: true } : {}),
       flags: new SharedArrayBuffer(8),
     },
   })

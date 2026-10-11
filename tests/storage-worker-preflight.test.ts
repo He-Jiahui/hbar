@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { Database } from 'bun:sqlite'
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, relative, resolve } from 'node:path'
@@ -101,6 +102,43 @@ test('actual Maintenance Worker preparation closes its thread without creating a
     expect(await readdir(root)).toEqual([])
   } finally {
     await probe.close()
+    await removeOwned(root)
+  }
+})
+
+test('cold startup can verify an older supported schema read-only, while hot replacement still requires the current schema', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-worker-preflight-'))
+  const layout = createPathLayout(join(root, 'data'), join(root, 'cache'), join(root, 'pointer.json'))
+  await ensurePathLayout(layout)
+  const installation = new Storage(layout.database, layout)
+  await installation.call('ready')
+  await installation.close()
+  const database = new Database(layout.database)
+  database.exec('PRAGMA user_version=23')
+  database.close()
+  const workerPath = fileURLToPath(new URL('../packages/storage/src/maintenance-worker.ts', import.meta.url))
+  const before = await hashFile(layout.database)
+  const strict = createMaintenanceWorkerPreflight(layout, workerPath)
+  try {
+    const incompatible = await strict.ready.catch((error: unknown) => error)
+    expect(incompatible).toMatchObject({ code: 'RUNTIME_RESTART_REQUIRED' })
+    await strict.close()
+    const probe = createMaintenanceWorkerPreflight(layout, workerPath, { allowMigration: true })
+    try {
+      await probe.ready
+      await probe.close()
+    } finally {
+      await probe.close()
+    }
+    expect(await hashFile(layout.database)).toBe(before)
+    const migrated = new Storage(layout.database, layout)
+    try {
+      expect(await migrated.call('ready')).toEqual({ version: STORAGE_SCHEMA_VERSION })
+    } finally {
+      await migrated.close()
+    }
+  } finally {
+    await strict.close()
     await removeOwned(root)
   }
 })

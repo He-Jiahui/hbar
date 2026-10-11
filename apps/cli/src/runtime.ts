@@ -56,7 +56,7 @@ interface ConnectionFile {
   instanceId?: string
 }
 
-async function connection(layout: CliRuntime['layout']): Promise<ConnectionFile | undefined> {
+async function connection(layout: CliRuntime['layout'], requireReady = true): Promise<ConnectionFile | undefined> {
   try {
     const raw: unknown = JSON.parse(await readFile(layout.connectionFile, 'utf8')) as unknown
     if (
@@ -79,25 +79,43 @@ async function connection(layout: CliRuntime['layout']): Promise<ConnectionFile 
       status && typeof status === 'object' && 'instanceId' in status && typeof status.instanceId === 'string'
         ? status.instanceId
         : undefined
-    if (health.ok && (!value.instanceId || instanceId === value.instanceId)) return value
+    if (
+      (health.ok || (!requireReady && health.status === 503)) &&
+      (!value.instanceId || instanceId === value.instanceId)
+    )
+      return value
   } catch {
     return undefined
   }
   return undefined
 }
 
-async function startHost(layout: CliRuntime['layout'], project: string, demo: boolean) {
+async function startHost(layout: CliRuntime['layout'], project: string, demo: boolean, requireReady = true) {
   let existingOwner = false
   try {
     const record: unknown = JSON.parse(await readFile(`${layout.hostLock}.supervisor`, 'utf8'))
-    if (typeof record === 'object' && record !== null && 'pid' in record && typeof record.pid === 'number' && Number.isSafeInteger(record.pid) && record.pid > 0) {
-      try { process.kill(record.pid, 0); existingOwner = true } catch { /* Owner has exited. */ }
+    if (
+      typeof record === 'object' &&
+      record !== null &&
+      'pid' in record &&
+      typeof record.pid === 'number' &&
+      Number.isSafeInteger(record.pid) &&
+      record.pid > 0
+    ) {
+      try {
+        process.kill(record.pid, 0)
+        existingOwner = true
+      } catch {
+        /* Owner has exited. */
+      }
     }
-  } catch { /* No launcher has claimed this isolated data root yet. */ }
+  } catch {
+    /* No launcher has claimed this isolated data root yet. */
+  }
   if (existingOwner) {
     const deadline = Date.now() + 120_000
     while (Date.now() < deadline) {
-      if (await connection(layout)) return
+      if (await connection(layout, requireReady)) return
       await Bun.sleep(100)
     }
     throw new Error('The managed Host is recovering; inspect its diagnostics before starting another owner')
@@ -127,9 +145,9 @@ async function startHost(layout: CliRuntime['layout'], project: string, demo: bo
     windowsHide: true,
   })
   child.unref()
-  const until = Date.now() + 30_000
+  const until = Date.now() + 120_000
   while (Date.now() < until) {
-    if (await connection(layout)) return
+    if (await connection(layout, requireReady)) return
     await Bun.sleep(100)
   }
   throw new Error(`Host startup timed out; inspect ${logPath}`)
@@ -278,12 +296,20 @@ export async function openCatalogClient(options: {
   dataRoot?: string | undefined
   cacheRoot?: string | undefined
   demo?: boolean | undefined
+  /** Stable management reads can attach while necessary business units are recovering. */
+  requireReady?: boolean | undefined
 }) {
   const initialProject = resolve(options.project ?? process.cwd())
   const layout = await resolvePathLayout({ dataRoot: options.dataRoot, cacheRoot: options.cacheRoot })
-  if (!(await connection(layout)))
-    await startHost(layout, (await isDirectory(initialProject)) ? initialProject : process.cwd(), Boolean(options.demo))
-  const file = await connection(layout)
+  const requireReady = options.requireReady ?? true
+  if (!(await connection(layout, requireReady)))
+    await startHost(
+      layout,
+      (await isDirectory(initialProject)) ? initialProject : process.cwd(),
+      Boolean(options.demo),
+      requireReady,
+    )
+  const file = await connection(layout, requireReady)
   if (!file) throw new Error('Host connection is unavailable')
   const client = new HbarClient(file.url, file.token)
   await client.connect()
@@ -341,94 +367,108 @@ export async function waitForRun(
       executionRunId = state.executionRunId ?? run.id
       recoveryReason = state.recovery?.reasonCode ?? null
       runIds.add(executionRunId)
-      const active = ['queued', 'running', 'waiting_approval', 'cancelRequested'].includes(state.status) || state.recoveryPending ||
+      const active =
+        ['queued', 'running', 'waiting_approval', 'cancelRequested'].includes(state.status) ||
+        state.recoveryPending ||
         (state.recovery && ['pending', 'running'].includes(state.recovery.status))
-      if (!active) { settled = true; completion.resolve() }
+      if (!active) {
+        settled = true
+        completion.resolve()
+      }
     } catch {
       // Safe reads retry while an owner or connection is recovering; accepted work is never resubmitted.
-    } finally { probing = false }
+    } finally {
+      probing = false
+    }
   }
   if (output === 'jsonl') jsonLine({ type: 'run.started', runId: run.id, sessionId: run.sessionId })
   const done = completion.promise
   const reject = completion.reject
-  const timer = setInterval(() => { probe().catch(reject) }, 500)
+  const timer = setInterval(() => {
+    probe().catch(reject)
+  }, 500)
   timer.unref()
   const unsubscribe = client.onEvent((notification) => {
-      if (notification.method === 'stream.update' && runIds.has(notification.params.runId)) {
-        const delta = notification.params
-        observer.onDelta?.(delta)
-        if (output === 'jsonl')
-          jsonLine({
-            type: 'message.delta',
-            runId: delta.runId,
-            sessionId: run.sessionId,
-            streamId: delta.id,
-            operation: delta.operation,
-            text: delta.text,
-            thinking: delta.thinking,
-            textOffset: delta.textOffset,
-            thinkingOffset: delta.thinkingOffset,
-          })
-        else if (output === 'text') {
-          if (delta.text) {
-            streamedText = true
-            process.stdout.write(delta.text)
-          }
-          if (delta.thinking) process.stderr.write(delta.thinking)
+    if (notification.method === 'stream.update' && runIds.has(notification.params.runId)) {
+      const delta = notification.params
+      observer.onDelta?.(delta)
+      if (output === 'jsonl')
+        jsonLine({
+          type: 'message.delta',
+          runId: delta.runId,
+          sessionId: run.sessionId,
+          streamId: delta.id,
+          operation: delta.operation,
+          text: delta.text,
+          thinking: delta.thinking,
+          textOffset: delta.textOffset,
+          thinkingOffset: delta.thinkingOffset,
+        })
+      else if (output === 'text') {
+        if (delta.text) {
+          streamedText = true
+          process.stdout.write(delta.text)
         }
-        return
+        if (delta.thinking) process.stderr.write(delta.thinking)
       }
-      if (notification.method !== 'session.event') return
-      const event = notification.params
-      admitOperationRecovery(event, runIds)
-      if (event.type === 'run.recoveryQueued' && event.runId && runIds.has(event.runId)) executionRunId = event.runId
-      const guided = queuedRunGuidedOperationId(event) === run.id
-      if ((!event.runId || !runIds.has(event.runId)) && !guided) return
-      if (seen.has(event.eventId)) return
-      seen.add(event.eventId)
-      if (seen.size > 4_096) seen.delete(seen.values().next().value!)
-      events.push(event)
-      if (events.length > 4_096) events.shift()
-      observer.onEvent?.(event)
-      if (output === 'jsonl') jsonLine(eventLine(event, { ...run, id: event.runId ?? run.id }))
-      else if (output === 'text' && event.type === 'tool.started') {
-        const data = event.data as { name?: unknown }
-        process.stderr.write(`\n[tool] ${String(data.name ?? 'unknown')}\n`)
-      }
-      if (event.type === 'approval.requested') {
-        const item = event.data as { id: string; tool?: string }
-        if (approvals.has(item.id)) return
-        approvals.add(item.id)
-        if (approval === 'allow' || approval === 'deny')
+      return
+    }
+    if (notification.method !== 'session.event') return
+    const event = notification.params
+    admitOperationRecovery(event, runIds)
+    if (event.type === 'run.recoveryQueued' && event.runId && runIds.has(event.runId)) executionRunId = event.runId
+    const guided = queuedRunGuidedOperationId(event) === run.id
+    if ((!event.runId || !runIds.has(event.runId)) && !guided) return
+    if (seen.has(event.eventId)) return
+    seen.add(event.eventId)
+    if (seen.size > 4_096) seen.delete(seen.values().next().value!)
+    events.push(event)
+    if (events.length > 4_096) events.shift()
+    observer.onEvent?.(event)
+    if (output === 'jsonl') jsonLine(eventLine(event, { ...run, id: event.runId ?? run.id }))
+    else if (output === 'text' && event.type === 'tool.started') {
+      const data = event.data as { name?: unknown }
+      process.stderr.write(`\n[tool] ${String(data.name ?? 'unknown')}\n`)
+    }
+    if (event.type === 'approval.requested') {
+      const item = event.data as { id: string; tool?: string }
+      if (approvals.has(item.id)) return
+      approvals.add(item.id)
+      if (approval === 'allow' || approval === 'deny')
+        void interactions
+          .execute('approval.resolve', {
+            sessionId: run.sessionId,
+            approvalId: item.id,
+            decision: approval === 'allow' ? 'allowed' : 'denied',
+          })
+          .catch(reject)
+      else if (approval === 'defer') return
+      else if (!process.stdin.isTTY || !process.stdout.isTTY)
+        reject(new Error('Approval requested in non-interactive headless mode'))
+      else {
+        process.stderr.write(`\nApprove ${item.tool ?? 'tool'}? [y/N] `)
+        process.stdin.once('data', (answer) => {
           void interactions
             .execute('approval.resolve', {
               sessionId: run.sessionId,
               approvalId: item.id,
-              decision: approval === 'allow' ? 'allowed' : 'denied',
+              decision: String(answer).trim().toLowerCase().startsWith('y') ? 'allowed' : 'denied',
             })
             .catch(reject)
-        else if (approval === 'defer') return
-        else if (!process.stdin.isTTY || !process.stdout.isTTY)
-          reject(new Error('Approval requested in non-interactive headless mode'))
-        else {
-          process.stderr.write(`\nApprove ${item.tool ?? 'tool'}? [y/N] `)
-          process.stdin.once('data', (answer) => {
-            void interactions
-              .execute('approval.resolve', {
-                sessionId: run.sessionId,
-                approvalId: item.id,
-                decision: String(answer).trim().toLowerCase().startsWith('y') ? 'allowed' : 'denied',
-              })
-              .catch(reject)
-          })
-        }
+        })
       }
-      if (event.type === 'run.settled' || guided) {
-        // An interrupted identity stays truthful; only the recovery chain's eventual terminal result ends the waiter.
-        probe().catch(reject)
-      }
+    }
+    if (event.type === 'run.settled' || guided) {
+      // An interrupted identity stays truthful; only the recovery chain's eventual terminal result ends the waiter.
+      probe().catch(reject)
+    }
   })
-  const offStatus = client.onStatus(status => { if (status === 'disconnected') reject(new Error('Run observation stopped because the connection was explicitly closed or authorization was revoked')) })
+  const offStatus = client.onStatus((status) => {
+    if (status === 'disconnected')
+      reject(
+        new Error('Run observation stopped because the connection was explicitly closed or authorization was revoked'),
+      )
+  })
   try {
     await client.follow(session.id, session.seq)
     await probe()

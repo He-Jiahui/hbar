@@ -35,6 +35,7 @@ export interface ControllerServerApplication extends RemoteServices {
   readonly commandDispatchers: Map<string, (value: unknown, actorId: string) => Promise<unknown>>
   readonly commandDescribers: Map<string, () => CommandDescriptor>
   readonly scheduleController: { start(): Promise<void>; close(): Promise<void> }
+  resolveCommand?(id: string): ControllerCommandService['service'] | null
   dispose(): Promise<void>
 }
 export interface RuntimeControllerServicesOptions {
@@ -73,6 +74,7 @@ export function createRuntimeControllerServices(
     commandServices: [{ commandIds, service }],
     commandDispatchers,
     commandDescribers,
+    resolveCommand: (id) => (options.catalog().items.some((value) => value.metadata.id === id) ? service : null),
     scheduleController: { start: options.start, close: options.stop },
     dispose: options.stop,
   }

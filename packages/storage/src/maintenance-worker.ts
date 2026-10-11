@@ -15,7 +15,7 @@ const base = z.strictObject({
 const input = z
   .discriminatedUnion('mode', [
     base.extend({ mode: z.enum(['run', 'verify']) }),
-    base.extend({ mode: z.literal('preflight') }),
+    base.extend({ mode: z.literal('preflight'), allowMigration: z.boolean().optional() }),
   ])
   .parse(workerData)
 if (input.mode === 'preflight') {
@@ -25,9 +25,9 @@ if (input.mode === 'preflight') {
       try {
         database.exec('PRAGMA busy_timeout=5000')
         const version = z
-          .object({ user_version: z.literal(STORAGE_SCHEMA_VERSION) })
+          .object({ user_version: z.number().int().min(0).max(STORAGE_SCHEMA_VERSION) })
           .safeParse(database.query('PRAGMA user_version').get())
-        if (!version.success)
+        if (!version.success || (!input.allowMigration && version.data.user_version !== STORAGE_SCHEMA_VERSION))
           throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Maintenance Worker needs an incompatible schema migration')
         const integrity = z
           .object({ quick_check: z.literal('ok') })

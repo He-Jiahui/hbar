@@ -2,15 +2,49 @@ import { join, resolve } from 'node:path'
 import { z } from 'zod'
 import { HbarError, providerSchema } from '@hbar/contracts'
 import { runtimeWireNotificationSchema } from '@hbar/contracts/runtime-notifications'
-import type { ExecutionOwnership, RuntimeOwner, RuntimeSnapshot, RuntimeSourceReload, RuntimeVersion, RuntimeVersionSet } from '@hbar/contracts/runtime'
+import type {
+  ExecutionOwnership,
+  RuntimeOwner,
+  RuntimeSnapshot,
+  RuntimeSourceReload,
+  RuntimeVersion,
+  RuntimeVersionSet,
+} from '@hbar/contracts/runtime'
 import type { KernelControllerPort } from '@hbar/kernel/controller'
 import { createNativeSecrets, type SecretStore } from '@hbar/kernel/secrets'
-import { RUNTIME_KERNEL_CONTROL_METHODS, runtimeKernelStateSchema, runtimeKernelRecoverySchema } from '@hbar/kernel/runtime-port'
+import {
+  RUNTIME_KERNEL_CONTROL_METHODS,
+  runtimeKernelStateSchema,
+  runtimeKernelRecoverySchema,
+} from '@hbar/kernel/runtime-port'
 import { RUNTIME_APPLICATION_CONTROLS } from '@hbar/kernel/runtime-application'
-import { ManagedProcess, RuntimeArtifactStore, RuntimeCoordinator, RuntimeManager, RuntimeValuePort, procedure,
-  registerRuntimeCoordinatorPort, RUNTIME_COORDINATION_CONTROL_METHODS, runtimeDomainError, type IpcPeer, type RuntimeArtifact, type RuntimeArtifactPackage, type RuntimeBuildUnit } from '@hbar/runtime'
+import {
+  ManagedProcess,
+  RuntimeArtifactStore,
+  RuntimeCoordinator,
+  RuntimeManager,
+  RuntimeValuePort,
+  procedure,
+  registerRuntimeCoordinatorPort,
+  RUNTIME_COORDINATION_CONTROL_METHODS,
+  runtimeDomainError,
+  type IpcPeer,
+  type RuntimeArtifact,
+  type RuntimeArtifactPackage,
+  type RuntimeArtifactSet,
+  type RuntimeBuildUnit,
+} from '@hbar/runtime'
 import { buildRuntimeArtifact, createRuntimeSourceReload, runtimeSourceRoots, watchRuntimeSources } from '@hbar/runtime'
-import { Storage, StableStoragePort, callStorageRpc, ensurePathLayout, storageRpcCallSchema, assertStoragePreflightMethod, type PathLayout } from '@hbar/storage'
+import {
+  Storage,
+  StableStoragePort,
+  callStorageRpc,
+  createMaintenanceWorkerPreflight,
+  ensurePathLayout,
+  storageRpcCallSchema,
+  assertStoragePreflightMethod,
+  type PathLayout,
+} from '@hbar/storage'
 import { acquireHostProcessLock } from './process-lock'
 import { RuntimeKernelFacade, type RuntimeKernelEndpoint, type RuntimeKernelState } from './runtime-kernel-facade'
 import { RuntimeDriverRelay, type RuntimeDriverEndpoint } from './runtime-driver-relay'
@@ -28,6 +62,7 @@ import { createRuntimeControllerServices } from './runtime-controller-services'
 import { RuntimeStatusFeed } from './runtime-status-feed'
 import { createRuntimeProcessTreePort } from '@hbar/runtime-native'
 import { hostRuntimeProcessCommand } from './runtime-package'
+import { recoverRuntimeStartup } from './runtime-startup'
 
 export interface ProcessHostRuntimeOptions {
   readonly layout: PathLayout
@@ -76,19 +111,37 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private controllerStarted = false
   private readonly statusFeed: RuntimeStatusFeed
   private readonly disposeStatus: () => void
-  private async dispatchController(payload: string, invoke: Parameters<RuntimeControllerPort['dispatch']>[1], authorize?: Parameters<RuntimeControllerPort['dispatch']>[2]): Promise<string> {
+  private async dispatchController(
+    payload: string,
+    invoke: Parameters<RuntimeControllerPort['dispatch']>[1],
+    authorize?: Parameters<RuntimeControllerPort['dispatch']>[2],
+  ): Promise<string> {
     let record: Generation | undefined
-    try { record = this.currentGeneration('controller') } catch { /* Independent status reads remain available. */ }
+    try {
+      record = this.currentGeneration('controller')
+    } catch {
+      /* Independent status reads remain available. */
+    }
     if (!record?.controller || record.process.snapshot().phase !== 'serving') {
-      if (payload.length > 1_048_576) throw new HbarError('INVALID_REQUEST', 'Runtime status request exceeds its input bound')
+      if (payload.length > 1_048_576)
+        throw new HbarError('INVALID_REQUEST', 'Runtime status request exceeds its input bound')
       const request = runtimeControllerRequestSchema.parse(JSON.parse(payload))
-      const command = request.method === 'command.execute' ? z.object({ commandId: z.string() }).safeParse(request.params) : null
+      const command =
+        request.method === 'command.execute' ? z.object({ commandId: z.string() }).safeParse(request.params) : null
       if (!command?.success || !['system.runtime.get', 'system.runtime.reload.get'].includes(command.data.commandId))
         throw new HbarError('RUNTIME_RECOVERING', 'The Controller is recovering')
-      return JSON.stringify({ jsonrpc: '2.0', id: request.id, result: await invoke(request, AbortSignal.timeout(5_000)) })
+      return JSON.stringify({
+        jsonrpc: '2.0',
+        id: request.id,
+        result: await invoke(request, AbortSignal.timeout(5_000)),
+      })
     }
     let captured: RuntimeKernelEndpoint | undefined
-    try { captured = this.currentKernel() } catch { /* Runtime status remains callable during a Kernel outage. */ }
+    try {
+      captured = this.currentKernel()
+    } catch {
+      /* Runtime status remains callable during a Kernel outage. */
+    }
     const endpoint = captured
     const adapter = record.controller
     const dispatch = () => adapter.dispatch(payload, invoke, authorize)
@@ -123,47 +176,92 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private sourceBaseline: RuntimeArtifact | null = null
   private sourceState: RuntimeSourceReload | undefined
   private sourceTask: Promise<void> | undefined
+  private startupTask: Promise<void> | undefined
+  private initialArtifacts: RuntimeArtifactSet | undefined
+  private startupStorage: Storage | undefined
+  private startupProbe: ReturnType<typeof createMaintenanceWorkerPreflight> | undefined
+  private migrated = false
+  private configurationLoaded = false
+  private startupRecovered = false
+  private startupAttempts = 0
+  private startupNextAttemptAt: number | null = null
 
-  private constructor(private readonly options: ProcessHostRuntimeOptions, readonly instanceId = crypto.randomUUID()) {
+  private constructor(
+    private readonly options: ProcessHostRuntimeOptions,
+    readonly instanceId = crypto.randomUUID(),
+  ) {
     this.secrets = options.secrets ?? createNativeSecrets(options.layout.identityRoot)
-    this.artifacts = new RuntimeArtifactStore(join(options.layout.cacheRoot, 'runtime-artifacts'), options.sourceRoot ?? resolve(import.meta.dir, '../../..'))
-    this.buildUnits = options.buildUnits ?? hostRuntimeBuildUnits(options.profileModule ? { profileModule: options.profileModule } : {})
+    this.artifacts = new RuntimeArtifactStore(
+      join(options.layout.cacheRoot, 'runtime-artifacts'),
+      options.sourceRoot ?? resolve(import.meta.dir, '../../..'),
+    )
+    this.buildUnits =
+      options.buildUnits ?? hostRuntimeBuildUnits(options.profileModule ? { profileModule: options.profileModule } : {})
     this.coordinator = new RuntimeCoordinator({
-      claim: async draft => {
+      claim: async (draft) => {
         this.pendingClaims.set(draft.runId, { draft, failed: false })
         this.leases.set(draft.runId, draft)
         const lease = await this.storage.call('runtimeExecutionClaim', draft)
         if (lease) this.leases.set(lease.runId, lease)
-        else { this.pendingClaims.delete(draft.runId); this.leases.delete(draft.runId) }
+        else {
+          this.pendingClaims.delete(draft.runId)
+          this.leases.delete(draft.runId)
+        }
         return lease
       },
-      release: lease => this.storage.call('runtimeExecutionRelease', lease),
+      release: (lease) => this.storage.call('runtimeExecutionRelease', lease),
       revoke: async (owner, ids) => {
         // Controller/Maintenance faults without Run claims need no database projection write.
         if (!ids.length) return
-        if (this.storageFailure) { this.pendingRevocations.push({ owner, ids: [...ids] }); return }
+        if (this.storageFailure) {
+          this.pendingRevocations.push({ owner, ids: [...ids] })
+          return
+        }
         await this.storage.call('runtimeExecutionRevoke', owner, ids)
       },
     })
-    this.relay = new RuntimeDriverRelay({ coordinator: this.coordinator, resolve: version => this.driver(version) })
+    this.relay = new RuntimeDriverRelay({ coordinator: this.coordinator, resolve: (version) => this.driver(version) })
     this.resources = new RuntimeResourceRegistry(this.coordinator, this.storage)
-    this.pluginRelay = new RuntimePluginRelay({ storage: this.storage, coordinator: this.coordinator,
-      current: () => this.pluginEndpoints(), resolve: (id, execution, sessionId) => this.pluginEndpoint(id, execution, sessionId) })
-    this.facade = new RuntimeKernelFacade({ instanceId, layout: options.layout, demo: options.demo ?? false,
-      storage: this.storage, coordinator: this.coordinator, current: () => this.currentKernel(), endpoints: () => this.endpoints(),
+    this.pluginRelay = new RuntimePluginRelay({
+      storage: this.storage,
+      coordinator: this.coordinator,
+      current: () => this.pluginEndpoints(),
+      resolve: (id, execution, sessionId) => this.pluginEndpoint(id, execution, sessionId),
+    })
+    this.facade = new RuntimeKernelFacade({
+      instanceId,
+      layout: options.layout,
+      demo: options.demo ?? false,
+      storage: this.storage,
+      coordinator: this.coordinator,
+      current: () => this.currentKernel(),
+      endpoints: () => this.endpoints(),
       resolve: (target, method, args, captured) => this.resolveKernel(target, method, args, captured),
-      maintain: action => this.maintain(action),
-      cancel: runId => this.cancelRun(runId),
+      maintain: (action) => this.maintain(action),
+      cancel: (runId) => this.cancelRun(runId),
       resourceSessions: () => this.resources.sessions(),
     })
-    this.maintenance = new RuntimeMaintenanceRelay({ layout: options.layout, storage: this.storage, coordinator: this.coordinator,
-      kernel: this.kernel, current: () => this.maintenanceEndpoint(this.manager.defaultOwner('maintenance')),
-      resolve: owner => this.maintenanceEndpoint(owner), changed: () => this.schedule() })
-    this.manager = new RuntimeManager({ instanceId, artifacts: this.artifacts,
-      references: owner => {
-        const refs = this.owners.has(owner.incarnation) ? this.coordinator.references(owner) : { runs: 0, resources: 0, tools: 0 }
-        const retained = [...this.leases.values()].filter(lease => [lease.versions.kernel, lease.versions.driver, ...lease.versions.plugins, ...lease.versions.hooks]
-          .some(version => version.unitId === owner.unitId && version.generation === owner.generation)).length
+    this.maintenance = new RuntimeMaintenanceRelay({
+      layout: options.layout,
+      storage: this.storage,
+      coordinator: this.coordinator,
+      kernel: this.kernel,
+      current: () => this.maintenanceEndpoint(this.manager.defaultOwner('maintenance')),
+      resolve: (owner) => this.maintenanceEndpoint(owner),
+      changed: () => this.schedule(),
+    })
+    this.manager = new RuntimeManager({
+      instanceId,
+      artifacts: this.artifacts,
+      references: (owner) => {
+        const refs = this.owners.has(owner.incarnation)
+          ? this.coordinator.references(owner)
+          : { runs: 0, resources: 0, tools: 0 }
+        const retained = [...this.leases.values()].filter((lease) =>
+          [lease.versions.kernel, lease.versions.driver, ...lease.versions.plugins, ...lease.versions.hooks].some(
+            (version) => version.unitId === owner.unitId && version.generation === owner.generation,
+          ),
+        ).length
         return { ...refs, runs: Math.max(refs.runs, retained) }
       },
       create: (artifact, generation, changed) => this.createGeneration(artifact, generation, changed),
@@ -172,204 +270,543 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
           await this.maintenance.waitForWriter(signal)
         }
       },
-      afterDispose: owner => {
-        if (this.owners.has(owner.incarnation)) { this.coordinator.disposeOwner(owner); this.owners.delete(owner.incarnation) }
+      afterDispose: (owner) => {
+        if (this.owners.has(owner.incarnation)) {
+          this.coordinator.disposeOwner(owner)
+          this.owners.delete(owner.incarnation)
+        }
         this.generations.delete(key(owner))
       },
     })
     for (const unit of this.buildUnits) this.manager.register(unit.descriptor)
     this.statusFeed = new RuntimeStatusFeed(() => this.readSnapshot())
-    this.disposeStatus = this.manager.subscribe(delta => this.statusFeed.accept(delta))
+    this.disposeStatus = this.manager.subscribe((delta) => this.statusFeed.accept(delta))
     const self = this
-    this.controller = { dispatch: (payload, invoke, authorize) => this.dispatchController(payload, invoke, authorize),
+    this.controller = {
+      dispatch: (payload, invoke, authorize) => this.dispatchController(payload, invoke, authorize),
       get application() {
-        return createRuntimeControllerServices({ catalog: () => {
-          const catalog = self.controllerAdapter().list()
-          return { ...catalog, items: catalog.items.filter(item => !item.metadata.id.startsWith('chatDatabase.')) }
-        },
+        return createRuntimeControllerServices({
+          catalog: () => {
+            const record = self.manager
+              .snapshot()
+              .units.find((unit) => unit.descriptor.id === 'controller')
+              ?.generations.find((g) => g.role === 'default')
+            const catalog =
+              record && record.phase === 'serving' ? self.controllerAdapter().list() : { revision: 0, items: [] }
+            return { ...catalog, items: catalog.items.filter((item) => !item.metadata.id.startsWith('chatDatabase.')) }
+          },
           call: (service, method, args) => self.controllerAdapter().service(service, method, args),
-          start: async () => { self.controllerStarted = true; await self.controllerAdapter().resume() },
-          stop: async () => { self.controllerStarted = false; await self.controllerAdapter().pause() },
+          start: async () => {
+            self.controllerStarted = true
+            if (!self.initializing) await self.controllerAdapter().resume()
+          },
+          stop: async () => {
+            self.controllerStarted = false
+            try {
+              await self.controllerAdapter().pause()
+            } catch (error) {
+              if (runtimeDomainError(error)?.code !== 'RUNTIME_RECOVERING') throw error
+            }
+          },
         })
       },
     }
-    this.sweep = setInterval(() => { this.schedule(); this.statusFeed.refresh() }, 1_000)
+    this.sweep = setInterval(() => {
+      this.schedule()
+      this.statusFeed.refresh()
+    }, 1_000)
     this.sweep.unref()
   }
-  get kernel(): KernelControllerPort { return this.facade.api }
+  get kernel(): KernelControllerPort {
+    return this.facade.api
+  }
   private controllerAdapter(): RuntimeControllerAdapter {
     const record = this.currentGeneration('controller')
-    if (!record.controller || record.process.snapshot().phase !== 'serving') throw new HbarError('RUNTIME_RECOVERING', 'The Controller command owner is recovering')
+    if (!record.controller || record.process.snapshot().phase !== 'serving')
+      throw new HbarError('RUNTIME_RECOVERING', 'The Controller command owner is recovering')
     return record.controller
   }
   private controllerProjection(): RuntimeKernelState {
-    try { return this.facade.projection() }
-    catch (error) {
+    try {
+      return this.facade.projection()
+    } catch (error) {
       if (runtimeDomainError(error)?.code !== 'RUNTIME_RECOVERING') throw error
-      const previous = [...this.generations.values()].filter(record => record.artifact.unitId === 'kernel').findLast(record => record.state)?.state
+      const previous = [...this.generations.values()]
+        .filter((record) => record.artifact.unitId === 'kernel')
+        .findLast((record) => record.state)?.state
       if (!previous) throw error
       // Read-only descriptions remain available for operation queries and stable cancellation.
       // Executable calls still verify the live owner in RuntimeKernelFacade and the coordinator.
-      return runtimeKernelStateSchema.parse({ ...previous, idle: false, active: [...this.leases.values()].map(lease => ({ sessionId: lease.sessionId, runId: lease.runId })) })
+      return runtimeKernelStateSchema.parse({
+        ...previous,
+        idle: false,
+        active: [...this.leases.values()].map((lease) => ({ sessionId: lease.sessionId, runId: lease.runId })),
+      })
     }
   }
-  authenticationAvailable(): boolean { return this.storage.snapshot().phase === 'serving' && !this.storageFailure }
-  static async create(options: ProcessHostRuntimeOptions): Promise<ProcessHostRuntime> {
-    if (options.profileModule && options.artifactPackage && !options.artifactPackage.units.some(unit => unit.artifact.unitId === 'kernel' && unit.artifact.files.some(file => file.name === 'profile.js')))
-      throw new HbarError('RUNTIME_RESTART_REQUIRED', 'The legacy profile must be included in its prepared artifact package')
-    await ensurePathLayout(options.layout)
-    // The initial migration installation owns the writer lease and exits before any candidate is built.
-    const release = await acquireHostProcessLock(`${options.layout.database}.runtime-writer.lock`)
-    const installation = new Storage(options.layout.database, options.layout)
-    try { await installation.call('ready') } finally { try { await installation.close() } finally { await release() } }
-    const runtime = new ProcessHostRuntime(options)
-    try {
-      const prepared = options.artifactPackage ? await runtime.artifacts.installPackage(options.artifactPackage, options.artifactPackage.id) :
-        runtime.artifacts.registerSet(await runtime.buildInitial())
-      const infrastructure = ['storage', 'driver.pi', 'controller']
-      const first = runtime.manager.reload(prepared.id, infrastructure, true)
-      await runtime.waitReady(infrastructure, first.operationId)
-      const stored = await runtime.storage.call('plugins')
-      const owners: Record<string, string> = { 'execution.local': 'plugin.local', 'tools.workspace': 'plugin.local', 'plan.codex': 'plugin.plan',
-        'budget.codex': 'plugin.budget', 'goal.codex': 'plugin.goal', 'git.codex': 'plugin.git', 'agent.codex': 'plugin.agent',
-        'workflow.focus': 'plugin.workflow', 'browser-use.codex': 'plugin.browser', 'computer-use.codex': 'plugin.computer' }
-      for (const entry of stored) if (!entry.projectId && owners[entry.id]) runtime.pluginConfigs.set(owners[entry.id] ?? '', entry.config)
-      for (const unit of runtime.buildUnits.filter(unit => unit.descriptor.kind === 'plugin')) {
-        const operation = runtime.manager.reload(prepared.id, [unit.descriptor.id], true)
-        await runtime.waitReady([unit.descriptor.id], operation.operationId)
-      }
-      const kernel = runtime.manager.reload(prepared.id, ['kernel'], true)
-      await runtime.waitReady(['kernel'], kernel.operationId)
-      if (runtime.buildUnits.some(unit => unit.descriptor.id === 'maintenance')) {
-        const maintenance = runtime.manager.reload(prepared.id, ['maintenance'], true)
-        await runtime.waitReady(['maintenance'], maintenance.operationId)
-      }
-      if (options.workspace) await runtime.kernel.createWorkspace(options.workspace)
-      if (options.demo) await runtime.storage.call('saveProvider', providerSchema.parse({ id: 'local-fixture', name: 'Local fixture',
-        protocol: 'mock', baseUrl: 'http://127.0.0.1', model: 'fixture', imageInput: true, reasoning: true }))
-      await runtime.recoverStartup()
-      runtime.initializing = false
-      if (runtime.buildUnits.some(unit => unit.descriptor.id === 'maintenance')) await runtime.maintenance.reconcile()
-      await runtime.resume()
-      await runtime.kernel.plugins.get('goal').resumeOnStartup()
-      if (options.watchSource) await runtime.watchSource()
-      return runtime
-    } catch (error) { await runtime.close(); throw error }
+  authenticationAvailable(): boolean {
+    return this.storage.snapshot().phase === 'serving' && !this.storageFailure
   }
-  snapshot(): RuntimeSnapshot { return this.statusFeed.snapshot() }
-  subscribe(listener: Parameters<RuntimeStatusFeed['subscribe']>[0]) { return this.statusFeed.subscribe(listener) }
-  watch(cursor?: number) { return this.statusFeed.watch(cursor) }
+  /** Return the stable facade before migration/build/preparation so the listener can bind immediately. */
+  static async open(options: ProcessHostRuntimeOptions): Promise<ProcessHostRuntime> {
+    if (
+      options.profileModule &&
+      options.artifactPackage &&
+      !options.artifactPackage.units.some(
+        (unit) => unit.artifact.unitId === 'kernel' && unit.artifact.files.some((file) => file.name === 'profile.js'),
+      )
+    )
+      throw new HbarError(
+        'RUNTIME_RESTART_REQUIRED',
+        'The legacy profile must be included in its prepared artifact package',
+      )
+    await ensurePathLayout(options.layout)
+    const runtime = new ProcessHostRuntime(options)
+    runtime.startupTask = recoverRuntimeStartup({
+      signal: runtime.sourceAbort.signal,
+      start: () => runtime.initialize(),
+      failed: (error, nextAttemptAt) => {
+        runtime.initializing = true
+        runtime.startupAttempts++
+        runtime.startupNextAttemptAt = nextAttemptAt
+        runtime.reasonCode = runtimeDomainError(error)?.code ?? 'RUNTIME_START_FAILED'
+        runtime.statusFeed.refresh()
+        console.error(
+          `[hbar runtime] startup preparation failed (${runtime.reasonCode}); next attempt ${nextAttemptAt}`,
+        )
+      },
+    })
+    void runtime.startupTask.catch(() => {})
+    return runtime
+  }
+  static async create(options: ProcessHostRuntimeOptions): Promise<ProcessHostRuntime> {
+    const runtime = await ProcessHostRuntime.open(options)
+    try {
+      await runtime.ready()
+      return runtime
+    } catch (error) {
+      await runtime.close()
+      throw error
+    }
+  }
+  async ready(timeoutMs = 120_000): Promise<void> {
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 120_000)
+      throw new HbarError('INVALID_INPUT', 'Startup readiness needs a bounded deadline')
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      await Promise.race([
+        this.startupTask,
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(
+            () =>
+              reject(
+                new HbarError(
+                  'RUNTIME_START_TIMEOUT',
+                  'Required runtime units are still preparing; the stable Host remains available',
+                ),
+              ),
+            timeoutMs,
+          )
+        }),
+      ])
+    } finally {
+      clearTimeout(timer)
+    }
+    if (this.closing) throw new HbarError('RUNTIME_STOPPING', 'The stable Host stopped during startup')
+  }
+  async authenticationReady(): Promise<void> {
+    while (!this.authenticationAvailable()) {
+      this.sourceAbort.signal.throwIfAborted()
+      await Bun.sleep(20)
+    }
+  }
+  private async initialize(): Promise<void> {
+    const options = this.options
+    this.sourceAbort.signal.throwIfAborted()
+    this.startupNextAttemptAt = null
+    try {
+      if (!this.initialArtifacts || options.watchSource)
+        this.initialArtifacts = options.artifactPackage
+          ? await this.artifacts.installPackage(options.artifactPackage, options.artifactPackage.id)
+          : this.artifacts.registerSet(await this.buildInitial())
+      const prepared = this.initialArtifacts
+      if (!this.migrated) {
+        const release = await acquireHostProcessLock(`${options.layout.database}.runtime-writer.lock`)
+        try {
+          const artifact = prepared.artifacts.find((unit) => unit.unitId === 'maintenance')
+          if (!artifact)
+            throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Startup needs the registered read-only integrity Worker')
+          const probe = createMaintenanceWorkerPreflight(
+            options.layout,
+            join(this.artifacts.root, artifact.id, 'maintenance-worker.js'),
+            { allowMigration: true },
+          )
+          this.startupProbe = probe
+          try {
+            await probe.ready
+          } finally {
+            await probe.close()
+            this.startupProbe = undefined
+          }
+          this.sourceAbort.signal.throwIfAborted()
+          const installation = new Storage(options.layout.database, options.layout)
+          this.startupStorage = installation
+          try {
+            await installation.call('ready')
+          } finally {
+            await installation.close()
+            this.startupStorage = undefined
+          }
+          this.migrated = true
+        } finally {
+          await release()
+        }
+      }
+      for (const id of ['storage', 'driver.pi', 'controller']) await this.initializeUnit(prepared, id)
+      if (!this.configurationLoaded) {
+        const stored = await this.storage.call('plugins')
+        const owners: Record<string, string> = {
+          'execution.local': 'plugin.local',
+          'tools.workspace': 'plugin.local',
+          'plan.codex': 'plugin.plan',
+          'budget.codex': 'plugin.budget',
+          'goal.codex': 'plugin.goal',
+          'git.codex': 'plugin.git',
+          'agent.codex': 'plugin.agent',
+          'workflow.focus': 'plugin.workflow',
+          'browser-use.codex': 'plugin.browser',
+          'computer-use.codex': 'plugin.computer',
+        }
+        for (const entry of stored)
+          if (!entry.projectId && owners[entry.id]) this.pluginConfigs.set(owners[entry.id] ?? '', entry.config)
+        this.configurationLoaded = true
+      }
+      for (const unit of this.buildUnits.filter((unit) => unit.descriptor.kind === 'plugin'))
+        await this.initializeUnit(prepared, unit.descriptor.id)
+      await this.initializeUnit(prepared, 'kernel')
+      if (this.buildUnits.some((unit) => unit.descriptor.id === 'maintenance'))
+        await this.initializeUnit(prepared, 'maintenance')
+      if (options.workspace) await this.kernel.createWorkspace(options.workspace)
+      if (options.demo)
+        await this.storage.call(
+          'saveProvider',
+          providerSchema.parse({
+            id: 'local-fixture',
+            name: 'Local fixture',
+            protocol: 'mock',
+            baseUrl: 'http://127.0.0.1',
+            model: 'fixture',
+            imageInput: true,
+            reasoning: true,
+          }),
+        )
+      if (!this.startupRecovered) {
+        await this.recoverStartup()
+        this.startupRecovered = true
+      }
+      if (options.watchSource && !this.sourceBaseline) await this.watchSource()
+      this.initializing = false
+      if (this.buildUnits.some((unit) => unit.descriptor.id === 'maintenance')) await this.maintenance.reconcile()
+      await this.resume()
+      await this.kernel.plugins.get('goal').resumeOnStartup()
+      if (this.controllerStarted) await this.controllerAdapter().resume()
+      this.reasonCode = null
+      this.startupNextAttemptAt = null
+      this.statusFeed.refresh()
+    } catch (error) {
+      this.initializing = true
+      throw error
+    }
+  }
+  private async initializeUnit(prepared: RuntimeArtifactSet, id: string): Promise<void> {
+    this.sourceAbort.signal.throwIfAborted()
+    const unit = this.manager.snapshot().units.find((unit) => unit.descriptor.id === id)
+    const defaults = unit?.generations.filter((generation) => generation.role === 'default') ?? []
+    if (defaults.some((generation) => generation.phase === 'serving')) return
+    const pending = unit?.queuedArtifactId || unit?.generations.some((generation) => generation.role === 'candidate')
+    const operation = defaults.length || pending ? undefined : this.manager.reload(prepared.id, [id], true)
+    await this.waitReady([id], operation?.operationId)
+  }
+  snapshot(): RuntimeSnapshot {
+    return this.statusFeed.snapshot()
+  }
+  subscribe(listener: Parameters<RuntimeStatusFeed['subscribe']>[0]) {
+    return this.statusFeed.subscribe(listener)
+  }
+  watch(cursor?: number) {
+    return this.statusFeed.watch(cursor)
+  }
   private readSnapshot(): RuntimeSnapshot {
     const state = this.manager.snapshot()
     let source = this.sourceState
     if (source?.phase === 'applying' && source.operationId) {
       try {
         const operation = this.manager.getReload(source.operationId)
-        const phase = operation.phase === 'completed' || operation.phase === 'cancelled' ? 'idle' :
-          operation.phase === 'failed' ? 'failed' : operation.phase === 'restart_required' ? 'restart_required' : 'applying'
-        source = { ...source, phase, reasonCode: operation.units.find(unit => unit.reasonCode)?.reasonCode ?? null }
-      } catch { source = { ...source, phase: 'idle' } }
+        const phase =
+          operation.phase === 'completed' || operation.phase === 'cancelled'
+            ? 'idle'
+            : operation.phase === 'failed'
+              ? 'failed'
+              : operation.phase === 'restart_required'
+                ? 'restart_required'
+                : 'applying'
+        source = { ...source, phase, reasonCode: operation.units.find((unit) => unit.reasonCode)?.reasonCode ?? null }
+      } catch {
+        source = { ...source, phase: 'idle' }
+      }
     }
     const storage = this.storage.snapshot()
-    const ready = !this.initializing && !this.closing && state.ready && this.executionReady() && storage.phase === 'serving' && !this.storageFailure
-    return { ...state, ...(source ? { sourceReload: { ...source, unitIds: [...source.unitIds] } } : {}), ready,
-      admission: { phase: this.closing ? 'stopped' : this.initializing ? 'initializing' : storage.phase === 'handover' ? 'handover' : ready ? 'serving' : 'recovering',
-        reasonCode: ready ? null : storage.reasonCode ?? this.reasonCode ?? state.units.flatMap(unit => unit.generations).find(g => g.role === 'default' && g.reasonCode)?.reasonCode ?? null,
-        storage },
+    const ready =
+      !this.initializing &&
+      !this.closing &&
+      state.ready &&
+      this.executionReady() &&
+      storage.phase === 'serving' &&
+      !this.storageFailure
+    return {
+      ...state,
+      ...(source ? { sourceReload: { ...source, unitIds: [...source.unitIds] } } : {}),
+      ready,
+      admission: {
+        phase: this.closing
+          ? 'stopped'
+          : this.initializing
+            ? 'initializing'
+            : storage.phase === 'handover'
+              ? 'handover'
+              : ready
+                ? 'serving'
+                : 'recovering',
+        reasonCode: ready
+          ? null
+          : (storage.reasonCode ??
+            this.reasonCode ??
+            state.units.flatMap((unit) => unit.generations).find((g) => g.role === 'default' && g.reasonCode)
+              ?.reasonCode ??
+            null),
+        storage,
+        ...(this.initializing
+          ? { startup: { attempts: this.startupAttempts, nextAttemptAt: this.startupNextAttemptAt } }
+          : {}),
+      },
     }
   }
-  reload(artifactSetId: string, unitIds: readonly string[]) { return this.manager.reload(artifactSetId, unitIds) }
-  getReload(id: string) { return this.manager.getReload(id) }
-  cancelReload(id: string) { return this.manager.cancelReload(id) }
-  async settled(): Promise<void> { await this.transitions }
+  reload(artifactSetId: string, unitIds: readonly string[]) {
+    if (!this.migrated)
+      throw new HbarError(
+        'RUNTIME_RECOVERING',
+        'Read-only integrity validation and initial migration must finish before applying a runtime version',
+      )
+    return this.manager.reload(artifactSetId, unitIds)
+  }
+  getReload(id: string) {
+    return this.manager.getReload(id)
+  }
+  cancelReload(id: string) {
+    return this.manager.cancelReload(id)
+  }
+  async settled(): Promise<void> {
+    await this.transitions
+  }
   async waitForIdle(timeoutMs = 120_000): Promise<void> {
-    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 120_000) throw new HbarError('INVALID_INPUT', 'Idle wait needs a bounded deadline')
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 120_000)
+      throw new HbarError('INVALID_INPUT', 'Idle wait needs a bounded deadline')
     const deadline = Date.now() + timeoutMs
     while (true) {
       await this.refreshKernels()
       const active = await this.storage.call('runtimeActiveRuns', '')
       const queued = await this.storage.call('queuedSessions')
-      if (!active.length && !queued.length && !this.leases.size && !this.scheduled && this.coordinator.snapshot().sessions === 0 &&
-        !this.interrupted.size && this.endpoints().every(endpoint => endpoint.state.idle)) return
+      if (
+        !active.length &&
+        !queued.length &&
+        !this.leases.size &&
+        !this.scheduled &&
+        this.coordinator.snapshot().sessions === 0 &&
+        !this.interrupted.size &&
+        this.endpoints().every((endpoint) => endpoint.state.idle)
+      )
+        return
       if (Date.now() >= deadline) throw new HbarError('RUNTIME_WAIT_TIMEOUT', 'Runtime execution has not settled')
       await Bun.sleep(20)
     }
   }
-  close(): Promise<void> { this.closeTask ??= this.dispose(); return this.closeTask }
+  close(): Promise<void> {
+    this.closeTask ??= this.dispose()
+    return this.closeTask
+  }
   private async dispose(): Promise<void> {
     this.closing = true
-    this.disposeStatus(); this.statusFeed.close()
-    this.disposeSource(); this.sourceAbort.abort()
+    this.disposeStatus()
+    this.statusFeed.close()
+    this.disposeSource()
+    this.sourceAbort.abort()
+    await Promise.allSettled([this.startupProbe?.close(), this.startupStorage?.close()])
     await this.sourceTask
     clearInterval(this.sweep)
-    for (const record of this.generations.values()) if (record.artifact.unitId === 'kernel') await record.process.dispose()
+    for (const record of this.generations.values())
+      if (record.artifact.unitId === 'kernel') await record.process.dispose()
     await this.storage.close()
     await this.manager.close()
+    await this.startupTask?.catch(() => {})
     await this.transitions
     this.facade.dispose()
   }
   private async buildInitial(): Promise<RuntimeArtifact[]> {
     const artifacts: RuntimeArtifact[] = []
-    for (const unit of this.buildUnits) artifacts.push(await this.artifacts.build(unit))
+    for (let offset = 0; offset < this.buildUnits.length; offset += 2) {
+      const batch = await Promise.allSettled(
+        this.buildUnits
+          .slice(offset, offset + 2)
+          .map((unit) => buildRuntimeArtifact(this.artifacts, unit, this.sourceAbort.signal)),
+      )
+      for (const result of batch) {
+        if (result.status === 'rejected') throw result.reason
+        artifacts.push(result.value)
+      }
+    }
     return artifacts
   }
   private async watchSource(): Promise<void> {
-    if (this.options.artifactPackage) throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Packaged runtime source watching is unavailable')
-    this.sourceBaseline = await buildRuntimeArtifact(this.artifacts, hostRuntimeBaseBuildUnit(), this.sourceAbort.signal)
-    this.sourceState = { revision: 0, phase: 'idle', unitIds: [], operationId: null, artifactSetId: null, reasonCode: null, updatedAt: Date.now() }
-    const reload = createRuntimeSourceReload({ reload: paths => {
-      const task = this.applySourceChanges(paths).finally(() => { if (this.sourceTask === task) this.sourceTask = undefined })
-      this.sourceTask = task
-      return task
-    }, onError: error => this.sourceFailed(error) })
-    const stopWatch = watchRuntimeSources(await runtimeSourceRoots(this.artifacts.sourceRoot), reload.changed, error => this.sourceFailed(error))
-    this.disposeSource = () => { stopWatch(); reload.dispose() }
+    if (this.options.artifactPackage)
+      throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Packaged runtime source watching is unavailable')
+    this.sourceBaseline = await buildRuntimeArtifact(
+      this.artifacts,
+      hostRuntimeBaseBuildUnit(),
+      this.sourceAbort.signal,
+    )
+    this.sourceState = {
+      revision: 0,
+      phase: 'idle',
+      unitIds: [],
+      operationId: null,
+      artifactSetId: null,
+      reasonCode: null,
+      updatedAt: Date.now(),
+    }
+    const reload = createRuntimeSourceReload({
+      reload: (paths) => {
+        const task = this.applySourceChanges(paths).finally(() => {
+          if (this.sourceTask === task) this.sourceTask = undefined
+        })
+        this.sourceTask = task
+        return task
+      },
+      onError: (error) => this.sourceFailed(error),
+    })
+    const stopWatch = watchRuntimeSources(
+      await runtimeSourceRoots(this.artifacts.sourceRoot),
+      reload.changed,
+      (error) => this.sourceFailed(error),
+    )
+    this.disposeSource = () => {
+      stopWatch()
+      reload.dispose()
+    }
   }
   private sourceFailed(error: unknown): void {
     if (this.closing) return
-    this.sourceState = { revision: (this.sourceState?.revision ?? 0) + 1, phase: 'failed', unitIds: this.sourceState?.unitIds ?? [],
-      operationId: null, artifactSetId: null, reasonCode: runtimeDomainError(error)?.code ?? 'RUNTIME_BUILD_FAILED', updatedAt: Date.now() }
+    this.sourceState = {
+      revision: (this.sourceState?.revision ?? 0) + 1,
+      phase: 'failed',
+      unitIds: this.sourceState?.unitIds ?? [],
+      operationId: null,
+      artifactSetId: null,
+      reasonCode: runtimeDomainError(error)?.code ?? 'RUNTIME_BUILD_FAILED',
+      updatedAt: Date.now(),
+    }
     console.error(`[hbar runtime] source update failed (${this.sourceState.reasonCode})`)
   }
   /** Local development input, never a network command or arbitrary artifact path. */
   async applySourceChanges(paths: readonly string[]): Promise<void> {
-    const artifacts = this.buildUnits.map(unit => this.currentGeneration(unit.descriptor.id).artifact)
-    const changed = paths.includes('') ? artifacts.flatMap(artifact => artifact.inputs) : [...paths]
-    const affected = this.artifacts.affected(changed, [...artifacts, ...(this.sourceBaseline ? [this.sourceBaseline] : [])])
-    const nativeSource = changed.some(path => /\.(?:rs|c|cpp|h|hpp|toml|node|dll|so|dylib|wasm)$/i.test(path))
+    const artifacts = this.buildUnits.map((unit) => this.currentGeneration(unit.descriptor.id).artifact)
+    const changed = paths.includes('') ? artifacts.flatMap((artifact) => artifact.inputs) : [...paths]
+    const affected = this.artifacts.affected(changed, [
+      ...artifacts,
+      ...(this.sourceBaseline ? [this.sourceBaseline] : []),
+    ])
+    const nativeSource = changed.some((path) => /\.(?:rs|c|cpp|h|hpp|toml|node|dll|so|dylib|wasm)$/i.test(path))
     if (nativeSource && !affected.includes('base')) affected.push('base')
     if (!affected.length) return
     const revision = (this.sourceState?.revision ?? 0) + 1
-    const state: RuntimeSourceReload = { revision, phase: affected.includes('base') || nativeSource ? 'restart_required' : 'building',
-      unitIds: affected, operationId: null, artifactSetId: null, reasonCode: affected.includes('base') || nativeSource ? 'RUNTIME_RESTART_REQUIRED' : null, updatedAt: Date.now() }
+    const state: RuntimeSourceReload = {
+      revision,
+      phase: affected.includes('base') || nativeSource ? 'restart_required' : 'building',
+      unitIds: affected,
+      operationId: null,
+      artifactSetId: null,
+      reasonCode: affected.includes('base') || nativeSource ? 'RUNTIME_RESTART_REQUIRED' : null,
+      updatedAt: Date.now(),
+    }
     this.sourceState = state
-    if (state.phase === 'restart_required') { console.error('[hbar runtime] stable or native source changed; explicit restart required'); return }
+    if (state.phase === 'restart_required') {
+      console.error('[hbar runtime] stable or native source changed; explicit restart required')
+      return
+    }
     const built: RuntimeArtifact[] = []
     try {
       for (let offset = 0; offset < affected.length; offset += 2) {
-        const batch = affected.slice(offset, offset + 2).map(id => this.buildUnits.find(unit => unit.descriptor.id === id))
-        const result = await Promise.allSettled(batch.map(unit => {
-          if (!unit) throw new HbarError('RUNTIME_UNIT_NOT_FOUND', 'Changed source has no registered build unit')
-          return buildRuntimeArtifact(this.artifacts, unit, this.sourceAbort.signal)
-        }))
-        for (const item of result) { if (item.status === 'rejected') throw item.reason; built.push(item.value) }
+        const batch = affected
+          .slice(offset, offset + 2)
+          .map((id) => this.buildUnits.find((unit) => unit.descriptor.id === id))
+        const result = await Promise.allSettled(
+          batch.map((unit) => {
+            if (!unit) throw new HbarError('RUNTIME_UNIT_NOT_FOUND', 'Changed source has no registered build unit')
+            return buildRuntimeArtifact(this.artifacts, unit, this.sourceAbort.signal)
+          }),
+        )
+        for (const item of result) {
+          if (item.status === 'rejected') throw item.reason
+          built.push(item.value)
+        }
       }
       const set = this.artifacts.registerSet(built)
       this.sourceAbort.signal.throwIfAborted()
       const operation = this.reload(set.id, affected)
-      this.sourceState = { ...state, phase: 'applying', artifactSetId: set.id, operationId: operation.operationId, updatedAt: Date.now() }
+      this.sourceState = {
+        ...state,
+        phase: 'applying',
+        artifactSetId: set.id,
+        operationId: operation.operationId,
+        updatedAt: Date.now(),
+      }
       console.log(`[hbar runtime] source update ${operation.operationId}: ${affected.join(', ')}`)
-    } catch (error) { this.sourceFailed(error) }
+    } catch (error) {
+      this.sourceFailed(error)
+    }
   }
-  private async waitReady(ids: readonly string[], operationId: string): Promise<void> {
+  private async waitReady(ids: readonly string[], operationId?: string): Promise<void> {
     const deadline = Date.now() + 120_000
     while (Date.now() < deadline) {
+      this.sourceAbort.signal.throwIfAborted()
       await this.manager.reconcile()
       await this.settled()
-      if (ids.every(id => this.manager.snapshot().units.find(unit => unit.descriptor.id === id)?.generations.some(g => g.role === 'default' && g.phase === 'serving'))) return
-      const operation = this.manager.getReload(operationId)
-      if (['failed', 'restart_required', 'cancelled'].includes(operation.phase))
-        throw new HbarError('RUNTIME_START_FAILED', `Managed activation failed: ${operation.units.map(unit => `${unit.unitId}:${unit.reasonCode ?? unit.phase}`).join(', ')}`)
+      if (
+        ids.every((id) =>
+          this.manager
+            .snapshot()
+            .units.find((unit) => unit.descriptor.id === id)
+            ?.generations.some((g) => g.role === 'default' && g.phase === 'serving'),
+        )
+      )
+        return
+      const operation = operationId ? this.manager.getReload(operationId) : null
+      if (operation && ['failed', 'restart_required', 'cancelled'].includes(operation.phase))
+        throw new HbarError(
+          operation.units.find((unit) => unit.reasonCode)?.reasonCode ?? 'RUNTIME_START_FAILED',
+          `Managed activation failed: ${operation.units.map((unit) => `${unit.unitId}:${unit.reasonCode ?? unit.phase}`).join(', ')}`,
+        )
+      if (
+        !operationId &&
+        ids.some((id) => {
+          const unit = this.manager.snapshot().units.find((unit) => unit.descriptor.id === id)
+          return (
+            unit &&
+            !unit.queuedArtifactId &&
+            !unit.generations.some((g) => g.role === 'default' || g.role === 'candidate')
+          )
+        })
+      )
+        throw new HbarError('RUNTIME_START_FAILED', 'The pending cold-start candidate ended without a serving owner')
       await Bun.sleep(20)
     }
     throw new HbarError('RUNTIME_START_TIMEOUT', 'Managed runtime activation exceeded its deadline')
@@ -389,175 +826,399 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     return endpoint
   }
   private endpoints(): RuntimeKernelEndpoint[] {
-    return [...this.generations.values()].flatMap(record => record.artifact.unitId === 'kernel' ? [this.endpoint(record)].filter(value => value !== null) : [])
+    return [...this.generations.values()].flatMap((record) =>
+      record.artifact.unitId === 'kernel' ? [this.endpoint(record)].filter((value) => value !== null) : [],
+    )
   }
   private driver(version = this.manager.currentVersion('driver.pi')): RuntimeDriverEndpoint {
     const record = this.generations.get(key(version))
-    if (!record?.owner || !record.peer || record.artifact.id !== version.artifactId || !['serving', 'draining'].includes(record.process.snapshot().phase))
+    if (
+      !record?.owner ||
+      !record.peer ||
+      record.artifact.id !== version.artifactId ||
+      !['serving', 'draining'].includes(record.process.snapshot().phase)
+    )
       throw new HbarError('RUNTIME_RECOVERING', 'The bound driver is recovering')
     return { owner: record.owner, peer: record.peer, version }
   }
   private bindings(owner: RuntimeOwner, sessionId: string): RuntimeVersionSet {
     const record = this.generations.get(key(owner))
-    if (!record || record.owner?.incarnation !== owner.incarnation) throw new HbarError('RUNTIME_OWNER_REVOKED', 'The claiming Kernel incarnation expired')
+    if (!record || record.owner?.incarnation !== owner.incarnation)
+      throw new HbarError('RUNTIME_OWNER_REVOKED', 'The claiming Kernel incarnation expired')
     const kernel = { unitId: owner.unitId, generation: owner.generation, artifactId: record.artifact.id }
-    const plugins = this.pluginEndpoints().map(endpoint => this.resources.version(endpoint.owner.unitId, sessionId) ?? endpoint.version)
-    return { kernel, driver: record.state?.driverIsolation === 'legacy' ? kernel : this.manager.currentVersion('driver.pi'), plugins,
-      hooks: this.pluginEndpoints().filter(endpoint => endpoint.state.hooks.length > 0).map(endpoint => endpoint.version) }
+    const plugins = this.pluginEndpoints().map(
+      (endpoint) => this.resources.version(endpoint.owner.unitId, sessionId) ?? endpoint.version,
+    )
+    return {
+      kernel,
+      driver: record.state?.driverIsolation === 'legacy' ? kernel : this.manager.currentVersion('driver.pi'),
+      plugins,
+      hooks: this.pluginEndpoints()
+        .filter((endpoint) => endpoint.state.hooks.length > 0)
+        .map((endpoint) => endpoint.version),
+    }
   }
   private pluginEndpoints(): RuntimePluginEndpoint[] {
-    return this.buildUnits.filter(unit => unit.descriptor.kind === 'plugin').flatMap(unit => {
-      try { return [this.pluginEndpoint(unit.descriptor.id)] } catch { return [] }
-    })
+    return this.buildUnits
+      .filter((unit) => unit.descriptor.kind === 'plugin')
+      .flatMap((unit) => {
+        try {
+          return [this.pluginEndpoint(unit.descriptor.id)]
+        } catch {
+          return []
+        }
+      })
   }
   private pluginEndpoint(unitId: string, execution?: ExecutionOwnership, sessionId?: string): RuntimePluginEndpoint {
-    const version = execution?.versions.plugins.find(version => version.unitId === unitId) ?? (sessionId ? this.resources.version(unitId, sessionId) : undefined) ?? this.manager.currentVersion(unitId)
+    const version =
+      execution?.versions.plugins.find((version) => version.unitId === unitId) ??
+      (sessionId ? this.resources.version(unitId, sessionId) : undefined) ??
+      this.manager.currentVersion(unitId)
     const record = this.generations.get(key(version))
-    if (!record?.owner || !record.application || !record.pluginState || record.artifact.id !== version.artifactId ||
-      !['serving', 'draining'].includes(record.process.snapshot().phase))
+    if (
+      !record?.owner ||
+      !record.application ||
+      !record.pluginState ||
+      record.artifact.id !== version.artifactId ||
+      !['serving', 'draining'].includes(record.process.snapshot().phase)
+    )
       throw new HbarError('RUNTIME_RECOVERING', 'The bound plugin is recovering')
-    if (execution && !execution.versions.plugins.some(item => item.unitId === unitId && item.generation === version.generation))
+    if (
+      execution &&
+      !execution.versions.plugins.some((item) => item.unitId === unitId && item.generation === version.generation)
+    )
       throw new HbarError('RUNTIME_VERSION_MISMATCH', 'The plugin is absent from this execution binding')
     return { owner: record.owner, application: record.application, state: record.pluginState, version }
   }
   private executionReady(): boolean {
     const kernel = this.generations.get(key(this.manager.defaultOwner('kernel')))
-    return (kernel?.state?.driverIsolation === 'legacy' ? ['storage', 'kernel'] : ['storage', 'driver.pi', 'kernel', ...this.buildUnits.filter(unit => unit.descriptor.kind === 'plugin').map(unit => unit.descriptor.id)])
-      .every(id => this.manager.snapshot().units.find(unit => unit.descriptor.id === id)?.generations.some(g => g.role === 'default' && g.phase === 'serving'))
+    return (
+      kernel?.state?.driverIsolation === 'legacy'
+        ? ['storage', 'kernel']
+        : [
+            'storage',
+            'driver.pi',
+            'kernel',
+            ...this.buildUnits.filter((unit) => unit.descriptor.kind === 'plugin').map((unit) => unit.descriptor.id),
+          ]
+    ).every((id) =>
+      this.manager
+        .snapshot()
+        .units.find((unit) => unit.descriptor.id === id)
+        ?.generations.some((g) => g.role === 'default' && g.phase === 'serving'),
+    )
   }
   private canAdmit(sessionId: string): boolean {
-    return !this.closing && !this.initializing && !this.maintaining && !this.maintenance.isWriting() && this.executionReady() && this.storage.snapshot().phase === 'serving' && !this.storageFailure &&
+    return (
+      !this.closing &&
+      !this.initializing &&
+      !this.maintaining &&
+      !this.maintenance.isWriting() &&
+      this.executionReady() &&
+      this.storage.snapshot().phase === 'serving' &&
+      !this.storageFailure &&
       !this.pluginPreparingCatalog.size &&
-      ![...this.interrupted.values()].some(failure => failure.leases.some(lease => lease.sessionId === sessionId)) &&
-      ![...this.leases.values()].some(lease => lease.sessionId === sessionId && !this.coordinator.execution(lease.runId))
+      ![...this.interrupted.values()].some((failure) =>
+        failure.leases.some((lease) => lease.sessionId === sessionId),
+      ) &&
+      ![...this.leases.values()].some(
+        (lease) => lease.sessionId === sessionId && !this.coordinator.execution(lease.runId),
+      )
+    )
   }
   private createGeneration(artifact: RuntimeArtifact, generation: number, changed: () => void): ManagedProcess {
     const layout = this.options.layout
-    const paths = { dataRoot: layout.dataRoot, cacheRoot: layout.cacheRoot, pointerFile: layout.pointerFile,
-      settingsRoot: layout.settings, sessionsRoot: layout.sessions, skillsRoot: layout.globalSkills, identityRoot: layout.identityRoot }
-    const configuration = artifact.unitId === 'storage' ? { ...paths, database: layout.database, workerPath: join(this.artifacts.root, artifact.id, 'worker.js') } :
-      artifact.unitId === 'maintenance' ? { ...paths, workerPath: join(this.artifacts.root, artifact.id, 'maintenance-worker.js') } :
-      artifact.unitId === 'controller' ? { ...paths, instanceId: this.instanceId, demo: this.options.demo ?? false } :
-      artifact.unitId === 'kernel' ? { ...paths, instanceId: this.instanceId, demo: this.options.demo ?? false,
-        isolatedPlugins: this.buildUnits.some(unit => unit.descriptor.kind === 'plugin'),
-        ...(this.options.profileModule ? { profileModule: join(this.artifacts.root, artifact.id, 'profile.js') } : {}) } :
-      artifact.descriptor.kind === 'plugin' ? { dataRoot: layout.dataRoot, cacheRoot: layout.cacheRoot, config: this.pluginConfigs.get(artifact.unitId) ?? {} } : {}
+    const paths = {
+      dataRoot: layout.dataRoot,
+      cacheRoot: layout.cacheRoot,
+      pointerFile: layout.pointerFile,
+      settingsRoot: layout.settings,
+      sessionsRoot: layout.sessions,
+      skillsRoot: layout.globalSkills,
+      identityRoot: layout.identityRoot,
+    }
+    const configuration =
+      artifact.unitId === 'storage'
+        ? { ...paths, database: layout.database, workerPath: join(this.artifacts.root, artifact.id, 'worker.js') }
+        : artifact.unitId === 'maintenance'
+          ? { ...paths, workerPath: join(this.artifacts.root, artifact.id, 'maintenance-worker.js') }
+          : artifact.unitId === 'controller'
+            ? { ...paths, instanceId: this.instanceId, demo: this.options.demo ?? false }
+            : artifact.unitId === 'kernel'
+              ? {
+                  ...paths,
+                  instanceId: this.instanceId,
+                  demo: this.options.demo ?? false,
+                  isolatedPlugins: this.buildUnits.some((unit) => unit.descriptor.kind === 'plugin'),
+                  ...(this.options.profileModule
+                    ? { profileModule: join(this.artifacts.root, artifact.id, 'profile.js') }
+                    : {}),
+                }
+              : artifact.descriptor.kind === 'plugin'
+                ? {
+                    dataRoot: layout.dataRoot,
+                    cacheRoot: layout.cacheRoot,
+                    config: this.pluginConfigs.get(artifact.unitId) ?? {},
+                  }
+                : {}
     let record: Generation
-    const managed = new ManagedProcess({ descriptor: artifact.descriptor, artifactId: artifact.id, generation,
-      modulePath: join(this.artifacts.root, artifact.id, artifact.entry), parent: this.baseOwner, configuration,
-      verifyModule: async signal => { await this.artifacts.get(artifact.id); signal.throwIfAborted() },
-      controlMethods: [...RUNTIME_KERNEL_CONTROL_METHODS, ...RUNTIME_COORDINATION_CONTROL_METHODS, ...RUNTIME_PLUGIN_CONTROL_METHODS,
+    const managed = new ManagedProcess({
+      descriptor: artifact.descriptor,
+      artifactId: artifact.id,
+      generation,
+      purpose:
+        this.initializing &&
+        !this.manager
+          .snapshot()
+          .units.find((unit) => unit.descriptor.id === artifact.unitId)
+          ?.generations.some((g) => g.role === 'default')
+          ? 'startup'
+          : 'candidate',
+      modulePath: join(this.artifacts.root, artifact.id, artifact.entry),
+      parent: this.baseOwner,
+      configuration,
+      verifyModule: async (signal) => {
+        await this.artifacts.get(artifact.id)
+        signal.throwIfAborted()
+      },
+      controlMethods: [
+        ...RUNTIME_KERNEL_CONTROL_METHODS,
+        ...RUNTIME_COORDINATION_CONTROL_METHODS,
+        ...RUNTIME_PLUGIN_CONTROL_METHODS,
         ...RUNTIME_MAINTENANCE_CONTROL_METHODS,
-        'kernel.plugins.callback', 'kernel.plugins.control', 'controller.control', 'controller.invoke', 'controller.authorize',
-        'controller.application.control', 'controller.application.callback', 'controller.background.scope', 'controller.resume', 'controller.pause'],
-      command: this.options.processCommand ?? hostRuntimeProcessCommand(), processTree: this.processTree,
+        'kernel.plugins.callback',
+        'kernel.plugins.control',
+        'controller.control',
+        'controller.invoke',
+        'controller.authorize',
+        'controller.application.control',
+        'controller.application.callback',
+        'controller.background.scope',
+        'controller.resume',
+        'controller.pause',
+      ],
+      command: this.options.processCommand ?? hostRuntimeProcessCommand(),
+      processTree: this.processTree,
       onPeer: (peer, owner) => {
-        record.owner = owner; record.peer = peer
-        this.coordinator.register(owner, { unitId: artifact.unitId, generation, artifactId: artifact.id }, artifact.descriptor)
+        record.owner = owner
+        record.peer = peer
+        this.coordinator.register(
+          owner,
+          { unitId: artifact.unitId, generation, artifactId: artifact.id },
+          artifact.descriptor,
+        )
         this.owners.add(owner.incarnation)
         if (artifact.unitId === 'driver.pi') record.cleanup.push(this.relay.attachDriver(peer))
-        if (artifact.unitId === 'controller') record.controller = new RuntimeControllerAdapter(peer, { kernel: this.kernel, maintenance: this.maintenance,
-          projection: () => this.controllerProjection(), background: () => this.coordinator.role(owner) === 'default',
-          admitsApplications: () => ['default', 'draining'].includes(this.coordinator.role(owner)),
-          fresh: event => this.facade.replay({ method: 'notifications.created', params: event }),
-        })
-        if (artifact.unitId === 'maintenance') record.cleanup.push(this.maintenance.attach(peer, owner, { unitId: artifact.unitId, generation, artifactId: artifact.id }))
+        if (artifact.unitId === 'controller')
+          record.controller = new RuntimeControllerAdapter(peer, {
+            kernel: this.kernel,
+            maintenance: this.maintenance,
+            projection: () => this.controllerProjection(),
+            background: () => this.coordinator.role(owner) === 'default',
+            admitsApplications: () => ['default', 'draining'].includes(this.coordinator.role(owner)),
+            fresh: (event) => this.facade.replay({ method: 'notifications.created', params: event }),
+          })
+        if (artifact.unitId === 'maintenance')
+          record.cleanup.push(
+            this.maintenance.attach(peer, owner, { unitId: artifact.unitId, generation, artifactId: artifact.id }),
+          )
         if (artifact.descriptor.kind === 'plugin') {
           const connection = this.pluginRelay.attachPlugin(peer, owner)
-          record.application = connection.application; record.cleanup.push(connection.dispose)
-          record.cleanup.push(this.resources.attach(connection.application, owner, { unitId: artifact.unitId, generation, artifactId: artifact.id }))
+          record.application = connection.application
+          record.cleanup.push(connection.dispose)
+          record.cleanup.push(
+            this.resources.attach(connection.application, owner, {
+              unitId: artifact.unitId,
+              generation,
+              artifactId: artifact.id,
+            }),
+          )
         }
         if (artifact.unitId === 'kernel') this.attachKernel(record, peer, owner)
       },
       onActivating: async (owner, role, signal) => {
-        if (artifact.unitId === 'storage' && this.maintenance.isWriting()) throw new HbarError('STORAGE_MAINTENANCE_ACTIVE', 'The maintenance writer must finish verification before storage activation')
-        if (artifact.unitId === 'storage' && this.storage.snapshot().phase === 'serving' && this.storage.snapshot().owner?.incarnation !== owner.incarnation)
+        if (artifact.unitId === 'storage' && this.maintenance.isWriting())
+          throw new HbarError(
+            'STORAGE_MAINTENANCE_ACTIVE',
+            'The maintenance writer must finish verification before storage activation',
+          )
+        if (
+          artifact.unitId === 'storage' &&
+          this.storage.snapshot().phase === 'serving' &&
+          this.storage.snapshot().owner?.incarnation !== owner.incarnation
+        )
           await this.storage.beginHandover()
-        signal.throwIfAborted(); this.coordinator.activate(owner, role)
-        if (artifact.descriptor.kind === 'plugin' && role === 'default') this.pluginPreparingCatalog.add(artifact.unitId)
+        signal.throwIfAborted()
+        this.coordinator.activate(owner, role)
+        if (artifact.descriptor.kind === 'plugin' && role === 'default')
+          this.pluginPreparingCatalog.add(artifact.unitId)
       },
-      onState: state => {
+      onState: (state) => {
         changed()
-        if (state.phase === 'serving' || state.phase === 'draining') this.transition(async () => {
-          if (artifact.unitId === 'controller' && state.role === 'default') {
-            await record.controller?.refreshCatalog()
-            if (this.controllerStarted) await record.controller?.resume()
-          }
-          if (this.closing || record.owner?.incarnation !== state.incarnation || !['serving', 'draining'].includes(record.process.snapshot().phase)) return
-          if (artifact.unitId === 'storage' && state.role === 'default') await this.installStorage(record)
-          if (artifact.unitId === 'kernel') await this.refresh(record)
-          if (artifact.descriptor.kind === 'plugin') {
-            record.pluginState = await record.process.call('plugin.state', undefined, runtimePluginStateSchema)
-            if (!this.initializing) for (const endpoint of this.endpoints()) {
-              try { await endpoint.process.call('kernel.plugins.refresh', undefined, z.undefined()) }
-              catch (error) { if (['serving', 'draining'].includes(endpoint.process.snapshot().phase)) throw error }
+        if (state.phase === 'serving' || state.phase === 'draining')
+          this.transition(async () => {
+            if (artifact.unitId === 'controller' && state.role === 'default') {
+              await record.controller?.refreshCatalog()
+              if (this.controllerStarted && !this.initializing) await record.controller?.resume()
             }
-            this.pluginPreparingCatalog.delete(artifact.unitId)
-          }
-          if ((artifact.unitId === 'storage' || artifact.unitId === 'driver.pi') && state.role === 'default') this.resumed.clear()
-          this.schedule()
-        })
+            if (
+              this.closing ||
+              record.owner?.incarnation !== state.incarnation ||
+              !['serving', 'draining'].includes(record.process.snapshot().phase)
+            )
+              return
+            if (artifact.unitId === 'storage' && state.role === 'default') await this.installStorage(record)
+            if (artifact.unitId === 'kernel') await this.refresh(record)
+            if (artifact.descriptor.kind === 'plugin') {
+              record.pluginState = await record.process.call('plugin.state', undefined, runtimePluginStateSchema)
+              if (!this.initializing)
+                for (const endpoint of this.endpoints()) {
+                  try {
+                    await endpoint.process.call('kernel.plugins.refresh', undefined, z.undefined())
+                  } catch (error) {
+                    if (['serving', 'draining'].includes(endpoint.process.snapshot().phase)) throw error
+                  }
+                }
+              this.pluginPreparingCatalog.delete(artifact.unitId)
+            }
+            if ((artifact.unitId === 'storage' || artifact.unitId === 'driver.pi') && state.role === 'default')
+              this.resumed.clear()
+            this.schedule()
+          })
       },
       onFault: (owner, reason) => this.fault(owner, reason),
-      onExit: async owner => {
-        if (artifact.unitId === 'kernel') { this.relay.kernelExited(owner); for (const lease of this.leases.values()) if (lease.owner.incarnation === owner.incarnation) this.stopped.add(lease.runId) }
+      onExit: async (owner) => {
+        if (artifact.unitId === 'kernel') {
+          this.relay.kernelExited(owner)
+          for (const lease of this.leases.values())
+            if (lease.owner.incarnation === owner.incarnation) this.stopped.add(lease.runId)
+        }
         if (artifact.unitId === 'driver.pi') this.relay.driverExited(owner)
         if (artifact.descriptor.kind === 'plugin') this.pluginRelay.exited(owner)
         this.maintenance.exited(owner)
         this.resources.exited(owner)
         for (const cleanup of record.cleanup.splice(0)) cleanup()
-        record.controller?.dispose(); record.controller = null
-        record.application?.dispose(); record.application = null; record.peer = null
+        record.controller?.dispose()
+        record.controller = null
+        record.application?.dispose()
+        record.application = null
+        record.peer = null
         this.coordinator.ownerExited(owner)
         this.resumed.delete(owner.incarnation)
         const interruption = this.interrupted.get(owner.incarnation)
         if (interruption) interruption.exited = true
-        else if (this.owners.has(owner.incarnation)) { this.coordinator.disposeOwner(owner); this.owners.delete(owner.incarnation) }
+        else if (this.owners.has(owner.incarnation)) {
+          this.coordinator.disposeOwner(owner)
+          this.owners.delete(owner.incarnation)
+        }
         this.schedule()
       },
     })
-    record = { artifact, process: managed, owner: null, peer: null, controller: null, application: null, state: null, pluginState: null, refresh: null, cleanup: [] }
+    record = {
+      artifact,
+      process: managed,
+      owner: null,
+      peer: null,
+      controller: null,
+      application: null,
+      state: null,
+      pluginState: null,
+      refresh: null,
+      cleanup: [],
+    }
     this.generations.set(`${artifact.unitId}:${generation}`, record)
     return managed
   }
   private attachKernel(record: Generation, peer: IpcPeer, owner: RuntimeOwner): void {
-    record.cleanup.push(peer.register('kernel.preflight.read', procedure(storageRpcCallSchema, z.unknown(), input => {
-      this.coordinator.assertCanRead(owner)
-      if (input.authority) throw new HbarError('RUNTIME_PREPARING', 'Candidate reads cannot carry execution authority')
-      assertStoragePreflightMethod(input.method)
-      return this.storage.executeRpc(input)
-    })))
-    record.application = new RuntimeValuePort(peer, { prefix: 'kernel.application', controlMethods: RUNTIME_APPLICATION_CONTROLS })
-    record.cleanup.push(this.relay.attachKernel(peer), this.pluginRelay.attachKernel(peer, owner), registerRuntimeCoordinatorPort(peer, this.coordinator, { owner,
-      bindings: (caller, sessionId) => this.bindings(caller, sessionId), canAdmit: sessionId => this.canAdmit(sessionId),
-      admitted: lease => { this.pendingClaims.delete(lease.runId); this.leases.set(lease.runId, lease); this.schedule() },
-      claimFailed: (_owner, _sessionId, runId) => {
-        const pending = this.pendingClaims.get(runId)
-        if (pending) { pending.failed = true; this.stopped.add(runId); this.schedule() }
-      },
-      released: lease => this.handoff(lease),
-      stopped: (_owner, runId) => { this.stopped.add(runId); this.schedule() },
-      releaseFailed: () => { this.reasonCode = 'EXECUTION_RECONCILIATION_REQUIRED'; this.schedule() },
-    }))
-    record.cleanup.push(peer.register('kernel.storage', procedure(storageRpcCallSchema, z.unknown(), input => {
-      if (input.authority && input.authority.owner.incarnation !== owner.incarnation)
-        throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Kernel storage authority belongs to another executor')
-      this.coordinator.assertCanWrite(owner, input.authority)
-      return this.storage.executeRpc(input)
-    })))
+    record.cleanup.push(
+      peer.register(
+        'kernel.preflight.read',
+        procedure(storageRpcCallSchema, z.unknown(), (input) => {
+          this.coordinator.assertCanRead(owner)
+          if (input.authority)
+            throw new HbarError('RUNTIME_PREPARING', 'Candidate reads cannot carry execution authority')
+          assertStoragePreflightMethod(input.method)
+          return this.storage.executeRpc(input)
+        }),
+      ),
+    )
+    record.application = new RuntimeValuePort(peer, {
+      prefix: 'kernel.application',
+      controlMethods: RUNTIME_APPLICATION_CONTROLS,
+    })
+    record.cleanup.push(
+      this.relay.attachKernel(peer),
+      this.pluginRelay.attachKernel(peer, owner),
+      registerRuntimeCoordinatorPort(peer, this.coordinator, {
+        owner,
+        bindings: (caller, sessionId) => this.bindings(caller, sessionId),
+        canAdmit: (sessionId) => this.canAdmit(sessionId),
+        admitted: (lease) => {
+          this.pendingClaims.delete(lease.runId)
+          this.leases.set(lease.runId, lease)
+          this.schedule()
+        },
+        claimFailed: (_owner, _sessionId, runId) => {
+          const pending = this.pendingClaims.get(runId)
+          if (pending) {
+            pending.failed = true
+            this.stopped.add(runId)
+            this.schedule()
+          }
+        },
+        released: (lease) => this.handoff(lease),
+        stopped: (_owner, runId) => {
+          this.stopped.add(runId)
+          this.schedule()
+        },
+        releaseFailed: () => {
+          this.reasonCode = 'EXECUTION_RECONCILIATION_REQUIRED'
+          this.schedule()
+        },
+      }),
+    )
+    record.cleanup.push(
+      peer.register(
+        'kernel.storage',
+        procedure(storageRpcCallSchema, z.unknown(), (input) => {
+          if (input.authority && input.authority.owner.incarnation !== owner.incarnation)
+            throw new HbarError('EXECUTION_OWNER_MISMATCH', 'Kernel storage authority belongs to another executor')
+          this.coordinator.assertCanWrite(owner, input.authority)
+          return this.storage.executeRpc(input)
+        }),
+      ),
+    )
     const id = z.string().min(1).max(160)
-    record.cleanup.push(peer.register('kernel.secret.get', procedure(z.strictObject({ id }), z.string().nullable(), input => {
-      this.coordinator.assertCanWrite(owner); return this.secrets.get(input.id)
-    })), peer.register('kernel.secret.set', procedure(z.strictObject({ id, value: z.string().max(1_048_576) }), z.undefined(), input => {
-      this.coordinator.assertCanWrite(owner); return this.secrets.set(input.id, input.value)
-    })), peer.register('kernel.secret.delete', procedure(z.strictObject({ id }), z.undefined(), input => {
-      this.coordinator.assertCanWrite(owner); return this.secrets.delete(input.id)
-    })), peer.onEvent('kernel.notification', runtimeWireNotificationSchema, event => {
-      this.facade.receive(owner, event); this.scheduleRefresh(record)
-    }))
+    record.cleanup.push(
+      peer.register(
+        'kernel.secret.get',
+        procedure(z.strictObject({ id }), z.string().nullable(), (input) => {
+          this.coordinator.assertCanWrite(owner)
+          return this.secrets.get(input.id)
+        }),
+      ),
+      peer.register(
+        'kernel.secret.set',
+        procedure(z.strictObject({ id, value: z.string().max(1_048_576) }), z.undefined(), (input) => {
+          this.coordinator.assertCanWrite(owner)
+          return this.secrets.set(input.id, input.value)
+        }),
+      ),
+      peer.register(
+        'kernel.secret.delete',
+        procedure(z.strictObject({ id }), z.undefined(), (input) => {
+          this.coordinator.assertCanWrite(owner)
+          return this.secrets.delete(input.id)
+        }),
+      ),
+      peer.onEvent('kernel.notification', runtimeWireNotificationSchema, (event) => {
+        this.facade.receive(owner, event)
+        this.scheduleRefresh(record)
+      }),
+    )
   }
   private transition(operation: () => Promise<void>): void {
-    this.transitions = this.transitions.then(operation).catch(error => {
+    this.transitions = this.transitions.then(operation).catch((error) => {
       this.reasonCode = runtimeDomainError(error)?.code ?? 'RUNTIME_RECONCILIATION_FAILED'
       console.error(`[hbar runtime] transition failed (${this.reasonCode})`)
     })
@@ -565,54 +1226,95 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private schedule(): void {
     if (this.scheduled || this.closing || this.initializing) return
     this.scheduled = true
-    this.transition(async () => { try { await this.reconcile() } finally { this.scheduled = false } })
+    this.transition(async () => {
+      try {
+        await this.reconcile()
+      } finally {
+        this.scheduled = false
+      }
+    })
   }
   private scheduleRefresh(record: Generation): void {
     if (record.refresh || this.closing) return
-    void this.refresh(record).catch(() => { /* The owner fault path reconciles any unavailable projection. */ })
+    void this.refresh(record).catch(() => {
+      /* The owner fault path reconciles any unavailable projection. */
+    })
   }
   private refresh(record: Generation): Promise<void> {
     if (record.refresh) return record.refresh
     const owner = record.owner
-    record.refresh = record.process.call('kernel.state', undefined, runtimeKernelStateSchema).then(state => {
-      if (record.owner?.incarnation === owner?.incarnation) record.state = state
-    }).finally(() => { record.refresh = null })
+    record.refresh = record.process
+      .call('kernel.state', undefined, runtimeKernelStateSchema)
+      .then((state) => {
+        if (record.owner?.incarnation === owner?.incarnation) record.state = state
+      })
+      .finally(() => {
+        record.refresh = null
+      })
     return record.refresh
   }
   private async refreshKernels(): Promise<void> {
-    for (const record of this.generations.values()) if (record.artifact.unitId === 'kernel' && ['serving', 'draining'].includes(record.process.snapshot().phase)) {
-      try { await this.refresh(record) } catch (error) {
-        if (['serving', 'draining'].includes(record.process.snapshot().phase)) throw error
+    for (const record of this.generations.values())
+      if (record.artifact.unitId === 'kernel' && ['serving', 'draining'].includes(record.process.snapshot().phase)) {
+        try {
+          await this.refresh(record)
+        } catch (error) {
+          if (['serving', 'draining'].includes(record.process.snapshot().phase)) throw error
+        }
       }
-    }
   }
   private async installStorage(record: Generation): Promise<void> {
     if (!record.owner || this.storage.snapshot().owner?.incarnation === record.owner.incarnation) return
     if (this.storageFailure) {
-      if (this.storageFailure.unknown) throw new HbarError('STORAGE_RESULT_UNKNOWN', 'The old writer has unresolved in-flight outcomes')
+      if (this.storageFailure.unknown)
+        throw new HbarError('STORAGE_RESULT_UNKNOWN', 'The old writer has unresolved in-flight outcomes')
       const previous = this.storageFailure.owner
-      if (!this.interrupted.get(previous.incarnation)?.exited) throw new HbarError('STORAGE_EXIT_UNCONFIRMED', 'The old writer has not exited')
-      for (const revoke of this.pendingRevocations) await record.process.call('storage.call', { method: 'runtimeExecutionRevoke', args: [revoke.owner, revoke.ids] }, z.unknown())
+      if (!this.interrupted.get(previous.incarnation)?.exited)
+        throw new HbarError('STORAGE_EXIT_UNCONFIRMED', 'The old writer has not exited')
+      for (const revoke of this.pendingRevocations)
+        await record.process.call(
+          'storage.call',
+          { method: 'runtimeExecutionRevoke', args: [revoke.owner, revoke.ids] },
+          z.unknown(),
+        )
       this.pendingRevocations.length = 0
       this.storage.reconcileExited(previous)
       this.storageFailure = null
     }
-    this.storage.install({ owner: record.owner, retire: () => record.process.dispose(),
-      suspend: operationId => record.process.call('storage.suspend', { operationId }, z.undefined()),
-      resume: operationId => record.process.call('storage.resume', { operationId }, z.undefined()),
-      call: (method, args, authority) => callStorageRpc({ execute: input => record.process.call('storage.call', input, z.unknown()) }, method, args, authority),
+    this.storage.install({
+      owner: record.owner,
+      retire: () => record.process.dispose(),
+      suspend: (operationId) => record.process.call('storage.suspend', { operationId }, z.undefined()),
+      resume: (operationId) => record.process.call('storage.resume', { operationId }, z.undefined()),
+      call: (method, args, authority) =>
+        callStorageRpc(
+          { execute: (input) => record.process.call('storage.call', input, z.unknown()) },
+          method,
+          args,
+          authority,
+        ),
     })
   }
   private async fault(owner: RuntimeOwner, reason: string): Promise<void> {
     if (this.closing || this.coordinator.role(owner) === 'candidate') return
     if (owner.unitId !== 'controller') this.resumed.clear()
-    const affected = [...this.leases.values()].filter(lease => owner.unitId === 'storage' ||
-      [lease.versions.kernel, lease.versions.driver, ...lease.versions.plugins, ...lease.versions.hooks].some(v => v.unitId === owner.unitId && v.generation === owner.generation))
+    const affected = [...this.leases.values()].filter(
+      (lease) =>
+        owner.unitId === 'storage' ||
+        [lease.versions.kernel, lease.versions.driver, ...lease.versions.plugins, ...lease.versions.hooks].some(
+          (v) => v.unitId === owner.unitId && v.generation === owner.generation,
+        ),
+    )
     this.interrupted.set(owner.incarnation, { owner, leases: affected, exited: false })
-    if (owner.unitId === 'storage') { this.storageFailure = { owner, unknown: this.storage.snapshot().inFlight > 0 }; this.storage.fence(reason) }
+    if (owner.unitId === 'storage') {
+      this.storageFailure = { owner, unknown: this.storage.snapshot().inFlight > 0 }
+      this.storage.fence(reason)
+    }
     const revoked = this.coordinator.revoke(owner)
     for (const endpoint of this.endpoints()) {
-      const ids = affected.filter(lease => lease.owner.incarnation === endpoint.owner.incarnation).map(lease => lease.runId)
+      const ids = affected
+        .filter((lease) => lease.owner.incarnation === endpoint.owner.incarnation)
+        .map((lease) => lease.runId)
       if (ids.length && endpoint.owner.incarnation !== owner.incarnation)
         void endpoint.process.call('kernel.fence', { runIds: ids }, z.undefined()).catch(() => {})
     }
@@ -620,36 +1322,62 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     this.schedule()
   }
   private async reconcile(): Promise<void> {
-    if (!this.closing && this.buildUnits.some(unit => unit.descriptor.id === 'maintenance')) {
-      try { await this.maintenance.reconcile() }
-      catch (error) { if (['serving', 'draining'].includes(this.currentGeneration('maintenance').process.snapshot().phase)) throw error }
+    if (this.initializing || this.closing) return
+    if (!this.closing && this.buildUnits.some((unit) => unit.descriptor.id === 'maintenance')) {
+      try {
+        await this.maintenance.reconcile()
+      } catch (error) {
+        if (['serving', 'draining'].includes(this.currentGeneration('maintenance').process.snapshot().phase))
+          throw error
+      }
     }
     if (this.closing || !this.executionReady() || this.storage.snapshot().phase !== 'serving') return
     const kernel = this.currentKernel()
     for (const pending of [...this.pendingClaims.values()]) {
-      if (!pending.failed || [...this.interrupted.values()].some(failure => failure.leases.some(lease => lease.runId === pending.draft.runId))) continue
+      if (
+        !pending.failed ||
+        [...this.interrupted.values()].some((failure) =>
+          failure.leases.some((lease) => lease.runId === pending.draft.runId),
+        )
+      )
+        continue
       await this.reconcileClaim(pending.draft, kernel)
     }
-    for (const lease of this.leases.values()) if (!this.coordinator.execution(lease.runId) &&
-      !this.pendingClaims.has(lease.runId) &&
-      ![...this.interrupted.values()].some(failure => failure.leases.some(value => value.runId === lease.runId))) await this.handoff(lease)
+    for (const lease of this.leases.values())
+      if (
+        !this.coordinator.execution(lease.runId) &&
+        !this.pendingClaims.has(lease.runId) &&
+        ![...this.interrupted.values()].some((failure) => failure.leases.some((value) => value.runId === lease.runId))
+      )
+        await this.handoff(lease)
     for (const [incarnation, failure] of this.interrupted) {
       if (!failure.exited) continue
       for (const lease of [...failure.leases]) {
         const pending = this.pendingClaims.get(lease.runId)
         if (pending && !pending.failed) continue
         if (!this.stopped.has(lease.runId) || this.relay.hasRun(lease.runId)) continue
-        try { this.coordinator.reconciled(lease.sessionId) }
-        catch (error) { if (runtimeDomainError(error)?.code === 'EXECUTION_RESOURCES_ACTIVE' || runtimeDomainError(error)?.code === 'EXECUTION_OWNER_ALIVE') continue; throw error }
+        try {
+          this.coordinator.reconciled(lease.sessionId)
+        } catch (error) {
+          if (
+            runtimeDomainError(error)?.code === 'EXECUTION_RESOURCES_ACTIVE' ||
+            runtimeDomainError(error)?.code === 'EXECUTION_OWNER_ALIVE'
+          )
+            continue
+          throw error
+        }
         // Keep the pending identity until recovery and durable delivery complete, so a failed receipt can safely be retried.
         if (pending) await this.reconcileClaim(pending.draft, kernel)
         else {
-          await kernel.process.call('kernel.recover', { runIds: [lease.runId] }, runtimeKernelRecoverySchema, { timeoutMs: 120_000 })
+          await kernel.process.call('kernel.recover', { runIds: [lease.runId] }, runtimeKernelRecoverySchema, {
+            timeoutMs: 120_000,
+          })
           await this.replay(lease.sessionId)
-          this.leases.delete(lease.runId); this.stopped.delete(lease.runId)
+          this.leases.delete(lease.runId)
+          this.stopped.delete(lease.runId)
           await this.wake(lease.sessionId)
         }
-        const index = failure.leases.findIndex(value => value.runId === lease.runId)
+        const index = failure.leases.findIndex((value) => value.runId === lease.runId)
         if (index >= 0) failure.leases.splice(index, 1)
         await this.wake(lease.sessionId)
       }
@@ -657,7 +1385,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         if (this.owners.has(incarnation)) {
           const references = this.coordinator.references(failure.owner)
           if (references.runs || references.tools || references.resources) continue
-          this.coordinator.disposeOwner(failure.owner); this.owners.delete(incarnation)
+          this.coordinator.disposeOwner(failure.owner)
+          this.owners.delete(incarnation)
         }
         this.interrupted.delete(incarnation)
       }
@@ -667,19 +1396,33 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   }
   private async reconcileClaim(draft: ExecutionOwnership, kernel: RuntimeKernelEndpoint): Promise<void> {
     const receipt = await this.storage.call('runtimeExecutionRead', draft.runId)
-    if (receipt && (receipt.lease.leaseId !== draft.leaseId || receipt.lease.owner.incarnation !== draft.owner.incarnation ||
-      JSON.stringify(receipt.lease.versions) !== JSON.stringify(draft.versions)))
-      throw new HbarError('EXECUTION_PROJECTION_INVALID', 'A failed claim receipt does not match its captured owner and versions')
-    if (receipt?.state === 'active') await this.storage.call('runtimeExecutionRevoke', receipt.lease.owner, [draft.runId])
+    if (
+      receipt &&
+      (receipt.lease.leaseId !== draft.leaseId ||
+        receipt.lease.owner.incarnation !== draft.owner.incarnation ||
+        JSON.stringify(receipt.lease.versions) !== JSON.stringify(draft.versions))
+    )
+      throw new HbarError(
+        'EXECUTION_PROJECTION_INVALID',
+        'A failed claim receipt does not match its captured owner and versions',
+      )
+    if (receipt?.state === 'active')
+      await this.storage.call('runtimeExecutionRevoke', receipt.lease.owner, [draft.runId])
     this.coordinator.reconciled(draft.sessionId)
     const run = await this.storage.call('run', draft.runId)
-    if (run.status !== 'queued') await kernel.process.call('kernel.recover', { runIds: [draft.runId] }, runtimeKernelRecoverySchema, { timeoutMs: 120_000 })
+    if (run.status !== 'queued')
+      await kernel.process.call('kernel.recover', { runIds: [draft.runId] }, runtimeKernelRecoverySchema, {
+        timeoutMs: 120_000,
+      })
     await this.replay(draft.sessionId)
-    this.leases.delete(draft.runId); this.pendingClaims.delete(draft.runId); this.stopped.delete(draft.runId)
+    this.leases.delete(draft.runId)
+    this.pendingClaims.delete(draft.runId)
+    this.stopped.delete(draft.runId)
     await this.wake(draft.sessionId)
   }
   private async resume(): Promise<void> {
-    if (this.closing || this.initializing || !this.executionReady() || this.storage.snapshot().phase !== 'serving') return
+    if (this.closing || this.initializing || !this.executionReady() || this.storage.snapshot().phase !== 'serving')
+      return
     const kernel = this.currentKernel()
     if (this.resumed.has(kernel.owner.incarnation)) return
     await kernel.process.call('kernel.resume', undefined, z.undefined(), { timeoutMs: 120_000 })
@@ -692,45 +1435,86 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private async handoff(lease: ExecutionOwnership): Promise<void> {
     await this.replay(lease.sessionId)
     const current = this.currentKernel()
-    if (current.owner.incarnation !== lease.owner.incarnation || lease.versions.plugins.some(version => this.manager.currentVersion(version.unitId).generation !== version.generation))
-      await current.process.call('kernel.session.refresh', { sessionId: lease.sessionId }, z.undefined(), { timeoutMs: 120_000 })
+    if (
+      current.owner.incarnation !== lease.owner.incarnation ||
+      lease.versions.plugins.some(
+        (version) => this.manager.currentVersion(version.unitId).generation !== version.generation,
+      )
+    )
+      await current.process.call('kernel.session.refresh', { sessionId: lease.sessionId }, z.undefined(), {
+        timeoutMs: 120_000,
+      })
     this.leases.delete(lease.runId)
     this.schedule()
     await this.wake(lease.sessionId)
   }
-  private async resolveKernel(target: string, method: string, args: readonly unknown[], captured?: RuntimeKernelEndpoint): Promise<RuntimeKernelEndpoint> {
+  private async resolveKernel(
+    target: string,
+    method: string,
+    args: readonly unknown[],
+    captured?: RuntimeKernelEndpoint,
+  ): Promise<RuntimeKernelEndpoint> {
     let runId: string | undefined, sessionId: string | undefined
     if (target === 'kernel' && method === 'cancel' && typeof args[0] === 'string') runId = args[0]
-    if (['goal', 'plan', 'mode', 'budget', 'workflow', 'agent'].includes(target) && typeof args[0] === 'string') sessionId = args[0]
-    if (['goal', 'plan', 'mode', 'budget', 'workflow', 'agent'].includes(target) && args[0] && typeof args[0] === 'object') {
-      const input = z.object({ sessionId: z.string().optional(), parentSessionId: z.string().optional() }).safeParse(args[0])
+    if (['goal', 'plan', 'mode', 'budget', 'workflow', 'agent'].includes(target) && typeof args[0] === 'string')
+      sessionId = args[0]
+    if (
+      ['goal', 'plan', 'mode', 'budget', 'workflow', 'agent'].includes(target) &&
+      args[0] &&
+      typeof args[0] === 'object'
+    ) {
+      const input = z
+        .object({ sessionId: z.string().optional(), parentSessionId: z.string().optional() })
+        .safeParse(args[0])
       if (input.success) sessionId = input.data.sessionId ?? input.data.parentSessionId
     }
-    if (target === 'kernel' && ['submit', 'compact', 'snapshot', 'getContextUsage', 'automationGet', 'automationSet', 'updateSession'].includes(method) && typeof args[0] === 'string') sessionId = args[0]
-    if (target === 'kernel' && method === 'resolveApproval' && typeof args[0] === 'string') runId = (await this.storage.call('approval', args[0])).runId
+    if (
+      target === 'kernel' &&
+      ['submit', 'compact', 'snapshot', 'getContextUsage', 'automationGet', 'automationSet', 'updateSession'].includes(
+        method,
+      ) &&
+      typeof args[0] === 'string'
+    )
+      sessionId = args[0]
+    if (target === 'kernel' && method === 'resolveApproval' && typeof args[0] === 'string')
+      runId = (await this.storage.call('approval', args[0])).runId
     if (target === 'kernel' && method === 'resolvePlanExit' && typeof args[0] === 'object' && args[0] !== null) {
-      const input = z.object({ sessionId: z.string() }).safeParse(args[0]); if (input.success) sessionId = input.data.sessionId
+      const input = z.object({ sessionId: z.string() }).safeParse(args[0])
+      if (input.success) sessionId = input.data.sessionId
     }
     if (target === 'kernel' && method === 'resolveUserInput' && typeof args[0] === 'string') {
-      const request = this.kernel.pendingUserInput(args[0]); if (request) runId = request.runId
+      const request = this.kernel.pendingUserInput(args[0])
+      if (request) runId = request.runId
     }
-    const lease = runId ? this.coordinator.execution(runId) : sessionId ? this.coordinator.executionForSession(sessionId) : null
+    const lease = runId
+      ? this.coordinator.execution(runId)
+      : sessionId
+        ? this.coordinator.executionForSession(sessionId)
+        : null
     if (lease) {
-      const endpoint = this.endpoints().find(value => value.owner.incarnation === lease.owner.incarnation)
+      const endpoint = this.endpoints().find((value) => value.owner.incarnation === lease.owner.incarnation)
       if (!endpoint) throw new HbarError('RUNTIME_RECOVERING', 'The execution owner is recovering')
       return endpoint
     }
-    return sessionId ? this.currentKernel() : captured ?? this.currentKernel()
+    return sessionId ? this.currentKernel() : (captured ?? this.currentKernel())
   }
   private async cancelRun(runId: string): Promise<void> {
     const result = await this.storage.call('runtimeRecoveryCancel', runId)
     for (const event of result.events) this.facade.replay({ method: 'session.event', params: event })
     const lease = this.coordinator.execution(result.run.id)
-    const endpoint = lease ? this.endpoints().find(value => value.owner.incarnation === lease.owner.incarnation) : null
+    const endpoint = lease
+      ? this.endpoints().find((value) => value.owner.incarnation === lease.owner.incarnation)
+      : null
     if (endpoint && ['serving', 'draining'].includes(endpoint.process.snapshot().phase)) {
-      try { await endpoint.process.call('kernel.cancel', { runId: result.run.id, persisted: true }, z.undefined()) }
-      catch (error) {
-        if (!['IPC_DISCONNECTED', 'RUNTIME_RECOVERING', 'RUNTIME_OWNER_REVOKED'].includes(runtimeDomainError(error)?.code ?? '')) throw error
+      try {
+        await endpoint.process.call('kernel.cancel', { runId: result.run.id, persisted: true }, z.undefined())
+      } catch (error) {
+        if (
+          !['IPC_DISCONNECTED', 'RUNTIME_RECOVERING', 'RUNTIME_OWNER_REVOKED'].includes(
+            runtimeDomainError(error)?.code ?? '',
+          )
+        )
+          throw error
       }
     }
     this.schedule()
@@ -747,7 +1531,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     throw new HbarError('RUNTIME_REPLAY_LIMIT', 'Recovery replay exceeded its bounded journal window')
   }
   private async recoverStartup(): Promise<void> {
-    let cursor = '', recovered = 0
+    let cursor = '',
+      recovered = 0
     while (true) {
       const leases = await this.storage.call('runtimeUnreleasedExecutions', cursor)
       if (!leases.length) break
@@ -758,8 +1543,14 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     while (true) {
       const runs = await this.storage.call('runtimeActiveRuns', cursor)
       if (!runs.length) break
-      await this.currentKernel().process.call('kernel.recover', { runIds: runs.map(run => run.id) }, runtimeKernelRecoverySchema, { timeoutMs: 120_000 })
-      recovered += runs.length; cursor = runs.at(-1)!.id
+      await this.currentKernel().process.call(
+        'kernel.recover',
+        { runIds: runs.map((run) => run.id) },
+        runtimeKernelRecoverySchema,
+        { timeoutMs: 120_000 },
+      )
+      recovered += runs.length
+      cursor = runs.at(-1)!.id
     }
     this.facade.setRecovered(recovered)
   }
@@ -767,12 +1558,25 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     this.kernel.assertIdle()
     if (this.maintaining) throw new HbarError('BUSY', 'Database maintenance is already active')
     this.maintaining = true
-    try { return await action() } finally { this.maintaining = false; this.schedule() }
+    try {
+      return await action()
+    } finally {
+      this.maintaining = false
+      this.schedule()
+    }
   }
   private maintenanceEndpoint(owner: RuntimeOwner): RuntimeMaintenanceEndpoint {
     const record = this.generations.get(key(owner))
-    if (!record?.owner || record.owner.incarnation !== owner.incarnation || !['serving', 'draining'].includes(record.process.snapshot().phase))
+    if (
+      !record?.owner ||
+      record.owner.incarnation !== owner.incarnation ||
+      !['serving', 'draining'].includes(record.process.snapshot().phase)
+    )
       throw new HbarError('RUNTIME_RECOVERING', 'The Maintenance owner is recovering')
-    return { owner, process: record.process, version: { unitId: owner.unitId, generation: owner.generation, artifactId: record.artifact.id } }
+    return {
+      owner,
+      process: record.process,
+      version: { unitId: owner.unitId, generation: owner.generation, artifactId: record.artifact.id },
+    }
   }
 }

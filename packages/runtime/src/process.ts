@@ -18,6 +18,8 @@ export interface ManagedProcessOptions {
   readonly artifactId: string
   readonly modulePath: string
   readonly generation: number
+  /** A retry before any generation has served is still a cold startup. */
+  readonly purpose?: 'startup' | 'candidate'
   readonly parent: RuntimeOwner
   readonly configuration?: Readonly<Record<string, unknown>>
   /** Verify registered bytes again before every candidate import and recovery incarnation. */
@@ -286,9 +288,7 @@ export class ManagedProcess {
           HBAR_RUNTIME_MODULE: this.options.modulePath,
           HBAR_RUNTIME_PREPARATION: this.activated
             ? 'recovery'
-            : this.options.generation === 1
-              ? 'startup'
-              : 'candidate',
+            : (this.options.purpose ?? (this.options.generation === 1 ? 'startup' : 'candidate')),
           HBAR_RUNTIME_HEARTBEAT_MS: String(this.heartbeatMs),
           HBAR_RUNTIME_CONTROL_METHODS: JSON.stringify([
             ...RUNTIME_CONTROL_METHODS,

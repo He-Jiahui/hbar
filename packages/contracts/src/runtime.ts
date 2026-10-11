@@ -87,6 +87,8 @@ export const runtimeUnitDescriptorSchema = z.strictObject({
   kind: z.enum(['base', 'controller', 'kernel', 'driver', 'plugin', 'storage', 'maintenance', 'resources']),
   isolation: z.enum(['base', 'process', 'worker']),
   dependencies: z.array(runtimeUnitIdSchema).max(256),
+  /** Omission preserves legacy capability dependencies; [] declares stable port-only dependencies. */
+  reloadDependencies: z.array(runtimeUnitIdSchema).max(256).optional(),
   required: z.boolean(),
   reloadable: z.boolean(),
   contractFingerprint: runtimeArtifactIdSchema,
@@ -131,6 +133,12 @@ export type RuntimeSourceReload = z.infer<typeof runtimeSourceReloadSchema>
 export const runtimeAdmissionSchema = z.strictObject({
   phase: z.enum(['initializing', 'serving', 'recovering', 'handover', 'stopped']),
   reasonCode: z.string().min(1).max(128).nullable(),
+  startup: z
+    .strictObject({
+      attempts: z.number().int().nonnegative(),
+      nextAttemptAt: z.number().int().nonnegative().nullable(),
+    })
+    .optional(),
   storage: z.strictObject({
     phase: z.enum(['waiting', 'serving', 'handover', 'fenced', 'closed']),
     owner: runtimeOwnerSchema.nullable(),

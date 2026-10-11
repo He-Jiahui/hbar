@@ -4,7 +4,7 @@ import { available, unavailable, type PerformanceProvider, type ProviderReadings
 
 interface RuntimeCounts {
   readonly activeRuns: number
-  readonly queuedRuns: number
+  readonly queuedRuns: number | null
   readonly managedChildProcesses: number | null
 }
 
@@ -125,7 +125,10 @@ export function createHostPerformanceProvider(runtime: () => Promise<RuntimeCoun
             ? unavailable('bytes_per_second', unsupported, 'procfs')
             : available(networkTransmitRate, 'bytes_per_second', 'procfs'),
         activeRuns: available(counts.activeRuns, 'count', 'kernel'),
-        queuedRuns: available(counts.queuedRuns, 'count', 'storage'),
+        queuedRuns:
+          counts.queuedRuns === null
+            ? unavailable('count', 'RUNTIME_RECOVERING', 'storage')
+            : available(counts.queuedRuns, 'count', 'storage'),
         managedChildProcesses:
           counts.managedChildProcesses === null
             ? unavailable('count', 'PROCESS_REGISTRY_UNAVAILABLE', 'host')

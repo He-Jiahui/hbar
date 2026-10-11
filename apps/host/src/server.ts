@@ -9,7 +9,10 @@ import type { ServerWebSocket } from 'bun'
 
 import { queuedRunGuidedOperationId as guidedOperationId, admitOperationRecovery } from '@hbar/contracts/commands/run'
 
-import { chatDatabaseUploadOwnerSchema, chatDatabaseCommands as chatDatabaseDefinitions } from '@hbar/contracts/commands/chat-database'
+import {
+  chatDatabaseUploadOwnerSchema,
+  chatDatabaseCommands as chatDatabaseDefinitions,
+} from '@hbar/contracts/commands/chat-database'
 import { systemCommands as systemDefinitions } from '@hbar/contracts/commands/system'
 
 import { metricsCommands as metricsDefinitions } from '@hbar/contracts/commands/metrics'
@@ -68,16 +71,24 @@ export interface ServerOptions {
 
 export async function startServer(kernel: KernelControllerPort, options: ServerOptions = {}) {
   const performance = new PerformanceCollector(
-    createHostPerformanceProvider(async () => ({
-      activeRuns: kernel.active.size,
-      queuedRuns: (await kernel.storage.call('queuedSessions')).length,
-      managedChildProcesses: null,
-    })),
+    createHostPerformanceProvider(async () => {
+      const runtime = options.runtime?.snapshot()
+      return {
+        activeRuns: kernel.active.size,
+        queuedRuns:
+          runtime && !options.runtime?.authenticationAvailable?.()
+            ? null
+            : (await kernel.storage.call('queuedSessions')).length,
+        managedChildProcesses: runtime
+          ? runtime.units.flatMap((unit) => unit.generations).filter((generation) => generation.pid !== null).length
+          : null,
+      }
+    }),
     { intervalMs: options.metricsIntervalMs },
   )
   await performance.start()
   const metricsCommands = createMetricsCommands(performance)
-  const application =
+  const application: import('./runtime-controller-services').ControllerServerApplication =
     options.controller?.application ??
     (typeof HBAR_MANAGED_CONTROLLER !== 'undefined' && HBAR_MANAGED_CONTROLLER
       ? (() => {
@@ -315,20 +326,23 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       case 'system.runtime.watch': {
         const input = rpcSchemas[method].parse(raw)
         const runtime = options.runtime
-        if (!runtime?.watch || !runtime.subscribe) throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Runtime subscriptions require the managed Host entry')
-        socket.data.runtimeDispose ??= runtime.subscribe(delta => {
+        if (!runtime?.watch || !runtime.subscribe)
+          throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Runtime subscriptions require the managed Host entry')
+        socket.data.runtimeDispose ??= runtime.subscribe((delta) => {
           if (socket.data.initialized) send(socket, { jsonrpc: '2.0', method: 'system.runtime.delta', params: delta })
         })
         return runtime.watch(input.cursor)
       }
       case 'system.runtime.unwatch': {
-        socket.data.runtimeDispose?.(); socket.data.runtimeDispose = undefined
+        socket.data.runtimeDispose?.()
+        socket.data.runtimeDispose = undefined
         return null
       }
       case 'command.execute': {
         const invocation = rpcSchemas[method].parse(raw)
         if (!socket.data.deviceId) throw new HbarError('UNAUTHORIZED', 'Authenticated device required')
-        const dispatch = commandDispatchers.get(invocation.commandId)
+        const dispatch =
+          commandDispatchers.get(invocation.commandId) ?? application.resolveCommand?.(invocation.commandId)?.dispatch
         if (!dispatch) throw new HbarError('COMMAND_NOT_FOUND', 'Command is not registered on this Host')
         return dispatch(invocation, socket.data.deviceId)
       }
@@ -354,7 +368,12 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       }
       case 'command.describe': {
         const input = rpcSchemas[method].parse(raw)
-        const describe = commandDescribers.get(input.commandId)
+        const describe =
+          commandDescribers.get(input.commandId) ??
+          (() => {
+            const service = application.resolveCommand?.(input.commandId)
+            return service ? () => service.describe(input.commandId) : null
+          })()
         if (!describe) throw new HbarError('COMMAND_NOT_FOUND', 'Command is not registered on this Host')
         return describe()
       }
@@ -1071,7 +1090,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       try {
         if (url.pathname === '/livez') return json(request, { alive: true, instanceId: kernel.instanceId })
         if (url.pathname === '/healthz') {
-          const ready = options.runtime?.snapshot().ready ?? true
+          const runtime = options.runtime?.snapshot()
+          const ready = runtime?.ready ?? true
           return json(
             request,
             {
@@ -1079,6 +1099,13 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
               version: APP_VERSION,
               protocol: PROTOCOL_VERSION,
               instanceId: kernel.instanceId,
+              ...(runtime?.admission
+                ? {
+                    phase: runtime.admission.phase,
+                    reasonCode: runtime.admission.reasonCode,
+                    nextAttemptAt: runtime.admission.startup?.nextAttemptAt ?? null,
+                  }
+                : {}),
               ...(options.dataRootId ? { dataRootId: options.dataRootId } : {}),
             },
             ready ? 200 : 503,
@@ -1298,7 +1325,8 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         })
       },
       close(socket) {
-        socket.data.runtimeDispose?.(); socket.data.runtimeDispose = undefined
+        socket.data.runtimeDispose?.()
+        socket.data.runtimeDispose = undefined
         clearTimeout(socket.data.timer)
         if (socket.data.deviceId && socket.data.terminalCallbacks)
           systemTerminals.detach(socket.data.deviceId, socket.data.terminalCallbacks)

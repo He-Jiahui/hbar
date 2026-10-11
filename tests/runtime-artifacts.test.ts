@@ -45,6 +45,27 @@ test('immutable builds derive actual source ownership and reject modified regist
   }
 })
 
+test('port-only dependencies do not cascade reloads, while emitted shared code still owns every actual consumer', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-artifact-ports-'))
+  const source = join(root, 'source')
+  await mkdir(source)
+  await writeFile(join(source, 'shared.ts'), 'export const shared = 1')
+  await writeFile(join(source, 'producer.ts'), "export { shared } from './shared'")
+  await writeFile(join(source, 'consumer.ts'), "export { shared } from './shared'")
+  const store = new RuntimeArtifactStore(join(root, 'bundles'), source)
+  try {
+    const producer = await store.build({ descriptor: descriptor('producer'), entrypoint: 'producer.ts' })
+    const consumer = await store.build({
+      descriptor: { ...descriptor('consumer', ['producer']), reloadDependencies: [] },
+      entrypoint: 'consumer.ts',
+    })
+    expect(store.affected(['producer.ts'], [producer, consumer])).toEqual(['producer'])
+    expect(store.affected(['shared.ts'], [producer, consumer])).toEqual(['consumer', 'producer'])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('new source content and declared dynamic resources affect hashes and explicit capability dependents', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hbar-artifact-resources-'))
   const source = join(root, 'source')
@@ -113,16 +134,26 @@ test('ownership excludes code removed from a defined isolated unit and includes 
   await writeFile(join(root, 'unrelated.ts'), 'export function unused() { return "unrelated" }\n')
   await writeFile(join(root, 'used.ts'), 'export const used = 1\n')
   await writeFile(join(root, 'worker.ts'), 'export const workerVersion = 1\n')
-  await writeFile(join(root, 'entry.ts'), "import { unused } from './unrelated'; import { used } from './used'; export function create() { if (!ISOLATED) return unused(); return used }\n")
+  await writeFile(
+    join(root, 'entry.ts'),
+    "import { unused } from './unrelated'; import { used } from './used'; export function create() { if (!ISOLATED) return unused(); return used }\n",
+  )
   const store = new RuntimeArtifactStore(join(root, 'bundles'), root)
   try {
-    const artifact = await store.build({ descriptor: descriptor('unit'), entrypoint: 'entry.ts', workers: ['worker.ts'], define: { ISOLATED: 'true' } })
+    const artifact = await store.build({
+      descriptor: descriptor('unit'),
+      entrypoint: 'entry.ts',
+      workers: ['worker.ts'],
+      define: { ISOLATED: 'true' },
+    })
     expect(artifact.inputs).toContain('used.ts')
     expect(artifact.inputs).toContain('worker.ts')
     expect(artifact.inputs).not.toContain('unrelated.ts')
     expect(store.affected(['unrelated.ts'], [artifact])).toHaveLength(0)
     expect(store.affected(['worker.ts'], [artifact])).toEqual(['unit'])
-  } finally { await rm(root, { recursive: true, force: true }) }
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 })
 
 test('declared owned modules compile from explicit local roots, retain their code and dependencies, and cannot escape undeclared roots', async () => {
@@ -134,14 +165,31 @@ test('declared owned modules compile from explicit local roots, retain their cod
   const registry = new RuntimeArtifactStore(join(root, 'bundles'), root)
   const module = { name: 'profile', path: join(outside, 'custom.ts') }
   try {
-    expect(await registry.build({ descriptor: descriptor('owner'), entrypoint: 'entry.ts', modules: [module] }).catch((error: unknown) => error)).toMatchObject({ code: 'RUNTIME_BUILD_INVALID' })
-    const artifact = await registry.build({ descriptor: descriptor('owner'), entrypoint: 'entry.ts', modules: [module], sourceRoots: [outside] })
+    expect(
+      await registry
+        .build({ descriptor: descriptor('owner'), entrypoint: 'entry.ts', modules: [module] })
+        .catch((error: unknown) => error),
+    ).toMatchObject({ code: 'RUNTIME_BUILD_INVALID' })
+    const artifact = await registry.build({
+      descriptor: descriptor('owner'),
+      entrypoint: 'entry.ts',
+      modules: [module],
+      sourceRoots: [outside],
+    })
     const first = await readFile(join(registry.root, artifact.id, 'profile.js'), 'utf8')
     expect(first).toContain('version = 1')
     expect(registry.affected([join(outside, 'helper.ts')], [artifact])).toEqual(['owner'])
     await writeFile(join(outside, 'helper.ts'), 'export const version = 2\n')
-    const next = await registry.build({ descriptor: descriptor('owner'), entrypoint: 'entry.ts', modules: [module], sourceRoots: [outside] })
+    const next = await registry.build({
+      descriptor: descriptor('owner'),
+      entrypoint: 'entry.ts',
+      modules: [module],
+      sourceRoots: [outside],
+    })
     expect(next.id).not.toBe(artifact.id)
     expect(await readFile(join(registry.root, artifact.id, 'profile.js'), 'utf8')).toBe(first)
-  } finally { await rm(root, { recursive: true, force: true }); await rm(outside, { recursive: true, force: true }) }
+  } finally {
+    await rm(root, { recursive: true, force: true })
+    await rm(outside, { recursive: true, force: true })
+  }
 })

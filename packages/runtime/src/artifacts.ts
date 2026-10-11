@@ -33,9 +33,14 @@ export const runtimeArtifactSchema = z.strictObject({
 const artifactSchema = runtimeArtifactSchema
 export type RuntimeArtifact = z.infer<typeof artifactSchema>
 const packagedFileSchema = z.strictObject({ name: z.string().min(1).max(256), base64: z.string().max(179_000_000) })
-const packagedUnitSchema = z.strictObject({ artifact: artifactSchema, files: z.array(packagedFileSchema).min(1).max(4_224) })
+const packagedUnitSchema = z.strictObject({
+  artifact: artifactSchema,
+  files: z.array(packagedFileSchema).min(1).max(4_224),
+})
 export const runtimeArtifactPackageSchema = z.strictObject({
-  format: z.literal(1), id: runtimeArtifactIdSchema, units: z.array(packagedUnitSchema).min(1).max(512),
+  format: z.literal(1),
+  id: runtimeArtifactIdSchema,
+  units: z.array(packagedUnitSchema).min(1).max(512),
 })
 export type RuntimeArtifactPackage = z.infer<typeof runtimeArtifactPackageSchema>
 export interface RuntimeArtifactSet {
@@ -97,13 +102,16 @@ async function boundedArtifactRead(path: string, limit: number): Promise<Buffer>
     const bytes = Buffer.alloc(metadata.size)
     for (let offset = 0; offset < bytes.byteLength;) {
       const next = await handle.read(bytes, offset, Math.min(262_144, bytes.byteLength - offset), offset)
-      if (!next.bytesRead) throw new HbarError('RUNTIME_ARTIFACT_CHANGED', 'Registered artifact changed during verification')
+      if (!next.bytesRead)
+        throw new HbarError('RUNTIME_ARTIFACT_CHANGED', 'Registered artifact changed during verification')
       offset += next.bytesRead
     }
     if ((await handle.read(Buffer.alloc(1), 0, 1, bytes.byteLength)).bytesRead)
       throw new HbarError('RUNTIME_ARTIFACT_CHANGED', 'Registered artifact grew during verification')
     return bytes
-  } finally { await handle.close() }
+  } finally {
+    await handle.close()
+  }
 }
 
 /** Registered immutable bundles, verified again before loading. It never accepts an arbitrary reload path. */
@@ -125,24 +133,32 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
     const entrypoint = await realpath(resolve(sourceRoot, unit.entrypoint))
     if (!within(sourceRoot, entrypoint))
       throw new HbarError('RUNTIME_BUILD_INVALID', 'Runtime entrypoint is outside the registered source root')
-    if ((unit.workers?.length ?? 0) > 16) throw new HbarError('RUNTIME_BUILD_LIMIT', 'Runtime Worker entrypoint capacity is exhausted')
+    if ((unit.workers?.length ?? 0) > 16)
+      throw new HbarError('RUNTIME_BUILD_LIMIT', 'Runtime Worker entrypoint capacity is exhausted')
     const workers: string[] = []
     for (const input of unit.workers ?? []) {
       const path = await realpath(resolve(sourceRoot, input))
-      if (!within(sourceRoot, path)) throw new HbarError('RUNTIME_BUILD_INVALID', 'Runtime Worker entrypoint is outside the registered source root')
+      if (!within(sourceRoot, path))
+        throw new HbarError('RUNTIME_BUILD_INVALID', 'Runtime Worker entrypoint is outside the registered source root')
       workers.push(path)
     }
     const modules: Array<{ name: string; path: string }> = []
     for (const module of unit.modules ?? []) {
       const name = fileName(`${module.name}.js`)
       const path = await realpath(resolve(sourceRoot, module.path))
-      if (!allowedRoots.some(root => within(root, path))) throw new HbarError('RUNTIME_BUILD_INVALID', 'Owned module escapes its declared build roots')
+      if (!allowedRoots.some((root) => within(root, path)))
+        throw new HbarError('RUNTIME_BUILD_INVALID', 'Owned module escapes its declared build roots')
       modules.push({ name, path })
     }
-    const paths = [entrypoint, ...workers, ...modules.map(module => module.path)]
-    const normalize = (value: string) => process.platform === 'win32' ? value.toLowerCase() : value
-    if (new Set(paths.map(path => normalize(basename(path, extname(path))))).size !== paths.length ||
-      new Set([...paths.slice(0, workers.length + 1).map(path => normalize(`${basename(path, extname(path))}.js`)), ...modules.map(module => normalize(module.name))]).size !== paths.length)
+    const paths = [entrypoint, ...workers, ...modules.map((module) => module.path)]
+    const normalize = (value: string) => (process.platform === 'win32' ? value.toLowerCase() : value)
+    if (
+      new Set(paths.map((path) => normalize(basename(path, extname(path))))).size !== paths.length ||
+      new Set([
+        ...paths.slice(0, workers.length + 1).map((path) => normalize(`${basename(path, extname(path))}.js`)),
+        ...modules.map((module) => normalize(module.name)),
+      ]).size !== paths.length
+    )
       throw new HbarError('RUNTIME_BUILD_INVALID', 'Runtime entrypoint output names must be unique')
     const result = await Bun.build({
       entrypoints: paths,
@@ -159,20 +175,43 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
       throw new HbarError('RUNTIME_BUILD_FAILED', 'Runtime candidate did not compile', { cause: error })
     })
     if (!result.success) throw new HbarError('RUNTIME_BUILD_FAILED', 'Runtime candidate did not compile')
-    const metafile = z.object({
-      inputs: z.record(z.string(), z.unknown()),
-      outputs: z.record(z.string(), z.object({ inputs: z.record(z.string(), z.object({ bytesInOutput: z.number().nonnegative() })) })),
-    }).parse(result.metafile)
-    const included = new Set(Object.values(metafile.outputs).flatMap(output =>
-      Object.entries(output.inputs).flatMap(([input, contribution]) => contribution.bytesInOutput > 0 ? [input] : [])))
-    const inputs = Object.keys(metafile.inputs).filter(input => included.has(input))
+    const metafile = z
+      .object({
+        inputs: z.record(z.string(), z.unknown()),
+        outputs: z.record(
+          z.string(),
+          z.object({ inputs: z.record(z.string(), z.object({ bytesInOutput: z.number().nonnegative() })) }),
+        ),
+      })
+      .parse(result.metafile)
+    const included = new Set(
+      Object.values(metafile.outputs).flatMap((output) =>
+        Object.entries(output.inputs).flatMap(([input, contribution]) =>
+          contribution.bytesInOutput > 0 ? [input] : [],
+        ),
+      ),
+    )
+    const inputs = Object.keys(metafile.inputs)
+      // Entry re-exports can contribute zero attributed bytes while still choosing the live export bindings.
+      .filter(
+        (input) => included.has(input) || paths.some((path) => normalize(path) === normalize(metafilePath(input))),
+      )
       .map((input) => relative(sourceRoot, metafilePath(input)).replaceAll('\\', '/'))
       .sort()
     const outputs = await Promise.all(
-      result.outputs.map(async output => {
+      result.outputs.map(async (output) => {
         const original = output.path.split(/[\\/]/).at(-1) ?? 'unit.mjs'
-        const module = output.kind === 'entry-point' ? modules.find(value => basename(value.path, extname(value.path)) === basename(original, extname(original))) : undefined
-        return { name: module?.name ?? fileName(original), bytes: new Uint8Array(await output.arrayBuffer()), kind: output.kind }
+        const module =
+          output.kind === 'entry-point'
+            ? modules.find(
+                (value) => basename(value.path, extname(value.path)) === basename(original, extname(original)),
+              )
+            : undefined
+        return {
+          name: module?.name ?? fileName(original),
+          bytes: new Uint8Array(await output.arrayBuffer()),
+          kind: output.kind,
+        }
       }),
     )
     if (
@@ -180,7 +219,11 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
       outputs.reduce((bytes, output) => bytes + output.bytes.byteLength, 0) > 128 * 1024 * 1024
     )
       throw new HbarError('RUNTIME_BUILD_LIMIT', 'Runtime bundle output exceeds its bound')
-    const entry = outputs.find((output) => output.kind === 'entry-point' && basename(output.name, extname(output.name)) === basename(entrypoint, extname(entrypoint)))?.name
+    const entry = outputs.find(
+      (output) =>
+        output.kind === 'entry-point' &&
+        basename(output.name, extname(output.name)) === basename(entrypoint, extname(entrypoint)),
+    )?.name
     if (!entry) throw new HbarError('RUNTIME_BUILD_FAILED', 'Runtime build has no process module')
     const files = outputs
       .map((output) => ({ name: output.name, sha256: sha256(output.bytes) }))
@@ -267,8 +310,12 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
     if (!existing && this.registered.size >= 4_096)
       throw new HbarError('RUNTIME_ARTIFACT_CAPACITY', 'Registered artifact capacity is exhausted')
     this.registered.set(artifact.id, artifact)
-    try { return await this.get(artifact.id) }
-    catch (error) { if (!existing) this.registered.delete(artifact.id); throw error }
+    try {
+      return await this.get(artifact.id)
+    } catch (error) {
+      if (!existing) this.registered.delete(artifact.id)
+      throw error
+    }
   }
 
   async get(id: string): Promise<RuntimeArtifact> {
@@ -276,7 +323,9 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
     if (!this.registered.has(id))
       throw new HbarError('RUNTIME_ARTIFACT_UNREGISTERED', 'Runtime artifact is not registered')
     const directory = join(this.root, id)
-    const artifact = artifactSchema.parse(JSON.parse((await boundedArtifactRead(join(directory, 'manifest.json'), 4 * 1024 * 1024)).toString('utf8')))
+    const artifact = artifactSchema.parse(
+      JSON.parse((await boundedArtifactRead(join(directory, 'manifest.json'), 4 * 1024 * 1024)).toString('utf8')),
+    )
     if (artifact.id !== id || JSON.stringify(artifact) !== JSON.stringify(this.registered.get(id)))
       throw new HbarError('RUNTIME_ARTIFACT_CHANGED', 'Runtime artifact manifest changed after registration')
     for (const file of artifact.files)
@@ -299,7 +348,11 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
   }
   /** Build-time export. The executable or desktop bundle pins the resulting package hash. */
   async exportPackage(artifacts: readonly RuntimeArtifact[]): Promise<RuntimeArtifactPackage> {
-    if (!artifacts.length || artifacts.length > 512 || new Set(artifacts.map(value => value.unitId)).size !== artifacts.length)
+    if (
+      !artifacts.length ||
+      artifacts.length > 512 ||
+      new Set(artifacts.map((value) => value.unitId)).size !== artifacts.length
+    )
       throw new HbarError('RUNTIME_PACKAGE_INVALID', 'Runtime package needs unique registered units')
     const units: RuntimeArtifactPackage['units'] = []
     let bytes = 0
@@ -308,9 +361,11 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
       const files: RuntimeArtifactPackage['units'][number]['files'] = []
       for (const file of [...artifact.files, ...artifact.resourceFiles]) {
         const content = await boundedArtifactRead(join(this.root, artifact.id, fileName(file.name)), 128 * 1024 * 1024)
-        if (sha256(content) !== file.sha256) throw new HbarError('RUNTIME_ARTIFACT_CHANGED', 'Artifact changed during package export')
+        if (sha256(content) !== file.sha256)
+          throw new HbarError('RUNTIME_ARTIFACT_CHANGED', 'Artifact changed during package export')
         bytes += content.byteLength
-        if (bytes > 256 * 1024 * 1024) throw new HbarError('RUNTIME_PACKAGE_LIMIT', 'Runtime package exceeds its total byte bound')
+        if (bytes > 256 * 1024 * 1024)
+          throw new HbarError('RUNTIME_PACKAGE_LIMIT', 'Runtime package exceeds its total byte bound')
         files.push({ name: file.name, base64: content.toString('base64') })
       }
       units.push({ artifact, files })
@@ -323,7 +378,7 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
     const packaged = runtimeArtifactPackageSchema.parse(raw)
     if (packaged.id !== expectedId || packageId(packaged.units) !== expectedId)
       throw new HbarError('RUNTIME_PACKAGE_CHANGED', 'Runtime package differs from the build-pinned content')
-    if (new Set(packaged.units.map(unit => unit.artifact.unitId)).size !== packaged.units.length)
+    if (new Set(packaged.units.map((unit) => unit.artifact.unitId)).size !== packaged.units.length)
       throw new HbarError('RUNTIME_PACKAGE_INVALID', 'Runtime package contains duplicate units')
     const decoded: Array<{ artifact: RuntimeArtifact; files: Array<{ name: string; bytes: Uint8Array }> }> = []
     let bytes = 0
@@ -331,23 +386,31 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
       if (Buffer.byteLength(JSON.stringify(unit.artifact)) > 4 * 1024 * 1024)
         throw new HbarError('RUNTIME_ARTIFACT_LIMIT', 'Runtime artifact metadata exceeds its byte bound')
       const names = [...unit.artifact.files, ...unit.artifact.resourceFiles]
-      if (new Set(names.map(file => file.name)).size !== names.length || unit.files.length !== names.length)
+      if (new Set(names.map((file) => file.name)).size !== names.length || unit.files.length !== names.length)
         throw new HbarError('RUNTIME_PACKAGE_INVALID', 'Runtime package file manifest is ambiguous')
       const files: Array<{ name: string; bytes: Uint8Array }> = []
       for (const file of unit.files) {
         const name = fileName(file.name)
-        const expected = names.find(value => value.name === name)
+        const expected = names.find((value) => value.name === name)
         bytes += Math.floor(file.base64.length / 4) * 3
         if (file.base64.length > 179_000_000 || bytes > 256 * 1024 * 1024)
           throw new HbarError('RUNTIME_PACKAGE_LIMIT', 'Runtime package exceeds its byte bound')
         const content = Buffer.from(file.base64, 'base64')
-        if (!expected || content.toString('base64') !== file.base64 || sha256(content) !== expected.sha256 || files.some(value => value.name === name))
-          throw new HbarError('RUNTIME_PACKAGE_CHANGED', 'Runtime package file content does not match its immutable manifest')
+        if (
+          !expected ||
+          content.toString('base64') !== file.base64 ||
+          sha256(content) !== expected.sha256 ||
+          files.some((value) => value.name === name)
+        )
+          throw new HbarError(
+            'RUNTIME_PACKAGE_CHANGED',
+            'Runtime package file content does not match its immutable manifest',
+          )
         files.push({ name, bytes: content })
       }
       decoded.push({ artifact: unit.artifact, files })
     }
-    if (this.registered.size + decoded.filter(unit => !this.registered.has(unit.artifact.id)).length > 4_096)
+    if (this.registered.size + decoded.filter((unit) => !this.registered.has(unit.artifact.id)).length > 4_096)
       throw new HbarError('RUNTIME_ARTIFACT_CAPACITY', 'Registered artifact capacity is exhausted')
     // Validate every byte before installing any unit. Paths stay flat under its immutable content ID.
     for (const unit of decoded) {
@@ -357,7 +420,7 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
       await this.immutableWrite(join(directory, 'manifest.json'), `${JSON.stringify(unit.artifact)}\n`)
       this.registered.set(unit.artifact.id, unit.artifact)
     }
-    return this.registerSet(decoded.map(unit => unit.artifact))
+    return this.registerSet(decoded.map((unit) => unit.artifact))
   }
 
   affected(changedPaths: readonly string[], artifacts: readonly RuntimeArtifact[]): string[] {
@@ -377,11 +440,17 @@ export class RuntimeArtifactStore implements RuntimeArtifactPort {
       )
         affected.add(artifact.unitId)
     }
-    // A capability dependency is explicit, including its dynamically loaded resources.
+    // Stable port dependencies coordinate admission without loading another unit's implementation.
+    // Declared capability reload dependencies also include their dynamically loaded resources.
     for (let changed = true; changed;) {
       changed = false
       for (const artifact of artifacts)
-        if (!affected.has(artifact.unitId) && artifact.descriptor.dependencies.some((unit) => affected.has(unit))) {
+        if (
+          !affected.has(artifact.unitId) &&
+          (artifact.descriptor.reloadDependencies ?? artifact.descriptor.dependencies).some((unit) =>
+            affected.has(unit),
+          )
+        ) {
           affected.add(artifact.unitId)
           changed = true
         }
