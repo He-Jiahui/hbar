@@ -164,9 +164,8 @@ export class RuntimeCoordinator {
       parsed.kernel.artifactId !== record.version.artifactId
     )
       throw new HbarError('RUNTIME_VERSION_MISMATCH', 'The Run must bind its actual Kernel version')
-    for (const version of versions(parsed)) {
-      if (
-        ![...this.owners.values()].some(
+    const dependencies = versions(parsed).map(version => {
+      const dependency = [...this.owners.values()].find(
           (candidate) =>
             (candidate.role === 'default' || (candidate.role === 'draining' && [...this.retainedSessions].some(([id, retainedSession]) =>
               retainedSession === sessionId && this.resources.get(id)?.owner.incarnation === candidate.owner.incarnation))) &&
@@ -174,10 +173,10 @@ export class RuntimeCoordinator {
             candidate.version.unitId === version.unitId &&
             candidate.version.generation === version.generation &&
             candidate.version.artifactId === version.artifactId,
-        )
       )
-        throw new HbarError('RUNTIME_DEPENDENCY_UNAVAILABLE', 'A bound default capability is not ready')
-    }
+      if (!dependency) throw new HbarError('RUNTIME_DEPENDENCY_UNAVAILABLE', 'A bound default capability is not ready')
+      return dependency
+    })
     this.claiming.add(sessionId)
     this.claimVersions.set(sessionId, parsed)
     const draft = executionOwnershipSchema.parse({
@@ -202,9 +201,11 @@ export class RuntimeCoordinator {
       )
         throw new HbarError('EXECUTION_PROJECTION_INVALID', 'Persisted ownership does not match its claim')
       this.fence = Math.max(this.fence, lease.fence)
-      if (record.role !== 'default' || record.exited || this.defaults.get(owner.unitId) !== owner.incarnation) {
+      const unavailable = dependencies.some(dependency => dependency.exited || dependency.role === 'fenced')
+      if (record.role !== 'default' || record.exited || this.defaults.get(owner.unitId) !== owner.incarnation || unavailable) {
         await this.persistence.revoke(record.owner, [runId])
-        throw new HbarError('EXECUTION_OWNER_REVOKED', 'Execution owner changed while its claim was persisted')
+        throw new HbarError(unavailable ? 'EXECUTION_DEPENDENCY_REVOKED' : 'EXECUTION_OWNER_REVOKED',
+          'Execution ownership or a captured dependency changed while its claim was persisted')
       }
       this.sessions.set(sessionId, lease)
       this.runs.set(runId, lease)

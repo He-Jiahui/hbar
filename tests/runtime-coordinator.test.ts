@@ -122,6 +122,35 @@ test('an in-flight claim retains every captured generation while its native reso
   expect(f.coordinator.references(f.plugin).runs).toBe(0)
 })
 
+test('a dependency that exits during a persisted claim cannot be replaced by a healthy incarnation with the same version', async () => {
+  let finish: (() => void) | undefined
+  const f = fixture({ claim: lease => new Promise(resolve => { finish = () => resolve(lease) }) })
+  const pending = f.claim().catch((error: unknown) => error)
+  await f.coordinator.revoke(f.plugin)
+  f.coordinator.ownerExited(f.plugin)
+  const replacement = owner('plugin.local')
+  f.register(replacement, 'plugin')
+  if (!finish) throw new Error('The claim did not reach persistence')
+  finish()
+  expect(await pending).toMatchObject({ code: 'EXECUTION_DEPENDENCY_REVOKED' })
+  expect(f.coordinator.execution('run')).toBeNull()
+  expect(f.revoked.some(item => item.owner.incarnation === f.kernel.incarnation && item.runIds.includes('run'))).toBe(true)
+  const duplicate = await f.coordinator.claim(f.kernel, 'session', 'duplicate', f.bindings(f.kernel, f.driver, replacement)).catch((error: unknown) => error)
+  expect(duplicate).toMatchObject({ code: 'EXECUTION_RECONCILIATION_REQUIRED' })
+})
+
+test('a compatible dependency switch during claim persistence preserves its captured live draining owner', async () => {
+  let finish: (() => void) | undefined
+  const f = fixture({ claim: lease => new Promise(resolve => { finish = () => resolve(lease) }) })
+  const pending = f.claim()
+  const replacement = owner('plugin.local', 2)
+  f.register(replacement, 'plugin')
+  if (!finish) throw new Error('The claim did not reach persistence')
+  finish()
+  expect((await pending).versions.plugins[0]).toEqual(version(f.plugin))
+  expect(f.coordinator.execution('run')?.versions.plugins[0]).toEqual(version(f.plugin))
+})
+
 test('a recovered old generation opens its draining ports without stealing the current default', async () => {
   const f = fixture()
   const next = owner('kernel', 2)
