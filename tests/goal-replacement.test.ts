@@ -115,7 +115,7 @@ test('decorates the authoritative non-active Goal state without scheduling or mu
   const before = await f.goals.snapshot(f.session.id)
   await f.goals.set(f.session.id, { status: 'paused', expectedGoalId: before.value.goal!.goalId })
   const paused = await f.goals.snapshot(f.session.id)
-  const sessionBeforeDecoration = await f.kernel.sessions.snapshot(f.session.id)
+  const sessionBeforeDecoration = await f.kernel.snapshot(f.session.id)
   const goalBeforeDecoration = await f.goals.snapshot(f.session.id)
   const decorated = f.goals.decorate(request)
   expect(decorated.system).toContain('<current_goal>')
@@ -125,7 +125,7 @@ test('decorates the authoritative non-active Goal state without scheduling or mu
   expect(decorated.system).not.toContain('<active_goal>')
   expect((await f.goals.snapshot(f.session.id)).value.goal).toEqual(paused.value.goal)
   expect((await f.goals.snapshot(f.session.id)).seq).toBe(goalBeforeDecoration.seq)
-  expect((await f.kernel.sessions.snapshot(f.session.id)).runs).toEqual(sessionBeforeDecoration.runs)
+  expect((await f.kernel.snapshot(f.session.id)).runs).toEqual(sessionBeforeDecoration.runs)
 
   for (const status of ['blocked', 'usage_limited'] as const) {
     await f.goals.set(f.session.id, { status, expectedGoalId: paused.value.goal!.goalId })
