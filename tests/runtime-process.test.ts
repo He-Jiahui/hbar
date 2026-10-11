@@ -74,6 +74,27 @@ test('a candidate prepares without activation, then serves and drains in its own
   expect(await readFile(marker, 'utf8')).toBe('1')
 })
 
+test('activation descriptions finish before serving routes open and deliberate shutdown cancels their wait', async () => {
+  let entered = false, release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  const runtime = fixture({ onActivated: async () => { entered = true; await gate } })
+  await runtime.prepare()
+  const activation = runtime.activate()
+  void activation.catch(() => {})
+  await until(() => entered)
+  expect(runtime.snapshot().phase).toBe('ready')
+  await expect(runtime.call('fixture.echo', 'pending', z.string())).rejects.toMatchObject({ code: 'RUNTIME_RECOVERING' })
+  release(); await activation
+  expect(await runtime.call('fixture.echo', 'ready', z.string())).toBe('ready')
+  const stuck = fixture({ onActivated: async () => { await new Promise(() => {}) } })
+  await stuck.prepare()
+  const pending = stuck.activate().catch((error: unknown) => error)
+  await Bun.sleep(10)
+  await stuck.dispose()
+  expect(await pending).toMatchObject({ code: 'RUNTIME_ACTIVATION_EXPIRED' })
+  expect(stuck.snapshot().phase).toBe('disposed')
+})
+
 test('the lightweight CLI runtime role owns a real IPC service independently of interactive command startup', async () => {
   const runtime = fixture({ command: internalRuntimeCommand(), heartbeatMs: 200, startupMs: 5_000, shutdownMs: 500 })
   await runtime.prepare()

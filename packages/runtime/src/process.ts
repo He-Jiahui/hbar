@@ -37,6 +37,8 @@ export interface ManagedProcessOptions {
     role: 'default' | 'draining',
     signal: AbortSignal,
   ) => void | Promise<void>
+  /** Publish owner-local descriptions after activation acknowledgement, before serving routes become visible. */
+  readonly onActivated?: (owner: RuntimeOwner, role: 'default' | 'draining', signal: AbortSignal) => Promise<void>
   readonly onState?: (snapshot: RuntimeGeneration) => void
   readonly onFault?: (owner: RuntimeOwner, reasonCode: string) => Promise<void>
   readonly onExit?: (owner: RuntimeOwner) => Promise<void>
@@ -183,6 +185,15 @@ export class ManagedProcess {
       await this.peer.call('runtime.activate', { role }, z.undefined(), {
         timeoutMs: Math.max(1, deadline - Date.now()),
       })
+      if (this.options.onActivated) await new Promise<void>((resolve, reject) => {
+        const cancel = () => reject(new HbarError('RUNTIME_ACTIVATION_EXPIRED', 'Runtime description readiness expired'))
+        signal.addEventListener('abort', cancel, { once: true })
+        Promise.resolve().then(() => {
+          signal.throwIfAborted()
+          return this.options.onActivated?.(owner, role, signal)
+        }).then(resolve, reject).finally(() => signal.removeEventListener('abort', cancel))
+      })
+      signal.throwIfAborted()
       this.state.phase = role === 'draining' ? 'draining' : 'serving'
       this.state.lastHeartbeatAt = Date.now()
       this.healthySince = Date.now()

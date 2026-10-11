@@ -541,6 +541,13 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   snapshot(): RuntimeSnapshot {
     return this.statusFeed.snapshot()
   }
+  /** Local diagnostic sampler; no executable peer or production authority leaves the stable owner. */
+  transportDiagnostics() {
+    return [...this.generations.values()].flatMap(record => record.peer ? [{
+      unitId: record.artifact.unitId, generation: record.process.snapshot().generation,
+      pid: record.process.snapshot().pid, ...record.peer.snapshot(),
+    }] : [])
+  }
   subscribe(listener: Parameters<RuntimeStatusFeed['subscribe']>[0]) {
     return this.statusFeed.subscribe(listener)
   }
@@ -881,6 +888,10 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   private currentGeneration(unitId: string): Generation {
     const record = this.generations.get(key(this.manager.defaultOwner(unitId)))
     if (!record) throw new HbarError('RUNTIME_RECOVERING', 'The requested runtime default is unavailable')
+    if (record.process.snapshot().phase === 'ready') {
+      const previous = [...this.generations.values()].find(value => value.artifact.unitId === unitId && value !== record && value.process.snapshot().phase === 'serving')
+      if (previous) return previous
+    }
     return record
   }
   private endpoint(record: Generation): RuntimeKernelEndpoint | null {
@@ -1123,6 +1134,14 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         this.coordinator.activate(owner, role)
         if (artifact.descriptor.kind === 'plugin' && role === 'default')
           this.pluginPreparingCatalog.add(artifact.unitId)
+      },
+      onActivated: async (owner, _role, signal) => {
+        if (!record.peer || record.owner?.incarnation !== owner.incarnation)
+          throw new HbarError('RUNTIME_OWNER_REVOKED', 'Description readiness belongs to an expired owner')
+        if (artifact.unitId === 'kernel') record.state = await record.peer.call('kernel.state', undefined, runtimeKernelStateSchema, { signal, timeoutMs: 120_000 })
+        if (artifact.descriptor.kind === 'plugin') record.pluginState = await record.peer.call('plugin.state', undefined, runtimePluginStateSchema, { signal, timeoutMs: 120_000 })
+        if (artifact.unitId === 'controller') await record.controller?.refreshCatalog()
+        signal.throwIfAborted()
       },
       onState: (state) => {
         changed()
