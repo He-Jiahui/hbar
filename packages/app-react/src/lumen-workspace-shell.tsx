@@ -394,10 +394,11 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     workspaceActivity.organizationPreferenceStatus,
   )
   useEffect(() => {
+    if (props.connection !== 'connected') return
     void runtime.commands.execute('workspaceActivity.setLocale', { locale: props.locale ?? 'en-US' }).catch(() => {
       // The activity owner retains its confirmed page and localized retry.
     })
-  }, [props.locale, runtime])
+  }, [props.locale, props.connection, runtime])
   const organization = useHbarRuntimeState(runtime.state.workspaceOrganization)
   const displayNames = useHbarRuntimeState(runtime.state.workspaceDisplayNames)
   const organizationMenuRef = useRef<HTMLDivElement | null>(null)
