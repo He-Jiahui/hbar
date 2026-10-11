@@ -221,7 +221,7 @@ export async function startServer(kernel: Kernel, options: ServerOptions = {}) {
   await performance.start()
   const metricsCommands = createMetricsCommands(performance)
   const agentCommands = createAgentCommands(kernel.plugins.get<AgentService>('agent'))
-  const browserCommands = createBrowserCommands(kernel.plugins.get<BrowserUseService>('browser'))
+  const browserCommands = createBrowserCommands(() => kernel.plugins.get<BrowserUseService>('browser'))
   const computerCommands = createComputerCommands(kernel.plugins.get<ComputerUseService>('computer'))
   const configurationCommands = createConfigurationCommands(kernel, resolveModeService(kernel))
   const skillInspection = createSkillInspectionService(kernel.options.layout.globalSkills)
