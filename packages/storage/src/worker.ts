@@ -543,7 +543,9 @@ db.exec('CREATE INDEX IF NOT EXISTS events_run_type_seq ON events(sessionId,runI
 // Snapshot approval history joins the current message page by session/run and
 // tool call identity. Keep the lookup bounded without changing its status
 // filtering or page semantics.
-db.exec('CREATE INDEX IF NOT EXISTS approvals_session_run_status_call_tool ON approvals(sessionId,runId,status,callId,tool);')
+db.exec(
+  'CREATE INDEX IF NOT EXISTS approvals_session_run_status_call_tool ON approvals(sessionId,runId,status,callId,tool);',
+)
 // Snapshot tool history keeps the newest event for each run/type/call group.
 // This partial expression index matches that grouping while excluding unrelated
 // events from the index and remains add-only for existing databases.
