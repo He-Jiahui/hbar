@@ -4,6 +4,8 @@
 
 `hbar` 是 Host 的键盘客户端。它不会复制 Session、模型、插件或审批逻辑；所有操作通过同一个 HTTP/JSON-RPC + WebSocket Client SDK 发送到 Bun Host。
 
+To explicitly enable an OpenAI Images compatible model, add `imageGeneration: true` to that model in the provider passed to `provider.save`. The `image_generate` tool only accepts model selections with this flag; it posts to `<baseUrl>/images/generations`, stores validated image bytes as authenticated artifacts, and may incur provider charges.
+
 ```text
 hbar                         # 当前目录项目的 OpenTUI
 hbar "检查当前工作区"          # 打开 TUI，并预填输入框，不自动发送
@@ -19,8 +21,6 @@ hbar exec permission.set allow
 hbar exec mode.get --session <Session ID|名称>
 hbar exec mode.set plan --session <Session ID|名称>
 hbar exec provider.save --input-json '{"provider":{"id":"openai","name":"OpenAI","protocol":"openai-responses","baseUrl":"https://api.openai.com/v1","model":"gpt-5"},"apiKey":"..."}'
-
-To explicitly enable an OpenAI Images compatible model, add `imageGeneration: true` to that model in the provider passed to `provider.save`. The `image_generate` tool only accepts model selections with this flag; it posts to `<baseUrl>/images/generations`, stores validated image bytes as authenticated artifacts, and may incur provider charges.
 hbar exec provider.delete openai
 hbar exec system.diagnose
 hbar exec system.paths.get
