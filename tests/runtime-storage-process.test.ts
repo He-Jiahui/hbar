@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from 'bun:test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve, relative } from 'node:path'
 import { z } from 'zod'
 import { ManagedProcess, RuntimeArtifactStore } from '@hbar/runtime'
 import { StableStoragePort, Storage, createPathLayout, ensurePathLayout, callStorageRpc, scanSessionLogs, STORAGE_RPC_FINGERPRINT, STORAGE_SCHEMA_VERSION, STORAGE_RPC_METHODS } from '@hbar/storage'
@@ -17,6 +17,11 @@ afterEach(async () => {
   }
 })
 const outcome = (promise: Promise<unknown>) => promise.catch((error: unknown) => error)
+async function removeWorkerSource(sourceRoot: string) {
+  const path = relative(resolve(process.cwd(), 'artifacts'), resolve(sourceRoot))
+  if (path.startsWith('..') || !path.startsWith('failed-storage-worker-')) throw new Error('Worker source cleanup escaped its owned artifact directory')
+  await rm(resolve(sourceRoot), { recursive: true, force: true })
+}
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), 'hbar-storage-process-'))
   const layout = createPathLayout(join(root, 'data'), join(root, 'cache'), join(root, 'pointer.json'))
@@ -35,12 +40,12 @@ async function fixture() {
   const port = new StableStoragePort(5000)
   const entry = { root, port, processes: [] as ManagedProcess[] }
   resources.push(entry)
-  const make = async (generation: number) => {
-    const process = new ManagedProcess({ descriptor, artifactId: artifact.id, modulePath: await registry.modulePath(artifact.id), generation,
+  const make = async (generation: number, selectedArtifact = artifact) => {
+    const process = new ManagedProcess({ descriptor, artifactId: selectedArtifact.id, modulePath: await registry.modulePath(selectedArtifact.id), generation,
       parent: { unitId: 'base', generation: 1, incarnation: 'stable-base' },
       configuration: { database: layout.database, dataRoot: layout.dataRoot, cacheRoot: layout.cacheRoot, pointerFile: layout.pointerFile,
         settingsRoot: layout.settings, sessionsRoot: layout.sessions, skillsRoot: layout.globalSkills, identityRoot: layout.identityRoot,
-        workerPath: join(registry.root, artifact.id, 'worker.js') },
+        workerPath: join(registry.root, selectedArtifact.id, 'worker.js') },
     })
     entry.processes.push(process)
     await process.prepare()
@@ -120,3 +125,21 @@ test('the public storage RPC catalog contains every declared method exactly once
   expect(actual.sort()).toEqual(declared)
   expect(new Set(STORAGE_RPC_METHODS).size).toBe(STORAGE_RPC_METHODS.length)
 })
+
+test('an actual candidate Worker startup failure is rejected before the serving storage writer retires', async () => {
+  const f = await fixture(), first = await f.make(1)
+  await first.activate(); f.install(first)
+  const sourceRoot = await mkdtemp(join(process.cwd(), 'artifacts', 'failed-storage-worker-'))
+  try {
+    const path = join(sourceRoot, 'worker.ts')
+    await writeFile(path, "throw new Error('Injected actual Worker constructor failure')\n")
+    const broken = await f.registry.build({ descriptor: f.descriptor, entrypoint: 'apps/host/src/runtime-storage-process.ts', workers: [path] })
+    expect(await outcome(f.make(2, broken))).toMatchObject({ code: 'STORAGE_WORKER_FAILED' })
+    expect(first.snapshot()).toMatchObject({ phase: 'serving', failures: 0 })
+    expect(f.port.snapshot()).toMatchObject({ phase: 'serving', owner: first.owner() })
+    expect(await f.port.call('ready')).toEqual({ version: STORAGE_SCHEMA_VERSION })
+    expect(await f.port.call('session', f.session.id)).toMatchObject({ id: f.session.id })
+  } finally {
+    await removeWorkerSource(sourceRoot)
+  }
+}, 40_000)

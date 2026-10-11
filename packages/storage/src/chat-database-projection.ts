@@ -8,8 +8,10 @@ import {
   CHAT_DATABASE_USAGE_CONFLICT,
 } from './chat-database-sources'
 
-export function createChatDatabaseProjection(db: Database) {
-  db.exec('CREATE INDEX IF NOT EXISTS chat_database_logs_session ON session_log_files(sessionId,path)')
+export function createChatDatabaseProjection(db: Database, options: { readonly readOnly?: boolean } = {}) {
+  const index = 'CREATE INDEX IF NOT EXISTS chat_database_logs_session ON session_log_files(sessionId,path)'
+  if (options.readOnly) db.query(index)
+  else db.exec(index)
   function complete(): boolean {
     return !db.query('SELECT source FROM chat_database_backfill WHERE complete=0 LIMIT 1').get()
   }

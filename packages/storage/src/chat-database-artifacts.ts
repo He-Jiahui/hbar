@@ -58,9 +58,12 @@ export function createChatDatabaseArtifactStorage(
     restore(limit: number): { done: boolean; healthy: boolean; issues: string[] }
     settle(limit: number): { done: boolean; healthy: boolean; issues: string[] }
   },
+  options: { readonly readOnly?: boolean } = {},
 ) {
-  db.exec(CHAT_DATABASE_ARTIFACT_SQL)
-  db.exec('UPDATE chat_database_reference_health SET draftJournalComplete=0,legacySettingsComplete=0 WHERE id=1')
+  if (!options.readOnly) {
+    db.exec(CHAT_DATABASE_ARTIFACT_SQL)
+    db.exec('UPDATE chat_database_reference_health SET draftJournalComplete=0,legacySettingsComplete=0 WHERE id=1')
+  }
   const receipts = createFeatureCommandReceipts(db)
   const journal = createChatDatabaseDraftJournal(sessionsRoot)
   let deviceCursor: string | null = null

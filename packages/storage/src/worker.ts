@@ -67,6 +67,7 @@ import type {
   Workspace,
 } from '@hbar/contracts'
 import type { StorageCall, StorageMethods, StorageReply, StoredSettingsLayer } from './types.ts'
+import { STORAGE_RPC_METHODS } from './rpc-catalog'
 import { SessionLogWriter } from './session-log-writer.ts'
 import { recordRecoveryDiagnostic, scanSessionLogs } from './session-log-recovery.ts'
 import { readActiveOperations } from './active-operations.ts'
@@ -109,7 +110,14 @@ import {
   SIDEBAR_CHILD_ACTIVITY_SCHEMA_SQL,
 } from './sidebar-directory.ts'
 
-const options = workerData as { path: string; sessions?: string; diagnostics?: string; settings?: string; artifacts?: string; cache?: string }
+const workerPathSchema = z.string().min(1).max(4_000)
+const options = z.strictObject({
+  path: workerPathSchema, sessions: workerPathSchema.optional(), diagnostics: workerPathSchema.optional(),
+  settings: workerPathSchema.optional(), artifacts: workerPathSchema.optional(), cache: workerPathSchema.optional(),
+  preflight: z.boolean().optional(),
+}).parse(workerData)
+const preflight = options.preflight === true
+const shadowMemory = preflight && !existsSync(options.path)
 const sessionsRoot = options.sessions ?? join(dirname(options.path), 'sessions')
 const diagnosticsRoot = options.diagnostics ?? join(dirname(options.path), 'diagnostics')
 const settingsRoot = options.settings ?? join(dirname(options.path), 'settings')
@@ -119,10 +127,12 @@ const logWriter = new SessionLogWriter(sessionsRoot)
 const runSteering = new RunSteeringRegistry()
 let databaseMaintenanceOwner: string | null = null
 const databaseMaintenanceReads = new Set<string>(['ready', 'deviceByHash', 'devices', 'chatDatabaseOperationRead', 'chatDatabaseOperationReceipt', 'chatDatabasePreviewPage', 'chatDatabaseHistory', 'chatDatabaseResourceReceipt', 'chatDatabaseMaintenanceEnd', 'close'])
-const db = new Database(options.path, { create: true, strict: true })
+const db = new Database(shadowMemory ? ':memory:' : options.path, {
+  ...(preflight && !shadowMemory ? { readonly: true } : { create: true }), strict: true,
+})
 // Configure this connection's bounded wait before WAL recovery/configuration can contend with another opener.
 db.exec('PRAGMA busy_timeout=5000;')
-db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL;')
+if (!preflight || shadowMemory) db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL;')
 const WORKSPACE_ACTIVITY_SQL = `
   CREATE TABLE IF NOT EXISTS directory_activity_revision(
     id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL CHECK(revision>=0)
@@ -152,7 +162,9 @@ const WORKSPACE_ACTIVITY_SQL = `
     BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
 `
 const LATEST_SCHEMA_VERSION = 24
-const schemaVersion = (db.query('PRAGMA user_version').get() as { user_version: number }).user_version
+const schemaVersion = z.object({ user_version: z.number().int().nonnegative() }).parse(db.query('PRAGMA user_version').get()).user_version
+if (preflight && !shadowMemory && schemaVersion !== LATEST_SCHEMA_VERSION)
+  throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Candidate Worker cannot apply a production migration')
 if (schemaVersion > LATEST_SCHEMA_VERSION) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
   db.transaction(() => {
@@ -408,12 +420,12 @@ const sessionSearch = createSessionSearchStorage(
   db,
   () => new Map(workspaceDisplayNames.read().entries.map((entry) => [entry.workspaceId, entry.displayName])),
 )
-const chatDatabaseProjection = createChatDatabaseProjection(db)
+const chatDatabaseProjection = createChatDatabaseProjection(db, { readOnly: preflight && !shadowMemory })
 const chatDatabaseResources = createChatDatabaseResourceLedger(db, sessionsRoot, artifactsRoot, cacheRoot, {
   claim: (...args) => chatDatabaseArtifacts.claim(...args),
   releaseClaim: (...args) => chatDatabaseArtifacts.releaseClaim(...args),
 })
-const chatDatabaseArtifacts = createChatDatabaseArtifactStorage(db, sessionsRoot, artifactsRoot, settingsRoot, chatDatabaseResources)
+const chatDatabaseArtifacts = createChatDatabaseArtifactStorage(db, sessionsRoot, artifactsRoot, settingsRoot, chatDatabaseResources, { readOnly: preflight && !shadowMemory })
 const chatDatabaseJournal = createChatDatabaseJournal(db)
 const chatDatabaseAutomaticPlan = createChatDatabaseAutomaticPlan(db, chatDatabaseJournal)
 const chatDatabaseTasks = createChatDatabaseTaskStorage(db)
@@ -422,13 +434,15 @@ const sessionLaunchTarget = createSessionLaunchTargetStorage(db)
 const sessionBranchTarget = createSessionBranchTargetStorage(db, (sessionId) => sessionLaunchTarget.read(sessionId).revision)
 const sessionLaunchTargetPreparations = createSessionLaunchTargetPreparationStorage(db)
 
-db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
-db.exec(`CREATE INDEX IF NOT EXISTS events_guidance_run_seq ON events(sessionId,runId,seq)
+if (!preflight || shadowMemory) {
+  db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
+  db.exec(`CREATE INDEX IF NOT EXISTS events_guidance_run_seq ON events(sessionId,runId,seq)
   WHERE type='message.committed' AND json_extract(data,'$.queueGuidance.activeRunId') IS NOT NULL;`)
-db.exec('CREATE INDEX IF NOT EXISTS events_run_type_seq ON events(sessionId,runId,type,seq);')
-db.exec(`CREATE INDEX IF NOT EXISTS runs_sidebar_nonterminal ON runs(sessionId,status,id)
+  db.exec('CREATE INDEX IF NOT EXISTS events_run_type_seq ON events(sessionId,runId,type,seq);')
+  db.exec(`CREATE INDEX IF NOT EXISTS runs_sidebar_nonterminal ON runs(sessionId,status,id)
   WHERE status IN ('queued','running','waiting_approval');`)
-db.exec(GOAL_HISTORY_INDEX_SQL)
+  db.exec(GOAL_HISTORY_INDEX_SQL)
+}
 
 type Row = Record<string, unknown>
 const parseJson = (value: string): unknown => JSON.parse(value) as unknown
@@ -3032,10 +3046,12 @@ function reconcileSessionLogs() {
   if (restored) recordRecoveryDiagnostic(diagnosticsRoot, { restored })
 }
 
-chatDatabaseDeletion.reconcile()
-if (chatDatabaseDeletion.recoveryIssues.length) recordRecoveryDiagnostic(diagnosticsRoot, { deletedLogIssues: chatDatabaseDeletion.recoveryIssues })
-db.exec('UPDATE chat_database_event_reference_health SET complete=1 WHERE id=1')
-reconcileSessionLogs()
+if (!preflight) {
+  chatDatabaseDeletion.reconcile()
+  if (chatDatabaseDeletion.recoveryIssues.length) recordRecoveryDiagnostic(diagnosticsRoot, { deletedLogIssues: chatDatabaseDeletion.recoveryIssues })
+  db.exec('UPDATE chat_database_event_reference_health SET complete=1 WHERE id=1')
+  reconcileSessionLogs()
+}
 
 function protectedRunId(method: keyof StorageMethods, args: readonly unknown[]): string | undefined {
   if (method === 'setRun') return z.string().parse(args[0])
@@ -3050,6 +3066,16 @@ parentPort!.on('message', ({ id, method, args, authority }: StorageCall) => {
   const draftVersion = chatDatabaseArtifacts.writeVersion()
   const logVersion = eventLogWriteVersion
   try {
+    if (preflight) {
+      if (method === 'ready') {
+        if (STORAGE_RPC_METHODS.some(name => typeof methods[name] !== 'function')) throw new HbarError('STORAGE_CONTRACT_INVALID', 'Candidate Worker did not construct every declared storage method')
+        const integrity = z.object({ quick_check: z.literal('ok') }).safeParse(db.query('PRAGMA quick_check(1)').get())
+        if (!integrity.success) throw new HbarError('STORAGE_INTEGRITY_UNKNOWN', 'Candidate Worker cannot confirm database integrity')
+      } else if (method === 'close') db.close()
+      else throw new HbarError('RUNTIME_PREPARING', 'Candidate Worker accepts readiness and disposal only')
+      parentPort!.postMessage({ id, ok: true, result: method === 'ready' ? methods.ready() : undefined } satisfies StorageReply)
+      return
+    }
     if (databaseMaintenanceOwner && !databaseMaintenanceReads.has(method)) throw new HbarError('BUSY', 'Chat database is in global maintenance')
     if (!Object.hasOwn(methods, method)) throw new Error('Unknown storage operation')
     const protectedId = protectedRunId(method, args)

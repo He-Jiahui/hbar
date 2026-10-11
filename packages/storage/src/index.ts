@@ -66,6 +66,9 @@ export interface StoragePort {
 }
 
 export interface StorageLifecycleOptions {
+  /** Construct the actual Worker without acquiring production write authority. */
+  readonly preflight?: boolean
+  readonly workerPath?: string
   readonly requestTimeoutMs?: number
   readonly closeTimeoutMs?: number
   /** Fatal Worker failure belongs to its managed owner; unknown calls are never replayed here. */
@@ -103,6 +106,7 @@ export class Storage {
     const options = {
       workerData: {
         path,
+        preflight: lifecycle.preflight === true,
         sessions: layout?.sessions,
         diagnostics: layout?.diagnostics,
         settings: layout?.settings,
@@ -110,8 +114,9 @@ export class Storage {
         cache: layout?.cacheRoot,
       },
     }
-    this.worker = process.env.HBAR_STORAGE_WORKER
-      ? new Worker(process.env.HBAR_STORAGE_WORKER, options)
+    const workerPath = lifecycle.workerPath ?? process.env.HBAR_STORAGE_WORKER
+    this.worker = workerPath
+      ? new Worker(workerPath, options)
       : Bun.isStandaloneExecutable
         ? // Bun only embeds Worker entrypoints referenced by a direct path literal matching the build input.
           new Worker('./packages/storage/src/worker.ts', options)
