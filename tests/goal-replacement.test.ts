@@ -107,6 +107,43 @@ test('missing replacement data and missing Run context safely decorate fresh and
   })
 })
 
+test('decorates the authoritative non-active Goal state without scheduling or mutating it', async () => {
+  const f = await fixture()
+  const model = await f.kernel.plugins.get<ModelRegistry>('models').get('local-fixture')
+  const request: ModelRequest = { system: 'stable', messages: [], model, context: { sessionId: f.session.id } }
+  await f.goals.create(f.session.id, 'A paused objective')
+  const before = await f.goals.snapshot(f.session.id)
+  await f.goals.set(f.session.id, { status: 'paused', expectedGoalId: before.value.goal!.goalId })
+  const paused = await f.goals.snapshot(f.session.id)
+  const decorated = f.goals.decorate(request)
+  expect(decorated.system).toContain('<current_goal>')
+  expect(decorated.system).toContain(`Goal ID: ${paused.value.goal!.goalId}`)
+  expect(decorated.system).toContain('Status: paused')
+  expect(decorated.system).toContain('A paused objective')
+  expect(decorated.system).not.toContain('<active_goal>')
+  expect((await f.goals.snapshot(f.session.id)).value.goal).toEqual(paused.value.goal)
+
+  for (const status of ['blocked', 'usage_limited'] as const) {
+    await f.goals.set(f.session.id, { status, expectedGoalId: paused.value.goal!.goalId })
+    const current = await f.goals.snapshot(f.session.id)
+    expect(f.goals.decorate(request).system).toContain(`Status: ${status}`)
+    expect((await f.goals.snapshot(f.session.id)).value.goal).toEqual(current.value.goal)
+  }
+  await f.goals.set(f.session.id, { status: 'budget_limited', expectedGoalId: paused.value.goal!.goalId })
+  const budgetRequest: ModelRequest = {
+    ...request,
+    context: { sessionId: f.session.id, purpose: 'context-inspection' },
+  }
+  expect(f.goals.decorate(budgetRequest).system).toContain('Status: budget_limited')
+
+  await f.goals.set(f.session.id, { status: 'complete', expectedGoalId: paused.value.goal!.goalId })
+  expect(f.goals.decorate(request).system).toContain('Status: complete')
+  await f.goals.clear(f.session.id, paused.value.goal!.goalId)
+  const cleared = f.goals.decorate(request)
+  expect(cleared.system).toContain('<current_goal status="none">')
+  expect(cleared.system).not.toContain('A paused objective')
+})
+
 for (const source of ['user', 'goal'] as const) {
   test(`a ${source} Run hands off once without stale effects or cross-goal charges`, async () => {
     const entered = deferred<void>()
