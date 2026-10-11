@@ -540,6 +540,17 @@ db.exec('CREATE INDEX IF NOT EXISTS events_session_type_seq ON events(sessionId,
 db.exec(`CREATE INDEX IF NOT EXISTS events_guidance_run_seq ON events(sessionId,runId,seq)
   WHERE type='message.committed' AND json_extract(data,'$.queueGuidance.activeRunId') IS NOT NULL;`)
 db.exec('CREATE INDEX IF NOT EXISTS events_run_type_seq ON events(sessionId,runId,type,seq);')
+// Snapshot approval history joins the current message page by session/run and
+// tool call identity. Keep the lookup bounded without changing its status
+// filtering or page semantics.
+db.exec('CREATE INDEX IF NOT EXISTS approvals_session_run_status_call_tool ON approvals(sessionId,runId,status,callId,tool);')
+// Snapshot tool history keeps the newest event for each run/type/call group.
+// This partial expression index matches that grouping while excluding unrelated
+// events from the index and remains add-only for existing databases.
+db.exec(`CREATE INDEX IF NOT EXISTS events_tool_group_latest
+  ON events(sessionId,runId,type,
+    COALESCE(json_extract(data,'$.callId'),json_extract(data,'$.parentCallId')),seq DESC)
+  WHERE type IN ('tool.execution','tool.sequence_progress');`)
 db.exec(`CREATE INDEX IF NOT EXISTS runs_sidebar_nonterminal ON runs(sessionId,status,id)
   WHERE status IN ('queued','running','waiting_approval');`)
 db.exec(GOAL_HISTORY_INDEX_SQL)
