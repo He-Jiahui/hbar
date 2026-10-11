@@ -50,7 +50,7 @@ type ControlledCommand = 'operation.cancel' | 'operation.get'
 interface Rule {
   readonly command: ControlledCommand
   readonly operationId: string
-  readonly mode: 'unknown' | 'fail' | 'hold'
+  readonly mode: 'unknown' | 'fail' | 'hold' | 'reject'
   matched: number
 }
 interface Request {
@@ -65,7 +65,7 @@ function parseWire(value: string) {
   }
 }
 
-/** Only actual successful Host replies are replaced. No event, operation, or store is fabricated. */
+/** Hold/lose real replies, or reject a cancellation before delivery; never fabricate operation state. */
 async function routeFaults(page: Page) {
   const requests: Request[] = []
   const rules: Rule[] = []
@@ -77,7 +77,7 @@ async function routeFaults(page: Page) {
   await page.routeWebSocket('**/rpc', (socket) => {
     const server = socket.connectToServer()
     const pending = new Map<string | number, Rule>()
-    const fail = (id: string | number, code: 'TIMEOUT' | 'EXECUTION_FAILED') =>
+    const fail = (id: string | number, code: 'TIMEOUT' | 'EXECUTION_FAILED' | 'BUSY') =>
       socket.send(
         JSON.stringify({
           jsonrpc: '2.0',
@@ -102,6 +102,13 @@ async function routeFaults(page: Page) {
                 item.command === command &&
                 item.operationId === operationId,
             )
+            if (rule?.mode === 'reject' && id !== undefined) {
+              if (requests.length < 4096) requests.push({ command, operationId })
+              else errors.push('Request observation capacity exceeded')
+              rule.matched++
+              fail(id, 'BUSY')
+              return
+            }
             if (rule && id !== undefined) pending.set(id, rule)
           }
           if (requests.length < 4096) requests.push({ command, operationId })
@@ -164,6 +171,7 @@ async function routeFaults(page: Page) {
       if (
         rules.length >= 16 ||
         (mode === 'unknown' && command !== 'operation.cancel') ||
+        (mode === 'reject' && command !== 'operation.cancel') ||
         (mode === 'fail' && command !== 'operation.get')
       )
         throw new Error('Invalid bounded cancellation fault rule')
@@ -479,7 +487,11 @@ async function capture(f: Fixture, name: string): Promise<void> {
   await writeFile(join(f.directory, `${name}.json`), JSON.stringify(geometry, null, 2))
 }
 
-async function assertHost(f: Fixture, suffixes: readonly string[], faultDiagnostics = false): Promise<void> {
+async function assertHost(
+  f: Fixture,
+  suffixes: readonly string[],
+  faultDiagnostics: 'unknown' | 'rejected' | false = false,
+): Promise<void> {
   const snapshot = await f.external.call('session.snapshot', { sessionId: f.ready.firstSession.id })
   expect(snapshot.runs).toHaveLength(f.setupRunIds.length)
   expect(snapshot.runs.every((run) => run.status === 'cancelled')).toBe(true)
@@ -506,10 +518,13 @@ async function assertHost(f: Fixture, suffixes: readonly string[], faultDiagnost
       method: 'system.runtime.watch',
     },
     ...(faultDiagnostics
-      ? [
-          { errorCode: 'TIMEOUT', commandId: 'operation.cancel' },
-          { errorCode: 'EXECUTION_FAILED', commandId: 'operation.get' },
-        ].map((identity) => ({
+      ? (faultDiagnostics === 'unknown'
+          ? [
+              { errorCode: 'TIMEOUT', commandId: 'operation.cancel' },
+              { errorCode: 'EXECUTION_FAILED', commandId: 'operation.get' },
+            ]
+          : [{ errorCode: 'BUSY', commandId: 'operation.cancel' }]
+        ).map((identity) => ({
           component: 'client',
           level: 'error',
           event: 'rpc.error',
@@ -596,6 +611,11 @@ for (const locale of ['en-US', 'zh-CN'] as const)
         })
         await editor.click()
         await expect(editor).toBeFocused()
+        await expect(f.page.locator('.lumen-toolbar-overflow:visible')).toHaveCount(0)
+        await expect(f.page.locator('.hbar-composer-feedback-surface:visible')).toHaveCount(0)
+        await expect
+          .poll(() => editorIdentity.evaluate((element) => element === document.activeElement && element.isConnected))
+          .toBe(true)
         await f.page.keyboard.press('Meta+.')
         await expect
           .poll(async () => (await f.runs.execute('operation.get', { operationId: active })).status)
@@ -631,16 +651,18 @@ for (const locale of ['en-US', 'zh-CN'] as const)
     })
   }
 
-for (const [locale, width] of [
-  ['en-US', 1440],
-  ['zh-CN', 320],
+for (const [locale, width, region] of [
+  ['en-US', 1440, 'Files'],
+  ['zh-CN', 320, 'Files'],
+  ['en-US', 1440, 'composer'],
+  ['zh-CN', 320, 'composer'],
 ] as const) {
-  test(`unknown Stop in Files has read-only recovery without replay: ${locale} ${width}`, async ({ browser }) => {
+  test(`unknown Stop in ${region} has read-only recovery without replay: ${locale} ${width}`, async ({ browser }) => {
     test.setTimeout(90_000)
-    const f = await start(browser, locale, width, 'unknown')
+    const f = await start(browser, locale, width, `unknown-${region}`)
     try {
       const draft = await seedDraft(f)
-      const editor = await openDirtyFiles(f)
+      const editor = region === 'Files' ? await openDirtyFiles(f) : composer(f)
       const original = await submitPending(f, 'unknown')
       // A delivered canonical terminal event is sufficient truth. Hold only these original
       // session events as well as losing its ACK to exercise the genuinely unknown UI path.
@@ -649,9 +671,10 @@ for (const [locale, width] of [
       await editor.focus()
       await f.page.keyboard.press('Control+.')
       await expect.poll(() => lost.matched).toBe(1)
+      await expect(editor).toBeFocused()
+      if (region === 'composer') await openComposerFeedback(f.page, f.copy)
       await expect(notice(f)).toHaveAttribute('data-stop-state', 'unknown')
       await expect(notice(f)).toHaveAttribute('data-operation-id', original)
-      await expect(editor).toBeFocused()
       await f.page.keyboard.press('Control+.')
       expect(f.faults.count('operation.cancel')).toBe(1)
       await capture(f, 'unknown')
@@ -673,11 +696,12 @@ for (const [locale, width] of [
       await expect(notice(f).getByRole('button', { name: f.copy.shell.stop.checking, exact: true })).toBeDisabled()
       expect(f.faults.count('operation.cancel')).toBe(1)
       await capture(f, 'checking')
-      if (locale === 'zh-CN') await editor.focus()
+      const returnToEditor = region === 'Files' && locale === 'zh-CN'
+      if (returnToEditor) await editor.focus()
       f.faults.release(heldRead)
       await expect(notice(f)).toHaveAttribute('data-stop-state', 'cancelled')
       f.faults.releaseEvents()
-      if (locale === 'zh-CN') await expect(editor).toBeFocused()
+      if (returnToEditor) await expect(editor).toBeFocused()
       else {
         await expect(notice(f).getByRole('button', { name: f.copy.shell.stop.dismiss, exact: true })).toBeFocused()
         expect(
@@ -687,9 +711,64 @@ for (const [locale, width] of [
       await checkIdentity.dispose()
       expect(f.faults.count('operation.get')).toBe(2)
       expect(f.faults.count('operation.cancel')).toBe(1)
-      await assertPreserved(f, draft)
+      await assertPreserved(f, draft, region === 'Files')
       await capture(f, 'recovered')
-      await assertHost(f, ['unknown'], true)
+      await assertHost(f, ['unknown'], 'unknown')
+    } finally {
+      await stop(f)
+    }
+  })
+}
+
+for (const [locale, width] of [
+  ['en-US', 1440],
+  ['zh-CN', 320],
+] as const) {
+  test(`rejected Stop in composer retries only the original operation explicitly: ${locale} ${width}`, async ({
+    browser,
+  }) => {
+    test.setTimeout(90_000)
+    const f = await start(browser, locale, width, 'rejected-composer')
+    try {
+      const draft = await seedDraft(f)
+      const original = await submitPending(f, 'retry')
+      const rejected = f.faults.arm('operation.cancel', original, 'reject')
+      await composer(f).focus()
+      await f.page.keyboard.press('Control+.')
+      await expect.poll(() => rejected.matched).toBe(1)
+      await expect(composer(f)).toBeFocused()
+      await openComposerFeedback(f.page, f.copy)
+      await expect(notice(f)).toHaveAttribute('data-operation-id', original)
+      await expect(notice(f)).toHaveAttribute('data-stop-state', 'failed')
+      await expect(notice(f)).toContainText(f.copy.shell.stop.failure('BUSY'))
+      expect((await f.runs.execute('operation.get', { operationId: original })).status).toBe('waiting_approval')
+      expect(f.faults.count('operation.cancel')).toBe(1)
+      await capture(f, 'rejected')
+      const retry = notice(f).getByRole('button', { name: f.copy.shell.stop.retry, exact: true })
+      const identity = await retry.elementHandle()
+      if (!identity) throw new Error('Original retry control identity is missing')
+      f.faults.stallEvents(f.ready.firstSession.id)
+      const held = f.faults.arm('operation.cancel', original, 'hold')
+      await retry.click()
+      await expect.poll(() => f.faults.pending(held)).toBe(1)
+      await expect(notice(f)).toHaveAttribute('data-stop-state', 'sending')
+      await expect(notice(f).getByRole('button', { name: f.copy.shell.stop.sending, exact: true })).toBeDisabled()
+      expect(await identity.evaluate((element) => element.isConnected && element === document.activeElement)).toBe(true)
+      await capture(f, 'retry-sending')
+      f.faults.release(held)
+      f.faults.releaseEvents()
+      await expect(notice(f)).toHaveAttribute('data-stop-state', 'cancelled')
+      await expect(notice(f).getByRole('button', { name: f.copy.shell.stop.dismiss, exact: true })).toBeFocused()
+      expect(await identity.evaluate((element) => element.isConnected && element === document.activeElement)).toBe(true)
+      await identity.dispose()
+      expect(
+        f.faults.requests
+          .filter((request) => request.command === 'operation.cancel')
+          .map((request) => request.operationId),
+      ).toEqual([original, original])
+      await assertPreserved(f, draft, false)
+      await capture(f, 'retried')
+      await assertHost(f, ['retry'], 'rejected')
     } finally {
       await stop(f)
     }

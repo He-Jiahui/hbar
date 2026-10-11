@@ -123,6 +123,18 @@ Harness 审查核对工具意图与持久结果、Host 拥有的计时/进度、
 
 参考：ReactBits [Analytics](https://pro.reactbits.dev/docs/app-ui/analytics) 的筛选器、指标与趋势阅读层级，沿用当前 Lumen 组件与宿主文案。成对截图和日志位于 `test-results/skills-standards-visual-main/performance-before`、`performance-final` 与 `artifacts/skills-standards-visual-main/performance-*.log`；原生未托管 Kernel 夹具的运行时管理状态明确显示不可用，没有把它写成已通过独立进程 Host 验收。
 
+### 撰写区反馈归属与完整恢复
+
+完成性复核增加撰写区的未知取消回读，复现反馈入口持续移动和恢复动作被自身弹层拦截。逐帧读数显示同一动作组在工具栏宽约 470px、在溢出内容流中宽约 262px；`d2a3a7298a` 后的容量观察器反复使用两种宽度，导致控件在两个位置间移动。Lumen 现在仅从 inline dock 测量工具栏容量，新标签仍会重新测量；稳定 portal 的锚点所在实际浮层同时提供父层 ID，显式父层和 nesting 选项保留优先级。
+
+停止提示按 ref、原操作 ID 和当前会话作用域识别自身的反馈表面及其精确工具栏父层。只有用户点击该提示的回读或明确拒绝后的重试，才排除这些自身容器；键盘取消和普通停止入口仍受所有更高层浮层拦截。丢 ACK 的未知结果仅回读，不重发取消。送出前明确 BUSY 拒绝可由用户显式重试原操作，请求期间保持同一按钮并显示禁用/忙碌状态，终态返回时焦点仍在原节点。
+
+16 项停止浏览器用例通过：10 项真实 Host 场景与 6 项 StrictMode 生命周期场景。其中新增中英文桌面/320px 撰写区回读和明确拒绝重试；暂缓真实成功 ACK 与原会话事件，实际验证 sending 中间状态、重复动作禁止、按钮身份与焦点。故障仅在送出前注入 BUSY 拒绝；不能把 EXECUTION_FAILED 当作明确未执行的证据，初次夹具探索正确进入 unknown 的日志保留。所有场景保留附件、原草稿和磁盘内容，测试未批准写入工具。
+
+完整严格增量 TypeScript、零警告 scoped ESLint、Web 构建、格式和适用的 content/icon guard 通过。5 个停止/活动/共享组合单元文件共 123 项通过、677 次断言；共享基础修改后 5 个 Lumen 套件仍有 84 项通过。另行扩展共享控件、工具栏、文件与导航矩阵共 39 项，28 项通过；10 项仍要求工程名省略号，与当前完整文字规则冲突，1 项导航夹具在内容可编辑输入的草稿种子处失败。这些测试契约单独闭环，不把此轮 39 项记为全通过。
+
+公共修复提交为 Lumen `25b900206f`，仅提交锚点归属和容量测量两个 hunk；原有 placement API、会话组合和 README 草稿未混入。主仓库更新该 gitlink、停止提示和验收。恢复截图已查看，证据位于 `artifacts/skills-standards-visual-main/stop-recovery-focus/`，日志与 trace 位于对应 `stop-recovery-focus*.log` 和 `test-results/skills-standards-visual-main/stop-recovery-focus/`；容量抖动逐帧证据位于 `stop-composer-widths/`。
+
 ## 结论边界
 
 以上是当前核心路径的工程与行为审查，不是每个页面、每种供应商或每种操作系统的全面认证。原生桌面 smoke、所有主题颜色的对比度、掉电/介质故障和大规模生产负载不属于已完成的验证。Web 构建仍有既有的 1500 kB chunk 体积提示。Bun 1.4.0 在指定根 tsconfig 的运行中仍打印 directory mismatch 诊断；通过的测试均有真实计数和 0 返回码，不将该输出解释为上游问题已经修复。

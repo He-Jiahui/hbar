@@ -24,6 +24,6 @@ export async function openComposerFeedback(page: Page, copy: ReturnType<typeof g
   if (await surface.isVisible()) return
   const trigger = page.locator('.hbar-composer-feedback-trigger')
   await revealComposerControl(page, trigger, copy.session.addMenu)
-  await trigger.click()
+  await trigger.click({ timeout: 10_000 })
   await expect(surface).toBeVisible()
 }

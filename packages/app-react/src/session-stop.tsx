@@ -66,22 +66,37 @@ export function HbarSessionStopNotice({ region }: { readonly region: 'main' | 't
   ) : null
 }
 
-function overlayOpen(ownedTool: HTMLElement | null) {
+function overlayOpen(ownedTool: HTMLElement | null, ownedFeedback: HTMLElement | null = null) {
   const toolModal = ownedTool?.closest<HTMLElement>(
     '[data-lumen-floating-mode="modal"][data-lumen-floating-open="true"][aria-modal="true"],dialog.lumen-app-tool-drawer:modal',
   )
   const modalRoot = toolModal?.closest<HTMLElement>('[data-lumen-floating-root="true"]')
   const toolLayer =
     modalRoot && modalRoot.dataset.lumenFloatingId === toolModal?.dataset.lumenFloatingId ? modalRoot : null
+  const feedbackSurface = ownedFeedback?.closest<HTMLElement>(
+    '.hbar-composer-feedback-surface[data-lumen-floating-surface="true"][data-lumen-floating-open="true"]',
+  )
+  const feedbackParentId = feedbackSurface?.dataset.lumenFloatingParent
+  const feedbackToolbar = feedbackParentId
+    ? [...document.querySelectorAll<HTMLElement>('.lumen-toolbar-overflow[data-lumen-floating-open="true"]')].find(
+        (element) => element.dataset.lumenFloatingId === feedbackParentId,
+      )
+    : undefined
   return [
     ...document.querySelectorAll<HTMLElement>(
       'dialog:modal,[popover]:popover-open,[role="menu"],[role="listbox"],[aria-modal="true"]',
     ),
   ].some(
-    // The tool's own modal is a workspace. Every other visible overlay keeps
-    // ownership; descendants of a closed disclosure do not own keyboard input.
+    // The tool modal is a workspace. Explicit recovery can use its exact notice
+    // and toolbar owner; keyboard cancellation never supplies that notice.
+    // Every other visible overlay retains ownership.
     (element) =>
-      element !== toolModal && element !== toolLayer && canFocusWorkspaceElement(element) && element.checkVisibility(),
+      element !== toolModal &&
+      element !== toolLayer &&
+      element !== feedbackSurface &&
+      element !== feedbackToolbar &&
+      canFocusWorkspaceElement(element) &&
+      element.checkVisibility(),
   )
 }
 
@@ -124,6 +139,7 @@ export function HbarSessionStopProvider({
   const [selected, setSelected] = useState<{ owner: typeof runtime; target: SessionStopTarget } | null>(null)
   const committed = useRef({ runtime, connected, toolPresentation })
   const activeOwner = useRef<typeof runtime | null>(null)
+  const noticeRef = useRef<HTMLDivElement | null>(null)
   useLayoutEffect(() => {
     activeOwner.current = runtime
     return () => {
@@ -153,13 +169,16 @@ export function HbarSessionStopProvider({
     [runtime],
   )
   const blockingOverlay = useCallback(
-    (current: SessionStopSnapshot) =>
+    (current: SessionStopSnapshot, recoveryOperationId?: string) =>
       overlayOpen(
         committed.current.toolPresentation === 'drawer' && sessionStopToolMatches(current) ? toolRef.current : null,
+        recoveryOperationId && noticeRef.current?.dataset.operationId === recoveryOperationId
+          ? noticeRef.current
+          : null,
       ),
     [toolRef],
   )
-  const cancel = (operationId: string) => {
+  const cancel = (operationId: string, fromNotice = false) => {
     const current = read()
     const currentScope = sessionStopScope(current)
     if (
@@ -167,7 +186,7 @@ export function HbarSessionStopProvider({
       current.navigation !== navigation ||
       !sameSessionStopScope(scope, currentScope) ||
       !sessionStopCanCancel(current, operationId) ||
-      blockingOverlay(current)
+      blockingOverlay(current, fromNotice ? operationId : undefined)
     )
       return
     setSelected({ owner: runtime, target: { ...currentScope, operationId } })
@@ -231,7 +250,7 @@ export function HbarSessionStopProvider({
       !target ||
       currentSnapshot.navigation !== navigation ||
       !sameSessionStopScope(target, sessionStopScope(currentSnapshot)) ||
-      blockingOverlay(currentSnapshot)
+      blockingOverlay(currentSnapshot, target.operationId)
     )
       return
     const current = sessionStopFeedback(currentSnapshot, target)
@@ -252,6 +271,7 @@ export function HbarSessionStopProvider({
   const notice =
     connected && target && feedback ? (
       <LumenFrame
+        ref={noticeRef}
         className="hbar-app-react-session-stop"
         data-session-stop=""
         data-operation-id={target.operationId}
@@ -267,37 +287,36 @@ export function HbarSessionStopProvider({
           )}
         </LumenFrame>
         <LumenFrame className="hbar-app-react-session-stop-actions">
-          {feedback.kind !== 'sending' && (
-            <LumenButton
-              size="s"
-              variant="text"
-              // A native disabled attribute blurs the focused Check button.
-              // Keep its focus while the public owner rejects repeated actions.
-              aria-disabled={!terminal && !(feedback.kind === 'failed' ? feedback.canRetry : feedback.canCheck)}
-              aria-busy={feedback.kind === 'checking' || undefined}
-              indicatorState={
-                !terminal && !(feedback.kind === 'failed' ? feedback.canRetry : feedback.canCheck)
-                  ? 'disabled'
-                  : undefined
-              }
-              onClick={() => {
-                const current = read()
-                if (current.navigation !== navigation || !sameSessionStopScope(target, sessionStopScope(current)))
-                  return
-                if (terminal) setSelected(null)
-                else if (feedback.kind === 'failed') cancel(target.operationId)
-                else check()
-              }}
-            >
-              {terminal
-                ? labels.dismiss
-                : feedback.kind === 'failed'
-                  ? labels.retry
+          <LumenButton
+            size="s"
+            variant="text"
+            // A native disabled attribute blurs the focused Check button.
+            // Keep its focus while the public owner rejects repeated actions.
+            aria-disabled={!terminal && !(feedback.kind === 'failed' ? feedback.canRetry : feedback.canCheck)}
+            aria-busy={feedback.kind === 'checking' || feedback.kind === 'sending' || undefined}
+            indicatorState={
+              !terminal && !(feedback.kind === 'failed' ? feedback.canRetry : feedback.canCheck)
+                ? 'disabled'
+                : undefined
+            }
+            onClick={() => {
+              const current = read()
+              if (current.navigation !== navigation || !sameSessionStopScope(target, sessionStopScope(current))) return
+              if (terminal) setSelected(null)
+              else if (feedback.kind === 'failed') cancel(target.operationId, true)
+              else check()
+            }}
+          >
+            {terminal
+              ? labels.dismiss
+              : feedback.kind === 'failed'
+                ? labels.retry
+                : feedback.kind === 'sending'
+                  ? labels.sending
                   : feedback.kind === 'checking'
                     ? labels.checking
                     : labels.check}
-            </LumenButton>
-          )}
+          </LumenButton>
         </LumenFrame>
       </LumenFrame>
     ) : null
