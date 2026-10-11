@@ -27,6 +27,26 @@ function action(html: string, label: string): string | undefined {
   return html.match(/<button\b[^>]*>[\s\S]*?<\/button>/g)?.find((button) => button.includes(`aria-label="${label}"`))
 }
 
+test('validation errors stay inline inside managed feedback and clear without losing the host draft', () => {
+  for (const locale of ['en-US', 'zh-CN'] as const) {
+    const base = props(locale)
+    const feedbackLabels = getShellCopy(locale).preSession.composerFeedback
+    const error = `${getShellCopy(locale).session.slash.error('AGENT_PROFILE_UNAVAILABLE')} ${'长期说明 '.repeat(30)}`
+    const html = renderToStaticMarkup(
+      <HbarPromptComposer {...base} feedbackLabels={feedbackLabels} error={error} errorPresentation="inline" />,
+    )
+    expect(html.match(/role="alert"/g)).toHaveLength(1)
+    expect(html).toContain(error)
+    expect(html).toContain(base.value)
+    expect(action(html, base.labels.send)).toBeDefined()
+    const recovered = renderToStaticMarkup(
+      <HbarPromptComposer {...base} feedbackLabels={feedbackLabels} errorPresentation="inline" />,
+    )
+    expect(recovered).not.toContain('role="alert"')
+    expect(recovered).toContain(base.value)
+  }
+})
+
 test('primary actions preserve localized names, gate states and a lamp-free icon-only target', () => {
   for (const locale of ['en-US', 'zh-CN'] as const) {
     const base = props(locale)

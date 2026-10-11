@@ -1,5 +1,6 @@
 import { RefreshCw, Plus } from 'lucide-react'
 import {
+  LumenContentText,
   LumenActionMenu,
   LumenButton,
   LumenCollection,
@@ -8,7 +9,6 @@ import {
   LumenIcon,
   LumenIconButton,
   LumenStatus,
-  LumenText,
 } from '@lumen/app-ui'
 import {
   providerListRowPresentation,
@@ -95,7 +95,8 @@ export function ProviderListView({
   const listBusy = busy || defaultMutationBusy || reconcilingProviderId !== null
 
   return (
-    <LumenFrame as="section"
+    <LumenFrame
+      as="section"
       className="hbar-provider-list-view"
       aria-label={labels.title}
       aria-busy={listBusy || undefined}
@@ -103,12 +104,10 @@ export function ProviderListView({
     >
       <LumenFrame as="header" className="hbar-provider-list-view-header">
         <LumenFrame className="hbar-provider-list-view-heading">
-          <LumenText as="h2" variant="heading">
-            {labels.title}
-          </LumenText>
-          <LumenText as="p" tone="muted">
+          <LumenContentText context="section.title">{labels.title}</LumenContentText>
+          <LumenContentText context="form.description" tone="muted">
             {labels.description}
-          </LumenText>
+          </LumenContentText>
         </LumenFrame>
         <LumenFrame className="hbar-provider-list-view-header-actions">
           <LumenIconButton label={labels.refresh} disabled={!connected || listBusy} onClick={onRefresh}>
@@ -122,15 +121,15 @@ export function ProviderListView({
       </LumenFrame>
 
       {globalDefault.status === 'error' && globalDefault.error ? (
-        <LumenText as="p" className="hbar-provider-list-view-error" role="alert">
+        <LumenContentText context="feedback.message" className="hbar-provider-list-view-error" role="alert">
           {labels.error(globalDefault.error)}
-        </LumenText>
+        </LumenContentText>
       ) : null}
 
       {items.length === 0 ? (
-        <LumenText as="p" className="hbar-provider-list-view-empty" tone="muted">
+        <LumenContentText context="form.description" className="hbar-provider-list-view-empty" tone="muted">
           {labels.empty}
-        </LumenText>
+        </LumenContentText>
       ) : (
         <LumenCollection as="ol" className="hbar-provider-list-view-items" aria-label={labels.title}>
           {items.map((item) => {
@@ -173,9 +172,9 @@ export function ProviderListView({
                     onClick={() => onSetDefault(item.providerId)}
                   >
                     <ProviderSummaryCopy item={item} labels={labels} />
-                    <LumenText as="span" className="hbar-provider-list-view-set-default">
+                    <LumenContentText context="control.label" className="hbar-provider-list-view-set-default">
                       {labels.setDefault}
-                    </LumenText>
+                    </LumenContentText>
                   </LumenButton>
                 )}
 
@@ -216,19 +215,27 @@ export function ProviderListView({
                 </LumenFrame>
 
                 {row.actionIsSubmitting && !row.reconciliationPending ? (
-                  <LumenText as="p" className="hbar-provider-list-view-feedback" role="status">
+                  <LumenContentText
+                    context="feedback.message"
+                    className="hbar-provider-list-view-feedback"
+                    role="status"
+                  >
                     {labels.settingDefault(item.name, item.primaryModelName)}
-                  </LumenText>
+                  </LumenContentText>
                 ) : null}
                 {row.reconciliationPending ? (
-                  <LumenText as="p" className="hbar-provider-list-view-feedback" role="status">
+                  <LumenContentText
+                    context="feedback.message"
+                    className="hbar-provider-list-view-feedback"
+                    role="status"
+                  >
                     {labels.reconcilingDefault(item.name, item.primaryModelName)}
-                  </LumenText>
+                  </LumenContentText>
                 ) : null}
                 {actionError ? (
-                  <LumenText as="p" className="hbar-provider-list-view-error" role="alert">
+                  <LumenContentText context="feedback.message" className="hbar-provider-list-view-error" role="alert">
                     {actionError}
-                  </LumenText>
+                  </LumenContentText>
                 ) : null}
               </LumenCollectionItem>
             )
@@ -274,11 +281,11 @@ function ProviderSummaryCopy({
   readonly globalDefaultSelectable?: boolean
 }) {
   return (
-    <LumenText as="span" className="hbar-provider-list-view-copy">
-      <LumenText as="span" className="hbar-provider-list-view-title-row">
-        <LumenText as="strong" variant="label" className="hbar-provider-list-view-name">
+    <LumenContentText context="message.inline" className="hbar-provider-list-view-copy">
+      <LumenContentText context="message.inline" className="hbar-provider-list-view-title-row">
+        <LumenContentText context="record.title" className="hbar-provider-list-view-name">
           {item.name}
-        </LumenText>
+        </LumenContentText>
         {globalDefaultModelName ? (
           <LumenStatus
             value={labels.globalDefault(globalDefaultModelName)}
@@ -287,27 +294,27 @@ function ProviderSummaryCopy({
             data-testid="provider-global-default"
           />
         ) : null}
-      </LumenText>
-      <LumenText as="span" className="hbar-provider-list-view-metadata">
-        <LumenText as="small" tone="subtle" variant="supporting">
+      </LumenContentText>
+      <LumenContentText context="message.inline" className="hbar-provider-list-view-metadata">
+        <LumenContentText context="form.help" tone="subtle">
           {labels.protocol(item.protocol)}
-        </LumenText>
-        <LumenText as="small" tone="subtle" variant="supporting">
+        </LumenContentText>
+        <LumenContentText context="form.help" tone="subtle">
           {labels.primaryModel(item.primaryModelName)}
-        </LumenText>
-        <LumenText as="small" tone="subtle" variant="supporting">
+        </LumenContentText>
+        <LumenContentText context="form.help" tone="subtle">
           {labels.modelCount(item.modelCount)}
-        </LumenText>
+        </LumenContentText>
         <LumenStatus
           value={item.hasKey ? labels.configured : labels.notConfigured}
           tone={item.hasKey ? 'success' : 'neutral'}
         />
         {item.hidden ? (
-          <LumenText as="small" tone="subtle" variant="supporting">
+          <LumenContentText context="form.help" tone="subtle">
             {labels.hidden}
-          </LumenText>
+          </LumenContentText>
         ) : null}
-      </LumenText>
-    </LumenText>
+      </LumenContentText>
+    </LumenContentText>
   )
 }

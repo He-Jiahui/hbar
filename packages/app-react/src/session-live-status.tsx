@@ -1,12 +1,14 @@
 import { useId, useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import type { ComposerIntentState } from '@hbar/app-runtime'
 import type { RunStatus } from '@hbar/contracts'
 import { projectActivityTasks } from './activity-tasks-model'
 import { ActivityTasksView, type ActivityTaskLabels } from './activity-tasks-view'
 import './session-live-status.css'
 import { HbarSessionExecutionStatus } from './session-execution-status'
+import { HbarContextHistory, type HbarContextHistoryLabels } from './session-context-history'
+import type { ContextHistoryPage } from '@hbar/contracts/context-history'
 
 export interface HbarSessionLiveStatusLabels {
   readonly label: string
@@ -16,6 +18,7 @@ export interface HbarSessionLiveStatusLabels {
   readonly collapse: string
   readonly goal: string
   readonly tasks: ActivityTaskLabels
+  readonly history?: HbarContextHistoryLabels
 }
 
 export interface HbarSessionLiveStatusProps {
@@ -30,6 +33,14 @@ export interface HbarSessionLiveStatusProps {
     readonly summary: ReactNode
     readonly onRefresh: () => void
   }
+  readonly history?: {
+    readonly page: ContextHistoryPage | undefined
+    readonly status: 'idle' | 'loading' | 'error' | undefined
+    readonly error: string | null | undefined
+    readonly before: number | null | undefined
+    readonly onLoad: (before?: number) => void
+    readonly onRetry?: () => void
+  }
 }
 
 /** Docked session context. The expanded pane owns scrolling for the Host's bounded 100-step Plan. */
@@ -41,6 +52,7 @@ export function HbarSessionLiveStatus({
   run,
   labels,
   context,
+  history,
 }: HbarSessionLiveStatusProps) {
   const [expandedSession, setExpandedSession] = useState<string | null>(null)
   const contentId = useId()
@@ -55,7 +67,16 @@ export function HbarSessionLiveStatus({
       : null
   const goal = snapshot?.goal?.threadId === sessionId && snapshot.goal.status !== 'complete' ? snapshot.goal : null
   const tasks = context ? projectActivityTasks(context.facts, sessionId) : null
-  const hasDetails = Boolean(goal || tasks?.steps.length || tasks?.explanation || tasks?.failed)
+  const currentHistory = timelineSessionId === sessionId && history?.page?.sessionId === sessionId ? history : undefined
+  const hasHistory = Boolean(
+    labels.history &&
+    currentHistory &&
+    (currentHistory.page?.records.length ||
+      currentHistory.page?.current.turns ||
+      currentHistory.page?.current.tools.total ||
+      currentHistory.page?.current.usage.recorded),
+  )
+  const hasDetails = Boolean(goal || tasks?.steps.length || tasks?.explanation || tasks?.failed || hasHistory)
   const visible = Boolean(currentRun || hasDetails)
   const summaryOwned = context?.facts.sessionId === sessionId
   if (!owned) return null
@@ -88,19 +109,15 @@ export function HbarSessionLiveStatus({
             onClick={() => setExpandedSession(expanded ? null : sessionId)}
           >
             <LumenIcon icon={expanded ? ChevronDown : ChevronRight} tier="sm" />
-            <LumenText as="strong" variant="label">
-              {labels.label}
-            </LumenText>
+            <LumenContentText context="choice.title">{labels.label}</LumenContentText>
             {Boolean(tasks?.steps.length) && (
-              <LumenText as="span" className="hbar-session-live-status-progress">
+              <LumenContentText context="control.status" className="hbar-session-live-status-progress">
                 {labels.tasks.progress(tasks?.completed ?? 0, tasks?.steps.length ?? 0)}
-              </LumenText>
+              </LumenContentText>
             )}
           </LumenButton>
         ) : currentRun ? (
-          <LumenText as="strong" variant="label">
-            {labels.label}
-          </LumenText>
+          <LumenContentText context="record.title">{labels.label}</LumenContentText>
         ) : null}
         {summaryOwned && (
           <LumenFrame key="goal" className="hbar-session-live-status-goal">
@@ -141,12 +158,24 @@ export function HbarSessionLiveStatus({
               onRefresh={context.onRefresh}
             />
           )}
-          {tasks?.explanation && <LumenText as="p">{tasks.explanation}</LumenText>}
+          {tasks?.explanation && <LumenContentText context="section.description">{tasks.explanation}</LumenContentText>}
           {goal && (
             <LumenFrame as="section" className="hbar-session-live-status-objective" aria-label={labels.goal}>
-              <LumenText as="h3">{labels.goal}</LumenText>
-              <LumenText as="p">{goal.objective}</LumenText>
+              <LumenContentText context="section.subtitle">{labels.goal}</LumenContentText>
+              <LumenContentText context="section.description">{goal.objective}</LumenContentText>
             </LumenFrame>
+          )}
+          {labels.history && hasHistory && currentHistory && (
+            <HbarContextHistory
+              sessionId={sessionId}
+              page={currentHistory.page}
+              status={currentHistory.status}
+              error={currentHistory.error}
+              before={currentHistory.before}
+              onLoad={currentHistory.onLoad}
+              {...(currentHistory.onRetry ? { onRetry: currentHistory.onRetry } : {})}
+              labels={labels.history}
+            />
           )}
         </LumenFrame>
       )}

@@ -1,5 +1,12 @@
 import { CheckCircle2, Circle, LoaderCircle } from 'lucide-react'
-import { LumenButton, LumenCollection, LumenCollectionItem, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import {
+  LumenContentText,
+  LumenButton,
+  LumenCollection,
+  LumenCollectionItem,
+  LumenFrame,
+  LumenIcon,
+} from '@lumen/app-ui'
 import type { ComposerIntentState } from '@hbar/app-runtime'
 import type { PlanStepStatus } from '@hbar/contracts'
 import { projectActivityTasks } from './activity-tasks-model'
@@ -35,24 +42,24 @@ export function ActivityTasksView({
   return (
     <LumenFrame as="section" className="hbar-activity-tasks" aria-label={labels.title}>
       <LumenFrame className="hbar-activity-section-heading">
-        <LumenText as="h3">{labels.title}</LumenText>
+        <LumenContentText context="section.subtitle">{labels.title}</LumenContentText>
         {steps.length > 0 && (
           <LumenFrame className="hbar-activity-task-progress">
             <progress max={steps.length} value={completed} aria-label={labels.progress(completed, steps.length)} />
-            <LumenText as="span">{labels.progress(completed, steps.length)}</LumenText>
+            <LumenContentText context="message.inline">{labels.progress(completed, steps.length)}</LumenContentText>
           </LumenFrame>
         )}
       </LumenFrame>
       {loading && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
-      {connected && failed && (
+      {failed && (
         <LumenFrame className="hbar-session-activity-recovery">
-          <LumenText as="p" role="alert">
+          <LumenContentText context="feedback.message" role="alert">
             {labels.error(facts.error ?? 'EXECUTION_FAILED')}
-          </LumenText>
+          </LumenContentText>
           <LumenButton size="s" disabled={!connected} onClick={onRefresh}>
             {labels.retry}
           </LumenButton>

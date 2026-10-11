@@ -25,6 +25,26 @@ const directory: CommandExecutor = {
   },
 }
 
+test('late sidebar initialization preserves interactive choices while a fresh runtime restores saved visibility', async () => {
+  const runtime = createAppRuntime({ instanceId: 'sidebar-choice', hostId: 'host', directory })
+  const fresh = createAppRuntime({ instanceId: 'sidebar-fresh', hostId: 'host', directory })
+  try {
+    await runtime.view.commands.execute('app.initializeSidebar', { visible: false })
+    expect(runtime.view.state.presentation.getSnapshot().sidebarOpen).toBe(false)
+    await runtime.view.commands.execute('app.setSidebarVisible', { visible: true })
+    await runtime.view.commands.execute('app.initializeSidebar', { visible: false })
+    expect(runtime.view.state.presentation.getSnapshot().sidebarOpen).toBe(true)
+    await runtime.view.commands.execute('app.setSidebarVisible', { visible: false })
+    await runtime.view.commands.execute('app.initializeSidebar', { visible: true })
+    expect(runtime.view.state.presentation.getSnapshot().sidebarOpen).toBe(false)
+    await fresh.view.commands.execute('app.initializeSidebar', { visible: false })
+    expect(fresh.view.state.presentation.getSnapshot().sidebarOpen).toBe(false)
+  } finally {
+    runtime.dispose()
+    fresh.dispose()
+  }
+})
+
 test('logical panels are command-owned, idempotent and preserve follow versus pinned targets', async () => {
   const headless = createAppRuntime({ instanceId: 'headless', hostId: 'host', directory })
   await expect(headless.view.commands.execute('app.openPanel', { panelId: 'files' })).rejects.toMatchObject({

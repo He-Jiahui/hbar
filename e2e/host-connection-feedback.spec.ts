@@ -83,6 +83,7 @@ for (const locale of ['zh-CN', 'en-US'] as const)
       await page.getByRole('treeitem', { name: title, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const draft = 'Unsent draft remains editable while disconnected — 离线时草稿仍可编辑 🛰️'
+      await expect(prompt).toBeEditable()
       await prompt.click()
       await page.keyboard.insertText(draft)
       await expectComposerText(prompt, draft)

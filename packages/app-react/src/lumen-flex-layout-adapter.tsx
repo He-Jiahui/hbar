@@ -53,6 +53,12 @@ export function HbarFlexLayoutAdapter({
   const model = projection.model
   const frameRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ element: Element; pointerId: number } | null>(null)
+  useLayoutEffect(() => {
+    // FlexLayout keeps real DOM probes for its border measurement; they are not content or controls.
+    for (const probe of frameRef.current?.querySelectorAll('.flexlayout__border_sizer') ?? []) {
+      probe.setAttribute('aria-hidden', 'true')
+    }
+  }, [model])
   useEffect(() => {
     const document = frameRef.current?.ownerDocument
     if (!document) return

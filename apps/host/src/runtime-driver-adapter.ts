@@ -31,6 +31,7 @@ export class RuntimeDriverAdapter implements HarnessDriver {
       return invocation.invoke(() => {
         const input = invocation.input
         switch (call.method) {
+          case 'modelDiagnostic': return input.onModelDiagnostic?.(call.event)
           case 'resolveKey': return input.resolveKey(call.modelId)
           case 'readImage': return input.readImage(call.id)
           case 'readFile': return input.readFile(call.id)

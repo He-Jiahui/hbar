@@ -1,6 +1,7 @@
 import { expect, type Browser, type BrowserContext, type Page } from '@playwright/test'
 import { HbarClient, createExtensionCommandClient } from '@hbar/client'
 import { extensionCommands } from '@hbar/contracts/commands/extensions'
+import { diagnosticEventSchema, type DiagnosticEvent } from '@hbar/contracts/diagnostics'
 import { sessionSchema, workspaceSchema } from '@hbar/contracts/directory'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { existsSync } from 'node:fs'
@@ -57,7 +58,14 @@ export async function routeExtensionCollectionFaults(page: Page) {
   const commands: string[] = []
   const errors: string[] = []
   const received: { command: ExtensionCollectionCommand; itemCount: number; ticket: number | null }[] = []
-  const rules: { ticket: number; rule: ExtensionCollectionFault; remaining: number; matched: number }[] = []
+  const rules: {
+    ticket: number
+    rule: ExtensionCollectionFault
+    remaining: number
+    matched: number
+    diagnostics: number
+    rpcIds: Set<string>
+  }[] = []
   const held: { ticket: number; connection: number; release: (fail: boolean) => void }[] = []
   let tickets = 0
   let connections = 0
@@ -121,6 +129,7 @@ export async function routeExtensionCollectionFaults(page: Page) {
             else errors.push('Response observation capacity exceeded')
             if (entry.rule) {
               entry.rule.matched++
+              entry.rule.rpcIds.add(String(id))
               if (entry.rule.rule.kind === 'hold')
                 held.push({
                   ticket: entry.rule.ticket,
@@ -151,7 +160,7 @@ export async function routeExtensionCollectionFaults(page: Page) {
       if (!Number.isInteger(times) || times < 1 || times > 16 || rules.length >= 64)
         throw new Error('Invalid bounded read fault')
       const ticket = ++tickets
-      rules.push({ ticket, rule, remaining: times, matched: 0 })
+      rules.push({ ticket, rule, remaining: times, matched: 0, diagnostics: 0, rpcIds: new Set() })
       return ticket
     },
     pending(ticket: number): number {
@@ -170,6 +179,25 @@ export async function routeExtensionCollectionFaults(page: Page) {
     count(command: string): number {
       return commands.filter((item) => item === command).length
     },
+    acceptDiagnostic(event: DiagnosticEvent): boolean {
+      if (
+        event.event !== 'rpc.error' ||
+        event.outcome !== 'failure' ||
+        event.errorCode !== 'EXECUTION_FAILED' ||
+        (event.commandId !== 'plugin.list' && event.commandId !== 'skill.list')
+      )
+        return false
+      const rule = rules.find(
+        (item) =>
+          item.rule.command === event.commandId &&
+          event.rpcId !== undefined &&
+          item.rpcIds.has(event.rpcId) &&
+          item.matched > item.diagnostics,
+      )
+      if (!rule) return false
+      rule.diagnostics++
+      return true
+    },
   }
 }
 export interface ExtensionCollectionsFixture {
@@ -183,6 +211,8 @@ export interface ExtensionCollectionsFixture {
   readonly locale: ShellLocale
   readonly errors: string[]
   readonly warnings: string[]
+  readonly diagnostics: DiagnosticEvent[]
+  readonly flushDiagnostics: () => Promise<void>
   readonly faults: Awaited<ReturnType<typeof routeExtensionCollectionFaults>>
 }
 export interface ExtensionCollectionsOptions {
@@ -270,6 +300,11 @@ export async function openSession(f: ExtensionCollectionsFixture, session = f.re
   const side = f.page.getByRole('complementary', { name: f.copy.shell.projectsAndSessions, exact: true })
   if (!(await side.isVisible()))
     await f.page.getByRole('button', { name: f.copy.shell.showSidebar, exact: true }).click()
+  if (await f.page.evaluate(() => matchMedia('(max-width: 63.9375rem)').matches))
+    await expect(f.page.locator('.hbar-app-ui-app-shell[data-sidebar-open]')).toHaveAttribute(
+      'data-sidebar-open',
+      'true',
+    )
   const row = f.page.locator(`[data-workspace-id="${f.ready.workspace.id}"]`)
   const toggle = row
   if ((await toggle.getAttribute('aria-expanded')) === 'false') {
@@ -280,7 +315,10 @@ export async function openSession(f: ExtensionCollectionsFixture, session = f.re
     }
   }
   await expect(toggle).toHaveAttribute('aria-expanded', 'true')
-  await row.getByRole('treeitem', { name: session.title, exact: true }).click()
+  const sessionRow = row.getByRole('treeitem', { name: session.title, exact: true })
+  await sessionRow.scrollIntoViewIfNeeded()
+  await expect(sessionRow).toBeVisible()
+  await sessionRow.click()
   const hide = f.page.getByRole('button', { name: f.copy.shell.hideSidebar, exact: true })
   if (await hide.isVisible()) {
     try {
@@ -353,9 +391,23 @@ export async function startExtensionCollections(
     const page = await context.newPage()
     const errors: string[] = [],
       warnings: string[] = []
+    const diagnostics: DiagnosticEvent[] = []
+    const diagnosticTasks: Promise<void>[] = []
     page.on('pageerror', (error) => errors.push(error.message))
     page.on('console', (message) => {
-      if (message.type() === 'warning' || message.type() === 'error') warnings.push(message.text())
+      if (message.type() !== 'warning' && message.type() !== 'error') return
+      diagnosticTasks.push(
+        (async () => {
+          for (const value of await Promise.all(message.args().map((arg) => arg.jsonValue().catch(() => undefined)))) {
+            const parsed = diagnosticEventSchema.safeParse(value)
+            if (parsed.success) {
+              diagnostics.push(parsed.data)
+              return
+            }
+          }
+          warnings.push(message.text())
+        })(),
+      )
     })
     const faults = await routeExtensionCollectionFaults(page)
     for (const rule of options.faults ?? []) faults.arm(rule)
@@ -373,6 +425,10 @@ export async function startExtensionCollections(
       locale: options.locale,
       errors,
       warnings,
+      diagnostics,
+      flushDiagnostics: async () => {
+        await Promise.all(diagnosticTasks.splice(0))
+      },
       faults,
     }
     await openSession(f)
@@ -423,6 +479,7 @@ export async function stopExtensionCollections(f: ExtensionCollectionsFixture) {
   return cleanup
 }
 export async function assertReadOnly(f: ExtensionCollectionsFixture): Promise<void> {
+  await f.flushDiagnostics()
   const extensionWrites = new Set(
     Object.values(extensionCommands)
       .filter((command) => command.metadata.kind === 'command')
@@ -450,6 +507,7 @@ export async function assertReadOnly(f: ExtensionCollectionsFixture): Promise<vo
   expect(f.faults.errors).toEqual([])
   expect(f.errors).toEqual([])
   expect(f.warnings).toEqual([])
+  for (const event of f.diagnostics) expect(f.faults.acceptDiagnostic(event)).toBe(true)
 }
 export async function readCollections(f: ExtensionCollectionsFixture) {
   const client = createExtensionCommandClient(f.external)

@@ -1,10 +1,15 @@
 import {
+  LumenContentText,
   LumenNotifications,
-  LumenText,
   type LumenNotificationsContent,
   type LumenNotificationEntry,
 } from '@lumen/app-ui'
-import { notificationKindSchema, type NotificationRecord } from '@hbar/contracts/commands/notifications'
+import {
+  notificationKindSchema,
+  notificationPreferencesSchema,
+  type NotificationPreferences,
+  type NotificationRecord,
+} from '@hbar/contracts/commands/notifications'
 import type { NotificationsRuntime, NotificationsState } from '@hbar/app-runtime'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useHbarRuntimeState } from './runtime'
@@ -63,11 +68,71 @@ export interface HbarNotificationsProps {
   readonly onOpenCenter?: () => void
 }
 
+function preferencesContent(
+  preferences: NotificationPreferences,
+  labels: HbarNotificationsLabels,
+  runtime: NotificationsRuntime,
+): NonNullable<LumenNotificationsContent['preferences']> {
+  return {
+    labels: {
+      title: labels.preferenceTitle,
+      detail: labels.preferenceDetail,
+      event: labels.event,
+      toggle: labels.toggle,
+      all: labels.all,
+      none: labels.none,
+      quietTitle: labels.quietTitle,
+      quietDetail: labels.quietDetail,
+      quietToggle: labels.quietToggle,
+      days: labels.days,
+      saved: labels.saved,
+      unsaved: labels.unsaved,
+      saving: labels.saving,
+      saveFailed: labels.saveFailed,
+      saveUnavailable: labels.saveUnavailable,
+      reset: labels.reset,
+      save: labels.save,
+      empty: labels.empty,
+    },
+    channels: [
+      { id: 'inApp', label: labels.inApp },
+      { id: 'desktop', label: labels.desktop },
+    ],
+    groups: [{ id: 'notifications', label: labels.preferenceTitle }],
+    preferences: notificationKindSchema.options.map((kind) => ({
+      id: kind,
+      groupId: 'notifications',
+      label: labels.eventKinds[kind],
+      detail: labels.eventKinds[kind],
+      enabledChannelIds: Object.entries(preferences[kind])
+        .filter(([, enabled]) => enabled)
+        .map(([channel]) => channel),
+    })),
+    days: [],
+    initialDayIds: [],
+    initialQuiet: false,
+    quietHoursVisible: false,
+    listStrategy: { kind: 'pane-scroll', expectedMaximum: 4 },
+    savePreferences: async (draft) => {
+      const current = runtime.reader.getSnapshot().preferences
+      if (!current) return
+      const next = { ...current }
+      for (const entry of draft.deliveries) {
+        const parsed = notificationKindSchema.safeParse(entry.preferenceId)
+        if (parsed.success && (entry.channelId === 'inApp' || entry.channelId === 'desktop'))
+          next[parsed.data] = { ...next[parsed.data], [entry.channelId]: entry.enabled }
+      }
+      await runtime.setPreferences(next)
+    },
+  }
+}
+
 function content(
   state: NotificationsState,
   labels: HbarNotificationsLabels,
   runtime: NotificationsRuntime,
-  pendingIds: ReadonlySet<string> = new Set(),
+  pendingIds: ReadonlySet<string>,
+  preferences: LumenNotificationsContent['preferences'],
 ): LumenNotificationsContent {
   const visibleItems = state.items.filter((item) => state.preferences?.[item.kind]?.inApp !== false)
   const entries: LumenNotificationEntry[] = visibleItems.map((item) => ({
@@ -155,60 +220,7 @@ function content(
         return 'confirmed'
       },
     },
-    preferences: state.preferences
-      ? {
-          labels: {
-            title: labels.preferenceTitle,
-            detail: labels.preferenceDetail,
-            event: labels.event,
-            toggle: labels.toggle,
-            all: labels.all,
-            none: labels.none,
-            quietTitle: labels.quietTitle,
-            quietDetail: labels.quietDetail,
-            quietToggle: labels.quietToggle,
-            days: labels.days,
-            saved: labels.saved,
-            unsaved: labels.unsaved,
-            saving: labels.saving,
-            saveFailed: labels.saveFailed,
-            saveUnavailable: labels.saveUnavailable,
-            reset: labels.reset,
-            save: labels.save,
-            empty: labels.empty,
-          },
-          channels: [
-            { id: 'inApp', label: labels.inApp },
-            { id: 'desktop', label: labels.desktop },
-          ],
-          groups: [{ id: 'notifications', label: labels.preferenceTitle }],
-          preferences: notificationKindSchema.options.map((kind) => ({
-            id: kind,
-            groupId: 'notifications',
-            label: labels.eventKinds[kind],
-            detail: labels.eventKinds[kind],
-            enabledChannelIds: Object.entries(state.preferences?.[kind] ?? {})
-              .filter(([, enabled]) => enabled)
-              .map(([channel]) => channel),
-          })),
-          days: [],
-          initialDayIds: [],
-          initialQuiet: false,
-          quietHoursVisible: false,
-          listStrategy: { kind: 'pane-scroll', expectedMaximum: 4 },
-          savePreferences: async (draft) => {
-            const current = runtime.reader.getSnapshot().preferences
-            if (!current) return
-            const next = { ...current }
-            for (const entry of draft.deliveries) {
-              const parsed = notificationKindSchema.safeParse(entry.preferenceId)
-              if (parsed.success && (entry.channelId === 'inApp' || entry.channelId === 'desktop'))
-                next[parsed.data] = { ...next[parsed.data], [entry.channelId]: entry.enabled }
-            }
-            await runtime.setPreferences(next)
-          },
-        }
-      : undefined,
+    preferences,
   }
 }
 
@@ -230,13 +242,27 @@ export function HbarNotifications({ runtime, labels, onNavigate, variant = 1, on
       ),
     [state.items, state.mutation],
   )
-  const view = useMemo(() => content(state, labels, runtime, pendingIds), [labels, runtime, state, pendingIds])
+  // Equal Host refreshes must not replace the editable surface's saved baseline.
+  const preferenceSnapshot = state.preferences
+    ? JSON.stringify(notificationPreferencesSchema.parse(state.preferences))
+    : null
+  const preferences = useMemo(
+    () =>
+      preferenceSnapshot
+        ? preferencesContent(notificationPreferencesSchema.parse(JSON.parse(preferenceSnapshot)), labels, runtime)
+        : undefined,
+    [preferenceSnapshot, labels, runtime],
+  )
+  const view = useMemo(
+    () => content(state, labels, runtime, pendingIds, preferences),
+    [labels, runtime, state, pendingIds, preferences],
+  )
   return (
     <>
       {actionError ? (
-        <LumenText role="alert" tone="danger">
+        <LumenContentText context="message.inline" role="alert" tone="danger">
           {actionError}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       <LumenNotifications
         variant={variant}

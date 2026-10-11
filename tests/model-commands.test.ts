@@ -61,6 +61,7 @@ test('model commands use layered settings with capability validation and atomic 
     'model.list',
     'session.getContextUsage',
     'session.getModel',
+    'session.setMaxMode',
     'session.setModel',
     'session.setThinkingLevel',
   ])

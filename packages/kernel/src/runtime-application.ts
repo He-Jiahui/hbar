@@ -73,6 +73,7 @@ export const RUNTIME_APPLICATION_METHODS = {
     'readSessionLaunchTargetPreparation',
     'prepareSessionLaunchTarget',
     'continueInterrupted',
+    'undoFileChanges',
   ],
   plugins: ['remove', 'resolve', 'graph', 'lock', 'doctor', 'clientCode', 'assetPath'],
   directory: ['execute', 'dispatch', 'describe', 'list'],
@@ -123,7 +124,7 @@ export const RUNTIME_APPLICATION_METHODS = {
     'history',
   ],
   computer: ['status', 'screenshot', 'click', 'doubleClick', 'type', 'key', 'scroll', 'move', 'wait', 'launch'],
-  execution: ['list', 'read', 'readBytes', 'write', 'exec'],
+  execution: ['list', 'read', 'readBytes', 'write', 'exec', 'restoreFiles'],
   workspaceQuery: ['find', 'search', 'readRange', 'invalidate'],
   git: [
     'info',

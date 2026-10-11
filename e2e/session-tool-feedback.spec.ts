@@ -125,7 +125,7 @@ function input(
 
 for (const locale of ['zh-CN', 'en-US'] as const)
   for (const width of [1440, 320]) {
-    test(`thin progress bars show four proportional states below tools and freeze: ${locale} ${width}`, async ({
+    test(`thin progress bars show four proportional states and disappear after settlement: ${locale} ${width}`, async ({
       browser,
     }, info) => {
       const context = await browser.newContext({ locale, viewport: { width, height: 960 } })
@@ -167,7 +167,7 @@ for (const locale of ['zh-CN', 'en-US'] as const)
         expect(segments.map((segment) => segment.color)).toEqual(
           locale === 'zh-CN'
             ? ['rgb(238, 238, 238)', 'rgb(255, 150, 155)', 'rgb(239, 209, 122)', 'rgb(170, 170, 170)']
-            : ['rgb(23, 23, 23)', 'rgb(183, 53, 72)', 'rgb(153, 101, 0)', 'rgb(102, 102, 102)'],
+            : ['rgb(23, 23, 23)', 'rgb(183, 53, 72)', 'rgb(153, 101, 0)', 'rgb(94, 94, 94)'],
         )
         const elapsed = active.locator('[data-tool-elapsed]')
         const before = Number(await elapsed.getAttribute('data-tool-elapsed'))
@@ -227,13 +227,8 @@ for (const locale of ['zh-CN', 'en-US'] as const)
         expect(Number(await elapsed.getAttribute('data-tool-elapsed'))).toBe(4321)
         await page.waitForTimeout(600)
         expect(Number(await elapsed.getAttribute('data-tool-elapsed'))).toBe(4321)
-        await expect(active.getByRole('progressbar')).toHaveAttribute(
-          'aria-valuetext',
-          new RegExp(locale === 'zh-CN' ? '跳过 1' : '1 skipped'),
-        )
-        await expect(active.locator('[data-tool-progress]')).toHaveAttribute('data-tool-progress', '66.6')
-        await expect(active.locator('[data-progress-state="succeeded"]')).toHaveCount(1)
-        await expect(active.locator('[data-progress-state="failed"]')).toHaveCount(1)
+        await expect(page.getByRole('progressbar')).toHaveCount(0)
+        await expect(active.locator('.hbar-tool-batch-feedback')).toHaveCount(0)
         await expect(active.locator('[data-progress-state="running"]')).toHaveCount(0)
         await page.screenshot({ path: info.outputPath(`finished-${locale}-${width}.png`), fullPage: true })
         const unmeasured = {
@@ -259,7 +254,7 @@ for (const locale of ['zh-CN', 'en-US'] as const)
         await page.evaluate((data) => window.toolOutcomeFixture.render(data), unmeasured)
         await expect(active.locator('[data-tool-progress]')).toHaveCount(0)
         const indicator = active.locator('.hbar-session-tool-status-indicator')
-        await expect(indicator).toHaveCSS('animation-name', 'hbar-tool-active-pulse')
+        await expect(indicator).toHaveCSS('animation-name', 'lumen-breathe')
         await page.emulateMedia({ reducedMotion: 'reduce' })
         await expect(indicator).toHaveCSS('animation-name', 'none')
         await expect(indicator).toHaveCSS('opacity', '1')

@@ -20,7 +20,7 @@
 
 .hbar-workspace-display-name-path {
   font-family: var(--hbar-font-mono, monospace);
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
 }
 
 .hbar-workspace-display-name-restore,
@@ -53,7 +53,7 @@
 
 .hbar-workspace-display-name-feedback {
   padding: 6px 12px;
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
 
   overflow-x: auto;
 }

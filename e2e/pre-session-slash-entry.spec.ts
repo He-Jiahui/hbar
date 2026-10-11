@@ -7,6 +7,7 @@ import { getShellCopy } from '../apps/web/src/shell-copy'
 import { preSessionCopy } from '../apps/web/src/pre-session-copy'
 import { preSessionLaunchCopy } from '../apps/web/src/pre-session-launch-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { openComposerFeedback, revealComposerControl } from './support/composer-controls'
 
 test.use({ actionTimeout: 10_000 })
 
@@ -43,7 +44,12 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const landing = page.locator('.hbar-pre-session-landing')
       const prompt = landing.getByRole('textbox', { name: copy.preSession.prompt.input })
       const send = landing.getByRole('button', { name: copy.preSession.prompt.send, exact: true })
-      const locationTrigger = landing.locator('.hbar-pre-session-location-picker > button')
+      const sendPrompt = async () => {
+        if (await page.getByRole('dialog', { name: copy.session.addMenu.menu, exact: true }).isVisible())
+          await page.keyboard.press('Escape')
+        await send.click()
+      }
+      const locationTrigger = page.locator('.hbar-pre-session-location-picker > button')
       const menu = page.getByRole('listbox', { name: copy.session.slash.menu })
 
       await prompt.fill('/')
@@ -52,7 +58,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       // not the former first-row position. Keyboard token completion is tested below.
       await menu.getByRole('option', { name: copy.session.slash.select('/model'), exact: true }).click()
       await expect(prompt).toHaveValue('/model ')
-      await send.click()
+      await sendPrompt()
       const modelPicker = page.getByRole('dialog', { name: labels.model.title })
       await expect(modelPicker).toBeVisible()
       if (locale === 'en-US')
@@ -92,6 +98,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await cancelPreparedGoal.click()
       await expect(prompt).toHaveValue('')
 
+      await revealComposerControl(page, locationTrigger, copy.session.addMenu)
       await locationTrigger.click()
       const locationRootBeforeDirectory = page.getByRole('dialog', { name: location.title, exact: true })
       if (await locationRootBeforeDirectory.isVisible())
@@ -102,8 +109,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(locationRoot).toBeVisible()
       await locationRoot.getByRole('button', { name: location.close, exact: true }).click()
       await expect(locationRoot).toBeHidden()
-      await landing.getByRole('button', { name: copy.session.addMenu.open, exact: true }).click()
-      await landing
+      const addActions = page.locator('.hbar-web-pre-session-goal-controls').getByRole('button', { name: copy.session.addMenu.open, exact: true })
+      await revealComposerControl(page, addActions, copy.session.addMenu)
+      await addActions.click()
+      await page
         .getByRole('group', { name: copy.session.addMenu.menu })
         .getByRole('button', { name: copy.session.addMenu.slash, exact: true })
         .click()
@@ -119,8 +128,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await prompt.press('Escape')
       await expect(menu).toBeHidden()
       await expect(prompt).toBeFocused()
-      await landing.getByRole('button', { name: copy.session.addMenu.open, exact: true }).click()
-      await landing
+      await revealComposerControl(page, addActions, copy.session.addMenu)
+      await addActions.click()
+      await page
         .getByRole('group', { name: copy.session.addMenu.menu })
         .getByRole('button', { name: copy.session.addMenu.slash, exact: true })
         .click()
@@ -132,24 +142,26 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(send).toBeEnabled()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: `artifacts/desktop-experience/pre-session-slash-${locale}.png` })
-      await send.click()
+      await sendPrompt()
       await expect(page.getByRole('button', { name: copy.settings.back, exact: true })).toBeVisible()
       expect(await count()).toBe(1)
       await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
       await expect(landing).toBeVisible()
       await expect(prompt).toHaveValue('')
+      await revealComposerControl(page, locationTrigger, copy.session.addMenu)
       await expect(locationTrigger).toHaveAccessibleName(
         new RegExp(`^${location.trigger(host.ready.workspaceName, null, false)}`),
       )
 
       await prompt.fill('/goal Keep this first objective')
-      await send.click()
+      await sendPrompt()
       await expect(prompt).toHaveValue('Keep this first objective')
       await expect(prompt).toHaveAttribute('placeholder', copy.session.intent.goalPlaceholder)
       const cancelGoal = landing.getByRole('button', { name: copy.session.intent.cancelGoal, exact: true })
       await expect(cancelGoal).toBeVisible()
       expect(await count()).toBe(1)
-      const execution = landing.locator('.hbar-pre-session-approval-picker .hbar-composer-permission-trigger')
+      const execution = page.locator('.hbar-pre-session-approval-picker .hbar-composer-permission-trigger')
+      await revealComposerControl(page, execution, copy.session.addMenu)
       await execution.click()
       const executionMenu = page.locator('.hbar-pre-session-approval-popover')
       const plan = executionMenu.locator('[data-choice="plan"]')
@@ -162,8 +174,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(prompt).toHaveValue('Keep this first objective')
       await cancelGoal.click()
       await expect(execution).toHaveAttribute('data-choice', 'plan')
-      await landing.getByRole('button', { name: copy.session.addMenu.open, exact: true }).click()
-      const prepareGoal = landing
+      await revealComposerControl(page, addActions, copy.session.addMenu)
+      await addActions.click()
+      const prepareGoal = page
         .getByRole('group', { name: copy.session.addMenu.menu })
         .getByRole('button', { name: copy.session.intent.goalMenu, exact: true })
       await expect(prepareGoal).toBeEnabled()
@@ -178,7 +191,8 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(prompt).toHaveValue('Keep this first objective')
       await prompt.fill('/cost')
       await expect(send).toBeDisabled()
-      await expect(landing.getByText(labels.slashRequiresSession)).toBeVisible()
+      await openComposerFeedback(page, copy)
+      await expect(page.getByText(labels.slashRequiresSession, { exact: true })).toBeVisible()
       expect(await count()).toBe(1)
     } finally {
       await context.close()

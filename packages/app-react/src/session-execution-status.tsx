@@ -1,5 +1,5 @@
 import { LoaderCircle } from 'lucide-react'
-import { LumenFrame, LumenIcon, LumenIndicator, LumenText, type LumenTone } from '@lumen/app-ui'
+import { LumenContentText, LumenFrame, LumenIcon, LumenIndicator, type LumenTone } from '@lumen/app-ui'
 import type { RunStatus } from '@hbar/contracts'
 import './session-execution-status.css'
 
@@ -20,9 +20,9 @@ export function HbarSessionExecutionStatus({
       ) : (
         <LumenIndicator state="idle" tone={tone} />
       )}
-      <LumenText as="span" variant="label" tone={tone === 'info' ? 'neutral' : tone}>
+      <LumenContentText context="message.inline" tone={tone === 'info' ? 'neutral' : tone}>
         {label}
-      </LumenText>
+      </LumenContentText>
     </LumenFrame>
   )
 }

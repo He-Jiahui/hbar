@@ -3,6 +3,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createInterface } from 'node:readline'
 import { z } from 'zod'
+import type { ToolCallPresentation } from '@hbar/contracts'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { resolvePathLayout } from '@hbar/storage'
 import { startServer } from '../../apps/host/src/server'
@@ -50,6 +51,86 @@ try {
   const workspace = (await kernel.storage.call('workspaces')).find((item) => item.path === workspacePath)
   if (!workspace) throw new Error('Owned tool-presentation workspace is missing')
   const session = await kernel.createSession(workspace.id, 'Tool identity — 原工具调用')
+  if (process.env.HBAR_TOOL_PRESENTATION_ACTIVITY_SEED === '1') {
+    // Test-only durable history, never a provider response or a tool execution.
+    const run = await kernel.storage.call(
+      'enqueue',
+      session.id,
+      'activity-history',
+      { text: 'Historical activity fixture', images: [] },
+      'local-fixture',
+    )
+    await kernel.storage.call('claim', session.id)
+    await kernel.storage.call(
+      'commit',
+      session.id,
+      run.id,
+      'assistant',
+      [{ type: 'text', text: 'Before grouped activity — 前文保留' }],
+      'fold-before',
+    )
+    await kernel.storage.call(
+      'commit',
+      session.id,
+      run.id,
+      'assistant',
+      [{ type: 'thinking', text: 'Evaluating project goals' }],
+      'fold-thought',
+    )
+    const presentations: readonly (ToolCallPresentation | undefined)[] = [
+      undefined,
+      undefined,
+      { version: 1, kind: 'file-read', pathField: 'path' },
+      { version: 1, kind: 'file-write', pathField: 'path' },
+      { version: 1, kind: 'command', commandField: 'command' },
+    ]
+    for (const [index, presentation] of presentations.entries()) {
+      const callId = `fold-${index}`
+      const name = `historical-tool-${index}`
+      await kernel.storage.call(
+        'commit',
+        session.id,
+        run.id,
+        'assistant',
+        [
+          {
+            type: 'tool_call',
+            callId,
+            name,
+            args: { path: '资料/原始雪👩‍💻.txt', command: 'fixture-never-executed' },
+            ...(presentation ? { presentation } : {}),
+          },
+        ],
+        `fold-call-message-${index}`,
+      )
+      await kernel.storage.call(
+        'commit',
+        session.id,
+        run.id,
+        'tool',
+        [
+          {
+            type: 'tool_result',
+            callId,
+            name,
+            text: `Original history output-${index} — 原始输出`,
+            isError: index === 1,
+            outcome: { kind: index === 1 ? 'failed' : 'succeeded', executionStarted: true },
+          },
+        ],
+        `fold-result-message-${index}`,
+      )
+    }
+    await kernel.storage.call(
+      'commit',
+      session.id,
+      run.id,
+      'assistant',
+      [{ type: 'text', text: 'After grouped activity — 后文保留' }],
+      'fold-after',
+    )
+    await kernel.storage.call('setRun', run.id, 'completed')
+  }
   host = await startServer(kernel, { hostname: '127.0.0.1', port: 0, staticRoot: assets })
   const browser = await host.auth.createDevice('Tool presentation browser fixture')
   const observer = await host.auth.createDevice('Tool presentation independent observer')

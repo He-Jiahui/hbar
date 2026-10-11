@@ -3,6 +3,7 @@ import { pathToFileURL } from 'node:url'
 import { HbarError, runSchema } from '@hbar/contracts'
 import { executionOwnershipSchema, type ExecutionOwnership } from '@hbar/contracts/runtime'
 import { Kernel, type KernelProfile } from '@hbar/kernel'
+import { createDiagnosticScope, protectDiagnosticSink } from '@hbar/kernel/diagnostic-scope'
 import {
   KERNEL_RUNTIME_FINGERPRINT,
   runtimeKernelConfigurationSchema,
@@ -45,6 +46,7 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     configuration,
   )
   const coordinator = new RuntimeCoordinatorClient(context.peer)
+  const diagnosticScope = createDiagnosticScope()
   const leases = new Map<string, ExecutionOwnership>()
   const driver = new RuntimeDriverAdapter(context.peer, (runId) => leases.get(runId))
   const plugins = new RuntimePluginAdapter(context.peer, () => {
@@ -138,8 +140,10 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       domain(() =>
         callStorageRpc(
           {
-            execute: (input) =>
-              context.peer.call(readOnly ? 'kernel.preflight.read' : 'kernel.storage', input, z.unknown()),
+            execute: (input) => {
+              const diagnostic = diagnosticScope.current()
+              return context.peer.call(readOnly ? 'kernel.preflight.read' : 'kernel.storage', { ...input, ...(diagnostic ? { diagnostic } : {}) }, z.unknown())
+            },
           },
           method,
           args,
@@ -154,6 +158,11 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
       instanceId: configuration.instanceId,
       lifecycle,
       onFatal: () => process.exit(76),
+      ...(configuration.diagnosticsEnabled ? {
+        diagnostics: protectDiagnosticSink({ emit: event => { void context.peer.notify('runtime.diagnostic', event).catch(() => {}) } }, diagnosticScope),
+        diagnosticScope,
+        diagnosticFullCoverage: configuration.diagnosticsFullCoverage ?? false,
+      } : {}),
       secrets: {
         get: (id) => domain(() => context.peer.call('kernel.secret.get', { id }, z.string().nullable())),
         set: (id, value) => domain(() => context.peer.call('kernel.secret.set', { id, value }, z.undefined())),

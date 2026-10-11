@@ -289,3 +289,75 @@ test('recovering an older receipt cannot downgrade a newer execution target alre
     f.close()
   }
 })
+
+test('plain-directory pages stay ready without mutation requests and recover when the folder becomes Git', async () => {
+  let plain = true
+  const commands: string[] = []
+  const f = fixture({
+    async execute(name) {
+      commands.push(name)
+      if (name !== 'sessionBranchTarget.list') throw new Error('Unexpected plain-directory mutation')
+      return plain
+        ? {
+            ...page(),
+            repository: 'plain',
+            execution: { kind: 'directory', path: 'D:/project', branch: null },
+            base: null,
+            branches: [],
+          }
+        : page()
+    },
+  })
+  try {
+    await f.local.execute('sessionBranchTargetPicker.refresh', target)
+    expect(f.entry()).toMatchObject({
+      phase: 'ready',
+      error: null,
+      branches: [],
+      canLoadMore: false,
+      atCapacity: false,
+      page: { repository: 'plain', execution: { kind: 'directory', branch: null } },
+    })
+    await expectCode(f.local.execute('sessionBranchTargetPicker.select', request), 'CAPABILITY_UNAVAILABLE')
+    await expectCode(f.local.execute('sessionBranchTargetPicker.reconcile', target), 'CAPABILITY_UNAVAILABLE')
+    expect(commands).toEqual(['sessionBranchTarget.list'])
+    expect(f.entry().phase).toBe('ready')
+    plain = false
+    await f.local.execute('sessionBranchTargetPicker.refresh', target)
+    expect(f.entry()).toMatchObject({
+      phase: 'ready',
+      error: null,
+      page: { execution: { kind: 'checkout', branch: 'main' } },
+    })
+    expect(f.entry().branches).toHaveLength(2)
+    expect(f.entry().page?.repository ?? 'git').toBe('git')
+  } finally {
+    f.close()
+  }
+})
+
+test('branch pages retain old Host compatibility and reject contradictory plain/Git facts', () => {
+  const { repository: _repository, ...legacy } = page()
+  const parsedLegacy = sessionBranchTargetPageSchema.parse(legacy)
+  expect(parsedLegacy.repository ?? 'git').toBe('git')
+  expect(Object.keys(parsedLegacy)).toEqual(Object.keys(legacy))
+  const plain = {
+    ...legacy,
+    repository: 'plain',
+    execution: { kind: 'directory', path: 'D:/project', branch: null },
+    base: null,
+    branches: [],
+  }
+  expect(sessionBranchTargetPageSchema.parse(plain).repository).toBe('plain')
+  for (const value of [
+    { ...plain, execution: legacy.execution },
+    { ...plain, execution: { ...plain.execution, branch: 'invented' } },
+    { ...plain, base: legacy.base },
+    { ...plain, branches: legacy.branches },
+    { ...plain, nextCursor: 'not-a-git-page' },
+    { ...plain, incomplete: true },
+    { ...plain, pending: { operationId: 'unconfirmed', owned: false } },
+    { ...legacy, execution: plain.execution },
+  ])
+    expect(sessionBranchTargetPageSchema.safeParse(value).success).toBe(false)
+})

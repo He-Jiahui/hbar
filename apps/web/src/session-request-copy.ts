@@ -63,7 +63,14 @@ export function createSessionRequestLabels(
     status: (value) => (value === null ? unavailable : statuses[value]),
     source: (value) =>
       value === 'compaction' ? choose('上下文压缩', 'Context compaction') : choose('模型请求', 'Model request'),
-    summary: (tokens, elapsed, amount) => `${number.format(tokens)} tokens · ${duration(elapsed)} · ${cost(amount)}`,
+    summary: (tokens, elapsed, amount) =>
+      [
+        `${number.format(tokens)} tokens`,
+        elapsed === null ? null : duration(elapsed),
+        amount.availability === 'available' && amount.value !== null ? cost(amount) : null,
+      ]
+        .filter((value) => value !== null)
+        .join(' · '),
     fields: {
       provider: choose('供应商', 'Provider'),
       model: choose('模型', 'Model'),

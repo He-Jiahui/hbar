@@ -1,5 +1,5 @@
 import { CircleAlert, ChartNoAxesColumnIncreasing } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import './session-interruption-notice.css'
 
 export interface HbarSessionInterruptionLabels {
@@ -21,7 +21,7 @@ export function HbarSessionInterruptionNotice({
   return (
     <LumenFrame className="hbar-session-interruption-notice" data-interruption-status={status} role="status">
       <LumenIcon icon={CircleAlert} tier="sm" />
-      <LumenText as="span">{labels.status[status]}</LumenText>
+      <LumenContentText context="message.inline">{labels.status[status]}</LumenContentText>
       <LumenButton size="s" variant="text" indicator="none" onClick={onOpenStatus}>
         <LumenIcon icon={ChartNoAxesColumnIncreasing} tier="sm" />
         {labels.openStatus}

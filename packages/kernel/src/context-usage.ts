@@ -29,6 +29,7 @@ export function describeContextUsage(sessionId: string, request: ModelRequest, p
     estimated: true,
     inputTokens,
     contextWindow: request.model.contextWindow,
+    contextMode: request.model.contextMode ?? 'standard',
     outputReserve: request.model.maxOutput,
     compactionPercent: percent,
     compactionTokens: compactionInputThreshold(request, percent),

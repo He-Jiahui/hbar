@@ -8,7 +8,7 @@
   flex-direction: column;
   overflow: hidden;
   color: var(--lumen-ink);
-  background: var(--lumen-frost);
+  background: var(--lumen-canvas);
 }
 
 .hbar-app-react-settings-workspace > .lumen-page-header {
@@ -57,7 +57,7 @@
   overflow: auto;
   padding: 0.5rem;
   border-inline-end: 0.0625rem solid var(--lumen-edge);
-  background: var(--lumen-reading);
+  background: var(--lumen-surface-navigation);
 }
 
 .hbar-app-react-settings-groups button {
@@ -110,7 +110,7 @@
 }
 
 .hbar-app-react-settings-content-header h2 {
-  font-size: 0.875rem;
+  font-size: var(--lumen-font-size);
   font-weight: 650;
   line-height: 1.3;
 }
@@ -118,7 +118,7 @@
 .hbar-app-react-settings-content-header p {
   margin-block-start: 0.25rem;
   color: var(--lumen-subtle);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   line-height: 1.45;
 }
 
@@ -182,7 +182,7 @@
   min-inline-size: 0;
   flex: 1 1 12rem;
   color: var(--lumen-muted);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 
 .hbar-app-react-settings-footer-inner > div {
@@ -243,7 +243,7 @@
   }
 
   .hbar-app-react-settings-workspace .lumen-page-heading p {
-    max-inline-size: 10rem;
+    max-inline-size: 100%;
   }
 
   .hbar-app-react-settings-scope {

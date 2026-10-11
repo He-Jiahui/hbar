@@ -23,6 +23,9 @@ import {
 const phase = process.env.HBAR_DISPLAY_NAME_CONSUMER_PHASE ?? 'consumers-v1'
 if (!/^[A-Za-z0-9_-]+$/.test(phase)) throw new Error('Invalid consumer evidence phase')
 const output = `${evidence}/${phase}`
+// This spec owns an explicit trace artifact per locale/viewport. Disable the
+// project-level retained trace so reused browser contexts do not double-start.
+test.use({ trace: 'off' })
 const fileName = 'organization-notes.md'
 const dirtyFile = '# Unsaved original material — 保留原文件草稿\n'
 const attachmentName = 'alias-consumer-material.md'
@@ -58,16 +61,17 @@ async function expectLumenOptions(
   const listbox = control.page().locator(`[id=${JSON.stringify(listboxId)}]`)
   await expect
     .poll(() =>
-      listbox.getByRole('option').evaluateAll(
-        (options, values) =>
-          options
-            .filter((option) => values === null || values.includes(option.getAttribute('data-value') ?? ''))
-            .map((option) => ({ value: option.getAttribute('data-value') ?? '', label: option.textContent }))
-            .sort((a, b) => a.value.localeCompare(b.value)),
-        onlyExpected ? expected.map((option) => option.value) : null,
-      ),
+      listbox
+        .getByRole('option')
+        .evaluateAll(
+          (options, values) =>
+            options
+              .filter((option) => values === null || values.includes(option.getAttribute('data-value') ?? ''))
+              .map((option) => ({ value: option.getAttribute('data-value') ?? '', label: option.textContent })),
+          onlyExpected ? expected.map((option) => option.value) : null,
+        ),
     )
-    .toEqual([...expected].sort((a, b) => a.value.localeCompare(b.value)))
+    .toEqual(expected)
   await control.page().keyboard.press('Escape')
   await expect(control).toHaveAttribute('aria-expanded', 'false')
 }
@@ -111,8 +115,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       f.page.on('console', (message) => {
         if (message.type() === 'warning' || message.type() === 'error') warnings.push(message.text())
       })
-      await f.context.tracing.start({ screenshots: true, snapshots: true })
+      let tracingStarted = false
       try {
+        await f.context.tracing.start({ screenshots: true, snapshots: true })
+        tracingStarted = true
         const api = createWorkspaceSessionCommandClient(f.external)
         const change = async (workspaceId: string, displayName: string | null) => {
           const snapshot = await api.execute('workspaceDisplayNames.get', {})
@@ -195,6 +201,27 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expectLumenOptions(workspaceChoice, expectedWorkspaceOptions, true)
         await expectLumenValue(workspaceChoice, f.ready.secondWorkspace.id)
         await expect(workspaceChoice).toBeFocused()
+        // Exercise the production display-name comparator with labels whose
+        // order differs from both directory insertion order and workspace IDs.
+        await change(f.ready.firstWorkspace.id, 'Zeta project')
+        await change(f.ready.secondWorkspace.id, 'Alpha project')
+        await expectLumenOptions(
+          workspaceChoice,
+          [
+            {
+              value: f.ready.secondWorkspace.id,
+              label: f.copy.commandPalette.workspaceOption('Alpha project', f.ready.secondWorkspace.path),
+            },
+            {
+              value: f.ready.firstWorkspace.id,
+              label: f.copy.commandPalette.workspaceOption('Zeta project', f.ready.firstWorkspace.path),
+            },
+          ],
+          true,
+        )
+        await expectLumenValue(workspaceChoice, f.ready.secondWorkspace.id)
+        await change(f.ready.firstWorkspace.id, sharedAlias)
+        await change(f.ready.secondWorkspace.id, sharedAlias)
         await capture(f, `${phase}/commands-duplicate-${locale}-${width}`)
         palette = await openCommand(f, 'app.setSession')
         await expectLumenOptions(
@@ -295,16 +322,17 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expect(repository).toBeFocused()
         await capture(f, `${phase}/git-duplicate-${locale}-${width}`)
         await change(f.ready.firstWorkspace.id, null)
-        await expectLumenOptions(
-          repository,
-          [
-            ...expectedWorkspaceOptions.filter((option) => option.value !== f.ready.firstWorkspace.id),
-            {
-              value: f.ready.firstWorkspace.id,
-              label: f.copy.status.git.workspaceOption(f.ready.firstWorkspace.name, f.ready.firstWorkspace.path),
-            },
-          ].sort((a, b) => a.value.localeCompare(b.value)),
-        )
+        const resetGitOptions = [
+          {
+            value: f.ready.firstWorkspace.id,
+            label: f.copy.status.git.workspaceOption(f.ready.firstWorkspace.name, f.ready.firstWorkspace.path),
+          },
+          {
+            value: f.ready.secondWorkspace.id,
+            label: f.copy.status.git.workspaceOption(sharedAlias, f.ready.secondWorkspace.path),
+          },
+        ].sort((left, right) => left.label.localeCompare(right.label) || left.value.localeCompare(right.value))
+        await expectLumenOptions(repository, resetGitOptions)
         await expectLumenValue(repository, f.ready.secondWorkspace.id)
         await expect(repository).toBeFocused()
         await status.getByRole('button', { name: f.copy.status.close, exact: true }).click()
@@ -341,7 +369,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       } finally {
         try {
           await f.page.screenshot({ path: `${output}/last-${locale}-${width}.png` })
-          await f.context.tracing.stop({ path: `${output}/trace-${locale}-${width}.zip` })
+          if (tracingStarted) await f.context.tracing.stop({ path: `${output}/trace-${locale}-${width}.zip` })
           await writeFile(
             `${output}/observations-${locale}-${width}.json`,
             JSON.stringify(

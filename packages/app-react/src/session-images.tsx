@@ -11,6 +11,7 @@ import {
 } from 'react'
 import { FileText, X } from 'lucide-react'
 import {
+  LumenContentText,
   LumenIcon,
   LumenButton,
   LumenFrame,
@@ -18,7 +19,6 @@ import {
   LumenImageGallery,
   LumenImageTile,
   LumenImage,
-  LumenText,
   type LumenImageGalleryLabels,
 } from '@lumen/app-ui'
 import {
@@ -356,9 +356,9 @@ function MessageImageContent({
     <LumenFrame ref={container} className="hbar-message-image-content">
       {children(renderImages)}
       {projection?.capacity.exceeded && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {context.labels.capacity(projection.capacity.count, projection.capacity.limit)}
-        </LumenText>
+        </LumenContentText>
       )}
     </LumenFrame>
   )
@@ -408,9 +408,9 @@ function LegacyToolImage({ source, name }: { readonly source: string; readonly n
         image
       )}
       {failed && context && (
-        <LumenText as="span" role="alert">
+        <LumenContentText context="message.inline" role="alert">
           {context.labels.error('DECODE_FAILED')}
-        </LumenText>
+        </LumenContentText>
       )}
       {context && (
         <LumenImageGallery
@@ -452,9 +452,9 @@ export function HbarToolResultImages({
     return (
       <LumenFrame className="hbar-image-entries">
         {result.images.map((artifact, index) => (
-          <LumenText as="span" key={index}>
+          <LumenContentText context="message.inline" key={index}>
             {artifact.name}
-          </LumenText>
+          </LumenContentText>
         ))}
       </LumenFrame>
     )
@@ -555,9 +555,9 @@ function DraftImageAttachmentContent({
           return (
             <LumenFrame key={`file:${index}`} className="hbar-image-file-chip lumen-attachment-chip">
               <LumenIcon icon={FileText} tier="sm" />
-              <LumenText as="span" title={attachment.artifact.name}>
+              <LumenContentText context="message.inline" title={attachment.artifact.name}>
                 {attachment.artifact.name}
-              </LumenText>
+              </LumenContentText>
               <LumenIconButton
                 label={label}
                 size="s"
@@ -571,9 +571,9 @@ function DraftImageAttachmentContent({
         })}
       </LumenFrame>
       {projection?.capacity.exceeded && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {context?.labels.capacity(projection.capacity.count, projection.capacity.limit)}
-        </LumenText>
+        </LumenContentText>
       )}
     </LumenFrame>
   )

@@ -1,4 +1,5 @@
-import { artifactSchema, HbarError, PROTOCOL_VERSION } from '@hbar/contracts'
+import { artifactSchema, HbarError, PROTOCOL_VERSION, rpcSchemas } from '@hbar/contracts'
+import { CONTEXT_COMPACTION_RPC_TIMEOUT_MS } from '@hbar/contracts/commands/run'
 import { createImageArtifactReader, type ImageArtifactReadOptions, type ImageArtifactBytes } from './image-artifacts'
 export {
   MAX_IMAGE_ARTIFACT_BYTES,
@@ -92,6 +93,28 @@ import { HbarClientDiagnostics, type HbarClientOptions } from './diagnostics'
 export { HbarClientDiagnostics, type ClientDiagnosticInput, type HbarClientOptions } from './diagnostics'
 export type { ClientTransport } from './transport'
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'pairing'
+
+function resolveRpcTimeoutMs(method: RpcMethod, params: unknown): number {
+  if (method === 'context.compact') return CONTEXT_COMPACTION_RPC_TIMEOUT_MS
+  if (method === 'command.execute') {
+    const invocation = rpcSchemas['command.execute'].safeParse(params)
+    if (invocation.success && invocation.data.commandId === 'context.compact')
+      return CONTEXT_COMPACTION_RPC_TIMEOUT_MS
+  }
+  return 30_000
+}
+
+function commandDiagnosticIdentity(method: RpcMethod, params: unknown) {
+  if (method !== 'command.execute') return undefined
+  try {
+    const parsed = rpcSchemas['command.execute'].safeParse(params)
+    return parsed.success ? { commandId: parsed.data.commandId, requestId: parsed.data.requestId } : undefined
+  } catch {
+    // Diagnostic inspection cannot affect transport admission or malformed inputs.
+    return undefined
+  }
+}
+
 export class HbarClient implements ClientTransport {
   readonly runtimeStatus: RuntimeStatusClient
   private socket: WebSocket | undefined
@@ -102,6 +125,7 @@ export class HbarClient implements ClientTransport {
       reject(error: Error): void
       timer: ReturnType<typeof setTimeout>
       method: RpcMethod
+      commandId?: string | undefined
       requestId?: string | undefined
       startedAt: number
       bytesOut: number
@@ -205,6 +229,7 @@ export class HbarClient implements ClientTransport {
           phase: 'connection',
           rpcId: String(id),
           method: pending.method,
+          commandId: pending.commandId,
           requestId: pending.requestId,
           errorCode: error.code,
           outcome: 'unknown',
@@ -310,6 +335,7 @@ export class HbarClient implements ClientTransport {
                 rpcId: String(message.id),
                 requestId: pending.requestId,
                 method: pending.method,
+                commandId: pending.commandId,
                 ...(message.error ? { errorCode } : {}),
                 outcome: message.error ? 'failure' : 'success',
                 durationMs,
@@ -369,8 +395,10 @@ export class HbarClient implements ClientTransport {
     return attempt
   }
   call<M extends RpcMethod>(method: M, params: RpcParams<M>): Promise<RpcResults[M]> {
+    const commandIdentity = commandDiagnosticIdentity(method, params)
+    const commandId = commandIdentity?.commandId
     if (this.socket?.readyState !== WebSocket.OPEN) {
-      this.diagnostics.emit({ event: 'rpc.admission_rejected', level: 'warn', phase: 'admission', method, errorCode: 'DISCONNECTED', outcome: 'failure', pending: this.pending.size }, true)
+      this.diagnostics.emit({ event: 'rpc.admission_rejected', level: 'warn', phase: 'admission', method, commandId, requestId: commandIdentity?.requestId, errorCode: 'DISCONNECTED', outcome: 'failure', pending: this.pending.size }, true)
       return Promise.reject(new HbarError('DISCONNECTED', 'Host is not connected'))
     }
     return new Promise((resolve, reject) => {
@@ -381,31 +409,25 @@ export class HbarClient implements ClientTransport {
           ? params.requestId.slice(0, 160)
           : undefined
       let bytesOut = 0
-      const longRunning =
-        method === 'context.compact' ||
-        (method === 'command.execute' &&
-          typeof params === 'object' &&
-          params !== null &&
-          'commandId' in params &&
-          params.commandId === 'context.compact')
+      const timeoutMs = resolveRpcTimeoutMs(method, params)
       const message = JSON.stringify({ jsonrpc: '2.0', id, method, params })
       bytesOut = new TextEncoder().encode(message).byteLength
       const timer = setTimeout(
         () => {
           this.pending.delete(id)
-          this.diagnostics.emit({ event: 'rpc.timeout', level: 'error', phase: 'timeout', instanceId: this.currentHost?.instanceId, rpcId: String(id), requestId, method, errorCode: 'TIMEOUT', outcome: 'unknown', durationMs: performance.now() - startedAt, bytesOut, pending: this.pending.size }, true)
+          this.diagnostics.emit({ event: 'rpc.timeout', level: 'error', phase: 'timeout', instanceId: this.currentHost?.instanceId, rpcId: String(id), requestId, method, commandId, errorCode: 'TIMEOUT', outcome: 'unknown', durationMs: performance.now() - startedAt, bytesOut, pending: this.pending.size }, true)
           reject(new HbarError('TIMEOUT', 'Request timed out'))
         },
-        longRunning ? 300_000 : 30_000,
+        timeoutMs,
       )
-      this.pending.set(id, { resolve: (value) => resolve(value as RpcResults[M]), reject, timer, method, requestId, startedAt, bytesOut })
-      this.diagnostics.emit({ event: 'rpc.sent', level: 'debug', phase: 'transport', instanceId: this.currentHost?.instanceId, rpcId: String(id), requestId, method, outcome: 'unknown', bytesOut, pending: this.pending.size }, false)
+      this.pending.set(id, { resolve: (value) => resolve(value as RpcResults[M]), reject, timer, method, commandId, requestId, startedAt, bytesOut })
+      this.diagnostics.emit({ event: 'rpc.sent', level: 'debug', phase: 'transport', instanceId: this.currentHost?.instanceId, rpcId: String(id), requestId, method, commandId, outcome: 'unknown', bytesOut, pending: this.pending.size }, false)
       try {
         this.socket!.send(message)
       } catch (error) {
         this.pending.delete(id)
         clearTimeout(timer)
-        this.diagnostics.emit({ event: 'rpc.send_error', level: 'error', phase: 'transport', instanceId: this.currentHost?.instanceId, rpcId: String(id), requestId, method, errorCode: error instanceof HbarError ? error.code : 'SEND_FAILED', outcome: 'failure', bytesOut, pending: this.pending.size }, true)
+        this.diagnostics.emit({ event: 'rpc.send_error', level: 'error', phase: 'transport', instanceId: this.currentHost?.instanceId, rpcId: String(id), requestId, method, commandId, errorCode: error instanceof HbarError ? error.code : 'SEND_FAILED', outcome: 'failure', bytesOut, pending: this.pending.size }, true)
         reject(error instanceof Error ? error : new Error('RPC send failed'))
       }
     })

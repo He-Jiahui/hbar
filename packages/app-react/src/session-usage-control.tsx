@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from 'react'
 import { X } from 'lucide-react'
-import { LumenButton, LumenCompactUsage, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenCompactUsage, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import type { SessionControlsState } from '@hbar/app-runtime'
 import { FloatingSurface, useFloatingTrigger } from './floating-surface'
 import './session-usage-control.css'
@@ -203,7 +203,7 @@ export function HbarSessionUsageControl({
         title={presentation.tooltip}
       >
         <ContextUsageRing used={presentation.usedFraction} threshold={presentation.thresholdFraction} />
-        <LumenText as="span">{presentation.trigger}</LumenText>
+        <LumenContentText context="control.label">{presentation.trigger}</LumenContentText>
       </LumenButton>
       <FloatingSurface
         open={open}
@@ -217,7 +217,7 @@ export function HbarSessionUsageControl({
         }}
       >
         <LumenFrame className="hbar-session-usage-heading">
-          <LumenText as="strong">{labels.title}</LumenText>
+          <LumenContentText context="popover.title">{labels.title}</LumenContentText>
           <LumenButton
             type="button"
             size="s"
@@ -229,12 +229,12 @@ export function HbarSessionUsageControl({
             <LumenIcon icon={X} tier="sm" />
           </LumenButton>
         </LumenFrame>
-        <LumenText as="p">{labels.description}</LumenText>
+        <LumenContentText context="popover.body">{labels.description}</LumenContentText>
         {error ? (
           <LumenFrame className="hbar-session-usage-error">
-            <LumenText as="p" role="alert">
+            <LumenContentText context="popover.body" role="alert">
               {labels.error(error)}
-            </LumenText>
+            </LumenContentText>
             <LumenButton type="button" variant="text" indicator="none" onClick={onRefresh}>
               {labels.refresh}
             </LumenButton>
@@ -242,17 +242,17 @@ export function HbarSessionUsageControl({
         ) : presentation.usedFraction !== null ? (
           <>
             <LumenCompactUsage {...presentation.content} />
-            <LumenText as="p">{labels.thresholdLegend}</LumenText>
+            <LumenContentText context="popover.body">{labels.thresholdLegend}</LumenContentText>
           </>
         ) : (
-          <LumenText as="p" role="status">
+          <LumenContentText context="popover.body" role="status">
             {presentation.trigger}
-          </LumenText>
+          </LumenContentText>
         )}
         {presentation.notice && (
-          <LumenText as="p" role="status">
+          <LumenContentText context="popover.body" role="status">
             {presentation.notice}
-          </LumenText>
+          </LumenContentText>
         )}
         <LumenButton
           type="button"

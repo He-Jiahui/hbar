@@ -6,7 +6,7 @@
 .hbar-conversation-selection-error {
   margin: 0.25rem 0 0;
   color: var(--lumen-danger);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   overflow-wrap: anywhere;
 }
 
@@ -28,7 +28,7 @@
   min-block-size: 2.75rem;
   padding: 0.65rem 1rem;
   border-radius: inherit;
-  font-size: 0.9375rem;
+  font-size: calc(var(--lumen-font-size) * 1.071429);
   font-weight: 600;
 
   min-inline-size: max-content;

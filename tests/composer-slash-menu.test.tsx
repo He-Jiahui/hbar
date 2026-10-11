@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { HbarComposerSlashMenu, type HbarComposerSlashLabels } from '../packages/app-react/src/composer-slash-menu'
+import { getShellCopy } from '../apps/web/src/shell-copy'
 
 const labels: HbarComposerSlashLabels = {
   menu: '本地命令',
@@ -46,6 +47,22 @@ function html(input: HbarComposerSlashLabels, selected = 0, term = '') {
     />,
   )
 }
+
+test('compact is a localized filtered command with a small semantic icon', () => {
+  for (const locale of ['zh-CN', 'en-US'] as const) {
+    const copy = getShellCopy(locale).session.slash
+    const item = copy.commands.find((command) => command.id === 'compact')
+    if (!item) throw new Error('Missing compact command')
+    const rendered = html(copy, 0, 'comp')
+    expect(rendered).toContain(item.label)
+    expect(rendered).toContain(item.description)
+    expect(rendered).toContain('data-tier="sm"')
+    expect((rendered.match(/role="option"/g) ?? []).length).toBe(1)
+    expect(copy.error('NOTHING_TO_COMPACT')).not.toContain('NOTHING_TO_COMPACT')
+    expect(copy.error('COMPACTION_BUSY')).not.toContain('COMPACTION_BUSY')
+    expect(html({ ...copy, commands: copy.commands.filter((command) => command.id !== 'compact') }, 0, 'comp')).toBe('')
+  }
+})
 
 test('host-owned long localized command rows remain bounded and keep a valid selected option', () => {
   const rendered = html(labels, 20, 's')

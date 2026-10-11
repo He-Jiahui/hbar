@@ -14,6 +14,10 @@ export const usagePricingSnapshotSchema = z.strictObject({
   source: z.enum(['provider-config', 'fixture']),
   version: z.string().min(1).max(512),
   effectiveAt: z.number().int().nonnegative().nullable(),
+  contextMode: z.enum(['standard', 'max']).optional(),
+  contextTierId: z.string().min(1).max(64).optional(),
+  inputTokensAbove: z.number().int().nonnegative().optional(),
+  multiplier: z.number().min(1).max(100).optional(),
 })
 
 export const usageAttemptDescriptorSchema = z.strictObject({

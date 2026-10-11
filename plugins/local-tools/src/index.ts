@@ -1,5 +1,5 @@
 import { readFile, readdir, realpath, mkdir, writeFile, rename, stat } from 'node:fs/promises'
-import { resolve, relative, dirname, isAbsolute, join, basename } from 'node:path'
+import { resolve, relative, dirname, isAbsolute, join, basename, posix } from 'node:path'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { definePlugin, provide, resolveToolTimeoutMs } from '@hbar/plugin-sdk'
@@ -17,6 +17,9 @@ import {
 } from '@hbar/contracts/workspace-query'
 import { WorkspaceQueryRuntime } from './workspace-query'
 import { formatSearchText } from './search-output'
+import { fileReadActivity, fileWriteActivity } from './file-activity'
+import { FileMutationQueue, restoreFileVersions } from './file-mutations'
+import type { ToolFileChange } from '@hbar/contracts/run-file-changes'
 import { mountedPath, mountedWorkspaceQuery, type WorkspaceMountAccess } from './workspace-mounts'
 export type { WorkspaceMountAccess, WorkspaceMount } from './workspace-mounts'
 export { mountedPath } from './workspace-mounts'
@@ -192,6 +195,7 @@ export async function workspacePath(
 }
 
 export class LocalExecution implements ExecutionProvider {
+  private readonly fileMutations = new FileMutationQueue()
   readonly workspaceQuery: WorkspaceQueryProvider
 
   constructor(
@@ -204,6 +208,7 @@ export class LocalExecution implements ExecutionProvider {
       (workspace, path) => this.workspacePath(workspace, path, false),
       {},
       (workspace) => this.blockedForWorkspace(workspace),
+      (workspace, path) => this.workspacePath(workspace, path, true),
     )
     this.workspaceQuery = mounts ? mountedWorkspaceQuery(query, mounts) : query
   }
@@ -258,13 +263,24 @@ export class LocalExecution implements ExecutionProvider {
     return readFile(path)
   }
   async write(workspace: string, requested: string, text: string, options?: { expectedRevision?: string }) {
+    const path = await this.workspacePath(workspace, requested, true)
+    return this.fileMutations.run([path], () => this.writeUnlocked(workspace, requested, text, options))
+  }
+  private async writeUnlocked(
+    workspace: string,
+    requested: string,
+    text: string,
+    options?: { expectedRevision?: string },
+  ) {
     if (Buffer.byteLength(text) > 2 * 1024 * 1024) throw new HbarError('FILE_LIMIT', 'Write exceeds 2 MiB')
     const path = await this.workspacePath(workspace, requested, true)
     let before = ''
+    let created = false
     try {
       before = await this.read(workspace, requested)
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      created = true
     }
     if (options?.expectedRevision && revision(before) !== options.expectedRevision)
       throw new HbarError('FILE_CONFLICT', 'File changed on disk; reload it before saving')
@@ -283,7 +299,37 @@ export class LocalExecution implements ExecutionProvider {
           if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') throw error
         })
     }
-    return { before, after: text, path: requested, revision: revision(text) }
+    const recordedPath = this.mounts?.get(workspace)
+      ? posix.normalize(requested.replaceAll('\\', '/'))
+      : relative(workspace, path).replaceAll('\\', '/')
+    return { before, after: text, path: recordedPath, revision: revision(text), created }
+  }
+  async restoreFiles(workspace: string, changes: readonly ToolFileChange[], signal: AbortSignal): Promise<void> {
+    const paths = await Promise.all(changes.map((file) => this.workspacePath(workspace, file.path, true)))
+    await this.fileMutations.run(paths, () =>
+      restoreFileVersions(
+        changes,
+        {
+          read: async (path) => {
+            try {
+              return await this.read(workspace, path)
+            } catch (error) {
+              if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return null
+              throw error
+            }
+          },
+          put: async (requested, text) => {
+            if (text !== null) await this.writeUnlocked(workspace, requested, text)
+            else {
+              const path = await this.workspacePath(workspace, requested, true)
+              await Bun.file(path).delete()
+              await this.workspaceQuery.invalidate(workspace, requested)
+            }
+          },
+        },
+        signal,
+      ),
+    )
   }
   async exec(workspace: string, command: string, signal: AbortSignal, options?: ExecOptions): Promise<ToolResult> {
     signal.throwIfAborted()
@@ -328,7 +374,8 @@ export class LocalExecution implements ExecutionProvider {
             '-NoProfile',
             '-NonInteractive',
             '-Command',
-            '$utf8 = New-Object System.Text.UTF8Encoding($false); [Console]::InputEncoding = $utf8; [Console]::OutputEncoding = $utf8; $OutputEncoding = $utf8; ' + command,
+            '$utf8 = New-Object System.Text.UTF8Encoding($false); [Console]::InputEncoding = $utf8; [Console]::OutputEncoding = $utf8; $OutputEncoding = $utf8; ' +
+              command,
           ]
         : ['/bin/sh', '-c', command]
 
@@ -548,6 +595,7 @@ export default definePlugin({
           const bounded = byteBoundedText([result.text])
           return {
             text: bounded.text,
+            activity: fileReadActivity(path, result.text),
             details: {
               startLine: result.startLine,
               endLine: result.endLine,
@@ -563,12 +611,14 @@ export default definePlugin({
         if (mimeType)
           return {
             text: `Read image file ${path} [${mimeType}]`,
+            activity: fileReadActivity(path, null),
             content: [
               { type: 'text', text: `Read image file ${path} [${mimeType}]` },
               { type: 'image', data: Buffer.from(bytes).toString('base64'), mimeType },
             ],
           }
-        return { text: decodeUtf8(bytes) }
+        const text = decodeUtf8(bytes)
+        return { text, activity: fileReadActivity(path, text) }
       },
     })
     if (execution.workspaceQuery) {
@@ -654,7 +704,21 @@ export default definePlugin({
       execute: async (args, c) => {
         c.signal.throwIfAborted()
         const details = await execution.write(c.workspace.path, args.path as string, args.text as string)
-        return { text: `Wrote ${args.path}`, details }
+        return {
+          text: `Wrote ${args.path}`,
+          details: { path: details.path, revision: details.revision, created: details.created },
+          fileChanges:
+            details.created === undefined
+              ? undefined
+              : [
+                  {
+                    path: details.path.replaceAll('\\', '/'),
+                    before: details.created ? null : details.before,
+                    after: details.after,
+                  },
+                ],
+          activity: fileWriteActivity(details.path, 'write', details.before, details.after),
+        }
       },
     })
     register({
@@ -675,7 +739,21 @@ export default definePlugin({
           args.path as string,
           before.replace(oldText, args.newText as string),
         )
-        return { text: `Edited ${args.path}`, details }
+        return {
+          text: `Edited ${args.path}`,
+          details: { path: details.path, revision: details.revision, created: details.created },
+          fileChanges:
+            details.created === undefined
+              ? undefined
+              : [
+                  {
+                    path: details.path.replaceAll('\\', '/'),
+                    before: details.created ? null : details.before,
+                    after: details.after,
+                  },
+                ],
+          activity: fileWriteActivity(details.path, 'edit', details.before, details.after),
+        }
       },
     })
     register({

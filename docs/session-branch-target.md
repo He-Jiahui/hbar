@@ -2,6 +2,10 @@
 
 已有会话的 Composer 分支入口通过 `sessionBranchTarget.*` 命令选择执行目标。新会话首次运行的 Location 契约仍由 `sessionLaunchTarget.*` 管理。
 
+`sessionBranchTarget.list` 将普通目录作为成功的能力查询结果返回：`repository: plain`、`execution.kind: directory`、真实目录路径、空分支与空基础引用。界面保留工程名称，省略分支选择入口；Client 不会为这类结果重试错误或发起分支修改。缺少 `repository` 字段的 Git 页仍按 Git 处理；Host 正常 Git 响应保持原字段集合，兼容现有客户端。分支修改结果的执行类型继续限定为 `checkout | worktree`。
+
+只有受控 Git 探测明确报告未发现仓库、且目录及其祖先没有 `.git` 元数据时，才返回普通目录状态。已有或损坏的 Git 元数据、权限与安全目录检查、输出错误及未确认的分支操作继续报告故障；普通目录查询不会创建仓库。已有 Git 执行绑定丢失仓库时也会报告目标变化。
+
 - 选择本地分支时，Host 校验所捕获的 `refs/heads/*` 与提交 OID。分支已经在本地 Git worktree 检出时，使用 Git 注册的目录；客户端不能提交任意执行路径。
 - 未在其他 worktree 检出的分支使用当前会话的执行目录，执行普通 `git switch --no-guess`。切换冲突保留未提交内容，不强制覆盖或清理文件。
 - 新建分支从捕获的本地分支 OID 创建，新建 worktree 使用 Host 数据目录的受管 worktree 根。新建目录必须在源仓库之外，不能通过符号链接转移到其他位置。

@@ -8,6 +8,8 @@ import {
   LumenFrame,
   LumenIcon,
   LumenText,
+  LumenContentText,
+  LumenRecordRow,
 } from '@lumen/app-ui'
 import type { SessionRequestsRuntime, UsageRequestItem } from '@hbar/app-runtime'
 import { createSessionRequestContext, USAGE_REQUEST_MAX_ITEMS } from '@hbar/app-runtime'
@@ -117,11 +119,11 @@ export function HbarSessionRawMessages({
   const count = Math.min(visible, ordered.length)
   return (
     <LumenFrame className="hbar-session-raw-messages">
-      <LumenText as="p" tone="muted">
+      <LumenContentText context="section.description" tone="muted">
         {labels.raw.count(count, ordered.length)}
-      </LumenText>
+      </LumenContentText>
       {ordered.length === 0 ? (
-        <LumenText as="p">{labels.raw.empty}</LumenText>
+        <LumenContentText context="section.description">{labels.raw.empty}</LumenContentText>
       ) : (
         <LumenCollection as="ul">
           {ordered.slice(0, count).map((message) => (
@@ -205,13 +207,13 @@ export function HbarSessionRequestRecord({
       <HbarLumenDisclosure label={labels.raw.runMessages} open={rawMessages} onOpenChange={setRawMessages}>
         {rawMessages && (
           <>
-            <LumenText as="p" tone="muted">
+            <LumenContentText context="section.description" tone="muted">
               {labels.raw.scope}
-            </LumenText>
+            </LumenContentText>
             {runMessages !== null && item.runId !== null ? (
               <HbarSessionRawMessages key={item.runId} identity={item.runId} messages={runMessages} labels={labels} />
             ) : (
-              <LumenText as="p">{labels.raw.unavailable}</LumenText>
+              <LumenContentText context="section.description">{labels.raw.unavailable}</LumenContentText>
             )}
           </>
         )}
@@ -255,7 +257,7 @@ function RequestList({
   return (
     <LumenFrame className="hbar-session-requests" aria-label={labels.title}>
       <LumenFrame as="header">
-        <LumenText as="h2">{labels.title}</LumenText>
+        <LumenContentText context="section.title">{labels.title}</LumenContentText>
         <LumenButton
           size="s"
           variant="text"
@@ -267,24 +269,26 @@ function RequestList({
           }}
         >
           <LumenIcon icon={RotateCw} tier="sm" />
-          <LumenText as="span">{labels.refresh}</LumenText>
+          <LumenContentText context="control.label">{labels.refresh}</LumenContentText>
         </LumenButton>
       </LumenFrame>
       {busy && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {connected && state.status === 'error' && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {labels.error(state.error ?? 'EXECUTION_FAILED')}
-        </LumenText>
+        </LumenContentText>
       )}
-      {state.status === 'ready' && state.items.length === 0 && <LumenText as="p">{labels.empty}</LumenText>}
+      {state.status === 'ready' && state.items.length === 0 && (
+        <LumenContentText context="section.description">{labels.empty}</LumenContentText>
+      )}
       {state.gap && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.gap}
-        </LumenText>
+        </LumenContentText>
       )}
       <LumenCollection as="ul" aria-busy={busy}>
         {state.items.map((item) => (
@@ -293,15 +297,23 @@ function RequestList({
               open={expanded === item.id}
               onOpenChange={(open) => setExpanded(open ? item.id : null)}
               label={
-                <LumenFrame as="span" className="hbar-session-request-summary">
-                  <LumenFrame as="span">
-                    <LumenText as="strong">{item.modelId}</LumenText>
-                    <LumenText as="span">{labels.time(item.endedAt)}</LumenText>
-                  </LumenFrame>
-                  <LumenText as="span">
-                    {labels.summary(item.input + item.output, sessionRequestLatency(item, item.endedAt), item.cost)}
-                  </LumenText>
-                </LumenFrame>
+                <LumenRecordRow
+                  as="span"
+                  className="hbar-session-request-summary"
+                  title={item.modelId}
+                  description={labels.summary(
+                    item.input + item.output,
+                    sessionRequestLatency(item, item.endedAt),
+                    item.cost,
+                  )}
+                  trailing={
+                    item.endedAt === null ? undefined : (
+                      <LumenContentText context="metadata" tone="muted">
+                        {labels.time(item.endedAt)}
+                      </LumenContentText>
+                    )
+                  }
+                />
               }
             >
               {expanded === item.id && <HbarSessionRequestRecord item={item} messages={messages} labels={labels} />}
@@ -323,9 +335,9 @@ function RequestList({
         </LumenButton>
       )}
       {!state.hasMore && state.items.length >= USAGE_REQUEST_MAX_ITEMS && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.limit(state.items.length)}
-        </LumenText>
+        </LumenContentText>
       )}
     </LumenFrame>
   )
@@ -336,10 +348,12 @@ export const HbarSessionRequestDetails = memo(function HbarSessionRequestDetails
   sessionId,
   labels,
   connected,
+  view = 'all',
 }: {
   readonly sessionId: string
   readonly labels: HbarSessionRequestLabels
   readonly connected: boolean
+  readonly view?: 'all' | 'requests' | 'messages'
 }) {
   const runtime = useHbarRuntime()
   const context = useMemo(() => createSessionRequestContext(runtime.state.timeline, sessionId), [runtime, sessionId])
@@ -349,67 +363,74 @@ export const HbarSessionRequestDetails = memo(function HbarSessionRequestDetails
   )
   const [rawOpen, setRawOpen] = useState(false)
   useEffect(() => {
+    if (view === 'messages') return undefined
     const requests = runtime.state.sessionRequests.create(sessionId)
     setOwner({ sessionId, requests })
     return () => requests.dispose()
-  }, [runtime, sessionId])
+  }, [runtime, sessionId, view])
   const requests = owner?.sessionId === sessionId ? owner.requests : null
   const { messages, revision } = timeline
   const loadingOlder = timeline.olderStatus === 'loading'
+  const rawBody = (
+    <>
+      {messages ? (
+        <HbarSessionRawMessages key={sessionId} identity={sessionId} messages={messages} labels={labels} />
+      ) : (
+        <LumenContentText context="section.description">{labels.raw.unavailable}</LumenContentText>
+      )}
+      {connected && timeline.olderStatus === 'error' && (
+        <LumenContentText context="feedback.message" role="alert">
+          {labels.error(timeline.olderError ?? 'EXECUTION_FAILED')}
+        </LumenContentText>
+      )}
+      {timeline.olderStatus === 'limit' && (
+        <LumenContentText context="feedback.message" role="status">
+          {labels.raw.olderLimit}
+        </LumenContentText>
+      )}
+      {timeline.hasOlder && timeline.olderStatus !== 'limit' && (
+        <LumenButton
+          size="s"
+          variant="text"
+          indicator="none"
+          disabled={!connected || loadingOlder}
+          onClick={() => {
+            void runtime.commands.execute('timeline.loadOlder', { sessionId }).catch(() => undefined)
+          }}
+        >
+          {loadingOlder ? labels.loading : labels.raw.older}
+        </LumenButton>
+      )}
+    </>
+  )
   return (
     <>
-      {requests ? (
-        <RequestList
-          requests={requests}
-          connected={connected}
-          labels={labels}
-          messages={messages}
-          revision={revision}
-        />
-      ) : (
-        <LumenText as="p" role="status">
-          {labels.loading}
-        </LumenText>
-      )}
-      <HbarLumenDisclosure
-        label={labels.raw.sessionMessages}
-        open={rawOpen}
-        onOpenChange={setRawOpen}
-        className="hbar-session-context"
-      >
-        {rawOpen && (
-          <>
-            {messages ? (
-              <HbarSessionRawMessages key={sessionId} identity={sessionId} messages={messages} labels={labels} />
-            ) : (
-              <LumenText as="p">{labels.raw.unavailable}</LumenText>
-            )}
-            {connected && timeline.olderStatus === 'error' && (
-              <LumenText as="p" role="alert">
-                {labels.error(timeline.olderError ?? 'EXECUTION_FAILED')}
-              </LumenText>
-            )}
-            {timeline.olderStatus === 'limit' && (
-              <LumenText as="p" role="status">
-                {labels.raw.olderLimit}
-              </LumenText>
-            )}
-            {timeline.hasOlder && timeline.olderStatus !== 'limit' && (
-              <LumenButton
-                size="s"
-                variant="text"
-                indicator="none"
-                disabled={!connected || loadingOlder}
-                onClick={() => {
-                  void runtime.commands.execute('timeline.loadOlder', { sessionId }).catch(() => undefined)
-                }}
-              >
-                {loadingOlder ? labels.loading : labels.raw.older}
-              </LumenButton>
-            )}
-          </>
-        )}
-      </HbarLumenDisclosure>
+      {view !== 'messages' &&
+        (requests ? (
+          <RequestList
+            requests={requests}
+            connected={connected}
+            labels={labels}
+            messages={messages}
+            revision={revision}
+          />
+        ) : (
+          <LumenContentText context="feedback.detail" role="status">
+            {labels.loading}
+          </LumenContentText>
+        ))}
+      {view === 'messages' ? (
+        rawBody
+      ) : view === 'all' ? (
+        <HbarLumenDisclosure
+          label={labels.raw.sessionMessages}
+          open={rawOpen}
+          onOpenChange={setRawOpen}
+          className="hbar-session-context"
+        >
+          {rawOpen && rawBody}
+        </HbarLumenDisclosure>
+      ) : null}
     </>
   )
 })

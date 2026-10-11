@@ -2,13 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createWorkspaceSessionTargets } from './workspace-session-targets'
 import { CommandError } from '@hbar/commands'
 import {
+  LumenContentText,
   LumenButton,
   LumenDialog,
   LumenFormField,
   LumenFrame,
   LumenInput,
   LumenPopupSelect,
-  LumenText,
 } from '@lumen/app-ui'
 import { PromptTemplateEditor, useHbarRuntimeState, type HbarRuntimeView } from '@hbar/app-react'
 import { preSessionDraftStateSchema } from '@hbar/contracts/commands/pre-session-draft'
@@ -234,10 +234,10 @@ function AvailablePromptTemplatesPage({
     <LumenFrame className="hbar-prompt-templates-page">
       <LumenFrame as="header">
         <LumenFrame>
-          <LumenText as="h1">{copy.title}</LumenText>
-          <LumenText as="p" tone="muted">
+          <LumenContentText context="page.title">{copy.title}</LumenContentText>
+          <LumenContentText context="section.description" tone="muted">
             {copy.detail}
-          </LumenText>
+          </LumenContentText>
         </LumenFrame>
         <LumenButton
           disabled={busy}
@@ -250,22 +250,28 @@ function AvailablePromptTemplatesPage({
           {copy.create}
         </LumenButton>
       </LumenFrame>
-      {state.status === 'loading' ? <LumenText role="status">{copy.loading}</LumenText> : null}
+      {state.status === 'loading' ? (
+        <LumenContentText context="message.inline" role="status">
+          {copy.loading}
+        </LumenContentText>
+      ) : null}
       {targetCatalog.status === 'error' ? (
         <LumenFrame role="alert">
-          <LumenText>{copy.sessionsFailed}</LumenText>
+          <LumenContentText context="message.inline">{copy.sessionsFailed}</LumenContentText>
           <LumenButton onClick={() => void sessionTargets.refresh(workspaceId).catch(report)}>{copy.retry}</LumenButton>
         </LumenFrame>
       ) : null}
-      {targetCatalog.capacityReached ? <LumenText>{copy.sessionCapacity}</LumenText> : null}
+      {targetCatalog.capacityReached ? (
+        <LumenContentText context="message.inline">{copy.sessionCapacity}</LumenContentText>
+      ) : null}
       {state.status === 'error' && state.mutation !== 'failed' ? (
         <LumenFrame className="hbar-prompt-feedback" role="alert">
-          <LumenText>{state.error ?? copy.loadError}</LumenText>
+          <LumenContentText context="message.inline">{state.error ?? copy.loadError}</LumenContentText>
           <LumenButton onClick={() => void api.list(workspaceId, null).catch(report)}>{copy.retry}</LumenButton>
         </LumenFrame>
       ) : null}
       <LumenFrame as="section" className="hbar-prompt-template-list" aria-label={copy.listTitle}>
-        <LumenText as="h2">{copy.listTitle}</LumenText>
+        <LumenContentText context="section.title">{copy.listTitle}</LumenContentText>
         {items.map((template) => (
           <LumenFrame as="article" key={template.id}>
             <LumenFrame>
@@ -277,9 +283,9 @@ function AvailablePromptTemplatesPage({
               >
                 {template.name}
               </LumenButton>
-              <LumenText as="p" tone="muted">
+              <LumenContentText context="section.description" tone="muted">
                 {template.description}
-              </LumenText>
+              </LumenContentText>
             </LumenFrame>
             <LumenFrame className="hbar-prompt-actions">
               <LumenButton
@@ -298,7 +304,9 @@ function AvailablePromptTemplatesPage({
             </LumenFrame>
           </LumenFrame>
         ))}
-        {items.length === 0 && state.status === 'idle' ? <LumenText>{copy.empty}</LumenText> : null}
+        {items.length === 0 && state.status === 'idle' ? (
+          <LumenContentText context="message.inline">{copy.empty}</LumenContentText>
+        ) : null}
       </LumenFrame>
       <LumenFrame as="nav" className="hbar-prompt-pagination">
         <LumenButton
@@ -348,7 +356,7 @@ function AvailablePromptTemplatesPage({
             />
           </LumenFormField>
           <LumenFrame as="section" className="hbar-prompt-variables">
-            <LumenText as="h3">{copy.variables}</LumenText>
+            <LumenContentText context="section.subtitle">{copy.variables}</LumenContentText>
             {draft.variables.map((variable, index) => (
               <LumenFrame className="hbar-prompt-variable" key={index}>
                 <LumenFrame className="hbar-prompt-variable-fields">
@@ -408,7 +416,7 @@ function AvailablePromptTemplatesPage({
       ) : null}
       {selected && !draft ? (
         <LumenFrame as="section" className="hbar-prompt-apply">
-          <LumenText as="h2">{copy.applyTitle}</LumenText>
+          <LumenContentText context="section.title">{copy.applyTitle}</LumenContentText>
           <LumenPopupSelect
             id="prompt-template-target"
             aria-label={copy.target}
@@ -462,7 +470,11 @@ function AvailablePromptTemplatesPage({
               }}
             />
           ))}
-          {replaceConfirmation ? <LumenText role="alert">{copy.confirmReplace}</LumenText> : null}
+          {replaceConfirmation ? (
+            <LumenContentText context="message.inline" role="alert">
+              {copy.confirmReplace}
+            </LumenContentText>
+          ) : null}
           <LumenButton disabled={busy || !targetAvailable} loading={applying} onClick={() => void apply()}>
             {replaceConfirmation ? copy.confirmReplace : copy.apply}
           </LumenButton>
@@ -470,24 +482,24 @@ function AvailablePromptTemplatesPage({
       ) : null}
       {state.mutation === 'unknown' ? (
         <LumenFrame className="hbar-prompt-feedback" role="alert">
-          <LumenText>{copy.unknown}</LumenText>
-          <LumenText tone="muted">
+          <LumenContentText context="message.inline">{copy.unknown}</LumenContentText>
+          <LumenContentText context="message.inline" tone="muted">
             {copy.pendingWorkspace(
               directory.workspaces[state.pendingWorkspaceId ?? workspaceId]?.name ?? copy.otherWorkspace,
             )}
-          </LumenText>
+          </LumenContentText>
           <LumenButton onClick={() => void api.reconcile().catch(report)}>{copy.reconcile}</LumenButton>
         </LumenFrame>
       ) : null}
       {message ? (
-        <LumenText className="hbar-prompt-message" role="status">
+        <LumenContentText context="message.inline" className="hbar-prompt-message" role="status">
           {message}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {error || state.mutation === 'failed' ? (
-        <LumenText role="alert" tone="danger">
+        <LumenContentText context="message.inline" role="alert" tone="danger">
           {error ?? state.error}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       <LumenDialog
         open={deleteTarget !== null}
@@ -522,7 +534,7 @@ function AvailablePromptTemplatesPage({
           </>
         }
       >
-        <LumenText>{deleteTarget?.description}</LumenText>
+        <LumenContentText context="message.inline">{deleteTarget?.description}</LumenContentText>
       </LumenDialog>
     </LumenFrame>
   )

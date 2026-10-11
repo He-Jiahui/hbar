@@ -8,6 +8,8 @@ import { createSessionRequestLabels } from './session-request-copy'
 import { goalLifecycleCopy, goalHistoryCopy } from './goal-lifecycle-copy'
 import type { AgentProfileId } from '@hbar/contracts/commands/agents'
 import { toolFeedbackLabels } from './session-tool-feedback-copy'
+import { contextHistoryCopy } from './context-history-copy'
+import { sessionObservabilityCopy } from './session-observability-copy'
 import type {
   HbarAgentWorkspaceLabels,
   HbarMessageActivityPart,
@@ -563,6 +565,9 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.provider.model.help': '选择后续运行使用的供应商模型。',
         'i18n:settings.provider.thinkingLevel.label': '思考等级',
         'i18n:settings.provider.thinkingLevel.help': '可用等级会随当前模型变化。',
+        'i18n:settings.provider.maxMode.label': '默认启用 MAX 长上下文',
+        'i18n:settings.provider.maxMode.help':
+          '仅对配置了扩展窗口的模型生效，下一次运行使用最大窗口。普通模式超限仍会压缩。MAX 费率、输入阈值和可选加价在供应商的模型配置中设置；按每次请求的实际输入（含缓存）选档，对整次请求计价。',
         'i18n:settings.context.compactionPercent.label': '自动压缩阈值（%）',
         'i18n:settings.context.compactionPercent.help':
           '默认 80%，可设置 30–95%。当前会话的上下文占用达到此比例时，在下一次模型请求前压缩；输出预留空间不足时会提前触发。保存后立即采用。',
@@ -580,7 +585,8 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.groups.general': 'General',
         'i18n:settings.client.resourceWebOpenMode.label': 'Default website opening',
         'i18n:settings.client.resourceFileOpenMode.label': 'Default file opening',
-        'i18n:settings.client.resourceOpenMode.help': 'Right-click to override once. Images load in the built-in viewer after clicking.',
+        'i18n:settings.client.resourceOpenMode.help':
+          'Right-click to override once. Images load in the built-in viewer after clicking.',
         'i18n:settings.groups.session': 'Session defaults',
         'i18n:settings.groups.providers': 'Providers',
         'i18n:settings.groups.extensions': 'Plugins',
@@ -590,6 +596,9 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.provider.model.help': 'Choose the provider model used by future runs.',
         'i18n:settings.provider.thinkingLevel.label': 'Thinking level',
         'i18n:settings.provider.thinkingLevel.help': 'Available levels follow the selected model.',
+        'i18n:settings.provider.maxMode.label': 'Use MAX extended context by default',
+        'i18n:settings.provider.maxMode.help':
+          'Applies to models with configured expanded tiers on the next Run. Standard mode still compacts at capacity. Configure MAX rates, input thresholds and optional markup in the provider model editor. Actual inclusive input selects the tariff for the whole request.',
         'i18n:settings.context.compactionPercent.label': 'Auto-compaction threshold (%)',
         'i18n:settings.context.compactionPercent.help':
           'Defaults to 80%; choose 30–95%. Compact the current session before the next model request at this context occupancy, or earlier to reserve output space. Saved changes apply immediately.',
@@ -771,6 +780,59 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
     confirmRemove: choose('删除供应商', 'Delete provider'),
   }
   const dialog: HbarProviderDialogLabels = {
+    contextPricing: {
+      title: choose('MAX 窗口与计费规则', 'MAX windows and billing rules'),
+      description: choose(
+        '所有费率为 USD / 百万 tokens。MAX 使用最大窗口；实际输入（含缓存）超过阈值时，整次请求改用该档费率。等于阈值仍用较低档。留空缓存费率表示未知；留空 MAX 倍率表示不额外加价。',
+        'Rates are USD per million tokens. MAX uses the largest window. Actual inclusive input above a threshold selects that tariff for the whole request; equality keeps the lower tariff. Blank cache rates mean unknown. Blank MAX markup means no extra surcharge.',
+      ),
+      standard: choose('普通窗口与基础费率', 'Standard window and base rates'),
+      empty: choose(
+        '尚未配置扩展窗口，此模型的 MAX 开关不可用。',
+        'No expanded window is configured. MAX is unavailable for this model.',
+      ),
+      add: choose('添加长上下文档位', 'Add extended context tier'),
+      tier: (index, window) =>
+        choose(
+          `长上下文档位 ${index} · ${window.toLocaleString('zh-CN')} tokens`,
+          `Extended tier ${index} · ${window.toLocaleString('en-US')} tokens`,
+        ),
+      remove: (index) => choose(`删除长上下文档位 ${index}`, `Remove extended tier ${index}`),
+      field: (key) =>
+        ({
+          'i18n:settings.providers.context.standard': choose(
+            '普通上下文窗口（tokens）',
+            'Standard context window (tokens)',
+          ),
+          'i18n:settings.providers.context.expanded': choose(
+            '扩展上下文窗口（tokens）',
+            'Expanded context window (tokens)',
+          ),
+          'i18n:settings.providers.context.threshold': choose(
+            '输入超过此值时改用本档（tokens）',
+            'Apply this tariff when input exceeds (tokens)',
+          ),
+          'i18n:settings.providers.context.input': choose('输入费率（USD / 百万）', 'Input rate (USD / million)'),
+          'i18n:settings.providers.context.output': choose('输出费率（USD / 百万）', 'Output rate (USD / million)'),
+          'i18n:settings.providers.context.cacheRead': choose('缓存读取费率（可选）', 'Cache read rate (optional)'),
+          'i18n:settings.providers.context.cacheWrite': choose('缓存写入费率（可选）', 'Cache write rate (optional)'),
+          'i18n:settings.providers.context.multiplier': choose(
+            'MAX 额外计费倍率（可选）',
+            'Extra MAX billing multiplier (optional)',
+          ),
+        })[key],
+      invalid: (code) =>
+        code === 'custom'
+          ? choose(
+              '窗口和计费阈值必须逐档递增，阈值须小于本档窗口；扩展窗口须大于普通窗口。',
+              'Windows and thresholds must increase by tier. Each threshold must be below its window, and expanded windows must exceed the standard window.',
+            )
+          : choose(
+              '请填写范围内的有效数值；费率不能为负，MAX 倍率须在 1–100 之间。',
+              'Enter a value within range. Rates cannot be negative, and MAX markup must be between 1 and 100.',
+            ),
+      required: choose('（必填）', ' (required)'),
+    },
     addTitle: choose('添加供应商', 'Add provider'),
     editTitle: (name) => choose(`编辑供应商 · ${name}`, `Edit provider · ${name}`),
     description: choose(
@@ -1056,6 +1118,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       openStatus: choose('查看会话状态', 'View session status'),
     },
     liveStatus: {
+      history: contextHistoryCopy(locale),
       label: choose('会话状态', 'Session status'),
       offline: choose('离线 · 状态待确认', 'Offline · Status unconfirmed'),
       statusLabel: (status) => statusLabels[status],
@@ -1184,10 +1247,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       codeBlock: codeBlockCopyLabels(locale),
       thinking: choose('思考中', 'Thinking'),
       thought: choose('思考', 'Thought'),
-      activity: ({ thinkingCount, toolCounts, failedCount, outcomeCounts }) => {
-        const displayCounts = new Map<string, number>()
-        for (const { displayName } of toolCounts)
-          if (displayName) displayCounts.set(displayName, (displayCounts.get(displayName) ?? 0) + 1)
+      activity: ({ thinkingCount, actionCounts, failedCount, outcomeCounts, successRate }) => {
         const sections: HbarMessageActivityPart[][] = []
         if (thinkingCount)
           sections.push([
@@ -1199,9 +1259,18 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
               ),
             },
           ])
-        for (const { name, displayName, count } of toolCounts) {
-          const collision = displayName && (displayCounts.get(displayName) ?? 0) > 1
-          const title = displayName ? (collision ? `${displayName} (${name})` : displayName) : name
+        const categories = [
+          ['tool', choose('工具调用', 'Tool calls')],
+          ['file-read', choose('读取文件', 'Read files')],
+          ['file-write', choose('写入文件', 'Write files')],
+          ['file-edit', choose('编辑文件', 'Edit files')],
+          ['terminal', choose('执行终端', 'Terminal commands')],
+          ['directory', choose('列出目录', 'List directories')],
+          ['search', choose('搜索', 'Searches')],
+        ] as const
+        for (const [category, title] of categories) {
+          const count = actionCounts[category]
+          if (!count) continue
           sections.push([
             { role: 'tool', text: title },
             { role: 'count', text: ` × ${count}` },
@@ -1225,6 +1294,16 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
             : '',
         ]
         for (const text of warnings) if (text) sections.push([{ role: 'warning', text }])
+        if (successRate !== null)
+          sections.push([
+            {
+              role: 'success',
+              text: choose(
+                `成功率 ${Math.round(successRate * 100)}%`,
+                `Success rate ${Math.round(successRate * 100)}%`,
+              ),
+            },
+          ])
         return sections.flatMap((parts, index) => (index ? [{ role: 'separator', text: ' · ' }, ...parts] : parts))
       },
       tool: (name) => name,
@@ -1670,6 +1749,11 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
           description: choose('查看本会话用量和成本', 'Show this session’s usage and costs'),
         },
         { id: 'help', label: '/help', description: choose('浏览可用命令', 'Browse available commands') },
+        {
+          id: 'compact',
+          label: '/compact',
+          description: choose('压缩当前会话的上下文', 'Compact this session’s context'),
+        },
       ],
       select: (name) => choose(`补全 ${name}`, `Complete ${name}`),
       hint: choose(
@@ -1736,7 +1820,17 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         ),
       goalConfirm: choose('确认', 'Confirm'),
       goalCancel: choose('取消', 'Cancel'),
-      error: (code) => choose(`本地命令未完成：${code}`, `Local command did not complete: ${code}`),
+      error: (code) =>
+        code === 'COMPACTION_BUSY' || code === 'BUSY'
+          ? choose(
+              '请等待当前任务或上下文压缩结束后重试。',
+              'Wait for the active task or context compaction to finish, then retry.',
+            )
+          : code === 'NOTHING_TO_COMPACT'
+            ? choose('当前没有可压缩的历史上下文。', 'There is no eligible context history to compact yet.')
+            : code === 'MODEL_NOT_CONFIGURED'
+              ? choose('请先为当前会话选择可用模型。', 'Choose an available model for this session first.')
+              : choose(`本地命令未完成：${code}`, `Local command did not complete: ${code}`),
     },
     addMenu: {
       open: choose('更多操作', 'More actions'),
@@ -1808,6 +1902,37 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         ),
       thinking: choose('推理强度', 'Effort'),
       thinkingTrigger: (level) => choose(`推理强度：${level}`, `Reasoning effort: ${level}`),
+      maxMode: {
+        title: choose('MAX 长上下文', 'MAX extended context'),
+        description: choose(
+          '独立于思考强度，下一次运行使用最大窗口。',
+          'Independent of reasoning effort. Use the largest window for the next Run.',
+        ),
+        unavailable: choose(
+          '此模型未配置扩展窗口，可在设置 → 供应商中添加。',
+          'This model has no expanded window. Add one in Settings → Providers.',
+        ),
+        menu: choose('上下文模式', 'Context mode'),
+        badge: choose('MAX', 'MAX'),
+        trigger: (label) => choose(`${label}，MAX 已启用`, `${label}, MAX enabled`),
+        capacity: (standard, expanded) =>
+          choose(
+            `普通 ${standard.toLocaleString('zh-CN')} → MAX ${expanded.toLocaleString('zh-CN')} tokens`,
+            `Standard ${standard.toLocaleString('en-US')} → MAX ${expanded.toLocaleString('en-US')} tokens`,
+          ),
+        baseRates: (input, output) =>
+          choose(
+            `基础费率：输入 $${input} / 输出 $${output}，每百万 tokens`,
+            `Base rates: input $${input} / output $${output}, per million tokens`,
+          ),
+        rule: (tier) =>
+          choose(
+            `输入 > ${tier.inputTokensAbove.toLocaleString('zh-CN')}：整次请求输入 $${tier.inputPrice} / 输出 $${tier.outputPrice}，每百万 tokens`,
+            `Input > ${tier.inputTokensAbove.toLocaleString('en-US')}: whole-request input $${tier.inputPrice} / output $${tier.outputPrice}, per million tokens`,
+          ),
+        markup: (multiplier) =>
+          choose(`MAX 额外计费倍率：${multiplier}×`, `Extra MAX billing multiplier: ${multiplier}×`),
+      },
       thinkingLevel: (level) => thinkingLevelLabel(locale, level),
       error: (code) => {
         if (['RESULT_UNKNOWN', 'SUBMISSION_PENDING'].includes(code))
@@ -2008,14 +2133,27 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         'Estimates the retained messages, summary and system context in this session; unsent drafts are excluded. Model tokenization, tool definitions and image encoding may differ.',
       ),
       trigger: (value) => choose(`查看当前上下文：${value}`, `View current context: ${value}`),
-      usedPercent: (value) => choose(`${number.format(Math.round(value))}% 已用`, `${number.format(Math.round(value))}% used`),
-      windowUsage: (used, limit) => choose(`约 ${number.format(used)} / ${number.format(limit)} tokens`, `About ${number.format(used)} of ${number.format(limit)} tokens`),
-      threshold: (percent, tokens) => `${number.format(Math.round(percent * 10) / 10)}% · ${number.format(tokens)} tokens`,
+      usedPercent: (value) =>
+        choose(`${number.format(Math.round(value))}% 已用`, `${number.format(Math.round(value))}% used`),
+      windowUsage: (used, limit) =>
+        choose(
+          `约 ${number.format(used)} / ${number.format(limit)} tokens`,
+          `About ${number.format(used)} of ${number.format(limit)} tokens`,
+        ),
+      threshold: (percent, tokens) =>
+        `${number.format(Math.round(percent * 10) / 10)}% · ${number.format(tokens)} tokens`,
       compactionThreshold: choose('自动压缩阈值', 'Auto-compaction threshold'),
       effectiveThreshold: choose('输出预留后的触发点', 'Trigger after output reserve'),
-      untilCompaction: (tokens) => choose(`距离压缩约 ${number.format(tokens)} tokens`, `About ${number.format(tokens)} tokens until compaction`),
-      compactionPending: choose('已达触发点；下次模型请求前压缩可归档的历史。', 'Threshold reached; compact eligible history before the next model request.'),
-      thresholdLegend: choose('圆环表示当前占用，刻度表示压缩触发点。可在设置 → 模型中调整阈值；压缩需要已有可归档的历史。', 'The arc shows current occupancy; the mark shows the compaction point. Adjust the threshold in Settings → Model. Compaction needs eligible history.'),
+      untilCompaction: (tokens) =>
+        choose(`距离压缩约 ${number.format(tokens)} tokens`, `About ${number.format(tokens)} tokens until compaction`),
+      compactionPending: choose(
+        '已达触发点；下次模型请求前压缩可归档的历史。',
+        'Threshold reached; compact eligible history before the next model request.',
+      ),
+      thresholdLegend: choose(
+        '圆环表示当前占用，刻度表示压缩触发点。可在设置 → 模型中调整阈值；压缩需要已有可归档的历史。',
+        'The arc shows current occupancy; the mark shows the compaction point. Adjust the threshold in Settings → Model. Compaction needs eligible history.',
+      ),
       outputReserve: choose('输出预留 tokens', 'Output reserve tokens'),
       remaining: choose('剩余上下文 tokens', 'Remaining context tokens'),
       noModel: choose('未选择模型', 'No model selected'),
@@ -2157,8 +2295,13 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
   const percent = new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 1 })
   const time = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   const at = (timestamp: number) => time.format(timestamp)
-  return {
+  const labels: Omit<HbarSessionMonitoringLabels, 'observability'> = {
     title: choose('会话状态', 'Session status'),
+    tabs: {
+      overview: choose('概览', 'Overview'),
+      requests: choose('请求', 'Requests'),
+      messages: choose('原始消息', 'Raw messages'),
+    },
     requests: createSessionRequestLabels(locale, session.messageBlocks.codeBlock),
     decisions: session.decisions,
     decisionHistory: session.decisionHistory,
@@ -2267,6 +2410,7 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
     rate: (value) => choose(`${number.format(value)} Token/秒`, `${number.format(value)} tokens/s`),
     model: (provider, model) => `${provider} / ${model}`,
   }
+  return { ...labels, observability: sessionObservabilityCopy(locale, labels) }
 }
 
 function createSessionActivityLabels(locale: ShellLocale): HbarSessionActivityLabels {

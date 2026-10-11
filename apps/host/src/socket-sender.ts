@@ -23,7 +23,7 @@ export function sendSocketTextFrame(socket: SocketWritePort, data: string): numb
       socket.close(1013, 'Reconnect to resynchronize')
       return 0
     }
-    socket.send(data)
+    if (socket.send(data) === 0) return 0
     return new TextEncoder().encode(data).byteLength
   } catch {
     try {

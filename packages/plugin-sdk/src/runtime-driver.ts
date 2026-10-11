@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import {
-  contentBlockSchema, idSchema, providerSchema, runSchema, runModeSchema, runSourceSchema,
+  contentBlockSchema, diagnosticEventSchema, idSchema, providerSchema, runSchema, runModeSchema, runSourceSchema,
   sessionEventSchema, thinkingLevelSchema, toolExecutionSchema, toolOutcomeSchema, usageSchema,
 } from '@hbar/contracts'
 import { sessionSchema, workspaceSchema } from '@hbar/contracts/directory'
@@ -17,6 +17,7 @@ export const runtimeModelRequestSchema = z.strictObject({
   messages: z.array(runtimeMessageSchema).max(20_000), model: providerSchema,
   toolNames: z.array(z.string().min(1).max(128)).max(4096).optional(),
   context: z.strictObject({ sessionId: idSchema, purpose: z.enum(['execution', 'context-inspection']).optional(),
+    workspacePath: z.string().min(1).max(4_000).optional(), selectedToolNames: z.array(z.string().min(1).max(128)).max(4096).optional(),
     runId: idSchema.optional(), mode: runModeSchema.optional(), thinking: thinkingLevelSchema.optional(), source: runSourceSchema.optional(),
   }).optional(),
 }).transform((value): ModelRequest => ({
@@ -24,6 +25,8 @@ export const runtimeModelRequestSchema = z.strictObject({
   ...(value.systemContextOffset === undefined ? {} : { systemContextOffset: value.systemContextOffset }),
   ...(value.toolNames === undefined ? {} : { toolNames: value.toolNames }),
   ...(value.context === undefined ? {} : { context: { sessionId: value.context.sessionId,
+    ...(value.context.workspacePath === undefined ? {} : { workspacePath: value.context.workspacePath }),
+    ...(value.context.selectedToolNames === undefined ? {} : { selectedToolNames: value.context.selectedToolNames }),
     ...(value.context.purpose === undefined ? {} : { purpose: value.context.purpose }),
     ...(value.context.runId === undefined ? {} : { runId: value.context.runId }),
     ...(value.context.mode === undefined ? {} : { mode: value.context.mode }),
@@ -60,7 +63,19 @@ export const runtimeDriverStartSchema = z.strictObject({
   steering: z.boolean(),
   ownership: executionOwnershipSchema.optional(),
 })
+export const runtimeModelDiagnosticSchema = diagnosticEventSchema.pick({
+  modelRequestId: true, attemptId: true, upstreamRequestIdSha256: true, httpStatus: true,
+  transportKind: true, transportCode: true, stopReason: true, errorCode: true,
+  failureKind: true, failurePhase: true, streamSubtype: true, streamEventCount: true,
+  streamTextChars: true, streamThinkingChars: true, streamFirstEventMs: true, streamLastEventMs: true,
+  streamErrorClass: true, durationMs: true,
+}).extend({
+  phase: z.enum(['started', 'response', 'transport_failure', 'settled', 'failed', 'cancelled']),
+  purpose: z.enum(['model', 'compaction']), providerId: idSchema, modelSelectionId: idSchema,
+  model: z.string().min(1).max(256), protocol: z.string().min(1).max(128),
+})
 export const runtimeDriverCallbackSchema = z.discriminatedUnion('method', [
+  z.strictObject({ invocationId: idSchema, method: z.literal('modelDiagnostic'), event: runtimeModelDiagnosticSchema }),
   z.strictObject({ invocationId: idSchema, method: z.literal('resolveKey'), modelId: idSchema }),
   z.strictObject({ invocationId: idSchema, method: z.literal('readImage'), id: idSchema }),
   z.strictObject({ invocationId: idSchema, method: z.literal('readFile'), id: idSchema }),

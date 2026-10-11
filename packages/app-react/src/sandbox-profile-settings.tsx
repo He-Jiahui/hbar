@@ -1,6 +1,7 @@
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import { Plus, RefreshCw, Trash2 } from 'lucide-react'
 import {
+  LumenContentText,
   LumenButton,
   LumenCollection,
   LumenCollectionItem,
@@ -193,14 +194,14 @@ function ProfileList({
         {labels.create}
       </LumenButton>
       {state.list.status === 'loading' && !state.list.items.length && (
-        <LumenText as="p" role="status" tone="muted">
+        <LumenContentText context="feedback.message" role="status" tone="muted">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {state.list.error && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {labels.listError(state.list.error)}
-        </LumenText>
+        </LumenContentText>
       )}
       <LumenCollection className="hbar-sandbox-profiles-items">
         {state.list.items.map((profile) => (
@@ -212,12 +213,12 @@ function ProfileList({
               disabled={disabled}
               onClick={() => onOpen({ kind: 'existing', id: profile.id })}
             >
-              <LumenText as="span" className="hbar-sandbox-profiles-item-name">
+              <LumenContentText context="control.label" className="hbar-sandbox-profiles-item-name">
                 {labels.profileName(profile)}
-              </LumenText>
-              <LumenText as="small" tone="muted">
+              </LumenContentText>
+              <LumenContentText context="choice.description" tone="muted">
                 {profile.builtin ? labels.builtin : profile.id}
-              </LumenText>
+              </LumenContentText>
             </LumenNavigationButton>
           </LumenCollectionItem>
         ))}
@@ -246,9 +247,9 @@ function RowIssue({
 }) {
   if (!issue) return null
   return (
-    <LumenText as="small" id={id} tone="danger" className="hbar-sandbox-profiles-issue">
+    <LumenContentText context="form.help" id={id} tone="danger" className="hbar-sandbox-profiles-issue">
       {labels.issue(issue)}
-    </LumenText>
+    </LumenContentText>
   )
 }
 
@@ -292,13 +293,13 @@ function RuleSection({
           <LumenText as="h4" id={headingId}>
             {title}
           </LumenText>
-          <LumenText as="p" tone="muted">
+          <LumenContentText context="form.description" tone="muted">
             {hint}
-          </LumenText>
+          </LumenContentText>
           {warning && (
-            <LumenText as="p" className="hbar-sandbox-profiles-warning">
+            <LumenContentText context="form.description" className="hbar-sandbox-profiles-warning">
               {warning}
-            </LumenText>
+            </LumenContentText>
           )}
         </LumenFrame>
         <LumenButton type="button" variant="outlined" disabled={disabled} onClick={onAdd}>
@@ -307,14 +308,14 @@ function RuleSection({
         </LumenButton>
       </LumenFrame>
       {limitIssue && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {labels.issue(limitIssue)}
-        </LumenText>
+        </LumenContentText>
       )}
       {count === 0 ? (
-        <LumenText as="p" tone="muted">
+        <LumenContentText context="form.description" tone="muted">
           {empty}
-        </LumenText>
+        </LumenContentText>
       ) : (
         <LumenCollection className="hbar-sandbox-profiles-rows">{children}</LumenCollection>
       )}
@@ -368,9 +369,9 @@ function Editor({
   if (editor.status === 'missing')
     return (
       <LumenFrame as="section" className="hbar-sandbox-profiles-editor" aria-label={labels.missing}>
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {labels.missing}
-        </LumenText>
+        </LumenContentText>
       </LumenFrame>
     )
 
@@ -383,7 +384,7 @@ function Editor({
     >
       {confirmation?.kind === 'discard' && (
         <LumenFrame className="hbar-sandbox-profiles-confirm" role="alertdialog" aria-label={labels.discardConfirm}>
-          <LumenText as="p">{labels.discardConfirm}</LumenText>
+          <LumenContentText context="form.description">{labels.discardConfirm}</LumenContentText>
           <LumenFrame className="hbar-sandbox-profiles-actions">
             <LumenButton type="button" variant="contained" onClick={onConfirm}>
               {labels.confirmDiscard}
@@ -396,16 +397,16 @@ function Editor({
       )}
       <LumenFrame as="header" className="hbar-sandbox-profiles-editor-header">
         <LumenFrame className="hbar-sandbox-profiles-section-intro">
-          <LumenText as="h3">{heading}</LumenText>
+          <LumenContentText context="section.subtitle">{heading}</LumenContentText>
           {editor.revision !== null && editor.mode === 'edit' && (
-            <LumenText as="small" tone="muted">
+            <LumenContentText context="form.help" tone="muted">
               {labels.revision(editor.revision)}
-            </LumenText>
+            </LumenContentText>
           )}
           {editor.mode === 'readonly' && editor.status !== 'loading' && (
-            <LumenText as="p" tone="muted">
+            <LumenContentText context="form.description" tone="muted">
               {labels.readonlyHint}
-            </LumenText>
+            </LumenContentText>
           )}
         </LumenFrame>
         <LumenFrame className="hbar-sandbox-profiles-actions">
@@ -464,25 +465,25 @@ function Editor({
       </LumenFrame>
       <LumenFrame className="hbar-sandbox-profiles-feedback" aria-live="polite">
         {editor.status === 'loading' && (
-          <LumenText as="p" role="status" tone="muted">
+          <LumenContentText context="feedback.message" role="status" tone="muted">
             {labels.editorLoading}
-          </LumenText>
+          </LumenContentText>
         )}
         {editor.status === 'saving' && (
-          <LumenText as="p" role="status">
+          <LumenContentText context="feedback.message" role="status">
             {labels.saving}
-          </LumenText>
+          </LumenContentText>
         )}
         {editor.saved && editor.status === 'ready' && !editor.dirty && (
-          <LumenText as="p" role="status">
+          <LumenContentText context="feedback.message" role="status">
             {labels.saved}
-          </LumenText>
+          </LumenContentText>
         )}
         {editor.status === 'unknown' && editor.pending && (
           <LumenFrame className="hbar-sandbox-profiles-recovery">
-            <LumenText as="p" role="alert">
+            <LumenContentText context="feedback.message" role="alert">
               {labels.unknown(editor.pending)}
-            </LumenText>
+            </LumenContentText>
             <LumenButton
               type="button"
               variant="outlined"
@@ -495,9 +496,9 @@ function Editor({
         )}
         {editor.status === 'conflict' && editor.profileId && (
           <LumenFrame className="hbar-sandbox-profiles-recovery">
-            <LumenText as="p" role="alert">
+            <LumenContentText context="feedback.message" role="alert">
               {labels.conflict}
-            </LumenText>
+            </LumenContentText>
             <LumenButton
               type="button"
               variant="outlined"
@@ -509,14 +510,14 @@ function Editor({
           </LumenFrame>
         )}
         {editor.status === 'failed' && editor.error && (
-          <LumenText as="p" role="alert">
+          <LumenContentText context="feedback.message" role="alert">
             {labels.error(editor.error)}
-          </LumenText>
+          </LumenContentText>
         )}
         {actionError && editor.status !== 'failed' && editor.status !== 'unknown' && (
-          <LumenText as="p" role="alert">
+          <LumenContentText context="feedback.message" role="alert">
             {labels.error(actionError)}
-          </LumenText>
+          </LumenContentText>
         )}
         {confirmation?.kind === 'delete' && confirmation.editorId === editor.editorId && (
           <LumenFrame
@@ -524,7 +525,7 @@ function Editor({
             role="alertdialog"
             aria-label={labels.deleteConfirm(confirmation.name)}
           >
-            <LumenText as="p">{labels.deleteConfirm(confirmation.name)}</LumenText>
+            <LumenContentText context="form.description">{labels.deleteConfirm(confirmation.name)}</LumenContentText>
             <LumenFrame className="hbar-sandbox-profiles-actions">
               <LumenButton type="button" variant="contained" tone="danger" onClick={onConfirm}>
                 {labels.confirmDelete}
@@ -931,16 +932,16 @@ function Editor({
         <LumenFrame as="section" className="hbar-sandbox-profiles-section" aria-label={labels.effective.title}>
           <LumenText as="h4">{labels.effective.title}</LumenText>
           {editor.resolveError ? (
-            <LumenText as="p" role="alert">
+            <LumenContentText context="feedback.message" role="alert">
               {labels.effective.unresolved(editor.resolveError.message)}
-            </LumenText>
+            </LumenContentText>
           ) : (
             editor.resolved && (
               <>
-                <LumenText as="p">
+                <LumenContentText context="form.description">
                   {labels.effective.chain(editor.resolved.chain.map((link) => nameOf(link.id)))}
-                </LumenText>
-                <LumenText as="p" tone="muted">
+                </LumenContentText>
+                <LumenContentText context="form.description" tone="muted">
                   {labels.effective.summary({
                     escalation: labels.escalationOptions[editor.resolved.escalation],
                     fileDefault: labels.accessOptions[editor.resolved.filesystem.default],
@@ -948,15 +949,15 @@ function Editor({
                       ? labels.networkOptions.enabled
                       : labels.networkOptions.disabled,
                   })}
-                </LumenText>
-                <LumenText as="p" tone="muted">
+                </LumenContentText>
+                <LumenContentText context="form.description" tone="muted">
                   {labels.effective.rules({
                     grants: editor.resolved.filesystem.grants.length,
                     commands: editor.resolved.commands.rules.length,
                     tools: editor.resolved.tools.rules.length,
                     environment: Object.keys(editor.resolved.environment.set).length,
                   })}
-                </LumenText>
+                </LumenContentText>
               </>
             )
           )}
@@ -1004,10 +1005,10 @@ export function HbarSandboxProfilesView(props: HbarSandboxProfilesViewProps) {
     <LumenFrame as="section" className="hbar-sandbox-profiles" aria-label={labels.title}>
       <LumenFrame as="header" className="hbar-sandbox-profiles-header">
         <LumenFrame className="hbar-sandbox-profiles-section-intro">
-          <LumenText as="h2">{labels.title}</LumenText>
-          <LumenText as="p" tone="muted">
+          <LumenContentText context="section.title">{labels.title}</LumenContentText>
+          <LumenContentText context="form.description" tone="muted">
             {labels.description}
-          </LumenText>
+          </LumenContentText>
         </LumenFrame>
         <LumenButton
           type="button"
@@ -1020,24 +1021,24 @@ export function HbarSandboxProfilesView(props: HbarSandboxProfilesViewProps) {
         </LumenButton>
       </LumenFrame>
       {!state.available ? (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.unavailable}
-        </LumenText>
+        </LumenContentText>
       ) : (
         <>
           {!connected && (
-            <LumenText as="p" role="status">
+            <LumenContentText context="feedback.message" role="status">
               {labels.disconnected}
-            </LumenText>
+            </LumenContentText>
           )}
           <LumenFrame className="hbar-sandbox-profiles-body">
             <ProfileList labels={labels} state={state} disabled={!connected || Boolean(pending)} onOpen={onOpen} />
             {state.editor ? (
               <Editor {...props} editor={state.editor} />
             ) : (
-              <LumenText as="p" tone="muted" className="hbar-sandbox-profiles-placeholder">
+              <LumenContentText context="form.description" tone="muted" className="hbar-sandbox-profiles-placeholder">
                 {labels.noSelection}
-              </LumenText>
+              </LumenContentText>
             )}
           </LumenFrame>
         </>

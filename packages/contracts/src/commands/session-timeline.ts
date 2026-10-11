@@ -27,4 +27,9 @@ const resultSchema = z.strictObject({
 export const sessionTimelineCommands = {
   'timeline.loadOlder': defineCommand(metadata('timeline.loadOlder'), inputSchema, resultSchema),
   'timeline.retry': defineCommand(metadata('timeline.retry'), inputSchema, resultSchema),
+  'timeline.contextHistory': defineCommand(
+    metadata('timeline.contextHistory'),
+    inputSchema.extend({ before: z.number().int().positive().optional() }),
+    resultSchema,
+  ),
 }

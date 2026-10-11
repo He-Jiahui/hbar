@@ -118,6 +118,9 @@ export const operationWatchResultSchema = z.strictObject({
 })
 export type SubmitRunInput = z.output<typeof submitRunInputSchema>
 export type RunAccepted = z.output<typeof runAcceptedSchema>
+export const CONTEXT_COMPACTION_KERNEL_TIMEOUT_MS = 300_000
+export const CONTEXT_COMPACTION_COMMAND_TIMEOUT_MS = CONTEXT_COMPACTION_KERNEL_TIMEOUT_MS + 5_000
+export const CONTEXT_COMPACTION_RPC_TIMEOUT_MS = CONTEXT_COMPACTION_COMMAND_TIMEOUT_MS + 5_000
 export interface OperationWatchResult {
   readonly snapshot: z.output<typeof operationSnapshotSchema>
   readonly events: readonly SessionEvent[]
@@ -373,7 +376,7 @@ export const runCommands = {
       descriptionKey: 'commands.context.compact.description',
       surfaces: ['cli', 'tui', 'api', 'palette'],
       cancelMode: 'cooperative',
-      timeoutMs: 125_000,
+      timeoutMs: CONTEXT_COMPACTION_COMMAND_TIMEOUT_MS,
       maxConcurrent: 1,
       cli: {
         arguments: [

@@ -1,4 +1,4 @@
-import { LumenButton, LumenFrame, LumenText, LumenUsage05 } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenUsage05 } from '@lumen/app-ui'
 import type { UsageBudgetRuntime } from '@hbar/app-runtime'
 import { useHbarRuntimeState } from './runtime'
 export interface HbarUsageBudgetLabels {
@@ -39,7 +39,11 @@ export function HbarUsageBudget({ runtime, labels }: HbarUsageBudgetProps) {
   return (
     <LumenFrame as="section" aria-label={labels.title}>
       <LumenUsage05 content={{ budget }} />
-      {state.pendingSessionId ? <LumenText as="p">{labels.pendingTarget(state.pendingSessionId)}</LumenText> : null}
+      {state.pendingSessionId ? (
+        <LumenContentText context="section.description">
+          {labels.pendingTarget(state.pendingSessionId)}
+        </LumenContentText>
+      ) : null}
       {state.pendingStatus === 'unknown' ? (
         <LumenButton
           onClick={() => {

@@ -1,4 +1,4 @@
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame } from '@lumen/app-ui'
 import { EXTENSION_PAGE_SIZE } from '@hbar/app-runtime'
 
 export interface ExtensionPaginationLabels {
@@ -22,9 +22,9 @@ export function ExtensionPagination({
   if (pages <= 1) return null
   return (
     <LumenFrame className="hbar-app-react-extension-pagination">
-      <LumenText as="small" role="status">
+      <LumenContentText context="record.description" role="status">
         {labels.page(page + 1, pages, count)}
-      </LumenText>
+      </LumenContentText>
       <LumenButton variant="text" disabled={page === 0} onClick={() => onPage(page - 1)}>
         {labels.previous}
       </LumenButton>

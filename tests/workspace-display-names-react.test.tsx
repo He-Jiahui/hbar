@@ -71,10 +71,13 @@ function feedback(value: WorkspaceDisplayNamesState, locale: ShellLocale = 'en-U
     />,
   )
 }
-function button(html: string, label: string) {
-  const result = [...html.matchAll(/<button\b[^>]*>[\s\S]*?<\/button>/g)].find(
+function findButton(html: string, label: string) {
+  return [...html.matchAll(/<button\b[^>]*>[\s\S]*?<\/button>/g)].find(
     ([markup]) => markup.replace(/<[^>]*>/g, '') === label,
   )?.[0]
+}
+function button(html: string, label: string) {
+  const result = findButton(html, label)
   if (!result) throw new Error(`Expected localized button: ${label}`)
   return result
 }
@@ -367,7 +370,9 @@ test('read failure during unknown offers exact receipt check, never a misleading
   expect(html).toContain(labels.unknown)
   expect(html).toContain(labels.offline)
   expect(button(html, labels.reconcile)).toContain('disabled=""')
-  expect(html).not.toContain(labels.refresh)
+  expect(findButton(html, labels.refresh)).toBeUndefined()
+  expect(findButton(html, labels.save)).toBeUndefined()
+  expect(html).not.toContain('unknown-key')
   expect(html).not.toContain('PRIVATE_READ_DETAIL')
 })
 

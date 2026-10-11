@@ -21,7 +21,7 @@
   background: var(--lumen-reading);
 }
 .hbar-proposed-plan-heading {
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
 }
 .hbar-proposed-plan-document {
   min-inline-size: 0;
@@ -30,13 +30,13 @@
   overscroll-behavior: contain;
   padding: 16px;
   border-block: 0.0625rem solid var(--lumen-edge);
-  font-size: 0.875rem;
+  font-size: var(--lumen-font-size);
   line-height: 1.65;
   overflow-wrap: anywhere;
   background: var(--lumen-glass);
 }
 .hbar-proposed-plan-document h1 {
-  font-size: 1.25rem;
+  font-size: calc(var(--lumen-font-size) * 1.428571);
   line-height: 1.4;
 }
 .hbar-proposed-plan-document h2,
@@ -44,7 +44,7 @@
 .hbar-proposed-plan-document h4,
 .hbar-proposed-plan-document h5,
 .hbar-proposed-plan-document h6 {
-  font-size: 0.9375rem;
+  font-size: calc(var(--lumen-font-size) * 1.071429);
   line-height: 1.5;
 }
 .hbar-proposed-plan-document :is(h1, h2, h3, h4, h5, h6) {
@@ -62,7 +62,7 @@
 .hbar-proposed-plan-document pre {
   max-inline-size: 100%;
   overflow: auto;
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
 }
 .hbar-proposed-plan-document img {
   max-inline-size: 100%;
@@ -100,6 +100,6 @@
 .hbar-proposed-plan-scope {
   margin: 0;
   padding: 8px 12px;
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   overflow-wrap: anywhere;
 }

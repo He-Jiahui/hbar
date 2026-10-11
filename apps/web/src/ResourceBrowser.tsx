@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useStore } from 'zustand'
 import { ArrowLeft, ArrowRight, RefreshCw } from 'lucide-react'
-import { LumenFrame, LumenIcon, LumenIconButton, LumenInput, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenFrame, LumenIcon, LumenIconButton, LumenInput } from '@lumen/app-ui'
 import type { ResourceBrowserController } from './resource-browser-controller'
 import type { ShellLocale } from './shell-copy'
 import './ResourceBrowser.css'
@@ -259,17 +259,17 @@ function BrowserContent({
         </LumenFrame>
       </LumenFrame>
       {state?.loading && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {(error || state?.error || state?.failed) && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {labels.error}
-        </LumenText>
+        </LumenContentText>
       )}
       <LumenFrame ref={viewport} className="hbar-resource-browser-viewport">
-        {!controller.native && <LumenText as="p">{labels.unavailable}</LumenText>}
+        {!controller.native && <LumenContentText context="section.description">{labels.unavailable}</LumenContentText>}
       </LumenFrame>
     </LumenFrame>
   )

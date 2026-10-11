@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, type ReactNode, type KeyboardEvent, type Mous
 import { Check, Circle, Folder, MessageSquare } from 'lucide-react'
 import type { DirectoryState } from '@hbar/app-runtime'
 import {
+  LumenContentText,
   LumenActionMenu,
   LumenButton,
   LumenFrame,
@@ -78,9 +79,9 @@ export function SessionRenameRecovery({
       role="group"
       aria-label={labels.form(target.originalTitle)}
     >
-      <LumenText as="strong">{labels.form(target.originalTitle)}</LumenText>
+      <LumenContentText context="record.title">{labels.form(target.originalTitle)}</LumenContentText>
       <LumenInput aria-label={labels.title} value={rename.draft} readOnly />
-      <LumenText as="p" role={busy ? 'status' : 'alert'}>
+      <LumenContentText context="feedback.message" role={busy ? 'status' : 'alert'}>
         {checking
           ? labels.checking
           : busy
@@ -88,7 +89,7 @@ export function SessionRenameRecovery({
             : unknown
               ? labels.unknown
               : labels.error(rename.error ?? 'STALE_TARGET')}
-      </LumenText>
+      </LumenContentText>
       <LumenButton
         size="s"
         disabled={busy || (unknown && !connected)}
@@ -157,13 +158,19 @@ export function SessionNavigationRow({
   const timestamp = responseTime ? responseTime.at : session.updatedAt
   const sessionTime =
     own && rename.status === 'succeeded' && session.title === rename.draft.trim() ? (
-      <LumenText role="status" size="s" tone="subtle" className="hbar-app-react-session-time">
+      <LumenContentText
+        context="message.inline"
+        role="status"
+        size="s"
+        tone="subtle"
+        className="hbar-app-react-session-time"
+      >
         {copy.saved}
-      </LumenText>
+      </LumenContentText>
     ) : timestamp === null ? (
-      <LumenText size="s" tone="subtle" className="hbar-app-react-session-time">
+      <LumenContentText context="message.inline" size="s" tone="subtle" className="hbar-app-react-session-time">
         {responseTime?.emptyLabel}
-      </LumenText>
+      </LumenContentText>
     ) : (
       <LumenText
         as="time"
@@ -241,18 +248,18 @@ export function SessionNavigationRow({
               {sessionTime}
               <SessionActivityIndicator execution={metadata.execution} />
             </LumenFrame>
-            <LumenText as="span" size="s" variant="supporting" className="hbar-app-react-session-context-line">
+            <LumenContentText context="message.inline" size="s" className="hbar-app-react-session-context-line">
               <LumenIcon icon={Folder} tier="sm" />
-              <LumenText
-                as="span"
+              <LumenContentText
+                context="metadata"
                 size="s"
-                variant="supporting"
+
                 className="hbar-app-react-session-workspace-label"
                 title={metadata.workspacePath ?? metadata.workspaceName}
               >
                 {metadata.workspaceName}
-              </LumenText>
-            </LumenText>
+              </LumenContentText>
+            </LumenContentText>
           </>
         ) : (
           <>
@@ -340,7 +347,11 @@ export function SessionNavigationRow({
               </>
             )}
           </LumenFrame>
-          <LumenText as="p" id={feedbackId} role={rename.status === 'failed' || unknown ? 'alert' : 'status'}>
+          <LumenContentText
+            context="feedback.message"
+            id={feedbackId}
+            role={rename.status === 'failed' || unknown ? 'alert' : 'status'}
+          >
             {unknown
               ? copy.unknown
               : rename.status === 'reconciling'
@@ -350,7 +361,7 @@ export function SessionNavigationRow({
                   : rename.error
                     ? copy.error(rename.error)
                     : null}
-          </LumenText>
+          </LumenContentText>
         </LumenFrame>
       ) : (
         <>

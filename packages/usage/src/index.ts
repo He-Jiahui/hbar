@@ -8,23 +8,9 @@ import {
   type UsageSource,
 } from '@hbar/contracts/usage'
 import type { ProviderConfig, Usage } from '@hbar/contracts'
+import { configuredContextCost, contextPricing } from './context-pricing'
 
 export * from './service'
-
-function pricing(model: ProviderConfig): UsageAttemptDescriptor['pricing'] {
-  const fixture = model.protocol === 'mock'
-  return {
-    available: fixture || model.inputPrice > 0 || model.outputPrice > 0,
-    currency: 'USD',
-    inputPerMillion: model.inputPrice,
-    outputPerMillion: model.outputPrice,
-    cacheReadPerMillion: null,
-    cacheWritePerMillion: null,
-    source: fixture ? 'fixture' : 'provider-config',
-    version: `pricing-v1:${model.id}:${model.model}:${model.inputPrice}:${model.outputPrice}`,
-    effectiveAt: null,
-  }
-}
 
 export function describeUsageAttempt(
   attemptId: string,
@@ -37,7 +23,7 @@ export function describeUsageAttempt(
     providerId: model.id,
     modelId: model.model,
     modelSelectionId: modelSelectionId(model.id, model.model, model.models.length),
-    pricing: pricing(model),
+    pricing: contextPricing(model),
   })
 }
 
@@ -49,9 +35,20 @@ export function createUsageFact(input: {
   readonly model: ProviderConfig
 }): UsageRecordedData {
   const descriptor = describeUsageAttempt(input.attemptId, input.source, input.model)
+  const configured = Boolean(
+    input.model.contextTiers?.length ||
+    input.model.maxModePricingMultiplier ||
+    input.model.cacheReadPrice !== undefined ||
+    input.model.cacheWritePrice !== undefined,
+  )
+  const pricing = configured ? contextPricing(input.model, input.usage) : descriptor.pricing
   return usageRecordedDataSchema.parse({
     ...input.usage,
     ...descriptor,
+    pricing,
+    ...(configured && pricing.available && input.model.protocol !== 'mock'
+      ? { cost: configuredContextCost(input.usage, pricing) }
+      : {}),
     accountingVersion: USAGE_ACCOUNTING_VERSION,
     usageId: `${input.runId ?? 'session'}:${input.attemptId}:${input.source}`,
     cacheEligibleInput: null,

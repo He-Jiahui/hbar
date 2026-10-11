@@ -8,6 +8,7 @@ import {
   DEFAULT_COMPACTION_PERCENT,
   MIN_COMPACTION_PERCENT,
   MAX_COMPACTION_PERCENT,
+  MAX_MODE_SETTING,
 } from '@hbar/contracts/commands/models'
 import {
   settingsDescriptionSchema,
@@ -124,6 +125,20 @@ export const HBAR_SETTINGS_DESCRIPTION: SettingsDescription = freeze(
           callbackVersion: 1,
           dependsOn: [path('provider.model')],
         },
+      },
+      {
+        path: path(MAX_MODE_SETTING),
+        type: 'boolean',
+        nullable: false,
+        defaultValue: false,
+        allowedScopes: ['global', 'workspace', 'session'],
+        applyMode: 'nextRun',
+        labelKey: 'i18n:settings.provider.maxMode.label',
+        helpKey: 'i18n:settings.provider.maxMode.help',
+        group: 'model',
+        order: 25,
+        component: 'CheckBox',
+        multiple: false,
       },
       {
         path: path('session.defaultBudget'),

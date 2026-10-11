@@ -73,6 +73,89 @@ test('browser command adapter publishes typed queries and external actions', asy
   }
 })
 
+test('browser commands resolve the current plugin instance after remount instead of retaining the old policy', async () => {
+  const previous: string[] = []
+  const replacement: string[] = []
+  const tracked = (calls: string[]) =>
+    service({
+      status: async () => {
+        calls.push('status')
+        return { available: true, contexts: [page], history: [] }
+      },
+      navigate: async () => {
+        calls.push('navigate')
+        return page
+      },
+      snapshot: async () => {
+        calls.push('snapshot')
+        return { page, text: 'current snapshot', truncated: false }
+      },
+      click: async () => {
+        calls.push('click')
+        return page
+      },
+      type: async () => {
+        calls.push('type')
+        return page
+      },
+      press: async () => {
+        calls.push('press')
+        return page
+      },
+      screenshot: async () => {
+        calls.push('screenshot')
+        return { page, mime: 'image/png', data: 'iVBORw0KGgo=', truncated: false }
+      },
+      evaluate: async () => {
+        calls.push('evaluate')
+        return { value: 'current policy' }
+      },
+      close: async () => {
+        calls.push('close')
+        return { closed: true }
+      },
+      history: async () => {
+        calls.push('history')
+        return [page.url]
+      },
+    })
+  let current = tracked(previous)
+  const commands = createBrowserCommands(() => current)
+  const actor = { actorId: 'paired-device' }
+  try {
+    await commands.execute('browser.status', { sessionId: 'session-1' }, actor)
+    current = tracked(replacement)
+    const target = { sessionId: 'session-1', contextId: page.contextId, pageId: page.pageId }
+    await commands.execute('browser.status', { sessionId: target.sessionId }, actor)
+    await commands.execute('browser.navigate', { ...target, url: page.url }, actor)
+    await commands.execute('browser.snapshot', target, actor)
+    await commands.execute('browser.click', { ...target, selector: '#confirm' }, actor)
+    await commands.execute('browser.type', { ...target, selector: '#value', text: 'current value' }, actor)
+    await commands.execute('browser.press', { ...target, key: 'Enter' }, actor)
+    await commands.execute('browser.screenshot', { ...target, fullPage: false }, actor)
+    expect(await commands.execute('browser.evaluate', { ...target, expression: '1' }, actor)).toEqual({
+      value: 'current policy',
+    })
+    await commands.execute('browser.history', { sessionId: target.sessionId, contextId: page.contextId }, actor)
+    await commands.execute('browser.close', target, actor)
+    expect(previous).toEqual(['status'])
+    expect(replacement).toEqual([
+      'status',
+      'navigate',
+      'snapshot',
+      'click',
+      'type',
+      'press',
+      'screenshot',
+      'evaluate',
+      'history',
+      'close',
+    ])
+  } finally {
+    commands.dispose()
+  }
+})
+
 test('browser external actions propagate cancellation and report an unknown result after entry', async () => {
   const entered = Promise.withResolvers<void>()
   let calls = 0

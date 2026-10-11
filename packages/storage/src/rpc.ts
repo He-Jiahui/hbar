@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { HbarError } from '@hbar/contracts'
+import { HbarError, diagnosticCorrelationSchema } from '@hbar/contracts'
 import { executionOwnershipSchema } from '@hbar/contracts/runtime'
 import type { StorageMethods } from './types'
 import { STORAGE_RPC_METHODS } from './rpc-catalog'
@@ -8,6 +8,7 @@ export const storageRpcCallSchema = z.strictObject({
   method: z.enum(STORAGE_RPC_METHODS),
   args: z.array(z.unknown()).max(32),
   authority: executionOwnershipSchema.optional(),
+  diagnostic: diagnosticCorrelationSchema.optional(),
 })
 export type StorageRpcCall = z.infer<typeof storageRpcCallSchema>
 export interface StorageRpcPort {

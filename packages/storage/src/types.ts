@@ -44,11 +44,13 @@ import type { UsageReadInput, UsageReadPage } from '@hbar/usage'
 import type { ExecutionOwnership, RuntimeOwner, RecoveryChain } from '@hbar/contracts/runtime'
 import type { RuntimeRecoveryScope, RuntimeRecoveryRecord } from './runtime-state'
 import type { GoalHistoryInput, GoalHistoryPage } from '@hbar/contracts/commands/goal-history'
+import type { ContextHistoryInput, ContextHistoryPage, ContextCompactionRecord } from '@hbar/contracts/context-history'
 import type { NotificationStorage } from './notifications'
 import type { createChatDatabaseProjection } from './chat-database-projection'
 import type { createChatDatabaseArtifactStorage } from './chat-database-artifacts'
 import type { createChatDatabaseResourceLedger } from './chat-database-resource-ledger'
 import type { createChatDatabaseJournal } from './chat-database-journal'
+import type { DiagnosticEvent } from '@hbar/contracts'
 import type { createChatDatabaseAutomaticPlan } from './chat-database-automatic-plan'
 import type { createChatDatabaseTaskStorage } from './chat-database-tasks'
 import type { createChatDatabaseDeletionStorage } from './chat-database-deletion'
@@ -464,6 +466,20 @@ export interface StorageMethods {
     providerData?: unknown,
   ): { message: Message; event: SessionEvent }
   snapshot(sessionId: string, before?: number, limit?: number): SessionSnapshot
+  contextHistory(input: ContextHistoryInput): ContextHistoryPage
+  sessionObservability(input: import('@hbar/contracts/session-observability').SessionObservabilityInput): import('@hbar/contracts/session-observability').SessionObservabilityReport
+  compactionStart(
+    input: Pick<ContextCompactionRecord, 'id' | 'sessionId' | 'runId' | 'modelId' | 'contextWindow' | 'beforeTokens'> & {
+      trigger: NonNullable<ContextCompactionRecord['trigger']>
+    },
+  ): SessionEvent
+  compactionFinish(
+    record: ContextCompactionRecord,
+    completion: Pick<
+      ContextCompactionRecord,
+      'status' | 'durationMs' | 'afterTokens' | 'summaryTokens' | 'retainedMessages' | 'chunks' | 'errorCode'
+    >,
+  ): SessionEvent | null
   activeOperations(input: ActiveOperationsInput): ActiveOperationsPage
   queuedUserRuns(input: QueuedUserRunsInput): QueuedUserRunsPage
   queuedRunEditable(input: QueuedRunEditableInput): QueuedRunEditable
@@ -483,7 +499,20 @@ export interface StorageMethods {
   }
   queuedRunRemoveReceipt(actorId: string, idempotencyKey: string, sessionId: string): QueuedRunRemoveReceipt | null
   context(sessionId: string): { messages: Message[]; summary: string | null; throughSeq: number }
-  compact(sessionId: string, throughSeq: number, summary: string, modelId: string): SessionEvent
+  compact(
+    sessionId: string,
+    throughSeq: number,
+    summary: string,
+    modelId: string,
+    telemetry?: {
+      record: ContextCompactionRecord
+      durationMs: number
+      afterTokens: number
+      summaryTokens: number
+      retainedMessages: number
+      chunks: number
+    },
+  ): SessionEvent
   fork(sessionId: string, atSeq?: number): Session
   forkSessionCommand(input: ForkSessionCommandInput): Session
   forkFromMessageCommand(input: ForkFromMessageCommandInput): Session
@@ -502,6 +531,10 @@ export interface StorageMethods {
   nextQueuedRun(sessionId: string): Run | null
   run(id: string): Run
   setRun(id: string, status: RunStatus, error?: string, failure?: RunFailure): SessionEvent
+  runFileChanges(sessionId: string, runId: string, after?: string, limit?: number): import('@hbar/contracts/run-file-changes').RunFileChangesPage
+  runFileChangeDiff(sessionId: string, runId: string, path: string, offset: number): import('@hbar/contracts/run-file-changes').RunFileChangeDiff
+  runFileChangeVersions(sessionId: string, runId: string): import('./run-file-changes').RunFileChangeVersion[]
+  undoRunFileChanges(sessionId: string, runId: string): SessionEvent
   reorderQueued(sessionId: string, runIds: string[]): SessionEvent[]
   requestCancel(id: string): { run: Run; event: SessionEvent | null }
   cancelRequested(id: string): boolean
@@ -518,7 +551,14 @@ export interface StorageMethods {
     actorId: string,
   ): { approval: Approval; event: SessionEvent; modeEvent: SessionEvent | null }
   approval(id: string): Approval
-  toolStart(sessionId: string, runId: string, callId: string, name: string, args: unknown): SessionEvent
+  toolStart(
+    sessionId: string,
+    runId: string,
+    callId: string,
+    name: string,
+    args: unknown,
+    presentation?: import('@hbar/contracts').ToolCallPresentation,
+  ): SessionEvent
   toolEnd(sessionId: string, runId: string, callId: string, failed?: boolean): SessionEvent | null
   recover(scope?: RuntimeRecoveryScope): number
   runtimeExecutionClaim(draft: ExecutionOwnership): ExecutionOwnership | null
@@ -602,3 +642,7 @@ export type StorageCall = {
 }[keyof StorageMethods]
 export type StorageReply =
   { id: number; ok: true; result: unknown } | { id: number; ok: false; error: string; code: string }
+
+/** Out-of-band worker telemetry. It never carries SQL, arguments or error text. */
+export type StorageDiagnosticMessage = { type: 'diagnostic'; event: DiagnosticEvent; operationId?: number }
+export type StorageWorkerMessage = StorageReply | StorageDiagnosticMessage

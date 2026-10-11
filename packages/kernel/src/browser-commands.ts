@@ -3,8 +3,9 @@ import { HbarError } from '@hbar/contracts'
 import { browserCommands } from '@hbar/contracts/commands/browser'
 import type { BrowserUseService } from '@hbar/plugin-sdk'
 
-export function createBrowserCommands(service: BrowserUseService) {
+export function createBrowserCommands(service: BrowserUseService | (() => BrowserUseService)) {
   const registry = new CommandRegistry({ execution: 'host' })
+  const browser = (): BrowserUseService => (typeof service === 'function' ? service() : service)
   const translate = async <Value>(operation: () => Promise<Value>): Promise<Value> => {
     try {
       return await operation()
@@ -23,24 +24,24 @@ export function createBrowserCommands(service: BrowserUseService) {
     }
   }
   registry.register(browserCommands['browser.status'], (input, context) =>
-    translate(() => service.status(input.sessionId, context.signal)),
+    translate(() => browser().status(input.sessionId, context.signal)),
   )
   registry.register(
     browserCommands['browser.navigate'],
     (input, context) =>
       translateExternal(() =>
-        service.navigate(input.sessionId, input.url, input.contextId, input.pageId, context.signal),
+        browser().navigate(input.sessionId, input.url, input.contextId, input.pageId, context.signal),
       ),
     { durable: true },
   )
   registry.register(browserCommands['browser.snapshot'], (input, context) =>
-    translate(() => service.snapshot(input.sessionId, input.contextId, input.pageId, context.signal)),
+    translate(() => browser().snapshot(input.sessionId, input.contextId, input.pageId, context.signal)),
   )
   registry.register(
     browserCommands['browser.click'],
     (input, context) =>
       translateExternal(() =>
-        service.click(input.sessionId, input.selector, input.contextId, input.pageId, context.signal),
+        browser().click(input.sessionId, input.selector, input.contextId, input.pageId, context.signal),
       ),
     { durable: true },
   )
@@ -48,7 +49,7 @@ export function createBrowserCommands(service: BrowserUseService) {
     browserCommands['browser.type'],
     (input, context) =>
       translateExternal(() =>
-        service.type(input.sessionId, input.selector, input.text, input.contextId, input.pageId, context.signal),
+        browser().type(input.sessionId, input.selector, input.text, input.contextId, input.pageId, context.signal),
       ),
     { durable: true },
   )
@@ -56,26 +57,28 @@ export function createBrowserCommands(service: BrowserUseService) {
     browserCommands['browser.press'],
     (input, context) =>
       translateExternal(() =>
-        service.press(input.sessionId, input.key, input.selector, input.contextId, input.pageId, context.signal),
+        browser().press(input.sessionId, input.key, input.selector, input.contextId, input.pageId, context.signal),
       ),
     { durable: true },
   )
   registry.register(browserCommands['browser.screenshot'], (input, context) =>
-    translate(() => service.screenshot(input.sessionId, input.fullPage, input.contextId, input.pageId, context.signal)),
+    translate(() =>
+      browser().screenshot(input.sessionId, input.fullPage, input.contextId, input.pageId, context.signal),
+    ),
   )
   registry.register(
     browserCommands['browser.evaluate'],
     (input, context) =>
       translateExternal(() =>
-        service.evaluate(input.sessionId, input.expression, input.contextId, input.pageId, context.signal),
+        browser().evaluate(input.sessionId, input.expression, input.contextId, input.pageId, context.signal),
       ),
     { durable: true },
   )
   registry.register(browserCommands['browser.close'], (input, context) =>
-    translate(() => service.close(input.sessionId, input.contextId, input.pageId, context.signal)),
+    translate(() => browser().close(input.sessionId, input.contextId, input.pageId, context.signal)),
   )
   registry.register(browserCommands['browser.history'], (input, context) =>
-    translate(() => service.history(input.sessionId, input.contextId, context.signal)),
+    translate(() => browser().history(input.sessionId, input.contextId, context.signal)),
   )
   return {
     ...createCommandClient(browserCommands, registry),

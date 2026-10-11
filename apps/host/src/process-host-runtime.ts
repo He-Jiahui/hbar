@@ -1,6 +1,6 @@
 import { join, resolve } from 'node:path'
 import { z } from 'zod'
-import { HbarError, providerSchema } from '@hbar/contracts'
+import { HbarError, providerSchema, diagnosticEventSchema, type DiagnosticSink } from '@hbar/contracts'
 import { runtimeWireNotificationSchema } from '@hbar/contracts/runtime-notifications'
 import type {
   ExecutionOwnership,
@@ -65,6 +65,8 @@ import { hostRuntimeProcessCommand } from './runtime-package'
 import { recoverRuntimeStartup } from './runtime-startup'
 
 export interface ProcessHostRuntimeOptions {
+  readonly diagnostics?: DiagnosticSink
+  readonly diagnosticFullCoverage?: boolean
   readonly layout: PathLayout
   readonly demo?: boolean
   readonly workspace?: string
@@ -1025,7 +1027,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     }
     const configuration =
       artifact.unitId === 'storage'
-        ? { ...paths, database: layout.database, workerPath: join(this.artifacts.root, artifact.id, 'worker.js') }
+        ? { ...paths, database: layout.database, workerPath: join(this.artifacts.root, artifact.id, 'worker.js'), diagnosticsEnabled: Boolean(this.options.diagnostics), diagnosticsFullCoverage: this.options.diagnosticFullCoverage ?? false }
         : artifact.unitId === 'maintenance'
           ? { ...paths, workerPath: join(this.artifacts.root, artifact.id, 'maintenance-worker.js') }
           : artifact.unitId === 'controller'
@@ -1036,6 +1038,8 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
                   instanceId: this.instanceId,
                   demo: this.options.demo ?? false,
                   isolatedPlugins: this.buildUnits.some((unit) => unit.descriptor.kind === 'plugin'),
+                  diagnosticsEnabled: Boolean(this.options.diagnostics),
+                  diagnosticsFullCoverage: this.options.diagnosticFullCoverage ?? false,
                   ...(this.options.profileModule
                     ? { profileModule: join(this.artifacts.root, artifact.id, 'profile.js') }
                     : {}),
@@ -1088,6 +1092,10 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       onPeer: (peer, owner) => {
         record.owner = owner
         record.peer = peer
+        record.cleanup.push(peer.onEvent('runtime.diagnostic', diagnosticEventSchema, event => {
+          try { this.options.diagnostics?.emit({ ...event, instanceId: this.instanceId }) }
+          catch { /* A journal observer never owns runtime recovery. */ }
+        }))
         this.coordinator.register(
           owner,
           { unitId: artifact.unitId, generation, artifactId: artifact.id },
@@ -1382,9 +1390,9 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       retire: () => record.process.dispose(),
       suspend: (operationId) => record.process.call('storage.suspend', { operationId }, z.undefined()),
       resume: (operationId) => record.process.call('storage.resume', { operationId }, z.undefined()),
-      call: (method, args, authority) =>
+      call: (method, args, authority, diagnostic) =>
         callStorageRpc(
-          { execute: (input) => record.process.call('storage.call', input, z.unknown()) },
+          { execute: (input) => record.process.call('storage.call', { ...input, ...(diagnostic ? { diagnostic } : {}) }, z.unknown()) },
           method,
           args,
           authority,

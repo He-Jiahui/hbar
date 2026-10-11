@@ -6,6 +6,8 @@ import { FAILURE_EXIT_CODE } from './process-shutdown'
 
 export const RESTART_EXIT_CODE = 75
 export { FAILURE_EXIT_CODE } from './process-shutdown'
+import { supervisorLifecycleEvent, type HostRuntimeDiagnostics } from './runtime-diagnostics.ts'
+export const STORAGE_FAILURE_RESTART_EXIT_CODE = 76
 
 export interface HostSupervisorOptions extends RecoveryPolicyOptions {
   readonly command: readonly [string, ...string[]]
@@ -16,6 +18,8 @@ export interface HostSupervisorOptions extends RecoveryPolicyOptions {
   readonly shutdownTimeoutMs?: number
   readonly heartbeatMs?: number
   readonly onExit?: (event: HostSupervisorExit) => void
+  /** Optional process-owned journal. Sink failures never affect supervision. */
+  readonly diagnostics?: HostRuntimeDiagnostics
 }
 
 export interface HostSupervisorExit {
@@ -151,6 +155,7 @@ export function createHostSupervisor(options: HostSupervisorOptions) {
             })
             child = launched
             state = { ...state, pid: launched.pid }
+            supervisorLifecycleEvent(options.diagnostics, { event: 'supervisor.child_spawn', childPid: launched.pid, supervisorPid: process.pid })
             monitor = setInterval(
               () => {
                 if (stopped || child !== launched || launched.exitCode !== null) return
@@ -178,6 +183,7 @@ export function createHostSupervisor(options: HostSupervisorOptions) {
             child = null
           }
           const event: HostSupervisorExit = { code, signal, expectedRestart: code === RESTART_EXIT_CODE, reason }
+          supervisorLifecycleEvent(options.diagnostics, { event: 'supervisor.child_exit', exitCode: code, ...(signal ? { signal } : {}), restartExpected: event.expectedRestart, durationMs: Date.now() - startedAt })
           observe(event)
           if (stopped) return 0
           if (port === undefined) {
@@ -193,6 +199,7 @@ export function createHostSupervisor(options: HostSupervisorOptions) {
           if (event.expectedRestart) recovery.interrupted()
           const retry = event.expectedRestart ? null : recovery.failed()
           const delayMs = retry?.delayMs ?? 100
+          supervisorLifecycleEvent(options.diagnostics, { event: 'supervisor.backoff', durationMs: delayMs, recoveryAttempt: retry?.failures ?? 0 })
           state = {
             phase: 'recovering',
             pid: null,

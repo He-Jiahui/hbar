@@ -42,6 +42,9 @@ export {
 } from './session-message'
 export type { HbarCodeBlockLabels } from './code-block-copy-action'
 export { projectSessionMessages, type SessionMessageProjection } from './session-message-model'
+export { groupCompletedSessionActivities, type SessionActivitySequenceItem } from './session-activity-group-model'
+export { messageActivitySummary } from './session-message'
+export { HbarActivityDisclosure, type HbarActivityDisclosureProps } from './session-activity-disclosure'
 export {
   HbarConversationAnchorRail,
   type HbarConversationAnchorRailProps,
@@ -99,6 +102,13 @@ export {
   type HbarSessionLiveStatusLabels,
   type HbarSessionLiveStatusProps,
 } from './session-live-status'
+export {
+  HbarContextHistory,
+  HbarContextCompactionNotice,
+  HbarContextCompactionMarker,
+  type HbarContextHistoryLabels,
+  type ContextHistoryMetric,
+} from './session-context-history'
 export {
   HbarSessionEmptyHero,
   showSessionEmptyHero,
@@ -189,6 +199,8 @@ export {
   type HbarFilePreviewCloseScope,
 } from './file-preview-tabs'
 export { HbarSessionMonitoring, type HbarSessionMonitoringLabels } from './session-monitoring'
+export { HbarSessionObservability } from './session-observability'
+export type { HbarSessionObservabilityLabels } from './session-observability-labels'
 export { sessionRunFailures } from './session-run-failure-model'
 export { HbarSessionRequestDetails, type HbarSessionRequestLabels } from './session-request-details'
 export {

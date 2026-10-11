@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import {
+  LumenContentText,
   LumenButton,
   LumenFormField,
   LumenFrame,
   LumenInput,
   LumenPopupSelect,
-  LumenText,
   LumenToggleGroup,
   type LumenControlOption,
 } from '@lumen/app-ui'
@@ -85,36 +85,30 @@ export function AgentPolicyEditor({
   return (
     <HbarLumenDisclosure
       className="hbar-agent-policy-editor"
-      label={
-        <LumenText as="span" variant="supporting">
-          {labels.title}
-        </LumenText>
-      }
+      label={<LumenContentText context="control.label">{labels.title}</LumenContentText>}
       open={expanded}
       onOpenChange={setExpandedAndLoad}
     >
-      <LumenText as="p" variant="supporting">
-        {labels.description}
-      </LumenText>
+      <LumenContentText context="section.description">{labels.description}</LumenContentText>
       {entry?.snapshot && (
-        <LumenText as="p" variant="supporting">
+        <LumenContentText context="section.description">
           {labels.source(entry.snapshot.sourceLayer, entry.snapshot.inherited)}
-        </LumenText>
+        </LumenContentText>
       )}
       {entry?.status === 'loading' && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {entry?.error && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {labels.error(entry.error)}
-        </LumenText>
+        </LumenContentText>
       )}
       {policies.feedback?.parentSessionId === parentSessionId && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {labels.error(policies.feedback.code)}
-        </LumenText>
+        </LumenContentText>
       )}
       <LumenFrame className="hbar-agent-policy-rows">
         {entry?.rows.map((row, index) => {
@@ -204,11 +198,13 @@ export function AgentPolicyEditor({
           )
         })}
       </LumenFrame>
-      {entry?.snapshot && !entry.rows.length && <LumenText as="p">{labels.empty}</LumenText>}
+      {entry?.snapshot && !entry.rows.length && (
+        <LumenContentText context="section.description">{labels.empty}</LumenContentText>
+      )}
       {entry?.snapshot && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {entry.dirty ? labels.unsaved : labels.saved}
-        </LumenText>
+        </LumenContentText>
       )}
       <LumenFrame className="hbar-agent-policy-actions">
         <LumenButton

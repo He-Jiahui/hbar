@@ -20,7 +20,7 @@ export type ConfigurationCommandKernelPort = Pick<
 >
 export type RunCommandKernelPort = Pick<
   Kernel,
-  'storage' | 'submit' | 'cancel' | 'compact' | 'editQueuedRunText' | 'removeQueuedRun' | 'guideQueuedRun'
+  'storage' | 'submit' | 'cancel' | 'compact' | 'editQueuedRunText' | 'removeQueuedRun' | 'guideQueuedRun' | 'undoFileChanges'
 > &
   Partial<Pick<Kernel, 'continueInterrupted'>>
 export type InteractionCommandKernelPort = Pick<
@@ -122,6 +122,7 @@ type HostUseCases = Pick<
   | 'snapshot'
   | 'storage'
   | 'storageLocations'
+  | 'storageHealth'
   | 'subscribe'
   | 'upload'
   | 'validatePaths'

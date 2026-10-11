@@ -1,8 +1,5 @@
 import { expect, test } from 'bun:test'
-import {
-  createPiProviderPresetCatalog,
-  ProviderPresetNotFoundError,
-} from '../packages/provider-catalog/src/index.ts'
+import { createPiProviderPresetCatalog, ProviderPresetNotFoundError } from '../packages/provider-catalog/src/index.ts'
 
 test('PI provider presets split incompatible provider variants and page large model catalogs', () => {
   const catalog = createPiProviderPresetCatalog()
@@ -39,4 +36,34 @@ test('PI provider presets expose exact thinking levels and configurable endpoint
 test('PI provider preset lookup rejects stale opaque ids', () => {
   const catalog = createPiProviderPresetCatalog()
   expect(() => catalog.models({ presetId: 'missing', limit: 10 })).toThrow(ProviderPresetNotFoundError)
+})
+
+test('direct-provider presets expose documented expanded context tariffs without adding gateway rules', () => {
+  const catalog = createPiProviderPresetCatalog()
+  const presets = catalog.list({ limit: 100 }).items
+  const openai = presets.find((preset) => preset.providerId === 'openai')!
+  const gpt = catalog
+    .models({ presetId: openai.id, query: 'gpt-5.4', limit: 100 })
+    .items.find((model) => model.id === 'gpt-5.4')!
+  expect(gpt.contextWindow).toBe(272_000)
+  expect(gpt.contextTiers).toEqual([
+    {
+      id: 'long',
+      contextWindow: 1_050_000,
+      inputTokensAbove: 272_000,
+      inputPrice: 5,
+      outputPrice: 22.5,
+      cacheReadPrice: 0.5,
+    },
+  ])
+  const anthropic = presets.find((preset) => preset.providerId === 'anthropic')!
+  const claude = catalog.models({ presetId: anthropic.id, query: 'claude-sonnet-4-6', limit: 100 }).items[0]!
+  expect(claude.contextTiers?.[0]?.contextWindow).toBe(1_000_000)
+  expect(claude.contextTiers?.[0]?.inputPrice).toBe(claude.inputPrice)
+  const gateway = presets.find(
+    (preset) => preset.providerId === 'openrouter' && preset.protocol === 'openai-completions',
+  )!
+  expect(
+    catalog.models({ presetId: gateway.id, query: 'gpt-5.4', limit: 100 }).items.every((model) => !model.contextTiers),
+  ).toBe(true)
 })

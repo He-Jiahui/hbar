@@ -1,9 +1,11 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
-import { LumenButton, LumenFrame, LumenRange, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenRange, LumenFloatingSurface } from '@lumen/app-ui'
 import type { ComposerModelState } from '@hbar/app-runtime'
 import type { HbarComposerModelLabels } from './composer-model-picker'
 import { thinkingProgressPercent } from './composer-model-picker'
 import './composer-model-picker.css'
+import { maximumContextWindow } from '@hbar/contracts'
+import { HbarMaxModeControl } from './max-mode-control'
 
 type ModelDescriptor = ComposerModelState['models'][number]
 type ThinkingLevel = ModelDescriptor['thinkingLevels'][number]
@@ -11,9 +13,11 @@ type ThinkingLevel = ModelDescriptor['thinkingLevels'][number]
 export interface HbarPreSessionThinkingPickerProps {
   readonly model: ModelDescriptor | null
   readonly level: ThinkingLevel | null
-  readonly labels: Pick<HbarComposerModelLabels, 'thinking' | 'thinkingTrigger' | 'thinkingLevel' | 'error'>
+  readonly labels: Pick<HbarComposerModelLabels, 'thinking' | 'thinkingTrigger' | 'thinkingLevel' | 'error' | 'maxMode'>
+  readonly maxMode?: boolean
   readonly disabled?: boolean
   readonly onChoose: (level: ThinkingLevel, modelId: string) => Promise<void>
+  readonly onMaxModeChange: (enabled: boolean, modelId: string) => Promise<void>
 }
 
 /** A local first-send effort preview. Only a confirmed Host model choice is applied before Run. */
@@ -23,6 +27,8 @@ export function HbarPreSessionThinkingPicker({
   labels,
   disabled = false,
   onChoose,
+  maxMode = false,
+  onMaxModeChange,
 }: HbarPreSessionThinkingPickerProps) {
   const popupId = useId()
   const trigger = useRef<HTMLButtonElement>(null)
@@ -35,6 +41,7 @@ export function HbarPreSessionThinkingPicker({
   const [error, setError] = useState<string | null>(null)
   const [preview, setPreview] = useState<{ identity: string; index: number } | null>(null)
   const levels = model?.thinkingLevels ?? []
+  const supportsMax = Boolean(model && maximumContextWindow(model) > model.contextWindow)
   const modelDefault =
     model?.defaultThinkingLevel && levels.includes(model.defaultThinkingLevel)
       ? model.defaultThinkingLevel
@@ -43,16 +50,26 @@ export function HbarPreSessionThinkingPicker({
   const unavailable = Boolean(level && !levels.includes(level))
   const displayed = level ?? confirmed
   const confirmedIndex = Math.max(0, levels.indexOf(confirmed))
-  const identity = JSON.stringify([model?.id ?? null, levels, displayed])
+  const identity = JSON.stringify([model?.id ?? null, levels, displayed, model?.contextTiers, maxMode])
+  const liveIdentity = useRef<string | null>(identity)
+  useEffect(() => {
+    liveIdentity.current = identity
+    setError(null)
+    return () => {
+      liveIdentity.current = null
+    }
+  }, [identity])
   const selectedIndex = preview?.identity === identity ? preview.index : confirmedIndex
   const selectedLevel = levels[selectedIndex] ?? confirmed
 
   useEffect(() => {
-    if ((levels.length > 1 || unavailable) && !disabled) return
+    if ((levels.length > 1 || unavailable || supportsMax || maxMode) && !disabled) return
     popup.current?.hidePopover()
-  }, [disabled, levels.length, unavailable])
+  }, [disabled, levels.length, unavailable, supportsMax, maxMode])
 
-  if (!model || (levels.length < 2 && !unavailable)) return null
+  if (!model || (levels.length < 2 && !unavailable && !supportsMax && !maxMode)) return null
+  const effortName = levels.length > 1 ? labels.thinkingLevel(displayed) : labels.maxMode.menu
+  const effortTrigger = levels.length > 1 ? labels.thinkingTrigger(effortName) : labels.maxMode.menu
 
   const commit = (input: HTMLInputElement, confirmUnavailable = false) => {
     if (
@@ -100,51 +117,43 @@ export function HbarPreSessionThinkingPicker({
         variant="text"
         indicator="none"
         className="hbar-composer-thinking-trigger"
-        aria-label={labels.thinkingTrigger(labels.thinkingLevel(displayed))}
+        aria-label={maxMode ? labels.maxMode.trigger(effortTrigger) : effortTrigger}
         aria-invalid={unavailable || undefined}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={popupId}
         disabled={disabled}
-        popoverTarget={popupId}
+        onClick={() => setOpen(true)}
       >
-        {labels.thinkingLevel(displayed)}
+        {effortName}
+        {maxMode && (
+          <LumenContentText context="control.label" className="hbar-composer-max-badge">
+            {labels.maxMode.badge}
+          </LumenContentText>
+        )}
       </LumenButton>
-      <LumenFrame
-        ref={popup}
+      <LumenFloatingSurface
+        contentRef={popup}
+        anchorRef={trigger}
+        open={open}
+        onClose={() => setOpen(false)}
+        keepMounted
+        focusBehavior="preserve"
         id={popupId}
-        popover="auto"
         role="dialog"
         aria-label={labels.thinking}
         aria-busy={busy}
         className="hbar-composer-picker-popover"
         data-kind="thinking"
-        onBeforeToggle={(event) => {
-          if (event.newState !== 'open' || !trigger.current) return
-          const rect = trigger.current.getBoundingClientRect()
-          const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
-          const width = Math.min(18.75 * rem, innerWidth - 2 * rem)
-          const above = rect.top > innerHeight - rect.bottom
-          event.currentTarget.style.setProperty(
-            '--composer-popup-left',
-            `${Math.max(rem, Math.min(rect.right - width, innerWidth - width - rem))}px`,
-          )
-          event.currentTarget.style.setProperty('--composer-popup-top', above ? 'auto' : `${rect.bottom + rem / 2}px`)
-          event.currentTarget.style.setProperty(
-            '--composer-popup-bottom',
-            above ? `${innerHeight - rect.top + rem / 2}px` : 'auto',
-          )
-          event.currentTarget.style.setProperty(
-            '--composer-popup-limit',
-            `${Math.max(0, (above ? rect.top : innerHeight - rect.bottom) - 1.5 * rem)}px`,
-          )
-        }}
         onToggle={(event) => {
           const opening = event.newState === 'open'
           setOpen(opening)
           if (opening) {
             cancelled.current = false
-            queueMicrotask(() => slider.current?.focus())
+            queueMicrotask(() => {
+              if (levels.length > 1) slider.current?.focus()
+              else popup.current?.querySelector<HTMLInputElement>('input:not(:disabled)')?.focus()
+            })
           } else {
             setPreview(null)
             setError(null)
@@ -162,64 +171,97 @@ export function HbarPreSessionThinkingPicker({
           }
         }}
       >
-        <LumenFrame className="hbar-composer-thinking-heading">
-          <LumenText as="strong" className="hbar-composer-thinking-value">
-            {labels.thinkingLevel(selectedLevel)}
-          </LumenText>
-          <LumenText as="span" className="hbar-composer-thinking-context">
-            {labels.thinking}
-          </LumenText>
-        </LumenFrame>
-        <LumenFrame
-          className="hbar-composer-thinking-scale"
-          style={
-            { '--hbar-thinking-progress': `${thinkingProgressPercent(levels.length, selectedIndex)}%` } as CSSProperties
-          }
-        >
-          <LumenRange
-            ref={slider}
-            className="hbar-composer-thinking-slider"
-            min={0}
-            max={levels.length - 1}
-            step={1}
-            value={selectedIndex}
-            disabled={disabled}
-            aria-label={labels.thinking}
-            aria-valuetext={labels.thinkingLevel(selectedLevel)}
-            onChange={(event) => {
-              if (busy) return
-              cancelled.current = false
-              setPreview({ identity, index: Number(event.currentTarget.value) })
-              setError(null)
-            }}
-            onPointerDown={() => {
-              cancelled.current = false
-            }}
-            onPointerUp={(event) => commit(event.currentTarget, true)}
-            onPointerCancel={() => {
-              cancelled.current = true
-              setPreview(null)
-            }}
-            onKeyDown={(event) => {
-              if (event.key !== 'Enter') return
-              event.preventDefault()
-              event.stopPropagation()
-              commit(event.currentTarget, true)
-            }}
-            onBlur={(event) => commit(event.currentTarget)}
-          />
-          <LumenFrame className="hbar-composer-thinking-rail" aria-hidden="true">
-            {levels.map((item, index) => (
-              <LumenFrame key={item} className="hbar-composer-thinking-stop" data-reached={index <= selectedIndex} />
-            ))}
-          </LumenFrame>
-        </LumenFrame>
-        {error && (
-          <LumenFrame className="hbar-composer-picker-feedback">
-            <LumenText role="alert">{labels.error(error)}</LumenText>
+        {levels.length > 1 && (
+          <LumenFrame className="hbar-composer-thinking-heading">
+            <LumenContentText context="control.label" className="hbar-composer-thinking-value">
+              {labels.thinkingLevel(selectedLevel)}
+            </LumenContentText>
+            <LumenContentText context="control.label" className="hbar-composer-thinking-context">
+              {labels.thinking}
+            </LumenContentText>
           </LumenFrame>
         )}
-      </LumenFrame>
+        {levels.length > 1 && (
+          <LumenFrame
+            className="hbar-composer-thinking-scale"
+            style={
+              {
+                '--hbar-thinking-progress': `${thinkingProgressPercent(levels.length, selectedIndex)}%`,
+              } as CSSProperties
+            }
+          >
+            <LumenRange
+              ref={slider}
+              className="hbar-composer-thinking-slider"
+              min={0}
+              max={levels.length - 1}
+              step={1}
+              value={selectedIndex}
+              disabled={disabled || busy}
+              aria-label={labels.thinking}
+              aria-valuetext={labels.thinkingLevel(selectedLevel)}
+              onChange={(event) => {
+                if (busy) return
+                cancelled.current = false
+                setPreview({ identity, index: Number(event.currentTarget.value) })
+                setError(null)
+              }}
+              onPointerDown={() => {
+                cancelled.current = false
+              }}
+              onPointerUp={(event) => commit(event.currentTarget, true)}
+              onPointerCancel={() => {
+                cancelled.current = true
+                setPreview(null)
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter') return
+                event.preventDefault()
+                event.stopPropagation()
+                commit(event.currentTarget, true)
+              }}
+              onBlur={(event) => commit(event.currentTarget)}
+            />
+            <LumenFrame className="hbar-composer-thinking-rail" aria-hidden="true">
+              {levels.map((item, index) => (
+                <LumenFrame key={item} className="hbar-composer-thinking-stop" data-reached={index <= selectedIndex} />
+              ))}
+            </LumenFrame>
+          </LumenFrame>
+        )}
+        <HbarMaxModeControl
+          model={model}
+          enabled={maxMode}
+          disabled={disabled || busy}
+          labels={labels.maxMode}
+          onChange={(enabled) => {
+            if (disabled || inFlight.current) return
+            inFlight.current = true
+            setBusy(true)
+            setError(null)
+            void onMaxModeChange(enabled, model.id)
+              .catch((reason: unknown) => {
+                if (liveIdentity.current !== identity) return
+                setError(
+                  reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
+                    ? reason.code
+                    : 'EXECUTION_FAILED',
+                )
+              })
+              .finally(() => {
+                inFlight.current = false
+                setBusy(false)
+              })
+          }}
+        />
+        {error && (
+          <LumenFrame className="hbar-composer-picker-feedback">
+            <LumenContentText context="feedback.message" role="alert">
+              {labels.error(error)}
+            </LumenContentText>
+          </LumenFrame>
+        )}
+      </LumenFloatingSurface>
     </LumenFrame>
   )
 }

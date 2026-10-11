@@ -1,5 +1,5 @@
 import { useEffect, useRef, type KeyboardEvent } from 'react'
-import { LumenActionMenu, LumenButton, LumenFrame, LumenText, type LumenActionMenuItem } from '@lumen/app-ui'
+import { LumenContentText, LumenActionMenu, LumenButton, LumenFrame, type LumenActionMenuItem } from '@lumen/app-ui'
 import type { WorkspaceOrganizationState } from '@hbar/app-runtime'
 import './workspace-organization.css'
 
@@ -158,17 +158,20 @@ export function WorkspaceOrganizationFeedback({
   return (
     <LumenFrame className="hbar-app-react-organization-feedback" data-testid="workspace-organization-feedback">
       {message && (
-        <LumenText as="p" role={action.status === 'failed' || uncertain ? 'alert' : 'status'}>
+        <LumenContentText
+          context="feedback.message"
+          role={action.status === 'failed' || uncertain ? 'alert' : 'status'}
+        >
           {message}
-        </LumenText>
+        </LumenContentText>
       )}
       {state.status === 'loading' && !message && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {readProblem && (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {state.status === 'offline'
             ? state.snapshot
               ? labels.offline
@@ -176,7 +179,7 @@ export function WorkspaceOrganizationFeedback({
             : state.snapshot
               ? labels.readFailure(state.error ?? 'READ_FAILED')
               : labels.initialReadFailure}
-        </LumenText>
+        </LumenContentText>
       )}
       {uncertain && (
         <LumenButton size="s" variant="outlined" disabled={!connected || busy} onClick={onReconcile}>

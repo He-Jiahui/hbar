@@ -1,0 +1,122 @@
+import { expect, test } from 'bun:test'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { HbarContextCompactionMarker } from '@hbar/app-react'
+import { MAX_CONTEXT_COMPACTION_MARKERS, type ContextCompactionMarker } from '@hbar/contracts/context-history'
+import { mergeContextCompactionMarkers } from '../packages/app-runtime/src/context-compaction-markers'
+import { projectSessionTimelineSequence } from '../packages/app-react/src/session-message-model'
+import { contextHistoryCopy } from '../apps/web/src/context-history-copy'
+import { sessionMessage } from './session-message.fixtures'
+
+function marker(seq: number, overrides: Partial<ContextCompactionMarker> = {}): ContextCompactionMarker {
+  return { id: `compaction-${seq}`, sessionId: 'session', seq, time: seq, trigger: 'automatic', ...overrides }
+}
+
+for (const locale of ['zh-CN', 'en-US'] as const) {
+  test(`conversation record names automatic/manual/unknown compaction in ${locale}`, () => {
+    const labels = contextHistoryCopy(locale)
+    for (const trigger of ['automatic', 'manual', null] as const) {
+      const html = renderToStaticMarkup(
+        <HbarContextCompactionMarker marker={marker(2, { trigger })} sessionId="session" labels={labels} />,
+      )
+      expect(html).toContain(labels.compacted(trigger))
+      expect(html).toContain('data-context-compaction-marker="compaction-2"')
+      expect(html).toContain('data-tier="sm"')
+      expect(html).not.toContain('hbar-session-execution-spinner')
+    }
+    expect(
+      renderToStaticMarkup(<HbarContextCompactionMarker marker={marker(2)} sessionId="other" labels={labels} />),
+    ).toBe('')
+    const long = 'A long translated completion record '.repeat(30)
+    expect(
+      renderToStaticMarkup(
+        <HbarContextCompactionMarker
+          marker={marker(2)}
+          sessionId="session"
+          labels={{ ...labels, completed: () => long }}
+        />,
+      ),
+    ).toContain(long)
+  })
+}
+
+test('completed rows show measured duration and keep missing legacy measurements unknown', () => {
+  const labels = contextHistoryCopy('zh-CN')
+  const measured = marker(2, {
+    details: { startedAt: 1000, durationMs: 123456, contextWindow: 150000, beforeTokens: 120000, afterTokens: 7500 },
+  })
+  const html = renderToStaticMarkup(
+    <HbarContextCompactionMarker marker={measured} sessionId="session" labels={labels} />,
+  )
+  expect(html).toContain('上下文已[自动]压缩 · 共耗时2分3秒')
+  expect(html).toContain('tabindex="0"')
+  expect(html).not.toContain('hbar-session-execution-spinner')
+  const legacy = renderToStaticMarkup(
+    <HbarContextCompactionMarker marker={marker(3)} sessionId="session" labels={labels} />,
+  )
+  expect(legacy).toContain('共耗时未知')
+  expect(legacy).not.toContain('共耗时0分0秒')
+})
+
+test('completed facts retain exact sequence order around messages and precede uncommitted streams', () => {
+  const result = projectSessionTimelineSequence({
+    sessionId: 'session',
+    messages: [
+      sessionMessage([{ type: 'text', text: 'Before' }], { id: 'before', seq: 1 }),
+      sessionMessage([{ type: 'text', text: 'Between' }], { id: 'between', seq: 5 }),
+      sessionMessage([{ type: 'text', text: 'After' }], { id: 'after', seq: 9 }),
+    ],
+    streams: {
+      live: { id: 'live', sessionId: 'session', runId: 'run', text: '', thinking: '', version: 1, offset: 0 },
+    },
+    runs: [],
+    contextCompactions: [marker(7), marker(3), marker(3), marker(2, { sessionId: 'foreign' })],
+  })
+  expect(
+    result.map((item) =>
+      item.kind === 'message'
+        ? item.projection.message.id
+        : item.kind === 'contextCompaction'
+          ? item.marker.seq
+          : item.kind,
+    ),
+  ).toEqual(['before', 3, 'between', 7, 'after', 'stream'])
+})
+
+test.each([0, 1, 10, MAX_CONTEXT_COMPACTION_MARKERS, MAX_CONTEXT_COMPACTION_MARKERS + 1])(
+  'loaded completion collection stays bounded with %i input records',
+  (count) => {
+    const input = Array.from({ length: count }, (_, index) => marker(index + 1))
+    const records = mergeContextCompactionMarkers('session', input, [
+      ...input,
+      marker(1, { id: 'foreign', sessionId: 'other' }),
+    ])
+    expect(records).toHaveLength(Math.min(count, MAX_CONTEXT_COMPACTION_MARKERS))
+    expect(new Set(records.map((value) => value.id)).size).toBe(records.length)
+    if (count) expect(records.at(-1)?.seq).toBe(count)
+    expect(
+      projectSessionTimelineSequence({
+        sessionId: 'session',
+        messages: [],
+        runs: [],
+        streams: {},
+        contextCompactions: records,
+      }).filter((item) => item.kind === 'contextCompaction'),
+    ).toHaveLength(records.length)
+  },
+)
+
+test('page merge preserves loaded older records, rejects future facts and prunes paged-out messages', () => {
+  const recent = mergeContextCompactionMarkers('session', [marker(80)], [marker(90), marker(999)], 0, 100)
+  const older = mergeContextCompactionMarkers('session', recent, [marker(5), marker(90)], 0, 100)
+  expect(older.map((value) => value.seq)).toEqual([5, 80, 90])
+  expect(mergeContextCompactionMarkers('session', older, [], 50, 100).map((value) => value.seq)).toEqual([80, 90])
+})
+
+test('reload enriches a cached completion fact without losing measurements to a legacy duplicate', () => {
+  const legacy = marker(90)
+  const measured = marker(90, {
+    details: { startedAt: 1000, durationMs: 1500, contextWindow: 10000, beforeTokens: 8000, afterTokens: 1000 },
+  })
+  expect(mergeContextCompactionMarkers('session', [legacy], [measured])).toEqual([measured])
+  expect(mergeContextCompactionMarkers('session', [measured], [legacy])).toEqual([measured])
+})

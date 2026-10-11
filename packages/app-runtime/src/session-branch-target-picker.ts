@@ -283,6 +283,8 @@ export function createSessionBranchTargetPicker(
   local.register(sessionBranchTargetPickerCommands['sessionBranchTargetPicker.select'], async (input, execution) => {
     const host = requireSelected(input)
     const initial = entryFor(input)
+    if (initial.page?.repository === 'plain')
+      throw new CommandError('CAPABILITY_UNAVAILABLE', 'Branch targets require a Git repository')
     if (unresolved(initial) || options.busy(input.sessionId))
       throw new CommandError('BUSY', 'Wait for the current task or branch operation before switching')
     if (!initial.page || initial.page.revision !== input.expectedRevision)
@@ -320,6 +322,8 @@ export function createSessionBranchTargetPicker(
   local.register(sessionBranchTargetPickerCommands['sessionBranchTargetPicker.reconcile'], async (input, execution) => {
     const host = requireSelected(input)
     const entry = entryFor(input)
+    if (entry.page?.repository === 'plain')
+      throw new CommandError('CAPABILITY_UNAVAILABLE', 'Branch targets require a Git repository')
     if (!entry.idempotencyKey || !entry.request || !unresolved(entry))
       throw new CommandError('INVALID_STATE', 'No original branch operation is available to reconcile')
     if (options.busy(input.sessionId))

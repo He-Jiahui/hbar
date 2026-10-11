@@ -182,7 +182,7 @@ export function createControllerApplication(
     resolveWorkspacePath: (workspaceId, path, signal) => kernel.workspaceSandboxes.prepare(workspaceId, path, signal),
     resolveSessionPath: (sessionId, workspacePath, signal) =>
       kernel.sessionLaunchTargets.workspaceForRun(sessionId, workspacePath, signal),
-  })
+  }, { undo: (sessionId, runId, signal) => kernel.undoFileChanges(sessionId, runId, signal) })
   const goalPlanCommands = createGoalPlanCommands(
     resolveGoalService(kernel),
     resolvePlanService(kernel),

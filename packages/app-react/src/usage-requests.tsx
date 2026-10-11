@@ -1,7 +1,7 @@
 import {
+  LumenContentText,
   LumenButton,
   LumenFrame,
-  LumenText,
   LumenUsage07,
   type LumenUsageContent,
   type LumenUsageRequestRecord,
@@ -175,9 +175,9 @@ export function HbarUsageRequests({ runtime, labels, onOpenRequest, managed = fa
   if (snapshot.status === 'error')
     return (
       <LumenFrame>
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {labels.error(queryError)}
-        </LumenText>
+        </LumenContentText>
         <LumenButton type="button" variant="text" onClick={() => void runtime.refresh()}>
           {labels.retry}
         </LumenButton>
@@ -186,9 +186,9 @@ export function HbarUsageRequests({ runtime, labels, onOpenRequest, managed = fa
   return (
     <LumenFrame>
       {actionError ? (
-        <LumenText as="p" role="alert">
+        <LumenContentText context="feedback.message" role="alert">
           {labels.error(actionError)}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       <LumenUsage07 content={content} state={snapshot.status} />
     </LumenFrame>

@@ -1,3 +1,4 @@
+import { STORAGE_SCHEMA_VERSION } from '@hbar/storage'
 import { expect, test } from 'bun:test'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -26,7 +27,7 @@ test('an owned Bun plugin prepares without writes, validates and executes locall
     export const create = context => createRuntimePlugin(context, { plugins: [plugin] })
   `)
   const descriptor = { id: 'plugin.fixture', kind: 'plugin' as const, isolation: 'process' as const, dependencies: [], required: true, reloadable: true,
-    contractFingerprint: PLUGIN_RUNTIME_FINGERPRINT, storageSchema: 24 }
+    contractFingerprint: PLUGIN_RUNTIME_FINGERPRINT, storageSchema: STORAGE_SCHEMA_VERSION }
   const artifacts = new RuntimeArtifactStore(join(root, 'bundles'), process.cwd())
   const artifact = await artifacts.build({ descriptor, entrypoint: source })
   expect(artifact.inputs).not.toContain('packages/kernel/src/index.ts')

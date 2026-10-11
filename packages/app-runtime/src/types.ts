@@ -791,6 +791,10 @@ export interface ProviderEditorDraftModel {
   readonly reasoning: boolean
   readonly inputPrice: number
   readonly outputPrice: number
+  readonly cacheReadPrice?: number
+  readonly cacheWritePrice?: number
+  readonly maxModePricingMultiplier?: number
+  readonly contextTiers?: readonly Readonly<import('@hbar/contracts').ModelContextTier>[]
   readonly thinkingLevels: readonly ThinkingLevel[]
   readonly defaultThinkingLevel: ThinkingLevel
 }
@@ -1011,6 +1015,12 @@ export type SessionTimelineUpdate =
   | { readonly kind: 'reset' }
 
 export interface SessionTimelinePort {
+  observability?(
+    input: import('@hbar/contracts/session-observability').SessionObservabilityInput,
+  ): Promise<import('@hbar/contracts/session-observability').SessionObservabilityReport>
+  contextHistory?(
+    input: import('@hbar/contracts/context-history').ContextHistoryInput,
+  ): Promise<import('@hbar/contracts/context-history').ContextHistoryPage>
   snapshot(sessionId: string, before?: number, limit?: number): Promise<SessionSnapshot>
   plan?(sessionId: string): Promise<PlanState | null>
   watch(
@@ -1042,6 +1052,13 @@ export interface SessionLaunchDraftState {
 }
 
 export interface SessionTimelineState {
+  readonly contextHistory?: import('@hbar/contracts/context-history').ContextHistoryPage
+  readonly contextHistoryStatus?: 'idle' | 'loading' | 'error'
+  readonly contextHistoryError?: string | null
+  readonly contextHistoryBefore?: number | null
+  readonly contextHistoryRequestBefore?: number | null
+  readonly activeCompaction?: import('@hbar/contracts/context-history').ContextCompactionRecord | null
+  readonly contextCompactions?: readonly import('@hbar/contracts/context-history').ContextCompactionMarker[]
   readonly sessionId: string | null
   readonly status: 'idle' | 'loading' | 'ready' | 'error'
   readonly olderStatus: 'idle' | 'loading' | 'error' | 'limit'

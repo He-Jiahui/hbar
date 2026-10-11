@@ -1,6 +1,6 @@
 import { useId, useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import { LumenFrame, LumenText, LumenButton, LumenIcon } from '@lumen/app-ui'
+import { LumenContentText, LumenFrame, LumenButton, LumenIcon } from '@lumen/app-ui'
 import './lumen-disclosure.css'
 
 export interface HbarLumenDisclosureProps {
@@ -46,7 +46,7 @@ export function HbarLumenDisclosure({
         onClick={toggle}
       >
         <LumenIcon icon={open ? ChevronDown : ChevronRight} tier="sm" />
-        <LumenText as="span">{label}</LumenText>
+        <LumenContentText context="control.label">{label}</LumenContentText>
       </LumenButton>
       <LumenFrame id={contentId} className="hbar-lumen-disclosure-content" hidden={!open}>
         {children}

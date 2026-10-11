@@ -24,14 +24,14 @@
   background: var(--lumen-reading);
 }
 .hbar-decision-heading {
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
 }
 .hbar-decision-heading code {
   overflow-wrap: anywhere;
 }
 .hbar-decision-status {
   margin-inline-start: auto;
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   color: var(--lumen-muted);
 }
 .hbar-decision-preview,
@@ -49,12 +49,12 @@
   overflow-wrap: anywhere;
   max-block-size: 13.75rem;
   overflow: auto;
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   line-height: 1.5;
   background: var(--lumen-glass);
 }
 .hbar-decision-preview strong {
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 .hbar-decision-preview [data-fragment='old'] {
   border-inline-start: 0.125rem solid var(--lumen-danger);
@@ -67,7 +67,7 @@
   align-items: center;
   gap: 6px;
   overflow-wrap: anywhere;
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
 }
 .hbar-decision-tabs {
   display: flex;
@@ -85,7 +85,7 @@
 }
 .hbar-decision-question > p {
   margin: 0;
-  font-size: 0.875rem;
+  font-size: var(--lumen-font-size);
   line-height: 1.5;
 }
 .hbar-decision-option {
@@ -122,16 +122,16 @@
   align-self: flex-start;
 }
 .hbar-decision-option strong {
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
 }
 .hbar-decision-option small {
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 .hbar-decision-custom {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 .hbar-decision-custom :is(textarea, input) {
   inline-size: 100%;
@@ -156,6 +156,6 @@
 .hbar-decision-error {
   margin: 0;
   padding: 8px 12px;
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   overflow-wrap: anywhere;
 }

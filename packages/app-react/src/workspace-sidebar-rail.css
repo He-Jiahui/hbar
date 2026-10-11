@@ -71,7 +71,7 @@
   max-inline-size: 100%;
   overflow-wrap: anywhere;
   color: var(--lumen-muted);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   text-align: center;
 }
 

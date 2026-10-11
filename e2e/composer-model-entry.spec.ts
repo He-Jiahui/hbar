@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { z } from 'zod'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
+import { revealComposerControl } from './support/composer-controls'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
 
 for (const locale of ['en-US', 'zh-CN'] as const) {
@@ -99,6 +100,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(prompt).toHaveAttribute('contenteditable', 'true')
       await prompt.fill(draft)
       const model = page.locator('.hbar-composer-model-trigger')
+      const clickModel = async () => {
+        await revealComposerControl(page, model, copy.session.addMenu)
+        await model.click()
+      }
       const popup = page.getByRole('dialog', { name: labels.title, exact: true })
       const search = popup.getByRole('searchbox', { name: labels.search })
       await expect(model).toContainText('fixture')
@@ -149,7 +154,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(model).toContainText(longModelName)
       await expectComposerText(prompt, draft)
       await expect(model).toBeFocused()
-      await model.click()
+      await clickModel()
       await expect(popup.getByRole('option').first().locator('.hbar-composer-model-name')).toHaveText(
         firstCatalogOption ?? '',
       )
@@ -348,6 +353,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         { width: 320, height: 720 },
       ]) {
         await page.setViewportSize(viewport)
+        await revealComposerControl(page, model, copy.session.addMenu)
         await expect(model).toBeVisible()
         await expect(page.getByRole('button', { name: copy.session.prompt.send, exact: true })).toBeVisible()
         if (viewport.width === 1440) {
@@ -367,7 +373,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
           expect(centerYDelta).toBeLessThanOrEqual(1)
         }
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
-        await model.click()
+        await clickModel()
         await expect(search).toHaveValue('')
         await expect(popup.getByRole('option')).toHaveCount(60)
         const bounds = await popup.boundingBox()
@@ -379,7 +385,10 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-model-${locale}-${viewport.width}.png` })
         if (viewport.width === 320) {
           await expect(popup).toHaveAttribute('data-presentation', 'web')
-          expect(bounds!.width).toBeGreaterThanOrEqual(viewport.width - 1)
+          // The web presentation is an edge-to-edge touch sheet; the native presentation below is anchored.
+          expect(bounds!.x).toBe(0)
+          expect(bounds!.x + bounds!.width).toBe(viewport.width)
+          expect(await popup.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
           await popup.evaluate((element) => element.setAttribute('data-presentation', 'native'))
           const anchored = await popup.boundingBox()
           expect(anchored).not.toBeNull()
@@ -407,17 +416,17 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         await expectComposerText(prompt, draft)
       }
       await page.setViewportSize({ width: 1440, height: 960 })
-      await model.click()
+      await clickModel()
       await prompt.click({ position: { x: 10, y: 10 } })
       await expect(popup).not.toBeVisible()
-      await model.click()
+      await clickModel()
       await page.keyboard.press('Escape')
       await expect(popup).not.toBeVisible()
       await expect(model).toContainText(longModelName)
       await expectComposerText(prompt, draft)
 
       // A configured selection from beyond the first page must be visible on reopen.
-      await model.click()
+      await clickModel()
       const lateModel = popup.getByRole('option').filter({ hasText: 'Catalog fixture 63' })
       await expect(lateModel).toHaveCount(0)
       await search.fill('Catalog fixture 63')
@@ -425,13 +434,15 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await lateModel.click()
       await expect(popup).not.toBeVisible()
       await expect(model).toContainText('Catalog fixture 63')
-      await model.click()
+      await clickModel()
       await expect(search).toHaveValue('')
       await expect(popup.getByRole('option')).toHaveCount(60)
       await expect(popup.getByRole('option').first()).toContainText('Catalog fixture 63')
       await expect(popup.getByRole('option').first()).toHaveAttribute('aria-selected', 'true')
       await expect(popup.getByRole('option').first()).toBeInViewport()
-      await popup.locator('.hbar-composer-model-list > button').click()
+      const showMore = popup.locator('.hbar-composer-model-list > button')
+      await showMore.focus()
+      await page.keyboard.press('Enter')
       await expect(lateModel).toHaveCount(1)
       await expect(popup.getByRole('option').first().locator('.hbar-composer-model-name')).toHaveText(
         firstCatalogOption ?? '',
@@ -439,14 +450,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expect(lateModel).toHaveAttribute('aria-selected', 'true')
       await popup.getByRole('button', { name: labels.close, exact: true }).click()
       await page.setViewportSize({ width: 320, height: 720 })
-      await model.click()
+      await clickModel()
       await expect(popup.getByRole('option').first()).toContainText('Catalog fixture 63')
       await expect(popup.getByRole('option').first()).toBeInViewport()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       await page.screenshot({ path: `artifacts/reference-ux-v2/hbar-model-selected-late-${locale}-320.png` })
       await popup.getByRole('button', { name: labels.close, exact: true }).click()
       await page.setViewportSize({ width: 1440, height: 960 })
-      await model.click()
+      await clickModel()
       await search.fill('twin-a')
       await expect(popup.getByRole('option')).toHaveCount(1)
       await expect(popup.locator('.hbar-composer-model-identifier')).toHaveText('twin-a')
@@ -460,7 +471,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
         'composer-fixture/twin-b',
       )
       await page.setViewportSize({ width: 320, height: 720 })
-      await model.click()
+      await clickModel()
       await search.fill('Shared model')
       await expect(popup.locator('.hbar-composer-model-identifier')).toHaveText(['twin-a', 'twin-b'])
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)

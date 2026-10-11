@@ -98,6 +98,7 @@ export class RuntimeKernelFacade {
       instanceId: options.instanceId,
       options: { layout: options.layout, demo: options.demo },
       storage: options.storage,
+      storageHealth: () => ({ ready: options.endpoints().some((endpoint) => endpoint.process.snapshot().phase === 'serving') }),
       ...(options.cancel ? { cancel: options.cancel } : {}),
       get recovered() {
         return self.recovered

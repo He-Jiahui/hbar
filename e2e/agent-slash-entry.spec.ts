@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { revealComposerControl } from './support/composer-controls'
 import {
   HbarClient,
   createAgentCommandClient,
@@ -91,16 +92,18 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       const landing = page.locator('.hbar-pre-session-landing')
       const prompt = landing.getByRole('textbox', { name: copy.preSession.prompt.input, exact: true })
       const send = landing.getByRole('button', { name: copy.preSession.prompt.send, exact: true })
-      await landing.locator('.hbar-pre-session-location-picker > button').click()
+      const locationTrigger = page.locator('.hbar-pre-session-location-picker > button')
+      await revealComposerControl(page, locationTrigger, copy.session.addMenu)
+      await locationTrigger.click()
       const locationRoot = page.getByRole('dialog', { name: location.title, exact: true })
-      if (await locationRoot.isVisible())
-        await locationRoot.getByRole('button', { name: new RegExp(`^${location.directory}`) }).click()
       await page
         .getByRole('dialog', { name: location.chooseDirectory, exact: true })
         .getByRole('button', { name: new RegExp(host.ready.workspaceName) })
         .click()
       await locationRoot.getByRole('button', { name: location.close, exact: true }).click()
-      await landing.locator('.hbar-web-pre-session-model-controls .hbar-pre-session-choice-picker > button').click()
+      const modelTrigger = page.locator('.hbar-web-pre-session-model-controls .hbar-pre-session-choice-picker > button')
+      await revealComposerControl(page, modelTrigger, copy.session.addMenu)
+      await modelTrigger.click()
       await page
         .getByRole('dialog', { name: labels.model.title, exact: true })
         .getByRole('group', { name: model.providerName, exact: true })
@@ -280,9 +283,14 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await expectComposerText(prompt, draft)
       expect((await host.client.call('session.snapshot', { sessionId: host.ready.sessionId })).runs).toHaveLength(1)
       expect((await agents.execute('agent.list', { parentSessionId: host.ready.sessionId })).items).toHaveLength(1)
-      await page.getByRole('button', { name: copy.session.tools.activity, exact: true }).click()
+      await page.locator('.hbar-mobile-header-menu-trigger').click()
+      const toolSection = page
+        .locator('.hbar-mobile-header-menu-content')
+        .getByRole('region', { name: copy.session.tools.label, exact: true })
+      await toolSection.getByRole('button', { name: copy.session.tools.activity, exact: true }).click()
       const activity = page.locator('.hbar-session-activity-workspace')
       const row = activity.locator(`[data-activity-agent-id="${created.agentId}"]`)
+      await expect(activity).toBeVisible()
       await expect(row).toBeVisible()
 
       await page.setViewportSize({ width: 320, height: 720 })

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ListChecks, RefreshCw } from 'lucide-react'
 import {
+  LumenContentText,
   LumenButton,
   LumenCollection,
   LumenCollectionItem,
@@ -73,38 +74,38 @@ export function HbarSessionActivityView({
   return (
     <LumenFrame as="section" className="hbar-session-activity-runs" aria-label={labels.runs}>
       <LumenFrame className="hbar-activity-section-heading">
-        <LumenText as="h3">{labels.runs}</LumenText>
+        <LumenContentText context="section.subtitle">{labels.runs}</LumenContentText>
       </LumenFrame>
       {!connected && (
-        <LumenText as="p" role="status" className="hbar-session-activity-notice">
+        <LumenContentText context="feedback.message" role="status" className="hbar-session-activity-notice">
           {labels.offline}
-        </LumenText>
+        </LumenContentText>
       )}
       {entry?.status === 'error' && (
         <LumenFrame className="hbar-session-activity-recovery">
-          <LumenText as="p" role="alert">
+          <LumenContentText context="feedback.message" role="alert">
             {labels.error(entry.error ?? 'EXECUTION_FAILED')}
-          </LumenText>
+          </LumenContentText>
           <LumenButton size="s" disabled={!connected} onClick={onRefresh}>
             {labels.retry}
           </LumenButton>
         </LumenFrame>
       )}
       {loading && !loadingMore && (
-        <LumenText as="p" role="status" className="hbar-session-activity-notice">
+        <LumenContentText context="feedback.message" role="status" className="hbar-session-activity-notice">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {entry?.status === 'ready' && entry.totalActive === 0 && (
-        <LumenText as="p" className="hbar-session-activity-notice">
+        <LumenContentText context="section.description" className="hbar-session-activity-notice">
           {labels.empty}
-        </LumenText>
+        </LumenContentText>
       )}
       {visible.length > 0 && (
         <>
-          <LumenText as="p" className="hbar-session-activity-count">
+          <LumenContentText context="section.description" className="hbar-session-activity-count">
             {labels.count(visible.length, entry?.totalActive ?? visible.length)}
-          </LumenText>
+          </LumenContentText>
           <LumenCollection as="ol" className="hbar-session-activity-list">
             {visible.map((item) => (
               <LumenCollectionItem key={item.operationId} data-operation-id={item.operationId}>
@@ -123,14 +124,14 @@ export function HbarSessionActivityView({
             ))}
           </LumenCollection>
           {loadingMore && (
-            <LumenText as="p" role="status" className="hbar-session-activity-notice">
+            <LumenContentText context="feedback.message" role="status" className="hbar-session-activity-notice">
               {labels.loadingMore}
-            </LumenText>
+            </LumenContentText>
           )}
           {entry?.limitReached && (
-            <LumenText as="p" className="hbar-session-activity-notice">
+            <LumenContentText context="section.description" className="hbar-session-activity-notice">
               {labels.limitReached}
-            </LumenText>
+            </LumenContentText>
           )}
           {entry?.status === 'ready' && entry.nextCursor && !entry.limitReached && (
             <LumenButton size="s" disabled={!connected} onClick={onLoadMore}>

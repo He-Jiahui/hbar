@@ -1,6 +1,6 @@
 import type { RefObject } from 'react'
 import { ArrowDown, ArrowUp, Search, X } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon, LumenInput } from '@lumen/app-ui'
 import { CONVERSATION_FIND_LIMITS, type ConversationFindState } from '@hbar/app-runtime'
 import './session-find.css'
 
@@ -87,13 +87,19 @@ export function HbarSessionFindBar({
             }
           }}
         />
-        <LumenText as="span" className="hbar-session-find-count" role="status" aria-live="polite" aria-atomic="true">
+        <LumenContentText
+          context="metadata"
+          className="hbar-session-find-count"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
           {state.status === 'searching'
             ? labels.searching
             : state.query.trim()
               ? labels.count(state.activeIndex + 1, state.matches.length, state.truncated)
               : null}
-        </LumenText>
+        </LumenContentText>
         <LumenButton
           type="button"
           size="s"
@@ -131,14 +137,14 @@ export function HbarSessionFindBar({
         </LumenButton>
       </LumenFrame>
       {notice && (
-        <LumenText
-          as="p"
+        <LumenContentText
+          context="feedback.message"
           id={descriptionId}
           className="hbar-session-find-notice"
           role={state.error || feedback ? 'alert' : undefined}
         >
           {notice}
-        </LumenText>
+        </LumenContentText>
       )}
     </LumenFrame>
   )

@@ -56,6 +56,7 @@ export function registerSurfaceCommands(
   sessionTools: Pick<ReturnType<typeof createSessionTools>, 'hide' | 'navigationTool'>,
 ): () => void {
   const windowTails = new Map<string, Promise<void>>()
+  let sidebarInteracted = false
   let lastGlobalSettingsGroup: string | null = options.initialGlobalSettings?.section ?? null
   try {
     const stored = options.settingsLanding?.readLastGlobalGroup?.() ?? null
@@ -191,8 +192,16 @@ export function registerSurfaceCommands(
     if (target) closePanel(target)
     return presentationSummary(presentation.reader.getSnapshot())
   })
+  local.register(surfaceCommands['app.initializeSidebar'], ({ visible }) => {
+    const current = presentation.reader.getSnapshot()
+    // Saved layout and initial viewport hydration cannot supersede a newer interactive choice.
+    if (sidebarInteracted) return presentationSummary(current)
+    presentation.replace({ ...current, sidebarOpen: visible })
+    return presentationSummary(presentation.reader.getSnapshot())
+  })
   local.register(surfaceCommands['app.setSidebarVisible'], ({ visible }) => {
     const current = presentation.reader.getSnapshot()
+    sidebarInteracted = true
     presentation.replace({ ...current, sidebarOpen: visible })
     return presentationSummary(presentation.reader.getSnapshot())
   })

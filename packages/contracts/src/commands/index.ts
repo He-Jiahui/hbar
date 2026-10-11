@@ -38,6 +38,8 @@ import { sessionLaunchTargetCommands } from './session-launch-target'
 import { sessionLaunchBranchesCommands } from './session-launch-branches'
 import { workspaceActivityCommands } from './workspace-activity'
 import { sessionActivityCommands } from './session-activity'
+import { contextHistoryCommands } from './context-history'
+import { sessionObservabilityCommands } from './session-observability'
 import { sidebarDirectoryCommands } from './sidebar-directory'
 import { notificationCommands } from './notifications'
 import { promptTemplateCommands } from './prompt-templates'
@@ -71,6 +73,8 @@ function query(id: string): CommandMetadataInput {
   return { ...base, id, titleKey: `commands.${id}.title`, descriptionKey: `commands.${id}.description` }
 }
 export const directoryCommands = {
+  ...contextHistoryCommands,
+  ...sessionObservabilityCommands,
   ...sidebarDirectoryCommands,
   ...workspaceActivityCommands,
   ...sessionActivityCommands,

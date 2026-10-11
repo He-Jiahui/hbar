@@ -39,7 +39,7 @@
 
 .hbar-provider-list-view-heading p {
   margin-block-start: 0.25rem;
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
 }
 
 .hbar-provider-list-view-header-actions {

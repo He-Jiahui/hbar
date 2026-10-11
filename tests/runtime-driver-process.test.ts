@@ -1,3 +1,4 @@
+import { STORAGE_SCHEMA_VERSION } from '@hbar/storage'
 import { afterEach, expect, test } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -22,7 +23,7 @@ afterEach(async () => {
 const outcome = (promise: Promise<unknown>) => promise.catch((error: unknown) => error)
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), 'hbar-runtime-driver-'))
-  const descriptor: RuntimeUnitDescriptor = { id: 'driver.pi', kind: 'driver', isolation: 'process', dependencies: [], required: true, reloadable: true, contractFingerprint: DRIVER_RUNTIME_FINGERPRINT, storageSchema: 24 }
+  const descriptor: RuntimeUnitDescriptor = { id: 'driver.pi', kind: 'driver', isolation: 'process', dependencies: [], required: true, reloadable: true, contractFingerprint: DRIVER_RUNTIME_FINGERPRINT, storageSchema: STORAGE_SCHEMA_VERSION }
   const store = new RuntimeArtifactStore(join(root, 'bundles'), process.cwd())
   const artifact = await store.build({ descriptor, entrypoint: 'apps/host/src/runtime-driver-process.ts' })
   let adapter!: RuntimeDriverAdapter

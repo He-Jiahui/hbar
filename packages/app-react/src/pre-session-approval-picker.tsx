@@ -11,7 +11,7 @@ import {
   ShieldX,
   X,
 } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import type { ComposerPermissionChoice, ComposerPermissionMode, ComposerPlanMode } from '@hbar/app-runtime'
 import type { HbarComposerPermissionLabels } from './composer-permission-picker'
 import './composer-permission-picker.css'
@@ -155,7 +155,7 @@ export function HbarPreSessionApprovalPicker({
         popoverTarget={popupId}
       >
         <LumenIcon icon={planSelected ? Lightbulb : icons[choice]} tier="sm" />
-        <LumenText as="span">{selectedLabel}</LumenText>
+        <LumenContentText context="control.label">{selectedLabel}</LumenContentText>
         <LumenIcon icon={ChevronDown} tier="sm" />
       </LumenButton>
       <LumenFrame
@@ -204,9 +204,9 @@ export function HbarPreSessionApprovalPicker({
         }}
       >
         <LumenFrame className="hbar-composer-permission-heading">
-          <LumenText as="strong" id={headingId}>
+          <LumenContentText context="record.title" id={headingId}>
             {confirming ? labels.confirmTitle : labels.title}
-          </LumenText>
+          </LumenContentText>
           <LumenButton
             type="button"
             size="s"
@@ -220,9 +220,9 @@ export function HbarPreSessionApprovalPicker({
         </LumenFrame>
         {confirming ? (
           <>
-            <LumenText as="p" id={hintId}>
+            <LumenContentText context="section.description" id={hintId}>
               {labels.confirmBody(sessionLabel)}
-            </LumenText>
+            </LumenContentText>
             <LumenFrame className="hbar-composer-permission-actions">
               <LumenButton
                 ref={cancelConfirmation}
@@ -251,9 +251,9 @@ export function HbarPreSessionApprovalPicker({
           </>
         ) : (
           <LumenFrame className="hbar-composer-permission-body">
-            <LumenText as="p" id={hintId} className="hbar-composer-permission-hint">
+            <LumenContentText context="section.description" id={hintId} className="hbar-composer-permission-hint">
               {planSelected ? labels.plan.scope : labels.scopeHint}
-            </LumenText>
+            </LumenContentText>
             <LumenFrame
               role="menu"
               aria-label={labels.title}
@@ -272,8 +272,8 @@ export function HbarPreSessionApprovalPicker({
                 >
                   <LumenIcon icon={ArrowLeft} tier="md" />
                   <LumenFrame className="hbar-composer-permission-description">
-                    <LumenText as="span">{labels.plan.exit}</LumenText>
-                    <LumenText as="span">{labels.plan.exitDescription}</LumenText>
+                    <LumenContentText context="control.label">{labels.plan.exit}</LumenContentText>
+                    <LumenContentText context="control.label">{labels.plan.exitDescription}</LumenContentText>
                   </LumenFrame>
                 </LumenButton>
               )}
@@ -294,10 +294,10 @@ export function HbarPreSessionApprovalPicker({
                     >
                       <LumenIcon icon={Lightbulb} tier="md" />
                       <LumenFrame className="hbar-composer-permission-description">
-                        <LumenText as="span">{labels.plan.label}</LumenText>
-                        <LumenText as="span">
+                        <LumenContentText context="control.label">{labels.plan.label}</LumenContentText>
+                        <LumenContentText context="choice.description">
                           {planBlockedReason ?? (planSelected ? labels.plan.selected : labels.plan.description)}
-                        </LumenText>
+                        </LumenContentText>
                       </LumenFrame>
                       {planSelected && <LumenIcon icon={Check} tier="sm" />}
                     </LumenButton>
@@ -320,8 +320,10 @@ export function HbarPreSessionApprovalPicker({
                   >
                     <LumenIcon icon={icons[value]} tier="md" />
                     <LumenFrame className="hbar-composer-permission-description">
-                      <LumenText as="span">{labels.options[value].label}</LumenText>
-                      <LumenText as="span">{labels.options[value].description}</LumenText>
+                      <LumenContentText context="control.label">{labels.options[value].label}</LumenContentText>
+                      <LumenContentText context="choice.description">
+                        {labels.options[value].description}
+                      </LumenContentText>
                     </LumenFrame>
                     {!planSelected && choice === value && <LumenIcon icon={Check} tier="sm" />}
                   </LumenButton>
@@ -329,9 +331,9 @@ export function HbarPreSessionApprovalPicker({
               )}
             </LumenFrame>
             {error && (
-              <LumenText as="p" role="alert">
+              <LumenContentText context="feedback.message" role="alert">
                 {labels.error(error)}
-              </LumenText>
+              </LumenContentText>
             )}
           </LumenFrame>
         )}

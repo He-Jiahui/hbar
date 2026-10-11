@@ -1,5 +1,5 @@
-import { Bot, Box, CircleDollarSign, HelpCircle, Settings, Target } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { Bot, Box, CircleDollarSign, HelpCircle, Minimize2, Settings, Target } from 'lucide-react'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import type { AgentComposerState } from '@hbar/app-runtime'
 import { slashMatches, type LocalSlashCommand } from './composer-slash'
 import type { HbarComposerAgentNoticeLabels } from './composer-agent-notice'
@@ -94,23 +94,25 @@ export function HbarComposerSlashMenu({
                           ? CircleDollarSign
                           : command === 'help'
                             ? HelpCircle
-                            : Settings
+                            : command === 'compact'
+                              ? Minimize2
+                              : Settings
                 }
                 tier="sm"
               />
-              <LumenText as="span" className="hbar-composer-slash-name">
+              <LumenContentText context="control.label" className="hbar-composer-slash-name">
                 {item.label} {item.argumentHint}
-              </LumenText>
-              <LumenText as="span" className="hbar-composer-slash-description">
+              </LumenContentText>
+              <LumenContentText context="choice.description" className="hbar-composer-slash-description">
                 {item.description}
-              </LumenText>
+              </LumenContentText>
             </LumenButton>
           )
         })}
       </LumenFrame>
-      <LumenText as="span" className="hbar-composer-slash-hint">
+      <LumenContentText context="message.inline" className="hbar-composer-slash-hint">
         {labels.hint}
-      </LumenText>
+      </LumenContentText>
     </LumenFrame>
   )
 }

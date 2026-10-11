@@ -7,6 +7,7 @@ import type { ExecutionProvider } from '@hbar/plugin-sdk'
 import type { StoragePort } from '@hbar/storage'
 import { createSessionWorkspaceContext } from './session-workspace-context'
 import type { SessionWorkspaceInput, SessionWorkspaceResolver } from './session-workspace-context'
+import type { RunFileChangeUndoPort } from './run-file-changes'
 
 const digest = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex')
 
@@ -24,6 +25,7 @@ export function createFileCommands(
   storage: StoragePort,
   execution: ExecutionProvider,
   sessionWorkspace?: SessionFileWorkspaceResolver,
+  fileChangesUndo?: RunFileChangeUndoPort,
 ) {
   const registry = new CommandRegistry({ execution: 'host' })
   const writes = new Map<string, Promise<void>>()
@@ -152,6 +154,23 @@ export function createFileCommands(
     translate(() => storage.call('artifact', artifactId)),
   )
 
+  registry.register(fileCommands['run.fileChanges'], (input) =>
+    translate(() => storage.call('runFileChanges', input.sessionId, input.runId, input.after, input.limit)),
+  )
+  registry.register(fileCommands['run.fileChangeDiff'], (input) =>
+    translate(() => storage.call('runFileChangeDiff', input.sessionId, input.runId, input.path, input.offset)),
+  )
+  registry.register(
+    fileCommands['run.undoFileChanges'],
+    (input, context) =>
+      translate(async () => {
+        if (!context.actorId) throw new HbarError('INVALID_INPUT', 'Authenticated actor is required')
+        if (!fileChangesUndo) throw new HbarError('CAPABILITY_UNAVAILABLE', 'File change undo is unavailable')
+        await fileChangesUndo.undo(input.sessionId, input.runId, context.signal)
+        return storage.call('runFileChanges', input.sessionId, input.runId, undefined, 50)
+      }),
+    { durable: true },
+  )
   return {
     ...createCommandClient(fileCommands, registry),
     dispatch(value: unknown, actorId: string) {

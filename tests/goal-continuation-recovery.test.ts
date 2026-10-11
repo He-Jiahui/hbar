@@ -352,9 +352,9 @@ test('an interrupted user Run with an unknown effect cannot create a new startup
   resource.kernel = await Kernel.create(options)
   await resource.kernel.waitForIdle()
   expect(calls()).toBe(0)
-  expect((await resource.kernel.plugins.get<GoalRuntime>('goal').get(session.id)).goal?.continuation).toMatchObject({
-    phase: 'stopped',
-    reason: 'result_unknown',
+  expect((await resource.kernel.plugins.get<GoalRuntime>('goal').get(session.id)).goal).toMatchObject({
+    status: 'paused',
+    continuation: { phase: 'stopped', reason: 'result_unknown' },
   })
 })
 
@@ -365,11 +365,41 @@ test('an unfinished write intent is reported unknown and is never replayed after
   resource.kernel = await Kernel.create(options)
   await resource.kernel.waitForIdle()
   expect(calls()).toBe(0)
-  expect((await resource.kernel.plugins.get<GoalRuntime>('goal').get(session.id)).goal?.continuation).toMatchObject({
-    phase: 'stopped',
-    reason: 'result_unknown',
+  expect((await resource.kernel.plugins.get<GoalRuntime>('goal').get(session.id)).goal).toMatchObject({
+    status: 'paused',
+    continuation: { phase: 'stopped', reason: 'result_unknown' },
   })
 })
+
+for (const reason of [
+  'run_failed',
+  'result_unknown',
+  'retry_exhausted',
+  'repair_exhausted',
+  'continuation_limit',
+  'disabled',
+] as const)
+  test(`startup pauses an older active Goal whose continuation stopped with ${reason}`, async () => {
+    const { kernel, resource, options, session, run, saved, intent, calls } = await fixture()
+    await kernel.storage.call('setRun', run.id, 'failed', 'Execution stopped')
+    await kernel.append(
+      session.id,
+      'goal.accounted',
+      {
+        goal: { ...saved, accountedRuns: [run.id], continuationIntent: { ...intent, phase: 'stopped', reason } },
+      },
+      run.id,
+    )
+    await kernel.close()
+    resource.kernel = await Kernel.create(options)
+    await resource.kernel.waitForIdle()
+    expect(calls()).toBe(0)
+    expect((await resource.kernel.plugins.get<GoalRuntime>('goal').get(session.id)).goal).toMatchObject({
+      status: 'paused',
+      continuation: { phase: 'stopped', reason },
+      timing: { running: false },
+    })
+  })
 
 for (const reason of ['no_tool_calls', 'no_progress'])
   test(`startup revalidates an active Goal stopped by the former ${reason} heuristic exactly once`, async () => {

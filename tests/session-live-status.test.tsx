@@ -185,9 +185,12 @@ test('unconfirmed Plan progress offers local read recovery and retains its origi
     context: { facts: { ...sessionFacts(3), status: 'error', error: 'TIMEOUT' }, summary: null, onRefresh: () => {} },
   })
   expect(html).toContain(labels.offline)
-  expect(html).toContain(labels.tasks.error('TIMEOUT'))
-  expect(html).toContain(labels.tasks.retry)
-  expect(html).toContain('disabled=""')
+  const recoveryStart = html.indexOf('hbar-session-activity-recovery')
+  expect(recoveryStart).toBeGreaterThanOrEqual(0)
+  const recovery = html.slice(recoveryStart, html.indexOf('</div>', recoveryStart) + '</div>'.length)
+  expect(recovery).toContain(labels.tasks.error('TIMEOUT'))
+  expect(recovery).toContain(labels.tasks.retry)
+  expect(recovery).toContain('disabled=""')
   expect(html).toContain('data-activity-task-status="in_progress"')
 })
 

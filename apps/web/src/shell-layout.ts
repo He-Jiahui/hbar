@@ -100,12 +100,35 @@ const shellLayoutV1Schema = z.strictObject({
   }),
 })
 
-export type ShellLayoutDescription = z.output<typeof shellLayoutV3Schema>
+const readingWorkspaceModuleSchema = workspaceModuleSchema.extend({
+  size: z.strictObject({ minRem: z.literal(32), grow: z.literal(1) }),
+})
+const drawerToolModuleSchema = adaptiveToolModuleSchema.extend({
+  config: z.strictObject({ constrainedPresentation: z.literal('drawer'), resizable: z.boolean() }),
+})
+const shellLayoutV4Schema = z
+  .strictObject({
+    schemaVersion: z.literal(4),
+    id: z.literal('app'),
+    type: z.literal('app-shell'),
+    modules: z
+      .array(
+        z.discriminatedUnion('moduleId', [projectsModuleSchema, readingWorkspaceModuleSchema, drawerToolModuleSchema]),
+      )
+      .length(3),
+  })
+  .superRefine((value, context) => {
+    for (const id of ['projects', 'workspace', 'session-tool'] as const)
+      if (value.modules.filter((module) => module.moduleId === id).length !== 1)
+        context.addIssue({ code: 'custom', path: ['modules'], message: `Expected one ${id} module` })
+  })
+
+export type ShellLayoutDescription = z.output<typeof shellLayoutV4Schema>
 export type ShellLayoutModule = ShellLayoutDescription['modules'][number]
 export type ShellLayoutModuleId = ShellLayoutModule['moduleId']
 
 function migrateV1(value: z.output<typeof shellLayoutV1Schema>): ShellLayoutDescription {
-  const next = structuredClone(shellLayoutV3Schema.parse(description))
+  const next = structuredClone(shellLayoutV4Schema.parse(description))
   const projects = next.modules.find((module) => module.moduleId === 'projects')!
   projects.visible = value.sidebar.visible
   projects.size.preferredRem = value.sidebar.widthRem
@@ -116,7 +139,7 @@ export function normalizeShellLayout(value: ClientJsonObject): ShellLayoutDescri
   if (value.schemaVersion === 1) return migrateV1(shellLayoutV1Schema.parse(value))
   if (value.schemaVersion === 2) {
     const old = shellLayoutV2Schema.parse(value)
-    return shellLayoutV3Schema.parse({
+    return normalizeShellLayout({
       ...old,
       schemaVersion: 3,
       modules: old.modules.map((module) =>
@@ -126,7 +149,21 @@ export function normalizeShellLayout(value: ClientJsonObject): ShellLayoutDescri
       ),
     })
   }
-  return shellLayoutV3Schema.parse(value)
+  if (value.schemaVersion === 3) {
+    const old = shellLayoutV3Schema.parse(value)
+    return shellLayoutV4Schema.parse({
+      ...old,
+      schemaVersion: 4,
+      modules: old.modules.map((module) =>
+        module.moduleId === 'workspace'
+          ? { ...module, size: { ...module.size, minRem: 32 } }
+          : module.moduleId === 'session-tool'
+            ? { ...module, config: { ...module.config, constrainedPresentation: 'drawer' } }
+            : module,
+      ),
+    })
+  }
+  return shellLayoutV4Schema.parse(value)
 }
 
 /** Change only this device's preferred tool width, preserving every other module choice. */
@@ -144,7 +181,7 @@ function withPaneWidth(
   moduleId: 'projects' | 'session-tool',
   widthRem: number,
 ): ShellLayoutDescription {
-  return shellLayoutV3Schema.parse({
+  return shellLayoutV4Schema.parse({
     ...layout,
     modules: layout.modules.map((module) =>
       module.moduleId === moduleId ? { ...module, size: { ...module.size, preferredRem: widthRem } } : module,
@@ -161,7 +198,7 @@ export function shellLayoutModule<ModuleId extends ShellLayoutModuleId>(
   return module as Extract<ShellLayoutModule, { moduleId: ModuleId }>
 }
 
-export const shellLayout = shellLayoutV3Schema.parse(description)
+export const shellLayout = shellLayoutV4Schema.parse(description)
 
 /** Project the canonical descriptor into FlexLayout's model without creating a second source of truth. */
 export function shellLayoutToFlexModel(
@@ -302,7 +339,7 @@ export function flexModelToShellLayout(
       return fallback
     return resizedWidth
   }
-  return shellLayoutV3Schema.parse({
+  return shellLayoutV4Schema.parse({
     ...layout,
     modules: layout.modules.map((module) =>
       module.moduleId === 'projects' || module.moduleId === 'session-tool'

@@ -1,5 +1,5 @@
 import { FileText, MessageSquare, X } from 'lucide-react'
-import { LumenButton, LumenDisclosure, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenDisclosure, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import type { SessionDraftState } from '@hbar/app-runtime'
 import { HbarComposerFeedback } from './composer-feedback'
 import './composer-workspace-contexts.css'
@@ -45,9 +45,9 @@ export function HbarComposerWorkspaceContexts({
     <LumenFrame className="hbar-composer-workspace-contexts">
       {error && (
         <HbarComposerFeedback tone="danger">
-          <LumenText as="p" className="hbar-composer-workspace-context-error" role="alert">
+          <LumenContentText context="feedback.message" className="hbar-composer-workspace-context-error" role="alert">
             {error}
-          </LumenText>
+          </LumenContentText>
         </HbarComposerFeedback>
       )}
       {contexts.length > 0 && (
@@ -70,23 +70,31 @@ export function HbarComposerWorkspaceContexts({
               >
                 <LumenIcon icon={icon} tier="sm" className="hbar-composer-workspace-context-icon" />
                 <LumenFrame className="hbar-composer-workspace-context-copy">
-                  <LumenText as="span" className="hbar-composer-workspace-context-kind">
+                  <LumenContentText context="message.inline" className="hbar-composer-workspace-context-kind">
                     {labels.kind(context)}
-                  </LumenText>
+                  </LumenContentText>
                   <LumenFrame className="hbar-composer-workspace-context-address" title={labels.location(context)}>
-                    <LumenText as="span" className="hbar-composer-workspace-context-location" tabIndex={0}>
-                      <LumenText as="span">{labels.name(context)}</LumenText>
-                    </LumenText>
+                    <LumenContentText
+                      context="message.inline"
+                      className="hbar-composer-workspace-context-location"
+                      tabIndex={0}
+                    >
+                      <LumenContentText context="message.inline">{labels.name(context)}</LumenContentText>
+                    </LumenContentText>
                     {range && (
-                      <LumenText as="small" className="hbar-composer-workspace-context-range">
+                      <LumenContentText context="record.description" className="hbar-composer-workspace-context-range">
                         {range}
-                      </LumenText>
+                      </LumenContentText>
                     )}
                   </LumenFrame>
                   {note && (
-                    <LumenText as="span" className="hbar-composer-workspace-context-note" title={note}>
+                    <LumenContentText
+                      context="message.inline"
+                      className="hbar-composer-workspace-context-note"
+                      title={note}
+                    >
                       {note}
-                    </LumenText>
+                    </LumenContentText>
                   )}
                   <LumenDisclosure className="hbar-composer-workspace-context-quote" summary={labels.quoteDisclosure}>
                     <LumenFrame as="div" role="blockquote" className="hbar-composer-workspace-context-quote-text">
@@ -121,9 +129,9 @@ export function HbarComposerWorkspaceContexts({
               role="listitem"
             >
               <LumenIcon icon={FileText} tier="sm" />
-              <LumenText as="span" title={attachment.artifact.name}>
+              <LumenContentText context="message.inline" title={attachment.artifact.name}>
                 {attachment.artifact.name}
-              </LumenText>
+              </LumenContentText>
               <LumenButton
                 type="button"
                 size="s"

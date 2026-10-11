@@ -1,4 +1,4 @@
-import { HbarError } from '@hbar/contracts'
+import { HbarError, RUN_STEP_LIMIT_CODE } from '@hbar/contracts'
 import type { RunFailure } from '@hbar/contracts'
 
 /** Preserve typed Host failures. Text matching is only a legacy/provider fallback. */
@@ -13,12 +13,13 @@ export function classifyRunFailure(error: unknown): RunFailure {
       budgetSource: code === 'GOAL_BUDGET_EXHAUSTED' ? 'goal' : 'session',
     }
   if (code === 'USER_CANCELLED') return { code, category: 'cancelled', retryable: false }
-  if (code === 'RUN_TIMEOUT') return { code, category: 'timeout', retryable: false }
+  if (code === 'RUN_TIMEOUT' || code === 'COMPACTION_TIMEOUT') return { code, category: 'timeout', retryable: false }
   if (code === 'HOST_SHUTTING_DOWN') return { code, category: 'interrupted', retryable: false }
   if (code === 'RESULT_UNKNOWN' || code === 'EFFECT_UNKNOWN')
     return { code, category: 'result_unknown', retryable: false }
   if (code === 'PROVIDER_CONNECTION_FAILED' || code === 'PROVIDER_STREAM_INTERRUPTED')
     return { code, category: 'transient', retryable: true }
+  if (code === RUN_STEP_LIMIT_CODE) return { code: RUN_STEP_LIMIT_CODE, category: 'execution', retryable: false }
   if (/(insufficient (?:credits|quota)|usage[_ -]?limit|quota (?:exceeded|exhausted))/i.test(message))
     return { code: code ?? 'PROVIDER_USAGE_LIMIT', category: 'usage_limit', retryable: false }
   if (

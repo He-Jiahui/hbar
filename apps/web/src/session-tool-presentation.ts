@@ -9,6 +9,7 @@ export const TOOL_TITLE_CODE_POINTS = 4000
 export const TOOL_SUMMARY_CODE_POINTS = TOOL_TITLE_CODE_POINTS
 export const TOOL_DISPLAY_SCAN_UNITS = 8192
 export const TOOL_INCLUDE_ITEMS = 8
+export const TOOL_INLINE_COMMAND_CODE_POINTS = 160
 
 interface DisplayText {
   readonly text: string
@@ -27,6 +28,8 @@ interface Copy {
   readonly query: string
   readonly include: string
   readonly truncated: string
+  readonly script: string
+  readonly powerShell: string
 }
 
 function copyFor(locale: ShellLocale): Copy {
@@ -51,6 +54,8 @@ function copyFor(locale: ShellLocale): Copy {
         query: '文件名',
         include: '匹配模式',
         truncated: ' [已截断；展开输入可查看原值]',
+        script: '执行脚本',
+        powerShell: '执行 PowerShell 脚本',
       }
     : {
         labels: {
@@ -72,6 +77,8 @@ function copyFor(locale: ShellLocale): Copy {
         query: 'File name',
         include: 'Include patterns',
         truncated: ' [truncated; expand Input for the original]',
+        script: 'Run script',
+        powerShell: 'Run PowerShell script',
       }
 }
 
@@ -241,6 +248,19 @@ function present(call: Parameters<Presenter>[0], copy: Copy): Presentation {
       const description = field(copy.description, display(ownString(args, captured.descriptionField)))
       summary = description.text ? description : command
       if (description.text) summaryFormat = 'text'
+      else if (
+        command.text &&
+        rawCommand &&
+        (/[\r\n]/u.test(rawCommand.slice(0, TOOL_DISPLAY_SCAN_UNITS)) ||
+          Array.from(command.text).length > TOOL_INLINE_COMMAND_CODE_POINTS ||
+          command.truncated)
+      ) {
+        // This names the requested script form, never its outcome or inferred side effects.
+        const prefix = rawCommand.slice(0, TOOL_DISPLAY_SCAN_UNITS).trimStart()
+        const powerShell = /^(?:\$[A-Za-z_]|(?:pwsh|powershell)(?:\.exe)?\b|Set-Location\b)/iu.test(prefix)
+        summary = { text: powerShell ? copy.powerShell : copy.script, truncated: false }
+        summaryFormat = 'text'
+      }
       break
     }
     case 'text-search':

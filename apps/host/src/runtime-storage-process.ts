@@ -22,6 +22,7 @@ const configurationSchema = z.strictObject({
   skillsRoot: z.string().min(1).max(4_000),
   identityRoot: z.string().min(1).max(4_000),
   workerPath: z.string().min(1).max(4_000).optional(),
+  diagnosticsEnabled: z.boolean().optional(), diagnosticsFullCoverage: z.boolean().optional(),
 })
 export async function create(context: RuntimeProcessContext): Promise<RuntimeProcessService> {
   const configuration = configurationSchema.parse(context.configuration)
@@ -75,7 +76,14 @@ export async function create(context: RuntimeProcessContext): Promise<RuntimePro
       if (draining)
         throw new HbarError('STORAGE_WRITER_UNAVAILABLE', 'Storage owner closed before its verified writer opened')
       if (configuration.workerPath) process.env.HBAR_STORAGE_WORKER = configuration.workerPath
-      storage = new Storage(configuration.database, layout, { onFatal: () => process.exit(76) })
+      storage = new Storage(configuration.database, layout, {
+        onFatal: () => process.exit(76),
+        ...(configuration.diagnosticsEnabled ? {
+          diagnostics: { emit: event => { void context.peer.notify('runtime.diagnostic', event).catch(() => {}) } },
+          instanceId: context.peer.owner.incarnation,
+          diagnosticsFullCoverage: configuration.diagnosticsFullCoverage ?? false,
+        } : {}),
+      })
       await storage.call('ready')
     } catch (error) {
       await storage?.close()

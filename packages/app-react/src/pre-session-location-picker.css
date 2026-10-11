@@ -54,7 +54,7 @@
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
   color: var(--lumen-muted);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 
 .hbar-pre-session-location-heading > strong {
@@ -93,7 +93,7 @@
 }
 
 .hbar-pre-session-location-new-branch > label {
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
   font-weight: 600;
 }
 

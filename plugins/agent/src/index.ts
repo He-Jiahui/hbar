@@ -18,7 +18,7 @@ import type {
   AgentRecord,
   AgentPolicySetInput,
 } from '@hbar/contracts/commands/agents'
-import { definePlugin, provide } from '@hbar/plugin-sdk'
+import { definePlugin, provide, SKILL_TOOL_NAMES } from '@hbar/plugin-sdk'
 import type {
   AgentService,
   BudgetService,
@@ -49,6 +49,7 @@ const PROFILE_DEFINITIONS = {
     instructions:
       'You are an Explore child agent. Investigate the assigned objective using read-only workspace tools. Do not modify files, run processes, or claim changes were made. Report findings with concrete file paths and uncertainty.',
     toolNames: new Set([
+      ...SKILL_TOOL_NAMES,
       'read_file',
       'search_text',
       'find_files',
@@ -587,6 +588,18 @@ export class AgentRuntime implements AgentService {
     }
   }
 
+  /** Agent work is complete after its owning Run settles; budget continuation
+   * must not manufacture an empty follow-up Run for the child session. */
+  async beforeBudgetContinue(event: HookEvents['budget.beforeContinue']) {
+    if (!event.allowed) return event
+    const seed = await this.created(event.sessionId)
+    if (!seed) return event
+    const snapshot = await this.sessions.snapshot(event.sessionId)
+    const owningRun = snapshot.runs.find((run) => run.requestId === seed.requestId)
+    if (owningRun?.status === 'completed') return { ...event, allowed: false }
+    return event
+  }
+
   private async persistPatch(seed: CreatedAgent, patch: AgentPatch) {
     const data = patchEventSchema.parse({ patch })
     await this.sessions.append(seed.sessionId, 'agent.patch.updated', data)
@@ -811,6 +824,7 @@ export const agentPlugin = definePlugin({
       return event
     })
     api.hooks.on('run.end', (event) => runtime.finish(event))
+    api.hooks.on('budget.beforeContinue', (event) => runtime.beforeBudgetContinue(event))
   },
 })
 

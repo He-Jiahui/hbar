@@ -1,5 +1,6 @@
 import { Bot, ChevronRight } from 'lucide-react'
 import {
+  LumenContentText,
   LumenButton,
   LumenCollection,
   LumenCollectionItem,
@@ -98,18 +99,18 @@ export function ActivityWorkflowView({
             </ActivityText>
             {!agent && delegation.agentId && (
               <LumenFrame className="hbar-session-activity-recovery">
-                <LumenText as="p">{labels.missingAgent}</LumenText>
+                <LumenContentText context="section.description">{labels.missingAgent}</LumenContentText>
                 <LumenButton size="s" disabled={!connected || loading} onClick={onRefresh}>
                   {labels.retry}
                 </LumenButton>
               </LumenFrame>
             )}
             {agent && opening?.agentId === agent.agentId && (
-              <LumenText as="p" role={opening.status === 'error' ? 'alert' : 'status'}>
+              <LumenContentText context="feedback.message" role={opening.status === 'error' ? 'alert' : 'status'}>
                 {opening.status === 'opening'
                   ? labels.agent.opening
                   : labels.agent.error(opening.error ?? 'EXECUTION_FAILED')}
-              </LumenText>
+              </LumenContentText>
             )}
           </LumenCollectionItem>
         )
@@ -119,19 +120,19 @@ export function ActivityWorkflowView({
   return (
     <LumenFrame as="section" className="hbar-activity-workflow" aria-label={labels.title}>
       <LumenFrame className="hbar-activity-section-heading">
-        <LumenText as="h3">{labels.title}</LumenText>
+        <LumenContentText context="section.subtitle">{labels.title}</LumenContentText>
         {workflow && <LumenStatus value={labels.status(workflow.status)} />}
       </LumenFrame>
       {loading && (
-        <LumenText as="p" role="status">
+        <LumenContentText context="feedback.message" role="status">
           {labels.loading}
-        </LumenText>
+        </LumenContentText>
       )}
       {failed && (
         <LumenFrame className="hbar-session-activity-recovery">
-          <LumenText as="p" role="alert">
+          <LumenContentText context="feedback.message" role="alert">
             {labels.error(entry.error ?? 'EXECUTION_FAILED')}
-          </LumenText>
+          </LumenContentText>
           <LumenButton size="s" disabled={!connected || loading} onClick={onRefresh}>
             {labels.retry}
           </LumenButton>
@@ -141,11 +142,11 @@ export function ActivityWorkflowView({
         <LumenFrame className="hbar-activity-workflow-group" data-activity-focus-id={workflow.focus.focusId}>
           <LumenFrame className="hbar-activity-workflow-group-heading">
             <ActivityText key={workflow.focus.focusId} text={workflow.focus.title} labels={labels.text} />
-            <LumenText as="span">
+            <LumenContentText context="message.inline">
               {focused.length
                 ? labels.count(settled(focused), focused.length)
                 : labels.focusStatus(workflow.focus.status)}
-            </LumenText>
+            </LumenContentText>
           </LumenFrame>
           {rows(focused)}
         </LumenFrame>
@@ -154,7 +155,7 @@ export function ActivityWorkflowView({
         <LumenFrame className="hbar-activity-workflow-group">
           <LumenFrame className="hbar-activity-workflow-group-heading">
             <LumenText as="h4">{labels.other}</LumenText>
-            <LumenText as="span">{labels.count(settled(other), other.length)}</LumenText>
+            <LumenContentText context="message.inline">{labels.count(settled(other), other.length)}</LumenContentText>
           </LumenFrame>
           {rows(other)}
         </LumenFrame>

@@ -58,24 +58,3 @@
 .hbar-tool-progress-segment[data-progress-state='failed'] {
   background: var(--lumen-danger);
 }
-.hbar-session-tool-status-indicator[data-lumen-state='running'] {
-  animation: hbar-tool-active-pulse var(--lumen-running-duration) var(--lumen-state-easing) infinite alternate;
-}
-@keyframes hbar-tool-active-pulse {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: var(--lumen-glow-running-max);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .hbar-session-tool-status-indicator[data-lumen-state='running'] {
-    animation: none;
-    opacity: 1;
-  }
-}
-[data-lumen-motion='off'] .hbar-session-tool-status-indicator[data-lumen-state='running'] {
-  animation: none;
-  opacity: 1;
-}

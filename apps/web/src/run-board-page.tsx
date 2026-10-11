@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  LumenContentText,
   LumenAgentPlan05,
   LumenButton,
   LumenDialog,
   LumenFrame,
-  LumenText,
   LumenKanban01,
   LumenKanban04,
   LumenKanban06,
@@ -212,35 +212,43 @@ export function RunBoardPage({ runtime, locale, variant = 1, instanceId }: RunBo
   const plan = selectedItem?.plan
   const planBody = plan ? (
     <LumenFrame>
-      <LumenText as="p">{labels.planSteps(plan.plan.length, plan.revision)}</LumenText>
+      <LumenContentText context="section.description">
+        {labels.planSteps(plan.plan.length, plan.revision)}
+      </LumenContentText>
       {plan.plan.map((step) => (
-        <LumenText as="p" key={step.step}>
+        <LumenContentText context="section.description" key={step.step}>
           {labels.cardLabel(step.step, labels.statusLabel(step.status))}
-        </LumenText>
+        </LumenContentText>
       ))}
     </LumenFrame>
   ) : (
-    <LumenText>{labels.noPlan}</LumenText>
+    <LumenContentText context="message.inline">{labels.noPlan}</LumenContentText>
   )
   return (
     <LumenFrame className="hbar-web-run-board" aria-busy={board.status === 'loading'}>
       <LumenFrame as="header">
-        <LumenText as="h2">{labels.title}</LumenText>
-        <LumenText as="p">{labels.description}</LumenText>
+        <LumenContentText context="section.title">{labels.title}</LumenContentText>
+        <LumenContentText context="section.description">{labels.description}</LumenContentText>
         <LumenButton onClick={refresh}>{labels.refresh}</LumenButton>
       </LumenFrame>
-      {board.status === 'loading' ? <LumenText role="status">{labels.loading}</LumenText> : null}
+      {board.status === 'loading' ? (
+        <LumenContentText context="message.inline" role="status">
+          {labels.loading}
+        </LumenContentText>
+      ) : null}
       {error ? (
-        <LumenText tone="danger" role="alert">
+        <LumenContentText context="message.inline" tone="danger" role="alert">
           {error}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {actionError ? (
-        <LumenText tone="danger" role="alert">
+        <LumenContentText context="message.inline" tone="danger" role="alert">
           {actionError}
-        </LumenText>
+        </LumenContentText>
       ) : null}
-      {board.status === 'ready' && items.length === 0 ? <LumenText>{labels.empty}</LumenText> : null}
+      {board.status === 'ready' && items.length === 0 ? (
+        <LumenContentText context="message.inline">{labels.empty}</LumenContentText>
+      ) : null}
       <Kanban content={content} readOnly onAction={onAction} />
       {board.nextCursor ? (
         <LumenButton onClick={loadMore} disabled={board.status === 'loading'}>
@@ -263,16 +271,20 @@ export function RunBoardPage({ runtime, locale, variant = 1, instanceId }: RunBo
       >
         {selectedItem ? (
           <>
-            <LumenText as="p">{labels.detailStatus(labels.statusLabel(selectedItem.run.status))}</LumenText>
-            <LumenText as="p">
+            <LumenContentText context="dialog.body">
+              {labels.detailStatus(labels.statusLabel(selectedItem.run.status))}
+            </LumenContentText>
+            <LumenContentText context="dialog.body">
               {labels.detailWorkspace(selectedItem.workspaceName ?? labels.missingWorkspace)}
-            </LumenText>
-            <LumenText as="p">{labels.detailSession(selectedItem.sessionTitle ?? labels.missingSession)}</LumenText>
-            <LumenText as="p">
+            </LumenContentText>
+            <LumenContentText context="dialog.body">
+              {labels.detailSession(selectedItem.sessionTitle ?? labels.missingSession)}
+            </LumenContentText>
+            <LumenContentText context="dialog.body">
               {selectedItem.usage?.cost.availability === 'available' && selectedItem.usage.cost.value !== null
                 ? labels.usageCost(`${selectedItem.usage.cost.value} ${selectedItem.usage.cost.unit}`)
                 : labels.usageUnavailable}
-            </LumenText>
+            </LumenContentText>
             <LumenAgentPlan05 slots={{ body: planBody }} />
           </>
         ) : null}

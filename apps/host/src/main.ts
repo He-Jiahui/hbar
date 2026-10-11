@@ -1,17 +1,18 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { runtimeDomainError } from '@hbar/runtime'
 import { getStorageLocations, resolvePathLayout } from '@hbar/storage'
 import { startServer } from './server.ts'
 import { createHostSupervisor, RESTART_EXIT_CODE } from './supervisor.ts'
-import { desktopConnection } from './desktop-connection.ts'
+import { desktopConnection, desktopConnectionToken, resolveDesktopDevice } from './desktop-connection.ts'
 import { ensureHostDataRootId } from './host-data-identity.ts'
 import { FAILURE_EXIT_CODE, installHostShutdown, registerHostProcessHandlers } from './process-shutdown'
 import { sendHostSupervisorMessage } from './supervisor-protocol'
 import { acquireHostProcessLock } from './process-lock'
 import { ProcessHostRuntime } from './process-host-runtime'
 import { embeddedRuntimePackage, hostRuntimeProcessCommand } from './runtime-package'
+import { createHostRuntimeDiagnostics, hostLifecycleEvent } from './runtime-diagnostics'
 
 export async function runHost(
   args: string[] = Bun.argv.slice(2),
@@ -47,10 +48,12 @@ export async function runHost(
   const home = layout.dataRoot
   if (values.supervisor || !values.supervised) {
     const releaseSupervisorLock = await acquireHostProcessLock(`${layout.hostLock}.supervisor`)
+    const diagnostics = createHostRuntimeDiagnostics({ root: layout.diagnostics, fileName: 'hbar-supervisor-diagnostics.jsonl' })
     const supervisor = createHostSupervisor({
       command: supervisorCommand,
       hostArgs: args,
       connectionFile: async () => join((await getStorageLocations(layout)).saved.settingsRoot, 'connection.json'),
+      diagnostics,
       onExit: (event) => console.error(`[hbar supervisor] child exit ${JSON.stringify(event)}`),
     })
     const stopSupervisor = () => {
@@ -66,6 +69,7 @@ export async function runHost(
       exitCode = await supervisor.run()
     } finally {
       await releaseSupervisorLock()
+      await diagnostics.close(2_000)
     }
     process.exit(exitCode)
   }
@@ -75,6 +79,9 @@ export async function runHost(
   let cleanup: (() => Promise<void>) | undefined
   let runtime: ProcessHostRuntime | undefined
   let heartbeat: ReturnType<typeof setInterval> | undefined
+  const diagnostics = createHostRuntimeDiagnostics({ root: layout.diagnostics, fileName: 'hbar-host-diagnostics.jsonl' })
+  diagnostics.installFatalObserver('startup')
+  hostLifecycleEvent(diagnostics, 'host.starting', { level: 'info', outcome: 'success', workerState: 'starting', processId: process.pid })
   const requestShutdown = installHostShutdown(async () => {
     clearInterval(heartbeat)
     try {
@@ -82,14 +89,18 @@ export async function runHost(
       else await runtime?.close()
     } finally {
       await releaseLock()
+      hostLifecycleEvent(diagnostics, 'host.stopped', { processId: process.pid, outcome: 'success' })
+      await diagnostics.close(2_000)
     }
-  })
-  registerHostProcessHandlers(requestShutdown)
+  }, 5_000, diagnostics)
+  registerHostProcessHandlers(requestShutdown, diagnostics)
   try {
     const dataRootId = await ensureHostDataRootId(layout.settings)
     const artifactPackage = embeddedRuntimePackage()
     runtime = await ProcessHostRuntime.open({
       layout,
+      diagnostics: diagnostics.sink,
+      diagnosticFullCoverage: diagnostics.snapshot().fullCoverage,
       processCommand: runtimeCommand,
       ...(artifactPackage ? { artifactPackage } : {}),
       ...(values.demo !== undefined ? { demo: values.demo } : {}),
@@ -102,6 +113,10 @@ export async function runHost(
     const host = await startServer(runtime.kernel, {
       runtime,
       controller: runtime.controller,
+      diagnosticSink: diagnostics.sink,
+      diagnosticScope: diagnostics.scope,
+      diagnosticFull: diagnostics.snapshot().fullCoverage,
+      diagnosticSampleRate: diagnostics.snapshot().fullCoverage ? 1 : 0.1,
       dataRootId,
       ...(values.host ? { hostname: values.host } : {}),
       ...(values.port ? { port: Number(values.port) } : {}),
@@ -122,15 +137,28 @@ export async function runHost(
       await host.close()
       await runtime?.close()
     }
+    diagnostics.setInstanceId(runtime.instanceId)
+    diagnostics.setFatalPhase('running')
+    hostLifecycleEvent(diagnostics, 'host.listener_ready', { level: 'info', outcome: 'success', processId: process.pid })
+    void runtime.ready().then(() => {
+      hostLifecycleEvent(diagnostics, 'host.kernel_ready', { workerState: 'ready', processId: process.pid })
+    }).catch(() => { /* Runtime status retains the bounded startup failure and its recovery schedule. */ })
     console.log(`hbar ${host.info().version} | ${home}`)
     for (const address of host.info().addresses) console.log(`  ${address}`)
-    console.log(`Pairing code: ${host.pairing.code} (expires in 5 minutes)`)
+    if (!values.desktop) console.log(`Pairing code: ${host.pairing.code} (expires in 5 minutes)`)
     if (host.server.port !== undefined) sendHostSupervisorMessage({ type: 'host.ready', port: host.server.port })
     heartbeat = setInterval(() => sendHostSupervisorMessage({ type: 'host.heartbeat' }), 2_000)
     heartbeat.unref()
     if (values.desktop) {
       await runtime.authenticationReady()
-      const device = await host.auth.createDevice('hbar desktop')
+      let persistedToken: string | undefined
+      try {
+        persistedToken = desktopConnectionToken(JSON.parse(await readFile(layout.connectionFile, 'utf8')) as unknown)
+      } catch (error) {
+        const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined
+        if (code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error
+      }
+      const device = await resolveDesktopDevice(host.auth, persistedToken)
       await writeFile(
         layout.connectionFile,
         JSON.stringify(

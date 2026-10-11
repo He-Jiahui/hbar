@@ -5,8 +5,7 @@
   flex: 0 0 auto;
   flex-direction: column;
   gap: 8px;
-  padding: 12px;
-  border-block-end: 0.0625rem solid var(--lumen-line);
+  padding: 0;
 }
 
 .hbar-session-requests > header {
@@ -44,28 +43,19 @@
 
 .hbar-session-request-summary {
   flex: 1 1 auto;
-  font-size: var(--hbar-session-pane-body-size);
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-
-.hbar-session-request-summary > span {
-  display: flex;
-  min-inline-size: 0;
-  flex-wrap: wrap;
+  flex-direction: row;
+  padding: 0;
+  text-align: start;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 4px 8px;
 }
 
-.hbar-app-react-session-monitoring .hbar-session-request-summary strong {
-  min-inline-size: 0;
-  inline-size: auto;
-  flex: 1 1 auto;
-  overflow: visible;
-  font-size: inherit;
-  font-weight: 550;
-  white-space: normal;
+.hbar-session-request-summary > .lumen-record-trailing {
+  color: var(--lumen-muted);
+  font-size: var(--hbar-session-pane-meta-size);
+}
+
+.hbar-session-requests > ul > li + li {
+  border-block-start: 0.0625rem solid var(--lumen-line);
 }
 
 .hbar-session-request-record {
@@ -88,8 +78,8 @@
   background: var(--lumen-frost);
   font-size: var(--hbar-session-pane-meta-size);
   line-height: 1.5;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  white-space: pre;
+  overflow: auto;
 }
 
 .hbar-session-request-json code {

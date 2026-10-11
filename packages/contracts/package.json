@@ -8,6 +8,7 @@
     "./runtime": "./src/runtime.ts",
     "./runtime-notifications": "./src/runtime-notifications.ts",
     "./diagnostics": "./src/diagnostics.ts",
+    "./diagnostic-context": "./src/diagnostic-context.ts",
     "./decision": "./src/decision.ts",
     "./sandbox": "./src/sandbox.ts",
     "./commands": "./src/commands/index.ts",
@@ -72,6 +73,13 @@
     "./metrics": "./src/metrics.ts",
     "./workspace-query": "./src/workspace-query.ts",
     "./usage": "./src/usage.ts",
+    "./tool-activity": "./src/tool-activity.ts",
+    "./run-file-changes": "./src/run-file-changes.ts",
+    "./commands/run-file-changes": "./src/commands/run-file-changes.ts",
+    "./session-observability": "./src/session-observability.ts",
+    "./commands/session-observability": "./src/commands/session-observability.ts",
+    "./context-history": "./src/context-history.ts",
+    "./commands/context-history": "./src/commands/context-history.ts",
     "./workflow": "./src/workflow.ts"
   },
   "dependencies": {

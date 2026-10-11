@@ -1,4 +1,5 @@
 import { CommandError, type CommandExecutor, type CommandRegistry, type ExecuteOptions } from '@hbar/commands'
+import { maximumContextWindow } from '@hbar/contracts'
 import { sessionSchema, type Session } from '@hbar/contracts/directory'
 import type { AgentProfileId } from '@hbar/contracts/commands/agents'
 import { modelCommands, modelConfigurationSchema, type ModelDescriptor } from '@hbar/contracts/commands/models'
@@ -62,6 +63,7 @@ interface PendingSubmission {
   readonly launchSelection: SessionLaunchSelection
   readonly requestedModelId: string | null
   readonly requestedThinkingLevel: PreSessionDraftState['thinkingLevel']
+  readonly requestedMaxMode: boolean
   readonly approvalChoice: PreSessionDraftState['approvalChoice']
   readonly planMode: PreSessionDraftState['planMode']
   readonly intent: PreSessionDraftState['intent']
@@ -72,6 +74,8 @@ interface PendingSubmission {
   modelId: string | null
   thinkingWriteStarted: boolean
   thinkingWriteReceiptConfirmed: boolean
+  maxModeWriteStarted: boolean
+  maxModeWriteReceiptConfirmed: boolean
   approvalWriteStarted: boolean
   inFlight: boolean
   closeRequested: boolean
@@ -148,6 +152,7 @@ function initial(draftId: string, workspaceId: string | null): PreSessionDraftSt
     launchSelection: { mode: 'shared-current' },
     modelId: null,
     thinkingLevel: null,
+    maxMode: false,
     approvalChoice: 'inherit',
     planMode: 'default',
     intent: 'default',
@@ -389,6 +394,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       throw new CommandError('INVALID_OUTPUT', 'First message attachments did not reach the Session composer draft')
   }
   const capturedInput = (operation: PendingSubmission) => ({
+    maxMode: operation.requestedMaxMode,
     text: operation.text,
     images: operation.attachments.filter((item) => item.kind === 'image').map((item) => item.artifact),
     files: operation.attachments.filter((item) => item.kind === 'file').map((item) => item.artifact),
@@ -474,6 +480,71 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
     )
       throw new CommandError('VERSION_CONFLICT', 'Host thinking level changed before the first Run')
     operation.thinkingWriteReceiptConfirmed = true
+    assertSelectionFence(operation)
+  }
+
+  const confirmMaxMode = async (operation: PendingSubmission): Promise<void> => {
+    const sessionId = operation.sessionId
+    const modelId = operation.modelId
+    if (!sessionId || !modelId) throw new CommandError('INVALID_STATE', 'MAX confirmation has no selected model')
+    await ensureSelected(operation)
+    const configuration = options.controls.getSnapshot().model
+    if (
+      !configuration ||
+      configuration.sessionId !== sessionId ||
+      configuration.status !== 'configured' ||
+      configuration.modelId !== modelId ||
+      !configuration.model
+    )
+      throw new CommandError('VERSION_CONFLICT', 'Session model changed before MAX selection')
+    const supportsMax = maximumContextWindow(configuration.model) > configuration.model.contextWindow
+    if (operation.requestedMaxMode && !supportsMax)
+      throw new CommandError('MAX_MODE_UNSUPPORTED', 'The selected model has no expanded context tier')
+    if (operation.maxModeWriteStarted && !operation.maxModeWriteReceiptConfirmed)
+      throw new CommandError('RESULT_UNKNOWN', 'Reconcile the original MAX write before continuing')
+    if (
+      (configuration.maxMode ?? false) !== operation.requestedMaxMode ||
+      (supportsMax &&
+        !operation.maxModeWriteReceiptConfirmed &&
+        configuration.sources.maxMode !== `settings:session:${sessionId}`)
+    ) {
+      if (operation.maxModeWriteReceiptConfirmed)
+        throw new CommandError('VERSION_CONFLICT', 'Confirmed MAX mode changed before the first Run')
+      operation.maxModeWriteStarted = true
+      try {
+        await local.execute('composerModel.selectMaxMode', { sessionId, enabled: operation.requestedMaxMode })
+      } catch (error) {
+        if (
+          ![
+            'RESULT_UNKNOWN',
+            'CANCELLED',
+            'TIMEOUT',
+            'TIMED_OUT',
+            'DISCONNECTED',
+            'CONNECTION_CLOSED',
+            'EXECUTION_FAILED',
+            'INVALID_OUTPUT',
+          ].includes(errorCode(error))
+        )
+          operation.maxModeWriteStarted = false
+        throw error
+      }
+      operation.maxModeWriteReceiptConfirmed = true
+    }
+    assertSelectionFence(operation)
+    if (!options.models) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Model commands are unavailable')
+    const actual = modelConfigurationSchema.safeParse(
+      await options.models.execute('session.getModel', { sessionId }, { signal: operation.observationSignal }),
+    )
+    if (!actual.success || actual.data.sessionId !== sessionId)
+      throw new CommandError('INVALID_OUTPUT', 'MAX confirmation belongs to another Session')
+    if (
+      actual.data.status !== 'configured' ||
+      actual.data.modelId !== modelId ||
+      (actual.data.maxMode ?? false) !== operation.requestedMaxMode
+    )
+      throw new CommandError('VERSION_CONFLICT', 'Host MAX mode changed before the first Run')
+    operation.maxModeWriteReceiptConfirmed = true
     assertSelectionFence(operation)
   }
 
@@ -752,6 +823,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       if (!sessionId) throw new CommandError('INVALID_STATE', 'The Session identity is missing')
       operation.modelId = await confirmModel(operation)
       await confirmThinkingLevel(operation)
+      await confirmMaxMode(operation)
       assertSelectionFence(operation)
       if (disposed || options.isDisposed()) throw new CommandError('DISPOSED', 'Pre-session drafts were disposed')
       if (operation.planMode === 'plan') {
@@ -901,6 +973,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
         try {
           await local.execute('composerModel.reconcile', { sessionId: operation.sessionId })
           if (operation.thinkingWriteStarted) operation.thinkingWriteReceiptConfirmed = true
+          if (operation.maxModeWriteStarted) operation.maxModeWriteReceiptConfirmed = true
         } catch (error) {
           // A timed out catalog/config read has no model receipt. Refreshing and
           // comparing the effective value below is safe; unknown writes keep
@@ -1247,9 +1320,12 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       defaultModelReads.get(draftId)?.abort()
 
       let thinkingLevel = current.thinkingLevel
-      if (thinkingLevel !== null) {
-        if (modelId === null) thinkingLevel = null
-        else {
+      let maxMode = current.maxMode ?? false
+      if (thinkingLevel !== null || maxMode) {
+        if (modelId === null) {
+          thinkingLevel = null
+          maxMode = false
+        } else {
           const catalog = await readModelCatalog(execution.signal)
           const latest = entry(draftId)
           requireEditable(draftId, latest)
@@ -1258,7 +1334,8 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
             throw new CommandError('VERSION_CONFLICT', 'Pre-session model changed before thinking validation')
           const selected = catalog.find((model) => model.id === modelId)
           if (!selected) throw new CommandError('MODEL_NOT_FOUND', 'Selected model is no longer available')
-          if (!selected.thinkingLevels.includes(thinkingLevel)) thinkingLevel = null
+          if (thinkingLevel !== null && !selected.thinkingLevels.includes(thinkingLevel)) thinkingLevel = null
+          if (maximumContextWindow(selected) <= selected.contextWindow) maxMode = false
         }
       }
 
@@ -1271,6 +1348,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
         ...latest,
         modelId,
         thinkingLevel,
+        maxMode,
         revision: latest.revision + 1,
         phase: latest.phase === 'failed' ? ('idle' as const) : latest.phase,
         unknownStage: null,
@@ -1323,6 +1401,41 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       }
       publish(value)
       return { draftId, revision: value.revision }
+    },
+  )
+
+  local.register(
+    preSessionDraftCommands['preSessionDraft.setMaxMode'],
+    async ({ draftId, enabled, expectedModelId, expectedRevision }, execution) => {
+      const current = entry(draftId)
+      requireEditable(draftId, current)
+      checkRevision(current, expectedRevision)
+      if (current.modelId !== expectedModelId)
+        throw new CommandError('VERSION_CONFLICT', 'Pre-session model changed before MAX selection')
+      defaultModelReads.get(draftId)?.abort()
+      if (enabled) {
+        if (!expectedModelId) throw new CommandError('MODEL_NOT_READY', 'Choose a model before setting MAX')
+        const catalog = await readModelCatalog(execution.signal)
+        const selected = catalog.find((model) => model.id === expectedModelId)
+        if (!selected || maximumContextWindow(selected) <= selected.contextWindow)
+          throw new CommandError('MAX_MODE_UNSUPPORTED', 'The selected model has no expanded context tier')
+      }
+      const latest = entry(draftId)
+      requireEditable(draftId, latest)
+      checkRevision(latest, expectedRevision)
+      if (latest.modelId !== expectedModelId)
+        throw new CommandError('VERSION_CONFLICT', 'Pre-session model changed before MAX validation')
+      if ((latest.maxMode ?? false) === enabled) return { draftId, revision: latest.revision }
+      publish({
+        ...latest,
+        maxMode: enabled,
+        revision: latest.revision + 1,
+        phase: latest.phase === 'failed' ? 'idle' : latest.phase,
+        unknownStage: null,
+        error: null,
+        accepted: null,
+      })
+      return { draftId, revision: latest.revision + 1 }
     },
   )
 
@@ -1475,6 +1588,7 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       launchSelection: launchCapture.selection,
       requestedModelId,
       requestedThinkingLevel: current.thinkingLevel,
+      requestedMaxMode: current.maxMode ?? false,
       approvalChoice: current.approvalChoice,
       planMode: current.planMode,
       intent: current.intent,
@@ -1485,6 +1599,8 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
       modelId: requestedModelId,
       thinkingWriteStarted: false,
       thinkingWriteReceiptConfirmed: false,
+      maxModeWriteStarted: false,
+      maxModeWriteReceiptConfirmed: false,
       approvalWriteStarted: false,
       inFlight: false,
       closeRequested: false,
@@ -1523,6 +1639,11 @@ export function createPreSessionDrafts(local: CommandRegistry, options: PreSessi
           throw new CommandError('MODEL_NOT_READY', 'Choose a model before setting thinking for the first Run')
         if (!selected.thinkingLevels.includes(current.thinkingLevel))
           throw new CommandError('INVALID_INPUT', 'Thinking level is not supported by the selected model')
+      }
+      if (current.maxMode) {
+        const selected = requestedModelId ? catalog.find((model) => model.id === requestedModelId) : undefined
+        if (!selected || maximumContextWindow(selected) <= selected.contextWindow)
+          throw new CommandError('MAX_MODE_UNSUPPORTED', 'The selected model has no expanded context tier')
       }
     } catch (error) {
       if (operation.closeRequested) {

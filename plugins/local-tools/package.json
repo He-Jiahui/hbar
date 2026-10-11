@@ -8,5 +8,8 @@
     ".": "./src/index.ts",
     "./native-query": "./src/native-query.ts",
     "./workspace-mounts": "./src/workspace-mounts.ts"
+  },
+  "dependencies": {
+    "@codemirror/merge": "6.8.0"
   }
 }

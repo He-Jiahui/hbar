@@ -1,5 +1,5 @@
 import { Target } from 'lucide-react'
-import { LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import type { GoalContinuationBoundary } from './session-message-model'
 import './goal-continuation.css'
 
@@ -30,12 +30,12 @@ export function HbarGoalContinuation({
       <LumenFrame className="hbar-goal-continuation-rule" aria-hidden="true" />
       <LumenFrame className="hbar-goal-continuation-label">
         <LumenIcon icon={Target} tier="sm" />
-        <LumenText as="span" className="hbar-goal-continuation-title">
+        <LumenContentText context="message.inline" className="hbar-goal-continuation-title">
           {labels.title}
-        </LumenText>
-        <LumenText as="span" className="hbar-goal-continuation-status">
+        </LumenContentText>
+        <LumenContentText context="control.status" className="hbar-goal-continuation-status">
           {status}
-        </LumenText>
+        </LumenContentText>
       </LumenFrame>
       <LumenFrame className="hbar-goal-continuation-rule" aria-hidden="true" />
     </LumenFrame>

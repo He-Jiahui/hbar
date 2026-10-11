@@ -236,7 +236,17 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
         throw new CommandError('BUSY', 'Wait for the original operation to settle before retrying')
       if (prior.status === 'guided')
         throw new CommandError('COMMAND_CONFLICT', 'This queued input already belongs to its original active Run')
-      return submit({ sessionId, modelId: prior.modelId, input: prior.input }, context, {
+      // A user-triggered retry is a new user turn. Never replay an automatic Goal
+      // continuation identity, because its intent may already have been replaced
+      // or consumed by the current Goal workflow.
+      const retryInput =
+        prior.input.source === 'goal' && prior.input.continuation
+          ? (() => {
+              const { continuation: _continuation, source: _source, ...userInput } = prior.input
+              return { ...userInput, source: 'user' as const }
+            })()
+          : prior.input
+      return submit({ sessionId, modelId: prior.modelId, input: retryInput }, context, {
         id: 'run.retry',
         input: { sessionId, operationId },
       })
@@ -407,6 +417,7 @@ export function createRunCommands(kernel: RunCommandKernelPort) {
             'DEMO_DISABLED',
             'BUSY',
             'COMPACTION_FAILED',
+            'COMPACTION_INCOMPLETE',
             'COMPACTION_LIMIT',
             'CONTEXT_WINDOW_EXCEEDED',
           ].includes(error.code)

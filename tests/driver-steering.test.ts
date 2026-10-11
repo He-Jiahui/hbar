@@ -1,5 +1,12 @@
 import { expect, test } from 'bun:test'
-import { providerSchema, runSchema, sessionSchema, workspaceSchema } from '@hbar/contracts'
+import {
+  HbarError,
+  RUN_STEP_LIMIT_CODE,
+  providerSchema,
+  runSchema,
+  sessionSchema,
+  workspaceSchema,
+} from '@hbar/contracts'
 import type { ContentBlock, Message, SessionEvent } from '@hbar/contracts'
 import type { DriverInput } from '@hbar/plugin-sdk'
 import { PiDriver } from '@hbar/pi-driver'
@@ -147,6 +154,22 @@ test('drivers without steering retain the ordinary one-response path', async () 
   await new PiDriver().run(f.input)
   expect(f.requests).toHaveLength(1)
   expect(f.messages.filter((message) => message.role === 'user')).toHaveLength(1)
+})
+
+test('PiDriver stops at the typed 64-step boundary before admitting a 65th provider request', async () => {
+  const f = fixture()
+  f.input.getSteeringMessages = () => {
+    const next = f.requests.length + 1
+    if (next > 65) return Promise.resolve([])
+    const message = f.commit('user', [{ type: 'text', text: `Continue slice ${next}` }], `slice-${next}`)
+    return Promise.resolve([message])
+  }
+  await expect(new PiDriver().run(f.input)).rejects.toMatchObject({
+    name: 'HbarError',
+    code: RUN_STEP_LIMIT_CODE,
+  } satisfies Partial<HbarError>)
+  expect(f.requests).toHaveLength(64)
+  expect(f.events.filter((event) => event.type === 'step.started')).toHaveLength(64)
 })
 
 test('explicit Goal termination seals admission before the driver returns, without consuming another guide', async () => {

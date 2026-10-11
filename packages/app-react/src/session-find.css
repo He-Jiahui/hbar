@@ -36,7 +36,7 @@
 .hbar-session-find-count {
   flex: 0 0 auto;
   color: var(--lumen-muted);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   white-space: nowrap;
 }
 
@@ -44,7 +44,7 @@
   margin: 0;
   padding-inline: 0.25rem;
   color: var(--lumen-muted);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   overflow-wrap: anywhere;
 }
 

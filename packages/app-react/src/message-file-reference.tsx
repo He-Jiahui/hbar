@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenFrame } from '@lumen/app-ui'
 import type { MessageFileReference } from './message-file-reference-model'
 import './message-file-reference.css'
 import { registerSessionNavigationChrome } from './session-navigation-chrome'
@@ -119,14 +119,14 @@ function LegacyFileReferenceLink({
       </LumenFrame>
       <LumenFrame as="span" ref={feedback} data-session-find-exclude="file-navigation">
         {status.busy && (
-          <LumenText as="small" role="status" data-session-find-exclude="file-navigation">
+          <LumenContentText context="record.description" role="status" data-session-find-exclude="file-navigation">
             {context.labels.opening}
-          </LumenText>
+          </LumenContentText>
         )}
         {status.error && (
-          <LumenText as="small" role="alert" data-session-find-exclude="file-navigation">
+          <LumenContentText context="record.description" role="alert" data-session-find-exclude="file-navigation">
             {context.labels.error(status.error)}
-          </LumenText>
+          </LumenContentText>
         )}
       </LumenFrame>
     </LumenFrame>

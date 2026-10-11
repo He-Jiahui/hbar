@@ -1,4 +1,14 @@
 import { Database } from 'bun:sqlite'
+import { readContextCompactionMarkers } from './context-compaction-markers'
+import {
+  RUN_FILE_CHANGES_SQL,
+  projectRunFileChanges,
+  finishRunFileChanges,
+  readRunFileChangesSummary,
+  readRunFileChangePage,
+  readRunFileChangeDiff,
+  readRunFileChangeVersions,
+} from './run-file-changes'
 import { workerData, parentPort } from 'node:worker_threads'
 import { createHash } from 'node:crypto'
 import { dirname, join } from 'node:path'
@@ -68,6 +78,7 @@ import type {
 } from '@hbar/contracts'
 import type { StorageCall, StorageMethods, StorageReply, StoredSettingsLayer } from './types.ts'
 import { STORAGE_RPC_METHODS } from './rpc-catalog'
+import { createStorageWorkerDiagnostics, safeStorageErrorCode } from './worker-diagnostics.ts'
 import { SessionLogWriter } from './session-log-writer.ts'
 import { recordRecoveryDiagnostic, scanSessionLogs } from './session-log-recovery.ts'
 import { readActiveOperations } from './active-operations.ts'
@@ -75,6 +86,9 @@ import { readQueuedUserRuns } from './queued-user-runs.ts'
 import { RunSteeringRegistry } from './run-steering.ts'
 import { createRuntimeState, RUNTIME_STATE_SQL, runtimeManualRecoverySchema } from './runtime-state'
 import { GOAL_HISTORY_INDEX_SQL, readGoalHistory } from './goal-history.ts'
+import { readSessionObservability } from './session-observability.ts'
+import { beginContextCompaction, finishContextCompaction, readContextHistory } from './context-history'
+import { contextCompactionRecordSchema } from '@hbar/contracts/context-history'
 import { createNotificationStorage, NOTIFICATION_SCHEMA_SQL } from './notifications'
 import { notificationFromSessionEvent, notificationFromScheduleOccurrence } from './notification-projection'
 import { createPromptTemplateStorage, PROMPT_TEMPLATES_SQL } from './prompt-templates'
@@ -115,6 +129,7 @@ const workerPathSchema = z.string().min(1).max(4_000)
 const options = z.strictObject({
   path: workerPathSchema, sessions: workerPathSchema.optional(), diagnostics: workerPathSchema.optional(),
   settings: workerPathSchema.optional(), artifacts: workerPathSchema.optional(), cache: workerPathSchema.optional(),
+  diagnosticsEnabled: z.boolean().optional(), diagnosticsFullCoverage: z.boolean().optional(), instanceId: z.string().min(1).max(160).optional(),
   preflight: z.boolean().optional(),
 }).parse(workerData)
 const preflight = options.preflight === true
@@ -128,12 +143,112 @@ const logWriter = new SessionLogWriter(sessionsRoot)
 const runSteering = new RunSteeringRegistry()
 let databaseMaintenanceOwner: string | null = null
 const databaseMaintenanceReads = new Set<string>(['ready', 'deviceByHash', 'devices', 'chatDatabaseOperationRead', 'chatDatabaseOperationReceipt', 'chatDatabasePreviewPage', 'chatDatabaseHistory', 'chatDatabaseResourceReceipt', 'chatDatabaseMaintenanceEnd', 'close'])
-const db = new Database(shadowMemory ? ':memory:' : options.path, {
-  ...(preflight && !shadowMemory ? { readonly: true } : { create: true }), strict: true,
+const workerDiagnostics = createStorageWorkerDiagnostics({
+  enabled: options.diagnosticsEnabled ?? options.diagnostics !== undefined,
+  ...(options.diagnosticsFullCoverage === undefined ? {} : { fullCoverage: options.diagnosticsFullCoverage }),
+  ...(options.instanceId === undefined ? {} : { instanceId: options.instanceId }),
+  port: parentPort,
 })
+let startupPhase: 'open' | 'configure' | 'migration' | 'recovery' | 'ready' = 'open'
+process.on('uncaughtExceptionMonitor', () => {
+  // This hook observes initialization failures before the worker exits. It does not
+  // intercept or recover from the exception, so the parent still owns lifecycle state.
+  workerDiagnostics.emit({
+    event: 'sqlite.worker_uncaught',
+    phase: startupPhase,
+    level: 'fatal',
+    outcome: 'failure',
+    errorCode: 'SQLITE_WORKER_UNCAUGHT',
+    workerState: 'failed',
+  })
+})
+workerDiagnostics.emit({ event: 'sqlite.starting', phase: 'open', level: 'info', workerState: 'starting' })
+startupPhase = 'open'
+let db: Database
+try {
+  db = new Database(shadowMemory ? ':memory:' : options.path, { ...(preflight && !shadowMemory ? { readonly: true } : { create: true }), strict: true })
+} catch (error) {
+  workerDiagnostics.emit({
+    event: 'sqlite.open_failed',
+    phase: 'open',
+    level: 'fatal',
+    outcome: 'failure',
+    errorCode: safeStorageErrorCode(error, 'SQLITE_OPEN_FAILED'),
+    workerState: 'failed',
+  })
+  throw error
+}
 // Configure this connection's bounded wait before WAL recovery/configuration can contend with another opener.
-db.exec('PRAGMA busy_timeout=5000;')
-if (!preflight || shadowMemory) db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL;')
+startupPhase = 'configure'
+try {
+  db.exec('PRAGMA busy_timeout=5000;')
+  if (!preflight || shadowMemory) db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL;')
+} catch (error) {
+  workerDiagnostics.emit({
+    event: 'sqlite.configure_failed',
+    phase: 'configure',
+    level: 'fatal',
+    outcome: 'failure',
+    errorCode: safeStorageErrorCode(error, 'SQLITE_CONFIG_FAILED'),
+    workerState: 'failed',
+  })
+  throw error
+}
+function readSqliteFacts(): {
+  sqliteVersion: string
+  journalMode: 'delete' | 'truncate' | 'persist' | 'memory' | 'wal' | 'off' | 'unknown'
+  synchronous: number
+  busyTimeoutMs: number
+  foreignKeys: boolean
+  pageSize: number
+  userVersion: number
+} {
+  const sqliteVersion = z.strictObject({ version: z.string().regex(/^\d+\.\d+(?:\.\d+)?$/).max(32) })
+    .parse(db.query('SELECT sqlite_version() AS version').get()).version
+  const journalMode = z.strictObject({ journal_mode: z.enum(['delete', 'truncate', 'persist', 'memory', 'wal', 'off']) })
+    .parse(db.query('PRAGMA journal_mode').get()).journal_mode
+  const synchronous = z.strictObject({ synchronous: z.number().int().min(0).max(3) })
+    .parse(db.query('PRAGMA synchronous').get()).synchronous
+  const busyTimeoutMs = z.strictObject({ timeout: z.number().int().min(0).max(2_147_483_647) })
+    .parse(db.query('PRAGMA busy_timeout').get()).timeout
+  const foreignKeys = z.strictObject({ foreign_keys: z.union([z.literal(0), z.literal(1)]) })
+    .parse(db.query('PRAGMA foreign_keys').get()).foreign_keys === 1
+  const pageSize = z.strictObject({ page_size: z.number().int().min(1).max(1_048_576) })
+    .parse(db.query('PRAGMA page_size').get()).page_size
+  const userVersion = z.strictObject({ user_version: z.number().int().min(0).max(1_000_000) })
+    .parse(db.query('PRAGMA user_version').get()).user_version
+  return { sqliteVersion, journalMode, synchronous, busyTimeoutMs, foreignKeys, pageSize, userVersion }
+}
+try {
+  const facts = readSqliteFacts()
+  workerDiagnostics.emit({
+    event: 'sqlite.configured',
+    phase: 'configure',
+    level: 'info',
+    outcome: 'success',
+    workerState: 'starting',
+    sqliteVersion: facts.sqliteVersion,
+    runtimeVersion: Bun.version,
+    databaseSchemaVersion: facts.userVersion,
+    userVersion: facts.userVersion,
+    journalMode: facts.journalMode,
+    synchronous: facts.synchronous,
+    busyTimeoutMs: facts.busyTimeoutMs,
+    foreignKeys: facts.foreignKeys,
+    pageSize: facts.pageSize,
+  })
+} catch (error) {
+  workerDiagnostics.emit({
+    event: 'sqlite.facts_failed',
+    phase: 'configure',
+    level: 'fatal',
+    outcome: 'failure',
+    errorCode: safeStorageErrorCode(error, 'SQLITE_FACTS_FAILED'),
+    workerState: 'failed',
+  })
+  throw error
+}
+startupPhase = 'migration'
 const WORKSPACE_ACTIVITY_SQL = `
   CREATE TABLE IF NOT EXISTS directory_activity_revision(
     id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL CHECK(revision>=0)
@@ -162,10 +277,11 @@ const WORKSPACE_ACTIVITY_SQL = `
     AFTER DELETE ON sessions
     BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
 `
-const LATEST_SCHEMA_VERSION = 24
+const LATEST_SCHEMA_VERSION = 25
 const schemaVersion = z.object({ user_version: z.number().int().nonnegative() }).parse(db.query('PRAGMA user_version').get()).user_version
 if (preflight && !shadowMemory && schemaVersion !== LATEST_SCHEMA_VERSION)
   throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Candidate Worker cannot apply a production migration')
+const schemaStartedAt = performance.now()
 if (schemaVersion > LATEST_SCHEMA_VERSION) throw new Error(`Unsupported database version ${schemaVersion}`)
 if (schemaVersion === 0)
   db.transaction(() => {
@@ -388,7 +504,8 @@ for (const [version, sql] of [
   [21, SESSION_BRANCH_TARGET_SQL],
   [22, SESSION_BRANCH_TARGET_BRANCH_SQL],
   [23, CHAT_DATABASE_SQL],
-  [24, RUNTIME_STATE_SQL],
+  [24, RUN_FILE_CHANGES_SQL],
+  [25, RUNTIME_STATE_SQL + RUN_FILE_CHANGES_SQL],
 ] as const) {
   if (schemaVersion >= version) continue
   db.transaction(() => {
@@ -437,6 +554,7 @@ const sessionLaunchTargetPreparations = createSessionLaunchTargetPreparationStor
 
 if (!preflight || shadowMemory) {
   db.exec('CREATE INDEX IF NOT EXISTS events_run_type ON events(runId,type);')
+  db.exec('CREATE INDEX IF NOT EXISTS events_session_type_seq ON events(sessionId,type,seq);')
   db.exec(`CREATE INDEX IF NOT EXISTS events_guidance_run_seq ON events(sessionId,runId,seq)
   WHERE type='message.committed' AND json_extract(data,'$.queueGuidance.activeRunId') IS NOT NULL;`)
   db.exec('CREATE INDEX IF NOT EXISTS events_run_type_seq ON events(sessionId,runId,type,seq);')
@@ -640,6 +758,7 @@ function runRow(row: Row | null): Run {
   return runSchema.parse({
     ...fields,
     input: parseJson(z.string().parse(value.input)),
+    fileChanges: readRunFileChangesSummary(db, z.string().parse(value.id)),
     ...(typeof failure === 'string' ? { failure: runFailureSchema.parse(parseJson(failure)) } : {}),
     ...(typeof recovery === 'string' ? { recovery: parseJson(recovery) } : {}),
   })
@@ -1084,6 +1203,7 @@ function appendEvent(
   )
   chatDatabaseArtifacts.releaseCommittedToolUploads(data, sessionId)
   db.query('UPDATE sessions SET seq=?,updatedAt=? WHERE id=?').run(event.seq, event.time, sessionId)
+  projectRunFileChanges(db, event)
   const notification = notificationFromSessionEvent(event, s.workspaceId)
   if (notification) notifications.insert(notification)
   return event
@@ -1540,23 +1660,30 @@ const methods: StorageMethods = {
       return { message, event }
     })(),
   snapshot(sessionId, before, limit = 60) {
-    const session = methods.session(sessionId)
-    const rows = db
-      .query('SELECT * FROM messages WHERE sessionId=? AND seq<? ORDER BY seq DESC LIMIT ?')
-      .all(sessionId, before ?? Number.MAX_SAFE_INTEGER, limit + 1) as Row[]
-    const messages = rows.slice(0, limit).reverse().map(messageRow)
-    const approvals = (
-      db
-        .query("SELECT * FROM approvals WHERE sessionId=? AND status='pending' ORDER BY createdAt,id LIMIT 80")
-        .all(sessionId) as Row[]
-    ).map(approvalRow)
+    const session = workerDiagnostics.readPhase('session', () => methods.session(sessionId))
+    const { messages, hasOlder } = workerDiagnostics.readPhase('messages', () => {
+      const rows = db
+        .query('SELECT * FROM messages WHERE sessionId=? AND seq<? ORDER BY seq DESC LIMIT ?')
+        .all(sessionId, before ?? Number.MAX_SAFE_INTEGER, limit + 1) as Row[]
+      return { messages: rows.slice(0, limit).reverse().map(messageRow), hasOlder: rows.length > limit }
+    })
+    const approvals = workerDiagnostics.readPhase('pending-approvals', () =>
+      (
+        db
+          .query("SELECT * FROM approvals WHERE sessionId=? AND status='pending' ORDER BY createdAt,id LIMIT 80")
+          .all(sessionId) as Row[]
+      ).map(approvalRow),
+    )
     // Pending decisions keep priority; resolved facts belong only to this loaded
     // message page and retain their original session/Run/call/tool identity.
     if (messages.length && approvals.length < 80) {
       const pageIds = messages.map((message) => message.id)
-      const completed = db
-        .query(
-          `
+      const completed = workerDiagnostics.readPhase(
+        'resolved-approvals',
+        () =>
+          db
+            .query(
+              `
           SELECT DISTINCT approvals.* FROM approvals
           JOIN messages ON messages.sessionId=approvals.sessionId AND messages.runId=approvals.runId
           JOIN json_each(messages.content) AS block
@@ -1568,34 +1695,45 @@ const methods: StorageMethods = {
             AND messages.id IN (${pageIds.map(() => '?').join(',')})
           ORDER BY approvals.createdAt DESC,approvals.id LIMIT ?
         `,
-        )
-        .all(sessionId, ...pageIds, 80 - approvals.length) as Row[]
+            )
+            .all(sessionId, ...pageIds, 80 - approvals.length) as Row[],
+      )
       approvals.push(...completed.map(approvalRow))
     }
-    const usage = emptyUsage()
-    for (const row of db
-      .query("SELECT data FROM events WHERE sessionId=? AND type='usage.recorded'")
-      .all(sessionId) as { data: string }[]) {
-      const item = JSON.parse(row.data) as Usage
-      for (const key of Object.keys(usage) as (keyof Usage)[]) usage[key] += item[key] ?? 0
-    }
+    const usage = workerDiagnostics.readPhase('usage', () => {
+      const total = emptyUsage()
+      for (const row of db
+        .query("SELECT data FROM events WHERE sessionId=? AND type='usage.recorded'")
+        .all(sessionId) as { data: string }[]) {
+        const item = JSON.parse(row.data) as Usage
+        for (const key of Object.keys(total) as (keyof Usage)[]) total[key] += item[key] ?? 0
+      }
+      return total
+    })
     return {
       session,
       messages,
-      hasOlder: rows.length > limit,
-      runs: (
-        db.query('SELECT * FROM runs WHERE sessionId=? ORDER BY createdAt DESC LIMIT 40').all(sessionId) as Row[]
-      ).map(runRow),
+      hasOlder,
+      runs: workerDiagnostics.readPhase('runs', () =>
+        (db.query('SELECT * FROM runs WHERE sessionId=? ORDER BY createdAt DESC LIMIT 40').all(sessionId) as Row[]).map(
+          runRow,
+        ),
+      ),
       approvals,
       userInputs: [],
       usage,
+      contextHistory: workerDiagnostics.readPhase('context-history', () => readContextHistory(db, { sessionId })),
+      contextCompactions: workerDiagnostics.readPhase('context-compactions', () =>
+        readContextCompactionMarkers(db, sessionId, hasOlder ? (messages[0]?.seq ?? 0) : 0, before ?? session.seq + 1),
+      ),
       cursor: session.seq,
       streams: [],
       toolObservedAt: Date.now(),
-      toolEvents: (
-        db
-          .query(
-            `
+      toolEvents: workerDiagnostics.readPhase('tool-events', () =>
+        (
+          db
+            .query(
+              `
           SELECT * FROM (
             SELECT *, ROW_NUMBER() OVER (
               PARTITION BY runId,type,COALESCE(json_extract(data,'$.callId'),json_extract(data,'$.parentCallId'))
@@ -1604,11 +1742,12 @@ const methods: StorageMethods = {
             FROM events WHERE sessionId=? AND type IN ('tool.execution','tool.sequence_progress')
           ) WHERE ordinal=1 ORDER BY seq DESC LIMIT 1000
         `,
-          )
-          .all(sessionId) as Row[]
-      )
-        .reverse()
-        .map(eventRow),
+            )
+            .all(sessionId) as Row[]
+        )
+          .reverse()
+          .map(eventRow),
+      ),
     }
   },
   activeOperations: (input) => readActiveOperations(db, input),
@@ -2078,9 +2217,46 @@ const methods: StorageMethods = {
       ).map(messageRow),
     }
   },
-  compact: (sessionId, throughSeq, summary, modelId) =>
+  contextHistory: (input) => readContextHistory(db, input),
+  sessionObservability: (input) => readSessionObservability(db, input),
+  compactionStart: (input) =>
     db.transaction(() => {
-      const event = appendEvent(sessionId, 'context.compacted', { throughSeq, summary, modelId })
+      const compaction = beginContextCompaction(db, input)
+      return appendEvent(input.sessionId, 'context.compaction.started', { compaction }, input.runId ?? undefined)
+    })(),
+  compactionFinish: (record, completion) =>
+    db.transaction(() => {
+      const latest = db
+        .query<{ data: string }, [string, string]>(
+          "SELECT data FROM events WHERE sessionId=? AND json_extract(data,'$.compaction.id')=? ORDER BY seq DESC LIMIT 1",
+        )
+        .get(record.sessionId, record.id)
+      const data = latest
+        ? z.object({ compaction: contextCompactionRecordSchema }).parse(JSON.parse(latest.data) as unknown)
+        : null
+      if (!data || data.compaction.status !== 'running') return null
+      const compaction = finishContextCompaction(db, data.compaction, completion)
+      return appendEvent(record.sessionId, 'context.compaction.settled', { compaction }, record.runId ?? undefined)
+    })(),
+  compact: (sessionId, throughSeq, summary, modelId, telemetry) =>
+    db.transaction(() => {
+      const compaction = telemetry
+        ? finishContextCompaction(db, telemetry.record, {
+            status: 'completed',
+            durationMs: telemetry.durationMs,
+            afterTokens: telemetry.afterTokens,
+            summaryTokens: telemetry.summaryTokens,
+            retainedMessages: telemetry.retainedMessages,
+            chunks: telemetry.chunks,
+            errorCode: null,
+          })
+        : undefined
+      const event = appendEvent(
+        sessionId,
+        'context.compacted',
+        { throughSeq, summary, modelId, ...(compaction ? { compaction } : {}) },
+        compaction?.runId ?? undefined,
+      )
       db.query('INSERT INTO compactions VALUES(?,?,?,?)').run(sessionId, throughSeq, summary, event.seq)
       return event
     })(),
@@ -2302,6 +2478,30 @@ const methods: StorageMethods = {
       .map(row => executionOwnershipSchema.parse(JSON.parse(row.leaseJson)))
   },
   run: (id) => runRow(db.query('SELECT * FROM runs WHERE id=?').get(id) as Row | null),
+  runFileChanges(sessionId, runId, after, limit = 50) {
+    if (methods.run(runId).sessionId !== sessionId)
+      throw new HbarError('STALE_TARGET', 'Run belongs to another session')
+    return { sessionId, runId, ...readRunFileChangePage(db, runId, after, Math.min(50, Math.max(1, limit))) }
+  },
+  runFileChangeDiff(sessionId, runId, path, offset) {
+    if (methods.run(runId).sessionId !== sessionId)
+      throw new HbarError('STALE_TARGET', 'Run belongs to another session')
+    return { sessionId, runId, path, ...readRunFileChangeDiff(db, runId, path, offset) }
+  },
+  runFileChangeVersions(sessionId, runId) {
+    if (methods.run(runId).sessionId !== sessionId)
+      throw new HbarError('STALE_TARGET', 'Run belongs to another session')
+    return readRunFileChangeVersions(db, runId)
+  },
+  undoRunFileChanges(sessionId, runId) {
+    return db.transaction(() => {
+      const run = methods.run(runId)
+      if (run.sessionId !== sessionId) throw new HbarError('STALE_TARGET', 'Run belongs to another session')
+      if (!run.fileChanges?.canUndo) throw new HbarError('UNDO_UNAVAILABLE', 'This Run has no reversible file changes')
+      const fileChanges = { ...run.fileChanges, canUndo: false, undoneAt: Date.now() }
+      return appendEvent(sessionId, 'run.filesUndone', { run: { ...run, fileChanges } }, runId)
+    })()
+  },
   requestCancel: (id) =>
     db.transaction(() => {
       const run = methods.run(id)
@@ -2339,6 +2539,7 @@ const methods: StorageMethods = {
         parsedFailure ? JSON.stringify(parsedFailure) : null,
         id,
       )
+      if (settled) finishRunFileChanges(db, id, methods.session(run.sessionId).seq + 1)
       const event = appendEvent(run.sessionId, settled ? 'run.settled' : 'run.status', { run: methods.run(id) }, id)
       if (settled) runSteering.retire(run.sessionId, run.id)
       return event
@@ -2424,7 +2625,7 @@ const methods: StorageMethods = {
       const modeEvent = decision === 'implement' ? event : null
       return { approval: resolved, event, modeEvent }
     })(),
-  toolStart: (sessionId, runId, callId, name, args) =>
+  toolStart: (sessionId, runId, callId, name, args, presentation) =>
     db.transaction(() => {
       db.query('INSERT INTO tool_intents VALUES(?,?,?,?,?,?)').run(
         `${runId}:${callId}`,
@@ -2434,7 +2635,12 @@ const methods: StorageMethods = {
         name,
         'started',
       )
-      return appendEvent(sessionId, 'tool.started', { callId, name, args }, runId)
+      return appendEvent(
+        sessionId,
+        'tool.started',
+        { callId, name, args, ...(presentation ? { presentation } : {}) },
+        runId,
+      )
     })(),
   toolEnd: (sessionId, runId, callId, failed = false) =>
     db.transaction(() => {
@@ -2446,6 +2652,31 @@ const methods: StorageMethods = {
   recover: (scope) =>
     db.transaction(() => {
       const ids = scope ? new Set(z.array(z.string().min(1).max(160)).max(256).parse(scope.runIds)) : null
+      const interruptedCompactions = db
+        .query<{ data: string }, []>(
+          `
+        SELECT data FROM events AS start WHERE type='context.compaction.started'
+          AND NOT EXISTS (SELECT 1 FROM events AS terminal WHERE terminal.sessionId=start.sessionId
+            AND terminal.seq>start.seq AND terminal.type IN ('context.compacted','context.compaction.settled')
+            AND json_extract(terminal.data,'$.compaction.id')=json_extract(start.data,'$.compaction.id'))
+      `,
+        )
+        .all()
+      for (const row of interruptedCompactions) {
+        const parsed = z
+          .object({ compaction: contextCompactionRecordSchema })
+          .safeParse(JSON.parse(row.data) as unknown)
+        if (parsed.success && (!ids || (parsed.data.compaction.runId !== null && ids.has(parsed.data.compaction.runId))))
+          methods.compactionFinish(parsed.data.compaction, {
+            status: 'interrupted',
+            durationMs: null,
+            afterTokens: null,
+            summaryTokens: null,
+            retainedMessages: null,
+            chunks: 0,
+            errorCode: 'HOST_INTERRUPTED',
+          })
+      }
       const active = (db.query(scope?.reconcileInterrupted
         ? "SELECT * FROM runs WHERE status IN ('running','waiting_approval','interrupted')"
         : "SELECT * FROM runs WHERE status IN ('running','waiting_approval')").all() as Row[]).map(
@@ -2613,7 +2844,13 @@ const methods: StorageMethods = {
   },
   plugins: () =>
     (
-      db.query('SELECT * FROM plugins').all() as { id: string; projectId: string; enabled: number; config: string; path: string | null }[]
+      db.query('SELECT * FROM plugins').all() as {
+        id: string
+        projectId: string
+        enabled: number
+        config: string
+        path: string | null
+      }[]
     ).map((row) => ({
       ...row,
       ...(row.projectId ? { projectId: row.projectId } : {}),
@@ -2713,6 +2950,7 @@ const methods: StorageMethods = {
 
 function restoreProjection(event: SessionEvent) {
   chatDatabaseArtifacts.restoreEventMetadata(event.data)
+  projectRunFileChanges(db, event)
   const data = event.data as Record<string, unknown>
   if (event.type === 'session.created') {
     const workspace = data.workspace as Workspace
@@ -2818,7 +3056,7 @@ function restoreProjection(event: SessionEvent) {
       event.seq,
       z.array(contentBlockSchema).parse(data.content),
     )
-  } else if (['run.queued', 'run.status', 'run.settled'].includes(event.type)) {
+  } else if (['run.queued', 'run.status', 'run.settled', 'run.filesUndone'].includes(event.type)) {
     const run = runSchema.parse(data.run)
     if (event.type === 'run.queued' && data.launchTarget !== undefined) {
       const binding = sessionLaunchTargetBindingSchema.parse(data.launchTarget)
@@ -2845,6 +3083,7 @@ function restoreProjection(event: SessionEvent) {
       run.failure ? JSON.stringify(runFailureSchema.parse(run.failure)) : null,
       run.recovery ? JSON.stringify(run.recovery) : null,
     )
+    if (event.type === 'run.settled') finishRunFileChanges(db, run.id, event.seq)
     if (event.type === 'run.settled' && data.queueRemoval !== undefined) {
       const removal = z
         .strictObject({
@@ -3067,12 +3306,79 @@ function reconcileSessionLogs() {
 }
 
 if (!preflight) {
+startupPhase = 'recovery'
+const recoveryStartedAt = performance.now()
+workerDiagnostics.emit({ event: 'sqlite.recovery_started', phase: 'recovery', level: 'info', workerState: 'starting' })
+try {
   chatDatabaseDeletion.reconcile()
   if (chatDatabaseDeletion.recoveryIssues.length) recordRecoveryDiagnostic(diagnosticsRoot, { deletedLogIssues: chatDatabaseDeletion.recoveryIssues })
   db.exec('UPDATE chat_database_event_reference_health SET complete=1 WHERE id=1')
   reconcileSessionLogs()
+} catch (error) {
+  workerDiagnostics.emit({
+    event: 'sqlite.recovery_failed',
+    phase: 'recovery',
+    level: 'fatal',
+    outcome: 'failure',
+    errorCode: safeStorageErrorCode(error, 'SQLITE_RECOVERY_FAILED'),
+    workerState: 'failed',
+  })
+  throw error
+}
+workerDiagnostics.emit({
+  event: 'sqlite.recovery_completed',
+  phase: 'recovery',
+  level: 'info',
+  outcome: 'success',
+  workerState: 'starting',
+  durationMs: Math.max(0, performance.now() - recoveryStartedAt),
+})
+
+startupPhase = 'ready'
+try {
+  const facts = readSqliteFacts()
+  workerDiagnostics.emit({
+    event: 'sqlite.ready',
+    phase: 'ready',
+    level: 'info',
+    outcome: 'success',
+    workerState: 'ready',
+    durationMs: Math.max(0, performance.now() - schemaStartedAt),
+    sqliteVersion: facts.sqliteVersion,
+    runtimeVersion: Bun.version,
+    databaseSchemaVersion: facts.userVersion,
+    userVersion: facts.userVersion,
+    journalMode: facts.journalMode,
+    synchronous: facts.synchronous,
+    busyTimeoutMs: facts.busyTimeoutMs,
+    foreignKeys: facts.foreignKeys,
+    pageSize: facts.pageSize,
+  })
+  if (schemaVersion !== facts.userVersion) {
+    workerDiagnostics.emit({
+      event: 'sqlite.schema_migrated',
+      phase: 'migration',
+      level: 'info',
+      outcome: 'success',
+      workerState: 'ready',
+      durationMs: Math.max(0, performance.now() - schemaStartedAt),
+      databaseSchemaVersion: facts.userVersion,
+      userVersion: facts.userVersion,
+    })
+  }
+} catch (error) {
+  workerDiagnostics.emit({
+    event: 'sqlite.ready_failed',
+    phase: 'ready',
+    level: 'fatal',
+    outcome: 'failure',
+    errorCode: safeStorageErrorCode(error, 'SQLITE_READY_FAILED'),
+    workerState: 'failed',
+  })
+  throw error
 }
 
+}
 function protectedRunId(method: keyof StorageMethods, args: readonly unknown[]): string | undefined {
   if (method === 'setRun') return z.string().parse(args[0])
   if (method === 'commit' || method === 'toolStart' || method === 'toolEnd') return z.string().parse(args[1])
@@ -3082,9 +3388,11 @@ function protectedRunId(method: keyof StorageMethods, args: readonly unknown[]):
 }
 
 parentPort!.on('message', ({ id, method, args, authority }: StorageCall) => {
+  const startedAt = performance.now()
   let reply: StorageReply
-  const draftVersion = chatDatabaseArtifacts.writeVersion()
-  const logVersion = eventLogWriteVersion
+  workerDiagnostics.started(id, String(method))
+  let draftVersion: number | null = null
+  let logVersion = eventLogWriteVersion
   try {
     if (preflight) {
       if (method === 'ready') {
@@ -3096,6 +3404,8 @@ parentPort!.on('message', ({ id, method, args, authority }: StorageCall) => {
       parentPort!.postMessage({ id, ok: true, result: method === 'ready' ? methods.ready() : undefined } satisfies StorageReply)
       return
     }
+    draftVersion = chatDatabaseArtifacts.writeVersion()
+    logVersion = eventLogWriteVersion
     if (databaseMaintenanceOwner && !databaseMaintenanceReads.has(method)) throw new HbarError('BUSY', 'Chat database is in global maintenance')
     if (!Object.hasOwn(methods, method)) throw new Error('Unknown storage operation')
     const protectedId = protectedRunId(method, args)
@@ -3107,10 +3417,21 @@ parentPort!.on('message', ({ id, method, args, authority }: StorageCall) => {
     else if (protectedId && runtimeState.ownership(protectedId))
       throw new HbarError('EXECUTION_AUTHORITY_REQUIRED', 'Managed execution writes must carry their durable lease')
     const fn = methods[method] as (...args: unknown[]) => unknown
-    reply = { id, ok: true, result: fn(...args) }
+    reply = { id, ok: true, result: workerDiagnostics.withOperation(id, String(method), () => fn(...args)) }
     if (databaseMaintenanceOwner && method !== 'close') db.clearQueryCache()
+    workerDiagnostics.operation(id, String(method), startedAt, 'success')
   } catch (error) {
-    if (draftVersion !== chatDatabaseArtifacts.writeVersion()) chatDatabaseArtifacts.invalidateDraftJournal()
+    workerDiagnostics.emit({
+      event: 'sqlite.request_error_caught',
+      phase: 'catch',
+      level: 'error',
+      method: String(method),
+      storageRequestId: id,
+      operationId: id,
+      outcome: 'failure',
+      sampled: true,
+    })
+    if (draftVersion !== null && draftVersion !== chatDatabaseArtifacts.writeVersion()) chatDatabaseArtifacts.invalidateDraftJournal()
     if (logVersion !== eventLogWriteVersion) db.exec('UPDATE chat_database_event_reference_health SET complete=0 WHERE id=1')
     reply = {
       id,
@@ -3118,6 +3439,17 @@ parentPort!.on('message', ({ id, method, args, authority }: StorageCall) => {
       error: error instanceof Error ? error.message : String(error),
       code: error instanceof HbarError ? error.code : error instanceof Error && error.message.includes('CHAT_DATABASE_ARTIFACT_CLAIMED') ? 'ARTIFACT_RESERVED' : error instanceof Error && error.message.includes('CHAT_DATABASE_ARTIFACT_DELETED') ? 'ARTIFACT_UNAVAILABLE' : 'STORAGE_ERROR',
     }
+    workerDiagnostics.emit({
+      event: 'sqlite.request_reply_built',
+      phase: 'reply',
+      level: 'debug',
+      method: String(method),
+      storageRequestId: id,
+      operationId: id,
+      outcome: 'failure',
+      sampled: true,
+    })
+    workerDiagnostics.operation(id, String(method), startedAt, 'failure', error)
   }
   parentPort!.postMessage(reply)
 })

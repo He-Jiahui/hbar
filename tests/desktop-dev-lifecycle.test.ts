@@ -75,6 +75,7 @@ test('an unrelated HTTP listener cannot satisfy desktop Vite readiness or be ter
   try {
     const result = await f.run()
     expect(result.code).not.toBe(0)
+    expect(result.error).toContain('Vite: Development process exited before readiness')
     expect(result.error).toContain('Development process exited before readiness')
     await f.expectReleasedHost()
     expect(await (await fetch(`http://127.0.0.1:${f.webPort}`)).text()).toBe('existing listener')
@@ -83,6 +84,27 @@ test('an unrelated HTTP listener cannot satisfy desktop Vite readiness or be ter
     await f.dispose()
   }
 }, 160_000)
+
+test('source Host startup failure reports its log and leaves an unrelated listener running', async () => {
+  const f = await fixture()
+  const occupied = Bun.serve({
+    hostname: '127.0.0.1',
+    port: f.hostPort,
+    fetch: () => new Response('existing Host listener'),
+  })
+  try {
+    const result = await f.run()
+    expect(result.code).not.toBe(0)
+    expect(result.error).toContain('Source Host: Development process exited before readiness')
+    expect(result.error).toContain(resolve(f.home, 'diagnostics/host-dev.log'))
+    expect(result.output).not.toContain('Desktop development:')
+    expect(await Bun.file(resolve(f.home, 'settings/host.lock')).exists()).toBe(false)
+    expect(await (await fetch(`http://127.0.0.1:${f.hostPort}`)).text()).toBe('existing Host listener')
+  } finally {
+    await occupied.stop(true)
+    await f.dispose()
+  }
+}, 30_000)
 
 test('a development profile with a live owner is refused before any service starts', async () => {
   const f = await fixture()

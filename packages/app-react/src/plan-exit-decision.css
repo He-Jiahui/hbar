@@ -19,12 +19,12 @@
   gap: 8px;
   padding: 12px;
   background: var(--lumen-reading);
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
 }
 .hbar-plan-exit-status {
   margin-inline-start: auto;
   color: var(--lumen-muted);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 .hbar-plan-exit-body {
   display: flex;
@@ -50,7 +50,7 @@
   min-inline-size: 0;
   overflow: auto;
   padding: 12px;
-  font-size: 0.875rem;
+  font-size: var(--lumen-font-size);
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
@@ -74,7 +74,7 @@
   flex-direction: column;
   min-inline-size: 0;
   gap: 6px;
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 .hbar-plan-exit-feedback textarea {
   inline-size: 100%;
@@ -98,7 +98,7 @@
 .hbar-plan-exit-confirmed-feedback {
   margin: 0;
   padding: 8px 12px;
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
   overflow-wrap: anywhere;
 }
 @media (max-width: 26rem) {

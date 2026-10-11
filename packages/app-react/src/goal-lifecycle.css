@@ -36,7 +36,7 @@
 
 .hbar-goal-lifecycle-status {
   flex: 0 1 auto;
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   color: var(--lumen-muted);
 }
 
@@ -87,7 +87,7 @@
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: 0.25rem;
   padding: 0.125rem 0.375rem;
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   overflow-wrap: anywhere;
   background: var(--lumen-frost);
 }

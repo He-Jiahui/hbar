@@ -50,7 +50,9 @@ function identities(items: readonly SessionTimelineSequenceItem[]) {
         ? `stream:${item.stream.id}`
         : item.kind === 'goalContinuation'
           ? `continuation:${item.continuation.runId}`
-          : `goal:${item.row.eventId}`,
+          : item.kind === 'goalLifecycle'
+            ? `goal:${item.row.eventId}`
+            : `context:${item.marker.id}`,
   )
 }
 

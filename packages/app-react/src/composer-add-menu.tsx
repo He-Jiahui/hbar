@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useId, useRef, useState, type RefObject } from 'react'
 import { FileText, Paperclip, Plus, Slash, Target } from 'lucide-react'
 import {
+  LumenContentText,
   LumenButton,
   LumenFloatingSurface,
   LumenFrame,
   LumenIcon,
   LumenInput,
-  LumenText,
   useFloatingTrigger,
 } from '@lumen/app-ui'
 import { HbarActionIconButton } from './action-icon-button'
@@ -179,9 +179,9 @@ export function HbarComposerAddMenu({
             {goalAction.label}
           </LumenButton>
           {goalAction.disabled && goalAction.disabledHint && (
-            <LumenText as="p" className="hbar-composer-add-hint">
+            <LumenContentText context="section.description" className="hbar-composer-add-hint">
               {goalAction.disabledHint}
-            </LumenText>
+            </LumenContentText>
           )}
         </>
       )}

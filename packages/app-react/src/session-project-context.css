@@ -14,7 +14,7 @@
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-frost);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 
 .hbar-session-project-context-name,
@@ -50,6 +50,18 @@
   max-inline-size: 100%;
   overflow-x: auto;
   scrollbar-width: thin;
+}
+
+/* The host-owned actions item can overflow even in a wide pane with long labels. */
+.hbar-app-react-session-footer:has([data-toolbar-item='actions'][hidden]) .hbar-session-project-context-below {
+  display: flex;
+}
+
+.hbar-app-react-session-footer:has([data-toolbar-item='actions'][hidden]):has(
+    .lumen-composer-toolbar > button[aria-expanded='true']
+  )
+  .hbar-session-project-context-below {
+  display: none;
 }
 
 .hbar-app-react-session-footer[data-git-context-status='error'] .hbar-session-project-context-toolbar {

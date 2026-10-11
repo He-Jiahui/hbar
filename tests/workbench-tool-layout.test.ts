@@ -18,6 +18,17 @@ const input = (width = 900, root = 16): LumenToolPaneLayoutInput => ({
   geometry: { availableInlineSizePx: width, rootFontSizePx: root },
 })
 
+test('opt-in drawer preserves a 32rem reading budget and old page callers remain compatible', () => {
+  for (const root of [16, 20]) {
+    const layout: LumenToolLayout = { ...descriptor, mainMinWidthRem: 32, constrainedPresentation: 'drawer' }
+    const threshold = (32 + 20 + LUMEN_TOOL_SEPARATOR_WIDTH_REM) * root
+    expect(resolveLumenToolPaneLayout({ ...input(threshold - 1, root), layout }).presentation).toBe('drawer')
+    expect(resolveLumenToolPaneLayout({ ...input(threshold, root), layout }).presentation).toBe('split')
+    expect(resolveLumenToolPaneLayout({ ...input(320, root), layout }).widthRem).toBeNull()
+  }
+  expect(resolveLumenToolPaneLayout(input(320)).presentation).toBe('page')
+})
+
 test('tool split threshold includes both descriptor minima and the normal-flow separator hit area', () => {
   expect(LUMEN_TOOL_SEPARATOR_WIDTH_REM).toBe(0.375)
   const threshold = (20 + 20 + LUMEN_TOOL_SEPARATOR_WIDTH_REM) * 16
@@ -163,8 +174,7 @@ test('opt-in SSR retains main/tool content, refs, named fallback targets, and in
   expect(html).toContain('aria-label="文件工具" tabindex="-1"')
   expect(html).toContain('保留未保存文件草稿')
   expect(html).toContain('保留会话草稿')
-  expect(html).toContain('role="separator" aria-label="调整文件工具宽度"')
-  expect(html).toContain('aria-disabled="true"')
+  expect(html).not.toContain('role="separator" aria-label="调整文件工具宽度"')
   expect(html).not.toContain('aria-modal')
   expect(html).not.toMatch(/<main[^>]*(?:hidden|aria-hidden|style)/u)
   expect(commits).toBe(0)

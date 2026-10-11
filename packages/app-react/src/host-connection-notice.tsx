@@ -1,5 +1,5 @@
 import { LoaderCircle, RefreshCw, WifiOff } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenContentText } from '@lumen/app-ui'
 import './host-connection-notice.css'
 
 export type HbarHostConnection = 'connected' | 'connecting' | 'pairing' | 'disconnected'
@@ -31,16 +31,16 @@ export function HbarHostConnectionNotice({
         className={connection === 'connecting' ? 'hbar-action-icon-busy' : undefined}
       />
       <LumenFrame className="hbar-host-connection-message">
-        <LumenText as="strong">
+        <LumenContentText context="feedback.message">
           {connection === 'connecting'
             ? labels.connecting
             : connection === 'pairing'
               ? labels.pairing
               : labels.interrupted}
-        </LumenText>
-        <LumenText as="span" tone="muted">
+        </LumenContentText>
+        <LumenContentText context="section.description" tone="muted">
           {labels.preserved}
-        </LumenText>
+        </LumenContentText>
       </LumenFrame>
       <LumenButton
         size="s"
@@ -50,7 +50,7 @@ export function HbarHostConnectionNotice({
         onClick={onReconnect}
       >
         <LumenIcon icon={RefreshCw} tier="sm" />
-        <LumenText as="span">{labels.reconnect}</LumenText>
+        <LumenContentText context="control.label">{labels.reconnect}</LumenContentText>
       </LumenButton>
     </LumenFrame>
   )

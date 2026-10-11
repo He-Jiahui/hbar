@@ -48,7 +48,7 @@
 
 .hbar-composer-workspace-context-kind {
   color: var(--lumen-muted);
-  font-size: 0.6875rem;
+  font-size: calc(var(--lumen-font-size) * 0.785714);
   line-height: 1.25;
   white-space: nowrap;
   overflow-x: auto;
@@ -68,7 +68,7 @@
   scrollbar-width: none;
   color: var(--lumen-muted);
   font-family: var(--lumen-font-mono, monospace);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   line-height: 1.35;
   white-space: nowrap;
 }
@@ -81,20 +81,20 @@
   flex: 0 0 auto;
   color: var(--lumen-muted);
   font: inherit;
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   white-space: nowrap;
 }
 
 .hbar-composer-workspace-context-note {
   color: var(--lumen-ink);
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
 .hbar-composer-workspace-context-quote {
   color: var(--lumen-muted);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }
 
 .hbar-composer-workspace-context-quote summary {
@@ -110,7 +110,7 @@
   border-inline-start: 0.125rem solid var(--lumen-edge);
   color: var(--lumen-muted);
   font-family: var(--lumen-font-mono, monospace);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   line-height: 1.4;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
@@ -143,12 +143,12 @@
 .hbar-composer-workspace-context-file > span {
   flex: 0 0 auto;
   color: var(--lumen-ink);
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
   white-space: nowrap;
 }
 
 .hbar-composer-workspace-context-error {
   margin: 0;
   color: var(--lumen-danger);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
 }

@@ -1582,7 +1582,7 @@ export function createWorkspaceActivity(local: CommandRegistry, options: Workspa
         ? {}
         : { workspaces: { ...prior.workspaces, status: 'loading' as const, error: null } }),
     })
-    if (current().organization !== 'time') await refreshWorkspacePage(execution)
+    if (current().organization !== 'time' && sidebarConnected) await refreshWorkspacePage(execution)
     return { locale: current().locale }
   }
 

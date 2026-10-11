@@ -67,6 +67,11 @@ export function create(context: RuntimeProcessContext): RuntimeProcessService {
     const run: DriverInput = {
       session: input.session, workspace: input.workspace, run: input.run, request: input.request,
       tools, apiKey: input.apiKey, signal: controller.signal,
+      onModelDiagnostic: event => {
+        void call({ method: 'modelDiagnostic', event }, z.undefined()).catch(() => {
+          /* A diagnostic observer cannot interrupt the original model invocation. */
+        })
+      },
       resolveKey: modelId => call({ method: 'resolveKey', modelId }, z.string().nullable()),
       readImage: id => call({ method: 'readImage', id }, z.strictObject({ mime: z.string(), data: z.string() })),
       readFile: id => call({ method: 'readFile', id }, z.strictObject({ name: z.string(), mime: z.string(), size: z.number().nonnegative(), text: z.string().nullable(), truncated: z.boolean() })),

@@ -4,6 +4,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { HbarClient, createRunCommandClient, createOperationWatcher } from '@hbar/client'
 import { HbarError } from '@hbar/contracts'
+import {
+  CONTEXT_COMPACTION_COMMAND_TIMEOUT_MS,
+  CONTEXT_COMPACTION_KERNEL_TIMEOUT_MS,
+  CONTEXT_COMPACTION_RPC_TIMEOUT_MS,
+  runCommands as contractRunCommands,
+} from '@hbar/contracts/commands/run'
 import { Kernel, MemorySecrets, createRunCommands } from '@hbar/kernel'
 import { startServer } from '../apps/host/src/server.ts'
 
@@ -39,6 +45,41 @@ test('context compaction uses the run command path and preserves canonical histo
   } finally {
     client?.disconnect()
     await host?.close()
+    await kernel.close()
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('compaction publishes staggered kernel, command, and RPC deadlines', () => {
+  expect(CONTEXT_COMPACTION_KERNEL_TIMEOUT_MS).toBe(300_000)
+  expect(CONTEXT_COMPACTION_COMMAND_TIMEOUT_MS).toBe(305_000)
+  expect(CONTEXT_COMPACTION_RPC_TIMEOUT_MS).toBe(310_000)
+  expect(contractRunCommands['context.compact'].metadata.timeoutMs).toBe(CONTEXT_COMPACTION_COMMAND_TIMEOUT_MS)
+})
+
+test('a kernel compaction deadline remains unknown at the public command boundary', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hbar-compact-deadline-result-'))
+  const kernel = await Kernel.create({
+    home: join(root, 'data'),
+    workspace: root,
+    demo: true,
+    secrets: new MemorySecrets(),
+  })
+  const commands = createRunCommands(kernel)
+  try {
+    const session = await kernel.createSession((await kernel.storage.call('workspaces'))[0]!.id)
+    kernel.compact = async () => {
+      throw new HbarError('COMPACTION_TIMEOUT', 'summary exceeded its kernel budget')
+    }
+    await expect(
+      commands.execute(
+        'context.compact',
+        { sessionId: session.id, modelId: 'local-fixture' },
+        { actorId: 'timeout-test' },
+      ),
+    ).rejects.toMatchObject({ code: 'RESULT_UNKNOWN' })
+  } finally {
+    commands.dispose()
     await kernel.close()
     await rm(root, { recursive: true, force: true })
   }

@@ -57,7 +57,7 @@ function completion(shell: string | undefined) {
     return `Register-ArgumentCompleter -Native -CommandName hbar -ScriptBlock { param($wordToComplete) 'commands','exec','repl','session','model','plugins','skills','config','diagnose','version' | Where-Object { $_ -like "$wordToComplete*" } }`
   if (shell === 'bash' || shell === 'zsh')
     return `complete -W "commands exec repl session model plugins skills config diagnose version" hbar`
-  throw new Error('Usage: hbar completion <powershell|bash|zsh>')
+  throw new CommandError('INVALID_SYNTAX', 'Usage: hbar completion <powershell|bash|zsh>')
 }
 
 async function serve(args: CliArgs) {

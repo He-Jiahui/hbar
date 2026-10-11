@@ -12,7 +12,7 @@ import {
 const desktopGeometry: HbarFlexLayoutGeometry = { widthPx: 1598, remPx: 16, splitterSizePx: 8 }
 
 test('converts a desktop resize to exact rem widths after subtracting the splitter space', () => {
-  const model = shellLayoutToFlexModel(shellLayout, { geometry: desktopGeometry })
+  const model = shellLayoutToFlexModel(shellLayout, { geometry: desktopGeometry, toolVisible: true })
   const children = model.layout.children ?? []
   expect(children.map((child) => child.id)).toEqual(['projects', 'workspace', 'session-tool'])
   const changed = flexModelToShellLayout(
@@ -33,7 +33,7 @@ test('converts a desktop resize to exact rem widths after subtracting the splitt
     desktopGeometry,
   )
   expect(shellLayoutModule(changed, 'session-tool').size.preferredRem).toBeCloseTo(31, 10)
-  expect(shellLayoutModule(changed, 'workspace').size.minRem).toBe(20)
+  expect(shellLayoutModule(changed, 'workspace').size.minRem).toBe(32)
 })
 
 test('malformed or incomplete rows cannot overwrite saved pane widths', () => {
@@ -55,18 +55,18 @@ test('malformed or incomplete rows cannot overwrite saved pane widths', () => {
   )
   expect(shellLayoutModule(recovered, 'projects').size.preferredRem).toBe(17)
   expect(shellLayoutModule(recovered, 'session-tool').size.preferredRem).toBe(24)
-  expect(shellLayoutModule(recovered, 'workspace').size.minRem).toBe(20)
+  expect(shellLayoutModule(recovered, 'workspace').size.minRem).toBe(32)
 })
 
 test('desktop projection applies the descriptor bounds in CSS pixels to all three panes', () => {
   for (const remPx of [16, 20]) {
-    const model = shellLayoutToFlexModel(shellLayout, { geometry: { ...desktopGeometry, remPx } })
+    const model = shellLayoutToFlexModel(shellLayout, { geometry: { ...desktopGeometry, remPx }, toolVisible: true })
     expect(model.layout.children?.find((child) => child.id === 'projects')).toMatchObject({
       weight: 17,
       minWidth: 12 * remPx,
       maxWidth: 24 * remPx,
     })
-    expect(model.layout.children?.find((child) => child.id === 'workspace')).toMatchObject({ minWidth: 20 * remPx })
+    expect(model.layout.children?.find((child) => child.id === 'workspace')).toMatchObject({ minWidth: 32 * remPx })
     expect(model.layout.children?.find((child) => child.id === 'session-tool')).toMatchObject({
       weight: 24,
       minWidth: 20 * remPx,
@@ -117,11 +117,11 @@ test('desktop widths round-trip at both bounds, different rem sizes and pane vis
 
 test('desktop projection reserves workspace capacity when preferred panes do not fit', () => {
   const layout = withToolPaneWidth(shellLayout, 36)
-  const geometry = { widthPx: 900, remPx: 16, splitterSizePx: 8 }
-  const model = shellLayoutToFlexModel(layout, { geometry })
+  const geometry = { widthPx: 1200, remPx: 16, splitterSizePx: 8 }
+  const model = shellLayoutToFlexModel(layout, { geometry, toolVisible: true })
   const weights = (model.layout.children ?? []).map((child) => child.weight ?? 0)
-  expect(weights.reduce((total, weight) => total + weight, 0) * geometry.remPx + 16).toBeCloseTo(900)
-  expect(weights[1]).toBeGreaterThanOrEqual(20)
+  expect(weights.reduce((total, weight) => total + weight, 0) * geometry.remPx + 16).toBeCloseTo(1200)
+  expect(weights[1]).toBeGreaterThanOrEqual(32)
   expect(weights[2]).toBeGreaterThanOrEqual(20)
   expect(shellLayoutModule(layout, 'session-tool').size.preferredRem).toBe(36)
 })
@@ -150,8 +150,8 @@ test('invalid desktop measurements and weights retain the saved descriptor', () 
 
 test('resizing one pane preserves the other saved preference when its visible width was constrained', () => {
   const layout = withToolPaneWidth(shellLayout, 36)
-  const geometry = { widthPx: 900, remPx: 16, splitterSizePx: 8 }
-  const model = shellLayoutToFlexModel(layout, { geometry })
+  const geometry = { widthPx: 1200, remPx: 16, splitterSizePx: 8 }
+  const model = shellLayoutToFlexModel(layout, { geometry, toolVisible: true })
   const resized = {
     ...model,
     layout: {
@@ -166,12 +166,13 @@ test('resizing one pane preserves the other saved preference when its visible wi
     },
   }
   const next = flexModelToShellLayout(layout, resized, geometry)
-  expect(shellLayoutModule(next, 'projects').size.preferredRem).toBeCloseTo(14.25, 10)
+  expect(shellLayoutModule(next, 'projects').size.preferredRem).toBeCloseTo(16, 10)
   expect(shellLayoutModule(next, 'session-tool').size.preferredRem).toBe(36)
 })
 
-test('Web shell layout v3 describes ordered outlets and a real constrained tool page', () => {
-  expect(shellLayout.schemaVersion).toBe(3)
+test('Web shell layout v4 prioritizes reading and describes a constrained drawer', () => {
+  expect(shellLayout.schemaVersion).toBe(4)
+  expect(shellLayoutModule(shellLayout, 'session-tool').visible).toBe(false)
   expect(shellLayout.modules.map((module) => [module.moduleId, module.outlet, module.region, module.order])).toEqual([
     ['projects', 'sidebar', 'left', 0],
     ['workspace', 'page', 'center', 1],
@@ -185,7 +186,7 @@ test('Web shell layout v3 describes ordered outlets and a real constrained tool 
   })
   expect(shellLayoutModule(shellLayout, 'session-tool').size).toEqual({ minRem: 20, preferredRem: 24, maxRem: 36 })
   expect(shellLayoutModule(shellLayout, 'session-tool').config).toEqual({
-    constrainedPresentation: 'page',
+    constrainedPresentation: 'drawer',
     resizable: true,
   })
   expect(shellLayoutModule(shellLayout, 'workspace').config.tabs).toEqual({
@@ -225,7 +226,7 @@ test('Web shell layout migrates sidebar v1 without inventing saved tool state', 
     type: 'app-shell',
     sidebar: { id: 'projects', region: 'left', visible: false, widthRem: 20 },
   })
-  expect(migrated.schemaVersion).toBe(3)
+  expect(migrated.schemaVersion).toBe(4)
   expect(shellLayoutModule(migrated, 'projects')).toMatchObject({
     visible: false,
     size: { minRem: 12, preferredRem: 20, maxRem: 24 },
@@ -253,7 +254,7 @@ test('existing layouts fill the tabs region config without accepting arbitrary p
   expect(() => normalizeShellLayout(invalid)).toThrow()
 })
 
-test('legacy v2 drawer preference migrates to an adaptive page without losing widths or visibility', () => {
+test('legacy v2 drawer preference migrates without losing widths or visibility', () => {
   const legacy = {
     ...structuredClone(shellLayout),
     schemaVersion: 2,
@@ -266,18 +267,46 @@ test('legacy v2 drawer preference migrates to an adaptive page without losing wi
           }
         : module.moduleId === 'projects'
           ? { ...module, visible: false, size: { ...module.size, preferredRem: 19 } }
-          : module,
+          : { ...module, size: { ...module.size, minRem: 20 } },
     ),
   }
   const migrated = normalizeShellLayout(legacy)
-  expect(migrated.schemaVersion).toBe(3)
+  expect(migrated.schemaVersion).toBe(4)
   expect(shellLayoutModule(migrated, 'session-tool')).toMatchObject({
     size: { preferredRem: 31 },
-    config: { constrainedPresentation: 'page', resizable: true },
+    config: { constrainedPresentation: 'drawer', resizable: true },
   })
   expect(shellLayoutModule(migrated, 'projects')).toMatchObject({ visible: false, size: { preferredRem: 19 } })
   expect(legacy.schemaVersion).toBe(2)
   expect(() => normalizeShellLayout({ ...legacy, schemaVersion: 4 })).toThrow()
+})
+
+test('v3 migration preserves an open tool, resized widths and input descriptor without mutation', () => {
+  const legacy = {
+    ...structuredClone(shellLayout),
+    schemaVersion: 3,
+    modules: shellLayout.modules.map((module) =>
+      module.moduleId === 'workspace'
+        ? { ...module, size: { ...module.size, minRem: 20 } }
+        : module.moduleId === 'session-tool'
+          ? {
+              ...module,
+              visible: true,
+              size: { ...module.size, preferredRem: 29 },
+              config: { constrainedPresentation: 'page', resizable: false },
+            }
+          : module,
+    ),
+  }
+  const migrated = normalizeShellLayout(legacy)
+  expect(migrated.schemaVersion).toBe(4)
+  expect(shellLayoutModule(migrated, 'session-tool')).toMatchObject({
+    visible: true,
+    size: { preferredRem: 29 },
+    config: { constrainedPresentation: 'drawer', resizable: false },
+  })
+  expect(legacy.schemaVersion).toBe(3)
+  expect(shellLayoutModule(migrated, 'workspace').size.minRem).toBe(32)
 })
 
 test('preferred tool width edits keep other layout choices and reject invalid capacity', () => {

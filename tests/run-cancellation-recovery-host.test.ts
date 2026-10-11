@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -11,6 +12,41 @@ import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { startServer } from '../apps/host/src/server'
 
 const ROOT_PREFIX = 'hbar-run-cancellation-recovery-'
+const LIFECYCLE_DIAGNOSTICS = process.env.HBAR_TEST_LIFECYCLE_DIAGNOSTICS === '1'
+type LifecyclePhase =
+  | 'test_enter'
+  | 'before_runtime_dispose'
+  | 'after_runtime_dispose'
+  | 'before_client_disconnect'
+  | 'after_client_disconnect'
+  | 'before_host_close'
+  | 'after_host_close'
+  | 'before_kernel_close'
+  | 'after_kernel_close'
+  | 'before_fixture_cleanup'
+  | 'after_fixture_cleanup'
+
+function lifecycleFingerprint(root: string): string {
+  return createHash('sha256').update(root, 'utf8').digest('hex')
+}
+
+function lifecyclePhase(rootFingerprint: string, phase: LifecyclePhase, startedAt: number, cleanup: boolean): void {
+  if (!LIFECYCLE_DIAGNOSTICS) return
+  try {
+    process.stderr.write(
+      `${JSON.stringify({
+        testId: 'run-cancellation-recovery-host',
+        phase,
+        time: Date.now(),
+        elapsedMs: Math.max(0, performance.now() - startedAt),
+        rootSha256: rootFingerprint,
+        cleanup,
+      })}\n`,
+    )
+  } catch {
+    // Diagnostic markers are best effort and must not alter test cleanup semantics.
+  }
+}
 
 async function removeOwnedFixture(root: string, temporaryParent: string): Promise<void> {
   const actual = await realpath(root)
@@ -50,6 +86,8 @@ test('real Host cancellation with a lost ACK reconciles only the original operat
   const root = await realpath(await mkdtemp(join(temporaryParent, ROOT_PREFIX)))
   const workspacePath = join(root, 'workspace')
   const targetPath = join(workspacePath, 'must-not-execute.txt')
+  const lifecycleStartedAt = performance.now()
+  const rootFingerprint = lifecycleFingerprint(root)
   const ackSeen = gate()
   const releaseAck = gate()
   const failures: unknown[] = []
@@ -59,6 +97,7 @@ test('real Host cancellation with a lost ACK reconciles only the original operat
   let runtime: ReturnType<typeof createAppRuntime> | undefined
   let hostClosed = false
   let kernelClosed = false
+  lifecyclePhase(rootFingerprint, 'test_enter', lifecycleStartedAt, false)
   try {
     await mkdir(workspacePath)
     kernel = await Kernel.create({
@@ -269,28 +308,41 @@ test('real Host cancellation with a lost ACK reconciles only the original operat
     failures.push(error)
   } finally {
     releaseAck.release()
-    for (const cleanup of [() => runtime?.dispose(), () => client?.disconnect()]) {
-      try {
-        cleanup()
-      } catch (error) {
-        failures.push(error)
-      }
+    lifecyclePhase(rootFingerprint, 'before_runtime_dispose', lifecycleStartedAt, hostClosed && kernelClosed)
+    try {
+      runtime?.dispose()
+    } catch (error) {
+      failures.push(error)
     }
+    lifecyclePhase(rootFingerprint, 'after_runtime_dispose', lifecycleStartedAt, hostClosed && kernelClosed)
+    lifecyclePhase(rootFingerprint, 'before_client_disconnect', lifecycleStartedAt, hostClosed && kernelClosed)
+    try {
+      client?.disconnect()
+    } catch (error) {
+      failures.push(error)
+    }
+    lifecyclePhase(rootFingerprint, 'after_client_disconnect', lifecycleStartedAt, hostClosed && kernelClosed)
+    lifecyclePhase(rootFingerprint, 'before_host_close', lifecycleStartedAt, hostClosed && kernelClosed)
     try {
       await host?.close()
       hostClosed = true
     } catch (error) {
       failures.push(error)
     }
+    lifecyclePhase(rootFingerprint, 'after_host_close', lifecycleStartedAt, hostClosed && kernelClosed)
+    lifecyclePhase(rootFingerprint, 'before_kernel_close', lifecycleStartedAt, hostClosed && kernelClosed)
     try {
       await kernel?.close()
       kernelClosed = true
     } catch (error) {
       failures.push(error)
     }
+    lifecyclePhase(rootFingerprint, 'after_kernel_close', lifecycleStartedAt, hostClosed && kernelClosed)
     if (hostClosed && kernelClosed) {
+      lifecyclePhase(rootFingerprint, 'before_fixture_cleanup', lifecycleStartedAt, false)
       try {
         await removeOwnedFixture(root, temporaryParent)
+        lifecyclePhase(rootFingerprint, 'after_fixture_cleanup', lifecycleStartedAt, true)
       } catch (error) {
         failures.push(error)
       }

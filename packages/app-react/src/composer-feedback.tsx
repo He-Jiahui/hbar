@@ -2,7 +2,7 @@ import { createContext, useContext, useId, useLayoutEffect, useRef, useState, ty
 import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
 import { CircleAlert, Info, X } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenIcon, LumenContentText } from '@lumen/app-ui'
 import { FloatingSurface, useFloatingTrigger } from './floating-surface'
 import './composer-feedback.css'
 
@@ -129,7 +129,7 @@ function FeedbackTrigger({
         className="hbar-composer-feedback-surface"
       >
         <LumenFrame className="hbar-composer-feedback-heading">
-          <LumenText as="strong">{labels.title}</LumenText>
+          <LumenContentText context="section.title">{labels.title}</LumenContentText>
           <LumenButton
             type="button"
             size="s"
@@ -149,9 +149,9 @@ function FeedbackTrigger({
               </LumenFrame>
             ))
           ) : (
-            <LumenText as="p" role="status">
+            <LumenContentText context="feedback.message" role="status">
               {labels.empty}
-            </LumenText>
+            </LumenContentText>
           )}
         </LumenFrame>
       </FloatingSurface>

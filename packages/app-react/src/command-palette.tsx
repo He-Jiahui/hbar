@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { ArrowLeft, RefreshCw, X } from 'lucide-react'
 import {
+  LumenContentText,
   LumenCollection,
   LumenCollectionItem,
   LumenFrame,
@@ -526,14 +527,14 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
             error={palette.status === 'error' && palette.error ? labels.error(palette.error) : undefined}
           />
           {palette.truncated && (
-            <LumenText as="p" className="hbar-app-react-command-truncated">
+            <LumenContentText context="section.description" className="hbar-app-react-command-truncated">
               {labels.truncated}
-            </LumenText>
+            </LumenContentText>
           )}
           {actionError && (
-            <LumenText as="p" className="hbar-app-react-command-action-error" role="alert">
+            <LumenContentText context="feedback.message" className="hbar-app-react-command-action-error" role="alert">
               {labels.error(actionError)}
-            </LumenText>
+            </LumenContentText>
           )}
         </LumenFrame>
       ) : palette.view === 'parameters' && selected && palette.draft ? (
@@ -561,7 +562,7 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
               <LumenFrame as="fieldset" disabled={busy}>
                 <LumenText as="legend">{labels.parameters}</LumenText>
                 {selected.form.fields.length === 0 ? (
-                  <LumenText as="p">{labels.noParameters}</LumenText>
+                  <LumenContentText context="section.description">{labels.noParameters}</LumenContentText>
                 ) : (
                   selected.form.fields.map((field) => {
                     const issue = fieldIssue(field.name)
@@ -602,16 +603,16 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
                 )}
               </LumenFrame>
               {(!selected.available || hostDisconnected) && (
-                <LumenText as="p" role="status">
+                <LumenContentText context="feedback.message" role="status">
                   {labels.unavailableReason(
                     hostDisconnected ? 'HOST_DISCONNECTED' : (selected.unavailableReason ?? 'CAPABILITY_UNAVAILABLE'),
                   )}
-                </LumenText>
+                </LumenContentText>
               )}
               {actionError && (
-                <LumenText as="p" role="alert">
+                <LumenContentText context="feedback.message" role="alert">
                   {labels.error(actionError)}
-                </LumenText>
+                </LumenContentText>
               )}
             </LumenFrame>
             <LumenFrame as="footer">
@@ -637,12 +638,12 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
             data-tone={palette.execution.status === 'succeeded' ? 'success' : 'danger'}
             role={palette.execution.status === 'succeeded' ? 'status' : 'alert'}
           >
-            <LumenText as="strong">
+            <LumenContentText context="record.title">
               {palette.execution.status === 'succeeded'
                 ? labels.succeeded
                 : labels.error(palette.execution.error ?? 'EXECUTION_FAILED')}
-            </LumenText>
-            <LumenText as="p">{labels.resultSummary(commandTitle)}</LumenText>
+            </LumenContentText>
+            <LumenContentText context="section.description">{labels.resultSummary(commandTitle)}</LumenContentText>
           </LumenFrame>
           <LumenCollection as="dl" className="hbar-app-react-command-metadata">
             <LumenFrame>
@@ -670,9 +671,9 @@ export function HbarCommandPalette({ labels, connected, searchRef }: HbarCommand
         </LumenFrame>
       ) : (
         <LumenFrame as="main" className="hbar-app-react-command-missing">
-          <LumenText as="p" role="status">
+          <LumenContentText context="feedback.message" role="status">
             {labels.empty}
-          </LumenText>
+          </LumenContentText>
           <LumenButton variant="outlined" onClick={goBack}>
             {labels.backToCommands}
           </LumenButton>

@@ -85,6 +85,7 @@ test('supervised Host accepts restart and recovers an abrupt crash at its preser
     latestPid = second.pid
     expect(second.url).toBe(first.url)
     expect(second.instanceId).not.toBe(first.instanceId)
+    expect(second.token).toBe(first.token)
     secondClient = new HbarClient(second.url, first.token)
     const restartedHost = await secondClient.connect()
     expect(restartedHost.instanceId).toBe(second.instanceId)

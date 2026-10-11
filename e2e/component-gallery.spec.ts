@@ -100,10 +100,11 @@ test('live previews preserve editable content, theme and exact full-preview targ
 
 test('desktop and narrow layouts keep long names, categories and preview scrolling accessible', async ({ page }) => {
   await mkdir('artifacts/component-gallery', { recursive: true })
-  for (const width of [1440, 768, 390, 320]) {
-    await page.setViewportSize({ width, height: 960 })
-    for (const theme of ['dark', 'light']) {
-      await page.goto(`${baseUrl}/components.html?locale=zh-CN&theme=${theme}&category=agent-approval`)
+  for (const theme of ['dark', 'light']) {
+    await page.setViewportSize({ width: 1440, height: 960 })
+    await page.goto(`${baseUrl}/components.html?locale=zh-CN&theme=${theme}&category=agent-approval`)
+    for (const width of [1440, 768, 390, 320]) {
+      await page.setViewportSize({ width, height: 960 })
       await expect(page.locator('[data-gallery-entry]')).toHaveCount(6)
       await expect(page.frameLocator('iframe').first().locator('[data-hbar-app-ui-component]').first()).toBeVisible()
       const geometry = await page.evaluate(() => {

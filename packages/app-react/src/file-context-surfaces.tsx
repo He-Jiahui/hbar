@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { MessageCircle, MessageSquare } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText, LumenTextarea } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon, LumenTextarea } from '@lumen/app-ui'
 import type { FileComposerContextSelection } from '@hbar/app-runtime'
 import './file-context-surfaces.css'
 
@@ -44,8 +44,8 @@ export function HbarFileCommentEditor({
     <LumenFrame className="hbar-file-comment-editor">
       <LumenFrame className="hbar-file-comment-heading">
         <LumenIcon icon={MessageSquare} tier="sm" />
-        <LumenText as="strong">{labels.commentTitle}</LumenText>
-        <LumenText as="small">{rangeLabel}</LumenText>
+        <LumenContentText context="record.title">{labels.commentTitle}</LumenContentText>
+        <LumenContentText context="record.description">{rangeLabel}</LumenContentText>
       </LumenFrame>
       <LumenTextarea
         variant="plain"
@@ -251,9 +251,9 @@ export function HbarFileSourceSurface({
             >
               {index + 1}
             </LumenButton>
-            <LumenText as="span" data-source-code={index}>
+            <LumenContentText context="message.inline" data-source-code={index}>
               {line || '\u200b'}
-            </LumenText>
+            </LumenContentText>
           </LumenFrame>
           {comment && endLine === index && (
             <HbarFileCommentEditor

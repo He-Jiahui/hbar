@@ -1,6 +1,7 @@
 import { CommandRegistry, CommandError, createCommandClient } from '@hbar/commands'
 import { HbarError } from '@hbar/contracts'
 import { directoryCommands } from '@hbar/contracts/commands'
+import type { ContextHistoryInput, ContextHistoryPage } from '@hbar/contracts/context-history'
 import type {
   Workspace,
   Session,
@@ -27,6 +28,10 @@ import type {
 } from '@hbar/contracts/sidebar-directory'
 
 export interface DirectoryRepository {
+  sessionObservability?(
+    input: import('@hbar/contracts/session-observability').SessionObservabilityInput,
+  ): Promise<import('@hbar/contracts/session-observability').SessionObservabilityReport>
+  contextHistory?(input: ContextHistoryInput): Promise<ContextHistoryPage>
   workspacePage(input: WorkspaceListInput): Promise<WorkspacePage>
   workspaceSidebarPage(input: WorkspaceSidebarListInput): Promise<WorkspaceSidebarPage>
   globalSessionActivityPage(input: SessionActivityGlobalListInput): Promise<SessionActivityGlobalPage>
@@ -43,6 +48,25 @@ export interface DirectoryRepository {
 
 export function createDirectoryQueries(repository: DirectoryRepository) {
   const registry = new CommandRegistry({ execution: 'host' })
+  registry.register(directoryCommands['session.observability'], async (input) => {
+    if (!repository.sessionObservability)
+      throw new CommandError('CAPABILITY_UNAVAILABLE', 'Session statistics unavailable')
+    try {
+      return await repository.sessionObservability(input)
+    } catch (error) {
+      if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+      throw error
+    }
+  })
+  registry.register(directoryCommands['session.contextHistory'], async (input) => {
+    if (!repository.contextHistory) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Context history unavailable')
+    try {
+      return await repository.contextHistory(input)
+    } catch (error) {
+      if (error instanceof HbarError) throw new CommandError(error.code, error.message)
+      throw error
+    }
+  })
   registry.register(directoryCommands['session.agentChildren.list'], async (input) => {
     try {
       return await repository.sessionAgentChildren(input)

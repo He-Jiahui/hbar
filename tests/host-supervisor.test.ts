@@ -2,7 +2,7 @@ import { afterEach, expect, test } from 'bun:test'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createHostSupervisor, type HostSupervisorExit } from '../apps/host/src/supervisor'
+import { createHostSupervisor, STORAGE_FAILURE_RESTART_EXIT_CODE, type HostSupervisorExit } from '../apps/host/src/supervisor'
 import { RecoveryPolicy } from '../apps/host/src/recovery-policy'
 
 const owned: Array<ReturnType<typeof createHostSupervisor>> = []
@@ -201,4 +201,24 @@ test('healthy time resets fast recovery, while repeated failures retain low freq
   expect(policy.failed(60_009).delayMs).toBe(30_000)
   policy.healthy(100_000)
   expect(policy.failed(160_000)).toEqual({ failures: 1, delayMs: 250, nextAttemptAt: 160_250 })
+})
+
+test('storage exits enter low frequency recovery and explicit stop cancels the next attempt', async () => {
+  const f = await fixture('process.exit(' + STORAGE_FAILURE_RESTART_EXIT_CODE + ')')
+  const events: HostSupervisorExit[] = []
+  const supervisor = createHostSupervisor({
+    command: [process.execPath, f.entrypoint], hostArgs: [], connectionFile: f.connectionFile,
+    stdio: 'ignore', fastDelaysMs: [1, 2, 4], slowDelayMs: 500, jitter: 0,
+    onExit: event => { events.push(event) },
+  })
+  owned.push(supervisor)
+  const running = supervisor.run()
+  await until(() => events.length === 4 && supervisor.snapshot().phase === 'recovering')
+  expect(events.every(event => event.code === STORAGE_FAILURE_RESTART_EXIT_CODE && !event.expectedRestart)).toBe(true)
+  expect(supervisor.snapshot().failures).toBe(4)
+  expect(supervisor.snapshot().nextAttemptAt! - Date.now()).toBeGreaterThan(300)
+  await supervisor.stop()
+  expect(await running).toBe(0)
+  await Bun.sleep(550)
+  expect(events).toHaveLength(4)
 })

@@ -51,13 +51,13 @@ const base: QueuedUserRunsState = {
   removal: null,
   editing: null,
 }
-function render(state: QueuedUserRunsState, sessionId = 'one', connected = true) {
+function render(state: QueuedUserRunsState, sessionId = 'one', connected = true, activeRunId: string | null = null) {
   return renderToStaticMarkup(
     <HbarQueuedUserRuns
       state={state}
       sessionId={sessionId}
       connected={connected}
-      activeRunId={null}
+      activeRunId={activeRunId}
       labels={labels}
       onRefresh={() => undefined}
       onPrevious={() => undefined}
@@ -76,6 +76,34 @@ function render(state: QueuedUserRunsState, sessionId = 'one', connected = true)
     />,
   )
 }
+
+test('a maximum preview keeps the semantic action group in the row markup', () => {
+  const html = render(
+    {
+      ...base,
+      totalQueued: 1,
+      items: [
+        {
+          operationId: 'long-preview',
+          revision: 7,
+          createdAt: 1,
+          textPreview: '长内容'.repeat(80),
+          truncated: true,
+          attachmentCount: 0,
+        },
+      ],
+    },
+    'one',
+    true,
+    'active-run',
+  )
+
+  expect(html).toContain('class="hbar-queued-user-run-actions"')
+  expect(html).toContain(labels.guide(1))
+  expect(html).toContain(labels.edit(1))
+  expect(html).toContain(labels.remove(1))
+  expect(html).toContain(labels.previewLimited)
+})
 
 test('only Host-confirmed items for the selected session appear in the composer', () => {
   const state: QueuedUserRunsState = {

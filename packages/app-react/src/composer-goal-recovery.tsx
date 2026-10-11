@@ -1,4 +1,4 @@
-import { LumenButton, LumenFrame, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame } from '@lumen/app-ui'
 import type { ComposerIntentState } from '@hbar/app-runtime'
 
 export interface HbarComposerGoalRecoveryLabels {
@@ -45,9 +45,9 @@ export function HbarComposerGoalRecovery({
       aria-busy={checking || undefined}
       data-testid="composer-goal-recovery"
     >
-      <LumenText as="span" id={descriptionId}>
+      <LumenContentText context="message.inline" id={descriptionId}>
         {message}
-      </LumenText>
+      </LumenContentText>
       <LumenButton type="button" size="s" disabled={!connected || checking} onClick={onReconcile}>
         {labels.reconcile}
       </LumenButton>

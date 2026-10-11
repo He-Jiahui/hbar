@@ -1,0 +1,136 @@
+.hbar-session-observability,
+.hbar-observability-scope,
+.hbar-observability-sections,
+.hbar-observability-section,
+.hbar-observability-records {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: var(--lumen-space-group);
+}
+
+.hbar-session-observability {
+  gap: var(--lumen-space-section);
+}
+.hbar-observability-section {
+  padding-block: var(--lumen-space-group);
+  border-block-start: 0.0625rem solid var(--lumen-line);
+}
+.hbar-observability-heading,
+.hbar-observability-pagination,
+.hbar-observability-range-actions,
+.hbar-observability-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  min-inline-size: 0;
+  gap: 8px;
+}
+.hbar-observability-range-actions > :first-child {
+  flex: 1 1 10rem;
+}
+.hbar-observability-scope > .lumen-tabs,
+.hbar-observability-records > .lumen-tabs {
+  flex-wrap: wrap;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+.hbar-observability-records .hbar-lumen-disclosure-trigger {
+  inline-size: 100%;
+}
+.hbar-observability-record-label {
+  display: flex;
+  align-items: baseline;
+  min-inline-size: 0;
+  gap: 12px;
+  flex: 1 1 auto;
+}
+.hbar-observability-record-label > :first-child {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+.hbar-observability-record-label > :last-child {
+  flex: 0 0 auto;
+}
+.hbar-observability-record {
+  border-block-end: 0.0625rem solid var(--lumen-line);
+}
+.hbar-observability-record .hbar-lumen-disclosure-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-block-end: 12px;
+  min-inline-size: 0;
+}
+.hbar-session-observability :is(p, span, dd) {
+  overflow-wrap: anywhere;
+}
+.hbar-observability-revision {
+  word-break: break-all;
+}
+.hbar-observability-pagination {
+  justify-content: space-between;
+}
+.hbar-observability-outcomes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.hbar-observability-token-flow,
+.hbar-observability-outcome-bar {
+  display: flex;
+  gap: 3px;
+  min-inline-size: 0;
+  overflow: hidden;
+  border-radius: var(--lumen-radius-control);
+  background: var(--lumen-hover);
+  block-size: 0.5rem;
+}
+.hbar-observability-compression {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-inline-size: 0;
+}
+.hbar-observability-compression > span {
+  display: block;
+  block-size: 0.375rem;
+  border-radius: var(--lumen-radius-control);
+}
+.hbar-observability-token-flow > span,
+.hbar-observability-outcome-bar > span {
+  flex-basis: 0;
+  min-inline-size: 0;
+}
+.hbar-observability-token-flow [data-token-part='input'],
+.hbar-observability-compression [data-compression='before'] {
+  background: var(--lumen-accent);
+}
+.hbar-observability-token-flow [data-token-part='output'],
+.hbar-observability-compression [data-compression='after'] {
+  background: var(--lumen-success);
+}
+.hbar-observability-outcome-bar [data-outcome='succeeded'] {
+  background: var(--lumen-success);
+}
+.hbar-observability-outcome-bar [data-outcome='failed'] {
+  background: var(--lumen-danger);
+}
+.hbar-observability-outcome-bar :is([data-outcome='denied'], [data-outcome='interrupted']) {
+  background: var(--lumen-warning);
+}
+.hbar-observability-outcome-bar :is([data-outcome='unknown'], [data-outcome='cancelled'], [data-outcome='pending']) {
+  background: var(--lumen-muted);
+}
+.hbar-observability-legend [data-outcome='succeeded'] {
+  color: var(--lumen-success);
+}
+.hbar-observability-legend [data-outcome='failed'] {
+  color: var(--lumen-danger);
+}
+.hbar-observability-metrics {
+  min-inline-size: 0;
+  font-variant-numeric: tabular-nums;
+}

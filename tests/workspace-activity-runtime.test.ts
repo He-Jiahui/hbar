@@ -34,7 +34,8 @@ function fixture(
   sessions: readonly Session[],
   options: {
     readonly persistence?: ClientPersistencePort
-    readonly onWorkspaceActivity?: (sortBy: WorkspaceActivitySortBy) => void
+    readonly onWorkspaceActivity?: (sortBy: WorkspaceActivitySortBy, locale: 'en-US' | 'zh-CN') => void
+    readonly sidebarActivityEvents?: NonNullable<Parameters<typeof createAppRuntime>[0]['sidebarActivityEvents']>
     readonly beforeSessionPage?: () => Promise<void>
     readonly executions?: () => Readonly<Record<string, SessionActivityExecution>>
   } = {},
@@ -79,7 +80,7 @@ function fixture(
           readonly organization: 'project' | 'recentProject'
           readonly includeWorkspaceIds: readonly string[]
         }
-        options.onWorkspaceActivity?.(input.sortBy)
+        options.onWorkspaceActivity?.(input.sortBy, input.locale)
         return {
           displayNamesRevision: 1,
           organizationRevision: 1,
@@ -101,9 +102,66 @@ function fixture(
     instanceId: crypto.randomUUID(),
     hostId: 'workspace-activity-runtime',
     directory,
+    ...(options.sidebarActivityEvents ? { sidebarActivityEvents: options.sidebarActivityEvents } : {}),
     ...(options.persistence ? { persistence: options.persistence } : {}),
   })
 }
+
+test('offline locale changes wait for confirmed connection and reconnect with the latest sidebar locale', async () => {
+  const listeners = new Set<(connected: boolean) => void>()
+  const queriedLocales: ('en-US' | 'zh-CN')[] = []
+  const runtime = fixture([], {
+    onWorkspaceActivity: (_sort, locale) => queriedLocales.push(locale),
+    sidebarActivityEvents: {
+      subscribe: () => () => {},
+      onConnection(listener) {
+        listeners.add(listener)
+        listener(false)
+        return () => listeners.delete(listener)
+      },
+    },
+  })
+  const readyPage = () =>
+    new Promise<void>((resolve, reject) => {
+      const reader = runtime.view.state.workspaceActivity
+      let stop = () => {}
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const check = () => {
+        if (reader.getSnapshot().workspaces.status !== 'ready') return
+        if (timer) clearTimeout(timer)
+        stop()
+        resolve()
+      }
+      stop = reader.subscribe(check)
+      timer = setTimeout(() => {
+        stop()
+        reject(new Error('Confirmed sidebar connection did not publish its page'))
+      }, 3_000)
+      check()
+    })
+  const connection = (connected: boolean) => {
+    for (const listener of listeners) listener(connected)
+  }
+  try {
+    await runtime.ready
+    await runtime.view.commands.execute('workspaceActivity.setLocale', { locale: 'zh-CN' })
+    expect(runtime.view.state.workspaceActivity.getSnapshot().locale).toBe('zh-CN')
+    expect(queriedLocales).toEqual([])
+    const first = readyPage()
+    connection(true)
+    await first
+    expect(queriedLocales).toEqual(['zh-CN'])
+    connection(false)
+    await runtime.view.commands.execute('workspaceActivity.setLocale', { locale: 'en-US' })
+    expect(queriedLocales).toEqual(['zh-CN'])
+    const second = readyPage()
+    connection(true)
+    await second
+    expect(queriedLocales).toEqual(['zh-CN', 'en-US'])
+  } finally {
+    runtime.dispose()
+  }
+})
 
 test('Session activity append preserves the accepted first page in canonical order', async () => {
   const sessions = Array.from({ length: 61 }, (_, index) => session(index))

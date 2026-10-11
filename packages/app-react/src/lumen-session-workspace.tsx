@@ -10,8 +10,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import {
+  LumenContentText,
   LumenFrame,
-  LumenText,
   LumenButton,
   LumenConversation,
   LumenAiChat01,
@@ -83,6 +83,10 @@ import { currentSessionRun, type HbarSessionRunLabels } from './session-run-acti
 import { currentSessionRunFailure } from './session-run-failure-model'
 import { HbarSessionInterruptionNotice, type HbarSessionInterruptionLabels } from './session-interruption-notice'
 import { HbarSessionLiveStatus, type HbarSessionLiveStatusLabels } from './session-live-status'
+import { HbarContextCompactionNotice, HbarContextCompactionMarker } from './session-context-history'
+import { HbarActivityDisclosure } from './session-activity-disclosure'
+import { groupCompletedSessionActivities } from './session-activity-group-model'
+import { messageActivitySummary } from './session-message'
 import { HbarSessionExecutionStatus } from './session-execution-status'
 import { HbarQueuedUserRuns, type HbarQueuedUserRunsLabels } from './queued-user-runs'
 import { HbarSessionToolsMenu, type HbarSessionToolsMenuLabels } from './session-tools-menu'
@@ -639,7 +643,14 @@ function SessionWorkspaceContent({
     objective?: string
   } | null>(null)
   const slashIds = slashLabels.commands.map((item) => item.id)
-  const sessionSlashSubmitCandidates: readonly LocalSlashCommand[] = ['model', 'settings', 'agents', 'cost', 'help']
+  const sessionSlashSubmitCandidates: readonly LocalSlashCommand[] = [
+    'model',
+    'settings',
+    'agents',
+    'cost',
+    'help',
+    'compact',
+  ]
   const submitSlashCommands = sessionSlashSubmitCandidates.filter((command) => slashIds.includes(command))
   useEffect(() => {
     pendingModelSlash.current = null
@@ -899,7 +910,12 @@ function SessionWorkspaceContent({
         localSlashInFlight.current
       )
         return
-      if (latest.mentions.length || latest.attachments.length || latest.attachmentTransfers.length) {
+      if (
+        latest.mentions.length ||
+        latest.attachments.length ||
+        latest.attachmentTransfers.length ||
+        (slash === 'compact' && latest.workspaceContexts?.length)
+      ) {
         setSlashFailure({ sessionId: targetSessionId, code: 'ATTACHMENTS' })
         return
       }
@@ -910,6 +926,20 @@ function SessionWorkspaceContent({
       }
       if (slash === 'model' && !canPrepareTarget(targetSessionId, targetWorkspaceId)) return
       const target = { sessionId: targetSessionId, workspaceId: targetWorkspaceId, revision: latest.revision }
+      if (slash === 'compact') {
+        const currentTimeline = runtime.state.timeline.getSnapshot()
+        if (currentTimeline.sessionId !== targetSessionId || currentTimeline.status !== 'ready') return
+        if (
+          currentTimeline.runs.some(
+            (run) =>
+              run.sessionId === targetSessionId && ['queued', 'running', 'waiting_approval'].includes(run.status),
+          ) ||
+          currentTimeline.activeCompaction?.status === 'running'
+        ) {
+          setSlashFailure({ sessionId: targetSessionId, code: 'COMPACTION_BUSY' })
+          return
+        }
+      }
       if (slash === 'goal') {
         if (['submitting', 'unknown'].includes(currentIntent?.goalAction.status ?? '')) return
         const command = localGoalSlash(latest.text)
@@ -951,6 +981,15 @@ function SessionWorkspaceContent({
         if (slash === 'model') {
           pendingModelSlash.current = target
           setModelOpenRequest((value) => value + 1)
+        } else if (slash === 'compact') {
+          const modelState = runtime.state.controls.getSnapshot()
+          const currentModel = modelState.sessionId === targetSessionId ? modelState.model : null
+          if (currentModel?.status !== 'configured' || !currentModel.modelId) {
+            setSlashFailure({ sessionId: targetSessionId, code: 'MODEL_NOT_CONFIGURED' })
+            return
+          }
+          await execute('context.compact', { sessionId: targetSessionId, modelId: currentModel.modelId })
+          await clearLocalSlash(target)
         } else if (slash === 'cost' || slash === 'agents') {
           const opened = await runtime.commands.execute('sessionTools.open', {
             panelId: slash === 'agents' ? 'agents' : 'monitoring',
@@ -1429,16 +1468,16 @@ function SessionWorkspaceContent({
         onReconcile={(target) => invoke('interaction.reconcile', target)}
       />
     )
-    return <LumenAgentApproval01 controlled={{ body }} />
+    return <LumenAgentApproval01 key={`${decision.kind}:${decision.id}`} controlled={{ body }} />
   }
   const toolDecisionsByMessage = new Map(
     [...decisionProjection.byMessage].map(([messageId, rows]) => [
       messageId,
       new Map(
-        [...rows].map(([rowKey, decisions]) => [
-          rowKey,
-          decisions.filter((decision) => !settledSessionDecision(decision, interactions)).map(renderDecision),
-        ]),
+        [...rows].flatMap(([rowKey, decisions]) => {
+          const pending = decisions.filter((decision) => !settledSessionDecision(decision, interactions))
+          return pending.length ? [[rowKey, pending.map(renderDecision)] as const] : []
+        }),
       ),
     ]),
   )
@@ -1539,6 +1578,21 @@ function SessionWorkspaceContent({
     await runtime.commands.execute('draft.addConversationSelection', input)
     return true
   }
+  const sequence = groupCompletedSessionActivities(
+    projectSessionTimelineSequence(timeline, goalLifecycleRows),
+    ({ message }) =>
+      Boolean(
+        toolDecisionsByMessage.get(message.id)?.size ||
+        proposal?.target.messageId === message.id ||
+        forkActionFor(message) ||
+        messageFork.actions[forkKey(message)]?.status === 'created',
+      ),
+  )
+  const groupedMessageIds = new Set(
+    sequence.flatMap((item) =>
+      item.kind === 'activityGroup' ? item.projections.map(({ message }) => message.id) : [],
+    ),
+  )
   const messageRows: LumenMessageProps[] = [
     ...projectedMessages.map(({ message, blocks, results }) => {
       const fileWorkspaceId = navigation.workspaceId
@@ -1546,7 +1600,12 @@ function SessionWorkspaceContent({
         files && message.sessionId === sessionId && fileWorkspaceId
           ? {
               owner: runtime,
-              source: { workspaceId: fileWorkspaceId, sessionId: message.sessionId, messageId: message.id, sourceTabInstanceKey: sourceTab?.instanceKey ?? null },
+              source: {
+                workspaceId: fileWorkspaceId,
+                sessionId: message.sessionId,
+                messageId: message.id,
+                sourceTabInstanceKey: sourceTab?.instanceKey ?? null,
+              },
               targetKey: JSON.stringify([
                 navigation.workspaceId,
                 message.sessionId,
@@ -1605,6 +1664,7 @@ function SessionWorkspaceContent({
           />
         ) : message.role === 'assistant' ? (
           <HbarHistoricalPlanMessage
+            activityDisplay={groupedMessageIds.has(message.id) ? 'rows' : 'auto'}
             toolActivity={toolActivities.get(message.runId) ?? EMPTY_TOOL_ACTIVITIES}
             fileReferences={fileReferences}
             copyOwner={runtime}
@@ -1612,7 +1672,7 @@ function SessionWorkspaceContent({
             messageId={message.id}
             blocks={blocks}
             results={results}
-            streaming={unfinishedRuns.has(message.runId)}
+            streaming={!groupedMessageIds.has(message.id) && unfinishedRuns.has(message.runId)}
             labels={labels.messageBlocks}
             describeTool={describeTool}
             renderToolAction={toolActionForMessage(message.id)}
@@ -1621,6 +1681,7 @@ function SessionWorkspaceContent({
           />
         ) : (
           <HbarMessageBlocks
+            activityDisplay={groupedMessageIds.has(message.id) ? 'rows' : 'auto'}
             toolActivity={toolActivities.get(message.runId) ?? EMPTY_TOOL_ACTIVITIES}
             fileReferences={fileReferences}
             copyOwner={runtime}
@@ -1629,7 +1690,7 @@ function SessionWorkspaceContent({
             blocks={blocks}
             textFormat={message.role === 'user' ? 'literal' : 'markdown'}
             results={results}
-            streaming={unfinishedRuns.has(message.runId)}
+            streaming={!groupedMessageIds.has(message.id) && unfinishedRuns.has(message.runId)}
             labels={labels.messageBlocks}
             describeTool={describeTool}
             renderToolAction={toolActionForMessage(message.id)}
@@ -1675,11 +1736,11 @@ function SessionWorkspaceContent({
               copyLabel={message.role === 'user' ? labels.messageActions.copyMessage : undefined}
               fork={forkActionFor(message)}
               metadata={
-                <LumenText as="span">
+                <LumenContentText context="message.inline">
                   {messageFork.actions[forkKey(message)]?.status === 'created'
                     ? labels.messageFork.createdAfterTimestamp(labels.timestamp(message.createdAt))
                     : labels.timestamp(message.createdAt)}
-                </LumenText>
+                </LumenContentText>
               }
             />
           ) : null,
@@ -1710,25 +1771,67 @@ function SessionWorkspaceContent({
   ]
 
   const rowsById = new Map(messageRows.map((row) => [row.id, row]))
-  const messages: LumenMessageProps[] = projectSessionTimelineSequence(timeline, goalLifecycleRows).flatMap(
-    (item): LumenMessageProps[] => {
-      if (item.kind === 'goalLifecycle')
-        return [
-          {
-            id: item.row.id,
-            role: 'system',
-            author: labels.author.system,
-            avatar: labels.avatar.system,
-            appearance: 'transcript',
-            copyLabel: labels.copy,
-            children: <HbarGoalLifecycleCard row={item.row} labels={labels.goalLifecycle} />,
-          },
-        ]
-      if (item.kind === 'goalContinuation') return [] // Run boundaries, including failed Goal continuations, belong to session status.
-      const row = rowsById.get(item.kind === 'message' ? item.projection.message.id : item.stream.id)
-      return row ? [row] : []
-    },
-  )
+  const messages: LumenMessageProps[] = sequence.flatMap((item): LumenMessageProps[] => {
+    if (item.kind === 'activityGroup') {
+      const first = rowsById.get(item.id)
+      if (!first) return []
+      return [
+        {
+          ...first,
+          actions: null,
+          children: (
+            <HbarActivityDisclosure
+              summary={labels.messageBlocks.activity(
+                messageActivitySummary(item.rows, labels.messageBlocks, describeTool),
+              )}
+            >
+              {item.projections.map(({ message }) => (
+                <LumenFrame key={message.id} data-activity-message-id={message.id}>
+                  {rowsById.get(message.id)?.children}
+                </LumenFrame>
+              ))}
+            </HbarActivityDisclosure>
+          ),
+        },
+      ]
+    }
+    if (item.kind === 'contextCompaction')
+      return labels.liveStatus.history
+        ? [
+            {
+              id: `context-compaction:${item.marker.id}`,
+              role: 'system',
+              author: labels.author.system,
+              avatar: labels.avatar.system,
+              appearance: 'transcript',
+              copyLabel: labels.copy,
+              actions: null,
+              children: (
+                <HbarContextCompactionMarker
+                  marker={item.marker}
+                  sessionId={sessionId ?? ''}
+                  labels={labels.liveStatus.history}
+                />
+              ),
+            },
+          ]
+        : []
+    if (item.kind === 'goalLifecycle')
+      return [
+        {
+          id: item.row.id,
+          role: 'system',
+          author: labels.author.system,
+          avatar: labels.avatar.system,
+          appearance: 'transcript',
+          copyLabel: labels.copy,
+          children: <HbarGoalLifecycleCard row={item.row} labels={labels.goalLifecycle} />,
+        },
+      ]
+    if (item.kind === 'goalContinuation') return [] // Run boundaries, including failed Goal continuations, belong to session status.
+    const row = rowsById.get(item.kind === 'message' ? item.projection.message.id : item.stream.id)
+    return row ? [row] : []
+  })
 
   const currentFailure =
     connected && timeline.sessionId === sessionId ? currentSessionRunFailure(timeline.runs, sessionId) : null
@@ -1758,13 +1861,15 @@ function SessionWorkspaceContent({
     connected && sessionId ? (
       <LumenFrame className="hbar-app-react-session-history-controls">
         {timeline.status === 'loading' && timeline.messages.length > 0 && (
-          <LumenText as="p" role="status">
+          <LumenContentText context="feedback.message" role="status">
             {labels.refreshing}
-          </LumenText>
+          </LumenContentText>
         )}
         {timeline.status === 'error' && timeline.messages.length > 0 && (
           <LumenFrame className="hbar-app-react-session-history-error" role="alert">
-            <LumenText as="span">{labels.error(timeline.error ?? 'EXECUTION_FAILED')}</LumenText>
+            <LumenContentText context="message.inline">
+              {labels.error(timeline.error ?? 'EXECUTION_FAILED')}
+            </LumenContentText>
             {connected && (
               <LumenButton size="s" onClick={retryTimeline}>
                 {labels.retryTimeline}
@@ -1773,26 +1878,26 @@ function SessionWorkspaceContent({
           </LumenFrame>
         )}
         {timeline.olderStatus === 'limit' ? (
-          <LumenText as="p" role="status">
+          <LumenContentText context="feedback.message" role="status">
             {labels.historyLimit}
-          </LumenText>
+          </LumenContentText>
         ) : timeline.olderStatus === 'loading' ? (
-          <LumenText as="p" role="status">
+          <LumenContentText context="feedback.message" role="status">
             {labels.loadingOlder}
-          </LumenText>
+          </LumenContentText>
         ) : timeline.olderStatus === 'error' ? (
           <LumenFrame className="hbar-app-react-session-history-page">
-            <LumenText as="span" role="alert">
+            <LumenContentText context="message.inline" role="alert">
               {labels.error(timeline.olderError ?? 'EXECUTION_FAILED')}
-            </LumenText>
+            </LumenContentText>
             <LumenButton size="s" disabled={!connected} onClick={loadOlder}>
               {labels.retryHistory}
             </LumenButton>
           </LumenFrame>
         ) : timeline.hasOlder ? (
-          <LumenText as="p" role="status">
+          <LumenContentText context="feedback.message" role="status">
             {labels.loadOlder}
-          </LumenText>
+          </LumenContentText>
         ) : null}
         {(goalHistory.available ||
           (composerIntent.facts.sessionId === sessionId && composerIntent.facts.snapshot?.goal)) &&
@@ -1802,18 +1907,21 @@ function SessionWorkspaceContent({
               data-goal-history-gap={goalHistoryProjection.gapReason ?? undefined}
             >
               {goalHistoryProjection.status === 'loading' ? (
-                <LumenText as="span" role="status">
+                <LumenContentText context="message.inline" role="status">
                   {labels.goalHistory.loading}
-                </LumenText>
+                </LumenContentText>
               ) : goalHistoryProjection.gapReason ? (
-                <LumenText as="span" role={goalHistoryProjection.gapReason === 'error' ? 'alert' : 'status'}>
+                <LumenContentText
+                  context="message.inline"
+                  role={goalHistoryProjection.gapReason === 'error' ? 'alert' : 'status'}
+                >
                   {labels.goalHistory.gap(goalHistoryProjection.gapReason)}
-                </LumenText>
+                </LumenContentText>
               ) : null}
               {goalHistoryProjection.limit && (
-                <LumenText as="span" role="status">
+                <LumenContentText context="message.inline" role="status">
                   {labels.goalHistory.limit(GOAL_HISTORY_MAX_FACTS)}
-                </LumenText>
+                </LumenContentText>
               )}
               {goalHistory.available &&
                 goalHistoryProjection.gap &&
@@ -1898,13 +2006,13 @@ function SessionWorkspaceContent({
     <HbarSessionEmptyHero labels={labels.emptyHero} />
   ) : (
     <LumenFrame className="hbar-app-react-session-empty">
-      <LumenText as="p">
+      <LumenContentText context="section.description">
         {connected && timeline.status === 'loading'
           ? labels.loading
           : connected && timeline.error
             ? labels.error(timeline.error)
             : labels.emptyHistory}
-      </LumenText>
+      </LumenContentText>
       {connected && timeline.status === 'error' && sessionId && (
         <LumenButton size="s" onClick={retryTimeline}>
           {labels.retryTimeline}
@@ -1926,7 +2034,13 @@ function SessionWorkspaceContent({
       intentEntry?.goalAction.status === 'succeeded'
     )
       return undefined
-    if (slashFailure.code === 'ATTACHMENTS' && !draft?.attachments.length && !attachmentTransfers.length)
+    if (
+      slashFailure.code === 'ATTACHMENTS' &&
+      !draft?.attachments.length &&
+      !draft?.mentions.length &&
+      !draft?.workspaceContexts?.length &&
+      !attachmentTransfers.length
+    )
       return undefined
     switch (slashFailure.code) {
       case 'ATTACHMENTS':
@@ -1957,6 +2071,15 @@ function SessionWorkspaceContent({
         data-hbar-composer-session={sessionId}
         data-git-context-status={projectContext.context.status}
       >
+        {labels.liveStatus.history && (
+          <HbarContextCompactionNotice
+            record={timeline.sessionId === sessionId ? timeline.activeCompaction : null}
+            sessionId={sessionId}
+            owned={activeConversationOwner}
+            connected={connected}
+            labels={labels.liveStatus.history}
+          />
+        )}
         <HbarSessionLiveStatus
           key={sessionId}
           sessionId={sessionId}
@@ -1965,6 +2088,19 @@ function SessionWorkspaceContent({
           connected={connected}
           run={activeRun}
           labels={labels.liveStatus}
+          history={{
+            page: timeline.contextHistory,
+            status: timeline.contextHistoryStatus,
+            error: timeline.contextHistoryError,
+            before: timeline.contextHistoryBefore,
+            onRetry: () =>
+              invoke('timeline.contextHistory', {
+                sessionId,
+                ...(timeline.contextHistoryRequestBefore ? { before: timeline.contextHistoryRequestBefore } : {}),
+              }),
+            onLoad: (before) =>
+              invoke('timeline.contextHistory', { sessionId, ...(before === undefined ? {} : { before }) }),
+          }}
           context={{
             facts: composerIntent.facts,
             onRefresh: () => invoke('composerIntent.refresh', { sessionId }),
@@ -2102,11 +2238,11 @@ function SessionWorkspaceContent({
                     : labels.slash.goalConfirmReplace(goalConfirmation.previousObjective)
                 }
               >
-                <LumenText as="span">
+                <LumenContentText context="message.inline">
                   {goalConfirmation.action === 'clear'
                     ? labels.slash.goalConfirmClear(goalConfirmation.previousObjective)
                     : labels.slash.goalConfirmReplace(goalConfirmation.previousObjective)}
-                </LumenText>
+                </LumenContentText>
                 <LumenFrame className="hbar-composer-goal-confirmation-actions">
                   <LumenButton type="button" size="s" onClick={() => setGoalConfirmation(null)}>
                     {labels.slash.goalCancel}
@@ -2240,7 +2376,10 @@ function SessionWorkspaceContent({
             disabled={
               firstSendLocked ||
               workspaceMoveLocked ||
-              (connected && (timeline.status === 'loading' || timeline.status === 'error'))
+              (connected &&
+                ((!firstSendDraft && timeline.sessionId !== sessionId) ||
+                  timeline.status === 'loading' ||
+                  timeline.status === 'error'))
             }
             submitting={draft?.status === 'submitting' || intentEntry?.submission.status === 'submitting'}
             uploading={(draft?.uploading ?? 0) > 0}
@@ -2257,6 +2396,8 @@ function SessionWorkspaceContent({
                     intentPending: Boolean(intentPending),
                     permissionLocked: Boolean(permissionEntry?.locked) && !draftGoalReplacement,
                   }) &&
+                  (localSlashCommand(draft?.text ?? '', slashIds) !== 'compact' ||
+                    (!activeRun && timeline.activeCompaction?.status !== 'running')) &&
                   (localSlashCommand(draft?.text ?? '', slashIds) !== 'goal' ||
                     !['submitting', 'unknown'].includes(intentEntry?.goalAction.status ?? ''))
                 : configured &&
@@ -2294,6 +2435,7 @@ function SessionWorkspaceContent({
                         ? labels.error(templateRouteError.code)
                         : visibleSlashFailure
             }
+            errorPresentation={visibleSlashFailure ? 'inline' : undefined}
             controls={
               <LumenFrame className="hbar-session-composer-controls">
                 <HbarComposerAddMenu
@@ -2392,6 +2534,12 @@ function SessionWorkspaceContent({
                 />
               </LumenFrame>
             }
+            adaptiveToolbar={{
+              moreLabel: labels.addMenu.menu,
+              controlsLabel: labels.addMenu.open,
+              modelLabel: labels.modelPicker.title,
+              revealModelRequest: modelOpenRequest,
+            }}
             context={
               <>
                 <HbarComposerBackgroundAgentFeedback
@@ -2420,9 +2568,9 @@ function SessionWorkspaceContent({
                 )}
                 {connected && launchTargetFailure?.sessionId === sessionId && firstSendLabels && (
                   <HbarComposerFeedback tone="danger">
-                    <LumenText as="p" role="alert">
+                    <LumenContentText context="feedback.message" role="alert">
                       {firstSendLabels.error(launchTargetFailure.code)}
-                    </LumenText>
+                    </LumenContentText>
                   </HbarComposerFeedback>
                 )}
                 <HbarQueuedUserRuns
@@ -2589,9 +2737,9 @@ function SessionWorkspaceContent({
         )}
         {sessionUsagePresentation(controls, labels.usage).notice && (
           <HbarComposerFeedback tone="danger">
-            <LumenText as="p" className="hbar-session-budget-notice" role="status">
+            <LumenContentText context="feedback.message" className="hbar-session-budget-notice" role="status">
               {sessionUsagePresentation(controls, labels.usage).notice}
-            </LumenText>
+            </LumenContentText>
           </HbarComposerFeedback>
         )}
       </LumenFrame>
@@ -2663,9 +2811,9 @@ function SessionWorkspaceContent({
         toolFailure?.sessionId === sessionId &&
         toolFailure.workspaceId === navigation.workspaceId &&
         toolFailure.sourceTabInstanceKey === (sourceTab?.instanceKey ?? null) && (
-          <LumenText as="p" role="alert">
+          <LumenContentText context="feedback.message" role="alert">
             {labels.tools.error(toolFailure.code)}
-          </LumenText>
+          </LumenContentText>
         )}
       {navigationAccessory}
       <LumenFrame
@@ -2720,9 +2868,9 @@ function SessionWorkspaceContent({
                 beforeMessages={
                   <>
                     {reading.unavailable && (
-                      <LumenText as="p" role="status">
+                      <LumenContentText context="feedback.message" role="status">
                         {labels.readingPositionUnavailable}
-                      </LumenText>
+                      </LumenContentText>
                     )}
                     {historyNotices}
                   </>

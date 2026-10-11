@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises'
 import { execFileSync } from 'node:child_process'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { startServer } from '../apps/host/src/server.ts'
+import { delayedCompactionDriver } from './e2e-compaction-driver'
 
 const root = process.env.HBAR_E2E_DATA_ROOT
 const port = Number(process.env.HBAR_E2E_HOST_PORT ?? 4317)
@@ -30,6 +31,15 @@ const kernel = await Kernel.create({
   workspace: root,
   demo: true,
   secrets: new MemorySecrets(),
+  ...(process.env.HBAR_E2E_COMPACTION_DELAY_MS
+    ? {
+        profile: {
+          replacements: {
+            'driver.pi': delayedCompactionDriver(Number(process.env.HBAR_E2E_COMPACTION_DELAY_MS)),
+          },
+        },
+      }
+    : {}),
 })
 if (process.env.HBAR_E2E_GOAL_AUTO_CONTINUE === '0')
   await kernel.changePlugin('goal.codex', true, { autoContinue: false })

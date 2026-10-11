@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
+import { revealComposerControl } from './support/composer-controls'
 
 test('narrow touch model picker shows choices before requesting the keyboard', async ({ browser }) => {
   test.setTimeout(90_000)
@@ -28,6 +29,7 @@ test('narrow touch model picker shows choices before requesting the keyboard', a
       await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       await page.setViewportSize({ width: 320, height: 900 })
       const trigger = page.locator('.hbar-composer-model-trigger')
+      await revealComposerControl(page, trigger, copy.session.addMenu)
       await trigger.click()
       const popup = page.getByRole('dialog', { name: copy.session.modelPicker.title, exact: true })
       const search = popup.getByRole('searchbox', { name: copy.session.modelPicker.search, exact: true })

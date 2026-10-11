@@ -29,7 +29,7 @@ import type {
   WorkflowWorkItem,
 } from '@hbar/contracts'
 import { workflowDelegateInputSchema, workflowFocusInputSchema } from '@hbar/contracts/commands/workflows'
-import { appendModelContext, definePlugin, provide, TOOL_SEQUENCE_RESULT_CHARACTERS } from '@hbar/plugin-sdk'
+import { appendModelContext, definePlugin, provide, SKILL_TOOL_NAMES, TOOL_SEQUENCE_RESULT_CHARACTERS } from '@hbar/plugin-sdk'
 import type {
   AgentService,
   HookEvents,
@@ -57,7 +57,9 @@ const MAX_RESTORE_EVENTS = 100_000
 const RESTORE_CONCURRENCY = 8
 type CheckpointRevision = Parameters<WorkflowService['checkpoint']>[5]
 const FOCUS_TOOLS = new Set(['workflow_checkpoint', 'workflow_expand_scope'])
+// Skill resources are bounded instruction reads. Their load grants no task-tool or path scope.
 const CONTROL_TOOLS = new Set([
+  ...SKILL_TOOL_NAMES,
   'workflow_execute',
   ...FOCUS_TOOLS,
   'apply_agent_patch',
@@ -1997,7 +1999,10 @@ export class WorkflowRuntime implements WorkflowService {
   canAutoContinue(sessionId: string) {
     const workflow = this.workflows.get(sessionId)
     if (!workflow || ['completed', 'cancelled'].includes(workflow.status)) return true
-    if (workflow.status !== 'active') return false
+    // Verification of agent-owned/tool-owned checks is still an executable
+    // phase. Only user review, blocked work, delegation, and pending user
+    // checks must hold automatic Goal continuation.
+    if (!['active', 'verifying'].includes(workflow.status)) return false
     if (!workflow.activeItemId) return true
     const item = workflow.workItems.find((candidate) => candidate.id === workflow.activeItemId)
     if (!item || item.owner.kind !== 'main' || ['blocked', 'delegated', 'completed'].includes(item.status)) return false

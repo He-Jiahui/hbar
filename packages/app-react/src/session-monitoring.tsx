@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { ChartNoAxesColumnIncreasing } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenText, LumenToolPane } from '@lumen/app-ui'
+import { LumenButton, LumenFrame, LumenToolPane, LumenTabs, LumenContentText } from '@lumen/app-ui'
 import { projectSessionDecisions } from '@hbar/app-runtime'
 import type { ThreadGoal } from '@hbar/contracts'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
@@ -13,8 +13,10 @@ import { HbarSessionDecisionHistory, type HbarSessionDecisionHistoryLabels } fro
 import { HbarSessionDecision, type HbarSessionDecisionLabels } from './session-interactions'
 import { monitoringDecisions } from './session-monitoring-decisions'
 import './session-monitoring.css'
+import { HbarSessionObservability, type HbarSessionObservabilityLabels } from './session-observability'
 
 export interface HbarSessionMonitoringLabels extends HbarSessionMonitoringUsageLabels {
+  readonly observability: HbarSessionObservabilityLabels
   readonly history: HbarSessionRunHistoryLabels
   readonly requests: HbarSessionRequestLabels
   readonly decisions: HbarSessionDecisionLabels
@@ -27,6 +29,7 @@ export interface HbarSessionMonitoringLabels extends HbarSessionMonitoringUsageL
     readonly refresh: string
   }
   readonly title: string
+  readonly tabs: Readonly<Record<'overview' | 'requests' | 'messages', string>>
   readonly description: string
   readonly close: string
   readonly empty: string
@@ -53,9 +56,22 @@ export function HbarSessionMonitoring({
   const timeline = useHbarRuntimeState(runtime.state.timeline)
   const intent = useHbarRuntimeState(runtime.state.composerIntent)
   const interactions = useHbarRuntimeState(runtime.state.interactions)
-  const [requestsOpen, setRequestsOpen] = useState(false)
+  const namespace = useId()
+  const [view, setView] = useState<{
+    readonly sessionId: string | null
+    readonly selected: 'overview' | 'requests' | 'messages'
+    readonly requests: boolean
+    readonly messages: boolean
+  } | null>(null)
   const instanceId = requestedInstanceId ?? presentation.toolInstanceId
   const sessionId = instanceId ? (surfaces.panels[instanceId]?.sessionId ?? null) : navigation.sessionId
+  const selected = view?.sessionId === sessionId ? view.selected : 'overview'
+  const tabs = (['overview', 'requests', 'messages'] as const).map((id) => ({
+    id,
+    label: labels.tabs[id],
+    tabId: `${namespace}-${id}-tab`,
+    panelId: `${namespace}-${id}-panel`,
+  }))
   const report =
     controls.sessionId === sessionId &&
     controls.usage?.scope.kind === 'session' &&
@@ -104,95 +120,128 @@ export function HbarSessionMonitoring({
       onClose={close}
       className="hbar-app-react-session-monitoring"
     >
-      <LumenFrame as="main" className="hbar-monitoring-content">
-        <HbarSessionRunHistory sessionId={sessionId} connected={connected} labels={labels.history} />
-        {connected && facts?.status === 'error' && (
-          <LumenFrame className="hbar-monitoring-context-recovery">
-            <LumenText as="p" role="alert">
-              {labels.goal.error(facts.error ?? 'EXECUTION_FAILED')}
-            </LumenText>
-            <LumenButton
-              size="s"
-              variant="text"
-              indicator="none"
-              disabled={!connected}
-              onClick={() => {
-                if (sessionId) void runtime.commands.execute('composerIntent.refresh', { sessionId }).catch(() => {})
-              }}
+      <LumenFrame as="main" key={sessionId} className="hbar-monitoring-content">
+        <LumenTabs
+          label={labels.title}
+          items={tabs}
+          selectedId={selected}
+          onChange={(id) => {
+            if (id !== 'overview' && id !== 'requests' && id !== 'messages') return
+            setView((previous) => ({
+              sessionId,
+              selected: id,
+              requests: id === 'requests' || (previous?.sessionId === sessionId && previous.requests),
+              messages: id === 'messages' || (previous?.sessionId === sessionId && previous.messages),
+            }))
+          }}
+        />
+        <LumenFrame
+          role="tabpanel"
+          id={`${namespace}-overview-panel`}
+          aria-labelledby={`${namespace}-overview-tab`}
+          hidden={selected !== 'overview'}
+          className="hbar-monitoring-overview"
+        >
+          <HbarSessionRunHistory sessionId={sessionId} connected={connected} labels={labels.history} />
+          {connected && facts?.status === 'error' && (
+            <LumenFrame className="hbar-monitoring-context-recovery">
+              <LumenContentText context="feedback.message" role="alert">
+                {labels.goal.error(facts.error ?? 'EXECUTION_FAILED')}
+              </LumenContentText>
+              <LumenButton
+                size="s"
+                variant="text"
+                indicator="none"
+                disabled={!connected}
+                onClick={() => {
+                  if (sessionId) void runtime.commands.execute('composerIntent.refresh', { sessionId }).catch(() => {})
+                }}
+              >
+                {labels.goal.refresh}
+              </LumenButton>
+            </LumenFrame>
+          )}
+          {goal && (
+            <HbarLumenDisclosure
+              className="hbar-monitoring-goal"
+              label={
+                <LumenFrame as="span" className="hbar-monitoring-section-heading">
+                  <LumenContentText context="control.label">{labels.goal.title}</LumenContentText>
+                  <LumenContentText context="control.label" tone="muted">
+                    {labels.goal.status(goal.status)}
+                  </LumenContentText>
+                </LumenFrame>
+              }
             >
-              {labels.goal.refresh}
-            </LumenButton>
-          </LumenFrame>
-        )}
-        {goal && (
-          <HbarLumenDisclosure
-            className="hbar-monitoring-goal"
-            label={
-              <LumenFrame as="span" className="hbar-monitoring-section-heading">
-                <LumenText as="span">{labels.goal.title}</LumenText>
-                <LumenText as="span" tone="muted">
-                  {labels.goal.status(goal.status)}
-                </LumenText>
-              </LumenFrame>
-            }
-          >
-            <LumenText as="p" className="hbar-monitoring-objective">
-              {goal.objective}
-            </LumenText>
-            <HbarGoalExecutionState
-              goal={goal}
-              remainingTokens={snapshot?.remainingTokens ?? null}
-              labels={labels.goal.execution}
+              <LumenContentText context="section.description" className="hbar-monitoring-objective">
+                {goal.objective}
+              </LumenContentText>
+              <HbarGoalExecutionState
+                goal={goal}
+                remainingTokens={snapshot?.remainingTokens ?? null}
+                labels={labels.goal.execution}
+              />
+            </HbarLumenDisclosure>
+          )}
+          {report?.gap && !runtime.state.sessionObservability.available && (
+            <LumenContentText context="feedback.message" className="hbar-app-react-monitoring-gap" role="status">
+              {labels.gap}
+            </LumenContentText>
+          )}
+          {sessionId && runtime.state.sessionObservability.available ? (
+            <HbarSessionObservability
+              sessionId={sessionId}
+              connected={connected}
+              active={selected === 'overview'}
+              labels={labels.observability}
             />
-          </HbarLumenDisclosure>
-        )}
-        {report?.gap && (
-          <LumenText as="p" className="hbar-app-react-monitoring-gap" role="status">
-            {labels.gap}
-          </LumenText>
-        )}
-        {report ? (
-          <HbarSessionMonitoringUsage key={`usage:${sessionId}`} report={report} labels={labels} />
-        ) : (
-          <LumenText as="p" className="hbar-app-react-monitoring-empty">
-            {labels.empty}
-          </LumenText>
-        )}
-        {sessionId && (
-          <HbarLumenDisclosure
-            label={labels.requests.title}
-            open={requestsOpen}
-            onOpenChange={setRequestsOpen}
-            className="hbar-monitoring-request-disclosure"
+          ) : report ? (
+            <HbarSessionMonitoringUsage key={`usage:${sessionId}`} report={report} labels={labels} />
+          ) : (
+            <LumenContentText context="section.description" className="hbar-app-react-monitoring-empty">
+              {labels.empty}
+            </LumenContentText>
+          )}
+          <HbarSessionDecisionHistory
+            key={`decisions:${sessionId}`}
+            decisions={settled}
+            labels={labels.decisionHistory}
+            renderDecision={(decision) => (
+              <HbarSessionDecision
+                copyOwner={runtime}
+                decision={decision}
+                labels={labels.decisions}
+                connected={false}
+                onDecision={readOnly}
+                onPlanExit={readOnly}
+                onAnswer={readOnly}
+                onSubmit={readOnly}
+                onReconcile={readOnly}
+              />
+            )}
+          />
+        </LumenFrame>
+        {(['requests', 'messages'] as const).map((id) => (
+          <LumenFrame
+            key={id}
+            role="tabpanel"
+            id={`${namespace}-${id}-panel`}
+            aria-labelledby={`${namespace}-${id}-tab`}
+            hidden={selected !== id}
+            className="hbar-monitoring-detail-panel"
           >
-            {requestsOpen && (
+            {sessionId && view?.sessionId === sessionId && view[id] ? (
               <HbarSessionRequestDetails
-                key={sessionId}
                 sessionId={sessionId}
                 connected={connected}
                 labels={labels.requests}
+                view={id}
               />
-            )}
-          </HbarLumenDisclosure>
-        )}
-        <HbarSessionDecisionHistory
-          key={`decisions:${sessionId}`}
-          decisions={settled}
-          labels={labels.decisionHistory}
-          renderDecision={(decision) => (
-            <HbarSessionDecision
-              copyOwner={runtime}
-              decision={decision}
-              labels={labels.decisions}
-              connected={false}
-              onDecision={readOnly}
-              onPlanExit={readOnly}
-              onAnswer={readOnly}
-              onSubmit={readOnly}
-              onReconcile={readOnly}
-            />
-          )}
-        />
+            ) : !sessionId ? (
+              <LumenContentText context="feedback.detail">{labels.empty}</LumenContentText>
+            ) : null}
+          </LumenFrame>
+        ))}
       </LumenFrame>
     </LumenToolPane>
   )

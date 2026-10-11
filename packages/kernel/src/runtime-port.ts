@@ -16,6 +16,7 @@ export const runtimeKernelConfigurationSchema = z.strictObject({
   demo: z.boolean(),
   profileModule: z.string().min(1).max(4_000).optional(),
   isolatedPlugins: z.boolean().optional(),
+  diagnosticsEnabled: z.boolean().optional(), diagnosticsFullCoverage: z.boolean().optional(),
 })
 export const runtimeKernelSubmitSchema = z.strictObject({
   sessionId: id, requestId: id, input: inputSchema, modelId: id, command: runCommandRecordSchema.optional(),

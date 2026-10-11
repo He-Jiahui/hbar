@@ -6,6 +6,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   workers: 1,
   reporter: [['list'], ['html', { open: 'never' }]],
+  outputDir: 'test-results/workbench-e2e',
   use: {
     channel: process.env.HBAR_BROWSER_CHANNEL ?? 'msedge',
     headless: true,

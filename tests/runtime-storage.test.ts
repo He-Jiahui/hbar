@@ -28,7 +28,7 @@ async function fixture() {
   const storage = new Storage(join(root, 'test.sqlite'))
   const fixture = { root, storage }
   fixtures.push(fixture)
-  expect(await storage.call('ready')).toEqual({ version: 24 })
+  expect(await storage.call('ready')).toEqual({ version: 25 })
   const workspace = await storage.call('createWorkspace', root, 'runtime')
   const session = await storage.call('createSession', workspace.id)
   async function queue(request: string, source?: 'goal') {

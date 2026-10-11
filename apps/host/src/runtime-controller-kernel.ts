@@ -65,6 +65,7 @@ export class RuntimeControllerKernel {
       instanceId,
       options: { layout, demo },
       storage,
+      storageHealth: () => { this.current(); return { ready: true } },
       get recovered() {
         return self.current().kernel.recovered
       },

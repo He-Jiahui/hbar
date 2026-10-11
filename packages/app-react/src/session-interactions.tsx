@@ -10,7 +10,15 @@ import {
   Terminal,
   X,
 } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenText, LumenTextarea } from '@lumen/app-ui'
+import {
+  LumenContentText,
+  LumenButton,
+  LumenFrame,
+  LumenIcon,
+  LumenInput,
+  LumenText,
+  LumenTextarea,
+} from '@lumen/app-ui'
 import type { InteractionActionState, QuestionnaireDraftState, SessionDecision } from '@hbar/app-runtime'
 import { toolInputText } from './session-message-model'
 import './session-interactions.css'
@@ -95,14 +103,14 @@ function ApprovalPreview({
   return (
     <LumenFrame className="hbar-decision-preview">
       {path ? (
-        <LumenText className="hbar-decision-path" as="p">
+        <LumenContentText className="hbar-decision-path" context="section.description">
           <LumenIcon icon={FileText} tier="sm" />
           {labels.path} {path}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {command ? (
         <LumenFrame>
-          <LumenText as="strong">{labels.command}</LumenText>
+          <LumenContentText context="record.title">{labels.command}</LumenContentText>
           <LumenText as="pre" tabIndex={0}>
             {command}
           </LumenText>
@@ -110,11 +118,11 @@ function ApprovalPreview({
       ) : null}
       {replacement ? (
         <LumenFrame className="hbar-decision-replacement">
-          <LumenText as="strong">{labels.oldFragment}</LumenText>
+          <LumenContentText context="record.title">{labels.oldFragment}</LumenContentText>
           <LumenText as="pre" tabIndex={0} data-fragment="old">
             {String(args.oldText)}
           </LumenText>
-          <LumenText as="strong">{labels.newFragment}</LumenText>
+          <LumenContentText context="record.title">{labels.newFragment}</LumenContentText>
           <LumenText as="pre" tabIndex={0} data-fragment="new">
             {String(args.newText)}
           </LumenText>
@@ -122,7 +130,7 @@ function ApprovalPreview({
       ) : null}
       {content !== null ? (
         <LumenFrame>
-          <LumenText as="strong">{labels.proposedContent}</LumenText>
+          <LumenContentText context="record.title">{labels.proposedContent}</LumenContentText>
           <LumenText as="pre" tabIndex={0}>
             {content}
           </LumenText>
@@ -233,11 +241,13 @@ function DecisionContent({
           icon={decision.kind === 'questionnaire' ? HelpCircle : decision.tool === 'shell' ? Terminal : ShieldCheck}
           tier="md"
         />
-        <LumenText as="strong">{decision.kind === 'approval' ? labels.approval : labels.questionnaire}</LumenText>
+        <LumenContentText context="record.title">
+          {decision.kind === 'approval' ? labels.approval : labels.questionnaire}
+        </LumenContentText>
         {decision.kind === 'approval' ? <LumenText as="code">{decision.tool}</LumenText> : null}
-        <LumenText as="span" id={`${id}-status`} role="status" className="hbar-decision-status">
+        <LumenContentText context="control.status" id={`${id}-status`} role="status" className="hbar-decision-status">
           {status}
-        </LumenText>
+        </LumenContentText>
       </LumenFrame>
       {decision.kind === 'approval' ? (
         <ApprovalPreview decision={decision} labels={labels} />
@@ -290,15 +300,15 @@ function DecisionContent({
               aria-label={active.header}
               className="hbar-decision-question"
             >
-              <LumenText as="p">{active.question}</LumenText>
+              <LumenContentText context="section.description">{active.question}</LumenContentText>
               {complete ? (
-                <LumenText as="p" className="hbar-decision-answer">
+                <LumenContentText context="section.description" className="hbar-decision-answer">
                   {questionFact?.status === 'answered'
                     ? active.isSecret
                       ? labels.secretAnswer
                       : (questionFact.answers[active.id]?.answers.join('; ') ?? labels.unavailable)
                     : status}
-                </LumenText>
+                </LumenContentText>
               ) : (
                 <>
                   {(active.options ?? []).map((option) => (
@@ -320,16 +330,16 @@ function DecisionContent({
                         onChange={() => setAnswer(active.id, 'option', option.label)}
                       />
                       <LumenFrame>
-                        <LumenText as="strong">{option.label}</LumenText>
-                        <LumenText as="small" tone="muted">
+                        <LumenContentText context="record.title">{option.label}</LumenContentText>
+                        <LumenContentText context="record.description" tone="muted">
                           {option.description}
-                        </LumenText>
+                        </LumenContentText>
                       </LumenFrame>
                     </LumenFrame>
                   ))}
                   {active.isOther || !active.options?.length ? (
                     <LumenFrame as="label" className="hbar-decision-custom">
-                      <LumenText as="span">{labels.customAnswer}</LumenText>
+                      <LumenContentText context="message.inline">{labels.customAnswer}</LumenContentText>
                       {active.isSecret ? (
                         <LumenInput
                           type="password"
@@ -433,9 +443,9 @@ function DecisionContent({
         </LumenFrame>
       ) : null}
       {connected && !complete && scopedAction?.error ? (
-        <LumenText as="p" role="alert" className="hbar-decision-error" tone="danger">
+        <LumenContentText context="feedback.message" role="alert" className="hbar-decision-error" tone="danger">
           {labels.error(scopedAction.error)}
-        </LumenText>
+        </LumenContentText>
       ) : null}
     </LumenFrame>
   )

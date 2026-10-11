@@ -115,6 +115,11 @@ export const surfaceCommands = {
     z.strictObject({ visible: z.boolean() }),
     presentationSummarySchema,
   ),
+  'app.initializeSidebar': defineCommand(
+    { ...metadata('app.initializeSidebar'), visibility: 'internal' },
+    z.strictObject({ visible: z.boolean() }),
+    presentationSummarySchema,
+  ),
   'app.openSettings': defineCommand(
     {
       ...metadata('app.openSettings'),

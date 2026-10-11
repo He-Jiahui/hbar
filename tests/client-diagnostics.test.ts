@@ -1,11 +1,12 @@
-import { expect, test } from 'bun:test'
+import { expect, spyOn, test } from 'bun:test'
 import { HbarClient, type HbarClientOptions } from '@hbar/client'
+import { CONTEXT_COMPACTION_RPC_TIMEOUT_MS } from '@hbar/contracts/commands/run'
 import { Kernel, MemorySecrets } from '@hbar/kernel'
 import { startServer } from '../apps/host/src/server'
 import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { PROTOCOL_VERSION, type DiagnosticEvent, type DiagnosticSink } from '@hbar/contracts'
+import { PROTOCOL_VERSION, diagnosticEventSchema, type DiagnosticEvent, type DiagnosticSink } from '@hbar/contracts'
 import { z } from 'zod'
 
 function collectingSink(events: DiagnosticEvent[], throws = false): DiagnosticSink {
@@ -85,8 +86,99 @@ test('diagnostic sink failures never break client connection or disconnect clean
   }
 })
 
-test('a real local WebSocket pending RPC records timeout without leaving a pending request', async () => {
+test('command diagnostics retain validated identities across admission, success and failure without inputs', async () => {
   const events: DiagnosticEvent[] = []
+  const f = await fixture({ diagnosticSink: collectingSink(events), diagnosticSampleRate: 1 })
+  const canary = 'private-command-input-canary'
+  const invocation = {
+    protocol: 1 as const,
+    requestId: 'command-admission-fixture',
+    commandId: 'session.get',
+    commandVersion: 1,
+    input: canary,
+  }
+  try {
+    await expect(f.client.call('command.execute', invocation)).rejects.toMatchObject({ code: 'DISCONNECTED' })
+    expect(events.find((event) => event.event === 'rpc.admission_rejected')).toMatchObject({
+      commandId: 'session.get',
+      requestId: invocation.requestId,
+      method: 'command.execute',
+    })
+    await f.client.connect()
+    const workspace = (await f.kernel.storage.call('workspaces'))[0]
+    if (!workspace) throw new Error('Missing command diagnostics fixture workspace')
+    const session = await f.kernel.createSession(workspace.id, 'diagnostic fixture')
+    const accepted = await f.client.call('command.execute', {
+      ...invocation,
+      requestId: 'command-success-fixture',
+      input: { sessionId: session.id },
+    })
+    expect(accepted).toMatchObject({ id: session.id })
+    let rejected: unknown
+    try {
+      await f.client.call('command.execute', {
+        ...invocation,
+        requestId: 'command-invalid-input-fixture',
+      })
+    } catch (error) {
+      rejected = error
+    }
+    expect(rejected).toMatchObject({ code: 'INVALID_INPUT' })
+    for (const [requestId, terminal] of [
+      ['command-success-fixture', 'rpc.settled'],
+      ['command-invalid-input-fixture', 'rpc.error'],
+    ] as const) {
+      const correlated = events.filter((event) => event.requestId === requestId)
+      expect(correlated.map((event) => event.event)).toEqual(['rpc.sent', terminal])
+      expect(correlated.every((event) => event.commandId === 'session.get')).toBe(true)
+      expect(correlated[0]?.rpcId).toBe(correlated[1]?.rpcId)
+    }
+    const serialised = JSON.stringify(events)
+    expect(serialised).not.toContain(canary)
+    expect(serialised).not.toContain(session.id)
+    expect(events.every((event) => diagnosticEventSchema.safeParse(event).success)).toBe(true)
+  } finally {
+    f.client.disconnect()
+    await f.host.close()
+    await f.kernel.close()
+    await removeFixture(f.root)
+  }
+})
+
+test('invalid command identities are absent from admission diagnostics while transport failure remains unchanged', async () => {
+  const events: DiagnosticEvent[] = []
+  const client = new HbarClient('http://127.0.0.1:1', undefined, { diagnosticSink: collectingSink(events) })
+  for (const commandId of ['session/get/secret', 'a'.repeat(129), 'private input with spaces']) {
+    await expect(
+      client.call('command.execute', {
+        protocol: 1,
+        requestId: 'invalid-envelope-fixture',
+        commandId,
+        commandVersion: 1,
+        input: null,
+      }),
+    ).rejects.toMatchObject({ code: 'DISCONNECTED' })
+    expect(
+      diagnosticEventSchema.safeParse({
+        schemaVersion: 1,
+        time: 0,
+        monotonicMs: 0,
+        component: 'client',
+        level: 'warn',
+        event: 'rpc.admission_rejected',
+        commandId,
+      }).success,
+    ).toBe(false)
+  }
+  expect(events).toHaveLength(3)
+  expect(events.every((event) => event.commandId === undefined && event.errorCode === 'DISCONNECTED')).toBe(true)
+  expect(JSON.stringify(events)).not.toContain('private input')
+  client.disconnect()
+})
+
+test('a real local WebSocket retains command identity through timeout and pending disconnect', async () => {
+  const events: DiagnosticEvent[] = []
+  let pendingEntered: (() => void) | undefined
   const server = Bun.serve({
     port: 0,
     fetch(request, instance) {
@@ -111,6 +203,7 @@ test('a real local WebSocket pending RPC records timeout without leaving a pendi
               },
             }),
           )
+        else pendingEntered?.()
       },
     },
   })
@@ -120,12 +213,123 @@ test('a real local WebSocket pending RPC records timeout without leaving a pendi
   })
   try {
     await client.connect()
-    await expect(client.call('system.diagnose', {})).rejects.toMatchObject({ code: 'TIMEOUT' })
+    await expect(
+      client.call('command.execute', {
+        protocol: 1,
+        requestId: 'command-timeout-fixture',
+        commandId: 'session.get',
+        commandVersion: 1,
+        input: null,
+      }),
+    ).rejects.toMatchObject({ code: 'TIMEOUT' })
     expect(
-      events.some((event) => event.event === 'rpc.timeout' && event.outcome === 'unknown' && event.pending === 0),
+      events.some(
+        (event) =>
+          event.event === 'rpc.timeout' &&
+          event.outcome === 'unknown' &&
+          event.pending === 0 &&
+          event.commandId === 'session.get' &&
+          event.requestId === 'command-timeout-fixture',
+      ),
     ).toBe(true)
+    const received = Promise.withResolvers<void>()
+    pendingEntered = () => received.resolve()
+    const pending = client.call('command.execute', {
+      protocol: 1,
+      requestId: 'command-disconnect-fixture',
+      commandId: 'session.get',
+      commandVersion: 1,
+      input: null,
+    })
+    await received.promise
+    client.disconnect()
+    await expect(pending).rejects.toMatchObject({ code: 'DISCONNECTED' })
+    const disconnected = events.filter((event) => event.requestId === 'command-disconnect-fixture')
+    expect(disconnected.map((event) => event.event)).toEqual(['rpc.sent', 'rpc.pending_rejected'])
+    expect(disconnected.every((event) => event.commandId === 'session.get')).toBe(true)
+    expect(disconnected[0]?.rpcId).toBe(disconnected[1]?.rpcId)
   } finally {
     client.disconnect()
     await server.stop(true)
   }
 }, 60_000)
+
+test('the real client schedules and clears compaction RPC deadlines without changing ordinary RPCs', async () => {
+  let received = 0
+  const server = Bun.serve({
+    port: 0,
+    fetch(request, instance) {
+      return instance.upgrade(request) ? undefined : new Response('not found', { status: 404 })
+    },
+    websocket: {
+      message(socket, value) {
+        const request = z
+          .object({ id: z.number(), method: z.string() })
+          .passthrough()
+          .parse(JSON.parse(String(value)))
+        if (request.method === 'system.hello') {
+          socket.send(
+            JSON.stringify({
+              jsonrpc: '2.0',
+              id: request.id,
+              result: {
+                version: 'fixture',
+                protocol: PROTOCOL_VERSION,
+                instanceId: '00000000-0000-4000-8000-000000000001',
+                platform: 'fixture',
+                addresses: [],
+                activeRuns: 0,
+                demo: true,
+              },
+            }),
+          )
+          return
+        }
+        received++
+        socket.send(JSON.stringify({ jsonrpc: '2.0', id: request.id, result: { summary: 'done' } }))
+      },
+    },
+  })
+  const client = new HbarClient(`http://127.0.0.1:${server.port}`)
+  const setTimer = spyOn(globalThis, 'setTimeout')
+  const clearTimer = spyOn(globalThis, 'clearTimeout')
+  try {
+    await client.connect()
+    const cases: { request(): Promise<unknown>; timeoutMs: number }[] = [
+      {
+        request: () => client.call('context.compact', { sessionId: 'session', modelId: 'model' }),
+        timeoutMs: CONTEXT_COMPACTION_RPC_TIMEOUT_MS,
+      },
+      {
+        request: () =>
+          client.call('command.execute', {
+            protocol: 1,
+            requestId: 'context-compact-rpc-fixture',
+            commandId: 'context.compact',
+            commandVersion: 1,
+            input: { sessionId: 'session', modelId: 'model' },
+          }),
+        timeoutMs: CONTEXT_COMPACTION_RPC_TIMEOUT_MS,
+      },
+      { request: () => client.call('session.snapshot', { sessionId: 'session' }), timeoutMs: 30_000 },
+    ]
+    for (const item of cases) {
+      const firstTimer = setTimer.mock.calls.length
+      const firstClear = clearTimer.mock.calls.length
+      const firstReceived = received
+      await item.request()
+      expect(received).toBe(firstReceived + 1)
+      const timerIndex = setTimer.mock.calls.findIndex(
+        ([, delay], index) => index >= firstTimer && delay === item.timeoutMs,
+      )
+      expect(timerIndex).toBeGreaterThanOrEqual(0)
+      const scheduled = setTimer.mock.results[timerIndex]?.value
+      expect(clearTimer.mock.calls.slice(firstClear).some(([cleared]) => cleared === scheduled)).toBe(true)
+    }
+  } finally {
+    client.disconnect()
+    setTimer.mockRestore()
+    clearTimer.mockRestore()
+    await server.stop(true)
+  }
+})

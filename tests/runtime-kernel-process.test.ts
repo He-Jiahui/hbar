@@ -1,3 +1,4 @@
+import { STORAGE_SCHEMA_VERSION } from '@hbar/storage'
 import { afterEach, expect, test } from 'bun:test'
 import { z } from 'zod'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -37,7 +38,7 @@ async function fixture() {
     release: lease => storage.call('runtimeExecutionRelease', lease), revoke: async (owner, ids) => { await storage.call('runtimeExecutionRevoke', owner, ids) } })
   const registry = new RuntimeArtifactStore(join(root, 'bundles'), process.cwd())
   const driverDescriptor: RuntimeUnitDescriptor = { id: 'driver.pi', kind: 'driver', isolation: 'process', dependencies: [], required: true,
-    reloadable: true, contractFingerprint: DRIVER_RUNTIME_FINGERPRINT, storageSchema: 24 }
+    reloadable: true, contractFingerprint: DRIVER_RUNTIME_FINGERPRINT, storageSchema: STORAGE_SCHEMA_VERSION }
   const driverArtifact = await registry.build({ descriptor: driverDescriptor, entrypoint: 'apps/host/src/runtime-driver-process.ts' })
   const descriptor: RuntimeUnitDescriptor = { ...driverDescriptor, id: 'kernel', kind: 'kernel', dependencies: ['driver.pi'], contractFingerprint: KERNEL_RUNTIME_FINGERPRINT }
   const artifact = await registry.build({ descriptor, entrypoint: 'apps/host/src/runtime-kernel-process.ts', define: { HBAR_EXTERNAL_DRIVER: 'true' }, external: optionalBundleExternals })

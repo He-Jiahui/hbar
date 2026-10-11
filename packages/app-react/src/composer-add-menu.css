@@ -38,7 +38,7 @@
   margin: 0;
   padding: 0.25rem 0.5rem;
   color: var(--lumen-muted);
-  font-size: 0.75rem;
+  font-size: calc(var(--lumen-font-size) * 0.857143);
   overflow-wrap: anywhere;
 }
 

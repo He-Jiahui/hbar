@@ -134,13 +134,23 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         (await bucket.getAttribute('aria-label')) ?? '',
       )
       await page.keyboard.press('Tab')
-      const requestsToggle = pane.locator('.hbar-monitoring-request-disclosure > .hbar-lumen-disclosure-trigger')
-      await expect(requestsToggle).toHaveAttribute('aria-expanded', 'false')
+      const requestsToggle = pane.getByRole('tab', { name: copy.monitoring.tabs.requests, exact: true })
+      const overviewToggle = pane.getByRole('tab', { name: copy.monitoring.tabs.overview, exact: true })
+      await expect(requestsToggle).toHaveAttribute('aria-selected', 'false')
       await expect(pane.locator('.hbar-session-requests')).toHaveCount(0)
       await requestsToggle.click()
       await expect(pane.locator('.hbar-monitoring-token-timeline'), 'one chart after request disclosure').toHaveCount(1)
       await expect(pane.locator('.hbar-session-requests > ul > li').first()).toBeVisible()
+      const firstRequest = pane.locator('.hbar-session-requests > ul > li').first()
+      await firstRequest.locator('> .hbar-lumen-disclosure > button').click()
+      await expect(firstRequest.locator('.hbar-session-request-record')).toBeVisible()
+      await overviewToggle.click()
+      await expect(pane.locator('.hbar-session-request-record')).toBeHidden()
       await requestsToggle.click()
+      await expect(firstRequest.locator('.hbar-session-request-record')).toBeVisible()
+      await pane.getByRole('tab', { name: copy.monitoring.tabs.messages, exact: true }).click()
+      await expect(pane.locator('.hbar-session-raw-messages')).toBeVisible()
+      await overviewToggle.click()
       await info.attach('monitoring-structure.json', {
         body: JSON.stringify(
           await pane.evaluate((node) => ({

@@ -47,17 +47,31 @@ async function stopChild(child: Bun.Subprocess): Promise<void> {
   await Promise.race([child.exited, Bun.sleep(5_000)])
 }
 
-async function ready(
-  url: string,
-  child: Bun.Subprocess,
-  verify: (response: Response) => Promise<boolean>,
+interface DevelopmentReadiness {
+  readonly service: 'Source Host' | 'Vite'
+  readonly url: string
+  readonly child: Bun.Subprocess
+  readonly verify: (response: Response) => Promise<boolean>
+  readonly timeoutMs?: number
+  readonly signal?: AbortSignal
+  readonly logPath?: string
+}
+
+async function ready({
+  service,
+  url,
+  child,
+  verify,
   timeoutMs = 30_000,
-  signal?: AbortSignal,
-): Promise<void> {
+  signal,
+  logPath,
+}: DevelopmentReadiness): Promise<void> {
   const deadline = Date.now() + timeoutMs
+  const logHint = logPath ? `\nLog: ${logPath}` : ''
   while (Date.now() < deadline) {
     signal?.throwIfAborted()
-    if (child.exitCode !== null) throw new Error(`Development process exited before readiness (${child.exitCode})`)
+    if (child.exitCode !== null)
+      throw new Error(`${service}: Development process exited before readiness (${child.exitCode})${logHint}`)
     try {
       const response = await fetch(url, { signal: AbortSignal.timeout(1_000) })
       if (response.ok && (await verify(response))) return
@@ -66,7 +80,7 @@ async function ready(
     }
     await Bun.sleep(100)
   }
-  throw new Error(`Timed out waiting for the development service at ${url}`)
+  throw new Error(`${service}: Timed out waiting for the development service at ${url}${logHint}`)
 }
 
 async function requireUnusedHome(home: string): Promise<void> {
@@ -103,7 +117,8 @@ export async function runDesktopDev(args: readonly string[] = []): Promise<numbe
   const home = resolve(process.env.HBAR_HOME ?? resolve(project, '.dev/desktop-live'))
   await requireUnusedHome(home)
   await mkdir(resolve(home, 'diagnostics'), { recursive: true })
-  const log = openSync(resolve(home, 'diagnostics/host-dev.log'), 'a')
+  const hostLogPath = resolve(home, 'diagnostics/host-dev.log')
+  const log = openSync(hostLogPath, 'a')
   const env = {
     ...process.env,
     HBAR_HOME: home,
@@ -152,10 +167,12 @@ export async function runDesktopDev(args: readonly string[] = []): Promise<numbe
       { cwd: project, env, stdio: ['ignore', log, log], windowsHide: true },
     )
     children.push(host)
-    await ready(
-      `${hostUrl}/healthz`,
-      host,
-      async (response) => {
+    await ready({
+      service: 'Source Host',
+      url: `${hostUrl}/healthz`,
+      child: host,
+      logPath: hostLogPath,
+      async verify(response) {
         const parsed: unknown = JSON.parse(await readFile(resolve(home, 'settings/connection.json'), 'utf8'))
         const connection = connectionSchema.parse(parsed)
         if (connection.url !== hostUrl) return false
@@ -163,8 +180,8 @@ export async function runDesktopDev(args: readonly string[] = []): Promise<numbe
         return z.object({ instanceId: z.string() }).parse(health).instanceId === connection.instanceId
       },
       // Watched source startup includes module loading and persisted-session recovery.
-      120_000,
-    )
+      timeoutMs: 120_000,
+    })
     const previous = connectionSchema.parse(JSON.parse(await readFile(resolve(home, 'settings/connection.json'), 'utf8')))
     if (previous.url !== hostUrl || previous.supervisorPid !== host.pid)
       throw new Error('Refusing to observe a Host not owned by this desktop development process')
@@ -198,19 +215,24 @@ export async function runDesktopDev(args: readonly string[] = []): Promise<numbe
       },
     )
     children.push(web)
-    await ready(`${webUrl}/__hbar_dev_ready`, web, async (response) => {
-      const value: unknown = await response.json()
-      return z.object({ instanceId: z.string() }).parse(value).instanceId === env.HBAR_DEV_INSTANCE_ID
+    await ready({
+      service: 'Vite',
+      url: `${webUrl}/__hbar_dev_ready`,
+      child: web,
+      async verify(response) {
+        const value: unknown = await response.json()
+        return z.object({ instanceId: z.string() }).parse(value).instanceId === env.HBAR_DEV_INSTANCE_ID
+      },
     })
     console.log(`Desktop development: ${webUrl} | source Host: ${hostUrl}`)
-    console.log(`Host source log: ${resolve(home, 'diagnostics/host-dev.log')}`)
+    console.log(`Host source log: ${hostLogPath}`)
     const desktop = Bun.spawn(
       [
         node,
         resolve(project, 'node_modules/@tauri-apps/cli/tauri.js'),
         'dev',
         '--config',
-        JSON.stringify({ build: { devUrl: webUrl } }),
+        JSON.stringify({ build: { devUrl: webUrl }, bundle: { active: false, resources: [] } }),
         ...args,
       ],
       { cwd: resolve(project, 'apps/desktop'), env, stdio: ['inherit', 'inherit', 'inherit'], windowsHide: true },

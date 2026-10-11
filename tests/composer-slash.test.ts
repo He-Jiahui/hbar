@@ -10,17 +10,20 @@ import {
 } from '../packages/app-react/src/composer-slash'
 
 test('only entire supported local command is intercepted, preserving ordinary Run text', () => {
-  const available = ['model', 'settings', 'goal', 'agents', 'cost', 'help'] as const
+  const available = ['model', 'settings', 'goal', 'agents', 'cost', 'help', 'compact'] as const
   expect(localSlashCommand('/model', available)).toBe('model')
   expect(localSlashCommand(' \n/settings ', available)).toBe('settings')
   expect(localSlashCommand('/cost', available)).toBe('cost')
   expect(localSlashCommand('/agents', available)).toBe('agents')
   expect(localSlashCommand('/help', available)).toBe('help')
+  expect(localSlashCommand(' /compact\n', available)).toBe('compact')
   expect(localSlashCommand('/goal Review the navigation', available)).toBe('goal')
   expect(localSlashCommand('/goal clear', available)).toBe('goal')
   expect(localSlashCommand('/goal', available)).toBe('goal')
   for (const text of [
-    '/compact',
+    '/compact now',
+    '/COMPACT',
+    'Explain /compact',
     '/skills',
     '/MODEL',
     'Review /model',
@@ -33,6 +36,7 @@ test('only entire supported local command is intercepted, preserving ordinary Ru
   ])
     expect(localSlashCommand(text, available)).toBeNull()
   expect(localSlashCommand('/model', [])).toBeNull()
+  expect(localSlashCommand('/compact', [])).toBeNull()
   expect(localSlashCommand('/agent explore Review this', [...available, 'agent'])).toBeNull()
   expect(localSlashCommand('/agent debugger investigate', [...available, 'agent'])).toBeNull()
   expect(localSlashCommand('/agent', [...available, 'agent'])).toBeNull()
@@ -56,6 +60,17 @@ test('only an exact selected allowlisted slash uses the configured send shortcut
   expect(shouldSubmitExactSlashOnSend({ ...exact, availableCommands: ['settings'] })).toBe(false)
   expect(shouldSubmitExactSlashOnSend({ ...exact, submitCommands: ['settings'] })).toBe(false)
   expect(shouldSubmitExactSlashOnSend({ ...exact, selectedCommand: undefined })).toBe(false)
+  const compact = {
+    ...exact,
+    text: '/compact',
+    activeTerm: 'compact',
+    selectedCommand: 'compact',
+    availableCommands: ['compact'],
+    submitCommands: ['compact'],
+  } as const
+  expect(shouldSubmitExactSlashOnSend(compact)).toBe(true)
+  expect(shouldSubmitExactSlashOnSend({ ...compact, text: '/comp', activeTerm: 'comp' })).toBe(false)
+  expect(shouldSubmitExactSlashOnSend({ ...compact, sendShortcut: false })).toBe(false)
 })
 
 test('Agent slash requires a type and a nonempty exact objective', () => {

@@ -178,7 +178,13 @@ async function cleanup(child: ChildProcess, root: string, directory: string): Pr
     ),
   )
 }
-async function start(browser: Browser, locale: ShellLocale, width: number, name: ToolName): Promise<Fixture> {
+async function start(
+  browser: Browser,
+  locale: ShellLocale,
+  width: number,
+  name: ToolName,
+  activitySeed = false,
+): Promise<Fixture> {
   const assets = resolve(z.string().min(1).parse(process.env.HBAR_TOOL_PRESENTATION_WEB_DIST))
   const asset = z
     .string()
@@ -195,13 +201,18 @@ async function start(browser: Browser, locale: ShellLocale, width: number, name:
       .digest('hex')
       .toUpperCase(),
   ).toBe(sha256)
-  const directory = join(evidence, `${name}-${locale}-${width}`)
+  const directory = join(evidence, `${activitySeed ? 'folded-history' : name}-${locale}-${width}`)
   await mkdir(directory, { recursive: true })
   const root = await realpath(await mkdtemp(join(tmpdir(), prefix)))
   const child = spawn(bunExecutable(), ['e2e/support/session-tool-presentation-host.ts'], {
     windowsHide: true,
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, HBAR_TOOL_PRESENTATION_ROOT: root, HBAR_TOOL_PRESENTATION_WEB_DIST: assets },
+    env: {
+      ...process.env,
+      HBAR_TOOL_PRESENTATION_ROOT: root,
+      HBAR_TOOL_PRESENTATION_WEB_DIST: assets,
+      HBAR_TOOL_PRESENTATION_ACTIVITY_SEED: activitySeed ? '1' : '0',
+    },
   })
   const context = await browser.newContext({
     locale,
@@ -470,6 +481,109 @@ async function verifySettled(
   expect(f.commands.filter((name) => name === 'command.catalog')).toHaveLength(catalogBefore)
   return { title, geometry, clipboardVerified: true, inputPreserved: true, defaultCollapsed: true }
 }
+
+for (const locale of ['zh-CN', 'en-US'] as const)
+  for (const width of [1440, 320])
+    test(`owned Host groups completed activity and restores collapsed history ${locale} ${width}`, async ({
+      browser,
+    }) => {
+      test.setTimeout(90_000)
+      const f = await start(browser, locale, width, 'read_file', true)
+      try {
+        const before = await f.observer.call('session.snapshot', { sessionId: f.ready.session.id })
+        expect(before.runs).toHaveLength(1)
+        const summary = f.page.locator('.lumen-conversation-messages .hbar-session-activity-summary')
+        const expected =
+          locale === 'zh-CN'
+            ? '1 段思考 · 工具调用 × 2 · 读取文件 × 1 · 写入文件 × 1 · 执行终端 × 1 · 1 项失败 · 成功率 80%'
+            : '1 thought · Tool calls × 2 · Read files × 1 · Write files × 1 · Terminal commands × 1 · 1 failed · Success rate 80%'
+        await expect(summary).toHaveCount(1)
+        await expect(summary).toHaveText(expected)
+        await expect(summary).toHaveAttribute('aria-expanded', 'false')
+        await expect(f.page.locator('.lumen-conversation-messages .hbar-session-tool')).toHaveCount(0)
+        await expect(f.page.getByText('Before grouped activity — 前文保留', { exact: true })).toBeVisible()
+        await expect(f.page.getByText('After grouped activity — 后文保留', { exact: true })).toBeVisible()
+        await revealEvidence(f.page, summary)
+        await f.page.screenshot({ path: join(f.directory, 'folded.png') })
+        await summary.press('Enter')
+        await expect(summary).toHaveAttribute('aria-expanded', 'true')
+        await expect(summary).toBeFocused()
+        await expect(f.page.locator('.lumen-conversation-messages .hbar-session-activity-summary')).toHaveCount(1)
+        await expect(f.page.locator('.lumen-conversation-messages .hbar-session-tool')).toHaveCount(5)
+        const original = f.page.locator('.hbar-session-tool[data-tool-call-id="fold-2"]')
+        const trigger = original.locator(':scope > .hbar-session-disclosure-trigger')
+        await revealEvidence(f.page, trigger)
+        await trigger.press('Enter')
+        await expect(original.locator('.hbar-session-tool-section').last()).toContainText(
+          'Original history output-2 — 原始输出',
+        )
+        await f.page.screenshot({ path: join(f.directory, 'expanded.png') })
+        await f.page.reload()
+        await expect(summary).toHaveText(expected)
+        await expect(summary).toHaveAttribute('aria-expanded', 'false')
+        await expect(f.page.locator('.lumen-conversation-messages .hbar-session-tool')).toHaveCount(0)
+        // A real pending write/approval must remain visible beside folded historical activity.
+        const runs = createRunCommandClient(f.observer)
+        const accepted = await runs.execute(
+          'run.submit',
+          {
+            sessionId: f.ready.session.id,
+            modelId: 'local-fixture',
+            input: {
+              text: `/tool write_file ${JSON.stringify(toolCase('write_file', width).args)}`,
+              images: [],
+              approval: 'ask',
+            },
+          },
+          { idempotencyKey: crypto.randomUUID() },
+        )
+        await expect
+          .poll(async () => (await runs.execute('operation.get', { operationId: accepted.operationId })).status)
+          .toBe('waiting_approval')
+        const pending = await exactFacts(f, accepted.operationId, 'write_file')
+        const approval = pending.snapshot.approvals.find(
+          (item) => item.runId === accepted.operationId && item.callId === pending.call.callId,
+        )
+        if (!approval) throw new Error('Original pending write approval missing')
+        await expect(f.page.locator(`[data-decision-id="${approval.id}"]`)).toBeVisible()
+        await expect(rowFor(f, pending.call)).toBeVisible()
+        await expect(summary).toHaveText(expected)
+        await expect(summary).toHaveAttribute('aria-expanded', 'false')
+        await f.page.getByRole('button', { name: f.copy.session.prompt.stop, exact: true }).click()
+        await expect
+          .poll(async () => (await runs.execute('operation.get', { operationId: accepted.operationId })).status)
+          .toBe('cancelled')
+        const after = await f.observer.call('session.snapshot', { sessionId: f.ready.session.id })
+        const historyRun = before.runs[0]
+        if (!historyRun) throw new Error('Historical Run missing')
+        expect(after.messages.filter((item) => item.runId === historyRun.id)).toEqual(before.messages)
+        expect(existsSync(join(f.ready.workspace.path, writePath))).toBe(false)
+        expect(
+          f.commands.filter((name) =>
+            ['run.submit', 'file.write', 'approval.resolve', 'approval.decide'].includes(name),
+          ),
+        ).toEqual([])
+        expect(f.errors).toEqual([])
+        await writeFile(
+          join(f.directory, 'observation.json'),
+          JSON.stringify(
+            {
+              locale,
+              width,
+              actualHost: true,
+              historicalRowsPreserved: true,
+              pendingApprovalVisible: true,
+              commands: f.commands,
+              errors: f.errors,
+            },
+            null,
+            2,
+          ),
+        )
+      } finally {
+        await stop(f)
+      }
+    })
 
 for (const locale of ['en-US', 'zh-CN'] as const)
   for (const width of [1440, 320])

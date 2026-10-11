@@ -49,7 +49,7 @@ describe('hbar-app-ui prompt input surfaces', () => {
       expect(value).toContain('data-lumen-component="prompt-input"')
       expect(value).toContain(`data-lumen-variant="${index + 1}"`)
       expect(value).toContain('data-boundary="horizontal"')
-      expect(value).not.toContain('lucide')
+      expect(value).toContain(`data-hbar-app-ui-component="hbar-app-ui-prompt-input-${index + 1}"`)
       expect(value).not.toContain('hbar-app-ui-composer')
     })
   })
@@ -61,6 +61,9 @@ describe('hbar-app-ui prompt input surfaces', () => {
     expect(value).toContain('data-boundary="horizontal"')
     expect(value).toContain('Keep this host draft')
     expect(value).toContain('brief.md')
+    expect(value).toContain('lumen-composer-primary-action')
+    expect(value).toContain(`aria-label="${controlledComposer.labels.send}"`)
+    expect(value).toContain('type="submit"')
     expect(value).not.toContain('hbar-app-ui-prompt-composer')
   })
 

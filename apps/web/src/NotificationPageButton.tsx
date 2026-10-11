@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Bell } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from '@hbar/app-react'
 import './NotificationPageButton.css'
 
@@ -30,9 +30,9 @@ export function NotificationPageButton({ labels, unreadCount, selected, onOpen }
     >
       <LumenIcon icon={Bell} tier="sm" />
       {unreadCount > 0 ? (
-        <LumenText as="span" className="hbar-web-notification-count" aria-hidden="true">
+        <LumenContentText context="control.label" className="hbar-web-notification-count" aria-hidden="true">
           {labels.count(unreadCount)}
-        </LumenText>
+        </LumenContentText>
       ) : null}
     </LumenButton>
   )
@@ -42,13 +42,15 @@ export function NotificationPageNavigation({
   labels,
   selected,
   onOpen,
-}: Omit<NotificationPageButtonProps, 'unreadCount'>) {
+  connected,
+}: Omit<NotificationPageButtonProps, 'unreadCount'> & { readonly connected: boolean }) {
   const runtime = useHbarRuntime()
   const notifications = runtime.state.notifications
   const state = useHbarRuntimeState(notifications.reader)
   useEffect(() => {
+    if (!connected) return
     void notifications.runtime.refresh({}).catch(() => undefined)
-  }, [notifications.runtime])
+  }, [connected, notifications.runtime])
   return (
     <LumenFrame className="hbar-web-notification-navigation">
       <NotificationPageButton labels={labels} unreadCount={state.unreadCount} selected={selected} onOpen={onOpen} />

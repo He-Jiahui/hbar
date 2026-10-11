@@ -1,4 +1,4 @@
-import { LumenButton, LumenFrame, LumenIcon, LumenText, LumenTextarea } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon, LumenTextarea } from '@lumen/app-ui'
 import { QUEUED_USER_RUNS_PAGE_SIZE, type QueuedUserRunsState } from '@hbar/app-runtime'
 import { CornerDownRight, Pencil, Trash2 } from 'lucide-react'
 import { HbarComposerFeedback } from './composer-feedback'
@@ -85,20 +85,22 @@ export function HbarQueuedUserRuns({
   const current = state.sessionId === sessionId ? state : null
   const notice = !connected ? (
     <HbarComposerFeedback>
-      <LumenText as="p" className="hbar-queued-user-runs-notice" role="status">
+      <LumenContentText context="feedback.message" className="hbar-queued-user-runs-notice" role="status">
         {labels.disconnected}
-      </LumenText>
+      </LumenContentText>
     </HbarComposerFeedback>
   ) : current?.status === 'loading' ? (
     <HbarComposerFeedback>
-      <LumenText as="p" className="hbar-queued-user-runs-notice" role="status">
+      <LumenContentText context="feedback.message" className="hbar-queued-user-runs-notice" role="status">
         {labels.loading}
-      </LumenText>
+      </LumenContentText>
     </HbarComposerFeedback>
   ) : current?.status === 'error' ? (
     <HbarComposerFeedback tone="danger">
       <LumenFrame className="hbar-queued-user-runs-notice" role="alert">
-        <LumenText as="span">{labels.error(current.error ?? 'EXECUTION_FAILED')}</LumenText>
+        <LumenContentText context="message.inline">
+          {labels.error(current.error ?? 'EXECUTION_FAILED')}
+        </LumenContentText>
         <LumenButton size="s" variant="text" indicator="none" onClick={onRefresh}>
           {labels.retry}
         </LumenButton>
@@ -134,17 +136,21 @@ export function HbarQueuedUserRuns({
                 className={`hbar-queued-user-run${edit ? ' hbar-queued-user-run-editing' : ''}`}
                 key={item.operationId}
               >
-                <LumenText as="span" className="hbar-queued-user-run-status">
+                <LumenContentText context="control.status" className="hbar-queued-user-run-status">
                   {removal?.operationId === item.operationId && removal.status === 'submitting'
                     ? labels.removing
                     : labels.queued}
-                </LumenText>
+                </LumenContentText>
                 {edit ? (
                   <>
                     {edit.status === 'loading' ? (
-                      <LumenText as="span" className="hbar-queued-user-run-edit-loading" role="status">
+                      <LumenContentText
+                        context="message.inline"
+                        className="hbar-queued-user-run-edit-loading"
+                        role="status"
+                      >
                         {labels.editLoading}
-                      </LumenText>
+                      </LumenContentText>
                     ) : (
                       <LumenTextarea
                         className="hbar-queued-user-run-edit-input"
@@ -195,11 +201,11 @@ export function HbarQueuedUserRuns({
                     {(edit.status === 'failed' || edit.status === 'unknown') && (
                       <HbarComposerFeedback tone="danger">
                         <LumenFrame className="hbar-queued-user-run-edit-feedback" role="alert">
-                          <LumenText as="span">
+                          <LumenContentText context="message.inline">
                             {edit.status === 'unknown'
                               ? labels.editUnknown
                               : labels.editFailed(edit.error ?? 'EXECUTION_FAILED')}
-                          </LumenText>
+                          </LumenContentText>
                           {edit.status === 'unknown' && (
                             <LumenButton
                               size="s"
@@ -216,64 +222,72 @@ export function HbarQueuedUserRuns({
                   </>
                 ) : (
                   <>
-                    <LumenText as="span" className="hbar-queued-user-run-text" title={item.textPreview} tabIndex={0}>
+                    <LumenContentText
+                      context="message.inline"
+                      className="hbar-queued-user-run-text"
+                      title={item.textPreview}
+                      tabIndex={0}
+                    >
                       {item.textPreview || labels.attachments(item.attachmentCount)}
-                    </LumenText>
-                    {item.truncated && <LumenText as="small">{labels.previewLimited}</LumenText>}
-                    {item.attachmentCount > 0 && item.textPreview && (
-                      <LumenText as="span" className="hbar-queued-user-run-attachments">
-                        {labels.attachments(item.attachmentCount)}
-                      </LumenText>
+                    </LumenContentText>
+                    {item.truncated && (
+                      <LumenContentText context="record.description">{labels.previewLimited}</LumenContentText>
                     )}
-
-                    {activeRunId && (!guide || guide.status === 'failed') && (
+                    {item.attachmentCount > 0 && item.textPreview && (
+                      <LumenContentText context="message.inline" className="hbar-queued-user-run-attachments">
+                        {labels.attachments(item.attachmentCount)}
+                      </LumenContentText>
+                    )}
+                    <LumenFrame className="hbar-queued-user-run-actions">
+                      {activeRunId && (!guide || guide.status === 'failed') && (
+                        <LumenButton
+                          size="s"
+                          variant="text"
+                          indicator="none"
+                          className="hbar-queued-user-run-guide"
+                          aria-label={labels.guide(position)}
+                          title={labels.guide(position)}
+                          disabled={
+                            !actionable ||
+                            Boolean(removal || editing || (current.guiding && current.guiding.status !== 'failed'))
+                          }
+                          onClick={() => onGuide(item.operationId, item.revision, activeRunId)}
+                        >
+                          <LumenIcon icon={CornerDownRight} tier="sm" />
+                          {labels.guideLabel}
+                        </LumenButton>
+                      )}
                       <LumenButton
                         size="s"
                         variant="text"
                         indicator="none"
-                        className="hbar-queued-user-run-guide"
-                        aria-label={labels.guide(position)}
-                        title={labels.guide(position)}
+                        className="hbar-queued-user-run-edit"
+                        aria-label={labels.edit(position)}
+                        title={labels.edit(position)}
                         disabled={
                           !actionable ||
                           Boolean(removal || editing || (current.guiding && current.guiding.status !== 'failed'))
                         }
-                        onClick={() => onGuide(item.operationId, item.revision, activeRunId)}
+                        onClick={() => onStartEdit(item.operationId)}
                       >
-                        <LumenIcon icon={CornerDownRight} tier="sm" />
-                        {labels.guideLabel}
+                        <LumenIcon icon={Pencil} tier="sm" />
                       </LumenButton>
-                    )}
-                    <LumenButton
-                      size="s"
-                      variant="text"
-                      indicator="none"
-                      className="hbar-queued-user-run-edit"
-                      aria-label={labels.edit(position)}
-                      title={labels.edit(position)}
-                      disabled={
-                        !actionable ||
-                        Boolean(removal || editing || (current.guiding && current.guiding.status !== 'failed'))
-                      }
-                      onClick={() => onStartEdit(item.operationId)}
-                    >
-                      <LumenIcon icon={Pencil} tier="sm" />
-                    </LumenButton>
-                    <LumenButton
-                      size="s"
-                      variant="text"
-                      indicator="none"
-                      className="hbar-queued-user-run-remove"
-                      aria-label={labels.remove(position)}
-                      title={labels.remove(position)}
-                      disabled={
-                        !actionable ||
-                        Boolean(removal || editing || (current.guiding && current.guiding.status !== 'failed'))
-                      }
-                      onClick={() => onRemove(item.operationId, item.revision)}
-                    >
-                      <LumenIcon icon={Trash2} tier="sm" />
-                    </LumenButton>
+                      <LumenButton
+                        size="s"
+                        variant="text"
+                        indicator="none"
+                        className="hbar-queued-user-run-remove"
+                        aria-label={labels.remove(position)}
+                        title={labels.remove(position)}
+                        disabled={
+                          !actionable ||
+                          Boolean(removal || editing || (current.guiding && current.guiding.status !== 'failed'))
+                        }
+                        onClick={() => onRemove(item.operationId, item.revision)}
+                      >
+                        <LumenIcon icon={Trash2} tier="sm" />
+                      </LumenButton>
+                    </LumenFrame>
                   </>
                 )}
               </LumenFrame>
@@ -283,13 +297,13 @@ export function HbarQueuedUserRuns({
         {editing && !current.items.some((item) => item.operationId === editing.operationId) && (
           <HbarComposerFeedback tone="danger">
             <LumenFrame className="hbar-queued-user-runs-feedback" role="alert">
-              <LumenText as="span">
+              <LumenContentText context="message.inline">
                 {editing.status === 'unknown'
                   ? labels.editUnknown
                   : editing.status === 'loading'
                     ? labels.editLoading
                     : labels.editFailed(editing.error ?? 'COMMAND_CONFLICT')}
-              </LumenText>
+              </LumenContentText>
               {editing.status === 'unknown' && (
                 <LumenButton size="s" variant="text" indicator="none" onClick={() => onRetryEdit(editing.operationId)}>
                   {labels.retryEdit}
@@ -310,11 +324,11 @@ export function HbarQueuedUserRuns({
         {removal && removal.status !== 'submitting' && (
           <HbarComposerFeedback tone="danger">
             <LumenFrame className="hbar-queued-user-runs-feedback" role="alert">
-              <LumenText as="span">
+              <LumenContentText context="message.inline">
                 {removal.status === 'unknown'
                   ? labels.removeUnknown
                   : labels.removeFailed(removal.error ?? 'EXECUTION_FAILED')}
-              </LumenText>
+              </LumenContentText>
               {removal.status === 'unknown' && (
                 <LumenButton
                   size="s"
@@ -339,13 +353,13 @@ export function HbarQueuedUserRuns({
         {current.guiding && (
           <HbarComposerFeedback tone={current.guiding.status === 'submitting' ? 'neutral' : 'danger'}>
             <LumenFrame className="hbar-queued-user-runs-guide-feedback" role="alert">
-              <LumenText as="span">
+              <LumenContentText context="message.inline">
                 {current.guiding.status === 'submitting'
                   ? labels.guideSubmitting
                   : current.guiding.status === 'unknown'
                     ? labels.guideUnknown
                     : labels.guideFailed(current.guiding.error ?? 'EXECUTION_FAILED')}
-              </LumenText>
+              </LumenContentText>
               {current.guiding.status === 'unknown' && (
                 <LumenButton
                   size="s"
@@ -376,9 +390,9 @@ export function HbarQueuedUserRuns({
             >
               {labels.previous}
             </LumenButton>
-            <LumenText as="span" aria-live="polite">
+            <LumenContentText context="message.inline" aria-live="polite">
               {labels.page(current.pageIndex + 1, totalPages)}
-            </LumenText>
+            </LumenContentText>
             <LumenButton
               size="s"
               variant="text"

@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os'
 import { z } from 'zod'
 import { getShellCopy } from '../apps/web/src/shell-copy'
 import { expectComposerText } from './support/composer-text'
-import { stopOwnedWebSessionHostChild } from './support/web-session-host'
+import { bunExecutable, stopOwnedWebSessionHostChild } from './support/web-session-host'
 
 const readySchema = z.object({
   url: z.string().url(),
@@ -35,14 +35,14 @@ test('Guide consumes one queue row into the current Run while draft and remainin
 }, testInfo) => {
   test.setTimeout(60_000)
   const root = await realpath(await mkdtemp(join(tmpdir(), 'hbar-queued-guide-ui-')))
-  const child = spawn('bun', ['e2e/support/queued-run-guide-host.ts'], {
+  const child = spawn(bunExecutable(), ['e2e/support/queued-run-guide-host.ts'], {
     cwd: process.cwd(),
     windowsHide: true,
     stdio: ['pipe', 'pipe', 'pipe'],
     env: {
       ...process.env,
       HBAR_GUIDE_FIXTURE_ROOT: root,
-      HBAR_GUIDE_FIXTURE_DIST: resolve(process.env.HBAR_E2E_PREVIEW_DIST ?? 'artifacts/queue-guidance-v19/web'),
+      HBAR_GUIDE_FIXTURE_DIST: resolve(process.env.HBAR_E2E_PREVIEW_DIST ?? 'dist/web'),
     },
   })
   const context = await browser.newContext({ locale: 'zh-CN', viewport: { width: 1440, height: 960 } })
@@ -95,8 +95,10 @@ test('Guide consumes one queue row into the current Run while draft and remainin
       (run) => run.status === 'running',
     )
     if (!initial) throw new Error('Initial Run missing')
-    const selected = '请先检查当前更改与已有测试，然后在同一个任务中继续。'.repeat(12)
-    const remaining = '整理测试结果后再提出下一步建议。'
+    // Keep both queued previews at the Host's documented 240-character preview boundary.
+    // The full request remains available through the Host snapshot and the Guide action.
+    const selected = '长内容'.repeat(80)
+    const remaining = 'queue-preview-'.repeat(16) + 'queue-previewque'
     const queueButton = composer.getByRole('button', { name: copy.session.runningActions.queueLabel, exact: true })
     await prompt.fill(selected)
     await queueButton.click()
@@ -110,6 +112,57 @@ test('Guide consumes one queue row into the current Run while draft and remainin
     const remainingRun = snapshot.runs.find((run) => run.input.text === remaining)
     if (!selectedRun || !remainingRun) throw new Error('Queued operations missing')
     await page.screenshot({ path: testInfo.outputPath('zh-guide-wide-before.png') })
+
+    const assertQueueActionsFit = async (width: number) => {
+      await page.setViewportSize({ width, height: 960 })
+      const pane = page.locator('.hbar-queued-user-runs-list')
+      await expect(pane).toBeVisible()
+      const row = rows.first()
+      // The queue list is intentionally pane-owned and vertically scrollable. Bring the
+      // action group into that bounded viewport before checking its physical reachability.
+      const actions = row.locator('.hbar-queued-user-run-actions')
+      await actions.scrollIntoViewIfNeeded()
+      const geometry = await pane.evaluate((element) => {
+        const paneRect = element.getBoundingClientRect()
+        const row = element.querySelector<HTMLElement>('.hbar-queued-user-run')
+        if (!row) throw new Error('Queued row missing')
+        const rowRect = row.getBoundingClientRect()
+        return {
+          pane: { left: paneRect.left, right: paneRect.right, top: paneRect.top, bottom: paneRect.bottom },
+          row: { left: rowRect.left, right: rowRect.right, top: rowRect.top, bottom: rowRect.bottom },
+          clientWidth: element.clientWidth,
+          scrollWidth: element.scrollWidth,
+        }
+      })
+      expect(geometry.clientWidth).toBeGreaterThanOrEqual(geometry.scrollWidth - 1)
+      for (const selector of [
+        '.hbar-queued-user-run-guide',
+        '.hbar-queued-user-run-edit',
+        '.hbar-queued-user-run-remove',
+      ]) {
+        const action = row.locator(selector)
+        await expect(action).toBeVisible()
+        const rect = await action.evaluate((element) => {
+          const value = element.getBoundingClientRect()
+          return { left: value.left, right: value.right, top: value.top, bottom: value.bottom }
+        })
+        expect(rect.left).toBeGreaterThanOrEqual(geometry.pane.left - 1)
+        expect(rect.right).toBeLessThanOrEqual(geometry.pane.right + 1)
+        expect(rect.top).toBeGreaterThanOrEqual(geometry.pane.top - 1)
+        expect(rect.bottom).toBeLessThanOrEqual(geometry.pane.bottom + 1)
+      }
+      const guide = row.locator('.hbar-queued-user-run-guide')
+      const edit = row.locator('.hbar-queued-user-run-edit')
+      const remove = row.locator('.hbar-queued-user-run-remove')
+      await guide.focus()
+      await expect(guide).toBeFocused()
+      await page.keyboard.press('Tab')
+      await expect(edit).toBeFocused()
+      await page.keyboard.press('Tab')
+      await expect(remove).toBeFocused()
+    }
+    await assertQueueActionsFit(690)
+    await assertQueueActionsFit(400)
     await rows.first().locator('.hbar-queued-user-run-guide').click()
     await expect(rows).toHaveCount(1)
     await expect(rows).toContainText(remaining)

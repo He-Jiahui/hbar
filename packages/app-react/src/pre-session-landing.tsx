@@ -1,5 +1,5 @@
-import { LumenFrame, type LumenPromptComposerProps, type LumenPromptLabels } from '@lumen/app-ui'
-import { HbarPromptComposer } from './prompt-composer'
+import { LumenFrame, type LumenPromptLabels } from '@lumen/app-ui'
+import { HbarPromptComposer, type HbarPromptComposerProps } from './prompt-composer'
 import type { HbarComposerFeedbackLabels } from './composer-feedback'
 import { HbarSessionEmptyHero, type HbarSessionEmptyHeroLabels } from './session-empty-hero'
 import { HbarComposerAttachmentDropTarget } from './composer-attachments'
@@ -15,7 +15,7 @@ export interface HbarPreSessionLandingLabels {
 export interface HbarPreSessionLandingProps {
   readonly labels: HbarPreSessionLandingLabels
   /** The host owns the unsaved draft and all toolbar actions; this view owns only their layout. */
-  readonly composer: Omit<LumenPromptComposerProps, 'boundary' | 'canStop' | 'labels' | 'onStop'>
+  readonly composer: Omit<HbarPromptComposerProps, 'boundary' | 'canStop' | 'labels' | 'onStop' | 'feedbackLabels'>
   /** Optional file drop/paste intake, scoped to the composer rather than the whole landing page. */
   readonly attachmentDrop?: {
     readonly enabled: boolean

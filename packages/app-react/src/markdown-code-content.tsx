@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenText } from '@lumen/app-ui'
 import { highlightMarkdownCode, type CodeTokenRange } from './markdown-code-highlight'
 import { plainCodeTokenRanges } from './plain-code-tokens'
 
@@ -57,9 +57,9 @@ export function MarkdownCodeContent({
           const to = Math.min(end, range.end)
           return from < to
             ? [
-                <LumenText as="span" variant="code" key={from} data-code-token={range.role}>
+                <LumenContentText context="message.inline" key={from} data-code-token={range.role}>
                   {source.slice(from, to)}
-                </LumenText>,
+                </LumenContentText>,
               ]
             : []
         })
@@ -73,9 +73,9 @@ export function MarkdownCodeContent({
     >
       {content(0, previewEnd)}
       {collapsible && (
-        <LumenText as="span" variant="code" data-code-tail="" hidden={!expanded}>
+        <LumenContentText context="message.inline" data-code-tail="" hidden={!expanded}>
           {content(previewEnd, source.length)}
-        </LumenText>
+        </LumenContentText>
       )}
     </LumenText>
   )

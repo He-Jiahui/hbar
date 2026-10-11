@@ -473,6 +473,15 @@ test('timeline pages older history, preserves cached content on reconnect, and i
         ...snapshot(sessionId, 180, 'unused'),
         messages: page,
         hasOlder: candidates.length > page.length,
+        contextCompactions: [20, 80, 140]
+          .filter((seq) => seq >= (page[0]?.seq ?? 0) && seq < (before ?? Infinity))
+          .map((seq) => ({
+            id: `compaction-${seq}`,
+            sessionId,
+            seq,
+            time: seq,
+            trigger: 'manual' as const,
+          })),
       }
     },
     async watch(sessionId, _cursor, onUpdate) {
@@ -509,11 +518,18 @@ test('timeline pages older history, preserves cached content on reconnect, and i
     update?.({ kind: 'reset' })
     await waitFor(() => runtime.view.state.timeline.getSnapshot().status === 'error')
     expect(runtime.view.state.timeline.getSnapshot().messages).toHaveLength(180)
+
+    expect(runtime.view.state.timeline.getSnapshot().contextCompactions?.map((marker) => marker.seq)).toEqual([
+      20, 80, 140,
+    ])
     expect(runtime.view.state.timeline.getSnapshot().error).toBe('DISCONNECTED')
     failLatest = false
     await runtime.view.commands.execute('timeline.retry', { sessionId: 'session-one' })
     expect(runtime.view.state.timeline.getSnapshot()).toMatchObject({ status: 'ready', error: null })
     expect(runtime.view.state.timeline.getSnapshot().messages).toHaveLength(180)
+    expect(runtime.view.state.timeline.getSnapshot().contextCompactions?.map((marker) => marker.seq)).toEqual([
+      20, 80, 140,
+    ])
 
     await runtime.view.commands.execute('app.setSession', { sessionId: 'session-two' })
     expect(runtime.view.state.timeline.getSnapshot()).toMatchObject({ sessionId: 'session-two', status: 'loading' })

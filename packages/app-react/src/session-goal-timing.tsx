@@ -1,4 +1,4 @@
-import { LumenText } from '@lumen/app-ui'
+import { LumenContentText } from '@lumen/app-ui'
 import type { ThreadGoal } from '@hbar/contracts'
 import { goalElapsedSeconds } from './session-elapsed-model'
 import { useSessionClock } from './session-tool-clock'
@@ -27,8 +27,8 @@ export function HbarGoalTiming({
 }) {
   const seconds = useGoalElapsed(goal, receivedAt, connected)
   return (
-    <LumenText as="span" data-goal-elapsed={seconds}>
+    <LumenContentText context="message.inline" data-goal-elapsed={seconds}>
       {format(seconds)}
-    </LumenText>
+    </LumenContentText>
   )
 }

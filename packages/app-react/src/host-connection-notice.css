@@ -6,8 +6,8 @@
   gap: 0.5rem;
   min-inline-size: 0;
   padding: 0.625rem 0.875rem;
-  border-block-end: 0.0625rem solid var(--lumen-border);
-  color: var(--lumen-text);
+  border-block-end: 0.0625rem solid var(--lumen-edge);
+  color: var(--lumen-ink);
 }
 
 .hbar-host-connection-notice > .lumen-icon {

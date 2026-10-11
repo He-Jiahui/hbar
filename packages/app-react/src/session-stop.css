@@ -8,7 +8,7 @@
   padding: 0.5rem 0.75rem;
   border-block-start: 0.0625rem solid var(--lumen-edge);
   background: var(--lumen-contrast);
-  font-size: 0.8125rem;
+  font-size: calc(var(--lumen-font-size) * 0.928571);
 }
 
 .hbar-app-react-session-stop-message {

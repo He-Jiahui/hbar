@@ -95,6 +95,98 @@ function row(page: Page, id: string): Locator {
 function trigger(tool: Locator): Locator {
   return tool.locator(':scope > .hbar-session-disclosure-trigger')
 }
+
+for (const locale of ['zh-CN', 'en-US'] as const)
+  for (const width of [1440, 320])
+    test(`consecutive settled activity folds across messages ${locale} ${width}`, async ({ browser }, info) => {
+      const f = await open(browser, locale, width)
+      try {
+        const calls = [
+          call('fold-tool-a', undefined, {}, 'workflow_execute'),
+          call('fold-tool-b', undefined, {}, 'workflow_execute'),
+          call('fold-read', { version: 1, kind: 'file-read', pathField: 'path' }, { path: '资料/雪👩‍💻.tsx' }),
+          call('fold-write', { version: 1, kind: 'file-write', pathField: 'path' }, { path: '资料/结果.txt' }),
+          call('fold-terminal', { version: 1, kind: 'command', commandField: 'command' }, { command: 'bun test' }),
+        ]
+        const before = message([{ type: 'text', text: 'Original prose before — 前文保留' }], 'fold-before')
+        const after = message([{ type: 'text', text: 'Original prose after — 后文保留' }], 'fold-after')
+        const history = [
+          before,
+          message([{ type: 'thinking', text: 'Evaluating project goals' }], 'fold-thought'),
+          ...calls.flatMap((source, index) => [
+            message([source], `fold-message-${index}`),
+            message([result(source, index === 1, `Original result-${index} — 原文`)], `fold-result-${index}`, {
+              role: 'tool',
+            }),
+          ]),
+          after,
+        ]
+        await render(f.page, { locale, theme: 'dark', messages: history, groupCompleted: true, streaming: true })
+        const group = f.page.locator('[data-fixture-group="fold-thought"]')
+        const summary = group.locator('.hbar-session-activity-summary')
+        const expected =
+          locale === 'zh-CN'
+            ? '1 段思考 · 工具调用 × 2 · 读取文件 × 1 · 写入文件 × 1 · 执行终端 × 1 · 1 项失败 · 成功率 80%'
+            : '1 thought · Tool calls × 2 · Read files × 1 · Write files × 1 · Terminal commands × 1 · 1 failed · Success rate 80%'
+        await expect(summary).toHaveText(expected)
+        await expect(summary).toHaveAttribute('aria-expanded', 'false')
+        await expect(group.locator('.hbar-session-tool')).toHaveCount(0)
+        await expect(f.page.getByText('Original prose before — 前文保留', { exact: true })).toBeVisible()
+        await expect(f.page.getByText('Original prose after — 后文保留', { exact: true })).toBeVisible()
+        await screenshot(f.page, info, `activity-folded-${locale}-${width}`)
+        await summary.focus()
+        await summary.press('Enter')
+        await expect(summary).toHaveAttribute('aria-expanded', 'true')
+        await expect(summary).toBeFocused()
+        await expect(group.locator('.hbar-session-activity-summary')).toHaveCount(1)
+        await expect(group.locator('.hbar-session-tool')).toHaveCount(5)
+        await expect(group.locator('.hbar-session-thinking')).toContainText('Evaluating project goals')
+        await trigger(row(f.page, 'fold-read')).click()
+        await expect(row(f.page, 'fold-read').locator('.hbar-session-tool-section').last()).toContainText(
+          'Original result-2 — 原文',
+        )
+        await copyOutput(f.page, row(f.page, 'fold-read'), locale, 'Original result-2 — 原文')
+        await screenshot(f.page, info, `activity-expanded-${locale}-${width}`)
+        const extra = call('fold-appended')
+        const appended = [
+          ...history.slice(0, -1),
+          message([extra, result(extra, false, 'Appended output')], 'fold-appended-message'),
+          after,
+        ]
+        await render(f.page, { locale, theme: 'dark', messages: appended, groupCompleted: true })
+        await expect(summary).toHaveAttribute('aria-expanded', 'true')
+        await expect(summary).toContainText(locale === 'zh-CN' ? '成功率 83%' : 'Success rate 83%')
+        await expect(group.locator('.hbar-session-tool')).toHaveCount(6)
+        await summary.focus()
+        await summary.press('Space')
+        await expect(summary).toHaveAttribute('aria-expanded', 'false')
+        await expect(summary).toBeFocused()
+        // A later pending action is visible and leaves the manually collapsed history alone.
+        const pending = call('fold-pending')
+        await render(f.page, {
+          locale,
+          messages: [...appended, message([pending], 'fold-pending-message')],
+          groupCompleted: true,
+          streaming: true,
+        })
+        await expect(summary).toHaveAttribute('aria-expanded', 'false')
+        await expect(row(f.page, 'fold-pending')).toBeVisible()
+        await expect(row(f.page, 'fold-pending')).toHaveAttribute('data-outcome', 'pending')
+        const geometry = await summary.evaluate((element) => ({
+          text: element.textContent,
+          scrollWidth: element.scrollWidth,
+          clientWidth: element.clientWidth,
+          lineHeight: getComputedStyle(element).lineHeight,
+          height: element.getBoundingClientRect().height,
+        }))
+        expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth + 1)
+        await writeFile(info.outputPath('activity-geometry.json'), JSON.stringify(geometry, null, 2))
+        expect(f.errors).toEqual([])
+        expect(f.requests).toEqual([])
+      } finally {
+        await f.context.close()
+      }
+    })
 async function render(page: Page, input: ToolPresentationFixtureInput): Promise<void> {
   await page.evaluate((input) => window.toolPresentationFixture.render(input), input)
 }
@@ -304,9 +396,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
             if ((await group.getAttribute('aria-expanded')) === 'false') await group.click()
             const tool = f.page.locator('.hbar-session-tool')
             const button = trigger(tool)
-            await expect(tool.locator('.hbar-session-disclosure-preview')).toHaveText(
-              value?.isError ? failure : description,
-            )
+            await expect(tool.locator('.hbar-session-disclosure-preview')).toHaveText(description)
             await expect(f.page.locator('.hbar-session-thinking .hbar-session-disclosure-preview')).toHaveText(thought)
             await completeLine(
               f.page.locator(
@@ -593,7 +683,13 @@ for (const locale of ['en-US', 'zh-CN'] as const)
           const code = page.locator('.hbar-message-code code').first()
           await expect(code).toHaveAttribute('data-code-highlight', 'ready')
           expect(await code.textContent()).toBe('const result = { enabled: true, count: 42 };\n')
-          await render(page, { locale, theme, motion: true, streaming: true, messages: [message(content)] })
+          await render(page, {
+            locale,
+            theme,
+            motion: true,
+            streaming: true,
+            messages: [message(content.filter((block) => block.type !== 'tool_result'))],
+          })
           await expect(code).toHaveAttribute('data-code-fallback', 'lexical')
           expect(await code.locator('[data-code-token]').count()).toBeGreaterThan(2)
           await expect(thoughtTrigger).toBeFocused()
@@ -1235,10 +1331,11 @@ for (const locale of ['en-US', 'zh-CN'] as const)
         await expect(tool).toHaveAttribute('data-outcome', 'failed')
         await expect(trigger(tool)).toHaveAttribute('aria-expanded', 'false')
         await expect(page.locator('[data-fixture-outside]')).toBeFocused()
-        await expect(tool.locator('.hbar-session-disclosure-preview')).toHaveText('FAILED-FIRST-LINE')
+        await expect(tool.locator('.hbar-session-disclosure-preview')).toHaveText('same-basename.tsx')
         await expect(trigger(tool)).toHaveAttribute('title', new RegExp('same-basename\\.tsx'))
         await screenshot(page, info, `failed-summary-${locale}-${width}`)
         await trigger(tool).click()
+        await expect(tool.locator('.hbar-session-disclosure-content')).toContainText('FAILED-FIRST-LINE')
         await render(page, { locale, messages: [message([original, result(original)])] })
         await expect(trigger(tool)).toHaveAttribute('aria-expanded', 'true')
         await expect(trigger(tool)).toBeFocused()

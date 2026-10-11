@@ -32,6 +32,7 @@ import type { GlobalSettingsStartup, PanelSurface } from '@hbar/app-runtime'
 import { useStore } from 'zustand'
 import { CommandError } from '@hbar/commands'
 import { ArrowLeft } from 'lucide-react'
+import { GlobalFeatureNavigation } from './GlobalFeatureNavigation'
 import {
   applyLumenAppearance,
   LumenButton,
@@ -1783,6 +1784,7 @@ export default function App({
   }, [client, runtime, messageResources])
   const layout = useHbarRuntimeState(runtime.view.state.layout)
   const presentation = useHbarRuntimeState(runtime.view.state.presentation)
+  const activeNavigation = useHbarRuntimeState(runtime.view.state.navigation)
   const tabs = useHbarRuntimeState(runtime.view.state.workspaceTabs)
   const surfaces = useHbarRuntimeState(runtime.view.state.surfaces)
   const preferences = useHbarRuntimeState(runtime.view.state.preferences)
@@ -1846,9 +1848,24 @@ export default function App({
       shellLayoutToFlexModel(resolvedLayout, {
         geometry: desktopLayoutGeometry ?? desktopViewportGeometry,
         sidebarVisible: presentation.sidebarOpen,
-        toolVisible: Boolean(toolPanel),
+        toolVisible:
+          Boolean(toolPanel) &&
+          desktopViewportGeometry.widthPx / desktopViewportGeometry.remPx >=
+            workspaceLayout.size.minRem +
+              toolLayout.size.minRem +
+              (presentation.sidebarOpen ? sidebarLayout.size.minRem : 0) +
+              1,
       }),
-    [resolvedLayout, desktopViewportGeometry, desktopLayoutGeometry, presentation.sidebarOpen, toolPanel],
+    [
+      resolvedLayout,
+      desktopViewportGeometry,
+      desktopLayoutGeometry,
+      presentation.sidebarOpen,
+      toolPanel,
+      workspaceLayout.size.minRem,
+      toolLayout.size.minRem,
+      sidebarLayout.size.minRem,
+    ],
   )
   const openFeaturePanel = (
     panelId: 'run-board' | 'schedules' | 'prompt-templates' | 'notifications' | 'onboarding',
@@ -1874,15 +1891,7 @@ export default function App({
       .catch(() => undefined)
   }
   const renderDesktopLayout =
-    nativeWindow &&
-    desktopViewport &&
-    (!toolPanel ||
-      desktopViewportGeometry.widthPx / (desktopLayoutGeometry?.remPx ?? desktopViewportGeometry.remPx) >=
-        workspaceLayout.size.minRem +
-          toolLayout.size.minRem +
-          (presentation.sidebarOpen ? sidebarLayout.size.minRem : 0) +
-          (1 + Number(presentation.sidebarOpen)) *
-            ((desktopLayoutGeometry?.splitterSizePx ?? 8) / (desktopLayoutGeometry?.remPx ?? 16)))
+    nativeWindow && desktopViewport
       ? (panes: Readonly<Record<'projects' | 'workspace' | 'session-tool', ReactNode>>, _shell: ReactNode) => (
           <HbarDesktopLayoutProjection
             model={desktopLayoutModel}
@@ -1899,13 +1908,13 @@ export default function App({
         )
       : undefined
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (layout.status !== 'ready') return
     const syncKey = `sidebar:${layout.source}`
     if (layoutVisibilitySync.current === syncKey) return
     layoutVisibilitySync.current = syncKey
     void runtime.view.commands
-      .execute('app.setSidebarVisible', { visible: sidebarLayout.visible })
+      .execute('app.initializeSidebar', { visible: sidebarLayout.visible })
       .catch(() => undefined)
   }, [layout.source, layout.status, runtime.view.commands, sidebarLayout.visible])
 
@@ -1993,7 +2002,7 @@ export default function App({
   }
 
   return (
-    <LumenProvider appearance={lumenAppearance}>
+    <LumenProvider appearance={lumenAppearance} surfaceRole="reading" data-hbar-layout-state={layout.status}>
       <HbarRuntimeProvider
         view={runtime.view}
         renderSkillImport={(instanceId, connected) => (
@@ -2052,12 +2061,23 @@ export default function App({
             <NotificationPageNavigation
               labels={notificationNavigationCopy(locale)}
               selected={presentation.page.kind === 'notifications'}
+              connected={connection === 'connected'}
               onOpen={() => openFeaturePanel('notifications')}
             />
           }
+          featureNavigation={
+            <GlobalFeatureNavigation
+              locale={locale}
+              connected={connection === 'connected'}
+              hasWorkspace={Boolean(activeNavigation.workspaceId)}
+              onOpen={openFeaturePanel}
+            />
+          }
           {...(renderDesktopLayout ? { renderLayout: renderDesktopLayout } : {})}
+          desktopToolPresentation={desktopLayoutModel.layout.children?.some((node) => node.id === 'session-tool') ? 'split' : 'drawer'}
           toolWidthRem={toolLayout.size.preferredRem}
           toolLayout={{
+            constrainedPresentation: 'drawer',
             mainMinWidthRem: workspaceLayout.size.minRem,
             minWidthRem: toolLayout.size.minRem,
             maxWidthRem: toolLayout.size.maxRem,
@@ -2080,6 +2100,12 @@ export default function App({
               : undefined
           }
           connection={connection}
+          onCloseTool={() => {
+            if (presentation.toolInstanceId)
+              void runtime.view.commands
+                .execute('app.closePanel', { instanceId: presentation.toolInstanceId })
+                .catch(() => undefined)
+          }}
           onReconnect={reconnect}
           toolLabel={
             toolPanel?.panelId === 'files'

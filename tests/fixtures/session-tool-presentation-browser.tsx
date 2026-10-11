@@ -3,7 +3,13 @@ import { StrictMode } from 'react'
 import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 import { LumenButton, LumenFrame, LumenNavigationButton, LumenProvider, LumenText } from '@lumen/app-ui'
-import { HbarMessageBlocks, projectSessionMessages } from '@hbar/app-react'
+import {
+  HbarMessageBlocks,
+  HbarActivityDisclosure,
+  groupCompletedSessionActivities,
+  messageActivitySummary,
+  projectSessionMessages,
+} from '@hbar/app-react'
 import type { SessionTimelineState } from '@hbar/app-runtime'
 import { createWebLumenAppearance, DEFAULT_WEB_APPEARANCE_DIMENSIONS } from '../../apps/web/src/appearance'
 import { getShellCopy, resolveShellLocale, type ShellLocale } from '../../apps/web/src/shell-copy'
@@ -25,6 +31,7 @@ export interface ToolPresentationFixtureInput {
   readonly activeRunIds?: readonly string[]
   readonly activity?: SessionActivityIndicatorContent
   readonly glow?: number
+  readonly groupCompleted?: boolean
 }
 
 declare global {
@@ -62,6 +69,41 @@ function Fixture({ input }: { readonly input: ToolPresentationFixtureInput }) {
   }
   const describe = createSessionToolPresenter(input.locale)
   const projections = projectSessionMessages(input.messages)
+  const sequence = groupCompletedSessionActivities(projections.map((projection) => ({ kind: 'message', projection })))
+  const groupedIds = new Set(
+    sequence.flatMap((item) =>
+      item.kind === 'activityGroup' ? item.projections.map(({ message }) => message.id) : [],
+    ),
+  )
+  const messageBlocks = (projection: (typeof projections)[number], grouped = false) => (
+    <HbarMessageBlocks
+      sessionId={projection.message.sessionId}
+      messageId={projection.message.id}
+      blocks={projection.blocks}
+      results={projection.results}
+      activityDisplay={grouped ? 'rows' : 'auto'}
+      streaming={
+        !grouped &&
+        (input.activeRunIds ? input.activeRunIds.includes(projection.message.runId) : (input.streaming ?? false))
+      }
+      labels={copy.session.messageBlocks}
+      describeTool={(call) => {
+        const presentation = describe(call)
+        return input.longLabels
+          ? {
+              ...presentation,
+              label: `${fixtureCopy.long} — ${presentation.label ?? copy.session.messageBlocks.tool(call.name)}`,
+            }
+          : presentation
+      }}
+      clipboard={{
+        writeText: (text) => {
+          writes.push(text)
+          return Promise.resolve()
+        },
+      }}
+    />
+  )
   return (
     <LumenProvider appearance={{ ...appearance, ...(input.glow === undefined ? {} : { glow: input.glow }) }}>
       <LumenFrame as="main" className="tool-presentation-fixture">
@@ -79,38 +121,34 @@ function Fixture({ input }: { readonly input: ToolPresentationFixtureInput }) {
           </LumenNavigationButton>
         )}
         <LumenFrame className="tool-presentation-fixture-messages" data-fixture-count={projections.length}>
-          {projections.map((projection, index) => (
-            // Stable slots deliberately expose production identity reset rather than remounting it here.
-            <LumenFrame key={index} data-fixture-message={projection.message.id}>
-              <HbarMessageBlocks
-                sessionId={projection.message.sessionId}
-                messageId={projection.message.id}
-                blocks={projection.blocks}
-                results={projection.results}
-                streaming={
-                  input.activeRunIds
-                    ? input.activeRunIds.includes(projection.message.runId)
-                    : (input.streaming ?? false)
-                }
-                labels={copy.session.messageBlocks}
-                describeTool={(call) => {
-                  const presentation = describe(call)
-                  return input.longLabels
-                    ? {
-                        ...presentation,
-                        label: `${fixtureCopy.long} — ${presentation.label ?? copy.session.messageBlocks.tool(call.name)}`,
-                      }
-                    : presentation
-                }}
-                clipboard={{
-                  writeText: (text) => {
-                    writes.push(text)
-                    return Promise.resolve()
-                  },
-                }}
-              />
-            </LumenFrame>
-          ))}
+          {input.groupCompleted
+            ? sequence.map((item) =>
+                item.kind === 'activityGroup' ? (
+                  <LumenFrame key={item.id} data-fixture-group={item.id}>
+                    <HbarActivityDisclosure
+                      summary={copy.session.messageBlocks.activity(
+                        messageActivitySummary(item.rows, copy.session.messageBlocks, describe),
+                      )}
+                    >
+                      {item.projections.map((projection) => (
+                        <LumenFrame key={projection.message.id} data-fixture-message={projection.message.id}>
+                          {messageBlocks(projection, groupedIds.has(projection.message.id))}
+                        </LumenFrame>
+                      ))}
+                    </HbarActivityDisclosure>
+                  </LumenFrame>
+                ) : item.kind === 'message' ? (
+                  <LumenFrame key={item.projection.message.id} data-fixture-message={item.projection.message.id}>
+                    {messageBlocks(item.projection)}
+                  </LumenFrame>
+                ) : null,
+              )
+            : projections.map((projection, index) => (
+                // Stable slots deliberately expose production identity reset rather than remounting it here.
+                <LumenFrame key={index} data-fixture-message={projection.message.id}>
+                  {messageBlocks(projection)}
+                </LumenFrame>
+              ))}
         </LumenFrame>
       </LumenFrame>
     </LumenProvider>

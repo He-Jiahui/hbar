@@ -223,6 +223,7 @@ export class WorkspaceQueryRuntime implements WorkspaceQueryProvider {
     private readonly resolvePath: ResolveWorkspacePath,
     options: WorkspaceQueryRuntimeOptions = {},
     private readonly resolveBlockedPaths: ResolveBlockedPaths = async () => blocked,
+    private readonly resolveInvalidationPath: ResolveWorkspacePath = resolvePath,
   ) {
     this.#native = options.native ?? new NativeWorkspaceQuery(options.maxCacheBytes ?? 64 * 1024 * 1024)
     this.#queue = new BoundedQueryQueue(
@@ -270,7 +271,7 @@ export class WorkspaceQueryRuntime implements WorkspaceQueryProvider {
   }
 
   async invalidate(workspace: string, path: string): Promise<void> {
-    this.#native.invalidate(await this.resolvePath(workspace, path))
+    this.#native.invalidate(await this.resolveInvalidationPath(workspace, path))
   }
 
   dispose(): void {

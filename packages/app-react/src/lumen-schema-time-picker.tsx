@@ -1,5 +1,5 @@
 import type { SchemaFieldRendererProps } from '@hbar/schema-react'
-import { LumenFrame, LumenInput, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenFrame, LumenInput } from '@lumen/app-ui'
 
 /** The native clock picker supplies keyboard/touch selection without number-entry fields. */
 export function SchemaTimePicker(props: SchemaFieldRendererProps) {
@@ -42,12 +42,12 @@ export function SchemaTimePicker(props: SchemaFieldRendererProps) {
           })
         }}
       />
-      <LumenText as="small" id={`${props.field.name}-timezone`}>
+      <LumenContentText context="record.description" id={`${props.field.name}-timezone`}>
         {time.timezone.label}
-        <LumenText as="span" className="hbar-schema-timezone-value">
+        <LumenContentText context="message.inline" className="hbar-schema-timezone-value">
           {typeof time.timezone.value === 'string' ? time.timezone.value : null}
-        </LumenText>
-      </LumenText>
+        </LumenContentText>
+      </LumenContentText>
     </LumenFrame>
   )
 }

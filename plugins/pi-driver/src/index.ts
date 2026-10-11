@@ -9,6 +9,7 @@ import type {
   Message as PiMessage,
   Model,
   SimpleStreamOptions,
+  ProviderResponse,
   ThinkingLevelMap,
   Usage as PiUsage,
 } from '@earendil-works/pi-ai'
@@ -16,14 +17,28 @@ import { streamSimple as openaiCompletions } from '@earendil-works/pi-ai/api/ope
 import { streamSimple as openaiResponses } from '@earendil-works/pi-ai/api/openai-responses'
 import { streamSimple as anthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages'
 import { z } from 'zod'
+import { HbarError, RUN_STEP_LIMIT_CODE } from '@hbar/contracts'
 import { providerFailure } from './provider-failure'
 import { definePlugin, describeToolTimeout, provide, RunControlSignal } from '@hbar/plugin-sdk'
 import { createUsageFact } from '@hbar/usage'
 import { DEFAULT_THINKING_LEVELS, normalizeThinkingLevel } from '@hbar/contracts'
-import type { DriverInput, HarnessDriver, ModelRequest, ToolResultContent } from '@hbar/plugin-sdk'
+import type {
+  DriverInput,
+  HarnessDriver,
+  ModelDiagnosticEvent,
+  ModelRequest,
+  ToolResultContent,
+} from '@hbar/plugin-sdk'
 import type { ContentBlock, Message, ProviderConfig, ThinkingLevel, Usage } from '@hbar/contracts'
 import { appendProviderContext, splitModelContext } from './model-context'
 import { createDriverSteeringReader } from './steering'
+import {
+  withProviderResponseDiagnostics,
+  type TransportFailureCode,
+  type TransportFailureKind,
+  type TransportFailureObserver,
+} from './provider-http-diagnostics'
+import { ProviderStreamObservation } from './provider-stream-diagnostics'
 
 const piUsage = (): PiUsage => ({
   input: 0,
@@ -57,7 +72,12 @@ function modelOf(config: ProviderConfig): Model<Api> {
     reasoning: config.reasoning,
     ...(config.protocol === 'openai-responses' || config.protocol === 'openai-completions' ? { thinkingLevelMap } : {}),
     input: config.imageInput ? ['text', 'image'] : ['text'],
-    cost: { input: config.inputPrice, output: config.outputPrice, cacheRead: 0, cacheWrite: 0 },
+    cost: {
+      input: config.inputPrice,
+      output: config.outputPrice,
+      cacheRead: config.cacheReadPrice ?? 0,
+      cacheWrite: config.cacheWritePrice ?? 0,
+    },
     contextWindow: config.contextWindow,
     maxTokens: config.maxOutput,
   }
@@ -198,6 +218,11 @@ function streamProvider(
   thinking: ThinkingLevel | undefined = undefined,
   runtimeContext = '',
   sessionId?: string,
+  onResponse?: (response: ProviderResponse) => void,
+  onTransportFailure?: TransportFailureObserver,
+  onStreamEvent?: (event: unknown) => void,
+  onProviderError?: (errorCode?: unknown) => void,
+  onBodyEof?: () => void,
 ): AssistantMessageEventStream {
   const model = modelOf(config)
   const reasoning = normalizeThinkingLevel(config, thinking)
@@ -206,6 +231,28 @@ function streamProvider(
     signal,
     maxTokens: config.maxOutput,
     maxRetries: 0,
+    ...(onResponse && (config.protocol === 'openai-responses' || config.protocol === 'openai-completions')
+      ? {
+          fetch: withProviderResponseDiagnostics(
+            globalThis.fetch,
+            onResponse,
+            onTransportFailure,
+            onProviderError,
+            onBodyEof,
+          ),
+        }
+      : {}),
+    ...(onStreamEvent && (config.protocol === 'openai-responses' || config.protocol === 'openai-completions')
+      ? {
+          onProviderStreamEvent: (event: unknown) => {
+            try {
+              onStreamEvent(event)
+            } catch {
+              // Observation must not alter provider semantics.
+            }
+          },
+        }
+      : {}),
     ...(sessionId ? { sessionId } : {}),
     ...(config.protocol === 'openai-responses' || config.protocol === 'openai-completions'
       ? { samplingParams: { parallel_tool_calls: true } }
@@ -237,6 +284,172 @@ function streamProvider(
   } catch (error) {
     return failedStream(model, error, signal.aborted)
   }
+}
+
+function emitModelDiagnostic(
+  callback: ((event: ModelDiagnosticEvent) => void) | undefined,
+  event: ModelDiagnosticEvent,
+): void {
+  try {
+    callback?.(event)
+  } catch {
+    // Diagnostics are observational and must not alter provider/error semantics.
+  }
+}
+
+function responseDiagnostic(
+  callback: ((event: ModelDiagnosticEvent) => void) | undefined,
+  request: ModelRequest,
+  response: ProviderResponse,
+  modelRequestId: string,
+  purpose: 'model' | 'compaction',
+): void {
+  const id = response.headers['x-request-id']
+  const upstreamRequestIdSha256 =
+    id && id.length <= 256 ? new Bun.CryptoHasher('sha256').update(id).digest('hex') : undefined
+  emitModelDiagnostic(callback, {
+    phase: 'response',
+    purpose,
+    providerId: diagnosticProviderId(request.model.id),
+    modelSelectionId: request.model.id,
+    modelRequestId,
+    model: request.model.model,
+    protocol: request.model.protocol,
+    httpStatus: response.status,
+    upstreamRequestIdSha256,
+  })
+}
+function diagnosticStopReason(reason: AssistantMessage['stopReason']): ModelDiagnosticEvent['stopReason'] {
+  return reason === 'stop' || reason === 'toolUse' || reason === 'length' || reason === 'aborted' || reason === 'error'
+    ? reason
+    : undefined
+}
+function transportFailureDiagnostic(
+  callback: ((event: ModelDiagnosticEvent) => void) | undefined,
+  request: ModelRequest,
+  modelRequestId: string,
+  kind: TransportFailureKind,
+  code: TransportFailureCode | undefined,
+  purpose: 'model' | 'compaction',
+  failurePhase: 'fetch' | 'stream' = 'fetch',
+): void {
+  emitModelDiagnostic(callback, {
+    phase: 'transport_failure',
+    purpose,
+    providerId: diagnosticProviderId(request.model.id),
+    modelSelectionId: request.model.id,
+    modelRequestId,
+    model: request.model.model,
+    protocol: request.model.protocol,
+    transportKind: kind,
+    transportCode: code,
+    failureKind: 'transport',
+    failurePhase,
+  })
+}
+function terminalProviderFacts(
+  response: ProviderResponse | undefined,
+  transportKind: TransportFailureKind | undefined,
+  transportCode: TransportFailureCode | undefined,
+  failed: boolean,
+  transportPhase: 'fetch' | 'stream' | undefined = undefined,
+  stream?: ProviderStreamObservation,
+  stopReason?: ModelDiagnosticEvent['stopReason'],
+): Pick<
+  ModelDiagnosticEvent,
+  | 'failureKind'
+  | 'failurePhase'
+  | 'errorCode'
+  | 'httpStatus'
+  | 'upstreamRequestIdSha256'
+  | 'transportKind'
+  | 'transportCode'
+  | 'streamSubtype'
+  | 'streamEventCount'
+  | 'streamTextChars'
+  | 'streamThinkingChars'
+  | 'streamFirstEventMs'
+  | 'streamLastEventMs'
+  | 'streamErrorClass'
+> {
+  const responseStatus = response?.status
+  const requestId = response?.headers['x-request-id']
+  const upstreamRequestIdSha256 =
+    requestId && requestId.length <= 256 ? new Bun.CryptoHasher('sha256').update(requestId).digest('hex') : undefined
+  const responseFacts = {
+    ...(responseStatus === undefined ? {} : { httpStatus: responseStatus }),
+    ...(upstreamRequestIdSha256 === undefined ? {} : { upstreamRequestIdSha256 }),
+    ...(transportKind === undefined ? {} : { transportKind }),
+    ...(transportCode === undefined ? {} : { transportCode }),
+  }
+  const streamFallback =
+    stopReason === 'aborted'
+      ? 'aborted'
+      : stopReason === 'length'
+        ? 'incomplete'
+        : stopReason === 'stop' || stopReason === 'toolUse'
+          ? 'completed'
+          : 'unknown'
+  if (!failed)
+    return {
+      ...responseFacts,
+      ...(transportKind && responseStatus !== undefined
+        ? {
+            failureKind: 'transport' as const,
+            failurePhase: 'stream' as const,
+            errorCode:
+              transportKind === 'timeout'
+                ? 'PROVIDER_REQUEST_TIMEOUT'
+                : transportKind === 'abort'
+                  ? 'PROVIDER_ABORTED'
+                  : transportKind === 'connection'
+                    ? 'PROVIDER_CONNECTION_FAILED'
+                    : 'PROVIDER_TRANSPORT_FAILED',
+          }
+        : {}),
+      ...stream?.facts(streamFallback),
+    }
+  const streamFacts = stream?.facts(streamFallback)
+  // Provider errors can make the SDK abort its reader as cleanup. Keep the
+  // observed stream error as the cause when the caller has not cancelled.
+  if (responseStatus !== undefined && responseStatus < 400 && streamFacts?.streamSubtype === 'provider_error')
+    return {
+      ...responseFacts,
+      failureKind: 'stream',
+      failurePhase: 'stream',
+      errorCode: 'PROVIDER_STREAM_INTERRUPTED',
+      ...streamFacts,
+    }
+  if (transportKind)
+    return {
+      ...responseFacts,
+      failureKind: 'transport',
+      failurePhase: transportPhase ?? 'fetch',
+      errorCode:
+        transportKind === 'timeout'
+          ? 'PROVIDER_REQUEST_TIMEOUT'
+          : transportKind === 'abort'
+            ? 'PROVIDER_ABORTED'
+            : transportKind === 'connection'
+              ? 'PROVIDER_CONNECTION_FAILED'
+              : 'PROVIDER_TRANSPORT_FAILED',
+      ...stream?.facts(streamFallback === 'aborted' ? 'aborted' : 'transport_error'),
+    }
+  if (responseStatus !== undefined && responseStatus >= 400)
+    return { ...responseFacts, failureKind: 'http', failurePhase: 'response', errorCode: 'PROVIDER_HTTP_ERROR' }
+  if (responseStatus !== undefined)
+    return {
+      ...responseFacts,
+      failureKind: 'stream',
+      failurePhase: 'stream',
+      errorCode: 'PROVIDER_STREAM_INTERRUPTED',
+      ...stream?.facts(streamFallback),
+    }
+  return { ...responseFacts, failureKind: 'unknown', failurePhase: 'terminal', errorCode: 'PROVIDER_UNKNOWN' }
+}
+function diagnosticProviderId(selectionId: string): string {
+  const value = selectionId.split('/', 1)[0] ?? selectionId
+  return value.slice(0, 160)
 }
 
 async function toPiMessages(
@@ -358,9 +571,17 @@ export class PiDriver implements HarnessDriver {
       attemptModel = input.request.model,
       firstThinking = false,
       firstText = false
+    let modelDiagnosticStartedAt = 0
+    let modelRequestId = ''
+    let modelTerminalEmitted = false
     const completedTools = new Set<string>()
     let goalStopped = false
     let requestFailure: unknown
+    let latestResponse: ProviderResponse | undefined
+    let latestTransportKind: TransportFailureKind | undefined
+    let latestTransportCode: TransportFailureCode | undefined
+    let latestTransportPhase: 'fetch' | 'stream' | undefined
+    let streamState = new ProviderStreamObservation()
     const readSteering = createDriverSteeringReader(input)
     const pollSteering = async (closeWhenEmpty?: true) => {
       if (input.signal.aborted || goalStopped || requestFailure !== undefined) return []
@@ -401,7 +622,7 @@ export class PiDriver implements HarnessDriver {
         firstThinking = false
         firstText = false
         stepCount++
-        if (stepCount > 64) throw new Error('Run reached the 64-step limit')
+        if (stepCount > 64) throw new HbarError(RUN_STEP_LIMIT_CODE, 'Run reached the 64-step limit')
         await input.emit('step.started', { step: stepCount }, stepId)
       } else if (event.type === 'message_start' && event.message.role === 'assistant') {
         streamId = crypto.randomUUID()
@@ -430,6 +651,41 @@ export class PiDriver implements HarnessDriver {
       } else if (event.type === 'message_end') {
         if (event.message.role === 'assistant') {
           const message = event.message
+          if (
+            message.stopReason === 'error' ||
+            message.stopReason === 'aborted' ||
+            message.stopReason === 'stop' ||
+            message.stopReason === 'toolUse' ||
+            message.stopReason === 'length'
+          )
+            if (!modelTerminalEmitted)
+              emitModelDiagnostic(input.onModelDiagnostic, {
+                phase:
+                  message.stopReason === 'aborted'
+                    ? 'cancelled'
+                    : message.stopReason === 'error'
+                      ? 'failed'
+                      : 'settled',
+                purpose: 'model',
+                providerId: diagnosticProviderId(attemptModel.id),
+                modelSelectionId: attemptModel.id,
+                modelRequestId,
+                model: attemptModel.model,
+                protocol: attemptModel.protocol,
+                stopReason: message.stopReason,
+                ...terminalProviderFacts(
+                  latestResponse,
+                  latestTransportKind,
+                  latestTransportCode,
+                  message.stopReason === 'error',
+                  latestTransportPhase,
+                  streamState,
+                  message.stopReason,
+                ),
+                durationMs:
+                  modelDiagnosticStartedAt > 0 ? Math.max(0, performance.now() - modelDiagnosticStartedAt) : undefined,
+              })
+          modelTerminalEmitted = true
           await input.emit(
             'usage.recorded',
             createUsageFact({
@@ -477,6 +733,24 @@ export class PiDriver implements HarnessDriver {
           request.model.protocol === 'openai-responses' || request.model.protocol === 'openai-completions'
             ? splitModelContext(request)
             : { instructions: request.system, context: '' }
+        modelRequestId = stepId
+        modelTerminalEmitted = false
+        latestResponse = undefined
+        latestTransportKind = undefined
+        latestTransportCode = undefined
+        latestTransportPhase = undefined
+        streamState = new ProviderStreamObservation()
+        if (!modelTerminalEmitted)
+          emitModelDiagnostic(input.onModelDiagnostic, {
+            phase: 'started',
+            purpose: 'model',
+            providerId: diagnosticProviderId(request.model.id),
+            modelSelectionId: request.model.id,
+            modelRequestId,
+            model: request.model.model,
+            protocol: request.model.protocol,
+          })
+        modelDiagnosticStartedAt = performance.now()
         return streamProvider(
           request.model,
           {
@@ -495,10 +769,46 @@ export class PiDriver implements HarnessDriver {
           input.run.input.thinking,
           context.context,
           input.session.id,
+          (response) => {
+            latestResponse = response
+            responseDiagnostic(input.onModelDiagnostic, request, response, modelRequestId, 'model')
+          },
+          (kind, code, phase) => {
+            latestTransportKind = kind
+            latestTransportCode = code
+            latestTransportPhase = phase
+            transportFailureDiagnostic(input.onModelDiagnostic, request, modelRequestId, kind, code, 'model', phase)
+          },
+          (event) => streamState.observe(event),
+          (errorCode) => streamState.markProviderError(errorCode),
+          () => streamState.markEof(),
         )
       } catch (error) {
         if (error instanceof RunControlSignal && !input.signal.aborted) throw error
         requestFailure = error
+        if (!modelTerminalEmitted)
+          emitModelDiagnostic(input.onModelDiagnostic, {
+            phase: input.signal.aborted ? 'cancelled' : 'failed',
+            purpose: 'model',
+            providerId: diagnosticProviderId(input.request.model.id),
+            modelSelectionId: input.request.model.id,
+            modelRequestId,
+            model: input.request.model.model,
+            protocol: input.request.model.protocol,
+            stopReason: input.signal.aborted ? 'aborted' : 'error',
+            ...terminalProviderFacts(
+              latestResponse,
+              latestTransportKind,
+              latestTransportCode,
+              !input.signal.aborted,
+              latestTransportPhase,
+              streamState,
+              input.signal.aborted ? 'aborted' : 'error',
+            ),
+            durationMs:
+              modelDiagnosticStartedAt > 0 ? Math.max(0, performance.now() - modelDiagnosticStartedAt) : undefined,
+          })
+        modelTerminalEmitted = true
         return failedStream(modelOf(input.request.model), error, input.signal.aborted)
       }
     }
@@ -542,39 +852,161 @@ export class PiDriver implements HarnessDriver {
       if (requestFailure !== undefined) throw requestFailure
       if (failure) throw attemptModel.protocol === 'mock' ? new Error(failure) : providerFailure(failure)
     } catch (error) {
+      if (modelRequestId && !modelTerminalEmitted)
+        emitModelDiagnostic(input.onModelDiagnostic, {
+          phase: input.signal.aborted ? 'cancelled' : 'failed',
+          purpose: 'model',
+          providerId: diagnosticProviderId(attemptModel.id),
+          modelSelectionId: attemptModel.id,
+          modelRequestId,
+          model: attemptModel.model,
+          protocol: attemptModel.protocol,
+          stopReason: input.signal.aborted ? 'aborted' : 'error',
+          ...terminalProviderFacts(latestResponse, latestTransportKind, latestTransportCode, !input.signal.aborted),
+          durationMs:
+            modelDiagnosticStartedAt > 0 ? Math.max(0, performance.now() - modelDiagnosticStartedAt) : undefined,
+        })
+      modelTerminalEmitted = modelTerminalEmitted || Boolean(modelRequestId)
       if (!(error instanceof RunControlSignal) || input.signal.aborted) throw error
     } finally {
       await input.closeSteeringAdmission?.()
     }
   }
-  async summarize(request: ModelRequest, apiKey: string | null, signal: AbortSignal) {
-    const stream = streamProvider(
-      request.model,
-      {
-        systemPrompt: request.system,
-        messages: await toPiMessages(request.messages, { ...request.model, imageInput: true }, undefined, undefined),
-      },
-      apiKey,
-      signal,
-      request.context?.thinking,
-      '',
-      request.context?.sessionId,
-    )
-    for await (const event of stream) {
-      void event
-      signal.throwIfAborted()
-    }
-    const message = await stream.result()
-    if (message.stopReason === 'error' || message.stopReason === 'aborted')
-      throw request.model.protocol === 'mock'
-        ? new Error(message.errorMessage ?? 'Compaction failed')
-        : providerFailure(message.errorMessage ?? 'Compaction failed')
-    return {
-      text: message.content
-        .filter((c) => c.type === 'text')
-        .map((c) => c.text)
-        .join('\n'),
-      usage: normalizeUsage(message.usage),
+  async summarize(
+    request: ModelRequest,
+    apiKey: string | null,
+    signal: AbortSignal,
+    onDiagnostic?: (event: ModelDiagnosticEvent) => void,
+  ) {
+    const startedAt = performance.now()
+    const modelRequestId = crypto.randomUUID()
+    let terminalEmitted = false
+    let latestResponse: ProviderResponse | undefined
+    let latestTransportKind: TransportFailureKind | undefined
+    let latestTransportCode: TransportFailureCode | undefined
+    let latestTransportPhase: 'fetch' | 'stream' | undefined
+    const streamState = new ProviderStreamObservation()
+    emitModelDiagnostic(onDiagnostic, {
+      phase: 'started',
+      purpose: 'compaction',
+      providerId: diagnosticProviderId(request.model.id),
+      modelSelectionId: request.model.id,
+      modelRequestId,
+      model: request.model.model,
+      protocol: request.model.protocol,
+    })
+    try {
+      const stream = streamProvider(
+        request.model,
+        {
+          systemPrompt: request.system,
+          messages: await toPiMessages(request.messages, { ...request.model, imageInput: true }, undefined, undefined),
+        },
+        apiKey,
+        signal,
+        request.context?.thinking,
+        '',
+        request.context?.sessionId,
+        (response) => {
+          latestResponse = response
+          responseDiagnostic(onDiagnostic, request, response, modelRequestId, 'compaction')
+        },
+        (kind, code, phase) => {
+          latestTransportKind = kind
+          latestTransportCode = code
+          latestTransportPhase = phase
+          transportFailureDiagnostic(onDiagnostic, request, modelRequestId, kind, code, 'compaction', phase)
+        },
+        (event) => streamState.observe(event),
+        (errorCode) => streamState.markProviderError(errorCode),
+        () => streamState.markEof(),
+      )
+      for await (const event of stream) {
+        void event
+        signal.throwIfAborted()
+      }
+      const message = await stream.result()
+      if (message.stopReason === 'error' || message.stopReason === 'aborted' || message.stopReason === 'length') {
+        const incomplete = message.stopReason === 'length'
+        terminalEmitted = true
+        emitModelDiagnostic(onDiagnostic, {
+          phase: message.stopReason === 'aborted' ? 'cancelled' : 'failed',
+          purpose: 'compaction',
+          providerId: diagnosticProviderId(request.model.id),
+          modelSelectionId: request.model.id,
+          modelRequestId,
+          model: request.model.model,
+          protocol: request.model.protocol,
+          stopReason: message.stopReason,
+          ...terminalProviderFacts(
+            latestResponse,
+            latestTransportKind,
+            latestTransportCode,
+            message.stopReason === 'error' || incomplete,
+            latestTransportPhase,
+            streamState,
+            diagnosticStopReason(message.stopReason),
+          ),
+          ...(incomplete ? { errorCode: 'COMPACTION_INCOMPLETE' } : {}),
+          durationMs: Math.max(0, performance.now() - startedAt),
+        })
+        if (incomplete)
+          throw new HbarError('COMPACTION_INCOMPLETE', 'Provider summary stopped before completion (length)')
+        throw request.model.protocol === 'mock'
+          ? new Error(message.errorMessage ?? 'Compaction failed')
+          : providerFailure(message.errorMessage ?? 'Compaction failed')
+      }
+      if (!terminalEmitted)
+        emitModelDiagnostic(onDiagnostic, {
+          phase: 'settled',
+          purpose: 'compaction',
+          providerId: diagnosticProviderId(request.model.id),
+          modelSelectionId: request.model.id,
+          modelRequestId,
+          model: request.model.model,
+          protocol: request.model.protocol,
+          stopReason: message.stopReason === 'toolUse' || message.stopReason === 'stop' ? message.stopReason : 'stop',
+          ...terminalProviderFacts(
+            latestResponse,
+            latestTransportKind,
+            latestTransportCode,
+            false,
+            latestTransportPhase,
+            streamState,
+            diagnosticStopReason(message.stopReason),
+          ),
+          durationMs: Math.max(0, performance.now() - startedAt),
+        })
+      return {
+        text: message.content
+          .filter((c) => c.type === 'text')
+          .map((c) => c.text)
+          .join('\n'),
+        usage: normalizeUsage(message.usage),
+      }
+    } catch (error) {
+      if (!terminalEmitted)
+        emitModelDiagnostic(onDiagnostic, {
+          phase: signal.aborted ? 'cancelled' : 'failed',
+          purpose: 'compaction',
+          providerId: diagnosticProviderId(request.model.id),
+          modelSelectionId: request.model.id,
+          modelRequestId,
+          model: request.model.model,
+          protocol: request.model.protocol,
+          stopReason: signal.aborted ? 'aborted' : 'error',
+          ...terminalProviderFacts(
+            latestResponse,
+            latestTransportKind,
+            latestTransportCode,
+            !signal.aborted,
+            latestTransportPhase,
+            streamState,
+            signal.aborted ? 'aborted' : 'error',
+          ),
+          durationMs: Math.max(0, performance.now() - startedAt),
+        })
+      throw error
     }
   }
 }

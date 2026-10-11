@@ -1,6 +1,7 @@
 import { Context, Service } from 'cordis'
 export type { DecisionContext, DecisionService } from './decision'
 export { appendModelContext, prependModelInstructions } from './model-context'
+export { SKILL_TOOL_NAMES } from './skills'
 export { RunControlSignal, type GoalReplacementStop } from './run-control'
 import type { GoalReplacementStop } from './run-control'
 import type { ToolTimeoutPolicy } from './tool-timeout'
@@ -10,6 +11,7 @@ export type { ToolPresentationDeclaration } from '@hbar/contracts'
 import type {
   Approval,
   ContentBlock,
+  DiagnosticEvent,
   FileEntry,
   Message,
   ProviderConfig,
@@ -94,6 +96,10 @@ export interface ToolResult {
   content?: ToolResultContent[]
   isError?: boolean
   details?: unknown
+  /** Optional measured facts, validated and persisted by the Host with the tool result. */
+  activity?: import('@hbar/contracts/tool-activity').ToolActivity | undefined
+  /** Exact versions written by this call, for a durable per-Run review and guarded undo. */
+  fileChanges?: readonly import('@hbar/contracts/run-file-changes').ToolFileChange[] | undefined
   /** Host-owned failure metadata. The execution gateway overwrites any plugin-provided value. */
   hostFailure?: { code: string; executionStarted: boolean } | undefined
   /** Host-owned normal termination. Plugins cannot manufacture this at the execution gateway. */
@@ -207,7 +213,13 @@ export interface ExecutionProvider {
     path: string,
     text: string,
     options?: { expectedRevision?: string },
-  ): Promise<{ before: string; after: string; path: string; revision: string }>
+  ): Promise<{ before: string; after: string; path: string; revision: string; created?: boolean }>
+  /** Restore a bounded set of exact text versions after verifying every current version. */
+  restoreFiles?(
+    workspace: string,
+    changes: readonly import('@hbar/contracts/run-file-changes').ToolFileChange[],
+    signal: AbortSignal,
+  ): Promise<void>
   exec(workspace: string, command: string, signal: AbortSignal, options?: ExecOptions): Promise<ToolResult>
   workspaceQuery?: WorkspaceQueryProvider
   dispose?(): void | Promise<void>
@@ -238,6 +250,10 @@ export interface ModelRequest {
   toolNames?: readonly string[]
   context?: {
     sessionId: string
+    /** Actual execution root, including an isolated worktree or mounted workspace. */
+    workspacePath?: string | undefined
+    /** Captured Run tools after all selection hooks; context cannot advertise excluded capabilities. */
+    selectedToolNames?: readonly string[] | undefined
     /** Context inspection decorates a read-only projection without admitting a model execution. */
     purpose?: 'execution' | 'context-inspection'
     runId?: string | undefined
@@ -255,6 +271,8 @@ export interface DriverInput {
   tools: ToolDefinition[]
   apiKey: string | null
   signal: AbortSignal
+  /** Bounded observational model lifecycle metadata. Callback failures are ignored by the Host. */
+  onModelDiagnostic?(event: ModelDiagnosticEvent): void
   resolveKey(modelId: string): Promise<string | null>
   readImage(id: string): Promise<{ mime: string; data: string }>
   readFile(id: string): Promise<{
@@ -301,7 +319,50 @@ export interface HarnessDriver {
    * admission requires both capabilities; legacy polling alone is not safe. */
   readonly supportsSteeringAdmissionClosure?: boolean
   run(input: DriverInput): Promise<void>
-  summarize(request: ModelRequest, apiKey: string | null, signal: AbortSignal): Promise<{ text: string; usage: Usage }>
+  summarize(
+    request: ModelRequest,
+    apiKey: string | null,
+    signal: AbortSignal,
+    onDiagnostic?: (event: ModelDiagnosticEvent) => void,
+  ): Promise<{ text: string; usage: Usage }>
+}
+
+export interface ModelDiagnosticEvent {
+  readonly phase: 'started' | 'response' | 'transport_failure' | 'settled' | 'failed' | 'cancelled'
+  readonly purpose: 'model' | 'compaction'
+  readonly providerId: string
+  readonly modelSelectionId: string
+  readonly modelRequestId?: string | undefined
+  readonly attemptId?: string | undefined
+  readonly upstreamRequestIdSha256?: string | undefined
+  readonly httpStatus?: number | undefined
+  readonly transportKind?: 'abort' | 'timeout' | 'connection' | 'unknown' | undefined
+  readonly transportCode?:
+    | 'ECONNREFUSED'
+    | 'ConnectionRefused'
+    | 'ECONNRESET'
+    | 'ETIMEDOUT'
+    | 'EAI_AGAIN'
+    | 'ENOTFOUND'
+    | 'ENETUNREACH'
+    | 'EHOSTUNREACH'
+    | 'EPIPE'
+    | 'UND_ERR_CONNECT_TIMEOUT'
+    | undefined
+  readonly model: string
+  readonly protocol: string
+  readonly stopReason?: 'stop' | 'toolUse' | 'length' | 'aborted' | 'error' | undefined
+  readonly errorCode?: string | undefined
+  readonly failureKind?: DiagnosticEvent['failureKind'] | undefined
+  readonly failurePhase?: DiagnosticEvent['failurePhase'] | undefined
+  readonly streamSubtype?: DiagnosticEvent['streamSubtype'] | undefined
+  readonly streamEventCount?: number | undefined
+  readonly streamTextChars?: number | undefined
+  readonly streamThinkingChars?: number | undefined
+  readonly streamFirstEventMs?: number | undefined
+  readonly streamLastEventMs?: number | undefined
+  readonly streamErrorClass?: DiagnosticEvent['streamErrorClass'] | undefined
+  readonly durationMs?: number | undefined
 }
 export interface SessionService {
   /** Host-owned layered settings bridge; plugins never reach into SettingsService or Storage internals. */

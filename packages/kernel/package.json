@@ -12,8 +12,10 @@
     "./runtime-port": "./src/runtime-port.ts",
     "./runtime-application": "./src/runtime-application.ts",
     "./diagnostics": "./src/diagnostic-journal.ts",
+    "./diagnostic-scope": "./src/diagnostic-scope.ts",
     "./session-search-commands": "./src/session-search-commands.ts",
-    "./skill-import": "./src/skill-import-service.ts"
+    "./skill-import": "./src/skill-import-service.ts",
+    "./skills": "./src/skills/index.ts"
   },
   "dependencies": {
     "@hbar/agent": "workspace:*",

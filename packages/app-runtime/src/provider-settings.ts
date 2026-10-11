@@ -125,6 +125,10 @@ const modelFields = [
   'reasoning',
   'inputPrice',
   'outputPrice',
+  'cacheReadPrice',
+  'cacheWritePrice',
+  'maxModePricingMultiplier',
+  'contextTiers',
   'thinkingLevels',
   'defaultThinkingLevel',
 ] as const
@@ -132,6 +136,13 @@ const modelFields = [
 function errorCode(error: unknown): string {
   if (error instanceof CommandError || error instanceof SchemaError || error instanceof HbarError) return error.code
   return 'EXECUTION_FAILED'
+}
+
+function withContextField<Value extends object>(original: Value, field: string, value: number | null): Value {
+  const result = { ...original }
+  if (value === null) Reflect.deleteProperty(result, field)
+  else Reflect.set(result, field, value)
+  return result
 }
 
 function commandError(error: unknown): CommandError {
@@ -217,6 +228,12 @@ function draftModel(model: ProviderConfig['models'][number]): ProviderEditorDraf
     reasoning: model.reasoning,
     inputPrice: model.inputPrice,
     outputPrice: model.outputPrice,
+    ...(model.cacheReadPrice === undefined ? {} : { cacheReadPrice: model.cacheReadPrice }),
+    ...(model.cacheWritePrice === undefined ? {} : { cacheWritePrice: model.cacheWritePrice }),
+    ...(model.maxModePricingMultiplier === undefined
+      ? {}
+      : { maxModePricingMultiplier: model.maxModePricingMultiplier }),
+    ...(model.contextTiers === undefined ? {} : { contextTiers: model.contextTiers.map((tier) => ({ ...tier })) }),
     thinkingLevels: [...model.thinkingLevels],
     defaultThinkingLevel: model.defaultThinkingLevel,
   }
@@ -275,6 +292,9 @@ function draftFromPreset(model: ProviderPresetModel): ProviderEditorDraftModel {
     reasoning: model.reasoning,
     inputPrice: model.inputPrice,
     outputPrice: model.outputPrice,
+    ...(model.cacheReadPrice === undefined ? {} : { cacheReadPrice: model.cacheReadPrice }),
+    ...(model.cacheWritePrice === undefined ? {} : { cacheWritePrice: model.cacheWritePrice }),
+    ...(model.contextTiers === undefined ? {} : { contextTiers: model.contextTiers.map((tier) => ({ ...tier })) }),
     thinkingLevels: [...model.thinkingLevels],
     defaultThinkingLevel: model.defaultThinkingLevel,
   }
@@ -299,6 +319,12 @@ function toProviderInput(draft: ProviderEditorDraft): ProviderInput {
       reasoning: model.reasoning,
       inputPrice: model.inputPrice,
       outputPrice: model.outputPrice,
+      ...(model.cacheReadPrice === undefined ? {} : { cacheReadPrice: model.cacheReadPrice }),
+      ...(model.cacheWritePrice === undefined ? {} : { cacheWritePrice: model.cacheWritePrice }),
+      ...(model.maxModePricingMultiplier === undefined
+        ? {}
+        : { maxModePricingMultiplier: model.maxModePricingMultiplier }),
+      ...(model.contextTiers === undefined ? {} : { contextTiers: model.contextTiers.map((tier) => ({ ...tier })) }),
       thinkingLevels: [...model.thinkingLevels],
       defaultThinkingLevel: model.defaultThinkingLevel,
     })),
@@ -884,6 +910,12 @@ export function createProviderSettings(
       throw new CommandError('FORM_NOT_FOUND', 'Provider editor is unavailable')
     return current
   }
+  const contextEditor = (editorId: string): ProviderEditorState => {
+    const current = editor(editorId)
+    if (pending.has(editorId) || current.form.status === 'submitting' || current.form.status === 'unknown')
+      throw new CommandError('SUBMISSION_PENDING', 'Reconcile the provider save before changing context pricing')
+    return current
+  }
   const replaceEditor = (next: ProviderEditorState): void => {
     const current = state.reader.getSnapshot()
     replace({ ...current, editor: next })
@@ -1264,6 +1296,75 @@ export function createProviderSettings(
       throw commandError(error)
     }
   })
+  local.register(providerEditorCommands['providerEditor.addContextTier'], ({ editorId, modelId }) => {
+    const current = contextEditor(editorId)
+    const model = current.draft.models.find((candidate) => candidate.id === modelId)
+    const description = current.description.contextPricing
+    if (!model || !description) throw new CommandError('CAPABILITY_UNAVAILABLE', 'Context tier editing is unavailable')
+    const tiers = model.contextTiers ?? []
+    const previous = tiers.at(-1) ?? model
+    if (tiers.length >= description.maxTiers || previous.contextWindow >= 10_000_000)
+      throw new CommandError('LIMIT_EXCEEDED', 'Maximum context tiers reached')
+    const tier = {
+      id: `tier-${crypto.randomUUID().slice(0, 8)}`,
+      contextWindow: Math.min(10_000_000, Math.max(previous.contextWindow + 1024, previous.contextWindow * 2)),
+      inputTokensAbove: previous.contextWindow,
+      inputPrice: previous.inputPrice,
+      outputPrice: previous.outputPrice,
+      ...(previous.cacheReadPrice === undefined ? {} : { cacheReadPrice: previous.cacheReadPrice }),
+      ...(previous.cacheWritePrice === undefined ? {} : { cacheWritePrice: previous.cacheWritePrice }),
+    }
+    replaceDraft(current, {
+      ...current.draft,
+      models: current.draft.models.map((candidate) =>
+        candidate.id === modelId ? { ...model, contextTiers: [...tiers, tier] } : candidate,
+      ),
+    })
+    return summary(state.reader.getSnapshot())
+  })
+  local.register(providerEditorCommands['providerEditor.removeContextTier'], ({ editorId, modelId, tierId }) => {
+    const current = contextEditor(editorId)
+    const model = current.draft.models.find((candidate) => candidate.id === modelId)
+    if (!model?.contextTiers?.some((tier) => tier.id === tierId))
+      throw new CommandError('MODEL_NOT_FOUND', 'Context tier was not found')
+    replaceDraft(current, {
+      ...current.draft,
+      models: current.draft.models.map((candidate) =>
+        candidate.id === modelId
+          ? { ...model, contextTiers: model.contextTiers!.filter((tier) => tier.id !== tierId) }
+          : candidate,
+      ),
+    })
+    return summary(state.reader.getSnapshot())
+  })
+  local.register(
+    providerEditorCommands['providerEditor.setContextField'],
+    ({ editorId, modelId, tierId, field, value }) => {
+      const current = contextEditor(editorId)
+      const model = current.draft.models.find((candidate) => candidate.id === modelId)
+      const description = current.description.contextPricing
+      if (!model || !description)
+        throw new CommandError('CAPABILITY_UNAVAILABLE', 'Context pricing editing is unavailable')
+      const descriptor = (tierId ? description.tierFields : description.fields).find((item) => item.name === field)
+      if (!descriptor || (value === null && descriptor.required))
+        throw new CommandError('INVALID_INPUT', 'Context pricing field is unavailable')
+      const tier = tierId ? model.contextTiers?.find((item) => item.id === tierId) : undefined
+      if (tierId && !tier) throw new CommandError('MODEL_NOT_FOUND', 'Context tier was not found')
+      const updated = tier
+        ? {
+            ...model,
+            contextTiers: model.contextTiers!.map((item) =>
+              item.id === tier.id ? withContextField(item, field, value) : item,
+            ),
+          }
+        : withContextField(model, field, value)
+      replaceDraft(current, {
+        ...current.draft,
+        models: current.draft.models.map((candidate) => (candidate.id === modelId ? updated : candidate)),
+      })
+      return summary(state.reader.getSnapshot())
+    },
+  )
   local.register(providerEditorCommands['providerEditor.setModelField'], ({ editorId, modelId, field, value }) => {
     try {
       const current = editor(editorId)

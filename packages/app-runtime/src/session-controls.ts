@@ -4,6 +4,7 @@ import {
   modelWriteResultSchema,
   modelCommands,
   COMPACTION_PERCENT_SETTING,
+  MAX_MODE_SETTING,
   sessionContextUsageSchema,
   type ModelConfiguration,
 } from '@hbar/contracts/commands/models'
@@ -336,7 +337,9 @@ export function createSessionControls(
         ({ path }) =>
           path.length === 1 &&
           path[0]?.kind === 'field' &&
-          (path[0].name === 'provider.model' || path[0].name === 'provider.thinkingLevel'),
+          (path[0].name === 'provider.model' ||
+            path[0].name === 'provider.thinkingLevel' ||
+            path[0].name === MAX_MODE_SETTING),
       )
       const affectsContext = input.changes.some(
         ({ path }) => path.length === 1 && path[0]?.kind === 'field' && path[0].name === COMPACTION_PERCENT_SETTING,

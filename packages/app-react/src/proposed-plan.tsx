@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { FileText, PencilLine, Play, RefreshCw } from 'lucide-react'
-import { LumenButton, LumenFormField, LumenFrame, LumenIcon, LumenText, LumenTextarea } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFormField, LumenFrame, LumenIcon, LumenTextarea } from '@lumen/app-ui'
 import { MessageMarkdown, type MessageCodeContext } from './message-markdown'
 import type { MessageFileReferenceContext } from './message-file-reference'
 import './proposed-plan.css'
@@ -127,7 +127,7 @@ function ProposedPlanContent({
     >
       <LumenFrame className="hbar-proposed-plan-heading">
         <LumenIcon icon={FileText} tier="md" />
-        <LumenText as="strong">{labels.title}</LumenText>
+        <LumenContentText context="record.title">{labels.title}</LumenContentText>
       </LumenFrame>
       <LumenFrame
         className="hbar-proposed-plan-document"
@@ -139,9 +139,9 @@ function ProposedPlanContent({
         <MessageMarkdown text={markdown} code={code} fileReferences={fileReferences} />
       </LumenFrame>
       {state.status !== 'accepted' && (
-        <LumenText as="p" id={scopeId} className="hbar-proposed-plan-scope" tone="muted">
+        <LumenContentText context="section.description" id={scopeId} className="hbar-proposed-plan-scope" tone="muted">
           {labels.scope}
-        </LumenText>
+        </LumenContentText>
       )}
       {state.status !== 'accepted' ? (
         <LumenFrame className="hbar-proposed-plan-feedback">
@@ -211,7 +211,7 @@ function ProposedPlanContent({
         </LumenFrame>
       )}
       {state.status === 'submitting' || state.status === 'accepted' || state.status === 'unknown' ? (
-        <LumenText id={statusId} className="hbar-proposed-plan-status" as="p" role="status">
+        <LumenContentText id={statusId} className="hbar-proposed-plan-status" context="feedback.message" role="status">
           {state.status === 'submitting'
             ? state.phase === 'mode'
               ? labels.exitingPlan
@@ -225,20 +225,20 @@ function ProposedPlanContent({
                 : state.phase === 'mode'
                   ? labels.unknownPlanExit
                   : labels.unknown}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {state.error ? (
-        <LumenText className="hbar-proposed-plan-status" as="p" role="alert" tone="danger">
+        <LumenContentText className="hbar-proposed-plan-status" context="feedback.message" role="alert" tone="danger">
           {state.error}
-        </LumenText>
+        </LumenContentText>
       ) : null}
       {!state.canSubmit &&
       state.unavailable &&
       state.status !== 'accepted' &&
       (state.status === 'idle' || state.status === 'failed' || !state.connected) ? (
-        <LumenText className="hbar-proposed-plan-status" as="p" tone="muted">
+        <LumenContentText className="hbar-proposed-plan-status" context="section.description" tone="muted">
           {state.unavailable}
-        </LumenText>
+        </LumenContentText>
       ) : null}
     </LumenFrame>
   )

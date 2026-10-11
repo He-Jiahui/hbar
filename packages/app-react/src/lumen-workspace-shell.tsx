@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react'
 import {
   Activity,
   CalendarDays,
@@ -20,6 +29,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import {
+  LumenContentText,
   LumenAppShell09,
   LumenAppShell04,
   LumenAppSidebar,
@@ -32,9 +42,9 @@ import {
   LumenIcon,
   LumenInput,
   LumenSidebarAction,
-  LumenText,
   LumenTree,
   LumenTreeItem,
+  LumenFloatingSurface,
   type LumenIconTier,
   type LumenAppShellProps,
   type LumenToolPresentation,
@@ -229,6 +239,8 @@ export interface HbarWorkspaceShellProps {
   readonly toolRef?: LumenAppShellProps['toolRef']
   readonly resizeRef?: LumenAppShellProps['resizeRef']
   readonly onToolPresentationChange?: LumenAppShellProps['onToolPresentationChange']
+  readonly desktopToolPresentation?: LumenToolPresentation
+  readonly onCloseTool?: (() => void) | undefined
   readonly connection: 'connected' | 'connecting' | 'pairing' | 'disconnected'
   readonly onReconnect: () => void
   readonly titlebar?: ReactNode
@@ -353,8 +365,8 @@ function NavigationActionFeedback({
   if (!connected || state.status === 'idle') return null
   return (
     <LumenFrame className="hbar-app-react-navigation-feedback">
-      {targetName && <LumenText as="small">{targetName}</LumenText>}
-      <LumenText as="p" role={state.status === 'submitting' ? 'status' : 'alert'}>
+      {targetName && <LumenContentText context="record.description">{targetName}</LumenContentText>}
+      <LumenContentText context="feedback.message" role={state.status === 'submitting' ? 'status' : 'alert'}>
         {state.status === 'submitting'
           ? state.action?.kind === 'create-session'
             ? labels.creatingSession
@@ -362,7 +374,7 @@ function NavigationActionFeedback({
           : state.status === 'unknown'
             ? labels.creationUnknown
             : labels.error(state.error ?? 'EXECUTION_FAILED')}
-      </LumenText>
+      </LumenContentText>
       {state.status === 'unknown' && (
         <LumenButton size="s" variant="outlined" disabled={!connected} onClick={onReconcile}>
           {labels.reconcileCreation}
@@ -384,10 +396,11 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     workspaceActivity.organizationPreferenceStatus,
   )
   useEffect(() => {
+    if (props.connection !== 'connected') return
     void runtime.commands.execute('workspaceActivity.setLocale', { locale: props.locale ?? 'en-US' }).catch(() => {
       // The activity owner retains its confirmed page and localized retry.
     })
-  }, [props.locale, runtime])
+  }, [props.locale, props.connection, runtime])
   const organization = useHbarRuntimeState(runtime.state.workspaceOrganization)
   const displayNames = useHbarRuntimeState(runtime.state.workspaceDisplayNames)
   const organizationMenuRef = useRef<HTMLDivElement | null>(null)
@@ -407,6 +420,8 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const [sidebarViewportNarrow, setSidebarViewportNarrow] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(max-width: 63.9375rem)').matches,
   )
+  const sidebarViewportOwner = useRef<{ owner: typeof runtime; narrow: boolean } | null>(null)
+  const sidebarChoiceRevision = useRef(0)
   const [workspaceTabsViewport, setWorkspaceTabsViewport] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(min-width: 48rem)').matches,
   )
@@ -507,7 +522,12 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   }, [runtime, reportSidebarFocusUnavailable])
   const resizeRef = useRef<HTMLElement | null>(null)
   const [toolPresentation, setToolPresentation] = useState<LumenToolPresentation>('none')
-  const resolvedToolPresentation = props.renderLayout ? (props.tool ? 'split' : 'none') : toolPresentation
+  const desktopToolDock = useRef<HTMLDivElement>(null)
+  const resolvedToolPresentation = props.renderLayout
+    ? props.tool
+      ? (props.desktopToolPresentation ?? 'split')
+      : 'none'
+    : toolPresentation
   const [toolFocusError, setToolFocusError] = useState<{ key: string; code: string } | null>(null)
   const focusSnapshot = getWorkspaceToolFocusSnapshot(
     navigation,
@@ -681,23 +701,29 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     if (props.connection === 'connected' && projectPicker) void loadWorkspaces()
   }, [loadWorkspaces, projectPicker, props.connection])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const narrow = window.matchMedia('(max-width: 63.9375rem)')
     const closeNarrowSidebar = (event: MediaQueryListEvent | MediaQueryList) => {
+      const previous = sidebarViewportOwner.current
+      const enteredNarrow = previous?.owner !== runtime || previous.narrow !== event.matches
+      sidebarViewportOwner.current = { owner: runtime, narrow: event.matches }
       setSidebarViewportNarrow(event.matches)
       if (
+        enteredNarrow &&
         shouldCollapseWorkspaceSidebar(
           event.matches,
           runtime.state.presentation.getSnapshot().sidebarOpen,
           document.querySelector('dialog:modal') !== null,
         )
       )
-        void execute('app.setSidebarVisible', { visible: false }).catch(recordError)
+        void execute(previous?.owner !== runtime ? 'app.initializeSidebar' : 'app.setSidebarVisible', {
+          visible: false,
+        }).catch(recordError)
     }
     closeNarrowSidebar(narrow)
     narrow.addEventListener('change', closeNarrowSidebar)
     return () => narrow.removeEventListener('change', closeNarrowSidebar)
-  }, [execute, recordError, runtime.state.presentation])
+  }, [execute, recordError, runtime, runtime.state.presentation])
 
   useEffect(() => {
     if (navigation.workspaceId)
@@ -726,13 +752,17 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       )
       if (!shortcut) return
       event.preventDefault()
+      const choiceRevision = sidebarChoiceRevision.current
       void (
         shortcut === 'settings'
           ? execute('app.openSettings', { scope: 'global' })
           : execute('app.openPanel', { panelId: shortcut })
       )
         .then(() => {
-          if (window.matchMedia('(max-width: 63.9375rem)').matches)
+          if (
+            choiceRevision === sidebarChoiceRevision.current &&
+            window.matchMedia('(max-width: 63.9375rem)').matches
+          )
             return execute('app.setSidebarVisible', { visible: false })
           return undefined
         })
@@ -965,6 +995,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   }
 
   const setSidebarVisible = (visible: boolean) => {
+    sidebarChoiceRevision.current += 1
     const trigger = [sidebarFocusRef.current, sidebarShowFocusRef.current].find(
       (node) => node !== null && node === document.activeElement,
     )
@@ -977,7 +1008,15 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const closeNarrowSidebar = useCallback(async () => {
     if (window.matchMedia('(max-width: 63.9375rem)').matches) await execute('app.setSidebarVisible', { visible: false })
   }, [execute])
-  const settleNavigation = (operation: Promise<unknown>) => void operation.then(closeNarrowSidebar).catch(recordError)
+  const closeAfterNavigation = () => {
+    const revision = sidebarChoiceRevision.current
+    return () => {
+      if (revision !== sidebarChoiceRevision.current) return
+      return closeNarrowSidebar()
+    }
+  }
+  const settleNavigation = (operation: Promise<unknown>) =>
+    void operation.then(closeAfterNavigation()).catch(recordError)
   const openPanel = (panelId: string) => settleNavigation(execute('app.openPanel', { panelId }))
   const openWorkspaceSurface = (workspaceId: string, surface: 'files' | 'settings' | 'run-board' | 'schedules') => {
     setWorkspaceActionError(null)
@@ -985,7 +1024,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       surface === 'settings'
         ? execute('app.openSettings', { scope: 'workspace', targetId: workspaceId, workspaceId, binding: 'pinned' })
         : execute('app.openPanel', { panelId: surface, workspaceId, binding: 'pinned' })
-    void operation.then(closeNarrowSidebar).catch((reason: unknown) => {
+    void operation.then(closeAfterNavigation()).catch((reason: unknown) => {
       setWorkspaceActionError({ workspaceId, code: reason instanceof Error ? reason.message : String(reason) })
     })
   }
@@ -1096,11 +1135,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     }).catch(recordError)
   }
   const openSession = (workspaceId: string, sessionId: string) => {
-    void execute('app.setSession', { workspaceId, sessionId })
-      .then(() => {
-        return closeNarrowSidebar()
-      })
-      .catch(recordError)
+    void execute('app.setSession', { workspaceId, sessionId }).then(closeAfterNavigation()).catch(recordError)
   }
   const serverValue =
     props.connection === 'connected'
@@ -1202,9 +1237,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               />
             )}
             {(extensionsEntryError || error) && (
-              <LumenText as="p" role="alert">
+              <LumenContentText context="feedback.message" role="alert">
                 {props.labels.error(extensionsEntryError ?? error ?? '')}
-              </LumenText>
+              </LumenContentText>
             )}
           </WorkspaceSidebarRail>
         ),
@@ -1297,16 +1332,16 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               onClick={() => {
                 setExtensionsEntryError(null)
                 void execute('app.openSettings', { scope: 'global', section: 'skills' })
-                  .then(closeNarrowSidebar)
+                  .then(closeAfterNavigation())
                   .catch((reason: unknown) =>
                     setExtensionsEntryError(reason instanceof Error ? reason.message : String(reason)),
                   )
               }}
             />
             {extensionsEntryError && (
-              <LumenText as="p" role="alert" className="hbar-app-react-sidebar-action-error">
+              <LumenContentText context="feedback.message" role="alert" className="hbar-app-react-sidebar-action-error">
                 {props.labels.error(extensionsEntryError)}
-              </LumenText>
+              </LumenContentText>
             )}
             <WorkspaceSidebarAction
               icon="command"
@@ -1396,9 +1431,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             onBatchDismissed={exitBatchSelection}
           />
           {batchLimitReached && batchSelecting && (
-            <LumenText as="p" role="status" className="hbar-app-react-sidebar-action-error">
+            <LumenContentText context="feedback.message" role="status" className="hbar-app-react-sidebar-action-error">
               {props.labels.archiveBatch.maximumReached(SESSION_ARCHIVE_BATCH_MAX_ITEMS)}
-            </LumenText>
+            </LumenContentText>
           )}
         </LumenFrame>
         {shellSlots?.navigation ? (
@@ -1418,9 +1453,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             {timeView && (
               <>
                 {timelineItems.length === 0 && !workspaceActivity.timeline.error && (
-                  <LumenText as="p">
+                  <LumenContentText context="section.description">
                     {workspaceActivity.timeline.status !== 'ready' ? props.labels.loading : props.labels.noSessions}
-                  </LumenText>
+                  </LumenContentText>
                 )}
                 <SidebarTimeView
                   groups={timeGroups}
@@ -1484,9 +1519,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                   }}
                 />
                 {workspaceActivity.timeline.limitReached && (
-                  <LumenText as="p" role="status">
+                  <LumenContentText context="feedback.message" role="status">
                     {props.labels.sort.sessionCapacityReached}
-                  </LumenText>
+                  </LumenContentText>
                 )}
                 {workspaceActivity.timeline.hasMore && (
                   <LumenButton
@@ -1510,13 +1545,13 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
               !organizationInitializing &&
               sidebarWorkspaces.length === 0 &&
               !workspaceActivity.workspaces.error && (
-                <LumenText as="p">
+                <LumenContentText context="section.description">
                   {workspaceActivity.workspaces.status !== 'ready'
                     ? props.labels.loading
                     : hiddenWorkspaceIds.length
                       ? props.labels.organization.allHidden
                       : props.labels.noWorkspaces}
-                </LumenText>
+                </LumenContentText>
               )}
             {!timeView &&
               sidebarWorkspaces.map((workspace) => {
@@ -1555,13 +1590,13 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                           <WorkspaceShellIcon name={isExpanded ? 'folder-open' : 'folder'} />
                           <SidebarCaption text={displayName} />
                           {isPinned && (
-                            <LumenText
-                              as="span"
+                            <LumenContentText
+                              context="message.inline"
                               className="hbar-app-react-workspace-pin"
                               title={props.labels.pinnedWorkspace(displayName)}
                             >
                               <WorkspaceShellIcon name="pin" tier="sm" />
-                            </LumenText>
+                            </LumenContentText>
                           )}
                         </LumenFrame>
                         <WorkspaceProjectMenu
@@ -1662,9 +1697,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                           />
                         )}
                         {workspaceActionError?.workspaceId === workspace.id && (
-                          <LumenText as="p" role="alert" tone="danger">
+                          <LumenContentText context="feedback.message" role="alert" tone="danger">
                             {props.labels.error(workspaceActionError.code)}
-                          </LumenText>
+                          </LumenContentText>
                         )}
                         {workspacePins.action.workspaceId === workspace.id &&
                           workspacePins.action.status !== 'idle' && (
@@ -1679,7 +1714,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                                     : undefined
                               }
                             >
-                              <LumenText as="p">
+                              <LumenContentText context="section.description">
                                 {workspacePins.action.status === 'submitting'
                                   ? props.labels.pinningWorkspace
                                   : workspacePins.action.status === 'unknown'
@@ -1691,7 +1726,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                                           ? props.labels.pinSaved
                                           : props.labels.pinRemoved
                                         : props.labels.pinVolatile}
-                              </LumenText>
+                              </LumenContentText>
                               {workspacePins.action.status === 'unknown' && (
                                 <LumenButton
                                   size="s"
@@ -1715,9 +1750,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                     {isExpanded && (
                       <LumenFrame className="hbar-app-react-session-list" data-sidebar-level="parent-sessions">
                         {(!activitySessions || activitySessions.status === 'loading') && sessions.length === 0 ? (
-                          <LumenText as="p">{props.labels.loading}</LumenText>
+                          <LumenContentText context="section.description">{props.labels.loading}</LumenContentText>
                         ) : sessions.length === 0 && !activitySessions?.error ? (
-                          <LumenText as="p">{props.labels.noSessions}</LumenText>
+                          <LumenContentText context="section.description">{props.labels.noSessions}</LumenContentText>
                         ) : (
                           sessions.map((session) => {
                             const execution = activitySessions?.execution[session.id]
@@ -1757,9 +1792,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                           })
                         )}
                         {activitySessions?.limitReached && (
-                          <LumenText as="p" role="status">
+                          <LumenContentText context="feedback.message" role="status">
                             {props.labels.sort.sessionCapacityReached}
-                          </LumenText>
+                          </LumenContentText>
                         )}
                         {activitySessions?.hasMore && (
                           <LumenButton
@@ -1781,9 +1816,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 )
               })}
             {!timeView && workspaceActivity.workspaces.limitReached && (
-              <LumenText as="p" role="status">
+              <LumenContentText context="feedback.message" role="status">
                 {props.labels.sort.capacityReached}
-              </LumenText>
+              </LumenContentText>
             )}
             {!timeView && workspaceActivity.workspaces.hasMore && (
               <LumenButton
@@ -1851,7 +1886,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             />
             {agentTree.revealError && (
               <LumenFrame className="hbar-app-react-organization-feedback" role="alert">
-                <LumenText as="p">{props.labels.agentTree.error(agentTree.revealError)}</LumenText>
+                <LumenContentText context="section.description">
+                  {props.labels.agentTree.error(agentTree.revealError)}
+                </LumenContentText>
                 {navigation.sessionId && (
                   <LumenButton
                     size="s"
@@ -1869,7 +1906,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             )}
             {workspacePins.status === 'error' && (
               <LumenFrame className="hbar-app-react-pin-feedback" role="alert">
-                <LumenText as="p">{props.labels.pinRestoreFailure(workspacePins.error ?? 'UNKNOWN')}</LumenText>
+                <LumenContentText context="section.description">
+                  {props.labels.pinRestoreFailure(workspacePins.error ?? 'UNKNOWN')}
+                </LumenContentText>
                 <LumenButton size="s" variant="outlined" disabled={!connected} onClick={retryWorkspacePins}>
                   {props.labels.pinRetryRestore}
                 </LumenButton>
@@ -1877,11 +1916,11 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             )}
             {(!timeView ? workspaceActivity.workspaces.error : workspaceActivity.timeline.error) && (
               <LumenFrame className="hbar-app-react-organization-feedback" role="alert">
-                <LumenText as="p">
+                <LumenContentText context="section.description">
                   {props.labels.error(
                     (!timeView ? workspaceActivity.workspaces.error : workspaceActivity.timeline.error) ?? 'UNKNOWN',
                   )}
-                </LumenText>
+                </LumenContentText>
                 <LumenButton size="s" variant="outlined" disabled={!connected} onClick={refreshSidebar}>
                   {props.labels.sort.refresh}
                 </LumenButton>
@@ -1889,7 +1928,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             )}
             {workspaceActivity.preferenceError && (
               <LumenFrame className="hbar-app-react-organization-feedback" role="alert">
-                <LumenText as="p">{props.labels.error(workspaceActivity.preferenceError)}</LumenText>
+                <LumenContentText context="section.description">
+                  {props.labels.error(workspaceActivity.preferenceError)}
+                </LumenContentText>
                 <LumenButton size="s" variant="outlined" disabled={!connected} onClick={refreshSidebar}>
                   {props.labels.sort.refresh}
                 </LumenButton>
@@ -1897,16 +1938,18 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             )}
             {workspaceActivity.organizationPreferenceError && (
               <LumenFrame className="hbar-app-react-organization-feedback" role="alert">
-                <LumenText as="p">{props.labels.error(workspaceActivity.organizationPreferenceError)}</LumenText>
+                <LumenContentText context="section.description">
+                  {props.labels.error(workspaceActivity.organizationPreferenceError)}
+                </LumenContentText>
                 <LumenButton size="s" variant="outlined" disabled={!connected} onClick={refreshSidebar}>
                   {props.labels.sort.refresh}
                 </LumenButton>
               </LumenFrame>
             )}
             {error && (
-              <LumenText as="p" role="alert" tone="danger">
+              <LumenContentText context="feedback.message" role="alert" tone="danger">
                 {props.labels.error(error)}
-              </LumenText>
+              </LumenContentText>
             )}
           </SidebarLoadFeedback>
         </LumenFrame>
@@ -1924,12 +1967,16 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       >
         <WorkspaceShellIcon name="menu" />
       </HbarActionIconButton>
-      <LumenText as="strong" title={props.labels.brand}>
+      <LumenContentText context="record.title" title={props.labels.brand}>
         {props.labels.brand}
-      </LumenText>
-      <LumenText as="h1" className="hbar-app-react-shell-header-active-title" title={mobileHeaderTitle}>
+      </LumenContentText>
+      <LumenContentText
+        context="page.title"
+        className="hbar-app-react-shell-header-active-title"
+        title={mobileHeaderTitle}
+      >
         {mobileHeaderTitle}
-      </LumenText>
+      </LumenContentText>
       <HbarMobileHeaderMenu label={props.mobileNavigationLabel} />
     </LumenFrame>
   )
@@ -1981,9 +2028,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             {props.tool}
             <HbarSessionStopNotice region="tool" />
             {toolFocusError && toolFocusError.key === focusSnapshot.target?.key && (
-              <LumenText as="p" role="alert" className="hbar-app-react-tool-focus-error">
+              <LumenContentText context="feedback.message" role="alert" className="hbar-app-react-tool-focus-error">
                 {props.labels.error(toolFocusError.code)}
-              </LumenText>
+              </LumenContentText>
             )}
           </LumenFrame>
         ),
@@ -2025,12 +2072,12 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             </LumenButton>
           }
         >
-          <LumenText as="p">{props.labels.chooseWorkspaceDescription}</LumenText>
+          <LumenContentText context="dialog.body">{props.labels.chooseWorkspaceDescription}</LumenContentText>
           <LumenFrame className="hbar-app-react-workspace-picker-list">
             {workspaces.length === 0 ? (
-              <LumenText as="p">
+              <LumenContentText context="dialog.body">
                 {loading.has('workspaces') ? props.labels.loading : props.labels.noWorkspaces}
-              </LumenText>
+              </LumenContentText>
             ) : (
               workspaces.map((workspace, index) => (
                 <LumenFrame key={workspace.id} className="hbar-workspace-folder-entry-row">
@@ -2053,8 +2100,10 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                   >
                     <WorkspaceShellIcon name="folder" />
                     <LumenFrame>
-                      <LumenText as="strong">{workspaceDisplayName(workspace, displayNames.snapshot)}</LumenText>
-                      <LumenText as="small">{workspace.path}</LumenText>
+                      <LumenContentText context="popover.title">
+                        {workspaceDisplayName(workspace, displayNames.snapshot)}
+                      </LumenContentText>
+                      <LumenContentText context="choice.description">{workspace.path}</LumenContentText>
                     </LumenFrame>
                   </LumenButton>
                   <HbarActionIconButton
@@ -2116,9 +2165,9 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
             onReconcile={reconcileNavigationAction}
           />
           {error && (
-            <LumenText as="p" role="alert">
+            <LumenContentText context="dialog.body" role="alert">
               {props.labels.error(error)}
-            </LumenText>
+            </LumenContentText>
           )}
         </LumenDialog>
       )}
@@ -2165,6 +2214,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       }
       {...(props.toolWidthRem === undefined ? {} : { toolWidthRem: props.toolWidthRem })}
       toolLayout={props.toolLayout}
+      onCloseTool={props.onCloseTool}
       toolResize={props.toolResize}
       mainRef={attachMain}
       toolRef={attachTool}
@@ -2174,9 +2224,37 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       closeSidebarLabel={props.labels.hideSidebar}
       onCloseSidebar={() => setSidebarVisible(false)}
       header={desktopHeader}
-      tool={toolRegion ? sessionToolPane.outlet : null}
+      tool={props.renderLayout || !toolRegion ? null : sessionToolPane.outlet}
       toolLabel={props.toolLabel}
-      overlay={overlayRegion}
+      overlay={
+        <>
+          {overlayRegion}
+          {props.renderLayout && toolRegion ? (
+            <LumenFloatingSurface
+              mode="modal"
+              open={resolvedToolPresentation === 'drawer'}
+              docked={resolvedToolPresentation === 'split'}
+              dockRef={desktopToolDock}
+              keepMounted
+              label={props.toolLabel}
+              onClose={props.onCloseTool ?? (() => {})}
+              className="lumen-tool-drawer-surface"
+              backdropClassName="lumen-tool-drawer-root"
+              style={{ '--lumen-tool-size': `${props.toolWidthRem ?? 24}rem` } as React.CSSProperties}
+            >
+              <LumenFrame
+                as="aside"
+                ref={attachTool}
+                tabIndex={-1}
+                className="hbar-desktop-tool-pane"
+                aria-label={props.toolLabel}
+              >
+                {sessionToolPane.outlet}
+              </LumenFrame>
+            </LumenFloatingSurface>
+          ) : null}
+        </>
+      }
       sidebar={sidebarPane}
       slots={
         props.renderLayout
@@ -2198,13 +2276,11 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                   'session-tool': toolRegion ? (
                     <LumenFrame
                       as="aside"
-                      ref={attachTool}
+                      ref={desktopToolDock}
                       tabIndex={-1}
                       className="hbar-desktop-tool-pane"
                       aria-label={props.toolLabel}
-                    >
-                      {sessionToolPane.outlet}
-                    </LumenFrame>
+                    ></LumenFrame>
                   ) : null,
                 },
                 null,

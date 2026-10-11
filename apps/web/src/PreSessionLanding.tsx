@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { FolderOpen, Target, X } from 'lucide-react'
-import { LumenButton, LumenFrame, LumenIcon, LumenInput, LumenText } from '@lumen/app-ui'
+import { LumenContentText, LumenButton, LumenFrame, LumenIcon, LumenInput } from '@lumen/app-ui'
 import {
   HbarComposerAddMenu,
   HbarComposerFeedback,
@@ -276,6 +276,19 @@ export function WebPreSessionLanding({
       await runtime.commands.execute('preSessionDraft.setThinkingLevel', {
         draftId,
         thinkingLevel,
+        expectedModelId,
+        expectedRevision: current.revision,
+      })
+    })
+  }
+
+  const chooseMaxMode = async (enabled: boolean, expectedModelId: string) => {
+    await queue(async () => {
+      const current = runtime.state.preSessionDrafts.getSnapshot()[draftId]
+      if (!current) throw new Error('Draft is unavailable')
+      await runtime.commands.execute('preSessionDraft.setMaxMode', {
+        draftId,
+        enabled,
         expectedModelId,
         expectedRevision: current.revision,
       })
@@ -641,9 +654,9 @@ export function WebPreSessionLanding({
             {openingPath ? labels.openingWorkspace : labels.addWorkspace}
           </LumenButton>
           {pathError && (
-            <LumenText as="p" role="alert">
+            <LumenContentText context="feedback.message" role="alert">
               {labels.error(pathError)}
-            </LumenText>
+            </LumenContentText>
           )}
         </LumenFrame>
       )}
@@ -664,9 +677,9 @@ export function WebPreSessionLanding({
       loading={modelsLoading}
       extra={(closePicker) =>
         modelsLoading ? (
-          <LumenText as="p" role="status">
+          <LumenContentText context="feedback.message" role="status">
             {labels.checkingModels}
-          </LumenText>
+          </LumenContentText>
         ) : modelError ? (
           <LumenFrame className="hbar-web-pre-session-model-actions">
             <LumenButton type="button" size="s" disabled={!connected} onClick={retryModels}>
@@ -691,17 +704,16 @@ export function WebPreSessionLanding({
     />
   )
   const selectedModel = modelSelection.model
-  const modelControls = (
-    <LumenFrame className="hbar-web-pre-session-model-controls">
-      {modelControl}
-      <HbarPreSessionThinkingPicker
-        model={selectedModel}
-        level={draft?.thinkingLevel ?? null}
-        labels={shell.session.modelPicker}
-        disabled={!connected || !draft || busy || draft.phase === 'unknown'}
-        onChoose={chooseThinkingLevel}
-      />
-    </LumenFrame>
+  const thinkingControl = (
+    <HbarPreSessionThinkingPicker
+      model={selectedModel}
+      level={draft?.thinkingLevel ?? null}
+      labels={shell.session.modelPicker}
+      disabled={!connected || !draft || busy || draft.phase === 'unknown'}
+      onChoose={chooseThinkingLevel}
+      maxMode={draft?.maxMode ?? false}
+      onMaxModeChange={chooseMaxMode}
+    />
   )
   const approvalControl = (
     <HbarPreSessionApprovalPicker
@@ -779,7 +791,7 @@ export function WebPreSessionLanding({
         onClick={() => chooseGoalIntent('default')}
       >
         <LumenIcon icon={Target} tier="sm" />
-        <LumenText as="span">{shell.session.intent.goalPrepared}</LumenText>
+        <LumenContentText context="control.label">{shell.session.intent.goalPrepared}</LumenContentText>
         <LumenIcon icon={X} tier="sm" />
       </LumenButton>
     ) : null
@@ -787,7 +799,10 @@ export function WebPreSessionLanding({
     !modelsLoading && (modelError || models.length === 0 || providerRouteError || modelSelection.unavailable) ? (
       <HbarComposerFeedback tone="danger">
         <LumenFrame className="hbar-web-pre-session-model-guidance">
-          <LumenText as="p" role={modelError || providerRouteError || modelSelection.unavailable ? 'alert' : undefined}>
+          <LumenContentText
+            context="feedback.message"
+            role={modelError || providerRouteError || modelSelection.unavailable ? 'alert' : undefined}
+          >
             {providerRouteError
               ? labels.modelActionFailed
               : modelError
@@ -796,8 +811,10 @@ export function WebPreSessionLanding({
                   ? labels.selectedModelUnavailable
                   : modelSelection.unavailable === 'thinking'
                     ? labels.selectedThinkingUnavailable
-                    : labels.model.empty}
-          </LumenText>
+                    : modelSelection.unavailable === 'maxMode'
+                      ? shell.session.modelPicker.maxMode.unavailable
+                      : labels.model.empty}
+          </LumenContentText>
           {modelError ? (
             <LumenButton type="button" size="s" disabled={!connected} onClick={retryModels}>
               {labels.retryModels}
@@ -834,6 +851,7 @@ export function WebPreSessionLanding({
         }
         composer={{
           value: text,
+          errorPresentation: agentPreflightFailed ? 'inline' : undefined,
           attachments: (draft?.attachments ?? []).map((attachment) => ({
             id: attachment.artifact.id,
             kind: attachment.kind,
@@ -938,21 +956,29 @@ export function WebPreSessionLanding({
                 {modelGuidance}
                 {unsupportedSlash && (
                   <HbarComposerFeedback>
-                    <LumenText as="p" role="status">
+                    <LumenContentText context="feedback.message" role="status">
                       {labels.slashRequiresSession}
-                    </LumenText>
+                    </LumenContentText>
                   </HbarComposerFeedback>
                 )}
               </>
             ) : undefined,
-          controls: (
-            <LumenFrame className="hbar-web-pre-session-controls">
-              {goalControl}
-              {approvalControl}
-              {workspaceControl}
-            </LumenFrame>
-          ),
-          modelPicker: modelControls,
+          toolbar: {
+            moreLabel: shell.session.addMenu.menu,
+            revealRequest: modelOpenRequest > 0 ? { id: 'model', revision: modelOpenRequest } : undefined,
+            items: [
+              { id: 'actions', label: shell.session.addMenu.open, priority: 20, content: goalControl },
+              { id: 'approval', label: shell.session.permissionPicker.title, priority: 40, content: approvalControl },
+              { id: 'workspace', label: launchLabels.location.title, priority: 60, content: workspaceControl },
+              {
+                id: 'model',
+                label: modelLabels.title,
+                priority: 100,
+                content: <LumenFrame className="hbar-web-pre-session-model-controls">{modelControl}</LumenFrame>,
+              },
+              { id: 'thinking', label: shell.session.modelPicker.thinking, priority: 90, content: thinkingControl },
+            ],
+          },
           editor: ({ inputLabel, placeholder, disabled, onSubmit }) => (
             <HbarPreSessionSlashEditor
               editorRef={editor}

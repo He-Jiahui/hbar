@@ -70,8 +70,7 @@
 }
 
 .hbar-composer-feedback-item button {
-  min-inline-size: 0;
-  max-inline-size: 100%;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  overflow-wrap: normal;
 }

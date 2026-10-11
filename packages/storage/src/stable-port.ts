@@ -42,6 +42,7 @@ export interface ManagedStorageWriter {
     method: K,
     args: Parameters<StorageMethods[K]>,
     authority?: ExecutionOwnership,
+    diagnostic?: import('@hbar/contracts').ReadonlyDiagnosticCorrelation,
   ): Promise<ReturnType<StorageMethods[K]>>
   /** Resolution confirms the owner process and its Worker exited, rather than just asking them to close. */
   retire(): Promise<void>
@@ -124,12 +125,13 @@ export class StableStoragePort implements StoragePort {
   executeRpc(raw: StorageRpcCall): Promise<unknown> {
     const input = storageRpcCallSchema.parse(raw)
     // The receiving Worker validates the concrete method's arguments. This is the same boundary as Storage.executeRpc.
-    return this.admit(input.method, input.args as Parameters<StorageMethods[typeof input.method]>, input.authority)
+    return this.admit(input.method, input.args as Parameters<StorageMethods[typeof input.method]>, input.authority, input.diagnostic)
   }
   private admit<K extends keyof StorageMethods>(
     method: K,
     args: Parameters<StorageMethods[K]>,
     authority?: ExecutionOwnership,
+    diagnostic?: import('@hbar/contracts').ReadonlyDiagnosticCorrelation,
   ): Promise<ReturnType<StorageMethods[K]>> {
     if (this.phase === 'closed' || this.phase === 'fenced')
       return Promise.reject(
@@ -139,7 +141,7 @@ export class StableStoragePort implements StoragePort {
     try {
       captured = structuredClone(args)
       lease = authority ? structuredClone(authority) : undefined
-      bytes = new TextEncoder().encode(JSON.stringify({ method, args: captured, authority: lease })).byteLength
+      bytes = new TextEncoder().encode(JSON.stringify({ method, args: captured, authority: lease, diagnostic })).byteLength
     } catch {
       return Promise.reject(new HbarError('INVALID_STORAGE_INPUT', 'Storage request must be serializable data'))
     }
@@ -166,7 +168,7 @@ export class StableStoragePort implements StoragePort {
         }, this.waitMs),
         execute: async (writer) => {
           try {
-            resolve(await writer.call(method, captured, lease))
+            resolve(await writer.call(method, captured, lease, diagnostic))
           } catch (error) {
             reject(error instanceof Error ? error : new HbarError('STORAGE_CALL_FAILED', 'Storage owner failed'))
           }
