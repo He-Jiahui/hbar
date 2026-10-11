@@ -75,6 +75,8 @@ export interface ProcessHostRuntimeOptions {
   readonly artifactPackage?: RuntimeArtifactPackage
   readonly profileModule?: string
   readonly watchSource?: boolean
+  /** Source deployments may prepare versions without applying them until an explicit reload command. */
+  readonly autoApplySource?: boolean
   /** Local typed catalog override for embedding/tests. Remote reload input cannot register modules. */
   readonly buildUnits?: readonly RuntimeBuildUnit[]
 }
@@ -829,6 +831,10 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       }
       const set = this.artifacts.registerSet(built)
       this.sourceAbort.signal.throwIfAborted()
+      if (this.options.autoApplySource === false) {
+        this.sourceState = { ...state, phase: 'prepared', artifactSetId: set.id, updatedAt: Date.now() }
+        return
+      }
       if (this.initializing && this.initialArtifacts)
         this.initialArtifacts = this.artifacts.registerSet(
           this.initialArtifacts.artifacts.map(
