@@ -1111,7 +1111,18 @@ export class Kernel {
       }),
     )
     if (typeof HBAR_EXTERNAL_PLUGINS !== 'undefined' && HBAR_EXTERNAL_PLUGINS) {
-      for (const id of ['tools.workspace', 'goal.codex', 'plan.codex', 'budget.codex', 'agent.codex', 'workflow.focus', 'git.codex', 'browser-use.codex', 'computer-use.codex']) {
+      for (const id of [
+        'tools.workspace',
+        'goal.codex',
+        'plan.codex',
+        'budget.codex',
+        'agent.codex',
+        'workflow.focus',
+        'git.codex',
+        'browser-use.codex',
+        'computer-use.codex',
+        'image-generation.openai-compatible',
+      ]) {
         const port = this.options.profile?.replacements?.[id]
         if (!port) throw new HbarError('RUNTIME_PLUGIN_REQUIRED', `The isolated Kernel needs its declared ${id} port`)
         this.plugins.add(port)
