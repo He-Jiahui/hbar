@@ -1,6 +1,6 @@
 import type { Database } from 'bun:sqlite'
 import type { SessionObservabilityReport } from '@hbar/contracts/session-observability'
-import { TOOL_FACTS_SQL, USAGE_FACTS_SQL } from './session-observability-facts'
+import { TOOL_FACTS_SQL } from './session-observability-facts'
 
 type QueryArguments = [string, number, number, number, number]
 
@@ -26,28 +26,10 @@ export function readObservabilityPerformance(
   db: Database,
   args: [string, number, number],
   range: SessionObservabilityReport['range'],
+  latency: SessionObservabilityReport['latency'],
+  requestConcurrency: number | null,
 ): Pick<SessionObservabilityReport, 'latency' | 'execution'> {
   const fullArgs: QueryArguments = [...args, range.startedAt, range.endedAt]
-  const firstText = db
-    .query<{ p95Ms: number | null; samples: number }, [string, number, number]>(
-      `${USAGE_FACTS_SQL},markers AS (
-      SELECT runId,COALESCE(json_extract(data,'$.attemptId'),stepId,eventId) attemptId,MIN(time) time
-      FROM events WHERE sessionId=?1 AND type='attempt.firstText' GROUP BY runId,attemptId
-    ),samples AS (
-      SELECT m.time-s.time value FROM starts s JOIN markers m ON m.runId IS s.runId AND m.attemptId=s.attemptId
-      WHERE s.seq>?2 AND s.seq<=?3 AND m.time>=s.time
-    ),ranked AS (
-      SELECT value,ROW_NUMBER() OVER(ORDER BY value) ordinal,COUNT(*) OVER() total FROM samples
-    ) SELECT MAX(CASE WHEN ordinal=CAST((total*95+99)/100 AS INTEGER) THEN value END) p95Ms,COUNT(*) samples FROM ranked`,
-    )
-    .get(...args)
-  const response = db
-    .query<{ p95Ms: number | null; samples: number }, [string, number, number]>(
-      `${USAGE_FACTS_SQL},ranked AS (
-      SELECT durationMs,ROW_NUMBER() OVER(ORDER BY durationMs) ordinal,COUNT(*) OVER() total FROM usage WHERE durationMs IS NOT NULL
-    ) SELECT MAX(CASE WHEN ordinal=CAST((total*95+99)/100 AS INTEGER) THEN durationMs END) p95Ms,COUNT(*) samples FROM ranked`,
-    )
-    .get(...args)
   const runs = db
     .query<{ totalRunDurationMs: number | null; runP95Ms: number | null; runTimingSamples: number }, QueryArguments>(
       `WITH selected AS (
@@ -61,12 +43,6 @@ export function readObservabilityPerformance(
       MAX(CASE WHEN ordinal=CAST((total*95+99)/100 AS INTEGER) THEN elapsed END) runP95Ms,COUNT(*) runTimingSamples FROM ranked`,
     )
     .get(...fullArgs)
-  const requestConcurrency = peak(
-    db,
-    fullArgs,
-    USAGE_FACTS_SQL,
-    `SELECT startedAt start,time end FROM usage WHERE startedAt IS NOT NULL`,
-  )
   const toolConcurrency = peak(
     db,
     fullArgs,
@@ -74,10 +50,7 @@ export function readObservabilityPerformance(
     `SELECT t.startedAt start,COALESCE(t.endedAt,r.endedAt,?5) end FROM tools t LEFT JOIN runs r ON r.id=t.runId`,
   )
   return {
-    latency: {
-      firstText: firstText ?? { p95Ms: null, samples: 0 },
-      response: response ?? { p95Ms: null, samples: 0 },
-    },
+    latency,
     execution: {
       requestConcurrency,
       toolConcurrency,
