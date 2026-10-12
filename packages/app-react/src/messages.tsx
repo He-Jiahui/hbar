@@ -3,6 +3,7 @@ import { createContext, createElement, useCallback, useContext, type ReactNode }
 export interface MessageScope<TMessages extends object> {
   readonly Provider: (props: MessageScopeProviderProps<TMessages>) => ReactNode
   readonly useMessages: () => MessageScopeReader<TMessages>
+  readonly useOptionalMessages: () => MessageScopeReader<TMessages> | null
 }
 
 export interface MessageScopeProviderProps<TMessages extends object> {
@@ -38,5 +39,17 @@ export function createMessageScope<TMessages extends object>(): MessageScope<TMe
     return { t }
   }
 
-  return { Provider, useMessages }
+  function useOptionalMessages(): MessageScopeReader<TMessages> | null {
+    const messages = useContext(Context)
+    const t = useCallback(
+      function getMessage<TKey extends keyof TMessages>(key: TKey): TMessages[TKey] {
+        if (messages === undefined) throw new Error('A host message scope provider is required for this feature.')
+        return messages[key]
+      },
+      [messages],
+    )
+    return messages === undefined ? null : { t }
+  }
+
+  return { Provider, useMessages, useOptionalMessages }
 }
