@@ -16,6 +16,7 @@ import {
   runModelListCommand,
   runApplicationCommand,
   runWorkspaceOpenCommand,
+  runWorkspaceCreateCommand,
   runCatalogCommand,
   runCliCommand,
   runFileCommand,
@@ -186,6 +187,15 @@ try {
     const { client } = await openCatalogClient(args)
     try { await runNodeManagementCommand(args, client) }
     finally { client.disconnect() }
+    process.exit(0)
+  }
+  if (args.command === 'exec' && args.commandArgs[0] === 'workspace.create') {
+    const { client } = await openCatalogClient(args)
+    try {
+      await runWorkspaceCreateCommand(args, client)
+    } finally {
+      client.disconnect()
+    }
     process.exit(0)
   }
   if (
