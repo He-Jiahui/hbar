@@ -6,7 +6,7 @@ export { RunControlSignal, type GoalReplacementStop } from './run-control'
 import type { GoalReplacementStop } from './run-control'
 import type { ToolTimeoutPolicy } from './tool-timeout'
 import type { OsConfinementOptions } from './execution-options'
-import type { NodeCallAuthority } from '@hbar/contracts/node'
+import type { NodeCallAuthority, nodeWorkspaceMethods } from '@hbar/contracts/node'
 export { osConfinementOptionsSchema, type OsConfinementOptions } from './execution-options'
 import type { z } from 'zod'
 import type { ToolPresentationDeclaration } from '@hbar/contracts'
@@ -202,6 +202,12 @@ export interface ExecOptions {
   readonly nodeAuthority?: NodeCallAuthority | undefined
 }
 export interface ExecutionProvider {
+  /** Resolve paths using their execution owner before sandbox admission. This performs no tool effect. */
+  canonicalize?(
+    workspace: string,
+    paths: readonly string[],
+    signal: AbortSignal,
+  ): Promise<z.output<(typeof nodeWorkspaceMethods)['fs.canonicalize']['output']>>
   list(workspace: string, path: string): Promise<FileEntry[]>
   read(workspace: string, path: string): Promise<string>
   readBytes(workspace: string, path: string): Promise<Uint8Array>

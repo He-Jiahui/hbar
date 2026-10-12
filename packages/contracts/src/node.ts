@@ -29,11 +29,15 @@ export const NODE_LIMITS = Object.freeze({
 })
 const entityId = z.string().min(1).max(160)
 const digest = z.string().regex(/^[a-f0-9]{64}$/)
-const operationId = z
+export const nodeOperationIdSchema = z
   .string()
   .min(1)
   .max(330)
-  .regex(/^[A-Za-z0-9:_-]+$/)
+  .refine(
+    (value) => !Array.from(value).some((character) => character.charCodeAt(0) < 32),
+    'Node operation keys cannot contain control characters',
+  )
+const operationId = nodeOperationIdSchema
 const timestamp = z.number().int().nonnegative().safe()
 const empty = z.strictObject({})
 const acknowledgement = z.strictObject({ accepted: z.boolean() })
@@ -196,12 +200,31 @@ export const nodeWriteReceiptSchema = z.discriminatedUnion('state', [
   z.strictObject({ state: z.literal('buffered'), nextOffset: bytes }),
   z.strictObject({ state: z.literal('settled'), path: nodeRelativePathSchema, revision: digest, created: z.boolean() }),
 ])
+const fileText = z
+  .string()
+  .max(NODE_LIMITS.fileBytes)
+  .refine((value) => {
+    let bytes = 0
+    for (let index = 0; index < value.length; index++) {
+      const code = value.charCodeAt(index)
+      if (code < 0x80) bytes++
+      else if (code < 0x800) bytes += 2
+      else if (code >= 0xd800 && code <= 0xdbff) {
+        const next = value.charCodeAt(++index)
+        if (!(next >= 0xdc00 && next <= 0xdfff)) return false
+        bytes += 4
+      } else if (code >= 0xdc00 && code <= 0xdfff) return false
+      else bytes += 3
+      if (bytes > NODE_LIMITS.fileBytes) return false
+    }
+    return true
+  }, 'Node text versions must be valid UTF-8 within two MiB')
 export const nodeRestoreChangesSchema = z
   .array(
     z.strictObject({
       path: nodeRelativePathSchema,
-      before: z.string().max(NODE_LIMITS.fileBytes).nullable(),
-      after: z.string().max(NODE_LIMITS.fileBytes).nullable(),
+      before: fileText.nullable(),
+      after: fileText.nullable(),
       created: z.boolean().optional(),
     }),
   )

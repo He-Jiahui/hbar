@@ -10,6 +10,8 @@ import {
   nodeReceiptSchema,
   nodeExecStartSchema,
   nodeRequestTimeoutMs,
+  nodeOperationIdSchema,
+  nodeRestoreChangesSchema,
   nodeWorkspaceMethods,
   nodeObservationMethods,
   nodeCapabilitiesSchema,
@@ -34,6 +36,20 @@ test('node paths reject traversal, device/absolute paths, ADS and controls on ei
     expect(nodeRelativePathSchema.safeParse(path).success).toBe(false)
   for (const path of ['.', '', 'src/a.ts', 'src\\a.ts', '目录/a.ts', './src/a.ts'])
     expect(nodeRelativePathSchema.parse(path)).toBe(path)
+})
+
+test('operation keys preserve opaque provider call IDs and restore text obeys UTF-8 byte bounds', () => {
+  expect(nodeOperationIdSchema.parse('run:provider/call.1')).toBe('run:provider/call.1')
+  expect(nodeOperationIdSchema.safeParse('run:call\n').success).toBe(false)
+  expect(nodeRestoreChangesSchema.safeParse([{ path: 'file', before: '\uD800', after: 'valid' }]).success).toBe(false)
+  expect(
+    nodeRestoreChangesSchema.safeParse([
+      { path: 'file', before: '中'.repeat(Math.floor(NODE_LIMITS.fileBytes / 3) + 1), after: null },
+    ]).success,
+  ).toBe(false)
+  expect(nodeRestoreChangesSchema.safeParse([{ path: 'file', before: '\uFEFFvalid🌍', after: null }]).success).toBe(
+    true,
+  )
 })
 
 test('workspace locations round-trip and legacy local workspaces retain a local default', () => {

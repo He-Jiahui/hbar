@@ -5,3 +5,6 @@ export { validateNodeJSON, encodeNodeFrame, decodeNodeFrame, nodeWebSocketURL } 
 export { ConversationNodeConnections } from './connections'
 export { WorkspaceNodeClient, type NodeJoinedIdentity } from './workspace-client'
 export { NodeObservationService, projectNodeMessage, type NodeObservationSource } from './observation'
+export { ExecutionRouter, type ExecutionRouterOptions } from './execution-router'
+export type { NodeExecutionPort, NodeExecutionScope } from './execution-port'
+export { nodeExecutionRelativePath } from './execution-paths'

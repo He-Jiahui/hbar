@@ -7,14 +7,11 @@ import {
   nodeAuditEntrySchema,
   nodeExecResultSchema,
   NODE_LIMITS,
+  nodeOperationIdSchema,
 } from './node'
 
 const empty = z.strictObject({})
-const operationId = z
-  .string()
-  .min(1)
-  .max(330)
-  .regex(/^[A-Za-z0-9:_-]+$/)
+const operationId = nodeOperationIdSchema
 const digest = z.string().regex(/^[a-f0-9]{64}$/)
 const timestamp = z.number().int().nonnegative().safe()
 export const nodeStoredOperationSchema = z.strictObject({
