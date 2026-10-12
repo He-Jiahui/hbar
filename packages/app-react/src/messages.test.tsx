@@ -35,4 +35,22 @@ describe('host message scopes', () => {
       'A host message scope provider is required for this feature.',
     )
   })
+
+  it('uses replacement host messages after a locale change', () => {
+    const englishHtml = renderToStaticMarkup(
+      createElement(Provider, {
+        messages: { title: 'Runs', count: (count, label) => `${label}: ${count}` },
+        children: createElement(MessageExample),
+      }),
+    )
+    const chineseHtml = renderToStaticMarkup(
+      createElement(Provider, {
+        messages: { title: '运行', count: (count, label) => `${label}：${count}` },
+        children: createElement(MessageExample),
+      }),
+    )
+
+    expect(englishHtml).toBe('<p>Runs:runs: 2</p>')
+    expect(chineseHtml).toBe('<p>运行:runs：2</p>')
+  })
 })

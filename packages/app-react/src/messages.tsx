@@ -1,4 +1,4 @@
-import { createContext, createElement, useContext, type ReactNode } from 'react'
+import { createContext, createElement, useCallback, useContext, type ReactNode } from 'react'
 
 export interface MessageScope<TMessages extends object> {
   readonly Provider: (props: MessageScopeProviderProps<TMessages>) => ReactNode
@@ -29,9 +29,13 @@ export function createMessageScope<TMessages extends object>(): MessageScope<TMe
       throw new Error('A host message scope provider is required for this feature.')
     }
 
-    return {
-      t: <TKey extends keyof TMessages>(key: TKey): TMessages[TKey] => messages[key],
-    }
+    const t = useCallback(
+      function getMessage<TKey extends keyof TMessages>(key: TKey): TMessages[TKey] {
+        return messages[key]
+      },
+      [messages],
+    )
+    return { t }
   }
 
   return { Provider, useMessages }
