@@ -15,6 +15,7 @@ export const hostInfoSchema = z.strictObject({
   platform: z.string().min(1).max(64),
   addresses: z.array(z.string().min(1).max(4_000)).max(256),
   activeRuns: z.number().int().nonnegative(),
+  deviceAccess: deviceAccessSchema.optional(),
   demo: z.boolean(),
 })
 export const systemPathsSchema = z.strictObject({

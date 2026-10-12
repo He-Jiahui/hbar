@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises'
 import { z } from 'zod'
 import { APP_VERSION, createLocalExecutionPolicy, HbarError, PROTOCOL_VERSION, rpcRequestSchema, rpcSchemas } from '@hbar/contracts'
 import type { Device, DiagnosticScopePort, DiagnosticSink, HostInfo, RpcMethod, WireNotification } from '@hbar/contracts'
+import { deviceAccessOf } from '@hbar/contracts/device'
 import type { ServerWebSocket } from 'bun'
 
 import { queuedRunGuidedOperationId as guidedOperationId, admitOperationRecovery } from '@hbar/contracts/commands/run'
@@ -297,7 +298,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
   const secure = Boolean(options.cert && options.key)
   if (Boolean(options.cert) !== Boolean(options.key)) throw new Error('Configure both TLS certificate and key')
   let server: Bun.Server<SocketData>
-  const hostInfo = (): HostInfo => ({
+  const hostInfo = (device?: Device): HostInfo => ({
     version: APP_VERSION,
     protocol: PROTOCOL_VERSION,
     instanceId: kernel.instanceId,
@@ -308,6 +309,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
     ),
     activeRuns: kernel.active.size,
     demo: Boolean(kernel.options.demo),
+    ...(device ? { deviceAccess: deviceAccessOf(device) } : {}),
   })
   function validOrigin(request: Request) {
     const url = new URL(request.url)
@@ -729,7 +731,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
         for (const terminal of systemTerminals.attach(device.id, terminalCallbacks))
           socket.data.terminals.add(terminal.id)
         clearTimeout(socket.data.timer)
-        return hostInfo()
+        return hostInfo(device)
       }
       case 'workspace.list':
         return kernel.directoryQueries.execute('workspace.list', rpcSchemas['workspace.list'].parse(raw))
@@ -740,7 +742,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
       case 'session.get':
         return kernel.directoryQueries.execute('session.get', rpcSchemas['session.get'].parse(raw))
       case 'system.bootstrap': {
-        const bootstrap = await kernel.bootstrap(hostInfo())
+        const bootstrap = await kernel.bootstrap(hostInfo(socket.data.device))
         const device = socket.data.device
         if (!device || !authorization.restricted(device)) return bootstrap
         const allowed = device.workspaceIds
@@ -1462,7 +1464,7 @@ export async function startServer(kernel: KernelControllerPort, options: ServerO
                     else socket.data.device = await auth.authenticate(socket.data.token)
                     if (socket.data.device) await authorization.authorize(socket.data.device, request.method, request.params)
                     signal.throwIfAborted()
-                    return { actorId: socket.data.deviceId, host: hostInfo() }
+                    return { actorId: socket.data.deviceId, host: hostInfo(socket.data.device) }
                   },
                 )
                 span?.stage('reply', socket.data.pending)

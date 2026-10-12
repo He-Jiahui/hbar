@@ -70,7 +70,7 @@ export {
   LOCAL_EXECUTION_ENABLED,
   type LocalExecutionPolicy,
 } from './local-execution-policy'
-import type { Device } from './device'
+import type { Device, DeviceAccess } from './device'
 export * from './plan'
 export type { GoalHistorySnapshot, GoalHistoryFact, GoalHistoryInput, GoalHistoryPage } from './commands/goal-history'
 
@@ -1188,6 +1188,8 @@ export interface HostInfo {
   addresses: string[]
   activeRuns: number
   demo: boolean
+  /** Access of this authenticated connection; older Hosts may omit the projection. */
+  deviceAccess?: DeviceAccess
 }
 export interface Bootstrap {
   host: HostInfo

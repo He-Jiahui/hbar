@@ -62,6 +62,9 @@ async function failure(action: Promise<unknown>): Promise<unknown> {
 test('observer follows and queries a session while every write and approval entry is refused', async () => {
   const f = await fixture()
   const { client, paired } = await f.observer()
+  expect(f.operator.connectionHost()?.deviceAccess).toEqual({ role: 'operator', workspaceIds: null })
+  expect(client.connectionHost()?.deviceAccess).toEqual({ role: 'observer', workspaceIds: null })
+  expect((await client.call('system.bootstrap', {})).host.deviceAccess).toEqual({ role: 'observer', workspaceIds: null })
   expect((await client.call('session.snapshot', { sessionId: f.session.id })).session.id).toBe(f.session.id)
   expect(await client.call('session.follow', { sessionId: f.session.id, cursor: 0 })).toMatchObject({ reset: false })
   expect(
@@ -115,6 +118,7 @@ test('workspace-scoped observers cannot read, follow or bootstrap another worksp
   ])
     expect(await failure(action())).toMatchObject({ code: 'FORBIDDEN' })
   const bootstrap = await client.call('system.bootstrap', {})
+  expect(bootstrap.host.deviceAccess).toEqual({ role: 'observer', workspaceIds: [f.workspace.id] })
   expect(bootstrap.workspaces.map((item) => item.id)).toEqual([f.workspace.id])
   expect(bootstrap.sessions.some((item) => item.id === foreign.id)).toBe(false)
   expect(bootstrap.plugins).toEqual([])
