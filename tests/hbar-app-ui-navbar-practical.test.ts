@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenNavbar, uniqueLumenNavbarItems, type LumenNavbarContent } from '@lumen/app-ui'
+import { LumenNavbar, uniqueLumenNavbarItems, type LumenNavbarContent } from '@lumen/app-ui/catalog'
 import {
   HBAR_APP_UI_NAVBAR_FIXTURES,
   createHbarAppUiNavbarLocalizedFixtures,

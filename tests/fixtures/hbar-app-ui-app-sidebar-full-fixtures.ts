@@ -1,4 +1,4 @@
-import type { LumenAppSidebarFullContent, LumenAppSidebarFullItem } from '@lumen/app-ui'
+import type { LumenAppSidebarFullContent, LumenAppSidebarFullItem } from '@lumen/app-ui/catalog'
 
 const groups: LumenAppSidebarFullContent['groups'] = [
   {

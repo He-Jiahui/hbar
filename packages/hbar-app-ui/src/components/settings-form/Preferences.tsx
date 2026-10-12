@@ -1,1 +1,1 @@
-export { LumenPreferencesSettings as HbarAppUiPreferencesSettings } from '@lumen/app-ui'
+export { LumenPreferencesSettings as HbarAppUiPreferencesSettings } from '@lumen/app-ui/catalog'

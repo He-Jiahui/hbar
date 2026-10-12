@@ -1,14 +1,8 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import {
-  LumenCommandList,
-  LumenInviteCommand,
-  LumenAssistantCommands,
-  LumenSearchCommands,
-  uniqueLumenCommandItems,
-  type LumenCommandListProps,
-} from '@lumen/app-ui'
+import { LumenCommandList } from '@lumen/app-ui'
+import { LumenInviteCommand, LumenAssistantCommands, LumenSearchCommands, uniqueLumenCommandItems, type LumenCommandListProps } from '@lumen/app-ui/catalog'
 import { createCommandPreviewFixtures } from '../apps/hbar-app-ui-preview/src/commandPreviewFixtures'
 import {
   createCommandPreviewStore,

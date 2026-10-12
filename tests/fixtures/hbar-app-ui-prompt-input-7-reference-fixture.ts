@@ -1,4 +1,4 @@
-import type { LumenPromptModesReferenceContent } from '@lumen/app-ui'
+import type { LumenPromptModesReferenceContent } from '@lumen/app-ui/catalog'
 
 export function createPrompt7ReferenceFixture(locale: 'en' | 'zh' = 'en'): LumenPromptModesReferenceContent {
   const chinese = locale === 'zh'

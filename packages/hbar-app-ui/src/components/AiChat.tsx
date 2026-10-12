@@ -1,22 +1,10 @@
-import { LumenAiChat, LumenAiChatProvider as HbarAppUiAiChatProvider, type LumenAiChatContent } from '@lumen/app-ui'
+import { LumenAiChat, LumenAiChatProvider as HbarAppUiAiChatProvider, type LumenAiChatContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from '../types'
 
 export type HbarAppUiAiChatProps = HbarAppUiVariantProps & { readonly aiChatContent?: LumenAiChatContent | undefined }
 export { HbarAppUiAiChatProvider }
-export {
-  selectLumenAiChatItem as selectHbarAppUiAiChatItem,
-  uniqueLumenAiChatItems as uniqueHbarAppUiAiChatItems,
-  useLumenAiChatContent as useHbarAppUiAiChatContent,
-} from '@lumen/app-ui'
-export type {
-  LumenAiChatAction as HbarAppUiAiChatAction,
-  LumenAiChatChoice as HbarAppUiAiChatChoice,
-  LumenAiChatContent as HbarAppUiAiChatContent,
-  LumenAiChatListStrategy as HbarAppUiAiChatListStrategy,
-  LumenAiChatMessage as HbarAppUiAiChatMessage,
-  LumenAiChatProviderChoice as HbarAppUiAiChatProviderChoice,
-  LumenAiChatProviderProps as HbarAppUiAiChatProviderProps,
-} from '@lumen/app-ui'
+export { selectLumenAiChatItem as selectHbarAppUiAiChatItem, uniqueLumenAiChatItems as uniqueHbarAppUiAiChatItems, useLumenAiChatContent as useHbarAppUiAiChatContent } from '@lumen/app-ui/catalog'
+export type { LumenAiChatAction as HbarAppUiAiChatAction, LumenAiChatChoice as HbarAppUiAiChatChoice, LumenAiChatContent as HbarAppUiAiChatContent, LumenAiChatListStrategy as HbarAppUiAiChatListStrategy, LumenAiChatMessage as HbarAppUiAiChatMessage, LumenAiChatProviderChoice as HbarAppUiAiChatProviderChoice, LumenAiChatProviderProps as HbarAppUiAiChatProviderProps } from '@lumen/app-ui/catalog'
 export function AiChat({ spec, onAction, aiChatContent, className }: HbarAppUiAiChatProps) {
   return (
     <LumenAiChat

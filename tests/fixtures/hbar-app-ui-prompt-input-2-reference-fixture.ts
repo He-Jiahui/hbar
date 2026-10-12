@@ -1,4 +1,4 @@
-import type { LumenPromptToolsReferenceContent } from '@lumen/app-ui'
+import type { LumenPromptToolsReferenceContent } from '@lumen/app-ui/catalog'
 
 export function createPrompt2ReferenceFixture(locale: 'en' | 'zh' = 'en'): LumenPromptToolsReferenceContent {
   const translated = locale === 'zh'

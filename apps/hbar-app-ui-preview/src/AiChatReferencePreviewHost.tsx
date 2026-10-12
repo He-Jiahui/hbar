@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import type { LumenAiChatAction, LumenAiChatReferenceContent, LumenAiChatReferenceViewModel } from '@lumen/app-ui'
+import type { LumenAiChatAction, LumenAiChatReferenceContent, LumenAiChatReferenceViewModel } from '@lumen/app-ui/catalog'
 import { HbarAppUiAiChatProvider, type HbarAppUiAiChatContent, type HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import { aiChatReferenceSeed, createAiChatReferencePreviewStore } from './aiChatReferencePreviewStore'
 

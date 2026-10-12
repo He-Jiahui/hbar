@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenCard, type LumenCardContent } from '@lumen/app-ui'
+import { LumenCard, type LumenCardContent } from '@lumen/app-ui/catalog'
 import {
   createCardPreviewReferenceContent,
   cardRequestNotice,

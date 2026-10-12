@@ -1,4 +1,4 @@
-import { LumenListProvider } from '@lumen/app-ui'
+import { LumenListProvider } from '@lumen/app-ui/catalog'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useStore } from 'zustand'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { getLumenVariantComponent } from '../packages/hbar-app-ui/src/catalog'
-import type { LumenSupportContent, LumenSupportHelpReferenceFlow } from '../packages/lumen-app-ui/src/index'
+import type { LumenSupportContent, LumenSupportHelpReferenceFlow } from '@lumen/app-ui/catalog'
 import { createSupportHelpReferenceFixture } from './fixtures/hbar-app-ui-support-help-reference-fixtures'
 
 function renderHelp(help: NonNullable<LumenSupportContent['help']>): string {

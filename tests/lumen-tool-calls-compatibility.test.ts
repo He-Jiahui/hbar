@@ -1,13 +1,7 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import {
-  LumenToolCalls01,
-  LumenToolCalls06,
-  LumenToolCallsProvider,
-  selectLumenToolCallsItem,
-  uniqueLumenToolCallsItems,
-} from '@lumen/app-ui'
+import { LumenToolCalls01, LumenToolCalls06, LumenToolCallsProvider, selectLumenToolCallsItem, uniqueLumenToolCallsItems } from '@lumen/app-ui/catalog'
 import { getLumenVariantComponent } from '@lumen/app-ui/catalog'
 import {
   HbarAppUiToolCallsProvider,

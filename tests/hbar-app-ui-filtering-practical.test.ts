@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenFiltering, type LumenFilteringReferenceContent as Content } from '@lumen/app-ui'
+import { LumenFiltering, type LumenFilteringReferenceContent as Content } from '@lumen/app-ui/catalog'
 import { createFilteringPreviewStore } from '../apps/hbar-app-ui-preview/src/filteringPreviewModel'
 import {
   createFilteringPreviewSeed,

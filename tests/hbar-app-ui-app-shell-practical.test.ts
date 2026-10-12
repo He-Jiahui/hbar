@@ -1,12 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import {
-  LumenAppShellWorkflows,
-  selectLumenAppShellItem,
-  uniqueLumenAppShellItems,
-  type LumenAppShellContent,
-} from '@lumen/app-ui'
+import { LumenAppShellWorkflows, selectLumenAppShellItem, uniqueLumenAppShellItems, type LumenAppShellContent } from '@lumen/app-ui/catalog'
 import {
   appShellPreviewRequestActions,
   createAppShellIntentPreviewStore,

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenKanban01, LumenKanban04, LumenKanban06 } from '@lumen/app-ui'
+import { LumenKanban01, LumenKanban04, LumenKanban06 } from '@lumen/app-ui/catalog'
 import {
   getHbarAppUiVariant,
   HbarAppUiKanbanProvider,

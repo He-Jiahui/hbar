@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement, Fragment } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenToolCalls, type LumenToolCallsContent, type LumenToolCallsViewModel } from '@lumen/app-ui'
+import { LumenToolCalls } from '@lumen/app-ui'
+import { type LumenToolCallsContent, type LumenToolCallsViewModel } from '@lumen/app-ui/catalog'
 import {
   HBAR_APP_UI_TOOL_CALLS_FIXTURES,
   createHbarAppUiToolCallsLocalizedFixtures,

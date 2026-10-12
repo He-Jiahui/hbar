@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement, Fragment } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenOnboarding05, LumenOnboardingProvider, useLumenOnboardingContent } from '@lumen/app-ui'
+import { LumenOnboarding05, LumenOnboardingProvider, useLumenOnboardingContent } from '@lumen/app-ui/catalog'
 import { getHbarAppUiVariant } from '../packages/hbar-app-ui/src/index'
 import { Onboarding5PreviewHost } from '../apps/hbar-app-ui-preview/src/Onboarding5PreviewHost'
 import { createOnboarding5PreviewFixture } from '../apps/hbar-app-ui-preview/src/onboarding5PreviewFixtures'

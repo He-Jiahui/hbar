@@ -1,5 +1,5 @@
 import { FileText, Hash, Palette, UserRound } from 'lucide-react'
-import type { LumenCommandListProps, LumenInviteCommandProps } from '@lumen/app-ui'
+import type { LumenCommandListProps, LumenInviteCommandProps } from '@lumen/app-ui/catalog'
 import {
   COMMAND_LABELS,
   COMMAND_PROJECT_LABELS,

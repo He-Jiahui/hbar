@@ -1,4 +1,4 @@
-import type { LumenAgentApprovalContent } from '@lumen/app-ui'
+import type { LumenAgentApprovalContent } from '@lumen/app-ui/catalog'
 
 export function createApprovalPreviewCopy(localized: boolean) {
   return localized

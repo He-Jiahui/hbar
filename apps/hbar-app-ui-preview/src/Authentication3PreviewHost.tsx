@@ -1,12 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import {
-  LumenFrame,
-  LumenAuthenticationProvider,
-  useLumenAuthenticationContent,
-  type LumenAuthContent,
-  type LumenAuthQuoteContent,
-} from '@lumen/app-ui'
+import { LumenFrame } from '@lumen/app-ui'
+import { LumenAuthenticationProvider, useLumenAuthenticationContent, type LumenAuthContent, type LumenAuthQuoteContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import type { Authentication3PreviewFixture } from './authentication3PreviewFixtures'
 import {

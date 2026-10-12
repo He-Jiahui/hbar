@@ -1,10 +1,4 @@
-import type {
-  LumenAppSidebarDualContent,
-  LumenAppSidebarDualGroup,
-  LumenAppSidebarDualIcon,
-  LumenAppSidebarDualItem,
-  LumenAppSidebarDualSection,
-} from '@lumen/app-ui'
+import type { LumenAppSidebarDualContent, LumenAppSidebarDualGroup, LumenAppSidebarDualIcon, LumenAppSidebarDualItem, LumenAppSidebarDualSection } from '@lumen/app-ui/catalog'
 
 const section = (
   id: string,

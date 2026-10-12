@@ -1,8 +1,4 @@
-import type {
-  LumenMonitoringContent,
-  LumenMonitoringReferenceContent,
-  LumenMonitoringReferenceTone,
-} from '@lumen/app-ui'
+import type { LumenMonitoringContent, LumenMonitoringReferenceContent, LumenMonitoringReferenceTone } from '@lumen/app-ui/catalog'
 import {
   type MonitoringChoiceField,
   type MonitoringPreviewSeed,

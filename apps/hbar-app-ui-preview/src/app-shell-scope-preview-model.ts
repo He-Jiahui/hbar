@@ -1,5 +1,5 @@
 import { createStore } from 'zustand/vanilla'
-import type { LumenAppShellScopeContent, LumenScopeKind } from '@lumen/app-ui'
+import type { LumenAppShellScopeContent, LumenScopeKind } from '@lumen/app-ui/catalog'
 import { scopeDatabaseFixture, scopeStatusFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-scope-fixtures'
 
 function isValidId(id: string): boolean {

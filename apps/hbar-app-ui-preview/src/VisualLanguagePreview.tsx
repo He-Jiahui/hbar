@@ -6,24 +6,8 @@ import Checkbox from '@mui/material/Checkbox'
 import Radio from '@mui/material/Radio'
 import Slider from '@mui/material/Slider'
 import Switch from '@mui/material/Switch'
-import {
-  DEFAULT_LUMEN_APPEARANCE,
-  LumenButton,
-  LumenCheckBox,
-  LumenDivider,
-  LumenFrame,
-  LumenFormField,
-  LumenIndicator,
-  LumenInput,
-  LumenOption,
-  LumenProvider,
-  LumenRange,
-  LumenText,
-  LumenSelect,
-  LumenSurface,
-  LumenToggle,
-  type LumenSize,
-} from '@lumen/app-ui'
+import { DEFAULT_LUMEN_APPEARANCE, LumenButton, LumenCheckBox, LumenDivider, LumenFrame, LumenFormField, LumenIndicator, LumenInput, LumenProvider, LumenRange, LumenText, LumenSelect, LumenSurface, LumenToggle, type LumenSize } from '@lumen/app-ui'
+import { LumenOption } from '@lumen/app-ui/catalog'
 import { visualLanguageCopy } from '../../../tests/fixtures/lumen-visual-language-copy'
 import 'hbar-app-ui/theme.css'
 import './visual-language-preview.css'

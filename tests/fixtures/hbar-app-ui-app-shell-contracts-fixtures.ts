@@ -1,4 +1,4 @@
-import type { LumenAppShellContractsContent, LumenShellContractLink, LumenShellContractRecord } from '@lumen/app-ui'
+import type { LumenAppShellContractsContent, LumenShellContractLink, LumenShellContractRecord } from '@lumen/app-ui/catalog'
 
 export interface ContractFixtureRecord extends LumenShellContractRecord {
   readonly category: 'active' | 'renewing' | 'review' | 'draft' | 'approval' | 'overdue'

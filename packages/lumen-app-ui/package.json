@@ -50,7 +50,8 @@
     "./mobile": "./src/mobile.tsx",
     "./session-components": "./src/session-components.tsx",
     "./workspace-components": "./src/workspace-components.tsx",
-    "./workbench": "./src/workbench.tsx"
+    "./workbench": "./src/workbench.tsx",
+    "./catalog/styles.css": "./src/catalog-styles.css"
   },
   "publishConfig": {
     "exports": {
@@ -94,7 +95,7 @@
         "types": "./dist/types/variants/index.d.ts",
         "import": "./dist/variants.js"
       },
-      "./styles.css": "./dist/app-ui.css",
+      "./styles.css": "./dist/workbench.css",
       "./app-shell": {
         "types": "./dist/types/app-shell-workflows.d.ts",
         "import": "./dist/app-shell.js"
@@ -202,14 +203,15 @@
       "./workbench": {
         "types": "./dist/types/workbench.d.ts",
         "import": "./dist/workbench.js"
-      }
+      },
+      "./catalog/styles.css": "./dist/app-ui.css"
     }
   },
   "scripts": {
     "validate-boundaries": "bun scripts/validate-lumen-boundaries.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run --config vitest.config.ts",
-    "build": "vite build && tsc -p tsconfig.build.json"
+    "build": "bun scripts/sync-workbench-styles.ts && vite build && vite build --config vite.styles.config.ts && tsc -p tsconfig.build.json"
   },
   "peerDependencies": {
     "@emotion/react": "^11.14.0",

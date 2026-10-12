@@ -7,7 +7,7 @@ import type {
   LumenChatContent,
   LumenChatDirectReferenceFlow,
   LumenChatSocialReferenceFlow,
-} from '../packages/lumen-app-ui/src/index'
+} from '@lumen/app-ui/catalog'
 import { createChatDirectReferenceFixture } from './fixtures/hbar-app-ui-chat-direct-reference-fixtures'
 import { createChatSocialReferenceFixture } from './fixtures/hbar-app-ui-chat-social-reference-fixtures'
 

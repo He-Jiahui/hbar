@@ -3,7 +3,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { getHbarAppUiVariant } from '../packages/hbar-app-ui/src/catalog'
 import { HbarAppUiSupportProvider, type HbarAppUiSupportContent } from '../packages/hbar-app-ui/src/index'
-import type { LumenSupportRequestsReferenceFlow } from '@lumen/app-ui'
+import type { LumenSupportRequestsReferenceFlow } from '@lumen/app-ui/catalog'
 import { createSupportRequestsReferenceFixture } from './fixtures/hbar-app-ui-support-requests-reference-fixtures'
 
 const { spec, component: Component } = getHbarAppUiVariant('support', 5)

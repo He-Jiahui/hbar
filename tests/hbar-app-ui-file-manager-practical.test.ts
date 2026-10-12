@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenFileManager } from '@lumen/app-ui'
+import { LumenFileManager } from '@lumen/app-ui/catalog'
 import { createFileManagerPreviewStore } from '../apps/hbar-app-ui-preview/src/fileManagerPreviewModel'
 import {
   createFileManagerPreviewSeed,

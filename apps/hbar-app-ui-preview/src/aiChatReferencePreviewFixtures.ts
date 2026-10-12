@@ -1,4 +1,4 @@
-import type { LumenAiChatReferenceContent } from '@lumen/app-ui'
+import type { LumenAiChatReferenceContent } from '@lumen/app-ui/catalog'
 import { createAiChat1ReferenceFixture } from '../../../tests/fixtures/hbar-app-ui-ai-chat-1-reference-fixture'
 import { createAiChat2ReferenceFixture } from '../../../tests/fixtures/hbar-app-ui-ai-chat-2-reference-fixture'
 import { createAiChat3ReferenceFixture } from '../../../tests/fixtures/hbar-app-ui-ai-chat-3-reference-fixture'

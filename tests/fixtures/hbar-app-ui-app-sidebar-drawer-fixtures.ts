@@ -1,4 +1,4 @@
-import type { LumenAppSidebarDrawerContent, LumenAppSidebarDrawerItem } from '@lumen/app-ui'
+import type { LumenAppSidebarDrawerContent, LumenAppSidebarDrawerItem } from '@lumen/app-ui/catalog'
 
 const groups: LumenAppSidebarDrawerContent['groups'] = [
   {

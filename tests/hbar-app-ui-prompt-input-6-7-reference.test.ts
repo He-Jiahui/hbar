@@ -6,7 +6,7 @@ import {
   HbarAppUiPromptInputProvider,
   type HbarAppUiPromptInputContent,
 } from '../packages/hbar-app-ui/src/index'
-import type { LumenPromptReferenceContent } from '@lumen/app-ui'
+import type { LumenPromptReferenceContent } from '@lumen/app-ui/catalog'
 import { HbarAppUiPromptProvider } from '../packages/hbar-app-ui/src/catalog'
 import { HBAR_APP_UI_PROMPT_INPUT_FIXTURES } from './fixtures/hbar-app-ui-prompt-input-fixtures'
 import { createPrompt6ReferenceFixture } from './fixtures/hbar-app-ui-prompt-input-6-reference-fixture'

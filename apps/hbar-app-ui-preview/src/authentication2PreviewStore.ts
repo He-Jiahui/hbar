@@ -1,5 +1,5 @@
 import { createStore } from 'zustand/vanilla'
-import { canContinueLumenProviderFirst, type LumenAuthProviderChoice } from '@lumen/app-ui'
+import { canContinueLumenProviderFirst, type LumenAuthProviderChoice } from '@lumen/app-ui/catalog'
 
 export type Authentication2PreviewMode = 'email' | 'sso'
 

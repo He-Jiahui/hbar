@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import type { LumenAgentActivityViewModel } from '@lumen/app-ui'
+import type { LumenAgentActivityViewModel } from '@lumen/app-ui/catalog'
 import {
   getHbarAppUiVariant,
   HbarAppUiAgentActivityProvider,

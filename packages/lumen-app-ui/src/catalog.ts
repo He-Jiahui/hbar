@@ -1000,3 +1000,5 @@ export function getLumenVariantComponent(id: string): React.ElementType | undefi
 
 /** @deprecated All source families now have one-to-one component variants. */
 export const LUMEN_DESIGN_COVERAGE_CATEGORIES = [] as const
+
+export * from './catalog-components'

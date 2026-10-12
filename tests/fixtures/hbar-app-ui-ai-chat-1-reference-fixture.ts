@@ -1,4 +1,4 @@
-import type { LumenAiChatThreadReferenceContent } from '@lumen/app-ui'
+import type { LumenAiChatThreadReferenceContent } from '@lumen/app-ui/catalog'
 
 /** Test/preview data transcribed from authorized rendered reference evidence, not component source. */
 export function createAiChat1ReferenceFixture(locale: 'en' | 'zh' = 'en'): LumenAiChatThreadReferenceContent {

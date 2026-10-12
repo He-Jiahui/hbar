@@ -1,5 +1,5 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
-import type { LumenEmptyStateContent } from '@lumen/app-ui'
+import type { LumenEmptyStateContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 
 export interface EmptyStatePreviewTarget {

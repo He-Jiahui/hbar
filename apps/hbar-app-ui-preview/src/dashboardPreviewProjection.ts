@@ -1,4 +1,4 @@
-import type { LumenDashboardContent, LumenDashboardReferenceContent } from '@lumen/app-ui'
+import type { LumenDashboardContent, LumenDashboardReferenceContent } from '@lumen/app-ui/catalog'
 import type {
   DashboardPreviewSeed,
   DashboardPreviewStoreApi,

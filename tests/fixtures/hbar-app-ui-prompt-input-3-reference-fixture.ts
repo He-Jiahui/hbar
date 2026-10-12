@@ -1,4 +1,4 @@
-import type { LumenPromptHeroReferenceContent } from '@lumen/app-ui'
+import type { LumenPromptHeroReferenceContent } from '@lumen/app-ui/catalog'
 
 export function createPrompt3ReferenceFixture(locale: 'en' | 'zh' = 'en'): LumenPromptHeroReferenceContent {
   const translated = locale === 'zh'

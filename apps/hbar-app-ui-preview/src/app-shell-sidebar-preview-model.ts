@@ -1,5 +1,5 @@
 import { createStore } from 'zustand/vanilla'
-import type { LumenAppShellSidebarContent } from '@lumen/app-ui'
+import type { LumenAppShellSidebarContent } from '@lumen/app-ui/catalog'
 
 function isValidId(id: string): boolean {
   return id.trim().length > 0

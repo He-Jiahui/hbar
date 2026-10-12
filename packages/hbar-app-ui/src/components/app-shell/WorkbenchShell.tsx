@@ -1,8 +1,5 @@
-import {
-  LumenFrame,
-  LumenOption,
-  LumenText,
- LumenButton, LumenSelect } from '@lumen/app-ui'
+import { LumenFrame, LumenText, LumenButton, LumenSelect } from '@lumen/app-ui'
+import { LumenOption } from '@lumen/app-ui/catalog'
 import { Command, PanelLeftClose, PanelLeftOpen, Plus, type LucideIcon } from 'lucide-react'
 import { createContext, useContext, type ReactNode } from 'react'
 import { HbarAppUiIcon } from '../../icon'

@@ -1,11 +1,6 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import {
-  LumenAuthenticationProvider,
-  useLumenAuthenticationContent,
-  type LumenAuthContent,
-  type LumenAuthProviderFirstReferenceFlow,
-} from '@lumen/app-ui'
+import { LumenAuthenticationProvider, useLumenAuthenticationContent, type LumenAuthContent, type LumenAuthProviderFirstReferenceFlow } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import type { Authentication2PreviewFixture } from './authentication2PreviewFixtures'
 import { createAuthentication2PreviewStore, type Authentication2HostRequest } from './authentication2PreviewStore'

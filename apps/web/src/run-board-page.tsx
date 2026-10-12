@@ -1,16 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  LumenContentText,
-  LumenAgentPlan05,
-  LumenButton,
-  LumenDialog,
-  LumenFrame,
-  LumenKanban01,
-  LumenKanban04,
-  LumenKanban06,
-  type LumenKanbanAction,
-  type LumenKanbanContent,
-} from '@lumen/app-ui'
+import { LumenContentText, LumenAgentPlan05, LumenButton, LumenDialog, LumenFrame } from '@lumen/app-ui'
+import { LumenKanban01, LumenKanban04, LumenKanban06, type LumenKanbanAction, type LumenKanbanContent } from '@lumen/app-ui/kanban'
 import { useHbarRuntimeState, type HbarRuntimeView } from '@hbar/app-react'
 import type { RunBoardItem } from '@hbar/contracts/commands/run-board'
 import type { ShellLocale } from './shell-copy'

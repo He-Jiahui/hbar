@@ -1,4 +1,4 @@
-import type { LumenDashboardReferenceContent } from '@lumen/app-ui'
+import type { LumenDashboardReferenceContent } from '@lumen/app-ui/catalog'
 
 type Metric = Extract<LumenDashboardReferenceContent, { kind: 'revenue' }>['metrics'][number]
 type Chart = Extract<LumenDashboardReferenceContent, { kind: 'revenue' }>['chart']

@@ -1,4 +1,4 @@
-import type { LumenAuthProviderChoice, LumenAuthProviderFirstContent } from '@lumen/app-ui'
+import type { LumenAuthProviderChoice, LumenAuthProviderFirstContent } from '@lumen/app-ui/catalog'
 import type {
   Authentication2PreviewStoreSeed,
   Authentication2PreviewStoreState,

@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenDataTable, type LumenDataTableContent } from '@lumen/app-ui'
+import { LumenDataTable, type LumenDataTableContent } from '@lumen/app-ui/catalog'
 import { createDataTablePreviewReferenceContent } from '../apps/hbar-app-ui-preview/src/dataTablePreviewReferenceFixtures'
 import { createTablePreviewStore } from '../apps/hbar-app-ui-preview/src/dataTablePreviewModel'
 import { createTablePreviewSeed, projectTablePreview } from '../apps/hbar-app-ui-preview/src/dataTablePreviewProjection'

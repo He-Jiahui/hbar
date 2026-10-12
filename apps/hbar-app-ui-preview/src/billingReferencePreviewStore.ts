@@ -1,5 +1,5 @@
 import { createStore } from 'zustand/vanilla'
-import type { LumenBillingPlanReferenceFlag } from '@lumen/app-ui'
+import type { LumenBillingPlanReferenceFlag } from '@lumen/app-ui/catalog'
 
 export type BillingReferencePreviewKind =
   'statement' | 'plans' | 'invoice' | 'recovery' | 'change-plan' | 'payment-methods' | 'usage' | 'detail'

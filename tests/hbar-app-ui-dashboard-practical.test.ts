@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenDashboard } from '@lumen/app-ui'
+import { LumenDashboard } from '@lumen/app-ui/catalog'
 import { createDashboardPreviewStore } from '../apps/hbar-app-ui-preview/src/dashboardPreviewModel'
 import { createDashboardPreviewReferenceContent } from '../apps/hbar-app-ui-preview/src/dashboardPreviewReferenceFixtures'
 import {

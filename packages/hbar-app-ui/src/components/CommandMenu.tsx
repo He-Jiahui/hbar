@@ -1,4 +1,4 @@
-import { LumenCommandMenu, type LumenCommandMenuContent } from '@lumen/app-ui'
+import { LumenCommandMenu, type LumenCommandMenuContent } from '@lumen/app-ui/catalog'
 import type { HbarAppUiVariantProps } from '../types'
 
 export type HbarAppUiCommandMenuProps = HbarAppUiVariantProps & {

@@ -1,4 +1,4 @@
-import type { LumenDataTableContent, LumenDataTableReferenceContent } from '@lumen/app-ui'
+import type { LumenDataTableContent, LumenDataTableReferenceContent } from '@lumen/app-ui/catalog'
 
 type Standard = Exclude<LumenDataTableReferenceContent, { readonly kind: 'shipments' | 'sources' }>
 type Row = Standard['rows'][number]

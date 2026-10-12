@@ -1,4 +1,4 @@
-import type { LumenAppShellSidebarContent, LumenShellSidebarRecord } from '@lumen/app-ui'
+import type { LumenAppShellSidebarContent, LumenShellSidebarRecord } from '@lumen/app-ui/catalog'
 
 const records: readonly (readonly [string, string, string, string, string, string])[] = [
   ['SHP-40912', 'Brightwater Municipal Utilities District', 'Ardent Freightways', 'In transit', 'Aug 11', '$42,180'],

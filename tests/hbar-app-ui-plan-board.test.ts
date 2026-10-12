@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenAgentPlan05, type LumenAgentPlanBoardContent } from '@lumen/app-ui'
+import { LumenAgentPlan05 } from '@lumen/app-ui'
+import { type LumenAgentPlanBoardContent } from '@lumen/app-ui/catalog'
 import {
   HBAR_APP_UI_AGENT_PLAN_FIXTURES,
   createHbarAppUiAgentPlanLocalizedFixtures,

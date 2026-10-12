@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, test } from 'bun:test'
-import { LumenKanban01 } from '@lumen/app-ui'
+import { LumenKanban01 } from '@lumen/app-ui/catalog'
 import { createRunBoardKanbanContent, resolveRunBoardAction } from '../apps/web/src/run-board-page'
 import { runBoardCopy } from '../apps/web/src/run-board-copy'
 import type { RunBoardItem } from '@hbar/contracts/commands/run-board'

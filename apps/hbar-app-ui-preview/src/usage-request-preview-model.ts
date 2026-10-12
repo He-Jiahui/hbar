@@ -1,5 +1,6 @@
 import { createStore } from 'zustand/vanilla'
-import type { LumenUsageRequestLogContent, LumenUsageRequestRecord } from '@lumen/app-ui'
+import type { LumenUsageRequestRecord } from '@lumen/app-ui'
+import type { LumenUsageRequestLogContent } from '@lumen/app-ui/catalog'
 
 export interface UsageRequestFact {
   readonly id: string

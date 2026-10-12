@@ -1,9 +1,4 @@
-import type {
-  LumenAnalyticsReferenceContent as Content,
-  LumenAnalyticsReferenceChart as Chart,
-  LumenAnalyticsReferenceEntry as Entry,
-  LumenAnalyticsReferenceMetric as Metric,
-} from '@lumen/app-ui'
+import type { LumenAnalyticsReferenceContent as Content, LumenAnalyticsReferenceChart as Chart, LumenAnalyticsReferenceEntry as Entry, LumenAnalyticsReferenceMetric as Metric } from '@lumen/app-ui/catalog'
 
 const grown = { kind: 'content-grown', expectedMaximum: 16 } as const
 const pane = { kind: 'pane-scroll', expectedMaximum: 80 } as const

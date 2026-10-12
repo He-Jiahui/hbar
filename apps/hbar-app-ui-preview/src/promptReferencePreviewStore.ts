@@ -1,5 +1,5 @@
 import { createStore } from 'zustand/vanilla'
-import type { LumenPromptReferenceContent } from '@lumen/app-ui'
+import type { LumenPromptReferenceContent } from '@lumen/app-ui/catalog'
 
 interface PromptSeed {
   readonly ownerId: string

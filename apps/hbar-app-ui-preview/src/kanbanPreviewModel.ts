@@ -1,5 +1,5 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
-import type { LumenKanbanContent } from '@lumen/app-ui'
+import type { LumenKanbanContent } from '@lumen/app-ui/catalog'
 
 export type KanbanPreviewVariant = 1 | 2 | 3 | 4 | 5 | 6
 

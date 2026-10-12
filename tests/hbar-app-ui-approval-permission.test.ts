@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { LumenAgentApproval04, type LumenAgentApprovalPermissionContent } from '@lumen/app-ui'
+import { LumenAgentApproval04, type LumenAgentApprovalPermissionContent } from '@lumen/app-ui/catalog'
 import {
   createPermissionPreviewStore,
   projectPermissionPreviewContent,

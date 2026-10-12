@@ -1,5 +1,5 @@
 import { createStore } from 'zustand/vanilla'
-import type { LumenAppShellInboxContent } from '@lumen/app-ui'
+import type { LumenAppShellInboxContent } from '@lumen/app-ui/catalog'
 import type { InboxPreviewFixture } from '../../../tests/fixtures/hbar-app-ui-app-shell-inbox-fixtures'
 
 function isValidId(id: string): boolean {

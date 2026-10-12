@@ -1,4 +1,4 @@
-import type { LumenChatContent, LumenChatSupportReferenceLayout } from '@lumen/app-ui'
+import type { LumenChatContent, LumenChatSupportReferenceLayout } from '@lumen/app-ui/catalog'
 
 export function createChatSupportReferenceFixture(
   locale: 'en' | 'de-long' = 'en',

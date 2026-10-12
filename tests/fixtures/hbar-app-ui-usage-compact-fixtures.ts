@@ -1,4 +1,4 @@
-import type { LumenUsageCompactContent, LumenUsageCompactWidgetContent } from '@lumen/app-ui'
+import type { LumenUsageCompactContent, LumenUsageCompactWidgetContent } from '@lumen/app-ui/catalog'
 
 export type UsageCompactAction = 'details' | 'upgrade'
 interface UsageCompactCopy {

@@ -1,4 +1,4 @@
-import type { LumenPromptUploadReferenceContent } from '@lumen/app-ui'
+import type { LumenPromptUploadReferenceContent } from '@lumen/app-ui/catalog'
 
 export function createPrompt5ReferenceFixture(locale: 'en' | 'zh' = 'en'): LumenPromptUploadReferenceContent {
   const chinese = locale === 'zh'

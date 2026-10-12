@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useStore } from 'zustand'
-import type { LumenAgentActivityAction, LumenAgentActivityContent, LumenAgentActivityViewModel } from '@lumen/app-ui'
+import type { LumenAgentActivityAction, LumenAgentActivityContent, LumenAgentActivityViewModel } from '@lumen/app-ui/catalog'
 import { HbarAppUiAgentActivityProvider, type HbarAppUiVariantProps } from 'hbar-app-ui/catalog'
 import { createAgentActivityPreviewStore, type AgentActivityPreviewSeed } from './agentActivityPreviewStore'
 

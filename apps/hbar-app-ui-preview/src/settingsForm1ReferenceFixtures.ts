@@ -1,8 +1,4 @@
-import type {
-  LumenSettingsForm1Content,
-  LumenSettingsForm1Field,
-  LumenSettingsForm1Section,
-} from '@lumen/app-ui'
+import type { LumenSettingsForm1Content, LumenSettingsForm1Field, LumenSettingsForm1Section } from '@lumen/app-ui/catalog'
 import {
   createHbarAppUiSettingsFormLocalizedFixtures,
   HBAR_APP_UI_SETTINGS_FORM_FIXTURES,

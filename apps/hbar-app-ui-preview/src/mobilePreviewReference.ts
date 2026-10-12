@@ -1,4 +1,4 @@
-import type { LumenMobileContent } from '@lumen/app-ui'
+import type { LumenMobileContent } from '@lumen/app-ui/catalog'
 
 /** Host-only reference content; only the active composition is projected. */
 export function createMobilePreviewContent(

@@ -1,4 +1,4 @@
-import type { LumenAppShellScopeContent, LumenScopeDatabase } from '@lumen/app-ui'
+import type { LumenAppShellScopeContent, LumenScopeDatabase } from '@lumen/app-ui/catalog'
 
 type RecordSeed = readonly [string, string, LumenScopeDatabase['tone'], number, string]
 const production: readonly RecordSeed[] = [

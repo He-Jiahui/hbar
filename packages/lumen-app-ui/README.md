@@ -7,6 +7,14 @@ import `@lumen/app-ui/styles.css` once in the host application. Material UI
 provides the interaction primitives. The package does not depend on hbar's
 runtime or preview application.
 
+The root entry is limited to foundation controls and host-controlled workbench
+compositions. Optional reference families live in `@lumen/app-ui/catalog` or
+their explicit family entry (for example `@lumen/app-ui/kanban`). Catalog and
+preview applications also import `@lumen/app-ui/catalog/styles.css`. The
+published `styles.css` contains the workbench stylesheet; catalog styling is
+an independent, explicit export. The production host does not load the catalog
+stylesheet or its metadata registry.
+
 The [application design contract](DESIGN.md) defines production surface roles,
 semantic text flow and compact compositions. `LumenSurface.surfaceRole` opts
 into canvas/navigation/reading/raised/overlay hierarchy independently of material.
@@ -30,7 +38,7 @@ empty label. The root pane keeps oversized content reachable from its top.
 
 The public stylesheet includes the base appearance tokens and the shared
 `xs/sm/md/lg/xl` icon scale (12/14/16/20/24px at a 16px root font). Compatibility
-icon classes keep their existing `--hbar-app-ui-icon-*` names, but Lumen owns
+icon classes use the public `--lumen-icon-*` variables, and Lumen owns
 their defaults; hosts do not need hbar's stylesheet. Root font scaling and
 scoped host overrides continue to apply to these semantic tiers.
 
