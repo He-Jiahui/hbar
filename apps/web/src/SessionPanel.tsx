@@ -1,12 +1,15 @@
 import { useId, useState, type ReactNode } from 'react'
 import { LumenContentText, LumenFrame, LumenTabs } from '@lumen/app-ui'
-import { useHbarRuntime, useHbarRuntimeState } from '@hbar/app-react'
+import { createMessageScope, HbarComposerFeedbackDetails, useHbarRuntime, useHbarRuntimeState } from '@hbar/app-react'
 import type { PanelSurface } from '@hbar/app-runtime'
-import type { HbarSessionWorkspaceLabels } from '@hbar/app-react'
+import type { HbarComposerFeedbackDetailsLabels, HbarSessionWorkspaceLabels } from '@hbar/app-react'
 import './session-panel.css'
 
 const sections = ['activity', 'monitoring', 'agents', 'goals'] as const
 type Section = (typeof sections)[number]
+type SessionPanelMessages = Pick<HbarSessionWorkspaceLabels['tools'], 'panel' | Section | 'error'>
+const SessionPanelMessageScope = createMessageScope<SessionPanelMessages>()
+
 export function isSessionPanelSection(value: string): value is Section {
   return sections.some((section) => section === value)
 }
@@ -21,6 +24,33 @@ export function SessionPanel({
   readonly labels: HbarSessionWorkspaceLabels['tools']
   readonly children: ReactNode
 }) {
+  const messages: SessionPanelMessages = {
+    panel: labels.panel,
+    activity: labels.activity,
+    monitoring: labels.monitoring,
+    agents: labels.agents,
+    goals: labels.goals,
+    error: labels.error,
+  }
+  return (
+    <SessionPanelMessageScope.Provider messages={messages}>
+      <SessionPanelView panel={panel} feedbackLabels={labels.noticeDetails}>
+        {children}
+      </SessionPanelView>
+    </SessionPanelMessageScope.Provider>
+  )
+}
+
+function SessionPanelView({
+  panel,
+  feedbackLabels,
+  children,
+}: {
+  readonly panel: PanelSurface
+  readonly feedbackLabels: HbarComposerFeedbackDetailsLabels
+  readonly children: ReactNode
+}) {
+  const { t } = SessionPanelMessageScope.useMessages()
   const runtime = useHbarRuntime()
   const tabs = useHbarRuntimeState(runtime.state.workspaceTabs)
   const namespace = useId()
@@ -30,12 +60,18 @@ export function SessionPanel({
   )
   return (
     <LumenFrame className="hbar-session-panel">
+      {panel.workspaceId && panel.sessionId && (
+        <HbarComposerFeedbackDetails
+          scope={{ workspaceId: panel.workspaceId, sessionId: panel.sessionId }}
+          labels={feedbackLabels}
+        />
+      )}
       <LumenTabs
-        label={labels.panel}
+        label={t('panel')}
         selectedId={panel.panelId}
         items={sections.map((id) => ({
           id,
-          label: labels[id],
+          label: t(id),
           tabId: `${namespace}-${id}`,
           panelId: `${namespace}-content`,
         }))}
@@ -61,7 +97,7 @@ export function SessionPanel({
       />
       {error && (
         <LumenContentText context="feedback.message" role="alert">
-          {labels.error(error)}
+          {t('error')(error)}
         </LumenContentText>
       )}
       <LumenFrame

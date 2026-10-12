@@ -20,7 +20,7 @@ import type { HbarSessionDecisionHistoryLabels } from './session-decision-histor
 
 import { type HbarComposerModelLabels } from './composer-model-picker'
 
-import { type HbarComposerFeedbackLabels } from './composer-feedback'
+import { type HbarComposerFeedbackDetailsLabels, type HbarComposerFeedbackLabels } from './composer-feedback'
 
 import { type HbarConversationAnchorLabels } from './conversation-anchors'
 import { type HbarComposerBackgroundAgentLabels } from './composer-background-agents'
@@ -132,6 +132,7 @@ export interface HbarSessionWorkspaceLabels {
     readonly goals: string
     readonly settings: string
     readonly error: (code: string) => string
+    readonly noticeDetails: HbarComposerFeedbackDetailsLabels
   }
   readonly runs: HbarSessionRunLabels
   readonly runDetail: (modelId: string) => string
@@ -168,14 +169,14 @@ export type SessionToolToggle = (
   panelId: 'files' | 'activity' | 'monitoring' | 'agents' | 'goals',
   command?: 'sessionTools.toggle' | 'sessionTools.open',
 ) => void
-export interface SessionComposerProps extends HbarSessionWorkspaceProps {
+export interface SessionComposerProps extends Omit<HbarSessionWorkspaceProps, 'labels'> {
   readonly composerWrites: import('react').RefObject<Map<string, Set<Promise<unknown>>>>
   readonly toggleTool: SessionToolToggle
 }
 
 export interface SessionWorkspaceHeaderProps extends Pick<
   HbarSessionWorkspaceProps,
-  'sessionTitle' | 'workspaceName' | 'labels' | 'connected' | 'showFilesInHeader'
+  'sessionTitle' | 'workspaceName' | 'connected' | 'showFilesInHeader'
 > {
   readonly find: Pick<
     ReturnType<typeof import('./session-find').useSessionFind>,
@@ -183,3 +184,5 @@ export interface SessionWorkspaceHeaderProps extends Pick<
   >
   readonly toolActions: ReturnType<typeof import('./session-tool-actions').useSessionToolActions>
 }
+
+export type SessionWorkspaceHistoryProps = Omit<HbarSessionWorkspaceProps, 'labels'>

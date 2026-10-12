@@ -6,7 +6,12 @@ import { HbarDraftImageAttachments } from './session-images'
 
 import { HbarComposerModelPicker } from './composer-model-picker'
 import { HbarPromptComposer } from './prompt-composer'
-import { HbarComposerFeedback, HbarComposerFeedbackProvider, HbarComposerPrimaryNotice } from './composer-feedback'
+import {
+  HbarComposerFeedback,
+  HbarComposerFeedbackSessionProvider,
+  HbarComposerPrimaryNotice,
+  HbarComposerBlockedNotice,
+} from './composer-feedback'
 
 import { HbarComposerBackgroundAgentStop, HbarComposerBackgroundAgentFeedback } from './composer-background-agents'
 import { HbarComposerGoal, HbarComposerIntentControls } from './composer-intent-controls'
@@ -37,13 +42,13 @@ import { HbarSessionExecutionNotice } from './session-execution-notice'
 import { memo } from 'react'
 import type { SessionComposerProps } from './session-workspace-contract'
 import { useSessionComposer } from './session-composer-model'
+import { useSessionComposerMessages } from './session-workspace-messages'
 export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(props: SessionComposerProps) {
   const {
     sessionTitle,
     workspaceName,
     workspacePath,
     sessionWorkspaceId,
-    labels,
     sendBehavior,
     connected,
     prepareAttachment,
@@ -55,6 +60,8 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
     modelMenuPresentation,
     toggleTool,
   } = props
+  const { t } = useSessionComposerMessages()
+  const liveStatusLabels = t('liveStatus')
   const {
     runtime,
     stopRun,
@@ -170,7 +177,11 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
       />
     ) : null
   const composer: ReactNode = sessionId ? (
-    <HbarComposerFeedbackProvider key={sessionId} labels={labels.composerFeedback}>
+    <HbarComposerFeedbackSessionProvider
+      key={sessionId}
+      scope={{ workspaceId: sessionWorkspaceId, sessionId }}
+      labels={t('composerFeedback')}
+    >
       <LumenFrame
         className="hbar-app-react-session-footer"
         data-hbar-composer-session={sessionId}
@@ -178,20 +189,21 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
         data-git-context-status={projectContext.context.status}
       >
         <HbarComposerPrimaryNotice />
+        {composerState.blockedReason && <HbarComposerBlockedNotice reason={composerState.blockedReason} />}
         {!connected && (
           <HbarComposerFeedback priority="blocking">
             <LumenContentText context="feedback.message" role="status">
-              {labels.disconnected}
+              {t('disconnected')}
             </LumenContentText>
           </HbarComposerFeedback>
         )}
-        {labels.liveStatus.history && (
+        {liveStatusLabels.history && (
           <HbarContextCompactionNotice
             record={timeline.sessionId === sessionId ? timeline.activeCompaction : null}
             sessionId={sessionId}
             owned={activeConversationOwner}
             connected={connected}
-            labels={labels.liveStatus.history}
+            labels={liveStatusLabels.history}
           />
         )}
         <HbarSessionLiveStatus
@@ -201,7 +213,7 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
           owned={activeConversationOwner}
           connected={connected}
           run={activeRun}
-          labels={labels.liveStatus}
+          labels={liveStatusLabels}
           history={{
             page: timeline.contextHistory,
             status: timeline.contextHistoryStatus,
@@ -225,7 +237,7 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
                   sessionId={sessionId}
                   workspaceId={navigation.workspaceId}
                   connected={connected}
-                  labels={labels.intent}
+                  labels={t('intent')}
                   surface="summary"
                   embedded
                   runActive={
@@ -263,7 +275,7 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
             status={preparationStatus}
             workspaceName={workspaceName}
             connected={connected}
-            labels={labels.executionAccess}
+            labels={t('executionAccess')}
             onOpenArchived={async () => {
               const target = { sessionId, workspaceId: sessionWorkspaceId }
               const selected = runtime.state.navigation.getSnapshot()
@@ -280,7 +292,7 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
           sessionId={sessionId}
           workspaceId={navigation.workspaceId}
           connected={connected}
-          labels={labels.intent}
+          labels={t('intent')}
           surface="submission"
           canPrepare={canPrepare}
         />
@@ -291,7 +303,7 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
               : agentAction?.status
           }
           agentId={agentAction?.agent?.agentId}
-          labels={labels.slash.agentNotice}
+          labels={t('slash').agentNotice}
           connected={connected}
           onRetry={() => {
             if (!agentAction || !sessionId || !navigation.workspaceId) return
@@ -336,7 +348,7 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
         <HbarComposerAttachmentDropTarget
           key={`attachments:${sessionId}`}
           enabled={attachmentIntakeEnabled}
-          label={labels.attachments.drop}
+          label={t('attachments').drop}
           onAdd={addAttachments}
         >
           {goalConfirmation?.sessionId === sessionId &&
@@ -348,18 +360,18 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
                 role="group"
                 aria-label={
                   goalConfirmation.action === 'clear'
-                    ? labels.slash.goalConfirmClear(goalConfirmation.previousObjective)
-                    : labels.slash.goalConfirmReplace(goalConfirmation.previousObjective)
+                    ? t('slash').goalConfirmClear(goalConfirmation.previousObjective)
+                    : t('slash').goalConfirmReplace(goalConfirmation.previousObjective)
                 }
               >
                 <LumenContentText context="message.inline">
                   {goalConfirmation.action === 'clear'
-                    ? labels.slash.goalConfirmClear(goalConfirmation.previousObjective)
-                    : labels.slash.goalConfirmReplace(goalConfirmation.previousObjective)}
+                    ? t('slash').goalConfirmClear(goalConfirmation.previousObjective)
+                    : t('slash').goalConfirmReplace(goalConfirmation.previousObjective)}
                 </LumenContentText>
                 <LumenFrame className="hbar-composer-goal-confirmation-actions">
                   <LumenButton type="button" size="s" onClick={() => setGoalConfirmation(null)}>
-                    {labels.slash.goalCancel}
+                    {t('slash').goalCancel}
                   </LumenButton>
                   <LumenButton
                     type="button"
@@ -377,7 +389,7 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
                       )
                     }}
                   >
-                    {labels.slash.goalConfirm}
+                    {t('slash').goalConfirm}
                   </LumenButton>
                 </LumenFrame>
               </LumenFrame>
@@ -399,7 +411,7 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
                       connected={connected}
                       inputLabel={inputLabel}
                       placeholder={placeholder}
-                      labels={labels.mentions}
+                      labels={t('mentions')}
                       slashLabels={slashLabels}
                       submitSlashCommands={submitSlashCommands}
                       slashOpenRequest={slashOpenRequest}
@@ -417,13 +429,13 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
                 : undefined
             }
             labels={{
-              ...labels.prompt,
+              ...t('prompt'),
               placeholder:
                 intent === 'goal'
-                  ? labels.intent.goalPlaceholder
+                  ? t('intent').goalPlaceholder
                   : planModeEntry?.status === 'ready' && planModeEntry.mode === 'plan'
-                    ? labels.intent.planPlaceholder
-                    : labels.prompt.placeholder,
+                    ? t('intent').planPlaceholder
+                    : t('prompt').placeholder,
             }}
             attachments={(draft?.attachments ?? []).map((attachment) => ({
               id: attachment.artifact.id,
@@ -437,9 +449,9 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
                   <HbarComposerWorkspaceContexts
                     contexts={workspaceContexts}
                     attachments={!images ? draft.attachments : []}
-                    labels={labels.workspaceContexts}
+                    labels={t('workspaceContexts')}
                     removeAttachmentLabel={(attachment) =>
-                      labels.prompt.removeAttachment({
+                      t('prompt').removeAttachment({
                         id: attachment.artifact.id,
                         kind: attachment.kind,
                         name: attachment.artifact.name,
@@ -467,7 +479,7 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
                   {images && draft.attachments.length > 0 ? (
                     <HbarDraftImageAttachments
                       draft={draft}
-                      removeLabel={labels.prompt.removeAttachment}
+                      removeLabel={t('prompt').removeAttachment}
                       removeDisabled={
                         draft.status === 'submitting' ||
                         draft.status === 'unknown' ||
@@ -494,7 +506,7 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
             canSubmit={composerState.canSubmit}
             canStop={composerState.showStop}
             runningActions={{
-              ...labels.runningActions,
+              ...t('runningActions'),
               submit:
                 (draft?.text.trim() || draft?.attachments.length || workspaceContexts.length) &&
                 (intent !== 'goal' || draft?.text.trim())
@@ -506,20 +518,20 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
               !connected
                 ? undefined
                 : draft?.uploadError && !attachmentTransfers.some((item) => item.error === draft.uploadError)
-                  ? labels.attachments.error(draft.uploadError)
+                  ? t('attachments').error(draft.uploadError)
                   : draft?.error
-                    ? labels.error(draft.error)
+                    ? t('error')(draft.error)
                     : composerModel.sessionId === sessionId && composerModel.action.status === 'unknown'
-                      ? labels.modelPicker.unknown
+                      ? t('modelPicker').unknown
                       : templateRouteError?.sessionId === sessionId
-                        ? labels.error(templateRouteError.code)
+                        ? t('error')(templateRouteError.code)
                         : visibleSlashFailure
             }
             controls={
               <LumenFrame className="hbar-session-composer-controls">
                 <HbarComposerAddMenu
                   key={`add:${sessionId}`}
-                  labels={labels.addMenu}
+                  labels={t('addMenu')}
                   canAddFiles={canAddAttachments}
                   canOpenSlash={canOpenSlash}
                   onFiles={prepareAttachment ? addAttachments : undefined}
@@ -542,7 +554,7 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
                     disabled={composerState.optionControlsLocked}
                     runActive={Boolean(activeRun)}
                     canPrepare={canPrepare}
-                    labels={labels.permissionPicker}
+                    labels={t('permissionPicker')}
                     onRefresh={async () => {
                       await runtime.commands.execute('composerPermission.refresh', {})
                     }}
@@ -597,14 +609,14 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
                   connected={connected}
                   disabled={composerState.intentControlsLocked}
                   canPrepare={canPrepare}
-                  labels={labels.intent}
+                  labels={t('intent')}
                 />
               </LumenFrame>
             }
             adaptiveToolbar={{
-              moreLabel: labels.addMenu.menu,
-              controlsLabel: labels.addMenu.open,
-              modelLabel: labels.modelPicker.title,
+              moreLabel: t('addMenu').menu,
+              controlsLabel: t('addMenu').open,
+              modelLabel: t('modelPicker').title,
               revealModelRequest: modelOpenRequest,
             }}
             context={
@@ -618,7 +630,7 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
                     null
                   }
                   disabled={!connected || backgroundPending || !activeConversationOwner}
-                  labels={labels.backgroundAgents}
+                  labels={t('backgroundAgents')}
                   onReconcile={reconcileBackground}
                   onRetry={retryBackground}
                   onRefresh={() => {
@@ -644,7 +656,7 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
                   state={queuedUserRuns}
                   sessionId={sessionId}
                   connected={connected}
-                  labels={labels.queuedUserRuns}
+                  labels={t('queuedUserRuns')}
                   activeRunId={
                     timeline.sessionId === sessionId &&
                     timeline.status === 'ready' &&
@@ -678,7 +690,7 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
                 />
                 <HbarComposerAttachmentTransfers
                   transfers={attachmentTransfers}
-                  labels={labels.attachments}
+                  labels={t('attachments')}
                   connected={connected}
                   onRemove={(item) =>
                     invoke('draft.removeAttachmentTransfer', {
@@ -710,7 +722,7 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
                 <HbarSessionUsageControl
                   key={`usage:${sessionId}`}
                   controls={controls}
-                  labels={labels.usage}
+                  labels={t('usage')}
                   onOpenMonitor={() => toggleTool('monitoring')}
                   onRefresh={() => {
                     void runtime.contextUsage.refresh(sessionId)
@@ -730,7 +742,7 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
                     Boolean(activeRun && canPrepare)
                   }
                   canSelect={canPrepare && !activeRun && !workspaceMoveLocked}
-                  labels={labels.modelPicker}
+                  labels={t('modelPicker')}
                   menuPresentation={modelMenuPresentation}
                   openRequest={modelOpenRequest}
                   onOpened={() => {
@@ -768,7 +780,7 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
                     backgroundEntry?.action.status === 'failed'
                   }
                   pending={backgroundPending}
-                  labels={labels.backgroundAgents}
+                  labels={t('backgroundAgents')}
                   onStop={stopBackground}
                 />
               ) : undefined
@@ -802,15 +814,15 @@ export const SessionWorkspaceComposer = memo(function SessionWorkspaceComposer(p
             {projectContextView(showLaunchLocation)}
           </LumenFrame>
         )}
-        {sessionUsagePresentation(controls, labels.usage).notice && (
+        {sessionUsagePresentation(controls, t('usage')).notice && (
           <HbarComposerFeedback tone="danger">
             <LumenContentText context="feedback.message" className="hbar-session-budget-notice" role="status">
-              {sessionUsagePresentation(controls, labels.usage).notice}
+              {sessionUsagePresentation(controls, t('usage')).notice}
             </LumenContentText>
           </HbarComposerFeedback>
         )}
       </LumenFrame>
-    </HbarComposerFeedbackProvider>
+    </HbarComposerFeedbackSessionProvider>
   ) : null
   return composer
 })

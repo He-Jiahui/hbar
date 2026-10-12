@@ -56,6 +56,7 @@ import { workspaceDisplayNamesCopy } from './workspace-display-names-copy'
 import { workspaceFoldersCopy } from './workspace-folders-copy'
 import { getSessionStopCopy, sessionStopButtonLabel } from './session-stop-copy'
 import { sessionTimeCopy } from './session-time-copy'
+import type { ComposerBlockedReason } from '@hbar/app-runtime'
 
 export type ShellLocale = 'zh-CN' | 'en-US'
 
@@ -196,7 +197,7 @@ function createAppearanceLabels(locale: ShellLocale): WebAppearanceSettingsLabel
     },
     loading: choose('正在读取设备偏好', 'Loading device preferences'),
     identityPending: choose(
-      '正在确认 Host。可以编辑外观草稿；确认并读取已保存值后才能保存或恢复默认。',
+      '正在确认宿主。可以编辑外观草稿；确认并读取已保存值后才能保存或恢复默认。',
       'Confirming the Host. You can edit the appearance draft; saving and restoring defaults require confirmed saved preferences.',
     ),
     unsaved: choose('有未保存的外观更改', 'Appearance changes are not saved'),
@@ -254,7 +255,7 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         'run.approval': '运行与审批',
         'model.budget': '模型与预算',
         'model.configuration': '模型配置',
-        'agent.goal.plan': 'Agent、目标与计划',
+        'agent.goal.plan': '代理、目标与计划',
         'files.tools': '文件与工具',
         'settings.providers': '设置与供应商',
         'monitoring.performance': '性能监控',
@@ -300,14 +301,14 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         'commands.app.renameSession.description': '修改指定会话的标题并立即更新会话列表。',
         'commands.app.archiveSession.title': '归档会话',
         'commands.app.archiveSession.description': '归档指定会话，并在归档当前会话时返回会话空态。',
-        'commands.session.setBudget.title': '设置会话 Token 预算',
-        'commands.session.setBudget.description': '持久设置指定会话的 Token 上限。',
-        'commands.session.getBudget.title': '查询会话 Token 预算',
-        'commands.session.getBudget.description': '读取指定会话当前生效的 Token 预算。',
-        'commands.session.clearBudget.title': '清除会话 Token 预算',
-        'commands.session.clearBudget.description': '删除指定会话的独立 Token 预算。',
+        'commands.session.setBudget.title': '设置会话词元预算',
+        'commands.session.setBudget.description': '持久设置指定会话的词元上限。',
+        'commands.session.getBudget.title': '查询会话词元预算',
+        'commands.session.getBudget.description': '读取指定会话当前生效的词元预算。',
+        'commands.session.clearBudget.title': '清除会话词元预算',
+        'commands.session.clearBudget.description': '删除指定会话的独立词元预算。',
         'commands.workspace.list.title': '列出工作区',
-        'commands.workspace.list.description': '分页查询 Host 中的工作区。',
+        'commands.workspace.list.description': '分页查询宿主中的工作区。',
         'commands.workspace.sidebar.list.title': '列出侧栏项目',
         'commands.workspace.sidebar.list.description': '按项目名称或会话活动分页查询可见项目。',
         'commands.session.activity.global.list.title': '列出跨项目会话活动',
@@ -317,7 +318,7 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         'commands.session.execution.get.title': '读取会话运行状态',
         'commands.session.execution.get.description': '读取指定会话及其直属后台子会话的当前运行汇总。',
         'commands.workspace.open.title': '打开工作区',
-        'commands.workspace.open.description': '按目录路径在 Host 注册工作区并切换当前工作台。',
+        'commands.workspace.open.description': '按目录路径在宿主注册工作区并切换当前工作台。',
         'commands.session.list.title': '列出会话',
         'commands.session.list.description': '分页查询指定工作区的会话。',
         'commands.provider.preset.list.title': '列出供应商预设',
@@ -325,9 +326,9 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         'commands.provider.preset.models.title': '列出预设模型',
         'commands.provider.preset.models.description': '分页查询供应商预设中的模型、能力与思考等级。',
         'commands.skill.inspect.title': '读取技能详情',
-        'commands.skill.inspect.description': '读取 Host 已发现技能的只读详情。',
+        'commands.skill.inspect.description': '读取宿主已发现技能的只读详情。',
         'commands.skill.file.read.title': '读取技能文件',
-        'commands.skill.file.read.description': '读取 Host 已发现技能目录中的一个文件。',
+        'commands.skill.file.read.description': '读取宿主已发现技能目录中的一个文件。',
       }
     : {
         'commands.app.openPanel.title': 'Open panel',
@@ -391,7 +392,7 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
         workspaceId: '工作区 ID',
         session: '会话 ID 或名称',
         sessionName: '会话名称',
-        tokens: 'Token 上限',
+        tokens: '词元上限',
         expectedRevision: '预期版本',
         expectedTitle: '编辑前标题',
         panelId: '子界面 ID',
@@ -528,13 +529,13 @@ function createCommandPaletteLabels(locale: ShellLocale): HbarCommandPaletteLabe
     ),
     unavailableReason: (code) =>
       code === 'HOST_DISCONNECTED'
-        ? choose('连接 Host 后可执行此命令。', 'Connect to the Host to execute this command.')
+        ? choose('连接宿主后可执行此命令。', 'Connect to the Host to execute this command.')
         : choose(`命令当前不可用：${code}`, `Command unavailable: ${code}`),
     error: (code) => choose(`命令操作失败：${code}`, `Command action failed: ${code}`),
     kind: (kind) => (kind === 'query' ? choose('查询', 'Query') : choose('命令', 'Command')),
     execution: (execution) =>
       execution === 'host'
-        ? choose('Host 执行', 'Host execution')
+        ? choose('宿主执行', 'Host execution')
         : execution === 'platform'
           ? choose('平台执行', 'Platform execution')
           : choose('客户端执行', 'Client execution'),
@@ -572,8 +573,8 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
         'i18n:settings.context.compactionPercent.label': '自动压缩阈值（%）',
         'i18n:settings.context.compactionPercent.help':
           '默认 80%，可设置 30–95%。当前会话的上下文占用达到此比例时，在下一次模型请求前压缩；输出预留空间不足时会提前触发。保存后立即采用。',
-        'i18n:settings.session.defaultBudget.label': '默认 Token 预算',
-        'i18n:settings.session.defaultBudget.help': '设置新会话运行采用的默认 Token 上限。',
+        'i18n:settings.session.defaultBudget.label': '默认词元预算',
+        'i18n:settings.session.defaultBudget.help': '设置新会话运行采用的默认词元上限。',
         'i18n:settings.session.approval.label': '会话工具审批',
         'i18n:settings.session.approval.help': '仅作用于此会话的新运行；不设置时继承宿主默认值。',
         'i18n:settings.session.sandboxProfile.label': '沙盒配置',
@@ -633,9 +634,9 @@ function createSettingsLabels(locale: ShellLocale): HbarSettingsWorkspaceLabels 
     back: choose('返回会话', 'Back to session'),
     controls: choose('设置控制', 'Settings controls'),
     scopes: choose('设置作用域', 'Settings scope'),
-    hostScope: choose('Host 全局设置', 'Host-wide settings'),
+    hostScope: choose('宿主全局设置', 'Host-wide settings'),
     clientScope: choose('当前客户端设置', 'Current client settings'),
-    mixedScope: choose('设备与 Host 偏好', 'Device and Host preferences'),
+    mixedScope: choose('设备与宿主偏好', 'Device and Host preferences'),
     global: choose('全局', 'Global'),
     workspace: choose('工作区', 'Workspace'),
     session: choose('会话', 'Session'),
@@ -784,7 +785,7 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
     contextPricing: {
       title: choose('MAX 窗口与计费规则', 'MAX windows and billing rules'),
       description: choose(
-        '所有费率为 USD / 百万 tokens。MAX 使用最大窗口；实际输入（含缓存）超过阈值时，整次请求改用该档费率。等于阈值仍用较低档。留空缓存费率表示未知；留空 MAX 倍率表示不额外加价。',
+        '所有费率为 USD / 百万词元。MAX 使用最大窗口；实际输入（含缓存）超过阈值时，整次请求改用该档费率。等于阈值仍用较低档。留空缓存费率表示未知；留空 MAX 倍率表示不额外加价。',
         'Rates are USD per million tokens. MAX uses the largest window. Actual inclusive input above a threshold selects that tariff for the whole request; equality keeps the lower tariff. Blank cache rates mean unknown. Blank MAX markup means no extra surcharge.',
       ),
       standard: choose('普通窗口与基础费率', 'Standard window and base rates'),
@@ -802,15 +803,15 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
       field: (key) =>
         ({
           'i18n:settings.providers.context.standard': choose(
-            '普通上下文窗口（tokens）',
+            '普通上下文窗口（词元）',
             'Standard context window (tokens)',
           ),
           'i18n:settings.providers.context.expanded': choose(
-            '扩展上下文窗口（tokens）',
+            '扩展上下文窗口（词元）',
             'Expanded context window (tokens)',
           ),
           'i18n:settings.providers.context.threshold': choose(
-            '输入超过此值时改用本档（tokens）',
+            '输入超过此值时改用本档（词元）',
             'Apply this tariff when input exceeds (tokens)',
           ),
           'i18n:settings.providers.context.input': choose('输入费率（USD / 百万）', 'Input rate (USD / million)'),
@@ -881,7 +882,7 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
       'Save result is not confirmed. Reconcile before discarding changes.',
     ),
     credentialUnconfirmed: choose(
-      'Host 只能确认存在密钥，无法确认本次新密钥是否保存。操作仍待确认；不能关闭、重发或放弃草稿。',
+      '宿主只能确认存在密钥，无法确认本次新密钥是否保存。操作仍待确认；不能关闭、重发或放弃草稿。',
       'The Host can confirm that a credential exists, but not whether this replacement was saved. This operation remains unconfirmed; closing, resending, and discarding are unavailable.',
     ),
     sections: {
@@ -902,7 +903,7 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
       ),
       credentials: choose('凭据', 'Credentials'),
       credentialsDescription: choose(
-        '凭据只提交给 Host，不会进入界面状态快照。',
+        '凭据只提交给宿主，不会进入界面状态快照。',
         'Credentials are submitted to the Host and never enter the UI state snapshot.',
       ),
       models: choose('模型', 'Models'),
@@ -924,7 +925,7 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
       loading: choose('正在加载供应商预设…', 'Loading provider presets…'),
       readError: (code) =>
         ['DISCONNECTED', 'CONNECTION_CLOSED', 'HOST_DISCONNECTED', 'TIMEOUT', 'TIMED_OUT'].includes(code)
-          ? choose('Host 连接已中断。重新连接后可重试。', 'The Host connection was interrupted. Reconnect, then retry.')
+          ? choose('宿主连接已中断。重新连接后可重试。', 'The Host connection was interrupted. Reconnect, then retry.')
           : code === 'CAPABILITY_UNAVAILABLE'
             ? choose(
                 '供应商预设目录暂不可用。你可以重试，或手动填写。',
@@ -980,7 +981,7 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
       catalogLoading: choose('正在加载模型…', 'Loading models…'),
       catalogReadError: (code) =>
         ['DISCONNECTED', 'CONNECTION_CLOSED', 'HOST_DISCONNECTED', 'TIMEOUT', 'TIMED_OUT'].includes(code)
-          ? choose('Host 连接已中断。重新连接后可重试。', 'The Host connection was interrupted. Reconnect, then retry.')
+          ? choose('宿主连接已中断。重新连接后可重试。', 'The Host connection was interrupted. Reconnect, then retry.')
           : code === 'CAPABILITY_UNAVAILABLE'
             ? choose(
                 '预设模型目录暂不可用。你可以重试，或手动添加模型。',
@@ -1008,9 +1009,9 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
         'Existing sessions can continue to reference a hidden model.',
       ),
       contextWindow: choose('上下文窗口', 'Context window'),
-      maxOutput: choose('最大输出 Token', 'Maximum output tokens'),
-      inputPrice: choose('输入价格（每百万 Token）', 'Input price per million tokens'),
-      outputPrice: choose('输出价格（每百万 Token）', 'Output price per million tokens'),
+      maxOutput: choose('最大输出词元', 'Maximum output tokens'),
+      inputPrice: choose('输入价格（每百万词元）', 'Input price per million tokens'),
+      outputPrice: choose('输出价格（每百万词元）', 'Output price per million tokens'),
       imageInput: choose('支持图片输入', 'Supports image input'),
       imageInputDescription: choose('允许将图片作为模型输入。', 'Allows images as model input.'),
       reasoning: choose('支持推理', 'Supports reasoning'),
@@ -1070,6 +1071,24 @@ function createProviderLabels(locale: ShellLocale): ShellCopy['providers'] {
 function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
   const zh = locale === 'zh-CN'
   const choose = <Value>(chinese: Value, english: Value): Value => (zh ? chinese : english)
+  const blockedReasons = {
+    disconnected: choose('宿主未连接。', 'The Host is disconnected.'),
+    'first-send': choose('正在确认首次发送状态，请稍候。', 'The first-send state is being confirmed. Please wait.'),
+    'workspace-move': choose('工作区正在切换，请等待完成后再发送。', 'The workspace is changing. Wait for it to finish before sending.'),
+    history: choose('会话记录尚未加载完成。', 'Session history has not finished loading.'),
+    'execution-unavailable': choose('当前连接暂不支持此操作。', 'This connection does not support this action yet.'),
+    'draft-pending': choose('草稿正在同步，请稍候。', 'The draft is syncing. Please wait.'),
+    'model-pending': choose('模型设置正在更新，请稍候。', 'Model settings are updating. Please wait.'),
+    'intent-pending': choose('执行选项正在更新，请稍候。', 'Execution options are updating. Please wait.'),
+    permission: choose('当前权限设置不允许发送。', 'The current permission settings do not allow sending.'),
+    'plan-pending': choose('计划模式尚未准备就绪。', 'Plan mode is not ready yet.'),
+    uploading: choose('附件仍在上传，请等待完成。', 'Attachments are still uploading. Wait for them to finish.'),
+    'model-required': choose('请先为此会话选择模型。', 'Choose a model for this session first.'),
+    empty: choose('请输入消息或命令。', 'Enter a message or command.'),
+    'run-active': choose('当前运行尚未结束。', 'The current run has not finished.'),
+    compacting: choose('上下文正在压缩，请稍候。', 'The context is being compacted. Please wait.'),
+    'goal-pending': choose('目标操作正在处理，请稍候。', 'The goal action is in progress. Please wait.'),
+  } satisfies Record<ComposerBlockedReason, string>
   const agentProfileDescriptions: Readonly<Record<AgentProfileId, string>> = {
     explore: choose('探索（只读），在独立子会话中运行', 'Explore (read-only) in a separate child session'),
   }
@@ -1126,7 +1145,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       expand: choose('展开会话状态', 'Expand session status'),
       collapse: choose('收起会话状态', 'Collapse session status'),
       goal: choose('当前目标', 'Current goal'),
-      tasks: { ...createSessionActivityLabels(locale).tasks, title: choose('Agent 计划', 'Agent plan') },
+      tasks: { ...createSessionActivityLabels(locale).tasks, title: choose('代理计划', 'Agent plan') },
     },
     loading: choose('正在加载会话记录…', 'Loading session history…'),
     emptyHistory: choose('此会话暂无可显示的消息。', 'No messages to show in this session.'),
@@ -1476,24 +1495,24 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     },
     backgroundAgents: {
       stop: (count) =>
-        choose(`停止 ${count} 个后台 Agent`, `Stop ${count} background ${count === 1 ? 'agent' : 'agents'}`),
-      stopping: choose('正在请求停止后台 Agent…', 'Requesting background Agent cancellation…'),
+        choose(`停止 ${count} 个后台代理`, `Stop ${count} background ${count === 1 ? 'agent' : 'agents'}`),
+      stopping: choose('正在请求停止后台代理…', 'Requesting background Agent cancellation…'),
       requested: choose(
-        '已请求停止后台 Agent，正在等待实际结束。',
+        '已请求停止后台代理，正在等待实际结束。',
         'Background Agent cancellation requested; waiting for settlement.',
       ),
       unknown: choose(
         '停止结果尚未确认，请先核对原目标。',
         'Cancellation is unconfirmed. Check the original Agents before retrying.',
       ),
-      checking: choose('正在核对原后台 Agent…', 'Checking the original background Agents…'),
+      checking: choose('正在核对原后台代理…', 'Checking the original background Agents…'),
       settled: choose('本次停止目标已结束。', 'The background Agents targeted by this request have settled.'),
       failed: (code) =>
-        choose(`后台 Agent 停止未完成：${code}`, `Background Agent cancellation did not finish: ${code}`),
-      readFailed: (code) => choose(`无法读取后台 Agent：${code}`, `Could not load background Agents: ${code}`),
+        choose(`后台代理停止未完成：${code}`, `Background Agent cancellation did not finish: ${code}`),
+      readFailed: (code) => choose(`无法读取后台代理：${code}`, `Could not load background Agents: ${code}`),
       reconcile: choose('核对停止结果', 'Check cancellation'),
       retry: choose('重试停止原目标', 'Retry original targets'),
-      refresh: choose('重新读取后台 Agent', 'Reload background Agents'),
+      refresh: choose('重新读取后台代理', 'Reload background Agents'),
     },
     queuedUserRuns: {
       queued: choose('已排队', 'Queued'),
@@ -1724,7 +1743,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
           label: '/agent',
           argumentHint: choose('<类型> <任务>', '<agent> <task>'),
           description: choose(
-            '在当前会话中请求 Agent 工具处理任务',
+            '在当前会话中请求代理工具处理任务',
             'Ask the parent session Agent tool to handle the task',
           ),
         },
@@ -1743,7 +1762,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         {
           id: 'agents',
           label: '/agents',
-          description: choose('打开此会话的子 Agent 工作区', 'Open child agents for this session'),
+          description: choose('打开此会话的子代理工作区', 'Open child agents for this session'),
         },
         {
           id: 'cost',
@@ -1768,27 +1787,27 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       }),
       agentTaskHint: choose('<任务>', '<task>'),
       agentRequired: choose(
-        '用法：/agent <类型> <任务>。选择一个可用的 Agent 类型并描述任务。',
+        '用法：/agent <类型> <任务>。选择一个可用的代理类型并描述任务。',
         'Use /agent <agent> <task>. Choose an available Agent type and describe the task.',
       ),
       agentCatalogUnavailable: choose(
-        '暂时无法读取可用 Agent 类型。请恢复连接后重试；草稿已保留。',
+        '暂时无法读取可用代理类型。请恢复连接后重试；草稿已保留。',
         'Available Agent types could not be read. Reconnect and retry; your draft is preserved.',
       ),
       agentProfileUnavailable: (profileId) =>
         choose(
-          `Agent 类型“${profileId}”不可用。请选择列表中的类型；草稿已保留。`,
+          `代理类型“${profileId}”不可用。请选择列表中的类型；草稿已保留。`,
           `Agent type “${profileId}” is unavailable. Choose a listed type; your draft is preserved.`,
         ),
       agentNotice: {
-        creating: choose('正在创建子 Agent…', 'Creating child Agent…'),
+        creating: choose('正在创建子代理…', 'Creating child Agent…'),
         unknown: choose(
           '创建结果尚未确认。保留了原命令；核对后可用同一请求重试。',
           'Creation is unconfirmed. The original command is preserved; check and retry the same request.',
         ),
         retry: choose('重试并核对', 'Retry and reconcile'),
-        created: choose('子 Agent 已开始处理任务。', 'Child Agent started the task.'),
-        open: choose('查看子 Agent', 'Open child Agent'),
+        created: choose('子代理已开始处理任务。', 'Child Agent started the task.'),
+        open: choose('查看子代理', 'Open child Agent'),
       },
       attachmentsBlocked: choose(
         '此命令不能连同附件发送；移除附件后再确认。草稿和附件均已保留。',
@@ -1854,6 +1873,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       title: choose('输入状态', 'Composer status'),
       empty: choose('目前没有输入提示。', 'There are no composer notices.'),
       close: choose('关闭输入状态', 'Close composer status'),
+      blockedReason: (reason) => blockedReasons[reason],
       summary: (count) =>
         count
           ? choose(`${count} 项输入提示，查看详情`, `${count} composer notices. View details`)
@@ -1924,12 +1944,12 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
           ),
         baseRates: (input, output) =>
           choose(
-            `基础费率：输入 $${input} / 输出 $${output}，每百万 tokens`,
+            `基础费率：输入 $${input} / 输出 $${output}，每百万词元`,
             `Base rates: input $${input} / output $${output}, per million tokens`,
           ),
         rule: (tier) =>
           choose(
-            `输入 > ${tier.inputTokensAbove.toLocaleString('zh-CN')}：整次请求输入 $${tier.inputPrice} / 输出 $${tier.outputPrice}，每百万 tokens`,
+            `输入 > ${tier.inputTokensAbove.toLocaleString('zh-CN')}：整次请求输入 $${tier.inputPrice} / 输出 $${tier.outputPrice}，每百万词元`,
             `Input > ${tier.inputTokensAbove.toLocaleString('en-US')}: whole-request input $${tier.inputPrice} / output $${tier.outputPrice}, per million tokens`,
           ),
         markup: (multiplier) =>
@@ -2050,9 +2070,21 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       files: choose('工程文件', 'Project files'),
       activity: choose('活动', 'Activity'),
       monitoring: choose('会话状态', 'Session status'),
-      agents: choose('子 Agent', 'Child agents'),
+      agents: choose('子代理', 'Child agents'),
       goals: choose('目标与计划', 'Goals and plans'),
       settings: choose('会话设置', 'Session settings'),
+      noticeDetails: {
+        title: choose('其他会话提示', 'Other session notices'),
+        empty: choose('目前没有其他会话提示。', 'There are no other session notices.'),
+        close: choose('关闭其他会话提示', 'Close other session notices'),
+        summary: (count) =>
+          count === 0
+            ? choose('其他会话提示', 'Other session notices')
+            : choose(
+                `${number.format(count)} 条其他会话提示，查看详情`,
+                `${number.format(count)} other session ${count === 1 ? 'notice' : 'notices'}. View details`,
+              ),
+      },
       error: (code) =>
         code === 'BUSY'
           ? choose(
@@ -2067,7 +2099,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
             : error(code),
     },
     runs: {
-      title: choose('Agent Activity', 'Agent activity'),
+      title: choose('代理活动', 'Agent activity'),
       details: (count) => choose(`运行详情 · ${count} 次`, `Run details · ${count}`),
       failureHistory: (count) => choose(`历史运行错误 · ${count} 次`, `Past run errors · ${count}`),
       more: (count) => choose(`再显示 ${count} 次运行`, `Show ${count} more runs`),
@@ -2084,7 +2116,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       recheckLabel: choose('核对结果', 'Check result'),
       recheckingLabel: choose('正在核对结果', 'Checking result'),
       unconfirmed: choose('离线 · 状态待确认', 'Offline · Status unconfirmed'),
-      planTitle: choose('Agent 计划', 'Agent plan'),
+      planTitle: choose('代理计划', 'Agent plan'),
       planProgress: (completed, total) =>
         choose(
           `${number.format(completed)} / ${number.format(total)} 已完成`,
@@ -2106,7 +2138,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
       return choose(`${seconds} 秒`, `${seconds} s`)
     },
     approval: {
-      title: choose('Agent Approval', 'Agent approval'),
+      title: choose('代理审批', 'Agent approval'),
       detailsLabel: choose('查看参数', 'View parameters'),
       statusLabel: choose('等待决定', 'Decision required'),
       denyLabel: choose('拒绝', 'Deny'),
@@ -2117,7 +2149,7 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
     },
     approvalSummary: (tool) => choose(`工具 ${tool} 请求执行权限`, `Tool ${tool} is requesting permission`),
     questionnaire: {
-      title: choose('Agent 问题', 'Agent questions'),
+      title: choose('代理问题', 'Agent questions'),
       countLabel: (count) => choose(`${count} 个问题`, `${count} questions`),
       customAnswerLabel: choose('自定义回答', 'Custom answer'),
       customAnswerPlaceholder: choose('输入回答', 'Enter an answer'),
@@ -2157,8 +2189,8 @@ function createSessionLabels(locale: ShellLocale): HbarSessionWorkspaceLabels {
         '圆环表示当前占用，刻度表示压缩触发点。可在设置 → 模型中调整阈值；压缩需要已有可归档的历史。',
         'The arc shows current occupancy; the mark shows the compaction point. Adjust the threshold in Settings → Model. Compaction needs eligible history.',
       ),
-      outputReserve: choose('输出预留 tokens', 'Output reserve tokens'),
-      remaining: choose('剩余上下文 tokens', 'Remaining context tokens'),
+      outputReserve: choose('输出预留词元', 'Output reserve tokens'),
+      remaining: choose('剩余上下文词元', 'Remaining context tokens'),
       noModel: choose('未选择模型', 'No model selected'),
       loading: choose('读取用量…', 'Loading context…'),
       refresh: choose('重新读取', 'Reload context'),
@@ -2232,7 +2264,7 @@ function createFileLabels(locale: ShellLocale): HbarFileWorkspaceLabels {
       'No original conversation tab is open for this file.',
     ),
     addOffline: choose(
-      '连接 Host 后才能核对来源会话并添加。',
+      '连接宿主后才能核对来源会话并添加。',
       'Connect to Host to confirm the source session before adding.',
     ),
     addingToChat: choose('正在核对来源会话…', 'Confirming the source session…'),
@@ -2347,15 +2379,15 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
     unavailable: choose('不可用', 'Unavailable'),
     gap: choose('当前时间窗口包含数据缺口。', 'The current time window contains a data gap.'),
     totals: {
-      tokens: choose('Token 总数', 'Total tokens'),
+      tokens: choose('词元总数', 'Total tokens'),
       runs: choose('运行数', 'Runs'),
       attempts: choose('尝试数', 'Attempts'),
       cost: choose('预计金额', 'Estimated cost'),
       cache: choose('缓存命中率', 'Cache hit rate'),
-      rate: choose('Token 速率', 'Token rate'),
+      rate: choose('词元速率', 'Token rate'),
     },
     composition: {
-      title: choose('Token 构成', 'Token composition'),
+      title: choose('词元构成', 'Token composition'),
       input: choose('输入', 'Input'),
       output: choose('输出', 'Output'),
       cacheRead: choose('缓存读取', 'Cache read'),
@@ -2381,7 +2413,7 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
     },
     latency: {
       title: choose('延迟 p95', 'Latency p95'),
-      firstToken: choose('首个文本 Token', 'First text token'),
+      firstToken: choose('首个文本词元', 'First text token'),
       response: choose('完整响应', 'Full response'),
     },
     execution: {
@@ -2394,8 +2426,8 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
         ),
       requestConcurrency: choose('请求最大并发', 'Peak request concurrency'),
       toolConcurrency: choose('工具最大并发', 'Peak tool concurrency'),
-      totalDuration: choose('Run 总计耗时', 'Total Run time'),
-      runDuration: choose('Run 耗时 p95', 'Run duration p95'),
+      totalDuration: choose('总运行耗时', 'Total Run time'),
+      runDuration: choose('运行耗时 p95', 'Run duration p95'),
       toolDuration: choose('工具耗时 p95', 'Tool duration p95'),
     },
     models: choose('模型用量', 'Model usage'),
@@ -2404,13 +2436,13 @@ function createSessionMonitoringLabels(locale: ShellLocale): HbarSessionMonitori
         `再显示 ${number.format(count)} 个模型`,
         `Show ${number.format(count)} more ${count === 1 ? 'model' : 'models'}`,
       ),
-    series: choose('Token 时间序列', 'Token timeline'),
+    series: choose('词元时间序列', 'Token timeline'),
     number: (value) => number.format(value),
     tokens: (value) => `${number.format(value)} tokens`,
     currency: (value) => currency.format(value),
     percent: (value) => percent.format(value),
     duration: (value) => `${number.format(value)} ms`,
-    rate: (value) => choose(`${number.format(value)} Token/秒`, `${number.format(value)} tokens/s`),
+    rate: (value) => choose(`${number.format(value)} 词元/秒`, `${number.format(value)} tokens/s`),
     model: (provider, model) => `${provider} / ${model}`,
   }
   return { ...labels, observability: sessionObservabilityCopy(locale, labels) }
@@ -2440,7 +2472,7 @@ function createSessionActivityLabels(locale: ShellLocale): HbarSessionActivityLa
       loading: choose('正在读取工作流…', 'Loading workflow…'),
       retry: choose('重试读取工作流', 'Retry workflow'),
       other: choose('其他委派', 'Other delegated work'),
-      missingAgent: choose('暂时无法读取此 Agent。', 'This Agent could not be read.'),
+      missingAgent: choose('暂时无法读取此代理。', 'This Agent could not be read.'),
       count: (settled, total) =>
         choose(
           `${number.format(settled)} / ${number.format(total)} 已结束`,
@@ -2452,12 +2484,12 @@ function createSessionActivityLabels(locale: ShellLocale): HbarSessionActivityLa
       delegationStatus: (status) => createGoalPlanWorkspaceLabels(locale).workflow.delegationStatuses[status],
       error: (code) =>
         code === 'CAPABILITY_UNAVAILABLE'
-          ? choose('此 Host 未提供工作流活动。', 'Workflow activity is unavailable on this Host.')
+          ? choose('此宿主未提供工作流活动。', 'Workflow activity is unavailable on this Host.')
           : choose('无法确认工作流，请重试。', 'Could not confirm the workflow. Try again.'),
       agent: {
-        open: (objective) => choose(`打开子 Agent：${objective}`, `Open subagent: ${objective}`),
+        open: (objective) => choose(`打开子代理：${objective}`, `Open subagent: ${objective}`),
         opening: choose('正在打开子会话…', 'Opening child session…'),
-        error: () => choose('无法打开子 Agent，请重试。', 'Could not open the subagent. Try again.'),
+        error: () => choose('无法打开子代理，请重试。', 'Could not open the subagent. Try again.'),
         status: (status) => createAgentWorkspaceLabels(locale).status(status),
       },
     },
@@ -2483,14 +2515,14 @@ function createSessionActivityLabels(locale: ShellLocale): HbarSessionActivityLa
     },
     agents: {
       text,
-      title: choose('子 Agent', 'Subagents'),
-      loading: choose('正在读取子 Agent…', 'Loading subagents…'),
-      unavailable: choose('此 Host 未提供子 Agent 活动。', 'Subagent activity is unavailable on this Host.'),
-      retry: choose('重试读取子 Agent', 'Retry subagent activity'),
-      loadMore: choose('加载更多子 Agent', 'Load more subagents'),
+      title: choose('子代理', 'Subagents'),
+      loading: choose('正在读取子代理…', 'Loading subagents…'),
+      unavailable: choose('此宿主未提供子代理活动。', 'Subagent activity is unavailable on this Host.'),
+      retry: choose('重试读取子代理', 'Retry subagent activity'),
+      loadMore: choose('加载更多子代理', 'Load more subagents'),
       limitReached: choose('已达到活动列表显示上限。', 'The activity list display limit has been reached.'),
       opening: choose('正在打开子会话…', 'Opening child session…'),
-      open: (objective) => choose(`打开子 Agent：${objective}`, `Open subagent: ${objective}`),
+      open: (objective) => choose(`打开子代理：${objective}`, `Open subagent: ${objective}`),
       count: (loaded, active, hasMore) =>
         choose(
           `${number.format(loaded)}${hasMore ? '+' : ''} · ${number.format(active)} 个进行中`,
@@ -2500,7 +2532,7 @@ function createSessionActivityLabels(locale: ShellLocale): HbarSessionActivityLa
       error: (code) =>
         code === 'SOURCE_CHANGED'
           ? choose('来源已变化，请重新打开活动面板。', 'The source changed. Reopen Activity.')
-          : choose('无法读取或打开子 Agent，请重试。', 'Could not read or open the subagent. Try again.'),
+          : choose('无法读取或打开子代理，请重试。', 'Could not read or open the subagent. Try again.'),
     },
     close: choose('关闭活动', 'Close activity'),
     refresh: choose('刷新活动', 'Refresh activity'),
@@ -2521,7 +2553,7 @@ function createSessionActivityLabels(locale: ShellLocale): HbarSessionActivityLa
             `已加载 ${number.format(loaded)} / ${number.format(total)} 个活动运行`,
             `${number.format(loaded)} of ${number.format(total)} active runs loaded`,
           ),
-    runAt: (createdAt) => choose(`${at(createdAt)} 创建的 Run`, `Run created at ${at(createdAt)}`),
+    runAt: (createdAt) => choose(`${at(createdAt)} 创建的运行`, `Run created at ${at(createdAt)}`),
     intentPreview: (preview) => choose(`输入：${preview}`, `Input: ${preview}`),
     startedAt: (startedAt) => choose(`${at(startedAt)} 开始`, `Started ${at(startedAt)}`),
     queuedAt: (createdAt) => choose(`${at(createdAt)} 入队`, `Queued ${at(createdAt)}`),
@@ -2571,33 +2603,33 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
         interrupted: 'Interrupted',
       }
   return {
-    title: choose('子 Agent 管理', 'Child agent management'),
+    title: choose('子代理管理', 'Child agent management'),
     description: choose(
       '创建独立子会话，查看运行状态、预算并管理取消。',
       'Create independent child sessions and inspect their status, budget, and cancellation.',
     ),
-    close: choose('关闭子 Agent 管理', 'Close child agent management'),
+    close: choose('关闭子代理管理', 'Close child agent management'),
     refresh: choose('刷新', 'Refresh'),
-    loading: choose('正在加载子 Agent…', 'Loading child agents…'),
-    empty: choose('当前会话尚无子 Agent。', 'This session has no child agents.'),
+    loading: choose('正在加载子代理…', 'Loading child agents…'),
+    empty: choose('当前会话尚无子代理。', 'This session has no child agents.'),
     loadMore: choose('加载更多', 'Load more'),
-    createTitle: choose('创建子 Agent', 'Create child agent'),
+    createTitle: choose('创建子代理', 'Create child agent'),
     createScope: choose(
-      '任务和 Token 预算属于当前会话下新建的独立子会话。',
+      '任务和词元预算属于当前会话下新建的独立子会话。',
       'The task and token budget belong to a new child session under the current session.',
     ),
-    detailTitle: choose('子 Agent 详情', 'Child agent details'),
-    back: choose('返回子 Agent 列表', 'Back to child agents'),
+    detailTitle: choose('子代理详情', 'Child agent details'),
+    back: choose('返回子代理列表', 'Back to child agents'),
     showDetails: (objective) => choose(`查看 ${objective} 的详情`, `View details for ${objective}`),
     objective: choose('目标', 'Objective'),
-    objectivePlaceholder: choose('描述子 Agent 需要完成的任务', 'Describe the task for the child agent'),
+    objectivePlaceholder: choose('描述子代理需要完成的任务', 'Describe the task for the child agent'),
     childTitle: choose('会话标题', 'Session title'),
     childTitlePlaceholder: choose('可选会话标题', 'Optional session title'),
     parentSession: choose('父会话', 'Parent session'),
     currentSession: () => choose('当前会话', 'Current session'),
     createdAt: choose('创建时间', 'Created'),
     model: choose('模型', 'Model'),
-    profile: choose('Agent 类型', 'Agent type'),
+    profile: choose('代理类型', 'Agent type'),
     profileOptions: {
       general: choose('通用', 'General'),
       explore: choose('探索（只读）', 'Explore (read-only)'),
@@ -2607,8 +2639,8 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
       'Explore can read and search only. Even with tool approval set to Allow, it cannot write files or run commands.',
     ),
     modelPicker: {
-      title: choose('选择子 Agent 模型', 'Choose child agent model'),
-      choose: choose('继承主 Agent 模型', 'Inherit parent agent model'),
+      title: choose('选择子代理模型', 'Choose child agent model'),
+      choose: choose('继承主代理模型', 'Inherit parent agent model'),
       search: choose('搜索模型', 'Search models'),
       close: choose('关闭模型列表', 'Close model list'),
       loading: choose('正在读取可用模型…', 'Loading available models…'),
@@ -2619,14 +2651,14 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
       unavailable: (modelId) => choose(`不可用：${modelId}`, `Unavailable: ${modelId}`),
       error: (code) => choose(`无法读取模型：${code}`, `Could not load models: ${code}`),
     },
-    inheritModel: choose('恢复继承主 Agent 模型', 'Restore parent model inheritance'),
+    inheritModel: choose('恢复继承主代理模型', 'Restore parent model inheritance'),
     selectionMode: choose('模型选择方式', 'Model selection strategy'),
     manualSelection: choose('继承或手动指定', 'Inherit or choose manually'),
-    sandboxProfile: choose('子 Agent 沙盒配置', 'Child sandbox profile'),
-    inheritSandbox: choose('继承主 Agent 沙盒配置', 'Inherit parent sandbox profile'),
-    configureChild: choose('修改子 Agent 设置', 'Configure child agent'),
+    sandboxProfile: choose('子代理沙盒配置', 'Child sandbox profile'),
+    inheritSandbox: choose('继承主代理沙盒配置', 'Inherit parent sandbox profile'),
+    configureChild: choose('修改子代理设置', 'Configure child agent'),
     configurationHint: choose(
-      '子 Agent 设置独立保存。派发后的更改用于后续执行，正在运行的任务保留派发时配置。',
+      '子代理设置独立保存。派发后的更改用于后续执行，正在运行的任务保留派发时配置。',
       'Child settings are independent. Later changes apply to subsequent runs; active tasks keep their dispatch configuration.',
     ),
     selectionSummary: (difficulty, weight) =>
@@ -2635,12 +2667,12 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
         `Dispatch selection: ${difficulty}, priority weight ${weight}`,
       ),
     policy: {
-      title: choose('子 Agent 自动选型与模型权重', 'Child agent automatic selection and model weights'),
+      title: choose('子代理自动选型与模型权重', 'Child agent automatic selection and model weights'),
       description: choose(
-        '主 Agent 按任务难度派发。相同难度内优先使用权重较高的模型及指定思考等级；空档位继承主 Agent。权限不随难度升级。最多 32 个候选。',
+        '主代理按任务难度派发。相同难度内优先使用权重较高的模型及指定思考等级；空档位继承主代理。权限不随难度升级。最多 32 个候选。',
         'The parent dispatches by task difficulty. Higher weight wins within each tier, using the specified effort; empty tiers inherit. Permissions never increase with difficulty. Up to 32 candidates.',
       ),
-      empty: choose('尚无候选，自动派发将继承主 Agent。', 'No candidates. Automatic dispatch inherits the parent.'),
+      empty: choose('尚无候选，自动派发将继承主代理。', 'No candidates. Automatic dispatch inherits the parent.'),
       model: choose('候选模型', 'Candidate model'),
       chooseModel: choose('选择候选模型', 'Choose candidate model'),
       difficulty: choose('任务难度', 'Task difficulty'),
@@ -2677,7 +2709,7 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
         ),
       thinkingOption: (level) => thinkingLevelLabel(locale, level),
     },
-    tokenBudget: choose('Token 预算', 'Token budget'),
+    tokenBudget: choose('词元预算', 'Token budget'),
     thinkingLevel: choose('思考等级', 'Thinking level'),
     thinkingDefault: (level) =>
       level
@@ -2685,19 +2717,19 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
             `模型默认（${thinkingLevelLabel(locale, level)}）`,
             `Model default (${thinkingLevelLabel(locale, level)})`,
           )
-        : choose('继承主 Agent 思考等级', 'Inherit parent reasoning effort'),
+        : choose('继承主代理思考等级', 'Inherit parent reasoning effort'),
     thinkingOption: (level) => thinkingLevelLabel(locale, level),
     thinkingInherited: (level) =>
       level
         ? choose(
-            `继承主 Agent（${thinkingLevelLabel(locale, level)}）`,
+            `继承主代理（${thinkingLevelLabel(locale, level)}）`,
             `Inherit parent (${thinkingLevelLabel(locale, level)})`,
           )
-        : choose('继承主 Agent 思考等级', 'Inherit parent reasoning effort'),
+        : choose('继承主代理思考等级', 'Inherit parent reasoning effort'),
     thinkingUnavailable: (level) => choose(`不可用：${level}`, `Unavailable: ${level}`),
     approval: choose('工具审批', 'Tool approval'),
     approvalOptions: {
-      inherit: choose('继承主 Agent 权限', 'Inherit parent permissions'),
+      inherit: choose('继承主代理权限', 'Inherit parent permissions'),
       deny: choose('拒绝', 'Deny'),
       ask: choose('询问', 'Ask'),
       sandbox: choose('沙盒配置', 'Sandbox'),
@@ -2706,7 +2738,7 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
     create: choose('创建并运行', 'Create and run'),
     creating: choose('正在创建…', 'Creating…'),
     retryCreate: choose('重试并核对创建结果', 'Retry and reconcile creation'),
-    created: choose('子 Agent 已创建。', 'Child agent created.'),
+    created: choose('子代理已创建。', 'Child agent created.'),
     openSession: choose('打开子会话', 'Open child session'),
     openingSession: choose('正在打开子会话…', 'Opening child session…'),
     openSessionError: (code) => {
@@ -2717,7 +2749,7 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
         )
       if (code === 'SOURCE_CHANGED' || code === 'NAVIGATION_SUPERSEDED')
         return choose(
-          '来源会话或子 Agent 已变化。请刷新详情后重试。',
+          '来源会话或子代理已变化。请刷新详情后重试。',
           'The source session or child agent changed. Refresh this detail before retrying.',
         )
       if (code === 'TAB_LIMIT')
@@ -2735,11 +2767,11 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
               'The original parent changed, so Back is unavailable. Select a session in the sidebar.',
             )
           : choose(`无法返回父会话：${code}`, `Could not return to parent: ${code}`),
-    cancel: choose('取消 Agent', 'Cancel agent'),
+    cancel: choose('取消代理', 'Cancel agent'),
     cancelling: choose('正在取消…', 'Cancelling…'),
     retryCancel: choose('重试取消', 'Retry cancellation'),
     count: (count) =>
-      choose(`${number.format(count)} 个子 Agent`, `${number.format(count)} child ${count === 1 ? 'agent' : 'agents'}`),
+      choose(`${number.format(count)} 个子代理`, `${number.format(count)} child ${count === 1 ? 'agent' : 'agents'}`),
     status: (status) => statuses[status],
     budget,
     summary: (modelId, tokens, profileId) =>
@@ -2750,17 +2782,17 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
     error: (code) => {
       if (code === 'PERSISTENCE_UNAVAILABLE')
         return choose(
-          '安全重试所需的本地存储不可用。请先检查子 Agent 列表与本地存储，再尝试重试。',
+          '安全重试所需的本地存储不可用。请先检查子代理列表与本地存储，再尝试重试。',
           'Recovery storage is unavailable. Check the child-agent list and local storage before retrying.',
         )
       if (code === 'INVALID_PERSISTED_STATE')
         return choose(
-          '无法核对上次子 Agent 请求。请先检查原会话，不要提交新的请求。',
+          '无法核对上次子代理请求。请先检查原会话，不要提交新的请求。',
           'Could not verify the previous child-agent request. Check the original session before submitting another.',
         )
       if (code === 'PERSISTENCE_LIMIT')
         return choose(
-          '子 Agent 请求过长，无法保存安全重试信息。请缩短目标后重试。',
+          '子代理请求过长，无法保存安全重试信息。请缩短目标后重试。',
           'This child-agent request is too long to save for a safe retry. Shorten the objective and try again.',
         )
       if (code === 'IDEMPOTENCY_CONFLICT')
@@ -2768,7 +2800,7 @@ function createAgentWorkspaceLabels(locale: ShellLocale): HbarAgentWorkspaceLabe
           '上次创建结果尚未确认。已恢复原始任务，请勿修改后再重试。',
           'The previous creation is unresolved. The original task was restored; retry it without editing.',
         )
-      return choose(`子 Agent 操作失败：${code}`, `Child agent operation failed: ${code}`)
+      return choose(`子代理操作失败：${code}`, `Child agent operation failed: ${code}`)
     },
   }
 }
@@ -2838,7 +2870,7 @@ function createGoalPlanWorkspaceLabels(locale: ShellLocale): HbarGoalPlanWorkspa
         blocked: 'Blocked',
       }
   const completionPolicies: HbarGoalPlanWorkspaceLabels['workflow']['completionPolicies'] = zh
-    ? { agent: 'Agent 自主判定', review_agent: '独立 Agent 复核', user: '显式人工验收' }
+    ? { agent: '代理自主判定', review_agent: '独立代理复核', user: '显式人工验收' }
     : { agent: 'Agent judgment', review_agent: 'Independent agent review', user: 'Explicit user review' }
   const reviewStatuses: HbarGoalPlanWorkspaceLabels['workflow']['reviewStatuses'] = zh
     ? {
@@ -2917,7 +2949,7 @@ function createGoalPlanWorkspaceLabels(locale: ShellLocale): HbarGoalPlanWorkspa
         'Choose Goal in the composer, describe the objective, then send to begin.',
       ),
       objectivePlaceholder: choose('描述需要持续完成的成果', 'Describe the outcome to pursue'),
-      tokenBudget: choose('Token 预算', 'Goal token budget'),
+      tokenBudget: choose('词元预算', 'Goal token budget'),
       status: choose('目标状态', 'Goal status'),
       statuses: goalStatuses,
       create: choose('设置目标', 'Set goal'),
@@ -2929,8 +2961,8 @@ function createGoalPlanWorkspaceLabels(locale: ShellLocale): HbarGoalPlanWorkspa
       reconcile: choose('核对目标保存结果', 'Reconcile goal save'),
       saved: choose('目标已保存。', 'Goal saved.'),
       cleared: choose('目标已清除。', 'Goal cleared.'),
-      remaining: choose('剩余 Token', 'Remaining tokens'),
-      used: choose('已用 Token', 'Used tokens'),
+      remaining: choose('剩余词元', 'Remaining tokens'),
+      used: choose('已用词元', 'Used tokens'),
       elapsed: choose('累计时间', 'Elapsed time'),
     },
     plan: {
@@ -2983,7 +3015,7 @@ function createGoalPlanWorkspaceLabels(locale: ShellLocale): HbarGoalPlanWorkspa
       diagnosis: choose('自愈诊断', 'Recovery diagnosis'),
       denialCount: (count) =>
         choose(`相同拒绝已连续出现 ${number.format(count)} 次`, `${number.format(count)} consecutive matching denials`),
-      agents: choose('子 Agent 与补丁', 'Child agents and patches'),
+      agents: choose('子代理与补丁', 'Child agents and patches'),
       noAgents: choose('当前没有派发中的子任务。', 'There are no delegated tasks.'),
       evidence: choose('验收证据', 'Acceptance evidence'),
       noEvidence: choose('尚未记录外部验收证据。', 'No external acceptance evidence is recorded.'),
@@ -2994,7 +3026,7 @@ function createGoalPlanWorkspaceLabels(locale: ShellLocale): HbarGoalPlanWorkspa
       coordinate: choose('进入冲突协调', 'Coordinate conflict'),
       accept: choose('接受', 'Accept'),
       reject: choose('拒绝', 'Reject'),
-      actionSucceeded: choose('操作已由 Host 确认。', 'The Host confirmed the operation.'),
+      actionSucceeded: choose('操作已由宿主确认。', 'The Host confirmed the operation.'),
       error: (code) => choose(`工作流操作失败：${code}`, `Workflow operation failed: ${code}`),
       statuses: workflowStatuses,
       focusStatuses: workflowFocusStatuses,
@@ -3041,16 +3073,16 @@ function createExtensionWorkspaceLabels(locale: ShellLocale): HbarExtensionWorks
     navigation: extensionNavigationCopy(locale),
     title: choose('扩展与技能', 'Extensions and skills'),
     description: choose(
-      '查看插件详情、管理可选插件，浏览 Host 已发现的技能。',
+      '查看插件详情、管理可选插件，浏览宿主已发现的技能。',
       'Inspect plugin details, manage optional plugins, and browse skills discovered by the Host.',
     ),
-    hostWide: choose('此分组管理当前 Host 的全局能力。', 'This group manages global capabilities on the current Host.'),
+    hostWide: choose('此分组管理当前宿主的全局能力。', 'This group manages global capabilities on the current Host.'),
     refresh: choose('刷新', 'Refresh'),
     loading: choose('正在加载扩展与技能…', 'Loading extensions and skills…'),
     plugins: choose('插件', 'Plugins'),
     skills: choose('技能', 'Skills'),
-    noPlugins: choose('当前 Host 没有注册插件。', 'No plugins are registered on this Host.'),
-    noSkills: choose('当前 Host 没有发现技能。', 'No skills were discovered on this Host.'),
+    noPlugins: choose('当前宿主没有注册插件。', 'No plugins are registered on this Host.'),
+    noSkills: choose('当前宿主没有发现技能。', 'No skills were discovered on this Host.'),
     noMatchingPlugins: choose('没有匹配的插件。', 'No matching plugins.'),
     noMatchingSkills: choose('没有匹配的技能。', 'No matching skills.'),
     noMatchesHint: choose(
@@ -3149,7 +3181,7 @@ function createSandboxLabels(locale: ShellLocale): HbarSandboxProfileSettingsLab
     refresh: choose('刷新', 'Refresh'),
     loading: choose('正在读取配置…', 'Loading profiles…'),
     unavailable: choose('当前连接不提供沙盒配置。', 'This connection does not provide sandbox profiles.'),
-    disconnected: choose('未连接 Host，暂时无法修改。', 'Not connected to the Host; changes are unavailable.'),
+    disconnected: choose('未连接宿主，暂时无法修改。', 'Not connected to the Host; changes are unavailable.'),
     profiles: choose('配置列表', 'Profiles'),
     create: choose('新建配置', 'New profile'),
     createFrom: choose('基于此新建', 'New profile from this'),
@@ -3188,7 +3220,7 @@ function createSandboxLabels(locale: ShellLocale): HbarSandboxProfileSettingsLab
       network: choose('网络工具', 'Network tools'),
       osConfinement: choose('系统级沙盒', 'OS-level sandbox'),
       osConfinementHint: choose(
-        '启用后，放行的命令在受限 Windows Token（非提权）或专用沙盒账户（提权）中运行。',
+        '启用后，放行的命令在受限 Windows 访问令牌（非提权）或专用沙盒账户（提权）中运行。',
         'When enabled, allowed commands run inside a restricted Windows token (unelevated) or a dedicated sandbox account (elevated).',
       ),
       osConfinementMode: choose('沙盒模式', 'Sandbox mode'),
@@ -3203,7 +3235,7 @@ function createSandboxLabels(locale: ShellLocale): HbarSandboxProfileSettingsLab
     decisionOptions: { allow: choose('放行', 'Allow'), ask: choose('询问', 'Ask'), deny: choose('拒绝', 'Deny') },
     networkOptions: { enabled: choose('允许', 'Allowed'), disabled: choose('超出配置', 'Outside the profile') },
     osConfinementModeOptions: {
-      unelevated: choose('非提权（受限 Token）', 'Unelevated (restricted token)'),
+      unelevated: choose('非提权（受限访问令牌）', 'Unelevated (restricted token)'),
       elevated: choose('提权（沙盒账户）', 'Elevated (sandbox account)'),
     },
     grants: {
@@ -3307,9 +3339,9 @@ function createSandboxLabels(locale: ShellLocale): HbarSandboxProfileSettingsLab
     cancel: choose('取消', 'Cancel'),
     unknown: (action) =>
       action === 'save'
-        ? choose('保存结果未确认，Host 可能已经保存。', 'The save result is unconfirmed; the Host may have saved it.')
+        ? choose('保存结果未确认，宿主可能已经保存。', 'The save result is unconfirmed; the Host may have saved it.')
         : choose(
-            '删除结果未确认，Host 可能已经删除。',
+            '删除结果未确认，宿主可能已经删除。',
             'The delete result is unconfirmed; the Host may have deleted it.',
           ),
     reconcile: choose('核对结果', 'Check result'),
@@ -3331,17 +3363,17 @@ function createSystemDiagnosticsLabels(locale: ShellLocale): HbarSystemDiagnosti
     runtime: hostRuntimeStatusCopy(locale),
     title: choose('诊断', 'Diagnostics'),
     description: choose(
-      '查看当前 Host 报告的运行与存储摘要。此页不会清理或修改数据。',
+      '查看当前宿主报告的运行与存储摘要。此页不会清理或修改数据。',
       'Inspect this Host’s runtime and storage summary. This page does not clean up or change data.',
     ),
     refresh: choose('刷新诊断', 'Refresh diagnostics'),
-    loading: choose('正在读取 Host 诊断…', 'Reading Host diagnostics…'),
+    loading: choose('正在读取宿主诊断…', 'Reading Host diagnostics…'),
     unavailable: choose(
-      'Host 未连接，连接后可刷新诊断。',
+      '宿主未连接，连接后可刷新诊断。',
       'The Host is disconnected. Reconnect to refresh diagnostics.',
     ),
     oldResult: choose('以下仍是上次成功读取的结果。', 'The result below is from the last successful read.'),
-    host: choose('Host', 'Host'),
+    host: choose('宿主', 'Host'),
     storage: choose('存储计数', 'Storage counts'),
     activity: choose('运行摘要', 'Runtime summary'),
     version: choose('版本', 'Version'),
@@ -3355,7 +3387,7 @@ function createSystemDiagnosticsLabels(locale: ShellLocale): HbarSystemDiagnosti
     streams: choose('活动流', 'Active streams'),
     plugins: choose('插件数', 'Plugins'),
     tools: choose('工具数', 'Tools'),
-    noStorageEntries: choose('Host 未返回存储计数。', 'The Host returned no storage counts.'),
+    noStorageEntries: choose('宿主未返回存储计数。', 'The Host returned no storage counts.'),
     moreStorageEntries: (count) =>
       choose(`另有 ${number.format(count)} 项未展示。`, `${number.format(count)} more entries not shown.`),
     number: (value) => number.format(value),
@@ -3388,7 +3420,7 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
   return {
     title: choose('状态中心', 'Status center'),
     description: choose(
-      '查看远程 Host 性能、AI 用量和 Git 统计。',
+      '查看远程宿主性能、AI 用量和 Git 统计。',
       'Inspect remote Host performance, AI usage, and Git statistics.',
     ),
     close: choose('关闭状态中心', 'Close status center'),
@@ -3406,9 +3438,9 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
         '1h': choose('最近 1 小时', 'Last hour'),
       },
       targets: {
-        all: choose('整机与 Host', 'System and Host'),
+        all: choose('整机与宿主', 'System and Host'),
         system: choose('仅整机', 'System only'),
-        host: choose('仅 Host 进程', 'Host process only'),
+        host: choose('仅宿主进程', 'Host process only'),
       },
     },
     gap: (skipped) =>
@@ -3416,7 +3448,7 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
         `当前窗口存在数据缺口，已跳过 ${number.format(skipped)} 个样本。`,
         `The current window has a data gap; ${number.format(skipped)} samples were skipped.`,
       ),
-    process: choose('Host 进程', 'Host process'),
+    process: choose('宿主进程', 'Host process'),
     resources: choose('计算与内存', 'Compute and memory'),
     runtime: choose('运行时与队列', 'Runtime and queues'),
     io: choose('磁盘与网络', 'Disk and network'),
@@ -3428,10 +3460,10 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
       systemMemoryUsedBytes: choose('整机已用内存', 'System memory used'),
       systemMemoryTotalBytes: choose('整机总内存', 'System memory total'),
       hostRssBytes: 'Host RSS',
-      hostHeapUsedBytes: choose('Host 堆内存', 'Host heap used'),
-      hostThreadCount: choose('Host 线程', 'Host threads'),
-      hostDiskReadBytesPerSecond: choose('Host 磁盘读取', 'Host disk read'),
-      hostDiskWriteBytesPerSecond: choose('Host 磁盘写入', 'Host disk write'),
+      hostHeapUsedBytes: choose('宿主堆内存', 'Host heap used'),
+      hostThreadCount: choose('宿主线程', 'Host threads'),
+      hostDiskReadBytesPerSecond: choose('宿主磁盘读取', 'Host disk read'),
+      hostDiskWriteBytesPerSecond: choose('宿主磁盘写入', 'Host disk write'),
       systemNetworkReceiveBytesPerSecond: choose('整机网络接收', 'System network receive'),
       systemNetworkTransmitBytesPerSecond: choose('整机网络发送', 'System network transmit'),
       eventLoopLagMs: choose('事件循环延迟', 'Event loop lag'),
@@ -3474,7 +3506,7 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
         hour: choose('小时', 'Hour'),
         day: choose('天', 'Day'),
       },
-      includeDescendants: choose('包含子 Agent 会话', 'Include descendant agent sessions'),
+      includeDescendants: choose('包含子代理会话', 'Include descendant agent sessions'),
       exportJson: choose('导出 JSON', 'Export JSON'),
       exportCsv: choose('导出 CSV', 'Export CSV'),
       exporting: choose('正在导出…', 'Exporting…'),
@@ -3488,18 +3520,18 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
         'The export reached the 10,000-row limit and is marked incomplete.',
       ),
       gap: choose('当前时间窗口包含不完整的用量事实。', 'The current window contains incomplete usage facts.'),
-      totals: choose('Token 细分', 'Token breakdown'),
-      tokens: choose('Token 总数', 'Total tokens'),
+      totals: choose('词元细分', 'Token breakdown'),
+      tokens: choose('词元总数', 'Total tokens'),
       attempts: choose('尝试数', 'Attempts'),
       runs: choose('运行数', 'Runs'),
-      input: choose('输入 Token', 'Input tokens'),
-      output: choose('输出 Token', 'Output tokens'),
+      input: choose('输入词元', 'Input tokens'),
+      output: choose('输出词元', 'Output tokens'),
       cacheRead: choose('缓存读取', 'Cache read'),
       cacheWrite: choose('缓存写入', 'Cache write'),
-      billable: choose('计费 Token', 'Billable tokens'),
+      billable: choose('计费词元', 'Billable tokens'),
       cost: choose('预计金额', 'Estimated cost'),
       cacheHit: choose('缓存命中率', 'Cache hit rate'),
-      rates: choose('Token 速率', 'Token rates'),
+      rates: choose('词元速率', 'Token rates'),
       inputRate: choose('输入速率', 'Input rate'),
       outputRate: choose('输出速率', 'Output rate'),
       totalRate: choose('总消耗速率', 'Total consumption rate'),
@@ -3509,7 +3541,7 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
       firstText: choose('首个可见文本', 'First visible text'),
       response: choose('完整响应', 'Full response'),
       models: choose('不同模型用量', 'Usage by model'),
-      timeline: choose('Token 时间序列', 'Token timeline'),
+      timeline: choose('词元时间序列', 'Token timeline'),
       execution: choose('执行统计', 'Execution statistics'),
       toolCalls: choose('工具调用', 'Tool calls'),
       toolCallsDetail: (succeeded, failed, unknown) =>
@@ -3519,14 +3551,14 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
         ),
       requestConcurrency: choose('请求最大并发', 'Peak request concurrency'),
       toolConcurrency: choose('工具最大并发', 'Peak tool concurrency'),
-      totalDuration: choose('Run 总计耗时', 'Total Run time'),
-      runDuration: choose('Run 耗时', 'Run duration'),
+      totalDuration: choose('总运行耗时', 'Total Run time'),
+      runDuration: choose('运行耗时', 'Run duration'),
       toolDuration: choose('工具耗时', 'Tool duration'),
       executionUnavailable: choose(
-        '当前 Host 版本未返回执行统计。',
+        '当前宿主版本未返回执行统计。',
         'The current Host version did not return execution statistics.',
       ),
-      estimated: choose('基于 Host 价格快照估算', 'Estimated from the Host pricing snapshot'),
+      estimated: choose('基于宿主价格快照估算', 'Estimated from the Host pricing snapshot'),
       p50p95: (p50, p95) => `p50 ${p50} · p95 ${p95}`,
       model: (provider, model) => `${provider} / ${model}`,
     },
@@ -3603,8 +3635,8 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
       },
       commitSource: choose('来源', 'Source'),
       commitMetadata: (source, date) => `${source} · ${date}`,
-      session: 'Session',
-      run: 'Run',
+      session: choose('会话', 'Session'),
+      run: choose('运行', 'Run'),
       operation: choose('操作', 'Operation'),
       selectBucket: (summary) => choose(`筛选到时间桶：${summary}`, `Filter commit details to bucket: ${summary}`),
       selectedBucket: (time, count) =>
@@ -3618,8 +3650,8 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
       choose(`不可用${reason ? ` · ${reason}` : ''}`, `Unavailable${reason ? ` · ${reason}` : ''}`),
     number: (value) => number.format(value),
     currency: (value) => currency.format(value),
-    tokenCount: (value) => choose(`${number.format(value)} Token`, `${number.format(value)} tokens`),
-    tokenRate: (value) => choose(`${number.format(value)} Token/秒`, `${number.format(value)} tokens/s`),
+    tokenCount: (value) => choose(`${number.format(value)} 词元`, `${number.format(value)} tokens`),
+    tokenRate: (value) => choose(`${number.format(value)} 词元/秒`, `${number.format(value)} tokens/s`),
     percent: (value) => `${number.format(value)}%`,
     bytes: (value) => formatBytes(value),
     bytesPerSecond: (value) => `${formatBytes(value)}/s`,

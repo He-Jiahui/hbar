@@ -14,6 +14,8 @@ import {
   HbarCommandPalette,
   HbarChatSearchView,
   HbarRuntimeProvider,
+  HbarComposerFeedbackRegistryProvider,
+  WORKSPACE_VIEWPORT_MEDIA,
   HbarSessionLaunchLocation,
   HbarSessionWorkspace,
   HbarWorkspaceShell,
@@ -1643,9 +1645,9 @@ export default function App({
   const [systemPrefersReducedMotion, setSystemPrefersReducedMotion] = useState(
     () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   )
-  const [desktopViewport, setDesktopViewport] = useState(() => window.matchMedia('(min-width: 768px)').matches)
+  const [desktopViewport, setDesktopViewport] = useState(() => window.matchMedia(WORKSPACE_VIEWPORT_MEDIA.wide).matches)
   useEffect(() => {
-    const media = window.matchMedia('(min-width: 768px)')
+    const media = window.matchMedia(WORKSPACE_VIEWPORT_MEDIA.wide)
     const update = (event: MediaQueryListEvent | MediaQueryList) => setDesktopViewport(event.matches)
     update(media)
     media.addEventListener('change', update)
@@ -1891,7 +1893,7 @@ export default function App({
         if (
           currentPage.kind !== 'session' &&
           currentPage.instanceId === opened.instanceId &&
-          window.matchMedia('(max-width: 63.9375rem)').matches
+          window.matchMedia(WORKSPACE_VIEWPORT_MEDIA.narrowShell).matches
         )
           return runtime.view.commands.execute('app.setSidebarVisible', { visible: false })
         return undefined
@@ -2022,6 +2024,7 @@ export default function App({
           />
         )}
       >
+        <HbarComposerFeedbackRegistryProvider>
         <ResourceBrowserLayer controller={resourceBrowser}>
         <HbarMessageResourceLayer model={messageResources} labels={resourceCopy(locale)}>
         <WorkbenchSurfaceCleanup key={binding.hostId ?? 'pending'} runtime={runtime} />
@@ -2199,6 +2202,7 @@ export default function App({
         </HbarWorkspaceShell>
         </HbarMessageResourceLayer>
         </ResourceBrowserLayer>
+        </HbarComposerFeedbackRegistryProvider>
       </HbarRuntimeProvider>
     </LumenProvider>
   )
