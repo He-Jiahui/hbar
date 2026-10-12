@@ -4,6 +4,7 @@ import { HbarError } from '@hbar/contracts'
 import { NODE_LIMITS, nodeWorkspaceMethods } from '@hbar/contracts/node'
 import { canonicalSandboxJSON } from '@hbar/sandbox'
 import { toolFileChangeSchema } from '@hbar/contracts/run-file-changes'
+import { boundedNodeResult } from '@hbar/contracts/node-output'
 import type { WorkspaceNodeService } from './service'
 
 interface Transfer {
@@ -11,36 +12,6 @@ interface Transfer {
   bytes: Buffer
   offset: number
   lastAt: number
-}
-function boundedResponse(value: unknown): unknown {
-  const pending: unknown[] = [value]
-  let bytes = 0,
-    entries = 0
-  while (pending.length) {
-    const item = pending.pop()
-    if (++entries > 65_536) throw new HbarError('NODE_QUERY_RESULT_LIMIT', 'Node result contains too many entries')
-    if (item === undefined) continue
-    if (typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean' || item === null)
-      bytes += Buffer.byteLength(JSON.stringify(item))
-    else if (typeof item === 'object') {
-      if (Array.isArray(item)) {
-        bytes += item.length + 2
-        for (const child of item) pending.push(child)
-      } else {
-        const fields = Object.entries(item)
-        bytes += fields.length * 2 + 2
-        for (const [key, child] of fields) {
-          bytes += Buffer.byteLength(JSON.stringify(key))
-          pending.push(child)
-        }
-      }
-    } else throw new HbarError('NODE_QUERY_RESULT_LIMIT', 'Node result is not plain data')
-    if (bytes > NODE_LIMITS.frameBytes - 4_096 || pending.length > 65_536)
-      throw new HbarError('NODE_QUERY_RESULT_LIMIT', 'Request a smaller result page or use chunked file reading')
-  }
-  // Optional SDK fields are omitted on the JSON wire, after the byte bound is checked.
-  const result: unknown = JSON.parse(JSON.stringify(value))
-  return result
 }
 /** B-side allowlisted methods. Partial transfers never write a file. */
 export class WorkspaceNodeProtocol {
@@ -242,7 +213,7 @@ export class WorkspaceNodeProtocol {
     const table: Readonly<Record<string, { output: z.ZodType }>> = nodeWorkspaceMethods
     const schema = table[method]?.output
     if (!schema) throw new HbarError('METHOD_NOT_FOUND', 'No node response schema')
-    return boundedResponse(schema.parse(result))
+    return boundedNodeResult(schema.parse(result))
   }
   resetTransfers(): void {
     this.transfers.clear()

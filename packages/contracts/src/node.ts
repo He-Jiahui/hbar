@@ -10,7 +10,7 @@ import {
   workspaceFileEntrySchema,
 } from './workspace-query'
 import { sessionSchema } from './state/directory'
-import { sessionEventSchema, contentBlockSchema, runSchema, usageSchema, userInputRequestSchema } from './index'
+import { sessionEventSchema, artifactSchema, runSchema, usageSchema, userInputRequestSchema } from './index'
 export * from './node-address'
 
 export const NODE_PROTOCOL_VERSION = 1
@@ -203,36 +203,66 @@ export const nodeAuditEntrySchema = z.strictObject({
 })
 
 /** Provider metadata and credentials are deliberately absent from the node's observation DTO. */
+export const nodeObservedContentSchema = z.discriminatedUnion('type', [
+  z.strictObject({ type: z.literal('text'), text: z.string().max(NODE_LIMITS.outputBytes) }),
+  z.strictObject({ type: z.literal('thinking'), text: z.string().max(NODE_LIMITS.outputBytes) }),
+  z.strictObject({ type: z.literal('image'), artifact: artifactSchema }),
+  z.strictObject({ type: z.literal('file'), artifact: artifactSchema }),
+  z.strictObject({
+    type: z.literal('tool_call'),
+    callId: entityId,
+    name: z.string().max(160),
+    args: z.record(z.string(), z.json()),
+  }),
+  z.strictObject({
+    type: z.literal('tool_result'),
+    callId: entityId,
+    name: z.string().max(160),
+    text: z.string().max(NODE_LIMITS.outputBytes),
+    isError: z.boolean(),
+  }),
+])
 export const nodeObservedMessageSchema = z.strictObject({
   id: entityId,
   sessionId: entityId,
   runId: entityId,
   role: z.enum(['user', 'assistant', 'tool', 'system']),
-  content: z.array(contentBlockSchema).max(256),
+  content: z.array(nodeObservedContentSchema).max(256),
+  truncated: z.boolean(),
   seq: timestamp,
   createdAt: timestamp,
 })
 export const nodeObservedEventSchema = z.strictObject({ ...sessionEventSchema.shape, data: z.json() })
+export const nodeObservedRunSchema = runSchema
+  .pick({
+    id: true,
+    sessionId: true,
+    status: true,
+    createdAt: true,
+    startedAt: true,
+    endedAt: true,
+    error: true,
+    failure: true,
+  })
+  .strict()
+export const nodeObservedApprovalSchema = z.strictObject({
+  id: entityId,
+  sessionId: entityId,
+  runId: entityId,
+  callId: entityId,
+  tool: z.string().min(1).max(160),
+  args: z.record(z.string(), z.json()),
+  status: z.enum(['pending', 'allowed', 'denied', 'cancelled']),
+  createdAt: timestamp,
+  feedback: z.string().max(4_000).optional(),
+  decidedBy: entityId.optional(),
+})
 export const nodeObservedSnapshotSchema = z.strictObject({
   session: sessionSchema,
   messages: z.array(nodeObservedMessageSchema).max(60),
-  runs: z.array(runSchema).max(500),
-  approvals: z
-    .array(
-      z.strictObject({
-        id: entityId,
-        sessionId: entityId,
-        runId: entityId,
-        callId: entityId,
-        tool: z.string().min(1).max(160),
-        args: z.record(z.string(), z.json()),
-        status: z.enum(['pending', 'allowed', 'denied', 'cancelled']),
-        createdAt: timestamp,
-        feedback: z.string().max(4_000).optional(),
-        decidedBy: entityId.optional(),
-      }),
-    )
-    .max(500),
+  runs: z.array(nodeObservedRunSchema).max(500),
+  approvals: z.array(nodeObservedApprovalSchema).max(500),
+  activityTruncated: z.boolean(),
   userInputs: z.array(userInputRequestSchema).max(200),
   usage: usageSchema,
   cursor: timestamp,
@@ -247,6 +277,7 @@ export const nodeObservedSnapshotSchema = z.strictObject({
         thinking: z.string().max(NODE_LIMITS.outputBytes),
         offset: timestamp,
         version: timestamp,
+        truncated: z.boolean(),
       }),
     )
     .max(32),
