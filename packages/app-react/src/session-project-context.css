@@ -61,7 +61,9 @@
     .lumen-composer-toolbar > button[aria-expanded='true']
   )
   .hbar-session-project-context-below {
-  display: none;
+  /* Keep the row in flow while its duplicate is disclosed in More. Closing
+     More on pointerdown must not move the send button before pointerup. */
+  visibility: hidden;
 }
 
 .hbar-app-react-session-footer[data-git-context-status='error'] .hbar-session-project-context-toolbar {
@@ -79,5 +81,6 @@
 
   .hbar-session-project-context-below {
     display: flex;
+    visibility: visible;
   }
 }

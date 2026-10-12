@@ -161,7 +161,7 @@ test('desktop Location moves the complete empty-session draft into a replacement
         response.request().method() === 'POST' && response.url().endsWith('/api/artifacts') && response.ok(),
       { timeout: 10_000 },
     )
-    await page.locator('.hbar-composer-attachment-target input[type="file"]').setInputFiles({
+    await page.locator('.hbar-composer-add-root input[type="file"]').setInputFiles({
       name: 'move-attachment.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('This accepted attachment must follow the draft.'),

@@ -151,6 +151,7 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await prompt.fill('/settings ')
       await expectComposerText(prompt, '/settings ')
       await page.getByRole('button', { name: copy.session.prompt.send, exact: true }).click()
+      await expect(page.getByText(copy.session.slash.attachmentsBlocked, { exact: true })).toBeVisible()
       await openComposerFeedback(page, copy)
       await expect(page.getByText(copy.session.slash.attachmentsBlocked, { exact: true })).toBeVisible()
       await expectComposerText(prompt, '/settings ')
@@ -222,14 +223,16 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       await page.getByRole('treeitem', { name: host.ready.sessionTitle, exact: true }).click()
       const prompt = page.getByRole('textbox', { name: copy.session.prompt.input, exact: true })
       const send = page.getByRole('button', { name: copy.session.prompt.send, exact: true })
+      await expect(prompt).toBeEditable()
       for (const width of [1440, 320]) {
         await page.setViewportSize({ width, height: 800 })
-        await prompt.fill('/g')
+        await prompt.pressSequentially('/g')
         const option = page.getByRole('option', { name: copy.session.slash.select('/goal') })
         await expect(option).toBeInViewport()
         await page.screenshot({ path: `artifacts/reference-ux-v2/slash-goal-${locale}-${width}.png` })
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
         await prompt.fill('')
+        await expectComposerText(prompt, '')
       }
       await page.setViewportSize({ width: 1440, height: 900 })
       await prompt.fill('/goal First objective')
@@ -272,6 +275,9 @@ for (const locale of ['en-US', 'zh-CN'] as const) {
       for (const unsupported of ['status', 'pause', 'resume', 'complete', '--tokens 1000']) {
         const rejected = `/goal ${unsupported}`
         await prompt.fill(rejected)
+        await expect(page.getByRole('dialog', { name: copy.session.composerFeedback.title, exact: true })).toHaveCount(
+          0,
+        )
         await send.click()
         await openComposerFeedback(page, copy)
         await expect(page.getByText(copy.session.slash.goalRequired, { exact: true })).toBeVisible()

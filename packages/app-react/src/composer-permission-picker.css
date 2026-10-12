@@ -23,13 +23,7 @@
 /* Observed in cc-haha: a true overlay anchored above the left composer pill.
    Only the container is positioned. The bounded choice list uses normal flex flow. */
 .hbar-composer-permission-popover {
-  position: fixed;
-  inset: auto;
-  top: var(--permission-popup-top);
-  bottom: var(--permission-popup-bottom);
-  left: var(--permission-popup-left);
   inline-size: min(22.5rem, calc(100vw - 2rem));
-  max-block-size: var(--permission-popup-limit);
   margin: 0;
   padding: 0.75rem;
   border: 0.0625rem solid var(--lumen-edge);
@@ -40,7 +34,7 @@
   overflow: hidden;
 }
 
-.hbar-composer-permission-popover:popover-open {
+.hbar-composer-permission-popover[data-lumen-floating-open='true'] {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -167,18 +161,4 @@
 .hbar-composer-permission-actions {
   justify-content: flex-end;
   flex-wrap: wrap;
-}
-
-@media (max-width: 40rem) {
-  .hbar-composer-permission-popover {
-    inset: auto 0 0;
-    inline-size: 100%;
-    max-block-size: min(78dvh, 40rem);
-    border-radius: 0.75rem 0.75rem 0 0;
-    padding: 1rem;
-  }
-
-  .hbar-composer-permission-popover::backdrop {
-    background: color-mix(in srgb, var(--lumen-ink) 30%, transparent);
-  }
 }

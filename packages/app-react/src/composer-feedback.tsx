@@ -164,6 +164,12 @@ function FeedbackTrigger({
         anchorRef={anchor}
         label={labels.title}
         className="hbar-composer-feedback-surface"
+        onBlurCapture={(event) => {
+          const next = event.relatedTarget
+          if (next instanceof Node && !event.currentTarget.contains(next) && !anchor.current?.contains(next)) {
+            setOpen(false)
+          }
+        }}
       >
         <LumenFrame className="hbar-composer-feedback-heading">
           <LumenContentText context="section.title">{labels.title}</LumenContentText>

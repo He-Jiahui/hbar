@@ -21,6 +21,7 @@ import type {
   ComposerPlanModeEntry,
 } from '@hbar/app-runtime'
 import './composer-permission-picker.css'
+import { LumenFloatingSurface, useFloatingTrigger } from '@lumen/app-ui'
 import { HbarComposerFeedback } from './composer-feedback'
 
 export interface HbarComposerPermissionLabels {
@@ -113,24 +114,6 @@ const choiceOrder = ['ask', 'deny', 'sandbox', 'allow', 'plan', 'inherit'] as co
 )[]
 const icons = { ask: ShieldCheck, deny: ShieldX, sandbox: ShieldHalf, allow: ShieldAlert, inherit: RotateCcw }
 
-/** The reference is a trigger-anchored overlay; coordinates apply to this container only. */
-function placePopover(popover: HTMLElement, anchor: HTMLElement) {
-  const rect = anchor.getBoundingClientRect()
-  const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
-  const width = Math.min(22.5 * rem, Math.max(0, innerWidth - 2 * rem))
-  const above = rect.top > innerHeight - rect.bottom
-  popover.style.setProperty(
-    '--permission-popup-left',
-    `${Math.max(rem, Math.min(rect.left, innerWidth - width - rem))}px`,
-  )
-  popover.style.setProperty('--permission-popup-top', above ? 'auto' : `${rect.bottom + rem / 2}px`)
-  popover.style.setProperty('--permission-popup-bottom', above ? `${innerHeight - rect.top + rem / 2}px` : 'auto')
-  popover.style.setProperty(
-    '--permission-popup-limit',
-    `${Math.max(0, (above ? rect.top : innerHeight - rect.bottom) - 1.5 * rem)}px`,
-  )
-}
-
 function errorCode(reason: unknown) {
   return reason && typeof reason === 'object' && 'code' in reason && typeof reason.code === 'string'
     ? reason.code
@@ -185,6 +168,8 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
   const headingId = useId()
   const bodyId = useId()
   const goalPreparedId = useId()
+  const triggerHandlers = useFloatingTrigger(open, setOpen)
+  const initialFocus = useRef<HTMLElement | null>(null)
   const error =
     localError?.sessionId === sessionId && localError.revision === revision
       ? localError.code
@@ -265,12 +250,9 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
   useEffect(() => {
     if (busy || goalPreparation || goalCancelFocus.current !== goalCancelGeneration.current) return
     goalCancelFocus.current = null
-    if (
-      popup.current?.matches(':popover-open') &&
-      (document.activeElement === goalCancelButton.current || document.activeElement === document.body)
-    )
-      popup.current.querySelector<HTMLButtonElement>('[data-choice="plan"]:not(:disabled)')?.focus()
-  }, [busy, goalPreparation])
+    if (open && (document.activeElement === goalCancelButton.current || document.activeElement === document.body))
+      popup.current?.querySelector<HTMLButtonElement>('[data-choice="plan"]:not(:disabled)')?.focus()
+  }, [busy, goalPreparation, open])
   useEffect(() => {
     if (busy || goalCancelReturn.current !== goalCancelGeneration.current) return
     goalCancelReturn.current = null
@@ -286,14 +268,14 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
   }, [busy, unavailable])
   const closePopover = () => {
     if (goalCancelPending.current) goalCancelReturn.current = goalCancelGeneration.current
-    popup.current?.hidePopover()
+    setOpen(false)
     anchor.current?.focus()
   }
 
   useEffect(() => {
     owner.current = { sessionId, revision }
     if (restoreFocus.current !== sessionId) restoreFocus.current = null
-    popup.current?.hidePopover()
+    setOpen(false)
   }, [sessionId, revision, unavailable])
   useEffect(() => {
     if (!busy && !unavailable && restoreFocus.current === sessionId) {
@@ -301,14 +283,24 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
       anchor.current?.focus()
     }
   }, [busy, unavailable, sessionId, revision])
-  useEffect(() => {
-    if (!open) return
-    const reposition = () => {
-      if (popup.current && anchor.current) placePopover(popup.current, anchor.current)
+  useLayoutEffect(() => {
+    if (!open) {
+      if (goalCancelPending.current) goalCancelReturn.current = goalCancelGeneration.current
+      openedGeneration.current = null
+      return
     }
-    window.addEventListener('resize', reposition)
-    return () => window.removeEventListener('resize', reposition)
-  }, [open])
+    openedGeneration.current = actionGeneration.current
+    setConfirmation(null)
+    initialFocus.current =
+      (planSelected
+        ? popup.current?.querySelector<HTMLButtonElement>('[data-plan-exit]:not(:disabled)')
+        : popup.current?.querySelector<HTMLButtonElement>(
+            '[role="menuitemradio"][aria-checked="true"]:not(:disabled)',
+          )) ??
+      popup.current?.querySelector<HTMLButtonElement>('[data-execution-recovery]:not(:disabled)') ??
+      popup.current?.querySelector<HTMLButtonElement>('button:not(:disabled)') ??
+      null
+  }, [open, planSelected])
   useEffect(() => {
     if (confirming) cancelConfirmation.current?.focus()
   }, [confirming])
@@ -349,7 +341,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
         if (!applied || actionGeneration.current !== generation || owner.current.sessionId !== target.sessionId) return
         if (popup.current?.contains(document.activeElement) || document.activeElement === document.body)
           restoreFocus.current = target.sessionId
-        popup.current?.hidePopover()
+        setOpen(false)
       })
       .catch((reason: unknown) => {
         if (
@@ -407,12 +399,9 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
       })
       .then(() => {
         if (actionGeneration.current === generation && owner.current.sessionId === sessionId) {
-          if (
-            popup.current?.matches(':popover-open') &&
-            (popup.current.contains(document.activeElement) || document.activeElement === document.body)
-          )
+          if (open && (popup.current?.contains(document.activeElement) || document.activeElement === document.body))
             restoreFocus.current = sessionId
-          popup.current?.hidePopover()
+          setOpen(false)
         }
       })
       .catch(() => {
@@ -571,7 +560,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
         aria-controls={popupId}
         title={props.runActive ? labels.runActiveHint : triggerLabel}
         disabled={triggerDisabled}
-        popoverTarget={popupId}
+        {...triggerHandlers}
       >
         <LumenIcon
           icon={
@@ -615,48 +604,18 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
           </HbarComposerFeedback>
         </>
       )}
-      <LumenFrame
-        ref={popup}
+      <LumenFloatingSurface
+        contentRef={popup}
         id={popupId}
-        popover="auto"
+        open={open}
+        onClose={() => setOpen(false)}
+        anchorRef={anchor}
+        initialFocusRef={initialFocus}
+        keepMounted
         role="dialog"
         aria-labelledby={headingId}
         aria-describedby={bodyId}
         className="hbar-composer-permission-popover"
-        onBeforeToggle={(event) => {
-          if (event.newState === 'open' && anchor.current) placePopover(event.currentTarget, anchor.current)
-        }}
-        onToggle={(event) => {
-          const opening = event.newState === 'open'
-          const sameOpening = openedGeneration.current === actionGeneration.current
-          openedGeneration.current = opening ? actionGeneration.current : null
-          // Native Escape can light-dismiss while a disabled action has left
-          // focus on BODY, so no key event reaches this popover's handler.
-          if (!opening && goalCancelPending.current) goalCancelReturn.current = goalCancelGeneration.current
-          if (
-            !opening &&
-            sameOpening &&
-            executionUnresolved &&
-            owner.current.sessionId === sessionId &&
-            !document.querySelector('dialog[open], [popover]:popover-open') &&
-            (document.activeElement === document.body || !document.activeElement?.isConnected)
-          )
-            anchor.current?.focus()
-          setOpen(opening)
-          setConfirmation(null)
-          if (opening) {
-            const selected = planSelected
-              ? popup.current?.querySelector<HTMLButtonElement>('[data-plan-exit]:not(:disabled)')
-              : popup.current?.querySelector<HTMLButtonElement>(
-                  '[role="menuitemradio"][aria-checked="true"]:not(:disabled)',
-                )
-            ;(
-              selected ??
-              popup.current?.querySelector<HTMLButtonElement>('[data-execution-recovery]:not(:disabled)') ??
-              popup.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')
-            )?.focus()
-          }
-        }}
         onKeyDown={(event) => {
           if (event.key === 'Enter') event.stopPropagation()
           if (event.key === 'Escape') {
@@ -858,9 +817,9 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
                 const generation = actionGeneration.current
                 setConfirmation(null)
                 queueMicrotask(() => {
-                  if (actionGeneration.current !== generation || !popup.current?.matches(':popover-open')) return
+                  if (actionGeneration.current !== generation || !open) return
                   popup.current
-                    .querySelector<HTMLButtonElement>('[role="menuitemradio"][data-choice="allow"]:not(:disabled)')
+                    ?.querySelector<HTMLButtonElement>('[role="menuitemradio"][data-choice="allow"]:not(:disabled)')
                     ?.focus()
                 })
               }}
@@ -884,7 +843,7 @@ export function HbarComposerPermissionPicker(props: HbarComposerPermissionPicker
             </LumenButton>
           </LumenFrame>
         )}
-      </LumenFrame>
+      </LumenFloatingSurface>
     </LumenFrame>
   )
 }
