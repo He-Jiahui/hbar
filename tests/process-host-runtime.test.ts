@@ -390,7 +390,7 @@ test('the same managed composition starts from build-pinned bytes when its sourc
   expect((await runtime.storage.call('run', run.id)).status).toBe('completed')
   expect((await client.call('system.bootstrap', {})).models.some(model => model.id === 'local-fixture')).toBe(true)
   expect(runtime.snapshot().ready).toBe(true)
-  expect(new Set(runtime.snapshot().units.flatMap(unit => unit.generations.map(generation => generation.pid))).size).toBe(14)
+  expect(new Set(runtime.snapshot().units.flatMap(unit => unit.generations.map(generation => generation.pid))).size).toBe(runtime.snapshot().units.length)
 })
 
 test('a legacy profile executes locally in its managed Kernel owner, binds the actual driver owner and explicitly requires restart for code reload', async () => {
