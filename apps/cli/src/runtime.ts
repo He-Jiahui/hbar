@@ -56,6 +56,34 @@ interface ConnectionFile {
   instanceId?: string
 }
 
+interface VerifiedConnectionFile extends ConnectionFile {
+  instanceId: string
+}
+
+type ConnectOnlyFailureCode =
+  | 'NO_SAVED_CONNECTION'
+  | 'INVALID_CONNECTION'
+  | 'HEALTH_UNAVAILABLE'
+  | 'HEALTH_REJECTED'
+  | 'HEALTH_INVALID_RESPONSE'
+  | 'HEALTH_IDENTITY_MISSING'
+  | 'HEALTH_INSTANCE_MISMATCH'
+  | 'WEBSOCKET_INSTANCE_MISMATCH'
+  | 'HOST_AUTHENTICATION_FAILED'
+  | 'HOST_DISCONNECTED'
+  | 'HOST_HANDSHAKE_TIMEOUT'
+  | 'HOST_HANDSHAKE_FAILED'
+
+class ConnectOnlyError extends Error {
+  constructor(
+    readonly code: ConnectOnlyFailureCode,
+    message: string,
+  ) {
+    super(message)
+    this.name = 'ConnectOnlyError'
+  }
+}
+
 async function connection(layout: CliRuntime['layout'], requireReady = true): Promise<ConnectionFile | undefined> {
   try {
     const raw: unknown = JSON.parse(await readFile(layout.connectionFile, 'utf8')) as unknown
@@ -88,6 +116,95 @@ async function connection(layout: CliRuntime['layout'], requireReady = true): Pr
     return undefined
   }
   return undefined
+}
+
+async function verifiedConnection(
+  layout: CliRuntime['layout'],
+  requireReady: boolean,
+): Promise<VerifiedConnectionFile> {
+  let raw: unknown
+  try {
+    raw = JSON.parse(await readFile(layout.connectionFile, 'utf8')) as unknown
+  } catch {
+    throw new ConnectOnlyError('NO_SAVED_CONNECTION', 'Connect-only failed: no saved Host connection')
+  }
+  if (
+    !raw ||
+    typeof raw !== 'object' ||
+    !('url' in raw) ||
+    typeof raw.url !== 'string' ||
+    !('token' in raw) ||
+    typeof raw.token !== 'string' ||
+    ('instanceId' in raw && typeof raw.instanceId !== 'string')
+  )
+    throw new ConnectOnlyError('INVALID_CONNECTION', 'Connect-only failed: invalid Host connection file')
+  const saved: ConnectionFile = {
+    url: raw.url,
+    token: raw.token,
+    ...('instanceId' in raw && typeof raw.instanceId === 'string' ? { instanceId: raw.instanceId } : {}),
+  }
+  let response: Response
+  try {
+    response = await fetch(`${saved.url}/healthz`, { signal: AbortSignal.timeout(1200) })
+  } catch {
+    throw new ConnectOnlyError('HEALTH_UNAVAILABLE', 'Connect-only failed: saved Host health check was unavailable')
+  }
+  const allowsRecoveringHost = !requireReady && response.status === 503
+  if (!response.ok && !allowsRecoveringHost)
+    throw new ConnectOnlyError(
+      'HEALTH_REJECTED',
+      `Connect-only failed: saved Host health check returned HTTP ${response.status}`,
+    )
+  let status: unknown
+  try {
+    status = await response.json()
+  } catch {
+    throw new ConnectOnlyError('HEALTH_INVALID_RESPONSE', 'Connect-only failed: invalid Host health response')
+  }
+  if (!status || typeof status !== 'object' || !('ready' in status) || typeof status.ready !== 'boolean')
+    throw new ConnectOnlyError('HEALTH_INVALID_RESPONSE', 'Connect-only failed: invalid Host health response')
+  if (requireReady && status.ready !== true)
+    throw new ConnectOnlyError('HEALTH_REJECTED', 'Connect-only failed: saved Host is not ready')
+  if (allowsRecoveringHost && status.ready !== false)
+    throw new ConnectOnlyError('HEALTH_INVALID_RESPONSE', 'Connect-only failed: invalid recovering Host health state')
+  const instanceId = 'instanceId' in status && typeof status.instanceId === 'string' ? status.instanceId : undefined
+  if (!instanceId)
+    throw new ConnectOnlyError(
+      'HEALTH_IDENTITY_MISSING',
+      'Connect-only failed: Host health response has no instance identity',
+    )
+  if (saved.instanceId && instanceId !== saved.instanceId)
+    throw new ConnectOnlyError(
+      'HEALTH_INSTANCE_MISMATCH',
+      'Connect-only failed: saved Host instance identity does not match',
+    )
+  return { ...saved, instanceId }
+}
+
+type StartHost = typeof startHost
+
+async function connectExistingHost(client: HbarClient, expectedInstanceId: string): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    const host = await Promise.race([
+      client.connect(),
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => {
+          reject(
+            new ConnectOnlyError('HOST_HANDSHAKE_TIMEOUT', 'Connect-only failed: Host WebSocket handshake timed out'),
+          )
+          client.disconnect()
+        }, 3_000)
+      }),
+    ])
+    if (host.instanceId !== expectedInstanceId)
+      throw new ConnectOnlyError(
+        'WEBSOCKET_INSTANCE_MISMATCH',
+        'Connect-only failed: Host instance identity changed after health check',
+      )
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
 }
 
 async function startHost(layout: CliRuntime['layout'], project: string, demo: boolean, requireReady = true) {
@@ -180,38 +297,48 @@ export async function selectProject(
 export async function openAttachedRuntime(
   url: string,
   token: string | undefined,
-  options: { project?: string | undefined; session?: string | undefined; model?: string | undefined },
+  options: {
+    project?: string | undefined
+    session?: string | undefined
+    model?: string | undefined
+    connectOnly?: boolean | undefined
+  },
   pairingCode?: string,
 ): Promise<CliRuntime> {
   const layout = await resolvePathLayout()
   const client = new HbarClient(url, token)
-  const connection = createConnectionCommands(client)
   try {
+    const connection = createConnectionCommands(client)
     try {
-      await connection.execute('connection.connect', {})
-    } catch (error) {
-      if (!pairingCode) throw error
-      await connection.execute('pairing.accept', { code: pairingCode, name: 'hbar CLI' })
+      try {
+        await connection.execute('connection.connect', {})
+      } catch (error) {
+        if (!pairingCode) throw error
+        await connection.execute('pairing.accept', { code: pairingCode, name: 'hbar CLI' })
+      }
+    } finally {
+      connection.dispose()
     }
-  } finally {
-    connection.dispose()
-  }
-  const bootstrap = await client.call('system.bootstrap', {})
-  const project = options.project
-    ? await selectProject(client, bootstrap, options.project, false)
-    : bootstrap.workspaces[0]
-  if (!project) throw new Error('The attached Host has no projects')
-  const session = await selectSession(client, bootstrap, project.id, options.session)
-  const configured = await createModelCommandClient(client).execute('session.getModel', { sessionId: session.id })
-  return {
-    client,
-    layout,
-    bootstrap,
-    project,
-    session,
-    modelId: options.model ? selectModel(bootstrap, options.model) : (configured.modelId ?? selectModel(bootstrap)),
-    thinkingLevel: configured.thinkingLevel ?? 'off',
-    close: () => client.disconnect(),
+    const bootstrap = await client.call('system.bootstrap', {})
+    const project = options.project
+      ? await selectProject(client, bootstrap, options.project, false)
+      : bootstrap.workspaces[0]
+    if (!project) throw new Error('The attached Host has no projects')
+    const session = await selectSession(client, bootstrap, project.id, options.session, !options.connectOnly)
+    const configured = await createModelCommandClient(client).execute('session.getModel', { sessionId: session.id })
+    return {
+      client,
+      layout,
+      bootstrap,
+      project,
+      session,
+      modelId: options.model ? selectModel(bootstrap, options.model) : (configured.modelId ?? selectModel(bootstrap)),
+      thinkingLevel: configured.thinkingLevel ?? 'off',
+      close: () => client.disconnect(),
+    }
+  } catch (error) {
+    client.disconnect()
+    throw error
   }
 }
 
@@ -252,67 +379,114 @@ export function selectModel(bootstrap: Bootstrap, selector?: string) {
   return model.id
 }
 
-export async function openRuntime(options: {
-  project?: string | undefined
-  context?: string | undefined
-  session?: string | undefined
-  model?: string | undefined
-  dataRoot?: string | undefined
-  cacheRoot?: string | undefined
-  demo?: boolean | undefined
-  thinking?: ThinkingLevel | undefined
-  thinkingExplicit?: boolean | undefined
-  approval?: ApprovalMode | undefined
-  modelRequired?: boolean | undefined
-  createSession?: boolean | undefined
-}): Promise<CliRuntime> {
-  const { client, layout } = await openCatalogClient(options)
-  let bootstrap = await client.call('system.bootstrap', {})
-  const saved = options.context ? await new NamedContextStore(layout.dataRoot).get(options.context) : null
-  const project = await selectProject(client, bootstrap, options.project ?? saved?.workspaceId)
-  bootstrap = await client.call('system.bootstrap', {})
-  const session = await selectSession(
-    client,
-    bootstrap,
-    project.id,
-    options.session ?? (options.project ? undefined : saved?.sessionId),
-    options.createSession !== false,
-  )
-  const configured = await createModelCommandClient(client).execute('session.getModel', { sessionId: session.id })
-  const modelId =
-    options.modelRequired === false
-      ? (configured.modelId ?? '')
-      : options.model
-        ? selectModel(bootstrap, options.model)
-        : (configured.modelId ?? selectModel(bootstrap))
-  const thinkingLevel = options.thinkingExplicit
-    ? (options.thinking ?? 'off')
-    : (configured.thinkingLevel ?? options.thinking ?? 'off')
-  return { client, layout, bootstrap, project, session, modelId, thinkingLevel, close: () => client.disconnect() }
+export async function openRuntime(
+  options: {
+    project?: string | undefined
+    context?: string | undefined
+    session?: string | undefined
+    model?: string | undefined
+    dataRoot?: string | undefined
+    cacheRoot?: string | undefined
+    demo?: boolean | undefined
+    thinking?: ThinkingLevel | undefined
+    thinkingExplicit?: boolean | undefined
+    approval?: ApprovalMode | undefined
+    modelRequired?: boolean | undefined
+    createSession?: boolean | undefined
+    connectOnly?: boolean | undefined
+    explicitSessionCreate?: boolean | undefined
+  },
+  startHostImpl: StartHost = startHost,
+): Promise<CliRuntime> {
+  const { client, layout } = await openCatalogClient(options, startHostImpl)
+  try {
+    let bootstrap = await client.call('system.bootstrap', {})
+    const saved = options.context ? await new NamedContextStore(layout.dataRoot).get(options.context) : null
+    const project = await selectProject(client, bootstrap, options.project ?? saved?.workspaceId, !options.connectOnly)
+    bootstrap = await client.call('system.bootstrap', {})
+    const session = await selectSession(
+      client,
+      bootstrap,
+      project.id,
+      options.session ?? (options.project ? undefined : saved?.sessionId),
+      options.createSession !== false && (!options.connectOnly || options.explicitSessionCreate === true),
+    )
+    const configured = await createModelCommandClient(client).execute('session.getModel', { sessionId: session.id })
+    const modelId =
+      options.modelRequired === false
+        ? (configured.modelId ?? '')
+        : options.model
+          ? selectModel(bootstrap, options.model)
+          : (configured.modelId ?? selectModel(bootstrap))
+    const thinkingLevel = options.thinkingExplicit
+      ? (options.thinking ?? 'off')
+      : (configured.thinkingLevel ?? options.thinking ?? 'off')
+    return { client, layout, bootstrap, project, session, modelId, thinkingLevel, close: () => client.disconnect() }
+  } catch (error) {
+    client.disconnect()
+    throw error
+  }
 }
 
-export async function openCatalogClient(options: {
-  project?: string | undefined
-  dataRoot?: string | undefined
-  cacheRoot?: string | undefined
-  demo?: boolean | undefined
-  /** Stable management reads can attach while necessary business units are recovering. */
-  requireReady?: boolean | undefined
-}) {
+export async function openCatalogClient(
+  options: {
+    project?: string | undefined
+    dataRoot?: string | undefined
+    cacheRoot?: string | undefined
+    demo?: boolean | undefined
+    connectOnly?: boolean | undefined
+    /** Stable management reads can attach while necessary business units are recovering. */
+    requireReady?: boolean | undefined
+  },
+  startHostImpl: StartHost = startHost,
+) {
   const initialProject = resolve(options.project ?? process.cwd())
   const layout = await resolvePathLayout({ dataRoot: options.dataRoot, cacheRoot: options.cacheRoot })
   const requireReady = options.requireReady ?? true
-  if (!(await connection(layout, requireReady)))
-    await startHost(
-      layout,
-      (await isDirectory(initialProject)) ? initialProject : process.cwd(),
-      Boolean(options.demo),
-      requireReady,
-    )
-  const file = await connection(layout, requireReady)
-  if (!file) throw new Error('Host connection is unavailable')
+  let file: ConnectionFile
+  let expectedInstanceId: string | undefined
+  if (options.connectOnly) {
+    const verified = await verifiedConnection(layout, requireReady)
+    file = verified
+    expectedInstanceId = verified.instanceId
+  } else {
+    if (!(await connection(layout, requireReady)))
+      await startHostImpl(
+        layout,
+        (await isDirectory(initialProject)) ? initialProject : process.cwd(),
+        Boolean(options.demo),
+        requireReady,
+      )
+    const connected = await connection(layout, requireReady)
+    if (!connected) throw new Error('Host connection is unavailable')
+    file = connected
+  }
   const client = new HbarClient(file.url, file.token)
-  await client.connect()
+  try {
+    if (options.connectOnly) {
+      if (!expectedInstanceId)
+        throw new ConnectOnlyError('HEALTH_IDENTITY_MISSING', 'Connect-only failed: Host identity is unavailable')
+      await connectExistingHost(client, expectedInstanceId)
+    } else await client.connect()
+  } catch (error) {
+    client.disconnect()
+    if (options.connectOnly) {
+      if (error instanceof ConnectOnlyError) throw error
+      const hostErrorCode =
+        error && typeof error === 'object' && 'code' in error && typeof error.code === 'string' ? error.code : undefined
+      if (hostErrorCode === 'UNAUTHORIZED')
+        throw new ConnectOnlyError(
+          'HOST_AUTHENTICATION_FAILED',
+          'Connect-only failed: Host authentication was rejected',
+        )
+      if (hostErrorCode === 'TIMEOUT')
+        throw new ConnectOnlyError('HOST_HANDSHAKE_TIMEOUT', 'Connect-only failed: Host WebSocket handshake timed out')
+      if (hostErrorCode === 'DISCONNECTED')
+        throw new ConnectOnlyError('HOST_DISCONNECTED', 'Connect-only failed: Host disconnected after health check')
+      throw new ConnectOnlyError('HOST_HANDSHAKE_FAILED', 'Connect-only failed: Host WebSocket handshake failed')
+    }
+    throw error
+  }
   return { client, layout }
 }
 
