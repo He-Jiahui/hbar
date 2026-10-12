@@ -1,5 +1,6 @@
 import { Database } from 'bun:sqlite'
 import { DEVICE_ACCESS_SQL, createDeviceStorage } from './device-access'
+import { NODE_REGISTRY_SQL, createNodeRegistryStorage } from './node-registry-storage'
 import { readContextCompactionMarkers } from './context-compaction-markers'
 import {
   RUN_FILE_CHANGES_SQL,
@@ -277,7 +278,7 @@ const WORKSPACE_ACTIVITY_SQL = `
     AFTER DELETE ON sessions
     BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
 `
-const LATEST_SCHEMA_VERSION = 26
+const LATEST_SCHEMA_VERSION = 27
 const schemaVersion = z.object({ user_version: z.number().int().nonnegative() }).parse(db.query('PRAGMA user_version').get()).user_version
 if (preflight && !shadowMemory && schemaVersion !== LATEST_SCHEMA_VERSION)
   throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Candidate Worker cannot apply a production migration')
@@ -507,6 +508,7 @@ for (const [version, sql] of [
   [24, RUN_FILE_CHANGES_SQL],
   [25, RUNTIME_STATE_SQL + RUN_FILE_CHANGES_SQL],
   [26, DEVICE_ACCESS_SQL],
+  [27, NODE_REGISTRY_SQL],
 ] as const) {
   if (schemaVersion >= version) continue
   db.transaction(() => {
@@ -546,6 +548,7 @@ const chatDatabaseResources = createChatDatabaseResourceLedger(db, sessionsRoot,
 })
 const chatDatabaseArtifacts = createChatDatabaseArtifactStorage(db, sessionsRoot, artifactsRoot, settingsRoot, chatDatabaseResources, { readOnly: preflight && !shadowMemory })
 const deviceStorage = createDeviceStorage(db, id => chatDatabaseArtifacts.unknownDevice(id, false))
+const nodeRegistryStorage = createNodeRegistryStorage(db)
 const chatDatabaseJournal = createChatDatabaseJournal(db)
 const chatDatabaseAutomaticPlan = createChatDatabaseAutomaticPlan(db, chatDatabaseJournal)
 const chatDatabaseTasks = createChatDatabaseTaskStorage(db)
@@ -2865,6 +2868,12 @@ const methods: StorageMethods = {
   deviceByHash: (hash) => deviceStorage.byHash(hash),
   devices: () => deviceStorage.list(),
   revokeDevice: (id) => deviceStorage.revoke(id),
+  nodeIdentityEnsure: (identity) => nodeRegistryStorage.ensureIdentity(identity),
+  nodes: () => nodeRegistryStorage.list(),
+  node: (nodeId) => nodeRegistryStorage.get(nodeId),
+  nodeRegister: (node) => nodeRegistryStorage.register(node),
+  nodeTouch: (nodeId, time, capabilities) => nodeRegistryStorage.touch(nodeId, time, capabilities),
+  nodeRevoke: (nodeId, time) => nodeRegistryStorage.revoke(nodeId, time),
   setPlugin(id, enabled, config, path, projectId) {
     db.query(
       'INSERT INTO plugins(id,projectId,enabled,config,path) VALUES(?,?,?,?,?) ON CONFLICT(id,projectId) DO UPDATE SET enabled=excluded.enabled,config=excluded.config,path=COALESCE(excluded.path,plugins.path)',

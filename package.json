@@ -131,6 +131,7 @@
   "devDependencies": {
     "@hbar/node-core": "workspace:*",
     "@hbar/node": "workspace:*",
+    "@hbar/node-link": "workspace:*",
     "@hbar/sandbox": "workspace:*",
     "@hbar/agent": "workspace:*",
     "@hbar/image-generation": "workspace:*",

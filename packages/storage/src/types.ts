@@ -591,6 +591,12 @@ export interface StorageMethods {
   deviceByHash(hash: string): Device | null
   devices(): Device[]
   revokeDevice(id: string): void
+  nodeIdentityEnsure(identity: import('@hbar/contracts/node-registry').NodeRegistryInput<'identity.ensure'>): import('@hbar/contracts/node-registry').NodeRegistryOutput<'identity.ensure'>
+  nodes(): import('@hbar/contracts/node-registry').RegisteredNode[]
+  node(nodeId: string): import('@hbar/contracts/node-registry').RegisteredNode | null
+  nodeRegister(node: import('@hbar/contracts/node-registry').NodeRegistryInput<'node.register'>): import('@hbar/contracts/node-registry').RegisteredNode
+  nodeTouch(nodeId: string, time: number, capabilities: import('@hbar/contracts/node').NodeCapabilities): import('@hbar/contracts/node-registry').RegisteredNode | null
+  nodeRevoke(nodeId: string, time: number): import('@hbar/contracts/node-registry').RegisteredNode | null
   setPlugin(id: string, enabled: boolean, config: Record<string, unknown>, path?: string, projectId?: string): void
   setPlugins(
     plugins: {

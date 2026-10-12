@@ -71,6 +71,7 @@
         "@hbar/image-generation": "workspace:*",
         "@hbar/node": "workspace:*",
         "@hbar/node-core": "workspace:*",
+        "@hbar/node-link": "workspace:*",
         "@hbar/sandbox": "workspace:*",
         "@mui/material": "9.4.0",
         "@playwright/test": "1.63.0",
@@ -312,6 +313,15 @@
         "@hbar/contracts": "workspace:*",
         "@hbar/plugin-sdk": "workspace:*",
         "@hbar/sandbox": "workspace:*",
+        "zod": "4.5.4",
+      },
+    },
+    "packages/node-link": {
+      "name": "@hbar/node-link",
+      "version": "0.1.0",
+      "dependencies": {
+        "@hbar/contracts": "workspace:*",
+        "@hbar/node-core": "workspace:*",
         "zod": "4.5.4",
       },
     },
@@ -745,6 +755,8 @@
     "@hbar/node": ["@hbar/node@workspace:apps/node"],
 
     "@hbar/node-core": ["@hbar/node-core@workspace:packages/node-core"],
+
+    "@hbar/node-link": ["@hbar/node-link@workspace:packages/node-link"],
 
     "@hbar/pi-driver": ["@hbar/pi-driver@workspace:plugins/pi-driver"],
 

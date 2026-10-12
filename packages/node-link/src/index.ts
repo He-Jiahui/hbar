@@ -1,0 +1,1 @@
+export { NodeRegistryService } from './registry'

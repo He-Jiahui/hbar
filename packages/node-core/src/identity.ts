@@ -10,15 +10,9 @@ import {
 import { z } from 'zod'
 import { nodePublicKeySchema, nodeSignatureSchema, nodeChallengeSchema } from '@hbar/contracts/node'
 import { HbarError } from '@hbar/contracts'
+import { nodeIdentitySchema } from '@hbar/contracts/node-registry'
+export { nodeIdentitySchema } from '@hbar/contracts/node-registry'
 
-export const nodeIdentitySchema = z.strictObject({
-  publicKey: nodePublicKeySchema,
-  privateKey: z
-    .string()
-    .min(60)
-    .max(256)
-    .regex(/^[A-Za-z0-9_-]+$/),
-})
 export type NodeIdentity = z.infer<typeof nodeIdentitySchema>
 const SPKI_PREFIX = Buffer.from('302a300506032b6570032100', 'hex')
 export function nodePublicKey(publicKey: string) {
