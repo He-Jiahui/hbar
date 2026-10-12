@@ -64,7 +64,10 @@ export class WorkspaceNodeService {
   private readonly snapshots = new Map<string, ResolvedSandboxProfile>()
   private readonly active = new Map<string, { controller: AbortController; finished: Promise<void> }>()
   private readonly locks = new Map<string, Promise<void>>()
+  private readonly pendingCancellations = new Map<string, number>()
   private linkTimer: ReturnType<typeof setTimeout> | undefined
+  private linkExpired = false
+  private closing: Promise<void> | undefined
   private readonly completions = new Set<Promise<void>>()
   private readonly policyListeners = new Set<() => void>()
   constructor(
@@ -160,8 +163,14 @@ export class WorkspaceNodeService {
   }
   private available(): void {
     if (this.disposed) throw new HbarError('NODE_OFFLINE', 'Workspace node is closed')
+    if (this.linkExpired) throw new HbarError('NODE_OFFLINE', 'Owning node link exceeded its loss grace period')
     if (this.paused) throw new HbarError('NODE_PAUSED', 'Workspace node is paused locally')
     if (this.changingPolicy) throw new HbarError('NODE_BUSY', 'Node floor is being changed locally')
+  }
+  private availableToStart(operationId: string): void {
+    this.available()
+    if (this.pendingCancellations.has(operationId))
+      throw new HbarError('CANCELLED', 'Execution was cancelled before process launch')
   }
   async canonicalize(rootId: string, paths: readonly string[]) {
     this.available()
@@ -430,13 +439,17 @@ export class WorkspaceNodeService {
                 }
               : null
           const controller = new AbortController()
+          this.availableToStart(request.operationId)
           const started = await this.state.call('operation.start', { operationId: request.operationId })
           if (started.receipt.state !== 'started') return started.receipt
+          this.availableToStart(request.operationId)
           const timeoutMs = Math.min(request.timeoutMs, this.floor.maxTimeoutMs)
           const finished = Promise.resolve()
             .then(async () => {
               let result: NodeExecResult
               try {
+                this.availableToStart(request.operationId)
+                controller.signal.throwIfAborted()
                 const execution = await this.backend.exec(target.path, request.command, controller.signal, {
                   timeoutMs,
                   environment,
@@ -538,6 +551,7 @@ export class WorkspaceNodeService {
       })
       await this.state.call('operation.start', { operationId })
       try {
+        this.available()
         const versions = await this.execution.write(root, path, text, {
           ...(expectedRevision ? { expectedRevision } : {}),
         })
@@ -611,6 +625,7 @@ export class WorkspaceNodeService {
       })
       await this.state.call('operation.start', { operationId })
       try {
+        this.available()
         await this.execution.restoreFiles(root, changes, signal)
         await this.state.call('operation.settle', {
           operationId,
@@ -639,10 +654,19 @@ export class WorkspaceNodeService {
     })
   }
   async cancel(operationId: string): Promise<NodeReceipt> {
-    const active = this.active.get(operationId)
-    active?.controller.abort(new HbarError('CANCELLED', 'Execution cancelled locally or by its owning node link'))
-    if (active) await active.finished
-    return this.receipt(operationId)
+    this.pendingCancellations.set(operationId, (this.pendingCancellations.get(operationId) ?? 0) + 1)
+    try {
+      return await this.serial(operationId, async () => {
+        const active = this.active.get(operationId)
+        active?.controller.abort(new HbarError('CANCELLED', 'Execution cancelled locally or by its owning node link'))
+        if (active) await active.finished
+        return this.receipt(operationId)
+      })
+    } finally {
+      const remaining = (this.pendingCancellations.get(operationId) ?? 1) - 1
+      if (remaining) this.pendingCancellations.set(operationId, remaining)
+      else this.pendingCancellations.delete(operationId)
+    }
   }
   async pause(value = true): Promise<void> {
     this.paused = value
@@ -651,11 +675,13 @@ export class WorkspaceNodeService {
   linkRestored(): void {
     clearTimeout(this.linkTimer)
     this.linkTimer = undefined
+    this.linkExpired = false
   }
   linkLost(): void {
     if (this.floor.onLinkLost.action === 'continue' || this.linkTimer) return
     this.linkTimer = setTimeout(() => {
       this.linkTimer = undefined
+      this.linkExpired = true
       const task = Promise.all(
         [...this.active].map(async ([id, active]) => {
           await this.state.call('operation.lost', { operationId: id, reason: 'link-lost' })
@@ -673,12 +699,16 @@ export class WorkspaceNodeService {
       )
     }, this.floor.onLinkLost.graceMs)
   }
-  async dispose(): Promise<void> {
+  dispose(): Promise<void> {
+    return (this.closing ??= this.close())
+  }
+  private async close(): Promise<void> {
     this.disposed = true
     this.policyListeners.clear()
     this.linkRestored()
     for (const active of this.active.values())
       active.controller.abort(new HbarError('CANCELLED', 'Workspace node is stopping'))
+    await Promise.allSettled([...this.locks.values()])
     await Promise.allSettled([...this.completions])
     await this.backend.dispose?.()
     await this.execution.dispose?.()

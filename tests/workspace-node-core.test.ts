@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { nodeFloorSchema, type NodeCallAuthority, type NodeExecStart, type NodeReceipt } from '@hbar/contracts/node'
 import { NodeStateStorage } from '@hbar/storage/node-state'
+import type { NodeStatePort } from '@hbar/contracts/node-state'
 import { LocalExecution } from '@hbar/local-tools'
 import {
   WorkspaceNodeService,
@@ -31,7 +32,14 @@ const authority: NodeCallAuthority = {
   sandbox: null,
   admission: { kind: 'allow' },
 }
-async function fixture(options: { confined?: boolean; floor?: Record<string, unknown>; hold?: boolean } = {}) {
+async function fixture(
+  options: {
+    confined?: boolean
+    floor?: Record<string, unknown>
+    hold?: boolean
+    beforeLaunch?: () => Promise<void>
+  } = {},
+) {
   const root = await mkdtemp(join(tmpdir(), 'hbar-workspace-node-'))
   const workspace = join(root, 'workspace'),
     data = join(root, 'data')
@@ -67,7 +75,21 @@ async function fixture(options: { confined?: boolean; floor?: Record<string, unk
   }
   const execution = new LocalExecution([data, join(workspace, '.git/hooks')])
   const identity = createNodeIdentity()
-  const node = await WorkspaceNodeService.open(nodeIdFromPublicKey(identity.publicKey), data, state, execution, backend)
+  const statePort: NodeStatePort = {
+    call: async (method, input) => {
+      const result = await state.call(method, input)
+      if (method === 'operation.start') await options.beforeLaunch?.()
+      return result
+    },
+    close: () => state.close(),
+  }
+  const node = await WorkspaceNodeService.open(
+    nodeIdFromPublicKey(identity.publicKey),
+    data,
+    statePort,
+    execution,
+    backend,
+  )
   cleanup.push(async () => {
     await node.dispose()
     await state.close()
@@ -184,6 +206,101 @@ test('admission reservations bound concurrent starts and cancellation releases r
   if (!id) throw new Error('No running operation')
   expect(await f.node.cancel(id)).toMatchObject({ state: 'settled', result: { details: { code: 'CANCELLED' } } })
   expect(f.node.running).toEqual([])
+})
+
+function launchGate() {
+  const entered = Promise.withResolvers<void>(),
+    gate = Promise.withResolvers<void>()
+  return {
+    entered: entered.promise,
+    release: () => gate.resolve(),
+    beforeLaunch: async () => {
+      entered.resolve()
+      await gate.promise
+    },
+  }
+}
+
+test('cancel waits for a durable start reservation before confirming process settlement', async () => {
+  const gate = launchGate(),
+    f = await fixture({ hold: true, beforeLaunch: gate.beforeLaunch })
+  const starting = f.node.start(f.request())
+  await gate.entered
+  let cancellationReturned = false
+  const cancelling = f.node.cancel('run:call').then((receipt) => {
+    cancellationReturned = true
+    return receipt
+  })
+  try {
+    await Bun.sleep(15)
+    expect(cancellationReturned).toBe(false)
+  } finally {
+    gate.release()
+    await starting
+  }
+  expect(await cancelling).toMatchObject({
+    state: 'settled',
+    result: { details: { code: 'CANCELLED', executionStarted: false } },
+  })
+  expect(f.node.running).toEqual([])
+  expect(f.calls).toHaveLength(0)
+})
+
+test('dispose waits for in-progress admission and never launches a process after its owner has closed', async () => {
+  const gate = launchGate(),
+    f = await fixture({ beforeLaunch: gate.beforeLaunch })
+  const starting = f.node.start(f.request())
+  await gate.entered
+  let disposed = false
+  const disposing = f.node.dispose().then(() => {
+    disposed = true
+  })
+  try {
+    await Bun.sleep(15)
+    expect(disposed).toBe(false)
+  } finally {
+    gate.release()
+  }
+  expect(await starting).toMatchObject({
+    state: 'settled',
+    result: { details: { code: 'NODE_OFFLINE', executionStarted: false } },
+  })
+  await disposing
+  expect(f.calls).toEqual([])
+  expect(f.node.running).toEqual([])
+})
+
+test('pause and link-loss grace expiry fence a pending durable start before process launch', async () => {
+  for (const action of ['pause', 'link-lost'] as const) {
+    const gate = launchGate(),
+      f = await fixture({ beforeLaunch: gate.beforeLaunch, floor: { onLinkLost: { action: 'terminate', graceMs: 5 } } })
+    const starting = f.node.start(f.request())
+    await gate.entered
+    try {
+      if (action === 'pause') await f.node.pause()
+      else {
+        f.node.linkLost()
+        await Bun.sleep(15)
+      }
+    } finally {
+      gate.release()
+    }
+    expect(await starting).toMatchObject({
+      state: 'settled',
+      result: {
+        details: {
+          code: action === 'pause' ? 'NODE_PAUSED' : 'NODE_OFFLINE',
+          executionStarted: false,
+        },
+      },
+    })
+    expect(f.calls).toEqual([])
+    if (action === 'pause') await f.node.pause(false)
+    else f.node.linkRestored()
+    await f.node.start(f.request('run:restored'))
+    expect(await settlement(f.node, 'run:restored')).toMatchObject({ state: 'settled', result: { isError: false } })
+    expect(f.calls).toEqual(['echo safe'])
+  }
 })
 test('link-loss grace ends execution and retains an unknown receipt that cannot be replayed', async () => {
   const f = await fixture({ hold: true, floor: { onLinkLost: { action: 'terminate', graceMs: 10 } } })
