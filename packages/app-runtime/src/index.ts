@@ -1,3 +1,5 @@
+export * from './composer-state'
+export * from './composer-slash'
 import {
   CommandRegistry,
   CommandError,
@@ -970,7 +972,6 @@ export function createAppRuntime(options: RuntimeOptions) {
     isRunActive: isCurrentRunActive,
     isSubmissionLocked: (sessionId) =>
       composerIntent.isSubmissionPending(sessionId) ||
-      composerIntent.reader.getSnapshot().entries[sessionId]?.intent === 'goal' ||
       ['submitting', 'unknown'].includes(drafts.reader.getSnapshot()[sessionId]?.status ?? ''),
     onSubscriberError,
   })

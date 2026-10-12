@@ -1,3 +1,4 @@
+import { isSessionWorkspaceMoveLocked } from '@hbar/app-runtime'
 import { LumenContentText, LumenButton, LumenFrame } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarSessionRunActivity, type HbarSessionRunLabels } from './session-run-activity'
@@ -92,11 +93,7 @@ export function HbarSessionRunHistory({
     ? (workspaceMoves.entries[sessionId] ??
       Object.values(workspaceMoves.entries).find((entry) => entry.targetSessionId === sessionId))
     : undefined
-  const moveLocked = Boolean(
-    move &&
-    move.status !== 'succeeded' &&
-    (move.status === 'busy' || move.status === 'unknown' || move.status === 'paused' || move.targetSessionId !== null),
-  )
+  const moveLocked = isSessionWorkspaceMoveLocked(move)
   const canRetry =
     connected &&
     ownsTimeline &&

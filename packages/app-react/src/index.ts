@@ -1,4 +1,4 @@
-export { HbarRuntimeProvider, useHbarRuntime, useHbarRuntimeState } from './runtime'
+export { HbarRuntimeProvider, useHbarRuntime, useHbarRuntimeState, useHbarRuntimeSelector } from './runtime'
 export { AgentPolicyEditor, type AgentPolicyEditorLabels } from './agent-policy-editor'
 export { FloatingSurface, useFloatingTrigger } from './floating-surface'
 export { HbarComposerFeedback, type HbarComposerFeedbackLabels } from './composer-feedback'

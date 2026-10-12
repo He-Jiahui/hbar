@@ -1,20 +1,6 @@
-import type { PreSessionDraftState, SessionLaunchSelection } from '@hbar/app-runtime'
+import type { SessionLaunchSelection } from '@hbar/app-runtime'
 
-export function firstSendNeedsContinue(draft: PreSessionDraftState | undefined): boolean {
-  return Boolean(
-    draft &&
-    (draft.launchPreparation?.phase === 'paused-navigation' ||
-      (draft.phase === 'failed' && draft.error === 'CONTINUE_REQUIRED')),
-  )
-}
-
-export function firstSendIsLocked(draft: PreSessionDraftState | undefined): boolean {
-  return Boolean(
-    draft &&
-    (['preparing', 'creating', 'configuring', 'submitting', 'unknown'].includes(draft.phase) ||
-      firstSendNeedsContinue(draft)),
-  )
-}
+export { firstSendIsLocked, firstSendNeedsContinue } from '@hbar/app-runtime'
 
 export function launchSelectionBranchName(selection: SessionLaunchSelection): string | null {
   if (selection.mode === 'shared-current') return null

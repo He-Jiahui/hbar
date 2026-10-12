@@ -22,6 +22,8 @@ import {
 } from '@lumen/app-ui'
 import {
   RuntimeCommandError,
+  getComposerState,
+  isSessionWorkspaceMoveLocked,
   messageForkActionKey,
   planProposalActionKey,
   projectSessionDecisions,
@@ -342,14 +344,7 @@ function SessionWorkspaceContent({
     ? (workspaceMoves.entries[sessionId] ??
       Object.values(workspaceMoves.entries).find((entry) => entry.targetSessionId === sessionId))
     : undefined
-  const workspaceMoveLocked = Boolean(
-    workspaceMoveEntry &&
-    workspaceMoveEntry.status !== 'succeeded' &&
-    (workspaceMoveEntry.status === 'busy' ||
-      workspaceMoveEntry.status === 'unknown' ||
-      workspaceMoveEntry.status === 'paused' ||
-      workspaceMoveEntry.targetSessionId !== null),
-  )
+  const workspaceMoveLocked = isSessionWorkspaceMoveLocked(workspaceMoveEntry)
   const firstSendDraft = Object.values(firstSendDrafts).find(
     (entry) =>
       entry.sessionId === sessionId &&
@@ -1528,14 +1523,7 @@ function SessionWorkspaceContent({
         : currentTab?.kind === 'session' &&
           currentTab.sessionId === input.sessionId &&
           currentTab.workspaceId === sessionWorkspaceId)
-    const moveLocked = Boolean(
-      currentMove &&
-      currentMove.status !== 'succeeded' &&
-      (currentMove.status === 'busy' ||
-        currentMove.status === 'unknown' ||
-        currentMove.status === 'paused' ||
-        currentMove.targetSessionId !== null),
-    )
+    const moveLocked = isSessionWorkspaceMoveLocked(currentMove)
     if (!connected) throw new RuntimeCommandError('HOST_DISCONNECTED', 'Conversation selection is unavailable')
     if (
       !currentOwner ||
@@ -2081,6 +2069,14 @@ function SessionWorkspaceContent({
     }
   })()
 
+  const composerState = getComposerState({
+    connected, preparation: preparationStatus, firstSend: firstSendDraft, workspaceMove: workspaceMoveEntry,
+    draft, configured: Boolean(configured), modelPending, intentPending, permissionLocked: Boolean(permissionEntry?.locked),
+    planModeReady: !composerPlanMode.available || planModeEntry?.status === 'ready', intent,
+    slash: localSlashCommand(draft?.text ?? '', slashIds), goalReplacement: draftGoalReplacement,
+    goalActionPending: ['submitting', 'unknown'].includes(intentEntry?.goalAction.status ?? ''),
+    runActive: Boolean(activeRun), compactionRunning: timeline.activeCompaction?.status === 'running',
+  })
   const composer: ReactNode = sessionId ? (
     <HbarComposerFeedbackProvider key={sessionId} labels={labels.composerFeedback}>
       <LumenFrame
@@ -2403,34 +2399,7 @@ function SessionWorkspaceContent({
             submitting={draft?.status === 'submitting' || intentEntry?.submission.status === 'submitting'}
             uploading={(draft?.uploading ?? 0) > 0}
             canAddAttachments={canAddAttachments}
-            canSubmit={
-              connected &&
-              !firstSendLocked &&
-              !workspaceMoveLocked &&
-              (canPrepare || localSlashCommand(draft?.text ?? '', slashIds) === 'settings') &&
-              (localSlashCommand(draft?.text ?? '', slashIds)
-                ? localSlashCanSubmit({
-                    draftStatus: draft?.status,
-                    modelPending,
-                    intentPending: Boolean(intentPending),
-                    permissionLocked: Boolean(permissionEntry?.locked) && !draftGoalReplacement,
-                  }) &&
-                  (localSlashCommand(draft?.text ?? '', slashIds) !== 'compact' ||
-                    (!activeRun && timeline.activeCompaction?.status !== 'running')) &&
-                  (localSlashCommand(draft?.text ?? '', slashIds) !== 'goal' ||
-                    !['submitting', 'unknown'].includes(intentEntry?.goalAction.status ?? ''))
-                : configured &&
-                  (!composerPlanMode.available || planModeEntry?.status === 'ready') &&
-                  !modelPending &&
-                  !intentPending &&
-                  attachmentTransfers.length === 0 &&
-                  !permissionEntry?.locked &&
-                  draft?.status !== 'unknown' &&
-                  Boolean(
-                    (draft?.text.trim() || draft?.attachments.length || workspaceContexts.length) &&
-                    (intent !== 'goal' || draft?.text.trim()),
-                  ))
-            }
+            canSubmit={composerState.canSubmit}
             canStop={Boolean(activeRun)}
             runningActions={{
               ...labels.runningActions,

@@ -1,4 +1,4 @@
-import { createContext, useContext, useSyncExternalStore, type ReactNode } from 'react'
+import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from 'react'
 import type { createAppRuntime, StateReader } from '@hbar/app-runtime'
 
 export type HbarRuntimeView = ReturnType<typeof createAppRuntime>['view']
@@ -36,4 +36,22 @@ export function useHbarRuntime(): HbarRuntimeView {
 
 export function useHbarRuntimeState<State>(reader: StateReader<State>): State {
   return useSyncExternalStore(reader.subscribe, reader.getSnapshot, reader.getSnapshot)
+}
+
+/** Keeps snapshot identity when another owner updates the same read-only store. */
+export function useHbarRuntimeSelector<State, Selected>(
+  reader: StateReader<State>,
+  select: (state: State) => Selected,
+  equal: (left: Selected, right: Selected) => boolean = Object.is,
+): Selected {
+  const getSelection = useMemo(() => {
+    let previous: { readonly value: Selected } | undefined
+    return () => {
+      const value = select(reader.getSnapshot())
+      if (previous && equal(previous.value, value)) return previous.value
+      previous = { value }
+      return value
+    }
+  }, [reader, select, equal])
+  return useSyncExternalStore(reader.subscribe, getSelection, getSelection)
 }
