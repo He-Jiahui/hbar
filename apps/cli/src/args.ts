@@ -7,6 +7,7 @@ export interface CliArgs {
   message?: string | undefined
   headless: boolean
   help: boolean
+  connectOnly?: boolean | undefined
   dataRoot?: string | undefined
   cacheRoot?: string | undefined
   project?: string | undefined
@@ -78,6 +79,7 @@ Usage:
   hbar [message...]                 Open the current project TUI
   hbar repl                         Open the line-oriented command REPL
   hbar --headless --message <text> Run one request without a UI
+  hbar --connect-only ...           Use a healthy existing Host; do not create anything implicitly
   hbar serve                        Start a background Host
   hbar exec session.setBudget <tokens> --session <id|name> --idempotency-key <key>
   hbar exec session.getBudget --session <id|name>
@@ -124,6 +126,7 @@ Usage:
   hbar exec git.info|git.status|git.diff|git.log|git.diffToRemote [--cwd <path>]
 
 Headless options:
+  --connect-only                    Require an existing Host; do not start Host or create project/session implicitly
   --message <text>                 Message (or read one message from stdin)
   --model <provider/model|id|name> Model selection
   --thinking <level>               off|minimal|low|medium|high|xhigh|max
@@ -161,6 +164,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     options: {
       help: { type: 'boolean', short: 'h' },
       headless: { type: 'boolean' },
+      'connect-only': { type: 'boolean' },
       message: { type: 'string' },
       model: { type: 'string' },
       profile: { type: 'string' },
@@ -262,6 +266,7 @@ export function parseCli(argv: string[] = Bun.argv.slice(2)): CliArgs {
     message: (values.message as string | undefined) ?? freeMessage,
     headless: Boolean(values.headless),
     help: Boolean(values.help),
+    connectOnly: Boolean(values['connect-only']),
     dataRoot: values['data-root'] as string | undefined,
     cacheRoot: values['cache-root'] as string | undefined,
     project: values.project as string | undefined,

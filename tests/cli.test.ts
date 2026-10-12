@@ -45,15 +45,22 @@ async function stopOwnedHost(isolatedDataRoot: string, fallbackPid = 0): Promise
   let host = fallbackPid
   let supervisor: number | undefined
   try {
-    const record = z.object({ pid: z.number().int().positive(), supervisorPid: z.number().int().positive().optional() })
+    const record = z
+      .object({ pid: z.number().int().positive(), supervisorPid: z.number().int().positive().optional() })
       .parse(JSON.parse(await readFile(join(isolatedDataRoot, 'settings', 'connection.json'), 'utf8')))
     host = record.pid
     supervisor = record.supervisorPid
-  } catch { /* Some argument tests never start a Host. */ }
+  } catch {
+    /* Some argument tests never start a Host. */
+  }
   // These PIDs belong to this fixture's isolated data root. Stop its launcher before its child.
   for (const pid of [supervisor, host]) {
     if (!pid) continue
-    try { process.kill(pid, 'SIGTERM') } catch { /* Already exited. */ }
+    try {
+      process.kill(pid, 'SIGTERM')
+    } catch {
+      /* Already exited. */
+    }
   }
   await Bun.sleep(200)
 }
@@ -76,6 +83,11 @@ test('help is available without starting a Host', async () => {
   expect(result.code).toBe(0)
   expect(result.stdout).toContain('hbar [message...]')
   expect(result.stdout).toContain('--headless')
+  expect(result.stdout).toContain('--connect-only')
+
+  const serve = await run(['--connect-only', 'serve'])
+  expect(serve.code).not.toBe(0)
+  expect(serve.stderr).toContain('--connect-only cannot be used with serve')
 })
 
 test('command catalog opens without a configured model or a selected session', async () => {
@@ -132,6 +144,25 @@ test('command catalog opens without a configured model or a selected session', a
     const db = new Database(join(isolatedData, 'databases', 'hbar.sqlite'))
     try {
       expect((db.query('SELECT count(*) AS total FROM sessions').get() as { total: number }).total).toBe(0)
+      const workspacesBefore = (db.query('SELECT count(*) AS total FROM workspaces').get() as { total: number }).total
+      const fileProject = join(isolated, 'unregistered-file-project')
+      await mkdir(fileProject, { recursive: true })
+      const missingFileProject = await run([
+        '--connect-only',
+        '--data-root',
+        isolatedData,
+        '--cache-root',
+        isolatedCache,
+        '--project',
+        fileProject,
+        'exec',
+        'file.list',
+      ])
+      expect(missingFileProject.code).not.toBe(0)
+      expect(missingFileProject.stderr).toContain('Project not found on the attached Host')
+      expect((db.query('SELECT count(*) AS total FROM workspaces').get() as { total: number }).total).toBe(
+        workspacesBefore,
+      )
     } finally {
       db.close()
     }
@@ -189,6 +220,7 @@ test('exec budget uses the same Host command, returns a receipt, and reconciles 
   common.push('--session', sessionId)
   const first = await run([
     ...common,
+    '--connect-only',
     'exec',
     'session.setBudget',
     '500',
