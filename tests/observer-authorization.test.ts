@@ -64,7 +64,10 @@ test('observer follows and queries a session while every write and approval entr
   const { client, paired } = await f.observer()
   expect(f.operator.connectionHost()?.deviceAccess).toEqual({ role: 'operator', workspaceIds: null })
   expect(client.connectionHost()?.deviceAccess).toEqual({ role: 'observer', workspaceIds: null })
-  expect((await client.call('system.bootstrap', {})).host.deviceAccess).toEqual({ role: 'observer', workspaceIds: null })
+  expect((await client.call('system.bootstrap', {})).host.deviceAccess).toEqual({
+    role: 'observer',
+    workspaceIds: null,
+  })
   expect((await client.call('session.snapshot', { sessionId: f.session.id })).session.id).toBe(f.session.id)
   expect(await client.call('session.follow', { sessionId: f.session.id, cursor: 0 })).toMatchObject({ reset: false })
   expect(
@@ -160,7 +163,9 @@ test('migration 26 preserves legacy operator devices and new observer scopes ato
     await storage.close()
     const old = new Database(path)
     try {
-      old.exec('DROP TABLE node_execution_intents; DROP TABLE node_workspace_locations; DROP TABLE workspace_nodes; DROP TABLE node_conversation_identity; DROP TABLE device_access; PRAGMA user_version=25;')
+      old.exec(
+        'DROP TABLE node_execution_intents; DROP TABLE node_workspace_locations; DROP TABLE workspace_nodes; DROP TABLE node_conversation_identity; DROP TABLE device_access; PRAGMA user_version=25;',
+      )
     } finally {
       old.close()
     }
