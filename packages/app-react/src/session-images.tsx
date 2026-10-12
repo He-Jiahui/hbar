@@ -45,6 +45,7 @@ import {
 import './session-images.css'
 import { MessageImagePreviewProvider } from './message-image-preview-context'
 import { legacyToolImageSource } from './legacy-tool-image'
+import { createMessageScope } from './messages'
 
 export interface HbarSessionImageLabels {
   readonly gallery: LumenImageGalleryLabels
@@ -62,8 +63,9 @@ export interface HbarSessionImagesOptions {
   readonly labels: HbarSessionImageLabels
 }
 
+const sessionImageMessages = createMessageScope<HbarSessionImageLabels>()
+
 interface ImageContextValue {
-  readonly labels: HbarSessionImageLabels
   readonly hostIdentity: string | null
   readonly runtime: HbarRuntimeView
 }
@@ -128,12 +130,14 @@ function useImageCollectionVisibility(identity: string) {
 
 function ImageGallery({ fallback }: { readonly fallback: RefObject<HTMLDivElement | null> }) {
   const context = useContext(ImageContext)
+  const messages = sessionImageMessages.useOptionalMessages()
   const gallery = useSessionImageGallery()
   const thumbs = useSessionImageThumbnails(gallery.projection, {
     visible: gallery.state.status !== 'closed',
     gallery: true,
   })
-  if (!context) return null
+  if (!context || !messages) return null
+  const { t } = messages
   const { state } = gallery
   const request = state.request
   const entries = new Map(thumbs.state.items.map((item) => [item.key, item]))
@@ -150,10 +154,10 @@ function ImageGallery({ fallback }: { readonly fallback: RefObject<HTMLDivElemen
         state.status === 'ready'
           ? { status: 'ready', url: state.resource.url }
           : state.status === 'failed'
-            ? { status: 'failed', errorText: context.labels.error(state.error), retryable: retryable(state.error) }
+            ? { status: 'failed', errorText: t('error')(state.error), retryable: retryable(state.error) }
             : { status: 'loading' }
       }
-      labels={context.labels.gallery}
+      labels={t('gallery')}
       onSelect={gallery.select}
       onClose={gallery.close}
       onRetry={gallery.retry}
@@ -180,7 +184,6 @@ export function HbarSessionImageLayer({
       options
         ? {
             runtime,
-            labels: options.labels,
             hostIdentity: options.hostIdentity,
           }
         : null,
@@ -199,19 +202,21 @@ export function HbarSessionImageLayer({
       hostIdentity={options.hostIdentity}
       preSessionDraftId={preSessionDraftId}
     >
-      <ImageContext.Provider value={context}>
-        <MessageImagePreviewProvider labels={imagePreviewLabels}>
-          <LumenFrame
-            className="hbar-session-images-layer"
-            ref={fallback}
-            tabIndex={-1}
-            aria-label={options.labels.conversation}
-          >
-            {children}
-            <ImageGallery fallback={fallback} />
-          </LumenFrame>
-        </MessageImagePreviewProvider>
-      </ImageContext.Provider>
+      <sessionImageMessages.Provider messages={options.labels}>
+        <ImageContext.Provider value={context}>
+          <MessageImagePreviewProvider labels={imagePreviewLabels}>
+            <LumenFrame
+              className="hbar-session-images-layer"
+              ref={fallback}
+              tabIndex={-1}
+              aria-label={options.labels.conversation}
+            >
+              {children}
+              <ImageGallery fallback={fallback} />
+            </LumenFrame>
+          </MessageImagePreviewProvider>
+        </ImageContext.Provider>
+      </sessionImageMessages.Provider>
     </HbarSessionImagesModelProvider>
   )
 }
@@ -238,8 +243,10 @@ function ImageEntry({
   readonly onImageError: (key: string, url: string) => void
 }) {
   const context = useContext(ImageContext)
+  const messages = sessionImageMessages.useOptionalMessages()
   const gallery = useSessionImageGallery()
-  if (!context) return null
+  if (!context || !messages) return null
+  const { t } = messages
   const current =
     thumbnail &&
     thumbnail.key === item.key &&
@@ -259,9 +266,9 @@ function ImageEntry({
         single={variant === 'message' && projection?.capacity.count === 1}
         url={current?.resource?.url}
         status={current?.status === 'ready' ? 'ready' : current?.status === 'failed' ? 'failed' : 'loading'}
-        loadingLabel={gallery.available ? context.labels.loading : context.labels.error('DISCONNECTED')}
-        errorText={error ? context.labels.error(error) : undefined}
-        openLabel={context.labels.open(item.artifact.name)}
+        loadingLabel={gallery.available ? t('loading') : t('error')('DISCONNECTED')}
+        errorText={error ? t('error')(error) : undefined}
+        openLabel={t('open')(item.artifact.name)}
         onOpen={
           canOpen
             ? () => {
@@ -272,7 +279,7 @@ function ImageEntry({
         removeLabel={removeLabel}
         onRemove={onRemove}
         removeDisabled={removeDisabled}
-        retryLabel={context.labels.retry}
+        retryLabel={t('retry')}
         onRetry={error && retryable(error) ? () => onRetry(item.key) : undefined}
         onImageError={(url) => onImageError(item.key, url)}
       />
@@ -300,6 +307,7 @@ function MessageImageContent({
   readonly children: (renderImages: HbarMessageImageRenderer | undefined) => ReactNode
   readonly toolResult?: Extract<ContentBlock, { type: 'tool_result' }> | undefined
 }) {
+  const messages = sessionImageMessages.useOptionalMessages()
   const timeline = context.runtime.state.timeline
   const getMessage = () => {
     const facts = timeline.getSnapshot()
@@ -329,6 +337,8 @@ function MessageImageContent({
   const identity = JSON.stringify([projection?.sourceId, projection?.request.items])
   const { container, visible } = useImageCollectionVisibility(identity)
   const thumbnails = useSessionImageThumbnails(projection, { visible })
+  if (!messages) return children(undefined)
+  const { t } = messages
   const entries = new Map(thumbnails.state.items.map((item) => [item.key, item]))
   const renderImages: HbarMessageImageRenderer = (items) => (
     <LumenFrame
@@ -357,7 +367,7 @@ function MessageImageContent({
       {children(renderImages)}
       {projection?.capacity.exceeded && (
         <LumenContentText context="feedback.message" role="status">
-          {context.labels.capacity(projection.capacity.count, projection.capacity.limit)}
+          {t('capacity')(projection.capacity.count, projection.capacity.limit)}
         </LumenContentText>
       )}
     </LumenFrame>
@@ -386,11 +396,13 @@ export function HbarMessageImageContent({
 /** Read already-stored legacy bytes locally; never rerun a screenshot or fabricate a new artifact owner. */
 function LegacyToolImage({ source, name }: { readonly source: string; readonly name: string }) {
   const context = useContext(ImageContext)
+  const messages = sessionImageMessages.useOptionalMessages()
   const [open, setOpen] = useState(false)
   const [failed, setFailed] = useState(false)
   const image = (
     <LumenImage className="hbar-message-linked-image" src={source} alt={name} onError={() => setFailed(true)} />
   )
+  const t = messages?.t
   return (
     <LumenFrame className="hbar-message-image-content">
       {context ? (
@@ -399,7 +411,7 @@ function LegacyToolImage({ source, name }: { readonly source: string; readonly n
           className="hbar-legacy-tool-image-open"
           variant="text"
           indicator="none"
-          aria-label={context.labels.open(name)}
+          aria-label={t ? t('open')(name) : name}
           onClick={() => setOpen(true)}
         >
           {image}
@@ -407,22 +419,22 @@ function LegacyToolImage({ source, name }: { readonly source: string; readonly n
       ) : (
         image
       )}
-      {failed && context && (
+      {failed && context && messages && (
         <LumenContentText context="message.inline" role="alert">
-          {context.labels.error('DECODE_FAILED')}
+          {messages.t('error')('DECODE_FAILED')}
         </LumenContentText>
       )}
-      {context && (
+      {context && messages && (
         <LumenImageGallery
           open={open}
           activeKey="legacy-image"
           items={[{ key: 'legacy-image', name, thumbnailUrl: source }]}
           image={
             failed
-              ? { status: 'failed', errorText: context.labels.error('DECODE_FAILED'), retryable: false }
+              ? { status: 'failed', errorText: messages.t('error')('DECODE_FAILED'), retryable: false }
               : { status: 'ready', url: source }
           }
-          labels={context.labels.gallery}
+          labels={messages.t('gallery')}
           onSelect={() => {}}
           onClose={() => setOpen(false)}
           onRetry={() => setFailed(false)}
@@ -444,11 +456,12 @@ export function HbarToolResultImages({
   readonly result: Extract<ContentBlock, { type: 'tool_result' }>
 }) {
   const context = useContext(ImageContext)
+  const messages = sessionImageMessages.useOptionalMessages()
   if (!result.images?.length) {
     const legacy = legacyToolImageSource(result)
     return legacy ? <LegacyToolImage key={legacy} source={legacy} name={result.text || result.name} /> : null
   }
-  if (!context)
+  if (!context || !messages)
     return (
       <LumenFrame className="hbar-image-entries">
         {result.images.map((artifact, index) => (
@@ -517,6 +530,7 @@ function DraftImageAttachmentContent({
   readonly projection: SessionImageProjection | null
 }) {
   const context = useContext(ImageContext)
+  const messages = sessionImageMessages.useOptionalMessages()
   const identity = JSON.stringify([projection?.sourceId, projection?.request.items])
   const { container, visible } = useImageCollectionVisibility(identity)
   const thumbnails = useSessionImageThumbnails(projection, { visible })
@@ -572,7 +586,7 @@ function DraftImageAttachmentContent({
       </LumenFrame>
       {projection?.capacity.exceeded && (
         <LumenContentText context="feedback.message" role="status">
-          {context?.labels.capacity(projection.capacity.count, projection.capacity.limit)}
+          {context && messages?.t('capacity')(projection.capacity.count, projection.capacity.limit)}
         </LumenContentText>
       )}
     </LumenFrame>

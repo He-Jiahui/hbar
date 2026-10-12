@@ -1,18 +1,18 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { LumenContentText, LumenButton, LumenFrame, LumenImage } from '@lumen/app-ui'
 import { imageSourceName, remoteImageSource } from './message-image-preview-model'
-import { useMessageImagePreviewLabels, type MessageImagePreviewLabels } from './message-image-preview-context'
+import { useMessageImagePreviewMessages } from './message-image-preview-context'
 import { registerSessionNavigationChrome } from './session-navigation-chrome'
 import './message-image-preview.css'
 
 function ImagePreview({
   source,
   name,
-  labels,
+  messages,
 }: {
   readonly source: string
   readonly name: string
-  readonly labels: MessageImagePreviewLabels
+  readonly messages: NonNullable<ReturnType<typeof useMessageImagePreviewMessages>>
 }) {
   const root = useRef<HTMLSpanElement>(null)
   const [attempt, setAttempt] = useState(0)
@@ -23,7 +23,13 @@ function ImagePreview({
   }, [])
   return (
     <LumenFrame as="span" ref={root} className="hbar-message-image-preview" data-image-preview-status={status}>
-      <LumenFrame as="a" href={source} target="_blank" rel="noreferrer noopener" aria-label={labels.open(name)}>
+      <LumenFrame
+        as="a"
+        href={source}
+        target="_blank"
+        rel="noreferrer noopener"
+        aria-label={messages.t('open')(name)}
+      >
         <LumenImage
           key={attempt}
           src={source}
@@ -38,13 +44,13 @@ function ImagePreview({
       </LumenFrame>
       {status === 'loading' && (
         <LumenContentText context="message.inline" role="status">
-          {labels.loading}
+          {messages.t('loading')}
         </LumenContentText>
       )}
       {status === 'failed' && (
         <LumenFrame as="span" className="hbar-message-image-preview-error">
           <LumenContentText context="message.inline" role="alert">
-            {labels.failed}
+            {messages.t('failed')}
           </LumenContentText>
           <LumenButton
             type="button"
@@ -56,7 +62,7 @@ function ImagePreview({
               setAttempt((value) => value + 1)
             }}
           >
-            {labels.retry}
+            {messages.t('retry')}
           </LumenButton>
         </LumenFrame>
       )}
@@ -103,13 +109,13 @@ export function MessageImagePreview({
   readonly linked?: boolean
   readonly preview?: boolean
 }) {
-  const labels = useMessageImagePreviewLabels()
+  const messages = useMessageImagePreviewMessages()
   const url = remoteImageSource(source)
   if (!url) return alt
   const name = imageSourceName(url, alt)
   if (!preview) return <ImageReference source={url} name={name} linked={linked} />
   // An authored image inside a link retains that link's target and has no nested controls.
-  if (linked || !labels)
+  if (linked || !messages)
     return (
       <LumenImage
         className="hbar-message-linked-image"
@@ -120,5 +126,5 @@ export function MessageImagePreview({
         referrerPolicy="no-referrer"
       />
     )
-  return <ImagePreview key={url} source={url} name={name} labels={labels} />
+  return <ImagePreview key={url} source={url} name={name} messages={messages} />
 }
