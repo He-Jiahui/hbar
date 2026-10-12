@@ -1,12 +1,23 @@
 import { z } from 'zod'
+import { workspaceLocationSchema, workspaceLocationOf } from '../node-address'
 
 const entityId = z.string().min(1).max(160)
-export const workspaceSchema = z.strictObject({
-  id: entityId,
-  path: z.string().min(1).max(4000),
-  name: z.string().max(4000),
-  createdAt: z.number().int().nonnegative(),
-})
+export const workspaceSchema = z
+  .strictObject({
+    id: entityId,
+    path: z.string().min(1).max(4000),
+    name: z.string().max(4000),
+    createdAt: z.number().int().nonnegative(),
+    /** Omitted by legacy local workspaces; readers treat omission as { kind: 'local' }. */
+    location: workspaceLocationSchema.optional(),
+  })
+  .superRefine((workspace, context) => {
+    try {
+      workspaceLocationOf(workspace)
+    } catch {
+      context.addIssue({ code: 'custom', message: 'Workspace location and locator must agree' })
+    }
+  })
 export const sessionSchema = z.strictObject({
   id: entityId,
   workspaceId: entityId,

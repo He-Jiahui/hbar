@@ -60,6 +60,9 @@ import type { Workspace, WorkspacePage, SessionPage } from './state/directory'
 import { MAX_PLAN_STEPS, planStepSchema } from './plan'
 import type { PlanState } from './plan'
 export * from './state/directory'
+export * from './node-address'
+export { deviceSchema, deviceAccessSchema, deviceRoleSchema, type Device, type DeviceRole, type DeviceAccess } from './device'
+import type { Device } from './device'
 export * from './plan'
 export type { GoalHistorySnapshot, GoalHistoryFact, GoalHistoryInput, GoalHistoryPage } from './commands/goal-history'
 
@@ -1048,12 +1051,6 @@ export interface ModelInfo extends ProviderConfig {
   modelName: string
   description?: string
   modelVisible: boolean
-}
-export interface Device {
-  id: string
-  name: string
-  createdAt: number
-  lastSeenAt: number
 }
 export type PluginStatus = 'active' | 'disabled' | 'failed'
 export interface PluginInfo {

@@ -4,6 +4,7 @@ import { idSchema, PAIRING_CODE_LENGTH } from '../index'
 import { pluginInfoSchema } from './extensions'
 import { storageLocationApplySchema, storageLocationSnapshotSchema } from './storage-locations'
 import { runtimeSnapshotSchema, runtimeReloadSchema, runtimeUnitIdSchema } from '../runtime'
+import { deviceSchema } from '../device'
 
 export const hostInfoSchema = z.strictObject({
   version: z.string().min(1).max(64),
@@ -35,12 +36,6 @@ const rootsSchema = z.strictObject({
   cacheRoot: z.string().min(1).max(4_000),
 })
 const validatedRootsSchema = rootsSchema.extend({ valid: z.literal(true) })
-const deviceSchema = z.strictObject({
-  id: idSchema,
-  name: z.string().min(1).max(160),
-  createdAt: z.number().int().nonnegative(),
-  lastSeenAt: z.number().int().nonnegative(),
-})
 const diagnoseSchema = z.strictObject({
   host: hostInfoSchema,
   database: z.record(z.string(), z.number()),
