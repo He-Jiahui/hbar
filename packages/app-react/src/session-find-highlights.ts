@@ -4,11 +4,33 @@ import type { SessionFindSourceProjection } from './session-find-source'
 import { isSessionCodeChrome, revealSessionCodeBlocks } from './session-code-block-dom'
 import { isSessionNavigationChrome } from './session-navigation-chrome'
 
-interface FindPaintSnapshot {
+export interface FindPaintSnapshot {
   readonly state: ConversationFindState
   readonly projection: SessionFindSourceProjection
   readonly scopeId: string
   readonly requestId: string | null
+}
+
+/**
+ * Stream publications temporarily move Find into `searching` while the bounded
+ * index is refreshed. Keep the last ready selection painted only when its
+ * query, scope and navigation intent are unchanged. The painter still maps and
+ * validates every Range against the current DOM before publishing it.
+ */
+export function currentSessionFindPaint(
+  current: FindPaintSnapshot | null,
+  lastReady: FindPaintSnapshot | null,
+): FindPaintSnapshot | null {
+  if (!current || current.state.status !== 'searching') return current
+  if (
+    lastReady?.state.status === 'ready' &&
+    current.scopeId === lastReady.scopeId &&
+    current.state.scopeId === lastReady.state.scopeId &&
+    current.state.query === lastReady.state.query &&
+    current.state.navigationRevision === lastReady.state.navigationRevision
+  )
+    return { ...lastReady, requestId: current.requestId }
+  return current
 }
 
 /** Index offsets are mapped into verified rendered text; DOM never becomes the search index. */

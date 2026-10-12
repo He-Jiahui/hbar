@@ -6,10 +6,11 @@ import { useHbarRuntime, useHbarRuntimeSelector, useHbarRuntimeState } from './r
 
 import './lumen-session-workspace.css'
 import { memo } from 'react'
+import { useSessionHistoryMessages } from './session-workspace-messages'
 export const SessionHistoryNotices = memo(function SessionHistoryNotices({
-  labels,
   connected,
-}: Pick<HbarSessionWorkspaceProps, 'labels' | 'connected'>) {
+}: Pick<HbarSessionWorkspaceProps, 'connected'>) {
+  const { t } = useSessionHistoryMessages()
   const runtime = useHbarRuntime()
   const sessionId = useHbarRuntimeSelector(runtime.state.navigation, (state) => state.sessionId)
   const timeline = useHbarRuntimeState(runtime.state.timeline)
@@ -35,41 +36,41 @@ export const SessionHistoryNotices = memo(function SessionHistoryNotices({
       <LumenFrame className="hbar-app-react-session-history-controls">
         {timeline.status === 'loading' && timeline.messages.length > 0 && (
           <LumenContentText context="feedback.message" role="status">
-            {labels.refreshing}
+            {t('refreshing')}
           </LumenContentText>
         )}
         {timeline.status === 'error' && timeline.messages.length > 0 && (
           <LumenFrame className="hbar-app-react-session-history-error" role="alert">
             <LumenContentText context="message.inline">
-              {labels.error(timeline.error ?? 'EXECUTION_FAILED')}
+              {t('error')(timeline.error ?? 'EXECUTION_FAILED')}
             </LumenContentText>
             {connected && (
               <LumenButton size="s" onClick={retryTimeline}>
-                {labels.retryTimeline}
+                {t('retryTimeline')}
               </LumenButton>
             )}
           </LumenFrame>
         )}
         {timeline.olderStatus === 'limit' ? (
           <LumenContentText context="feedback.message" role="status">
-            {labels.historyLimit}
+            {t('historyLimit')}
           </LumenContentText>
         ) : timeline.olderStatus === 'loading' ? (
           <LumenContentText context="feedback.message" role="status">
-            {labels.loadingOlder}
+            {t('loadingOlder')}
           </LumenContentText>
         ) : timeline.olderStatus === 'error' ? (
           <LumenFrame className="hbar-app-react-session-history-page">
             <LumenContentText context="message.inline" role="alert">
-              {labels.error(timeline.olderError ?? 'EXECUTION_FAILED')}
+              {t('error')(timeline.olderError ?? 'EXECUTION_FAILED')}
             </LumenContentText>
             <LumenButton size="s" disabled={!connected} onClick={loadOlder}>
-              {labels.retryHistory}
+              {t('retryHistory')}
             </LumenButton>
           </LumenFrame>
         ) : timeline.hasOlder ? (
           <LumenContentText context="feedback.message" role="status">
-            {labels.loadOlder}
+            {t('loadOlder')}
           </LumenContentText>
         ) : null}
         {(goalHistoryAvailable || goal) && goalHistoryProjection && (
@@ -79,19 +80,19 @@ export const SessionHistoryNotices = memo(function SessionHistoryNotices({
           >
             {goalHistoryProjection.status === 'loading' ? (
               <LumenContentText context="message.inline" role="status">
-                {labels.goalHistory.loading}
+                {t('goalHistory').loading}
               </LumenContentText>
             ) : goalHistoryProjection.gapReason ? (
               <LumenContentText
                 context="message.inline"
                 role={goalHistoryProjection.gapReason === 'error' ? 'alert' : 'status'}
               >
-                {labels.goalHistory.gap(goalHistoryProjection.gapReason)}
+                {t('goalHistory').gap(goalHistoryProjection.gapReason)}
               </LumenContentText>
             ) : null}
             {goalHistoryProjection.limit && (
               <LumenContentText context="message.inline" role="status">
-                {labels.goalHistory.limit(GOAL_HISTORY_MAX_FACTS)}
+                {t('goalHistory').limit(GOAL_HISTORY_MAX_FACTS)}
               </LumenContentText>
             )}
             {goalHistoryAvailable &&
@@ -105,7 +106,7 @@ export const SessionHistoryNotices = memo(function SessionHistoryNotices({
                   }
                   onClick={() => invoke('goalHistory.refresh', { sessionId })}
                 >
-                  {labels.goalHistory.refresh}
+                  {t('goalHistory').refresh}
                 </LumenButton>
               )}
             {goalHistoryAvailable &&
@@ -124,10 +125,10 @@ export const SessionHistoryNotices = memo(function SessionHistoryNotices({
                   onClick={() => invoke('goalHistory.loadOlder', { sessionId })}
                 >
                   {goalHistoryProjection.olderStatus === 'loading'
-                    ? labels.goalHistory.loadingOlder
+                    ? t('goalHistory').loadingOlder
                     : goalHistoryProjection.olderStatus === 'error'
-                      ? labels.goalHistory.retryOlder
-                      : labels.goalHistory.loadOlder}
+                      ? t('goalHistory').retryOlder
+                      : t('goalHistory').loadOlder}
                 </LumenButton>
               )}
           </LumenFrame>

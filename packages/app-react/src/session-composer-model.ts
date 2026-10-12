@@ -39,9 +39,9 @@ import { sessionStopCanCancel } from './session-stop-model'
 
 import { sessionPreparationStatus } from './session-execution-notice'
 import type { SessionComposerProps } from './session-workspace-contract'
+import { useSessionComposerMessages } from './session-workspace-messages'
 export function useSessionComposer({
   sessionWorkspaceId,
-  labels,
   connected,
   prepareAttachment,
   files,
@@ -49,6 +49,8 @@ export function useSessionComposer({
   renderLaunchControls,
   composerWrites,
 }: SessionComposerProps) {
+  const { t } = useSessionComposerMessages()
+  const slashMessageLabels = t('slash')
   const runtime = useHbarRuntime()
   const stopRun = useSessionStopAction()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
@@ -109,8 +111,8 @@ export function useSessionComposer({
   const workspaceMoveLocked = isSessionWorkspaceMoveLocked(workspaceMoveEntry)
   const firstSendLocked = firstSendIsLocked(firstSendDraft)
   const slashLabels = useMemo<HbarComposerSlashLabels>(
-    () => composerAgentSlashLabels(labels.slash, profileCatalog),
-    [profileCatalog, labels.slash],
+    () => composerAgentSlashLabels(slashMessageLabels, profileCatalog),
+    [profileCatalog, slashMessageLabels],
   )
   useEffect(() => {
     if (!connected || !sessionId || !navigation.workspaceId) return
@@ -870,7 +872,7 @@ export function useSessionComposer({
     void execute('draft.removeWorkspaceContext', { sessionId: targetSessionId, expectedRevision, contextId }).catch(
       () => {
         if (runtime.state.navigation.getSnapshot().sessionId === targetSessionId)
-          setWorkspaceContextFailure({ sessionId: targetSessionId, message: labels.workspaceContexts.removeError })
+          setWorkspaceContextFailure({ sessionId: targetSessionId, message: t('workspaceContexts').removeError })
       },
     )
   }
@@ -991,23 +993,23 @@ export function useSessionComposer({
       return undefined
     switch (slashFailure.code) {
       case 'ATTACHMENTS':
-        return labels.slash.attachmentsBlocked
+        return t('slash').attachmentsBlocked
       case 'RUN_ACTIVE':
-        return labels.slash.modelBusy
+        return t('slash').modelBusy
       case 'GOAL_REQUIRED':
-        return labels.slash.goalRequired
+        return t('slash').goalRequired
       case 'GOAL_RUN_ACTIVE':
-        return labels.slash.goalBusy
+        return t('slash').goalBusy
       case 'GOAL_SNAPSHOT_UNAVAILABLE':
-        return labels.slash.goalSnapshotUnavailable
+        return t('slash').goalSnapshotUnavailable
       case 'AGENT_REQUIRED':
-        return labels.slash.agentRequired
+        return t('slash').agentRequired
       case 'AGENT_CATALOG_UNAVAILABLE':
-        return labels.slash.agentCatalogUnavailable
+        return t('slash').agentCatalogUnavailable
       case 'AGENT_PROFILE_UNAVAILABLE':
-        return labels.slash.agentProfileUnavailable(slashFailure.profileId ?? '')
+        return t('slash').agentProfileUnavailable(slashFailure.profileId ?? '')
       default:
-        return labels.slash.error(slashFailure.code)
+        return t('slash').error(slashFailure.code)
     }
   })()
   const composerState = getComposerState({

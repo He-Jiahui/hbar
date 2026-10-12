@@ -3,7 +3,7 @@ import { SessionHistoryNotices } from './session-history-notices'
 import { useSessionToolActions } from './session-tool-actions'
 import { awaitComposerWrites } from './session-composer-writes'
 import { SessionWorkspaceComposer } from './session-workspace-composer'
-import type { HbarSessionWorkspaceProps } from './session-workspace-contract'
+import type { SessionWorkspaceHistoryProps } from './session-workspace-contract'
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import {
   LumenContentText,
@@ -60,18 +60,12 @@ import { useSessionFind } from './session-find'
 import { HbarGoalLifecycleCard } from './goal-lifecycle'
 import { projectGoalLifecycleRows } from './goal-lifecycle-model'
 import { sessionPreparationStatus } from './session-execution-notice'
+import { useSessionHistoryMessages } from './session-workspace-messages'
 
-export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
-  const {
-    sessionTitle,
-    sessionWorkspaceId,
-    labels,
-    describeTool,
-    connected,
-    files,
-    navigationAccessory,
-    fileChangeRenderer,
-  } = props
+export function SessionWorkspaceHistory(props: SessionWorkspaceHistoryProps) {
+  const { sessionTitle, sessionWorkspaceId, describeTool, connected, files, navigationAccessory, fileChangeRenderer } =
+    props
+  const { t } = useSessionHistoryMessages()
 
   const runtime = useHbarRuntime()
   const toolActions = useSessionToolActions()
@@ -129,7 +123,7 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const workspaceMoveLocked = isSessionWorkspaceMoveLocked(workspaceMoveEntry)
   const firstSendLocked = firstSendIsLocked(firstSendDraft)
-  const find = useSessionFind(timeline, labels.find)
+  const find = useSessionFind(timeline)
   useConversationSelectionKeyboardOwner(find.workspaceRef)
   const preparationStatus = sessionPreparationStatus(
     executionAccess,
@@ -256,7 +250,7 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
           objective={identity.objective}
           sourceTabInstanceKey={sourceTab.instanceKey}
           connected={connected}
-          labels={labels.agentToolOpen}
+          labels={t('agentToolOpen')}
         />
       )
     }
@@ -295,7 +289,7 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
             ? questionnaires[decision.requestId]?.answers
             : undefined
         }
-        labels={labels.decisions}
+        labels={t('decisions')}
         connected={connected}
         onDecision={(input) => invoke('approval.resolve', input)}
         onPlanExit={(input) => void resolvePlanExit(input)}
@@ -335,19 +329,15 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
     return {
       label:
         status === 'submitting'
-          ? labels.messageFork.submitting
+          ? t('messageFork').submitting
           : status === 'unknown'
-            ? labels.messageFork.recheck
+            ? t('messageFork').recheck
             : status === 'failed'
-              ? labels.messageFork.retry
-              : labels.messageFork.ready,
+              ? t('messageFork').retry
+              : t('messageFork').ready,
       status,
       error:
-        status === 'unknown'
-          ? labels.messageFork.unknown
-          : action?.error
-            ? labels.messageFork.error(action.error)
-            : null,
+        status === 'unknown' ? t('messageFork').unknown : action?.error ? t('messageFork').error(action.error) : null,
       onFork: (target) => invoke('messageFork.submit', { ...target, sourceTabInstanceKey: sourceTab.instanceKey }),
       ...(connected
         ? { onReconcile: (target: { sessionId: string; messageId: string }) => invoke('messageFork.reconcile', target) }
@@ -439,7 +429,7 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
                 sourceTab?.instanceKey ?? null,
                 message.id,
               ]),
-              labels: labels.fileReferences,
+              labels: t('fileReferences'),
               streaming: unfinishedRuns.has(message.runId),
               onOpen: async (reference) => {
                 await runtime.commands.execute('messageFiles.open', {
@@ -463,27 +453,27 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
             blocks={blocks}
             results={results}
             streaming={unfinishedRuns.has(message.runId)}
-            labels={labels.messageBlocks}
+            labels={t('messageBlocks')}
             describeTool={describeTool}
             renderToolAction={toolActionForMessage(message.id)}
             toolDecisions={toolDecisionsByMessage.get(message.id)}
             document={proposal}
             plan={{
-              labels: labels.proposedPlan,
+              labels: t('proposedPlan'),
               state: {
                 status: proposalAction?.status ?? 'idle',
                 phase: proposalAction?.phase,
                 canSubmit: connected && !proposalBlocked && proposalAvailability === 'ready',
                 connected,
                 reconciling: proposalAction?.reconciling ?? false,
-                error: proposalAction?.error ? labels.proposedPlan.error(proposalAction.error) : null,
+                error: proposalAction?.error ? t('proposedPlan').error(proposalAction.error) : null,
                 unavailable: connected
                   ? !canPrepare
                     ? preparationStatus === 'archived'
-                      ? labels.executionAccess.archived
-                      : labels.executionAccess.unverified
-                    : labels.proposedPlanAvailability(proposalBlocked ? 'busy' : proposalAvailability)
-                  : labels.disconnected,
+                      ? t('executionAccess').archived
+                      : t('executionAccess').unverified
+                    : t('proposedPlanAvailability')(proposalBlocked ? 'busy' : proposalAvailability)
+                  : t('disconnected'),
               },
               onSubmit: (target, action, feedback) => invoke('proposedPlan.submit', { ...target, action, feedback }),
               onReconcile: (target) => invoke('proposedPlan.reconcile', target),
@@ -500,11 +490,11 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
             blocks={blocks}
             results={results}
             streaming={!groupedMessageIds.has(message.id) && unfinishedRuns.has(message.runId)}
-            labels={labels.messageBlocks}
+            labels={t('messageBlocks')}
             describeTool={describeTool}
             renderToolAction={toolActionForMessage(message.id)}
             toolDecisions={toolDecisionsByMessage.get(message.id)}
-            readOnlyLabel={labels.proposedPlanReadOnly}
+            readOnlyLabel={t('proposedPlanReadOnly')}
           />
         ) : (
           <HbarMessageBlocks
@@ -518,7 +508,7 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
             textFormat={message.role === 'user' ? 'literal' : 'markdown'}
             results={results}
             streaming={!groupedMessageIds.has(message.id) && unfinishedRuns.has(message.runId)}
-            labels={labels.messageBlocks}
+            labels={t('messageBlocks')}
             describeTool={describeTool}
             renderToolAction={toolActionForMessage(message.id)}
             toolDecisions={toolDecisionsByMessage.get(message.id)}
@@ -534,7 +524,7 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
             sourceRole={selectableRole}
             expectedText={expectedText}
             enabled={conversationSelectionEnabled && message.sessionId === sessionId}
-            labels={labels.conversationSelection}
+            labels={t('conversationSelection')}
             onAdd={addConversationSelection}
           >
             {body}
@@ -545,10 +535,10 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
       return {
         id: message.id,
         role: message.role,
-        author: labels.author[message.role],
-        avatar: labels.avatar[message.role],
+        author: t('author')[message.role],
+        avatar: t('avatar')[message.role],
         appearance: 'transcript' as const,
-        copyLabel: labels.copy,
+        copyLabel: t('copy'),
         children,
         actions:
           (lastAssistantByRun.get(message.runId) === message.id && !unfinishedRuns.has(message.runId)) ||
@@ -558,14 +548,14 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
               sessionId={message.sessionId}
               messageId={message.id}
               content={message.content}
-              labels={labels.messageActions}
-              copyLabel={message.role === 'user' ? labels.messageActions.copyMessage : undefined}
+              labels={t('messageActions')}
+              copyLabel={message.role === 'user' ? t('messageActions').copyMessage : undefined}
               fork={forkActionFor(message)}
               metadata={
                 <LumenContentText context="message.inline">
                   {messageFork.actions[forkKey(message)]?.status === 'created'
-                    ? labels.messageFork.createdAfterTimestamp(labels.timestamp(message.createdAt))
-                    : labels.timestamp(message.createdAt)}
+                    ? t('messageFork').createdAfterTimestamp(t('timestamp')(message.createdAt))
+                    : t('timestamp')(message.createdAt)}
                 </LumenContentText>
               }
             />
@@ -575,11 +565,11 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
     ...Object.values(timeline.streams).map((stream) => ({
       id: stream.id,
       role: 'assistant' as const,
-      author: labels.author.assistant,
-      avatar: labels.avatar.assistant,
+      author: t('author').assistant,
+      avatar: t('avatar').assistant,
       streaming: true,
       appearance: 'transcript' as const,
-      copyLabel: labels.copy,
+      copyLabel: t('copy'),
       children: (
         <HbarMessageBlocks
           copyOwner={runtime}
@@ -590,7 +580,7 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
             { type: 'text', text: stream.text },
           ]}
           streaming
-          labels={labels.messageBlocks}
+          labels={t('messageBlocks')}
         />
       ),
     })),
@@ -598,7 +588,7 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
 
   const rowsById = new Map(messageRows.map((row) => [row.id, row]))
   const summarizedRuns = new Set(
-    sequence.flatMap((item) => (item.kind === 'runFileChanges' && labels.fileChanges ? [item.runId] : [])),
+    sequence.flatMap((item) => (item.kind === 'runFileChanges' && t('fileChanges') ? [item.runId] : [])),
   )
   const messages: LumenMessageProps[] = sequence.flatMap((item): LumenMessageProps[] => {
     if (item.kind === 'activityGroup') {
@@ -610,9 +600,7 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
           actions: null,
           children: (
             <HbarActivityDisclosure
-              summary={labels.messageBlocks.activity(
-                messageActivitySummary(item.rows, labels.messageBlocks, describeTool),
-              )}
+              summary={t('messageBlocks').activity(messageActivitySummary(item.rows, t('messageBlocks'), describeTool))}
             >
               {item.projections.map(({ message }) => (
                 <LumenFrame key={message.id} data-activity-message-id={message.id}>
@@ -624,56 +612,55 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
         },
       ]
     }
-    if (item.kind === 'contextCompaction')
-      return labels.liveStatus.history
+    if (item.kind === 'contextCompaction') {
+      const historyLabels = t('liveStatus').history
+      return historyLabels
         ? [
             {
               id: `context-compaction:${item.marker.id}`,
               role: 'system',
-              author: labels.author.system,
-              avatar: labels.avatar.system,
+              author: t('author').system,
+              avatar: t('avatar').system,
               appearance: 'transcript',
-              copyLabel: labels.copy,
+              copyLabel: t('copy'),
               actions: null,
               children: (
-                <HbarContextCompactionMarker
-                  marker={item.marker}
-                  sessionId={sessionId ?? ''}
-                  labels={labels.liveStatus.history}
-                />
+                <HbarContextCompactionMarker marker={item.marker} sessionId={sessionId ?? ''} labels={historyLabels} />
               ),
             },
           ]
         : []
+    }
     if (item.kind === 'goalLifecycle')
       return [
         {
           id: item.row.id,
           role: 'system',
-          author: labels.author.system,
-          avatar: labels.avatar.system,
+          author: t('author').system,
+          avatar: t('avatar').system,
           appearance: 'transcript',
-          copyLabel: labels.copy,
-          children: <HbarGoalLifecycleCard row={item.row} labels={labels.goalLifecycle} />,
+          copyLabel: t('copy'),
+          children: <HbarGoalLifecycleCard row={item.row} labels={t('goalLifecycle')} />,
         },
       ]
-    if (item.kind === 'runFileChanges')
-      return labels.fileChanges
+    if (item.kind === 'runFileChanges') {
+      const fileChangesLabels = t('fileChanges')
+      return fileChangesLabels
         ? [
             {
               id: `run-file-changes:${item.runId}`,
               role: 'system',
-              author: labels.author.system,
-              avatar: labels.avatar.system,
+              author: t('author').system,
+              avatar: t('avatar').system,
               appearance: 'transcript',
-              copyLabel: labels.copy,
+              copyLabel: t('copy'),
               actions: rowsById.get(lastAssistantByRun.get(item.runId) ?? '')?.actions ?? null,
               children: (
                 <HbarRunFileChangesConnected
                   sessionId={item.sessionId}
                   runId={item.runId}
                   summary={item.summary}
-                  labels={labels.fileChanges}
+                  labels={fileChangesLabels}
                   connected={connected}
                   renderer={fileChangeRenderer}
                 />
@@ -681,6 +668,7 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
             },
           ]
         : []
+    }
     if (item.kind === 'goalContinuation') return [] // Run boundaries, including failed Goal continuations, belong to session status.
     const row = rowsById.get(item.kind === 'message' ? item.projection.message.id : item.stream.id)
     return row
@@ -710,7 +698,7 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
               ? currentFailure.status
               : null
           }
-          labels={labels.interruption}
+          labels={t('interruption')}
           onOpenStatus={() => toggleTool('monitoring', 'sessionTools.open')}
         />
       </LumenFrame>
@@ -743,19 +731,19 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
       submissionPending: intentPending || Boolean(permissionLocked),
     })
   const emptyTimeline = welcome ? (
-    <HbarSessionEmptyHero labels={labels.emptyHero} />
+    <HbarSessionEmptyHero labels={t('emptyHero')} />
   ) : (
     <LumenFrame className="hbar-app-react-session-empty">
       <LumenContentText context="section.description">
         {connected && timeline.status === 'loading'
-          ? labels.loading
+          ? t('loading')
           : connected && timeline.error
-            ? labels.error(timeline.error)
-            : labels.emptyHistory}
+            ? t('error')(timeline.error)
+            : t('emptyHistory')}
       </LumenContentText>
       {connected && timeline.status === 'error' && sessionId && (
         <LumenButton size="s" onClick={retryTimeline}>
-          {labels.retryTimeline}
+          {t('retryTimeline')}
         </LumenButton>
       )}
     </LumenFrame>
@@ -796,7 +784,7 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
           <HbarSessionMessageAnchors
             timeline={timeline}
             target={backgroundTarget}
-            labels={labels.anchors}
+            labels={t('anchors')}
             connected={connected}
             navigating={reading.restoring}
             onBeforeNavigate={() => {
@@ -810,7 +798,7 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
           controlled={{
             body: (
               <LumenConversation
-                title={labels.conversationTitle(sessionTitle)}
+                title={t('conversationTitle')(sessionTitle)}
                 header={find.bar}
                 messages={messages}
                 empty={emptyTimeline}
@@ -818,10 +806,10 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
                   <>
                     {reading.unavailable && (
                       <LumenContentText context="feedback.message" role="status">
-                        {labels.readingPositionUnavailable}
+                        {t('readingPositionUnavailable')}
                       </LumenContentText>
                     )}
-                    <SessionHistoryNotices labels={labels} connected={connected} />
+                    <SessionHistoryNotices connected={connected} />
                   </>
                 }
                 afterMessages={activity}
@@ -840,7 +828,7 @@ export function SessionWorkspaceHistory(props: HbarSessionWorkspaceProps) {
                   .map((stream) => `${stream.id}:${stream.version}`)
                   .sort()
                   .join(',')}`}
-                latestLabel={labels.latest}
+                latestLabel={t('latest')}
               />
             ),
           }}

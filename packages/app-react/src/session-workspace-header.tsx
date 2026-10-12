@@ -37,15 +37,16 @@ function SessionToolButton({
   )
 }
 import type { SessionWorkspaceHeaderProps } from './session-workspace-contract'
+import { useSessionHeaderMessages } from './session-workspace-messages'
 export const SessionWorkspaceHeader = memo(function SessionWorkspaceHeader({
   sessionTitle,
   workspaceName,
-  labels,
   connected,
   showFilesInHeader = true,
   find,
   toolActions,
 }: SessionWorkspaceHeaderProps) {
+  const { t } = useSessionHeaderMessages()
   const runtime = useHbarRuntime()
   const navigation = useHbarRuntimeState(runtime.state.navigation)
   const sessionId = navigation.sessionId
@@ -78,7 +79,7 @@ export const SessionWorkspaceHeader = memo(function SessionWorkspaceHeader({
     {
       id: 'find',
       order: 0,
-      label: labels.find.entry,
+      label: t('find').entry,
       icon: Search,
       disabled: find.disabled,
       pressed: find.open,
@@ -89,7 +90,7 @@ export const SessionWorkspaceHeader = memo(function SessionWorkspaceHeader({
           {
             id: 'files',
             order: 1,
-            label: labels.tools.files,
+            label: t('tools').files,
             icon: FolderOpen,
             disabled: !sessionId,
             pressed: isToolActive('files'),
@@ -100,7 +101,7 @@ export const SessionWorkspaceHeader = memo(function SessionWorkspaceHeader({
     {
       id: 'session-panel',
       order: 2,
-      label: labels.tools.panel,
+      label: t('tools').panel,
       icon: ListChecks,
       disabled: !sessionId,
       pressed: ['activity', 'monitoring', 'agents', 'goals'].some(
@@ -114,28 +115,28 @@ export const SessionWorkspaceHeader = memo(function SessionWorkspaceHeader({
     {
       id: 'settings',
       order: 6,
-      label: labels.tools.settings,
+      label: t('tools').settings,
       icon: Settings,
       disabled: !sessionId,
       onActivate: openSettings,
     },
   ]
   useHbarMobileHeaderMenuSection(
-    sessionId ? { id: 'session-tools', order: 2, label: labels.tools.label, items: mobileSessionToolItems } : null,
+    sessionId ? { id: 'session-tools', order: 2, label: t('tools').label, items: mobileSessionToolItems } : null,
   )
   return (
     <>
       <LumenPageHeader
         title={sessionTitle}
         context={workspaceName}
-        actionsLabel={labels.tools.label}
+        actionsLabel={t('tools').label}
         actions={
           <>
             {activeRun && (
               <LumenFrame role="status" aria-live="polite" aria-atomic="true">
                 <HbarSessionExecutionStatus
                   state={connected ? activeRun.status : 'unconfirmed'}
-                  label={connected ? labels.runs.statusLabel(activeRun.status) : labels.liveStatus.offline}
+                  label={connected ? t('runs').statusLabel(activeRun.status) : t('liveStatus').offline}
                   tone={
                     !connected || activeRun.status === 'waiting_approval'
                       ? 'warning'
@@ -150,7 +151,7 @@ export const SessionWorkspaceHeader = memo(function SessionWorkspaceHeader({
             {showFilesInHeader && (
               <SessionToolButton
                 icon={FolderOpen}
-                label={labels.tools.files}
+                label={t('tools').files}
                 selected={isToolActive('files')}
                 disabled={!sessionId}
                 onClick={() => toggleTool('files')}
@@ -158,7 +159,7 @@ export const SessionWorkspaceHeader = memo(function SessionWorkspaceHeader({
             )}
             <SessionToolButton
               icon={ListChecks}
-              label={labels.tools.panel}
+              label={t('tools').panel}
               selected={['activity', 'monitoring', 'agents', 'goals'].some(
                 (id) =>
                   activeTool?.panelId === id &&
@@ -170,7 +171,7 @@ export const SessionWorkspaceHeader = memo(function SessionWorkspaceHeader({
             />
             <SessionToolButton
               icon={Settings}
-              label={labels.tools.settings}
+              label={t('tools').settings}
               selected={false}
               disabled={!sessionId}
               onClick={openSettings}
@@ -183,7 +184,7 @@ export const SessionWorkspaceHeader = memo(function SessionWorkspaceHeader({
         toolFailure.workspaceId === navigation.workspaceId &&
         toolFailure.sourceTabInstanceKey === sourceTabInstanceKey && (
           <LumenContentText context="feedback.message" role="alert">
-            {labels.tools.error(toolFailure.code)}
+            {t('tools').error(toolFailure.code)}
           </LumenContentText>
         )}
     </>
