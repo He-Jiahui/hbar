@@ -101,12 +101,31 @@ export async function runNodeCommand(
       after: { type: 'string' },
       limit: { type: 'string' },
       'input-json': { type: 'string' },
+      role: { type: 'string' },
+      root: { type: 'string', multiple: true },
     },
   })
   const dataRoot = nodeDataRoot(values.home ?? values['data-root'])
   const [command = 'status', subcommand, ...rest] = positionals
   let result: unknown
   switch (command) {
+    case 'pair': {
+      if (subcommand || rest.length || !values.name)
+        throw new HbarError(
+          'INVALID_COMMAND',
+          'Use node pair --name <device> --role operator|observer [--root <rootId>]',
+        )
+      const role = values.role ?? 'observer'
+      if (role !== 'operator' && role !== 'observer')
+        throw new HbarError('INVALID_INPUT', 'Node console role must be operator or observer')
+      const roots = values.root ?? []
+      result = await invoke(dataRoot, 'node.pairing.create', {
+        name: values.name,
+        role,
+        roots: Array.isArray(roots) ? roots : [roots],
+      })
+      break
+    }
     case 'status':
       result = await invoke(dataRoot, 'node.status', {})
       break

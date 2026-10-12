@@ -31,6 +31,21 @@ export { createSettingsCommandClient } from './settings'
 export { createChatDatabaseCommandClient } from './chat-database'
 export { createSystemCommandClient } from './system'
 export { createNodeCommandClient } from './nodes'
+export {
+  createNodeConsoleClient,
+  createNodeConsoleDeviceKey,
+  createNodeConsoleSigner,
+  pairNodeConsoleDevice,
+  pairNodeConsoleDeviceWithSigner,
+  type NodeConsoleCallOptions,
+  type NodeConsoleClientOptions,
+  type NodeConsoleFetch,
+  type NodeConsoleDeviceCredentials,
+  type NodeConsolePairingResult,
+  type NodeConsolePairingMaterial,
+  type NodeConsoleSigner,
+  type NodeConsoleTransport,
+} from './node-console'
 export { createUsageCommandClient } from './usage'
 export { createInteractionCommandClient, createInteractionRecoveryClient } from './interaction'
 export { createGoalPlanCommandClient } from './goals'

@@ -33,6 +33,7 @@ import { runRepl } from './repl.ts'
 import { hostProcessCommand } from './host-process.ts'
 import { isNodeManagementCommand, runNodeManagementCommand } from './node-management'
 import { conversationHostArguments } from './service-entry'
+import { tryAttachNodeConsole } from './node-console-attach'
 
 function exitCode(error: unknown, usage = false) {
   if (usage) return 2
@@ -74,6 +75,7 @@ async function serve(args: CliArgs) {
 async function attached(args: CliArgs) {
   const url = args.commandArgs[0]
   if (!url) throw new Error('Usage: hbar attach <url>')
+  if (await tryAttachNodeConsole(url, args)) return
   let runtime
   try {
     runtime = await openAttachedRuntime(url, process.env.HBAR_TOKEN, args)
