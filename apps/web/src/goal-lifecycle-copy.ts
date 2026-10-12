@@ -7,7 +7,7 @@ export function goalHistoryCopy(zh: boolean): HbarGoalHistoryLabels {
     gap: (reason) =>
       ({
         unsupported: choose(
-          '此 Host 不支持目标历史；这里的记录可能不完整。',
+          '此宿主不支持目标历史；这里的记录可能不完整。',
           'This Host does not support goal history; records here may be incomplete.',
         ),
         unread: choose('目标历史尚未读取完整。', 'Goal history has not finished loading.'),
@@ -66,7 +66,7 @@ export function goalLifecycleCopy(zh: boolean): HbarGoalLifecycleLabels {
         : choose('目标已清除。', 'The goal was cleared.'),
     budget: (used, limit) =>
       choose(
-        `预算：${number.format(used)} / ${limit === null ? '不限' : number.format(limit)} Token`,
+        `预算：${number.format(used)} / ${limit === null ? '不限' : number.format(limit)} 词元`,
         `Budget: ${number.format(used)} / ${limit === null ? 'unlimited' : number.format(limit)} tokens`,
       ),
     continuations: (count) => choose(`续作次数：${number.format(count)}`, `Continuations: ${number.format(count)}`),

@@ -27,7 +27,7 @@ export function sessionObservabilityCopy(
     fields: {
       outputRate: choose('输出速率', 'Output rate'),
       cacheShare: choose('缓存读取占输入', 'Cached input share'),
-      tokenShare: choose('Token 占比', 'Token share'),
+      tokenShare: choose('词元占比', 'Token share'),
       knownCost: choose('已知费用', 'Known cost'),
       successRate: choose('成功率', 'Success rate'),
       duration: choose('累计耗时', 'Total duration'),
@@ -46,10 +46,10 @@ export function sessionObservabilityCopy(
       patches: choose('补丁片段', 'Patch fragments'),
       addedLines: choose('新增行', 'Lines added'),
       removedLines: choose('删除行', 'Lines removed'),
-      before: choose('压缩前 Token', 'Tokens before'),
-      after: choose('压缩后 Token', 'Tokens after'),
+      before: choose('压缩前词元', 'Tokens before'),
+      after: choose('压缩后词元', 'Tokens after'),
       reduction: choose('压缩率', 'Reduction'),
-      removedTokens: choose('减少 Token', 'Tokens removed'),
+      removedTokens: choose('减少词元', 'Tokens removed'),
       completed: choose('已完成', 'Completed'),
       failed: choose('失败', 'Failed'),
       count: choose('调用次数', 'Calls'),
@@ -123,7 +123,7 @@ export function sessionObservabilityCopy(
         return choose(`价格未提供；价格版本 ${pricing.version}`, `Price unavailable; price version ${pricing.version}`)
       const price = (value: number | null) => (value === null ? base.unavailable : base.currency(value))
       return choose(
-        `每百万 Token：输入 ${price(pricing.inputPerMillion)} · 输出 ${price(pricing.outputPerMillion)} · 缓存读取 ${price(pricing.cacheReadPerMillion)} · 缓存写入 ${price(pricing.cacheWritePerMillion)}；价格版本 ${pricing.version}`,
+        `每百万词元：输入 ${price(pricing.inputPerMillion)} · 输出 ${price(pricing.outputPerMillion)} · 缓存读取 ${price(pricing.cacheReadPerMillion)} · 缓存写入 ${price(pricing.cacheWritePerMillion)}；价格版本 ${pricing.version}`,
         `Per million tokens: input ${price(pricing.inputPerMillion)} · output ${price(pricing.outputPerMillion)} · cache read ${price(pricing.cacheReadPerMillion)} · cache write ${price(pricing.cacheWritePerMillion)}; price version ${pricing.version}`,
       )
     },

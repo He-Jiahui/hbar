@@ -105,22 +105,22 @@ export function preSessionCopy(locale: ShellLocale): WebPreSessionCopy {
     error: (code) =>
       code === 'AGENT_REQUIRED'
         ? choose(
-            '请填写 Agent 类型和任务，例如 /agent explore 任务内容。',
+            '请填写代理类型和任务，例如 /agent explore 任务内容。',
             'Enter an Agent type and task, such as /agent explore <task>.',
           )
         : code === 'AGENT_PROFILE_UNAVAILABLE'
           ? choose(
-              '所选 Agent 类型不可用。请选择当前提供的类型，草稿会保留。',
+              '所选代理类型不可用。请选择当前提供的类型，草稿会保留。',
               'This Agent type is unavailable. Choose an available type; your draft is kept.',
             )
           : code === 'AGENT_CATALOG_UNAVAILABLE'
             ? choose(
-                'Agent 类型暂时无法读取，请重连或重试发送。草稿会保留。',
+                '代理类型暂时无法读取，请重连或重试发送。草稿会保留。',
                 'Agent types could not be loaded. Reconnect or retry Send; your draft is kept.',
               )
             : code === 'AGENT_OBJECTIVE_TOO_LONG'
               ? choose(
-                  'Agent 任务内容不能超过 4000 个字符。请缩短后重试。',
+                  '代理任务内容不能超过 4000 个字符。请缩短后重试。',
                   'The Agent task must not exceed 4,000 characters. Shorten it and retry.',
                 )
               : choose(`无法开始会话：${code}`, `Could not start session: ${code}`),

@@ -10,7 +10,7 @@ const skippedZh: Readonly<Record<ChatDatabaseSkipReason, string>> = {
   resume: '等待续跑',
   preparation: '正在准备执行目标',
   schedule: '仍有启用的定时任务',
-  retainedChild: '子聊天或 Agent 需要保留',
+  retainedChild: '子聊天或代理需要保留',
   notArchived: '尚未归档',
   retention: '仍在保留期限内',
   autoDisabled: '此层已关闭自动清理',
@@ -19,7 +19,7 @@ const skippedZh: Readonly<Record<ChatDatabaseSkipReason, string>> = {
   referenced: '仍有聊天、主题、任务或草稿引用',
   legacyInventory: '旧设备尚未确认草稿清单',
   legacyArtifact: '旧附件引用仍待核对',
-  inUse: '资源正在使用或 Host 尚未空闲',
+  inUse: '资源正在使用或宿主尚未空闲',
   unknownCategory: '未知或受保护的缓存类别',
   redirected: '路径包含链接、挂载或重定向',
   fileChanged: '文件在预览后发生变化',
@@ -116,7 +116,7 @@ export function chatDatabaseCopy(locale: ShellLocale): ChatDatabaseSettingsLabel
   return {
     title: text('聊天数据库', 'Chat database'),
     description: text(
-      '监控当前 Host 的聊天历史和文件占用，配置保留规则，并预览和执行清理。',
+      '监控当前宿主的聊天历史和文件占用，配置保留规则，并预览和执行清理。',
       'Monitor this Host’s chat history and file usage, configure retention rules, and preview cleanup.',
     ),
     overview: text('占用概览', 'Storage overview'),
@@ -137,7 +137,7 @@ export function chatDatabaseCopy(locale: ShellLocale): ChatDatabaseSettingsLabel
       'Rules inherit from global to project to chat. Save edits to apply them; automatic tasks and manual previews use saved values.',
     ),
     savedRules: text(
-      'Host 每分钟检查已保存规则。关闭此页不会停止已受理的任务；Host 关闭期间不执行，重启后合并补一次错过的定时任务。',
+      '宿主每分钟检查已保存规则。关闭此页不会停止已受理的任务；宿主关闭期间不执行，重启后合并补一次错过的定时任务。',
       'The Host checks saved rules every minute. Closing this page does not stop accepted jobs. While the Host is closed, tasks pause; startup coalesces missed scheduled runs into one.',
     ),
     automatic: text('自动任务', 'Automatic tasks'),
@@ -154,7 +154,7 @@ export function chatDatabaseCopy(locale: ShellLocale): ChatDatabaseSettingsLabel
       'Statistics are incomplete. Capacity cleanup will wait for a complete result.',
     ),
     offline: text(
-      'Host 已断开。显示上次结果，重新连接后核对原作业。',
+      '宿主已断开。显示上次结果，重新连接后核对原作业。',
       'Host disconnected. Showing the last result; original jobs will be reconciled after reconnecting.',
     ),
     refresh: text('刷新占用', 'Refresh usage'),
@@ -229,7 +229,7 @@ export function chatDatabaseCopy(locale: ShellLocale): ChatDatabaseSettingsLabel
         kind: 'database',
         title: text('回收数据库空闲空间', 'Reclaim database free space'),
         help: text(
-          '删除记录可能只增加空闲页。Host 空闲时回收文件空间；维护期间暂停数据库写入。',
+          '删除记录可能只增加空闲页。宿主空闲时回收文件空间；维护期间暂停数据库写入。',
           'Deleting records can leave reusable pages. Reclaim file space while the Host is idle; database writes pause during maintenance.',
         ),
         globalOnly: true,
@@ -282,7 +282,7 @@ export function chatDatabaseCopy(locale: ShellLocale): ChatDatabaseSettingsLabel
           : text('自动清理已关闭。', 'Automatic cleanup is disabled.'),
     scope: (scope) =>
       scope.kind === 'global'
-        ? text('范围：当前 Host 全局', 'Scope: this Host globally')
+        ? text('范围：当前宿主全局', 'Scope: this Host globally')
         : scope.kind === 'workspace'
           ? text('范围：当前项目', 'Scope: current project')
           : text('范围：当前会话', 'Scope: current chat'),

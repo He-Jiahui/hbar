@@ -15,12 +15,12 @@ export function fileWorkspaceErrorCopy(zh: boolean, code: string): string | null
       )
     case 'INVALID_OUTPUT':
       return choose(
-        'Host 返回的文件响应无效；请刷新“文件”面板或重新连接。',
+        '宿主返回的文件响应无效；请刷新“文件”面板或重新连接。',
         'Host returned an invalid Files response. Refresh Files or reconnect.',
       )
     case 'CAPABILITY_UNAVAILABLE':
       return choose(
-        '所需的 Host 能力不可用；请重新连接后刷新“文件”面板。',
+        '所需的宿主能力不可用；请重新连接后刷新“文件”面板。',
         'A required Host capability is unavailable. Reconnect, then refresh Files.',
       )
     default:
@@ -189,7 +189,7 @@ export function fileWorkspaceCopy(
       readOnlyDiff: choose('只读 Git 差异；编辑请打开文件。', 'Read-only Git diff. Open the file to edit.'),
       noDiff: choose('此文件在所选比较范围内没有文本差异。', 'This file has no text diff in the selected comparison.'),
       truncated: choose(
-        '差异超过 Host 返回上限，仅显示已返回的部分。',
+        '差异超过宿主返回上限，仅显示已返回的部分。',
         'The diff exceeded the Host limit. Only the returned portion is shown.',
       ),
       diffContent: (path) => choose(`差异：${path}`, `Diff: ${path}`),
