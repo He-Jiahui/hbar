@@ -145,6 +145,7 @@
         "@hbar/agent": "workspace:*",
         "@hbar/commands": "workspace:*",
         "@hbar/image-generation": "workspace:*",
+        "@hbar/node-link": "workspace:*",
         "@hbar/runtime-native": "workspace:*",
       },
     },

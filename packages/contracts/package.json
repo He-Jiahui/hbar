@@ -12,6 +12,7 @@
     "./node-link-state": "./src/node-link-state.ts",
     "./node-workspaces": "./src/node-workspaces.ts",
     "./node-output": "./src/node-output.ts",
+    "./node-management": "./src/node-management.ts",
     "./node-console": "./src/node-console.ts",
     "./node-registry": "./src/node-registry.ts",
     "./node-wire": "./src/node-wire.ts",

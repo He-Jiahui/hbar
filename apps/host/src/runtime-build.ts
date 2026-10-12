@@ -6,6 +6,7 @@ import { DRIVER_RUNTIME_FINGERPRINT } from './runtime-driver-contract'
 import { CONTROLLER_RUNTIME_FINGERPRINT } from './runtime-controller-contract'
 import { PLUGIN_RUNTIME_FINGERPRINT } from './runtime-plugin-contract'
 import { MAINTENANCE_RUNTIME_FINGERPRINT } from './runtime-maintenance-contract'
+import { NODE_LINK_RUNTIME_FINGERPRINT } from './runtime-node-link-contract'
 import { dirname } from 'node:path'
 
 const descriptor = (
@@ -40,6 +41,10 @@ export function hostRuntimeBuildUnits(options: { profileModule?: string } = {}):
         ['computer', 'computer', []],
       ]
   return [
+    {
+      descriptor: descriptor('node-link', 'controller', NODE_LINK_RUNTIME_FINGERPRINT, ['storage']),
+      entrypoint: 'apps/host/src/runtime-node-link-process.ts',
+    },
     {
       descriptor: descriptor('storage', 'storage', STORAGE_RPC_FINGERPRINT),
       entrypoint: 'apps/host/src/runtime-storage-process.ts',

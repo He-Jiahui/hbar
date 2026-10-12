@@ -313,7 +313,8 @@ test.skipIf(process.platform !== 'win32')(
       const runtime = runtimeSnapshotSchema.parse(JSON.parse(runtimeResult.stdout))
       const managedPids = runtime.units.flatMap(unit => unit.generations.map(generation => generation.pid)).filter(pid => pid !== null)
       expect(runtime.ready).toBe(true)
-      expect(managedPids).toHaveLength(14)
+      expect(managedPids).toHaveLength(runtime.units.length)
+      expect(runtime.units.find(unit => unit.descriptor.id === 'node-link')?.generations.some(generation => generation.phase === 'serving')).toBe(true)
       expect(runtime.units.some(unit => unit.descriptor.id === 'maintenance')).toBe(true)
       const connection = JSON.parse(await readFile(join(dataRoot, 'settings', 'connection.json'), 'utf8')) as {
         pid: number

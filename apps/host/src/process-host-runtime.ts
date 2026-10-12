@@ -64,6 +64,9 @@ import { createRuntimeProcessTreePort } from '@hbar/runtime-native'
 import { hostRuntimeProcessCommand } from './runtime-package'
 import { recoverRuntimeStartup } from './runtime-startup'
 import { recordRuntimeStartupFailure, RuntimeStartupDiagnostics } from './runtime-startup-diagnostics'
+import { StorageNodeRegistryPort } from '@hbar/storage/node-registry'
+import { RuntimeNodeLinkRelay } from './runtime-node-link-relay'
+import { RUNTIME_NODE_LINK_CONTROLS } from './runtime-node-link-contract'
 
 export interface ProcessHostRuntimeOptions {
   readonly diagnostics?: DiagnosticSink
@@ -113,6 +116,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
   readonly facade: RuntimeKernelFacade
   readonly maintenance: RuntimeMaintenanceRelay
   readonly controller: RuntimeControllerPort
+  readonly nodeLink: RuntimeNodeLinkRelay
   private controllerStarted = false
   private readonly statusFeed: RuntimeStatusFeed
   private readonly disposeStatus: () => void
@@ -248,6 +252,24 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       cancel: (runId) => this.cancelRun(runId),
       configurePlugin: (...args) => this.configurePlugin(...args),
       resourceSessions: () => this.resources.sessions(),
+    })
+    this.nodeLink = new RuntimeNodeLinkRelay({
+      current: () => {
+        const record = this.currentGeneration('node-link')
+        if (!record.peer || !record.owner || record.process.snapshot().phase !== 'serving')
+          throw new HbarError('NODE_LINK_UNAVAILABLE', 'Node link owner is preparing or recovering')
+        return { owner: record.owner, peer: record.peer }
+      },
+      authorized: (owner) => !this.closing && this.coordinator.role(owner) === 'default',
+      state: new StorageNodeRegistryPort(this.storage),
+      observations: {
+        node: (nodeId) => this.storage.call('node', nodeId),
+        list: (nodeId, after, limit) => this.storage.call('nodeSessionsPage', { nodeId, limit, ...(after ? { after } : {}) }),
+        session: (id) => this.storage.call('findSession', id),
+        workspace: (id) => this.storage.call('findWorkspace', id),
+        snapshot: (id, before, limit) => this.kernel.snapshot(id, before, limit),
+        events: (id, after, limit) => this.storage.call('events', id, after, limit),
+      },
     })
     this.maintenance = new RuntimeMaintenanceRelay({
       layout: options.layout,
@@ -477,6 +499,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         this.completeStartupPhase()
       }
       for (const id of ['storage', 'driver.pi', 'controller']) await this.initializeUnit(prepared, id)
+      if (this.buildUnits.some((unit) => unit.descriptor.id === 'node-link')) await this.initializeUnit(prepared, 'node-link')
       if (!this.configurationLoaded) {
         this.setStartupPhase('configuration.load')
         const stored = await this.storage.call('plugins')
@@ -1113,6 +1136,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         ...RUNTIME_COORDINATION_CONTROL_METHODS,
         ...RUNTIME_PLUGIN_CONTROL_METHODS,
         ...RUNTIME_MAINTENANCE_CONTROL_METHODS,
+        ...RUNTIME_NODE_LINK_CONTROLS,
         'kernel.plugins.callback',
         'kernel.plugins.control',
         'controller.control',
@@ -1140,6 +1164,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
         )
         this.owners.add(owner.incarnation)
         if (artifact.unitId === 'driver.pi') record.cleanup.push(this.relay.attachDriver(peer))
+        if (artifact.unitId === 'node-link') record.cleanup.push(this.nodeLink.attach(peer, owner))
         if (artifact.unitId === 'controller')
           record.controller = new RuntimeControllerAdapter(peer, {
             kernel: this.kernel,
@@ -1229,6 +1254,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
       },
       onFault: (owner, reason) => this.fault(owner, reason),
       onExit: async (owner) => {
+        if (artifact.unitId === 'node-link') this.nodeLink.exited(owner)
         if (artifact.unitId === 'kernel') {
           this.relay.kernelExited(owner)
           for (const lease of this.leases.values())
@@ -1437,6 +1463,7 @@ export class ProcessHostRuntime implements RuntimeSystemPort {
     })
   }
   private async fault(owner: RuntimeOwner, reason: string): Promise<void> {
+    if (owner.unitId === 'node-link') this.nodeLink.exited(owner)
     if (this.closing || this.coordinator.role(owner) === 'candidate') return
     if (owner.unitId !== 'controller') this.resumed.clear()
     const affected = [...this.leases.values()].filter(
