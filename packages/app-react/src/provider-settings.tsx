@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { LumenContentText, LumenFrame, LumenButton, LumenDialog } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
-import { ProviderListView, type ProviderListViewLabels, type ProviderListViewItem } from './provider-list-view'
+import {
+  ProviderListView,
+  ProviderListViewMessageScope,
+  type ProviderListViewLabels,
+  type ProviderListViewItem,
+} from './provider-list-view'
+import { createMessageScope } from './messages'
 import {
   HbarProviderEditorView,
   type HbarProviderCatalogRead,
@@ -29,14 +35,18 @@ export interface HbarProviderSettingsLabels extends ProviderListViewLabels {
   readonly cancel: string
   readonly confirmRemove: string
 }
+export type HbarProviderSettingsMessages = {
+  readonly copy: Pick<
+    HbarProviderSettingsLabels,
+    'deleteConfirmTitle' | 'deleteConfirmDescription' | 'cancel' | 'confirmRemove'
+  >
+}
+export const HbarProviderSettingsMessageScope = createMessageScope<HbarProviderSettingsMessages>()
 
-export function HbarProviderSettings({
-  labels,
-  connected,
-}: {
-  readonly labels: HbarProviderSettingsLabels
-  readonly connected: boolean
-}) {
+function HbarProviderSettingsContent({ connected }: { readonly connected: boolean }) {
+  const listMessages = ProviderListViewMessageScope.useMessages()
+  const settingsMessages = HbarProviderSettingsMessageScope.useMessages()
+  const labels = { ...listMessages.t('list'), ...settingsMessages.t('copy') }
   const runtime = useHbarRuntime()
   const providers = useHbarRuntimeState(runtime.state.providers)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -147,7 +157,6 @@ export function HbarProviderSettings({
   return (
     <LumenFrame className="hbar-app-react-provider-list">
       <ProviderListView
-        labels={labels}
         items={items}
         connected={connected}
         busy={removing}
@@ -195,6 +204,63 @@ export function HbarProviderSettings({
         </LumenContentText>
       </LumenDialog>
     </LumenFrame>
+  )
+}
+
+export function HbarProviderSettings({
+  labels,
+  connected,
+}: {
+  readonly labels: HbarProviderSettingsLabels
+  readonly connected: boolean
+}) {
+  return (
+    <ProviderListViewMessageScope.Provider
+      messages={{
+        list: {
+          title: labels.title,
+          description: labels.description,
+          loading: labels.loading,
+          error: labels.error,
+          empty: labels.empty,
+          add: labels.add,
+          refresh: labels.refresh,
+          editAction: labels.editAction,
+          edit: labels.edit,
+          actions: labels.actions,
+          remove: labels.remove,
+          setDefault: labels.setDefault,
+          setDefaultFor: labels.setDefaultFor,
+          settingDefault: labels.settingDefault,
+          setDefaultError: labels.setDefaultError,
+          reconcileDefault: labels.reconcileDefault,
+          reconcileDefaultFor: labels.reconcileDefaultFor,
+          reconcilingDefault: labels.reconcilingDefault,
+        },
+        summary: {
+          protocol: labels.protocol,
+          primaryModel: labels.primaryModel,
+          modelCount: labels.modelCount,
+          hidden: labels.hidden,
+          configured: labels.configured,
+          notConfigured: labels.notConfigured,
+          globalDefault: labels.globalDefault,
+        },
+      }}
+    >
+      <HbarProviderSettingsMessageScope.Provider
+        messages={{
+          copy: {
+            deleteConfirmTitle: labels.deleteConfirmTitle,
+            deleteConfirmDescription: labels.deleteConfirmDescription,
+            cancel: labels.cancel,
+            confirmRemove: labels.confirmRemove,
+          },
+        }}
+      >
+        <HbarProviderSettingsContent connected={connected} />
+      </HbarProviderSettingsMessageScope.Provider>
+    </ProviderListViewMessageScope.Provider>
   )
 }
 

@@ -9,6 +9,7 @@ import {
 import type { UsageRequestsRuntime, UsageRequestItem } from '@hbar/app-runtime'
 import type { UsageSource } from '@hbar/contracts/usage'
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { createMessageScope } from './messages'
 
 export interface HbarUsageRequestsLabels {
   readonly title: string
@@ -53,6 +54,68 @@ export interface HbarUsageRequestsProps {
     readonly usageId: string
   }) => void | Promise<void>
 }
+export interface HbarUsageRequestsMessages {
+  readonly title: string
+  readonly description: string
+  readonly request: string
+  readonly timeLabel: string
+  readonly filterOptions: HbarUsageRequestsLabels['filterOptions']
+  readonly model: string
+  readonly tokens: string
+  readonly latency: string
+  readonly cost: string
+  readonly empty: string
+  readonly open: string
+  readonly previous: string
+  readonly next: string
+  readonly retry: string
+  readonly error: HbarUsageRequestsLabels['error']
+  readonly page: HbarUsageRequestsLabels['page']
+  readonly time: HbarUsageRequestsLabels['time']
+  readonly tokenCount: HbarUsageRequestsLabels['tokenCount']
+  readonly duration: HbarUsageRequestsLabels['duration']
+  readonly costValue: HbarUsageRequestsLabels['costValue']
+  readonly status: HbarUsageRequestsLabels['status']
+  readonly source: HbarUsageRequestsLabels['source']
+  readonly detailAttempt: string
+  readonly detailSession: string
+  readonly detailProvider: string
+  readonly detailSource: string
+  readonly detailStatus: string
+}
+export const HbarUsageRequestsMessageScope = createMessageScope<HbarUsageRequestsMessages>()
+export function createHbarUsageRequestsMessages(labels: HbarUsageRequestsLabels): HbarUsageRequestsMessages {
+  return {
+    title: labels.title,
+    description: labels.description,
+    request: labels.request,
+    timeLabel: labels.timeLabel,
+    filterOptions: labels.filterOptions,
+    model: labels.model,
+    tokens: labels.tokens,
+    latency: labels.latency,
+    cost: labels.cost,
+    empty: labels.empty,
+    open: labels.open,
+    previous: labels.previous,
+    next: labels.next,
+    retry: labels.retry,
+    error: labels.error,
+    page: labels.page,
+    time: labels.time,
+    tokenCount: labels.tokenCount,
+    duration: labels.duration,
+    costValue: labels.costValue,
+    status: labels.status,
+    source: labels.source,
+    detailAttempt: labels.detail.attempt,
+    detailSession: labels.detail.session,
+    detailProvider: labels.detail.provider,
+    detailSource: labels.detail.source,
+    detailStatus: labels.detail.status,
+  }
+}
+export type HbarUsageRequestsViewProps = Omit<HbarUsageRequestsProps, 'labels'>
 
 function latency(item: UsageRequestItem): number | null {
   if (item.startedAt === null) return null
@@ -72,7 +135,51 @@ function status(item: UsageRequestItem): LumenUsageRequestRecord['status'] {
   return 'success'
 }
 
-export function HbarUsageRequests({ runtime, labels, onOpenRequest, managed = false }: HbarUsageRequestsProps) {
+export function HbarUsageRequests(props: HbarUsageRequestsProps) {
+  const { runtime, labels, ...viewProps } = props
+  return (
+    <HbarUsageRequestsMessageScope.Provider messages={createHbarUsageRequestsMessages(labels)}>
+      <HbarUsageRequestsView runtime={runtime} {...viewProps} />
+    </HbarUsageRequestsMessageScope.Provider>
+  )
+}
+
+export function HbarUsageRequestsView({ runtime, onOpenRequest, managed = false }: HbarUsageRequestsViewProps) {
+  const { t } = HbarUsageRequestsMessageScope.useMessages()
+  const labels = useMemo<HbarUsageRequestsLabels>(
+    () => ({
+      title: t('title'),
+      description: t('description'),
+      request: t('request'),
+      timeLabel: t('timeLabel'),
+      filterOptions: t('filterOptions'),
+      model: t('model'),
+      tokens: t('tokens'),
+      latency: t('latency'),
+      cost: t('cost'),
+      empty: t('empty'),
+      open: t('open'),
+      previous: t('previous'),
+      next: t('next'),
+      retry: t('retry'),
+      error: t('error'),
+      page: t('page'),
+      time: t('time'),
+      tokenCount: t('tokenCount'),
+      duration: t('duration'),
+      costValue: t('costValue'),
+      status: t('status'),
+      source: t('source'),
+      detail: {
+        attempt: t('detailAttempt'),
+        session: t('detailSession'),
+        provider: t('detailProvider'),
+        source: t('detailSource'),
+        status: t('detailStatus'),
+      },
+    }),
+    [t],
+  )
   const snapshot = useSyncExternalStore(
     runtime.reader.subscribe,
     runtime.reader.getSnapshot,

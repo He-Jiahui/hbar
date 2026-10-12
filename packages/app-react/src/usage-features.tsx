@@ -8,13 +8,31 @@ import {
 } from '@hbar/contracts/commands/usage'
 import type { UsageFilters, UsageScope } from '@hbar/contracts/commands/usage'
 import { useEffect } from 'react'
-import { HbarUsageBudget, type HbarUsageBudgetLabels } from './usage-budget'
-import { HbarUsageRequests, type HbarUsageRequestsLabels } from './usage-requests'
+import { createMessageScope } from './messages'
+import {
+  createHbarUsageBudgetMessages,
+  HbarUsageBudgetMessageScope,
+  HbarUsageBudgetView,
+  type HbarUsageBudgetLabels,
+  type HbarUsageBudgetMessages,
+} from './usage-budget'
+import {
+  createHbarUsageRequestsMessages,
+  HbarUsageRequestsMessageScope,
+  HbarUsageRequestsView,
+  type HbarUsageRequestsLabels,
+  type HbarUsageRequestsMessages,
+} from './usage-requests'
 
 export interface HbarUsageFeaturesLabels {
   readonly requests: HbarUsageRequestsLabels
   readonly budget: HbarUsageBudgetLabels
 }
+export interface HbarUsageFeaturesMessages {
+  readonly requests: HbarUsageRequestsMessages
+  readonly budget: HbarUsageBudgetMessages
+}
+export const HbarUsageFeaturesMessageScope = createMessageScope<HbarUsageFeaturesMessages>()
 
 export interface HbarUsageFeaturesProps {
   /** The owning Status surface controls visibility; hidden panels must not query Host. */
@@ -44,6 +62,36 @@ export function HbarUsageFeatures({
   filters,
   range,
 }: HbarUsageFeaturesProps) {
+  return (
+    <HbarUsageFeaturesMessageScope.Provider
+      messages={{
+        requests: createHbarUsageRequestsMessages(labels.requests),
+        budget: createHbarUsageBudgetMessages(labels.budget),
+      }}
+    >
+      <HbarUsageFeaturesContent
+        visible={visible}
+        requests={requests}
+        budget={budget}
+        {...(onOpenRequest ? { onOpenRequest } : {})}
+        scope={scope}
+        filters={filters}
+        range={range}
+      />
+    </HbarUsageFeaturesMessageScope.Provider>
+  )
+}
+
+function HbarUsageFeaturesContent({
+  visible,
+  requests,
+  budget,
+  onOpenRequest,
+  scope,
+  filters,
+  range,
+}: Omit<HbarUsageFeaturesProps, 'labels'>) {
+  const { t } = HbarUsageFeaturesMessageScope.useMessages()
   const scopeKey = JSON.stringify(scope)
   const filterKey = JSON.stringify(filters)
   const rangeKey = JSON.stringify(range)
@@ -64,14 +112,15 @@ export function HbarUsageFeatures({
   return (
     <LumenFrame as="section" className="hbar-usage-features">
       {requests ? (
-        <HbarUsageRequests
-          managed
-          runtime={requests}
-          labels={labels.requests}
-          {...(onOpenRequest ? { onOpenRequest } : {})}
-        />
+        <HbarUsageRequestsMessageScope.Provider messages={t('requests')}>
+          <HbarUsageRequestsView managed runtime={requests} {...(onOpenRequest ? { onOpenRequest } : {})} />
+        </HbarUsageRequestsMessageScope.Provider>
       ) : null}
-      {budget ? <HbarUsageBudget runtime={budget} labels={labels.budget} /> : null}
+      {budget ? (
+        <HbarUsageBudgetMessageScope.Provider messages={t('budget')}>
+          <HbarUsageBudgetView runtime={budget} />
+        </HbarUsageBudgetMessageScope.Provider>
+      ) : null}
     </LumenFrame>
   )
 }

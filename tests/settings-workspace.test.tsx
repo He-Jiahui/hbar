@@ -355,8 +355,7 @@ test('settings workspace renders Host schema, scoped source state, and command-o
       </HbarRuntimeProvider>,
     )
     expect(form.selectedGroup).toBe('model')
-    expect(html).toContain('<h1 title="设置"')
-    expect(html).toContain('data-variant="title">设置</h1>')
+    expect(html).toMatch(/<h1\b[^>]*title="设置"[^>]*>设置<\/h1>/)
     expect(html).toContain('aria-label="返回会话"')
     expect(html).toContain('设置 workspace Schema 工程')
     expect(html).toContain('模型选择')
