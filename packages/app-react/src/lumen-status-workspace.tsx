@@ -21,6 +21,7 @@ import {
   LumenDashboard02,
 } from '@lumen/app-ui'
 import { workspaceDisplayName, type StatusWorkspaceEntryState } from '@hbar/app-runtime'
+import { statusWorkspaceSectionSchema } from '@hbar/contracts/commands/status-workspace'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarLumenDisclosure } from './lumen-disclosure'
 import { EchartsChart, type EChartsOption } from './echarts-chart'
@@ -44,7 +45,7 @@ export interface HbarStatusWorkspaceLabels {
   readonly refresh: string
   readonly loading: string
   readonly tabs: string
-  readonly sections: Readonly<Record<'dashboard' | 'usage' | 'git', string>>
+  readonly sections: Readonly<Record<StatusWorkspaceEntryState['section'], string>>
   readonly performanceFilters: {
     readonly label: string
     readonly timeWindow: string
@@ -218,10 +219,12 @@ export function HbarStatusWorkspace({
   labels,
   instanceId: requestedInstanceId,
   usageDetails,
+  renderSection,
 }: {
   readonly labels: HbarStatusWorkspaceLabels
   readonly instanceId?: string
   readonly usageDetails?: ReactNode
+  readonly renderSection?: (section: 'runs' | 'diagnostics', instanceId: string) => ReactNode
 }) {
   const runtime = useHbarRuntime()
   const presentation = useHbarRuntimeState(runtime.state.presentation)
@@ -232,7 +235,8 @@ export function HbarStatusWorkspace({
   const instanceId = requestedInstanceId ?? (presentation.page.kind === 'status' ? presentation.page.instanceId : null)
   const panel = instanceId ? surfaces.panels[instanceId] : undefined
   const rawSection = panel?.params.section
-  const section = rawSection === 'usage' || rawSection === 'git' ? rawSection : 'dashboard'
+  const parsedSection = statusWorkspaceSectionSchema.safeParse(rawSection)
+  const section = parsedSection.success ? parsedSection.data : 'dashboard'
   const entry = instanceId ? status.entries[instanceId] : undefined
   const invoke = useCallback(
     (name: string, input: unknown) =>
@@ -435,19 +439,37 @@ export function HbarStatusWorkspace({
           <LumenIconButton
             label={labels.refresh}
             disabled={entry?.status === 'loading'}
-            onClick={() => invoke('statusWorkspace.refresh', { instanceId })}
+            onClick={() =>
+              invoke(
+                section === 'runs'
+                  ? 'runBoard.refresh'
+                  : section === 'diagnostics'
+                    ? 'systemDiagnostics.refresh'
+                    : 'statusWorkspace.refresh',
+                { instanceId },
+              )
+            }
           >
             <LumenIcon icon={RefreshCw} tier="sm" />
           </LumenIconButton>
         }
       />
       <LumenFrame as="nav" aria-label={labels.tabs}>
-        {(['dashboard', 'usage', 'git'] as const).map((item) => (
+        {statusWorkspaceSectionSchema.options.map((item) => (
           <LumenNavigationButton
             key={item}
             size="s"
             selected={section === item}
-            onClick={() => invoke('app.openStatus', { section: item })}
+            disabled={(item === 'runs' || item === 'diagnostics') && !renderSection}
+            onClick={() =>
+              invoke('app.openStatus', {
+                section: item,
+                instanceId,
+                binding: panel.binding,
+                ...(panel.workspaceId ? { workspaceId: panel.workspaceId } : {}),
+                ...(panel.sessionId ? { sessionId: panel.sessionId } : {}),
+              })
+            }
           >
             {labels.sections[item]}
           </LumenNavigationButton>
@@ -674,7 +696,9 @@ export function HbarStatusWorkspace({
           </HbarLumenDisclosure>
         </LumenFrame>
       )}
-      {!entry || entry.status === 'loading' ? (
+      {section === 'runs' || section === 'diagnostics' ? (
+        renderSection?.(section, instanceId)
+      ) : !entry || entry.status === 'loading' ? (
         <LumenContentText context="section.description" className="hbar-app-react-status-loading">
           {labels.loading}
         </LumenContentText>

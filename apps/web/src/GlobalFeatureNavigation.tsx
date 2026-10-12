@@ -32,11 +32,10 @@ export function GlobalFeatureNavigation({
       labelVisible={!compact}
       items={[
         { id: 'status', label: shell.status },
-        ...(['run-board', 'schedules', 'prompt-templates', 'onboarding'] as const).map((id) => ({
+        ...(['schedules', 'prompt-templates', 'onboarding'] as const).map((id) => ({
           id,
           label: copy.titles[id],
-          disabled:
-            (id === 'run-board' || id === 'schedules' || id === 'prompt-templates') && (!connected || !hasWorkspace),
+          disabled: (id === 'schedules' || id === 'prompt-templates') && (!connected || !hasWorkspace),
         })),
         { id: 'commands', label: shell.commands },
       ]}

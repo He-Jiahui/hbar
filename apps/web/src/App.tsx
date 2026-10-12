@@ -195,8 +195,8 @@ const ProviderSettings = lazySurface<ComponentProps<typeof import('@hbar/app-rea
 const ProviderDialog = lazySurface<ComponentProps<typeof import('@hbar/app-react/providers').HbarProviderDialog>>(() =>
   import('@hbar/app-react/providers').then((m) => ({ default: m.HbarProviderDialog })),
 )
-const StatusWorkspace = lazySurface<ComponentProps<typeof import('@hbar/app-react/status').HbarStatusWorkspace>>(() =>
-  import('@hbar/app-react/status').then((m) => ({ default: m.HbarStatusWorkspace })),
+const StatusWorkspace = lazySurface<ComponentProps<typeof import('./StatusCenter').StatusCenter>>(() =>
+  import('./StatusCenter').then((m) => ({ default: m.StatusCenter })),
 )
 const UsageFeatures = lazySurface<ComponentProps<typeof import('./StatusUsageFeatures').StatusUsageFeatures>>(() =>
   import('./StatusUsageFeatures').then((m) => ({ default: m.StatusUsageFeatures })),
@@ -805,6 +805,8 @@ function WorkspaceBodyContent({
   if (presentation.page.kind === 'status') {
     return (
       <StatusWorkspace
+        locale={locale}
+        connected={connected}
         labels={copy.status}
         instanceId={presentation.page.instanceId}
         usageDetails={<UsageFeatures locale={locale} instanceId={presentation.page.instanceId} />}
@@ -834,7 +836,6 @@ function WorkspaceBodyContent({
           { id: 'sandbox', label: copy.settings.resolve('i18n:settings.groups.sandbox'), order: 35 },
           { id: 'skills', label: copy.settings.resolve('i18n:settings.groups.skills'), order: 39 },
           { id: 'usage', label: copy.settingsUsage.title, order: 85 },
-          { id: 'diagnostics', label: copy.diagnostics.title, order: 90 },
         ]}
         renderGroup={(groupId, context) => {
           if (groupId === 'chatDatabase' && context.scope && context.instanceId)
@@ -1868,7 +1869,7 @@ export default function App({
     ],
   )
   const openFeaturePanel = (
-    panelId: 'run-board' | 'schedules' | 'prompt-templates' | 'notifications' | 'onboarding',
+    panelId: 'run-board' | 'schedules' | 'prompt-templates' | 'notifications' | 'onboarding' | 'status' | 'commands',
   ) => {
     const current = runtime.view.state.navigation.getSnapshot()
     void runtime.view.commands
@@ -2072,14 +2073,8 @@ export default function App({
                   connected={connection === 'connected'}
                   hasWorkspace={Boolean(activeNavigation.workspaceId)}
                   onOpen={openFeaturePanel}
-                  onStatus={() =>
-                    void runtime.view.commands
-                      .execute('app.openStatus', { section: 'dashboard' })
-                      .catch(() => undefined)
-                  }
-                  onCommands={() =>
-                    void runtime.view.commands.execute('app.openPanel', { panelId: 'commands' }).catch(() => undefined)
-                  }
+                  onStatus={() => openFeaturePanel('status')}
+                  onCommands={() => openFeaturePanel('commands')}
                 />
               )}
           {...(renderDesktopLayout ? { renderLayout: renderDesktopLayout } : {})}

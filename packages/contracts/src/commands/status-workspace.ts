@@ -1,9 +1,12 @@
 import { z } from 'zod'
 import { defineCommand } from '@hbar/commands/protocol'
 import { gitCommitSourceSchema, idSchema } from '../index'
+import { statusWorkspaceSectionSchema } from './status-sections'
+export { statusWorkspaceSectionSchema } from './status-sections'
+export type { StatusWorkspaceSection } from './status-sections'
 
 const instanceId = z.string().min(1).max(160)
-const section = z.enum(['dashboard', 'usage', 'git'])
+const section = statusWorkspaceSectionSchema
 export const performanceWindowSchema = z.enum(['2m', '15m', '1h'])
 export const performanceTargetSchema = z.enum(['all', 'system', 'host'])
 export const statusUsageScopeSchema = z.enum(['global', 'workspace', 'session'])

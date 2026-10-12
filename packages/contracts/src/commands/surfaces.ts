@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { statusWorkspaceSectionSchema } from './status-sections'
 import { defineCommand } from '@hbar/commands/protocol'
 import { idSchema } from '../index'
 import { toolWindowDescriptorSchema } from '../tool-windows'
@@ -156,7 +157,7 @@ export const surfaceCommands = {
         ],
       },
     },
-    z.strictObject({ section: z.enum(['dashboard', 'usage', 'git']).default('dashboard'), ...panelTarget }),
+    z.strictObject({ section: statusWorkspaceSectionSchema.default('dashboard'), ...panelTarget }),
     panelSummarySchema,
   ),
   'app.openSettingsEditor': defineCommand(

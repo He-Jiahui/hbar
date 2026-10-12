@@ -3394,7 +3394,7 @@ function createStatusWorkspaceLabels(locale: ShellLocale): HbarStatusWorkspaceLa
     refresh: choose('刷新当前分区', 'Refresh current section'),
     loading: choose('正在加载状态数据…', 'Loading status data…'),
     tabs: choose('状态分区', 'Status sections'),
-    sections: { dashboard: choose('性能', 'Performance'), usage: choose('使用情况', 'Usage'), git: 'Git' },
+    sections: { dashboard: choose('系统', 'System'), runs: choose('运行', 'Runs'), usage: choose('用量', 'Usage'), diagnostics: choose('诊断', 'Diagnostics'), git: choose('版本控制', 'Version control') },
     performanceFilters: {
       label: choose('性能查询条件', 'Performance query filters'),
       timeWindow: choose('时间窗', 'Time window'),

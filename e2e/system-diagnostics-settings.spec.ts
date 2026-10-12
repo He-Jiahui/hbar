@@ -5,22 +5,27 @@ import { join } from 'node:path'
 import { createSystemCommandClient } from '@hbar/client'
 import { getShellCopy, type ShellLocale } from '../apps/web/src/shell-copy'
 import { startWebSessionHost, stopWebSessionHost, type WebSessionHost } from './support/web-session-host'
-import { openSessionTool } from './support/session-tools-menu'
-import { selectLumenOption } from './support/lumen-controls'
+import { globalFeatureCopy } from '../apps/web/src/global-feature-copy'
 
 async function selectDiagnostics(page: Page, locale: ShellLocale) {
   const copy = getShellCopy(locale)
-  const mobile = page.getByRole('combobox', { name: copy.settings.groups, exact: true })
-  if (await mobile.isVisible()) await selectLumenOption(mobile, 'diagnostics')
-  else
-    await page
-      .getByRole('navigation', { name: copy.settings.groups })
-      .getByRole('button', { name: copy.diagnostics.title, exact: true })
-      .click()
+  const more = page.getByRole('button', { name: globalFeatureCopy(locale).navigation, exact: true })
+  const reveal = page.getByRole('button', { name: copy.shell.showSidebar, exact: true })
+  // The desktop sidebar stays mounted during responsive layout transitions.
+  if ((page.viewportSize()?.width ?? 1440) <= 768 || !(await more.isVisible())) await reveal.click()
+  await more.click()
+  await page
+    .getByRole('menu', { name: globalFeatureCopy(locale).navigation, exact: true })
+    .getByRole('menuitem', { name: copy.shell.status, exact: true })
+    .click()
+  await page
+    .getByRole('navigation', { name: copy.status.tabs })
+    .getByRole('button', { name: copy.status.sections.diagnostics, exact: true })
+    .click()
 }
 
 for (const locale of ['zh-CN', 'en-US'] as const) {
-  test(`settings diagnostics reads the real Host and remains usable when disconnected: ${locale}`, async ({
+  test(`status center diagnostics reads the real Host and remains usable when disconnected: ${locale}`, async ({
     browser,
   }) => {
     test.setTimeout(90_000)
@@ -48,7 +53,6 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
         { width: 320, height: 720 },
       ]) {
         await page.setViewportSize(viewport)
-        await openSessionTool(page, copy.session.tools, 'settings')
         await selectDiagnostics(page, locale)
         const region = page.getByRole('region', { name: copy.diagnostics.title })
         await expect(region.getByRole('heading', { name: copy.diagnostics.title })).toBeVisible()
@@ -77,9 +81,8 @@ for (const locale of ['zh-CN', 'en-US'] as const) {
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
           await page.screenshot({ path: `artifacts/system-diagnostics/${locale}-320-long.png` })
         }
-        await page.getByRole('button', { name: copy.settings.back, exact: true }).click()
+        await page.getByRole('button', { name: copy.status.close, exact: true }).click()
       }
-      await openSessionTool(page, copy.session.tools, 'settings')
       await selectDiagnostics(page, locale)
       await expect(page.getByRole('region', { name: copy.diagnostics.title })).toBeVisible()
       await stopWebSessionHost(host)

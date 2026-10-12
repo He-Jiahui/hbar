@@ -12,13 +12,7 @@ import type {
   WindowSurface,
 } from './types'
 
-const toolPanelIds = new Set([
-  'files',
-  'activity',
-  'monitoring',
-  'agents',
-  'goals',
-])
+const toolPanelIds = new Set(['files', 'activity', 'monitoring', 'agents', 'goals'])
 const modalPanelIds = new Set(['commands', 'chat-search', 'settings-editor'])
 
 function summary(panel: PanelSurface, focused: boolean) {
@@ -180,9 +174,15 @@ export function registerSurfaceCommands(
   }
 
   local.register(surfaceCommands['app.openPanel'], (input) =>
-    input.panelId === 'extensions'
-      ? openPanel('settings', input, { scope: 'global', section: 'extensions' })
-      : openPanel(input.panelId, input, input.params ?? {}),
+    input.panelId === 'run-board' &&
+    options.surfaces?.canRender('status') &&
+    (!input.instanceId ||
+      !surfaces.reader.getSnapshot().panels[input.instanceId] ||
+      surfaces.reader.getSnapshot().panels[input.instanceId]?.panelId === 'status')
+      ? openPanel('status', input, { section: 'runs' })
+      : input.panelId === 'extensions'
+        ? openPanel('settings', input, { scope: 'global', section: 'extensions' })
+        : openPanel(input.panelId, input, input.params ?? {}),
   )
   local.register(surfaceCommands['app.closePanel'], ({ instanceId }) => closePanel(instanceId))
   local.register(surfaceCommands['app.back'], () => {
@@ -209,8 +209,19 @@ export function registerSurfaceCommands(
     const landing = options.settingsLanding
     const section =
       input.scope === 'global' && landing
-        ? (input.section ?? lastGlobalSettingsGroup ?? landing.globalGroupId)
+        ? (input.section ??
+          (lastGlobalSettingsGroup === 'diagnostics' ? landing.globalGroupId : lastGlobalSettingsGroup) ??
+          landing.globalGroupId)
         : input.section
+    if (
+      input.scope === 'global' &&
+      section === 'diagnostics' &&
+      options.surfaces?.canRender('status') &&
+      (!input.instanceId ||
+        !surfaces.reader.getSnapshot().panels[input.instanceId] ||
+        surfaces.reader.getSnapshot().panels[input.instanceId]?.panelId === 'status')
+    )
+      return openPanel('status', input, { section: 'diagnostics' })
     const opened = openPanel('settings', input, { scope: input.scope, targetId: input.targetId, section })
     if (input.scope === 'global' && landing && section && (landing.isKnownGlobalGroup?.(section) ?? true)) {
       lastGlobalSettingsGroup = section
