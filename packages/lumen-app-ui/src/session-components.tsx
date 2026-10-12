@@ -11,6 +11,8 @@ import {
   type LumenConversationScrollTarget,
   type LumenConversationScrollTargetResult,
 } from './conversation-viewport'
+import { ConversationHorizontalScrollMemory } from './conversation-horizontal-scroll'
+import { ConversationVirtualMessageRow } from './conversation-virtual-message-row'
 import { LumenDisclosure } from './disclosure'
 import { LumenInput, LumenTextarea } from './forms'
 import { LumenFilePicker } from './file-picker'
@@ -178,6 +180,8 @@ export function LumenConversation({
   onScrollTargetResult,
   followLatest,
 }: LumenConversationProps) {
+  const horizontalScrollMemory = React.useMemo(() => new ConversationHorizontalScrollMemory(), [])
+  React.useEffect(() => () => horizontalScrollMemory.dispose(), [horizontalScrollMemory])
   const {
     viewport,
     messages,
@@ -211,17 +215,17 @@ export function LumenConversation({
           {visible.map((item) => {
             const message = messages[item.index]
             return message ? (
-              <div
+              <ConversationVirtualMessageRow
                 key={message.id}
-                data-index={item.index}
-                ref={measureElement}
-                className="lumen-conversation-virtual-row"
-                role="listitem"
-                aria-posinset={item.index + 1}
-                aria-setsize={messages.length}
+                messageId={message.id}
+                index={item.index}
+                count={messages.length}
+                measureElement={measureElement}
+                scrollKey={scrollKey}
+                horizontalScrollMemory={horizontalScrollMemory}
               >
                 <LumenMessage {...message} />
-              </div>
+              </ConversationVirtualMessageRow>
             ) : null
           })}
           <div aria-hidden="true" style={{ blockSize: trailing }} />
