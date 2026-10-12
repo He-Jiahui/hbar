@@ -24,7 +24,7 @@
   min-inline-size: 0;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-composer-feedback-list,
@@ -33,7 +33,7 @@
   min-inline-size: 0;
   min-block-size: 0;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-composer-feedback-list {
@@ -44,7 +44,7 @@
 
 .hbar-composer-feedback-item + .hbar-composer-feedback-item {
   border-block-start: 0.0625rem solid var(--lumen-edge);
-  padding-block-start: 0.5rem;
+  padding-block-start: var(--lumen-space-8);
 }
 
 .hbar-composer-feedback-item {

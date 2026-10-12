@@ -10,10 +10,10 @@
 .hbar-message-file-link:focus-visible {
   outline: 0.125rem solid var(--lumen-info);
   outline-offset: 0.125rem;
-  border-radius: 0.125rem;
+  border-radius: var(--lumen-radius-control);
 }
 .hbar-message-file-reference > span > small {
-  margin-inline-start: 0.5em;
+  margin-inline-start: var(--lumen-space-8);
   white-space: normal;
   color: var(--lumen-muted);
 }

@@ -2,8 +2,8 @@
   display: flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 12px;
-  margin-block: 12px;
+  gap: var(--lumen-space-12);
+  margin-block: var(--lumen-space-12);
   color: var(--lumen-muted);
 }
 
@@ -21,7 +21,7 @@
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 4px 8px;
+  gap: var(--lumen-space-4) var(--lumen-space-8);
   font-size: calc(var(--lumen-font-size) * 0.928571);
   line-height: 1.5;
 }

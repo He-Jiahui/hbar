@@ -5,7 +5,7 @@
   min-width: 0;
   overflow: hidden;
   align-items: center;
-  gap: 8px;
+  gap: var(--lumen-space-8);
 }
 
 .rb-chat-session-chrome .session-header-glass,
@@ -18,7 +18,7 @@
   flex: 1 1 auto;
   min-width: 0;
   align-items: center;
-  gap: 8px;
+  gap: var(--lumen-space-8);
   overflow: hidden;
 }
 
@@ -59,7 +59,7 @@
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 7px;
+  gap: var(--lumen-space-8);
   overflow: hidden;
 }
 
@@ -111,7 +111,7 @@
 }
 
 .rb-chat-context-bar .chat-reference-context + .session-state {
-  margin-left: 2px;
+  margin-left: var(--lumen-space-2);
 }
 
 @media (max-width: 899px) {
@@ -120,7 +120,7 @@
   }
 
   .rb-chat-context-bar .chat-context-copy {
-    gap: 5px;
+    gap: var(--lumen-space-4);
   }
 
   .rb-chat-context-bar .context-divider,

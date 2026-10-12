@@ -7,18 +7,18 @@
 
 .hbar-app-react-sidebar-rail .hbar-web-notification-page-button {
   flex-direction: column;
-  gap: 0.125rem;
-  padding: 0.25rem;
+  gap: var(--lumen-space-2);
+  padding: var(--lumen-space-4);
   max-inline-size: 100%;
 }
 
 .hbar-web-notification-page-button {
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-web-notification-count {
-  padding: 0.0625rem 0.375rem;
-  border-radius: 1rem;
+  padding: var(--lumen-space-2) var(--lumen-space-4);
+  border-radius: var(--lumen-radius-panel);
   background: var(--lumen-surface);
   border: 0.0625rem solid var(--lumen-edge);
   font-size: calc(var(--lumen-font-size) * 0.857143);

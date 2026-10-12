@@ -41,6 +41,37 @@
 /* Foundation tokens are independent of host naming and also serve catalog compositions. */
 :root {
   --lumen-canvas: #090909;
+  --lumen-space-2: 0.125rem;
+  --lumen-space-4: 0.25rem;
+  --lumen-space-8: 0.5rem;
+  --lumen-space-12: 0.75rem;
+  --lumen-space-16: 1rem;
+  --lumen-space-24: 1.5rem;
+  --lumen-space-32: 2rem;
+  --lumen-radius-pill: 999px;
+  --lumen-mobile-nav-height: 3.625rem;
+  --lumen-layer-underlay: -1;
+  --lumen-layer-base: 0;
+  --lumen-layer-raised: 1;
+  --lumen-layer-sticky-cell: 2;
+  --lumen-layer-sticky-edge: 3;
+  --lumen-layer-anchored: 4;
+  --lumen-layer-menu-panel: 5;
+  --lumen-layer-submenu: 6;
+  --lumen-layer-floating-menu: 7;
+  --lumen-layer-hint: 9;
+  --lumen-layer-toast: 10;
+  --lumen-layer-menu: 12;
+  --lumen-layer-drawer: 20;
+  --lumen-layer-mobile-overlay: 30;
+  --lumen-layer-drawer-backdrop: 35;
+  --lumen-layer-dialog-content: 40;
+  --lumen-layer-toast-top: 45;
+  --lumen-layer-popover: 50;
+  --lumen-layer-selection: 1100;
+  --lumen-layer-backdrop: 9990;
+  --lumen-layer-modal: 10000;
+  --lumen-floating-layer: var(--lumen-layer-modal);
   --lumen-icon-xs: 0.75rem;
   --lumen-icon-sm: 0.875rem;
   --lumen-icon-md: 1rem;
@@ -101,9 +132,9 @@ html:has([data-lumen-mode]),
 [data-lumen-mode] {
   --lumen-surface-navigation: color-mix(in srgb, var(--lumen-ink) 3%, var(--lumen-canvas));
   --lumen-surface-raised: color-mix(in srgb, var(--lumen-ink) 4%, var(--lumen-canvas));
-  --lumen-space-inline: 0.5rem;
-  --lumen-space-group: 1rem;
-  --lumen-space-section: 1.5rem;
+  --lumen-space-inline: var(--lumen-space-8);
+  --lumen-space-group: var(--lumen-space-16);
+  --lumen-space-section: var(--lumen-space-24);
   --lumen-reading-line-height: 1.7;
   --lumen-reading-width: 52rem;
   --lumen-motion-duration: 260ms;

@@ -17,8 +17,8 @@
 }
 
 [data-hbar-app-ui-shell='app'] [data-lumen-part~="sidebar.header"] {
-  gap: 1rem;
-  padding: 1rem;
+  gap: var(--lumen-space-16);
+  padding: var(--lumen-space-16);
 }
 
 [data-hbar-app-ui-shell='app'] [data-lumen-part~="sidebar.brand"] {
@@ -28,16 +28,16 @@
 }
 
 [data-hbar-app-ui-shell='app'] .hbar-app-react-sidebar-primary {
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 [data-hbar-app-ui-shell='app'] .hbar-app-react-sidebar-query-actions {
-  padding-block: 0.625rem;
+  padding-block: var(--lumen-space-8);
 }
 
 [data-hbar-app-ui-shell='app'] [data-lumen-part~="sidebar.title"] {
-  padding-inline: 1rem;
-  padding-block: 0.5rem;
+  padding-inline: var(--lumen-space-16);
+  padding-block: var(--lumen-space-8);
 }
 
 [data-hbar-app-ui-shell='app'] [data-lumen-part~="sidebar.title"] h2 {
@@ -49,18 +49,18 @@
 }
 
 [data-hbar-app-ui-shell='app'] [data-lumen-part~="sidebar.content"] {
-  padding-inline: 0.75rem;
+  padding-inline: var(--lumen-space-12);
 }
 
 [data-hbar-app-ui-shell='app'] [data-lumen-part~="sidebar.footer"] {
-  gap: 0.75rem;
-  padding: 0.875rem 1rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
   border-block-start-color: var(--lumen-line);
 }
 
 [data-hbar-app-ui-shell='app'] .hbar-app-react-session-empty-hero {
-  gap: 1rem;
-  padding-inline: 1.5rem;
+  gap: var(--lumen-space-16);
+  padding-inline: var(--lumen-space-24);
 }
 
 [data-hbar-app-ui-shell='app'] .hbar-app-react-session-empty-mark {
@@ -82,7 +82,7 @@
 }
 
 [data-hbar-app-ui-shell='app'] .hbar-pre-session-landing-footer {
-  padding-block-end: 1.5rem;
+  padding-block-end: var(--lumen-space-24);
 }
 
 [data-hbar-app-ui-shell='app'] [data-lumen-part~="composer.surface"] {
@@ -111,15 +111,15 @@
 }
 
 [data-hbar-app-ui-shell='app'] .hbar-pre-session-landing .hbar-prompt-composer {
-  gap: 0.75rem;
-  padding: 1rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-16);
 }
 
 /* The composed form owns this editor's keyboard focus boundary. */
 [data-hbar-app-ui-shell='app'] .hbar-prompt-composer .hbar-pre-session-slash-editor-input,
 [data-hbar-app-ui-shell='app'] .hbar-prompt-composer > textarea {
   min-block-size: 4.5rem;
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -137,8 +137,8 @@
 
 @media (max-height: 40rem) {
   [data-hbar-app-ui-shell='app'] .hbar-app-react-session-empty-hero {
-    gap: 0.5rem;
-    padding-block: 0.5rem;
+    gap: var(--lumen-space-8);
+    padding-block: var(--lumen-space-8);
   }
 
   [data-hbar-app-ui-shell='app'] .hbar-app-react-session-empty-mark {
@@ -149,7 +149,7 @@
 
 @media (max-width: 40rem) {
   [data-hbar-app-ui-shell='app'] .hbar-pre-session-landing .hbar-prompt-composer {
-    padding: 0.75rem;
+    padding: var(--lumen-space-12);
   }
 }
 

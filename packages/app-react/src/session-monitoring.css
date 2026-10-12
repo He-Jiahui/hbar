@@ -22,7 +22,7 @@
   min-inline-size: 0;
   flex: 0 0 auto;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--lumen-space-16);
 }
 
 .hbar-monitoring-content {
@@ -36,12 +36,12 @@
 
 .hbar-monitoring-content > [data-lumen-part~="tabs.root"] {
   flex: 0 0 auto;
-  padding-block-end: 8px;
+  padding-block-end: var(--lumen-space-8);
   border-block-end: 0.0625rem solid var(--lumen-line);
 }
 
 .hbar-session-status-runs {
-  padding-block-end: 16px;
+  padding-block-end: var(--lumen-space-16);
   border-block-end: 0.0625rem solid var(--lumen-line);
 }
 
@@ -60,7 +60,7 @@
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 4px 12px;
+  gap: var(--lumen-space-4) var(--lumen-space-12);
 }
 
 .hbar-monitoring-section-heading > span {
@@ -71,12 +71,12 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-monitoring-run-strip {
   display: flex;
-  gap: 3px;
+  gap: var(--lumen-space-2);
 }
 
 .hbar-monitoring-run-strip > span {
@@ -90,7 +90,7 @@
 .hbar-monitoring-run-counts {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 16px;
+  gap: var(--lumen-space-8) var(--lumen-space-16);
 }
 
 .hbar-monitoring-run-counts > div {
@@ -98,7 +98,7 @@
   min-inline-size: 0;
   flex: 1 0 auto;
   align-items: baseline;
-  gap: 8px;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-monitoring-run-counts span {
@@ -137,7 +137,7 @@
 }
 
 .hbar-app-react-session-monitoring .hbar-session-run-activity {
-  gap: 16px;
+  gap: var(--lumen-space-16);
 }
 
 .hbar-app-react-session-monitoring .hbar-session-run-current {
@@ -160,14 +160,14 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--lumen-space-12);
 }
 
 .hbar-app-react-session-monitoring .hbar-monitoring-primary-metrics [data-lumen-part~="metrics.compact"] {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: var(--lumen-space-16);
 }
 
 .hbar-app-react-session-monitoring .hbar-monitoring-primary-metrics [data-lumen-part~="metrics.compact"] > div {
@@ -177,7 +177,7 @@
   flex-direction: column;
   align-items: flex-start;
   justify-content: flex-start;
-  gap: 4px;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-monitoring-primary-metrics dt {
@@ -198,7 +198,7 @@
   min-inline-size: 0;
   flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
+  gap: var(--lumen-space-16);
 }
 
 .hbar-monitoring-token-ring {
@@ -225,7 +225,7 @@
   min-inline-size: 0;
   flex: 1 1 8rem;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-monitoring-composition-legend [data-lumen-part~="metrics.compact"] > div {
@@ -233,7 +233,7 @@
   min-inline-size: 0;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 4px 8px;
+  gap: var(--lumen-space-4) var(--lumen-space-8);
 }
 
 .hbar-monitoring-composition-legend dt {
@@ -272,7 +272,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--lumen-space-12);
 }
 
 .hbar-monitoring-model-row,
@@ -280,7 +280,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-monitoring-model-name,
@@ -309,7 +309,7 @@
 
 .hbar-app-react-monitoring-gap,
 .hbar-monitoring-context-recovery {
-  padding: 8px 12px;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   border-inline-start: 0.125rem solid var(--lumen-warning);
   color: var(--lumen-warning);
   background: var(--lumen-frost);

@@ -1,6 +1,6 @@
 .hbar-agent-policy-editor {
   min-inline-size: 0;
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 .hbar-agent-policy-editor p {
@@ -9,22 +9,22 @@
 .hbar-agent-policy-editor > .hbar-lumen-disclosure-content {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding-block-start: 0.5rem;
+  gap: var(--lumen-space-8);
+  padding-block-start: var(--lumen-space-8);
 }
 .hbar-agent-policy-rows {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   min-inline-size: 0;
 }
 .hbar-agent-policy-row {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   min-inline-size: 0;
-  padding: 0.5rem;
+  padding: var(--lumen-space-8);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
 }
@@ -32,7 +32,7 @@
   display: flex;
   flex: 1 1 36rem;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   min-inline-size: 0;
   container: policy-fields / inline-size;
 }
@@ -40,7 +40,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   min-inline-size: 0;
 }
 .hbar-agent-policy-primary-fields > * {
@@ -55,7 +55,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   min-inline-size: 0;
 }
 .hbar-agent-policy-weight {
@@ -72,8 +72,8 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
-  padding-block: 0.5rem;
+  gap: var(--lumen-space-8);
+  padding-block: var(--lumen-space-8);
 }
 
 @container policy-fields (max-width: 40rem) {

@@ -5,7 +5,7 @@
   inline-size: var(--lumen-control-size);
   align-items: center;
   justify-content: center;
-  padding-block: 12px;
+  padding-block: var(--lumen-space-12);
 }
 
 .hbar-conversation-anchor-rail {
@@ -15,7 +15,7 @@
   inline-size: 100%;
   flex-direction: column;
   align-items: stretch;
-  gap: 2px;
+  gap: var(--lumen-space-2);
 }
 
 .hbar-conversation-anchor-list {
@@ -37,8 +37,8 @@
   inline-size: min(22rem, 80vw);
   min-inline-size: 0;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-12);
   text-align: start;
   font-size: calc(var(--lumen-font-size) * 0.9);
 }

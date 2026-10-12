@@ -28,13 +28,13 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-react-settings-fixed-scope {
   min-inline-size: 0;
   max-inline-size: 24rem;
-  padding: 0.375rem 0.5rem;
+  padding: var(--lumen-space-4) var(--lumen-space-8);
   overflow-wrap: anywhere;
 }
 
@@ -53,9 +53,9 @@
   min-block-size: 0;
   flex: 0 0 13rem;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--lumen-space-2);
   overflow: auto;
-  padding: 0.5rem;
+  padding: var(--lumen-space-8);
   border-inline-end: 0.0625rem solid var(--lumen-edge);
   background: var(--lumen-surface-navigation);
 }
@@ -66,7 +66,7 @@
   block-size: auto;
   min-block-size: 2rem;
   justify-content: flex-start;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   text-align: start;
 }
 
@@ -92,7 +92,7 @@
 .hbar-app-react-settings-mobile-group {
   display: none;
   flex: 0 0 auto;
-  padding: 0.5rem 0.75rem;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 
@@ -100,7 +100,7 @@
   inline-size: min(100%, var(--hbar-settings-content-width));
   flex: 0 0 auto;
   margin-inline: auto;
-  padding: 1rem 1rem 0.5rem;
+  padding: var(--lumen-space-16) var(--lumen-space-16) var(--lumen-space-8);
 }
 
 .hbar-app-react-settings-content-header h2,
@@ -116,7 +116,7 @@
 }
 
 .hbar-app-react-settings-content-header p {
-  margin-block-start: 0.25rem;
+  margin-block-start: var(--lumen-space-4);
   color: var(--lumen-subtle);
   font-size: calc(var(--lumen-font-size) * 0.857143);
   line-height: 1.45;
@@ -128,7 +128,7 @@
   flex: 1 1 auto;
   overflow: auto;
   scrollbar-gutter: stable;
-  padding: 0 1rem 1rem;
+  padding: 0 var(--lumen-space-16) var(--lumen-space-16);
 }
 
 .hbar-app-react-settings-content {
@@ -167,7 +167,7 @@
   min-inline-size: 0;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-react-settings-footer-inner {
@@ -175,7 +175,7 @@
   min-block-size: 3.75rem;
   justify-content: space-between;
   margin-inline: auto;
-  padding: 0.5rem 1rem;
+  padding: var(--lumen-space-8) var(--lumen-space-16);
 }
 
 .hbar-app-react-settings-footer-inner > span {
@@ -198,8 +198,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.75rem;
-  padding: 1rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-16);
   text-align: center;
 }
 
@@ -208,7 +208,7 @@
   min-inline-size: 0;
   align-items: flex-start;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-settings-content-recovery small {
@@ -230,7 +230,7 @@
 .hbar-app-react-settings-workspace > [role='alert'] {
   flex: 0 0 auto;
   margin: 0;
-  padding: 0.5rem 1rem;
+  padding: var(--lumen-space-8) var(--lumen-space-16);
   border-block-start: 0.0625rem solid var(--lumen-edge);
   color: var(--lumen-danger);
   background: color-mix(in srgb, var(--lumen-danger) 8%, var(--lumen-frost));
@@ -238,8 +238,8 @@
 
 @container hbar-settings-workspace (max-width: 48rem) {
   .hbar-app-react-settings-workspace > [data-lumen-part~="page-header.root"] {
-    gap: 0.5rem;
-    padding-inline: 0.5rem;
+    gap: var(--lumen-space-8);
+    padding-inline: var(--lumen-space-8);
   }
 
   .hbar-app-react-settings-workspace [data-lumen-part~="page-header.heading"] p {
@@ -269,15 +269,15 @@
   }
 
   .hbar-app-react-settings-content-header {
-    padding: 0.75rem 0.75rem 0.5rem;
+    padding: var(--lumen-space-12) var(--lumen-space-12) var(--lumen-space-8);
   }
 
   .hbar-app-react-settings-scroll {
-    padding: 0 0.75rem 0.75rem;
+    padding: 0 var(--lumen-space-12) var(--lumen-space-12);
   }
 
   .hbar-app-react-settings-footer-inner {
-    padding-inline: 0.75rem;
+    padding-inline: var(--lumen-space-12);
   }
 }
 

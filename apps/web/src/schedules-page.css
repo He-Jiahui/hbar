@@ -6,10 +6,10 @@
   display: flex;
   flex-direction: column;
   min-inline-size: 0;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
 }
 .hbar-schedule-page {
-  padding: 1rem;
+  padding: var(--lumen-space-16);
   min-block-size: 0;
   overflow: auto;
 }
@@ -17,7 +17,7 @@
 .hbar-schedule-page footer,
 .hbar-schedule-weekdays {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   flex-wrap: wrap;
   align-items: center;
 }
@@ -33,7 +33,7 @@
   min-inline-size: 0;
   flex: 0 1 auto;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   align-items: center;
 }
 .hbar-schedule-primary-actions,
@@ -42,13 +42,13 @@
 }
 .hbar-schedule-list article {
   border-block-start: 0.0625rem solid var(--lumen-edge);
-  padding-block: 0.75rem;
+  padding-block: var(--lumen-space-12);
 }
 .hbar-schedule-form textarea {
   min-block-size: 7rem;
 }
 .hbar-schedule-page ol {
-  padding-inline-start: 1.5rem;
+  padding-inline-start: var(--lumen-space-24);
   margin-block: 0;
 }
 .hbar-schedule-page li {

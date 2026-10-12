@@ -56,8 +56,8 @@
   min-inline-size: 0;
   flex: 0 0 auto;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   flex-wrap: wrap;
 }
 
@@ -86,7 +86,7 @@
 .hbar-file-tree-scroll > p,
 .hbar-file-tree-children > p {
   margin: 0;
-  padding: 0.35rem 0.75rem;
+  padding: var(--lumen-space-4) var(--lumen-space-12);
   color: var(--lumen-muted);
   overflow-wrap: anywhere;
 }
@@ -100,13 +100,13 @@
 
 .hbar-file-tree-list {
   margin: 0;
-  padding: 0.25rem 0.5rem;
+  padding: var(--lumen-space-4) var(--lumen-space-8);
   list-style: none;
 }
 
 .hbar-file-tree-children {
   min-inline-size: 0;
-  margin-inline-start: 0.75rem;
+  margin-inline-start: var(--lumen-space-12);
   border-inline-start: 0.0625rem solid var(--lumen-edge);
 }
 
@@ -117,8 +117,8 @@
   block-size: auto;
   align-items: center;
   justify-content: flex-start;
-  gap: 0.4rem;
-  padding: 0.4rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8);
   text-align: start;
   white-space: nowrap;
 }
@@ -148,7 +148,7 @@
 
 .hbar-file-tree-children > button,
 .hbar-file-tree-scroll > button {
-  margin: 0.5rem;
+  margin: var(--lumen-space-8);
 }
 
 .hbar-app-react-file-layout > [data-lumen-part~="file-document.root"] {
@@ -173,9 +173,9 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   flex-wrap: wrap;
-  padding: 0.5rem 0.75rem;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   border-block-start: 0.0625rem solid var(--lumen-edge);
 }
 
@@ -188,8 +188,8 @@
   min-inline-size: 0;
   flex: 0 0 auto;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   flex-wrap: wrap;
 }
 
@@ -200,7 +200,7 @@
 .hbar-file-add-feedback {
   flex: 0 0 auto;
   margin: 0;
-  padding: 0.25rem 0.75rem;
+  padding: var(--lumen-space-4) var(--lumen-space-12);
   overflow-wrap: anywhere;
 }
 
@@ -237,7 +237,7 @@
   min-block-size: 0;
   flex: 1 1 auto;
   margin: 0;
-  padding: 0 0.5rem;
+  padding: 0 var(--lumen-space-8);
   overflow: auto;
   list-style: none;
 }
@@ -248,8 +248,8 @@
   min-inline-size: max-content;
   block-size: auto;
   align-items: flex-start;
-  gap: 0.5rem;
-  padding: 0.5rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8);
   text-align: start;
   white-space: nowrap;
 }
@@ -278,7 +278,7 @@
   min-inline-size: 0;
   flex: 1 1 100%;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-file-diff-path {
@@ -293,7 +293,7 @@
 .hbar-file-diff-caption,
 .hbar-file-diff-feedback {
   margin: 0;
-  padding: 0.5rem 0.75rem;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   overflow-wrap: anywhere;
 }
 
@@ -303,7 +303,7 @@
   min-block-size: 0;
   flex: 1 1 auto;
   margin: 0;
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
   overflow: auto;
   font-family: ui-monospace, 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
   font-size: calc(var(--lumen-font-size) * 0.928571);
@@ -332,13 +332,13 @@
 
 .hbar-app-react-file-reload-description {
   margin: 0;
-  padding: 1rem;
+  padding: var(--lumen-space-16);
   color: var(--lumen-muted);
 }
 
 .hbar-app-react-file-reload-target {
   margin: 0;
-  padding: 1rem 1rem 0;
+  padding: var(--lumen-space-16) var(--lumen-space-16) 0;
   overflow-wrap: anywhere;
   font-family: ui-monospace, 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
 }

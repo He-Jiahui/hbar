@@ -2,7 +2,7 @@
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-web-pre-session-goal-chip {
@@ -11,7 +11,7 @@
   flex: 0 0 auto;
   align-self: flex-start;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-web-pre-session-goal-chip span:not([data-lumen-part~="icon"]) {
@@ -23,7 +23,7 @@
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
 }
 
 .hbar-web-pre-session-model-controls > .hbar-pre-session-choice-picker {
@@ -32,7 +32,7 @@
 
 .hbar-web-pre-session-model-controls > .hbar-pre-session-choice-picker > button {
   max-inline-size: none;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   font-weight: 600;
 }
 
@@ -40,9 +40,9 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   border-block-start: 0.0625rem solid var(--lumen-edge);
-  padding-block-start: 0.75rem;
+  padding-block-start: var(--lumen-space-12);
 }
 
 .hbar-web-pre-session-path > label {
@@ -66,7 +66,7 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-web-pre-session-model-guidance,
@@ -75,7 +75,7 @@
   min-inline-size: 0;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.375rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-web-pre-session-model-guidance > p {

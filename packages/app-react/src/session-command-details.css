@@ -10,13 +10,13 @@
 }
 .hbar-session-command-input,
 .hbar-session-command-output {
-  padding: 8px 12px;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
 }
 .hbar-session-command-input {
   display: flex;
   flex-direction: column;
   min-inline-size: 0;
-  gap: 4px;
+  gap: var(--lumen-space-4);
 }
 .hbar-session-command .hbar-session-command-input pre {
   border: 0;
@@ -60,7 +60,7 @@
   flex-wrap: nowrap;
   align-items: center;
   min-inline-size: 0;
-  gap: 4px;
+  gap: var(--lumen-space-4);
 
   overflow-x: auto;
 }
@@ -71,7 +71,7 @@
 }
 .hbar-session-command-original {
   min-inline-size: 0;
-  padding: 4px 12px;
+  padding: var(--lumen-space-4) var(--lumen-space-12);
 
   overflow-x: auto;
 }

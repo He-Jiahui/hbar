@@ -35,17 +35,17 @@
   min-block-size: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
   overflow: auto;
-  padding: 1rem;
+  padding: var(--lumen-space-16);
 }
 
 .hbar-app-react-command-metadata {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 1.25rem;
+  gap: var(--lumen-space-8) var(--lumen-space-16);
   margin: 0;
-  padding-block-end: 0.75rem;
+  padding-block-end: var(--lumen-space-12);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 
@@ -56,7 +56,7 @@
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.25rem 0.75rem;
+  gap: var(--lumen-space-4) var(--lumen-space-12);
 }
 
 .hbar-app-react-command-metadata dt {
@@ -76,14 +76,14 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   margin: 0;
   padding: 0;
   border: 0;
 }
 
 .hbar-app-react-command-parameters legend {
-  margin-block-end: 0.75rem;
+  margin-block-end: var(--lumen-space-12);
   font-size: var(--lumen-font-size);
   font-weight: 650;
 }
@@ -99,7 +99,7 @@
   min-inline-size: 0;
   align-items: flex-end;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-app-react-command-field > [data-lumen-part~="field.group"] {
@@ -116,7 +116,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-app-react-known-target > * {
@@ -141,8 +141,8 @@
   flex: 0 0 auto;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
   border-block-start: 0.0625rem solid var(--lumen-edge);
 }
 
@@ -150,7 +150,7 @@
 .hbar-app-react-command-action-error {
   flex: 0 0 auto;
   margin: 0;
-  padding: 0.5rem 1rem;
+  padding: var(--lumen-space-8) var(--lumen-space-16);
   border-block-start: 0.0625rem solid var(--lumen-edge);
 }
 
@@ -164,20 +164,20 @@
   min-block-size: 0;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
   overflow: auto;
-  padding-block-start: 1rem;
+  padding-block-start: var(--lumen-space-16);
 }
 
 .hbar-app-react-command-result-view > :not(footer) {
-  margin-inline: 1rem;
+  margin-inline: var(--lumen-space-16);
 }
 
 .hbar-app-react-command-result-summary {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.75rem;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-reading);
@@ -192,7 +192,7 @@
 }
 
 .hbar-app-react-command-result-details > .hbar-lumen-disclosure-trigger {
-  padding-block: 0.75rem;
+  padding-block: var(--lumen-space-12);
   font-weight: 650;
 }
 
@@ -200,7 +200,7 @@
   max-block-size: 20rem;
   overflow: auto;
   margin: 0;
-  padding: 0.75rem;
+  padding: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-reading);
@@ -220,18 +220,18 @@
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-16);
 }
 
 @media (max-width: 35rem) {
   .hbar-app-react-command-form-body,
   .hbar-app-react-command-result-view {
-    gap: 0.75rem;
+    gap: var(--lumen-space-12);
   }
 
   .hbar-app-react-command-form-body {
-    padding: 0.75rem;
+    padding: var(--lumen-space-12);
   }
 
   .hbar-app-react-command-field {
@@ -246,10 +246,10 @@
 
   .hbar-app-react-command-parameters form > footer,
   .hbar-app-react-command-result-view > footer {
-    padding-inline: 0.75rem;
+    padding-inline: var(--lumen-space-12);
   }
 
   .hbar-app-react-command-result-view > :not(footer) {
-    margin-inline: 0.75rem;
+    margin-inline: var(--lumen-space-12);
   }
 }

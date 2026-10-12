@@ -26,8 +26,8 @@
 }
 .hbar-file-preview-tab > .hbar-file-preview-select {
   flex: 1 1 auto;
-  gap: 0.4rem;
-  padding: 0.4rem 0.5rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8) var(--lumen-space-8);
   border-radius: 0;
 }
 .hbar-file-preview-select > span,
@@ -51,10 +51,10 @@
   max-block-size: calc(100dvh - var(--file-preview-menu-top) - 0.5rem);
   box-sizing: border-box;
   margin: 0;
-  padding: 0.25rem;
+  padding: var(--lumen-space-4);
   overflow: auto;
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-contrast);
   color: var(--lumen-ink);
   box-shadow: 0 0.5rem 2rem color-mix(in srgb, var(--lumen-ink) 16%, transparent);
@@ -74,8 +74,8 @@
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   flex-wrap: wrap;
   overflow-wrap: anywhere;
 }

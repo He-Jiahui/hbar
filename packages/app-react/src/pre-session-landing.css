@@ -26,7 +26,7 @@
   flex: 0 0 auto;
   flex-direction: column;
   align-self: center;
-  padding: 0.5rem 1rem 1rem;
+  padding: var(--lumen-space-8) var(--lumen-space-16) var(--lumen-space-16);
   overflow: auto;
 }
 

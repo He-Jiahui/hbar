@@ -1,6 +1,6 @@
 /* The project tree owns vertical scrolling; each flex row yields to the pane. */
 .hbar-app-react-sidebar-surface .hbar-app-react-project-tree {
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   overflow-x: hidden;
   text-align: start;
 }
@@ -19,7 +19,7 @@
   min-inline-size: 0;
   max-inline-size: 100%;
   justify-content: flex-start;
-  padding: 0.25em 0.5em;
+  padding: var(--lumen-space-4) var(--lumen-space-8);
   overflow: hidden;
   border-radius: var(--lumen-radius-control);
   color: var(--lumen-muted);
@@ -45,7 +45,7 @@
 
 .hbar-app-react-sidebar-surface .hbar-app-react-project-tree [data-lumen-part~="tree.group"]:not([data-flat-depth='true']) {
   margin-inline-start: 0;
-  padding-inline-start: calc(var(--lumen-icon-md) + 0.5rem);
+  padding-inline-start: calc(var(--lumen-icon-md) + var(--lumen-space-8));
 }
 
 /* Root project children share the full row surface; disclosure slots supply the text indent. */

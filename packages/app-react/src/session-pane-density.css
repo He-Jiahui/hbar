@@ -30,8 +30,8 @@
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 4px 12px;
-  padding: 4px 0;
+  gap: var(--lumen-space-4) var(--lumen-space-12);
+  padding: var(--lumen-space-4) 0;
   border: 0;
   border-radius: 0;
   background: transparent;

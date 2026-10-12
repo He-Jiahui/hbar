@@ -4,7 +4,7 @@
   flex: 1 1 0;
   flex-direction: column;
   align-items: stretch;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
 }
 
 .hbar-activity-text .hbar-activity-text-content {
@@ -33,6 +33,6 @@
 .hbar-activity-text .hbar-activity-text-toggle {
   min-block-size: 0;
   align-self: flex-start;
-  padding: 0.125rem 0.25rem;
+  padding: var(--lumen-space-2) var(--lumen-space-4);
   font-size: calc(var(--lumen-font-size) * 0.9);
 }

@@ -5,10 +5,10 @@
   flex: 1 1 auto;
   justify-content: flex-start;
   align-items: center;
-  gap: 6px;
-  padding: 8px;
+  gap: var(--lumen-space-4);
+  padding: var(--lumen-space-8);
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.5rem;
+  border-radius: var(--lumen-radius-surface);
   background: var(--lumen-contrast);
   color: var(--lumen-muted);
   font-size: calc(var(--lumen-font-size) * 0.928571);
@@ -24,8 +24,8 @@
   flex: 0 0 auto;
   white-space: nowrap;
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.25rem;
-  padding: 1px 4px;
+  border-radius: var(--lumen-radius-control);
+  padding: var(--lumen-space-2) var(--lumen-space-4);
   font-size: calc(var(--lumen-font-size) * 0.714286);
   line-height: 1.3;
 }

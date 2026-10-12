@@ -1,12 +1,12 @@
 .mobile-nav-items {
   position: relative;
-  z-index: 1;
+  z-index: var(--lumen-layer-raised);
   display: flex;
   width: 100%;
   min-width: 0;
   align-items: stretch;
   justify-content: space-around;
-  gap: 2px;
+  gap: var(--lumen-space-2);
 }
 
 .mobile-nav-items button {
@@ -17,17 +17,17 @@
 .mobile-more-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin: 0 0 14px;
+  gap: var(--lumen-space-8);
+  margin: 0 0 var(--lumen-space-12);
 }
 
 .mobile-more-backdrop {
   position: fixed;
-  z-index: 30;
+  z-index: var(--lumen-layer-mobile-overlay);
   inset: 0;
   display: flex;
   align-items: flex-end;
-  padding: 12px 10px calc(58px + env(safe-area-inset-bottom));
+  padding: var(--lumen-space-12) var(--lumen-space-8) calc(var(--lumen-mobile-nav-height) + env(safe-area-inset-bottom));
   background: color-mix(in srgb, var(--hbar-overlay) 58%, transparent);
 }
 
@@ -35,13 +35,13 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin: -2px -2px 16px;
+  gap: var(--lumen-space-12);
+  margin: calc(var(--lumen-space-2) * -1) calc(var(--lumen-space-2) * -1) var(--lumen-space-16);
 }
 
 .mobile-more-eyebrow {
   display: block;
-  margin-bottom: 2px;
+  margin-bottom: var(--lumen-space-2);
   color: var(--hbar-t3);
   font-size: var(--hbar-font-size-small);
   letter-spacing: 0.05em;
@@ -60,7 +60,7 @@
   height: 32px;
   place-items: center;
   border: 1px solid var(--hbar-bd);
-  border-radius: var(--radius-md);
+  border-radius: var(--lumen-radius-surface);
   color: var(--hbar-t2);
   font-size: var(--hbar-font-size-heading);
   line-height: 1;
@@ -80,9 +80,9 @@
   grid-template-columns: auto minmax(0, 1fr);
   align-content: center;
   justify-items: start;
-  column-gap: 7px;
-  row-gap: 2px;
-  padding: 10px;
+  column-gap: var(--lumen-space-8);
+  row-gap: var(--lumen-space-2);
+  padding: var(--lumen-space-8);
   text-align: left;
 }
 
@@ -118,7 +118,7 @@
     margin: 0;
     overflow: auto;
     border: 1px solid var(--hbar-bd2);
-    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    border-radius: var(--lumen-radius-panel) var(--lumen-radius-panel) 0 0;
     background: var(--hbar-s0);
     box-shadow: var(--dsh-shadow-prominent);
   }
@@ -138,7 +138,7 @@
 
   .mobile-nav .mobile-nav-items > button {
     min-width: 0;
-    padding-inline: 3px;
+    padding-inline: var(--lumen-space-2);
   }
 }
 

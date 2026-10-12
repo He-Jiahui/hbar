@@ -6,8 +6,8 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.625rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-8);
   background: transparent;
   box-shadow: none;
 }
@@ -51,13 +51,13 @@
 
 .hbar-prompt-toolbar {
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-prompt-toolbar > div,
 .hbar-prompt-attachments,
 .hbar-prompt-attachment {
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 
 .hbar-prompt-toolbar > .hbar-prompt-running-actions {
@@ -79,7 +79,7 @@
 
 .hbar-prompt-attachment {
   flex: 0 0 auto;
-  padding-inline-start: 0.5rem;
+  padding-inline-start: var(--lumen-space-8);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
 }

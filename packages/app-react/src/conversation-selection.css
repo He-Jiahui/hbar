@@ -4,7 +4,7 @@
 }
 
 .hbar-conversation-selection-error {
-  margin: 0.25rem 0 0;
+  margin: var(--lumen-space-4) 0 0;
   color: var(--lumen-danger);
   font-size: calc(var(--lumen-font-size) * 0.857143);
   overflow-wrap: anywhere;
@@ -13,10 +13,10 @@
 /* Source-backed true overlay: CC's action floats beside the native text Range. */
 .hbar-conversation-selection-menu {
   position: fixed;
-  z-index: 1100;
+  z-index: var(--lumen-layer-selection);
   max-inline-size: calc(100vi - 1rem);
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 2rem;
+  border-radius: var(--lumen-radius-panel);
   background: var(--lumen-frost);
   box-shadow: 0 0.25rem 1rem rgb(0 0 0 / 15%);
 
@@ -26,7 +26,7 @@
 .hbar-conversation-selection-menu button {
   block-size: auto;
   min-block-size: 2.75rem;
-  padding: 0.65rem 1rem;
+  padding: var(--lumen-space-12) var(--lumen-space-16);
   border-radius: inherit;
   font-size: calc(var(--lumen-font-size) * 1.071429);
   font-weight: 600;

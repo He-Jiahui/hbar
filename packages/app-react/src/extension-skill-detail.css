@@ -9,11 +9,11 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
 .hbar-app-react-skill-detail {
-  gap: 1rem;
+  gap: var(--lumen-space-16);
 
   overflow-x: auto;
 }
@@ -27,7 +27,7 @@
   display: flex;
   min-inline-size: 0;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
 }
 
 .hbar-app-react-skill-detail-navigation {
@@ -39,7 +39,7 @@
 .hbar-app-react-skill-overview,
 .hbar-app-react-skill-file-index,
 .hbar-app-react-skill-file-preview {
-  padding: 1rem;
+  padding: var(--lumen-space-16);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-reading);
@@ -79,7 +79,7 @@
 .hbar-app-react-skill-summary dl {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
 .hbar-app-react-skill-summary dl > div {
@@ -145,7 +145,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -173,7 +173,7 @@
 
 .hbar-app-react-skill-file-index-copy {
   flex: 1 1 auto;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
 }
 
 .hbar-app-react-skill-file-index-copy > strong,

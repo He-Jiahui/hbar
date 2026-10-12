@@ -4,7 +4,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: var(--lumen-space-2);
 }
 .hbar-app-react-agent-branch-line {
   display: flex;
@@ -25,7 +25,7 @@
 }
 .hbar-app-react-agent-branch-count {
   flex: 0 0 auto;
-  padding-inline: 0.25rem;
+  padding-inline: var(--lumen-space-4);
 }
 .hbar-app-react-agent-branch-children {
   margin-inline-start: 0;
@@ -40,7 +40,7 @@
 .hbar-app-react-agent-branch-children > p,
 .hbar-app-react-agent-branch-feedback {
   margin: 0;
-  padding: 0.25rem;
+  padding: var(--lumen-space-4);
   overflow-wrap: anywhere;
 }
 .hbar-app-react-agent-branch-children > button,

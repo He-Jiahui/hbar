@@ -7,9 +7,9 @@
   min-inline-size: 0;
   min-block-size: 0;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
   overflow: auto;
-  padding: 1rem;
+  padding: var(--lumen-space-16);
 }
 
 /* The editor is a scrollable prompt surface by default. In this page it is
@@ -83,13 +83,13 @@
   display: flex;
   min-inline-size: 0;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   align-items: center;
 }
 
 .hbar-prompt-templates-page header {
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
 }
 
 .hbar-prompt-templates-page header > :first-child,
@@ -105,7 +105,7 @@
   display: flex;
   min-inline-size: 0;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
 .hbar-prompt-template-list article {
@@ -113,9 +113,9 @@
   min-inline-size: 0;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--lumen-space-16);
   border-block-start: 0.0625rem solid var(--lumen-edge);
-  padding-block: 0.75rem;
+  padding-block: var(--lumen-space-12);
 }
 
 .hbar-prompt-template-list article > :first-child {
@@ -165,7 +165,7 @@
   min-inline-size: 0;
   max-inline-size: 100%;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
 .hbar-prompt-template-editor > * {
@@ -183,7 +183,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
 }
 
 @container (max-width: 35rem) {

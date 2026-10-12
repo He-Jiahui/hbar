@@ -3,7 +3,7 @@
   flex-direction: column;
   min-inline-size: 0;
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.875rem;
+  border-radius: var(--lumen-radius-panel);
   background: var(--lumen-frost);
   overflow: hidden;
 }
@@ -15,7 +15,7 @@
 .hbar-run-file-change-feedback {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   min-inline-size: 0;
 }
 .hbar-run-file-change-header,
@@ -25,14 +25,14 @@
   flex-wrap: wrap;
 }
 .hbar-run-file-change-header {
-  gap: 0.875rem;
-  padding: 0.9375rem;
+  gap: var(--lumen-space-12);
+  padding: var(--lumen-space-16);
 }
 .hbar-run-file-change-icon {
   display: flex;
   flex: 0 0 auto;
-  padding: 0.75rem;
-  border-radius: 0.75rem;
+  padding: var(--lumen-space-12);
+  border-radius: var(--lumen-radius-panel);
   background: var(--lumen-canvas);
 }
 .hbar-run-file-change-heading {
@@ -40,7 +40,7 @@
   flex-direction: column;
   flex: 1 1 9rem;
   min-inline-size: 0;
-  gap: 0.25rem;
+  gap: var(--lumen-space-4);
 }
 .hbar-run-file-change-heading > p {
   margin: 0;
@@ -79,7 +79,7 @@
   display: flex;
   flex-direction: column;
   margin: 0;
-  padding: 0.3125rem 0.9375rem;
+  padding: var(--lumen-space-4) var(--lumen-space-16);
   list-style: none;
   border-block-start: 0.0625rem solid var(--lumen-edge);
 }
@@ -87,13 +87,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--lumen-space-12);
   min-inline-size: 0;
 }
 .hbar-run-file-change-row > .hbar-run-file-change-path {
   flex: 1 1 auto;
   min-inline-size: 0;
-  padding: 0.625rem 0;
+  padding: var(--lumen-space-8) 0;
   justify-content: flex-start;
   block-size: auto;
   text-align: start;
@@ -108,11 +108,11 @@
 }
 .hbar-run-file-change-footer {
   justify-content: space-between;
-  padding: 0.25rem 0.625rem;
+  padding: var(--lumen-space-4) var(--lumen-space-8);
   background: var(--lumen-surface);
 }
 .hbar-run-file-change-feedback {
-  padding: 0.5rem 0.9375rem;
+  padding: var(--lumen-space-8) var(--lumen-space-16);
   margin: 0;
   overflow-wrap: anywhere;
 }
@@ -120,8 +120,8 @@
   display: flex;
   flex-direction: column;
   min-inline-size: 0;
-  gap: 0.5rem;
-  padding: 0.75rem 0.9375rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-12) var(--lumen-space-16);
   border-block-start: 0.0625rem solid var(--lumen-edge);
 }
 .hbar-run-file-change-review[hidden] {
@@ -137,15 +137,15 @@
   min-inline-size: 0;
   overflow-x: auto;
   border: 0.0625rem solid var(--lumen-edge);
-  border-radius: 0.375rem;
+  border-radius: var(--lumen-radius-control);
   background: var(--lumen-canvas);
 }
 .hbar-run-file-change-diff-line {
   display: flex;
   align-items: baseline;
   min-inline-size: max-content;
-  gap: 0.5rem;
-  padding: 0.125rem 0.5rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-2) var(--lumen-space-8);
   font-family: var(--lumen-font-mono, monospace);
 }
 .hbar-run-file-change-line-number {

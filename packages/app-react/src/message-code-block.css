@@ -3,7 +3,7 @@
   flex-direction: column;
   min-inline-size: 0;
   max-inline-size: 100%;
-  margin-block: 12px;
+  margin-block: var(--lumen-space-12);
   border: 0.0625rem solid var(--lumen-edge);
   border-radius: var(--lumen-radius-control);
   background: var(--lumen-reading);
@@ -14,14 +14,14 @@
   min-inline-size: 0;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 4px 8px;
+  gap: var(--lumen-space-4) var(--lumen-space-8);
 
   overflow-x: auto;
 }
 .hbar-message-code-header {
   justify-content: space-between;
   border-block-end: 0.0625rem solid var(--lumen-line);
-  padding: 6px 12px;
+  padding: var(--lumen-space-4) var(--lumen-space-12);
   color: var(--lumen-muted);
   font-size: var(--hbar-session-caption-size, calc(var(--lumen-font-size) * 0.9));
 }
@@ -36,12 +36,12 @@
   min-inline-size: 0;
   max-inline-size: 100%;
   margin-inline-start: auto;
-  gap: 4px;
+  gap: var(--lumen-space-4);
 
   overflow-x: auto;
 }
 .hbar-message-code-copy > button {
-  gap: 4px;
+  gap: var(--lumen-space-4);
 
   min-inline-size: max-content;
   max-inline-size: none;
@@ -57,7 +57,7 @@
   overflow: auto;
   overscroll-behavior: contain;
   margin: 0;
-  padding: 10px 12px;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   font-size: var(--hbar-session-detail-size, calc(var(--lumen-font-size) * 0.95));
   line-height: 1.6;
   white-space: pre;

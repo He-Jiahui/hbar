@@ -20,7 +20,7 @@
 .hbar-session-message-blocks
   :is(.hbar-session-message-prose, .hbar-session-thinking-content)
   :is(h1, h2, h3, h4, h5, h6) {
-  margin-block: 1.35em 0.55em;
+  margin-block: var(--lumen-space-24) var(--lumen-space-8);
   font-weight: 600;
   line-height: 1.35;
   overflow-wrap: anywhere;
@@ -40,16 +40,16 @@
 .hbar-session-message-blocks
   :is(.hbar-session-message-prose, .hbar-session-thinking-content)
   :is(p, ul, ol, blockquote, table) {
-  margin-block: 0.8em;
+  margin-block: var(--lumen-space-12);
 }
 .hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) :is(ul, ol) {
-  padding-inline-start: 1.5em;
+  padding-inline-start: var(--lumen-space-24);
 }
 .hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) li + li {
-  margin-block-start: 0.25em;
+  margin-block-start: var(--lumen-space-4);
 }
 .hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) li > p {
-  margin-block: 0.35em;
+  margin-block: var(--lumen-space-4);
 }
 .hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) table {
   display: block;
@@ -59,7 +59,7 @@
   font-size: 0.95em;
 }
 .hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) :is(th, td) {
-  padding: 0.55em 0.85em;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   border-block-end: 0.0625rem solid var(--lumen-line);
   vertical-align: top;
   overflow-wrap: normal;
@@ -75,7 +75,7 @@
   padding-inline-end: 0;
 }
 .hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) hr {
-  margin-block: 1.25em;
+  margin-block: var(--lumen-space-16);
   border: 0;
   border-block-start: 0.0625rem solid var(--lumen-line);
 }
@@ -104,7 +104,7 @@
   :is(.hbar-session-message-prose, .hbar-session-thinking-content, .hbar-session-inline-markdown)
   :not(pre)
   > code {
-  padding: 0.1em 0.3em;
+  padding: var(--lumen-space-2) var(--lumen-space-4);
   border-radius: var(--lumen-radius-control);
   color: var(--hbar-session-code);
   background: color-mix(in srgb, var(--lumen-success) 7%, var(--lumen-reading));
@@ -123,7 +123,7 @@
 }
 .hbar-session-message-blocks :is(.hbar-session-message-prose, .hbar-session-thinking-content) blockquote {
   margin-inline: 0;
-  padding-inline-start: 12px;
+  padding-inline-start: var(--lumen-space-12);
   border-inline-start: 0.1875rem solid color-mix(in srgb, var(--lumen-info) 50%, var(--lumen-edge));
   color: var(--hbar-session-secondary);
 }

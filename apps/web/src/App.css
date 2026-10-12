@@ -12,8 +12,8 @@
   flex: 0 0 auto;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px 8px;
-  padding: 6px 12px;
+  gap: var(--lumen-space-4) var(--lumen-space-8);
+  padding: var(--lumen-space-4) var(--lumen-space-12);
   font-size: calc(var(--lumen-font-size) * 0.857143);
   overflow-wrap: anywhere;
 }
@@ -34,8 +34,8 @@
   flex: 0 0 auto;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0.375rem 0.75rem;
+  gap: var(--lumen-space-8);
+  padding: var(--lumen-space-4) var(--lumen-space-12);
   border-block-end: 0.0625rem solid var(--lumen-edge);
 }
 

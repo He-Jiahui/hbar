@@ -24,7 +24,7 @@
   align-items: center;
   flex-wrap: wrap;
   min-inline-size: 0;
-  gap: 8px;
+  gap: var(--lumen-space-8);
 }
 .hbar-observability-range-actions > :first-child {
   flex: 1 1 10rem;
@@ -42,7 +42,7 @@
   display: flex;
   align-items: baseline;
   min-inline-size: 0;
-  gap: 12px;
+  gap: var(--lumen-space-12);
   flex: 1 1 auto;
 }
 .hbar-observability-record-label > :first-child {
@@ -60,8 +60,8 @@
 .hbar-observability-record .hbar-lumen-disclosure-content {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding-block-end: 12px;
+  gap: var(--lumen-space-8);
+  padding-block-end: var(--lumen-space-12);
   min-inline-size: 0;
 }
 .hbar-session-observability :is(p, span, dd) {
@@ -76,12 +76,12 @@
 .hbar-observability-outcomes {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--lumen-space-8);
 }
 .hbar-observability-token-flow,
 .hbar-observability-outcome-bar {
   display: flex;
-  gap: 3px;
+  gap: var(--lumen-space-2);
   min-inline-size: 0;
   overflow: hidden;
   border-radius: var(--lumen-radius-control);
@@ -91,7 +91,7 @@
 .hbar-observability-compression {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--lumen-space-4);
   min-inline-size: 0;
 }
 .hbar-observability-compression > span {

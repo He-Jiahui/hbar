@@ -17,7 +17,7 @@
     align-items: center;
     justify-content: center;
     border: 0.0625rem solid transparent;
-    border-radius: var(--lumen-radius-control, 0.5rem);
+    border-radius: var(--lumen-radius-control, var(--lumen-radius-surface));
     color: var(--lumen-muted);
     cursor: pointer;
     list-style: none;
@@ -35,7 +35,7 @@
   .hbar-mobile-header-menu-content {
     min-inline-size: 0;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: var(--lumen-space-12);
     overflow: auto;
     scrollbar-color: var(--lumen-muted) var(--lumen-reading);
     scrollbar-width: thin;
@@ -49,23 +49,23 @@
   }
 
   .hbar-mobile-header-menu-section {
-    gap: 0.25rem;
+    gap: var(--lumen-space-4);
   }
 
   .hbar-mobile-header-menu-section > strong {
-    padding: 0.25rem 0.5rem;
+    padding: var(--lumen-space-4) var(--lumen-space-8);
     color: var(--lumen-muted);
   }
 
   .hbar-mobile-header-menu-items {
-    gap: 0.125rem;
+    gap: var(--lumen-space-2);
   }
 
   .hbar-mobile-header-menu-item-row {
     display: flex;
     min-inline-size: 0;
     align-items: center;
-    gap: 0.125rem;
+    gap: var(--lumen-space-2);
   }
 
   .hbar-mobile-header-menu-item-row > button:first-child {
@@ -93,13 +93,13 @@
   }
 
   .hbar-mobile-header-menu-content::-webkit-scrollbar-track {
-    border-radius: 0.5rem;
+    border-radius: var(--lumen-radius-surface);
     background: var(--lumen-reading);
   }
 
   .hbar-mobile-header-menu-content::-webkit-scrollbar-thumb {
     border: 0.125rem solid var(--lumen-reading);
-    border-radius: 0.5rem;
+    border-radius: var(--lumen-radius-surface);
     background: var(--lumen-muted);
   }
 }

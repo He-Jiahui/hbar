@@ -9,7 +9,7 @@
 .hbar-resource-file-path {
   overflow-wrap: anywhere;
   margin: 0;
-  padding: 0.5rem;
+  padding: var(--lumen-space-8);
   font-size: var(--hbar-font-size-caption, 0.75rem);
 }
 .hbar-resource-file-editor {

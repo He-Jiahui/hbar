@@ -3,9 +3,9 @@
   flex: 0 0 auto;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--lumen-space-8);
   min-inline-size: 0;
-  padding: 0.625rem 0.875rem;
+  padding: var(--lumen-space-8) var(--lumen-space-12);
   border-block-end: 0.0625rem solid var(--lumen-edge);
   color: var(--lumen-ink);
 }
@@ -19,7 +19,7 @@
   flex: 1 1 16rem;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.25rem 0.75rem;
+  gap: var(--lumen-space-4) var(--lumen-space-12);
   min-inline-size: 0;
   overflow-wrap: anywhere;
 }
