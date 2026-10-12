@@ -18,6 +18,7 @@ export const NODE_LIMITS = Object.freeze({
   frameBytes: 1_048_576,
   inflight: 32,
   fileBytes: 2 * 1024 * 1024,
+  restoreBytes: 32 * 1024 * 1024,
   chunkBytes: 192 * 1024,
   outputBytes: 64 * 1024,
   commandCharacters: 16_000,
@@ -195,6 +196,21 @@ export const nodeWriteReceiptSchema = z.discriminatedUnion('state', [
   z.strictObject({ state: z.literal('buffered'), nextOffset: bytes }),
   z.strictObject({ state: z.literal('settled'), path: nodeRelativePathSchema, revision: digest, created: z.boolean() }),
 ])
+export const nodeRestoreChangesSchema = z
+  .array(
+    z.strictObject({
+      path: nodeRelativePathSchema,
+      before: z.string().max(NODE_LIMITS.fileBytes).nullable(),
+      after: z.string().max(NODE_LIMITS.fileBytes).nullable(),
+      created: z.boolean().optional(),
+    }),
+  )
+  .min(1)
+  .max(256)
+export const nodeRestoreReceiptSchema = z.discriminatedUnion('state', [
+  z.strictObject({ state: z.literal('buffered'), nextOffset: z.number().int().min(0).max(NODE_LIMITS.restoreBytes) }),
+  z.strictObject({ state: z.literal('settled'), accepted: z.literal(true) }),
+])
 const page = z.strictObject({ limit: z.number().int().min(1).max(100).default(50), cursor: entityId.optional() })
 const sessionInput = z.strictObject({ sessionId: entityId })
 export const nodeAuditEntrySchema = z.strictObject({
@@ -349,19 +365,21 @@ export const nodeWorkspaceMethods = {
     input: scoped.extend({
       operationId,
       authority: nodeCallAuthoritySchema,
-      changes: z
-        .array(
-          z.strictObject({
-            path: nodeRelativePathSchema,
-            before: z.string().max(NODE_LIMITS.chunkBytes).nullable(),
-            after: z.string().max(NODE_LIMITS.chunkBytes).nullable(),
-            created: z.boolean().optional(),
-          }),
-        )
-        .min(1)
-        .max(64),
+      changes: nodeRestoreChangesSchema,
     }),
     output: acknowledgement,
+  },
+  'fs.restore.chunk': {
+    input: scoped.extend({
+      operationId,
+      authority: nodeCallAuthoritySchema,
+      contentDigest: digest,
+      offset: z.number().int().min(0).max(NODE_LIMITS.restoreBytes),
+      totalBytes: z.number().int().min(1).max(NODE_LIMITS.restoreBytes),
+      data: base64,
+      final: z.boolean(),
+    }),
+    output: nodeRestoreReceiptSchema,
   },
   'query.search': {
     input: scoped.extend({

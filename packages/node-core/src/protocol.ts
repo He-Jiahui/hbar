@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
-import { NODE_LIMITS, nodeWorkspaceMethods } from '@hbar/contracts/node'
+import { NODE_LIMITS, nodeWorkspaceMethods, nodeRestoreChangesSchema } from '@hbar/contracts/node'
 import { canonicalSandboxJSON } from '@hbar/sandbox'
 import { toolFileChangeSchema } from '@hbar/contracts/run-file-changes'
 import { boundedNodeResult } from '@hbar/contracts/node-output'
@@ -45,18 +45,12 @@ export class WorkspaceNodeProtocol {
       done: offset + bytes.byteLength === data.byteLength,
     }
   }
-  private async write(value: unknown) {
-    const input = nodeWorkspaceMethods['fs.write'].input.parse(value)
+  private buffer(
+    input: { operationId: string; offset: number; totalBytes: number; data: string; final: boolean },
+    metadata: string,
+    maximumBytes: number,
+  ) {
     this.prune()
-    await this.node.checkFile(input.rootId, input.path, input.authority, true)
-    const metadata = canonicalSandboxJSON({
-      rootId: input.rootId,
-      expectedRoot: input.expectedRoot ?? null,
-      path: input.path,
-      authority: input.authority,
-      totalBytes: input.totalBytes,
-      expectedRevision: input.expectedRevision ?? null,
-    })
     const bytes = Buffer.from(input.data, 'base64')
     if (bytes.length > NODE_LIMITS.chunkBytes || input.offset + bytes.length > input.totalBytes)
       throw new HbarError('NODE_TRANSFER_OFFSET', 'Write chunk exceeds its declared size')
@@ -66,7 +60,7 @@ export class WorkspaceNodeProtocol {
     if (!transfer) {
       if (input.offset !== 0)
         throw new HbarError('NODE_TRANSFER_OFFSET', 'Restart the transfer at offset zero or reconcile its file receipt')
-      if (this.transfers.size >= 32 || this.transferBytes + input.totalBytes > 16 * 1024 * 1024)
+      if (this.transfers.size >= 32 || this.transferBytes + input.totalBytes > maximumBytes)
         throw new HbarError('NODE_BUSY', 'Node file transfer capacity reached')
       transfer = { metadata, bytes: Buffer.alloc(input.totalBytes), offset: 0, lastAt: Date.now() }
       this.transfers.set(input.operationId, transfer)
@@ -81,7 +75,7 @@ export class WorkspaceNodeProtocol {
       )
         throw new HbarError('IDEMPOTENCY_CONFLICT', 'Repeated file chunk contains different bytes')
       if (!input.final || transfer.offset !== input.totalBytes)
-        return { state: 'buffered', nextOffset: transfer.offset }
+        return { state: 'buffered' as const, nextOffset: transfer.offset }
     } else {
       if (input.offset !== transfer.offset)
         throw new HbarError('NODE_TRANSFER_OFFSET', 'Write chunks must be contiguous')
@@ -89,16 +83,34 @@ export class WorkspaceNodeProtocol {
       transfer.offset += bytes.length
     }
     transfer.lastAt = Date.now()
-    if (!input.final) return { state: 'buffered', nextOffset: transfer.offset }
+    if (!input.final) return { state: 'buffered' as const, nextOffset: transfer.offset }
     if (transfer.offset !== input.totalBytes)
       throw new HbarError('NODE_TRANSFER_OFFSET', 'Final chunk does not complete the transfer')
     this.remove(input.operationId)
-    let text: string
+    return transfer.bytes
+  }
+  private decode(bytes: Uint8Array): string {
     try {
-      text = new TextDecoder('utf-8', { fatal: true }).decode(transfer.bytes)
+      return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes)
     } catch {
-      throw new HbarError('INVALID_INPUT', 'Node file writes require valid UTF-8 text')
+      throw new HbarError('INVALID_INPUT', 'Node file transfers require valid UTF-8 text')
     }
+  }
+  private async write(value: unknown) {
+    const input = nodeWorkspaceMethods['fs.write'].input.parse(value)
+    await this.node.checkFile(input.rootId, input.path, input.authority, true)
+    const metadata = canonicalSandboxJSON({
+      kind: 'write',
+      rootId: input.rootId,
+      expectedRoot: input.expectedRoot ?? null,
+      path: input.path,
+      authority: input.authority,
+      totalBytes: input.totalBytes,
+      expectedRevision: input.expectedRevision ?? null,
+    })
+    const buffered = this.buffer(input, metadata, 16 * 1024 * 1024)
+    if (!Buffer.isBuffer(buffered)) return buffered
+    const text = this.decode(buffered)
     const versions = await this.node.write(
       input.rootId,
       input.path,
@@ -108,6 +120,38 @@ export class WorkspaceNodeProtocol {
       input.expectedRevision,
     )
     return { state: 'settled', path: versions.path, revision: versions.revision, created: versions.created }
+  }
+  private async restoreChunk(value: unknown, signal: AbortSignal) {
+    const input = nodeWorkspaceMethods['fs.restore.chunk'].input.parse(value)
+    await this.node.canonicalize(input.rootId, ['.'])
+    const metadata = canonicalSandboxJSON({
+      kind: 'restore',
+      rootId: input.rootId,
+      expectedRoot: input.expectedRoot ?? null,
+      authority: input.authority,
+      totalBytes: input.totalBytes,
+      contentDigest: input.contentDigest,
+    })
+    const buffered = this.buffer(input, metadata, NODE_LIMITS.restoreBytes)
+    if (!Buffer.isBuffer(buffered)) return buffered
+    if (createHash('sha256').update(buffered).digest('hex') !== input.contentDigest)
+      throw new HbarError('NODE_TRANSFER_DIGEST', 'Restore content does not match its declared digest')
+    let valueOfChanges: unknown
+    try {
+      valueOfChanges = JSON.parse(this.decode(buffered))
+    } catch {
+      throw new HbarError('INVALID_INPUT', 'Restore content must contain a valid JSON changes array')
+    }
+    const changes = nodeRestoreChangesSchema.parse(valueOfChanges).map((change) =>
+      toolFileChangeSchema.parse({
+        path: change.path,
+        before: change.created ? null : change.before,
+        after: change.after,
+      }),
+    )
+    signal.throwIfAborted()
+    await this.node.restore(input.rootId, input.operationId, input.authority, changes, signal)
+    return { state: 'settled', accepted: true }
   }
   async invoke(method: string, value: unknown, signal: AbortSignal): Promise<unknown> {
     if (this.closed) throw new HbarError('NODE_OFFLINE', 'Node protocol is closed')
@@ -180,6 +224,9 @@ export class WorkspaceNodeProtocol {
         result = { accepted: true }
         break
       }
+      case 'fs.restore.chunk':
+        result = await this.restoreChunk(value, signal)
+        break
       case 'query.search': {
         const input = nodeWorkspaceMethods[method].input.parse(value)
         result = await this.node.search(input.rootId, input.query, input.authority, signal)

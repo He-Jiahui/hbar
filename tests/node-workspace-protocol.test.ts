@@ -321,6 +321,128 @@ test('restore deduplicates exact versions and rejects later edits without replay
     expect(await readFile(join(workspace, 'a.txt'), 'utf8')).toBe('user edit')
   })
 })
+
+test('chunked restore reassembles large UTF-8 versions without effects until completion and never replays settled work', async () => {
+  await fixture(async (node, protocol, workspace) => {
+    const before = '\uFEFF' + '原文'.repeat(150_000),
+      after = '\uFEFF' + '后文'.repeat(180_000)
+    await writeFile(join(workspace, 'large.txt'), after)
+    await writeFile(join(workspace, 'created.txt'), 'created')
+    const bytes = Buffer.from(
+      JSON.stringify([
+        { path: 'large.txt', before, after },
+        { path: 'created.txt', before: null, after: 'created' },
+      ]),
+    )
+    expect(bytes.length).toBeGreaterThan(NODE_LIMITS.frameBytes)
+    const common = {
+      rootId: 'engine',
+      expectedRoot: workspace,
+      authority,
+      operationId: 'run:large-restore',
+      totalBytes: bytes.length,
+      contentDigest: createHash('sha256').update(bytes).digest('hex'),
+    }
+    const upload = async (expectedText: string, alreadySettled = false) => {
+      for (let offset = 0; offset < bytes.length; offset += NODE_LIMITS.chunkBytes) {
+        const chunk = bytes.subarray(offset, offset + NODE_LIMITS.chunkBytes)
+        const final = offset + chunk.length === bytes.length
+        const result = await protocol.invoke(
+          'fs.restore.chunk',
+          {
+            ...common,
+            offset,
+            data: chunk.toString('base64'),
+            final,
+          },
+          signal(),
+        )
+        expect(result).toMatchObject({ state: final ? 'settled' : 'buffered' })
+        if (!final) {
+          expect(await node.receipt(common.operationId)).toMatchObject({ state: alreadySettled ? 'settled' : 'absent' })
+          expect(await readFile(join(workspace, 'large.txt'), 'utf8')).toBe(expectedText)
+        }
+      }
+    }
+    await upload(after)
+    expect(await readFile(join(workspace, 'large.txt'), 'utf8')).toBe(before)
+    expect(await Bun.file(join(workspace, 'created.txt')).exists()).toBe(false)
+    expect(await node.receipt(common.operationId)).toMatchObject({ state: 'settled', result: { isError: false } })
+    await writeFile(join(workspace, 'large.txt'), 'later edit')
+    await upload('later edit', true)
+    expect(await readFile(join(workspace, 'large.txt'), 'utf8')).toBe('later edit')
+  })
+})
+
+test('restore transfer refuses a changed digest and validates every current version before any file mutation', async () => {
+  await fixture(async (node, protocol, workspace) => {
+    await writeFile(join(workspace, 'first.txt'), 'after')
+    await writeFile(join(workspace, 'second.txt'), 'intervening edit')
+    const bytes = Buffer.from(
+      JSON.stringify([
+        { path: 'first.txt', before: 'before', after: 'after' },
+        { path: 'second.txt', before: 'before', after: 'after' },
+      ]),
+    )
+    const input = {
+      rootId: 'engine',
+      expectedRoot: workspace,
+      authority,
+      operationId: 'run:restore-invalid',
+      totalBytes: bytes.length,
+      offset: 0,
+      data: bytes.toString('base64'),
+      final: true,
+      contentDigest: '0'.repeat(64),
+    }
+    const digestError = await protocol.invoke('fs.restore.chunk', input, signal()).catch((error: unknown) => error)
+    expect(digestError).toMatchObject({ code: 'NODE_TRANSFER_DIGEST' })
+    expect(await node.receipt(input.operationId)).toEqual({ state: 'absent' })
+    const versionError = await protocol
+      .invoke(
+        'fs.restore.chunk',
+        {
+          ...input,
+          contentDigest: createHash('sha256').update(bytes).digest('hex'),
+        },
+        signal(),
+      )
+      .catch((error: unknown) => error)
+    expect(versionError).toMatchObject({ code: 'FILE_CONFLICT' })
+    expect(await readFile(join(workspace, 'first.txt'), 'utf8')).toBe('after')
+    expect(await readFile(join(workspace, 'second.txt'), 'utf8')).toBe('intervening edit')
+    expect(await node.receipt(input.operationId)).toMatchObject({ state: 'lost' })
+  })
+})
+
+test('restore buffering shares bounded transfer capacity and releases it on disconnect', async () => {
+  await fixture(async (_node, protocol, workspace) => {
+    const common = {
+      rootId: 'engine',
+      expectedRoot: workspace,
+      authority,
+      operationId: 'run:restore-capacity',
+      totalBytes: NODE_LIMITS.restoreBytes,
+      contentDigest: 'a'.repeat(64),
+      offset: 0,
+      data: '',
+      final: false,
+    }
+    expect(await protocol.invoke('fs.restore.chunk', common, signal())).toEqual({ state: 'buffered', nextOffset: 0 })
+    const capacity = await protocol
+      .invoke('fs.restore.chunk', { ...common, operationId: 'run:extra', totalBytes: 1 }, signal())
+      .catch((error: unknown) => error)
+    expect(capacity).toMatchObject({ code: 'NODE_BUSY' })
+    const mixed = await protocol
+      .invoke('fs.write', writeChunk('file.txt', common.operationId, Buffer.from('x'), 1, 0, true), signal())
+      .catch((error: unknown) => error)
+    expect(mixed).toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' })
+    protocol.resetTransfers()
+    expect(
+      await protocol.invoke('fs.restore.chunk', { ...common, operationId: 'run:extra', totalBytes: 1 }, signal()),
+    ).toEqual({ state: 'buffered', nextOffset: 0 })
+  })
+})
 test('oversized ranged query results have a recoverable error while chunked file reading remains available', async () => {
   await fixture(async (_node, protocol, workspace) => {
     await writeFile(join(workspace, 'large.txt'), 'x'.repeat(NODE_LIMITS.frameBytes + 10))
