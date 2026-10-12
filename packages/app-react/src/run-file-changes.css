@@ -101,7 +101,6 @@
 .hbar-run-file-change-path-text {
   min-inline-size: 0;
   overflow-wrap: anywhere;
-  white-space: normal;
 }
 .hbar-run-file-change-prefix {
   color: var(--lumen-muted);
