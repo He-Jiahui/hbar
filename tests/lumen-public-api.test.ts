@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import * as workbench from '@lumen/app-ui'
 import * as catalog from '@lumen/app-ui/catalog'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import postcss from 'postcss'
 
@@ -19,7 +19,7 @@ test('the root API provides workbench controls and isolates optional reference f
 test('workbench and catalog styles have independent public exports and import graphs', () => {
   const directory = resolve(import.meta.dirname, '../packages/lumen-app-ui')
   const manifest = JSON.parse(readFileSync(resolve(directory, 'package.json'), 'utf8')) as {
-    exports: Record<string, string>
+    exports: Record<string, string> & { './catalog/styles.css': string }
     publishConfig: { exports: Record<string, unknown> }
   }
   expect(manifest.publishConfig.exports['./styles.css']).not.toBe(
@@ -37,5 +37,6 @@ test('workbench and catalog styles have independent public exports and import gr
   visit(resolve(directory, manifest.exports['./styles.css']!))
   expect([...visited].filter((path) => /[\\/](?:authentication|billing|kanban|paywall)/.test(path))).toEqual([])
   expect(manifest.exports['./catalog/styles.css']).toBeDefined()
+  expect(existsSync(resolve(directory, manifest.exports['./catalog/styles.css']))).toBe(true)
   expect(Object.keys(manifest.publishConfig.exports).sort()).toEqual(Object.keys(manifest.exports).sort())
 })

@@ -42,7 +42,7 @@ test('panel appearance changes only chrome, retaining shared modal semantics, ti
   expect(markup).not.toContain('role="separator"')
   expect(markup).not.toContain('<filter')
   expect(markup).toContain('真实路径不变')
-  expect(markup).toContain('<footer>宿主操作</footer>')
+  expect(markup).toMatch(/<footer\b[^>]*\bdata-lumen-part="dialog\.footer"[^>]*>宿主操作<\/footer>/)
   expect(markup).toContain('aria-label="关闭"')
 })
 
