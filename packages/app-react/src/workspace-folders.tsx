@@ -19,6 +19,7 @@ import { workspaceFoldersClientCommands, type WorkspaceFoldersState } from '@hba
 import { WORKSPACE_FOLDER_LIMIT } from '@hbar/contracts/commands/workspace-folders'
 import { HbarActionIconButton } from './action-icon-button'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
+import { WorkspaceFoldersMessagesProvider, useWorkspaceFoldersMessages } from './workspace-shell-messages'
 import './workspace-folders.css'
 import './workspace-folder-flow.css'
 
@@ -115,13 +116,21 @@ export interface WorkspaceFoldersDialogProps {
   ) => void
 }
 
-export function WorkspaceFoldersDialog({
+export function WorkspaceFoldersDialog(props: WorkspaceFoldersDialogProps) {
+  return (
+    <WorkspaceFoldersMessagesProvider messages={props.labels}>
+      <WorkspaceFoldersDialogView {...props} />
+    </WorkspaceFoldersMessagesProvider>
+  )
+}
+
+function WorkspaceFoldersDialogView({
   state,
-  labels,
   connected,
   execute,
   unexpectedFailure,
 }: WorkspaceFoldersDialogProps) {
+  const { t } = useWorkspaceFoldersMessages()
   const id = useId()
   const locked = state.requestInFlight || ['saving', 'unknown', 'checking'].includes(state.status)
   const disabled = !connected || locked || state.status === 'loading'
@@ -140,14 +149,14 @@ export function WorkspaceFoldersDialog({
       open
       appearance="panel"
       size="medium"
-      title={browsing ? labels.browse : state.workspaceId ? labels.manage : labels.create}
-      closeLabel={labels.cancel}
+      title={browsing ? t('browse') : state.workspaceId ? t('manage') : t('create')}
+      closeLabel={t('cancel')}
       onClose={() => intent('workspaceFolders.close')}
       className="hbar-workspace-folders-dialog"
       footer={
         <LumenFrame className="hbar-workspace-folders-actions">
           <LumenButton variant="text" indicator="none" onClick={() => intent('workspaceFolders.close')}>
-            {state.status === 'saved' ? labels.done : labels.cancel}
+            {state.status === 'saved' ? t('done') : t('cancel')}
           </LumenButton>
           {browsing ? (
             <>
@@ -157,13 +166,13 @@ export function WorkspaceFoldersDialog({
                 disabled={locked}
                 onClick={() => intent('workspaceFolders.back')}
               >
-                {labels.back}
+                {t('back')}
               </LumenButton>
               <LumenButton
                 disabled={disabled || state.selected.length === 0}
                 onClick={() => intent('workspaceFolders.addSelected')}
               >
-                {labels.addSelected}
+                {t('addSelected')}
               </LumenButton>
             </>
           ) : (
@@ -172,7 +181,7 @@ export function WorkspaceFoldersDialog({
                 disabled={disabled || state.folders.length === 0 || Boolean(state.validation)}
                 onClick={() => intent('workspaceFolders.save')}
               >
-                {labels.save}
+                {t('save')}
               </LumenButton>
             )
           )}
@@ -180,8 +189,8 @@ export function WorkspaceFoldersDialog({
       }
     >
       <LumenFrame className="hbar-workspace-folders-body" data-testid="workspace-folders-editor">
-        <LumenContentText context="dialog.body">{browsing ? labels.browserHint : labels.description}</LumenContentText>
-        <LumenFormField controlId={`${id}-path`} label={labels.path} description={labels.pathHint}>
+        <LumenContentText context="dialog.body">{browsing ? t('browserHint') : t('description')}</LumenContentText>
+        <LumenFormField controlId={`${id}-path`} label={t('path')} description={t('pathHint')}>
           <LumenFrame className="hbar-workspace-folder-path-row">
             <LumenInput
               id={`${id}-path`}
@@ -198,11 +207,11 @@ export function WorkspaceFoldersDialog({
             />
             <LumenButton type="button" variant="outlined" indicator="none" disabled={disabled} onClick={() => browse()}>
               <LumenIcon icon={FolderOpen} tier="sm" />
-              {labels.browse}
+              {t('browse')}
             </LumenButton>
             {!browsing && (
               <HbarActionIconButton
-                label={labels.addPath}
+                label={t('addPath')}
                 disabled={disabled || !state.path.trim()}
                 onClick={() => intent('workspaceFolders.addPath')}
               >
@@ -217,9 +226,9 @@ export function WorkspaceFoldersDialog({
               <>
                 <LumenFrame className="hbar-workspace-folder-browser-toolbar">
                   <LumenPopupSelect
-                    aria-label={labels.quickLocations}
+                    aria-label={t('quickLocations')}
                     value={null}
-                    placeholder={labels.quickLocations}
+                    placeholder={t('quickLocations')}
                     disabled={disabled}
                     options={state.page.roots.map((root) => ({ id: root.path, label: root.name }))}
                     onValueChange={(path) => browse(path)}
@@ -231,7 +240,7 @@ export function WorkspaceFoldersDialog({
                     onClick={() => browse(state.page!.parent ?? undefined)}
                   >
                     <LumenIcon icon={ArrowUp} tier="sm" />
-                    {labels.up}
+                    {t('up')}
                   </LumenButton>
                   <LumenButton
                     variant="outlined"
@@ -240,7 +249,7 @@ export function WorkspaceFoldersDialog({
                     aria-pressed={state.selected.includes(state.page.path)}
                     onClick={() => intent('workspaceFolders.toggle', { path: state.page!.path })}
                   >
-                    {labels.selectCurrent}
+                    {t('selectCurrent')}
                   </LumenButton>
                 </LumenFrame>
                 <LumenContentText
@@ -251,7 +260,7 @@ export function WorkspaceFoldersDialog({
                   {state.page.path}
                 </LumenContentText>
                 <LumenTree
-                  label={labels.folders}
+                  label={t('folders')}
                   aria-multiselectable="true"
                   className="hbar-workspace-folder-browser-list"
                   data-testid="workspace-folder-browser"
@@ -268,7 +277,7 @@ export function WorkspaceFoldersDialog({
                       content={
                         <LumenFrame className="hbar-workspace-folder-browser-row">
                           <LumenCheckBoxControl
-                            aria-label={labels.selectFolder(folder.name)}
+                            aria-label={t('selectFolder')(folder.name)}
                             checked={state.selected.includes(folder.path)}
                             disabled={disabled}
                             onChange={() => intent('workspaceFolders.toggle', { path: folder.path })}
@@ -282,7 +291,7 @@ export function WorkspaceFoldersDialog({
                             {folder.name}
                           </LumenContentText>
                           <HbarActionIconButton
-                            label={labels.openFolder(folder.name)}
+                            label={t('openFolder')(folder.name)}
                             disabled={disabled}
                             onClick={() => browse(folder.path)}
                           >
@@ -294,22 +303,22 @@ export function WorkspaceFoldersDialog({
                   ))}
                 </LumenTree>
                 {state.page.items.length === 0 && (
-                  <LumenContentText context="dialog.body">{labels.emptyDirectory}</LumenContentText>
+                  <LumenContentText context="dialog.body">{t('emptyDirectory')}</LumenContentText>
                 )}
                 {state.page.nextCursor && (
                   <LumenButton variant="text" disabled={disabled} onClick={() => browse(state.page!.path, true)}>
-                    {labels.loadMore}
+                    {t('loadMore')}
                   </LumenButton>
                 )}
                 {state.page.scanTruncated && (
                   <LumenContentText context="dialog.body" role="status">
-                    {labels.scanTruncated}
+                    {t('scanTruncated')}
                   </LumenContentText>
                 )}
               </>
             )}
-            <LumenFrame className="hbar-workspace-folder-selection" aria-label={labels.selected(state.selected.length)}>
-              <LumenContentText context="popover.title">{labels.selected(state.selected.length)}</LumenContentText>
+            <LumenFrame className="hbar-workspace-folder-selection" aria-label={t('selected')(state.selected.length)}>
+              <LumenContentText context="popover.title">{t('selected')(state.selected.length)}</LumenContentText>
               {state.selected.map((path) => (
                 <LumenButton
                   key={path}
@@ -318,7 +327,7 @@ export function WorkspaceFoldersDialog({
                   indicator="none"
                   title={path}
                   disabled={disabled}
-                  aria-label={labels.selectFolder(path)}
+                  aria-label={t('selectFolder')(path)}
                   onClick={() => intent('workspaceFolders.toggle', { path })}
                 >
                   <LumenContentText context="control.label" className="hbar-workspace-folder-selection-name">
@@ -335,14 +344,14 @@ export function WorkspaceFoldersDialog({
         ) : (
           <>
             <LumenFrame className="hbar-workspace-folders-heading">
-              <LumenContentText context="popover.title">{labels.folders}</LumenContentText>
+              <LumenContentText context="popover.title">{t('folders')}</LumenContentText>
               <LumenContentText context="record.description">
-                {labels.count(state.folders.length, WORKSPACE_FOLDER_LIMIT)}
+                {t('count')(state.folders.length, WORKSPACE_FOLDER_LIMIT)}
               </LumenContentText>
             </LumenFrame>
-            <LumenContentText context="dialog.body">{labels.aliasHint}</LumenContentText>
-            {state.folders.length === 0 && <LumenContentText context="dialog.body">{labels.empty}</LumenContentText>}
-            <LumenCollection as="ol" className="hbar-workspace-folder-list" aria-label={labels.folders}>
+            <LumenContentText context="dialog.body">{t('aliasHint')}</LumenContentText>
+            {state.folders.length === 0 && <LumenContentText context="dialog.body">{t('empty')}</LumenContentText>}
+            <LumenCollection as="ol" className="hbar-workspace-folder-list" aria-label={t('folders')}>
               {state.folders.map((folder, index) => (
                 <LumenCollectionItem
                   as="li"
@@ -353,31 +362,31 @@ export function WorkspaceFoldersDialog({
                   <LumenFrame className="hbar-workspace-folder-header">
                     <LumenIcon icon={Folder} tier="sm" />
                     <LumenContentText context="popover.title" title={folder.alias}>
-                      {labels.folderCaption(folder.alias || labels.alias)}
+                      {t('folderCaption')(folder.alias || t('alias'))}
                     </LumenContentText>
                     {index === 0 && (
                       <LumenContentText context="record.description" className="hbar-workspace-folder-primary">
-                        {labels.primary}
+                        {t('primary')}
                       </LumenContentText>
                     )}
                     <LumenFrame className="hbar-workspace-folder-priority">
                       <HbarActionIconButton
-                        label={labels.moveUp}
+                        label={t('moveUp')}
                         disabled={disabled || index === 0}
                         onClick={() => intent('workspaceFolders.move', { id: folder.id, direction: 'up' })}
                       >
                         <LumenIcon icon={ArrowUp} tier="sm" />
                       </HbarActionIconButton>
                       <HbarActionIconButton
-                        label={labels.moveDown}
+                        label={t('moveDown')}
                         disabled={disabled || index === state.folders.length - 1}
                         onClick={() => intent('workspaceFolders.move', { id: folder.id, direction: 'down' })}
                       >
                         <LumenIcon icon={ArrowDown} tier="sm" />
                       </HbarActionIconButton>
                       <HbarActionIconButton
-                        label={labels.remove}
-                        title={labels.removeHint}
+                        label={t('remove')}
+                        title={t('removeHint')}
                         disabled={disabled}
                         onClick={() => intent('workspaceFolders.remove', { id: folder.id })}
                       >
@@ -386,7 +395,7 @@ export function WorkspaceFoldersDialog({
                     </LumenFrame>
                   </LumenFrame>
                   <LumenFrame className="hbar-workspace-folder-fields">
-                    <LumenFormField controlId={`${id}-${folder.id}-alias`} label={labels.alias}>
+                    <LumenFormField controlId={`${id}-${folder.id}-alias`} label={t('alias')}>
                       <LumenInput
                         id={`${id}-${folder.id}-alias`}
                         value={folder.alias}
@@ -401,7 +410,7 @@ export function WorkspaceFoldersDialog({
                         }
                       />
                     </LumenFormField>
-                    <LumenFormField controlId={`${id}-${folder.id}-path`} label={labels.path}>
+                    <LumenFormField controlId={`${id}-${folder.id}-path`} label={t('path')}>
                       <LumenInput
                         id={`${id}-${folder.id}-path`}
                         value={folder.path}
@@ -425,39 +434,39 @@ export function WorkspaceFoldersDialog({
               <LumenButton
                 variant="text"
                 indicator="none"
-                title={labels.refreshHint}
+                title={t('refreshHint')}
                 disabled={disabled}
                 onClick={() => intent('workspaceFolders.refresh')}
               >
-                {labels.refresh}
+                {t('refresh')}
               </LumenButton>
             )}
-            <LumenContentText context="dialog.body">{labels.removeHint}</LumenContentText>
+            <LumenContentText context="dialog.body">{t('removeHint')}</LumenContentText>
           </>
         )}
         {!connected && (
           <LumenContentText context="dialog.body" role="alert">
-            {labels.offline}
+            {t('offline')}
           </LumenContentText>
         )}
-        {state.status in labels.status && (
+        {state.status in t('status') && (
           <LumenContentText context="dialog.body" role="status">
-            {labels.status[state.status as keyof typeof labels.status]}
+            {t('status')[state.status as 'loading' | 'saving' | 'checking' | 'unknown' | 'saved']}
           </LumenContentText>
         )}
         {state.validation && (
           <LumenContentText context="dialog.body" role="alert">
-            {labels.validation[state.validation]}
+            {t('validation')[state.validation]}
           </LumenContentText>
         )}
         {state.error && (
           <LumenContentText context="dialog.body" role="alert">
-            {labels.error(state.error)}
+            {t('error')(state.error)}
           </LumenContentText>
         )}
         {unexpectedFailure && (
           <LumenContentText context="dialog.body" role="alert">
-            {labels.unexpectedFailure}
+            {t('unexpectedFailure')}
           </LumenContentText>
         )}
         {state.status === 'unknown' && (
@@ -467,14 +476,14 @@ export function WorkspaceFoldersDialog({
               disabled={!connected || state.requestInFlight}
               onClick={() => intent('workspaceFolders.reconcile')}
             >
-              {labels.reconcile}
+              {t('reconcile')}
             </LumenButton>
             <LumenButton
               variant="text"
               disabled={!connected || state.requestInFlight}
               onClick={() => intent('workspaceFolders.retry')}
             >
-              {labels.retry}
+              {t('retry')}
             </LumenButton>
           </LumenFrame>
         )}

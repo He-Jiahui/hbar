@@ -7,6 +7,7 @@ import {
   LumenFrame,
 } from '@lumen/app-ui'
 import './workspace-tabs.css'
+import { WorkspaceTabsCloseMessagesProvider, useWorkspaceTabsCloseMessages } from './workspace-shell-messages'
 
 export type HbarWorkspaceTabsCloseStatus = 'checking' | 'choice' | 'stopping' | 'unknown' | 'failed'
 export interface HbarWorkspaceTabsCloseLabels {
@@ -29,17 +30,17 @@ export interface HbarWorkspaceTabsCloseDialogProps {
   readonly onStopAndClose: () => void
   readonly onRecheck: () => void
 }
-export function HbarWorkspaceTabsCloseDialog({
-  open,
-  status,
-  targets,
-  error,
-  labels,
-  onCancel,
-  onKeepRunning,
-  onStopAndClose,
-  onRecheck,
-}: HbarWorkspaceTabsCloseDialogProps) {
+export function HbarWorkspaceTabsCloseDialog(props: HbarWorkspaceTabsCloseDialogProps) {
+  return (
+    <WorkspaceTabsCloseMessagesProvider messages={props.labels}>
+      <HbarWorkspaceTabsCloseDialogView props={props} />
+    </WorkspaceTabsCloseMessagesProvider>
+  )
+}
+
+function HbarWorkspaceTabsCloseDialogView({ props }: { readonly props: HbarWorkspaceTabsCloseDialogProps }) {
+  const { t } = useWorkspaceTabsCloseMessages()
+  const { open, status, targets, error, onCancel, onKeepRunning, onStopAndClose, onRecheck } = props
   const busy = status === 'checking' || status === 'stopping'
   const choice = status === 'choice' || status === 'failed'
   const canKeepRunning = choice || status === 'unknown'
@@ -48,29 +49,29 @@ export function HbarWorkspaceTabsCloseDialog({
       open={open}
       size="small"
       className="hbar-workspace-tabs-close-dialog"
-      title={labels.title}
-      closeLabel={labels.cancel}
+      title={t('title')}
+      closeLabel={t('cancel')}
       onClose={() => {
         if (!busy) onCancel()
       }}
       footer={
         <LumenFrame className="hbar-workspace-tabs-close-actions">
           <LumenButton variant="outlined" disabled={busy} onClick={onCancel}>
-            {labels.cancel}
+            {t('cancel')}
           </LumenButton>
           {canKeepRunning && (
             <LumenButton variant="outlined" disabled={targets.length === 0} onClick={onKeepRunning}>
-              {labels.keepRunning}
+              {t('keepRunning')}
             </LumenButton>
           )}
           {choice && (
             <LumenButton tone="danger" disabled={targets.length === 0} onClick={onStopAndClose}>
-              {labels.stopAndClose}
+              {t('stopAndClose')}
             </LumenButton>
           )}
           {status === 'unknown' && (
             <LumenButton disabled={targets.length === 0} onClick={onRecheck}>
-              {labels.recheck}
+              {t('recheck')}
             </LumenButton>
           )}
         </LumenFrame>
@@ -78,13 +79,13 @@ export function HbarWorkspaceTabsCloseDialog({
     >
       <LumenFrame className="hbar-workspace-tabs-close-body" aria-busy={busy || undefined}>
         <LumenContentText context="dialog.body" role="status">
-          {labels.status(status)}
+          {t('status')(status)}
         </LumenContentText>
         <LumenCollection className="hbar-workspace-tabs-close-targets">
           {targets
             .filter((item, index) => targets.findIndex((candidate) => candidate.id === item.id) === index)
             .map((item) => (
-              <LumenCollectionItem key={item.id}>{labels.target(item.title, item.runCount)}</LumenCollectionItem>
+              <LumenCollectionItem key={item.id}>{t('target')(item.title, item.runCount)}</LumenCollectionItem>
             ))}
         </LumenCollection>
         {error && (

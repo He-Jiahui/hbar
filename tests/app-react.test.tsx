@@ -11,6 +11,7 @@ import type {
   WorkspaceSidebarPage,
 } from '@hbar/contracts/sidebar-directory'
 import { SessionNavigationRow } from '../packages/app-react/src/session-navigation-row'
+import { WorkspaceShellMessagesProvider } from '../packages/app-react/src/workspace-shell-messages'
 import { workspaceOrganizationCopy } from '../apps/web/src/workspace-organization-copy'
 import { workspaceSortCopy } from '../apps/web/src/workspace-sort-copy'
 import { workspaceDisplayNamesCopy } from '../apps/web/src/workspace-display-names-copy'
@@ -349,15 +350,16 @@ test('time-view session metadata follows the title and time and keeps host-owned
   try {
     const html = renderToStaticMarkup(
       <HbarRuntimeProvider view={runtime.view}>
-        <SessionNavigationRow
-          session={session}
-          selected={false}
-          connected
-          labels={labels}
-          now={4}
-          onOpen={() => {}}
-          metadata={{ workspaceName: '宿主工程名', execution: { state: 'waiting_approval', label: '等待授权' } }}
-        />
+        <WorkspaceShellMessagesProvider labels={labels} mobileNavigationLabel="导航">
+          <SessionNavigationRow
+            session={session}
+            selected={false}
+            connected
+            now={4}
+            onOpen={() => {}}
+            metadata={{ workspaceName: '宿主工程名', execution: { state: 'waiting_approval', label: '等待授权' } }}
+          />
+        </WorkspaceShellMessagesProvider>
       </HbarRuntimeProvider>,
     )
     expect(html.indexOf('需要键盘导航的会话')).toBeLessThan(html.indexOf('完整更新时间 3'))

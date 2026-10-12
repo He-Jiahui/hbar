@@ -17,11 +17,12 @@ import { WorkspaceShellIcon } from './workspace-shell-icons'
 import { memo } from 'react'
 import type { WorkspaceSidebarProps } from './workspace-shell-contract'
 import type { useWorkspaceSidebar } from './workspace-sidebar-model'
+import { useWorkspaceProjectTreeMessages } from './workspace-shell-messages'
 export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
   props,
   model,
 }: {
-  readonly props: WorkspaceSidebarProps
+  readonly props: Pick<WorkspaceSidebarProps, 'connection' | 'bridge'>
   readonly model: Pick<
     ReturnType<typeof useWorkspaceSidebar>,
     | 'directory'
@@ -80,6 +81,7 @@ export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
     | 'openSession'
   >
 }) {
+  const { t: tTree } = useWorkspaceProjectTreeMessages()
   const {
     directory,
     workspacePins,
@@ -136,7 +138,7 @@ export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
       as="nav"
       ref={sidebarTreeRef}
       className="hbar-app-react-project-tree"
-      label={timeView ? props.labels.sort.time.title : props.labels.projectsAndSessions}
+      label={timeView ? tTree('sort').time.title : tTree('projectsAndSessions')}
       data-sidebar-organization={workspaceActivity.organization}
       aria-multiselectable={batchSelecting || undefined}
     >
@@ -144,12 +146,12 @@ export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
         <>
           {timelineItems.length === 0 && !workspaceActivity.timeline.error && (
             <LumenContentText context="section.description">
-              {workspaceActivity.timeline.status !== 'ready' ? props.labels.loading : props.labels.noSessions}
+              {workspaceActivity.timeline.status !== 'ready' ? tTree('loading') : tTree('noSessions')}
             </LumenContentText>
           )}
           <SidebarTimeView
             groups={timeGroups}
-            labels={props.labels.sort.time.groups}
+            labels={tTree('sort').time.groups}
             projectExpanded={(projectId) => expanded.has(projectId)}
             onProjectExpandedChange={(projectId, value) =>
               setExpanded((current) => {
@@ -184,16 +186,14 @@ export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
                   session={session}
                   showLoadFeedback={false}
                   childCount={item.agentChildCount ?? 0}
-                  treeLabels={props.labels.agentTree}
                   connected={connected}
-                  labels={props.labels}
                   now={sessionTimeNow}
                   metadata={{
                     workspaceName: item.displayName,
                     workspacePath: directory.workspaces[item.workspaceId]?.path,
                     execution: {
                       state: item.execution.state,
-                      label: props.labels.sort.time.execution[item.execution.state],
+                      label: tTree('sort').time.execution[item.execution.state],
                     },
                   }}
                   batchSelecting={batchSelecting}
@@ -210,7 +210,7 @@ export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
           />
           {workspaceActivity.timeline.limitReached && (
             <LumenContentText context="feedback.message" role="status">
-              {props.labels.sort.sessionCapacityReached}
+              {tTree('sort').sessionCapacityReached}
             </LumenContentText>
           )}
           {workspaceActivity.timeline.hasMore && (
@@ -224,7 +224,7 @@ export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
               }
               onClick={() => void execute('workspaceActivity.loadMore', { scope: 'timeline' }).catch(() => {})}
             >
-              {props.labels.loadMore}
+              {tTree('loadMore')}
             </LumenButton>
           )}
         </>
@@ -235,10 +235,10 @@ export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
         !workspaceActivity.workspaces.error && (
           <LumenContentText context="section.description">
             {workspaceActivity.workspaces.status !== 'ready'
-              ? props.labels.loading
+              ? tTree('loading')
               : hiddenWorkspaceIds.length
-                ? props.labels.organization.allHidden
-                : props.labels.noWorkspaces}
+                ? tTree('organization').allHidden
+                : tTree('noWorkspaces')}
           </LumenContentText>
         )}
       {!timeView &&
@@ -281,58 +281,58 @@ export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
                       <LumenContentText
                         context="message.inline"
                         className="hbar-app-react-workspace-pin"
-                        title={props.labels.pinnedWorkspace(displayName)}
+                        title={tTree('pinnedWorkspace')(displayName)}
                       >
                         <WorkspaceShellIcon name="pin" tier="sm" />
                       </LumenContentText>
                     )}
                   </LumenFrame>
                   <WorkspaceProjectMenu
-                    label={props.labels.workspaceActions(displayName)}
+                    label={tTree('workspaceActions')(displayName)}
                     items={[
                       {
                         id: 'edit',
-                        label: props.labels.displayNames.title,
+                        label: tTree('displayNames').title,
                         disabled:
                           displayNames.status === 'unavailable' ||
                           (displayNameBusy && displayNames.editor?.workspaceId !== workspace.id),
                       },
-                      { id: 'files', label: props.labels.workspaceFiles },
-                      { id: 'run-board', label: props.labels.workspaceRunBoard, disabled: !connected },
-                      { id: 'folders', label: props.labels.workspaceFolders.manage, disabled: !connected },
-                      { id: 'settings', label: props.labels.workspaceSettings },
+                      { id: 'files', label: tTree('workspaceFiles') },
+                      { id: 'run-board', label: tTree('workspaceRunBoard'), disabled: !connected },
+                      { id: 'folders', label: tTree('workspaceFolders').manage, disabled: !connected },
+                      { id: 'settings', label: tTree('workspaceSettings') },
                       {
                         id: 'pin',
-                        label: isPinned ? props.labels.unpinWorkspace : props.labels.pinWorkspace,
+                        label: isPinned ? tTree('unpinWorkspace') : tTree('pinWorkspace'),
                         disabled: pinBusy || workspacePins.status !== 'ready',
                       },
                       ...(manualProjectView
                         ? [
                             {
                               id: 'move-up',
-                              label: props.labels.sort.reorder.moveUp,
+                              label: tTree('sort').reorder.moveUp,
                               disabled: !projectReorderEnabled || !previousProject,
                             },
                             {
                               id: 'move-down',
-                              label: props.labels.sort.reorder.moveDown,
+                              label: tTree('sort').reorder.moveDown,
                               disabled: !projectReorderEnabled || !nextProject,
                             },
                           ]
                         : []),
                       {
                         id: 'archived',
-                        label: props.labels.archive.openList(displayName),
+                        label: tTree('archive').openList(displayName),
                         disabled: !connected,
                       },
                       {
                         id: 'refresh',
-                        label: props.labels.roster.refreshWorkspace(displayName),
+                        label: tTree('roster').refreshWorkspace(displayName),
                         disabled: !connected || rosterRefresh.entries[workspace.id]?.status === 'loading',
                       },
                       {
                         id: 'hide',
-                        label: props.labels.organization.hide,
+                        label: tTree('organization').hide,
                         disabled: !organizationCanWrite,
                       },
                     ]}
@@ -354,7 +354,7 @@ export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
                   />
                   <HbarActionIconButton
                     className="hbar-app-react-project-new-session"
-                    label={props.labels.createSessionInWorkspace(displayName)}
+                    label={tTree('createSessionInWorkspace')(displayName)}
                     disabled={!connected || navigationBlocked}
                     loading={navigationBusy && actionWorkspaceId === workspace.id}
                     onClick={() => newSession(workspace.id)}
@@ -363,7 +363,7 @@ export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
                   </HbarActionIconButton>
                 </LumenFrame>
               }
-              aria-description={manualProjectView ? props.labels.sort.reorder.dragHint(displayName) : undefined}
+              aria-description={manualProjectView ? tTree('sort').reorder.dragHint(displayName) : undefined}
               afterContent={
                 <>
                   <SessionRosterFeedback
@@ -372,21 +372,20 @@ export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
                         ? undefined
                         : rosterRefresh.entries[workspace.id]
                     }
-                    labels={props.labels.roster}
+                    labels={tTree('roster')}
                     connected={connected}
                     onRefresh={() => refreshProjectSessions(workspace.id)}
                   />
                   {actionWorkspaceId === workspace.id && (
                     <NavigationActionFeedback
                       state={navigationAction}
-                      labels={props.labels}
                       connected={connected}
                       onReconcile={reconcileNavigationAction}
                     />
                   )}
                   {workspaceActionError?.workspaceId === workspace.id && (
                     <LumenContentText context="feedback.message" role="alert" tone="danger">
-                      {props.labels.error(workspaceActionError.code)}
+                      {tTree('error')(workspaceActionError.code)}
                     </LumenContentText>
                   )}
                   {workspacePins.action.workspaceId === workspace.id && workspacePins.action.status !== 'idle' && (
@@ -402,20 +401,20 @@ export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
                     >
                       <LumenContentText context="section.description">
                         {workspacePins.action.status === 'submitting'
-                          ? props.labels.pinningWorkspace
+                          ? tTree('pinningWorkspace')
                           : workspacePins.action.status === 'unknown'
-                            ? props.labels.pinUnknown
+                            ? tTree('pinUnknown')
                             : workspacePins.action.status === 'failed'
-                              ? props.labels.pinFailure(workspacePins.action.error ?? 'UNKNOWN')
+                              ? tTree('pinFailure')(workspacePins.action.error ?? 'UNKNOWN')
                               : workspacePins.action.persisted
                                 ? isPinned
-                                  ? props.labels.pinSaved
-                                  : props.labels.pinRemoved
-                                : props.labels.pinVolatile}
+                                  ? tTree('pinSaved')
+                                  : tTree('pinRemoved')
+                                : tTree('pinVolatile')}
                       </LumenContentText>
                       {workspacePins.action.status === 'unknown' && (
                         <LumenButton size="s" variant="outlined" onClick={() => checkWorkspacePin(workspace.id)}>
-                          {props.labels.pinCheck}
+                          {tTree('pinCheck')}
                         </LumenButton>
                       )}
                     </LumenFrame>
@@ -423,7 +422,7 @@ export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
                   <ArchivedSessions
                     workspaceId={workspace.id}
                     workspaceName={displayName}
-                    labels={props.labels.archive}
+                    labels={tTree('archive')}
                     connected={connected}
                   />
                 </>
@@ -432,9 +431,9 @@ export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
               {isExpanded && (
                 <LumenFrame className="hbar-app-react-session-list" data-sidebar-level="parent-sessions">
                   {(!activitySessions || activitySessions.status === 'loading') && sessions.length === 0 ? (
-                    <LumenContentText context="section.description">{props.labels.loading}</LumenContentText>
+                    <LumenContentText context="section.description">{tTree('loading')}</LumenContentText>
                   ) : sessions.length === 0 && !activitySessions?.error ? (
-                    <LumenContentText context="section.description">{props.labels.noSessions}</LumenContentText>
+                    <LumenContentText context="section.description">{tTree('noSessions')}</LumenContentText>
                   ) : (
                     sessions.map((session) => {
                       const execution = activitySessions?.execution[session.id]
@@ -449,15 +448,13 @@ export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
                               ? agentTree.revealedRoot.agentChildCount
                               : 0)
                           }
-                          treeLabels={props.labels.agentTree}
                           connected={props.connection === 'connected'}
-                          labels={props.labels}
                           now={sessionTimeNow}
                           execution={
                             execution
                               ? {
                                   state: execution.state,
-                                  label: props.labels.sort.time.execution[execution.state],
+                                  label: tTree('sort').time.execution[execution.state],
                                 }
                               : undefined
                           }
@@ -475,7 +472,7 @@ export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
                   )}
                   {activitySessions?.limitReached && (
                     <LumenContentText context="feedback.message" role="status">
-                      {props.labels.sort.sessionCapacityReached}
+                      {tTree('sort').sessionCapacityReached}
                     </LumenContentText>
                   )}
                   {activitySessions?.hasMore && (
@@ -487,7 +484,7 @@ export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
                       disabled={!connected || activitySessions.status === 'loading' || activitySessions.limitReached}
                       onClick={() => void loadSessions(workspace.id, true)}
                     >
-                      {props.labels.loadMore}
+                      {tTree('loadMore')}
                     </LumenButton>
                   )}
                 </LumenFrame>
@@ -497,7 +494,7 @@ export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
         })}
       {!timeView && workspaceActivity.workspaces.limitReached && (
         <LumenContentText context="feedback.message" role="status">
-          {props.labels.sort.capacityReached}
+          {tTree('sort').capacityReached}
         </LumenContentText>
       )}
       {!timeView && workspaceActivity.workspaces.hasMore && (
@@ -515,7 +512,7 @@ export const WorkspaceProjectTree = memo(function WorkspaceProjectTree({
             })
           }}
         >
-          {props.labels.loadMore}
+          {tTree('loadMore')}
         </LumenButton>
       )}
     </LumenTree>

@@ -34,7 +34,13 @@ import { memo } from 'react'
 import type { WorkspaceSidebarProps } from './workspace-shell-contract'
 import { useWorkspaceSidebar } from './workspace-sidebar-model'
 import { WorkspaceProjectTree } from './workspace-project-tree'
+import {
+  useWorkspaceSidebarMessages,
+  useWorkspaceSidebarNavigationMessages,
+} from './workspace-shell-messages'
 export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceSidebarProps) {
+  const { t: tSidebar } = useWorkspaceSidebarMessages()
+  const { t: tNavigation } = useWorkspaceSidebarNavigationMessages()
   const { railCollapsed, sidebarFocusRef, railSearchFocus, error, execute, recordError, setSidebarVisible } =
     props.bridge
   const model = useWorkspaceSidebar(props)
@@ -114,12 +120,12 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
       )
     ) : (
       <LumenActionMenu<'status' | 'schedules' | 'commands'>
-        label={props.labels.more}
+        label={tNavigation('more')}
         labelVisible={!compact}
         items={[
-          { id: 'status', label: props.labels.status },
-          { id: 'schedules', label: props.labels.schedules, disabled: !connected || !navigation.workspaceId },
-          { id: 'commands', label: props.labels.commands },
+          { id: 'status', label: tNavigation('status') },
+          { id: 'schedules', label: tNavigation('schedules'), disabled: !connected || !navigation.workspaceId },
+          { id: 'commands', label: tNavigation('commands') },
         ]}
         onAction={(id) => {
           if (id === 'status') settleNavigation(execute('app.openStatus', { section: 'dashboard' }))
@@ -133,14 +139,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
       slots={{
         drawer: (
           <WorkspaceSidebarRail
-            labels={{
-              navigation: props.labels.projectsAndSessions,
-              expand: props.labels.showSidebar,
-              newSession: props.labels.newSession,
-              search: props.labels.searchChats,
-              settings: props.labels.settings,
-              serverValue: `${props.labels.server} · ${serverValue}`,
-            }}
+            serverValue={serverValue}
             expandRef={sidebarFocusRef}
             connected={connected}
             serverTone={serverTone}
@@ -172,7 +171,6 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
             {!projectPicker && actionWorkspaceId === null && (
               <NavigationActionFeedback
                 state={navigationAction}
-                labels={props.labels}
                 connected={connected}
                 targetName={actionTargetName}
                 onReconcile={reconcileNavigationAction}
@@ -180,7 +178,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
             )}
             {error && (
               <LumenContentText context="feedback.message" role="alert">
-                {props.labels.error(error ?? '')}
+                {tSidebar('error')(error ?? '')}
               </LumenContentText>
             )}
           </WorkspaceSidebarRail>
@@ -190,18 +188,18 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
   ) : (
     <LumenFrame className="hbar-app-react-sidebar-surface">
       <LumenAppSidebar
-        brand={props.labels.brand}
-        title={timeView ? props.labels.sort.time.title : props.labels.projectsAndSessions}
+        brand={tSidebar('brand')}
+        title={timeView ? tSidebar('sort').time.title : tSidebar('projectsAndSessions')}
         emptyLabel={
-          workspaceActivity.workspaces.status === 'loading' ? props.labels.loading : props.labels.noWorkspaces
+          workspaceActivity.workspaces.status === 'loading' ? tSidebar('loading') : tSidebar('noWorkspaces')
         }
-        status={{ label: props.labels.server, value: serverValue, tone: serverTone }}
+        status={{ label: tSidebar('server'), value: serverValue, tone: serverTone }}
         brandAction={
           <LumenFrame className="hbar-app-react-sidebar-brand-actions">
             {props.notificationNavigation}
             <HbarActionIconButton
               ref={sidebarFocusRef}
-              label={props.labels.hideSidebar}
+              label={tSidebar('hideSidebar')}
               onClick={() => setSidebarVisible(false)}
             >
               <WorkspaceShellIcon name="panel-close" />
@@ -212,14 +210,14 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
           <LumenFrame className="hbar-app-react-project-organization-actions">
             <WorkspaceHeaderSortMenu
               menuRef={organizationMenuRef}
-              labels={props.labels.sort}
+              labels={tSidebar('sort')}
               sortBy={workspaceActivity.sortBy}
               pending={['loading', 'saving', 'submitting'].includes(workspaceActivity.preferenceStatus)}
               organization={{
                 mode: workspaceActivity.organization,
                 pending: activityPreferenceBusy,
                 disabled: !connected,
-                labels: props.labels.sort.organization,
+                labels: tSidebar('sort').organization,
                 onChoose: (mode) => {
                   void execute('workspaceActivity.setOrganization', { organization: mode }).catch(recordError)
                 },
@@ -239,7 +237,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
               onRefresh={refreshSidebar}
             />
             <HbarActionIconButton
-              label={props.labels.openWorkspace}
+              label={tSidebar('openWorkspace')}
               disabled={!connected || navigationBlocked}
               onClick={openWorkspace}
             >
@@ -251,8 +249,6 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
           <WorkspaceSidebarFooter
             feedback={connected && props.sidebarFeedback}
             secondaryNavigation={secondaryNavigation(false)}
-            settings={props.labels.settings}
-            settingsShortcut={props.labels.settingsShortcut}
             settingsSelected={presentation.page.kind === 'settings'}
             onSettings={() => settleNavigation(execute('app.openSettings', { scope: 'global' }))}
           />
@@ -261,7 +257,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
         <LumenFrame className="hbar-app-react-sidebar-primary" data-sidebar-session-actions="true">
           <WorkspaceSidebarAction
             icon="plus"
-            label={props.labels.newSession}
+            label={tSidebar('newSession')}
             size="l"
             variant="outlined"
             disabled={!connected || navigationBlocked}
@@ -270,7 +266,6 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
           {!projectPicker && actionWorkspaceId === null && (
             <NavigationActionFeedback
               state={navigationAction}
-              labels={props.labels}
               connected={connected}
               targetName={actionTargetName}
               onReconcile={reconcileNavigationAction}
@@ -278,14 +273,14 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
           )}
           <LumenFrame className="hbar-app-react-sidebar-query-actions">
             <SidebarSearchEntry
-              label={props.labels.searchChats}
-              shortcut={props.labels.searchShortcut}
+              label={tSidebar('searchChats')}
+              shortcut={tSidebar('searchShortcut')}
               open={presentation.modalInstanceId === 'chat-search'}
               onOpen={() => openPanel('chat-search')}
             />
             <HbarActionIconButton
               className="hbar-app-react-roster-refresh"
-              label={props.labels.roster.refreshExpanded}
+              label={tSidebar('roster').refreshExpanded}
               loading={rosterBusy}
               disabled={!connected || visibleExpanded.size === 0 || rosterBusy}
               onClick={() => refreshProjectSessions()}
@@ -295,7 +290,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
             <HbarActionIconButton
               ref={batchToolbarRef}
               className="hbar-app-react-session-batch-mode"
-              label={props.labels.archiveBatch.enter}
+              label={tSidebar('archiveBatch').enter}
               aria-pressed={batchSelecting}
               disabled={
                 sessionArchive.batch.status !== 'idle' ||
@@ -310,7 +305,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
             </HbarActionIconButton>
           </LumenFrame>
           <SessionArchiveBatchPanel
-            labels={props.labels.archiveBatch}
+            labels={tSidebar('archiveBatch')}
             connected={connected}
             selecting={batchSelecting}
             selectedTargets={batchSelectedTargets}
@@ -325,7 +320,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
           />
           {batchLimitReached && batchSelecting && (
             <LumenContentText context="feedback.message" role="status" className="hbar-app-react-sidebar-action-error">
-              {props.labels.archiveBatch.maximumReached(SESSION_ARCHIVE_BATCH_MAX_ITEMS)}
+              {tSidebar('archiveBatch').maximumReached(SESSION_ARCHIVE_BATCH_MAX_ITEMS)}
             </LumenContentText>
           )}
         </LumenFrame>
@@ -350,10 +345,10 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
             timeView={timeView}
             connected={connected}
             labels={{
-              error: props.labels.error,
-              refresh: props.labels.sort.refresh,
-              roster: props.labels.roster,
-              agents: props.labels.agentTree,
+              error: tSidebar('error'),
+              refresh: tSidebar('sort').refresh,
+              roster: tSidebar('roster'),
+              agents: tSidebar('agentTree'),
             }}
             onRefreshRoster={refreshProjectSessions}
             onRefreshSessions={(workspaceId) => void loadSessions(workspaceId)}
@@ -366,14 +361,14 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
             <WorkspaceDisplayNameFeedback
               state={displayNames}
               connected={connected}
-              labels={props.labels.displayNames}
+              labels={tSidebar('displayNames')}
               onOpen={editWorkspace}
               onRefresh={() => execute('workspaceAlias.refresh', {}).then(() => undefined)}
               onReconcile={() => execute('workspaceAlias.reconcile', {}).then(() => undefined)}
             />
             <WorkspaceOrganizationFeedback
               state={organization}
-              labels={props.labels.organization}
+              labels={tSidebar('organization')}
               targetName={organizationTargetName}
               connected={connected}
               onRefresh={refreshOrganization}
@@ -382,7 +377,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
             {agentTree.revealError && (
               <LumenFrame className="hbar-app-react-organization-feedback" role="alert">
                 <LumenContentText context="section.description">
-                  {props.labels.agentTree.error(agentTree.revealError)}
+                  {tSidebar('agentTree').error(agentTree.revealError)}
                 </LumenContentText>
                 {navigation.sessionId && (
                   <LumenButton
@@ -394,7 +389,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
                       if (sessionId) void execute('sessionAgentTree.reveal', { sessionId }).catch(recordError)
                     }}
                   >
-                    {props.labels.agentTree.retry}
+                    {tSidebar('agentTree').retry}
                   </LumenButton>
                 )}
               </LumenFrame>
@@ -402,54 +397,54 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
             {workspacePins.status === 'error' && (
               <LumenFrame className="hbar-app-react-pin-feedback" role="alert">
                 <LumenContentText context="section.description">
-                  {props.labels.pinRestoreFailure(workspacePins.error ?? 'UNKNOWN')}
+                  {tSidebar('pinRestoreFailure')(workspacePins.error ?? 'UNKNOWN')}
                 </LumenContentText>
                 <LumenButton size="s" variant="outlined" disabled={!connected} onClick={retryWorkspacePins}>
-                  {props.labels.pinRetryRestore}
+                  {tSidebar('pinRetryRestore')}
                 </LumenButton>
               </LumenFrame>
             )}
             {(!timeView ? workspaceActivity.workspaces.error : workspaceActivity.timeline.error) && (
               <LumenFrame className="hbar-app-react-organization-feedback" role="alert">
                 <LumenContentText context="section.description">
-                  {props.labels.error(
+                  {tSidebar('error')(
                     (!timeView ? workspaceActivity.workspaces.error : workspaceActivity.timeline.error) ?? 'UNKNOWN',
                   )}
                 </LumenContentText>
                 <LumenButton size="s" variant="outlined" disabled={!connected} onClick={refreshSidebar}>
-                  {props.labels.sort.refresh}
+                  {tSidebar('sort').refresh}
                 </LumenButton>
               </LumenFrame>
             )}
             {workspaceActivity.preferenceError && (
               <LumenFrame className="hbar-app-react-organization-feedback" role="alert">
                 <LumenContentText context="section.description">
-                  {props.labels.error(workspaceActivity.preferenceError)}
+                  {tSidebar('error')(workspaceActivity.preferenceError)}
                 </LumenContentText>
                 <LumenButton size="s" variant="outlined" disabled={!connected} onClick={refreshSidebar}>
-                  {props.labels.sort.refresh}
+                  {tSidebar('sort').refresh}
                 </LumenButton>
               </LumenFrame>
             )}
             {workspaceActivity.organizationPreferenceError && (
               <LumenFrame className="hbar-app-react-organization-feedback" role="alert">
                 <LumenContentText context="section.description">
-                  {props.labels.error(workspaceActivity.organizationPreferenceError)}
+                  {tSidebar('error')(workspaceActivity.organizationPreferenceError)}
                 </LumenContentText>
                 <LumenButton size="s" variant="outlined" disabled={!connected} onClick={refreshSidebar}>
-                  {props.labels.sort.refresh}
+                  {tSidebar('sort').refresh}
                 </LumenButton>
               </LumenFrame>
             )}
             {error && (
               <LumenContentText context="feedback.message" role="alert" tone="danger">
-                {props.labels.error(error)}
+                {tSidebar('error')(error)}
               </LumenContentText>
             )}
           </SidebarLoadFeedback>
         </LumenFrame>
-        <SessionRenameRecovery labels={props.labels.renameEditor} connected={props.connection === 'connected'} />
-        <SessionArchiveRecovery labels={props.labels.archive} connected={connected} expandedWorkspaces={expanded} />
+        <SessionRenameRecovery connected={props.connection === 'connected'} />
+        <SessionArchiveRecovery labels={tSidebar('archive')} connected={connected} expandedWorkspaces={expanded} />
       </LumenAppSidebar>
     </LumenFrame>
   )
@@ -459,7 +454,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
         owner={runtime}
         state={displayNames}
         connected={connected}
-        labels={props.labels.displayNames}
+        labels={tSidebar('displayNames')}
         onEdit={(input) => {
           void execute('workspaceAlias.edit', input).catch(() => undefined)
         }}
@@ -475,21 +470,21 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
       {projectPicker && (
         <LumenDialog
           open
-          title={projectPicker === 'create-session' ? props.labels.chooseWorkspace : props.labels.openWorkspace}
-          closeLabel={props.labels.cancel}
+          title={projectPicker === 'create-session' ? tSidebar('chooseWorkspace') : tSidebar('openWorkspace')}
+          closeLabel={tSidebar('cancel')}
           onClose={closeProjectPicker}
           className="hbar-app-react-workspace-picker"
           footer={
             <LumenButton variant="text" disabled={navigationBusy} onClick={closeProjectPicker}>
-              {props.labels.cancel}
+              {tSidebar('cancel')}
             </LumenButton>
           }
         >
-          <LumenContentText context="dialog.body">{props.labels.chooseWorkspaceDescription}</LumenContentText>
+          <LumenContentText context="dialog.body">{tSidebar('chooseWorkspaceDescription')}</LumenContentText>
           <LumenFrame className="hbar-app-react-workspace-picker-list">
             {workspaces.length === 0 ? (
               <LumenContentText context="dialog.body">
-                {loading.has('workspaces') ? props.labels.loading : props.labels.noWorkspaces}
+                {loading.has('workspaces') ? tSidebar('loading') : tSidebar('noWorkspaces')}
               </LumenContentText>
             ) : (
               workspaces.map((workspace, index) => (
@@ -501,7 +496,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
                     disabled={!connected || navigationBlocked}
                     aria-label={
                       projectPicker === 'create-session'
-                        ? props.labels.createSessionInWorkspace(workspaceDisplayName(workspace, displayNames.snapshot))
+                        ? tSidebar('createSessionInWorkspace')(workspaceDisplayName(workspace, displayNames.snapshot))
                         : workspaceDisplayName(workspace, displayNames.snapshot)
                     }
                     onClick={() =>
@@ -520,7 +515,7 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
                     </LumenFrame>
                   </LumenButton>
                   <HbarActionIconButton
-                    label={props.labels.workspaceFolders.manage}
+                    label={tSidebar('workspaceFolders').manage}
                     disabled={!connected || navigationBlocked}
                     onClick={() => openFolders(workspace.id)}
                   >
@@ -535,15 +530,15 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
                 disabled={!connected || loading.has('workspaces') || navigationBlocked}
                 onClick={() => void loadWorkspaces(workspaceCursor)}
               >
-                {props.labels.loadMore}
+                {tSidebar('loadMore')}
               </LumenButton>
             )}
           </LumenFrame>
           <LumenFrame as="form" className="hbar-app-react-workspace-picker-form" onSubmit={addWorkspace}>
             <LumenFormField
               controlId="hbar-workspace-path"
-              label={props.labels.workspacePath}
-              description={props.labels.workspacePathHint}
+              label={tSidebar('workspacePath')}
+              description={tSidebar('workspacePathHint')}
             >
               <LumenFrame className="hbar-workspace-folder-entry-row">
                 <LumenInput
@@ -562,29 +557,28 @@ export const WorkspaceSidebar = memo(function WorkspaceSidebar(props: WorkspaceS
                   onClick={() => openFolders(undefined, workspacePath, true)}
                 >
                   <LumenIcon icon={FolderOpen} tier="sm" />
-                  {props.labels.workspaceFolders.browse}
+                  {tSidebar('workspaceFolders').browse}
                 </LumenButton>
               </LumenFrame>
             </LumenFormField>
             <LumenButton type="submit" disabled={!connected || navigationBlocked || !workspacePath.trim()}>
-              {props.labels.addWorkspace}
+              {tSidebar('addWorkspace')}
             </LumenButton>
           </LumenFrame>
           <NavigationActionFeedback
             state={navigationAction}
-            labels={props.labels}
             connected={connected}
             targetName={actionTargetName}
             onReconcile={reconcileNavigationAction}
           />
           {error && (
             <LumenContentText context="dialog.body" role="alert">
-              {props.labels.error(error)}
+              {tSidebar('error')(error)}
             </LumenContentText>
           )}
         </LumenDialog>
       )}
-      <HbarWorkspaceFoldersDialog labels={props.labels.workspaceFolders} connected={connected} />
+      <HbarWorkspaceFoldersDialog labels={tSidebar('workspaceFolders')} connected={connected} />
     </>
   )
   return (

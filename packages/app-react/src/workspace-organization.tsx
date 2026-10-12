@@ -1,6 +1,7 @@
 import { useEffect, useRef, type KeyboardEvent } from 'react'
 import { LumenContentText, LumenActionMenu, LumenButton, LumenFrame, type LumenActionMenuItem } from '@lumen/app-ui'
 import type { WorkspaceOrganizationState } from '@hbar/app-runtime'
+import { WorkspaceOrganizationMessagesProvider, useWorkspaceOrganizationMessages } from './workspace-shell-messages'
 import './workspace-organization.css'
 
 export interface WorkspaceOrganizationLabels {
@@ -100,21 +101,26 @@ export function WorkspaceProjectMenu({
   )
 }
 
-export function WorkspaceOrganizationFeedback({
-  state,
-  labels,
-  targetName,
-  connected,
-  onRefresh,
-  onReconcile,
-}: {
+type WorkspaceOrganizationFeedbackProps = {
   readonly state: WorkspaceOrganizationState
   readonly labels: WorkspaceOrganizationLabels
   readonly targetName: string | null
   readonly connected: boolean
   readonly onRefresh: () => void
   readonly onReconcile: () => void
-}) {
+}
+
+export function WorkspaceOrganizationFeedback(props: WorkspaceOrganizationFeedbackProps) {
+  return (
+    <WorkspaceOrganizationMessagesProvider messages={props.labels}>
+      <WorkspaceOrganizationFeedbackView props={props} />
+    </WorkspaceOrganizationMessagesProvider>
+  )
+}
+
+function WorkspaceOrganizationFeedbackView({ props }: { readonly props: WorkspaceOrganizationFeedbackProps }) {
+  const { t } = useWorkspaceOrganizationMessages()
+  const { state, targetName, connected, onRefresh, onReconcile } = props
   const { action } = state
   const busy = state.requestInFlight || action.status === 'submitting' || action.status === 'reconciling'
   const uncertain = action.status === 'unknown' || action.status === 'reconciling'
@@ -131,26 +137,26 @@ export function WorkspaceOrganizationFeedback({
   const message =
     action.status === 'submitting'
       ? change?.kind === 'restoreHidden'
-        ? labels.restoring
+        ? t('restoring')
         : change?.hidden
-          ? labels.hiding(targetName)
-          : labels.revealing(targetName)
+          ? t('hiding')(targetName)
+          : t('revealing')(targetName)
       : action.status === 'reconciling'
-        ? labels.checking
+        ? t('checking')
         : action.status === 'unknown'
           ? state.requestInFlight
-            ? labels.waiting
-            : labels.unknown
+            ? t('waiting')
+            : t('unknown')
           : action.status === 'failed'
-            ? labels.failure(action.error ?? 'EXECUTION_FAILED')
+            ? t('failure')(action.error ?? 'EXECUTION_FAILED')
             : action.status === 'succeeded'
               ? !effectCurrent
-                ? labels.saved
+                ? t('saved')
                 : change?.kind === 'restoreHidden'
-                  ? labels.restored
+                  ? t('restored')
                   : change?.hidden
-                    ? labels.hidden(targetName)
-                    : labels.revealed(targetName)
+                    ? t('hidden')(targetName)
+                    : t('revealed')(targetName)
               : null
   const readProblem = state.status === 'error' || state.status === 'offline'
   if (!connected) return null
@@ -167,28 +173,28 @@ export function WorkspaceOrganizationFeedback({
       )}
       {state.status === 'loading' && !message && (
         <LumenContentText context="feedback.message" role="status">
-          {labels.loading}
+          {t('loading')}
         </LumenContentText>
       )}
       {readProblem && (
         <LumenContentText context="feedback.message" role="alert">
           {state.status === 'offline'
             ? state.snapshot
-              ? labels.offline
-              : labels.initialOffline
+              ? t('offline')
+              : t('initialOffline')
             : state.snapshot
-              ? labels.readFailure(state.error ?? 'READ_FAILED')
-              : labels.initialReadFailure}
+              ? t('readFailure')(state.error ?? 'READ_FAILED')
+              : t('initialReadFailure')}
         </LumenContentText>
       )}
       {uncertain && (
         <LumenButton size="s" variant="outlined" disabled={!connected || busy} onClick={onReconcile}>
-          {labels.reconcile}
+          {t('reconcile')}
         </LumenButton>
       )}
       {readProblem && !uncertain && (
         <LumenButton size="s" variant="outlined" disabled={!connected || busy} onClick={onRefresh}>
-          {labels.refresh}
+          {t('refresh')}
         </LumenButton>
       )}
     </LumenFrame>

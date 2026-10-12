@@ -34,6 +34,8 @@ import { canFocusWorkspaceElement, getWorkspaceToolFocusSnapshot, useWorkspaceTo
 import { HbarMobileHeaderMenu, HbarMobileHeaderMenuProvider } from './mobile-header-menu'
 import { HbarHostConnectionNotice } from './host-connection-notice'
 import { HbarRuntimeStatusNotice } from './host-runtime-status'
+import { WorkspaceShellMessagesProvider, useWorkspaceShellChromeMessages } from './workspace-shell-messages'
+import { WORKSPACE_VIEWPORT_MEDIA } from './responsive-contract'
 
 function forwardShellRef(ref: LumenAppShellProps['mainRef'], node: HTMLElement | null): (() => void) | undefined {
   if (typeof ref === 'function') {
@@ -49,6 +51,15 @@ function forwardShellRef(ref: LumenAppShellProps['mainRef'], node: HTMLElement |
 }
 
 export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
+  return (
+    <WorkspaceShellMessagesProvider labels={props.labels} mobileNavigationLabel={props.mobileNavigationLabel}>
+      <HbarWorkspaceShellContent props={props} />
+    </WorkspaceShellMessagesProvider>
+  )
+}
+
+function HbarWorkspaceShellContent({ props }: { readonly props: HbarWorkspaceShellProps }) {
+  const { t } = useWorkspaceShellChromeMessages()
   const runtime = useHbarRuntime()
   const bridge = useWorkspaceSidebarBridge(props)
   const sidebarWidthRem = bridge.railCollapsed ? props.sidebarRailWidthRem : props.sidebarWidthRem
@@ -66,10 +77,10 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
 
   const presentation = useHbarRuntimeState(runtime.state.presentation)
   const [workspaceTabsViewport, setWorkspaceTabsViewport] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 48rem)').matches,
+    () => typeof window !== 'undefined' && window.matchMedia(WORKSPACE_VIEWPORT_MEDIA.tabletAndUp).matches,
   )
   useEffect(() => {
-    const viewport = window.matchMedia('(min-width: 48rem)')
+    const viewport = window.matchMedia(WORKSPACE_VIEWPORT_MEDIA.tabletAndUp)
     const update = () => setWorkspaceTabsViewport(viewport.matches)
     update()
     viewport.addEventListener('change', update)
@@ -146,11 +157,11 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   const [toolPresentation, setToolPresentation] = useState<LumenToolPresentation>('none')
   const [narrowHeader, setNarrowHeader] = useState(false)
   useEffect(() => {
-    const media = window.matchMedia('(max-width: 47.9375rem)')
-    const update = () => setNarrowHeader(media.matches)
+    const viewport = window.matchMedia(WORKSPACE_VIEWPORT_MEDIA.tabletAndUp)
+    const update = () => setNarrowHeader(!viewport.matches)
     update()
-    media.addEventListener('change', update)
-    return () => media.removeEventListener('change', update)
+    viewport.addEventListener('change', update)
+    return () => viewport.removeEventListener('change', update)
   }, [])
   const desktopToolDock = useRef<HTMLDivElement>(null)
   const resolvedToolPresentation = props.renderLayout
@@ -228,21 +239,22 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     (directory) =>
       props.pageTitle ??
       (presentation.page.kind === 'settings'
-        ? props.labels.settings
+        ? t('settings')
         : presentation.page.kind === 'status'
-          ? props.labels.status
+          ? t('status')
           : presentation.page.kind === 'session'
             ? activeWorkspaceTab?.kind === 'workbench'
-              ? props.labels.workspaceFiles
+              ? t('workspaceFiles')
               : activeWorkspaceTab?.kind === 'session'
-                ? (directory.sessions[activeWorkspaceTab.sessionId]?.title ?? props.labels.newSession)
+                ? (directory.sessions[activeWorkspaceTab.sessionId]?.title ?? t('newSession'))
                 : navigation.sessionId
-                  ? (directory.sessions[navigation.sessionId]?.title ?? props.labels.newSession)
-                  : props.labels.newSession
-            : props.labels.newSession),
+                  ? (directory.sessions[navigation.sessionId]?.title ?? t('newSession'))
+                  : t('newSession')
+            : t('newSession')),
   )
 
-  const sidebarPane = <WorkspaceSidebar {...props} bridge={bridge} />
+  const { labels: _labels, ...sidebarProps } = props
+  const sidebarPane = <WorkspaceSidebar {...sidebarProps} bridge={bridge} />
   const projectPane = usePersistentPane(sidebarPane)
   const overlayRegion = props.overlay
   const shellSlots = props.slots
@@ -250,13 +262,13 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     <LumenFrame className="hbar-app-react-shell-header" data-hbar-app-ui-component="app-shell-09-header">
       <HbarActionIconButton
         ref={sidebarShowFocusRef}
-        label={props.labels.showSidebar}
+        label={t('showSidebar')}
         onClick={() => setSidebarVisible(true)}
       >
         <WorkspaceShellIcon name="menu" />
       </HbarActionIconButton>
-      <LumenContentText context="record.title" title={props.labels.brand}>
-        {props.labels.brand}
+      <LumenContentText context="record.title" title={t('brand')}>
+        {t('brand')}
       </LumenContentText>
       <LumenContentText
         context="page.title"
@@ -265,7 +277,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       >
         {mobileHeaderTitle}
       </LumenContentText>
-      <HbarMobileHeaderMenu label={props.mobileNavigationLabel} />
+      <HbarMobileHeaderMenu label={t('mobileNavigation')} />
     </LumenFrame>
   )
   const contentOwnsNavigation =
@@ -276,7 +288,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
     contentOwnsNavigation && !presentation.sidebarOpen && (props.renderLayout || !railCollapsed) ? (
       <HbarActionIconButton
         ref={sidebarShowFocusRef}
-        label={props.labels.showSidebar}
+        label={t('showSidebar')}
         data-hbar-sidebar-reveal="tabs"
         onClick={() => setSidebarVisible(true)}
       >
@@ -294,7 +306,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                 leading: (
                   <HbarActionIconButton
                     ref={sidebarShowFocusRef}
-                    label={props.labels.showSidebar}
+                    label={t('showSidebar')}
                     onClick={() => setSidebarVisible(true)}
                   >
                     <WorkspaceShellIcon name="menu" />
@@ -347,7 +359,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
   )
   const shell = (
     <LumenAppShell09
-      label={props.labels.main}
+      label={t('main')}
       titlebar={
         <>
           {props.titlebar}
@@ -370,7 +382,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
       resizeRef={attachResize}
       onToolPresentationChange={onToolPresentationChange}
       sidebarOpen={railCollapsed || presentation.sidebarOpen}
-      closeSidebarLabel={props.labels.hideSidebar}
+      closeSidebarLabel={t('hideSidebar')}
       onCloseSidebar={() => setSidebarVisible(false)}
       header={desktopHeader}
       tool={props.renderLayout || !toolRegion ? null : sessionToolPane.outlet}
@@ -417,7 +429,7 @@ export function HbarWorkspaceShell(props: HbarWorkspaceShellProps) {
                       ref={attachMain}
                       tabIndex={-1}
                       className="hbar-desktop-workspace-pane"
-                      aria-label={props.labels.main}
+                      aria-label={t('main')}
                     >
                       {workspacePane.outlet}
                     </LumenFrame>

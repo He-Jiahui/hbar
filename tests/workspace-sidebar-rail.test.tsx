@@ -1,9 +1,10 @@
 import { expect, test } from 'bun:test'
 import { createRef, type ComponentProps } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { WorkspaceSidebarRail, type WorkspaceSidebarRailLabels } from '../packages/app-react/src/workspace-sidebar-rail'
+import { WorkspaceSidebarRail } from '../packages/app-react/src/workspace-sidebar-rail'
+import { WorkspaceSidebarRailMessagesProvider } from '../packages/app-react/src/workspace-shell-messages'
 
-const labels: WorkspaceSidebarRailLabels = {
+const labels = {
   expand: '展开工程与会话侧栏',
   navigation: '工程与会话导航',
   newSession: '新建会话——这是一个足够长的中文入口标签',
@@ -11,24 +12,34 @@ const labels: WorkspaceSidebarRailLabels = {
   settings: '设置与工作区首选项',
   serverValue: '已连接',
 }
+const messages = {
+  showSidebar: labels.expand,
+  projectsAndSessions: labels.navigation,
+  newSession: labels.newSession,
+  searchChats: labels.search,
+  settings: labels.settings,
+  server: '服务器',
+}
 
 function render(overrides: Partial<ComponentProps<typeof WorkspaceSidebarRail>> = {}) {
   return renderToStaticMarkup(
-    <WorkspaceSidebarRail
-      labels={labels}
-      expandRef={createRef<HTMLButtonElement>()}
-      connected
-      serverTone="success"
-      newDisabled={false}
-      newBusy={false}
-      searchSelected={false}
-      settingsSelected={false}
-      onExpand={() => {}}
-      onNew={() => {}}
-      onSearch={() => {}}
-      onSettings={() => {}}
-      {...overrides}
-    />,
+    <WorkspaceSidebarRailMessagesProvider messages={messages}>
+      <WorkspaceSidebarRail
+        serverValue={labels.serverValue}
+        expandRef={createRef<HTMLButtonElement>()}
+        connected
+        serverTone="success"
+        newDisabled={false}
+        newBusy={false}
+        searchSelected={false}
+        settingsSelected={false}
+        onExpand={() => {}}
+        onNew={() => {}}
+        onSearch={() => {}}
+        onSettings={() => {}}
+        {...overrides}
+      />
+    </WorkspaceSidebarRailMessagesProvider>,
   )
 }
 
@@ -51,7 +62,7 @@ test('rail renders host-owned non-English labels and bounded normal-flow regions
   expect(html).not.toContain('position:')
   expect(html).toContain(`aria-label="${labels.navigation}"`)
   expect(html).toContain(`role="status"`)
-  expect(html).toContain(`title="${labels.serverValue}"`)
+  expect(html).toContain(`title="${messages.server} · ${labels.serverValue}"`)
   expect(html).toContain('data-tier="sm"')
 })
 

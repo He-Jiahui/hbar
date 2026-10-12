@@ -3,6 +3,12 @@ import { Check, ChevronRight, Clock, Ellipsis, Folder, FolderOpen, RefreshCw, Ro
 import { LumenContentText, LumenButton, LumenFrame, LumenIcon, LumenIconButton } from '@lumen/app-ui'
 import type { WorkspaceActivitySortBy } from '@hbar/contracts/directory'
 import { workspaceHeaderMenuPosition, type WorkspaceHeaderMenuAlignment } from './workspace-header-sort-menu-model'
+import {
+  WorkspaceHeaderOrganizationMessagesProvider,
+  WorkspaceHeaderSortMenuMessagesProvider,
+  useWorkspaceHeaderOrganizationMessages,
+  useWorkspaceHeaderSortMenuMessages,
+} from './workspace-shell-messages'
 import './workspace-header-sort-menu.css'
 
 const HEADER_MENU_WIDTH_REM = 16.875
@@ -74,9 +80,28 @@ export interface WorkspaceHeaderSortMenuProps {
   readonly menuRef?: { current: HTMLDivElement | null } | undefined
 }
 
+const emptyOrganizationMessages: WorkspaceHeaderOrganizationLabels = {
+  organize: '',
+  byProject: '',
+  recentProjects: '',
+  byTime: '',
+}
+
 /** Host-owned labels and preference state keep this More menu local to the Projects and Sessions header. */
-export function WorkspaceHeaderSortMenu({
-  labels,
+export function WorkspaceHeaderSortMenu(props: WorkspaceHeaderSortMenuProps) {
+  return (
+    <WorkspaceHeaderSortMenuMessagesProvider messages={props.labels}>
+      <WorkspaceHeaderOrganizationMessagesProvider messages={props.organization?.labels ?? emptyOrganizationMessages}>
+        <WorkspaceHeaderSortMenuView props={props} />
+      </WorkspaceHeaderOrganizationMessagesProvider>
+    </WorkspaceHeaderSortMenuMessagesProvider>
+  )
+}
+
+function WorkspaceHeaderSortMenuView({ props }: { readonly props: WorkspaceHeaderSortMenuProps }) {
+  const { t } = useWorkspaceHeaderSortMenuMessages()
+  const { t: tOrganization } = useWorkspaceHeaderOrganizationMessages()
+  const {
   sortBy,
   pending,
   sortDisabled,
@@ -88,7 +113,7 @@ export function WorkspaceHeaderSortMenu({
   onRefresh,
   organization,
   menuRef,
-}: WorkspaceHeaderSortMenuProps) {
+  } = props
   const generatedId = useId()
   const menuId = `workspace-header-menu-${generatedId}`
   const sortMenuId = `workspace-header-sort-${generatedId}`
@@ -275,7 +300,7 @@ export function WorkspaceHeaderSortMenu({
     >
       <LumenIconButton
         ref={trigger}
-        label={labels.menu}
+        label={t('menu')}
         className="hbar-app-react-workspace-menu-trigger"
         data-workspace-menu-trigger
         aria-haspopup="menu"
@@ -294,7 +319,7 @@ export function WorkspaceHeaderSortMenu({
       </LumenIconButton>
       {isPending && (
         <LumenContentText context="message.inline" role="status" className="hbar-app-react-workspace-sort-pending">
-          {labels.updating}
+          {t('updating')}
         </LumenContentText>
       )}
       <LumenFrame
@@ -302,7 +327,7 @@ export function WorkspaceHeaderSortMenu({
         id={menuId}
         popover="auto"
         role="menu"
-        aria-label={labels.menu}
+        aria-label={t('menu')}
         className="hbar-app-react-workspace-header-menu-popover"
         onBeforeToggle={(event) => {
           if (event.newState === 'open')
@@ -359,7 +384,7 @@ export function WorkspaceHeaderSortMenu({
             >
               <LumenIcon icon={Folder} tier="md" />
               <LumenContentText context="control.label" className="hbar-app-react-workspace-sort-menu-label">
-                {organization.labels.organize}
+                {tOrganization('organize')}
               </LumenContentText>
               <LumenIcon icon={ChevronRight} tier="sm" className="hbar-app-react-workspace-sort-chevron" />
             </LumenButton>
@@ -368,7 +393,7 @@ export function WorkspaceHeaderSortMenu({
               id={organizationMenuId}
               popover="auto"
               role="menu"
-              aria-label={organization.labels.organize}
+              aria-label={tOrganization('organize')}
               data-testid="workspace-organization-submenu"
               data-organization="true"
               className="hbar-app-react-workspace-sort-submenu"
@@ -419,7 +444,7 @@ export function WorkspaceHeaderSortMenu({
               >
                 <LumenIcon icon={Folder} tier="md" />
                 <LumenContentText context="control.label" className="hbar-app-react-workspace-sort-menu-label">
-                  {organization.labels.byProject}
+                  {tOrganization('byProject')}
                 </LumenContentText>
                 {organization.mode === 'project' && <LumenIcon icon={Check} tier="sm" />}
               </LumenButton>
@@ -436,7 +461,7 @@ export function WorkspaceHeaderSortMenu({
               >
                 <LumenIcon icon={FolderOpen} tier="md" />
                 <LumenContentText context="control.label" className="hbar-app-react-workspace-sort-menu-label">
-                  {organization.labels.recentProjects}
+                  {tOrganization('recentProjects')}
                 </LumenContentText>
                 {organization.mode === 'recentProject' && <LumenIcon icon={Check} tier="sm" />}
               </LumenButton>
@@ -453,7 +478,7 @@ export function WorkspaceHeaderSortMenu({
               >
                 <LumenIcon icon={Clock} tier="md" />
                 <LumenContentText context="control.label" className="hbar-app-react-workspace-sort-menu-label">
-                  {organization.labels.byTime}
+                  {tOrganization('byTime')}
                 </LumenContentText>
                 {organization.mode === 'time' && <LumenIcon icon={Check} tier="sm" />}
               </LumenButton>
@@ -495,7 +520,7 @@ export function WorkspaceHeaderSortMenu({
           >
             <LumenIcon icon={Clock} tier="md" />
             <LumenContentText context="control.label" className="hbar-app-react-workspace-sort-menu-label">
-              {labels.sortCondition}
+              {t('sortCondition')}
             </LumenContentText>
             <LumenIcon icon={ChevronRight} tier="sm" className="hbar-app-react-workspace-sort-chevron" />
           </LumenButton>
@@ -504,7 +529,7 @@ export function WorkspaceHeaderSortMenu({
             id={sortMenuId}
             popover="auto"
             role="menu"
-            aria-label={labels.sortCondition}
+            aria-label={t('sortCondition')}
             data-testid="workspace-sort-submenu"
             className="hbar-app-react-workspace-sort-submenu"
             onBeforeToggle={(event) => {
@@ -543,7 +568,7 @@ export function WorkspaceHeaderSortMenu({
             >
               <LumenIcon icon={Clock} tier="md" />
               <LumenContentText context="control.label" className="hbar-app-react-workspace-sort-menu-label">
-                {labels.createdAt}
+                {t('createdAt')}
               </LumenContentText>
               {sortBy === 'createdAt' && <LumenIcon icon={Check} tier="sm" />}
             </LumenButton>
@@ -560,7 +585,7 @@ export function WorkspaceHeaderSortMenu({
             >
               <LumenIcon icon={RefreshCw} tier="md" />
               <LumenContentText context="control.label" className="hbar-app-react-workspace-sort-menu-label">
-                {labels.updatedAt}
+                {t('updatedAt')}
               </LumenContentText>
               {sortBy === 'updatedAt' && <LumenIcon icon={Check} tier="sm" />}
             </LumenButton>
@@ -579,7 +604,7 @@ export function WorkspaceHeaderSortMenu({
           >
             <LumenIcon icon={RotateCcw} tier="md" />
             <LumenContentText context="control.label" className="hbar-app-react-workspace-sort-menu-label">
-              {labels.restoreHidden(hiddenCount)}
+              {t('restoreHidden')(hiddenCount)}
             </LumenContentText>
           </LumenButton>
         )}
@@ -595,7 +620,7 @@ export function WorkspaceHeaderSortMenu({
         >
           <LumenIcon icon={RefreshCw} tier="md" />
           <LumenContentText context="control.label" className="hbar-app-react-workspace-sort-menu-label">
-            {labels.refresh}
+            {t('refresh')}
           </LumenContentText>
         </LumenButton>
       </LumenFrame>

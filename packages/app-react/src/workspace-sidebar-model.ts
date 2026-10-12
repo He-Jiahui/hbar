@@ -6,6 +6,8 @@ import {
   workspaceDisplayName,
 } from '@hbar/app-runtime'
 import type { Session } from '@hbar/contracts/directory'
+import { WORKSPACE_VIEWPORT_MEDIA } from './responsive-contract'
+
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import {
   createWorkspaceNavigationActions,
@@ -21,9 +23,11 @@ import { useSessionRosterRefresh } from './session-roster-refresh'
 import { shouldCollapseWorkspaceSidebar } from './workspace-tool-focus'
 import { workspaceShellShortcut } from './workspace-shell-shortcut'
 import type { WorkspaceSidebarProps } from './workspace-shell-contract'
+import { useWorkspaceSidebarMessages } from './workspace-shell-messages'
 const PAGE_SIZE = 100
 const EMPTY_HIDDEN_IDS: readonly string[] = Object.freeze([])
 export function useWorkspaceSidebar(props: WorkspaceSidebarProps) {
+  const { t } = useWorkspaceSidebarMessages()
   const {
     setSidebarViewportNarrow,
     sidebarChoiceRevision,
@@ -172,7 +176,7 @@ export function useWorkspaceSidebar(props: WorkspaceSidebarProps) {
     if (props.connection === 'connected' && projectPicker) void loadWorkspaces()
   }, [loadWorkspaces, projectPicker, props.connection])
   useLayoutEffect(() => {
-    const narrow = window.matchMedia('(max-width: 63.9375rem)')
+    const narrow = window.matchMedia(WORKSPACE_VIEWPORT_MEDIA.narrowShell)
     const closeNarrowSidebar = (event: MediaQueryListEvent | MediaQueryList) => {
       const previous = sidebarViewportOwner.current
       const enteredNarrow = previous?.owner !== runtime || previous.narrow !== event.matches
@@ -225,7 +229,7 @@ export function useWorkspaceSidebar(props: WorkspaceSidebarProps) {
           : execute('app.openPanel', { panelId: shortcut })
       )
         .then(() => {
-          if (choiceRevision === sidebarChoiceRevision.current && window.matchMedia('(max-width: 63.9375rem)').matches)
+          if (choiceRevision === sidebarChoiceRevision.current && window.matchMedia(WORKSPACE_VIEWPORT_MEDIA.narrowShell).matches)
             return execute('app.setSidebarVisible', { visible: false })
           return undefined
         })
@@ -455,7 +459,7 @@ export function useWorkspaceSidebar(props: WorkspaceSidebarProps) {
     setBatchLimitReached(false)
   }
   const closeNarrowSidebar = useCallback(async () => {
-    if (window.matchMedia('(max-width: 63.9375rem)').matches) await execute('app.setSidebarVisible', { visible: false })
+    if (window.matchMedia(WORKSPACE_VIEWPORT_MEDIA.narrowShell).matches) await execute('app.setSidebarVisible', { visible: false })
   }, [execute])
   const closeAfterNavigation = () => {
     const revision = sidebarChoiceRevision.current
@@ -583,12 +587,12 @@ export function useWorkspaceSidebar(props: WorkspaceSidebarProps) {
   }
   const serverValue =
     props.connection === 'connected'
-      ? props.labels.connected
+      ? t('connected')
       : props.connection === 'pairing'
-        ? props.labels.pairing
+        ? t('pairing')
         : props.connection === 'connecting'
-          ? props.labels.loading
-          : props.labels.disconnected
+          ? t('loading')
+          : t('disconnected')
   const serverTone: 'success' | 'warning' = props.connection === 'connected' ? 'success' : 'warning'
   const shellSlots = props.slots
   return {

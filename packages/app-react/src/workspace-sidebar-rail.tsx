@@ -2,19 +2,11 @@ import { Circle, PanelLeftOpen, Plus, Search, Settings } from 'lucide-react'
 import type { ReactNode, Ref } from 'react'
 import { LumenFrame, LumenIcon, type LumenTone } from '@lumen/app-ui'
 import { HbarActionIconButton } from './action-icon-button'
+import { useWorkspaceSidebarRailMessages } from './workspace-shell-messages'
 import './workspace-sidebar-rail.css'
 
-export interface WorkspaceSidebarRailLabels {
-  readonly expand: string
-  readonly navigation: string
-  readonly newSession: string
-  readonly search: string
-  readonly settings: string
-  readonly serverValue: string
-}
-
 export interface WorkspaceSidebarRailProps {
-  readonly labels: WorkspaceSidebarRailLabels
+  readonly serverValue: string
   readonly expandRef?: Ref<HTMLButtonElement> | undefined
   readonly connected: boolean
   readonly serverTone: LumenTone
@@ -66,7 +58,7 @@ function RailAction({
  * drawer lifecycle; this component owns only the compact action projection.
  */
 export function WorkspaceSidebarRail({
-  labels,
+  serverValue,
   expandRef,
   connected,
   serverTone,
@@ -82,6 +74,7 @@ export function WorkspaceSidebarRail({
   onSettings,
   children,
 }: WorkspaceSidebarRailProps) {
+  const { t } = useWorkspaceSidebarRailMessages()
   return (
     <LumenFrame as="aside" className="hbar-app-react-sidebar-rail">
       <LumenFrame as="header" className="hbar-app-react-sidebar-rail-header">
@@ -89,7 +82,7 @@ export function WorkspaceSidebarRail({
         <HbarActionIconButton
           ref={expandRef}
           className="hbar-app-react-sidebar-rail-action"
-          label={labels.expand}
+          label={t('showSidebar')}
           aria-expanded="false"
           onClick={onExpand}
         >
@@ -97,11 +90,11 @@ export function WorkspaceSidebarRail({
         </HbarActionIconButton>
       </LumenFrame>
       <LumenFrame className="hbar-app-react-sidebar-rail-body">
-        <LumenFrame as="nav" aria-label={labels.navigation} className="hbar-app-react-sidebar-rail-navigation">
-          <RailAction label={labels.newSession} disabled={newDisabled || !connected} loading={newBusy} onClick={onNew}>
+        <LumenFrame as="nav" aria-label={t('projectsAndSessions')} className="hbar-app-react-sidebar-rail-navigation">
+          <RailAction label={t('newSession')} disabled={newDisabled || !connected} loading={newBusy} onClick={onNew}>
             <LumenIcon icon={Plus} tier="md" />
           </RailAction>
-          <RailAction label={labels.search} selected={searchSelected} onClick={onSearch}>
+          <RailAction label={t('searchChats')} selected={searchSelected} onClick={onSearch}>
             <LumenIcon icon={Search} tier="md" />
           </RailAction>
         </LumenFrame>
@@ -111,14 +104,14 @@ export function WorkspaceSidebarRail({
       </LumenFrame>
       <LumenFrame as="footer" className="hbar-app-react-sidebar-rail-footer">
         {secondaryNavigation}
-        <RailAction label={labels.settings} selected={settingsSelected} onClick={onSettings}>
+        <RailAction label={t('settings')} selected={settingsSelected} onClick={onSettings}>
           <LumenIcon icon={Settings} tier="md" />
         </RailAction>
         <LumenFrame
           className="hbar-app-react-sidebar-rail-server"
           role="status"
-          aria-label={labels.serverValue}
-          title={labels.serverValue}
+          aria-label={`${t('server')} · ${serverValue}`}
+          title={`${t('server')} · ${serverValue}`}
           data-tone={serverTone}
         >
           <LumenIcon icon={Circle} tier="sm" />

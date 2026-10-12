@@ -172,6 +172,6 @@ export interface HbarWorkspaceShellSlots {
   readonly composer?: ReactNode
   readonly context?: ReactNode
 }
-export interface WorkspaceSidebarProps extends HbarWorkspaceShellProps {
+export interface WorkspaceSidebarProps extends Omit<HbarWorkspaceShellProps, 'labels'> {
   readonly bridge: ReturnType<typeof import('./workspace-sidebar-bridge').useWorkspaceSidebarBridge>
 }
