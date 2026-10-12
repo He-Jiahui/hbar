@@ -21,7 +21,7 @@ test('an owned Bun plugin prepares without writes, validates and executes locall
       apply(ctx, config) {
         provide(ctx, 'budget', { get: async sessionId => ({ pid: process.pid, session: await ctx.hbar.api.sessions.get(sessionId), limit: config.limit }) })
         ctx.hbar.api.tools.register({ name: 'owned_write', description: 'Write once inside the owner', effect: 'write', inputSchema: z.object({ count: z.number().int().positive().default(7) }),
-          execute: async args => { await writeFile(${JSON.stringify(marker)}, String(args.count)); return { text: 'owned:' + process.pid } } })
+          execute: async (args, c) => { await writeFile(${JSON.stringify(marker)}, String(args.count)); return { text: 'owned:' + process.pid, details: { osConfinement: c.osConfinement } } } })
         ctx.hbar.api.hooks.on('goal.beforeComplete', value => ({ ...value, commit: async () => { await value.commit() } }))
       } })
     export const create = context => createRuntimePlugin(context, { plugins: [plugin] })
@@ -63,8 +63,12 @@ test('an owned Bun plugin prepares without writes, validates and executes locall
       [{ count: 7 }, { signal: new AbortController().signal, callId: 'owned-call',
         session: { id: 'session', workspaceId: 'workspace', title: 'Fixture', archived: false, parentId: null, createdAt: 1, updatedAt: 1, seq: 0 },
         workspace: { id: 'workspace', path: root, name: 'Fixture', createdAt: 1 },
-        run: { id: 'run', sessionId: 'session', requestId: 'request', input: { text: '', images: [] }, modelId: 'model', status: 'running', createdAt: 1, startedAt: 1, endedAt: null, error: null } }], host]))
+        run: { id: 'run', sessionId: 'session', requestId: 'request', input: { text: '', images: [] }, modelId: 'model', status: 'running', createdAt: 1, startedAt: 1, endedAt: null, error: null },
+        osConfinement: { level: 'elevated', writableRoots: [root], readableRoots: [root], networkEnabled: false, envOverrides: { LANG: 'C' } } }], host]))
     expect(executed.kind).toBe('value'); expect(await readFile(marker, 'utf8')).toBe('7')
+    expect(executed).toMatchObject({ kind: 'value', value: { details: { osConfinement: {
+      level: 'elevated', writableRoots: [root], readableRoots: [root], networkEnabled: false, envOverrides: { LANG: 'C' },
+    } } } })
     const authority = new AsyncLocalStorage<string>(); let committed = 0
     const complete = await authority.run('original-execution-lease', () => port.call('invoke', [{ operation: 'commitGoal', name: 'goal.beforeComplete', catalog: state.tools },
       [{ sessionId: 'session', runId: 'run', goal: {}, commit: () => { expect(authority.getStore()).toBe('original-execution-lease'); committed++ } }], host]))

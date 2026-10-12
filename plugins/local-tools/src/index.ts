@@ -333,6 +333,12 @@ export class LocalExecution implements ExecutionProvider {
   }
   async exec(workspace: string, command: string, signal: AbortSignal, options?: ExecOptions): Promise<ToolResult> {
     signal.throwIfAborted()
+    if (options?.osConfinement && process.platform !== 'win32')
+      return {
+        text: '[hbar] No OS-level sandbox backend is available on this platform; the command was not run.',
+        isError: true,
+        details: { code: 'SANDBOX_BACKEND_UNAVAILABLE', executionStarted: false, truncated: false },
+      }
     const timeoutMs = resolveToolTimeoutMs({ timeoutMs: options?.timeoutMs ?? 120_000 })
     const workingDirectory = await this.workspacePath(workspace, '.')
     const env: Record<string, string> = {}
@@ -387,7 +393,7 @@ export class LocalExecution implements ExecutionProvider {
         return {
           text: '[hbar] OS-level sandbox addon (hbar_sandbox_win.node) is not available; the command was not run.',
           isError: true,
-          details: { code: null, truncated: false },
+          details: { code: 'SANDBOX_BACKEND_UNAVAILABLE', executionStarted: false, truncated: false },
         }
       }
       const { osConfinement } = options
@@ -411,7 +417,7 @@ export class LocalExecution implements ExecutionProvider {
         return {
           text: `[hbar] Sandboxed execution failed: ${message}`,
           isError: true,
-          details: { code: null, truncated: false },
+          details: { code: 'SANDBOX_BACKEND_UNAVAILABLE', executionStarted: false, truncated: false },
         }
       }
     }
@@ -781,6 +787,7 @@ export default definePlugin({
         execution.exec(c.workspace.path, args.command as string, c.signal, {
           environment: c.environment,
           timeoutMs: c.timeoutMs ?? 120_000,
+          osConfinement: c.osConfinement,
         }),
     })
   },

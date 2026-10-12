@@ -5,6 +5,8 @@ export { SKILL_TOOL_NAMES } from './skills'
 export { RunControlSignal, type GoalReplacementStop } from './run-control'
 import type { GoalReplacementStop } from './run-control'
 import type { ToolTimeoutPolicy } from './tool-timeout'
+import type { OsConfinementOptions } from './execution-options'
+export { osConfinementOptionsSchema, type OsConfinementOptions } from './execution-options'
 import type { z } from 'zod'
 import type { ToolPresentationDeclaration } from '@hbar/contracts'
 export type { ToolPresentationDeclaration } from '@hbar/contracts'
@@ -125,6 +127,8 @@ export interface ToolContext {
   reportProgress?: (progress: ToolProgress) => Promise<void>
   /** Host-owned variables for processes this call starts, from the Run's sandbox profile. */
   environment?: Readonly<Record<string, string>>
+  /** Host-owned OS isolation requirement; unsupported execution backends must refuse it. */
+  osConfinement?: OsConfinementOptions
 }
 export interface ToolSequenceCall {
   name: string
@@ -181,18 +185,6 @@ export interface ModelRegistry {
   get(id: string): Promise<ProviderConfig>
   secret(id: string): Promise<string | null>
 }
-export interface OsConfinementOptions {
-  readonly level: 'unelevated' | 'elevated'
-  /** Absolute paths the sandboxed process may write to. */
-  readonly writableRoots: readonly string[]
-  /** Absolute paths the sandboxed process may read from (elevated only). */
-  readonly readableRoots: readonly string[]
-  /** Whether network-blocking env vars should NOT be applied (true = allow network). */
-  readonly networkEnabled: boolean
-  /** Additional env vars to set inside the sandbox. */
-  readonly envOverrides: Readonly<Record<string, string>>
-}
-
 export interface ExecOptions {
   /** Process execution deadline in milliseconds. Defaults to 120 seconds. */
   readonly timeoutMs?: number | undefined
@@ -200,7 +192,7 @@ export interface ExecOptions {
   readonly environment?: Readonly<Record<string, string>> | undefined
   /**
    * When present, the command is launched inside an OS-level sandbox instead of the
-   * current user's process context. Windows only; ignored on other platforms.
+   * current user's process context. An unavailable backend refuses execution.
    */
   readonly osConfinement?: OsConfinementOptions | undefined
 }

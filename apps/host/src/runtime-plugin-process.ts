@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { Context, RunControlSignal, service, type HbarPlugin, type HbarAPI, type HookEvents, type ToolDefinition } from '@hbar/plugin-sdk'
+import { Context, RunControlSignal, service, osConfinementOptionsSchema, type HbarPlugin, type HbarAPI, type HookEvents, type ToolDefinition } from '@hbar/plugin-sdk'
 import { HbarError, runSchema, type ToolWindowContribution } from '@hbar/contracts'
 import { sessionSchema, workspaceSchema } from '@hbar/contracts/directory'
 import { runtimePluginStateSchema, runtimePluginManifestSchema, describeRuntimeTool, describeRuntimeHook,
@@ -15,6 +15,7 @@ export interface RuntimePluginFactory { readonly plugins: readonly HbarPlugin[] 
 const toolContextSchema = z.object({ session: sessionSchema, workspace: workspaceSchema, run: runSchema,
   signal: z.instanceof(AbortSignal), callId: z.string().min(1).max(160), timeoutMs: z.number().int().positive().optional(),
   parentCallId: z.string().min(1).max(160).optional(), environment: z.record(z.string(), z.string()).optional(),
+  osConfinement: osConfinementOptionsSchema.optional(),
   executeSequence: z.custom<NonNullable<import('@hbar/plugin-sdk').ToolContext['executeSequence']>>(value => typeof value === 'function').optional(),
   reportProgress: z.custom<NonNullable<import('@hbar/plugin-sdk').ToolContext['reportProgress']>>(value => typeof value === 'function').optional(),
 }).superRefine((value, result) => {
@@ -100,6 +101,7 @@ export function createRuntimePlugin(context: RuntimeProcessContext, factory: Run
               run: parsed.run, signal: parsed.signal, callId: parsed.callId,
               ...(parsed.timeoutMs !== undefined ? { timeoutMs: parsed.timeoutMs } : {}), ...(parsed.parentCallId ? { parentCallId: parsed.parentCallId } : {}),
               ...(parsed.environment ? { environment: parsed.environment } : {}), ...(parsed.executeSequence ? { executeSequence: parsed.executeSequence } : {}),
+              ...(parsed.osConfinement ? { osConfinement: parsed.osConfinement } : {}),
               ...(parsed.reportProgress ? { reportProgress: parsed.reportProgress } : {}),
             }
             result = await tool.execute(z.record(z.string(), z.unknown()).parse(await tool.inputSchema.parseAsync(args[0])), contextValue)
