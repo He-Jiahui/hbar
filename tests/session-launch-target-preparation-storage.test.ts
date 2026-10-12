@@ -3,7 +3,7 @@ import { Database } from 'bun:sqlite'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
-import { Storage } from '@hbar/storage'
+import { Storage, STORAGE_SCHEMA_VERSION } from '@hbar/storage'
 
 const roots: string[] = []
 const stores = new Set<Storage>()
@@ -30,7 +30,7 @@ async function fixture() {
   roots.push(root)
   const path = join(root, 'storage.sqlite')
   const store = open(path)
-  expect(await store.call('ready')).toEqual({ version: 24 })
+  expect(await store.call('ready')).toEqual({ version: STORAGE_SCHEMA_VERSION })
   const workspace = await store.call('createWorkspace', root, 'project')
   const session = await store.call('createSession', workspace.id, 'launch target')
   return { root, path, store, workspace, session }
@@ -244,7 +244,7 @@ test('version-11 databases migrate the preparation tables without changing exist
     db.close()
   }
   const reopened = open(f.path)
-  expect(await reopened.call('ready')).toEqual({ version: 24 })
+  expect(await reopened.call('ready')).toEqual({ version: STORAGE_SCHEMA_VERSION })
   expect(await reopened.call('session', f.session.id)).toMatchObject({ id: f.session.id, workspaceId: f.workspace.id })
   expect(await reopened.call('startSessionLaunchTargetPreparation', startInput(f.session.id))).toMatchObject({
     sessionId: f.session.id,

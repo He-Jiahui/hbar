@@ -10,6 +10,7 @@
     "./node": "./src/node.ts",
     "./node-state": "./src/node-state.ts",
     "./node-link-state": "./src/node-link-state.ts",
+    "./node-workspaces": "./src/node-workspaces.ts",
     "./node-console": "./src/node-console.ts",
     "./node-registry": "./src/node-registry.ts",
     "./node-wire": "./src/node-wire.ts",

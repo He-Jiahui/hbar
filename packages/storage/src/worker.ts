@@ -1,6 +1,8 @@
 import { Database } from 'bun:sqlite'
 import { DEVICE_ACCESS_SQL, createDeviceStorage } from './device-access'
 import { NODE_REGISTRY_SQL, createNodeRegistryStorage } from './node-registry-storage'
+import { NODE_WORKSPACES_SQL, createNodeWorkspaceStorage, readWorkspaceRow } from './node-workspaces'
+import { isNodeWorkspacePath } from '@hbar/contracts/node-address'
 import { readContextCompactionMarkers } from './context-compaction-markers'
 import {
   RUN_FILE_CHANGES_SQL,
@@ -31,7 +33,6 @@ import {
 import { z } from 'zod'
 import { executionOwnershipSchema } from '@hbar/contracts/runtime'
 import {
-  workspaceSchema,
   sessionSchema,
   workspaceActivityListInputSchema,
   workspaceActivityPageSchema,
@@ -278,7 +279,7 @@ const WORKSPACE_ACTIVITY_SQL = `
     AFTER DELETE ON sessions
     BEGIN UPDATE directory_activity_revision SET revision=revision+1 WHERE id=1; END;
 `
-const LATEST_SCHEMA_VERSION = 27
+const LATEST_SCHEMA_VERSION = 28
 const schemaVersion = z.object({ user_version: z.number().int().nonnegative() }).parse(db.query('PRAGMA user_version').get()).user_version
 if (preflight && !shadowMemory && schemaVersion !== LATEST_SCHEMA_VERSION)
   throw new HbarError('RUNTIME_RESTART_REQUIRED', 'Candidate Worker cannot apply a production migration')
@@ -509,6 +510,7 @@ for (const [version, sql] of [
   [25, RUNTIME_STATE_SQL + RUN_FILE_CHANGES_SQL],
   [26, DEVICE_ACCESS_SQL],
   [27, NODE_REGISTRY_SQL],
+  [28, NODE_WORKSPACES_SQL],
 ] as const) {
   if (schemaVersion >= version) continue
   db.transaction(() => {
@@ -549,6 +551,7 @@ const chatDatabaseResources = createChatDatabaseResourceLedger(db, sessionsRoot,
 const chatDatabaseArtifacts = createChatDatabaseArtifactStorage(db, sessionsRoot, artifactsRoot, settingsRoot, chatDatabaseResources, { readOnly: preflight && !shadowMemory })
 const deviceStorage = createDeviceStorage(db, id => chatDatabaseArtifacts.unknownDevice(id, false))
 const nodeRegistryStorage = createNodeRegistryStorage(db)
+const nodeWorkspaceStorage = createNodeWorkspaceStorage(db)
 const chatDatabaseJournal = createChatDatabaseJournal(db)
 const chatDatabaseAutomaticPlan = createChatDatabaseAutomaticPlan(db, chatDatabaseJournal)
 const chatDatabaseTasks = createChatDatabaseTaskStorage(db)
@@ -855,12 +858,12 @@ const WORKSPACE_ACTIVITY_COLUMNS_SQL = `
 function parseWorkspaceActivityItem(value: unknown) {
   const row = z.record(z.string(), z.unknown()).parse(value)
   return workspaceActivityItemSchema.parse({
-    workspace: {
+    workspace: readWorkspaceRow(db, {
       id: row.id,
       path: row.path,
       name: row.name,
       createdAt: row.createdAt,
-    },
+    }),
     latestSessionCreatedAt: row.latestSessionCreatedAt,
     latestSessionUpdatedAt: row.latestSessionUpdatedAt,
   })
@@ -1399,23 +1402,23 @@ const methods: StorageMethods = {
   applyWorkspaceOrganization: workspaceOrganization.apply,
   workspaceOrganizationReceipt: workspaceOrganization.receipt,
   createWorkspace(path, name) {
+    if (isNodeWorkspacePath(path)) throw new HbarError('WORKSPACE_REMOTE', 'Use the node workspace registration contract')
     const existing = db.query('SELECT * FROM workspaces WHERE path=?').get(path)
-    if (existing) return existing as Workspace
+    if (existing) return readWorkspaceRow(db, existing)
     const workspace: Workspace = { id: crypto.randomUUID(), path, name, createdAt: Date.now() }
     db.query('INSERT INTO workspaces VALUES(?,?,?,?)').run(workspace.id, path, name, workspace.createdAt)
     db.query('INSERT INTO projects VALUES(?,?,?,?)').run(workspace.id, path, name, workspace.createdAt)
     return workspace
   },
-  workspaces: () => db.query('SELECT * FROM workspaces ORDER BY createdAt').all() as Workspace[],
+  createNodeWorkspace: (input) => nodeWorkspaceStorage.create(input),
+  nodeSessionsPage: (input) => nodeWorkspaceStorage.sessions(input),
+  workspaces: () => db.query('SELECT * FROM workspaces ORDER BY createdAt').all().map((row) => readWorkspaceRow(db, row)),
   workspacePage(input) {
     const { after, limit } = workspaceListInputSchema.parse(input)
-    const rows = z
-      .array(workspaceSchema)
-      .parse(
-        db
-          .query('SELECT * FROM workspaces WHERE (? IS NULL OR id > ?) ORDER BY id LIMIT ?')
-          .all(after ?? null, after ?? null, limit + 1),
-      )
+    const rows = db
+      .query('SELECT * FROM workspaces WHERE (? IS NULL OR id > ?) ORDER BY id LIMIT ?')
+      .all(after ?? null, after ?? null, limit + 1)
+      .map((row) => readWorkspaceRow(db, row))
     const items = rows.slice(0, limit)
     return { items, nextCursor: rows.length > limit ? (items.at(-1)?.id ?? null) : null }
   },
@@ -1472,7 +1475,7 @@ const methods: StorageMethods = {
   },
   findWorkspace(id) {
     const row = db.query('SELECT * FROM workspaces WHERE id=?').get(id)
-    return row === null ? null : workspaceSchema.parse(row)
+    return row === null ? null : readWorkspaceRow(db, row)
   },
   findSession(id) {
     const row = db.query('SELECT * FROM sessions WHERE id=?').get(id)
@@ -1480,7 +1483,7 @@ const methods: StorageMethods = {
     const data = z.record(z.string(), z.unknown()).parse(row)
     return sessionSchema.parse({ ...data, archived: Boolean(data.archived) })
   },
-  workspace: (id) => required(db.query('SELECT * FROM workspaces WHERE id=?').get(id), 'Workspace') as Workspace,
+  workspace: (id) => readWorkspaceRow(db, required(db.query('SELECT * FROM workspaces WHERE id=?').get(id), 'Workspace')),
   createSession(workspaceId, title = 'New session', parentId) {
     return db.transaction(() => {
       const workspace = methods.workspace(workspaceId)

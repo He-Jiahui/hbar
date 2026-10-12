@@ -2,7 +2,6 @@ import type { Database } from 'bun:sqlite'
 import { HbarError, type Session } from '@hbar/contracts'
 import {
   sessionSchema,
-  workspaceSchema,
   sessionAgentChildrenInputSchema,
   sessionAgentChildrenPageSchema,
   sessionAgentAncestorsSchema,
@@ -10,6 +9,7 @@ import {
   type SessionActivityExecution,
 } from '@hbar/contracts/sidebar-directory'
 import { z } from 'zod'
+import { readWorkspaceRow } from './node-workspaces'
 
 /** Only Host-created Agent records form navigation links. Public parentId also belongs to ordinary forks. */
 export function agentMembershipSql(alias: 's' | 'child' | 'sessions'): string {
@@ -148,7 +148,8 @@ export function createSessionAgentDirectory(
         return sessionAgentAncestorsSchema.parse({
           sessionId,
           items,
-          workspace: workspaceSchema.parse(
+          workspace: readWorkspaceRow(
+            db,
             db.query('SELECT * FROM workspaces WHERE id=?').get(root.session.workspaceId),
           ),
         })

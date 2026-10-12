@@ -1,7 +1,8 @@
 import type { Database } from 'bun:sqlite'
 import { z } from 'zod'
 import { HbarError } from '@hbar/contracts'
-import { workspaceSchema } from '@hbar/contracts/directory'
+import { readWorkspaceRow } from './node-workspaces'
+import { isNodeWorkspacePath } from '@hbar/contracts/node-address'
 import {
   workspaceFolderAlias,
   workspaceFolderSnapshotSchema,
@@ -43,7 +44,7 @@ export function createWorkspaceFolderStorage(db: Database) {
   const workspace = (id: string) => {
     const value = db.query('SELECT * FROM workspaces WHERE id=?').get(id)
     if (!value) throw new HbarError('WORKSPACE_NOT_FOUND', 'Workspace not found')
-    return workspaceSchema.parse(value)
+    return readWorkspaceRow(db, value)
   }
   function read(workspaceId: string): WorkspaceFolderSnapshot {
     const owner = workspace(workspaceId)
@@ -73,6 +74,8 @@ export function createWorkspaceFolderStorage(db: Database) {
   }
   function apply(input: WorkspaceFolderStorageMutation) {
     const parsed = mutationSchema.parse(input)
+    if (parsed.folders.some((folder) => isNodeWorkspacePath(folder.path)))
+      throw new HbarError('WORKSPACE_REMOTE', 'Remote shared roots use the node workspace contract')
     return db
       .transaction(() => {
         const previous = receipt(parsed.actorId, parsed.idempotencyKey, parsed.request)
@@ -90,6 +93,8 @@ export function createWorkspaceFolderStorage(db: Database) {
           revision = 1
         } else {
           owner = workspace(parsed.request.input.workspaceId)
+          if (isNodeWorkspacePath(owner.path))
+            throw new HbarError('WORKSPACE_REMOTE', 'Node folders cannot be changed through local mounts')
           const current = read(owner.id)
           if (current.revision !== parsed.request.input.expectedRevision)
             throw new HbarError('COMMAND_CONFLICT', 'Workspace folders changed; reload before saving')

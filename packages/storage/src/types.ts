@@ -370,6 +370,8 @@ export interface StorageMethods {
   recentSessions(input: SessionRecentInput): SessionRecentPage
   searchSessions(input: SessionSearchInput): SessionSearchPage
   createWorkspace(path: string, name: string): Workspace
+  createNodeWorkspace(input: import('@hbar/contracts/node-workspaces').NodeWorkspaceCreate): Workspace
+  nodeSessionsPage(input: import('@hbar/contracts/node-workspaces').NodeSessionList): SessionPage
   workspaceFolders: ReturnType<typeof createWorkspaceFolderStorage>['read']
   workspaceFolderReceipt: ReturnType<typeof createWorkspaceFolderStorage>['receipt']
   applyWorkspaceFolders(
