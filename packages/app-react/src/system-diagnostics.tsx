@@ -10,6 +10,7 @@ import {
 } from '@lumen/app-ui'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import { HbarRuntimeStatusDiagnostics, type HbarRuntimeStatusLabels } from './host-runtime-status'
+import { systemDiagnosticsMessages } from './system-diagnostics-messages'
 import './system-diagnostics.css'
 
 const DATABASE_PREVIEW_LIMIT = 12
@@ -49,6 +50,21 @@ export interface HbarSystemDiagnosticsProps {
 }
 
 export function HbarSystemDiagnostics({ instanceId, connected, labels }: HbarSystemDiagnosticsProps) {
+  return (
+    <systemDiagnosticsMessages.Provider messages={labels}>
+      <SystemDiagnosticsContent instanceId={instanceId} connected={connected} />
+    </systemDiagnosticsMessages.Provider>
+  )
+}
+
+function SystemDiagnosticsContent({
+  instanceId,
+  connected,
+}: {
+  readonly instanceId: string
+  readonly connected: boolean
+}) {
+  const { t } = systemDiagnosticsMessages.useMessages()
   const runtime = useHbarRuntime()
   const state = useHbarRuntimeState(runtime.state.diagnostics)
   const entry = state.entries[instanceId]
@@ -65,79 +81,79 @@ export function HbarSystemDiagnostics({ instanceId, connected, labels }: HbarSys
   const visibleDatabase = database.slice(0, DATABASE_PREVIEW_LIMIT)
   const hiddenDatabase = database.length - visibleDatabase.length
   return (
-    <LumenFrame as="section" className="hbar-system-diagnostics" aria-label={labels.title}>
+    <LumenFrame as="section" className="hbar-system-diagnostics" aria-label={t('title')}>
       <LumenFrame as="header" className="hbar-system-diagnostics-header">
         <LumenFrame className="hbar-system-diagnostics-intro">
-          <LumenContentText context="section.title">{labels.title}</LumenContentText>
+          <LumenContentText context="section.title">{t('title')}</LumenContentText>
           <LumenContentText context="section.description" tone="muted">
-            {labels.description}
+            {t('description')}
           </LumenContentText>
         </LumenFrame>
         <LumenButton type="button" variant="outlined" disabled={!connected || loading} onClick={refresh}>
           <LumenIcon icon={RefreshCw} tier="sm" />
-          {labels.refresh}
+          {t('refresh')}
         </LumenButton>
       </LumenFrame>
       {loading && (
         <LumenContentText context="feedback.message" role="status" className="hbar-system-diagnostics-feedback">
-          {labels.loading}
+          {t('loading')}
         </LumenContentText>
       )}
       {!connected && (
         <LumenContentText context="feedback.message" role="status" className="hbar-system-diagnostics-feedback">
-          {labels.unavailable}
+          {t('unavailable')}
         </LumenContentText>
       )}
       {entry?.error && (
         <LumenFrame className="hbar-system-diagnostics-feedback">
           <LumenContentText context="feedback.message" role="alert">
-            {labels.error(entry.error)}
+            {t('error')(entry.error)}
           </LumenContentText>
           {report && (
             <LumenContentText context="section.description" tone="muted">
-              {labels.oldResult}
+              {t('oldResult')}
             </LumenContentText>
           )}
         </LumenFrame>
       )}
-      <HbarRuntimeStatusDiagnostics labels={labels.runtime} />
+      <HbarRuntimeStatusDiagnostics />
       {report && (
         <LumenFrame className="hbar-system-diagnostics-results">
-          <LumenFrame as="section" className="hbar-system-diagnostics-section" aria-label={labels.host}>
-            <LumenContentText context="section.subtitle">{labels.host}</LumenContentText>
+          <LumenFrame as="section" className="hbar-system-diagnostics-section" aria-label={t('host')}>
+            <LumenContentText context="section.subtitle">{t('host')}</LumenContentText>
             <LumenCollection className="hbar-system-diagnostics-values">
-              <DiagnosticValue label={labels.version} value={report.host.version} />
-              <DiagnosticValue label={labels.protocol} value={labels.number(report.host.protocol)} />
-              <DiagnosticValue label={labels.platform} value={report.host.platform} />
-              <DiagnosticValue label={labels.demo} value={report.host.demo ? labels.yes : labels.no} />
+              <DiagnosticValue label={t('version')} value={report.host.version} />
+              <DiagnosticValue label={t('protocol')} value={t('number')(report.host.protocol)} />
+              <DiagnosticValue label={t('platform')} value={report.host.platform} />
+              <DiagnosticValue label={t('demo')} value={report.host.demo ? t('yes') : t('no')} />
             </LumenCollection>
           </LumenFrame>
-          <LumenFrame as="section" className="hbar-system-diagnostics-section" aria-label={labels.activity}>
-            <LumenContentText context="section.subtitle">{labels.activity}</LumenContentText>
+          <LumenFrame as="section" className="hbar-system-diagnostics-section" aria-label={t('activity')}>
+            <LumenContentText context="section.subtitle">{t('activity')}</LumenContentText>
             <LumenCollection className="hbar-system-diagnostics-values">
-              <DiagnosticValue label={labels.activeRuns} value={labels.number(report.host.activeRuns)} />
-              <DiagnosticValue label={labels.recoveredRuns} value={labels.number(report.recoveredRuns)} />
-              <DiagnosticValue label={labels.streams} value={labels.number(report.streams)} />
-              <DiagnosticValue label={labels.plugins} value={labels.number(report.plugins.length)} />
-              <DiagnosticValue label={labels.tools} value={labels.number(report.tools.length)} />
+              <DiagnosticValue label={t('activeRuns')} value={t('number')(report.host.activeRuns)} />
+              <DiagnosticValue label={t('recoveredRuns')} value={t('number')(report.recoveredRuns)} />
+              <DiagnosticValue label={t('streams')} value={t('number')(report.streams)} />
+              <DiagnosticValue label={t('plugins')} value={t('number')(report.plugins.length)} />
+              <DiagnosticValue label={t('tools')} value={t('number')(report.tools.length)} />
             </LumenCollection>
           </LumenFrame>
-          <LumenFrame as="section" className="hbar-system-diagnostics-section" aria-label={labels.storage}>
-            <LumenContentText context="section.subtitle">{labels.storage}</LumenContentText>
+          <LumenFrame as="section" className="hbar-system-diagnostics-section" aria-label={t('storage')}>
+            <LumenContentText context="section.subtitle">{t('storage')}</LumenContentText>
             {visibleDatabase.length ? (
               <LumenCollection className="hbar-system-diagnostics-values">
                 {visibleDatabase.map(([name, value]) => (
-                  <DiagnosticValue key={name} label={name} value={labels.number(value)} />
+                  <DiagnosticValue key={name} label={name} value={t('number')(value)} />
                 ))}
               </LumenCollection>
             ) : (
               <LumenContentText context="section.description" tone="muted">
-                {labels.noStorageEntries}
+                {t('noStorageEntries')}
               </LumenContentText>
             )}
             {hiddenDatabase > 0 && (
               <LumenContentText context="section.description" tone="muted">
-                {labels.moreStorageEntries(hiddenDatabase)}
+                {t('moreStorageEntries')(hiddenDatabase)}
               </LumenContentText>
             )}
           </LumenFrame>

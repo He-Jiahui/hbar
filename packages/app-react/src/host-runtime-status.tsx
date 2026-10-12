@@ -3,6 +3,8 @@ import { Activity } from 'lucide-react'
 import { LumenButton, LumenCollection, LumenCollectionItem, LumenFrame, LumenIcon, LumenText } from '@lumen/app-ui'
 import { hostRuntimePhase, type HostRuntimePhase, type HostRuntimeStatusState } from '@hbar/app-runtime'
 import type { RuntimeGeneration, RuntimeUnitDescriptor } from '@hbar/contracts/runtime'
+import { createMessageScope } from './messages'
+import { systemDiagnosticsMessages } from './system-diagnostics-messages'
 import { useHbarRuntime, useHbarRuntimeState } from './runtime'
 import './host-runtime-status.css'
 
@@ -25,6 +27,7 @@ export interface HbarRuntimeStatusLabels {
   readonly more: (count: number) => string
   readonly error: (code: string) => string
 }
+const hostRuntimeStatusMessages = createMessageScope<HbarRuntimeStatusLabels>()
 
 /** References: https://pro.reactbits.dev/docs/app-ui/app-shell/app-shell-9 — stable regions;
  * https://pro.reactbits.dev/docs/app-ui/monitoring — health feedback in the existing notice flow. */
@@ -72,10 +75,11 @@ export function HbarRuntimeStatusNotice({
   )
 }
 
-export function HbarRuntimeStatusDiagnostics({ labels }: { readonly labels: HbarRuntimeStatusLabels }) {
+export function HbarRuntimeStatusDiagnostics() {
   const runtime = useHbarRuntime()
   const state = useHbarRuntimeState(runtime.state.hostRuntimeStatus)
-  return <HbarRuntimeStatusDetails state={state} labels={labels} />
+  const { t } = systemDiagnosticsMessages.useMessages()
+  return <HbarRuntimeStatusDetails state={state} labels={t('runtime')} />
 }
 
 /** Read-only, bounded content; identifiers and reasons come from the confirmed Host snapshot. */
@@ -86,6 +90,15 @@ export function HbarRuntimeStatusDetails({
   readonly state: HostRuntimeStatusState
   readonly labels: HbarRuntimeStatusLabels
 }) {
+  return (
+    <hostRuntimeStatusMessages.Provider messages={labels}>
+      <HbarRuntimeStatusDetailsContent state={state} />
+    </hostRuntimeStatusMessages.Provider>
+  )
+}
+
+function HbarRuntimeStatusDetailsContent({ state }: { readonly state: HostRuntimeStatusState }) {
+  const { t } = hostRuntimeStatusMessages.useMessages()
   const generations = (state.snapshot?.units ?? []).flatMap((unit) =>
     unit.generations.map((generation) => ({ unit, generation })),
   )
@@ -94,24 +107,24 @@ export function HbarRuntimeStatusDetails({
   const admissionReason = state.snapshot?.admission?.reasonCode
   const sourceReason = state.snapshot?.sourceReload?.reasonCode
   return (
-    <LumenFrame as="section" className="hbar-system-diagnostics-section" aria-label={labels.title}>
-      <LumenText as="h3">{labels.title}</LumenText>
+    <LumenFrame as="section" className="hbar-system-diagnostics-section" aria-label={t('title')}>
+      <LumenText as="h3">{t('title')}</LumenText>
       <LumenText as="p" role="status">
-        {labels.phases[hostRuntimePhase(state)]}
+        {t('phases')[hostRuntimePhase(state)]}
       </LumenText>
       {state.errorCode && (
         <LumenText as="p" role="alert">
-          {labels.error(state.errorCode)}
+          {t('error')(state.errorCode)}
         </LumenText>
       )}
       {admissionReason && (
         <LumenText as="p" tone="muted">
-          {labels.reason(admissionReason)}
+          {t('reason')(admissionReason)}
         </LumenText>
       )}
       {sourceReason && sourceReason !== admissionReason && (
         <LumenText as="p" tone="muted">
-          {labels.reason(sourceReason)}
+          {t('reason')(sourceReason)}
         </LumenText>
       )}
       {visible.length ? (
@@ -122,35 +135,33 @@ export function HbarRuntimeStatusDetails({
               className="hbar-runtime-status-generation"
             >
               <LumenFrame className="hbar-runtime-status-generation-heading">
-                <LumenText as="strong">{labels.unit(labels.kinds[unit.descriptor.kind], unit.descriptor.id)}</LumenText>
-                <LumenText as="span">{labels.generationPhases[generation.phase]}</LumenText>
+                <LumenText as="strong">{t('unit')(t('kinds')[unit.descriptor.kind], unit.descriptor.id)}</LumenText>
+                <LumenText as="span">{t('generationPhases')[generation.phase]}</LumenText>
               </LumenFrame>
               <LumenText as="span" tone="muted">
-                {labels.generation(generation.generation, labels.roles[generation.role])}
+                {t('generation')(generation.generation, t('roles')[generation.role])}
               </LumenText>
               {generation.pid !== null && (
                 <LumenText as="span" tone="muted">
-                  {labels.process(generation.pid)}
+                  {t('process')(generation.pid)}
                 </LumenText>
               )}
               <LumenText as="span" tone="muted">
-                {labels.references(generation.references)}
+                {t('references')(generation.references)}
               </LumenText>
-              {generation.nextAttemptAt !== null && (
-                <LumenText as="span">{labels.retry(generation.nextAttemptAt)}</LumenText>
-              )}
-              {generation.reasonCode && <LumenText as="span">{labels.reason(generation.reasonCode)}</LumenText>}
+              {generation.nextAttemptAt !== null && <LumenText as="span">{t('retry')(generation.nextAttemptAt)}</LumenText>}
+              {generation.reasonCode && <LumenText as="span">{t('reason')(generation.reasonCode)}</LumenText>}
             </LumenCollectionItem>
           ))}
         </LumenCollection>
       ) : (
         <LumenText as="p" tone="muted">
-          {labels.empty}
+          {t('empty')}
         </LumenText>
       )}
       {hidden > 0 && (
         <LumenText as="p" tone="muted">
-          {labels.more(hidden)}
+          {t('more')(hidden)}
         </LumenText>
       )}
     </LumenFrame>
